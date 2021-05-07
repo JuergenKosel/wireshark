@@ -147,6 +147,10 @@ void rtpstream_reset(rtpstream_tapinfo_t *tapinfo)
 
     if (tapinfo->mode == TAP_ANALYSE) {
         /* free the data items first */
+        if (tapinfo->strinfo_hash) {
+            g_hash_table_foreach(tapinfo->strinfo_hash, rtpstream_info_multihash_destroy_value, NULL);
+            g_hash_table_destroy(tapinfo->strinfo_hash);
+        }
         list = g_list_first(tapinfo->strinfo_list);
         while (list)
         {
@@ -157,6 +161,7 @@ void rtpstream_reset(rtpstream_tapinfo_t *tapinfo)
         }
         g_list_free(tapinfo->strinfo_list);
         tapinfo->strinfo_list = NULL;
+        tapinfo->strinfo_hash = NULL;
         tapinfo->nstreams = 0;
         tapinfo->npackets = 0;
     }
@@ -364,20 +369,14 @@ tap_packet_status rtpstream_packet_cb(void *arg, packet_info *pinfo, epan_dissec
 {
     rtpstream_tapinfo_t *tapinfo = (rtpstream_tapinfo_t *)arg;
     const struct _rtp_info *rtpinfo = (const struct _rtp_info *)arg2;
-    rtpstream_info_t new_stream_info;
+    rtpstream_id_t new_stream_id;
     rtpstream_info_t *stream_info = NULL;
-    GList* list;
     rtpdump_info_t rtpdump_info;
-
-    struct _rtp_conversation_info *p_conv_data = NULL;
 
     /* gather infos on the stream this packet is part of.
      * Addresses and strings are read-only and must be duplicated if copied. */
-    rtpstream_info_init(&new_stream_info);
-    rtpstream_id_copy_pinfo(pinfo,&(new_stream_info.id),FALSE);
-    new_stream_info.id.ssrc = rtpinfo->info_sync_src;
-    new_stream_info.first_payload_type = rtpinfo->info_payload_type;
-    new_stream_info.first_payload_type_name = rtpinfo->info_payload_type_str;
+    rtpstream_id_copy_pinfo(pinfo,&new_stream_id,FALSE);
+    new_stream_id.ssrc = rtpinfo->info_sync_src;
 
     if (tapinfo->mode == TAP_ANALYSE) {
         /* if display filtering activated and packet do not match, ignore it */
@@ -386,55 +385,30 @@ tap_packet_status rtpstream_packet_cb(void *arg, packet_info *pinfo, epan_dissec
         }
 
         /* check whether we already have a stream with these parameters in the list */
-        list = g_list_first(tapinfo->strinfo_list);
-        while (list)
-        {
-            if (rtpstream_info_cmp(&new_stream_info, (rtpstream_info_t *)(list->data))==0)
-            {
-                stream_info = (rtpstream_info_t *)(list->data);  /*found!*/
-                break;
-            }
-            list = g_list_next(list);
+        if (tapinfo->strinfo_hash) {
+            stream_info = rtpstream_info_multihash_lookup(tapinfo->strinfo_hash, &new_stream_id);
         }
 
         /* not in the list? then create a new entry */
         if (!stream_info) {
-            new_stream_info.start_fd = pinfo->fd;
-            new_stream_info.start_rel_time = pinfo->rel_ts;
-            new_stream_info.start_abs_time = pinfo->abs_ts;
-            new_stream_info.first_payload_type = rtpinfo->info_payload_type;
-            new_stream_info.first_payload_type_name = rtpinfo->info_payload_type_str;
-
-            /* reset RTP stats */
-            new_stream_info.rtp_stats.first_packet = TRUE;
-            new_stream_info.rtp_stats.reg_pt = PT_UNDEFINED;
-
-            /* Get the Setup frame number who set this RTP stream */
-            p_conv_data = (struct _rtp_conversation_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_get_id_by_filter_name("rtp"), 0);
-            if (p_conv_data)
-                new_stream_info.setup_frame_number = p_conv_data->frame_number;
-            else
-                new_stream_info.setup_frame_number = 0xFFFFFFFF;
-
+            /* init info and collect id */
             stream_info = rtpstream_info_malloc_and_init();
-            rtpstream_info_copy_deep(stream_info, &new_stream_info);
+            rtpstream_id_copy_pinfo(pinfo,&(stream_info->id),FALSE);
+            stream_info->id.ssrc = rtpinfo->info_sync_src;
+
+            /* init counters for first packet */
+            rtpstream_info_analyse_init(stream_info, pinfo, rtpinfo);
+
+            /* add it to hash */
             tapinfo->strinfo_list = g_list_prepend(tapinfo->strinfo_list, stream_info);
+            if (!tapinfo->strinfo_hash) {
+                tapinfo->strinfo_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
+            }
+            rtpstream_info_multihash_insert(tapinfo->strinfo_hash, stream_info);
         }
 
-        /* get RTP stats for the packet */
-        rtppacket_analyse(&(stream_info->rtp_stats), pinfo, rtpinfo);
-        if (stream_info->payload_type_names[rtpinfo->info_payload_type] == NULL ) {
-            update_payload_names(stream_info, rtpinfo);
-        }
-
-        if (stream_info->rtp_stats.flags & STAT_FLAG_WRONG_TIMESTAMP
-                || stream_info->rtp_stats.flags & STAT_FLAG_WRONG_SEQ)
-            stream_info->problem = TRUE;
-
-
-        /* increment the packets counter for this stream */
-        ++(stream_info->packet_count);
-        stream_info->stop_rel_time = pinfo->rel_ts;
+        /* update analysis counters */
+        rtpstream_info_analyse_process(stream_info, pinfo, rtpinfo);
 
         /* increment the packets counter of all streams */
         ++(tapinfo->npackets);
@@ -442,7 +416,7 @@ tap_packet_status rtpstream_packet_cb(void *arg, packet_info *pinfo, epan_dissec
         return TAP_PACKET_REDRAW;  /* refresh output */
     }
     else if (tapinfo->mode == TAP_SAVE) {
-        if (rtpstream_info_cmp(&new_stream_info, tapinfo->filter_stream_fwd)==0) {
+        if (rtpstream_id_equal(&new_stream_id, &(tapinfo->filter_stream_fwd->id), RTPSTREAM_ID_EQUAL_SSRC)) {
             /* XXX - what if rtpinfo->info_all_data_present is
                FALSE, so that we don't *have* all the data? */
             rtpdump_info.rec_time = nstime_to_msec(&pinfo->abs_ts) -
@@ -453,8 +427,8 @@ tap_packet_status rtpstream_packet_cb(void *arg, packet_info *pinfo, epan_dissec
         }
     }
     else if (tapinfo->mode == TAP_MARK && tapinfo->tap_mark_packet) {
-        if (rtpstream_info_cmp(&new_stream_info, tapinfo->filter_stream_fwd)==0
-                || rtpstream_info_cmp(&new_stream_info, tapinfo->filter_stream_rev)==0)
+        if (rtpstream_id_equal(&new_stream_id, &(tapinfo->filter_stream_fwd->id), RTPSTREAM_ID_EQUAL_SSRC)
+                || rtpstream_id_equal(&new_stream_id, &(tapinfo->filter_stream_rev->id), RTPSTREAM_ID_EQUAL_SSRC))
         {
             tapinfo->tap_mark_packet(tapinfo, pinfo->fd);
         }
@@ -498,6 +472,9 @@ void rtpstream_info_calculate(const rtpstream_info_t *strinfo, rtpstream_info_ca
         }
 
         calc->max_delta = strinfo->rtp_stats.max_delta;
+        calc->min_delta = strinfo->rtp_stats.min_delta;
+        calc->mean_delta = strinfo->rtp_stats.mean_delta;
+        calc->min_jitter = strinfo->rtp_stats.min_jitter;
         calc->max_jitter = strinfo->rtp_stats.max_jitter;
         calc->mean_jitter = strinfo->rtp_stats.mean_jitter;
         calc->max_skew = strinfo->rtp_stats.max_skew;
@@ -535,15 +512,116 @@ void rtpstream_info_calc_free(rtpstream_info_calc_t *calc)
         wmem_free(NULL, calc->all_payload_type_names);
 }
 
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */
+/****************************************************************************/
+/* Init analyse counters in rtpstream_info_t from pinfo */
+void rtpstream_info_analyse_init(rtpstream_info_t *stream_info, const packet_info *pinfo, const struct _rtp_info *rtpinfo)
+{
+    struct _rtp_conversation_info *p_conv_data = NULL;
+
+    /* reset stream stats */
+    stream_info->first_payload_type = rtpinfo->info_payload_type;
+    stream_info->first_payload_type_name = rtpinfo->info_payload_type_str;
+    stream_info->start_fd = pinfo->fd;
+    stream_info->start_rel_time = pinfo->rel_ts;
+    stream_info->start_abs_time = pinfo->abs_ts;
+
+    /* reset RTP stats */
+    stream_info->rtp_stats.first_packet = TRUE;
+    stream_info->rtp_stats.reg_pt = PT_UNDEFINED;
+
+    /* Get the Setup frame number who set this RTP stream */
+    p_conv_data = (struct _rtp_conversation_info *)p_get_proto_data(wmem_file_scope(), (packet_info *)pinfo, proto_get_id_by_filter_name("rtp"), 0);
+    if (p_conv_data)
+        stream_info->setup_frame_number = p_conv_data->frame_number;
+    else
+        stream_info->setup_frame_number = 0xFFFFFFFF;
+}
+
+/****************************************************************************/
+/* Update analyse counters in rtpstream_info_t from pinfo */
+void rtpstream_info_analyse_process(rtpstream_info_t *stream_info, const packet_info *pinfo, const struct _rtp_info *rtpinfo)
+{
+    /* get RTP stats for the packet */
+    rtppacket_analyse(&(stream_info->rtp_stats), pinfo, rtpinfo);
+    if (stream_info->payload_type_names[rtpinfo->info_payload_type] == NULL ) {
+        update_payload_names(stream_info, rtpinfo);
+    }
+
+    if (stream_info->rtp_stats.flags & STAT_FLAG_WRONG_TIMESTAMP
+            || stream_info->rtp_stats.flags & STAT_FLAG_WRONG_SEQ)
+        stream_info->problem = TRUE;
+
+    /* increment the packets counter for this stream */
+    ++(stream_info->packet_count);
+    stream_info->stop_rel_time = pinfo->rel_ts;
+}
+
+/****************************************************************************/
+/* Get hash for rtpstream_info_t */
+guint rtpstream_to_hash(gconstpointer key)
+{
+    if (key) {
+        return rtpstream_id_to_hash(&((rtpstream_info_t *)key)->id);
+    } else {
+        return 0;
+    }
+}
+
+/****************************************************************************/
+/* Inserts new_stream_info to multihash if its not there */
+
+void rtpstream_info_multihash_insert(GHashTable *multihash, rtpstream_info_t *new_stream_info)
+{
+    GList *hlist = (GList *)g_hash_table_lookup(multihash, GINT_TO_POINTER(rtpstream_to_hash(new_stream_info)));
+    gboolean found = FALSE;
+    if (hlist) {
+        // Key exists in hash
+        GList *list = g_list_first(hlist);
+        while (list)
+        {
+            if (rtpstream_id_equal(&(new_stream_info->id), &((rtpstream_info_t *)(list->data))->id, RTPSTREAM_ID_EQUAL_SSRC)) {
+                found = TRUE;
+                break;
+            }
+            list = g_list_next(list);
+        }
+        if (!found) {
+            // stream_info is not in list yet, add it
+            hlist = g_list_prepend(hlist, new_stream_info);
+        }
+    } else {
+        // No key in hash, init new list
+        hlist = g_list_prepend(hlist, new_stream_info);
+    }
+    g_hash_table_insert(multihash, GINT_TO_POINTER(rtpstream_to_hash(new_stream_info)), hlist);
+}
+
+/****************************************************************************/
+/* Lookup stream_info in multihash */
+
+rtpstream_info_t *rtpstream_info_multihash_lookup(GHashTable *multihash, rtpstream_id_t *stream_id)
+{
+    GList *hlist = (GList *)g_hash_table_lookup(multihash, GINT_TO_POINTER(rtpstream_to_hash(stream_id)));
+    if (hlist) {
+        // Key exists in hash
+        GList *list = g_list_first(hlist);
+        while (list)
+        {
+            if (rtpstream_id_equal(stream_id, &((rtpstream_info_t *)(list->data))->id, RTPSTREAM_ID_EQUAL_SSRC)) {
+                return (rtpstream_info_t *)(list->data);
+            }
+            list = g_list_next(list);
+        }
+    }
+
+    // No stream_info in hash or was not found in existing list
+    return NULL;
+}
+
+/****************************************************************************/
+/* Destroys GList used in multihash */
+
+void rtpstream_info_multihash_destroy_value(gpointer key _U_, gpointer value, gpointer user_data _U_)
+{
+    g_list_free((GList *)value);
+}

@@ -26,12 +26,13 @@ DIAG_ON(frame-larger-than=)
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
 #include <epan/export_object.h>
+#include <frame_tvbuff.h>
 
 #include "ui/iface_toolbar.h"
 
 #ifdef HAVE_LIBPCAP
 #include "ui/capture.h"
-#include <capchild/capture_session.h>
+#include <capture/capture_session.h>
 #endif
 
 #include "ui/alert_box.h"
@@ -119,9 +120,10 @@ static void plugin_if_mainwindow_preference(GHashTable * data_set)
     const char * pref_name;
     const char * pref_value;
 
-    if (g_hash_table_lookup_extended(data_set, "pref_module", NULL, (void**)&module_name) &&
-        g_hash_table_lookup_extended(data_set, "pref_key", NULL, (void**)&pref_name) &&
-        g_hash_table_lookup_extended(data_set, "pref_value", NULL, (void**)&pref_value))
+DIAG_OFF_CAST_AWAY_CONST
+    if (g_hash_table_lookup_extended(data_set, "pref_module", NULL, (gpointer *)&module_name) &&
+        g_hash_table_lookup_extended(data_set, "pref_key", NULL, (gpointer *)&pref_name) &&
+        g_hash_table_lookup_extended(data_set, "pref_value", NULL, (gpointer *)&pref_value))
     {
         unsigned int changed_flags = prefs_store_ext(module_name, pref_name, pref_value);
         if (changed_flags) {
@@ -129,6 +131,7 @@ static void plugin_if_mainwindow_preference(GHashTable * data_set)
             wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
         }
     }
+DIAG_ON_CAST_AWAY_CONST
 }
 
 static void plugin_if_mainwindow_gotoframe(GHashTable * data_set)
@@ -2641,6 +2644,7 @@ static QList<register_stat_group_t> menu_groups = QList<register_stat_group_t>()
             << REGISTER_STAT_GROUP_CONVERSATION_LIST
             << REGISTER_STAT_GROUP_ENDPOINT_LIST
             << REGISTER_STAT_GROUP_RESPONSE_TIME
+            << REGISTER_STAT_GROUP_RSERPOOL
             << REGISTER_STAT_GROUP_TELEPHONY
             << REGISTER_STAT_GROUP_TELEPHONY_ANSI
             << REGISTER_STAT_GROUP_TELEPHONY_GSM
@@ -2661,6 +2665,9 @@ void MainWindow::addMenuActions(QList<QAction *> &actions, int menu_group)
             break;
         case REGISTER_STAT_GROUP_RESPONSE_TIME:
             main_ui_->menuServiceResponseTime->addAction(action);
+            break;
+        case REGISTER_STAT_GROUP_RSERPOOL:
+            main_ui_->menuRSerPool->addAction(action);
             break;
         case REGISTER_STAT_GROUP_TELEPHONY:
             main_ui_->menuTelephony->addAction(action);
@@ -2724,6 +2731,9 @@ void MainWindow::removeMenuActions(QList<QAction *> &actions, int menu_group)
             break;
         case REGISTER_STAT_GROUP_RESPONSE_TIME:
             main_ui_->menuServiceResponseTime->removeAction(action);
+            break;
+        case REGISTER_STAT_GROUP_RSERPOOL:
+            main_ui_->menuRSerPool->removeAction(action);
             break;
         case REGISTER_STAT_GROUP_TELEPHONY:
             main_ui_->menuTelephony->removeAction(action);
@@ -3010,15 +3020,108 @@ frame_data * MainWindow::frameDataForRow(int row) const
     return Q_NULLPTR;
 }
 
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */
+// Finds rtp id for selected stream and adds it to stream_ids
+// If reverse is set, tries to find reverse stream too
+// Return error string if error happens
+//
+// Note: Caller must free each returned rtpstream_info_t
+QString MainWindow::findRtpStreams(QVector<rtpstream_id_t *> *stream_ids, bool reverse)
+{
+    rtpstream_tapinfo_t tapinfo;
+    rtpstream_id_t *fwd_id, *rev_id;
+    const gchar filter_text[] = "rtp && rtp.version == 2 && rtp.ssrc && (ip || ipv6)";
+    dfilter_t *sfcode;
+    gchar *err_msg;
+
+    fwd_id = g_new0(rtpstream_id_t, 1);
+    rev_id = g_new0(rtpstream_id_t, 1);
+
+    /* Try to get the hfid for "rtp.ssrc". */
+    int hfid_rtp_ssrc = proto_registrar_get_id_byname("rtp.ssrc");
+    if (hfid_rtp_ssrc == -1) {
+        return tr("There is no \"rtp.ssrc\" field in this version of Wireshark.");
+    }
+
+    /* Try to compile the filter. */
+    if (!dfilter_compile(filter_text, &sfcode, &err_msg)) {
+        QString err = QString(err_msg);
+        g_free(err_msg);
+        return err;
+    }
+
+    if (!capture_file_.capFile() || !capture_file_.capFile()->current_frame) close();
+
+    if (!cf_read_current_record(capture_file_.capFile())) close();
+
+    frame_data *fdata = capture_file_.capFile()->current_frame;
+
+    epan_dissect_t edt;
+
+    epan_dissect_init(&edt, capture_file_.capFile()->epan, true, false);
+    epan_dissect_prime_with_dfilter(&edt, sfcode);
+    epan_dissect_prime_with_hfid(&edt, hfid_rtp_ssrc);
+    epan_dissect_run(&edt, capture_file_.capFile()->cd_t,
+                     &capture_file_.capFile()->rec,
+                     frame_tvbuff_new_buffer(
+                         &capture_file_.capFile()->provider, fdata,
+                         &capture_file_.capFile()->buf),
+                     fdata, NULL);
+
+    /*
+     * Packet must be an RTPv2 packet with an SSRC; we use the filter to
+     * check.
+     */
+    if (!dfilter_apply_edt(sfcode, &edt)) {
+        epan_dissect_cleanup(&edt);
+        dfilter_free(sfcode);
+        return tr("Please select an RTPv2 packet with an SSRC value");
+    }
+
+    dfilter_free(sfcode);
+
+    /* OK, it is an RTP frame. Let's get the IP and port values */
+    rtpstream_id_copy_pinfo(&(edt.pi), fwd_id, false);
+
+    /* assume the inverse ip/port combination for the reverse direction */
+    rtpstream_id_copy_pinfo(&(edt.pi), rev_id, true);
+
+    /* now we need the SSRC value of the current frame */
+    GPtrArray *gp = proto_get_finfo_ptr_array(edt.tree, hfid_rtp_ssrc);
+    if (gp == NULL || gp->len == 0) {
+        /* XXX - should not happen, as the filter includes rtp.ssrc */
+        epan_dissect_cleanup(&edt);
+        return tr("SSRC value not found.");
+    }
+    fwd_id->ssrc = fvalue_get_uinteger(&((field_info *)gp->pdata[0])->value);
+
+    epan_dissect_cleanup(&edt);
+
+    /* Register the tap listener */
+    memset(&tapinfo, 0, sizeof(rtpstream_tapinfo_t));
+    tapinfo.tap_data = this;
+    tapinfo.mode = TAP_ANALYSE;
+
+    /* Scan for RTP streams (redissect all packets) */
+    rtpstream_scan(&tapinfo, capture_file_.capFile(), Q_NULLPTR);
+
+    for (GList *strinfo_list = g_list_first(tapinfo.strinfo_list); strinfo_list; strinfo_list = gxx_list_next(strinfo_list)) {
+        rtpstream_info_t * strinfo = gxx_list_data(rtpstream_info_t*, strinfo_list);
+        if (rtpstream_id_equal(&(strinfo->id), fwd_id,RTPSTREAM_ID_EQUAL_NONE))
+        {
+            *stream_ids << fwd_id;
+        }
+
+        if (rtpstream_id_equal(&(strinfo->id), rev_id,RTPSTREAM_ID_EQUAL_NONE))
+        {
+            if (rev_id->ssrc == 0) {
+                rev_id->ssrc = strinfo->id.ssrc;
+            }
+            if (reverse) {
+                *stream_ids << rev_id;
+            }
+        }
+    }
+
+    return NULL;
+}
+

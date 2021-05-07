@@ -103,10 +103,12 @@ typedef enum {
     HELP_TIME_SHIFT_DIALOG,
     HELP_FILTER_SAVE_DIALOG,
     HELP_TELEPHONY_VOIP_CALLS_DIALOG,
-    HELP_RTP_ANALYSIS_DIALOG,
+    HELP_TELEPHONY_RTP_ANALYSIS_DIALOG,
+    HELP_TELEPHONY_RTP_STREAMS_DIALOG,
     HELP_NEW_PACKET_DIALOG,
     HELP_IAX2_ANALYSIS_DIALOG,
-    HELP_TELEPHONY_RTP_PLAYER_DIALOG
+    HELP_TELEPHONY_RTP_PLAYER_DIALOG,
+    HELP_STAT_FLOW_GRAPH
 } topic_action_e;
 
 /** Given a page in the Wireshark User's Guide return its URL. On Windows
@@ -140,16 +142,3 @@ void topic_action(topic_action_e topic);
 #endif /* __cplusplus */
 
 #endif /* __HELP_URL_H__ */
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

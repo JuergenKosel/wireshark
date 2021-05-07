@@ -18,8 +18,8 @@ Wireshark 3.5.0 Release Notes
    The following features are new (or have been significantly updated)
    since version 3.4.0:
 
-     • The Windows installers now ship with Npcap 1.10. They previously
-       shipped with Npcap 1.00.
+     • The Windows installers now ship with Npcap 1.31. They previously
+       shipped with Npcap 1.20.
 
      • TCP conversations now support a completeness criteria, which
        facilitates the identification of TCP streams having any of
@@ -44,10 +44,49 @@ Wireshark 3.5.0 Release Notes
      • "Follow DCCP stream" feature to filter for and extract the
        contents of DCCP streams.
 
+     • Wireshark now supports dissecting the rtp packet with OPUS
+       payload.
+
+     • Importing captures from text files is now also possible based on
+       regular expressions. By specifying a regex capturing a single
+       packet including capturing groups for relevant fields a textfile
+       can be converted to a libcap capture file. Supported data
+       encodings are plain-hexadecimal, -octal, -binary and base64. Also
+       the timestamp format now allows the second-fractions to be placed
+       anywhere in the timestamp and it will be stored with nanosecond
+       instead of microsecond precision.
+
+     • Significant RTP Player redesign and improvements (see Wireshark
+       User Documentation, Playing VoIP Calls[1] and RTP Player
+       Window[2])
+
+     • RTP Player can play many streams in row
+
+     • UI is more responsive
+
+     • RTP Player maintains playlist, other tools can add/remove streams
+       to it
+
+     • Every stream can be muted or routed to L/R channel for replay
+
+     • Save audio is moved from RTP Analysis to RTP Player. RTP Player
+       saves what was played. RTP Player can save in multichannel .au or
+       .wav.
+
+     • RTP Player added to menu Telephony>RTP>RTP Player
+
+   VoIP dialogs (VoIP Calls, RTP Streams, RTP Analysis, RTP Player, SIP
+   Flows) are non-modal, can stay opened on background
+
+     • Same tools are provided acros all dialogs (Prepare Filter,
+       Analyse, RTP Player …​)
+
+   Follow stream is now able to follow SIP call by SIP.Call-ID
+
   New Protocol Support
 
    Kerberos SPAKE, O-RAN fronthaul UC-plane (O-RAN), PDU Transport
-   Protocol, and State Synchronization Protocol (SSyncP)
+   Protocol, State Synchronization Protocol (SSyncP), and UAVCAN\CAN
 
   Updated Protocol Support
 
@@ -65,7 +104,7 @@ Wireshark 3.5.0 Release Notes
    Most Linux and Unix vendors supply their own Wireshark packages. You
    can usually install or upgrade Wireshark using the package management
    system specific to that platform. A list of third-party packages can
-   be found on the download page[1] on the Wireshark web site.
+   be found on the download page[3] on the Wireshark web site.
 
  File Locations
 
@@ -79,22 +118,26 @@ Wireshark 3.5.0 Release Notes
   The User’s Guide, manual pages and various other documentation can be
   found at https://www.wireshark.org/docs/
 
-  Community support is available on Wireshark’sQ&A site[2] and on the
+  Community support is available on Wireshark’s Q&A site[4] and on the
   wireshark-users mailing list. Subscription information and archives
-  for all of Wireshark’s mailing lists can be found on the web site[3].
+  for all of Wireshark’s mailing lists can be found on the web site[5].
 
-  Bugs and feature requests can be reported on the issue tracker[4].
+  Bugs and feature requests can be reported on the issue tracker[6].
 
  Frequently Asked Questions
 
-  A complete FAQ is available on the Wireshark web site[5].
+  A complete FAQ is available on the Wireshark web site[7].
 
-  Last updated 2021-02-28 09:06:57 UTC
+  Last updated 2021-05-02 09:04:46 UTC
 
  References
 
-   1. https://www.wireshark.org/download.html#thirdparty
-   2. https://ask.wireshark.org/
-   3. https://www.wireshark.org/lists/
-   4. https://gitlab.com/wireshark/wireshark/-/issues
-   5. https://www.wireshark.org/faq.html
+   1. https://www.wireshark.org/docs/wsug_html_chunked/ChTelPlayingCalls
+  .html
+   2. https://www.wireshark.org/docs/wsug_html_chunked/_rtp.html#ChTelRt
+  pPlayer
+   3. https://www.wireshark.org/download.html#thirdparty
+   4. https://ask.wireshark.org/
+   5. https://www.wireshark.org/lists/
+   6. https://gitlab.com/wireshark/wireshark/-/issues
+   7. https://www.wireshark.org/faq.html

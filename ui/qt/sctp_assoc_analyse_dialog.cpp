@@ -1,5 +1,7 @@
 /* sctp_assoc_analyse_dialog.cpp
  *
+ * Copyright 2021 Thomas Dreibholz <dreibh [AT] iem.uni-due.de>
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -112,11 +114,11 @@ void SCTPAssocAnalyseDialog::fillTabs(const sctp_assoc_info_t* selected_assoc)
     /* Tab Endpoint 1 */
 
     if (selected_assoc->init)
-            ui->labelEP1->setText(QString(tr("Complete list of IP-Addresses as provided in the INIT-Chunk")));
+            ui->labelEP1->setText(QString(tr("Complete list of IP addresses from INIT Chunk:")));
         else if ((selected_assoc->initack) && (selected_assoc->initack_dir == 1))
-            ui->labelEP1->setText(QString(tr("Complete list of IP-Addresses as provided in the INITACK-Chunk")));
+            ui->labelEP1->setText(QString(tr("Complete list of IP addresses from INIT_ACK Chunk:")));
         else
-            ui->labelEP1->setText(QString(tr("List of used IP-Addresses")));
+            ui->labelEP1->setText(QString(tr("List of Used IP Addresses")));
 
     if (selected_assoc->addr1 != Q_NULLPTR) {
         GList *list;
@@ -166,9 +168,9 @@ void SCTPAssocAnalyseDialog::fillTabs(const sctp_assoc_info_t* selected_assoc)
     /* Tab Endpoint 2 */
 
     if ((selected_assoc->initack) && (selected_assoc->initack_dir == 2))
-        ui->labelEP2->setText(QString(tr("Complete list of IP-Addresses as provided in the INITACK-Chunk")));
+        ui->labelEP2->setText(QString(tr("Complete list of IP addresses from INIT_ACK Chunk:")));
     else
-        ui->labelEP2->setText(QString(tr("List of used IP-Addresses")));
+        ui->labelEP2->setText(QString(tr("List of Used IP Addresses")));
 
     if (selected_assoc->addr2 != Q_NULLPTR) {
         GList *list;
@@ -235,8 +237,6 @@ void SCTPAssocAnalyseDialog::openGraphDialog(int direction)
 void SCTPAssocAnalyseDialog::on_GraphTSN_2_clicked()
 {
     openGraphDialog(2);
-
-
 }
 
 void SCTPAssocAnalyseDialog::on_GraphTSN_1_clicked()
@@ -320,16 +320,3 @@ void SCTPAssocAnalyseDialog::on_GraphArwnd_2_clicked()
 {
     openGraphArwndDialog(2);
 }
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

@@ -66,7 +66,10 @@ typedef struct _tap_rtp_stat_t {
     double          time;       /**< Unit is ms */
     double          start_time; /**< Unit is ms */
     double          lastnominaltime;
+    double          min_delta;
     double          max_delta;
+    double          mean_delta;
+    double          min_jitter;
     double          max_jitter;
     double          max_skew;
     double          mean_jitter;
@@ -108,7 +111,7 @@ struct _rtp_info;
 
 /* function for analysing an RTP packet. Called from rtp_analysis and rtp_streams */
 extern void rtppacket_analyse(tap_rtp_stat_t *statinfo,
-                              packet_info *pinfo,
+                              const packet_info *pinfo,
                               const struct _rtp_info *rtpinfo);
 
 #ifdef __cplusplus
@@ -116,16 +119,3 @@ extern void rtppacket_analyse(tap_rtp_stat_t *statinfo,
 #endif /* __cplusplus */
 
 #endif /* __TAP_RTP_ANALYSIS_H__ */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * vi: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

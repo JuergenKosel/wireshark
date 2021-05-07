@@ -26,6 +26,7 @@
 #include <epan/asn1.h>
 
 #include "packet-per.h"
+#include "packet-nrppa.h"
 
 #define PNAME  "NR Positioning Protocol A (NRPPa)"
 #define PSNAME "NRPPa"
@@ -619,7 +620,7 @@ static int hf_nrppa_aperiodic_04 = -1;            /* T_aperiodic */
 static int hf_nrppa_sRSResourceTrigger_01 = -1;   /* SRSResourceTrigger */
 
 /*--- End of included file: packet-nrppa-hf.c ---*/
-#line 33 "./asn1/nrppa/packet-nrppa-template.c"
+#line 34 "./asn1/nrppa/packet-nrppa-template.c"
 
 /* Initialize the subtree pointers */
 static gint ett_nrppa = -1;
@@ -879,7 +880,7 @@ static gint ett_nrppa_PositioningActivationFailure = -1;
 static gint ett_nrppa_PositioningDeactivation = -1;
 
 /*--- End of included file: packet-nrppa-ett.c ---*/
-#line 37 "./asn1/nrppa/packet-nrppa-template.c"
+#line 38 "./asn1/nrppa/packet-nrppa-template.c"
 
 /* Global variables */
 static guint32 ProcedureCode;
@@ -1022,7 +1023,7 @@ typedef enum _ProtocolIE_ID_enum {
 } ProtocolIE_ID_enum;
 
 /*--- End of included file: packet-nrppa-val.h ---*/
-#line 51 "./asn1/nrppa/packet-nrppa-template.c"
+#line 52 "./asn1/nrppa/packet-nrppa-template.c"
 
 static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *);
 static int dissect_ProtocolExtensionFieldExtensionValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *);
@@ -4145,8 +4146,16 @@ dissect_nrppa_DLPRSResourceCoordinates(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static int
 dissect_nrppa_TAC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       3, 3, FALSE, NULL);
+#line 72 "./asn1/nrppa/nrppa.cnf"
+  tvbuff_t *parameter_tvb = NULL;
+  offset = dissect_per_octet_string(tvb, offset, actx, tree, -1,
+                                       3, 3, FALSE, &parameter_tvb);
+
+  if (parameter_tvb) {
+    actx->created_item = proto_tree_add_item(tree, hf_index, parameter_tvb, 0, 3, ENC_BIG_ENDIAN);
+  }
+
+
 
   return offset;
 }
@@ -9018,7 +9027,7 @@ static int dissect_PositioningDeactivation_PDU(tvbuff_t *tvb _U_, packet_info *p
 
 
 /*--- End of included file: packet-nrppa-fn.c ---*/
-#line 59 "./asn1/nrppa/packet-nrppa-template.c"
+#line 60 "./asn1/nrppa/packet-nrppa-template.c"
 
 static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
@@ -9684,7 +9693,7 @@ void proto_register_nrppa(void) {
         "NG_RAN_CGI", HFILL }},
     { &hf_nrppa_servingCellTAC,
       { "servingCellTAC", "nrppa.servingCellTAC",
-        FT_BYTES, BASE_NONE, NULL, 0,
+        FT_UINT24, BASE_DEC_HEX, NULL, 0,
         "TAC", HFILL }},
     { &hf_nrppa_nG_RANAccessPointPosition,
       { "nG-RANAccessPointPosition", "nrppa.nG_RANAccessPointPosition_element",
@@ -9952,7 +9961,7 @@ void proto_register_nrppa(void) {
         NULL, HFILL }},
     { &hf_nrppa_tAC,
       { "tAC", "nrppa.tAC",
-        FT_BYTES, BASE_NONE, NULL, 0,
+        FT_UINT24, BASE_DEC_HEX, NULL, 0,
         NULL, HFILL }},
     { &hf_nrppa_eARFCN,
       { "eARFCN", "nrppa.eARFCN",
@@ -11364,7 +11373,7 @@ void proto_register_nrppa(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-nrppa-hfarr.c ---*/
-#line 92 "./asn1/nrppa/packet-nrppa-template.c"
+#line 93 "./asn1/nrppa/packet-nrppa-template.c"
   };
 
   /* List of subtrees */
@@ -11626,7 +11635,7 @@ void proto_register_nrppa(void) {
     &ett_nrppa_PositioningDeactivation,
 
 /*--- End of included file: packet-nrppa-ettarr.c ---*/
-#line 98 "./asn1/nrppa/packet-nrppa-template.c"
+#line 99 "./asn1/nrppa/packet-nrppa-template.c"
   };
 
   /* Register protocol */
@@ -11736,5 +11745,5 @@ proto_reg_handoff_nrppa(void)
 
 
 /*--- End of included file: packet-nrppa-dis-tab.c ---*/
-#line 121 "./asn1/nrppa/packet-nrppa-template.c"
+#line 122 "./asn1/nrppa/packet-nrppa-template.c"
 }

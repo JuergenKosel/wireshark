@@ -20,9 +20,13 @@
 #include "ui/tap-rtp-common.h"
 #include "ui/tap-rtp-analysis.h"
 
-#include <QAbstractButton>
 #include <QMenu>
+#include <QTreeWidget>
+#include <QLabel>
 #include <QFile>
+#include <QCheckBox>
+#include <QHBoxLayout>
+#include <QToolButton>
 
 #include "wireshark_dialog.h"
 
@@ -32,17 +36,61 @@ class RtpAnalysisDialog;
 
 class QCPGraph;
 class QTemporaryFile;
+class QDialogButtonBox;
+
+typedef struct {
+    rtpstream_info_t stream;
+    QVector<double> *time_vals;
+    QVector<double> *jitter_vals;
+    QVector<double> *diff_vals;
+    QVector<double> *delta_vals;
+    QTreeWidget *tree_widget;
+    QLabel *statistics_label;
+    QString *tab_name;
+    QCPGraph *jitter_graph;
+    QCPGraph *diff_graph;
+    QCPGraph *delta_graph;
+    QHBoxLayout *graphHorizontalLayout;
+    QCheckBox *stream_checkbox;
+    QCheckBox *jitter_checkbox;
+    QCheckBox *diff_checkbox;
+    QCheckBox *delta_checkbox;
+} tab_info_t;
 
 class RtpAnalysisDialog : public WiresharkDialog
 {
     Q_OBJECT
 
 public:
-    explicit RtpAnalysisDialog(QWidget &parent, CaptureFile &cf, rtpstream_info_t *stream_fwd = 0, rtpstream_info_t *stream_rev = 0);
+    explicit RtpAnalysisDialog(QWidget &parent, CaptureFile &cf);
     ~RtpAnalysisDialog();
+    /**
+     * @brief Common routine to add a "Analyze" button to a QDialogButtonBox.
+     * @param button_box Caller's QDialogButtonBox.
+     * @return The new "Analyze" button.
+     */
+    static QToolButton *addAnalyzeButton(QDialogButtonBox *button_box, QDialog *dialog);
+
+    /** Replace/Add/Remove an RTP streams to analyse.
+     * Requires array of rtpstream_id_t.
+     *
+     * @param stream_ids structs with rtpstream_id
+     */
+    void replaceRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void addRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void removeRtpStreams(QVector<rtpstream_id_t *> stream_ids);
 
 signals:
     void goToPacket(int packet_num);
+    void rtpPlayerDialogReplaceRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void rtpPlayerDialogAddRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void rtpPlayerDialogRemoveRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void updateFilter(QString filter, bool force = false);
+
+public slots:
+    void rtpPlayerReplace();
+    void rtpPlayerAdd();
+    void rtpPlayerRemove();
 
 protected slots:
     virtual void updateWidgets();
@@ -50,72 +98,35 @@ protected slots:
 private slots:
     void on_actionGoToPacket_triggered();
     void on_actionNextProblem_triggered();
-    void on_fJitterCheckBox_toggled(bool checked);
-    void on_fDiffCheckBox_toggled(bool checked);
-    void on_fDeltaCheckBox_toggled(bool checked);
-    void on_rJitterCheckBox_toggled(bool checked);
-    void on_rDiffCheckBox_toggled(bool checked);
-    void on_rDeltaCheckBox_toggled(bool checked);
-    void on_actionSaveAudioUnsync_triggered();
-    void on_actionSaveForwardAudioUnsync_triggered();
-    void on_actionSaveReverseAudioUnsync_triggered();
-    void on_actionSaveAudioSyncStream_triggered();
-    void on_actionSaveForwardAudioSyncStream_triggered();
-    void on_actionSaveReverseAudioSyncStream_triggered();
-    void on_actionSaveAudioSyncFile_triggered();
-    void on_actionSaveForwardAudioSyncFile_triggered();
-    void on_actionSaveReverseAudioSyncFile_triggered();
-    void on_actionSaveCsv_triggered();
-    void on_actionSaveForwardCsv_triggered();
-    void on_actionSaveReverseCsv_triggered();
+    void on_actionSaveOneCsv_triggered();
+    void on_actionSaveAllCsv_triggered();
     void on_actionSaveGraph_triggered();
-    void on_buttonBox_clicked(QAbstractButton *button);
     void on_buttonBox_helpRequested();
     void showStreamMenu(QPoint pos);
     void graphClicked(QMouseEvent *event);
+    void closeTab(int index);
+    void rowCheckboxChanged(int checked);
+    void singleCheckboxChanged(int checked);
+    void on_actionPrepareFilterOne_triggered();
+    void on_actionPrepareFilterAll_triggered();
 
 private:
     Ui::RtpAnalysisDialog *ui;
-    enum StreamDirection { dir_both_, dir_forward_, dir_reverse_ };
-    enum SyncType { sync_unsync_, sync_sync_stream_, sync_sync_file_ };
+    enum StreamDirection { dir_all_, dir_one_ };
+    int tab_seq;
 
-    /* Save Audio Errors */
-    bool sae_stopped_;
-    bool sae_file_error_;
-    bool sae_unsupported_codec_;
-    bool sae_unsupported_rate_;
-    bool sae_other_error_;
+    QVector<tab_info_t *> tabs_;
+    QMultiHash<guint, tab_info_t *> tab_hash_;
 
-    int num_streams_;
-
-    rtpstream_info_t fwd_statinfo_;
-    rtpstream_info_t rev_statinfo_;
-
-    QPushButton *player_button_;
-
-    QTemporaryFile *fwd_tempfile_;
-    QTemporaryFile *rev_tempfile_;
+    QToolButton *player_button_;
 
     // Graph data for QCustomPlot
     QList<QCPGraph *>graphs_;
-    QVector<double> fwd_time_vals_;
-    QVector<double> fwd_jitter_vals_;
-    QVector<double> fwd_diff_vals_;
-    QVector<double> fwd_delta_vals_;
 
-    QVector<double> rev_time_vals_;
-    QVector<double> rev_jitter_vals_;
-    QVector<double> rev_diff_vals_;
-    QVector<double> rev_delta_vals_;
-
-    rtpstream_tapinfo_t tapinfo_;
     QString err_str_;
-    tap_rtp_error_type_t save_payload_error_;
 
     QMenu stream_ctx_menu_;
     QMenu graph_ctx_menu_;
-
-    void findStreams();
 
     // Tap callbacks
     static void tapReset(void *tapinfo_ptr);
@@ -123,42 +134,21 @@ private:
     static void tapDraw(void *tapinfo_ptr);
 
     void resetStatistics();
-    void addPacket(bool forward, packet_info *pinfo, const struct _rtp_info *rtpinfo);
-    void savePayload(QTemporaryFile *tmpfile, tap_rtp_stat_t *statinfo, packet_info *pinfo, const struct _rtp_info *rtpinfo);
+    void addPacket(tab_info_t *tab, packet_info *pinfo, const struct _rtp_info *rtpinfo);
     void updateStatistics();
     void updateGraph();
 
-    void showPlayer();
-
-    size_t convert_payload_to_samples(unsigned int payload_type, const gchar *payload_type_names[256], QTemporaryFile *tempfile, uint8_t *pd_out, size_t expected_nchars, struct _GHashTable *decoders_hash);
-    bool saveAudioAUSilence(size_t total_len, QFile *save_file, gboolean *stop_flag);
-    bool saveAudioAUUnidir(tap_rtp_stat_t &statinfo, const gchar *payload_type_names[256], QTemporaryFile *tempfile, QFile *save_file, int64_t header_end, gboolean *stop_flag, gboolean interleave, size_t prefix_silence);
-    bool saveAudioAUBidir(tap_rtp_stat_t &fwd_statinfo, tap_rtp_stat_t &rev_statinfo, const gchar *fwd_payload_type_names[256], const gchar *rev_payload_type_names[256], QTemporaryFile *fwd_tempfile, QTemporaryFile *rev_tempfile, QFile *save_file, int64_t header_end, gboolean *stop_flag, size_t prefix_silence_fwd, size_t prefix_silence_rev);
-    bool saveAudioAU(StreamDirection direction, QFile *save_file, gboolean *stop_flag, RtpAnalysisDialog::SyncType sync);
-    bool saveAudioRAW(StreamDirection direction, QFile *save_file, gboolean *stop_flag);
-    void saveAudio(StreamDirection direction, RtpAnalysisDialog::SyncType sync);
+    void saveCsvData(QFile *save_file, QTreeWidget *tree);
     void saveCsv(StreamDirection direction);
-
-    uint32_t processNode(proto_node *ptree_node, header_field_info *hfinformation, const gchar* proto_field, bool *ok);
-    uint32_t getIntFromProtoTree(proto_tree *protocol_tree, const gchar *proto_name, const gchar *proto_field, bool *ok);
 
     bool eventFilter(QObject*, QEvent* event);
 
-    void clearSAEErrors();
-    bool isSAEOK();
+    QVector<rtpstream_id_t *>getSelectedRtpIds();
+    int addTabUI(tab_info_t *new_tab);
+    tab_info_t *getTabInfoForCurrentTab();
+    void deleteTabInfo(tab_info_t *tab_info);
+    void clearLayout(QLayout *layout);
+    void addRtpStreamsPrivate(QVector<rtpstream_id_t *> stream_ids);
 };
 
 #endif // RTP_ANALYSIS_DIALOG_H
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

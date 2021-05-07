@@ -35,6 +35,10 @@
 #include <epan/uat.h>
 #include <epan/strutil.h>
 #include <epan/to_str.h>
+#include <epan/follow.h>
+#include <epan/conversation.h>
+#include <epan/addr_resolv.h>
+#include <epan/epan_dissect.h>
 
 #include <wsutil/str_util.h>
 #include <wsutil/strtoi.h>
@@ -61,6 +65,7 @@
 void proto_register_sip(void);
 
 static gint sip_tap = -1;
+static gint sip_follow_tap = -1;
 static gint exported_pdu_tap = -1;
 static dissector_handle_t sip_handle;
 static dissector_handle_t sip_tcp_handle;
@@ -2852,7 +2857,7 @@ static void dissect_sip_via_header(tvbuff_t *tvb, proto_tree *tree, gint start_o
                             if(dec_p_off > 0){
                                 value = tvb_get_string_enc(wmem_packet_scope(), tvb,
                                     parameter_name_end + 1, dec_p_off - parameter_name_end, ENC_UTF_8 | ENC_NA);
-                                ts.secs = (guint32)strtoul(value, NULL, 10);
+                                ts.secs = (time_t)strtoul(value, NULL, 10);
                                 value = tvb_get_string_enc(wmem_packet_scope(), tvb,
                                     dec_p_off + 1, current_offset - parameter_name_end - 1, ENC_UTF_8 | ENC_NA);
                                 ts.nsecs = (guint32)strtoul(value, NULL, 10) * 1000;
@@ -3039,7 +3044,7 @@ static void dissect_sip_session_id_header(tvbuff_t *tvb, proto_tree *tree, gint 
  *  gstn-location          = "gstn-location" EQUAL (token / quoted-string)
  *
  */
-static void dissect_sip_p_access_network_info_header(tvbuff_t *tvb, proto_tree *tree, gint start_offset, gint line_end_offset)
+void dissect_sip_p_access_network_info_header(tvbuff_t *tvb, proto_tree *tree, gint start_offset, gint line_end_offset)
 {
 
     gint  current_offset, semi_colon_offset, length, par_name_end_offset, equals_offset;
@@ -3586,6 +3591,9 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
     proto_item_set_text(th, "Message Header");
     hdr_tree = proto_item_add_subtree(th, ett_sip_hdr);
 
+    if (have_tap_listener(sip_follow_tap))
+        tap_queue_packet(sip_follow_tap, pinfo, tvb);
+
     /*
      * Process the headers - if we're not building a protocol tree,
      * we just do this to find the blank line separating the
@@ -4066,7 +4074,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                             return offset - orig_offset;
                         }
                         else {
-                            g_strlcpy(cseq_method, value+sub_value_offset, MAX_CSEQ_METHOD_SIZE);
+                            (void) g_strlcpy(cseq_method, value+sub_value_offset, MAX_CSEQ_METHOD_SIZE);
 
                             /* Add CSeq method to the tree */
                             if (cseq_tree)
@@ -4165,7 +4173,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                         proto_item *gen_item;
 
                         /* Store the Call-id */
-                        g_strlcpy(call_id, value, MAX_CALL_ID_SIZE);
+                        (void) g_strlcpy(call_id, value, MAX_CALL_ID_SIZE);
                         stat_info->tap_call_id = wmem_strdup(wmem_packet_scope(), call_id);
 
                         /* Add 'Call-id' string item to tree */
@@ -5254,7 +5262,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
     /* No packet entry found, consult global hash table */
 
     /* Prepare the key */
-    g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
+    (void) g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
 
     /*  We're only using these addresses locally (for the hash lookup) so
      *  there is no need to make a (g_malloc'd) copy of them.
@@ -5283,7 +5291,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
         if (cseq_number != p_val->cseq)
         {
             p_val->cseq = cseq_number;
-            g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
+            (void) g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
             p_val->transaction_state = nothing_seen;
             p_val->frame_number = 0;
             if (line_type == REQUEST_LINE)
@@ -5312,7 +5320,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
         }
 
         p_val->cseq = cseq_number;
-        g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
+        (void) g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
         p_val->transaction_state = nothing_seen;
         if (line_type == REQUEST_LINE)
         {
@@ -5453,7 +5461,7 @@ guint sip_find_request(packet_info *pinfo,
     /* No packet entry found, consult global hash table */
 
     /* Prepare the key */
-    g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
+    (void) g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
 
     /* Looking for matching request, so reverse addresses for this lookup */
     set_address(&key.dest_address, pinfo->net_src.type, pinfo->net_src.len,
@@ -5567,7 +5575,7 @@ guint sip_find_invite(packet_info *pinfo,
     /* No packet entry found, consult global hash table */
 
     /* Prepare the key */
-    g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
+    (void) g_strlcpy(key.call_id, call_id, MAX_CALL_ID_SIZE);
 
     /* Looking for matching INVITE */
     set_address(&key.dest_address, pinfo->net_dst.type, pinfo->net_dst.len,
@@ -6006,6 +6014,36 @@ sip_stat_free_table_item(stat_tap_table* table _U_, guint row _U_, guint column,
     g_free((char*)field_data->value.string_value);
     field_data->value.string_value = NULL;
 }
+
+static gchar *sip_follow_conv_filter(epan_dissect_t *edt, packet_info *pinfo _U_, guint *stream _U_, guint *sub_stream _U_)
+{
+    gchar *filter = NULL;
+
+    /* Extract si.Call-ID from decoded tree in edt */
+    if (edt != NULL) {
+        int hfid = proto_registrar_get_id_byname("sip.Call-ID");
+        GPtrArray *gp = proto_find_first_finfo(edt->tree, hfid);
+        if (gp != NULL && gp->len != 0) {
+            filter = g_strdup_printf("sip.Call-ID == \"%s\"", (gchar *)fvalue_get(&((field_info *)gp->pdata[0])->value));
+        }
+        g_ptr_array_free(gp, TRUE);
+    } else {
+        filter = g_strdup_printf("sip.Call-ID");
+    }
+
+    return filter;
+}
+
+static gchar *sip_follow_index_filter(guint stream _U_, guint sub_stream _U_)
+{
+    return NULL;
+}
+
+static gchar *sip_follow_address_filter(address *src_addr _U_, address *dst_addr _U_, int src_port _U_, int dst_port _U_)
+{
+    return NULL;
+}
+
 
 /* Register the protocol with Wireshark */
 void proto_register_sip(void)
@@ -7617,6 +7655,7 @@ void proto_register_sip(void)
     heur_subdissector_list = register_heur_dissector_list("sip", proto_sip);
     /* Register for tapping */
     sip_tap = register_tap("sip");
+    sip_follow_tap = register_tap("sip_follow");
 
     ext_hdr_subdissector_table = register_dissector_table("sip.hdr", "SIP Extension header", proto_sip, FT_STRING, BASE_NONE);
 
@@ -7632,6 +7671,8 @@ void proto_register_sip(void)
     ws_mempbrk_compile(&pbrk_addr_end, "[] \t:;");
     ws_mempbrk_compile(&pbrk_via_param_end, "\t;, ");
 
+    register_follow_stream(proto_sip, "sip_follow", sip_follow_conv_filter, sip_follow_index_filter, sip_follow_address_filter,
+                           udp_port_to_display, follow_tvb_tap_listener);
 }
 
 void
@@ -7670,6 +7711,8 @@ proto_reg_handoff_sip(void)
 
     dissector_add_uint("acdr.tls_application_port", 5061, sip_handle);
     dissector_add_uint("acdr.tls_application", TLS_APP_SIP, sip_handle);
+    dissector_add_string("protobuf_field", "adc.sip.ResponsePDU.body", sip_handle);
+    dissector_add_string("protobuf_field", "adc.sip.RequestPDU.body", sip_handle);
 
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
 }

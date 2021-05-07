@@ -414,7 +414,7 @@ void CaptureOptionsDialog::interfaceItemChanged(QTreeWidgetItem *item, int colum
                                        device->remote_opts.remote_host_opts.auth_password);
         }
     #endif
-        caps = capture_get_if_capabilities(device->name, monitor_mode, auth_str, NULL, main_window_update);
+        caps = capture_get_if_capabilities(device->name, monitor_mode, auth_str, NULL, NULL, main_window_update);
         g_free(auth_str);
 
         if (caps != Q_NULLPTR) {
@@ -1386,16 +1386,3 @@ void InterfaceTreeDelegate::bufferSizeChanged(int value)
 #endif
 
 #endif /* HAVE_LIBPCAP */
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

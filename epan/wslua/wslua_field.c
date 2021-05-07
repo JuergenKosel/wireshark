@@ -186,8 +186,11 @@ WSLUA_METAMETHOD FieldInfo__call(lua_State* L) {
             {
                 ByteArray ba = g_byte_array_new();
                 tvbuff_t* tvb = (tvbuff_t *) fvalue_get(&fi->ws_fi->value);
-                g_byte_array_append(ba, (const guint8 *)tvb_memdup(wmem_packet_scope(), tvb, 0,
+                if (tvb != NULL) {
+                    g_byte_array_append(ba, (const guint8 *)tvb_memdup(wmem_packet_scope(), tvb, 0,
                                             tvb_captured_length(tvb)), tvb_captured_length(tvb));
+                }
+
                 pushByteArray(L,ba);
                 return 1;
             }
@@ -207,7 +210,7 @@ WSLUA_METAMETHOD FieldInfo__tostring(lua_State* L) {
     if (fi->ws_fi->value.ftype->val_to_string_repr) {
         gchar* repr = NULL;
 
-        if (fi->ws_fi->hfinfo->type == FT_PROTOCOL || fi->ws_fi->hfinfo->type == FT_PCRE) {
+        if (fi->ws_fi->hfinfo->type == FT_PROTOCOL) {
             repr = fvalue_to_string_repr(NULL, &fi->ws_fi->value,FTREPR_DFILTER,BASE_NONE);
         }
         else {
@@ -297,9 +300,14 @@ static int FieldInfo_get_source(lua_State* L) {
     return 1;
 }
 
-/* WSLUA_ATTRIBUTE FieldInfo_range RO The `TvbRange` covering the bytes of this field in a Tvb. */
+/* WSLUA_ATTRIBUTE FieldInfo_range RO The `TvbRange` covering the bytes of this field in a Tvb or nil if there is none. */
 static int FieldInfo_get_range(lua_State* L) {
     FieldInfo fi = checkFieldInfo(L,1);
+
+    if (!fi->ws_fi->ds_tvb) {
+        lua_pushnil(L);
+        return 1;
+    }
 
     if (push_TvbRange (L, fi->ws_fi->ds_tvb, fi->ws_fi->start, fi->ws_fi->length)) {
         return 1;

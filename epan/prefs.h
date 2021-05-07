@@ -13,16 +13,16 @@
 
 #include <glib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <epan/params.h>
 #include <epan/range.h>
 
 #include <wsutil/color.h>
 
 #include "ws_symbol_export.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define DEF_WIDTH 750
 #define DEF_HEIGHT 550
@@ -218,6 +218,7 @@ typedef struct _e_prefs {
   gboolean     unknown_colorfilters; /* Warn when saving unknown or obsolete color filters. */
   gboolean     gui_qt_packet_list_separator;
   gboolean     gui_qt_packet_header_column_definition;
+  gboolean     gui_qt_packet_list_hover_style; /* Enable/Disable mouse-over colorization */
   gboolean     gui_qt_show_selected_packet;
   gboolean     gui_qt_show_file_load_time;
   gboolean     gui_packet_editor; /* Enable Packet Editor */
@@ -227,6 +228,8 @@ typedef struct _e_prefs {
   gint         gui_decimal_places1; /* Used for type 1 calculations */
   gint         gui_decimal_places2; /* Used for type 2 calculations */
   gint         gui_decimal_places3; /* Used for type 3 calculations */
+  gboolean     gui_rtp_player_use_disk1;
+  gboolean     gui_rtp_player_use_disk2;
   gboolean     st_enable_burstinfo;
   gboolean     st_burst_showcount;
   gint         st_burst_resolution;
@@ -310,7 +313,6 @@ WS_DLL_PUBLIC module_t *prefs_register_codec(const char *name, const char *title
  * Register that a protocol has preferences and group it under a single
  * subtree
  */
-#define PREFERENCE_GROUPING
 WS_DLL_PUBLIC module_t *prefs_register_protocol_subtree(const char *subtree, int id,
     void (*apply_cb)(void));
 

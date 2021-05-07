@@ -257,15 +257,45 @@ void set_action_shortcuts_visible_in_context_menu(QList<QAction *> actions)
 #endif
 }
 
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */
+QVector<rtpstream_id_t *>qvector_rtpstream_ids_copy(QVector<rtpstream_id_t *> stream_ids)
+{
+    QVector<rtpstream_id_t *>new_ids;
+
+    foreach(rtpstream_id_t *id, stream_ids) {
+        rtpstream_id_t *new_id = g_new0(rtpstream_id_t, 1);
+        rtpstream_id_copy(id, new_id);
+        new_ids << new_id;
+    }
+
+    return new_ids;
+}
+
+void qvector_rtpstream_ids_free(QVector<rtpstream_id_t *> stream_ids)
+{
+    foreach(rtpstream_id_t *id, stream_ids) {
+        rtpstream_id_free(id);
+    }
+}
+
+QString make_filter_based_on_rtpstream_id(QVector<rtpstream_id_t *> stream_ids)
+{
+    QStringList stream_filters;
+    QString filter;
+
+    foreach(rtpstream_id_t *id, stream_ids) {
+        QString ip_proto = id->src_addr.type == AT_IPv6 ? "ipv6" : "ip";
+        stream_filters << QString("(%1.src==%2 && udp.srcport==%3 && %1.dst==%4 && udp.dstport==%5 && rtp.ssrc==0x%6)")
+                         .arg(ip_proto) // %1
+                         .arg(address_to_qstring(&id->src_addr)) // %2
+                         .arg(id->src_port) // %3
+                         .arg(address_to_qstring(&id->dst_addr)) // %4
+                         .arg(id->dst_port) // %5
+                         .arg(id->ssrc, 0, 16);
+    }
+    if (stream_filters.length() > 0) {
+        filter = stream_filters.join(" || ");
+    }
+
+    return filter;
+}
+

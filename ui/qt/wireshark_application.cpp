@@ -48,7 +48,7 @@
 
 #include "extcap.h"
 #ifdef HAVE_LIBPCAP
-#include <caputils/iface_monitor.h>
+#include <capture/iface_monitor.h>
 #endif
 
 #include "ui/filter_files.h"
@@ -649,6 +649,10 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
 #endif // Q_OS_WIN
 
     setAttribute(Qt::AA_UseHighDpiPixmaps);
+
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && defined(Q_OS_WIN)
+    setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     setAttribute(Qt::AA_DisableWindowContextHelpButton);
@@ -1353,16 +1357,3 @@ void WiresharkApplication::gotoFrame(int frame)
     MainWindow * mw = qobject_cast<MainWindow *>(mainWindow());
     mw->gotoFrame(frame);
 }
-
- /*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

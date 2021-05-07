@@ -85,6 +85,9 @@ static header_field_info hfi_json_value_null JSON_HFI_INIT =
 static header_field_info hfi_json_value_true JSON_HFI_INIT =
 	{ "True value", "json.value.true", FT_NONE, BASE_NONE, NULL, 0x00, "JSON true value", HFILL };
 
+static header_field_info hfi_json_value_nan JSON_HFI_INIT =
+	{ "NaN value", "json.value.nan", FT_NONE, BASE_NONE, NULL, 0x00, "JSON NaN value", HFILL };
+
 /* HFIs below are used only for compact form display */
 static header_field_info hfi_json_array_compact JSON_HFI_INIT =
 	{ "Array compact", "json.array_compact", FT_NONE, BASE_NONE, NULL, 0x00, "JSON array compact", HFILL };
@@ -135,6 +138,7 @@ typedef enum {
 	JSON_TOKEN_FALSE,
 	JSON_TOKEN_NULL,
 	JSON_TOKEN_TRUE,
+	JSON_TOKEN_NAN,
 
 	/* not really tokens ... */
 	JSON_OBJECT,
@@ -649,6 +653,10 @@ static void after_value(void *tvbparse_data, const void *wanted_data _U_, tvbpar
 			proto_tree_add_item(tree, &hfi_json_value_true, tok->tvb, tok->offset, tok->len, ENC_NA);
 			break;
 
+		case JSON_TOKEN_NAN:
+			proto_tree_add_item(tree, &hfi_json_value_nan, tok->tvb, tok->offset, tok->len, ENC_NA);
+			break;
+
 		case JSON_OBJECT:
 		case JSON_ARRAY:
 			/* already added */
@@ -754,6 +762,7 @@ static void init_json_parser(void) {
 			tvbparse_string(JSON_TOKEN_FALSE, "false", NULL, NULL, NULL),
 			tvbparse_string(JSON_TOKEN_NULL, "null", NULL, NULL, NULL),
 			tvbparse_string(JSON_TOKEN_TRUE, "true", NULL, NULL, NULL),
+			tvbparse_string(JSON_TOKEN_NAN, "NaN", NULL, NULL, NULL),
 			&_want_object,
 			&_want_array,
 			want_number,
@@ -916,6 +925,7 @@ proto_register_json(void)
 		&hfi_json_value_false,
 		&hfi_json_value_null,
 		&hfi_json_value_true,
+		&hfi_json_value_nan,
 		&hfi_json_array_compact,
 		&hfi_json_object_compact,
 		&hfi_json_member_compact,
@@ -969,6 +979,7 @@ proto_reg_handoff_json(void)
 	dissector_add_string("media_type", "application/problem+json", json_handle); /* RFC 7807 Problem Details for HTTP APIs*/
 	dissector_add_string("media_type", "application/merge-patch+json", json_handle); /* RFC 7386 HTTP PATCH methods (RFC 5789) */
 	dissector_add_string("media_type", "application/json-patch+json", json_handle); /* RFC 6902 JavaScript Object Notation (JSON) Patch */
+	dissector_add_string("media_type", "application/x-ndjson", json_handle);
 	dissector_add_string("grpc_message_type", "application/grpc+json", json_handle);
 	dissector_add_uint_range_with_preference("tcp.port", "", json_file_handle); /* JSON-RPC over TCP */
 	dissector_add_uint_range_with_preference("udp.port", "", json_file_handle); /* JSON-RPC over UDP */

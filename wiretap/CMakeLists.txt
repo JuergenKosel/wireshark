@@ -70,9 +70,9 @@ set(WIRETAP_C_MODULE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/netscreen.c
 	${CMAKE_CURRENT_SOURCE_DIR}/nettl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/nettrace_3gpp_32_423.c
-	${CMAKE_CURRENT_SOURCE_DIR}/network_instruments.c
 	${CMAKE_CURRENT_SOURCE_DIR}/netxray.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ngsniffer.c
+	${CMAKE_CURRENT_SOURCE_DIR}/observer.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packetlogger.c
 	${CMAKE_CURRENT_SOURCE_DIR}/pcap-common.c
 	${CMAKE_CURRENT_SOURCE_DIR}/peekclassic.c
@@ -173,6 +173,9 @@ set_target_properties(wiretap PROPERTIES
 	FOLDER "DLLs"
 	INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
+if(MSVC)
+	set_target_properties(wiretap PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+endif()
 
 target_link_libraries(wiretap
 	PUBLIC
@@ -185,6 +188,10 @@ target_link_libraries(wiretap
 target_include_directories(wiretap SYSTEM
 	PRIVATE
 		${ZLIB_INCLUDE_DIRS}
+)
+
+target_include_directories(wiretap PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 install(TARGETS wiretap

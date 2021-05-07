@@ -2184,7 +2184,7 @@ sharkd_session_process_tap(char *buf, const jsmntok_t *tokens, int count)
 	int i;
 
 	rtpstream_tapinfo_t rtp_tapinfo =
-		{ NULL, NULL, NULL, NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE, FALSE};
+		{ NULL, NULL, NULL, NULL, 0, NULL, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE, FALSE};
 
 	for (i = 0; i < 16; i++)
 	{
@@ -2749,7 +2749,7 @@ sharkd_follower_visit_layers_cb(const void *key _U_, void *value, void *user_dat
 		const char *layer_proto = proto_get_protocol_short_name(find_protocol_by_id(proto_id));
 		char *follow_filter;
 
-		follow_filter = get_follow_conv_func(follower)(pi, &ignore_stream, &ignore_sub_stream);
+		follow_filter = get_follow_conv_func(follower)(NULL, pi, &ignore_stream, &ignore_sub_stream);
 
 		json_dumper_begin_array(&dumper);
 		json_dumper_value_string(&dumper, layer_proto);
@@ -4002,10 +4002,10 @@ sharkd_session_packet_download_tap_rtp_cb(void *tapdata, packet_info *pinfo, epa
 		rtp_packet_t *rtp_packet;
 
 		rtp_packet = g_new0(rtp_packet_t, 1);
-		rtp_packet->info = (struct _rtp_info *) g_memdup(rtp_info, sizeof(struct _rtp_info));
+		rtp_packet->info = (struct _rtp_info *) g_memdup2(rtp_info, sizeof(struct _rtp_info));
 
 		if (rtp_info->info_all_data_present && rtp_info->info_payload_len != 0)
-			rtp_packet->payload_data = (guint8 *) g_memdup(&(rtp_info->info_data[rtp_info->info_payload_offset]), rtp_info->info_payload_len);
+			rtp_packet->payload_data = (guint8 *) g_memdup2(&(rtp_info->info_data[rtp_info->info_payload_offset]), rtp_info->info_payload_len);
 
 		if (!req_rtp->packets)
 			req_rtp->start_time = nstime_to_sec(&pinfo->abs_ts);

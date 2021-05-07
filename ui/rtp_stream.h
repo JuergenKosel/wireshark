@@ -16,15 +16,6 @@
 
 #include <glib.h>
 
-/** @file
- *  "RTP Streams" dialog box common routines.
- *  @ingroup main_ui_group
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include "tap-rtp-analysis.h"
 #include <stdio.h>
 
@@ -34,6 +25,15 @@ extern "C" {
 #include <epan/tap.h>
 
 #include "ui/rtp_stream_id.h"
+
+/** @file
+ *  "RTP Streams" dialog box common routines.
+ *  @ingroup main_ui_group
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /** Defines an rtp stream */
 typedef struct _rtpstream_info {
@@ -90,6 +90,9 @@ struct _rtpstream_tapinfo {
     void              *tap_data;            /**< data for tap callbacks */
     int                nstreams; /**< number of streams in the list */
     GList             *strinfo_list; /**< list of rtpstream_info_t* */
+    GHashTable        *strinfo_hash; /**< multihash of rtpstream_info_t **/
+                                     /*   multihash means that there can be */
+                                     /*   more values related to one hash key */
     int                npackets; /**< total number of rtp packets of all streams */
     /* used while tapping. user shouldn't modify these */
     tap_mode_t         mode;
@@ -134,6 +137,9 @@ gboolean rtpstream_save(rtpstream_tapinfo_t *tapinfo, capture_file *cap_file, rt
 */
 void rtpstream_mark(rtpstream_tapinfo_t *tapinfo, capture_file *cap_file, rtpstream_info_t* stream_fwd, rtpstream_info_t* stream_rev);
 
+/* Constant based on fix for bug 4119/5902: don't insert too many silence
+ * frames.
+ */
 #define MAX_SILENCE_FRAMES 14400000
 
 #ifdef __cplusplus
@@ -141,16 +147,3 @@ void rtpstream_mark(rtpstream_tapinfo_t *tapinfo, capture_file *cap_file, rtpstr
 #endif /* __cplusplus */
 
 #endif /* __RTP_STREAM_H__ */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * vi: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

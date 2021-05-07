@@ -31,6 +31,7 @@ LastVisitedEUTRANCellInformation_PDU
 LastVisitedGERANCellInformation_PDU
 MDTMode_PDU
 SourceeNB-ToTargeteNB-TransparentContainer_PDU
+SONConfigurationTransfer_PDU
 SONtransferApplicationIdentity_PDU
 SONtransferRequestContainer_PDU
 SONtransferRequestContainer
@@ -51,6 +52,7 @@ LastVisitedGERANCellInformation
 MDTMode
 S1AP-PDU
 SourceeNB-ToTargeteNB-TransparentContainer
+SONConfigurationTransfer
 SONtransferApplicationIdentity
 SONtransferRequestContainer
 SONtransferResponseContainer
@@ -107,6 +109,13 @@ ProtocolExtensionField/id ext_id
 
 #PrivateIE-Field/value private_value
 ProtocolIE-Field/value ie_field_value
+
+#.FIELD_ATTR
+UE-associatedLogicalS1-ConnectionItem/eNB-UE-S1AP-ID ABBREV=ENB_UE_S1AP_ID
+UE-associatedLogicalS1-ConnectionItem/mME-UE-S1AP-ID ABBREV=MME_UE_S1AP_ID
+UE-S1AP-ID-pair/eNB-UE-S1AP-ID ABBREV=ENB_UE_S1AP_ID
+UE-S1AP-ID-pair/mME-UE-S1AP-ID ABBREV=MME_UE_S1AP_ID
+UE-S1AP-IDs/mME-UE-S1AP-ID ABBREV=MME_UE_S1AP_ID
 
 #.FN_BODY ProtocolIE-ID VAL_PTR=&s1ap_data->protocol_ie_id
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
@@ -1866,6 +1875,7 @@ id-Bearers-SubjectToEarlyStatusTransfer-Item        ProtocolIE-ID
 id-WUS-Assistance-Information                       ProtocolIE-ID
 id-NB-IoT-PagingDRX                                 ProtocolIE-ID
 id-TraceCollectionEntityURI                         ProtocolIE-ID
+id-EmergencyIndicator                               ProtocolIE-ID
 
 #.END
 
@@ -2184,6 +2194,7 @@ MDT-ConfigurationNR                     N s1ap.extension id-MDTConfigurationNR
 DAPSRequestInfo                         N s1ap.extension id-DAPSRequestInfo
 DAPSResponseInfoList                    N s1ap.extension id-DAPSResponseInfoList
 URI-Address                             N s1ap.extension id-TraceCollectionEntityURI
+EmergencyIndicator                      N s1ap.extension id-EmergencyIndicator
 
 #S1AP-ELEMENTARY-PROCEDURE
 HandoverRequired                        N s1ap.proc.imsg id-HandoverPreparation

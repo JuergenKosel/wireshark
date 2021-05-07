@@ -37,7 +37,7 @@ QWidget *AdvancedPrefDelegate::createEditor(QWidget *parent, const QStyleOptionV
     case AdvancedPrefsModel::colType:
         //If user clicks on any of these columns, reset preference back to default
         //There is no need to launch an editor
-        ((QAbstractItemModel*)index.model())->setData(index, QVariant(), Qt::EditRole);
+        const_cast<QAbstractItemModel*>(index.model())->setData(index, QVariant(), Qt::EditRole);
         break;
     case AdvancedPrefsModel::colValue:
         pref = indexToPref(index);
@@ -83,15 +83,3 @@ void AdvancedPrefDelegate::setModelData(QWidget *editor, QAbstractItemModel *mod
 
     Q_ASSERT(FALSE);
 }
-
-/* * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

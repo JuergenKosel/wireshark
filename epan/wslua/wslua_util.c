@@ -101,7 +101,7 @@ WSLUA_FUNCTION wslua_format_date(lua_State* LS) { /* Formats an absolute timesta
     nstime_t then;
     gchar* str;
 
-    then.secs = (guint32)(floor(timestamp));
+    then.secs = (time_t)(floor(timestamp));
     then.nsecs = (guint32) ( (timestamp-(double)(then.secs))*1000000000);
     str = abs_time_to_str(NULL, &then, ABSOLUTE_TIME_LOCAL, TRUE);
     lua_pushstring(LS,str);
@@ -116,7 +116,7 @@ WSLUA_FUNCTION wslua_format_time(lua_State* LS) { /* Formats a relative timestam
     nstime_t then;
     gchar* str;
 
-    then.secs = (guint32)(floor(timestamp));
+    then.secs = (time_t)(floor(timestamp));
     then.nsecs = (guint32) ( (timestamp-(double)(then.secs))*1000000000);
     str = rel_time_to_str(NULL, &then);
     lua_pushstring(LS,str);
@@ -142,6 +142,7 @@ WSLUA_FUNCTION wslua_get_preference(lua_State *L) {
         module_t *module = prefs_find_module(module_name);
         pref = prefs_find_preference(module, preference_name);
     }
+    g_free (module_name);
 
     if (pref) {
         switch (prefs_get_type(pref)) {
@@ -200,7 +201,6 @@ WSLUA_FUNCTION wslua_get_preference(lua_State *L) {
         lua_pushnil(L);
     }
 
-    g_free (module_name);
     WSLUA_RETURN(1); /* The preference value, or nil if not found. */
 }
 
@@ -223,6 +223,7 @@ WSLUA_FUNCTION wslua_set_preference(lua_State *L) {
         module = prefs_find_module(module_name);
         pref = prefs_find_preference(module, preference_name);
     }
+    g_free (module_name);
 
     if (pref) {
         unsigned int changed = 0;
@@ -287,7 +288,6 @@ WSLUA_FUNCTION wslua_set_preference(lua_State *L) {
         lua_pushnil(L);
     }
 
-    g_free(module_name);
     WSLUA_RETURN(1); /* true if changed, false if unchanged or nil if not found. */
 }
 
@@ -329,7 +329,7 @@ WSLUA_FUNCTION wslua_apply_preferences(lua_State *L) {
     if (err) {
         /* Make a copy of pf_path because luaL_error() will return */
         gchar pf_path_copy[256];
-        g_strlcpy(pf_path_copy, pf_path, sizeof pf_path_copy);
+        (void) g_strlcpy(pf_path_copy, pf_path, sizeof pf_path_copy);
         g_free(pf_path);
 
         return luaL_error(L, "can't open preferences file\n\"%s\": %s.",
@@ -355,7 +355,7 @@ char* wslua_get_actual_filename(const char* fname) {
     char* f;
     char* filename;
 
-    g_strlcpy(fname_clean,fname,255);
+    (void) g_strlcpy(fname_clean,fname,255);
     fname_clean[255] = '\0';
 
     for(f = fname_clean; *f; f++) {

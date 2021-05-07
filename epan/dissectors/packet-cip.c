@@ -5549,7 +5549,7 @@ int dissect_cip_attribute(packet_info *pinfo, proto_tree *tree, proto_item *item
       if (date != NULL)
           strftime(date_str, 20, "%b %d, %Y", date);
       else
-          g_strlcpy(date_str, "Not representable", sizeof date_str);
+          (void) g_strlcpy(date_str, "Not representable", sizeof date_str);
       proto_tree_add_uint_format_value(tree, *(attr->phf), tvb, offset, 2, temp_data, "%s", date_str);
       consumed = 2;
       break;
@@ -6874,7 +6874,7 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
             p_remove_proto_data(wmem_file_scope(), pinfo, proto_cip, 0);
             p_add_proto_data(wmem_file_scope(), pinfo, proto_cip, 0, pembedded_req_info );
 
-            proto_tree_add_uint_format( item_tree, hf_cip_cm_sc, tvb, 0, 0, SC_CM_UNCON_SEND|CIP_SC_RESPONSE_MASK, "(Service: Unconnected Send (Response))" );
+            proto_item_set_generated(proto_tree_add_uint_format( item_tree, hf_cip_cm_sc, tvb, 0, 0, SC_CM_UNCON_SEND|CIP_SC_RESPONSE_MASK, "Service: Unconnected Send (Response)" ));
             next_tvb = tvb_new_subset_length(tvb, offset, item_length);
 
             display_previous_request_path(pembedded_req_info, item_tree, tvb, pinfo, NULL, FALSE);

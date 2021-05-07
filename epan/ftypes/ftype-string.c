@@ -58,7 +58,7 @@ string_to_repr(fvalue_t *fv, ftrepr_t rtype, int field_display _U_, char *buf, u
 {
 	switch (rtype) {
 		case FTREPR_DISPLAY:
-			g_strlcpy(buf, fv->value.string, size);
+			(void) g_strlcpy(buf, fv->value.string, size);
 			return;
 
 		case FTREPR_DFILTER:
@@ -186,18 +186,10 @@ cmp_contains(const fvalue_t *fv_a, const fvalue_t *fv_b)
 }
 
 static gboolean
-cmp_matches(const fvalue_t *fv_a, const fvalue_t *fv_b)
+cmp_matches(const fvalue_t *fv, const GRegex *regex)
 {
-	char *str = fv_a->value.string;
-	GRegex *regex = fv_b->value.re;
+	char *str = fv->value.string;
 
-	/* fv_b is always a FT_PCRE, otherwise the dfilter semcheck() would have
-	 * warned us. For the same reason (and because we're using g_malloc()),
-	 * fv_b->value.re is not NULL.
-	 */
-	if (strcmp(fv_b->ftype->name, "FT_PCRE") != 0) {
-		return FALSE;
-	}
 	if (! regex) {
 		return FALSE;
 	}

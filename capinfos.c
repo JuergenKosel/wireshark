@@ -69,6 +69,7 @@
 #include <wiretap/wtap.h>
 
 #include <ui/cmdarg_err.h>
+#include <ui/exit_codes.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <cli_main.h>
@@ -86,9 +87,6 @@
 #include <wsutil/wsgcrypt.h>
 
 #include "ui/failure_message.h"
-
-#define INVALID_OPTION 1
-#define BAD_FLAG 1
 
 /*
  * By default capinfos now continues processing
@@ -1193,7 +1191,7 @@ process_cap_file(const char *filename, gboolean need_separator)
 
   cf_info.wth = wtap_open_offline(filename, WTAP_TYPE_AUTO, &err, &err_info, FALSE);
   if (!cf_info.wth) {
-    cfile_open_failure_message("capinfos", filename, err, err_info);
+    cfile_open_failure_message(filename, err, err_info);
     return 2;
   }
 
@@ -1352,7 +1350,7 @@ process_cap_file(const char *filename, gboolean need_separator)
     fprintf(stderr,
         "capinfos: An error occurred after reading %u packets from \"%s\".\n",
         packet, filename);
-    cfile_read_failure_message("capinfos", filename, err, err_info);
+    cfile_read_failure_message(filename, err, err_info);
     if (err == WTAP_ERR_SHORT_READ) {
         /* Don't give up completely with this one. */
         status = 1;
@@ -1511,11 +1509,10 @@ print_usage(FILE *output)
 }
 
 /*
- * General errors and warnings are reported with an console message
- * in capinfos.
+ * Report an error in command-line arguments.
  */
 static void
-failure_warning_message(const char *msg_format, va_list ap)
+capinfos_cmdarg_err(const char *msg_format, va_list ap)
 {
   fprintf(stderr, "capinfos: ");
   vfprintf(stderr, msg_format, ap);
@@ -1526,7 +1523,7 @@ failure_warning_message(const char *msg_format, va_list ap)
  * Report additional information for an error in command-line arguments.
  */
 static void
-failure_message_cont(const char *msg_format, va_list ap)
+capinfos_cmdarg_err_cont(const char *msg_format, va_list ap)
 {
   vfprintf(stderr, msg_format, ap);
   fprintf(stderr, "\n");
@@ -1545,6 +1542,18 @@ int
 main(int argc, char *argv[])
 {
   char  *init_progfile_dir_error;
+  static const struct report_message_routines capinfos_report_routines = {
+      failure_message,
+      failure_message,
+      open_failure_message,
+      read_failure_message,
+      write_failure_message,
+      cfile_open_failure_message,
+      cfile_dump_open_failure_message,
+      cfile_read_failure_message,
+      cfile_write_failure_message,
+      cfile_close_failure_message
+  };
   gboolean need_separator = FALSE;
   int    opt;
   int    overall_error_status = EXIT_SUCCESS;
@@ -1570,7 +1579,7 @@ main(int argc, char *argv[])
   setlocale(LC_ALL, "");
 #endif
 
-  cmdarg_err_init(failure_warning_message, failure_message_cont);
+  cmdarg_err_init(capinfos_cmdarg_err, capinfos_cmdarg_err_cont);
 
   /* Get the decimal point. */
   decimal_point = g_strdup(localeconv()->decimal_point);
@@ -1599,8 +1608,7 @@ main(int argc, char *argv[])
     g_free(init_progfile_dir_error);
   }
 
-  init_report_message(failure_warning_message, failure_warning_message,
-                      NULL, NULL, NULL);
+  init_report_message("capinfos", &capinfos_report_routines);
 
   wtap_init(TRUE);
 
@@ -1782,7 +1790,7 @@ main(int argc, char *argv[])
 
       case '?':              /* Bad flag - print usage message */
         print_usage(stderr);
-        overall_error_status = BAD_FLAG;
+        overall_error_status = INVALID_OPTION;
         goto exit;
         break;
     }
@@ -1812,9 +1820,9 @@ main(int argc, char *argv[])
 
   for (opt = optind; opt < argc; opt++) {
 
-    g_strlcpy(file_sha256, "<unknown>", HASH_STR_SIZE);
-    g_strlcpy(file_rmd160, "<unknown>", HASH_STR_SIZE);
-    g_strlcpy(file_sha1, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(file_sha256, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(file_rmd160, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(file_sha1, "<unknown>", HASH_STR_SIZE);
 
     if (cap_file_hashes) {
       fh = ws_fopen(argv[opt], "rb");

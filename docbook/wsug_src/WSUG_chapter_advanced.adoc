@@ -22,8 +22,8 @@ display filter to show only the packets in a TLS or SSL stream. If so,
 Wireshark’s ability to follow protocol streams will be useful to you.
 
 To filter to a particular stream,
-select a TCP, UDP, DCCP, TLS, HTTP, HTTP/2 or QUIC packet in the packet list of the stream/connection you are
-interested in and then select the menu item menu:Analyze[Follow TCP Stream]
+select a TCP, UDP, DCCP, TLS, HTTP, HTTP/2, QUIC or SIP packet in the packet list of the stream/connection you are
+interested in and then select the menu item menu:Analyze[Follow > TCP Stream]
 (or use the context menu in the packet list). Wireshark will set an
 appropriate display filter and display a dialog box with the data from the
 stream laid out, as shown in <<ChAdvFollowStream>>.
@@ -117,6 +117,12 @@ TCP connection. The “Stream” selector determines the TCP connection whereas 
 
 The QUIC protocol is similar, the first number selects the UDP stream index
 while the "Substream" field selects the QUIC Stream ID.
+
+.The “Follow SIP Call” dialog box
+image::wsug_graphics/ws-follow-sip-stream.png[{screenshot-attrs}]
+
+The SIP call is shown with same dialog, just filter is based on sip.Call-ID
+field. Count of streams is fixed to 0 and the field is disabled.
 
 [[ChAdvShowPacketBytes]]
 
@@ -466,7 +472,7 @@ Set when all of the following are true:
 * The current sequence number equals the next expected acknowledgement number.
 * We saw the last acknowledgement less than 20ms ago.
 
-Supersedes “Out-Of-Order”, “Spurious Retransmission”, and “Retransmission”.
+Supersedes “Out-Of-Order” and “Retransmission”.
 
 // TCP_A_KEEP_ALIVE
 [discrete]
@@ -507,7 +513,7 @@ Set when all of the following are true:
 * The last segment arrived within the Out-Of-Order RTT threshold.
   The threshold is either the value shown in the “iRTT” (tcp.analysis.initial_rtt) field under “SEQ/ACK analysis” if it is present, or the default value of 3ms if it is not.
 
-Supersedes “Spurious Retransmission” and “Retransmission”.
+Supersedes “Retransmission”.
 
 // TCP_A_REUSED_PORTS
 [discrete]
@@ -534,7 +540,7 @@ direction. Set when all of the following are true:
 * Data for this flow has been acknowledged. That is, the last-seen acknowledgement number has been set.
 * The next sequence number is less than or equal to the last-seen acknowledgement number.
 
-Supersedes “Retransmission”.
+Supersedes “Fast Retransmission”, “Out-Of-Order”, and “Retransmission”.
 
 // TCP_A_RETRANSMISSION
 [discrete]
@@ -607,6 +613,15 @@ Set when the all of the following are true:
 * The last-seen packet in the reverse direction was a zero window probe.
 
 Supersedes “TCP Dup ACK”.
+
+// TCP_A_AMBIGUOUS_INTERPRETATIONS
+[discrete]
+==== TCP Ambiguous Interpretations
+
+Some captures are quite difficult to analyze automatically, particularly when the
+time frame may cover both Fast Retransmission and Out-Of-Order packets. A TCP
+preference allows to switch the precedence of these two interpretations at the
+protocol level.
 
 // TCP_A_CONVERSATION_COMPLETENESS
 [discrete]
@@ -806,19 +821,23 @@ for a lot more), for examples see {ntp-main-url}.
 
 So what’s the relationship between Wireshark and time zones anyway?
 
-Wireshark’s native capture file format (libpcap format), and some other capture
-file formats, such as the Windows Sniffer, EtherPeek, AiroPeek, and Sun snoop
-formats, save the arrival time of packets as UTC values. UN*X systems, and
-“Windows NT based” systems represent time internally as UTC. When Wireshark is
-capturing, no conversion is necessary. However, if the system time zone is not
-set correctly, the system’s UTC time might not be correctly set even if the
-system clock appears to display correct local time. When capturing, Npcap has
-to convert the time to UTC before supplying it to Wireshark. If the system’s
-time zone is not set correctly, that conversion will not be done correctly.
+Wireshark’s native capture file format (libpcap format), and some
+other capture file formats, such as the Windows Sniffer, *Peek, Sun
+snoop formats, and newer versions of the Microsoft Network Monitor and
+Network Instruments/Viavi Observer formats, save the arrival time of
+packets as UTC values.  UN*X systems, and “Windows NT based” systems
+represent time internally as UTC.  When Wireshark is capturing, no
+conversion is necessary.  However, if the system time zone is not set
+correctly, the system’s UTC time might not be correctly set even if
+the system clock appears to display correct local time.  When capturing,
+Npcap has to convert the time to UTC before supplying it to Wireshark. 
+If the system’s time zone is not set correctly, that conversion will
+not be done correctly.
 
-Other capture file formats, such as the Microsoft Network Monitor, DOS-based
-Sniffer, and Network Instruments Observer formats, save the arrival time of
-packets as local time values.
+Other capture file formats, such as the OOS-based Sniffer format and
+older versions of the Microsoft Network Monitor and Network
+Instruments/Viavi Observer formats, save the arrival time of packets as
+local time values.
 
 Internally to Wireshark, time stamps are represented in UTC. This means that
 when reading capture files that save the arrival time of packets as local time

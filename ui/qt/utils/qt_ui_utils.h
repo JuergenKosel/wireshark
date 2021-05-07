@@ -21,6 +21,8 @@
 
 #include <glib.h>
 
+#include "ui/rtp_stream.h"
+
 #include <QString>
 
 class QAction;
@@ -231,19 +233,30 @@ bool rect_on_screen(const QRect &rect);
  */
 void set_action_shortcuts_visible_in_context_menu(QList<QAction *> actions);
 
+/**
+ * Create copy of all rtpstream_ids to new QVector
+ * => caller must release it with qvector_rtpstream_ids_free()
+ *
+ * @param stream_ids List of infos
+ * @return Vector of rtpstream_ids
+ */
+QVector<rtpstream_id_t *>qvector_rtpstream_ids_copy(QVector<rtpstream_id_t *> stream_ids);
+
+/**
+ * Free all rtpstream_ids in QVector
+ *
+ * @param stream_ids List of infos
+ */
+void qvector_rtpstream_ids_free(QVector<rtpstream_id_t *> stream_ids);
+
+/**
+ * Make display filter from list of rtpstream_id
+ *
+ * @param stream_ids List of ids
+ * @return Filter or empty string
+ */
+QString make_filter_based_on_rtpstream_id(QVector<rtpstream_id_t *> stream_ids);
+
 #endif /* __QT_UI_UTILS__H__ */
 
 // XXX Add a routine to fetch the HWND corresponding to a widget using QPlatformIntegration
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

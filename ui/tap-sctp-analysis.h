@@ -11,19 +11,19 @@
 #ifndef __TAP_SCTP_ANALYSIS_H__
 #define __TAP_SCTP_ANALYSIS_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <epan/dissectors/packet-sctp.h>
 #include <epan/address.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#else
-#include <winsock2.h>
 #endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define CHUNK_TYPE_LENGTH	      1
 #define CHUNK_FLAGS_LENGTH	      1
@@ -303,16 +303,3 @@ const sctp_assoc_info_t* get_selected_assoc(void);
 #endif /* __cplusplus */
 
 #endif /* __TAP_SCTP_ANALYSIS_H__ */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

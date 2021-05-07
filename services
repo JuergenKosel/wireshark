@@ -1220,7 +1220,7 @@ ingreslock	1524/tcp/udp	# ingres
 orasrv		1525/tcp/udp	# oracle
 pdap-np		1526/tcp/udp	# Prospero Data Access Prot non-priv
 tlisrv		1527/tcp/udp	# oracle
-ngr-t		1528/udp	# NGR transport protocol for mobile ad-hoc networks
+norp		1528/tcp/udp/sctp	# Not Only a Routeing Protocol
 coauthor	1529/tcp/udp	# oracle
 rap-service	1530/tcp/udp
 rap-listen	1531/tcp/udp
@@ -4657,6 +4657,7 @@ wbem-exp-https	5990/tcp/udp	# WBEM Export HTTPS
 nuxsl		5991/tcp/udp	# NUXSL
 consul-insight	5992/tcp/udp	# Consul InSight Security
 cim-rs		5993/tcp	# DMTF WBEM CIM REST
+rms-agent	5994/tcp	# RMS Agent Listening Service
 cvsup		5999/tcp/udp	# CVSup
 x11		6000-6063/tcp/udp	# X Window System
 ndl-ahp-svc	6064/tcp/udp	# NDL-AHP-SVC
@@ -5156,6 +5157,7 @@ http-alt	8008/tcp/udp	# HTTP Alternate
 nvme-disc	8009/tcp	# NVMe over Fabrics Discovery Service
 cfg-cloud	8015/tcp	# Configuration Cloud Service
 ads-s		8016/tcp	# Beckhoff Automation Device Specification
+cisco-cloudsec	8017/udp	# Cisco Cloudsec Dataplane Port Number
 qbdb		8019/tcp/udp	# QB DB Dynamic Port
 intu-ec-svcdisc	8020/tcp/udp	# Intuit Entitlement Service and Discovery
 intu-ec-client	8021/tcp/udp	# Intuit Entitlement Client

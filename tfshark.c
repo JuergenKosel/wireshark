@@ -39,6 +39,7 @@
 
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
+#include <ui/exit_codes.h>
 #include <ui/urls.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
@@ -63,6 +64,7 @@
 #include "ui/util.h"
 #include "ui/decode_as_utils.h"
 #include "ui/dissect_opts.h"
+#include "ui/failure_message.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
@@ -79,11 +81,8 @@
 #include <wsutil/plugins.h>
 #endif
 
-#define INVALID_OPTION 1
+/* Additional exit codes */
 #define NO_FILE_SPECIFIED 1
-#define INIT_ERROR 2
-#define INVALID_FILTER 2
-#define OPEN_ERROR 2
 
 capture_file cfile;
 
@@ -134,12 +133,8 @@ static gboolean write_finale(void);
 static const char *cf_open_error_message(int err, gchar *err_info,
     gboolean for_writing, int file_type);
 
-static void failure_warning_message(const char *msg_format, va_list ap);
-static void open_failure_message(const char *filename, int err,
-    gboolean for_writing);
-static void read_failure_message(const char *filename, int err);
-static void write_failure_message(const char *filename, int err);
-static void failure_message_cont(const char *msg_format, va_list ap);
+static void tfshark_cmdarg_err(const char *msg_format, va_list ap);
+static void tfshark_cmdarg_err_cont(const char *msg_format, va_list ap);
 
 static GHashTable *output_only_tables = NULL;
 
@@ -353,6 +348,18 @@ main(int argc, char *argv[])
 #define OPTSTRING "+2C:d:e:E:hK:lo:O:qQr:R:S:t:T:u:vVxX:Y:z:"
 
   static const char    optstring[] = OPTSTRING;
+  static const struct report_message_routines tfshark_report_routines = {
+    failure_message,
+    failure_message,
+    open_failure_message,
+    read_failure_message,
+    write_failure_message,
+    cfile_open_failure_message,
+    cfile_dump_open_failure_message,
+    cfile_read_failure_message,
+    cfile_write_failure_message,
+    cfile_close_failure_message
+  };
 
   /*
    * Set the C-language locale to the native environment and set the
@@ -364,7 +371,7 @@ main(int argc, char *argv[])
   setlocale(LC_ALL, "");
 #endif
 
-  cmdarg_err_init(failure_warning_message, failure_message_cont);
+  cmdarg_err_init(tfshark_cmdarg_err, tfshark_cmdarg_err_cont);
 
 #ifdef _WIN32
   create_app_running_mutex();
@@ -471,9 +478,7 @@ main(int argc, char *argv[])
                     (GLogLevelFlags)log_flags,
                     tfshark_log_handler, NULL /* user_data */);
 
-  init_report_message(failure_warning_message, failure_warning_message,
-                      open_failure_message, read_failure_message,
-                      write_failure_message);
+  init_report_message("tfshark", &tfshark_report_routines);
 
   timestamp_set_type(TS_RELATIVE);
   timestamp_set_precision(TS_PREC_AUTO);
@@ -498,7 +503,7 @@ main(int argc, char *argv[])
      dissectors, and we must do it before we read the preferences, in
      case any dissectors register preferences. */
   if (!epan_init(NULL, NULL, TRUE)) {
-    exit_status = INIT_ERROR;
+    exit_status = INIT_FAILED;
     goto clean_exit;
   }
 
@@ -2236,11 +2241,10 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 }
 
 /*
- * General errors and warnings are reported with an console message
- * in TFShark.
+ * Report an error in command-line arguments.
  */
 static void
-failure_warning_message(const char *msg_format, va_list ap)
+tfshark_cmdarg_err(const char *msg_format, va_list ap)
 {
   fprintf(stderr, "tfshark: ");
   vfprintf(stderr, msg_format, ap);
@@ -2248,41 +2252,10 @@ failure_warning_message(const char *msg_format, va_list ap)
 }
 
 /*
- * Open/create errors are reported with an console message in TFShark.
- */
-static void
-open_failure_message(const char *filename, int err, gboolean for_writing)
-{
-  fprintf(stderr, "tfshark: ");
-  fprintf(stderr, file_open_error_message(err, for_writing), filename);
-  fprintf(stderr, "\n");
-}
-
-/*
- * Read errors are reported with an console message in TFShark.
- */
-static void
-read_failure_message(const char *filename, int err)
-{
-  cmdarg_err("An error occurred while reading from the file \"%s\": %s.",
-          filename, g_strerror(err));
-}
-
-/*
- * Write errors are reported with an console message in TFShark.
- */
-static void
-write_failure_message(const char *filename, int err)
-{
-  cmdarg_err("An error occurred while writing to the file \"%s\": %s.",
-          filename, g_strerror(err));
-}
-
-/*
  * Report additional information for an error in command-line arguments.
  */
 static void
-failure_message_cont(const char *msg_format, va_list ap)
+tfshark_cmdarg_err_cont(const char *msg_format, va_list ap)
 {
   vfprintf(stderr, msg_format, ap);
   fprintf(stderr, "\n");

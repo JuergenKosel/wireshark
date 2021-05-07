@@ -225,7 +225,7 @@ scan_local_interfaces(void (*update_cb)(void))
         }
         device.type = if_info->type;
         monitor_mode = prefs_capture_device_monitor_mode(if_info->name);
-        caps = capture_get_if_capabilities(if_info->name, monitor_mode, NULL, NULL, update_cb);
+        caps = capture_get_if_capabilities(if_info->name, monitor_mode, NULL, NULL, NULL, update_cb);
         for (; (curr_addr = g_slist_nth(if_info->addrs, ips)) != NULL; ips++) {
             temp_addr = g_new0(if_addr_t, 1);
             if (ips != 0) {
@@ -500,16 +500,3 @@ update_local_interfaces(void)
     }
 }
 #endif /* HAVE_LIBPCAP */
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

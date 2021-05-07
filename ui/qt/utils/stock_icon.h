@@ -29,22 +29,12 @@ public:
     explicit StockIcon(const QString icon_name);
 
     static QIcon colorIcon(const QRgb bg_color, const QRgb fg_color, const QString glyph = QString());
+    static QIcon colorIconTriangle(const QRgb bg_color, const QRgb fg_color);
+    static QIcon colorIconCross(const QRgb bg_color, const QRgb fg_color);
+    static QIcon colorIconCircle(const QRgb bg_color, const QRgb fg_color);
 
 private:
     void fillIconNameMap();
 };
 
 #endif // STOCK_ICON_H
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

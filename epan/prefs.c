@@ -519,7 +519,8 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
          * protocol preferences to have a bogus "protocol.", or
          * something such as that, to be added to all their names).
          */
-        g_assert(prefs_find_module(name) == NULL);
+        if (prefs_find_module(name) != NULL)
+            g_error("Preference module \"%s\" is being registered twice", name);
 
         /*
          * Insert this module in the list of all modules.
@@ -530,7 +531,8 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
          * This has no name, just a title; check to make sure it's a
          * subtree, and crash if it's not.
          */
-        g_assert(is_subtree);
+        if (!is_subtree)
+            g_error("Preferences module with no name is being registered at the top level");
     }
 
     /*
@@ -588,7 +590,8 @@ prefs_register_module_alias(const char *name, module_t *module)
      *
      * We search the list of all aliases.
      */
-    g_assert(prefs_find_module_alias(name) == NULL);
+    if (prefs_find_module_alias(name) != NULL)
+        g_error("Preference module alias \"%s\" is being registered twice", name);
 
     alias = wmem_new(wmem_epan_scope(), module_alias_t);
     alias->name = name;
@@ -2445,11 +2448,20 @@ console_log_level_set_cb(pref_t* pref, const gchar* value, unsigned int* changed
     }
 
     if (*pref->varp.uint & (G_LOG_LEVEL_INFO|G_LOG_LEVEL_DEBUG)) {
-      /*
-       * GLib >= 2.32 drops INFO and DEBUG messages by default. Tell
-       * it not to do that.
-       */
-       g_setenv("G_MESSAGES_DEBUG", "all", TRUE);
+        /*
+         * GLib drops INFO and DEBUG messages by default. If the user
+         * hasn't set G_MESSAGES_DEBUG, possibly to a specific set of
+         * domains, tell it not to do that.
+         */
+        const char *s = g_getenv("G_MESSAGES_DEBUG");
+        if(s != NULL) {
+            g_message("prefs: Skip overwriting environment variable "
+                        "G_MESSAGES_DEBUG=\"%s\"", s);
+        }
+        else {
+            g_info("prefs: Set environment variable G_MESSAGES_DEBUG=\"all\"");
+            g_setenv("G_MESSAGES_DEBUG", "all", FALSE);
+        }
     }
 
     return PREFS_SET_OK;
@@ -3424,6 +3436,11 @@ prefs_register_modules(void)
                                     "Show column definition in packet list header",
                                     &prefs.gui_qt_packet_header_column_definition);
 
+    prefs_register_bool_preference(gui_layout_module, "packet_list_hover_style.enabled",
+                                   "Enable Packet List mouse-over colorization",
+                                   "Enable Packet List mouse-over colorization",
+                                   &prefs.gui_qt_packet_list_hover_style);
+
     prefs_register_bool_preference(gui_layout_module, "show_selected_packet.enabled",
                                    "Show selected packet in the Status Bar",
                                    "Show selected packet in the Status Bar",
@@ -3463,6 +3480,26 @@ prefs_register_modules(void)
             "Type 3 values are defined by authors."
             "Value can be in range 2 to 10.",
             10,&prefs.gui_decimal_places3);
+
+    prefs_register_bool_preference(gui_module, "rtp_player_use_disk1",
+            "RTP Player saves temporary data to disk",
+            "If set to true, RTP Player saves temporary data to "
+            "temp files on disk. If not set, it uses memory."
+            "Every stream uses one file therefore you might touch "
+            "OS limit for count of opened files."
+            "When ui.rtp_player_use_disk2 is set to true too, it uses "
+            " two files per RTP stream together."
+            ,&prefs.gui_rtp_player_use_disk1);
+
+    prefs_register_bool_preference(gui_module, "rtp_player_use_disk2",
+            "RTP Player saves temporary dictionary for data to disk",
+            "If set to true, RTP Player saves temporary dictionary to "
+            "temp files on disk. If not set, it uses memory."
+            "Every stream uses one file therefore you might touch "
+            "OS limit for count of opened files."
+            "When ui.rtp_player_use_disk1 is set to true too, it uses "
+            " two files per RTP stream."
+            ,&prefs.gui_rtp_player_use_disk2);
 
 
     prefs_register_bool_preference(gui_layout_module, "packet_list_show_related",
@@ -3644,8 +3681,6 @@ prefs_register_modules(void)
                                    "Determines time between tap updates",
                                    10,
                                    &prefs.tap_update_interval);
-
-    prefs_register_obsolete_preference(stats_module, "rtp_player_max_visible");
 
     prefs_register_bool_preference(stats_module, "st_enable_burstinfo",
             "Enable the calculation of burst information",
@@ -4194,6 +4229,7 @@ pre_init_prefs(void)
     prefs.gui_interfaces_remote_display = TRUE;
     prefs.gui_qt_packet_list_separator = FALSE;
     prefs.gui_qt_packet_header_column_definition = TRUE;
+    prefs.gui_qt_packet_list_hover_style = TRUE;
     prefs.gui_qt_show_selected_packet = FALSE;
     prefs.gui_qt_show_file_load_time = FALSE;
     prefs.gui_max_export_objects     = 1000;

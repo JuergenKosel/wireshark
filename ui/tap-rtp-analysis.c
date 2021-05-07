@@ -161,7 +161,7 @@ get_dyn_pt_clock_rate(const gchar *payload_type_str)
 /****************************************************************************/
 void
 rtppacket_analyse(tap_rtp_stat_t *statinfo,
-                       packet_info *pinfo,
+                       const packet_info *pinfo,
                        const struct _rtp_info *rtpinfo)
 {
     double current_time;
@@ -179,7 +179,6 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
 
     /*  Is this the first packet we got in this direction? */
     if (statinfo->first_packet) {
-        /* Save the MAC address of the first RTP frame */
         statinfo->start_seq_nr = rtpinfo->info_seq_num;
         statinfo->stop_seq_nr = rtpinfo->info_seq_num;
         statinfo->seq_num = rtpinfo->info_seq_num;
@@ -205,7 +204,12 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
         statinfo->bandwidth = (double)(statinfo->total_bytes*8)/1000;
         /* Not needed ? initialised to zero? */
         statinfo->delta = 0;
+        statinfo->max_delta = 0;
+        statinfo->min_delta = -1;
+        statinfo->mean_delta = 0;
         statinfo->jitter = 0;
+        statinfo->min_jitter = -1;
+        statinfo->max_jitter = 0;
         statinfo->diff = 0;
 
         statinfo->total_nr++;
@@ -453,12 +457,51 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
             statinfo->max_delta = statinfo->delta;
             statinfo->max_nr = pinfo->num;
         }
+        /* Include it in minimum delta calculation */
+        if (statinfo->min_delta == -1 ) {
+            statinfo->min_delta = statinfo->delta;
+        } else if (statinfo->delta < statinfo->min_delta) {
+            statinfo->min_delta = statinfo->delta;
+        }
+        /* Mean delta calculation; average over the deltas between packets.
+         * For N packets there are N-1 deltas between them. The first packet
+         * has total_nr == 1, but here while we're processing the Nth
+         * packet, total_nr isn't incremented yet.
+         * E.g., when we arrive here and total_nr == 1, we're actually on
+         * packet #2, and thus, the first delta. So interestingly, when we
+         * divide by total_nr here, we're not dividing by the number of
+         * packets, but by the number of deltas.
+         * Important: total_nr here is never 0; when the first packet is
+         * handled, that logic increments total_nr from 0 to 1; here, it is
+         * always >=1 .
+         */
+        statinfo->mean_delta = (statinfo->mean_delta*(statinfo->total_nr-1) + statinfo->delta) / statinfo->total_nr;
+
         if (clock_rate != 0) {
             /* Maximum and mean jitter calculation */
             if (statinfo->jitter > statinfo->max_jitter) {
                 statinfo->max_jitter = statinfo->jitter;
             }
-            statinfo->mean_jitter = (statinfo->mean_jitter*statinfo->total_nr + current_diff) / (statinfo->total_nr+1);
+            /* Mean jitter calculation; average over the diffs between packets.
+             * For N packets there are N-1 diffs between them. The first packet
+             * has total_nr == 1, but here while we're processing the Nth
+             * packet, total_nr isn't incremented yet.
+             * E.g., when we arrive here and total_nr == 1, we're actually on
+             * packet #2, and thus, the first diff. So interestingly, when we
+             * divide by total_nr here, we're not dividing by the number of
+             * packets, but by the number of diffs.
+             * Important: total_nr here is never 0; when the first packet is
+             * handled, that logic increments total_nr from 0 to 1; here, it is
+             * always >=1 .
+             */
+            statinfo->mean_jitter = (statinfo->mean_jitter*(statinfo->total_nr-1) + current_diff) / statinfo->total_nr;
+
+            /* Minimum jitter calculation */
+            if (statinfo->min_jitter == -1 ) {
+                statinfo->min_jitter = statinfo->jitter;
+            } else if (statinfo->jitter < statinfo->min_jitter) {
+                statinfo->min_jitter = statinfo->jitter;
+            }
         }
     }
     /* Regular payload change? (CN ignored) */
@@ -488,16 +531,3 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
 
     return;
 }
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

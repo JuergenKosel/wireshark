@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v16.4.0 (2021-01)
+ * References: 3GPP TS 38.413 v16.5.0 (2021-04)
  */
 
 #include "config.h"
@@ -88,6 +88,15 @@ static int hf_ngap_RATRestrictionInformation_e_UTRA = -1;
 static int hf_ngap_RATRestrictionInformation_nR = -1;
 static int hf_ngap_RATRestrictionInformation_nR_unlicensed = -1;
 static int hf_ngap_RATRestrictionInformation_reserved = -1;
+static int hf_ngap_primaryRATRestriction_e_UTRA = -1;
+static int hf_ngap_primaryRATRestriction_nR = -1;
+static int hf_ngap_primaryRATRestriction_nR_unlicensed = -1;
+static int hf_ngap_primaryRATRestriction_reserved = -1;
+static int hf_ngap_secondaryRATRestriction_e_UTRA = -1;
+static int hf_ngap_secondaryRATRestriction_nR = -1;
+static int hf_ngap_secondaryRATRestriction_e_UTRA_unlicensed = -1;
+static int hf_ngap_secondaryRATRestriction_nR_unlicensed = -1;
+static int hf_ngap_secondaryRATRestriction_reserved = -1;
 static int hf_ngap_NrencryptionAlgorithms_nea1 = -1;
 static int hf_ngap_NrencryptionAlgorithms_nea2 = -1;
 static int hf_ngap_NrencryptionAlgorithms_nea3 = -1;
@@ -115,6 +124,9 @@ static int hf_ngap_MeasurementsToActivate_reserved = -1;
 static int hf_ngap_MDT_Location_Information_GNSS = -1;
 static int hf_ngap_MDT_Location_Information_reserved = -1;
 static int hf_ngap_GlobalCable_ID_str = -1;
+static int hf_ngap_UpdateFeedback_CN_PDB_DL = -1;
+static int hf_ngap_UpdateFeedback_CN_PDB_UL = -1;
+static int hf_ngap_UpdateFeedback_reserved = -1;
 #include "packet-ngap-hf.c"
 
 /* Initialize the subtree pointers */
@@ -132,6 +144,8 @@ static gint ett_ngap_SourceToTarget_TransparentContainer = -1;
 static gint ett_ngap_TargetToSource_TransparentContainer = -1;
 static gint ett_ngap_RRCContainer = -1;
 static gint ett_ngap_RATRestrictionInformation = -1;
+static gint ett_ngap_primaryRATRestriction = -1;
+static gint ett_ngap_secondaryRATRestriction = -1;
 static gint ett_ngap_NrencryptionAlgorithms = -1;
 static gint ett_ngap_NrintegrityProtectionAlgorithms = -1;
 static gint ett_ngap_EUTRAencryptionAlgorithms = -1;
@@ -157,6 +171,7 @@ static gint ett_ngap_NRUERLFReportContainer = -1;
 static gint ett_ngap_TargettoSource_Failure_TransparentContainer = -1;
 static gint ett_ngap_UERadioCapabilityForPagingOfNB_IoT = -1;
 static gint ett_ngap_GlobalCable_ID = -1;
+static gint ett_ngap_UpdateFeedback = -1;
 #include "packet-ngap-ett.c"
 
 static expert_field ei_ngap_number_pages_le15 = EI_INIT;
@@ -459,6 +474,11 @@ ngap_is_nbiot_ue(packet_info *pinfo)
   }
   return FALSE;
 }
+
+const true_false_string ngap_not_updated_updated = {
+    "Not updated",
+    "Updated"
+};
 
 #include "packet-ngap-fn.c"
 
@@ -807,6 +827,42 @@ void proto_register_ngap(void) {
       { "reserved", "ngap.RATRestrictionInformation.reserved",
         FT_UINT8, BASE_HEX, NULL, 0x1f,
         NULL, HFILL }},
+    { &hf_ngap_primaryRATRestriction_e_UTRA,
+      { "e-UTRA", "ngap.primaryRATRestriction.e_UTRA",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x80,
+        NULL, HFILL }},
+    { &hf_ngap_primaryRATRestriction_nR,
+      { "nR", "ngap.primaryRATRestriction.nR",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x40,
+        NULL, HFILL }},
+    { &hf_ngap_primaryRATRestriction_nR_unlicensed,
+      { "nR-unlicensed", "ngap.primaryRATRestriction.nR_unlicensed",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x20,
+        NULL, HFILL }},
+    { &hf_ngap_primaryRATRestriction_reserved,
+      { "reserved", "ngap.primaryRATRestriction.reserved",
+        FT_UINT8, BASE_HEX, NULL, 0x1f,
+        NULL, HFILL }},
+    { &hf_ngap_secondaryRATRestriction_e_UTRA,
+      { "e-UTRA", "ngap.secondaryRATRestriction.e_UTRA",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x80,
+        NULL, HFILL }},
+    { &hf_ngap_secondaryRATRestriction_nR,
+      { "nR", "ngap.secondaryRATRestriction.nR",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x40,
+        NULL, HFILL }},
+    { &hf_ngap_secondaryRATRestriction_e_UTRA_unlicensed,
+      { "e-UTRA-unlicensed", "ngap.secondaryRATRestriction.e_UTRA_unlicensed",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x20,
+        NULL, HFILL }},
+    { &hf_ngap_secondaryRATRestriction_nR_unlicensed,
+      { "nR-unlicensed", "ngap.secondaryRATRestriction.nR_unlicensed",
+        FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x10,
+        NULL, HFILL }},
+    { &hf_ngap_secondaryRATRestriction_reserved,
+      { "reserved", "ngap.secondaryRATRestriction.reserved",
+        FT_UINT8, BASE_HEX, NULL, 0x0f,
+        NULL, HFILL }},
 	{ &hf_ngap_NrencryptionAlgorithms_nea1,
 	  { "128-NEA1", "ngap.NrencryptionAlgorithms.nea1",
         FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x8000,
@@ -915,6 +971,18 @@ void proto_register_ngap(void) {
       { "GlobalCable-ID", "ngap.GlobalCable_ID.str",
         FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
+    { &hf_ngap_UpdateFeedback_CN_PDB_DL,
+      { "CN PDB DL", "ngap.UpdateFeedback.CN_PDB_DL",
+        FT_BOOLEAN, 8, TFS(&ngap_not_updated_updated), 0x80,
+        NULL, HFILL }},
+    { &hf_ngap_UpdateFeedback_CN_PDB_UL,
+      { "CN PDB UL", "ngap.UpdateFeedback.CN_PDB_UL",
+        FT_BOOLEAN, 8, TFS(&ngap_not_updated_updated), 0x40,
+        NULL, HFILL }},
+    { &hf_ngap_UpdateFeedback_reserved,
+      { "Reserved", "ngap.UpdateFeedback.reserved",
+        FT_UINT8, BASE_HEX, NULL, 0x3f,
+        NULL, HFILL }},
 #include "packet-ngap-hfarr.c"
   };
 
@@ -934,6 +1002,8 @@ void proto_register_ngap(void) {
     &ett_ngap_TargetToSource_TransparentContainer,
     &ett_ngap_RRCContainer,
     &ett_ngap_RATRestrictionInformation,
+    &ett_ngap_primaryRATRestriction,
+    &ett_ngap_secondaryRATRestriction,
     &ett_ngap_NrencryptionAlgorithms,
     &ett_ngap_NrintegrityProtectionAlgorithms,
     &ett_ngap_EUTRAencryptionAlgorithms,
@@ -959,6 +1029,7 @@ void proto_register_ngap(void) {
     &ett_ngap_TargettoSource_Failure_TransparentContainer,
     &ett_ngap_UERadioCapabilityForPagingOfNB_IoT,
     &ett_ngap_GlobalCable_ID,
+    &ett_ngap_UpdateFeedback,
 #include "packet-ngap-ettarr.c"
   };
 

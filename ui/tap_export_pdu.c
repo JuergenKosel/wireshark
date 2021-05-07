@@ -10,16 +10,15 @@
 
 #include "config.h"
 
-#include "wiretap/pcap-encap.h"
-#include "wsutil/os_version_info.h"
-#include "version_info.h"
-
 #include <epan/tap.h>
 #include <epan/exported_pdu.h>
 #include <epan/epan_dissect.h>
 #include <wiretap/wtap.h>
 #include <wiretap/wtap_opttypes.h>
-#include <wiretap/pcapng.h>
+#include <wsutil/os_version_info.h>
+#include <wsutil/report_message.h>
+
+#include "version_info.h"
 
 #include "tap_export_pdu.h"
 
@@ -34,6 +33,12 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
     gchar *err_info;
     int buffer_len;
     guint8 *packet_buf;
+    tap_packet_status status = TAP_PACKET_DONT_REDRAW; /* no GUI, nothing to redraw */
+
+    /*
+     * Count this packet.
+     */
+    exp_pdu_tap_data->framenum++;
 
     memset(&rec, 0, sizeof rec);
     buffer_len = exp_pdu_data->tvb_captured_length + exp_pdu_data->tlv_buffer_len;
@@ -46,7 +51,7 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
         tvb_memcpy(exp_pdu_data->pdu_tvb, packet_buf+exp_pdu_data->tlv_buffer_len, 0, exp_pdu_data->tvb_captured_length);
     }
     rec.rec_type                           = REC_TYPE_PACKET;
-    rec.presence_flags                     = WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID|WTAP_HAS_TS|WTAP_HAS_PACK_FLAGS;
+    rec.presence_flags                     = WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID|WTAP_HAS_TS;
     rec.ts.secs                            = pinfo->abs_ts.secs;
     rec.ts.nsecs                           = pinfo->abs_ts.nsecs;
     rec.rec_header.packet_header.caplen    = buffer_len;
@@ -65,28 +70,23 @@ export_pdu_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt, const 
     }
 
     /* XXX: should the rec.rec_header.packet_header.pseudo_header be set to the pinfo's pseudo-header? */
-    /* XXX: report errors and return TAP_PACKET_FAILED! */
     if (!wtap_dump(exp_pdu_tap_data->wdh, &rec, packet_buf, &err, &err_info)) {
-        switch (err) {
-
-        case WTAP_ERR_UNWRITABLE_REC_DATA:
-            g_free(err_info);
-            break;
-
-        default:
-            break;
-        }
+        report_cfile_write_failure(NULL, exp_pdu_tap_data->pathname,
+                                   err, err_info, exp_pdu_tap_data->framenum,
+                                   wtap_dump_file_type_subtype(exp_pdu_tap_data->wdh));
+        status = TAP_PACKET_FAILED;
     }
 
     g_free(packet_buf);
     g_free(rec.opt_comment);
 
-    return TAP_PACKET_DONT_REDRAW; /* Do not redraw */
+    return status;
 }
 
 gboolean
-exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int file_type_subtype, int fd,
-             const char *comment, int *err, gchar **err_info)
+exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, char *pathname,
+             int file_type_subtype, int fd, const char *comment,
+             int *err, gchar **err_info)
 {
     /* pcapng defs */
     wtap_block_t                 shb_hdr;
@@ -137,8 +137,8 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int file_type_subtype, int fd,
     }
 
     /*
-     * Create a fake IDB even if it's not supported; that provides a
-     * link-layer type
+     * Create fake interface information for files that support (meaning
+     * "require") interface information and per-packet interface IDs.
      */
     if (wtap_file_type_subtype_supports_block(file_type_subtype,
                                               WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
@@ -148,7 +148,7 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int file_type_subtype, int fd,
         /* create the fake interface data */
         int_data = wtap_block_create(WTAP_BLOCK_IF_ID_AND_INFO);
         int_data_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(int_data);
-        int_data_mand->wtap_encap      = WTAP_ENCAP_WIRESHARK_UPPER_PDU;
+        int_data_mand->wtap_encap      = exp_pdu_tap_data->pkt_encap;
         int_data_mand->time_units_per_second = 1000000000; /* default nanosecond resolution */
         int_data_mand->snap_len        = WTAP_MAX_PACKET_SIZE_STANDARD;
 
@@ -161,7 +161,7 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int file_type_subtype, int fd,
     }
 
     const wtap_dump_params params = {
-        .encap = WTAP_ENCAP_WIRESHARK_UPPER_PDU,
+        .encap = exp_pdu_tap_data->pkt_encap,
         .snaplen = WTAP_MAX_PACKET_SIZE_STANDARD,
         .shb_hdrs = exp_pdu_tap_data->shb_hdrs,
         .idb_inf = exp_pdu_tap_data->idb_inf,
@@ -176,6 +176,8 @@ exp_pdu_open(exp_pdu_t *exp_pdu_tap_data, int file_type_subtype, int fd,
     if (exp_pdu_tap_data->wdh == NULL)
         return FALSE;
 
+    exp_pdu_tap_data->pathname = pathname;
+    exp_pdu_tap_data->framenum = 0; /* No frames written yet */
     return TRUE;
 }
 
@@ -200,7 +202,7 @@ exp_pdu_pre_open(const char *tap_name, const char *filter, exp_pdu_t *exp_pdu_ta
     GString        *error_string;
 
     /* XXX: can we always assume WTAP_ENCAP_WIRESHARK_UPPER_PDU? */
-    exp_pdu_tap_data->pkt_encap = wtap_wtap_encap_to_pcap_encap(WTAP_ENCAP_WIRESHARK_UPPER_PDU);
+    exp_pdu_tap_data->pkt_encap = WTAP_ENCAP_WIRESHARK_UPPER_PDU;
 
     /* Register this tap listener now */
     error_string = register_tap_listener(tap_name,             /* The name of the tap we want to listen to */
@@ -217,17 +219,3 @@ exp_pdu_pre_open(const char *tap_name, const char *filter, exp_pdu_t *exp_pdu_ta
 
     return NULL;
 }
-
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

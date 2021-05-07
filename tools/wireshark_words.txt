@@ -1,11 +1,15 @@
 0x%02x
 0x%08x
+100kbps
+10base
+10gig
 16bit
 1xrtt
 32bit
 3gpp2
 5views
 80211n
+80mhz
 accelerometer
 accessor
 accessors
@@ -23,6 +27,7 @@ aes128
 aes256
 aggregator
 agnss
+aifsn
 aironet
 airpcap
 airtel
@@ -30,6 +35,7 @@ alcap
 alljoyn
 alloc
 allocators
+alteon
 amperage
 ampere
 amperes
@@ -84,6 +90,7 @@ beamformee
 beamformer
 beamforming
 bidirectional
+bidirectionally
 bitfield
 bitmask
 bitrate
@@ -197,6 +204,7 @@ connid
 const
 contactless
 contiguously
+Coord3D
 copyfile
 couchbase
 coverity
@@ -245,6 +253,8 @@ decrypted
 decrypting
 decryption
 deduplicate
+deenabled
+deenablement
 defragment
 defragmentation
 defragmented
@@ -285,6 +295,7 @@ dhcpv
 dialed
 dialup
 diffie
+Digicel
 diplexer
 directionality
 dissection
@@ -307,8 +318,11 @@ drbid
 droppable
 dsmcc
 dstport
+dtwin
 dumpcap
 duple
+dword
+dwords
 eapol
 earfcn
 ebcdic
@@ -316,6 +330,7 @@ ecdhe
 ecdsa
 editcap
 egprs
+egroup
 eigrp
 elink
 ellipsoid
@@ -335,11 +350,13 @@ entityid
 entryid
 enumerations
 epasv
+errinf
 errno
 errorcode
 errored
 errorportinfo
 erspan
+España
 etheraddr
 ethertype
 ettarr
@@ -423,6 +440,7 @@ hnbap
 homeplug
 hopcount
 hostname
+howto
 hsdpa
 hsdsch
 hspdsch
@@ -478,6 +496,7 @@ ipaddress
 ipfix
 ipprim
 ipsec
+iptables
 iptrace
 ipv4addr
 isakmp
@@ -489,11 +508,13 @@ itunes
 iwarp
 ixveriwave
 jetds
+jsonraw
 kademlia
 keepalive
 kerberos
 keydes
 keygen
+keyid
 keylen
 keylog
 keypress
@@ -544,6 +565,7 @@ meshcop
 messageid
 metadata
 meteorological
+México
 mgmtmsg
 microbit
 midamble
@@ -621,6 +643,7 @@ nonblock
 noncriticalextension
 noncriticalextensions
 nopad
+nortel
 notarized
 notif
 notifier
@@ -633,6 +656,7 @@ nssai
 nstime
 nstrace
 ntlmssp
+nvmeof
 obfuscated
 objectid
 objkey
@@ -684,6 +708,7 @@ pcmaxc
 pdcch
 pdsch
 peeraddr
+peerkey
 periodicities
 phaser
 phich
@@ -709,11 +734,13 @@ preconfiguration
 preconfigured
 preempting
 preemption
+prefname
 prefs
 preloaded
 prepay
 prepend
 preshared
+printf
 prioritized
 privkey
 procid
@@ -738,6 +765,7 @@ pytest
 qam16
 qam64
 qnet6
+qosinfo
 quadro
 quiescing
 quintuplet
@@ -851,12 +879,15 @@ revalidate
 revertive
 rfcomm
 rlcmac
+rmcap
 rnsap
 roamer
 routable
 rpcap
 rtpmidi
 rtpmux
+rxreq
+sanicap
 sanitize
 satisfiable
 scaler
@@ -865,6 +896,7 @@ scell
 scoped
 scrollbar
 sdusize
+sectorization
 sectorized
 segno
 semiautomatic
@@ -880,6 +912,7 @@ setattr
 setuid
 severities
 sflow
+sgdsn
 sgsap
 sha256
 sha384
@@ -891,6 +924,7 @@ signaling
 simulcast
 skype
 slsch
+smpte
 sname
 snaplen
 snow3g
@@ -980,6 +1014,9 @@ tdd128
 tdd384
 tdd768
 technica
+Telecomunicaciones
+Telefónica
+Teléfonos
 telenor
 teletex
 telia
@@ -1036,6 +1073,7 @@ unauthenticated
 unbind
 unbuffered
 uncalculated
+uncalibrated
 uncategorized
 unchannelized
 unciphered
@@ -1047,6 +1085,7 @@ unconfigurable
 unconfigured
 unconfirm
 uncorrectable
+undecidable
 undecipherable
 undecodable
 undecoded
@@ -1090,6 +1129,7 @@ unparsed
 unprocessable
 unpublish
 unpunctuated
+unreach
 unreassembled
 unreceived
 unrecoverable
@@ -1169,4 +1209,5 @@ xchannel
 xmlns
 xtreme
 z3950
+zeroes
 zigbee

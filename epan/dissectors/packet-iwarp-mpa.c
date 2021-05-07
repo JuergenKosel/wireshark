@@ -690,9 +690,11 @@ dissect_mpa_fpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		 * always either with a Marker or the ULPDU_LENGTH header field.
 		 */
 		pad_length = fpdu_pad_length(ulpdu_length);
-		exp_ulpdu_length = expected_ulpdu_length(state, tcpinfo, endpoint);
-		if (!exp_ulpdu_length || exp_ulpdu_length != (ulpdu_length + pad_length)) {
-			return 0;
+		if (num_of_m > 0) {
+			exp_ulpdu_length = expected_ulpdu_length(state, tcpinfo, endpoint);
+			if (!exp_ulpdu_length || exp_ulpdu_length != (ulpdu_length + pad_length)) {
+				return 0;
+			}
 		}
 
 		mpa_packetlist(pinfo, MPA_FPDU);
@@ -712,7 +714,7 @@ dissect_mpa_fpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 				MPA_ULPDU_LENGTH_LEN, ulpdu_length);
 
 		/* Markers are present in this FPDU */
-		if (state->minfo[endpoint].valid && num_of_m > 0) {
+		if (num_of_m > 0) {
 
 			total_length = fpdu_total_length(tcpinfo);
 
@@ -827,6 +829,104 @@ dissect_iwarp_mpa(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 			return dissect_mpa_req_rep(tvb, pinfo, tree, MPA_REPLY_FRAME);
 	}
 	return FALSE;
+}
+
+static guint
+iwrap_mpa_pdu_length(packet_info *pinfo _U_, tvbuff_t *tvb,
+		     int offset, void *data _U_)
+{
+	guint64 tag;
+	gint remaining = tvb_captured_length_remaining(tvb, offset);
+	guint pdu_length = 0;
+	guint16 PD_Length;
+
+	tag = tvb_get_ntoh64(tvb, offset);
+	if (tag != MPA_REQ_REP_FRAME) {
+		/* FPDU */
+		guint16 ULPDU_Length;
+		guint8 pad_length;
+
+		ULPDU_Length = tvb_get_ntohs(tvb, offset);
+		pad_length = fpdu_pad_length(ULPDU_Length);
+
+		pdu_length += MPA_ULPDU_LENGTH_LEN;
+		pdu_length += ULPDU_Length;
+		pdu_length += pad_length;
+		pdu_length += MPA_CRC_LEN;
+
+		return pdu_length;
+	}
+
+	/*
+	 * MPA Request and Reply Frame Format...
+	 */
+
+	if (remaining < MPA_REQ_REP_FRAME_HEADER_LEN) {
+		/*
+		 * We need more data.
+		 */
+		return 0;
+	}
+
+	offset += MPA_REQ_REP_FRAME_HEADER_LEN;
+	offset -= MPA_REQ_REP_PDLENGTH_LEN;
+
+	PD_Length = tvb_get_ntohs(tvb, offset);
+
+	pdu_length += MPA_REQ_REP_FRAME_HEADER_LEN;
+	pdu_length += PD_Length;
+
+	return pdu_length;
+}
+
+static int
+dissect_iwarp_mpa_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+	gboolean ok;
+	guint len;
+
+	len = iwrap_mpa_pdu_length(pinfo, tvb, 0, data);
+	ok = dissect_iwarp_mpa(tvb, pinfo, tree, data);
+	if (!ok) {
+		return -1;
+	}
+
+	return len;
+}
+
+static gboolean
+dissect_iwarp_mpa_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+	struct tcpinfo *tcpinfo = NULL;
+	gboolean is_mpa_pdu = FALSE;
+
+	if (data == NULL)
+		return FALSE;
+	tcpinfo = (struct tcpinfo *)data;
+
+	/* MPA REQUEST or MPA REPLY */
+	if (tvb_captured_length(tvb) >= MPA_REQ_REP_FRAME_HEADER_LEN) {
+		if (is_mpa_req(tvb, pinfo)) {
+			is_mpa_pdu = TRUE;
+		} else if (is_mpa_rep(tvb, pinfo)) {
+			is_mpa_pdu = TRUE;
+		}
+	}
+	if (tvb_captured_length(tvb) >= MPA_SMALLEST_FPDU_LEN && is_mpa_fpdu(pinfo)) {
+		is_mpa_pdu = TRUE;
+	}
+
+	if (!is_mpa_pdu) {
+		return FALSE;
+	}
+
+	tcp_dissect_pdus(tvb, pinfo, tree,
+			 TRUE, /* proto_desegment*/
+			 MPA_SMALLEST_FPDU_LEN,
+			 iwrap_mpa_pdu_length,
+			 dissect_iwarp_mpa_pdu,
+			 tcpinfo);
+	return TRUE;
 }
 
 /* registers this protocol with Wireshark */
@@ -949,7 +1049,7 @@ proto_reg_handoff_mpa(void)
 	 * MPA does not use any specific TCP port so, when not on a specific
 	 * port, try this dissector whenever there is TCP traffic.
 	 */
-	heur_dissector_add("tcp", dissect_iwarp_mpa, "IWARP_MPA over TCP", "iwarp_mpa_tcp", proto_iwarp_mpa, HEURISTIC_ENABLE);
+	heur_dissector_add("tcp", dissect_iwarp_mpa_heur, "IWARP_MPA over TCP", "iwarp_mpa_tcp", proto_iwarp_mpa, HEURISTIC_ENABLE);
 	ddp_rdmap_handle = find_dissector_add_dependency("iwarp_ddp_rdmap", proto_iwarp_mpa);
 }
 

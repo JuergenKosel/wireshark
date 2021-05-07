@@ -30,7 +30,7 @@ public:
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
     virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    void addRecord(tap_credential_t* rec);
+    void addRecord(const tap_credential_t *rec);
     void clear();
 
     enum {
@@ -50,16 +50,3 @@ private:
 };
 
 #endif // CREDENTIALS_MODELS_H
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

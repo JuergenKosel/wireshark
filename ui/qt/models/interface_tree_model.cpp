@@ -14,7 +14,7 @@
 
 #ifdef HAVE_LIBPCAP
 #include "ui/capture.h"
-#include "caputils/capture-pcap-util.h"
+#include "capture/capture-pcap-util.h"
 #include "capture_opts.h"
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
@@ -539,17 +539,3 @@ bool InterfaceTreeModel::updateSelectedDevices(QItemSelection sourceSelection)
 #endif
     return selectionHasChanged;
 }
-
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

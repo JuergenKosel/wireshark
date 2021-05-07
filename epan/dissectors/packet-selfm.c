@@ -1,7 +1,7 @@
 /* packet-selfm.c
  * Routines for Schweitzer Engineering Laboratories (SEL) Protocols Dissection
  * By Chris Bontje (cbontje[AT]gmail.com
- * Copyright 2012-2018,
+ * Copyright 2012-2021,
  *
  ************************************************************************************************
  * Wireshark - Network traffic analyzer
@@ -1230,14 +1230,16 @@ dissect_fmdata_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int of
     proto_item       *fmdata_item, *fmdata_dig_ch_item;
     proto_item       *fmdata_ai_sf_item;
     proto_tree       *fmdata_tree, *fmdata_ai_tree=NULL, *fmdata_dig_tree=NULL, *fmdata_ai_ch_tree=NULL, *fmdata_dig_ch_tree=NULL;
-    guint8           len, idx=0, j=0, ts_mon, ts_day, ts_year, ts_hour, ts_min, ts_sec;
-    guint16          config_cmd, ts_msec;
+    guint8           len, idx=0, j=0;
+    guint16          config_cmd;
     gint16           ai_int16val;
     gint             cnt = 0, ch_size=0;
     gfloat           ai_sf_fp;
     gboolean         config_found = FALSE;
     fm_conversation  *conv;
     fm_config_frame  *cfg_data = NULL;
+    nstime_t  datetime;
+    struct tm tm;
 
     len = tvb_get_guint8(tvb, offset);
 
@@ -1379,15 +1381,18 @@ dissect_fmdata_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int of
                 if (cfg_data->offset_ts != 0xFFFF) {
                     /* Retrieve timestamp from 8-byte format                         */
                     /* Stored as: month, day, year (xx), hr, min, sec, msec (16-bit) */
-                    ts_mon  = tvb_get_guint8(tvb, offset);
-                    ts_day  = tvb_get_guint8(tvb, offset+1);
-                    ts_year = tvb_get_guint8(tvb, offset+2);
-                    ts_hour = tvb_get_guint8(tvb, offset+3);
-                    ts_min  = tvb_get_guint8(tvb, offset+4);
-                    ts_sec  = tvb_get_guint8(tvb, offset+5);
-                    ts_msec = tvb_get_ntohs(tvb, offset+6);
-                    proto_tree_add_bytes_format_value(fmdata_tree, hf_selfm_fmdata_timestamp, tvb, offset, 8, NULL,
-                            "%.2d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d", ts_mon, ts_day, ts_year, ts_hour, ts_min, ts_sec, ts_msec);
+                    tm.tm_mon = tvb_get_guint8(tvb, offset) - 1;
+                    tm.tm_mday = tvb_get_guint8(tvb, offset+1);
+                    tm.tm_year = tvb_get_guint8(tvb, offset+2) + 100;
+                    tm.tm_hour = tvb_get_guint8(tvb, offset+3);
+                    tm.tm_min = tvb_get_guint8(tvb, offset+4);
+                    tm.tm_sec = tvb_get_guint8(tvb, offset+5);
+                    tm.tm_isdst = 0;
+
+                    datetime.nsecs = (tvb_get_ntohs(tvb, offset+6) % 1000) * 1000000;
+                    datetime.secs = mktime(&tm);
+
+                    proto_tree_add_time(fmdata_tree, hf_selfm_fmdata_timestamp, tvb, offset, 8, &datetime);
 
                     offset += 8;
                 }
@@ -3024,7 +3029,7 @@ proto_register_selfm(void)
         { &hf_selfm_fid, { "FID", "selfm.fid", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_selfm_rid, { "RID", "selfm.rid", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_selfm_fastmsg_data_region_name, { "Data Region Name", "selfm.fastmsg.data_region_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
-        { &hf_selfm_fmdata_timestamp, { "Timestamp", "selfm.fmdata.timestamp", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+        { &hf_selfm_fmdata_timestamp, { "Timestamp", "selfm.fmdata.timestamp", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0, NULL, HFILL }},
         { &hf_selfm_fmdata_frame_data_format_reference, { "Frame Data Format Reference", "selfm.fmdata.frame_data_format_reference", FT_FRAMENUM, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_selfm_fastmsg_bit_label_name, { "Bit Label Name", "selfm.fastmsg.bit_label_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
     };

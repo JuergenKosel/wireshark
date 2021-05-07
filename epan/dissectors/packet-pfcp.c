@@ -119,6 +119,7 @@ static int hf_pfcp_ue_ip_address_flag_b6_v6pl = -1;
 static int hf_pfcp_ue_ip_addr_ipv4 = -1;
 static int hf_pfcp_ue_ip_add_ipv6 = -1;
 static int hf_pfcp_ue_ip_add_ipv6_prefix = -1;
+static int hf_pfcp_ue_ip_add_ipv6pd = -1;
 static int hf_pfcp_ue_ip_add_ipv6_prefix_length = -1;
 static int hf_pfcp_application_id = -1;
 static int hf_pfcp_application_id_str = -1;
@@ -270,7 +271,7 @@ static int hf_pfcp_report_type_b0_dldr = -1;
 
 static int hf_pfcp_offending_ie = -1;
 
-
+static int hf_pfcp_up_function_features_o10_b1_quoaf = -1;
 static int hf_pfcp_up_function_features_o10_b0_rttwp = -1;
 static int hf_pfcp_up_function_features_o9_b7_rds = -1;
 static int hf_pfcp_up_function_features_o9_b6_ddds = -1;
@@ -2841,7 +2842,8 @@ dissect_pfcp_up_function_features(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     }
 
     static int * const pfcp_up_function_features_o10_flags[] = {
-        &hf_pfcp_spare_b7_b1,
+        &hf_pfcp_spare_b7_b2,
+        &hf_pfcp_up_function_features_o10_b1_quoaf,
         &hf_pfcp_up_function_features_o10_b0_rttwp,
         NULL
     };
@@ -4366,6 +4368,8 @@ dissect_pfcp_ue_ip_address(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     if ((ue_ip_address_flags & 0x8)) {
         proto_tree_add_item(tree, hf_pfcp_ue_ip_add_ipv6_prefix, tvb, offset, 1, ENC_NA);
         offset += 1;
+        proto_tree_add_item(tree, hf_pfcp_ue_ip_add_ipv6pd, tvb, offset, 16, ENC_NA);
+        offset += 16;
     }
     /* IPv6 Prefix Lengths (if present)*/
     if ((ue_ip_address_flags & 0x40)) {
@@ -6330,7 +6334,9 @@ dissect_pfcp_ue_ip_address_pool_identity(tvbuff_t *tvb, packet_info *pinfo _U_, 
     * The UE IP address Pool Identity field shall be encoded as an OctetString
     * (see the Framed-Ipv6-Pool and Framed-Pool in clause 12.6.3 of 3GPP TS 29.561).
     */
-    proto_tree_add_item_ret_uint(tree, hf_pfcp_ue_ip_address_pool_length, tvb, 0, 1, ENC_BIG_ENDIAN, &pool_length);
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_ue_ip_address_pool_length, tvb, 0, 2, ENC_BIG_ENDIAN, &pool_length);
+    offset += 2;
+
     proto_tree_add_item(tree, hf_pfcp_ue_ip_address_pool_identity, tvb, offset, pool_length, ENC_NA);
     offset += pool_length;
 
@@ -9555,6 +9561,11 @@ proto_register_pfcp(void)
             FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+	{ &hf_pfcp_ue_ip_add_ipv6pd,
+        { "IPv6 Delegated Prefix Address", "pfcp.ue_ip_addr_ipv6pd",
+            FT_IPv6, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_pfcp_ue_ip_add_ipv6_prefix_length,
         { "IPv6 Prefix Length", "pfcp.ue_ip_addr_ipv6_prefix_length",
             FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -10542,6 +10553,11 @@ proto_register_pfcp(void)
         { "RTTWP", "pfcp.up_function_features.rttwp",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
             "UPF support of RTT measurement towards the UE without PMF", HFILL }
+        },
+        { &hf_pfcp_up_function_features_o10_b1_quoaf,
+        { "QUOAF", "pfcp.up_function_features.quoaf",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
+            "UP function supports being provisioned with the Quota Action Application ID or a Quota Action SDF Filter to apply when reaching quotas", HFILL }
         },
         { &hf_pfcp_sequence_number,
         { "Sequence Number", "pfcp.sequence_number",
@@ -11693,13 +11709,13 @@ proto_register_pfcp(void)
         },
 
         { &hf_pfcp_ue_ip_address_pool_length,
-        { "UE IP address Pool Identity", "pfcp.ue_ip_address_pool_length",
-            FT_UINT16, BASE_DEC, NULL, 0xF,
+        { "UE IP address Pool Identity Length", "pfcp.ue_ip_address_pool_length",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_ue_ip_address_pool_identity,
         { "UE IP address Pool Identity", "pfcp.ue_ip_address_pool_identity",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
+            FT_BYTES, BASE_SHOW_ASCII_PRINTABLE, NULL, 0x0,
             NULL, HFILL }
         },
 

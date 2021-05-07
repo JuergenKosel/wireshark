@@ -67,11 +67,11 @@ get_args_as_string(int argc, char **argv, int optindex)
     argstring[0] = '\0';
     i = optindex;
     for (;;) {
-        g_strlcat(argstring, argv[i], len);
+        (void) g_strlcat(argstring, argv[i], len);
         i++;
         if (i == argc)
             break;
-        g_strlcat(argstring, " ", len);
+        (void) g_strlcat(argstring, " ", len);
     }
     return argstring;
 }
@@ -339,16 +339,3 @@ gboolean display_is_remote(void)
     }
     return is_remote;
 }
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

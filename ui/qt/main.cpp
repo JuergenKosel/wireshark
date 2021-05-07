@@ -36,6 +36,7 @@
 
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
+#include <ui/exit_codes.h>
 #include <ui/urls.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
@@ -101,19 +102,19 @@
 #include <ui/qt/widgets/splash_overlay.h>
 #include "ui/qt/wireshark_application.h"
 
-#include "caputils/capture-pcap-util.h"
+#include "capture/capture-pcap-util.h"
 
 #include <QMessageBox>
 #include <QScreen>
 
 #ifdef _WIN32
-#  include "caputils/capture-wpcap.h"
+#  include "capture/capture-wpcap.h"
 #  include <wsutil/file_util.h>
 #endif /* _WIN32 */
 
 #ifdef HAVE_AIRPCAP
-#  include <caputils/airpcap.h>
-#  include <caputils/airpcap_loader.h>
+#  include <capture/airpcap.h>
+#  include <capture/airpcap_loader.h>
 //#  include "airpcap_dlg.h"
 //#  include "airpcap_gui_utils.h"
 #endif
@@ -126,11 +127,6 @@
 #endif
 
 #include <ui/qt/utils/qt_ui_utils.h>
-
-#define INVALID_OPTION 1
-#define INIT_FAILED 2
-#define INVALID_CAPABILITY 2
-#define INVALID_LINK_TYPE 2
 
 //#define DEBUG_STARTUP_TIME 1
 /*
@@ -172,7 +168,43 @@ void exit_application(int status) {
 
 /*
  * Report an error in command-line arguments.
- * Creates a console on Windows.
+ *
+ * On Windows, Wireshark is built for the Windows subsystem, and runs
+ * without a console, so we create a console on Windows to receive the
+ * output.
+ *
+ * See create_console(), in ui/win32/console_win32.c, for an example
+ * of code to check whether we need to create a console.
+ *
+ * On UN*Xes:
+ *
+ *  If Wireshark is run from the command line, its output either goes
+ *  to the terminal or to wherever the standard error was redirected.
+ *
+ *  If Wireshark is run by executing it as a remote command, e.g. with
+ *  ssh, its output either goes to whatever socket was set up for the
+ *  remote command's standard error or to wherever the standard error
+ *  was redirected.
+ *
+ *  If Wireshark was run from the GUI, e.g. by double-clicking on its
+ *  icon or on a file that it opens, there are no guarantees as to
+ *  where the standard error went.  It could be going to /dev/null
+ *  (current macOS), or to a socket to systemd for the journal, or
+ *  to a log file in the user's home directory, or to the "console
+ *  device" ("workstation console"), or....
+ *
+ *  Part of determining that, at least for locally-run Wireshark,
+ *  is to try to open /dev/tty to determine whether the process
+ *  has a controlling terminal.  (It fails, at a minimum, for
+ *  Wireshark launched from the GUI under macOS, Ubuntu with GNOME,
+ *  and Ubuntu with KDE; in all cases, an attempt to open /dev/tty
+ *  fails with ENXIO.)  If it does have a controlling terminal,
+ *  write to the standard error, otherwise assume that the standard
+ *  error might not go anywhere that the user will be able to see.
+ *  That doesn't handle the "run by ssh" case, however; that will
+ *  not have a controlling terminal.  (This means running it by
+ *  remote execution, not by remote login.)  Perhaps there's an
+ *  environment variable to check there.
  */
 // xxx copied from ../gtk/main.c
 static void
@@ -189,8 +221,6 @@ wireshark_cmdarg_err(const char *fmt, va_list ap)
 /*
  * Report additional information for an error in command-line arguments.
  * Creates a console on Windows.
- * XXX - pop this up in a window of some sort on UNIX+X11 if the controlling
- * terminal isn't the standard error?
  */
 // xxx copied from ../gtk/main.c
 static void
@@ -449,7 +479,7 @@ int main(int argc, char *qt_argv[])
     char                *rf_path;
     int                  rf_open_errno;
 #ifdef HAVE_LIBPCAP
-    gchar               *err_str;
+    gchar               *err_str, *err_str_secondary;;
 #else
 #ifdef _WIN32
 #ifdef HAVE_AIRPCAP
@@ -465,6 +495,18 @@ int main(int argc, char *qt_argv[])
 #endif
     /* Start time in microseconds */
     guint64 start_time = g_get_monotonic_time();
+    static const struct report_message_routines wireshark_report_routines = {
+        vfailure_alert_box,
+        vwarning_alert_box,
+        open_failure_alert_box,
+        read_failure_alert_box,
+        write_failure_alert_box,
+        cfile_open_failure_alert_box,
+        cfile_dump_open_failure_alert_box,
+        cfile_read_failure_alert_box,
+        cfile_write_failure_alert_box,
+        cfile_close_failure_alert_box
+    };
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     /*
@@ -728,9 +770,7 @@ int main(int argc, char *qt_argv[])
     capture_opts_init(&global_capture_opts);
 #endif
 
-    init_report_message(vfailure_alert_box, vwarning_alert_box,
-                        open_failure_alert_box, read_failure_alert_box,
-                        write_failure_alert_box);
+    init_report_message("Wireshark", &wireshark_report_routines);
 
     /*
      * Libwiretap must be initialized before libwireshark is, so that
@@ -844,46 +884,49 @@ int main(int argc, char *qt_argv[])
         }
     }
 
+    /*
+     * If requested, list the link layer types and/or time stamp types
+     * and exit.
+     */
     if (caps_queries) {
-        /* Get the list of link-layer types for the capture devices. */
-        if_capabilities_t *caps;
         guint i;
-        interface_t *device;
-        for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
-            int if_caps_queries = caps_queries;
-            device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-            if (device->selected) {
-#if defined(HAVE_PCAP_CREATE)
-                caps = capture_get_if_capabilities(device->name, device->monitor_mode_supported, NULL, &err_str, main_window_update);
-#else
-                caps = capture_get_if_capabilities(device->name, FALSE, NULL, &err_str,main_window_update);
-#endif
-                if (caps == NULL) {
-                    cmdarg_err("%s", err_str);
-                    g_free(err_str);
-                    ret_val = INVALID_CAPABILITY;
-                    goto clean_exit;
-                }
-            if (caps->data_link_types == NULL) {
-                cmdarg_err("The capture device \"%s\" has no data link types.", device->name);
-                ret_val = INVALID_LINK_TYPE;
-                goto clean_exit;
+
+#ifdef _WIN32
+        create_console();
+#endif /* _WIN32 */
+        /* Get the list of link-layer types for the capture devices. */
+        ret_val = EXIT_SUCCESS;
+        for (i = 0; i < global_capture_opts.ifaces->len; i++) {
+            interface_options *interface_opts;
+            if_capabilities_t *caps;
+            char *auth_str = NULL;
+
+            interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
+#ifdef HAVE_PCAP_REMOTE
+            if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
+                auth_str = g_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
             }
-#ifdef _WIN32
-            create_console();
-#endif /* _WIN32 */
-#if defined(HAVE_PCAP_CREATE)
-            if (device->monitor_mode_supported)
-                if_caps_queries |= CAPS_MONITOR_MODE;
 #endif
-            capture_opts_print_if_capabilities(caps, device->name, if_caps_queries);
-#ifdef _WIN32
-            destroy_console();
-#endif /* _WIN32 */
+            caps = capture_get_if_capabilities(interface_opts->name, interface_opts->monitor_mode,
+                                               auth_str, &err_str, &err_str_secondary, NULL);
+            g_free(auth_str);
+            if (caps == NULL) {
+                cmdarg_err("%s%s%s", err_str, err_str_secondary ? "\n" : "", err_str_secondary ? err_str_secondary : "");
+                g_free(err_str);
+                g_free(err_str_secondary);
+                ret_val = INVALID_CAPABILITY;
+                break;
+            }
+            ret_val = capture_opts_print_if_capabilities(caps, interface_opts,
+                                                         caps_queries);
             free_if_capabilities(caps);
+            if (ret_val != EXIT_SUCCESS) {
+                break;
             }
         }
-        ret_val = EXIT_SUCCESS;
+#ifdef _WIN32
+        destroy_console();
+#endif /* _WIN32 */
         goto clean_exit;
     }
 
@@ -1055,16 +1098,3 @@ clean_exit:
     free_progdirs();
     exit_application(ret_val);
 }
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

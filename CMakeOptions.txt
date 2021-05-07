@@ -55,8 +55,15 @@ option(ENABLE_FUZZER "Enable libFuzzer instrumentation for use with fuzzshark" O
 option(ENABLE_CHECKHF_CONFLICT "Enable hf conflict check for debugging (start-up may be slower)" OFF)
 option(ENABLE_CCACHE "Speed up compiling and linking using ccache if possible" OFF)
 
+if(CMAKE_GENERATOR STREQUAL "Ninja")
+	option(ENABLE_COMPILER_COLOR_DIAGNOSTICS "Always enable the compiler's color diagnostic output" ON)
+else()
+	option(ENABLE_COMPILER_COLOR_DIAGNOSTICS "Always enable the compiler's color diagnostic output" OFF)
+endif()
+
 if (WIN32)
 	option(ENABLE_LTO "Improves performance using Link time Optimization" ON)
+	option(ENABLE_VLD "Enable Visual Leak Detect in Debug configuration" OFF)
 else()
 	option(ENABLE_LTO "Improves performance using Link time Optimization" OFF)
 endif()
@@ -91,7 +98,6 @@ endif()
 if (NOT WIN32)
 	option(ENABLE_CAP        "Build with Posix capabilities support" ON)
 endif()
-option(ENABLE_CARES      "Build with c-ares support" ON)
 if(UNIX)
 	# Libnl is Linux-specific.
 	if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

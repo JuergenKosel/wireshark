@@ -1440,6 +1440,14 @@ static dissector_handle_t look_for_dissector(const char *protocol_name)
     if (strncmp(protocol_name, "x2ap_r", 6) == 0) {
         return find_dissector("x2ap");
     }
+    else
+    if (strncmp(protocol_name, "xnap_r1", 7) == 0) {
+        return find_dissector("xnap");
+    }
+    else
+    if (strncmp(protocol_name, "ngap_r1", 7) == 0) {
+        return find_dissector("ngap");
+    }
 
     /* Only check really old names to convert if preference is checked */
     else if (catapult_dct2000_dissect_old_protocol_names) {
@@ -3094,8 +3102,8 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 /* TODO: only look inside if a preference enabled? */
                 char dotted_protocol_name[128];
                 /* N.B. avoiding g_snprintf(), which was slow */
-                g_strlcpy(dotted_protocol_name, "dct2000.", 128);
-                g_strlcpy(dotted_protocol_name+8, protocol_name, 128-8);
+                (void) g_strlcpy(dotted_protocol_name, "dct2000.", 128);
+                (void) g_strlcpy(dotted_protocol_name+8, protocol_name, 128-8);
                 protocol_handle = find_dissector(dotted_protocol_name);
             }
 

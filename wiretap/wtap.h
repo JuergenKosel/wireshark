@@ -594,13 +594,15 @@ struct ieee_802_11a {
 
 /*
  * 802.11g.
+ *
+ * This should only be used for packets sent using OFDM; packets
+ * sent on an 11g network using DSSS should have the PHY set to
+ * 11b.
  */
 struct ieee_802_11g {
     /* Which of this information is present? */
-    guint    has_short_preamble:1;
     guint    has_mode:1;
 
-    gboolean short_preamble; /* Short preamble */
     guint32  mode;           /* Various proprietary extensions */
 };
 
@@ -1312,6 +1314,7 @@ typedef struct {
     guint32   event_len;        /* length of the event */
     guint32   event_filelen;    /* event data length in the file */
     guint16   event_type;
+    guint32   nparams;          /* number of parameters of the event */
     guint16   cpu_id;
     /* ... Event ... */
 } wtap_syscall_header;
@@ -1976,11 +1979,18 @@ WS_DLL_PUBLIC
 int wtap_dump_file_encap_type(const GArray *file_encaps);
 
 /**
- * Return TRUE if we can write this capture file format out in
+ * Return TRUE if we can write this encapsulation type in this
+ * capture file type/subtype, FALSE if not.
+ */
+WS_DLL_PUBLIC
+gboolean wtap_dump_can_write_encap(int file_type_subtype, int encap);
+
+/**
+ * Return TRUE if we can write this capture file type/subtype out in
  * compressed form, FALSE if not.
  */
 WS_DLL_PUBLIC
-gboolean wtap_dump_can_compress(int filetype);
+gboolean wtap_dump_can_compress(int file_type_subtype);
 
 /**
  * Initialize the per-file information based on an existing file. Its

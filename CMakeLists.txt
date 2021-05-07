@@ -24,6 +24,9 @@ endif()
 if(POLICY CMP0069)
 	cmake_policy(SET CMP0069 NEW)
 endif()
+if(POLICY CMP0071)
+	cmake_policy(SET CMP0071 NEW)
+endif()
 if(POLICY CMP0074)
 	cmake_policy(SET CMP0074 NEW)
 endif()
@@ -269,6 +272,38 @@ if(WIN32)
     set(WILDCARD_OBJ wsetargv.obj)
 endif(WIN32)
 
+include(CheckSymbolExists)
+
+#
+# Large file support on UN*X, a/k/a LFS.
+#
+# On Windows, we require _fseeki64() and _ftelli64().  Visual
+# Studio has had supported them since Visual Studio 2005/MSVCR80,
+# and we require newer versions, so we know we have them.
+#
+if(NOT WIN32)
+	include(FindLFS)
+	if(LFS_FOUND)
+		#
+		# Add the required #defines.
+		#
+		add_definitions(${LFS_DEFINITIONS})
+	endif()
+
+	#
+	# Check for fseeko as well.
+	#
+	include(FindFseeko)
+	if(FSEEKO_FOUND)
+		set(HAVE_FSEEKO ON)
+
+		#
+		# Add the required #defines.
+		#
+		add_definitions(${FSEEKO_DEFINITIONS})
+	endif()
+endif()
+
 # Banner shown at top right of Qt welcome screen.
 if(DEFINED ENV{WIRESHARK_VERSION_FLAVOR})
 	set(VERSION_FLAVOR "$ENV{WIRESHARK_VERSION_FLAVOR}")
@@ -428,6 +463,8 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
 	# To do: Add /external:... See https://devblogs.microsoft.com/cppblog/broken-warnings-theory/
 	#
+	# /diagnostics:caret                Place a caret under compilation issues similar to
+	#                                   Clang and gcc.
 	# /Zo                               Enhanced debugging of optimised code
 	# /utf-8                            Set Source and Executable character sets to UTF-8
 	#                                   VS2015(MSVC14): On by default when /Zi or /Z7 used.
@@ -437,7 +474,7 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	#                                   https://gitlab.kitware.com/cmake/cmake/commit/f973d49ab9d4c59b93f6dac812a94bb130200836
 	# /Qspectre                         Speculative execution attack mitigation
 	#                                   See https://devblogs.microsoft.com/cppblog/spectre-mitigations-in-msvc/
-	list(APPEND LOCAL_CFLAGS /Zo /utf-8 /guard:cf)
+	list(APPEND LOCAL_CFLAGS /diagnostics:caret /Zo /utf-8 /guard:cf)
 	set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
 	# /Qspectre is not available for VS2015 or older VS2017. Test for its availability.
 	set(WIRESHARK_COMMON_FLAGS /Qspectre)
@@ -761,6 +798,18 @@ else() # ! MSVC
 		)
 	endif()
 
+	if(ENABLE_COMPILER_COLOR_DIAGNOSTICS)
+		if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+			set(WIRESHARK_COMMON_FLAGS ${WIRESHARK_COMMON_FLAGS}
+				-fcolor-diagnostics
+			)
+		elseif(CMAKE_C_COMPILER_ID MATCHES "GNU")
+			set(WIRESHARK_COMMON_FLAGS ${WIRESHARK_COMMON_FLAGS}
+				-fdiagnostics-color=always
+			)
+		endif()
+	endif()
+
 	add_definitions(
 		-DG_DISABLE_DEPRECATED
 		-DG_DISABLE_SINGLE_INCLUDES
@@ -896,6 +945,17 @@ if(ENABLE_FUZZER)
 	endif()
 	set(CMAKE_C_FLAGS "-fsanitize=fuzzer-no-link ${CMAKE_C_FLAGS}")
 	set(CMAKE_CXX_FLAGS "-fsanitize=fuzzer-no-link ${CMAKE_CXX_FLAGS}")
+endif()
+
+if(MSVC)
+	if(ENABLE_VLD)
+		include(FindVLD)
+		if(NOT VLD_FOUND)
+			message(FATAL_ERROR "ENABLE_VLD was requested, but not found!")
+		endif()
+		message(STATUS "Enabling Visual Leak Detector in Debug configuration")
+		set(WS_MSVC_DEBUG_LINK_FLAGS ${VLD_LINK_FLAGS})
+	endif()
 endif()
 
 set(WERROR_COMMON_FLAGS "")
@@ -1091,6 +1151,13 @@ ws_find_package(Systemd BUILD_sdjournal HAVE_SYSTEMD)
 
 # Build the Qt GUI?
 if(BUILD_wireshark)
+	if(CMAKE_VERSION VERSION_GREATER "3.19.999" AND CMAKE_VERSION VERSION_LESS "3.20.2")
+		# https://gitlab.kitware.com/cmake/cmake/-/issues/22085
+		set(CMAKE_AUTOMOC ON)
+		set(CMAKE_AUTOUIC ON)
+		set(CMAKE_AUTORCC ON)
+	endif()
+
 	# Untested, may not work if CMAKE_PREFIX_PATH gets overwritten
 	# somewhere. The if WIN32 in this place is annoying as well.
 	if(WIN32)
@@ -1127,6 +1194,15 @@ if(BUILD_wireshark)
 		list(APPEND QT_INCLUDE_DIRS ${${_qt_package}_INCLUDE_DIRS})
 		list(APPEND QT_COMPILE_DEFINITIONS ${${_qt_package}_COMPILE_DEFINITIONS})
 	endforeach()
+	if(APPLE AND "/usr/local/opt/qt5/lib/QtCore.framework" IN_LIST Qt5Core_INCLUDE_DIRS)
+		# When qt@6 and qt@5 are both installed via Homebrew,
+		# /usr/local/include/QtCore/qvariant.h points to Qt 6 headers.
+		# Normally the Headers from `-iframework /usr/local/opt/qt5/lib`
+		# should be used, but `-isystem /usr/local/include` (via
+		# Libgcrypt and others) seems to prioritized, resulting in use
+		# of the Qt6 headers. Resolve this by explicit including Qt5.
+		list(APPEND QT_INCLUDE_DIRS /usr/local/opt/qt5/include)
+	endif()
 	set(QT_FOUND ON)
 	if(Qt5MacExtras_FOUND)
 		set(QT_MACEXTRAS_LIB 1)
@@ -1246,7 +1322,6 @@ if(GNUTLS_FOUND AND NOT GNUTLS_VERSION VERSION_LESS "3.4.0")
 	#
 	# Check that the support is present in case GnuTLS was compiled
 	# --without-p11-kit as macos-setup.sh did until December 2020.
-	include(CheckSymbolExists)
 	cmake_push_check_state()
 	if(WIN32)
 		set(CMAKE_REQUIRED_DEFINITIONS -Dssize_t=int)
@@ -1419,8 +1494,7 @@ endif()
 set(PLUGIN_INSTALL_VERSION_LIBDIR "${PLUGIN_INSTALL_LIBDIR}/${PLUGIN_PATH_ID}")
 set(PLUGIN_VERSION_DIR "plugins/${PLUGIN_PATH_ID}")
 
-add_subdirectory( capchild )
-add_subdirectory( caputils )
+add_subdirectory( capture )
 add_subdirectory( doc )
 add_subdirectory( docbook EXCLUDE_FROM_ALL )
 add_subdirectory( epan )
@@ -1546,10 +1620,6 @@ foreach(_plugin_src_dir ${PLUGIN_SRC_DIRS})
 	add_subdirectory( ${_plugin_src_dir} )
 endforeach()
 
-# Large file support (e.g. make off_t 64 bit if supported)
-include(gmxTestLargeFiles)
-gmx_test_large_files(GMX_LARGEFILES)
-
 set( VERSION ${PROJECT_VERSION} )
 if(VCSVERSION_OVERRIDE)
 	# Allow distributors to override detection of the Git tag and version.
@@ -1621,7 +1691,7 @@ set_package_properties(SPANDSP PROPERTIES
 )
 set_package_properties(BCG729 PROPERTIES
 	DESCRIPTION "G.729 decoder"
-	URL "https://www.linphone.org/technical-corner/bcg729/overview"
+	URL "https://www.linphone.org/technical-corner/bcg729"
 	PURPOSE "Support for G.729 codec in RTP player"
 )
 set_package_properties(ILBC PROPERTIES
@@ -1878,75 +1948,82 @@ if(WIN32)
 		COMMAND_EXPAND_LISTS
 	)
 
-	# Optional DLLs and PDBs.
-	set (OPTIONAL_DLLS)
-	set (OPTIONAL_PDBS)
+	if (MSVC AND VLD_FOUND)
+		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
+			COMMAND ${CMAKE_COMMAND} -E "$<IF:$<CONFIG:Debug>,copy_if_different,true>"
+			"${VLD_FILES}"
+			"${_dll_output_dir}"
+			COMMAND_EXPAND_LISTS
+		)
+	endif()
+
+	# Third party DLLs and PDBs.
+	set (THIRD_PARTY_DLLS)
+	set (THIRD_PARTY_PDBS)
 	if (AIRPCAP_FOUND)
-		list (APPEND OPTIONAL_DLLS "${AIRPCAP_DLL_DIR}/${AIRPCAP_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${AIRPCAP_DLL_DIR}/${AIRPCAP_DLL}")
 	endif(AIRPCAP_FOUND)
-	if (CARES_FOUND)
-		list (APPEND OPTIONAL_DLLS "${CARES_DLL_DIR}/${CARES_DLL}")
-		list (APPEND OPTIONAL_PDBS "${CARES_DLL_DIR}/${CARES_PDB}")
-	endif(CARES_FOUND)
+	list (APPEND THIRD_PARTY_DLLS "${CARES_DLL_DIR}/${CARES_DLL}")
+	list (APPEND THIRD_PARTY_PDBS "${CARES_DLL_DIR}/${CARES_PDB}")
 	# vcpkg's libmaxminddb is static-only for now. This can be uncommented when
 	# https://github.com/maxmind/libmaxminddb/commit/3998f42bdb6678cbaa1a543057e5c81ba1668ac2
 	# percolates up to vcpkg.
 	# if (MAXMINDDB_FOUND)
-	# 	list (APPEND OPTIONAL_DLLS "${MAXMINDDB_DLL_DIR}/${MAXMINDDB_DLL}")
+	# 	list (APPEND THIRD_PARTY_DLLS "${MAXMINDDB_DLL_DIR}/${MAXMINDDB_DLL}")
 	# endif(MAXMINDDB_FOUND)
 	if (LIBSSH_FOUND)
 		foreach( _dll ${LIBSSH_DLLS} )
-			list (APPEND OPTIONAL_DLLS "${LIBSSH_DLL_DIR}/${_dll}")
+			list (APPEND THIRD_PARTY_DLLS "${LIBSSH_DLL_DIR}/${_dll}")
 		endforeach(_dll)
 	endif(LIBSSH_FOUND)
 	foreach( _dll ${GCRYPT_DLLS} )
-		list (APPEND OPTIONAL_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
+		list (APPEND THIRD_PARTY_DLLS "${GCRYPT_DLL_DIR}/${_dll}")
 	endforeach(_dll)
 	foreach( _dll ${GNUTLS_DLLS} )
-		list (APPEND OPTIONAL_DLLS "${GNUTLS_DLL_DIR}/${_dll}")
+		list (APPEND THIRD_PARTY_DLLS "${GNUTLS_DLL_DIR}/${_dll}")
 	endforeach(_dll)
 	foreach( _dll ${KERBEROS_DLLS} )
-		list (APPEND OPTIONAL_DLLS "${KERBEROS_DLL_DIR}/${_dll}")
+		list (APPEND THIRD_PARTY_DLLS "${KERBEROS_DLL_DIR}/${_dll}")
 	endforeach(_dll)
 	if (LUA_FOUND)
-		list (APPEND OPTIONAL_DLLS "${LUA_DLL_DIR}/${LUA_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${LUA_DLL_DIR}/${LUA_DLL}")
 	endif(LUA_FOUND)
 	if (LZ4_FOUND)
-		list (APPEND OPTIONAL_DLLS "${LZ4_DLL_DIR}/${LZ4_DLL}")
-		list (APPEND OPTIONAL_PDBS "${LZ4_DLL_DIR}/${LZ4_PDB}")
+		list (APPEND THIRD_PARTY_DLLS "${LZ4_DLL_DIR}/${LZ4_DLL}")
+		list (APPEND THIRD_PARTY_PDBS "${LZ4_DLL_DIR}/${LZ4_PDB}")
 	endif(LZ4_FOUND)
 	if (ZSTD_FOUND)
-		list (APPEND OPTIONAL_DLLS "${ZSTD_DLL_DIR}/${ZSTD_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${ZSTD_DLL_DIR}/${ZSTD_DLL}")
 	endif(ZSTD_FOUND)
 	if (NGHTTP2_FOUND)
-		list (APPEND OPTIONAL_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
-		list (APPEND OPTIONAL_PDBS "${NGHTTP2_DLL_DIR}/${NGHTTP2_PDB}")
+		list (APPEND THIRD_PARTY_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
+		list (APPEND THIRD_PARTY_PDBS "${NGHTTP2_DLL_DIR}/${NGHTTP2_PDB}")
 	endif(NGHTTP2_FOUND)
 	if (SBC_FOUND)
-		list (APPEND OPTIONAL_DLLS "${SBC_DLL_DIR}/${SBC_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${SBC_DLL_DIR}/${SBC_DLL}")
 	endif(SBC_FOUND)
 	if (SPANDSP_FOUND)
-		list (APPEND OPTIONAL_DLLS "${SPANDSP_DLL_DIR}/${SPANDSP_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${SPANDSP_DLL_DIR}/${SPANDSP_DLL}")
 	endif(SPANDSP_FOUND)
 	if (BCG729_FOUND)
-		list (APPEND OPTIONAL_DLLS "${BCG729_DLL_DIR}/${BCG729_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${BCG729_DLL_DIR}/${BCG729_DLL}")
 	endif(BCG729_FOUND)
 	if (ILBC_FOUND)
-		list (APPEND OPTIONAL_DLLS "${ILBC_DLL_DIR}/${ILBC_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${ILBC_DLL_DIR}/${ILBC_DLL}")
 	endif(ILBC_FOUND)
 	if (OPUS_FOUND)
-		list (APPEND OPTIONAL_DLLS "${OPUS_DLL_DIR}/${OPUS_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${OPUS_DLL_DIR}/${OPUS_DLL}")
 	endif(OPUS_FOUND)
 	if (LIBXML2_FOUND)
 		foreach( _dll ${LIBXML2_DLLS} )
-			list (APPEND OPTIONAL_DLLS "${LIBXML2_DLL_DIR}/${_dll}")
+			list (APPEND THIRD_PARTY_DLLS "${LIBXML2_DLL_DIR}/${_dll}")
 		endforeach(_dll)
 		foreach( _pdb ${LIBXML2_PDBS} )
-			list (APPEND OPTIONAL_PDBS "${LIBXML2_DLL_DIR}/${_pdb}")
+			list (APPEND THIRD_PARTY_PDBS "${LIBXML2_DLL_DIR}/${_pdb}")
 		endforeach(_pdb)
 	endif(LIBXML2_FOUND)
 	if (SMI_FOUND)
-		list (APPEND OPTIONAL_DLLS "${SMI_DLL_DIR}/${SMI_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${SMI_DLL_DIR}/${SMI_DLL}")
 		# Wireshark.nsi wants SMI_DIR which is the base SMI directory
 		get_filename_component(SMI_DIR ${SMI_DLL_DIR} DIRECTORY)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
@@ -1987,41 +2064,41 @@ if(WIN32)
 		)
 	endif(SMI_FOUND)
 	if (SNAPPY_FOUND)
-		list (APPEND OPTIONAL_DLLS "${SNAPPY_DLL_DIR}/${SNAPPY_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${SNAPPY_DLL_DIR}/${SNAPPY_DLL}")
 	endif(SNAPPY_FOUND)
 	if (WINSPARKLE_FOUND)
-		list (APPEND OPTIONAL_DLLS "${WINSPARKLE_DLL_DIR}/${WINSPARKLE_DLL}")
+		list (APPEND THIRD_PARTY_DLLS "${WINSPARKLE_DLL_DIR}/${WINSPARKLE_DLL}")
 	endif(WINSPARKLE_FOUND)
 	if (ZLIB_FOUND)
-		list (APPEND OPTIONAL_DLLS "${ZLIB_DLL_DIR}/${ZLIB_DLL}")
-		list (APPEND OPTIONAL_PDBS "${ZLIB_DLL_DIR}/${ZLIB_PDB}")
+		list (APPEND THIRD_PARTY_DLLS "${ZLIB_DLL_DIR}/${ZLIB_DLL}")
+		list (APPEND THIRD_PARTY_PDBS "${ZLIB_DLL_DIR}/${ZLIB_PDB}")
 	endif(ZLIB_FOUND)
 	if (BROTLI_FOUND)
 		foreach( _dll ${BROTLI_DLLS} )
-			list (APPEND OPTIONAL_DLLS "${BROTLI_DLL_DIR}/${_dll}")
+			list (APPEND THIRD_PARTY_DLLS "${BROTLI_DLL_DIR}/${_dll}")
 		endforeach(_dll)
 	endif(BROTLI_FOUND)
 
 	# With libs downloaded to c:/wireshark-win64-libs this currently
 	# (early 2018) expands to about 1900 characters.
-	if (OPTIONAL_DLLS)
+	if (THIRD_PARTY_DLLS)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				${OPTIONAL_DLLS}
+				${THIRD_PARTY_DLLS}
 				"${_dll_output_dir}"
 			VERBATIM
 		)
-		install(FILES ${OPTIONAL_DLLS} DESTINATION "${CMAKE_INSTALL_BINDIR}")
-	endif(OPTIONAL_DLLS)
+		install(FILES ${THIRD_PARTY_DLLS} DESTINATION "${CMAKE_INSTALL_BINDIR}")
+	endif(THIRD_PARTY_DLLS)
 
-	if (OPTIONAL_PDBS)
+	if (THIRD_PARTY_PDBS)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				${OPTIONAL_PDBS}
+				${THIRD_PARTY_PDBS}
 				"${_dll_output_dir}"
 			VERBATIM
 		)
-	endif(OPTIONAL_PDBS)
+	endif(THIRD_PARTY_PDBS)
 
 	add_dependencies(epan copy_cli_dlls)
 
@@ -2365,6 +2442,9 @@ if(BUILD_wireshark AND QT_FOUND)
 		FOLDER "Executables"
 		INSTALL_RPATH "${EXECUTABLE_INSTALL_RPATH}"
 	)
+	if(MSVC)
+		set_target_properties(wireshark PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+	endif()
 	if(ENABLE_APPLICATION_BUNDLE OR WIN32)
 		set_target_properties(wireshark PROPERTIES OUTPUT_NAME Wireshark)
 	endif()
@@ -2435,6 +2515,9 @@ macro(set_extra_executable_properties _executable _folder)
 		FOLDER ${_folder}
 		INSTALL_RPATH "${EXECUTABLE_INSTALL_RPATH}"
 	)
+	if(MSVC)
+		set_target_properties(${_executable} PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+	endif()
 
 	set(PROGLIST ${PROGLIST} ${_executable})
 
@@ -3113,9 +3196,6 @@ if(RPMBUILD_EXECUTABLE)
 	endif()
 	if (LZ4_FOUND AND SNAPPY_FOUND)
 		list(APPEND _rpmbuild_with_args --with lz4_and_snappy)
-	endif()
-	if (CARES_FOUND)
-		list(APPEND _rpmbuild_with_args --with c_ares)
 	endif()
 	if (SPANDSP_FOUND)
 		list(APPEND _rpmbuild_with_args --with spandsp)

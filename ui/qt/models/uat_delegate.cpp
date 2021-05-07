@@ -184,7 +184,7 @@ void UatDelegate::setModelData(QWidget *editor, QAbstractItemModel *model,
         if (qobject_cast<QColorDialog *>(editor))
         {
             QColor newColor = qobject_cast<QColorDialog *>(editor)->currentColor();
-            ((QAbstractItemModel *)index.model())->setData(index, newColor.name(), Qt::EditRole);
+            const_cast<QAbstractItemModel *>(index.model())->setData(index, newColor.name(), Qt::EditRole);
         }
         break;
 
@@ -197,18 +197,6 @@ void UatDelegate::applyFilename(const QModelIndex& index)
 {
     if (index.isValid()) {
         EditorFileDialog* fileDialog = static_cast<EditorFileDialog*>(sender());
-        ((QAbstractItemModel *)index.model())->setData(index, fileDialog->text(), Qt::EditRole);
+        const_cast<QAbstractItemModel *>(index.model())->setData(index, fileDialog->text(), Qt::EditRole);
     }
 }
-
-/* * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

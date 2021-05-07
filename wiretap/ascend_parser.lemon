@@ -127,6 +127,10 @@ XMIT-Max7:20: (task "_brouterControlTask" at 0xb094ac20, time: 1481.51) 20 octet
 
 #define NO_USER "<none>"
 
+static void *AscendParserAlloc(void *(*mallocProc)(size_t));
+static void AscendParser(void *yyp, int yymajor, ascend_token_t yyminor, ascend_state_t *state);
+static void AscendParserFree(void *p, void (*freeProc)(void*));
+
 #if 0
 #define ASCEND_PARSER_DEBUG 1
 #undef NDEBUG
@@ -349,7 +353,7 @@ wdd_date ::= WDD_DATE wdd_decnum(MONTH) wdd_decnum(MDAY) wdd_decnum(YEAR) WDD_TI
     parser_state->timestamp = (guint32) mktime(&wddt);
     parser_state->saw_timestamp = TRUE;
 
-    g_strlcpy(parser_state->pseudo_header->call_num, CN_T.str_val, ASCEND_MAX_STR_LEN);
+    (void) g_strlcpy(parser_state->pseudo_header->call_num, CN_T.str_val, ASCEND_MAX_STR_LEN);
 }
 
 /*

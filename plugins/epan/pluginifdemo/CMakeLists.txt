@@ -45,9 +45,6 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-include_directories( ui ${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
 register_plugin_files(plugin.c
 	plugin
 	${DISSECTOR_SRC}
@@ -55,7 +52,7 @@ register_plugin_files(plugin.c
 
 add_plugin_library(pluginifdemo epan)
 
-target_link_libraries(pluginifdemo epan Qt5::Core Qt5::Widgets Qt5::PrintSupport)
+target_link_libraries(pluginifdemo epan Qt5::Core Qt5::Widgets Qt5::PrintSupport Qt5::Multimedia)
 
 install_plugin(pluginifdemo epan)
 

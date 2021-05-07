@@ -181,6 +181,13 @@ the filesize is limited to a maximum value of 2 GiB.
 B<packets>:I<value> switch to the next file after it contains I<value>
 packets. Same as B<-c>E<lt>capture packet countE<gt>.
 
+=item -A  E<lt>userE<gt>:E<lt>passwordE<gt>
+
+Specify a user and a password when B<TShark> captures from a rpcap:// interface
+where authentication is required.
+
+This option is available with libpcap with enabled remote support.
+
 =item -b|--ring-buffer  E<lt>capture ring buffer optionE<gt>
 
 Cause B<TShark> to run in "multiple files" mode.  In "multiple files" mode,
@@ -865,10 +872,11 @@ B<hms> for hours, minutes and seconds
 
 =item -U E<lt>tap nameE<gt>
 
-PDUs export, exports PDUs from infile to outfile according to the tap name given.
-Use -Y to filter.
+PDUs export, exports PDUs from infile to outfile according to the tap
+name given. Use -Y to filter.
 
-Enter an empty tap name "" to get a list of available names.
+Enter an empty tap name "" or a tap name of ? to get a list of available
+names.
 
 =item -v|--version
 
@@ -1383,7 +1391,7 @@ which only calculates the number of packets and bytes in each interval.
 B<io,stat> can also do much more statistics and calculate COUNT(), SUM(),
 MIN(), MAX(), AVG() and LOAD() using a slightly different filter syntax:
 
-=item -z io,stat,I<interval>,E<34>[COUNT|SUM|MIN|MAX|AVG|LOAD](I<field>)I<filter>E<34>
+=item -z io,stat,I<interval>,E<34>COUNT|SUM|MIN|MAX|AVG|LOAD(I<field>)I<filter>E<34>
 
 NOTE: One important thing to note here is that the filter is not optional
 and that the field that the calculation is based on MUST be part of the filter

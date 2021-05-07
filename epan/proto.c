@@ -109,7 +109,7 @@ struct ptvcursor {
 	PROTO_REGISTRAR_GET_NTH(hfindex, hfinfo);			\
 	if (PTREE_DATA(tree)->count > prefs.gui_max_tree_items) {			\
 		free_block;						\
-		if (getenv("WIRESHARK_ABORT_ON_TOO_MANY_ITEMS") != NULL) \
+		if (wireshark_abort_on_too_many_items) \
 			g_error("Adding %s would put more than %d items in the tree -- possible infinite loop (max number of items can be increased in advanced preferences)", \
 			    hfinfo->abbrev, prefs.gui_max_tree_items);	\
 		/* Let the exception handler add items to the tree */	\
@@ -1117,10 +1117,8 @@ ptvcursor_new_subtree_levels(ptvcursor_t *ptvc)
 	DISSECTOR_ASSERT(ptvc->pushed_tree_max <= SUBTREE_MAX_LEVELS-SUBTREE_ONCE_ALLOCATION_NUMBER);
 	ptvc->pushed_tree_max += SUBTREE_ONCE_ALLOCATION_NUMBER;
 
-	pushed_tree = (subtree_lvl *)wmem_alloc(wmem_packet_scope(), sizeof(subtree_lvl) * ptvc->pushed_tree_max);
+	pushed_tree = (subtree_lvl *)wmem_realloc(wmem_packet_scope(), (void *)ptvc->pushed_tree, sizeof(subtree_lvl) * ptvc->pushed_tree_max);
 	DISSECTOR_ASSERT(pushed_tree != NULL);
-	if (ptvc->pushed_tree)
-		memcpy(pushed_tree, ptvc->pushed_tree, ptvc->pushed_tree_max - SUBTREE_ONCE_ALLOCATION_NUMBER);
 	ptvc->pushed_tree = pushed_tree;
 }
 
@@ -6765,7 +6763,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 						} else {
 							number_out = hfinfo_char_value_format(hfinfo, number_buf, number);
 
-							g_strlcpy(expr+offset_e, number_out, size-offset_e);
+							(void) g_strlcpy(expr+offset_e, number_out, size-offset_e);
 						}
 
 						offset_e = (int)strlen(expr);
@@ -6799,7 +6797,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 						} else {
 							number_out = hfinfo_numeric_value_format(hfinfo, number_buf, number);
 
-							g_strlcpy(expr+offset_e, number_out, size-offset_e);
+							(void) g_strlcpy(expr+offset_e, number_out, size-offset_e);
 						}
 
 						offset_e = (int)strlen(expr);
@@ -6829,7 +6827,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 						} else {
 							number_out = hfinfo_numeric_value_format64(hfinfo, number_buf, number64);
 
-							g_strlcpy(expr+offset_e, number_out, size-offset_e);
+							(void) g_strlcpy(expr+offset_e, number_out, size-offset_e);
 						}
 
 						offset_e = (int)strlen(expr);
@@ -6897,7 +6895,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 
 				default:
 					/* for all others, just copy "result" to "expr" */
-					g_strlcpy(expr, result, size);
+					(void) g_strlcpy(expr, result, size);
 					break;
 			}
 
@@ -7001,13 +6999,13 @@ proto_item_prepend_text(proto_item *pi, const char *format, ...)
 			ITEM_LABEL_NEW(PNODE_POOL(pi), fi->rep);
 			proto_item_fill_label(fi, representation);
 		} else
-			g_strlcpy(representation, fi->rep->representation, ITEM_LABEL_LENGTH);
+			(void) g_strlcpy(representation, fi->rep->representation, ITEM_LABEL_LENGTH);
 
 		va_start(ap, format);
 		g_vsnprintf(fi->rep->representation,
 			ITEM_LABEL_LENGTH, format, ap);
 		va_end(ap);
-		g_strlcat(fi->rep->representation, representation, ITEM_LABEL_LENGTH);
+		(void) g_strlcat(fi->rep->representation, representation, ITEM_LABEL_LENGTH);
 	}
 }
 
@@ -8790,7 +8788,7 @@ register_string_errors(void)
 	proto_set_cant_toggle(proto_string_errors);
 }
 
-#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (230000+PRE_ALLOC_EXPERT_FIELDS_MEM)
+#define PROTO_PRE_ALLOC_HF_FIELDS_MEM (235000+PRE_ALLOC_EXPERT_FIELDS_MEM)
 static int
 proto_register_field_init(header_field_info *hfinfo, const int parent)
 {
@@ -8967,7 +8965,7 @@ label_mark_truncated(char *label_str, gsize name_pos)
 		*last_char = '\0';
 
 	} else if (name_pos < ITEM_LABEL_LENGTH)
-		g_strlcpy(label_str + name_pos, trunc_str, ITEM_LABEL_LENGTH - name_pos);
+		(void) g_strlcpy(label_str + name_pos, trunc_str, ITEM_LABEL_LENGTH - name_pos);
 }
 
 static gsize
@@ -9044,7 +9042,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 	switch (hfinfo->type) {
 		case FT_NONE:
 		case FT_PROTOCOL:
-			g_strlcpy(label_str, hfinfo->name, ITEM_LABEL_LENGTH);
+			(void) g_strlcpy(label_str, hfinfo->name, ITEM_LABEL_LENGTH);
 			break;
 
 		case FT_BOOLEAN:
@@ -10191,7 +10189,7 @@ hfinfo_number_value_format(const header_field_info *hfinfo, char buf[32], guint3
 }
 
 static const char *
-hfinfo_number_value_format64(const header_field_info *hfinfo, char buf[64], guint64 value)
+hfinfo_number_value_format64(const header_field_info *hfinfo, char buf[48], guint64 value)
 {
 	int display = hfinfo->display;
 
@@ -10252,7 +10250,7 @@ hfinfo_numeric_value_format(const header_field_info *hfinfo, char buf[32], guint
 }
 
 static const char *
-hfinfo_numeric_value_format64(const header_field_info *hfinfo, char buf[64], guint64 value)
+hfinfo_numeric_value_format64(const header_field_info *hfinfo, char buf[48], guint64 value)
 {
 	/* Get the underlying BASE_ value */
 	int display = FIELD_DISPLAY(hfinfo->display);
@@ -10309,7 +10307,7 @@ hfinfo_number_vals_format(const header_field_info *hfinfo, char buf[32], guint32
 }
 
 static const char *
-hfinfo_number_vals_format64(const header_field_info *hfinfo, char buf[64], guint64 value)
+hfinfo_number_vals_format64(const header_field_info *hfinfo, char buf[48], guint64 value)
 {
 	/* Get the underlying BASE_ value */
 	int display = FIELD_DISPLAY(hfinfo->display);
@@ -11522,12 +11520,6 @@ construct_match_selected_string(field_info *finfo, epan_dissect_t *edt,
 			}
 			break;
 
-		case FT_PCRE:
-			/* FT_PCRE never appears as a type for a registered field. It is
-			 * only used internally. */
-			DISSECTOR_ASSERT_NOT_REACHED();
-			break;
-
 		/* By default, use the fvalue's "to_string_repr" method. */
 		default:
 			/* Figure out the string length needed.
@@ -12617,8 +12609,8 @@ _proto_tree_add_bits_format_value(proto_tree *tree, const int hfindex,
 
 	str = decode_bits_in_field(bit_offset, no_of_bits, value);
 
-	g_strlcat(str, " = ", 256+64);
-	g_strlcat(str, hf_field->name, 256+64);
+	(void) g_strlcat(str, " = ", 256+64);
+	(void) g_strlcat(str, hf_field->name, 256+64);
 
 	/*
 	 * This function does not receive an actual value but a dimensionless pointer to that value.

@@ -93,7 +93,7 @@ oid_to_repr(fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_, char *buf, 
 	 * I guess that is why this callback is not passed a length.
 	 *    -- lego
 	 */
-	g_strlcpy(buf,oid_str,OID_REPR_LEN(fv));
+	(void) g_strlcpy(buf,oid_str,OID_REPR_LEN(fv));
 	wmem_free(NULL, oid_str);
 }
 
@@ -115,7 +115,7 @@ rel_oid_to_repr(fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_, char *b
 	 *    -- lego
 	 */
 	*buf++ = '.';
-	g_strlcpy(buf,oid_str,REL_OID_REPR_LEN(fv));
+	(void) g_strlcpy(buf,oid_str,REL_OID_REPR_LEN(fv));
 	wmem_free(NULL, oid_str);
 }
 
@@ -650,21 +650,10 @@ cmp_contains(const fvalue_t *fv_a, const fvalue_t *fv_b)
 }
 
 static gboolean
-cmp_matches(const fvalue_t *fv_a, const fvalue_t *fv_b)
+cmp_matches(const fvalue_t *fv, const GRegex *regex)
 {
-	GByteArray *a = fv_a->value.bytes;
-	GRegex *regex = fv_b->value.re;
+	GByteArray *a = fv->value.bytes;
 
-	/* fv_b is always a FT_PCRE, otherwise the dfilter semcheck() would have
-	 * warned us. For the same reason (and because we're using g_malloc()),
-	 * fv_b->value.re is not NULL.
-	 */
-	if (strcmp(fv_b->ftype->name, "FT_PCRE") != 0) {
-		return FALSE;
-	}
-	if (! regex) {
-		return FALSE;
-	}
 	return g_regex_match_full(
 		regex,			/* Compiled PCRE */
 		(char *)a->data,	/* The data to check for the pattern... */

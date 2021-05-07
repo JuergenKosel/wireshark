@@ -19,7 +19,7 @@
 
 #include "epan/prefs.h"
 #include "epan/ex-opt.h"
-#include "caputils/capture_ifinfo.h"
+#include "capture/capture_ifinfo.h"
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
 #include "wiretap/wtap.h"
@@ -574,16 +574,3 @@ get_iface_list_string(capture_options *capture_opts, guint32 style)
     return iface_list_string;
 }
 #endif /* HAVE_LIBPCAP */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

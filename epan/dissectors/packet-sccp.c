@@ -1756,12 +1756,12 @@ dissect_sccp_gt_address_information(tvbuff_t *tvb, packet_info *pinfo,
     even_signal = tvb_get_guint8(tvb, offset) & GT_EVEN_SIGNAL_MASK;
     even_signal >>= GT_EVEN_SIGNAL_SHIFT;
 
-    g_strlcat(gt_digits, val_to_str(odd_signal, sccp_address_signal_values,
+    (void) g_strlcat(gt_digits, val_to_str(odd_signal, sccp_address_signal_values,
                                     "Unknown: %d"), GT_MAX_SIGNALS+1);
 
     /* If the last signal is NOT filler */
     if (offset != (length - 1) || even_length == TRUE)
-      g_strlcat(gt_digits, val_to_str(even_signal, sccp_address_signal_values,
+      (void) g_strlcat(gt_digits, val_to_str(even_signal, sccp_address_signal_values,
                                       "Unknown: %d"), GT_MAX_SIGNALS+1);
 
     offset += GT_SIGNAL_LENGTH;
@@ -3707,7 +3707,7 @@ proto_register_sccp(void)
     },
     { &hf_sccp_called_gt_tt,
       { "Translation Type", "sccp.called.tt",
-        FT_UINT8, BASE_HEX, NULL, 0x0,
+        FT_UINT8, BASE_HEX_DEC, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_sccp_called_gt_np,
@@ -3827,7 +3827,7 @@ proto_register_sccp(void)
     },
     { &hf_sccp_calling_gt_tt,
       { "Translation Type", "sccp.calling.tt",
-        FT_UINT8, BASE_HEX, NULL, 0x0,
+        FT_UINT8, BASE_HEX_DEC, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_sccp_calling_gt_np,

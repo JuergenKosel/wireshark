@@ -20,7 +20,7 @@
 
 #include <sys/types.h>     /* for gid_t */
 
-#include <caputils/capture_ifinfo.h>
+#include <capture/capture_ifinfo.h>
 #include "ringbuffer.h"
 
 #ifdef _WIN32
@@ -197,6 +197,7 @@ typedef struct interface_options_tag {
     gchar            *descr;                /* a more user-friendly description of the interface; may be NULL if none */
     gchar            *hardware;             /* description of the hardware */
     gchar            *display_name;         /* the name displayed in the console and title bar */
+    gchar            *ifname;               /* if not null, name to use instead of the interface naem in IDBs */
     gchar            *cfilter;
     gboolean          has_snaplen;
     int               snaplen;
@@ -333,21 +334,22 @@ capture_opts_cleanup(capture_options *capture_opts);
 
 /* set a command line option value */
 extern int
-capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg, gboolean *start_capture);
+capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg);
 
 /* log content of capture_opts */
 extern void
 capture_opts_log(const char *log_domain, GLogLevelFlags log_level, capture_options *capture_opts);
 
 enum caps_query {
-    CAPS_MONITOR_MODE          = 0x1,
-    CAPS_QUERY_LINK_TYPES      = 0x2,
-    CAPS_QUERY_TIMESTAMP_TYPES = 0x4
+    CAPS_QUERY_LINK_TYPES      = 0x1,
+    CAPS_QUERY_TIMESTAMP_TYPES = 0x2
 };
 
 /* print interface capabilities, including link layer types */
-extern void
-capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name, int queries);
+extern int
+capture_opts_print_if_capabilities(if_capabilities_t *caps,
+                                   interface_options *interface_opts,
+                                   int queries);
 
 /* print list of interfaces */
 extern void

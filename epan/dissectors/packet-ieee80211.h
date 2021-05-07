@@ -338,6 +338,10 @@ typedef struct anqp_info_dissector_data {
 #define WFA_SUBTYPE_DPP                        26
 #define WFA_SUBTYPE_IEEE1905_MULTI_AP          27 /* ox1B */
 #define WFA_SUBTYPE_OWE_TRANSITION_MODE        28
+#define WFA_SUBTYPE_QOS_MGMT                   33 /* 0x21 */
+
+/* WFA Public Action Types */
+#define WFA_SUBTYPE_ACTION_QOS_MGMT          0x1A
 
 /* WFA vendor specific ANQP subtypes */
 #define WFA_ANQP_SUBTYPE_HS20                  17
@@ -515,7 +519,7 @@ typedef struct anqp_info_dissector_data {
 #define TAG_VHT_OPERATION            192  /* IEEE Std 802.11ac/D3.1 */
 #define TAG_EXT_BSS_LOAD             193  /* IEEE Std 802.11ac */
 #define TAG_WIDE_BW_CHANNEL_SWITCH   194  /* IEEE Std 802.11ac */
-#define TAG_VHT_TX_PWR_ENVELOPE      195  /* IEEE Std 802.11ac/D5.0 */
+#define TAG_TX_PWR_ENVELOPE          195  /* IEEE Std 802.11-2020 */
 #define TAG_CHANNEL_SWITCH_WRAPPER   196  /* IEEE Std 802.11ac */
 #define TAG_OPERATING_MODE_NOTIFICATION 199  /* IEEE Std 802.11ac */
 #define TAG_REDUCED_NEIGHBOR_REPORT  201

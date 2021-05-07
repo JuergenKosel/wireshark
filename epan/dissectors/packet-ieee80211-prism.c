@@ -19,6 +19,7 @@
 #include <epan/capture_dissectors.h>
 #include <wiretap/wtap.h>
 #include <wsutil/pint.h>
+#include <wsutil/802_11-utils.h>
 #include "packet-ieee80211.h"
 
 void proto_register_ieee80211_prism(void);
@@ -399,7 +400,7 @@ prism_rate_return_sig(guint32 rate_phy1, guint32 rate_phy2, struct ieee_802_11_p
     gboolean su_ppdu = FALSE;
     unsigned int partial_aid, nsts_u1, nsts_u2, nsts_u3, nsts_u4;
     unsigned int sig_a_1, sig_a_2, nss = 1, nsts_su, signal_type;
-    unsigned int cck_tbl[] = {22, 11, 4, 2};
+    unsigned int dsss_tbl[] = {22, 11, 4, 2};
     static const unsigned int bw_map[] = { 0, 1, 4, 11 };
 
     /*
@@ -420,12 +421,12 @@ prism_rate_return_sig(guint32 rate_phy1, guint32 rate_phy2, struct ieee_802_11_p
         signal_type = rate_phy1 & (1 << 12);
         bw = 20 << ((rate_phy1 >> 13) & 0x3);
         result = wmem_strdup_printf(wmem_packet_scope(),
-              "Rate: OFDM %u.%u Mb/s Signaling:%s BW %d",
+              "Rate: %u.%u Mb/s OFDM Signaling:%s BW %d",
                mcs, 0, signal_type ? "Dynamic" : "Static", bw
               );
         break;
 
-    case 1: /* CCK */
+    case 1: /* DSSS */
         phdr->phy = PHDR_802_11_PHY_11B;
         mcs = (rate_phy1 >> 4) & 0xF;
         base = (mcs & 0x4) ? 1 : 0;
@@ -433,10 +434,10 @@ prism_rate_return_sig(guint32 rate_phy1, guint32 rate_phy2, struct ieee_802_11_p
         phdr->phy_info.info_11b.short_preamble = base;
         mcs &= ~0x4;
         mcs = (mcs - 8) & 0x3;
-        disp_rate = cck_tbl[mcs];
+        disp_rate = dsss_tbl[mcs];
         phdr->has_data_rate = 1;
         phdr->data_rate = disp_rate;
-        result = wmem_strdup_printf(wmem_packet_scope(), "Rate: %u.%u Mb/s %s",
+        result = wmem_strdup_printf(wmem_packet_scope(), "Rate: %u.%u Mb/s DSSS %s",
                       disp_rate / 2,
                       (disp_rate & 1) ? 5 : 0,
                       base ? "[SP]" : "[LP]");
@@ -487,7 +488,7 @@ prism_rate_return_sig(guint32 rate_phy1, guint32 rate_phy2, struct ieee_802_11_p
             }
         }
         result = wmem_strdup_printf(wmem_packet_scope(),
-              "%u.%u Mb/s HT MCS %d NSS %d BW %d MHz %s %s %s",
+              "Rate: %u.%u Mb/s HT MCS %d NSS %d BW %d MHz %s %s %s",
                disp_rate/10, disp_rate%10, mcs, nss, bw,
                sgi ? "[SGI]" : "",
                ldpc ? "[LDPC]" : "",
@@ -575,7 +576,7 @@ prism_rate_return_sig(guint32 rate_phy1, guint32 rate_phy2, struct ieee_802_11_p
             }
 
             result = wmem_strdup_printf(wmem_packet_scope(),
-                "%u.%u Mb/s VHT MCS %d NSS %d Partial AID %d BW %d MHz %s %s %s GroupID %d %s %s",
+                "Rate: %u.%u Mb/s VHT MCS %d NSS %d Partial AID %d BW %d MHz %s %s %s GroupID %d %s %s",
                 disp_rate/10, disp_rate%10,
                 mcs, nss, partial_aid, bw,
                 sgi ? "[SGI]" : "",
@@ -874,6 +875,80 @@ dissect_prism(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
             }
         }
         offset += 4;
+    }
+
+    /*
+     * The only DIDs that directly indicate the packet modulation
+     * are the SIG_A1 and SIG_A2 DIDs; if they're not present, we
+     * ned to use some other way to determine the packet modulation,
+     * so, if the modulation is unknown at this point:
+     *
+     *  if the data rate is 1 Mb/s or 2 Mb/s, the packet was
+     *  transmitted using the 802.11 legacy DSSS modulation
+     *  (we ignore the IR PHY - was it ever implemented?);
+     *
+     *  if the data rate is 5 Mb/s or 11 Mb/s, the packet
+     *  was transmitted using the 802.11b DSSS/CCK modulation
+     *  (or the now-obsolete DSSS/PBCC modulation; *if* we can
+     *  rely on the channel/xchannel field's "CCK channel" and
+     *  "Dynamic CCK-OFDM channel" flags, the absence of either
+     *  flag would presumably indicate DSSS/PBCC);
+     *
+     *  if the data rate is 22 Mb/s or 33 Mb/s, the packet was
+     *  transmitted using the 802.11b DSSS/PBCC modulation (as
+     *  those speeds aren't supported by DSSS/CCK);
+     *
+     *  if the data rate is one of the OFDM rates for the 11a
+     *  OFDM PHY and the OFDM part of the 11g ERP PHY, the
+     *  packet was transmitted with the 11g/11a OFDM modulation -
+     *  we distinguish between them based on the channel, if we
+     *  have it.
+     *
+     * In addition, if they *are* present, and indicate that the
+     * modulation uses OFDM and isn't HT, VHT, or HE, all we know
+     * from that is that it's 11a or 11g, not which of those it
+     * is.  We use the channel to distinguish between them.
+     */
+    if (phdr.has_data_rate) {
+        if (phdr.phy == PHDR_802_11_PHY_UNKNOWN) {
+            /*
+             * We don't know they PHY, but we do have the
+             * data rate; try to guess it based on the
+             * data rate and center frequency.
+             */
+            if (RATE_IS_DSSS(phdr.data_rate)) {
+                /* 11b */
+                phdr.phy = PHDR_802_11_PHY_11B;
+            } else if (RATE_IS_OFDM(phdr.data_rate)) {
+                /* 11a or 11g, depending on the band. */
+                if (phdr.has_channel) {
+                    if (CHAN_IS_BG(phdr.channel)) {
+                        /* 11g */
+                        phdr.phy = PHDR_802_11_PHY_11G;
+                    } else {
+                        /* 11a */
+                        phdr.phy = PHDR_802_11_PHY_11A;
+                    }
+                }
+            }
+        } else if (phdr.phy == PHDR_802_11_PHY_11A) {
+            /*
+             * All we know is that it's OFDM; we guessed
+             * 11a in prism_rate_return_sig(), but if
+             * the channel is  2.4 GHz channel, it's
+             * 11g.
+             */
+            if (phdr.has_channel) {
+                if (CHAN_IS_BG(phdr.channel)) {
+                    /* 11g */
+                    phdr.phy = PHDR_802_11_PHY_11G;
+                }
+            }
+            if (RATE_IS_DSSS(phdr.data_rate)) {
+                /* DSSS, so 11b. */
+                phdr.phy = PHDR_802_11_PHY_11B;
+            }
+        }
     }
 
     /* dissect the 802.11 header next */

@@ -12,7 +12,6 @@
 
 #include <wiretap/pcap-encap.h>
 #include <wiretap/wtap_opttypes.h>
-#include <wiretap/pcapng.h>
 
 #include <epan/packet.h>
 #include <wsutil/file_util.h>
@@ -213,9 +212,9 @@ summary_fill_in(capture_file *cf, summary_tally *st)
     }
     g_free(idb_info);
 
-    g_strlcpy(st->file_sha256, "<unknown>", HASH_STR_SIZE);
-    g_strlcpy(st->file_rmd160, "<unknown>", HASH_STR_SIZE);
-    g_strlcpy(st->file_sha1, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(st->file_sha256, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(st->file_rmd160, "<unknown>", HASH_STR_SIZE);
+    (void) g_strlcpy(st->file_sha1, "<unknown>", HASH_STR_SIZE);
 
     gcry_md_open(&hd, GCRY_MD_SHA256, 0);
     if (hd) {
@@ -268,16 +267,3 @@ summary_fill_in_capture(capture_file *cf,capture_options *capture_opts, summary_
     }
 }
 #endif
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

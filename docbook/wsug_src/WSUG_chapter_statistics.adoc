@@ -112,7 +112,7 @@ The Resolved Addresses window shows the list of resolved addresses and their hos
 
 NOTE: The resolved addresses are not updated automatically after users change the settings. To display newly available names user have to reopen the dialog.
 
-The `Ports` tab shows the list of service names, ports and types. 
+The `Ports` tab shows the list of service names, ports and types.
 
 Wireshark reads the entries for port mappings from the `hosts` service configuration files. See <<ChAppFilesConfigurationSection>> section for more information.
 
@@ -564,6 +564,26 @@ btn:[Close] will close this dialog.
 
 The Dynamic Host Configuration Protocol (DHCP) is an option of the Bootstrap Protocol (BOOTP). It dynamically assigns IP addresses and other parameters to a DHCP client. The DHCP (BOOTP) Statistics window displays a table over the number of occurrences of a DHCP message type. The user can filter, copy or save the data into a file.
 
+[[ChStatNetPerfMeter]]
+
+=== NetPerfMeter Statistics
+
+The NetPerfMeter Protocol{nbsp}(NPMP) is the control and data transfer protocol of NetPerfMeter, the transport protocol performance testing tool. It transmits data streams over TCP, SCTP, UDP and DCCP with given parameters, such as frame rate, frame size, saturated flows, etc.
+
+With this statistics you can:
+
+* Observed number of messages and bytes per message type.
+* The share of messages and bytes for each message type.
+* See the first and last occurrence of each message type.
+* See the interval between first and last occurrence of each message type (if there are at least 2 messages of the corresponding type).
+* See the message and byte rate within the interval for each message type (if there are at least 2 messages of the corresponding type).
+
+See link:https://www.uni-due.de/~be0001/netperfmeter/[NetPerfMeter – A TCP/MPTCP/UDP/SCTP/DCCP Network Performance Meter Tool] and Section{nbsp}6.3 of
+link:https://duepublico2.uni-due.de/servlets/MCRFileNodeServlet/duepublico_derivate_00029737/Dre2012_final.pdf[Evaluation and Optimisation of Multi-Path Transport using the Stream Control Transmission Protocol] for more details about NetPerfMeter and the NetPerfMeter Protocol.
+
+.NetPerfMeter Statistics window
+image::wsug_graphics/ws-netperfmeter-statistics.png[{screenshot-attrs}]
+
 [[ChStatONCRPC]]
 
 === ONC-RPC Programs
@@ -573,7 +593,7 @@ Open Network Computing (ONC) Remote Procedure Call (RPC) uses TCP or UDP protoco
 
 === 29West
 
-The 29West technology now refers to Ultra-Low Latency Messaging (ULLM) technology. It allows sending and receiving a high number of messages per second with microsecond delivery times for zero-latency data delivery. 
+The 29West technology now refers to Ultra-Low Latency Messaging (ULLM) technology. It allows sending and receiving a high number of messages per second with microsecond delivery times for zero-latency data delivery.
 
 The menu:Statistics[29West] shows:
 [cols="1,1"]
@@ -648,7 +668,7 @@ You can filter, copy or save the data into a file.
 
 === Flow Graph
 
-The Flow Graph window shows connections between hosts. It displays the packet time, direction, ports and comments for each captured connection. You can filter all connections by ICMP Flows, ICMPv6 Flows, UIM Flows and TCP Flows.
+The Flow Graph window shows connections between hosts. It displays the packet time, direction, ports and comments for each captured connection. You can filter all connections by ICMP Flows, ICMPv6 Flows, UIM Flows and TCP Flows. Flow Graph window is used for showing multiple different topics. Based on it, it offers different controls.
 
 .Flow Graph window
 image::wsug_graphics/ws-flow-graph.png[{screenshot-attrs}]
@@ -662,6 +682,31 @@ The numbers at the both ends of each arrow between hosts represent the port numb
 Left-click a row to select a corresponding packet in the packet list.
 
 Right-click on the graph for additional options, such as selecting the previous, current, or next packet in the packet list. This menu also contains shortcuts for moving the diagram.
+
+Available controls:
+
+* btn:[Limit to display filter] filters calls just to ones matching display filter. When display filter is active before window is opened, checkbox is checked.
+* btn:[Flow type] allows limit type of protocol flows should be based on.
+* btn:[Addresses] allows switch shown addresses in diagram.
+* btn:[Reset Diagram] resets view position and zoom to default state.
+* btn:[Export] allows export diagram as image in multiple different formats (PDF, PNG, BMP, JPEG and ASCII (diagram is stored with ASCII characters only)).
+
+.Flow Graph window showing VoIP call sequences
+image::wsug_graphics/ws-tel-seq-dialog.png[{screenshot-attrs}]
+
+Additional shortcuts available for VoIP calls:
+
+* On selected RTP stream
+** kbd:[S] - Selects the stream in <<ChTelRTPStreams,RTP Streams>> window (if not opened, it opens it and put it on background).
+** kbd:[D] - Deselects the stream in <<ChTelRTPStreams,RTP Streams>> window (if not opened, it opens it and put it on background).
+
+Additional controls available for VoIP calls:
+
+* btn:[Reset Diagram] resets view position and zoom to default state.
+* btn:[Play Streams] sends selected RTP stream to playlist of <<ChTelRtpPlayer,RTP Player>> window.
+* btn:[Export] allows to export diagram as image in multiple different formats (PDF, PNG, BMP, JPEG and ASCII (diagram is stored with ASCII characters only)).
+
+
 
 [[ChStatHARTIP]]
 
@@ -761,6 +806,30 @@ With this statistics you can:
 .UDP Multicast Streams window
 image::wsug_graphics/ws-udp-multicast-stream.png[{screenshot-attrs}]
 
+[[ChStatRSerPool]]
+
+=== Reliable Server Pooling (RSerPool)
+
+The Reliable Server Pooling (RSerPool) windows show statistics for the different protocols of Reliable Server Pooling (RSerPool):
+
+* Aggregate Server Access Protocol{nbsp}(ASAP)
+* Endpoint Handlespace Redundancy Protocol{nbsp}(ENRP)
+
+With these statistics you can:
+
+* Observe the number of packets and bytes per message type.
+* See the first and last occurrence of each message type.
+* See the interval between first and last occurrence of each message type (if there are at least 2 messages of the corresponding type).
+* See the message rate within the interval for each message type (if there are at least 2 messages of the corresponding type).
+
+See link:https://www.uni-due.de/~be0001/rserpool/[Thomas Dreibholz's Reliable Server Pooling (RSerPool) Page] and Chapter{nbsp}3 of link:https://duepublico.uni-duisburg-essen.de/servlets/DerivateServlet/Derivate-16326/Dre2006_final.pdf[Reliable Server Pooling – Evaluation, Optimization and Extension of a Novel IETF Architecture] for more details about RSerPool and its protocols.
+
+.ASAP Statistics window
+image::wsug_graphics/ws-asap-statistics.png[{screenshot-attrs}]
+
+.ENRP Statistics window
+image::wsug_graphics/ws-enrp-statistics.png[{screenshot-attrs}]
+
 [[ChStatF5]]
 
 === F5
@@ -782,7 +851,7 @@ Each `tmm Distribution` window contains the statistics for the following data:
 *** Traffic with a virtual server name.
 *** Traffic with a flow ID and no virtual server name.
 *** Traffic without a flow ID.
- 
+
 
 [[ChStatIPv4]]
 
@@ -797,7 +866,7 @@ The menu:Statistics[IPv4] menu provides the packet counter by submenus:
 * `IP Protocol Types`. Divides data by IP protocol type.
 * `Source and Destination addresses`. Divides data by source and destination IP address.
 
-You can see similar statistics in the menu:Statistics[Conversations] and menu:Statistics[Endpoints] menus. 
+You can see similar statistics in the menu:Statistics[Conversations] and menu:Statistics[Endpoints] menus.
 
 [[ChStatIPv6]]
 

@@ -23,7 +23,8 @@ typedef enum {
 	REGISTER,
 	INTEGER,
 	DRANGE,
-	FUNCTION_DEF
+	FUNCTION_DEF,
+	PCRE
 } dfvm_value_type_t;
 
 typedef struct {
@@ -34,7 +35,8 @@ typedef struct {
 		guint32			numeric;
 		drange_t		*drange;
 		header_field_info	*hfinfo;
-        df_func_def_t   *funcdef;
+		df_func_def_t		*funcdef;
+		GRegex			*pcre;
 	} value;
 
 } dfvm_value_t;
@@ -49,6 +51,7 @@ typedef enum {
 	RETURN,
 	READ_TREE,
 	PUT_FVALUE,
+	PUT_PCRE,
 	ANY_EQ,
 	ANY_NE,
 	ANY_GT,

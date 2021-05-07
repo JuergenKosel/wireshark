@@ -12,10 +12,6 @@
 
 #include <glib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <epan/tvbuff.h>
 #include <epan/prefs.h>
 #include <epan/frame_data.h>
@@ -23,11 +19,15 @@ extern "C" {
 #include <epan/register.h>
 #include "ws_symbol_export.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /** Global variable holding the content of the corresponding environment variable
  * to save fetching it repeatedly.
  */
 extern gboolean wireshark_abort_on_dissector_bug;
+extern gboolean wireshark_abort_on_too_many_items;
 
 typedef struct epan_dissect epan_dissect_t;
 

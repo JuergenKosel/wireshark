@@ -44,7 +44,7 @@ static void rtpstreams_stat_draw_cb(rtpstream_tapinfo_t *tapinfo);
  */
 static rtpstream_tapinfo_t the_tapinfo_struct =
         { NULL, rtpstreams_stat_draw_cb, NULL,
-          NULL, 0, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE, FALSE
+          NULL, 0, NULL, NULL, 0, TAP_ANALYSE, NULL, NULL, NULL, FALSE, FALSE
         };
 
 static void
@@ -56,7 +56,9 @@ rtpstreams_stat_draw_cb(rtpstream_tapinfo_t *tapinfo _U_)
     char *savelocale;
 
     printf("========================= RTP Streams ========================\n");
-    printf("%13s %13s %15s %5s %15s %5s %10s %16s %5s %12s %15s %15s %15s %s\n", "Start time", "End time", "Src IP addr", "Port",  "Dest IP addr", "Port", "SSRC", "Payload", "Pkts", "Lost", "Max Delta(ms)", "Max Jitter(ms)", "Mean Jitter(ms)", "Problems?");
+    printf("%13s %13s %15s %5s %15s %5s %10s %16s %5s %12s %15s %15s %15s %15s %15s %15s %s\n",
+            "Start time", "End time", "Src IP addr", "Port",  "Dest IP addr", "Port", "SSRC", "Payload", "Pkts", "Lost",
+            "Min Delta(ms)", "Mean Delta(ms)", "Max Delta(ms)", "Min Jitter(ms)", "Mean Jitter(ms)", "Max Jitter(ms)", "Problems?");
 
     /* save the current locale */
     savelocale = g_strdup(setlocale(LC_NUMERIC, NULL));
@@ -72,7 +74,7 @@ rtpstreams_stat_draw_cb(rtpstream_tapinfo_t *tapinfo _U_)
         strinfo = (rtpstream_info_t*)(list->data);
         rtpstream_info_calculate(strinfo, &calc);
 
-        printf("%13.6f %13.6f %15s %5u %15s %5u 0x%08X %16s %5u %5d (%.1f%%) %15.2f %15.2f %15.2f %s\n",
+        printf("%13.6f %13.6f %15s %5u %15s %5u 0x%08X %16s %5u %5d (%.1f%%) %15.3f %15.3f %15.3f %15.3f %15.3f %15.3f %s\n",
             nstime_to_sec(&(strinfo->start_rel_time)),
             nstime_to_sec(&(strinfo->stop_rel_time)),
             calc.src_addr_str,
@@ -84,9 +86,12 @@ rtpstreams_stat_draw_cb(rtpstream_tapinfo_t *tapinfo _U_)
             calc.packet_count,
             calc.lost_num,
             calc.lost_perc,
+            calc.min_delta,
+            calc.mean_delta,
             calc.max_delta,
-            calc.max_jitter,
+            calc.min_jitter,
             calc.mean_jitter,
+            calc.max_jitter,
             (calc.problem)?"X":"");
 
         rtpstream_info_calc_free(&calc);
@@ -121,16 +126,3 @@ register_tap_listener_rtpstreams(void)
 {
     register_stat_tap_ui(&rtpstreams_stat_ui, NULL);
 }
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * vi: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

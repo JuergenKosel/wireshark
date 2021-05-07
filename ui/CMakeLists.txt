@@ -51,6 +51,7 @@ set(NONGENERATED_UI_SRC
 	tap-rlc-graph.c
 	tap-tcp-stream.c
 	text_import.c
+	text_import_regex.c
 	time_shift.c
 	traffic_table_ui.c
 	util.c
@@ -85,6 +86,9 @@ set_target_properties(ui PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	FOLDER "UI"
 )
+if(MSVC)
+	set_target_properties(ui PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+endif()
 
 target_link_libraries(ui wsutil caputils)
 

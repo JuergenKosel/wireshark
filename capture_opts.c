@@ -26,11 +26,12 @@
 
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
+#include <ui/exit_codes.h>
 #include <wsutil/file_util.h>
 #include <wsutil/ws_pipe.h>
 
-#include "caputils/capture_ifinfo.h"
-#include "caputils/capture-pcap-util.h"
+#include "capture/capture_ifinfo.h"
+#include "capture/capture-pcap-util.h"
 
 #include "ui/filter_files.h"
 
@@ -45,6 +46,7 @@ capture_opts_init(capture_options *capture_opts)
     capture_opts->num_selected                    = 0;
     capture_opts->default_options.name            = NULL;
     capture_opts->default_options.descr           = NULL;
+    capture_opts->default_options.ifname          = NULL;
     capture_opts->default_options.hardware        = NULL;
     capture_opts->default_options.display_name    = NULL;
     capture_opts->default_options.cfilter         = NULL;
@@ -563,6 +565,7 @@ fill_in_interface_opts_from_ifinfo(interface_options *interface_opts,
         interface_opts->descr = NULL;
         interface_opts->display_name = g_strdup(if_info->name);
     }
+    interface_opts->ifname = NULL;
     interface_opts->if_type = if_info->type;
     interface_opts->extcap = g_strdup(if_info->extcap);
 }
@@ -740,6 +743,7 @@ capture_opts_add_iface_opt(capture_options *capture_opts, const char *optarg_str
             interface_opts.descr = NULL;
             interface_opts.hardware = NULL;
             interface_opts.display_name = g_strdup(optarg_str_p);
+            interface_opts.ifname = NULL;
             interface_opts.if_type = capture_opts->default_options.if_type;
             interface_opts.extcap = g_strdup(capture_opts->default_options.extcap);
         }
@@ -789,7 +793,7 @@ capture_opts_add_iface_opt(capture_options *capture_opts, const char *optarg_str
 
 
 int
-capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_str_p, gboolean *start_capture)
+capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_str_p)
 {
     int status, snaplen;
 
@@ -878,9 +882,6 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
         }
         break;
 #endif
-    case 'k':        /* Start capture immediately */
-        *start_capture = TRUE;
-        break;
     /*case 'l':*/    /* Automatic scrolling in live capture mode */
 #ifdef HAVE_PCAP_SETSAMPLING
     case 'm':
@@ -1002,17 +1003,26 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
     return 0;
 }
 
-void
-capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name, int queries)
+int
+capture_opts_print_if_capabilities(if_capabilities_t *caps,
+                                   interface_options *interface_opts,
+                                   int queries)
 {
     GList *lt_entry, *ts_entry;
 
     if (queries & CAPS_QUERY_LINK_TYPES) {
+        if (caps->data_link_types == NULL) {
+            cmdarg_err("The capture device \"%s\" has no data link types.",
+                       interface_opts->name);
+            return IFACE_HAS_NO_LINK_TYPES;
+        }
         if (caps->can_set_rfmon)
             printf("Data link types of interface %s when %sin monitor mode (use option -y to set):\n",
-                   name, (queries & CAPS_MONITOR_MODE) ? "" : "not ");
+                   interface_opts->name,
+                   (interface_opts->monitor_mode) ? "" : "not ");
         else
-            printf("Data link types of interface %s (use option -y to set):\n", name);
+            printf("Data link types of interface %s (use option -y to set):\n",
+                   interface_opts->name);
         for (lt_entry = caps->data_link_types; lt_entry != NULL;
              lt_entry = g_list_next(lt_entry)) {
             data_link_info_t *data_link_info = (data_link_info_t *)lt_entry->data;
@@ -1026,6 +1036,11 @@ capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name, int quer
     }
 
     if (queries & CAPS_QUERY_TIMESTAMP_TYPES) {
+        if (caps->timestamp_types == NULL) {
+            cmdarg_err("The capture device \"%s\" has no timestamp types.",
+                       interface_opts->name);
+            return IFACE_HAS_NO_TIMESTAMP_TYPES;
+        }
         printf("Timestamp types of the interface (use option --time-stamp-type to set):\n");
         for (ts_entry = caps->timestamp_types; ts_entry != NULL;
              ts_entry = g_list_next(ts_entry)) {
@@ -1038,6 +1053,7 @@ capture_opts_print_if_capabilities(if_capabilities_t *caps, char *name, int quer
             printf("\n");
         }
     }
+    return EXIT_SUCCESS;
 }
 
 /* Print an ASCII-formatted list of interfaces. */
@@ -1206,6 +1222,7 @@ capture_opts_del_iface(capture_options *capture_opts, guint if_index)
     g_free(interface_opts->descr);
     g_free(interface_opts->hardware);
     g_free(interface_opts->display_name);
+    g_free(interface_opts->ifname);
     g_free(interface_opts->cfilter);
     g_free(interface_opts->timestamp_type);
     g_free(interface_opts->extcap);
@@ -1251,6 +1268,7 @@ collect_ifaces(capture_options *capture_opts)
         if (!device->hidden && device->selected) {
             interface_opts.name = g_strdup(device->name);
             interface_opts.descr = g_strdup(device->friendly_name);
+            interface_opts.ifname = NULL;
             interface_opts.hardware = g_strdup(device->vendor_description);
             interface_opts.display_name = g_strdup(device->display_name);
             interface_opts.linktype = device->active_dlt;

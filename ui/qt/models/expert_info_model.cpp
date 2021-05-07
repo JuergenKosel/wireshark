@@ -116,7 +116,9 @@ void ExpertInfoModel::clear()
 ExpertPacketItem* ExpertInfoModel::createRootItem()
 {
     static const char* rootName = "ROOT";
+DIAG_OFF_CAST_AWAY_CONST
     static expert_info_t root_expert = { 0, -1, -1, -1, rootName, (gchar*)rootName, NULL };
+DIAG_ON_CAST_AWAY_CONST
 
     return new ExpertPacketItem(root_expert, NULL, NULL);
 }
@@ -408,15 +410,3 @@ void ExpertInfoModel::tapDraw(void *eid_ptr)
     emit model->beginResetModel();
     emit model->endResetModel();
 }
-
-/* * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

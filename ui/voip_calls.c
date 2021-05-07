@@ -54,6 +54,8 @@
 #include "ui/ws_ui_util.h"
 #include "ui/voip_calls.h"
 
+#include "wsutil/glib-compat.h"
+
 #define DUMP_PTR1(p) printf("#=> %p\n",(void *)p)
 #define DUMP_PTR2(p) printf("==> %p\n",(void *)p)
 
@@ -766,8 +768,16 @@ rtp_draw(void *tap_offset_ptr)
                         (rtp_listinfo->is_srtp)?"SRTP":"RTP", rtp_listinfo->packet_count,
                         duration/1000, rtp_listinfo->id.ssrc);
                 new_gai->info_type=GA_INFO_TYPE_RTP;
-                new_gai->info_ptr=g_new(rtpstream_id_t, 1);
-                rtpstream_id_copy(&rtp_listinfo->id, (rtpstream_id_t *)new_gai->info_ptr);
+                rtpstream_info_t *new_info = g_new(rtpstream_info_t, 1);
+                new_gai->info_ptr = new_info;
+                rtpstream_info_init(new_info);
+                rtpstream_id_copy(&rtp_listinfo->id, &new_info->id);
+                new_info->packet_count = rtp_listinfo->packet_count;
+                new_info->setup_frame_number = rtp_listinfo->setup_frame_number;
+                new_info->rtp_stats = rtp_listinfo->rtp_stats;
+                nstime_copy(&new_info->start_rel_time, &rtp_listinfo->start_rel_time);
+                nstime_copy(&new_info->stop_rel_time, &rtp_listinfo->stop_rel_time);
+                nstime_copy(&new_info->start_abs_time, &rtp_listinfo->start_abs_time);
                 new_gai->conv_num = conv_num;
                 set_fd_time(tapinfo->session, rtp_listinfo->start_fd, time_str);
                 new_gai->time_str = g_strdup(time_str);
@@ -2079,7 +2089,7 @@ h225_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
 
         tmp_h323info = (h323_calls_info_t *)callsinfo->prot_info;
         g_assert(tmp_h323info != NULL);
-        tmp_h323info->guid = (e_guid_t *)g_memdup(&pi->guid, sizeof pi->guid);
+        tmp_h323info->guid = (e_guid_t *)g_memdup2(&pi->guid, sizeof pi->guid);
         /* DUMP_PTR1(tmp_h323info->guid); */
 
         clear_address(&tmp_h323info->h225SetupAddr);
@@ -4442,16 +4452,3 @@ remove_tap_listener_prot__calls(voip_calls_tapinfo_t *tap_id_base)
     remove_tap_listener(tap_base_to_id(tap_id_base, tap_id_offset_prot_));
 }
 #endif
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.473 V16.4.0 (2021-01)
+ * References: 3GPP TS 38.473 V16.5.0 (2021-04)
  */
 
 #include "config.h"
@@ -20,6 +20,7 @@
 #include <epan/proto_data.h>
 
 #include "packet-per.h"
+#include "packet-f1ap.h"
 #include "packet-x2ap.h"
 #include "packet-nr-rrc.h"
 #include "packet-e212.h"

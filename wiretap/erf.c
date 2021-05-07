@@ -30,11 +30,10 @@
 
 #include <wsutil/crc32.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/glib-compat.h>
 
 #include "wtap-int.h"
 #include "file_wrappers.h"
-#include "pcap-encap.h"
-#include "pcapng.h"
 #include "erf.h"
 #include "erf_record.h"
 #include "erf-common.h"
@@ -2012,7 +2011,7 @@ static gboolean erf_dump(
   return TRUE;
 }
 
-int erf_dump_can_write_encap(int encap)
+static int erf_dump_can_write_encap(int encap)
 {
 
   if(encap == WTAP_ENCAP_PER_PACKET)
@@ -2024,7 +2023,7 @@ int erf_dump_can_write_encap(int encap)
   return 0;
 }
 
-int erf_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_)
+static int erf_dump_open(wtap_dumper *wdh, int *err _U_, gchar **err_info _U_)
 {
   erf_dump_t *dump_priv;
   gchar *s;
@@ -3255,7 +3254,7 @@ static int populate_summary_info(erf_t *erf_priv, wtap *wth, union wtap_pseudo_h
          * before the interface information, as we associate them to interface
          * data.
          */
-        post_list = g_list_append(post_list, g_memdup(&state, sizeof(struct erf_meta_read_state)));
+        post_list = g_list_append(post_list, g_memdup2(&state, sizeof(struct erf_meta_read_state)));
         break;
       case ERF_META_SECTION_SOURCE:
       case ERF_META_SECTION_DNS:

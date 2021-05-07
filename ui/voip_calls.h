@@ -24,15 +24,6 @@
 
 #include <glib.h>
 
-/** @file
- *  "VoIP Calls" dialog box common routines.
- *  @ingroup main_ui_group
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <stdio.h>
 
 #include "epan/address.h"
@@ -41,6 +32,15 @@ extern "C" {
 #include "epan/tap.h"
 #include "epan/tap-voip.h"
 #include "epan/sequence_analysis.h"
+
+/** @file
+ *  "VoIP Calls" dialog box common routines.
+ *  @ingroup main_ui_group
+ */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /****************************************************************************/
 extern const char *voip_call_state_name[8];
@@ -264,16 +264,3 @@ voip_calls_free_callsinfo(voip_calls_info_t *callsinfo);
 #endif /* __cplusplus */
 
 #endif /* __VOIP_CALLS_H__ */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

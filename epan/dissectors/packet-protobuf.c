@@ -504,8 +504,7 @@ protobuf_dissect_field_value(proto_tree *value_tree, tvbuff_t *tvb, guint offset
     proto_tree* field_parent_tree = proto_tree_get_parent_tree(field_tree);
     proto_tree* pbf_tree = field_tree;
     nstime_t timestamp = { 0 };
-    dissector_handle_t field_dissector = (field_full_name && (field_type == PROTOBUF_TYPE_BYTES || field_type == PROTOBUF_TYPE_STRING)) ?
-        dissector_get_string_handle(protobuf_field_subdissector_table, field_full_name) : NULL;
+    dissector_handle_t field_dissector = field_full_name ? dissector_get_string_handle(protobuf_field_subdissector_table, field_full_name) : NULL;
 
     if (pbf_as_hf && field_full_name) {
         hf_id_ptr = (int*)g_hash_table_lookup(pbf_hf_hash, field_full_name);
@@ -1711,11 +1710,12 @@ static void
 protobuf_reinit(int target)
 {
     guint i;
-    gchar **source_paths;
+    char **source_paths;
     GSList* it;
     range_t* udp_port_range;
     const gchar* message_type;
     gboolean loading_completed = TRUE;
+    size_t num_proto_paths;
 
     if (target & PREFS_UPDATE_PROTOBUF_UDP_MESSAGE_TYPES) {
         /* delete protobuf dissector from old udp ports */
@@ -1747,20 +1747,26 @@ protobuf_reinit(int target)
     }
 
     if (target & PREFS_UPDATE_PROTOBUF_SEARCH_PATHS) {
-        /* convert protobuf_search_path_t array to char* array. should release by g_free(). */
-        source_paths = g_new0(char *, num_protobuf_search_paths + 1);
+        /* convert protobuf_search_path_t array to char* array. should release by g_free().
+           Add the global and profile protobuf dirs to the search list, add 1 for the terminating null entry */
+        num_proto_paths = (size_t)num_protobuf_search_paths + 2;
+        source_paths = g_new0(char *, num_proto_paths + 1);
+
+        /* Load the files in the global and personal config dirs */
+        source_paths[0] = get_datafile_path("protobuf");
+        source_paths[1] = get_persconffile_path("protobuf", TRUE);
 
         for (i = 0; i < num_protobuf_search_paths; ++i) {
-            source_paths[i] = protobuf_search_paths[i].path;
+            source_paths[i + 2] = protobuf_search_paths[i].path;
         }
 
         /* init DescriptorPool of protobuf */
-        pbw_reinit_DescriptorPool(&pbw_pool, (const char**)source_paths, buffer_error);
+        pbw_reinit_DescriptorPool(&pbw_pool, (const char **)source_paths, buffer_error);
 
         /* load all .proto files in the marked search paths, we can invoke FindMethodByName etc later. */
-        for (i = 0; i < num_protobuf_search_paths; ++i) {
-            if (protobuf_search_paths[i].load_all) {
-                if (!load_all_files_in_dir(pbw_pool, protobuf_search_paths[i].path)) {
+        for (i = 0; i < num_proto_paths; ++i) {
+            if ((i < 2) || protobuf_search_paths[i - 2].load_all) {
+                if (!load_all_files_in_dir(pbw_pool, source_paths[i])) {
                     buffer_error("Protobuf: Loading .proto files action stopped!\n");
                     loading_completed = FALSE;
                     break; /* stop loading when error occurs */
@@ -1768,6 +1774,8 @@ protobuf_reinit(int target)
             }
         }
 
+        g_free(source_paths[0]);
+        g_free(source_paths[1]);
         g_free(source_paths);
         update_header_fields(TRUE);
     }
@@ -2046,7 +2054,7 @@ proto_register_protobuf(void)
 
     prefs_register_static_text_preference(protobuf_module, "field_dissector_table_note",
         "Subdissector can register itself in \"protobuf_field\" dissector table for parsing"
-        " the value of the field of bytes or string type.",
+        " the value of the field.",
         "The key of \"protobuf_field\" table is the full name of field.");
 
     protobuf_field_subdissector_table =

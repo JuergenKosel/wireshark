@@ -221,6 +221,7 @@ static int hf_smb2_write_length = -1;
 static int hf_smb2_write_data = -1;
 static int hf_smb2_write_flags = -1;
 static int hf_smb2_write_flags_write_through = -1;
+static int hf_smb2_write_flags_write_unbuffered = -1;
 static int hf_smb2_write_count = -1;
 static int hf_smb2_write_remaining = -1;
 static int hf_smb2_read_length = -1;
@@ -264,7 +265,7 @@ static int hf_smb2_comp_alg_flags = -1;
 static int hf_smb2_comp_alg_flags_chained = -1;
 static int hf_smb2_comp_alg_flags_reserved = -1;
 static int hf_smb2_netname_neg_id = -1;
-static int hf_smb2_transport_reserved = -1;
+static int hf_smb2_transport_ctx_flags = -1;
 static int hf_smb2_rdma_transform_count = -1;
 static int hf_smb2_rdma_transform_reserved1 = -1;
 static int hf_smb2_rdma_transform_reserved2 = -1;
@@ -435,6 +436,7 @@ static int hf_smb2_share_flags_enable_hash_v1 = -1;
 static int hf_smb2_share_flags_enable_hash_v2 = -1;
 static int hf_smb2_share_flags_encrypt_data = -1;
 static int hf_smb2_share_flags_identity_remoting = -1;
+static int hf_smb2_share_flags_compress_data = -1;
 static int hf_smb2_share_caching = -1;
 static int hf_smb2_share_caps = -1;
 static int hf_smb2_share_caps_dfs = -1;
@@ -1004,9 +1006,11 @@ static const value_string smb2_comp_transform_flags_vals[] = {
 
 #define SMB2_RDMA_TRANSFORM_NONE       0x0000
 #define SMB2_RDMA_TRANSFORM_ENCRYPTION 0x0001
+#define SMB2_RDMA_TRANSFORM_SIGNING    0x0002
 static const value_string smb2_rdma_transform_types[] = {
 	{ SMB2_RDMA_TRANSFORM_NONE, "None" },
 	{ SMB2_RDMA_TRANSFORM_ENCRYPTION, "Encryption" },
+	{ SMB2_RDMA_TRANSFORM_SIGNING, "Signing" },
 	{ 0, NULL }
 };
 
@@ -1025,6 +1029,12 @@ static const val64_string unique_unsolicited_response[] = {
 static const value_string smb2_error_id_vals[] = {
 	{ SMB2_ERROR_ID_DEFAULT, "ERROR_ID_DEFAULT" },
 	{ SMB2_ERROR_ID_SHARE_REDIRECT, "ERROR_ID_SHARE_REDIRECT" },
+	{ 0, NULL }
+};
+
+#define SMB2_ACCEPT_TRANSPORT_LEVEL_SECURITY 0x00000001
+static const value_string smb2_transport_ctx_flags_vals[] = {
+	{ SMB2_ACCEPT_TRANSPORT_LEVEL_SECURITY, "SMB2_ACCEPT_TRANSPORT_LEVEL_SECURITY" },
 	{ 0, NULL }
 };
 
@@ -1086,6 +1096,8 @@ static const val64_string nfs_type_vals[] = {
 #define SMB2_DIALECT_202  0x0202
 #define SMB2_DIALECT_210  0x0210
 #define SMB2_DIALECT_2FF  0x02FF
+#define SMB2_DIALECT_222  0x0222
+#define SMB2_DIALECT_224  0x0224
 #define SMB2_DIALECT_300  0x0300
 #define SMB2_DIALECT_302  0x0302
 #define SMB2_DIALECT_310  0x0310
@@ -1095,6 +1107,8 @@ static const value_string smb2_dialect_vals[] = {
 	{ SMB2_DIALECT_202, "SMB 2.0.2" },
 	{ SMB2_DIALECT_210, "SMB 2.1" },
 	{ SMB2_DIALECT_2FF, "SMB2 wildcard" },
+	{ SMB2_DIALECT_222, "SMB 2.2.2 (deprecated; should be 3.0)" },
+	{ SMB2_DIALECT_224, "SMB 2.2.4 (deprecated; should be 3.0)" },
 	{ SMB2_DIALECT_300, "SMB 3.0" },
 	{ SMB2_DIALECT_302, "SMB 3.0.2" },
 	{ SMB2_DIALECT_310, "SMB 3.1.0 (deprecated; should be 3.1.1)" },
@@ -1248,13 +1262,13 @@ static void* seskey_list_copy_cb(void *n, const void *o, size_t siz _U_)
 	const smb2_seskey_field_t *old_rec = (const smb2_seskey_field_t *)o;
 
 	new_rec->id_len = old_rec->id_len;
-	new_rec->id = old_rec->id ? (guchar *)g_memdup(old_rec->id, old_rec->id_len) : NULL;
+	new_rec->id = old_rec->id ? (guchar *)g_memdup2(old_rec->id, old_rec->id_len) : NULL;
 	new_rec->seskey_len = old_rec->seskey_len;
-	new_rec->seskey = old_rec->seskey ? (guchar *)g_memdup(old_rec->seskey, old_rec->seskey_len) : NULL;
+	new_rec->seskey = old_rec->seskey ? (guchar *)g_memdup2(old_rec->seskey, old_rec->seskey_len) : NULL;
 	new_rec->s2ckey_len = old_rec->s2ckey_len;
-	new_rec->s2ckey = old_rec->s2ckey ? (guchar *)g_memdup(old_rec->s2ckey, old_rec->s2ckey_len) : NULL;
+	new_rec->s2ckey = old_rec->s2ckey ? (guchar *)g_memdup2(old_rec->s2ckey, old_rec->s2ckey_len) : NULL;
 	new_rec->c2skey_len = old_rec->c2skey_len;
-	new_rec->c2skey = old_rec->c2skey ? (guchar *)g_memdup(old_rec->c2skey, old_rec->c2skey_len) : NULL;
+	new_rec->c2skey = old_rec->c2skey ? (guchar *)g_memdup2(old_rec->c2skey, old_rec->c2skey_len) : NULL;
 
 	return new_rec;
 }
@@ -1488,8 +1502,8 @@ smb2_get_session(smb2_conv_info_t *conv _U_, guint64 id, packet_info *pinfo, smb
 		ses->sesid = id;
 		ses->auth_frame = (guint32)-1;
 		ses->tids = wmem_map_new(wmem_file_scope(), smb2_tid_info_hash, smb2_tid_info_equal);
-		ses->fids = g_hash_table_new(smb2_fid_info_hash, smb2_fid_info_equal);
-		ses->files = g_hash_table_new(smb2_eo_files_hash, smb2_eo_files_equal);
+		ses->fids = wmem_map_new(wmem_file_scope(), smb2_fid_info_hash, smb2_fid_info_equal);
+		ses->files = wmem_map_new(wmem_file_scope(), smb2_eo_files_hash, smb2_eo_files_equal);
 
 		seskey_find_sid_key(id, ses->session_key, ses->client_decryption_key, ses->server_decryption_key);
 		if (pinfo && si) {
@@ -2364,7 +2378,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 			dcerpc_store_polhnd_name(&policy_hnd, pinfo,
 						  fid_name);
 
-			g_hash_table_insert(si->session->fids, sfi, sfi);
+			wmem_map_insert(si->session->fids, sfi, sfi);
 			si->file = sfi;
 
 			/* If needed, create the file entry and save the policy hnd */
@@ -2374,13 +2388,13 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 			}
 
 			if (si->conv) {
-				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&policy_hnd);
+				eo_file_info = (smb2_eo_file_info_t *)wmem_map_lookup(si->session->files,&policy_hnd);
 				if (!eo_file_info) {
 					eo_file_info = wmem_new(wmem_file_scope(), smb2_eo_file_info_t);
 					policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 					memcpy(policy_hnd_hashtablekey, &policy_hnd, sizeof(e_ctx_hnd));
 					eo_file_info->end_of_file=0;
-					g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
+					wmem_map_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 				}
 				si->eo_file_info=eo_file_info;
 			}
@@ -2388,7 +2402,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		break;
 	case FID_MODE_CLOSE:
 		if (!pinfo->fd->visited) {
-			smb2_fid_info_t *fid = (smb2_fid_info_t *)g_hash_table_lookup(si->session->fids, &sfi_key);
+			smb2_fid_info_t *fid = (smb2_fid_info_t *)wmem_map_lookup(si->session->fids, &sfi_key);
 			if (fid) {
 				/* set last frame */
 				fid->frame_end = pinfo->num;
@@ -2403,7 +2417,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		break;
 	}
 
-	si->file = (smb2_fid_info_t *)g_hash_table_lookup(si->session->fids, &sfi_key);
+	si->file = (smb2_fid_info_t *)wmem_map_lookup(si->session->fids, &sfi_key);
 	if (si->file) {
 		if (si->saved) {
 			si->saved->file = si->file;
@@ -2421,7 +2435,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 		if (!si->eo_file_info) {
 			if (si->saved) { si->saved->policy_hnd = policy_hnd; }
 			if (si->conv) {
-				eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&policy_hnd);
+				eo_file_info = (smb2_eo_file_info_t *)wmem_map_lookup(si->session->files,&policy_hnd);
 				if (eo_file_info) {
 					si->eo_file_info=eo_file_info;
 				} else { /* XXX This should never happen */
@@ -2429,7 +2443,7 @@ dissect_smb2_fid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset
 					policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 					memcpy(policy_hnd_hashtablekey, &policy_hnd, sizeof(e_ctx_hnd));
 					eo_file_info->end_of_file=0;
-					g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
+					wmem_map_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 				}
 			}
 
@@ -3416,6 +3430,7 @@ static const value_string share_cache_vals[] = {
 #define SHARE_FLAGS_enable_hash_v2		0x00004000
 #define SHARE_FLAGS_encryption_required		0x00008000
 #define SHARE_FLAGS_identity_remoting		0x00040000
+#define SHARE_FLAGS_compress_data		0x00100000
 
 static int
 dissect_smb2_share_flags(proto_tree *tree, tvbuff_t *tvb, int offset)
@@ -3432,6 +3447,7 @@ dissect_smb2_share_flags(proto_tree *tree, tvbuff_t *tvb, int offset)
 		&hf_smb2_share_flags_enable_hash_v2,
 		&hf_smb2_share_flags_encrypt_data,
 		&hf_smb2_share_flags_identity_remoting,
+		&hf_smb2_share_flags_compress_data,
 		NULL
 	};
 	proto_item *item;
@@ -5162,7 +5178,7 @@ dissect_smb2_negotiate_context(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 			break;
 
 		case SMB2_TRANSPORT_CAPABILITIES:
-			proto_tree_add_item(sub_tree, hf_smb2_transport_reserved, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+			proto_tree_add_item(sub_tree, hf_smb2_transport_ctx_flags, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 			offset += 4;
 			break;
 
@@ -6413,11 +6429,13 @@ clean_up_and_exit:
 #define SMB2_CHANNEL_NONE		0x00000000
 #define SMB2_CHANNEL_RDMA_V1		0x00000001
 #define SMB2_CHANNEL_RDMA_V1_INVALIDATE	0x00000002
+#define SMB2_CHANNEL_RDMA_TRANSFORM	0x00000003
 
 static const value_string smb2_channel_vals[] = {
 	{ SMB2_CHANNEL_NONE,	"None" },
 	{ SMB2_CHANNEL_RDMA_V1,	"RDMA V1" },
 	{ SMB2_CHANNEL_RDMA_V1_INVALIDATE,	"RDMA V1_INVALIDATE" },
+	{ SMB2_CHANNEL_RDMA_TRANSFORM,	"RDMA TRANSFORM" },
 	{ 0, NULL }
 };
 
@@ -6457,6 +6475,17 @@ dissect_smb2_rdma_v1_blob(tvbuff_t *tvb, packet_info *pinfo _U_,
 }
 
 #define SMB2_WRITE_FLAG_WRITE_THROUGH		0x00000001
+#define SMB2_WRITE_FLAG_WRITE_UNBUFFERED	0x00000002
+
+static const true_false_string tfs_write_through = {
+	"Client is asking for WRITE_THROUGH",
+	"Client is NOT asking for WRITE_THROUGH"
+};
+
+static const true_false_string tfs_write_unbuffered = {
+	"Client is asking for UNBUFFERED write",
+	"Client is NOT asking for UNBUFFERED write"
+};
 
 static int
 dissect_smb2_write_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, smb2_info_t *si)
@@ -6469,6 +6498,7 @@ dissect_smb2_write_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	guint64 off;
 	static int * const f_fields[] = {
 		&hf_smb2_write_flags_write_through,
+		&hf_smb2_write_flags_write_unbuffered,
 		NULL
 	};
 
@@ -10334,6 +10364,8 @@ dissect_smb2_chained_comp_payload(packet_info *pinfo, proto_tree *tree,
 	}
 
  out:
+	if (uncomp_tvb)
+		tvb_free(uncomp_tvb);
 	proto_tree_add_item(subtree, hf_smb2_comp_transform_data, tvb, offset, length, ENC_NA);
 	offset += length;
 
@@ -10986,14 +11018,14 @@ dissect_smb2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolea
 				/* If needed, create the file entry and save the policy hnd */
 				if (!si->eo_file_info) {
 					if (si->conv) {
-						eo_file_info = (smb2_eo_file_info_t *)g_hash_table_lookup(si->session->files,&ssi->policy_hnd);
+						eo_file_info = (smb2_eo_file_info_t *)wmem_map_lookup(si->session->files,&ssi->policy_hnd);
 						if (!eo_file_info) { /* XXX This should never happen */
 							/* assert(1==0); */
 							eo_file_info = wmem_new(wmem_file_scope(), smb2_eo_file_info_t);
 							policy_hnd_hashtablekey = wmem_new(wmem_file_scope(), e_ctx_hnd);
 							memcpy(policy_hnd_hashtablekey, &ssi->policy_hnd, sizeof(e_ctx_hnd));
 							eo_file_info->end_of_file=0;
-							g_hash_table_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
+							wmem_map_insert(si->session->files,policy_hnd_hashtablekey,eo_file_info);
 						}
 						si->eo_file_info=eo_file_info;
 					}
@@ -11623,7 +11655,12 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_write_flags_write_through,
 			{ "Write through", "smb2.write.flags.write_through", FT_BOOLEAN, 32,
-			NULL, SMB2_WRITE_FLAG_WRITE_THROUGH, NULL, HFILL }
+			TFS(&tfs_write_through), SMB2_WRITE_FLAG_WRITE_THROUGH, "If the client requests WRITE_THROUGH", HFILL }
+		},
+
+		{ &hf_smb2_write_flags_write_unbuffered,
+			{ "Unbuffered", "smb2.write.flags.unbuffered", FT_BOOLEAN, 32,
+			TFS(&tfs_write_unbuffered), SMB2_WRITE_FLAG_WRITE_UNBUFFERED, "If client requests UNBUFFERED read", HFILL }
 		},
 
 		{ &hf_smb2_write_count,
@@ -12067,9 +12104,9 @@ proto_register_smb2(void)
 			STR_UNICODE, NULL, 0x0, NULL, HFILL }
 		},
 
-		{ &hf_smb2_transport_reserved,
-			{ "Reserved", "smb2.negotiate_context.transport_reserved", FT_UINT32, BASE_HEX,
-			NULL, 0, NULL, HFILL }
+		{ &hf_smb2_transport_ctx_flags,
+			{ "Flags", "smb2.negotiate_context.transport_flags", FT_UINT32, BASE_HEX,
+			  VALS(smb2_transport_ctx_flags_vals), 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_rdma_transform_count,
@@ -12847,6 +12884,11 @@ proto_register_smb2(void)
 			NULL, SHARE_FLAGS_identity_remoting, "The specified share supports Identity Remoting", HFILL }
 		},
 
+		{ &hf_smb2_share_flags_compress_data,
+			{ "Compressed IO", "smb2.share_flags.compress_data", FT_BOOLEAN, 32,
+			NULL, SHARE_FLAGS_compress_data, "The share supports compression of read/write messages", HFILL }
+		},
+
 		{ &hf_smb2_share_caching,
 			{ "Caching policy", "smb2.share.caching", FT_UINT32, BASE_HEX,
 			VALS(share_cache_vals), 0, NULL, HFILL }
@@ -13461,7 +13503,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_comp_pattern_v1_reserved2,
-		  { "Reserved2", "smb2.pattern_v1.reserved2", FT_UINT8, BASE_HEX,
+		  { "Reserved2", "smb2.pattern_v1.reserved2", FT_UINT16, BASE_HEX,
 		    NULL, 0, NULL, HFILL }
 		},
 

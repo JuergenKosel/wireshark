@@ -179,20 +179,36 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Close|QDialogButtonBox::Help|QDialogButtonBox::Save</set>
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Help</set>
      </property>
     </widget>
    </item>
   </layout>
   <action name="actionReset">
    <property name="text">
-    <string>Reset Diagram</string>
+    <string>Reset &amp;Diagram</string>
    </property>
    <property name="toolTip">
     <string>Reset the diagram to its initial state.</string>
    </property>
    <property name="shortcut">
     <string>0</string>
+   </property>
+  </action>
+  <action name="actionResetDiagram">
+   <property name="text">
+    <string>&amp;Reset Diagram</string>
+   </property>
+   <property name="toolTip">
+    <string>Reset the diagram to its initial state</string>
+   </property>
+  </action>
+  <action name="actionExportDiagram">
+   <property name="text">
+    <string>&amp;Export</string>
+   </property>
+   <property name="toolTip">
+    <string>Export diagram</string>
    </property>
   </action>
   <action name="actionZoomIn">
@@ -360,7 +376,7 @@
     <string>P</string>
    </property>
   </action>
-  <action name="actionSelectRtpStream">
+  <action name="actionSelectRtpStreams">
    <property name="text">
     <string>Select RTP Stream</string>
    </property>
@@ -371,7 +387,7 @@
     <string>S</string>
    </property>
   </action>
-  <action name="actionDeselectRtpStream">
+  <action name="actionDeselectRtpStreams">
    <property name="text">
     <string>Deselect RTP Stream</string>
    </property>

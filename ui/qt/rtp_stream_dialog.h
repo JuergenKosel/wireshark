@@ -15,7 +15,7 @@
 #include "ui/rtp_stream.h"
 #include "rtp_player_dialog.h"
 
-#include <QAbstractButton>
+#include <QToolButton>
 #include <QMenu>
 
 namespace Ui {
@@ -29,6 +29,10 @@ class RtpStreamDialog : public WiresharkDialog
 public:
     explicit RtpStreamDialog(QWidget &parent, CaptureFile &cf);
     ~RtpStreamDialog();
+    // Caller must provide ids which are immutable to recap
+    void selectRtpStream(QVector<rtpstream_id_t *> stream_ids);
+    // Caller must provide ids which are immutable to recap
+    void deselectRtpStream(QVector<rtpstream_id_t *> stream_ids);
 
 signals:
     // Tells the packet list to redraw. An alternative might be to add a
@@ -37,11 +41,21 @@ signals:
     void packetsMarked();
     void updateFilter(QString filter, bool force = false);
     void goToPacket(int packet_num);
+    void rtpPlayerDialogReplaceRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void rtpPlayerDialogAddRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void rtpPlayerDialogRemoveRtpStreams(QVector<rtpstream_id_t *> stream_ids);
+    void rtpAnalysisDialogReplaceRtpStreams(QVector<rtpstream_id_t *> stream_infos);
+    void rtpAnalysisDialogAddRtpStreams(QVector<rtpstream_id_t *> stream_infos);
+    void rtpAnalysisDialogRemoveRtpStreams(QVector<rtpstream_id_t *> stream_infos);
 
 public slots:
-    void selectRtpStream(rtpstream_id_t *id);
-    void deselectRtpStream(rtpstream_id_t *id);
     void displayFilterSuccess(bool success);
+    void rtpPlayerReplace();
+    void rtpPlayerAdd();
+    void rtpPlayerRemove();
+    void rtpAnalysisReplace();
+    void rtpAnalysisAdd();
+    void rtpAnalysisRemove();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event);
@@ -51,12 +65,12 @@ protected:
 private:
     Ui::RtpStreamDialog *ui;
     rtpstream_tapinfo_t tapinfo_;
-    QPushButton *find_reverse_button_;
+    QToolButton *find_reverse_button_;
     QPushButton *prepare_button_;
     QPushButton *export_button_;
     QPushButton *copy_button_;
-    QPushButton *analyze_button_;
-    QPushButton *player_button_;
+    QToolButton *analyze_button_;
+    QToolButton *player_button_;
     QMenu ctx_menu_;
     bool need_redraw_;
     QList<rtpstream_id_t> last_selected_;
@@ -73,38 +87,29 @@ private:
 
     QList<QVariant> streamRowData(int row) const;
     void freeLastSelected();
-
+    void invertSelection();
+    QVector<rtpstream_id_t *>getSelectedRtpIds();
 
 private slots:
     void showStreamMenu(QPoint pos);
     void on_actionCopyAsCsv_triggered();
     void on_actionCopyAsYaml_triggered();
-    void on_actionFindReverse_triggered();
+    void on_actionFindReverseNormal_triggered();
+    void on_actionFindReversePair_triggered();
+    void on_actionFindReverseSingle_triggered();
     void on_actionGoToSetup_triggered();
     void on_actionMarkPackets_triggered();
     void on_actionPrepareFilter_triggered();
-    void on_actionSelectNone_triggered();
     void on_streamTreeWidget_itemSelectionChanged();
     void on_buttonBox_helpRequested();
-    void on_buttonBox_clicked(QAbstractButton *button);
     void on_actionExportAsRtpDump_triggered();
-    void on_actionAnalyze_triggered();
     void captureEvent(CaptureEvent e);
     void on_displayFilterCheckBox_toggled(bool checked);
     void on_todCheckBox_toggled(bool checked);
+    void on_actionSelectAll_triggered();
+    void on_actionSelectInvert_triggered();
+    void on_actionSelectNone_triggered();
+    void on_actionAnalyze_triggered();
 };
 
 #endif // RTP_STREAM_DIALOG_H
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

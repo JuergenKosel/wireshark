@@ -66,6 +66,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	unicode-utils.h
 	utf8_entities.h
 	ws_cpuid.h
+	glib-compat.h
 	ws_mempbrk.h
 	ws_mempbrk_int.h
 	ws_pipe.h
@@ -118,6 +119,7 @@ set(WSUTIL_COMMON_FILES
 	time_util.c
 	type_util.c
 	unicode-utils.c
+	glib-compat.c
 	ws_mempbrk.c
 	ws_pipe.c
 	wsgcrypt.c
@@ -253,6 +255,9 @@ set_target_properties(wsutil PROPERTIES
 	FOLDER "DLLs"
 	INSTALL_RPATH "${LIBRARY_INSTALL_RPATH}"
 )
+if(MSVC)
+	set_target_properties(wsutil PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+endif()
 
 target_link_libraries(wsutil
 	PUBLIC

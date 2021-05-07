@@ -312,6 +312,8 @@ void progress_window_destroy(progdlg *progress_dialog) {
 
 extern "C" {
 
+void register_tap_listener_qt_funnel(void);
+
 static void register_menu_cb(const char *name,
                              register_stat_group_t group,
                              funnel_menu_callback callback,
@@ -362,16 +364,3 @@ funnel_statistics_reload_menus(void)
 }
 
 } // extern "C"
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

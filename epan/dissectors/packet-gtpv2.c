@@ -660,6 +660,7 @@ static int hf_gtpv2_uplink_rate_limit = -1;
 static int hf_gtpv2_downlink_rate_limit = -1;
 static int hf_gtpv2_timestamp_value = -1;
 static int hf_gtpv2_counter_value = -1;
+static int hf_gtpv2_mapped_ue_usage_type = -1;
 static int hf_gtpv2_uli_flags = -1;
 static int hf_gtpv2_rohc_profile_flags = -1;
 static int hf_gtpv2_dcnr = -1;
@@ -937,6 +938,7 @@ static expert_field ei_gtpv2_apn_too_long = EI_INIT;
 #define GTPV2_FORWARD_CTX_ACKNOWLEDGE   138
 #define GTPV2_RELOCATION_CANCEL_REQUEST         139
 #define GTPV2_RELOCATION_CANCEL_RESPONSE        140
+#define GTPV2_CONFIGURATION_TRANSFER_TUNNEL        141
 #define GTPV2_RAN_INFORMATION_RELAY     152
 #define GTPV2_DL_DATA_NOTIF_ACK        177
 
@@ -5257,6 +5259,22 @@ dissect_gtpv2_F_container(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
             break;
         }
     }
+    if (message_type == GTPV2_CONFIGURATION_TRANSFER_TUNNEL) {
+    /* 7.3.18 Configuration Transfer Tunnel */
+        switch (container_type) {
+        case 3:
+            /* SON Configuration Transfer
+             * This IE shall be included to contain the "SON Configuration Transfer" as specified in 3GPP TS 36.413 [10].
+             * The Container Type shall be set to 3.
+             */
+            sub_tree = proto_tree_add_subtree(tree, tvb, offset, length, ett_gtpv2_eutran_con, NULL, "SON Configuration Transfer");
+            new_tvb = tvb_new_subset_length(tvb, offset, length);
+            dissect_s1ap_SONConfigurationTransfer_PDU(new_tvb, pinfo, sub_tree, NULL);
+            return;
+        default:
+            break;
+        }
+    }
     proto_tree_add_expert(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, offset, length);
 
 }
@@ -7615,12 +7633,15 @@ dissect_gtpv2_counter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, p
  */
 
 static void
-dissect_gtpv2_mapped_ue_usage_type(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree, proto_item* item _U_, guint16 length _U_, guint8 message_type _U_, guint8 instance _U_, session_args_t* args _U_)
+dissect_gtpv2_mapped_ue_usage_type(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, proto_item* item _U_, guint16 length, guint8 message_type _U_, guint8 instance _U_, session_args_t* args _U_)
 {
     int offset = 0;
 
-    proto_tree_add_expert(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, offset, length);
-
+    proto_tree_add_item(tree, hf_gtpv2_mapped_ue_usage_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+    if (length > offset) {
+        proto_tree_add_expert_format(tree, pinfo, &ei_gtpv2_ie_data_not_dissected, tvb, offset, -1, "The rest of the IE not dissected yet");
+    }
 }
 
 /*
@@ -11351,6 +11372,11 @@ void proto_register_gtpv2(void)
       { &hf_gtpv2_counter_value,
       { "Counter value", "gtpv2.counter_value",
           FT_UINT8, BASE_DEC, NULL, 0x0,
+          NULL, HFILL }
+      },
+      { &hf_gtpv2_mapped_ue_usage_type,
+      { "Mapped UE usage type", "gtpv2.mapped_ue_usage_type",
+          FT_UINT16, BASE_DEC, NULL, 0x0,
           NULL, HFILL }
       },
       { &hf_gtpv2_uli_flags,

@@ -1188,13 +1188,13 @@ static void
 
     proto_tree_add_uint(ldap_tree, hf_ldap_sasl_buffer_length, sasl_tvb, 0, 4, sasl_len);
 
-    sasl_tree = proto_tree_add_subtree(ldap_tree, sasl_tvb, 0, sasl_msg_len, ett_ldap_sasl_blob, NULL, "SASL Buffer");
+    sasl_tree = proto_tree_add_subtree(ldap_tree, sasl_tvb, 4, sasl_msg_len - 4, ett_ldap_sasl_blob, NULL, "SASL Buffer");
 
     if (ldap_info->auth_mech != NULL &&
       ((strcmp(ldap_info->auth_mech, "GSS-SPNEGO") == 0) ||
       /* auth_mech may have been set from the bind */
       (strcmp(ldap_info->auth_mech, "GSSAPI") == 0))) {
-        tvbuff_t *gssapi_tvb, *plain_tvb = NULL, *decr_tvb= NULL;
+        tvbuff_t *gssapi_tvb = NULL;
         int ver_len;
         int tmp_length;
         gssapi_encrypt_info_t gssapi_encrypt;
@@ -1224,6 +1224,9 @@ static void
           return;
         }
         if (gssapi_encrypt.gssapi_decrypted_tvb) {
+          tvbuff_t *decr_tvb = gssapi_encrypt.gssapi_decrypted_tvb;
+          proto_tree *enc_tree = NULL;
+
           /*
            * The LDAP payload (blob) was encrypted and we were able to decrypt it.
            * The data was signed via a MIC token, sealed (encrypted), and "wrapped"
@@ -1231,20 +1234,17 @@ static void
            * one or more LDAPMessages such as searchRequest messages within this
            * payload.
            */
-          col_set_str(pinfo->cinfo, COL_INFO, "SASL GSS-API Decrypted payload: ");
+          col_set_str(pinfo->cinfo, COL_INFO, "SASL GSS-API Privacy (decrypted): ");
 
           if (sasl_tree) {
-            proto_tree *enc_tree;
             guint decr_len = tvb_reported_length(decr_tvb);
 
-            decr_tvb = gssapi_encrypt.gssapi_decrypted_tvb;
-
             enc_tree = proto_tree_add_subtree_format(sasl_tree, decr_tvb, 0, -1,
-              ett_ldap_payload, NULL, "GSS-API Decrypted payload (%d byte%s)",
+              ett_ldap_payload, NULL, "GSS-API Encrypted payload (%d byte%s)",
               decr_len, plurality(decr_len, "", "s"));
-
-            dissect_ldap_payload(decr_tvb, pinfo, enc_tree, ldap_info, is_mscldap);
           }
+
+          dissect_ldap_payload(decr_tvb, pinfo, enc_tree, ldap_info, is_mscldap);
         }
         else if (gssapi_encrypt.gssapi_data_encrypted) {
           /*
@@ -1257,6 +1257,9 @@ static void
           proto_tree_add_item(sasl_tree, hf_ldap_gssapi_encrypted_payload, gssapi_tvb, ver_len, -1, ENC_NA);
         }
         else {
+          tvbuff_t *plain_tvb = tvb_new_subset_remaining(gssapi_tvb, ver_len);
+          proto_tree *plain_tree = NULL;
+
           /*
           * The payload was not encrypted (sealed) but was signed via a MIC token.
           * If krb5_tok_id == KRB_TOKEN_CFX_WRAP, the payload was wrapped within
@@ -1266,18 +1269,14 @@ static void
           col_set_str(pinfo->cinfo, COL_INFO, "SASL GSS-API Integrity: ");
 
           if (sasl_tree) {
-            guint plain_len;
-            proto_tree *plain_tree;
-
-            plain_tvb = tvb_new_subset_remaining(gssapi_tvb, ver_len);
-            plain_len = tvb_reported_length(plain_tvb);
+            guint plain_len = tvb_reported_length(plain_tvb);
 
             plain_tree = proto_tree_add_subtree_format(sasl_tree, plain_tvb, 0, -1,
               ett_ldap_payload, NULL, "GSS-API payload (%d byte%s)",
               plain_len, plurality(plain_len, "", "s"));
-
-            dissect_ldap_payload(plain_tvb, pinfo, plain_tree, ldap_info, is_mscldap);
           }
+
+          dissect_ldap_payload(plain_tvb, pinfo, plain_tree, ldap_info, is_mscldap);
         }
     }
   } else {
@@ -1303,7 +1302,7 @@ int dissect_mscldap_string(tvbuff_t *tvb, int offset, char *str, int max_len, gb
 
   /* The name data MUST start at offset 0 of the tvb */
   compr_len = get_dns_name(tvb, offset, max_len, 0, &name, &name_len);
-  g_strlcpy(str, name, max_len);
+  (void) g_strlcpy(str, name, max_len);
   return offset + compr_len;
 }
 

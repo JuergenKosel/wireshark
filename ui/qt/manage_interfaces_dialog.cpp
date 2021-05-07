@@ -21,7 +21,7 @@
 #ifdef HAVE_PCAP_REMOTE
 #include "ui/qt/remote_capture_dialog.h"
 #include "ui/qt/remote_settings_dialog.h"
-#include "caputils/capture-pcap-util.h"
+#include "capture/capture-pcap-util.h"
 #include "ui/recent.h"
 #endif
 #include "ui/iface_lists.h"
@@ -403,7 +403,7 @@ void ManageInterfacesDialog::updateRemoteInterfaceList(GList* rlist, remote_opti
             auth_str = g_strdup_printf("%s:%s", roptions->remote_host_opts.auth_username,
                                        roptions->remote_host_opts.auth_password);
         }
-        caps = capture_get_if_capabilities(if_string, monitor_mode, auth_str, NULL, main_window_update);
+        caps = capture_get_if_capabilities(if_string, monitor_mode, auth_str, NULL, NULL, main_window_update);
         g_free(auth_str);
         for (; (curr_addr = g_slist_nth(if_info->addrs, ips)) != NULL; ips++) {
             address addr_str;
@@ -623,16 +623,3 @@ void ManageInterfacesDialog::setRemoteSettings(interface_t *iface)
     }
 }
 #endif // HAVE_PCAP_REMOTE
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

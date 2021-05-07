@@ -13,14 +13,14 @@
 #ifndef __MAXMIND_DB_H__
 #define __MAXMIND_DB_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 #include <epan/prefs.h>
 #include <wsutil/inet_ipv4.h>
 #include <wsutil/inet_ipv6.h>
 #include "ws_symbol_export.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 typedef struct _mmdb_lookup_t {
     gboolean found;
@@ -84,6 +84,18 @@ static inline gboolean maxmind_db_has_coords(const mmdb_lookup_t *result)
     return result && result->found &&
         result->longitude != DBL_MAX && result->latitude != DBL_MAX;
 }
+
+/**
+ * Select whether lookups should be performed synchronously.
+ * Default is asynchronous lookups.
+ *
+ * @param synchronous Whether maxmind lookups should be synchronous.
+ *
+ * XXX - if we ever have per-session host name etc. information, we
+ * should probably have the "resolve synchronously or asynchronously"
+ * flag be per-session, set with an epan API.
+ */
+WS_DLL_PUBLIC void maxmind_db_set_synchrony(gboolean synchronous);
 
 #ifdef __cplusplus
 }

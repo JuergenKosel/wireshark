@@ -53,7 +53,7 @@
 #include "logcat.h"
 #include "logcat_text.h"
 #include "json.h"
-#include "network_instruments.h"
+#include "observer.h"
 #include "k12.h"
 #include "ber.h"
 #include "catapult_dct2000.h"
@@ -76,7 +76,6 @@
 #include "camins.h"
 #include "stanag4607.h"
 #include "capsa.h"
-#include "pcap-encap.h"
 #include "nettrace_3gpp_32_423.h"
 #include "mplog.h"
 #include "dpa400.h"
@@ -138,7 +137,7 @@ static const struct file_extension_info file_type_extensions_base[] = {
 	{ "Endace ERF capture", TRUE, "erf" },
 	{ "EyeSDN USB S0/E1 ISDN trace format", TRUE, "trc" },
 	{ "HP-UX nettl trace", TRUE, "trc0;trc1" },
-	{ "Network Instruments Observer", TRUE, "bfr" },
+	{ "Viavi Observer", TRUE, "bfr" },
 	{ "Colasoft Capsa", TRUE, "cscpkt" },
 	{ "Novell LANalyzer", TRUE, "tr1" },
 	{ "Tektronix K12xx 32-bit .rf5 format", TRUE, "rf5" },
@@ -367,7 +366,7 @@ static const struct open_info open_info_base[] = {
 	{ "HP-UX nettl trace",                      OPEN_INFO_MAGIC,     nettl_open,               NULL,       NULL, NULL },
 	{ "Visual Networks traffic capture",        OPEN_INFO_MAGIC,     visual_open,              NULL,       NULL, NULL },
 	{ "InfoVista 5View capture",                OPEN_INFO_MAGIC,     _5views_open,             NULL,       NULL, NULL },
-	{ "Network Instruments Observer",           OPEN_INFO_MAGIC,     network_instruments_open, NULL,       NULL, NULL },
+	{ "Viavi Observer",                         OPEN_INFO_MAGIC,     observer_open, NULL,       NULL, NULL },
 	{ "Savvius tagged",                         OPEN_INFO_MAGIC,     peektagged_open,          NULL,       NULL, NULL },
 	{ "Colasoft Capsa",                         OPEN_INFO_MAGIC,     capsa_open,               NULL,       NULL, NULL },
 	{ "DBS Etherwatch (VMS)",                   OPEN_INFO_MAGIC,     dbs_etherwatch_open,      NULL,       NULL, NULL },
@@ -1241,6 +1240,12 @@ int pcap_nsec_file_type_subtype = -1;
 int pcapng_file_type_subtype = -1;
 
 /*
+ * Table for mapping old file type/subtype names to new ones for
+ * backwards compatibility.
+ */
+static GHashTable *type_subtype_name_map;
+
+/*
  * Initialize the table of file types/subtypes with all the builtin
  * types/subtypes.
  */
@@ -1263,6 +1268,13 @@ wtap_init_file_type_subtypes(void)
 	file_type_subtype_table_arr = g_array_sized_new(FALSE, TRUE,
 	    sizeof(struct file_type_subtype_info), wtap_module_count*2 + 7);
 	file_type_subtype_table = (const struct file_type_subtype_info*)(void *)file_type_subtype_table_arr->data;
+
+	/*
+	 * Initialize the hash table for mapping old file type/subtype
+	 * names to the corresponding new names.
+	 */
+	type_subtype_name_map = g_hash_table_new_full(g_str_hash,
+	    g_str_equal, g_free, g_free);
 
 	/* No entries yet, so no builtin entries yet. */
 	wtap_num_builtin_file_types_subtypes = 0;
@@ -1420,24 +1432,25 @@ wtap_dump_file_encap_type(const GArray *file_encaps)
 	return encap;
 }
 
-static gboolean
-wtap_dump_can_write_encap(int filetype, int encap)
+gboolean
+wtap_dump_can_write_encap(int file_type_subtype, int encap)
 {
 	int result = 0;
 
-	if (filetype < 0 || filetype >= (int)file_type_subtype_table_arr->len ||
-	    file_type_subtype_table[filetype].can_write_encap == NULL)
+	if (file_type_subtype < 0 ||
+	    file_type_subtype >= (int)file_type_subtype_table_arr->len ||
+	    file_type_subtype_table[file_type_subtype].can_write_encap == NULL)
 		return FALSE;
 
-	result = (*file_type_subtype_table[filetype].can_write_encap)(encap);
+	result = (*file_type_subtype_table[file_type_subtype].can_write_encap)(encap);
 
 	if (result != 0) {
 		/* if the err said to check wslua's can_write_encap, try that */
 		if (result == WTAP_ERR_CHECK_WSLUA
-			&& file_type_subtype_table[filetype].wslua_info != NULL
-			&& file_type_subtype_table[filetype].wslua_info->wslua_can_write_encap != NULL) {
+			&& file_type_subtype_table[file_type_subtype].wslua_info != NULL
+			&& file_type_subtype_table[file_type_subtype].wslua_info->wslua_can_write_encap != NULL) {
 
-			result = (*file_type_subtype_table[filetype].wslua_info->wslua_can_write_encap)(encap, file_type_subtype_table[filetype].wslua_info->wslua_data);
+			result = (*file_type_subtype_table[file_type_subtype].wslua_info->wslua_can_write_encap)(encap, file_type_subtype_table[file_type_subtype].wslua_info->wslua_data);
 
 		}
 
@@ -1767,37 +1780,35 @@ wtap_file_type_subtype_name(int file_type_subtype)
 		return file_type_subtype_table[file_type_subtype].name;
 }
 
+/*
+ * Register a backwards-compatibility name.
+ */
+void
+wtap_register_compatibility_file_subtype_name(const char *old_name,
+    const char *new_name)
+{
+	g_hash_table_insert(type_subtype_name_map, g_strdup(old_name),
+	    g_strdup(new_name));
+}
+
 /* Translate a name to a capture file type/subtype. */
 int
 wtap_name_to_file_type_subtype(const char *name)
 {
+	char *new_name;
 	int file_type_subtype;
 
 	/*
-	 * We now call the libpcap file format just pcap, but we allow
-	 * the various variants of it to be specified using names
-	 * containing "libpcap" as well as "pcap", for backwards
-	 * compatibility.
+	 * Is this name a backwards-compatibility name?
 	 */
-	static const struct name_map {
-		const char *oldname;
-		const char *name;
-	} name_map[] = {
-		{ "libpcap", "pcap" },
-		{ "nseclibpcap", "nsecpcap" },
-		{ "aixlibpcap", "aixpcap" },
-		{ "modlibpcap", "modpcap" },
-		{ "nokialibpcap", "nokiapcap" },
-		{ "rh6_1libpcap", "rh6_1pcap" },
-		{ "suse6_3libpcap", "suse6_3pcap" }
-	};
-#define N_NAME_MAP_ENTRIES (sizeof name_map / sizeof name_map[0])
-
-	for (size_t i = 0; i < N_NAME_MAP_ENTRIES; i++) {
-		if (strcmp(name_map[i].oldname, name) == 0) {
-			name = name_map[i].name;
-			break;
-		}
+	new_name = (char *)g_hash_table_lookup(type_subtype_name_map,
+	    (gpointer)name);
+	if (new_name != NULL) {
+		/*
+		 * Yes, and new_name is the name to which it should
+		 * be mapped.
+		 */
+		name = new_name;
 	}
 	for (file_type_subtype = 0;
 	    file_type_subtype < (int)file_type_subtype_table_arr->len;
@@ -2381,7 +2392,7 @@ wtap_dump_open_tempfile(char **filenamep, const char *pfx,
 		ext = "tmp";
 	sfx[0] = '.';
 	sfx[1] = '\0';
-	g_strlcat(sfx, ext, 16);
+	(void) g_strlcat(sfx, ext, 16);
 
 	/* Choose a random name for the file */
 	fd = create_tempfile(filenamep, pfx, sfx, NULL);

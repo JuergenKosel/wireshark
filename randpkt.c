@@ -16,7 +16,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ui/clopts_common.h>
+#include <ui/failure_message.h>
 #include <ui/cmdarg_err.h>
+#include <ui/exit_codes.h>
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
@@ -43,16 +45,15 @@
 
 #include "randpkt_core/randpkt_core.h"
 
-#define INVALID_OPTION 1
+/* Additional exit codes */
 #define INVALID_TYPE 2
-#define CLOSE_ERROR 2
+#define CLOSE_ERROR  2
 
 /*
- * General errors and warnings are reported with an console message
- * in randpkt.
+ * Report an error in command-line arguments.
  */
 static void
-failure_warning_message(const char *msg_format, va_list ap)
+randpkt_cmdarg_err(const char *msg_format, va_list ap)
 {
 	fprintf(stderr, "randpkt: ");
 	vfprintf(stderr, msg_format, ap);
@@ -63,7 +64,7 @@ failure_warning_message(const char *msg_format, va_list ap)
  * Report additional information for an error in command-line arguments.
  */
 static void
-failure_message_cont(const char *msg_format, va_list ap)
+randpkt_cmdarg_err_cont(const char *msg_format, va_list ap)
 {
 	vfprintf(stderr, msg_format, ap);
 	fprintf(stderr, "\n");
@@ -109,6 +110,18 @@ int
 main(int argc, char *argv[])
 {
 	char *init_progfile_dir_error;
+	static const struct report_message_routines randpkt_report_routines = {
+		failure_message,
+		failure_message,
+		open_failure_message,
+		read_failure_message,
+		write_failure_message,
+		cfile_open_failure_message,
+		cfile_dump_open_failure_message,
+		cfile_read_failure_message,
+		cfile_write_failure_message,
+		cfile_close_failure_message
+	};
 	int opt;
 	int produce_type = -1;
 	char *produce_filename = NULL;
@@ -141,12 +154,11 @@ main(int argc, char *argv[])
 		g_free(init_progfile_dir_error);
 	}
 
-	init_report_message(failure_warning_message, failure_warning_message,
-				NULL, NULL, NULL);
+	init_report_message("randpkt", &randpkt_report_routines);
 
 	wtap_init(TRUE);
 
-	cmdarg_err_init(failure_warning_message, failure_message_cont);
+	cmdarg_err_init(randpkt_cmdarg_err, randpkt_cmdarg_err_cont);
 
 #ifdef _WIN32
 	create_app_running_mutex();

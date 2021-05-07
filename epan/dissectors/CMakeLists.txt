@@ -271,6 +271,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-btavctp.h
 	packet-btavdtp.h
 	packet-btavrcp.h
+	packet-btbredr_rf.h
 	packet-bthci_acl.h
 	packet-bthci_cmd.h
 	packet-bthci_evt.h
@@ -583,6 +584,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-tte.h
 	packet-ua.h
 	packet-uaudp.h
+	packet-uavcan-dsdl.h
 	packet-ubertooth.h
 	packet-udp.h
 	packet-umts_fp.h
@@ -645,6 +647,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/file-png.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file-rbm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file-rfc7468.c
+	${CMAKE_CURRENT_SOURCE_DIR}/file-tiff.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-2dparityfec.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-3com-njack.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-3com-xns.c
@@ -910,6 +913,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-spoolss.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-svcctl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-tapi.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-taskschedulerservice.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-tkn4int.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-trksvr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dcerpc-ubikdisk.c
@@ -1484,6 +1488,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-netfilter.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-net_dm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-nl80211.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-psample.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-route.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink-sock_diag.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-netlink.c
@@ -1628,6 +1633,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-quake3.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-quakeworld.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-quic.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-r09.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-radius.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-radius_packetcable.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-raknet.c
@@ -1689,6 +1695,8 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtp-ed137.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtpproxy.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtps.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtps-virtual-transport.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtps-processed.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rtsp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rudp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rwall.c
@@ -1728,6 +1736,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sgsap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-shim6.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sigcomp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-signal-pdu.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-simple.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-simulcrypt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sip.c
@@ -1849,6 +1858,8 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ua3g.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uasip.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-uaudp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-uavcan-can.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-uavcan-dsdl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ubdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ubertooth.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ucp.c

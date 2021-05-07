@@ -90,6 +90,8 @@ typedef struct _apdu_info_t {
 #define CTRL_AUTHORISATION 0x0601
 #define CTRL_COMPLETION    0x060F
 #define CTRL_ABORT         0x061E
+#define CTRL_REVERSAL      0x0630
+#define CTRL_REFUND        0x0631
 #define CTRL_END_OF_DAY    0x0650
 #define CTRL_DIAG          0x0670
 #define CTRL_INIT          0x0693
@@ -104,6 +106,10 @@ static void dissect_zvt_bitmap_seq(tvbuff_t *tvb, gint offset, guint16 len,
         packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans);
 static void dissect_zvt_init(tvbuff_t *tvb, gint offset, guint16 len,
         packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans);
+static void dissect_zvt_pass_bitmap_seq(tvbuff_t *tvb, gint offset, guint16 len,
+        packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans);
+static void dissect_zvt_abort(tvbuff_t *tvb, gint offset, guint16 len,
+        packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans);
 
 static const apdu_info_t apdu_info[] = {
     { CTRL_STATUS,        0, DIRECTION_PT_TO_ECR, dissect_zvt_bitmap_seq },
@@ -112,7 +118,9 @@ static const apdu_info_t apdu_info[] = {
     /* authorisation has at least a 0x04 tag and 6 bytes for the amount */
     { CTRL_AUTHORISATION, 7, DIRECTION_ECR_TO_PT, dissect_zvt_bitmap_seq },
     { CTRL_COMPLETION,    0, DIRECTION_PT_TO_ECR, dissect_zvt_bitmap_seq },
-    { CTRL_ABORT,         0, DIRECTION_PT_TO_ECR, NULL },
+    { CTRL_ABORT,         0, DIRECTION_PT_TO_ECR, dissect_zvt_abort },
+    { CTRL_REVERSAL,      0, DIRECTION_ECR_TO_PT, dissect_zvt_pass_bitmap_seq },
+    { CTRL_REFUND,        0, DIRECTION_ECR_TO_PT, dissect_zvt_pass_bitmap_seq },
     { CTRL_END_OF_DAY,    0, DIRECTION_ECR_TO_PT, NULL },
     { CTRL_DIAG,          0, DIRECTION_ECR_TO_PT, NULL },
     { CTRL_INIT,          0, DIRECTION_ECR_TO_PT, dissect_zvt_init },
@@ -268,6 +276,7 @@ static int hf_zvt_expiry_date = -1;
 static int hf_zvt_card_number = -1;
 static int hf_zvt_card_name = -1;
 static int hf_zvt_additional_data = -1;
+static int hf_zvt_characters_per_line = -1;
 
 static int * const receipt_parameter_flag_fields[] = {
     &hf_zvt_receipt_parameter_positive_customer,
@@ -301,6 +310,8 @@ static const value_string ctrl_field[] = {
     { CTRL_AUTHORISATION, "Authorisation" },
     { CTRL_COMPLETION, "Completion" },
     { CTRL_ABORT, "Abort" },
+    { CTRL_REVERSAL, "Reversal" },
+    { CTRL_REFUND, "Refund" },
     { CTRL_END_OF_DAY, "End Of Day" },
     { CTRL_DIAG, "Diagnosis" },
     { CTRL_INIT, "Initialisation" },
@@ -427,6 +438,10 @@ static inline gint dissect_zvt_tlv_receipt_param(
         tvbuff_t *tvb, gint offset, gint len,
         packet_info *pinfo, proto_tree *tree, tlv_seq_info_t *seq_info);
 
+static inline gint dissect_zvt_tlv_characters_per_line(
+        tvbuff_t *tvb, gint offset, gint len,
+        packet_info *pinfo, proto_tree *tree, tlv_seq_info_t *seq_info);
+
 static const tlv_info_t tlv_info[] = {
     { TLV_TAG_TEXT_LINES, dissect_zvt_tlv_text_lines },
     { TLV_TAG_DISPLAY_TEXTS, dissect_zvt_tlv_subseq },
@@ -435,7 +450,8 @@ static const tlv_info_t tlv_info[] = {
     { TLV_TAG_PERMITTED_ZVT_CMDS, dissect_zvt_tlv_subseq },
     { TLV_TAG_PERMITTED_ZVT_CMD, dissect_zvt_tlv_permitted_cmd },
     { TLV_TAG_RECEIPT_TYPE, dissect_zvt_tlv_receipt_type },
-    { TLV_TAG_RECEIPT_PARAM, dissect_zvt_tlv_receipt_param }
+    { TLV_TAG_RECEIPT_PARAM, dissect_zvt_tlv_receipt_param },
+    { TLV_TAG_CHARS_PER_LINE, dissect_zvt_tlv_characters_per_line }
 };
 
 static const value_string tlv_tags[] = {
@@ -510,6 +526,16 @@ static inline gint dissect_zvt_tlv_receipt_param(
         packet_info *pinfo _U_, proto_tree *tree, tlv_seq_info_t *seq_info _U_)
 {
     proto_tree_add_bitmask(tree, tvb, offset, hf_zvt_receipt_parameter, ett_zvt_tlv_tag, receipt_parameter_flag_fields, ENC_BIG_ENDIAN);
+    return len;
+}
+
+
+static inline gint dissect_zvt_tlv_characters_per_line(
+        tvbuff_t *tvb, gint offset, gint len,
+        packet_info *pinfo _U_, proto_tree *tree, tlv_seq_info_t *seq_info _U_)
+{
+    const gchar *str = tvb_bcd_dig_to_wmem_packet_str_be(tvb, offset, 1, NULL, FALSE);
+    proto_tree_add_string(tree, hf_zvt_characters_per_line, tvb, offset, 1, str);
     return len;
 }
 
@@ -904,6 +930,32 @@ static void dissect_zvt_init(
         proto_tree *tree, zvt_transaction_t *zvt_trans _U_)
 {
     proto_tree_add_item(tree, hf_zvt_pwd, tvb, offset, 3, ENC_NA);
+}
+
+
+static void
+dissect_zvt_abort(tvbuff_t *tvb, gint offset, guint16 len _U_,
+        packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans)
+{
+    proto_tree_add_item(tree, hf_zvt_res_code, tvb, offset, 1, ENC_NA);
+    offset += 1;
+
+    dissect_zvt_bitmap_seq(tvb, offset,
+            tvb_captured_length_remaining(tvb, offset),
+            pinfo, tree, zvt_trans);
+}
+
+
+static void
+dissect_zvt_pass_bitmap_seq(tvbuff_t *tvb, gint offset, guint16 len _U_,
+        packet_info *pinfo, proto_tree *tree, zvt_transaction_t *zvt_trans)
+{
+    proto_tree_add_item(tree, hf_zvt_pwd, tvb, offset, 3, ENC_NA);
+    offset += 3;
+
+    dissect_zvt_bitmap_seq(tvb, offset,
+            tvb_captured_length_remaining(tvb, offset),
+            pinfo, tree, zvt_trans);
 }
 
 
@@ -1318,13 +1370,13 @@ proto_register_zvt(void)
             { "Receipt type", "zvt.tlv.receipt_type",
                 FT_UINT16, BASE_HEX, VALS(receipt_type), 0, NULL, HFILL } },
         { &hf_zvt_receipt_parameter_positive_customer,
-            { "Positive customer receipt", "zvt.tlv.receipt_parameter.negative_customer", FT_BOOLEAN,
+            { "Positive customer receipt", "zvt.tlv.receipt_parameter.positive_customer", FT_BOOLEAN,
                 8, TFS(&tfs_required_not_required), 0x80, NULL, HFILL } },
         { &hf_zvt_receipt_parameter_negative_customer,
             { "Negative customer receipt", "zvt.tlv.receipt_parameter.negative_customer", FT_BOOLEAN,
                 8, TFS(&tfs_required_not_required), 0x40, NULL, HFILL } },
         { &hf_zvt_receipt_parameter_positive_merchant,
-            { "Positive merchant receipt", "zvt.tlv.receipt_parameter.negative_customer", FT_BOOLEAN,
+            { "Positive merchant receipt", "zvt.tlv.receipt_parameter.positive_customer", FT_BOOLEAN,
                 8, TFS(&tfs_required_not_required), 0x20, NULL, HFILL } },
         { &hf_zvt_receipt_parameter_negative_merchant,
             { "Negative merchant receipt", "zvt.tlv.receipt_parameter.negative_customer", FT_BOOLEAN,
@@ -1358,7 +1410,10 @@ proto_register_zvt(void)
                 BASE_NONE, NULL, 0, NULL, HFILL } },
         { &hf_zvt_additional_data,
             { "Additional data", "zvt.additional_data", FT_STRING,
-                BASE_NONE, NULL, 0, NULL, HFILL } }
+                BASE_NONE, NULL, 0, NULL, HFILL } },
+        { &hf_zvt_characters_per_line,
+            { "Characters per line", "zvt.characters_per_line", FT_STRING,
+                BASE_NONE, NULL, 0, NULL, HFILL } },
     };
 
     static ei_register_info ei[] = {

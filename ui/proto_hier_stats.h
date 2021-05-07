@@ -10,6 +10,9 @@
 #ifndef __UI_PROTO_HIER_STATS_H__
 #define __UI_PROTO_HIER_STATS_H__
 
+#include <epan/proto.h>
+#include "cfile.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -17,9 +20,6 @@ extern "C" {
 /** @file
  * Protocol Hierarchy Statistics
  */
-
-#include <epan/proto.h>
-#include "cfile.h"
 
 typedef struct {
     header_field_info	*hfinfo;
@@ -47,16 +47,3 @@ void ph_stats_free(ph_stats_t *ps);
 #endif /* __cplusplus */
 
 #endif /* __UI_PROTO_HIER_STATS_H__ */
-
-/*
- * Editor modelines  -  https://www.wireshark.org/tools/modelines.html
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

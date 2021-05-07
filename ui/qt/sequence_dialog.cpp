@@ -72,7 +72,8 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
     info_(info),
     num_items_(0),
     packet_num_(0),
-    sequence_w_(1)
+    sequence_w_(1),
+    voipFeaturesEnabled(false)
 {
     QAction *action;
 
@@ -150,19 +151,17 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
     ctx_menu_.addAction(ui->actionGoToNextPacket);
     ctx_menu_.addAction(ui->actionGoToPreviousPacket);
     ctx_menu_.addSeparator();
-    action = ui->actionSelectRtpStream;
+    action = ui->actionSelectRtpStreams;
     ctx_menu_.addAction(action);
+    action->setVisible(false);
     action->setEnabled(false);
-    action = ui->actionDeselectRtpStream;
+    action = ui->actionDeselectRtpStreams;
     ctx_menu_.addAction(action);
+    action->setVisible(false);
     action->setEnabled(false);
     set_action_shortcuts_visible_in_context_menu(ctx_menu_.actions());
 
     ui->addressComboBox->setCurrentIndex(0);
-
-    QPushButton * btn = ui->buttonBox->addButton(tr("Reset Diagram"), QDialogButtonBox::ActionRole);
-    btn->setToolTip(tr("Reset the diagram to its initial state."));
-    connect(btn, &QPushButton::clicked, this, &SequenceDialog::resetView);
 
     sequence_items_t item_data;
 
@@ -178,8 +177,11 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
         ui->controlFrame->hide();
     }
 
-    QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
-    save_bt->setText(tr("Save As…"));
+    reset_button_ = ui->buttonBox->addButton(ui->actionResetDiagram->text(), QDialogButtonBox::ActionRole);
+    reset_button_->setToolTip(ui->actionResetDiagram->toolTip());
+    player_button_ = RtpPlayerDialog::addPlayerButton(ui->buttonBox, this);
+    export_button_ = ui->buttonBox->addButton(ui->actionExportDiagram->text(), QDialogButtonBox::ActionRole);
+    export_button_->setToolTip(ui->actionExportDiagram->toolTip());
 
     QPushButton *close_bt = ui->buttonBox->button(QDialogButtonBox::Close);
     if (close_bt) {
@@ -199,12 +201,24 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
     connect(sp, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(mouseWheeled(QWheelEvent*)));
 
     disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
+
+    // Button must be enabled by VoIP dialogs
+    player_button_->setVisible(false);
+    player_button_->setEnabled(false);
 }
 
 SequenceDialog::~SequenceDialog()
 {
     info_->unref();
     delete ui;
+}
+
+void SequenceDialog::enableVoIPFeatures()
+{
+    voipFeaturesEnabled = true;
+    player_button_->setVisible(true);
+    ui->actionSelectRtpStreams->setVisible(true);
+    ui->actionDeselectRtpStreams->setVisible(true);
 }
 
 void SequenceDialog::updateWidgets()
@@ -281,10 +295,14 @@ void SequenceDialog::keyPressEvent(QKeyEvent *event)
         on_actionGoToPreviousPacket_triggered();
         break;
     case Qt::Key_S:
-        on_actionSelectRtpStream_triggered();
+        if (voipFeaturesEnabled) {
+            on_actionSelectRtpStreams_triggered();
+        }
         break;
     case Qt::Key_D:
-        on_actionDeselectRtpStream_triggered();
+        if (voipFeaturesEnabled) {
+            on_actionDeselectRtpStreams_triggered();
+        }
         break;
     }
 
@@ -321,26 +339,29 @@ void SequenceDialog::yAxisChanged(QCPRange range)
 
 void SequenceDialog::diagramClicked(QMouseEvent *event)
 {
+    current_rtp_sai_ = NULL;
+    if (event) {
+        seq_analysis_item_t *sai = seq_diagram_->itemForPosY(event->pos().y());
+        if (voipFeaturesEnabled) {
+            ui->actionSelectRtpStreams->setEnabled(false);
+            ui->actionDeselectRtpStreams->setEnabled(false);
+            player_button_->setEnabled(false);
+            if (sai) {
+                if (GA_INFO_TYPE_RTP == sai->info_type) {
+                    ui->actionSelectRtpStreams->setEnabled(true && !file_closed_);
+                    ui->actionDeselectRtpStreams->setEnabled(true && !file_closed_);
+                    player_button_->setEnabled(true && !file_closed_);
+                    current_rtp_sai_ = sai;
+                }
+            }
+        }
+    }
+
     switch (event->button()) {
     case Qt::LeftButton:
         on_actionGoToPacket_triggered();
         break;
     case Qt::RightButton:
-        // XXX We should find some way to get sequenceDiagram to handle a
-        // contextMenuEvent instead.
-        current_rtp_sai_ = NULL;
-        if (event) {
-            seq_analysis_item_t *sai = seq_diagram_->itemForPosY(event->pos().y());
-            ui->actionSelectRtpStream->setEnabled(false);
-            ui->actionDeselectRtpStream->setEnabled(false);
-            if (sai) {
-                if (GA_INFO_TYPE_RTP == sai->info_type) {
-                    ui->actionSelectRtpStream->setEnabled(true && !file_closed_);
-                    ui->actionDeselectRtpStream->setEnabled(true && !file_closed_);
-                    current_rtp_sai_ = sai;
-                }
-            }
-        }
         ctx_menu_.exec(event->globalPos());
         break;
     default:
@@ -357,8 +378,8 @@ void SequenceDialog::mouseMoved(QMouseEvent *event)
         seq_analysis_item_t *sai = seq_diagram_->itemForPosY(event->pos().y());
         if (sai) {
             if (GA_INFO_TYPE_RTP == sai->info_type) {
-                ui->actionSelectRtpStream->setEnabled(true);
-                ui->actionDeselectRtpStream->setEnabled(true);
+                ui->actionSelectRtpStreams->setEnabled(true);
+                ui->actionDeselectRtpStreams->setEnabled(true);
                 current_rtp_sai_ = sai;
             }
             packet_num_ = sai->frame_number;
@@ -398,7 +419,16 @@ void SequenceDialog::mouseWheeled(QWheelEvent *event)
     event->accept();
 }
 
-void SequenceDialog::on_buttonBox_accepted()
+void SequenceDialog::on_buttonBox_clicked(QAbstractButton *button)
+{
+    if (button == reset_button_) {
+        resetView();
+    } else if (button == export_button_) {
+        exportDiagram();
+    }
+}
+
+void SequenceDialog::exportDiagram()
 {
     QString file_name, extension;
     QDir path(wsApp->lastOpenDir());
@@ -722,20 +752,26 @@ void SequenceDialog::on_actionZoomOut_triggered()
     zoomXAxis(false);
 }
 
-void SequenceDialog::on_actionSelectRtpStream_triggered()
+void SequenceDialog::on_actionSelectRtpStreams_triggered()
 {
     if (current_rtp_sai_ && GA_INFO_TYPE_RTP == current_rtp_sai_->info_type) {
-        emit openRtpStreamDialog();
-        emit selectRtpStream((rtpstream_id_t *)current_rtp_sai_->info_ptr);
+        QVector<rtpstream_id_t *> stream_ids;
+
+        // We don't need copy it as it is not cleared during retap
+        stream_ids << &((rtpstream_info_t *)current_rtp_sai_->info_ptr)->id;
+        emit rtpStreamsDialogSelectRtpStreams(stream_ids);
         raise();
     }
 }
 
-void SequenceDialog::on_actionDeselectRtpStream_triggered()
+void SequenceDialog::on_actionDeselectRtpStreams_triggered()
 {
     if (current_rtp_sai_ && GA_INFO_TYPE_RTP == current_rtp_sai_->info_type) {
-        emit openRtpStreamDialog();
-        emit deselectRtpStream((rtpstream_id_t *)current_rtp_sai_->info_ptr);
+        QVector<rtpstream_id_t *> stream_ids;
+
+        // We don't need copy it as it is not cleared during retap
+        stream_ids << &((rtpstream_info_t *)current_rtp_sai_->info_ptr)->id;
+        emit rtpStreamsDialogDeselectRtpStreams(stream_ids);
         raise();
     }
 }
@@ -774,6 +810,37 @@ gboolean SequenceDialog::addFlowSequenceItem(const void* key, void *value, void 
     return FALSE;
 }
 
+QVector<rtpstream_id_t *>SequenceDialog::getSelectedRtpIds()
+{
+    QVector<rtpstream_id_t *> stream_ids;
+
+    if (current_rtp_sai_ && GA_INFO_TYPE_RTP == current_rtp_sai_->info_type) {
+        stream_ids << &((rtpstream_info_t *)current_rtp_sai_->info_ptr)->id;
+    }
+
+    return stream_ids;
+}
+
+void SequenceDialog::rtpPlayerReplace()
+{
+    emit rtpPlayerDialogReplaceRtpStreams(getSelectedRtpIds());
+}
+
+void SequenceDialog::rtpPlayerAdd()
+{
+    emit rtpPlayerDialogAddRtpStreams(getSelectedRtpIds());
+}
+
+void SequenceDialog::rtpPlayerRemove()
+{
+    emit rtpPlayerDialogRemoveRtpStreams(getSelectedRtpIds());
+}
+
+void SequenceDialog::on_buttonBox_helpRequested()
+{
+    wsApp->helpTopicAction(HELP_STAT_FLOW_GRAPH);
+}
+
 SequenceInfo::SequenceInfo(seq_analysis_info_t *sainfo) :
     sainfo_(sainfo),
     count_(1)
@@ -784,16 +851,3 @@ SequenceInfo::~SequenceInfo()
 {
     sequence_analysis_info_free(sainfo_);
 }
-
-/*
- * Editor modelines
- *
- * Local Variables:
- * c-basic-offset: 4
- * tab-width: 8
- * indent-tabs-mode: nil
- * End:
- *
- * ex: set shiftwidth=4 tabstop=8 expandtab:
- * :indentSize=4:tabSize=8:noTabs=true:
- */

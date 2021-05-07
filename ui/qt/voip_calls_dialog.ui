@@ -80,11 +80,101 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Help|QDialogButtonBox::Ok</set>
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Help</set>
      </property>
     </widget>
    </item>
   </layout>
+  <action name="actionFlowSequence">
+   <property name="text">
+    <string>Flow &amp;Sequence</string>
+   </property>
+   <property name="toolTip">
+    <string>Show flow sequence for selected call(s).</string>
+   </property>
+  </action>
+  <action name="actionPrepareFilter">
+   <property name="text">
+    <string>Prepare &amp;Filter</string>
+   </property>
+   <property name="toolTip">
+    <string>Prepare a filter matching the selected calls(s).</string>
+   </property>
+  </action>
+  <action name="actionCopyButton">
+   <property name="text">
+    <string>Cop&amp;y</string>
+   </property>
+   <property name="toolTip">
+    <string>Open copy menu</string>
+   </property>
+  </action>
+  <widget class="QMenu" name="menuSelect">
+   <property name="title">
+    <string>Select</string>
+   </property>
+   <property name="toolTipsVisible">
+    <bool>true</bool>
+   </property>
+   <addaction name="actionSelectAll"/>
+   <addaction name="actionSelectNone"/>
+   <addaction name="actionSelectInvert"/>
+  </widget>
+  <action name="actionSelectAll">
+   <property name="text">
+    <string>All</string>
+   </property>
+   <property name="toolTip">
+    <string>Select all</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+A</string>
+   </property>
+  </action>
+  <action name="actionSelectNone">
+   <property name="text">
+    <string>None</string>
+   </property>
+   <property name="toolTip">
+    <string>Clear selection</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+Shift+A</string>
+   </property>
+  </action>
+  <action name="actionSelectInvert">
+   <property name="text">
+    <string>Invert</string>
+   </property>
+   <property name="toolTip">
+    <string>Invert selection</string>
+   </property>
+   <property name="shortcut">
+    <string notr="true">Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionSelectRtpStreams">
+   <property name="text">
+    <string>Select related RTP streams</string>
+   </property>
+   <property name="toolTip">
+    <string>Select RTP streams related to selected calls in RTP Streams dialog</string>
+   </property>
+   <property name="shortcut">
+    <string>S</string>
+   </property>
+  </action>
+  <action name="actionDeselectRtpStreams">
+   <property name="text">
+    <string>Deselect related RTP Streams</string>
+   </property>
+   <property name="toolTip">
+    <string>Select RTP streams related to selected calls in RTP Streams dialog</string>
+   </property>
+   <property name="shortcut">
+    <string>D</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections>

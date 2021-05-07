@@ -3189,6 +3189,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         </translation>
     </message>
     <message>
+        <source>No streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Entire conversation (%1)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4216,10 +4220,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>ImportTextDialog</name>
     <message>
-        <source>Import From</source>
-        <translation>Import Depuis</translation>
-    </message>
-    <message>
         <source>File:</source>
         <translation>Fichier:</translation>
     </message>
@@ -4235,6 +4235,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Browse…</source>
         <oldsource>Browse...</oldsource>
         <translation>Feuilleter...</translation>
+    </message>
+    <message>
+        <source>Hex Dump</source>
+        <translation type="unfinished">Hexdump</translation>
+    </message>
+    <message>
+        <source>Import a standard hex dump as exported by Wireshark</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Offsets in the text file are in octal notation</source>
@@ -4265,6 +4273,58 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Décimal</translation>
     </message>
     <message>
+        <source>Regular Expression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import a file formatted according to a custom regular expression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet format regular expression</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Perl compatible regular expression capturing a single packet in the file with named groups identifieing data to import. Anchors ^ and $ also match before/after newlines &lt;/p&gt;&lt;p&gt;Required is only a data group, also supported are time, dir and seqno.&lt;/p&gt;&lt;p&gt;Regex flags: DUPNAMES, MULTILINE and NOEMPTY&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This is regexHintLabel, it will be set to default_regex_hint</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Data encoding:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>How data is encoded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;small&gt;&lt;i&gt;reccomended regex:&lt;/small&gt;&lt;/i&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>encodingRegexExample</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>List of characters indicating incoming packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>iI&lt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>List of characters indicating outgoing packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>oO&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Timestamp format:</source>
         <translation>Format horodatage :</translation>
     </message>
@@ -4279,10 +4339,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>ExportPDU</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Payload</source>
-        <translation type="unfinished">Payload</translation>
     </message>
     <message>
         <source>Maximum frame length:</source>
@@ -4305,12 +4361,28 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The format in which to parse timestamps in the text file (e.g. %H:%M:%S.%f).&lt;/p&gt;&lt;p&gt;Format specifiers are based on strptime(3) with the addition of %f for second fractions. The percision of %f is determined from it&apos;s length.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%H:%M:%S.%f</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>timestampExampleLabel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Encapsulation Type:</source>
         <translation>Type d&apos;Encapsulation:</translation>
     </message>
     <message>
         <source>Encapsulation type of the frames in the import capture file</source>
         <translation>Type d&apos;encapsulation des trames dans le fichier de capture d&apos;import</translation>
+    </message>
+    <message>
+        <source>Dissector</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>The UDP, TCP or SCTP source port for each frame</source>
@@ -4417,7 +4489,19 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>IPv4</translation>
     </message>
     <message>
+        <source>The dissector to use for each frame</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Supported fields are data, dir, time, seqno</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Missing capturing group data (use (?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4431,18 +4515,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Import Text File</source>
         <translation>Importer Fichier Texte</translation>
-    </message>
-    <message>
-        <source>Example: %1</source>
-        <translation>Exemple: %1</translation>
-    </message>
-    <message>
-        <source>&lt;i&gt;(Wrong date format)&lt;/i&gt;</source>
-        <translation>&lt;i&gt;(Mauvais format de date)&lt;/i&gt;</translation>
-    </message>
-    <message>
-        <source>&lt;i&gt;(No format will be applied)&lt;/i&gt;</source>
-        <translation>&lt;I&gt;(Aucun format sera appliqué)&lt;/i&gt;</translation>
     </message>
 </context>
 <context>
@@ -5507,6 +5579,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Enable mouse-over colorization</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Status Bar settings:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6527,6 +6603,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Filtre de Conversation</translation>
     </message>
     <message>
+        <source>Reliable Server Pooling (RSerPool)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Osmux</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6843,6 +6923,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>QUIC Stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SIP Call</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7178,6 +7262,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>REGISTER_STAT_GROUP_RSERPOOL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start of &quot;REGISTER_STAT_GROUP_RSERPOOL&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>No GSM statistics registered</source>
         <translation>Aucune statistique GSM enregistrée</translation>
     </message>
@@ -7188,10 +7280,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>No MTP3 statistics registered</source>
         <translation>Aucune statistique MTP3 enregistrée</translation>
-    </message>
-    <message>
-        <source>Stream Analysis</source>
-        <translation>Analyse de Flux</translation>
     </message>
     <message>
         <source>IAX2 Stream Analysis</source>
@@ -7623,6 +7711,18 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>RTP Stream Analysis for selected stream. Press CTRL key for adding reverse stream too.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RTP Player</source>
+        <translation type="unfinished">Player RTP</translation>
+    </message>
+    <message>
+        <source>Play selected stream. Press CTRL key for playing reverse stream too.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>IA&amp;X2 Stream Analysis</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7972,6 +8072,18 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>There is no &quot;rtp.ssrc&quot; field in this version of Wireshark.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Please select an RTPv2 packet with an SSRC value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SSRC value not found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Show or hide the toolbar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8102,6 +8214,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>The &quot;%1&quot; column already exists as &quot;%2&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RTP packet search failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8942,6 +9058,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Imprimer chaque paquet dans une nouvelle page</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Print capture file information on each page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture information header</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use the &amp;quot;+&amp;quot; and &amp;quot;-&amp;quot; keys to zoom the preview in and out. Use the &amp;quot;0&amp;quot; key to reset the zoom level.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Utiliser &amp;quot;+&amp;quot; et &amp;quot;-&amp;quot; pour agrandir ou reduire dans la prévisualisation. Utiliser &amp;quot;0&amp;quot; pour annuler le zoom.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -9261,6 +9385,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Packet details</source>
         <translation>Détail du paquet</translation>
+    </message>
+    <message>
+        <source>Not a field or protocol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No field reference available for text labels.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Expand Subtrees</source>
@@ -10275,14 +10407,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Dialogue</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:medium; font-weight:600;&quot;&gt;Forward&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:medium; font-weight:600;&quot;&gt;Reverse&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:medium; font-weight:600;&quot;&gt;Aller&lt;/span&gt;&lt;/p&gt;&lt;p&gt;&lt;span style=&quot; font-size:medium; font-weight:600;&quot;&gt;Retour&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Forward</source>
-        <translation>Aller</translation>
-    </message>
-    <message>
         <source>Packet</source>
         <translation>Paquet</translation>
     </message>
@@ -10316,140 +10440,79 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Etat</translation>
     </message>
     <message>
-        <source>Reverse</source>
-        <translation>Retour</translation>
+        <source>Stream %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stream %1 Jitter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stream %1 Difference</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stream %1 Delta</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> %1 streams, </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save one stream CSV</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save all stream&apos;s CSV</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Analyze</source>
+        <translation type="unfinished">&amp;Analyser</translation>
+    </message>
+    <message>
+        <source>Open the analysis window for the selected stream(s)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Set List</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Add to List</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Remove from List</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace existing list in RTP Analysis Dialog with new one</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new set to existing list in RTP Analysis Dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove selected streams from list in RTP Analysis Dialog</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Graph</source>
         <translation>Graphique</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide forward jitter values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Affiche ou masque les valeurs de gigue aller.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Forward Jitter</source>
-        <translation>Gigue aller</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide forward difference values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Affiche ou masque les valeurs de différence aller.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Forward Difference</source>
-        <translation>Différence Aller</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide forward delta values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Affiche ou masque les valeurs de delta aller.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Forward Delta</source>
-        <translation>Delta Aller</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide reverse jitter values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Affiche ou masque les valeurs de gigueretour.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Reverse Jitter</source>
-        <translation>Gigue Retour</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide reverse difference values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Affiche ou masqe les valeurs de différences retour.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>Reverse Difference</source>
-        <translation>Différence Retour</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show or hide reverse delta values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Reverse Delta</source>
-        <translation>Delta Retour</translation>
-    </message>
-    <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
         <translation>&lt;small&gt;&lt;i&gt;Un indice.&lt;/i&gt;&lt;/small&gt;</translation>
     </message>
     <message>
-        <source>Unsynchronized Forward and Reverse Audio</source>
+        <source>&amp;Export</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Stream Synchronized Forward and Reverse Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the audio data for both channels synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Stream Synchronized Forward Stream Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the forward stream audio data synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Stream Synchronized Reverse Stream Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the reverse stream audio data synchronized to start of earlier stream.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>File Synchronized Forward and Reverse Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the audio data for both channels synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>File Synchronized Forward Stream Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the forward stream audio data synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>File Synchronized Reverse Stream Audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the reverse stream audio data synchronized to start of file.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the unsynchronized audio data for both channels.</source>
-        <oldsource>Save the audio data for both channels.</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Unsynchronized Forward Stream Audio</source>
-        <oldsource>Forward Stream Audio</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the unsynchronized forward stream audio data.</source>
-        <oldsource>Save the forward stream audio data.</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Unsynchronized Reverse Stream Audio</source>
-        <oldsource>Reverse Stream Audio</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save the unsynchronized reverse stream audio data.</source>
-        <oldsource>Save the reverse stream audio data.</oldsource>
+        <source>Open export menu</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10457,24 +10520,24 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>CSV</translation>
     </message>
     <message>
-        <source>Save both tables as CSV.</source>
-        <translation>Sauvegarder les deux tables en CSV.</translation>
+        <source>Save tables as CSV.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Forward Stream CSV</source>
-        <translation>Transférer le flux CSV</translation>
+        <source>Current Tab Stream CSV</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save the forward table as CSV.</source>
-        <translation>Sauvegarder la table aller en CSV.</translation>
+        <source>Save the table on the current tab as CSV.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Reverse Stream CSV</source>
-        <translation>CSV Flux Retour</translation>
+        <source>All Tab Streams CSV</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save the reverse table as CSV.</source>
-        <translation>Sauvegarder la table inverse en CSV.</translation>
+        <source>Save the table from all tabs as CSV.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Save Graph</source>
@@ -10509,80 +10572,40 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>N</translation>
     </message>
     <message>
-        <source>RTP Stream Analysis</source>
-        <translation>Analyse flux RTP</translation>
+        <source>Prepare &amp;Filter</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unable to save RTP data.</source>
-        <translation>Impossible de sauvegarder les données RTP.</translation>
+        <source>Prepare a filter matching the selected stream(s).</source>
+        <translation type="unfinished">Prépare un filtre correspondant au(x) flux sélectioné(s).</translation>
+    </message>
+    <message>
+        <source>&amp;Current Tab</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare a filter matching current tab.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;All Tabs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare a filter matching all tabs.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RTP Stream Analysis</source>
+        <translation>Analyse flux RTP</translation>
     </message>
     <message>
         <source>Save Graph As…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Can&apos;t synchronize when only one channel is selected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>None of channels was selected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save forward and reverse stream audio</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Raw (*.raw)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Saving %1…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Analyzing RTP</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Information</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save was interrupted</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save or read of file was failed during saving</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Codec is not supported, file is incomplete</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Codec rate is not supported, file is incomplete</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SSRC value not found.</source>
-        <translation>Valeur SSRC non trouvée.</translation>
-    </message>
-    <message>
-        <source>No streams found.</source>
-        <translation>Aucun flux trouvé.</translation>
-    </message>
-    <message>
-        <source>%1 streams found.</source>
-        <translation>%1 flux trouvés.</translation>
-    </message>
-    <message>
         <source> G: Go to packet, N: Next problem packet</source>
         <translation>G: Aller au paquet, N: Paquet à problème suivant</translation>
-    </message>
-    <message>
-        <source>No Audio</source>
-        <translation>Pas d&apos;Audio</translation>
     </message>
     <message>
         <source>Portable Document Format (*.pdf)</source>
@@ -10601,84 +10624,12 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Fichier JPEG (*.jpeg *.jpg)</translation>
     </message>
     <message>
-        <source>Can&apos;t save in a file: Wrong length of captured packets.</source>
-        <translation>Ne peut sauvegarder dans un fichier: Longueur incorrecte des paquets capturés.</translation>
-    </message>
-    <message>
-        <source>Can&apos;t save in a file: RTP data with padding.</source>
-        <translation>Ne peut sauvegarder dans un fichier: données RTP avec remplissage.</translation>
-    </message>
-    <message>
-        <source>Can&apos;t save in a file: File I/O problem.</source>
-        <translation>Ne peut sauvegarder dans un fichier: Problème d&apos;E/S fichier.</translation>
-    </message>
-    <message>
-        <source>Can&apos;t save in a file: Not all data in all packets was captured.</source>
-        <translation>Ne peut sauvegarder dans un fichier: Les données n&apos;ont pas toutes été capturées dans tous les paquets.</translation>
-    </message>
-    <message>
-        <source>Save forward stream audio</source>
-        <translation>Sauvegarder flux audio aller</translation>
-    </message>
-    <message>
-        <source>Save reverse stream audio</source>
-        <translation>Sauvegarder flux audio retour</translation>
-    </message>
-    <message>
-        <source>Sun Audio (*.au)</source>
-        <translation>Sun Audio (*.au)</translation>
-    </message>
-    <message>
-        <source>Warning</source>
-        <translation>Avertissement</translation>
-    </message>
-    <message>
-        <source>Unable to save in that format</source>
-        <translation>Impossible de sauvegarder dans ce format</translation>
-    </message>
-    <message>
-        <source>Unable to save %1</source>
-        <translation>Impossible de sauvegarder %1</translation>
-    </message>
-    <message>
-        <source>Error</source>
-        <translation type="unfinished">Erreur</translation>
-    </message>
-    <message>
-        <source>Unknown error occurred</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save forward stream CSV</source>
-        <translation>Sauvegarder CSV flux aller</translation>
-    </message>
-    <message>
-        <source>Save reverse stream CSV</source>
-        <translation>Sauvegarder CSV flux retour</translation>
-    </message>
-    <message>
-        <source>Save CSV</source>
-        <translation>Sauvegarder le CSV</translation>
-    </message>
-    <message>
         <source>Comma-separated values (*.csv)</source>
         <translation>Comma-separated values (*.csv)</translation>
-    </message>
-    <message>
-        <source>There is no &quot;rtp.ssrc&quot; field in this version of Wireshark.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Please select an RTPv2 packet with an SSRC value</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>RtpAudioStream</name>
-    <message>
-        <source>RTP stream is empty or codec is unsupported.</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>%1 does not support PCM at %2. Preferred format is %3</source>
         <translation type="unfinished"></translation>
@@ -10727,58 +10678,8 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Étendue Temps (s)</translation>
     </message>
     <message>
-        <source>Sample Rate (Hz)</source>
-        <translation>Taux d’échantillonnage (Hz)</translation>
-    </message>
-    <message>
         <source>Payloads</source>
         <translation>Payloads</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;
-
-&lt;h3&gt;Valuable and amazing time-saving keyboard shortcuts&lt;/h3&gt;
-&lt;table&gt;&lt;tbody&gt;
-
-&lt;tr&gt;&lt;th&gt;+&lt;/th&gt;&lt;td&gt;Zoom in&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;-&lt;/th&gt;&lt;td&gt;Zoom out&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;0&lt;/th&gt;&lt;td&gt;Reset graph to its initial state&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;→&lt;/th&gt;&lt;td&gt;Move right 10 pixels&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;←&lt;/th&gt;&lt;td&gt;Move left 10 pixels&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;→&lt;/th&gt;&lt;td&gt;Move right 1 pixel&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;←&lt;/th&gt;&lt;td&gt;Move left 1 pixel&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;g&lt;/th&gt;&lt;td&gt;Go to packet under cursor&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;z&lt;/th&gt;&lt;td&gt;Toggle mouse drag / zoom&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;t&lt;/th&gt;&lt;td&gt;Toggle capture / session time origin&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;Space&lt;/th&gt;&lt;td&gt;Toggle crosshairs&lt;/td&gt;&lt;/th&gt;
-
-&lt;/tbody&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;
-
-&lt;h3&gt;Raccourcis-clavier précieux pour gains de temps surprenants&lt;/h3&gt;
-&lt;table&gt;&lt;tbody&gt;
-
-&lt;tr&gt;&lt;th&gt;+&lt;/th&gt;&lt;td&gt;Zoom avant&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;-&lt;/th&gt;&lt;td&gt;Zoom arrière&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;0&lt;/th&gt;&lt;td&gt;Réinitialise le graphique à son état initial&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;→&lt;/th&gt;&lt;td&gt;Droite 10 pixels&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;←&lt;/th&gt;&lt;td&gt;Gauche 10 pixels&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;→&lt;/th&gt;&lt;td&gt;Droite 1 pixel&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;&lt;i&gt;Shift+&lt;/i&gt;←&lt;/th&gt;&lt;td&gt;Gauche 1 pixel&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;g&lt;/th&gt;&lt;td&gt;Aller (go) au paquet sous le curseur&lt;/td&gt;&lt;/th&gt;
-
-&lt;tr&gt;&lt;th&gt;z&lt;/th&gt;&lt;td&gt;Bascule trainée souris / zoom&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;t&lt;/th&gt;&lt;td&gt;Bascule origine du temps capture / session&lt;/td&gt;&lt;/th&gt;
-&lt;tr&gt;&lt;th&gt;Espace&lt;/th&gt;&lt;td&gt;Basculer réticule&lt;/td&gt;&lt;/th&gt;
-
-&lt;/tbody&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;No audio&lt;/i&gt;&lt;/small&gt;</source>
@@ -10786,6 +10687,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Output Device:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Output Audio Rate:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10834,6 +10739,46 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Heure du Jour</translation>
     </message>
     <message>
+        <source>&amp;Export</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export audio of all unmuted selected channels or export payload of one channel.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>From &amp;cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save audio data started at the cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Stream Synchronized Audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save audio data synchronized to start of the earliest stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;File Synchronized Audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save audio data synchronized to start of the capture file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Payload</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save RTP payload of selected stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Reset Graph</source>
         <translation>Réinitialiser le Graphique</translation>
     </message>
@@ -10842,56 +10787,176 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Réinitialiser le graphique à son état initial.</translation>
     </message>
     <message>
-        <source>0</source>
-        <translation>0</translation>
+        <source>Go To Setup Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to setup packet of stream currently under the cursor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mute selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unmute</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unmute selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert muting of selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to left channel of selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to left and right channel of selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Route audio to right channel of selected streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove selected streams from the list</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished">Aucun</translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation type="unfinished">Inverser</translation>
+    </message>
+    <message>
+        <source>Invert selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play/Pause</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start playing or pause playing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop playing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>I&amp;naudible streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select/Deselect inaudible streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Inaudible streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Select</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select inaudible streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Deselect</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deselect inaudible streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare &amp;Filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare a filter matching the selected stream(s).</source>
+        <translation type="unfinished">Prépare un filtre correspondant au(x) flux sélectioné(s).</translation>
+    </message>
+    <message>
+        <source>R&amp;efresh streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Read captured packets from capture in progress to player</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In</source>
         <translation>Zoom Avant</translation>
     </message>
     <message>
-        <source>+</source>
-        <translation>+</translation>
+        <source>SR (Hz)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sample rate of codec</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PR (Hz)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Play rate of decoded audio (depends e. g. on selected sound card)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom Out</source>
         <translation>Zoom arrière</translation>
     </message>
     <message>
-        <source>-</source>
-        <translation>-</translation>
-    </message>
-    <message>
         <source>Move Left 10 Pixels</source>
         <translation>Déplacer à Gauche de 10 Pixels</translation>
-    </message>
-    <message>
-        <source>Left</source>
-        <translation>Gauche</translation>
     </message>
     <message>
         <source>Move Right 10 Pixels</source>
         <translation>Déplacer à Droite de 10 Pixels</translation>
     </message>
     <message>
-        <source>Right</source>
-        <translation>Droite</translation>
-    </message>
-    <message>
         <source>Move Left 1 Pixels</source>
         <translation>Déplacer à Gauche d&apos;1 Pixel</translation>
     </message>
     <message>
-        <source>Shift+Left</source>
-        <translation>Maj+Gauche</translation>
-    </message>
-    <message>
         <source>Move Right 1 Pixels</source>
         <translation>Déplacer à Droite d&apos;1 Pixel</translation>
-    </message>
-    <message>
-        <source>Shift+Right</source>
-        <translation>Maj+Droite</translation>
     </message>
     <message>
         <source>Go To Packet Under Cursor</source>
@@ -10902,54 +10967,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Aller au paquet actuellement sous le curseur</translation>
     </message>
     <message>
-        <source>G</source>
-        <translation>G</translation>
-    </message>
-    <message>
-        <source>Drag / Zoom</source>
-        <translation>Glisser / Zoom</translation>
-    </message>
-    <message>
-        <source>Toggle mouse drag / zoom behavior</source>
-        <translation>Basculer comportant de la souris glisser / zoom</translation>
-    </message>
-    <message>
-        <source>Z</source>
-        <translation>Z</translation>
-    </message>
-    <message>
-        <source>Capture / Session Time Origin</source>
-        <translation>Capture / Temps de Session d&apos;origine</translation>
-    </message>
-    <message>
-        <source>Toggle capture / session time origin</source>
-        <translation>Basculer du temps d&apos;origine capture / session</translation>
-    </message>
-    <message>
-        <source>T</source>
-        <translation>T</translation>
-    </message>
-    <message>
-        <source>Crosshairs</source>
-        <translation>Réticule</translation>
-    </message>
-    <message>
-        <source>Toggle crosshairs</source>
-        <translation>Basculer réticule</translation>
-    </message>
-    <message>
-        <source>Space</source>
-        <translation>Espace</translation>
-    </message>
-    <message>
-        <source>Mute/Unmute</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Mute or unmute the stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Play the stream</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10958,15 +10975,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Route audio to left channel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Left + Right</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Route audio to left and right channel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10974,23 +10983,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Route audio to right channel</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Invert Muting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Invert muting of all channels</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Remove Stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Remove stream from the list</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10998,12 +10991,48 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Select</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Audio Routing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Play Streams</source>
-        <translation>Jouer Flux</translation>
+        <source>&amp;Play Streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open RTP player dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Set playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Replace existing playlist in RTP Player with new one</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Add to playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add new set to existing playlist in RTP Player</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Remove from playlist</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove selected streams from playlist in RTP Player</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Audio</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Decoding streams...</source>
@@ -11026,15 +11055,95 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Silence Inséré</translation>
     </message>
     <message>
+        <source>Double click on cell to change audio routing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 streams</source>
+        <translation type="unfinished">%1 flux</translation>
+    </message>
+    <message>
+        <source>, %1 selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>, %1 not muted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>, start: %1. Double click on graph to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>, start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click on graph to set start of playback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Playback of stream %1 failed!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>WAV (*.wav)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sun Audio (*.au)</source>
+        <translation type="unfinished">Sun Audio (*.au)</translation>
+    </message>
+    <message>
+        <source>Save audio</source>
+        <translation type="unfinished">Sauvegarder l&apos;audio</translation>
+    </message>
+    <message>
+        <source>Raw (*.raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save payload</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation type="unfinished">Avertissement</translation>
+    </message>
+    <message>
+        <source>No stream selected or none of selected streams provide audio</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished">Erreur</translation>
+    </message>
+    <message>
+        <source>All selected streams must use same play rate. Manual set of Output Audio Rate might help.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No streams are suitable for save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save failed!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Can&apos;t write header of AU file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Can&apos;t write header of WAV file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Payload save works with just one audio stream.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Double click to change audio routing</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start: %1. Double click to set start of playback.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Start: %1, cursor: %2. Press &quot;G&quot; to go to packet %3. Double click to set start of playback.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11125,16 +11234,60 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished">Heure du Jour</translation>
     </message>
     <message>
-        <source>Find Reverse</source>
-        <translation>Trouver Retour</translation>
+        <source>Find &amp;Reverse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare &amp;Filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Export</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Analyze</source>
+        <translation type="unfinished">&amp;Analyser</translation>
+    </message>
+    <message>
+        <source>Open the analysis window for the selected stream(s) and add it to it</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Find the reverse stream matching the selected forward stream.</source>
         <translation>Trouver le flux retour correspondant au flux aller sélectionné.</translation>
     </message>
     <message>
+        <source>All forward/reverse stream actions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>R</source>
         <translation>R</translation>
+    </message>
+    <message>
+        <source>Find All &amp;Pairs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select all streams which are paired in forward/reverse relation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Shift+R</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Find Only &amp;Singles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Find all streams which don&apos;t have paired reverse stream</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ctrl+R</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mark Packets</source>
@@ -11149,12 +11302,28 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>M</translation>
     </message>
     <message>
-        <source>Select None</source>
-        <translation>Sélectionner Aucun</translation>
+        <source>All</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Undo stream selection.</source>
-        <translation>Annuler sélection du flux.</translation>
+        <source>Select all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished">Aucun</translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation type="unfinished">Inverser</translation>
+    </message>
+    <message>
+        <source>Invert selection</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Go To Setup</source>
@@ -11169,20 +11338,12 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>G</translation>
     </message>
     <message>
-        <source>Prepare Filter</source>
-        <translation>Préparer Filtre</translation>
-    </message>
-    <message>
         <source>Prepare a filter matching the selected stream(s).</source>
         <translation>Prépare un filtre correspondant au(x) flux sélectioné(s).</translation>
     </message>
     <message>
         <source>P</source>
         <translation>P</translation>
-    </message>
-    <message>
-        <source>Export As RTPDump</source>
-        <translation>+</translation>
     </message>
     <message>
         <source>Export the stream payload as rtpdump</source>
@@ -11193,12 +11354,16 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>E</translation>
     </message>
     <message>
-        <source>Analyze</source>
-        <translation>Analyse</translation>
+        <source>A</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open the analysis window for the selected stream(s)</source>
-        <translation>Ouvre la fenêtre d&apos;analyse pour le(s) flux sélectionné(s)</translation>
+        <source>Cop&amp;y</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open copy menu</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copy as CSV</source>
@@ -11221,12 +11386,8 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Flux RTP</translation>
     </message>
     <message>
-        <source>Export…</source>
+        <source>Select</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Copy</source>
-        <translation>Copier</translation>
     </message>
     <message>
         <source>as CSV</source>
@@ -11243,10 +11404,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>, %1 selected, %2 total packets</source>
         <translation>,%1 sélectionné, %2 paquets au total</translation>
-    </message>
-    <message>
-        <source>No Audio</source>
-        <translation type="unfinished">Pas d&apos;Audio</translation>
     </message>
     <message>
         <source>Save RTPDump As…</source>
@@ -11603,10 +11760,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Graphique Octets</translation>
     </message>
     <message>
-        <source>Complete list of IP Addresses as provided in the INIT Chunk</source>
-        <translation>Liste complète des adresses IP prévu dans le bloc INIT</translation>
-    </message>
-    <message>
         <source>Requested Number of Inbound Streams:</source>
         <translation>Nombre demandé de flux entrants:</translation>
     </message>
@@ -11623,6 +11776,10 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Nombre minimum de flux entrants:</translation>
     </message>
     <message>
+        <source>Complete List of IP addresses from INIT Chunk:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Minimum Number of Outbound Streams:</source>
         <translation>Nombre minimum de flux sortants:</translation>
     </message>
@@ -11635,16 +11792,12 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Terminal 2</translation>
     </message>
     <message>
+        <source>Complete List of IP addresses from INIT_ACK Chunk:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Provided Number of Outbound Streams:</source>
         <translation>Nombre fourni de flux sortants:</translation>
-    </message>
-    <message>
-        <source>Complete list of IP Addresses as provided in the INIT-ACK Chunk</source>
-        <translation>Liste complète des adresses IP prévu dans le bloc INIT ACK Chunk</translation>
-    </message>
-    <message>
-        <source>Graph a_rwnd</source>
-        <translation>Graphique a_rwnd</translation>
     </message>
     <message>
         <source>SCTP Analyse Association: %1 Port1 %2 Port2 %3</source>
@@ -11663,16 +11816,16 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Complete list of IP-Addresses as provided in the INIT-Chunk</source>
-        <translation>Liste complète des adresses IP prévu dans le bloc INIT Chunk</translation>
+        <source>Complete list of IP addresses from INIT Chunk:</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Complete list of IP-Addresses as provided in the INITACK-Chunk</source>
-        <translation>Liste complète des adresses IP prévu dans le bloc INITACK Chunk</translation>
+        <source>Complete list of IP addresses from INIT_ACK Chunk:</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>List of used IP-Addresses</source>
-        <translation>Liste d&apos;adresses IP utilisées</translation>
+        <source>List of Used IP Addresses</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Used Number of Inbound Streams:</source>
@@ -12089,10 +12242,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished">Commentaire</translation>
     </message>
     <message>
-        <source>Save As…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>No data</source>
         <translation>Pas de données</translation>
     </message>
@@ -12220,12 +12369,32 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Réinitialiser Diagramme</translation>
     </message>
     <message>
+        <source>Reset &amp;Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Reset the diagram to its initial state.</source>
         <translation>Réinitialiser le diagramme à l&apos;état inital.</translation>
     </message>
     <message>
         <source>0</source>
         <translation>0</translation>
+    </message>
+    <message>
+        <source>&amp;Reset Diagram</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset the diagram to its initial state</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Export</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export diagram</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In</source>
@@ -13524,16 +13693,68 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished">Heure du Jour</translation>
     </message>
     <message>
-        <source>Select &amp;All</source>
-        <translation>Sélectionner &amp;Tout</translation>
-    </message>
-    <message>
-        <source>Select all calls</source>
-        <translation>Sélectionner tous les appels</translation>
-    </message>
-    <message>
-        <source>Select &amp;None</source>
+        <source>Flow &amp;Sequence</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show flow sequence for selected call(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare &amp;Filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prepare a filter matching the selected calls(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cop&amp;y</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open copy menu</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished">Aucun</translation>
+    </message>
+    <message>
+        <source>Invert</source>
+        <translation type="unfinished">Inverser</translation>
+    </message>
+    <message>
+        <source>Invert selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select related RTP streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select RTP streams related to selected calls in RTP Streams dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>S</source>
+        <translation type="unfinished">S</translation>
+    </message>
+    <message>
+        <source>Deselect related RTP Streams</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>D</source>
+        <translation type="unfinished">D</translation>
     </message>
     <message>
         <source>Clear selection</source>
@@ -13568,18 +13789,6 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Appels VoIP</translation>
     </message>
     <message>
-        <source>Prepare Filter</source>
-        <translation>Préparer Filtre</translation>
-    </message>
-    <message>
-        <source>Flow Sequence</source>
-        <translation>Séquence Flux</translation>
-    </message>
-    <message>
-        <source>Copy</source>
-        <translation type="unfinished">Copier</translation>
-    </message>
-    <message>
         <source>as CSV</source>
         <translation type="unfinished">en CSV</translation>
     </message>
@@ -13588,8 +13797,8 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation type="unfinished">en YAML</translation>
     </message>
     <message>
-        <source>No Audio</source>
-        <translation>Pas d&apos;Audio</translation>
+        <source>Select</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

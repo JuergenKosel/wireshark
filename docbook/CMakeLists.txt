@@ -116,6 +116,7 @@ set(WSUG_GRAPHICS
 	wsug_graphics/related-request.png
 	wsug_graphics/related-response.png
 	wsug_graphics/related-segment.png
+	wsug_graphics/ws-about-codecs.png
 	wsug_graphics/ws-analyze-menu.png
 	wsug_graphics/ws-bytes-pane-popup-menu.png
 	wsug_graphics/ws-bytes-pane-tabs.png
@@ -154,6 +155,7 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-filter-toolbar.png
 	wsug_graphics/ws-filters.png # GTK+
 	wsug_graphics/ws-find-packet.png
+	wsug_graphics/ws-follow-sip-stream.png
 	wsug_graphics/ws-follow-stream.png
 	wsug_graphics/ws-follow-http2-stream.png
 	wsug_graphics/ws-go-menu.png
@@ -204,7 +206,17 @@ set(WSUG_GRAPHICS
 	wsug_graphics/ws-statusbar-profile.png
 	wsug_graphics/ws-statusbar-selected.png
 	wsug_graphics/ws-tcp-analysis.png
-	wsug_graphics/ws-tel-rtpstream-analysis.png # GTK+
+	wsug_graphics/ws-tel-playlist.png
+	wsug_graphics/ws-tel-rtp-player_1.png
+	wsug_graphics/ws-tel-rtp-player_2.png
+	wsug_graphics/ws-tel-rtp-player_3.png
+	wsug_graphics/ws-tel-rtp-player_button.png
+	wsug_graphics/ws-tel-rtp-streams.png
+	wsug_graphics/ws-tel-rtpstream-analysis_1.png
+	wsug_graphics/ws-tel-rtpstream-analysis_2.png
+	wsug_graphics/ws-tel-rtpstream-analysis_3.png
+	wsug_graphics/ws-tel-seq-dialog.png
+	wsug_graphics/ws-tel-voip-calls.png
 	wsug_graphics/ws-telephony-menu.png
 	wsug_graphics/ws-time-reference.png # GTK+
 	wsug_graphics/ws-tools-menu.png

@@ -325,6 +325,17 @@ static int hf_isis_lsp_ext_is_reachability_code = -1;
 static int hf_isis_lsp_ext_is_reachability_len = -1;
 static int hf_isis_lsp_ext_is_reachability_value = -1;
 static int hf_isis_lsp_default_metric = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_flags = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_flags_a = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_reserved = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_delay = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_delay_min = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_delay_max = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_delay_variation = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_link_loss = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_residual_bandwidth = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_available_bandwidth = -1;
+static int hf_isis_lsp_ext_is_reachability_unidir_utilized_bandwidth = -1;
 static int hf_isis_lsp_ext_ip_reachability_distribution = -1;
 static int hf_isis_lsp_ext_ip_reachability_subtlv = -1;
 static int hf_isis_lsp_ext_ip_reachability_prefix_length = -1;
@@ -415,7 +426,7 @@ static int hf_isis_lsp_clv_srv6_endx_sid_subsubclvs_len = -1;
 static int hf_isis_lsp_area_address = -1;
 static int hf_isis_lsp_instance_identifier = -1;
 static int hf_isis_lsp_supported_itid = -1;
-static int hf_isis_lsp_clv_nlpid = -1;
+static int hf_isis_lsp_clv_nlpid_nlpid = -1;
 static int hf_isis_lsp_ip_authentication = -1;
 static int hf_isis_lsp_authentication = -1;
 static int hf_isis_lsp_area_address_str = -1;
@@ -457,6 +468,31 @@ static int hf_isis_lsp_clv_srv6_end_sid_sid = -1;
 static int hf_isis_lsp_clv_srv6_end_sid_subsubclvs_len = -1;
 static int hf_isis_lsp_purge_orig_id_num = -1;
 static int hf_isis_lsp_purge_orig_id_system_id = -1;
+/* rfc 6165: MAC Reachability */
+static int hf_isis_lsp_mac_reachability_topoid_nick = -1;
+static int hf_isis_lsp_mac_reachability_confidence = -1;
+static int hf_isis_lsp_mac_reachability_reserved = -1;
+static int hf_isis_lsp_mac_reachability_vlan = -1;
+static int hf_isis_lsp_mac_reachability_mac = -1;
+static int hf_isis_lsp_mac_reachability_chassismac = -1;
+static int hf_isis_lsp_mac_reachability_fanmcast = -1;
+/* Avaya proprietary */
+static int hf_isis_lsp_avaya_ipvpn_unknown = -1;
+static int hf_isis_lsp_avaya_ipvpn_system_id = -1;
+static int hf_isis_lsp_avaya_ipvpn_vrfsid = -1;
+static int hf_isis_lsp_avaya_ipvpn_subtlvbytes = -1;
+static int hf_isis_lsp_avaya_ipvpn_subtlvtype = -1;
+static int hf_isis_lsp_avaya_ipvpn_subtlvlength = -1;
+static int hf_isis_lsp_avaya_ipvpn_unknown_sub = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv4_metric = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv4_metrictype = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv4_addr = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv4_mask = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv6_metric = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv6_prefixlen = -1;
+static int hf_isis_lsp_avaya_ipvpn_ipv6_prefix = -1;
+static int hf_isis_lsp_avaya_185_unknown = -1;
+static int hf_isis_lsp_avaya_186_unknown = -1;
 
 static gint ett_isis_lsp = -1;
 static gint ett_isis_lsp_info = -1;
@@ -476,7 +512,7 @@ static gint ett_isis_lsp_adj_sid_flags = -1;
 static gint ett_isis_lsp_clv_unknown = -1;
 static gint ett_isis_lsp_clv_partition_dis = -1;
 static gint ett_isis_lsp_clv_prefix_neighbors = -1;
-static gint ett_isis_lsp_clv_nlpid = -1;
+static gint ett_isis_lsp_clv_nlpid_nlpid = -1;
 static gint ett_isis_lsp_clv_hostname = -1;
 static gint ett_isis_lsp_clv_srlg = -1;
 static gint ett_isis_lsp_clv_te_router_id = -1;
@@ -535,6 +571,13 @@ static gint ett_isis_lsp_clv_srv6_locator = -1;
 static gint ett_isis_lsp_clv_srv6_loc_flags = -1;
 static gint ett_isis_lsp_clv_srv6_loc_sub_tlv = -1;
 static gint ett_isis_lsp_clv_srv6_endx_sid_flags = -1;
+static gint ett_isis_lsp_clv_unidir_link_flags = -1;
+static gint ett_isis_lsp_clv_mac_reachability = -1;
+static gint ett_isis_lsp_clv_avaya_ipvpn = -1;
+static gint ett_isis_lsp_clv_avaya_ipvpn_subtlv = -1;
+static gint ett_isis_lsp_clv_avaya_ipvpn_mc = -1;
+static gint ett_isis_lsp_clv_avaya_ip_grt_mc = -1;
+
 
 static expert_field ei_isis_lsp_short_pdu = EI_INIT;
 static expert_field ei_isis_lsp_long_pdu = EI_INIT;
@@ -543,9 +586,11 @@ static expert_field ei_isis_lsp_subtlv = EI_INIT;
 static expert_field ei_isis_lsp_authentication = EI_INIT;
 static expert_field ei_isis_lsp_short_clv = EI_INIT;
 static expert_field ei_isis_lsp_long_clv = EI_INIT;
+static expert_field ei_isis_lsp_length_clv = EI_INIT;
 static expert_field ei_isis_lsp_clv_mt = EI_INIT;
 static expert_field ei_isis_lsp_clv_unknown = EI_INIT;
 static expert_field ei_isis_lsp_malformed_subtlv = EI_INIT;
+static expert_field ei_isis_lsp_unknown_subtlv = EI_INIT;
 static expert_field ei_isis_lsp_reserved_not_zero = EI_INIT;
 static expert_field ei_isis_lsp_length_invalid = EI_INIT;
 
@@ -669,6 +714,11 @@ static const value_string isis_lsp_grp_types[] = {
     { 0, NULL }
 };
 
+static int * const unidir_link_flags[] = {
+    &hf_isis_lsp_ext_is_reachability_unidir_link_flags_a,
+    NULL,
+};
+
 /*
 http://www.iana.org/assignments/isis-tlv-codepoints/isis-tlv-codepoints.xhtml#isis-tlv-codepoints-22-23-141-222-223
 https://tools.ietf.org/html/rfc8667
@@ -700,6 +750,13 @@ static const value_string isis_lsp_ext_is_reachability_code_vals[] = {
     { 30, "SPB-A-OALG" },
     { 31, "Adj-SID" },
     { 32, "LAN-Adj-SID" },
+    { 33, "Unidirectional Link Delay"},
+    { 34, "Min/Max Unidirectional Link Delay"},
+    { 35, "Unidirectional Delay Variation"},
+    { 36, "Unidirectional Link Loss"},
+    { 37, "Unidirectional Residual Bandwidth"},
+    { 38, "Unidirectional Available Bandwidth"},
+    { 39, "Unidirectional Utilized Bandwidth"},
     { 43, "SRv6 End.X SID" },       /* Suggested Value */
     { 44, "SRv6 LAN End.X SID" },   /* Suggested Value */
     { 250, "Reserved for Cisco-specific extensions" },
@@ -745,6 +802,14 @@ static const range_string isis_lsp_bier_alg_vals[] = {
 */
 static const value_string isis_lsp_bier_subsubtlv_type_vals[] = {
     { 1, "BIER MPLS Encapsulation" },
+    { 0, NULL }
+};
+
+/* Avaya specific sub-TLV types */
+static const value_string isis_lsp_avaya_ipvpn_subtlv_code_vals[] = {
+    { 1,   "IPv4 Metric Type" },
+    { 135, "IPv4 Reachability" },
+    { 236, "IPv6 Reachability" },
     { 0, NULL }
 };
 
@@ -1921,7 +1986,7 @@ static void
 dissect_lsp_nlpid_clv(tvbuff_t *tvb, packet_info* pinfo _U_, proto_tree *tree, int offset,
     isis_data_t *isis _U_, int length)
 {
-    isis_dissect_nlpid_clv(tvb, tree, hf_isis_lsp_clv_nlpid, offset, length);
+    isis_dissect_nlpid_clv(tvb, tree, ett_isis_lsp_clv_nlpid_nlpid, hf_isis_lsp_clv_nlpid_nlpid, offset, length);
 }
 
 /*
@@ -2393,8 +2458,8 @@ dissect_isis_lsp_clv_sid_label_binding(tvbuff_t *tvb, packet_info* pinfo, proto_
     int sub_tlv_len = 0;
     int i = 0;
     guint8 clv_pref_l = 0;
-    guint   clv_code = 0;
-    guint   clv_len = 0;
+    guint   clv_code;
+    guint   clv_len;
 
     static int * const lsp_sl_flags[] = {
         &hf_isis_lsp_sl_binding_flags_f,
@@ -3118,6 +3183,8 @@ dissect_sub_clv_tlv_22_22_23_141_222_223(tvbuff_t *tvb, packet_info* pinfo, prot
     int i = 0;
     guint  clv_code, clv_len;
     int local_offset, local_len;
+    proto_item *ti;
+    gfloat percentage;
 
     sub_tlv_offset  = offset;
     while (i < subclvs_len) {
@@ -3187,6 +3254,57 @@ dissect_sub_clv_tlv_22_22_23_141_222_223(tvbuff_t *tvb, packet_info* pinfo, prot
             case 31:
             case 32:
                 dissect_subclv_adj_sid(tvb, pinfo, subtree, sub_tlv_offset+13+i, clv_code, clv_len);
+            break;
+            case 33:
+                /* Unidirectional Link Delay (rfc8570) */
+                local_offset = sub_tlv_offset + 13 + i;
+                proto_tree_add_bitmask(subtree, tvb, local_offset,
+                                       hf_isis_lsp_ext_is_reachability_unidir_link_flags,
+                                       ett_isis_lsp_clv_unidir_link_flags,
+                                       unidir_link_flags, ENC_NA);
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_delay, tvb, local_offset+1, 3, ENC_BIG_ENDIAN);
+            break;
+            case 34:
+                /* Min/Max Unidirectional Link Delay (rfc8570) */
+                local_offset = sub_tlv_offset + 13 + i;
+                proto_tree_add_bitmask(subtree, tvb, local_offset,
+                                       hf_isis_lsp_ext_is_reachability_unidir_link_flags,
+                                       ett_isis_lsp_clv_unidir_link_flags,
+                                       unidir_link_flags, ENC_NA);
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_delay_min, tvb, local_offset+1, 3, ENC_BIG_ENDIAN);
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_reserved, tvb, local_offset+4, 1, ENC_NA);
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_delay_max, tvb, local_offset+5, 3, ENC_BIG_ENDIAN);
+            break;
+            case 35:
+                /* Unidirectional Delay Variation (rfc8570) */
+                local_offset = sub_tlv_offset + 13 + i;
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_reserved, tvb, local_offset, 1, ENC_NA);
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_delay_variation, tvb, local_offset+1, 3, ENC_BIG_ENDIAN);
+            break;
+            case 36:
+                /* Unidirectional Link Loss (rfc8570) */
+                local_offset = sub_tlv_offset + 13 + i;
+                proto_tree_add_bitmask(subtree, tvb, local_offset,
+                                       hf_isis_lsp_ext_is_reachability_unidir_link_flags,
+                                       ett_isis_lsp_clv_unidir_link_flags,
+                                       unidir_link_flags, ENC_NA);
+                ti = proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_link_loss, tvb, local_offset+1, 3, ENC_BIG_ENDIAN);
+                if (ti) {
+                    percentage = (gfloat)tvb_get_guint24(tvb, local_offset+1, ENC_BIG_ENDIAN);
+                    proto_item_append_text(ti, " (%f %%)", percentage * 0.000003);
+                }
+            break;
+            case 37:
+                /* 37: Unidirectional Residual Bandwidth (rfc8570) */
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_residual_bandwidth, tvb, sub_tlv_offset+13+i, 4, ENC_BIG_ENDIAN);
+            break;
+            case 38:
+                /* 38: Unidirectional Available Bandwidth (rfc8570) */
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_available_bandwidth, tvb, sub_tlv_offset+13+i, 4, ENC_BIG_ENDIAN);
+            break;
+            case 39:
+                /* 39: Unidirectional Utilized Bandwidth (rfc8570) */
+                proto_tree_add_item(subtree, hf_isis_lsp_ext_is_reachability_unidir_utilized_bandwidth, tvb, sub_tlv_offset+13+i, 4, ENC_BIG_ENDIAN);
             break;
             case 43:
                 /* SRv6 End.X SID */
@@ -3769,6 +3887,154 @@ dissect_lsp_purge_orig_id_clv(tvbuff_t *tvb, packet_info* pinfo, proto_tree *tre
     }
 }
 
+/* rfc6165: MAC Reachability */
+static void
+dissect_lsp_mac_reachability(tvbuff_t *tvb, packet_info* pinfo _U_, proto_tree *tree, int offset,
+                              isis_data_t *isis _U_, int length)
+{
+    int num_macs;
+    int count;
+    gboolean is_avaya = TRUE; // JMayer: FIXME Add preference or determine from other parts of packet
+
+    if ((length - 5) % 6) {
+        proto_tree_add_expert_format(tree, pinfo, &ei_isis_lsp_length_clv, tvb, offset, length,
+                                     "Unexpected length of MAC Reachability TLV (%d vs 5 + N*6)",
+                                     length);
+        return;
+    }
+    num_macs = (length -5) / 6;
+
+    proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_topoid_nick, tvb, offset, 2, ENC_NA);
+    offset += 2;
+    proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_confidence, tvb, offset, 1, ENC_NA);
+    offset += 1;
+    proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_reserved, tvb, offset, 2, ENC_NA);
+    proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_vlan, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    for (count = 1; count <= num_macs; count++) {
+        if (is_avaya && count == 1 )
+            proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_chassismac, tvb, offset, 6, ENC_NA);
+        else if (is_avaya && count == 2)
+            proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_fanmcast, tvb, offset, 6, ENC_NA);
+        else
+            proto_tree_add_item(tree, hf_isis_lsp_mac_reachability_mac, tvb, offset + 5, 6, ENC_NA);
+        offset += 6;
+    }
+}
+
+static void
+dissect_lsp_avaya_ipvpn(tvbuff_t *tvb, packet_info* pinfo _U_, proto_tree *tree, int offset,
+                              isis_data_t *isis _U_, int length)
+{
+    guint subtlvbytes;
+    proto_item *ti;
+    proto_item *ti_pfxlen, *ti_prefix;
+    proto_tree *subtlvtree;
+    guint subtype;
+    guint sublength;
+
+    if (length < 15) {
+        proto_tree_add_expert_format(tree, pinfo, &ei_isis_lsp_short_clv, tvb, offset, length,
+                                     "Too short LSP Avaya IPVPN (%d vs min 15)",
+                                     length);
+        return;
+    }
+    proto_tree_add_item(tree, hf_isis_lsp_avaya_ipvpn_unknown, tvb, offset, 4, ENC_NA);
+    offset += 4;
+    proto_tree_add_item(tree, hf_isis_lsp_avaya_ipvpn_system_id, tvb, offset, 7, ENC_NA);
+    offset += 7;
+    proto_tree_add_item(tree, hf_isis_lsp_avaya_ipvpn_vrfsid, tvb, offset, 3, ENC_BIG_ENDIAN);
+    offset += 3;
+    proto_tree_add_item_ret_uint(tree, hf_isis_lsp_avaya_ipvpn_subtlvbytes, tvb, offset, 1, ENC_NA, &subtlvbytes);
+    offset += 1;
+
+    if ((guint)length != 15+subtlvbytes) {
+        proto_tree_add_expert_format(tree, pinfo, &ei_isis_lsp_length_clv, tvb, offset, length,
+                                     "Inconsistent length of LSP Avaya IPVPN with subtlvs (%d vs min %d)",
+                                     length, 15 + subtlvbytes);
+        return;
+    }
+    while (subtlvbytes > 0) {
+        if (subtlvbytes == 1) {
+            proto_tree_add_expert_format(tree, pinfo, &ei_isis_lsp_malformed_subtlv, tvb, offset, length,
+                                         "Too few bytes remaining for Sub-TLV header (1 vs 2)");
+            return;
+        }
+	subtype = tvb_get_guint8(tvb, offset);
+	sublength = tvb_get_guint8(tvb, offset + 1);
+        subtlvtree = proto_tree_add_subtree_format(tree, tvb, offset, sublength + 2, ett_isis_lsp_clv_avaya_ipvpn_subtlv, &ti, "%s",
+                                    val_to_str(subtype, isis_lsp_avaya_ipvpn_subtlv_code_vals, "Unknown"));
+        proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_subtlvtype, tvb, offset, 1, ENC_NA);
+        proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_subtlvlength, tvb, offset + 1, 1, ENC_NA);
+        offset += 2;
+        switch (subtype) {
+        case 1:   /* Metric Type */
+            if (sublength != 4) {
+                proto_tree_add_expert_format(subtlvtree, pinfo, &ei_isis_lsp_malformed_subtlv, tvb, offset, sublength,
+                                         "Unexpected Metric Type sub-TLV length (%d vs 4)", sublength);
+                offset += sublength;
+            } else {
+                proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv4_metrictype, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+            }
+            break;
+        case 135: /* IPv4 */
+            if (sublength != 12) {
+                proto_tree_add_expert_format(subtlvtree, pinfo, &ei_isis_lsp_malformed_subtlv, tvb, offset, sublength,
+                                         "Unexpected IPv4 Reachability sub-TLV length (%d vs 12)", sublength);
+                offset += sublength;
+            } else {
+                proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv4_metric, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+                ti_prefix = proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv4_addr, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+                ti_pfxlen = proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv4_mask, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+                proto_item_append_text(ti, ": %s/%s", proto_item_get_display_repr(wmem_packet_scope(), ti_prefix),
+                                                  proto_item_get_display_repr(wmem_packet_scope(), ti_pfxlen));
+            }
+            break;
+        case 236: /* IPv6 */
+            if (sublength != 22) {
+                proto_tree_add_expert_format(subtlvtree, pinfo, &ei_isis_lsp_malformed_subtlv, tvb, offset, sublength,
+                                         "Unexpected IPv6 Reachability sub-TLV length (%d vs 22)", sublength);
+                offset += sublength;
+            } else {
+                proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv6_metric, tvb, offset, 4, ENC_BIG_ENDIAN);
+                offset += 4;
+                ti_pfxlen = proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv6_prefixlen, tvb, offset, 2, ENC_BIG_ENDIAN);
+                offset += 2;
+                ti_prefix = proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_ipv6_prefix, tvb, offset, 16, ENC_NA);
+                offset += 16;
+                proto_item_append_text(ti, ": %s/%s", proto_item_get_display_repr(wmem_packet_scope(), ti_prefix),
+                                                  proto_item_get_display_repr(wmem_packet_scope(), ti_pfxlen));
+            }
+            break;
+        default:
+            proto_tree_add_item(subtlvtree, hf_isis_lsp_avaya_ipvpn_unknown_sub, tvb, offset, sublength, ENC_NA);
+            proto_tree_add_expert_format(subtlvtree, pinfo, &ei_isis_lsp_unknown_subtlv, tvb, offset, sublength,
+                                         "Unknown Avaya IPVPN subTLV (%d): Please report to Wireshark developers.", subtype);
+            offset += sublength;
+        }
+        subtlvbytes -= (2 + sublength);
+    }
+}
+
+static void
+dissect_lsp_avaya_ipvpn_mc(tvbuff_t *tvb, packet_info* pinfo _U_, proto_tree *tree, int offset,
+                              isis_data_t *isis _U_, int length)
+{
+    proto_tree_add_item(tree, hf_isis_lsp_avaya_185_unknown, tvb, offset, length, ENC_NA);
+}
+
+static void
+dissect_lsp_avaya_ip_grt_mc(tvbuff_t *tvb, packet_info* pinfo _U_, proto_tree *tree, int offset,
+                              isis_data_t *isis _U_, int length)
+{
+    proto_tree_add_item(tree, hf_isis_lsp_avaya_186_unknown, tvb, offset, length, ENC_NA);
+}
+
 static const isis_clv_handle_t clv_l1_lsp_opts[] = {
     {
         ISIS_CLV_AREA_ADDRESS,
@@ -3833,7 +4099,7 @@ static const isis_clv_handle_t clv_l1_lsp_opts[] = {
     {
         ISIS_CLV_PROTOCOLS_SUPPORTED,
         "Protocols supported",
-        &ett_isis_lsp_clv_nlpid,
+        &ett_isis_lsp_clv_nlpid_nlpid,
         dissect_lsp_nlpid_clv
     },
     {
@@ -3945,6 +4211,30 @@ static const isis_clv_handle_t clv_l1_lsp_opts[] = {
         dissect_lsp_purge_orig_id_clv
     },
     {
+        ISIS_CLV_MAC_RI,
+        "MAC Reachability",
+        &ett_isis_lsp_clv_mac_reachability,
+        dissect_lsp_mac_reachability
+    },
+    {
+        ISIS_CLV_AVAYA_IPVPN,
+        "Avaya IPVPN",
+        &ett_isis_lsp_clv_avaya_ipvpn,
+        dissect_lsp_avaya_ipvpn
+    },
+    {
+        ISIS_CLV_AVAYA_IPVPN_MC,
+        "Avaya IPVPN MCast",
+        &ett_isis_lsp_clv_avaya_ipvpn_mc,
+        dissect_lsp_avaya_ipvpn_mc
+    },
+    {
+        ISIS_CLV_AVAYA_IP_GRT_MC,
+        "Avaya IP GRT MCast",
+        &ett_isis_lsp_clv_avaya_ip_grt_mc,
+        dissect_lsp_avaya_ip_grt_mc
+    },
+    {
         0,
         "",
         NULL,
@@ -4010,7 +4300,7 @@ static const isis_clv_handle_t clv_l2_lsp_opts[] = {
     {
         ISIS_CLV_PROTOCOLS_SUPPORTED,
         "Protocols supported",
-        &ett_isis_lsp_clv_nlpid,
+        &ett_isis_lsp_clv_nlpid_nlpid,
         dissect_lsp_nlpid_clv
     },
     {
@@ -4697,7 +4987,7 @@ proto_register_isis_lsp(void)
         },
         { &hf_isis_lsp_sl_binding_range,
             { "Range", "isis.lsp.sl_binding.range",
-              FT_UINT8, BASE_DEC, NULL, 0,
+              FT_UINT16, BASE_DEC, NULL, 0,
               NULL, HFILL}
         },
         { &hf_isis_lsp_sl_binding_prefix_length,
@@ -5405,6 +5695,63 @@ proto_register_isis_lsp(void)
               FT_UINT24, BASE_DEC, NULL, 0x0,
               NULL, HFILL }
         },
+        /* rfc8570 */
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_flags,
+            { "Flags", "isis.lsp.ext_is_reachability.unidirectional_link_flags",
+              FT_UINT8, BASE_HEX, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_flags_a,
+            { "Anomalous bit", "isis.lsp.ext_is_reachability.unidirectional_link_flags.a",
+              FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x80,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_reserved,
+            { "Reserved", "isis.lsp.ext_is_reachability.unidirectional_link_reserved",
+              FT_UINT8, BASE_HEX, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_delay,
+            { "Delay", "isis.lsp.ext_is_reachability.unidirectional_link_delay",
+              FT_UINT24, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_delay_min,
+            { "Min Delay", "isis.lsp.ext_is_reachability.unidirectional_link_delay_min",
+              FT_UINT24, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_delay_max,
+            { "Max Delay", "isis.lsp.ext_is_reachability.unidirectional_link_delay_max",
+              FT_UINT24, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_delay_variation,
+            { "Delay Variation", "isis.lsp.ext_is_reachability.unidirectional_delay_variation",
+              FT_UINT24, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_link_loss,
+            { "Link Loss", "isis.lsp.ext_is_reachability.unidirectional_link_loss",
+              FT_UINT24, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_residual_bandwidth,
+            { "Residual Bandwidth", "isis.lsp.ext_is_reachability.unidirectional_residual_bandwidth",
+              FT_UINT32, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_available_bandwidth,
+            { "Available Bandwidth", "isis.lsp.ext_is_reachability.unidirectional_available_bandwidth",
+              FT_UINT32, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_ext_is_reachability_unidir_utilized_bandwidth,
+            { "Utilized Bandwidth", "isis.lsp.ext_is_reachability.unidirectional_utilized_bandwidth",
+              FT_UINT32, BASE_DEC, NULL, 0,
+              NULL, HFILL }
+        },
+
         { &hf_isis_lsp_partition_designated_l2_is,
             { "Partition designated L2 IS", "isis.lsp.partition_designated_l2_is",
               FT_SYSTEM_ID, BASE_NONE, NULL, 0x0,
@@ -5778,9 +6125,9 @@ proto_register_isis_lsp(void)
               FT_UINT16, BASE_DEC, NULL, 0x0,
               NULL, HFILL }
         },
-        { &hf_isis_lsp_clv_nlpid,
-            { "NLPID", "isis.lsp.clv_nlpid",
-              FT_BYTES, BASE_NONE|BASE_ALLOW_ZERO, NULL, 0x0,
+        { &hf_isis_lsp_clv_nlpid_nlpid,
+            { "NLPID", "isis.lsp.clv_nlpid.nlpid",
+              FT_UINT8, BASE_HEX, NULL, 0x0,
               NULL, HFILL }
         },
         { &hf_isis_lsp_ip_authentication,
@@ -5910,6 +6257,123 @@ proto_register_isis_lsp(void)
               FT_UINT24, BASE_DEC, NULL, 0x0FFFFF,
               NULL, HFILL }
         },
+        /* rfc 6165 */
+        { &hf_isis_lsp_mac_reachability_topoid_nick,
+            { "Topology-id/Nickname", "isis.lsp.mac_reachability.topoid_nick",
+              FT_BYTES, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_confidence,
+            { "Confidence", "isis.lsp.mac_reachability.confidence",
+              FT_UINT8, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_reserved,
+            { "Reserved", "isis.lsp.mac_reachability.reserved",
+              FT_UINT16, BASE_DEC, NULL, 0xf000,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_vlan,
+            { "VLAN-ID", "isis.lsp.mac_reachability.vlan",
+              FT_UINT16, BASE_DEC, NULL, 0x0fff,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_mac,
+            { "MAC Address", "isis.lsp.mac_reachability.mac",
+              FT_ETHER, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_chassismac,
+            { "Chassis MAC", "isis.lsp.mac_reachability.chassismac",
+              FT_ETHER, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_mac_reachability_fanmcast,
+            { "FAN Mcast", "isis.lsp.mac_reachability.fanmcast",
+              FT_ETHER, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+	/* Avaya proprietary */
+        { &hf_isis_lsp_avaya_ipvpn_unknown,
+            { "Unknown", "isis.lsp.avaya.ipvpn.unknown",
+              FT_BYTES, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_system_id,
+            { "System-ID", "isis.lsp.avaya.ipvpn.system_id",
+              FT_SYSTEM_ID, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_vrfsid,
+            { "Vrf I-SID", "isis.lsp.avaya.ipvpn.vrfsid",
+              FT_UINT24, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_subtlvbytes,
+            { "SubTLV Bytes", "isis.lsp.avaya.ipvpn.subtlvbytes",
+              FT_UINT8, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_subtlvtype,
+            { "SubTLV Type", "isis.lsp.avaya.ipvpn.subtlvtype",
+              FT_UINT8, BASE_DEC, VALS(isis_lsp_avaya_ipvpn_subtlv_code_vals), 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_subtlvlength,
+            { "SubTLV Length", "isis.lsp.avaya.ipvpn.subtlvlength",
+              FT_UINT8, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_unknown_sub,
+            { "Unknown", "isis.lsp.avaya.ipvpn.sub.unknown",
+              FT_BYTES, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv4_metric,
+            { "Metric", "isis.lsp.avaya.ipvpn.ipv4.metric",
+              FT_UINT32, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv4_metrictype,
+            { "Metric Type", "isis.lsp.avaya.ipvpn.ipv4.metrictype",
+              FT_UINT32, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv4_addr,
+            { "IPv4 Address", "isis.lsp.avaya.ipvpn.ipv4.address",
+              FT_IPv4, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv4_mask,
+            { "IPv4 Mask", "isis.lsp.avaya.ipvpn.ipv4.mask",
+              FT_IPv4, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv6_metric,
+            { "Metric", "isis.lsp.avaya.ipvpn.ipv6.metric",
+              FT_UINT32, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv6_prefixlen,
+            { "Prefix length", "isis.lsp.avaya.ipvpn.ipv6.prefixlen",
+              FT_UINT16, BASE_DEC, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_ipvpn_ipv6_prefix,
+            { "Prefix", "isis.lsp.avaya.ipvpn.ipv6.prefix",
+              FT_IPv6, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_185_unknown,
+            { "Unknown", "isis.lsp.avaya.185.unknown",
+              FT_BYTES, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
+        { &hf_isis_lsp_avaya_186_unknown,
+            { "Unknown", "isis.lsp.avaya.186.unknown",
+              FT_BYTES, BASE_NONE, NULL, 0x0,
+              NULL, HFILL }
+        },
     };
     static gint *ett[] = {
         &ett_isis_lsp,
@@ -5932,7 +6396,7 @@ proto_register_isis_lsp(void)
         &ett_isis_lsp_clv_prefix_neighbors,
         &ett_isis_lsp_clv_authentication,
         &ett_isis_lsp_clv_ip_authentication,
-        &ett_isis_lsp_clv_nlpid,
+        &ett_isis_lsp_clv_nlpid_nlpid,
         &ett_isis_lsp_clv_hostname,
         &ett_isis_lsp_clv_srlg,
         &ett_isis_lsp_clv_ipv4_int_addr,
@@ -5988,7 +6452,13 @@ proto_register_isis_lsp(void)
         &ett_isis_lsp_sl_flags,
         &ett_isis_lsp_sl_sub_tlv,
         &ett_isis_lsp_sl_sub_tlv_flags,
-        &ett_isis_lsp_clv_ipv6_te_router_id /* CLV 140, rfc6119 */
+        &ett_isis_lsp_clv_ipv6_te_router_id, /* CLV 140, rfc6119 */
+        &ett_isis_lsp_clv_mac_reachability,  /* CLV 147, rfc6165 */
+        &ett_isis_lsp_clv_avaya_ipvpn,
+        &ett_isis_lsp_clv_avaya_ipvpn_subtlv,
+        &ett_isis_lsp_clv_avaya_ipvpn_mc,
+        &ett_isis_lsp_clv_avaya_ip_grt_mc,
+        &ett_isis_lsp_clv_unidir_link_flags,
     };
 
     static ei_register_info ei[] = {
@@ -5999,9 +6469,11 @@ proto_register_isis_lsp(void)
         { &ei_isis_lsp_authentication, { "isis.lsp.authentication.unknown", PI_PROTOCOL, PI_WARN, "Unknown authentication type", EXPFILL }},
         { &ei_isis_lsp_short_clv, { "isis.lsp.short_clv", PI_MALFORMED, PI_ERROR, "Short CLV", EXPFILL }},
         { &ei_isis_lsp_long_clv, { "isis.lsp.long_clv", PI_MALFORMED, PI_ERROR, "Long CLV", EXPFILL }},
+        { &ei_isis_lsp_length_clv, { "isis.lsp.length_clv", PI_MALFORMED, PI_ERROR, "Wrong length CLV", EXPFILL }},
         { &ei_isis_lsp_clv_mt, { "isis.lsp.clv_mt.malformed", PI_MALFORMED, PI_ERROR, "malformed MT-ID", EXPFILL }},
         { &ei_isis_lsp_clv_unknown, { "isis.lsp.clv.unknown", PI_UNDECODED, PI_NOTE, "Unknown option", EXPFILL }},
         { &ei_isis_lsp_malformed_subtlv, { "isis.lsp.subtlv.malformed", PI_MALFORMED, PI_ERROR, "malformed SubTLV", EXPFILL }},
+        { &ei_isis_lsp_unknown_subtlv, { "isis.lsp.subtlv.unknown", PI_UNDECODED, PI_NOTE, "Unknown SubTLV", EXPFILL }},
         { &ei_isis_lsp_reserved_not_zero, { "isis.lsp.reserved_not_zero", PI_PROTOCOL, PI_WARN, "Reserve bit not 0", EXPFILL }},
         { &ei_isis_lsp_length_invalid, { "isis.lsp.length.invalid", PI_PROTOCOL, PI_WARN, "Invalid length", EXPFILL }},
     };

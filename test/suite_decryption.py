@@ -170,16 +170,16 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
                 '-e' 'wlan.rsn.ie.ptk.keyid',
                 ))
         # Verify frames are decoded with the correct key
-        self.assertEqual(self.countOutput('^32\t33:33:00:00:00:16\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 5)
-        self.assertEqual(self.countOutput('^32\t33:33:ff:00:00:00\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 1)
-        self.assertEqual(self.countOutput('^32\t33:33:ff:00:03:00\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 1)
-        self.assertEqual(self.countOutput('^32\tff:ff:ff:ff:ff:ff\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 4)
-        self.assertEqual(self.countOutput('^40\t02:00:00:00:03:00\t618b4d1829e2a496d7fd8c034a6d024d\t\t$'), 2)
-        self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\t618b4d1829e2a496d7fd8c034a6d024d\t\t$'), 1)
+        self.assertEqual(self.countOutput('^0x0020\t33:33:00:00:00:16\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 5)
+        self.assertEqual(self.countOutput('^0x0020\t33:33:ff:00:00:00\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 1)
+        self.assertEqual(self.countOutput('^0x0020\t33:33:ff:00:03:00\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 1)
+        self.assertEqual(self.countOutput('^0x0020\tff:ff:ff:ff:ff:ff\t\t234a9a6ddcca3cb728751cea49d01bb0\t$'), 4)
+        self.assertEqual(self.countOutput('^0x0028\t02:00:00:00:03:00\t618b4d1829e2a496d7fd8c034a6d024d\t\t$'), 2)
+        self.assertEqual(self.countOutput('^0x0028\t02:00:00:00:00:00\t618b4d1829e2a496d7fd8c034a6d024d\t\t$'), 1)
         # Verify RSN PTK KeyID parsing
-        self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\t\t\t1$'), 1)
-        self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\tf31ecff5452f4c286cf66ef50d10dabe\t\t0$'), 1)
-        self.assertEqual(self.countOutput('^40\t02:00:00:00:00:00\t28dd851decf3f1c2a35df8bcc22fa1d2\t\t1$'), 1)
+        self.assertEqual(self.countOutput('^0x0028\t02:00:00:00:00:00\t\t\t1$'), 1)
+        self.assertEqual(self.countOutput('^0x0028\t02:00:00:00:00:00\tf31ecff5452f4c286cf66ef50d10dabe\t\t0$'), 1)
+        self.assertEqual(self.countOutput('^0x0028\t02:00:00:00:00:00\t28dd851decf3f1c2a35df8bcc22fa1d2\t\t1$'), 1)
 
     def test_80211_wpa_ccmp_256(self, cmd_tshark, capture_file, features):
         '''IEEE 802.11 decode CCMP-256'''
@@ -223,16 +223,42 @@ class case_decrypt_80211(subprocesstest.SubprocessTestCase):
         self.assertTrue(self.grepOutput('DHCP Request'))        # Verifies TK is correct
         self.assertTrue(self.grepOutput(r'Echo \(ping\) request')) # Verifies TK is correct
 
-    def test_80211_wpa2_ft_psk(self, cmd_tshark, capture_file):
-        '''IEEE 802.11 decode WPA2 FT PSK'''
+    def test_80211_wpa2_ft_psk_no_roam(self, cmd_tshark, capture_file):
+        '''IEEE 802.11 decode WPA2 FT PSK (without roam verification)'''
         # Included in git sources test/captures/wpa2-ft-psk.pcapng.gz
         self.assertRun((cmd_tshark,
                 '-o', 'wlan.enable_decryption: TRUE',
                 '-r', capture_file('wpa2-ft-psk.pcapng.gz'),
-                '-Y', 'wlan.analysis.tk == 58f564fd078c3cc8ceb8c8be8e51d30d || wlan.analysis.gtk == a2e4ae32e73603f12ecbce89992de9df',
+                '-Y', 'wlan.analysis.tk == ba60c7be2944e18f31949508a53ee9d6 || wlan.analysis.gtk == 6eab6a5f8d880f81104ed65ab0c74449',
                 ))
-        self.assertTrue(self.grepOutput('DHCP Request'))           # Verifies GTK decryption
-        self.assertTrue(self.grepOutput(r'Echo \(ping\) request')) # Verifies TK decryption
+        # Verifies that traffic from initial authentication can be decrypted (both TK and GTK)
+        self.assertEqual(self.countOutput('DHCP Discover'), 2)
+        self.assertEqual(self.countOutput('DHCP Offer'), 1)
+        self.assertEqual(self.countOutput('DHCP Request'), 2)
+        self.assertEqual(self.countOutput('DHCP ACK'), 1)
+        self.assertEqual(self.countOutput('ARP.*Who has'), 3)
+        self.assertEqual(self.countOutput('ARP.*is at'), 1)
+        self.assertEqual(self.countOutput(r'ICMP.*Echo \(ping\)'), 2)
+
+    def test_80211_wpa2_ft_psk_roam(self, cmd_tshark, capture_file, features):
+        '''IEEE 802.11 decode WPA2 FT PSK'''
+        # Included in git sources test/captures/wpa2-ft-psk.pcapng.gz
+        if not features.have_libgcrypt16:
+            self.skipTest('Requires GCrypt 1.6 or later.')
+
+        # Verify TK and GTK for both initial authentication (AP1) and roam(AP2).
+        self.assertRun((cmd_tshark,
+                '-o', 'wlan.enable_decryption: TRUE',
+                '-r', capture_file('wpa2-ft-psk.pcapng.gz'),
+                '-Y', 'wlan.analysis.tk == ba60c7be2944e18f31949508a53ee9d6 || wlan.analysis.gtk == 6eab6a5f8d880f81104ed65ab0c74449 || wlan.analysis.tk == a6a3304e5a8fabe0dc427cc41a707858 || wlan.analysis.gtk == a6cc605e10878f86b20a266c9b58d230',
+                ))
+        self.assertEqual(self.countOutput('DHCP Discover'), 2)
+        self.assertEqual(self.countOutput('DHCP Offer'), 1)
+        self.assertEqual(self.countOutput('DHCP Request'), 2)
+        self.assertEqual(self.countOutput('DHCP ACK'), 1)
+        self.assertEqual(self.countOutput('ARP.*Who has'), 5)
+        self.assertEqual(self.countOutput('ARP.*is at'), 2)
+        self.assertEqual(self.countOutput(r'ICMP.*Echo \(ping\)'), 4)
 
     def test_80211_wpa2_ft_eap(self, cmd_tshark, capture_file):
         '''IEEE 802.11 decode WPA2 FT EAP'''
