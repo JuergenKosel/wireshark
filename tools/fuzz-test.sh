@@ -150,8 +150,9 @@ echo ""
 
 # Clean up on <ctrl>C, etc
 trap_all() {
-    DONE=true
-    echo 'Caught signal'
+    printf '\n\nCaught signal. Exiting.\n'
+    rm -f "$TMP_DIR/$TMP_FILE" "$TMP_DIR/$ERR_FILE"*
+    exit 0
 }
 
 trap_abrt() {
@@ -182,7 +183,7 @@ while { [ $PASS -lt "$MAX_PASSES" ] || [ "$MAX_PASSES" -lt 1 ]; } && ! $DONE ; d
         if [ "$OSTYPE" == "cygwin" ] ; then
             CF=$( cygpath --windows "$CF" )
         fi
-        echo -n "    $CF: "
+        printf "    %s: " "$( basename "$CF" )"
 
         "$CAPINFOS" "$CF" > /dev/null 2> "$TMP_DIR/$ERR_FILE"
         RETVAL=$?

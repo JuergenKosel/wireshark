@@ -1334,7 +1334,7 @@ static value_string_ext aruba_mgt_typevals_ext = VALUE_STRING_EXT_INIT(aruba_mgt
 #define PA_NETWORK_CHANNEL_CONTROL         30
 #define PA_WHITE_SPACE_MAP_ANNOUNCEMENT    31
 #define PA_FTM_REQUEST                     32
-#define PA_FTM_RESPONSE                    33
+#define PA_FTM                             33
 #define PA_FILS_DISCOVERY                  34
 /* 802.11aj */
 #define PA_DCS_MEASUREMENT_REQUEST               35
@@ -2245,7 +2245,7 @@ static const value_string ff_pa_action_codes[] = {
   {PA_NETWORK_CHANNEL_CONTROL,         "Network Channel Control"},
   {PA_WHITE_SPACE_MAP_ANNOUNCEMENT,    "White Space Map Announcement"},
   {PA_FTM_REQUEST,                     "FTM Request"},
-  {PA_FTM_RESPONSE,                    "FTM Response"},
+  {PA_FTM,                             "FTM"},
   {PA_FILS_DISCOVERY,                  "FILS Discovery"},
   {PA_LOCATION_MEASUREMENT_REPORT,                                      "Location Measurement Report"},
   {PA_ISTA_PASSIVE_TB_RANGING_MEASUREMENT_REPORT,                       "ISTA Passive TB Ranging Measurement Report"},
@@ -2258,7 +2258,7 @@ value_string_ext ff_pa_action_codes_ext = VALUE_STRING_EXT_INIT(ff_pa_action_cod
 static const value_string protected_ftm_action_vals[] = {
   {0, "Reserved"},
   {1, "Protected FTM Request"},
-  {2, "Protected FTM Response"},
+  {2, "Protected FTM"},
   {3, "Protected Location Measurement Report"},
   {0, NULL}
 };
@@ -4715,6 +4715,7 @@ static int hf_ieee80211_operat_mode_field_reserved = -1;
 static int hf_ieee80211_operat_mode_field_rxnss = -1;
 static int hf_ieee80211_operat_mode_field_rxnsstype= -1;
 
+static int hf_ieee80211_rnr_tbtt_information = -1;
 static int hf_ieee80211_rnr_tbtt_information_field_header = -1;
 static int hf_ieee80211_rnr_tbtt_information_field_type = -1;
 static int hf_ieee80211_rnr_tbtt_information_filtered_neighbor_ap = -1;
@@ -7470,8 +7471,6 @@ static gint ett_tag_neighbor_report_bssid_info_capability_tree = -1;
 static gint ett_tag_neighbor_report_subelement_tree = -1;
 static gint ett_tag_neighbor_report_sub_tag_tree = -1;
 
-static gint ett_tag_rnr_tbtt_tree = -1;
-
 static gint ett_tag_wapi_param_set_akm_tree = -1;
 static gint ett_tag_wapi_param_set_ucast_tree = -1;
 static gint ett_tag_wapi_param_set_mcast_tree = -1;
@@ -7717,6 +7716,8 @@ static gint ett_fils_indication_realm_list = -1;
 static gint ett_fils_indication_public_key_list = -1;
 static gint ett_ff_fils_discovery_frame_control = -1;
 static gint ett_ff_fils_discovery_capability = -1;
+static gint ett_rnr_tbtt_tree = -1;
+static gint ett_rnr_tbtt_subtree = -1;
 static gint ett_rnr_tbtt_information_tree = -1;
 static gint ett_rnr_bss_parameters = -1;
 
@@ -11486,10 +11487,14 @@ add_ff_ftm_request(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int 
 }
 
 static guint
-add_ff_ftm_response(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
+add_ff_ftm(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, int offset)
 {
   guint start = offset;
+  guint8 dialog_token = tvb_get_guint8(tvb, offset);
   offset += add_ff_dialog_token(tree, tvb, pinfo, offset);
+  if (dialog_token == 0) {
+    col_append_fstr(pinfo->cinfo, COL_INFO, " (Termination)");
+  }
   offset += add_ff_followup_dialog_token(tree, tvb, pinfo, offset);
   offset += add_ff_ftm_tod(tree, tvb, pinfo, offset);
   offset += add_ff_ftm_toa(tree, tvb, pinfo, offset);
@@ -12209,9 +12214,9 @@ add_ff_action_public_fields(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
     col_set_str(pinfo->cinfo, COL_INFO, "FTM Request");
     offset += add_ff_ftm_request(tree, tvb, pinfo, offset);
     break;
-  case PA_FTM_RESPONSE:
-    col_set_str(pinfo->cinfo, COL_INFO, "FTM Response");
-    offset += add_ff_ftm_response(tree, tvb, pinfo, offset);
+  case PA_FTM:
+    col_set_str(pinfo->cinfo, COL_INFO, "FTM");
+    offset += add_ff_ftm(tree, tvb, pinfo, offset);
     break;
   case PA_FILS_DISCOVERY:
     col_set_str(pinfo->cinfo, COL_INFO, "FILS Discovery");
@@ -15425,7 +15430,7 @@ add_ff_action_protected_ftm(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
       offset += add_ff_ftm_request(tree, tvb, pinfo, offset);
       break;
     case 2:
-      offset += add_ff_ftm_response(tree, tvb, pinfo, offset);
+      offset += add_ff_ftm(tree, tvb, pinfo, offset);
       break;
     case 3:
       offset += add_ff_lmr_report(tree, tvb, pinfo, offset);
@@ -19653,6 +19658,7 @@ dissect_operating_mode_notification(tvbuff_t *tvb, packet_info *pinfo _U_, proto
 static int
 dissect_reduced_neighbor_report(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
 {
+  int tag_len = tvb_reported_length(tvb);
   int offset = 0, count;
   guint8 tbtt_length, tbtt_count;
   static int * const ieee80211_rnr_tbtt_information_header[] = {
@@ -19675,58 +19681,69 @@ dissect_reduced_neighbor_report(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
     &hf_ieee80211_rnr_bss_parameters_b7,
     NULL
   };
-  proto_tree *tbtt_subtree;
+  proto_tree *tbtt_subtree, *subtree;
 
-  /* TBTT Information Header */
-  proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_ieee80211_rnr_tbtt_information_field_header,
-                                    ett_rnr_tbtt_information_tree, ieee80211_rnr_tbtt_information_header,
-                                    ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
-  tbtt_count = tvb_get_guint8(tvb, offset) >> 4;
-  tbtt_length = tvb_get_guint8(tvb, offset+1);
-  offset += 2;
+  while (tag_len > 0){
+    /* TBTT Information Header */
+    subtree = proto_tree_add_subtree(tree, tvb, offset, 4, ett_rnr_tbtt_tree, NULL, "TBTT Information");
+    proto_tree_add_bitmask_with_flags(subtree, tvb, offset, hf_ieee80211_rnr_tbtt_information_field_header,
+                                      ett_rnr_tbtt_information_tree, ieee80211_rnr_tbtt_information_header,
+                                      ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+    tbtt_count = tvb_get_guint8(tvb, offset) >> 4;
+    tbtt_length = tvb_get_guint8(tvb, offset+1);
+    proto_item_set_len(subtree, 4 + tbtt_length);
+    offset += 2;
+    tag_len -= 2;
 
-  proto_tree_add_item(tree, hf_ieee80211_rnr_operating_class, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-  offset += 1;
-
-  proto_tree_add_item(tree, hf_ieee80211_rnr_channel_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-  offset += 1;
-
-  count = tbtt_count;
-  while (count >= 0) {
-    tbtt_subtree = proto_tree_add_subtree_format(tree, tvb, offset, tbtt_length, ett_tag_rnr_tbtt_tree, NULL, "TBTT %d:", tbtt_count - count);
-
-    proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_neighbor_ap_tbtt_offset, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(subtree, hf_ieee80211_rnr_operating_class, tvb, offset, 1, ENC_LITTLE_ENDIAN);
     offset += 1;
+    tag_len -= 1;
 
-    /* BSSID */
-    if(tbtt_length == 7 || tbtt_length == 8 || tbtt_length >= 11){
-      proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_bssid, tvb, offset, 6, ENC_NA);
-      offset += 6;
-    }
+    proto_tree_add_item(subtree, hf_ieee80211_rnr_channel_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+    offset += 1;
+    tag_len -= 1;
 
-    /* Short SSID */
-    if(tbtt_length == 5 || tbtt_length == 6 || tbtt_length >= 11){
-      proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_short_ssid, tvb, offset, 4, ENC_NA);
-      offset += 4;
-    }
+    count = tbtt_count;
+    while (count >= 0) {
+      tbtt_subtree = proto_tree_add_subtree_format(subtree, tvb, offset, tbtt_length, ett_rnr_tbtt_subtree, NULL, "TBTT %d:", tbtt_count - count);
 
-    /* BSS Parameters */
-    if(tbtt_length == 2 || tbtt_length == 6 || tbtt_length == 8 || tbtt_length >= 12){
-      proto_tree_add_bitmask_with_flags(tbtt_subtree, tvb, offset, hf_ieee80211_rnr_bss_parameters,
-                                        ett_rnr_bss_parameters, ieee80211_rnr_bss_parameters,
-                                        ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+      proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_neighbor_ap_tbtt_offset, tvb, offset, 1, ENC_LITTLE_ENDIAN);
       offset += 1;
-    }
+      tag_len -= 1;
 
-    /* 20 MHz PSD */
-    if(tbtt_length == 9 || tbtt_length == 13){
-      proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_20_mhz_psd, tvb, offset, 1, ENC_NA);
-      offset += 1;
-    }
+      /* BSSID */
+      if(tbtt_length == 7 || tbtt_length == 8 || tbtt_length >= 11){
+        proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_bssid, tvb, offset, 6, ENC_NA);
+        offset += 6;
+        tag_len -= 6;
+      }
 
-    count--;
+      /* Short SSID */
+      if(tbtt_length == 5 || tbtt_length == 6 || tbtt_length >= 11){
+        proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_short_ssid, tvb, offset, 4, ENC_NA);
+        offset += 4;
+        tag_len -= 4;
+      }
+
+      /* BSS Parameters */
+      if(tbtt_length == 2 || tbtt_length == 6 || tbtt_length == 8 || tbtt_length >= 12){
+        proto_tree_add_bitmask_with_flags(tbtt_subtree, tvb, offset, hf_ieee80211_rnr_bss_parameters,
+                                          ett_rnr_bss_parameters, ieee80211_rnr_bss_parameters,
+                                          ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+        offset += 1;
+        tag_len -= 1;
+      }
+
+      /* 20 MHz PSD */
+      if(tbtt_length == 9 || tbtt_length == 13){
+        proto_tree_add_item(tbtt_subtree, hf_ieee80211_rnr_20_mhz_psd, tvb, offset, 1, ENC_NA);
+        offset += 1;
+        tag_len -= 1;
+      }
+
+      count--;
+    }
   }
-
   return offset;
 }
 
@@ -41640,6 +41657,11 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_HEX, NULL, 0x80,
       "Indicate that the Rx NSS subfield carries the maximum number of spatial streams that the STA can receive", HFILL }},
 
+    {&hf_ieee80211_rnr_tbtt_information,
+     {"TBTT Information", "wlan.rnr.tbtt_information",
+      FT_NONE, BASE_NONE, NULL, 0x0,
+      NULL, HFILL }},
+
     {&hf_ieee80211_rnr_tbtt_information_field_header,
      {"TBTT Information Field Header", "wlan.rnr.tbtt_information.field_header",
       FT_UINT16, BASE_HEX, NULL, 0x0,
@@ -50264,8 +50286,6 @@ proto_register_ieee80211(void)
     &ett_tag_neighbor_report_subelement_tree,
     &ett_tag_neighbor_report_sub_tag_tree,
 
-    &ett_tag_rnr_tbtt_tree,
-
     &ett_tag_wapi_param_set_akm_tree,
     &ett_tag_wapi_param_set_ucast_tree,
     &ett_tag_wapi_param_set_mcast_tree,
@@ -50450,6 +50470,8 @@ proto_register_ieee80211(void)
     &ett_fils_indication_realm_list,
     &ett_fils_indication_public_key_list,
 
+    &ett_rnr_tbtt_tree,
+    &ett_rnr_tbtt_subtree,
     &ett_rnr_tbtt_information_tree,
     &ett_rnr_bss_parameters,
 

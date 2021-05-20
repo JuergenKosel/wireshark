@@ -814,6 +814,15 @@ else() # ! MSVC
 		-DG_DISABLE_DEPRECATED
 		-DG_DISABLE_SINGLE_INCLUDES
 	)
+	if(CMAKE_VERSION VERSION_GREATER "3.11.99")
+		# Build type dependency requires support for generator expressions.
+		# add_compile_definitions() requires cmake >= 3.12.
+		add_compile_definitions(
+			$<$<OR:$<BOOL:${DISABLE_ASSERT}>,$<CONFIG:Release>>:WS_DISABLE_ASSERT>
+		)
+	elseif(DISABLE_ASSERT)
+		add_definitions(-DWS_DISABLE_ASSERT)
+	endif()
 
 	set(WIRESHARK_LD_FLAGS
 		# See also CheckCLinkerFlag.cmake
@@ -1151,13 +1160,6 @@ ws_find_package(Systemd BUILD_sdjournal HAVE_SYSTEMD)
 
 # Build the Qt GUI?
 if(BUILD_wireshark)
-	if(CMAKE_VERSION VERSION_GREATER "3.19.999" AND CMAKE_VERSION VERSION_LESS "3.20.2")
-		# https://gitlab.kitware.com/cmake/cmake/-/issues/22085
-		set(CMAKE_AUTOMOC ON)
-		set(CMAKE_AUTOUIC ON)
-		set(CMAKE_AUTORCC ON)
-	endif()
-
 	# Untested, may not work if CMAKE_PREFIX_PATH gets overwritten
 	# somewhere. The if WIN32 in this place is annoying as well.
 	if(WIN32)
@@ -2274,6 +2276,23 @@ add_custom_command(
 	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
+file(GLOB _protobuf_src_files RELATIVE "${CMAKE_SOURCE_DIR}" protobuf/*.proto)
+set (_protobuf_data_files)
+foreach(_data_file ${_protobuf_src_files})
+	list(APPEND _protobuf_data_files "${DATAFILE_DIR}/${_data_file}")
+endforeach()
+
+add_custom_command(
+	OUTPUT ${_protobuf_data_files}
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${DATAFILE_DIR}/protobuf"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		${_protobuf_src_files}
+		"${DATAFILE_DIR}/protobuf"
+	VERBATIM
+	DEPENDS ${_protobuf_src_files}
+	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
 file(GLOB _profiles_src_files RELATIVE "${CMAKE_SOURCE_DIR}" profiles/*/*)
 set (_profiles_data_files)
 foreach(_data_file ${_profiles_src_files})
@@ -2290,6 +2309,7 @@ list(APPEND copy_data_files_depends
 	${_dtds_data_files}
 	${_diameter_data_files}
 	${_radius_data_files}
+	${_protobuf_data_files}
 	${_profiles_data_files}
 )
 
@@ -2441,6 +2461,9 @@ if(BUILD_wireshark AND QT_FOUND)
 		LINK_FLAGS "${WS_LINK_FLAGS}"
 		FOLDER "Executables"
 		INSTALL_RPATH "${EXECUTABLE_INSTALL_RPATH}"
+		AUTOMOC ON
+		AUTOUIC ON
+		AUTORCC ON
 	)
 	if(MSVC)
 		set_target_properties(wireshark PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")

@@ -15,6 +15,7 @@
 
 
 #include <epan/packet.h>
+#include <epan/to_str.h>
 #include "packet-tcp.h"
 #include "packet-epmd.h"
 
@@ -149,15 +150,30 @@ static int hf_erldp_atom_text = -1;
 static int hf_erldp_atom_cache_ref = -1;
 static int hf_erldp_small_int_ext = -1;
 static int hf_erldp_int_ext = -1;
+static int hf_erldp_small_big_ext_len = -1;
+static int hf_erldp_large_big_ext_len = -1;
+static int hf_erldp_big_ext_int = -1;
+static int hf_erldp_big_ext_str = -1;
+static int hf_erldp_big_ext_bytes = -1;
+static int hf_erldp_float_ext = -1;
+static int hf_erldp_new_float_ext = -1;
 static int hf_erldp_port_ext_id = -1;
 static int hf_erldp_port_ext_creation = -1;
 static int hf_erldp_pid_ext_id = -1;
 static int hf_erldp_pid_ext_serial = -1;
 static int hf_erldp_pid_ext_creation = -1;
 static int hf_erldp_list_ext_len = -1;
+static int hf_erldp_binary_ext_len = -1;
+static int hf_erldp_binary_ext = -1;
 static int hf_erldp_new_ref_ext_len = -1;
 static int hf_erldp_new_ref_ext_creation = -1;
 static int hf_erldp_new_ref_ext_id = -1;
+static int hf_erldp_fun_ext_num_free = -1;
+static int hf_erldp_new_fun_ext_size = -1;
+static int hf_erldp_new_fun_ext_arity = -1;
+static int hf_erldp_new_fun_ext_uniq = -1;
+static int hf_erldp_new_fun_ext_index = -1;
+static int hf_erldp_new_fun_ext_num_free = -1;
 
 static int hf_etf_tag = -1;
 static int hf_etf_dist_header_new_cache = -1;
@@ -186,7 +202,8 @@ static dissector_handle_t erldp_handle = NULL;
 static gint dissect_etf_type(const gchar *label, packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree);
 
 static gint dissect_etf_dist_header(packet_info *pinfo _U_, tvbuff_t *tvb, gint offset, proto_tree *tree) {
-  guint8 num, flen, i, flg, isi;
+  guint32 num, isi;
+  guint8 flen, i, flg;
   gint flg_offset, acrs_offset, acr_offset;
   guint32 atom_txt_len;
   gboolean new_entry, long_atom;
@@ -194,8 +211,7 @@ static gint dissect_etf_dist_header(packet_info *pinfo _U_, tvbuff_t *tvb, gint 
   proto_tree *flags_tree, *acrs_tree, *acr_tree;
   const guint8 *str;
 
-  num = tvb_get_guint8(tvb, offset);
-  proto_tree_add_item(tree, hf_erldp_num_atom_cache_refs, tvb, offset, 1, ENC_BIG_ENDIAN );
+  proto_tree_add_item_ret_uint(tree, hf_erldp_num_atom_cache_refs, tvb, offset, 1, ENC_BIG_ENDIAN, &num);
   offset++;
 
   if (num == 0)
@@ -226,20 +242,17 @@ static gint dissect_etf_dist_header(packet_info *pinfo _U_, tvbuff_t *tvb, gint 
     new_entry = flg & (0x08 << 4*(i%2));
     acr_offset = offset;
     acr_tree = proto_tree_add_subtree_format(acrs_tree, tvb, offset, 0, ett_etf_acr, &ti_acr, "AtomCacheRef[%2d]:", i);
-    isi = tvb_get_guint8(tvb, offset);
-    proto_tree_add_uint(acr_tree, hf_erldp_internal_segment_index, tvb, offset, 1, isi);
+    proto_tree_add_item_ret_uint(acr_tree, hf_erldp_internal_segment_index, tvb, offset, 1, ENC_BIG_ENDIAN, &isi);
     proto_item_append_text(ti_acr, " %3d", isi);
     offset++;
     if (!new_entry)
       continue;
     if (long_atom) {
-      atom_txt_len = tvb_get_ntohs(tvb, offset);
-      proto_tree_add_uint(acr_tree, hf_erldp_atom_length2, tvb, offset, 2, atom_txt_len);
+      proto_tree_add_item_ret_uint(acr_tree, hf_erldp_atom_length2, tvb, offset, 2, ENC_BIG_ENDIAN, &atom_txt_len);
       offset += 2;
     }
     else {
-      atom_txt_len = tvb_get_guint8(tvb, offset);
-      proto_tree_add_uint(acr_tree, hf_erldp_atom_length, tvb, offset, 1, atom_txt_len);
+      proto_tree_add_item_ret_uint(acr_tree, hf_erldp_atom_length, tvb, offset, 1, ENC_BIG_ENDIAN, &atom_txt_len);
       offset++;
     }
     proto_tree_add_item_ret_string(acr_tree, hf_erldp_atom_text, tvb, offset, atom_txt_len, ENC_NA|ENC_ASCII, wmem_packet_scope(), &str);
@@ -256,12 +269,10 @@ static gint dissect_etf_tuple_content(gboolean large, packet_info *pinfo, tvbuff
   guint32 arity, i;
 
   if (large) {
-    arity = tvb_get_ntohl(tvb, offset);
-    proto_tree_add_item(tree, hf_etf_arity4, tvb, offset, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_etf_arity4, tvb, offset, 4, ENC_BIG_ENDIAN, &arity);
     offset += 4;
   } else {
-    arity = tvb_get_guint8(tvb, offset);
-    proto_tree_add_item(tree, hf_etf_arity, tvb, offset, 1, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_uint(tree, hf_etf_arity, tvb, offset, 1, ENC_BIG_ENDIAN, &arity);
     offset++;
   }
   for (i=0; i<arity; i++) {
@@ -271,8 +282,53 @@ static gint dissect_etf_tuple_content(gboolean large, packet_info *pinfo, tvbuff
   return offset;
 }
 
+static gint dissect_etf_big_ext(tvbuff_t *tvb, gint offset, gint32 len, proto_tree *tree, const gchar **value_str) {
+      guint8 sign;
+      gint32 i;
+
+      sign = tvb_get_guint8(tvb, offset);
+      offset += 1;
+
+      if (len <= 8) {
+        guint64 big_val = 0;
+
+        switch (len) {
+        case 1: big_val = tvb_get_guint8(tvb, offset); break;
+        case 2: big_val = tvb_get_letohs(tvb, offset); break;
+        case 3: big_val = tvb_get_letoh24(tvb, offset); break;
+        case 4: big_val = tvb_get_letohl(tvb, offset); break;
+        case 5: big_val = tvb_get_letoh40(tvb, offset); break;
+        case 6: big_val = tvb_get_letoh48(tvb, offset); break;
+        case 7: big_val = tvb_get_letoh56(tvb, offset); break;
+        case 8: big_val = tvb_get_letoh64(tvb, offset); break;
+        }
+        proto_tree_add_uint64_format_value(tree, hf_erldp_big_ext_int, tvb, offset, len,
+                                           big_val, "%s%" G_GINT64_MODIFIER "u", sign ? "-"  : "", big_val);
+        if (value_str)
+          *value_str = wmem_strdup_printf(wmem_packet_scope(), "%s%" G_GINT64_MODIFIER "u",
+                                          sign ? "-"  : "", big_val);
+      } if (len < 64) {
+        gchar *buf, *buf_ptr;
+
+        buf=buf_ptr=(gchar *)wmem_alloc(wmem_packet_scope(), len*1+3+1);
+        buf_ptr = g_stpcpy(buf, "0x");
+        for (i = len - 1; i >= 0; i--)
+          buf_ptr = guint8_to_hex(buf_ptr, tvb_get_guint8(tvb, offset + i));
+        *buf_ptr = 0;
+
+        proto_tree_add_string_format_value(tree, hf_erldp_big_ext_str, tvb, offset, len, buf, "%s", buf);
+
+        if (value_str)
+          *value_str = buf;
+      } else
+        proto_tree_add_item(tree, hf_erldp_big_ext_bytes, tvb, offset, len, ENC_NA);
+
+      return offset + len;
+}
+
 static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree, const gchar **value_str) {
   gint32 len, int_val, i;
+  guint32 uint_val;
   guint32 id;
   const guint8 *str_val;
 
@@ -282,32 +338,60 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       break;
 
     case ATOM_CACHE_REF:
-      int_val = tvb_get_guint8(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_atom_cache_ref, tvb, offset, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_atom_cache_ref, tvb, offset, 1, ENC_BIG_ENDIAN, &uint_val);
       offset += 1;
       if (value_str)
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", int_val);
+        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", uint_val);
       break;
 
     case SMALL_INTEGER_EXT:
-      int_val = tvb_get_guint8(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_small_int_ext, tvb, offset, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_small_int_ext, tvb, offset, 1, ENC_BIG_ENDIAN, &uint_val);
       offset += 1;
       if (value_str)
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", int_val);
+        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%u", uint_val);
       break;
 
     case INTEGER_EXT:
-      int_val = tvb_get_ntohl(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_int_ext, tvb, offset, 4, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_int(tree, hf_erldp_int_ext, tvb, offset, 4, ENC_BIG_ENDIAN, &int_val);
       offset += 4;
       if (value_str)
         *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", int_val);
       break;
 
+    case SMALL_BIG_EXT: {
+      proto_tree_add_item_ret_uint(tree, hf_erldp_small_big_ext_len, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
+      offset += 1;
+
+      offset = dissect_etf_big_ext(tvb, offset, len, tree, value_str);
+      break;
+    }
+
+    case LARGE_BIG_EXT: {
+      proto_tree_add_item_ret_uint(tree, hf_erldp_large_big_ext_len, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
+      offset += 4;
+
+      offset = dissect_etf_big_ext(tvb, offset, len, tree, value_str);
+      break;
+    }
+
+    case FLOAT_EXT:
+      proto_tree_add_item_ret_string(tree, hf_erldp_float_ext, tvb, offset, 31, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
+      offset += 31;
+      if (value_str)
+        *value_str = str_val;
+      break;
+
+    case NEW_FLOAT_EXT:
+      proto_tree_add_item(tree, hf_erldp_new_float_ext, tvb, offset, 8, ENC_BIG_ENDIAN);
+      if (value_str) {
+        gdouble  new_float_val = tvb_get_ntohieee_double(tvb, offset);
+        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%f", new_float_val);
+      }
+      offset += 8;
+      break;
+
     case ATOM_UTF8_EXT:
-      len = tvb_get_ntohl(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_atom_length2, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_atom_length2, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
       proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
       offset += len;
@@ -316,8 +400,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       break;
 
     case SMALL_ATOM_UTF8_EXT:
-      len = tvb_get_guint8(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_atom_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_atom_length, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
       offset++;
       proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
       offset += len;
@@ -373,8 +456,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       break;
 
     case LIST_EXT:
-      len = tvb_get_ntohl(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_list_ext_len, tvb, offset, 4, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_list_ext_len, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
       offset += 4;
       for (i=0; i<len; i++) {
         offset = dissect_etf_type(NULL, pinfo, tvb, offset, tree);
@@ -382,9 +464,15 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       offset = dissect_etf_type("Tail", pinfo, tvb, offset, tree);
       break;
 
+    case BINARY_EXT:
+      proto_tree_add_item_ret_uint(tree, hf_erldp_binary_ext_len, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
+      offset += 4;
+      proto_tree_add_item(tree, hf_erldp_binary_ext, tvb, offset, len, ENC_NA);
+      offset += len;
+      break;
+
     case NEW_REFERENCE_EXT:
-      len = tvb_get_ntohs(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_new_ref_ext_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_new_ref_ext_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
       offset = dissect_etf_type("Node", pinfo, tvb, offset, tree);
       proto_tree_add_item(tree, hf_erldp_new_ref_ext_creation, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -398,8 +486,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       break;
 
     case NEWER_REFERENCE_EXT:
-      len = tvb_get_ntohs(tvb, offset);
-      proto_tree_add_item(tree, hf_erldp_new_ref_ext_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_new_ref_ext_len, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
       offset = dissect_etf_type("Node", pinfo, tvb, offset, tree);
       proto_tree_add_item(tree, hf_erldp_new_ref_ext_creation, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -411,6 +498,44 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
         offset += 4;
       }
       break;
+
+    case FUN_EXT:
+      proto_tree_add_item_ret_uint(tree, hf_erldp_fun_ext_num_free, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
+      offset += 4;
+      offset = dissect_etf_type("Pid", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("Module", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("Index", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("Unique", pinfo, tvb, offset, tree);
+
+      for (i = 0; i < len; i++) {
+          gchar buf[ITEM_LABEL_LENGTH];
+          g_snprintf(buf, sizeof(buf), "Free Var[%u]", i + 1);
+          offset = dissect_etf_type(buf, pinfo, tvb, offset, tree);
+      }
+      break;
+
+    case NEW_FUN_EXT:
+      proto_tree_add_item(tree, hf_erldp_new_fun_ext_size, tvb, offset, 4, ENC_BIG_ENDIAN);
+      offset += 4;
+      proto_tree_add_item(tree, hf_erldp_new_fun_ext_arity, tvb, offset, 1, ENC_BIG_ENDIAN);
+      offset += 1;
+      proto_tree_add_item(tree, hf_erldp_new_fun_ext_uniq, tvb, offset, 16, ENC_NA);
+      offset += 16;
+      proto_tree_add_item(tree, hf_erldp_new_fun_ext_index, tvb, offset, 4, ENC_BIG_ENDIAN);
+      offset += 4;
+      proto_tree_add_item_ret_uint(tree, hf_erldp_new_fun_ext_num_free, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
+      offset += 4;
+      offset = dissect_etf_type("Module", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("OldIndex", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("OldUnique", pinfo, tvb, offset, tree);
+      offset = dissect_etf_type("Pid", pinfo, tvb, offset, tree);
+
+      for (i = 0; i < len; i++) {
+          gchar buf[ITEM_LABEL_LENGTH];
+          g_snprintf(buf, sizeof(buf), "Free Var[%u]", i + 1);
+          offset = dissect_etf_type(buf, pinfo, tvb, offset, tree);
+      }
+      break;
   }
 
   return offset;
@@ -418,7 +543,8 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
 
 static gint dissect_etf_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, const gchar *label) {
   gint offset = 0;
-  guint8 mag, tag;
+  guint8 mag;
+  guint32 tag;
   proto_item *ti;
   proto_tree *etf_tree;
 
@@ -432,8 +558,7 @@ static gint dissect_etf_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   proto_tree_add_item(etf_tree, hf_etf_version_magic, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset++;
 
-  tag = tvb_get_guint8(tvb, offset);
-  proto_tree_add_item(etf_tree, hf_etf_tag, tvb, offset, 1, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint(etf_tree, hf_etf_tag, tvb, offset, 1, ENC_BIG_ENDIAN, &tag);
   offset++;
 
   if (!label)
@@ -446,17 +571,27 @@ static gint dissect_etf_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   return offset;
 }
 
+static gint dissect_etf_versioned_type(const gchar *label, packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree) {
+  if (tvb_get_guint8(tvb, offset) != VERSION_MAGIC) {
+    proto_tree_add_item(tree, hf_erldp_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+    col_set_str(pinfo->cinfo, COL_INFO, "unknown header format");
+    return offset + 1;
+  }
+  offset += 1;
+
+  return dissect_etf_type(label, pinfo, tvb, offset, tree);
+}
+
 static gint dissect_etf_type(const gchar *label, packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree) {
   gint begin = offset;
-  guint8 tag;
+  guint32 tag;
   proto_item *ti;
   proto_tree *etf_tree;
   const gchar *value_str = NULL;
 
   etf_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_etf, &ti, (label) ? label : "External Term Format");
 
-  tag = tvb_get_guint8(tvb, offset);
-  proto_tree_add_item(etf_tree, hf_etf_tag, tvb, offset, 1, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint(etf_tree, hf_etf_tag, tvb, offset, 1, ENC_BIG_ENDIAN, &tag);
   offset++;
 
   if (!label)
@@ -480,15 +615,14 @@ static gboolean is_handshake(tvbuff_t *tvb, int offset) {
 /*--- dissect_erldp_handshake -------------------------------------------------*/
 static void dissect_erldp_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree) {
   gint offset = 0;
-  guint8 tag;
+  guint32 tag;
   gboolean is_challenge = FALSE;
   guint32 str_len;
   const guint8 *str;
 
   proto_tree_add_item(tree, hf_erldp_length_2, tvb, offset, 2, ENC_BIG_ENDIAN);
   offset += 2;
-  tag = tvb_get_guint8(tvb, offset);
-  proto_tree_add_item(tree, hf_erldp_tag, tvb, offset, 1, ENC_ASCII|ENC_NA);
+  proto_tree_add_item_ret_uint(tree, hf_erldp_tag, tvb, offset, 1, ENC_ASCII|ENC_NA, &tag);
   offset++;
 
   switch (tag) {
@@ -525,8 +659,7 @@ static void dissect_erldp_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tre
       }
       proto_tree_add_item(tree, hf_erldp_creation, tvb, offset, 4, ENC_BIG_ENDIAN);
       offset += 4;
-      proto_tree_add_item(tree, hf_erldp_nlen, tvb, offset, 2, ENC_BIG_ENDIAN);
-      str_len = tvb_get_ntohs(tvb, offset);
+      proto_tree_add_item_ret_uint(tree, hf_erldp_nlen, tvb, offset, 2, ENC_BIG_ENDIAN, &str_len);
       offset += 2;
       proto_tree_add_item_ret_string(tree, hf_erldp_name, tvb, offset, str_len, ENC_ASCII|ENC_NA, wmem_packet_scope(), &str);
       col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s", (is_challenge) ? "SEND_CHALLENGE" : "SEND_NAME", str);
@@ -575,8 +708,7 @@ static int dissect_erldp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
   offset = 0;
 
-  msg_len = tvb_get_ntohl(tvb, offset);
-  proto_tree_add_item(erldp_tree, hf_erldp_length_4, tvb, offset, 4, ENC_BIG_ENDIAN);
+  proto_tree_add_item_ret_uint(erldp_tree, hf_erldp_length_4, tvb, offset, 4, ENC_BIG_ENDIAN, &msg_len);
   offset += 4;
 
   if (msg_len == 0) {
@@ -588,7 +720,12 @@ static int dissect_erldp_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
   switch (type) {
     case ERL_PASS_THROUGH:
       proto_tree_add_item(erldp_tree, hf_erldp_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-      offset++;
+      offset += 1;
+
+      offset = dissect_etf_versioned_type("ControlMessage", pinfo, tvb, offset, erldp_tree);
+      if (tvb_reported_length_remaining(tvb, offset) > 0) {
+        offset = dissect_etf_versioned_type("Message", pinfo, tvb, offset, erldp_tree);
+      }
       break;
 
     case VERSION_MAGIC:
@@ -698,10 +835,31 @@ void proto_register_erldp(void) {
                         FT_UINT8, BASE_DEC, NULL, 0x0,
                         NULL, HFILL}},
     { &hf_erldp_small_int_ext, { "Int", "erldp.small_int_ext",
-                        FT_INT8, BASE_DEC, NULL, 0x0,
+                        FT_UINT8, BASE_DEC, NULL, 0x0,
                         NULL, HFILL}},
     { &hf_erldp_int_ext, { "Int", "erldp.int_ext",
                         FT_INT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_small_big_ext_len, { "Len", "erldp.small_big_ext_len",
+                        FT_UINT8, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_large_big_ext_len, { "Len", "erldp.large_big_ext_len",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_big_ext_int, { "Int", "erldp.big_ext_int",
+                        FT_UINT64, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_big_ext_str, { "Int", "erldp.big_ext_str",
+                        FT_STRING, BASE_NONE, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_big_ext_bytes, { "Int", "erldp.big_ext_str",
+                        FT_BYTES, BASE_NONE, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_float_ext, { "Float", "erldp.float_ext",
+                        FT_STRINGZ, BASE_NONE, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_float_ext, { "Float", "erldp.new_float_ext",
+                        FT_DOUBLE, BASE_NONE, NULL, 0x0,
                         NULL, HFILL}},
     { &hf_erldp_port_ext_id, { "ID", "erldp.port_ext.id",
                         FT_UINT32, BASE_HEX, NULL, 0x0,
@@ -721,6 +879,12 @@ void proto_register_erldp(void) {
     { &hf_erldp_list_ext_len, { "Len", "erldp.list_ext.len",
                         FT_UINT32, BASE_DEC, NULL, 0x0,
                         NULL, HFILL}},
+    { &hf_erldp_binary_ext_len, { "Len", "erldp.binary_ext.len",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_binary_ext, { "Binary", "erldp.binary_ext",
+                        FT_BYTES, BASE_SHOW_ASCII_PRINTABLE, NULL, 0x0,
+                        NULL, HFILL}},
     { &hf_erldp_new_ref_ext_len, { "Len", "erldp.new_ref_ext.len",
                         FT_UINT16, BASE_DEC, NULL, 0x0,
                         NULL, HFILL}},
@@ -730,7 +894,24 @@ void proto_register_erldp(void) {
     { &hf_erldp_new_ref_ext_id, { "ID", "erldp.new_ref_ext.id",
                         FT_UINT32, BASE_HEX, NULL, 0x0,
                         NULL, HFILL}},
-
+    { &hf_erldp_fun_ext_num_free, { "Num Free", "erldp.fun_ext.num_free",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_fun_ext_size, { "Size", "erldp.new_fun_ext.size",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_fun_ext_arity, { "Arity", "erldp.new_fun_ext.arity",
+                        FT_UINT8, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_fun_ext_uniq, { "Uniq", "erldp.new_fun_ext.uniq",
+                        FT_BYTES, BASE_NONE, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_fun_ext_index, { "Index", "erldp.new_fun_ext.index",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
+    { &hf_erldp_new_fun_ext_num_free, { "Num Free", "erldp.new_fun_ext.num_free",
+                        FT_UINT32, BASE_DEC, NULL, 0x0,
+                        NULL, HFILL}},
 
     /*---  ---*/
     { &hf_erldp_length_4, { "Length", "erldp.len",

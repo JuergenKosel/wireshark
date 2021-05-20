@@ -30,6 +30,7 @@ void proto_reg_handoff_pfcp(void);
 static dissector_handle_t pfcp_handle;
 static dissector_handle_t pfcp_3gpp_ies_handle;
 static dissector_handle_t pfcp_travelping_ies_handle;
+static dissector_handle_t pfcp_bbf_ies_handle;
 
 #define UDP_PORT_PFCP  8805
 static guint g_pfcp_port = UDP_PORT_PFCP;
@@ -822,9 +823,58 @@ static int hf_pfcp_number_of_ue_ip_addresses_ipv4 = -1;
 
 static int hf_pfcp_validity_timer = -1;
 
+static int hf_pfcp_bbf_up_function_features_o7_b4_lcp_keepalive_offload = -1;
+static int hf_pfcp_bbf_up_function_features_o7_b3_lns = -1;
+static int hf_pfcp_bbf_up_function_features_o7_b2_lac = -1;
+static int hf_pfcp_bbf_up_function_features_o7_b1_ipoe = -1;
+static int hf_pfcp_bbf_up_function_features_o7_b0_pppoe = -1;
+
+static int hf_pfcp_bbf_logical_port_id = -1;
+static int hf_pfcp_bbf_logical_port_id_str = -1;
+
+static int hf_pfcp_bbf_outer_hdr_desc = -1;
+static int hf_pfcp_bbf_outer_hdr_creation_tunnel_id = -1;
+static int hf_pfcp_bbf_outer_hdr_creation_session_id = -1;
+
+static int hf_pfcp_bbf_out_hdr_desc = -1;
+
+static int hf_pfcp_bbf_pppoe_session_id = -1;
+
+static int hf_pfcp_bbf_ppp_protocol_flags = -1;
+static int hf_pfcp_bbf_ppp_protocol_b2_control = -1;
+static int hf_pfcp_bbf_ppp_protocol_b1_data = -1;
+static int hf_pfcp_bbf_ppp_protocol_b0_specific = -1;
+static int hf_pfcp_bbf_ppp_protocol = -1;
+
+static int hf_pfcp_bbf_verification_timer_interval = -1;
+static int hf_pfcp_bbf_verification_timer_count = -1;
+
+static int hf_pfcp_bbf_ppp_lcp_magic_number_tx = -1;
+static int hf_pfcp_bbf_ppp_lcp_magic_number_rx = -1;
+
+static int hf_pfcp_bbf_mtu = -1;
+
+static int hf_pfcp_bbf_l2tp_endp_flags = -1;
+static int hf_pfcp_bbf_l2tp_endp_flags_b2_ch = -1;
+static int hf_pfcp_bbf_l2tp_endp_flags_b1_v6 = -1;
+static int hf_pfcp_bbf_l2tp_endp_flags_b0_v4 = -1;
+static int hf_pfcp_bbf_l2tp_endp_id_tunnel_id = -1;
+static int hf_pfcp_bbf_l2tp_endp_id_ipv4 = -1;
+static int hf_pfcp_bbf_l2tp_endp_id_ipv6 = -1;
+
+static int hf_pfcp_bbf_l2tp_session_id = -1;
+
+static int hf_pfcp_bbf_l2tp_type_flags = -1;
+static int hf_pfcp_bbf_l2tp_type_flags_b0_t = -1;
+
 static int hf_pfcp_travelping_build_id = -1;
 static int hf_pfcp_travelping_build_id_str = -1;
 static int hf_pfcp_travelping_now = -1;
+static int hf_pfcp_travelping_error_message = -1;
+static int hf_pfcp_travelping_error_message_str = -1;
+static int hf_pfcp_travelping_file_name = -1;
+static int hf_pfcp_travelping_file_name_str = -1;
+static int hf_pfcp_travelping_line_number = -1;
 
 static int ett_pfcp = -1;
 static int ett_pfcp_flags = -1;
@@ -909,8 +959,13 @@ static int ett_pfcp_data_status_flags = -1;
 static int ett_pfcp_rds_configuration_information_flags = -1;
 static int ett_pfcp_number_of_ue_ip_addresses_flags = -1;
 
+static int ett_pfcp_enterprise_travelping_error_report = -1;
 
-
+static int ett_pfcp_bbf_ppp_protocol_flags = -1;
+static int ett_pfcp_bbf_l2tp_endp_flags = -1;
+static int ett_pfcp_bbf_l2tp_type_flags = -1;
+static int ett_pfcp_bbf_ppp_lcp_connectivity = -1;
+static int ett_pfcp_bbf_l2tp_tunnel = -1;
 
 static expert_field ei_pfcp_ie_reserved = EI_INIT;
 static expert_field ei_pfcp_ie_data_not_decoded = EI_INIT;
@@ -946,6 +1001,12 @@ typedef struct pfcp_info {
     guint32 frame;
 } pfcp_info_t;
 
+typedef struct _pfcp_sub_dis_t {
+    proto_item* item;          /**< The item created for this AVP*/
+
+    guint8 message_type;
+    pfcp_session_args_t *args;
+} pfcp_sub_dis_t;
 
 static dissector_table_t pfcp_enterprise_ies_dissector_table;
 
@@ -6048,7 +6109,7 @@ dissect_pfcp_apn_dnn(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, pr
      /* NOTE: The APN/DNN field is not encoded as a dotted string as commonly used in documentation. */
 
     const guint8* string_value;
-    proto_tree_add_item_ret_string(tree, hf_pfcp_apn_dnn, tvb, offset, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+    proto_tree_add_item_ret_string(tree, hf_pfcp_apn_dnn, tvb, offset, length, ENC_APN_STR | ENC_NA, wmem_packet_scope(), &string_value);
     proto_item_append_text(item, "%s", string_value);
 
 }
@@ -8765,6 +8826,10 @@ dissect_pfcp_ies_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
     tvbuff_t   *ie_tvb;
     guint16 type, length_ie;
     guint16 enterprise_id;
+    pfcp_sub_dis_t *pfcp_sub_dis_inf = wmem_new0(wmem_packet_scope(), pfcp_sub_dis_t);
+
+    pfcp_sub_dis_inf->message_type = message_type;
+    pfcp_sub_dis_inf->args = args;
 
     /* 8.1.1    Information Element Format */
     /*
@@ -8793,40 +8858,34 @@ dissect_pfcp_ies_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
 
         if ((type & 0x8000) == 0x8000 ) {
             enterprise_id = tvb_get_ntohs(tvb, offset + 4);
-            ie_tree = proto_tree_add_subtree_format(tree, tvb, offset, 4 + length_ie, ett_pfcp_ie, &ti, "Enterprise %s specific IE: %u",
-                try_enterprises_lookup(enterprise_id),
-                type);
+            ie_tvb = tvb_new_subset_length(tvb, offset, length_ie + 4);
 
-            proto_tree_add_item(ie_tree, hf_pfcp2_enterprise_ie, tvb, offset, 2, ENC_BIG_ENDIAN);
-            offset += 2;
+            if (!dissector_try_uint_new(pfcp_enterprise_ies_dissector_table, enterprise_id, ie_tvb, pinfo, tree, FALSE, pfcp_sub_dis_inf)) {
+                /* no Enterprise disector, do some generic decoding */
+                ie_tree = proto_tree_add_subtree_format(tree, tvb, offset, 4 + length_ie, ett_pfcp_ie, &ti, "Enterprise %s specific IE: %u",
+                                                        try_enterprises_lookup(enterprise_id),
+                                                        type);
 
-            proto_tree_add_item(ie_tree, hf_pfcp2_ie_len, tvb, offset, 2, ENC_BIG_ENDIAN);
-            offset += 2;
+                proto_tree_add_item(ie_tree, hf_pfcp2_enterprise_ie, tvb, offset + 2, 2, ENC_BIG_ENDIAN);
+                proto_tree_add_item(ie_tree, hf_pfcp2_ie_len, tvb, offset + 4, 2, ENC_BIG_ENDIAN);
 
-            /* Bit 8 of Octet 1 is set, this indicates that the IE is defined by a vendor and the Enterprise ID is present */
-            proto_tree_add_item(ie_tree, hf_pfcp_enterprise_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+                /* Bit 8 of Octet 1 is set, this indicates that the IE is defined by a vendor and the Enterprise ID is present */
+                proto_tree_add_item(ie_tree, hf_pfcp_enterprise_id, tvb, offset + 6, 2, ENC_BIG_ENDIAN);
 
-            /*
-            * 5.6.3    Modifying the Rules of an Existing PFCP Session
-            *
-            * Updating the Rule including the IEs to be removed with a null length,
-            * e.g. by including the Update URR IE in the PFCP Session Modification Request
-            * with the IE(s) to be removed with a null length.
-            */
-            if (length_ie == 0) {
-                proto_item_append_text(ti, "[IE to be removed]");
-
-                /* Adding offset for EnterpriseID as Bit 8 of Octet 1 is set, the Enterprise ID is present */
-                offset += 2;
-
-            } else {
-                /* give the whole IE to the subdissector */
-                ie_tvb = tvb_new_subset_length(tvb, offset - 4, length_ie+4);
-                if (!dissector_try_uint_new(pfcp_enterprise_ies_dissector_table, enterprise_id, ie_tvb, pinfo, ie_tree, FALSE, ti)) {
+                /*
+                 * 5.6.3    Modifying the Rules of an Existing PFCP Session
+                 *
+                 * Updating the Rule including the IEs to be removed with a null length,
+                 * e.g. by including the Update URR IE in the PFCP Session Modification Request
+                 * with the IE(s) to be removed with a null length.
+                 */
+                if (length_ie == 0) {
+                    proto_item_append_text(ti, "[IE to be removed]");
+                } else {
                     proto_tree_add_item(ie_tree, hf_pfcp_enterprise_data, ie_tvb, 6, -1, ENC_NA);
                 }
             }
-            offset += length_ie;
+            offset += (4 + length_ie);
         } else {
             int tmp_ett;
             if (type < (NUM_PFCP_IES - 1)) {
@@ -8866,6 +8925,66 @@ dissect_pfcp_ies_common(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
                 }
             }
             offset += length_ie;
+        }
+    }
+}
+
+static void
+dissect_pfcp_enterprise_ies_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint8 message_type, pfcp_session_args_t *args,
+                                   guint num_pfcp_enterprise_ies, gint * ett_pfcp_enterprise_elem, const pfcp_ie_t * pfcp_enterprise_ies,
+                                   value_string_ext * pfcp_ie_enterprise_type_ext)
+{
+    proto_tree *ie_tree;
+    proto_item *ti;
+    tvbuff_t   *ie_tvb;
+    gint offset = 0;
+    guint16 type, length_ie;
+    int tmp_ett;
+
+    /* Octet 1 -2 */
+    type = tvb_get_ntohs(tvb, offset) & ~0x8000;
+    length_ie = tvb_get_ntohs(tvb, offset + 2);
+
+    /* adjust length for Enterprise Id */
+    length_ie -= 2;
+
+    if (type < (num_pfcp_enterprise_ies - 1)) {
+        tmp_ett = ett_pfcp_enterprise_elem[type];
+    } else {
+        tmp_ett = ett_pfcp_ie;
+    }
+
+    ie_tree = proto_tree_add_subtree_format(tree, tvb, offset, 6 + length_ie, tmp_ett, &ti, "%s : ",
+                                            val_to_str_ext_const(type, pfcp_ie_enterprise_type_ext, "Unknown"));
+
+    proto_tree_add_item(ie_tree, hf_pfcp2_enterprise_ie, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+    proto_tree_add_item(ie_tree, hf_pfcp2_ie_len, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+    proto_tree_add_item(ie_tree, hf_pfcp_enterprise_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    /*
+     * 5.6.3    Modifying the Rules of an Existing PFCP Session
+     *
+     * Updating the Rule including the IEs to be removed with a null length,
+     * e.g. by including the Update URR IE in the PFCP Session Modification Request
+     * with the IE(s) to be removed with a null length.
+     */
+    if( length_ie == 0 ) {
+        proto_item_append_text(ti, "[IE to be removed]");
+    } else {
+        if (type < (num_pfcp_enterprise_ies - 1)) {
+            ie_tvb = tvb_new_subset_length(tvb, offset, length_ie);
+            if(pfcp_enterprise_ies[type].decode){
+                (*pfcp_enterprise_ies[type].decode) (ie_tvb, pinfo, ie_tree, ti, length_ie, message_type, args);
+            } else {
+                /* NULL function pointer, we have no decoding function*/
+                proto_tree_add_expert(ie_tree, pinfo, &ei_pfcp_ie_not_decoded_null, tvb, offset, length_ie);
+            }
+        } else {
+            /* IE id outside of array, We have no decoding function for it */
+            proto_tree_add_expert(ie_tree, pinfo, &ei_pfcp_ie_not_decoded_to_large, tvb, offset, length_ie);
         }
     }
 }
@@ -9063,76 +9182,578 @@ dissect_pfcp_3gpp_enterprise_ies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     return tvb_reported_length(tvb);
 }
 
-/* Enterprise IE decoding Travelping */
+/* Enterprise IE decoding Broadband Forum
+ *
+ * TR-459: Control and User Plane Separation for a disaggregated BNG
+ */
 
-static const value_string pfcp_enterpise_travelping_type_vals[] = {
-    { 2, "Build Id"},
-    { 3, "Now"},
-    { 4, "Start"},
-    { 5, "Stop"},
+static void dissect_pfcp_enterprise_bbf_ppp_lcp_connectivity(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type, pfcp_session_args_t *args);
+static void dissect_pfcp_enterprise_bbf_l2tp_tunnel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type, pfcp_session_args_t *args);
+
+#define PFCP_IE_ENTERPRISE_BBF_UP_FUNCTION_FEATURES              0 /* 32768 */
+#define PFCP_IE_ENTERPRISE_BBF_LOGICAL_PORT                      1 /* 32769 */
+#define PFCP_IE_ENTERPRISE_BBF_OUTER_HEADER_CREATION             2 /* 32770 */
+#define PFCP_IE_ENTERPRISE_BBF_OUTER_HEADER_REMOVAL              3 /* 32771 */
+#define PFCP_IE_ENTERPRISE_BBF_PPPOE_SESSION_ID                  4 /* 32772 */
+#define PFCP_IE_ENTERPRISE_BBF_PPP_PROTOCOL                      5 /* 32773 */
+#define PFCP_IE_ENTERPRISE_BBF_VERIFICATION_TIMERS               6 /* 32774 */
+#define PFCP_IE_ENTERPRISE_BBF_PPP_LCP_MAGIC_NUMBER              7 /* 32775 */
+#define PFCP_IE_ENTERPRISE_BBF_MTU                               8 /* 32776 */
+#define PFCP_IE_ENTERPRISE_BBF_L2TP_TUNNEL_ENDPOINT              9 /* 32777 */
+#define PFCP_IE_ENTERPRISE_BBF_L2TP_SESSION_ID                  10 /* 32778 */
+#define PFCP_IE_ENTERPRISE_BBF_L2TP_TYPE                        11 /* 32779 */
+#define PFCP_IE_ENTERPRISE_BBF_PPP_LCP_CONNECTIVITY             12 /* 32780 */
+#define PFCP_IE_ENTERPRISE_BBF_L2TP_TUNNEL                      13 /* 32781 */
+
+static const value_string pfcp_ie_enterpise_bbf_type[] = {
+    { PFCP_IE_ENTERPRISE_BBF_UP_FUNCTION_FEATURES,              "BBF UP Function Features"},
+    { PFCP_IE_ENTERPRISE_BBF_LOGICAL_PORT,                      "Logical Port"},
+    { PFCP_IE_ENTERPRISE_BBF_OUTER_HEADER_CREATION,             "BBF Outer Header Creation"},
+    { PFCP_IE_ENTERPRISE_BBF_OUTER_HEADER_REMOVAL,              "BBF Outer Header Removal"},
+    { PFCP_IE_ENTERPRISE_BBF_PPPOE_SESSION_ID,                  "PPPoE Session ID"},
+    { PFCP_IE_ENTERPRISE_BBF_PPP_PROTOCOL,                      "PPP protocol"},
+    { PFCP_IE_ENTERPRISE_BBF_VERIFICATION_TIMERS,               "Verification Timers"},
+    { PFCP_IE_ENTERPRISE_BBF_PPP_LCP_MAGIC_NUMBER,              "PPP LCP Magic Number"},
+    { PFCP_IE_ENTERPRISE_BBF_MTU,                               "MTU"},
+    { PFCP_IE_ENTERPRISE_BBF_L2TP_TUNNEL_ENDPOINT,              "L2TP Tunnel Endpoint"},
+    { PFCP_IE_ENTERPRISE_BBF_L2TP_SESSION_ID,                   "L2TP Session ID"},
+    { PFCP_IE_ENTERPRISE_BBF_L2TP_TYPE,                         "L2TP Type"},
+    { PFCP_IE_ENTERPRISE_BBF_PPP_LCP_CONNECTIVITY,              "PPP LCP Connectivity"},
+    { PFCP_IE_ENTERPRISE_BBF_L2TP_TUNNEL,                       "L2TP Tunnel"},
     { 0, NULL }
 };
 
-static int
-dissect_pfcp_enterprise_travelping_ies(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data)
+static value_string_ext pfcp_ie_enterpise_bbf_type_ext = VALUE_STRING_EXT_INIT(pfcp_ie_enterpise_bbf_type);
+
+/*
+ * TR-459: 6.6.1 BBF UP Function Features
+ */
+static void
+dissect_pfcp_enterprise_bbf_up_function_features(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
 {
-    proto_item *item = (proto_item *)data;
-    gint offset = 0;
-    guint16 type, length;
+    int offset = 0;
 
-   /* Octet 1 -2 */
-    type = tvb_get_ntohs(tvb, offset) & ~0x8000;
-    length = tvb_get_ntohs(tvb, offset + 2);
+    static int * const pfcp_bbf_up_function_features_o7_flags[] = {
+        &hf_pfcp_spare_b7_b5,
+        &hf_pfcp_bbf_up_function_features_o7_b4_lcp_keepalive_offload,
+        &hf_pfcp_bbf_up_function_features_o7_b3_lns,
+        &hf_pfcp_bbf_up_function_features_o7_b2_lac,
+        &hf_pfcp_bbf_up_function_features_o7_b1_ipoe,
+        &hf_pfcp_bbf_up_function_features_o7_b0_pppoe,
+        NULL
+    };
 
-    /* skip vendor IE header */
-    offset += 6;
-    /* adjust length for Enterprise Id */
-    length -= 2;
+    proto_tree_add_bitmask_list(tree, tvb, offset, 1, pfcp_bbf_up_function_features_o7_flags, ENC_BIG_ENDIAN);
+    offset += 1;
 
-    proto_item_append_text(tree, ": %s", val_to_str_const(type, pfcp_enterpise_travelping_type_vals, "Unknown"));
+    // Octet 8 Spare Octet
+    proto_tree_add_item(tree, hf_pfcp_spare_oct, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
 
-    switch (type) {
-    case 2:
-        /* Octet 7 to (n+4) Travelping Build Id */
-        if (tvb_ascii_isprint(tvb, offset, length))
-        {
-            const guint8* string_value;
-            proto_tree_add_item_ret_string(tree, hf_pfcp_travelping_build_id_str, tvb, offset, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
-            proto_item_append_text(item, "%s", string_value);
-        }
-        else
-        {
-            proto_tree_add_item(tree, hf_pfcp_travelping_build_id, tvb, offset, length, ENC_NA);
-        }
-        break;
+    // Octet 9 Spare Octet
+    proto_tree_add_item(tree, hf_pfcp_spare_oct, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
 
-    case 3: {
-        char *time_str;
+    // Octet 10 Spare Octet
+    proto_tree_add_item(tree, hf_pfcp_spare_oct, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
 
-        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
-        proto_item_append_text(item, " %s", time_str);
-        break;
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
     }
-    case 4: {
-        char *time_str;
+}
 
-        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
-        proto_item_append_text(item, " %s", time_str);
-        break;
+/*
+ * TR-459: 6.6.2 Logical Port
+ */
+static void
+dissect_pfcp_enterprise_bbf_logical_port(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    /* Octet 7 to (n+4) logical-port-id */
+    if (tvb_ascii_isprint(tvb, 0, length))
+    {
+        const guint8* string_value;
+        proto_tree_add_item_ret_string(tree, hf_pfcp_bbf_logical_port_id_str, tvb, 0, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+        proto_item_append_text(item, "%s", string_value);
     }
-    case 5: {
-        char *time_str;
+    else
+    {
+        proto_tree_add_item(tree, hf_pfcp_bbf_logical_port_id, tvb, 0, length, ENC_NA);
+    }
+}
 
-        proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
-        proto_item_append_text(item, " %s", time_str);
-        break;
+/*
+ * TR-459: 6.6.3 BBF Outer Header Creation
+ */
+
+static const value_string pfcp_bbf_outer_hdr_desc_vals[] = {
+
+    { 0x000100, "CPR-NSH " },
+    { 0x000200, "Traffic-Endpoint " },
+    { 0x000300, "L2TP " },
+    { 0x000400, "PPP " },
+    { 0, NULL }
+};
+
+static void
+dissect_pfcp_enterprise_bbf_outer_header_creation(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 value;
+
+    /* Octet 7  Outer Header Creation Description */
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bbf_outer_hdr_desc, tvb, offset, 2, ENC_BIG_ENDIAN, &value);
+    offset += 2;
+
+    /* Octet 9 to 10  Tunnel ID */
+    proto_tree_add_item(tree, hf_pfcp_bbf_outer_hdr_creation_tunnel_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    /* Octet 10 to 11  Session ID */
+    proto_tree_add_item(tree, hf_pfcp_bbf_outer_hdr_creation_session_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.4 BBF Outer Header Removal
+ */
+
+static const value_string pfcp_bbf_out_hdr_desc_vals[] = {
+    { 1, "Ethernet " },
+    { 2, "PPPoE/Ethernet " },
+    { 3, "PPP/PPPoE/Ethernet " },
+    { 4, "L2TP " },
+    { 5, "PPP/L2TP " },
+    { 0, NULL }
+};
+
+static void
+dissect_pfcp_enterprise_bbf_outer_header_removal(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 value;
+
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bbf_out_hdr_desc, tvb, offset, 1, ENC_BIG_ENDIAN, &value);
+    offset++;
+    proto_item_append_text(item, "%s", val_to_str_const(value, pfcp_bbf_out_hdr_desc_vals, "Unknown"));
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.5 PPPoE Session ID
+ */
+static void
+dissect_pfcp_enterprise_bbf_pppoe_session_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 value;
+
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bbf_pppoe_session_id, tvb, offset, 2, ENC_BIG_ENDIAN, &value);
+    offset += 2;
+    proto_item_append_text(item, "%u", value);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.6 PPP Protocol
+ */
+static void
+dissect_pfcp_enterprise_bbf_ppp_protocol(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint64 bbf_ppp_flags_val;
+
+    static int * const pfcp_bbf_ppp_protocol_flags[] = {
+        &hf_pfcp_spare_b7_b3,
+        &hf_pfcp_bbf_ppp_protocol_b2_control,
+        &hf_pfcp_bbf_ppp_protocol_b1_data,
+        &hf_pfcp_bbf_ppp_protocol_b0_specific,
+        NULL
+    };
+    /* Octet 5   control   data    specific D */
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_bbf_ppp_protocol_flags,
+        ett_pfcp_bbf_ppp_protocol_flags, pfcp_bbf_ppp_protocol_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT | BMT_NO_TFS, &bbf_ppp_flags_val);
+    offset += 1;
+
+    if ((bbf_ppp_flags_val & 0x01) == 1)
+    {
+        /* Octet 8 and 9    protocol */
+        proto_tree_add_item(tree, hf_pfcp_bbf_ppp_protocol, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
     }
 
-    default:
-        /* unknown IE */
-        proto_tree_add_item(tree, hf_pfcp_enterprise_data, tvb, 6, -1, ENC_NA);
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
     }
+}
 
+/*
+ * TR-459: 6.6.7 Verification Timers
+ */
+static void
+dissect_pfcp_enterprise_bbf_verification_timers(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_verification_timer_interval, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_verification_timer_count, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.8 LCP Magic Number
+ */
+static void
+dissect_pfcp_enterprise_bbf_ppp_lcp_magic_number(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_ppp_lcp_magic_number_tx, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset += 4;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_ppp_lcp_magic_number_rx, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset += 4;
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.9 MTU
+ */
+static void
+dissect_pfcp_enterprise_bbf_mtu(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 value;
+
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bbf_mtu, tvb, offset, 2, ENC_BIG_ENDIAN, &value);
+    offset += 2;
+    proto_item_append_text(item, "%u", value);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.10 L2TP Tunnel Endpoint
+ */
+static void
+dissect_pfcp_enterprise_bbf_l2tp_tunnel_endpoint(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint64 bbf_l2tp_endp_flags_val;
+
+    static int * const pfcp_bbf_l2tp_endp_flags[] = {
+        &hf_pfcp_spare_b7_b3,
+        &hf_pfcp_bbf_l2tp_endp_flags_b2_ch,
+        &hf_pfcp_bbf_l2tp_endp_flags_b1_v6,
+        &hf_pfcp_bbf_l2tp_endp_flags_b0_v4,
+        NULL
+    };
+    /* Octet 5   CH    v4    v6 */
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_pfcp_bbf_l2tp_endp_flags,
+        ett_pfcp_bbf_l2tp_endp_flags, pfcp_bbf_l2tp_endp_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT | BMT_NO_TFS, &bbf_l2tp_endp_flags_val);
+    offset += 1;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_l2tp_endp_id_tunnel_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset += 2;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_l2tp_endp_id_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset += 4;
+
+    proto_tree_add_item(tree, hf_pfcp_bbf_l2tp_endp_id_ipv6, tvb, offset, 16, ENC_NA);
+    offset += 16;
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+/*
+ * TR-459: 6.6.11 L2TP Session ID
+ */
+static void
+dissect_pfcp_enterprise_bbf_l2tp_session_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 value;
+
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_bbf_l2tp_session_id, tvb, offset, 2, ENC_BIG_ENDIAN, &value);
+    offset += 2;
+    proto_item_append_text(item, "%u", value);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+
+/*
+ * TR-459: 6.6.12 L2TP Type
+ */
+
+static const true_false_string pfcp_bbf_l2tp_type_b0_t_tfs = {
+    "control",
+    "data"
+};
+
+static void
+dissect_pfcp_enterprise_bbf_l2tp_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+
+    static int * const pfcp_bbf_l2tp_type_flags[] = {
+        &hf_pfcp_spare_b7_b1,
+        &hf_pfcp_bbf_l2tp_type_flags_b0_t,
+        NULL
+    };
+    /* Octet 7   T */
+    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_pfcp_bbf_l2tp_type_flags,
+        ett_pfcp_bbf_l2tp_type_flags, pfcp_bbf_l2tp_type_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT | BMT_NO_TFS);
+    offset += 1;
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+static const pfcp_ie_t pfcp_enterprise_bbf_ies[] = {
+/*  32768 */    { dissect_pfcp_enterprise_bbf_up_function_features },
+/*  32769 */    { dissect_pfcp_enterprise_bbf_logical_port },
+/*  32770 */    { dissect_pfcp_enterprise_bbf_outer_header_creation },
+/*  32771 */    { dissect_pfcp_enterprise_bbf_outer_header_removal },
+/*  32772 */    { dissect_pfcp_enterprise_bbf_pppoe_session_id },
+/*  32773 */    { dissect_pfcp_enterprise_bbf_ppp_protocol },
+/*  32774 */    { dissect_pfcp_enterprise_bbf_verification_timers },
+/*  32775 */    { dissect_pfcp_enterprise_bbf_ppp_lcp_magic_number },
+/*  32776 */    { dissect_pfcp_enterprise_bbf_mtu },
+/*  32777 */    { dissect_pfcp_enterprise_bbf_l2tp_tunnel_endpoint },
+/*  32778 */    { dissect_pfcp_enterprise_bbf_l2tp_session_id },
+/*  32779 */    { dissect_pfcp_enterprise_bbf_l2tp_type },
+/*  32780 */    { dissect_pfcp_enterprise_bbf_ppp_lcp_connectivity },
+/*  32781 */    { dissect_pfcp_enterprise_bbf_l2tp_tunnel },
+    { NULL },                                                        /* End of List */
+};
+
+#define NUM_PFCP_ENTERPRISE_BBF_IES (sizeof(pfcp_enterprise_bbf_ies)/sizeof(pfcp_ie_t))
+/* Set up the array to hold "etts" for each IE*/
+gint ett_pfcp_enterprise_bbf_elem[NUM_PFCP_ENTERPRISE_BBF_IES-1];
+
+static void
+dissect_pfcp_enterprise_bbf_ppp_lcp_connectivity(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type, pfcp_session_args_t *args)
+{
+    dissect_pfcp_grouped_ie(tvb, pinfo, tree, item, length, message_type, ett_pfcp_enterprise_bbf_elem[PFCP_IE_ENTERPRISE_BBF_PPP_LCP_CONNECTIVITY], args);
+}
+
+static void
+dissect_pfcp_enterprise_bbf_l2tp_tunnel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type, pfcp_session_args_t *args)
+{
+    dissect_pfcp_grouped_ie(tvb, pinfo, tree, item, length, message_type, ett_pfcp_enterprise_bbf_elem[PFCP_IE_ENTERPRISE_BBF_L2TP_TUNNEL], args);
+}
+
+static int
+dissect_pfcp_enterprise_bbf_ies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+    pfcp_sub_dis_t *pfcp_sub_dis_info = (pfcp_sub_dis_t *)data;
+
+    dissect_pfcp_enterprise_ies_common(tvb, pinfo, tree, pfcp_sub_dis_info->item, pfcp_sub_dis_info->message_type, pfcp_sub_dis_info->args,
+                                       NUM_PFCP_ENTERPRISE_BBF_IES, ett_pfcp_enterprise_bbf_elem,
+                                       pfcp_enterprise_bbf_ies, &pfcp_ie_enterpise_bbf_type_ext);
+    return tvb_reported_length(tvb);
+}
+
+/* Enterprise IE decoding Travelping */
+
+static void dissect_pfcp_enterprise_travelping_error_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type, pfcp_session_args_t *args);
+
+/* Enterprise IE decoding Travelping */
+#define PFCP_IE_ENTERPRISE_TRAVELPING_BUILD_ID          2
+#define PFCP_IE_ENTERPRISE_TRAVELPING_NOW               3
+#define PFCP_IE_ENTERPRISE_TRAVELPING_START             4
+#define PFCP_IE_ENTERPRISE_TRAVELPING_STOP              5
+#define PFCP_IE_ENTERPRISE_TRAVELPING_ERROR_REPORT      6
+#define PFCP_IE_ENTERPRISE_TRAVELPING_ERROR_MESSAGE     7
+#define PFCP_IE_ENTERPRISE_TRAVELPING_FILE_NAME         8
+#define PFCP_IE_ENTERPRISE_TRAVELPING_LINE_NUMBER       9
+
+static const value_string pfcp_ie_enterpise_travelping_type[] = {
+    { PFCP_IE_ENTERPRISE_TRAVELPING_BUILD_ID,           "Build Id"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_NOW,                "Now"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_START,              "Start"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_STOP,               "Stop"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_ERROR_REPORT,       "Error Report"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_ERROR_MESSAGE,      "Error Message"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_FILE_NAME,          "File Name"},
+    { PFCP_IE_ENTERPRISE_TRAVELPING_LINE_NUMBER,        "Line Number"},
+    { 0, NULL }
+};
+
+static value_string_ext pfcp_ie_enterpise_travelping_type_ext = VALUE_STRING_EXT_INIT(pfcp_ie_enterpise_travelping_type);
+
+static void
+dissect_pfcp_enterprise_travelping_build_id(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    /* Octet 7 to (n+4) Travelping Build Id */
+    if (tvb_ascii_isprint(tvb, 0, length))
+    {
+        const guint8* string_value;
+        proto_tree_add_item_ret_string(tree, hf_pfcp_travelping_build_id_str, tvb, 0, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+        proto_item_append_text(item, "%s", string_value);
+    }
+    else
+    {
+        proto_tree_add_item(tree, hf_pfcp_travelping_build_id, tvb, 0, length, ENC_NA);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_now(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    char *time_str;
+
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, 0, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+    offset += 8;
+
+    proto_item_append_text(item, "%s", time_str);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_start(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    char *time_str;
+
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, 0, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+    offset += 8;
+
+    proto_item_append_text(item, "%s", time_str);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_stop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    char *time_str;
+
+    proto_tree_add_item_ret_time_string(tree, hf_pfcp_travelping_now, tvb, offset, 8, ENC_TIME_NTP | ENC_BIG_ENDIAN, wmem_packet_scope(), &time_str);
+    offset += 8;
+
+    proto_item_append_text(item, "%s", time_str);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_error_message(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    /* Octet 7 to (n+4) Travelping Error Message */
+    if (tvb_ascii_isprint(tvb, 0, length))
+    {
+        const guint8* string_value;
+        proto_tree_add_item_ret_string(tree, hf_pfcp_travelping_error_message_str, tvb, 0, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+        proto_item_append_text(item, "%s", string_value);
+    }
+    else
+    {
+        proto_tree_add_item(tree, hf_pfcp_travelping_error_message, tvb, 0, length, ENC_NA);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_file_name(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    /* Octet 7 to (n+4) Travelping Error Message */
+    if (tvb_ascii_isprint(tvb, 0, length))
+    {
+        const guint8* string_value;
+        proto_tree_add_item_ret_string(tree, hf_pfcp_travelping_file_name_str, tvb, 0, length, ENC_ASCII | ENC_NA, wmem_packet_scope(), &string_value);
+        proto_item_append_text(item, "%s", string_value);
+    }
+    else
+    {
+        proto_tree_add_item(tree, hf_pfcp_travelping_file_name, tvb, 0, length, ENC_NA);
+    }
+}
+
+static void
+dissect_pfcp_enterprise_travelping_line_number(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type _U_, pfcp_session_args_t *args _U_)
+{
+    int offset = 0;
+    guint32 line_number;
+
+    /* Octet 7 to 10 Travelping Line Number */
+    proto_tree_add_item_ret_uint(tree, hf_pfcp_travelping_line_number, tvb, offset, 4, ENC_BIG_ENDIAN, &line_number);
+    offset += 4;
+
+    proto_item_append_text(item, " : %u", line_number);
+
+    if (offset < length) {
+        proto_tree_add_expert(tree, pinfo, &ei_pfcp_ie_data_not_decoded, tvb, offset, -1);
+    }
+}
+
+static const pfcp_ie_t pfcp_enterprise_travelping_ies[] = {
+/*      0 */    { dissect_pfcp_reserved },
+/*      1 */    { dissect_pfcp_reserved },
+/*      2 */    { dissect_pfcp_enterprise_travelping_build_id },
+/*      3 */    { dissect_pfcp_enterprise_travelping_now },
+/*      4 */    { dissect_pfcp_enterprise_travelping_start },
+/*      5 */    { dissect_pfcp_enterprise_travelping_stop },
+/*      6 */    { dissect_pfcp_enterprise_travelping_error_report },
+/*      7 */    { dissect_pfcp_enterprise_travelping_error_message },
+/*      8 */    { dissect_pfcp_enterprise_travelping_file_name },
+/*      9 */    { dissect_pfcp_enterprise_travelping_line_number },
+    { NULL },                                                        /* End of List */
+};
+
+#define NUM_PFCP_ENTERPRISE_TRAVELPING_IES (sizeof(pfcp_enterprise_travelping_ies)/sizeof(pfcp_ie_t))
+/* Set up the array to hold "etts" for each IE*/
+gint ett_pfcp_enterprise_travelping_elem[NUM_PFCP_ENTERPRISE_TRAVELPING_IES-1];
+
+static void
+dissect_pfcp_enterprise_travelping_error_report(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, guint16 length, guint8 message_type, pfcp_session_args_t *args)
+{
+    dissect_pfcp_grouped_ie(tvb, pinfo, tree, item, length, message_type, ett_pfcp_enterprise_travelping_elem[PFCP_IE_ENTERPRISE_TRAVELPING_ERROR_REPORT], args);
+}
+
+static int
+dissect_pfcp_enterprise_travelping_ies(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+    pfcp_sub_dis_t *pfcp_sub_dis_info = (pfcp_sub_dis_t *)data;
+
+    dissect_pfcp_enterprise_ies_common(tvb, pinfo, tree, pfcp_sub_dis_info->item, pfcp_sub_dis_info->message_type, pfcp_sub_dis_info->args,
+                                       NUM_PFCP_ENTERPRISE_TRAVELPING_IES, ett_pfcp_enterprise_travelping_elem,
+                                       pfcp_enterprise_travelping_ies, &pfcp_ie_enterpise_travelping_type_ext);
     return tvb_reported_length(tvb);
 }
 
@@ -12552,28 +13173,226 @@ proto_register_pfcp(void)
             NULL, HFILL }
         },
 
+        { &hf_pfcp_bbf_up_function_features_o7_b0_pppoe,
+        { "PPPoE", "pfcp.bbf.up_function_features.pppoe",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x01,
+            "PPPoE supported in DBNG-UP function", HFILL }
+        },
+        { &hf_pfcp_bbf_up_function_features_o7_b1_ipoe,
+        { "IPoE", "pfcp.bbf.up_function_features.ipoe",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x02,
+            "IPoE supported in DBNG-UP function", HFILL }
+        },
+        { &hf_pfcp_bbf_up_function_features_o7_b2_lac,
+        { "LAC", "pfcp.bbf.up_function_features.lac",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x04,
+            "LAC function supported in DBNG-UP function", HFILL }
+        },
+        { &hf_pfcp_bbf_up_function_features_o7_b3_lns,
+        { "LNS", "pfcp.bbf.up_function_features.lns",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x08,
+            "LNS function supported in DBNG-UP function", HFILL }
+        },
+        { &hf_pfcp_bbf_up_function_features_o7_b4_lcp_keepalive_offload,
+        { "LCP keepalive offload", "pfcp.bbf.up_function_features.lcp_keepalive_offload",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x10,
+            "PPP LCP echo supported in DBNG-UP function", HFILL }
+        },
+
+        { &hf_pfcp_bbf_logical_port_id,
+        { "Logical Port", "pfcp.bbf.logical_port_id",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_logical_port_id_str,
+        { "Logical Port", "pfcp.bbf.logical_port_id_str",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_outer_hdr_desc,
+        { "BBF Outer Header Creation Description", "pfcp.bbf.outer_hdr_desc",
+            FT_UINT16, BASE_DEC, VALS(pfcp_bbf_outer_hdr_desc_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_outer_hdr_creation_tunnel_id,
+        { "L2TP Tunnel ID", "pfcp.bbf.outer_hdr_creation.tunnel_id",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_outer_hdr_creation_session_id,
+        { "L2TP Session ID", "pfcp.bbf.outer_hdr_creation.session_id",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_out_hdr_desc,
+        { "BBF Outer Header Removal Description", "pfcp.bbf.out_hdr_desc",
+            FT_UINT8, BASE_DEC, VALS(pfcp_bbf_out_hdr_desc_vals), 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_pppoe_session_id,
+        { "PPPoE Session ID", "pfcp.bbf.pppoe_session_id",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_ppp_protocol_flags,
+        { "Flags", "pfcp.bbf.protocol_flags",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_ppp_protocol_b2_control,
+        { "control", "pfcp.bbf.protocol_flags.control",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_ppp_protocol_b1_data,
+        { "data", "pfcp.bbf.protocol_flags.data",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_ppp_protocol_b0_specific,
+        { "specific", "pfcp.bbf.protocol_flags.specific",
+            FT_BOOLEAN, 8, TFS(&tfs_present_not_present), 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_ppp_protocol,
+        { "protocol", "pfcp.bbf.protocol_flags.protocol",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_verification_timer_interval,
+        { "Interval", "pfcp.bbf.verification_timer.interval",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_verification_timer_count,
+        { "Count", "pfcp.bbf.verification_timer.count",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_ppp_lcp_magic_number_tx,
+        { "PPP LCP Magic Number Tx", "pfcp.bbf.lcp_magic_number.tx",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_ppp_lcp_magic_number_rx,
+        { "PPP LCP Magic Number Rx", "pfcp.bbf.lcp_magic_number.rx",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_mtu,
+        { "MTU", "pfcp.bbf.mtu",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_l2tp_endp_flags,
+        { "Flags", "pfcp.bbf.l2tp_endp_flags",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_flags_b2_ch,
+        { "CH (CHOOSE)", "pfcp.bbf.l2tp_endp_flags.ch",
+            FT_BOOLEAN, 8, NULL, 0x04,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_flags_b1_v6,
+        { "V6 (IPv6)", "pfcp.bbf.l2tp_endp_flags.v6",
+            FT_BOOLEAN, 8, NULL, 0x02,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_flags_b0_v4,
+        { "V4 (IPv4)", "pfcp.bbf.l2tp_endp_flags.v4",
+            FT_BOOLEAN, 8, NULL, 0x01,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_id_tunnel_id,
+        { "Tunnel ID", "pfcp.bbf.l2tp_endp.tunnel_id",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_id_ipv4,
+        { "IPv4 address", "pfcp.bbf.l2tp_endp.ipv4_addr",
+            FT_IPv4, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_endp_id_ipv6,
+        { "IPv6 address", "pfcp.bbf.l2tp_endp.ipv6_addr",
+            FT_IPv6, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_l2tp_session_id,
+        { "L2TP Session ID", "pfcp.bbf.bbf_l2tp_session_id",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+
+        { &hf_pfcp_bbf_l2tp_type_flags,
+        { "Flags", "pfcp.bbf.l2tp_type_flags",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_bbf_l2tp_type_flags_b0_t,
+        { "T (TYPE)", "pfcp.bbf.l2tp_type_flags.t",
+            FT_BOOLEAN, 8, TFS(&pfcp_bbf_l2tp_type_b0_t_tfs), 0x01,
+            NULL, HFILL }
+        },
 
         { &hf_pfcp_travelping_build_id,
-        { "Travelping Build Identifier", "pfcp.travelping_build_id",
+        { "Build Identifier", "pfcp.travelping.build_id",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_travelping_build_id_str,
-        { "Travelping Build Identifier", "pfcp.travelping_build_id_str",
+        { "Build Identifier", "pfcp.travelping.build_id_str",
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_pfcp_travelping_now,
-        { "Travelping Now", "pfcp.travelping_now",
+        { "Now", "pfcp.travelping.now",
             FT_ABSOLUTE_TIME, ABSOLUTE_TIME_NTP_UTC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_error_message,
+        { "Error Message", "pfcp.travelping.error_message",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_error_message_str,
+        { "Error Message", "pfcp.travelping.error_message_str",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_file_name,
+        { "File Name", "pfcp.travelping.file_name",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_file_name_str,
+        { "File Name", "pfcp.travelping.file_name_str",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_pfcp_travelping_line_number,
+        { "Line Number", "pfcp.travelping.line_number",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
     };
 
     /* Setup protocol subtree array */
-#define NUM_INDIVIDUAL_ELEMS_PFCP    82
+#define NUM_INDIVIDUAL_ELEMS_PFCP    88
     gint *ett[NUM_INDIVIDUAL_ELEMS_PFCP +
-        (NUM_PFCP_IES - 1)];
+        (NUM_PFCP_IES - 1) +
+        (NUM_PFCP_ENTERPRISE_BBF_IES - 1) +
+        (NUM_PFCP_ENTERPRISE_TRAVELPING_IES - 1)];
 
     ett[0] = &ett_pfcp;
     ett[1] = &ett_pfcp_flags;
@@ -12657,8 +13476,12 @@ proto_register_pfcp(void)
     ett[79] = &ett_pfcp_data_status_flags;
     ett[80] = &ett_pfcp_rds_configuration_information_flags;
     ett[81] = &ett_pfcp_number_of_ue_ip_addresses_flags;
-
-
+    ett[82] = &ett_pfcp_enterprise_travelping_error_report;
+    ett[83] = &ett_pfcp_bbf_ppp_protocol_flags;
+    ett[84] = &ett_pfcp_bbf_l2tp_endp_flags;
+    ett[85] = &ett_pfcp_bbf_l2tp_type_flags;
+    ett[86] = &ett_pfcp_bbf_ppp_lcp_connectivity;
+    ett[87] = &ett_pfcp_bbf_l2tp_tunnel;
 
     static ei_register_info ei[] = {
         { &ei_pfcp_ie_reserved,{ "pfcp.ie_id_reserved", PI_PROTOCOL, PI_ERROR, "Reserved IE value used", EXPFILL } },
@@ -12679,6 +13502,17 @@ proto_register_pfcp(void)
         ett_pfcp_elem[i] = -1;
         ett[last_index] = &ett_pfcp_elem[i];
     }
+    for (i = 0; i < (NUM_PFCP_ENTERPRISE_TRAVELPING_IES-1); i++, last_index++)
+    {
+        ett_pfcp_enterprise_travelping_elem[i] = -1;
+        ett[last_index] = &ett_pfcp_enterprise_travelping_elem[i];
+    }
+    for (i = 0; i < (NUM_PFCP_ENTERPRISE_BBF_IES-1); i++, last_index++)
+    {
+        ett_pfcp_enterprise_bbf_elem[i] = -1;
+        ett[last_index] = &ett_pfcp_enterprise_bbf_elem[i];
+    }
+
     proto_pfcp = proto_register_protocol("Packet Forwarding Control Protocol", "PFCP", "pfcp");
     pfcp_handle = register_dissector("pfcp", dissect_pfcp, proto_pfcp);
     module_pfcp = prefs_register_protocol(proto_pfcp, proto_reg_handoff_pfcp);
@@ -12694,6 +13528,7 @@ proto_register_pfcp(void)
 
     pfcp_3gpp_ies_handle = register_dissector("pfcp_3gpp_ies", dissect_pfcp_3gpp_enterprise_ies, proto_pfcp);
     pfcp_travelping_ies_handle = register_dissector("pfcp_travelping_ies", dissect_pfcp_enterprise_travelping_ies, proto_pfcp);
+    pfcp_bbf_ies_handle = register_dissector("pfcp_bbf_ies", dissect_pfcp_enterprise_bbf_ies, proto_pfcp);
 
     prefs_register_uint_preference(module_pfcp, "port_pfcp", "PFCP port", "PFCP port (default 8805)", 10, &g_pfcp_port);
     prefs_register_bool_preference(module_pfcp, "track_pfcp_session", "Track PFCP session", "Track PFCP session", &g_pfcp_session);
@@ -12708,10 +13543,10 @@ proto_reg_handoff_pfcp(void)
     dissector_add_uint("udp.port", g_pfcp_port, pfcp_handle);
     /* Register 3GPP in the table to give expert info and serve as an example how to add decoding of enterprise IEs*/
     dissector_add_uint("pfcp.enterprise_ies", VENDOR_THE3GPP, pfcp_3gpp_ies_handle);
+    /* Register Broadband Forum IEs */
+    dissector_add_uint("pfcp.enterprise_ies", VENDOR_BROADBAND_FORUM, pfcp_bbf_ies_handle);
     /* Register Travelping IEs */
     dissector_add_uint("pfcp.enterprise_ies", VENDOR_TRAVELPING, pfcp_travelping_ies_handle);
-
-
 }
 
 /*

@@ -3027,6 +3027,9 @@ static int hf_E212_mcc_cgi = -1;
 static int hf_E212_mcc_ecgi = -1;
 static int hf_E212_mcc_tai = -1;
 static int hf_E212_mcc_nrcgi = -1;
+static int hf_E212_mcc_5gstai = -1;
+static int hf_E212_mcc_gummei = -1;
+static int hf_E212_mcc_guami = -1;
 static int hf_E212_mnc  = -1;
 static int hf_E212_mnc_lai = -1;
 static int hf_E212_mnc_sai = -1;
@@ -3035,6 +3038,9 @@ static int hf_E212_mnc_cgi = -1;
 static int hf_E212_mnc_ecgi = -1;
 static int hf_E212_mnc_tai = -1;
 static int hf_E212_mnc_nrcgi = -1;
+static int hf_E212_mnc_5gstai = -1;
+static int hf_E212_mnc_gummei = -1;
+static int hf_E212_mnc_guami = -1;
 
 static int ett_e212_imsi = -1;
 
@@ -3139,6 +3145,18 @@ dissect_e212_mcc_mnc_wmem_packet_str(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     case E212_NRCGI:
         hf_E212_mcc_id = hf_E212_mcc_nrcgi;
         hf_E212_mnc_id = hf_E212_mnc_nrcgi;
+        break;
+    case E212_5GSTAI:
+        hf_E212_mcc_id = hf_E212_mcc_5gstai;
+        hf_E212_mnc_id = hf_E212_mnc_5gstai;
+        break;
+    case E212_GUMMEI:
+        hf_E212_mcc_id = hf_E212_mcc_gummei;
+        hf_E212_mnc_id = hf_E212_mnc_gummei;
+        break;
+    case E212_GUAMI:
+        hf_E212_mcc_id = hf_E212_mcc_guami;
+        hf_E212_mnc_id = hf_E212_mnc_guami;
         break;
     default:
         hf_E212_mcc_id = hf_E212_mcc;
@@ -3583,6 +3601,21 @@ proto_register_e212(void)
         FT_UINT16, BASE_DEC|BASE_EXT_STRING, &E212_codes_ext, 0x0,
         "Mobile Country Code MCC", HFILL }
     },
+    { &hf_E212_mcc_5gstai,
+        { "Mobile Country Code (MCC)","e212.5gstai.mcc",
+        FT_UINT16, BASE_DEC|BASE_EXT_STRING, &E212_codes_ext, 0x0,
+        "Mobile Country Code MCC", HFILL }
+    },
+    { &hf_E212_mcc_gummei,
+        { "Mobile Country Code (MCC)","e212.gummei.mcc",
+        FT_UINT16, BASE_DEC|BASE_EXT_STRING, &E212_codes_ext, 0x0,
+        "Mobile Country Code MCC", HFILL }
+    },
+    { &hf_E212_mcc_guami,
+        { "Mobile Country Code (MCC)","e212.guami.mcc",
+        FT_UINT16, BASE_DEC|BASE_EXT_STRING, &E212_codes_ext, 0x0,
+        "Mobile Country Code MCC", HFILL }
+    },
     { &hf_E212_mnc,
         { "Mobile Network Code (MNC)","e212.mnc",
         FT_UINT16, BASE_DEC, NULL, 0x0,
@@ -3620,6 +3653,21 @@ proto_register_e212(void)
     },
     { &hf_E212_mnc_nrcgi,
         { "Mobile Network Code (MNC)","e212.nrcgi.mnc",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        "Mobile network code", HFILL }
+    },
+    { &hf_E212_mnc_5gstai,
+        { "Mobile Network Code (MNC)","e212.5gstai.mnc",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        "Mobile network code", HFILL }
+    },
+    { &hf_E212_mnc_gummei,
+        { "Mobile Network Code (MNC)","e212.gummei.mnc",
+        FT_UINT16, BASE_DEC, NULL, 0x0,
+        "Mobile network code", HFILL }
+    },
+    { &hf_E212_mnc_guami,
+        { "Mobile Network Code (MNC)","e212.guami.mnc",
         FT_UINT16, BASE_DEC, NULL, 0x0,
         "Mobile network code", HFILL }
     },
