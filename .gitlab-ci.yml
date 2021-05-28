@@ -276,7 +276,6 @@ Fedora RPM Package:
 # Job to generate packages for Debian stable
 Debian Stable APT Package:
   extends: .build
-  rules: !reference [.if-merged]
   image: wireshark/wireshark-debian-stable-dev
   script:
     - perl tools/make-version.pl --set-release
