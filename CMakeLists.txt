@@ -70,17 +70,16 @@ message(STATUS "Generating build using CMake ${CMAKE_VERSION}")
 #Where to find local cmake scripts
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
 
-# CMake >= 3.9.0 enables LTO/IPO
-# Policy CMP0069 enables this behavior when we set the minimum CMake version < 3.9.0
+# CMake >= 3.9.0 supports LTO/IPO.
 if (ENABLE_LTO)
 	include(CheckIPOSupported)
-	check_ipo_supported(RESULT lto_supported)
+	check_ipo_supported(RESULT lto_supported OUTPUT lto_output)
 	if(lto_supported)
 		set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+		message(STATUS "LTO/IPO is enabled")
+	else()
+		message(STATUS "LTO/IPO requested but it is not supported by the compiler: ${lto_output}") 
 	endif()
-endif()
-if (CMAKE_INTERPROCEDURAL_OPTIMIZATION)
-	message(STATUS "LTO/IPO is enabled")
 else()
 	message(STATUS "LTO/IPO is not enabled")
 endif()
@@ -426,6 +425,15 @@ if(WIN32)
 else()
 	set(WS_PROGRAM_PATH ./run)
 endif()
+
+# Preprocessor definitions common to all compilers
+set_property(DIRECTORY
+	PROPERTY COMPILE_DEFINITIONS
+		"G_DISABLE_DEPRECATED"
+		"G_DISABLE_SINGLE_INCLUDES"
+		$<$<OR:$<BOOL:${DISABLE_ASSERT}>,$<CONFIG:Release>>:WS_DISABLE_ASSERT>
+		$<$<OR:$<BOOL:${ENABLE_DEBUG}>,$<CONFIG:Debug>>:WS_DEBUG>
+)
 
 if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	if ((MSVC_VERSION LESS "1900") OR (MSVC_VERSION GREATER_EQUAL "2000"))
@@ -808,20 +816,6 @@ else() # ! MSVC
 				-fdiagnostics-color=always
 			)
 		endif()
-	endif()
-
-	add_definitions(
-		-DG_DISABLE_DEPRECATED
-		-DG_DISABLE_SINGLE_INCLUDES
-	)
-	if(CMAKE_VERSION VERSION_GREATER "3.11.99")
-		# Build type dependency requires support for generator expressions.
-		# add_compile_definitions() requires cmake >= 3.12.
-		add_compile_definitions(
-			$<$<OR:$<BOOL:${DISABLE_ASSERT}>,$<CONFIG:Release>>:WS_DISABLE_ASSERT>
-		)
-	elseif(DISABLE_ASSERT)
-		add_definitions(-DWS_DISABLE_ASSERT)
 	endif()
 
 	set(WIRESHARK_LD_FLAGS
@@ -1765,6 +1759,11 @@ set_package_properties(Minizip PROPERTIES
 	URL "https://www.winimage.com/zLibDll/minizip.html"
 	DESCRIPTION "C library for supporting zip/unzip functionality"
 	PURPOSE "Support for profiles import/export"
+)
+set_package_properties(SMI PROPERTIES
+	URL "https://www.ibr.cs.tu-bs.de/projects/libsmi/"
+	DESCRIPTION "Library to access SMI management information"
+	PURPOSE "Support MIB and PIB parsing and OID resolution"
 )
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)

@@ -55,6 +55,7 @@ option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (UBSan) for debugging" OF
 option(ENABLE_FUZZER "Enable libFuzzer instrumentation for use with fuzzshark" OFF)
 option(ENABLE_CHECKHF_CONFLICT "Enable hf conflict check for debugging (start-up may be slower)" OFF)
 option(ENABLE_CCACHE "Speed up compiling and linking using ccache if possible" OFF)
+option(ENABLE_DEBUG "Enable debug output" OFF)
 
 if(CMAKE_GENERATOR STREQUAL "Ninja")
 	option(ENABLE_COMPILER_COLOR_DIAGNOSTICS "Always enable the compiler's color diagnostic output" ON)
@@ -62,11 +63,14 @@ else()
 	option(ENABLE_COMPILER_COLOR_DIAGNOSTICS "Always enable the compiler's color diagnostic output" OFF)
 endif()
 
-if (WIN32)
-	option(ENABLE_LTO "Improves performance using Link time Optimization" ON)
+if(WIN32)
+	option(ENABLE_LTO "Improves performance using Link Time Optimization" ON)
+elseif(CMAKE_VERSION VERSION_GREATER "3.8.99")
+	option(ENABLE_LTO "Improves performance using Link Time Optimization" OFF)
+endif()
+
+if(WIN32)
 	option(ENABLE_VLD "Enable Visual Leak Detect in Debug configuration" OFF)
-else()
-	option(ENABLE_LTO "Improves performance using Link time Optimization" OFF)
 endif()
 
 option(ENABLE_PCAP       "Enable libpcap support (required for capturing)" ON)

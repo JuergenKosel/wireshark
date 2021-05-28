@@ -38,7 +38,6 @@
 #include <wsutil/copyright_info.h>
 #include <wsutil/os_version_info.h>
 #include <wsutil/crash_info.h>
-#include <wsutil/ws_printf.h> /* ws_debug_printf */
 #include <wsutil/plugins.h>
 
 static char *appname_with_version;
@@ -419,6 +418,19 @@ get_runtime_version_info(void (*additional_info)(GString *))
 	/* Get info about installed memory */
 	get_mem_info(str);
 
+	/* GLib */
+	g_string_append_printf(str, ", with GLib %u.%u.%u",
+			glib_major_version, glib_minor_version, glib_micro_version);
+
+	/* zlib */
+#if defined(HAVE_ZLIB) && !defined(_WIN32)
+	g_string_append_printf(str, ", with zlib %s", zlibVersion());
+#endif
+
+	/* Additional application-dependent information */
+	if (additional_info)
+		(*additional_info)(str);
+
 	/*
 	 * Locale.
 	 *
@@ -438,16 +450,6 @@ get_runtime_version_info(void (*additional_info)(GString *))
 	else {
 		g_string_append(str, ", with default locale");
 	}
-
-
-	/* Additional application-dependent information */
-	if (additional_info)
-		(*additional_info)(str);
-
-	/* zlib */
-#if defined(HAVE_ZLIB) && !defined(_WIN32)
-	g_string_append_printf(str, ", with zlib %s", zlibVersion());
-#endif
 
 	/* plugins */
 #ifdef HAVE_PLUGINS
@@ -500,7 +502,7 @@ get_ws_version_number(int *major, int *minor, int *micro)
 void
 show_version(void)
 {
-	ws_debug_printf("%s\n"
+	printf("%s\n"
 			"\n"
 			"%s\n"
 			"%s\n"
@@ -512,7 +514,7 @@ show_version(void)
 void
 show_help_header(const char *description)
 {
-	ws_debug_printf("%s\n"
+	printf("%s\n"
 		"%s\n"
 		"See https://www.wireshark.org for more information.\n",
 		appname_with_version, description);

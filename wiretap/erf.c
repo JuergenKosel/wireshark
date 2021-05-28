@@ -2607,10 +2607,13 @@ static int populate_capture_host_info(erf_t *erf_priv, wtap *wth, union wtap_pse
 
   /* Post processing */
 
-  if (app_name) {
-    /* If no app_version will just use app_name */
-
-    tmp = g_strjoin(" ", app_name, app_version, NULL);
+  if (app_name || app_version) {
+    /*
+     * If we have no app_name, we use "(Unknown applicaton)".
+     *
+     * If we have no app_version, this will just use app_name.
+     */
+    tmp = g_strjoin(" ", app_name ? app_name : "(Unknown application)", app_version, NULL);
     wtap_block_set_string_option_value(shb_hdr, OPT_SHB_USERAPPL, tmp, strlen(tmp));
     g_free(tmp);
 
@@ -3294,7 +3297,7 @@ static int populate_summary_info(erf_t *erf_priv, wtap *wth, union wtap_pseudo_h
 
 static gboolean get_user_comment_string(wtap_dumper *wdh, gchar** user_comment_ptr) {
   wtap_block_t wtap_block;
-  gboolean ret;
+  wtap_opttype_return_val ret;
 
   wtap_block = NULL;
 
@@ -3304,7 +3307,7 @@ static gboolean get_user_comment_string(wtap_dumper *wdh, gchar** user_comment_p
 
   if(wtap_block != NULL) {
     ret = wtap_block_get_nth_string_option_value(wtap_block, OPT_COMMENT, 0, user_comment_ptr);
-    if(ret) {
+    if(ret != WTAP_OPTTYPE_SUCCESS) {
       return FALSE;
     }
   }

@@ -27,7 +27,7 @@
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
 #include <wsutil/wsgcrypt.h>
-#include <wsutil/ws_printf.h> /* ws_debug_printf */
+#include <epan/ws_printf.h>
 
 #include "packet-tcp.h"
 #include "packet-tacacs.h"
@@ -797,8 +797,10 @@ mkipv4_address( address **addr, const char *str_addr )
 	ret = str_to_ip(str_addr, addr_data);
 	if (ret)
 		set_address(*addr, AT_IPv4, 4, addr_data);
-	else
+	else {
+		g_free(addr_data);	/* not set, not used */
 		set_address(*addr, AT_STRINGZ, (int)strlen(ADDR_INVLD)+1, ADDR_INVLD);
+	}
 }
 static void
 parse_tuple( char *key_from_option )

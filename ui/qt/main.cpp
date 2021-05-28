@@ -297,6 +297,22 @@ get_gui_compiled_info(GString *str)
 void
 get_wireshark_runtime_info(GString *str)
 {
+    g_string_append_printf(str, ", with Qt %s", qVersion());
+
+#ifdef HAVE_LIBPCAP
+    /* Capture libraries */
+    g_string_append(str, ", ");
+    get_runtime_caplibs_version(str);
+#endif
+
+    /* stuff used by libwireshark */
+    epan_get_runtime_version_info(str);
+
+#ifdef HAVE_AIRPCAP
+    g_string_append(str, ", ");
+    get_runtime_airpcap_version(str);
+#endif
+
     if (wsApp) {
         // Display information
         const char *display_mode = ColorUtils::themeIsDark() ? "dark" : "light";
@@ -316,20 +332,6 @@ get_wireshark_runtime_info(GString *str)
             g_string_append(str, ", without HiDPI");
         }
     }
-
-#ifdef HAVE_LIBPCAP
-    /* Capture libraries */
-    g_string_append(str, ", ");
-    get_runtime_caplibs_version(str);
-#endif
-
-    /* stuff used by libwireshark */
-    epan_get_runtime_version_info(str);
-
-#ifdef HAVE_AIRPCAP
-    g_string_append(str, ", ");
-    get_runtime_airpcap_version(str);
-#endif
 }
 
 static void

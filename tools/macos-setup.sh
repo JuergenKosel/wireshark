@@ -27,6 +27,16 @@ if [[ $DARWIN_MAJOR_VERSION -lt 12 ]]; then
 fi
 
 #
+# Get the processor architecture of Darwin. Currently supported: arm, i386
+#
+DARWIN_PROCESSOR_ARCH=`uname -p`
+
+if [ "$DARWIN_PROCESSOR_ARCH" != "arm" -a "$DARWIN_PROCESSOR_ARCH" != "i386" ]; then
+    echo "This script does not support this processor architecture" 1>&2
+    exit 1
+fi
+
+#
 # Versions of packages to download and install.
 #
 
@@ -186,9 +196,9 @@ OPUS_VERSION=1.3.1
 # macOS 11 Big Sur and Apple Silicon (Arm-based Macs).
 
 # So on Mountain Lion, choose 3.7.6, otherwise get the latest stable version
-# (3.9.3).
+# (3.9.5).
 if [[ $DARWIN_MAJOR_VERSION -gt 12 ]]; then
-    PYTHON3_VERSION=3.9.3
+    PYTHON3_VERSION=3.9.5
 else
     PYTHON3_VERSION=3.7.6
 fi
@@ -867,8 +877,8 @@ install_qt() {
                 QT_VOLUME=qt-opensource-mac-x64-$QT_VERSION
                 ;;
             *)
-		echo "The Qt Company no longer provides open source offline installers for Qt $QT_VERSION" 1>&2
-		;;
+                echo "The Qt Company no longer provides open source offline installers for Qt $QT_VERSION" 1>&2
+                ;;
 
             esac
             [ -f $QT_VOLUME.dmg ] || curl -L -O http://download.qt.io/archive/qt/$QT_MAJOR_MINOR_VERSION/$QT_MAJOR_MINOR_DOTDOT_VERSION/$QT_VOLUME.dmg || exit 1
@@ -882,6 +892,7 @@ install_qt() {
             /Volumes/$QT_VOLUME/$QT_VOLUME.app/Contents/MacOS/$QT_VOLUME
             sudo hdiutil detach /Volumes/$QT_VOLUME
             touch qt-$QT_VERSION-done
+            ;;
         *)
             echo "The Qt Company no longer provides open source offline installers for Qt $QT_VERSION" 1>&2
             ;;
@@ -1214,7 +1225,11 @@ install_nettle() {
         $no_build && echo "Skipping installation" && return
         gzcat nettle-$NETTLE_VERSION.tar.gz | tar xf - || exit 1
         cd nettle-$NETTLE_VERSION
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        if [ "$DARWIN_PROCESSOR_ARCH" = "arm" ] ; then
+            CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-assembler || exit 1
+        else
+            CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        fi
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1574,7 +1589,11 @@ install_sbc() {
         $no_build && echo "Skipping installation" && return
         gzcat sbc-$SBC_VERSION.tar.gz | tar xf - || exit 1
         cd sbc-$SBC_VERSION
-        CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-tools --disable-tester --disable-shared || exit 1
+        if [ "$DARWIN_PROCESSOR_ARCH" = "arm" ] ; then
+            CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS -U__ARM_NEON__" CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-tools --disable-tester --disable-shared || exit 1
+        else
+            CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=0 $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-tools --disable-tester --disable-shared || exit 1
+        fi
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..

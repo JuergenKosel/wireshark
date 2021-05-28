@@ -3758,6 +3758,8 @@ static int hf_ieee80211_he_trigger_doppler = -1;
 static int hf_ieee80211_he_trigger_ul_he_sig_a_reserved = -1;
 static int hf_ieee80211_he_trigger_reserved = -1;
 static int hf_ieee80211_he_trigger_user_info = -1;
+static int hf_ieee80211_he_trigger_user_info_padding_start = -1;
+static int hf_ieee80211_he_trigger_padding = -1;
 static int hf_ieee80211_he_trigger_bar_ctrl = -1;
 static int hf_ieee80211_he_trigger_bar_ctrl_ba_ack_policy = -1;
 static int hf_ieee80211_he_trigger_bar_ctrl_ba_type = -1;
@@ -3782,8 +3784,6 @@ static int hf_ieee80211_he_trigger_ru_allocation = -1;
 static int hf_ieee80211_he_trigger_ru_allocation_region = -1;
 static int hf_ieee80211_he_trigger_ru_starting_spatial_stream = -1;
 static int hf_ieee80211_he_trigger_ru_number_spatial_streams = -1;
-static int hf_ieee80211_he_trigger_ru_number_ra_ru = -1;
-static int hf_ieee80211_he_trigger_ru_no_more_ra_ru = -1;
 static int hf_ieee80211_he_trigger_ul_fec_coding_type = -1;
 static int hf_ieee80211_he_trigger_ul_mcs = -1;
 static int hf_ieee80211_he_trigger_ul_dcm = -1;
@@ -4243,6 +4243,8 @@ static int hf_ieee80211_ff_ftm_i2r_ndp_target_rssi = -1;
 
 /* az: FTM Ranging Parameters Element */
 static int hf_ieee80211_tag_ranging_parameters = -1;
+static int hf_ieee80211_tag_ranging_subelt_tag = -1;
+static int hf_ieee80211_tag_ranging_subelt_len = -1;
 static int hf_ieee80211_tag_ranging_status_indication = -1;
 static int hf_ieee80211_tag_ranging_value = -1;
 static int hf_ieee80211_tag_ranging_i2r_lmr_feedback = -1;
@@ -4258,14 +4260,15 @@ static int hf_ieee80211_tag_ranging_immediate_r2i_feedback = -1;
 static int hf_ieee80211_tag_ranging_immediate_i2r_feedback = -1;
 static int hf_ieee80211_tag_ranging_max_i2r_repetition = -1;
 static int hf_ieee80211_tag_ranging_max_r2i_repetition = -1;
-static int hf_ieee80211_tag_ranging_device_class = -1;
-static int hf_ieee80211_tag_ranging_full_bandwidth_ul_mu_mimo = -1;
+static int hf_ieee80211_tag_ranging_reserved1 = -1;
+static int hf_ieee80211_tag_ranging_reserved2 = -1;
 static int hf_ieee80211_tag_ranging_max_r2i_sts_le_80_mhz = -1;
 static int hf_ieee80211_tag_ranging_max_r2i_sts_gt_80_mhz = -1;
 static int hf_ieee80211_tag_ranging_max_r2i_ltf_total = -1;
 static int hf_ieee80211_tag_ranging_max_i2r_ltf_total = -1;
 static int hf_ieee80211_tag_ranging_max_i2r_sts_le_80_mhz = -1;
 static int hf_ieee80211_tag_ranging_max_i2r_sts_gt_80_mhz = -1;
+static int hf_ieee80211_tag_ranging_bss_color_info = -1;
 
 /* az: FTM Ranging Parameters NTB-specific subelement */
 static int hf_ieee80211_tag_ranging_ntb = -1;
@@ -4278,11 +4281,12 @@ static int hf_ieee80211_tag_ranging_ntb_reserved2 = -1;
 
 /* az: FTM Ranging Specific TB subelement */
 static int hf_ieee80211_tag_ranging_aid_rsid = -1;
-static int hf_ieee80211_tag_ranging_response = -1;
+static int hf_ieee80211_tag_ranging_device_class = -1;
+static int hf_ieee80211_tag_ranging_full_bw_ul_mu_mimo = -1;
 static int hf_ieee80211_tag_ranging_trigger_frame_paddur = -1;
-static int hf_ieee80211_tag_ranging_passive_tb_ranging = -1;
 static int hf_ieee80211_tag_ranging_max_sess_exp = -1;
-static int hf_ieee80211_tag_ranging_bss_color_info = -1;
+static int hf_ieee80211_tag_ranging_passive_tb_ranging = -1;
+static int hf_ieee80211_tag_ranging_tb_specific_reserved = -1;
 
 /* az: PASN subelements etc. */
 static int hf_ieee80211_tag_pasn_parameters_control = -1;
@@ -4311,16 +4315,19 @@ static int hf_ieee80211_ftm_ista_availability_reserved = -1;
 static int hf_ieee80211_ftm_ista_avail_bits = -1;
 static int hf_ieee80211_ftm_ista_avail_pad = -1;
 
+static int hf_ieee80211_ftm_rsta_header = -1;
 static int hf_ieee80211_ftm_rsta_count = -1;
+static int hf_ieee80211_ftm_rsta_avail_window_bcast_fmt = -1;
 static int hf_ieee80211_ftm_rsta_partial_tsf_timer1 = -1;
 static int hf_ieee80211_ftm_rsta_duration1 = -1;
-static int hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win1 = -1;
+static int hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved1 = -1;
 static int hf_ieee80211_ftm_rsta_periodicity1 = -1;
 static int hf_ieee80211_ftm_rsta_partial_tsf_timer = -1;
 static int hf_ieee80211_ftm_rsta_duration = -1;
-static int hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win = -1;
+static int hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved = -1;
 static int hf_ieee80211_ftm_rsta_periodicity = -1;
-static int hf_ieee80211_ftm_rsta_passive_tb_ranging_params = -1;
+static int hf_ieee80211_ftm_rsta_format_and_bandwidth = -1;
+static int hf_ieee80211_ftm_rsta_reserved = -1;
 static int hf_ieee80211_ftm_rsta_avail_subfield_short = -1;
 static int hf_ieee80211_ftm_rsta_avail_subfield_long = -1;
 
@@ -4715,7 +4722,6 @@ static int hf_ieee80211_operat_mode_field_reserved = -1;
 static int hf_ieee80211_operat_mode_field_rxnss = -1;
 static int hf_ieee80211_operat_mode_field_rxnsstype= -1;
 
-static int hf_ieee80211_rnr_tbtt_information = -1;
 static int hf_ieee80211_rnr_tbtt_information_field_header = -1;
 static int hf_ieee80211_rnr_tbtt_information_field_type = -1;
 static int hf_ieee80211_rnr_tbtt_information_filtered_neighbor_ap = -1;
@@ -7413,6 +7419,8 @@ static gint ett_ff_ftm_toa_err1 = -1;
 static gint ett_tag_ranging = -1;
 static gint ett_tag_ranging_ntb = -1;
 
+static gint ett_ranging_subelement_tree = -1;
+static gint ett_rsta_avail_header = -1;
 static gint ett_rsta_avail_tree = -1;
 static gint ett_rsta_avail_subfield = -1;
 
@@ -23441,10 +23449,16 @@ dissect_ista_availability_window(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
   }
 }
 
+static int * const rsta_avail_info_header[] = {
+  &hf_ieee80211_ftm_rsta_count,
+  &hf_ieee80211_ftm_rsta_avail_window_bcast_fmt,
+  NULL
+};
+
 static int * const rsta_availability_subfield_hdr1[] = {
   &hf_ieee80211_ftm_rsta_partial_tsf_timer1,
   &hf_ieee80211_ftm_rsta_duration1,
-  &hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win1,
+  &hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved1,
   &hf_ieee80211_ftm_rsta_periodicity1,
   NULL
 };
@@ -23452,9 +23466,10 @@ static int * const rsta_availability_subfield_hdr1[] = {
 static int * const rsta_availability_subfield_hdr2[] = {
   &hf_ieee80211_ftm_rsta_partial_tsf_timer,
   &hf_ieee80211_ftm_rsta_duration,
-  &hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win,
+  &hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved,
   &hf_ieee80211_ftm_rsta_periodicity,
-  &hf_ieee80211_ftm_rsta_passive_tb_ranging_params,
+  &hf_ieee80211_ftm_rsta_format_and_bandwidth,
+  &hf_ieee80211_ftm_rsta_reserved,
   NULL
 };
 
@@ -23462,11 +23477,12 @@ static void
 dissect_rsta_availability_window(tvbuff_t *tvb, packet_info *pinfo _U_,
                                  proto_tree *tree, int offset, int len _U_)
 {
-  guint8 count = tvb_get_guint8(tvb, offset);
+  guint8 count = tvb_get_guint8(tvb, offset) &0x7F;
   int i;
 
-  proto_tree_add_item(tree, hf_ieee80211_ftm_rsta_count, tvb, offset, 1,
-                      ENC_NA);
+  proto_tree_add_bitmask(tree, tvb, offset, hf_ieee80211_ftm_rsta_header,
+                         ett_rsta_avail_header, rsta_avail_info_header, ENC_NA);
+
   offset += 1;
 
   for (i = 0; i < count; i++) {
@@ -23664,6 +23680,42 @@ dissect_ntb_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int of
   add_min_max_time_between_measurements(item, tvb, pinfo, offset, sub_length);
 }
 
+static const range_string ranging_subelt_types[] = {
+  { 0, 0, "Non-TB specific" },
+  { 1, 1, "TB-specific" },
+  { 2, 220, "Reserved" },
+  { 221, 221, "Vendor Specific" },
+  { 222, 255, "Reserved" },
+  { 0, 0, NULL }
+};
+
+static int
+dissect_tb_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+    int offset, int sub_length _U_)
+{
+
+    /* Now add the extra 32-bits of items */
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_aid_rsid, tvb,
+                        offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_device_class, tvb,
+                        offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_full_bw_ul_mu_mimo, tvb,
+                        offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_trigger_frame_paddur,
+                        tvb, offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_max_sess_exp, tvb,
+                        offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_passive_tb_ranging, tvb,
+                        offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(tree, hf_ieee80211_tag_ranging_tb_specific_reserved,
+                        tvb, offset, 4, ENC_LITTLE_ENDIAN);
+    offset += 4;
+
+    offset += add_tagged_field(pinfo, tree, tvb, offset, 0, NULL, 0, NULL);
+
+    return offset;
+}
+
 static void
 dissect_ranging_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, int len)
 {
@@ -23684,14 +23736,15 @@ dissect_ranging_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     &hf_ieee80211_tag_ranging_immediate_i2r_feedback,
     &hf_ieee80211_tag_ranging_max_i2r_repetition,
     &hf_ieee80211_tag_ranging_max_r2i_repetition,
-    &hf_ieee80211_tag_ranging_device_class,
-    &hf_ieee80211_tag_ranging_full_bandwidth_ul_mu_mimo,
+    &hf_ieee80211_tag_ranging_reserved1,
+    &hf_ieee80211_tag_ranging_reserved2,
     &hf_ieee80211_tag_ranging_max_r2i_sts_le_80_mhz,
     &hf_ieee80211_tag_ranging_max_r2i_sts_gt_80_mhz,
     &hf_ieee80211_tag_ranging_max_r2i_ltf_total,
     &hf_ieee80211_tag_ranging_max_i2r_ltf_total,
     &hf_ieee80211_tag_ranging_max_i2r_sts_le_80_mhz,
     &hf_ieee80211_tag_ranging_max_i2r_sts_gt_80_mhz,
+    &hf_ieee80211_tag_ranging_bss_color_info,
     NULL};
   static const value_string short_status[] = {
     { 0, "Reserved" },
@@ -23716,16 +23769,39 @@ dissect_ranging_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
                     val_to_str_const(status, short_status, "Unknown"));
   }
 
-  offset += 6;
+  offset += 7;
 
   while (offset < len) {
     guint8 sub_id, sub_length;
+    proto_item *sub_elt_len, *rsti;
+    proto_tree *sub_tree;
+    guint subelt = 0;
+    guint start_offset = offset;
+
+    sub_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1,
+                        ett_ranging_subelement_tree, &rsti,
+                        "Ranging Subelement %d", subelt);
+
+
     sub_id = tvb_get_guint8(tvb, offset);
-    sub_length = tvb_get_guint8(tvb, offset + 1);
-    offset += 2;
+    proto_item_append_text(sub_tree, ": %s", rval_to_str(sub_id,
+                                                         ranging_subelt_types,
+                                                         "Reserved"));
+    proto_tree_add_item(sub_tree, hf_ieee80211_tag_ranging_subelt_tag, tvb,
+                        offset, 1, ENC_NA);
+    offset += 1;
+
+    sub_length = tvb_get_guint8(tvb, offset);
+    sub_elt_len = proto_tree_add_item(sub_tree,
+                                      hf_ieee80211_tag_ranging_subelt_len,
+                                      tvb, offset, 1, ENC_NA);
+    offset += 1;
 
     if (offset + sub_length > tag_len) {
-      expert_add_info_format(pinfo, tree, &ei_ieee80211_tag_length, "Subelement length exceeds tag length");
+      expert_add_info_format(pinfo, sub_elt_len, &ei_ieee80211_tag_length,
+          "Subelement length (%u) exceeds remaining tag length (%u)",
+          sub_length, tvb_captured_length_remaining(tvb, offset));
+      proto_item_set_len(rsti, offset - start_offset);
       return;
     }
 
@@ -23735,28 +23811,15 @@ dissect_ranging_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
       case 1: /* Ranging SUB_TB_SPECIFIC */
         /* TODO: Specify the acceptable tagged elements */
-        offset += add_tagged_field(pinfo, tree, tvb, offset, 0, NULL, 0, NULL);
-
-        /* Now add the extra 32-bits of items */
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_aid_rsid, tvb,
-                            offset, 4, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_response, tvb,
-                            offset, 4, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_trigger_frame_paddur,
-                            tvb, offset, 4, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_passive_tb_ranging,
-                            tvb, offset, 4, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_max_sess_exp, tvb,
-                            offset, 4, ENC_LITTLE_ENDIAN);
-        proto_tree_add_item(tree, hf_ieee80211_tag_ranging_bss_color_info, tvb,
-                            offset, 4, ENC_LITTLE_ENDIAN);
-        offset += 4;
+        offset = dissect_tb_specific(tvb, pinfo, tree, offset, sub_length);
         break;
       default:  /* skip unknown elements which may be defined in the future */
         break;
     }
 
     offset += sub_length;
+    subelt++;
+    proto_item_set_len(rsti, offset - start_offset);
   }
 }
 
@@ -30604,14 +30667,18 @@ dissect_ieee80211_block_ack(tvbuff_t *tvb, packet_info *pinfo _U_,
  * padding!
  */
 
-#define TRIGGER_TYPE_BASIC      0
-#define TRIGGER_TYPE_BRP        1
-#define TRIGGER_TYPE_MU_BAR     2
-#define TRIGGER_TYPE_MU_RTS     3
-#define TRIGGER_TYPE_BSRP       4
-#define TRIGGER_TYPE_GCR_MU_BAR 5
-#define TRIGGER_TYPE_BQRP       6
-#define TRIGGER_TYPE_NFRP       7
+typedef enum he_trigger_type {
+  TRIGGER_TYPE_BASIC = 0,
+  TRIGGER_TYPE_BRP,
+  TRIGGER_TYPE_MU_BAR,
+  TRIGGER_TYPE_MU_RTS,
+  TRIGGER_TYPE_BSRP,
+  TRIGGER_TYPE_GCR_MU_BAR,
+  TRIGGER_TYPE_BQRP,
+  TRIGGER_TYPE_NFRP,
+  TRIGGER_TYPE_RANGING,
+  TRIGGER_TYPE_MIN_RESERVED,
+} he_trigger_type_t;
 
 static const val64_string trigger_type_vals[] = {
   { 0, "Basic" },
@@ -30880,127 +30947,6 @@ add_nfrp_trigger_dependent_user_info(proto_tree *tree, tvbuff_t *tvb,
 }
 
 /*
- * Print the target RSSI field as per the spec.
- *  0->90 map to -110 to -20 dBm.
- *  127 maps to Max ransmit power for assigned MCS
- *  rest are reserved.
- */
-static void
-target_rssi_base_custom(gchar *result, guint32 target_rssi)
-{
-  if (target_rssi <= 90) {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%ddBm", -110 + target_rssi);
-  } else if (target_rssi == 127) {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "Max transmit power");
-  } else {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "Reserved");
-  }
-}
-
-static int * const user_info_headers_no_2045[] = {
-  &hf_ieee80211_he_trigger_aid12,
-  &hf_ieee80211_he_trigger_ru_allocation_region,
-  &hf_ieee80211_he_trigger_ru_allocation,
-  &hf_ieee80211_he_trigger_ul_fec_coding_type,
-  &hf_ieee80211_he_trigger_ul_mcs,
-  &hf_ieee80211_he_trigger_ul_dcm,
-  &hf_ieee80211_he_trigger_ru_starting_spatial_stream,
-  &hf_ieee80211_he_trigger_ru_number_spatial_streams,
-  &hf_ieee80211_he_trigger_ul_target_rssi,
-  &hf_ieee80211_he_trigger_user_reserved,
-  NULL
-};
-
-static int * const user_info_headers_2045[] = {
-  &hf_ieee80211_he_trigger_aid12,
-  &hf_ieee80211_he_trigger_ru_allocation_region,
-  &hf_ieee80211_he_trigger_ru_allocation,
-  &hf_ieee80211_he_trigger_ul_fec_coding_type,
-  &hf_ieee80211_he_trigger_ul_mcs,
-  &hf_ieee80211_he_trigger_ul_dcm,
-  &hf_ieee80211_he_trigger_ru_number_ra_ru,
-  &hf_ieee80211_he_trigger_ru_no_more_ra_ru,
-  &hf_ieee80211_he_trigger_ul_target_rssi,
-  &hf_ieee80211_he_trigger_user_reserved,
-  NULL
-};
-
-static int
-add_he_trigger_user_info(proto_tree *tree, tvbuff_t *tvb, int offset,
-  packet_info *pinfo, guint8 trigger_type, int *frame_len)
-{
-  proto_item     *pi = NULL;
-  proto_tree     *user_info = NULL;
-  int            length = 0;
-  int            start_offset = offset;
-  guint16         aid12_subfield = 0;
-
-  /*
-   * If the AID12 subfield has the value 4095 it indicates the start of
-   * the padding field.
-   */
-  user_info = proto_tree_add_subtree(tree, tvb, offset, -1,
-                        ett_he_trigger_user_info, &pi, "User Info");
-  aid12_subfield = tvb_get_letohs(tvb, offset) & 0xFFF;
-
-  while (aid12_subfield != 4095) {
-
-    if (aid12_subfield != 0 && aid12_subfield != 2045)
-      proto_tree_add_bitmask_with_flags(user_info, tvb, offset,
-                          hf_ieee80211_he_trigger_user_info,
-                          ett_he_trigger_base_user_info,
-                          user_info_headers_no_2045,
-                          ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
-    else
-      proto_tree_add_bitmask_with_flags(user_info, tvb, offset,
-                          hf_ieee80211_he_trigger_user_info,
-                          ett_he_trigger_base_user_info,
-                          user_info_headers_2045,
-                          ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
-    offset += 5;
-    length += 5;
-
-    /*
-     * Handle the trigger dependent user info
-     */
-    switch (trigger_type) {
-      case TRIGGER_TYPE_BASIC:
-        add_basic_trigger_dependent_user_info(user_info, tvb, offset);
-        offset++;
-        length++;
-        break;
-      case TRIGGER_TYPE_BRP:
-        add_brp_trigger_dependent_user_info(user_info, tvb, offset);
-        offset++;
-        length++;
-        break;
-      case TRIGGER_TYPE_MU_BAR:
-        /* This is variable length so we need it to update the length */
-        offset = add_mu_bar_trigger_dependent_user_info(user_info, tvb,
-                                offset, pinfo, &length);
-        break;
-      case TRIGGER_TYPE_NFRP:
-        add_nfrp_trigger_dependent_user_info(user_info, tvb, offset);
-        offset += 5;
-        length += 5;
-        break;
-      default:
-        break;
-    }
-
-    if (tvb_reported_length_remaining(tvb, offset) < 5)
-      aid12_subfield = 4095;
-    else
-      aid12_subfield = tvb_get_letohs(tvb, offset) & 0xFFF;
-  }
-
-  proto_item_set_len(pi, offset - start_offset);
-
-  *frame_len += length;
-  return length;
-}
-
-/*
  * Dissect one of the ranging trigger types ...
  */
 static int * const poll_rpt_hdrs[] = {
@@ -31082,6 +31028,144 @@ dissect_ieee80211_ranging_trigger_variant(proto_tree *tree, tvbuff_t *tvb,
   return offset - saved_offset;
 }
 
+/*
+ * Print the target RSSI field as per the spec.
+ *  0->90 map to -110 to -20 dBm.
+ *  127 maps to Max ransmit power for assigned MCS
+ *  rest are reserved.
+ */
+static void
+target_rssi_base_custom(gchar *result, guint32 target_rssi)
+{
+  if (target_rssi <= 90) {
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%ddBm", -110 + target_rssi);
+  } else if (target_rssi == 127) {
+    g_snprintf(result, ITEM_LABEL_LENGTH, "Max transmit power");
+  } else {
+    g_snprintf(result, ITEM_LABEL_LENGTH, "Reserved");
+  }
+}
+
+static int * const user_info_headers_no_2045[] = {
+  &hf_ieee80211_he_trigger_aid12,
+  &hf_ieee80211_he_trigger_ru_allocation_region,
+  &hf_ieee80211_he_trigger_ru_allocation,
+  &hf_ieee80211_he_trigger_ul_fec_coding_type,
+  &hf_ieee80211_he_trigger_ul_mcs,
+  &hf_ieee80211_he_trigger_ul_dcm,
+  &hf_ieee80211_he_trigger_ru_starting_spatial_stream,
+  &hf_ieee80211_he_trigger_ru_number_spatial_streams,
+  &hf_ieee80211_he_trigger_ul_target_rssi,
+  &hf_ieee80211_he_trigger_user_reserved,
+  NULL
+};
+
+static int
+add_he_trigger_user_info(proto_tree *tree, tvbuff_t *tvb, int offset,
+  packet_info *pinfo, guint8 trigger_type, guint8 subtype,
+  int *frame_len, guint fcs_len)
+{
+  proto_item     *pi = NULL;
+  proto_tree     *user_info = NULL;
+  int            length = 0, range_len = 0;
+  int            start_offset = offset;
+  guint16         aid12_subfield = 0;
+
+  /*
+   * If the AID12 subfield has the value 4095 it indicates the start of
+   * the padding field.
+   */
+  user_info = proto_tree_add_subtree(tree, tvb, offset, -1,
+                        ett_he_trigger_user_info, &pi, "User Info");
+
+  aid12_subfield = tvb_get_letohs(tvb, offset) & 0x0FFF;
+
+  while (aid12_subfield != 4095) {
+
+    switch (trigger_type) {
+      case TRIGGER_TYPE_BASIC:
+      case TRIGGER_TYPE_BRP:
+      case TRIGGER_TYPE_MU_BAR:
+      case TRIGGER_TYPE_MU_RTS:
+      case TRIGGER_TYPE_BSRP:
+      case TRIGGER_TYPE_GCR_MU_BAR:
+      case TRIGGER_TYPE_BQRP:
+        proto_tree_add_bitmask_with_flags(user_info, tvb, offset,
+                            hf_ieee80211_he_trigger_user_info,
+                            ett_he_trigger_base_user_info,
+                            user_info_headers_no_2045,
+                            ENC_LITTLE_ENDIAN, BMT_NO_APPEND);
+        offset += 5;
+        length += 5;
+        break;
+      case TRIGGER_TYPE_NFRP:
+        add_nfrp_trigger_dependent_user_info(user_info, tvb, offset);
+        offset += 5;
+        length += 5;
+        break;
+      case TRIGGER_TYPE_RANGING:
+        range_len = dissect_ieee80211_ranging_trigger_variant(user_info, tvb,
+                                                offset, pinfo, subtype);
+        offset += range_len;
+        length += range_len;
+        break;
+      default:
+        /* Should never get here */
+        break;
+    }
+
+
+    /*
+     * Handle the trigger dependent user info
+     */
+    switch (trigger_type) {
+      case TRIGGER_TYPE_BASIC:
+        add_basic_trigger_dependent_user_info(user_info, tvb, offset);
+        offset++;
+        length++;
+        break;
+      case TRIGGER_TYPE_BRP:
+        add_brp_trigger_dependent_user_info(user_info, tvb, offset);
+        offset++;
+        length++;
+        break;
+      case TRIGGER_TYPE_MU_BAR:
+        /* This is variable length so we need it to update the length */
+        offset = add_mu_bar_trigger_dependent_user_info(user_info, tvb,
+                                offset, pinfo, &length);
+        break;
+      default:
+        break;
+    }
+
+    if (tvb_reported_length_remaining(tvb, offset) < 5)
+      aid12_subfield = 4095;
+    else
+      aid12_subfield = tvb_get_letohs(tvb, offset) & 0xFFF;
+  }
+
+  if (aid12_subfield == 4095) {
+    /* Show the Start of Padding field. */
+    proto_tree_add_item(user_info,
+                        hf_ieee80211_he_trigger_user_info_padding_start,
+                        tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    offset += 2;
+
+  }
+
+  proto_item_set_len(pi, offset - start_offset);
+
+  /* Now, treat all the rest of the frame as padding */
+  if (aid12_subfield == 4095) {
+    proto_tree_add_item(tree, hf_ieee80211_he_trigger_padding, tvb, offset,
+                        tvb_reported_length_remaining(tvb, offset) - fcs_len,
+                        ENC_NA);
+  }
+
+  *frame_len += length;
+  return length;
+}
+
 static const range_string ranging_trigger_subtype_vals[] = {
   { 0, 0, "Poll" },
   { 1, 1, "Sounding" },
@@ -31108,13 +31192,14 @@ static int * const ranging_headers2[] = {
 
 static int
 dissect_ieee80211_he_trigger(tvbuff_t *tvb, packet_info *pinfo _U_,
-  proto_tree *tree, int offset)
+  proto_tree *tree, int offset, guint fcs_len)
 {
   const gchar *ether_name = tvb_get_ether_name(tvb, offset);
-  proto_item      *hidden_item;
-  proto_tree      *common_tree = NULL;
-  guint8          trigger_type = 0;
-  int             length = 0;
+  proto_item        *hidden_item;
+  proto_tree        *common_tree = NULL;
+  guint8            trigger_type;
+  guint8            subtype = 0;
+  int               length = 0;
 
   proto_tree_add_item(tree, hf_ieee80211_addr_ta, tvb, offset, 6, ENC_NA);
   hidden_item = proto_tree_add_string(tree, hf_ieee80211_addr_ta_resolved,
@@ -31133,6 +31218,18 @@ dissect_ieee80211_he_trigger(tvbuff_t *tvb, packet_info *pinfo _U_,
   trigger_type = tvb_get_guint8(tvb, offset) & 0x0F;
   col_append_fstr(pinfo->cinfo, COL_INFO, " %s",
                 val64_to_str(trigger_type, trigger_type_vals, "Reserved"));
+
+  if (trigger_type >= TRIGGER_TYPE_MIN_RESERVED) {
+    /* Add an Expert Info and forget it */
+    proto_item *item;
+
+    item = proto_tree_add_item(tree, hf_ieee80211_he_trigger_type, tvb, offset,
+                               1, ENC_NA);
+    expert_add_info_format(pinfo, item, &ei_ieee80211_inv_val,
+                           "Trigger type too large: %u", trigger_type);
+    return tvb_captured_length_remaining(tvb, offset) + length;
+  }
+
   /*
    * Deal with the common Info and then any user info after that.
    */
@@ -31143,7 +31240,7 @@ dissect_ieee80211_he_trigger(tvbuff_t *tvb, packet_info *pinfo _U_,
    * If the trigger type is Ranging Trigger type, then deal with it separately.
    */
   if (trigger_type == 8) {
-    guint8 subtype = tvb_get_guint8(tvb, offset) & 0x0f;
+    subtype = tvb_get_guint8(tvb, offset) & 0x0f;
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ": %s",
                     rval_to_str(subtype, ranging_trigger_subtype_vals,
@@ -31171,12 +31268,10 @@ dissect_ieee80211_he_trigger(tvbuff_t *tvb, packet_info *pinfo _U_,
       break;
     }
 
-    dissect_ieee80211_ranging_trigger_variant(tree, tvb, offset,
-                                              pinfo, subtype);
-  } else {
-    add_he_trigger_user_info(tree, tvb, offset, pinfo,
-                             trigger_type, &length);
   }
+
+  add_he_trigger_user_info(tree, tvb, offset, pinfo, trigger_type, subtype,
+                           &length, fcs_len);
 
   /*
    *  Padding should commence here ... TODO, deal with it.
@@ -32769,9 +32864,9 @@ dissect_ieee80211_common(tvbuff_t *tvb, packet_info *pinfo,
           /*
            * The len returned will be adjusted to include any padding required
            */
-          hdr_len = dissect_ieee80211_he_trigger(tvb, pinfo, hdr_tree, offset);
+          hdr_len = dissect_ieee80211_he_trigger(tvb, pinfo, hdr_tree, offset,
+                                                 phdr->fcs_len);
           ohdr_len = hdr_len;
-          has_fcs = FALSE;  /* Not sure at this stage */
           break;
 
         case CTRL_TACK:
@@ -38391,123 +38486,136 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_tag_ranging_parameters,
      {"Ranging Parameters", "wlan.ranging",
-      FT_UINT48, BASE_HEX, NULL, 0,
+      FT_UINT56, BASE_HEX, NULL, 0,
       NULL, HFILL }},
+
+    {&hf_ieee80211_tag_ranging_subelt_tag,
+     {"Subelement Tag", "wlan.tag.ranging.subelt_tag",
+      FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+
+    {&hf_ieee80211_tag_ranging_subelt_len,
+     {"Subelement Len", "wlan.tag.ranging.subelt_len",
+      FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_status_indication,
      {"Status Indication", "wlan.ranging.status",
-      FT_UINT48, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_status_vals), GENMASK(1, 0),
+      FT_UINT56, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_status_vals), GENMASK(1, 0),
       "Status Indication", HFILL }},
 
     {&hf_ieee80211_tag_ranging_value,
      {"Value", "wlan.ranging.value",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(6, 2),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(6, 2),
       "When Status Indication is 3, the Value field contains a duration in units of seconds", HFILL }},
 
     {&hf_ieee80211_tag_ranging_i2r_lmr_feedback,
      {"I2R LMR Feedback", "wlan.ranging.i2r_lmr_feedback",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(7, 7),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(7, 7),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_secure_ltf_required,
      {"Secure LTF Required", "wlan.ranging.secure_ltf_required",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(8, 8),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(8, 8),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_secure_ltf_support,
      {"Secure LTF Support", "wlan.ranging.secure_ltf_support",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(9, 9),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(9, 9),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_ranging_priority,
      {"Ranging Priority", "wlan.ranging.priority",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(11, 10),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(11, 10),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_r2i_toa_type,
      {"R2I TOA Type", "wlan.ranging.r2i_toa_type",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(12, 12),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(12, 12),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_i2r_toa_type,
      {"I2R TOA Type", "wlan.ranging.i2r_toa_type",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(13, 13),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(13, 13),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_r2i_aoa_requested,
      {"R2I AOA Requested", "wlan.ranging.r2i_aoa_requested",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(14, 14),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(14, 14),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_i2r_aoa_requested,
      {"I2R AOA Requested", "wlan.ranging.i2r_aoa_requested",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(15, 15),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(15, 15),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_format_and_bandwidth,
      {"Format and Bandwidth", "wlan.ranging.format_and_bandwidth",
-      FT_UINT48, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_fmt_bw_vals), GENMASK(21, 16),
+      FT_UINT56, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_fmt_bw_vals), GENMASK(21, 16),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_immediate_r2i_feedback,
      {"Immediate R2I Feedback", "wlan.ranging.immediate_r2i_feedback",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(22, 22),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(22, 22),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_immediate_i2r_feedback,
      {"Immediate I2R Feedback", "wlan.ranging.immediate_i2r_feedback",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(23, 23),
+      FT_UINT56, BASE_DEC, NULL, GENMASK(23, 23),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_i2r_repetition,
      {"Max I2R Repetition", "wlan.ranging.max_i2r_repetition",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(rep_custom), GENMASK(26, 24),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(rep_custom), GENMASK(26, 24),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_r2i_repetition,
      {"Max R2I Repetition", "wlan.ranging.max_r2i_repetition",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(rep_custom), GENMASK(29, 27),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(rep_custom), GENMASK(29, 27),
       NULL, HFILL }},
 
-    {&hf_ieee80211_tag_ranging_device_class,
-     {"Device Class", "wlan.ranging.device_class",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(30, 30),
+    {&hf_ieee80211_tag_ranging_reserved1,
+     {"Reserved", "wlan.ranging.reserved1",
+      FT_UINT56, BASE_DEC, NULL, GENMASK(30, 30),
       NULL, HFILL }},
 
-    {&hf_ieee80211_tag_ranging_full_bandwidth_ul_mu_mimo,
-     {"Full Bandwidth UL MU-MIMO", "wlan.ranging.full_bandwidth_ul_mu_mimo",
-      FT_UINT48, BASE_DEC, NULL, GENMASK(31, 31),
+    {&hf_ieee80211_tag_ranging_reserved2,
+     {"Reserved", "wlan.ranging.reserved2",
+      FT_UINT56, BASE_DEC, NULL, GENMASK(31, 31),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_r2i_sts_le_80_mhz,
      {"Max R2I STS <= 80 MHz", "wlan.ranging.max_r2i_sts_le_80_mhz",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(34, 32),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(34, 32),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_r2i_sts_gt_80_mhz,
      {"Max R2I STS > 80 MHz", "wlan.ranging.max_r2i_sts_gt_80_mhz",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(37, 35),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(37, 35),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_r2i_ltf_total,
      {"Max R2I LTF Total", "wlan.ranging.max_r2i_ltf_total",
-      FT_UINT48, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_ltf_total_vals), GENMASK64(39, 38),
+      FT_UINT56, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_ltf_total_vals), GENMASK64(39, 38),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_i2r_ltf_total,
      {"Max I2R LTF Total", "wlan.ranging.max_i2r_ltf_total",
-      FT_UINT48, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_ltf_total_vals), GENMASK64(41, 40),
+      FT_UINT56, BASE_DEC | BASE_VAL64_STRING, VALS64(ieee80211_ranging_ltf_total_vals), GENMASK64(41, 40),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_i2r_sts_le_80_mhz,
      {"Max I2R STS <= 80 MHz", "wlan.ranging.max_i2r_sts_le_80_mhz",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(44, 42),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(44, 42),
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_i2r_sts_gt_80_mhz,
      {"Max I2R STS > 80 MHz", "wlan.ranging.max_i2r_sts_gt_80_mhz",
-      FT_UINT48, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(47, 45),
+      FT_UINT56, BASE_CUSTOM, CF_FUNC(sts_custom), GENMASK64(47, 45),
       NULL, HFILL }},
+
+    {&hf_ieee80211_tag_ranging_bss_color_info,
+     {"BSS Color Information",
+      "wlan.tag.ftm.param.ranging.bss_color_information",
+      FT_UINT56, BASE_HEX, NULL, GENMASK64(55, 48), NULL, HFILL }},
 
     /* az: non-TB-specific subelement */
 
@@ -38550,26 +38658,30 @@ proto_register_ieee80211(void)
      {"AID/RSID", "wlan.ranging.tb.aid_rsid",
       FT_UINT32, BASE_HEX, NULL, 0x0000ffff, NULL, HFILL }},
 
-    {&hf_ieee80211_tag_ranging_response,
-     {"Response", "wlan.ranging.tb.response",
-      FT_BOOLEAN, 32, NULL, 0x00010000, NULL, HFILL }},
+    {&hf_ieee80211_tag_ranging_device_class,
+     {"Device Class", "wlan.tb.device_class",
+      FT_UINT32, BASE_DEC, NULL, 0x00010000, NULL, HFILL }},
+
+    {&hf_ieee80211_tag_ranging_full_bw_ul_mu_mimo,
+     {"Full Bandwidth UL MU-MIMO", "wlan.tb.full_bw_ul_mu_mimo",
+      FT_UINT32, BASE_DEC, NULL, 0x00020000, NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_trigger_frame_paddur,
      {"Trigger Frame Padding Duration",
       "wlan.ranging.tb.trigger_frame_padding_duration",
-      FT_UINT32, BASE_DEC, NULL, 0x00060000, NULL, HFILL }},
-
-    {&hf_ieee80211_tag_ranging_passive_tb_ranging,
-     {"Passive TB Ranging", "wlan.ranging.tb.passive_tb_ranging",
-      FT_BOOLEAN, 32, NULL, 0x00080000, NULL, HFILL }},
+      FT_BOOLEAN, 32, NULL, 0x000C0000, NULL, HFILL }},
 
     {&hf_ieee80211_tag_ranging_max_sess_exp,
      {"Max Session Exp", "wlan.ranging.tb.max_session.exp",
       FT_UINT32, BASE_DEC, NULL, 0x00f00000, NULL, HFILL }},
 
-    {&hf_ieee80211_tag_ranging_bss_color_info,
-     {"BSS Color Information", "wlan.ranging.tb.bss_color_information",
-      FT_UINT32, BASE_HEX, NULL, 0xff000000, NULL, HFILL }},
+    {&hf_ieee80211_tag_ranging_passive_tb_ranging,
+     {"Passive TB Ranging", "wlan.ftm.tb_specific.passive_tb_ranging",
+      FT_BOOLEAN, 32, NULL, 0x01000000, NULL, HFILL }},
+
+    {&hf_ieee80211_tag_ranging_tb_specific_reserved,
+     {"Reserved", "wlan.ftm.tb_specific.reserved",
+      FT_UINT32, BASE_HEX, NULL, 0xFE000000, NULL, HFILL }},
 
     {&hf_ieee80211_ff_ftm_max_tod_error_exponent,
      {"Max TOD Error Exponent", "wlan.fixed.ftm.max_tod_error_exponent",
@@ -38653,9 +38765,18 @@ proto_register_ieee80211(void)
      {"Padding", "wlan.ranging.ista.availability_pad",
       FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
+    {&hf_ieee80211_ftm_rsta_header,
+     {"Header", "wlan.ftm.rsta.header",
+      FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+
     {&hf_ieee80211_ftm_rsta_count,
      {"RSTA Count", "wlan.ranging.rsta.count",
-      FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+      FT_UINT8, BASE_HEX, NULL, 0x7F, NULL, HFILL }},
+
+    {&hf_ieee80211_ftm_rsta_avail_window_bcast_fmt,
+     {"Availability Window Broadcast Format",
+      "wlan.ftm.rsta.availability_window_broadcast_format",
+      FT_UINT8, BASE_HEX, NULL, 0x80, NULL, HFILL }},
 
     {&hf_ieee80211_ftm_rsta_partial_tsf_timer1,
      {"Partial TSF Timer", "wlan.ranging.rsta.partial_tsf_timer",
@@ -38665,13 +38786,12 @@ proto_register_ieee80211(void)
      {"Duration", "wlan.ranging.rsta.duration",
       FT_UINT32, BASE_CUSTOM, CF_FUNC(hundred_us_base_custom), 0x7f0000, NULL, HFILL }},
 
-    {&hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win1,
-     {"Passive TB Ranging Availability Window",
-      "wlan.ranging.rsta.passive_ranging_availability_window",
+    {&hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved1,
+     {"Reserved", "wlan.ranging.rsta.reserved1",
       FT_BOOLEAN, 32, NULL, 0x800000, NULL, HFILL }},
 
     {&hf_ieee80211_ftm_rsta_periodicity1,
-     {"Periodicity", "wlan.ranging.rsta.periodicity",
+     {"Periodicity", "wlan.ranging.rsta.periodicity1",
       FT_UINT32, BASE_DEC, NULL, 0xff000000, NULL, HFILL }},
 
     {&hf_ieee80211_ftm_rsta_partial_tsf_timer,
@@ -38682,19 +38802,21 @@ proto_register_ieee80211(void)
      {"Duration", "wlan.ranging.rsta.duration",
       FT_UINT40, BASE_CUSTOM, CF_FUNC(hundred_us_base_custom), 0x7f0000, NULL, HFILL }},
 
-    {&hf_ieee80211_ftm_rsta_passive_tb_ranging_avail_win,
-     {"Passive TB Ranging Availability Window",
-      "wlan.ranging.rsta.passive_ranging_availability_window",
+    {&hf_ieee80211_ftm_rsta_passive_tb_ranging_reserved,
+     {"Reserved", "wlan.ranging.rsta.reserved",
       FT_BOOLEAN, 40, NULL, 0x800000, NULL, HFILL }},
 
     {&hf_ieee80211_ftm_rsta_periodicity,
      {"Periodicity", "wlan.ranging.rsta.periodicity",
       FT_UINT40, BASE_DEC, NULL, 0xff000000, NULL, HFILL }},
 
-    {&hf_ieee80211_ftm_rsta_passive_tb_ranging_params,
-     {"Passive TB Ranging params",
-      "wlan.ranging.rsta.passive_tb_ranging_params",
-      FT_UINT8, BASE_HEX, NULL, 0xff00000000, NULL, HFILL }},
+    {&hf_ieee80211_ftm_rsta_format_and_bandwidth,
+      {"Format and Bandwidth", "wlan.ftm.rsta.format_and_bandwidth",
+       FT_UINT8, BASE_HEX, NULL, 0x3F, NULL, HFILL }},
+
+    {&hf_ieee80211_ftm_rsta_reserved,
+     {"Reserved", "wlan.ftm.rsta.reserved",
+      FT_UINT8, BASE_HEX, NULL, 0xC0, NULL, HFILL }},
 
     {&hf_ieee80211_ftm_rsta_avail_subfield_short,
      {"RSTA Availability Information", "wlan.ranging.rsta.availability_window",
@@ -41656,11 +41778,6 @@ proto_register_ieee80211(void)
      {"Rx NSS Type", "wlan.operat_mode_field.rxnsstype",
       FT_UINT8, BASE_HEX, NULL, 0x80,
       "Indicate that the Rx NSS subfield carries the maximum number of spatial streams that the STA can receive", HFILL }},
-
-    {&hf_ieee80211_rnr_tbtt_information,
-     {"TBTT Information", "wlan.rnr.tbtt_information",
-      FT_NONE, BASE_NONE, NULL, 0x0,
-      NULL, HFILL }},
 
     {&hf_ieee80211_rnr_tbtt_information_field_header,
      {"TBTT Information Field Header", "wlan.rnr.tbtt_information.field_header",
@@ -46941,6 +47058,14 @@ proto_register_ieee80211(void)
      {"User Info", "wlan.trigger.he.user_info",
       FT_UINT40, BASE_HEX, NULL, 0, NULL, HFILL }},
 
+    {&hf_ieee80211_he_trigger_user_info_padding_start,
+     {"Start of Padding", "wlan.trigger.he.user_info.start_of_padding",
+      FT_UINT16, BASE_DEC, NULL, 0x0FFF, NULL, HFILL }},
+
+    {&hf_ieee80211_he_trigger_padding,
+     {"Padding", "wlan.trigger.he.padding",
+      FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
+
     {&hf_ieee80211_he_trigger_mpdu_mu_spacing,
      {"MPDU MU Spacing Factor", "wlan.trigger.he.mpdu_mu_spacing_factor",
       FT_UINT8, BASE_DEC, NULL, 0x03, NULL, HFILL }},
@@ -47030,15 +47155,6 @@ proto_register_ieee80211(void)
      {"Number Of Spatial Streams", "wlan.trigger.he.ru_number_of_spatial_stream",
       FT_UINT40, BASE_CUSTOM, CF_FUNC(he_trigger_minus_one_custom),
       0x00E0000000, NULL, HFILL }},
-
-    {&hf_ieee80211_he_trigger_ru_number_ra_ru,
-     {"Number of RA-RU", "wlan.trigger.he.ru_number_of_ra_ru",
-      FT_UINT40, BASE_CUSTOM, CF_FUNC(he_trigger_minus_one_custom),
-      0x003C000000, NULL, HFILL }},
-
-    {&hf_ieee80211_he_trigger_ru_no_more_ra_ru,
-     {"No More RA-RU", "wlan.trigger.he.ru_no_more_ra_ru",
-      FT_BOOLEAN, 40, NULL, 0x0040000000, NULL, HFILL }},
 
     {&hf_ieee80211_he_trigger_ul_target_rssi,
      {"Target RSSI", "wlan.trigger.he.target_rssi",
@@ -50228,6 +50344,9 @@ proto_register_ieee80211(void)
     &ett_tag_ranging,
     &ett_tag_ranging_ntb,
 
+    &ett_ranging_subelement_tree,
+
+    &ett_rsta_avail_header,
     &ett_rsta_avail_tree,
     &ett_rsta_avail_subfield,
 

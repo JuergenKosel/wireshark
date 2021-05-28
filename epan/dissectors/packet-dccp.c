@@ -74,6 +74,9 @@
 #define DCCP_HDR_LEN_MAX (DCCP_HDR_LEN + DCCP_HDR_PKT_TYPES_LEN_MAX + \
                           DCCP_OPT_LEN_MAX)
 
+/* Static DCCP flags. Set in dccp_flow_t:static_flags */
+#define DCCP_S_BASE_SEQ_SET 0x01
+
 void proto_register_dccp(void);
 void proto_reg_handoff_dccp(void);
 
@@ -203,9 +206,11 @@ static int hf_dccp_type = -1;
 static int hf_dccp_x = -1;
 static int hf_dccp_res2 = -1;
 static int hf_dccp_seq = -1;
+static int hf_dccp_seq_abs = -1;
 
 static int hf_dccp_ack_res = -1;
 static int hf_dccp_ack = -1;
+static int hf_dccp_ack_abs = -1;
 
 static int hf_dccp_service_code = -1;
 static int hf_dccp_reset_code = -1;
@@ -254,6 +259,7 @@ static heur_dissector_list_t heur_subdissector_list;
 static gboolean dccp_summary_in_tree = TRUE;
 static gboolean try_heuristic_first  = FALSE;
 static gboolean dccp_check_checksum  = TRUE;
+static gboolean dccp_relative_seq    = TRUE;
 static guint32  dccp_stream_count;
 
 static void
@@ -344,16 +350,14 @@ init_dccp_conversation_data(packet_info *pinfo)
 
   /* Initialize the dccp protocol data structure to add to the dccp conversation */
   dccpd = wmem_new0(wmem_file_scope(), struct dccp_analysis);
-  /*
-  dccpd->flow1.username = NULL;
-  dccpd->flow1.command = NULL;
-  dccpd->flow2.username = NULL;
-  dccpd->flow2.command = NULL;
-  */
+  dccpd->flow1.static_flags = 0;
+  dccpd->flow1.base_seq     = 0;
+  dccpd->flow2.static_flags = 0;
+  dccpd->flow2.base_seq     = 0;
 
-  dccpd->stream = dccp_stream_count++;
+  dccpd->stream   = dccp_stream_count++;
   dccpd->ts_first = pinfo->abs_ts;
-  dccpd->ts_prev = pinfo->abs_ts;
+  dccpd->ts_prev  = pinfo->abs_ts;
 
   return dccpd;
 }
@@ -666,7 +670,7 @@ dissect_feature_options(proto_tree *dccp_options_tree, tvbuff_t *tvb,
     case 5:       /* Ack Ratio                                     */
 
         if (option_len > 0) /* could be empty Confirm */
-            proto_item_append_text(dccp_item, " %" G_GINT64_MODIFIER "u",
+            proto_item_append_text(dccp_item, " %" G_GUINT64_FORMAT "",
                                    dccp_ntoh_var(tvb, offset, option_len));
         break;
 
@@ -891,6 +895,8 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     guint      csum_coverage_len;
     guint      advertised_dccp_header_len = 0;
     guint      options_len                = 0;
+    guint64    seq;   /* Absolute or relative seq number (depending on DCCP_S_BASE_SEQ_SET) */
+    guint64    ack;   /* Absolute or relative ack number (depending on DCCP_S_BASE_SEQ_SET) */
     e_dccphdr *dccph;
     conversation_t *conv = NULL;
     struct dccp_analysis *dccpd;
@@ -1040,8 +1046,16 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
         offset += 1;
 
         dccph->seq = tvb_get_ntoh48(tvb, offset);
-        proto_tree_add_uint64(dccp_tree, hf_dccp_seq, tvb, offset, 6,
-                              dccph->seq);
+        if((dccp_relative_seq) && (dccpd->fwd->static_flags & DCCP_S_BASE_SEQ_SET)) {
+            seq = dccph->seq - dccpd->fwd->base_seq;
+            proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_seq, tvb, offset, 6,
+                                               seq, "%" G_GUINT64_FORMAT "    (relative sequence number)", seq);
+        }
+        else {
+            seq = dccph->seq;
+        }
+        proto_tree_add_uint64(dccp_tree, hf_dccp_seq_abs, tvb, offset, 6, dccph->seq);
+
         offset += 6;
     } else {
         if (advertised_dccp_header_len < DCCP_GEN_HDR_LEN_NO_X) {
@@ -1051,17 +1065,21 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             return tvb_reported_length(tvb);
         }
         dccph->seq = tvb_get_ntoh24(tvb, offset);
-        proto_tree_add_uint64(dccp_tree, hf_dccp_seq, tvb, offset, 3,
-                              dccph->seq);
+        proto_tree_add_uint64(dccp_tree, hf_dccp_seq, tvb, offset, 3, dccph->seq);
+        if((dccp_relative_seq) && (dccpd->fwd->static_flags & DCCP_S_BASE_SEQ_SET)) {
+            seq = (dccph->seq - dccpd->fwd->base_seq) & 0xffffff;
+            proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_seq, tvb, offset, 3,
+                                               seq, "%" G_GUINT64_FORMAT "    (relative sequence number)", seq);
+        }
+        else {
+            seq = dccph->seq;
+        }
         offset += 3;
     }
     if (dccp_summary_in_tree) {
-        proto_item_append_text(dccp_item, " Seq=%" G_GINT64_MODIFIER "u",
-                               dccph->seq);
+        proto_item_append_text(dccp_item, " Seq=%" G_GUINT64_FORMAT "", seq);
     }
-    col_append_fstr(pinfo->cinfo, COL_INFO,
-                    " Seq=%" G_GINT64_MODIFIER "u",
-                    dccph->seq);
+    col_append_fstr(pinfo->cinfo, COL_INFO, " Seq=%" G_GUINT64_FORMAT "", seq);
 
     /* dissecting type dependent additional fields */
     switch (dccph->type) {
@@ -1078,9 +1096,15 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
         if (tree)
             proto_tree_add_uint(dccp_tree, hf_dccp_service_code, tvb, offset, 4,
                                 dccph->service_code);
-        col_append_fstr(pinfo->cinfo, COL_INFO, " (service=%u)",
-                        dccph->service_code);
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (service=%s)",
+                        val_to_str(dccph->service_code, dccp_service_code_vals, "Unknown (%u)"));
         offset += 4; /* move offset past the service code */
+
+        if( !(dccpd->fwd->static_flags & DCCP_S_BASE_SEQ_SET) ) {
+            dccpd->fwd->base_seq = dccph->seq;
+            dccpd->fwd->static_flags |= DCCP_S_BASE_SEQ_SET;
+        }
+
         break;
     case 0x1: /* DCCP-Response */
         if (advertised_dccp_header_len < offset + 12) {
@@ -1100,22 +1124,36 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
         dccph->ack <<= 32;
         dccph->ack += tvb_get_ntohl(tvb, offset + 4);
 
-        if (tree)
-            proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 2, 6,
-                                  dccph->ack);
-        col_append_fstr(pinfo->cinfo, COL_INFO,
-                        " (Ack=%" G_GINT64_MODIFIER "u)",
-                        dccph->ack);
+        if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+            ack = dccph->ack - dccpd->rev->base_seq;
+        }
+        else {
+            ack = dccph->ack;
+        }
+
+        if (tree) {
+            if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 2, 6, ack);
+            }
+            proto_tree_add_uint64(dccp_tree, hf_dccp_ack_abs, tvb, offset + 2, 6, dccph->ack);
+        }
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (Ack=%" G_GUINT64_FORMAT ")", ack);
         offset += 8; /* move offset past the Acknowledgement Number Subheader */
 
         dccph->service_code = tvb_get_ntohl(tvb, offset);
         if (tree)
             proto_tree_add_uint(dccp_tree, hf_dccp_service_code, tvb, offset, 4,
                                 dccph->service_code);
-        col_append_fstr(pinfo->cinfo, COL_INFO, " (service=%u)",
-                        dccph->service_code);
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (service=%s)",
+                        val_to_str(dccph->service_code, dccp_service_code_vals, "Unknown (%u)"));
 
         offset += 4; /* move offset past the service code */
+
+        if( !(dccpd->fwd->static_flags & DCCP_S_BASE_SEQ_SET) ) {
+            dccpd->fwd->base_seq = dccph->seq;
+            dccpd->fwd->static_flags |= DCCP_S_BASE_SEQ_SET;
+        }
+
         break;
     case 0x2: /* DCCP-Data */
         /* nothing to dissect */
@@ -1140,12 +1178,22 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             dccph->ack = tvb_get_ntohs(tvb, offset + 2);
             dccph->ack <<= 32;
             dccph->ack += tvb_get_ntohl(tvb, offset + 4);
-            if (tree)
-                proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 2,
-                                      6, dccph->ack);
-            col_append_fstr(pinfo->cinfo, COL_INFO,
-                            " (Ack=%" G_GINT64_MODIFIER "u)",
-                            dccph->ack);
+
+            if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                ack = dccph->ack - dccpd->rev->base_seq;
+            }
+            else {
+                ack = dccph->ack;
+            }
+
+            if (tree) {
+                if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                    proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_ack, tvb, offset + 2, 6,
+                                                       ack, "%" G_GUINT64_FORMAT "    (relative acknowledgement number)", ack);
+                }
+                proto_tree_add_uint64(dccp_tree, hf_dccp_ack_abs, tvb, offset + 2, 6, dccph->ack);
+            }
+            col_append_fstr(pinfo->cinfo, COL_INFO, " (Ack=%" G_GUINT64_FORMAT ")", ack);
             offset += 8; /* move offset past the Ack Number Subheader */
         } else {
             if (advertised_dccp_header_len < offset + 4) {
@@ -1165,11 +1213,22 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             dccph->ack = tvb_get_guint8(tvb, offset + 1);
             dccph->ack <<= 16;
             dccph->ack += tvb_get_ntohs(tvb, offset + 2);
-            if (tree)
-                proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 1,
-                                      3, dccph->ack);
-            col_append_fstr(pinfo->cinfo, COL_INFO,
-                            " (Ack=%" G_GINT64_MODIFIER "u)", dccph->ack);
+
+            if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                ack = (dccph->ack - dccpd->rev->base_seq) & 0xffffff;
+            }
+            else {
+                ack = dccph->ack;
+            }
+
+            if (tree) {
+                if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                    proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_ack, tvb, offset + 1, 3,
+                                                       ack, "%" G_GUINT64_FORMAT "    (relative acknowledgement number)", ack);
+                }
+                proto_tree_add_uint64(dccp_tree, hf_dccp_ack_abs, tvb, offset + 1, 3, dccph->ack);
+            }
+            col_append_fstr(pinfo->cinfo, COL_INFO, " (Ack=%" G_GUINT64_FORMAT ")", ack);
             offset += 4; /* move offset past the Ack. Number Subheader */
         }
         break;
@@ -1193,11 +1252,21 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
         dccph->ack <<= 32;
         dccph->ack += tvb_get_ntohl(tvb, offset + 4);
 
-        if (tree)
-            proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 2, 6,
-                                  dccph->ack);
-        col_append_fstr(pinfo->cinfo, COL_INFO,
-                        " (Ack=%" G_GINT64_MODIFIER "u)", dccph->ack);
+        if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+            ack = (dccph->ack - dccpd->rev->base_seq) & 0xffffff;
+        }
+        else {
+            ack = dccph->ack;
+        }
+
+        if (tree) {
+            if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_ack, tvb, offset + 1, 3,
+                                                    ack, "%" G_GUINT64_FORMAT "    (relative acknowledgement number)", ack);
+            }
+            proto_tree_add_uint64(dccp_tree, hf_dccp_ack_abs, tvb, offset + 1, 3, dccph->ack);
+        }
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (Ack=%" G_GUINT64_FORMAT ")", ack);
         offset += 8; /* move offset past the Ack. Number Subheader */
 
         dccph->reset_code = tvb_get_guint8(tvb, offset);
@@ -1242,11 +1311,22 @@ dissect_dccp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
         dccph->ack = tvb_get_ntohs(tvb, offset + 2);
         dccph->ack <<= 32;
         dccph->ack += tvb_get_ntohl(tvb, offset + 4);
-        if (tree)
-            proto_tree_add_uint64(dccp_tree, hf_dccp_ack, tvb, offset + 2, 6,
-                                  dccph->ack);
-        col_append_fstr(pinfo->cinfo, COL_INFO,
-                        " (Ack=%" G_GINT64_MODIFIER "u)", dccph->ack);
+
+        if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+            ack = (dccph->ack - dccpd->rev->base_seq) & 0xffffff;
+        }
+        else {
+            ack = dccph->ack;
+        }
+
+        if (tree) {
+            if((dccp_relative_seq) && (dccpd->rev->static_flags & DCCP_S_BASE_SEQ_SET)) {
+                proto_tree_add_uint64_format_value(dccp_tree, hf_dccp_ack, tvb, offset + 1, 3,
+                                                    ack, "%" G_GUINT64_FORMAT "    (relative acknowledgement number)", ack);
+            }
+            proto_tree_add_uint64(dccp_tree, hf_dccp_ack_abs, tvb, offset + 1, 3, dccph->ack);
+        }
+        col_append_fstr(pinfo->cinfo, COL_INFO, " (Ack=%" G_GUINT64_FORMAT ")", ack);
         offset += 8; /* move offset past the Ack. Number Subheader */
         break;
     default:
@@ -1426,6 +1506,14 @@ proto_register_dccp(void)
             }
         },
         {
+            &hf_dccp_seq_abs,
+            {
+                "Sequence Number (raw)", "dccp.seq_raw",
+                FT_UINT64, BASE_DEC, NULL, 0x0,
+                NULL, HFILL
+            }
+        },
+        {
             &hf_dccp_ack_res,
             {
                 "Reserved", "dccp.ack_res",
@@ -1437,6 +1525,14 @@ proto_register_dccp(void)
             &hf_dccp_ack,
             {
                 "Acknowledgement Number", "dccp.ack",
+                FT_UINT64, BASE_DEC, NULL, 0x0,
+                NULL, HFILL
+            }
+        },
+        {
+            &hf_dccp_ack_abs,
+            {
+                "Acknowledgement Number (raw)", "dccp.ack_raw",
                 FT_UINT64, BASE_DEC, NULL, 0x0,
                 NULL, HFILL
             }
@@ -1615,6 +1711,12 @@ proto_register_dccp(void)
         "Check the validity of the DCCP checksum when possible",
         "Whether to check the validity of the DCCP checksum",
         &dccp_check_checksum);
+
+    prefs_register_bool_preference(
+        dccp_module, "relative_sequence_numbers",
+        "Relative sequence numbers",
+        "Make the DCCP dissector use relative sequence numbers instead of absolute ones.",
+        &dccp_relative_seq);
 
     register_conversation_table(proto_dccp, FALSE, dccpip_conversation_packet, dccpip_hostlist_packet);
     register_conversation_filter("dccp", "DCCP", dccp_filter_valid, dccp_build_filter);
