@@ -355,7 +355,7 @@ wtap_open_return_val lanalyzer_open(wtap *wth, int *err, gchar **err_info)
             record_type = pletoh16(rec_header.record_type);
             record_length = pletoh16(rec_header.record_length);
 
-            /*g_message("Record 0x%04X Length %d", record_type, record_length);*/
+            /*ws_message("Record 0x%04X Length %d", record_type, record_length);*/
             switch (record_type) {
                   /* Trace Summary Record */
             case RT_Summary:
@@ -378,7 +378,7 @@ wtap_open_return_val lanalyzer_open(wtap *wth, int *err, gchar **err_info)
                   cr_day = summary[0];
                   cr_month = summary[1];
                   cr_year = pletoh16(&summary[2]);
-                  /*g_message("Day %d Month %d Year %d (%04X)", cr_day, cr_month,
+                  /*ws_message("Day %d Month %d Year %d (%04X)", cr_day, cr_month,
                     cr_year, cr_year);*/
 
                   /* Get capture start time. I learned how to do
@@ -392,7 +392,7 @@ wtap_open_return_val lanalyzer_open(wtap *wth, int *err, gchar **err_info)
                   tm.tm_sec = 0;
                   tm.tm_isdst = -1;
                   start = mktime(&tm);
-                  /*g_message("Day %d Month %d Year %d", tm.tm_mday,
+                  /*ws_message("Day %d Month %d Year %d", tm.tm_mday,
                     tm.tm_mon, tm.tm_year);*/
                   mxslc = pletoh16(&summary[30]);
 
@@ -549,6 +549,7 @@ static gboolean lanalyzer_read_trace_record(wtap *wth, FILE_T fh,
       }
 
       rec->rec_type = REC_TYPE_PACKET;
+      rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
       rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 
       time_low = pletoh16(&descriptor[8]);

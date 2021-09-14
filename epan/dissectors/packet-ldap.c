@@ -890,7 +890,7 @@ dissect_ldap_AssertionValue(gboolean implicit_tag, tvbuff_t *tvb, int offset, as
     /* This octet string contained a GUID */
     dissect_dcerpc_uuid_t(tvb, offset, actx->pinfo, tree, drep, hf_ldap_guid, &uuid);
 
-    ldapvalue_string=(char*)wmem_alloc(wmem_packet_scope(), 1024);
+    ldapvalue_string=(char*)wmem_alloc(actx->pinfo->pool, 1024);
     g_snprintf(ldapvalue_string, 1023, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
                uuid.data1, uuid.data2, uuid.data3, uuid.data4[0], uuid.data4[1],
                uuid.data4[2], uuid.data4[3], uuid.data4[4], uuid.data4[5],
@@ -904,7 +904,7 @@ dissect_ldap_AssertionValue(gboolean implicit_tag, tvbuff_t *tvb, int offset, as
     /* get flag value to populate ldapvalue_string */
     flags=tvb_get_letohl(tvb, offset);
 
-    ldapvalue_string=(char*)wmem_alloc(wmem_packet_scope(), 1024);
+    ldapvalue_string=(char*)wmem_alloc(actx->pinfo->pool, 1024);
     g_snprintf(ldapvalue_string, 1023, "0x%08x",flags);
 
     /* populate bitmask subtree */
@@ -931,9 +931,9 @@ dissect_ldap_AssertionValue(gboolean implicit_tag, tvbuff_t *tvb, int offset, as
 
   /* convert the string into a printable string */
   if(is_ascii){
-    ldapvalue_string= tvb_get_string_enc(wmem_packet_scope(), tvb, offset, len, ENC_UTF_8|ENC_NA);
+    ldapvalue_string= tvb_get_string_enc(actx->pinfo->pool, tvb, offset, len, ENC_UTF_8|ENC_NA);
   } else {
-    ldapvalue_string= tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, len, ':');
+    ldapvalue_string= tvb_bytes_to_str_punct(actx->pinfo->pool, tvb, offset, len, ':');
   }
 
   proto_tree_add_string(tree, hf_index, tvb, offset, len, ldapvalue_string);
@@ -1174,14 +1174,14 @@ dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
   ldap_do_protocolop(actx->pinfo);
 
   if(parameter_tvb)
-    ldapstring = tvb_get_string_enc(wmem_packet_scope(), parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb, 0), ENC_UTF_8|ENC_NA);
+    ldapstring = tvb_get_string_enc(actx->pinfo->pool, parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb, 0), ENC_UTF_8|ENC_NA);
 
   if(hf_index == hf_ldap_baseObject) {
     /* this is search - put it on the scanline */
     if(!ldapstring || !*ldapstring)
       ldapstring = "<ROOT>";
 
-    col_append_fstr(actx->pinfo->cinfo, COL_INFO, "\"%s\" ", format_text(wmem_packet_scope(), ldapstring, strlen(ldapstring)));
+    col_append_fstr(actx->pinfo->cinfo, COL_INFO, "\"%s\" ", format_text(actx->pinfo->pool, ldapstring, strlen(ldapstring)));
 
     if(ldm_tree)
       proto_item_append_text(ldm_tree, " \"%s\"", ldapstring);
@@ -1193,7 +1193,7 @@ dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
     }
 
   } else if ((hf_index == hf_ldap_errorMessage) && ldapstring && *ldapstring) { /* only show message if not success */
-    col_append_fstr(actx->pinfo->cinfo, COL_INFO, "(%s) ", format_text(wmem_packet_scope(), ldapstring, strlen(ldapstring)));
+    col_append_fstr(actx->pinfo->cinfo, COL_INFO, "(%s) ", format_text(actx->pinfo->pool, ldapstring, strlen(ldapstring)));
 
     if(ldm_tree)
       proto_item_append_text(ldm_tree, " (%s)", ldapstring);
@@ -1207,7 +1207,7 @@ dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
       if(!ldapstring || !*ldapstring)
         ldapstring = "<ROOT>";
 
-      col_append_fstr(actx->pinfo->cinfo, COL_INFO, "\"%s\" ", format_text(wmem_packet_scope(), ldapstring, strlen(ldapstring)));
+      col_append_fstr(actx->pinfo->cinfo, COL_INFO, "\"%s\" ", format_text(actx->pinfo->pool, ldapstring, strlen(ldapstring)));
 
       if(ldm_tree)
         proto_item_append_text(ldm_tree, " \"%s\"", ldapstring);
@@ -1231,7 +1231,7 @@ dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
         Filter_string=ldapstring;
       } else if (hf_index == hf_ldap_type) {
         /* remember attribute type name */
-        attr_type = wmem_strdup(wmem_packet_scope(), ldapstring);
+        attr_type = wmem_strdup(actx->pinfo->pool, ldapstring);
 
         /* append it to the parent entry */
         proto_item_append_text(tree, " %s", attr_type);
@@ -1854,7 +1854,7 @@ dissect_ldap_T_and_item(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 #line 548 "./asn1/ldap/ldap.cnf"
   if(and_filter_string){
-    and_filter_string=wmem_strdup_printf(wmem_packet_scope(), "(&%s%s)",and_filter_string,Filter_string);
+    and_filter_string=wmem_strdup_printf(actx->pinfo->pool, "(&%s%s)",and_filter_string,Filter_string);
   } else {
     and_filter_string=Filter_string;
   }
@@ -1886,7 +1886,7 @@ dissect_ldap_T_and(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
   if(and_filter_string) {
     proto_item_append_text(it, "%s", and_filter_string);
-    Filter_string=wmem_strdup(wmem_packet_scope(), and_filter_string);
+    Filter_string=wmem_strdup(actx->pinfo->pool, and_filter_string);
   }
   and_filter_string=old_and_filter_string;
 
@@ -1903,7 +1903,7 @@ dissect_ldap_T_or_item(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 #line 573 "./asn1/ldap/ldap.cnf"
   if(or_filter_string){
-    or_filter_string=wmem_strdup_printf(wmem_packet_scope(), "(|%s%s)",or_filter_string,Filter_string);
+    or_filter_string=wmem_strdup_printf(actx->pinfo->pool, "(|%s%s)",or_filter_string,Filter_string);
   } else {
     or_filter_string=Filter_string;
   }
@@ -1934,7 +1934,7 @@ dissect_ldap_T_or(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
   if(or_filter_string) {
     proto_item_append_text(it, "%s", or_filter_string);
-    Filter_string=wmem_strdup(wmem_packet_scope(), or_filter_string);
+    Filter_string=wmem_strdup(actx->pinfo->pool, or_filter_string);
   }
   or_filter_string=old_or_filter_string;
 
@@ -1950,7 +1950,7 @@ dissect_ldap_T_not(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   offset = dissect_ldap_Filter(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 600 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(!%s)",string_or_null(Filter_string));
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(!%s)",string_or_null(Filter_string));
 
 
   return offset;
@@ -1988,7 +1988,7 @@ dissect_ldap_T_equalityMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 525 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
 
@@ -2020,15 +2020,15 @@ dissect_ldap_T_substringFilter_substrings_item(gboolean implicit_tag _U_, tvbuff
 
 #line 626 "./asn1/ldap/ldap.cnf"
   if (substring_item_final) {
-    substring_value=wmem_strdup_printf(wmem_packet_scope(), "%s%s",
+    substring_value=wmem_strdup_printf(actx->pinfo->pool, "%s%s",
                                       (substring_value?substring_value:"*"),
                                        substring_item_final);
   } else if (substring_item_any) {
-    substring_value=wmem_strdup_printf(wmem_packet_scope(), "%s%s*",
+    substring_value=wmem_strdup_printf(actx->pinfo->pool, "%s%s*",
                                       (substring_value?substring_value:"*"),
                                        substring_item_any);
   } else if (substring_item_init) {
-    substring_value=wmem_strdup_printf(wmem_packet_scope(), "%s*",
+    substring_value=wmem_strdup_printf(actx->pinfo->pool, "%s*",
                                        substring_item_init);
   }
 
@@ -2075,7 +2075,7 @@ dissect_ldap_SubstringFilter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    SubstringFilter_sequence, hf_index, ett_ldap_SubstringFilter);
 
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s=%s)",
                                    string_or_null(attr_type),
                                    string_or_null(substring_value));
   proto_item_append_text(it, "%s", Filter_string);
@@ -2093,7 +2093,7 @@ dissect_ldap_T_greaterOrEqual(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int 
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 531 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s>=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s>=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
 
@@ -2109,7 +2109,7 @@ dissect_ldap_T_lessOrEqual(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 537 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s<=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s<=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
 
@@ -2125,7 +2125,7 @@ dissect_ldap_T_present(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
   offset = dissect_ldap_AttributeDescription(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 597 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s=*)",string_or_null(Filter_string));
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s=*)",string_or_null(Filter_string));
 
 
   return offset;
@@ -2138,7 +2138,7 @@ dissect_ldap_T_approxMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 543 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s~=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s~=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
 
@@ -2204,7 +2204,7 @@ dissect_ldap_T_extensibleMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
   offset = dissect_ldap_MatchingRuleAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 #line 618 "./asn1/ldap/ldap.cnf"
-  Filter_string=wmem_strdup_printf(wmem_packet_scope(), "(%s:%s%s%s=%s)",
+  Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s:%s%s%s=%s)",
                                   (attr_type?attr_type:""),
                                   (matching_rule_dnattr?"dn:":""),
                                   (matching_rule_string?matching_rule_string:""),
@@ -2372,7 +2372,7 @@ dissect_ldap_AttributeValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 
     if(tvb_ascii_isprint(next_tvb, 0, tvb_reported_length(next_tvb))) {
-      string = tvb_get_string_enc(wmem_packet_scope(), next_tvb, 0, tvb_reported_length_remaining(next_tvb, 0), ENC_UTF_8|ENC_NA);
+      string = tvb_get_string_enc(actx->pinfo->pool, next_tvb, 0, tvb_reported_length_remaining(next_tvb, 0), ENC_UTF_8|ENC_NA);
       proto_item_set_text(actx->created_item, "AttributeValue: %s", string);
     }
   }
@@ -2878,8 +2878,8 @@ dissect_ldap_LDAPOID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
   if (!parameter_tvb)
     return offset;
 
-  object_identifier_id = tvb_get_string_enc(wmem_packet_scope(), parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), ENC_UTF_8|ENC_NA);
-  name = oid_resolved_from_string(wmem_packet_scope(), object_identifier_id);
+  object_identifier_id = tvb_get_string_enc(actx->pinfo->pool, parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), ENC_UTF_8|ENC_NA);
+  name = oid_resolved_from_string(actx->pinfo->pool, object_identifier_id);
 
   if(name){
     proto_item_append_text(actx->created_item, " (%s)", name);
@@ -3076,7 +3076,7 @@ dissect_ldap_T_intermediateResponse_responseValue(gboolean implicit_tag _U_, tvb
 #line 743 "./asn1/ldap/ldap.cnf"
   if(ldm_tree && object_identifier_id) {
     proto_item_set_text(ldm_tree, "%s %s", "IntermediateResponse", object_identifier_id);
-    name = oid_resolved_from_string(wmem_packet_scope(), object_identifier_id);
+    name = oid_resolved_from_string(actx->pinfo->pool, object_identifier_id);
     if(name)
       proto_item_append_text(ldm_tree, " (%s)", name);
   }
@@ -4564,12 +4564,12 @@ dissect_ldap_oid(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* 
    *       proto_tree_add_oid() instead.
    */
 
-  oid=tvb_get_string_enc(wmem_packet_scope(), tvb, 0, tvb_reported_length(tvb), ENC_UTF_8|ENC_NA);
+  oid=tvb_get_string_enc(pinfo->pool, tvb, 0, tvb_reported_length(tvb), ENC_UTF_8|ENC_NA);
   if(!oid){
     return tvb_captured_length(tvb);
   }
 
-  oidname=oid_resolved_from_string(wmem_packet_scope(), oid);
+  oidname=oid_resolved_from_string(pinfo->pool, oid);
 
   if(oidname){
     proto_tree_add_string_format_value(tree, hf_ldap_oid, tvb, 0, tvb_reported_length(tvb), oid, "%s (%s)",oid,oidname);
@@ -4641,7 +4641,7 @@ dissect_ldap_guid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
   /* This octet string contained a GUID */
   dissect_dcerpc_uuid_t(tvb, 0, pinfo, tree, drep, hf_ldap_guid, &uuid);
 
-  ldapvalue_string=(char*)wmem_alloc(wmem_packet_scope(), 1024);
+  ldapvalue_string=(char*)wmem_alloc(pinfo->pool, 1024);
   g_snprintf(ldapvalue_string, 1023, "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
              uuid.data1, uuid.data2, uuid.data3, uuid.data4[0], uuid.data4[1],
              uuid.data4[2], uuid.data4[3], uuid.data4[4], uuid.data4[5],
@@ -5804,10 +5804,11 @@ proto_reg_handoff_ldap(void)
   oid_add_from_string("ISO assigned OIDs, USA",                                                     "1.2.840");
 
 /*  http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dsml/dsml/ldap_controls_and_session_support.asp */
+/*  https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3c5e87db-4728-4f29-b164-01dd7d7391ea */
   oid_add_from_string("LDAP_PAGED_RESULT_OID_STRING","1.2.840.113556.1.4.319");
   oid_add_from_string("LDAP_SERVER_SHOW_DELETED_OID","1.2.840.113556.1.4.417");
   oid_add_from_string("LDAP_SERVER_SORT_OID","1.2.840.113556.1.4.473");
-  oid_add_from_string("LDAP_CONTROL_SORT_RESP_OID","1.2.840.113556.1.4.474");
+  oid_add_from_string("LDAP_SERVER_RESP_SORT_OID","1.2.840.113556.1.4.474");
   oid_add_from_string("LDAP_SERVER_CROSSDOM_MOVE_TARGET_OID","1.2.840.113556.1.4.521");
   oid_add_from_string("LDAP_SERVER_NOTIFICATION_OID","1.2.840.113556.1.4.528");
   oid_add_from_string("LDAP_SERVER_EXTENDED_DN_OID","1.2.840.113556.1.4.529");
@@ -5817,26 +5818,47 @@ proto_reg_handoff_ldap(void)
   oid_add_from_string("managedObjects","1.2.840.113556.1.4.654");
   oid_add_from_string("LDAP_CAP_ACTIVE_DIRECTORY_OID","1.2.840.113556.1.4.800");
   oid_add_from_string("LDAP_SERVER_SD_FLAGS_OID","1.2.840.113556.1.4.801");
+  oid_add_from_string("LDAP_SERVER_RANGE_OPTION_OID","1.2.840.113556.1.4.802");
   oid_add_from_string("LDAP_OID_COMPARATOR_OR","1.2.840.113556.1.4.804");
   oid_add_from_string("LDAP_SERVER_TREE_DELETE_OID","1.2.840.113556.1.4.805");
   oid_add_from_string("LDAP_SERVER_DIRSYNC_OID","1.2.840.113556.1.4.841");
-  oid_add_from_string("None","1.2.840.113556.1.4.970");
+  oid_add_from_string("LDAP_SERVER_GET_STATS_OID","1.2.840.113556.1.4.970");
   oid_add_from_string("LDAP_SERVER_VERIFY_NAME_OID","1.2.840.113556.1.4.1338");
   oid_add_from_string("LDAP_SERVER_DOMAIN_SCOPE_OID","1.2.840.113556.1.4.1339");
   oid_add_from_string("LDAP_SERVER_SEARCH_OPTIONS_OID","1.2.840.113556.1.4.1340");
+  oid_add_from_string("LDAP_SERVER_RODC_DCPROMO_OID","1.2.840.113556.1.4.1341");
   oid_add_from_string("LDAP_SERVER_PERMISSIVE_MODIFY_OID","1.2.840.113556.1.4.1413");
   oid_add_from_string("LDAP_SERVER_ASQ_OID","1.2.840.113556.1.4.1504");
   oid_add_from_string("LDAP_CAP_ACTIVE_DIRECTORY_V51_OID","1.2.840.113556.1.4.1670");
+  oid_add_from_string("msDS-SDReferenceDomain","1.2.840.113556.1.4.1711");
+  oid_add_from_string("msDS-AdditionalDnsHostName","1.2.840.113556.1.4.1717");
   oid_add_from_string("LDAP_SERVER_FAST_BIND_OID","1.2.840.113556.1.4.1781");
   oid_add_from_string("LDAP_CAP_ACTIVE_DIRECTORY_LDAP_INTEG_OID","1.2.840.113556.1.4.1791");
   oid_add_from_string("msDS-ObjectReference","1.2.840.113556.1.4.1840");
   oid_add_from_string("msDS-QuotaEffective","1.2.840.113556.1.4.1848");
   oid_add_from_string("LDAP_CAP_ACTIVE_DIRECTORY_ADAM_OID","1.2.840.113556.1.4.1851");
+  oid_add_from_string("LDAP_SERVER_QUOTA_CONTROL_OID","1.2.840.113556.1.4.1852");
   oid_add_from_string("msDS-PortSSL","1.2.840.113556.1.4.1860");
+  oid_add_from_string("LDAP_SERVER_SHUTDOWN_NOTIFY_OID","1.2.840.113556.1.4.1907");
+  oid_add_from_string("LDAP_SERVER_RANGE_RETRIEVAL_NOERR_OID","1.2.840.113556.1.4.1948");
   oid_add_from_string("msDS-isRODC","1.2.840.113556.1.4.1960");
-  oid_add_from_string("msDS-SDReferenceDomain","1.2.840.113556.1.4.1711");
-  oid_add_from_string("msDS-AdditionalDnsHostName","1.2.840.113556.1.4.1717");
-  oid_add_from_string("None","1.3.6.1.4.1.1466.101.119.1");
+  oid_add_from_string("LDAP_SERVER_FORCE_UPDATE_OID","1.2.840.113556.1.4.1974");
+  oid_add_from_string("LDAP_SERVER_DN_INPUT_OID","1.2.840.113556.1.4.2026");
+  oid_add_from_string("LDAP_SERVER_SHOW_RECYCLED_OID","1.2.840.113556.1.4.2064");
+  oid_add_from_string("LDAP_SERVER_SHOW_DEACTIVATED_LINK_OID","1.2.840.113556.1.4.2065");
+  oid_add_from_string("LDAP_SERVER_POLICY_HINTS_DEPRECATED_OID","1.2.840.113556.1.4.2066");
+  oid_add_from_string("LDAP_SERVER_DIRSYNC_EX_OID","1.2.840.113556.1.4.2090");
+  oid_add_from_string("LDAP_SERVER_TREE_DELETE_EX_OID","1.2.840.113556.1.4.2204");
+  oid_add_from_string("LDAP_SERVER_UPDATE_STATS_OID","1.2.840.113556.1.4.2205");
+  oid_add_from_string("LDAP_SERVER_SEARCH_HINTS_OID","1.2.840.113556.1.4.2206");
+  oid_add_from_string("LDAP_SERVER_EXPECTED_ENTRY_COUNT_OID","1.2.840.113556.1.4.2211");
+  oid_add_from_string("LDAP_SERVER_POLICY_HINTS_OID","1.2.840.113556.1.4.2239");
+  oid_add_from_string("LDAP_SERVER_SET_OWNER_OID","1.2.840.113556.1.4.2255");
+  oid_add_from_string("LDAP_SERVER_BYPASS_QUOTA_OID","1.2.840.113556.1.4.2256");
+  oid_add_from_string("LDAP_SERVER_LINK_TTL_OID","1.2.840.113556.1.4.2309");
+  oid_add_from_string("LDAP_SERVER_SET_CORRELATION_ID_OID","1.2.840.113556.1.4.2330");
+  oid_add_from_string("LDAP_SERVER_THREAD_TRACE_OVERRIDE_OID","1.2.840.113556.1.4.2354");
+  oid_add_from_string("DYNAMIC_REFRESH","1.3.6.1.4.1.1466.101.119.1");
   oid_add_from_string("LDAP_START_TLS_OID","1.3.6.1.4.1.1466.20037");
 
   oid_add_from_string("inetOrgPerson", "2.16.840.1.113730.3.2.2");
@@ -5895,7 +5917,7 @@ proto_reg_handoff_ldap(void)
 
 
 /*--- End of included file: packet-ldap-dis-tab.c ---*/
-#line 2343 "./asn1/ldap/packet-ldap-template.c"
+#line 2365 "./asn1/ldap/packet-ldap-template.c"
 
  dissector_add_uint_range_with_preference("tcp.port", TCP_PORT_RANGE_LDAP, ldap_handle);
 

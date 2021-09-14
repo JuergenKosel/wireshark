@@ -245,17 +245,17 @@ void dcom_interface_dump(void) {
 
 	for(machines = dcom_machines; machines != NULL; machines = g_list_next(machines)) {
 		machine = (dcom_machine_t *)machines->data;
-		/*g_warning("Machine(#%4u): IP:%s", machine->first_packet, address_to_str(wmem_packet_scope(), &machine->ip));*/
+		/*ws_warning("Machine(#%4u): IP:%s", machine->first_packet, address_to_str(pinfo->pool, &machine->ip));*/
 
 		for(objects = machine->objects; objects != NULL; objects = g_list_next(objects)) {
 			object = (dcom_object_t *)objects->data;
-			/*g_warning(" Object(#%4u): OID:0x%" G_GINT64_MODIFIER "x private:%p", object->first_packet, object->oid, object->private_data);*/
+			/*ws_warning(" Object(#%4u): OID:0x%" G_GINT64_MODIFIER "x private:%p", object->first_packet, object->oid, object->private_data);*/
 
 			for(interfaces = object->interfaces; interfaces != NULL; interfaces = g_list_next(interfaces)) {
 				interf = (dcom_interface_t *)interfaces->data;
-				/*g_warning("  Interface(#%4u): iid:%s",
+				/*ws_warning("  Interface(#%4u): iid:%s",
 					  interf->first_packet, guids_resolve_guid_to_str(&interf->iid));
-				g_warning("   ipid:%s", guids_resolve_guid_to_str(&interf->ipid));*/
+				ws_warning("   ipid:%s", guids_resolve_guid_to_str(&interf->ipid));*/
 			}
 		}
 	}
@@ -300,7 +300,7 @@ dcom_interface_t *dcom_interface_new(packet_info *pinfo, const address *addr, e_
 	}
 
 	if(oxid == 0 || oid == 0) {
-		/*g_warning("interface_new#%u", pinfo->num);*/
+		/*ws_warning("interface_new#%u", pinfo->num);*/
 
 		interf = wmem_new(wmem_file_scope(), dcom_interface_t);
 		interf->parent = NULL;
@@ -1830,7 +1830,7 @@ dissect_dcom_DUALSTRINGARRAY(tvbuff_t *tvb, gint offset, packet_info *pinfo,
 						set_address(&curr_ip_addr, AT_IPv4, 4, &curr_ip);
 						expert_add_info_format(pinfo, pi, &ei_dcom_dualstringarray_mult_ip,
 								       "DUALSTRINGARRAY: multiple IP's %s %s",
-								       address_to_str(wmem_packet_scope(), &first_ip_addr), address_to_str(wmem_packet_scope(), &curr_ip_addr));
+								       address_to_str(pinfo->pool, &first_ip_addr), address_to_str(pinfo->pool, &curr_ip_addr));
 					}
 				}
 			}

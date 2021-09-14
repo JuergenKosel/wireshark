@@ -54,6 +54,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/to_str.h>
+#include <wsutil/ws_roundup.h>
 #include "packet-tcp.h"
 
 void proto_register_stun(void);
@@ -951,7 +952,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
 
     if (!stun_trans) {
         /* create a "fake" pana_trans structure */
-        stun_trans=wmem_new(wmem_packet_scope(), stun_transaction_t);
+        stun_trans=wmem_new(pinfo->pool, stun_transaction_t);
         stun_trans->req_frame=0;
         stun_trans->rep_frame=0;
         stun_trans->req_time=pinfo->abs_ts;
@@ -1068,7 +1069,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             att_type = tvb_get_ntohs(tvb, offset);     /* Attribute type field in attribute header */
             att_length = tvb_get_ntohs(tvb, offset+2); /* Attribute length field in attribute header */
             if (network_version >= NET_VER_5389)
-                att_length_pad = (att_length + 3) & ~3; /* Attribute length including padding */
+                att_length_pad = WS_ROUNDUP_4(att_length); /* Attribute length including padding */
             else
                 att_length_pad = att_length;
             att_type_display = att_type;
@@ -1208,7 +1209,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 if (network_version >  NET_VER_3489) {
                     const guint8 *user_name_str;
 
-                    proto_tree_add_item_ret_string(att_tree, hf_stun_att_username, tvb, offset, att_length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &user_name_str);
+                    proto_tree_add_item_ret_string(att_tree, hf_stun_att_username, tvb, offset, att_length, ENC_UTF_8|ENC_NA, pinfo->pool, &user_name_str);
                     proto_item_append_text(att_tree, ": %s", user_name_str);
                     col_append_fstr( pinfo->cinfo, COL_INFO, " user: %s", user_name_str);
                 } else {
@@ -1252,7 +1253,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                     break;
                 {
                 const guint8 *error_reas_str;
-                proto_tree_add_item_ret_string(att_tree, hf_stun_att_error_reason, tvb, offset + 4, att_length - 4, ENC_UTF_8 | ENC_NA, wmem_packet_scope(), &error_reas_str);
+                proto_tree_add_item_ret_string(att_tree, hf_stun_att_error_reason, tvb, offset + 4, att_length - 4, ENC_UTF_8 | ENC_NA, pinfo->pool, &error_reas_str);
 
                 proto_item_append_text(att_tree, ": %s", error_reas_str);
                 col_append_fstr(pinfo->cinfo, COL_INFO, " %s", error_reas_str);
@@ -1267,7 +1268,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             case REALM:
             {
                 const guint8 *realm_str;
-                proto_tree_add_item_ret_string(att_tree, hf_stun_att_realm, tvb, offset, att_length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &realm_str);
+                proto_tree_add_item_ret_string(att_tree, hf_stun_att_realm, tvb, offset, att_length, ENC_UTF_8|ENC_NA, pinfo->pool, &realm_str);
                 proto_item_append_text(att_tree, ": %s", realm_str);
                 col_append_fstr(pinfo->cinfo, COL_INFO, " realm: %s", realm_str);
                 break;
@@ -1275,7 +1276,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
             case NONCE:
             {
                 const guint8 *nonce_str;
-                proto_tree_add_item_ret_string(att_tree, hf_stun_att_nonce, tvb, offset, att_length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &nonce_str);
+                proto_tree_add_item_ret_string(att_tree, hf_stun_att_nonce, tvb, offset, att_length, ENC_UTF_8|ENC_NA, pinfo->pool, &nonce_str);
                 proto_item_append_text(att_tree, ": %s", nonce_str);
                 col_append_str(pinfo->cinfo, COL_INFO, " with nonce");
                 break;
@@ -1304,7 +1305,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                        }
                    }
                    /* Hopefully, in case MS-TURN ever gets PASSWORD-ALGORITHM(S) support they will add it with padding */
-                   alg_param_len_pad = (alg_param_len + 3) & ~3;
+                   alg_param_len_pad = WS_ROUNDUP_4(alg_param_len);
 
                    if (alg_param_len < alg_param_len_pad)
                        proto_tree_add_uint(att_tree, hf_stun_att_padding, tvb, loopoffset+alg_param_len, alg_param_len_pad-alg_param_len, alg_param_len_pad-alg_param_len);
@@ -1387,7 +1388,7 @@ dissect_stun_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboole
                 }
 
                 if (addr.type != AT_NONE) {
-                    const gchar *ipstr = address_to_str(wmem_packet_scope(), &addr);
+                    const gchar *ipstr = address_to_str(pinfo->pool, &addr);
                     proto_item_append_text(att_tree, ": %s:%d", ipstr, clear_port);
                     col_append_fstr(pinfo->cinfo, COL_INFO, " %s: %s:%d",
                                     attribute_name_str, ipstr, clear_port);

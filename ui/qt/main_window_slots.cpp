@@ -44,6 +44,8 @@ DIAG_ON(frame-larger-than=)
 
 #include "wsutil/file_util.h"
 #include "wsutil/filesystem.h"
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 
 #include "epan/addr_resolv.h"
 #include "epan/column.h"
@@ -275,8 +277,7 @@ bool MainWindow::openCaptureFile(QString cf_path, QString read_filter, unsigned 
         break;
     }
 
-    // get_dirname overwrites its path.
-    wsApp->setLastOpenDir(get_dirname(cf_path.toUtf8().data()));
+    wsApp->setLastOpenDirFromFilename(cf_path);
 
     main_ui_->statusBar->showExpert();
 
@@ -463,7 +464,7 @@ void MainWindow::queuedFilterAction(QString action_filter, FilterAction::Action 
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -492,7 +493,7 @@ void MainWindow::queuedFilterAction(QString action_filter, FilterAction::Action 
         break;
     }
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 }
@@ -760,16 +761,12 @@ void MainWindow::captureFileReadStarted(const QString &action) {
 }
 
 void MainWindow::captureFileReadFinished() {
-    gchar *dir_path;
-
     if (!capture_file_.capFile()->is_tempfile && capture_file_.capFile()->filename) {
         /* Add this filename to the list of recent files in the "Recent Files" submenu */
         add_menu_recent_capture_file(capture_file_.capFile()->filename);
 
         /* Remember folder for next Open dialog and save it in recent */
-        dir_path = g_strdup(capture_file_.capFile()->filename);
-        wsApp->setLastOpenDir(get_dirname(dir_path));
-        g_free(dir_path);
+        wsApp->setLastOpenDirFromFilename(capture_file_.capFile()->filename);
     }
 
     /* Update the appropriate parts of the main window. */
@@ -871,7 +868,8 @@ void MainWindow::startCapture() {
 
     CaptureFile::globalCapFile()->window = this;
     info_data_.ui.ui = this;
-    if (capture_start(&global_capture_opts, &cap_session_, &info_data_, main_window_update)) {
+    if (capture_start(&global_capture_opts, NULL, &cap_session_, &info_data_,
+                      main_window_update)) {
         capture_options *capture_opts = cap_session_.capture_opts;
         GString *interface_names;
 
@@ -932,8 +930,6 @@ void MainWindow::pipeTimeout() {
 
     /* try to read data from the pipe only 5 times, to avoid blocking */
     while (iterations < 5) {
-        /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: new iteration");*/
-
         /* Oddly enough although Named pipes don't work on win9x,
            PeekNamedPipe does !!! */
         handle = (HANDLE)_get_osfhandle(pipe_source_);
@@ -948,17 +944,14 @@ void MainWindow::pipeTimeout() {
            callback */
         if (!result || avail > 0 || childstatus != STILL_ACTIVE) {
 
-            /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: data avail");*/
-
             /* And call the real handler */
             if (!pipe_input_cb_(pipe_source_, pipe_user_data_)) {
-                g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: input pipe closed, iterations: %u", iterations);
+                ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_DEBUG, "pipe_timer_cb: input pipe closed, iterations: %u", iterations);
                 /* pipe closed, return false so that the old timer is not run again */
                 delete pipe_timer_;
                 return;
             }
         } else {
-            /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: no data avail");*/
             /* No data, stop now */
             break;
         }
@@ -969,10 +962,10 @@ void MainWindow::pipeTimeout() {
 }
 
 void MainWindow::pipeActivated(int source) {
-#ifdef _WIN32
     Q_UNUSED(source)
-#else
-    g_assert(source == pipe_source_);
+
+#ifndef _WIN32
+    ws_assert(source == pipe_source_);
 
     pipe_notifier_->setEnabled(false);
     if (pipe_input_cb_(pipe_source_, pipe_user_data_)) {
@@ -1122,10 +1115,64 @@ void MainWindow::recentActionTriggered() {
     }
 }
 
+QString MainWindow::commentToMenuText(QString text, int max_len)
+{
+    text = text.trimmed().replace(QRegExp("(\\r?\\n|\\r\\n?)+"), " ");
+    if (text.size() > 0) {
+        if (text.size() > max_len) {
+            text.truncate(max_len);
+            text += "…";
+        }
+    }
+    else {
+        text = tr("(empty comment)", "placeholder for empty comment");
+    }
+    return text;
+}
+
+void MainWindow::setEditCommentsMenu()
+{
+    main_ui_->menuPacketComment->clear();
+    main_ui_->menuPacketComment->addAction(tr("Add New Comment…"), this, SLOT(actionAddPacketComment()), QKeySequence(Qt::CTRL + Qt::ALT + Qt::Key_C));
+    if (selectedRows().count() == 1) {
+        const int thisRow = selectedRows().first();
+        frame_data * current_frame = frameDataForRow(thisRow);
+        wtap_block_t pkt_block = cf_get_packet_block(capture_file_.capFile(), current_frame);
+        guint nComments = wtap_block_count_option(pkt_block, OPT_COMMENT);
+        if (nComments > 0) {
+            QAction *aPtr;
+            main_ui_->menuPacketComment->addSeparator();
+            for (guint i = 0; i < nComments; i++) {
+                QString comment = packet_list_->getPacketComment(i);
+                comment = this->commentToMenuText(comment);
+                aPtr = main_ui_->menuPacketComment->addAction(tr("Edit \"%1\"", "edit packet comment").arg(comment),
+                        this, SLOT(actionEditPacketComment()));
+                aPtr->setData(i);
+            }
+
+            main_ui_->menuPacketComment->addSeparator();
+            for (guint i = 0; i < nComments; i++) {
+                QString comment = packet_list_->getPacketComment(i);
+                comment = this->commentToMenuText(comment);
+                aPtr = main_ui_->menuPacketComment->addAction(tr("Delete \"%1\"", "delete packet comment").arg(comment),
+                        this, SLOT(actionDeletePacketComment()));
+                aPtr->setData(i);
+            }
+            main_ui_->menuPacketComment->addSeparator();
+            main_ui_->menuPacketComment->addAction(tr("Delete packet comments"), this, SLOT(actionDeleteCommentsFromPackets()));
+        }
+        wtap_block_unref(pkt_block);
+    }
+    if (selectedRows().count() > 1) {
+        main_ui_->menuPacketComment->addSeparator();
+        main_ui_->menuPacketComment->addAction(tr("Delete comments from %n packet(s)", nullptr, selectedRows().count()), this, SLOT(actionDeleteCommentsFromPackets()));
+    }
+}
+
 void MainWindow::setMenusForSelectedPacket()
 {
     gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_dccp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE,
-             is_http = FALSE, is_http2 = FALSE, is_quic = FALSE, is_sip = FALSE;
+             is_http = FALSE, is_http2 = FALSE, is_quic = FALSE, is_sip = FALSE, is_exported_pdu = FALSE;
 
     /* Making the menu context-sensitive allows for easier selection of the
        desired item and has the added benefit, with large captures, of
@@ -1197,8 +1244,16 @@ void MainWindow::setMenusForSelectedPacket()
             is_dccp = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "dccp");
             is_http = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http");
             is_http2 = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http2");
+            /* TODO: to follow a QUIC stream we need a *decrypted* QUIC connection, i.e. checking for "quic" in the protocol stack is not enough */
             is_quic = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "quic");
             is_sip = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "sip");
+            is_exported_pdu = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "exported_pdu");
+            /* For Exported PDU there is a tag inserting IP addresses into the SRC and DST columns */
+            if (is_exported_pdu &&
+               (capture_file_.capFile()->edt->pi.net_src.type == AT_IPv4 || capture_file_.capFile()->edt->pi.net_src.type == AT_IPv6) &&
+               (capture_file_.capFile()->edt->pi.net_dst.type == AT_IPv4 || capture_file_.capFile()->edt->pi.net_dst.type == AT_IPv6)) {
+                is_ip = TRUE;
+            }
         }
     }
 
@@ -1220,8 +1275,9 @@ void MainWindow::setMenusForSelectedPacket()
     if (capture_file_.capFile() && capture_file_.capFile()->linktypes)
         linkTypes = capture_file_.capFile()->linktypes;
 
-    main_ui_->actionEditPacketComment->setEnabled(frame_selected && linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
-    main_ui_->actionDeleteAllPacketComments->setEnabled(linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET));
+    bool enableEditComments = linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET);
+    main_ui_->menuPacketComment->setEnabled(enableEditComments && selectedRows().count() > 0);
+    main_ui_->actionDeleteAllPacketComments->setEnabled(enableEditComments);
 
     main_ui_->actionEditIgnorePacket->setEnabled(frame_selected || multi_selection);
     main_ui_->actionEditIgnoreAllDisplayed->setEnabled(have_filtered);
@@ -1484,6 +1540,7 @@ void MainWindow::reloadLuaPlugins()
     main_ui_->preferenceEditorFrame->animatedHide();
 
     wsApp->readConfigurationFiles(true);
+    commandline_options_reapply();
 
     prefs_apply_all();
     fieldsChanged();
@@ -1796,27 +1853,13 @@ void MainWindow::on_actionFileExportPacketBytes_triggered()
 
     if (file_name.length() > 0) {
         const guint8 *data_p;
-        int fd;
 
         data_p = tvb_get_ptr(capture_file_.capFile()->finfo_selected->ds_tvb, 0, -1) +
                 capture_file_.capFile()->finfo_selected->start;
-        fd = ws_open(qUtf8Printable(file_name), O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
-        if (fd == -1) {
-            open_failure_alert_box(qUtf8Printable(file_name), errno, TRUE);
-            return;
-        }
-        if (ws_write(fd, data_p, capture_file_.capFile()->finfo_selected->length) < 0) {
-            write_failure_alert_box(qUtf8Printable(file_name), errno);
-            ws_close(fd);
-            return;
-        }
-        if (ws_close(fd) < 0) {
-            write_failure_alert_box(qUtf8Printable(file_name), errno);
-            return;
-        }
+        write_file_binary_mode(qUtf8Printable(file_name), data_p, capture_file_.capFile()->finfo_selected->length);
 
         /* Save the directory name for future file dialogs. */
-        wsApp->setLastOpenDir(file_name);
+        wsApp->setLastOpenDirFromFilename(file_name);
     }
 }
 
@@ -1870,34 +1913,12 @@ void MainWindow::on_actionFileExportTLSSessionKeys_triggered()
                                             tr("TLS Session Keys (*.keys *.txt);;All Files (" ALL_FILES_WILDCARD ")")
                                             );
     if (file_name.length() > 0) {
-        gchar *keylist;
-        int fd;
-
-        keylist = ssl_export_sessions();
-        fd = ws_open(qUtf8Printable(file_name), O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
-        if (fd == -1) {
-            open_failure_alert_box(qUtf8Printable(file_name), errno, TRUE);
-            g_free(keylist);
-            return;
-        }
-        /*
-         * Thanks, Microsoft, for not using size_t for the third argument to
-         * _write().  Presumably this string will be <= 4GiB long....
-         */
-        if (ws_write(fd, keylist, (unsigned int)strlen(keylist)) < 0) {
-            write_failure_alert_box(qUtf8Printable(file_name), errno);
-            ws_close(fd);
-            g_free(keylist);
-            return;
-        }
-        if (ws_close(fd) < 0) {
-            write_failure_alert_box(qUtf8Printable(file_name), errno);
-            g_free(keylist);
-            return;
-        }
+        gsize keylist_length;
+        gchar *keylist = ssl_export_sessions(&keylist_length);
+        write_file_binary_mode(qUtf8Printable(file_name), keylist, keylist_length);
 
         /* Save the directory name for future file dialogs. */
-        wsApp->setLastOpenDir(file_name);
+        wsApp->setLastOpenDirFromFilename(file_name);
         g_free(keylist);
     }
 }
@@ -2199,10 +2220,10 @@ void MainWindow::editTimeShiftFinished(int)
     }
 }
 
-void MainWindow::on_actionEditPacketComment_triggered()
+void MainWindow::actionAddPacketComment()
 {
     QList<int> rows = selectedRows();
-    if (rows.count() != 1)
+    if (rows.count() == 0)
         return;
 
     frame_data * fdata = frameDataForRow(rows.at(0));
@@ -2210,19 +2231,57 @@ void MainWindow::on_actionEditPacketComment_triggered()
         return;
 
     PacketCommentDialog* pc_dialog;
-    pc_dialog = new PacketCommentDialog(fdata->num, this, packet_list_->packetComment());
-    connect(pc_dialog, &QDialog::finished, std::bind(&MainWindow::editPacketCommentFinished, this, pc_dialog, std::placeholders::_1));
+    pc_dialog = new PacketCommentDialog(false, this, NULL);
+    connect(pc_dialog, &QDialog::finished, std::bind(&MainWindow::addPacketCommentFinished, this, pc_dialog, std::placeholders::_1));
     pc_dialog->setWindowModality(Qt::ApplicationModal);
     pc_dialog->setAttribute(Qt::WA_DeleteOnClose);
     pc_dialog->show();
 }
 
-void MainWindow::editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result)
+void MainWindow::addPacketCommentFinished(PacketCommentDialog* pc_dialog _U_, int result _U_)
 {
     if (result == QDialog::Accepted) {
-        packet_list_->setPacketComment(pc_dialog->text());
+        packet_list_->addPacketComment(pc_dialog->text());
         updateForUnsavedChanges();
     }
+}
+
+void MainWindow::actionEditPacketComment()
+{
+    QList<int> rows = selectedRows();
+    if (rows.count() != 1)
+        return;
+
+    QAction *ra = qobject_cast<QAction*>(sender());
+    guint nComment = ra->data().toUInt();
+    PacketCommentDialog* pc_dialog;
+    pc_dialog = new PacketCommentDialog(true, this, packet_list_->getPacketComment(nComment));
+    connect(pc_dialog, &QDialog::finished, std::bind(&MainWindow::editPacketCommentFinished, this, pc_dialog, std::placeholders::_1, nComment));
+    pc_dialog->setWindowModality(Qt::ApplicationModal);
+    pc_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    pc_dialog->show();
+}
+
+void MainWindow::editPacketCommentFinished(PacketCommentDialog* pc_dialog _U_, int result _U_, guint nComment)
+{
+    if (result == QDialog::Accepted) {
+        packet_list_->setPacketComment(nComment, pc_dialog->text());
+        updateForUnsavedChanges();
+    }
+}
+
+void MainWindow::actionDeletePacketComment()
+{
+    QAction *ra = qobject_cast<QAction*>(sender());
+    guint nComment = ra->data().toUInt();
+    packet_list_->setPacketComment(nComment, QString(""));
+    updateForUnsavedChanges();
+}
+
+void MainWindow::actionDeleteCommentsFromPackets()
+{
+    packet_list_->deleteCommentsFromPackets();
+    updateForUnsavedChanges();
 }
 
 void MainWindow::on_actionDeleteAllPacketComments_triggered()
@@ -3170,6 +3229,7 @@ void MainWindow::on_actionStatisticsANCP_triggered()
     openStatisticsTreeDialog("ancp");
 }
 
+
 void MainWindow::on_actionStatisticsBACappInstanceId_triggered()
 {
     openStatisticsTreeDialog("bacapp_instanceid");
@@ -3510,6 +3570,11 @@ void MainWindow::on_actionTelephonySMPPOperations_triggered()
 void MainWindow::on_actionTelephonyUCPMessages_triggered()
 {
     openStatisticsTreeDialog("ucp_messages");
+}
+
+void MainWindow::on_actionTelephonyF1APMessages_triggered()
+{
+	openStatisticsTreeDialog("f1ap");
 }
 
 void MainWindow::on_actionTelephonySipFlows_triggered()

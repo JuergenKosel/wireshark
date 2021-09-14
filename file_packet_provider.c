@@ -40,7 +40,7 @@ cap_file_provider_get_interface_name(struct packet_provider_data *prov, guint32 
   if (wtapng_if_descr) {
     if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_NAME, &interface_name) == WTAP_OPTTYPE_SUCCESS)
       return interface_name;
-    if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_DESCR, &interface_name) == WTAP_OPTTYPE_SUCCESS)
+    if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_DESCRIPTION, &interface_name) == WTAP_OPTTYPE_SUCCESS)
       return interface_name;
     if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_HARDWARE, &interface_name) == WTAP_OPTTYPE_SUCCESS)
       return interface_name;
@@ -63,30 +63,30 @@ cap_file_provider_get_interface_description(struct packet_provider_data *prov, g
   g_free(idb_info);
 
   if (wtapng_if_descr) {
-    if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_DESCR, &interface_name) == WTAP_OPTTYPE_SUCCESS)
+    if (wtap_block_get_string_option_value(wtapng_if_descr, OPT_IDB_DESCRIPTION, &interface_name) == WTAP_OPTTYPE_SUCCESS)
       return interface_name;
   }
   return NULL;
 }
 
-const char *
-cap_file_provider_get_user_comment(struct packet_provider_data *prov, const frame_data *fd)
+wtap_block_t
+cap_file_provider_get_modified_block(struct packet_provider_data *prov, const frame_data *fd)
 {
-  if (prov->frames_user_comments)
-     return (const char *)g_tree_lookup(prov->frames_user_comments, fd);
+  if (prov->frames_modified_blocks)
+     return (wtap_block_t)g_tree_lookup(prov->frames_modified_blocks, fd);
 
-  /* g_warning? */
+  /* ws_warning? */
   return NULL;
 }
 
 void
-cap_file_provider_set_user_comment(struct packet_provider_data *prov, frame_data *fd, const char *new_comment)
+cap_file_provider_set_modified_block(struct packet_provider_data *prov, frame_data *fd, const wtap_block_t new_block)
 {
-  if (!prov->frames_user_comments)
-    prov->frames_user_comments = g_tree_new_full(frame_cmp, NULL, NULL, g_free);
+  if (!prov->frames_modified_blocks)
+    prov->frames_modified_blocks = g_tree_new_full(frame_cmp, NULL, NULL, (GDestroyNotify)wtap_block_unref);
 
-  /* insert new packet comment */
-  g_tree_replace(prov->frames_user_comments, fd, g_strdup(new_comment));
+  /* insert new packet block */
+  g_tree_replace(prov->frames_modified_blocks, fd, (gpointer)new_block);
 
-  fd->has_user_comment = TRUE;
+  fd->has_modified_block = TRUE;
 }

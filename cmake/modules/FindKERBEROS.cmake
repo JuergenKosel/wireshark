@@ -84,6 +84,7 @@ endif()
 # Try to detect the installed Kerberos vendor, assume MIT if it was not Heimdal.
 if(KERBEROS_FOUND)
   include(CheckSymbolExists)
+  include(CheckFunctionExists)
   set(CMAKE_REQUIRED_INCLUDES ${KERBEROS_INCLUDE_DIRS})
   set(CMAKE_REQUIRED_LIBRARIES ${KERBEROS_LIBRARIES})
   #see also HAVE_HEIMDAL_KERBEROS in cmakeconfig.h.in
@@ -92,6 +93,8 @@ if(KERBEROS_FOUND)
   check_symbol_exists("krb5_pac_verify" "krb5.h" HAVE_KRB5_PAC_VERIFY)
   # see also HAVE_KRB5_C_FX_CF2_SIMPLE in cmakeconfig.h.in
   check_symbol_exists("krb5_c_fx_cf2_simple" "krb5.h" HAVE_KRB5_C_FX_CF2_SIMPLE)
+  check_function_exists(decode_krb5_enc_tkt_part HAVE_DECODE_KRB5_ENC_TKT_PART)
+  check_function_exists(encode_krb5_enc_tkt_part HAVE_ENCODE_KRB5_ENC_TKT_PART)
   set(CMAKE_REQUIRED_INCLUDES)
   set(CMAKE_REQUIRED_LIBRARIES)
   if(NOT HAVE_HEIMDAL_KERBEROS)

@@ -91,10 +91,6 @@ static int hf_ancp_pudm_unused = -1;
 static int hf_ancp_function = -1;
 static int hf_ancp_x_function = -1;
 static int hf_ancp_ext_flags_res = -1;
-static int hf_ancp_port = -1;
-static int hf_ancp_port_sess_num = -1;
-static int hf_ancp_evt_seq_num = -1;
-static int hf_ancp_label = -1;
 static int hf_ancp_reserved = -1;
 static int hf_ancp_blk_len = -1;
 static int hf_ancp_num_ext_tlvs = -1;
@@ -637,7 +633,7 @@ dissect_ancp_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "ANCP");
     col_clear(pinfo->cinfo, COL_INFO);
 
-    ancp_info = wmem_new(wmem_packet_scope(), struct ancp_tap_t);
+    ancp_info = wmem_new(pinfo->pool, struct ancp_tap_t);
     ancp_info->ancp_mtype   = 0;
     ancp_info->ancp_adjcode = 0;
 
@@ -902,30 +898,6 @@ proto_register_ancp(void)
         { &hf_ancp_ext_flags_res,
             { "Extension Flags Reserved", "ancp.ext_flags",
                 FT_BYTES, BASE_NONE,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_ancp_port,
-            { "Port", "ancp.port",
-                FT_UINT32, BASE_DEC,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_ancp_port_sess_num,
-            { "Port Session Number", "ancp.port_sess_num",
-                FT_UINT32, BASE_DEC,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_ancp_evt_seq_num,
-            { "Event Sequence Number", "ancp.evt_seq_num",
-                FT_UINT32, BASE_DEC,
-                NULL, 0x0,
-                NULL, HFILL }
-        },
-        { &hf_ancp_label,
-            { "Label", "ancp.label", /* Not used in proto */
-                FT_UINT64, BASE_HEX,
                 NULL, 0x0,
                 NULL, HFILL }
         },

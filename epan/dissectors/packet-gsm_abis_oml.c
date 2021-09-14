@@ -681,6 +681,12 @@ static int hf_attr_list_req_attr = -1;
 static int hf_attr_ari_not_reported_cnt = -1;
 static int hf_attr_ari_not_reported_attr = -1;
 static int hf_attr_rf_max_pwr_red = -1;
+static int hf_attr_interf_bound0 = -1;
+static int hf_attr_interf_bound1 = -1;
+static int hf_attr_interf_bound2 = -1;
+static int hf_attr_interf_bound3 = -1;
+static int hf_attr_interf_bound4 = -1;
+static int hf_attr_interf_bound5 = -1;
 /* Ipaccess */
 static int hf_oml_ipa_tres_attr_tag = -1;
 static int hf_oml_ipa_tres_attr_len = -1;
@@ -1233,6 +1239,13 @@ static void format_custom_attr(gchar *out, guint32 in)
 	}
 }
 
+/* Interference level boundaries are coded as a binary presentation of -x dBm */
+static void format_interf_bound(gchar *buf, const guint32 in)
+{
+	g_snprintf(buf, ITEM_LABEL_LENGTH, "-%u%s", in,
+		   unit_name_string_get_value(in, &units_dbm));
+}
+
 /* Section 9.4.4: Administrative State */
 static const value_string oml_adm_state_vals[] = {
 	{ NM_STATE_LOCKED,		"Locked" },
@@ -1759,6 +1772,20 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 				dissect_oml_attrs(tvb, loffset, len - 1 - not_counted, pinfo, att_tree);
 			}
 			break;
+		case NM_ATT_INTERF_BOUND:
+			proto_tree_add_item(att_tree, hf_attr_interf_bound0,
+					    tvb, offset + 0, 1, ENC_NA);
+			proto_tree_add_item(att_tree, hf_attr_interf_bound1,
+					    tvb, offset + 1, 1, ENC_NA);
+			proto_tree_add_item(att_tree, hf_attr_interf_bound2,
+					    tvb, offset + 2, 1, ENC_NA);
+			proto_tree_add_item(att_tree, hf_attr_interf_bound3,
+					    tvb, offset + 3, 1, ENC_NA);
+			proto_tree_add_item(att_tree, hf_attr_interf_bound4,
+					    tvb, offset + 4, 1, ENC_NA);
+			proto_tree_add_item(att_tree, hf_attr_interf_bound5,
+					    tvb, offset + 5, 1, ENC_NA);
+			break;
 		default:
 			proto_tree_add_item(att_tree, hf_oml_fom_attr_val, tvb,
 					    offset, len, ENC_NA);
@@ -1954,9 +1981,10 @@ dissect_oml_manuf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	proto_tree_add_item(tree, hf_oml_manuf_id_val, tvb,
 			    offset + 1, len, ENC_ASCII|ENC_NA);
 
-	if (len == sizeof(ipaccess_magic) &&
-	    tvb_memeql(tvb, offset+1, ipaccess_magic, sizeof(ipaccess_magic))) {
-		offset += (int)sizeof(ipaccess_magic) + 1;
+	/* Some implementations include '\0', some don't - handle this */
+	if ((len == (sizeof(ipaccess_magic) + 1) || len == sizeof(ipaccess_magic)) &&
+	    !tvb_memeql(tvb, offset+1, ipaccess_magic, sizeof(ipaccess_magic))) {
+		offset += len + 1;
 		return dissect_oml_fom(tvb, pinfo, tree, offset, top_ti);
 	} else {
 		expert_add_info(pinfo, top_ti, &ei_unknown_manuf);
@@ -2215,6 +2243,36 @@ proto_register_abis_oml(void)
 		{ &hf_attr_rf_max_pwr_red,
 			{ "Max RF Power Reduction", "gsm_abis_oml.fom.attr.ari.max_rf_pwr_red",
 			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_decibels, 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound0,
+			{ "Interf Boundary  0", "gsm_abis_oml.fom.attr.interf_bound0",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound1,
+			{ "Interf Boundary X1", "gsm_abis_oml.fom.attr.interf_bound1",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound2,
+			{ "Interf Boundary X2", "gsm_abis_oml.fom.attr.interf_bound2",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound3,
+			{ "Interf Boundary X3", "gsm_abis_oml.fom.attr.interf_bound3",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound4,
+			{ "Interf Boundary X4", "gsm_abis_oml.fom.attr.interf_bound4",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
+			  NULL, HFILL }
+		},
+		{ &hf_attr_interf_bound5,
+			{ "Interf Boundary X5", "gsm_abis_oml.fom.attr.interf_bound5",
+			  FT_UINT8, BASE_CUSTOM, CF_FUNC(format_interf_bound), 0,
 			  NULL, HFILL }
 		},
 

@@ -324,7 +324,7 @@ dissect_btpa(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     proto_item *hidden_item;
     struct btpaheader *btpah;
 
-    btpah = wmem_new0(wmem_packet_scope(), struct btpaheader);
+    btpah = wmem_new0(pinfo->pool, struct btpaheader);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "BTPA");
     /* Clear out stuff in the info column */
@@ -390,7 +390,7 @@ dissect_btpb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     guint32 dst_info;
     struct btpbheader *btpbh;
 
-    btpbh = wmem_new0(wmem_packet_scope(), struct btpbheader);
+    btpbh = wmem_new0(pinfo->pool, struct btpbheader);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "BTPB");
     /* Clear out stuff in the info column */
@@ -2140,7 +2140,7 @@ dissect_geonw(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     struct geonwheader *geonwh;
     gint32 latlon;
 
-    geonwh = wmem_new0(wmem_packet_scope(), struct geonwheader);
+    geonwh = wmem_new0(pinfo->pool, struct geonwheader);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "GEONW");
     /* Clear out stuff in the info column */
@@ -2964,6 +2964,7 @@ void
 proto_register_geonw(void)
 {
     static const value_string bh_next_header_names[] = {
+        { 0, "ANY" },
         { 1, "Common Header" },
         { 2, "Secured Packet" },
         { 0, NULL}
@@ -2978,6 +2979,7 @@ proto_register_geonw(void)
     };
 
     static const value_string ch_next_header_names[] = {
+        { 0, "ANY" },
         { CH_NH_BTP_A, "BTP-A Transport protocol" },
         { CH_NH_BTP_B, "BTP-B Transport protocol" },
         { CH_NH_IPV6, "IPv6 header" },
@@ -3650,7 +3652,10 @@ proto_reg_handoff_geonw(void)
     dissector_add_uint("ieee1609dot2.psid", psid_road_and_lane_topology_service, sgeonw_handle_);
     dissector_add_uint("ieee1609dot2.psid", psid_infrastructure_to_vehicle_information_service, sgeonw_handle_);
     dissector_add_uint("ieee1609dot2.psid", psid_traffic_light_control_requests_service, sgeonw_handle_);
+    dissector_add_uint("ieee1609dot2.psid", psid_geonetworking_management_communications, sgeonw_handle_);
     dissector_add_uint("ieee1609dot2.psid", psid_traffic_light_control_status_service, sgeonw_handle_);
+    dissector_add_uint("ieee1609dot2.psid", psid_collective_perception_service, sgeonw_handle_);
+
 }
 
 /*

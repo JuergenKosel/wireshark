@@ -19,7 +19,7 @@
 #include <epan/exceptions.h>
 #include <epan/expert.h>
 #include <epan/reassemble.h>
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 
 #include <ptvcursor.h>
 
@@ -168,7 +168,7 @@ static const value_string nfapi_laa_carrier_type_vals[] = {
 	{ 0, NULL }
 };
 
-static const value_string nfapi_mutli_carrier_lbt_support_vals[] = {
+static const value_string nfapi_multi_carrier_lbt_support_vals[] = {
 	{ 0, "Multi carrier Mode A1" },
 	{ 1, "Multi carrier Mode A2" },
 	{ 2, "Multi carrier Mode B1" },
@@ -670,7 +670,7 @@ static const value_string csi_mode_vals[] = {
 static const value_string hi_dci0_pdu_type_vals[] = {
 	{ 0, "HI" },
 	{ 1, "DCI UL" },
-	{ 2, "EDPCCH DCI UL" },
+	{ 2, "EPDCCH DCI UL" },
 	{ 3, "MDPCCH DCI UL" },
 	{ 0, NULL }
 };
@@ -1133,7 +1133,7 @@ static int hf_prs_muting = -1;
 static int hf_nfapi_csi_rs_resource_index = -1;
 static int hf_nfapi_csi_rs_class = -1;
 static int hf_nfapi_cdm_type = -1;
-static int hf_nfapi_edpcch_prb_index = -1;
+static int hf_nfapi_epdcch_prb_index = -1;
 static int hf_nfapi_epdcch_resource_assignment_flag = -1;
 static int hf_nfapi_epdcch_id = -1;
 static int hf_nfapi_epdcch_start_symbol = -1;
@@ -1778,7 +1778,7 @@ static void dissect_pnf_phy_rel11_instance_value(ptvcursor_t * ptvc, packet_info
 	item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_epdcch_supported, 2, ENC_BIG_ENDIAN, &test_value);
 	if (test_value > 1)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid edpcch supported value [0..1]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid epdcch supported value [0..1]");
 	}
 
 	// Multi ACK CSI reporting
@@ -2429,7 +2429,7 @@ static void dissect_laa_multi_carrier_type_value(ptvcursor_t * ptvc, packet_info
 
 	if (test_value > 4)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid mutli carrier type [0..4]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid multi carrier type [0..4]");
 	}
 }
 static void dissect_laa_multi_carrier_tx_value(ptvcursor_t * ptvc, packet_info* pinfo)
@@ -2439,7 +2439,7 @@ static void dissect_laa_multi_carrier_tx_value(ptvcursor_t * ptvc, packet_info* 
 
 	if (test_value > 1)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid mutli carrier tx value [0..1]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid multi carrier tx value [0..1]");
 	}
 }
 static void dissect_laa_multi_carrier_freeze_value(ptvcursor_t * ptvc, packet_info* pinfo)
@@ -2449,7 +2449,7 @@ static void dissect_laa_multi_carrier_freeze_value(ptvcursor_t * ptvc, packet_in
 
 	if (test_value > 1)
 	{
-		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid mutli carrier freeze value [0..1]");
+		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid multi carrier freeze value [0..1]");
 	}
 }
 static void dissect_laa_tx_antenna_port_for_drs_value(ptvcursor_t * ptvc, packet_info* pinfo)
@@ -4098,13 +4098,13 @@ static void dissect_epdcch_prb_index_value(ptvcursor_t * ptvc, packet_info* pinf
 	guint32 test_value;
 
 	// EPDCCH PRB index
-	proto_item* item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_edpcch_prb_index, 1, ENC_BIG_ENDIAN, &test_value);
+	proto_item* item = ptvcursor_add_ret_uint(ptvc, hf_nfapi_epdcch_prb_index, 1, ENC_BIG_ENDIAN, &test_value);
 	if (test_value > 99)
 	{
 		expert_add_info_format(pinfo, item, &ei_invalid_range, "Invalid epdcch prb_index value [0..99]");
 	}
 }
-static void dissect_dl_config_request_edpcch_params_rel11_value(ptvcursor_t * ptvc, packet_info* pinfo)
+static void dissect_dl_config_request_depdcch_params_rel11_value(ptvcursor_t * ptvc, packet_info* pinfo)
 {
 	proto_item* item;
 	guint32 test_value, count;
@@ -4141,7 +4141,7 @@ static void dissect_dl_config_request_edpcch_params_rel11_value(ptvcursor_t * pt
 
 	dissect_bf_vector_type_value(ptvc, pinfo);
 }
-static void dissect_dl_config_request_edpcch_params_rel13_value(ptvcursor_t * ptvc, packet_info* pinfo)
+static void dissect_dl_config_request_depdcch_params_rel13_value(ptvcursor_t * ptvc, packet_info* pinfo)
 {
 	proto_item* item;
 	guint32 test_value;
@@ -6934,7 +6934,7 @@ static void dissect_rx_cqi_indication_body_value(ptvcursor_t * ptvc, packet_info
 
 	if (num_pdu > 0)
 	{
-		lengths = (guint16*)wmem_alloc0(wmem_packet_scope(), num_pdu * 2);
+		lengths = (guint16*)wmem_alloc0(pinfo->pool, num_pdu * 2);
 	}
 
 	for (i = 0; i < num_pdu; ++i)
@@ -7903,8 +7903,8 @@ static const tlv_t p7_tags[] =
 	{ 0x203E, "DLSCH PDU Release 13", dissect_dl_config_request_dlsch_pdu_rel13_value },
 	{ 0x203F, "PCH PDU Release 13", dissect_dl_config_request_pch_pdu_rel13_value },
 	{ 0x2040, "CSI-RS PDU Release 13", dissect_dl_config_request_csi_rs_pdu_rel13_value },
-	{ 0x2041, "EDPCCH PDU Release 11 Parameters", dissect_dl_config_request_edpcch_params_rel11_value },
-	{ 0x2042, "EDPCCH PDU Release 13 Parameters", dissect_dl_config_request_edpcch_params_rel13_value },
+	{ 0x2041, "depdcch PDU Release 11 Parameters", dissect_dl_config_request_depdcch_params_rel11_value },
+	{ 0x2042, "depdcch PDU Release 13 Parameters", dissect_dl_config_request_depdcch_params_rel13_value },
 	{ 0x2043, "ULSCH PDU Release 11", dissect_ul_config_ulsch_pdu_rel11_value },
 	{ 0x2044, "ULSCH PDU Release 13", dissect_ul_config_ulsch_pdu_rel13_value },
 	{ 0x2045, "CQI RI Information Release 13", dissect_ul_config_cqi_ri_info_rel13_value },
@@ -8066,7 +8066,7 @@ static void dissect_rx_indication_body_value(ptvcursor_t * ptvc, packet_info* pi
 {
 	guint32 i = 0, count;
 	guint number_of_pdu_addr = ptvcursor_current_offset(ptvc); // *offset;
-	wmem_array_t *lengths = wmem_array_new(wmem_packet_scope(), sizeof(guint16));
+	wmem_array_t *lengths = wmem_array_new(pinfo->pool, sizeof(guint16));
 
 	ptvcursor_add_ret_uint(ptvc, hf_nfapi_number_pdus, 2, ENC_BIG_ENDIAN, &count);
 
@@ -8951,7 +8951,7 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_multi_carrier_lbt_support,
 			{ "Multi carrier LBT support", "nfapi.multi.carrier.lbt.support",
-			FT_UINT16, BASE_DEC, VALS(nfapi_mutli_carrier_lbt_support_vals), 0x0,
+			FT_UINT16, BASE_DEC, VALS(nfapi_multi_carrier_lbt_support_vals), 0x0,
 			NULL, HFILL }
 		},
 		{ &hf_nfapi_partial_sf_support,
@@ -9612,7 +9612,7 @@ void proto_register_nfapi(void)
 			"Indicates if PHY supports Enhanced PDCCH", HFILL }
 		},
 		{ &hi_nfapi_multi_ack_csi_reporting,
-			{ "Multi ACK CSI reporting", "nfapi.pnf.phy_rel11.mutli_ack_csi_reporting",
+			{ "Multi ACK CSI reporting", "nfapi.pnf.phy_rel11.multi_ack_csi_reporting",
 			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"Indicates if PHY supports the multi ACK and CSI reporting required with CA and mixed FDD/TDD carriers. Equivalent to multiACK-CSI-Reporting-r11 in TS36.306", HFILL }
 		},
@@ -9979,12 +9979,12 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_csi_rs_zero_tx_power_resource_config_bitmap_r10,
 			{ "CSI-RS Number of NZP configuration", "nfapi.csi.rs.num.of.nzp.configurations",
-			FT_UINT8, BASE_DEC, NULL, 0x0,
+			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"Bitmap of 16 bits. Encoding format of bitmap follows section 6.10.5.2 of 36.211", HFILL }
 		},
 		{ &hf_nfapi_csi_rs_number_of_nzp_configurations,
 			{ "CSI RS zero Tx Power Resource config bitmap R10", "nfapi.csi.rs.zero.tx.power.resource.config.bitmap.r10",
-			FT_UINT16, BASE_DEC, NULL, 0x0,
+			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Indicates the number of Non-Zero power CSI-RS configurations.", HFILL }
 		},
 		{ &hf_nfapi_pdsch_start,
@@ -10088,8 +10088,8 @@ void proto_register_nfapi(void)
 			FT_UINT8, BASE_DEC, VALS(csi_rs_cdm_type_vals), 0x0,
 			"Indicates CDM type for CSI-RS. See [36.211] section 6.10.5.2. Valid for Class A", HFILL }
 		},
-		{ &hf_nfapi_edpcch_prb_index,
-			{ "EPDCCH PRB Index", "nfapi.edpcch.prb.index",
+		{ &hf_nfapi_epdcch_prb_index,
+			{ "EPDCCH PRB Index", "nfapi.epdcch.prb.index",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"PRB Index", HFILL }
 		},
@@ -10199,7 +10199,7 @@ void proto_register_nfapi(void)
 			"Indicates if 'Antenna ports and scrambling identity' field is present.", HFILL }
 		},
 		{ &hf_nfapi_antenna_ports_and_scrambling_identity,
-			{ "Antenna ports and scrambling identity", "nfapi.antenna.ports.and.scrambling.identit",
+			{ "Antenna ports and scrambling identity", "nfapi.antenna.ports.and.scrambling.identity",
 			FT_UINT8, BASE_DEC, NULL, 0x0,
 			"Indicates the Antenna port and, scrambling identity value", HFILL }
 		},
@@ -10640,7 +10640,7 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_harq_size_2,
 			{ "HARQ Size 2", "nfapi.harq.size2",
-			FT_UINT8, BASE_DEC, NULL, 0x0,
+			FT_UINT16, BASE_DEC, NULL, 0x0,
 			"The size of the ACK/NACK in bits.", HFILL }
 		},
 		{ &hf_nfapi_delta_offset_harq_2,
@@ -10930,7 +10930,7 @@ void proto_register_nfapi(void)
 		},
 		{ &hf_nfapi_tpc_bitmap,
 			{ "TPC bitmap", "nfapi.tpc_bitmap",
-			FT_UINT8, BASE_DEC, NULL, 0x0,
+			FT_UINT32, BASE_DEC, NULL, 0x0,
 			"TPC commands for PUCCH and PUSCH", HFILL }
 		},
 		{ &hf_nfapi_number_of_antenna_ports,
@@ -11066,22 +11066,22 @@ void proto_register_nfapi(void)
 		{ &hf_nfapi_timing_info_dl_config_earliest_arrival,
 			{ "DL Config Earliest Arrival", "nfapi.timing.info.dl.config.earliest.arrival",
 			FT_INT32, BASE_DEC, NULL, 0x0,
-			"The earlierst arrival offset in microseconds from the latest time acceptable for the DL Config as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
+			"The earliest arrival offset in microseconds from the latest time acceptable for the DL Config as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
 		},
 		{ &hf_nfapi_timing_info_tx_request_earliest_arrival,
 			{ "Tx Request Earliest Arrival", "nfapi.timing.info.tx.request.earliest.arrival",
 			FT_INT32, BASE_DEC, NULL, 0x0,
-			"The earlierst arrival offset in microseconds from the latest time acceptable for the Tx Request as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
+			"The earliest arrival offset in microseconds from the latest time acceptable for the Tx Request as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
 		},
 		{ &hf_nfapi_timing_info_ul_config_earliest_arrival,
 			{ "UL Config Earliest Arrival", "nfapi.timing.info.ul.config.earliest.arrival",
 			FT_INT32, BASE_DEC, NULL, 0x0,
-			"The earlierst arrival offset in microseconds from the latest time acceptable for the UL Config as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
+			"The earliest arrival offset in microseconds from the latest time acceptable for the UL Config as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
 		},
 		{ &hf_nfapi_timing_info_hi_dci0_earliest_arrival,
 			{ "HI_DCI0 Earliest Arrival", "nfapi.timing.info.hi.dci0.earliest.arrival",
 			FT_INT32, BASE_DEC, NULL, 0x0,
-			"The earlierst arrival offset in microseconds from the latest time acceptable for the HI_DCI0 as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
+			"The earliest arrival offset in microseconds from the latest time acceptable for the HI_DCI0 as defined in the Timing Window in the PARAM.Response since the last transmission of the Timing Info Message.", HFILL }
 		},
 		{ &hf_nfapi_pcfich_power_offset,
 			{ "PCFICH Power Offset", "nfapi.pcfich.power.offset",

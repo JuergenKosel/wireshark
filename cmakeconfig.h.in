@@ -11,7 +11,7 @@
 #define VERSION_EXTRA "$ENV{WIRESHARK_VERSION_EXTRA}"
 
 /* Version number of package */
-#define VERSION "${CPACK_PACKAGE_VERSION}${VERSION_EXTRA}"
+#define VERSION "${PROJECT_VERSION}${VERSION_EXTRA}"
 #define VERSION_MAJOR ${PROJECT_MAJOR_VERSION}
 #define VERSION_MINOR ${PROJECT_MINOR_VERSION}
 #define VERSION_MICRO ${PROJECT_PATCH_VERSION}
@@ -43,9 +43,6 @@
 /* Define to 1 if you have the `clock_gettime` function. */
 #cmakedefine HAVE_CLOCK_GETTIME 1
 
-/* Define to 1 if you have the <fcntl.h> header file. */
-#cmakedefine HAVE_FCNTL_H 1
-
 /* Define to use the MaxMind DB library */
 #cmakedefine HAVE_MAXMINDDB 1
 
@@ -70,14 +67,8 @@
 /* Define if you have the 'getexecname' function. */
 #cmakedefine HAVE_GETEXECNAME 1
 
-/* Define if you have the 'floorl' function. */
-#cmakedefine HAVE_FLOORL 1
-
 /* Define to 1 if you have the getopt_long function. */
 #cmakedefine HAVE_GETOPT_LONG 1
-
-/* Define to 1 if you have the <getopt.h> header file. */
-#cmakedefine HAVE_GETOPT_H 1
 
 /* Define to 1 if you have the <grp.h> header file. */
 #cmakedefine HAVE_GRP_H 1
@@ -90,6 +81,12 @@
 
 /* Define to 1 if you have the `krb5_c_fx_cf2_simple' function. */
 #cmakedefine HAVE_KRB5_C_FX_CF2_SIMPLE 1
+
+/* Define to 1 if you have the `decode_krb5_enc_tkt_part' function. */
+#cmakedefine HAVE_DECODE_KRB5_ENC_TKT_PART 1
+
+/* Define to 1 if you have the `encode_krb5_enc_tkt_part' function. */
+#cmakedefine HAVE_ENCODE_KRB5_ENC_TKT_PART 1
 
 /* Define to 1 if you have the `inflatePrime' function. */
 #cmakedefine HAVE_INFLATEPRIME 1
@@ -166,9 +163,6 @@
 /* Define to use MIT kerberos */
 #cmakedefine HAVE_MIT_KERBEROS 1
 
-/* Define to 1 if you have the `mkstemps' function. */
-#cmakedefine HAVE_MKSTEMPS 1
-
 /* Define to 1 if you have the <netdb.h> header file. */
 #cmakedefine HAVE_NETDB_H 1
 
@@ -226,9 +220,6 @@
 /* Define to 1 if you have the optreset variable */
 #cmakedefine HAVE_OPTRESET 1
 
-/* Define if sa_len field exists in struct sockaddr */
-#cmakedefine HAVE_STRUCT_SOCKADDR_SA_LEN 1
-
 /* Define to 1 if you want to playing SBC by standalone BlueZ SBC library */
 #cmakedefine HAVE_SBC 1
 
@@ -265,23 +256,14 @@
 /* Define to 1 if `st_birthtime' is a member of `struct stat'. */
 #cmakedefine HAVE_STRUCT_STAT_ST_BIRTHTIME 1
 
-/* Define if st_flags field exists in struct stat */
-#cmakedefine HAVE_STRUCT_STAT_ST_FLAGS 1
-
 /* Define if st_blksize field exists in struct stat */
 #cmakedefine HAVE_STRUCT_STAT_ST_BLKSIZE 1
 
 /* Define to 1 if `__st_birthtime' is a member of `struct stat'. */
 #cmakedefine HAVE_STRUCT_STAT___ST_BIRTHTIME 1
 
-/* Define to 1 if you have the <sys/ioctl.h> header file. */
-#cmakedefine HAVE_SYS_IOCTL_H 1
-
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #cmakedefine HAVE_SYS_SOCKET_H 1
-
-/* Define to 1 if you have the <sys/sockio.h> header file. */
-#cmakedefine HAVE_SYS_SOCKIO_H 1
 
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
@@ -300,24 +282,6 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H 1
-
-/* Name of package */
-#cmakedefine PACKAGE
-
-/* Define to the address where bug reports for this package should be sent. */
-#cmakedefine PACKAGE_BUGREPORT
-
-/* Define to the full name of this package. */
-#cmakedefine PACKAGE_NAME
-
-/* Define to the full name and version of this package. */
-#cmakedefine PACKAGE_STRING
-
-/* Define to the one symbol short name of this package. */
-#cmakedefine PACKAGE_TARNAME
-
-/* Define to the version of this package. */
-#cmakedefine PACKAGE_VERSION
 
 /* Define if we have QtMultimedia */
 #define QT_MULTIMEDIA_LIB 1
@@ -375,10 +339,9 @@
    /* Use Unicode in Windows runtime functions. */
 #  define UNICODE 1
 #  define _UNICODE 1
-
-#  define NEED_STRPTIME_H 1
 #endif
 
 #include <ws_diag_control.h>
+#include <ws_log_defs.h>
 
 #endif /* __CONFIG_H__ */

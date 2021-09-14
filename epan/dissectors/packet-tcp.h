@@ -13,8 +13,7 @@
 #include "ws_symbol_export.h"
 
 #include <epan/conversation.h>
-#include <epan/wmem/wmem.h>
-#include <epan/wmem/wmem_interval_tree.h>
+#include <epan/wmem_scopes.h>
 
 #ifdef __cplusplus
 extern "C" {

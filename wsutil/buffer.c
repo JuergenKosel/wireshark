@@ -6,11 +6,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_WSUTIL
 
 #include <stdlib.h>
 #include <string.h>
 
 #include "buffer.h"
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 
 #define SMALL_BUFFER_SIZE (2 * 1024) /* Everyone still uses 1500 byte frames, right? */
 static GPtrArray *small_buffers = NULL; /* Guaranteed to be at least SMALL_BUFFER_SIZE */
@@ -20,13 +23,13 @@ static GPtrArray *small_buffers = NULL; /* Guaranteed to be at least SMALL_BUFFE
 void
 ws_buffer_init(Buffer* buffer, gsize space)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	if (G_UNLIKELY(!small_buffers)) small_buffers = g_ptr_array_sized_new(1024);
 
 	if (space <= SMALL_BUFFER_SIZE) {
 		if (small_buffers->len > 0) {
 			buffer->data = (guint8*) g_ptr_array_remove_index(small_buffers, small_buffers->len - 1);
-			g_assert(buffer->data);
+			ws_assert(buffer->data);
 		} else {
 			buffer->data = (guint8*)g_malloc(SMALL_BUFFER_SIZE);
 		}
@@ -43,9 +46,9 @@ ws_buffer_init(Buffer* buffer, gsize space)
 void
 ws_buffer_free(Buffer* buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	if (buffer->allocated == SMALL_BUFFER_SIZE) {
-		g_assert(buffer->data);
+		ws_assert(buffer->data);
 		g_ptr_array_add(small_buffers, buffer->data);
 	} else {
 		g_free(buffer->data);
@@ -61,7 +64,7 @@ ws_buffer_free(Buffer* buffer)
 void
 ws_buffer_assure_space(Buffer* buffer, gsize space)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	gsize available_at_end = buffer->allocated - buffer->first_free;
 	gsize space_used;
 	gboolean space_at_beginning;
@@ -100,7 +103,7 @@ ws_buffer_assure_space(Buffer* buffer, gsize space)
 void
 ws_buffer_append(Buffer* buffer, guint8 *from, gsize bytes)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	ws_buffer_assure_space(buffer, bytes);
 	memcpy(buffer->data + buffer->first_free, from, bytes);
 	buffer->first_free += bytes;
@@ -109,12 +112,12 @@ ws_buffer_append(Buffer* buffer, guint8 *from, gsize bytes)
 void
 ws_buffer_remove_start(Buffer* buffer, gsize bytes)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	if (buffer->start + bytes > buffer->first_free) {
-		g_error("ws_buffer_remove_start trying to remove %" G_GINT64_MODIFIER "u bytes. s=%" G_GINT64_MODIFIER "u ff=%" G_GINT64_MODIFIER "u!\n",
+		ws_error("ws_buffer_remove_start trying to remove %" G_GINT64_MODIFIER "u bytes. s=%" G_GINT64_MODIFIER "u ff=%" G_GINT64_MODIFIER "u!\n",
 			(guint64)bytes, (guint64)buffer->start,
 			(guint64)buffer->first_free);
-		/** g_error() does an abort() and thus never returns **/
+		/** ws_error() does an abort() and thus never returns **/
 	}
 	buffer->start += bytes;
 
@@ -129,7 +132,7 @@ ws_buffer_remove_start(Buffer* buffer, gsize bytes)
 void
 ws_buffer_clean(Buffer* buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	ws_buffer_remove_start(buffer, ws_buffer_length(buffer));
 }
 #endif
@@ -138,7 +141,7 @@ ws_buffer_clean(Buffer* buffer)
 void
 ws_buffer_increase_length(Buffer* buffer, gsize bytes)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	buffer->first_free += bytes;
 }
 #endif
@@ -147,7 +150,7 @@ ws_buffer_increase_length(Buffer* buffer, gsize bytes)
 gsize
 ws_buffer_length(Buffer* buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	return buffer->first_free - buffer->start;
 }
 #endif
@@ -156,7 +159,7 @@ ws_buffer_length(Buffer* buffer)
 guint8 *
 ws_buffer_start_ptr(Buffer* buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	return buffer->data + buffer->start;
 }
 #endif
@@ -165,7 +168,7 @@ ws_buffer_start_ptr(Buffer* buffer)
 guint8 *
 ws_buffer_end_ptr(Buffer* buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	return buffer->data + buffer->first_free;
 }
 #endif
@@ -174,7 +177,7 @@ ws_buffer_end_ptr(Buffer* buffer)
 void
 ws_buffer_append_buffer(Buffer* buffer, Buffer* src_buffer)
 {
-	g_assert(buffer);
+	ws_assert(buffer);
 	ws_buffer_append(buffer, ws_buffer_start_ptr(src_buffer), ws_buffer_length(src_buffer));
 }
 #endif

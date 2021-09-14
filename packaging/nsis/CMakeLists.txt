@@ -46,7 +46,7 @@ endif()
 set (MMDBRESOLVE_EXE ${MAXMINDDB_FOUND})
 
 # Must match ${EXTRA_INSTALLER_DIR}/Npcap-X.Y.Z.exe
-set(NPCAP_PACKAGE_VERSION "1.31")
+set(NPCAP_PACKAGE_VERSION "1.55")
 
 set(USBPCAP_PACKAGE_VERSION "1.5.4.0")
 
@@ -229,7 +229,7 @@ macro( ADD_NSIS_PACKAGE_TARGET )
 			DEPENDS
 				${NSIS_FILES}
 				copy_data_files
-				user_guide_chm
+				user_guide_html
 				faq_html
 				${DATAFILE_DIR}/uninstall.exe
 		)

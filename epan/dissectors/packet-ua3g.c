@@ -1983,9 +1983,9 @@ decode_lcd_line_cmd(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
     if (!ua3g_body_tree)
         return;
 
-    strbuf  = wmem_strbuf_new_label(wmem_packet_scope());
+    strbuf  = wmem_strbuf_new_label(pinfo->pool);
 
-    wmem_strbuf_append_printf(strbuf, "\"%s\"", tvb_format_text(tvb, offset + 2, length - 2));
+    wmem_strbuf_append_printf(strbuf, "\"%s\"", tvb_format_text(pinfo->pool, tvb, offset + 2, length - 2));
 
     ua3g_param_tree = proto_tree_add_subtree_format(ua3g_body_tree, tvb, offset,
         length, ett_ua3g_param, NULL, "%s %d: %s",
@@ -2803,7 +2803,7 @@ decode_audio_config(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo,
             int j;
             int device_index = 0;
 
-            strbuf = wmem_strbuf_new_label(wmem_packet_scope());
+            strbuf = wmem_strbuf_new_label(pinfo->pool);
 
             while (length > 0) {
 

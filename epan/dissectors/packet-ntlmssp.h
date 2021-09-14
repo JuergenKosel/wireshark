@@ -29,7 +29,7 @@ typedef struct _md4_pass {
 } md4_pass;
 
 guint32
-get_md4pass_list(md4_pass** p_pass_list);
+get_md4pass_list(wmem_allocator_t *pool, md4_pass** p_pass_list);
 
 /* Dissect a ntlmv2 response */
 
@@ -60,5 +60,8 @@ ntlmssp_create_session_key(packet_info *pinfo,
                            const guint8 *encryptedsessionkey,
                            const ntlmssp_blob *ntlm_response,
                            const ntlmssp_blob *lm_response);
+
+int
+dissect_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL(tvbuff_t *tvb, int offset, proto_tree *tree);
 
 #endif

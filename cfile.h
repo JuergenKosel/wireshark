@@ -54,12 +54,12 @@ typedef enum {
  * Packet provider for programs using a capture file.
  */
 struct packet_provider_data {
-  wtap        *wth;                  /* Wiretap session */
+  wtap        *wth;                    /* Wiretap session */
   const frame_data *ref;
   frame_data  *prev_dis;
   frame_data  *prev_cap;
-  frame_data_sequence *frames;       /* Sequence of frames, if we're keeping that information */
-  GTree       *frames_user_comments; /* BST with user comments for frames (key = frame_data) */
+  frame_data_sequence *frames;         /* Sequence of frames, if we're keeping that information */
+  GTree       *frames_modified_blocks; /* BST with modified blocks for frames (key = frame_data) */
 };
 
 typedef struct _capture_file {
@@ -131,8 +131,8 @@ extern void cap_file_init(capture_file *cf);
 
 const char *cap_file_provider_get_interface_name(struct packet_provider_data *prov, guint32 interface_id);
 const char *cap_file_provider_get_interface_description(struct packet_provider_data *prov, guint32 interface_id);
-const char *cap_file_provider_get_user_comment(struct packet_provider_data *prov, const frame_data *fd);
-void cap_file_provider_set_user_comment(struct packet_provider_data *prov, frame_data *fd, const char *new_comment);
+wtap_block_t cap_file_provider_get_modified_block(struct packet_provider_data *prov, const frame_data *fd);
+void cap_file_provider_set_modified_block(struct packet_provider_data *prov, frame_data *fd, const wtap_block_t new_block);
 
 #ifdef __cplusplus
 }

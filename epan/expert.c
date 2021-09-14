@@ -11,6 +11,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_EPAN
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,8 +20,10 @@
 #include "expert.h"
 #include "uat.h"
 #include "prefs.h"
-#include "wmem/wmem.h"
+#include <epan/wmem_scopes.h>
 #include "tap.h"
+
+#include <wsutil/wslog.h>
 
 /* proto_expert cannot be static because it's referenced in the
  * print routines
@@ -173,7 +176,7 @@ static void uat_expert_post_update_cb(void)
 
 #define EXPERT_REGISTRAR_GET_NTH(eiindex, expinfo)                                               \
 	if((guint)eiindex >= gpa_expertinfo.len && wireshark_abort_on_dissector_bug)   \
-		g_error("Unregistered expert info! index=%d", eiindex);                          \
+		ws_error("Unregistered expert info! index=%d", eiindex);                          \
 	DISSECTOR_ASSERT_HINT((guint)eiindex < gpa_expertinfo.len, "Unregistered expert info!"); \
 	DISSECTOR_ASSERT_HINT(gpa_expertinfo.ei[eiindex] != NULL, "Unregistered expert info!");	\
 	expinfo = gpa_expertinfo.ei[eiindex];
@@ -587,14 +590,14 @@ expert_set_info_vformat(packet_info *pinfo, proto_item *pi, int group, int sever
 	if (!tap)
 		return;
 
-	ei = wmem_new(wmem_packet_scope(), expert_info_t);
+	ei = wmem_new(pinfo->pool, expert_info_t);
 
 	ei->packet_num  = pinfo->num;
 	ei->group       = group;
 	ei->severity    = severity;
 	ei->hf_index    = hf_index;
 	ei->protocol    = pinfo->current_proto;
-	ei->summary     = wmem_strdup(wmem_packet_scope(), formatted);
+	ei->summary     = wmem_strdup(pinfo->pool, formatted);
 
 	/* if we have a proto_item (not a faked item), set expert attributes to it */
 	if (pi != NULL && PITEM_FINFO(pi) != NULL) {

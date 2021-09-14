@@ -34,6 +34,7 @@
 #include <wsutil/str_util.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/pint.h>
+#include <wsutil/ws_assert.h>
 
 #include "packet-tcp.h"
 #include "packet-ip.h"
@@ -270,6 +271,7 @@ static int hf_tcp_option_mptcp_flags = -1;
 static int hf_tcp_option_mptcp_backup_flag = -1;
 static int hf_tcp_option_mptcp_checksum_flag = -1;
 static int hf_tcp_option_mptcp_B_flag = -1;
+static int hf_tcp_option_mptcp_C_flag = -1;
 static int hf_tcp_option_mptcp_H_v0_flag = -1;
 static int hf_tcp_option_mptcp_H_v1_flag = -1;
 static int hf_tcp_option_mptcp_F_flag = -1;
@@ -282,7 +284,8 @@ static int hf_tcp_option_mptcp_V_flag = -1;
 static int hf_tcp_option_mptcp_W_flag = -1;
 static int hf_tcp_option_mptcp_T_flag = -1;
 static int hf_tcp_option_mptcp_tcprst_reason = -1;
-static int hf_tcp_option_mptcp_reserved_flag = -1;
+static int hf_tcp_option_mptcp_reserved_v0_flag = -1;
+static int hf_tcp_option_mptcp_reserved_v1_flag = -1;
 static int hf_tcp_option_mptcp_subtype = -1;
 static int hf_tcp_option_mptcp_version = -1;
 static int hf_tcp_option_mptcp_reserved = -1;
@@ -655,15 +658,16 @@ static int * const tcp_option_mptcp_capable_v0_flags[] = {
   &hf_tcp_option_mptcp_checksum_flag,
   &hf_tcp_option_mptcp_B_flag,
   &hf_tcp_option_mptcp_H_v0_flag,
-  &hf_tcp_option_mptcp_reserved_flag,
+  &hf_tcp_option_mptcp_reserved_v0_flag,
   NULL
 };
 
 static int * const tcp_option_mptcp_capable_v1_flags[] = {
   &hf_tcp_option_mptcp_checksum_flag,
   &hf_tcp_option_mptcp_B_flag,
+  &hf_tcp_option_mptcp_C_flag,
   &hf_tcp_option_mptcp_H_v1_flag,
-  &hf_tcp_option_mptcp_reserved_flag,
+  &hf_tcp_option_mptcp_reserved_v1_flag,
   NULL
 };
 
@@ -726,9 +730,9 @@ tcp_flags_to_str(wmem_allocator_t *scope, const struct tcpheader *tcph)
     return buf;
 }
 static char *
-tcp_flags_to_str_first_letter(const struct tcpheader *tcph)
+tcp_flags_to_str_first_letter(wmem_allocator_t *scope, const struct tcpheader *tcph)
 {
-    wmem_strbuf_t *buf = wmem_strbuf_new(wmem_packet_scope(), "");
+    wmem_strbuf_t *buf = wmem_strbuf_new(scope, "");
     unsigned i;
     const unsigned flags_count = 12;
     const char first_letters[] = "RRRNCEUAPRSF";
@@ -1256,29 +1260,15 @@ static int exp_pdu_tcp_dissector_data_populate_data(packet_info *pinfo _U_, void
 {
     struct tcpinfo* dissector_data = (struct tcpinfo*)data;
 
-    tlv_buffer[0] = 0;
-    tlv_buffer[1] = EXP_PDU_TAG_TCP_INFO_DATA;
-    tlv_buffer[2] = 0;
-    tlv_buffer[3] = EXP_PDU_TCP_INFO_DATA_LEN; /* tag length */
-    tlv_buffer[4] = 0;
-    tlv_buffer[5] = EXP_PDU_TCP_INFO_VERSION;
-    tlv_buffer[6] = (dissector_data->seq & 0xff000000) >> 24;
-    tlv_buffer[7] = (dissector_data->seq & 0x00ff0000) >> 16;
-    tlv_buffer[8] = (dissector_data->seq & 0x0000ff00) >> 8;
-    tlv_buffer[9] = (dissector_data->seq & 0x000000ff);
-    tlv_buffer[10] = (dissector_data->nxtseq & 0xff000000) >> 24;
-    tlv_buffer[11] = (dissector_data->nxtseq & 0x00ff0000) >> 16;
-    tlv_buffer[12] = (dissector_data->nxtseq & 0x0000ff00) >> 8;
-    tlv_buffer[13] = (dissector_data->nxtseq & 0x000000ff);
-    tlv_buffer[14] = (dissector_data->lastackseq & 0xff000000) >> 24;
-    tlv_buffer[15] = (dissector_data->lastackseq & 0x00ff0000) >> 16;
-    tlv_buffer[16] = (dissector_data->lastackseq & 0x0000ff00) >> 8;
-    tlv_buffer[17] = (dissector_data->lastackseq & 0x000000ff);
+    phton16(&tlv_buffer[0], EXP_PDU_TAG_TCP_INFO_DATA);
+    phton16(&tlv_buffer[2], EXP_PDU_TCP_INFO_DATA_LEN); /* tag length */
+    phton16(&tlv_buffer[4], EXP_PDU_TCP_INFO_VERSION);
+    phton32(&tlv_buffer[6], dissector_data->seq);
+    phton32(&tlv_buffer[10], dissector_data->nxtseq);
+    phton32(&tlv_buffer[14], dissector_data->lastackseq);
     tlv_buffer[18] = dissector_data->is_reassembled;
-    tlv_buffer[19] = (dissector_data->flags & 0xff00) >> 8;
-    tlv_buffer[20] = (dissector_data->flags & 0x00ff);
-    tlv_buffer[21] = (dissector_data->urgent_pointer & 0xff00) >> 8;
-    tlv_buffer[22] = (dissector_data->urgent_pointer & 0x00ff);
+    phton16(&tlv_buffer[19], dissector_data->flags);
+    phton16(&tlv_buffer[21], dissector_data->urgent_pointer);
 
     return exp_pdu_tcp_dissector_data_size(pinfo, data);
 }
@@ -1462,6 +1452,7 @@ static void conversation_completeness_fill(gchar *buf, guint32 value)
 static gboolean tcp_analyze_seq           = TRUE;
 static gboolean tcp_relative_seq          = TRUE;
 static gboolean tcp_track_bytes_in_flight = TRUE;
+static gboolean tcp_bif_seq_based         = FALSE;
 static gboolean tcp_calculate_ts          = TRUE;
 
 static gboolean tcp_analyze_mptcp                   = TRUE;
@@ -1885,7 +1876,7 @@ pdu_store_sequencenumber_of_next_pdu(packet_info *pinfo, guint32 seq, guint32 nx
     msp->last_frame_time=pinfo->abs_ts;
     msp->flags=0;
     wmem_tree_insert32(multisegment_pdus, seq, (void *)msp);
-    /*g_warning("pdu_store_sequencenumber_of_next_pdu: seq %u", seq);*/
+    /*ws_warning("pdu_store_sequencenumber_of_next_pdu: seq %u", seq);*/
     return msp;
 }
 
@@ -2488,64 +2479,94 @@ finished_checking_retransmission_type:
 
     /* how many bytes of data are there in flight after this frame
      * was sent
+     * The historical evaluation is done from the payload seen in the
+     * segments captured. Another method deduced from the SEQ numbers
+     * is introduced with issue 7703, but not used by default now. The
+     * method is chosen by the user preference tcp_bif_seq_based.
      */
-    ual=tcpd->fwd->tcp_analyze_seq_info->segments;
-    if (tcp_track_bytes_in_flight && seglen!=0 && ual && tcpd->fwd->valid_bif) {
-        guint32 first_seq, last_seq, in_flight;
-        guint32 delivered = 0;
+    if(tcp_track_bytes_in_flight) {
+        guint32 in_flight, delivered = 0;
+        /*
+         * "don't repeat yourself" boolean, for the shared part
+         * between both methods
+         */
+        gboolean dry_bif_handling = FALSE;
 
-        first_seq = ual->seq - tcpd->fwd->base_seq;
-        last_seq = ual->nextseq - tcpd->fwd->base_seq;
-        while (ual) {
-            if ((ual->nextseq-tcpd->fwd->base_seq)>last_seq) {
-                last_seq = ual->nextseq-tcpd->fwd->base_seq;
+        /*
+         * historical calculation method based on payloads, which is
+         * by now still the default.
+         */
+        if(!tcp_bif_seq_based) {
+            ual=tcpd->fwd->tcp_analyze_seq_info->segments;
+
+            if (seglen!=0 && ual && tcpd->fwd->valid_bif) {
+                guint32 first_seq, last_seq;
+
+                dry_bif_handling = TRUE;
+
+                first_seq = ual->seq - tcpd->fwd->base_seq;
+                last_seq = ual->nextseq - tcpd->fwd->base_seq;
+                while (ual) {
+                    if ((ual->nextseq-tcpd->fwd->base_seq)>last_seq) {
+                        last_seq = ual->nextseq-tcpd->fwd->base_seq;
+                    }
+                    if ((ual->seq-tcpd->fwd->base_seq)<first_seq) {
+                        first_seq = ual->seq-tcpd->fwd->base_seq;
+                    }
+                    ual = ual->next;
+                }
+                in_flight = last_seq-first_seq;
             }
-            if ((ual->seq-tcpd->fwd->base_seq)<first_seq) {
-                first_seq = ual->seq-tcpd->fwd->base_seq;
+        } else { /* calculation based on SEQ numbers (see issue 7703) */
+            if (seglen!=0 && tcpd->fwd->tcp_analyze_seq_info && tcpd->fwd->valid_bif) {
+
+                dry_bif_handling = TRUE;
+
+                in_flight = tcpd->fwd->tcp_analyze_seq_info->nextseq
+                          - tcpd->rev->tcp_analyze_seq_info->lastack;
             }
-            ual = ual->next;
         }
-        in_flight = last_seq-first_seq;
-
-        /* subtract any SACK block */
-        if(tcpd->rev->tcp_analyze_seq_info->num_sack_ranges > 0) {
-            int i;
-            for(i = 0; i<tcpd->rev->tcp_analyze_seq_info->num_sack_ranges; i++) {
-                delivered += (tcpd->rev->tcp_analyze_seq_info->sack_right_edge[i+1] -
-                              tcpd->rev->tcp_analyze_seq_info->sack_left_edge[i+1]);
+        if(dry_bif_handling) {
+            /* subtract any SACK block */
+            if(tcpd->rev->tcp_analyze_seq_info->num_sack_ranges > 0) {
+                int i;
+                for(i = 0; i<tcpd->rev->tcp_analyze_seq_info->num_sack_ranges; i++) {
+                    delivered += (tcpd->rev->tcp_analyze_seq_info->sack_right_edge[i+1] -
+                                  tcpd->rev->tcp_analyze_seq_info->sack_left_edge[i+1]);
+                }
+                in_flight -= delivered;
             }
-            in_flight -= delivered;
-        }
 
-        if (in_flight>0 && in_flight<2000000000) {
+            if (in_flight>0 && in_flight<2000000000) {
+                if(!tcpd->ta) {
+                    tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+                }
+                tcpd->ta->bytes_in_flight = in_flight;
+                /* Decrement in_flight bytes by one when we have a SYN or FIN bit
+                 * flag set as it is only virtual.
+                 */
+                if (flags&(TH_SYN|TH_FIN))  {
+                    tcpd->ta->bytes_in_flight -= 1;
+		    }
+            }
+
+            if((flags & TH_PUSH) && !tcpd->fwd->push_set_last) {
+              tcpd->fwd->push_bytes_sent += seglen;
+              tcpd->fwd->push_set_last = TRUE;
+            } else if ((flags & TH_PUSH) && tcpd->fwd->push_set_last) {
+              tcpd->fwd->push_bytes_sent = seglen;
+              tcpd->fwd->push_set_last = TRUE;
+            } else if (tcpd->fwd->push_set_last) {
+              tcpd->fwd->push_bytes_sent = seglen;
+              tcpd->fwd->push_set_last = FALSE;
+            } else {
+              tcpd->fwd->push_bytes_sent += seglen;
+            }
             if(!tcpd->ta) {
-                tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+              tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
             }
-            tcpd->ta->bytes_in_flight = in_flight;
-            /* Decrement in_flight bytes by one when we have a SYN or FIN bit
-             * flag set as it is only virtual.
-             */
-            if (flags&(TH_SYN|TH_FIN))  {
-                tcpd->ta->bytes_in_flight -= 1;
-		}
+            tcpd->ta->push_bytes_sent = tcpd->fwd->push_bytes_sent;
         }
-
-        if((flags & TH_PUSH) && !tcpd->fwd->push_set_last) {
-          tcpd->fwd->push_bytes_sent += seglen;
-          tcpd->fwd->push_set_last = TRUE;
-        } else if ((flags & TH_PUSH) && tcpd->fwd->push_set_last) {
-          tcpd->fwd->push_bytes_sent = seglen;
-          tcpd->fwd->push_set_last = TRUE;
-        } else if (tcpd->fwd->push_set_last) {
-          tcpd->fwd->push_bytes_sent = seglen;
-          tcpd->fwd->push_set_last = FALSE;
-        } else {
-          tcpd->fwd->push_bytes_sent += seglen;
-        }
-        if(!tcpd->ta) {
-          tcp_analyze_get_acked_struct(pinfo->fd->num, seq, ack, TRUE, tcpd);
-        }
-        tcpd->ta->push_bytes_sent = tcpd->fwd->push_bytes_sent;
     }
 
 }
@@ -2793,13 +2814,13 @@ mptcp_cryptodata_sha256(const guint64 key, guint32 *token, guint64 *idsn)
 
 /* Print formatted list of tcp stream ids that are part of the connection */
 static void
-mptcp_analysis_add_subflows(packet_info *pinfo _U_,  tvbuff_t *tvb,
+mptcp_analysis_add_subflows(packet_info *pinfo,  tvbuff_t *tvb,
     proto_tree *parent_tree, struct mptcp_analysis* mptcpd)
 {
     wmem_list_frame_t *it;
     proto_item *item;
 
-    wmem_strbuf_t *val = wmem_strbuf_new(wmem_packet_scope(), "");
+    wmem_strbuf_t *val = wmem_strbuf_new(pinfo->pool, "");
 
     /* for the analysis, we set each subflow tcp stream id */
     for(it = wmem_list_head(mptcpd->subflows); it != NULL; it = wmem_list_frame_next(it)) {
@@ -2826,7 +2847,7 @@ mptcp_map_relssn_to_rawdsn(mptcp_dss_mapping_t *mapping, guint32 relssn, guint64
 
 /* Add duplicated data */
 static mptcp_dsn2packet_mapping_t *
-mptcp_add_duplicated_dsn(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, struct mptcp_subflow *subflow,
+mptcp_add_duplicated_dsn(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, struct mptcp_subflow *subflow,
 guint64 rawdsn64low, guint64 rawdsn64high
 )
 {
@@ -2836,7 +2857,7 @@ guint64 rawdsn64low, guint64 rawdsn64high
     proto_item *item = NULL;
 
     results = wmem_itree_find_intervals(subflow->dsn2packet_map,
-                    wmem_packet_scope(),
+                    pinfo->pool,
                     rawdsn64low,
                     rawdsn64high
                     );
@@ -2915,7 +2936,7 @@ mptcp_analysis_dsn_lookup(packet_info *pinfo , tvbuff_t *tvb,
         guint32 seglen = tcph->th_seglen;
 
         results = wmem_itree_find_intervals(tcpd->fwd->mptcp_subflow->ssn2dsn_mappings,
-                    wmem_packet_scope(),
+                    pinfo->pool,
                     ssn_low,
                     (seglen) ? ssn_low + seglen - 1 : ssn_low
                     );
@@ -3291,7 +3312,7 @@ desegment_tcp(tvbuff_t *tvb, packet_info *pinfo, int offset,
     proto_item *item;
     struct tcp_multisegment_pdu *msp;
     gboolean cleared_writable = col_get_writable(pinfo->cinfo, COL_PROTOCOL);
-    const gboolean reassemble_ooo = tcp_desegment && tcp_reassemble_out_of_order;
+    const gboolean reassemble_ooo = tcp_analyze_seq && tcp_desegment && tcp_reassemble_out_of_order;
 
 again:
     ipfd_head = NULL;
@@ -4498,7 +4519,7 @@ dissect_tcpopt_sack(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
      * (1) A D-SACK block is only used to report a duplicate contiguous sequence of data received by
      *     the receiver in the most recent packet.
      */
-    if (GE_SEQ(tcph->sack_right_edge[0], tcph->th_ack) ||
+    if (LE_SEQ(tcph->sack_right_edge[0], tcph->th_ack) ||
          (tcph->num_sack_ranges > 1 &&
           LT_SEQ(tcph->sack_left_edge[1], tcph->sack_right_edge[0]) &&
           GE_SEQ(tcph->sack_right_edge[1], tcph->sack_right_edge[0]))
@@ -4772,7 +4793,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     struct mptcpheader* mph = tcph->th_mptcp;
 
     if(!mph) {
-        mph = wmem_new0(wmem_packet_scope(), struct mptcpheader);
+        mph = wmem_new0(pinfo->pool, struct mptcpheader);
         tcph->th_mptcp = mph;
     }
 
@@ -6068,7 +6089,7 @@ tcp_dissect_options(tvbuff_t *tvb, int offset, guint length, int eol,
         } else {
             option_dissector = dissector_get_uint_handle(tcp_option_table, opt);
             if (option_dissector == NULL) {
-                name = wmem_strdup_printf(wmem_packet_scope(), "Unknown (0x%02x)", opt);
+                name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
                 option_dissector = tcp_opt_unknown_handle;
             } else {
                 name = dissector_handle_get_short_name(option_dissector);
@@ -6451,7 +6472,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     guint8     conversation_completeness = 0;
     gboolean   conversation_is_new = FALSE;
 
-    tcph = wmem_new0(wmem_packet_scope(), struct tcpheader);
+    tcph = wmem_new0(pinfo->pool, struct tcpheader);
     tcph->th_sport = tvb_get_ntohs(tvb, offset);
     tcph->th_dport = tvb_get_ntohs(tvb, offset + 2);
     copy_address_shallow(&tcph->ip_src, &pinfo->src);
@@ -6465,8 +6486,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         ti = proto_tree_add_item(tree, proto_tcp, tvb, 0, -1, ENC_NA);
         if (tcp_summary_in_tree) {
             proto_item_append_text(ti, ", Src Port: %s, Dst Port: %s",
-                    port_with_resolution_to_str(wmem_packet_scope(), PT_TCP, tcph->th_sport),
-                    port_with_resolution_to_str(wmem_packet_scope(), PT_TCP, tcph->th_dport));
+                    port_with_resolution_to_str(pinfo->pool, PT_TCP, tcph->th_sport),
+                    port_with_resolution_to_str(pinfo->pool, PT_TCP, tcph->th_dport));
         }
         tcp_tree = proto_item_add_subtree(ti, ett_tcp);
         p_add_proto_data(pinfo->pool, pinfo, proto_tcp, pinfo->curr_layer_num, tcp_tree);
@@ -6695,8 +6716,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     } else
         tcph->th_have_seglen = FALSE;
 
-    flags_str = tcp_flags_to_str(wmem_packet_scope(), tcph);
-    flags_str_first_letter = tcp_flags_to_str_first_letter(tcph);
+    flags_str = tcp_flags_to_str(pinfo->pool, tcph);
+    flags_str_first_letter = tcp_flags_to_str_first_letter(pinfo->pool, tcph);
 
     col_append_lstr(pinfo->cinfo, COL_INFO,
         " [", flags_str, "]",
@@ -7193,7 +7214,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
     if (tcph->th_have_seglen) {
         if(have_tap_listener(tcp_follow_tap)) {
-            tcp_follow_tap_data_t* follow_data = wmem_new0(wmem_packet_scope(), tcp_follow_tap_data_t);
+            tcp_follow_tap_data_t* follow_data = wmem_new0(pinfo->pool, tcp_follow_tap_data_t);
 
             follow_data->tvb = tvb_new_subset_remaining(tvb, offset);
             follow_data->tcph = tcph;
@@ -7666,6 +7687,10 @@ proto_register_tcp(void)
           { "Extensibility", "tcp.options.mptcp.extensibility.flag", FT_UINT8,
             BASE_DEC, NULL, 0x40, NULL, HFILL}},
 
+        { &hf_tcp_option_mptcp_C_flag,
+          { "Do not attempt to establish new subflows to this address and port", "tcp.options.mptcp.nomoresubflows.flag", FT_UINT8,
+            BASE_DEC, NULL, 0x20, NULL, HFILL}},
+
         { &hf_tcp_option_mptcp_H_v0_flag,
           { "Use HMAC-SHA1", "tcp.options.mptcp.sha1.flag", FT_UINT8,
             BASE_DEC, NULL, 0x01, NULL, HFILL}},
@@ -7694,9 +7719,13 @@ proto_register_tcp(void)
           { "Data ACK is present", "tcp.options.mptcp.dataackpresent.flag", FT_UINT8,
             BASE_DEC, NULL, MPTCP_DSS_FLAG_DATA_ACK_PRESENT, NULL, HFILL}},
 
-        { &hf_tcp_option_mptcp_reserved_flag,
+        { &hf_tcp_option_mptcp_reserved_v0_flag,
           { "Reserved", "tcp.options.mptcp.reserved.flag", FT_UINT8,
             BASE_HEX, NULL, 0x3E, NULL, HFILL}},
+
+        { &hf_tcp_option_mptcp_reserved_v1_flag,
+          { "Reserved", "tcp.options.mptcp.reserved.flag", FT_UINT8,
+            BASE_HEX, NULL, 0x1E, NULL, HFILL}},
 
         { &hf_tcp_option_mptcp_U_flag,
           { "Flag U", "tcp.options.mptcp.flag_U.flag", FT_BOOLEAN,
@@ -8395,6 +8424,11 @@ proto_register_tcp(void)
         "To use this option you must also enable \"Analyze TCP sequence numbers\". "
         "This takes a lot of memory but allows you to track how much data are in flight at a time and graphing it in io-graphs",
         &tcp_track_bytes_in_flight);
+    prefs_register_bool_preference(tcp_module, "bif_seq_based",
+        "Evaluate bytes in flight based on sequence numbers",
+        "Evaluate BiF on actual sequence numbers or use the historical method based on payloads (default). "
+        "This option has no effect if not used with \"Track number of bytes in flight\". ",
+        &tcp_bif_seq_based);
     prefs_register_bool_preference(tcp_module, "calculate_timestamps",
         "Calculate conversation timestamps",
         "Calculate timestamps relative to the first frame and the previous frame in the tcp conversation",

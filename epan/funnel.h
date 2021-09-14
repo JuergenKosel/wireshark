@@ -17,6 +17,7 @@
 #include <glib.h>
 #include <epan/stat_groups.h>
 #include "ws_symbol_export.h"
+#include <ws_log_defs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,15 +60,16 @@ typedef struct _funnel_ops_t {
     void (*add_button)(funnel_text_window_t*  win, funnel_bt_t* cb, const char* label);
 
     void (*new_dialog)(const gchar* title,
-		       const gchar** fieldnames,
-		       funnel_dlg_cb_t dlg_cb,
-		       void* data,
-		       funnel_dlg_cb_data_free_t dlg_cb_data_free);
+                    const gchar** field_names,
+                    const gchar** field_values,
+                    funnel_dlg_cb_t dlg_cb,
+                    void* data,
+                    funnel_dlg_cb_data_free_t dlg_cb_data_free);
 
     void (*close_dialogs)(void);
 
     void (*logger)(const gchar *log_domain,
-                   GLogLevelFlags log_level,
+                   enum ws_log_level log_level,
                    const gchar *message,
                    gpointer user_data);
 
@@ -81,6 +83,7 @@ typedef struct _funnel_ops_t {
     void (*set_color_filter_slot)(guint8 filt_nr, const gchar* filter);
     gboolean (*open_file)(funnel_ops_id_t *ops_id, const char* fname, const char* filter, char** error);
     void (*reload_packets)(funnel_ops_id_t *ops_id);
+    void (*redissect_packets)(funnel_ops_id_t *ops_id);
     void (*reload_lua_plugins)(funnel_ops_id_t *ops_id);
     void (*apply_filter)(funnel_ops_id_t *ops_id);
 

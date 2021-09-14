@@ -24,6 +24,7 @@
 #include <epan/follow.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/tap.h>
+#include <wsutil/ws_assert.h>
 
 void register_tap_listener_follow(void);
 
@@ -71,11 +72,11 @@ static const char * follow_str_type(cli_follow_info_t* cli_follow_info)
   case SHOW_RAW:        return "raw";
   case SHOW_YAML:       return "yaml";
   default:
-    g_assert_not_reached();
+    ws_assert_not_reached();
     break;
   }
 
-  g_assert_not_reached();
+  ws_assert_not_reached();
 
   return "<unknown-mode>";
 }
@@ -245,7 +246,7 @@ static void follow_draw(void *contextp)
       break;
 
     default:
-      g_assert_not_reached();
+      ws_assert_not_reached();
     }
 
     /* Print data */
@@ -316,7 +317,7 @@ static void follow_draw(void *contextp)
       break;
 
     default:
-      g_assert_not_reached();
+      ws_assert_not_reached();
     }
   }
 
@@ -402,6 +403,7 @@ follow_arg_filter(const char **opt_argp, follow_info_t *follow_info)
         ((*opt_argp)[len] == 0 || (*opt_argp)[len] == ','))
     {
       *opt_argp += len;
+      follow_info->substream_id = cli_follow_info->sub_stream_index;
     }
   }
   else
@@ -520,6 +522,7 @@ static void follow_stream(const char *opt_argp, void *userdata)
   }
   follow_info = g_new0(follow_info_t, 1);
   follow_info->gui_data = cli_follow_info;
+  follow_info->substream_id = SUBSTREAM_UNUSED;
   cli_follow_info->follower = follower;
 
   follow_arg_mode(&opt_argp, follow_info);

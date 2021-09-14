@@ -29,25 +29,33 @@
 #include <packet-socketcan.h>
 #include <packet-flexray.h>
 #include <packet-pdu-transport.h>
+#include <packet-lin.h>
 
- /*
-  * Dissector for CAN, FlexRay, and other message payloads.
-  * This includes such PDUs being transported on top of TECMP,
-  * SOME/IP, and others.
-  */
+/*
+ * Dissector for CAN, FlexRay, and other message payloads.
+ * This includes such PDUs being transported on top of TECMP,
+ * SOME/IP, and others.
+ */
 
 #define SPDU_NAME                                           "Signal PDU"
 #define SPDU_NAME_LONG                                      "Signal PDU"
 #define SPDU_NAME_FILTER                                    "signal_pdu"
 
- /*** Configuration ***/
+
+/*** Configuration ***/
+
+/* Define the Signal PDUs and their IDs and Names. */
 #define DATAFILE_SPDU_MESSAGES                              "Signal_PDU_identifiers"
+/* Define how to parse Signal PDUs into Signals. */
 #define DATAFILE_SPDU_SIGNALS                               "Signal_PDU_signal_list"
+/* Define enumeration for signal values. */
 #define DATAFILE_SPDU_VALUE_NAMES                           "Signal_PDU_signal_values"
 
+/* Using the following config files the payloads of different protocols are mapped to Signal PDU IDs: */
 #define DATAFILE_SPDU_SOMEIP_MAPPING                        "Signal_PDU_Binding_SOMEIP"
 #define DATAFILE_SPDU_CAN_MAPPING                           "Signal_PDU_Binding_CAN"
 #define DATAFILE_SPDU_FLEXRAY_MAPPING                       "Signal_PDU_Binding_FlexRay"
+#define DATAFILE_SPDU_LIN_MAPPING                           "Signal_PDU_Binding_LIN"
 #define DATAFILE_SPDU_PDU_TRANSPORT_MAPPING                 "Signal_PDU_Binding_PDU_Transport"
 
 /* ID wireshark identifies the dissector by */
@@ -56,6 +64,7 @@ static int proto_signal_pdu                                 = -1;
 static dissector_handle_t signal_pdu_handle_someip          = NULL;
 static dissector_handle_t signal_pdu_handle_can             = NULL;
 static dissector_handle_t signal_pdu_handle_flexray         = NULL;
+static dissector_handle_t signal_pdu_handle_lin             = NULL;
 static dissector_handle_t signal_pdu_handle_pdu_transport   = NULL;
 
 static int hf_payload_unparsed                              = -1;
@@ -64,6 +73,7 @@ static gint ett_spdu_payload                                = -1;
 static gint ett_spdu_signal                                 = -1;
 static gboolean spdu_derserializer_activated                = FALSE;
 static gboolean spdu_derserializer_show_hidden              = FALSE;
+static gboolean spdu_derserializer_hide_raw_values          = TRUE;
 
 /*** expert info items ***/
 static expert_field ef_spdu_payload_truncated               = EI_INIT;
@@ -78,6 +88,7 @@ static GHashTable *data_spdu_signal_value_names             = NULL;
 static GHashTable *data_spdu_someip_mappings                = NULL;
 static GHashTable *data_spdu_can_mappings                   = NULL;
 static GHashTable *data_spdu_flexray_mappings               = NULL;
+static GHashTable *data_spdu_lin_mappings                   = NULL;
 static GHashTable *data_spdu_pdu_transport_mappings         = NULL;
 
 static hf_register_info *dynamic_hf                         = NULL;
@@ -195,6 +206,7 @@ typedef spdu_someip_mapping_t spdu_someip_mapping_uat_t;
 
 typedef struct _spdu_can_mapping {
     guint32     can_id;
+    guint32     bus_id;
     guint32     message_id;
 } spdu_can_mapping_t;
 typedef spdu_can_mapping_t spdu_can_mapping_uat_t;
@@ -207,6 +219,14 @@ typedef struct _spdu_flexray_mapping {
     guint32     message_id;
 } spdu_flexray_mapping_t;
 typedef spdu_flexray_mapping_t spdu_flexray_mapping_uat_t;
+
+
+typedef struct _spdu_lin_mapping {
+    guint32     frame_id;
+    guint32     bus_id;
+    guint32     message_id;
+} spdu_lin_mapping_t;
+typedef spdu_lin_mapping_t spdu_lin_mapping_uat_t;
 
 
 typedef struct _spdu_pdu_transport_mapping {
@@ -234,13 +254,61 @@ static guint spdu_can_mapping_num = 0;
 static spdu_flexray_mapping_t *spdu_flexray_mapping = NULL;
 static guint spdu_flexray_mapping_num = 0;
 
+static spdu_lin_mapping_t *spdu_lin_mapping = NULL;
+static guint spdu_lin_mapping_num = 0;
+
 static spdu_pdu_transport_mapping_t *spdu_pdu_transport_mapping = NULL;
 static guint spdu_pdu_transport_mapping_num = 0;
 
 void proto_register_signal_pdu(void);
 void proto_reg_handoff_signal_pdu(void);
-void proto_reg_handoff_signal_pdu_someip(void);
-void proto_reg_handoff_signal_pdu_pdu_transport(void);
+
+void
+proto_reg_handoff_signal_pdu_can(void) {
+    if (signal_pdu_handle_can == NULL) {
+        return;
+    }
+
+    dissector_delete_all("can.id", signal_pdu_handle_can);
+    dissector_delete_all("can.extended_id", signal_pdu_handle_can);
+
+    /* CAN: loop over all frame IDs in HT */
+    if (data_spdu_can_mappings != NULL) {
+        GList *keys = g_hash_table_get_keys(data_spdu_can_mappings);
+
+        GList *tmp;
+        for (tmp = keys; tmp != NULL; tmp = tmp->next) {
+            gint32 *id = ((gint32*)tmp->data);
+
+            *id &= CAN_EFF_MASK;
+            dissector_add_uint("can.extended_id", *id, signal_pdu_handle_can);
+            if (*id <= CAN_SFF_MASK) {
+                dissector_add_uint("can.id", *id, signal_pdu_handle_can);
+            }
+        }
+    }
+}
+
+void
+proto_reg_handoff_signal_pdu_lin(void) {
+    if (signal_pdu_handle_lin == NULL) {
+        return;
+    }
+
+    dissector_delete_all("lin.frame_id", signal_pdu_handle_lin);
+
+    /* LIN: loop over all frame IDs in HT */
+    if (data_spdu_lin_mappings != NULL) {
+        GList *keys = g_hash_table_get_keys(data_spdu_lin_mappings);
+
+        GList *tmp;
+        for (tmp = keys; tmp != NULL; tmp = tmp->next) {
+            gint32 *id = (gint32*)tmp->data;
+            /* we register the combination of bus and frame id */
+            dissector_add_uint("lin.frame_id", *id, signal_pdu_handle_lin);
+        }
+    }
+}
 
 void
 proto_reg_handoff_signal_pdu_someip(void) {
@@ -281,7 +349,6 @@ proto_reg_handoff_signal_pdu_pdu_transport(void) {
             dissector_add_uint("pdu_transport.id", ((guint32)((guint64)(*id)) & 0xffffffff), signal_pdu_handle_pdu_transport);
         }
     }
-
 }
 
 /*** UAT Callbacks and Helpers ***/
@@ -482,7 +549,7 @@ update_spdu_signal_list(void *r, char **err) {
     }
 
     if (rec->filter_string == NULL || rec->filter_string[0] == 0) {
-        *err = g_strdup_printf("Name cannot be empty");
+        *err = g_strdup_printf("Filter String cannot be empty");
         return FALSE;
     }
 
@@ -504,7 +571,7 @@ update_spdu_signal_list(void *r, char **err) {
     }
 
     if (g_strcmp0(rec->data_type, "int") == 0 && (rec->bitlength_base_type != rec->bitlength_encoded_type)) {
-        *err = g_strdup_printf("singed ints (int) only support in non-shortened length");
+        *err = g_strdup_printf("signed ints (int) only support in non-shortened length");
         return FALSE;
     }
 
@@ -924,7 +991,7 @@ post_update_spdu_someip_mapping_cb(void) {
         data_spdu_someip_mappings = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_spdu_someip_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, &spdu_payload_free_key, NULL);
 
     if (data_spdu_someip_mappings == NULL || spdu_someip_mapping == NULL) {
@@ -964,6 +1031,7 @@ get_someip_mapping(guint16 service_id, guint16 method_id, guint8 major_version, 
 
 /* UAT: CAN Mapping */
 UAT_HEX_CB_DEF(spdu_can_mapping, can_id, spdu_can_mapping_uat_t)
+UAT_HEX_CB_DEF(spdu_can_mapping, bus_id, spdu_can_mapping_uat_t)
 UAT_HEX_CB_DEF(spdu_can_mapping, message_id, spdu_can_mapping_uat_t)
 
 static void *
@@ -972,6 +1040,7 @@ copy_spdu_can_mapping_cb(void *n, const void *o, size_t size _U_) {
     const spdu_can_mapping_uat_t *old_rec = (const spdu_can_mapping_uat_t *)o;
 
     new_rec->can_id = old_rec->can_id;
+    new_rec->bus_id = old_rec->bus_id;
     new_rec->message_id = old_rec->message_id;
 
     return new_rec;
@@ -985,7 +1054,7 @@ post_update_spdu_can_mapping_cb(void) {
         data_spdu_can_mappings = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_spdu_can_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, &spdu_payload_free_key, NULL);
 
     if (data_spdu_can_mappings == NULL || spdu_can_mapping == NULL) {
@@ -997,21 +1066,32 @@ post_update_spdu_can_mapping_cb(void) {
         for (i = 0; i < spdu_can_mapping_num; i++) {
             gint64 *key = wmem_new(wmem_epan_scope(), gint64);
             *key = spdu_can_mapping[i].can_id;
+            *key |= ((gint64)(spdu_can_mapping[i].bus_id & 0xffff)) << 32;
 
             g_hash_table_insert(data_spdu_can_mappings, key, &spdu_can_mapping[i]);
         }
     }
+
+    /* we need to make sure we register again */
+    proto_reg_handoff_signal_pdu_can();
 }
 
 static spdu_can_mapping_t*
-get_can_mapping(guint32 id) {
+get_can_mapping(guint32 id, guint16 bus_id) {
     if (data_spdu_can_mappings == NULL) {
         return NULL;
     }
 
     gint64 *key = wmem_new(wmem_epan_scope(), gint64);
     *key = id & CAN_EFF_MASK;
+    *key |= ((gint64)bus_id << 32);
     spdu_can_mapping_t *tmp = (spdu_can_mapping_t*)g_hash_table_lookup(data_spdu_can_mappings, key);
+    if (tmp == NULL) {
+        /* try again without Bus ID set */
+        *key = id & CAN_EFF_MASK;
+        tmp = (spdu_can_mapping_t*)g_hash_table_lookup(data_spdu_can_mappings, key);
+    }
+
     wmem_free(wmem_epan_scope(), key);
 
     return tmp;
@@ -1062,7 +1142,7 @@ post_update_spdu_flexray_mapping_cb(void) {
         data_spdu_flexray_mappings = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_spdu_flexray_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, &spdu_payload_free_key, NULL);
 
     if (data_spdu_flexray_mappings == NULL || spdu_flexray_mapping == NULL) {
@@ -1097,6 +1177,93 @@ get_flexray_mapping(guint8 channel, guint8 cycle, guint16 flexray_id) {
     return tmp;
 }
 
+
+/* UAT: LIN Mapping */
+UAT_HEX_CB_DEF(spdu_lin_mapping, frame_id, spdu_lin_mapping_uat_t)
+UAT_HEX_CB_DEF(spdu_lin_mapping, bus_id, spdu_lin_mapping_uat_t)
+UAT_HEX_CB_DEF(spdu_lin_mapping, message_id, spdu_lin_mapping_uat_t)
+
+static void *
+copy_spdu_lin_mapping_cb(void *n, const void *o, size_t size _U_) {
+    spdu_lin_mapping_uat_t *new_rec = (spdu_lin_mapping_uat_t*)n;
+    const spdu_lin_mapping_uat_t *old_rec = (const spdu_lin_mapping_uat_t*)o;
+
+    new_rec->frame_id = old_rec->frame_id;
+    new_rec->bus_id = old_rec->bus_id;
+    new_rec->message_id = old_rec->message_id;
+
+    return new_rec;
+}
+
+static gboolean
+update_spdu_lin_mapping(void *r, char **err) {
+    spdu_lin_mapping_uat_t *rec = (spdu_lin_mapping_uat_t *)r;
+
+    if (rec->frame_id > LIN_ID_MASK) {
+        *err = g_strdup_printf("LIN Frame IDs are only uint with 6 bits (ID: %i)", rec->frame_id);
+        return FALSE;
+    }
+
+    if (rec->bus_id > 0xffff) {
+        *err = g_strdup_printf("LIN Bus IDs are only uint with 16 bits (ID: 0x%x, Bus ID: 0x%x)", rec->frame_id, rec->bus_id);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static void
+post_update_spdu_lin_mapping_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_spdu_lin_mappings) {
+        g_hash_table_destroy(data_spdu_lin_mappings);
+        data_spdu_lin_mappings = NULL;
+    }
+
+    /* we don't need to free the data as long as we don't alloc it first */
+    data_spdu_lin_mappings = g_hash_table_new_full(g_int_hash, g_int_equal, &spdu_payload_free_key, NULL);
+
+    if (data_spdu_lin_mappings == NULL || spdu_lin_mapping == NULL) {
+        return;
+    }
+
+    if (spdu_lin_mapping_num > 0) {
+        guint i;
+        for (i = 0; i < spdu_lin_mapping_num; i++) {
+            gint *key = wmem_new(wmem_epan_scope(), gint);
+            *key = (spdu_lin_mapping[i].frame_id)&LIN_ID_MASK;
+            *key |= ((spdu_lin_mapping[i].bus_id) & 0xffff) << 16;
+
+            g_hash_table_insert(data_spdu_lin_mappings, key, &spdu_lin_mapping[i]);
+        }
+    }
+
+    /* we need to make sure we register again */
+    proto_reg_handoff_signal_pdu_lin();
+}
+
+static spdu_lin_mapping_t*
+get_lin_mapping(lin_info_t *lininfo) {
+    if (data_spdu_lin_mappings == NULL) {
+        return NULL;
+    }
+
+    gint32 *key = wmem_new(wmem_epan_scope(), gint32);
+    *key = (lininfo->id)&LIN_ID_MASK;
+    *key |= ((lininfo->bus_id) & 0xffff) << 16;
+
+    spdu_lin_mapping_uat_t *tmp = (spdu_lin_mapping_uat_t*)g_hash_table_lookup(data_spdu_lin_mappings, key);
+
+    if (tmp == NULL) {
+        /* try again without Bus ID set */
+        *key = (lininfo->id) & LIN_ID_MASK;
+        tmp = (spdu_lin_mapping_uat_t*)g_hash_table_lookup(data_spdu_lin_mappings, key);
+    }
+
+    wmem_free(wmem_epan_scope(), key);
+
+    return tmp;
+}
 
 /* UAT: PDU Transport Mapping */
 UAT_HEX_CB_DEF(spdu_pdu_transport_mapping, pdu_id, spdu_pdu_transport_mapping_uat_t)
@@ -1133,7 +1300,7 @@ post_update_spdu_pdu_transport_mapping_cb(void) {
         data_spdu_pdu_transport_mappings = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_spdu_pdu_transport_mappings = g_hash_table_new_full(g_int64_hash, g_int64_equal, &spdu_payload_free_key, NULL);
 
     if (data_spdu_pdu_transport_mappings == NULL || spdu_pdu_transport_mapping == NULL) {
@@ -1284,7 +1451,11 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         expert_spdu_config_error(tree, pinfo, tvb, offset, signal_length);
     }
 
-    if (item != NULL && item->hf_id_raw != NULL) {
+    if (item == NULL) {
+        return tvb_captured_length_remaining(tvb, offset);
+    }
+
+    if (item->hf_id_raw != NULL) {
         hf_id_raw = *item->hf_id_raw;
     } else {
         expert_spdu_config_error(tree, pinfo, tvb, offset, signal_length);
@@ -1313,20 +1484,18 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         if (item->scale_or_offset) {
             value_gdouble = item->scaler * value_gdouble + item->offset;
             ti = proto_tree_add_double(tree, hf_id_effective, tvb, offset, signal_length, value_gdouble);
-            if (value_name != NULL) {
-                proto_item_append_text(ti, " [%" G_GUINT64_FORMAT ": %s]", value_guint64, value_name);
-            } else {
-                proto_item_append_text(ti, " [%" G_GUINT64_FORMAT "]", value_guint64);
-            }
         } else {
             ti = proto_tree_add_uint64(tree, hf_id_effective, tvb, offset, signal_length, value_guint64);
         }
         if (value_name != NULL) {
-            proto_item_append_text(ti, " [%s]", value_name);
+            proto_item_append_text(ti, " [raw: 0x%" G_GINT64_MODIFIER "x: %s]", value_guint64, value_name);
+        } else {
+            proto_item_append_text(ti, " [raw: 0x%" G_GINT64_MODIFIER "x]", value_guint64);
         }
 
         subtree = proto_item_add_subtree(ti, ett_spdu_signal);
         ti = proto_tree_add_uint64(subtree, hf_id_raw, tvb, offset, signal_length, value_guint64);
+        proto_item_append_text(ti, " (0x%" G_GINT64_MODIFIER "x)", value_guint64);
     } else if (g_strcmp0("int", item->data_type) == 0) {
         gint64 value_gint64 = ws_sign_ext64(value_guint64, (gint)item->bitlength_encoded_type);
         gdouble value_gdouble = (gdouble)value_gint64;
@@ -1339,24 +1508,24 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         if (item->scale_or_offset) {
             value_gdouble = item->scaler * value_gdouble + item->offset;
             ti = proto_tree_add_double(tree, hf_id_effective, tvb, offset, signal_length, value_gdouble);
-            if (value_name != NULL) {
-                proto_item_append_text(ti, " [%" G_GINT64_FORMAT ": %s]", value_gint64, value_name);
-            } else {
-                proto_item_append_text(ti, " [%" G_GINT64_FORMAT "]", value_gint64);
-            }
         } else {
             ti = proto_tree_add_int64(tree, hf_id_effective, tvb, offset, signal_length, value_gint64);
         }
         if (value_name != NULL) {
-            proto_item_append_text(ti, " [%s]", value_name);
+            proto_item_append_text(ti, " [raw: %" G_GINT64_MODIFIER "x: %s]", value_gint64, value_name);
+        } else {
+            proto_item_append_text(ti, " [raw: %" G_GINT64_MODIFIER "x]", value_gint64);
         }
 
         subtree = proto_item_add_subtree(ti, ett_spdu_signal);
         ti = proto_tree_add_int64(subtree, hf_id_raw, tvb, offset, signal_length, value_gint64);
+        proto_item_append_text(ti, " (0x%" G_GINT64_MODIFIER "x)", value_gint64);
     }
 
     /* hide raw value per default, if effective value is present */
-    proto_item_set_hidden(ti);
+    if (spdu_derserializer_hide_raw_values) {
+        proto_item_set_hidden(ti);
+    }
 
     return (gint)item->bitlength_encoded_type;
 }
@@ -1381,16 +1550,24 @@ dissect_spdu_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tree, g
         }
     }
 
-    if (!spdu_derserializer_activated) {
+    spdu_signal_list_t *paramlist = get_parameter_config(id);
+
+    if (name == NULL && paramlist == NULL) {
+        /* unknown message, lets skip */
         return 0;
+    }
+
+    if (root_tree == NULL && !proto_field_is_referenced(root_tree, proto_signal_pdu)) {
+        /* we only receive subtvbs with nothing behind us */
+        return tvb_captured_length(tvb);
+    }
+
+    if (paramlist == NULL || !spdu_derserializer_activated) {
+        /* we only receive subtvbs with nothing behind us */
+        return tvb_captured_length(tvb);
     }
 
     gint length = tvb_captured_length_remaining(tvb, 0);
-    spdu_signal_list_t *paramlist = get_parameter_config(id);
-
-    if (paramlist == NULL) {
-        return 0;
-    }
 
     guint i;
     for (i = 0; i < paramlist->num_of_items; i++) {
@@ -1435,7 +1612,7 @@ dissect_spdu_message_can(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
         return 0;
     }
 
-    spdu_can_mapping_t *can_mapping = get_can_mapping(can_info->id);
+    spdu_can_mapping_t *can_mapping = get_can_mapping(can_info->id, can_info->bus_id);
     if (can_mapping == NULL) {
         return 0;
     }
@@ -1450,7 +1627,7 @@ dissect_spdu_message_can_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
 static int
 dissect_spdu_message_flexray(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
-    struct flexray_identifier *flexray_data = (struct flexray_identifier*)data;
+    struct flexray_info *flexray_data = (struct flexray_info*)data;
     DISSECTOR_ASSERT(flexray_data);
 
     spdu_flexray_mapping_t *flexray_mapping = get_flexray_mapping(flexray_data->ch, flexray_data->cc, flexray_data->id);
@@ -1465,6 +1642,21 @@ dissect_spdu_message_flexray(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 static gboolean
 dissect_spdu_message_flexray_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
     return dissect_spdu_message_flexray(tvb, pinfo, tree, data) != 0;
+}
+
+static int
+dissect_spdu_message_lin(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
+    lin_info_t *lininfo = (lin_info_t *)data;
+
+    DISSECTOR_ASSERT(lininfo);
+
+    spdu_lin_mapping_t *lin_mapping = get_lin_mapping(lininfo);
+
+    if (lin_mapping == NULL) {
+        return 0;
+    }
+
+    return dissect_spdu_payload(tvb, pinfo, tree, lin_mapping->message_id, TRUE);
 }
 
 static int
@@ -1502,6 +1694,7 @@ proto_register_signal_pdu(void) {
     uat_t  *spdu_someip_mapping_uat;
     uat_t  *spdu_can_mapping_uat;
     uat_t  *spdu_flexray_mapping_uat;
+    uat_t  *spdu_lin_mapping_uat;
     uat_t  *spdu_pdu_transport_mapping_uat;
 
 
@@ -1517,40 +1710,39 @@ proto_register_signal_pdu(void) {
         &ett_spdu_signal,
     };
 
-
     /* UATs for user_data fields */
     static uat_field_t spdu_messages_uat_fields[] = {
-        UAT_FLD_HEX(spdu_message_ident, id,                             "ID",                    "ID of the signal PDU"),
-        UAT_FLD_CSTRING(spdu_message_ident, name,                       "Name",                  "Name of the signal PDU"),
+        UAT_FLD_HEX(spdu_message_ident, id,                             "Signal PDU ID",         "ID of the Signal PDU"),
+        UAT_FLD_CSTRING(spdu_message_ident, name,                       "Name",                  "Name of the Signal PDU"),
         UAT_END_FIELDS
     };
 
     static uat_field_t spdu_signal_list_uat_fields[] = {
-        UAT_FLD_HEX(spdu_signal_list, id,                               "ID",                    "ID of the Signal PDU (32bit hex without leading 0x)"),
-        UAT_FLD_DEC(spdu_signal_list, num_of_params,                    "Number of signals",     "Number of signals (16bit dec)"),
+        UAT_FLD_HEX(spdu_signal_list, id,                               "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
+        UAT_FLD_DEC(spdu_signal_list, num_of_params,                    "Number of Signals",     "Number of signals (16bit dec)"),
 
         UAT_FLD_DEC(spdu_signal_list, pos,                              "Signal Position",       "Position of signal (16bit dec, starting with 0)"),
         UAT_FLD_CSTRING(spdu_signal_list, name,                         "Signal Name",           "Name of signal (string)"),
         UAT_FLD_CSTRING(spdu_signal_list, filter_string,                "Filter String",         "Unique filter string that will be prepended with signal_pdu. (string)"),
-        UAT_FLD_CSTRING(spdu_signal_list, data_type,                    "Data Type",             "Data type (string), uint"),
-        UAT_FLD_BOOL(spdu_signal_list, big_endian,                      "BE?",                   "Encoded Big Endian 0=no 1=yes"),
+        UAT_FLD_CSTRING(spdu_signal_list, data_type,                    "Data Type",             "Data type (string), [uint|int]"),
+        UAT_FLD_BOOL(spdu_signal_list, big_endian,                      "Big Endian?",           "Big Endian encoded [FALSE|TRUE]"),
         UAT_FLD_DEC(spdu_signal_list, bitlength_base_type,              "Bitlength base type",   "Bitlength base type (uint32 dec)"),
         UAT_FLD_DEC(spdu_signal_list, bitlength_encoded_type,           "Bitlength enc. type",   "Bitlength encoded type (uint32 dec)"),
-        UAT_FLD_CSTRING(spdu_signal_list, scaler,                       "Scaler",                "Raw value is multiplied by Scaler, e.g. 1.0 (double)"),
-        UAT_FLD_CSTRING(spdu_signal_list, offset,                       "Offset",                "Scaled raw value is shifted by offset, e.g. 1.0 (double)"),
-        UAT_FLD_BOOL(spdu_signal_list, multiplexer,                     "Multiplexer?",          "Is this used as multiplexer?"),
+        UAT_FLD_CSTRING(spdu_signal_list, scaler,                       "Scaler",                "Raw value is multiplied by this Scaler, e.g. 1.0 (double)"),
+        UAT_FLD_CSTRING(spdu_signal_list, offset,                       "Offset",                "Scaled raw value is shifted by this Offset, e.g. 1.0 (double)"),
+        UAT_FLD_BOOL(spdu_signal_list, multiplexer,                     "Multiplexer?",          "Is this used as multiplexer? [FALSE|TRUE]"),
         UAT_FLD_SIGNED_DEC(spdu_signal_list, multiplex_value_only,      "Multiplexer value",     "The multiplexer value for which this is relevant (-1 all)"),
-        UAT_FLD_BOOL(spdu_signal_list, hidden,                          "Hidden?",               "Should this field be hidden in the dissection?"),
+        UAT_FLD_BOOL(spdu_signal_list, hidden,                          "Hidden?",               "Should this field be hidden in the dissection? [FALSE|TRUE]"),
         UAT_END_FIELDS
     };
 
     static uat_field_t spdu_parameter_value_name_uat_fields[] = {
-        UAT_FLD_HEX(spdu_signal_value_names, id,                        "ID",                    "ID of value name (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_signal_value_names, id,                        "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
         UAT_FLD_DEC(spdu_signal_value_names, pos,                       "Signal Position",       "Position of signal (16bit dec, starting with 0)"),
-        UAT_FLD_DEC(spdu_signal_value_names, num_of_items,              "Number of Items",       "Number of Items (32bit dec)"),
-        UAT_FLD_HEX64(spdu_signal_value_names, value_start,             "Value Range Start",     "Value (64bit uint hex)"),
-        UAT_FLD_HEX64(spdu_signal_value_names, value_end,               "Value Range End",       "Value (64bit uint hex)"),
-        UAT_FLD_CSTRING(spdu_signal_value_names, value_name,            "Value Name",            "Name (string)"),
+        UAT_FLD_DEC(spdu_signal_value_names, num_of_items,              "Number of Names",       "Number of Value Names defined (32bit dec)"),
+        UAT_FLD_HEX64(spdu_signal_value_names, value_start,             "Value Range Start",     "Value Range Start (64bit uint hex)"),
+        UAT_FLD_HEX64(spdu_signal_value_names, value_end,               "Value Range End",       "Value Range End (64bit uint hex)"),
+        UAT_FLD_CSTRING(spdu_signal_value_names, value_name,            "Value Name",            "Name for the values in this range (string)"),
         UAT_END_FIELDS
     };
 
@@ -1559,27 +1751,35 @@ proto_register_signal_pdu(void) {
         UAT_FLD_HEX(spdu_someip_mapping, method_id,                     "SOME/IP Method ID",     "SOME/IP Method ID (16bit hex without leading 0x)"),
         UAT_FLD_HEX(spdu_someip_mapping, major_version,                 "SOME/IP Major Version", "SOME/IP Major Version (8bit hex without leading 0x)"),
         UAT_FLD_HEX(spdu_someip_mapping, message_type,                  "SOME/IP Message Type",  "SOME/IP Message Type (8bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_someip_mapping, spdu_message_id,               "ID",                    "ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_someip_mapping, spdu_message_id,               "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
         UAT_END_FIELDS
     };
 
     static uat_field_t spdu_can_mapping_uat_fields[] = {
-        UAT_FLD_HEX(spdu_can_mapping, can_id,                           "CAN ID",               "CAN ID (32bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_can_mapping, message_id,                       "ID",                   "ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_can_mapping, can_id,                           "CAN ID",                "CAN ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_can_mapping, bus_id,                           "Bus ID",                "Bus ID on which frame was recorded with 0=any (16bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_can_mapping, message_id,                       "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
         UAT_END_FIELDS
     };
 
     static uat_field_t spdu_flexray_mapping_uat_fields[] = {
-        UAT_FLD_HEX(spdu_flexray_mapping, channel,                      "Channel",              "Channel (8bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_flexray_mapping, cycle,                        "Cycle",                "Cycle (8bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_flexray_mapping, flexray_id,                   "Frame ID",             "ID (16bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_flexray_mapping, message_id,                   "ID",                   "ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_flexray_mapping, channel,                      "Channel",               "Channel (8bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_flexray_mapping, cycle,                        "Cycle",                 "Cycle (8bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_flexray_mapping, flexray_id,                   "Frame ID",              "Frame ID (16bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_flexray_mapping, message_id,                   "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
+        UAT_END_FIELDS
+    };
+
+    static uat_field_t spdu_lin_mapping_uat_fields[] = {
+        UAT_FLD_HEX(spdu_lin_mapping, frame_id,                         "Frame ID",              "LIN Frame ID (6bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_lin_mapping, bus_id,                           "Bus ID",                "Bus ID on which frame was recorded with 0=any (16bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_lin_mapping, message_id,                       "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
         UAT_END_FIELDS
     };
 
     static uat_field_t spdu_pdu_transport_mapping_uat_fields[] = {
-        UAT_FLD_HEX(spdu_pdu_transport_mapping, pdu_id,                  "PDU ID",               "ID (32bit hex without leading 0x)"),
-        UAT_FLD_HEX(spdu_pdu_transport_mapping, message_id,              "ID",                   "ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_pdu_transport_mapping, pdu_id,                 "PDU ID",                "PDU ID (32bit hex without leading 0x)"),
+        UAT_FLD_HEX(spdu_pdu_transport_mapping, message_id,             "Signal PDU ID",         "ID of the Signal PDU (32bit hex without leading 0x)"),
         UAT_END_FIELDS
     };
 
@@ -1618,8 +1818,8 @@ proto_register_signal_pdu(void) {
         spdu_messages_uat_fields                    /* UAT field definitions */
     );
 
-    prefs_register_uat_preference(spdu_module, "messages", "Signal PDU Messages",
-        "A table to define names of signal PDU messages", spdu_messages_uat);
+    prefs_register_uat_preference(spdu_module, "_spdu_signal_pdus", "Signal PDUs",
+        "A table to define names of signal PDUs", spdu_messages_uat);
 
     prefs_register_static_text_preference(spdu_module, "empty1", "", NULL);
     prefs_register_static_text_preference(spdu_module, "dis", "PDU Dissection:", NULL);
@@ -1631,8 +1831,13 @@ proto_register_signal_pdu(void) {
 
     prefs_register_bool_preference(spdu_module, "payload_dissector_show_hidden",
         "Show hidden entries",
-        "Should the payload dissector show hidden entries?",
+        "Should the payload dissector show entries marked as hidden in the configuration?",
         &spdu_derserializer_show_hidden);
+
+    prefs_register_bool_preference(spdu_module, "payload_dissector_hide_raw_values",
+        "Hide raw values",
+        "Should the payload dissector hide raw values?",
+        &spdu_derserializer_hide_raw_values);
 
     spdu_parameter_value_names_uat = uat_new("Signal Value Names",
         sizeof(spdu_signal_value_name_uat_t), DATAFILE_SPDU_VALUE_NAMES, TRUE,
@@ -1689,7 +1894,7 @@ proto_register_signal_pdu(void) {
     );
 
     prefs_register_uat_preference(spdu_module, "_spdu_someip_mapping", "SOME/IP Mappings",
-        "A table to map SOME/IP messages to Signal PDU Messages", spdu_someip_mapping_uat);
+        "A table to map SOME/IP payloads to Signal PDUs", spdu_someip_mapping_uat);
 
 
     spdu_can_mapping_uat = uat_new("CAN",
@@ -1707,7 +1912,7 @@ proto_register_signal_pdu(void) {
     );
 
     prefs_register_uat_preference(spdu_module, "_spdu_can_mapping", "CAN Mappings",
-        "A table to map CAN IDs to IDs of Messages", spdu_can_mapping_uat);
+        "A table to map CAN payloads to Signal PDUs", spdu_can_mapping_uat);
 
 
     spdu_flexray_mapping_uat = uat_new("FlexRay",
@@ -1725,7 +1930,25 @@ proto_register_signal_pdu(void) {
     );
 
     prefs_register_uat_preference(spdu_module, "_spdu_flexray_mapping", "FlexRay Mappings",
-        "A table to map FlexRay Cycles and Frame IDs to IDs of Messages", spdu_flexray_mapping_uat);
+        "A table to map FlexRay payloads to Signal PDUs", spdu_flexray_mapping_uat);
+
+
+    spdu_lin_mapping_uat = uat_new("LIN",
+        sizeof(spdu_lin_mapping_uat_t), DATAFILE_SPDU_LIN_MAPPING, TRUE,
+        (void**)&spdu_lin_mapping,
+        &spdu_lin_mapping_num,
+        UAT_AFFECTS_DISSECTION,
+        NULL, /* help */
+        copy_spdu_lin_mapping_cb,
+        update_spdu_lin_mapping,
+        NULL,
+        post_update_spdu_lin_mapping_cb,
+        NULL, /* reset */
+        spdu_lin_mapping_uat_fields
+    );
+
+    prefs_register_uat_preference(spdu_module, "_spdu_lin_mapping", "LIN Mappings",
+        "A table to map LIN payloads to Signal PDUs", spdu_lin_mapping_uat);
 
 
     spdu_pdu_transport_mapping_uat = uat_new("PDU Transport",
@@ -1743,25 +1966,27 @@ proto_register_signal_pdu(void) {
     );
 
     prefs_register_uat_preference(spdu_module, "_spdu_pdu_transport_mapping", "PDU Transport Mappings",
-        "A table to map PDU Transport IDs to IDs of Messages", spdu_pdu_transport_mapping_uat);
+        "A table to map PDU Transport payloads to Signal PDUs", spdu_pdu_transport_mapping_uat);
 }
 
 void
 proto_reg_handoff_signal_pdu(void) {
-    static  gboolean initialized = FALSE;
+    static gboolean initialized = FALSE;
 
     if (!initialized) {
-        signal_pdu_handle_someip = create_dissector_handle(dissect_spdu_message_someip, proto_signal_pdu);
+        signal_pdu_handle_someip = register_dissector("signal_pdu_over_someip", dissect_spdu_message_someip, proto_signal_pdu);
 
-        signal_pdu_handle_can = create_dissector_handle(dissect_spdu_message_can, proto_signal_pdu);
+        signal_pdu_handle_can = register_dissector("signal_pdu_over_can", dissect_spdu_message_can, proto_signal_pdu);
         dissector_add_for_decode_as("can.subdissector", signal_pdu_handle_can);
         heur_dissector_add("can", dissect_spdu_message_can_heur, "Signal-PDU-Heuristic", "signal_pdu_can_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
-        signal_pdu_handle_flexray = create_dissector_handle(dissect_spdu_message_flexray, proto_signal_pdu);
+        signal_pdu_handle_flexray = register_dissector("signal_pdu_over_flexray", dissect_spdu_message_flexray, proto_signal_pdu);
         dissector_add_for_decode_as("flexray.subdissector", signal_pdu_handle_flexray);
         heur_dissector_add("flexray", dissect_spdu_message_flexray_heur, "Signal-PDU-Heuristic", "signal_pdu_flexray_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
-        signal_pdu_handle_pdu_transport = create_dissector_handle(dissect_spdu_message_pdu_transport, proto_signal_pdu);
+        signal_pdu_handle_lin = register_dissector("signal_pdu_over_lin", dissect_spdu_message_lin, proto_signal_pdu);
+
+        signal_pdu_handle_pdu_transport = register_dissector("signal_pdu_over_pdu_transport", dissect_spdu_message_pdu_transport, proto_signal_pdu);
 
         initialized = TRUE;
     }

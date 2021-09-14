@@ -454,7 +454,7 @@ sua_assoc(packet_info* pinfo, address* opc, address* dpc, guint src_rn, guint ds
                 assoc = new_assoc(opck, dpck);
                 wmem_tree_insert32_array(assocs,bw_key,assoc);
                 assoc->has_bw_key = TRUE;
-                /*g_warning("CORE dpck %u,opck %u,src_rn %u",dpck,opck,src_rn);*/
+                /*ws_warning("CORE dpck %u,opck %u,src_rn %u",dpck,opck,src_rn);*/
             }
             break;
 
@@ -489,7 +489,7 @@ sua_assoc(packet_info* pinfo, address* opc, address* dpc, guint src_rn, guint ds
 
             bw_key[3].length = 0;
             bw_key[3].key = NULL;
-                    /*g_warning("MESSAGE_TYPE_COAK dst_rn %u,src_rn %u ",dst_rn,src_rn);*/
+                    /*ws_warning("MESSAGE_TYPE_COAK dst_rn %u,src_rn %u ",dst_rn,src_rn);*/
                     if ( ( assoc = (sua_assoc_info_t *)wmem_tree_lookup32_array(assocs, bw_key) ) ) {
                             goto got_assoc;
                     }
@@ -592,7 +592,7 @@ dissect_info_string_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo, proto
 
   proto_tree_add_item(parameter_tree, hf_sua_info_string, parameter_tvb, INFO_STRING_OFFSET, info_string_length, ENC_UTF_8|ENC_NA);
   proto_item_append_text(parameter_item, " (%.*s)", info_string_length,
-                         tvb_format_text(parameter_tvb, INFO_STRING_OFFSET, info_string_length));
+                         tvb_format_text(pinfo->pool, parameter_tvb, INFO_STRING_OFFSET, info_string_length));
 }
 
 #define ROUTING_CONTEXT_LENGTH 4
@@ -1496,7 +1496,7 @@ dissect_hostname_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, 
   hostname_length = tvb_get_ntohs(parameter_tvb, PARAMETER_LENGTH_OFFSET) - PARAMETER_HEADER_LENGTH;
   proto_tree_add_item(parameter_tree, source ? hf_sua_source_hostname : hf_sua_dest_hostname, parameter_tvb, HOSTNAME_OFFSET, hostname_length, ENC_ASCII|ENC_NA);
   proto_item_append_text(parameter_item, " (%.*s)", hostname_length,
-                         tvb_format_text(parameter_tvb, HOSTNAME_OFFSET, hostname_length));
+                         tvb_format_text(wmem_packet_scope(), parameter_tvb, HOSTNAME_OFFSET, hostname_length));
 }
 
 #define IPV6_ADDRESS_LENGTH 16

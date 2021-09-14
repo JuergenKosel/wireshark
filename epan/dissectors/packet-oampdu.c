@@ -590,8 +590,10 @@ static const value_string vendor_specific_opcode_vals[] = {
 
 /* DPoE Leaf-Branch codes */
 #define DPOE_LB_ONU_OBJ                 0xD60000
+#define DPOE_LB_NETWORK_PORT_OBJ        0xD60001
 #define DPOE_LB_LINK_OBJ                0xD60002
 #define DPOE_LB_USER_PORT_OBJ           0xD60003
+#define DPOE_LB_QUEUE_OBJ               0xD60004
 #define DPOE_LB_ONU_ID                  0xD70002
 #define DPOE_LB_MAX_LL                  0xD70007
 #define DPOE_LB_MAX_NET_PORTS           0xD70008
@@ -605,10 +607,10 @@ static const value_string vendor_specific_opcode_vals[] = {
 /* As messages get implmented and verified, replace with defined codes from above. */
 static const value_string dpoe_variable_descriptor_vals[] = {
     { DPOE_LB_ONU_OBJ,              "DPoE ONU Object" },
-    { 0xD60001,                     "Network Port Object" },
+    { DPOE_LB_NETWORK_PORT_OBJ,     "Network Port Object" },
     { DPOE_LB_LINK_OBJ,             "Link Object" },
     { DPOE_LB_USER_PORT_OBJ,        "User Port Object" },
-    { 0XD60004,                     "Queue Object" },
+    { DPOE_LB_QUEUE_OBJ,            "Queue Object" },
     { 0xD70001,                     "Sequence Number" },
     { DPOE_LB_ONU_ID,               "DPoE ONU ID" },
     { 0xD70003,                     "Firmware Info" },
@@ -639,6 +641,10 @@ static const value_string dpoe_variable_descriptor_vals[] = {
     { 0xD7010C,                     "Local Switching" },
     { DPOE_LB_QUEUE_CONFIG,         "Queue Configuration" },
     { 0xD7010E,                     "Firmware Filename" },
+    { 0xD70110,                     "Multicast LLID" },
+    { 0xD70111,                     "UNI MAC Learned" },
+    { 0xD70112,                     "ONU Max Frame Size Capability" },
+    { 0xD70113,                     "UNI Max Frame Size Limit" },
     { 0xD90101,                     "Clear Dynamic MAC Table" },
     { 0xD90102,                     "Add Dynamic MAC Address" },
     { 0xD90103,                     "Delete Dynamic MAC Address" },
@@ -791,6 +797,18 @@ static const value_string user_port_object_result_rr_vals[] = {
     { 0, NULL }
 };
 
+static const value_string user_queue_object_rr_vals[] = {
+    { 0x0000, "D-ONU" },
+    { 0x0001, "Network PON Port" },
+    { 0x0002, "Unicast Logical Link" },
+    { 0x0003, "User Port" },
+    { 0x0004, "Queue" },
+    { 0x0005, "MEP" },
+    { 0x0006, "Multicast Logical Link" },
+    { 0x0007, "Reserved" },
+    { 0, NULL }
+};
+
 static const unit_name_string units_pdus_100ms = { " (PDUs/100ms)", NULL };
 static const unit_name_string units_num_100ms = { " (Number of 100ms)", NULL };
 
@@ -897,7 +915,9 @@ static int hf_oam_dpoe_user_port_object_clause_operator = -1;
 static int hf_oam_dpoe_user_port_object_clause_mvl = -1;
 static int hf_oam_dpoe_user_port_object_clause_mv = -1;
 static int hf_oam_dpoe_user_port_object_result_rr = -1;
-static int hf_oam_dpoe_user_port_object_result_rr_queue = -1;
+static int hf_oam_dpoe_user_port_object_result_rr_queue_obj_type = -1;
+static int hf_oam_dpoe_user_port_object_result_rr_queue_obj_inst = -1;
+static int hf_oam_dpoe_user_port_object_result_rr_queue_queue_index = -1;
 static int hf_oam_dpoe_user_port_object_result_rr_set_fc = -1;
 static int hf_oam_dpoe_user_port_object_result_rr_set_fi = -1;
 static int hf_oam_dpoe_user_port_object_result_rr_copy = -1;
@@ -1630,6 +1650,20 @@ static int * const s1_autoneg_mode_bits[] = {
     NULL
   };
 
+static void dissect_oampdu_add_queue_object(proto_tree *tree, tvbuff_t *tvb, int offset)
+{
+        proto_tree_add_item(tree,
+                            hf_oam_dpoe_user_port_object_result_rr_queue_obj_type,
+                            tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree,
+                            hf_oam_dpoe_user_port_object_result_rr_queue_obj_inst,
+                            tvb, offset+2, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree,
+                            hf_oam_dpoe_user_port_object_result_rr_queue_queue_index,
+                            tvb, offset+3, 1, ENC_BIG_ENDIAN);
+}
+
+
 /*
  * Name: dissect_oampdu_vendor_specific
  *
@@ -1669,6 +1703,8 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     proto_tree *oampdu_vendor_specific_tree;
     proto_tree *dpoe_opcode_tree;
     proto_item *dpoe_opcode_item;
+    proto_item *dpoe_opcode_request_tree;
+    proto_item *dpoe_opcode_request_item;
     proto_item *dpoe_opcode_response;
     proto_tree *dpoe_opcode_response_tree;
     offset = OAMPDU_HEADER_SIZE;
@@ -1693,13 +1729,34 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                     break;
                 case DPOE_OPCODE_GET_REQUEST:
                     leaf_branch = tvb_get_ntoh24(tvb, offset);
-                    if (leaf_branch == DPOE_LB_ONU_OBJ || leaf_branch == DPOE_LB_LINK_OBJ || leaf_branch == DPOE_LB_USER_PORT_OBJ) {
-                        proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
+                    variable_length = 0;
+                    if (leaf_branch == DPOE_LB_ONU_OBJ || leaf_branch == DPOE_LB_LINK_OBJ || \
+                        leaf_branch == DPOE_LB_USER_PORT_OBJ || leaf_branch == DPOE_LB_NETWORK_PORT_OBJ) {
+                        dpoe_opcode_request_item = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
                         offset += 3;
                         variable_length = tvb_get_guint8(tvb, offset);
                         offset += 1;
-                        offset += variable_length;
+                        if (variable_length == 1) {
+                            /* Add User Port or Link instance */
+                            dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
+                            if (leaf_branch == DPOE_LB_USER_PORT_OBJ) {
+                                proto_tree_add_item(dpoe_opcode_request_tree, hf_oam_dpoe_user_port_object, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            } else {
+                                proto_tree_add_item(dpoe_opcode_request_tree, hf_oampdu_variable_value, tvb, offset, 1, ENC_NA);
+                            }
+                        }
+                    } else if (leaf_branch == DPOE_LB_QUEUE_OBJ) {
+                        dpoe_opcode_request_item = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
+                        offset += 3;
+                        variable_length = tvb_get_guint8(tvb, offset);
+                        offset += 1;
+                        if (variable_length == 4) {
+                            /* Add Queue object instance */
+                            dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
+                            dissect_oampdu_add_queue_object(dpoe_opcode_request_tree, tvb, offset);
+                        }
                     }
+                    offset += variable_length;
                     next_byte = tvb_get_guint8(tvb, offset);
                     while (next_byte != 0x00) {
                         proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
@@ -1760,6 +1817,8 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 proto_tree_add_bitmask(dpoe_opcode_response_tree, tvb, offset, hf_oam_dpoe_s1_autoneg, ett_oam_dpoe_s1_autoneg, s1_autoneg_mode_bits, ENC_BIG_ENDIAN);
                             } else if (leaf_branch == DPOE_LB_USER_PORT_OBJ) {
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            } else if (leaf_branch == DPOE_LB_QUEUE_OBJ) {
+                                dissect_oampdu_add_queue_object(dpoe_opcode_response_tree, tvb, offset);
                             } else if (leaf_branch == DPOE_LB_PORT_INGRESS_RULE) {
                                 guint8 pir_mvl;
                                 pir_subtype = tvb_get_guint8(tvb, offset);
@@ -1804,7 +1863,7 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                                 break;
                                             case 0x03:
                                                 proto_item_append_text(dpoe_opcode_response, " Set destination queue for frame");
-                                                proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_result_rr_queue, tvb, offset+2, 3, ENC_BIG_ENDIAN);
+                                                dissect_oampdu_add_queue_object(dpoe_opcode_response_tree, tvb, offset+2);
                                                 break;
                                             case 0x04:
                                                 proto_item_append_text(dpoe_opcode_response, " Set output field");
@@ -2405,8 +2464,18 @@ proto_register_oampdu(void)
                 FT_UINT8, BASE_HEX, VALS(user_port_object_result_rr_vals), 0x0,
                 NULL, HFILL } },
 
-        { &hf_oam_dpoe_user_port_object_result_rr_queue,
-            { "{port type, port instance, link, queue}", "oampdu.user.port.object.result.rr.queue",
+        { &hf_oam_dpoe_user_port_object_result_rr_queue_obj_type,
+            { "Object Type", "oampdu.user.port.object.result.rr.queue.object_type",
+                FT_UINT8, BASE_HEX, VALS(user_queue_object_rr_vals), 0x0,
+                NULL, HFILL } },
+
+        { &hf_oam_dpoe_user_port_object_result_rr_queue_obj_inst,
+            { "Object Instance", "oampdu.user.port.object.result.rr.queue.object_instance",
+                FT_UINT8, BASE_HEX, NULL, 0x0,
+                NULL, HFILL } },
+
+        { &hf_oam_dpoe_user_port_object_result_rr_queue_queue_index,
+            { "Queue Number", "oampdu.user.port.object.result.rr.queue.queue_index",
                 FT_UINT8, BASE_HEX, NULL, 0x0,
                 NULL, HFILL } },
 

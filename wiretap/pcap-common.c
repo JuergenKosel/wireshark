@@ -452,7 +452,7 @@ static const struct {
 	/* Linux vsock */
 	{ 271,		WTAP_ENCAP_VSOCK },
 
-	/* Nordic BLE Sniffer */
+	/* nRF Sniffer for Bluetooth LE */
 	{ 272,		WTAP_ENCAP_NORDIC_BLE },
 
 	/* DOCSIS31 XRA31 Sniffer */
@@ -1441,6 +1441,15 @@ pcap_read_erf_pseudoheader(FILE_T fh, wtap_rec *rec,
 			rec->ts.nsecs -= 1000000000;
 			rec->ts.secs += 1;
 		}
+
+		/*
+		 * This time stamp came from the ERF header, not from the
+		 * pcap packet header or pcapng block header, so its
+		 * precision is that of ERF time stamps, not the pcap
+		 * file's time stamp or the pcapng interface's time
+		 * stamp.
+		 */
+		rec->tsprec = WTAP_TSPREC_NSEC;
 	}
 
 	/*

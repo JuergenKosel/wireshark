@@ -22,7 +22,7 @@
 #include <epan/expert.h>
 #include <epan/tap.h>
 #include <epan/stats_tree.h>
-#include <epan/wmem/wmem_list.h>
+#include <epan/wmem_scopes.h>
 
 #include "packet-tcp.h"
 

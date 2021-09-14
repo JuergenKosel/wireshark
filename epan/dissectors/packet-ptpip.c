@@ -51,7 +51,6 @@ static int hf_ptpIP_dataPhaseInfo = -1;
 static int hf_ptp_opCode = -1;
 static int hf_ptp_vendor_opCode = -1;
 static int hf_ptp_respCode = -1;
-static int hf_ptp_vendor_respCode = -1;
 static int hf_ptp_eventCode = -1;
 static int hf_ptp_transactionID = -1;
 static int hf_ptp_totalDataLength = -1;
@@ -988,7 +987,7 @@ static void dissect_ptpIP_unicode_name(tvbuff_t *tvb, packet_info *pinfo, proto_
     gint          nameLen;
 
     nameLen = tvb_unicode_strsize(tvb, *offset);
-    proto_tree_add_item_ret_string(tree, hf_ptpIP_name, tvb, *offset, nameLen, ENC_UTF_16|ENC_LITTLE_ENDIAN, wmem_packet_scope(), &name);
+    proto_tree_add_item_ret_string(tree, hf_ptpIP_name, tvb, *offset, nameLen, ENC_UTF_16|ENC_LITTLE_ENDIAN, pinfo->pool, &name);
     *offset += nameLen;
     col_append_fstr(pinfo->cinfo, COL_INFO, " Name: %s", name);
 }
@@ -1019,7 +1018,7 @@ static void dissect_ptpIP_guid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 {
     guint8 *guid;
 
-    guid = tvb_bytes_to_str(wmem_packet_scope(), tvb, *offset, PTPIP_GUID_SIZE);
+    guid = tvb_bytes_to_str(pinfo->pool, tvb, *offset, PTPIP_GUID_SIZE);
     proto_tree_add_item(tree, hf_ptpIP_guid, tvb, *offset, PTPIP_GUID_SIZE, ENC_NA);
     *offset += PTPIP_GUID_SIZE;
     col_append_fstr(
@@ -1065,9 +1064,6 @@ void proto_register_ptpip( void )
         { &hf_ptp_respCode, {
             "Response Code", "ptpip.respcode", FT_UINT16, BASE_HEX,
             VALS(ptp_respcode_names), 0, NULL, HFILL }},
-        { &hf_ptp_vendor_respCode, {
-            "Response Code", "ptpip.respcode", FT_UINT16, BASE_HEX,
-            NULL, 0, NULL, HFILL }},
         { &hf_ptp_eventCode, {
             "Event Code", "ptpip.eventcode", FT_UINT16, BASE_HEX,
             NULL, 0, NULL, HFILL }},

@@ -35,7 +35,7 @@ static dissector_table_t ie_handle_table;
 #define NAN_DEVICE_CAP_LENGTH 9
 #define NAN_NDP_MIN_LENGTH 11
 #define NAN_NDPE_MIN_LENGTH 11
-#define NAN_AVAILABILITY_MIN_LENGTH 10
+#define NAN_AVAILABILITY_MIN_LENGTH 8
 #define NAN_NDC_MIN_LENGTH 11
 #define NAN_NDL_MIN_LENGTH 4
 #define NAN_NDL_QOS_LENGTH 3
@@ -1583,7 +1583,7 @@ dissect_attr_availability(proto_tree* attr_tree, tvbuff_t* tvb, gint offset, gui
                 proto_tree_add_item(op_class_tree, hf_nan_attr_availability_entry_entries_start_freq, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 proto_tree_add_item(op_class_tree, hf_nan_attr_availability_entry_entries_bandwidth, tvb, offset, 1, ENC_LITTLE_ENDIAN);
                 wmem_strbuf_t* str;
-                str = wmem_strbuf_new(wmem_packet_scope(), "");
+                str = wmem_strbuf_new(pinfo->pool, "");
                 for(unsigned i_bitmap = 0; i_bitmap < 16; ++i_bitmap)
                 {
                     if (bitmap & (1u << i_bitmap))

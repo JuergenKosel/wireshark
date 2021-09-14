@@ -12,6 +12,7 @@
 #include "wtap-int.h"
 #include "file_wrappers.h"
 #include "netscaler.h"
+#include <wsutil/ws_assert.h>
 
 /* Defines imported from netscaler code: nsperfrc.h */
 
@@ -1127,6 +1128,7 @@ static gboolean nstrace_set_start_time(wtap *wth, int file_version, int *err,
             return FALSE;\
         }\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         FULLPART##SIZEDEFV##ver((rec),type,ver);\
         TRACE_V##ver##_REC_LEN_OFF((rec),v##ver##_##fullpart,type,pktrace##fullpart##_v##ver);\
@@ -1306,6 +1308,7 @@ static gboolean nstrace_read_v10(wtap *wth, wtap_rec *rec, Buffer *buf,
             return FALSE;\
         }\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         FULLPART##SIZEDEFV##ver((rec),fp,ver);\
         TRACE_V##ver##_REC_LEN_OFF((rec),enumprefix,type,structname);\
@@ -1506,6 +1509,7 @@ static gboolean nstrace_read_v20(wtap *wth, wtap_rec *rec, Buffer *buf,
             return FALSE;\
         }\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         FULLPART##SIZEDEFV##ver((rec),fp,ver);\
         TRACE_V##ver##_REC_LEN_OFF((rec),enumprefix,type,structname);\
@@ -1705,6 +1709,7 @@ static gboolean nstrace_read_v30(wtap *wth, wtap_rec *rec, Buffer *buf,
     do {\
         nspr_pktrace##fullpart##_v##ver##_t *type = (nspr_pktrace##fullpart##_v##ver##_t *) pd;\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         FULLPART##SIZEDEFV##ver((rec),type,ver);\
         TRACE_V##ver##_REC_LEN_OFF(rec,v##ver##_##fullpart,type,pktrace##fullpart##_v##ver);\
@@ -1799,6 +1804,7 @@ static gboolean nstrace_seek_read_v10(wtap *wth, gint64 seek_off,
     do {\
         nspr_##structname##_t *fp= (nspr_##structname##_t*)pd;\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         FULLPART##SIZEDEFV##ver((rec),fp,ver);\
         TRACE_V##ver##_REC_LEN_OFF((rec),enumprefix,type,structname);\
@@ -1923,6 +1929,7 @@ static gboolean nstrace_seek_read_v20(wtap *wth, gint64 seek_off,
     do {\
         nspr_##structname##_t *fp= (nspr_##structname##_t*)pd;\
         (rec)->rec_type = REC_TYPE_PACKET;\
+        (rec)->block = wtap_block_create(WTAP_BLOCK_PACKET);\
         TIMEDEFV##ver((rec),fp,type);\
         SETETHOFFSET_##ver(rec);\
         FULLPART##SIZEDEFV##ver((rec),fp,ver);\
@@ -2188,7 +2195,7 @@ static gboolean nstrace_add_signature(wtap_dumper *wdh, int *err)
         nstrace->page_offset += (guint16) sig35.sig_RecordSize;
     } else
     {
-        g_assert_not_reached();
+        ws_assert_not_reached();
         return FALSE;
     }
 
@@ -2256,7 +2263,7 @@ nstrace_add_abstime(wtap_dumper *wdh, const wtap_rec *rec,
 
     } else
     {
-        g_assert_not_reached();
+        ws_assert_not_reached();
         return FALSE;
     }
 
@@ -2299,7 +2306,7 @@ static gboolean nstrace_dump(wtap_dumper *wdh, const wtap_rec *rec,
                 return FALSE;
         } else
         {
-            g_assert_not_reached();
+            ws_assert_not_reached();
             return FALSE;
         }
     }
@@ -2403,13 +2410,13 @@ static gboolean nstrace_dump(wtap_dumper *wdh, const wtap_rec *rec,
             nstrace->page_offset += (guint16) rec->rec_header.packet_header.caplen;
         } else
         {
-            g_assert_not_reached();
+            ws_assert_not_reached();
             return FALSE;
         }
         break;
 
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         return FALSE;
     }
 

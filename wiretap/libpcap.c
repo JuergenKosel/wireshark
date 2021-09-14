@@ -18,6 +18,7 @@
 #include "pcap-encap.h"
 #include "libpcap.h"
 #include "erf-common.h"
+#include <wsutil/ws_assert.h>
 
 /* See source to the "libpcap" library for information on the "libpcap"
    file format. */
@@ -584,7 +585,7 @@ done:
 		break;
 
 	default:
-		g_assert_not_reached();
+		ws_assert_not_reached();
 	}
 
 	/*
@@ -602,24 +603,15 @@ done:
 	if (wth->file_encap == WTAP_ENCAP_ERF) {
 		/*Reset the ERF interface lookup table*/
 		libpcap->encap_priv = erf_priv_create();
+	} else {
+		/*
+		 * Add an IDB; we don't know how many interfaces were
+		 * involved, so we just say one interface, about which
+		 * we only know the link-layer type, snapshot length,
+		 * and time stamp resolution.
+		 */
+		wtap_add_generated_idb(wth);
 	}
-
-	/*
-	 * Add an IDB; we don't know how many interfaces were involved,
-	 * so we just say one interface, about which we only know
-	 * the link-layer type, snapshot length, and time stamp
-	 * resolution.
-	 *
-	 * XXX - this will be a bit weird if you're trying to convert
-	 * a LINKTYPE_ERF pcap file to a pcapng file; it'll have a
-	 * placeholder interface added here, *plus* interfaces
-	 * added from the ERF records.  Ideally, at some point in
-	 * the future, libpcap will have a more pcapng-friendly API
-	 * for capturing, and the DAG capture code will use it, so that
-	 * if you're capturing on more than one interface, they'll all
-	 * get regular IDBs, with no need for the placeholder.
-	 */
-	wtap_add_generated_idb(wth);
 
 	return WTAP_OPEN_MINE;
 }
@@ -905,6 +897,7 @@ libpcap_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
 	packet_size -= phdr_len;
 
 	rec->rec_type = REC_TYPE_PACKET;
+	rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
 	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 
 	/* Update the timestamp, if not already done */
@@ -918,7 +911,7 @@ libpcap_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
 		int interface_id;
 		/* Set interface ID for ERF format */
 		rec->presence_flags |= WTAP_HAS_INTERFACE_ID;
-		if ((interface_id = erf_populate_interface_from_header((erf_t*) libpcap->encap_priv, wth, &rec->rec_header.packet_header.pseudo_header)) < 0)
+		if ((interface_id = erf_populate_interface_from_header((erf_t*) libpcap->encap_priv, wth, &rec->rec_header.packet_header.pseudo_header, err, err_info)) < 0)
 			return FALSE;
 
 		rec->rec_header.packet_header.interface_id = (guint) interface_id;
@@ -969,7 +962,7 @@ static int libpcap_read_header(wtap *wth, FILE_T fh, int *err, gchar **err_info,
 		break;
 
 	default:
-		g_assert_not_reached();
+		ws_assert_not_reached();
 		bytes_to_read = 0;
 	}
 	if (!wtap_read_bytes_or_eof(fh, hdr, bytes_to_read, err, err_info))

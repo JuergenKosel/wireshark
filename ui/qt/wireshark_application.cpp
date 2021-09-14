@@ -43,7 +43,6 @@
 #include "coloring_rules_dialog.h"
 
 #include "epan/color_filters.h"
-#include "log.h"
 #include "recent_file_status.h"
 
 #include "extcap.h"
@@ -282,8 +281,10 @@ QDir WiresharkApplication::lastOpenDir() {
     return QDir(last_open_dir);
 }
 
-void WiresharkApplication::setLastOpenDir(QString dir_str) {
-    setLastOpenDir(qUtf8Printable(dir_str));
+void WiresharkApplication::setLastOpenDirFromFilename(const QString file_name)
+{
+    QString directory = QFileInfo(file_name).absolutePath();
+    setLastOpenDir(qUtf8Printable(directory));
 }
 
 void WiresharkApplication::helpTopicAction(topic_action_e action)
@@ -628,7 +629,6 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
     if_notifier_(NULL),
     active_captures_(0)
 {
-    wsApp = this;
     setApplicationName("Wireshark");
 
     MimeDatabaseInitThread *mime_db_init_thread = new(MimeDatabaseInitThread);
@@ -778,7 +778,6 @@ WiresharkApplication::WiresharkApplication(int &argc,  char **argv) :
 
 WiresharkApplication::~WiresharkApplication()
 {
-    wsApp = NULL;
     clearDynamicMenuGroupItems();
     free_filter_lists();
 }

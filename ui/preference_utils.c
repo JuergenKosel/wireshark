@@ -14,6 +14,7 @@
 
 #include <epan/column.h>
 #include <wsutil/filesystem.h>
+#include <wsutil/wslog.h>
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
 #include <epan/packet.h>
@@ -248,7 +249,7 @@ void save_migrated_uat(const char *uat_name, gboolean *old_pref)
     char *err = NULL;
 
     if (!uat_save(uat_get_table_by_name(uat_name), &err)) {
-        g_warning("Unable to save %s: %s", uat_name, err);
+        ws_warning("Unable to save %s: %s", uat_name, err);
         g_free(err);
         return;
     }

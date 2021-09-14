@@ -89,7 +89,7 @@ static tvbuff_t* snmp_usm_priv_aes128(snmp_usm_params_t*, tvbuff_t*, packet_info
 static tvbuff_t* snmp_usm_priv_aes192(snmp_usm_params_t*, tvbuff_t*, packet_info *pinfo, gchar const**);
 static tvbuff_t* snmp_usm_priv_aes256(snmp_usm_params_t*, tvbuff_t*, packet_info *pinfo, gchar const**);
 
-static gboolean snmp_usm_auth(const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8**, guint*, gchar const**);
+static gboolean snmp_usm_auth(const packet_info *pinfo, const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8**, guint*, gchar const**);
 
 static const value_string auth_types[] = {
 	{SNMP_USM_AUTH_MD5,"MD5"},
@@ -184,7 +184,7 @@ tvbuff_t *value_tvb=NULL;
 static dissector_handle_t snmp_handle;
 static dissector_handle_t data_handle;
 
-static next_tvb_list_t var_list;
+static next_tvb_list_t *var_list;
 
 static int hf_snmp_response_in = -1;
 static int hf_snmp_response_to = -1;
@@ -516,7 +516,7 @@ DateAndTime ::= TEXTUAL-CONVENTION
     SYNTAX       OCTET STRING (SIZE (8 | 11))
 */
 static proto_item *
-dissect_snmp_variable_date_and_time(proto_tree *tree,int hfid, tvbuff_t *tvb, int offset, int length)
+dissect_snmp_variable_date_and_time(proto_tree *tree, packet_info *pinfo, int hfid, tvbuff_t *tvb, int offset, int length)
 {
 	guint16 year;
 	guint8 month;
@@ -540,7 +540,7 @@ dissect_snmp_variable_date_and_time(proto_tree *tree,int hfid, tvbuff_t *tvb, in
 		hour_from_utc	= tvb_get_guint8(tvb,offset+9);
 		min_from_utc	= tvb_get_guint8(tvb,offset+10);
 
-		str = wmem_strdup_printf(wmem_packet_scope(),
+		str = wmem_strdup_printf(pinfo->pool,
 			 "%u-%u-%u, %u:%u:%u.%u UTC %s%u:%u",
 			 year,
 			 month,
@@ -549,11 +549,11 @@ dissect_snmp_variable_date_and_time(proto_tree *tree,int hfid, tvbuff_t *tvb, in
 			 minutes,
 			 seconds,
 			 deci_seconds,
-			 tvb_get_string_enc(wmem_packet_scope(),tvb,offset+8,1,ENC_ASCII|ENC_NA),
+			 tvb_get_string_enc(pinfo->pool,tvb,offset+8,1,ENC_ASCII|ENC_NA),
 			 hour_from_utc,
 			 min_from_utc);
 	}else{
-		 str = wmem_strdup_printf(wmem_packet_scope(),
+		 str = wmem_strdup_printf(pinfo->pool,
 			 "%u-%u-%u, %u:%u:%u.%u",
 			 year,
 			 month,
@@ -730,22 +730,22 @@ dissect_snmp_VarBind(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset,
 	/* Now, we know where everithing is */
 
 	/* fetch ObjectName and its relative oid_info */
-	oid_bytes = (guint8*)tvb_memdup(wmem_packet_scope(), tvb, name_offset, name_len);
-	oid_info = oid_get_from_encoded(wmem_packet_scope(), oid_bytes, name_len, &subids, &oid_matched, &oid_left);
+	oid_bytes = (guint8*)tvb_memdup(actx->pinfo->pool, tvb, name_offset, name_len);
+	oid_info = oid_get_from_encoded(actx->pinfo->pool, oid_bytes, name_len, &subids, &oid_matched, &oid_left);
 
 	add_oid_debug_subtree(oid_info,pt_name);
 
 	if (!subids) {
 		proto_item* pi;
 
-		repr = oid_encoded2string(wmem_packet_scope(), oid_bytes, name_len);
+		repr = oid_encoded2string(actx->pinfo->pool, oid_bytes, name_len);
 		pt = proto_tree_add_subtree_format(pt_name,tvb, 0, 0, ett_decoding_error, &pi, "invalid oid: %s", repr);
 		expert_add_info_format(actx->pinfo, pi, &ei_snmp_invalid_oid, "invalid oid: %s", repr);
 		return dissect_unknown_ber(actx->pinfo, tvb, name_offset, pt);
 	}
 
 	if (oid_matched+oid_left) {
-		oid_string = oid_subid2string(wmem_packet_scope(), subids,oid_matched+oid_left);
+		oid_string = oid_subid2string(actx->pinfo->pool, subids,oid_matched+oid_left);
 	}
 
 	if (ber_class == BER_CLASS_CON) {
@@ -876,7 +876,7 @@ show_oid_index:
 									goto indexing_done;
 								}
 
-								suboid_buf_len = oid_subid2encoded(wmem_packet_scope(), suboid_len, suboid, &suboid_buf);
+								suboid_buf_len = oid_subid2encoded(actx->pinfo->pool, suboid_len, suboid, &suboid_buf);
 
 								DISSECTOR_ASSERT(suboid_buf_len);
 
@@ -922,7 +922,7 @@ show_oid_index:
 									goto indexing_done;
 								}
 
-								buf = (guint8*)wmem_alloc(wmem_packet_scope(), buf_len+1);
+								buf = (guint8*)wmem_alloc(actx->pinfo->pool, buf_len+1);
 								for (i = 0; i < buf_len; i++)
 									buf[i] = (guint8)suboid[i];
 								buf[i] = '\0';
@@ -1119,7 +1119,7 @@ indexing_done:
 		}
 		/* Special case DATE AND TIME */
 		if((oid_info->value_type)&&(oid_info->value_type->keytype == OID_KEY_TYPE_DATE_AND_TIME)&&(value_len > 7)){
-			pi_value = dissect_snmp_variable_date_and_time(pt_varbind, hfid, tvb, value_offset, value_len);
+			pi_value = dissect_snmp_variable_date_and_time(pt_varbind, actx->pinfo, hfid, tvb, value_offset, value_len);
 		}else{
 			pi_value = proto_tree_add_item(pt_varbind,hfid,tvb,value_offset,value_len,ENC_BIG_ENDIAN);
 		}
@@ -1134,7 +1134,7 @@ already_added:
 	if (value_len > 0 && oid_string) {
 		tvbuff_t* sub_tvb = tvb_new_subset_length(tvb, value_offset, value_len);
 
-		next_tvb_add_string(&var_list, sub_tvb, (snmp_var_in_tree) ? pt_value : NULL, value_sub_dissectors_table, oid_string);
+		next_tvb_add_string(var_list, sub_tvb, (snmp_var_in_tree) ? pt_value : NULL, value_sub_dissectors_table, oid_string);
 	}
 
 
@@ -1143,21 +1143,21 @@ set_label:
 
 	if (oid_info && oid_info->name) {
 		if (oid_left >= 1) {
-			repr = wmem_strdup_printf(wmem_packet_scope(), "%s.%s (%s)", oid_info->name,
-						oid_subid2string(wmem_packet_scope(), &(subids[oid_matched]),oid_left),
-						oid_subid2string(wmem_packet_scope(), subids,oid_matched+oid_left));
-			info_oid = wmem_strdup_printf(wmem_packet_scope(), "%s.%s", oid_info->name,
-						oid_subid2string(wmem_packet_scope(), &(subids[oid_matched]),oid_left));
+			repr = wmem_strdup_printf(actx->pinfo->pool, "%s.%s (%s)", oid_info->name,
+						oid_subid2string(actx->pinfo->pool, &(subids[oid_matched]),oid_left),
+						oid_subid2string(actx->pinfo->pool, subids,oid_matched+oid_left));
+			info_oid = wmem_strdup_printf(actx->pinfo->pool, "%s.%s", oid_info->name,
+						oid_subid2string(actx->pinfo->pool, &(subids[oid_matched]),oid_left));
 		} else {
-			repr = wmem_strdup_printf(wmem_packet_scope(), "%s (%s)", oid_info->name,
-						oid_subid2string(wmem_packet_scope(), subids,oid_matched));
+			repr = wmem_strdup_printf(actx->pinfo->pool, "%s (%s)", oid_info->name,
+						oid_subid2string(actx->pinfo->pool, subids,oid_matched));
 			info_oid = oid_info->name;
 		}
 	} else if (oid_string) {
-		repr = wmem_strdup(wmem_packet_scope(), oid_string);
+		repr = wmem_strdup(actx->pinfo->pool, oid_string);
 		info_oid = oid_string;
 	} else {
-		repr = wmem_strdup(wmem_packet_scope(), "[Bad OID]");
+		repr = wmem_strdup(actx->pinfo->pool, "[Bad OID]");
 	}
 
 	valstr = strstr(label,": ");
@@ -1337,7 +1337,7 @@ dissect_snmp_engineid(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int o
 					ts.nsecs = 0;
 					proto_tree_add_time_format_value(tree, hf_snmp_engineid_time, tvb, offset + 4, len_remain - 4,
 									 &ts, "%s",
-									 abs_time_secs_to_str(wmem_packet_scope(), seconds, ABSOLUTE_TIME_LOCAL, TRUE));
+									 abs_time_secs_to_str(pinfo->pool, seconds, ABSOLUTE_TIME_LOCAL, TRUE));
 					offset+=len_remain;
 					len_remain=0;
 				}
@@ -1631,7 +1631,7 @@ localize_ue( snmp_ue_assoc_t* o, const guint8* engine, guint engine_len )
 	( a->user.userName.len == l && memcmp( a->user.userName.data, u, l) == 0 )
 
 static snmp_ue_assoc_t*
-get_user_assoc(tvbuff_t* engine_tvb, tvbuff_t* user_tvb)
+get_user_assoc(tvbuff_t* engine_tvb, tvbuff_t* user_tvb, packet_info *pinfo)
 {
 	static snmp_ue_assoc_t* a;
 	guint given_username_len;
@@ -1646,8 +1646,8 @@ get_user_assoc(tvbuff_t* engine_tvb, tvbuff_t* user_tvb)
 	given_username_len = tvb_captured_length(user_tvb);
 	given_engine_len = tvb_captured_length(engine_tvb);
 	if (! ( given_engine_len && given_username_len ) ) return NULL;
-	given_username = (guint8*)tvb_memdup(wmem_packet_scope(),user_tvb,0,-1);
-	given_engine = (guint8*)tvb_memdup(wmem_packet_scope(),engine_tvb,0,-1);
+	given_username = (guint8*)tvb_memdup(pinfo->pool,user_tvb,0,-1);
+	given_engine = (guint8*)tvb_memdup(pinfo->pool,engine_tvb,0,-1);
 
 	for (a = localized_ues; a; a = a->next) {
 		if ( localized_match(a, given_username, given_username_len, given_engine, given_engine_len) ) {
@@ -1667,7 +1667,7 @@ get_user_assoc(tvbuff_t* engine_tvb, tvbuff_t* user_tvb)
 }
 
 static gboolean
-snmp_usm_auth(const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8** calc_auth_p,
+snmp_usm_auth(const packet_info *pinfo, const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8** calc_auth_p,
 	guint* calc_auth_len_p, gchar const** error)
 {
 	gint msg_len;
@@ -1706,9 +1706,9 @@ snmp_usm_auth(const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8** 
 		*error = "Not enough data remaining";
 		return FALSE;
 	}
-	msg = (guint8*)tvb_memdup(wmem_packet_scope(),p->msg_tvb,0,msg_len);
+	msg = (guint8*)tvb_memdup(pinfo->pool,p->msg_tvb,0,msg_len);
 
-	auth = (guint8*)tvb_memdup(wmem_packet_scope(),p->auth_tvb,0,auth_len);
+	auth = (guint8*)tvb_memdup(pinfo->pool,p->auth_tvb,0,auth_len);
 
 	start = p->auth_offset - p->start_offset;
 	end =   start + auth_len;
@@ -1718,7 +1718,7 @@ snmp_usm_auth(const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8** 
 		msg[i] = '\0';
 	}
 
-	calc_auth = (guint8*)wmem_alloc(wmem_packet_scope(), auth_hash_len[model]);
+	calc_auth = (guint8*)wmem_alloc(pinfo->pool, auth_hash_len[model]);
 
 	if (ws_hmac_buffer(auth_hash_algo[model], calc_auth, msg, msg_len, key, key_len)) {
 		return FALSE;
@@ -1755,7 +1755,7 @@ snmp_usm_priv_des(snmp_usm_params_t* p, tvbuff_t* encryptedData, packet_info *pi
 		return NULL;
 	}
 
-	salt = (guint8*)tvb_memdup(wmem_packet_scope(),p->priv_tvb,0,salt_len);
+	salt = (guint8*)tvb_memdup(pinfo->pool,p->priv_tvb,0,salt_len);
 
 	/*
 	 The resulting "salt" is XOR-ed with the pre-IV to obtain the IV.
@@ -1771,7 +1771,7 @@ snmp_usm_priv_des(snmp_usm_params_t* p, tvbuff_t* encryptedData, packet_info *pi
 		return NULL;
 	}
 
-	cryptgrm = (guint8*)tvb_memdup(wmem_packet_scope(),encryptedData,0,-1);
+	cryptgrm = (guint8*)tvb_memdup(pinfo->pool,encryptedData,0,-1);
 
 	cleartext = (guint8*)wmem_alloc(pinfo->pool, cryptgrm_len);
 
@@ -1836,7 +1836,7 @@ snmp_usm_priv_aes_common(snmp_usm_params_t* p, tvbuff_t* encryptedData, packet_i
 		*error = "Not enough data remaining";
 		return NULL;
 	}
-	cryptgrm = (guint8*)tvb_memdup(wmem_packet_scope(),encryptedData,0,-1);
+	cryptgrm = (guint8*)tvb_memdup(pinfo->pool,encryptedData,0,-1);
 
 	cleartext = (guint8*)wmem_alloc(pinfo->pool, cryptgrm_len);
 
@@ -2071,7 +2071,7 @@ dissect_snmp_pdu(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		}
 	}
 
-	next_tvb_init(&var_list);
+	var_list = next_tvb_list_new(pinfo->pool);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, proto_get_protocol_short_name(find_protocol_by_id(proto)));
 
@@ -2108,7 +2108,7 @@ dissect_snmp_pdu(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		next_tvb = tvb_new_subset_remaining(tvb, offset);
 		call_dissector(data_handle, next_tvb, pinfo, tree);
 	} else {
-		next_tvb_call(&var_list, pinfo, tree, NULL, data_handle);
+		next_tvb_call(var_list, pinfo, tree, NULL, data_handle);
 	}
 
 	return offset;
@@ -2210,7 +2210,7 @@ dissect_smux(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 	proto_tree *smux_tree = NULL;
 	proto_item *item = NULL;
 
-	next_tvb_init(&var_list);
+	var_list = next_tvb_list_new(pinfo->pool);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "SMUX");
 

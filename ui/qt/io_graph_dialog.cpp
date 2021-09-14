@@ -17,6 +17,7 @@
 #include "epan/uat-int.h"
 
 #include <wsutil/utf8_entities.h>
+#include <wsutil/ws_assert.h>
 
 #include <ui/qt/utils/qt_ui_utils.h>
 
@@ -479,29 +480,26 @@ void IOGraphDialog::copyFromProfile(QString filename)
 
 void IOGraphDialog::addGraph(bool checked, QString name, QString dfilter, QRgb color_idx, IOGraph::PlotStyles style, io_graph_item_unit_t value_units, QString yfield, int moving_average, int y_axis_factor)
 {
-    // should not fail, but you never know.
-    if (!uat_model_->insertRows(uat_model_->rowCount(), 1)) {
+
+    QVariantList newRowData;
+    newRowData.append(checked ? Qt::Checked : Qt::Unchecked);
+    newRowData.append(name);
+    newRowData.append(dfilter);
+    newRowData.append(QColor(color_idx));
+    newRowData.append(val_to_str_const(style, graph_style_vs, "None"));
+    newRowData.append(val_to_str_const(value_units, y_axis_vs, "Packets"));
+    newRowData.append(yfield);
+    newRowData.append(val_to_str_const((guint32) moving_average, moving_avg_vs, "None"));
+    newRowData.append(y_axis_factor);
+
+    QModelIndex newIndex = uat_model_->appendEntry(newRowData);
+    if ( !newIndex.isValid() )
+    {
         qDebug() << "Failed to add a new record";
         return;
     }
-    int currentRow = uat_model_->rowCount() - 1;
-    const QModelIndex &new_index = uat_model_->index(currentRow, 0);
-
-    //populate model with data
-    uat_model_->setData(uat_model_->index(currentRow, colEnabled), checked ? Qt::Checked : Qt::Unchecked, Qt::CheckStateRole);
-    uat_model_->setData(uat_model_->index(currentRow, colName), name);
-    uat_model_->setData(uat_model_->index(currentRow, colDFilter), dfilter);
-    uat_model_->setData(uat_model_->index(currentRow, colColor), QColor(color_idx), Qt::DecorationRole);
-    uat_model_->setData(uat_model_->index(currentRow, colStyle), val_to_str_const(style, graph_style_vs, "None"));
-    uat_model_->setData(uat_model_->index(currentRow, colYAxis), val_to_str_const(value_units, y_axis_vs, "Packets"));
-    uat_model_->setData(uat_model_->index(currentRow, colYField), yfield);
-    uat_model_->setData(uat_model_->index(currentRow, colSMAPeriod), val_to_str_const((guint32) moving_average, moving_avg_vs, "None"));
-    uat_model_->setData(uat_model_->index(currentRow, colYAxisFactor), (guint32) y_axis_factor);
-
-    // due to an EditTrigger, this will also start editing.
-    ui->graphUat->setCurrentIndex(new_index);
-
-    createIOGraph(currentRow);
+    ui->graphUat->setCurrentIndex(newIndex);
+    createIOGraph(newIndex.row());
 }
 
 void IOGraphDialog::addGraph(bool copy_from_current)
@@ -510,22 +508,24 @@ void IOGraphDialog::addGraph(bool copy_from_current)
     if (copy_from_current && !current.isValid())
         return;
 
+    QModelIndex copyIdx;
+
     if (copy_from_current) {
-        // should not fail, but you never know.
-        if (!uat_model_->insertRows(uat_model_->rowCount(), 1)) {
+        copyIdx = uat_model_->copyRow(current);
+        if (!copyIdx.isValid())
+        {
             qDebug() << "Failed to add a new record";
             return;
         }
-        const QModelIndex &new_index = uat_model_->index(uat_model_->rowCount() - 1, 0);
-        uat_model_->copyRow(new_index.row(), current.row());
-        createIOGraph(new_index.row());
+        createIOGraph(copyIdx.row());
 
-        ui->graphUat->setCurrentIndex(new_index);
+        ui->graphUat->setCurrentIndex(copyIdx);
     } else {
         addDefaultGraph(false);
-        const QModelIndex &new_index = uat_model_->index(uat_model_->rowCount() - 1, 0);
-        ui->graphUat->setCurrentIndex(new_index);
+        copyIdx = uat_model_->index(uat_model_->rowCount() - 1, 0);
     }
+
+    ui->graphUat->setCurrentIndex(copyIdx);
 }
 
 void IOGraphDialog::createIOGraph(int currentRow)
@@ -1517,8 +1517,7 @@ void IOGraphDialog::on_buttonBox_accepted()
         }
         // else error dialog?
         if (save_ok) {
-            path = QDir(file_name);
-            wsApp->setLastOpenDir(path.canonicalPath().toUtf8().constData());
+            wsApp->setLastOpenDirFromFilename(file_name);
         }
     }
 }
@@ -2096,7 +2095,7 @@ void IOGraph::reloadValueUnitField()
 // Check if a packet is available at the given interval (idx).
 bool IOGraph::hasItemToShow(int idx, double value) const
 {
-    g_assert(idx < max_io_items_);
+    ws_assert(idx < max_io_items_);
 
     bool result = false;
 
@@ -2142,7 +2141,7 @@ void IOGraph::setInterval(int interval)
 // Get the value at the given interval (idx) for the current value unit.
 double IOGraph::getItemValue(int idx, const capture_file *cap_file) const
 {
-    g_assert(idx < max_io_items_);
+    ws_assert(idx < max_io_items_);
 
     return get_io_graph_item(items_, val_units_, idx, hf_index_, cap_file, interval_, cur_idx_);
 }

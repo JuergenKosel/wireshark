@@ -1052,8 +1052,8 @@
         <translation>Tipo di link</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>Dimensione limite del pacchetto</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation>Dimensione limite del pacchetto (snaplen)</translation>
     </message>
     <message>
         <source>none</source>
@@ -3207,11 +3207,29 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>Assicurati di aver selezionato un pacchetto %1.</translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation>Flussi QUIC non trovati nel pacchetto selezionato.</translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
         <translation>
             <numerusform>%n sottoflussi totali.</numerusform>
             <numerusform>%Ln sottoflussi totali.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation>
+            <numerusform>Numero totale di connessioni QUIC: %Ln</numerusform>
+            <numerusform>Numero totale di connessioni QUIC: %Ln</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
+        <translation>
+            <numerusform>ID massimo del flusso QUIC per la connessione selezionata: %Ln</numerusform>
+            <numerusform>ID massimo del flusso QUIC per la connessione selezionata: %Ln</numerusform>
         </translation>
     </message>
     <message>
@@ -6343,6 +6361,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>&amp;Modifica</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation>Commenti pacchetto</translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>Barra degli strumenti principale</translation>
     </message>
@@ -6850,10 +6872,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Scorri o cambia la marca temporale del pacchetto</translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation>Aggiungi o modifica un commento al pacchetto</translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>Elimina tutti i commenti dei pacchetti</translation>
     </message>
@@ -7128,6 +7146,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>UCP message statistics</source>
         <translation>Statistiche dei messaggi UCP</translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation>F1AP</translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
+        <translation>Messaggi F1AP</translation>
     </message>
     <message>
         <source>Change the way packets are dissected</source>
@@ -7424,10 +7450,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Time Shift…</source>
         <translation>Spostamento temporale...</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>Commento del pacchetto...</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8206,6 +8228,36 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Filtro di cattura invalido.</translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation>(commento vuoto)</translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation>Aggiungi nuovo commento...</translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation>Modifica &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation>Elimina &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation> prima di iniziare una nuova cattura</translation>
     </message>
@@ -8663,7 +8715,15 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>Commento del pacchetto %1</translation>
+        <translation type="vanished">Commento del pacchetto %1</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12722,6 +12782,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Compressed</source>
         <translation>Compresso</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

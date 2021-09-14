@@ -14,6 +14,7 @@
 /* ToDo: Rework the Summarizer code (future release) */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "transum"
 
 #include <epan/proto.h>
 #include <epan/packet.h>
@@ -23,6 +24,7 @@
 #include "preferences.h"
 #include "extractors.h"
 #include "decoders.h"
+#include <wsutil/wslog.h>
 
 void proto_register_transum(void);
 void proto_reg_handoff_transum(void);
@@ -772,7 +774,7 @@ static void init_globals(void)
         if (hf_of_interest[i].hf != -1)
             g_array_append_val(wanted_fields, hf_of_interest[i].hf);
         else
-            g_warning("TRANSUM: unknown field %s", hf_of_interest[i].proto_name);
+            ws_warning("TRANSUM: unknown field %s", hf_of_interest[i].proto_name);
     }
     set_postdissector_wanted_hfids(transum_handle, wanted_fields);
 
@@ -817,7 +819,7 @@ static void cleanup_globals(void)
 /* This function adds the RTE data to the tree.  The summary ptr is currently
    not used but will be used for summariser information once this feature has
    been ported from the LUA code. */
-static void write_rte(RRPD *in_rrpd, tvbuff_t *tvb, proto_tree *tree, char *summary)
+static void write_rte(RRPD *in_rrpd, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, char *summary)
 {
     nstime_t rte_art;
     nstime_t rte_st;
@@ -825,7 +827,7 @@ static void write_rte(RRPD *in_rrpd, tvbuff_t *tvb, proto_tree *tree, char *summ
     nstime_t rte_rspspread;
     proto_tree *rte_tree;
     proto_item *pi;
-    wmem_strbuf_t *temp_string = wmem_strbuf_new(wmem_packet_scope(), "");
+    wmem_strbuf_t *temp_string = wmem_strbuf_new(pinfo->pool, "");
 
     if (in_rrpd->req_first_frame)
     {
@@ -1096,13 +1098,13 @@ static int dissect_transum(tvbuff_t *buffer, packet_info *pinfo, proto_tree *tre
             if (tree)
             {
                 /* Add the RTE data to the protocol decode tree if we output_flag is set */
-                write_rte(rrpd, buffer, tree, NULL);
+                write_rte(rrpd, buffer, pinfo, tree, NULL);
             }
         }
     }
     else
     {
-        PKT_INFO *sub_packet = wmem_alloc0_array(wmem_packet_scope(), PKT_INFO, MAX_SUBPKTS_PER_PACKET);
+        PKT_INFO *sub_packet = wmem_alloc0_array(pinfo->pool, PKT_INFO, MAX_SUBPKTS_PER_PACKET);
 
         set_proto_values(pinfo, tree, &sub_packet[0], sub_packet);
 

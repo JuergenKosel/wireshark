@@ -14,6 +14,7 @@
 #include <glib.h>
 
 #include <wsutil/file_util.h>
+#include <wsutil/ws_assert.h>
 
 #include "sync_pipe.h"
 
@@ -28,7 +29,7 @@ pipe_write_header(int pipe_fd, char indicator, int length)
     guchar header[1+3]; /* indicator + 3-byte len */
 
 
-    g_assert(length <= SP_MAX_MSG_LEN);
+    ws_assert(length <= SP_MAX_MSG_LEN);
 
     /* write header (indicator + 3-byte len) */
     header[0] = indicator;
@@ -51,7 +52,7 @@ pipe_write_block(int pipe_fd, char indicator, const char *msg)
     ssize_t ret;
     int len;
 
-    /*g_warning("write %d enter", pipe_fd);*/
+    /*ws_warning("write %d enter", pipe_fd);*/
 
     if(msg != NULL) {
         len = (int) strlen(msg) + 1;    /* including the terminating '\0'! */
@@ -67,16 +68,16 @@ pipe_write_block(int pipe_fd, char indicator, const char *msg)
 
     /* write value (if we have one) */
     if(len) {
-        /*g_warning("write %d indicator: %c value len: %u msg: %s", pipe_fd, indicator, len, msg);*/
+        /*ws_warning("write %d indicator: %c value len: %u msg: %s", pipe_fd, indicator, len, msg);*/
         ret = ws_write(pipe_fd, msg, len);
         if(ret == -1) {
             return;
         }
     } else {
-        /*g_warning("write %d indicator: %c no value", pipe_fd, indicator);*/
+        /*ws_warning("write %d indicator: %c no value", pipe_fd, indicator);*/
     }
 
-    /*g_warning("write %d leave", pipe_fd);*/
+    /*ws_warning("write %d leave", pipe_fd);*/
 }
 
 

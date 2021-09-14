@@ -1029,8 +1029,8 @@
         <translation>Tipo de enlace</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>Límite de tamaño de paquete</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>none</source>
@@ -3168,8 +3168,26 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <source>Please make sure you have a %1 packet selected.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
         <translation type="unfinished">
             <numerusform></numerusform>
             <numerusform></numerusform>
@@ -6279,6 +6297,10 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <translation>&amp;Edición</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>Barra de herramientas principal</translation>
     </message>
@@ -6786,10 +6808,6 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>Eliminar todos los comentarios de paquete</translation>
     </message>
@@ -7063,6 +7081,14 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
     <message>
         <source>UCP message statistics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7360,10 +7386,6 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     <message>
         <source>Time Shift…</source>
         <translation>Modificar horario…</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>Comentario de paquete…</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8134,6 +8156,36 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8591,7 +8643,15 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>Comentario de paquete %1</translation>
+        <translation type="vanished">Comentario de paquete %1</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12612,6 +12672,10 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     <message>
         <source>Compressed</source>
         <translation>Comprimido</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

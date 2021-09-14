@@ -4718,7 +4718,7 @@ dissect_structured_fields(proto_tree *tn3270_tree, packet_info *pinfo, tvbuff_t 
     }
 
     /* Not found */
-    sf_id_str = wmem_strdup_printf(wmem_packet_scope(), "Unknown [%0*x]", sf_id_len*2, sf_id);
+    sf_id_str = wmem_strdup_printf(pinfo->pool, "Unknown [%0*x]", sf_id_len*2, sf_id);
     display_sf_hdr(tn3270_tree, tvb, offset, sf_length,
                    sf_length, sf_id_len, sf_id_str);
     offset += sf_length;
@@ -5755,7 +5755,7 @@ proto_register_tn3270(void)
          NULL, HFILL }
     },
     { &hf_tn3270_load_format_storage_operand,
-      {  "Operand:",
+      {  "Operand",
          "tn3270.load_format_storage_operand",
          FT_UINT8, BASE_HEX, VALS(vals_load_storage_format_operand), 0x0,
          NULL, HFILL }

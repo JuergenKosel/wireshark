@@ -43,6 +43,7 @@
 void proto_register_icmp(void);
 void proto_reg_handoff_icmp(void);
 
+static heur_dissector_list_t icmp_heur_subdissector_list;
 static int icmp_tap = -1;
 
 /* Conversation related data */
@@ -1555,7 +1556,7 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 		proto_tree_add_item_ret_uint(icmp_tree, hf_icmp_num_addrs, tvb, 4, 1, ENC_BIG_ENDIAN, &num_addrs);
 		proto_tree_add_item_ret_uint(icmp_tree, hf_icmp_addr_entry_size, tvb, 5, 1, ENC_BIG_ENDIAN, &addr_entry_size);
 		ti = proto_tree_add_item(icmp_tree, hf_icmp_lifetime, tvb, 6, 2, ENC_BIG_ENDIAN);
-		proto_item_append_text(ti, " (%s)", signed_time_secs_to_str(wmem_packet_scope(), tvb_get_ntohs(tvb, 6)));
+		proto_item_append_text(ti, " (%s)", signed_time_secs_to_str(pinfo->pool, tvb_get_ntohs(tvb, 6)));
 		break;
 
 	case ICMP_PARAMPROB:
@@ -1757,8 +1758,11 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 								8 + 8),
 				       pinfo, icmp_tree);
 		} else {
-			call_data_dissector(tvb_new_subset_remaining(tvb, 8),
-				       pinfo, icmp_tree);
+			heur_dtbl_entry_t *hdtbl_entry;
+			next_tvb = tvb_new_subset_remaining(tvb, 8);
+			if (!dissector_try_heuristic(icmp_heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, NULL)) {
+				call_data_dissector(next_tvb, pinfo, icmp_tree);
+			}
 		}
 		break;
 
@@ -1790,13 +1794,13 @@ dissect_icmp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* data)
 
 			orig_ts = get_best_guess_mstimeofday(tvb, 8, frame_ts);
 			ti = proto_tree_add_item(icmp_tree, hf_icmp_originate_timestamp, tvb, 8, 4, ENC_BIG_ENDIAN);
-			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(wmem_packet_scope(), orig_ts));
+			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(pinfo->pool, orig_ts));
 
 			ti = proto_tree_add_item(icmp_tree, hf_icmp_receive_timestamp, tvb, 12, 4, ENC_BIG_ENDIAN);
-			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(wmem_packet_scope(), get_best_guess_mstimeofday(tvb, 12, frame_ts)));
+			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(pinfo->pool, get_best_guess_mstimeofday(tvb, 12, frame_ts)));
 
 			ti = proto_tree_add_item(icmp_tree, hf_icmp_transmit_timestamp, tvb, 16, 4, ENC_BIG_ENDIAN);
-			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(wmem_packet_scope(), get_best_guess_mstimeofday(tvb, 16, frame_ts)));
+			proto_item_append_text(ti, " (%s after midnight UTC)", signed_time_msecs_to_str(pinfo->pool, get_best_guess_mstimeofday(tvb, 16, frame_ts)));
 
 		}
 		break;
@@ -2326,6 +2330,7 @@ void proto_register_icmp(void)
 
 	register_seq_analysis("icmp", "ICMP Flows", proto_icmp, NULL, TL_REQUIRES_COLUMNS, icmp_seq_analysis_packet);
 	icmp_handle = register_dissector("icmp", dissect_icmp, proto_icmp);
+	icmp_heur_subdissector_list = register_heur_dissector_list("icmp", proto_icmp);
 	register_dissector("icmp_extension", dissect_icmp_extension, proto_icmp);
 	icmp_tap = register_tap("icmp");
 }

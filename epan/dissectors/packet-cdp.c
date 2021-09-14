@@ -145,7 +145,7 @@ static expert_field ei_cdp_nrgyz_tlvlength = EI_INIT;
 static expert_field ei_cdp_checksum = EI_INIT;
 
 static int
-dissect_address_tlv(tvbuff_t *tvb, int offset, int length, proto_tree *tree);
+dissect_address_tlv(tvbuff_t *tvb, packet_info* pinfo, int offset, int length, proto_tree *tree);
 static void
 dissect_capabilities(tvbuff_t *tvb, int offset, int length, proto_tree *tree);
 static void
@@ -317,7 +317,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     if (data_length & 1) {
         guint8 *padded_buffer;
         /* Allocate new buffer */
-        padded_buffer = (guint8 *)wmem_alloc(wmem_packet_scope(), data_length+1);
+        padded_buffer = (guint8 *)wmem_alloc(pinfo->pool, data_length+1);
         tvb_memcpy(tvb, padded_buffer, 0, data_length);
         /* Swap bytes in last word */
         padded_buffer[data_length] = padded_buffer[data_length-1];
@@ -361,12 +361,12 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
             col_append_fstr(pinfo->cinfo, COL_INFO,
                             "Device ID: %s  ",
-                            tvb_format_stringzpad(tvb, offset + 4, length - 4));
+                            tvb_format_stringzpad(pinfo->pool, tvb, offset + 4, length - 4));
 
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb, offset,
                                            length, ett_cdp_tlv, NULL, "Device ID: %s",
-                                           tvb_format_stringzpad(tvb, offset + 4, length - 4));
+                                           tvb_format_stringzpad(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_deviceid, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -390,13 +390,13 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
             col_append_fstr(pinfo->cinfo, COL_INFO,
                             "Port ID: %s  ",
-                            tvb_format_stringzpad(tvb, offset + 4,
+                            tvb_format_stringzpad(pinfo->pool, tvb, offset + 4,
                                                   length - 4));
 
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb, offset,
                                            real_length, ett_cdp_tlv, NULL, "Port ID: %s",
-                                           tvb_format_text(tvb, offset + 4, real_length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, real_length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_portid, tvb, offset + 4, real_length - 4, ENC_ASCII|ENC_NA);
@@ -419,7 +419,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             offset += 4;
             length -= 4;
             while (naddresses != 0) {
-                addr_length = dissect_address_tlv(tvb, offset, length,
+                addr_length = dissect_address_tlv(tvb, pinfo, offset, length,
                                                   tlv_tree);
                 if (addr_length < 0)
                     break;
@@ -461,7 +461,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Platform: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -540,7 +540,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "VTP Management Domain: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_vtp_management_domain, tvb, offset + 4, length - 4, ENC_NA|ENC_ASCII);
@@ -683,7 +683,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "System Name: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_system_name, tvb, offset + 4, length - 4, ENC_NA|ENC_ASCII);
@@ -718,7 +718,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             offset += 4;
             length -= 4;
             while (naddresses != 0) {
-                addr_length = dissect_address_tlv(tvb, offset, length,
+                addr_length = dissect_address_tlv(tvb, pinfo, offset, length,
                                                   tlv_tree);
                 if (addr_length < 0)
                     break;
@@ -734,7 +734,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Location: %s",
-                                           tvb_format_text(tvb, offset + 5, length - 5));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 5, length - 5));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_location_unknown, tvb, offset + 4, 1, ENC_BIG_ENDIAN);
@@ -855,7 +855,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "BSSID: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -868,7 +868,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Serial: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -887,7 +887,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 } else {
                     tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                                offset, length, ett_cdp_tlv, NULL, "SSID: %s",
-                                               tvb_format_text(tvb, offset + 4, length - 4));
+                                               tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                     proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                     proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                     proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -901,7 +901,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 1 channel: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -914,7 +914,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "SNMP port: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -927,7 +927,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Web mgmt port: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -940,7 +940,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Source MAC: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -953,7 +953,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 2 channel: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -966,7 +966,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 1 operating mode: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -979,7 +979,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 2 operating mode: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -992,7 +992,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 1 radio mode: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -1005,7 +1005,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             if (tree) {
                 tlv_tree = proto_tree_add_subtree_format(cdp_tree, tvb,
                                            offset, length, ett_cdp_tlv, NULL, "Radio 2 radio mode: %s",
-                                           tvb_format_text(tvb, offset + 4, length - 4));
+                                           tvb_format_text(pinfo->pool, tvb, offset + 4, length - 4));
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_platform, tvb, offset + 4, length - 4, ENC_ASCII|ENC_NA);
@@ -1044,7 +1044,7 @@ static const value_string proto_type_vals[] = {
 };
 
 static int
-dissect_address_tlv(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
+dissect_address_tlv(tvbuff_t *tvb, packet_info* pinfo, int offset, int length, proto_tree *tree)
 {
     proto_item *ti;
     proto_tree *address_tree;
@@ -1149,7 +1149,7 @@ dissect_address_tlv(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
     if (hf_addr == -1)
     {
         proto_tree_add_item(address_tree, hf_cdp_address, tvb, offset, address_length, ENC_NA);
-        proto_item_set_text(ti, "Address: %s", tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, address_length));
+        proto_item_set_text(ti, "Address: %s", tvb_bytes_to_str(pinfo->pool, tvb, offset, address_length));
     }
 
     return 2 + protocol_length + 2 + address_length;
@@ -1207,7 +1207,7 @@ dissect_nrgyz_tlv(tvbuff_t *tvb, packet_info* pinfo, int offset, guint16 length,
             case TYPE_NRGYZ_NAME:
                 etree  = proto_tree_add_subtree_format(tree, tvb, offset,
                                          tlvl, ett_cdp_nrgyz_tlv, NULL, "EnergyWise %s: %s", ttext,
-                                         tvb_format_stringzpad(tvb, offset + 8, tlvl - 8)
+                                         tvb_format_stringzpad(pinfo->pool, tvb, offset + 8, tlvl - 8)
                     );
                 break;
             case TYPE_NRGYZ_REPLYTO:
@@ -1284,7 +1284,7 @@ add_multi_line_string_to_tree(proto_tree *tree, tvbuff_t *tvb, gint start,
     while (len > 0) {
         line_len = tvb_find_line_end(tvb, start, len, &next, FALSE);
         data_len = next - start;
-        proto_tree_add_string(tree, hf, tvb, start, data_len, tvb_format_stringzpad(tvb, start, line_len));
+        proto_tree_add_string(tree, hf, tvb, start, data_len, tvb_format_stringzpad(wmem_packet_scope(), tvb, start, line_len));
         start += data_len;
         len   -= data_len;
     }

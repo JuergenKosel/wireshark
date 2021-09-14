@@ -104,11 +104,13 @@ def findDissectorFilesInFolder(folder):
             files.append(filename)
     return files
 
-issues_found = 0
+warnings_found = 0
+errors_found = 0
 
 # Check the given dissector file.
 def checkFile(filename, tfs_items, look_for_common=False):
-    global issues_found
+    global warnings_found
+    global errors_found
 
     # Check file exists - e.g. may have been deleted in a recent commit.
     if not os.path.exists(filename):
@@ -122,18 +124,34 @@ def checkFile(filename, tfs_items, look_for_common=False):
     for i in items:
         for t in tfs_items:
             found = False
-            exact_case = False
-            if tfs_items[t].val1 == items[i].val1 and tfs_items[t].val2 == items[i].val2:
-                found = True
-                exact_case = True
-            elif tfs_items[t].val1.upper() == items[i].val1.upper() and tfs_items[t].val2.upper() == items[i].val2.upper():
-                found = True
 
-            if found:
-                print(filename, i, "- could have used", t, 'from tfs.c instead: ', tfs_items[t],
-                      '' if exact_case else '  (capitalisation differs)')
-                issues_found += 1
-                break
+            #
+            # Do not do this check for plugins; plugins cannot import
+            # data values from libwireshark (functions, yes; data
+            # values, no).
+            #
+            # Test whether there's a common prefix for the file name
+            # and "plugin/epan/"; if so, this is a plugin, and there
+            # is no common path and os.path.commonprefix returns an
+            # empty string, otherwise it returns the common path, so
+            # we check whether the common path is an empty string.
+            #
+            if os.path.commonprefix([filename, 'plugin/epan/']) == '':
+                exact_case = False
+                if tfs_items[t].val1 == items[i].val1 and tfs_items[t].val2 == items[i].val2:
+                    found = True
+                    exact_case = True
+                elif tfs_items[t].val1.upper() == items[i].val1.upper() and tfs_items[t].val2.upper() == items[i].val2.upper():
+                    found = True
+
+                if found:
+                    print(filename, i, "- could have used", t, 'from tfs.c instead: ', tfs_items[t],
+                          '' if exact_case else '  (capitalisation differs)')
+                    if exact_case:
+                        errors_found += 1
+                    else:
+                        warnings_found += 1
+                    break
         if not found:
             if look_for_common:
                 AddCustomEntry(items[i].val1, items[i].val2, filename)
@@ -216,7 +234,10 @@ for f in files:
 
 
 # Show summary.
-print(issues_found, 'issues found')
+print(warnings_found, 'warnings found')
+if errors_found:
+    print(errors_found, 'errors found')
+    exit(1)
 
 if args.common:
     # Looking for items that could potentially be moved to tfs.c

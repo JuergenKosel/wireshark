@@ -44,6 +44,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/file_util.h>
 #include <wsutil/utf8_entities.h>
+#include <wsutil/ws_assert.h>
 
 #include <wiretap/wtap.h>   /* for WTAP_ERR_SHORT_WRITE */
 
@@ -104,7 +105,7 @@ get_basename(const char *path)
 {
     const char *filename;
 
-    g_assert(path != NULL);
+    ws_assert(path != NULL);
     filename = find_last_pathname_separator(path);
     if (filename == NULL) {
         /*
@@ -131,7 +132,7 @@ get_dirname(char *path)
 {
     char *separator;
 
-    g_assert(path != NULL);
+    ws_assert(path != NULL);
     separator = find_last_pathname_separator(path);
     if (separator == NULL) {
         /*
@@ -2188,6 +2189,63 @@ file_needs_reopen(int fd, const char* filename)
            open_stat.st_ino != current_stat.st_ino ||
            open_stat.st_size > current_stat.st_size;
 #endif
+}
+
+gboolean
+write_file_binary_mode(const char *filename, const void *content, size_t content_len)
+{
+    int fd;
+    size_t bytes_left;
+    unsigned int bytes_to_write;
+    ssize_t bytes_written;
+    const guint8 *ptr;
+    int err;
+
+    fd = ws_open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
+    if (fd == -1) {
+        report_open_failure(filename, errno, TRUE);
+        return FALSE;
+    }
+
+    /*
+     * The third argument to _write() on Windows is an unsigned int,
+     * so, on Windows, that's the size of the third argument to
+     * ws_write().
+     *
+     * The third argument to write() on UN*X is a size_t, although
+     * the return value is an ssize_t, so one probably shouldn't
+     * write more than the max value of an ssize_t.
+     *
+     * In either case, there's no guarantee that a size_t such as
+     * content_len can be passed to ws_write(), so we write in
+     * chunks of at most 2^31 bytes.
+     */
+
+    ptr = (const guint8 *)content;
+    bytes_left = content_len;
+    while (bytes_left != 0) {
+        if (bytes_left > 0x40000000) {
+            bytes_to_write = 0x40000000;
+        } else {
+            bytes_to_write = (unsigned int)bytes_left;
+        }
+        bytes_written = ws_write(fd, ptr, bytes_to_write);
+        if (bytes_written <= 0) {
+            if (bytes_written < 0) {
+                err = errno;
+            } else {
+                err = WTAP_ERR_SHORT_WRITE;
+            }
+            report_write_failure(filename, err);
+            ws_close(fd);
+            return FALSE;
+        }
+        bytes_left -= bytes_written;
+        ptr += bytes_written;
+    }
+
+    ws_close(fd);
+    return TRUE;
 }
 
 /*

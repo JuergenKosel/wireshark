@@ -41,9 +41,9 @@ class case_unittests(subprocesstest.SubprocessTestCase):
             '--verbose'
         ), env=base_env)
 
-    def test_unit_wmem_test(self, program, base_env):
-        '''wmem_test'''
-        self.assertRun((program('wmem_test'),
+    def test_unit_wsutil(self, program, base_env):
+        '''wsutil unit tests'''
+        self.assertRun((program('test_wsutil'),
             '--verbose'
         ), env=base_env)
 

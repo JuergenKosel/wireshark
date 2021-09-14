@@ -1,5 +1,5 @@
 /* packet-ieee1722.c
- * Routines for AVB-TP (Audio Video Bridging - Transport Protocol) dissection
+ * Routines for AVTP (Audio Video Transport Protocol) dissection
  * Copyright 2010, Torrey Atcitty <tatcitty@harman.com>
  *                 Dave Olsen <dave.olsen@harman.com>
  *                 Levi Pearson <levi.pearson@harman.com>
@@ -37,10 +37,14 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/conversation.h>
 #include <epan/expert.h>
 #include <epan/etypes.h>
 #include <epan/decode_as.h>
+#include <epan/proto_data.h>
 #include <epan/dissectors/packet-socketcan.h>
+
+#include "packet-mp2t.h"
 
 void proto_register_1722(void);
 void proto_reg_handoff_1722(void);
@@ -63,7 +67,20 @@ void proto_reg_handoff_1722_acf_can(void);
 void proto_register_1722_acf_lin(void);
 void proto_reg_handoff_1722_acf_lin(void);
 
-#define UDP_PORT_IEEE_1722                  17220
+static dissector_handle_t jpeg_handle;
+static dissector_handle_t h264_handle;
+static dissector_handle_t mp2t_handle;
+
+#define UDP_PORT_IEEE_1722   17220 /* One of two IANA registered ports */
+
+enum IEEE_1722_TRANSPORT {
+    IEEE_1722_TRANSPORT_ETH,
+    IEEE_1722_TRANSPORT_UDP,
+};
+
+typedef struct _ieee1722_seq_data_t {
+    guint32     seqnum_exp;
+} ieee1722_seq_data_t;
 
 /**************************************************************************************************/
 /* 1722                                                                                           */
@@ -148,6 +165,7 @@ void proto_reg_handoff_1722_acf_lin(void);
 /* subtype CVF                                                                                    */
 /*                                                                                                */
 /**************************************************************************************************/
+#define IEEE_1722_CVF_FORMAT_RFC                        0x02
 #define IEEE_1722_CVF_FORMAT_SUBTYPE_MJPEG              0x00
 #define IEEE_1722_CVF_FORMAT_SUBTYPE_H264               0x01
 #define IEEE_1722_CVF_FORMAT_SUBTYPE_JPEG2000           0x02
@@ -162,15 +180,6 @@ void proto_reg_handoff_1722_acf_lin(void);
 #define IEEE_1722_FORMAT_MASK                           0x00
 #define IEEE_1722_FORMAT_SUBTYPE_MASK                   0x00
 #define IEEE_1722_CVF_H264_TIMESTAMP_MASK               0x00
-#define IEEE_1722_CVF_H264_FORBIDDEN_MASK               0x80
-#define IEEE_1722_CVF_H264_NRI_MASK                     0x60
-#define IEEE_1722_CVF_H264_NAL_TYPE_MASK                0x1f
-#define IEEE_1722_CVF_MJPEG_TS_MASK                     0x00
-#define IEEE_1722_CVF_MJPEG_FRAGMENT_OFFSET_MASK        0x00
-#define IEEE_1722_CVF_MJPEG_TYPE_MASK                   0x00
-#define IEEE_1722_CVF_MJPEG_Q_MASK                      0x00
-#define IEEE_1722_CVF_MJPEG_WIDTH_MASK                  0x00
-#define IEEE_1722_CVF_MJPEG_HEIGHT_MASK                 0x00
 #define IEEE_1722_H264_PTV_MASK                         0x20
 #define IEEE_1722_MARKER_BIT_MASK                       0x10
 #define IEEE_1722_EVT_MASK                              0x0f
@@ -334,12 +343,16 @@ static const range_string subtype_range_rvals[] = {
 
 /* Initialize the protocol and registered fields          */
 static int proto_1722 = -1;
+static int hf_1722_encap_seqnum = -1;
 static int hf_1722_subtype = -1;
 static int hf_1722_svfield = -1;
 static int hf_1722_verfield = -1;
 
 /* Initialize the subtree pointers */
 static int ett_1722 = -1;
+
+static expert_field ei_1722_encap_seqnum_dup = EI_INIT;
+static expert_field ei_1722_encap_seqnum_ooo = EI_INIT;
 
 static dissector_table_t avb_dissector_table;
 
@@ -610,35 +623,11 @@ static const range_string cvf_format_range_rvals [] = {
     {0, 0,      NULL}
 };
 
-static const true_false_string tfs_set_not_set = { "Is set", "Is not set" };
-
 static const range_string cvf_format_subtype_range_rvals [] = {
-    {0, 0,      "MJPEG Format (RFC2435)"},
-    {1, 1,      "H264 Format"},
-    {2, 2,      "JPEG 2000 Video"},
+    {0, 0,      "MJPEG Format (RFC 2435)"},
+    {1, 1,      "H.264 Format (RFC 6184)"},
+    {2, 2,      "JPEG 2000 Video (RFC 5371)"},
     {3, 0xff,   "Reserved"},
-    {0, 0,      NULL}
-};
-
-static const range_string cvf_h264_nal_type_range_rvals [] = {
-    {0x00, 0x00,    "Undefined"},
-    {0x01, 0x17,    "Single Nal Unit Packet"},
-    {0x18, 0x18,    "STAP-A"},
-    {0x19, 0x19,    "STAP-B"},
-    {0x1a, 0x1a,    "MTAP16"},
-    {0x1b, 0x1b,    "MTAP24"},
-    {0x1c, 0x1c,    "FU-A"},
-    {0x1d, 0x1d,    "FU-B"},
-    {0x1e, 0xff,    "Unspecified"},
-    {0, 0,      NULL}
-};
-
-static const range_string cvf_mjpeg_ts_range_rvals [] = {
-    {0, 0,          "MJPEG TYPE SPEC PROGRESSIVE"},
-    {1, 1,          "MJPEG TYPE SPEC ODD"},
-    {2, 2,          "MJPEG TYPE SPEC EVEN"},
-    {3, 3,          "MJPEG TYPE SPEC SINGLE"},
-    {3, 0xff,       "Unspecified"},
     {0, 0,      NULL}
 };
 
@@ -658,15 +647,6 @@ static int hf_1722_cvf_evtfield = -1;
 static int hf_1722_cvf_marker_bit = -1;
 static int hf_1722_cvf_h264_ptvfield = -1;
 static int hf_1722_cvf_h264_timestamp = -1;
-static int hf_1722_cvf_h264_forbidden_bit = -1;
-static int hf_1722_cvf_h264_nri = -1;
-static int hf_1722_cvf_h264_nal_type = -1;
-static int hf_1722_cvf_mjpeg_ts = -1;
-static int hf_1722_cvf_mjpeg_fragment_offset = -1;
-static int hf_1722_cvf_mjpeg_type = -1;
-static int hf_1722_cvf_mjpeg_q = -1;
-static int hf_1722_cvf_mjpeg_width = -1;
-static int hf_1722_cvf_mjpeg_height = -1;
 
 /* Initialize the subtree pointers */
 static int ett_1722_cvf = -1;
@@ -674,6 +654,7 @@ static int ett_1722_cvf = -1;
 /* Initialize expert fields */
 static expert_field ei_cvf_jpeg2000_format = EI_INIT;
 static expert_field ei_cvf_reserved_format = EI_INIT;
+static expert_field ei_cvf_invalid_data_length = EI_INIT;
 
 /**************************************************************************************************/
 /* subtype NTSCF                                                                                  */
@@ -814,16 +795,9 @@ static expert_field ei_1722_canfd_invalid_payload_length = EI_INIT;
 static dissector_handle_t avb1722_can_brief_handle;
 static dissector_handle_t avb1722_can_handle;
 
-/* Link to `CAN` protocol for consistent filtering */
-static dissector_handle_t dissector_can;
-static dissector_handle_t dissector_canfd;
-
 static int                      proto_can = -1;
 static int                      proto_canfd = -1;
 static gboolean                 can_heuristic_first = FALSE;
-static dissector_table_t        can_subdissector_table;
-static heur_dissector_list_t    can_heur_subdissector_table;
-static heur_dtbl_entry_t       *can_heur_dtbl_entry;
 
 /**************************************************************************************************/
 /* ACF LIN Message                                                                                */
@@ -853,10 +827,40 @@ static dissector_table_t avb1722_acf_lin_dissector_table;
 /* 1722 dissector implementation                                                                  */
 /*                                                                                                */
 /**************************************************************************************************/
-static int dissect_1722(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+
+static guint32
+get_seqnum_exp_1722_udp(packet_info *pinfo, const guint32 seqnum)
+{
+    conversation_t *conv;
+    ieee1722_seq_data_t *conv_seq_data, *p_seq_data;
+
+    if (!PINFO_FD_VISITED(pinfo)) {
+        conv = find_or_create_conversation(pinfo);
+        conv_seq_data = (ieee1722_seq_data_t *)conversation_get_proto_data(conv, proto_1722);
+        if (conv_seq_data == NULL) {
+            conv_seq_data = wmem_new(wmem_file_scope(), ieee1722_seq_data_t);
+            conv_seq_data->seqnum_exp = seqnum;
+
+            conversation_add_proto_data(conv, proto_1722, conv_seq_data);
+        } else {
+            conv_seq_data->seqnum_exp++;
+        }
+        p_seq_data = wmem_new(wmem_file_scope(), ieee1722_seq_data_t);
+        p_seq_data->seqnum_exp = conv_seq_data->seqnum_exp;
+        p_add_proto_data(wmem_file_scope(), pinfo, proto_1722, 0, p_seq_data);
+
+    } else {
+        p_seq_data = (ieee1722_seq_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_1722, 0);
+    }
+    DISSECTOR_ASSERT(p_seq_data != NULL);
+    return p_seq_data->seqnum_exp;
+}
+
+static int dissect_1722_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, enum IEEE_1722_TRANSPORT transport)
 {
     proto_item *ti;
     proto_tree *ieee1722_tree;
+    guint32     encap_seqnum, encap_seqnum_exp;
     guint       subtype = 0;
     gint        offset = 0;
     int         dissected_size;
@@ -867,10 +871,24 @@ static int dissect_1722(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     };
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IEEE1722");
-    col_set_str(pinfo->cinfo, COL_INFO, "AVB Transportation Protocol");
+    col_set_str(pinfo->cinfo, COL_INFO, "Audio Video Transport Protocol");
 
     ti = proto_tree_add_item(tree, proto_1722, tvb, 0, -1, ENC_NA);
     ieee1722_tree = proto_item_add_subtree(ti, ett_1722);
+
+    if (transport == IEEE_1722_TRANSPORT_UDP) {
+        /* IEEE 1722-2016 Annex J IP Encapsulation */
+        ti = proto_tree_add_item_ret_uint(ieee1722_tree, hf_1722_encap_seqnum, tvb, offset, 4, ENC_BIG_ENDIAN, &encap_seqnum);
+        encap_seqnum_exp = get_seqnum_exp_1722_udp(pinfo, encap_seqnum);
+        if (encap_seqnum != encap_seqnum_exp) {
+            if ((encap_seqnum + 1) == encap_seqnum_exp) {
+                expert_add_info(pinfo, ti, &ei_1722_encap_seqnum_dup);
+            } else {
+                expert_add_info(pinfo, ti, &ei_1722_encap_seqnum_ooo);
+            }
+        }
+        offset += 4;
+    }
 
     proto_tree_add_item_ret_uint(ieee1722_tree, hf_1722_subtype, tvb, offset, 1, ENC_BIG_ENDIAN, &subtype);
     offset += 1;
@@ -886,12 +904,27 @@ static int dissect_1722(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     return tvb_captured_length(tvb);
 }
 
+static int dissect_1722_eth(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    return dissect_1722_common(tvb, pinfo, tree, IEEE_1722_TRANSPORT_ETH);
+}
+
+static int dissect_1722_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    return dissect_1722_common(tvb, pinfo, tree, IEEE_1722_TRANSPORT_UDP);
+}
+
 /* Register the protocol with Wireshark */
 void proto_register_1722(void)
 {
     static hf_register_info hf[] = {
+        { &hf_1722_encap_seqnum,
+            { "Encapsulation Sequence Number", "ieee1722.encapsulation_sequence_num",
+              FT_UINT32, BASE_HEX, NULL, 0x00,
+              "Sequence number incremented for each AVTPDU on a 5-tuple", HFILL }
+        },
         { &hf_1722_subtype,
-            { "AVBTP Subtype", "ieee1722.subtype",
+            { "AVTP Subtype", "ieee1722.subtype",
               FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(subtype_range_rvals), 0x00, NULL, HFILL }
         },
         { &hf_1722_svfield,
@@ -904,29 +937,40 @@ void proto_register_1722(void)
         }
     };
 
+    static ei_register_info ei[] = {
+        { &ei_1722_encap_seqnum_dup,          { "ieee1722.encapsulation_sequence_num.dup", PI_SEQUENCE, PI_NOTE, "Duplicate encapsulation_sequence_num (retransmission?)", EXPFILL }},
+        { &ei_1722_encap_seqnum_ooo,          { "ieee1722.encapsulation_sequence_num.ooo", PI_SEQUENCE, PI_WARN, "Unexpected encapsulation_sequence_num (lost or out-of-order?)", EXPFILL }},
+    };
+
     static gint *ett[] = {
         &ett_1722
     };
 
+    expert_module_t *expert_1722;
+
     /* Register the protocol name and description */
-    proto_1722 = proto_register_protocol("IEEE 1722 Protocol", "IEEE1722", "ieee1722");
+    proto_1722 = proto_register_protocol("IEEE 1722 Audio Video Transport Protocol (AVTP)", "IEEE1722", "ieee1722");
 
     /* Required function calls to register the header fields and subtrees used */
     proto_register_field_array(proto_1722, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    /* Sub-dissector for 1772.1, 1722 AAF, 1722 CRF, 1722 61883, 1722 CVF */
+    expert_1722 = expert_register_protocol(proto_1722);
+    expert_register_field_array(expert_1722, ei, array_length(ei));
+
+    /* Sub-dissector for 1722.1, 1722 AAF, 1722 CRF, 1722 61883, 1722 CVF */
     avb_dissector_table = register_dissector_table("ieee1722.subtype",
-                          "IEEE1722 AVBTP Subtype", proto_1722, FT_UINT8, BASE_HEX);
+                          "IEEE1722 AVTP Subtype", proto_1722, FT_UINT8, BASE_HEX);
 }
 
 void proto_reg_handoff_1722(void)
 {
-    dissector_handle_t avbtp_handle;
+    dissector_handle_t avtp_handle_eth, avtp_handle_udp;
 
-    avbtp_handle = create_dissector_handle(dissect_1722, proto_1722);
-    dissector_add_uint("ethertype", ETHERTYPE_AVBTP, avbtp_handle);
-    dissector_add_uint("udp.port", UDP_PORT_IEEE_1722, avbtp_handle);
+    avtp_handle_eth = create_dissector_handle(dissect_1722_eth, proto_1722);
+    avtp_handle_udp = create_dissector_handle(dissect_1722_udp, proto_1722);
+    dissector_add_uint("ethertype", ETHERTYPE_AVTP, avtp_handle_eth);
+    dissector_add_uint_with_preference("udp.port", UDP_PORT_IEEE_1722, avtp_handle_udp);
 }
 
 /**************************************************************************************************/
@@ -1191,14 +1235,13 @@ static int dissect_1722_61883(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
             }
             numSourcePackets = datalen / IEEE_1722_61883_4_LEN_SOURCE_PACKET;
 
-            if (ti_video_tree) {
-                /* Loop through all packets and add them to the video tree. */
-                for (j = 0; j < numSourcePackets; j++) {
-                    proto_tree_add_item(ti_video_tree, hf_1722_61883_source_packet_header_timestamp, tvb, offset, IEEE_1722_61883_4_LEN_SP_TIMESTAMP, ENC_BIG_ENDIAN);
-                    offset += IEEE_1722_61883_4_LEN_SP_TIMESTAMP;
-                    proto_tree_add_item(ti_video_tree, hf_1722_61883_video_data, tvb, offset, (IEEE_1722_61883_4_LEN_SOURCE_PACKET - IEEE_1722_61883_4_LEN_SP_TIMESTAMP), ENC_NA);
-                    offset += (IEEE_1722_61883_4_LEN_SOURCE_PACKET - IEEE_1722_61883_4_LEN_SP_TIMESTAMP);
-                }
+            /* if (ti_video_tree) - MP2T needs to be called regardless
+             * for fragmentation handling */
+            for (j = 0; j < numSourcePackets; j++) {
+                proto_tree_add_item(ti_video_tree, hf_1722_61883_source_packet_header_timestamp, tvb, offset, IEEE_1722_61883_4_LEN_SP_TIMESTAMP, ENC_BIG_ENDIAN);
+                offset += IEEE_1722_61883_4_LEN_SP_TIMESTAMP;
+                call_dissector(mp2t_handle, tvb_new_subset_length(tvb, offset, MP2T_PACKET_SIZE), pinfo, ti_video_tree);
+                offset += MP2T_PACKET_SIZE;
             }
             break;
         default:
@@ -1400,6 +1443,8 @@ void proto_reg_handoff_1722_61883(void)
 
     avb1722_61883_handle = create_dissector_handle(dissect_1722_61883, proto_1722_61883);
     dissector_add_uint("ieee1722.subtype", IEEE_1722_SUBTYPE_61883, avb1722_61883_handle);
+
+    mp2t_handle = find_dissector_add_dependency("mp2t", proto_1722_61883);
 }
 
 /**************************************************************************************************/
@@ -1641,30 +1686,35 @@ static int dissect_1722_cvf (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 {
     proto_item *ti;
     proto_tree *ti_cvf_tree;
+    tvbuff_t   *next_tvb;
     gint        offset = 1;
-    guint       format_subtype = 0;
-    proto_tree *ti_format;
+    guint       reported_len;
+    guint32     datalen, format, format_subtype = 0;
+    proto_tree *ti_format, *ti_datalen;
 
     int * const fields[] = {
         &hf_1722_cvf_mrfield,
         &hf_1722_cvf_tvfield,
         NULL
     };
+
     int * const fields_cvf[] = {
+        &hf_1722_cvf_marker_bit,
+        &hf_1722_cvf_evtfield,
+        NULL
+    };
+
+    /* The PTV field is only defined for the H264 subtype,
+     * reserved for others.
+     */
+    int * const fields_h264[] = {
         &hf_1722_cvf_h264_ptvfield,
         &hf_1722_cvf_marker_bit,
         &hf_1722_cvf_evtfield,
         NULL
     };
 
-    int * const fields_h264[] = {
-        &hf_1722_cvf_h264_forbidden_bit,
-        &hf_1722_cvf_h264_nri,
-        &hf_1722_cvf_h264_nal_type,
-        NULL
-    };
-
-    ti = proto_tree_add_item(tree, proto_1722_cvf, tvb, 0, -1, ENC_NA);
+    ti = proto_tree_add_item(tree, proto_1722_cvf, tvb, 0, 24, ENC_NA);
     ti_cvf_tree = proto_item_add_subtree(ti, ett_1722_cvf);
 
     proto_tree_add_bitmask_list(ti_cvf_tree, tvb, offset, 1, fields, ENC_NA);
@@ -1677,45 +1727,57 @@ static int dissect_1722_cvf (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     offset += 8;
     proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_avtp_timestamp, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset += 4;
-    proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_format, tvb, offset, 1, ENC_BIG_ENDIAN);
-    offset += 1;
-    ti_format = proto_tree_add_item_ret_uint(ti_cvf_tree, hf_1722_cvf_format_subtype, tvb, offset, 1, ENC_BIG_ENDIAN, &format_subtype);
-    offset += 3;
-    proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_stream_data_length, tvb, offset, 2, ENC_BIG_ENDIAN);
-    offset += 2;
-    proto_tree_add_bitmask_list(ti_cvf_tree, tvb, offset, 1, fields_cvf, ENC_BIG_ENDIAN);
-    offset += 2;
-
-    switch(format_subtype) {
-    case IEEE_1722_CVF_FORMAT_SUBTYPE_MJPEG:
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_ts, tvb, offset, 1, ENC_BIG_ENDIAN);
+    ti_format = proto_tree_add_item_ret_uint(ti_cvf_tree, hf_1722_cvf_format, tvb, offset, 1, ENC_BIG_ENDIAN, &format);
+    if (format == IEEE_1722_CVF_FORMAT_RFC) {
         offset += 1;
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_fragment_offset, tvb, offset, 3, ENC_BIG_ENDIAN);
+        ti_format = proto_tree_add_item_ret_uint(ti_cvf_tree, hf_1722_cvf_format_subtype, tvb, offset, 1, ENC_BIG_ENDIAN, &format_subtype);
         offset += 3;
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset += 1;
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_q, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset += 1;
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_width, tvb, offset, 1, ENC_BIG_ENDIAN);
-        offset += 1;
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_mjpeg_height, tvb, offset, 1, ENC_BIG_ENDIAN);
-        break;
-
-    case IEEE_1722_CVF_FORMAT_SUBTYPE_H264:
-        proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_h264_timestamp, tvb, offset, 4, ENC_BIG_ENDIAN);
-        offset += 4;
-        proto_tree_add_bitmask_list(ti_cvf_tree, tvb, offset, 1, fields_h264, ENC_BIG_ENDIAN);
-        break;
-
-    case IEEE_1722_CVF_FORMAT_SUBTYPE_JPEG2000:
-        expert_add_info(pinfo, ti_format, &ei_cvf_jpeg2000_format);
-        break;
-
-    default:
+    } else {
         expert_add_info(pinfo, ti_format, &ei_cvf_reserved_format);
-        break;
+        offset += 4;
     }
-    return tvb_captured_length(tvb);
+    ti_datalen = proto_tree_add_item_ret_uint(ti_cvf_tree, hf_1722_cvf_stream_data_length, tvb, offset, 2, ENC_BIG_ENDIAN, &datalen);
+    offset += 2;
+    if (format == IEEE_1722_CVF_FORMAT_RFC &&
+            format_subtype == IEEE_1722_CVF_FORMAT_SUBTYPE_H264) {
+        proto_tree_add_bitmask_list(ti_cvf_tree, tvb, offset, 1, fields_h264, ENC_BIG_ENDIAN);
+    } else {
+        proto_tree_add_bitmask_list(ti_cvf_tree, tvb, offset, 1, fields_cvf, ENC_BIG_ENDIAN);
+    }
+    offset += 2;
+
+    reported_len = tvb_reported_length_remaining(tvb, offset);
+    if (reported_len < datalen) {
+        expert_add_info(pinfo, ti_datalen, &ei_cvf_invalid_data_length);
+        datalen = reported_len;
+    }
+    next_tvb = tvb_new_subset_length(tvb, offset, datalen);
+
+    if (format == IEEE_1722_CVF_FORMAT_RFC) {
+        switch(format_subtype) {
+        case IEEE_1722_CVF_FORMAT_SUBTYPE_MJPEG:
+            call_dissector(jpeg_handle, next_tvb, pinfo, tree);
+            break;
+
+        case IEEE_1722_CVF_FORMAT_SUBTYPE_H264:
+            proto_tree_add_item(ti_cvf_tree, hf_1722_cvf_h264_timestamp, tvb, offset, 4, ENC_BIG_ENDIAN);
+            call_dissector(h264_handle, tvb_new_subset_remaining(next_tvb, 4), pinfo, tree);
+            break;
+
+        case IEEE_1722_CVF_FORMAT_SUBTYPE_JPEG2000:
+            expert_add_info(pinfo, ti_format, &ei_cvf_jpeg2000_format);
+            call_data_dissector(next_tvb, pinfo, tree);
+            break;
+
+        default:
+            expert_add_info(pinfo, ti_format, &ei_cvf_reserved_format);
+            call_data_dissector(next_tvb, pinfo, tree);
+            break;
+        }
+    } else {
+        call_data_dissector(next_tvb, pinfo, tree);
+    }
+    return offset + datalen;
 }
 
 void proto_register_1722_cvf (void)
@@ -1728,8 +1790,9 @@ void proto_register_1722_cvf (void)
         },
         { &hf_1722_cvf_tvfield,
             { "Source Timestamp Valid", "cvf.tvfield",
-              FT_BOOLEAN, 8, NULL, IEEE_1722_TV_MASK, NULL, HFILL }
-            },
+              FT_BOOLEAN, 8, TFS(&tfs_valid_invalid), IEEE_1722_TV_MASK,
+              "Indicates whether avtp_timestamp contains a valid value", HFILL }
+        },
         { &hf_1722_cvf_seqnum,
             { "Sequence Number", "cvf.seqnum",
               FT_UINT8, BASE_DEC, NULL, IEEE_1722_SEQ_NUM_MASK, NULL, HFILL }
@@ -1759,12 +1822,13 @@ void proto_register_1722_cvf (void)
               FT_UINT16, BASE_DEC | BASE_UNIT_STRING, &units_byte_bytes, IEEE_1722_STREAM_DATA_LENGTH_MASK, NULL, HFILL }
         },
         { &hf_1722_cvf_h264_ptvfield,
-            { "H264 PTV", "cvf.h264_ptvfield",
-              FT_BOOLEAN, 8, TFS(&tfs_set_not_set), IEEE_1722_H264_PTV_MASK, NULL, HFILL }
+            { "H264 Payload Timestamp Valid", "cvf.h264_ptvfield",
+              FT_BOOLEAN, 8, TFS(&tfs_valid_invalid), IEEE_1722_H264_PTV_MASK,
+              "Indicates whether h264_timestamp contains a valid value", HFILL }
         },
         { &hf_1722_cvf_marker_bit,
             { "Marker Bit", "cvf.marker_bit",
-              FT_BOOLEAN, 8, TFS(&tfs_set_not_set), IEEE_1722_MARKER_BIT_MASK, NULL, HFILL }
+              FT_BOOLEAN, 8, TFS(&tfs_set_notset), IEEE_1722_MARKER_BIT_MASK, NULL, HFILL }
         },
         { &hf_1722_cvf_evtfield,
             { "EVT", "cvf.evtfield",
@@ -1774,48 +1838,12 @@ void proto_register_1722_cvf (void)
             { "H264 Timestamp", "cvf.h264_timestamp",
               FT_UINT32, BASE_DEC, NULL, IEEE_1722_CVF_H264_TIMESTAMP_MASK, NULL, HFILL }
         },
-        { &hf_1722_cvf_h264_forbidden_bit,
-            { "H264 Forbidden Bit", "cvf.h264_f_bit",
-              FT_BOOLEAN, 8, NULL, IEEE_1722_CVF_H264_FORBIDDEN_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_h264_nri,
-            { "H264 NRI", "cvf.h264_nri",
-              FT_UINT8, BASE_HEX, NULL, IEEE_1722_CVF_H264_NRI_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_h264_nal_type,
-            { "H264 NAL Type", "cvf.h264_nal_type",
-              FT_UINT8, BASE_HEX | BASE_RANGE_STRING, RVALS(cvf_h264_nal_type_range_rvals), IEEE_1722_CVF_H264_NAL_TYPE_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_ts,
-            { "MJPEG Type Specific", "cvf.mjpeg_type_specific",
-              FT_UINT8, BASE_DEC | BASE_RANGE_STRING, RVALS(cvf_mjpeg_ts_range_rvals), IEEE_1722_CVF_MJPEG_TS_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_fragment_offset,
-            { "MJPEG Fragment Offset", "cvf.mjpeg_fragment_offset",
-              FT_UINT24, BASE_DEC, NULL, IEEE_1722_CVF_MJPEG_FRAGMENT_OFFSET_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_type,
-            { "MJPEG Type", "cvf.mjpeg_type",
-              FT_UINT8, BASE_DEC, NULL, IEEE_1722_CVF_MJPEG_TYPE_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_q,
-            { "MJPEG Q", "cvf.mjpeg_q",
-               FT_UINT8, BASE_DEC, NULL, IEEE_1722_CVF_MJPEG_Q_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_width,
-            { "MJPEG Width", "cvf.mjpeg_width",
-               FT_UINT8, BASE_DEC, NULL, IEEE_1722_CVF_MJPEG_WIDTH_MASK, NULL, HFILL }
-        },
-        { &hf_1722_cvf_mjpeg_height,
-            { "MJPEG Height", "cvf.mjpeg_height",
-               FT_UINT8, BASE_DEC, NULL, IEEE_1722_CVF_MJPEG_HEIGHT_MASK, NULL, HFILL }
-        },
-
     };
 
     static ei_register_info ei[] = {
-        { &ei_cvf_jpeg2000_format,          { "cvf.expert.jpeg2000_video", PI_PROTOCOL, PI_WARN, "JPEG2000 format is currently not supported", EXPFILL }},
-        { &ei_cvf_reserved_format,          { "cvf.expert.reserved_format", PI_PROTOCOL, PI_WARN, "Incorrect format, can`t be dissected", EXPFILL }}
+        { &ei_cvf_jpeg2000_format,          { "cvf.expert.jpeg2000_video", PI_UNDECODED, PI_WARN, "JPEG2000 format is currently not supported", EXPFILL }},
+        { &ei_cvf_reserved_format,          { "cvf.expert.reserved_format", PI_PROTOCOL, PI_WARN, "Incorrect format, can't be dissected", EXPFILL }},
+        { &ei_cvf_invalid_data_length,      { "cvf.expert.data_len", PI_PROTOCOL, PI_WARN, "data_length is too large or frame is incomplete", EXPFILL }}
     };
 
     static gint *ett[] =
@@ -1843,6 +1871,9 @@ void proto_reg_handoff_1722_cvf(void)
 
     avb1722_cvf_handle = create_dissector_handle(dissect_1722_cvf, proto_1722_cvf);
     dissector_add_uint("ieee1722.subtype", IEEE_1722_SUBTYPE_CVF, avb1722_cvf_handle);
+
+    jpeg_handle = find_dissector_add_dependency("jpeg", proto_1722_cvf);
+    h264_handle = find_dissector_add_dependency("h264", proto_1722_cvf);
 }
 
 /**************************************************************************************************/
@@ -2587,7 +2618,7 @@ static int dissect_1722_acf_can_common(tvbuff_t *tvb, packet_info *pinfo, proto_
     parsed.datalen = (guint)payload_length;
     proto_tree_add_uint(tree_acf_can, hf_1722_can_len, tvb, offset, 1, parsed.datalen);
 
-    col_append_str(pinfo->cinfo, COL_INFO, tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, payload_length, ' '));
+    col_append_str(pinfo->cinfo, COL_INFO, tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, payload_length, ' '));
 
     if (parsed.is_fd && !is_valid_canfd_payload_length(payload_length))
     {
@@ -2617,25 +2648,8 @@ static int dissect_1722_acf_can_common(tvbuff_t *tvb, packet_info *pinfo, proto_
 
     next_tvb = tvb_new_subset_length(tvb, offset, parsed.datalen);
 
-    if(!can_heuristic_first)
-    {
-        if (!dissector_try_payload_new(can_subdissector_table, next_tvb, pinfo, tree, TRUE, &can_info))
-        {
-            if(!dissector_try_heuristic(can_heur_subdissector_table, next_tvb, pinfo, tree, &can_heur_dtbl_entry, &can_info))
-            {
-                call_data_dissector(next_tvb, pinfo, tree);
-            }
-        }
-    }
-    else
-    {
-        if (!dissector_try_heuristic(can_heur_subdissector_table, next_tvb, pinfo, tree, &can_heur_dtbl_entry, &can_info))
-        {
-            if(!dissector_try_payload_new(can_subdissector_table, next_tvb, pinfo, tree, FALSE, &can_info))
-            {
-                call_data_dissector(next_tvb, pinfo, tree);
-            }
-        }
+    if (!socketcan_call_subdissectors(next_tvb, pinfo, tree, &can_info, can_heuristic_first)) {
+        call_data_dissector(next_tvb, pinfo, tree);
     }
 
     /* Add padding bytes to ACF-CAN tree if any */
@@ -2779,11 +2793,7 @@ void proto_reg_handoff_1722_acf_can(void)
 
     register_depend_dissector("acf-can", "can");
     register_depend_dissector("acf-can", "canfd");
-    dissector_can = find_dissector("can-bigendian");
-    dissector_canfd = find_dissector("canfd");
 
-    can_subdissector_table = find_dissector_table("can.subdissector");
-    can_heur_subdissector_table = find_heur_dissector_list("can");
     proto_can = proto_get_id_by_filter_name("can");
     proto_canfd = proto_get_id_by_filter_name("canfd");
 }
@@ -2848,7 +2858,7 @@ static int dissect_1722_acf_lin(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
     {
         tvbuff_t*   next_tvb = tvb_new_subset_length(tvb, offset, payload_length);
 
-        col_append_str(pinfo->cinfo, COL_INFO, tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, payload_length, ' '));
+        col_append_str(pinfo->cinfo, COL_INFO, tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, payload_length, ' '));
 
         /* at the moment, there's no global LIN sub-protocols support. Use our own. */
         if (dissector_try_payload_new(avb1722_acf_lin_dissector_table, next_tvb, pinfo, tree, TRUE, &lin_id) <= 0)

@@ -24,12 +24,13 @@
 #include "wtap-int.h"
 #include "file_wrappers.h"
 
-#include <epan/exported_pdu.h>
+#include <wsutil/exported_pdu_tlvs.h>
 #include <wsutil/buffer.h>
 #include "wsutil/tempfile.h"
 #include "wsutil/os_version_info.h"
 #include "wsutil/str_util.h"
 #include <wsutil/inet_addr.h>
+#include <wsutil/ws_assert.h>
 
 
 #include "nettrace_3gpp_32_423.h"
@@ -195,15 +196,15 @@ nettrace_parse_address(char* curr_pos, char* next_pos, gboolean is_src_addr, exp
 	scan_found = sscanf(curr_pos, ", %*s %*s %5u, %*s %*s %4s", &port, transp_str);
 	if (scan_found == 2) {
 		/* Only add port_type once */
-		if (exported_pdu_info->ptype == OLD_PT_NONE) {
+		if (exported_pdu_info->ptype == EXP_PDU_PT_NONE) {
 			if (g_ascii_strncasecmp(transp_str, "udp", 3) == 0) {
-				exported_pdu_info->ptype = OLD_PT_UDP;
+				exported_pdu_info->ptype = EXP_PDU_PT_UDP;
 			}
 			else if (g_ascii_strncasecmp(transp_str, "tcp", 3) == 0) {
-				exported_pdu_info->ptype = OLD_PT_TCP;
+				exported_pdu_info->ptype = EXP_PDU_PT_TCP;
 			}
 			else if (g_ascii_strncasecmp(transp_str, "sctp", 4) == 0) {
-				exported_pdu_info->ptype = OLD_PT_SCTP;
+				exported_pdu_info->ptype = EXP_PDU_PT_SCTP;
 			}
 		}
 		if (is_src_addr) {
@@ -248,19 +249,21 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	/* We should always and only be called with a <msg....</msg> payload */
 	if (0 != strncmp(input, c_s_msg, CLEN(c_s_msg))) {
 		*err = WTAP_ERR_BAD_FILE;
-		*err_info = g_strdup_printf("Did not start with \"%s\"", c_s_msg);
+		*err_info = g_strdup_printf("nettrace_3gpp_32_423: Did not start with \"%s\"", c_s_msg);
 		return FALSE;
 	}
-	prev_pos = curr_pos = input + CLEN(c_s_msg);
+
+	curr_pos = input + CLEN(c_s_msg);
 
 	rec->rec_type = REC_TYPE_PACKET;
+	rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
 	rec->presence_flags = 0; /* start out assuming no special features */
 	rec->ts.secs = 0;
 	rec->ts.nsecs = 0;
 
 	/* Clear for each iteration */
 	exported_pdu_info.presence_flags = 0;
-	exported_pdu_info.ptype = OLD_PT_NONE;
+	exported_pdu_info.ptype = EXP_PDU_PT_NONE;
 
 	prev_pos = curr_pos = curr_pos + 4;
 	/* Look for the end of the tag first */
@@ -285,11 +288,10 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	if (!next_msg_pos) {
 		/* Something's wrong, bail out */
 		*err = WTAP_ERR_BAD_FILE;
-		*err_info = g_strdup_printf("Did not find \"%s\"", c_e_msg);
+		*err_info = g_strdup_printf("nettrace_3gpp_32_423: Did not find \"%s\"", c_e_msg);
 		status = FALSE;
 		goto end;
 	}
-	next_msg_pos += CLEN(c_e_msg);
 
 	/* Check if we have a time stamp "changeTime"
 	 * expressed in number of seconds and milliseconds (nbsec.ms).
@@ -320,6 +322,7 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	}
 
 	/* See if we have a "name" */
+	name_str[0] = '\0';	/* if we don't have a name */
 	curr_pos = STRNSTR(start_msg_tag_cont, c_proto_name);
 	if (curr_pos != NULL) {
 		/* extract the name */
@@ -328,7 +331,7 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 		name_str_len = (int)(next_pos - curr_pos);
 		if (name_str_len > MAX_NAME_LEN) {
 			*err = WTAP_ERR_BAD_FILE;
-			*err_info = g_strdup_printf("name_str_len > %d", MAX_NAME_LEN);
+			*err_info = g_strdup_printf("nettrace_3gpp_32_423: name_str_len > %d", MAX_NAME_LEN);
 			goto end;
 		}
 
@@ -374,14 +377,14 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	raw_msg_pos = STRNSTR(start_msg_tag_cont, c_s_rawmsg);
 	if (raw_msg_pos == NULL) {
 		*err = WTAP_ERR_BAD_FILE;
-		*err_info = g_strdup_printf("Did not find \"%s\"", c_s_rawmsg);
+		*err_info = g_strdup_printf("nettrace_3gpp_32_423: Did not find \"%s\"", c_s_rawmsg);
 		status = FALSE;
 		goto end;
 	}
 	curr_pos = STRNSTR(raw_msg_pos, c_protocol);
 	if (curr_pos == NULL) {
 		*err = WTAP_ERR_BAD_FILE;
-		*err_info = g_strdup_printf("Did not find \"%s\"", c_protocol);
+		*err_info = g_strdup_printf("nettrace_3gpp_32_423: Did not find \"%s\"", c_protocol);
 		status = FALSE;
 		goto end;
 	}
@@ -449,7 +452,7 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_COL_PROT_BIT) {
 		/* The assert prevents static code analyzers to raise warnings */
-		g_assert(exported_pdu_info.proto_col_str);
+		ws_assert(exported_pdu_info.proto_col_str);
 		exp_pdu_tags_len += 4 + (int)strlen(exported_pdu_info.proto_col_str);
 	}
 
@@ -480,7 +483,6 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_DST_PORT_BIT) {
 		if (!port_type_defined) {
 			exp_pdu_tags_len += 4 + EXP_PDU_TAG_PORT_TYPE_LEN;
-			port_type_defined = TRUE;
 		}
 		exp_pdu_tags_len += 4 + EXP_PDU_TAG_PORT_LEN;
 	}
@@ -494,38 +496,37 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 
 	/* Fill packet buff */
 	if (use_proto_table == FALSE) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_PROTO_NAME;
-		*packet_buf++ = 0;
-		*packet_buf++ = tag_str_len;
+		phton16(packet_buf, EXP_PDU_TAG_PROTO_NAME);
+		packet_buf += 2;
+		phton16(packet_buf, tag_str_len);
+		packet_buf += 2;
 		memset(packet_buf, 0, tag_str_len);
 		memcpy(packet_buf, proto_name_str, proto_str_len);
 		packet_buf += tag_str_len;
 	}
 	else {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_DISSECTOR_TABLE_NAME;
-		*packet_buf++ = 0;
-		*packet_buf++ = tag_str_len;
+		phton16(packet_buf, EXP_PDU_TAG_DISSECTOR_TABLE_NAME);
+		packet_buf += 2;
+		phton16(packet_buf, tag_str_len);
+		packet_buf += 2;
 		memset(packet_buf, 0, tag_str_len);
 		memcpy(packet_buf, dissector_table_str, dissector_table_str_len);
 		packet_buf += tag_str_len;
 
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_DISSECTOR_TABLE_NAME_NUM_VAL;
-		*packet_buf++ = 0;
-		*packet_buf++ = 4; /* option length */
-		*packet_buf++ = 0;
-		*packet_buf++ = 0;
-		*packet_buf++ = 0;
-		*packet_buf++ = dissector_table_val;
+		phton16(packet_buf, EXP_PDU_TAG_DISSECTOR_TABLE_NAME_NUM_VAL);
+		packet_buf += 2;
+		phton16(packet_buf, 4); /* option length */
+		packet_buf += 2;
+		phton32(packet_buf, dissector_table_val);
+		packet_buf += 4;
 	}
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_COL_PROT_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_COL_PROT_TEXT;
-		*packet_buf++ = 0;
-		*packet_buf++ = (guint8)strlen(exported_pdu_info.proto_col_str);
+		phton16(packet_buf, EXP_PDU_TAG_COL_PROT_TEXT);
+		packet_buf += 2;
+		/* XXX - what if it's longer than 65535 bytes? */
+		phton16(packet_buf, (guint16)strlen(exported_pdu_info.proto_col_str));
+		packet_buf += 2;
 		for (j = 0; j < (int)strlen(exported_pdu_info.proto_col_str); j++) {
 			*packet_buf++ = exported_pdu_info.proto_col_str[j];
 		}
@@ -534,68 +535,62 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	}
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP_SRC_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV4_SRC;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV4_LEN;
+		phton16(packet_buf, EXP_PDU_TAG_IPV4_SRC);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_IPV4_LEN);
+		packet_buf += 2;
 		memcpy(packet_buf, exported_pdu_info.src_ip, EXP_PDU_TAG_IPV4_LEN);
 		packet_buf += EXP_PDU_TAG_IPV4_LEN;
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP_DST_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV4_DST;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV4_LEN;
+		phton16(packet_buf, EXP_PDU_TAG_IPV4_DST);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_IPV4_LEN);
+		packet_buf += 2;
 		memcpy(packet_buf, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV4_LEN);
 		packet_buf += EXP_PDU_TAG_IPV4_LEN;
 	}
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP6_SRC_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV6_SRC;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV6_LEN;
+		phton16(packet_buf, EXP_PDU_TAG_IPV6_SRC);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_IPV6_LEN);
+		packet_buf += 2;
 		memcpy(packet_buf, exported_pdu_info.src_ip, EXP_PDU_TAG_IPV6_LEN);
 		packet_buf += EXP_PDU_TAG_IPV6_LEN;
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP6_DST_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV6_DST;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_IPV6_LEN;
+		phton16(packet_buf, EXP_PDU_TAG_IPV6_DST);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_IPV6_LEN);
+		packet_buf += 2;
 		memcpy(packet_buf, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV6_LEN);
 		packet_buf += EXP_PDU_TAG_IPV6_LEN;
 	}
 
 	if (exported_pdu_info.presence_flags & (EXP_PDU_TAG_SRC_PORT_BIT | EXP_PDU_TAG_DST_PORT_BIT)) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_PORT_TYPE;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_PORT_TYPE_LEN;
-		*packet_buf++ = (exported_pdu_info.ptype & 0xff000000) >> 24;
-		*packet_buf++ = (exported_pdu_info.ptype & 0x00ff0000) >> 16;
-		*packet_buf++ = (exported_pdu_info.ptype & 0x0000ff00) >> 8;
-		*packet_buf++ = (exported_pdu_info.ptype & 0x000000ff);
+		phton16(packet_buf, EXP_PDU_TAG_PORT_TYPE);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_PORT_TYPE_LEN);
+		packet_buf += 2;
+		phton32(packet_buf, exported_pdu_info.ptype);
+		packet_buf += 4;
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_SRC_PORT_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_SRC_PORT;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_PORT_LEN;
-		*packet_buf++ = (exported_pdu_info.src_port & 0xff000000) >> 24;
-		*packet_buf++ = (exported_pdu_info.src_port & 0x00ff0000) >> 16;
-		*packet_buf++ = (exported_pdu_info.src_port & 0x0000ff00) >> 8;
-		*packet_buf++ = (exported_pdu_info.src_port & 0x000000ff);
+		phton16(packet_buf, EXP_PDU_TAG_SRC_PORT);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_PORT_LEN);
+		packet_buf += 2;
+		phton32(packet_buf, exported_pdu_info.src_port);
+		packet_buf += 4;
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_DST_PORT_BIT) {
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_DST_PORT;
-		*packet_buf++ = 0;
-		*packet_buf++ = EXP_PDU_TAG_PORT_LEN;
-		*packet_buf++ = (exported_pdu_info.dst_port & 0xff000000) >> 24;
-		*packet_buf++ = (exported_pdu_info.dst_port & 0x00ff0000) >> 16;
-		*packet_buf++ = (exported_pdu_info.dst_port & 0x0000ff00) >> 8;
-		*packet_buf++ = (exported_pdu_info.dst_port & 0x000000ff);
+		phton16(packet_buf, EXP_PDU_TAG_DST_PORT);
+		packet_buf += 2;
+		phton16(packet_buf, EXP_PDU_TAG_PORT_LEN);
+		packet_buf += 4;
+		phton32(packet_buf, exported_pdu_info.dst_port);
+		packet_buf += 4;
 	}
 
 	/* Add end of options */
@@ -617,7 +612,7 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 		}
 		else {
 			/* Something wrong, bail out */
-			*err_info = g_strdup_printf("Could not parse hex data, bufsize %u index %u %c%c",
+			*err_info = g_strdup_printf("nettrace_3gpp_32_423: Could not parse hex data, bufsize %u index %u %c%c",
 				(pkt_data_len + exp_pdu_tags_len),
 				i,
 				chr1,
@@ -686,7 +681,7 @@ nettrace_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err, gchar **err_info,
 	 */
 	msg_start = g_strrstr_len(buf_start, (guint)(msg_end - buf_start), c_s_msg);
 	if (msg_start == NULL || msg_start > msg_end) {
-		*err_info = g_strdup_printf("Found \"%s\" without matching \"%s\"", c_e_msg, c_s_msg);
+		*err_info = g_strdup_printf("nettrace_3gpp_32_423: Found \"%s\" without matching \"%s\"", c_e_msg, c_s_msg);
 		*err = WTAP_ERR_BAD_FILE;
 		goto end;
 	}

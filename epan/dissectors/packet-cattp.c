@@ -31,9 +31,9 @@
 
 /* bit masks for the first header byte. */
 #define M_FLAGS   0xFC  /* flags only, no version */
-#define M_PDU_SYN 0xB8  /* SYN (ACK, SEG dont care) without version */
-#define M_PDU_ACK 0xD0  /* ACK (EAK, SEG, NUL dont care) without version */
-#define M_PDU_RST 0xBC  /* RST (ACK dont care) without version */
+#define M_PDU_SYN 0xB8  /* SYN (ACK, SEG don't care) without version */
+#define M_PDU_ACK 0xD0  /* ACK (EAK, SEG, NUL don't care) without version */
+#define M_PDU_RST 0xBC  /* RST (ACK don't care) without version */
 #define M_VERSION 0x03  /* only Version */
 
 #define ICCID_PREFIX 0x98
@@ -144,7 +144,7 @@ dissect_cattp_synpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cattp_tree, 
             wmem_strbuf_t *buf;
             int i;
 
-            buf = wmem_strbuf_new(wmem_packet_scope(), "");
+            buf = wmem_strbuf_new(pinfo->pool, "");
 
             /* switch nibbles */
             for (i = 0; i < idlen; i++) {

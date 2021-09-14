@@ -12,7 +12,7 @@
 
 #include <config.h>
 
-#define G_LOG_DOMAIN "tshark"
+#define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -59,8 +59,9 @@
 #include <wsutil/report_message.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 #include <wiretap/wtap_opttypes.h>
 
 #include "globals.h"
@@ -88,6 +89,7 @@
 #include "ui/cli/tap-exportobject.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/dissect_opts.h"
+#include "ui/ssl_key_export.h"
 #include "ui/failure_message.h"
 #if defined(HAVE_LIBSMI)
 #include "epan/oids.h"
@@ -116,12 +118,12 @@
 #include <capture/capture_sync.h>
 #include <ui/capture_info.h>
 #endif /* HAVE_LIBPCAP */
-#include "log.h"
 #include <epan/funnel.h>
 
 #include <wsutil/str_util.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/json_dumper.h>
+#include <wsutil/wslog.h>
 #ifdef _WIN32
 #include <wsutil/win32-utils.h>
 #endif
@@ -141,6 +143,8 @@
 #define LONGOPT_COLOR                   LONGOPT_BASE_APPLICATION+2
 #define LONGOPT_NO_DUPLICATE_KEYS       LONGOPT_BASE_APPLICATION+3
 #define LONGOPT_ELASTIC_MAPPING_FILTER  LONGOPT_BASE_APPLICATION+4
+#define LONGOPT_EXPORT_TLS_SESSION_KEYS LONGOPT_BASE_APPLICATION+5
+#define LONGOPT_CAPTURE_COMMENT         LONGOPT_BASE_APPLICATION+6
 
 capture_file cfile;
 
@@ -195,6 +199,9 @@ static json_dumper jdumper;
 
 /* The line separator used between packets, changeable via the -S option */
 static const char *separator = "";
+
+/* Per-file comments to be added to the output file. */
+static GPtrArray *capture_comments = NULL;
 
 static gboolean prefs_loaded = FALSE;
 
@@ -422,7 +429,7 @@ print_usage(FILE *output)
   fprintf(output, "  -w <outfile|->           write packets to a pcapng-format file named \"outfile\"\n");
   fprintf(output, "                           (or '-' for stdout)\n");
   fprintf(output, "  --capture-comment <comment>\n");
-  fprintf(output, "                           set the capture file comment, if supported\n");
+  fprintf(output, "                           add a capture file comment, if supported\n");
   fprintf(output, "  -C <config profile>      start with specified configuration profile\n");
   fprintf(output, "  -F <output file type>    set the output file type, default is pcapng\n");
   fprintf(output, "                           an empty \"-F\" option will list the file types\n");
@@ -465,6 +472,8 @@ print_usage(FILE *output)
   fprintf(output, "  --export-objects <protocol>,<destdir>\n");
   fprintf(output, "                           save exported objects for a protocol to a directory\n");
   fprintf(output, "                           named \"destdir\"\n");
+  fprintf(output, "  --export-tls-session-keys <keyfile>\n");
+  fprintf(output, "                           export TLS Session Keys to a file named \"keyfile\"\n");
   fprintf(output, "  --color                  color output text similarly to the Wireshark GUI,\n");
   fprintf(output, "                           requires a terminal with 24-bit color support\n");
   fprintf(output, "                           Also supplies color attributes to pdml and psml formats\n");
@@ -474,6 +483,8 @@ print_usage(FILE *output)
   fprintf(output, "                           values\n");
   fprintf(output, "  --elastic-mapping-filter <protocols> If -G elastic-mapping is specified, put only the\n");
   fprintf(output, "                           specified protocols within the mapping file\n");
+
+  ws_log_print_usage(output);
 
   fprintf(output, "\n");
   fprintf(output, "Miscellaneous:\n");
@@ -524,31 +535,6 @@ glossary_option_help(void)
   fprintf(output, "  -G defaultprefs          dump default preferences and exit\n");
   fprintf(output, "  -G folders               dump about:folders\n");
   fprintf(output, "\n");
-}
-
-static void
-tshark_log_handler (const gchar *log_domain, GLogLevelFlags log_level,
-    const gchar *message, gpointer user_data)
-{
-  /* ignore log message, if log_level isn't interesting based
-     upon the console log preferences.
-     If the preferences haven't been loaded yet, display the
-     message anyway.
-
-     The default console_log_level preference value is such that only
-       ERROR, CRITICAL and WARNING level messages are processed;
-       MESSAGE, INFO and DEBUG level messages are ignored.
-
-     XXX: Aug 07, 2009: Prior tshark g_log code was hardwired to process only
-           ERROR and CRITICAL level messages so the current code is a behavioral
-           change.  The current behavior is the same as in Wireshark.
-  */
-  if (prefs_loaded && (log_level & G_LOG_LEVEL_MASK & prefs.console_log_level) == 0) {
-    return;
-  }
-
-  g_log_default_handler(log_domain, log_level, message, user_data);
-
 }
 
 static void
@@ -720,9 +706,11 @@ main(int argc, char *argv[])
     LONGOPT_DISSECT_COMMON
     {"print", no_argument, NULL, 'P'},
     {"export-objects", required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
+    {"export-tls-session-keys", required_argument, NULL, LONGOPT_EXPORT_TLS_SESSION_KEYS},
     {"color", no_argument, NULL, LONGOPT_COLOR},
     {"no-duplicate-keys", no_argument, NULL, LONGOPT_NO_DUPLICATE_KEYS},
     {"elastic-mapping-filter", required_argument, NULL, LONGOPT_ELASTIC_MAPPING_FILTER},
+    {"capture-comment", required_argument, NULL, LONGOPT_CAPTURE_COMMENT},
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
@@ -752,10 +740,10 @@ main(int argc, char *argv[])
   dfilter_t           *rfcode = NULL;
   dfilter_t           *dfcode = NULL;
   e_prefs             *prefs_p;
-  int                  log_flags;
   gchar               *output_only = NULL;
   gchar               *volatile pdu_export_arg = NULL;
   char                *volatile exp_pdu_filename = NULL;
+  const gchar         *volatile tls_session_keys_file = NULL;
   exp_pdu_t            exp_pdu_tap_data;
   const gchar*         elastic_mapping_filter = NULL;
 
@@ -792,9 +780,15 @@ main(int argc, char *argv[])
   setlocale(LC_ALL, "");
 #endif
 
-  ws_debug("tshark started with %d args", argc);
-
   cmdarg_err_init(tshark_cmdarg_err, tshark_cmdarg_err_cont);
+
+  /* Initialize log handler early so we can have proper logging during startup. */
+  ws_log_init("tshark", vcmdarg_err);
+
+  /* Early logging command-line initialization. */
+  ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
+
+  ws_debug("tshark started with %d args", argc);
 
 #ifdef _WIN32
   create_app_running_mutex();
@@ -916,32 +910,13 @@ main(int argc, char *argv[])
     }
   }
 
-/** Send All g_log messages to our own handler **/
-
-  log_flags =
-                    G_LOG_LEVEL_ERROR|
-                    G_LOG_LEVEL_CRITICAL|
-                    G_LOG_LEVEL_WARNING|
-                    G_LOG_LEVEL_MESSAGE|
-                    G_LOG_LEVEL_INFO|
-                    G_LOG_LEVEL_DEBUG|
-                    G_LOG_FLAG_FATAL|G_LOG_FLAG_RECURSION;
-
-  g_log_set_handler(NULL,
-                    (GLogLevelFlags)log_flags,
-                    tshark_log_handler, NULL /* user_data */);
-  g_log_set_handler(LOG_DOMAIN_MAIN,
-                    (GLogLevelFlags)log_flags,
-                    tshark_log_handler, NULL /* user_data */);
-
-#ifdef HAVE_LIBPCAP
-  g_log_set_handler(LOG_DOMAIN_CAPTURE,
-                    (GLogLevelFlags)log_flags,
-                    tshark_log_handler, NULL /* user_data */);
-  g_log_set_handler(LOG_DOMAIN_CAPTURE_CHILD,
-                    (GLogLevelFlags)log_flags,
-                    tshark_log_handler, NULL /* user_data */);
-#endif
+#ifndef HAVE_LUA
+  if (ex_opt_count("lua_script") > 0) {
+    cmdarg_err("This version of TShark was not built with support for Lua scripting.");
+    exit_status = INIT_FAILED;
+    goto clean_exit;
+  }
+#endif /* HAVE_LUA */
 
   init_report_message("TShark", &tshark_report_routines);
 
@@ -1137,7 +1112,6 @@ main(int argc, char *argv[])
 #endif
     case 's':        /* Set the snapshot (capture) length */
     case 'y':        /* Set the pcap data link type */
-    case  LONGOPT_NUM_CAP_COMMENT: /* add a capture comment */
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     case 'B':        /* Buffer size */
 #endif
@@ -1503,12 +1477,21 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       break;
+    case LONGOPT_EXPORT_TLS_SESSION_KEYS:   /* --export-tls-session-keys */
+      tls_session_keys_file = optarg;
+      break;
     case LONGOPT_COLOR: /* print in color where appropriate */
       dissect_color = TRUE;
       break;
     case LONGOPT_NO_DUPLICATE_KEYS:
       no_duplicate_keys = TRUE;
       node_children_grouper = proto_node_group_children_by_json_key;
+      break;
+    case LONGOPT_CAPTURE_COMMENT:  /* capture comment */
+      if (capture_comments == NULL) {
+        capture_comments = g_ptr_array_new_with_free_func(g_free);
+      }
+      g_ptr_array_add(capture_comments, g_strdup(optarg));
       break;
     default:
     case '?':        /* Bad flag - print usage message */
@@ -1738,13 +1721,6 @@ main(int argc, char *argv[])
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
-      if (global_capture_opts.capture_comment) {
-        cmdarg_err("A capture comment was specified, but "
-          "a capture isn't being done.\nThere's no support for adding "
-          "a capture comment to an existing capture file.");
-        exit_status = INVALID_OPTION;
-        goto clean_exit;
-      }
 
       /* Note: TShark now allows the restriction of a _read_ file by packet count
        * and byte count as well as a write file. Other autostop options remain valid
@@ -1760,6 +1736,8 @@ main(int argc, char *argv[])
       /*
        * "-r" wasn't specified, so we're doing a live capture.
        */
+      gboolean             use_pcapng = TRUE;
+
       if (perform_two_pass_analysis) {
         /* Two-pass analysis doesn't work with live capture since it requires us
          * to buffer packets until we've read all of them, but a live capture
@@ -1771,7 +1749,6 @@ main(int argc, char *argv[])
 
       if (global_capture_opts.saving_to_file) {
         /* They specified a "-w" flag, so we'll be saving to a capture file. */
-        gboolean use_pcapng;
 
         /* When capturing, we only support writing pcap or pcapng format. */
         if (out_file_type == wtap_pcapng_file_type_subtype()) {
@@ -1783,8 +1760,8 @@ main(int argc, char *argv[])
           exit_status = INVALID_OPTION;
           goto clean_exit;
         }
-        if (global_capture_opts.capture_comment && !use_pcapng) {
-          cmdarg_err("A capture comment can only be written to a pcapng file.");
+        if (capture_comments != NULL && !use_pcapng) {
+          cmdarg_err("Capture comments can only be written to a pcapng file.");
           exit_status = INVALID_OPTION;
           goto clean_exit;
         }
@@ -1807,9 +1784,10 @@ main(int argc, char *argv[])
           }
           if (!global_capture_opts.has_autostop_filesize &&
               !global_capture_opts.has_file_duration &&
-              !global_capture_opts.has_file_interval) {
+              !global_capture_opts.has_file_interval &&
+              !global_capture_opts.has_file_packets) {
             cmdarg_err("Multiple capture files requested, but "
-              "no maximum capture file size, duration or interval was specified.");
+              "no maximum capture file size, duration, interval or packets were specified.");
             exit_status = INVALID_OPTION;
             goto clean_exit;
           }
@@ -1843,8 +1821,8 @@ main(int argc, char *argv[])
           exit_status = INVALID_OPTION;
           goto clean_exit;
         }
-        if (global_capture_opts.capture_comment) {
-          cmdarg_err("A capture comment was specified, but "
+        if (capture_comments != NULL) {
+          cmdarg_err("Capture comments were specified, but "
             "the capture isn't being saved to a file.");
           exit_status = INVALID_OPTION;
           goto clean_exit;
@@ -1853,6 +1831,41 @@ main(int argc, char *argv[])
     }
   }
 #endif
+
+  /*
+   * If capture comments were specified, -w also has to have been specified.
+   */
+  if (capture_comments != NULL) {
+    if (output_file_name) {
+      /* They specified a "-w" flag, so we'll be saving to a capture file.
+       * This is fine if they're writing in a format that supports
+       * section block comments.
+       */
+      if (wtap_file_type_subtype_supports_option(out_file_type,
+                                                 WTAP_BLOCK_SECTION,
+                                                 OPT_COMMENT) == OPTION_NOT_SUPPORTED) {
+        GArray *writable_type_subtypes;
+
+        cmdarg_err("Capture comments can only be written to files of the following types:");
+        writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
+        for (guint i = 0; i < writable_type_subtypes->len; i++) {
+          int ft = g_array_index(writable_type_subtypes, int, i);
+
+          if (wtap_file_type_subtype_supports_option(ft, WTAP_BLOCK_SECTION,
+                                                     OPT_COMMENT) != OPTION_NOT_SUPPORTED)
+            cmdarg_err_cont("    %s - %s", wtap_file_type_subtype_name(ft),
+                            wtap_file_type_subtype_description(ft));
+        }
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+      }
+    }
+    else {
+      cmdarg_err("Capture comments were specified, but you aren't writing a capture file.");
+      exit_status = INVALID_OPTION;
+      goto clean_exit;
+    }
+  }
 
   err_msg = ws_init_sockets();
   if (err_msg != NULL)
@@ -2006,7 +2019,7 @@ main(int argc, char *argv[])
         break;
 
       default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
       }
     }
   }
@@ -2319,6 +2332,14 @@ main(int argc, char *argv[])
 
   if (draw_taps)
     draw_tap_listeners(TRUE);
+
+  if (tls_session_keys_file) {
+    gsize keylist_length;
+    gchar *keylist = ssl_export_sessions(&keylist_length);
+    write_file_binary_mode(tls_session_keys_file, keylist, keylist_length);
+    g_free(keylist);
+  }
+
   /* Memory cleanup */
   reset_tap_listeners();
   funnel_dump_all_text_windows();
@@ -2386,8 +2407,6 @@ pipe_timer_cb(gpointer data)
 
   /* try to read data from the pipe only 5 times, to avoid blocking */
   while(iterations < 5) {
-    /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: new iteration");*/
-
     /* Oddly enough although Named pipes don't work on win9x,
        PeekNamedPipe does !!! */
     handle = (HANDLE) _get_osfhandle (pipe_input_p->source);
@@ -2402,26 +2421,21 @@ pipe_timer_cb(gpointer data)
        callback */
     if (!result || avail > 0 || childstatus != STILL_ACTIVE) {
 
-      /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: data avail");*/
-
       /* And call the real handler */
       if (!pipe_input_p->input_cb(pipe_input_p->source, pipe_input_p->user_data)) {
-        g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: input pipe closed, iterations: %u", iterations);
+        ws_debug("input pipe closed, iterations: %u", iterations);
         /* pipe closed, return false so that the timer is stopped */
         g_mutex_unlock (pipe_input_p->callback_running);
         return FALSE;
       }
     }
     else {
-      /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: no data avail");*/
       /* No data, stop now */
       break;
     }
 
     iterations++;
   }
-
-  /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_timer_cb: finished with iterations: %u, new timer", iterations);*/
 
   g_mutex_unlock (pipe_input_p->callback_running);
 
@@ -2448,7 +2462,6 @@ pipe_input_set_handler(gint source, gpointer user_data, ws_process_id *child_pro
      this but doesn't seem to work over processes.  Attempt to do
      something similar here, start a timer and check for data on every
      timeout. */
-  /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_input_set_handler: new");*/
   pipe_input.pipe_input_id = g_timeout_add(200, pipe_timer_cb, &pipe_input);
 #endif
 }
@@ -2557,7 +2570,8 @@ capture(void)
   fflush(stderr);
   g_string_free(str, TRUE);
 
-  ret = sync_pipe_start(&global_capture_opts, &global_capture_session, &global_info_data, NULL);
+  ret = sync_pipe_start(&global_capture_opts, capture_comments,
+                        &global_capture_session, &global_info_data, NULL);
 
   if (!ret)
     return FALSE;
@@ -2610,7 +2624,7 @@ capture(void)
 #endif
         /* Call the real handler */
         if (!pipe_input.input_cb(pipe_input.source, pipe_input.user_data)) {
-          g_log(NULL, G_LOG_LEVEL_DEBUG, "input pipe closed");
+          ws_debug("input pipe closed");
           ret = FALSE;
           loop_running = FALSE;
         }
@@ -2650,7 +2664,7 @@ capture_input_cfilter_error(capture_session *cap_session, guint i, const char *e
   dfilter_t         *rfcode = NULL;
   interface_options *interface_opts;
 
-  g_assert(i < capture_opts->ifaces->len);
+  ws_assert(i < capture_opts->ifaces->len);
   interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
 
   if (dfilter_compile(interface_opts->cfilter, &rfcode, NULL) && rfcode != NULL) {
@@ -2687,11 +2701,11 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
   int      err;
 
   if (cap_session->state == CAPTURE_PREPARING) {
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture started.");
+    ws_message("Capture started.");
   }
-  g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "File: \"%s\"", new_file);
+  ws_message("File: \"%s\"", new_file);
 
-  g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
+  ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
   /* free the old filename */
   if (capture_opts->save_file != NULL) {
@@ -2825,6 +2839,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
         /* packet successfully read and gone through the "Read Filter" */
         packet_count++;
       }
+      wtap_rec_reset(&rec);
     }
 
     epan_dissect_free(edt);
@@ -3178,6 +3193,7 @@ process_cap_file_first_pass(capture_file *cf, int max_packet_count,
         break;
       }
     }
+    wtap_rec_reset(&rec);
   }
   if (*err != 0)
     status = PASS_READ_ERROR;
@@ -3407,6 +3423,7 @@ process_cap_file_second_pass(capture_file *cf, wtap_dumper *pdh,
         }
       }
     }
+    wtap_rec_reset(&rec);
   }
 
   if (edt)
@@ -3534,6 +3551,7 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
       *err = 0; /* This is not an error */
       break;
     }
+    wtap_rec_reset(&rec);
   }
   if (*err != 0 && status == PASS_SUCCEEDED) {
     /* Error reading from the input file. */
@@ -3571,8 +3589,15 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
 
     /* If we don't have an application name add Tshark */
     if (wtap_block_get_string_option_value(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, &shb_user_appl) != WTAP_OPTTYPE_SUCCESS) {
-      /* this is free'd by wtap_block_free() later */
+      /* this is free'd by wtap_block_unref() later */
       wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "%s", get_appname_and_version());
+    }
+    if (capture_comments != NULL) {
+      for (guint i = 0; i < capture_comments->len; i++) {
+        wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0),
+                                            OPT_COMMENT, "%s",
+                                            (char *)g_ptr_array_index(capture_comments, i));
+      }
     }
 
     ws_debug("tshark: writing format type %d, to %s", out_file_type, save_file);
@@ -3869,7 +3894,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, gint64 offset,
     if (print_packet_info) {
       /* We're printing packet information; print the information for
          this packet. */
-      g_assert(edt);
+      ws_assert(edt);
       print_packet(cf, edt);
 
       /* If we're doing "line-buffering", flush the standard output
@@ -3927,7 +3952,7 @@ write_preamble(capture_file *cf)
     return TRUE;
 
   default:
-    g_assert_not_reached();
+    ws_assert_not_reached();
     return FALSE;
   }
 }
@@ -4262,7 +4287,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
   case WRITE_FIELDS:
     if (print_summary) {
       /*No non-verbose "fields" format */
-      g_assert_not_reached();
+      ws_assert_not_reached();
     }
     if (print_details) {
       write_fields_proto_tree(output_fields, edt, &cf->cinfo, stdout);
@@ -4273,7 +4298,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
 
   case WRITE_JSON:
     if (print_summary)
-      g_assert_not_reached();
+      ws_assert_not_reached();
     if (print_details) {
       write_json_proto_tree(output_fields, print_dissections_expanded,
                             print_hex, protocolfilter, protocolfilter_flags,
@@ -4284,7 +4309,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
 
   case WRITE_JSON_RAW:
     if (print_summary)
-      g_assert_not_reached();
+      ws_assert_not_reached();
     if (print_details) {
       write_json_proto_tree(output_fields, print_dissections_none, TRUE,
                             protocolfilter, protocolfilter_flags,
@@ -4299,7 +4324,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
     return !ferror(stdout);
 
   default:
-    g_assert_not_reached();
+    ws_assert_not_reached();
   }
 
   if (print_hex) {
@@ -4343,7 +4368,7 @@ write_finale(void)
     return TRUE;
 
   default:
-    g_assert_not_reached();
+    ws_assert_not_reached();
     return FALSE;
   }
 }

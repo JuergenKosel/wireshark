@@ -1,4 +1,4 @@
-Wireshark 3.5.0 (v3.5.0rc0-21-gce47866a4337)
+Wireshark 3.5.1 (v3.5.0-15-gbce7cbf52967)
 Interactively dump and analyze network traffic.
 See https://www.wireshark.org for more information.
 
@@ -80,7 +80,14 @@ User interface:
 Output:
   -w <outfile|->           set the output filename (or '-' for stdout)
   --capture-comment <comment>
-                           set the capture file comment, if supported
+                           add a capture file comment, if supported
+Diagnostic output:
+  --log-level <level>      sets the active log level ("critical", "warning", etc.)
+  --log-fatal <level>      sets level to abort the program ("critical" or "warning")
+  --log-domains <[!]list>  comma separated list of the active log domains
+  --log-debug <[!]list>    comma separated list of domains with "debug" level
+  --log-noisy <[!]list>    comma separated list of domains with "noisy" level
+  --log-file <path>        file to output messages to (in addition to stderr)
 
 Miscellaneous:
   -h, --help               display this help and exit

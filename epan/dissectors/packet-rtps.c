@@ -49,6 +49,7 @@
 #include <epan/prefs.h>
 #include "packet-rtps.h"
 #include <epan/addr_resolv.h>
+#include <epan/proto_data.h>
 #include <epan/reassemble.h>
 #include "zlib.h"
 
@@ -562,9 +563,10 @@ static dissector_table_t rtps_type_name_table;
 #define SUBMESSAGE_SEC_POSTFIX                          (0x32)
 #define SUBMESSAGE_SRTPS_PREFIX                         (0x33)
 #define SUBMESSAGE_SRTPS_POSTFIX                        (0x34)
-#define SUBMESSAGE_RTI_UDP_WAN_BINDING_PING                 (0x82)
-
 #define SUBMESSAGE_RTI_CRC                              (0x80)
+#define SUBMESSAGE_RTI_DATA_FRAG_SESSION                (0x81)  /* Vendor Specific */
+#define SUBMESSAGE_RTI_UDP_WAN_BINDING_PING             (0x82)
+
 
 /* An invalid IP Address:
  * Make sure the _STRING macro is bigger than a normal IP
@@ -1035,8 +1037,10 @@ static int hf_rtps_pl_cdr_member_length_ext                     = -1;
 static int hf_rtps_dcps_publication_data_frame_number           = -1;
 static int hf_rtps_udpv4_wan_locator_flags                      = -1;
 static int hf_rtps_uuid                                         = -1;
-static int hf_rtps_udpv4_wan_locator_ip                         = -1;
+static int hf_rtps_udpv4_wan_locator_public_ip                  = -1;
 static int hf_rtps_udpv4_wan_locator_public_port                = -1;
+static int hf_rtps_udpv4_wan_locator_local_ip                   = -1;
+static int hf_rtps_udpv4_wan_locator_local_port                 = -1;
 static int hf_rtps_udpv4_wan_binding_ping_port                  = -1;
 static int hf_rtps_udpv4_wan_binding_ping_flags                 = -1;
 static int hf_rtps_long_address                                 = -1;
@@ -1420,6 +1424,7 @@ static const value_string submessage_id_valsv2[] = {
   { SUBMESSAGE_PAD,                     "PAD" },
   { SUBMESSAGE_RTPS_DATA,               "DATA" },
   { SUBMESSAGE_RTPS_DATA_FRAG,          "DATA_FRAG" },
+  { SUBMESSAGE_RTI_DATA_FRAG_SESSION,   "DATA_FRAG_SESSION" },
   { SUBMESSAGE_RTPS_DATA_BATCH,         "DATA_BATCH" },
   { SUBMESSAGE_ACKNACK,                 "ACKNACK" },
   { SUBMESSAGE_HEARTBEAT,               "HEARTBEAT" },
@@ -1455,6 +1460,7 @@ static const value_string submessage_id_valsv2[] = {
 static const value_string submessage_id_rti[] = {
   { SUBMESSAGE_RTI_CRC,                  "RTI_CRC" },
   { SUBMESSAGE_RTI_UDP_WAN_BINDING_PING, "RTI_BINDING_PING" },
+  { SUBMESSAGE_RTI_DATA_FRAG_SESSION,    "DATA_FRAG_SESSION" },
   { 0, NULL }
 };
 
@@ -2374,6 +2380,7 @@ static int* const ENDPOINT_SECURITY_ATTRIBUTES[] = {
 #define RTPS_UNKNOWN_DOMAIN_ID_STR "Unknown"
 #define RTPS_UNKNOWN_DOMAIN_ID_STR_LEN sizeof(RTPS_UNKNOWN_DOMAIN_ID_STR)
 #define RTPS_TCPMAP_DOMAIN_ID_KEY_STR "ParticipantGuid"
+#define RTPS_TCPMAP_DOMAIN_ID_PROTODATA_KEY 0
 
 /* End of TCP get DomainId feature constants */
 
@@ -2716,7 +2723,6 @@ static gint dissect_user_defined(proto_tree *tree, tvbuff_t * tvb, gint offset, 
             guint i;
             proto_tree * aux_tree;
 
-            offset_zero = offset;
             aux_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_rtps_dissection_tree,
                   NULL, name);
 
@@ -2942,7 +2948,7 @@ static void append_status_info(packet_info *pinfo,
  *   -seqNumber == RTPS_SEQUENCENUMBER_UNKNOWN
  * - A DATA packet sent with the consecutive writerSeqNumber of the last coherent set packet.
  * - PID_END_COHERENT_SET received. That condition is not handled here. Check PID_END_COHERENT_SET dissection.
- * Empty Data condition is not handled here. rtps_util_detect_coherent_set_end_empty_data_case called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG
+ * Empty Data condition is not handled here. rtps_util_detect_coherent_set_end_empty_data_case called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG_kind
  */
 static void rtps_util_add_coherent_set_general_cases_case(
   proto_tree *tree,
@@ -3036,7 +3042,7 @@ static void rtps_util_add_coherent_set_general_cases_case(
 /*
  * Handles the coherent set termination case where the coherent set finishes by sending a DATA or DATA_FRAG with no parameters.
  * For the other cases, check rtps_util_add_coherent_set_general_cases_case.
- * this function must be called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG
+ * this function must be called at the end of dissect_RTPS_DATA and dissect_RTPS_DATA_FRAG_kind
  */
 static void rtps_util_detect_coherent_set_end_empty_data_case(
 
@@ -3246,6 +3252,7 @@ static gint rtps_util_add_locator_t(proto_tree *tree, packet_info *pinfo, tvbuff
      */
     case LOCATOR_KIND_UDPV4_WAN: {
         guint8 flags = 0;
+        ws_in4_addr locator_ip = 0;
         const guint32 uuid_size = 9;
         const guint32 locator_port_size = 4;
         const guint32 locator_port_offset = offset + 4;
@@ -3253,8 +3260,11 @@ static gint rtps_util_add_locator_t(proto_tree *tree, packet_info *pinfo, tvbuff
         const guint32 uuid_offset = flags_offset + 1;
         const guint32 port_offset = uuid_offset + uuid_size;
         const guint32 ip_offset = port_offset + 2;
+        int hf_port = 0;
+        int hf_ip = 0;
         gchar* ip_str = NULL;
         guint32 public_port = 0;
+        gboolean is_public = FALSE;
 
         ti = proto_tree_add_item_ret_uint(
                 locator_tree,
@@ -3264,7 +3274,7 @@ static gint rtps_util_add_locator_t(proto_tree *tree, packet_info *pinfo, tvbuff
                 locator_port_size,
                 encoding,
                 &port);
-        flags = tvb_get_bits8(tvb, flags_offset, 4);
+        flags = tvb_get_gint8(tvb, flags_offset);
         proto_tree_add_bitmask_value(
                 locator_tree,
                 tvb,
@@ -3273,46 +3283,57 @@ static gint rtps_util_add_locator_t(proto_tree *tree, packet_info *pinfo, tvbuff
                 ett_rtps_flags,
                 UDPV4_WAN_LOCATOR_FLAGS,
                 (guint64)flags);
-        /*
-        * The U flag indicates if the locator contains a UUID.
-        * Locators with the U flag set are called UUID locators.
-        */
-        if (flags & FLAG_UDPV4_WAN_LOCATOR_U) {
-            proto_tree_add_item(locator_tree, hf_rtps_uuid, tvb, uuid_offset, UUID_SIZE, encoding);
-        }
-        /*
-        * The P flag indicates that the locator contains a globally public IP address
-        * and public port where a transport instance can be reached. public_ip_address
-        * contains the public IP address and public_port contains the public UDP port.
-        * Locators with the P flag set are called PUBLIC locators.
-        */
-        if (flags & FLAG_UDPV4_WAN_LOCATOR_P) {
-            ws_in4_addr locator_ip = 0;
 
-            ip_str = tvb_ip_to_str(tvb, ip_offset);
-            locator_ip = tvb_get_ipv4(tvb, ip_offset);
+        /* UUID */
+        proto_tree_add_item(locator_tree, hf_rtps_uuid, tvb, uuid_offset, UUID_SIZE, encoding);
+
+        /*
+         * The P flag indicates that the locator contains a globally public IP address
+         * and public port where a transport instance can be reached. public_ip_address
+         * contains the public IP address and public_port contains the public UDP port.
+         * Locators with the P flag set are called PUBLIC locators.
+         */
+        is_public = ((flags & FLAG_UDPV4_WAN_LOCATOR_P) != 0);
+        if (is_public) {
+            hf_ip = hf_rtps_udpv4_wan_locator_public_ip;
+            hf_port = hf_rtps_udpv4_wan_locator_public_port;
+        } else {
+            hf_ip = hf_rtps_udpv4_wan_locator_local_ip;
+            hf_port = hf_rtps_udpv4_wan_locator_local_port;
+        }
+
+        /* Port & IP */
+        ip_str = tvb_ip_to_str(tvb, ip_offset);
+        locator_ip = tvb_get_ipv4(tvb, ip_offset);
+        if (locator_ip != 0) {
+            proto_tree_add_item_ret_uint(
+                locator_tree,
+                hf_port,
+                tvb,
+                port_offset,
+                2,
+                ENC_NA,
+                &public_port);
             proto_tree_add_ipv4(
-                    locator_tree,
-                    hf_rtps_udpv4_wan_locator_ip,
-                    tvb,
-                    ip_offset,
-                    4,
-                    locator_ip);
-            proto_tree_add_item_ret_uint (
-                    locator_tree,
-                    hf_rtps_udpv4_wan_locator_public_port,
-                    tvb,
-                    port_offset,
-                    2,
-                    encoding,
-                    &public_port);
+                locator_tree,
+                hf_ip,
+                tvb,
+                ip_offset,
+                4,
+                locator_ip);
         }
         if (port == 0)
             expert_add_info(pinfo, ti, &ei_rtps_locator_port);
-        if (ip_str != NULL) {
-            proto_item_append_text(tree, " (%s, %s:%u)",
-                val_to_str(kind, rtps_locator_kind_vals, "%02x"),
-                ip_str, port);
+        if (ip_str != NULL && locator_ip != 0) {
+            if (is_public) {
+                proto_item_append_text(tree, " (%s, public: %s:%u, rtps port:%u)",
+                    val_to_str(kind, rtps_locator_kind_vals, "%02x"),
+                    ip_str, public_port, port);
+            } else {
+                proto_item_append_text(tree, " (%s, local: %s:%u)",
+                    val_to_str(kind, rtps_locator_kind_vals, "%02x"),
+                    ip_str, port);
+            }
         }
     }
     /* Default case, we already have the locator kind so don't do anything */
@@ -5626,7 +5647,7 @@ static int rtps_util_add_fragment_number_set(proto_tree *tree, packet_info *pinf
    * message match what is here. If not re-decode it as 64-bit.
    */
   num_bits = tvb_get_guint32(tvb, offset+4, encoding);
-  expected_size = (((num_bits / 8) + 3) / 4) * 4 + 8;
+  expected_size = ((num_bits + 31) / 32) * 4 + 8;
   if (expected_size == section_size) {
     base = (guint64)tvb_get_guint32(tvb, offset, encoding);
     base_size = 4;
@@ -6471,8 +6492,7 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
         /* If using TCP we need to store the information of the domainId for that participant guid */
         if (pinfo->ptype == PT_TCP) {
           /* Each packet stores its participant guid in the private table. This is done in dissect_rtps */
-          endpoint_guid *participant_guid = (endpoint_guid*)g_hash_table_lookup(pinfo->private_table,
-              (gconstpointer)RTPS_TCPMAP_DOMAIN_ID_KEY_STR);
+          endpoint_guid *participant_guid = (endpoint_guid*)p_get_proto_data(pinfo->pool, pinfo, proto_rtps, RTPS_TCPMAP_DOMAIN_ID_PROTODATA_KEY);
           if (participant_guid != NULL) {
             /* Since this information is fixed there is no need to update in a second pass */
             if (!wmem_map_contains(discovered_tcp_participants, participant_guid)) {
@@ -8533,7 +8553,7 @@ static void dissect_parametrized_serialized_data(proto_tree *tree, tvbuff_t *tvb
 /* * Serialized data dissector                                           * */
 /* *********************************************************************** */
 /* Note: the encapsulation header is ALWAYS big endian, then the encapsulation
- * type specified the type of endianess of the payload.
+ * type specified the type of endianness of the payload.
  */
 static void dissect_serialized_data(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset,
                         int  size, const char *label, guint16 vendor_id, gboolean is_discovery_data,
@@ -10565,13 +10585,17 @@ static void dissect_RTPS_DATA(tvbuff_t *tvb, packet_info *pinfo, gint offset, gu
 }
 
 /* *********************************************************************** */
-/* *                 R T P S _ D A T A _ F R A G                         * */
+/* *                 R T P S _ D A T A _ F R A G _ [SESSION]             * */
 /* *********************************************************************** */
-static void dissect_RTPS_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offset, guint8 flags,
+static void dissect_RTPS_DATA_FRAG_kind(tvbuff_t *tvb, packet_info *pinfo, gint offset, guint8 flags,
                 const guint encoding, int octets_to_next_header, proto_tree *tree,
-                guint16 vendor_id, endpoint_guid *guid) {
+                guint16 vendor_id, gboolean is_session, endpoint_guid *guid) {
   /*
+   * There are two kinds of DATA_FRAG, RTPS_DATA_FRAG and RTPS_DATA_FRAG_SESSION
+   * the only difference is that RTPS_DATA_FRAG_SESSION has an extra sequence number after
+   * writerSeqNum.
    *
+   * RTPS_DATA_FRAG:
    * 0...2...........7...............15.............23...............31
    * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    * |RTPS_DATA_FRAG |X|X|X|X|X|K|Q|E|      octetsToNextHeader       |
@@ -10600,6 +10624,43 @@ static void dissect_RTPS_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offse
    * ~ SerializedData serializedData                                 ~
    * |                                                               |
    * +---------------+---------------+---------------+---------------+
+   *
+   *
+   * RTPS_DATA_FRAG_SESSION:
+   * 0...2...........7...............15.............23...............31
+   * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   * |RTPS.._SESSION |X|X|X|X|X|K|Q|E|      octetsToNextHeader       |
+   * +---------------+---------------+---------------+---------------+
+   * | Flags extraFlags              |      octetsToInlineQos        |
+   * +---------------+---------------+---------------+---------------+
+   * | EntityId readerEntityId                                       |
+   * +---------------+---------------+---------------+---------------+
+   * | EntityId writerEntityId                                       |
+   * +---------------+---------------+---------------+---------------+
+   * |                                                               |
+   * + SequenceNumber writerSeqNum                                   +
+   * |                                                               |
+   * +---------------+---------------+---------------+---------------+
+   * |                                                               |
+   * + SequenceNumber virtualSeqNum                                  +
+   * |                                                               |
+   * +---------------+---------------+---------------+---------------+
+   * | FragmentNumber fragmentStartingNum                            |
+   * +---------------+---------------+---------------+---------------+
+   * | ushort fragmentsInSubmessage  | ushort fragmentSize           |
+   * +---------------+---------------+---------------+---------------+
+   * | unsigned long sampleSize                                      |
+   * +---------------+---------------+---------------+---------------+
+   * |                                                               |
+   * ~ ParameterList inlineQos [only if Q==1]                        ~
+   * |                                                               |
+   * +---------------+---------------+---------------+---------------+
+   * |                                                               |
+   * ~ SerializedData serializedData                                 ~
+   * |                                                               |
+   * +---------------+---------------+---------------+---------------+
+
+
    */
   int min_len;
   gint old_offset = offset;
@@ -10616,8 +10677,12 @@ static void dissect_RTPS_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offse
   octet_item = proto_tree_add_item(tree, hf_rtps_sm_octets_to_next_header, tvb,
                         offset + 2, 2, encoding);
 
-  /* Calculates the minimum length for this submessage */
-  min_len = 36;
+  /* Calculates the minimum length for this submessage
+   * RTPS_DATA_FRAG_SESSION len = RTPS_DATA_FRAG len + 8 (extra virtualSequenceNum field).
+   */
+  min_len = (is_session)
+        ? 44
+        : 36;
   if ((flags & FLAG_RTPS_DATA_FRAG_Q) != 0) min_len += 4;
 
   if (octets_to_next_header < min_len) {
@@ -10655,6 +10720,11 @@ static void dissect_RTPS_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offse
   coherent_set_entity_info_object.guid = *guid;
   offset += 8;
 
+  /* virtual Sequence Number (Only in RTPS_DATA_FRAG_SESSION)*/
+  if (is_session) {
+      rtps_util_add_seq_number(tree, tvb, offset, encoding, "virtualSeqNumber");
+      offset += 8;
+  }
   /* Fragment number */
   proto_tree_add_item_ret_uint(tree, hf_rtps_data_frag_number, tvb, offset, 4, encoding, &frag_number);
   offset += 4;
@@ -11749,9 +11819,10 @@ static gboolean dissect_rtps_submessage_v2(tvbuff_t *tvb, packet_info *pinfo, gi
               rtps_submessage_tree, vendor_id, (submessageId == SUBMESSAGE_RTPS_DATA_SESSION), guid);
       break;
 
+    case SUBMESSAGE_RTI_DATA_FRAG_SESSION:
     case SUBMESSAGE_RTPS_DATA_FRAG:
-      dissect_RTPS_DATA_FRAG(tvb, pinfo, offset, flags, encoding, octets_to_next_header,
-                                rtps_submessage_tree, vendor_id, guid);
+      dissect_RTPS_DATA_FRAG_kind(tvb, pinfo, offset, flags, encoding, octets_to_next_header,
+                                rtps_submessage_tree, vendor_id, (submessageId == SUBMESSAGE_RTI_DATA_FRAG_SESSION), guid);
       break;
 
     case SUBMESSAGE_RTPS_DATA_BATCH:
@@ -11871,6 +11942,7 @@ static gboolean dissect_rtps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
   guint16      version, vendor_id;
   gboolean     is_ping;
   endpoint_guid guid;
+  endpoint_guid *guid_copy;
   guint32 magic_number;
   gchar domain_id_str[RTPS_UNKNOWN_DOMAIN_ID_STR_LEN] = RTPS_UNKNOWN_DOMAIN_ID_STR;
   /* Check 'RTPS' signature:
@@ -11927,15 +11999,10 @@ static gboolean dissect_rtps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
      * For that operation the member fields_present is not required and is not affected by
      * its changes.
      */
-    if (pinfo->private_table == NULL && pinfo->ptype == PT_TCP) {
-      pinfo->private_table = g_hash_table_new(g_str_hash, g_str_equal);
-    }
-    if (pinfo->private_table != NULL) {
-      gchar* key = wmem_strdup(wmem_packet_scope() , RTPS_TCPMAP_DOMAIN_ID_KEY_STR);
-      endpoint_guid *guid_copy = (endpoint_guid*)wmem_memdup(wmem_packet_scope(),
+    guid_copy = (endpoint_guid*)wmem_memdup(pinfo->pool,
         (const void*)&guid, sizeof(endpoint_guid));
-      g_hash_table_insert(pinfo->private_table, (gpointer)key, (gpointer)guid_copy);
-    }
+    p_add_proto_data(pinfo->pool, pinfo, proto_rtps,
+        RTPS_TCPMAP_DOMAIN_ID_PROTODATA_KEY, (gpointer)guid_copy);
 #ifdef RTI_BUILD
     pinfo->guid_prefix_host = tvb_get_ntohl(tvb, offset + 8);
     pinfo->guid_prefix_app  = tvb_get_ntohl(tvb, offset + 12);
@@ -12775,7 +12842,7 @@ void proto_register_rtps(void) {
     },
 
     { &hf_rtps_coherent_set_end, {
-        "End of coherent set sequence:",
+        "End of coherent set sequence",
         "rtps.coherent_set.end",
         FT_UINT64,
         BASE_DEC,
@@ -14655,16 +14722,24 @@ void proto_register_rtps(void) {
         "UUID", "rtps.uuid",
         FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
     },
-    { &hf_rtps_udpv4_wan_locator_ip, {
-        "WAN locator IP", "rtps.udpv4_wan_locator.ip",
+    { &hf_rtps_udpv4_wan_locator_public_ip, {
+        "WAN locator public IP", "rtps.udpv4_wan_locator.public_ip",
         FT_IPv4, BASE_NONE, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_public_port, {
         "WAN locator public port", "rtps.udpv4_wan_locator.public_port",
         FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }
     },
+    { &hf_rtps_udpv4_wan_locator_local_ip,{
+        "WAN locator local IP", "rtps.udpv4_wan_locator.local_ip",
+        FT_IPv4, BASE_NONE, NULL, 0, NULL, HFILL }
+    },
+    { &hf_rtps_udpv4_wan_locator_local_port,{
+        "WAN locator local port", "rtps.udpv4_wan_locator.local_port",
+        FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }
+    },
     { &hf_rtps_flag_udpv4_wan_binding_ping_e, {
-        "Endianess", "rtps.flag.udpv4_wan_binding_ping.e",
+        "Endianness", "rtps.flag.udpv4_wan_binding_ping.e",
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x01, NULL, HFILL }
     },
     { &hf_rtps_flag_udpv4_wan_binding_ping_l, {

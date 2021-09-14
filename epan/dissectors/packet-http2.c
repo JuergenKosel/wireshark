@@ -25,6 +25,7 @@
 */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "packet-http2"
 
 #include <epan/packet.h>
 #include <epan/expert.h>
@@ -50,6 +51,7 @@
 #include "wsutil/pint.h"
 #include "wsutil/strtoi.h"
 #include "wsutil/str_util.h"
+#include <wsutil/wslog.h>
 
 #ifdef HAVE_NGHTTP2
 #define http2_header_repr_type_VALUE_STRING_LIST(XXX)                   \
@@ -266,6 +268,11 @@ typedef struct {
     guint32 current_stream_id;
     tcp_flow_t *fwd_flow;
 } http2_session_t;
+
+typedef struct http2_follow_tap_data {
+    tvbuff_t *tvb;
+    guint64  stream_id;
+} http2_follow_tap_data_t;
 
 #ifdef HAVE_NGHTTP2
 /* Decode as functions */
@@ -1743,7 +1750,7 @@ fix_partial_header_dissection_support(nghttp2_hd_inflater *hd_inflater, gboolean
                                              dummy_header, dummy_header_size,
                                              i == 0);
         if (rv != dummy_header_size) {
-            g_log(G_LOG_DOMAIN, G_LOG_LEVEL_WARNING,
+            ws_log(WS_LOG_DOMAIN, LOG_LEVEL_WARNING,
                   "unexpected decompression state: %d != %d", rv,
                   dummy_header_size);
             break;
@@ -1798,7 +1805,7 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset, prot
 
         /* Make sure the length isn't too large. */
         tvb_ensure_bytes_exist(tvb, offset, headlen);
-        headbuf = (guint8*)wmem_alloc(wmem_packet_scope(), headlen);
+        headbuf = (guint8*)wmem_alloc(pinfo->pool, headlen);
         tvb_memcpy(tvb, headbuf, offset, headlen);
 
         flow_index = select_http2_flow_index(pinfo, h2session);
@@ -1986,7 +1993,7 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset, prot
         hoffset += 4;
 
         /* Add header name. */
-        proto_tree_add_item_ret_string(header_tree, hf_http2_header_name, header_tvb, hoffset, header_name_length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &header_name);
+        proto_tree_add_item_ret_string(header_tree, hf_http2_header_name, header_tvb, hoffset, header_name_length, ENC_ASCII|ENC_NA, pinfo->pool, &header_name);
         hoffset += header_name_length;
 
         /* header value length */
@@ -1994,7 +2001,7 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset, prot
         hoffset += 4;
 
         /* Add header value. */
-        proto_tree_add_item_ret_string(header_tree, hf_http2_header_value, header_tvb, hoffset, header_value_length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &header_value);
+        proto_tree_add_item_ret_string(header_tree, hf_http2_header_value, header_tvb, hoffset, header_value_length, ENC_ASCII|ENC_NA, pinfo->pool, &header_value);
         // check if field is http2 header https://tools.ietf.org/html/rfc7541#appendix-A
         try_add_named_header_field(header_tree, header_tvb, hoffset, header_value_length, header_name, header_value);
 
@@ -2159,6 +2166,20 @@ static gchar*
 http2_follow_index_filter(guint stream, guint sub_stream)
 {
     return g_strdup_printf("tcp.stream eq %u and http2.streamid eq %u", stream, sub_stream);
+}
+
+static tap_packet_status
+follow_http2_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
+{
+    follow_info_t *follow_info = (follow_info_t *)tapdata;
+    const http2_follow_tap_data_t *follow_data = (const http2_follow_tap_data_t *)data;
+
+    if (follow_info->substream_id != SUBSTREAM_UNUSED &&
+        follow_info->substream_id != follow_data->stream_id) {
+        return TAP_PACKET_DONT_REDRAW;
+    }
+
+    return follow_tvb_tap_listener(tapdata, pinfo, NULL, follow_data->tvb);
 }
 
 static guint8
@@ -2889,7 +2910,7 @@ http2_get_header_value(packet_info *pinfo, const gchar* name, gboolean the_other
                 value_len = pntoh32(data + 4 + name_len);
                 if (4 + name_len + 4 + value_len == hdr->table.data.datalen) {
                     /* return value */
-                    return wmem_strndup(wmem_packet_scope(), data + 4 + name_len + 4, value_len);
+                    return wmem_strndup(pinfo->pool, data + 4 + name_len + 4, value_len);
                 }
                 else {
                     return NULL; /* unexpected error */
@@ -3379,7 +3400,7 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     gint type_idx;
     const gchar *type_str = try_val_to_str_idx(type, http2_type_vals, &type_idx);
     if (type_str == NULL) {
-        type_str = wmem_strdup_printf(wmem_packet_scope(), "Unknown type (%d)", type);
+        type_str = wmem_strdup_printf(pinfo->pool, "Unknown type (%d)", type);
     }
 
     offset += 1;
@@ -3413,7 +3434,7 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     http2_session->current_stream_id = streamid;
 
     /* Collect stats */
-    http2_stats = wmem_new0(wmem_packet_scope(), struct HTTP2Tap);
+    http2_stats = wmem_new0(pinfo->pool, struct HTTP2Tap);
     http2_stats->type = type;
 
     switch(type){
@@ -3472,7 +3493,12 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     tap_queue_packet(http2_tap, pinfo, http2_stats);
 
     if (have_tap_listener(http2_follow_tap)) {
-        tap_queue_packet(http2_follow_tap, pinfo, tvb);
+        http2_follow_tap_data_t *follow_data = wmem_new0(wmem_packet_scope(), http2_follow_tap_data_t);
+
+        follow_data->tvb = tvb;
+        follow_data->stream_id = streamid;
+
+        tap_queue_packet(http2_follow_tap, pinfo, follow_data);
     }
 
     return tvb_captured_length(tvb);
@@ -4111,7 +4137,7 @@ proto_register_http2(void)
     http2_follow_tap = register_tap("http2_follow");
 
     register_follow_stream(proto_http2, "http2_follow", http2_follow_conv_filter, http2_follow_index_filter, tcp_follow_address_filter,
-                           tcp_port_to_display, follow_tvb_tap_listener);
+                           tcp_port_to_display, follow_http2_tap_listener);
 }
 
 static void http2_stats_tree_init(stats_tree* st)

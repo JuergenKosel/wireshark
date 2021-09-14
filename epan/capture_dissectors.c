@@ -9,6 +9,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_EPAN
 
 #include <glib.h>
 #include <stdio.h>
@@ -16,6 +17,9 @@
 #include "packet.h"
 
 #include "capture_dissectors.h"
+#include <wsutil/ws_assert.h>
+
+#include <wsutil/wslog.h>
 
 struct capture_dissector_table {
     GHashTable *hash_table;
@@ -65,7 +69,7 @@ void register_capture_dissector_table(const char *name, const char *ui_name)
 
     /* Make sure the registration is unique */
     if(g_hash_table_lookup( capture_dissector_tables, name )) {
-        g_error("The capture dissector table %s (%s) is already registered - are you using a buggy plugin?", name, ui_name);
+        ws_error("The capture dissector table %s (%s) is already registered - are you using a buggy plugin?", name, ui_name);
     }
 
     sub_dissectors = g_new(struct capture_dissector_table, 1);
@@ -104,7 +108,7 @@ capture_dissector_handle_t register_capture_dissector(const char *name, capture_
     capture_dissector_handle_t handle;
 
     /* Make sure the registration is unique */
-    g_assert(g_hash_table_lookup(registered_dissectors, name) == NULL);
+    ws_assert(g_hash_table_lookup(registered_dissectors, name) == NULL);
 
     handle = new_capture_dissector_handle(dissector, proto, name);
     g_hash_table_insert(registered_dissectors, (gpointer)name, handle);
@@ -128,7 +132,7 @@ void capture_dissector_add_uint(const char *name, const guint32 pattern, capture
     }
 
     /* Make sure the registration is unique */
-    g_assert(g_hash_table_lookup(sub_dissectors->hash_table, GUINT_TO_POINTER(pattern)) == NULL);
+    ws_assert(g_hash_table_lookup(sub_dissectors->hash_table, GUINT_TO_POINTER(pattern)) == NULL);
 
     g_hash_table_insert(sub_dissectors->hash_table, GUINT_TO_POINTER(pattern), (gpointer) handle);
 }

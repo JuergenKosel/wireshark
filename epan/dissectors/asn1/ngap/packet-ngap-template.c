@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v16.5.0 (2021-04)
+ * References: 3GPP TS 38.413 v16.6.0 (2021-07)
  */
 
 #include "config.h"
@@ -306,6 +306,8 @@ static int dissect_PathSwitchRequestTransfer_PDU(tvbuff_t *tvb _U_, packet_info 
 static int dissect_HandoverPreparationUnsuccessfulTransfer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 static int dissect_PDUSessionResourceReleaseCommandTransfer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 static int dissect_TargetNGRANNode_ToSourceNGRANNode_FailureTransparentContainer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
+static int dissect_SecondaryRATDataUsageReportTransfer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
+static int dissect_PDUSessionResourceModifyIndicationUnsuccessfulTransfer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_);
 
 const value_string ngap_serialNumber_gs_vals[] = {
   { 0, "Display mode immediate, cell wide"},
@@ -345,7 +347,7 @@ dissect_ngap_warningMessageContents(tvbuff_t *warning_msg_tvb, proto_tree *tree,
     cb_data_page_tvb = tvb_new_subset_length(warning_msg_tvb, offset, length);
     cb_data_tvb = dissect_cbs_data(dcs, cb_data_page_tvb, tree, pinfo, 0);
     if (cb_data_tvb) {
-      str = tvb_get_string_enc(wmem_packet_scope(), cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
+      str = tvb_get_string_enc(pinfo->pool, cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
       proto_tree_add_string_format(tree, hf_decoded_page, warning_msg_tvb, offset, 83,
                                    str, "Decoded Page %u: %s", i+1, str);
     }
@@ -587,26 +589,53 @@ dissect_ngap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
   return dissect_NGAP_PDU_PDU(tvb, pinfo, ngap_tree, NULL);
 }
 
+static gboolean
+find_n2_info_content(char *json_data, jsmntok_t *token, const char *n2_info_content,
+                     const char *content_id, dissector_handle_t *subdissector)
+{
+  jsmntok_t *n2_info_content_token, *ngap_data_token;
+  char *str;
+  gdouble ngap_msg_type;
+
+  n2_info_content_token = json_get_object(json_data, token, n2_info_content);
+  if (!n2_info_content_token)
+    return FALSE;
+  ngap_data_token = json_get_object(json_data, n2_info_content_token, "ngapData");
+  if (!ngap_data_token)
+    return FALSE;
+  str = json_get_string(json_data, ngap_data_token, "contentId");
+  if (!str || strcmp(str, content_id))
+    return FALSE;
+  str = json_get_string(json_data, n2_info_content_token, "ngapIeType");
+  if (str)
+    *subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
+  else if (json_get_double(json_data, n2_info_content_token, "ngapMessageType", &ngap_msg_type))
+    *subdissector = ngap_handle;
+  else
+    *subdissector = NULL;
+  return TRUE;
+}
+
 /* 3GPP TS 29.502 chapter 6.1.6.4.3 and 29.518 chapter 6.1.6.4.3 */
 static int
 dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
   int ret;
   char *json_data;
-  const char *n2_info_class, *str, *content_id_str;
-  jsmntok_t *tokens, *cur_tok, *n2_info_content_tok;
-  dissector_handle_t subdissector;
+  const char *n2_info_class;
+  jsmntok_t *tokens, *cur_tok;
+  dissector_handle_t subdissector = NULL;
   tvbuff_t* json_tvb = (tvbuff_t*)p_get_proto_data(pinfo->pool, pinfo, proto_json, 0);
   http_message_info_t *message_info = (http_message_info_t *)data;
 
   if (!json_tvb || !message_info || !message_info->content_id)
     return 0;
 
-  json_data = tvb_get_string_enc(wmem_packet_scope(), json_tvb, 0, tvb_reported_length(json_tvb), ENC_UTF_8|ENC_NA);
+  json_data = tvb_get_string_enc(pinfo->pool, json_tvb, 0, tvb_reported_length(json_tvb), ENC_UTF_8|ENC_NA);
   ret = json_parse(json_data, NULL, 0);
   if (ret <= 0)
     return 0;
-  tokens = wmem_alloc_array(wmem_packet_scope(), jsmntok_t, ret);
+  tokens = wmem_alloc_array(pinfo->pool, jsmntok_t, ret);
   if (json_parse(json_data, tokens, ret) <= 0)
     return 0;
   cur_tok = json_get_object(json_data, tokens, "n2InfoContainer");
@@ -616,81 +645,85 @@ dissect_ngap_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
   }
   if (cur_tok) {
     n2_info_class = json_get_string(json_data, cur_tok, "n2InformationClass");
-    if (!n2_info_class)
-      return 0;
-    if (!strcmp(n2_info_class, "SM")) {
-      cur_tok = json_get_object(json_data, cur_tok, "smInfo");
-      if (!cur_tok)
-        return 0;
-      n2_info_content_tok = json_get_object(json_data, cur_tok, "n2InfoContent");
-      if (!n2_info_content_tok)
-        return 0;
-      str = json_get_string(json_data, n2_info_content_tok, "ngapIeType");
-      if (!str)
-        return 0;
-      subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
-    } else if (!strcmp(n2_info_class, "RAN")) {
-      cur_tok = json_get_object(json_data, cur_tok, "ranInfo");
-      if (!cur_tok)
-        return 0;
-      n2_info_content_tok = json_get_object(json_data, cur_tok, "n2InfoContent");
-      if (!n2_info_content_tok)
-        return 0;
-      str = json_get_string(json_data, n2_info_content_tok, "ngapIeType");
-      if (!str)
-        return 0;
-      subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
-    } else if (!strcmp(n2_info_class, "NRPPa")) {
-      cur_tok = json_get_object(json_data, cur_tok, "nrppaInfo");
-      if (!cur_tok)
-        return 0;
-      n2_info_content_tok = json_get_object(json_data, cur_tok, "nrppaPdu");
-      if (!n2_info_content_tok)
-        return 0;
-      str = json_get_string(json_data, n2_info_content_tok, "ngapIeType");
-      if (!str)
-        return 0;
-      subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
-    } else if (!strcmp(n2_info_class, "PWS") ||
-               !strcmp(n2_info_class, "PWS-BCAL") ||
-               !strcmp(n2_info_class, "PWS-RF")) {
-      cur_tok = json_get_object(json_data, cur_tok, "pwsInfo");
-      if (!cur_tok)
-        return 0;
-      n2_info_content_tok = json_get_object(json_data, cur_tok, "pwsContainer");
-      if (!n2_info_content_tok)
-        return 0;
-      subdissector = ngap_handle;
-    } else {
-      return 0;
-    }
-    cur_tok = json_get_object(json_data, n2_info_content_tok, "ngapData");
-    if (!cur_tok)
-      return 0;
-    content_id_str = json_get_string(json_data, cur_tok, "contentId");
-  } else {
-    cur_tok = json_get_object(json_data, tokens, "n2SmInfo");
-    if (cur_tok) {
-      content_id_str = json_get_string(json_data, cur_tok, "contentId");
-      str = json_get_string(json_data, tokens, "n2SmInfoType");
-      if (!str)
-        return 0;
-      subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
-    } else {
-      return 0;
+    if (n2_info_class) {
+      if (!strcmp(n2_info_class, "SM")) {
+        cur_tok = json_get_object(json_data, cur_tok, "smInfo");
+        if (cur_tok && find_n2_info_content(json_data, cur_tok, "n2InfoContent",
+                                            message_info->content_id, &subdissector))
+          goto found;
+      }
+      if (!strcmp(n2_info_class, "RAN")) {
+        cur_tok = json_get_object(json_data, cur_tok, "ranInfo");
+        if (cur_tok && find_n2_info_content(json_data, cur_tok, "n2InfoContent",
+                                            message_info->content_id, &subdissector))
+          goto found;
+      }
+      if (!strcmp(n2_info_class, "NRPPa")) {
+        cur_tok = json_get_object(json_data, cur_tok, "nrppaInfo");
+        if (cur_tok && find_n2_info_content(json_data, cur_tok, "nrppaPdu",
+                                            message_info->content_id, &subdissector))
+          goto found;
+      }
+      if (!strcmp(n2_info_class, "PWS") ||
+          !strcmp(n2_info_class, "PWS-BCAL") ||
+          !strcmp(n2_info_class, "PWS-RF")) {
+        cur_tok = json_get_object(json_data, cur_tok, "pwsInfo");
+        if (cur_tok && find_n2_info_content(json_data, cur_tok, "pwsContainer",
+                                            message_info->content_id, &subdissector))
+          goto found;
+      }
     }
   }
+  cur_tok = json_get_object(json_data, tokens, "n2SmInfo");
+  if (cur_tok) {
+    const char *content_id_str = json_get_string(json_data, cur_tok, "contentId");
+    if (content_id_str && !strcmp(content_id_str, message_info->content_id)) {
+      const char *str = json_get_string(json_data, tokens, "n2SmInfoType");
+      if (str)
+        subdissector = dissector_get_string_handle(ngap_n2_ie_type_dissector_table, str);
+      else
+        subdissector = NULL;
+      goto found;
+    }
+  }
+  cur_tok = json_get_array(json_data, tokens, "pduSessionList");
+  if (cur_tok) {
+    int i, count;
+    count = json_get_array_len(cur_tok);
+    for (i = 0; i < count; i++) {
+      jsmntok_t *array_tok = json_get_array_index(cur_tok, i);
+      if (find_n2_info_content(json_data, array_tok, "n2InfoContent",
+                               message_info->content_id, &subdissector))
+        goto found;
+    }
+  }
+  if (find_n2_info_content(json_data, tokens, "sourceToTargetData",
+                           message_info->content_id, &subdissector))
+    goto found;
+  if (find_n2_info_content(json_data, tokens, "targetToSourceData",
+                           message_info->content_id, &subdissector))
+    goto found;
+  if (find_n2_info_content(json_data, tokens, "targetToSourceFailureData",
+                           message_info->content_id, &subdissector))
+    goto found;
+  if (find_n2_info_content(json_data, tokens, "ueRadioCapability",
+                           message_info->content_id, &subdissector))
+    goto found;
 
+found:
   if (subdissector) {
     proto_item *ngap_item;
     proto_tree *ngap_tree;
+    gboolean save_writable;
 
-    if (!content_id_str || strcmp(content_id_str, message_info->content_id))
-      return 0;
     col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "NGAP");
-    ngap_item = proto_tree_add_item(tree, proto_ngap, tvb, 0, -1, ENC_NA);
-    ngap_tree = proto_item_add_subtree(ngap_item, ett_ngap);
-    gboolean save_writable = col_get_writable(pinfo->cinfo, COL_PROTOCOL);
+    if (subdissector != ngap_handle) {
+        ngap_item = proto_tree_add_item(tree, proto_ngap, tvb, 0, -1, ENC_NA);
+        ngap_tree = proto_item_add_subtree(ngap_item, ett_ngap);
+    } else {
+        ngap_tree = tree;
+    }
+    save_writable = col_get_writable(pinfo->cinfo, COL_PROTOCOL);
     col_set_writable(pinfo->cinfo, COL_PROTOCOL, FALSE);
     call_dissector_with_data(subdissector, tvb, pinfo, ngap_tree, NULL);
     col_set_writable(pinfo->cinfo, COL_PROTOCOL, save_writable);

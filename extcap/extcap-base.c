@@ -18,7 +18,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <wsutil/wslog.h>
 
+#include <wsutil/ws_assert.h>
 /*
  * If we have getopt_long() in the system library, include <getopt.h>.
  * Otherwise, we're using our own getopt_long() (either because the
@@ -53,8 +55,6 @@ typedef struct _extcap_option {
     char * optdesc;
 } extcap_option_t;
 
-FILE* custom_log = NULL;
-
 void extcap_base_register_interface(extcap_parameters * extcap, const char * interface, const char * ifdescription, uint16_t dlt, const char * dltdescription )
 {
     extcap_base_register_interface_ext(extcap, interface, ifdescription, dlt, NULL, dltdescription );
@@ -85,9 +85,9 @@ void extcap_base_set_util_info(extcap_parameters * extcap, const char * exename,
 {
     extcap->exename = g_path_get_basename(exename);
 
-    g_assert(major);
+    ws_assert(major);
     if (!minor)
-        g_assert(!release);
+        ws_assert(!release);
 
     extcap->version = g_strdup_printf("%s%s%s%s%s",
         major,
@@ -116,37 +116,16 @@ void extcap_base_set_running_with(extcap_parameters * extcap, const char *fmt, .
     va_end(ap);
 }
 
-static void extcap_custom_log(const gchar *log_domain,
-             GLogLevelFlags log_level,
-             const gchar *message,
-             gpointer user_data)
-{
-    if (log_level & G_LOG_LEVEL_DEBUG) {
-        if (!custom_log)
-            return;
-        fprintf(custom_log, "%s\n", message);
-        fflush(custom_log);
-    } else {
-        g_log_default_handler(log_domain, log_level, message, user_data);
-    }
-}
-
 uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char * optargument)
 {
     uint8_t ret = 1;
 
     switch (result) {
         case EXTCAP_OPT_DEBUG:
-#ifdef _WIN32
-            _putenv_s("G_MESSAGES_DEBUG", "all");
-#else
-            setenv("G_MESSAGES_DEBUG", "all", 1);
-#endif
             extcap->debug = TRUE;
             break;
         case EXTCAP_OPT_DEBUG_FILE:
             extcap_init_custom_log(optargument);
-            g_log_set_default_handler(extcap_custom_log, NULL);
             break;
         case EXTCAP_OPT_LIST_INTERFACES:
             extcap->do_list_interfaces = 1;
@@ -237,7 +216,7 @@ uint8_t extcap_base_handle_interface(extcap_parameters * extcap)
     /* A fifo must be provided for capture */
     if (extcap->capture && (extcap->fifo == NULL || strlen(extcap->fifo) <= 0)) {
         extcap->capture = 0;
-        g_error("Extcap Error: No FIFO pipe provided");
+        ws_error("Extcap Error: No FIFO pipe provided");
         return 0;
     }
 
@@ -337,11 +316,13 @@ void extcap_help_add_header(extcap_parameters * extcap, char * help_header)
 
 void extcap_init_custom_log(const char* filename)
 {
+    FILE *custom_log;
     if (!filename || strlen(filename) == 0)
         return;
     custom_log = fopen(filename, "w");
     if (!custom_log)
-        g_error("Can't open custom log file: %s (%s)", filename, strerror(errno));
+        ws_error("Can't open custom log file: %s (%s)", filename, strerror(errno));
+    ws_log_add_custom_file(custom_log);
 }
 
 void extcap_config_debug(unsigned* count)
@@ -360,7 +341,7 @@ void extcap_cmdline_debug(char** ar, const unsigned n)
     unsigned i;
     for (i = 0; i < n; i++)
         g_string_append_printf(cmdline, "%s ", ar[i]);
-    g_debug("%s", cmdline->str);
+    ws_debug("%s", cmdline->str);
     g_string_free(cmdline, TRUE);
 }
 

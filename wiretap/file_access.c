@@ -7,6 +7,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
 
 #include <string.h>
 #include <stdlib.h>
@@ -18,6 +19,8 @@
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 
 #include "wtap-int.h"
 #include "wtap_modules.h"
@@ -85,6 +88,7 @@
 #include "log3gpp.h"
 #include "candump.h"
 #include "busmaster.h"
+#include "blf.h"
 
 
 /*
@@ -155,6 +159,7 @@ static const struct file_extension_info file_type_extensions_base[] = {
 	{ "MPEG2 transport stream", TRUE, "mp2t;ts;mpg" },
 	{ "Ixia IxVeriWave .vwr Raw 802.11 Capture", TRUE, "vwr" },
 	{ "CAM Inspector file", TRUE, "camins" },
+	{ "BLF file", TRUE, "blf" },
 	{ "MPEG files", FALSE, "mpg;mp3" },
 	{ "Transport-Neutral Encapsulation Format", FALSE, "tnef" },
 	{ "JPEG/JFIF files", FALSE, "jpg;jpeg;jfif" },
@@ -367,7 +372,7 @@ static const struct open_info open_info_base[] = {
 	{ "HP-UX nettl trace",                      OPEN_INFO_MAGIC,     nettl_open,               NULL,       NULL, NULL },
 	{ "Visual Networks traffic capture",        OPEN_INFO_MAGIC,     visual_open,              NULL,       NULL, NULL },
 	{ "InfoVista 5View capture",                OPEN_INFO_MAGIC,     _5views_open,             NULL,       NULL, NULL },
-	{ "Viavi Observer",                         OPEN_INFO_MAGIC,     observer_open, NULL,       NULL, NULL },
+	{ "Viavi Observer",                         OPEN_INFO_MAGIC,     observer_open,            NULL,       NULL, NULL },
 	{ "Savvius tagged",                         OPEN_INFO_MAGIC,     peektagged_open,          NULL,       NULL, NULL },
 	{ "Colasoft Capsa",                         OPEN_INFO_MAGIC,     capsa_open,               NULL,       NULL, NULL },
 	{ "DBS Etherwatch (VMS)",                   OPEN_INFO_MAGIC,     dbs_etherwatch_open,      NULL,       NULL, NULL },
@@ -381,10 +386,11 @@ static const struct open_info open_info_base[] = {
 	{ "3GPP TS 32.423 Trace format",            OPEN_INFO_MAGIC,     nettrace_3gpp_32_423_file_open, NULL, NULL, NULL },
 	/* Gammu DCT3 trace must come before MIME files as it's XML based*/
 	{ "Gammu DCT3 trace",                       OPEN_INFO_MAGIC,     dct3trace_open,           NULL,       NULL, NULL },
+	{ "BLF Logfile",                            OPEN_INFO_MAGIC,     blf_open,                 "blf",      NULL, NULL },
 	{ "MIME Files Format",                      OPEN_INFO_MAGIC,     mime_file_open,           NULL,       NULL, NULL },
 	{ "Micropross mplog",                       OPEN_INFO_MAGIC,     mplog_open,               "mplog",    NULL, NULL },
 	{ "Unigraf DPA-400 capture",                OPEN_INFO_MAGIC,     dpa400_open,              "bin",      NULL, NULL },
-	{ "RFC 7468 files",                         OPEN_INFO_MAGIC,     rfc7468_open,                 "pem;crt",  NULL, NULL },
+	{ "RFC 7468 files",                         OPEN_INFO_MAGIC,     rfc7468_open,             "pem;crt",  NULL, NULL },
 	{ "Novell LANalyzer",                       OPEN_INFO_HEURISTIC, lanalyzer_open,           "tr1",      NULL, NULL },
 	/*
 	 * PacketLogger must come before MPEG, because its files
@@ -461,7 +467,7 @@ static void
 set_heuristic_routine(void)
 {
 	guint i;
-	g_assert(open_info_arr != NULL);
+	ws_assert(open_info_arr != NULL);
 
 	for (i = 0; i < open_info_arr->len; i++) {
 		if (open_routines[i].type == OPEN_INFO_HEURISTIC) {
@@ -469,10 +475,10 @@ set_heuristic_routine(void)
 			break;
 		}
 		/* sanity check */
-		g_assert(open_routines[i].type == OPEN_INFO_MAGIC);
+		ws_assert(open_routines[i].type == OPEN_INFO_MAGIC);
 	}
 
-	g_assert(heuristic_open_routine_idx > 0);
+	ws_assert(heuristic_open_routine_idx > 0);
 }
 
 void
@@ -509,13 +515,13 @@ void
 wtap_register_open_info(struct open_info *oi, const gboolean first_routine)
 {
 	if (!oi || !oi->name) {
-		g_error("No open_info name given to register");
+		ws_error("No open_info name given to register");
 		return;
 	}
 
 	/* verify name doesn't already exist */
 	if (wtap_has_open_info(oi->name)) {
-		g_error("Name given to register_open_info already exists");
+		ws_error("Name given to register_open_info already exists");
 		return;
 	}
 
@@ -547,7 +553,7 @@ wtap_deregister_open_info(const gchar *name)
 	guint i;
 
 	if (!name) {
-		g_error("Missing open_info name to de-register");
+		ws_error("Missing open_info name to de-register");
 		return;
 	}
 
@@ -560,7 +566,7 @@ wtap_deregister_open_info(const gchar *name)
 		}
 	}
 
-	g_error("deregister_open_info: name not found");
+	ws_error("deregister_open_info: name not found");
 }
 
 /* Determines if a open routine short name already exists
@@ -571,7 +577,7 @@ wtap_has_open_info(const gchar *name)
 	guint i;
 
 	if (!name) {
-		g_error("No name given to wtap_has_open_info!");
+		ws_error("No name given to wtap_has_open_info!");
 		return FALSE;
 	}
 
@@ -1255,7 +1261,7 @@ void
 wtap_init_file_type_subtypes(void)
 {
 	/* Don't do this twice. */
-	g_assert(file_type_subtype_table_arr == NULL);
+	ws_assert(file_type_subtype_table_arr == NULL);
 
 	/*
 	 * Estimate the number of file types/subtypes as twice the
@@ -1314,7 +1320,7 @@ wtap_register_file_type_subtype(const struct file_type_subtype_info* fi)
 	 * Check for required fields (description and name).
 	 */
 	if (!fi || !fi->description || !fi->name) {
-		g_warning("no file type info");
+		ws_warning("no file type info");
 		return -1;
 	}
 
@@ -1323,7 +1329,7 @@ wtap_register_file_type_subtype(const struct file_type_subtype_info* fi)
 	 * type/subtype supports.
 	 */
 	if (fi->num_supported_blocks == 0 || fi->supported_blocks == NULL) {
-		g_warning("no blocks supported by file type \"%s\"", fi->name);
+		ws_warning("no blocks supported by file type \"%s\"", fi->name);
 		return -1;
 	}
 
@@ -1334,7 +1340,7 @@ wtap_register_file_type_subtype(const struct file_type_subtype_info* fi)
 		/*
 		 * Yes.  You don't get to replace an existing handler.
 		 */
-		g_warning("file type \"%s\" is already registered", fi->name);
+		ws_warning("file type \"%s\" is already registered", fi->name);
 		return -1;
 	}
 
@@ -1387,11 +1393,11 @@ wtap_deregister_file_type_subtype(const int subtype)
 	struct file_type_subtype_info* finfo;
 
 	if (subtype < 0 || subtype >= (int)file_type_subtype_table_arr->len) {
-		g_error("invalid file type to de-register");
+		ws_error("invalid file type to de-register");
 		return;
 	}
 	if ((guint)subtype >= wtap_num_builtin_file_types_subtypes) {
-		g_error("built-in file types cannot be de-registered");
+		ws_error("built-in file types cannot be de-registered");
 		return;
 	}
 
@@ -1833,7 +1839,7 @@ wtap_pcap_file_type_subtype(void)
 	 * Make sure pcap was registered as a file type/subtype;
 	 * it's one of our "native" formats.
 	 */
-	g_assert(pcap_file_type_subtype != -1);
+	ws_assert(pcap_file_type_subtype != -1);
 	return pcap_file_type_subtype;
 }
 
@@ -1847,7 +1853,7 @@ wtap_pcap_nsec_file_type_subtype(void)
 	 * Make sure nanosecond-resolution pcap was registered
 	 * as a file type/subtype; it's one of our "native" formats.
 	 */
-	g_assert(pcap_nsec_file_type_subtype != -1);
+	ws_assert(pcap_nsec_file_type_subtype != -1);
 	return pcap_nsec_file_type_subtype;
 }
 
@@ -1861,7 +1867,7 @@ wtap_pcapng_file_type_subtype(void)
 	 * Make sure pcapng was registered as a file type/subtype;
 	 * it's one of our "native" formats.
 	 */
-	g_assert(pcapng_file_type_subtype != -1);
+	ws_assert(pcapng_file_type_subtype != -1);
 	return pcapng_file_type_subtype;
 }
 

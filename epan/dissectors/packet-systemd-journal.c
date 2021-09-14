@@ -293,7 +293,7 @@ static void init_jf_to_hf_map(void) {
 static void
 dissect_sjle_time_usecs(proto_tree *tree, int hf_idx, tvbuff_t *tvb, int offset, int len) {
     guint64 rt_ts = 0;
-    char *time_str = tvb_format_text(tvb, offset, len);
+    char *time_str = tvb_format_text(wmem_packet_scope(), tvb, offset, len);
     gboolean ok = ws_strtou64(time_str, NULL, &rt_ts);
     if (ok) {
         nstime_t ts;
@@ -307,13 +307,13 @@ dissect_sjle_time_usecs(proto_tree *tree, int hf_idx, tvbuff_t *tvb, int offset,
 
 static void
 dissect_sjle_uint(proto_tree *tree, int hf_idx, tvbuff_t *tvb, int offset, int len) {
-    guint32 uint_val = (guint32) strtoul(tvb_format_text(tvb, offset, len), NULL, 10);
+    guint32 uint_val = (guint32) strtoul(tvb_format_text(wmem_packet_scope(), tvb, offset, len), NULL, 10);
     proto_tree_add_uint(tree, hf_idx, tvb, offset, len, uint_val);
 }
 
 static void
 dissect_sjle_int(proto_tree *tree, int hf_idx, tvbuff_t *tvb, int offset, int len) {
-    gint32 int_val = (gint32) strtol(tvb_format_text(tvb, offset, len), NULL, 10);
+    gint32 int_val = (gint32) strtol(tvb_format_text(wmem_packet_scope(), tvb, offset, len), NULL, 10);
     proto_tree_add_int(tree, hf_idx, tvb, offset, len, int_val);
 }
 
@@ -376,7 +376,7 @@ dissect_systemd_journal_line_entry(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
                 }
                 if (hf_idx == hf_sj_message) {
                     col_clear(pinfo->cinfo, COL_INFO);
-                    col_add_str(pinfo->cinfo, COL_INFO, (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, eq_off, val_len, ENC_UTF_8));
+                    col_add_str(pinfo->cinfo, COL_INFO, (char *) tvb_get_string_enc(pinfo->pool, tvb, eq_off, val_len, ENC_UTF_8));
                 }
                 found = TRUE;
             }
@@ -384,7 +384,7 @@ dissect_systemd_journal_line_entry(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 
         if (!found && eq_off > offset + 1) {
             proto_item *unk_ti = proto_tree_add_none_format(sje_tree, hf_sj_unknown_field, tvb, offset, line_len,
-                                                            "Unknown text field: %s", tvb_get_string_enc(wmem_packet_scope(), tvb, offset, eq_off - offset - 1, ENC_UTF_8));
+                                                            "Unknown text field: %s", tvb_get_string_enc(pinfo->pool, tvb, offset, eq_off - offset - 1, ENC_UTF_8));
             proto_tree *unk_tree = proto_item_add_subtree(unk_ti, ett_systemd_unknown_field);
             proto_tree_add_item(unk_tree, hf_sj_unknown_field_name, tvb, offset, eq_off - offset - 1, ENC_UTF_8|ENC_NA);
             proto_tree_add_item(unk_tree, hf_sj_unknown_field_value, tvb, eq_off, val_len, ENC_UTF_8|ENC_NA);
@@ -407,11 +407,11 @@ dissect_systemd_journal_line_entry(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
                         proto_tree_add_item(bin_tree, hf_sj_binary_data_len, tvb, offset + noeql_len + 1, 8, ENC_LITTLE_ENDIAN);
                         if (hf_idx == hf_sj_message) {
                             col_clear(pinfo->cinfo, COL_INFO);
-                            col_add_str(pinfo->cinfo, COL_INFO, tvb_format_text(tvb, data_off, (int) data_len));
+                            col_add_str(pinfo->cinfo, COL_INFO, tvb_format_text(pinfo->pool, tvb, data_off, (int) data_len));
                         }
                     } else {
                         proto_item *unk_ti = proto_tree_add_none_format(sje_tree, hf_sj_unknown_field, tvb, offset, line_len,
-                                                                        "Unknown data field: %s", tvb_format_text(tvb, offset, eq_off - offset - 1));
+                                                                        "Unknown data field: %s", tvb_format_text(pinfo->pool, tvb, offset, eq_off - offset - 1));
                         proto_tree *unk_tree = proto_item_add_subtree(unk_ti, ett_systemd_unknown_field);
                         proto_item *expert_ti = proto_tree_add_item(unk_tree, hf_sj_unknown_field_name, tvb, offset, offset + noeql_len, ENC_UTF_8|ENC_NA);
                         proto_tree_add_item(unk_tree, hf_sj_unknown_field_data, tvb, data_off, (int) data_len, ENC_UTF_8|ENC_NA);
@@ -885,7 +885,7 @@ proto_register_systemd_journal(void)
     init_jf_to_hf_map();
 }
 
-#define BLOCK_TYPE_SYSTEMD_JOURNAL 0x0000009
+#define BLOCK_TYPE_SYSTEMD_JOURNAL_EXPORT 0x0000009
 void
 proto_reg_handoff_systemd_journal(void)
 {
@@ -894,7 +894,7 @@ proto_reg_handoff_systemd_journal(void)
     file_type_subtype_systemd_journal = wtap_name_to_file_type_subtype("systemd_journal");
     if (file_type_subtype_systemd_journal != -1)
         dissector_add_uint("wtap_fts_rec", file_type_subtype_systemd_journal, sje_handle);
-    dissector_add_uint("pcapng.block_type", BLOCK_TYPE_SYSTEMD_JOURNAL, sje_handle);
+    dissector_add_uint("pcapng.block_type", BLOCK_TYPE_SYSTEMD_JOURNAL_EXPORT, sje_handle);
     // It's possible to ship journal entries over HTTP/HTTPS using
     // systemd-journal-remote. Dissecting them on the wire isn't very
     // useful since it's easy to end up with a packet containing a

@@ -1384,7 +1384,7 @@ dissect_http_message(tvbuff_t *tvb, int offset, packet_info *pinfo,
 		 */
 		saw_req_resp_or_header = TRUE;
 		if (is_request_or_reply) {
-			char *text = tvb_format_text(tvb, offset, next_offset - offset);
+			char *text = tvb_format_text(pinfo->pool, tvb, offset, next_offset - offset);
 
 			req_tree = proto_tree_add_subtree(http_tree, tvb,
 				    offset, next_offset - offset, ett_http_request, &hdr_item, text);
@@ -3816,7 +3816,7 @@ dissect_http_heur_tls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
 	}
 
         conv_data = wmem_new0(wmem_file_scope(), http_conv_t);
-        conversation_add_proto_data(conversation, proto_http2, conv_data);
+        conversation_add_proto_data(conversation, proto_http, conv_data);
 	dissect_http_tls(tvb, pinfo, tree, data);
 	return TRUE;
 }

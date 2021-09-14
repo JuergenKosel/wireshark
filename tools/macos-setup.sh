@@ -97,13 +97,20 @@ fi
 # claimed to build faster than make.
 # Comment it out if you don't want it.
 #
-NINJA_VERSION=${NINJA_VERSION-1.8.2}
+NINJA_VERSION=${NINJA_VERSION-1.10.2}
 
 #
 # The following libraries and tools are required even to build only TShark.
 #
 GETTEXT_VERSION=0.21
-GLIB_VERSION=2.58.3
+GLIB_VERSION=2.68.4
+if [ "$GLIB_VERSION" ]; then
+    GLIB_MAJOR_VERSION="`expr $GLIB_VERSION : '\([0-9][0-9]*\).*'`"
+    GLIB_MINOR_VERSION="`expr $GLIB_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+    GLIB_DOTDOT_VERSION="`expr $GLIB_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+    GLIB_MAJOR_MINOR_VERSION=$GLIB_MAJOR_VERSION.$GLIB_MINOR_VERSION
+    GLIB_MAJOR_MINOR_DOTDOT_VERSION=$GLIB_MAJOR_VERSION.$GLIB_MINOR_VERSION.$GLIB_DOTDOT_VERSION
+fi
 PKG_CONFIG_VERSION=0.29.2
 #
 # libgpg-error is required for libgcrypt.
@@ -190,23 +197,39 @@ BCG729_VERSION=1.0.2
 ILBC_VERSION=2.0.2
 OPUS_VERSION=1.3.1
 
-# 3.7.6 is the final version of Python to have official packages for the
-# 64-bit/32-bit variant that supports 10.6 (Snow Leopard) through 10.8
-# (Mountain Lion), and 3.9.1 is the first version of Python to support
-# macOS 11 Big Sur and Apple Silicon (Arm-based Macs).
-
-# So on Mountain Lion, choose 3.7.6, otherwise get the latest stable version
-# (3.9.5).
-if [[ $DARWIN_MAJOR_VERSION -gt 12 ]]; then
-    PYTHON3_VERSION=3.9.5
+#
+# Is /usr/bin/python3 a working version of Python?  It may be, as it
+# might be a wrapper that runs the Python 3 that's part of Xcode.
+#
+if /usr/bin/python3 --version >/dev/null 2>&1
+then
+    #
+    # Yes - don't bother installing Python 3 from elsewhere
+    #
+    :
 else
-    PYTHON3_VERSION=3.7.6
+    #
+    # No - install a Python package.
+    #
+    # 3.7.6 is the final version of Python to have official packages for the
+    # 64-bit/32-bit variant that supports 10.6 (Snow Leopard) through 10.8
+    # (Mountain Lion), and 3.9.1 is the first version of Python to support
+    # macOS 11 Big Sur and Apple Silicon (Arm-based Macs).
+    #
+    # So on Mountain Lion, choose 3.7.6, otherwise get the latest stable
+    # version (3.9.5).
+    #
+    if [[ $DARWIN_MAJOR_VERSION -gt 12 ]]; then
+        PYTHON3_VERSION=3.9.5
+    else
+        PYTHON3_VERSION=3.7.6
+    fi
 fi
 BROTLI_VERSION=1.0.9
 # minizip
 ZLIB_VERSION=1.2.11
 # Uncomment to enable automatic updates using Sparkle
-#SPARKLE_VERSION=1.22.0
+#SPARKLE_VERSION=1.26.0
 
 #
 # Asciidoctor is required to build the documentation.
@@ -602,7 +625,7 @@ install_cmake() {
             # 3.19.3 and later have a macos-universal DMG for 10.13 and later,
             # and a macos10.10-universal DMG for 10.10 and later.
             #
-            if [ "$CMAKE_MINOR_VERSION" -lt 5]; then
+            if [ "$CMAKE_MINOR_VERSION" -lt 5 ]; then
                 echo "CMake $CMAKE_VERSION" is too old 1>&2
             elif [ "$CMAKE_MINOR_VERSION" -lt 19 -o \
                  "$CMAKE_VERSION" = 3.19.0 -o \
@@ -675,6 +698,30 @@ uninstall_cmake() {
         fi
 
         installed_cmake_version=""
+    fi
+}
+
+install_meson() {
+    #
+    # Install Meson with pip3 if we don't have it already.
+    #
+    if $MESON --version >/dev/null 2>&1
+    then
+        # We have it.
+        :
+    else
+        sudo pip3 install meson
+        touch meson-done
+    fi
+}
+
+uninstall_meson() {
+    #
+    # If we installed Meson, uninstal it with pip3.
+    #
+    if [ -f meson-done ] ; then
+        sudo pip3 uninstall meson
+        rm -f meson-done
     fi
 }
 
@@ -767,46 +814,156 @@ install_glib() {
         xzcat glib-$GLIB_VERSION.tar.xz | tar xf - || exit 1
         cd glib-$GLIB_VERSION
         #
-        # macOS ships with libffi, but doesn't provide its pkg-config file;
-        # explicitly specify LIBFFI_CFLAGS and LIBFFI_LIBS, so the configure
-        # script doesn't try to use pkg-config to get the appropriate
-        # C flags and loader flags.
+        # First, determine where the system include files are.
+        # (It's not necessarily /usr/include.)  There's a bit of a
+        # greasy hack here; pre-5.x versions of the developer tools
+        # don't support the --show-sdk-path option, and will produce
+        # no output, so includedir will be set to /usr/include
+        # (in those older versions of the developer tools, there is
+        # a /usr/include directory).
         #
-        # And, what's worse, at least with the version of Xcode that comes
-        # with Leopard, /usr/include/ffi/fficonfig.h doesn't define MACOSX,
-        # which causes the build of GLib to fail.  If we don't find
-        # "#define.*MACOSX" in /usr/include/ffi/fficonfig.h, explicitly
-        # define it.
-        #
-        # While we're at it, suppress -Wformat-nonliteral to avoid a case
-        # where clang's stricter rules on when not to complain about
-        # non-literal format arguments cause it to complain about code
-        # that's safe but it wasn't told that.  See my comment #25 in
-        # GNOME bug 691608:
-        #
-        #    https://bugzilla.gnome.org/show_bug.cgi?id=691608#c25
-        #
-        # First, determine where the system include files are.  (It's not
-        # necessarily /usr/include.)  There's a bit of a greasy hack here;
-        # pre-5.x versions of the developer tools don't support the
-        # --show-sdk-path option, and will produce no output, so includedir
-        # will be set to /usr/include (in those older versions of the
-        # developer tools, there is a /usr/include directory).
+        # We need this for several things we do later.
         #
         includedir=`SDKROOT="$SDKPATH" xcrun --show-sdk-path 2>/dev/null`/usr/include
-        if [ ! -f ./configure ]; then
-            LIBTOOLIZE=glibtoolize ./autogen.sh
-        fi
-        if grep -qs '#define.*MACOSX' $includedir/ffi/fficonfig.h
-        then
-            # It's defined, nothing to do
-            LIBFFI_CFLAGS="-I $includedir/ffi" LIBFFI_LIBS="-lffi" CFLAGS="$CFLAGS -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        #
+        # GLib's configuration procedure, whether autotools-based or
+        # Meson-based, really likes to use pkg-config to find libraries,
+        # including libffi.
+        #
+        # At least some versions of macOS provide libffi, but, as macOS
+        # doesn't provide pkg-config, they don't provide a .pc file for
+        # it, so the autotools-based configuration needs some trickery
+        # to get it to find the OS-supplied libffi, and the Meson-based
+        # configuration simply won't find it at all.
+        #
+        # So, if we have a system-provided libffi, but pkg-config
+        # doesn't find libffi, we construct a .pc file for that libffi,
+        # and install it in /usr/local/lib/pkgconfig.
+        #
+        if pkg-config libffi ; then
+            # It found libffi; no need to install a .pc file, and we
+            # don't want to overwrite what's there already.
+            :
+        elif [ ! -e $includedir/ffi/ffi.h ] ; then
+            # We don't appear to have libffi as part of the system, so
+            # let the configuration process figure out what to do.
+            #
+            # We test for the header file, not the library, because, in
+            # Big Sur and later, there's no guarantee that, for a system
+            # shared library, there's a corresponding dylib file in
+            # /usr/lib.
+            :
         else
-            LIBFFI_CFLAGS="-I $includedir/ffi" LIBFFI_LIBS="-lffi" CFLAGS="$CFLAGS -DMACOSX -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -DMACOSX -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+            #
+            # We have libffi, but pkg-config didn't find it; generate
+            # and install the .pc file.
+            #
+
+            #
+            # Now generate the .pc file.
+            #
+            # We generate the contents of the .pc file by using cat with
+            # a here document containing a template for the file and
+            # piping that to a sed command that replaces @INCLUDEDIR@ in
+            # the template with the include directory we discovered
+            # above, so that the .pc file gives the compiler flags
+            # necessary to find the libffi headers (which are *not*
+            # necessarily in /usr/include, as per the above).
+            #
+            # The EOF marker for the here document is in quotes, to tell
+            # the shell not to do shell expansion, as .pc files use a
+            # syntax to refer to .pc file variables that looks like the
+            # syntax to refer to shell variables.
+            #
+            # The writing of the libffi.pc file is a greasy hack - the
+            # process of generating the contents of the .pc file writes
+            # to the standard output, but running the last process in
+            # the pipeline as root won't allow the shell that's
+            # *running* it to open the .pc file if we don't have write
+            # permission on /usr/local/lib/pkgconfig, so we need a
+            # program that creates a file and then reads from the
+            # standard input and writes to that file.  UN*Xes have a
+            # program that does that; it's called "tee". :-)
+            #
+            # However, it *also* writes the file to the standard output,
+            # so we redirect that to /dev/null when we run it.
+            #
+            cat <<"EOF" | sed "s;@INCLUDEDIR@;$includedir;" | $DO_TEE_TO_PC_FILE /usr/local/lib/pkgconfig/libffi.pc >/dev/null
+prefix=/usr
+libdir=${prefix}/lib
+includedir=@INCLUDEDIR@
+
+Name: ffi
+Description: Library supporting Foreign Function Interfaces
+Version: 3.2.9999
+Libs: -L${libdir} -lffi
+Cflags: -I${includedir}/ffi
+EOF
         fi
 
-        make $MAKE_BUILD_OPTS || exit 1
-        $DO_MAKE_INSTALL || exit 1
+        #
+        # GLib 2.59.1 and later use Meson+Ninja as the build system.
+        #
+        case $GLIB_MAJOR_VERSION in
+
+        1)
+            echo "GLib $GLIB_VERSION" is too old 1>&2
+            ;;
+
+        *)
+            case $GLIB_MINOR_VERSION in
+
+            [0-9]|1[0-9]|2[0-9]|3[0-7])
+                echo "GLib $GLIB_VERSION" is too old 1>&2
+                ;;
+
+            3[8-9]|4[0-9]|5[0-8])
+                if [ ! -f ./configure ]; then
+                    LIBTOOLIZE=glibtoolize ./autogen.sh
+                fi
+                #
+                # At least with the version of Xcode that comes with
+                # Leopard, /usr/include/ffi/fficonfig.h doesn't define
+                # MACOSX, which causes the build of GLib to fail for at
+                # least some versions of GLib.  If we don't find
+                # "#define.*MACOSX" in /usr/include/ffi/fficonfig.h,
+                # explicitly define it.
+                #
+                # While we're at it, suppress -Wformat-nonliteral to
+                # avoid a case where clang's stricter rules on when not
+                # to complain about non-literal format arguments cause
+                # it to complain about code that's safe but it wasn't
+                # told that.  See my comment #25 in GNOME bug 691608:
+                #
+                #    https://bugzilla.gnome.org/show_bug.cgi?id=691608#c25
+                #
+                if grep -qs '#define.*MACOSX' $includedir/ffi/fficonfig.h
+                then
+                    # It's defined, nothing to do
+                    CFLAGS="$CFLAGS -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+                else
+                    CFLAGS="$CFLAGS -DMACOSX -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS -DMACOSX -Wno-format-nonliteral $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+                fi
+                make $MAKE_BUILD_OPTS || exit 1
+                $DO_MAKE_INSTALL || exit 1
+                ;;
+
+            59|[6-9][0-9]|[1-9][0-9][0-9])
+                #
+                # 2.59.0 doesn't require Meson and Ninja, but it
+                # supports it, and I'm too lazy to add a dot-dot
+                # version check.
+                #
+                CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" $MESON _build || exit 1
+                ninja $MAKE_BUILD_OPTS -C _build || exit 1
+                $DO_NINJA_INSTALL || exit 1
+                ;;
+            *)
+                echo "Glib's put out 1000 2.x releases?" 1>&2
+                ;;
+
+            esac
+        esac
         cd ..
         touch glib-$GLIB_VERSION-done
     fi
@@ -816,15 +973,63 @@ uninstall_glib() {
     if [ ! -z "$installed_glib_version" ] ; then
         echo "Uninstalling GLib:"
         cd glib-$installed_glib_version
-        $DO_MAKE_UNINSTALL || exit 1
+        installed_glib_major_version="`expr $installed_glib_version : '\([0-9][0-9]*\).*'`"
+        installed_glib_minor_version="`expr $installed_glib_version : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        installed_glib_dotdot_version="`expr $installed_glib_version : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        installed_glib_major_minor_version=$installed_glib_major_version.$installed_glib_minor_version
+        installed_glib_major_minor_dotdot_version=$installed_glib_major_version.$installed_glib_minor_version.$installed_glib_dotdot_version
         #
-        # This appears to delete dependencies out from under other
-        # Makefiles in the tree, causing it to fail.  At least until
-        # that gets fixed, if it ever gets fixed, we just ignore the
-        # exit status of "make distclean"
+        # GLib 2.59.1 and later use Meson+Ninja as the build system.
         #
-        # make distclean || exit 1
-        make distclean || echo "Ignoring make distclean failure" 1>&2
+        case $installed_glib_major_version in
+
+        1)
+            $DO_MAKE_UNINSTALL || exit 1
+            #
+            # This appears to delete dependencies out from under other
+            # Makefiles in the tree, causing it to fail.  At least until
+            # that gets fixed, if it ever gets fixed, we just ignore the
+            # exit status of "make distclean"
+            #
+            # make distclean || exit 1
+            make distclean || echo "Ignoring make distclean failure" 1>&2
+            ;;
+
+        *)
+            case $installed_glib_minor_version in
+
+            [0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-8])
+                $DO_MAKE_UNINSTALL || exit 1
+                #
+                # This appears to delete dependencies out from under other
+                # Makefiles in the tree, causing it to fail.  At least until
+                # that gets fixed, if it ever gets fixed, we just ignore the
+                # exit status of "make distclean"
+                #
+                # make distclean || exit 1
+                make distclean || echo "Ignoring make distclean failure" 1>&2
+                ;;
+
+            59|[6-9][0-9]|[1-9][0-9][0-9])
+                #
+                # 2.59.0 doesn't require Meson and Ninja, but it
+                # supports it, and I'm too lazy to add a dot-dot
+                # version check.
+                #
+                $DO_NINJA_UNINSTALL || exit 1
+                #
+                # For Meson+Ninja, we do the build in an _build
+                # subdirectory, so the equivalent of "make distclean"
+                # is just to remove the directory tree.
+                #
+                rm -rf _build
+                ;;
+
+            *)
+                echo "Glib's put out 1000 2.x releases?" 1>&2
+                ;;
+            esac
+        esac
         cd ..
         rm glib-$installed_glib_version-done
 
@@ -2031,6 +2236,27 @@ install_python3() {
         $no_build && echo "Skipping installation" && return
         sudo installer -target / -pkg python-$PYTHON3_VERSION-macos$macver.pkg || exit 1
         touch python3-$PYTHON3_VERSION-done
+
+        #
+        # On macOS, the pip3 installed from Python packages appears to
+        # install scripts /Library/Frameworks/Python.framework/Versions/M.N/bin,
+        # where M.N is the major and minor version of Python (the dot-dot
+        # release is irrelevant).
+        #
+        # Strip off any dot-dot component in $PYTHON3_VERSION.
+        #
+        python_version=`echo $PYTHON3_VERSION | sed 's/\([1-9][0-9]*\.[1-9][0-9]*\).*/\1/'`
+        #
+        # Now treat Meson as being in the directory in question.
+        #
+        MESON="/Library/Frameworks/Python.framework/Versions/$python_version/bin/meson"
+    else
+        #
+        # We're using the Python 3 that's in /usr/bin, the pip3 for
+        # which installs scripts in /usr/local/bin, so, when we
+        # install Meson, look for it there.
+        #
+        MESON=/usr/local/bin/meson
     fi
 }
 
@@ -2176,10 +2402,10 @@ install_sparkle() {
         #
         # Download the tarball and unpack it in /usr/local/Sparkle-x.y.z
         #
-        [ -f Sparkle-$SPARKLE_VERSION.tar.bz2 ] || curl -L -o Sparkle-$SPARKLE_VERSION.tar.bz2 https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.bz2 || exit 1
+        [ -f Sparkle-$SPARKLE_VERSION.tar.xz ] || curl -L -o Sparkle-$SPARKLE_VERSION.tar.xz https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz || exit 1
         $no_build && echo "Skipping installation" && return
         test -d "/usr/local/Sparkle-$SPARKLE_VERSION" || sudo mkdir "/usr/local/Sparkle-$SPARKLE_VERSION"
-        sudo tar -C "/usr/local/Sparkle-$SPARKLE_VERSION" -xpof Sparkle-$SPARKLE_VERSION.tar.bz2
+        sudo tar -C "/usr/local/Sparkle-$SPARKLE_VERSION" -xpof Sparkle-$SPARKLE_VERSION.tar.xz
         touch sparkle-$SPARKLE_VERSION-done
     fi
 }
@@ -2189,7 +2415,7 @@ uninstall_sparkle() {
         echo "Uninstalling Sparkle:"
         sudo rm -rf "/usr/local/Sparkle-$installed_sparkle_version"
         if [ "$#" -eq 1 ] && [ "$1" = "-r" ] ; then
-            rm -f "Sparkle-$installed_sparkle_version.tar.bz2"
+            rm -f "Sparkle-$installed_sparkle_version.tar.xz"
         fi
 
         installed_sparkle_version=""
@@ -2693,6 +2919,18 @@ install_all() {
 
     install_cmake
 
+    #
+    # Install Python 3 now; not only is it needed for the Wireshark
+    # build process, it's also needed for the Meson build system,
+    # which newer versions of GLib use as their build system.
+    #
+    install_python3
+
+    #
+    # Now install Meson.
+    #
+    install_meson
+
     install_ninja
 
     install_asciidoctor
@@ -2785,8 +3023,6 @@ install_all() {
 
     install_opus
 
-    install_python3
-
     install_brotli
 
     install_minizip
@@ -2813,8 +3049,6 @@ uninstall_all() {
         uninstall_minizip
 
         uninstall_brotli
-
-        uninstall_python3
 
         uninstall_opus
 
@@ -2883,6 +3117,10 @@ uninstall_all() {
 
         uninstall_asciidoctor
 
+        uninstall_meson
+
+        uninstall_python3
+
         uninstall_cmake
 
         uninstall_libtool
@@ -2908,19 +3146,26 @@ uninstall_all() {
 # (If that's not the case, this test needs to check the subdirectories
 # as well.)
 #
-# If not, do "make install", "make uninstall", the removes for
-# dependencies that don't support "make uninstall", and the renames
-# of [g]libtool* with sudo.
+# If not, do "make install", "make uninstall", "ninja install",
+# "ninja uninstall", the removes for dependencies that don't support
+# "make uninstall" or "ninja uninstall", the renames of [g]libtool*,
+# and the writing of a libffi .pc file with sudo.
 #
 if [ -w /usr/local ]
 then
     DO_MAKE_INSTALL="make install"
     DO_MAKE_UNINSTALL="make uninstall"
+    DO_NINJA_INSTALL="ninja -C _build install"
+    DO_NINJA_UNINSTALL="ninja -C _build uninstall"
+    DO_TEE_TO_PC_FILE="tee"
     DO_RM="rm"
     DO_MV="mv"
 else
     DO_MAKE_INSTALL="sudo make install"
     DO_MAKE_UNINSTALL="sudo make uninstall"
+    DO_NINJA_INSTALL="sudo ninja -C _build install"
+    DO_NINJA_UNINSTALL="sudo ninja -C _build uninstall"
+    DO_TEE_TO_PC_FILE="sudo tee"
     DO_RM="sudo rm"
     DO_MV="sudo mv"
 fi

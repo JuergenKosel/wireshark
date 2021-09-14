@@ -14,6 +14,7 @@
 #include "atm.h"
 #include "snoop.h"
 #include <wsutil/802_11-utils.h>
+#include <wsutil/ws_roundup.h>
 
 /* See RFC 1761 for a description of the "snoop" file format. */
 
@@ -608,6 +609,7 @@ snoop_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec,
 	}
 
 	rec->rec_type = REC_TYPE_PACKET;
+	rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
 	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 	rec->ts.secs = g_ntohl(hdr.ts_sec);
 	rec->ts.nsecs = g_ntohl(hdr.ts_usec) * 1000;
@@ -891,7 +893,7 @@ static gboolean snoop_dump(wtap_dumper *wdh,
 
 
 	/* ... plus enough bytes to pad it to a 4-byte boundary. */
-	padlen = ((reclen + 3) & ~3) - reclen;
+	padlen = WS_ROUNDUP_4(reclen) - reclen;
 	reclen += padlen;
 
 	/* Don't write anything we're not willing to read. */

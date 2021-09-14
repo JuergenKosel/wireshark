@@ -29,7 +29,8 @@
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
-#include <version_info.h>
+#include <wsutil/wslog.h>
+#include <ui/version_info.h>
 #include <wiretap/wtap_opttypes.h>
 
 #include <epan/decode_as.h>
@@ -47,14 +48,13 @@
 #include "ui/filter_files.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/failure_message.h"
+#include "wtap.h"
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/uat-int.h>
 #include <epan/secrets.h>
 
 #include <wsutil/codecs.h>
-
-#include "log.h"
 
 #include <wsutil/str_util.h>
 #include <wsutil/utf8_entities.h>
@@ -116,6 +116,12 @@ main(int argc, char *argv[])
   };
 
   cmdarg_err_init(sharkd_cmdarg_err, sharkd_cmdarg_err_cont);
+
+  /* Initialize log handler early so we can have proper logging during startup. */
+  ws_log_init("sharkd", vcmdarg_err);
+
+  /* Early logging command-line initialization. */
+  ws_log_parse_args(&argc, argv, vcmdarg_err, INIT_FAILED);
 
   /*
    * Get credential information for later use, and drop privileges
@@ -235,7 +241,7 @@ sharkd_epan_new(capture_file *cf)
     sharkd_get_frame_ts,
     cap_file_provider_get_interface_name,
     cap_file_provider_get_interface_description,
-    cap_file_provider_get_user_comment
+    cap_file_provider_get_modified_block
   };
 
   return epan_new(&cf->provider, &funcs);
@@ -365,6 +371,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
 
     while (wtap_read(cf->provider.wth, &rec, &buf, &err, &err_info, &data_offset)) {
       if (process_packet(cf, edt, data_offset, &rec, &buf)) {
+        wtap_rec_reset(&rec);
         /* Stop reading if we have the maximum number of packets;
          * When the -c option has not been used, max_packet_count
          * starts at 0, which practically means, never stop reading.
@@ -496,30 +503,25 @@ sharkd_get_frame(guint32 framenum)
   return frame_data_sequence_find(cfile.provider.frames, framenum);
 }
 
-int
-sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis_num, sharkd_dissect_func_t cb, guint32 dissect_flags, void *data)
+enum dissect_request_status
+sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num,
+                       guint32 prev_dis_num, wtap_rec *rec, Buffer *buf,
+                       column_info *cinfo, guint32 dissect_flags,
+                       sharkd_dissect_func_t cb, void *data,
+                       int *err, gchar **err_info)
 {
   frame_data *fdata;
-  column_info *cinfo = (dissect_flags & SHARKD_DISSECT_FLAG_COLUMNS) ? &cfile.cinfo : NULL;
   epan_dissect_t edt;
   gboolean create_proto_tree;
-  wtap_rec rec; /* Record metadata */
-  Buffer buf;   /* Record data */
-
-  int err;
-  char *err_info = NULL;
 
   fdata = sharkd_get_frame(framenum);
   if (fdata == NULL)
-    return -1;
+    return DISSECT_REQUEST_NO_SUCH_FRAME;
 
-  wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1514);
-
-  if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
-    wtap_rec_cleanup(&rec);
-    ws_buffer_free(&buf);
-    return -1; /* error reading the record */
+  if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, rec, buf, err, err_info)) {
+    if (cinfo != NULL)
+      col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
+    return DISSECT_REQUEST_READ_ERROR; /* error reading the record */
   }
 
   create_proto_tree = ((dissect_flags & SHARKD_DISSECT_FLAG_PROTO_TREE) ||
@@ -542,8 +544,8 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
   fdata->ref_time = (framenum == frame_ref_num);
   fdata->frame_ref_num = frame_ref_num;
   fdata->prev_dis_num = prev_dis_num;
-  epan_dissect_run(&edt, cfile.cd_t, &rec,
-                   frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
+  epan_dissect_run(&edt, cfile.cd_t, rec,
+                   frame_tvbuff_new_buffer(&cfile.provider, fdata, buf),
                    fdata, cinfo);
 
   if (cinfo) {
@@ -555,66 +557,9 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num, guint32 prev_dis
      cinfo, (dissect_flags & SHARKD_DISSECT_FLAG_BYTES) ? edt.pi.data_src : NULL,
      data);
 
+  wtap_rec_reset(rec);
   epan_dissect_cleanup(&edt);
-  wtap_rec_cleanup(&rec);
-  ws_buffer_free(&buf);
-  return 0;
-}
-
-/* based on packet_list_dissect_and_cache_record */
-int
-sharkd_dissect_columns(frame_data *fdata, guint32 frame_ref_num, guint32 prev_dis_num, column_info *cinfo, gboolean dissect_color)
-{
-  epan_dissect_t edt;
-  gboolean create_proto_tree;
-  wtap_rec rec; /* Record metadata */
-  Buffer buf;   /* Record data */
-
-  int err;
-  char *err_info = NULL;
-
-  wtap_rec_init(&rec);
-  ws_buffer_init(&buf, 1514);
-
-  if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info)) {
-    col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
-    wtap_rec_cleanup(&rec);
-    ws_buffer_free(&buf);
-    return -1; /* error reading the record */
-  }
-
-  create_proto_tree = (dissect_color && color_filters_used()) || (cinfo && have_custom_cols(cinfo));
-
-  epan_dissect_init(&edt, cfile.epan, create_proto_tree, FALSE /* proto_tree_visible */);
-
-  if (dissect_color) {
-    color_filters_prime_edt(&edt);
-    fdata->need_colorize = 1;
-  }
-
-  if (cinfo)
-    col_custom_prime_edt(&edt, cinfo);
-
-  /*
-   * XXX - need to catch an OutOfMemoryError exception and
-   * attempt to recover from it.
-   */
-  fdata->ref_time = (fdata->num == frame_ref_num);
-  fdata->frame_ref_num = frame_ref_num;
-  fdata->prev_dis_num = prev_dis_num;
-  epan_dissect_run(&edt, cfile.cd_t, &rec,
-                   frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
-                   fdata, cinfo);
-
-  if (cinfo) {
-    /* "Stringify" non frame_data vals */
-    epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
-  }
-
-  epan_dissect_cleanup(&edt);
-  wtap_rec_cleanup(&rec);
-  ws_buffer_free(&buf);
-  return 0;
+  return DISSECT_REQUEST_SUCCESS;
 }
 
 int
@@ -667,6 +612,7 @@ sharkd_retap(void)
     epan_dissect_run_with_taps(&edt, cfile.cd_t, &rec,
                                frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
                                fdata, cinfo);
+    wtap_rec_reset(&rec);
     epan_dissect_reset(&edt);
   }
 
@@ -744,6 +690,7 @@ sharkd_filter(const char *dftext, guint8 **result)
 
     /* if passed or ref -> frame_data_set_after_dissect */
 
+    wtap_rec_reset(&rec);
     epan_dissect_reset(&edt);
   }
 
@@ -762,28 +709,54 @@ sharkd_filter(const char *dftext, guint8 **result)
   return framenum;
 }
 
-const char *
-sharkd_get_user_comment(const frame_data *fd)
+/*
+ * Get the modified block if available, nothing otherwise.
+ * Must be cloned if changes desired.
+ */
+wtap_block_t
+sharkd_get_modified_block(const frame_data *fd)
 {
-  return cap_file_provider_get_user_comment(&cfile.provider, fd);
+  return cap_file_provider_get_modified_block(&cfile.provider, fd);
+}
+
+/*
+ * Gets the modified block if available, otherwise the packet's default block,
+ * or a new packet block.
+ * User must wtap_block_unref() it when done.
+ */
+wtap_block_t
+sharkd_get_packet_block(const frame_data *fd)
+{
+  if (fd->has_modified_block)
+    return wtap_block_ref(cap_file_provider_get_modified_block(&cfile.provider, fd));
+  else
+  {
+    wtap_rec rec; /* Record metadata */
+    Buffer buf;   /* Record data */
+    wtap_block_t block;
+    int err;
+    gchar *err_info;
+
+    wtap_rec_init(&rec);
+    ws_buffer_init(&buf, 1514);
+
+    if (!wtap_seek_read(cfile.provider.wth, fd->file_off, &rec, &buf, &err, &err_info))
+      { /* XXX, what we can do here? */ }
+
+    /* rec.block is owned by the record, steal it before it is gone. */
+    block = wtap_block_ref(rec.block);
+
+    wtap_rec_cleanup(&rec);
+    ws_buffer_free(&buf);
+    return block;
+  }
 }
 
 int
-sharkd_set_user_comment(frame_data *fd, const gchar *new_comment)
+sharkd_set_modified_block(frame_data *fd, wtap_block_t new_block)
 {
-  cap_file_provider_set_user_comment(&cfile.provider, fd, new_comment);
+  cap_file_provider_set_modified_block(&cfile.provider, fd, new_block);
   return 0;
-}
-
-#include "version.h"
-const char *sharkd_version(void)
-{
-  /* based on get_ws_vcs_version_info(), but shorter */
-#ifdef VCSVERSION
-  return VCSVERSION;
-#else
-  return VERSION;
-#endif
 }
 
 /*

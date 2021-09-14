@@ -12,7 +12,6 @@
 #include "config.h"
 #include <epan/packet.h>
 #include <epan/address_types.h>
-#include <epan/prefs.h>
 #include "packet-mtp3.h"
 
 #define INVALID_SSN	0xff
@@ -577,7 +576,6 @@ dissect_ppcap_payload_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree * ppcap
 
 void proto_register_ppcap(void)
 {
-module_t *ppcap_module;
 
 	static hf_register_info hf[] = {
 	{ &hf_ppcap_length,
@@ -631,22 +629,22 @@ module_t *ppcap_module;
 		BASE_DEC,       NULL,   0x00,   NULL,     HFILL}},
 	{ &hf_ppcap_destination_ip_address1,
 	{ "Destination IP Address",     "ppcap.destination_ip_address1",   FT_IPv4,
-		BASE_NONE,       NULL,   0x00,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_destination_ip_address2,
 	{ "Destination IP Address",     "ppcap.destination_ip_address2",   FT_IPv6,
-		BASE_NONE,       NULL,   0x00,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_source_nodeid,
 	{ "Source Node ID",         "ppcap.source_nodeid",    FT_STRING,
-		BASE_NONE,       NULL,   0x00,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_destination_nodeid,
 	{ "Destination Node ID",         "ppcap.destination_address",    FT_STRING,
-		BASE_NONE,       NULL,   0x00,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_info,
 	{ "Info",         "ppcap.info",    FT_STRING,
-		BASE_NONE,       NULL,   0x0000,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_payload_data,
 	{ "Payload Data",         "ppcap.payload_data",    FT_BYTES,
-		BASE_NONE,       NULL,   0x0000,   NULL,     HFILL}},
+		BASE_NONE,       NULL,   0x0,   NULL,     HFILL}},
 	{ &hf_ppcap_local_port,
 	{ "Local Port",         "ppcap.local_port",    FT_UINT16,
 		BASE_DEC,       NULL,   0x00,   NULL,     HFILL}},
@@ -670,8 +668,6 @@ module_t *ppcap_module;
 	proto_register_field_array(proto_ppcap , hf , array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
 	register_dissector("ppcap", dissect_ppcap, proto_ppcap);
-	ppcap_module = prefs_register_protocol(proto_ppcap, proto_reg_handoff_ppcap);
-	prefs_register_obsolete_preference(ppcap_module, "rev_doc");
 
 }
 

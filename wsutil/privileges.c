@@ -9,6 +9,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_WSUTIL
 
 #if defined(HAVE_SETRESUID) || defined(HAVE_SETREGUID)
 #define _GNU_SOURCE /* Otherwise [sg]etres[gu]id won't be defined on Linux */
@@ -17,6 +18,8 @@
 #include <glib.h>
 
 #include "privileges.h"
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -148,7 +151,7 @@ init_process_policies(void)
 gboolean
 started_with_special_privs(void)
 {
-	g_assert(init_process_policies_called);
+	ws_assert(init_process_policies_called);
 #ifdef HAVE_ISSETUGID
 	return issetugid();
 #else
@@ -203,7 +206,7 @@ running_with_special_privs(void)
 static void
 setxid_fail(const gchar *str)
 {
-	g_error("Attempt to relinquish privileges failed [%s()] - aborting: %s\n",
+	ws_error("Attempt to relinquish privileges failed [%s()] - aborting: %s\n",
 		str, g_strerror(errno));
 }
 

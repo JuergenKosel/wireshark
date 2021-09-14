@@ -40,7 +40,7 @@
 #include <wsutil/strtoi.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/rsa.h>
-#include <version_info.h>
+#include <wsutil/ws_assert.h>
 #include "packet-ber.h"
 #include "packet-x509af.h"
 #include "packet-x509if.h"
@@ -96,6 +96,22 @@ const value_string ssl_versions[] = {
     { DTLSV1DOT0_OPENSSL_VERSION, "DTLS 1.0 (OpenSSL pre 0.9.8f)" },
     { DTLSV1DOT0_VERSION,   "DTLS 1.0" },
     { DTLSV1DOT2_VERSION,   "DTLS 1.2" },
+    { 0x0A0A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x1A1A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x2A2A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x3A3A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x4A4A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x5A5A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x6A6A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x7A7A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x8A8A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0x9A9A,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xAAAA,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xBABA,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xCACA,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xDADA,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xEAEA,               "Reserved (GREASE)" }, /* RFC 8701 */
+    { 0xFAFA,               "Reserved (GREASE)" }, /* RFC 8701 */
     { 0x00, NULL }
 };
 
@@ -1178,7 +1194,7 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_CACHED_INFO, "cached_info" }, /* RFC 7924 */
     { SSL_HND_HELLO_EXT_COMPRESS_CERTIFICATE, "compress_certificate" }, /* https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-03 */
     { SSL_HND_HELLO_EXT_RECORD_SIZE_LIMIT, "record_size_limit" }, /* RFC 8449 */
-    { SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS, "delegated_credentials" }, /* draft-ietf-tls-subcerts-09.txt */
+    { SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS, "delegated_credentials" }, /* draft-ietf-tls-subcerts-10.txt */
     { SSL_HND_HELLO_EXT_SESSION_TICKET_TLS, "session_ticket" }, /* RFC 5077 / RFC 8447 */
     { SSL_HND_HELLO_EXT_KEY_SHARE_OLD, "Reserved (key_share)" }, /* https://tools.ietf.org/html/draft-ietf-tls-tls13-22 (removed in -23) */
     { SSL_HND_HELLO_EXT_PRE_SHARED_KEY, "pre_shared_key" }, /* RFC 8446 */
@@ -1199,6 +1215,7 @@ const value_string tls_hello_extension_types[] = {
     { SSL_HND_HELLO_EXT_GREASE_2A2A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* https://tools.ietf.org/id/draft-agl-tls-nextprotoneg-03.html */
     { SSL_HND_HELLO_EXT_GREASE_3A3A, "Reserved (GREASE)" }, /* RFC 8701 */
+    { SSL_HND_HELLO_EXT_ALPS, "application_settings" }, /* draft-vvv-tls-alps-01 */
     { SSL_HND_HELLO_EXT_GREASE_4A4A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_5A5A, "Reserved (GREASE)" }, /* RFC 8701 */
     { SSL_HND_HELLO_EXT_GREASE_6A6A, "Reserved (GREASE)" }, /* RFC 8701 */
@@ -4698,7 +4715,7 @@ tls_decrypt_aead_record(SslDecryptSession *ssl, SslDecoder *decoder,
             /* struct { opaque salt[4]; opaque nonce_explicit[8] } CCMNonce (RFC 6655) */
             nonce_with_counter[IMPLICIT_NONCE_LEN + EXPLICIT_NONCE_LEN + 3] = 1;
         } else {
-            g_assert_not_reached();
+            ws_assert_not_reached();
         }
 #endif
     } else if (version == TLSV1DOT3_VERSION || cipher_mode == MODE_POLY1305) {
@@ -5796,7 +5813,7 @@ tls13_load_secret(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map,
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
     }
 
     /* Transitioning to new keys, mark old ones as unusable. */
@@ -6173,7 +6190,6 @@ ssl_set_debug(const gchar* name)
         debug_file_must_be_closed = 0;
 
     ssl_debug_printf("Wireshark SSL debug log \n\n");
-    ssl_debug_printf("Wireshark version: %s\n", get_ws_vcs_version_info());
 #ifdef HAVE_LIBGNUTLS
     ssl_debug_printf("GnuTLS version:    %s\n", gnutls_check_version(NULL));
 #endif
@@ -6653,9 +6669,123 @@ ssl_dissect_hnd_hello_ext_sig_hash_algs(ssl_common_dissect_t *hf, tvbuff_t *tvb,
 
 static gint
 ssl_dissect_hnd_ext_delegated_credentials(ssl_common_dissect_t *hf, tvbuff_t *tvb,
-                                          proto_tree *tree, packet_info* pinfo, guint32 offset, guint32 offset_end)
+                                          proto_tree *tree, packet_info* pinfo, guint32 offset, guint32 offset_end, guint8 hnd_type)
 {
-    return ssl_dissect_hash_alg_list(hf, tvb, tree, pinfo, offset, offset_end);
+    if (hnd_type == SSL_HND_CLIENT_HELLO) {
+        /*
+         *  struct {
+         *    SignatureScheme supported_signature_algorithm<2..2^16-2>;
+         *  } SignatureSchemeList;
+         */
+
+        return ssl_dissect_hash_alg_list(hf, tvb, tree, pinfo, offset, offset_end);
+    } else {
+        asn1_ctx_t asn1_ctx;
+        guint pubkey_length, sign_length;
+
+        /*
+         *  struct {
+         *    uint32 valid_time;
+         *    SignatureScheme expected_cert_verify_algorithm;
+         *    opaque ASN1_subjectPublicKeyInfo<1..2^24-1>;
+         *  } Credential;
+         *
+         *  struct {
+         *    Credential cred;
+         *    SignatureScheme algorithm;
+         *    opaque signature<0..2^16-1>;
+         *  } DelegatedCredential;
+         */
+
+        asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+
+        proto_tree_add_item(tree, hf->hf.hs_cred_valid_time, tvb, offset, 4, ENC_BIG_ENDIAN);
+        offset += 4;
+
+        tls_dissect_signature_algorithm(hf, tvb, tree, offset);
+        offset += 2;
+
+        if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &pubkey_length,
+                            hf->hf.hs_cred_pubkey_len, 1, G_MAXUINT24)) {
+            return offset_end;
+        }
+        offset += 3;
+        dissect_x509af_SubjectPublicKeyInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf->hf.hs_cred_pubkey);
+        offset += pubkey_length;
+
+        tls_dissect_signature_algorithm(hf, tvb, tree, offset);
+        offset += 2;
+
+        if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &sign_length,
+                            hf->hf.hs_cred_signature_len, 1, G_MAXUINT16)) {
+            return offset_end;
+        }
+        offset += 2;
+        proto_tree_add_item(tree, hf->hf.hs_cred_signature,
+                            tvb, offset, sign_length, ENC_ASCII|ENC_NA);
+        offset += sign_length;
+
+        return offset;
+    }
+}
+
+static gint
+ssl_dissect_hnd_hello_ext_alps(ssl_common_dissect_t *hf, tvbuff_t *tvb,
+                               packet_info *pinfo, proto_tree *tree,
+                               guint32 offset, guint32 offset_end,
+                               guint8 hnd_type)
+{
+
+    /* https://datatracker.ietf.org/doc/html/draft-vvv-tls-alps-01#section-4 */
+
+    switch (hnd_type) {
+    case SSL_HND_CLIENT_HELLO: {
+        proto_tree *alps_tree;
+        proto_item *ti;
+        guint32     next_offset, alps_length, name_length;
+
+       /*
+        *  opaque ProtocolName<1..2^8-1>;
+        *  struct {
+        *      ProtocolName supported_protocols<2..2^16-1>
+        *  } ApplicationSettingsSupport;
+        */
+
+        if (!ssl_add_vector(hf, tvb, pinfo, tree, offset, offset_end, &alps_length,
+                            hf->hf.hs_ext_alps_len, 2, G_MAXUINT16)) {
+            return offset_end;
+        }
+        offset += 2;
+        next_offset = offset + alps_length;
+
+        ti = proto_tree_add_item(tree, hf->hf.hs_ext_alps_alpn_list,
+                                 tvb, offset, alps_length, ENC_NA);
+        alps_tree = proto_item_add_subtree(ti, hf->ett.hs_ext_alps);
+
+        /* Parse list (note missing check for end of vector, ssl_add_vector below
+         * ensures that data is always available.) */
+        while (offset < next_offset) {
+            if (!ssl_add_vector(hf, tvb, pinfo, alps_tree, offset, next_offset, &name_length,
+                                hf->hf.hs_ext_alps_alpn_str_len, 1, G_MAXUINT8)) {
+                return next_offset;
+            }
+            offset++;
+
+            proto_tree_add_item(alps_tree, hf->hf.hs_ext_alps_alpn_str,
+                                tvb, offset, name_length, ENC_ASCII|ENC_NA);
+            offset += name_length;
+        }
+
+        return offset;
+    }
+    case SSL_HND_ENCRYPTED_EXTS:
+	/* Opaque blob */
+        proto_tree_add_item(tree, hf->hf.hs_ext_alps_settings,
+                            tvb, offset, offset_end - offset, ENC_ASCII|ENC_NA);
+        break;
+    }
+
+    return offset_end;
 }
 
 static gint
@@ -9435,7 +9565,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             offset = ssl_dissect_hnd_hello_ext_sig_hash_algs(hf, tvb, ext_tree, pinfo, offset, next_offset);
             break;
         case SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS:
-            offset = ssl_dissect_hnd_ext_delegated_credentials(hf, tvb, ext_tree, pinfo, offset, next_offset);
+            offset = ssl_dissect_hnd_ext_delegated_credentials(hf, tvb, ext_tree, pinfo, offset, next_offset, hnd_type);
             break;
         case SSL_HND_HELLO_EXT_USE_SRTP:
             if (is_dtls) {
@@ -9546,6 +9676,9 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
             break;
         case SSL_HND_HELLO_EXT_NPN:
             offset = ssl_dissect_hnd_hello_ext_npn(hf, tvb, pinfo, ext_tree, offset, next_offset);
+            break;
+        case SSL_HND_HELLO_EXT_ALPS:
+            offset = ssl_dissect_hnd_hello_ext_alps(hf, tvb, pinfo, ext_tree, offset, next_offset, hnd_type);
             break;
         case SSL_HND_HELLO_EXT_RENEGOTIATION_INFO:
             offset = ssl_dissect_hnd_hello_ext_reneg_info(hf, tvb, pinfo, ext_tree, offset, next_offset);

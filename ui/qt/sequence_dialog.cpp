@@ -355,18 +355,19 @@ void SequenceDialog::diagramClicked(QMouseEvent *event)
                 }
             }
         }
+
+        switch (event->button()) {
+        case Qt::LeftButton:
+            on_actionGoToPacket_triggered();
+            break;
+        case Qt::RightButton:
+            ctx_menu_.exec(event->globalPos());
+            break;
+        default:
+            break;
+        }
     }
 
-    switch (event->button()) {
-    case Qt::LeftButton:
-        on_actionGoToPacket_triggered();
-        break;
-    case Qt::RightButton:
-        ctx_menu_.exec(event->globalPos());
-        break;
-    default:
-        break;
-    }
 }
 
 void SequenceDialog::mouseMoved(QMouseEvent *event)
@@ -473,8 +474,7 @@ void SequenceDialog::exportDiagram()
         }
         // else error dialog?
         if (save_ok) {
-            path = QDir(file_name);
-            wsApp->setLastOpenDir(path.canonicalPath().toUtf8().constData());
+            wsApp->setLastOpenDirFromFilename(file_name);
         } else {
             open_failure_alert_box(file_name.toUtf8().constData(), errno, TRUE);
         }

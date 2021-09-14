@@ -96,7 +96,7 @@ add_multi_line_string_to_tree(proto_tree *tree, tvbuff_t *tvb, gint start,
         line_len = tvb_find_line_end(tvb, start, len, &next, FALSE);
         data_len = next - start;
         proto_tree_add_string(tree, hf, tvb, start, data_len,
-                              tvb_format_stringzpad(tvb, start, line_len));
+                              tvb_format_stringzpad(wmem_packet_scope(), tvb, start, line_len));
         start += data_len;
         len -= data_len;
     }
@@ -277,7 +277,7 @@ dissect_vpp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
     /* Nodename */
     len = tvb_strsize(tvb, offset);
-    name = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, len,
+    name = tvb_get_string_enc(pinfo->pool, tvb, offset, len,
                               ENC_ASCII);
     proto_tree_add_string(tree, hf_vpp_nodename, tvb, offset, len, name);
     offset += len;

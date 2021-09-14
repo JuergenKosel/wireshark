@@ -10,9 +10,9 @@
 
 #include "config.h"
 
-#include <glib.h>
 #include "codecs.h"
 
+#include <wsutil/wslog.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
@@ -33,7 +33,7 @@ codecs_register_plugin(const codecs_plugin *plug)
 void
 codecs_register_plugin(const codecs_plugin *plug _U_)
 {
-	g_warning("codecs_register_plugin: built without support for binary plugins");
+	ws_warning("codecs_register_plugin: built without support for binary plugins");
 }
 #endif /* HAVE_PLUGINS */
 

@@ -18,7 +18,7 @@
  *
  * Based on the RANAP dissector
  *
- * References: 3GPP TS 36.413 V16.5.0 (2021-04)
+ * References: 3GPP TS 36.413 V16.6.0 (2021-07)
  */
 
 #include "config.h"
@@ -2093,7 +2093,7 @@ dissect_s1ap_warningMessageContents(tvbuff_t *warning_msg_tvb, proto_tree *tree,
     cb_data_page_tvb = tvb_new_subset_length(warning_msg_tvb, offset, length);
     cb_data_tvb = dissect_cbs_data(dcs, cb_data_page_tvb, tree, pinfo, 0);
     if (cb_data_tvb) {
-      str = tvb_get_string_enc(wmem_packet_scope(), cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
+      str = tvb_get_string_enc(pinfo->pool, cb_data_tvb, 0, tvb_reported_length(cb_data_tvb), ENC_UTF_8|ENC_NA);
       proto_tree_add_string_format(tree, hf_decoded_page, warning_msg_tvb, offset, 83,
                                    str, "Decoded Page %u: %s", i+1, str);
     }
@@ -3171,7 +3171,7 @@ dissect_s1ap_TAI(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_
 #line 1446 "./asn1/s1ap/s1ap.cnf"
   struct s1ap_private_data *s1ap_data = s1ap_get_private_data(actx->pinfo);
   s1ap_data->number_type = E212_TAI;
-  s1ap_data->tai = wmem_new0(wmem_packet_scope(), struct s1ap_tai);
+  s1ap_data->tai = wmem_new0(actx->pinfo->pool, struct s1ap_tai);
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
                                    ett_s1ap_TAI, TAI_sequence);
 
@@ -4386,6 +4386,7 @@ const value_string s1ap_CauseRadioNetwork_vals[] = {
   {  38, "invalid-CSG-Id" },
   {  39, "release-due-to-pre-emption" },
   {  40, "n26-interface-not-available" },
+  {  41, "insufficient-ue-capabilities" },
   { 0, NULL }
 };
 
@@ -4397,7 +4398,7 @@ dissect_s1ap_CauseRadioNetwork(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 #line 2584 "./asn1/s1ap/s1ap.cnf"
   guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     36, &value, TRUE, 5, NULL);
+                                     36, &value, TRUE, 6, NULL);
 
   col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [RadioNetwork-cause=%s]", val_to_str_const(value, s1ap_CauseRadioNetwork_vals, "Unknown"));
 
@@ -4930,8 +4931,8 @@ dissect_s1ap_SupportedTAs_Item(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
       (s1ap_data->message_type == INITIATING_MESSAGE) &&
       ((s1ap_data->procedure_code == id_S1Setup) ||
        (s1ap_data->procedure_code == id_ENBConfigurationUpdate))) {
-    s1ap_data->supported_ta = wmem_new0(wmem_packet_scope(), struct s1ap_supported_ta);
-    s1ap_data->supported_ta->plmn = wmem_array_new(wmem_packet_scope(), sizeof(guint32));
+    s1ap_data->supported_ta = wmem_new0(actx->pinfo->pool, struct s1ap_supported_ta);
+    s1ap_data->supported_ta->plmn = wmem_array_new(actx->pinfo->pool, sizeof(guint32));
   }
 
 
@@ -5882,7 +5883,7 @@ dissect_s1ap_ENBname(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
   is_ascii = tvb_ascii_isprint(parameter_tvb, 0, length);
   if (is_ascii)
-     proto_item_append_text(actx->created_item," (%s)",tvb_format_text(parameter_tvb, 0, length));
+     proto_item_append_text(actx->created_item," (%s)",tvb_format_text(actx->pinfo->pool, parameter_tvb, 0, length));
 
 
 
@@ -8239,7 +8240,7 @@ dissect_s1ap_MMEname(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
   is_ascii = tvb_ascii_isprint(parameter_tvb, 0, length);
   if (is_ascii)
-     proto_item_append_text(actx->created_item," (%s)",tvb_format_text(parameter_tvb, 0, length));
+     proto_item_append_text(actx->created_item," (%s)",tvb_format_text(actx->pinfo->pool, parameter_tvb, 0, length));
 
 
 

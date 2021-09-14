@@ -1256,12 +1256,12 @@ ppp_dissect_options(tvbuff_t *tvb, int offset, guint length, dissector_table_t c
         if (option_dissectors != NULL) {
             option_dissector = dissector_get_uint_handle(option_dissectors, opt);
             if (option_dissector == NULL) {
-                name = wmem_strdup_printf(wmem_packet_scope(), "Unknown (0x%02x)", opt);
+                name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
             } else {
                 name = dissector_handle_get_short_name(option_dissector);
             }
         } else {
-            name = wmem_strdup_printf(wmem_packet_scope(), "Unknown (0x%02x)", opt);
+            name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
         }
 
         /* Option has a length. Is it in the packet? */
@@ -4403,27 +4403,27 @@ dissect_vsncp_pdnaddress_opt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
     case 2:
     {
-        ws_in6_addr *ad = wmem_new0(wmem_packet_scope(),ws_in6_addr);
+        ws_in6_addr *ad = wmem_new0(pinfo->pool,ws_in6_addr);
         address addr;
 
         tvb_memcpy(tvb, &ad->bytes[8], offset + 3, 8);
         set_address(&addr, AT_IPv6, 16, ad->bytes);
         proto_tree_add_ipv6_format(field_tree, hf_vsncp_pdn_ipv6, tvb, offset + 3, length - 3, ad,
             "%s: %s", val_to_str_const(pdnaddtype, vsncp_pdntype_vals, "Unknown"),
-            address_to_str(wmem_packet_scope(), &addr));
+            address_to_str(pinfo->pool, &addr));
         break;
     }
 
     case 3:
     {
-        ws_in6_addr *ad = wmem_new0(wmem_packet_scope(), ws_in6_addr);
+        ws_in6_addr *ad = wmem_new0(pinfo->pool, ws_in6_addr);
         address addr;
 
         tvb_memcpy(tvb, &ad->bytes[8], offset + 3, 8);
         set_address(&addr, AT_IPv6, 16, ad->bytes);
         proto_tree_add_ipv6_format(field_tree, hf_vsncp_pdn_ipv6, tvb, offset + 3, length - 3, ad,
             "%s: %s", val_to_str_const(pdnaddtype, vsncp_pdntype_vals, "Unknown"),
-            address_to_str(wmem_packet_scope(), &addr));
+            address_to_str(pinfo->pool, &addr));
         proto_tree_add_ipv4_format(field_tree, hf_vsncp_pdn_ipv4, tvb, offset + 11, length - 11,
             tvb_get_ntohl(tvb, offset + 11), "%s: %s", val_to_str_const(pdnaddtype, vsncp_pdntype_vals, "Unknown"),
             tvb_ip_to_str(tvb, offset + 11));
@@ -4475,10 +4475,10 @@ dissect_vsncp_apname_opt(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
         while (i < (length - 2)) {
             lengthofapn = tvb_get_guint8(tvb, off++);
             proto_tree_add_string_format(field_tree, hf_vsncp_access_point_name, tvb, off, lengthofapn,
-                tvb_get_string_enc(wmem_packet_scope(), tvb, off, lengthofapn, ENC_ASCII),
+                tvb_get_string_enc(pinfo->pool, tvb, off, lengthofapn, ENC_ASCII),
                 "Label%d (%d byte%s): %s", j++, lengthofapn,
                 plurality(lengthofapn, "", "s"),
-                tvb_format_text(tvb, off, lengthofapn));
+                tvb_format_text(pinfo->pool, tvb, off, lengthofapn));
             off += lengthofapn;
             i += lengthofapn + 1;
         }
@@ -4659,7 +4659,7 @@ dissect_cp(tvbuff_t *tvb, int proto_id, int proto_subtree_index,
             proto_tree_add_bytes_format(fh_tree, hf_ppp_data, tvb, offset,
                 length, NULL, "Rejected Packet (%d byte%s): %s", length,
                 plurality(length, "", "s"),
-                tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, length));
+                tvb_bytes_to_str(pinfo->pool, tvb, offset, length));
         }
         break;
 
@@ -6160,7 +6160,7 @@ dissect_pap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
         proto_tree_add_item(data_tree, hf_pap_peer_id, tvb, offset,
                             peer_id_length, ENC_ASCII|ENC_NA);
-        peer_id = tvb_format_text(tvb, offset, peer_id_length);
+        peer_id = tvb_format_text(pinfo->pool, tvb, offset, peer_id_length);
         offset += peer_id_length;
 
         proto_tree_add_item(data_tree, hf_pap_password_length, tvb, offset,
@@ -6170,7 +6170,7 @@ dissect_pap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
         proto_tree_add_item(data_tree, hf_pap_password, tvb, offset,
                             password_length, ENC_ASCII|ENC_NA);
-        password = tvb_format_text(tvb, offset, password_length);
+        password = tvb_format_text(pinfo->pool, tvb, offset, password_length);
 
         col_append_fstr(pinfo->cinfo, COL_INFO,
                         " (Peer-ID='%s', Password='%s')", peer_id, password);
@@ -6185,7 +6185,7 @@ dissect_pap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
         proto_tree_add_item(data_tree, hf_pap_message, tvb, offset,
                             message_length, ENC_ASCII|ENC_NA);
-        message = tvb_format_text(tvb, offset, message_length);
+        message = tvb_format_text(pinfo->pool, tvb, offset, message_length);
 
         col_append_fstr(pinfo->cinfo, COL_INFO, " (Message='%s')",
                         message);
@@ -6289,10 +6289,10 @@ dissect_chap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                 /* Show name and value in info column */
                 col_append_fstr(pinfo->cinfo, COL_INFO,
                                 " (NAME='%s%s', VALUE=0x%s)",
-                                tvb_format_text(tvb, name_offset,
+                                tvb_format_text(pinfo->pool, tvb, name_offset,
                                                 (name_size > 20) ? 20 : name_size),
                                 (name_size > 20) ? "..." : "",
-                                tvb_bytes_to_str(wmem_packet_scope(), tvb, value_offset, value_size));
+                                tvb_bytes_to_str(pinfo->pool, tvb, value_offset, value_size));
             }
         }
         break;
@@ -6307,7 +6307,7 @@ dissect_chap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
         /* Show message in info column */
         col_append_fstr(pinfo->cinfo, COL_INFO, " (MESSAGE='%s')",
-            tvb_format_text(tvb, offset, length));
+            tvb_format_text(pinfo->pool, tvb, offset, length));
         break;
 
     /* Code from unknown code type... */

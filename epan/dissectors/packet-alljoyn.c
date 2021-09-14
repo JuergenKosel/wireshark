@@ -12,6 +12,7 @@
 #include "config.h"
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <wsutil/ws_roundup.h>
 
 void proto_register_AllJoyn(void);
 void proto_reg_handoff_AllJoyn(void);
@@ -245,9 +246,9 @@ static gint ett_alljoyn_mess_header = -1;
 static gint ett_alljoyn_mess_body_parameters = -1;
 static gint ett_alljoyn_ardp = -1;  /* This is the top ARDP tree. */
 
-#define ROUND_TO_2BYTE(len) ((len + 1) & ~1)
-#define ROUND_TO_4BYTE(len) ((len + 3) & ~3)
-#define ROUND_TO_8BYTE(len) ((len + 7) & ~7)
+#define ROUND_TO_2BYTE(len) WS_ROUNDUP_2(len)
+#define ROUND_TO_4BYTE(len) WS_ROUNDUP_4(len)
+#define ROUND_TO_8BYTE(len) WS_ROUNDUP_8(len)
 
 static const value_string endian_encoding_vals[] = {
     { 'B', "Big endian" },
@@ -993,7 +994,7 @@ parse_arg(tvbuff_t      *tvb,
 
         /* Extract signature from tvb and return to caller. */
         /* XXX should this extract "length - 1" since we always expect /0? */
-        proto_tree_add_item_ret_string(field_tree, hf_alljoyn_mess_body_signature, tvb, offset, length, ENC_ASCII|ENC_NA, wmem_packet_scope(), signature);
+        proto_tree_add_item_ret_string(field_tree, hf_alljoyn_mess_body_signature, tvb, offset, length, ENC_ASCII|ENC_NA, pinfo->pool, signature);
         *signature_length = length;
 
         if(HDR_SIGNATURE == field_code) {
@@ -1085,7 +1086,7 @@ parse_arg(tvbuff_t      *tvb,
         length += 1;    /* Include the '\0'. */
         offset += 4;
 
-        proto_tree_add_item_ret_string(field_tree, hf_alljoyn_string_data, tvb, offset, length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &member_name);
+        proto_tree_add_item_ret_string(field_tree, hf_alljoyn_string_data, tvb, offset, length, ENC_UTF_8|ENC_NA, pinfo->pool, &member_name);
 
         if(HDR_MEMBER == field_code) {
             col_append_fstr(pinfo->cinfo, COL_INFO, " %s", member_name);
@@ -1163,7 +1164,7 @@ parse_arg(tvbuff_t      *tvb,
             offset += 1;
 
             tree = proto_item_add_subtree(item, ett_alljoyn_mess_body_parameters);
-            proto_tree_add_item_ret_string(tree, hf_alljoyn_mess_body_signature, tvb, offset, length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &sig_saved);
+            proto_tree_add_item_ret_string(tree, hf_alljoyn_mess_body_signature, tvb, offset, length, ENC_ASCII|ENC_NA, pinfo->pool, &sig_saved);
 
             offset += length;
             sig_pointer = sig_saved;

@@ -684,7 +684,7 @@ dissect_bmp_peer_header(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int
     offset += 1;
 
     item = proto_tree_add_item(subtree, hf_peer_distinguisher, tvb, offset, 8, ENC_NA);
-    proto_item_set_text(item, "Peer Distinguisher: %s", decode_bgp_rd(tvb, offset));
+    proto_item_set_text(item, "Peer Distinguisher: %s", decode_bgp_rd(pinfo->pool, tvb, offset));
     offset += 8;
 
     if (flags & BMP_PEER_FLAG_IPV6) {
@@ -926,11 +926,11 @@ dissect_bmp_route_policy_event(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
                     proto_item_append_text(policy_tree, ": (t=%d,l=%d)", policy_name_length, policy_item_id_length);
                     proto_item_set_len(policy_tree, 2 + 2 + policy_name_length + policy_item_id_length );
 
-                    proto_tree_add_item_ret_string(policy_tree, hf_route_policy_tlv_policy_name, tvb, offset, policy_name_length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &policy_name);
+                    proto_tree_add_item_ret_string(policy_tree, hf_route_policy_tlv_policy_name, tvb, offset, policy_name_length, ENC_ASCII|ENC_NA, pinfo->pool, &policy_name);
                     proto_item_append_text(policy_tree, " name: %s", policy_name);
                     offset += policy_name_length;
 
-                    proto_tree_add_item_ret_string(policy_tree, hf_route_policy_tlv_policy_item_id, tvb, offset, policy_item_id_length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &policy_id);
+                    proto_tree_add_item_ret_string(policy_tree, hf_route_policy_tlv_policy_item_id, tvb, offset, policy_item_id_length, ENC_ASCII|ENC_NA, pinfo->pool, &policy_id);
                     proto_item_append_text(policy_tree, " id: %s", policy_id);
                     offset += policy_item_id_length;
 
@@ -1344,7 +1344,7 @@ proto_register_bmp(void)
             { "Number of routes in pre-policy Adj-RIBs-Out", "bmp.stats.data.routes_pre_adj_rib_out", FT_UINT64, BASE_DEC,
                 NULL, 0x0, NULL, HFILL }},
         { &hf_stat_data_routes_post_adj_rib_out,
-            { "Number of routes in post-policy Adj-RIBs-Out", "bmp.stats.data.routes_pre_adj_rib_out", FT_UINT64, BASE_DEC,
+            { "Number of routes in post-policy Adj-RIBs-Out", "bmp.stats.data.routes_post_adj_rib_out", FT_UINT64, BASE_DEC,
                 NULL, 0x0, NULL, HFILL }},
         { &hf_stat_data_routes_pre_per_adj_rib_out_afi,
             { "AFI", "bmp.stats.data.routes_pre_per_adj_rib_out.afi", FT_UINT16, BASE_DEC,

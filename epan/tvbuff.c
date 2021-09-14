@@ -32,6 +32,7 @@
 #include "wsutil/unicode-utils.h"
 #include "wsutil/nstime.h"
 #include "wsutil/time_util.h"
+#include <wsutil/ws_assert.h>
 #include "tvbuff.h"
 #include "tvbuff-int.h"
 #include "strutil.h"
@@ -70,7 +71,7 @@ tvb_new(const struct tvb_ops *ops)
 	tvbuff_t *tvb;
 	gsize     size = ops->tvb_size;
 
-	g_assert(size >= sizeof(*tvb));
+	ws_assert(size >= sizeof(*tvb));
 
 	tvb = (tvbuff_t *) g_slice_alloc(size);
 
@@ -539,9 +540,6 @@ tvb_ensure_captured_length_remaining(const tvbuff_t *tvb, const gint offset)
 	return rem_length;
 }
 
-
-
-
 /* Validates that 'length' bytes are available starting from
  * offset (pos/neg). Does not throw an exception. */
 gboolean
@@ -711,6 +709,24 @@ tvb_reported_length_remaining(const tvbuff_t *tvb, const gint offset)
 		return tvb->reported_length - abs_offset;
 	else
 		return 0;
+}
+
+guint
+tvb_ensure_reported_length_remaining(const tvbuff_t *tvb, const gint offset)
+{
+	guint abs_offset = 0;
+	int   exception;
+
+	DISSECTOR_ASSERT(tvb && tvb->initialized);
+
+	exception = compute_offset(tvb, offset, &abs_offset);
+	if (exception)
+		THROW(exception);
+
+	if (tvb->reported_length >= abs_offset)
+		return tvb->reported_length - abs_offset;
+	else
+		THROW(ReportedBoundsError);
 }
 
 /* Set the reported length of a tvbuff to a given value; used for protocols
@@ -1645,14 +1661,17 @@ GByteArray*
 tvb_get_string_bytes(tvbuff_t *tvb, const gint offset, const gint length,
 		     const guint encoding, GByteArray *bytes, gint *endoff)
 {
-	const gchar *ptr    = (gchar*) tvb_get_raw_string(wmem_packet_scope(), tvb, offset, length);
-	const gchar *begin  = ptr;
+	gchar *ptr;
+	const gchar *begin;
 	const gchar *end    = NULL;
 	GByteArray  *retval = NULL;
 
 	errno = EDOM;
 
 	validate_single_byte_ascii_encoding(encoding);
+
+	ptr = (gchar*) tvb_get_raw_string(NULL, tvb, offset, length);
+	begin = ptr;
 
 	if (endoff) *endoff = 0;
 
@@ -1667,6 +1686,8 @@ tvb_get_string_bytes(tvbuff_t *tvb, const gint offset, const gint length,
 			}
 		}
 	}
+
+	wmem_free(NULL, ptr);
 
 	return retval;
 }
@@ -1690,8 +1711,8 @@ nstime_t*
 tvb_get_string_time(tvbuff_t *tvb, const gint offset, const gint length,
 		    const guint encoding, nstime_t *ns, gint *endoff)
 {
-	const gchar *begin     = (gchar*) tvb_get_raw_string(wmem_packet_scope(), tvb, offset, length);
-	const gchar *ptr       = begin;
+	gchar *begin;
+	const gchar *ptr;
 	const gchar *end       = NULL;
 	struct tm    tm;
 	nstime_t*    retval    = NULL;
@@ -1706,6 +1727,9 @@ tvb_get_string_time(tvbuff_t *tvb, const gint offset, const gint length,
 	validate_single_byte_ascii_encoding(encoding);
 
 	DISSECTOR_ASSERT(ns);
+
+	begin = (gchar*) tvb_get_raw_string(NULL, tvb, offset, length);
+	ptr = begin;
 
 	memset(&tm, 0, sizeof(tm));
 	tm.tm_isdst = -1;
@@ -1899,6 +1923,8 @@ tvb_get_string_time(tvbuff_t *tvb, const gint offset, const gint length,
 		if (endoff)
 		    *endoff = (gint)(offset + (end - begin));
 	}
+
+	wmem_free(NULL, begin);
 
 	return retval;
 }
@@ -2439,7 +2465,7 @@ tvb_memeql(tvbuff_t *tvb, const gint offset, const guint8 *str, size_t size)
  * wmem packet_scoped so call must be in that scope.
  */
 gchar *
-tvb_format_text(tvbuff_t *tvb, const gint offset, const gint size)
+tvb_format_text(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint size)
 {
 	const guint8 *ptr;
 	gint          len;
@@ -2447,7 +2473,7 @@ tvb_format_text(tvbuff_t *tvb, const gint offset, const gint size)
 	len = (size > 0) ? size : 0;
 
 	ptr = ensure_contiguous(tvb, offset, size);
-	return format_text(wmem_packet_scope(), ptr, len);
+	return format_text(scope, ptr, len);
 }
 
 /*
@@ -2471,7 +2497,7 @@ tvb_format_text_wsp(wmem_allocator_t* allocator, tvbuff_t *tvb, const gint offse
  * so call must be in that scope.
  */
 gchar *
-tvb_format_stringzpad(tvbuff_t *tvb, const gint offset, const gint size)
+tvb_format_stringzpad(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint size)
 {
 	const guint8 *ptr, *p;
 	gint          len;
@@ -2482,7 +2508,7 @@ tvb_format_stringzpad(tvbuff_t *tvb, const gint offset, const gint size)
 	ptr = ensure_contiguous(tvb, offset, size);
 	for (p = ptr, stringlen = 0; stringlen < len && *p != '\0'; p++, stringlen++)
 		;
-	return format_text(wmem_packet_scope(), ptr, stringlen);
+	return format_text(scope, ptr, stringlen);
 }
 
 /*
@@ -4198,7 +4224,7 @@ int tvb_get_token_len(tvbuff_t *tvb, const gint offset, int len, gint *next_offs
 gchar *
 tvb_bytes_to_str_punct(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint len, const gchar punct)
 {
-	return bytestring_to_str(scope, ensure_contiguous(tvb, offset, len), len, punct);
+	return bytes_to_str_punct(scope, ensure_contiguous(tvb, offset, len), len, punct);
 }
 
 /*
@@ -4289,21 +4315,21 @@ tvb_get_bcd_string(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, gi
 
 /* XXXX Fix me - needs odd indicator added */
 const gchar *
-tvb_bcd_dig_to_wmem_packet_str(tvbuff_t *tvb, const gint offset, const gint len, const dgt_set_t *dgt, gboolean skip_first)
+tvb_bcd_dig_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint len, const dgt_set_t *dgt, gboolean skip_first)
 {
 	if (!dgt)
 		dgt = &Dgt0_9_bcd;
 
-	return tvb_get_bcd_string(wmem_packet_scope(), tvb, offset, len, dgt, skip_first, FALSE, FALSE);
+	return tvb_get_bcd_string(scope, tvb, offset, len, dgt, skip_first, FALSE, FALSE);
 }
 
 const gchar *
-tvb_bcd_dig_to_wmem_packet_str_be(tvbuff_t *tvb, const gint offset, const gint len, const dgt_set_t *dgt, gboolean skip_first)
+tvb_bcd_dig_to_str_be(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint len, const dgt_set_t *dgt, gboolean skip_first)
 {
 	if (!dgt)
 		dgt = &Dgt0_9_bcd;
 
-	return tvb_get_bcd_string(wmem_packet_scope(), tvb, offset, len, dgt, skip_first, FALSE, TRUE);
+	return tvb_get_bcd_string(scope, tvb, offset, len, dgt, skip_first, FALSE, TRUE);
 }
 
 /*
@@ -4313,6 +4339,7 @@ tvb_bcd_dig_to_wmem_packet_str_be(tvbuff_t *tvb, const gint offset, const gint l
 gchar *tvb_bytes_to_str(wmem_allocator_t *allocator, tvbuff_t *tvb,
     const gint offset, const gint len)
 {
+	DISSECTOR_ASSERT(len > 0);
 	return bytes_to_str(allocator, ensure_contiguous(tvb, offset, len), len);
 }
 
@@ -4418,7 +4445,7 @@ tvb_get_varint(tvbuff_t *tvb, guint offset, guint maxlen, guint64 *value, const 
 			*value = tvb_get_ntoh64(tvb, offset) & G_GUINT64_CONSTANT(0x3FFFFFFFFFFFFFFF);
 			return 8;
 		default: /* No Possible */
-			g_assert_not_reached();
+			ws_assert_not_reached();
 			break;
 		}
 

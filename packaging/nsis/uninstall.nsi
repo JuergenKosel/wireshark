@@ -30,6 +30,8 @@ UninstallIcon "..\..\image\wiresharkinst.ico"
 ;UninstallText "This will uninstall ${PROGRAM_NAME}.\r\nBefore starting the uninstallation, make sure ${PROGRAM_NAME} is not running.\r\nClick 'Next' to continue."
 
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
+!define MUI_WELCOMEPAGE_TITLE_3LINES
+!define MUI_FINISHPAGE_TITLE_3LINES
 
 !insertmacro MUI_UNPAGE_WELCOME
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -232,6 +234,7 @@ Delete "$INSTDIR\wka"
 Delete "$INSTDIR\services"
 Delete "$INSTDIR\pdml2html.xsl"
 Delete "$INSTDIR\pcrepattern.3.txt"
+Delete "$INSTDIR\Wireshark User's Guide\*.*"
 Delete "$INSTDIR\user-guide.chm"
 Delete "$INSTDIR\example_snmp_users_file"
 Delete "$INSTDIR\ipmap.html"
@@ -291,6 +294,7 @@ RMDir "$INSTDIR\styles\translations"
 RMDir "$INSTDIR\styles"
 RMDir "$SMPROGRAMS\${PROGRAM_NAME}"
 RMDir "$INSTDIR\help"
+RMDir "$INSTDIR\Wireshark User's Guide"
 RMDir "$INSTDIR\diameter"
 RMDir "$INSTDIR\snmp\mibs"
 RMDir "$INSTDIR\snmp"

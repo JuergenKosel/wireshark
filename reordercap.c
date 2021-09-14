@@ -36,7 +36,7 @@
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 #include <wiretap/wtap_opttypes.h>
 
 #ifdef HAVE_PLUGINS
@@ -44,6 +44,7 @@
 #endif
 
 #include <wsutil/report_message.h>
+#include <wsutil/wslog.h>
 
 #include "ui/failure_message.h"
 
@@ -121,6 +122,7 @@ frame_write(FrameRecord_t *frame, wtap *wth, wtap_dumper *pdh,
                                     wtap_file_type_subtype(wth));
         exit(1);
     }
+    wtap_rec_reset(rec);
 }
 
 /* Comparing timestamps between 2 frames.
@@ -208,6 +210,12 @@ main(int argc, char *argv[])
     const char *outfile;
 
     cmdarg_err_init(reordercap_cmdarg_err, reordercap_cmdarg_err_cont);
+
+    /* Initialize log handler early so we can have proper logging during startup. */
+    ws_log_init("reordercap", vcmdarg_err);
+
+    /* Early logging command-line initialization. */
+    ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
 
     /* Initialize the version information. */
     ws_init_version_info("Reordercap (Wireshark)", NULL, NULL, NULL);
@@ -321,6 +329,7 @@ main(int argc, char *argv[])
 
         g_ptr_array_add(frames, newFrameRecord);
         prevFrame = newFrameRecord;
+        wtap_rec_reset(&rec);
     }
     wtap_rec_cleanup(&rec);
     ws_buffer_free(&buf);

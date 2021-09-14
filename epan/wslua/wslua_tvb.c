@@ -18,7 +18,7 @@
 #include "config.h"
 
 #include "wslua.h"
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 
 
 /* WSLUA_MODULE Tvb Functions For Handling Packet Data */
@@ -52,7 +52,7 @@ WSLUA_CLASS_DEFINE(Tvb,FAIL_ON_NULL_OR_EXPIRED("Tvb"));
    and can be used to extract information (via <<lua_class_TvbRange,`TvbRange`>>) from the packet's data.
 
    To create a <<lua_class_TvbRange,`TvbRange`>> the <<lua_class_Tvb,`Tvb`>> must be called with offset and length as optional arguments;
-   the offset defaults to 0 and the length to `tvb:len()`.
+   the offset defaults to 0 and the length to `tvb:captured_len()`.
 
    [WARNING]
    ====
@@ -132,15 +132,24 @@ static int Tvb__gc(lua_State* L) {
 }
 
 WSLUA_METHOD Tvb_reported_len(lua_State* L) {
-    /* Obtain the reported (not captured) length of a <<lua_class_Tvb,`Tvb`>>. */
+    /* Obtain the reported length (length on the network) of a <<lua_class_Tvb,`Tvb`>>. */
     Tvb tvb = checkTvb(L,1);
 
     lua_pushnumber(L,tvb_reported_length(tvb->ws_tvb));
     WSLUA_RETURN(1); /* The reported length of the <<lua_class_Tvb,`Tvb`>>. */
 }
 
+WSLUA_METHOD Tvb_captured_len(lua_State* L) {
+    /* Obtain the captured length (amount saved in the capture process) of a <<lua_class_Tvb,`Tvb`>>. */
+    Tvb tvb = checkTvb(L,1);
+
+    lua_pushnumber(L,tvb_captured_length(tvb->ws_tvb));
+    WSLUA_RETURN(1); /* The captured length of the <<lua_class_Tvb,`Tvb`>>. */
+}
+
 WSLUA_METHOD Tvb_len(lua_State* L) {
-    /* Obtain the actual (captured) length of a <<lua_class_Tvb,`Tvb`>>. */
+    /* Obtain the captured length (amount saved in the capture process) of a <<lua_class_Tvb,`Tvb`>>.
+       Same as captured_len; kept only for backwards compatibility */
     Tvb tvb = checkTvb(L,1);
 
     lua_pushnumber(L,tvb_captured_length(tvb->ws_tvb));
@@ -148,7 +157,7 @@ WSLUA_METHOD Tvb_len(lua_State* L) {
 }
 
 WSLUA_METHOD Tvb_reported_length_remaining(lua_State* L) {
-    /* Obtain the reported (not captured) length of packet data to end of a <<lua_class_Tvb,`Tvb`>> or -1 if the
+    /* Obtain the reported (not captured) length of packet data to end of a <<lua_class_Tvb,`Tvb`>> or 0 if the
        offset is beyond the end of the <<lua_class_Tvb,`Tvb`>>. */
 #define Tvb_reported_length_remaining_OFFSET 2 /* offset */
     Tvb tvb = checkTvb(L,1);
@@ -299,10 +308,11 @@ WSLUA_METAMETHOD Tvb__eq(lua_State* L) {
 WSLUA_METHODS Tvb_methods[] = {
     WSLUA_CLASS_FNREG(Tvb,bytes),
     WSLUA_CLASS_FNREG(Tvb,range),
-    WSLUA_CLASS_FNREG(Tvb,len),
     WSLUA_CLASS_FNREG(Tvb,offset),
     WSLUA_CLASS_FNREG(Tvb,reported_len),
     WSLUA_CLASS_FNREG(Tvb,reported_length_remaining),
+    WSLUA_CLASS_FNREG(Tvb,captured_len),
+    WSLUA_CLASS_FNREG(Tvb,len),
     WSLUA_CLASS_FNREG(Tvb,raw),
     { NULL, NULL }
 };
@@ -951,6 +961,7 @@ WSLUA_METHOD TvbRange_string(lua_State* L) {
 #define WSLUA_OPTARG_TvbRange_string_ENCODING 2 /* The encoding to use. Defaults to ENC_ASCII. */
     TvbRange tvbr = checkTvbRange(L,1);
     guint encoding = (guint)luaL_optinteger(L,WSLUA_OPTARG_TvbRange_string_ENCODING, ENC_ASCII|ENC_NA);
+    char * str;
 
     if ( !(tvbr && tvbr->tvb)) return 0;
     if (tvbr->tvb->expired) {
@@ -958,7 +969,9 @@ WSLUA_METHOD TvbRange_string(lua_State* L) {
         return 0;
     }
 
-    lua_pushlstring(L, (gchar*)tvb_get_string_enc(wmem_packet_scope(),tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,encoding), tvbr->len);
+    str = (gchar*)tvb_get_string_enc(NULL,tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,encoding);
+    lua_pushlstring(L, str, tvbr->len);
+    wmem_free(NULL, str);
 
     WSLUA_RETURN(1); /* A string containing all bytes in the <<lua_class_TvbRange,`TvbRange`>> including all zeroes (e.g., "a\000bc\000"). */
 }
@@ -974,8 +987,9 @@ static int TvbRange_ustring_any(lua_State* L, gboolean little_endian) {
         return 0;
     }
 
-    str = (gchar*)tvb_get_string_enc(wmem_packet_scope(),tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,(little_endian ? ENC_UTF_16|ENC_LITTLE_ENDIAN : ENC_UTF_16|ENC_BIG_ENDIAN));
+    str = (gchar*)tvb_get_string_enc(NULL,tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len,(little_endian ? ENC_UTF_16|ENC_LITTLE_ENDIAN : ENC_UTF_16|ENC_BIG_ENDIAN));
     lua_pushlstring(L, str, strlen(str));
+    wmem_free(NULL, str);
 
     return 1; /* The string */
 }
@@ -997,6 +1011,7 @@ WSLUA_METHOD TvbRange_stringz(lua_State* L) {
     guint encoding = (guint)luaL_optinteger(L,WSLUA_OPTARG_TvbRange_stringz_ENCODING, ENC_ASCII|ENC_NA);
     gint offset;
     gunichar2 uchar;
+    gchar *str;
 
     if ( !(tvbr && tvbr->tvb)) return 0;
     if (tvbr->tvb->expired) {
@@ -1028,7 +1043,9 @@ WSLUA_METHOD TvbRange_stringz(lua_State* L) {
         break;
     }
 
-    lua_pushstring(L, (gchar*)tvb_get_stringz_enc(wmem_packet_scope(),tvbr->tvb->ws_tvb,tvbr->offset,NULL,encoding));
+    str = (gchar*)tvb_get_stringz_enc(NULL,tvbr->tvb->ws_tvb,tvbr->offset,NULL,encoding);
+    lua_pushstring(L, str);
+    wmem_free(NULL, str);
 
     WSLUA_RETURN(1); /* The string containing all bytes in the <<lua_class_TvbRange,`TvbRange`>> up to the first terminating zero. */
 }
@@ -1088,6 +1105,7 @@ static int TvbRange_ustringz_any(lua_State* L, gboolean little_endian) {
     TvbRange tvbr = checkTvbRange(L,1);
     gint offset;
     gunichar2 uchar;
+    gchar *str;
 
     if ( !(tvbr && tvbr->tvb)) return 0;
     if (tvbr->tvb->expired) {
@@ -1106,9 +1124,11 @@ static int TvbRange_ustringz_any(lua_State* L, gboolean little_endian) {
       offset += 2;
     } while (uchar != 0);
 
-    lua_pushstring(L, (gchar*)tvb_get_stringz_enc(wmem_packet_scope(),tvbr->tvb->ws_tvb,tvbr->offset,&count,
-                                (little_endian ? ENC_UTF_16|ENC_LITTLE_ENDIAN : ENC_UTF_16|ENC_BIG_ENDIAN)) );
+    str = (gchar*)tvb_get_stringz_enc(NULL,tvbr->tvb->ws_tvb,tvbr->offset,&count,
+                                (little_endian ? ENC_UTF_16|ENC_LITTLE_ENDIAN : ENC_UTF_16|ENC_BIG_ENDIAN));
+    lua_pushstring(L, str);
     lua_pushinteger(L,count);
+    wmem_free(NULL, str);
 
     return 2; /* The zero terminated string, the length found in tvbr */
 }
@@ -1145,7 +1165,9 @@ WSLUA_METHOD TvbRange_bytes(lua_State* L) {
 #define WSLUA_OPTARG_TvbRange_bytes_ENCODING 2 /* An optional ENC_* encoding value to use */
     TvbRange tvbr = checkTvbRange(L,1);
     GByteArray* ba;
+    guint8* raw;
     const guint encoding = (guint)luaL_optinteger(L, WSLUA_OPTARG_TvbRange_bytes_ENCODING, 0);
+
 
     if ( !(tvbr && tvbr->tvb)) return 0;
     if (tvbr->tvb->expired) {
@@ -1155,7 +1177,9 @@ WSLUA_METHOD TvbRange_bytes(lua_State* L) {
 
     if (encoding == 0) {
         ba = g_byte_array_new();
-        g_byte_array_append(ba,(const guint8 *)tvb_memdup(wmem_packet_scope(),tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len),tvbr->len);
+        raw = (guint8 *)tvb_memdup(NULL,tvbr->tvb->ws_tvb,tvbr->offset,tvbr->len);
+        g_byte_array_append(ba,raw,tvbr->len);
+        wmem_free(NULL, raw);
         pushByteArray(L,ba);
         lua_pushinteger(L, tvbr->len);
     }

@@ -42,7 +42,7 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
@@ -50,6 +50,7 @@
 
 #include <wsutil/report_message.h>
 #include <wsutil/str_util.h>
+#include <wsutil/wslog.h>
 
 #include "ui/failure_message.h"
 
@@ -120,6 +121,12 @@ main(int argc, char *argv[])
 #endif
 
   cmdarg_err_init(captype_cmdarg_err, captype_cmdarg_err_cont);
+
+  /* Initialize log handler early so we can have proper logging during startup. */
+  ws_log_init("captype", vcmdarg_err);
+
+  /* Early logging command-line initialization. */
+  ws_log_parse_args(&argc, argv, vcmdarg_err, 1);
 
   /* Initialize the version information. */
   ws_init_version_info("Captype (Wireshark)", NULL, NULL, NULL);

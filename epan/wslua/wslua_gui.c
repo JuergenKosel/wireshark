@@ -12,7 +12,7 @@
 
 #include "config.h"
 
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 
 #include "wslua.h"
 
@@ -48,13 +48,13 @@ static void lua_menu_callback(gpointer data) {
         case 0:
             break;
         case LUA_ERRRUN:
-            g_warning("Runtime error while calling menu callback");
+            ws_warning("Runtime error while calling menu callback");
             break;
         case LUA_ERRMEM:
-            g_warning("Memory alloc error while calling menu callback");
+            ws_warning("Memory alloc error while calling menu callback");
             break;
         case LUA_ERRERR:
-            g_warning("Error while running the error handler function for menu callback");
+            ws_warning("Error while running the error handler function for menu callback");
             break;
         default:
             ws_assert_not_reached();
@@ -151,13 +151,13 @@ static void lua_dialog_cb(gchar** user_input, void* data) {
         case 0:
             break;
         case LUA_ERRRUN:
-            g_warning("Runtime error while calling dialog callback");
+            ws_warning("Runtime error while calling dialog callback");
             break;
         case LUA_ERRMEM:
-            g_warning("Memory alloc error while calling dialog callback");
+            ws_warning("Memory alloc error while calling dialog callback");
             break;
         case LUA_ERRERR:
-            g_warning("Error while running the error handler function for dialog callback");
+            ws_warning("Error while running the error handler function for dialog callback");
             break;
         default:
             ws_assert_not_reached();
@@ -193,13 +193,13 @@ static void text_win_close_cb(void* data) {
             case 0:
                 break;
             case LUA_ERRRUN:
-                g_warning("Runtime error during execution of TextWindow close callback");
+                ws_warning("Runtime error during execution of TextWindow close callback");
                 break;
             case LUA_ERRMEM:
-                g_warning("Memory alloc error during execution of TextWindow close callback");
+                ws_warning("Memory alloc error during execution of TextWindow close callback");
                 break;
             case LUA_ERRERR:
-                g_warning("Error while running the error handler function for TextWindow close callback");
+                ws_warning("Error while running the error handler function for TextWindow close callback");
                 break;
             default:
                 break;
@@ -246,12 +246,14 @@ WSLUA_FUNCTION wslua_new_dialog(lua_State* L) { /*
     */
 #define WSLUA_ARG_new_dialog_TITLE 1 /* The title of the dialog. */
 #define WSLUA_ARG_new_dialog_ACTION 2 /* Action to be performed when the user presses btn:[OK]. */
-/* WSLUA_MOREARGS new_dialog Strings to be used a labels of the dialog's fields. Each string creates a new labeled field. The first field is required. */
+/* WSLUA_MOREARGS new_dialog Strings to be used a labels of the dialog's fields. Each string creates a new labeled field. The first field is required.
+Instead of a strings it is possible to provide tables with fields 'name' and 'value' of type string. Then the created dialog's field will labeld with the content of name and prefilled with the content of value.*/
 
     const gchar* title;
     int top = lua_gettop(L);
     int i;
-    GPtrArray* labels;
+    GPtrArray* field_names;
+    GPtrArray* field_values;
     struct _dlg_cb_data* dcbd;
 
     if (! ops) {
@@ -286,26 +288,63 @@ WSLUA_FUNCTION wslua_new_dialog(lua_State* L) { /*
     dcbd->func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_remove(L,1);
 
-    labels = g_ptr_array_new_with_free_func(g_free);
+    field_names = g_ptr_array_new_with_free_func(g_free);
+    field_values = g_ptr_array_new_with_free_func(g_free);
 
     top -= 2;
 
-    for (i = 1; i <= top; i++) {
-        if (! lua_isstring(L,i)) {
-            g_ptr_array_free(labels,TRUE);
-            g_free (dcbd);
-            WSLUA_ERROR(new_dialog,"All fields must be strings");
+    for (i = 1; i <= top; i++)
+    {
+        if (lua_isstring(L, i))
+        {
+            gchar* field_name = g_strdup(luaL_checkstring(L, i));
+            gchar* field_value = g_strdup("");
+            g_ptr_array_add(field_names, (gpointer)field_name);
+            g_ptr_array_add(field_values, (gpointer)field_value);
+        }
+        else if (lua_istable(L, i))
+        {
+            lua_getfield(L, i, "name");
+            lua_getfield(L, i, "value");
+
+            if (!lua_isstring(L, -2))
+            {
+                lua_pop(L, 2);
+
+                g_ptr_array_free(field_names, TRUE);
+                g_ptr_array_free(field_values, TRUE);
+                g_free(dcbd);
+                WSLUA_ERROR(new_dialog, "All fields must be strings or a table with a string field 'name'.");
+                return 0;
+            }
+
+            gchar* field_name = g_strdup(luaL_checkstring(L, -2));
+            gchar* field_value = lua_isstring(L, -1) ?
+                g_strdup(luaL_checkstring(L, -1)) :
+                g_strdup("");
+
+            g_ptr_array_add(field_names, (gpointer)field_name);
+            g_ptr_array_add(field_values, (gpointer)field_value);
+
+            lua_pop(L, 2);
+        }
+        else
+        {
+            g_ptr_array_free(field_names, TRUE);
+            g_ptr_array_free(field_values, TRUE);
+            g_free(dcbd);
+            WSLUA_ERROR(new_dialog, "All fields must be strings or a table with a string field 'name'.");
             return 0;
         }
-
-        g_ptr_array_add(labels,(gpointer)g_strdup(luaL_checkstring(L,i)));
     }
 
-    g_ptr_array_add(labels,NULL);
+    g_ptr_array_add(field_names, NULL);
+    g_ptr_array_add(field_values, NULL);
 
-    ops->new_dialog(title, (const gchar**)(labels->pdata), lua_dialog_cb, dcbd, g_free);
+    ops->new_dialog(title, (const gchar**)(field_names->pdata), (const gchar**)(field_values->pdata), lua_dialog_cb, dcbd, g_free);
 
-    g_ptr_array_free(labels,TRUE);
+    g_ptr_array_free(field_names, TRUE);
+    g_ptr_array_free(field_values, TRUE);
 
     WSLUA_RETURN(0);
 }
@@ -765,13 +804,13 @@ static gboolean wslua_button_callback(funnel_text_window_t* ws_tw, void* data) {
         case 0:
             break;
         case LUA_ERRRUN:
-            g_warning("Runtime error while calling button callback");
+            ws_warning("Runtime error while calling button callback");
             break;
         case LUA_ERRMEM:
-            g_warning("Memory alloc error while calling button callback");
+            ws_warning("Memory alloc error while calling button callback");
             break;
         case LUA_ERRERR:
-            g_warning("Error while running the error handler function for button callback");
+            ws_warning("Error while running the error handler function for button callback");
             break;
         default:
             ws_assert_not_reached();
@@ -1085,6 +1124,28 @@ WSLUA_FUNCTION wslua_reload_packets(lua_State* L) { /*
     }
 
     ops->reload_packets(ops->ops_id);
+
+    return 0;
+}
+
+
+WSLUA_FUNCTION wslua_redissect_packets(lua_State* L) { /*
+    Redissect all packets in the current capture file.
+    Requires a GUI.
+
+    [WARNING]
+    ====
+    Avoid calling this from within a dissector function or else an infinite loop can occur if it causes the dissector to be called again.
+    This function is best used in a button callback (from a dialog or text window) or menu callback.
+    ====
+    */
+
+    if (!ops->redissect_packets) {
+        WSLUA_ERROR(reload, "GUI not available");
+        return 0;
+    }
+
+    ops->redissect_packets(ops->ops_id);
 
     return 0;
 }

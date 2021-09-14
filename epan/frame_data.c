@@ -18,6 +18,7 @@
 #include <epan/frame_data.h>
 #include <epan/column-utils.h>
 #include <epan/timestamp.h>
+#include <wsutil/ws_assert.h>
 
 #define COMPARE_FRAME_NUM()     ((fdata1->num < fdata2->num) ? -1 : \
                                  (fdata1->num > fdata2->num) ? 1 : \
@@ -193,22 +194,40 @@ frame_data_init(frame_data *fdata, guint32 num, const wtap_rec *rec,
     fdata->cap_len = rec->rec_header.syscall_header.event_filelen;
     break;
 
-  case REC_TYPE_SYSTEMD_JOURNAL:
+  case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
     /*
      * XXX - is cum_bytes supposed to count non-packet bytes?
      */
-    fdata->pkt_len = rec->rec_header.systemd_journal_header.record_len;
-    fdata->cum_bytes = cum_bytes + rec->rec_header.systemd_journal_header.record_len;
-    fdata->cap_len = rec->rec_header.systemd_journal_header.record_len;
+    fdata->pkt_len = rec->rec_header.systemd_journal_export_header.record_len;
+    fdata->cum_bytes = cum_bytes + rec->rec_header.systemd_journal_export_header.record_len;
+    fdata->cap_len = rec->rec_header.systemd_journal_export_header.record_len;
     break;
+
+  case REC_TYPE_CUSTOM_BLOCK:
+    /*
+     * XXX - is cum_bytes supposed to count non-packet bytes?
+     */
+    switch (rec->rec_header.custom_block_header.pen) {
+    case PEN_NFLX:
+      fdata->pkt_len = rec->rec_header.custom_block_header.length - 4;
+      fdata->cum_bytes = cum_bytes + rec->rec_header.custom_block_header.length - 4;
+      fdata->cap_len = rec->rec_header.custom_block_header.length - 4;
+      break;
+    default:
+      fdata->pkt_len = rec->rec_header.custom_block_header.length;
+      fdata->cum_bytes = cum_bytes + rec->rec_header.custom_block_header.length;
+      fdata->cap_len = rec->rec_header.custom_block_header.length;
+      break;
+    }
+    break;
+
   }
 
   /* To save some memory, we coerce it into 4 bits */
-  g_assert(rec->tsprec <= 0xF);
+  ws_assert(rec->tsprec <= 0xF);
   fdata->tsprec = (unsigned int)rec->tsprec;
   fdata->abs_ts = rec->ts;
-  fdata->has_phdr_comment = (rec->opt_comment != NULL);
-  fdata->has_user_comment = 0;
+  fdata->has_modified_block = 0;
   fdata->need_colorize = 0;
   fdata->color_filter = NULL;
   fdata->shift_offset.secs = 0;

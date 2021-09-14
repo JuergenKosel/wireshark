@@ -2387,7 +2387,7 @@ elem_mid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, gu
         if (curr_offset - offset >= len) /* Sanity check */
             return (curr_offset - offset);
 
-        str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, len - (curr_offset - offset), &Dgt_meid, TRUE);
+        str = tvb_bcd_dig_to_str(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), &Dgt_meid, TRUE);
         proto_tree_add_string(tree, hf_ansi_a_meid, tvb, curr_offset, len - (curr_offset - offset), str);
 
         proto_item_append_text(data_p->elem_item, " - MEID (%s)", str);
@@ -2468,7 +2468,7 @@ elem_mid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset, gu
         if (curr_offset - offset >= len) /* Sanity check */
             return (curr_offset - offset);
 
-        str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, len - (curr_offset - offset), &Dgt_msid, TRUE);
+        str = tvb_bcd_dig_to_str(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), &Dgt_msid, TRUE);
         proto_tree_add_string_format(tree, hf_ansi_a_imsi, tvb, curr_offset, len - (curr_offset - offset),
                                      str, "BCD Digits: %s", str);
 
@@ -3566,12 +3566,12 @@ elem_clg_party_ascii_num(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gu
         curr_offset++;
     }
 
-    poctets = tvb_get_string_enc(wmem_packet_scope(), tvb, curr_offset, len - (curr_offset - offset), ENC_ASCII|ENC_NA);
+    poctets = tvb_get_string_enc(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), ENC_ASCII|ENC_NA);
 
     proto_tree_add_string_format(tree, hf_ansi_a_clg_party_ascii_num, tvb, curr_offset, len - (curr_offset - offset),
         (gchar *) poctets,
         "Digits: %s",
-        (gchar *) format_text(wmem_packet_scope(), poctets, len - (curr_offset - offset)));
+        (gchar *) format_text(pinfo->pool, poctets, len - (curr_offset - offset)));
 
     proto_item_append_text(data_p->elem_item, " - (%s)", poctets);
 
@@ -4041,7 +4041,7 @@ elem_cld_party_bcd_num(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guin
     if (curr_offset - offset >= len) /* Sanity check */
         return (curr_offset - offset);
 
-    str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, len - (curr_offset - offset), &Dgt_tbcd, FALSE);
+    str = tvb_bcd_dig_to_str(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), &Dgt_tbcd, FALSE);
     proto_tree_add_string(tree, hf_ansi_a_cld_party_bcd_num, tvb, curr_offset, len - (curr_offset - offset), str);
 
     proto_item_append_text(data_p->elem_item, " - (%s)", str);
@@ -5422,7 +5422,7 @@ elem_fwd_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
 
                     curr_offset++;
 
-                    str_num = (gchar*)wmem_alloc(wmem_packet_scope(), oct_len);
+                    str_num = (gchar*)wmem_alloc(pinfo->pool, oct_len);
                     for (i=0; i < (oct_len - 1); i++)
                     {
                         str_num[i] = (oct & 0x01) << 7;
@@ -5459,7 +5459,7 @@ elem_fwd_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
 
                     curr_offset += 2;
 
-                    str_num = (gchar*)wmem_alloc(wmem_packet_scope(), oct_len - 1);
+                    str_num = (gchar*)wmem_alloc(pinfo->pool, oct_len - 1);
                     for (i=0; i < (oct_len - 2); i++)
                     {
                         str_num[i] = (oct & 0x1f) << 3;
@@ -5612,12 +5612,12 @@ elem_rev_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
             switch (rec_type)
             {
             case ANSI_REV_MS_INFO_REC_KEYPAD_FAC:
-                poctets = tvb_get_string_enc(wmem_packet_scope(), tvb, curr_offset, oct_len, ENC_ASCII|ENC_NA);
+                poctets = tvb_get_string_enc(pinfo->pool, tvb, curr_offset, oct_len, ENC_ASCII|ENC_NA);
 
                 proto_tree_add_string_format(subtree, hf_ansi_a_cld_party_ascii_num, tvb, curr_offset, oct_len,
                     (gchar *) poctets,
                     "Digits: %s",
-                    (gchar *) format_text(wmem_packet_scope(), poctets, oct_len));
+                    (gchar *) format_text(pinfo->pool, poctets, oct_len));
 
                 curr_offset += oct_len;
                 break;
@@ -5634,7 +5634,7 @@ elem_rev_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
 
                     curr_offset++;
 
-                    str_num = (gchar*)wmem_alloc(wmem_packet_scope(), oct_len);
+                    str_num = (gchar*)wmem_alloc(pinfo->pool, oct_len);
                     for (i=0; i < (oct_len - 1); i++)
                     {
                         str_num[i] = (oct & 0x01) << 7;
@@ -5672,7 +5672,7 @@ elem_rev_ms_info_recs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
 
                     curr_offset += 2;
 
-                    str_num = (gchar*)wmem_alloc(wmem_packet_scope(), oct_len - 1);
+                    str_num = (gchar*)wmem_alloc(pinfo->pool, oct_len - 1);
                     for (i=0; i < (oct_len - 2); i++)
                     {
                         str_num[i] = (oct & 0x1f) << 3;
@@ -6079,12 +6079,12 @@ elem_cld_party_ascii_num(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gu
     proto_tree_add_item(tree, hf_ansi_a_cld_party_ascii_num_plan, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
     curr_offset++;
 
-    poctets = tvb_get_string_enc(wmem_packet_scope(), tvb, curr_offset, len - (curr_offset - offset), ENC_ASCII|ENC_NA);
+    poctets = tvb_get_string_enc(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), ENC_ASCII|ENC_NA);
 
     proto_tree_add_string_format(tree, hf_ansi_a_cld_party_ascii_num, tvb, curr_offset, len - (curr_offset - offset),
         (gchar *) poctets,
         "Digits: %s",
-        (gchar *) format_text(wmem_packet_scope(), poctets, len - (curr_offset - offset)));
+        (gchar *) format_text(pinfo->pool, poctets, len - (curr_offset - offset)));
 
     proto_item_append_text(data_p->elem_item, " - (%s)", poctets);
 
@@ -6997,7 +6997,7 @@ elem_dtmf_chars(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 off
         return (curr_offset - offset);
 
     packed_len = len - (curr_offset - offset);
-    str = (char*)tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, packed_len, &Dgt_dtmf, FALSE);
+    str = (char*)tvb_bcd_dig_to_str(pinfo->pool, tvb, curr_offset, packed_len, &Dgt_dtmf, FALSE);
     /*
      * the packed DTMF digits are not "terminated" with a '0xF' for an odd
      * number of digits but the unpack routine expects it
@@ -10513,7 +10513,7 @@ dissect_sip_dtap_bsmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         {
             ansi_a_tvb = tvb_new_composite();
             msg_type = (guint8 *) wmem_alloc(pinfo->pool, 1);
-            msg_type[0] = (guint8) strtoul(tvb_get_string_enc(wmem_packet_scope(), tvb, offset, 2, ENC_ASCII|ENC_NA), NULL, 16);
+            msg_type[0] = (guint8) strtoul(tvb_get_string_enc(pinfo->pool, tvb, offset, 2, ENC_ASCII|ENC_NA), NULL, 16);
 
             if ((begin = tvb_find_guint8(tvb, offset, linelen, '"')) > 0)
             {
@@ -10539,7 +10539,7 @@ dissect_sip_dtap_bsmap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                 if ((begin = tvb_find_guint8(tvb, offset, linelen, '=')) > 0)
                 {
                     begin++;
-                    tvb_composite_append(ansi_a_tvb, base64_to_tvb(tvb, tvb_get_string_enc(wmem_packet_scope(), tvb, begin, offset + linelen - begin, ENC_ASCII|ENC_NA)));
+                    tvb_composite_append(ansi_a_tvb, base64_to_tvb(tvb, tvb_get_string_enc(pinfo->pool, tvb, begin, offset + linelen - begin, ENC_ASCII|ENC_NA)));
                 }
 
                 offset = next_offset;

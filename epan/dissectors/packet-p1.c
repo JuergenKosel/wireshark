@@ -943,7 +943,7 @@ static void set_do_address(asn1_ctx_t* actx, gboolean do_address)
     p1_address_ctx_t* ctx;
 
     if (actx->subtree.tree_ctx == NULL) {
-        actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+        actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
     }
 
     ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
@@ -973,7 +973,7 @@ static void do_address(const char* addr, tvbuff_t* tvb_string, asn1_ctx_t* actx)
             wmem_strbuf_append(ctx->oraddress, addr);
         }
         if (tvb_string) {
-            wmem_strbuf_append(ctx->oraddress, tvb_format_text(tvb_string, 0, tvb_captured_length(tvb_string)));
+            wmem_strbuf_append(ctx->oraddress, tvb_format_text(actx->pinfo->pool, tvb_string, 0, tvb_captured_length(tvb_string)));
         }
     }
 }
@@ -986,7 +986,7 @@ static void do_address_str(const char* addr, tvbuff_t* tvb_string, asn1_ctx_t* a
     do_address(addr, tvb_string, actx);
 
     if (ctx && ctx->do_address && ddatype && tvb_string)
-        wmem_strbuf_append(ddatype, tvb_format_text(tvb_string, 0, tvb_captured_length(tvb_string)));
+        wmem_strbuf_append(ddatype, tvb_format_text(actx->pinfo->pool, tvb_string, 0, tvb_captured_length(tvb_string)));
 }
 
 static void do_address_str_tree(const char* addr, tvbuff_t* tvb_string, asn1_ctx_t* actx, proto_tree* tree)
@@ -998,7 +998,7 @@ static void do_address_str_tree(const char* addr, tvbuff_t* tvb_string, asn1_ctx
 
     if (ctx && ctx->do_address && tvb_string && ddatype) {
         if (wmem_strbuf_get_len(ddatype) > 0) {
-            proto_item_append_text (tree, " (%s=%s)", wmem_strbuf_get_str(ddatype), tvb_format_text(tvb_string, 0, tvb_captured_length(tvb_string)));
+            proto_item_append_text (tree, " (%s=%s)", wmem_strbuf_get_str(ddatype), tvb_format_text(actx->pinfo->pool, tvb_string, 0, tvb_captured_length(tvb_string)));
         }
     }
 }
@@ -1029,10 +1029,10 @@ dissect_p1_MTAName(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 
 	if (ctx && ctx->do_address) {
-		proto_item_append_text(actx->subtree.tree, " %s", tvb_format_text(mtaname, 0, tvb_reported_length(mtaname)));
+		proto_item_append_text(actx->subtree.tree, " %s", tvb_format_text(actx->pinfo->pool, mtaname, 0, tvb_reported_length(mtaname)));
 	} else {
 		if (mtaname) {
-			col_append_fstr(actx->pinfo->cinfo, COL_INFO, " %s", tvb_format_text(mtaname, 0, tvb_reported_length(mtaname)));
+			col_append_fstr(actx->pinfo->cinfo, COL_INFO, " %s", tvb_format_text(actx->pinfo->pool, mtaname, 0, tvb_reported_length(mtaname)));
 		}
 	}
 
@@ -1292,7 +1292,7 @@ dissect_p1_SecurityCategoryValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 	if (actx->external.direct_reference) {
 		offset = call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, actx->private_data);
-		name = oid_resolved_from_string(wmem_packet_scope(), actx->external.direct_reference);
+		name = oid_resolved_from_string(actx->pinfo->pool, actx->external.direct_reference);
 		proto_item_append_text(tree, " (%s)", name ? name : actx->external.direct_reference);
 	} else {
 		offset = dissect_unknown_ber(actx->pinfo, tvb, offset, tree);
@@ -1723,11 +1723,11 @@ dissect_p1_GlobalDomainIdentifier(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 	p1_address_ctx_t* ctx;
 
 	if (actx->subtree.tree_ctx == NULL) {
-		actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+		actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
 	}
 
 	ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
-	ctx->oraddress = wmem_strbuf_new(wmem_packet_scope(), "");
+	ctx->oraddress = wmem_strbuf_new(actx->pinfo->pool, "");
 
 	actx->subtree.tree = tree;
 
@@ -1764,10 +1764,10 @@ dissect_p1_LocalIdentifier(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 	if(id) {
 		if (ctx && ctx->do_address)
-			proto_item_append_text(actx->subtree.tree, " $ %s)", tvb_format_text(id, 0, tvb_reported_length(id)));
+			proto_item_append_text(actx->subtree.tree, " $ %s)", tvb_format_text(actx->pinfo->pool, id, 0, tvb_reported_length(id)));
 
 		if (hf_index == hf_p1_subject_identifier)
-			col_append_fstr(actx->pinfo->cinfo, COL_INFO, " $ %s)", tvb_format_text(id, 0, tvb_reported_length(id)));
+			col_append_fstr(actx->pinfo->cinfo, COL_INFO, " $ %s)", tvb_format_text(actx->pinfo->pool, id, 0, tvb_reported_length(id)));
 	}
 
 
@@ -2169,7 +2169,7 @@ static const ber_sequence_t BuiltInDomainDefinedAttribute_sequence[] = {
 static int
 dissect_p1_BuiltInDomainDefinedAttribute(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 #line 999 "./asn1/p1/p1.cnf"
-	actx->value_ptr = wmem_strbuf_new(wmem_packet_scope(), "");
+	actx->value_ptr = wmem_strbuf_new(actx->pinfo->pool, "");
 
 	  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    BuiltInDomainDefinedAttribute_sequence, hf_index, ett_p1_BuiltInDomainDefinedAttribute);
@@ -2327,11 +2327,11 @@ dissect_p1_ORName(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 	p1_address_ctx_t* ctx;
 
 	if (actx->subtree.tree_ctx == NULL) {
-		actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+		actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
 	}
 
 	ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
-	ctx->oraddress = wmem_strbuf_new(wmem_packet_scope(), "");
+	ctx->oraddress = wmem_strbuf_new(actx->pinfo->pool, "");
 
 	actx->subtree.tree = NULL;
 	set_do_address(actx, TRUE);
@@ -2593,7 +2593,7 @@ dissect_p1_BuiltInContentType_U(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 	p1_address_ctx_t* ctx;
 
 	if (actx->subtree.tree_ctx == NULL)
-		actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+		actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
 
 	ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
 
@@ -2604,10 +2604,10 @@ dissect_p1_BuiltInContentType_U(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 	/* convert integer content type to oid for dispatch when the content is found */
 	switch(ict) {
 	case 2:
-		ctx->content_type_id = wmem_strdup(wmem_packet_scope(), "2.6.1.10.0");
+		ctx->content_type_id = wmem_strdup(actx->pinfo->pool, "2.6.1.10.0");
 		break;
 	case 22:
-		ctx->content_type_id = wmem_strdup(wmem_packet_scope(), "2.6.1.10.1");
+		ctx->content_type_id = wmem_strdup(actx->pinfo->pool, "2.6.1.10.1");
 		break;
 	default:
 		ctx->content_type_id = NULL;
@@ -2638,7 +2638,7 @@ dissect_p1_ExtendedContentType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 	p1_address_ctx_t* ctx;
 
 	if (actx->subtree.tree_ctx == NULL)
-		actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+		actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
 
 	ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
 
@@ -2646,7 +2646,7 @@ dissect_p1_ExtendedContentType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 
 	if(ctx->content_type_id) {
-		name = oid_resolved_from_string(wmem_packet_scope(), ctx->content_type_id);
+		name = oid_resolved_from_string(actx->pinfo->pool, ctx->content_type_id);
 
 		if(!name) name = ctx->content_type_id;
 
@@ -2772,7 +2772,7 @@ dissect_p1_Time(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 
 
 	if(arrival && ctx && ctx->do_address)
-		proto_item_append_text(actx->subtree.tree, " %s", tvb_format_text(arrival, 0, tvb_reported_length(arrival)));
+		proto_item_append_text(actx->subtree.tree, " %s", tvb_format_text(actx->pinfo->pool, arrival, 0, tvb_reported_length(arrival)));
 
 
 
@@ -3163,7 +3163,7 @@ dissect_p1_ExtensionValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 		}
 	} else if (actx->external.direct_ref_present) {
 		offset = call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, actx->private_data);
-		name = oid_resolved_from_string(wmem_packet_scope(), actx->external.direct_reference);
+		name = oid_resolved_from_string(actx->pinfo->pool, actx->external.direct_reference);
 		proto_item_append_text(tree, " (%s)", name ? name : actx->external.direct_reference);
 	}
 
@@ -5843,11 +5843,11 @@ dissect_p1_ORAddress(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 	p1_address_ctx_t* ctx;
 
 	if (actx->subtree.tree_ctx == NULL) {
-		actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+		actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
 	}
 
 	ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;
-	ctx->oraddress = wmem_strbuf_new(wmem_packet_scope(), "");
+	ctx->oraddress = wmem_strbuf_new(actx->pinfo->pool, "");
 
 	actx->subtree.tree = NULL;
 	set_do_address(actx, TRUE);
@@ -7130,7 +7130,7 @@ static const ber_sequence_t TeletexDomainDefinedAttribute_sequence[] = {
 static int
 dissect_p1_TeletexDomainDefinedAttribute(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 #line 924 "./asn1/p1/p1.cnf"
-	actx->value_ptr = wmem_strbuf_new(wmem_packet_scope(), "");
+	actx->value_ptr = wmem_strbuf_new(actx->pinfo->pool, "");
 
 	  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    TeletexDomainDefinedAttribute_sequence, hf_index, ett_p1_TeletexDomainDefinedAttribute);
@@ -8571,7 +8571,7 @@ void p1_initialize_content_globals (asn1_ctx_t* actx, proto_tree *tree, gboolean
     p1_address_ctx_t* ctx;
 
     if (actx->subtree.tree_ctx == NULL) {
-        actx->subtree.tree_ctx = wmem_new0(wmem_packet_scope(), p1_address_ctx_t);
+        actx->subtree.tree_ctx = wmem_new0(actx->pinfo->pool, p1_address_ctx_t);
     }
 
     ctx = (p1_address_ctx_t*)actx->subtree.tree_ctx;

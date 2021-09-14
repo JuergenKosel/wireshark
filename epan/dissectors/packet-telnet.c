@@ -277,7 +277,7 @@ dissect_string_subopt(packet_info *pinfo, const char *optname, tvbuff_t *tvb, in
     if (len > 0) {
       proto_tree_add_item(tree, hf_telnet_string_subopt_value, tvb, offset, len, ENC_NA|ENC_ASCII);
     }
-    check_for_tn3270(pinfo, optname, tvb_format_text(tvb, offset, len));
+    check_for_tn3270(pinfo, optname, tvb_format_text(pinfo->pool, tvb, offset, len));
     break;
 
   case 1:       /* SEND */
@@ -419,7 +419,7 @@ dissect_tn3270e_subopt(packet_info *pinfo _U_, const char *optname _U_, tvbuff_t
                   datalen = connect_offset - (offset + 1);
                   if (datalen > 0) {
                     proto_tree_add_item( tree, hf_tn3270_is, tvb, offset + 1, datalen, ENC_NA|ENC_ASCII );
-                    check_tn3270_model(pinfo, tvb_format_text(tvb, offset + 1, datalen));
+                    check_tn3270_model(pinfo, tvb_format_text(pinfo->pool, tvb, offset + 1, datalen));
                     offset += datalen;
                     len -= datalen;
                   }
@@ -697,7 +697,7 @@ dissect_comport_subopt(packet_info *pinfo, const char *optname, tvbuff_t *tvb, i
     if (len == 0) {
       proto_tree_add_string_format(tree, hf_telnet_comport_subopt_signature, tvb, offset, 1, "", "%s Requests Signature", source);
     } else {
-      guint8 *sig = tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1, len, ENC_ASCII);
+      guint8 *sig = tvb_get_string_enc(pinfo->pool, tvb, offset + 1, len, ENC_ASCII);
       proto_tree_add_string_format(tree, hf_telnet_comport_subopt_signature, tvb, offset, 1 + len, sig,
                                          "%s Signature: %s",source, sig);
     }
@@ -1701,7 +1701,7 @@ telnet_sub_option(packet_info *pinfo, proto_tree *option_tree, proto_item *optio
 }
 
 static void
-telnet_suboption_name(proto_tree *tree, tvbuff_t *tvb, int* offset, const gchar** optname,
+telnet_suboption_name(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int* offset, const gchar** optname,
                       proto_tree **opt_tree, proto_item **opt_item, const char *type)
 {
   guint8      opt_byte;
@@ -1721,7 +1721,7 @@ telnet_suboption_name(proto_tree *tree, tvbuff_t *tvb, int* offset, const gchar*
   *opt_tree = proto_item_add_subtree(*opt_item, ett);
 
   (*offset)++;
-  (*optname) = wmem_strdup_printf(wmem_packet_scope(), "%s %s", type, opt);
+  (*optname) = wmem_strdup_printf(pinfo->pool, "%s %s", type, opt);
 }
 
 static int
@@ -1742,23 +1742,23 @@ telnet_command(packet_info *pinfo, proto_tree *telnet_tree, tvbuff_t *tvb, int s
 
   switch(optcode) {
   case TN_WILL:
-    telnet_suboption_name(cmd_tree, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Will");
+    telnet_suboption_name(cmd_tree, pinfo, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Will");
     break;
 
   case TN_WONT:
-    telnet_suboption_name(cmd_tree, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Won't");
+    telnet_suboption_name(cmd_tree, pinfo, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Won't");
     break;
 
   case TN_DO:
-    telnet_suboption_name(cmd_tree, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Do");
+    telnet_suboption_name(cmd_tree, pinfo, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Do");
     break;
 
   case TN_DONT:
-    telnet_suboption_name(cmd_tree, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Don't");
+    telnet_suboption_name(cmd_tree, pinfo, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Don't");
     break;
 
   case TN_SB:
-    telnet_suboption_name(cmd_tree, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Suboption");
+    telnet_suboption_name(cmd_tree, pinfo, tvb, &offset, &optname, &subopt_tree, &subopt_item, "Suboption");
     break;
 
   default:

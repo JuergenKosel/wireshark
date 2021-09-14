@@ -291,11 +291,11 @@ void h245_set_h223_add_lc_handle( h223_add_lc_handle_t handle )
 	h223_add_lc_handle = handle;
 }
 
-static const gchar *gen_olc_key(guint16 lc_num, address *dst_addr, address *src_addr)
+static const gchar *gen_olc_key(guint16 lc_num, address *dst_addr, address *src_addr, wmem_allocator_t *scope)
 {
-  return wmem_strdup_printf(wmem_packet_scope(), "%s/%s/%u",
-          address_to_str(wmem_packet_scope(), dst_addr),
-          address_to_str(wmem_packet_scope(), src_addr),
+  return wmem_strdup_printf(scope, "%s/%s/%u",
+          address_to_str(scope, dst_addr),
+          address_to_str(scope, src_addr),
           lc_num);
 }
 
@@ -335,7 +335,7 @@ static void h245_setup_channels(packet_info *pinfo, channel_info_t *upcoming_cha
 		dummy_srtp_info = wmem_new0(wmem_file_scope(), struct srtp_info);
 	}
 
-	/* DEBUG 	g_warning("h245_setup_channels media_addr.addr.type %u port %u",upcoming_channel_lcl->media_addr.addr.type, upcoming_channel_lcl->media_addr.port );
+	/* DEBUG 	ws_warning("h245_setup_channels media_addr.addr.type %u port %u",upcoming_channel_lcl->media_addr.addr.type, upcoming_channel_lcl->media_addr.port );
 	*/
 	if (upcoming_channel_lcl->media_addr.addr.type!=AT_NONE && upcoming_channel_lcl->media_addr.port!=0) {
 		srtp_add_address(pinfo, PT_UDP, &upcoming_channel_lcl->media_addr.addr,
@@ -382,7 +382,7 @@ static int ett_h245_returnedFunction = -1;
 static int dissect_h245_MultimediaSystemControlMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static void reset_h245_pi(void *dummy _U_)
 {
-	h245_pi = NULL; /* Make sure we don't leave wmem_packet_scoped() memory lying around */
+	h245_pi = NULL; /* Make sure we don't leave pinfo->pool memory lying around */
 }
 
 #include "packet-h245-fn.c"
@@ -421,7 +421,7 @@ dissect_h245_h245(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, vo
 	/* assume that whilst there is more tvb data, there are more h245 commands */
 	while ( tvb_reported_length_remaining( tvb, offset>>3 )>0 ){
 		CLEANUP_PUSH(reset_h245_pi, NULL);
-		h245_pi=wmem_new(wmem_packet_scope(), h245_packet_info);
+		h245_pi=wmem_new(pinfo->pool, h245_packet_info);
 		init_h245_packet_info(h245_pi);
 		asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
 		offset = dissect_h245_MultimediaSystemControlMessage(tvb, offset, &asn1_ctx, tr, hf_h245_pdu_type);

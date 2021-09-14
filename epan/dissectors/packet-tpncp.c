@@ -12,7 +12,7 @@
 
 /*---------------------------------------------------------------------------*/
 
-#define G_LOG_DOMAIN "TPNCP"
+#define WS_LOG_DOMAIN "TPNCP"
 #include "config.h"
 
 #include <epan/packet.h>
@@ -23,7 +23,7 @@
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
 #include <wsutil/strtoi.h>
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 #include "packet-acdr.h"
 #include "packet-tcp.h"
 

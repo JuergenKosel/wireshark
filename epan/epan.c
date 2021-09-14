@@ -19,7 +19,6 @@
 
 #include <glib.h>
 
-#include <version_info.h>
 #include <wsutil/report_message.h>
 
 #include <epan/exceptions.h>
@@ -31,6 +30,8 @@
 #include "epan_dissect.h"
 
 #include <wsutil/nstime.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 
 #include "conversation.h"
 #include "except.h"
@@ -40,7 +41,7 @@
 #include "tap.h"
 #include "addr_resolv.h"
 #include "oids.h"
-#include "wmem/wmem.h"
+#include <epan/wmem_scopes.h>
 #include "expert.h"
 #include "print.h"
 #include "capture_dissectors.h"
@@ -126,7 +127,12 @@ epan_get_version(void) {
 void
 epan_get_version_number(int *major, int *minor, int *micro)
 {
-	get_ws_version_number(major, minor, micro);
+	if (major)
+		*major = VERSION_MAJOR;
+	if (minor)
+		*minor = VERSION_MINOR;
+	if (micro)
+		*micro = VERSION_MICRO;
 }
 
 #if defined(_WIN32)
@@ -137,26 +143,28 @@ epan_get_version_number(int *major, int *minor, int *micro)
 static void
 quiet_gcrypt_logger (void *dummy _U_, int level, const char *format, va_list args)
 {
-	GLogLevelFlags log_level = G_LOG_LEVEL_WARNING;
+	enum ws_log_level log_level;
 
 	switch (level) {
 	case GCRY_LOG_CONT: // Continuation. Ignore for now.
 	case GCRY_LOG_DEBUG:
 	case GCRY_LOG_INFO:
-	default:
 		return;
+		break;
 	case GCRY_LOG_WARN:
 	case GCRY_LOG_BUG:
-		log_level = G_LOG_LEVEL_WARNING;
+		log_level = LOG_LEVEL_WARNING;
 		break;
 	case GCRY_LOG_ERROR:
-		log_level = G_LOG_LEVEL_ERROR;
+		log_level = LOG_LEVEL_ERROR;
 		break;
 	case GCRY_LOG_FATAL:
-		log_level = G_LOG_LEVEL_CRITICAL;
+		log_level = LOG_LEVEL_CRITICAL;
 		break;
+	default:
+		return;
 	}
-	g_logv(NULL, log_level, format, args);
+	ws_logv(LOG_DOMAIN_EPAN, log_level, format, args);
 }
 #endif // _WIN32
 
@@ -196,7 +204,7 @@ void epan_register_plugin(const epan_plugin *plug)
 #else /* HAVE_PLUGINS */
 void epan_register_plugin(const epan_plugin *plug _U_)
 {
-	g_warning("epan_register_plugin: built without support for binary plugins");
+	ws_warning("epan_register_plugin: built without support for binary plugins");
 }
 #endif /* HAVE_PLUGINS */
 
@@ -245,7 +253,7 @@ epan_init(register_cb cb, gpointer client_data, gboolean load_plugins)
 	 * invocation just in case.
 	 */
 	/* initialize memory allocation subsystem */
-	wmem_init();
+	wmem_init_scopes();
 
 	/* initialize the GUID to name mapping table */
 	guids_init();
@@ -417,7 +425,7 @@ epan_cleanup(void)
 		pinfo_pool_cache = NULL;
 	}
 
-	wmem_cleanup();
+	wmem_cleanup_scopes();
 }
 
 struct epan_session {
@@ -440,11 +448,11 @@ epan_new(struct packet_provider_data *prov,
 	return session;
 }
 
-const char *
-epan_get_user_comment(const epan_t *session, const frame_data *fd)
+wtap_block_t
+epan_get_modified_block(const epan_t *session, const frame_data *fd)
 {
-	if (session->funcs.get_user_comment)
-		return session->funcs.get_user_comment(session->prov, fd);
+	if (session->funcs.get_modified_block)
+		return session->funcs.get_modified_block(session->prov, fd);
 
 	return NULL;
 }
@@ -476,7 +484,7 @@ epan_get_frame_ts(const epan_t *session, guint32 frame_num)
 		abs_ts = session->funcs.get_frame_ts(session->prov, frame_num);
 
 	if (!abs_ts)
-		g_warning("!!! couldn't get frame ts for %u !!!\n", frame_num);
+		ws_warning("!!! couldn't get frame ts for %u !!!\n", frame_num);
 
 	return abs_ts;
 }
@@ -516,7 +524,7 @@ epan_set_always_visible(gboolean force)
 void
 epan_dissect_init(epan_dissect_t *edt, epan_t *session, const gboolean create_proto_tree, const gboolean proto_tree_visible)
 {
-	g_assert(edt);
+	ws_assert(edt);
 
 	edt->session = session;
 
@@ -548,7 +556,9 @@ epan_dissect_reset(epan_dissect_t *edt)
 	/* We have to preserve the pool pointer across the memzeroing */
 	wmem_allocator_t *tmp;
 
-	g_assert(edt);
+	ws_assert(edt);
+
+	wtap_block_unref(edt->pi.rec->block);
 
 	g_slist_free(edt->pi.proto_data);
 	g_slist_free(edt->pi.dependent_frames);
@@ -603,6 +613,8 @@ epan_dissect_run(epan_dissect_t *edt, int file_type_subtype,
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
+	wtap_block_unref(rec->block);
+	rec->block = NULL;
 }
 
 void
@@ -617,6 +629,8 @@ epan_dissect_run_with_taps(epan_dissect_t *edt, int file_type_subtype,
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
+	wtap_block_unref(rec->block);
+	rec->block = NULL;
 }
 
 void
@@ -631,6 +645,8 @@ epan_dissect_file_run(epan_dissect_t *edt, wtap_rec *rec,
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
+	wtap_block_unref(rec->block);
+	rec->block = NULL;
 }
 
 void
@@ -644,12 +660,14 @@ epan_dissect_file_run_with_taps(epan_dissect_t *edt, wtap_rec *rec,
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
+	wtap_block_unref(rec->block);
+	rec->block = NULL;
 }
 
 void
 epan_dissect_cleanup(epan_dissect_t* edt)
 {
-	g_assert(edt);
+	ws_assert(edt);
 
 	g_slist_foreach(epan_plugins, epan_plugin_dissect_cleanup, edt);
 

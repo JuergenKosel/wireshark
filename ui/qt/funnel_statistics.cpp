@@ -17,6 +17,8 @@
 #include "epan/funnel.h"
 #include "epan/prefs.h"
 
+#include <wsutil/wslog.h>
+
 #include "ui/progress_dlg.h"
 #include "ui/simple_dialog.h"
 
@@ -37,7 +39,7 @@
 // - Add a FunnelGraphDialog class?
 
 extern "C" {
-static void funnel_statistics_logger(const gchar *, GLogLevelFlags, const gchar *message, gpointer);
+static void funnel_statistics_logger(const gchar *, enum ws_log_level, const gchar *message, gpointer);
 static void funnel_statistics_retap_packets(funnel_ops_id_t *ops_id);
 static void funnel_statistics_copy_to_clipboard(GString *text);
 static const gchar *funnel_statistics_get_filter(funnel_ops_id_t *ops_id);
@@ -46,6 +48,7 @@ static gchar* funnel_statistics_get_color_filter_slot(guint8 filter_num);
 static void funnel_statistics_set_color_filter_slot(guint8 filter_num, const gchar* filter_string);
 static gboolean funnel_statistics_open_file(funnel_ops_id_t *ops_id, const char* fname, const char* filter, char**);
 static void funnel_statistics_reload_packets(funnel_ops_id_t *ops_id);
+static void funnel_statistics_redissect_packets(funnel_ops_id_t *ops_id);
 static void funnel_statistics_reload_lua_plugins(funnel_ops_id_t *ops_id);
 static void funnel_statistics_apply_filter(funnel_ops_id_t *ops_id);
 static gboolean browser_open_url(const gchar *url);
@@ -138,6 +141,7 @@ FunnelStatistics::FunnelStatistics(QObject *parent, CaptureFile &cf) :
     funnel_ops_->set_color_filter_slot = funnel_statistics_set_color_filter_slot;
     funnel_ops_->open_file = funnel_statistics_open_file;
     funnel_ops_->reload_packets = funnel_statistics_reload_packets;
+    funnel_ops_->redissect_packets = funnel_statistics_redissect_packets;
     funnel_ops_->reload_lua_plugins = funnel_statistics_reload_lua_plugins;
     funnel_ops_->apply_filter = funnel_statistics_apply_filter;
     funnel_ops_->browser_open_url = browser_open_url;
@@ -151,13 +155,8 @@ FunnelStatistics::FunnelStatistics(QObject *parent, CaptureFile &cf) :
 
 FunnelStatistics::~FunnelStatistics()
 {
-    // At this point we're probably closing the program and will shortly
-    // call epan_cleanup, which calls ProgDlg__gc and TextWindow__gc.
-    // They in turn depend on funnel_ops_ being valid.
-    memset(funnel_ops_id_, 0, sizeof(struct _funnel_ops_id_t));
-    memset(funnel_ops_, 0, sizeof(struct _funnel_ops_t));
-    // delete(funnel_ops_id_);
-    // delete(funnel_ops_);
+    delete(funnel_ops_id_);
+    delete(funnel_ops_);
 }
 
 void FunnelStatistics::retapPackets()
@@ -184,6 +183,12 @@ void FunnelStatistics::emitSetDisplayFilter(const QString filter)
 void FunnelStatistics::reloadPackets()
 {
     capture_file_.reload();
+}
+
+void FunnelStatistics::redissectPackets()
+{
+    // This will trigger a packet redissection.
+    wsApp->emitAppSignal(WiresharkApplication::PacketDissectionChanged);
 }
 
 void FunnelStatistics::reloadLuaPlugins()
@@ -214,14 +219,11 @@ void FunnelStatistics::displayFilterTextChanged(const QString &filter)
     display_filter_ = filter.toUtf8();
 }
 
-
-/* The GTK+ code says "finish this." We shall follow its lead */
-// XXX Finish this.
-void funnel_statistics_logger(const gchar *,
-                          GLogLevelFlags,
+void funnel_statistics_logger(const gchar *log_domain,
+                          enum ws_log_level log_level,
                           const gchar *message,
                           gpointer) {
-    fputs(message, stderr);
+    ws_log(log_domain, log_level, "%s", message);
 }
 
 void funnel_statistics_retap_packets(funnel_ops_id_t *ops_id) {
@@ -274,6 +276,12 @@ void funnel_statistics_reload_packets(funnel_ops_id_t *ops_id) {
     if (!ops_id || !ops_id->funnel_statistics) return;
 
     ops_id->funnel_statistics->reloadPackets();
+}
+
+void funnel_statistics_redissect_packets(funnel_ops_id_t *ops_id) {
+    if (!ops_id || !ops_id->funnel_statistics) return;
+
+    ops_id->funnel_statistics->redissectPackets();
 }
 
 void funnel_statistics_reload_lua_plugins(funnel_ops_id_t *ops_id) {

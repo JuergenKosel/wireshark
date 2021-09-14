@@ -583,7 +583,7 @@ catapult_dct2000_dump(wtap_dumper *wdh, const wtap_rec *rec,
     const union wtap_pseudo_header *pseudo_header = &rec->rec_header.packet_header.pseudo_header;
     guint32 n;
     line_prefix_info_t *prefix = NULL;
-    gchar time_string[16];
+    gchar time_string[MAX_TIMESTAMP_LEN];
     gboolean is_comment;
     gboolean is_sprint = FALSE;
     dct2000_dump_t *dct2000;
@@ -1278,6 +1278,7 @@ process_parsed_line(wtap *wth, dct2000_file_externals_t *file_externals,
     guint8 *frame_buffer;
 
     rec->rec_type = REC_TYPE_PACKET;
+    rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
     rec->presence_flags = WTAP_HAS_TS;
 
     /* Make sure all packets go to Catapult DCT2000 dissector */

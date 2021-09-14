@@ -170,7 +170,6 @@ static int hf_ajp13_nhdr   = -1;
 
 /* response headers */
 static int hf_ajp13_unknown_header    = -1;
-static int hf_ajp13_additional_header = -1;
 static int hf_ajp13_content_type      = -1;
 static int hf_ajp13_content_language  = -1;
 static int hf_ajp13_content_length    = -1;
@@ -309,7 +308,7 @@ ajp13_get_nstring(tvbuff_t *tvb, gint offset, guint16* ret_len)
   if (len == 0xFFFF)
     len = 0;
 
-  return tvb_format_text(tvb, offset+2, MIN(len, ITEM_LABEL_LENGTH));
+  return tvb_format_text(wmem_packet_scope(), tvb, offset+2, MIN(len, ITEM_LABEL_LENGTH));
 }
 
 
@@ -428,7 +427,7 @@ display_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *ajp13_tree, ajp13_con
 
         proto_tree_add_string_format(ajp13_tree, *rsp_headers[hcd],
                                 tvb, hpos, hname_len+2+hval_len+2,
-                                wmem_strdup_printf(wmem_packet_scope(), "%s: %s", hname, hval),
+                                wmem_strdup_printf(pinfo->pool, "%s: %s", hname, hval),
                                 "%s: %s", hname, hval);
         pos+=hval_len+2;
       }
@@ -679,7 +678,7 @@ display_req_forward(tvbuff_t *tvb, packet_info *pinfo,
 
       proto_tree_add_string_format(ajp13_tree, *req_headers[hcd],
                                      tvb, hpos, hname_len+2+hval_len+2,
-                                     wmem_strdup_printf(wmem_packet_scope(), "%s: %s", hname, hval),
+                                     wmem_strdup_printf(pinfo->pool, "%s: %s", hname, hval),
                                      "%s: %s", hname, hval);
       pos+=hval_len+2;
     }
@@ -715,7 +714,7 @@ display_req_forward(tvbuff_t *tvb, packet_info *pinfo,
 
       proto_tree_add_string_format(ajp13_tree, hf_ajp13_req_attribute,
                                      tvb, apos, 1+aname_len+2+aval_len+2,
-                                     wmem_strdup_printf(wmem_packet_scope(), "%s: %s", aname, aval),
+                                     wmem_strdup_printf(pinfo->pool, "%s: %s", aname, aval),
                                      "%s: %s", aname, aval);
     } else if (aid == 0x0B ) {
       /* ssl_key_length */
@@ -921,10 +920,6 @@ proto_register_ajp13(void)
 /* response headers */
     { &hf_ajp13_unknown_header,
       { "unknown_header",  "ajp13.unknown_header", FT_STRING, BASE_NONE, NULL, 0x0, "Unknown Header Type",
-        HFILL }
-    },
-    { &hf_ajp13_additional_header,
-      { "additional_header",  "ajp13.additional_header", FT_STRING, BASE_NONE, NULL, 0x0, "Additional Header Type",
         HFILL }
     },
     { &hf_ajp13_content_type,

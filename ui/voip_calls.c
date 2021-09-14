@@ -55,6 +55,7 @@
 #include "ui/voip_calls.h"
 
 #include "wsutil/glib-compat.h"
+#include <wsutil/ws_assert.h>
 
 #define DUMP_PTR1(p) printf("#=> %p\n",(void *)p)
 #define DUMP_PTR2(p) printf("==> %p\n",(void *)p)
@@ -456,6 +457,11 @@ static void insert_to_graph_t38(voip_calls_tapinfo_t *tapinfo, packet_info *pinf
     gboolean  inserted;
     gchar     time_str[COL_MAX_LEN];
 
+    if (!tapinfo->graph_analysis){
+        /* Nothing to do */
+        return;
+    }
+
     new_gai = g_new0(seq_analysis_item_t, 1);
     new_gai->frame_number = frame_num;
     copy_address(&(new_gai->src_addr),src_addr);
@@ -480,25 +486,25 @@ static void insert_to_graph_t38(voip_calls_tapinfo_t *tapinfo, packet_info *pinf
 
     item_num = 0;
     inserted = FALSE;
-    if(tapinfo->graph_analysis){
-        list = g_queue_peek_nth_link(tapinfo->graph_analysis->items, 0);
-        while (list)
-        {
-            gai = (seq_analysis_item_t *)list->data;
-            if (gai->frame_number > frame_num) {
-                g_queue_insert_before(tapinfo->graph_analysis->items, list, new_gai);
-                g_hash_table_insert(tapinfo->graph_analysis->ht, GUINT_TO_POINTER(new_gai->frame_number), new_gai);
-                inserted = TRUE;
-                break;
-            }
-            list = g_list_next(list);
-            item_num++;
-        }
 
-        if (!inserted) {
-            g_queue_push_tail(tapinfo->graph_analysis->items, new_gai);
+    list = g_queue_peek_nth_link(tapinfo->graph_analysis->items, 0);
+    while (list)
+    {
+        gai = (seq_analysis_item_t *)list->data;
+        if (gai->frame_number > frame_num) {
+            g_queue_insert_before(tapinfo->graph_analysis->items, list, new_gai);
             g_hash_table_insert(tapinfo->graph_analysis->ht, GUINT_TO_POINTER(new_gai->frame_number), new_gai);
+            inserted = TRUE;
+            break;
         }
+        list = g_list_next(list);
+        item_num++;
+    }
+
+    if (!inserted) {
+        /* Just add to the end */
+        g_queue_push_tail(tapinfo->graph_analysis->items, new_gai);
+        g_hash_table_insert(tapinfo->graph_analysis->ht, GUINT_TO_POINTER(new_gai->frame_number), new_gai);
     }
 }
 
@@ -2042,7 +2048,7 @@ h225_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
         while (list)
         {
             tmp_listinfo=(voip_calls_info_t *)list->data;
-            g_assert(tmp_listinfo != NULL);
+            ws_assert(tmp_listinfo != NULL);
             if (tmp_listinfo->protocol == VOIP_H323) {
                 tmp_h323info = (h323_calls_info_t *)tmp_listinfo->prot_info;
                 if (tmp_h323info->requestSeqNum == pi->requestSeqNum) {
@@ -2060,7 +2066,7 @@ h225_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
             tmp_listinfo=(voip_calls_info_t *)list->data;
             if (tmp_listinfo->protocol == VOIP_H323) {
                 tmp_h323info = (h323_calls_info_t *)tmp_listinfo->prot_info;
-                g_assert(tmp_h323info != NULL);
+                ws_assert(tmp_h323info != NULL);
                 if ( (memcmp(tmp_h323info->guid, &guid_allzero, GUID_LEN) != 0) && (memcmp(tmp_h323info->guid, &pi->guid,GUID_LEN)==0) ) {
                     callsinfo = (voip_calls_info_t*)(list->data);
                     break;
@@ -2088,7 +2094,7 @@ h225_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
         callsinfo->free_prot_info = free_h225_info;
 
         tmp_h323info = (h323_calls_info_t *)callsinfo->prot_info;
-        g_assert(tmp_h323info != NULL);
+        ws_assert(tmp_h323info != NULL);
         tmp_h323info->guid = (e_guid_t *)g_memdup2(&pi->guid, sizeof pi->guid);
         /* DUMP_PTR1(tmp_h323info->guid); */
 
@@ -2120,7 +2126,7 @@ h225_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
 
 
     /* XXX: it is supposed to be initialized isn't it? */
-    g_assert(tmp_h323info != NULL);
+    ws_assert(tmp_h323info != NULL);
 
     /* change the status */
     if (pi->msg_type == H225_CS) {
@@ -2756,7 +2762,7 @@ mgcp_calls_packet(void *tap_offset_ptr, packet_info *pinfo, epan_dissect_t *edt,
         g_queue_push_tail(tapinfo->callsinfos, callsinfo);
     }
 
-    g_assert(tmp_mgcpinfo != NULL);
+    ws_assert(tmp_mgcpinfo != NULL);
 
     /* change call state and add to graph */
     switch (pi->mgcp_type)
@@ -3130,7 +3136,7 @@ h248_calls_packet_common(voip_calls_tapinfo_t *tapinfo, packet_info *pinfo, epan
     }
 
     add_to_graph(tapinfo, pinfo, edt, cmd->str ? cmd->str : "unknown Msg",
-            wmem_strdup_printf(wmem_packet_scope(), "TrxId = %u, CtxId = %.8x",cmd->trx->id,cmd->ctx->id),
+            wmem_strdup_printf(pinfo->pool, "TrxId = %u, CtxId = %.8x",cmd->trx->id,cmd->ctx->id),
             callsinfo->call_num, &(pinfo->src), &(pinfo->dst), 1);
 
     ++(tapinfo->npackets);

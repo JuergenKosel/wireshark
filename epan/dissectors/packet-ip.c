@@ -565,12 +565,12 @@ capture_ip(const guchar *pd, int offset, int len, capture_packet_info_t *cpinfo,
 }
 
 static void
-add_geoip_info_entry(proto_tree *tree, tvbuff_t *tvb, gint offset, ws_in4_addr ip, int isdst)
+add_geoip_info_entry(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, ws_in4_addr ip, int isdst)
 {
   const mmdb_lookup_t *lookup = maxmind_db_lookup_ipv4(&ip);
   if (!lookup->found) return;
 
-  wmem_strbuf_t *summary = wmem_strbuf_new(wmem_packet_scope(), "");
+  wmem_strbuf_t *summary = wmem_strbuf_new(pinfo->pool, "");
   if (lookup->city) {
     wmem_strbuf_append(summary, lookup->city);
   }
@@ -656,11 +656,11 @@ add_geoip_info_entry(proto_tree *tree, tvbuff_t *tvb, gint offset, ws_in4_addr i
 }
 
 static void
-add_geoip_info(proto_tree *tree, tvbuff_t *tvb, gint offset, guint32 src32,
+add_geoip_info(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, guint32 src32,
                guint32 dst32)
 {
-  add_geoip_info_entry(tree, tvb, offset, g_htonl(src32), FALSE);
-  add_geoip_info_entry(tree, tvb, offset, g_htonl(dst32), TRUE);
+  add_geoip_info_entry(tree, pinfo, tvb, offset, g_htonl(src32), FALSE);
+  add_geoip_info_entry(tree, pinfo, tvb, offset, g_htonl(dst32), TRUE);
 }
 
 const value_string ipopt_type_class_vals[] = {
@@ -968,14 +968,14 @@ dissect_ipopt_cipso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
         guint byte_spot = 0;
         unsigned char bitmask;
         char *cat_str;
-        char *cat_str_tmp = (char *)wmem_alloc(wmem_packet_scope(), USHRT_MAX_STRLEN);
+        char *cat_str_tmp = (char *)wmem_alloc(pinfo->pool, USHRT_MAX_STRLEN);
         size_t cat_str_len;
         const guint8 *val_ptr = tvb_get_ptr(tvb, offset, taglen - 4);
 
         /* this is just a guess regarding string size, but we grow it below
          * if needed */
         cat_str_len = 256;
-        cat_str = (char *)wmem_alloc0(wmem_packet_scope(), cat_str_len);
+        cat_str = (char *)wmem_alloc0(pinfo->pool, cat_str_len);
 
         /* we checked the length above so the highest category value
          * possible here is 240 */
@@ -991,7 +991,7 @@ dissect_ipopt_cipso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
 
                 while (cat_str_len < (strlen(cat_str) + 2 + USHRT_MAX_STRLEN))
                   cat_str_len += cat_str_len;
-                cat_str_new = (char *)wmem_alloc(wmem_packet_scope(), cat_str_len);
+                cat_str_new = (char *)wmem_alloc(pinfo->pool, cat_str_len);
                 (void) g_strlcpy(cat_str_new, cat_str, cat_str_len);
                 cat_str_new[cat_str_len - 1] = '\0';
                 cat_str = cat_str_new;
@@ -1030,8 +1030,8 @@ dissect_ipopt_cipso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
 
       if (taglen > 4) {
         int offset_max_cat = offset + taglen - 4;
-        char *cat_str = (char *)wmem_alloc0(wmem_packet_scope(), USHRT_MAX_STRLEN * 15);
-        char *cat_str_tmp = (char *)wmem_alloc(wmem_packet_scope(), USHRT_MAX_STRLEN);
+        char *cat_str = (char *)wmem_alloc0(pinfo->pool, USHRT_MAX_STRLEN * 15);
+        char *cat_str_tmp = (char *)wmem_alloc(pinfo->pool, USHRT_MAX_STRLEN);
 
         while ((offset + 2) <= offset_max_cat) {
           g_snprintf(cat_str_tmp, USHRT_MAX_STRLEN, "%u",
@@ -1063,8 +1063,8 @@ dissect_ipopt_cipso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
       if (taglen > 4) {
         guint16 cat_low, cat_high;
         int offset_max_cat = offset + taglen - 4;
-        char *cat_str = (char *)wmem_alloc0(wmem_packet_scope(), USHRT_MAX_STRLEN * 16);
-        char *cat_str_tmp = (char *)wmem_alloc(wmem_packet_scope(), USHRT_MAX_STRLEN * 2);
+        char *cat_str = (char *)wmem_alloc0(pinfo->pool, USHRT_MAX_STRLEN * 16);
+        char *cat_str_tmp = (char *)wmem_alloc(pinfo->pool, USHRT_MAX_STRLEN * 2);
 
         while ((offset + 2) <= offset_max_cat) {
           cat_high = tvb_get_ntohs(tvb, offset);
@@ -1578,7 +1578,7 @@ dissect_ip_options(tvbuff_t *tvb, int offset, guint length,
     } else {
       option_dissector = dissector_get_uint_handle(ip_option_table, opt);
       if (option_dissector == NULL) {
-        name = wmem_strdup_printf(wmem_packet_scope(), "Unknown (0x%02x)", opt);
+        name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
       } else {
         name = dissector_handle_get_short_name(option_dissector);
       }
@@ -1848,7 +1848,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
   guint16 ttl_valid;
 
   tree = parent_tree;
-  iph = wmem_new0(wmem_packet_scope(), ws_ip4);
+  iph = wmem_new0(pinfo->pool, ws_ip4);
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "IPv4");
   col_clear(pinfo->cinfo, COL_INFO);
@@ -2102,7 +2102,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     memcpy(&addr, iph->ip_src.data, 4);
     src_host = get_hostname(addr);
     if (ip_summary_in_tree) {
-      proto_item_append_text(ti, ", Src: %s", address_with_resolution_to_str(wmem_packet_scope(), &iph->ip_src));
+      proto_item_append_text(ti, ", Src: %s", address_with_resolution_to_str(pinfo->pool, &iph->ip_src));
     }
     proto_tree_add_ipv4(ip_tree, hf_ip_src, tvb, offset + 12, 4, addr);
     item = proto_tree_add_ipv4(ip_tree, hf_ip_addr, tvb, offset + 12, 4, addr);
@@ -2169,7 +2169,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     memcpy(&addr, iph->ip_dst.data, 4);
     dst_host = get_hostname(addr);
     if (ip_summary_in_tree) {
-      proto_item_append_text(ti, ", Dst: %s", address_with_resolution_to_str(wmem_packet_scope(), &iph->ip_dst));
+      proto_item_append_text(ti, ", Dst: %s", address_with_resolution_to_str(pinfo->pool, &iph->ip_dst));
     }
 
     if (dst_off) {
@@ -2178,7 +2178,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
       cur_rt = tvb_get_ipv4(tvb, offset + 16);
       if (ip_summary_in_tree) {
         proto_item_append_text(ti, ", Via: %s",
-            tvb_address_with_resolution_to_str(wmem_packet_scope(), tvb, AT_IPv4, offset + 16));
+            tvb_address_with_resolution_to_str(pinfo->pool, tvb, AT_IPv4, offset + 16));
       }
       proto_tree_add_ipv4(ip_tree, hf_ip_cur_rt, tvb, offset + 16, 4, cur_rt);
       item = proto_tree_add_string(ip_tree, hf_ip_cur_rt_host, tvb,
@@ -2202,7 +2202,7 @@ dissect_ip_v4(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
     }
 
     if (ip_use_geoip) {
-      add_geoip_info(ip_tree, tvb, offset, src32, dst32);
+      add_geoip_info(ip_tree, pinfo, tvb, offset, src32, dst32);
     }
   }
 

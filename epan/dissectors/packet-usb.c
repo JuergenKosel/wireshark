@@ -26,6 +26,7 @@
 #include <epan/decode_as.h>
 #include <epan/proto_data.h>
 #include <wsutil/pint.h>
+#include <wsutil/ws_roundup.h>
 
 #include "packet-usb.h"
 #include "packet-mausb.h"
@@ -1732,6 +1733,7 @@ get_usb_conv_info(conversation_t *conversation)
         usb_conv_info->alt_settings      = wmem_array_new(wmem_file_scope(), sizeof(usb_alt_setting_t));
         usb_conv_info->transactions      = wmem_tree_new(wmem_file_scope());
         usb_conv_info->descriptor_transfer_type = URB_UNKNOWN;
+        usb_conv_info->max_packet_size   = 0;
 
         conversation_add_proto_data(conversation, proto_usb, usb_conv_info);
     }
@@ -1812,6 +1814,36 @@ get_usb_iface_conv_info(packet_info *pinfo, guint8 interface_num)
     }
 
     return get_usb_conv_info(conversation);
+}
+
+/* Fetch usb_conv_info for specified endpoint, return NULL if not found */
+usb_conv_info_t *
+get_existing_usb_ep_conv_info(packet_info* pinfo, guint16 bus_id, guint16 device_address, int endpoint)
+{
+    usb_address_t   *src_addr = wmem_new0(pinfo->pool, usb_address_t),
+                    *dst_addr = wmem_new0(pinfo->pool, usb_address_t);
+    address          src, dst;
+    conversation_t  *conversation;
+    usb_conv_info_t *usb_conv_info = NULL;
+
+    src_addr->bus_id   = GUINT16_TO_LE(bus_id);
+    src_addr->device   = GUINT16_TO_LE(device_address);
+    src_addr->endpoint = GUINT32_TO_LE(endpoint);
+
+    dst_addr->bus_id   = GUINT16_TO_LE(bus_id);
+    dst_addr->device   = 0xffffffff;
+    dst_addr->endpoint = NO_ENDPOINT;
+
+    set_address(&src, usb_address_type, USB_ADDR_LEN, (char *)src_addr);
+    set_address(&dst, usb_address_type, USB_ADDR_LEN, (char *)dst_addr);
+
+    conversation = find_conversation(pinfo->num, &src, &dst,
+                                     conversation_pt_to_endpoint_type(PT_USB),
+                                     src_addr->endpoint, dst_addr->endpoint, 0);
+    if (conversation) {
+        usb_conv_info = (usb_conv_info_t *)conversation_get_proto_data(conversation, proto_usb);
+    }
+    return usb_conv_info;
 }
 
 static const char* usb_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e filter)
@@ -2463,6 +2495,7 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
     guint8            endpoint;
     guint8            ep_type;
     guint8            len;
+    guint32           max_packet_size;
     usb_trans_info_t *usb_trans_info = NULL;
     conversation_t   *conversation   = NULL;
 
@@ -2490,7 +2523,7 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
     if ((!pinfo->fd->visited) && usb_trans_info && usb_trans_info->interface_info) {
         if (pinfo->destport == NO_ENDPOINT) {
             address tmp_addr;
-            usb_address_t *usb_addr = wmem_new0(wmem_packet_scope(), usb_address_t);
+            usb_address_t *usb_addr = wmem_new0(pinfo->pool, usb_address_t);
 
             /* packet is sent from a USB device's endpoint 0 to the host
              * replace endpoint 0 with the endpoint of this descriptor
@@ -2525,6 +2558,15 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
     }
     offset += 1;
 
+    /* wMaxPacketSize */
+    ep_pktsize_item = proto_tree_add_item(tree, hf_usb_wMaxPacketSize, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    ep_pktsize_tree = proto_item_add_subtree(ep_pktsize_item, ett_endpoint_wMaxPacketSize);
+    if ((ep_type == ENDPOINT_TYPE_INTERRUPT) || (ep_type == ENDPOINT_TYPE_ISOCHRONOUS)) {
+        proto_tree_add_item(ep_pktsize_tree, hf_usb_wMaxPacketSize_slots, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+    }
+    proto_tree_add_item_ret_uint(ep_pktsize_tree, hf_usb_wMaxPacketSize_size, tvb, offset, 2, ENC_LITTLE_ENDIAN, &max_packet_size);
+    offset+=2;
+
     if (conversation) {
         usb_conv_info_t* endpoint_conv_info = get_usb_conv_info(conversation);
         guint8 transfer_type;
@@ -2547,16 +2589,8 @@ dissect_usb_endpoint_descriptor(packet_info *pinfo, proto_tree *parent_tree,
             break;
         }
         endpoint_conv_info->descriptor_transfer_type = transfer_type;
+        endpoint_conv_info->max_packet_size = max_packet_size;
     }
-
-    /* wMaxPacketSize */
-    ep_pktsize_item = proto_tree_add_item(tree, hf_usb_wMaxPacketSize, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    ep_pktsize_tree = proto_item_add_subtree(ep_pktsize_item, ett_endpoint_wMaxPacketSize);
-    if ((ep_type == ENDPOINT_TYPE_INTERRUPT) || (ep_type == ENDPOINT_TYPE_ISOCHRONOUS)) {
-        proto_tree_add_item(ep_pktsize_tree, hf_usb_wMaxPacketSize_slots, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    }
-    proto_tree_add_item(ep_pktsize_tree, hf_usb_wMaxPacketSize_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    offset+=2;
 
     /* bInterval */
     proto_tree_add_item(tree, hf_usb_bInterval, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -2918,7 +2952,7 @@ dissect_usb_setup_get_descriptor_response(packet_info *pinfo, proto_tree *tree,
                 proto_tree_add_bytes_format(tree, hf_usb_get_descriptor_resp_generic, tvb, offset, len, NULL,
                                             "GET DESCRIPTOR Response data (unknown descriptor type %u): %s",
                                             usb_trans_info->u.get_descriptor.type,
-                                            tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, len));
+                                            tvb_bytes_to_str(pinfo->pool, tvb, offset, len));
                 offset = offset + len;
             }
             break;
@@ -3443,7 +3477,7 @@ usb_tap_queue_packet(packet_info *pinfo, guint8 urb_type,
 {
     usb_tap_data_t *tap_data;
 
-    tap_data                = wmem_new(wmem_packet_scope(), usb_tap_data_t);
+    tap_data                = wmem_new(pinfo->pool, usb_tap_data_t);
     tap_data->urb_type      = urb_type;
     tap_data->transfer_type = (guint8)(usb_conv_info->transfer_type);
     tap_data->conv_info     = usb_conv_info;
@@ -3609,7 +3643,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
                 endpoint = usb_trans_info->setup.wIndex & 0x0f;
 
                 if (usb_conv_info->is_request) {
-                    usb_address_t *dst_addr = wmem_new0(wmem_packet_scope(), usb_address_t);
+                    usb_address_t *dst_addr = wmem_new0(pinfo->pool, usb_address_t);
                     dst_addr->bus_id = usb_conv_info->bus_id;
                     dst_addr->device = usb_conv_info->device_address;
                     dst_addr->endpoint = dst_endpoint = GUINT32_TO_LE(endpoint);
@@ -3618,7 +3652,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
                     conversation = get_usb_conversation(pinfo, &pinfo->src, &endpoint_addr, pinfo->srcport, dst_endpoint);
                 }
                 else {
-                    usb_address_t *src_addr = wmem_new0(wmem_packet_scope(), usb_address_t);
+                    usb_address_t *src_addr = wmem_new0(pinfo->pool, usb_address_t);
                     src_addr->bus_id = usb_conv_info->bus_id;
                     src_addr->device = usb_conv_info->device_address;
                     src_addr->endpoint = src_endpoint = GUINT32_TO_LE(endpoint);
@@ -4145,8 +4179,8 @@ usb_set_addr(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, guint16 bus_id
     /* sent/received is from the perspective of the USB host */
     pinfo->p2p_dir = req ? P2P_DIR_SENT : P2P_DIR_RECV;
 
-    str_src_addr = address_to_str(wmem_packet_scope(), &pinfo->src);
-    str_dst_addr = address_to_str(wmem_packet_scope(), &pinfo->dst);
+    str_src_addr = address_to_str(pinfo->pool, &pinfo->src);
+    str_dst_addr = address_to_str(pinfo->pool, &pinfo->dst);
 
     sub_item = proto_tree_add_string(tree, hf_usb_src, tvb, 0, 0, str_src_addr);
     proto_item_set_generated(sub_item);
@@ -4554,7 +4588,7 @@ dissect_darwin_usb_iso_transfer(packet_info *pinfo _U_, proto_tree *tree, usb_he
 
         /* Padding to align the next header */
         offset        += frame_header_length;
-        offset         = ((offset + 3) & ~3);
+        offset         = WS_ROUNDUP_4(offset);
         iso_tree_start = offset;
 
         len -= frame_header_length;
@@ -4685,7 +4719,7 @@ dissect_freebsd_usb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent, void 
              */
             proto_tree_add_item(frame_tree, hf_usb_frame_data, tvb, offset,
                                 framelen, ENC_NA);
-            offset += (framelen + 3) & ~3;
+            offset += WS_ROUNDUP_4(framelen);
         }
         proto_item_set_end(ti, tvb, offset);
     }
@@ -4983,6 +5017,7 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
     guint64                  usb_id;
     struct mausb_header  *ma_header = NULL;
     struct usbip_header  *ip_header = NULL;
+    usb_pseudo_urb_t     *pseudo_urb = NULL;
 
     /* the goal is to get the conversation struct as early as possible
        and store all status values in this struct
@@ -5033,6 +5068,14 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
         device_address = (guint16)tvb_get_guint8(tvb, 29);
         location = tvb_get_letohl(tvb, 23);
         bus_id = location >> 24;
+        break;
+
+    case USB_HEADER_PSEUDO_URB:
+        pseudo_urb = (usb_pseudo_urb_t *) extra_data;
+        urb_type = pseudo_urb->from_host ? URB_SUBMIT : URB_COMPLETE;
+        device_address = pseudo_urb->device_address;
+        endpoint = pseudo_urb->endpoint;
+        bus_id = pseudo_urb->bus_id;
         break;
 
     default:
@@ -5096,6 +5139,14 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
         proto_item_set_len(urb_tree_ti, offset);
         break;
 
+    case USB_HEADER_PSEUDO_URB:
+        usb_conv_info->transfer_type = pseudo_urb->transfer_type;
+        usb_conv_info->direction = pseudo_urb->from_host ? P2P_DIR_SENT : P2P_DIR_RECV;
+        usb_conv_info->is_setup = pseudo_urb->from_host && (pseudo_urb->transfer_type == URB_CONTROL);
+        usb_conv_info->is_request = pseudo_urb->from_host;
+        usb_id = 0;
+        break;
+
     default:
         usb_id = 0;
         break;
@@ -5135,6 +5186,9 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
             break;
 
         case USB_HEADER_DARWIN:
+            break;
+
+        case USB_HEADER_PSEUDO_URB:
             break;
         }
         break;
@@ -5198,6 +5252,9 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
 
                 case USB_HEADER_DARWIN:
                     break;
+
+                case USB_HEADER_PSEUDO_URB:
+                    break;
                 }
             }
         } else {
@@ -5240,6 +5297,9 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
 
             case USB_HEADER_DARWIN:
                 break;
+
+            case USB_HEADER_PSEUDO_URB:
+                break;
             }
 
             offset = dissect_usb_setup_response(pinfo, tree, tvb, offset,
@@ -5272,6 +5332,9 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
             offset = dissect_darwin_usb_iso_transfer(pinfo, tree, header_type,
                     urb_type, tvb, offset, usb_conv_info);
             break;
+
+        case USB_HEADER_PSEUDO_URB:
+            break;
         }
         break;
 
@@ -5297,6 +5360,9 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
             break;
 
         case USB_HEADER_DARWIN:
+            break;
+
+        case USB_HEADER_PSEUDO_URB:
             break;
         }
         break;

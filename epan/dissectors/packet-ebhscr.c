@@ -79,7 +79,7 @@ static int hf_ts_utc_leap_sec = -1;
 static int hf_ts_sync_state = -1;
 
 static int hf_dio_overflow_mon_unit = -1;
-static int hf_dio_jump_occured = -1;
+static int hf_dio_jump_occurred = -1;
 static int hf_dio_value_type = -1;
 static int hf_dio_reserved_bytes = -1;
 
@@ -251,7 +251,7 @@ static const value_string ts_sync_state_strings[] = {
 
 static int * const dio_status_bits[] = {
 	&hf_dio_overflow_mon_unit,
-	&hf_dio_jump_occured,
+	&hf_dio_jump_occurred,
 	NULL
 };
 
@@ -388,7 +388,7 @@ static int dissect_ebhscr_nmea(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
 	next_tvb = tvb_new_subset_length(tvb, 32, ebhscr_current_payload_length);
 	call_data_dissector(next_tvb, pinfo, tree);
-	nmea_str = tvb_get_string_enc(wmem_packet_scope(), tvb, 32, ebhscr_length, ENC_UTF_8);
+	nmea_str = tvb_get_string_enc(pinfo->pool, tvb, 32, ebhscr_length, ENC_UTF_8);
 	col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s", "NMEA:", nmea_str);
 	return tvb_captured_length(tvb);
 }
@@ -525,7 +525,7 @@ dissect_ebhscr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 			proto_tree_add_item(ebhscr_packet_header_tree, hf_ebhscr_mjr_hdr, tvb, 24, 8, ENC_BIG_ENDIAN);
 			next_tvb = tvb_new_subset_length(tvb, 32, ebhscr_current_payload_length);
 			call_data_dissector(next_tvb, pinfo, tree);
-			col_append_fstr(pinfo->cinfo, COL_INFO, "  %s", tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, 32,
+			col_append_fstr(pinfo->cinfo, COL_INFO, "  %s", tvb_bytes_to_str_punct(pinfo->pool, tvb, 32,
 							ebhscr_current_payload_length, ' '));
 		}
 		return tvb_captured_length(tvb);
@@ -887,11 +887,11 @@ proto_register_ebhscr(void)
 			NULL, 0x0001,
 			"Set to 1 in case of an overflow in the monitoring unit. In this case all remaining fields are invalid.", HFILL }
 		},
-		{ &hf_dio_jump_occured,
-			{ "Time jump occured", "ebhscr.dio.jump_occ",
+		{ &hf_dio_jump_occurred,
+			{ "Time jump occurred", "ebhscr.dio.jump_occ",
 			FT_BOOLEAN, 16,
 			NULL, 0x0400,
-			"Set to 1 if a time jump occured near the edge and thus the timestamp was estimated.", HFILL }
+			"Set to 1 if a time jump occurred near the edge and thus the timestamp was estimated.", HFILL }
 		},
 		{ &hf_dio_value_type,
 			{ "Digital IO value type", "ebhscr.dio.valtype",

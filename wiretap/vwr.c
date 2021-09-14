@@ -16,6 +16,7 @@
 #include "file_wrappers.h"
 
 #include "vwr.h"
+#include <wsutil/ws_assert.h>
 
 /* platform-specific definitions for portability */
 
@@ -1284,6 +1285,7 @@ static gboolean vwr_read_s1_W_rec(vwr_t *vwr, wtap_rec *record,
     record->rec_header.packet_header.pkt_encap = WTAP_ENCAP_IXVERIWAVE;
 
     record->rec_type = REC_TYPE_PACKET;
+    record->block = wtap_block_create(WTAP_BLOCK_PACKET);
     record->presence_flags = WTAP_HAS_TS;
 
     ws_buffer_assure_space(buf, record->rec_header.packet_header.caplen);
@@ -1699,6 +1701,7 @@ static gboolean vwr_read_s2_W_rec(vwr_t *vwr, wtap_rec *record,
     record->ts.nsecs  = (int)(s_usec * 1000);
 
     record->rec_type = REC_TYPE_PACKET;
+    record->block = wtap_block_create(WTAP_BLOCK_PACKET);
     record->presence_flags = WTAP_HAS_TS;
 
     ws_buffer_assure_space(buf, record->rec_header.packet_header.caplen);
@@ -1879,6 +1882,7 @@ static gboolean vwr_read_s3_W_rec(vwr_t *vwr, wtap_rec *record,
         record->ts.nsecs  = (int)(s_usec * 1000);
 
         record->rec_type = REC_TYPE_PACKET;
+        record->block = wtap_block_create(WTAP_BLOCK_PACKET);
         record->presence_flags = WTAP_HAS_TS;
 
         ws_buffer_assure_space(buf, record->rec_header.packet_header.caplen);
@@ -2211,6 +2215,7 @@ static gboolean vwr_read_s3_W_rec(vwr_t *vwr, wtap_rec *record,
         record->ts.nsecs  = (int)(s_usec * 1000);
 
         record->rec_type = REC_TYPE_PACKET;
+        record->block = wtap_block_create(WTAP_BLOCK_PACKET);
         record->presence_flags = WTAP_HAS_TS;
 
         ws_buffer_assure_space(buf, record->rec_header.packet_header.caplen);
@@ -2720,6 +2725,7 @@ static gboolean vwr_read_rec_data_ethernet(vwr_t *vwr, wtap_rec *record,
     record->ts.nsecs  = (int)(s_usec * 1000);
 
     record->rec_type = REC_TYPE_PACKET;
+    record->block = wtap_block_create(WTAP_BLOCK_PACKET);
     record->presence_flags = WTAP_HAS_TS;
 
     /*etap_hdr.vw_ip_length = (guint16)ip_len;*/
@@ -3362,7 +3368,7 @@ vwr_process_rec_data(FILE_T fh, int rec_size,
             break;
         default:
             g_free(rec);
-            g_assert_not_reached();
+            ws_assert_not_reached();
             return ret;
     }
 

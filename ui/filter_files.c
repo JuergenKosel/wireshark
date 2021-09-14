@@ -9,6 +9,7 @@
  */
 
 #include <config.h>
+#define WS_LOG_DOMAIN LOG_DOMAIN_MAIN
 
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +20,8 @@
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/report_message.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 
 #include "ui/filter_files.h"
 
@@ -142,7 +145,7 @@ read_filter_list(filter_list_type_t list_type)
             break;
 
         default:
-            g_assert_not_reached();
+            ws_assert_not_reached();
             return;
     }
 
@@ -239,7 +242,7 @@ read_filter_list(filter_list_type_t list_type)
         /* "c" is the first non-white-space character.
            If it's not a quote, it's an error. */
         if (c != '"') {
-            g_warning("'%s' line %d doesn't have a quoted filter name.", ff_path,
+            ws_warning("'%s' line %d doesn't have a quoted filter name.", ff_path,
                     line);
             while (c != '\n')
                 c = getc(ff);   /* skip to the end of the line */
@@ -281,7 +284,7 @@ read_filter_list(filter_list_type_t list_type)
         if (c == EOF) {
             if (!ferror(ff)) {
                 /* EOF, not error; no newline seen before EOF */
-                g_warning("'%s' line %d doesn't have a newline.", ff_path,
+                ws_warning("'%s' line %d doesn't have a newline.", ff_path,
                         line);
             }
             break;    /* nothing more to read */
@@ -289,7 +292,7 @@ read_filter_list(filter_list_type_t list_type)
 
         if (c != '"') {
             /* No newline seen before end-of-line */
-            g_warning("'%s' line %d doesn't have a closing quote.", ff_path,
+            ws_warning("'%s' line %d doesn't have a closing quote.", ff_path,
                     line);
             continue;
         }
@@ -300,7 +303,7 @@ read_filter_list(filter_list_type_t list_type)
         if (c == EOF) {
             if (!ferror(ff)) {
                 /* EOF, not error; no newline seen before EOF */
-                g_warning("'%s' line %d doesn't have a newline.", ff_path,
+                ws_warning("'%s' line %d doesn't have a newline.", ff_path,
                         line);
             }
             break;    /* nothing more to read */
@@ -308,7 +311,7 @@ read_filter_list(filter_list_type_t list_type)
 
         if (c == '\n') {
             /* No filter expression */
-            g_warning("'%s' line %d doesn't have a filter expression.", ff_path,
+            ws_warning("'%s' line %d doesn't have a filter expression.", ff_path,
                     line);
             continue;
         }
@@ -335,7 +338,7 @@ read_filter_list(filter_list_type_t list_type)
         if (c == EOF) {
             if (!ferror(ff)) {
                 /* EOF, not error; no newline seen before EOF */
-                g_warning("'%s' line %d doesn't have a newline.", ff_path,
+                ws_warning("'%s' line %d doesn't have a newline.", ff_path,
                         line);
             }
             break;    /* nothing more to read */
@@ -381,7 +384,7 @@ get_filter_list(filter_list_type_t list_type)
             break;
 
         default:
-            g_assert_not_reached();
+            ws_assert_not_reached();
             flpp = NULL;
     }
     return flpp;
@@ -459,7 +462,7 @@ save_filter_list(filter_list_type_t list_type)
             break;
 
         default:
-            g_assert_not_reached();
+            ws_assert_not_reached();
             return;
     }
 

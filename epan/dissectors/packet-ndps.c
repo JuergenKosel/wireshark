@@ -19,7 +19,7 @@
 #include <epan/expert.h>
 #include <epan/strutil.h>
 #include <epan/proto_data.h>
-#include <wmem/wmem_map.h>
+#include <epan/wmem_scopes.h>
 
 #include "packet-ipx.h"
 #include "packet-tcp.h"

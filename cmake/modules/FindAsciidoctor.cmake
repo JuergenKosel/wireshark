@@ -11,6 +11,10 @@ FIND_PROGRAM(ASCIIDOCTOR_EXECUTABLE
         asciidoctorj
         asciidoctor
         asciidoctor.ruby2.1
+	# Asciidoctor.js releases
+        asciidoctor-linux
+        asciidoctor-macos
+        asciidoctor-win
     PATHS
         /bin
         /usr/bin
@@ -22,7 +26,7 @@ FIND_PROGRAM(ASCIIDOCTOR_EXECUTABLE
 if(ASCIIDOCTOR_EXECUTABLE)
     # As of 2.2.0 the AsciidctorJ wrapper script sets -Xmn128m -Xms256m -Xmx256m.
     # This isn't enough for the User's Guide.
-    set(_asciidoctorj_opts -Xmn256m -Xms512m -Xmx2048m $ENV{ASCIIDOCTORJ_OPTS})
+    set(_asciidoctorj_opts "-Xmn256m -Xms512m -Xmx2048m $ENV{ASCIIDOCTORJ_OPTS}")
     execute_process( COMMAND ${ASCIIDOCTOR_EXECUTABLE} --version OUTPUT_VARIABLE _ad_full_version )
     separate_arguments(_ad_full_version)
     list(GET _ad_full_version 1 ASCIIDOCTOR_VERSION)
@@ -46,7 +50,7 @@ if(ASCIIDOCTOR_EXECUTABLE)
     )
 
     set(_asciidoctor_common_command
-        ${CMAKE_COMMAND} -E env TZ=UTC ASCIIDOCTORJ_OPTS="${_asciidoctorj_opts}"
+        ${CMAKE_COMMAND} -E env TZ=UTC ASCIIDOCTORJ_OPTS=${_asciidoctorj_opts}
         ${ASCIIDOCTOR_EXECUTABLE}
         ${_asciidoctor_common_args}
     )
@@ -140,29 +144,32 @@ if(ASCIIDOCTOR_EXECUTABLE)
     if(ASCIIDOCTOR_PDF_EXECUTABLE)
 
         set(_asciidoctor_pdf_common_command
-            ${CMAKE_COMMAND} -E env TZ=UTC ASCIIDOCTORJ_OPTS="${_asciidoctorj_opts}"
+            ${CMAKE_COMMAND} -E env TZ=UTC "ASCIIDOCTORJ_OPTS=${_asciidoctorj_opts}"
             ${ASCIIDOCTOR_PDF_EXECUTABLE}
             --require asciidoctor-pdf
             --backend pdf
             ${_asciidoctor_common_args}
         )
 
-        MACRO( ASCIIDOCTOR2PDF _asciidocsource )
+        MACRO( ASCIIDOCTOR2PDF _title _asciidocsource )
             GET_FILENAME_COMPONENT( _source_base_name ${_asciidocsource} NAME_WE )
-            set( _output_pdf ${_source_base_name}.pdf )
+            set(_generate_pdf "generate_${_source_base_name}_pdf")
+            set(_output_pdf "${_title}.pdf")
 
             ADD_CUSTOM_COMMAND(
             OUTPUT
                     ${_output_pdf}
             COMMAND ${_asciidoctor_pdf_common_command}
-                    --out-file ${_output_pdf}
+                    --out-file "${_output_pdf}"
                     ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
             DEPENDS
                     ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
                     ${ARGN}
+            VERBATIM
             )
-            add_custom_target(generate_${_output_pdf} DEPENDS ${_output_pdf})
-            set_asciidoctor_target_properties(generate_${_output_pdf})
+            add_custom_target(${_generate_pdf} DEPENDS ${_output_pdf})
+            set_asciidoctor_target_properties(${_generate_pdf})
+            unset(_generate_pdf)
             unset(_output_pdf)
         ENDMACRO()
 
@@ -172,6 +179,56 @@ if(ASCIIDOCTOR_EXECUTABLE)
         ENDMACRO()
 
     endif(ASCIIDOCTOR_PDF_EXECUTABLE)
+
+    FIND_PROGRAM(ASCIIDOCTOR_EPUB_EXECUTABLE
+        NAMES
+            asciidoctorj
+            asciidoctor-epub3
+        PATHS
+            /bin
+            /usr/bin
+            /usr/local/bin
+            ${CHOCOLATEY_BIN_PATH}
+        DOC "Path to Asciidoctor EPUB3 or AsciidoctorJ"
+    )
+
+    if(ASCIIDOCTOR_EPUB_EXECUTABLE)
+
+        set(_asciidoctor_epub_common_command
+            ${CMAKE_COMMAND} -E env TZ=UTC "ASCIIDOCTORJ_OPTS=${_asciidoctorj_opts}"
+            ${ASCIIDOCTOR_EPUB_EXECUTABLE}
+            --backend epub3
+            ${_asciidoctor_common_args}
+        )
+
+        MACRO(ASCIIDOCTOR2EPUB _title _asciidocsource)
+            GET_FILENAME_COMPONENT(_source_base_name ${_asciidocsource} NAME_WE)
+            set(_generate_epub "generate_${_source_base_name}_epub")
+            set(_output_epub "${_title}.epub")
+
+            ADD_CUSTOM_COMMAND(
+            OUTPUT
+                    ${_output_epub}
+            COMMAND ${_asciidoctor_epub_common_command}
+                    --out-file "${_output_epub}"
+                    ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
+            DEPENDS
+                    ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
+                    ${ARGN}
+            VERBATIM
+            )
+            add_custom_target(${_generate_epub} DEPENDS ${_output_epub})
+            set_asciidoctor_target_properties(${_generate_epub})
+            unset(_generate_epub)
+            unset(_output_epub)
+        ENDMACRO()
+
+    else(ASCIIDOCTOR_EPUB_EXECUTABLE)
+
+        MACRO(ASCIIDOCTOR2EPUB _asciidocsource)
+        ENDMACRO()
+
+    endif(ASCIIDOCTOR_EPUB_EXECUTABLE)
 
 endif(ASCIIDOCTOR_EXECUTABLE)
 

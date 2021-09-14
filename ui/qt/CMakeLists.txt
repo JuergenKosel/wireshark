@@ -612,6 +612,7 @@ set(WIRESHARK_QT_TS
 	wireshark_pl.ts
 	wireshark_ru.ts
 	wireshark_sv.ts
+	wireshark_tr_TR.ts
 	wireshark_uk.ts
 	wireshark_zh_CN.ts
 )
@@ -705,18 +706,17 @@ add_library(qtui OBJECT
 )
 
 target_include_directories(qtui
-	SYSTEM PUBLIC
-		${QT_INCLUDE_DIRS}
-		${WINSPARKLE_INCLUDE_DIRS}
-		${SPEEXDSP_INCLUDE_DIRS}
-)
-
-target_include_directories(qtui
 	SYSTEM PRIVATE
-		# Can't use imported target, linking object libraries for usage requirements
-		# requires CMake 3.12
-		${PCAP_INCLUDE_DIRS}
+		# Include Qt before anything else, see the comment about
+		# QT_INCLUDE_DIRS in the top-level CMakeLists.txt
+		# Basically, qt@5 headers should be prioritized over qt@6 which
+		# would be found due to GCRYPT_INCLUDE_DIRS=/usr/local/include
+		${QT_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
+		${MINIZIP_INCLUDE_DIRS}
+		${PCAP_INCLUDE_DIRS}
+		${SPEEXDSP_INCLUDE_DIRS}
+		${WINSPARKLE_INCLUDE_DIRS}
 	PRIVATE
 		${CMAKE_CURRENT_BINARY_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}

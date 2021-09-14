@@ -46,7 +46,7 @@ project(${_project_name} C CXX)
 set(GIT_REVISION 0)
 set(PROJECT_MAJOR_VERSION 3)
 set(PROJECT_MINOR_VERSION 5)
-set(PROJECT_PATCH_VERSION 0)
+set(PROJECT_PATCH_VERSION 1)
 set(PROJECT_BUILD_VERSION ${GIT_REVISION})
 set(PROJECT_VERSION_EXTENSION "")
 
@@ -55,8 +55,6 @@ if(DEFINED ENV{WIRESHARK_VERSION_EXTRA})
 endif()
 
 set(PROJECT_VERSION "${PROJECT_MAJOR_VERSION}.${PROJECT_MINOR_VERSION}.${PROJECT_PATCH_VERSION}${PROJECT_VERSION_EXTENSION}")
-
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 
 include( CMakeOptions.txt )
 
@@ -75,10 +73,10 @@ if (ENABLE_LTO)
 	include(CheckIPOSupported)
 	check_ipo_supported(RESULT lto_supported OUTPUT lto_output)
 	if(lto_supported)
-		set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-		message(STATUS "LTO/IPO is enabled")
+		set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+		message(STATUS "LTO/IPO is enabled for Release configuration")
 	else()
-		message(STATUS "LTO/IPO requested but it is not supported by the compiler: ${lto_output}") 
+		message(STATUS "LTO/IPO requested but it is not supported by the compiler: ${lto_output}")
 	endif()
 else()
 	message(STATUS "LTO/IPO is not enabled")
@@ -151,11 +149,6 @@ if(WIN32)
 	set(EXTRA_INSTALLER_DIR ${_ws_lib_dir})
 
 	# XXX Add a dependency on ${_ws_lib_dir}/current_tag.txt?
-
-	# Prepopulate some ConfigureChecks values. Compilation checks
-	# on Windows can be slow.
-	set(HAVE_FCNTL_H TRUE)
-	set(HAVE_FLOORL TRUE)
 endif(WIN32)
 
 include(UseCustomIncludes)
@@ -419,20 +412,13 @@ endif()
 # -fPIC/-fPIE (so set CMAKE_POSITION_INDEPENDENT_CODE to enable that).
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Path to our generated executables (or wrapper scripts)
-if(WIN32)
-	set(WS_PROGRAM_PATH ./run/$<CONFIG>)
-else()
-	set(WS_PROGRAM_PATH ./run)
-endif()
-
 # Preprocessor definitions common to all compilers
 set_property(DIRECTORY
 	PROPERTY COMPILE_DEFINITIONS
 		"G_DISABLE_DEPRECATED"
 		"G_DISABLE_SINGLE_INCLUDES"
 		$<$<OR:$<BOOL:${DISABLE_ASSERT}>,$<CONFIG:Release>>:WS_DISABLE_ASSERT>
-		$<$<OR:$<BOOL:${ENABLE_DEBUG}>,$<CONFIG:Debug>>:WS_DEBUG>
+		$<$<OR:$<BOOL:${DISABLE_DEBUG}>,$<CONFIG:Release>>:WS_DISABLE_DEBUG>
 )
 
 if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
@@ -457,6 +443,8 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		#                                   in pcap-stdinc.h when compiling C++ files, e.g. the Qt UI
 		/DPSAPI_VERSION=1
 		/D_ALLOW_KEYWORD_MACROS
+		# https://stackoverflow.com/questions/37845163/what-is-the-purpose-of-microsofts-underscore-c-functions
+		/D_CRT_NONSTDC_NO_WARNINGS
 	)
 
 	if(NOT WIRESHARK_TARGET_PLATFORM STREQUAL "win64")
@@ -661,7 +649,6 @@ else() # ! MSVC
 
 	list(APPEND WIRESHARK_C_ONLY_FLAGS
 		# The following are C only, not C++
-		-Wc++-compat
 		-Wunused-const-variable
 		#
 		# XXX - some versions of GCC, including the one in at
@@ -1206,6 +1193,7 @@ if(BUILD_wireshark)
 endif()
 
 # MaxMind DB address resolution
+reset_find_package(MAXMINDDB)
 ws_find_package(MaxMindDB BUILD_mmdbresolve HAVE_MAXMINDDB)
 
 # SMI SNMP
@@ -1246,6 +1234,7 @@ ws_find_package(NL ENABLE_NETLINK HAVE_LIBNL)
 
 ws_find_package(SBC ENABLE_SBC HAVE_SBC)
 
+# SpanDSP codec
 ws_find_package(SPANDSP ENABLE_SPANDSP HAVE_SPANDSP)
 
 ws_find_package(BCG729 ENABLE_BCG729 HAVE_BCG729)
@@ -1276,13 +1265,6 @@ endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	ws_find_package(CAP ENABLE_CAP HAVE_LIBCAP)
 	find_package(SETCAP)
-endif()
-
-# Include minizip include directories
-if(MINIZIP_FOUND)
-	include_directories(SYSTEM ${MINIZIP_INCLUDE_DIRS})
-else()
-	set(MINIZIP_LIBRARY "")
 endif()
 
 # Windows version updates
@@ -1400,10 +1382,11 @@ endif()
 # Platform-specific additional libraries.
 #
 if(WIN32)
+	set(WIN_COMCTL32_LIBRARY comctl32.lib)
+	set(WIN_IPHLPAPI_LIBRARY iphlpapi.lib)
 	set(WIN_PSAPI_LIBRARY    psapi.lib)
-	set(WIN_WS2_32_LIBRARY   ws2_32.lib)
-	set(WIN_COMCTL32_LIBRARY comctl32.lib )
 	set(WIN_VERSION_LIBRARY  version.lib)
+	set(WIN_WS2_32_LIBRARY   ws2_32.lib)
 endif()
 
 if(APPLE)
@@ -1621,16 +1604,16 @@ if(VCSVERSION_OVERRIDE)
 	# Allow distributors to override detection of the Git tag and version.
 	string(CONFIGURE "#define VCSVERSION \"@VCSVERSION_OVERRIDE@\"\n"
 		_version_h_contents ESCAPE_QUOTES)
-	file(WRITE "${CMAKE_BINARY_DIR}/version.h" "${_version_h_contents}")
+	file(WRITE "${CMAKE_BINARY_DIR}/vcs_version.h" "${_version_h_contents}")
 	message(STATUS "VCSVERSION_OVERRIDE: ${VCSVERSION_OVERRIDE}")
 else()
-	add_custom_target(version
-		BYPRODUCTS version.h
+	add_custom_target(vcs_version
+		BYPRODUCTS vcs_version.h
 		COMMAND ${PERL_EXECUTABLE}
 			${CMAKE_SOURCE_DIR}/tools/make-version.pl
 			${CMAKE_SOURCE_DIR}
 	)
-	set_target_properties(version PROPERTIES FOLDER "Auxiliary")
+	set_target_properties(vcs_version PROPERTIES FOLDER "Auxiliary")
 endif()
 
 set( configure_input "Built with CMake ${CMAKE_VERSION}" )
@@ -1711,9 +1694,9 @@ set_package_properties(LIBSSH PROPERTIES
 	PURPOSE "extcap remote SSH interfaces (sshdump, ciscodump)"
 )
 set_package_properties(LZ4 PROPERTIES
-	DESCRIPTION "LZ4 is lossless compression algorithm used in some protocol (CQL...)"
+	DESCRIPTION "LZ4 is a fast lossless compression algorithm"
 	URL "http://www.lz4.org"
-	PURPOSE "LZ4 decompression in CQL and Kafka dissectors"
+	PURPOSE "LZ4 decompression in CQL and Kafka dissectors, read compressed capture files"
 )
 set_package_properties(SNAPPY PROPERTIES
 	DESCRIPTION "A fast compressor/decompressor from Google"
@@ -1723,7 +1706,7 @@ set_package_properties(SNAPPY PROPERTIES
 set_package_properties(ZSTD PROPERTIES
 	DESCRIPTION "A compressor/decompressor from Facebook providing better compression than Snappy at a cost of speed"
 	URL "https://facebook.github.io/zstd/"
-	PURPOSE "Zstd decompression in Kafka dissector"
+	PURPOSE "Zstd decompression in Kafka dissector, read compressed capture files"
 )
 set_package_properties(NGHTTP2 PROPERTIES
 	DESCRIPTION "HTTP/2 C library and tools"
@@ -1805,8 +1788,8 @@ endif()
 # Should this be part of libui?
 if(WIN32)
 	set(PLATFORM_UI_SRC
-		ui/win32/console_win32.c
-		ui/win32/file_dlg_win32.c
+		ui/win32/console_win32.cpp
+		ui/win32/file_dlg_win32.cpp
 	)
 	set(PLATFORM_UI_RC_FILES
 		image/file_dlg_win32.rc
@@ -1920,13 +1903,6 @@ if(NOT WIN32)
 	# We do this for Windows further down in the copy_data_files target.
 	list(APPEND INSTALL_FILES COPYING)
 endif()
-
-set(VERSION_INFO_LIBS
-	${ZLIB_LIBRARIES}
-)
-set(VERSION_INFO_INCLUDE_DIRS
-	${ZLIB_INCLUDE_DIRS}
-)
 
 if(WIN32)
 	set(_dll_output_dir "${DATAFILE_DIR}")
@@ -2316,13 +2292,6 @@ list(APPEND copy_data_files_depends
 add_custom_target(copy_data_files ALL DEPENDS ${copy_data_files_depends} )
 set_target_properties(copy_data_files PROPERTIES FOLDER "Copy Tasks")
 
-
-# Shared code, build object files once for all users.
-add_library(version_info OBJECT version_info.c)
-target_include_directories(version_info SYSTEM PRIVATE ${VERSION_INFO_INCLUDE_DIRS})
-if(NOT VCSVERSION_OVERRIDE)
-	add_dependencies(version_info version)
-endif()
 # sources common for wireshark, tshark, rawshark and sharkd
 add_library(shark_common OBJECT
 	cfile.c
@@ -2335,7 +2304,7 @@ add_library(shark_common OBJECT
 add_library(cli_main OBJECT cli_main.c)
 add_library(capture_opts OBJECT capture_opts.c)
 target_include_directories(capture_opts SYSTEM PRIVATE ${PCAP_INCLUDE_DIRS})
-set_target_properties(version_info shark_common cli_main capture_opts
+set_target_properties(shark_common cli_main capture_opts
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
@@ -2351,7 +2320,6 @@ if(BUILD_wireshark AND QT_FOUND)
 		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:qtui>
 		$<TARGET_OBJECTS:shark_common>
-		$<TARGET_OBJECTS:version_info>
 		${WIRESHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
 	)
@@ -2436,8 +2404,8 @@ if(BUILD_wireshark AND QT_FOUND)
 		caputils
 		wiretap
 		epan
+		version_info
 		${QT_LIBRARIES}
-		${VERSION_INFO_LIBS}
 		${APPLE_APPLICATION_SERVICES_LIBRARY}
 		${APPLE_APPKIT_LIBRARY}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
@@ -2576,7 +2544,7 @@ if(BUILD_tshark)
 		caputils
 		wiretap
 		epan
-		${VERSION_INFO_LIBS}
+		version_info
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -2586,7 +2554,6 @@ if(BUILD_tshark)
 		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:cli_main>
 		$<TARGET_OBJECTS:shark_common>
-		$<TARGET_OBJECTS:version_info>
 		tshark-tap-register.c
 		tshark.c
 		${TSHARK_TAP_SRC}
@@ -2605,14 +2572,13 @@ if(BUILD_tfshark)
 		ui
 		wiretap
 		epan
-		${VERSION_INFO_LIBS}
+		version_info
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 	)
 	set(tfshark_FILES
 		$<TARGET_OBJECTS:cli_main>
 		$<TARGET_OBJECTS:shark_common>
-		$<TARGET_OBJECTS:version_info>
 		tfshark.c
 		${TSHARK_TAP_SRC}
 	)
@@ -2629,7 +2595,7 @@ if(BUILD_rawshark AND PCAP_FOUND)
 		ui
 		wiretap
 		epan
-		${VERSION_INFO_LIBS}
+		version_info
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -2637,7 +2603,6 @@ if(BUILD_rawshark AND PCAP_FOUND)
 	set(rawshark_FILES
 		$<TARGET_OBJECTS:cli_main>
 		$<TARGET_OBJECTS:shark_common>
-		$<TARGET_OBJECTS:version_info>
 		rawshark.c
 	)
 	set_executable_resources(rawshark "Rawshark")
@@ -2652,7 +2617,7 @@ if(BUILD_sharkd)
 		ui
 		wiretap
 		epan
-		${VERSION_INFO_LIBS}
+		version_info
 		${APPLE_CORE_FOUNDATION_LIBRARY}
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -2665,7 +2630,6 @@ if(BUILD_sharkd)
 		# $<TARGET_OBJECTS:cli_main> and has real_main().
 		#
 		$<TARGET_OBJECTS:shark_common>
-		$<TARGET_OBJECTS:version_info>
 		sharkd.c
 		sharkd_daemon.c
 		sharkd_session.c
@@ -2684,7 +2648,7 @@ if(BUILD_dftest)
 		ui
 		wiretap
 		epan
-		${VERSION_INFO_LIBS}
+		version_info
 	)
 	set(dftest_FILES
 		dftest.c
@@ -2706,7 +2670,6 @@ if(BUILD_randpkt)
 	)
 	set(randpkt_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		randpkt.c
 	)
 	add_executable(randpkt ${randpkt_FILES})
@@ -2723,12 +2686,12 @@ if(BUILD_text2pcap)
 	set(text2pcap_LIBS
 		writecap
 		wsutil
+		version_info
 		${M_LIBRARIES}
 		${ZLIB_LIBRARIES}
 	)
 	set(text2pcap_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		text2pcap.c
 	)
 	add_lex_files(text2pcap_LEX_FILES text2pcap_FILES
@@ -2746,12 +2709,12 @@ if(BUILD_mergecap)
 	set(mergecap_LIBS
 		ui
 		wiretap
+		version_info
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(mergecap_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		mergecap.c
 	)
 	set_executable_resources(mergecap "Mergecap")
@@ -2765,12 +2728,12 @@ if(BUILD_reordercap)
 	set(reordercap_LIBS
 		ui
 		wiretap
+		version_info
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(reordercap_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		reordercap.c
 	)
 	set_executable_resources(reordercap "Reordercap")
@@ -2785,19 +2748,20 @@ if(BUILD_capinfos)
 		ui
 		wiretap
 		wsutil
+		version_info
 		${ZLIB_LIBRARIES}
 		${GCRYPT_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(capinfos_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		capinfos.c
 	)
 	set_executable_resources(capinfos "Capinfos")
 	add_executable(capinfos ${capinfos_FILES})
 	set_extra_executable_properties(capinfos "Executables")
 	target_link_libraries(capinfos ${capinfos_LIBS})
+	target_include_directories(capinfos SYSTEM PRIVATE ${GCRYPT_INCLUDE_DIRS})
 	install(TARGETS capinfos RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
@@ -2806,12 +2770,12 @@ if(BUILD_captype)
 		ui
 		wiretap
 		wsutil
+		version_info
 		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(captype_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		captype.c
 	)
 	set_executable_resources(captype "Captype")
@@ -2825,19 +2789,20 @@ if(BUILD_editcap)
 	set(editcap_LIBS
 		ui
 		wiretap
+		version_info
 		${ZLIB_LIBRARIES}
 		${GCRYPT_LIBRARIES}
 		${CMAKE_DL_LIBS}
 	)
 	set(editcap_FILES
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		editcap.c
 	)
 	set_executable_resources(editcap "Editcap")
 	add_executable(editcap ${editcap_FILES})
 	set_extra_executable_properties(editcap "Executables")
 	target_link_libraries(editcap ${editcap_LIBS})
+	target_include_directories(editcap SYSTEM PRIVATE ${GCRYPT_INCLUDE_DIRS})
 	install(TARGETS editcap RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
@@ -2847,9 +2812,9 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 		wsutil
 		caputils
 		ui
+		version_info
 		pcap::pcap
 		${CAP_LIBRARIES}
-		${GLIB2_LIBRARIES}
 		${GTHREAD2_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
@@ -2859,7 +2824,6 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 	set(dumpcap_FILES
 		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:cli_main>
-		$<TARGET_OBJECTS:version_info>
 		dumpcap.c
 		ringbuffer.c
 		sync_pipe_write.c
@@ -2868,6 +2832,7 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 	add_executable(dumpcap ${dumpcap_FILES})
 	set_extra_executable_properties(dumpcap "Executables")
 	target_link_libraries(dumpcap ${dumpcap_LIBS})
+	target_include_directories(dumpcap SYSTEM PRIVATE ${ZLIB_INCLUDE_DIRS})
 	install(TARGETS dumpcap
 			RUNTIME	DESTINATION ${CMAKE_INSTALL_BINDIR}
 			PERMISSIONS ${DUMPCAP_SETUID}
@@ -2901,7 +2866,6 @@ endif()
 # We probably shouldn't do that.
 if(BUILD_dcerpcidl2wrs)
 	set(idl2wrs_LIBS
-		${GLIB2_LIBRARIES}
 		wsutil
 	)
 	set(idl2wrs_FILES
@@ -3374,12 +3338,11 @@ set(SHARK_PUBLIC_HEADERS
 	cli_main.h
 	file.h
 	globals.h
-	log.h
 	ws_attributes.h
 	ws_compiler_tests.h
 	ws_diag_control.h
+	ws_log_defs.h
 	ws_symbol_export.h
-	version_info.h
 	${CMAKE_BINARY_DIR}/ws_version.h
 )
 
@@ -3525,6 +3488,7 @@ add_custom_target(test-programs
 		reassemble_test
 		tvbtest
 		wmem_test
+		test_wsutil
 	COMMENT "Building unit test programs and wrapper"
 )
 set_target_properties(test-programs PROPERTIES
@@ -3565,6 +3529,7 @@ set(_test_group_list
 	suite_fileformats
 	suite_follow
 	suite_follow_dccp
+	suite_follow_multistream
 	suite_io
 	suite_mergecap
 	suite_netperfmeter
@@ -3589,7 +3554,7 @@ foreach(_group_name ${_test_group_list})
 		COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
 			${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test.py
 			--verbose
-			--program-path ${WS_PROGRAM_PATH}
+			--program-path $<TARGET_FILE_DIR:wmem_test>
 			${TEST_EXTRA_ARGS}
 			${_group_name}
 		)
@@ -3671,7 +3636,6 @@ if(SHELLCHECK_EXECUTABLE)
 			packaging/macosx/osx-app.sh.in
 			packaging/macosx/osx-dmg.sh.in
 			packaging/source/git-export-release.sh.in
-			tools/compress-pngs.sh
 			tools/debian-setup.sh
 			tools/fuzz-test.sh
 			tools/gen-bugnote
@@ -3684,6 +3648,15 @@ if(SHELLCHECK_EXECUTABLE)
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 	)
 endif()
+
+# uninstall target
+configure_file(
+	"${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+	IMMEDIATE @ONLY)
+
+add_custom_target(uninstall
+	COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 
 #
 # Editor modelines  -  https://www.wireshark.org/tools/modelines.html

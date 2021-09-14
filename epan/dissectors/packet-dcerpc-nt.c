@@ -285,7 +285,7 @@ static void cb_byte_array_postprocess(packet_info *pinfo, proto_tree *tree _U_,
 	if ((end_offset - start_offset) <= 12)
 		return;
 
-	s = tvb_bytes_to_str(wmem_packet_scope(), tvb, start_offset + 12, (end_offset - start_offset - 12) );
+	s = tvb_bytes_to_str(pinfo->pool, tvb, start_offset + 12, (end_offset - start_offset - 12) );
 
 	/* Append string to COL_INFO */
 
@@ -775,7 +775,7 @@ void dcerpc_store_polhnd_name(e_ctx_hnd *policy_hnd, packet_info *pinfo,
 		if (pol->name && name) {
 #ifdef DEBUG_HASH_COLL
 			if (strcmp(pol->name, name) != 0)
-				g_warning("dcerpc_smb: pol_hash name collision %s/%s\n", value->name, name);
+				ws_warning("dcerpc_smb: pol_hash name collision %s/%s\n", value->name, name);
 #endif
 			/* pol->name is wmem_file_scope() allocated, don't free it now */
 		}
@@ -1088,7 +1088,7 @@ PIDL_dissect_policy_hnd(tvbuff_t *tvb, gint offset, packet_info *pinfo,
 		if(!pol_name){
 			pol_name="<...>";
 		}
-		pol_string=wmem_strdup_printf(wmem_packet_scope(), "%s(%s)", di->dcerpc_procedure_name, pol_name);
+		pol_string=wmem_strdup_printf(pinfo->pool, "%s(%s)", di->dcerpc_procedure_name, pol_name);
 		dcerpc_store_polhnd_name(&policy_hnd, pinfo, pol_string);
 		dcerpc_store_polhnd_type(&policy_hnd, pinfo, param&PIDL_POLHND_TYPE_MASK);
 	}
@@ -1259,7 +1259,7 @@ void cb_wstr_postprocess(packet_info *pinfo, proto_tree *tree _U_,
 	 * some way we can get that string, rather than duplicating the
 	 * efforts of that routine?
 	 */
-	s = tvb_get_string_enc(wmem_packet_scope(),
+	s = tvb_get_string_enc(pinfo->pool,
 		tvb, start_offset + 12, end_offset - start_offset - 12,
 		ENC_UTF_16|ENC_LITTLE_ENDIAN);
 
@@ -1292,7 +1292,7 @@ void cb_str_postprocess(packet_info *pinfo, proto_tree *tree _U_,
 	 * some way we can get that string, rather than duplicating the
 	 * efforts of that routine?
 	 */
-	s = tvb_get_string_enc(wmem_packet_scope(),
+	s = tvb_get_string_enc(pinfo->pool,
 		tvb, start_offset + 12, (end_offset - start_offset - 12), ENC_ASCII);
 
 	cb_str_postprocess_options(pinfo, item, di, options, s);

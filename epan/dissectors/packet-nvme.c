@@ -51,9 +51,162 @@ static int proto_nvme = -1;
 #define NEG_LST_20 NEG_LST_10, NEG_LST_10
 #define NEG_LST_32 NEG_LST_16, NEG_LST_16
 
+#define NVME_FCTYPE_PROP_SET  0x0
+#define NVME_FCTYPE_CONNECT   0x1
+#define NVME_FCTYPE_PROP_GET  0x4
+#define NVME_FCTYPE_AUTH_SEND 0x5
+#define NVME_FCTYPE_AUTH_RECV 0x6
+#define NVME_FCTYPE_DISCONNECT 0x8
+
+
+/* NVMeOF fields */
+/* NVMe Fabric Cmd */
+static int hf_nvmeof_cmd = -1;
+static int hf_nvmeof_cmd_opc = -1;
+static int hf_nvmeof_cmd_rsvd = -1;
+static int hf_nvmeof_cmd_cid = -1;
+static int hf_nvmeof_cmd_fctype = -1;
+static int hf_nvmeof_cmd_connect_rsvd1 = -1;
+static int hf_nvmeof_cmd_connect_sgl1 = -1;
+static int hf_nvmeof_cmd_connect_recfmt = -1;
+static int hf_nvmeof_cmd_connect_qid = -1;
+static int hf_nvmeof_cmd_connect_sqsize = -1;
+static int hf_nvmeof_cmd_connect_cattr[5] =  { NEG_LST_5 };
+static int hf_nvmeof_cmd_connect_rsvd2 = -1;
+static int hf_nvmeof_cmd_connect_kato = -1;
+static int hf_nvmeof_cmd_connect_rsvd3 = -1;
+static int hf_nvmeof_cmd_connect_data_hostid = -1;
+static int hf_nvmeof_cmd_connect_data_cntlid = -1;
+static int hf_nvmeof_cmd_connect_data_rsvd0 = -1;
+static int hf_nvmeof_cmd_connect_data_subnqn = -1;
+static int hf_nvmeof_cmd_connect_data_hostnqn = -1;
+static int hf_nvmeof_cmd_connect_data_rsvd1 = -1;
+
+static int hf_nvmeof_cmd_auth_rsdv1 = -1;
+static int hf_nvmeof_cmd_auth_sgl1 = -1;
+static int hf_nvmeof_cmd_auth_rsdv2 = -1;
+static int hf_nvmeof_cmd_auth_spsp0 = -1;
+static int hf_nvmeof_cmd_auth_spsp1 = -1;
+static int hf_nvmeof_cmd_auth_secp = -1;
+static int hf_nvmeof_cmd_auth_al = -1;
+static int hf_nvmeof_cmd_auth_rsdv3 = -1;
+
+static int hf_nvmeof_cmd_disconnect_rsvd0 = -1;
+static int hf_nvmeof_cmd_disconnect_recfmt = -1;
+static int hf_nvmeof_cmd_disconnect_rsvd1 = -1;
+
+static int hf_nvmeof_cmd_prop_get_set_rsvd0 = -1;
+static int hf_nvmeof_cmd_prop_get_set_attrib[3] =  { NEG_LST_3 };
+static int hf_nvmeof_cmd_prop_get_set_rsvd1 = -1;
+static int hf_nvmeof_cmd_prop_get_set_offset = -1;
+static int hf_nvmeof_cmd_prop_get_rsvd2 = -1;
+
+static int hf_nvmeof_cmd_prop_set_rsvd = -1;
+
+static int hf_nvmeof_cmd_generic_rsvd1 = -1;
+static int hf_nvmeof_cmd_generic_field = -1;
+
+static int hf_nvmeof_prop_get_set_data = -1;
+static int hf_nvmeof_prop_get_set_data_4B = -1;
+static int hf_nvmeof_prop_get_set_data_4B_rsvd = -1;
+static int hf_nvmeof_prop_get_set_data_8B= -1;
+static int hf_nvmeof_prop_get_set_cc[10] = { NEG_LST_10 };
+static int hf_nvmeof_prop_get_set_csts[7] = { NEG_LST_7 };
+static int hf_nvmeof_prop_get_set_nssr[2] = { NEG_LST_2 };
+static int hf_nvmeof_prop_get_vs[4] = { NEG_LST_4 };
+static int hf_nvmeof_prop_get_ccap[17] = { NEG_LST_17 };
+
+
+/* NVMe Fabric CQE */
+static int hf_nvmeof_cqe = -1;
+static int hf_nvmeof_cqe_sts = -1;
+
+static int hf_nvmeof_cqe_connect_cntlid = -1;
+static int hf_nvmeof_cqe_connect_authreq = -1;
+static int hf_nvmeof_cqe_connect_rsvd = -1;
+static int hf_nvmeof_cqe_prop_set_rsvd = -1;
+
+/* tracking Cmd and its respective CQE */
+int hf_nvmeof_cmd_pkt = -1;
+int hf_nvmeof_data_req = -1;
+static int hf_nvmeof_cqe_pkt = -1;
+static int hf_nvmeof_cmd_latency = -1;
+
+static const value_string fctype_tbl[] = {
+    { NVME_FCTYPE_PROP_SET,      "Property Set" },
+    { NVME_FCTYPE_CONNECT,       "Connect" },
+    { NVME_FCTYPE_PROP_GET,      "Property Get" },
+    { NVME_FCTYPE_AUTH_SEND,     "Authentication Send" },
+    { NVME_FCTYPE_AUTH_RECV,     "Authentication Recv" },
+    { NVME_FCTYPE_DISCONNECT,     "Disconnect" },
+    { 0, NULL}
+};
+
+static const value_string pclass_tbl[] = {
+    { 0x0, "Urgent" },
+    { 0x1, "High" },
+    { 0x2, "Medium" },
+    { 0x3, "Low", },
+    { 0, NULL}
+};
+
+static const value_string prop_offset_tbl[] = {
+    { 0x0,      "Controller Capabilities"},
+    { 0x8,      "Version"},
+    { 0xc,      "Reserved"},
+    { 0x10,     "Reserved"},
+    { 0x14,     "Controller Configuration"},
+    { 0x18,     "Reserved"},
+    { 0x1c,     "Controller Status"},
+    { 0x20,     "NVM Subsystem Reset"},
+    { 0x24,     "Reserved"},
+    { 0x28,     "Reserved"},
+    { 0x30,     "Reserved"},
+    { 0x38,     "Reserved"},
+    { 0x3c,     "Reserved"},
+    { 0x40,     "Reserved"},
+    { 0, NULL}
+};
+
+static const value_string attr_size_tbl[] = {
+    { 0,       "4 bytes"},
+    { 1,       "8 bytes"},
+    { 0, NULL}
+};
+
+static const value_string css_table[] = {
+     { 0x0, "NVM IO Command Set"},
+     { 0x1, "Admin Command Set Only"},
+     { 0x0, NULL}
+};
+static const value_string sn_table[] = {
+    { 0x0, "No Shutdown"},
+    { 0x1, "Normal Shutdown"},
+    { 0x2, "Abrupt Shutdown"},
+    { 0x3, "Reserved"},
+    { 0x0, NULL}
+};
+static const value_string ams_table[] = {
+    { 0x0, "Round Robin"},
+    { 0x1, "Weighted Round Robin with Urgent Priority Class"},
+    { 0x2, "Reserved"},
+    { 0x3, "Reserved"},
+    { 0x4, "Reserved"},
+    { 0x5, "Reserved"},
+    { 0x6, "Reserved"},
+    { 0x7, "Vendor Specific"},
+    { 0x0, NULL}
+};
+
+static const value_string shst_table[] = {
+    { 0x0, "No Shutdown"},
+    { 0x1, "Shutdown in Process"},
+    { 0x2, "Shutdown Complete"},
+    { 0x3, "Reserved"},
+    { 0x0, NULL}
+};
 
 /* NVMe Cmd fields */
-
 static int hf_nvme_cmd_opc = -1;
 static int hf_nvme_cmd_rsvd = -1;
 static int hf_nvme_cmd_cid = -1;
@@ -478,6 +631,7 @@ static int hf_nvme_cqe_sqhd = -1;
 static int hf_nvme_cqe_sqid = -1;
 static int hf_nvme_cqe_cid = -1;
 static int hf_nvme_cqe_status[7] = { NEG_LST_7 };
+static int hf_nvme_cqe_status_rsvd = -1;
 
 /* tracking Cmd and its respective CQE */
 static int hf_nvme_cmd_pkt = -1;
@@ -823,13 +977,13 @@ static const value_string sgl_sub_type_tbl[] = {
 
 
 static const value_string cns_table[] = {
-    { 0, "Identify Namespace"},
-    { 1, "Identify Controller"},
+    { 0, "Namespace"},
+    { 1, "Controller"},
     { 2, "Active Namespace List"},
     { 3, "Namespace Identification Descriptor"},
     {4, "NVM Set List"},
     {0x10, "Allocated Namespace ID List"},
-    {0x11, "Identify Namespace Data Structure"},
+    {0x11, "Namespace Data Structure"},
     {0x12, "Controller List Attached to NSID"},
     {0x13, "Existing Controllers List"},
     {0x14, "Primary Controller Capabilities"},
@@ -1073,11 +1227,11 @@ void nvme_publish_to_data_resp_link(proto_tree *tree, tvbuff_t *tvb,
 }
 
 void dissect_nvme_cmd_sgl(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
-                          int field_index, struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx, gboolean visited)
+                          int field_index, struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx, guint cmd_off, gboolean visited)
 {
     proto_item *ti, *sgl_tree, *type_item, *sub_type_item;
     guint8 sgl_identifier, desc_type, desc_sub_type;
-    int offset = 24;
+    int offset = 24 + cmd_off;
 
     ti = proto_tree_add_item(cmd_tree, field_index, cmd_tvb, offset,
                              16, ENC_NA);
@@ -1258,6 +1412,8 @@ static void dissect_nvme_identify_nslist_resp(tvbuff_t *cmd_tvb,
     }
 }
 
+#define ASPEC(_x_) _x_, array_length(_x_)
+
 static void add_group_mask_entry(tvbuff_t *tvb, proto_tree *tree, guint offset, guint bytes, int *array, guint array_len)
 {
     proto_item *ti;
@@ -1270,9 +1426,6 @@ static void add_group_mask_entry(tvbuff_t *tvb, proto_tree *tree, guint offset, 
     for (i = 1; i < array_len; i++)
         proto_tree_add_item(grp, array[i], tvb, offset, bytes, ENC_LITTLE_ENDIAN);
 }
-
-
-#define ASPEC(_x_) _x_, array_length(_x_)
 
 static void add_ctrl_x16_bytes( gchar *result, guint32 val)
 {
@@ -1516,6 +1669,17 @@ static void add_ctrl_pow2_bytes(gchar *result, guint32 val)
     g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << val);
 }
 
+static void add_ctrl_pow2_page_size(gchar *result, guint32 val)
+{
+    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << (12+val));
+}
+
+static void add_ctrl_pow2_dstrd_size(gchar *result, guint32 val)
+{
+    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << (2+val));
+}
+
+
 static const value_string fcb_type_tbl[] = {
     { 0, "support for the NSID field set to FFFFFFFFh is not indicated" },
     { 1, "reserved value" },
@@ -1672,11 +1836,8 @@ static void dissect_nvme_identify_resp(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
     }
 }
 
-static void dissect_nvme_identify_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree,
-                                      struct nvme_cmd_ctx *cmd_ctx)
+static void dissect_nvme_identify_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree)
 {
-    cmd_ctx->cmd_ctx.cmd_identify.cns = tvb_get_guint16(cmd_tvb, 40, ENC_LITTLE_ENDIAN);
-
     add_group_mask_entry(cmd_tvb, cmd_tree, 40, 4, ASPEC(hf_nvme_identify_dword10));
     add_group_mask_entry(cmd_tvb, cmd_tree, 44, 4, ASPEC(hf_nvme_identify_dword11));
 
@@ -1864,6 +2025,7 @@ static void dissect_nvme_get_logpage_ify_resp(proto_item *ti, tvbuff_t *cmd_tvb,
     guint roff;
     guint max_bytes;
     guint64 rcrd;
+    guint64 recnum = 0;
 
     grp =  proto_item_add_subtree(ti, ett_data);
 
@@ -1872,7 +2034,7 @@ static void dissect_nvme_get_logpage_ify_resp(proto_item *ti, tvbuff_t *cmd_tvb,
 
     /* guint casts are to silence clang-11 compile errors */
     if (off <= 8 && (16 - (guint)off) <= len)
-        proto_tree_add_item(grp, hf_nvme_get_logpage_ify_numrec, cmd_tvb, (guint)(8-off), 8, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item_ret_uint64(grp, hf_nvme_get_logpage_ify_numrec, cmd_tvb, (guint)(8-off), 8, ENC_LITTLE_ENDIAN, &recnum);
 
     if (off <= 16 && (18 - (guint)off) <= len)
         proto_tree_add_item(grp, hf_nvme_get_logpage_ify_recfmt, cmd_tvb, (guint)(16-off), 2, ENC_LITTLE_ENDIAN);
@@ -1899,13 +2061,18 @@ static void dissect_nvme_get_logpage_ify_resp(proto_item *ti, tvbuff_t *cmd_tvb,
     poff += max_bytes;
     len -= max_bytes;
     rcrd++;
+    if (!recnum)
+        recnum = (len  + 1023) / 1024;
+    else
+        recnum--;
 
-    while (len) {
+    while (len && recnum) {
         max_bytes = (len >= 1024) ? 1024 : len;
         dissect_nvme_get_logpage_ify_rcrd_resp(cmd_tvb, grp, rcrd, 0, poff, len);
         poff += max_bytes;
         len -= max_bytes;
         rcrd++;
+        recnum--;
     }
 }
 
@@ -3149,9 +3316,28 @@ static void dissect_nvme_set_features_transfer(tvbuff_t *tvb, proto_tree *tree, 
     }
 }
 
+
+void nvme_update_transfer_request(packet_info *pinfo, struct nvme_cmd_ctx *cmd, struct nvme_q_ctx *q_ctx)
+{
+    if (cmd->fabric) {
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF Data Request for %s",
+            val_to_str_const(cmd->cmd_ctx.fabric_cmd.fctype, fctype_tbl, "Unknown Command"));
+        return;
+    }
+    if (!q_ctx->qid) {
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF Data Request for %s", val_to_str_const(cmd->opcode, aq_opc_tbl, "Unknown Command"));
+        if (cmd->opcode == NVME_AQ_OPC_IDENTIFY)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(cmd->cmd_ctx.cmd_identify.cns, cns_table, "Unknown"));
+        else if (cmd->opcode == NVME_AQ_OPC_GET_LOG_PAGE)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", get_logpage_name(cmd->cmd_ctx.get_logpage.lid));
+    } else {
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF Data Request for %s", val_to_str_const(cmd->opcode, ioq_opc_tbl, "Unknown Command"));
+    }
+}
+
 void
 dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
-                 struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx, guint len)
+                 struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx, guint len, gboolean is_inline)
 {
     proto_tree *cmd_tree;
     proto_item *ti;
@@ -3163,7 +3349,7 @@ dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *r
     cmd_tree = proto_item_add_subtree(ti, ett_data);
     if (q_ctx->qid) { //IOQ
         str_opcode = val_to_str_const(cmd_ctx->opcode, ioq_opc_tbl,
-                                      "Unknown IOQ Opcode");
+                                      "Unknown Command");
         switch (cmd_ctx->opcode) {
         case NVME_IOQ_OPC_READ:
         case NVME_IOQ_OPC_WRITE:
@@ -3175,7 +3361,7 @@ dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *r
         }
     } else { //AQ
         str_opcode = val_to_str_const(cmd_ctx->opcode, aq_opc_tbl,
-                                      "Unknown AQ Opcode");
+                                      "Unknown Command");
         switch (cmd_ctx->opcode) {
         case NVME_AQ_OPC_IDENTIFY:
             dissect_nvme_identify_resp(nvme_tvb, cmd_tree, cmd_ctx);
@@ -3195,7 +3381,324 @@ dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *r
             break;
         }
     }
-    col_append_sep_fstr(pinfo->cinfo, COL_INFO, " | ", "NVMe %s: Data", str_opcode);
+    if (is_inline)
+        return;
+    col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF Data for %s", str_opcode);
+    if (!q_ctx->qid) {
+        if (cmd_ctx->opcode == NVME_AQ_OPC_IDENTIFY)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(cmd_ctx->cmd_ctx.cmd_identify.cns, cns_table, "Unknown"));
+        else if (cmd_ctx->opcode == NVME_AQ_OPC_GET_LOG_PAGE)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", get_logpage_name(cmd_ctx->cmd_ctx.get_logpage.lid));
+    }
+}
+
+static void add_nvme_qid(gchar *result, guint32 val)
+{
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%s)", val, val ? "IOQ" : "AQ");
+}
+
+static void add_zero_base(gchar *result, guint32 val)
+{
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%u", val+1);
+}
+
+static
+void dissect_nvmeof_fabric_connect_cmd(proto_tree *cmd_tree, packet_info *pinfo, tvbuff_t *cmd_tvb,
+        struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd, guint off)
+{
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_rsvd1, cmd_tvb,
+                        5+off, 19, ENC_NA);
+    dissect_nvme_cmd_sgl(cmd_tvb, cmd_tree, hf_nvmeof_cmd_connect_sgl1,
+        q_ctx, cmd, off, PINFO_FD_VISITED(pinfo));
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_recfmt, cmd_tvb,
+                        40+off, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_qid, cmd_tvb,
+                        42+off, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_sqsize, cmd_tvb,
+                        44+off, 2, ENC_LITTLE_ENDIAN);
+
+    add_group_mask_entry(cmd_tvb, cmd_tree, 46+off, 1, ASPEC(hf_nvmeof_cmd_connect_cattr));
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_rsvd2, cmd_tvb,
+                        47+off, 1, ENC_NA);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_kato, cmd_tvb,
+                        48+off, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_connect_rsvd3, cmd_tvb,
+                        52+off, 12, ENC_NA);
+}
+
+static
+void dissect_nvmeof_fabric_auth_cmd(proto_tree *cmd_tree, packet_info *pinfo, tvbuff_t *cmd_tvb,
+        struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd, guint off)
+{
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_rsdv1, cmd_tvb,
+                        5+off, 19, ENC_NA);
+    dissect_nvme_cmd_sgl(cmd_tvb, cmd_tree, hf_nvmeof_cmd_auth_sgl1,
+        q_ctx, cmd, off, PINFO_FD_VISITED(pinfo));
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_rsdv2, cmd_tvb,
+                        40+off, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_spsp0, cmd_tvb,
+                        41+off, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_spsp1, cmd_tvb,
+                        42+off, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_secp, cmd_tvb,
+                        43+off, 1, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_al, cmd_tvb,
+                        44+off, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_auth_rsdv3, cmd_tvb,
+                        48+off, 16, ENC_NA);
+}
+
+static void dissect_nvme_fabric_disconnect_cmd(proto_tree *cmd_tree, tvbuff_t *cmd_tvb, guint off)
+{
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_disconnect_rsvd0, cmd_tvb,
+                        5+off, 35, ENC_NA);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_disconnect_recfmt, cmd_tvb,
+                        40+off, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_disconnect_rsvd1, cmd_tvb,
+                        42+off, 22, ENC_NA);
+}
+
+static void dissect_nvme_fabric_prop_cmd_common(proto_tree *cmd_tree, tvbuff_t *cmd_tvb, guint off)
+{
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_prop_get_set_rsvd0, cmd_tvb,
+                        5+off, 35, ENC_NA);
+
+    add_group_mask_entry(cmd_tvb, cmd_tree, 40+off, 1, ASPEC(hf_nvmeof_cmd_prop_get_set_attrib));
+
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_prop_get_set_rsvd1, cmd_tvb,
+                        41+off, 3, ENC_NA);
+
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_prop_get_set_offset, cmd_tvb,
+                        44+off, 4, ENC_LITTLE_ENDIAN);
+}
+
+static void dissect_nvmeof_fabric_prop_get_cmd(proto_tree *cmd_tree, tvbuff_t *cmd_tvb, struct nvme_cmd_ctx *cmd, guint off)
+{
+    cmd->cmd_ctx.fabric_cmd.prop_get.offset = tvb_get_guint8(cmd_tvb, 44+off);
+    dissect_nvme_fabric_prop_cmd_common(cmd_tree, cmd_tvb, off);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_prop_get_rsvd2, cmd_tvb,
+                        48+off, 16, ENC_NA);
+}
+
+static void add_500ms_units(gchar *result, guint32 val)
+{
+    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%u ms)", val, val * 500);
+}
+
+static void add_ccap_css(gchar *result, guint32 val)
+{
+    if (val & 0x1)
+        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (NVM IO Command Set)", val);
+    else if (val & 0x80)
+        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (Admin Command Set Only)", val);
+    else
+        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (Reserved)", val);
+}
+
+static void dissect_nvmeof_fabric_prop_data(proto_tree *tree, tvbuff_t *tvb, guint off, guint prop_off, guint8 attr)
+{
+    proto_item *ti, *grp;
+    ti = proto_tree_add_item(tree, hf_nvmeof_prop_get_set_data, tvb, off, 8, ENC_NA);
+    grp =  proto_item_add_subtree(ti, ett_data);
+    switch(prop_off) {
+        case 0x0:  add_group_mask_entry(tvb, grp, off, 8, ASPEC(hf_nvmeof_prop_get_ccap)); attr=1; break;
+        case 0x8:  add_group_mask_entry(tvb, grp, off, 4, ASPEC(hf_nvmeof_prop_get_vs)); attr=0; break;
+        case 0x14: add_group_mask_entry(tvb, grp, off, 4, ASPEC(hf_nvmeof_prop_get_set_cc)); attr=0; break;
+        case 0x1c: add_group_mask_entry(tvb, grp, off, 4, ASPEC(hf_nvmeof_prop_get_set_csts)); attr=0; break;
+        case 0x20: add_group_mask_entry(tvb, grp, off, 4, ASPEC(hf_nvmeof_prop_get_set_nssr)); attr=0; break;
+        default:
+        {
+            if (attr == 0)
+            proto_tree_add_item(grp, hf_nvmeof_prop_get_set_data_4B, tvb,
+                            off, 4, ENC_LITTLE_ENDIAN);
+            else
+                proto_tree_add_item(grp, hf_nvmeof_prop_get_set_data_8B, tvb,
+                            off, 8, ENC_LITTLE_ENDIAN);
+            break;
+        }
+    }
+    if (attr == 0)
+        proto_tree_add_item(grp, hf_nvmeof_prop_get_set_data_4B_rsvd, tvb,
+                        off+4, 4, ENC_LITTLE_ENDIAN);
+}
+static void dissect_nvmeof_fabric_prop_set_cmd(proto_tree *cmd_tree, tvbuff_t *cmd_tvb, struct nvme_cmd_ctx *cmd, guint off)
+{
+    guint8 attr;
+    guint32 prop_off;
+
+    dissect_nvme_fabric_prop_cmd_common(cmd_tree, cmd_tvb, off);
+    attr = tvb_get_guint8(cmd_tvb, 40+off) & 0x7;
+    prop_off = tvb_get_guint32(cmd_tvb, 44+off, ENC_LITTLE_ENDIAN);
+    cmd->cmd_ctx.fabric_cmd.prop_get.offset = prop_off;
+    dissect_nvmeof_fabric_prop_data(cmd_tree, cmd_tvb, 48+off, prop_off, attr);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_prop_set_rsvd, cmd_tvb,
+                        56+off, 8, ENC_NA);
+}
+
+static void dissect_nvmeof_fabric_generic_cmd(proto_tree *cmd_tree, tvbuff_t *cmd_tvb, guint off)
+{
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_generic_rsvd1, cmd_tvb,
+                        5+off, 35, ENC_NA);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_generic_field, cmd_tvb,
+                        40+off, 24, ENC_NA);
+}
+
+void dissect_nvmeof_fabric_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *nvme_tree,
+        struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd, guint off, gboolean link_data_req)
+{
+    proto_tree *cmd_tree;
+    proto_item *ti;
+    guint8 fctype;
+    guint32 prop_off;
+
+    fctype = tvb_get_guint8(nvme_tvb, 4);
+    cmd->cmd_ctx.fabric_cmd.fctype = fctype;
+
+    ti = proto_tree_add_item(nvme_tree, hf_nvmeof_cmd, nvme_tvb, off,
+                             NVME_CMD_SIZE, ENC_NA);
+    cmd_tree = proto_item_add_subtree(ti, ett_data);
+
+    proto_tree_add_bytes_format(cmd_tree, hf_nvmeof_cmd_opc, nvme_tvb, off, 1, NULL, "Opcode: 0x%x (Fabric Command)",
+                                NVME_FABRIC_OPC);
+    col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF %s", val_to_str_const(fctype, fctype_tbl, "Unknown Command"));
+    prop_off = tvb_get_guint32(nvme_tvb, 44+off, ENC_LITTLE_ENDIAN);
+
+    cmd->opcode = NVME_FABRIC_OPC;
+    if (link_data_req)
+        nvme_publish_to_data_req_link(cmd_tree, nvme_tvb, hf_nvmeof_data_req, cmd);
+    nvme_publish_to_cqe_link(cmd_tree, nvme_tvb, hf_nvmeof_cqe_pkt, cmd);
+
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_rsvd, nvme_tvb,
+                        1+off, 1, ENC_NA);
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_cid, nvme_tvb,
+                        2+off, 2, ENC_LITTLE_ENDIAN);
+
+    proto_tree_add_item(cmd_tree, hf_nvmeof_cmd_fctype, nvme_tvb,
+                        4+off, 1, ENC_LITTLE_ENDIAN);
+    switch(fctype) {
+    case NVME_FCTYPE_CONNECT:
+        dissect_nvmeof_fabric_connect_cmd(cmd_tree, pinfo, nvme_tvb, q_ctx, cmd, off);
+        break;
+    case NVME_FCTYPE_PROP_GET:
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(prop_off, prop_offset_tbl, "Unknown Property"));
+        dissect_nvmeof_fabric_prop_get_cmd(cmd_tree, nvme_tvb, cmd, off);
+        break;
+    case NVME_FCTYPE_PROP_SET:
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(prop_off, prop_offset_tbl, "Unknown Property"));
+        dissect_nvmeof_fabric_prop_set_cmd(cmd_tree, nvme_tvb, cmd, off);
+        break;
+    case NVME_FCTYPE_DISCONNECT:
+        dissect_nvme_fabric_disconnect_cmd(cmd_tree, nvme_tvb, off);
+        break;
+    case NVME_FCTYPE_AUTH_RECV:
+    case NVME_FCTYPE_AUTH_SEND:
+        dissect_nvmeof_fabric_auth_cmd(cmd_tree, pinfo, nvme_tvb, q_ctx, cmd, off);
+        break;
+    default:
+        dissect_nvmeof_fabric_generic_cmd(cmd_tree, nvme_tvb, off);
+        break;
+    }
+}
+
+static void
+dissect_nvmeof_fabric_connect_cmd_data(tvbuff_t *data_tvb, proto_tree *data_tree,
+                                     guint offset)
+{
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_hostid, data_tvb,
+                        offset, 16, ENC_NA);
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_cntlid, data_tvb,
+                        offset + 16, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_rsvd0, data_tvb,
+                        offset + 18, 238, ENC_NA);
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_subnqn, data_tvb,
+                        offset + 256, 256, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_hostnqn, data_tvb,
+                        offset + 512, 256, ENC_ASCII | ENC_NA);
+    proto_tree_add_item(data_tree, hf_nvmeof_cmd_connect_data_rsvd1, data_tvb,
+                        offset + 768, 256, ENC_NA);
+}
+
+void
+dissect_nvmeof_cmd_data(tvbuff_t *data_tvb, packet_info *pinfo, proto_tree *data_tree,
+                                 guint offset, struct nvme_cmd_ctx *cmd, guint len)
+{
+    if (!offset)
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeoF Data for %s", val_to_str_const(cmd->cmd_ctx.fabric_cmd.fctype, fctype_tbl, "Unknown Command"));
+    if (cmd->cmd_ctx.fabric_cmd.fctype == NVME_FCTYPE_CONNECT && len >= 768)
+        dissect_nvmeof_fabric_connect_cmd_data(data_tvb, data_tree, offset);
+}
+
+static void
+dissect_nvmeof_status_prop_get(proto_tree *cqe_tree, tvbuff_t *cqe_tvb, struct nvme_cmd_ctx *cmd, guint off)
+{
+    dissect_nvmeof_fabric_prop_data(cqe_tree, cqe_tvb, off, cmd->cmd_ctx.fabric_cmd.prop_get.offset, 1);
+};
+
+static void
+dissect_nvmeof_cqe_status_8B(proto_tree *cqe_tree, tvbuff_t *cqe_tvb,
+                                  struct nvme_cmd_ctx *cmd, guint off)
+{
+    switch (cmd->cmd_ctx.fabric_cmd.fctype) {
+    case NVME_FCTYPE_CONNECT:
+        proto_tree_add_item(cqe_tree, hf_nvmeof_cqe_connect_cntlid, cqe_tvb,
+                            0+off, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(cqe_tree, hf_nvmeof_cqe_connect_authreq, cqe_tvb,
+                            2+off, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(cqe_tree, hf_nvmeof_cqe_connect_rsvd, cqe_tvb,
+                            4+off, 4, ENC_NA);
+        break;
+    case NVME_FCTYPE_PROP_GET:
+        dissect_nvmeof_status_prop_get(cqe_tree, cqe_tvb, cmd, off);
+        break;
+    case NVME_FCTYPE_PROP_SET:
+        proto_tree_add_item(cqe_tree, hf_nvmeof_cqe_prop_set_rsvd, cqe_tvb,
+                            0+off, 8, ENC_NA);
+        break;
+    default:
+        proto_tree_add_item(cqe_tree, hf_nvmeof_cqe_sts, cqe_tvb,
+                            0+off, 8, ENC_LITTLE_ENDIAN);
+        break;
+    };
+}
+
+
+const gchar *get_nvmeof_cmd_string(guint8 fctype)
+{
+    return val_to_str(fctype, fctype_tbl, "Unknown Fabric Command");
+}
+
+static void dissect_nvme_cqe_common(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, guint off, gboolean nvmeof);
+
+void
+dissect_nvmeof_fabric_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo,
+                        proto_tree *nvme_tree,
+                        struct nvme_cmd_ctx *cmd, guint off)
+{
+    proto_tree *cqe_tree;
+    proto_item *ti;
+    guint8 fctype = cmd->cmd_ctx.fabric_cmd.fctype;
+
+    ti = proto_tree_add_item(nvme_tree, hf_nvmeof_cqe, nvme_tvb,
+                             0+off, NVME_CQE_SIZE, ENC_NA);
+
+    if (fctype != NVME_FCTYPE_PROP_GET && fctype != NVME_FCTYPE_PROP_SET)
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF CQE for %s", val_to_str_const(fctype, fctype_tbl, "Unknown Command"));
+    else
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMeOF CQE for Property %s %s",
+                            (fctype == NVME_FCTYPE_PROP_GET) ? "Get" : "Set",
+                            val_to_str_const(cmd->cmd_ctx.fabric_cmd.prop_get.offset, prop_offset_tbl, "Unknown Property"));
+
+    proto_item_append_text(ti, " (For Cmd: %s)", val_to_str(fctype, fctype_tbl, "Unknown Cmd"));
+
+    cqe_tree = proto_item_add_subtree(ti, ett_data);
+
+    nvme_publish_to_cmd_link(cqe_tree, nvme_tvb, hf_nvmeof_cmd_pkt,
+                                 cmd);
+    nvme_publish_cmd_latency(cqe_tree, cmd, hf_nvmeof_cmd_latency);
+
+    dissect_nvmeof_cqe_status_8B(cqe_tree, nvme_tvb, cmd, off);
+
+    dissect_nvme_cqe_common(nvme_tvb, cqe_tree, off, TRUE);
 }
 
 static void dissect_nvme_unhandled_cmd(tvbuff_t *nvme_tvb, proto_tree *cmd_tree)
@@ -3224,12 +3727,15 @@ dissect_nvme_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     cmd_ctx->opcode = tvb_get_guint8(nvme_tvb, 0);
     opc_item = proto_tree_add_item(cmd_tree, hf_nvme_cmd_opc, nvme_tvb,
                         0, 1, ENC_LITTLE_ENDIAN);
-    if (q_ctx->qid)
+    if (q_ctx->qid) {
         proto_item_append_text(opc_item, " %s",
-                               val_to_str_const(cmd_ctx->opcode, ioq_opc_tbl, "Reserved"));
-    else
+                               val_to_str_const(cmd_ctx->opcode, ioq_opc_tbl, "Unknown"));
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMe %s", val_to_str_const(cmd_ctx->opcode, ioq_opc_tbl, "Unknown Command"));
+    } else {
         proto_item_append_text(opc_item, " %s",
-                               val_to_str_const(cmd_ctx->opcode, aq_opc_tbl, "Reserved"));
+                               val_to_str_const(cmd_ctx->opcode, aq_opc_tbl, "Unknown"));
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMe %s", val_to_str_const(cmd_ctx->opcode, aq_opc_tbl, "Unknown Command"));
+    }
 
     nvme_publish_to_data_req_link(cmd_tree, nvme_tvb, hf_nvme_data_req, cmd_ctx);
     nvme_publish_to_cqe_link(cmd_tree, nvme_tvb, hf_nvme_cqe_pkt, cmd_ctx);
@@ -3249,7 +3755,7 @@ dissect_nvme_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     proto_tree_add_item(cmd_tree, hf_nvme_cmd_mptr, nvme_tvb,
                         16, 8, ENC_LITTLE_ENDIAN);
 
-    dissect_nvme_cmd_sgl(nvme_tvb, cmd_tree, hf_nvme_cmd_sgl, q_ctx, cmd_ctx, PINFO_FD_VISITED(pinfo));
+    dissect_nvme_cmd_sgl(nvme_tvb, cmd_tree, hf_nvme_cmd_sgl, q_ctx, cmd_ctx, 0, PINFO_FD_VISITED(pinfo));
 
     if (q_ctx->qid) { //IOQ
         switch (cmd_ctx->opcode) {
@@ -3264,9 +3770,12 @@ dissect_nvme_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree,
     } else { //AQ
         switch (cmd_ctx->opcode) {
         case NVME_AQ_OPC_IDENTIFY:
-            dissect_nvme_identify_cmd(nvme_tvb, cmd_tree, cmd_ctx);
+            cmd_ctx->cmd_ctx.cmd_identify.cns = tvb_get_guint16(nvme_tvb, 40, ENC_LITTLE_ENDIAN);
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(cmd_ctx->cmd_ctx.cmd_identify.cns, cns_table, "Unknown"));
+            dissect_nvme_identify_cmd(nvme_tvb, cmd_tree);
             break;
         case NVME_AQ_OPC_GET_LOG_PAGE:
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", get_logpage_name(tvb_get_guint8(nvme_tvb, 40)));
             dissect_nvme_get_logpage_cmd(nvme_tvb, cmd_tree, cmd_ctx);
             break;
         case NVME_AQ_OPC_SET_FEATURES:
@@ -3306,12 +3815,12 @@ nvme_is_io_queue_opcode(guint8  opcode)
 static const char *get_cqe_sc_string(guint sct, guint sc)
 {
     switch (sct) {
-        case NVME_CQE_SCT_GENERIC: return val_to_str_const(sc, nvme_cqe_sc_gen_tbl, "Uknown Status Code");
-        case NVME_CQE_SCT_COMMAND: return val_to_str_const(sc, nvme_cqe_sc_cmd_tbl, "Uknown Status Code");
-        case NVME_CQE_SCT_MEDIA: return val_to_str_const(sc, nvme_cqe_sc_media_tbl, "Uknown Status Code");
-        case NVME_CQE_SCT_PATH: return val_to_str_const(sc, nvme_cqe_sc_path_tbl, "Uknown Status Code");
+        case NVME_CQE_SCT_GENERIC: return val_to_str_const(sc, nvme_cqe_sc_gen_tbl, "Unknown Status Code");
+        case NVME_CQE_SCT_COMMAND: return val_to_str_const(sc, nvme_cqe_sc_cmd_tbl, "Unknown Status Code");
+        case NVME_CQE_SCT_MEDIA: return val_to_str_const(sc, nvme_cqe_sc_media_tbl, "Unknown Status Code");
+        case NVME_CQE_SCT_PATH: return val_to_str_const(sc, nvme_cqe_sc_path_tbl, "Unknown Status Code");
         case NVME_CQE_SCT_VENDOR: return "Vendor Error";
-        default: return "Uknown Status Code";
+        default: return "Unknown Status Code";
     }
 }
 
@@ -3323,11 +3832,13 @@ static const value_string nvme_cqe_sc_sf_err_dword0_tbl[] = {
     { 0, NULL },
 };
 
-static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, guint sc, struct nvme_cmd_ctx *cmd_ctx)
+static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, struct nvme_cmd_ctx *cmd_ctx)
 {
     switch (cmd_ctx->opcode) {
         case NVME_AQ_OPC_SET_FEATURES:
         {
+            guint16 sc = tvb_get_guint16(nvme_tvb, 14, ENC_LITTLE_ENDIAN);
+            sc = ((sc & 0x1fe) >> 9);
             if (sc) {
                 proto_tree_add_item(cqe_tree, hf_nvme_cqe_dword0_sf_err, nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
             } else {
@@ -3353,13 +3864,48 @@ static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, guint sc
     }
 }
 
-void dissect_nvme_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree, struct nvme_cmd_ctx *cmd_ctx)
+static void dissect_nvme_cqe_common(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, guint off, gboolean nvmeof)
 {
-    proto_tree *cqe_tree, *grp;
     proto_item *ti;
-    guint i;
+    proto_tree *grp;
     guint16 val;
+    guint i;
 
+    val = tvb_get_guint16(nvme_tvb, off+14, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cqe_tree, hf_nvme_cqe_sqhd, nvme_tvb, off+8, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cqe_tree, hf_nvme_cqe_sqid, nvme_tvb, off+10, 2, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item(cqe_tree, hf_nvme_cqe_cid, nvme_tvb, off+12, 2, ENC_LITTLE_ENDIAN);
+
+    ti = proto_tree_add_item(cqe_tree, hf_nvme_cqe_status[0], nvme_tvb, off+14, 2, ENC_LITTLE_ENDIAN);
+    grp =  proto_item_add_subtree(ti, ett_data);
+    if (nvmeof)
+        proto_tree_add_item(grp, hf_nvme_cqe_status_rsvd, nvme_tvb, off+14, 2, ENC_LITTLE_ENDIAN);
+    else
+        proto_tree_add_item(grp, hf_nvme_cqe_status[1], nvme_tvb, off+14, 2, ENC_LITTLE_ENDIAN);
+
+    ti = proto_tree_add_item(grp, hf_nvme_cqe_status[2], nvme_tvb, off+14, 2, ENC_LITTLE_ENDIAN);
+    proto_item_append_text(ti, " (%s)", get_cqe_sc_string((val & 0xE00) >> 1, (val & 0x1FE) >> 9));
+
+    for (i = 3; i < array_length(hf_nvme_cqe_status); i++)
+        proto_tree_add_item(grp, hf_nvme_cqe_status[i], nvme_tvb, off+14, 2, ENC_LITTLE_ENDIAN);
+}
+
+void dissect_nvme_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_tree, struct nvme_q_ctx *q_ctx, struct nvme_cmd_ctx *cmd_ctx)
+{
+    proto_tree *cqe_tree;
+    proto_item *ti;
+
+    if (q_ctx->qid)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMe CQE for %s", val_to_str_const(cmd_ctx->opcode, ioq_opc_tbl, "Unknown Command"));
+    else
+        col_append_sep_fstr(pinfo->cinfo, COL_INFO, "| ", "NVMe CQE for %s", val_to_str_const(cmd_ctx->opcode, aq_opc_tbl, "Unknown Command"));
+
+    if (!q_ctx->qid) {
+        if (cmd_ctx->opcode == NVME_AQ_OPC_IDENTIFY)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", val_to_str_const(cmd_ctx->cmd_ctx.cmd_identify.cns, cns_table, "Unknown"));
+        else if (cmd_ctx->opcode == NVME_AQ_OPC_GET_LOG_PAGE)
+            col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "%s", get_logpage_name(cmd_ctx->cmd_ctx.get_logpage.lid));
+    }
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "NVMe");
     ti = proto_tree_add_item(root_tree, proto_nvme, nvme_tvb, 0,
                              NVME_CQE_SIZE, ENC_NA);
@@ -3369,26 +3915,418 @@ void dissect_nvme_cqe(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *root_t
     nvme_publish_to_cmd_link(cqe_tree, nvme_tvb, hf_nvme_cmd_pkt, cmd_ctx);
     nvme_publish_cmd_latency(cqe_tree, cmd_ctx, hf_nvme_cmd_latency);
 
-    val = tvb_get_guint16(nvme_tvb, 14, ENC_LITTLE_ENDIAN);
-    decode_dword0_cqe(nvme_tvb, cqe_tree, ((val & 0x1fe) >> 9), cmd_ctx);
+    decode_dword0_cqe(nvme_tvb, cqe_tree, cmd_ctx);
     proto_tree_add_item(cqe_tree, hf_nvme_cqe_dword1, nvme_tvb, 4, 4, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(cqe_tree, hf_nvme_cqe_sqhd, nvme_tvb, 8, 2, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(cqe_tree, hf_nvme_cqe_sqid, nvme_tvb, 10, 2, ENC_LITTLE_ENDIAN);
-    proto_tree_add_item(cqe_tree, hf_nvme_cqe_cid, nvme_tvb, 12, 2, ENC_LITTLE_ENDIAN);
-
-    ti = proto_tree_add_item(cqe_tree, hf_nvme_cqe_status[0], nvme_tvb, 14, 2, ENC_LITTLE_ENDIAN);
-    grp =  proto_item_add_subtree(ti, ett_data);
-    for (i = 1; i < array_length(hf_nvme_cqe_status); i++) {
-        ti = proto_tree_add_item(grp, hf_nvme_cqe_status[i], nvme_tvb, 14, 2, ENC_LITTLE_ENDIAN);
-        if (i == 2)
-            proto_item_append_text(ti, " (%s)", get_cqe_sc_string((val & 0xE00) >> 1, (val & 0x1fe) >> 9));
-    }
+    dissect_nvme_cqe_common(nvme_tvb, cqe_tree, 0, FALSE);
 }
 
 void
 proto_register_nvme(void)
 {
     static hf_register_info hf[] = {
+        /* NVMeOF Fabric Command Fileds */
+        { &hf_nvmeof_cmd,
+            { "Cmd", "nvme.fabrics.cmd",
+               FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_opc,
+            { "Opcode", "nvme.fabrics.cmd.opc",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_rsvd,
+            { "Reserved", "nvme.fabrics.cmd.rsvd",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_cid,
+            { "Command Identifier", "nvme.fabrics.cmd.cid",
+               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_fctype,
+            { "Fabric Command Type", "nvme.fabrics.cmd.fctype",
+               FT_UINT8, BASE_HEX, VALS(fctype_tbl), 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_rsvd1,
+            { "Reserved", "nvme.fabrics.cmd.connect.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_sgl1,
+            { "SGL1", "nvme.fabrics.cmd.connect.sgl1",
+               FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_recfmt,
+            { "Record Format", "nvme.fabrics.cmd.connect.recfmt",
+               FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_qid,
+            { "Queue ID", "nvme.fabrics.cmd.connect.qid",
+               FT_UINT16, BASE_CUSTOM, CF_FUNC(add_nvme_qid), 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_sqsize,
+            { "Submission Queue Size", "nvme.fabrics.cmd.connect.sqsize",
+               FT_UINT16, BASE_CUSTOM, CF_FUNC(add_zero_base), 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_cattr[0],
+            { "Connect Attributes", "nvme.fabrics.cmd.connect.cattr",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_cattr[1],
+            { "Priority Class", "nvme.fabrics.cmd.connect.cattr.pc",
+               FT_UINT8, BASE_HEX, VALS(pclass_tbl), 0x3, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_cattr[2],
+            { "Disable SQ Flow Control", "nvme.fabrics.cmd.connect.cattr.dfc",
+               FT_UINT8, BASE_HEX, NULL, 0x4, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_cattr[3],
+            { "Support Deletion of IO Queues", "nvme.fabrics.cmd.connect.cattr.dioq",
+               FT_UINT8, BASE_HEX, NULL, 0x8, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_cattr[4],
+            { "Reserved", "nvme.fabrics.cmd.connect.cattr.rsvd",
+               FT_UINT8, BASE_HEX, NULL, 0xf0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_rsvd2,
+            { "Reserved", "nvme.fabrics.cmd.connect.rsvd2",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_kato,
+            { "Keep Alive Timeout", "nvme.fabrics.cmd.connect.kato",
+               FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_milliseconds, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_rsvd3,
+            { "Reserved", "nvme.fabrics.cmd.connect.rsvd3",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_hostid,
+            { "Host Identifier", "nvme.fabrics.cmd.connect.data.hostid",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_cntlid,
+            { "Controller ID", "nvme.fabrics.cmd.connect.data.cntrlid",
+               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_rsvd0,
+            { "Reserved", "nvme.fabrics.cmd.connect.data.rsvd0",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_subnqn,
+            { "Subsystem NQN", "nvme.fabrics.cmd.connect.data.subnqn",
+               FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_hostnqn,
+            { "Host NQN", "nvme.fabrics.cmd.connect.data.hostnqn",
+               FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_connect_data_rsvd1,
+            { "Reserved", "nvme.fabrics.cmd.connect.data.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_rsdv1,
+            { "Reserved", "nvme.fabrics.cmd.auth.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_sgl1,
+            { "SGL1", "nvme.fabrics.cmd.auth.sgl1",
+               FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_rsdv2,
+            { "Reserved", "nvme.fabrics.cmd.auth.rsvd2",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_spsp0,
+            { "SP Specific 0", "nvme.fabrics.cmd.auth.spsp0",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_spsp1,
+            { "SP Specific 1", "nvme.fabrics.cmd.auth.spsp1",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_secp,
+            { "Security Protocol", "nvme.fabrics.cmd.auth.secp",
+               FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_al,
+            { "Allocation Length", "nvme.fabrics.cmd.auth.al",
+               FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_auth_rsdv3,
+            { "Reserved", "nvme.fabrics.cmd.auth.rsvd3",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_disconnect_rsvd0,
+            { "Reserved", "nvme.fabrics.cmd.disconnect.rsvd0",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_disconnect_recfmt,
+            { "Record Format", "nvme.fabrics.cmd.disconnect.recfmt",
+               FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_disconnect_rsvd1,
+            { "Reserved", "nvme.fabrics.cmd.disconnect.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_rsvd0,
+            { "Reserved", "nvme.fabrics.cmd.prop_get_set.rsvd0",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_attrib[0],
+            { "Attributes", "nvme.fabrics.cmd.prop_get_set.attrib",
+               FT_UINT8, BASE_HEX, NULL, 0x7, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_attrib[1],
+            { "Property Size", "nvme.fabrics.cmd.prop_get_set.attrib.size",
+               FT_UINT8, BASE_HEX, VALS(attr_size_tbl), 0x7, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_attrib[2],
+            { "Reserved", "nvme.fabrics.cmd.prop_get_set.attrib.rsvd",
+               FT_UINT8, BASE_HEX, NULL, 0xf8, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_rsvd1,
+            { "Reserved", "nvme.fabrics.cmd.prop_get_set.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_set_offset,
+            { "Offset", "nvme.fabrics.cmd.prop_get_set.offset",
+               FT_UINT32, BASE_HEX, VALS(prop_offset_tbl), 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_get_rsvd2,
+            { "Reserved", "nvme.fabrics.cmd.prop_get.rsvd2",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_data,
+            { "Property Data", "nvme.fabrics.prop_get_set.data",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_data_4B,
+            { "Value", "nvme.fabrics.prop_get_set.data.4B",
+               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_data_4B_rsvd,
+            { "Reserved", "nvme.fabrics.prop_get_set.data.rsvd",
+               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_data_8B,
+            { "Value", "nvme.fabrics.prop_get_set.data.8B",
+               FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[0],
+            { "Controller Configuration", "nvme.fabrics.prop_get_set.cc",
+               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[1],
+            { "Enable", "nvme.fabrics.prop_get_set.cc.en",
+               FT_UINT32, BASE_HEX, NULL, 0x1, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[2],
+            { "Reserved", "nvme.fabrics.prop_get_set.cc.rsvd0",
+               FT_UINT32, BASE_HEX, NULL, 0xE, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[3],
+            { "IO Command Set Selected", "nvme.fabrics.prop_get_set.cc.css",
+               FT_UINT32, BASE_HEX, VALS(css_table), 0x70, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[4],
+            { "Memory Page Size", "nvme.fabrics.prop_get_set.cc.mps",
+               FT_UINT32, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_page_size), 0x780, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[5],
+            { "Arbitration Mechanism Selected", "nvme.fabrics.prop_get_set.cc.ams",
+               FT_UINT32, BASE_HEX, VALS(ams_table), 0x3800, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[6],
+            { "Shutdown Notification", "nvme.fabrics.prop_get_set.cc.shn",
+               FT_UINT32, BASE_HEX, VALS(sn_table), 0xc000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[7],
+            { "IO Submission Queue Entry Size", "nvme.fabrics.prop_get_set.cc.iosqes",
+               FT_UINT32, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_bytes), 0xF0000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[8],
+            { "IO Completion Queue Entry Size", "nvme.fabrics.prop_get_set.cc.iocqes",
+               FT_UINT32, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_bytes), 0xF00000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_cc[9],
+            { "Reserved", "nvme.fabrics.prop_get_set.cc.rsvd1",
+               FT_UINT32, BASE_HEX, NULL, 0xff000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[0],
+            { "Controller Status", "nvme.fabrics.prop_get_set.csts",
+               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[1],
+            { "Ready", "nvme.fabrics.prop_get_set.csts.rdy",
+               FT_UINT32, BASE_HEX, NULL, 0x1, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[2],
+            { "Controller Fatal Status", "nvme.fabrics.prop_get_set.csts.cfs",
+               FT_UINT32, BASE_HEX, NULL, 0x2, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[3],
+            { "Shutdown Status", "nvme.fabrics.prop_get_set.csts.shst",
+               FT_UINT32, BASE_HEX, VALS(shst_table), 0xC, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[4],
+            { "NVM Subsystem Reset Occurred", "nvme.fabrics.prop_get_set.csts.nssro",
+               FT_UINT32, BASE_HEX, NULL, 0x10, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[5],
+            { "Processing Paused", "nvme.fabrics.prop_get_set.csts.pp",
+               FT_UINT32, BASE_HEX, NULL, 0x20, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_csts[6],
+            { "Reserved", "nvme.fabrics.prop_get_set.csts.rsvd",
+               FT_UINT32, BASE_HEX, NULL, 0xffffffC0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_nssr[0],
+            { "NVM Subsystem Reset", "nvme.fabrics.cmd.prop_attr.set.nssr",
+               FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_set_nssr[1],
+            { "NVM Subsystem Reset Control", "nvme.fabrics.cmd.prop_attr.set.nssr.nssrc",
+               FT_UINT32, BASE_HEX, NULL, 0xffffffff, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_prop_set_rsvd,
+            { "Reserved", "nvme.fabrics.cmd.prop_set.rsvd",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_generic_rsvd1,
+            { "Reserved", "nvme.fabrics.cmd.generic.rsvd1",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cmd_generic_field,
+            { "Fabric Cmd specific field", "nvme.fabrics.cmd.generic.field",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        /* NVMeOF Fabric Commands CQE fields */
+        { &hf_nvmeof_cqe,
+            { "Cqe", "nvme.fabrics.cqe",
+               FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cqe_sts,
+            { "Cmd specific Status", "nvme.fabrics.cqe.sts",
+               FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[0],
+            { "Controller Capabilities", "nvme.fabrics.prop_get.ccap",
+               FT_UINT64, BASE_HEX, NULL, 0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[1],
+            { "Maximum Queue Entries Supported", "nvme.fabrics.prop_get.ccap.mqes",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_zero_base), 0xffff, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[2],
+            { "Contiguous Queues Required", "nvme.fabrics.prop_get.ccap.cqr",
+               FT_BOOLEAN, 64, NULL, 0x10000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[3],
+            { "Supports Arbitration Mechanism with Weighted Round Robin and Urgent Priority Class", "nvme.fabrics.prop_get.ccap.ams.wrr",
+               FT_BOOLEAN, 64, NULL, 0x20000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[4],
+            { "Supports Arbitration Mechanism Vendor Specific", "nvme.fabrics.prop_get.ccap.ams.vs",
+               FT_BOOLEAN, 64, NULL, 0x40000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[5],
+            { "Reserved", "nvme.fabrics.prop_get.ccap.rsvd0",
+               FT_UINT64, BASE_HEX, NULL, 0xF80000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[6],
+            { "Timeout (to ready status)", "nvme.fabrics.prop_get.ccap.to",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_500ms_units), 0xFF000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[7],
+            { "Doorbell Stride", "nvme.fabrics.prop_get.ccap.dstrd",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_dstrd_size), 0xF00000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[8],
+            { "NVM Subsystem Reset Supported", "nvme.fabrics.prop_get.ccap.nssrs",
+               FT_BOOLEAN, 64, NULL, 0x1000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[9],
+            { "Command Sets Supported", "nvme.fabrics.prop_get.ccap.css",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_ccap_css), 0x1FE000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[10],
+            { "Boot Partition Support", "nvme.fabrics.prop_get.ccap.bps",
+               FT_BOOLEAN, 64, NULL, 0x200000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[11],
+            { "Reserved", "nvme.fabrics.prop_get.ccap.rsdv1",
+               FT_UINT64, BASE_HEX, NULL, 0xC00000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[12],
+            { "Memory Page Size Minimum", "nvme.fabrics.prop_get.ccap.mpsmin",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_page_size), 0xF000000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[13],
+            { "Memory Page Size Maximum", "nvme.fabrics.prop_get.ccap.mpsmax",
+               FT_UINT64, BASE_CUSTOM, CF_FUNC(add_ctrl_pow2_page_size), 0xF0000000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[14],
+            { "Persistent Memory Region Supported", "nvme.fabrics.prop_get.ccap.pmrs",
+               FT_BOOLEAN, 64, NULL, 0x100000000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[15],
+            { "Controller Memory Buffer Supported", "nvme.fabrics.prop_get.ccap.cmbs",
+               FT_BOOLEAN, 64, NULL, 0x200000000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_ccap[16],
+            { "Reserved", "nvme.fabrics.prop_get.ccap.rsvd2",
+               FT_UINT64, BASE_HEX, NULL, 0xFC00000000000000, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_vs[0],
+            { "Version", "nvme.fabrics.prop_get.vs",
+               FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_vs[1],
+            { "Tertiary Version", "nvme.fabrics.prop_get.vs.ter",
+               FT_UINT32, BASE_DEC, NULL, 0xff, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_vs[2],
+            { "Minor Version", "nvme.fabrics.prop_get.vs.mnr",
+               FT_UINT32, BASE_DEC, NULL, 0xff00, NULL, HFILL}
+        },
+        { &hf_nvmeof_prop_get_vs[3],
+            { "Major Version", "nvme.fabrics.prop_get.vs.mjr",
+               FT_UINT32, BASE_DEC, NULL, 0xffff0000, NULL, HFILL}
+        },
+        { &hf_nvmeof_cqe_connect_cntlid,
+            { "Controller ID", "nvme.fabrics.cqe.connect.cntrlid",
+               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cqe_connect_authreq,
+            { "Authentication Required", "nvme.fabrics.cqe.connect.authreq",
+               FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cqe_connect_rsvd,
+            { "Reserved", "nvme.fabrics.cqe.connect.rsvd",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvmeof_cqe_prop_set_rsvd,
+            { "Reserved", "nvme.fabrics.cqe.prop_set.rsvd",
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
+        },
+        /* Tracking commands, completions and transfers */
+                { &hf_nvmeof_cmd_pkt,
+            { "Fabric Cmd in", "nvme.fabrics.cmd_pkt",
+              FT_FRAMENUM, BASE_NONE, NULL, 0,
+              "The Cmd for this transaction is in this frame", HFILL }
+        },
+        { &hf_nvmeof_cqe_pkt,
+            { "Fabric Cqe in", "nvme.fabrics.cqe_pkt",
+              FT_FRAMENUM, BASE_NONE, NULL, 0,
+              "The Cqe for this transaction is in this frame", HFILL }
+        },
+        { &hf_nvmeof_data_req,
+            { "DATA Transfer Request", "nvme.fabrics.data_req",
+              FT_FRAMENUM, BASE_NONE, NULL, 0,
+              "DATA transfer request for this transaction is in this frame", HFILL }
+        },
+        { &hf_nvmeof_cmd_latency,
+            { "Cmd Latency", "nvme.fabrics.cmd_latency",
+              FT_DOUBLE, BASE_NONE, NULL, 0x0,
+              "The time between the command and completion, in usec", HFILL }
+        },
         /* NVMe Command fields */
         { &hf_nvme_cmd_opc,
             { "Opcode", "nvme.cmd.opc",
@@ -6230,7 +7168,7 @@ proto_register_nvme(void)
                FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_get_logpage_lba_status_nlslne,
-            { "Number of LBA Status Log Namespace Elements (NLSLNE)", "nvme.cmd.get_logpage.lba_status.lslplen",
+            { "Number of LBA Status Log Namespace Elements (NLSLNE)", "nvme.cmd.get_logpage.lba_status.nlslne",
                FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_get_logpage_lba_status_estulb,
@@ -6447,6 +7385,10 @@ proto_register_nvme(void)
         },
         { &hf_nvme_cqe_status[1],
             { "Phase Tag", "nvme.cqe.status.p",
+               FT_UINT16, BASE_HEX, NULL, 0x1, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_status_rsvd,
+            { "Reserved", "nvme.cqe.status.rsvd",
                FT_UINT16, BASE_HEX, NULL, 0x1, NULL, HFILL}
         },
         { &hf_nvme_cqe_status[2],

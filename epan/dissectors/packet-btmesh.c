@@ -26,6 +26,7 @@
 #include <math.h>
 #include <epan/uat.h>
 #include <epan/reassemble.h>
+#include <epan/to_str.h>
 
 #define BTMESH_NOT_USED 0
 #define BTMESH_KEY_ENTRY_VALID 4
@@ -173,6 +174,24 @@
 #define SCENE_STORE_UNACKNOWLEDGED                               0x8247
 #define SCENE_DELETE                                             0x829e
 #define SCENE_DELETE_UNACKNOWLEDGED                              0x829f
+#define TIME_SET                                                 0x005c
+#define TIME_STATUS                                              0x005d
+#define SCHEDULER_ACTION_STATUS                                  0x005f
+#define SCHEDULER_ACTION_SET                                     0x0060
+#define SCHEDULER_ACTION_SET_UNACKNOWLEDGED                      0x0061
+#define TIME_GET                                                 0x8237
+#define TIME_ROLE_GET                                            0x8238
+#define TIME_ROLE_SET                                            0x8239
+#define TIME_ROLE_STATUS                                         0x823a
+#define TIME_ZONE_GET                                            0x823b
+#define TIME_ZONE_SET                                            0x823c
+#define TIME_ZONE_STATUS                                         0x823d
+#define TAI_UTC_DELTA_GET                                        0x823e
+#define TAI_UTC_DELTA_SET                                        0x823f
+#define TAI_UTC_DELTA_STATUS                                     0x8240
+#define SCHEDULER_ACTION_GET                                     0x8248
+#define SCHEDULER_GET                                            0x8249
+#define SCHEDULER_STATUS                                         0x824a
 
 void proto_register_btmesh(void);
 
@@ -780,6 +799,109 @@ static int hf_btmesh_scene_store_scene_number = -1;
 static int hf_btmesh_scene_store_unacknowledged_scene_number = -1;
 static int hf_btmesh_scene_delete_scene_number = -1;
 static int hf_btmesh_scene_delete_unacknowledged_scene_number = -1;
+static int hf_btmesh_time_set_tai_seconds = -1;
+static int hf_btmesh_time_set_subsecond = -1;
+static int hf_btmesh_time_set_uncertainty = -1;
+static int hf_btmesh_time_set_time_authority = -1;
+static int hf_btmesh_time_set_tai_utc_delta = -1;
+static int hf_btmesh_time_set_time_zone_offset = -1;
+static int hf_btmesh_time_status_tai_seconds = -1;
+static int hf_btmesh_time_status_subsecond = -1;
+static int hf_btmesh_time_status_uncertainty = -1;
+static int hf_btmesh_time_status_time_authority = -1;
+static int hf_btmesh_time_status_tai_utc_delta = -1;
+static int hf_btmesh_time_status_time_zone_offset = -1;
+static int hf_btmesh_scheduler_action_status_index = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_year = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_month = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_day = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_hour = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_minute = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_second = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_dayofweek = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_action = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_transition_time = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_transition_time_steps = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_transition_time_resolution = -1;
+static int hf_btmesh_scheduler_action_status_schedule_register_scene_number = -1;
+static int hf_btmesh_scheduler_schedule_register_month_january = -1;
+static int hf_btmesh_scheduler_schedule_register_month_february = -1;
+static int hf_btmesh_scheduler_schedule_register_month_march = -1;
+static int hf_btmesh_scheduler_schedule_register_month_april = -1;
+static int hf_btmesh_scheduler_schedule_register_month_may = -1;
+static int hf_btmesh_scheduler_schedule_register_month_june = -1;
+static int hf_btmesh_scheduler_schedule_register_month_july = -1;
+static int hf_btmesh_scheduler_schedule_register_month_august = -1;
+static int hf_btmesh_scheduler_schedule_register_month_september = -1;
+static int hf_btmesh_scheduler_schedule_register_month_october = -1;
+static int hf_btmesh_scheduler_schedule_register_month_november = -1;
+static int hf_btmesh_scheduler_schedule_register_month_december = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_monday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_tuesday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_wednesday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_thursday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_friday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_saturday = -1;
+static int hf_btmesh_scheduler_schedule_register_dayofweek_sunday = -1;
+static int hf_btmesh_scheduler_action_set_index = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_year = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_month = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_day = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_hour = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_minute = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_second = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_dayofweek = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_action = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_transition_time = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_transition_time_steps = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_transition_time_resolution = -1;
+static int hf_btmesh_scheduler_action_set_schedule_register_scene_number = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_index = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_year = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_month = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_day = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_hour = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_minute = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_second = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_dayofweek = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_action = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_steps = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_resolution = -1;
+static int hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_scene_number = -1;
+static int hf_btmesh_time_role_set_time_role = -1;
+static int hf_btmesh_time_role_status_time_role = -1;
+static int hf_btmesh_time_zone_set_time_zone_offset_new = -1;
+static int hf_btmesh_time_zone_set_tai_of_zone_change = -1;
+static int hf_btmesh_time_zone_status_time_zone_offset_current = -1;
+static int hf_btmesh_time_zone_status_time_zone_offset_new = -1;
+static int hf_btmesh_time_zone_status_tai_of_zone_change = -1;
+static int hf_btmesh_tai_utc_delta_set_tai_utc_delta_new = -1;
+static int hf_btmesh_tai_utc_delta_set_padding = -1;
+static int hf_btmesh_tai_utc_delta_set_tai_of_delta_change = -1;
+static int hf_btmesh_tai_utc_delta_status_tai_utc_delta_current = -1;
+static int hf_btmesh_tai_utc_delta_status_padding_1 = -1;
+static int hf_btmesh_tai_utc_delta_status_tai_utc_delta_new = -1;
+static int hf_btmesh_tai_utc_delta_status_padding_2 = -1;
+static int hf_btmesh_tai_utc_delta_status_tai_of_delta_change = -1;
+static int hf_btmesh_scheduler_action_get_index = -1;
+static int hf_btmesh_scheduler_status_schedules = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_0 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_1 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_2 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_3 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_4 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_5 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_6 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_7 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_8 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_9 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_10 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_11 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_12 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_13 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_14 = -1;
+static int hf_btmesh_scheduler_status_schedules_schedule_15 = -1;
 
 static int ett_btmesh = -1;
 static int ett_btmesh_net_pdu = -1;
@@ -812,6 +934,9 @@ static int ett_btmesh_config_heartbeat_publication_set_features = -1;
 static int ett_btmesh_config_heartbeat_publication_status_features = -1;
 static int ett_btmesh_config_model_fault_array = -1;
 static int ett_btmesh_scene_register_status_scenes = -1;
+static int ett_btmesh_scheduler_model_month = -1;
+static int ett_btmesh_scheduler_model_day_of_week = -1;
+static int ett_btmesh_scheduler_schedules = -1;
 
 static expert_field ei_btmesh_not_decoded_yet = EI_INIT;
 static expert_field ei_btmesh_unknown_payload = EI_INIT;
@@ -1363,6 +1488,32 @@ static const value_string btmesh_generic_location_local_stationary_vals[] = {
     { 0, NULL }
 };
 
+static const value_string btmesh_yes_or_dash_vals[] = {
+    { 0x0, "-" },
+    { 0x1, "Scheduled" },
+    { 0, NULL }
+};
+
+static const value_string btmesh_time_authority_vals[] = {
+    { 0x0, "No Time Authority" },
+    { 0x1, "Time Authority" },
+    { 0, NULL }
+};
+
+static const value_string btmesh_time_role_vals[] = {
+    { 0x0, "None" },
+    { 0x1, "Mesh Time Authority" },
+    { 0x2, "Mesh Time Relay" },
+    { 0x3, "Mesh Time Client" },
+    { 0, NULL }
+};
+
+static const value_string btmesh_defined_or_dash_vals[] = {
+    { 0x0, "-" },
+    { 0x1, "Defined" },
+    { 0, NULL }
+};
+
 #if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
 
 static int * const config_composition_data_status_features_headers[] = {
@@ -1535,7 +1686,9 @@ static reassembly_table upper_transport_reassembly_table;
 
 typedef struct _upper_transport_fragment_key {
     guint16 src;
-    guint16 seq0;
+    guint seq0;
+    guint ivindex;
+    guint32 net_key_iv_index_hash;
 } upper_transport_fragment_key;
 
 static guint
@@ -1544,8 +1697,18 @@ upper_transport_fragment_hash(gconstpointer k)
     const upper_transport_fragment_key* key = (const upper_transport_fragment_key*) k;
     guint hash_val;
 
-    hash_val = key->src;
-    hash_val += ( ((guint)key->seq0) << 16);
+    const guint8 hash_buf_len = sizeof(guint16) + 2 * sizeof(guint) + sizeof(guint32);
+    guint idx=0;
+    guint8* hash_buf = (guint8*)wmem_alloc(wmem_packet_scope(), hash_buf_len);
+    memcpy(hash_buf, &key->src, sizeof(guint16));
+    idx += sizeof(guint16);
+    memcpy(&hash_buf[idx], &key->seq0, sizeof(guint));
+    idx += sizeof(guint);
+    memcpy(&hash_buf[idx], &key->ivindex, sizeof(key->ivindex));
+    idx += sizeof(guint);
+    memcpy(&hash_buf[idx], &key->net_key_iv_index_hash, sizeof(key->net_key_iv_index_hash));
+    hash_val = wmem_strong_hash(hash_buf, hash_buf_len);
+
     return hash_val;
 }
 
@@ -1555,7 +1718,8 @@ upper_transport_fragment_equal(gconstpointer k1, gconstpointer k2)
     const upper_transport_fragment_key* key1 = (const upper_transport_fragment_key*) k1;
     const upper_transport_fragment_key* key2 = (const upper_transport_fragment_key*) k2;
 
-    return ((key1->src == key2->src) && (key1->seq0 == key2->seq0)
+    return ((key1->src == key2->src) && (key1->seq0 == key2->seq0) &&
+            (key1->ivindex == key2->ivindex) && (key1->net_key_iv_index_hash == key2->net_key_iv_index_hash)
             ? TRUE : FALSE);
 }
 
@@ -1568,6 +1732,8 @@ upper_transport_fragment_temporary_key(const packet_info *pinfo _U_, const guint
 
     key->src = pkt->src;
     key->seq0 = pkt->seq0;
+    key->ivindex = pkt->ivindex;
+    key->net_key_iv_index_hash = pkt->net_key_iv_index_hash;
 
     return key;
 }
@@ -1589,6 +1755,8 @@ upper_transport_fragment_persistent_key(const packet_info *pinfo _U_, const guin
 
     key->src = pkt->src;
     key->seq0 = pkt->seq0;
+    key->ivindex = pkt->ivindex;
+    key->net_key_iv_index_hash = pkt->net_key_iv_index_hash;
 
     return key;
 }
@@ -2068,6 +2236,8 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
     return de_obf_tvb;
 }
 
+#endif /* GCRYPT_VERSION_NUMBER >= 0x010600 */
+
 static const gchar *period_interval_unit[] = {"ms", "s", "s", "min"};
 static const guint32 period_interval_multiplier[] = {100, 1, 10, 10};
 
@@ -2290,6 +2460,182 @@ format_precision(gchar *buf, guint16 value) {
 }
 
 static void
+format_scheduler_year(gchar *buf, gint32 value) {
+    if (value <= 0x63) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "%d", 2000+value);
+    } else if (value == 0x64 ) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Any year");
+    } else {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
+    }
+}
+
+static void
+format_scheduler_day(gchar *buf, gint32 value) {
+    if (value > 0x0) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
+    } else {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Any day");
+    }
+}
+
+static void
+format_scheduler_hour(gchar *buf, gint32 value) {
+    if (value < 24 ) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
+    } else if (value == 0x18 ) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Any hour of the day");
+    } else if (value == 0x19 ) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Once a day (at a random hour)");
+    } else {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
+    }
+}
+
+static void
+format_scheduler_minute(gchar *buf, gint32 value) {
+    switch (value) {
+        case 0x3C:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Any minute of the hour");
+        break;
+
+        case 0x3D:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Every 15 minutes (minute modulo 15 is 0) (0, 15, 30, 45)");
+        break;
+
+        case 0x3E:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Every 20 minutes (minute modulo 20 is 0) (0, 20, 40)");
+        break;
+
+        case 0x3F:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Once an hour (at a random minute)");
+        break;
+
+        default:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
+        break;
+    }
+}
+
+static void
+format_scheduler_second(gchar *buf, gint32 value) {
+    switch (value) {
+        case 0x3C:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Any second of the minute");
+        break;
+
+        case 0x3D:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Every 15 seconds (second modulo 15 is 0) (0, 15, 30, 45)");
+        break;
+
+        case 0x3E:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Every 20 seconds (second modulo 20 is 0) (0, 20, 40)");
+        break;
+
+        case 0x3F:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Once a minute (at a random second)");
+        break;
+
+        default:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
+        break;
+    }
+}
+
+static void
+format_scheduler_action(gchar *buf, gint32 value) {
+    switch (value) {
+        case 0x0:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Turn Off");
+        break;
+
+        case 0x1:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Turn On");
+        break;
+
+        case 0x2:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Scene Recall");
+        break;
+
+        case 0xF:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Inactive");
+        break;
+
+        default:
+            g_snprintf(buf, ITEM_LABEL_LENGTH, "Reserved for Future Use");
+        break;
+    }
+}
+
+static void
+format_scheduler_empty(gchar *buf _U_, gint32 value _U_) {
+    buf = g_strdup("");
+}
+
+static void
+format_subsecond_ms(gchar *buf, guint32 value) {
+    g_snprintf(buf, ITEM_LABEL_LENGTH, "%.1f ms", (gdouble)value / 0.256);
+}
+
+static void
+format_uncertainty_ms(gchar *buf, guint32 value) {
+    g_snprintf(buf, ITEM_LABEL_LENGTH, "%u ms", value * 10);
+}
+
+static void
+format_tai_utc_delta_s(gchar *buf, guint32 value) {
+    gint32 val = (gint32)value - 255;
+    g_snprintf(buf, ITEM_LABEL_LENGTH, "%d s", val);
+}
+
+static void
+format_time_zone_offset_h(gchar *buf, guint32 value) {
+    gint32 val = (gint32)value - 64;
+    if (val >= 0) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "%+d:%02d", val/4, (val%4)*15 );
+    } else {
+        val *=-1;
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "-%d:%02d", val/4, (val%4)*15 );
+    }
+}
+
+static void
+format_tai_to_utc_date(gchar *buf, guint64 value) {
+
+    if (value == 0 ) {
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "Unknown");
+    } else {
+        gchar *time_str;
+        time_t val;
+
+        // Leap seconds removal
+        guint64 delta = 0;
+        // TAI epoch is 2000-01-01T00:00:00 TAI
+        guint64 leap_seconds[] = {
+            189388800, // 1 January 2006, 00:00:00, seconds from TAI epoch
+            284083200, // 1 January 2009, 00:00:00, seconds from TAI epoch
+            394416000, // 1 July 2012, 00:00:00, seconds from TAI epoch
+            489024000, // 1 July 2015, 00:00:00, seconds from TAI epoch
+            536544000, // 1 January 2017, 00:00:00, seconds from TAI epoch
+        };
+        for (int i = 0; i < 5; i++) {
+            if (value >= leap_seconds[i]) {
+                delta++;
+            } else {
+                break;
+            }
+        }
+        // 946684800 seconds between 1.1.1970 and 1.1.2000
+        // 32 leap seconds difference between TAI and UTC on 1.1.2000
+        val = (time_t)(value + 946684800ll - 32ll - delta);
+        time_str = abs_time_secs_to_str(NULL, val, ABSOLUTE_TIME_UTC, TRUE);
+        g_snprintf(buf, ITEM_LABEL_LENGTH, "%s", time_str);
+    }
+}
+
+#if GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */
+
+static void
 dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
 {
     proto_tree *sub_tree;
@@ -2299,6 +2645,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     proto_item *netapp_index_item, *app_index_item, *pub_app_index_item, *net_index_item;
     proto_item *relayretransmit_index, *transmit_index;
     proto_item *publishperiod_item, *publishretransmit_item;
+    proto_item *month_item, *day_of_week_item, *scheduler_item;
 
     proto_tree *netapp_index_sub_tree, *app_index_sub_tree, *pub_app_index_sub_tree, *net_index_sub_tree;
     proto_tree *relayretransmit_sub_tree, *transmit_sub_tree, *subscriptionlist_tree;
@@ -2306,7 +2653,8 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     proto_tree *element_sub_tree, *model_sub_tree, *vendor_sub_tree;
     proto_tree *netkeylist_tree, *appkeylist_tree;
     proto_tree *fault_array_tree;
-    proto_tree *sceneslist_tree;
+    proto_tree *sceneslist_tree, *month_sub_tree, *day_of_week_sub_tree;
+    proto_tree *scheduler_tree;
 
     guint32 netkeyindexes, appkeyindexes;
     guint32 nums, numv, element;
@@ -2327,13 +2675,13 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         } else {
         /* Two octet opcode */
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_model_layer_opcode, tvb, offset, 2, ENC_NA, &opcode);
-        col_set_str(pinfo->cinfo, COL_INFO, val_to_str(opcode, btmesh_models_opcode_vals, "Unknown"));
+        col_set_str(pinfo->cinfo, COL_INFO, val_to_str(opcode, btmesh_models_opcode_vals, "Access Message Unknown"));
         offset+=2;
         }
     } else {
         /* One octet opcode */
         proto_tree_add_item(sub_tree, hf_btmesh_model_layer_opcode, tvb, offset, 1, ENC_NA);
-        col_set_str(pinfo->cinfo, COL_INFO, val_to_str(opcode, btmesh_models_opcode_vals, "Unknown"));
+        col_set_str(pinfo->cinfo, COL_INFO, val_to_str(opcode, btmesh_models_opcode_vals, "Access Message Unknown"));
         offset++;
     }
 
@@ -3606,6 +3954,235 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         proto_tree_add_item(sub_tree, hf_btmesh_scene_delete_unacknowledged_scene_number, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         offset+=2;
         break;
+    case TIME_SET:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_tai_seconds, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_subsecond, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_uncertainty, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_time_authority, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_tai_utc_delta, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_set_time_zone_offset, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        break;
+    case TIME_STATUS:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_status_tai_seconds, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        /* Optional */
+        if (tvb_reported_length_remaining(tvb, offset) > 0) {
+            proto_tree_add_item(sub_tree, hf_btmesh_time_status_subsecond, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(sub_tree, hf_btmesh_time_status_uncertainty, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+            proto_tree_add_item(sub_tree, hf_btmesh_time_status_time_authority, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item(sub_tree, hf_btmesh_time_status_tai_utc_delta, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+            offset+=2;
+            proto_tree_add_item(sub_tree, hf_btmesh_time_status_time_zone_offset, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset++;
+        }
+        break;
+    case SCHEDULER_ACTION_STATUS:
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_index, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_year, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_month, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_sub_tree = proto_item_add_subtree(month_item, ett_btmesh_scheduler_model_month);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_january, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_february, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_march, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_april, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_may, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_june, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_july, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_august, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_september, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_october, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_november, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_december, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_day, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_hour, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_minute, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_second, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_dayofweek, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_sub_tree = proto_item_add_subtree(day_of_week_item, ett_btmesh_scheduler_model_day_of_week);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_monday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_tuesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_wednesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_thursday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_friday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_saturday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_sunday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_action, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        publishperiod_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_transition_time, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        publishperiod_sub_tree = proto_item_add_subtree(publishperiod_item, ett_btmesh_config_model_publishperiod);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_status_schedule_register_transition_time_steps, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_status_schedule_register_transition_time_resolution, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+         offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_status_schedule_register_scene_number, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        break;
+    case SCHEDULER_ACTION_SET:
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_index, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_year, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_month, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_sub_tree = proto_item_add_subtree(month_item, ett_btmesh_scheduler_model_month);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_january, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_february, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_march, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_april, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_may, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_june, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_july, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_august, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_september, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_october, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_november, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_december, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_day, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_hour, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_minute, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_second, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_dayofweek, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_sub_tree = proto_item_add_subtree(day_of_week_item, ett_btmesh_scheduler_model_day_of_week);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_monday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_tuesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_wednesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_thursday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_friday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_saturday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_sunday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_action, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        publishperiod_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_transition_time, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        publishperiod_sub_tree = proto_item_add_subtree(publishperiod_item, ett_btmesh_config_model_publishperiod);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_set_schedule_register_transition_time_steps, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_set_schedule_register_transition_time_resolution, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_schedule_register_scene_number, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        break;
+    case SCHEDULER_ACTION_SET_UNACKNOWLEDGED:
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_index, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_year, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_month, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        month_sub_tree = proto_item_add_subtree(month_item, ett_btmesh_scheduler_model_month);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_january, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_february, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_march, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_april, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_may, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_june, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_july, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_august, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_september, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_october, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_november, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(month_sub_tree, hf_btmesh_scheduler_schedule_register_month_december, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_day, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_hour, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_minute, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_second, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_dayofweek, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        day_of_week_sub_tree = proto_item_add_subtree(day_of_week_item, ett_btmesh_scheduler_model_day_of_week);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_monday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_tuesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_wednesday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_thursday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_friday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_saturday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(day_of_week_sub_tree, hf_btmesh_scheduler_schedule_register_dayofweek_sunday, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_action, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+        offset+=3;
+        publishperiod_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        publishperiod_sub_tree = proto_item_add_subtree(publishperiod_item, ett_btmesh_config_model_publishperiod);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_steps, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(publishperiod_sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_resolution, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset+=1;
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_scene_number, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        break;
+    case TIME_GET:
+        break;
+    case TIME_ROLE_GET:
+        break;
+    case TIME_ROLE_SET:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_role_set_time_role, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        break;
+    case TIME_ROLE_STATUS:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_role_status_time_role, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        break;
+    case TIME_ZONE_GET:
+        break;
+    case TIME_ZONE_SET:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_zone_set_time_zone_offset_new, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_zone_set_tai_of_zone_change, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        break;
+    case TIME_ZONE_STATUS:
+        proto_tree_add_item(sub_tree, hf_btmesh_time_zone_status_time_zone_offset_current, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_zone_status_time_zone_offset_new, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        proto_tree_add_item(sub_tree, hf_btmesh_time_zone_status_tai_of_zone_change, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        break;
+    case TAI_UTC_DELTA_GET:
+        break;
+    case TAI_UTC_DELTA_SET:
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_set_tai_utc_delta_new, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_set_padding, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_set_tai_of_delta_change, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        break;
+    case TAI_UTC_DELTA_STATUS:
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_status_tai_utc_delta_current, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_status_padding_1, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_status_tai_utc_delta_new, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_status_padding_2, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        proto_tree_add_item(sub_tree, hf_btmesh_tai_utc_delta_status_tai_of_delta_change, tvb, offset, 5, ENC_LITTLE_ENDIAN);
+        offset+=5;
+        break;
+    case SCHEDULER_ACTION_GET:
+        proto_tree_add_item(sub_tree, hf_btmesh_scheduler_action_get_index, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
+        break;
+    case SCHEDULER_GET:
+        break;
+    case SCHEDULER_STATUS:
+        scheduler_item = proto_tree_add_item(sub_tree, hf_btmesh_scheduler_status_schedules, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        scheduler_tree = proto_item_add_subtree(scheduler_item, ett_btmesh_scheduler_schedules);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_0, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_1, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_2, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_3, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_4, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_5, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_6, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_7, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_8, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_9, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_10, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_11, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_12, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_13, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_14, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item(scheduler_tree, hf_btmesh_scheduler_status_schedules_schedule_15, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        offset+=2;
+        break;
 //
 //  ******************************************************************************************
 //
@@ -3636,6 +4213,9 @@ static void
 dissect_btmesh_transport_control_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, guint32 opcode)
 {
     proto_tree *sub_tree;
+
+    col_append_fstr(pinfo->cinfo, COL_INFO, "%s",
+        val_to_str_const(opcode, btmesh_ctrl_opcode_vals, "Control Message Unknown"));
 
     sub_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1, ett_btmesh_transp_ctrl_msg, NULL, "Transport Control Message %s",
         val_to_str_const(opcode, btmesh_ctrl_opcode_vals, "Unknown"));
@@ -3768,7 +4348,6 @@ static gboolean
 try_access_decrypt(tvbuff_t *tvb, int offset, guint8 *decrypted_data, int enc_data_len, guint8 *key, network_decryption_ctx_t *dec_ctx)
 {
     guint8 accessnonce[13];
-    guint32 seq0;
     gcry_cipher_hd_t cipher_hd;
     gcry_error_t gcrypt_err;
     guint64 ccm_lengths[3];
@@ -3778,20 +4357,12 @@ try_access_decrypt(tvbuff_t *tvb, int offset, guint8 *decrypted_data, int enc_da
     accessnonce[1] = (dec_ctx->transmic_size == 4 ? 0x00 : 0x80 );
     memcpy((guint8 *)&accessnonce + 2, dec_ctx->seq_src_buf, 5);
     if (dec_ctx->seg) {
-        /* Use 13 Lsbs from seqzero */
-        seq0 = dec_ctx->seq;
-        /* Check for overflow */
-        if ((dec_ctx->seq & 0x1fff) < dec_ctx->seqzero) {
-            seq0 -= 0x2000;
-        }
-        seq0 = seq0 & ~0x1fff;
-        seq0 += dec_ctx->seqzero;
-        accessnonce[2] = (seq0 & 0xff0000 ) >> 16;
-        accessnonce[3] = (seq0 & 0x00ff00 ) >> 8;
-        accessnonce[4] = (seq0 & 0x0000ff ) ;
+        accessnonce[2] = (dec_ctx->seqzero & 0xff0000 ) >> 16;
+        accessnonce[3] = (dec_ctx->seqzero & 0x00ff00 ) >> 8;
+        accessnonce[4] = (dec_ctx->seqzero & 0x0000ff );
     }
-    memcpy((guint8 *)&accessnonce + 7, dec_ctx->dst_buf, 2);
-    memcpy((guint8 *)&accessnonce + 9, dec_ctx->ivindex_buf, 4);
+    memcpy((guint8 *)&accessnonce + 7, dec_ctx->dst_buf, sizeof(dec_ctx->dst_buf));
+    memcpy((guint8 *)&accessnonce + 9, dec_ctx->ivindex_buf, sizeof(dec_ctx->ivindex_buf));
 
     /* Decrypt packet EXPERIMENTAL CODE */
     if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CCM, 0)) {
@@ -4002,49 +4573,61 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             /* Segment */
             proto_tree_add_item(sub_tree, hf_btmesh_segment, tvb, offset, -1, ENC_NA);
 
-            upper_transport_fragment_key frg_key;
-            /* src is 15 bit, seqzero is 13 bit*/
-            frg_key.src = dec_ctx->src;
-            frg_key.seq0 = seqzero;
+            /* Use 13 Lsbs from seqzero */
+            dec_ctx->seqzero = dec_ctx->seq;
+            /* Check for overflow */
+            if ((dec_ctx->seq & 0x1fff) < seqzero) {
+                dec_ctx->seqzero -= 0x2000;
+            }
+            dec_ctx->seqzero = dec_ctx->seqzero & ~0x1fff;
+            dec_ctx->seqzero += seqzero;
 
-            if (!pinfo->fd->visited) {
-                guint32 total_length = 0;
-                if (segn == sego) {
-                    total_length = segn * 8 + tvb_captured_length_remaining(tvb, offset);
-                }
-
-                /* Last fragment can be delivered out of order, and can be the first one. */
-                fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
-
-                if ((fd_head) && (total_length)) {
-                    fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
-                }
-                fd_head = fragment_add(&upper_transport_reassembly_table,
-                            tvb, offset, pinfo,
-                            BTMESH_NOT_USED, &frg_key,
-                            8 * sego,
-                            tvb_captured_length_remaining(tvb, offset),
-                            ( segn == 0 ? FALSE : TRUE) );
-
-                if ((!fd_head) && (total_length)) {
-                    fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
-                }
+            if (segn == 0) {
+                dissect_btmesh_transport_control_message(tvb, pinfo, tree, offset, opcode);
             } else {
-                fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
-                if (fd_head && (fd_head->flags&FD_DEFRAGMENTED)) {
-                    tvbuff_t *next_tvb;
-                    next_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled Control PDU", fd_head, &btmesh_segmented_control_frag_items, NULL, sub_tree);
-                    if (next_tvb) {
-                        dissect_btmesh_transport_control_message(next_tvb, pinfo, tree, 0, opcode);
-                        col_append_str(pinfo->cinfo, COL_INFO, " (Message Reassembled)");
-                    } else {
-                        col_append_fstr(pinfo->cinfo, COL_INFO," (Message fragment %u)", sego);
+                upper_transport_fragment_key frg_key;
+                frg_key.src = dec_ctx->src;
+                frg_key.net_key_iv_index_hash = dec_ctx->net_key_iv_index_hash;
+                memcpy(&frg_key.ivindex, dec_ctx->ivindex_buf, sizeof(frg_key.ivindex));
+                frg_key.seq0 = dec_ctx->seqzero;
+
+                if (!pinfo->fd->visited) {
+                    guint32 total_length = 0;
+                    if (segn == sego) {
+                        total_length = segn * 8 + tvb_captured_length_remaining(tvb, offset);
+                    }
+
+                    /* Last fragment can be delivered out of order, and can be the first one. */
+                    fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
+
+                    if ((fd_head) && (total_length)) {
+                        fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
+                    }
+                    fd_head = fragment_add(&upper_transport_reassembly_table,
+                                tvb, offset, pinfo,
+                                BTMESH_NOT_USED, &frg_key,
+                                8 * sego,
+                                tvb_captured_length_remaining(tvb, offset),
+                                ( segn == 0 ? FALSE : TRUE) );
+
+                    if ((!fd_head) && (total_length)) {
+                        fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
+                    }
+                } else {
+                    fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
+                    if (fd_head && (fd_head->flags&FD_DEFRAGMENTED)) {
+                        tvbuff_t *next_tvb;
+                        next_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled Control PDU", fd_head, &btmesh_segmented_control_frag_items, NULL, sub_tree);
+                        if (next_tvb) {
+                            dissect_btmesh_transport_control_message(next_tvb, pinfo, tree, 0, opcode);
+                            col_append_str(pinfo->cinfo, COL_INFO, " (Message Reassembled)");
+                        } else {
+                            col_append_fstr(pinfo->cinfo, COL_INFO,"Control Message (fragment %u)", sego);
+                        }
                     }
                 }
             }
         } else {
-            col_append_fstr(pinfo->cinfo, COL_INFO, "%s",
-                val_to_str_const(opcode, btmesh_ctrl_opcode_vals, "Unknown"));
             if (opcode == 0) {
                 /* OBO 1 */
                 proto_tree_add_item(sub_tree, hf_btmesh_obo, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -4088,49 +4671,63 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_segn, tvb, offset, 3, ENC_BIG_ENDIAN, &segn);
             offset += 3;
 
-            dec_ctx->seqzero = seqzero;
-
             /* Segment m 8 to 96 Segment m of the Upper Transport Access PDU */
             proto_tree_add_item(sub_tree, hf_btmesh_segment, tvb, offset, -1, ENC_NA);
 
-            upper_transport_fragment_key frg_key;
-            /* src is 15 bit, seqzero is 13 bit*/
-            frg_key.src = dec_ctx->src;
-            frg_key.seq0 = seqzero;
+            /* Use 13 Lsbs from seqzero */
+            dec_ctx->seqzero = dec_ctx->seq;
+            /* Check for overflow */
+            if ((dec_ctx->seq & 0x1fff) < seqzero) {
+                dec_ctx->seqzero -= 0x2000;
+            }
+            dec_ctx->seqzero = dec_ctx->seqzero & ~0x1fff;
+            dec_ctx->seqzero += seqzero;
 
-            if (!pinfo->fd->visited) {
-                guint32 total_length = 0;
-                if (segn == sego) {
-                    total_length = segn * 12 + tvb_captured_length_remaining(tvb, offset);
-                }
-
-                /* Last fragment can be delivered out of order, and can be the first one. */
-                fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
-
-                if ((fd_head) && (total_length)) {
-                    fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
-                }
-                fd_head = fragment_add(&upper_transport_reassembly_table,
-                            tvb, offset, pinfo,
-                            BTMESH_NOT_USED, &frg_key,
-                            12 * sego,
-                            tvb_captured_length_remaining(tvb, offset),
-                            ( segn == 0 ? FALSE : TRUE) );
-
-                if ((!fd_head) && (total_length)) {
-                    fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
-                }
+            if (segn == 0) {
+                proto_item_set_len(ti, 1);
+                dec_ctx->transmic_size = 4; /*TransMic is 32 bits*/
+                dissect_btmesh_transport_access_message(tvb, pinfo, tree, offset, dec_ctx);
             } else {
-                fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
-                if (fd_head && (fd_head->flags&FD_DEFRAGMENTED)) {
-                    tvbuff_t *next_tvb;
-                    next_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled Access PDU", fd_head, &btmesh_segmented_access_frag_items, NULL, sub_tree);
-                    if (next_tvb) {
-                        dec_ctx->transmic_size = (szmic ? 8 : 4 );
-                        dissect_btmesh_transport_access_message(next_tvb, pinfo, tree, 0, dec_ctx);
-                        col_append_str(pinfo->cinfo, COL_INFO, " (Message Reassembled)");
-                    } else {
-                        col_append_fstr(pinfo->cinfo, COL_INFO," (Message fragment %u)", sego);
+                upper_transport_fragment_key frg_key;
+                frg_key.src = dec_ctx->src;
+                frg_key.net_key_iv_index_hash = dec_ctx->net_key_iv_index_hash;
+                memcpy(&frg_key.ivindex, dec_ctx->ivindex_buf, sizeof(frg_key.ivindex));
+                frg_key.seq0 = dec_ctx->seqzero;
+
+                if (!pinfo->fd->visited) {
+                    guint32 total_length = 0;
+                    if (segn == sego) {
+                        total_length = segn * 12 + tvb_captured_length_remaining(tvb, offset);
+                    }
+
+                    /* Last fragment can be delivered out of order, and can be the first one. */
+                    fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
+
+                    if ((fd_head) && (total_length)) {
+                        fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
+                    }
+                    fd_head = fragment_add(&upper_transport_reassembly_table,
+                                tvb, offset, pinfo,
+                                BTMESH_NOT_USED, &frg_key,
+                                12 * sego,
+                                tvb_captured_length_remaining(tvb, offset),
+                                ( segn == 0 ? FALSE : TRUE) );
+
+                    if ((!fd_head) && (total_length)) {
+                        fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
+                    }
+                } else {
+                    fd_head = fragment_get(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key);
+                    if (fd_head && (fd_head->flags&FD_DEFRAGMENTED)) {
+                        tvbuff_t *next_tvb;
+                        next_tvb = process_reassembled_data(tvb, offset, pinfo, "Reassembled Access PDU", fd_head, &btmesh_segmented_access_frag_items, NULL, sub_tree);
+                        if (next_tvb) {
+                            dec_ctx->transmic_size = (szmic ? 8 : 4 );
+                            dissect_btmesh_transport_access_message(next_tvb, pinfo, tree, 0, dec_ctx);
+                            col_append_str(pinfo->cinfo, COL_INFO, " (Message Reassembled)");
+                        } else {
+                            col_append_fstr(pinfo->cinfo, COL_INFO,"Access Message (fragment %u)", sego);
+                        }
                     }
                 }
             }
@@ -4161,7 +4758,7 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
     /* Get the next record to try */
     for (i = 0; i < num_btmesh_uat; i++) {
         record = &uat_btmesh_records[i];
-        if (nid == record->nid) {
+        if (record->valid == BTMESH_KEY_ENTRY_VALID && nid == record->nid) {
             offset = 1;
             de_obf_tvb = btmesh_deobfuscate(tvb, pinfo, offset, record);
 
@@ -4229,7 +4826,7 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
                 /* Tag authenticated, now close the cypher handle */
                 gcry_cipher_close(cipher_hd);
                 dec_ctx->net_key_iv_index_hash = record->net_key_iv_index_hash;
-                memcpy(dec_ctx->ivindex_buf, record->ivindex, 4);
+                memcpy(dec_ctx->ivindex_buf, record->ivindex, sizeof(dec_ctx->ivindex_buf));
 
                 return de_obf_tvb;
             }  else {
@@ -4332,103 +4929,6 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 
 #else /* GCRYPT_VERSION_NUMBER >= 0x010600 */
 
-static void
-format_transmit(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_key_index_rfu(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_interval_steps(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_retransmit(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_publish_period(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_publish_appkeyindex_model(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_vendor_model(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_key_index(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_dual_key_index(gchar *buf _U_, guint32 value _U_)
-{
-}
-
-static void
-format_delay_ms(gchar *buf _U_, guint32 value _U_) {
-}
-
-static void
-format_power(gchar *buf _U_, guint32 value _U_) {
-}
-
-static void
-format_battery_level(gchar *buf _U_, guint32 value _U_) {
-}
-
-static void
-format_battery_time(gchar *buf _U_, guint32 value _U_) {
-}
-
-static void
-format_global_latitude(gchar *buf _U_, gint32 value _U_) {
-}
-
-static void
-format_global_longitude(gchar *buf _U_, gint32 value _U_) {
-}
-
-static void
-format_global_altitude(gchar *buf _U_, gint16 value _U_) {
-}
-
-static void
-format_local_north(gchar *buf _U_, gint16 value _U_) {
-}
-
-static void
-format_local_east(gchar *buf _U_, gint16 value _U_) {
-}
-
-static void
-format_local_altitude(gchar *buf _U_, gint16 value _U_) {
-}
-
-static void
-format_floor_number(gchar *buf _U_, guint8 value _U_) {
-}
-
-static void
-format_update_time(gchar *buf _U_, guint16 value _U_) {
-}
-
-static void
-format_precision(gchar *buf _U_, guint16 value _U_) {
-}
-
 static gboolean
 create_master_security_keys(uat_btmesh_record_t * net_key_set _U_)
 {
@@ -4478,7 +4978,7 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 #endif /* GCRYPT_VERSION_NUMBER >= 0x010600 */
 
 static gint
-compute_ascii_key(guchar **ascii_key, const gchar *key)
+compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, guint expected_octets, char **err)
 {
     guint key_len = 0, raw_key_len;
     gint hex_digit;
@@ -4488,7 +4988,9 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
     if (key != NULL)
     {
         raw_key_len = (guint)strlen(key);
-        if ((raw_key_len > 2) && (key[0] == '0') && ((key[1] == 'x') || (key[1] == 'X')))
+        if (((raw_key_len == expected_octets * 2 + 2) || (raw_key_len == expected_octets * 2 + 1)) &&
+            (key[0] == '0')
+            && ((key[1] == 'x') || (key[1] == 'X')))
         {
             /*
              * Key begins with "0x" or "0X"; skip that and treat the rest
@@ -4511,6 +5013,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
                 {
                     g_free(*ascii_key);
                     *ascii_key = NULL;
+                    *err = g_strdup_printf("Key %s begins with an invalid hex char (%c)", key, key[i]);
                     return -1;    /* not a valid hex digit */
                 }
                 (*ascii_key)[j] = (guchar)hex_digit;
@@ -4525,7 +5028,6 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
                 key_len = (raw_key_len - 2) / 2;
                 *ascii_key = (guchar *)g_malloc((key_len + 1) * sizeof(gchar));
             }
-
             while (i < (raw_key_len - 1))
             {
                 hex_digit = g_ascii_xdigit_value(key[i]);
@@ -4534,6 +5036,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
                 {
                     g_free(*ascii_key);
                     *ascii_key = NULL;
+                    *err = g_strdup_printf("%s %s has an invalid hex char (%c)", key_name, key, key[i-1]);
                     return -1;    /* not a valid hex digit */
                 }
                 key_byte = ((guchar)hex_digit) << 4;
@@ -4543,6 +5046,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
                 {
                     g_free(*ascii_key);
                     *ascii_key = NULL;
+                    *err = g_strdup_printf("%s %s has an invalid hex char (%c)", key_name, key, key[i-1]);
                     return -1;    /* not a valid hex digit */
                 }
                 key_byte |= (guchar)hex_digit;
@@ -4550,23 +5054,17 @@ compute_ascii_key(guchar **ascii_key, const gchar *key)
                 j++;
             }
             (*ascii_key)[j] = '\0';
-        }
-
-        else if ((raw_key_len == 2) && (key[0] == '0') && ((key[1] == 'x') || (key[1] == 'X')))
-        {
-            return 0;
-        }
-        else
-        {
-            key_len = raw_key_len;
-            *ascii_key = (guchar*)g_strdup(key);
+        } else {
+            *ascii_key = NULL;
+            *err = g_strdup_printf("%s %s has to start with '0x' or '0X', and represent exactly %d octets", key_name, key, expected_octets);
+            return -1;
         }
     }
     return key_len;
 }
 
 static gboolean
-uat_btmesh_record_update_cb(void *r, char **err _U_)
+uat_btmesh_record_update_cb(void *r, char **err)
 {
     uat_btmesh_record_t *rec = (uat_btmesh_record_t *)r;
 
@@ -4575,50 +5073,50 @@ uat_btmesh_record_update_cb(void *r, char **err _U_)
     /* Compute keys & lengths once and for all */
     if (rec->network_key_string) {
         g_free(rec->network_key);
-        rec->network_key_length = compute_ascii_key(&rec->network_key, rec->network_key_string);
+        rec->network_key_length = compute_ascii_key(&rec->network_key, rec->network_key_string, "Network Key", 16, err);
         g_free(rec->encryptionkey);
         rec->encryptionkey = g_new(guint8, 16);
         memset(rec->encryptionkey, 0, 16 * sizeof(guint8));
         g_free(rec->privacykey);
         rec->privacykey = g_new(guint8, 16);
-        if (create_master_security_keys(rec)) {
+        if (*err == NULL && create_master_security_keys(rec)) {
             rec->valid++;
         }
     } else {
         rec->network_key_length = 0;
         rec->network_key = NULL;
     }
-    if (rec->application_key_string) {
+    if (*err == NULL && rec->application_key_string) {
         g_free(rec->application_key);
-        rec->application_key_length = compute_ascii_key(&rec->application_key, rec->application_key_string);
+        rec->application_key_length = compute_ascii_key(&rec->application_key, rec->application_key_string, "Application Key", 16, err);
         /* compute AID */
-        if (k4(rec)) {
+        if (*err == NULL && k4(rec)) {
             rec->valid++;
         }
     } else {
         rec->application_key_length = 0;
         rec->application_key = NULL;
     }
-    if (rec->ivindex_string) {
+    if (*err == NULL && rec->ivindex_string) {
         g_free(rec->ivindex);
-        rec->ivindex_string_length = compute_ascii_key(&rec->ivindex, rec->ivindex_string);
-        if (rec->ivindex_string_length == 4) {
+        rec->ivindex_string_length = compute_ascii_key(&rec->ivindex, rec->ivindex_string, "IVindex", 4, err);
+        if (*err == NULL) {
             rec->valid++;
         }
     }
     if (rec->valid == BTMESH_KEY_ENTRY_VALID - 1) {
         /* Compute net_key_index_hash */
-        rec->net_key_iv_index_hash =    (guint32) rec->encryptionkey[0];
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->encryptionkey[1]) << 8);
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->encryptionkey[2]) << 16);
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->encryptionkey[3]) << 24);
-        rec->net_key_iv_index_hash +=   (guint32) rec->ivindex[0];
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->ivindex[1]) << 8);
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->ivindex[2]) << 16);
-        rec->net_key_iv_index_hash +=  ((guint32)(rec->ivindex[3]) << 24);
+        const guint8 hash_buf_len = 16 + 4;
+        guint idx=0;
+        guint8* hash_buf = (guint8 *)g_malloc(hash_buf_len);
+        memcpy(hash_buf, rec->encryptionkey, 16);
+        idx += 16;
+        memcpy(&hash_buf[idx], rec->ivindex, 4);
+        rec->net_key_iv_index_hash = wmem_strong_hash(hash_buf, hash_buf_len);
+        g_free(hash_buf);
         rec->valid++;
     }
-    return TRUE;
+    return rec->valid == BTMESH_KEY_ENTRY_VALID;
 }
 
 static void *
@@ -4635,8 +5133,11 @@ uat_btmesh_record_copy_cb(void *n, const void *o, size_t siz _U_)
     new_rec->ivindex_string = g_strdup(old_rec->ivindex_string);
 
     /* Parse keys as in an update */
-    uat_btmesh_record_update_cb(new_rec, NULL);
-
+    char *err = NULL;
+    uat_btmesh_record_update_cb(new_rec, &err);
+    if (err) {
+        g_free(err);
+    }
     return new_rec;
 }
 
@@ -4660,7 +5161,7 @@ UAT_CSTRING_CB_DEF(uat_btmesh_records, application_key_string, uat_btmesh_record
 UAT_CSTRING_CB_DEF(uat_btmesh_records, ivindex_string, uat_btmesh_record_t)
 
 static gboolean
-uat_btmesh_dev_key_record_update_cb(void *r, char **err _U_)
+uat_btmesh_dev_key_record_update_cb(void *r, char **err)
 {
     uat_btmesh_dev_key_record_t *rec = (uat_btmesh_dev_key_record_t *)r;
 
@@ -4669,25 +5170,25 @@ uat_btmesh_dev_key_record_update_cb(void *r, char **err _U_)
     /* Compute key & lengths once and for all */
     if (rec->device_key_string) {
         g_free(rec->device_key);
-        rec->device_key_length = compute_ascii_key(&rec->device_key, rec->device_key_string);
-        if (rec->device_key_length == 16) {
+        rec->device_key_length = compute_ascii_key(&rec->device_key, rec->device_key_string, "Device Key", 16, err);
+        if (*err == NULL) {
             rec->valid++;
         }
     } else {
         rec->device_key_length = 0;
         rec->device_key = NULL;
     }
-    if (rec->src_string) {
+    if (*err == NULL && rec->src_string) {
         g_free(rec->src);
-        rec->src_length = compute_ascii_key(&rec->src, rec->src_string);
-        if (rec->src_length == 2) {
+        rec->src_length = compute_ascii_key(&rec->src, rec->src_string, "SRC Address", 2, err);
+        if (*err == NULL) {
             rec->valid++;
         }
     } else {
         rec->src_length = 0;
         rec->src = NULL;
     }
-    return TRUE;
+    return rec->valid == BTMESH_DEVICE_KEY_ENTRY_VALID;
 }
 
 static void *
@@ -4703,8 +5204,11 @@ uat_btmesh_dev_key_record_copy_cb(void *n, const void *o, size_t siz _U_)
     new_rec->src_string = g_strdup(old_rec->src_string);
 
     /* Parse key and src as in an update */
-    uat_btmesh_dev_key_record_update_cb(new_rec, NULL);
-
+    char *err = NULL;
+    uat_btmesh_dev_key_record_update_cb(new_rec, &err);
+    if (err) {
+        g_free(err);
+    }
     return new_rec;
 }
 
@@ -4723,7 +5227,7 @@ UAT_CSTRING_CB_DEF(uat_btmesh_dev_key_records, device_key_string, uat_btmesh_dev
 UAT_CSTRING_CB_DEF(uat_btmesh_dev_key_records, src_string, uat_btmesh_dev_key_record_t)
 
 static gboolean
-uat_btmesh_label_uuid_record_update_cb(void *r, char **err _U_)
+uat_btmesh_label_uuid_record_update_cb(void *r, char **err)
 {
     uat_btmesh_label_uuid_record_t *rec = (uat_btmesh_label_uuid_record_t *)r;
 
@@ -4732,15 +5236,15 @@ uat_btmesh_label_uuid_record_update_cb(void *r, char **err _U_)
     /* Compute label UUID & lengths */
     if (rec->label_uuid_string) {
         g_free(rec->label_uuid);
-        rec->label_uuid_length = compute_ascii_key(&rec->label_uuid, rec->label_uuid_string);
-        if (label_uuid_hash(rec)) {
+        rec->label_uuid_length = compute_ascii_key(&rec->label_uuid, rec->label_uuid_string, "Label UUID", 16, err);
+        if (*err == NULL && label_uuid_hash(rec)) {
             rec->valid++;
         }
     } else {
         rec->label_uuid_length = 0;
         rec->label_uuid = NULL;
     }
-    return TRUE;
+    return rec->valid == BTMESH_LABEL_UUID_ENTRY_VALID;
 }
 
 static void *
@@ -4755,7 +5259,11 @@ uat_btmesh_label_uuid_record_copy_cb(void *n, const void *o, size_t siz _U_)
     new_rec->label_uuid_string = g_strdup(old_rec->label_uuid_string);
 
     /* Parse Label UUID as in an update */
-    uat_btmesh_label_uuid_record_update_cb(new_rec, NULL);
+    char *err = NULL;
+    uat_btmesh_label_uuid_record_update_cb(new_rec, &err);
+    if (err) {
+        g_free(err);
+    }
 
     return new_rec;
 }
@@ -7448,6 +7956,521 @@ proto_register_btmesh(void)
             FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_btmesh_time_set_tai_seconds,
+            { "TAI Seconds", "btmesh.model.time_set.tai_seconds",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_set_subsecond,
+            { "Subsecond", "btmesh.model.time_set.subsecond",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_subsecond_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_set_uncertainty,
+            { "Uncertainty", "btmesh.model.time_set.uncertainty",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_uncertainty_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_set_time_authority,
+            { "Time Authority", "btmesh.model.time_set.time_authority",
+            FT_UINT16, BASE_DEC, VALS(btmesh_time_authority_vals), 0x0001,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_set_tai_utc_delta,
+            { "TAI-UTC Delta", "btmesh.model.time_set.tai_utc_delta",
+            FT_UINT16, BASE_CUSTOM, CF_FUNC(format_tai_utc_delta_s), 0xFFFE,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_set_time_zone_offset,
+            { "Time Zone Offset", "btmesh.model.time_set.time_zone_offset",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_time_zone_offset_h), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_tai_seconds,
+            { "TAI Seconds", "btmesh.model.time_status.tai_seconds",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_subsecond,
+            { "Subsecond", "btmesh.model.time_status.subsecond",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_subsecond_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_uncertainty,
+            { "Uncertainty", "btmesh.model.time_status.uncertainty",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_uncertainty_ms), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_time_authority,
+            { "Time Authority", "btmesh.model.time_status.time_authority",
+            FT_UINT16, BASE_DEC, VALS(btmesh_time_authority_vals), 0x0001,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_tai_utc_delta,
+            { "TAI-UTC Delta", "btmesh.model.time_status.tai_utc_delta",
+            FT_UINT16, BASE_CUSTOM, CF_FUNC(format_tai_utc_delta_s), 0xFFFE,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_status_time_zone_offset,
+            { "Time Zone Offset", "btmesh.model.time_status.time_zone_offset",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_time_zone_offset_h), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_january,
+            { "January", "btmesh.model.schedule_register.month.january",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000000800,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_february,
+            { "February", "btmesh.model.schedule_register.month.february",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000001000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_march,
+            { "March", "btmesh.model.schedule_register.month.march",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000002000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_april,
+            { "April", "btmesh.model.schedule_register.month.april",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000004000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_may,
+            { "May", "btmesh.model.schedule_register.month.may",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000008000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_june,
+            { "June", "btmesh.model.schedule_register.month.june",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000010000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_july,
+            { "July", "btmesh.model.schedule_register.month.july",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000020000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_august,
+            { "August", "btmesh.model.schedule_register.month.august",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000040000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_september,
+            { "September", "btmesh.model.schedule_register.month.september",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000080000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_october,
+            { "October", "btmesh.model.schedule_register.month.october",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000100000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_november,
+            { "November", "btmesh.model.schedule_register.month.november",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000200000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_month_december,
+            { "December", "btmesh.model.schedule_register.month.december",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x000400000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_monday,
+            { "Monday", "btmesh.model.schedule_register.dayofweek.monday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x00200000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_tuesday,
+            { "Tuesday", "btmesh.model.schedule_register.dayofweek.tuesday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x00400000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_wednesday,
+            { "Wednesday", "btmesh.model.schedule_register.dayofweek.wednesday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x00800000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_thursday,
+            { "Thursday", "btmesh.model.schedule_register.dayofweek.thursday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x01000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_friday,
+            { "Friday", "btmesh.model.schedule_register.dayofweek.friday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x02000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_saturday,
+            { "Saturday", "btmesh.model.schedule_register.dayofweek.saturday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x04000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_schedule_register_dayofweek_sunday,
+            { "Sunday", "btmesh.model.schedule_register.dayofweek.sunday",
+            FT_UINT32, BASE_NONE, VALS(btmesh_yes_or_dash_vals), 0x08000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_index,
+            { "Index", "btmesh.model.scheduler_action_status.index",
+            FT_UINT32, BASE_DEC, NULL, 0x0000000F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_year,
+            { "Year", "btmesh.model.scheduler_action_status.schedule_register.year",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_year), 0x000007F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_month,
+            { "Month", "btmesh.model.scheduler_action_status.schedule_register.month",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x007FF800,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_day,
+            { "Day", "btmesh.model.scheduler_action_status.schedule_register.day",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_day), 0x0F800000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_hour,
+            { "Hour", "btmesh.model.scheduler_action_status.schedule_register.hour",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_hour), 0x000001F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_minute,
+            { "Minute", "btmesh.model.scheduler_action_status.schedule_register.minute",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_minute), 0x00007E00,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_second,
+            { "Second", "btmesh.model.scheduler_action_status.schedule_register.second",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_second), 0x001F8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_dayofweek,
+            { "DayOfWeek", "btmesh.model.scheduler_action_status.schedule_register.dayofweek",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x0FE00000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_action,
+            { "Action", "btmesh.model.scheduler_action_status.schedule_register.action",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_action), 0xF0000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_transition_time,
+            { "Transition Time", "btmesh.model.scheduler_action_status.schedule_register.transition_time",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_publish_period), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_transition_time_resolution,
+            { "Step Resolution", "btmesh.model.scheduler_action_status.schedule_register.transition_time.resolution",
+            FT_UINT8, BASE_DEC, VALS(btmesh_publishperiod_resolution_vals), 0xC0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_transition_time_steps,
+            { "Number of Steps", "btmesh.model.scheduler_action_status.schedule_register.transition_time.steps",
+            FT_UINT8, BASE_DEC, NULL, 0x3F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_status_schedule_register_scene_number,
+            { "Scene Number", "btmesh.model.scheduler_action_status.schedule_register.scene_number",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_index,
+            { "Index", "btmesh.model.scheduler_action_set.index",
+            FT_UINT32, BASE_DEC, NULL, 0x0000000F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_year,
+            { "Year", "btmesh.model.scheduler_action_set.schedule_register.year",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_year), 0x000007F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_month,
+            { "Month", "btmesh.model.scheduler_action_set.schedule_register.month",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x007FF800,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_day,
+            { "Day", "btmesh.model.scheduler_action_set.schedule_register.day",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_day), 0x0F800000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_hour,
+            { "Hour", "btmesh.model.scheduler_action_set.schedule_register.hour",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_hour), 0x000001F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_minute,
+            { "Minute", "btmesh.model.scheduler_action_set.schedule_register.minute",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_minute), 0x00007E00,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_second,
+            { "Second", "btmesh.model.scheduler_action_set.schedule_register.second",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_second), 0x001F8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_dayofweek,
+            { "DayOfWeek", "btmesh.model.scheduler_action_set.schedule_register.dayofweek",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x0FE00000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_action,
+            { "Action", "btmesh.model.scheduler_action_set.schedule_register.action",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_action), 0xF0000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_transition_time,
+            { "Transition Time", "btmesh.model.scheduler_action_set.schedule_register.transition_time",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_publish_period), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_transition_time_resolution,
+            { "Step Resolution", "btmesh.model.scheduler_action_set.schedule_register.transition_time.resolution",
+            FT_UINT8, BASE_DEC, VALS(btmesh_publishperiod_resolution_vals), 0xC0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_transition_time_steps,
+            { "Number of Steps", "btmesh.model.scheduler_action_set.schedule_register.transition_time.steps",
+            FT_UINT8, BASE_DEC, NULL, 0x3F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_schedule_register_scene_number,
+            { "Scene Number", "btmesh.model.scheduler_action_set.schedule_register.scene_number",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_index,
+            { "Index", "btmesh.model.scheduler_action_set_unacknowledged.index",
+            FT_UINT32, BASE_DEC, NULL, 0x0000000F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_year,
+            { "Year", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.year",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_year), 0x000007F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_month,
+            { "Month", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.month",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x007FF800,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_day,
+            { "Day", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.day",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_day), 0x0F800000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_hour,
+            { "Hour", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.hour",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_hour), 0x000001F0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_minute,
+            { "Minute", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.minute",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_minute), 0x00007E00,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_second,
+            { "Second", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.second",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_second), 0x001F8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_dayofweek,
+            { "DayOfWeek", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.dayofweek",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_empty), 0x0FE00000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_action,
+            { "Action", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.action",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(format_scheduler_action), 0xF0000000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time,
+            { "Transition Time", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.transition_time",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_publish_period), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_resolution,
+            { "Step Resolution", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.transition_time.resolution",
+            FT_UINT8, BASE_DEC, VALS(btmesh_publishperiod_resolution_vals), 0xC0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_transition_time_steps,
+            { "Number of Steps", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.transition_time.steps",
+            FT_UINT8, BASE_DEC, NULL, 0x3F,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_set_unacknowledged_schedule_register_scene_number,
+            { "Scene Number", "btmesh.model.scheduler_action_set_unacknowledged.schedule_register.scene_number",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_role_set_time_role,
+            { "Time Role", "btmesh.model.time_role_set.time_role",
+            FT_UINT8, BASE_DEC, VALS(btmesh_time_role_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_role_status_time_role,
+            { "Time Role", "btmesh.model.time_role_status.time_role",
+            FT_UINT8, BASE_DEC, VALS(btmesh_time_role_vals), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_zone_set_time_zone_offset_new,
+            { "Time Zone Offset New", "btmesh.model.time_zone_set.time_zone_offset_new",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_time_zone_offset_h), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_zone_set_tai_of_zone_change,
+            { "TAI of Zone Change", "btmesh.model.time_zone_set.tai_of_zone_change",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_zone_status_time_zone_offset_current,
+            { "Time Zone Offset Current", "btmesh.model.time_zone_status.time_zone_offset_current",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_time_zone_offset_h), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_zone_status_time_zone_offset_new,
+            { "Time Zone Offset New", "btmesh.model.time_zone_status.time_zone_offset_new",
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(format_time_zone_offset_h), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_time_zone_status_tai_of_zone_change,
+            { "TAI of Zone Change", "btmesh.model.time_zone_status.tai_of_zone_change",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_set_tai_utc_delta_new,
+            { "TAI-UTC Delta New", "btmesh.model.tai_utc_delta_set.tai_utc_delta_new",
+            FT_UINT16, BASE_CUSTOM, CF_FUNC(format_tai_utc_delta_s), 0x7FFF,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_set_padding,
+            { "Padding", "btmesh.model.tai_utc_delta_set.padding",
+            FT_UINT16, BASE_DEC, NULL, 0x8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_set_tai_of_delta_change,
+            { "TAI of Delta Change", "btmesh.model.tai_utc_delta_set.tai_of_delta_change",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_status_tai_utc_delta_current,
+            { "TAI-UTC Delta Current", "btmesh.model.tai_utc_delta_status.tai_utc_delta_current",
+            FT_UINT16, BASE_CUSTOM, CF_FUNC(format_tai_utc_delta_s), 0x7FFF,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_status_padding_1,
+            { "Padding 1", "btmesh.model.tai_utc_delta_status.padding_1",
+            FT_UINT16, BASE_DEC, NULL, 0x8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_status_tai_utc_delta_new,
+            { "TAI-UTC Delta New", "btmesh.model.tai_utc_delta_status.tai_utc_delta_new",
+            FT_UINT16, BASE_CUSTOM, CF_FUNC(format_tai_utc_delta_s), 0x7FFF,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_status_padding_2,
+            { "Padding 2", "btmesh.model.tai_utc_delta_status.padding_2",
+            FT_UINT16, BASE_DEC, NULL, 0x8000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_tai_utc_delta_status_tai_of_delta_change,
+            { "TAI of Delta Change", "btmesh.model.tai_utc_delta_status.tai_of_delta_change",
+            FT_UINT40, BASE_CUSTOM, CF_FUNC(format_tai_to_utc_date), 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_action_get_index,
+            { "Index", "btmesh.model.scheduler_action_get.index",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules,
+            { "Schedules", "btmesh.model.scheduler_status.schedules",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_0,
+            { "Schedule 0", "btmesh.model.scheduler_status.schedules.schedule_0",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0001,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_1,
+            { "Schedule 1", "btmesh.model.scheduler_status.schedules.schedule_1",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0002,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_2,
+            { "Schedule 2", "btmesh.model.scheduler_status.schedules.schedule_2",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0004,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_3,
+            { "Schedule 3", "btmesh.model.scheduler_status.schedules.schedule_3",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0008,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_4,
+            { "Schedule 4", "btmesh.model.scheduler_status.schedules.schedule_4",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0010,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_5,
+            { "Schedule 5", "btmesh.model.scheduler_status.schedules.schedule_5",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0020,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_6,
+            { "Schedule 6", "btmesh.model.scheduler_status.schedules.schedule_6",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0040,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_7,
+            { "Schedule 7", "btmesh.model.scheduler_status.schedules.schedule_7",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0080,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_8,
+            { "Schedule 8", "btmesh.model.scheduler_status.schedules.schedule_8",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0100,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_9,
+            { "Schedule 9", "btmesh.model.scheduler_status.schedules.schedule_9",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0200,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_10,
+            { "Schedule 10", "btmesh.model.scheduler_status.schedules.schedule_10",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0400,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_11,
+            { "Schedule 11", "btmesh.model.scheduler_status.schedules.schedule_11",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x0800,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_12,
+            { "Schedule 12", "btmesh.model.scheduler_status.schedules.schedule_12",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x1000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_13,
+            { "Schedule 13", "btmesh.model.scheduler_status.schedules.schedule_13",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x2000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_14,
+            { "Schedule 14", "btmesh.model.scheduler_status.schedules.schedule_14",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x4000,
+            NULL, HFILL }
+        },
+        { &hf_btmesh_scheduler_status_schedules_schedule_15,
+            { "Schedule 15", "btmesh.model.scheduler_status.schedules.schedule_15",
+            FT_UINT16, BASE_NONE, VALS(btmesh_defined_or_dash_vals), 0x8000,
+            NULL, HFILL }
+        },
     };
 
     static gint *ett[] = {
@@ -7481,6 +8504,9 @@ proto_register_btmesh(void)
         &ett_btmesh_config_heartbeat_publication_status_features,
         &ett_btmesh_config_model_fault_array,
         &ett_btmesh_scene_register_status_scenes,
+        &ett_btmesh_scheduler_model_month,
+        &ett_btmesh_scheduler_model_day_of_week,
+        &ett_btmesh_scheduler_schedules,
     };
 
     static ei_register_info ei[] = {

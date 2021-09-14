@@ -1052,8 +1052,8 @@
         <translation>Länktyp</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>Gräns på paketstorlek</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>none</source>
@@ -3207,11 +3207,29 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>Se till att du har ett %1-paket valt.</translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
         <translation>
             <numerusform>%Ln total underström.</numerusform>
             <numerusform>%Ln totala underströmmar.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
         </translation>
     </message>
     <message>
@@ -6343,6 +6361,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>&amp;Redigera</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation type="unfinished">Paketkommentarer</translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>Huvudverktygsrad</translation>
     </message>
@@ -6850,10 +6872,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Skifta eller ändra pakettidsstämplar</translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation>Lägg till eller ändra en paketkommentar</translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>Ta bort alla paketkommentarer</translation>
     </message>
@@ -7128,6 +7146,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>UCP message statistics</source>
         <translation>UCP-meddelandestatistik</translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Change the way packets are dissected</source>
@@ -7424,10 +7450,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Time Shift…</source>
         <translation>Tidsförskjutning …</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>Paketkommentar …</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8206,6 +8228,36 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Felaktigt fångstfilter.</translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation> före en ny fångst startas</translation>
     </message>
@@ -8663,7 +8715,15 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>Paket %1 kommentar</translation>
+        <translation type="vanished">Paket %1 kommentar</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12722,6 +12782,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Compressed</source>
         <translation>Komprimerad</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

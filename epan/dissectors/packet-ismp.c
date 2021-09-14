@@ -220,7 +220,7 @@ ipx_addr_to_str(const guint32 net, const guint8 *ad)
 	else {
 		buf = wmem_strdup_printf(wmem_packet_scope(), "%s.%s",
 				get_ipxnet_name(wmem_packet_scope(), net),
-				bytestring_to_str(wmem_packet_scope(), ad, 6, '\0'));
+				bytes_to_str_punct(wmem_packet_scope(), ad, 6, '\0'));
 	}
 	return buf;
 }
@@ -454,7 +454,7 @@ dissect_ismp_edp(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *ismp
 						case EDP_TUPLE_INT_NAME:
 							proto_tree_add_item(edp_tuples_leaf_tree, hf_ismp_interface_name, tvb, offset, tuple_length, ENC_NA|ENC_ASCII);
 							col_append_fstr(pinfo->cinfo, COL_INFO, ", ifName %s",
-								tvb_format_text(tvb, offset, tuple_length));
+								tvb_format_text(pinfo->pool, tvb, offset, tuple_length));
 							break;
 						case EDP_TUPLE_SYS_DESCRIPT:
 							proto_tree_add_item(edp_tuples_leaf_tree, hf_ismp_system_description, tvb, offset, tuple_length, ENC_NA|ENC_ASCII);

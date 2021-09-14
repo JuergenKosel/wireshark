@@ -13,8 +13,6 @@ include(CMakePushCheckState)
 include(CheckIncludeFile)
 include(CheckIncludeFiles)
 check_include_file("arpa/inet.h"            HAVE_ARPA_INET_H)
-check_include_file("fcntl.h"                HAVE_FCNTL_H)
-check_include_file("getopt.h"               HAVE_GETOPT_H)
 check_include_file("grp.h"                  HAVE_GRP_H)
 #
 # This may require <sys/types.h> to be included
@@ -23,10 +21,8 @@ check_include_files("sys/types.h;ifaddrs.h" HAVE_IFADDRS_H)
 check_include_file("netinet/in.h"           HAVE_NETINET_IN_H)
 check_include_file("netdb.h"                HAVE_NETDB_H)
 check_include_file("pwd.h"                  HAVE_PWD_H)
-check_include_file("sys/ioctl.h"            HAVE_SYS_IOCTL_H)
 check_include_file("sys/select.h"           HAVE_SYS_SELECT_H)
 check_include_file("sys/socket.h"           HAVE_SYS_SOCKET_H)
-check_include_file("sys/sockio.h"           HAVE_SYS_SOCKIO_H)
 check_include_file("sys/time.h"             HAVE_SYS_TIME_H)
 check_include_file("sys/utsname.h"          HAVE_SYS_UTSNAME_H)
 check_include_file("sys/wait.h"             HAVE_SYS_WAIT_H)
@@ -85,16 +81,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS" AND CMAKE_SYSTEM_VERSION MATCHES "5[.]
 endif()
 
 #
-# Use check_symbol_exists just in case math.h does something magic
-# and there's not actually a function named floorl()
-#
-cmake_push_check_state()
-set(CMAKE_REQUIRED_INCLUDES ${M_INCLUDE_DIRS})
-set(CMAKE_REQUIRED_LIBRARIES ${M_LIBRARIES})
-check_symbol_exists("floorl" "math.h"    HAVE_FLOORL)
-cmake_pop_check_state()
-
-#
 # Check whether we have clock_gettime().
 # It's not on Windows, so don't waste time checking for it.
 # It's in newer POSIX, so some, but not all, UN*Xes have it.
@@ -109,6 +95,7 @@ endif (NOT WIN32)
 
 check_function_exists("getopt_long"      HAVE_GETOPT_LONG)
 if(HAVE_GETOPT_LONG)
+	check_include_file("getopt.h"    HAVE_GETOPT_H)
 	#
 	# The OS has getopt_long(), so it might have optreset.
 	# Do we have it?
@@ -116,7 +103,7 @@ if(HAVE_GETOPT_LONG)
 	if(HAVE_GETOPT_H)
 		check_symbol_exists("optreset" "getopt.h" HAVE_OPTRESET)
 	else()
-		check_symbol_exists("optreset"           HAVE_OPTRESET)
+		check_symbol_exists("optreset"            HAVE_OPTRESET)
 	endif()
 else()
 	#
@@ -131,7 +118,6 @@ else()
 endif()
 check_function_exists("getifaddrs"       HAVE_GETIFADDRS)
 check_function_exists("issetugid"        HAVE_ISSETUGID)
-check_function_exists("mkstemps"         HAVE_MKSTEMPS)
 check_function_exists("setresgid"        HAVE_SETRESGID)
 check_function_exists("setresuid"        HAVE_SETRESUID)
 check_function_exists("strptime"         HAVE_STRPTIME)
@@ -144,8 +130,6 @@ endif()
 
 #Struct members
 include(CheckStructHasMember)
-check_struct_has_member("struct sockaddr" sa_len         sys/socket.h HAVE_STRUCT_SOCKADDR_SA_LEN)
-check_struct_has_member("struct stat"     st_flags       sys/stat.h   HAVE_STRUCT_STAT_ST_FLAGS)
 check_struct_has_member("struct stat"     st_blksize     sys/stat.h   HAVE_STRUCT_STAT_ST_BLKSIZE)
 check_struct_has_member("struct stat"     st_birthtime   sys/stat.h   HAVE_STRUCT_STAT_ST_BIRTHTIME)
 check_struct_has_member("struct stat"     __st_birthtime sys/stat.h   HAVE_STRUCT_STAT___ST_BIRTHTIME)

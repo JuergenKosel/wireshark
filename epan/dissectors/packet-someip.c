@@ -23,6 +23,7 @@
 #include "packet-udp.h"
 #include "packet-dtls.h"
 #include "packet-someip.h"
+#include "packet-tls.h"
 
 /*
  * Dissector for SOME/IP, SOME/IP-TP, and SOME/IP Payloads.
@@ -1200,7 +1201,7 @@ post_update_someip_parameter_enum_read_in_data(someip_parameter_enum_uat_t *data
             /* create new entry ... */
             g_hash_table_insert(ht, key, list);
         } else {
-            /* dont need it anymore */
+            /* don't need it anymore */
             wmem_free(wmem_epan_scope(), key);
         }
 
@@ -1652,7 +1653,7 @@ post_update_someip_parameter_union_read_in_data(someip_parameter_union_uat_t *da
             /* create new entry ... */
             g_hash_table_insert(ht, key, list);
         } else {
-            /* dont need it anymore */
+            /* don't need it anymore */
             wmem_free(wmem_epan_scope(), key);
         }
 
@@ -1757,7 +1758,7 @@ post_update_someip_parameter_base_type_list_cb(void) {
         data_someip_parameter_base_type_list = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_someip_parameter_base_type_list = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, NULL);
 
     if (data_someip_parameter_base_type_list == NULL || someip_parameter_base_type_list == NULL || someip_parameter_base_type_list_num == 0) {
@@ -1856,7 +1857,7 @@ post_update_someip_parameter_string_list_cb(void) {
         data_someip_parameter_strings = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_someip_parameter_strings = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, NULL);
 
     if (data_someip_parameter_strings == NULL || someip_parameter_strings == NULL || someip_parameter_strings_num == 0) {
@@ -1925,7 +1926,7 @@ post_update_someip_parameter_typedef_list_cb(void) {
         data_someip_parameter_typedefs = NULL;
     }
 
-    /* we dont need to free the data as long as we don't alloc it first */
+    /* we don't need to free the data as long as we don't alloc it first */
     data_someip_parameter_typedefs = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, NULL);
 
     if (data_someip_parameter_typedefs == NULL || someip_parameter_typedefs == NULL || someip_parameter_typedefs_num == 0) {
@@ -1983,7 +1984,7 @@ get_param_attributes(guint8 data_type, guint32 id_ref) {
     /* we limit the number of typedef recursion to "count" */
     while (data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_TYPEDEF && count > 0) {
         someip_payload_parameter_typedef_t *tmp = get_typedef_config(id_ref);
-        /* this should not be a typedef since we dont support recursion of typedefs */
+        /* this should not be a typedef since we don't support recursion of typedefs */
         if (tmp != NULL) {
             data_type = tmp->data_type;
             id_ref = tmp->id_ref;
@@ -2064,7 +2065,7 @@ get_param_attributes(guint8 data_type, guint32 id_ref) {
         }
     }
 
-    /* all other types are handled or dont need a type! */
+    /* all other types are handled or don't need a type! */
     return ret;
 }
 
@@ -2654,7 +2655,7 @@ dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         str_encoding = ENC_ASCII | ENC_NA;
     }
 
-    buf = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, length, str_encoding);
+    buf = tvb_get_string_enc(pinfo->pool, tvb, offset, length, str_encoding);
 
     /* sanitizing buffer */
     if (str_encoding & ENC_ASCII || str_encoding & ENC_UTF_8) {
@@ -4010,7 +4011,7 @@ proto_register_someip(void) {
 
     prefs_register_bool_preference(someip_module, "payload_dissector_wtlv_default",
         "Try WTLV payload dissection for unconfigured messages (not pure SOME/IP)",
-        "Should the SOME/IP Dissector use the payload dissector with the experimental WTLV encoding for unconfigured messsages?",
+        "Should the SOME/IP Dissector use the payload dissector with the experimental WTLV encoding for unconfigured messages?",
         &someip_derserializer_wtlv_default);
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_list", "SOME/IP Parameter List",
@@ -4192,8 +4193,9 @@ proto_reg_handoff_someip(void) {
     static gboolean initialized = FALSE;
 
     if (!initialized) {
-        /* add support for DTLS decode as */
+        /* add support for (D)TLS decode as */
         dtls_dissector_add(0, someip_handle_udp);
+        ssl_dissector_add(0, someip_handle_tcp);
 
         heur_dissector_add("udp", dissect_some_ip_heur_udp, "SOME/IP_UDP_Heuristic", "someip_udp_heur", proto_someip, HEURISTIC_DISABLE);
         heur_dissector_add("tcp", dissect_some_ip_heur_tcp, "SOME/IP_TCP_Heuristic", "someip_tcp_heur", proto_someip, HEURISTIC_DISABLE);

@@ -21,7 +21,9 @@ DIAG_ON(frame-larger-than=)
 #include "epan/conversation_filter.h"
 #include <epan/epan_dissect.h>
 #include <wsutil/filesystem.h>
-#include <version_info.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
+#include <ui/version_info.h>
 #include <epan/prefs.h>
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
@@ -508,6 +510,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(packet_list_, SIGNAL(framesSelected(QList<int>)), this, SLOT(setMenusForSelectedPacket()));
     connect(packet_list_, SIGNAL(framesSelected(QList<int>)), this, SIGNAL(framesSelected(QList<int>)));
 
+    connect(main_ui_->menuPacketComment, SIGNAL(aboutToShow()), this, SLOT(setEditCommentsMenu()));
+
     proto_tree_ = new ProtoTree(&master_split_);
     proto_tree_->installEventFilter(this);
 
@@ -843,7 +847,7 @@ void MainWindow::setPipeInputHandler(gint source, gpointer user_data, ws_process
        this but doesn't seem to work over processes.  Attempt to do
        something similar here, start a timer and check for data on every
        timeout. */
-       /*g_log(NULL, G_LOG_LEVEL_DEBUG, "pipe_input_set_handler: new");*/
+       /*ws_log(NULL, LOG_LEVEL_DEBUG, "pipe_input_set_handler: new");*/
 
     if (pipe_timer_) {
         disconnect(pipe_timer_, SIGNAL(timeout()), this, SLOT(pipeTimeout()));
@@ -1297,10 +1301,8 @@ void MainWindow::mergeCaptureFile()
             return;
         }
 
-        /* Save the name of the containing directory specified in the path name,
-           if any; we can write over cf_merged_name, which is a good thing, given that
-           "get_dirname()" does write over its argument. */
-        wsApp->setLastOpenDir(get_dirname(tmpname));
+        /* Save the name of the containing directory specified in the path name. */
+        wsApp->setLastOpenDirFromFilename(tmpname);
         g_free(tmpname);
         main_ui_->statusBar->showExpert();
         return;
@@ -1381,7 +1383,7 @@ bool MainWindow::saveCaptureFile(capture_file *cf, bool dont_reopen) {
             default:
                 /* Squelch warnings that discard_comments is being used
                    uninitialized. */
-                g_assert_not_reached();
+                ws_assert_not_reached();
                 return false;
             }
 
@@ -1809,7 +1811,7 @@ bool MainWindow::testCaptureFileClose(QString before_what, FileCloseContext cont
          * callers should be modified to check this condition and act
          * accordingly (ignore action or queue it up), so print a warning.
          */
-        g_warning("Refusing to close \"%s\" which is being read.", capture_file_.capFile()->filename);
+        ws_warning("Refusing to close \"%s\" which is being read.", capture_file_.capFile()->filename);
         return false;
     }
 

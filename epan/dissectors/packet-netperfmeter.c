@@ -459,7 +459,7 @@ dissect_npm_message(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *npm_t
 {
   proto_tree* flags_tree;
 
-  tap_npm_rec_t* tap_rec = wmem_new0(wmem_packet_scope(), tap_npm_rec_t);
+  tap_npm_rec_t* tap_rec = wmem_new0(pinfo->pool, tap_npm_rec_t);
   tap_rec->type        = tvb_get_guint8(message_tvb, 0);
   tap_rec->size        = tvb_get_ntohs(message_tvb, 2);
   tap_rec->type_string = val_to_str_const(tap_rec->type, message_type_values, "Unknown NetPerfMeter message type");
@@ -499,14 +499,13 @@ dissect_npm_message(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *npm_t
   }
 }
 
-
 static int
 dissect_npm(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
   proto_item *npm_item;
   proto_tree *npm_tree;
 
-  col_set_str(pinfo->cinfo, COL_PROTOCOL, "NetPerfMeter");
+  col_append_sep_fstr(pinfo->cinfo, COL_PROTOCOL, NULL, "NetPerfMeter");
 
   /* In the interest of speed, if "tree" is NULL, don't do any work not
      necessary to generate protocol tree items. */

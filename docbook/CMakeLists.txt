@@ -21,35 +21,6 @@ function(set_docbook_target_properties _target)
 		)
 endfunction(set_docbook_target_properties)
 
-if(WIN32)
-	find_package( HTMLHelp )
-	if(HTML_HELP_COMPILER)
-		# We do not need the HTML Help headers and library, just the
-		# compiler. To avoid confusion, report the package as found.
-		# https://gitlab.kitware.com/cmake/cmake/issues/15886
-		set(HTMLHelp_FOUND 1)
-	endif()
-	macro( HHP2CHM _hhpsource )
-		get_filename_component( _source_base_name ${_hhpsource} NAME_WE )
-
-		add_custom_command(
-			OUTPUT ${_output_chm}
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-			# The number and order of arguments MUST match hhc.cmake.
-			COMMAND ${CMAKE_COMMAND} -P
-				${CMAKE_SOURCE_DIR}/cmake/modules/hhc.cmake
-					"${HTML_HELP_COMPILER}"
-					${_hhpsource}
-			DEPENDS
-				${_hhpsource}
-		)
-	endmacro()
-else()
-	macro( HHP2CHM _hhpsource )
-	# Dummy.
-	endmacro()
-endif()
-
 set(COMMON_FILES
 	common_src/GPL_appendix.adoc
 )
@@ -67,10 +38,12 @@ set(GUIDE_INSTALL_DIRS)
 add_custom_target(update_tools_help
 	COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
 		${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/update-tools-help.py
-		--program-path ${WS_PROGRAM_PATH}
+		--program-path $<TARGET_FILE_DIR:tshark>
 	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 set_docbook_target_properties(update_tools_help)
+
+set(WSUG_TITLE "Wireshark User's Guide")
 
 set(WSUG_FILES
 	wsug_src/WSUG_app_files.adoc
@@ -105,7 +78,7 @@ set(WSUG_FILES
 	${COMMON_FILES}
 )
 
-# Note: Images should be minimized using tools/compress-pngs.sh.
+# Note: Images should be minimized using tools/compress-pngs.py.
 set(WSUG_GRAPHICS
 	wsug_graphics/related-ack.png
 	wsug_graphics/related-current.png
@@ -249,6 +222,8 @@ set(WSUG_GRAPHICS
 	wsug_graphics/toolbar/zoom-out.png
 	${COMMON_GRAPHICS}
 )
+
+set(WSDG_TITLE "Wireshark Developer's Guide")
 
 set(WSDG_FILES
 	wsdg_src/WSDG_chapter_asn2wrs.adoc
@@ -414,27 +389,27 @@ if(ASCIIDOCTOR_FOUND AND XSLTPROC_EXECUTABLE)
 endif()
 
 if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_PDF_EXECUTABLE)
-	ASCIIDOCTOR2PDF(user-guide.adoc ${WSUG_SOURCE} ${WSUG_BUILT_DEPS})
+	ASCIIDOCTOR2PDF(${WSUG_TITLE} user-guide.adoc ${WSUG_SOURCE} ${WSUG_BUILT_DEPS})
 
 	add_custom_target(
 		user_guide_pdf
 		DEPENDS
-			user-guide.pdf
+			"${WSUG_TITLE}.pdf"
 	)
 	set_docbook_target_properties(user_guide_pdf)
 	add_dependencies(user_guides user_guide_pdf)
 endif()
 
-if(WIN32 AND ASCIIDOCTOR_FOUND)
-	XML2HHP(user_guide wsug "Wireshark User's Guide" user-guide.xml)
-	HHP2CHM(user-guide.hhp)
+if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_EPUB_EXECUTABLE)
+	ASCIIDOCTOR2EPUB(${WSUG_TITLE} user-guide.adoc ${WSUG_SOURCE} ${WSUG_BUILT_DEPS})
+
 	add_custom_target(
-		user_guide_chm
+		user_guide_epub
 		DEPENDS
-			user-guide.chm
+			"${WSUG_TITLE}.epub"
 	)
-	set_docbook_target_properties(user_guide_chm)
-	add_dependencies(user_guides user_guide_chm)
+	set_docbook_target_properties(user_guide_epub)
+	add_dependencies(user_guides user_guide_epub)
 endif()
 
 # Developer's Guide chain.
@@ -466,27 +441,27 @@ if(ASCIIDOCTOR_FOUND AND XSLTPROC_EXECUTABLE)
 endif()
 
 if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_PDF_EXECUTABLE)
-	ASCIIDOCTOR2PDF(developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
+	ASCIIDOCTOR2PDF(${WSDG_TITLE} developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
 
 	add_custom_target(
 		developer_guide_pdf
 		DEPENDS
-			developer-guide.pdf
+			"${WSDG_TITLE}.pdf"
 	)
 	set_docbook_target_properties(developer_guide_pdf)
 	add_dependencies(developer_guides developer_guide_pdf)
 endif()
 
-if(WIN32 AND ASCIIDOCTOR_FOUND)
-	XML2HHP(developer_guide	wsdg "Wireshark Developer's Guide" developer-guide.xml)
-	HHP2CHM(developer-guide.hhp)
+if(ASCIIDOCTOR_FOUND AND ASCIIDOCTOR_EPUB_EXECUTABLE)
+	ASCIIDOCTOR2EPUB(${WSDG_TITLE} developer-guide.adoc ${WSDG_SOURCE} ${WSDG_BUILT_DEPS})
+
 	add_custom_target(
-		developer_guide_chm
+		developer_guide_epub
 		DEPENDS
-			developer-guide.chm
+			"${WSDG_TITLE}.epub"
 	)
-	set_docbook_target_properties(developer_guide_chm)
-	add_dependencies(developer_guides developer_guide_chm)
+	set_docbook_target_properties(developer_guide_epub)
+	add_dependencies(developer_guides developer_guide_epub)
 endif()
 
 if (GUIDE_INSTALL_DIRS)

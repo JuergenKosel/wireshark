@@ -101,8 +101,9 @@
 #include <string.h>
 #include <wsutil/file_util.h>
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 #include <wsutil/inet_addr.h>
+#include <wsutil/wslog.h>
 
 #ifdef _WIN32
 #include <io.h>     /* for _setmode */
@@ -882,17 +883,20 @@ write_file_header (void)
 
     if (use_pcapng) {
         char *comment;
+        GPtrArray *comments;
 
         comment = g_strdup_printf("Generated from input file %s.", input_filename);
+        comments = g_ptr_array_new_with_free_func(g_free);
+        g_ptr_array_add(comments, comment);
         success = pcapng_write_section_header_block(output_file,
-                                                    comment,
+                                                    comments,
                                                     NULL,    /* HW */
                                                     NULL,    /* OS */
                                                     get_appname_and_version(),
                                                     -1,      /* section_length */
                                                     &bytes_written,
                                                     &err);
-        g_free(comment);
+        g_ptr_array_free(comments, TRUE);
         if (success) {
             success = pcapng_write_interface_description_block(output_file,
                                                                NULL,
@@ -1859,10 +1863,23 @@ parse_options (int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+void
+text2pcap_vcmdarg_err(const char *fmt, va_list ap)
+{
+    vfprintf(stderr, fmt, ap);
+    fputc('\n', stderr);
+}
+
 int
 main(int argc, char *argv[])
 {
     int ret = EXIT_SUCCESS;
+
+    /* Initialize log handler early so we can have proper logging during startup. */
+    ws_log_init("text2pcap", text2pcap_vcmdarg_err);
+
+    /* Early logging command-line initialization. */
+    ws_log_parse_args(&argc, argv, text2pcap_vcmdarg_err, 1);
 
 #ifdef _WIN32
     create_app_running_mutex();

@@ -1051,7 +1051,7 @@ RLF-Report-r16/nr-RLF-Report-r16/timeConnFailure-r16 DISPLAY=BASE_CUSTOM STRINGS
 TimeSinceFailure-r16 DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
 
 #.TYPE_ATTR
-TimeUntilReconnection-16 DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
+TimeUntilReconnection-r16 DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
 
 #.FN_BODY ULInformationTransferIRAT-r16-IEs/ul-DCCH-MessageEUTRA-r16 VAL_PTR = &ul_dcch_msg_eutra_tvb
   tvbuff_t *ul_dcch_msg_eutra_tvb = NULL;
@@ -1495,13 +1495,13 @@ SINR-RangeEUTRA DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_SINR_RangeEUTRA_fmt)
 MsgA-PUSCH-Config-r16/msgA-DeltaPreamble-r16 DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_decibels
 
 #.TYPE_ATTR
-MeasTriggerQuantityOffset/rsrp DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_dbm
+MeasTriggerQuantityOffset/rsrp DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_MeasTriggerQuantityOffset_fmt)
 
 #.TYPE_ATTR
-MeasTriggerQuantityOffset/rsrq DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_decibels
+MeasTriggerQuantityOffset/rsrq DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_MeasTriggerQuantityOffset_fmt)
 
 #.TYPE_ATTR
-MeasTriggerQuantityOffset/sinr DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_decibels
+MeasTriggerQuantityOffset/sinr DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_MeasTriggerQuantityOffset_fmt)
 
 #.TYPE_ATTR
 ReselectionThreshold DISPLAY=BASE_CUSTOM STRINGS=CF_FUNC(nr_rrc_ReselectionThreshold_fmt)
@@ -1661,8 +1661,8 @@ T-Reselection DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_seconds
     const gchar *str, *hf_str;
     proto_tree *subtree;
     subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_absTimeInfo);
-    str = tvb_bcd_dig_to_wmem_packet_str(abs_time_info_tvb, 0, 6, NULL, FALSE);
-    hf_str = wmem_strdup_printf(wmem_packet_scope(), "%c%c-%c%c-%c%c %c%c:%c%c:%c%c", str[0], str[1],
+    str = tvb_bcd_dig_to_str(actx->pinfo->pool, abs_time_info_tvb, 0, 6, NULL, FALSE);
+    hf_str = wmem_strdup_printf(actx->pinfo->pool, "%c%c-%c%c-%c%c %c%c:%c%c:%c%c", str[0], str[1],
                         str[2], str[3], str[4], str[5], str[6], str[7], str[8], str[9], str[10], str[11]);
     proto_tree_add_string(subtree, hf_nr_rrc_absolute_time, abs_time_info_tvb, 0, 6, hf_str);
   }
@@ -2037,15 +2037,6 @@ CA-ParametersEUTRA-v1570/dl-1024QAM-TotalWeightedLayers DISPLAY=BASE_CUSTOM STRI
   }
 
 #.FN_BODY CG-ConfigInfo-v1560-IEs/scgFailureInfoEUTRA/measResultSCG-EUTRA VAL_PTR = &meas_result_scg_fail_mrdc_tvb
-  tvbuff_t *meas_result_scg_fail_mrdc_tvb = NULL;
-%(DEFAULT_BODY)s
-  if (meas_result_scg_fail_mrdc_tvb) {
-    proto_tree *subtree;
-    subtree = proto_item_add_subtree(actx->created_item, ett_nr_rrc_measResultSCG_FailureMRDC);
-    dissect_lte_rrc_MeasResultSCG_FailureMRDC_r15_PDU(meas_result_scg_fail_mrdc_tvb, actx->pinfo, subtree, NULL);
-  }
-
-#.FN_BODY CG-ConfigInfo-v1610-IEs/scgFailureInfoEUTRA-r16/measResultSCG-EUTRA-r16 VAL_PTR = &meas_result_scg_fail_mrdc_tvb
   tvbuff_t *meas_result_scg_fail_mrdc_tvb = NULL;
 %(DEFAULT_BODY)s
   if (meas_result_scg_fail_mrdc_tvb) {

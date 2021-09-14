@@ -530,6 +530,7 @@ static int hf_icmpv6_da_lifetime = -1;
 static int hf_icmpv6_da_eui64 = -1;
 static int hf_icmpv6_da_raddr = -1;
 
+static heur_dissector_list_t icmpv6_heur_subdissector_list;
 static int icmpv6_tap = -1;
 
 /* RFC 7731 MPL (159) */
@@ -2187,7 +2188,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                         tvb_memcpy(tvb, (guint8 *)&prefix.bytes, opt_offset, 8);
                         proto_tree_add_ipv6(icmp6opt_tree, hf_icmpv6_opt_prefix, tvb, opt_offset, 8, &prefix);
                         set_address(&prefix_addr, AT_IPv6, 16, prefix.bytes);
-                        proto_item_append_text(ti, " %s/%d", address_to_str(wmem_packet_scope(), &prefix_addr), prefix_len);
+                        proto_item_append_text(ti, " %s/%d", address_to_str(pinfo->pool, &prefix_addr), prefix_len);
                         opt_offset += 8;
                         break;
                     case 24:
@@ -2368,7 +2369,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                         break;
                     }
                     used_bytes = get_dns_name(tvb, opt_offset, 0, opt_offset, &dnssl_name, &dnssl_len);
-                    proto_tree_add_string(icmp6opt_tree, hf_icmpv6_opt_dnssl, tvb, opt_offset, used_bytes, format_text(wmem_packet_scope(), dnssl_name, dnssl_len));
+                    proto_tree_add_string(icmp6opt_tree, hf_icmpv6_opt_dnssl, tvb, opt_offset, used_bytes, format_text(pinfo->pool, dnssl_name, dnssl_len));
                     proto_item_append_text(ti, " %s", dnssl_name);
                     opt_offset += used_bytes;
 
@@ -2467,7 +2468,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                         tvb_memcpy(tvb, (guint8 *)&context_prefix.bytes, opt_offset, 8);
                         proto_tree_add_ipv6(icmp6opt_tree, hf_icmpv6_opt_6co_context_prefix, tvb, opt_offset, 8, &context_prefix);
                         set_address(&context_prefix_addr, AT_IPv6, 16, context_prefix.bytes);
-                        proto_item_append_text(ti, " %s/%d", address_to_str(wmem_packet_scope(), &context_prefix_addr), context_len);
+                        proto_item_append_text(ti, " %s/%d", address_to_str(pinfo->pool, &context_prefix_addr), context_len);
                         opt_offset += 8;
                         break;
                     case 24:
@@ -2863,7 +2864,7 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                         tvb_memcpy(tvb, (guint8 *)&prefix.bytes, opt_offset, 8);
                         proto_tree_add_ipv6(icmp6opt_tree, hf_icmpv6_rpl_opt_route_prefix, tvb, opt_offset, 8, &prefix);
                         set_address(&prefix_addr, AT_IPv6, 16, prefix.bytes);
-                        proto_item_append_text(ti, " %s/%d", address_to_str(wmem_packet_scope(), &prefix_addr), prefix_len);
+                        proto_item_append_text(ti, " %s/%d", address_to_str(pinfo->pool, &prefix_addr), prefix_len);
                         opt_offset += 8;
                         break;
                     case 22:
@@ -2952,7 +2953,7 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                         tvb_memcpy(tvb, (guint8 *)&target_prefix.bytes, opt_offset, 8);
                         proto_tree_add_ipv6(icmp6opt_tree, hf_icmpv6_rpl_opt_target_prefix, tvb, opt_offset, 8, &target_prefix);
                         set_address(&target_prefix_addr, AT_IPv6, 16, target_prefix.bytes);
-                        proto_item_append_text(ti, " %s/%d", address_to_str(wmem_packet_scope(), &target_prefix_addr), prefix_len);
+                        proto_item_append_text(ti, " %s/%d", address_to_str(pinfo->pool, &target_prefix_addr), prefix_len);
                         opt_offset += 8;
                         break;
                     case 18:
@@ -3571,7 +3572,7 @@ dissect_nodeinfo(tvbuff_t *tvb, int ni_offset, packet_info *pinfo _U_, proto_tre
                 const gchar *fqdn_name;
                 used_bytes = get_dns_name(tvb, ni_offset, 0, ni_offset, &fqdn_name, &fqdn_len);
                 proto_tree_add_string(tree, hf_icmpv6_ni_query_subject_fqdn, tvb, ni_offset, used_bytes,
-                    format_text(wmem_packet_scope(), fqdn_name, fqdn_len));
+                    format_text(pinfo->pool, fqdn_name, fqdn_len));
                 ni_offset += used_bytes;
                 break;
             }
@@ -3603,7 +3604,7 @@ dissect_nodeinfo(tvbuff_t *tvb, int ni_offset, packet_info *pinfo _U_, proto_tre
                     /* Node Name */
                     used_bytes = get_dns_name(tvb, ni_offset, 0, ni_offset, &node_name, &node_name_len);
                     proto_tree_add_string(tree, hf_icmpv6_ni_reply_node_name, tvb, ni_offset, used_bytes,
-                        format_text(wmem_packet_scope(), node_name, node_name_len));
+                        format_text(pinfo->pool, node_name, node_name_len));
                     ni_offset += used_bytes;
                 }
                 break;
@@ -3950,10 +3951,10 @@ dissect_mpl_control(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *t
         }
         switch (s) {
             case 0:
-                seed_id = address_to_str(wmem_packet_scope(), &pinfo->src);
+                seed_id = address_to_str(pinfo->pool, &pinfo->src);
                 break;
             case 1:
-                seed_id = wmem_strdup_printf(wmem_packet_scope(), "%04x", tvb_get_ntohs(tvb, body_offset));
+                seed_id = wmem_strdup_printf(pinfo->pool, "%04x", tvb_get_ntohs(tvb, body_offset));
                 break;
             case 2:
                 seed_id = tvb_eui64_to_str(tvb, body_offset);
@@ -4182,8 +4183,15 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                     trans = transaction_end(pinfo, icmp6_tree, conv_key);
                 }
             }
+            heur_dtbl_entry_t *hdtbl_entry;
             next_tvb = tvb_new_subset_remaining(tvb, offset);
-            offset += call_data_dissector(next_tvb, pinfo, icmp6_tree);
+            gboolean result = dissector_try_heuristic(icmpv6_heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, NULL);
+            if (!result) {
+                offset += call_data_dissector(next_tvb, pinfo, icmp6_tree);
+            }
+            else {
+                offset += tvb_reported_length(next_tvb);
+            }
         }
     }
 
@@ -4373,7 +4381,7 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             case ICMP6_ND_NEIGHBOR_ADVERT: /* Neighbor Advertisement (136) */
             {
                 guint32 na_flags;
-                wmem_strbuf_t *flags_strbuf = wmem_strbuf_new_label(wmem_packet_scope());
+                wmem_strbuf_t *flags_strbuf = wmem_strbuf_new_label(pinfo->pool);
                 static int * const nd_na_flags[] = {
                     &hf_icmpv6_nd_na_flag_r,
                     &hf_icmpv6_nd_na_flag_s,
@@ -6179,6 +6187,7 @@ proto_register_icmpv6(void)
 
     register_seq_analysis("icmpv6", "ICMPv6 Flows", proto_icmpv6, NULL, TL_REQUIRES_COLUMNS, icmpv6_seq_analysis_packet);
     icmpv6_handle = register_dissector("icmpv6", dissect_icmpv6, proto_icmpv6);
+    icmpv6_heur_subdissector_list = register_heur_dissector_list("icmpv6", proto_icmpv6);
     icmpv6_tap = register_tap("icmpv6");
 }
 

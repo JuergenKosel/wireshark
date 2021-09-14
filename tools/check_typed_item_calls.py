@@ -34,7 +34,8 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-issues_found = 0
+warnings_found = 0
+errors_found = 0
 
 # A call is an individual call to an API we are interested in.
 # Internal to APICheck below.
@@ -56,8 +57,17 @@ class APICheck:
         self.fun_name = fun_name
         self.allowed_types = allowed_types
         self.calls = []
-        # RE captures function name + 1st 2 args (always tree + hfindex)
-        self.p = re.compile('.*' +  self.fun_name + '\(([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+)')
+
+        if fun_name.startswith('ptvcursor'):
+            # RE captures function name + 1st 2 args (always ptvc + hfindex)
+            self.p = re.compile('.*' +  self.fun_name + '\(([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+)')
+        elif fun_name.find('add_bitmask') == -1:
+            # RE captures function name + 1st 2 args (always tree + hfindex)
+            self.p = re.compile('.*' +  self.fun_name + '\(([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+)')
+        else:
+            # RE captures function name + 1st + 4th args (always tree + hfindex)
+            self.p = re.compile('.*' +  self.fun_name + '\(([a-zA-Z0-9_]+),\s*[a-zA-Z0-9_]+,\s*[a-zA-Z0-9_]+,\s*([a-zA-Z0-9_]+)')
+
         self.file = None
 
     def find_calls(self, file):
@@ -79,17 +89,28 @@ class APICheck:
                           ' with type ' + items[call.hf_name].item_type)
                     print('    (allowed types are', self.allowed_types, ')\n')
                     # Inc global count of issues found.
-                    global issues_found
-                    issues_found += 1
+                    global errors_found
+                    errors_found += 1
 
 
 class ProtoTreeAddItemCheck(APICheck):
-    def __init__(self):
-        # proto_item *
-        # proto_tree_add_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
-        #                     const gint start, gint length, const guint encoding)
+    def __init__(self, ptv=None):
+
         # RE will capture whole call.  N.B. only looking at calls with literal numerical length field.
-        self.p = re.compile('.*proto_tree_add_item\(([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+),\s*([0-9]+),\s*([a-zA-Z0-9_]+)')
+
+        if not ptv:
+            # proto_item *
+            # proto_tree_add_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
+            #                     const gint start, gint length, const guint encoding)
+            self.fun_name = 'proto_tree_add_item'
+            self.p = re.compile('.*' + self.fun_name + '\([a-zA-Z0-9_]+,\s*([a-zA-Z0-9_]+),\s*[a-zA-Z0-9_]+,\s*[a-zA-Z0-9_]+,\s*([0-9]+),\s*([a-zA-Z0-9_]+)')
+        else:
+            # proto_item *
+            # ptvcursor_add(ptvcursor_t *ptvc, int hfindex, gint length,
+            #               const guint encoding)
+            self.fun_name = 'ptvcursor_add'
+            self.p = re.compile('.*' + self.fun_name + '\([a-zA-Z0-9_]+,\s*([a-zA-Z0-9_]+),\s*([0-9]+),\s*([a-zA-Z0-9_]+)')
+
 
         self.lengths = {}
         self.lengths['FT_CHAR']  = 1
@@ -122,7 +143,7 @@ class ProtoTreeAddItemCheck(APICheck):
             for line_number, line in enumerate(f, start=1):
                 m = self.p.match(line)
                 if m:
-                    self.calls.append(Call(m.group(2), line_number=line_number, length=m.group(5)))
+                    self.calls.append(Call(m.group(1), line_number=line_number, length=m.group(2)))
 
     def check_against_items(self, items):
         # For now, only complaining if length if call is longer than the item type implies.
@@ -134,12 +155,12 @@ class ProtoTreeAddItemCheck(APICheck):
             if call.hf_name in items:
                 if call.length and items[call.hf_name].item_type in self.lengths:
                     if self.lengths[items[call.hf_name].item_type] < call.length:
-                        print(self.file + ':' + str(call.line_number),
-                              'proto_tree_add_item called for', call.hf_name, ' - ',
+                        print('Warning:', self.file + ':' + str(call.line_number),
+                              self.fun_name + ' called for', call.hf_name, ' - ',
                               'item type is', items[call.hf_name].item_type, 'but call has len', call.length)
 
-                        global issues_found
-                        issues_found += 1
+                        global warnings_found
+                        warnings_found += 1
 
 
 
@@ -156,13 +177,17 @@ known_non_contiguous_fields = { 'wlan.fixed.capabilities.cfpoll.sta',
                                 'zbee_zcl_se.pp.attr.payment_control_configuration.reserved', # matches other fields in same sequence
                                 'zbee_zcl_se.pp.snapshot_payload_cause.reserved',  # matches other fields in same sequence
                                 'ebhscr.eth.rsv',  # matches other fields in same sequence
-                                'v120.lli'  # non-contiguous field (http://www.acacia-net.com/wwwcla/protocol/v120_l2.htm)
+                                'v120.lli',  # non-contiguous field (http://www.acacia-net.com/wwwcla/protocol/v120_l2.htm)
+                                'stun.type.class',
+                                'bssgp.csg_id'
+
                               }
 ##################################################################################################
 
 
 field_widths = {
     'FT_BOOLEAN' : 64,   # TODO: Width depends upon 'display' field, not checked.
+    'FT_CHAR'    : 8,
     'FT_UINT8'   : 8,
     'FT_INT8'    : 8,
     'FT_UINT16'  : 16,
@@ -187,7 +212,7 @@ class Item:
 
     previousItem = None
 
-    def __init__(self, filename, filter, label, item_type, mask=None, check_mask=False, check_label=False, check_consecutive=False):
+    def __init__(self, filename, filter, label, item_type, type_modifier, mask=None, check_mask=False, check_label=False, check_consecutive=False):
         self.filename = filename
         self.filter = filter
         self.label = label
@@ -199,11 +224,11 @@ class Item:
         if check_consecutive:
             if Item.previousItem and Item.previousItem.filter == filter:
                 if label != Item.previousItem.label:
-                    print('Warn: ' + filename + ': - filter "' + filter +
+                    print('Warning: ' + filename + ': - filter "' + filter +
                           '" appears consecutively - labels are "' + Item.previousItem.label + '" and "' + label + '"')
             if Item.previousItem and self.mask_value and (Item.previousItem.mask_value == self.mask_value):
                 if label != Item.previousItem.label:
-                    print('Warn: ' + filename + ': - mask ' + self.mask +
+                    print('Warning: ' + filename + ': - mask ' + self.mask +
                           ' appears consecutively - labels are "' + Item.previousItem.label + '" and "' + label + '"')
 
             Item.previousItem = self
@@ -212,14 +237,25 @@ class Item:
         # Optionally check label.
         if check_label:
             if label.startswith(' ') or label.endswith(' '):
-                print('Warning:  ' + filename + 'filter=' + filter +  ' \"' + label + '\" begins or ends with a space')
+                print('Warning: ' + filename + ' filter "' + filter +  '" label' + label + '" begins or ends with a space')
+            if (label.count('(') != label.count(')') or
+                label.count('[') != label.count(']') or
+                label.count('{') != label.count('}')):
+                print('Warning: ' + filename + ': - filter "' + filter + '" label', '"' + label + '"', 'has unbalanced parens/braces/brackets')
+            if item_type != 'FT_NONE' and label.endswith(':'):
+                print('Warning: ' + filename + ': - filter "' + filter + '" label', '"' + label + '"', 'ends with an unnecessary colon')
 
         self.item_type = item_type
+        self.type_modifier = type_modifier
 
         # Optionally check that mask bits are contiguous
         if check_mask:
-            if not mask in { 'NULL', '0x0', '0'}:
+            if not mask in { 'NULL', '0x0', '0', '0x00'}:
                 self.check_contiguous_bits(mask)
+                self.check_mask_too_long(mask)
+                self.check_num_digits(mask)
+                self.check_digits_all_zeros(mask)
+
 
     def set_mask_value(self):
         try:
@@ -268,7 +304,7 @@ class Item:
             print('unexpected item_type is ', self.item_type)
             field_width = 64
         else:
-            field_width = field_widths[self.item_type]
+            field_width = self.get_field_width_in_bits()
 
 
         # Its a problem is the mask_width is > field_width - some of the bits won't get looked at!?
@@ -277,11 +313,11 @@ class Item:
             # N.B. No call, so no line number.
             print(self.filename + ':', 'filter=', self.filter, self.item_type, 'so field_width=', field_width,
                   'but mask is', mask, 'which is', mask_width, 'bits wide!')
-            global issues_found
-            issues_found += 1
+            global warnings_found
+            warnings_found += 1
 
         # Now, any more zero set bits are an error!
-        if self.filter in known_non_contiguous_fields:
+        if self.filter in known_non_contiguous_fields or self.filter.startswith('rtpmidi'):
             # Don't report if we know this one is Ok.
             return
         while n <= 63:
@@ -290,6 +326,51 @@ class Item:
                 return
             n += 1
 
+    def get_field_width_in_bits(self):
+        if self.item_type == 'FT_BOOLEAN':
+            if self.type_modifier == 'NULL':
+                return 8  # i.e. 1 byte
+            elif self.type_modifier == 'BASE_NONE':
+                return 8
+            else:
+                return int(self.type_modifier)
+        else:
+            return field_widths[self.item_type]
+
+    def check_mask_too_long(self, mask):
+        if not self.mask_value:
+            return
+        if mask.startswith('0x00') or mask.endswith('00'):
+            # There may be good reasons for having a wider field/mask, e.g. if there are 32 related flags, showing them
+            # all lined up as part of the same word may make it clearer.  But some cases have been found
+            # where the grouping does not seem to be natural..
+            print('Warning: ', self.filename, 'filter=', self.filter, ' - mask with leading or trailing 0 bytes suggests field', self.item_type, 'may be wider than necessary?', mask)
+            global warnings_found
+            warnings_found += 1
+
+    def check_num_digits(self, mask):
+        if mask.startswith('0x') and len(mask) > 3:
+            global warnings_found
+            if len(mask) % 2:
+                print('Warning: ', self.filename, 'filter=', self.filter, ' - mask has odd number of digits', mask,
+                      'expected max for', self.item_type, 'is', int(self.get_field_width_in_bits()/4))
+                warnings_found += 1
+
+            if self.item_type in field_widths:
+                if len(mask)-2 > self.get_field_width_in_bits()/4:
+                    print('Warning: ', self.filename, 'filter=', self.filter, self.mask, "with len is", len(mask)-2,
+                          "but type", self.item_type, " indicates max of", int(self.get_field_width_in_bits()/4))
+                    warnings_found += 1
+            else:
+                print('Warning: ', self.filename, 'filter=', self.filter, ' - item has type', self.item_type, 'but mask set:', mask)
+                warnings_found += 1
+
+    def check_digits_all_zeros(self, mask):
+        if mask.startswith('0x') and len(mask) > 3:
+            if mask[2:] == '0'*(len(mask)-2):
+                print('Warning: ', self.filename, 'filter=', self.filter, ' - item has all zeros - this is confusing! :', mask)
+                global warnings_found
+                warnings_found += 1
 
 
 # These are APIs in proto.c that check a set of types at runtime and can print '.. is not of type ..' to the console
@@ -341,8 +422,32 @@ apiChecks.append(APICheck('proto_tree_add_ascii_7bits_item', { 'FT_STRING'}))
 apiChecks.append(APICheck('proto_tree_add_checksum', { 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32'}))
 apiChecks.append(APICheck('proto_tree_add_int64_bits_format_value', { 'FT_INT40', 'FT_INT48', 'FT_INT56', 'FT_INT64'}))
 
+
+bitmask_types = { 'FT_CHAR', 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32',
+                  'FT_INT8', 'FT_INT16', 'FT_INT24', 'FT_INT32',
+                  'FT_UINT40', 'FT_UINT48', 'FT_UINT56', 'FT_UINT64',
+                  'FT_INT40', 'FT_INT48', 'FT_INT56', 'FT_INT64',
+                   'FT_BOOLEAN'}
+apiChecks.append(APICheck('proto_tree_add_bitmask', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_tree', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_ret_uint64', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_with_flags', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_with_flags_ret_uint64', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_value', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_value_with_flags', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_len', bitmask_types))
+apiChecks.append(APICheck('proto_tree_add_bitmask_text', bitmask_types))
+
+# Check some ptvcuror calls too.
+apiChecks.append(APICheck('ptvcursor_add_ret_uint', { 'FT_CHAR', 'FT_UINT8', 'FT_UINT16', 'FT_UINT24', 'FT_UINT32'}))
+apiChecks.append(APICheck('ptvcursor_add_ret_int', { 'FT_INT8', 'FT_INT16', 'FT_INT24', 'FT_INT32'}))
+apiChecks.append(APICheck('ptvcursor_add_ret_boolean', { 'FT_BOOLEAN'}))
+
+
 # Also try to check proto_tree_add_item() calls (for length)
 apiChecks.append(ProtoTreeAddItemCheck())
+apiChecks.append(ProtoTreeAddItemCheck(True)) # for ptvcursor_add()
+
 
 
 def removeComments(code_string):
@@ -386,11 +491,12 @@ def find_items(filename, check_mask=False, check_label=False, check_consecutive=
         contents = f.read()
         # Remove comments so as not to trip up RE.
         contents = removeComments(contents)
-        matches = re.finditer(r'.*\{\s*\&(hf_.*),\s*{\s*\"(.+)\",\s*\"([a-zA-Z0-9_\-\.]+)\",\s*([A-Z0-9_]*),\s*.*,\s*([A-Za-z0-9x]*)\s*,', contents)
+        matches = re.finditer(r'.*\{\s*\&(hf_.*),\s*{\s*\"(.+)\",\s*\"([a-zA-Z0-9_\-\.]+)\",\s*([A-Z0-9_]*),\s*(.*),\s*([&A-Za-z0-9x_\(\)]*),\s*([a-z0-9x_]*),', contents)
         for m in matches:
             # Store this item.
             hf = m.group(1)
-            items[hf] = Item(filename, filter=m.group(3), label=m.group(2), item_type=m.group(4), mask=m.group(5),
+            items[hf] = Item(filename, filter=m.group(3), label=m.group(2), item_type=m.group(4), mask=m.group(7),
+                             type_modifier=m.group(5),
                              check_mask=check_mask,
                              check_label=check_label,
                              check_consecutive=(not is_generated and check_consecutive))
@@ -519,4 +625,7 @@ for f in files:
     checkFile(f, check_mask=args.mask, check_label=args.label, check_consecutive=args.consecutive)
 
 # Show summary.
-print(issues_found, 'issues found')
+print(warnings_found, 'warnings')
+if errors_found:
+    print(errors_found, 'errors')
+    exit(1)

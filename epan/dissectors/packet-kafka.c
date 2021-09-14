@@ -1072,10 +1072,10 @@ dissect_kafka_varuint(proto_tree *tree, int hf_item, tvbuff_t *tvb, packet_info 
  * a substitute string is returned instead of failing.
  */
 static gint8*
-kafka_tvb_get_string(tvbuff_t *tvb, int offset, int length)
+kafka_tvb_get_string(wmem_allocator_t *pool, tvbuff_t *tvb, int offset, int length)
 {
     if (length>=0) {
-        return tvb_get_string_enc(wmem_packet_scope(), tvb, offset, length, ENC_UTF_8);;
+        return tvb_get_string_enc(pool, tvb, offset, length, ENC_UTF_8);;
     } else {
         return "[ Null ]";
     }
@@ -1108,7 +1108,7 @@ dissect_kafka_regular_string(proto_tree *tree, int hf_item, tvbuff_t *tvb, packe
         proto_tree_add_string(tree, hf_item, tvb, offset, 2, NULL);
     } else {
         proto_tree_add_string(tree, hf_item, tvb, offset, length + 2,
-                              kafka_tvb_get_string(tvb, offset + 2, length));
+                              kafka_tvb_get_string(pinfo->pool, tvb, offset + 2, length));
     }
 
     if (p_offset != NULL) *p_offset = offset + 2;
@@ -1149,7 +1149,7 @@ dissect_kafka_compact_string(proto_tree *tree, int hf_item, tvbuff_t *tvb, packe
         proto_tree_add_string(tree, hf_item, tvb, offset, len, NULL);
     } else {
         proto_tree_add_string(tree, hf_item, tvb, offset, len + (gint)length - 1,
-                              kafka_tvb_get_string(tvb, offset + len, (gint)length - 1));
+                              kafka_tvb_get_string(pinfo->pool, tvb, offset + len, (gint)length - 1));
     }
 
     if (p_offset != NULL) *p_offset = offset + len;
@@ -1492,7 +1492,7 @@ show_compression_reduction(tvbuff_t *tvb, proto_tree *tree, guint compressed_siz
 }
 
 static int
-dissect_kafka_record_headers_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean *p_invalid)
+dissect_kafka_record_headers_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, gboolean *p_invalid)
 {
     proto_item *header_ti;
     proto_tree *subtree;
@@ -1505,7 +1505,7 @@ dissect_kafka_record_headers_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto
     offset = dissect_kafka_bytes_new(tvb, pinfo, subtree, hf_kafka_record_header_value, offset, NULL, NULL, p_invalid);
 
     proto_item_append_text(header_ti, " (Key: %s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, key_off, key_len, ENC_UTF_8));
+                           tvb_get_string_enc(pinfo->pool, tvb, key_off, key_len, ENC_UTF_8));
     proto_item_set_end(header_ti, tvb, offset);
 
     return offset;
@@ -1628,7 +1628,7 @@ decompress_lz4(tvbuff_t *tvb, packet_info *pinfo, int offset, guint32 length, tv
     gboolean ret = FALSE;
 
     /* Prepare compressed data buffer */
-    guint8 *data = (guint8*)tvb_memdup(wmem_packet_scope(), tvb, offset, length);
+    guint8 *data = (guint8*)tvb_memdup(pinfo->pool, tvb, offset, length);
     /* Override header checksum to workaround buggy Kafka implementations */
     if (length > 7) {
         guint32 hdr_end = 6;
@@ -1723,7 +1723,7 @@ decompress_lz4(tvbuff_t *tvb _U_, packet_info *pinfo, int offset _U_, guint32 le
 static gboolean
 decompress_snappy(tvbuff_t *tvb, packet_info *pinfo, int offset, guint32 length, tvbuff_t **decompressed_tvb, int *decompressed_offset)
 {
-    guint8 *data = (guint8*)tvb_memdup(wmem_packet_scope(), tvb, offset, length);
+    guint8 *data = (guint8*)tvb_memdup(pinfo->pool, tvb, offset, length);
     size_t uncompressed_size;
     snappy_status rc = SNAPPY_OK;
     tvbuff_t *composite_tvb = NULL;
@@ -1819,7 +1819,7 @@ decompress_snappy(tvbuff_t *tvb _U_, packet_info *pinfo, int offset _U_, int len
 static gboolean
 decompress_zstd(tvbuff_t *tvb, packet_info *pinfo, int offset, guint32 length, tvbuff_t **decompressed_tvb, int *decompressed_offset)
 {
-    ZSTD_inBuffer input = { tvb_memdup(wmem_packet_scope(), tvb, offset, length), length, 0 };
+    ZSTD_inBuffer input = { tvb_memdup(pinfo->pool, tvb, offset, length), length, 0 };
     ZSTD_DStream *zds = ZSTD_createDStream();
     size_t rc = 0;
     tvbuff_t *composite_tvb = NULL;
@@ -2109,7 +2109,6 @@ dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
     proto_item *ti;
     proto_tree *subtree;
     gint        end_offset = offset + len;
-    guint       messages = 0;
 
     subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_kafka_message_set, &ti, "Message Set");
     /* If set came from a compressed message, make it obvious in tree root */
@@ -2119,7 +2118,6 @@ dissect_kafka_message_set(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
 
     while (offset < end_offset) {
         offset = dissect_kafka_message(tvb, pinfo, subtree, offset, end_offset);
-        messages += 1;
     }
 
     if (offset != end_offset) {
@@ -2317,7 +2315,7 @@ dissect_kafka_offset_fetch_request_topic(tvbuff_t *tvb, packet_info *pinfo, prot
 
     proto_item_set_end(ti, tvb, offset);
     proto_item_append_text(ti, " (Topic: %s, Partitions: %u)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, topic_start, topic_len, ENC_UTF_8),
+                           tvb_get_string_enc(pinfo->pool, tvb, topic_start, topic_len, ENC_UTF_8),
                            count);
 
     return offset;
@@ -2464,7 +2462,7 @@ dissect_kafka_offset_fetch_response_topic(tvbuff_t *tvb, packet_info *pinfo, pro
 
     proto_item_set_end(ti, tvb, offset);
     proto_item_append_text(ti, " (Topic: %s, Partitions: %u)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, topic_start, topic_len, ENC_UTF_8),
+                           tvb_get_string_enc(pinfo->pool, tvb, topic_start, topic_len, ENC_UTF_8),
                            count);
 
     return offset;
@@ -2582,7 +2580,7 @@ dissect_kafka_metadata_broker(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     proto_item_append_text(ti, " (node %u: %s:%u)",
                            nodeid,
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                            host_start, host_len, ENC_UTF_8),
                            broker_port);
     proto_item_set_end(ti, tvb, offset);
@@ -2675,7 +2673,7 @@ dissect_kafka_metadata_topic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     offset = dissect_kafka_string(subtree, hf_kafka_topic_name, tvb, pinfo, offset, api_version >= 9, &name_start, &name_length);
 
     proto_item_append_text(ti, " (%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                            name_start, name_length, ENC_UTF_8));
 
     if (api_version >= 1) {
@@ -2849,7 +2847,7 @@ dissect_kafka_leader_and_isr_request_partition_state(tvbuff_t *tvb, packet_info 
 
     if (api_version < 2) {
         proto_item_append_text(subti, " (Topic=%s, Partition-ID=%u)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   topic_start, topic_len, ENC_UTF_8),
                                partition);
     } else {
@@ -2885,7 +2883,7 @@ dissect_kafka_leader_and_isr_request_topic_state(tvbuff_t *tvb, packet_info *pin
     }
 
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -2924,7 +2922,7 @@ dissect_kafka_leader_and_isr_request_live_leader(tvbuff_t *tvb, packet_info *pin
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (node %u: %s:%u)",
                            nodeid,
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, host_start, host_len, ENC_UTF_8),
+                           tvb_get_string_enc(pinfo->pool, tvb, host_start, host_len, ENC_UTF_8),
                            broker_port);
 
     return offset;
@@ -3005,7 +3003,7 @@ dissect_kafka_leader_and_isr_response_partition(tvbuff_t *tvb, packet_info *pinf
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Partition-ID=%u, Error=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8),
                            partition,
                            kafka_error_to_str(error));
@@ -3061,7 +3059,7 @@ dissect_kafka_stop_replica_request_topic(tvbuff_t *tvb, packet_info *pinfo, prot
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -3090,7 +3088,7 @@ dissect_kafka_stop_replica_request_ungrouped_partition(tvbuff_t *tvb, packet_inf
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Partition-ID=%u)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8),
                            partition);
 
@@ -3183,7 +3181,7 @@ dissect_kafka_stop_replica_response_partition(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Partition-ID=%u, Error=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8),
                            partition,
                            kafka_error_to_str(error));
@@ -3513,7 +3511,7 @@ dissect_kafka_produce_request_topic(tvbuff_t *tvb, packet_info *pinfo, proto_tre
                                  &dissect_kafka_produce_request_partition, NULL);
 
     proto_item_append_text(ti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, topic_off, topic_len, ENC_UTF_8));
+                           tvb_get_string_enc(pinfo->pool, tvb, topic_off, topic_len, ENC_UTF_8));
     proto_item_set_end(ti, tvb, offset);
 
     return offset;
@@ -3955,7 +3953,7 @@ dissect_kafka_update_metadata_request_partition(tvbuff_t *tvb, packet_info *pinf
                                partition);
     } else {
         proto_item_append_text(subti, " (Topic=%s, Partition-ID=%u)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   topic_start, topic_len, ENC_UTF_8),
                                partition);
     }
@@ -3987,7 +3985,7 @@ dissect_kafka_update_metadata_request_topic(tvbuff_t *tvb, packet_info *pinfo, p
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                     topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -4028,7 +4026,7 @@ dissect_kafka_update_metadata_request_endpoint(tvbuff_t *tvb, packet_info *pinfo
     proto_item_append_text(subti, " (%s://%s:%d)",
                            val_to_str_const(security_protocol_type,
                                             kafka_security_protocol_types, "UNKNOWN"),
-                           tvb_get_string_enc(wmem_packet_scope(), tvb, host_start, host_len,
+                           tvb_get_string_enc(pinfo->pool, tvb, host_start, host_len,
                                               ENC_UTF_8),
                            broker_port);
 
@@ -4061,7 +4059,7 @@ dissect_kafka_update_metadata_request_broker(tvbuff_t *tvb, packet_info *pinfo, 
 
         proto_item_append_text(subti, " (node %u: %s:%u)",
                                nodeid,
-                               tvb_get_string_enc(wmem_packet_scope(), tvb, host_start, host_len,
+                               tvb_get_string_enc(pinfo->pool, tvb, host_start, host_len,
                                                   ENC_UTF_8),
                                broker_port);
     } else if (api_version >= 1) {
@@ -4194,7 +4192,7 @@ dissect_kafka_controlled_shutdown_response_partition_remaining(tvbuff_t *tvb, pa
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Partition-ID=%d)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8),
                            partition);
 
@@ -4291,7 +4289,7 @@ dissect_kafka_offset_commit_request_topic(tvbuff_t *tvb, packet_info *pinfo, pro
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -4339,7 +4337,7 @@ dissect_kafka_offset_commit_request(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     " (Group=%s)",
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        group_start, group_len, ENC_UTF_8));
 
     return offset;
@@ -4400,7 +4398,7 @@ dissect_kafka_offset_commit_response_response(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -4440,7 +4438,7 @@ dissect_kafka_find_coordinator_request(tvbuff_t *tvb, packet_info *pinfo, proto_
 
         col_append_fstr(pinfo->cinfo, COL_INFO,
                         " (Group=%s)",
-                        tvb_get_string_enc(wmem_packet_scope(), tvb,
+                        tvb_get_string_enc(pinfo->pool, tvb,
                                            group_start, group_len, ENC_UTF_8));
     } else {
 
@@ -4490,7 +4488,7 @@ dissect_kafka_find_coordinator_response_coordinator(tvbuff_t *tvb, packet_info *
     if (node_id >= 0) {
         proto_item_append_text(subti, " (node %d: %s:%d)",
                                node_id,
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   host_start, host_len, ENC_UTF_8),
                                port);
     } else {
@@ -4552,7 +4550,7 @@ dissect_kafka_join_group_request_group_protocols(tvbuff_t *tvb, packet_info *pin
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Group-ID=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               protocol_start, protocol_len, ENC_UTF_8));
 
     return offset;
@@ -4603,8 +4601,8 @@ dissect_kafka_join_group_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     " (Group=%s, Member=%s)",
-                    kafka_tvb_get_string(tvb, group_start, group_len),
-                    kafka_tvb_get_string(tvb, member_start, member_len));
+                    kafka_tvb_get_string(pinfo->pool, tvb, group_start, group_len),
+                    kafka_tvb_get_string(pinfo->pool, tvb, member_start, member_len));
 
     if (api_version >= 6) {
         offset = dissect_kafka_tagged_fields(tvb, pinfo, tree, offset, 0);
@@ -4642,7 +4640,7 @@ dissect_kafka_join_group_response_member(tvbuff_t *tvb, packet_info *pinfo, prot
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Member=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               member_start, member_len, ENC_UTF_8));
 
     return offset;
@@ -4689,7 +4687,7 @@ dissect_kafka_join_group_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     " (Member=%s)",
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        member_start, member_len, ENC_UTF_8));
 
     if (api_version >= 6) {
@@ -4728,9 +4726,9 @@ dissect_kafka_heartbeat_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     " (Group=%s, Member=%s)",
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        group_start, group_len, ENC_UTF_8),
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        member_start, member_len, ENC_UTF_8));
 
     if (api_version >= 4) {
@@ -4787,14 +4785,14 @@ dissect_kafka_leave_group_request_member(tvbuff_t *tvb, packet_info *pinfo, prot
 
     if (instance_len >= 0) {
         proto_item_append_text(subti, " (Member=%s, Group-Instance=%s)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   member_start, member_len, ENC_UTF_8),
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   instance_start, instance_len, ENC_UTF_8)
         );
     } else {
         proto_item_append_text(subti, " (Member=%s)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   member_start, member_len, ENC_UTF_8)
         );
     }
@@ -4823,9 +4821,9 @@ dissect_kafka_leave_group_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
         col_append_fstr(pinfo->cinfo, COL_INFO,
                         " (Group=%s, Member=%s)",
-                        tvb_get_string_enc(wmem_packet_scope(), tvb,
+                        tvb_get_string_enc(pinfo->pool, tvb,
                                            group_start, group_len, ENC_UTF_8),
-                        tvb_get_string_enc(wmem_packet_scope(), tvb,
+                        tvb_get_string_enc(pinfo->pool, tvb,
                                            member_start, member_len, ENC_UTF_8));
 
     } else if (api_version >= 3) {
@@ -4838,7 +4836,7 @@ dissect_kafka_leave_group_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
         col_append_fstr(pinfo->cinfo, COL_INFO,
                         " (Group=%s)",
-                        tvb_get_string_enc(wmem_packet_scope(), tvb,
+                        tvb_get_string_enc(pinfo->pool, tvb,
                                            group_start, group_len, ENC_UTF_8));
 
     }
@@ -4880,14 +4878,14 @@ dissect_kafka_leave_group_response_member(tvbuff_t *tvb, packet_info *pinfo, pro
 
     if (instance_len >= 0) {
         proto_item_append_text(subti, " (Member=%s, Group-Instance=%s)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   member_start, member_len, ENC_UTF_8),
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   instance_start, instance_len, ENC_UTF_8)
         );
     } else {
         proto_item_append_text(subti, " (Member=%s)",
-                               tvb_get_string_enc(wmem_packet_scope(), tvb,
+                               tvb_get_string_enc(pinfo->pool, tvb,
                                                   member_start, member_len, ENC_UTF_8)
         );
     }
@@ -4952,7 +4950,7 @@ dissect_kafka_sync_group_request_group_assignment(tvbuff_t *tvb, packet_info *pi
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Member=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               member_start, member_len, ENC_UTF_8));
 
     return offset;
@@ -5009,9 +5007,9 @@ dissect_kafka_sync_group_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     col_append_fstr(pinfo->cinfo, COL_INFO,
                     " (Group=%s, Member=%s)",
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        group_start, group_len, ENC_UTF_8),
-                    tvb_get_string_enc(wmem_packet_scope(), tvb,
+                    tvb_get_string_enc(pinfo->pool, tvb,
                                        member_start, member_len, ENC_UTF_8));
 
     return offset;
@@ -5123,12 +5121,12 @@ dissect_kafka_describe_groups_response_member(tvbuff_t *tvb, packet_info *pinfo,
 
     if (api_version < 4) {
         proto_item_append_text(subti, " (Member=%s)",
-                               kafka_tvb_get_string(tvb, member_start, member_len));
+                               kafka_tvb_get_string(pinfo->pool, tvb, member_start, member_len));
 
     } else {
         proto_item_append_text(subti, " (Member=%s, Instance=%s)",
-                               kafka_tvb_get_string(tvb, member_start, member_len),
-                               kafka_tvb_get_string(tvb, instance_start, instance_len));
+                               kafka_tvb_get_string(pinfo->pool, tvb, member_start, member_len),
+                               kafka_tvb_get_string(pinfo->pool, tvb, instance_start, instance_len));
     }
 
     return offset;
@@ -5177,7 +5175,7 @@ dissect_kafka_describe_groups_response_group(tvbuff_t *tvb, packet_info *pinfo, 
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Group=%s)",
-                           kafka_tvb_get_string(tvb, group_start, group_len));
+                           kafka_tvb_get_string(pinfo->pool, tvb, group_start, group_len));
 
     return offset;
 }
@@ -5240,9 +5238,9 @@ dissect_kafka_list_groups_response_group(tvbuff_t *tvb, packet_info *pinfo, prot
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Group-ID=%s, Protocol-Type=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               group_start, group_len, ENC_UTF_8),
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               protocol_type_start, protocol_type_len, ENC_UTF_8));
 
     return offset;
@@ -5386,9 +5384,9 @@ dissect_kafka_create_topics_request_config(tvbuff_t *tvb, packet_info *pinfo, pr
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Key=%s, Value=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               key_start, key_len, ENC_UTF_8),
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               val_start, val_len, ENC_UTF_8));
 
     return offset;
@@ -5439,7 +5437,7 @@ dissect_kafka_create_topics_request_create_topic_request(tvbuff_t *tvb, packet_i
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -5552,7 +5550,7 @@ dissect_kafka_create_topics_response_topic(tvbuff_t *tvb, packet_info *pinfo, pr
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Error=%s)",
-                           kafka_tvb_get_string(tvb, topic_start, topic_len),
+                           kafka_tvb_get_string(pinfo->pool, tvb, topic_start, topic_len),
                            kafka_error_to_str(error));
 
     return offset;
@@ -5646,7 +5644,7 @@ dissect_kafka_delete_topics_response_topic_error_code(tvbuff_t *tvb, packet_info
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s, Error=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8),
                            kafka_error_to_str(error));
 
@@ -5730,7 +5728,7 @@ dissect_kafka_delete_records_request_topic(tvbuff_t *tvb, packet_info *pinfo, pr
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -5813,7 +5811,7 @@ dissect_kafka_delete_records_response_topic(tvbuff_t *tvb, packet_info *pinfo, p
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -5942,7 +5940,7 @@ dissect_kafka_offset_for_leader_epoch_request_topic(tvbuff_t *tvb, packet_info *
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6036,7 +6034,7 @@ dissect_kafka_offset_for_leader_epoch_response_topic(tvbuff_t *tvb, packet_info 
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6095,7 +6093,7 @@ dissect_kafka_add_partitions_to_txn_request_topic(tvbuff_t *tvb, packet_info *pi
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6177,7 +6175,7 @@ dissect_kafka_add_partitions_to_txn_response_topic(tvbuff_t *tvb, packet_info *p
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6298,7 +6296,7 @@ dissect_kafka_write_txn_markers_request_topic(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6410,7 +6408,7 @@ dissect_kafka_write_txn_markers_response_topic(tvbuff_t *tvb, packet_info *pinfo
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6524,7 +6522,7 @@ dissect_kafka_txn_offset_commit_request_topic(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -6632,7 +6630,7 @@ dissect_kafka_txn_offset_commit_response_topic(tvbuff_t *tvb, packet_info *pinfo
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Topic=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -7086,7 +7084,7 @@ dissect_kafka_describe_configs_request(tvbuff_t *tvb, packet_info *pinfo, proto_
 }
 
 static int
-dissect_kafka_describe_configs_response_synonym(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_describe_configs_response_synonym(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                               int offset, kafka_api_version_t api_version _U_)
 {
     proto_item *subti;
@@ -7103,14 +7101,14 @@ dissect_kafka_describe_configs_response_synonym(tvbuff_t *tvb, packet_info *pinf
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Key=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               key_start, key_len, ENC_UTF_8));
 
     return offset;
 }
 
 static int
-dissect_kafka_describe_configs_response_entry(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_describe_configs_response_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                          int offset, kafka_api_version_t api_version _U_)
 {
     proto_item *subti, *subsubti;
@@ -7148,7 +7146,7 @@ dissect_kafka_describe_configs_response_entry(tvbuff_t *tvb, packet_info *pinfo 
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Key=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               key_start, key_len, ENC_UTF_8));
 
     return offset;
@@ -7324,7 +7322,7 @@ dissect_kafka_alter_replica_log_dirs_request_partition(tvbuff_t *tvb, packet_inf
 }
 
 static int
-dissect_kafka_alter_replica_log_dirs_request_topic(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_alter_replica_log_dirs_request_topic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                  int offset, kafka_api_version_t api_version _U_)
 {
     proto_item *subti, *subsubti;
@@ -7342,7 +7340,7 @@ dissect_kafka_alter_replica_log_dirs_request_topic(tvbuff_t *tvb, packet_info *p
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -7429,7 +7427,7 @@ dissect_kafka_alter_replica_log_dirs_response_topic(tvbuff_t *tvb, packet_info *
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -7468,7 +7466,7 @@ dissect_kafka_describe_log_dirs_request_partition(tvbuff_t *tvb, packet_info *pi
 }
 
 static int
-dissect_kafka_describe_log_dirs_request_topic(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_describe_log_dirs_request_topic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                    int offset, kafka_api_version_t api_version _U_)
 {
     proto_item *subti, *subsubti;
@@ -7486,7 +7484,7 @@ dissect_kafka_describe_log_dirs_request_topic(tvbuff_t *tvb, packet_info *pinfo 
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -7541,7 +7539,7 @@ dissect_kafka_describe_log_dirs_response_partition(tvbuff_t *tvb, packet_info *p
 }
 
 static int
-dissect_kafka_describe_log_dirs_response_topic(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_describe_log_dirs_response_topic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                     int offset, kafka_api_version_t api_version)
 {
     proto_item *subti, *subsubti;
@@ -7559,14 +7557,14 @@ dissect_kafka_describe_log_dirs_response_topic(tvbuff_t *tvb, packet_info *pinfo
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
 }
 
 static int
-dissect_kafka_describe_log_dirs_response_log_dir(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_describe_log_dirs_response_log_dir(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                     int offset, kafka_api_version_t api_version)
 {
     proto_item *subti, *subsubti;
@@ -7586,7 +7584,7 @@ dissect_kafka_describe_log_dirs_response_log_dir(tvbuff_t *tvb, packet_info *pin
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Dir=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               dir_start, dir_len, ENC_UTF_8));
 
     return offset;
@@ -7650,7 +7648,7 @@ dissect_kafka_create_partitions_request_topic(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -7705,7 +7703,7 @@ dissect_kafka_create_partitions_response_topic(tvbuff_t *tvb, packet_info *pinfo
 
     proto_item_set_end(subti, tvb, offset);
     proto_item_append_text(subti, " (Name=%s)",
-                           tvb_get_string_enc(wmem_packet_scope(), tvb,
+                           tvb_get_string_enc(pinfo->pool, tvb,
                                               topic_start, topic_len, ENC_UTF_8));
 
     return offset;
@@ -8079,7 +8077,7 @@ dissect_kafka_delete_groups_request(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 }
 
 static int
-dissect_kafka_delete_groups_response_group(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+dissect_kafka_delete_groups_response_group(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                          int offset, kafka_api_version_t api_version _U_)
 {
     proto_item *subti;

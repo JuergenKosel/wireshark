@@ -71,6 +71,7 @@
 #include <wsutil/strtoi.h>
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
+#include <wsutil/wslog.h>
 #include <string.h>
 
 #ifdef HAVE_LIBXML2
@@ -5199,9 +5200,9 @@ dissect_epl_sdo_command_read_by_index(struct epl_convo *convo, proto_tree *epl_t
 		}
 
 		/* determine remaining SDO payload size (depends on segment size of current command) */
-		if (size > (segment_size - 4))
+		if (size > segment_size)
 		{
-			rem_size = (segment_size - 4);
+			rem_size = segment_size;
 		}
 		else
 		{
@@ -5668,19 +5669,19 @@ proto_register_epl(void)
 		},
 		{ &hf_epl_asnd_identresponse_feat_bit10,
 			{ "Multiple-ASend Support", "epl.asnd.ires.features.bit10",
-				FT_BOOLEAN, 32, NULL, 0x10000, NULL, HFILL }
+				FT_BOOLEAN, 32, NULL, 0x010000, NULL, HFILL }
 		},
 		{ &hf_epl_asnd_identresponse_feat_bit11,
 			{ "Ring Redundancy", "epl.asnd.ires.features.bit11",
-				FT_BOOLEAN, 32, NULL, 0x20000, NULL, HFILL }
+				FT_BOOLEAN, 32, NULL, 0x020000, NULL, HFILL }
 		},
 		{ &hf_epl_asnd_identresponse_feat_bit12,
 			{ "PResChaining", "epl.asnd.ires.features.bit12",
-				FT_BOOLEAN, 32, NULL, 0x40000, NULL, HFILL }
+				FT_BOOLEAN, 32, NULL, 0x040000, NULL, HFILL }
 		},
 		{ &hf_epl_asnd_identresponse_feat_bit13,
 			{ "Multiple PReq/PRes", "epl.asnd.ires.features.bit13",
-				FT_BOOLEAN, 32, NULL, 0x80000, NULL, HFILL }
+				FT_BOOLEAN, 32, NULL, 0x080000, NULL, HFILL }
 		},
 		{ &hf_epl_asnd_identresponse_feat_bit14,
 			{ "Dynamic Node Allocation", "epl.asnd.ires.features.bit14",
@@ -6593,7 +6594,7 @@ device_profile_parse_uat(void)
 		wmem_map_insert(epl_profiles_by_device, GUINT_TO_POINTER(profile->id), profile);
 		profile->parent_map = epl_profiles_by_device;
 
-		g_log(NULL, G_LOG_LEVEL_INFO, "Loading %s\n", profile->path);
+		ws_log(NULL, LOG_LEVEL_INFO, "Loading %s\n", profile->path);
 	}
 }
 
@@ -6676,7 +6677,7 @@ nodeid_profile_parse_uat(void)
 			wmem_map_insert(epl_profiles_by_address, &profile->node_addr, profile);
 			profile->parent_map = epl_profiles_by_address;
 		}
-		g_log(NULL, G_LOG_LEVEL_INFO, "Loading %s\n", profile->path);
+		ws_log(NULL, LOG_LEVEL_INFO, "Loading %s\n", profile->path);
 	}
 }
 

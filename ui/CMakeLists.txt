@@ -17,7 +17,6 @@ set(NONGENERATED_UI_SRC
 	console.c
 	decode_as_utils.c
 	dissect_opts.c
-	export_object_ui.c
 	export_pdu_ui_utils.c
 	help_url.c
 	failure_message.c
@@ -79,28 +78,41 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-
 add_library(ui STATIC ${UI_SRC})
 
-set_target_properties(ui PROPERTIES
+target_link_libraries(ui
+	PRIVATE
+		caputils
+		wsutil
+		${GCRYPT_LIBRARIES}
+	)
+
+target_include_directories(ui
+	SYSTEM PRIVATE
+		${GCRYPT_INCLUDE_DIRS}
+		${GNUTLS_INCLUDE_DIRS}
+		${WINSPARKLE_INCLUDE_DIRS}
+)
+
+add_library(version_info STATIC version_info.c)
+
+if(NOT VCSVERSION_OVERRIDE)
+	add_dependencies(version_info vcs_version)
+endif()
+
+target_link_libraries(version_info PRIVATE ${ZLIB_LIBRARIES})
+
+target_include_directories(version_info SYSTEM PRIVATE ${ZLIB_INCLUDE_DIRS})
+
+set_target_properties(ui version_info PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"
 	FOLDER "UI"
 )
 if(MSVC)
-	set_target_properties(ui PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+	set_target_properties(ui version_info PROPERTIES
+		LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}"
+	)
 endif()
-
-target_link_libraries(ui wsutil caputils)
-
-if (HTML_HELP_COMPILER)
-	add_definitions(-DHHC_DIR)
-	target_link_libraries(ui Htmlhelp.lib)
-endif()
-
-target_include_directories(ui SYSTEM
-	PRIVATE
-		${WINSPARKLE_INCLUDE_DIRS}
-)
 
 add_definitions(-DDOC_DIR="${CMAKE_INSTALL_FULL_DOCDIR}")
 

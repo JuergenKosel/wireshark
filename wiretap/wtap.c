@@ -19,6 +19,8 @@
 #include "file_wrappers.h"
 #include <wsutil/file_util.h>
 #include <wsutil/buffer.h>
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
@@ -39,7 +41,7 @@ wtap_register_plugin(const wtap_plugin *plug)
 void
 wtap_register_plugin(const wtap_plugin *plug _U_)
 {
-	g_warning("wtap_register_plugin: built without support for binary plugins");
+	ws_warning("wtap_register_plugin: built without support for binary plugins");
 }
 #endif /* HAVE_PLUGINS */
 
@@ -209,9 +211,9 @@ wtap_add_generated_idb(wtap *wth)
 	wtapng_if_descr_mandatory_t *if_descr_mand;
 	int snaplen;
 
-	g_assert(wth->file_encap != WTAP_ENCAP_UNKNOWN &&
+	ws_assert(wth->file_encap != WTAP_ENCAP_UNKNOWN &&
 	    wth->file_encap != WTAP_ENCAP_PER_PACKET);
-	g_assert(wth->file_tsprec != WTAP_TSPREC_UNKNOWN &&
+	ws_assert(wth->file_tsprec != WTAP_TSPREC_UNKNOWN &&
 	    wth->file_tsprec != WTAP_TSPREC_PER_PACKET);
 
 	idb = wtap_block_create(WTAP_BLOCK_IF_ID_AND_INFO);
@@ -257,7 +259,7 @@ wtap_add_generated_idb(wtap *wth)
 		/*
 		 * Don't do this.
 		 */
-		g_assert_not_reached();
+		ws_assert_not_reached();
 		break;
 	}
 	snaplen = wth->snapshot_length;
@@ -316,7 +318,7 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 	guint8 tmp8;
 	if_filter_opt_t if_filter;
 
-	g_assert(if_descr);
+	ws_assert(if_descr);
 
 	if_descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(if_descr);
 	if (wtap_block_get_string_option_value(if_descr, OPT_IDB_NAME, &tmp_content) == WTAP_OPTTYPE_SUCCESS) {
@@ -326,7 +328,7 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 				line_end);
 	}
 
-	if (wtap_block_get_string_option_value(if_descr, OPT_IDB_DESCR, &tmp_content) == WTAP_OPTTYPE_SUCCESS) {
+	if (wtap_block_get_string_option_value(if_descr, OPT_IDB_DESCRIPTION, &tmp_content) == WTAP_OPTTYPE_SUCCESS) {
 		g_string_append_printf(info,
 				"%*cDescription = %s%s", indent, ' ',
 				tmp_content ? tmp_content : "NONE",
@@ -1092,7 +1094,7 @@ static struct encap_type_info encap_table_base[] = {
 	{ "vsock", "Linux vsock" },
 
 	/* WTAP_ENCAP_NORDIC_BLE */
-	{ "nordic_ble", "Nordic BLE Sniffer" },
+	{ "nordic_ble", "nRF Sniffer for Bluetooth LE" },
 
 	/* WTAP_ENCAP_NETMON_NET_NETEVENT */
 	{ "netmon_event", "Network Monitor Network Event" },
@@ -1497,6 +1499,7 @@ wtapng_process_dsb(wtap *wth, wtap_block_t dsb)
 		wth->add_new_secrets(dsb_mand->secrets_type, dsb_mand->secrets_data, dsb_mand->secrets_len);
 }
 
+/* Perform per-packet initialization */
 static void
 wtap_init_rec(wtap *wth, wtap_rec *rec)
 {
@@ -1512,6 +1515,8 @@ wtap_init_rec(wtap *wth, wtap_rec *rec)
 	 */
 	rec->rec_header.packet_header.pkt_encap = wth->file_encap;
 	rec->tsprec = wth->file_tsprec;
+	rec->block = NULL;
+	rec->block_was_modified = FALSE;
 }
 
 gboolean
@@ -1537,6 +1542,13 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 		 */
 		if (*err == 0)
 			*err = file_error(wth->fh, err_info);
+		if (rec->block != NULL) {
+			/*
+			 * Unreference any block created for this record.
+			 */
+			wtap_block_unref(rec->block);
+			rec->block = NULL;
+		}
 		return FALSE;	/* failure */
 	}
 
@@ -1557,7 +1569,7 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 		 * but the read routine didn't set this packet's
 		 * encapsulation type.
 		 */
-		g_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
+		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
 	}
 
 	return TRUE;	/* success */
@@ -1652,23 +1664,33 @@ wtap_read_so_far(wtap *wth)
 	return file_tell_raw(wth->fh);
 }
 
+/* Perform global/initial initialization */
 void
 wtap_rec_init(wtap_rec *rec)
 {
 	memset(rec, 0, sizeof *rec);
 	ws_buffer_init(&rec->options_buf, 0);
+	/* In the future, see if we can create rec->block here once
+	 * and have it be reused like the rest of rec.
+	 * Currently it's recreated for each packet.
+	 */
 }
 
+/* re-initialize record */
+void
+wtap_rec_reset(wtap_rec *rec)
+{
+	wtap_block_unref(rec->block);
+	rec->block = NULL;
+	rec->block_was_modified = FALSE;
+}
+
+/* clean up record metadata */
 void
 wtap_rec_cleanup(wtap_rec *rec)
 {
-	g_free(rec->opt_comment);
-	rec->opt_comment = NULL;
+	wtap_rec_reset(rec);
 	ws_buffer_free(&rec->options_buf);
-	if (rec->packet_verdict != NULL) {
-		g_ptr_array_free(rec->packet_verdict, TRUE);
-		rec->packet_verdict = NULL;
-	}
 }
 
 gboolean
@@ -1682,8 +1704,16 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 
 	*err = 0;
 	*err_info = NULL;
-	if (!wth->subtype_seek_read(wth, seek_off, rec, buf, err, err_info))
+	if (!wth->subtype_seek_read(wth, seek_off, rec, buf, err, err_info)) {
+		if (rec->block != NULL) {
+			/*
+			 * Unreference any block created for this record.
+			 */
+			wtap_block_unref(rec->block);
+			rec->block = NULL;
+		}
 		return FALSE;
+	}
 
 	/*
 	 * Is this a packet record?
@@ -1702,7 +1732,7 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 		 * but the read routine didn't set this packet's
 		 * encapsulation type.
 		 */
-		g_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
+		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
 	}
 
 	return TRUE;

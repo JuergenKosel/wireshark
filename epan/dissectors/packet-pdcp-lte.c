@@ -1700,8 +1700,10 @@ static tvbuff_t *decipher_payload(tvbuff_t *tvb, packet_info *pinfo, int *offset
 
 
 /* Try to calculate digest to compare with that found in frame. */
-static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, guint8 header _U_,
-                                tvbuff_t *tvb _U_, gint offset _U_, gboolean *calculated)
+#if defined(HAVE_SNOW3G) || GCRYPT_VERSION_NUMBER >= 0x010600 /* 1.6.0 */ || defined(HAVE_ZUC)
+/* We can calculate it for at least some integrity types */
+static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, guint8 header,
+                                tvbuff_t *tvb, packet_info *pinfo, gint offset, gboolean *calculated)
 {
     *calculated = FALSE;
 
@@ -1729,7 +1731,7 @@ static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, 
                 /* SNOW3G */
                 guint8  *mac;
                 gint message_length = tvb_captured_length_remaining(tvb, offset) - 4;
-                guint8 *message_data = (guint8 *)wmem_alloc0(wmem_packet_scope(), message_length+5);
+                guint8 *message_data = (guint8 *)wmem_alloc0(pinfo->pool, message_length+5);
 
                 /* TS 33.401 B.2.2 */
 
@@ -1779,7 +1781,7 @@ static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, 
 
                 /* Extract the encrypted data into a buffer */
                 message_length = tvb_captured_length_remaining(tvb, offset) - 4;
-                message_data = (guint8 *)wmem_alloc0(wmem_packet_scope(), message_length+9);
+                message_data = (guint8 *)wmem_alloc0(pinfo->pool, message_length+9);
                 message_data[0] = (pdu_security_settings->count & 0xff000000) >> 24;
                 message_data[1] = (pdu_security_settings->count & 0x00ff0000) >> 16;
                 message_data[2] = (pdu_security_settings->count & 0x0000ff00) >> 8;
@@ -1818,7 +1820,7 @@ static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, 
                 /* ZUC */
                 guint32  mac;
                 gint message_length = tvb_captured_length_remaining(tvb, offset) - 4;
-                guint8 *message_data = (guint8 *)wmem_alloc0(wmem_packet_scope(), message_length+5);
+                guint8 *message_data = (guint8 *)wmem_alloc0(pinfo->pool, message_length+5);
 
                 /* Data is header byte */
                 message_data[0] = header;
@@ -1844,8 +1846,22 @@ static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, 
             return 0;
     }
 }
+#else /* defined(HAVE_SNOW3G) || GCRYPT_VERSION_NUMBER >= 0x010600 || defined(HAVE_ZUC) */
+/* We can't calculate it for any integrity types other than eia0 */
+static guint32 calculate_digest(pdu_security_settings_t *pdu_security_settings, guint8 header _U_,
+                                tvbuff_t *tvb _U_, packet_info *pinfo _U_, gint offset _U_, gboolean *calculated)
+{
+    *calculated = FALSE;
 
+    if (pdu_security_settings->integrity == eia0) {
+        /* Should be zero in this case */
+        *calculated = TRUE;
+    }
 
+    /* Otherwise, we can't calculate it */
+    return 0;
+}
+#endif /* defined(HAVE_SNOW3G) || GCRYPT_VERSION_NUMBER >= 0x010600 || defined(HAVE_ZUC) */
 
 /******************************/
 /* Main dissection function.  */
@@ -2154,7 +2170,7 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                                                 offset, -1, ENC_NA);
                                 bitmap_tree = proto_item_add_subtree(bitmap_ti, ett_pdcp_report_bitmap);
 
-                                buff = (gchar *)wmem_alloc(wmem_packet_scope(), BUFF_SIZE);
+                                buff = (gchar *)wmem_alloc(pinfo->pool, BUFF_SIZE);
                                 len = tvb_reported_length_remaining(tvb, offset);
                                 bit_offset = offset<<3;
 
@@ -2405,7 +2421,7 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         /* Try to calculate digest so we can check it */
         if (global_pdcp_check_integrity && (p_pdcp_info->channelType == Channel_DCCH)) {
             calculated_digest = calculate_digest(&pdu_security_settings, tvb_get_guint8(tvb, 0), payload_tvb,
-                                                 offset, &digest_was_calculated);
+                                                 pinfo, offset, &digest_was_calculated);
         }
 
         /* RRC data is all but last 4 bytes.
@@ -2714,7 +2730,7 @@ void proto_register_pdcp(void)
         },
         { &hf_pdcp_lte_seq_num_18,
             { "Seq Num",
-              "pdcp-lte.seq-num", FT_UINT24, BASE_DEC, NULL, 0x3ffff,
+              "pdcp-lte.seq-num", FT_UINT24, BASE_DEC, NULL, 0x03ffff,
               "PDCP Seq num", HFILL
             }
         },
@@ -2762,7 +2778,7 @@ void proto_register_pdcp(void)
         },
         { &hf_pdcp_lte_fms2,
             { "First Missing Sequence Number",
-              "pdcp-lte.fms", FT_UINT16, BASE_DEC, NULL, 0x07fff,
+              "pdcp-lte.fms", FT_UINT16, BASE_DEC, NULL, 0x7fff,
               "First Missing PDCP Sequence Number", HFILL
             }
         },

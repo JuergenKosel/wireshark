@@ -4528,7 +4528,7 @@ dissect_artnet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
   artnet_header_tree = proto_item_add_subtree(hi, ett_artnet);
 
   proto_tree_add_item_ret_string(artnet_header_tree, hf_artnet_header_id,
-                        tvb, offset, 8, ENC_ASCII|ENC_NA, wmem_packet_scope(), &header);
+                        tvb, offset, 8, ENC_ASCII|ENC_NA, pinfo->pool, &header);
   col_append_str(pinfo->cinfo, COL_INFO, header);
   offset += 8;
 
@@ -5511,7 +5511,7 @@ proto_register_artnet(void) {
     { &hf_artnet_poll_reply_good_input_dmx_text,
       { "DMX text packets supported",
         "artnet.poll_reply.good_input_dmx_text",
-        FT_UINT8, BASE_HEX, NULL, 0x010,
+        FT_UINT8, BASE_HEX, NULL, 0x10,
         NULL, HFILL }},
 
     { &hf_artnet_poll_reply_good_input_dmx_sip,

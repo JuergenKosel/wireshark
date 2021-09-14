@@ -4367,7 +4367,7 @@ save_handle(packet_info *pinfo, bluetooth_uuid_t uuid, guint32 handle,
     if (have_tap_listener(btatt_tap_handles)) {
         tap_handles_t  *tap_handles;
 
-        tap_handles = wmem_new(wmem_packet_scope(), tap_handles_t);
+        tap_handles = wmem_new(pinfo->pool, tap_handles_t);
         tap_handles->handle = handle;
         tap_handles->uuid = uuid;
         tap_queue_packet(btatt_tap_handles, pinfo, tap_handles);
@@ -5226,7 +5226,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
 
         characteristic_uuid = get_characteristic_uuid_from_handle(pinfo, handle, bluetooth_data);
 
-        characteristic_dissector_name = wmem_strdup_printf(wmem_packet_scope(), "btgatt.uuid0x%s", print_numeric_uuid(&characteristic_uuid));
+        characteristic_dissector_name = wmem_strdup_printf(pinfo->pool, "btgatt.uuid0x%s", print_numeric_uuid(&characteristic_uuid));
         characteristic_dissector = find_dissector(characteristic_dissector_name);
 
         sub_item = proto_tree_add_item(tree, hf_btatt_valid_range_lower_inclusive_value, tvb, offset, tvb_reported_length_remaining(tvb, offset) / 2, ENC_NA);
@@ -10537,7 +10537,7 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
     case 0x2ADE: /* Mesh Proxy Data Out */
         if (btmesh_proxy_handle) {
             btle_mesh_proxy_ctx_t *proxy_ctx;
-            proxy_ctx = wmem_new0(wmem_packet_scope(), btle_mesh_proxy_ctx_t);
+            proxy_ctx = wmem_new0(pinfo->pool, btle_mesh_proxy_ctx_t);
 
             if (bluetooth_data) {
                 proxy_ctx->interface_id = bluetooth_data->interface_id;
@@ -13860,7 +13860,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_weight_scale_feature_weight_measurement_resolution,
             {"Mass Measurement Resolution", "btatt.weight_scale_feature.weight_measurement_resolution",
-            FT_UINT32, BASE_HEX, VALS(weight_scale_feature_weight_measurement_resolution_vals), 0x000000078,
+            FT_UINT32, BASE_HEX, VALS(weight_scale_feature_weight_measurement_resolution_vals), 0x00000078,
             NULL, HFILL}
         },
         {&hf_btatt_weight_scale_feature_bmi,
@@ -14905,7 +14905,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_cycling_power_measurement_extreme_angles,
             {"Extreme Angles", "btatt.cycling_power_measurement.extreme_angles",
-            FT_NONE, BASE_NONE, NULL, 0x0,
+            FT_UINT24, BASE_HEX, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cycling_power_measurement_extreme_angles_maximum,

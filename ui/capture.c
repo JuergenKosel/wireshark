@@ -9,6 +9,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_CAPTURE
 
 #ifdef HAVE_LIBPCAP
 
@@ -29,7 +30,6 @@
 #include "ui/util.h"
 #include "ui/urls.h"
 #include "capture/capture-pcap-util.h"
-#include <epan/prefs.h>
 
 #ifdef _WIN32
 #include "capture/capture-wpcap.h"
@@ -41,7 +41,8 @@
 #include "wsutil/file_util.h"
 #include "wsutil/str_util.h"
 #include <wsutil/filesystem.h>
-#include "log.h"
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 
 typedef struct if_stat_cache_item_s {
     char *name;
@@ -69,7 +70,7 @@ capture_callback_invoke(int event, capture_session *cap_session)
     GList *cb_item = capture_callbacks;
 
     /* there should be at least one interested */
-    g_assert(cb_item != NULL);
+    ws_assert(cb_item != NULL);
 
     while(cb_item != NULL) {
         cb = (capture_callback_data_t *)cb_item->data;
@@ -107,7 +108,7 @@ capture_callback_remove(capture_callback_t func, gpointer user_data)
         cb_item = g_list_next(cb_item);
     }
 
-    g_assert_not_reached();
+    ws_assert_not_reached();
 }
 
 /**
@@ -116,25 +117,28 @@ capture_callback_remove(capture_callback_t func, gpointer user_data)
  * @return TRUE if the capture starts successfully, FALSE otherwise.
  */
 gboolean
-capture_start(capture_options *capture_opts, capture_session *cap_session, info_data_t* cap_data, void(*update_cb)(void))
+capture_start(capture_options *capture_opts, GPtrArray *capture_comments,
+              capture_session *cap_session, info_data_t* cap_data,
+              void(*update_cb)(void))
 {
     GString *source;
 
     cap_session->state = CAPTURE_PREPARING;
     cap_session->count = 0;
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture Start ...");
+    ws_message("Capture Start ...");
     source = get_iface_list_string(capture_opts, IFLIST_SHOW_FILTER);
     cf_set_tempfile_source((capture_file *)cap_session->cf, source->str);
     g_string_free(source, TRUE);
     /* try to start the capture child process */
-    if (!sync_pipe_start(capture_opts, cap_session, cap_data, update_cb)) {
+    if (!sync_pipe_start(capture_opts, capture_comments, cap_session,
+                         cap_data, update_cb)) {
         /* We failed to start the capture child. */
         if(capture_opts->save_file != NULL) {
             g_free(capture_opts->save_file);
             capture_opts->save_file = NULL;
         }
 
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture Start failed.");
+        ws_message("Capture Start failed.");
         cap_session->state = CAPTURE_STOPPED;
         return FALSE;
     }
@@ -174,7 +178,7 @@ capture_start(capture_options *capture_opts, capture_session *cap_session, info_
 void
 capture_stop(capture_session *cap_session)
 {
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture Stop ...");
+    ws_message("Capture Stop ...");
 
     capture_callback_invoke(capture_cb_capture_stopping, cap_session);
 
@@ -186,7 +190,7 @@ capture_stop(capture_session *cap_session)
 void
 capture_kill_child(capture_session *cap_session)
 {
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "Capture Kill");
+    ws_info("Capture Kill");
 
     /* kill the capture child */
     sync_pipe_kill(cap_session->fork_child);
@@ -379,11 +383,11 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
     gchar *err_msg;
 
     if(cap_session->state == CAPTURE_PREPARING) {
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture started");
+        ws_message("Capture started");
     }
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "File: \"%s\"", new_file);
+    ws_message("File: \"%s\"", new_file);
 
-    g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
+    ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
     /* free the old filename */
     if(capture_opts->save_file != NULL) {
@@ -438,7 +442,7 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
         if (!cap_session->wtap) {
             err_msg = g_strdup_printf(cf_open_error_message(err, err_info),
                                       new_file);
-            g_warning("capture_input_new_file: %d (%s)", err, err_msg);
+            ws_warning("capture_input_new_file: %d (%s)", err, err_msg);
             g_free(err_msg);
             return FALSE;
         }
@@ -481,7 +485,7 @@ capture_info_new_packets(int to_read, wtap *wth, info_data_t* cap_info)
 
     cap_info->ui.new_packets = to_read;
 
-    /*g_warning("new packets: %u", to_read);*/
+    /*ws_warning("new packets: %u", to_read);*/
 
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1514);
@@ -497,9 +501,10 @@ capture_info_new_packets(int to_read, wtap *wth, info_data_t* cap_info)
                     rec.rec_header.packet_header.caplen,
                     pseudo_header);
 
-                /*g_warning("new packet");*/
+                /*ws_warning("new packet");*/
                 to_read--;
             }
+            wtap_rec_reset(&rec);
         }
     }
     wtap_rec_cleanup(&rec);
@@ -515,7 +520,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
     capture_options *capture_opts = cap_session->capture_opts;
     int  err;
 
-    g_assert(capture_opts->save_file);
+    ws_assert(capture_opts->save_file);
 
     if(capture_opts->real_time_mode) {
         /* Read from the capture file the number of records the child told us it added. */
@@ -555,12 +560,12 @@ static void
 capture_input_drops(capture_session *cap_session, guint32 dropped, const char* interface_name)
 {
     if (interface_name != NULL) {
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "%u packet%s dropped from %s", dropped, plurality(dropped, "", "s"), interface_name);
+        ws_info("%u packet%s dropped from %s", dropped, plurality(dropped, "", "s"), interface_name);
     } else {
-        g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_INFO, "%u packet%s dropped", dropped, plurality(dropped, "", "s"));
+        ws_info("%u packet%s dropped", dropped, plurality(dropped, "", "s"));
     }
 
-    g_assert(cap_session->state == CAPTURE_RUNNING);
+    ws_assert(cap_session->state == CAPTURE_RUNNING);
 
     cf_set_drops_known((capture_file *)cap_session->cf, TRUE);
     cf_set_drops((capture_file *)cap_session->cf, dropped);
@@ -574,16 +579,15 @@ capture_input_drops(capture_session *cap_session, guint32 dropped, const char* i
    The secondary message might be a null string.
  */
 static void
-capture_input_error(capture_session *cap_session, char *error_msg,
+capture_input_error(capture_session *cap_session _U_, char *error_msg,
                     char *secondary_error_msg)
 {
     gchar *safe_error_msg;
     gchar *safe_secondary_error_msg;
 
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Error message from child: \"%s\", \"%s\"",
-            error_msg, secondary_error_msg);
+    ws_message("Error message from child: \"%s\", \"%s\"", error_msg, secondary_error_msg);
 
-    g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
+    ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
     safe_error_msg = simple_dialog_format_message(error_msg);
     if (*secondary_error_msg != '\0') {
@@ -618,10 +622,10 @@ capture_input_cfilter_error(capture_session *cap_session, guint i,
     gchar *safe_cfilter_error_msg;
     interface_options *interface_opts;
 
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture filter error message from child: \"%s\"", error_message);
+    ws_message("Capture filter error message from child: \"%s\"", error_message);
 
-    g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
-    g_assert(i < capture_opts->ifaces->len);
+    ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
+    ws_assert(i < capture_opts->ifaces->len);
 
     interface_opts = &g_array_index(capture_opts->ifaces, interface_options, i);
     safe_cfilter = simple_dialog_format_message(interface_opts->cfilter);
@@ -665,8 +669,8 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
     capture_options *capture_opts = cap_session->capture_opts;
     int  err;
 
-    g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_MESSAGE, "Capture stopped.");
-    g_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
+    ws_message("Capture stopped.");
+    ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
     if (msg != NULL)
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", msg);
@@ -823,7 +827,7 @@ capture_stat_start(capture_options *capture_opts)
             device = &g_array_index(capture_opts->all_ifaces, interface_t, i);
             if (device->type != IF_PIPE) {
                 sc_item = g_new0(if_stat_cache_item_t, 1);
-                g_assert(device->if_info.name);
+                ws_assert(device->if_info.name);
                 sc_item->name = g_strdup(device->if_info.name);
                 sc->cache_list = g_list_prepend(sc->cache_list, sc_item);
             }

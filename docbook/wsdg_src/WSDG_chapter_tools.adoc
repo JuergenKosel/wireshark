@@ -287,9 +287,6 @@ compiler (MSVC), you'll need:
 
 . Windows platform headers and libraries (e.g.
 _windows.h_, _WS2_32.lib_)
-+
-// Can we drop support for CHM?
-. HTML help headers and libraries (_htmlhelp.h_, _htmlhelp.lib_)
 
 ==== Official Toolchain Packages And Alternatives
 
@@ -411,8 +408,8 @@ lawyer instead. It’s the authors view and this view might be wrong.
 
 Wireshark and its libraries depend on POSIX functions such as fopen()
 and malloc(). On Windows, these functions are provided by the Microsoft
-Visual {cpp} Runtime. There are many different versions of the CRT and
-Visual {cpp} 2015 and later use the _Universal CRT_.
+Visual {cpp} C Runtime (CRT). There are many different versions of the CRT and
+Visual {cpp} 2015 and later use the _Universal CRT_ (UCRT).
 
 The Universal CRT comes standard with Windows 10 and is installed as part
 of Windows Update on earlier versions of Windows. The Wireshark .exe
@@ -469,31 +466,27 @@ Man page HTML:: pod2html
 
 Guide HTML:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL
 Guide PDF:: Asciidoctor
-Guide HTML Help:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL → HHC
 
 Release notes HTML:: Asciidoctor
 Release notes text:: Asciidoctor → _HTML_ → html2text.py
 
 ==== Asciidoctor
 
-https://asciidoctor.org/[Asciidoctor] comes in several flavors: a Ruby
-gem (Asciidoctor), a Java bundle (AsciidoctorJ), and transpiled
-JavaScript (Asciidoctor.js). Only the Asciidoctor and AsciidoctorJ
-flavors are supported for building the Wireshark documentation and
-AsciidoctorJ is recommended.
+https://asciidoctor.org/[Asciidoctor] comes in several flavors: a Ruby gem (Asciidoctor), a Java bundle (AsciidoctorJ), and transpiled JavaScript (Asciidoctor.js).
+Any of them can be used to build Wireshark’s documentation.
 
 The guides and release notes were originally written in DocBook (hence the directory name).
 They were later converted to AsciiDoc and then migrated to Asciidoctor.
 We currently use Asciidoctor’s modern (>= 1.5.0) syntax.
 
-PDF output requires Asciidoctor PDF. It is included with AsciidoctorJ
-but _not_ with Asciidoctor.
+PDF output requires Asciidoctor’s PDF backend.
+It is included with AsciidoctorJ and Asciidoctor.js but _not_ with Asciidoctor.
 
 ==== DocBook XML and XSL
 
-Converting from DocBook to HTML and CHM requires the DocBook DTD
-(http://www.sagehill.net/docbookxsl/ToolsSetup.html) and DocBook
-stylesheets
+Converting from DocBook to HTML requires the DocBook DTD
+(http://www.sagehill.net/docbookxsl/ToolsSetup.html)
+and DocBook stylesheets
 (http://www.sagehill.net/docbookxsl/InstallStylesheets.html).
 These are available via installable packages on most Linux distributions, Chocolatey, and Homebrew.
 
@@ -501,25 +494,6 @@ These are available via installable packages on most Linux distributions, Chocol
 
 http://xmlsoft.org/xslt/[xsltproc] converts DocBook XML to various formats based on XSL stylesheets.
 It either ships as part of the operating system or is available via an installable package on most Linux distributions, Chocolatey, and Homebrew.
-
-==== HTML Help
-
-HTML Help is used to create the User’s and Developer’s Guide in .chm format.
-The User’s Guide .chm file is included with the NSIS and WiX installers and
-is used as Wireshark's built-in help on Windows.
-
-This compiler is used to generate a .chm file from a bunch of HTML files -- in
-our case to generate the User’s and Developer’s Guide in .chm format.
-
-The compiler is only available as the free (as in beer) "HTML Help Workshop"
-download. If you want to compile the guides yourself, you need to download and
-install this. If you don't install it into the default directory, you may also
-have a look at the HHC_DIR setting in the file docbook/Makefile.
-
-The files `htmlhelp.c` and `htmlhelp.lib` are required to
-be able to open .chm files from Wireshark and show the
-online help. Both files are part of the SDK (standalone (P)SDK or MSVC
-since 2002).
 
 [[ChToolsDebugger]]
 
@@ -650,7 +624,7 @@ You can also use Chocolatey to install Python:
 
 [source,cmd]
 ----
-PS:\> choco install Python3
+PS:\> choco install python3
 ----
 
 Chocolatey installs Python into _C:\Python37_ by
@@ -740,13 +714,13 @@ straightforward.
 You may also use Chocolatey to install either package:
 
 ----
-PS:\> choco install StrawberryPerl
+PS:\> choco install strawberryperl
 ----
 
 or
 
 ----
-PS:\> choco install ActivePerl
+PS:\> choco install activeperl
 ----
 
 After correct installation, typing at the command
@@ -1012,7 +986,8 @@ Wireshark’s .msi packaging is currently experimental and the generated package
 === Windows: PortableApps (Optional)
 
 The PortableApps.com Installer is used to generate
-_WiresharkPortable-{wireshark-version}.paf.exe_ from all the files
+_WiresharkPortable64-{wireshark-version}.paf.exe_ and
+_WiresharkPortable32-{wireshark-version}.paf.exe_ from all the files
 needed to be installed, including all required DLLs, plugins, and supporting
 files.
 
@@ -1026,10 +1001,6 @@ To install it, do the following:
 ** PortableApps.com Installer
 
 ** PortableApps.com Launcher
-
-** NSIS Portable (Unicode)
-
-** PortableApps.com AppCompactor
 
 You can find more instructions on using the PortableApps.com Installer in
 <<ChSrcPortableApps>>.

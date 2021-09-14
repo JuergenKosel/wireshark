@@ -65,22 +65,25 @@ FindWSLibrary( GLIB2_LIBRARY
 		/usr/lib
 )
 
-# search the glibconfig.h include dir under the same root where the library is found
-get_filename_component( glib2LibDir "${GLIB2_LIBRARY}" PATH)
+if (WIN32)
+	# In the Windows vcpkg port glibconfig.h is in
+	# installed/$ARCH-windows/lib/glib-2.0/include.
+	set( glib2LibDir "${GLIB2_HINTS}/lib" )
+else()
+	# On UNIX and UNIX-like platforms, the glibconfig.h include dir
+	# should be in glib-2.0/include in the library directory.
+	get_filename_component( glib2LibDir "${GLIB2_LIBRARY}" PATH)
+endif()
 
 find_path( GLIB2_INTERNAL_INCLUDE_DIR
 	NAMES
 		glibconfig.h
 	HINTS
-		"${GLIB2_INCLUDEDIR}"
-		"${GLIB2_HINTS}/include"
 		"${glib2LibDir}"
+		"${GLIB2_INCLUDEDIR}"
 		${CMAKE_SYSTEM_LIBRARY_PATH}
 	PATH_SUFFIXES
 		glib-2.0/include
-	PATHS
-		${GLIB2_LIBRARY}
-
 )
 
 if(PC_GLIB2_VERSION)
@@ -128,16 +131,16 @@ if( GLIB2_FOUND )
 
 		# GTK+ required GObject and GIO. We probably don't.
 		file( GLOB _glib2_dlls_release RELATIVE "${GLIB2_DLL_DIR_RELEASE}"
-			# "${GLIB2_DLL_DIR_RELEASE}/gio-2.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/glib-2.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/gmodule-2.dll"
-			# "${GLIB2_DLL_DIR_RELEASE}/gobject-2.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/gthread-2.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/libcharset.dll"
+			# "${GLIB2_DLL_DIR_RELEASE}/gio-2.0-0.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/glib-2.0-0.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/gmodule-2.0-0.dll"
+			# "${GLIB2_DLL_DIR_RELEASE}/gobject-2.0-0.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/gthread-2.0-0.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/charset-1.dll"
 			# gnutls-3.6.3-1-win64ws ships with libffi-6.dll
 			# "${GLIB2_DLL_DIR_RELEASE}/libffi.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/libiconv.dll"
-			"${GLIB2_DLL_DIR_RELEASE}/libintl.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/iconv-2.dll"
+			"${GLIB2_DLL_DIR_RELEASE}/intl-8.dll"
 			"${GLIB2_DLL_DIR_RELEASE}/pcre.dll"
 			# "${GLIB2_DLL_DIR_RELEASE}/pcre16.dll"
 			# "${GLIB2_DLL_DIR_RELEASE}/pcre32.dll"
@@ -149,16 +152,16 @@ if( GLIB2_FOUND )
 			CACHE FILEPATH "GLib 2 release DLL list"
 		)
 		file( GLOB _glib2_dlls_debug RELATIVE "${GLIB2_DLL_DIR_DEBUG}"
-			# "${GLIB2_DLL_DIR_DEBUG}/gio-2.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/glib-2.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/gmodule-2.dll"
-			# "${GLIB2_DLL_DIR_DEBUG}/gobject-2.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/gthread-2.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/libcharset.dll"
+			# "${GLIB2_DLL_DIR_DEBUG}/gio-2.0-0.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/glib-2.0-0.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/gmodule-2.0-0.dll"
+			# "${GLIB2_DLL_DIR_DEBUG}/gobject-2.0-0.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/gthread-2.0-0.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/charset-1.dll"
 			# gnutls-3.6.3-1-win64ws ships with libffi-6.dll
 			# "${GLIB2_DLL_DIR_DEBUG}/libffi.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/libiconv.dll"
-			"${GLIB2_DLL_DIR_DEBUG}/libintl.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/iconv-2.dll"
+			"${GLIB2_DLL_DIR_DEBUG}/intl-8.dll"
 			"${GLIB2_DLL_DIR_DEBUG}/pcred.dll"
 			# "${GLIB2_DLL_DIR_DEBUG}/pcre16d.dll"
 			# "${GLIB2_DLL_DIR_DEBUG}/pcre32d.dll"
@@ -171,25 +174,25 @@ if( GLIB2_FOUND )
 		)
 
 		file( GLOB _glib2_pdbs_release RELATIVE "${GLIB2_DLL_DIR_RELEASE}"
-			"${GLIB2_DLL_DIR_RELEASE}/glib-2.pdb"
-			"${GLIB2_DLL_DIR_RELEASE}/gmodule-2.pdb"
-			"${GLIB2_DLL_DIR_RELEASE}/gthread-2.pdb"
-			"${GLIB2_DLL_DIR_RELEASE}/libcharset.pdb"
-			"${GLIB2_DLL_DIR_RELEASE}/libiconv.pdb"
-			"${GLIB2_DLL_DIR_RELEASE}/libintl.pdb"
+			"${GLIB2_DLL_DIR_RELEASE}/glib-2.0-0.pdb"
+			"${GLIB2_DLL_DIR_RELEASE}/gmodule-2.0-0.pdb"
+			"${GLIB2_DLL_DIR_RELEASE}/gthread-2.0-0.pdb"
+			# "${GLIB2_DLL_DIR_RELEASE}/libcharset.pdb"
+			# "${GLIB2_DLL_DIR_RELEASE}/libiconv.pdb"
+			# "${GLIB2_DLL_DIR_RELEASE}/libintl.pdb"
 			"${GLIB2_DLL_DIR_RELEASE}/pcre.pdb"
 		)
 		set ( GLIB2_PDBS_RELEASE ${_glib2_pdbs_release}
 			CACHE FILEPATH "GLib2 debug release PDB list"
 		)
 		file( GLOB _glib2_pdbs_debug RELATIVE "${GLIB2_DLL_DIR_DEBUG}"
-			"${GLIB2_DLL_DIR_DEBUG}/glib-2.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/gmodule-2.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/gthread-2.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/libcharset.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/libiconv.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/libintl.pdb"
-			"${GLIB2_DLL_DIR_DEBUG}/pcred.pdb"
+			"${GLIB2_DLL_DIR_DEBUG}/glib-2.0-0.pdb"
+			"${GLIB2_DLL_DIR_DEBUG}/gmodule-2.0-0.pdb"
+			"${GLIB2_DLL_DIR_DEBUG}/gthread-2.0-0.pdb"
+			# "${GLIB2_DLL_DIR_DEBUG}/libcharset.pdb"
+			# "${GLIB2_DLL_DIR_DEBUG}/libiconv.pdb"
+			# "${GLIB2_DLL_DIR_DEBUG}/libintl.pdb"
+			"${GLIB2_DLL_DIR_DEBUG}/pcre.pdb"
 		)
 		set ( GLIB2_PDBS_DEBUG ${_glib2_pdbs_debug}
 			CACHE FILEPATH "GLib2 debug debug PDB list"

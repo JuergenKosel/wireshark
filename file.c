@@ -9,6 +9,7 @@
  */
 
 #include <config.h>
+#define WS_LOG_DOMAIN LOG_DOMAIN_CAPTURE
 
 #include <time.h>
 
@@ -21,7 +22,9 @@
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/json_dumper.h>
-#include <version_info.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
+#include <ui/version_info.h>
 
 #include <wiretap/merge.h>
 
@@ -107,7 +110,6 @@ static gboolean find_packet(capture_file *cf, ws_match_function match_function,
     void *criterion, search_direction dir);
 
 static void cf_rename_failure_alert_box(const char *filename, int err);
-static void ref_time_packets(capture_file *cf);
 
 /* Seconds spent processing packets between pushing UI updates. */
 #define PROGBAR_UPDATE_INTERVAL 0.150
@@ -151,7 +153,7 @@ cf_callback_invoke(int event, gpointer data)
   GList              *cb_item = cf_callbacks;
 
   /* there should be at least one interested */
-  g_assert(cb_item != NULL);
+  ws_assert(cb_item != NULL);
 
   while (cb_item != NULL) {
     cb = (cf_callback_data_t *)cb_item->data;
@@ -189,7 +191,7 @@ cf_callback_remove(cf_callback_t func, gpointer user_data)
     cb_item = g_list_next(cb_item);
   }
 
-  g_assert_not_reached();
+  ws_assert_not_reached();
 }
 
 void
@@ -249,7 +251,7 @@ ws_epan_new(capture_file *cf)
     ws_get_frame_ts,
     cap_file_provider_get_interface_name,
     cap_file_provider_get_interface_description,
-    cap_file_provider_get_user_comment
+    cap_file_provider_get_modified_block
   };
 
   return epan_new(&cf->provider, &funcs);
@@ -361,8 +363,8 @@ cf_close(capture_file *cf)
     return; /* Nothing to do */
 
   /* Die if we're in the middle of reading a file. */
-  g_assert(cf->state != FILE_READ_IN_PROGRESS);
-  g_assert(!cf->read_lock);
+  ws_assert(cf->state != FILE_READ_IN_PROGRESS);
+  ws_assert(!cf->read_lock);
 
   cf_callback_invoke(cf_cb_file_closing, cf);
 
@@ -404,9 +406,9 @@ cf_close(capture_file *cf)
     free_frame_data_sequence(cf->provider.frames);
     cf->provider.frames = NULL;
   }
-  if (cf->provider.frames_user_comments) {
-    g_tree_destroy(cf->provider.frames_user_comments);
-    cf->provider.frames_user_comments = NULL;
+  if (cf->provider.frames_modified_blocks) {
+    g_tree_destroy(cf->provider.frames_modified_blocks);
+    cf->provider.frames_modified_blocks = NULL;
   }
   cf_unselect_packet(cf);   /* nothing to select */
   cf->first_displayed = 0;
@@ -506,7 +508,7 @@ cf_read(capture_file *cf, gboolean reloading)
   column_info         *cinfo;
   volatile gboolean    create_proto_tree;
   guint                tap_flags;
-  gboolean             compiled;
+  gboolean             compiled _U_;
   volatile gboolean    is_read_aborted = FALSE;
 
   /* The update_progress_dlg call below might end up accepting a user request to
@@ -515,7 +517,7 @@ cf_read(capture_file *cf, gboolean reloading)
    * case it occurs let's fail gracefully.
    */
   if (cf->read_lock) {
-    g_warning("Failing due to recursive cf_read(\"%s\", %d) call!",
+    ws_warning("Failing due to recursive cf_read(\"%s\", %d) call!",
               cf->filename, reloading);
     return CF_READ_ERROR;
   }
@@ -526,7 +528,7 @@ cf_read(capture_file *cf, gboolean reloading)
    * cf_filter IFF the filter was valid.
    */
   compiled = dfilter_compile(cf->dfilter, &dfcode, NULL);
-  g_assert(!cf->dfilter || (compiled && dfcode));
+  ws_assert(!cf->dfilter || (compiled && dfcode));
 
   /* Get the union of the flags for all tap listeners. */
   tap_flags = union_of_tap_listener_flags();
@@ -630,7 +632,7 @@ cf_read(capture_file *cf, gboolean reloading)
          * session. If that did happen, it could blow up when read_record tries
          * to use the destroyed edt.session, so detect it right here.
          */
-        g_assert(edt.session == cf->epan);
+        ws_assert(edt.session == cf->epan);
       }
 
       if (cf->state == FILE_READ_ABORTED) {
@@ -650,6 +652,7 @@ cf_read(capture_file *cf, gboolean reloading)
         break;
       }
       read_record(cf, &rec, &buf, dfcode, &edt, cinfo, data_offset);
+      wtap_rec_reset(&rec);
     }
   }
   CATCH(OutOfMemoryError) {
@@ -716,7 +719,7 @@ cf_read(capture_file *cf, gboolean reloading)
   }
 
   /* It is safe again to execute redissections. */
-  g_assert(cf->read_lock);
+  ws_assert(cf->read_lock);
   cf->read_lock = FALSE;
 
   if (is_read_aborted) {
@@ -779,14 +782,14 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
   epan_dissect_t    edt;
   gboolean          create_proto_tree;
   guint             tap_flags;
-  gboolean          compiled;
+  gboolean          compiled _U_;
 
   /* Compile the current display filter.
    * We assume this will not fail since cf->dfilter is only set in
    * cf_filter IFF the filter was valid.
    */
   compiled = dfilter_compile(cf->dfilter, &dfcode, NULL);
-  g_assert(!cf->dfilter || (compiled && dfcode));
+  ws_assert(!cf->dfilter || (compiled && dfcode));
 
   /* Get the union of the flags for all tap listeners. */
   tap_flags = union_of_tap_listener_flags();
@@ -812,8 +815,6 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
 
   /* Don't freeze/thaw the list when doing live capture */
   /*packet_list_freeze();*/
-
-  /*g_log(NULL, G_LOG_LEVEL_MESSAGE, "cf_continue_tail: %u new: %u", cf->count, to_read);*/
 
   epan_dissect_init(&edt, cf->epan, create_proto_tree, FALSE);
 
@@ -841,6 +842,7 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
       }
       to_read--;
     }
+    wtap_rec_reset(rec);
   }
   CATCH(OutOfMemoryError) {
     simple_message_box(ESD_TYPE_ERROR, NULL,
@@ -866,9 +868,6 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
 
   epan_dissect_cleanup(&edt);
 
-  /*g_log(NULL, G_LOG_LEVEL_MESSAGE, "cf_continue_tail: count %u state: %u err: %u",
-    cf->count, cf->state, *err);*/
-
   /* Don't freeze/thaw the list when doing live capture */
   /*packet_list_thaw();*/
   /* With the new packet list the first packet
@@ -893,11 +892,11 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
     /* We got an error reading the capture file.
        XXX - pop up a dialog box instead? */
     if (err_info != NULL) {
-      g_warning("Error \"%s\" while reading \"%s\" (\"%s\")",
+      ws_warning("Error \"%s\" while reading \"%s\" (\"%s\")",
                 wtap_strerror(*err), cf->filename, err_info);
       g_free(err_info);
     } else {
-      g_warning("Error \"%s\" while reading \"%s\"",
+      ws_warning("Error \"%s\" while reading \"%s\"",
                 wtap_strerror(*err), cf->filename);
     }
     return CF_READ_ERROR;
@@ -920,14 +919,14 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
   epan_dissect_t edt;
   gboolean   create_proto_tree;
   guint      tap_flags;
-  gboolean   compiled;
+  gboolean   compiled _U_;
 
   /* Compile the current display filter.
    * We assume this will not fail since cf->dfilter is only set in
    * cf_filter IFF the filter was valid.
    */
   compiled = dfilter_compile(cf->dfilter, &dfcode, NULL);
-  g_assert(!cf->dfilter || (compiled && dfcode));
+  ws_assert(!cf->dfilter || (compiled && dfcode));
 
   /* Get the union of the flags for all tap listeners. */
   tap_flags = union_of_tap_listener_flags();
@@ -970,6 +969,7 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
       break;
     }
     read_record(cf, rec, buf, dfcode, &edt, cinfo, data_offset);
+    wtap_rec_reset(rec);
   }
 
   /* Cleanup and release all dfilter resources */
@@ -1013,11 +1013,11 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
     /* We got an error reading the capture file.
        XXX - pop up a dialog box? */
     if (err_info != NULL) {
-      g_warning("Error \"%s\" while reading \"%s\" (\"%s\")",
+      ws_warning("Error \"%s\" while reading \"%s\" (\"%s\")",
                 wtap_strerror(*err), cf->filename, err_info);
       g_free(err_info);
     } else {
-      g_warning("Error \"%s\" while reading \"%s\"",
+      ws_warning("Error \"%s\" while reading \"%s\"",
                 wtap_strerror(*err), cf->filename);
     }
     return CF_READ_ERROR;
@@ -1287,8 +1287,8 @@ read_record(capture_file *cf, wtap_rec *rec, Buffer *buf, dfilter_t *dfcode,
     fdata = frame_data_sequence_add(cf->provider.frames, &fdlocal);
 
     cf->count++;
-    if (rec->opt_comment != NULL)
-      cf->packet_comment_count++;
+    if (rec->block != NULL)
+      cf->packet_comment_count += wtap_block_count_option(rec->block, OPT_COMMENT);
     cf->f_datalen = offset + fdlocal.cap_len;
 
     /* When a redissection is in progress (or queued), do not process packets.
@@ -1319,7 +1319,7 @@ merge_callback(merge_event event, int num _U_,
   guint i;
   callback_data_t *cb_data = (callback_data_t*) data;
 
-  g_assert(cb_data != NULL);
+  ws_assert(cb_data != NULL);
 
   switch (event) {
 
@@ -1553,12 +1553,6 @@ cf_filter_packets(capture_file *cf, gchar *dftext, gboolean force)
 }
 
 void
-cf_reftime_packets(capture_file *cf)
-{
-  ref_time_packets(cf);
-}
-
-void
 cf_redissect_packets(capture_file *cf)
 {
   if (cf->read_lock || cf->redissection_queued == RESCAN_SCAN) {
@@ -1649,13 +1643,13 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
   gboolean    create_proto_tree;
   guint       tap_flags;
   gboolean    add_to_packet_list = FALSE;
-  gboolean    compiled;
+  gboolean    compiled _U_;
   guint32     frames_count;
   gboolean    queued_rescan_type = RESCAN_NONE;
 
   /* Rescan in progress, clear pending actions. */
   cf->redissection_queued = RESCAN_NONE;
-  g_assert(!cf->read_lock);
+  ws_assert(!cf->read_lock);
   cf->read_lock = TRUE;
 
   wtap_rec_init(&rec);
@@ -1666,7 +1660,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
    * cf_filter IFF the filter was valid.
    */
   compiled = dfilter_compile(cf->dfilter, &dfcode, NULL);
-  g_assert(!cf->dfilter || (compiled && dfcode));
+  ws_assert(!cf->dfilter || (compiled && dfcode));
 
   /* Get the union of the flags for all tap listeners. */
   tap_flags = union_of_tap_listener_flags();
@@ -1815,7 +1809,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
       /* let's not divide by zero. I should never be started
        * with count == 0, so let's assert that
        */
-      g_assert(cf->count > 0);
+      ws_assert(cf->count > 0);
       progbar_val = (gfloat) count / frames_count;
 
       if (progbar != NULL) {
@@ -1897,6 +1891,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
        on the next pass through the loop. */
     prev_frame_num = fdata->num;
     prev_frame = fdata;
+    wtap_rec_reset(&rec);
   }
 
   epan_dissect_cleanup(&edt);
@@ -1951,9 +1946,9 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
          it's before or after that frame) and make that the current frame.
          If the next and previous displayed frames are equidistant from the
          selected frame, choose the next one. */
-      g_assert(following_frame == NULL ||
+      ws_assert(following_frame == NULL ||
                following_frame->num >= selected_frame->num);
-      g_assert(preceding_frame == NULL ||
+      ws_assert(preceding_frame == NULL ||
                preceding_frame->num <= selected_frame->num);
       if (following_frame == NULL) {
         /* No frame after the selected frame passed the filter, so we
@@ -2003,7 +1998,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
   dfilter_free(dfcode);
 
   /* It is safe again to execute redissections. */
-  g_assert(cf->read_lock);
+  ws_assert(cf->read_lock);
   cf->read_lock = FALSE;
 
   /* If another rescan (due to dfilter change) or redissection (due to profile
@@ -2020,8 +2015,8 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
  * without rereading the file.
  * XXX - do we need a progres bar or is this fast enough?
  */
-static void
-ref_time_packets(capture_file *cf)
+void
+cf_reftime_packets(capture_file* cf)
 {
   guint32     framenum;
   frame_data *fdata;
@@ -2134,7 +2129,7 @@ process_specified_records(capture_file *cf, packet_range_t *range,
   progbar_val = 0.0f;
 
   if (cf->read_lock) {
-    g_warning("Failing due to nested process_specified_records(\"%s\") call!", cf->filename);
+    ws_warning("Failing due to nested process_specified_records(\"%s\") call!", cf->filename);
     return PSP_FAILED;
   }
   cf->read_lock = TRUE;
@@ -2170,7 +2165,7 @@ process_specified_records(capture_file *cf, packet_range_t *range,
       /* let's not divide by zero. I should never be started
        * with count == 0, so let's assert that
        */
-      g_assert(cf->count > 0);
+      ws_assert(cf->count > 0);
       progbar_val = (gfloat) progbar_count / cf->count;
 
       g_snprintf(progbar_status_str, sizeof(progbar_status_str),
@@ -2214,6 +2209,7 @@ process_specified_records(capture_file *cf, packet_range_t *range,
       ret = PSP_FAILED;
       break;
     }
+    wtap_rec_reset(&rec);
   }
 
   /* We're done printing the packets; destroy the progress bar if
@@ -2222,7 +2218,7 @@ process_specified_records(capture_file *cf, packet_range_t *range,
     destroy_progress_dlg(progbar);
   g_timer_destroy(prog_timer);
 
-  g_assert(cf->read_lock);
+  ws_assert(cf->read_lock);
   cf->read_lock = FALSE;
 
   wtap_rec_cleanup(&rec);
@@ -2317,7 +2313,7 @@ cf_retap_packets(capture_file *cf)
     return CF_READ_ERROR;
   }
 
-  g_assert_not_reached();
+  ws_assert_not_reached();
   return CF_READ_OK;
 }
 
@@ -3026,7 +3022,7 @@ cf_write_json_packets(capture_file *cf, print_args_t *print_args)
 
   /* Iterate through the list of packets, printing the packets we were
      told to print. */
-  ret = process_specified_records(cf, &print_args->range, "Writing PDML",
+  ret = process_specified_records(cf, &print_args->range, "Writing JSON",
                                   "selected packets", TRUE,
                                   write_json_packet, &callback_args, TRUE);
 
@@ -3127,7 +3123,7 @@ match_subtree_text(proto_node *node, gpointer data)
   size_t        c_match    = 0;
 
   /* dissection with an invisible proto tree? */
-  g_assert(fi);
+  ws_assert(fi);
 
   if (mdata->frame_matched) {
     /* We already had a match; don't bother doing any more work. */
@@ -3294,7 +3290,7 @@ cf_find_packet_data(capture_file *cf, const guint8 *string, size_t string_size,
       return find_packet(cf, match_wide, &info, dir);
 
     default:
-      g_assert_not_reached();
+      ws_assert_not_reached();
       return FALSE;
     }
   } else
@@ -3341,7 +3337,7 @@ match_narrow_and_wide(capture_file *cf, frame_data *fdata,
         }
       }
       else {
-        g_assert(i>=c_match);
+        ws_assert(i>=c_match);
         i -= (guint32)c_match;
         c_match = 0;
       }
@@ -3390,7 +3386,7 @@ match_narrow(capture_file *cf, frame_data *fdata,
       }
     }
     else {
-      g_assert(i>=c_match);
+      ws_assert(i>=c_match);
       i -= (guint32)c_match;
       c_match = 0;
     }
@@ -3440,7 +3436,7 @@ match_wide(capture_file *cf, frame_data *fdata,
       i += 1;
     }
     else {
-      g_assert(i>=(c_match*2));
+      ws_assert(i>=(c_match*2));
       i -= (guint32)c_match*2;
       c_match = 0;
     }
@@ -3484,7 +3480,7 @@ match_binary(capture_file *cf, frame_data *fdata,
       }
     }
     else {
-      g_assert(i>=c_match);
+      ws_assert(i>=c_match);
       i -= (guint32)c_match;
       c_match = 0;
     }
@@ -3662,7 +3658,7 @@ find_packet(capture_file *cf, ws_match_function match_function,
       /* let's not divide by zero. I should never be started
        * with count == 0, so let's assert that
        */
-      g_assert(cf->count > 0);
+      ws_assert(cf->count > 0);
 
       progbar_val = (gfloat) count / cf->count;
 
@@ -3822,7 +3818,7 @@ cf_goto_framenum(capture_file *cf)
 
   if (cf->finfo_selected) {
     hfinfo = cf->finfo_selected->hfinfo;
-    g_assert(hfinfo);
+    ws_assert(hfinfo);
     if (hfinfo->type == FT_FRAMENUM) {
       framenum = fvalue_get_uinteger(&cf->finfo_selected->value);
       if (framenum != 0)
@@ -3997,65 +3993,72 @@ cf_update_section_comment(capture_file *cf, gchar *comment)
 }
 
 /*
- * Get the comment on a packet (record).
- * If the comment has been edited, it returns the result of the edit,
- * otherwise it returns the comment from the file.
+ * Get the packet block for a packet (record).
+ * If the block has been edited, it returns the result of the edit,
+ * otherwise it returns the block from the file.
+ * NB. Caller must wtap_block_unref() the result when done.
  */
-char *
-cf_get_packet_comment(capture_file *cf, const frame_data *fd)
+wtap_block_t
+cf_get_packet_block(capture_file *cf, const frame_data *fd)
 {
-  char *comment;
-
-  /* fetch user comment */
-  if (fd->has_user_comment)
-    return g_strdup(cap_file_provider_get_user_comment(&cf->provider, fd));
-
-  /* fetch phdr comment */
-  if (fd->has_phdr_comment) {
+  /* If this block has been modified, fetch the modified version */
+  if (fd->has_modified_block)
+    return wtap_block_ref(cap_file_provider_get_modified_block(&cf->provider, fd));
+  else {
     wtap_rec rec; /* Record metadata */
     Buffer buf;   /* Record data */
+    wtap_block_t block;
 
+    /* fetch record block */
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1514);
 
     if (!cf_read_record(cf, fd, &rec, &buf))
       { /* XXX, what we can do here? */ }
 
-    /* rec.opt_comment is owned by the record, copy it before it is gone. */
-    comment = g_strdup(rec.opt_comment);
+    /* rec.block is owned by the record, steal it before it is gone. */
+    block = wtap_block_ref(rec.block);
+
     wtap_rec_cleanup(&rec);
     ws_buffer_free(&buf);
-    return comment;
+    return block;
   }
-  return NULL;
 }
 
 /*
- * Update(replace) the comment on a capture from a frame
+ * Update(replace) the block on a capture from a frame
  */
 gboolean
-cf_set_user_packet_comment(capture_file *cf, frame_data *fd, const gchar *new_comment)
+cf_set_modified_block(capture_file *cf, frame_data *fd, const wtap_block_t new_block)
 {
-  char *pkt_comment = cf_get_packet_comment(cf, fd);
+  wtap_block_t pkt_block = cf_get_packet_block(cf, fd);
 
-  /* Check if the comment has changed */
-  if (!g_strcmp0(pkt_comment, new_comment)) {
-    g_free(pkt_comment);
-    return FALSE;
+  /* It's possible to further modify the modified block "in place" by doing
+   * a call to cf_get_packet_block() that returns an already created modified
+   * block, modifying that, and calling this function.
+   * If the caller did that, then the block pointers will be equal.
+   */
+  if (pkt_block == new_block) {
+    /* No need to save anything here, the caller changes went right
+     * onto the block.
+     * Unfortunately we don't have a way to know how many comments were in the block
+     * before the caller modified it.
+     */
   }
-  g_free(pkt_comment);
+  else {
+    if (pkt_block)
+      cf->packet_comment_count -= wtap_block_count_option(pkt_block, OPT_COMMENT);
 
-  if (pkt_comment)
-    cf->packet_comment_count--;
+    if (new_block)
+      cf->packet_comment_count += wtap_block_count_option(new_block, OPT_COMMENT);
 
-  if (new_comment)
-    cf->packet_comment_count++;
+    cap_file_provider_set_modified_block(&cf->provider, fd, new_block);
 
-  cap_file_provider_set_user_comment(&cf->provider, fd, new_comment);
+    expert_update_comment_count(cf->packet_comment_count);
+  }
 
-  expert_update_comment_count(cf->packet_comment_count);
-
-  /* OK, we have unsaved changes. */
+  /* Either way, we have unsaved changes. */
+  wtap_block_unref(pkt_block);
   cf->unsaved_changes = TRUE;
   return TRUE;
 }
@@ -4133,19 +4136,19 @@ save_record(capture_file *cf, frame_data *fdata, wtap_rec *rec,
   wtap_rec      new_rec;
   int           err;
   gchar        *err_info;
-  const char   *pkt_comment;
+  wtap_block_t pkt_block;
 
   /* Copy the record information from what was read in from the file. */
   new_rec = *rec;
 
   /* Make changes based on anything that the user has done but that
      hasn't been saved yet. */
-  if (fdata->has_user_comment)
-    pkt_comment = cap_file_provider_get_user_comment(&cf->provider, fdata);
+  if (fdata->has_modified_block)
+    pkt_block = cap_file_provider_get_modified_block(&cf->provider, fdata);
   else
-    pkt_comment = rec->opt_comment;
-  new_rec.opt_comment  = g_strdup(pkt_comment);
-  new_rec.has_comment_changed = fdata->has_user_comment ? TRUE : FALSE;
+    pkt_block = rec->block;
+  new_rec.block  = pkt_block;
+  new_rec.block_was_modified = fdata->has_modified_block ? TRUE : FALSE;
   /* XXX - what if times have been shifted? */
 
   /* and save the packet */
@@ -4155,7 +4158,6 @@ save_record(capture_file *cf, frame_data *fdata, wtap_rec *rec,
     return FALSE;
   }
 
-  g_free(new_rec.opt_comment);
   return TRUE;
 }
 
@@ -4458,7 +4460,7 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
   /* XXX caller should avoid saving the file while a read is pending
    * (e.g. by delaying the save action) */
   if (cf->read_lock) {
-    g_warning("cf_save_records(\"%s\") while the file is being read, potential crash ahead", fname);
+    ws_warning("cf_save_records(\"%s\") while the file is being read, potential crash ahead", fname);
   }
 
   cf_callback_invoke(cf_cb_file_save_started, (gpointer)fname);
@@ -4762,13 +4764,13 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
       for (framenum = 1; framenum <= cf->count; framenum++) {
         fdata = frame_data_sequence_find(cf->provider.frames, framenum);
 
-        fdata->has_phdr_comment = FALSE;
-        fdata->has_user_comment = FALSE;
+        // XXX: This also ignores non-comment options like verdict
+        fdata->has_modified_block = FALSE;
       }
 
-      if (cf->provider.frames_user_comments) {
-        g_tree_destroy(cf->provider.frames_user_comments);
-        cf->provider.frames_user_comments = NULL;
+      if (cf->provider.frames_modified_blocks) {
+        g_tree_destroy(cf->provider.frames_modified_blocks);
+        cf->provider.frames_modified_blocks = NULL;
       }
 
       cf->packet_comment_count = 0;
@@ -4967,7 +4969,7 @@ cf_reload(capture_file *cf) {
   int       err;
 
   if (cf->read_lock) {
-    g_warning("Failing cf_reload(\"%s\") since a read is in progress", cf->filename);
+    ws_warning("Failing cf_reload(\"%s\") since a read is in progress", cf->filename);
     return;
   }
 

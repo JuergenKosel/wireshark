@@ -2777,6 +2777,8 @@
 		<avp name="OC-Supported-Features" code="621" mandatory="may">
 			<grouped>
 				<gavp name="OC-Feature-Vector"/>
+				<gavp name="SourceID"/>
+				<gavp name="OC-Peer-Algo"/>
 			</grouped>
 		</avp>
 		<avp name="OC-Feature-Vector" code="622" mandatory="may">
@@ -2788,6 +2790,7 @@
 				<gavp name="OC-Report-Type"/>
 				<gavp name="OC-Reduction-Percentage"/>
 				<gavp name="OC-Validity-Duration"/>
+				<gavp name="SourceID"/>
 			</grouped>
 		</avp>
 		<avp name="OC-Sequence-Number" code="624" mandatory="may">
@@ -2800,6 +2803,7 @@
 			<type type-name="Enumerated"/>
 			<enum name="HOST_REPORT" code="0"/>
 			<enum name="REALM_REPORT" code="1"/>
+			<enum name="PEER_REPORT" code="2"/>
 		</avp>
 		<avp name="OC-Reduction-Percentage" code="627" mandatory="may">
 			<type type-name="Unsigned32"/>
@@ -2825,6 +2829,70 @@
 		645 Rule-IPv4-Addr-Or-Prefix [RFC7678]
 		646 Rule-IPv6-Prefix [RFC7678]
 		647 EA-Field-Length [RFC7678]
+    -->
+    <avp name="OC-Peer-Algo" code="648" mandatory="may">
+      <type type-name="Unsigned64"/>
+    </avp>
+    <avp name="SourceID" code="649" mandatory="may">
+      <type type-name="DiameterIdentity"/>
+    </avp>
+    <avp name="Load" code="650" mandatory="may">
+      <grouped>
+        <gavp name="Load-Type"/>
+        <gavp name="Load-Value"/>
+        <gavp name="SourceID"/>
+      </grouped>
+    </avp>
+    <avp name="Load-Type" code="651" mandatory="may">
+      <type type-name="Enumerated"/>
+      <enum name="HOST" code="0"/>
+      <enum name="PEER" code="1"/>
+    </avp>
+    <avp name="Load-Value" code="652" mandatory="may">
+      <type type-name="Unsigned64"/>
+    </avp>
+    <avp name="User-Equipment-Info-Extension" code="653" mandatory="may">
+      <grouped>
+        <gavp name="User-Equipment-Info-IMEISV"/>
+        <gavp name="User-Equipment-Info-MAC"/>
+        <gavp name="User-Equipment-Info-EUI64"/>
+        <gavp name="User-Equipment-Info-ModifiedEUI64"/>
+        <gavp name="User-Equipment-Info-IMEI"/>
+      </grouped>
+    </avp>
+    <avp name="User-Equipment-Info-IMEISV" code="654" mandatory="may">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="User-Equipment-Info-MAC" code="655" mandatory="may">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="User-Equipment-Info-EUI64" code="656" mandatory="may">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="User-Equipment-Info-ModifiedEUI64" code="657" mandatory="may">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="User-Equipment-Info-IMEI" code="658" mandatory="may">
+      <type type-name="OctetString"/>
+    </avp>
+
+    <!--
+		656	User-Equipment-Info-EUI64	[RFC8506]
+		657	User-Equipment-Info-ModifiedEUI64	[RFC8506]
+		658	User-Equipment-Info-IMEI	[RFC8506]
+		659	Subscription-Id-Extension	[RFC8506]
+		660	Subscription-Id-E164	[RFC8506]
+		661	Subscription-Id-IMSI	[RFC8506]
+		662	Subscription-Id-SIP-URI	[RFC8506]
+		663	Subscription-Id-NAI	[RFC8506]
+		664	Subscription-Id-Private	[RFC8506]
+		665	Redirect-Server-Extension	[RFC8506]
+		666	Redirect-Address-IPAddress	[RFC8506]
+		667	Redirect-Address-URL	[RFC8506]
+		668	Redirect-Address-SIP-URI	[RFC8506]
+		669	QoS-Final-Unit-Indication	[RFC8506]
+		670	OC-Maximum-Rate	[RFC8582]
+		671-16777215	Unassigned	
 		-->
 
 		<!-- **************************************************************************** -->
@@ -2838,41 +2906,29 @@
 		Specific Attributes (See TS 29.061 [13])
 		Note: The AVP codes from 256 to 299 are reserved for future use.
 		-->
-		<avp name="Authentication-Method" code="300" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
-			<type type-name="Enumerated"/>
-			<enum name="WLAN_EAP_SIM" code="0"/>
-			<enum name="WLAN_EAP_AKA" code="1"/>
-		</avp>
-		<avp name="Authentication-Information-SIM" code="301" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
-			<type type-name="OctetString"/>
-		</avp>
-		<avp name="Authorization-Information-SIM" code="302" mandatory="must" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
-			<type type-name="OctetString"/>
-		</avp>
-		<!--
-		303 WLAN-User-Data Grouped
-		304 Charging-Data Grouped
-		305 WLAN-Access Enumerated
-		306 WLAN- 3GPP-IP-Access Enumerated
-		307 APN-Authorized Grouped
-		308 APN-Id
-		309 APN-Barring-Type Enumerated
-		310 WLAN-Direct-IP-Access Enumerated
-		311 Session-Request-Type Enumerated
-		312 Routing-Policy IPFilterRule
-		313 Max-Requested-Bandwidth OctetString
-		314 Charging-Characteristics Integer
-		315 Charging-Nodes Grouped
-		316 Primary-OCS-Charging-Function-Name DiameterIdentity
-		317 Secondary-OCS-Charging-Function-Name DiameterIdentity
-		-->
 
-		<avp name="3GPP-AAA-Server-Name" code="318" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
-			<type type-name="OctetString"/>
-		</avp>
-		<avp name="Maximum-Number-Accesses" code="319" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
-			<type type-name="Unsigned32"/>
-		</avp>
+		<!--
+		300 Authentication-Method Enumerated [3GPP 29.234]
+		301 Authentication-Information-SIM OctetString [3GPP 29.234]
+		302 Authorization-Information-SIM OctetString [3GPP 29.234]
+		303 WLAN-User-Data Grouped [3GPP 29.234]
+		304 Charging-Data Grouped [3GPP 29.234]
+		305 WLAN-Access Enumerated [3GPP 29.234]
+		306 WLAN- 3GPP-IP-Access Enumerated [3GPP 29.234]
+		307 APN-Authorized Grouped [3GPP 29.234]
+		308 APN-Id
+		309 APN-Barring-Type Enumerated [3GPP 29.234]
+		310 WLAN-Direct-IP-Access Enumerated [3GPP 29.234]
+		311 Session-Request-Type Enumerated [3GPP 29.234]
+		312 Routing-Policy IPFilterRule [3GPP 29.234]
+		313 Max-Requested-Bandwidth OctetString [3GPP 29.234]
+		314 Charging-Characteristics Integer [3GPP 29.234]
+		315 Charging-Nodes Grouped [3GPP 29.234]
+		316 Primary-OCS-Charging-Function-Name DiameterIdentity [3GPP 29.234]
+		317 Secondary-OCS-Charging-Function-Name DiameterIdentity [3GPP 29.234]
+		318 3GPP-AAA-Server-Name DiameterIdentity [3GPP 29.234]
+		319 Maximum-Number-Accesses Unsigned32 [3GPP 29.234]
+		-->
 
 		<!--
 		Note: The AVP codes from 320 to 399 are reserved for TS 29.234
@@ -4246,7 +4302,7 @@
 			</grouped>
 		</avp>
 		<avp name="TDF-Application-Identifier" code="1088" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
-			<type type-name="OctetString"/>
+			<type type-name="OctetStringOrUTF8"/>
 		</avp>
 		<avp name="TDF-Destination-Host" code="1089" mandatory="mustnot" may-encrypt="yes" protected="may" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="DiameterIdentity"/>
@@ -4983,7 +5039,59 @@
 		<avp name="Secondary-RAT-Type" code="1304" vendor-bit="must" vendor-id="TGPP">
 			<type type-name="OctetString"/>
 		</avp>
-
+    <avp name="Civic-Address-Information" code="1305" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="UTF8String"/>
+    </avp>
+    		<avp name="WLAN-Operator-Id" code="1306" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="WLAN-PLMN-Id"/>
+				<gavp name="WLAN-Operator-Name"/>
+			</grouped>
+		</avp>
+    <avp name="WLAN-Operator-Name" code="1307" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="WLAN-PLMN-Id" code="1308" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="UTF8String"/>
+    </avp>
+    <avp name="API-Content" code="1309" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="UTF8String"/>
+    </avp>
+		<avp name="API-Direction" code="1310" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="Invocation" code="0"/>
+			<enum name="Notification" code="1"/>
+		</avp>
+    <avp name="API-Identifier" code="1311" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="OctetString"/>
+    </avp>
+    <avp name="API-Invocation-Timestamp" code="1312" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="Time"/>
+    </avp>
+    <avp name="API-Result-Code" code="1313" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="Unsigned32"/>
+    </avp>
+    <avp name="API-Size" code="1314" vendor-bit="must" vendor-id="TGPP">
+      <type type-name="Unsigned64"/>
+    </avp>
+    <!-- The API-Network-Service-Node AVP (AVP code 1315) is of type Enumerated,and holds the identifier of the network element as defined in TS 23.682[243], that triggers the API notification.
+		<avp name="API-Network-Service-Node" code="1315" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="" code="0"/>
+			<enum name="" code="1"/>
+		</avp>
+-->
+    <!--
+1315	API-Network-Service-Node	Enumerated
+1316	Exposure-Function-API-Information	Grouped
+1317	SCEF-Address	Address
+1318	TLTRI	Unsigned32
+1319	TTRI	Unsigned32
+1320	3GPP-OC-Specific-Reduction	Grouped
+1321	3GPP-OC-Rating-Group	Unsigned32
+1322	3GPP-OC-Request-Type	Enumerated
+1323	VoLTE-Information	Grouped
+-->
 		<!-- 3GPP TS 29.272 V9.1.0 (2009-12 -->
 		<avp name="Subscription-Data" code="1400" mandatory="must" vendor-bit="must" may-encrypt="no" vendor-id="TGPP">
 			<grouped>
@@ -6231,6 +6339,60 @@
 			<type type-name="Enumerated"/>
 			<enum name="NOT-SUBSCRIBED" code="0"/>
 			<enum name="SUBSCRIBED" code="1"/>
+		</avp>
+		<avp name="Ethernet-PDN-Type-Indicator" code="1707" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="FALSE" code="0"/>
+			<enum name="TRUE" code="1"/>
+		</avp>
+		<avp name="Subscribed-ARPI" code="1708" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Unsigned32"/>
+		</avp>
+		<avp name="IAB-Operation-Permission" code="1709" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Enumerated"/>
+			<enum name="IAB_OPERATION_ALLOWED" code="0"/>
+			<enum name="IAB_OPERATION_NOTALLOWED" code="1"/>
+		</avp>
+		<avp name="V2X-Subscription-Data-Nr" code="1710" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="V2X-Permission"/>
+				<gavp name="UE-PC5-AMBR"/>
+				<gavp name="UE-PC5-QoS "/>
+			</grouped>
+		</avp>
+		<avp name="UE-PC5-QoS" code="1711" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="PC5-QoS-Flow"/>
+				<gavp name="PC5-Link-AMBR"/>
+			</grouped>
+		</avp>
+		<avp name="PC5-QoS-Flow" code="1712" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="5QI"/>
+				<gavp name="PC5-Flow-Bitrates"/>
+				<gavp name="PC5-Range"/>
+			</grouped>
+		</avp>
+		<avp name="5QI" code="1713" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Integer32"/>
+		</avp>
+		<avp name="PC5-Flow-Bitrates" code="1714" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<grouped>
+				<gavp name="Guaranteed-Flow-Bitrates"/>
+				<gavp name="Maximum-Flow-Bitrates"/>
+			</grouped>
+		</avp>
+		<avp name="Guaranteed-Flow-Bitrates" code="1715" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Integer32"/>
+		</avp>
+		<avp name="Maximum-Flow-Bitrates" code="1716" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Integer32"/>
+		</avp>
+		<avp name="PC5-Range" code="1717" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Integer32"/>
+		</avp>
+		<avp name="PC5-Link-AMBR" code="1718" mandatory="mustnot" vendor-bit="must" vendor-id="TGPP">
+			<type type-name="Integer32"/>
 		</avp>
 
 		<avp name="SMS-Information" code="2000" vendor-bit="must" vendor-id="TGPP">
@@ -7571,10 +7733,10 @@
 			</grouped>
 		</avp>
 		<avp name="Traffic-Steering-Policy-Identifier-DL" code="2836" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
-			<type type-name="OctetString"/>
+			<type type-name="OctetStringOrUTF8"/>
 		</avp>
 		<avp name="Traffic-Steering-Policy-Identifier-UL" code="2837" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
-			<type type-name="OctetString"/>
+			<type type-name="OctetStringOrUTF8"/>
 		</avp>
 		<avp name="Request-Type" code="2838" vendor-bit="must" vendor-id="TGPP" may-encrypt="yes">
 			<type type-name="Unsigned32"/>

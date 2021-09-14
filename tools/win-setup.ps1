@@ -69,15 +69,15 @@ Param(
 # trouble instead of trying to catch exceptions everywhere.
 $ErrorActionPreference = "Stop"
 
-$Win64CurrentTag = "2021-04-25"
-$Win32CurrentTag = "2021-04-25"
+$Win64CurrentTag = "2021-09-07"
+$Win32CurrentTag = "2021-09-07"
 
 # Archive file / SHA256
 $Win64Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win64ws.zip" = "9a095fda4c39860d96f0c568830faa6651cd17635f68e27aa6de46c689aa0ee2";
     "brotli-1.0.9-1-win64ws.zip" = "3f8d24aec8668201994327ff8d8542fe507d1d468a500a1aec50d0415f695aab";
-    "c-ares-1.17.1-1-win64ws.zip" = "7b344f78ac4a0de8e4da64fe7e50c503dcde44138eade1172d6888e02dc39851";
+    "c-ares-1.17.2-1-win64ws.zip" = "6572a9dac4317b7a84544f3f85b1028a715c73e4f063c0e1f36ca59168d04070";
     "gnutls-3.6.3-1-win64ws.zip" = "994ac2578e7b4ca01e589ab2598927d53f7370bc3ff679f3006b0e6bb7a06df4";
     "krb5-1.17-1-win64ws.zip" = "1f4a7ab86ae331ea9e58c9776a60def81ae9fe622882b2e8da2ad6ce6f6fb1d8";
     "libgcrypt-1.8.3-win64ws.zip" = "53b1c636cb89de308ca4ea01b4990cf1deca7f6c2446189c7ff6e971137ffd76";
@@ -94,7 +94,7 @@ $Win64Archives = @{
     "sbc-1.3-1-win64ws.zip" = "08cef6898c421277a6582ef3225d8820f74a037cbd5b6e673a4d8f4593ce80a1";
     "snappy-1.1.8-1-win64ws.zip" = "45d496ac98ffd365f2b86707a077498f4ab59cca33f65dcca1f89669a85ee92a";
     "spandsp-0.0.6-2-win64ws.zip" = "2eb8278633037f60f44815ea1606486ab5dcdf3bddc500b20c9fe356856236b2";
-    "vcpkg-export-20190318-win64ws.zip" = "72c2c43594b0581de2bc86517870a561cc40df294662502536b2a6c06cace87e";
+    "vcpkg-export-20210609-1-win64ws.zip" = "2207112ecae2d93e64405cb33e625d37c85f9b9db90b440a4d0f0362346564e4";
     "WinSparkle-0.5.7.zip" = "56d396ef0c4e8b0589ea74134e484376ca6459d972cd1ab1da6b9624d82e6d04";
     "zstd-1.4.0-win64ws.zip" = "154199227bdfdfa608972bcdcea38e20768937085e5a59a8fa06c72d07b00d6b";
 }
@@ -103,7 +103,7 @@ $Win32Archives = @{
     "AirPcap_Devpack_4_1_0_1622.zip" = "09d637f28a79b1d2ecb09f35436271a90c0f69bd0a1ee82b803abaaf63c18a69";
     "bcg729-1.0.4-win32ws.zip" = "b785ec78dec6bca8252130eb884bfa28c1140001dd7369a535579176de9e4271";
     "brotli-1.0.9-1-win32ws.zip" = "37ce13b3d41f025b8f6ca962e7fbacca6421d9b3b58f2ebaa81b1262d0a972ba";
-    "c-ares-1.17.1-1-win32ws.zip" = "910f816efbded9b4c361f80ec4c9babb2436a063cfdbe8470c84ad97fdd118c7";
+    "c-ares-1.17.2-1-win32ws.zip" = "ce901f69b46697a52bf239a5a77d6d389c06d637ad2d1bebfaf1333fc4f89e46";
     "gnutls-3.6.3-1-win32ws.zip" = "42d8313ffb888f525d6c39330c39bcc2182e68ee8433a09dd85e1f1e1474f592";
     "krb5-1.17-1-win32ws.zip" = "f90cac08355ccfe624652d3e05f8e2e077b8830382315d4ea0a6fa52af08260b";
     "libgcrypt-1.8.3-win32ws.zip" = "409b72f2809019050cca91b9e670047c50a0752ff52999089178da54ef926393";
@@ -120,7 +120,7 @@ $Win32Archives = @{
     "sbc-1.3-1-win32ws.zip" = "ad37825e9ace4b849a5442c08f1ed7e30634e6b774bba4307fb86f35f82e71ba";
     "snappy-1.1.8-1-win32ws.zip" = "058c12605d747e805e0fcb310b8fe6efdde5b36d68664bbf54f7ee8fa5fd5adb";
     "spandsp-0.0.6-2-win32ws.zip" = "31a4b5ca228c719ab4190e1b46801f1483efb8756f1e33d10ecc915244612fca";
-    "vcpkg-export-20190318-win32ws.zip" = "5f9eb78b1ea9e6762c2a4104e0126f1f5453919dc9df66fef2b1e0be8d8c5829";
+    "vcpkg-export-20210609-1-win32ws.zip" = "da544758352e31aed6cf9e62a6670df218b3d369cd113a462e94010b0ef8e472";
     "WinSparkle-0.5.7.zip" = "56d396ef0c4e8b0589ea74134e484376ca6459d972cd1ab1da6b9624d82e6d04";
     "zstd-1.4.0-win32ws.zip" = "9141716d4d749e67dad40d4aab6bbb3206085bf68e5acb03baf1e5667aa0b6f5";
 }
@@ -133,12 +133,12 @@ $ArchivesSubDirectory = @{
 # Plain file downloads
 
 $Win32Files = @{
-    "npcap-1.31.exe" = "d6ad41e38e240b19a1db57e3ceb21ac3c7fa4d970ee6f446a0ac10fdc4bf9ec5";
+    "npcap-1.55.exe" = "0bcc56aef29b24985d7f658cd34013b08cb53ad5bf6b6ac2a982a5f6d4d95800";
     "USBPcapSetup-1.5.4.0.exe" = "87a7edf9bbbcf07b5f4373d9a192a6770d2ff3add7aa1e276e82e38582ccb622";
 }
 
 $Win64Files = @{
-    "npcap-1.31.exe" = "d6ad41e38e240b19a1db57e3ceb21ac3c7fa4d970ee6f446a0ac10fdc4bf9ec5";
+    "npcap-1.55.exe" = "0bcc56aef29b24985d7f658cd34013b08cb53ad5bf6b6ac2a982a5f6d4d95800";
     "USBPcapSetup-1.5.4.0.exe" = "87a7edf9bbbcf07b5f4373d9a192a6770d2ff3add7aa1e276e82e38582ccb622";
 }
 

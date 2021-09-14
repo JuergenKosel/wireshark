@@ -1059,8 +1059,8 @@
         <translation>Тип связи</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>Ограничение размера пакета</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>none</source>
@@ -3220,12 +3220,32 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>Пожалуйста, удостоверьтесь, что Вы выбрали пакет %1.</translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
         <translation>
             <numerusform>%Ln подпоток(ов).</numerusform>
             <numerusform>%Ln подпоток(ов).</numerusform>
             <numerusform>%Ln подпоток(ов).</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
         </translation>
     </message>
     <message>
@@ -6362,6 +6382,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&amp;Редактирование</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation type="unfinished">Комментарии к Пакету</translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>Главная Панель Инструментов</translation>
     </message>
@@ -6869,10 +6893,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Сдвинуть или  изменить временные маркеры пакета</translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation>Добавить или изменить комментарий к пакету</translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>Удалить Все Комментарии к Пакету</translation>
     </message>
@@ -7147,6 +7167,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>UCP message statistics</source>
         <translation>Статистика сообщений UCP</translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Change the way packets are dissected</source>
@@ -7443,10 +7471,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Time Shift…</source>
         <translation>Временной Сдвиг…</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>Комментарии к Пакету…</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8226,6 +8250,37 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Неправильный фильтр захвата.</translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation>перед стартом нового захвата</translation>
     </message>
@@ -8684,7 +8739,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>Пакет %1 Комментарий</translation>
+        <translation type="vanished">Пакет %1 Комментарий</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12752,6 +12815,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Compressed</source>
         <translation>Сжато</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

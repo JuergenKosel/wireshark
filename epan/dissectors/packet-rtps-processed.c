@@ -59,7 +59,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/addr_resolv.h>
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 #include <epan/conversation.h>
 #include <epan/column.h>
 #include <epan/dissectors/packet-tcp.h>
@@ -302,7 +302,7 @@ static gint dissect_rtps_processed(
                 const gchar *colinfo = col_get_text(pinfo->cinfo, COL_INFO);
                 if (colinfo) {
                     info_w_encrypted = wmem_strbuf_new(
-                            wmem_packet_scope(),
+                            pinfo->pool,
                             colinfo);
                     col_clear(pinfo->cinfo, COL_INFO);
                 }
@@ -318,13 +318,12 @@ static gint dissect_rtps_processed(
                     rtps_vendor_id,
                     &guid);
 
-            offset += param_length;
             /*
              * Get the decrypted submessages and update the column information.
              */
             if (pinfo->cinfo) {
                 const gchar *colinfo = col_get_text(pinfo->cinfo, COL_INFO);
-                info_w_decrypted = wmem_strbuf_new(wmem_packet_scope(), "");
+                info_w_decrypted = wmem_strbuf_new(pinfo->pool, "");
                 if (colinfo) {
                     get_new_colinfo_w_submessages(
                             info_w_decrypted, /* out */
@@ -346,14 +345,7 @@ static gint dissect_rtps_processed(
                         pinfo,
                         rtpsproc_tree_frame1);
             }
-            offset += param_length;
         }
-    } else {
-        /*
-         * If there is no security information, param_id is zeroed.
-         * In that case the length is also zero, so we move 4 Bytes in total.
-         */
-        offset += 4;
     }
     return tvb_captured_length(tvb);
 }

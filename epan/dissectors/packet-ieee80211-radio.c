@@ -1062,10 +1062,7 @@ dissect_wlan_radio_phdr(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
                   ieee80211_vhtvalid[info_ac->mcs[i]].valid[bandwidth][info_ac->nss[i]-1]) {
                 data_rate = ieee80211_vhtrate(info_ac->mcs[i], bandwidth, info_ac->short_gi) * info_ac->nss[i];
                 if (data_rate != 0.0f) {
-                  proto_tree_add_float_format_value(user_tree, hf_wlan_radio_data_rate, tvb, 0, 0,
-                        data_rate,
-                        "%.1f Mb/s",
-                       data_rate);
+                  have_data_rate = TRUE;
                 }
               }
             }
@@ -1090,10 +1087,7 @@ dissect_wlan_radio_phdr(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, 
             data_rate = ieee80211_he_mu_ofdma_rate(info_ax->nsts,info_ax->mcs,info_ax->bwru,info_ax->gi);
           }
           if (data_rate != 0.0f) {
-            proto_tree_add_float_format_value(radio_tree, hf_wlan_radio_data_rate, tvb, 0, 0,
-                data_rate,
-                "%.1f Mb/s",
-                data_rate);
+            have_data_rate = TRUE;
           }
         }
       }
@@ -1748,9 +1742,9 @@ void proto_register_ieee80211_radio(void)
       "Calculated end time of the frame", HFILL }},
 
     {&hf_wlan_radio_aggregate_duration,
-     {"Duration", "wlan_radio.aggregate.duration", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
-      "Total duration of the aggregate in microseconds, including any preamble or plcp header. "
-      "Calculated from the total subframe lengths, modulation and other phy data.", HFILL }},
+     {"Aggregate Duration", "wlan_radio.aggregate.duration", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_microseconds, 0,
+      "Total duration of the aggregate in microseconds, including any preamble or plcp header and multiple MPDUs. "
+      "Calculated from the total subframe lengths, modulation and other phy data, assumes no excess padding.", HFILL }},
 
     {&hf_wlan_zero_length_psdu_type,
      {"Zero-length PSDU Type", "wlan_radio.zero_len_psdu.type", FT_UINT8, BASE_HEX, VALS(zero_length_psdu_vals), 0x0,

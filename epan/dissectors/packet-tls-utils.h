@@ -17,7 +17,7 @@
 #include <glib.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 #include <epan/expert.h>
 #include <epan/conversation.h>
 #include <epan/unit_strings.h>
@@ -108,7 +108,7 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_COMPRESS_CERTIFICATE          27
 #define SSL_HND_HELLO_EXT_RECORD_SIZE_LIMIT             28
 /* 26-33  Unassigned*/
-#define SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS         34 /* draft-ietf-tls-subcerts-09.txt */
+#define SSL_HND_HELLO_EXT_DELEGATED_CREDENTIALS         34 /* draft-ietf-tls-subcerts-10.txt */
 #define SSL_HND_HELLO_EXT_SESSION_TICKET_TLS            35
 /* RFC 8446 (TLS 1.3) */
 #define SSL_HND_HELLO_EXT_KEY_SHARE_OLD                 40 /* draft-ietf-tls-tls13-22 (removed in -23) */
@@ -130,6 +130,7 @@ typedef enum {
 #define SSL_HND_HELLO_EXT_GREASE_2A2A                   10794
 #define SSL_HND_HELLO_EXT_NPN                           13172 /* 0x3374 */
 #define SSL_HND_HELLO_EXT_GREASE_3A3A                   14906
+#define SSL_HND_HELLO_EXT_ALPS                          17513 /* draft-vvv-tls-alps-01, temporary value used in BoringSSL implementation */
 #define SSL_HND_HELLO_EXT_GREASE_4A4A                   19018
 #define SSL_HND_HELLO_EXT_GREASE_5A5A                   23130
 #define SSL_HND_HELLO_EXT_GREASE_6A6A                   27242
@@ -965,6 +966,11 @@ typedef struct ssl_common_dissect {
         gint hs_ext_oid_filters_oid_length;
         gint hs_ext_oid_filters_oid;
         gint hs_ext_oid_filters_values_length;
+        gint hs_cred_valid_time;
+        gint hs_cred_pubkey;
+        gint hs_cred_pubkey_len;
+        gint hs_cred_signature;
+        gint hs_cred_signature_len;
 
         /* compress_certificate */
         gint hs_ext_compress_certificate_algorithms_length;
@@ -1036,6 +1042,12 @@ typedef struct ssl_common_dissect {
         gint esni_encrypted_sni;
         gint esni_nonce;
 
+        gint hs_ext_alps_len;
+        gint hs_ext_alps_alpn_list;
+        gint hs_ext_alps_alpn_str;
+        gint hs_ext_alps_alpn_str_len;
+        gint hs_ext_alps_settings;
+
         /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_HF_LIST! */
     } hf;
     struct {
@@ -1068,6 +1080,7 @@ typedef struct ssl_common_dissect {
         gint cert_status;
         gint ocsp_response;
         gint uncompressed_certificates;
+        gint hs_ext_alps;
 
         /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_ETT_LIST! */
     } ett;
@@ -1260,11 +1273,12 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1      \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1                              \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1              \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1          \
     },                                                                  \
     /* ei */ {                                                          \
         EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT   \
@@ -2061,6 +2075,31 @@ ssl_common_dissect_t name = {   \
         FT_UINT16, BASE_DEC, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
+    { & name .hf.hs_cred_valid_time,                                    \
+      { "Valid Time", prefix ".handshake.cred.valid_time",              \
+        FT_UINT16, BASE_DEC, NULL, 0x0,                                 \
+        "Delegated Credentials Valid Time", HFILL }                     \
+    },                                                                  \
+    { & name .hf.hs_cred_pubkey,                                        \
+      { "Subject Public Key Info", prefix ".handshake.cred.pubkey",     \
+        FT_BYTES, BASE_NONE, NULL, 0x0,                                 \
+        "Delegated Credentials Subject Public Key Info", HFILL }        \
+    },                                                                  \
+    { & name .hf.hs_cred_pubkey_len,                                    \
+      { "Subject Public Key Info Length", prefix ".handshake.cred.pubkey_len", \
+        FT_UINT24, BASE_DEC, NULL, 0x0,                                 \
+        "Delegated Credentials Subject Public Key Info Length", HFILL } \
+    },                                                                  \
+    { & name .hf.hs_cred_signature,                                     \
+      { "Signature", prefix ".handshake.cred.signature",                \
+        FT_BYTES, BASE_NONE, NULL, 0x0,                                 \
+        "Delegated Credentials Signature", HFILL }                      \
+    },                                                                  \
+    { & name .hf.hs_cred_signature_len,                                 \
+      { "Signature Length", prefix ".handshake.cred.signature_len",     \
+        FT_UINT16, BASE_DEC, NULL, 0x0,                                 \
+        "Delegated Credentials Signature Length", HFILL }               \
+    },                                                                  \
     { & name .hf.hs_ext_compress_certificate_algorithms_length,         \
       { "Algorithms Length", prefix ".compress_certificate.algorithms_length", \
         FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
@@ -2390,6 +2429,31 @@ ssl_common_dissect_t name = {   \
       { "Nonce", prefix ".esni.nonce",                                  \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         "Contents of ClientESNIInner.nonce", HFILL }                    \
+    },                                                                  \
+    { & name .hf.hs_ext_alps_len,                                       \
+      { "ALPS Extension Length", prefix ".handshake.extensions_alps_len", \
+        FT_UINT16, BASE_DEC, NULL, 0x0,                                 \
+        "Length of the ALPS Extension", HFILL }                         \
+    },                                                                  \
+    { & name .hf.hs_ext_alps_alpn_list,                                 \
+      { "Supported ALPN List", prefix ".handshake.extensions_alps_alpn_list", \
+        FT_NONE, BASE_NONE, NULL, 0x0,                                  \
+        "List of supported ALPN by ALPS", HFILL }                       \
+    },                                                                  \
+    { & name .hf.hs_ext_alps_alpn_str_len,                              \
+      { "Supported ALPN Length", prefix ".handshake.extensions_alps_alpn_str_len", \
+        FT_UINT8, BASE_DEC, NULL, 0x0,                                  \
+        "Length of ALPN string", HFILL }                                \
+    },                                                                  \
+    { & name .hf.hs_ext_alps_alpn_str,                                  \
+      { "Supported ALPN", prefix ".handshake.extensions_alps_alpn_str", \
+        FT_STRING, BASE_NONE, NULL, 0x00,                               \
+        "ALPN supported by ALPS", HFILL }                               \
+    },                                                                  \
+    { & name .hf.hs_ext_alps_settings,                                  \
+      { "ALPN Opaque Settings", prefix ".handshake.extensions_alps.settings", \
+        FT_BYTES, BASE_NONE, NULL, 0x00,                                \
+        "ALPN Opaque Settings", HFILL }                                 \
     }
 /* }}} */
 
@@ -2424,6 +2488,7 @@ ssl_common_dissect_t name = {   \
         & name .ett.cert_status,                    \
         & name .ett.ocsp_response,                  \
         & name .ett.uncompressed_certificates,      \
+        & name .ett.hs_ext_alps,                    \
 /* }}} */
 
 /* {{{ */

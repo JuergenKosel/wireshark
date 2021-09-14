@@ -1045,8 +1045,8 @@
         <translation>链路类型</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>分组大小限制</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>none</source>
@@ -3190,8 +3190,24 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>请确保您已选中一个 %1 分组。</translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
         <translation type="unfinished">
             <numerusform></numerusform>
         </translation>
@@ -6320,6 +6336,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>编辑(&amp;E)</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation type="unfinished">分组注释</translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>主工具栏</translation>
     </message>
@@ -6827,10 +6847,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>平移或更改分组时间戳</translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation>添加或更改分组注释</translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>删除所有分组注释</translation>
     </message>
@@ -7105,6 +7121,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>UCP message statistics</source>
         <translation>UCP 消息统计</translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Change the way packets are dissected</source>
@@ -7401,10 +7425,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Time Shift…</source>
         <translation>时间平移…</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>分组注释…</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8182,6 +8202,35 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation>在开始新捕获前</translation>
     </message>
@@ -8638,7 +8687,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>分组 %1 注释</translation>
+        <translation type="vanished">分组 %1 注释</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12681,6 +12738,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Compressed</source>
         <translation>压缩</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

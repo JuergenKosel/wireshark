@@ -29,6 +29,7 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
+#include <wsutil/wslog.h>
 
 #include <wiretap/wtap.h>
 
@@ -60,6 +61,12 @@ main(int argc, char **argv)
 	gchar		*err_msg;
 
 	cmdarg_err_init(dftest_cmdarg_err, dftest_cmdarg_err_cont);
+
+	/* Initialize log handler early so we can have proper logging during startup. */
+	ws_log_init("dftest", vcmdarg_err);
+
+	/* Early logging command-line initialization. */
+	ws_log_parse_args(&argc, argv, vcmdarg_err, 1);
 
 	/*
 	 * Get credential information for later use.

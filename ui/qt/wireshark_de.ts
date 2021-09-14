@@ -1052,8 +1052,8 @@
         <translation>Linktyp</translation>
     </message>
     <message>
-        <source>Packet size limit</source>
-        <translation>Paketgrößenlimit</translation>
+        <source>Packet size limit (snaplen)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>none</source>
@@ -3207,11 +3207,29 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <source>Please make sure you have a %1 packet selected.</source>
         <translation>Bitte ein %1 Paket auswählen.</translation>
     </message>
+    <message>
+        <source>QUIC streams not found on the selected packet.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <source>%Ln total sub stream(s).</source>
         <translation>
             <numerusform>&amp;Ln Sub-Stream insgesamt.</numerusform>
             <numerusform>&amp;Ln Sub-Streams insgesamt.</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Total number of QUIC connections: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
         </translation>
     </message>
     <message>
@@ -6343,6 +6361,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>&amp;Bearbeiten</translation>
     </message>
     <message>
+        <source>Packet Comments</source>
+        <translation type="unfinished">Paketkommentar</translation>
+    </message>
+    <message>
         <source>Main Toolbar</source>
         <translation>Hauptleiste</translation>
     </message>
@@ -6850,10 +6872,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Paketzeitstempel verschieben oder ändern</translation>
     </message>
     <message>
-        <source>Add or change a packet comment</source>
-        <translation>Paketkommentar hinzufügen oder ändern</translation>
-    </message>
-    <message>
         <source>Delete All Packet Comments</source>
         <translation>Alle Paketkommentare löschen</translation>
     </message>
@@ -7128,6 +7146,14 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>UCP message statistics</source>
         <translation>UCP Nachrichten Statistik</translation>
+    </message>
+    <message>
+        <source>F1AP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>F1AP Messages</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Change the way packets are dissected</source>
@@ -7424,10 +7450,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Time Shift…</source>
         <translation>Zeitverschieben...</translation>
-    </message>
-    <message>
-        <source>Packet Comment…</source>
-        <translation>Paketkommentar...</translation>
     </message>
     <message>
         <source>&amp;Preferences…</source>
@@ -8206,6 +8228,36 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Ungültiger Mitschnittfilter</translation>
     </message>
     <message>
+        <source>(empty comment)</source>
+        <comment>placeholder for empty comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add New Comment…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit &quot;%1&quot;</source>
+        <comment>edit packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete &quot;%1&quot;</source>
+        <comment>delete packet comment</comment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete packet comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Delete comments from %n packet(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
         <source> before starting a new capture</source>
         <translation> vor dem Starten einer neuen Aufzeichnung</translation>
     </message>
@@ -8663,7 +8715,15 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <name>PacketCommentDialog</name>
     <message>
         <source>Packet %1 Comment</source>
-        <translation>Paket %1 Kommentar</translation>
+        <translation type="vanished">Paket %1 Kommentar</translation>
+    </message>
+    <message>
+        <source>Edit Packet Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Packet Comment</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12722,6 +12782,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Compressed</source>
         <translation>Komprimiert</translation>
+    </message>
+    <message>
+        <source>Hex Digits</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Quoted-Printable</source>

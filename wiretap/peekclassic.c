@@ -27,6 +27,7 @@
 
 #include <wsutil/epochs.h>
 #include <wsutil/802_11-utils.h>
+#include <wsutil/ws_assert.h>
 
 #include "wtap-int.h"
 #include "file_wrappers.h"
@@ -172,7 +173,7 @@ wtap_open_return_val peekclassic_open(wtap *wth, int *err, gchar **err_info)
 	 *      is zero, and check some other fields; this isn't perfect,
 	 *	and we may have to add more checks at some point.
 	 */
-	g_assert(sizeof(ep_hdr.master) == PEEKCLASSIC_MASTER_HDR_SIZE);
+	ws_assert(sizeof(ep_hdr.master) == PEEKCLASSIC_MASTER_HDR_SIZE);
 	if (!wtap_read_bytes(wth->fh, &ep_hdr.master,
 	    (int)sizeof(ep_hdr.master), err, err_info)) {
 		if (*err != WTAP_ERR_SHORT_READ)
@@ -201,7 +202,7 @@ wtap_open_return_val peekclassic_open(wtap *wth, int *err, gchar **err_info)
 	case 6:
 	case 7:
 		/* get the secondary header */
-		g_assert(sizeof(ep_hdr.secondary.v567) ==
+		ws_assert(sizeof(ep_hdr.secondary.v567) ==
 		        PEEKCLASSIC_V567_HDR_SIZE);
 		if (!wtap_read_bytes(wth->fh, &ep_hdr.secondary.v567,
 		    (int)sizeof(ep_hdr.secondary.v567), err, err_info)) {
@@ -343,7 +344,7 @@ wtap_open_return_val peekclassic_open(wtap *wth, int *err, gchar **err_info)
 
 	default:
 		/* this is impossible */
-		g_assert_not_reached();
+		ws_assert_not_reached();
 	}
 
 	wth->snapshot_length   = 0; /* not available in header */
@@ -422,6 +423,7 @@ static int peekclassic_read_packet_v7(wtap *wth, FILE_T fh,
 	guint64 timestamp;
 	time_t tsecs;
 	guint32 tusecs;
+	guint32 pack_flags;
 	guint8 radio_info[RADIO_INFO_SIZE];
 
 	if (!wtap_read_bytes_or_eof(fh, ep_pkt, sizeof(ep_pkt), err, err_info))
@@ -449,20 +451,22 @@ static int peekclassic_read_packet_v7(wtap *wth, FILE_T fh,
 
 	/* fill in packet header values */
 	rec->rec_type = REC_TYPE_PACKET;
-	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN|WTAP_HAS_PACK_FLAGS;
+	rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
+	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 	tsecs = (time_t) (timestamp/1000000);
 	tusecs = (guint32) (timestamp - tsecs*1000000);
 	rec->ts.secs  = tsecs - EPOCH_DELTA_1904_01_01_00_00_00_UTC;
 	rec->ts.nsecs = tusecs * 1000;
 	rec->rec_header.packet_header.len    = length;
 	rec->rec_header.packet_header.caplen = sliceLength;
-	rec->rec_header.packet_header.pack_flags = 0;
+	pack_flags = 0;
 	if (flags & FLAGS_HAS_CRC_ERROR)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_CRC_ERROR;
+		pack_flags |= PACK_FLAGS_CRC_ERROR;
 	if (flags & FLAGS_FRAME_TOO_LONG)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_PACKET_TOO_LONG;
+		pack_flags |= PACK_FLAGS_PACKET_TOO_LONG;
 	if (flags & FLAGS_FRAME_TOO_SHORT)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_PACKET_TOO_SHORT;
+		pack_flags |= PACK_FLAGS_PACKET_TOO_SHORT;
+	wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, pack_flags);
 
 	switch (wth->file_encap) {
 
@@ -622,6 +626,7 @@ static gboolean peekclassic_read_packet_v56(wtap *wth, FILE_T fh,
 	guint16 protoNum;
 	char    protoStr[8];
 #endif
+	guint32 pack_flags;
 
 	if (!wtap_read_bytes_or_eof(fh, ep_pkt, sizeof(ep_pkt), err, err_info))
 		return FALSE;
@@ -659,19 +664,21 @@ static gboolean peekclassic_read_packet_v56(wtap *wth, FILE_T fh,
 
 	/* fill in packet header values */
 	rec->rec_type = REC_TYPE_PACKET;
-	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN|WTAP_HAS_PACK_FLAGS;
+	rec->block = wtap_block_create(WTAP_BLOCK_PACKET);
+	rec->presence_flags = WTAP_HAS_TS|WTAP_HAS_CAP_LEN;
 	/* timestamp is in milliseconds since reference_time */
 	rec->ts.secs  = peekclassic->reference_time + (timestamp / 1000);
 	rec->ts.nsecs = 1000 * (timestamp % 1000) * 1000;
 	rec->rec_header.packet_header.len      = length;
 	rec->rec_header.packet_header.caplen   = sliceLength;
-	rec->rec_header.packet_header.pack_flags = 0;
+	pack_flags = 0;
 	if (flags & FLAGS_HAS_CRC_ERROR)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_CRC_ERROR;
+		pack_flags |= PACK_FLAGS_CRC_ERROR;
 	if (flags & FLAGS_FRAME_TOO_LONG)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_PACKET_TOO_LONG;
+		pack_flags |= PACK_FLAGS_PACKET_TOO_LONG;
 	if (flags & FLAGS_FRAME_TOO_SHORT)
-		rec->rec_header.packet_header.pack_flags |= PACK_FLAGS_PACKET_TOO_SHORT;
+		pack_flags |= PACK_FLAGS_PACKET_TOO_SHORT;
+	wtap_block_add_uint32_option(rec->block, OPT_PKT_FLAGS, pack_flags);
 
 	switch (wth->file_encap) {
 

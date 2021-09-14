@@ -728,7 +728,7 @@ dissect_btrfcomm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
                 service_info->channel == (dlci >> 1)) {
 
         } else {
-            service_info = wmem_new0(wmem_packet_scope(), service_info_t);
+            service_info = wmem_new0(pinfo->pool, service_info_t);
         }
     }
 
@@ -831,7 +831,7 @@ dissect_btrfcomm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 
         next_tvb = tvb_new_subset_length(tvb, offset, frame_len);
 
-        rfcomm_data = (btrfcomm_data_t *) wmem_new(wmem_packet_scope(), btrfcomm_data_t);
+        rfcomm_data = (btrfcomm_data_t *) wmem_new(pinfo->pool, btrfcomm_data_t);
         rfcomm_data->interface_id       = l2cap_data->interface_id;
         rfcomm_data->adapter_id         = l2cap_data->adapter_id;
         rfcomm_data->chandle            = l2cap_data->chandle;
@@ -1214,7 +1214,7 @@ dissect_btdun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
         /* presumably an AT command */
         col_add_fstr(pinfo->cinfo, COL_INFO, "%s \"%s\"",
                      (pinfo->p2p_dir == P2P_DIR_SENT) ? "Sent" : "Rcvd",
-                     tvb_format_text(tvb, 0, length));
+                     tvb_format_text(pinfo->pool, tvb, 0, length));
 
            proto_tree_add_item(st, hf_dun_at_cmd, tvb, 0, tvb_reported_length(tvb), ENC_ASCII|ENC_NA);
     }
@@ -1293,7 +1293,7 @@ dissect_btspp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     if (ascii_only) {
         col_add_fstr(pinfo->cinfo, COL_INFO, "%s \"%s%s\"",
                      (pinfo->p2p_dir == P2P_DIR_SENT) ? "Sent" : "Rcvd",
-                     tvb_format_text(tvb, 0, length),
+                     tvb_format_text(pinfo->pool, tvb, 0, length),
                      (tvb_captured_length(tvb) > length) ? "..." : "");
     }
 
@@ -1349,7 +1349,7 @@ dissect_btgnss(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s",
             (pinfo->p2p_dir == P2P_DIR_SENT) ? "Sent" : "Rcvd",
-            tvb_format_text(tvb, 0, tvb_captured_length(tvb)));
+            tvb_format_text(pinfo->pool, tvb, 0, tvb_captured_length(tvb)));
 
     /* GNSS using NMEA-0183 protocol, but it is not available */
     proto_tree_add_item(main_tree, hf_gnss_data, tvb, 0, tvb_reported_length(tvb), ENC_NA | ENC_ASCII);

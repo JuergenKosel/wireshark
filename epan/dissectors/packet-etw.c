@@ -137,8 +137,10 @@ dissect_etw(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree _U_, void* data 
     col_set_str(pinfo->cinfo, COL_DEF_SRC, "windows");
     col_set_str(pinfo->cinfo, COL_DEF_DST, "windows");
     if (memcmp(&mbim_net_providerid, &provider_id, sizeof(e_guid_t)) == 0) {
-        if (pinfo->rec->presence_flags & WTAP_HAS_PACK_FLAGS) {
-            switch(pinfo->rec->rec_header.packet_header.pack_flags & PACK_FLAGS_DIRECTION_MASK) {
+        guint32 pack_flags;
+
+        if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint32_option_value(pinfo->rec->block, OPT_PKT_FLAGS, &pack_flags)) {
+            switch(PACK_FLAGS_DIRECTION(pack_flags)) {
                 case PACK_FLAGS_DIRECTION_INBOUND:
                     col_set_str(pinfo->cinfo, COL_DEF_SRC, "device");
                     col_set_str(pinfo->cinfo, COL_DEF_DST, "host");
@@ -153,10 +155,10 @@ dissect_etw(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree _U_, void* data 
         call_dissector_only(mbim_dissector, mbim_tvb, pinfo, tree, data);
     }
     else if (message_length){
-        char* message = (char*)tvb_get_string_enc(wmem_packet_scope(), tvb, message_offset, message_length, ENC_LITTLE_ENDIAN | ENC_UTF_16);
+        char* message = (char*)tvb_get_string_enc(pinfo->pool, tvb, message_offset, message_length, ENC_LITTLE_ENDIAN | ENC_UTF_16);
         col_set_str(pinfo->cinfo, COL_INFO, message);
         if (provider_name_offset) {
-            char* provider_name = (char*)tvb_get_string_enc(wmem_packet_scope(), tvb, provider_name_offset, provider_name_length, ENC_LITTLE_ENDIAN | ENC_UTF_16);
+            char* provider_name = (char*)tvb_get_string_enc(pinfo->pool, tvb, provider_name_offset, provider_name_length, ENC_LITTLE_ENDIAN | ENC_UTF_16);
             col_set_str(pinfo->cinfo, COL_PROTOCOL, provider_name);
         }
     } else {

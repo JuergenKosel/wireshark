@@ -159,7 +159,7 @@ de_gsm_r_uus1_pfn(tvbuff_t *tvb, proto_tree *tree, guint32 offset)
     if(len == 0) {
         proto_item_append_text(item, ": No FN Available");
     }else {
-        fn_str = tvb_bcd_dig_to_wmem_packet_str(tvb, offset+2, len, NULL, FALSE);
+        fn_str = tvb_bcd_dig_to_str(wmem_packet_scope(), tvb, offset+2, len, NULL, FALSE);
         proto_tree_add_string(sub_tree, hf_gsm_r_uus1_pfn_digits, tvb, curr_offset, len, fn_str);
         proto_item_append_text(item, ": %s", fn_str);
 
@@ -520,7 +520,7 @@ de_gsm_r_uus1_dsd_alarm(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     proto_tree_add_item(sub_tree, hf_gsm_r_uus1_elem_len, tvb, curr_offset+1, 1, ENC_NA);
     curr_offset += 2;
 
-    loco_engine_number = tvb_bcd_dig_to_wmem_packet_str(tvb, offset+2, len, NULL, FALSE);
+    loco_engine_number = tvb_bcd_dig_to_str(pinfo->pool, tvb, offset+2, len, NULL, FALSE);
     proto_tree_add_string(sub_tree, hf_gsm_r_uus1_present_dsd_alarm_loco_number, tvb, curr_offset, len, loco_engine_number);
     proto_item_append_text(item, ": %s", loco_engine_number);
     curr_offset += len;
@@ -553,7 +553,7 @@ de_gsm_r_uus1_alert_controller(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     proto_tree_add_item(sub_tree, hf_gsm_r_uus1_elem_len, tvb, curr_offset+1, 1, ENC_NA);
     curr_offset += 2;
 
-    proto_tree_add_item_ret_display_string(sub_tree, hf_gsm_r_uus1_alert_controller_gref, tvb, curr_offset, 4, ENC_BCD_DIGITS_0_9, wmem_packet_scope(), &gref_str);
+    proto_tree_add_item_ret_display_string(sub_tree, hf_gsm_r_uus1_alert_controller_gref, tvb, curr_offset, 4, ENC_BCD_DIGITS_0_9, pinfo->pool, &gref_str);
     proto_item_append_text(item, ": %s", gref_str);
     curr_offset += 4;
 

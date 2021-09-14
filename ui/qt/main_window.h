@@ -394,6 +394,12 @@ private slots:
     void mainStackChanged(int);
     void updateRecentCaptures();
     void recentActionTriggered();
+    void actionAddPacketComment();
+    void actionEditPacketComment();
+    void actionDeletePacketComment();
+    void actionDeleteCommentsFromPackets();
+    QString commentToMenuText(QString text, int max_len = 40);
+    void setEditCommentsMenu();
     void setMenusForSelectedPacket();
     void setMenusForSelectedTreeRow(FieldInformation *fi = NULL);
     void interfaceSelectionChanged();
@@ -508,8 +514,8 @@ private slots:
     void on_actionEditPreviousTimeReference_triggered();
     void on_actionEditTimeShift_triggered();
     void editTimeShiftFinished(int);
-    void on_actionEditPacketComment_triggered();
-    void editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result);
+    void addPacketCommentFinished(PacketCommentDialog* pc_dialog, int result);
+    void editPacketCommentFinished(PacketCommentDialog* pc_dialog, int result, guint nComment);
     void on_actionDeleteAllPacketComments_triggered();
     void deleteAllPacketCommentsFinished(int result);
     void on_actionEditConfigurationProfiles_triggered();
@@ -701,6 +707,7 @@ private slots:
     void on_actionTelephonyRTSPPacketCounter_triggered();
     void on_actionTelephonySMPPOperations_triggered();
     void on_actionTelephonyUCPMessages_triggered();
+    void on_actionTelephonyF1APMessages_triggered();
     void on_actionTelephonySipFlows_triggered();
 
     void on_actionBluetoothATT_Server_Attributes_triggered();

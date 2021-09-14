@@ -142,7 +142,7 @@ void proto_register_netflow(void);
 void proto_reg_handoff_netflow(void);
 
 #if 0
-#define ipfix_debug(...) g_warning(__VA_ARGS__)
+#define ipfix_debug(...) ws_warning(__VA_ARGS__)
 #else
 #define ipfix_debug(...)
 #endif
@@ -3987,7 +3987,7 @@ static int      dissect_v9_v10_options_template(tvbuff_t *tvb, packet_info *pinf
 static int      dissect_v9_v10_data_template(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree,
                                     int offset, int len, hdrinfo_t *hdrinfo_p, guint16 flowset_id);
 
-static const gchar *getprefix(const guint32 *address, unsigned prefix);
+static const gchar *getprefix(wmem_allocator_t *pool, const guint32 *address, unsigned prefix);
 
 static int      flow_process_ints(proto_tree *pdutree, tvbuff_t *tvb,
                                   int offset);
@@ -4126,22 +4126,22 @@ static void show_sequence_analysis_info(guint32 domain_id, guint32 seqnum,
 
 /* Try to look up the transport name given the pen_type, ip_protocol and port_number.
    If found, append to port number item */
-static void netflow_add_transport_info(guint64 pen_type, guint8 ip_protocol,
+static void netflow_add_transport_info(packet_info *pinfo, guint64 pen_type, guint8 ip_protocol,
                                        guint16 port_number, proto_item *ti)
 {
     const char *port_str = "";
 
     /* UDP */
     if ((ip_protocol == IP_PROTO_UDP) || (pen_type == 180) || (pen_type == 181)) {
-        port_str = udp_port_to_display(wmem_packet_scope(), port_number);
+        port_str = udp_port_to_display(pinfo->pool, port_number);
     }
     /* TCP */
     else if ((ip_protocol == IP_PROTO_TCP) || (pen_type == 182) || (pen_type == 183)) {
-        port_str = tcp_port_to_display(wmem_packet_scope(), port_number);
+        port_str = tcp_port_to_display(pinfo->pool, port_number);
     }
     /* SCTP */
     else if (ip_protocol == IP_PROTO_SCTP) {
-        port_str = sctp_port_to_display(wmem_packet_scope(), port_number);
+        port_str = sctp_port_to_display(pinfo->pool, port_number);
     }
     else {
         /* Didn't match any of these transports, so do nothing */
@@ -5280,7 +5280,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             ti = proto_tree_add_item(pdutree, hf_cflow_srcport,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             port_number = tvb_get_ntohs(tvb, offset);
-            netflow_add_transport_info(pen_type, ip_protocol, port_number, ti);
+            netflow_add_transport_info(pinfo, pen_type, ip_protocol, port_number, ti);
             break;
 
         case 8: /* source IP */
@@ -5305,7 +5305,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             ti = proto_tree_add_item(pdutree, hf_cflow_dstport,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             port_number = tvb_get_ntohs(tvb, offset);
-            netflow_add_transport_info(pen_type, ip_protocol, port_number, ti);
+            netflow_add_transport_info(pinfo, pen_type, ip_protocol, port_number, ti);
             break;
 
         case 12: /* dest IP */
@@ -7002,7 +7002,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             {
                 const guint8 *string;
                 ti = proto_tree_add_item_ret_string(pdutree, hf_cflow_information_element_name,
-                                         tvb, offset, length, ENC_UTF_8|ENC_NA, wmem_packet_scope(), &string);
+                                         tvb, offset, length, ENC_UTF_8|ENC_NA, pinfo->pool, &string);
                 /* Add name of element to root for this flow */
                 proto_item_append_text(pdutree, " [%s]", string);
             }
@@ -8099,7 +8099,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
 
         case VENDOR_CACE << 16 | 10: /* caceLocalProcessUserName */
             uname_len = tvb_get_guint8(tvb, offset);
-            uname_str = tvb_format_text(tvb, offset+1, uname_len);
+            uname_str = tvb_format_text(pinfo->pool, tvb, offset+1, uname_len);
             proto_tree_add_item(pdutree, hf_pie_cace_local_username_len,
                                 tvb, offset, 1, ENC_BIG_ENDIAN);
             ti = proto_tree_add_string(pdutree, hf_pie_cace_local_username,
@@ -8110,7 +8110,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
 
         case VENDOR_CACE << 16 | 11: /* caceLocalProcessCommand */
             cmd_len = tvb_get_guint8(tvb, offset);
-            cmd_str = tvb_format_text(tvb, offset+1, cmd_len);
+            cmd_str = tvb_format_text(pinfo->pool, tvb, offset+1, cmd_len);
             proto_tree_add_item(pdutree, hf_pie_cace_local_cmd_len,
                                 tvb, offset, 1, ENC_BIG_ENDIAN);
             ti = proto_tree_add_string(pdutree, hf_pie_cace_local_cmd,
@@ -10116,17 +10116,17 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             break;
         case ((VENDOR_PLIXER << 16) | 101):    /* client_hostname */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_client_hostname,
                                        tvb, offset, length, gen_str);
             break;
         case ((VENDOR_PLIXER << 16) | 102):    /* partner_name */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_partner_name,
                                        tvb, offset, length, gen_str);
             break;
         case ((VENDOR_PLIXER << 16) | 103):    /* server_hostname */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_server_hostname,
                                        tvb, offset, length, gen_str);
             break;
@@ -10135,7 +10135,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             break;
         case ((VENDOR_PLIXER << 16) | 105):    /* recipient_address */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_recipient_address,
                                        tvb, offset, length, gen_str);
             break;
@@ -10144,7 +10144,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             break;
         case ((VENDOR_PLIXER << 16) | 107):    /* msgid */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_msgid,
                                        tvb, offset, length, gen_str);
             break;
@@ -10170,22 +10170,22 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             break;
         case ((VENDOR_PLIXER << 16) | 113):    /* service_version */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_service_version,
                                        tvb, offset, length, gen_str);
             break;
         case ((VENDOR_PLIXER << 16) | 114):    /* linked_msgid */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_linked_msgid,
                                        tvb, offset, length, gen_str);
             break;
         case ((VENDOR_PLIXER << 16) | 115):    /* message_subject */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_message_subject,
                                        tvb, offset, length, gen_str);
             break;
         case ((VENDOR_PLIXER << 16) | 116):    /* sender_address */
-            gen_str = tvb_format_text(tvb, offset, length);
+            gen_str = tvb_format_text(pinfo->pool, tvb, offset, length);
             ti = proto_tree_add_string(pdutree, hf_pie_plixer_sender_address,
                                        tvb, offset, length, gen_str);
             break;
@@ -10205,7 +10205,7 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             {
             const guint8 *string;
             ti = proto_tree_add_item_ret_string(pdutree, hf_pie_ixia_l7_application_name,
-                                     tvb, offset, length, ENC_ASCII|ENC_NA, wmem_packet_scope(), &string);
+                                     tvb, offset, length, ENC_ASCII|ENC_NA, pinfo->pool, &string);
             proto_item_append_text(pdutree, " (%s)", string);
             }
 
@@ -12144,14 +12144,14 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
                                                        tvb, offset, length, NULL,
                                                        "Type %u: Value (hex bytes): %s",
                                                        masked_type,
-                                                       tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, length, ' '));
+                                                       tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, length, ' '));
             } else { /* v10 PEN */
                 ti = proto_tree_add_bytes_format_value(pdutree, hf_ipfix_enterprise_private_entry,
                                                        tvb, offset, length, NULL,
                                                        "(%s) Type %u: Value (hex bytes): %s",
                                                        pen_str ? pen_str : "(null)",
                                                        masked_type,
-                                                       tvb_bytes_to_str_punct(wmem_packet_scope(), tvb, offset, length, ' '));
+                                                       tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, length, ' '));
             }
             break;
 
@@ -12742,14 +12742,14 @@ dissect_pdu(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *pdutree, int offs
         proto_tree_add_uint_format_value(pdutree, hf_cflow_srcmask, tvb, offset++, 1,
                                          mask,
                                          "%u (prefix: %s/%u)",
-                                         mask, getprefix(&srcaddr, mask),
+                                         mask, getprefix(pinfo->pool, &srcaddr, mask),
                                          mask != 0 ? mask : 32);
 
         mask = tvb_get_guint8(tvb, offset);
         proto_tree_add_uint_format_value(pdutree, hf_cflow_dstmask, tvb, offset++, 1,
                                          mask,
                                          "%u (prefix: %s/%u)",
-                                         mask, getprefix(&dstaddr, mask),
+                                         mask, getprefix(pinfo->pool, &dstaddr, mask),
                                          mask != 0 ? mask : 32);
 
         offset = flow_process_textfield(pdutree, tvb, offset, 2, hf_cflow_padding);
@@ -12764,7 +12764,7 @@ dissect_pdu(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *pdutree, int offs
 }
 
 static const gchar   *
-getprefix(const guint32 *addr, unsigned prefix)
+getprefix(wmem_allocator_t *pool, const guint32 *addr, unsigned prefix)
 {
     guint32 gprefix;
     address prefix_addr;
@@ -12778,7 +12778,7 @@ getprefix(const guint32 *addr, unsigned prefix)
     }
 
     set_address(&prefix_addr, AT_IPv4, 4, &gprefix);
-    return address_to_str(wmem_packet_scope(), &prefix_addr);
+    return address_to_str(pool, &prefix_addr);
 }
 
 void

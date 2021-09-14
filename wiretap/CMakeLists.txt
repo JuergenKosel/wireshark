@@ -34,6 +34,7 @@ set(WIRETAP_C_MODULE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/ascendtext.c
 	${CMAKE_CURRENT_SOURCE_DIR}/atm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ber.c
+	${CMAKE_CURRENT_SOURCE_DIR}/blf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/btsnoop.c
 	${CMAKE_CURRENT_SOURCE_DIR}/busmaster.c
 	${CMAKE_CURRENT_SOURCE_DIR}/camins.c
@@ -180,14 +181,17 @@ endif()
 target_link_libraries(wiretap
 	PUBLIC
 		wsutil
-		${GLIB2_LIBRARIES}
 	PRIVATE
 		${ZLIB_LIBRARIES}
+		${ZSTD_LIBRARIES}
+		${LZ4_LIBRARIES}
 )
 
 target_include_directories(wiretap SYSTEM
 	PRIVATE
 		${ZLIB_INCLUDE_DIRS}
+		${ZSTD_INCLUDE_DIRS}
+		${LZ4_INCLUDE_DIRS}
 )
 
 target_include_directories(wiretap PUBLIC

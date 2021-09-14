@@ -1008,7 +1008,7 @@ dissect_digitech_procedure(guint8 procedure, const gint offset,
 
             while ((count > 0) && (str_size = tvb_strsize(data_tvb, data_offset)))
             {
-                tmp_string = tvb_get_string_enc(wmem_packet_scope(), data_tvb, data_offset, str_size - 1, ENC_ASCII);
+                tmp_string = tvb_get_string_enc(pinfo->pool, data_tvb, data_offset, str_size - 1, ENC_ASCII);
                 proto_tree_add_string(tree, hf_digitech_preset_name, data_tvb, data_offset, str_size, tmp_string);
                 data_offset += (gint)str_size;
                 count--;
@@ -1032,7 +1032,7 @@ dissect_digitech_procedure(guint8 procedure, const gint offset,
 
             /* Preset name (NULL-terminated) */
             str_size = tvb_strsize(data_tvb, data_offset);
-            tmp_string = tvb_get_string_enc(wmem_packet_scope(), data_tvb, data_offset, str_size - 1, ENC_ASCII);
+            tmp_string = tvb_get_string_enc(pinfo->pool, data_tvb, data_offset, str_size - 1, ENC_ASCII);
             proto_tree_add_string(tree, hf_digitech_preset_name, data_tvb, data_offset, str_size, tmp_string);
             data_offset += (gint)str_size;
 
@@ -1268,7 +1268,7 @@ proto_register_sysex_digitech(void)
             { "Parameter data", "sysex_digitech.parameter_data", FT_UINT8, BASE_DEC,
               NULL, 0, NULL, HFILL }},
         { &hf_digitech_parameter_data_count,
-            { "Parameter value count", "sysex_digitech.parameter_data_count", FT_UINT8, BASE_DEC,
+            { "Parameter value count", "sysex_digitech.parameter_value_count", FT_UINT8, BASE_DEC,
               NULL, 0, NULL, HFILL }},
         { &hf_digitech_parameter_data_two_byte_count,
             { "Parameter data count", "sysex_digitech.parameter_data_count", FT_UINT24, BASE_DEC,

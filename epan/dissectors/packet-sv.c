@@ -108,7 +108,7 @@ static int hf_sv_seqASDU_item = -1;               /* ASDU */
 static int hf_sv_svID = -1;                       /* VisibleString */
 static int hf_sv_datSet = -1;                     /* VisibleString */
 static int hf_sv_smpCnt = -1;                     /* T_smpCnt */
-static int hf_sv_confRef = -1;                    /* INTEGER_0_4294967295 */
+static int hf_sv_confRev = -1;                    /* INTEGER_0_4294967295 */
 static int hf_sv_refrTm = -1;                     /* UtcTime */
 static int hf_sv_smpSynch = -1;                   /* T_smpSynch */
 static int hf_sv_smpRate = -1;                    /* INTEGER_0_65535 */
@@ -300,7 +300,7 @@ dissect_sv_UtcTime(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 	ts.secs = seconds;
 	ts.nsecs = nanoseconds;
 
-	ptime = abs_time_to_str(wmem_packet_scope(), &ts, ABSOLUTE_TIME_UTC, TRUE);
+	ptime = abs_time_to_str(actx->pinfo->pool, &ts, ABSOLUTE_TIME_UTC, TRUE);
 
 	if(hf_index >= 0)
 	{
@@ -416,7 +416,7 @@ static const ber_sequence_t ASDU_sequence[] = {
   { &hf_sv_svID             , BER_CLASS_CON, 0, BER_FLAGS_IMPLTAG, dissect_sv_VisibleString },
   { &hf_sv_datSet           , BER_CLASS_CON, 1, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sv_VisibleString },
   { &hf_sv_smpCnt           , BER_CLASS_CON, 2, BER_FLAGS_IMPLTAG, dissect_sv_T_smpCnt },
-  { &hf_sv_confRef          , BER_CLASS_CON, 3, BER_FLAGS_IMPLTAG, dissect_sv_INTEGER_0_4294967295 },
+  { &hf_sv_confRev          , BER_CLASS_CON, 3, BER_FLAGS_IMPLTAG, dissect_sv_INTEGER_0_4294967295 },
   { &hf_sv_refrTm           , BER_CLASS_CON, 4, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sv_UtcTime },
   { &hf_sv_smpSynch         , BER_CLASS_CON, 5, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sv_T_smpSynch },
   { &hf_sv_smpRate          , BER_CLASS_CON, 6, BER_FLAGS_OPTIONAL|BER_FLAGS_IMPLTAG, dissect_sv_INTEGER_0_65535 },
@@ -523,7 +523,8 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 	proto_tree_add_item(tree, hf_sv_reserve2, tvb, offset + 6, 2, ENC_BIG_ENDIAN);
 
 	offset = 8;
-	while ((tvb_reported_length_remaining(tvb, offset) > 0) && ((guint)offset < sv_length)) {
+	set_actual_length(tvb, sv_length);
+	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		old_offset = offset;
 		offset = dissect_sv_SampledValues(FALSE, tvb, offset, &asn1_ctx , tree, -1);
 		if (offset == old_offset) {
@@ -641,8 +642,8 @@ void proto_register_sv(void) {
       { "smpCnt", "sv.smpCnt",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_sv_confRef,
-      { "confRef", "sv.confRef",
+    { &hf_sv_confRev,
+      { "confRev", "sv.confRev",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_4294967295", HFILL }},
     { &hf_sv_refrTm,

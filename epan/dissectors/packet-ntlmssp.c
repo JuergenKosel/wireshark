@@ -251,6 +251,19 @@ static int hf_ntlmssp_ntlmv2_response_pad = -1;
 static int hf_ntlmssp_ntlmv2_response_time = -1;
 static int hf_ntlmssp_ntlmv2_response_chal = -1;
 
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Version = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Flags = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_LM_PRESENT = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_NT_PRESENT = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_REMOVED = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_CREDKEY_PRESENT = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_SHA_PRESENT = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKey = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKeyType = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCredsSize = -1;
+static int hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCreds = -1;
+
 static gint ett_ntlmssp = -1;
 static gint ett_ntlmssp_negotiate_flags = -1;
 static gint ett_ntlmssp_string = -1;
@@ -260,6 +273,7 @@ static gint ett_ntlmssp_challenge_target_info = -1;
 static gint ett_ntlmssp_challenge_target_info_item = -1;
 static gint ett_ntlmssp_ntlmv2_response = -1;
 static gint ett_ntlmssp_ntlmv2_response_item = -1;
+static gint ett_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL = -1;
 
 static expert_field ei_ntlmssp_v2_key_too_long = EI_INIT;
 static expert_field ei_ntlmssp_blob_len_too_long = EI_INIT;
@@ -465,7 +479,11 @@ get_keyexchange_key(unsigned char keyexchangekey[NTLMSSP_KEY_LEN], const unsigne
 }
 
 guint32
-get_md4pass_list(md4_pass** p_pass_list)
+get_md4pass_list(wmem_allocator_t *pool
+#if !defined(HAVE_HEIMDAL_KERBEROS) && !defined(HAVE_MIT_KERBEROS)
+  _U_
+#endif
+  , md4_pass** p_pass_list)
 {
 #if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
   guint32        nb_pass = 0;
@@ -477,9 +495,6 @@ get_md4pass_list(md4_pass** p_pass_list)
   int            i;
 
   *p_pass_list = NULL;
-  if (!krb_decrypt) {
-    return 0;
-  }
   read_keytab_file_from_preferences();
 
   for (ek=enc_key_list; ek; ek=ek->next) {
@@ -489,7 +504,8 @@ get_md4pass_list(md4_pass** p_pass_list)
   }
   memset(nt_password_unicode, 0, sizeof(nt_password_unicode));
   memset(nt_password_hash, 0, NTLMSSP_KEY_LEN);
-  if ((nt_password[0] != '\0') && (strlen(nt_password) < 129)) {
+  /* Compute the NT hash of the provided password, even if empty */
+  if (strlen(nt_password) < 129) {
     int password_len;
     nb_pass++;
     password_len = (int)strlen(nt_password);
@@ -497,11 +513,11 @@ get_md4pass_list(md4_pass** p_pass_list)
     gcry_md_hash_buffer(GCRY_MD_MD4, nt_password_hash, nt_password_unicode, password_len*2);
   }
   if (nb_pass == 0) {
-    /* Unable to calculate the session key without a password or if password is more than 128 char ......*/
+    /* Unable to calculate the session key without a valid password (128 chars or less) ......*/
     return 0;
   }
   i = 0;
-  *p_pass_list = (md4_pass *)wmem_alloc0(wmem_packet_scope(), nb_pass*sizeof(md4_pass));
+  *p_pass_list = (md4_pass *)wmem_alloc0(pool, nb_pass*sizeof(md4_pass));
   pass_list = *p_pass_list;
 
   if (memcmp(nt_password_hash, gbl_zeros, NTLMSSP_KEY_LEN) != 0) {
@@ -561,7 +577,7 @@ create_ntlmssp_v2_key(const guint8 *serverchallenge, const guint8 *clientchallen
    * The idea is to be able to test all the key of domain in once and to be able to decode the NTLM dialogs */
 
   memset(sessionkey, 0, NTLMSSP_KEY_LEN);
-  nb_pass = get_md4pass_list(&pass_list);
+  nb_pass = get_md4pass_list(pinfo->pool, &pass_list);
   i = 0;
   memset(user_uppercase, 0, USER_BUF_SIZE);
   user_len = strlen(ntlmssph->acct_name);
@@ -738,26 +754,18 @@ create_ntlmssp_v1_key(const guint8 *serverchallenge, const guint8 *clientchallen
   memset(sessionkey, 0, NTLMSSP_KEY_LEN);
   memset(lm_password_upper, 0, sizeof(lm_password_upper));
   /* lm auth/lm session == (!NTLM_NEGOTIATE_NT_ONLY && NTLMSSP_NEGOTIATE_LM_KEY) || ! (EXTENDED_SECURITY) || ! NTLMSSP_NEGOTIATE_NTLM*/
-  /* Create a Lan Manager hash of the input password */
-  if (nt_password[0] != '\0') {
-    password_len = strlen(nt_password);
-    /*Do not forget to free nt_password_nt*/
-    str_to_unicode(nt_password, nt_password_unicode);
-    gcry_md_hash_buffer(GCRY_MD_MD4, nt_password_hash, nt_password_unicode, password_len*2);
-    /* Truncate password if too long */
-    if (password_len > NTLMSSP_KEY_LEN)
-      password_len = NTLMSSP_KEY_LEN;
-    for (i = 0; i < password_len; i++) {
-      lm_password_upper[i] = g_ascii_toupper(nt_password[i]);
-    }
+  /* Create a Lan Manager hash of the input password, even if empty */
+  password_len = strlen(nt_password);
+  /*Do not forget to free nt_password_nt*/
+  str_to_unicode(nt_password, nt_password_unicode);
+  gcry_md_hash_buffer(GCRY_MD_MD4, nt_password_hash, nt_password_unicode, password_len*2);
+  /* Truncate password if too long */
+  if (password_len > NTLMSSP_KEY_LEN)
+  password_len = NTLMSSP_KEY_LEN;
+  for (i = 0; i < password_len; i++) {
+    lm_password_upper[i] = g_ascii_toupper(nt_password[i]);
   }
-  else
-  {
-    /* Unable to calculate the session key without a password ... and we will not use one for a keytab*/
-    if (!(flags & NTLMSSP_NEGOTIATE_EXTENDED_SECURITY)) {
-      return;
-    }
-  }
+
   if ((flags & NTLMSSP_NEGOTIATE_LM_KEY && !(flags & NTLMSSP_NEGOTIATE_NT_ONLY)) || !(flags & NTLMSSP_NEGOTIATE_EXTENDED_SECURITY)  || !(flags & NTLMSSP_NEGOTIATE_NTLM)) {
     crypt_des_ecb(lm_password_hash, lmhash_key, lm_password_upper);
     crypt_des_ecb(lm_password_hash+8, lmhash_key, lm_password_upper+7);
@@ -769,7 +777,7 @@ create_ntlmssp_v1_key(const guint8 *serverchallenge, const guint8 *clientchallen
 
     memset(lm_challenge_response, 0, 24);
     if (flags & NTLMSSP_NEGOTIATE_EXTENDED_SECURITY) {
-      nb_pass = get_md4pass_list(&pass_list);
+      nb_pass = get_md4pass_list(pinfo->pool, &pass_list);
       i = 0;
       while (i < nb_pass) {
         /*fprintf(stderr, "Turn %d, ", i);*/
@@ -2432,18 +2440,6 @@ dissect_ntlmssp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
   return tvb_captured_length(tvb);
 }
 
-static gboolean
-dissect_ntlmssp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data _U_)
-{
-  if (tvb_memeql(tvb, 0, "NTLMSSP", 8) == 0) {
-    dissect_ntlmssp(tvb, pinfo, parent_tree, data);
-    return TRUE;
-  }
-
-  return FALSE;
-}
-
-
 /*
  * See page 45 of "DCE/RPC over SMB" by Luke Kenneth Casson Leighton.
  */
@@ -2832,6 +2828,93 @@ static dcerpc_auth_subdissector_fns ntlmssp_seal_fns = {
   wrap_dissect_ntlmssp_payload_only,    /* Request data */
   wrap_dissect_ntlmssp_payload_only     /* Response data */
 };
+
+static const value_string MSV1_0_CRED_VERSION[] = {
+    { 0x00000000, "MSV1_0_CRED_VERSION" },
+    { 0x00000002, "MSV1_0_CRED_VERSION_V2" },
+    { 0x00000004, "MSV1_0_CRED_VERSION_V3" },
+    { 0xffff0001, "MSV1_0_CRED_VERSION_IUM" },
+    { 0xffff0002, "MSV1_0_CRED_VERSION_REMOTE" },
+    { 0xfffffffe, "MSV1_0_CRED_VERSION_RESERVED_1" },
+    { 0xffffffff, "MSV1_0_CRED_VERSION_INVALID" },
+    { 0, NULL }
+};
+
+#define MSV1_0_CRED_LM_PRESENT      0x0001
+#define MSV1_0_CRED_NT_PRESENT      0x0002
+#define MSV1_0_CRED_REMOVED         0x0004
+#define MSV1_0_CRED_CREDKEY_PRESENT 0x0008
+#define MSV1_0_CRED_SHA_PRESENT     0x0010
+
+static int* const MSV1_0_CRED_FLAGS_bits[] = {
+	&hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_LM_PRESENT,
+	&hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_NT_PRESENT,
+	&hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_REMOVED,
+	&hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_CREDKEY_PRESENT,
+	&hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_SHA_PRESENT,
+	NULL
+};
+
+static const value_string MSV1_0_CREDENTIAL_KEY_TYPE[] = {
+    { 0, "InvalidCredKey" },
+    { 1, "IUMCredKey" },
+    { 2, "DomainUserCredKey" },
+    { 3, "LocalUserCredKey" },
+    { 4, "ExternallySuppliedCredKey" },
+    { 0, NULL }
+};
+
+#define MSV1_0_CREDENTIAL_KEY_LENGTH 20
+
+int
+dissect_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL(tvbuff_t *tvb, int offset, proto_tree *tree)
+{
+	proto_item *item;
+	proto_tree *subtree;
+	guint32 EncryptedCredsSize;
+
+	if (tvb_captured_length(tvb) < 36)
+		return offset;
+
+	item = proto_tree_add_item(tree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL, tvb,
+                                   offset, -1, ENC_NA);
+	subtree = proto_item_add_subtree(item, ett_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL);
+
+	proto_tree_add_item(subtree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Version, tvb,
+                            offset, 4, ENC_LITTLE_ENDIAN);
+	offset+=4;
+
+	proto_tree_add_bitmask(subtree, tvb, offset,
+                               hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Flags,
+                               ett_ntlmssp, MSV1_0_CRED_FLAGS_bits, ENC_LITTLE_ENDIAN);
+	offset+=4;
+
+	proto_tree_add_item(subtree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKey,
+                            tvb, offset, MSV1_0_CREDENTIAL_KEY_LENGTH, ENC_NA);
+	offset+=MSV1_0_CREDENTIAL_KEY_LENGTH;
+
+	proto_tree_add_item(subtree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKeyType,
+                            tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset+=4;
+
+	EncryptedCredsSize = tvb_get_letohl(tvb, offset);
+	proto_tree_add_item(subtree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCredsSize,
+                            tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset+=4;
+
+	if (EncryptedCredsSize == 0)
+		return offset;
+
+	if (tvb_captured_length(tvb) < (36 + EncryptedCredsSize))
+		return offset;
+
+	proto_tree_add_item(subtree, hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCreds,
+                            tvb, offset, EncryptedCredsSize, ENC_NA);
+	offset+=EncryptedCredsSize;
+
+	return offset;
+}
+
 
 void
 proto_register_ntlmssp(void)
@@ -3418,6 +3501,54 @@ proto_register_ntlmssp(void)
         FT_BYTES, BASE_NONE, NULL, 0x0,
         "The 8-byte NTLMv2 challenge message generated by the client", HFILL }
     },
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL,
+      { "NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Version,
+      { "Version", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.Version",
+        FT_UINT32, BASE_HEX, VALS(MSV1_0_CRED_VERSION), 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_Flags,
+      { "Flags", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.Flags",
+        FT_UINT32, BASE_HEX, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_LM_PRESENT,
+      { "lm_present", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.LM_PRESENT",
+        FT_BOOLEAN, 32, NULL, MSV1_0_CRED_LM_PRESENT,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_NT_PRESENT,
+      { "nt_present", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.NT_PRESENT",
+        FT_BOOLEAN, 32, NULL, MSV1_0_CRED_NT_PRESENT,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_REMOVED,
+      { "removed", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.REMOVED",
+        FT_BOOLEAN, 32, NULL, MSV1_0_CRED_REMOVED,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_CREDKEY_PRESENT,
+      { "credkey_present", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.CREDKEY_PRESENT",
+        FT_BOOLEAN, 32, NULL, MSV1_0_CRED_CREDKEY_PRESENT,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_FLAG_SHA_PRESENT,
+      { "sha_present", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.SHA_PRESENT",
+        FT_BOOLEAN, 32, NULL, MSV1_0_CRED_SHA_PRESENT,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKey,
+      { "CredentialKey", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.CredentialKey",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_CredentialKeyType,
+      { "CredentialKeyType", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.CredentialKeyType",
+        FT_UINT32, BASE_DEC, VALS(MSV1_0_CREDENTIAL_KEY_TYPE), 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCredsSize,
+      { "EncryptedCredsSize", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.EncryptedCredsSize",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+    { &hf_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL_EncryptedCreds,
+      { "EncryptedCreds", "ntlmssp.NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL.EncryptedCreds",
+        FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
   };
 
 
@@ -3431,6 +3562,7 @@ proto_register_ntlmssp(void)
     &ett_ntlmssp_challenge_target_info_item,
     &ett_ntlmssp_ntlmv2_response,
     &ett_ntlmssp_ntlmv2_response_item,
+    &ett_ntlmssp_NTLM_REMOTE_SUPPLEMENTAL_CREDENTIAL,
   };
   static ei_register_info ei[] = {
      { &ei_ntlmssp_v2_key_too_long, { "ntlmssp.v2_key_too_long", PI_UNDECODED, PI_WARN, "NTLM v2 key is too long", EXPFILL }},
@@ -3504,8 +3636,6 @@ proto_reg_handoff_ntlmssp(void)
                                     DCE_C_RPC_AUTHN_PROTOCOL_NTLMSSP,
                                     &ntlmssp_seal_fns);
   ntlmssp_tap = register_tap("ntlmssp");
-
-  heur_dissector_add("credssp", dissect_ntlmssp_heur, "NTLMSSP over CredSSP", "ntlmssp_credssp", proto_ntlmssp, HEURISTIC_ENABLE);
 
 }
 

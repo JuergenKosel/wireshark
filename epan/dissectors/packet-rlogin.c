@@ -256,7 +256,7 @@ static void rlogin_display(rlogin_hash_entry_t *hash_info,
 		user_info_item = proto_tree_add_string_format(rlogin_tree, hf_user_info, tvb,
 		                                              offset, info_len, FALSE,
 		                                              "User info (%s)",
-		                                              tvb_format_text(tvb, offset, info_len));
+		                                              tvb_format_text(pinfo->pool, tvb, offset, info_len));
 		user_info_tree = proto_item_add_subtree(user_info_item,
 		                                        ett_rlogin_user_info);
 
@@ -288,7 +288,7 @@ static void rlogin_display(rlogin_hash_entry_t *hash_info,
 
 			/* Terminal speed */
 			str_len = tvb_strsize(tvb, offset);
-			str = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, str_len,
+			str = tvb_get_string_enc(pinfo->pool, tvb, offset, str_len,
 				ENC_NA|ENC_ASCII);
 			term_len_valid = ws_strtou32(str, NULL, &term_len);
 			pi = proto_tree_add_uint(user_info_tree,
@@ -460,7 +460,7 @@ dissect_rlogin(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 				/* Add data into info column */
 				col_append_fstr(pinfo->cinfo, COL_INFO,
 				                "Data: %s",
-				                 tvb_format_text(tvb, 0, bytes_to_copy));
+				                 tvb_format_text(pinfo->pool, tvb, 0, bytes_to_copy));
 			}
 		}
 	}

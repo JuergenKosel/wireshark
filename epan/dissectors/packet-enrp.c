@@ -347,7 +347,7 @@ dissect_pool_handle_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tre
   pi = proto_tree_add_item(parameter_tree, hf_pool_handle, parameter_tvb, POOL_HANDLE_OFFSET, handle_length, ENC_NA);
 
   proto_item_append_text(pi, " (%s)",
-                         tvb_format_text(parameter_tvb, POOL_HANDLE_OFFSET, handle_length) );
+                         tvb_format_text(wmem_packet_scope(), parameter_tvb, POOL_HANDLE_OFFSET, handle_length) );
 }
 
 static void
@@ -723,7 +723,7 @@ dissect_enrp_message(tvbuff_t *message_tvb, packet_info *pinfo, proto_tree *enrp
   type = tvb_get_guint8(message_tvb, MESSAGE_TYPE_OFFSET);
   /* pinfo is NULL only if dissect_enrp_message is called via dissect_error_cause */
   if (pinfo) {
-    tap_rec = wmem_new0(wmem_packet_scope(), enrp_tap_rec_t);
+    tap_rec = wmem_new0(pinfo->pool, enrp_tap_rec_t);
     tap_rec->type        = type;
     tap_rec->size        = tvb_get_ntohs(message_tvb, MESSAGE_LENGTH_OFFSET);
     tap_rec->type_string = val_to_str_const(tap_rec->type, message_type_values, "Unknown ENRP type");

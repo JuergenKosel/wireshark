@@ -324,6 +324,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-disp.h
 	packet-dns.h
 	packet-docsis-tlv.h
+	packet-doip.h
 	packet-dop.h
 	packet-dsp.h
 	packet-dtls.h
@@ -354,6 +355,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-fcswils.h
 	packet-ff.h
 	packet-fix.h
+	packet-flexray.h
 	packet-fmp.h
 	packet-frame.h
 	packet-ftam.h
@@ -412,6 +414,8 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-isis.h
 	packet-isis-clv.h
 	packet-isl.h
+	packet-iso10681.h
+	packet-iso15765.h
 	packet-isup.h
 	packet-its.h
 	packet-iwarp-ddp-rdmap.h
@@ -429,6 +433,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-ldap.h
 	packet-lcsap.h
 	packet-ldp.h
+	packet-lin.h
 	packet-link16.h
 	packet-lisp.h
 	packet-llc.h
@@ -637,6 +642,7 @@ set(DISSECTOR_HEADER_FILES
 )
 
 set(DISSECTOR_SRC
+	${CMAKE_CURRENT_SOURCE_DIR}/file-blf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file-btsnoop.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file-elf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file-file.c
@@ -731,6 +737,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-banana.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bat.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-batadv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-bblog.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bctp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-beep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bencode.c
@@ -1037,6 +1044,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exablaze.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exec.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-exported_pdu.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-extreme-exeh.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-extreme.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-f5ethtrailer.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fc00.c
@@ -1178,6 +1186,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hdfsdata.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hdmi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hip.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-hipercontracer.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hiqnet.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hislip.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hl7.c
@@ -1285,6 +1294,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ismacryp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ismp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-isns.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-iso10681.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-iso14443.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-iso15765.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-iso7816.c
@@ -1346,6 +1356,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lg8979.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lge_monitor.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-link16.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-lin.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-linx.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lisp-data.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lisp-tcp.c
@@ -1641,6 +1652,9 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-raw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_multitransport.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_drdynvc.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdpudp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-redback.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-redbackli.c
@@ -1940,6 +1954,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wlccp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wow.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-woww.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wps.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wreth.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-wsmp.c

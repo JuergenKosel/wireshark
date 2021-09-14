@@ -1207,11 +1207,12 @@ union wtap_pseudo_header {
  * option would suffice for this purpose, so nothing needs to be
  * added to pcapng for this.)
  */
-#define REC_TYPE_PACKET               0    /**< packet */
-#define REC_TYPE_FT_SPECIFIC_EVENT    1    /**< file-type-specific event */
-#define REC_TYPE_FT_SPECIFIC_REPORT   2    /**< file-type-specific report */
-#define REC_TYPE_SYSCALL              3    /**< system call */
-#define REC_TYPE_SYSTEMD_JOURNAL      4    /**< systemd journal entry */
+#define REC_TYPE_PACKET                 0    /**< packet */
+#define REC_TYPE_FT_SPECIFIC_EVENT      1    /**< file-type-specific event */
+#define REC_TYPE_FT_SPECIFIC_REPORT     2    /**< file-type-specific report */
+#define REC_TYPE_SYSCALL                3    /**< system call */
+#define REC_TYPE_SYSTEMD_JOURNAL_EXPORT 4    /**< systemd journal entry */
+#define REC_TYPE_CUSTOM_BLOCK           5    /**< pcapng custom block */
 
 typedef struct {
     guint32   caplen;           /* data length in the file */
@@ -1220,11 +1221,6 @@ typedef struct {
                                 /* pcapng variables */
     guint32   interface_id;     /* identifier of the interface. */
                                 /* options */
-    guint64   drop_count;       /* number of packets lost (by the interface and the
-                                   operating system) between this packet and the preceding one. */
-    guint32   pack_flags;       /* various flags, as per pcapng EPB */
-    guint32   interface_queue;  /* queue of the interface the packet was received on. */
-    guint64   packet_id;        /* unique packet identifier */
 
     union wtap_pseudo_header  pseudo_header;
 } wtap_packet_header;
@@ -1321,34 +1317,44 @@ typedef struct {
 
 typedef struct {
     guint32   record_len;       /* length of the record */
-} wtap_systemd_journal_header;
+} wtap_systemd_journal_export_header;
 
 typedef struct {
-    guint     rec_type;         /* what type of record is this? */
-    guint32   presence_flags;   /* what stuff do we have? */
-    nstime_t  ts;               /* time stamp */
-    int       tsprec;           /* WTAP_TSPREC_ value for this record */
+    guint32   length;           /* length of the record */
+    guint32   pen;              /* private enterprise number */
+    gboolean  copy_allowed;     /* CB can be written */
+    union {
+        struct nflx {
+            guint32   type;             /* block type */
+            guint32   skipped;          /* Used if type == BBLOG_TYPE_SKIPPED_BLOCK */
+        } nflx_custom_data_header;
+    } custom_data_header;
+} wtap_custom_block_header;
+
+#define BBLOG_TYPE_EVENT_BLOCK   1
+#define BBLOG_TYPE_SKIPPED_BLOCK 2
+
+typedef struct {
+    guint     rec_type;          /* what type of record is this? */
+    guint32   presence_flags;    /* what stuff do we have? */
+    nstime_t  ts;                /* time stamp */
+    int       tsprec;            /* WTAP_TSPREC_ value for this record */
     union {
         wtap_packet_header packet_header;
         wtap_ft_specific_header ft_specific_header;
         wtap_syscall_header syscall_header;
-        wtap_systemd_journal_header systemd_journal_header;
+        wtap_systemd_journal_export_header systemd_journal_export_header;
+        wtap_custom_block_header custom_block_header;
     } rec_header;
-    /*
-     * XXX - this should become a full set of options.
-     */
-    gchar     *opt_comment;     /* NULL if not available */
-    gboolean  has_comment_changed; /* TRUE if the comment has been changed. Currently only valid while dumping. */
-    GPtrArray *packet_verdict;     /* packet verdicts. It would have made more
-                                      sense to put this in packet_header above
-                                      but due to the way the current code is
-                                      reusing the wtap_rec structure, it's
-                                      impossible to nicely clean it up. */
+
+    wtap_block_t block ;         /* packet block; holds comments and verdicts in its options */
+    gboolean block_was_modified; /* TRUE if ANY aspect of the block has been modified */
+
     /*
      * We use a Buffer so that we don't have to allocate and free
      * a buffer for the options for each record.
      */
-    Buffer    options_buf;      /* file-type specific data */
+    Buffer    options_buf;       /* file-type specific data */
 } wtap_rec;
 
 /*
@@ -1376,12 +1382,6 @@ typedef struct {
 #define WTAP_HAS_TS            0x00000001  /**< time stamp */
 #define WTAP_HAS_CAP_LEN       0x00000002  /**< captured length separate from on-the-network length */
 #define WTAP_HAS_INTERFACE_ID  0x00000004  /**< interface ID */
-#define WTAP_HAS_COMMENTS      0x00000008  /**< comments */
-#define WTAP_HAS_DROP_COUNT    0x00000010  /**< drop count */
-#define WTAP_HAS_PACK_FLAGS    0x00000020  /**< packet flags */
-#define WTAP_HAS_PACKET_ID     0x00000040  /**< packet id */
-#define WTAP_HAS_INT_QUEUE     0x00000080  /**< interface queue */
-#define WTAP_HAS_VERDICT       0x00000100  /**< packet verdict */
 
 #ifndef MAXNAMELEN
 #define MAXNAMELEN  	64	/* max name length (hostname and port name) */
@@ -1761,6 +1761,10 @@ gboolean wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec,
 WS_DLL_PUBLIC
 void wtap_rec_init(wtap_rec *rec);
 
+/*** Re-initialize a wtap_rec structure ***/
+WS_DLL_PUBLIC
+void wtap_rec_reset(wtap_rec *rec);
+
 /*** clean up a wtap_rec structure, freeing what wtap_rec_init() allocated */
 WS_DLL_PUBLIC
 void wtap_rec_cleanup(wtap_rec *rec);
@@ -1770,7 +1774,9 @@ void wtap_rec_cleanup(wtap_rec *rec);
  */
 typedef enum {
     WTAP_UNCOMPRESSED,
-    WTAP_GZIP_COMPRESSED
+    WTAP_GZIP_COMPRESSED,
+    WTAP_ZSTD_COMPRESSED,
+    WTAP_LZ4_COMPRESSED
 } wtap_compression_type;
 
 WS_DLL_PUBLIC
@@ -1825,22 +1831,6 @@ WS_DLL_PUBLIC
 wtap_block_t wtap_file_get_shb(wtap *wth, guint shb_num);
 
 /**
- * @brief Gets new section header block for new file, based on existing info.
- * @details Creates a new wtap_block_t section header block and only
- *          copies appropriate members of the SHB for a new file. In
- *          particular, the comment string is copied, and any custom options
- *          which should be copied are copied. The os, hardware, and
- *          application strings are *not* copied.
- *
- * @note Use wtap_free_shb() to free the returned section header.
- *
- * @param wth The wiretap session.
- * @return The new section header, which must be wtap_free_shb'd.
- */
-WS_DLL_PUBLIC
-GArray* wtap_file_get_shb_for_new_file(wtap *wth);
-
-/**
  * @brief Sets or replaces the section header comment.
  * @details The passed-in comment string is set to be the comment
  *          for the section header block. The passed-in string's
@@ -1852,20 +1842,6 @@ GArray* wtap_file_get_shb_for_new_file(wtap *wth);
  */
 WS_DLL_PUBLIC
 void wtap_write_shb_comment(wtap *wth, gchar *comment);
-
-/**
- * @brief Generate an IDB, given a wiretap handle for the file,
- *      using the file's encapsulation type, snapshot length,
- *      and time stamp resolution, and add it to the interface
- *      data for a file.
- * @note This requires that the encapsulation type and time stamp
- *      resolution not be per-packet; it will terminate the process
- *      if either of them are.
- *
- * @param wth The wiretap handle for the file.
- */
-WS_DLL_PUBLIC
-void wtap_add_generated_idb(wtap *wth);
 
 /**
  * @brief Gets existing interface descriptions.
@@ -1937,19 +1913,6 @@ gchar *wtap_get_debug_if_descr(const wtap_block_t if_descr,
  */
 WS_DLL_PUBLIC
 wtap_block_t wtap_file_get_nrb(wtap *wth);
-
-/**
- * @brief Gets new name resolution info for new file, based on existing info.
- * @details Creates a new wtap_block_t of name resolution info and only
- *          copies appropriate members for a new file.
- *
- * @note Use wtap_free_nrb() to free the returned pointer.
- *
- * @param wth The wiretap session.
- * @return The new name resolution info, which must be freed.
- */
-WS_DLL_PUBLIC
-GArray* wtap_file_get_nrb_for_new_file(wtap *wth);
 
 /*** close the file descriptors for the current file ***/
 WS_DLL_PUBLIC

@@ -72,7 +72,7 @@ superseding or adding to earlier options.
 B<Capinfos> is able to detect and read the same capture files that are
 supported by B<Wireshark>.
 The input files don't need a specific filename extension; the file
-format and an optional gzip compression will be automatically detected.
+format and an optional gzip, zstd or lz4 compression will be automatically detected.
 Near the beginning of the DESCRIPTION section of wireshark(1) or
 L<https://www.wireshark.org/docs/man-pages/wireshark.html>
 is a detailed description of the way B<Wireshark> handles this, which is
@@ -221,9 +221,10 @@ from one another with a single comma "," character.
 
 =item -M
 
-Print raw (machine readable) numeric values in long reports.
-By default capinfos prints human-readable values with SI
-suffixes. Table reports (-T) always print raw values.
+Print raw (machine readable) values in long reports.
+By default capinfos prints numeric values with human-readable SI
+suffixes, and shows human-readable file type and encapsulation.
+Table reports (-T) always print raw values.
 
 =item -n
 
@@ -377,7 +378,7 @@ into spreadsheet applications.
 =head1 SEE ALSO
 
 pcap(3), wireshark(1), mergecap(1), editcap(1), tshark(1),
-dumpcap(1), pcap-filter(7) or tcpdump(8)
+dumpcap(1), captype(1), pcap-filter(7) or tcpdump(8)
 
 =head1 NOTES
 

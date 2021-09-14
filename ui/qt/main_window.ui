@@ -622,6 +622,7 @@
     <addaction name="menuTelephonySCTP"/>
     <addaction name="actionTelephonySMPPOperations"/>
     <addaction name="actionTelephonyUCPMessages"/>
+    <addaction name="actionTelephonyF1APMessages"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -665,7 +666,12 @@
     <addaction name="separator"/>
     <addaction name="actionEditTimeShift"/>
     <addaction name="separator"/>
-    <addaction name="actionEditPacketComment"/>
+    <widget class="QMenu" name="menuPacketComment">
+     <property name="title">
+      <string>Packet Comments</string>
+     </property>
+    </widget>
+    <addaction name="menuPacketComment"/>
     <addaction name="actionDeleteAllPacketComments"/>
     <addaction name="separator"/>
     <addaction name="actionEditConfigurationProfiles"/>
@@ -1579,17 +1585,6 @@
     <string notr="true">Ctrl+Shift+T</string>
    </property>
   </action>
-  <action name="actionEditPacketComment">
-   <property name="text">
-    <string>Packet Comment…</string>
-   </property>
-   <property name="toolTip">
-    <string>Add or change a packet comment</string>
-   </property>
-   <property name="shortcut">
-    <string notr="true">Ctrl+Alt+C</string>
-   </property>
-  </action>
   <action name="actionDeleteAllPacketComments">
    <property name="text">
     <string>Delete All Packet Comments</string>
@@ -1970,6 +1965,14 @@
    </property>
    <property name="toolTip">
     <string>UCP message statistics</string>
+   </property>
+  </action>
+  <action name="actionTelephonyF1APMessages">
+   <property name="text">
+    <string>F1AP</string>
+   </property>
+   <property name="toolTip">
+    <string>F1AP Messages</string>
    </property>
   </action>
   <action name="actionAnalyzeDecodeAs">

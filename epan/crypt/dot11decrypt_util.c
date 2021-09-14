@@ -21,6 +21,7 @@
 
 #define FC0_AAD_MASK 0x8f
 #define FC1_AAD_MASK 0xc7
+#define FC1_AAD_QOS_MASK 0x47
 
 /****************************************************************************/
 /* Internal macros                                                          */
@@ -41,7 +42,7 @@ void dot11decrypt_construct_aad(
     int alen = 22;
 
     /* AAD:
-    * FC with bits 4..6 and 11..13 masked to zero; 14 is always one
+    * FC with bits 4..6 and 11..13 masked to zero; 14 is always one; 15 zero when QoS Control field present
     * A1 | A2 | A3
     * SC with bits 4..15 (seq#) masked to zero
     * A4 (if present)
@@ -54,7 +55,11 @@ void dot11decrypt_construct_aad(
     } else {
         aad[0] = wh->fc[0];
     }
-    aad[1] = (UINT8)(wh->fc[1] & FC1_AAD_MASK);
+    if (DOT11DECRYPT_IS_QOS_DATA(wh)) {
+        aad[1] = (UINT8)((wh->fc[1] & FC1_AAD_QOS_MASK) | 0x40);
+    } else {
+        aad[1] = (UINT8)((wh->fc[1] & FC1_AAD_MASK) | 0x40);
+    }
     memcpy(aad + 2, (guint8 *)wh->addr1, DOT11DECRYPT_MAC_LEN);
     memcpy(aad + 8, (guint8 *)wh->addr2, DOT11DECRYPT_MAC_LEN);
     memcpy(aad + 14, (guint8 *)wh->addr3, DOT11DECRYPT_MAC_LEN);
@@ -126,7 +131,7 @@ dot11decrypt_prf(const guint8 *key, size_t key_len,
     }
     if (label_len + 1 + context_len + 1 > MAX_R_LEN ||
         output_len > 64) {
-        DEBUG_PRINT_LINE("Invalid input or output sizes", DEBUG_LEVEL_3);
+        ws_warning("Invalid input or output sizes");
         return FALSE;
     }
 
@@ -184,7 +189,7 @@ dot11decrypt_kdf(const guint8 *key, size_t key_len,
     }
     if (2 + label_len + context_len + 2 > MAX_R_LEN ||
         iterations * hash_len > MAX_TMP_LEN) {
-        DEBUG_PRINT_LINE("Invalid input sizes", DEBUG_LEVEL_3);
+        ws_warning("Invalid input sizes");
         return FALSE;
     }
 
@@ -238,13 +243,13 @@ static gboolean sha256(const guint8 *data, size_t len, guint8 output[32])
  * @param ssid_len Length of SSID in bytes.
  * @param mdid MDID (Mobility Domain Identifier).
  * @param r0kh_id PMK-R0 key holder identifier in the Authenticator.
- * @param r0kh_id_len Lenth of r0kh_id in bytes.
+ * @param r0kh_id_len Length of r0kh_id in bytes.
  * @param s0kh_id PMK-R0 key holder in the Supplicant (STA mac address)
- * @param s0kd_id_len Length of s0kh_id in bytes.
  * @param hash_algo Hash algorithm to use for the KDF.
  *        See gcrypt available hash algorithms:
  *        https://gnupg.org/documentation/manuals/gcrypt/Available-hash-algorithms.html
  * @param[out] pmk_r0 Pairwise master key, first level
+ * @param pmk_r0_len Length of pmk_r0 in bytes.
  * @param[out] pmk_r0_name Pairwise master key (PMK) R0 name.
  */
 gboolean
@@ -274,7 +279,7 @@ dot11decrypt_derive_pmk_r0(const guint8 *xxkey, size_t xxkey_len,
     }
     if (1 + ssid_len + 2 + 1 + r0kh_id_len + DOT11DECRYPT_MAC_LEN > MAX_CONTEXT_LEN)
     {
-        DEBUG_PRINT_LINE("Invalid input sizes", DEBUG_LEVEL_3);
+        ws_warning("Invalid input sizes");
         return FALSE;
     }
 

@@ -29,12 +29,14 @@
 #include <epan/expert.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/str_util.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 #include <epan/proto_data.h>
-#include <wmem/wmem.h>
+#include <epan/addr_resolv.h>
+#include <epan/wmem_scopes.h>
 
 #include "packet-frame.h"
 #include "packet-icmp.h"
-#include "log.h"
 
 #include <epan/column-info.h>
 #include <epan/color_filters.h>
@@ -45,6 +47,7 @@ void proto_reg_handoff_frame(void);
 static int proto_frame = -1;
 static int proto_pkt_comment = -1;
 static int proto_syscall = -1;
+static int proto_bblog = -1;
 
 static int hf_frame_arrival_time = -1;
 static int hf_frame_shift_offset = -1;
@@ -90,6 +93,11 @@ static int hf_frame_pack_start_frame_delimiter_error = -1;
 static int hf_frame_pack_preamble_error = -1;
 static int hf_frame_pack_symbol_error = -1;
 static int hf_frame_wtap_encap = -1;
+static int hf_frame_cb_pen = -1;
+static int hf_frame_cb_copy_allowed = -1;
+static int hf_frame_bblog = -1;
+static int hf_frame_bblog_ticks = -1;
+static int hf_frame_bblog_serial_nr = -1;
 static int hf_comments_text = -1;
 
 static gint ett_frame = -1;
@@ -97,6 +105,7 @@ static gint ett_ifname = -1;
 static gint ett_flags = -1;
 static gint ett_comments = -1;
 static gint ett_verdict = -1;
+static gint ett_bblog = -1;
 
 static expert_field ei_comments_text = EI_INIT;
 static expert_field ei_arrive_time_out_of_range = EI_INIT;
@@ -107,6 +116,7 @@ static int frame_tap = -1;
 static dissector_handle_t docsis_handle;
 static dissector_handle_t sysdig_handle;
 static dissector_handle_t systemd_journal_handle;
+static dissector_handle_t bblog_handle;
 
 /* Preferences */
 static gboolean show_file_off       = FALSE;
@@ -173,6 +183,15 @@ static dissector_table_t wtap_fts_rec_dissector_table;
 #define OPT_VERDICT_TYPE_TC  1
 #define OPT_VERDICT_TYPE_XDP 2
 
+/* Structure for passing as userdata to wtap_block_foreach_option */
+typedef struct fr_foreach_s {
+	proto_item *item;
+	proto_tree *tree;
+	tvbuff_t *tvb;
+	packet_info *pinfo;
+	guint n_changes;
+} fr_foreach_t;
+
 static const char *
 get_verdict_type_string(guint8 type)
 {
@@ -185,29 +204,6 @@ get_verdict_type_string(guint8 type)
 		return "eBPF_XDP";
 	}
 	return "Unknown";
-}
-
-static void
-format_verdict_summary(wtap_rec *rec, char *buffer, size_t n)
-{
-	buffer[0] = 0;
-
-	for(guint i = 0; i < rec->packet_verdict->len; i++) {
-		char *format = i ? ", %s (%u)" : "%s (%u)";
-		size_t offset = strlen(buffer);
-		GBytes *verdict = (GBytes *) g_ptr_array_index(rec->packet_verdict, i);
-		const guint8 *data;
-
-		if (verdict == NULL)
-			continue;
-
-		if (offset >= n)
-			return;
-
-		data = (const guint8 *) g_bytes_get_data(verdict, NULL);
-		snprintf(buffer + offset, n - offset,
-			 format, get_verdict_type_string(data[0]), data[0]);
-	}
 }
 
 static void
@@ -272,11 +268,85 @@ call_frame_end_routine(gpointer routine)
 	(*func)();
 }
 
+static gboolean
+frame_add_comment(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
+{
+	fr_foreach_t *fr_user_data = (fr_foreach_t *)user_data;
+	proto_item *comment_item;
+
+	if (option_id == OPT_COMMENT) {
+		comment_item = proto_tree_add_string_format(fr_user_data->tree, hf_comments_text,
+							    fr_user_data->tvb, 0, 0,
+							    option->stringval,
+							    "%s", option->stringval);
+		expert_add_info_format(fr_user_data->pinfo, comment_item, &ei_comments_text,
+				"%s",  option->stringval);
+	}
+	fr_user_data->n_changes++;
+	return TRUE;
+}
+
+static gboolean
+frame_add_verdict(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
+{
+	fr_foreach_t *fr_user_data = (fr_foreach_t *)user_data;
+
+	if (option_id == OPT_PKT_VERDICT) {
+		GBytes *verdict = option->byteval;
+		const guint8 *verdict_data;
+		gsize len;
+		char *format = fr_user_data->n_changes ? ", %s (%u)" : "%s (%u)";
+
+		if (verdict == NULL)
+			return TRUE;
+
+		verdict_data = (const guint8 *) g_bytes_get_data(verdict, &len);
+
+		if (len == 0)
+			return TRUE;
+
+		proto_item_append_text(fr_user_data->item, format,
+			 get_verdict_type_string(verdict_data[0]), verdict_data[0]);
+
+		len -= 1;
+		switch(verdict_data[0]) {
+			case OPT_VERDICT_TYPE_HW:
+				proto_tree_add_bytes_with_length(fr_user_data->tree, hf_frame_verdict_hardware,
+						fr_user_data->tvb, 0, 0, verdict_data + 1, (gint) len);
+				break;
+			case OPT_VERDICT_TYPE_TC:
+				if (len == 8) {
+					gint64 val;
+					memcpy(&val, verdict_data + 1, sizeof(val));
+					proto_tree_add_int64(fr_user_data->tree, hf_frame_verdict_tc, fr_user_data->tvb, 0, 0, val);
+				}
+				break;
+			case OPT_VERDICT_TYPE_XDP:
+				if (len == 8) {
+					gint64 val;
+					memcpy(&val, verdict_data + 1, sizeof(val));
+					proto_tree_add_int64(fr_user_data->tree, hf_frame_verdict_xdp, fr_user_data->tvb, 0, 0, val);
+				}
+				break;
+			default:
+				proto_tree_add_bytes_with_length(fr_user_data->tree, hf_frame_verdict_unknown,
+						fr_user_data->tvb, 0, 0, verdict_data, (gint) len + 1);
+				break;
+		}
+	}
+	fr_user_data->n_changes++;
+	return TRUE;
+}
+
 static int
 dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data)
 {
-	proto_item  *volatile ti = NULL, *comment_item;
+	proto_item  *volatile ti = NULL;
 	guint	     cap_len = 0, frame_len = 0;
+	guint32      pack_flags;
+	guint32      interface_queue;
+	guint64      drop_count;
+	guint64      packetid;
 	proto_tree  *volatile tree;
 	proto_tree  *comments_tree;
 	proto_tree  *volatile fh_tree = NULL;
@@ -285,6 +355,8 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	frame_data_t *fr_data = (frame_data_t*)data;
 	const color_filter_t *color_filter;
 	dissector_handle_t dissector_handle;
+	fr_foreach_t fr_user_data;
+	struct nflx_tcpinfo tcpinfo;
 
 	tree=parent_tree;
 
@@ -294,8 +366,8 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 
 	case REC_TYPE_PACKET:
 		pinfo->current_proto = "Frame";
-		if (pinfo->rec->presence_flags & WTAP_HAS_PACK_FLAGS) {
-			switch (PACK_FLAGS_DIRECTION(pinfo->rec->rec_header.packet_header.pack_flags)) {
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint32_option_value(fr_data->pkt_block, OPT_PKT_FLAGS, &pack_flags)) {
+			switch (PACK_FLAGS_DIRECTION(pack_flags)) {
 
 			case PACK_FLAGS_DIRECTION_UNKNOWN:
 			default:
@@ -381,25 +453,34 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		pinfo->current_proto = "System Call";
 		break;
 
-	case REC_TYPE_SYSTEMD_JOURNAL:
+	case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
 		pinfo->current_proto = "Systemd Journal";
+		break;
+
+	case REC_TYPE_CUSTOM_BLOCK:
+		switch (pinfo->rec->rec_header.custom_block_header.pen) {
+		case PEN_NFLX:
+			pinfo->current_proto = "Black Box Log";
+			break;
+		default:
+			pinfo->current_proto = "PCAPNG Custom Block";
+			break;
+		}
 		break;
 
 	default:
 		DISSECTOR_ASSERT_NOT_REACHED();
 		break;
 	}
-
-	if (fr_data->pkt_comment) {
+	if (wtap_block_count_option(fr_data->pkt_block, OPT_COMMENT) > 0) {
 		item = proto_tree_add_item(tree, proto_pkt_comment, tvb, 0, 0, ENC_NA);
 		comments_tree = proto_item_add_subtree(item, ett_comments);
-		comment_item = proto_tree_add_string_format(comments_tree, hf_comments_text, tvb, 0, 0,
-									   fr_data->pkt_comment, "%s",
-									   fr_data->pkt_comment);
-		expert_add_info_format(pinfo, comment_item, &ei_comments_text,
-							       "%s",  fr_data->pkt_comment);
-
-
+		fr_user_data.item = item;
+		fr_user_data.tree = comments_tree;
+		fr_user_data.pinfo = pinfo;
+		fr_user_data.tvb = tvb;
+		fr_user_data.n_changes = 0;
+		wtap_block_foreach_option(fr_data->pkt_block, frame_add_comment, (void *)&fr_user_data);
 	}
 
 	/* if FRAME is not referenced from any filters we don't need to worry about
@@ -442,8 +523,8 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					    pinfo->rec->rec_header.packet_header.interface_id);
 				}
 			}
-			if (pinfo->rec->presence_flags & WTAP_HAS_PACK_FLAGS) {
-				switch (PACK_FLAGS_DIRECTION(pinfo->rec->rec_header.packet_header.pack_flags)) {
+			if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint32_option_value(fr_data->pkt_block, OPT_PKT_FLAGS, &pack_flags)) {
+				switch (PACK_FLAGS_DIRECTION(pack_flags)) {
 
 				case PACK_FLAGS_DIRECTION_INBOUND:
 					proto_item_append_text(ti, " (inbound)");
@@ -500,7 +581,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			    pinfo->num, frame_len, frame_plurality);
 			break;
 
-		case REC_TYPE_SYSTEMD_JOURNAL:
+		case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
 			/*
 			 * XXX - we need to rethink what's handled by
 			 * packet-record.c, what's handled by packet-frame.c.
@@ -512,6 +593,30 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			    "Systemd Journal Entry %u: %u byte%s",
 			    pinfo->num, frame_len, frame_plurality);
 			break;
+
+		case REC_TYPE_CUSTOM_BLOCK:
+			switch (pinfo->rec->rec_header.custom_block_header.pen) {
+			case PEN_NFLX:
+				ti = proto_tree_add_protocol_format(tree, proto_bblog, tvb, 0, tvb_captured_length(tvb),
+				                                    "Black Box Log %u: %u byte%s",
+				                                    pinfo->num, frame_len, frame_plurality);
+				break;
+			default:
+				ti = proto_tree_add_protocol_format(tree, proto_frame, tvb, 0, tvb_captured_length(tvb),
+				                                    "PCAPNG Custom Block %u: %u byte%s",
+				                                    pinfo->num, frame_len, frame_plurality);
+				if (generate_bits_field) {
+					proto_item_append_text(ti, " (%u bits)", frame_len * 8);
+				}
+				proto_item_append_text(ti, " of custom data and options, PEN %s (%u)",
+				                           enterprises_lookup(pinfo->rec->rec_header.custom_block_header.pen, "Unknown"),
+				                           pinfo->rec->rec_header.custom_block_header.pen);
+				proto_item_append_text(ti, ", copying%s allowed",
+				                       pinfo->rec->rec_header.custom_block_header.copy_allowed ? "" : " not");
+				break;
+			}
+			break;
+
 		}
 
 		fh_tree = proto_item_add_subtree(ti, ett_frame);
@@ -539,11 +644,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			}
 		}
 
-		if (pinfo->rec->presence_flags & WTAP_HAS_INT_QUEUE)
-			proto_tree_add_uint(fh_tree, hf_frame_interface_queue, tvb, 0, 0,
-					    pinfo->rec->rec_header.packet_header.interface_queue);
-
-		if (pinfo->rec->presence_flags & WTAP_HAS_PACK_FLAGS) {
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint32_option_value(fr_data->pkt_block, OPT_PKT_QUEUE, &interface_queue)) {
+			proto_tree_add_uint(fh_tree, hf_frame_interface_queue, tvb, 0, 0, interface_queue);
+		}
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint32_option_value(fr_data->pkt_block, OPT_PKT_FLAGS, &pack_flags)) {
 			proto_tree *flags_tree;
 			proto_item *flags_item;
 			static int * const flags[] = {
@@ -562,65 +666,27 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				NULL
 			};
 
-			flags_item = proto_tree_add_uint(fh_tree, hf_frame_pack_flags, tvb, 0, 0, pinfo->rec->rec_header.packet_header.pack_flags);
+			flags_item = proto_tree_add_uint(fh_tree, hf_frame_pack_flags, tvb, 0, 0, pack_flags);
 			flags_tree = proto_item_add_subtree(flags_item, ett_flags);
-			proto_tree_add_bitmask_list_value(flags_tree, tvb, 0, 0, flags, pinfo->rec->rec_header.packet_header.pack_flags);
+			proto_tree_add_bitmask_list_value(flags_tree, tvb, 0, 0, flags, pack_flags);
 		}
 
-		if (pinfo->rec->presence_flags & WTAP_HAS_PACKET_ID)
-			proto_tree_add_uint64(fh_tree, hf_frame_packet_id, tvb, 0, 0,
-					      pinfo->rec->rec_header.packet_header.packet_id);
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint64_option_value(fr_data->pkt_block, OPT_PKT_PACKETID, &packetid)) {
+			proto_tree_add_uint64(fh_tree, hf_frame_packet_id, tvb, 0, 0, packetid);
+		}
 
-		if (pinfo->rec->presence_flags & WTAP_HAS_VERDICT &&
-		    pinfo->rec->packet_verdict != NULL) {
-			char line_buffer[128];
+		if (wtap_block_count_option(fr_data->pkt_block, OPT_PKT_VERDICT) > 0) {
 			proto_tree *verdict_tree;
 			proto_item *verdict_item;
 
-			format_verdict_summary(pinfo->rec, line_buffer, sizeof(line_buffer));
-			verdict_item = proto_tree_add_string(fh_tree, hf_frame_verdict, tvb, 0, 0, line_buffer);
+			verdict_item = proto_tree_add_string(fh_tree, hf_frame_verdict, tvb, 0, 0, "");
 			verdict_tree = proto_item_add_subtree(verdict_item, ett_verdict);
-
-			for(guint i = 0; i < pinfo->rec->packet_verdict->len; i++) {
-
-				GBytes *verdict = (GBytes *) g_ptr_array_index(pinfo->rec->packet_verdict, i);
-				const guint8 *verdict_data;
-				gsize len;
-
-				if (verdict == NULL)
-					continue;
-
-				verdict_data = (const guint8 *) g_bytes_get_data(verdict, &len);
-
-				if (len == 0)
-					continue;
-
-				len -= 1;
-				switch(verdict_data[0]) {
-				case OPT_VERDICT_TYPE_HW:
-					proto_tree_add_bytes_with_length(verdict_tree, hf_frame_verdict_hardware,
-									 tvb, 0, 0, verdict_data + 1, (gint) len);
-					break;
-				case OPT_VERDICT_TYPE_TC:
-					if (len == 8) {
-						gint64 val;
-						memcpy(&val, verdict_data + 1, sizeof(val));
-						proto_tree_add_int64(verdict_tree, hf_frame_verdict_tc, tvb, 0, 0, val);
-					}
-					break;
-				case OPT_VERDICT_TYPE_XDP:
-					if (len == 8) {
-						gint64 val;
-						memcpy(&val, verdict_data + 1, sizeof(val));
-						proto_tree_add_int64(verdict_tree, hf_frame_verdict_xdp, tvb, 0, 0, val);
-					}
-					break;
-				default:
-					proto_tree_add_bytes_with_length(verdict_tree, hf_frame_verdict_unknown,
-									 tvb, 0, 0, verdict_data, (gint) len + 1);
-					break;
-				}
-			}
+			fr_user_data.item = verdict_item;
+			fr_user_data.tree = verdict_tree;
+			fr_user_data.pinfo = pinfo;
+			fr_user_data.tvb = tvb;
+			fr_user_data.n_changes = 0;
+			wtap_block_foreach_option(pinfo->rec->block, frame_add_verdict, (void *)&fr_user_data);
 		}
 
 		if (pinfo->rec->rec_type == REC_TYPE_PACKET)
@@ -685,9 +751,9 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					   0, 0, cap_len, "Capture Length: %u byte%s (%u bits)",
 					   cap_len, cap_plurality, cap_len * 8);
 
-		if (pinfo->rec->presence_flags & WTAP_HAS_DROP_COUNT)
-			proto_tree_add_uint64(fh_tree, hf_frame_drop_count, tvb, 0, 0,
-					    pinfo->rec->rec_header.packet_header.drop_count);
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint64_option_value(fr_data->pkt_block, OPT_PKT_DROPCOUNT, &drop_count)) {
+			proto_tree_add_uint64(fh_tree, hf_frame_drop_count, tvb, 0, 0, drop_count);
+		}
 
 		if (generate_md5_hash) {
 			const guint8 *cp;
@@ -697,7 +763,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			cp = tvb_get_ptr(tvb, 0, cap_len);
 
 			gcry_md_hash_buffer(GCRY_MD_MD5, digest, cp, cap_len);
-			digest_string = bytestring_to_str(wmem_packet_scope(), digest, HASH_MD5_LENGTH, '\0');
+			digest_string = bytes_to_str_punct(pinfo->pool, digest, HASH_MD5_LENGTH, '\0');
 			ti = proto_tree_add_string(fh_tree, hf_frame_md5_hash, tvb, 0, 0, digest_string);
 			proto_item_set_generated(ti);
 		}
@@ -720,6 +786,15 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			    (pinfo->rec->rec_header.packet_header.pkt_encap == WTAP_ENCAP_MTP2_WITH_PHDR)) {
 				proto_tree_add_uint(fh_tree, hf_link_number, tvb,
 						    0, 0, pinfo->link_number);
+			}
+			if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_nflx_custom_option(fr_data->pkt_block, NFLX_OPT_TYPE_TCPINFO, (char *)&tcpinfo, sizeof(struct nflx_tcpinfo))) {
+				proto_tree *bblog_tree;
+				proto_item *bblog_item;
+
+				bblog_item = proto_tree_add_string(fh_tree, hf_frame_bblog, tvb, 0, 0, "");
+				bblog_tree = proto_item_add_subtree(bblog_item, ett_bblog);
+				proto_tree_add_uint(bblog_tree, hf_frame_bblog_ticks,     tvb, 0, 0, tcpinfo.tlb_ticks);
+				proto_tree_add_uint(bblog_tree, hf_frame_bblog_serial_nr, tvb, 0, 0, tcpinfo.tlb_sn);
 			}
 		}
 
@@ -823,13 +898,38 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				}
 				break;
 
-			case REC_TYPE_SYSTEMD_JOURNAL:
+			case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
 				if (systemd_journal_handle) {
 					call_dissector_with_data(systemd_journal_handle,
 					    tvb, pinfo, parent_tree,
 					    (void *)pinfo->pseudo_header);
 				}
 				break;
+
+			case REC_TYPE_CUSTOM_BLOCK:
+				switch (pinfo->rec->rec_header.custom_block_header.pen) {
+				case PEN_NFLX:
+					call_dissector_with_data(bblog_handle,
+					                         tvb, pinfo, parent_tree,
+					                         (void *)pinfo->pseudo_header);
+					break;
+				default:
+					col_set_str(pinfo->cinfo, COL_PROTOCOL, "PCAPNG");
+					proto_tree_add_uint_format_value(fh_tree, hf_frame_cb_pen, tvb, 0, 0,
+					                                 pinfo->rec->rec_header.custom_block_header.pen,
+					                                 "%s (%u)",
+					                                 enterprises_lookup(pinfo->rec->rec_header.custom_block_header.pen, "Unknown"),
+					                                 pinfo->rec->rec_header.custom_block_header.pen);
+					proto_tree_add_boolean(fh_tree, hf_frame_cb_copy_allowed, tvb, 0, 0, pinfo->rec->rec_header.custom_block_header.copy_allowed);
+					col_add_fstr(pinfo->cinfo, COL_INFO, "Custom Block: PEN = %s (%d), will%s be copied",
+					             enterprises_lookup(pinfo->rec->rec_header.custom_block_header.pen, "Unknown"),
+					             pinfo->rec->rec_header.custom_block_header.pen,
+					             pinfo->rec->rec_header.custom_block_header.copy_allowed ? "" : " not");
+					call_data_dissector(tvb, pinfo, parent_tree);
+					break;
+				}
+				break;
+
 			}
 #ifdef _MSC_VER
 		} __except(EXCEPTION_EXECUTE_HANDLER /* handle all exceptions */) {
@@ -864,7 +964,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	ENDTRY;
 
 	if (proto_field_is_referenced(tree, hf_frame_protocols)) {
-		wmem_strbuf_t *val = wmem_strbuf_sized_new(wmem_packet_scope(), 128, 0);
+		wmem_strbuf_t *val = wmem_strbuf_sized_new(pinfo->pool, 128, 0);
 		wmem_list_frame_t *frame;
 		/* skip the first entry, it's always the "frame" protocol */
 		frame = wmem_list_frame_next(wmem_list_head(pinfo->layers));
@@ -976,7 +1076,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				field_info* fi = proto_find_field_from_offset(tree, i, tvb);
 				if (fi && fi->hfinfo->id != proto_frame) {
 					if (prefs.incomplete_dissectors_check_debug)
-						g_log(LOG_DOMAIN_CAPTURE, G_LOG_LEVEL_WARNING,
+						ws_log(LOG_DOMAIN_CAPTURE, LOG_LEVEL_WARNING,
 							"Dissector %s incomplete in frame %u: undecoded byte number %u "
 							"(0x%.4X+%u)",
 							fi->hfinfo->abbrev,
@@ -1216,6 +1316,32 @@ proto_register_frame(void)
 		  { "Drop Count", "frame.drop_count",
 		    FT_UINT64, BASE_DEC, NULL, 0x0,
 		    "Number of frames lost between this frame and the preceding one on the same interface", HFILL }},
+
+		{ &hf_frame_cb_pen,
+		  { "Private Enterprise Number", "frame.cb_pen",
+		    FT_UINT32, BASE_DEC, NULL, 0x0,
+		    "IANA assigned private enterprise number (PEN)", HFILL }},
+
+		{ &hf_frame_cb_copy_allowed,
+		  { "Copying", "frame.cb_copy",
+		    FT_BOOLEAN, BASE_DEC, TFS(&tfs_allowed_not_allowed), 0x0,
+		    "Whether the custom block will be written or not", HFILL }},
+
+		{ &hf_frame_bblog,
+		  { "Black Box Log", "frame.bblog",
+		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    NULL, HFILL }},
+
+		{ &hf_frame_bblog_ticks,
+		  { "Ticks", "frame.bblog.ticks",
+		    FT_UINT32, BASE_DEC, NULL, 0x0,
+		    NULL, HFILL}},
+
+		{ &hf_frame_bblog_serial_nr,
+		  { "Serial Number", "frame.bblog.serial_nr",
+		    FT_UINT32, BASE_DEC, NULL, 0x0,
+		    NULL, HFILL}},
+
 	};
 
 	static hf_register_info hf_encap =
@@ -1230,6 +1356,7 @@ proto_register_frame(void)
 		&ett_flags,
 		&ett_comments,
 		&ett_verdict,
+		&ett_bblog
 	};
 
 	static ei_register_info ei[] = {
@@ -1259,6 +1386,7 @@ proto_register_frame(void)
 	proto_frame = proto_register_protocol("Frame", "Frame", "frame");
 	proto_pkt_comment = proto_register_protocol_in_name_only("Packet comments", "Pkt_Comment", "pkt_comment", proto_frame, FT_PROTOCOL);
 	proto_syscall = proto_register_protocol("System Call", "Syscall", "syscall");
+	proto_bblog = proto_get_id_by_filter_name("bblog");
 
 	proto_register_field_array(proto_frame, hf, array_length(hf));
 	proto_register_field_array(proto_frame, &hf_encap, 1);
@@ -1311,6 +1439,7 @@ proto_reg_handoff_frame(void)
 	docsis_handle = find_dissector_add_dependency("docsis", proto_frame);
 	sysdig_handle = find_dissector_add_dependency("sysdig", proto_frame);
 	systemd_journal_handle = find_dissector_add_dependency("systemd_journal", proto_frame);
+	bblog_handle = find_dissector_add_dependency("bblog", proto_frame);
 }
 
 /*

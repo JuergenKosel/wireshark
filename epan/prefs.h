@@ -185,7 +185,6 @@ typedef struct _e_prefs {
   gchar       *gui_interfaces_hide_types;
   gboolean     gui_interfaces_show_hidden;
   gboolean     gui_interfaces_remote_display;
-  gint         console_log_level;
   gchar       *capture_device;
   gchar       *capture_devices_linktypes;
   gchar       *capture_devices_descr;
@@ -221,7 +220,6 @@ typedef struct _e_prefs {
   gboolean     gui_qt_packet_list_hover_style; /* Enable/Disable mouse-over colorization */
   gboolean     gui_qt_show_selected_packet;
   gboolean     gui_qt_show_file_load_time;
-  gboolean     gui_packet_editor; /* Enable Packet Editor */
   elide_mode_e gui_packet_list_elide_mode;
   gboolean     gui_packet_list_show_related;
   gboolean     gui_packet_list_show_minimap;
@@ -320,7 +318,7 @@ WS_DLL_PUBLIC module_t *prefs_register_protocol_subtree(const char *subtree, int
  * Register that a protocol used to have preferences but no longer does,
  * by creating an "obsolete" module for it.
  */
-module_t *prefs_register_protocol_obsolete(int id);
+WS_DLL_PUBLIC module_t *prefs_register_protocol_obsolete(int id);
 
 /*
  * Callback function for module list scanners.

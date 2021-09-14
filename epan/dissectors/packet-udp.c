@@ -74,7 +74,7 @@ static header_field_info hfi_udp_stream UDP_HFI_INIT =
 
 static header_field_info hfi_udp_length UDP_HFI_INIT =
 { "Length", "udp.length", FT_UINT16, BASE_DEC, NULL, 0x0,
-  NULL, HFILL };
+  "Length in octets including this header and the data", HFILL };
 
 static header_field_info hfi_udp_checksum UDP_HFI_INIT =
 { "Checksum", "udp.checksum", FT_UINT16, BASE_HEX, NULL, 0x0,
@@ -991,7 +991,7 @@ dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 ip_proto)
   proto_tree *process_tree;
   gboolean    udp_jumbogram = FALSE;
 
-  udph = wmem_new0(wmem_packet_scope(), e_udphdr);
+  udph = wmem_new0(pinfo->pool, e_udphdr);
   udph->uh_sport = tvb_get_ntohs(tvb, offset);
   udph->uh_dport = tvb_get_ntohs(tvb, offset + 2);
   copy_address_shallow(&udph->ip_src, &pinfo->src);
@@ -1007,8 +1007,8 @@ dissect(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 ip_proto)
   ti = proto_tree_add_item(tree, (ip_proto == IP_PROTO_UDP) ? hfi_udp : hfi_udplite, tvb, offset, 8, ENC_NA);
   if (udp_summary_in_tree) {
     proto_item_append_text(ti, ", Src Port: %s, Dst Port: %s",
-                           port_with_resolution_to_str(wmem_packet_scope(), PT_UDP, udph->uh_sport),
-                           port_with_resolution_to_str(wmem_packet_scope(), PT_UDP, udph->uh_dport));
+                           port_with_resolution_to_str(pinfo->pool, PT_UDP, udph->uh_sport),
+                           port_with_resolution_to_str(pinfo->pool, PT_UDP, udph->uh_dport));
   }
   udp_tree = proto_item_add_subtree(ti, ett_udp);
   p_add_proto_data(pinfo->pool, pinfo, hfi_udp->id, pinfo->curr_layer_num, udp_tree);

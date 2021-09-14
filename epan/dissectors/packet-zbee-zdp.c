@@ -14,6 +14,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/expert.h>
 #include <wsutil/bits_ctz.h>
 
 #include "packet-zbee.h"
@@ -222,6 +223,9 @@ static gint ett_zbee_zdp_bind_table = -1;
        gint ett_zbee_zdp_nwk_desc = -1;
        gint ett_zbee_zdp_table_entry = -1;
 static gint ett_zbee_zdp_descriptor_capability_field = -1;
+
+/* Expert Info */
+static expert_field ei_deprecated_command = EI_INIT;
 
 /**************************************
  * Value Strings
@@ -924,7 +928,7 @@ zdp_parse_simple_desc(proto_tree *tree, gint ettindex, tvbuff_t *tvb, guint *off
  *@param length length of the complex descriptor.
 */
 void
-zdp_parse_complex_desc(proto_tree *tree, gint ettindex, tvbuff_t *tvb, guint *offset, guint length)
+zdp_parse_complex_desc(packet_info *pinfo, proto_tree *tree, gint ettindex, tvbuff_t *tvb, guint *offset, guint length)
 {
     enum {
         tag_charset = 1,
@@ -951,7 +955,7 @@ zdp_parse_complex_desc(proto_tree *tree, gint ettindex, tvbuff_t *tvb, guint *of
 
     proto_tree  *field_tree;
 
-    gchar   *complex = (gchar *)wmem_alloc(wmem_packet_scope(), max_len);
+    gchar   *complex = (gchar *)wmem_alloc(pinfo->pool, max_len);
     guint8  tag;
 
     if ((tree) && (ettindex != -1)) {
@@ -982,7 +986,7 @@ zdp_parse_complex_desc(proto_tree *tree, gint ettindex, tvbuff_t *tvb, guint *of
     else {
         gchar *str;
 
-        str = (gchar *) tvb_get_string_enc(wmem_packet_scope(), tvb, *offset+1, length-1, ENC_ASCII|ENC_NA);
+        str = (gchar *) tvb_get_string_enc(pinfo->pool, tvb, *offset+1, length-1, ENC_ASCII|ENC_NA);
         /* Handles all string type XML tags. */
         if (tag <= tag_icon_url) {
             g_snprintf(complex, max_len, "<%s>%s</%s>", tag_name[tag], str, tag_name[tag]);
@@ -1075,54 +1079,68 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_REQ_COMPLEX_DESC:
             dissect_zbee_zdp_req_complex_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_USER_DESC:
             dissect_zbee_zdp_req_user_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_DISCOVERY_CACHE:
             dissect_zbee_zdp_req_discovery_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_DEVICE_ANNCE:
             dissect_zbee_zdp_device_annce(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_REQ_SET_USER_DESC:
             dissect_zbee_zdp_req_set_user_desc(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_SYSTEM_SERVER_DISC:
             dissect_zbee_zdp_req_system_server_disc(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_REQ_STORE_DISCOVERY:
             dissect_zbee_zdp_req_store_discovery(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_STORE_NODE_DESC:
             dissect_zbee_zdp_req_store_node_desc(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_STORE_POWER_DESC:
             dissect_zbee_zdp_req_store_power_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_STORE_ACTIVE_EP:
             dissect_zbee_zdp_req_store_active_ep(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_STORE_SIMPLE_DESC:
             dissect_zbee_zdp_req_store_simple_desc(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_REMOVE_NODE_CACHE:
             dissect_zbee_zdp_req_remove_node_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_FIND_NODE_CACHE:
             dissect_zbee_zdp_req_find_node_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_EXT_SIMPLE_DESC:
             dissect_zbee_zdp_req_ext_simple_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_EXT_ACTIVE_EP:
             dissect_zbee_zdp_req_ext_active_ep(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_PARENT_ANNCE:
             dissect_zbee_zdp_parent_annce(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_REQ_END_DEVICE_BIND:
             dissect_zbee_zdp_req_end_device_bind(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_BIND:
             dissect_zbee_zdp_req_bind(zdp_tvb, pinfo, zdp_tree, nwk->version);
@@ -1132,27 +1150,35 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_REQ_BIND_REGISTER:
             dissect_zbee_zdp_req_bind_register(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_REPLACE_DEVICE:
             dissect_zbee_zdp_req_replace_device(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_STORE_BAK_BIND_ENTRY:
             dissect_zbee_zdp_req_store_bak_bind_entry(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_REMOVE_BAK_BIND_ENTRY:
             dissect_zbee_zdp_req_remove_bak_bind_entry(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_BACKUP_BIND_TABLE:
             dissect_zbee_zdp_req_backup_bind_table(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_RECOVER_BIND_TABLE:
             dissect_zbee_zdp_req_recover_bind_table(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_BACKUP_SOURCE_BIND:
             dissect_zbee_zdp_req_backup_source_bind(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_RECOVER_SOURCE_BIND:
             dissect_zbee_zdp_req_recover_source_bind(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_MGMT_NWK_DISC:
             dissect_zbee_zdp_req_mgmt_nwk_disc(zdp_tvb, pinfo, zdp_tree, hf_zbee_zdp_scan_channel);
@@ -1171,12 +1197,14 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_REQ_MGMT_DIRECT_JOIN:
             dissect_zbee_zdp_req_mgmt_direct_join(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_MGMT_PERMIT_JOIN:
             dissect_zbee_zdp_req_mgmt_permit_join(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_REQ_MGMT_CACHE:
             dissect_zbee_zdp_req_mgmt_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_REQ_MGMT_NWKUPDATE:
             dissect_zbee_zdp_req_mgmt_nwkupdate(zdp_tvb, pinfo, zdp_tree);
@@ -1210,45 +1238,58 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_RSP_COMPLEX_DESC:
             dissect_zbee_zdp_rsp_complex_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_USER_DESC:
             dissect_zbee_zdp_rsp_user_desc(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_DISCOVERY_CACHE:
             dissect_zbee_zdp_rsp_discovery_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_CONF_USER_DESC:
             dissect_zbee_zdp_rsp_user_desc_conf(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_SYSTEM_SERVER_DISC:
             dissect_zbee_zdp_rsp_system_server_disc(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_RSP_STORE_DISCOVERY:
             dissect_zbee_zdp_rsp_discovery_store(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_STORE_NODE_DESC:
             dissect_zbee_zdp_rsp_store_node_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_STORE_POWER_DESC:
             dissect_zbee_zdp_rsp_store_power_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_STORE_ACTIVE_EP:
             dissect_zbee_zdp_rsp_store_active_ep(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_STORE_SIMPLE_DESC:
             dissect_zbee_zdp_rsp_store_simple_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_REMOVE_NODE_CACHE:
             dissect_zbee_zdp_rsp_remove_node_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_FIND_NODE_CACHE:
             dissect_zbee_zdp_rsp_find_node_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_EXT_SIMPLE_DESC:
             dissect_zbee_zdp_rsp_ext_simple_desc(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_EXT_ACTIVE_EP:
             dissect_zbee_zdp_rsp_ext_active_ep(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_PARENT_ANNCE:
             dissect_zbee_zdp_rsp_parent_annce(zdp_tvb, pinfo, zdp_tree);
@@ -1264,27 +1305,35 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_RSP_BIND_REGISTER:
             dissect_zbee_zdp_rsp_bind_register(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_REPLACE_DEVICE:
             dissect_zbee_zdp_rsp_replace_device(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_STORE_BAK_BIND_ENTRY:
             dissect_zbee_zdp_rsp_store_bak_bind_entry(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_REMOVE_BAK_BIND_ENTRY:
             dissect_zbee_zdp_rsp_remove_bak_bind_entry(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_BACKUP_BIND_TABLE:
             dissect_zbee_zdp_rsp_backup_bind_table(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_RECOVER_BIND_TABLE:
             dissect_zbee_zdp_rsp_recover_bind_table(zdp_tvb, pinfo, zdp_tree, nwk->version);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_BACKUP_SOURCE_BIND:
             dissect_zbee_zdp_rsp_backup_source_bind(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_RECOVER_SOURCE_BIND:
             dissect_zbee_zdp_rsp_recover_source_bind(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_MGMT_NWK_DISC:
             dissect_zbee_zdp_rsp_mgmt_nwk_disc(zdp_tvb, pinfo, zdp_tree, nwk->version);
@@ -1303,12 +1352,14 @@ dissect_zbee_zdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
             break;
         case ZBEE_ZDP_RSP_MGMT_DIRECT_JOIN:
             dissect_zbee_zdp_rsp_mgmt_direct_join(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_RSP_MGMT_PERMIT_JOIN:
             dissect_zbee_zdp_rsp_mgmt_permit_join(zdp_tvb, pinfo, zdp_tree);
             break;
         case ZBEE_ZDP_RSP_MGMT_CACHE:
             dissect_zbee_zdp_rsp_mgmt_cache(zdp_tvb, pinfo, zdp_tree);
+            expert_add_info(pinfo, zdp_tree, &ei_deprecated_command);
             break;
         case ZBEE_ZDP_NOT_MGMT_NWKUPDATE:
         case ZBEE_ZDP_NOT_MGMT_NWKUPDATE_ENH:
@@ -1889,10 +1940,22 @@ void proto_register_zbee_zdp(void)
         &ett_zbee_zdp_descriptor_capability_field,
     };
 
+    expert_module_t *expert_zbee_zdp;
+
+    static ei_register_info ei[] = {
+        {
+            &ei_deprecated_command,
+            { "zbee_zdp.zdo_command_deprecated", PI_DEPRECATED, PI_WARN,
+              "Deprecated ZDO Command", EXPFILL }
+        }
+    };
+
     /* Register ZigBee ZDP protocol with Wireshark. */
     proto_zbee_zdp = proto_register_protocol("ZigBee Device Profile", "ZigBee ZDP", "zbee_zdp");
     proto_register_field_array(proto_zbee_zdp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+    expert_zbee_zdp = expert_register_protocol(proto_zbee_zdp);
+    expert_register_field_array(expert_zbee_zdp, ei, array_length(ei));
 
     /* Register the ZDP dissector. */
     register_dissector("zbee_zdp", dissect_zbee_zdp, proto_zbee_zdp);

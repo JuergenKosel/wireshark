@@ -12,6 +12,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "udpdump"
 
 #include <extcap/extcap-base.h>
 
@@ -42,6 +43,9 @@
 #include <wsutil/privileges.h>
 #include <wsutil/socket.h>
 #include <wsutil/please_report_bug.h>
+#include <wsutil/wslog.h>
+#include <wsutil/pint.h>
+#include <wsutil/exported_pdu_tlvs.h>
 
 #include <cli_main.h>
 
@@ -57,13 +61,6 @@
 #define PKT_BUF_SIZE 65535
 
 #define UDPDUMP_EXPORT_HEADER_LEN 40
-
-/* Tags (from exported_pdu.h) */
-#define EXP_PDU_TAG_PROTO_NAME	12
-#define EXP_PDU_TAG_IPV4_SRC	20
-#define EXP_PDU_TAG_IPV4_DST	21
-#define EXP_PDU_TAG_SRC_PORT	25
-#define EXP_PDU_TAG_DST_PORT	26
 
 static gboolean run_loop = TRUE;
 
@@ -91,7 +88,7 @@ static int list_config(char *interface)
 	unsigned inc = 0;
 
 	if (!interface) {
-		g_warning("No interface specified.");
+		ws_warning("No interface specified.");
 		return EXIT_FAILURE;
 	}
 
@@ -118,19 +115,19 @@ static int setup_listener(const guint16 port, socket_handle_t* sock)
 	*sock = socket(AF_INET, SOCK_DGRAM, 0);
 
 	if (*sock == INVALID_SOCKET) {
-		g_warning("Error opening socket: %s", strerror(errno));
+		ws_warning("Error opening socket: %s", strerror(errno));
 		return EXIT_FAILURE;
 	}
 
 	optval = 1;
 	if (setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, (socklen_t)sizeof(int)) < 0) {
-		g_warning("Can't set socket option SO_REUSEADDR: %s", strerror(errno));
+		ws_warning("Can't set socket option SO_REUSEADDR: %s", strerror(errno));
 		goto cleanup_setup_listener;
 	}
 
 #ifndef _WIN32
 	if (setsockopt (*sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, (socklen_t)sizeof(timeout)) < 0) {
-		g_warning("Can't set socket option SO_RCVTIMEO: %s", strerror(errno));
+		ws_warning("Can't set socket option SO_RCVTIMEO: %s", strerror(errno));
 		goto cleanup_setup_listener;
 	}
 #endif
@@ -141,7 +138,7 @@ static int setup_listener(const guint16 port, socket_handle_t* sock)
 	serveraddr.sin_port = htons(port);
 
 	if (bind(*sock, (struct sockaddr *)&serveraddr, (socklen_t)sizeof(serveraddr)) < 0) {
-		g_warning("Error on binding: %s", strerror(errno));
+		ws_warning("Error on binding: %s", strerror(errno));
 		goto cleanup_setup_listener;
 	}
 
@@ -155,7 +152,7 @@ cleanup_setup_listener:
 
 static void exit_from_loop(int signo _U_)
 {
-	g_warning("Exiting from main loop");
+	ws_warning("Exiting from main loop");
 	run_loop = FALSE;
 }
 
@@ -171,12 +168,12 @@ static int setup_dumpfile(const char* fifo, FILE** fp)
 
 	*fp = fopen(fifo, "wb");
 	if (!(*fp)) {
-		g_warning("Error creating output file: %s", g_strerror(errno));
+		ws_warning("Error creating output file: %s", g_strerror(errno));
 		return EXIT_FAILURE;
 	}
 
 	if (!libpcap_write_file_header(*fp, 252, PCAP_SNAPLEN, FALSE, &bytes_written, &err)) {
-		g_warning("Can't write pcap file header: %s", g_strerror(err));
+		ws_warning("Can't write pcap file header: %s", g_strerror(err));
 		return EXIT_FAILURE;
 	}
 
@@ -188,11 +185,9 @@ static void add_proto_name(guint8* mbuf, guint* offset, const char* proto_name)
 	size_t proto_str_len = strlen(proto_name);
 	guint16 proto_name_len = (guint16)((proto_str_len + 3) & 0xfffffffc);
 
-	mbuf[*offset] = 0;
-	mbuf[*offset+1] = EXP_PDU_TAG_PROTO_NAME;
+	phton16(mbuf + *offset, EXP_PDU_TAG_PROTO_NAME);
 	*offset += 2;
-	mbuf[*offset] = proto_name_len >> 8;
-	mbuf[*offset+1] = proto_name_len & 0xff;
+	phton16(mbuf + *offset, proto_name_len);
 	*offset += 2;
 
 	memcpy(mbuf + *offset, proto_name, proto_str_len);
@@ -201,22 +196,20 @@ static void add_proto_name(guint8* mbuf, guint* offset, const char* proto_name)
 
 static void add_ip_source_address(guint8* mbuf, guint* offset, uint32_t source_address)
 {
-	mbuf[*offset] = 0x00;
-	mbuf[*offset+1] = EXP_PDU_TAG_IPV4_SRC;
-	mbuf[*offset+2] = 0;
-	mbuf[*offset+3] = 4;
-	*offset += 4;
+	phton16(mbuf + *offset, EXP_PDU_TAG_IPV4_SRC);
+	*offset += 2;
+	phton16(mbuf + *offset, 4);
+	*offset += 2;
 	memcpy(mbuf + *offset, &source_address, 4);
 	*offset += 4;
 }
 
 static void add_ip_dest_address(guint8* mbuf, guint* offset, uint32_t dest_address)
 {
-	mbuf[*offset] = 0;
-	mbuf[*offset+1] = EXP_PDU_TAG_IPV4_DST;
-	mbuf[*offset+2] = 0;
-	mbuf[*offset+3] = 4;
-	*offset += 4;
+	phton16(mbuf + *offset, EXP_PDU_TAG_IPV4_DST);
+	*offset += 2;
+	phton16(mbuf + *offset, 4);
+	*offset += 2;
 	memcpy(mbuf + *offset, &dest_address, 4);
 	*offset += 4;
 }
@@ -225,11 +218,10 @@ static void add_udp_source_port(guint8* mbuf, guint* offset, uint16_t src_port)
 {
 	uint32_t port = htonl(src_port);
 
-	mbuf[*offset] = 0;
-	mbuf[*offset+1] = EXP_PDU_TAG_SRC_PORT;
-	mbuf[*offset+2] = 0;
-	mbuf[*offset+3] = 4;
-	*offset += 4;
+	phton16(mbuf + *offset, EXP_PDU_TAG_SRC_PORT);
+	*offset += 2;
+	phton16(mbuf + *offset, 4);
+	*offset += 2;
 	memcpy(mbuf + *offset, &port, 4);
 	*offset += 4;
 }
@@ -238,11 +230,10 @@ static void add_udp_dst_port(guint8* mbuf, guint* offset, uint16_t dst_port)
 {
 	uint32_t port = htonl(dst_port);
 
-	mbuf[*offset] = 0;
-	mbuf[*offset+1] = EXP_PDU_TAG_DST_PORT;
-	mbuf[*offset+2] = 0;
-	mbuf[*offset+3] = 4;
-	*offset += 4;
+	phton16(mbuf + *offset, EXP_PDU_TAG_DST_PORT);
+	*offset += 2;
+	phton16(mbuf + *offset, 4);
+	*offset += 2;
 	memcpy(mbuf + *offset, &port, 4);
 	*offset += 4;
 }
@@ -279,7 +270,7 @@ static int dump_packet(const char* proto_name, const guint16 listenport, const c
 	if (!libpcap_write_packet(fp,
 			(guint32)(curtime / G_USEC_PER_SEC), (guint32)(curtime % G_USEC_PER_SEC),
 			offset, offset, mbuf, &bytes_written, &err)) {
-		g_warning("Can't write packet: %s", g_strerror(err));
+		ws_warning("Can't write packet: %s", g_strerror(err));
 		ret = EXIT_FAILURE;
 	}
 
@@ -299,7 +290,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 	FILE* fp = NULL;
 
 	if (signal(SIGINT, exit_from_loop) == SIG_ERR) {
-		g_warning("Can't set signal handler");
+		ws_warning("Can't set signal handler");
 		return;
 	}
 
@@ -312,7 +303,7 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 	if (setup_listener(port, &sock) == EXIT_FAILURE)
 		return;
 
-	g_debug("Listener running on port %u", port);
+	ws_debug("Listener running on port %u", port);
 
 	buf = (char*)g_malloc(PKT_BUF_SIZE);
 	while(run_loop == TRUE) {
@@ -333,11 +324,11 @@ static void run_listener(const char* fifo, const guint16 port, const char* proto
 							NULL, err,
 							MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 							(LPWSTR)&errmsg, 0, NULL);
-						g_warning("Error in recvfrom: %S (err=%d)", errmsg, err);
+						ws_warning("Error in recvfrom: %S (err=%d)", errmsg, err);
 						LocalFree(errmsg);
 					}
 #else
-					g_warning("Error in recvfrom: %s (errno=%d)", strerror(errno), errno);
+					ws_warning("Error in recvfrom: %s (errno=%d)", strerror(errno), errno);
 #endif
 					run_loop = FALSE;
 					break;
@@ -366,6 +357,12 @@ int main(int argc, char *argv[])
 	char* payload = NULL;
 	char* port_msg = NULL;
 
+	/* Initialize log handler early so we can have proper logging during startup. */
+	ws_log_init("udpdump", NULL);
+
+	/* Early logging command-line initialization. */
+	ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+
 	/*
 	 * Get credential information for later use.
 	 */
@@ -377,7 +374,7 @@ int main(int argc, char *argv[])
 	 */
 	err_msg = init_progfile_dir(argv[0]);
 	if (err_msg != NULL) {
-		g_warning("Can't get pathname of directory containing the captype program: %s.",
+		ws_warning("Can't get pathname of directory containing the captype program: %s.",
 			err_msg);
 		g_free(err_msg);
 	}
@@ -424,7 +421,7 @@ int main(int argc, char *argv[])
 
 		case OPT_PORT:
 			if (!ws_strtou16(optarg, NULL, &port)) {
-				g_warning("Invalid port: %s", optarg);
+				ws_warning("Invalid port: %s", optarg);
 				goto end;
 			}
 			break;
@@ -436,12 +433,12 @@ int main(int argc, char *argv[])
 
 		case ':':
 			/* missing option argument */
-			g_warning("Option '%s' requires an argument", argv[optind - 1]);
+			ws_warning("Option '%s' requires an argument", argv[optind - 1]);
 			break;
 
 		default:
 			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg)) {
-				g_warning("Invalid option: %s", argv[optind - 1]);
+				ws_warning("Invalid option: %s", argv[optind - 1]);
 				goto end;
 			}
 		}
@@ -450,7 +447,7 @@ int main(int argc, char *argv[])
 	extcap_cmdline_debug(argv, argc);
 
 	if (optind != argc) {
-		g_warning("Unexpected extra option: %s", argv[optind]);
+		ws_warning("Unexpected extra option: %s", argv[optind]);
 		goto end;
 	}
 
@@ -469,9 +466,9 @@ int main(int argc, char *argv[])
 
 	err_msg = ws_init_sockets();
 	if (err_msg != NULL) {
-		g_warning("Error: %s", err_msg);
+		ws_warning("Error: %s", err_msg);
 		g_free(err_msg);
-		g_warning("%s", please_report_bug());
+		ws_warning("%s", please_report_bug());
 		goto end;
 	}
 

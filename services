@@ -4077,7 +4077,7 @@ irp		4604/tcp	# Identity Registration Protocol
 sixchat		4605/tcp	# Direct End to End Secure Chat Protocol
 sixid		4606/tcp	# Secure ID to IP registration and lookup
 ventoso		4621/udp	# Bidirectional single port remote radio VOIP and Control stream
-dots-signal	4646/tcp/udp	# DOTS Signal Channel Protocol. The service name is used to construct the SRV service names "_dots-signal._udp" and "_dots-signal._tcp" for discovering DOTS servers used to establish DOTS signal channel.
+dots-signal	4646/tcp/udp	# Distributed Denial-of-Service Open Threat Signaling (DOTS) Signal Channel Protocol. The service name is used to construct the SRV service names "_dots-signal._udp" and "_dots-signal._tcp" for discovering DOTS servers used to establish DOTS signal channel.
 playsta2-app	4658/tcp/udp	# PlayStation2 App Port
 playsta2-lob	4659/tcp/udp	# PlayStation2 Lobby Port
 smaclmgr	4660/tcp/udp
@@ -4513,6 +4513,7 @@ fcp-cics-gw1	5504/tcp/udp
 checkoutdb	5505/tcp/udp	# Checkout Database
 amc		5506/tcp/udp	# Amcom Mobile Connect
 psl-management	5507/tcp	# PowerSysLab Electrical Management
+matter		5540/tcp/udp	# Matter Operational Discovery and Communi
 cbus		5550/tcp	# Model Railway control using the CBUS message protocol
 sgi-eventmond	5553/tcp/udp	# SGI Eventmond Port
 sgi-esphttp	5554/tcp/udp	# SGI ESP HTTP
@@ -5868,6 +5869,7 @@ ipdtp-port	20202/tcp/udp	# IPD Tunneling Port
 ipulse-ics	20222/tcp/udp	# iPulse-ICS
 emwavemsg	20480/tcp/udp	# emWave Message Service
 track		20670/tcp/udp	# Track
+crtech-nlm	20810/tcp	# CRTech NLM
 athand-mmp	20999/tcp/udp	# At Hand MMP
 irtrans		21000/tcp/udp	# IRTrans Control
 notezilla-lan	21010/tcp	# Notezilla.Lan Server

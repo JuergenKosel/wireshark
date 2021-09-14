@@ -9,9 +9,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#define G_LOG_DOMAIN "epan"
-
 #include <config.h>
+#define WS_LOG_DOMAIN LOG_DOMAIN_EPAN
 
 #include <glib.h>
 
@@ -49,10 +48,8 @@ tvb_uncompress(tvbuff_t *tvb, const int offset, int comprlen)
 	gint       wbits          = MAX_WBITS;
 	guint8    *next;
 	guint      bufsiz;
-#ifdef WS_DEBUG
 	guint      inflate_passes = 0;
 	guint      bytes_in       = tvb_captured_length_remaining(tvb, offset);
-#endif
 
 	if (tvb == NULL || comprlen <= 0) {
 		return NULL;
@@ -102,9 +99,7 @@ tvb_uncompress(tvbuff_t *tvb, const int offset, int comprlen)
 		if (err == Z_OK || err == Z_STREAM_END) {
 			guint bytes_pass = bufsiz - strm->avail_out;
 
-#ifdef WS_DEBUG
 			++inflate_passes;
-#endif
 
 			if (uncompr == NULL) {
 				/*

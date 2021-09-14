@@ -9,6 +9,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_EPAN
 
 #include "ws_diag_control.h"
 
@@ -33,13 +34,15 @@
 #include "print.h"
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
+#include <wsutil/wslog.h>
+#include <wsutil/ws_assert.h>
 
 #include <epan/prefs-int.h>
 #include <epan/uat-int.h>
 
 #include "epan/filter_expressions.h"
 
-#include "epan/wmem/wmem.h"
+#include "epan/wmem_scopes.h"
 #include <epan/stats_tree.h>
 
 /*
@@ -504,7 +507,7 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
         for (p = name; (c = *p) != '\0'; p++) {
             if (!(g_ascii_islower(c) || g_ascii_isdigit(c) || c == '_' ||
                   c == '-' || c == '.'))
-                g_error("Preference module \"%s\" contains invalid characters", name);
+                ws_error("Preference module \"%s\" contains invalid characters", name);
         }
 
         /*
@@ -520,7 +523,7 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
          * something such as that, to be added to all their names).
          */
         if (prefs_find_module(name) != NULL)
-            g_error("Preference module \"%s\" is being registered twice", name);
+            ws_error("Preference module \"%s\" is being registered twice", name);
 
         /*
          * Insert this module in the list of all modules.
@@ -532,7 +535,7 @@ prefs_register_module_or_subtree(module_t *parent, const char *name,
          * subtree, and crash if it's not.
          */
         if (!is_subtree)
-            g_error("Preferences module with no name is being registered at the top level");
+            ws_error("Preferences module with no name is being registered at the top level");
     }
 
     /*
@@ -579,7 +582,7 @@ prefs_register_module_alias(const char *name, module_t *module)
     for (p = name; (c = *p) != '\0'; p++) {
         if (!(g_ascii_isalpha(c) || g_ascii_isdigit(c) || c == '_' ||
               c == '-' || c == '.'))
-            g_error("Preference module alias \"%s\" contains invalid characters", name);
+            ws_error("Preference module alias \"%s\" contains invalid characters", name);
     }
 
     /*
@@ -591,7 +594,7 @@ prefs_register_module_alias(const char *name, module_t *module)
      * We search the list of all aliases.
      */
     if (prefs_find_module_alias(name) != NULL)
-        g_error("Preference module alias \"%s\" is being registered twice", name);
+        ws_error("Preference module alias \"%s\" is being registered twice", name);
 
     alias = wmem_new(wmem_epan_scope(), module_alias_t);
     alias->name = name;
@@ -626,7 +629,7 @@ prefs_register_protocol(int id, void (*apply_cb)(void))
     }
     protocol = find_protocol_by_id(id);
     if (protocol == NULL)
-        g_error("Protocol preferences being registered with an invalid protocol ID");
+        ws_error("Protocol preferences being registered with an invalid protocol ID");
     return prefs_register_module(protocols_module,
                                  proto_get_protocol_filter_name(id),
                                  proto_get_protocol_short_name(protocol),
@@ -638,7 +641,7 @@ prefs_deregister_protocol (int id)
 {
     protocol_t *protocol = find_protocol_by_id(id);
     if (protocol == NULL)
-        g_error("Protocol preferences being de-registered with an invalid protocol ID");
+        ws_error("Protocol preferences being de-registered with an invalid protocol ID");
     prefs_deregister_module (protocols_module,
                              proto_get_protocol_filter_name(id),
                              proto_get_protocol_short_name(protocol));
@@ -698,7 +701,7 @@ prefs_register_protocol_subtree(const char *subtree, int id, void (*apply_cb)(vo
 
     protocol = find_protocol_by_id(id);
     if (protocol == NULL)
-        g_error("Protocol subtree being registered with an invalid protocol ID");
+        ws_error("Protocol subtree being registered with an invalid protocol ID");
     return prefs_register_module(subtree_module,
                                  proto_get_protocol_filter_name(id),
                                  proto_get_protocol_short_name(protocol),
@@ -729,7 +732,7 @@ prefs_register_protocol_obsolete(int id)
     }
     protocol = find_protocol_by_id(id);
     if (protocol == NULL)
-        g_error("Protocol being registered with an invalid protocol ID");
+        ws_error("Protocol being registered with an invalid protocol ID");
     module = prefs_register_module(protocols_module,
                                    proto_get_protocol_filter_name(id),
                                    proto_get_protocol_short_name(protocol),
@@ -1005,7 +1008,7 @@ register_preference(module_t *module, const char *name, const char *title,
      */
     for (p = name; *p != '\0'; p++)
         if (!(g_ascii_islower(*p) || g_ascii_isdigit(*p) || *p == '_' || *p == '.'))
-            g_error("Preference \"%s.%s\" contains invalid characters", module->name, name);
+            ws_error("Preference \"%s.%s\" contains invalid characters", module->name, name);
 
     /*
      * Make sure there's not already a preference with that
@@ -1014,7 +1017,7 @@ register_preference(module_t *module, const char *name, const char *title,
      * more than one preference with the same name.
      */
     if (prefs_find_preference(module, name) != NULL)
-        g_error("Preference %s has already been registered", name);
+        ws_error("Preference %s has already been registered", name);
 
     if ((!IS_PREF_OBSOLETE(type)) &&
         /* Don't compare if it's a subtree */
@@ -1025,30 +1028,30 @@ register_preference(module_t *module, const char *name, const char *title,
          */
         if (!((strncmp(name, module->name, strlen(module->name)) != 0) ||
             (((name[strlen(module->name)]) != '.') && ((name[strlen(module->name)]) != '_'))))
-            g_error("Preference %s begins with the module name", name);
+            ws_error("Preference %s begins with the module name", name);
     }
 
     /* The title shows up in the preferences dialog. Make sure it's UI-friendly. */
     if (preference->title) {
         const char *cur_char;
         if (preference->type != PREF_STATIC_TEXT && g_utf8_strlen(preference->title, -1) > 80) { // Arbitrary.
-            g_error("Title for preference %s.%s is too long: %s", name_prefix, preference->name, preference->title);
+            ws_error("Title for preference %s.%s is too long: %s", name_prefix, preference->name, preference->title);
         }
 
         if (!g_utf8_validate(preference->title, -1, NULL)) {
-            g_error("Title for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
+            ws_error("Title for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
         }
 
         for (cur_char = preference->title; *cur_char; cur_char = g_utf8_next_char(cur_char)) {
             if (!g_unichar_isprint(g_utf8_get_char(cur_char))) {
-                g_error("Title for preference %s.%s isn't printable UTF-8.", name_prefix, preference->name);
+                ws_error("Title for preference %s.%s isn't printable UTF-8.", name_prefix, preference->name);
             }
         }
     }
 
     if (preference->description) {
         if (!g_utf8_validate(preference->description, -1, NULL)) {
-            g_error("Description for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
+            ws_error("Description for preference %s.%s isn't valid UTF-8.", name_prefix, preference->name);
         }
     }
 
@@ -1181,7 +1184,7 @@ prefs_register_uint_preference(module_t *module, const char *name,
                                      PREF_UINT);
     preference->varp.uint = var;
     preference->default_val.uint = *var;
-    g_assert(base > 0 && base != 1 && base < 37);
+    ws_assert(base > 0 && base != 1 && base < 37);
     preference->info.base = base;
 }
 
@@ -1251,7 +1254,7 @@ unsigned int prefs_set_bool_value(pref_t *pref, gboolean value, pref_source_t so
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1272,7 +1275,7 @@ void prefs_invert_bool_value(pref_t *pref, pref_source_t source)
         *pref->varp.boolp = !(*pref->varp.boolp);
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 }
@@ -1291,7 +1294,7 @@ gboolean prefs_get_bool_value(pref_t *pref, pref_source_t source)
         return *pref->varp.boolp;
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1346,7 +1349,7 @@ unsigned int prefs_set_enum_value(pref_t *pref, gint value, pref_source_t source
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1374,7 +1377,7 @@ gint prefs_get_enum_value(pref_t *pref, pref_source_t source)
         return *pref->varp.enump;
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1437,7 +1440,7 @@ register_string_like_preference(module_t *module, const char *name,
     pref->default_val.string = g_strdup(*var);
     pref->stashed_val.string = NULL;
     if (type == PREF_CUSTOM) {
-        g_assert(custom_cbs);
+        ws_assert(custom_cbs);
         pref->custom_cbs = *custom_cbs;
     }
 }
@@ -1497,7 +1500,7 @@ prefs_set_string_value(pref_t *pref, const char* value, pref_source_t source)
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1515,7 +1518,7 @@ char* prefs_get_string_value(pref_t *pref, pref_source_t source)
     case pref_current:
         return *pref->varp.string;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1684,7 +1687,7 @@ gboolean prefs_set_range_value(pref_t *pref, range_t *value, pref_source_t sourc
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1704,7 +1707,7 @@ range_t* prefs_get_range_value_real(pref_t *pref, pref_source_t source)
         return *pref->varp.range;
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1823,7 +1826,7 @@ gboolean prefs_set_color_value(pref_t *pref, color_t value, pref_source_t source
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -1843,7 +1846,7 @@ color_t* prefs_get_color_value(pref_t *pref, pref_source_t source)
         return pref->varp.colorp;
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -2055,7 +2058,7 @@ pref_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_OBSOLETE:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
     return 0;
@@ -2196,7 +2199,7 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
         break;
 
     case PREF_OBSOLETE:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
     return 0;
@@ -2246,7 +2249,7 @@ reset_stashed_pref(pref_t *pref) {
         break;
 
     case PREF_OBSOLETE:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 }
@@ -2291,7 +2294,7 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_OBSOLETE:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
     return 0;
@@ -2423,73 +2426,6 @@ gui_layout_callback(void)
  * All custom preference function callbacks
  ******************************************************/
 static void custom_pref_no_cb(pref_t* pref _U_) {}
-
-
-/*
- * Console log level custom preference functions
- */
-static void
-console_log_level_reset_cb(pref_t* pref)
-{
-    *pref->varp.uint = pref->default_val.uint;
-}
-
-static prefs_set_pref_e
-console_log_level_set_cb(pref_t* pref, const gchar* value, unsigned int* changed_flags)
-{
-    guint    uval;
-
-    if (!ws_strtou32(value, NULL, &uval))
-        return PREFS_SET_SYNTAX_ERR;        /* number was bad */
-
-    if (*pref->varp.uint != uval) {
-        *changed_flags = prefs_get_effect_flags(pref);
-        *pref->varp.uint = uval;
-    }
-
-    if (*pref->varp.uint & (G_LOG_LEVEL_INFO|G_LOG_LEVEL_DEBUG)) {
-        /*
-         * GLib drops INFO and DEBUG messages by default. If the user
-         * hasn't set G_MESSAGES_DEBUG, possibly to a specific set of
-         * domains, tell it not to do that.
-         */
-        const char *s = g_getenv("G_MESSAGES_DEBUG");
-        if(s != NULL) {
-            g_message("prefs: Skip overwriting environment variable "
-                        "G_MESSAGES_DEBUG=\"%s\"", s);
-        }
-        else {
-            g_info("prefs: Set environment variable G_MESSAGES_DEBUG=\"all\"");
-            g_setenv("G_MESSAGES_DEBUG", "all", FALSE);
-        }
-    }
-
-    return PREFS_SET_OK;
-}
-
-static const char * console_log_level_type_name_cb(void) {
-    return "Log level";
-}
-
-static char * console_log_level_type_description_cb(void) {
-    return g_strdup_printf(
-        "Console log level (for debugging)\n"
-        "A bitmask of log levels:\n"
-        "ERROR    = 4\n"
-        "CRITICAL = 8\n"
-        "WARNING  = 16\n"
-        "MESSAGE  = 32\n"
-        "INFO     = 64\n"
-        "DEBUG    = 128");
-}
-
-static gboolean console_log_level_is_default_cb(pref_t* pref) {
-    return *pref->varp.uint == pref->default_val.uint;
-}
-
-static char * console_log_level_to_str_cb(pref_t* pref, gboolean default_val) {
-    return g_strdup_printf("%u",  default_val ? pref->default_val.uint : *pref->varp.uint);
-}
 
 /*
  * Column preference functions
@@ -2689,7 +2625,7 @@ column_format_reset_cb(pref_t* pref)
     }
 
     col_num_pref = prefs_find_preference(gui_column_module, PRS_COL_NUM);
-    g_assert(col_num_pref != NULL); /* Should never happen */
+    ws_assert(col_num_pref != NULL); /* Should never happen */
     column_num_reset_cb(col_num_pref);
 }
 
@@ -2740,9 +2676,9 @@ column_format_set_cb(pref_t* pref, const gchar* value, unsigned int* changed_fla
     free_col_info(*pref->varp.list);
     *pref->varp.list = NULL;
     hidden_pref = prefs_find_preference(gui_column_module, PRS_COL_HIDDEN);
-    g_assert(hidden_pref != NULL); /* Should never happen */
+    ws_assert(hidden_pref != NULL); /* Should never happen */
     col_num_pref = prefs_find_preference(gui_column_module, PRS_COL_NUM);
-    g_assert(col_num_pref != NULL); /* Should never happen */
+    ws_assert(col_num_pref != NULL); /* Should never happen */
     llen             = g_list_length(col_l);
     *col_num_pref->varp.uint = llen / 2;
     col_l_elt = g_list_first(col_l);
@@ -3129,6 +3065,8 @@ prefs_register_modules(void)
 
     prefs_register_obsolete_preference(gui_module, "hex_dump_highlight_style");
 
+    prefs_register_obsolete_preference(gui_module, "packet_editor.enabled");
+
     gui_column_module = prefs_register_subtree(gui_module, "Columns", "Columns", NULL);
     /* For reading older preference files with "column." preferences */
     prefs_register_module_alias("column", gui_column_module);
@@ -3451,11 +3389,6 @@ prefs_register_modules(void)
                                    "Show file load time in the Status Bar",
                                    &prefs.gui_qt_show_file_load_time);
 
-    prefs_register_bool_preference(gui_module, "packet_editor.enabled",
-                                   "Enable Packet Editor",
-                                   "Enable Packet Editor (Experimental)",
-                                   &prefs.gui_packet_editor);
-
     prefs_register_enum_preference(gui_module, "packet_list_elide_mode",
                        "Elide mode",
                        "The position of \"...\" in packet list text.",
@@ -3547,15 +3480,7 @@ prefs_register_modules(void)
     console_module = prefs_register_module(NULL, "console", "Console",
         "Console logging and debugging output", NULL, FALSE);
 
-    custom_cbs.free_cb = custom_pref_no_cb;
-    custom_cbs.reset_cb = console_log_level_reset_cb;
-    custom_cbs.set_cb = console_log_level_set_cb;
-    custom_cbs.type_name_cb = console_log_level_type_name_cb;
-    custom_cbs.type_description_cb = console_log_level_type_description_cb;
-    custom_cbs.is_default_cb = console_log_level_is_default_cb;
-    custom_cbs.to_str_cb = console_log_level_to_str_cb;
-    prefs_register_uint_custom_preference(console_module, "log.level", "logging level",
-        "A bitmask of GLib log levels", &custom_cbs, &prefs.console_log_level);
+    prefs_register_obsolete_preference(console_module, "log.level");
 
     prefs_register_bool_preference(console_module, "incomplete_dissectors_check_debug",
                                    "Print debug line for incomplete dissectors",
@@ -4219,7 +4144,6 @@ pre_init_prefs(void)
     prefs.gui_layout_content_1       = layout_pane_content_plist;
     prefs.gui_layout_content_2       = layout_pane_content_pdetails;
     prefs.gui_layout_content_3       = layout_pane_content_pbytes;
-    prefs.gui_packet_editor          = FALSE;
     prefs.gui_packet_list_elide_mode = ELIDE_RIGHT;
     prefs.gui_packet_list_show_related = TRUE;
     prefs.gui_packet_list_show_minimap = TRUE;
@@ -4270,9 +4194,6 @@ pre_init_prefs(void)
             prefs.capture_columns = g_list_append(prefs.capture_columns, col_name);
         }
     }
-
-    prefs.console_log_level          =
-        G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR;
 
 /* set the default values for the tap/statistics dialog box */
     prefs.tap_update_interval    = TAP_UPDATE_DEFAULT_INTERVAL;
@@ -4599,7 +4520,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
                                  * If the pref has a trailing comma, eliminate it.
                                  */
                                 cur_val->str[cur_val->len-1] = '\0';
-                                g_warning ("%s line %d: trailing comma in \"%s\" %s", pf_path, pline, cur_var->str, hint);
+                                ws_warning("%s line %d: trailing comma in \"%s\" %s", pf_path, pline, cur_var->str, hint);
                             }
                         }
                         /* Call the routine to set the preference; it will parse
@@ -4615,12 +4536,12 @@ read_prefs_file(const char *pf_path, FILE *pf,
                             break;
 
                         case PREFS_SET_SYNTAX_ERR:
-                            g_warning ("Syntax error in preference \"%s\" at line %d of\n%s %s",
+                            ws_warning("Syntax error in preference \"%s\" at line %d of\n%s %s",
                                        cur_var->str, pline, pf_path, hint);
                             break;
 
                         case PREFS_SET_NO_SUCH_PREF:
-                            g_warning ("No such preference \"%s\" at line %d of\n%s %s",
+                            ws_warning("No such preference \"%s\" at line %d of\n%s %s",
                                        cur_var->str, pline, pf_path, hint);
                             prefs.unknown_prefs = TRUE;
                             break;
@@ -4637,13 +4558,13 @@ read_prefs_file(const char *pf_path, FILE *pf,
                              * in the console window so that the
                              * user can make an informed choice.
                              */
-                            g_warning ("Obsolete preference \"%s\" at line %d of\n%s %s",
+                            ws_warning("Obsolete preference \"%s\" at line %d of\n%s %s",
                                        cur_var->str, pline, pf_path, hint);
                             prefs.unknown_prefs = TRUE;
                             break;
                         }
                     } else {
-                        g_warning ("Incomplete preference at line %d: of\n%s %s", pline, pf_path, hint);
+                        ws_warning("Incomplete preference at line %d: of\n%s %s", pline, pf_path, hint);
                     }
                 }
                 state      = IN_VAR;
@@ -4656,7 +4577,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
             } else if (got_c == '#') {
                 state = IN_SKIP;
             } else {
-                g_warning ("Malformed preference at line %d of\n%s %s", fline, pf_path, hint);
+                ws_warning("Malformed preference at line %d of\n%s %s", fline, pf_path, hint);
             }
             break;
         case IN_VAR:
@@ -4701,12 +4622,12 @@ read_prefs_file(const char *pf_path, FILE *pf,
                 break;
 
             case PREFS_SET_SYNTAX_ERR:
-                g_warning ("Syntax error in preference %s at line %d of\n%s %s",
+                ws_warning("Syntax error in preference %s at line %d of\n%s %s",
                            cur_var->str, pline, pf_path, hint);
                 break;
 
             case PREFS_SET_NO_SUCH_PREF:
-                g_warning ("No such preference \"%s\" at line %d of\n%s %s",
+                ws_warning("No such preference \"%s\" at line %d of\n%s %s",
                            cur_var->str, pline, pf_path, hint);
                 prefs.unknown_prefs = TRUE;
                 break;
@@ -4716,7 +4637,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
                 break;
             }
         } else {
-            g_warning("Incomplete preference at line %d of\n%s %s",
+            ws_warning("Incomplete preference at line %d of\n%s %s",
                        pline, pf_path, hint);
         }
     }
@@ -4845,7 +4766,7 @@ guint prefs_get_uint_value_real(pref_t *pref, pref_source_t source)
         return *pref->varp.uint;
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -4881,7 +4802,7 @@ unsigned int prefs_set_uint_value(pref_t *pref, guint value, pref_source_t sourc
         }
         break;
     default:
-        g_assert_not_reached();
+        ws_assert_not_reached();
         break;
     }
 
@@ -5369,16 +5290,16 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
         for (i = 0; i < G_N_ELEMENTS(port_prefs); i++) {
             module = prefs_find_module(port_prefs[i].module_name);
             if (!module) {
-                g_warning("Deprecated ports pref check - module '%s' not found", port_prefs[i].module_name);
+                ws_warning("Deprecated ports pref check - module '%s' not found", port_prefs[i].module_name);
                 continue;
             }
             pref = prefs_find_preference(module, port_prefs[i].table_name);
             if (!pref) {
-                g_warning("Deprecated ports pref '%s.%s' not found", module->name, port_prefs[i].table_name);
+                ws_warning("Deprecated ports pref '%s.%s' not found", module->name, port_prefs[i].table_name);
                 continue;
             }
             if (pref->type != PREF_DECODE_AS_UINT && pref->type != PREF_DECODE_AS_RANGE) {
-                g_warning("Deprecated ports pref '%s.%s' has wrong type: %#x (%s)", module->name, port_prefs[i].table_name, pref->type, prefs_pref_type_name(pref));
+                ws_warning("Deprecated ports pref '%s.%s' has wrong type: %#x (%s)", module->name, port_prefs[i].table_name, pref->type, prefs_pref_type_name(pref));
             }
         }
     }
@@ -5436,8 +5357,8 @@ deprecated_port_pref(gchar *pref_name, const gchar *value)
                     break;
 
                 default:
-                    g_error("The dissector table %s (%s) is not an integer type - are you using a buggy plugin?", port_range_prefs[i].table_name, get_dissector_table_ui_name(port_range_prefs[i].table_name));
-                    g_assert_not_reached();
+                    ws_error("The dissector table %s (%s) is not an integer type - are you using a buggy plugin?", port_range_prefs[i].table_name, get_dissector_table_ui_name(port_range_prefs[i].table_name));
+                    ws_assert_not_reached();
                 }
 
                 module = prefs_find_module(port_range_prefs[i].module_name);
@@ -5646,7 +5567,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                         }
                     }
                     if (module) {
-                        g_warning ("Preference \"%s.%s\" has been converted to \"%s.%s\"\n"
+                        ws_warning("Preference \"%s.%s\" has been converted to \"%s.%s\"\n"
                                    "Save your preferences to make this change permanent.",
                                    pref_name, dotp+1, module->name, dotp+1);
                         prefs.unknown_prefs = TRUE;
@@ -6422,7 +6343,7 @@ prefs_pref_is_default(pref_t *pref)
     case PREF_STATIC_TEXT:
     case PREF_UAT:
         return FALSE;
-        /* g_assert_not_reached(); */
+        /* ws_assert_not_reached(); */
         break;
     }
     return FALSE;
@@ -6749,7 +6670,7 @@ write_prefs(char **pf_path_return)
             char *err = NULL;
             prefs.filter_expressions_old = FALSE;
             if (!uat_save(uat_get_table_by_name("Display expressions"), &err)) {
-                g_warning("Unable to save Display expressions: %s", err);
+                ws_warning("Unable to save Display expressions: %s", err);
                 g_free(err);
             }
         }

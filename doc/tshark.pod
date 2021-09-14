@@ -42,7 +42,7 @@ from the file and displaying a summary line on the standard output for
 each packet read.  B<TShark> is able to detect, read and write the same
 capture files that are supported by B<Wireshark>.  The input file
 doesn't need a specific filename extension; the file format and an
-optional gzip compression will be automatically detected.  Near the
+optional gzip, zstd or lz4 compression will be automatically detected.  Near the
 beginning of the DESCRIPTION section of wireshark(1) or
 L<https://www.wireshark.org/docs/man-pages/wireshark.html> is a detailed
 description of the way B<Wireshark> handles this, which is the same way
@@ -230,6 +230,14 @@ every hour on the hour.
 
 B<packets>:I<value> switch to the next file after it contains I<value>
 packets.
+
+B<nametimenum>:I<value> Choose between two save filename templates.  If
+I<value> is 1, make running file number part before start time part; this is
+the original and default behaviour (e.g. log_00001_20210828164426.pcap).  If
+I<value> is greater than 1, make start time part before running number part
+(e.g. log_20210828164426_00001.pcap).  The latter makes alphabetical sortig
+order equal to creation time order, and keeps related multiple file sets in
+same directory close to each other.
 
 Example: B<tshark -b filesize:1000 -b files:5> results in a ring buffer of five
 files of size one megabyte each.
@@ -1261,7 +1269,7 @@ stream on the first TCP session (index 0) with HTTP/2 Stream ID 1.
       0000002B  00 40 00 00 00 00 00 00  01 89 50 4e 47 0d 0a 1a  .@...... ..PNG...
 
 QUIC streams can be selected through B<-z "follow,quic,hex,3,0">, the first
-number indicates the UDP stream index whereas the second number selects the QUIC
+number indicates the QUIC connection number whereas the second number selects the QUIC
 Stream ID.
 
 =item B<-z> h225,counter[I<,filter>]
@@ -1728,10 +1736,11 @@ SMB packets exchanged by the host at IP address 1.2.3.4 .
 
 =item --capture-comment E<lt>commentE<gt>
 
-Add a capture comment to the output file.
+Add a capture comment to the output file, if supported by the output
+file format.
 
-This option is only available if a new output file in pcapng format is
-created. Only one capture comment may be set per output file.
+This option may be specified multiple times.  Note that Wireshark
+currently only displays the first comment of a capture file.
 
 =item --list-time-stamp-types
 
@@ -2072,6 +2081,37 @@ inspection of the process, and, if you are not running it in a debugger,
 it will, on some OSes, assuming your environment is configured correctly,
 generate a core dump file.  This can be useful to developers attempting to
 troubleshoot a problem with a protocol dissector.
+
+=item WIRESHARK_LOG_LEVEL
+
+This environment variable controls the verbosity of diagnostic messages to
+the console. From less verbose to most verbose levels can be C<critical>,
+C<warning>, C<message>, C<info>, C<debug> or C<noisy>. Levels above the
+current level are also active. Levels C<critical> and C<error> are always
+active.
+
+=item WIRESHARK_LOG_FATAL
+
+Sets the fatal log level. Fatal log levels cause the program to abort.
+The fatal log level be set to C<critical> or C<warning>. C<Error> is
+always fatal.
+
+=item WIRESHARK_LOG_DOMAINS
+
+This environment variable selects which log domains are active. The filter is
+given as a case-insensitive comma separated list. If set only the included
+domains will be enabled. The default domain is always considered to be enabled.
+Domain filter lists can be preceded by '!' to invert the sense of the match.
+
+=item WIRESHARK_LOG_DEBUG
+
+List of domains with C<debug> log level. This sets the level of the provided
+log domains and takes precedence over the active domains filter. If preceded
+by '!' this disables the C<debug> level instead.
+
+=item WIRESHARK_LOG_NOISY
+
+Same as above but for C<noisy> log level instead.
 
 =back
 

@@ -3044,7 +3044,7 @@ static int parse_guid(tvbuff_t *tvb, int offset, proto_tree *tree, e_guid_t *gui
 	offset += 1;
 	proto_tree_add_item(tr, hf_mswsp_guid_time_clock_low, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	offset += 1;
-	bytes = bytestring_to_str(wmem_packet_scope(), &guid->data4[2], 6, ':');
+	bytes = bytes_to_str_punct(wmem_packet_scope(), &guid->data4[2], 6, ':');
 	proto_tree_add_string(tr, hf_mswsp_guid_node, tvb, offset, 6, bytes);
 
 	offset += 6;
@@ -6452,7 +6452,7 @@ proto_register_mswsp(void)
 			&hf_mswsp_bool_options_cursor,
 			{
 				"Cursor", "mswsp.CPMCreateQuery.RowSetProperties.uBooleanOptions.cursor", FT_UINT32,
-				BASE_HEX, VALS(cursor_vals), 0x0000000007, "Cursor Type", HFILL
+				BASE_HEX, VALS(cursor_vals), 0x00000007, "Cursor Type", HFILL
 			}
 		},
 		{

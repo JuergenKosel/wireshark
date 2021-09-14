@@ -523,7 +523,7 @@ void PacketDiagram::resetScene(bool reset_root)
     if (scene()) {
         delete scene();
     }
-    QGraphicsScene *new_scene = new QGraphicsScene();
+    QGraphicsScene *new_scene = new QGraphicsScene(this);
     setScene(new_scene);
     connect(new_scene, &QGraphicsScene::selectionChanged, this, &PacketDiagram::sceneSelectionChanged);
     setRootNode(reset_root ? nullptr : root_node_);
@@ -796,8 +796,7 @@ void PacketDiagram::saveAsTriggered()
 #endif
         // else error dialog?
         if (save_ok) {
-            path = QDir(file_name);
-            wsApp->setLastOpenDir(path.canonicalPath().toUtf8().constData());
+            wsApp->setLastOpenDirFromFilename(file_name);
         }
     }
 }

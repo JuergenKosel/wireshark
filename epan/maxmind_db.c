@@ -23,7 +23,7 @@ static mmdb_lookup_t mmdb_not_found;
 #include <stdio.h>
 #include <errno.h>
 
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 
 #include <epan/addr_resolv.h>
 #include <epan/uat.h>
@@ -104,7 +104,7 @@ static gboolean resolve_synchronously = FALSE;
 #if 0
 #define MMDB_DEBUG(...) { \
     char *MMDB_DEBUG_MSG = g_strdup_printf(__VA_ARGS__); \
-    g_warning("mmdb: %s:%d %s", G_STRFUNC, __LINE__, MMDB_DEBUG_MSG); \
+    ws_warning("mmdb: %s:%d %s", G_STRFUNC, __LINE__, MMDB_DEBUG_MSG); \
     g_free(MMDB_DEBUG_MSG); \
 }
 #else

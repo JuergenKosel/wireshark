@@ -80,9 +80,11 @@
 #include <wsutil/strnatcmp.h>
 #include <wsutil/str_util.h>
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 #include <wsutil/pint.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 #include <wiretap/wtap_opttypes.h>
 
 #include "ui/failure_message.h"
@@ -1018,18 +1020,43 @@ editcap_dump_open(const char *filename, const wtap_dump_params *params,
                                               WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
         for (guint i = 0; i < idbs_seen->len; i++) {
             wtap_block_t if_data = g_array_index(idbs_seen, wtap_block_t, i);
+            wtap_block_t if_data_copy;
 
             /*
-             * Add this IDB to the file to which we're currently writing.
+             * Make a copy of this IDB, so that we can change the
+             * encapsulation type without trashing the original.
              */
-            if (!wtap_dump_add_idb(pdh, if_data, err, err_info)) {
+            if_data_copy = wtap_block_make_copy(if_data);
+
+            /*
+             * If an encapsulation type was specified, override the
+             * encapsulation type of the interface.
+             */
+            if (out_frame_type != -2) {
+                wtapng_if_descr_mandatory_t *if_mand;
+
+                if_mand = (wtapng_if_descr_mandatory_t *)wtap_block_get_mandatory_data(if_data_copy);
+                if_mand->wtap_encap = out_frame_type;
+            }
+
+            /*
+             * Add this possibly-modified IDB to the file to which
+             * we're currently writing.
+             */
+            if (!wtap_dump_add_idb(pdh, if_data_copy, err, err_info)) {
                 int close_err;
                 gchar *close_err_info;
 
                 wtap_dump_close(pdh, &close_err, &close_err_info);
                 g_free(close_err_info);
+                wtap_block_unref(if_data_copy);
                 return NULL;
             }
+
+            /*
+             * Release the copy - wtap_dump_add_idb() makes its own copy.
+             */
+            wtap_block_unref(if_data_copy);
         }
     }
 
@@ -1055,16 +1082,39 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, GArray *idbs_seen,
             wtap_block_t if_data_copy;
 
             /*
-             * Add this IDB to the file to which we're currently writing.
+             * Make a copy of this IDB, so that we can change the
+             * encapsulation type without trashing the original.
              */
-            if (!wtap_dump_add_idb(pdh, if_data, err, err_info))
+            if_data_copy = wtap_block_make_copy(if_data);
+
+            /*
+             * If an encapsulation type was specified, override the
+             * encapsulation type of the interface.
+             */
+            if (out_frame_type != -2) {
+                wtapng_if_descr_mandatory_t *if_mand;
+
+                if_mand = (wtapng_if_descr_mandatory_t *)wtap_block_get_mandatory_data(if_data_copy);
+                if_mand->wtap_encap = out_frame_type;
+            }
+
+            /*
+             * Add this possibly-modified IDB to the file to which
+             * we're currently writing.
+             */
+            if (!wtap_dump_add_idb(pdh, if_data_copy, err, err_info))
                 return FALSE;
 
             /*
-             * Also add it to the set of IDBs we've seen, in case we
-             * start writing to another file (which would be of the
-             * same type as the current file, and thus will also require
-             * interface IDs).
+             * Release the copy - wtap_dump_add_idb() makes its own copy.
+             */
+            wtap_block_unref(if_data_copy);
+
+            /*
+             * Also add an unmodified copy to the set of IDBs we've seen,
+             * in case we start writing to another file (which would be
+             * of the same type as the current file, and thus will also
+             * require interface IDs).
              */
             if_data_copy = wtap_block_make_copy(if_data);
             g_array_append_val(idbs_seen, if_data_copy);
@@ -1153,6 +1203,13 @@ main(int argc, char *argv[])
     unsigned int                 seed = 0;
 
     cmdarg_err_init(editcap_cmdarg_err, editcap_cmdarg_err_cont);
+    memset(&read_rec, 0, sizeof *rec);
+
+    /* Initialize log handler early so we can have proper logging during startup. */
+    ws_log_init("editcap", vcmdarg_err);
+
+    /* Early logging command-line initialization. */
+    ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
 
 #ifdef _WIN32
     create_app_running_mutex();
@@ -1252,7 +1309,6 @@ main(int argc, char *argv[])
         case LONGOPT_CAPTURE_COMMENT:
         {
             /* pcapng supports multiple comments, so support them here too.
-             * Wireshark only sees the first capture comment though.
              */
             if (!capture_comments) {
                 capture_comments = g_ptr_array_new_with_free_func(g_free);
@@ -1731,7 +1787,7 @@ main(int argc, char *argv[])
             } else {
                 filename = g_strdup(argv[optind+1]);
             }
-            g_assert(filename);
+            ws_assert(filename);
 
             /* If we don't have an application name add one */
             if (wtap_block_get_string_option_value(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, &shb_user_appl) != WTAP_OPTTYPE_SUCCESS) {
@@ -1785,7 +1841,7 @@ main(int argc, char *argv[])
                     nstime_add(&block_next, &secs_per_block); /* reset for next interval */
                     g_free(filename);
                     filename = fileset_get_filename_by_pattern(block_cnt++, rec, fprefix, fsuffix);
-                    g_assert(filename);
+                    ws_assert(filename);
 
                     if (verbose)
                         fprintf(stderr, "Continuing writing in file %s\n", filename);
@@ -1817,7 +1873,7 @@ main(int argc, char *argv[])
 
                 g_free(filename);
                 filename = fileset_get_filename_by_pattern(block_cnt++, rec, fprefix, fsuffix);
-                g_assert(filename);
+                ws_assert(filename);
 
                 if (verbose)
                     fprintf(stderr, "Continuing writing in file %s\n", filename);
@@ -1965,14 +2021,14 @@ main(int argc, char *argv[])
                 if (snaplen != 0) {
                     /* Limit capture length to snaplen */
                     if (rec->rec_header.packet_header.caplen > snaplen) {
-                        /* Copy and change rather than modify returned wtap_rec */
+                        /* Copy and change rather than modify returned rec */
                         temp_rec = *rec;
                         temp_rec.rec_header.packet_header.caplen = snaplen;
                         rec = &temp_rec;
                     }
                     /* If -L, also set reported length to snaplen */
                     if (adjlen && rec->rec_header.packet_header.len > snaplen) {
-                        /* Copy and change rather than modify returned phdr */
+                        /* Copy and change rather than modify returned rec */
                         temp_rec = *rec;
                         temp_rec.rec_header.packet_header.len = snaplen;
                         rec = &temp_rec;
@@ -2097,8 +2153,8 @@ main(int argc, char *argv[])
                     do_mutation = TRUE;
                     break;
 
-                case REC_TYPE_SYSTEMD_JOURNAL:
-                    caplen = rec->rec_header.systemd_journal_header.record_len;
+                case REC_TYPE_SYSTEMD_JOURNAL_EXPORT:
+                    caplen = rec->rec_header.systemd_journal_export_header.record_len;
                     do_mutation = TRUE;
                     break;
                 }
@@ -2178,13 +2234,13 @@ main(int argc, char *argv[])
                     /* Copy and change rather than modify returned rec */
                     temp_rec = *rec;
                     /* The comment is not modified by dumper, cast away. */
-                    temp_rec.opt_comment = (char *)comment;
-                    temp_rec.has_comment_changed = TRUE;
+                    wtap_block_add_string_option(rec->block, OPT_COMMENT, (char *)comment, strlen((char *)comment));
+                    temp_rec.block_was_modified = TRUE;
                     rec = &temp_rec;
                 } else {
                     /* Copy and change rather than modify returned rec */
                     temp_rec = *rec;
-                    temp_rec.has_comment_changed = FALSE;
+                    temp_rec.block_was_modified = FALSE;
                     rec = &temp_rec;
                 }
             }
@@ -2209,6 +2265,7 @@ main(int argc, char *argv[])
             written_count++;
         }
         count++;
+        wtap_rec_reset(&read_rec);
     }
     wtap_rec_cleanup(&read_rec);
     ws_buffer_free(&read_buf);
@@ -2270,7 +2327,7 @@ clean_exit:
     if (idbs_seen != NULL) {
         for (guint b = 0; b < idbs_seen->len; b++) {
             wtap_block_t if_data = g_array_index(idbs_seen, wtap_block_t, b);
-            wtap_block_free(if_data);
+            wtap_block_unref(if_data);
         }
         g_array_free(idbs_seen, TRUE);
     }
@@ -2278,6 +2335,7 @@ clean_exit:
     wtap_dump_params_cleanup(&params);
     if (wth != NULL)
         wtap_close(wth);
+    wtap_rec_reset(&read_rec);
     wtap_cleanup();
     free_progdirs();
     if (capture_comments != NULL) {

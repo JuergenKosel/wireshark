@@ -30,7 +30,7 @@
 #include <epan/packet.h>
 #include <epan/exceptions.h>
 #include <epan/to_str.h>
-#include <epan/wmem/wmem.h>
+#include <epan/wmem_scopes.h>
 #include <epan/dissectors/packet-dcerpc.h>
 #include <epan/expert.h>
 #include <epan/conversation_filter.h>
@@ -219,15 +219,6 @@ static const range_string pn_rsi_interface[] = {
     { 0x04, 0xFF, "Reserved" },
     { 0, 0, NULL }
 };
-
-/*static const string_string pn_rsi_sw_revision_prefix[] = {
-    { "V", "officially released version" },
-    { "R", "Revision" },
-    { "P", "Prototype" },
-    { "U", "Under Test (Field Test)" },
-    { "T", "Test Device" },
-    { 0, NULL }
-};*/
 
 static int
 dissect_FOpnumOffset(tvbuff_t *tvb, int offset,
@@ -788,7 +779,7 @@ dissect_PDRsiInstances_block(tvbuff_t *tvb, int offset,
 
     /* SystemIdentification */
     /* DeviceType */
-    deviceType = (char *)wmem_alloc(wmem_packet_scope(), deviceType_size + 1);
+    deviceType = (char *)wmem_alloc(pinfo->pool, deviceType_size + 1);
     tvb_memcpy(tvb, (guint8 *)deviceType, offset, 25);
     deviceType[deviceType_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_device_type, tvb, offset, deviceType_size, deviceType);
@@ -797,7 +788,7 @@ dissect_PDRsiInstances_block(tvbuff_t *tvb, int offset,
     /* Blank */
 
     /* OrderID */
-    orderID = (char *)wmem_alloc(wmem_packet_scope(), orderID_size + 1);
+    orderID = (char *)wmem_alloc(pinfo->pool, orderID_size + 1);
     tvb_memcpy(tvb, (guint8 *)orderID, offset, 20);
     orderID[orderID_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_order_id, tvb, offset, orderID_size, orderID);
@@ -806,7 +797,7 @@ dissect_PDRsiInstances_block(tvbuff_t *tvb, int offset,
     /* Blank */
 
     /* IM_Serial_Number */
-    IMserialnumber = (char *)wmem_alloc(wmem_packet_scope(), IMserialnumber_size + 1);
+    IMserialnumber = (char *)wmem_alloc(pinfo->pool, IMserialnumber_size + 1);
     tvb_memcpy(tvb, (guint8 *)IMserialnumber, offset, 16);
     IMserialnumber[IMserialnumber_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_im_serial_number, tvb, offset, IMserialnumber_size, IMserialnumber);
@@ -815,7 +806,7 @@ dissect_PDRsiInstances_block(tvbuff_t *tvb, int offset,
     /* Blank */
 
     /* HWRevision */
-    HWrevision = (char *)wmem_alloc(wmem_packet_scope(), HWrevision_size + 1);
+    HWrevision = (char *)wmem_alloc(pinfo->pool, HWrevision_size + 1);
     tvb_memcpy(tvb, (guint8 *)HWrevision, offset, 5);
     HWrevision[HWrevision_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_hw_revision, tvb, offset, HWrevision_size, HWrevision);
@@ -824,14 +815,14 @@ dissect_PDRsiInstances_block(tvbuff_t *tvb, int offset,
     /* Blank */
 
     /* SWRevisionPrefix */
-    SWrevisionprefix = (char *)wmem_alloc(wmem_packet_scope(), SWrevisionprefix_size + 1);
+    SWrevisionprefix = (char *)wmem_alloc(pinfo->pool, SWrevisionprefix_size + 1);
     tvb_memcpy(tvb, (guint8 *)SWrevisionprefix, offset, 1);
     SWrevisionprefix[SWrevisionprefix_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_sw_revision_prefix, tvb, offset, SWrevisionprefix_size, SWrevisionprefix);
     offset += SWrevisionprefix_size;
 
     /* SWRevision */
-    SWrevision = (char *)wmem_alloc(wmem_packet_scope(), SWrevision_size + 1);
+    SWrevision = (char *)wmem_alloc(pinfo->pool, SWrevision_size + 1);
     tvb_memcpy(tvb, (guint8 *)SWrevision, offset, 9);
     SWrevision[SWrevision_size] = '\0';
     proto_tree_add_string(tree, hf_pn_rsi_sw_revision, tvb, offset, SWrevision_size, SWrevision);

@@ -14,6 +14,7 @@
 #include "ws_symbol_export.h"
 
 #include "packet.h"			/* for conversation dissector type */
+#include <epan/wmem_scopes.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,7 +78,9 @@ typedef enum {
 	ENDPOINT_ISUP,			/* ISDN User Part CIC */
 	ENDPOINT_BICC,			/* BICC Circuit identifier */
 	ENDPOINT_GSMTAP,
-	ENDPOINT_IUUP
+	ENDPOINT_IUUP,
+	ENDPOINT_DVBBBF,                /* DVB Base Band Frame ISI/PLP_ID */
+	ENDPOINT_IWARP_MPA		/* iWarp MPA */
 } endpoint_type;
 
 /**

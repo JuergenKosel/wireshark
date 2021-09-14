@@ -11,6 +11,8 @@ add_definitions(-DPLUGIN_DIR=\"${CMAKE_INSTALL_PREFIX}/${PLUGIN_INSTALL_LIBDIR}\
 add_definitions(-DEXTCAP_DIR=\"${CMAKE_INSTALL_PREFIX}/${EXTCAP_INSTALL_LIBDIR}\")
 add_definitions(-DDATA_DIR=\"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}\")
 
+add_subdirectory(wmem)
+
 set(WSUTIL_PUBLIC_HEADERS
 	802_11-utils.h
 	adler32.h
@@ -36,6 +38,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	curve25519.h
 	eax.h
 	epochs.h
+	exported_pdu_tlvs.h
 	filesystem.h
 	g711.h
 	inet_addr.h
@@ -62,6 +65,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	strtoi.h
 	tempfile.h
 	time_util.h
+	to_str.h
 	type_util.h
 	unicode-utils.h
 	utf8_entities.h
@@ -71,6 +75,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	ws_mempbrk.h
 	ws_mempbrk_int.h
 	ws_pipe.h
+	ws_roundup.h
 	wsjson.h
 	wslog.h
 	xtea.h
@@ -118,13 +123,16 @@ set(WSUTIL_COMMON_FILES
 	report_message.c
 	tempfile.c
 	time_util.c
+	to_str.c
 	type_util.c
 	unicode-utils.c
 	glib-compat.c
+	ws_assert.c
 	ws_mempbrk.c
 	ws_pipe.c
 	wsgcrypt.c
 	wsjson.c
+	wslog.c
 	xtea.c
 )
 
@@ -245,6 +253,7 @@ endif()
 
 add_library(wsutil
 	${WSUTIL_FILES}
+	$<TARGET_OBJECTS:wmem>
 	${CMAKE_BINARY_DIR}/image/libwsutil.rc
 )
 
@@ -261,23 +270,24 @@ if(MSVC)
 endif()
 
 target_link_libraries(wsutil
+	# *Lots* of our targets that link with wsutil also link with
+	# GLib and GModule. Mark them PUBLIC so that dependent targets
+	# don't have to link them directly.
 	PUBLIC
-	${CMAKE_DL_LIBS}
-	${APPLE_CORE_FOUNDATION_LIBRARY}
-	${GMODULE2_LIBRARIES}
-	${GLIB2_LIBRARIES}
-	${GCRYPT_LIBRARIES}
-	${WIN_WS2_32_LIBRARY}
-	${GNUTLS_LIBRARIES}
-	${M_LIBRARIES}
+		${GLIB2_LIBRARIES}
+		${GMODULE2_LIBRARIES}
+	PRIVATE
+		${APPLE_CORE_FOUNDATION_LIBRARY}
+		${CMAKE_DL_LIBS}
+		${GCRYPT_LIBRARIES}
+		${GNUTLS_LIBRARIES}
+		${M_LIBRARIES}
+		${WIN_IPHLPAPI_LIBRARY}
+		${WIN_WS2_32_LIBRARY}
 )
 
-if(WIN32)
-	target_link_libraries(wsutil PRIVATE "iphlpapi.lib" "ws2_32.lib")
-endif(WIN32)
-
-target_include_directories(wsutil SYSTEM
-	PUBLIC
+target_include_directories(wsutil
+	SYSTEM PRIVATE
 		${GCRYPT_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 )
@@ -287,6 +297,17 @@ install(TARGETS wsutil
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+add_executable(test_wsutil EXCLUDE_FROM_ALL
+	test_wsutil.c
+)
+
+target_link_libraries(test_wsutil ${GLIB2_LIBRARIES} wsutil)
+
+set_target_properties(test_wsutil PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
 )
 
 install(FILES ${WSUTIL_PUBLIC_HEADERS}

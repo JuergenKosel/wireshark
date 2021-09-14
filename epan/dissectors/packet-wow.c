@@ -88,10 +88,28 @@ static const value_string error_vs[] = {
 	{ 0, NULL }
 };
 
+typedef enum {
+    FLAG_NONE = 0x0,
+    FLAG_INVALID = 0x1,
+    FLAG_OFFLINE = 0x2,
+    FLAG_SPECIFY_BUILD = 0x4,
+    FLAG_UNK1 = 0x8,
+    FLAG_UNK2 = 0x10,
+    FLAG_FORCE_RECOMMENDED = 0x20,
+    FLAG_FORCE_NEW_PLAYERS = 0x40,
+    FLAG_FORCE_FULL = 0x80
+} auth_realm_flag_e;
+
 static const value_string realm_flags_vs[] = {
-	{ 0, "Online"  },
-	{ 1, "Locked"  },
-	{ 2, "Offline" },
+	{ FLAG_NONE, ""  },
+	{ FLAG_INVALID, "Locked"  },
+	{ FLAG_OFFLINE, "Offline" },
+	{ FLAG_SPECIFY_BUILD, "Realm version info appended" },
+	{ FLAG_UNK1, "Unknown" },
+	{ FLAG_UNK2, "Unknown" },
+	{ FLAG_FORCE_RECOMMENDED, "Realm status is 'Recommended' in blue text" },
+	{ FLAG_FORCE_NEW_PLAYERS, "Realm status is 'Recommended' in green text" },
+	{ FLAG_FORCE_FULL, "Realm status is 'Full' in red text" },
 	{ 0, NULL      }
 };
 
@@ -155,6 +173,8 @@ static int hf_wow_two_factor_pin_hash = -1;
 /* Logon Proof Server to Client */
 static int hf_wow_srp_m2 = -1;
 static int hf_wow_hardware_survey_id = -1;
+static int hf_wow_account_flags = -1;
+static int hf_wow_unknown_flags = -1;
 
 /* Reconnect Challenge Server to Client */
 static int hf_wow_checksum_salt = -1;
@@ -166,6 +186,7 @@ static int hf_wow_client_checksum = -1;
 /* Realm List Server to Client */
 static int hf_wow_num_realms = -1;
 static int hf_wow_realm_type = -1;
+static int hf_wow_realm_locked = -1;
 static int hf_wow_realm_flags = -1;
 static int hf_wow_realm_category = -1;
 static int hf_wow_realm_name = -1;
@@ -219,68 +240,84 @@ version_is_at_or_above(int major, int minor, int patch)
 
 	return TRUE;
 }
+static void
+parse_logon_proof_client_to_server(tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
+	guint8 two_factor_enabled;
+
+	proto_tree_add_item(wow_tree, hf_wow_srp_a, tvb,
+			    offset, 32, ENC_NA);
+	offset += 32;
+
+	proto_tree_add_item(wow_tree, hf_wow_srp_m1,
+			    tvb, offset, 20, ENC_NA);
+	offset += 20;
+
+	proto_tree_add_item(wow_tree, hf_wow_crc_hash,
+			    tvb, offset, 20, ENC_NA);
+	offset += 20;
+
+	proto_tree_add_item(wow_tree, hf_wow_num_keys,
+			    tvb, offset, 1, ENC_LITTLE_ENDIAN);
+	offset += 1;
+
+	if (!version_is_at_or_above(1, 12, 0)) {
+		return;
+	}
+	two_factor_enabled = tvb_get_guint8(tvb, offset);
+	proto_tree_add_item(wow_tree, hf_wow_two_factor_enabled, tvb,
+			    offset, 1, ENC_LITTLE_ENDIAN);
+	offset += 1;
+
+	if (!two_factor_enabled) {
+		return;
+	}
+
+	proto_tree_add_item(wow_tree, hf_wow_two_factor_pin_salt, tvb,
+			    offset, 16, ENC_NA);
+	offset += 16;
+
+	proto_tree_add_item(wow_tree, hf_wow_two_factor_pin_hash, tvb,
+			    offset, 20, ENC_NA);
+
+
+}
+
 
 static void
-parse_logon_proof(tvbuff_t *tvb, packet_info* pinfo, proto_tree *wow_tree, guint32 offset) {
-	guint8 error, two_factor_enabled;
+parse_logon_proof_server_to_client(tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
+	guint8 error;
 
-	if (WOW_CLIENT_TO_SERVER) {
-		proto_tree_add_item(wow_tree, hf_wow_srp_a, tvb,
-				    offset, 32, ENC_NA);
-		offset += 32;
+	error = tvb_get_guint8(tvb, offset);
+	proto_tree_add_item(wow_tree, hf_wow_error, tvb,
+			    offset, 1, ENC_LITTLE_ENDIAN);
+	offset += 1;
+	if (error != SUCCESS) {
+		// Following fields are only present when not an error.
+		return;
+	}
 
-		proto_tree_add_item(wow_tree, hf_wow_srp_m1,
-				    tvb, offset, 20, ENC_NA);
-		offset += 20;
+	proto_tree_add_item(wow_tree, hf_wow_srp_m2,
+			    tvb, offset, 20, ENC_NA);
+	offset += 20;
 
-		proto_tree_add_item(wow_tree, hf_wow_crc_hash,
-				    tvb, offset, 20, ENC_NA);
-		offset += 20;
-
-		proto_tree_add_item(wow_tree, hf_wow_num_keys,
-				    tvb, offset, 1, ENC_LITTLE_ENDIAN);
-		offset += 1;
-
-		if (!version_is_at_or_above(1, 12, 0)) {
-			return;
-		}
-		two_factor_enabled = tvb_get_guint8(tvb, offset);
-		proto_tree_add_item(wow_tree, hf_wow_two_factor_enabled, tvb,
-				    offset, 1, ENC_LITTLE_ENDIAN);
-		offset += 1;
-
-		if (!two_factor_enabled) {
-			return;
-		}
-
-		proto_tree_add_item(wow_tree, hf_wow_two_factor_pin_salt, tvb,
-				    offset, 16, ENC_NA);
-		offset += 16;
-
-		proto_tree_add_item(wow_tree, hf_wow_two_factor_pin_hash, tvb,
-				    offset, 20, ENC_NA);
-
-	} else if (WOW_SERVER_TO_CLIENT) {
-		error = tvb_get_guint8(tvb, offset);
-		proto_tree_add_item(wow_tree, hf_wow_error, tvb,
-				    offset, 1, ENC_LITTLE_ENDIAN);
-		offset += 1;
-		if (error != SUCCESS) {
-			// Following fields are only present when not an error.
-			return;
-		}
-
-		proto_tree_add_item(wow_tree, hf_wow_srp_m2,
-				    tvb, offset, 20, ENC_NA);
-		offset += 20;
-
-		proto_tree_add_item(wow_tree, hf_wow_hardware_survey_id,
+	if (version_is_at_or_above(2, 4, 0)) {
+		proto_tree_add_item(wow_tree, hf_wow_account_flags,
 				    tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+	}
+
+	proto_tree_add_item(wow_tree, hf_wow_hardware_survey_id,
+			    tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+
+	if (version_is_at_or_above(2, 0, 3)) {
+		proto_tree_add_item(wow_tree, hf_wow_unknown_flags,
+				    tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	}
 }
 static void
-parse_realm_list_server_to_client(tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
-	guint8 num_realms, ii;
+parse_realm_list_server_to_client(packet_info *pinfo, tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
+	guint8 num_realms, ii, number_of_realms_field_size, realm_name_offset, realm_type_field_size, realm_flags;
 	gchar *string, *realm_name;
 	gint len;
 	proto_tree *wow_realms_tree;
@@ -291,32 +328,50 @@ parse_realm_list_server_to_client(tvbuff_t *tvb, proto_tree *wow_tree, guint32 o
 
 	offset += 4; /* Unknown field; always 0 */
 
+	if (version_is_at_or_above(2, 4, 3)) {
+		/* Possibly valid for versions starting at 2.0.0 as well */
+		number_of_realms_field_size = 2;
+		realm_name_offset = 3;
+		realm_type_field_size = 1;
+	} else {
+		number_of_realms_field_size = 1;
+		realm_name_offset = 5;
+		realm_type_field_size = 4;
+	}
+
 	proto_tree_add_item(wow_tree, hf_wow_num_realms,
-			    tvb, offset, 1, ENC_LITTLE_ENDIAN);
+			    tvb, offset, number_of_realms_field_size, ENC_LITTLE_ENDIAN);
 	num_realms = tvb_get_guint8(tvb, offset);
-	offset += 1;
+	offset += number_of_realms_field_size;
 
 	for(ii = 0; ii < num_realms; ii++) {
-		realm_name = tvb_get_stringz_enc(wmem_packet_scope(), tvb,
-						 offset + 5,
-						 &len, ENC_ASCII);
+		realm_name = tvb_get_stringz_enc(pinfo->pool, tvb,
+						 offset + realm_name_offset,
+						 &len, ENC_UTF_8);
 
 		wow_realms_tree = proto_tree_add_subtree(wow_tree, tvb,
 							 offset, 0,
 							 ett_wow_realms, NULL,
 							 realm_name);
 
-		proto_tree_add_item(wow_realms_tree, hf_wow_realm_type, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-		offset += 4;
+		proto_tree_add_item(wow_realms_tree, hf_wow_realm_type, tvb, offset, realm_type_field_size, ENC_LITTLE_ENDIAN);
+		offset += realm_type_field_size;
 
+		if (version_is_at_or_above(2, 4, 3)) {
+			/* Possibly valid for versions starting at 2.0.0 as well */
+			proto_tree_add_item(wow_realms_tree, hf_wow_realm_locked, tvb, offset, 1, ENC_NA);
+			offset += 1;
+		}
+
+		realm_flags = tvb_get_guint8(tvb, offset);
 		proto_tree_add_item(wow_realms_tree, hf_wow_realm_flags, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 		offset += 1;
 
 		proto_tree_add_string(wow_realms_tree, hf_wow_realm_name, tvb, offset, len, realm_name);
 		offset += len;
 
-		string = tvb_get_stringz_enc(wmem_packet_scope(), tvb, offset,
-					     &len, ENC_ASCII);
+		string = tvb_get_stringz_enc(pinfo->pool, tvb, offset,
+					     &len, ENC_UTF_8);
 		proto_tree_add_string(wow_realms_tree, hf_wow_realm_socket, tvb, offset, len, string);
 		offset += len;
 
@@ -332,6 +387,23 @@ parse_realm_list_server_to_client(tvbuff_t *tvb, proto_tree *wow_tree, guint32 o
 		proto_tree_add_item(wow_realms_tree, hf_wow_realm_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 		offset += 1;
 
+		if (version_is_at_or_above(2, 4, 3) && (realm_flags & FLAG_SPECIFY_BUILD)) {
+			proto_tree_add_item(wow_realms_tree, hf_wow_version1,
+					    tvb, offset, 1, ENC_LITTLE_ENDIAN);
+			offset += 1;
+
+			proto_tree_add_item(wow_realms_tree, hf_wow_version2,
+					    tvb, offset, 1, ENC_LITTLE_ENDIAN);
+			offset += 1;
+
+			proto_tree_add_item(wow_realms_tree, hf_wow_version3,
+					    tvb, offset, 1, ENC_LITTLE_ENDIAN);
+			offset += 1;
+
+			proto_tree_add_item(wow_realms_tree, hf_wow_build, tvb,
+					    offset, 2, ENC_LITTLE_ENDIAN);
+			offset += 2;
+		}
 	}
 }
 
@@ -383,7 +455,7 @@ parse_logon_reconnect_challenge_server_to_client(tvbuff_t *tvb, proto_tree *wow_
 }
 
 static void
-parse_logon_challenge_client_to_server(tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
+parse_logon_challenge_client_to_server(packet_info *pinfo, tvbuff_t *tvb, proto_tree *wow_tree, guint32 offset) {
 	guint8 srp_i_len;
 	gchar *string;
 
@@ -395,7 +467,7 @@ parse_logon_challenge_client_to_server(tvbuff_t *tvb, proto_tree *wow_tree, guin
 			tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
-	string = g_strreverse(tvb_get_string_enc(wmem_packet_scope(), tvb, offset, 4, ENC_ASCII));
+	string = g_strreverse(tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII));
 	proto_tree_add_string(wow_tree, hf_wow_gamename,
 			tvb, offset, 4, string);
 	offset += 4;
@@ -422,17 +494,17 @@ parse_logon_challenge_client_to_server(tvbuff_t *tvb, proto_tree *wow_tree, guin
 			offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
-	string = g_strreverse(tvb_get_string_enc(wmem_packet_scope(), tvb, offset, 4, ENC_ASCII));
+	string = g_strreverse(tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII));
 	proto_tree_add_string(wow_tree, hf_wow_platform,
 			tvb, offset, 4, string);
 	offset += 4;
 
-	string = g_strreverse(tvb_get_string_enc(wmem_packet_scope(), tvb, offset, 4, ENC_ASCII));
+	string = g_strreverse(tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII));
 	proto_tree_add_string(wow_tree, hf_wow_os, tvb,
 			offset, 4, string);
 	offset += 4;
 
-	string = g_strreverse(tvb_get_string_enc(wmem_packet_scope(), tvb, offset, 4, ENC_ASCII));
+	string = g_strreverse(tvb_get_string_enc(pinfo->pool, tvb, offset, 4, ENC_ASCII));
 	proto_tree_add_string(wow_tree, hf_wow_country,
 			tvb, offset, 4, string);
 	offset += 4;
@@ -455,7 +527,7 @@ parse_logon_challenge_client_to_server(tvbuff_t *tvb, proto_tree *wow_tree, guin
 	proto_tree_add_item(wow_tree,
 			hf_wow_srp_i, tvb,
 			offset, srp_i_len,
-			ENC_ASCII|ENC_NA);
+			ENC_UTF_8|ENC_NA);
 }
 
 static void
@@ -586,14 +658,14 @@ dissect_wow_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 			if (WOW_SERVER_TO_CLIENT) {
 				parse_logon_reconnect_challenge_server_to_client(tvb, wow_tree, offset);
 			} else if (WOW_CLIENT_TO_SERVER) {
-				parse_logon_challenge_client_to_server(tvb, wow_tree, offset);
+				parse_logon_challenge_client_to_server(pinfo, tvb, wow_tree, offset);
 			}
 
 			break;
 
 		case AUTH_LOGON_CHALLENGE :
 			if(WOW_CLIENT_TO_SERVER) {
-				parse_logon_challenge_client_to_server(tvb, wow_tree, offset);
+				parse_logon_challenge_client_to_server(pinfo, tvb, wow_tree, offset);
 			} else if(WOW_SERVER_TO_CLIENT) {
 				parse_logon_challenge_server_to_client(tvb, wow_tree, offset);
 			}
@@ -601,7 +673,11 @@ dissect_wow_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 			break;
 
 		case AUTH_LOGON_PROOF :
-			parse_logon_proof(tvb, pinfo, wow_tree, offset);
+			if (WOW_CLIENT_TO_SERVER) {
+				parse_logon_proof_client_to_server(tvb, wow_tree, offset);
+			} else if (WOW_SERVER_TO_CLIENT) {
+				parse_logon_proof_server_to_client(tvb, wow_tree, offset);
+			}
 
 			break;
 
@@ -609,7 +685,7 @@ dissect_wow_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 			if(WOW_CLIENT_TO_SERVER) {
 
 			} else if(WOW_SERVER_TO_CLIENT) {
-				parse_realm_list_server_to_client(tvb, wow_tree, offset);
+				parse_realm_list_server_to_client(pinfo, tvb, wow_tree, offset);
 
 			}
 
@@ -804,6 +880,16 @@ proto_register_wow(void)
 		    FT_UINT32, BASE_DEC, 0, 0,
 		    "ID of a hardware survey that the client should run", HFILL }
 		},
+		{ &hf_wow_account_flags,
+			{ "Account Flags", "wow.account_flags",
+				FT_UINT32, BASE_HEX, 0, 0,
+				NULL, HFILL }
+		},
+		{ &hf_wow_unknown_flags,
+			{ "Unknown Flags", "wow.unknown_flags",
+				FT_UINT16, BASE_HEX, 0, 0,
+				NULL, HFILL }
+		},
 		{ &hf_wow_srp_m2,
 		  { "SRP M2", "wow.srp.m2",
 		    FT_BYTES, BASE_NONE, 0, 0,
@@ -854,8 +940,13 @@ proto_register_wow(void)
 		    FT_UINT8, BASE_DEC, VALS(realm_type_vs), 0,
 		    "Also known as realm icon", HFILL }
 		},
+		{ &hf_wow_realm_locked,
+			{ "Locked", "wow.realm_locked",
+		    FT_BOOLEAN, BASE_NONE, 0, 0,
+		    "Realm appears as locked in client", HFILL }
+		},
 		{ &hf_wow_realm_flags,
-		  { "Status", "wow.realm_flags",
+		  { "Flags", "wow.realm_flags",
 		    FT_UINT8, BASE_DEC, VALS(realm_flags_vs), 0,
 		    NULL, HFILL }
 		},

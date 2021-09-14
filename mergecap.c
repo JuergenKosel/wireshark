@@ -41,9 +41,11 @@
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
 #include <wsutil/strnatcmp.h>
+#include <wsutil/ws_assert.h>
+#include <wsutil/wslog.h>
 
 #include <cli_main.h>
-#include <version_info.h>
+#include <ui/version_info.h>
 
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
@@ -228,6 +230,12 @@ main(int argc, char *argv[])
 
   cmdarg_err_init(mergecap_cmdarg_err, mergecap_cmdarg_err_cont);
 
+  /* Initialize log handler early so we can have proper logging during startup. */
+  ws_log_init("mergecap", vcmdarg_err);
+
+  /* Early logging command-line initialization. */
+  ws_log_parse_args(&argc, argv, vcmdarg_err, 1);
+
 #ifdef _WIN32
   create_app_running_mutex();
 #endif /* _WIN32 */
@@ -388,7 +396,7 @@ main(int argc, char *argv[])
 
     case MERGE_USER_ABORTED:
       /* we don't catch SIGINT/SIGTERM (yet?), so we couldn't have aborted */
-      g_assert_not_reached();
+      ws_assert_not_reached();
       break;
 
     case MERGE_ERR_CANT_OPEN_INFILE:

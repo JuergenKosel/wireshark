@@ -22,7 +22,6 @@ add_subdirectory(crypt)
 add_subdirectory(dfilter)
 add_subdirectory(dissectors)
 add_subdirectory(ftypes)
-add_subdirectory(wmem)
 
 if(LUA_FOUND)
 	add_subdirectory(wslua)
@@ -161,6 +160,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	uat-int.h
 	unit_strings.h
 	value_string.h
+	wmem_scopes.h
 	x264_prt_id.h
 	xdlc.h
 )
@@ -258,6 +258,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	uat.c
 	value_string.c
 	unit_strings.c
+	wmem_scopes.c
 	xdlc.c
 	protobuf-helper.c
 	protobuf_lang_tree.c
@@ -296,8 +297,6 @@ add_library(epan
 	$<TARGET_OBJECTS:dissectors>
 	$<TARGET_OBJECTS:dissectors-corba>
 	$<TARGET_OBJECTS:ftypes>
-	$<TARGET_OBJECTS:version_info>
-	$<TARGET_OBJECTS:wmem>
 	$<$<BOOL:${LUA_FOUND}>:$<TARGET_OBJECTS:wslua>>
 	${CMAKE_BINARY_DIR}/image/libwireshark.rc
 )
@@ -327,9 +326,10 @@ target_link_libraries(epan
 		${CARES_LIBRARIES}
 		${GCRYPT_LIBRARIES}
 		${GIO2_LIBRARIES}
-		${GTHREAD2_LIBRARIES}
 		${GNUTLS_LIBRARIES}
+		${GTHREAD2_LIBRARIES}
 		${KERBEROS_LIBRARIES}
+		${LIBXML2_LIBRARIES}
 		${LUA_LIBRARIES}
 		${LZ4_LIBRARIES}
 		${M_LIBRARIES}
@@ -337,9 +337,14 @@ target_link_libraries(epan
 		${SMI_LIBRARIES}
 		${SNAPPY_LIBRARIES}
 		${WIN_PSAPI_LIBRARY}
-		${LIBXML2_LIBRARIES}
+		${WIN_WS2_32_LIBRARY}
 		${ZLIB_LIBRARIES}
 		${ZSTD_LIBRARIES}
+)
+
+target_include_directories(epan
+	SYSTEM PUBLIC
+		${GLIB2_INCLUDE_DIRS}
 )
 
 target_include_directories(epan
@@ -349,14 +354,10 @@ target_include_directories(epan
 )
 
 target_include_directories(epan
-	SYSTEM PUBLIC
-		${GLIB2_INCLUDE_DIRS}
-)
-
-target_include_directories(epan
 	SYSTEM PRIVATE
 		${BROTLI_INCLUDE_DIRS}
 		${CARES_INCLUDE_DIRS}
+		${GCRYPT_INCLUDE_DIRS}
 		${GLIB2_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 		${GTHREAD2_INCLUDE_DIRS}
@@ -386,7 +387,7 @@ install(FILES ${LIBWIRESHARK_PUBLIC_HEADERS}
 )
 
 add_executable(exntest EXCLUDE_FROM_ALL exntest.c except.c)
-target_link_libraries(exntest ${GLIB2_LIBRARIES})
+target_link_libraries(exntest epan)
 set_target_properties(exntest PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True

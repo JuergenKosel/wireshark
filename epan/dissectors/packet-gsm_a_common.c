@@ -875,7 +875,7 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         uvalue32  = tvb_get_ntoh24(tvb,offset);
         /* convert degrees (X/0x7fffff) * 90 = degrees */
         lat_item = proto_tree_add_item(tree, hf_gsm_a_geo_loc_deg_of_lat, tvb, offset, 3, ENC_BIG_ENDIAN);
-        deg_lat_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
+        deg_lat_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
             (uvalue32 & 0x00800000) ? "-" : "",
             ((double)(uvalue32 & 0x7fffff)/8388607.0) * 90);
         proto_item_append_text(lat_item, " (%s degrees)", deg_lat_str);
@@ -887,7 +887,7 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         svalue32 |= (svalue32 & 0x800000) ? 0xff000000 : 0x00000000;
         long_item = proto_tree_add_item(tree, hf_gsm_a_geo_loc_deg_of_long, tvb, offset, 3, ENC_BIG_ENDIAN);
         /* (X/0xffffff) *360 = degrees */
-        deg_lon_str = wmem_strdup_printf(wmem_packet_scope(), "%.5f",
+        deg_lon_str = wmem_strdup_printf(pinfo->pool, "%.5f",
             ((double)svalue32/16777215.0) * 360);
         proto_item_append_text(long_item, " (%s degrees)", deg_lon_str);
         offset = offset + 3;
@@ -985,7 +985,7 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
             /* Confidence */
             proto_tree_add_item(tree, hf_gsm_a_geo_loc_confidence, tvb, offset, 1, ENC_BIG_ENDIAN);
         }
-        osm_uri = wmem_strdup_printf(wmem_packet_scope(), "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
+        osm_uri = wmem_strdup_printf(pinfo->pool, "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
         loc_uri_item = proto_tree_add_string(tree, hf_gsm_a_geo_loc_osm_uri, tvb, loc_offset, 6, osm_uri);
         proto_item_set_url(loc_uri_item);
         proto_item_set_generated(loc_uri_item);
@@ -1010,7 +1010,7 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
             uvalue32 = tvb_get_ntoh24(tvb, offset);
             /* convert degrees (X/0x7fffff) * 90 = degrees */
             lat_item = proto_tree_add_item(sub_tree, hf_gsm_a_geo_loc_deg_of_lat, tvb, offset, 3, ENC_BIG_ENDIAN);
-            deg_lat_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
+            deg_lat_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
                 (uvalue32 & 0x00800000) ? "-" : "",
                 ((double)(uvalue32 & 0x7fffff) / 8388607.0) * 90);
             proto_item_append_text(lat_item, " (%s degrees)", deg_lat_str);
@@ -1020,13 +1020,13 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
             svalue32 |= (svalue32 & 0x800000) ? 0xff000000 : 0x00000000;
             long_item = proto_tree_add_item(sub_tree, hf_gsm_a_geo_loc_deg_of_long, tvb, offset, 3, ENC_BIG_ENDIAN);
             /* (X/0xffffff) *360 = degrees */
-            deg_lon_str = wmem_strdup_printf(wmem_packet_scope(), "%.5f",
+            deg_lon_str = wmem_strdup_printf(pinfo->pool, "%.5f",
                 ((double)svalue32 / 16777215.0) * 360);
             proto_item_append_text(long_item, " (%s degrees)", deg_lon_str);
             offset = offset + 3;
             no_of_points--;
 
-            osm_uri = wmem_strdup_printf(wmem_packet_scope(), "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
+            osm_uri = wmem_strdup_printf(pinfo->pool, "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
             loc_uri_item = proto_tree_add_string(tree, hf_gsm_a_geo_loc_osm_uri, tvb, loc_offset, 6, osm_uri);
             proto_item_set_url(loc_uri_item);
             proto_item_set_generated(loc_uri_item);
@@ -1035,15 +1035,15 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         break;
     case HIGH_ACC_ELLIPSOID_PNT_WITH_UNCERT_ELLIPSE:
         loc_offset = offset;
-        lat_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_geo_loc_high_acc_deg_of_lat, tvb, offset, 4, ENC_BIG_ENDIAN, &uvalue32);
-        deg_lat_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
-            (uvalue32 & 0x80000000) ? "-" : "",
-            ((double)(uvalue32 & 0x7fffffff) / 2147483647.0) * 90);
+        lat_item = proto_tree_add_item_ret_int(tree, hf_gsm_a_geo_loc_high_acc_deg_of_lat, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
+        deg_lat_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
+            (svalue32 & 0x80000000) ? "-" : "",
+            ((double)(svalue32 & 0x7fffffff) / 2147483647.0) * 90);
         proto_item_append_text(lat_item, " (%s degrees)", deg_lat_str);
         offset += 4;
-        long_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_geo_loc_high_acc_deg_of_long, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
-        deg_lon_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
-            (uvalue32 & 0x80000000) ? "-" : "",
+        long_item = proto_tree_add_item_ret_int(tree, hf_gsm_a_geo_loc_high_acc_deg_of_long, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
+        deg_lon_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
+            (svalue32 & 0x80000000) ? "-" : "",
             ((double)svalue32 / 2147483647.0) * 180);
         proto_item_append_text(long_item, " (%s degrees)", deg_lon_str);
 
@@ -1062,28 +1062,33 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         /* Confidence */
         proto_tree_add_item(tree, hf_gsm_a_geo_loc_confidence, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset++;
-        osm_uri = wmem_strdup_printf(wmem_packet_scope(), "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
+        osm_uri = wmem_strdup_printf(pinfo->pool, "https://www.openstreetmap.org/?mlat=%s&mlon=%s&zoom=12", deg_lat_str, deg_lon_str);
         loc_uri_item = proto_tree_add_string(tree, hf_gsm_a_geo_loc_osm_uri, tvb, loc_offset, 6, osm_uri);
         proto_item_set_url(loc_uri_item);
         proto_item_set_generated(loc_uri_item);
 
         break;
     case HIGH_ACC_ELLIPSOID_PNT_WITH_ALT_AND_UNCERT_ELLIPSOID:
-        lat_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_geo_loc_high_acc_deg_of_lat, tvb, offset, 4, ENC_BIG_ENDIAN, &uvalue32);
-        deg_lat_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
-            (uvalue32 & 0x80000000) ? "-" : "",
-            ((double)(uvalue32 & 0x7fffffff) / 2147483647.0) * 90);
+        lat_item = proto_tree_add_item_ret_int(tree, hf_gsm_a_geo_loc_high_acc_deg_of_lat, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
+        deg_lat_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
+            (svalue32 & 0x80000000) ? "-" : "",
+            ((double)(svalue32 & 0x7fffffff) / 2147483647.0) * 90);
         proto_item_append_text(lat_item, " (%s degrees)", deg_lat_str);
         offset += 4;
-        long_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_geo_loc_high_acc_deg_of_long, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
-        deg_lon_str = wmem_strdup_printf(wmem_packet_scope(), "%s%.5f",
-            (uvalue32 & 0x80000000) ? "-" : "",
+        long_item = proto_tree_add_item_ret_int(tree, hf_gsm_a_geo_loc_high_acc_deg_of_long, tvb, offset, 4, ENC_BIG_ENDIAN, &svalue32);
+        deg_lon_str = wmem_strdup_printf(pinfo->pool, "%s%.5f",
+            (svalue32 & 0x80000000) ? "-" : "",
             ((double)svalue32 / 2147483647.0) * 180);
         proto_item_append_text(long_item, " (%s degrees)", deg_lon_str);
         offset += 4;
 
-        /* High accuracy altitude*/
-        proto_tree_add_item(tree, hf_gsm_a_geo_loc_high_acc_alt, tvb, offset, 3, ENC_BIG_ENDIAN);
+        /* High accuracy altitude
+         * High accuracy altitude is encoded as a number N between -64000 and 1280000 using 2's complement binary on 22 bits.
+         */
+
+        alt_item = proto_tree_add_item_ret_int(tree, hf_gsm_a_geo_loc_high_acc_alt, tvb, offset, 3, ENC_BIG_ENDIAN, &svalue32);
+        /* double z = pow(double x, double y);*/
+        proto_item_append_text(alt_item, " (%.1f m)", (double)svalue32 * pow(2,-7));
         offset += 3;
 
         /* High accuracy uncertainty semi-major*/
@@ -1103,7 +1108,9 @@ dissect_geographical_description(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         offset++;
 
         /* High accuracy uncertenty altitude */
-        proto_tree_add_item(tree, hf_gsm_a_geo_loc_high_acc_uncertainty_alt, tvb, offset, 1, ENC_BIG_ENDIAN);
+        value = tvb_get_guint8(tvb, offset) & 0x7f;
+        alt_item = proto_tree_add_item(tree, hf_gsm_a_geo_loc_high_acc_uncertainty_alt, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_item_append_text(alt_item, " (%.1f m)", 45 * (pow(1.025, (double)value) - 1));
         offset++;
 
         /* Vertical confidence*/
@@ -1454,7 +1461,7 @@ guint16 elem_tlv(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint8 iei
             {
                 gchar *a_add_string;
 
-                a_add_string = (gchar *)wmem_alloc(wmem_packet_scope(), 1024);
+                a_add_string = (gchar *)wmem_alloc(pinfo->pool, 1024);
                 a_add_string[0] = '\0';
                 consumed =
                 (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 2,
@@ -1546,7 +1553,7 @@ guint16 elem_telv(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint8 ie
             {
                 gchar *a_add_string;
 
-                a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+                a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
                 a_add_string[0] = '\0';
                 consumed =
                 (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 1 + lengt_length,
@@ -1626,7 +1633,7 @@ guint16 elem_tlv_e(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint8 i
             {
                 gchar *a_add_string;
 
-                a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+                a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
                 a_add_string[0] = '\0';
                 consumed =
                 (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 1 + 2,
@@ -1700,7 +1707,7 @@ guint16 elem_tv(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint8 iei,
         {
             gchar *a_add_string;
 
-            a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+            a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
             a_add_string[0] = '\0';
             consumed = (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 1, -1, a_add_string, 1024);
 
@@ -1773,7 +1780,7 @@ guint16 elem_tv_short(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint
         {
             gchar *a_add_string;
 
-            a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+            a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
             a_add_string[0] = '\0';
             consumed = (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset, RIGHT_NIBBLE, a_add_string, 1024);
 
@@ -1877,7 +1884,7 @@ elem_lv(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint pdu_type, int 
         {
             gchar *a_add_string;
 
-            a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+            a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
             a_add_string[0] = '\0';
             consumed =
                 (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 1,
@@ -1943,7 +1950,7 @@ guint16 elem_lv_e(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint pdu_
         {
             gchar *a_add_string;
 
-            a_add_string = (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+            a_add_string = (gchar*)wmem_alloc(pinfo->pool, 1024);
             a_add_string[0] = '\0';
             consumed =
                 (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset + 2,
@@ -1999,7 +2006,7 @@ guint16 elem_v(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint pdu_typ
                 elem_ett[idx], &item, "%s%s", elem_name,
                 (name_add == NULL) || (name_add[0] == '\0') ? "" : name_add);
 
-        a_add_string= (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+        a_add_string= (gchar*)wmem_alloc(pinfo->pool, 1024);
         a_add_string[0] = '\0';
         consumed = (*elem_funcs[idx])(tvb, subtree, pinfo, curr_offset, -1, a_add_string, 1024);
         if (a_add_string[0] != '\0')
@@ -2046,7 +2053,7 @@ guint16 elem_v_short(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint p
 
     subtree = proto_tree_add_subtree(tree, tvb, curr_offset, 0, elem_ett[idx], &item, elem_name);
 
-    a_add_string= (gchar*)wmem_alloc(wmem_packet_scope(), 1024);
+    a_add_string= (gchar*)wmem_alloc(pinfo->pool, 1024);
     a_add_string[0] = '\0';
 
     if (elem_funcs[idx] == NULL)
@@ -2328,7 +2335,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
 
         if((oct & 0x07) == 3){
             /* imeisv */
-            digit_str = tvb_bcd_dig_to_wmem_packet_str(tvb ,curr_offset , len - (curr_offset - offset), NULL, TRUE);
+            digit_str = tvb_bcd_dig_to_str(pinfo->pool, tvb ,curr_offset , len - (curr_offset - offset), NULL, TRUE);
             proto_tree_add_string_format(tree,
                 hf_gsm_a_imeisv,
                 tvb, curr_offset, len - (curr_offset - offset),
@@ -2368,7 +2375,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
         if (curr_offset - offset >= len) /* Sanity check */
             return (curr_offset - offset);
 
-        digit_str = tvb_bcd_dig_to_wmem_packet_str(tvb, curr_offset, len - (curr_offset - offset), NULL, TRUE);
+        digit_str = tvb_bcd_dig_to_str(pinfo->pool, tvb, curr_offset, len - (curr_offset - offset), NULL, TRUE);
 
         proto_tree_add_string_format(tree,
             hf_gsm_a_imei,
@@ -4728,12 +4735,12 @@ proto_register_gsm_a_common(void)
     },
     { &hf_gsm_a_geo_loc_high_acc_deg_of_lat,
         { "High accuracy degrees of latitude", "gsm_a.gad.hig_acc_deg_of_lat",
-        FT_UINT32, BASE_DEC, NULL, 0x0,
+        FT_INT32, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_gsm_a_geo_loc_high_acc_deg_of_long,
         { "High accuracy degrees of longitude", "gsm_a.gad.high_acc_deg_of_long",
-        FT_UINT32, BASE_DEC, NULL, 0x0,
+        FT_INT32, BASE_DEC, NULL, 0x0,
         NULL, HFILL }
     },
     { &hf_gsm_a_geo_loc_high_acc_uncertainty_semi_major,
@@ -4748,7 +4755,7 @@ proto_register_gsm_a_common(void)
     },
     { &hf_gsm_a_geo_loc_high_acc_alt,
         { "High accuracy altitude", "gsm_a.gad.high_acc_alt",
-        FT_UINT24, BASE_DEC, NULL, 0x3fffff,
+        FT_INT24, BASE_DEC, NULL, 0x3fffff,
         NULL, HFILL }
     },
     { &hf_gsm_a_velocity_type,

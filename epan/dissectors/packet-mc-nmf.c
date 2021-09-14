@@ -111,7 +111,6 @@ static int hf_mc_nmf_chunk = -1;
 static int hf_mc_nmf_terminator = -1;
 static int hf_mc_nmf_payload_length = -1;
 static int hf_mc_nmf_payload = -1;
-static int hf_mc_nmf_unsized_payload = -1;
 static int hf_mc_nmf_upgrade_proto_data = -1;
 
 static expert_field ei_mc_nmf_size_too_big = EI_INIT;
@@ -298,7 +297,7 @@ dissect_mc_nmf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
                     return tvb_reported_length(tvb);
                 proto_tree_add_uint(rec_tree, hf_mc_nmf_upgrade_length, tvb, offset - len_length, len_length, size);
                 proto_tree_add_item(rec_tree, hf_mc_nmf_upgrade, tvb, offset, size, ENC_UTF_8|ENC_NA);
-                upgrade_protocol = tvb_get_string_enc(wmem_packet_scope(), tvb, offset, size, ENC_UTF_8|ENC_NA);
+                upgrade_protocol = tvb_get_string_enc(pinfo->pool, tvb, offset, size, ENC_UTF_8|ENC_NA);
                 offset += size;
                 if (strcmp((char*)upgrade_protocol, "application/negotiate") == 0) {
                     session_state->negotiate = TRUE;
@@ -412,11 +411,6 @@ void proto_register_mc_nmf(void)
         },
         { &hf_mc_nmf_payload,
           { "Payload", "mc-nmf.payload",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
-        { &hf_mc_nmf_unsized_payload,
-          { "Unsized Payload", "mc-nmf.unsized_payload",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },

@@ -22,6 +22,7 @@
 
 #include <capture/capture_ifinfo.h>
 #include "ringbuffer.h"
+#include <wsutil/wslog.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -43,10 +44,9 @@ extern "C" {
  * In short: we must not use 1 here, which is another reason to use
  * values outside the range of ASCII graphic characters.
  */
-#define LONGOPT_NUM_CAP_COMMENT   LONGOPT_BASE_CAPTURE+1
-#define LONGOPT_LIST_TSTAMP_TYPES LONGOPT_BASE_CAPTURE+2
-#define LONGOPT_SET_TSTAMP_TYPE   LONGOPT_BASE_CAPTURE+3
-#define LONGOPT_COMPRESS_TYPE     LONGOPT_BASE_CAPTURE+4
+#define LONGOPT_LIST_TSTAMP_TYPES LONGOPT_BASE_CAPTURE+1
+#define LONGOPT_SET_TSTAMP_TYPE   LONGOPT_BASE_CAPTURE+2
+#define LONGOPT_COMPRESS_TYPE     LONGOPT_BASE_CAPTURE+3
 
 /*
  * Options for capturing common to all capturing programs.
@@ -75,7 +75,6 @@ extern "C" {
 #endif
 
 #define LONGOPT_CAPTURE_COMMON \
-    {"capture-comment",       required_argument, NULL, LONGOPT_NUM_CAP_COMMENT}, \
     {"autostop",              required_argument, NULL, 'a'}, \
     {"ring-buffer",           required_argument, NULL, 'b'}, \
     LONGOPT_BUFFER_SIZE \
@@ -296,6 +295,7 @@ typedef struct capture_options_tag {
     int                file_packets;          /**< Switch file after n packets */
     gboolean           has_ring_num_files;    /**< TRUE if ring num_files specified */
     guint32            ring_num_files;        /**< Number of multiple buffer files */
+    gboolean           has_nametimenum;       /**< TRUE if file name has date part before num part  */
 
     /* autostop conditions */
     gboolean           has_autostop_files;    /**< TRUE if maximum number of capture files
@@ -312,8 +312,6 @@ typedef struct capture_options_tag {
                                                    is specified */
     gdouble            autostop_duration;     /**< Maximum capture duration */
 
-    gchar             *capture_comment;       /** capture comment to write to the
-                                                  output file */
     gboolean           print_file_names;      /**< TRUE if printing names of completed
                                                    files as we close them */
     gchar             *print_name_to;         /**< output file name */
@@ -338,7 +336,7 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg)
 
 /* log content of capture_opts */
 extern void
-capture_opts_log(const char *log_domain, GLogLevelFlags log_level, capture_options *capture_opts);
+capture_opts_log(const char *domain, enum ws_log_level level, capture_options *capture_opts);
 
 enum caps_query {
     CAPS_QUERY_LINK_TYPES      = 0x1,

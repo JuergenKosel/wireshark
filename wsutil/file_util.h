@@ -13,8 +13,6 @@
 
 #include <glib.h>
 
-#include "config.h"
-
 #include "ws_symbol_export.h"
 
 #ifdef _WIN32
@@ -22,9 +20,7 @@
 #include <gmodule.h>
 #endif
 
-#ifdef HAVE_FCNTL_H
 #include <fcntl.h>	/* for open() */
-#endif
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>	/* for read(), write(), close(), etc. */

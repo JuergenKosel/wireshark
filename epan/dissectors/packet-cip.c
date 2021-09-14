@@ -3,9 +3,10 @@
  * CIP Home: www.odva.org
  *
  * This dissector includes items from:
- *    CIP Volume 1: Common Industrial Protocol, Edition 3.27
+ *    CIP Volume 1: Common Industrial Protocol, Edition 3.30
  *    CIP Volume 5: Integration of Modbus Devices into the CIP Architecture, Edition 2.17
  *    CIP Volume 7: CIP Safety, Edition 1.9
+ *    CIP Volume 8: CIP Security, Edition 1.11
  *
  * Copyright 2004
  * Magnus Hansson <mah@hms.se>
@@ -39,7 +40,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/proto_data.h>
-#include <wmem/wmem_list.h>
+#include <epan/wmem_scopes.h>
 #include "packet-cip.h"
 #include "packet-cipmotion.h"
 #include "packet-cipsafety.h"
@@ -104,6 +105,7 @@ static int hf_cip_cm_timeout_tick = -1;
 static int hf_cip_cm_timeout = -1;
 static int hf_cip_cm_ot_connid = -1;
 static int hf_cip_cm_to_connid = -1;
+static int hf_cip_connid = -1;
 static int hf_cip_cm_conn_serial_num = -1;
 static int hf_cip_cm_orig_serial_num = -1;
 static int hf_cip_cm_vendor = -1;
@@ -504,7 +506,6 @@ static int hf_time_sync_port_proto_addr_info_port_proto_addr = -1;
 static int hf_time_sync_steps_removed = -1;
 static int hf_time_sync_sys_time_and_offset_time = -1;
 static int hf_time_sync_sys_time_and_offset_offset = -1;
-static int hf_cip_security_state = -1;
 static int hf_port_entry_port = -1;
 static int hf_port_type = -1;
 static int hf_port_number = -1;
@@ -597,6 +598,8 @@ static gint ett_id_status = -1;
 static gint ett_32bitheader_tree = -1;
 
 static gint ett_connection_info = -1;
+
+static const unit_name_string units_safety_128us = { " (128 us increment)", " (128 us increments)" };
 
 static expert_field ei_mal_identity_revision = EI_INIT;
 static expert_field ei_mal_identity_status = EI_INIT;
@@ -769,7 +772,7 @@ static const value_string cip_con_fw_vals[] = {
 
 /* Translate function to string - Connection owner */
 static const value_string cip_con_owner_vals[] = {
-   { 0,        "Exclusive" },
+   { 0,        "Non-Redundant" },
    { 1,        "Redundant" },
 
    { 0,        NULL        }
@@ -928,14 +931,6 @@ static const value_string cip_time_sync_network_protocol_vals[] = {
    { 4,      "DeviceNet"    },
    { 5,      "ControlNet"   },
    { 0xFFFF, "Local or Unknown protocol"   },
-   { 0,      NULL           }
-};
-
-static const value_string cip_security_state_vals[] = {
-   { 0,      "Factory Default Configuration"     },
-   { 1,      "Initial Commissioning In Progress" },
-   { 2,      "Configured"   },
-   { 3,      "Incomplete Configuration"    },
    { 0,      NULL           }
 };
 
@@ -2870,6 +2865,9 @@ const value_string cip_class_names_vals[] = {
    { 0x5D,     "CIP Security"                   },
    { 0x5E,     "EtherNet/IP Security"           },
    { 0x5F,     "Certificate Management"         },
+   { 0x60,     "Authority"                      },
+   { 0x61,     "Password Authenticator"         },
+   { 0x62,     "Certificate Authenticator"      },
    { 0x67,     "PCCC Class"                     },
    { 0xF0,     "ControlNet"                     },
    { 0xF1,     "ControlNet Keeper"              },
@@ -2896,6 +2894,10 @@ const value_string cip_class_names_vals[] = {
    { 0x10B,    "IO-Link Service Parameter"      },
    { 0x10C,    "IO-Link Master PHY"             },
    { 0x10D,    "IO-Link Device PHY"             },
+   { 0x10E,    "Pilot Light Supervisor"         },
+   { 0x10F,    "Select Line Link"               },
+   { 0x110,    "In-Cabinet Actual Topology"     },
+   { 0x111,    "In-Cabinet Commissioning"       },
 
    { 0,        NULL                             }
 };
@@ -3521,8 +3523,9 @@ static int dissect_time_sync_sys_time_and_offset(packet_info *pinfo, proto_tree 
       return total_len;
    }
 
-   proto_tree_add_item( tree, hf_time_sync_sys_time_and_offset_time, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+   dissect_cip_utime(tree, tvb, offset, hf_time_sync_sys_time_and_offset_time);
    proto_tree_add_item( tree, hf_time_sync_sys_time_and_offset_offset, tvb, offset+8, 8, ENC_LITTLE_ENDIAN);
+
    return 16;
 }
 
@@ -3779,11 +3782,11 @@ static attribute_info_t cip_attribute_vals[] = {
     /* Time Sync Object (instance attributes) */
    {0x43, FALSE, 1, -1, "PTP Enable", cip_bool, &hf_time_sync_ptp_enable, NULL},
    {0x43, FALSE, 2, -1, "Is Synchronized", cip_bool, &hf_time_sync_is_synchronized, NULL},
-   {0x43, FALSE, 3, -1, "System Time (Microseconds)", cip_ulint, &hf_time_sync_sys_time_micro, NULL},
-   {0x43, FALSE, 4, -1, "System Time (Nanoseconds)", cip_ulint, &hf_time_sync_sys_time_nano, NULL},
-   {0x43, FALSE, 5, -1, "Offset from Master", cip_lint, &hf_time_sync_offset_from_master, NULL},
+   {0x43, FALSE, 3, -1, "System Time (Microseconds)", cip_utime, &hf_time_sync_sys_time_micro, NULL},
+   {0x43, FALSE, 4, -1, "System Time (Nanoseconds)", cip_stime, &hf_time_sync_sys_time_nano, NULL},
+   {0x43, FALSE, 5, -1, "Offset from Master", cip_ntime, &hf_time_sync_offset_from_master, NULL},
    {0x43, FALSE, 6, -1, "Max Offset from Master", cip_ulint, &hf_time_sync_max_offset_from_master, NULL},
-   {0x43, FALSE, 7, -1, "Mean Path Delay To Master", cip_lint, &hf_time_sync_mean_path_delay_to_master, NULL},
+   {0x43, FALSE, 7, -1, "Mean Path Delay To Master", cip_ntime, &hf_time_sync_mean_path_delay_to_master, NULL},
    {0x43, FALSE, 8, -1, "Grand Master Clock Info", cip_dissector_func, NULL, dissect_time_sync_grandmaster_clock},
    {0x43, FALSE, 9, -1, "Parent Clock Info", cip_dissector_func, NULL, dissect_time_sync_parent_clock},
    {0x43, FALSE, 10, -1, "Local Clock Info", cip_dissector_func, NULL, dissect_time_sync_local_clock},
@@ -3806,8 +3809,6 @@ static attribute_info_t cip_attribute_vals[] = {
    {0x43, FALSE, 27, -1, "Steps Removed", cip_uint, &hf_time_sync_steps_removed, NULL},
    {0x43, FALSE, 28, -1, "System Time and Offset", cip_dissector_func, NULL, dissect_time_sync_sys_time_and_offset},
 
-    /* CIP Security Object (instance attributes) */
-   {0x5D, FALSE, 1, 0, "State", cip_usint, &hf_cip_security_state, NULL},
 
    /* Connection Configuration Object (class attributes) */
    /* Data sizes are different than common class attributes for some items. */
@@ -4288,7 +4289,7 @@ static int dissect_segment_symbolic(tvbuff_t *tvb, proto_tree *path_seg_tree,
    if (symbol_size != 0)
    {
       gchar *symbol_name;
-      symbol_name = tvb_format_text(tvb, offset + 1, symbol_size);
+      symbol_name = tvb_format_text(wmem_packet_scope(), tvb, offset + 1, symbol_size);
 
       proto_item_append_text(path_seg_item, " (Symbolic Segment)");
 
@@ -4505,7 +4506,7 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, gboolean generate,
          proto_item* it = proto_tree_add_uint(path_seg_item, hf_cip_link_address_size, tvb, 0, 0, opt_link_size);
          proto_item_set_generated(it);
          /* Add extended link address */
-         it = proto_tree_add_string(path_seg_item, hf_cip_link_address_string, tvb, 0, 0, tvb_format_text(tvb, offset + offset_link_address, opt_link_size));
+         it = proto_tree_add_string(path_seg_item, hf_cip_link_address_string, tvb, 0, 0, tvb_format_text(wmem_packet_scope(), tvb, offset + offset_link_address, opt_link_size));
          proto_item_set_generated(it);
       }
       else
@@ -4514,7 +4515,7 @@ static int dissect_segment_port(tvbuff_t* tvb, int offset, gboolean generate,
          proto_tree_add_item(path_seg_item, hf_cip_link_address_string, tvb, offset + offset_link_address, opt_link_size, ENC_ASCII | ENC_NA);
       }
 
-      proto_item_append_text(epath_item, ", Address: %s", tvb_format_text(tvb, offset + offset_link_address, opt_link_size));
+      proto_item_append_text(epath_item, ", Address: %s", tvb_format_text(wmem_packet_scope(), tvb, offset + offset_link_address, opt_link_size));
 
       /* Pad byte */
       if (opt_link_size % 2)
@@ -4763,7 +4764,7 @@ static int dissect_segment_ansi_extended_symbol(packet_info* pinfo, tvbuff_t* tv
    /* Segment data  */
    if (seg_size != 0)
    {
-      gchar* symbol_name = tvb_format_text(tvb, offset + 2, seg_size);
+      gchar* symbol_name = tvb_format_text(pinfo->pool, tvb, offset + 2, seg_size);
 
       if (generate)
       {
@@ -5383,6 +5384,32 @@ void dissect_cip_date_and_time(proto_tree *tree, tvbuff_t *tvb, int offset, int 
    proto_tree_add_time(tree, hf_datetime, tvb, offset, 6, &computed_time);
 }
 
+// CIP Type - STIME (nanoseconds)
+static int dissect_cip_stime(proto_tree* tree, tvbuff_t* tvb, int offset, int hf_datetime)
+{
+   nstime_t ts_nstime = { 0 };
+   guint64 timestamp = tvb_get_letoh64(tvb, offset);
+   ts_nstime.secs = timestamp / 1000000000;
+   ts_nstime.nsecs = timestamp % 1000000000;
+
+   proto_tree_add_time(tree, hf_datetime, tvb, offset, 8, &ts_nstime);
+
+   return 8;
+}
+
+// CIP Type - UTIME (microseconds)
+int dissect_cip_utime(proto_tree* tree, tvbuff_t* tvb, int offset, int hf_datetime)
+{
+   nstime_t ts_nstime = { 0 };
+   guint64 timestamp = tvb_get_letoh64(tvb, offset);
+   ts_nstime.secs = timestamp / 1000000;
+   ts_nstime.nsecs = timestamp % 1000000;
+
+   proto_tree_add_time(tree, hf_datetime, tvb, offset, 8, &ts_nstime);
+
+   return 8;
+}
+
 int dissect_cip_string_type(packet_info *pinfo, proto_tree *tree, proto_item *item,
     tvbuff_t *tvb, int offset, int hf_type, int string_type)
 {
@@ -5520,6 +5547,7 @@ int dissect_cip_attribute(packet_info *pinfo, proto_tree *tree, proto_item *item
    case cip_lword:
    case cip_lreal:
    case cip_ltime:
+   case cip_ntime:
       proto_tree_add_item(tree, *(attr->phf), tvb, offset, 8, ENC_LITTLE_ENDIAN);
       consumed = 8;
       break;
@@ -5540,6 +5568,12 @@ int dissect_cip_attribute(packet_info *pinfo, proto_tree *tree, proto_item *item
    case cip_date_and_time:
       dissect_cip_date_and_time(tree, tvb, offset, *(attr->phf));
       consumed = 6;
+      break;
+   case cip_stime:
+      consumed = dissect_cip_stime(tree, tvb, offset, *(attr->phf));
+      break;
+   case cip_utime:
+      consumed = dissect_cip_utime(tree, tvb, offset, *(attr->phf));
       break;
    case cip_date:
       temp_data = tvb_get_letohs( tvb, offset);
@@ -6227,8 +6261,8 @@ dissect_cip_find_next_object_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
    for (i = 0; i < num_instances; i++)
    {
-      proto_tree_add_item(tree, hf_cip_find_next_object_instance_item, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-      offset += 2;
+      proto_tree_add_item(tree, hf_cip_find_next_object_instance_item, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+      offset += 1;
 
       if ((tvb_reported_length_remaining(tvb, offset) < 2) && (i < num_instances-1))
       {
@@ -6436,6 +6470,12 @@ dissect_cip_cm_fwd_open_req(cip_req_info_t *preq_info, proto_tree *cmd_tree, tvb
    proto_tree_add_item_ret_uint( cmd_tree, hf_cip_cm_ot_connid, tvb, offset+2, 4, ENC_LITTLE_ENDIAN, &O2T_info.connID);
    proto_tree_add_item_ret_uint( cmd_tree, hf_cip_cm_to_connid, tvb, offset+6, 4, ENC_LITTLE_ENDIAN, &T2O_info.connID);
 
+   // Add Connection IDs as hidden items so that it's easy to find all Connection IDs in different fields.
+   pi = proto_tree_add_item(cmd_tree, hf_cip_connid, tvb, offset + 2, 4, ENC_LITTLE_ENDIAN);
+   proto_item_set_hidden(pi);
+   pi = proto_tree_add_item(cmd_tree, hf_cip_connid, tvb, offset + 6, 4, ENC_LITTLE_ENDIAN);
+   proto_item_set_hidden(pi);
+
    cip_connection_triad_t conn_triad;
    dissect_connection_triad(tvb, offset + 10, cmd_tree,
       hf_cip_cm_conn_serial_num, hf_cip_cm_vendor, hf_cip_cm_orig_serial_num,
@@ -6564,6 +6604,12 @@ dissect_cip_cm_fwd_open_rsp_success(cip_req_info_t *preq_info, proto_tree *tree,
    /* Display target to originator connection ID */
    T2OConnID = tvb_get_letohl( tvb, offset+4 );
    proto_tree_add_item( tree, hf_cip_cm_to_connid, tvb, offset+4, 4, ENC_LITTLE_ENDIAN);
+
+   // Add Connection IDs as hidden items so that it's easy to find all Connection IDs in different fields.
+   proto_item* pi = proto_tree_add_item(tree, hf_cip_connid, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+   proto_item_set_hidden(pi);
+   pi = proto_tree_add_item(tree, hf_cip_connid, tvb, offset + 4, 4, ENC_LITTLE_ENDIAN);
+   proto_item_set_hidden(pi);
 
    cip_connection_triad_t conn_triad;
    dissect_connection_triad(tvb, offset + 8, tree,
@@ -8333,7 +8379,7 @@ proto_register_cip(void)
       { &hf_cip_seg_safety_configuration_time, { "Configuration (Manual) Time", "cip.safety_segment.configuration_time", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_time_correction_epi, { "Time Correction EPI", "cip.safety_segment.time_correction_eri", FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_time_correction_net_params, { "Time Correction Network Connection Parameters", "cip.safety_segment.time_correction.net_params", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
-      { &hf_cip_seg_safety_time_correction_own, { "Owner", "cip.safety_segment.time_correction.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, "Time Correction: Redundant owner bit", HFILL }},
+      { &hf_cip_seg_safety_time_correction_own, { "Redundant Owner", "cip.safety_segment.time_correction.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, "Time Correction: Redundant owner bit", HFILL }},
       { &hf_cip_seg_safety_time_correction_typ, { "Connection Type", "cip.safety_segment.time_correction.type", FT_UINT16, BASE_DEC, VALS(cip_con_type_vals), 0x6000, "Time Correction: Connection type", HFILL }},
       { &hf_cip_seg_safety_time_correction_prio, { "Priority", "cip.safety_segment.time_correction.prio", FT_UINT16, BASE_DEC, VALS(cip_con_prio_vals), 0x0C00, "Time Correction: Connection priority", HFILL }},
       { &hf_cip_seg_safety_time_correction_fixed_var, { "Connection Size Type", "cip.safety_segment.time_correction.f_v", FT_UINT16, BASE_DEC, VALS(cip_con_fw_vals), 0x0200, "Time Correction: Fixed or variable connection size", HFILL }},
@@ -8350,7 +8396,7 @@ proto_register_cip(void)
       { &hf_cip_seg_safety_ounid_nodeid, { "Node ID", "cip.safety_segment.ounid.nodeid", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_ping_eri_multiplier, { "Ping Interval EPI Multiplier", "cip.safety_segment.ping_eri_multiplier", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_time_coord_msg_min_multiplier, { "Time Coord Msg Min Multiplier", "cip.safety_segment.time_coord_msg_min_multiplier", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_cip_seg_safety_network_time_expected_multiplier, { "Network Time Expectation Multiplier", "cip.safety_segment.network_time_expected_multiplier", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_cip_seg_safety_network_time_expected_multiplier, { "Network Time Expectation Multiplier", "cip.safety_segment.network_time_expected_multiplier", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_safety_128us, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_timeout_multiplier, { "Timeout Multiplier", "cip.safety_segment.timeout_multiplier", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_max_consumer_number, { "Max Consumer Number", "cip.safety_segment.max_consumer_number", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_seg_safety_conn_param_crc, { "Connection Param CRC (CPCRC)", "cip.safety_segment.conn_param_crc", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
@@ -8374,7 +8420,7 @@ proto_register_cip(void)
       { &hf_cip_sc_mult_serv_pack_num_services, { "Number of Services", "cip.msp.num_services", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_sc_mult_serv_pack_offset, { "Offset", "cip.msp.offset", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_find_next_object_max_instance, { "Maximum ID", "cip.find_next_object.max_instance", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_cip_find_next_object_num_instances, { "Number of Instances:", "cip.find_next_object.num_instances", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_cip_find_next_object_num_instances, { "Number of Instances", "cip.find_next_object.num_instances", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_find_next_object_instance_item, { "Instance", "cip.find_next_object.instance", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_sc_group_sync_is_sync, { "IsSynchronized", "cip.group_sync.is_sync", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_data, { "Data", "cip.data", FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
@@ -8430,8 +8476,8 @@ proto_register_cip(void)
 
       { &hf_time_sync_ptp_enable, { "PTP Enable", "cip.time_sync.ptp_enable", FT_BOOLEAN, 8, TFS(&tfs_enabled_disabled), 0, NULL, HFILL }},
       { &hf_time_sync_is_synchronized, { "Is Synchronized", "cip.time_sync.is_synchronized", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0, NULL, HFILL }},
-      { &hf_time_sync_sys_time_micro, { "System Time (Microseconds)", "cip.time_sync.sys_time_micro", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_time_sync_sys_time_nano, { "System Time (Nanoseconds)", "cip.time_sync.sys_time_nano", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_time_sync_sys_time_micro, { "System Time (Microseconds)", "cip.time_sync.sys_time_micro", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
+      { &hf_time_sync_sys_time_nano, { "System Time (Nanoseconds)", "cip.time_sync.sys_time_nano", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_offset_from_master, { "Offset from Master", "cip.time_sync.offset_from_master", FT_INT64, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_max_offset_from_master, { "Max Offset from Master", "cip.time_sync.max_offset_from_master", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_mean_path_delay_to_master, { "Mean Path Delay To Master", "cip.time_sync.mean_path_delay_to_master", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
@@ -8511,9 +8557,8 @@ proto_register_cip(void)
       { &hf_time_sync_port_proto_addr_info_addr_size, { "Size of Address", "cip.time_sync.port_proto_addr_info.addr_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_port_proto_addr_info_port_proto_addr, { "Port Protocol Address", "cip.time_sync.port_profile_id_info.port_proto_addr", FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_steps_removed, { "Steps Removed", "cip.time_sync.steps_removed", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_time_sync_sys_time_and_offset_time, { "System Time (Microseconds)", "cip.time_sync.sys_time_and_offset.time", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_time_sync_sys_time_and_offset_time, { "System Time (Microseconds)", "cip.time_sync.sys_time_and_offset.time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_sys_time_and_offset_offset, { "System Offset (Microseconds)", "cip.time_sync.sys_time_and_offset.offset", FT_UINT64, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_cip_security_state, { "State", "cip.security.state", FT_UINT8, BASE_DEC, VALS(cip_security_state_vals), 0, NULL, HFILL }},
       { &hf_port_entry_port, { "Entry Port", "cip.port.entry_port", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL } },
       { &hf_port_type, { "Port Type", "cip.port.type", FT_UINT16, BASE_DEC | BASE_RANGE_STRING, RVALS(cip_port_type_vals), 0, NULL, HFILL } },
       { &hf_port_number, { "Port Number", "cip.port.number", FT_UINT16, BASE_DEC, VALS(cip_port_number_vals), 0, NULL, HFILL } },
@@ -8544,6 +8589,7 @@ proto_register_cip(void)
       { &hf_cip_cm_timeout, { "Actual Time Out", "cip.cm.timeout", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_milliseconds, 0, NULL, HFILL }},
       { &hf_cip_cm_ot_connid, { "O->T Network Connection ID", "cip.cm.ot_connid", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_to_connid, { "T->O Network Connection ID", "cip.cm.to_connid", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
+      { &hf_cip_connid, { "Connection ID", "cip.connid", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_conn_serial_num, { "Connection Serial Number", "cip.cm.conn_serial_num", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_vendor, { "Originator Vendor ID", "cip.cm.vendor", FT_UINT16, BASE_HEX|BASE_EXT_STRING, &cip_vendor_vals_ext, 0, NULL, HFILL }},
       { &hf_cip_cm_timeout_multiplier, { "Connection Timeout Multiplier", "cip.cm.timeout_multiplier", FT_UINT8, BASE_DEC, VALS(cip_con_time_mult_vals), 0, NULL, HFILL }},
@@ -8577,8 +8623,8 @@ proto_register_cip(void)
       { &hf_cip_cm_lfwo_prio, { "Priority", "cip.cm.fwo.prio", FT_UINT32, BASE_DEC, VALS(cip_con_prio_vals), 0x0C000000, "Large Fwd Open: Connection priority", HFILL }},
       { &hf_cip_cm_fwo_typ, { "Connection Type", "cip.cm.fwo.type", FT_UINT16, BASE_DEC, VALS(cip_con_type_vals), 0x6000, "Fwd Open: Connection type", HFILL }},
       { &hf_cip_cm_lfwo_typ, { "Connection Type", "cip.cm.fwo.type", FT_UINT32, BASE_DEC, VALS(cip_con_type_vals), 0x60000000, "Large Fwd Open: Connection type", HFILL }},
-      { &hf_cip_cm_fwo_own, { "Owner", "cip.cm.fwo.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, "Fwd Open: Redundant owner bit", HFILL }},
-      { &hf_cip_cm_lfwo_own, { "Owner", "cip.cm.fwo.owner", FT_UINT32, BASE_DEC, VALS(cip_con_owner_vals), 0x80000000, "Large Fwd Open: Redundant owner bit", HFILL }},
+      { &hf_cip_cm_fwo_own, { "Redundant Owner", "cip.cm.fwo.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, "Fwd Open: Redundant owner bit", HFILL }},
+      { &hf_cip_cm_lfwo_own, { "Redundant Owner", "cip.cm.fwo.owner", FT_UINT32, BASE_DEC, VALS(cip_con_owner_vals), 0x80000000, "Large Fwd Open: Redundant owner bit", HFILL }},
       { &hf_cip_cm_fwo_dir, { "Direction", "cip.cm.fwo.dir", FT_UINT8, BASE_DEC, VALS(cip_con_dir_vals), CI_PRODUCTION_DIR_MASK, "Fwd Open: Direction", HFILL }},
       { &hf_cip_cm_fwo_trigg, { "Trigger", "cip.cm.fwo.trigger", FT_UINT8, BASE_DEC, VALS(cip_con_trigg_vals), CI_PRODUCTION_TRIGGER_MASK, "Fwd Open: Production trigger", HFILL }},
       { &hf_cip_cm_fwo_class, { "Class", "cip.cm.fwo.transport", FT_UINT8, BASE_DEC, VALS(cip_con_class_vals), CI_TRANSPORT_CLASS_MASK, "Fwd Open: Transport Class", HFILL }},
@@ -8618,7 +8664,7 @@ proto_register_cip(void)
       { &hf_cip_pccc_cpu_mode_80, { "CPU Mode", "cip.pccc.cpu.mode_80", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &cip_pccc_cpu_mode_80_vals_ext, 0, NULL, HFILL }},
       { &hf_cip_pccc_resp_code, { "Response Code", "cip.pccc.resp.code", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_pccc_execute_multi_count, { "Execute Multiple Command - Number of Commands", "cip.pccc.execute.multi.count", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
-      { &hf_cip_pccc_execute_multi_len, { "Execute Multiple Command - Command Length", "cip.pccc.execute.multi.count", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
+      { &hf_cip_pccc_execute_multi_len, { "Execute Multiple Command - Command Length", "cip.pccc.execute.multi.len", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_pccc_execute_multi_fnc, { "Execute Multiple Command - Function Code", "cip.pccc.execute.multi.code", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
 
       { &hf_cip_pccc_data, { "Data", "cip.pccc.data", FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }}
@@ -8654,7 +8700,7 @@ proto_register_cip(void)
       { &hf_cip_cco_format_number, { "Format Number", "cip.cco.format_number", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_edit_signature, { "Edit Signature", "cip.cco.edit_signature", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_con_flags, { "Connection Flags", "cip.cco.connflags", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
-      { &hf_cip_cco_con_type, { "Connection O_T", "cip.cco.con", FT_UINT16, BASE_DEC, VALS(cip_con_vals), 0x001, NULL, HFILL }},
+      { &hf_cip_cco_con_type, { "Connection O_T", "cip.cco.con", FT_UINT16, BASE_DEC, VALS(cip_con_vals), 0x0001, NULL, HFILL }},
       { &hf_cip_cco_ot_rtf, { "O->T real time transfer format", "cip.cco.otrtf", FT_UINT16, BASE_DEC, VALS(cip_con_rtf_vals), 0x000E, NULL, HFILL }},
       { &hf_cip_cco_to_rtf, { "T->O real time transfer format", "cip.cco.tortf", FT_UINT16, BASE_DEC, VALS(cip_con_rtf_vals), 0x0070, NULL, HFILL }},
       { &hf_cip_cco_tdi_vendor, { "Vendor ID", "cip.cco.tdi.vendor", FT_UINT16, BASE_HEX|BASE_EXT_STRING, &cip_vendor_vals_ext, 0, NULL, HFILL }},
@@ -8688,14 +8734,14 @@ proto_register_cip(void)
       { &hf_cip_cco_lfwo_prio, { "Priority", "cip.cco.prio", FT_UINT32, BASE_DEC, VALS(cip_con_prio_vals), 0x0C000000, NULL, HFILL }},
       { &hf_cip_cco_fwo_typ, { "Connection Type", "cip.cco.type", FT_UINT16, BASE_DEC, VALS(cip_con_type_vals), 0x6000, NULL, HFILL }},
       { &hf_cip_cco_lfwo_typ, { "Connection Type", "cip.cco.type", FT_UINT32, BASE_DEC, VALS(cip_con_type_vals), 0x60000000, NULL, HFILL }},
-      { &hf_cip_cco_fwo_own, { "Owner", "cip.cco.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, NULL, HFILL }},
-      { &hf_cip_cco_lfwo_own, { "Owner", "cip.cco.owner", FT_UINT32, BASE_DEC, VALS(cip_con_owner_vals), 0x80000000, NULL, HFILL }},
+      { &hf_cip_cco_fwo_own, { "Redundant Owner", "cip.cco.owner", FT_UINT16, BASE_DEC, VALS(cip_con_owner_vals), 0x8000, NULL, HFILL }},
+      { &hf_cip_cco_lfwo_own, { "Redundant Owner", "cip.cco.owner", FT_UINT32, BASE_DEC, VALS(cip_con_owner_vals), 0x80000000, NULL, HFILL }},
       { &hf_cip_cco_fwo_dir, { "Direction", "cip.cco.dir", FT_UINT8, BASE_DEC, VALS(cip_con_dir_vals), CI_PRODUCTION_DIR_MASK, NULL, HFILL }},
       { &hf_cip_cco_fwo_trigger, { "Trigger", "cip.cco.trigger", FT_UINT8, BASE_DEC, VALS(cip_con_trigg_vals), CI_PRODUCTION_TRIGGER_MASK, NULL, HFILL }},
       { &hf_cip_cco_fwo_class, { "Class", "cip.cco.transport", FT_UINT8, BASE_DEC, VALS(cip_con_class_vals), CI_TRANSPORT_CLASS_MASK, NULL, HFILL }},
       { &hf_cip_cco_conn_path_size, { "Connection Path Size", "cip.cco.connpath_size", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_word_words, 0, NULL, HFILL }},
       { &hf_cip_cco_proxy_config_size, { "Proxy Config Data Size", "cip.cco.proxy_config_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
-      { &hf_cip_cco_target_config_size, { "Target Config Data Size", "cip.cco.proxy_config_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
+      { &hf_cip_cco_target_config_size, { "Target Config Data Size", "cip.cco.target_config_size", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_iomap_format_number, { "Format number", "cip.cco.iomap_format_number", FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }},
       { &hf_cip_cco_iomap_size, { "Mapping data size", "cip.cco.iomap_size", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0, NULL, HFILL }},
       { &hf_cip_cco_connection_disable, { "Connection Disable", "cip.cco.connection_disable", FT_UINT8, BASE_DEC, NULL, 0x01, NULL, HFILL }},

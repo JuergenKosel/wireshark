@@ -590,12 +590,12 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
                 iap_conv->pattr_dissector = NULL;
             }
 
-            char   *class_name = (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1 + 1, clen, ENC_ASCII|ENC_NA);
-            char   *attr_name = (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1 + 1 + clen + 1, alen, ENC_ASCII|ENC_NA);
+            char   *class_name = (char *) tvb_get_string_enc(pinfo->pool, tvb, offset + 1 + 1, clen, ENC_ASCII|ENC_NA);
+            char   *attr_name = (char *) tvb_get_string_enc(pinfo->pool, tvb, offset + 1 + 1 + clen + 1, alen, ENC_ASCII|ENC_NA);
 
             col_add_fstr(pinfo->cinfo, COL_INFO, "GetValueByClass: \"%s\" \"%s\"",
-                format_text(wmem_packet_scope(), (guchar *) class_name, strlen(class_name)),
-                format_text(wmem_packet_scope(), (guchar *) attr_name, strlen(attr_name)));
+                format_text(pinfo->pool, (guchar *) class_name, strlen(class_name)),
+                format_text(pinfo->pool, (guchar *) attr_name, strlen(attr_name)));
 
             /* Dissect IAP query if it is new */
             if (iap_conv)
@@ -748,7 +748,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
 
                     case IAS_STRING:
                         n = tvb_get_guint8(tvb, offset + 8);
-                        col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 9, n, ENC_ASCII));
+                        col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", tvb_get_string_enc(pinfo->pool, tvb, offset + 9, n, ENC_ASCII));
                         break;
                     default:
                         break;
@@ -1007,8 +1007,8 @@ static void dissect_appl_proto(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
 
     if (lmp_conv)
     {
-/*g_message("%x:%d->%x:%d = %p\n", src, pinfo->srcport, circuit_id, pinfo->destport, lmp_conv); */
-/*g_message("->%d: %d %d %p\n", pinfo->num, lmp_conv->iap_result_frame, lmp_conv->ttp, lmp_conv->proto_dissector); */
+/*ws_message("%x:%d->%x:%d = %p\n", src, pinfo->srcport, circuit_id, pinfo->destport, lmp_conv); */
+/*ws_message("->%d: %d %d %p\n", pinfo->num, lmp_conv->iap_result_frame, lmp_conv->ttp, lmp_conv->proto_dissector); */
         if ((lmp_conv->ttp) && (pdu_type != DISCONNECT_PDU))
         {
             offset += dissect_ttp(tvb, pinfo, root, (pdu_type == DATA_PDU));
@@ -1203,7 +1203,7 @@ void add_lmp_conversation(packet_info* pinfo, guint8 dlsap, gboolean ttp, dissec
     lmp_conversation_t* lmp_conv = NULL;
 
 
-/*g_message("%d: add_lmp_conversation(%p, %d, %d, %p) = ", pinfo->num, pinfo, dlsap, ttp, proto_dissector); */
+/*ws_message("%d: add_lmp_conversation(%p, %d, %d, %p) = ", pinfo->num, pinfo, dlsap, ttp, proto_dissector); */
     set_address(&srcaddr, irda_address_type, 1, &circuit_id);
     dest = circuit_id ^ CMD_FRAME;
     set_address(&destaddr, irda_address_type, 1, &dest);
@@ -1239,7 +1239,7 @@ void add_lmp_conversation(packet_info* pinfo, guint8 dlsap, gboolean ttp, dissec
     lmp_conv->ttp              = ttp;
     lmp_conv->dissector        = dissector;
 
-/*g_message("%p\n", lmp_conv); */
+/*ws_message("%p\n", lmp_conv); */
 }
 
 
@@ -1668,8 +1668,8 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
                 if (have_encoding)
                 {
-                    name = (gchar *) tvb_get_string_enc(wmem_packet_scope(), tvb, offset, name_len, encoding);
-                    col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", format_text(wmem_packet_scope(), (guchar *) name, strlen(name)));
+                    name = (gchar *) tvb_get_string_enc(pinfo->pool, tvb, offset, name_len, encoding);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", format_text(pinfo->pool, (guchar *) name, strlen(name)));
                     if (root)
                         proto_tree_add_item(lmp_tree, hf_lmp_xid_name, tvb, offset,
                                             -1, encoding);
@@ -1705,13 +1705,13 @@ static void dissect_log(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
         char   *buf;
 
         length = tvb_captured_length(tvb);
-        buf = (char *) tvb_get_string_enc(wmem_packet_scope(), tvb, 0, length, ENC_ASCII|ENC_NA);
+        buf = (char *) tvb_get_string_enc(pinfo->pool, tvb, 0, length, ENC_ASCII|ENC_NA);
         if (length > 0 && buf[length-1] == '\n')
             buf[length-1] = 0;
         else if (length > 1 && buf[length-2] == '\n')
             buf[length-2] = 0;
 
-        col_add_str(pinfo->cinfo, COL_INFO, format_text(wmem_packet_scope(), (guchar *) buf, strlen(buf)));
+        col_add_str(pinfo->cinfo, COL_INFO, format_text(pinfo->pool, (guchar *) buf, strlen(buf)));
     }
 
     if (root)
