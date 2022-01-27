@@ -14,6 +14,7 @@
 #include <epan/exceptions.h>
 #include <epan/prefs.h>
 #include <epan/etypes.h>
+#include <epan/ipproto.h>
 #include <epan/addr_resolv.h>
 #include <epan/expert.h>
 #include <epan/conversation_table.h>
@@ -196,7 +197,7 @@ eth_filter_valid(packet_info *pinfo)
 static gchar*
 eth_build_filter(packet_info *pinfo)
 {
-    return g_strdup_printf("eth.addr eq %s and eth.addr eq %s",
+    return ws_strdup_printf("eth.addr eq %s and eth.addr eq %s",
                 address_to_str(pinfo->pool, &pinfo->dl_src),
                 address_to_str(pinfo->pool, &pinfo->dl_dst));
 }
@@ -1161,6 +1162,7 @@ proto_reg_handoff_eth(void)
   dissector_add_uint("erf.types.type", ERF_TYPE_COLOR_ETH, eth_maybefcs_handle);
   dissector_add_uint("erf.types.type", ERF_TYPE_DSM_COLOR_ETH, eth_maybefcs_handle);
   dissector_add_uint("erf.types.type", ERF_TYPE_COLOR_HASH_ETH, eth_maybefcs_handle);
+  dissector_add_uint("ip.proto", IP_PROTO_ETHERNET, eth_maybefcs_handle);
 
   dissector_add_uint("chdlc.protocol", ETHERTYPE_ETHBRIDGE, eth_withoutfcs_handle);
   dissector_add_uint("gre.proto", ETHERTYPE_ETHBRIDGE, eth_withoutfcs_handle);

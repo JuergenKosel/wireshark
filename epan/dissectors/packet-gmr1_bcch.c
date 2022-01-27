@@ -649,14 +649,14 @@ Seg3A_LAI_Dissector(proto_tree *tree, csnStream_t* ar, tvbuff_t *tvb, void* data
 	LAI->MSC_ID = (LAI->LAC >> 10) & 0x3f;
 	LAI->Spot_Beam_ID = LAI->LAC & 0x03ff;
 
-	proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_mcc, tvb, ar->bit_offset, 16, (guint32)LAI->MCC, "%d", LAI->MCC);
-	proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_mnc, tvb, ar->bit_offset+16, 8, (guint32)LAI->MNC, "%d", LAI->MNC);
+	proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_mcc, tvb, ar->bit_offset, 16, (guint32)LAI->MCC, ENC_BIG_ENDIAN, "%d", LAI->MCC);
+	proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_mnc, tvb, ar->bit_offset+16, 8, (guint32)LAI->MNC, ENC_BIG_ENDIAN, "%d", LAI->MNC);
 
-	lac_item = proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_lac, tvb, ar->bit_offset+24, 16, (guint32)LAI->LAC, "0x%04x", LAI->LAC);
+	lac_item = proto_tree_add_uint_bits_format_value(tree, hf_seg3a_lai_lac, tvb, ar->bit_offset+24, 16, (guint32)LAI->LAC, ENC_BIG_ENDIAN, "0x%04x", LAI->LAC);
 	lac_tree = proto_item_add_subtree(lac_item, ett_csn1);
 
-	proto_tree_add_uint_bits_format_value(lac_tree, hf_seg3a_lai_msc_id, tvb, ar->bit_offset+24, 6, (guint32)LAI->MSC_ID, "%d", LAI->MSC_ID);
-	proto_tree_add_uint_bits_format_value(lac_tree, hf_seg3a_lai_spot_beam_id, tvb, ar->bit_offset+30, 10, (guint32)LAI->Spot_Beam_ID, "%d", LAI->Spot_Beam_ID);
+	proto_tree_add_uint_bits_format_value(lac_tree, hf_seg3a_lai_msc_id, tvb, ar->bit_offset+24, 6, (guint32)LAI->MSC_ID, ENC_BIG_ENDIAN, "%d", LAI->MSC_ID);
+	proto_tree_add_uint_bits_format_value(lac_tree, hf_seg3a_lai_spot_beam_id, tvb, ar->bit_offset+30, 10, (guint32)LAI->Spot_Beam_ID, ENC_BIG_ENDIAN, "%d", LAI->Spot_Beam_ID);
 
 	ar->remaining_bits_len -= 5*8;
 	ar->bit_offset += 5*8;
@@ -951,7 +951,7 @@ CSN_DESCR_END  (SystemInformation2_t)
 static void
 segx_half_db_value_fmt(gchar *s, guint32 v)
 {
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%2.1f dB (%u)", v * 0.5f, v);
+	snprintf(s, ITEM_LABEL_LENGTH, "%2.1f dB (%u)", v * 0.5f, v);
 }
 
 /* Segment 1A - [3] 11.5.2.66 */
@@ -959,7 +959,7 @@ static void
 seg1a_syncinfo_sa_freq_offset_fmt(gchar *s, guint32 v)
 {
 	gint32 sv = (gint32)v;
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%d Hz (%d)", sv * 5, sv);
+	snprintf(s, ITEM_LABEL_LENGTH, "%d Hz (%d)", sv * 5, sv);
 }
 
 static const value_string seg1a_rachctrl_acc_vals[] = {
@@ -1000,7 +1000,7 @@ seg3a_latitude_fmt(gchar *s, guint32 v)
 	} else
 		c = 'N';
 
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%.1f %c (%d)", sv / 10.0f, c, sv);
+	snprintf(s, ITEM_LABEL_LENGTH, "%.1f %c (%d)", sv / 10.0f, c, sv);
 }
 
 static void
@@ -1017,7 +1017,7 @@ seg3a_longitude_fmt(gchar *s, guint32 v)
 		sv = 3600 - v;
 	}
 
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%.1f %c (%u)", sv / 10.0f, c, v);
+	snprintf(s, ITEM_LABEL_LENGTH, "%.1f %c (%u)", sv / 10.0f, c, v);
 }
 
 static void
@@ -1025,13 +1025,13 @@ seg3a_satpos_radius_fmt(gchar *s, guint32 v)
 {
 	gint32 sv = (gint32)v;
 	gint32 a = (42162 * 1000) + (sv * 5);
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%.3lf km (%u)", a / 1000.0, sv);
+	snprintf(s, ITEM_LABEL_LENGTH, "%.3lf km (%u)", a / 1000.0, sv);
 }
 
 static void
 seg3a_miscinfo_sb_reselection_timer_fmt(gchar *s, guint32 v)
 {
-	g_snprintf(s, ITEM_LABEL_LENGTH, "%d minutes (%u)", v*4, v);
+	snprintf(s, ITEM_LABEL_LENGTH, "%d minutes (%u)", v*4, v);
 }
 
 /* System Information 1 - [1] 10.3.31 */

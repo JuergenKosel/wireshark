@@ -1,4 +1,4 @@
-/* dissector_tables_model.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -63,8 +63,8 @@ private:
 class DissectorTablesProxyModel : public QSortFilterProxyModel
 {
     Q_OBJECT
-public:
 
+public:
     explicit DissectorTablesProxyModel(QObject * parent = Q_NULLPTR);
 
     virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const;

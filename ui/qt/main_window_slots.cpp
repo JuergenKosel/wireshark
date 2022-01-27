@@ -296,7 +296,6 @@ void MainWindow::filterPackets(QString new_filter, bool force)
     cf_status = cf_filter_packets(CaptureFile::globalCapFile(), new_filter.toUtf8().data(), force);
 
     if (cf_status == CF_OK) {
-        emit displayFilterSuccess(true);
         if (new_filter.length() > 0) {
             int index = df_combo_box_->findText(new_filter);
             if (index == -1) {
@@ -308,6 +307,9 @@ void MainWindow::filterPackets(QString new_filter, bool force)
         } else {
             df_combo_box_->lineEdit()->clear();
         }
+        // Only after the display filter has been updated,
+        // disable the arrow button
+        emit displayFilterSuccess(true);
     } else {
         emit displayFilterSuccess(false);
     }
@@ -832,10 +834,37 @@ void MainWindow::startCapture() {
 #ifdef HAVE_LIBPCAP
     interface_options *interface_opts;
     guint i;
+    interface_t *device;
+    gboolean can_start_capture = TRUE;
 
     /* did the user ever select a capture interface before? */
     if (global_capture_opts.num_selected == 0) {
         QString msg = QString(tr("No interface selected."));
+        wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
+        main_ui_->actionCaptureStart->setChecked(false);
+        return;
+    }
+
+    for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
+        device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
+        if (device->selected && (device->if_info.type == IF_EXTCAP)) {
+            /* device is EXTCAP and is selected. Check if all mandatory
+             * settings are set.
+             */
+            if (extcap_has_configuration(device->name, TRUE))
+            {
+                /* Request openning of extcap options dialog */
+                QString device_name(device->name);
+                emit showExtcapOptions(device_name, false);
+                /* Cancel start of capture */
+                can_start_capture = FALSE;
+            }
+        }
+    }
+
+    /* If some of extcap was not configured, do not start with the capture */
+    if (!can_start_capture) {
+        QString msg = QString(tr("Configure all extcaps before start of capture."));
         wsApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -1056,7 +1085,7 @@ void MainWindow::updateRecentCaptures() {
         recentMenu->insertAction(NULL, ra);
         action_cf_name = ra->data().toString();
         if (shortcut <= Qt::Key_9) {
-            ra->setShortcut(Qt::META | shortcut);
+            ra->setShortcut(Qt::META | (Qt::Key)shortcut);
             shortcut++;
         }
         ra->setText(action_cf_name);
@@ -1117,7 +1146,7 @@ void MainWindow::recentActionTriggered() {
 
 QString MainWindow::commentToMenuText(QString text, int max_len)
 {
-    text = text.trimmed().replace(QRegExp("(\\r?\\n|\\r\\n?)+"), " ");
+    text = text.trimmed().replace(QRegularExpression("(\\r?\\n|\\r\\n?)+"), " ");
     if (text.size() > 0) {
         if (text.size() > max_len) {
             text.truncate(max_len);
@@ -1133,7 +1162,7 @@ QString MainWindow::commentToMenuText(QString text, int max_len)
 void MainWindow::setEditCommentsMenu()
 {
     main_ui_->menuPacketComment->clear();
-    main_ui_->menuPacketComment->addAction(tr("Add New Comment…"), this, SLOT(actionAddPacketComment()), QKeySequence(Qt::CTRL + Qt::ALT + Qt::Key_C));
+    main_ui_->menuPacketComment->addAction(tr("Add New Comment…"), this, SLOT(actionAddPacketComment()), QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C));
     if (selectedRows().count() == 1) {
         const int thisRow = selectedRows().first();
         frame_data * current_frame = frameDataForRow(thisRow);
@@ -1297,7 +1326,7 @@ void MainWindow::setMenusForSelectedPacket()
     main_ui_->actionAnalyzeFollowTCPStream->setEnabled(is_tcp);
     main_ui_->actionAnalyzeFollowUDPStream->setEnabled(is_udp);
     main_ui_->actionAnalyzeFollowDCCPStream->setEnabled(is_dccp);
-    main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls);
+    main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls && !is_quic);
     main_ui_->actionAnalyzeFollowHTTPStream->setEnabled(is_http);
     main_ui_->actionAnalyzeFollowHTTP2Stream->setEnabled(is_http2);
     main_ui_->actionAnalyzeFollowQUICStream->setEnabled(is_quic);
@@ -1529,6 +1558,22 @@ void MainWindow::reloadLuaPlugins()
     if (wsApp->isReloadingLua())
         return;
 
+    gboolean uses_lua_filehandler = FALSE;
+
+    if (capture_file_.capFile()) {
+        // Check if the current capture file is opened with a Lua FileHandler
+        capture_file *cf = capture_file_.capFile();
+        uses_lua_filehandler = wtap_uses_lua_filehandler(cf->provider.wth);
+
+        if (uses_lua_filehandler && cf->unsaved_changes) {
+            // Prompt to save the file before reloading, in case the FileHandler has changed
+            QString before_what(tr(" before reloading Lua plugins"));
+            if (!testCaptureFileClose(before_what, Reload)) {
+                return;
+            }
+        }
+    }
+
     wsApp->setReloadingLua(true);
 
     wslua_reload_plugins(NULL, NULL);
@@ -1542,9 +1587,18 @@ void MainWindow::reloadLuaPlugins()
     wsApp->readConfigurationFiles(true);
     commandline_options_reapply();
 
-    prefs_apply_all();
     fieldsChanged();
-    redissectPackets();
+    prefs_apply_all();
+
+    if (uses_lua_filehandler) {
+        // Reload the file in case the FileHandler has changed
+        if (cf_reload(capture_file_.capFile()) != CF_OK) {
+            cf_close(capture_file_.capFile());
+        }
+        proto_free_deregistered_fields();
+    } else {
+        redissectPackets();
+    }
 
     wsApp->setReloadingLua(false);
     SimpleDialog::displayQueuedMessages();
@@ -3364,6 +3418,16 @@ void MainWindow::on_actionStatisticsHTTP2_triggered()
 
 }
 
+void MainWindow::on_actionStatisticsSOMEIPmessages_triggered()
+{
+    openStatisticsTreeDialog("someip_messages");
+}
+
+void MainWindow::on_actionStatisticsSOMEIPSDentries_triggered()
+{
+    openStatisticsTreeDialog("someipsd_entries");
+}
+
 // Telephony Menu
 
 RtpPlayerDialog *MainWindow::openTelephonyRtpPlayerDialog()
@@ -3523,7 +3587,7 @@ void MainWindow::on_actionTelephonyRtpStreamAnalysis_triggered()
     } else {
         err = findRtpStreams(&stream_ids, false);
     }
-    if (err != NULL) {
+    if (!err.isNull()) {
         QMessageBox::warning(this, tr("RTP packet search failed"),
                              err,
                              QMessageBox::Ok);
@@ -3545,12 +3609,14 @@ void MainWindow::on_actionTelephonyRtpPlayer_triggered()
     } else {
         err = findRtpStreams(&stream_ids, false);
     }
-    if (err != NULL) {
+    if (!err.isNull()) {
         QMessageBox::warning(this, tr("RTP packet search failed"),
                              err,
                              QMessageBox::Ok);
+#ifdef QT_MULTIMEDIA_LIB
     } else {
         openTelephonyRtpPlayerDialog()->addRtpStreams(stream_ids);
+#endif // QT_MULTIMEDIA_LIB
     }
     foreach(rtpstream_id_t *id, stream_ids) {
         rtpstream_id_free(id);
@@ -3575,6 +3641,11 @@ void MainWindow::on_actionTelephonyUCPMessages_triggered()
 void MainWindow::on_actionTelephonyF1APMessages_triggered()
 {
 	openStatisticsTreeDialog("f1ap");
+}
+
+void MainWindow::on_actionTelephonyNGAPMessages_triggered()
+{
+    openStatisticsTreeDialog("ngap");
 }
 
 void MainWindow::on_actionTelephonySipFlows_triggered()
@@ -3659,7 +3730,7 @@ void MainWindow::on_actionHelpMPMergecap_triggered() {
     wsApp->helpTopicAction(LOCALPAGE_MAN_MERGECAP);
 }
 
-void MainWindow::on_actionHelpMPRawShark_triggered() {
+void MainWindow::on_actionHelpMPRawshark_triggered() {
     wsApp->helpTopicAction(LOCALPAGE_MAN_RAWSHARK);
 }
 
@@ -3667,7 +3738,7 @@ void MainWindow::on_actionHelpMPReordercap_triggered() {
     wsApp->helpTopicAction(LOCALPAGE_MAN_REORDERCAP);
 }
 
-void MainWindow::on_actionHelpMPText2cap_triggered() {
+void MainWindow::on_actionHelpMPText2pcap_triggered() {
     wsApp->helpTopicAction(LOCALPAGE_MAN_TEXT2PCAP);
 }
 
@@ -3965,6 +4036,9 @@ void MainWindow::on_actionCaptureOptions_triggered()
 
         connect(capture_options_dialog_, SIGNAL(setFilterValid(bool, const QString)),
                 this, SLOT(startInterfaceCapture(bool, const QString)));
+
+        connect(capture_options_dialog_, SIGNAL(showExtcapOptions(QString&, bool)),
+                this, SLOT(showExtcapOptionsDialog(QString&, bool)));
     }
     capture_options_dialog_->setTab(0);
     capture_options_dialog_->updateInterfaces();
@@ -4029,15 +4103,24 @@ void MainWindow::extcap_options_finished(int result)
     this->welcome_page_->getInterfaceFrame()->interfaceListChanged();
 }
 
-void MainWindow::showExtcapOptionsDialog(QString &device_name)
+void MainWindow::showExtcapOptionsDialog(QString &device_name, bool startCaptureOnClose)
 {
-    ExtcapOptionsDialog * extcap_options_dialog = ExtcapOptionsDialog::createForDevice(device_name, this);
+    ExtcapOptionsDialog * extcap_options_dialog = ExtcapOptionsDialog::createForDevice(device_name, startCaptureOnClose, this);
     /* The dialog returns null, if the given device name is not a valid extcap device */
     if (extcap_options_dialog) {
         extcap_options_dialog->setModal(true);
         extcap_options_dialog->setAttribute(Qt::WA_DeleteOnClose);
-        connect(extcap_options_dialog, SIGNAL(finished(int)),
-                this, SLOT(extcap_options_finished(int)));
+        if (startCaptureOnClose) {
+            connect(extcap_options_dialog, SIGNAL(finished(int)),
+                        this, SLOT(extcap_options_finished(int)));
+        }
+#ifdef HAVE_LIBPCAP
+        if (capture_options_dialog_ && startCaptureOnClose) {
+            /* Allow capture options dialog to close */
+            connect(extcap_options_dialog, SIGNAL(accepted()),
+                    capture_options_dialog_, SLOT(accept()));
+        }
+#endif
         extcap_options_dialog->show();
     }
 }
@@ -4135,17 +4218,23 @@ void MainWindow::activatePluginIFToolbar(bool)
 
 void MainWindow::rtpPlayerDialogReplaceRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
+#ifdef QT_MULTIMEDIA_LIB
     openTelephonyRtpPlayerDialog()->replaceRtpStreams(stream_ids);
+#endif
 }
 
 void MainWindow::rtpPlayerDialogAddRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
+#ifdef QT_MULTIMEDIA_LIB
     openTelephonyRtpPlayerDialog()->addRtpStreams(stream_ids);
+#endif
 }
 
 void MainWindow::rtpPlayerDialogRemoveRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
+#ifdef QT_MULTIMEDIA_LIB
     openTelephonyRtpPlayerDialog()->removeRtpStreams(stream_ids);
+#endif
 }
 
 void MainWindow::rtpAnalysisDialogReplaceRtpStreams(QVector<rtpstream_id_t *> stream_ids)

@@ -1,4 +1,4 @@
-/* percent_bar_delegate.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -35,8 +35,6 @@
 
 class PercentBarDelegate : public QStyledItemDelegate
 {
-    Q_OBJECT
-
 public:
     PercentBarDelegate(QWidget *parent = 0) : QStyledItemDelegate(parent) { }
 

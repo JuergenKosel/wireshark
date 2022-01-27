@@ -4038,7 +4038,7 @@ dissect_smb2_tree_connect_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 	if (!pinfo->fd->visited && si->saved && buf && olb.len) {
 		si->saved->extra_info_type = SMB2_EI_TREENAME;
 		si->saved->extra_info = wmem_alloc(wmem_file_scope(), olb.len+1);
-		g_snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
+		snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
 	}
 
 	if (buf) {
@@ -4368,7 +4368,7 @@ dissect_smb2_find_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	if (!pinfo->fd->visited && si->saved && olb.len) {
 		si->saved->extra_info_type = SMB2_EI_FINDPATTERN;
 		si->saved->extra_info = wmem_alloc(wmem_file_scope(), olb.len+1);
-		g_snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
+		snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
 	}
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, " %s Pattern: %s",
@@ -6530,7 +6530,7 @@ dissect_smb2_write_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	proto_tree_add_item(tree, hf_smb2_file_offset, tvb, offset, 8, ENC_LITTLE_ENDIAN);
 	offset += 8;
 
-	col_append_fstr(pinfo->cinfo, COL_INFO, " Len:%d Off:%" G_GINT64_MODIFIER "u", length, off);
+	col_append_fstr(pinfo->cinfo, COL_INFO, " Len:%d Off:%" PRIu64, length, off);
 
 	/* fid */
 	offset = dissect_smb2_fid(tvb, pinfo, tree, offset, si, FID_MODE_USE);
@@ -7068,8 +7068,8 @@ dissect_windows_sockaddr_in(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *p
 
 	/* IPv4 address */
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in_addr, tvb, offset, 4, ENC_BIG_ENDIAN);
-	proto_item_append_text(sub_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
-	proto_item_append_text(parent_item, ", IPv4: %s", tvb_ip_to_str(tvb, offset));
+	proto_item_append_text(sub_item, ", IPv4: %s", tvb_ip_to_str(pinfo->pool, tvb, offset));
+	proto_item_append_text(parent_item, ", IPv4: %s", tvb_ip_to_str(pinfo->pool, tvb, offset));
 	offset += 4;
 	return offset;
 }
@@ -7102,8 +7102,8 @@ dissect_windows_sockaddr_in6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 
 	/* IPv6 address */
 	proto_tree_add_item(sub_tree, hf_windows_sockaddr_in6_addr, tvb, offset, 16, ENC_NA);
-	proto_item_append_text(sub_item, ", IPv6: %s", tvb_ip6_to_str(tvb, offset));
-	proto_item_append_text(parent_item, ", IPv6: %s", tvb_ip6_to_str(tvb, offset));
+	proto_item_append_text(sub_item, ", IPv6: %s", tvb_ip6_to_str(pinfo->pool, tvb, offset));
+	proto_item_append_text(parent_item, ", IPv6: %s", tvb_ip6_to_str(pinfo->pool, tvb, offset));
 	offset += 16;
 
 	/* sin6_scope_id */
@@ -7988,7 +7988,7 @@ dissect_smb2_read_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	proto_tree_add_item(tree, hf_smb2_file_offset, tvb, offset, 8, ENC_LITTLE_ENDIAN);
 	offset += 8;
 
-	col_append_fstr(pinfo->cinfo, COL_INFO, " Len:%d Off:%" G_GINT64_MODIFIER "u", len, off);
+	col_append_fstr(pinfo->cinfo, COL_INFO, " Len:%d Off:%" PRIu64, len, off);
 
 	/* fid */
 	offset = dissect_smb2_fid(tvb, pinfo, tree, offset, si, FID_MODE_USE);
@@ -8163,7 +8163,7 @@ add_timestamp_to_info_col(tvbuff_t *tvb, packet_info *pinfo, smb2_info_t *si,
 			gulong len = (gulong)strlen(saved_name);
 
 			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), len + 32 + 1);
-			g_snprintf((gchar *)si->saved->extra_info,
+			snprintf((gchar *)si->saved->extra_info,
 				   len + 32 + 1 , "%s@%s", (char *)saved_name,
 				   abs_time_to_str(pinfo->pool, &ts,
 					           ABSOLUTE_TIME_UTC, FALSE));
@@ -8689,8 +8689,8 @@ dissect_smb2_app_instance_version_buffer_request(tvbuff_t *tvb, packet_info *pin
 	proto_tree_add_item_ret_uint64(version_sub_tree, hf_smb2_app_instance_version_low,
 			    tvb, offset, 8, ENC_LITTLE_ENDIAN, &version_low);
 
-	proto_item_append_text(version_sub_tree, " : %" G_GUINT64_FORMAT ".%" G_GUINT64_FORMAT "", version_high, version_low);
-	proto_item_append_text(sub_tree, ", version: %" G_GUINT64_FORMAT ".%" G_GUINT64_FORMAT "", version_high, version_low);
+	proto_item_append_text(version_sub_tree, " : %" PRIu64 ".%" PRIu64, version_high, version_low);
+	proto_item_append_text(sub_tree, ", version: %" PRIu64 ".%" PRIu64, version_high, version_low);
 }
 
 static void
@@ -9018,7 +9018,7 @@ dissect_smb2_create_extra_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pa
 	/*
 	 * These things are all either 4-char strings, like DH2C, or GUIDs,
 	 * however, at least one of them appears to be a GUID as a string and
-	 * one appears to be a binary guid. So, check if the the length is
+	 * one appears to be a binary guid. So, check if the length is
 	 * 16, and if so, pull the GUID and convert it to a string. Otherwise
 	 * call dissect_smb2_olb_string.
 	 */
@@ -9125,7 +9125,7 @@ dissect_smb2_create_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		if (si->saved && f_olb.len < 1024) {
 			si->saved->extra_info_type = SMB2_EI_FILENAME;
 			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), f_olb.len+1);
-			g_snprintf((gchar *)si->saved->extra_info, f_olb.len+1, "%s", fname);
+			snprintf((gchar *)si->saved->extra_info, f_olb.len+1, "%s", fname);
 		}
 	}
 
@@ -11397,12 +11397,12 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_tree,
-			{ "Tree", "smb2.tree", FT_STRING, STR_UNICODE,
+			{ "Tree", "smb2.tree", FT_STRING, BASE_NONE,
 			NULL, 0, "Name of the Tree/Share", HFILL }
 		},
 
 		{ &hf_smb2_filename,
-			{ "Filename", "smb2.filename", FT_STRING, STR_UNICODE,
+			{ "Filename", "smb2.filename", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -11431,7 +11431,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_find_pattern,
-			{ "Search Pattern", "smb2.find.pattern", FT_STRING, STR_UNICODE,
+			{ "Search Pattern", "smb2.find.pattern", FT_STRING, BASE_NONE,
 			NULL, 0, "Find pattern", HFILL }
 		},
 
@@ -12113,7 +12113,7 @@ proto_register_smb2(void)
 
 		{ &hf_smb2_netname_neg_id,
 			{ "Netname", "smb2.negotiate_context.netname", FT_STRING,
-			STR_UNICODE, NULL, 0x0, NULL, HFILL }
+			BASE_NONE, NULL, 0x0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_transport_ctx_flags,
@@ -12222,7 +12222,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_ea_name,
-			{ "EA Name", "smb2.ea.name", FT_STRING, STR_UNICODE,
+			{ "EA Name", "smb2.ea.name", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -12262,7 +12262,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_fsctl_pipe_wait_name,
-			{ "Name", "smb2.fsctl.wait.name", FT_STRING, STR_UNICODE,
+			{ "Name", "smb2.fsctl.wait.name", FT_STRING, BASE_NONE,
 			NULL, 0, "Pipe name", HFILL }
 		},
 
@@ -12407,12 +12407,12 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_ioctl_sqos_initiator_name,
-			{ "InitiatorName", "smb2.ioctl.sqos.initiator_name", FT_STRING, STR_UNICODE,
+			{ "InitiatorName", "smb2.ioctl.sqos.initiator_name", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_ioctl_sqos_initiator_node_name,
-			{ "InitiatorNodeName", "smb2.ioctl.sqos.initiator_node_name", FT_STRING, STR_UNICODE,
+			{ "InitiatorNodeName", "smb2.ioctl.sqos.initiator_node_name", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }
 		},
 
@@ -12563,7 +12563,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_ioctl_enumerate_snapshots_snapshot,
-			{ "Snapshot", "smb2.ioctl.enumerate_snapshots.snapshot", FT_STRINGZ, STR_UNICODE,
+			{ "Snapshot", "smb2.ioctl.enumerate_snapshots.snapshot", FT_STRINGZ, BASE_NONE,
 			NULL, 0, "Time stamp of previous version", HFILL }
 		},
 
@@ -12683,22 +12683,22 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_tag,
-			{ "Tag", "smb2.tag", FT_STRING, STR_UNICODE,
+			{ "Tag", "smb2.tag", FT_STRING, BASE_NONE,
 			NULL, 0, "Tag of chain entry", HFILL }
 		},
 
 		{ &hf_smb2_acct_name,
-			{ "Account", "smb2.acct", FT_STRING, STR_UNICODE,
+			{ "Account", "smb2.acct", FT_STRING, BASE_NONE,
 			NULL, 0, "Account Name", HFILL }
 		},
 
 		{ &hf_smb2_domain_name,
-			{ "Domain", "smb2.domain", FT_STRING, STR_UNICODE,
+			{ "Domain", "smb2.domain", FT_STRING, BASE_NONE,
 			NULL, 0, "Domain Name", HFILL }
 		},
 
 		{ &hf_smb2_host_name,
-			{ "Host", "smb2.host", FT_STRING, STR_UNICODE,
+			{ "Host", "smb2.host", FT_STRING, BASE_NONE,
 			NULL, 0, "Host Name", HFILL }
 		},
 
@@ -13068,7 +13068,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_short_name,
-			{ "Short Name", "smb2.shortname", FT_STRING, STR_UNICODE,
+			{ "Short Name", "smb2.shortname", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -13183,7 +13183,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_error_redir_res_name,
-			{ "Resource Name", "smb2.error.share_redirect.res_name", FT_STRING, STR_UNICODE,
+			{ "Resource Name", "smb2.error.share_redirect.res_name", FT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -13288,7 +13288,7 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_svhdx_open_device_context_initiator_host_name,
-			{ "HostName", "smb2.svhdx_open_device_context.host_name", FT_STRING, STR_UNICODE,
+			{ "HostName", "smb2.svhdx_open_device_context.host_name", FT_STRING, BASE_NONE,
 			 NULL, 0, NULL, HFILL }
 		},
 
@@ -13423,12 +13423,12 @@ proto_register_smb2(void)
 		},
 
 		{ &hf_smb2_aapl_server_query_model_string,
-			{ "Model string", "smb2.aapl.model_string", FT_UINT_STRING, STR_UNICODE,
+			{ "Model string", "smb2.aapl.model_string", FT_UINT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_aapl_server_query_server_path,
-			{ "Server path", "smb2.aapl.server_path", FT_UINT_STRING, STR_UNICODE,
+			{ "Server path", "smb2.aapl.server_path", FT_UINT_STRING, BASE_NONE,
 			NULL, 0, NULL, HFILL }
 		},
 
@@ -13650,7 +13650,7 @@ proto_register_smb2(void)
 		},
 		{ &hf_smb2_nfs_symlink_target,
 			{ "Symlink Target", "smb2.nfs.symlink.target", FT_STRING,
-			STR_UNICODE, NULL, 0x0, NULL, HFILL }
+			BASE_NONE, NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_smb2_nfs_chr_major,
 			{ "Major", "smb2.nfs.char.major", FT_UINT32,
@@ -13685,11 +13685,11 @@ proto_register_smb2(void)
 			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_smb2_symlink_substitute_name,
-			{ "Substitute Name", "smb2.symlink.substitute_name", FT_STRING, STR_UNICODE,
+			{ "Substitute Name", "smb2.symlink.substitute_name", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_smb2_symlink_print_name,
-			{ "Print Name", "smb2.symlink.print_name", FT_STRING, STR_UNICODE,
+			{ "Print Name", "smb2.symlink.print_name", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }
 		},
 		{ &hf_smb2_symlink_flags,

@@ -1,4 +1,4 @@
-/* show_packet_bytes_dialog.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -24,6 +24,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QTextEdit>
+#include <QTextCodec>
 
 namespace Ui {
 class ShowPacketBytesDialog;
@@ -76,6 +77,7 @@ private:
         ShowAsASCII,
         ShowAsASCIIandControl,
         ShowAsCArray,
+        ShowAsRustArray,
         ShowAsEBCDIC,
         ShowAsHexDump,
         ShowAsHTML,

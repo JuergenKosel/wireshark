@@ -1,4 +1,5 @@
-/* drange.h
+/** @file
+ *
  * Routines for providing general range support to the dfilter library
  *
  * Copyright (c) 2000 by Ed Warnicke <hagbard@physics.rutgers.edu>
@@ -12,9 +13,7 @@
 #ifndef __DRANGE_H__
 #define __DRANGE_H__
 
-#include <glib.h>
-#include "ws_symbol_export.h"
-#include "ws_attributes.h"
+#include <wireshark.h>
 
 /* Please don't directly manipulate these structs.  Please use
  * the methods provided.  If you REALLY can't do what you need to
@@ -48,6 +47,9 @@ typedef struct _drange {
 
 /* drange_node constructor */
 drange_node* drange_node_new(void);
+
+/* drange_node constructor */
+drange_node* drange_node_from_str(const char *range_str, char **err_ptr);
 
 /* drange_node destructor */
 void drange_node_free(drange_node* drnode);
@@ -87,5 +89,7 @@ gint drange_get_max_start_offset(drange_t* dr);
 void drange_append_drange_node(drange_t* dr, drange_node* drnode);
 void drange_prepend_drange_node(drange_t* dr, drange_node* drnode);
 void drange_foreach_drange_node(drange_t* dr, GFunc func, gpointer funcdata);
+
+char *drange_tostr(drange_t *dr);
 
 #endif /* ! __DRANGE_H__ */

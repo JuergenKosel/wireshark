@@ -1,5 +1,4 @@
-/*
- * wslua_pinfo_common.h
+/** @file
  *
  * Wireshark's interface to the Lua Programming Language
  *
@@ -15,7 +14,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "config.h"
 
 #include "wslua.h"
 

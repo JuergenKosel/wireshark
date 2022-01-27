@@ -69,6 +69,8 @@ static int hf_imf_content_transfer_encoding = -1;
 static int hf_imf_content_description = -1;
 static int hf_imf_mime_version = -1;
 static int hf_imf_thread_index = -1;
+static int hf_imf_lines = -1;
+static int hf_imf_precedence = -1;
 static int hf_imf_ext_mailer = -1;
 static int hf_imf_ext_mimeole = -1;
 static int hf_imf_ext_tnef_correlator = -1;
@@ -76,6 +78,7 @@ static int hf_imf_ext_expiry_date = -1;
 static int hf_imf_ext_uidl = -1;
 static int hf_imf_ext_authentication_warning = -1;
 static int hf_imf_ext_virus_scanned = -1;
+static int hf_imf_ext_original_to = -1;
 static int hf_imf_extension = -1;
 static int hf_imf_extension_type = -1;
 static int hf_imf_extension_value = -1;
@@ -169,14 +172,14 @@ imf_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const 
     /* Only include the string inside of the "<>" brackets. If there is nothing between
     the two brackets use the sender_data string */
     if(start && stop && stop > start && (stop - start) > 2){
-        entry->hostname = g_strdup_printf("%.*s", (int) (stop - start - 1), start + 1);
+        entry->hostname = ws_strdup_printf("%.*s", (int) (stop - start - 1), start + 1);
     } else {
         entry->hostname = g_strdup(eo_info->sender_data);
     }
 
     entry->pkt_num = pinfo->num;
     entry->content_type = g_strdup("EML file");
-    entry->filename = g_strdup_printf("%s.eml", eo_info->subject_data);
+    entry->filename = ws_strdup_printf("%s.eml", eo_info->subject_data);
     entry->payload_len = eo_info->payload_len;
     entry->payload_data = (guint8 *)g_memdup2(eo_info->payload_data, eo_info->payload_len);
 
@@ -268,12 +271,15 @@ static struct imf_field imf_fields[] = {
   /* some others */
   {"x-mailer",                            &hf_imf_ext_mailer, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"thread-index",                        &hf_imf_thread_index, NO_SUBDISSECTION, FALSE}, /* unstructured */
+  {"lines",                               &hf_imf_lines, NULL, FALSE},
+  {"precedence",                          &hf_imf_precedence, NULL, FALSE},
   {"x-mimeole",                           &hf_imf_ext_mimeole, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"expiry-date",                         &hf_imf_ext_expiry_date, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"x-ms-tnef-correlator",                &hf_imf_ext_tnef_correlator, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"x-uidl",                              &hf_imf_ext_uidl, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"x-authentication-warning",            &hf_imf_ext_authentication_warning, NO_SUBDISSECTION, FALSE}, /* unstructured */
   {"x-virus-scanned",                     &hf_imf_ext_virus_scanned, NO_SUBDISSECTION, FALSE}, /* unstructured */
+  {"x-original-to",                       &hf_imf_ext_original_to, dissect_imf_address_list, FALSE},
   {"sio-label",                           &hf_imf_siolabel, dissect_imf_siolabel, FALSE}, /* sio-label */
   {NULL, NULL, NULL, FALSE},
 };
@@ -339,7 +345,7 @@ header_fields_update_cb(void *r, char **err)
    */
   c = proto_check_field_name(rec->header_name);
   if (c) {
-    *err = g_strdup_printf("Header name can't contain '%c'", c);
+    *err = ws_strdup_printf("Header name can't contain '%c'", c);
     return FALSE;
   }
 
@@ -983,7 +989,7 @@ header_fields_post_update_cb (void)
 
       dynamic_hf[i].p_id = hf_id;
       dynamic_hf[i].hfinfo.name = header_name;
-      dynamic_hf[i].hfinfo.abbrev = g_strdup_printf ("imf.header.%s", header_name);
+      dynamic_hf[i].hfinfo.abbrev = ws_strdup_printf ("imf.header.%s", header_name);
       dynamic_hf[i].hfinfo.type = FT_STRING;
       dynamic_hf[i].hfinfo.display = BASE_NONE;
       dynamic_hf[i].hfinfo.strings = NULL;
@@ -1234,8 +1240,17 @@ proto_register_imf(void)
     { &hf_imf_ext_virus_scanned,
       { "X-Virus-Scanned", "imf.ext.virus_scanned", FT_STRING,  BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
+    { &hf_imf_ext_original_to,
+      { "X-Original-To", "imf.ext.original-to", FT_STRING,  BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
     { &hf_imf_thread_index,
       { "Thread-Index", "imf.thread-index", FT_STRING,  BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
+    { &hf_imf_lines,
+      { "Lines", "imf.lines", FT_STRING,  BASE_NONE, NULL, 0x0,
+        NULL, HFILL }},
+    { &hf_imf_precedence,
+      { "Precedence", "imf.precedence", FT_STRING,  BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
     { &hf_imf_extension,
       { "Unknown-Extension", "imf.extension", FT_STRING,  BASE_NONE, NULL, 0x0,

@@ -16,7 +16,7 @@ find_package( XSLTPROC )
 
 function(set_docbook_target_properties _target)
 	set_target_properties(${_target} PROPERTIES
-		FOLDER "Docbook"
+		FOLDER "Documentation"
 		EXCLUDE_FROM_DEFAULT_BUILD True
 		)
 endfunction(set_docbook_target_properties)
@@ -32,16 +32,6 @@ set(COMMON_GRAPHICS
 )
 
 set(GUIDE_INSTALL_DIRS)
-
-# This is automatically updated each week. You probably don't need to run it
-# or depend on it.
-add_custom_target(update_tools_help
-	COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
-		${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/update-tools-help.py
-		--program-path $<TARGET_FILE_DIR:tshark>
-	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-)
-set_docbook_target_properties(update_tools_help)
 
 set(WSUG_TITLE "Wireshark User's Guide")
 
@@ -504,7 +494,7 @@ add_custom_target(
 set_docbook_target_properties(news)
 
 if( ASCIIDOCTOR_FOUND )
-	ASCIIDOCTOR2HTML( release-notes.adoc copy_ws.css )
+	ASCIIDOCTOR2HTML( release-notes.adoc )
 	ASCIIDOCTOR2TXT( release-notes.adoc )
 endif()
 
@@ -518,7 +508,7 @@ set_docbook_target_properties(faq)
 add_dependencies ( faq faq_html )
 
 if( ASCIIDOCTOR_FOUND )
-	ASCIIDOCTOR2HTML( faq.adoc copy_ws.css )
+	ASCIIDOCTOR2HTML( faq.adoc )
 endif()
 
 #

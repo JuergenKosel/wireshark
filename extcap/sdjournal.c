@@ -50,11 +50,11 @@ enum {
 	OPT_START_FROM
 };
 
-static struct option longopts[] = {
+static struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
-	{ "help", no_argument, NULL, OPT_HELP},
-	{ "version", no_argument, NULL, OPT_VERSION},
-	{ "start-from", required_argument, NULL, OPT_START_FROM},
+	{ "help", ws_no_argument, NULL, OPT_HELP},
+	{ "version", ws_no_argument, NULL, OPT_VERSION},
+	{ "start-from", ws_required_argument, NULL, OPT_START_FROM},
 	{ 0, 0, 0, 0}
 };
 
@@ -105,7 +105,7 @@ static int sdj_dump_entries(sd_journal *jnl, FILE* fp)
 			ws_warning("Error fetching cursor: %s", g_strerror(jr));
 			goto end;
 		}
-		data_end += g_snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__CURSOR=%s\n", cursor);
+		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__CURSOR=%s\n", cursor);
 		free(cursor);
 
 		jr = sd_journal_get_realtime_usec(jnl, &pkt_rt_ts);
@@ -113,7 +113,7 @@ static int sdj_dump_entries(sd_journal *jnl, FILE* fp)
 			ws_warning("Error fetching realtime timestamp: %s", g_strerror(jr));
 			goto end;
 		}
-		data_end += g_snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__REALTIME_TIMESTAMP=%" G_GUINT64_FORMAT "\n", pkt_rt_ts);
+		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__REALTIME_TIMESTAMP=%" PRIu64 "\n", pkt_rt_ts);
 
 		jr = sd_journal_get_monotonic_usec(jnl, &mono_ts, &boot_id);
 		if (jr < 0) {
@@ -121,7 +121,7 @@ static int sdj_dump_entries(sd_journal *jnl, FILE* fp)
 			goto end;
 		}
 		sd_id128_to_string(boot_id, boot_id_str + strlen(FLD_BOOT_ID));
-		data_end += g_snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__MONOTONIC_TIMESTAMP=%" G_GUINT64_FORMAT "\n%s\n", mono_ts, boot_id_str);
+		data_end += snprintf(entry_buff+data_end, MAX_EXPORT_ENTRY_LENGTH-data_end, "__MONOTONIC_TIMESTAMP=%" PRIu64 "\n%s\n", mono_ts, boot_id_str);
 		ws_debug("Entry header is %u bytes", data_end);
 
 		SD_JOURNAL_FOREACH_DATA(jnl, fld_data, fld_len) {
@@ -210,7 +210,7 @@ static int sdj_start_export(const int start_from_entries, const gboolean start_f
 	}
 
 
-	appname = g_strdup_printf(SDJOURNAL_EXTCAP_INTERFACE " (Wireshark) %s.%s.%s",
+	appname = ws_strdup_printf(SDJOURNAL_EXTCAP_INTERFACE " (Wireshark) %s.%s.%s",
 		SDJOURNAL_VERSION_MAJOR, SDJOURNAL_VERSION_MINOR, SDJOURNAL_VERSION_RELEASE);
 	success = pcapng_write_section_header_block(fp,
 							NULL,    /* Comment */
@@ -342,10 +342,7 @@ int main(int argc, char **argv)
 	char* help_header = NULL;
 
 	/* Initialize log handler early so we can have proper logging during startup. */
-	ws_log_init("sdjournal", NULL);
-
-	/* Early logging command-line initialization. */
-	ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+	extcap_log_init("sdjournal");
 
 	/*
 	 * Get credential information for later use.
@@ -358,7 +355,7 @@ int main(int argc, char **argv)
 	 */
 	init_progfile_dir_error = init_progfile_dir(argv[0]);
 	if (init_progfile_dir_error != NULL) {
-		ws_warning("Can't get pathname of directory containing the captype program: %s.",
+		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			init_progfile_dir_error);
 		g_free(init_progfile_dir_error);
 	}
@@ -370,7 +367,7 @@ int main(int argc, char **argv)
 	// We don't have an SDJOURNAL DLT, so use USER0 (147).
 	extcap_base_register_interface(extcap_conf, SDJOURNAL_EXTCAP_INTERFACE, "systemd Journal Export", 147, "USER0");
 
-	help_header = g_strdup_printf(
+	help_header = ws_strdup_printf(
 			" %s --extcap-interfaces\n"
 			" %s --extcap-interface=%s --extcap-dlts\n"
 			" %s --extcap-interface=%s --extcap-config\n"
@@ -385,15 +382,15 @@ int main(int argc, char **argv)
 	extcap_help_add_option(extcap_conf, "--version", "print the version");
 	extcap_help_add_option(extcap_conf, "--start-from <entry count>", "starting position");
 
-	opterr = 0;
-	optind = 0;
+	ws_opterr = 0;
+	ws_optind = 0;
 
 	if (argc == 1) {
 		extcap_help_print(extcap_conf);
 		goto end;
 	}
 
-	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
+	while ((result = ws_getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 
 		switch (result) {
 
@@ -408,12 +405,12 @@ int main(int argc, char **argv)
 				goto end;
 
 			case OPT_START_FROM:
-				start_from_entries = (int) strtol(optarg, NULL, 10);
+				start_from_entries = (int) strtol(ws_optarg, NULL, 10);
 				if (errno == EINVAL) {
-					ws_warning("Invalid entry count: %s", optarg);
+					ws_warning("Invalid entry count: %s", ws_optarg);
 					goto end;
 				}
-				if (strlen(optarg) > 0 && optarg[0] == '+') {
+				if (strlen(ws_optarg) > 0 && ws_optarg[0] == '+') {
 					start_from_end = FALSE;
 				}
 				if (start_from_entries < 0) {
@@ -425,12 +422,12 @@ int main(int argc, char **argv)
 
 			case ':':
 				/* missing option argument */
-				ws_warning("Option '%s' requires an argument", argv[optind - 1]);
+				ws_warning("Option '%s' requires an argument", argv[ws_optind - 1]);
 				break;
 
 			default:
-				if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg)) {
-					ws_warning("Invalid option: %s", argv[optind - 1]);
+				if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, ws_optarg)) {
+					ws_warning("Invalid option: %s", argv[ws_optind - 1]);
 					goto end;
 				}
 		}

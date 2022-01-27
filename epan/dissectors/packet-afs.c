@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#include <stdio.h>
+#include <stdio.h>		/* for sscanf() */
 
 #include <epan/packet.h>
 #include <epan/conversation.h>
@@ -1452,7 +1452,7 @@ afs_hash (gconstpointer v)
  *
  * "positive" and "negative" are integers which contain the number of
  * positive and negative ACL's in the string.  The uid/aclbits pair are
- * ASCII strings containing the UID/PTS record and and a ascii number
+ * ASCII strings containing the UID/PTS record and a ascii number
  * representing a logical OR of all the ACL permission bits
  */
 /*
@@ -3015,7 +3015,7 @@ dissect_afs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 			/* Process the packet according to what service it is */
 			/* Only for first packet in an rx data stream or the full reassembled stream */
 			if ( dissector && ( rxinfo->seq == 1 || reassembled ) ) {
-				cursor = ptvcursor_new(afs_op_tree, tvb, offset);
+				cursor = ptvcursor_new(pinfo->pool, afs_op_tree, tvb, offset);
 				(*dissector)(cursor, rxinfo, opcode);
 			}
 		}

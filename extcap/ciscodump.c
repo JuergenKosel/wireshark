@@ -76,10 +76,10 @@ enum {
 	OPT_REMOTE_COUNT
 };
 
-static struct option longopts[] = {
+static struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
-	{ "help", no_argument, NULL, OPT_HELP},
-	{ "version", no_argument, NULL, OPT_VERSION},
+	{ "help", ws_no_argument, NULL, OPT_HELP},
+	{ "version", ws_no_argument, NULL, OPT_VERSION},
 	SSH_BASE_OPTIONS,
 	{ 0, 0, 0, 0}
 };
@@ -393,7 +393,7 @@ static ssh_channel run_capture(ssh_session sshs, const char* iface, const char* 
 	if (read_output_bytes(channel, -1, NULL) == EXIT_FAILURE)
 		goto error;
 
-	cmdline = g_strdup_printf("show monitor capture buffer %s dump\n", WIRESHARK_CAPTURE_BUFFER);
+	cmdline = ws_strdup_printf("show monitor capture buffer %s dump\n", WIRESHARK_CAPTURE_BUFFER);
 	if (ssh_channel_printf(channel, cmdline) == EXIT_FAILURE)
 		goto error;
 
@@ -535,10 +535,7 @@ int main(int argc, char *argv[])
 	char* help_header = NULL;
 
 	/* Initialize log handler early so we can have proper logging during startup. */
-	ws_log_init("ciscodump", NULL);
-
-	/* Early logging command-line initialization. */
-	ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+	extcap_log_init("ciscodump");
 
 	/*
 	 * Get credential information for later use.
@@ -551,7 +548,7 @@ int main(int argc, char *argv[])
 	 */
 	err_msg = init_progfile_dir(argv[0]);
 	if (err_msg != NULL) {
-		ws_warning("Can't get pathname of directory containing the captype program: %s.",
+		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);
 		g_free(err_msg);
 	}
@@ -563,7 +560,7 @@ int main(int argc, char *argv[])
 	g_free(help_url);
 	extcap_base_register_interface(extcap_conf, CISCODUMP_EXTCAP_INTERFACE, "Cisco remote capture", 147, "Remote capture dependent DLT");
 
-	help_header = g_strdup_printf(
+	help_header = ws_strdup_printf(
 		" %s --extcap-interfaces\n"
 		" %s --extcap-interface=%s --extcap-dlts\n"
 		" %s --extcap-interface=%s --extcap-config\n"
@@ -583,20 +580,20 @@ int main(int argc, char *argv[])
 		"If not specified, ssh-agent and ssh-key are used");
 	extcap_help_add_option(extcap_conf, "--sshkey <public key path>", "the path of the ssh key");
 	extcap_help_add_option(extcap_conf, "--sshkey-passphrase <public key passphrase>", "the passphrase to unlock public ssh");
-	extcap_help_add_option(extcap_conf, "--proxycommand <proxy command>", "the command to use as proxy the the ssh connection");
+	extcap_help_add_option(extcap_conf, "--proxycommand <proxy command>", "the command to use as proxy for the ssh connection");
 	extcap_help_add_option(extcap_conf, "--remote-interface <iface>", "the remote capture interface");
 	extcap_help_add_option(extcap_conf, "--remote-filter <filter>", "a filter for remote capture "
 		"(default: don't capture data for lal interfaces IPs)");
 
-	opterr = 0;
-	optind = 0;
+	ws_opterr = 0;
+	ws_optind = 0;
 
 	if (argc == 1) {
 		extcap_help_print(extcap_conf);
 		goto end;
 	}
 
-	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
+	while ((result = ws_getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 
 		switch (result) {
 
@@ -611,68 +608,68 @@ int main(int argc, char *argv[])
 
 		case OPT_REMOTE_HOST:
 			g_free(ssh_params->host);
-			ssh_params->host = g_strdup(optarg);
+			ssh_params->host = g_strdup(ws_optarg);
 			break;
 
 		case OPT_REMOTE_PORT:
-			if (!ws_strtou16(optarg, NULL, &ssh_params->port) || ssh_params->port == 0) {
-				ws_warning("Invalid port: %s", optarg);
+			if (!ws_strtou16(ws_optarg, NULL, &ssh_params->port) || ssh_params->port == 0) {
+				ws_warning("Invalid port: %s", ws_optarg);
 				goto end;
 			}
 			break;
 
 		case OPT_REMOTE_USERNAME:
 			g_free(ssh_params->username);
-			ssh_params->username = g_strdup(optarg);
+			ssh_params->username = g_strdup(ws_optarg);
 			break;
 
 		case OPT_REMOTE_PASSWORD:
 			g_free(ssh_params->password);
-			ssh_params->password = g_strdup(optarg);
-			memset(optarg, 'X', strlen(optarg));
+			ssh_params->password = g_strdup(ws_optarg);
+			memset(ws_optarg, 'X', strlen(ws_optarg));
 			break;
 
 		case OPT_SSHKEY:
 			g_free(ssh_params->sshkey_path);
-			ssh_params->sshkey_path = g_strdup(optarg);
+			ssh_params->sshkey_path = g_strdup(ws_optarg);
 			break;
 
 		case OPT_SSHKEY_PASSPHRASE:
 			g_free(ssh_params->sshkey_passphrase);
-			ssh_params->sshkey_passphrase = g_strdup(optarg);
-			memset(optarg, 'X', strlen(optarg));
+			ssh_params->sshkey_passphrase = g_strdup(ws_optarg);
+			memset(ws_optarg, 'X', strlen(ws_optarg));
 			break;
 
 		case OPT_PROXYCOMMAND:
 			g_free(ssh_params->proxycommand);
-			ssh_params->proxycommand = g_strdup(optarg);
+			ssh_params->proxycommand = g_strdup(ws_optarg);
 			break;
 
 		case OPT_REMOTE_INTERFACE:
 			g_free(remote_interface);
-			remote_interface = g_strdup(optarg);
+			remote_interface = g_strdup(ws_optarg);
 			break;
 
 		case OPT_REMOTE_FILTER:
 			g_free(remote_filter);
-			remote_filter = g_strdup(optarg);
+			remote_filter = g_strdup(ws_optarg);
 			break;
 
 		case OPT_REMOTE_COUNT:
-			if (!ws_strtou32(optarg, NULL, &count)) {
-				ws_warning("Invalid packet count: %s", optarg);
+			if (!ws_strtou32(ws_optarg, NULL, &count)) {
+				ws_warning("Invalid packet count: %s", ws_optarg);
 				goto end;
 			}
 			break;
 
 		case ':':
 			/* missing option argument */
-			ws_warning("Option '%s' requires an argument", argv[optind - 1]);
+			ws_warning("Option '%s' requires an argument", argv[ws_optind - 1]);
 			break;
 
 		default:
-			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg)) {
-				ws_warning("Invalid option: %s", argv[optind - 1]);
+			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, ws_optarg)) {
+				ws_warning("Invalid option: %s", argv[ws_optind - 1]);
 				goto end;
 			}
 		}
@@ -680,8 +677,8 @@ int main(int argc, char *argv[])
 
 	extcap_cmdline_debug(argv, argc);
 
-	if (optind != argc) {
-		ws_warning("Unexpected extra option: %s", argv[optind]);
+	if (ws_optind != argc) {
+		ws_warning("Unexpected extra option: %s", argv[ws_optind]);
 		goto end;
 	}
 

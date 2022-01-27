@@ -2,6 +2,7 @@
  * Routines for Concise Binary Object Representation (CBOR) (RFC 7049) dissection
  * References:
  *     RFC 7049: https://tools.ietf.org/html/rfc7049
+ *     RFC 8742: https://tools.ietf.org/html/rfc8742
  *
  * Copyright 2015, Hauke Mehrtens <hauke@hauke-m.de>
  *
@@ -60,6 +61,7 @@ static expert_field ei_cbor_invalid_element     = EI_INIT;
 static expert_field ei_cbor_too_long_length     = EI_INIT;
 
 static dissector_handle_t cbor_handle;
+static dissector_handle_t cborseq_handle;
 
 #define CBOR_TYPE_USIGNED_INT   0
 #define CBOR_TYPE_NEGATIVE_INT  1
@@ -304,7 +306,7 @@ dissect_cbor_byte_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tre
 	}
 	if (length > G_MAXINT32 || *offset + (gint)length < *offset) {
 		expert_add_info_format(pinfo, cbor_tree, &ei_cbor_too_long_length,
-			"the length (%" G_GUINT64_FORMAT ") of the byte string too long", length);
+			"the length (%" PRIu64 ") of the byte string too long", length);
 		return NULL;
 	}
 	item = proto_tree_add_item(cbor_tree, hf_cbor_type_byte_string, tvb, *offset, (gint)length, ENC_BIG_ENDIAN|ENC_NA);
@@ -379,7 +381,7 @@ dissect_cbor_text_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tre
 	}
 	if (length > G_MAXINT32 || *offset + (gint)length < *offset) {
 		expert_add_info_format(pinfo, cbor_tree, &ei_cbor_too_long_length,
-			"the length (%" G_GUINT64_FORMAT ") of the text string too long", length);
+			"the length (%" PRIu64 ") of the text string too long", length);
 		return NULL;
 	}
 	item = proto_tree_add_item(cbor_tree, hf_cbor_type_text_string, tvb, *offset, (gint)length, ENC_BIG_ENDIAN|ENC_UTF_8);
@@ -440,7 +442,7 @@ dissect_cbor_array(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tree, gin
 		        tvb, orig_offset, -1, "Array", "(undefined elements)");
 	} else {
 		item = proto_tree_add_string_format_value(cbor_tree, hf_cbor_type_array,
-		       tvb, orig_offset, -1, "Array", "(%"G_GINT64_MODIFIER"u elements)", length);
+		       tvb, orig_offset, -1, "Array", "(%"PRIu64" elements)", length);
 	}
 	subtree = proto_item_add_subtree(item, ett_cbor_array);
 
@@ -516,7 +518,7 @@ dissect_cbor_map(tvbuff_t *tvb, packet_info *pinfo, proto_tree *cbor_tree, gint 
 		        tvb, orig_offset, -1, "Map", "(undefined entries)");
 	} else {
 		item = proto_tree_add_string_format_value(cbor_tree, hf_cbor_type_map,
-		       tvb, orig_offset, -1, "Map", "(%"G_GINT64_MODIFIER"u entries)", length);
+		       tvb, orig_offset, -1, "Map", "(%"PRIu64" entries)", length);
 	}
 	subtree = proto_item_add_subtree(item, ett_cbor_map);
 
@@ -697,7 +699,29 @@ dissect_cbor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	cbor_tree = proto_item_add_subtree(cbor_root, ett_cbor);
 	dissect_cbor_main_type(tvb, pinfo, cbor_tree, &offset);
 
-	return tvb_captured_length(tvb);
+	proto_item_set_len(cbor_root, offset);
+	return offset;
+}
+
+static int
+dissect_cborseq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data _U_)
+{
+	gint        offset = 0;
+	proto_item *cbor_root;
+	proto_tree *cbor_tree;
+	proto_item *elem;
+
+	cbor_root = proto_tree_add_item(parent_tree, proto_cbor, tvb, offset, -1, ENC_NA);
+	proto_item_append_text(cbor_root, " Sequence");
+	cbor_tree = proto_item_add_subtree(cbor_root, ett_cbor);
+	while ((guint)offset < tvb_reported_length(tvb)) {
+		elem = dissect_cbor_main_type(tvb, pinfo, cbor_tree, &offset);
+		if (!elem) {
+			break;
+		}
+	}
+
+	return offset;
 }
 
 void
@@ -844,12 +868,14 @@ proto_register_cbor(void)
 	expert_register_field_array(expert_cbor, ei, array_length(ei));
 
 	cbor_handle = register_dissector("cbor", dissect_cbor, proto_cbor);
+	cborseq_handle = register_dissector("cborseq", dissect_cborseq, proto_cbor);
 }
 
 void
 proto_reg_handoff_cbor(void)
 {
 	dissector_add_string("media_type", "application/cbor", cbor_handle); /* RFC 7049 */
+	dissector_add_string("media_type", "application/cbor-seq", cborseq_handle); /* RFC 8742 */
 }
 
 /*

@@ -32,6 +32,7 @@
 #include <QRadioButton>
 #include <QScrollBar>
 #include <QSpacerItem>
+#include <QRegularExpression>
 
 const char *pref_prop_ = "pref_ptr";
 
@@ -137,6 +138,22 @@ pref_show(pref_t *pref, gpointer layout_ptr)
         string_le->setToolTip(tooltip);
         string_le->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
         string_le->setMinimumWidth(string_le->fontMetrics().height() * 20);
+        hb->addWidget(string_le);
+        hb->addSpacerItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Minimum));
+        vb->addLayout(hb);
+        break;
+    }
+    case PREF_PASSWORD:
+    {
+        QHBoxLayout *hb = new QHBoxLayout();
+        QLabel *label = new QLabel(prefs_get_title(pref));
+        label->setToolTip(tooltip);
+        hb->addWidget(label);
+        QLineEdit *string_le = new QLineEdit();
+        string_le->setToolTip(tooltip);
+        string_le->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
+        string_le->setMinimumWidth(string_le->fontMetrics().height() * 20);
+        string_le->setEchoMode(QLineEdit::PasswordEchoOnEdit);
         hb->addWidget(string_le);
         hb->addSpacerItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Minimum));
         vb->addLayout(hb);
@@ -255,6 +272,7 @@ ModulePreferencesScrollArea::ModulePreferencesScrollArea(module_t *module, QWidg
         case PREF_SAVE_FILENAME:
         case PREF_OPEN_FILENAME:
         case PREF_DIRNAME:
+        case PREF_PASSWORD:
             connect(le, &QLineEdit::textEdited, this, &ModulePreferencesScrollArea::stringLineEditTextEdited);
             break;
         case PREF_RANGE:
@@ -344,7 +362,7 @@ void ModulePreferencesScrollArea::updateWidgets()
         pref_t *pref = VariantPointer<pref_t>::asPtr(le->property(pref_prop_));
         if (!pref) continue;
 
-        le->setText(gchar_free_to_qstring(prefs_pref_to_str(pref, pref_stashed)).remove(QRegExp("\n\t")));
+        le->setText(gchar_free_to_qstring(prefs_pref_to_str(pref, pref_stashed)).remove(QRegularExpression("\n\t")));
     }
 
     foreach (QCheckBox *cb, findChildren<QCheckBox *>()) {

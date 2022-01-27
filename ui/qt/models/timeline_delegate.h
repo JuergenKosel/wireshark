@@ -1,4 +1,4 @@
-/* timeline_delegate.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -42,8 +42,6 @@ Q_DECLARE_METATYPE(timeline_span)
 
 class TimelineDelegate : public QStyledItemDelegate
 {
-    Q_OBJECT
-
 public:
     TimelineDelegate(QWidget *parent = 0);
 

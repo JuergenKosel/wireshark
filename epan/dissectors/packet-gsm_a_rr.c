@@ -1599,7 +1599,7 @@ static void dissect_channel_list_n_range(tvbuff_t *tvb, proto_tree *tree, packet
     for (i=1; i<=imax; i++) {
         w[i] = (gint) tvb_get_bits(tvb, bit_offset, wsize, FALSE);
         proto_tree_add_bytes_format(subtree, hf_gsm_a_rr_w_elements, tvb, bit_offset>>3, ((bit_offset+wsize-1)>>3) - (bit_offset>>3) + 1 , NULL, "%s W(%d): %d",
-                            decode_bits_in_field(bit_offset, wsize, w[i]),
+                            decode_bits_in_field(pinfo->pool, bit_offset, wsize, w[i], ENC_BIG_ENDIAN),
                             i,
                             w[i]);
         bit_offset += wsize;
@@ -8640,7 +8640,7 @@ de_rr_tlli(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, guint32 offs
 
     curr_offset = curr_offset + 4;
     if(add_string)
-        g_snprintf(add_string, string_len, " - 0x%x", tlli);
+        snprintf(add_string, string_len, " - 0x%x", tlli);
 
     return(curr_offset - offset);
 }
@@ -9073,7 +9073,7 @@ de_rr_ec_request_reference(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
 static void
 gsm_a_rr_ec_ma_number_fmt(gchar *s, guint32 v)
 {
-    g_snprintf(s, ITEM_LABEL_LENGTH, "EC-EGPRS Mobile Allocation set %u (%u)", v+1, v);
+    snprintf(s, ITEM_LABEL_LENGTH, "EC-EGPRS Mobile Allocation set %u (%u)", v+1, v);
 }
 
 static guint16
@@ -14353,7 +14353,7 @@ proto_register_gsm_a_rr(void)
             },
             { &hf_gsm_a_rr_ec_imsi,
               { "IMSI", "gsm_a.rr.ec_imsi",
-                FT_STRING, STR_ASCII, NULL, 0x0,
+                FT_STRING, BASE_NONE, NULL, 0x0,
                 NULL, HFILL
               }
             },

@@ -14,15 +14,15 @@
  *
  */
 
-#include <config.h>
+#include "config.h"
+#include "file_wrappers.h"
 
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include "wtap-int.h"
-#include "file_wrappers.h"
+
 #include <wsutil/file_util.h>
-#include <wsutil/ws_assert.h>
 
 #ifdef HAVE_ZLIB
 #define ZLIB_CONST
@@ -275,7 +275,7 @@ buf_read(FILE_T state, struct wtap_reader_buf *buf)
     if (ret == 0)
         state->eof = TRUE;
     state->raw_pos += ret;
-    buf->avail += ret;
+    buf->avail += (guint)ret;
     return 0;
 }
 
@@ -886,7 +886,17 @@ gz_head(FILE_T state)
         && state->in.buf[0] == 0x04 && state->in.buf[1] == 0x22
         && state->in.buf[2] == 0x4d && state->in.buf[3] == 0x18) {
 #ifdef USE_LZ4
+#if LZ4_VERSION_NUMBER >= 10800
         LZ4F_resetDecompressionContext(state->lz4_dctx);
+#else
+        LZ4F_freeDecompressionContext(state->lz4_dctx);
+        const LZ4F_errorCode_t ret = LZ4F_createDecompressionContext(&state->lz4_dctx, LZ4F_VERSION);
+        if (LZ4F_isError(ret)) {
+            state->err = WTAP_ERR_INTERNAL;
+            state->err_info = LZ4F_getErrorName(ret);
+            return -1;
+        }
+#endif
         state->compression = LZ4;
         state->is_compressed = TRUE;
         return 0;
@@ -1122,8 +1132,26 @@ file_fdopen(int fd)
          *
          * If the value is too big to fit into a guint,
          * just use the maximum read buffer size.
+         *
+         * On top of that, the Single UNIX Speification says that
+         * st_blksize is of type blksize_t, which is a *signed*
+         * integer type, and, at minimum, macOS 11.6 and Linux 5.14.11's
+         * include/uapi/asm-generic/stat.h define it as such.
+         *
+         * However, other OSes might make it unsigned, and older versions
+         * of OSes that currently make it signed might make it unsigned,
+         * so we try to avoid warnings from that.
+         *
+         * We cast MAX_READ_BUF_SIZE to long in order to avoid the
+         * warning, although it might introduce warnings on platforms
+         * where st_blocksize is unsigned; we'll deal with that if
+         * it ever shows up as an issue.
+         *
+         * MAX_READ_BUF_SIZE is < the largest *signed* 32-bt integer,
+         * so casting it to long won't turn it into a negative number.
+         * (We only support 32-bit and 64-bit 2's-complement platforms.)
          */
-        if (st.st_blksize <= MAX_READ_BUF_SIZE)
+        if (st.st_blksize <= (long)MAX_READ_BUF_SIZE)
             want = (guint)st.st_blksize;
         else
             want = MAX_READ_BUF_SIZE;

@@ -1,4 +1,4 @@
-/* stats_tree_priv.h
+/** @file
  * implementor's API for stats_tree
  * 2005, Luis E. G. Ontanon
  *
@@ -189,9 +189,9 @@ WS_DLL_PUBLIC void stats_tree_reinit(void *p_st);
 /* callback for destoy */
 WS_DLL_PUBLIC void stats_tree_free(stats_tree *st);
 
-/** given an optarg splits the abbr part
+/** given an ws_optarg splits the abbr part
    and returns a newly allocated buffer containing it */
-WS_DLL_PUBLIC gchar *stats_tree_get_abbr(const gchar *optarg);
+WS_DLL_PUBLIC gchar *stats_tree_get_abbr(const gchar *ws_optarg);
 
 /** obtains a stats tree from the registry given its abbr */
 WS_DLL_PUBLIC stats_tree_cfg *stats_tree_get_cfg_by_abbr(const char *abbr);

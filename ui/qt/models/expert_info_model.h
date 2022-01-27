@@ -1,4 +1,5 @@
-/* expert_info_model.h
+/** @file
+ *
  * Data model for Expert Info tap data.
  *
  * Wireshark - Network traffic analyzer
@@ -65,8 +66,6 @@ private:
 
 class ExpertInfoModel : public QAbstractItemModel
 {
-    Q_OBJECT
-
 public:
     ExpertInfoModel(CaptureFile& capture_file, QObject *parent = 0);
     virtual ~ExpertInfoModel();

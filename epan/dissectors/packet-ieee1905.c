@@ -21,7 +21,6 @@
  */
 
 #include <config.h>
-#include <stdio.h>
 
 #include <epan/packet.h>
 #include <epan/etypes.h>
@@ -300,7 +299,7 @@ static int hf_ieee1905_assoc_sta_link_metrics_bssid = -1;
 static int hf_ieee1905_assoc_sta_link_metrics_time_delta = -1;
 static int hf_ieee1905_assoc_sta_link_metrics_dwn_rate = -1;
 static int hf_ieee1905_assoc_sta_link_metrics_up_rate = -1;
-static int hf_ieee1905_assoc_sta_link_metrics_rssi = -1;
+static int hf_ieee1905_assoc_sta_link_metrics_rcpi = -1;
 static int hf_ieee1905_assoc_wf6_sta_mac_addr = -1;
 static int hf_ieee1905_assoc_wf6_sta_tid_count = -1;
 static int hf_ieee1905_assoc_wf6_sta_tid = -1;
@@ -335,7 +334,7 @@ static int hf_ieee1905_steering_policy_radio_count = -1;
 static int hf_ieee1905_steering_policy_radio_id = -1;
 static int hf_ieee1905_steering_policy_policy = -1;
 static int hf_ieee1905_steering_policy_util = -1;
-static int hf_ieee1905_steering_policy_rssi_threshold = -1;
+static int hf_ieee1905_steering_policy_rcpi_threshold = -1;
 static int hf_ieee1905_radio_restriction_radio_id = -1;
 static int hf_ieee1905_radio_restriction_op_class_count = -1;
 static int hf_ieee1905_radio_restriction_op_class = -1;
@@ -359,7 +358,7 @@ static int hf_ieee1905_unassoc_sta_link_metric_sta_count = -1;
 static int hf_ieee1905_unassoc_link_metric_mac_addr = -1;
 static int hf_ieee1905_unassoc_link_metric_channel = -1;
 static int hf_ieee1905_unassoc_link_metric_delta = -1;
-static int hf_ieee1905_unassoc_link_metric_uplink_rssi = -1;
+static int hf_ieee1905_unassoc_link_metric_uplink_rcpi = -1;
 static int hf_ieee1905_beacon_metrics_query_mac_addr = -1;
 static int hf_ieee1905_beacon_metrics_query_op_class = -1;
 static int hf_ieee1905_beacon_metrics_query_channel = -1;
@@ -1537,8 +1536,8 @@ static const value_string ieee1905_channel_select_resp_code_vals[] = {
 
 static const value_string ieee1905_steering_policy_vals[] = {
   { 0x0, "Agent initiated steering disallowed" },
-  { 0x1, "Agent initiated RSSI-based steering mandated" },
-  { 0x2, "Agent initiated RSSI-based steering allowed" },
+  { 0x1, "Agent initiated RCPI-based steering mandated" },
+  { 0x2, "Agent initiated RCPI-based steering allowed" },
   { 0, NULL}
 };
 
@@ -2113,7 +2112,7 @@ dissect_generic_phy_device_info(tvbuff_t *tvb, packet_info *pinfo _U_,
         offset++;
 
         proto_tree_add_item(intf_tree, hf_ieee1905_local_intf_variant_name,
-                            tvb, offset, 32, ENC_UTF_8|ENC_NA);
+                            tvb, offset, 32, ENC_UTF_8);
         offset += 32;
 
         url_field_count = tvb_get_guint8(tvb, offset);
@@ -2152,15 +2151,15 @@ dissect_device_identification(tvbuff_t *tvb, packet_info *pinfo _U_,
         proto_tree *tree, guint offset)
 {
     proto_tree_add_item(tree, hf_ieee1905_dev_id_friendly_name, tvb,
-                        offset, 64, ENC_UTF_8|ENC_NA);
+                        offset, 64, ENC_UTF_8);
     offset += 64;
 
     proto_tree_add_item(tree, hf_ieee1905_dev_id_manuf_name, tvb,
-                        offset, 64, ENC_UTF_8|ENC_NA);
+                        offset, 64, ENC_UTF_8);
     offset += 64;
 
     proto_tree_add_item(tree, hf_ieee1905_dev_id_manuf_model, tvb,
-                        offset, 64, ENC_UTF_8|ENC_NA);
+                        offset, 64, ENC_UTF_8);
     offset += 64;
 
     return offset;
@@ -3420,7 +3419,7 @@ dissect_steering_policy(tvbuff_t *tvb, packet_info *pinfo _U_,
             offset++;
 
             proto_tree_add_item(policy_tree,
-                                hf_ieee1905_steering_policy_rssi_threshold,
+                                hf_ieee1905_steering_policy_rcpi_threshold,
                                 tvb, offset, 1, ENC_NA);
             offset++;
 
@@ -3436,14 +3435,14 @@ static void
 rcpi_threshold_custom(gchar *result, guint8 rcpi_threshold)
 {
     if (rcpi_threshold == 0) {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "Do not report STA Metrics based on RCPI threshold");
+        snprintf(result, ITEM_LABEL_LENGTH, "Do not report STA Metrics based on RCPI threshold");
     } else if (rcpi_threshold > 0 && rcpi_threshold < 220) {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "RCPI Threshold = %.1fdBm",
+        snprintf(result, ITEM_LABEL_LENGTH, "RCPI Threshold = %.1fdBm",
                  (float)rcpi_threshold/2 - 110);
     } else if (rcpi_threshold == 220) {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "RCPI Threshold >= 0dBm");
+        snprintf(result, ITEM_LABEL_LENGTH, "RCPI Threshold >= 0dBm");
     } else {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "Reserved");
+        snprintf(result, ITEM_LABEL_LENGTH, "Reserved");
     }
 }
 
@@ -3451,9 +3450,9 @@ static void
 rcpi_hysteresis_custom(gchar *result, guint8 rcpi_hysteresis)
 {
     if (rcpi_hysteresis == 0) {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "Use Agent's implementation-specific default RCPI Hysteresis margin");
+        snprintf(result, ITEM_LABEL_LENGTH, "Use Agent's implementation-specific default RCPI Hysteresis margin");
     } else {
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%udB", rcpi_hysteresis);
+        snprintf(result, ITEM_LABEL_LENGTH, "%udB", rcpi_hysteresis);
     }
 }
 
@@ -3867,6 +3866,7 @@ dissect_unassociated_sta_link_metric_response(tvbuff_t *tvb, packet_info *pinfo 
     sta_count = tvb_get_guint8(tvb, offset);
     proto_tree_add_item(tree, hf_ieee1905_unassoc_sta_link_metric_sta_count,
                         tvb, offset, 1, ENC_NA);
+    offset++;
 
     sta_list = proto_tree_add_subtree(tree, tvb, offset, sta_count * 12,
                         ett_unassoc_sta_link_metric_list, NULL,
@@ -3891,7 +3891,7 @@ dissect_unassociated_sta_link_metric_response(tvbuff_t *tvb, packet_info *pinfo 
                             tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
 
-        proto_tree_add_item(sta_tree, hf_ieee1905_unassoc_link_metric_uplink_rssi,
+        proto_tree_add_item(sta_tree, hf_ieee1905_unassoc_link_metric_uplink_rcpi,
                             tvb, offset, 1, ENC_NA);
         offset++;
 
@@ -4573,7 +4573,7 @@ dissect_associated_sta_link_metrics(tvbuff_t *tvb, packet_info *pinfo _U_,
                             tvb, offset, 4, ENC_BIG_ENDIAN);
         offset += 4;
 
-        proto_tree_add_item(bss_tree, hf_ieee1905_assoc_sta_link_metrics_rssi,
+        proto_tree_add_item(bss_tree, hf_ieee1905_assoc_sta_link_metrics_rcpi,
                             tvb, offset, 1, ENC_NA);
         offset++;
 
@@ -8972,7 +8972,7 @@ proto_register_ieee1905(void)
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40, NULL, HFILL }},
 
         { &hf_ieee1905_agent_init_steering,
-          { "Agent-initiated RSSI-based Steering", "ieee1905.agent_init_steering",
+          { "Agent-initiated RCPI-based Steering", "ieee1905.agent_init_steering",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x20, NULL, HFILL }},
 
         { &hf_ieee1905_rpt_unsuccessful_assoc_report,
@@ -9480,7 +9480,7 @@ proto_register_ieee1905(void)
 
         { &hf_ieee1905_metric_rcpi_threshold,
           { "RCPI reporting threshold", "ieee1905.sta_metric_policy.rcpi_threshold",
-            FT_INT8, BASE_CUSTOM, CF_FUNC(rcpi_threshold_custom),
+            FT_UINT8, BASE_CUSTOM, CF_FUNC(rcpi_threshold_custom),
             0, NULL, HFILL }},
 
         { &hf_ieee1905_metric_reporting_rcpi_hysteresis,
@@ -9553,8 +9553,8 @@ proto_register_ieee1905(void)
           { "Uplink data rate", "ieee1905.assoc_sta_link_metrics.up_rate",
             FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
 
-        { &hf_ieee1905_assoc_sta_link_metrics_rssi,
-          { "Measured uplink RSSI for STA", "ieee1905.assoc_sta_link_metrics.rssi",
+        { &hf_ieee1905_assoc_sta_link_metrics_rcpi,
+          { "Measured uplink RCPI for STA", "ieee1905.assoc_sta_link_metrics.rcpi",
             FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_assoc_wf6_sta_mac_addr,
@@ -9700,9 +9700,9 @@ proto_register_ieee1905(void)
           { "Channel utilization threshold", "ieee1905.steering_policy.utilization_threshold",
             FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
-        { &hf_ieee1905_steering_policy_rssi_threshold,
-          { "RSSI steering threshold", "ieee1905.steering_policy.rssi_threshold",
-            FT_INT8, BASE_DEC|BASE_UNIT_STRING, &units_dbm, 0, NULL, HFILL }},
+        { &hf_ieee1905_steering_policy_rcpi_threshold,
+          { "RCPI steering threshold", "ieee1905.steering_policy.rcpi_threshold",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_radio_restriction_radio_id,
           { "Radio unique ID", "ieee1905.radio_restriction.radio_id",
@@ -9804,9 +9804,9 @@ proto_register_ieee1905(void)
           { "Associated STA MAC address", "ieee1905.beacon_metrics.assoc_sta_mac",
             FT_ETHER, BASE_NONE, NULL, 0, NULL, HFILL }},
 
-        { &hf_ieee1905_unassoc_link_metric_uplink_rssi,
-          { "Uplink RSSI", "ieee1905.unassoc_sta_link_metrics.rssi",
-            FT_INT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+        { &hf_ieee1905_unassoc_link_metric_uplink_rcpi,
+          { "Uplink RCPI", "ieee1905.unassoc_sta_link_metrics.rcpi",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_beacon_metrics_query_op_class,
           { "Operating class", "ieee1905.beacon_metrics.op_class",

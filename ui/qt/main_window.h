@@ -1,4 +1,4 @@
-/* main_window.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -59,6 +59,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QSplitter>
+#include <QTextCodec>
 
 #ifdef _WIN32
 # include <QTimer>
@@ -310,6 +311,10 @@ signals:
     void captureActive(int);
     void selectRtpStream(rtpstream_id_t *id);
     void deselectRtpStream(rtpstream_id_t *id);
+
+#ifdef HAVE_LIBPCAP
+    void showExtcapOptions(QString &device_name, bool startCaptureOnClose);
+#endif
 
 public slots:
     // in main_window_slots.cpp
@@ -603,9 +608,9 @@ private slots:
     void on_actionHelpMPDumpcap_triggered();
     void on_actionHelpMPEditcap_triggered();
     void on_actionHelpMPMergecap_triggered();
-    void on_actionHelpMPRawShark_triggered();
+    void on_actionHelpMPRawshark_triggered();
     void on_actionHelpMPReordercap_triggered();
-    void on_actionHelpMPText2cap_triggered();
+    void on_actionHelpMPText2pcap_triggered();
     void on_actionHelpMPTShark_triggered();
     void on_actionHelpWebsite_triggered();
     void on_actionHelpFAQ_triggered();
@@ -684,6 +689,8 @@ private slots:
     void actionStatisticsPlugin_triggered();
     void on_actionStatisticsHpfeeds_triggered();
     void on_actionStatisticsHTTP2_triggered();
+    void on_actionStatisticsSOMEIPmessages_triggered();
+    void on_actionStatisticsSOMEIPSDentries_triggered();
 
     RtpStreamDialog *openTelephonyRtpStreamsDialog();
     RtpPlayerDialog *openTelephonyRtpPlayerDialog();
@@ -708,6 +715,7 @@ private slots:
     void on_actionTelephonySMPPOperations_triggered();
     void on_actionTelephonyUCPMessages_triggered();
     void on_actionTelephonyF1APMessages_triggered();
+    void on_actionTelephonyNGAPMessages_triggered();
     void on_actionTelephonySipFlows_triggered();
 
     void on_actionBluetoothATT_Server_Attributes_triggered();
@@ -725,7 +733,7 @@ private slots:
     void on_actionContextFilterFieldReference_triggered();
 
     void extcap_options_finished(int result);
-    void showExtcapOptionsDialog(QString & device_name);
+    void showExtcapOptionsDialog(QString & device_name, bool startCaptureOnClose);
 
     QString findRtpStreams(QVector<rtpstream_id_t *> *stream_ids, bool reverse);
 

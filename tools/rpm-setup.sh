@@ -55,6 +55,7 @@ BASIC_LIST="cmake \
 	git \
 	glib2-devel \
 	libpcap-devel \
+	pcre2-devel \
 	zlib-devel \
 	libgcrypt-devel"
 
@@ -76,6 +77,7 @@ ADDITIONAL_LIST="libcap-devel \
 #	oxipng \
 #	pngcrush"
 
+# XXX
 RPMDEPS_LIST="rpm-build"
 
 # Guess which package manager we will use
@@ -167,12 +169,27 @@ add_package BASIC_LIST qt5-qtmultimedia-devel ||
 add_packages BASIC_LIST libqt5-qtmultimedia-devel libQt5PrintSupport-devel ||
 echo "Qt5 is unavailable" >&2
 
+# This in only required on OpenSUSE
+add_package BASIC_LIST libqt5-qtsvg-devel ||
+echo "Qt5 SVG is unavailable" >&2
+
+# This in only required on OpenSUSE
+add_packages BASIC_LIST hicolor-icon-theme xdg-utils ||
+echo "Default icon theme and XDG utils are unavailable" >&2
+
 # This in only required (and available) on OpenSUSE
 add_package BASIC_LIST update-desktop-files ||
 echo "update-desktop-files is unavailable" >&2
 
 add_package BASIC_LIST perl-podlators ||
 echo "perl-podlators unavailable" >&2
+
+# rubygem-asciidoctor.noarch: Centos 7, Fedora
+# ruby2.5-rubygem-asciidoctor: openSUSE 15.2
+# You will get nothing and you will like it: CentOS 8
+add_package RPMDEPS_LIST rubygem-asciidoctor.noarch || add_package RPMDEPS_LIST ruby2.5-rubygem-asciidoctor ||
+echo "asciidoctor is unavailable" >&2
+
 
 # libcap: CentOS 7, Fedora 28, Fedora 29
 # libcap2: OpenSUSE Leap 42.3, OpenSUSE Leap 15.0
@@ -204,9 +221,6 @@ echo "Gettext devel is unavailable" >&2
 add_package ADDITIONAL_LIST perl-Pod-Html ||
 echo "perl-Pod-Html is unavailable" >&2
 
-add_package ADDITIONAL_LIST asciidoctor || add_package ADDITIONAL_LIST rubygem-asciidoctor.noarch ||
-echo "asciidoctor is unavailable" >&2
-
 add_package ADDITIONAL_LIST ninja || add_package ADDITIONAL_LIST ninja-build ||
 echo "ninja is unavailable" >&2
 
@@ -215,9 +229,6 @@ echo "xslt is unavailable" >&2
 
 add_package ADDITIONAL_LIST brotli-devel || add_packages ADDITIONAL_LIST libbrotli-devel libbrotlidec1 ||
 echo "brotli is unavailable" >&2
-
-add_package ADDITIONAL_LIST git-review ||
-echo "git-review is unavailabe" >&2
 
 add_package ADDITIONAL_LIST speexdsp-devel || add_package ADDITIONAL_LIST speex-devel ||
 echo "speex is unavailable" >&2

@@ -89,6 +89,7 @@
 #include "candump.h"
 #include "busmaster.h"
 #include "blf.h"
+#include "eri_enb_log.h"
 
 
 /*
@@ -111,7 +112,7 @@ add_extensions(GSList *extensions, const gchar *extension,
 	    compression_type_extension != NULL;
 	    compression_type_extension = g_slist_next(compression_type_extension)) {
 		extensions = g_slist_prepend(extensions,
-		    g_strdup_printf("%s.%s", extension,
+		    ws_strdup_printf("%s.%s", extension,
 		        (const char *)compression_type_extension->data));
 	}
 
@@ -435,6 +436,8 @@ static const struct open_info open_info_base[] = {
 	{ "Android Logcat Text formats",            OPEN_INFO_HEURISTIC, logcat_text_open,         "txt",      NULL, NULL },
 	{ "Candump log",                            OPEN_INFO_HEURISTIC, candump_open,             NULL,       NULL, NULL },
 	{ "Busmaster log",                          OPEN_INFO_HEURISTIC, busmaster_open,           NULL,       NULL, NULL },
+	{ "Ericsson eNode-B raw log",               OPEN_INFO_MAGIC,     eri_enb_log_open,         NULL,       NULL, NULL },
+
 	/* ASCII trace files from Telnet sessions. */
 	{ "Lucent/Ascend access server trace",      OPEN_INFO_HEURISTIC, ascend_open,              "txt",      NULL, NULL },
 	{ "Toshiba Compact ISDN Router snoop",      OPEN_INFO_HEURISTIC, toshiba_open,             "txt",      NULL, NULL },
@@ -586,6 +589,20 @@ wtap_has_open_info(const gchar *name)
 		if (open_routines[i].name && strcmp(open_routines[i].name, name) == 0) {
 			return TRUE;
 		}
+	}
+
+	return FALSE;
+}
+
+gboolean
+wtap_uses_lua_filehandler(const wtap* wth)
+{
+	if (wth && wth->wslua_data != NULL) {
+		/*
+		 * Currently, wslua_data is set if and only if using a Lua
+		 * file handler.
+		 */
+		return TRUE;
 	}
 
 	return FALSE;
@@ -1396,7 +1413,7 @@ wtap_deregister_file_type_subtype(const int subtype)
 		ws_error("invalid file type to de-register");
 		return;
 	}
-	if ((guint)subtype >= wtap_num_builtin_file_types_subtypes) {
+	if ((guint)subtype < wtap_num_builtin_file_types_subtypes) {
 		ws_error("built-in file types cannot be de-registered");
 		return;
 	}
@@ -2272,26 +2289,32 @@ wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_t
 
 		case WTAP_TSPREC_SEC:
 			descr_mand->time_units_per_second = 1;
+			wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 0);
 			break;
 
 		case WTAP_TSPREC_DSEC:
 			descr_mand->time_units_per_second = 10;
+			wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 1);
 			break;
 
 		case WTAP_TSPREC_CSEC:
 			descr_mand->time_units_per_second = 100;
+			wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 2);
 			break;
 
 		case WTAP_TSPREC_MSEC:
 			descr_mand->time_units_per_second = 1000;
+			wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 3);
 			break;
 
 		case WTAP_TSPREC_USEC:
 			descr_mand->time_units_per_second = 1000000;
+			/* This is the default, so we save a few bytes by not adding the option. */
 			break;
 
 		case WTAP_TSPREC_NSEC:
 			descr_mand->time_units_per_second = 1000000000;
+			wtap_block_add_uint8_option(descr, OPT_IDB_TSRESOL, 9);
 			break;
 
 		default:

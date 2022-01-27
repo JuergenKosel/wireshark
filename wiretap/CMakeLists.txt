@@ -49,6 +49,7 @@ set(WIRETAP_C_MODULE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/dpa400.c
 	${CMAKE_CURRENT_SOURCE_DIR}/dct3trace.c
 	${CMAKE_CURRENT_SOURCE_DIR}/erf.c
+	${CMAKE_CURRENT_SOURCE_DIR}/eri_enb_log.c
 	${CMAKE_CURRENT_SOURCE_DIR}/eyesdn.c
 	${CMAKE_CURRENT_SOURCE_DIR}/hcidump.c
 	${CMAKE_CURRENT_SOURCE_DIR}/i4btrace.c
@@ -163,7 +164,7 @@ set_source_files_properties(
 
 add_library(wiretap
 	${WIRETAP_FILES}
-	${CMAKE_BINARY_DIR}/image/wiretap.rc
+	${CMAKE_BINARY_DIR}/image/libwiretap.rc
 )
 
 set_target_properties(wiretap PROPERTIES

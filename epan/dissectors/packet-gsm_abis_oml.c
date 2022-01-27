@@ -1204,10 +1204,10 @@ static void format_custom_msgtype(gchar *out, guint32 in)
 	}
 
 	if (tmp)
-		g_snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp);
+		snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp);
 	else {
 		tmp_str = val_to_str_wmem(NULL, in, oml_fom_msgtype_vals, "Unknown 0x%02x");
-		g_snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp_str);
+		snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp_str);
 		wmem_free(NULL, tmp_str);
 	}
 }
@@ -1231,10 +1231,10 @@ static void format_custom_attr(gchar *out, guint32 in)
 	}
 
 	if (tmp)
-		g_snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp);
+		snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp);
 	else {
 		tmp_str = val_to_str_wmem(NULL, in, oml_fom_attr_vals, "Unknown 0x%02x");
-		g_snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp_str);
+		snprintf(out, ITEM_LABEL_LENGTH, "%s", tmp_str);
 		wmem_free(NULL, tmp_str);
 	}
 }
@@ -1242,7 +1242,7 @@ static void format_custom_attr(gchar *out, guint32 in)
 /* Interference level boundaries are coded as a binary presentation of -x dBm */
 static void format_interf_bound(gchar *buf, const guint32 in)
 {
-	g_snprintf(buf, ITEM_LABEL_LENGTH, "-%u%s", in,
+	snprintf(buf, ITEM_LABEL_LENGTH, "-%u%s", in,
 		   unit_name_string_get_value(in, &units_dbm));
 }
 
@@ -1997,6 +1997,7 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 {
 	proto_item *ti;
 	proto_tree *oml_tree;
+	guint32 remain_len;
 	int offset = 0;
 
 	guint8	    msg_disc = tvb_get_guint8(tvb, offset);
@@ -2020,10 +2021,14 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 			    1, ENC_LITTLE_ENDIAN);
 
 	/* Check whether the indicated length is correct */
-	if (len != tvb_reported_length_remaining(tvb, offset)) {
+	if (msg_disc == ABIS_OM_MDISC_MANUF) /* TS 12.21 sec 8.1.4 NOTE 1 */
+		remain_len = tvb_reported_length_remaining(tvb, offset + 1 + tvb_get_guint8(tvb, offset));
+	else
+		remain_len = tvb_reported_length_remaining(tvb, offset);
+	if (len != remain_len) {
 		expert_add_info_format(pinfo, ti, &ei_length_mismatch,
 			"Indicated length (%u) does not match the actual (%u)",
-			len, tvb_reported_length_remaining(tvb, offset));
+			len, remain_len);
 	}
 
 	if (global_oml_dialect == OML_DIALECT_ERICSSON) {

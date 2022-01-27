@@ -58,6 +58,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/prefs.h>
+#include <epan/strutil.h>
 #include <epan/proto_data.h>
 #include <epan/dissectors/packet-http2.h>
 
@@ -239,6 +240,10 @@ dissect_grpc_message(tvbuff_t *tvb, guint offset, guint length, packet_info *pin
     proto_tree_add_item(grpc_tree, hf_grpc_message_length, tvb, offset, 4, ENC_BIG_ENDIAN);
     message_length = length - 5;  /* should be equal to tvb_get_ntohl(tvb, offset) */
     offset += 4;
+
+    if (message_length == 0) {
+        return offset;
+    }
 
     /* uncompressed message data if compressed_flag is set */
     if (compressed_flag & GRPC_COMPRESSED) {

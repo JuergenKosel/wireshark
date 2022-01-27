@@ -1,4 +1,4 @@
-/* wtap_opttypes.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -69,7 +69,7 @@ extern "C" {
 #define OPT_IDB_SPEED          8     /**< Interface speed (in bps). 100000000 for 100Mbps
                                        */
 #define OPT_IDB_TSRESOL        9     /**< Resolution of timestamps. If the Most Significant Bit is equal to zero,
-                                       *     the remaining bits indicates the resolution of the timestamp as as a
+                                       *     the remaining bits indicates the resolution of the timestamp as a
                                        *     negative power of 10 (e.g. 6 means microsecond resolution, timestamps
                                        *     are the number of microseconds since 1/1/1970). If the Most Significant Bit
                                        *     is equal to one, the remaining bits indicates the resolution has a
@@ -148,7 +148,7 @@ typedef struct wtap_block *wtap_block_t;
  *
  * Note that, in a given file format, this information won't necessarily
  * appear in the form of blocks in the file, even though they're presented
- * to the caller of libwiretap as blocks when reading and and are presented
+ * to the caller of libwiretap as blocks when reading and are presented
  * by the caller of libwiretap as blocks when writing.  See, for example,
  * the iptrace file format, in which the interface name is given as part
  * of the packet record header; we synthesize those blocks when reading
@@ -297,6 +297,7 @@ typedef enum {
 
 /* https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers */
 #define PEN_NFLX 10949
+#define PEN_VCTR 46254
 
 /*
  * Structure describing a custom option.
@@ -431,6 +432,14 @@ struct nflx_dumpinfo {
 #define NFLX_TLB_FLAG_HDR       0x0004 /* Includes a TCP header */
 #define NFLX_TLB_FLAG_VERBOSE   0x0008 /* Includes function/line numbers */
 #define NFLX_TLB_FLAG_STACKINFO 0x0010 /* Includes stack-specific info */
+
+/* Flags used in tlb_flags */
+#define NFLX_TLB_TF_REQ_SCALE   0x00000020 /* Sent WS option */
+#define NFLX_TLB_TF_RCVD_SCALE  0x00000040 /* Received WS option */
+
+/* Values of tlb_state */
+#define NFLX_TLB_TCPS_ESTABLISHED 4
+#define NFLX_TLB_IS_SYNCHRONIZED(state) (state >= NFLX_TLB_TCPS_ESTABLISHED)
 
 struct nflx_tcpinfo {
     guint64 tlb_tv_sec;

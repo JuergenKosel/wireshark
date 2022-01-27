@@ -1,4 +1,4 @@
--- 3GPP TS 38.455 V16.3.0 (2021-04)﻿
+-- 3GPP TS 38.455 V16.6.0 (2021-12)
 -- 9.3.5	Information Element definitions
 -- **************************************************************
 --
@@ -25,7 +25,6 @@ IMPORTS
 	id-ResultCSI-RSRP,
 	id-ResultCSI-RSRQ,
 	id-AngleOfArrivalNR,
-	id-SRSSpatialRelation,
 	id-ResultNR,
 	id-ResultEUTRA,
 	maxCellinRANnode,
@@ -74,7 +73,9 @@ IMPORTS
 	maxnoofPRSresource,
 	id-Cell-ID,
 	id-TRPInformationTypeItem,
-	id-SrsFrequency
+	id-SrsFrequency,
+	id-TRPType,
+	id-SRSSpatialRelationPerSRSResource
 
 
 
@@ -1330,6 +1331,7 @@ SRSResourceSet-Item ::= SEQUENCE {
 }
 
 SRSResourceSet-Item-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
+	{ ID id-SRSSpatialRelationPerSRSResource	CRITICALITY ignore	EXTENSION SpatialRelationPerSRSResource PRESENCE optional},
 	...
 }
 
@@ -1709,7 +1711,7 @@ Search-window-information-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
 }
 
 
-SFNInitialisationTime ::= BIT STRING (SIZE (64))
+RelativeTime1900 ::= BIT STRING (SIZE (64))
 
 
 SFNInitialisationTime-EUTRA ::= BIT STRING (SIZE (64))
@@ -1750,6 +1752,28 @@ SpatialRelationforResourceIDItem-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
 	...
 }
 
+
+SpatialRelationPerSRSResource ::= SEQUENCE {
+	spatialRelationPerSRSResource-List	SpatialRelationPerSRSResource-List,
+	iE-Extensions		ProtocolExtensionContainer { { SpatialRelationPerSRSResource-ExtIEs} }	OPTIONAL,
+	...
+}
+
+SpatialRelationPerSRSResource-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
+	...
+}
+
+SpatialRelationPerSRSResource-List::= SEQUENCE(SIZE (1.. maxnoSRS-ResourcePerSet)) OF SpatialRelationPerSRSResourceItem
+
+SpatialRelationPerSRSResourceItem ::= SEQUENCE {
+	referenceSignal		ReferenceSignal,
+	iE-Extensions		ProtocolExtensionContainer { {SpatialRelationPerSRSResourceItem-ExtIEs} }	OPTIONAL,
+	...
+}
+
+SpatialRelationPerSRSResourceItem-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
+	...
+}
 
 SpatialRelationPos ::= CHOICE {
 	sSBPos					SSB,
@@ -1861,15 +1885,6 @@ SRSResourceTrigger-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
 	...
 }
 
-SRSSpatialRelation ::= SEQUENCE {
-	spatialRelationforResourceID				SpatialRelationforResourceID,
-	iE-Extensions		ProtocolExtensionContainer { {SRSSpatialRelation-ExtIEs} }	OPTIONAL,
-	...
-}
-
-SRSSpatialRelation-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
-	...
-}
 
 
 SSBInfo ::= SEQUENCE {
@@ -1962,7 +1977,7 @@ TF-Configuration ::= SEQUENCE {
 	sSB-half-frame-offset		INTEGER(0..1),
 	sSB-SFN-offset				INTEGER(0..15),
 	sSB-BurstPosition			SSBBurstPosition	OPTIONAL,
-	sFN-initialisation-time		SFNInitialisationTime	 OPTIONAL,
+	sFN-initialisation-time		RelativeTime1900	 OPTIONAL,
 	iE-Extensions		ProtocolExtensionContainer { { TF-Configuration-ExtIEs} }	OPTIONAL,
 	...
 }
@@ -1975,7 +1990,7 @@ TF-Configuration-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {
 TimeStamp ::= SEQUENCE {
 	systemFrameNumber		SystemFrameNumber,
 	slotIndex				TimeStampSlotIndex,
-	measurementTime			SFNInitialisationTime	OPTIONAL,
+	measurementTime			RelativeTime1900	OPTIONAL,
 	iE-Extension			ProtocolExtensionContainer { { TimeStamp-ExtIEs} }	OPTIONAL,
 	...
 }
@@ -2175,13 +2190,14 @@ TRPInformationTypeResponseItem ::= CHOICE {
 	aRFCN										INTEGER (0..3279165), 
 	pRSConfiguration							PRSConfiguration,
 	sSBinformation								SSBInfo,
-	sFNInitialisationTime						SFNInitialisationTime,
+	sFNInitialisationTime						RelativeTime1900,
 	spatialDirectionInformation					SpatialDirectionInformation,
 	geographicalCoordinates						GeographicalCoordinates,
 	choice-extension							ProtocolIE-Single-Container { { TRPInformationTypeResponseItem-ExtIEs } }
 }
 
 TRPInformationTypeResponseItem-ExtIEs NRPPA-PROTOCOL-IES ::= {
+	{ ID id-TRPType		CRITICALITY reject TYPE TRPType		PRESENCE mandatory },
 	...
 
 }
@@ -2204,7 +2220,8 @@ TRPInformationTypeItem ::= ENUMERATED {
 		spatialDirectInfo,
 		geoCoord,
 
-		...
+		...,
+		trp-type
 }
 
 TRPList ::= SEQUENCE (SIZE(1.. maxnoTRPs)) OF TRPItem
@@ -2275,6 +2292,15 @@ TRPReferencePointType-ExtIEs NRPPA-PROTOCOL-IES ::= {
 	...
 }
 
+TRPType ::= ENUMERATED {
+	prsOnlyTP,
+	srsOnlyRP,
+	tp,
+	rp,
+	trp,
+	...
+}
+
 
 TypeOfError ::= ENUMERATED {
 	not-understood,
@@ -2286,7 +2312,7 @@ TypeOfError ::= ENUMERATED {
 
 UARFCN ::= INTEGER (0..16383, ...)
 
-UE-Measurement-ID ::= INTEGER (1..15, ..., 256)
+UE-Measurement-ID ::= INTEGER (1..15, ..., 16..256)
 
 UTRA-EcN0 ::= INTEGER (0..49, ...)
 

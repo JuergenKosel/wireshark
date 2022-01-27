@@ -1378,8 +1378,10 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
   case 47: /*reportSM-DeliveryStatus*/
     offset=dissect_gsm_map_sm_ReportSM_DeliveryStatusArg(FALSE, tvb, offset, actx, tree, -1);
     break;
-    /* reserved noteSubscriberPresent (48) */
-    /* reserved alertServiceCentreWithoutResult (49)
+  case 48: /*noteSubscriberPresent*/
+      offset = dissect_gsm_map_IMSI(FALSE, tvb, offset, actx, tree, hf_gsm_map_imsi);
+      break;
+      /* reserved alertServiceCentreWithoutResult (49)
      * ETS 300 599: December 2000 (GSM 09.02 version 4.19.1)
      * -- alertServiceCentreWithoutResult must not be used in
      * -- version greater 1
@@ -1970,7 +1972,11 @@ static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset, 
     offset=dissect_gsm_map_er_SubBusyForMT_SMS_Param(FALSE, tvb, offset, actx, tree, -1);
     break;
   case 32: /* SM-DeliveryFailureCause */
-    offset=dissect_gsm_map_er_SM_DeliveryFailureCause(FALSE, tvb, offset, actx, tree, -1);
+    offset = dissect_mc_message(tvb, offset, actx, tree,
+                              FALSE, dissect_gsm_map_er_SM_EnumeratedDeliveryFailureCause, hf_gsm_map_er_sm_EnumeratedDeliveryFailureCause,
+                              FALSE, dissect_gsm_map_er_SM_DeliveryFailureCause, -1,
+                              FALSE, NULL, -1);
+
     break;
   case 33: /* MessageWaitListFullParam */
     offset=dissect_gsm_map_er_MessageWaitListFullParam(FALSE, tvb, offset, actx, tree, -1);
@@ -2710,12 +2716,12 @@ static stat_tap_table_item gsm_map_stat_fields[] = {
   {TABLE_ITEM_STRING, TAP_ALIGN_LEFT, "Operation Code", "%-25s"},
   {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Invokes", "%d"},
   {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Num Bytes", "%d"},
-  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%d"},
+  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%1.2f"},
   {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Return Result", "%d"},
   {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Num Bytes", "%d"},
-  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%d"},
+  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%1.2f"},
   {TABLE_ITEM_UINT, TAP_ALIGN_RIGHT, "Total Bytes", "%d"},
-  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%d"},
+  {TABLE_ITEM_FLOAT, TAP_ALIGN_RIGHT, "Avg Bytes", "%1.2f"},
 };
 
 static void gsm_map_stat_init(stat_tap_table_ui* new_stat)
@@ -2758,7 +2764,7 @@ static void gsm_map_stat_init(stat_tap_table_ui* new_stat)
     if (ocs) {
       col_str = g_strdup(ocs);
     } else {
-      col_str = g_strdup_printf("Unknown op code %d", i);
+      col_str = ws_strdup_printf("Unknown op code %d", i);
     }
 
     items[ID_COLUMN].value.uint_value = i;
@@ -3254,7 +3260,7 @@ void proto_register_gsm_map(void) {
           "Service Area Code", HFILL }},
       { &hf_gsm_map_ussd_string,
         { "USSD String", "gsm_map.ussd_string",
-          FT_STRING, STR_UNICODE, NULL, 0,
+          FT_STRING, BASE_NONE, NULL, 0,
           NULL, HFILL }},
     { &hf_gsm_map_spare_bits,
         { "Spare bit(s)", "gsm_map.spare_bits",

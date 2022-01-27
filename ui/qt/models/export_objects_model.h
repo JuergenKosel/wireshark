@@ -1,4 +1,5 @@
-/* export_objects_model.h
+/** @file
+ *
  * Data model for Export Objects.
  *
  * Wireshark - Network traffic analyzer
@@ -69,7 +70,6 @@ private:
 
 class ExportObjectProxyModel : public QSortFilterProxyModel
 {
-    Q_OBJECT
 public:
 
     explicit ExportObjectProxyModel(QObject * parent = Q_NULLPTR);

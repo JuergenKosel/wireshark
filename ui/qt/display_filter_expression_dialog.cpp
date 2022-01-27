@@ -28,6 +28,7 @@
 #include <QDialogButtonBox>
 #include <QListWidgetItem>
 #include <QTreeWidgetItem>
+#include <QRegularExpression>
 
 // To do:
 // - Speed up initialization.
@@ -87,8 +88,8 @@ DisplayFilterExpressionDialog::DisplayFilterExpressionDialog(QWidget *parent) :
 
     value_label_pfx_ = ui->valueLabel->text();
 
-    connect(ui->valueLineEdit, SIGNAL(textEdited(QString)), this, SLOT(updateWidgets()));
-    connect(ui->rangeLineEdit, SIGNAL(textEdited(QString)), this, SLOT(updateWidgets()));
+    connect(ui->valueLineEdit, &QLineEdit::textEdited, this, &DisplayFilterExpressionDialog::updateWidgets);
+    connect(ui->rangeLineEdit, &QLineEdit::textEdited, this, &DisplayFilterExpressionDialog::updateWidgets);
 
     // Trigger updateWidgets
     ui->fieldTreeWidget->selectionModel()->clear();
@@ -266,11 +267,7 @@ void DisplayFilterExpressionDialog::fillEnumRangeValues(const _range_string *rva
 
         // Tell the user which values are valid here. Default to value_min below.
         if (rvals[i].value_min != rvals[i].value_max) {
-            range_t range;
-            range.nranges = 1;
-            range.ranges[0].low = rvals[i].value_min;
-            range.ranges[0].high = rvals[i].value_max;
-            range_text.append(QString(" (%1 valid)").arg(range_to_qstring(&range)));
+            range_text.append(QString(" (%1 valid)").arg(range_to_qstring(&rvals[i])));
         }
 
         QListWidgetItem *eli = new QListWidgetItem(range_text, ui->enumListWidget);
@@ -358,23 +355,15 @@ void DisplayFilterExpressionDialog::on_fieldTreeWidget_itemSelectionChanged()
         QListWidgetItem *li = ui->relationListWidget->item(i);
         switch (li->type()) {
         case eq_op_:
-        case in_op_:
+        case ne_op_:
             li->setHidden(!ftype_can_eq(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_eq(FT_BYTES)));
             break;
-        case ne_op_:
-            li->setHidden(!ftype_can_ne(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_ne(FT_BYTES)));
-            break;
         case gt_op_:
-            li->setHidden(!ftype_can_gt(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_gt(FT_BYTES)));
-            break;
         case lt_op_:
-            li->setHidden(!ftype_can_lt(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_lt(FT_BYTES)));
-            break;
         case ge_op_:
-            li->setHidden(!ftype_can_ge(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_ge(FT_BYTES)));
-            break;
         case le_op_:
-            li->setHidden(!ftype_can_le(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_le(FT_BYTES)));
+        case in_op_:
+            li->setHidden(!ftype_can_cmp(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_cmp(FT_BYTES)));
             break;
         case contains_op_:
             li->setHidden(!ftype_can_contains(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_contains(FT_BYTES)));
@@ -429,7 +418,7 @@ void DisplayFilterExpressionDialog::on_searchLineEdit_textChanged(const QString 
 {
     ui->fieldTreeWidget->setUpdatesEnabled(false);
     QTreeWidgetItemIterator it(ui->fieldTreeWidget);
-    QRegExp regex(search_re, Qt::CaseInsensitive);
+    QRegularExpression regex(search_re, QRegularExpression::CaseInsensitiveOption);
     while (*it) {
         bool hidden = true;
         if (search_re.isEmpty() || (*it)->text(0).contains(regex)) {

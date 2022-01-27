@@ -345,25 +345,25 @@ cba_build_filter(packet_info *pinfo)
         /* IPv4 */
         switch(GPOINTER_TO_UINT(profinet_type)) {
         case 1:
-            return g_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 0)",
+            return ws_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 0)",
                 address_to_str(pinfo->pool, &pinfo->net_dst),
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_dst));
         case 2:
-            return g_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 0)",
+            return ws_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.dcom == 0)",
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_dst),
                 address_to_str(pinfo->pool, &pinfo->net_dst),
                 address_to_str(pinfo->pool, &pinfo->net_src));
         case 3:
-            return g_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.srt == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.srt == 0)",
+            return ws_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.srt == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.srt == 0)",
                 address_to_str(pinfo->pool, &pinfo->net_dst),
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_dst));
         case 4:
-            return g_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.srt == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.srt == 0)",
+            return ws_strdup_printf("(ip.src eq %s and ip.dst eq %s and cba.acco.srt == 1) || (ip.src eq %s and ip.dst eq %s and cba.acco.srt == 0)",
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_dst),
                 address_to_str(pinfo->pool, &pinfo->net_dst),
@@ -470,11 +470,11 @@ cba_pdev_find(packet_info *pinfo, const address *addr, e_guid_t *ipid)
         pdev = (cba_pdev_t *)interf->parent->private_data;
         if (pdev == NULL) {
             expert_add_info_format(pinfo, NULL, &ei_cba_acco_pdev_find, "pdev_find: no pdev for IP:%s IPID:%s",
-                address_to_str(pinfo->pool, addr), guids_resolve_guid_to_str(ipid));
+                address_to_str(pinfo->pool, addr), guids_resolve_guid_to_str(ipid, pinfo->pool));
         }
     } else {
         expert_add_info_format(pinfo, NULL, &ei_cba_acco_pdev_find_unknown_interface, "pdev_find: unknown interface of IP:%s IPID:%s",
-            address_to_str(pinfo->pool, addr), guids_resolve_guid_to_str(ipid));
+            address_to_str(pinfo->pool, addr), guids_resolve_guid_to_str(ipid, pinfo->pool));
         pdev = NULL;
     }
 

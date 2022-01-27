@@ -16,7 +16,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "config.h"
-#include <stdio.h>
+
+#include <stdio.h>      /* for sscanf() */
+
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
@@ -3192,7 +3194,7 @@ dissect_6lowpan_unknown(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
     }
     else {
         guint8 pattern = tvb_get_guint8(tvb, 0);
-        proto_tree_add_uint_bits_format_value(tree, hf_6lowpan_pattern, tvb, 0, 8, pattern, "Unknown (0x%02x)", pattern);
+        proto_tree_add_uint_bits_format_value(tree, hf_6lowpan_pattern, tvb, 0, 8, pattern, ENC_BIG_ENDIAN, "Unknown (0x%02x)", pattern);
     }
 
     /* Create a tvbuff subset for the remaining data. */

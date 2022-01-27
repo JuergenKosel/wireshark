@@ -44,21 +44,21 @@ val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 	if (endptr == s || *endptr != '\0') {
 		/* This isn't a valid number. */
 		if (err_msg != NULL)
-			*err_msg = g_strdup_printf("\"%s\" is not a valid number.", s);
+			*err_msg = ws_strdup_printf("\"%s\" is not a valid number.", s);
 		return FALSE;
 	}
 	if (errno == ERANGE) {
 		if (fv->value.floating == 0) {
 			if (err_msg != NULL)
-				*err_msg = g_strdup_printf("\"%s\" causes floating-point underflow.", s);
+				*err_msg = ws_strdup_printf("\"%s\" causes floating-point underflow.", s);
 		}
 		else if (fv->value.floating == HUGE_VAL) {
 			if (err_msg != NULL)
-				*err_msg = g_strdup_printf("\"%s\" causes floating-point overflow.", s);
+				*err_msg = ws_strdup_printf("\"%s\" causes floating-point overflow.", s);
 		}
 		else {
 			if (err_msg != NULL)
-				*err_msg = g_strdup_printf("\"%s\" is not a valid floating-point number.",
+				*err_msg = ws_strdup_printf("\"%s\" is not a valid floating-point number.",
 				    s);
 		}
 		return FALSE;
@@ -67,64 +67,32 @@ val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 	return TRUE;
 }
 
+static char *
+float_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
+{
+	size_t size = G_ASCII_DTOSTR_BUF_SIZE;
+	char *buf = wmem_alloc(scope, size);
+	g_ascii_formatd(buf, (gint)size, "%." G_STRINGIFY(FLT_DIG) "g", fv->value.floating);
+	return buf;
+}
+
+static char *
+double_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
+{
+	size_t size = G_ASCII_DTOSTR_BUF_SIZE;
+	char *buf = wmem_alloc(scope, size);
+	g_ascii_formatd(buf, (gint)size, "%." G_STRINGIFY(DBL_DIG) "g", fv->value.floating);
+	return buf;
+}
+
 static int
-float_val_repr_len(fvalue_t *fv _U_, ftrepr_t rtype _U_, int field_display _U_)
+cmp_order(const fvalue_t *a, const fvalue_t *b)
 {
-	return G_ASCII_DTOSTR_BUF_SIZE;
-}
-
-static void
-float_val_to_repr(fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_, char *buf, unsigned int size)
-{
-	g_ascii_formatd(buf, size, "%." G_STRINGIFY(FLT_DIG) "g", fv->value.floating);
-}
-
-static int
-double_val_repr_len(fvalue_t *fv _U_, ftrepr_t rtype _U_, int field_display _U_)
-{
-	return G_ASCII_DTOSTR_BUF_SIZE;
-}
-
-static void
-double_val_to_repr(fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_, char *buf, unsigned int size)
-{
-	g_ascii_formatd(buf, size, "%." G_STRINGIFY(DBL_DIG) "g", fv->value.floating);
-}
-
-static gboolean
-cmp_eq(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating == b->value.floating;
-}
-
-static gboolean
-cmp_ne(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating != b->value.floating;
-}
-
-static gboolean
-cmp_gt(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating > b->value.floating;
-}
-
-static gboolean
-cmp_ge(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating >= b->value.floating;
-}
-
-static gboolean
-cmp_lt(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating < b->value.floating;
-}
-
-static gboolean
-cmp_le(const fvalue_t *a, const fvalue_t *b)
-{
-	return a->value.floating <= b->value.floating;
+	if (a->value.floating < b->value.floating)
+		return -1;
+	if (a->value.floating > b->value.floating)
+		return 1;
+	return 0;
 }
 
 void
@@ -140,18 +108,13 @@ ftype_register_double(void)
 		NULL,				/* free_value */
 		val_from_unparsed,		/* val_from_unparsed */
 		NULL,				/* val_from_string */
+		NULL,				/* val_from_charconst */
 		float_val_to_repr,		/* val_to_string_repr */
-		float_val_repr_len,		/* len_string_repr */
 
 		{ .set_value_floating = double_fvalue_set_floating },		/* union set_value */
 		{ .get_value_floating = value_get_floating },	/* union get_value */
 
-		cmp_eq,
-		cmp_ne,
-		cmp_gt,
-		cmp_ge,
-		cmp_lt,
-		cmp_le,
+		cmp_order,
 		NULL,				/* cmp_bitwise_and */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
@@ -169,18 +132,13 @@ ftype_register_double(void)
 		NULL,				/* free_value */
 		val_from_unparsed,		/* val_from_unparsed */
 		NULL,				/* val_from_string */
+		NULL,				/* val_from_charconst */
 		double_val_to_repr,		/* val_to_string_repr */
-		double_val_repr_len,		/* len_string_repr */
 
 		{ .set_value_floating = double_fvalue_set_floating },		/* union set_value */
 		{ .get_value_floating = value_get_floating },	/* union get_value */
 
-		cmp_eq,
-		cmp_ne,
-		cmp_gt,
-		cmp_ge,
-		cmp_lt,
-		cmp_le,
+		cmp_order,
 		NULL,				/* cmp_bitwise_and */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */

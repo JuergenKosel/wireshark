@@ -141,6 +141,10 @@ static const value_string mpeg_descriptor_tag_vals[] = {
     /* From ATSC A/52 */
     { 0x81, "ATSC A/52 AC-3 Audio Descriptor" },
 
+    /* From Nordig Unified Requirements */
+    { 0x83, "NorDig Logical Channel Descriptor v1" },
+    { 0x87, "NorDig Logical Channel Descriptor v2" },
+
     /* From ETSI EN 301 790 */
     { 0xA0, "Network Layer Info Descriptor" },
     { 0xA1, "Correction Message Descriptor" },
@@ -237,7 +241,7 @@ static int hf_mpeg_descr_audio_stream_reserved = -1;
 
 static const value_string mpeg_descr_audio_stream_free_format_flag_vals[] = {
     { 0x00, "bitrate_index is not 0" },
-    { 0x01, "One more more audio frame has bitrate_index = 0" },
+    { 0x01, "One or more audio frame has bitrate_index = 0" },
 
     { 0x00, NULL }
 };
@@ -268,6 +272,205 @@ proto_mpeg_descriptor_dissect_audio_stream(tvbuff_t *tvb, guint offset, proto_tr
 }
 
 /* 0x05 Registration Descriptor */
+
+static const value_string mpeg_descr_registration_reg_form_vals[] = {
+    { 0x41432D33u, "AC-3 - Advanced Television Systems Committee" },
+    { 0x41444652u, "ADFR - SNPTV" },
+    { 0x414d434eu, "AMCN - AMC Networks Inc." },
+    { 0x41525253u, "ARRS - Arris Group, Inc." },
+    { 0x41563031u, "AV01 - Alliance for Open Media" },
+    { 0x41565341u, "AVSA - Audio Video Coding Standard Working Group of China" },
+    { 0x41565356u, "AVSV - Audio Video Coding Standard Working Group of China" },
+    { 0x42444330u, "BDC0 - Broadcast Data Corporation" },
+    { 0x42535344u, "BSSD - Society of Motion Picture and Television Engineers" },
+    { 0x4341504fu, "CAPO - SMPTE" },
+    { 0x43554549u, "CUEI - Society of Cable Telecommunications Engineers" },
+    { 0x44444544u, "DDED - LGEUS" },
+    { 0x44495343u, "DISC - DISCOVERY COMMUNICATIONS, LLC." },
+    { 0x44495348u, "DISH - EchoStar Communications Corporation" },
+    { 0x646d6174u, "dmat - Dolby Laboratories, Inc." },
+    { 0x44524131u, "DRA1 - Digital Rise" },
+    { 0x64726163u, "drac - British Broadcasting Corporation" },
+    { 0x44544731u, "DTG1 - Digital TV Group" },
+    { 0x44545331u, "DTS1 - DTS Inc." },
+    { 0x44545332u, "DTS2 - DTS Inc." },
+    { 0x44545333u, "DTS3 - DTS Inc." },
+    { 0x44545649u, "DTVI - DTV Innovations" },
+    { 0x44564446u, "DVDF - DVD Format/Logo Licensing Corporation" },
+    { 0x45414333u, "EAC3 - Dolby Laboratories, Inc." },
+    { 0x45425030u, "EBP0 - Cable Television Laboratories, Inc." },
+    { 0x45425031u, "EBP1 - Cable Television Laboratories, Inc." },
+    { 0x45425032u, "EBP2 - Cable Television Laboratories, Inc." },
+    { 0x45425033u, "EBP3 - Cable Television Laboratories, Inc." },
+    { 0x45425034u, "EBP4 - Cable Television Laboratories, Inc." },
+    { 0x45425035u, "EBP5 - Cable Television Laboratories, Inc." },
+    { 0x45425036u, "EBP6 - Cable Television Laboratories, Inc." },
+    { 0x45425037u, "EBP7 - Cable Television Laboratories, Inc." },
+    { 0x45425038u, "EBP8 - Cable Television Laboratories, Inc." },
+    { 0x45425039u, "EBP9 - Cable Television Laboratories, Inc." },
+    { 0x45545631u, "ETV1 - Cable Television Laboratories, Inc." },
+    { 0x464f5843u, "FOXC - FOX Corporation" },
+    { 0x47413934u, "GA94 - Advanced Television Systems Committee" },
+    { 0x47574b53u, "GWKS - GuideWorks" },
+    { 0x48444d56u, "HDMV - Sony Corporation" },
+    { 0x48444d58u, "HDMX - Matsushita Electric Industrial Co. Ltd" },
+    { 0x48445052u, "HDPR - Network Business Group" },
+    { 0x484c4954u, "HLIT - Harmonic Inc." },
+    { 0x49443320u, "ID3  - Organization Apple, Inc." },
+    { 0x4b4c5641u, "KLVA - Society of Motion Picture and Television Engineers" },
+    { 0x4c41534cu, "LASL - LaSalle Media LLC" },
+    { 0x4c495053u, "LIPS - Society of Motion Picture and Television Engineers" },
+    { 0x4c552d41u, "LU-A - Harris Corporation" },
+    { 0x6d6c7061u, "mlpa - Dolby Laboratories, Inc." },
+    { 0x4d54524du, "MTRM - Victor Company of Japan, Limited" },
+    { 0x4e424355u, "NBCU - NBC Universal" },
+    { 0x4e4d5231u, "NMR1 - Nielsen Media Research" },
+    { 0x4e504f31u, "NPO1 - Nederlandse Publieke Omroep (NPO, Dutch Public Broadcasting)" },
+    { 0x4e575456u, "NWTV - Digital TV Information Research Group" },
+    { 0x4f4d5643u, "OMVC - Open Mobile Video Coalition (OMVC)" },
+    { 0x4f707573u, "Opus - Mozilla" },
+    { 0x50415558u, "PAUX - Philips DVS" },
+    { 0x504d5346u, "PMSF - Sony Corporation" },
+    { 0x50524d43u, "PRMC - Philips DVS" },
+    { 0x50585341u, "PXSA - Proximus" },
+    { 0x52544c4eu, "RTLN - RTL Nederland" },
+    { 0x53425342u, "SBSB - SBS Broadcasting" },
+    { 0x53435445u, "SCTE - Society of Cable Telecommunications Engineers" },
+    { 0x53454e31u, "SEN1 - Sencore" },
+    { 0x53455346u, "SESF - Sony Corporation" },
+    { 0x534f5049u, "SOPI - Sony Corporation" },
+    { 0x53504c43u, "SPLC - Society of Motion Picture and Television Engineers" },
+    { 0x53564d44u, "SVMD - Society of Motion Picture and Television Engineers" },
+    { 0x53594e43u, "SYNC - Syncbak, Inc." },
+    { 0x535a4d49u, "SZMI - Building B, Inc" },
+    { 0x54524956u, "TRIV - Triveni Digital" },
+    { 0x54534256u, "TSBV - Toshiba Corporation Digital Media Network Company" },
+    { 0x54534856u, "TSHV - Sony Corporation" },
+    { 0x54534d56u, "TSMV - Sony Corporation" },
+    { 0x54544130u, "TTA0 - Telecommunication Technology Association(TTA)" },
+    { 0x54564731u, "TVG1 - Rovi Corporation" },
+    { 0x54564732u, "TVG2 - Rovi Corporation" },
+    { 0x54564733u, "TVG3 - Rovi Corporation" },
+    { 0x554c4531u, "ULE1 - University of Aberdeen (on behalf of the Internet Engineering Task Force, IETF)" },
+    { 0x554c4930u, "ULI0 - Update Logic, Inc." },
+    { 0x56432d31u, "VC-1 - Society of Motion Picture and Television Engineers" },
+    { 0x56432d34u, "VC-4 - Society of Motion Picture and Television Engineers" },
+    { 0x564d4e55u, "VMNU - Viacom" },
+    { 0x584d505fu, "XMP_ - Adobe Systems" },
+
+    { 0x55533030u, "US00 - US Government Registration 00" },
+    { 0x55533031u, "US01 - US Government Registration 01" },
+    { 0x55533032u, "US02 - US Government Registration 02" },
+    { 0x55533033u, "US03 - US Government Registration 03" },
+    { 0x55533034u, "US04 - US Government Registration 04" },
+    { 0x55533035u, "US05 - US Government Registration 05" },
+    { 0x55533036u, "US06 - US Government Registration 06" },
+    { 0x55533037u, "US07 - US Government Registration 07" },
+    { 0x55533038u, "US08 - US Government Registration 08" },
+    { 0x55533039u, "US09 - US Government Registration 09" },
+
+    { 0x55533130u, "US10 - US Government Registration 10" },
+    { 0x55533131u, "US11 - US Government Registration 11" },
+    { 0x55533132u, "US12 - US Government Registration 12" },
+    { 0x55533133u, "US13 - US Government Registration 13" },
+    { 0x55533134u, "US14 - US Government Registration 14" },
+    { 0x55533135u, "US15 - US Government Registration 15" },
+    { 0x55533136u, "US16 - US Government Registration 16" },
+    { 0x55533137u, "US17 - US Government Registration 17" },
+    { 0x55533138u, "US18 - US Government Registration 18" },
+    { 0x55533139u, "US19 - US Government Registration 19" },
+
+    { 0x55533230u, "US20 - US Government Registration 20" },
+    { 0x55533231u, "US21 - US Government Registration 21" },
+    { 0x55533232u, "US22 - US Government Registration 22" },
+    { 0x55533233u, "US23 - US Government Registration 23" },
+    { 0x55533234u, "US24 - US Government Registration 24" },
+    { 0x55533235u, "US25 - US Government Registration 25" },
+    { 0x55533236u, "US26 - US Government Registration 26" },
+    { 0x55533237u, "US27 - US Government Registration 27" },
+    { 0x55533238u, "US28 - US Government Registration 28" },
+    { 0x55533239u, "US29 - US Government Registration 29" },
+
+    { 0x55533330u, "US30 - US Government Registration 30" },
+    { 0x55533331u, "US31 - US Government Registration 31" },
+    { 0x55533332u, "US32 - US Government Registration 32" },
+    { 0x55533333u, "US33 - US Government Registration 33" },
+    { 0x55533334u, "US34 - US Government Registration 34" },
+    { 0x55533335u, "US35 - US Government Registration 35" },
+    { 0x55533336u, "US36 - US Government Registration 36" },
+    { 0x55533337u, "US37 - US Government Registration 37" },
+    { 0x55533338u, "US38 - US Government Registration 38" },
+    { 0x55533339u, "US39 - US Government Registration 39" },
+
+    { 0x55533430u, "US40 - US Government Registration 40" },
+    { 0x55533431u, "US41 - US Government Registration 41" },
+    { 0x55533432u, "US42 - US Government Registration 42" },
+    { 0x55533433u, "US43 - US Government Registration 43" },
+    { 0x55533434u, "US44 - US Government Registration 44" },
+    { 0x55533435u, "US45 - US Government Registration 45" },
+    { 0x55533436u, "US46 - US Government Registration 46" },
+    { 0x55533437u, "US47 - US Government Registration 47" },
+    { 0x55533438u, "US48 - US Government Registration 48" },
+    { 0x55533439u, "US49 - US Government Registration 49" },
+
+    { 0x55533530u, "US50 - US Government Registration 50" },
+    { 0x55533531u, "US51 - US Government Registration 51" },
+    { 0x55533532u, "US52 - US Government Registration 52" },
+    { 0x55533533u, "US53 - US Government Registration 53" },
+    { 0x55533534u, "US54 - US Government Registration 54" },
+    { 0x55533535u, "US55 - US Government Registration 55" },
+    { 0x55533536u, "US56 - US Government Registration 56" },
+    { 0x55533537u, "US57 - US Government Registration 57" },
+    { 0x55533538u, "US58 - US Government Registration 58" },
+    { 0x55533539u, "US59 - US Government Registration 59" },
+
+    { 0x55533630u, "US60 - US Government Registration 60" },
+    { 0x55533631u, "US61 - US Government Registration 61" },
+    { 0x55533632u, "US62 - US Government Registration 62" },
+    { 0x55533633u, "US63 - US Government Registration 63" },
+    { 0x55533634u, "US64 - US Government Registration 64" },
+    { 0x55533635u, "US65 - US Government Registration 65" },
+    { 0x55533636u, "US66 - US Government Registration 66" },
+    { 0x55533637u, "US67 - US Government Registration 67" },
+    { 0x55533638u, "US68 - US Government Registration 68" },
+    { 0x55533639u, "US69 - US Government Registration 69" },
+
+    { 0x55533730u, "US70 - US Government Registration 70" },
+    { 0x55533731u, "US71 - US Government Registration 71" },
+    { 0x55533732u, "US72 - US Government Registration 72" },
+    { 0x55533733u, "US73 - US Government Registration 73" },
+    { 0x55533734u, "US74 - US Government Registration 74" },
+    { 0x55533735u, "US75 - US Government Registration 75" },
+    { 0x55533736u, "US76 - US Government Registration 76" },
+    { 0x55533737u, "US77 - US Government Registration 77" },
+    { 0x55533738u, "US78 - US Government Registration 78" },
+    { 0x55533739u, "US79 - US Government Registration 79" },
+
+    { 0x55533830u, "US80 - US Government Registration 80" },
+    { 0x55533831u, "US81 - US Government Registration 81" },
+    { 0x55533832u, "US82 - US Government Registration 82" },
+    { 0x55533833u, "US83 - US Government Registration 83" },
+    { 0x55533834u, "US84 - US Government Registration 84" },
+    { 0x55533835u, "US85 - US Government Registration 85" },
+    { 0x55533836u, "US86 - US Government Registration 86" },
+    { 0x55533837u, "US87 - US Government Registration 87" },
+    { 0x55533838u, "US88 - US Government Registration 88" },
+    { 0x55533839u, "US89 - US Government Registration 89" },
+
+    { 0x55533930u, "US90 - US Government Registration 90" },
+    { 0x55533931u, "US91 - US Government Registration 91" },
+    { 0x55533932u, "US92 - US Government Registration 92" },
+    { 0x55533933u, "US93 - US Government Registration 93" },
+    { 0x55533934u, "US94 - US Government Registration 94" },
+    { 0x55533935u, "US95 - US Government Registration 95" },
+    { 0x55533936u, "US96 - US Government Registration 96" },
+    { 0x55533937u, "US97 - US Government Registration 97" },
+    { 0x55533938u, "US98 - US Government Registration 98" },
+    { 0x55533939u, "US99 - US Government Registration 99" },
+
+    { 0x00, NULL }
+};
+
 static int hf_mpeg_descr_reg_form_id = -1;
 static int hf_mpeg_descr_reg_add_id_inf = -1;
 
@@ -601,12 +804,17 @@ proto_mpeg_descriptor_dissect_avc_vid(tvbuff_t *tvb, guint offset, proto_tree *t
 }
 
 /* 0x40 Network Name Descriptor */
+static int hf_mpeg_descr_network_name_encoding = -1;
 static int hf_mpeg_descr_network_name_descriptor = -1;
 
 static void
 proto_mpeg_descriptor_dissect_network_name(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
 {
-    proto_tree_add_item(tree, hf_mpeg_descr_network_name_descriptor, tvb, offset, len, ENC_ASCII|ENC_NA);
+    dvb_encoding_e  encoding;
+    guint enc_len = dvb_analyze_string_charset(tvb, offset, len, &encoding);
+    dvb_add_chartbl(tree, hf_mpeg_descr_network_name_encoding, tvb, offset, enc_len, encoding);
+
+    proto_tree_add_item(tree, hf_mpeg_descr_network_name_descriptor, tvb, offset+enc_len, len-enc_len, dvb_enc_to_item_enc(encoding));
 }
 
 /* 0x41 Service List Descriptor */
@@ -934,12 +1142,17 @@ proto_mpeg_descriptor_dissect_vbi_data(tvbuff_t *tvb, guint offset, guint len, p
 }
 
 /* 0x47 Bouquet Name Descriptor */
+static int hf_mpeg_descr_bouquet_name_encoding = -1;
 static int hf_mpeg_descr_bouquet_name = -1;
 
 static void
 proto_mpeg_descriptor_dissect_bouquet_name(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
 {
-    proto_tree_add_item(tree, hf_mpeg_descr_bouquet_name, tvb, offset, len, ENC_ASCII|ENC_NA);
+    dvb_encoding_e  encoding;
+    guint enc_len = dvb_analyze_string_charset(tvb, offset, len, &encoding);
+    dvb_add_chartbl(tree, hf_mpeg_descr_bouquet_name_encoding, tvb, offset, enc_len, encoding);
+
+    proto_tree_add_item(tree, hf_mpeg_descr_bouquet_name, tvb, offset+enc_len, len-enc_len, dvb_enc_to_item_enc(encoding));
 }
 
 /* 0x48 Service Descriptor */
@@ -971,12 +1184,18 @@ static const value_string mpeg_descr_service_type_vals[] = {
     { 0x0F, "RCS FLS (see EN 301 790)" },
     { 0x10, "DVB MHP service" },
     { 0x11, "MPEG-2 HD digital television service" },
-    { 0x16, "advanced codec SD digital television service" },
-    { 0x17, "advanced codec SD NVOD time-shifted service" },
-    { 0x18, "advanced codec SD NVOD reference service" },
-    { 0x19, "advanced codec HD digital television service" },
-    { 0x1A, "advanced codec HD NVOD time-shifted service" },
+    { 0x16, "H.264/AVC SD digital television service" },
+    { 0x17, "H.264/AVC SD NVOD time-shifted service" },
+    { 0x18, "H.264/AVC SD NVOD reference service" },
+    { 0x19, "H.264/AVC HD digital television service" },
+    { 0x1A, "H.264/AVC HD NVOD time-shifted service" },
+    { 0x1B, "H.264/AVC NVOD reference service" },
+    { 0x1C, "H.264/AVC frame compatible plano-stereoscopic HD digital television service" },
+    { 0x1D, "H.264/AVC rame compatible plano-stereoscopic HD NVOD time-shifted service" },
+    { 0x1E, "H.264/AVC frame compatible plano-stereoscopic HD NVOD reference service" },
     { 0x1F, "HEVC digital television service" },
+    { 0x20, "HEVC UHD DTV service with either: a resolution up to 3840x2160, HDR and/or a frame rate of 100 Hz, \
+120000/1001Hz, or 120 Hz; or a resolution greater than 3840x2160, SDR or HDR, up to 60Hz." },
 
     { 0x00, NULL }
 };
@@ -1309,17 +1528,46 @@ proto_mpeg_descriptor_dissect_extended_event(tvbuff_t *tvb, guint offset, proto_
 }
 
 /* 0x50 Component Descriptor */
-static int hf_mpeg_descr_component_reserved = -1;
+static int hf_mpeg_descr_component_stream_content_ext = -1;
 static int hf_mpeg_descr_component_stream_content = -1;
 static int hf_mpeg_descr_component_type = -1;
 static int hf_mpeg_descr_component_content_type = -1;
 static int hf_mpeg_descr_component_tag = -1;
 static int hf_mpeg_descr_component_lang_code = -1;
+static int hf_mpeg_descr_component_text_encoding = -1;
 static int hf_mpeg_descr_component_text = -1;
 
-#define MPEG_DESCR_COMPONENT_RESERVED_MASK      0xF0
+static int hf_mpeg_descr_component_high_stream_content_ext = -1;
+static int hf_mpeg_descr_component_high_stream_content = -1;
+static int hf_mpeg_descr_component_high_stream_content_both = -1;
+static int hf_mpeg_descr_component_high_component_type = -1;
+static int hf_mpeg_descr_component_high_stream_content_n_component_type = -1;
+
+static int hf_mpeg_descr_component_nga_bits_b7_reserved = -1;
+static int hf_mpeg_descr_component_nga_bits_b6_headphones = -1;
+static int hf_mpeg_descr_component_nga_bits_b5_interactivity = -1;
+static int hf_mpeg_descr_component_nga_bits_b4_dialogue_enhancement = -1;
+static int hf_mpeg_descr_component_nga_bits_b3_spoken_subtitles = -1;
+static int hf_mpeg_descr_component_nga_bits_b2_audio_description = -1;
+static int hf_mpeg_descr_component_nga_bits_b10_channel_layout = -1;
+
+#define MPEG_DESCR_COMPONENT_STREAM_CONTENT_EXT_MASK      0xF0
 #define MPEG_DESCR_COMPONENT_STREAM_CONTENT_MASK    0x0F
 #define MPEG_DESCR_COMPONENT_CONTENT_TYPE_MASK      0x0FFF
+
+#define MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_EXT_MASK       0xF000
+#define MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_MASK           0x0F00
+#define MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_BOTH_MASK      0xFF00
+#define MPEG_DESCR_COMPONENT_HIGH_COMPONENT_TYPE_MASK           0x00FF
+#define MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_N_COMPONENT_TYPE_MASK      0xFFFF
+
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B7_MASK    0x0080
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B6_MASK    0x0040
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B5_MASK    0x0020
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B4_MASK    0x0010
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B3_MASK    0x0008
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B2_MASK    0x0004
+#define MPEG_DESCR_COMPONENT_NGA_BITS_B10_MASK   0x0003
 
 static gint ett_mpeg_descriptor_component_content_type = -1;
 
@@ -1332,7 +1580,25 @@ static const value_string mpeg_descr_component_stream_content_vals[] = {
     { 0x05, "Video (H.264/AVC)" },
     { 0x06, "Audio (HE-AAC)" },
     { 0x07, "Audio (DTS)" },
-    { 0x09, "HEVC" },
+
+    { 0x0, NULL }
+};
+
+static const value_string mpeg_descr_component_high_stream_content_vals[] = {
+    { 0x09, "Video (HEVC)"},
+    { 0x19, "Audio (AC-4/DTS-UHD)"},
+    { 0x29, "TTML subtitles"},
+    { 0xEB, "NGA flags"},
+    { 0xFB, "Component tag based combination"},
+
+    { 0x0, NULL }
+};
+
+static const value_string mpeg_descr_component_preferred_reproduction_channel_layout_vals[] = {
+    { 0x00, "no preference" },
+    { 0x01, "stereo" },
+    { 0x02, "two-dimensional" },
+    { 0x03, "three-dimensional" },
 
     { 0x0, NULL }
 };
@@ -1373,14 +1639,24 @@ static const value_string mpeg_descr_component_content_type_vals[] = {
     { 0x0312, "DVB subtitles (normal) for display on 16:9 aspect ratio monitor" },
     { 0x0313, "DVB subtitles (normal) for display on 2.21:1 aspect ratio monitor" },
     { 0x0314, "DVB subtitles (normal) for display on a high definition monitor" },
+    { 0x0315, "DVB subtitles (normal) with plano-stereoscopic disparity for display on a high definition monitor" },
+    { 0x0316, "DVB subtitles (normal) for display on an ultra high definition monitor" },
     { 0x0320, "DVB subtitles (for the hard of hearing) with no monitor aspect ratio criticality" },
     { 0x0321, "DVB subtitles (for the hard of hearing) for display on 4:3 aspect ratio monitor" },
     { 0x0322, "DVB subtitles (for the hard of hearing) for display on 16:9 aspect ratio monitor" },
     { 0x0323, "DVB subtitles (for the hard of hearing) for display on 2.21:1 aspect ratio monitor" },
     { 0x0324, "DVB subtitles (for the hard of hearing) for display on a high definition monitor" },
+    { 0x0325, "DVB subtitles (for the hard of hearing) with plano-stereoscopic disparity for display on a high definition monitor" },
+    { 0x0326, "DVB subtitles (for the hard of hearing) for display on an ultra high definition monitor" },
     { 0x0330, "Open (in-vision) sign language interpretation for the deaf" },
     { 0x0331, "Closed sign language interpretation for the deaf" },
     { 0x0340, "video up-sampled from standard definition source material" },
+    { 0x0341, "Video is standard dynamic range (SDR)" },
+    { 0x0342, "Video is high dynamic range (HDR) remapped from standard dynamic range (SDR) source material" },
+    { 0x0343, "Video is high dynamic range (HDR) up-converted from standard dynamic range (SDR) source material" },
+    { 0x0344, "Video is standard frame rate, less than or equal to 60 Hz" },
+    { 0x0345, "High frame rate video generated from lower frame rate source material" },
+    { 0x0380, "dependent SAOC-DE data stream" },
     { 0x0501, "H.264/AVC standard definition video, 4:3 aspect ratio, 25 Hz" },
     { 0x0503, "H.264/AVC standard definition video, 16:9 aspect ratio, 25 Hz" },
     { 0x0504, "H.264/AVC standard definition video, > 16:9 aspect ratio, 25 Hz" },
@@ -1391,6 +1667,11 @@ static const value_string mpeg_descr_component_content_type_vals[] = {
     { 0x050C, "H.264/AVC high definition video, > 16:9 aspect ratio, 25 Hz" },
     { 0x050F, "H.264/AVC high definition video, 16:9 aspect ratio, 30 Hz" },
     { 0x0510, "H.264/AVC high definition video, > 16:9 aspect ratio, 30 Hz" },
+    { 0x0580, "H.264/AVC plano-stereoscopic frame compatible high definition video, 16:9 aspect ratio, 25 Hz, Side-by-Side" },
+    { 0x0581, "H.264/AVC plano-stereoscopic frame compatible high definition video, 16:9 aspect ratio, 25 Hz, Top-and-Bottom" },
+    { 0x0582, "H.264/AVC plano-stereoscopic frame compatible high definition video, 16:9 aspect ratio, 30 Hz, Side-by-Side" },
+    { 0x0583, "H.264/AVC stereoscopic frame compatible high definition video, 16:9 aspect ratio, 30 Hz, Top-and-Bottom" },
+    { 0x0584, "H.264/MVC dependent view, plano-stereoscopic service compatible video" },
     { 0x0601, "HE-AAC audio, single mono channel" },
     { 0x0603, "HE-AAC audio, stereo" },
     { 0x0605, "HE-AAC audio, surround sound" },
@@ -1405,16 +1686,75 @@ static const value_string mpeg_descr_component_content_type_vals[] = {
     { 0x0648, "HE-AAC broadcaster mix audio description for the visually impaired" },
     { 0x0649, "HE-AAC v2 receiver mix audio description for the visually impaired" },
     { 0x064A, "HE-AAC v2 broadcaster mix audio description for the visually impaired" },
+    { 0x06A0, "HE-AAC, or HE-AAC v2 with SAOC-DE ancillary data" },
     { 0x0801, "DVB SRM data" },
-    { 0x0900, "HEVC Main Profile high definition video, 50 Hz" },
-    { 0x0901, "HEVC Main 10 Profile high definition video, 50 Hz" },
-    { 0x0902, "HEVC Main Profile high definition video, 60 Hz" },
-    { 0x0903, "HEVC Main 10 Profile high definition video, 60 Hz" },
-    { 0x0904, "HEVC ultra high definition video" },
 
     { 0x0, NULL }
 };
 static value_string_ext mpeg_descr_component_content_type_vals_ext = VALUE_STRING_EXT_INIT(mpeg_descr_component_content_type_vals);
+
+static const value_string mpeg_descr_component_high_content_type_vals[] = {
+
+    { 0x0900, "HEVC Main Profile high definition video, 50 Hz" },
+    { 0x0901, "HEVC Main 10 Profile high definition video, 50 Hz" },
+    { 0x0902, "HEVC Main Profile high definition video, 60 Hz" },
+    { 0x0903, "HEVC Main 10 Profile high definition video, 60 Hz" },
+    { 0x0904, "HEVC UHD up to 3840x2160 (SDR up to 3840x2160@60Hz, SDR HFR dual PID with tmp. scal-ty \
+up to 3840x2160, HDR with HLG10 up to 3840x2160@60Hz, HDR with HLG10 HFR dual PID and tmp. scal-ty \
+up to 3840x2160)" },
+    { 0x0905, "HEVC UHD PQ10 HDR up to 60Hz (HDR PQ10 up to 3840x2160@60Hz) or HEVC UHD PQ10 HDR 100Hz/\
+(120000/1001)Hz/120Hz with a half frame rate HEVC tmp. video sub-bit-stream (HDR PQ10 HFR dual PID \
+and tmp. scal-ty up to 3840x2160)" },
+    { 0x0906, "HEVC UHD video up to 3840x2160@100Hz/(120000/1001)Hz/120Hz w/o a half frame rate HEVC tmp. \
+video sub-bit-stream (SDR HFR single PID up to 3840x2160, HDR with HLG10 HFR single PID up to 3840x2160)" },
+    { 0x0907, "HEVC UHD PQ10 HDR, 100Hz/(120000/1001)Hz/120Hz without a half frame rate HEVC tmp. \
+video sub-bit-stream (HDR with PQ10 HFR single PID resolution up to 3840x2160)" },
+    { 0x0908, "HEVC UHD video up to 7680x4320 (SDR up to 7680x4320@60Hz, HDR with PQ10 up to 7680x4320@60Hz, \
+HDR with HLG10 up to 7680x4320@60Hz)" },
+    { 0x1900, "AC-4 main audio, mono" },
+    { 0x1901, "AC-4 main audio, mono, dialogue enhancement enabled" },
+    { 0x1902, "AC-4 main audio, stereo" },
+    { 0x1903, "AC-4 main audio, stereo, dialogue enhancement enabled" },
+    { 0x1904, "AC-4 main audio, multichannel" },
+    { 0x1905, "AC-4 main audio, multichannel, dialogue enhancement enabled" },
+    { 0x1906, "AC-4 broadcast-mix audio description, mono, for the visually impaired" },
+    { 0x1907, "AC-4 broadcast-mix audio description, mono, for the visually impaired, dialogue enhancement enabled" },
+    { 0x1908, "AC-4 broadcast-mix audio description, stereo, for the visually impaired" },
+    { 0x1909, "AC-4 broadcast-mix audio description, stereo, for the visually impaired, dialogue enhancement enabled" },
+    { 0x190A, "AC-4 broadcast-mix audio description, multichannel, for the visually impaired" },
+    { 0x190B, "AC-4 broadcast-mix audio description, multichannel, for the visually impaired, dialogue enhancement enabled" },
+    { 0x190C, "AC-4 receiver-mix audio description, mono, for the visually impaired" },
+    { 0x190D, "AC-4 receiver-mix audio description, stereo, for the visually impaired" },
+    { 0x190E, "AC-4 Part-2" },
+    { 0x190F, "MPEG-H Audio LC Profile" },
+    { 0x1910, "DTS-UHD main audio, mono" },
+    { 0x1911, "DTS-UHD main audio, mono, dialogue enhancement enabled" },
+    { 0x1912, "DTS-UHD main audio, stereo" },
+    { 0x1913, "DTS-UHD main audio, stereo, dialogue enhancement enabled" },
+    { 0x1914, "DTS-UHD main audio, multichannel" },
+    { 0x1915, "DTS-UHD main audio, multichannel, dialogue enhancement enabled" },
+    { 0x1916, "DTS-UHD broadcast-mix audio description, mono, for the visually impaired" },
+    { 0x1917, "DTS-UHD broadcast-mix audio description, mono, for the visually impaired, dialogue enhancement enabled" },
+    { 0x1918, "DTS-UHD broadcast-mix audio description, stereo, for the visually impaired" },
+    { 0x1919, "DTS-UHD broadcast-mix audio description, stereo, for the visually impaired, dialogue enhancement enabled" },
+    { 0x191A, "DTS-UHD broadcast-mix audio description, multichannel, for the visually impaired" },
+    { 0x191B, "DTS-UHD broadcast-mix audio description, multichannel, for the visually impaired, dialogue enhancement enabled" },
+    { 0x191C, "DTS-UHD receiver-mix audio description, mono, for the visually impaired" },
+    { 0x191D, "DTS-UHD receiver-mix audio description, stereo, for the visually impaired" },
+    { 0x191E, "DTS-UHD NGA Audio" },
+    { 0xFB00, "less than 16:9 aspect ratio" },
+    { 0xFB01, "16:9 aspect ratio" },
+    { 0xFB02, "greater than 16:9 aspect ratio" },
+    { 0xFB03, "plano-stereoscopic top and bottom (TaB) framepacking" },
+    { 0xFB04, "HLG10 HDR" },
+    { 0xFB05, "HEVC temporal video subset for a frame rate of 100 Hz, 120 000/1 001 Hz, or 120 Hz" },
+    { 0xFB06, "SMPTE ST 2094-10 DMI format as defined in clause 5.14.4.4.3.4.3 of ETSI TS 101 154" },
+    { 0xFB07, "SL-HDR2 DMI format as defined in clause 5.14.4.4.3.4.4 of ETSI TS 101 154" },
+    { 0xFB08, "SMPTE ST 2094-40 DMI format as defined in clause 5.14.4.4.3.4.5 of ETSI TS 101 154" },
+
+    { 0x0, NULL }
+};
+static value_string_ext mpeg_descr_component_high_content_type_vals_ext = VALUE_STRING_EXT_INIT(mpeg_descr_component_high_content_type_vals);
 
 static void
 proto_mpeg_descriptor_dissect_component(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
@@ -1422,8 +1762,40 @@ proto_mpeg_descriptor_dissect_component(tvbuff_t *tvb, guint offset, guint len, 
 
     proto_item *cti;
     proto_tree *content_type_tree;
+    guint end = offset + len;
 
-    proto_tree_add_item(tree, hf_mpeg_descr_component_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+    if (len < 6) {
+        return;
+    }
+
+    guint stream_content     = tvb_get_bits8(tvb, offset * 8 + 4, 4);
+
+    if (stream_content >= 0x09) {
+        guint stream_content_ext = tvb_get_bits8(tvb, offset * 8, 4);
+
+        cti = proto_tree_add_item(tree, hf_mpeg_descr_component_high_stream_content_n_component_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+        content_type_tree = proto_item_add_subtree(cti, ett_mpeg_descriptor_component_content_type);
+
+        proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_high_stream_content_both, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_high_stream_content_ext, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_high_stream_content, tvb, offset, 2, ENC_BIG_ENDIAN);
+
+        if (stream_content_ext == 0x0E && stream_content == 0x0B) {
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b7_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b6_headphones, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b5_interactivity, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b4_dialogue_enhancement, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b3_spoken_subtitles, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b2_audio_description, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_nga_bits_b10_channel_layout, tvb, offset, 2, ENC_BIG_ENDIAN);
+        } else {
+            proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_high_component_type, tvb, offset, 2, ENC_BIG_ENDIAN);
+        }
+        offset += 2;
+        goto mpeg_descr_component_tail;
+    }
+
+    proto_tree_add_item(tree, hf_mpeg_descr_component_stream_content_ext, tvb, offset, 1, ENC_BIG_ENDIAN);
 
     cti = proto_tree_add_item(tree, hf_mpeg_descr_component_content_type, tvb, offset, 2, ENC_BIG_ENDIAN);
     content_type_tree = proto_item_add_subtree(cti, ett_mpeg_descriptor_component_content_type);
@@ -1434,14 +1806,22 @@ proto_mpeg_descriptor_dissect_component(tvbuff_t *tvb, guint offset, guint len, 
     proto_tree_add_item(content_type_tree, hf_mpeg_descr_component_type, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
+mpeg_descr_component_tail:
+
     proto_tree_add_item(tree, hf_mpeg_descr_component_tag, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset += 1;
 
     proto_tree_add_item(tree, hf_mpeg_descr_component_lang_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
     offset += 3;
 
-    if (offset < len)
-        proto_tree_add_item(tree, hf_mpeg_descr_component_text, tvb, offset, len - offset, ENC_ASCII|ENC_NA);
+    if (offset < end)
+    {
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, end - offset, &encoding);
+        dvb_add_chartbl(tree, hf_mpeg_descr_component_text_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(tree, hf_mpeg_descr_component_text, tvb, offset+enc_len, end-offset-enc_len, dvb_enc_to_item_enc(encoding));
+    }
 }
 
 /* 0x52 Stream Identifier Descriptor */
@@ -1962,6 +2342,318 @@ proto_mpeg_descriptor_dissect_terrestrial_delivery(tvbuff_t *tvb, guint offset, 
 
 }
 
+/* 0x5B Multilingual Network Name Descriptor */
+static int hf_mpeg_descr_multilng_network_name_desc_iso639_language_code = -1;
+static int hf_mpeg_descr_multilng_network_name_desc_name_length = -1;
+static int hf_mpeg_descr_multilng_network_name_desc_name_encoding = -1;
+static int hf_mpeg_descr_multilng_network_name_desc_name = -1;
+
+static gint ett_mpeg_descriptor_multilng_network_name_desc_lng = -1;
+
+static guint
+proto_mpeg_descriptor_dissect_multilng_network_name_desc_measure_lng_len(tvbuff_t *tvb, guint offset, guint len)
+{
+    guint l_offset = offset;
+    guint cnt = len;
+
+    if (cnt < 3) return l_offset - offset;
+    cnt      -= 3;
+    l_offset += 3;
+
+    if (cnt < 1) return l_offset - offset;
+    guint network_name_length = tvb_get_guint8(tvb, l_offset);
+    cnt      -= 1;
+    l_offset += 1;
+
+    network_name_length = MIN(network_name_length, cnt);
+    l_offset += network_name_length;
+
+    return l_offset - offset;
+}
+
+static void
+proto_mpeg_descriptor_dissect_multilng_network_name_desc(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint cnt = len;
+
+    while (cnt > 0)
+    {
+        guint8 lng[4];
+        proto_tree * lng_tree;
+
+        if (cnt < 3) return;
+        guint lng_len = proto_mpeg_descriptor_dissect_multilng_network_name_desc_measure_lng_len(tvb, offset, cnt);
+        lng[0] = tvb_get_guint8(tvb, offset + 0);
+        lng[1] = tvb_get_guint8(tvb, offset + 1);
+        lng[2] = tvb_get_guint8(tvb, offset + 2);
+        lng[3] = 0;
+        lng_tree = proto_tree_add_subtree_format(tree, tvb, offset, lng_len,
+                    ett_mpeg_descriptor_multilng_network_name_desc_lng, NULL, "Language \"%s\"", lng);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_network_name_desc_iso639_language_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
+        offset += 3;
+        cnt    -= 3;
+
+        if (cnt < 1) return;
+        guint network_name_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_network_name_desc_name_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        network_name_length = MIN(network_name_length, cnt);
+        if (cnt < network_name_length) return;
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, network_name_length, &encoding);
+        dvb_add_chartbl(lng_tree, hf_mpeg_descr_multilng_network_name_desc_name_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_network_name_desc_name, tvb, offset+enc_len, network_name_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += network_name_length;
+        cnt    -= network_name_length;
+    }
+}
+
+/* 0x5C Multilingual Bouquet Name Descriptor */
+static int hf_mpeg_descr_multilng_bouquet_name_desc_iso639_language_code = -1;
+static int hf_mpeg_descr_multilng_bouquet_name_desc_name_length = -1;
+static int hf_mpeg_descr_multilng_bouquet_name_desc_name_encoding = -1;
+static int hf_mpeg_descr_multilng_bouquet_name_desc_name = -1;
+
+static gint ett_mpeg_descriptor_multilng_bouquet_name_desc_lng = -1;
+
+static guint
+proto_mpeg_descriptor_dissect_multilng_bouquet_name_desc_measure_lng_len(tvbuff_t *tvb, guint offset, guint len)
+{
+    guint l_offset = offset;
+    guint cnt = len;
+
+    if (cnt < 3) return l_offset - offset;
+    cnt      -= 3;
+    l_offset += 3;
+
+    if (cnt < 1) return l_offset - offset;
+    guint bouquet_name_length = tvb_get_guint8(tvb, l_offset);
+    cnt      -= 1;
+    l_offset += 1;
+
+    bouquet_name_length = MIN(bouquet_name_length, cnt);
+    l_offset += bouquet_name_length;
+
+    return l_offset - offset;
+}
+
+static void
+proto_mpeg_descriptor_dissect_multilng_bouquet_name_desc(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint cnt = len;
+
+    while (cnt > 0)
+    {
+        guint8 lng[4];
+        proto_tree * lng_tree;
+
+        if (cnt < 3) return;
+        guint lng_len = proto_mpeg_descriptor_dissect_multilng_bouquet_name_desc_measure_lng_len(tvb, offset, cnt);
+        lng[0] = tvb_get_guint8(tvb, offset + 0);
+        lng[1] = tvb_get_guint8(tvb, offset + 1);
+        lng[2] = tvb_get_guint8(tvb, offset + 2);
+        lng[3] = 0;
+        lng_tree = proto_tree_add_subtree_format(tree, tvb, offset, lng_len,
+                    ett_mpeg_descriptor_multilng_bouquet_name_desc_lng, NULL, "Language \"%s\"", lng);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_bouquet_name_desc_iso639_language_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
+        offset += 3;
+        cnt    -= 3;
+
+        if (cnt < 1) return;
+        guint bouquet_name_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_bouquet_name_desc_name_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        bouquet_name_length = MIN(bouquet_name_length, cnt);
+        if (cnt < bouquet_name_length) return;
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, bouquet_name_length, &encoding);
+        dvb_add_chartbl(lng_tree, hf_mpeg_descr_multilng_bouquet_name_desc_name_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_bouquet_name_desc_name, tvb, offset+enc_len, bouquet_name_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += bouquet_name_length;
+        cnt    -= bouquet_name_length;
+    }
+}
+
+/* 0x5D Multilingual Service Name Descriptor */
+static int hf_mpeg_descr_multilng_srv_name_desc_iso639_language_code = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_length = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_encoding = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_provider_name = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_name_length = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_name_encoding = -1;
+static int hf_mpeg_descr_multilng_srv_name_desc_service_name = -1;
+
+static gint ett_mpeg_descriptor_multilng_srv_name_desc_lng = -1;
+
+static guint
+proto_mpeg_descriptor_dissect_multilng_srv_name_desc_measure_lng_len(tvbuff_t *tvb, guint offset, guint len)
+{
+    guint l_offset = offset;
+    guint cnt = len;
+
+    if (cnt < 3) return l_offset - offset;
+    cnt      -= 3;
+    l_offset += 3;
+
+    if (cnt < 1) return l_offset - offset;
+    guint service_provider_name_length = tvb_get_guint8(tvb, l_offset);
+    cnt      -= 1;
+    l_offset += 1;
+
+    service_provider_name_length = MIN(service_provider_name_length, cnt);
+    cnt      -= service_provider_name_length;
+    l_offset += service_provider_name_length;
+
+    if (cnt < 1) return l_offset - offset;
+    guint service_name_length = tvb_get_guint8(tvb, l_offset);
+    cnt      -= 1;
+    l_offset += 1;
+
+    service_name_length = MIN(service_name_length, cnt);
+    l_offset += service_name_length;
+
+    return l_offset - offset;
+}
+
+static void
+proto_mpeg_descriptor_dissect_multilng_srv_name_desc(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint cnt = len;
+
+    while (cnt > 0)
+    {
+        guint8 lng[4];
+        proto_tree * lng_tree;
+
+        if (cnt < 3) return;
+        guint lng_len = proto_mpeg_descriptor_dissect_multilng_srv_name_desc_measure_lng_len(tvb, offset, cnt);
+        lng[0] = tvb_get_guint8(tvb, offset + 0);
+        lng[1] = tvb_get_guint8(tvb, offset + 1);
+        lng[2] = tvb_get_guint8(tvb, offset + 2);
+        lng[3] = 0;
+        lng_tree = proto_tree_add_subtree_format(tree, tvb, offset, lng_len,
+                    ett_mpeg_descriptor_multilng_srv_name_desc_lng, NULL, "Language \"%s\"", lng);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_iso639_language_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
+        offset += 3;
+        cnt    -= 3;
+
+        if (cnt < 1) return;
+        guint service_provider_name_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        service_provider_name_length = MIN(service_provider_name_length, cnt);
+        if (cnt < service_provider_name_length) return;
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, service_provider_name_length, &encoding);
+        dvb_add_chartbl(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_provider_name, tvb, offset+enc_len, service_provider_name_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += service_provider_name_length;
+        cnt    -= service_provider_name_length;
+
+        if (cnt < 1) return;
+        guint service_name_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_name_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        service_name_length = MIN(service_name_length, cnt);
+        if (cnt < service_name_length) return;
+        enc_len = dvb_analyze_string_charset(tvb, offset, service_name_length, &encoding);
+        dvb_add_chartbl(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_name_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_srv_name_desc_service_name, tvb, offset+enc_len, service_name_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += service_name_length;
+        cnt    -= service_name_length;
+    }
+}
+
+/* 0x5E Multilingual Component Descriptor */
+static int hf_mpeg_descr_multilng_component_desc_iso639_language_code = -1;
+static int hf_mpeg_descr_multilng_component_desc_tag = -1;
+static int hf_mpeg_descr_multilng_component_desc_text_length = -1;
+static int hf_mpeg_descr_multilng_component_desc_text_encoding = -1;
+static int hf_mpeg_descr_multilng_component_desc_text = -1;
+
+static gint ett_mpeg_descriptor_multilng_component_desc_lng = -1;
+
+static guint
+proto_mpeg_descriptor_dissect_multilng_component_desc_measure_lng_len(tvbuff_t *tvb, guint offset, guint len)
+{
+    guint l_offset = offset;
+    guint cnt = len;
+
+    if (cnt < 3) return l_offset - offset;
+    cnt      -= 3;
+    l_offset += 3;
+
+    if (cnt < 1) return l_offset - offset;
+    guint text_length = tvb_get_guint8(tvb, l_offset);
+    cnt      -= 1;
+    l_offset += 1;
+
+    text_length = MIN(text_length, cnt);
+    l_offset += text_length;
+
+    return l_offset - offset;
+}
+
+static void
+proto_mpeg_descriptor_dissect_multilng_component_desc(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint cnt = len;
+
+    if (cnt < 1) return;
+    proto_tree_add_item(tree, hf_mpeg_descr_multilng_component_desc_tag, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset += 1;
+    cnt    -= 1;
+
+    while (cnt > 0)
+    {
+        guint8 lng[4];
+        proto_tree * lng_tree;
+
+        if (cnt < 3) return;
+        guint lng_len = proto_mpeg_descriptor_dissect_multilng_component_desc_measure_lng_len(tvb, offset, cnt);
+        lng[0] = tvb_get_guint8(tvb, offset + 0);
+        lng[1] = tvb_get_guint8(tvb, offset + 1);
+        lng[2] = tvb_get_guint8(tvb, offset + 2);
+        lng[3] = 0;
+        lng_tree = proto_tree_add_subtree_format(tree, tvb, offset, lng_len,
+                    ett_mpeg_descriptor_multilng_component_desc_lng, NULL, "Language \"%s\"", lng);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_component_desc_iso639_language_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
+        offset += 3;
+        cnt    -= 3;
+
+        if (cnt < 1) return;
+        guint text_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_component_desc_text_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        text_length = MIN(text_length, cnt);
+        if (cnt < text_length) return;
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, text_length, &encoding);
+        dvb_add_chartbl(lng_tree, hf_mpeg_descr_multilng_component_desc_text_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(lng_tree, hf_mpeg_descr_multilng_component_desc_text, tvb, offset+enc_len, text_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += text_length;
+        cnt    -= text_length;
+    }
+}
 
 /* 0x5F Private Data Specifier */
 static int hf_mpeg_descr_private_data_specifier_id = -1;
@@ -1985,6 +2677,49 @@ static void
 proto_mpeg_descriptor_dissect_private_data_specifier(tvbuff_t *tvb, guint offset, proto_tree *tree)
 {
     proto_tree_add_item(tree, hf_mpeg_descr_private_data_specifier_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+}
+
+/* 0x63 Partial Transport Stream Descriptor */
+static int hf_mpeg_descr_partial_transport_stream_reserved_future_use1 = -1;
+static int hf_mpeg_descr_partial_transport_stream_peak_rate = -1;
+static int hf_mpeg_descr_partial_transport_stream_reserved_future_use2 = -1;
+static int hf_mpeg_descr_partial_transport_stream_minimum_overall_smoothing_rate = -1;
+static int hf_mpeg_descr_partial_transport_stream_reserved_future_use3 = -1;
+static int hf_mpeg_descr_partial_transport_stream_maximum_overall_smoothing_buffer = -1;
+
+#define PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE1_MASK   0xC00000
+#define PARTIAL_TRANSPORT_STREAM_DESCR_PEAK_RATE_MASK              0x3FFFFF
+#define PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE2_MASK   0xC00000
+#define PARTIAL_TRANSPORT_STREAM_DESCR_MINIMUM_SMOOTHING_RATE_MASK 0x3FFFFF
+#define PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE3_MASK     0xC000
+#define PARTIAL_TRANSPORT_STREAM_DESCR_MAXIMUM_SMOOTHING_BUFF_MASK   0x3FFF
+
+static void
+proto_mpeg_descriptor_dissect_partial_transport_stream(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint cnt = len;
+
+    if (cnt < 3) return;
+    proto_tree_add_item(tree, hf_mpeg_descr_partial_transport_stream_reserved_future_use1, tvb, offset, 3, ENC_BIG_ENDIAN);
+    guint rate = tvb_get_guint24(tvb, offset, ENC_NA) & PARTIAL_TRANSPORT_STREAM_DESCR_PEAK_RATE_MASK;
+    proto_tree_add_uint_bits_format_value(tree, hf_mpeg_descr_partial_transport_stream_peak_rate, tvb, (offset*8)+2,
+    22, rate, ENC_BIG_ENDIAN, "%u bits/s", rate*400);
+    offset += 3;
+    cnt    -= 3;
+
+    if (cnt < 3) return;
+    proto_tree_add_item(tree, hf_mpeg_descr_partial_transport_stream_reserved_future_use2, tvb, offset, 3, ENC_BIG_ENDIAN);
+    rate = tvb_get_guint24(tvb, offset, ENC_BIG_ENDIAN) & PARTIAL_TRANSPORT_STREAM_DESCR_MINIMUM_SMOOTHING_RATE_MASK;
+    proto_tree_add_uint_bits_format_value(tree, hf_mpeg_descr_partial_transport_stream_minimum_overall_smoothing_rate, tvb,
+    (offset*8)+2, 22, rate, ENC_BIG_ENDIAN, (rate==0x3FFFFFu)?"Underfined (0x3FFFFF)":"%u bits/s", rate*400u);
+    offset += 3;
+    cnt    -= 3;
+
+    if (cnt < 2) return;
+    proto_tree_add_item(tree, hf_mpeg_descr_partial_transport_stream_reserved_future_use3, tvb, offset, 2, ENC_BIG_ENDIAN);
+    guint buffer = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN) & PARTIAL_TRANSPORT_STREAM_DESCR_MAXIMUM_SMOOTHING_BUFF_MASK;
+    proto_tree_add_uint_bits_format_value(tree, hf_mpeg_descr_partial_transport_stream_maximum_overall_smoothing_buffer, tvb,
+    (offset*8)+2, 14, buffer, ENC_BIG_ENDIAN, (buffer==0x3FFFu)?"Underfined (0x3FFF)":"%u bytes", buffer);
 }
 
 /* 0x64 Data Broadcast Descriptor */
@@ -2594,6 +3329,163 @@ proto_mpeg_descriptor_dissect_ac3_system_a(tvbuff_t *tvb, guint offset, guint le
         proto_tree_add_item(tree, hf_mpeg_descr_ac3_additional_info, tvb, offset, end - offset, ENC_NA);
 }
 
+/* 0x83 NorDig Logical Channel Descriptor (version 1) */
+static int hf_mpeg_descr_nordig_lcd_v1_service_list_id = -1;
+static int hf_mpeg_descr_nordig_lcd_v1_service_list_visible_service_flag = -1;
+static int hf_mpeg_descr_nordig_lcd_v1_service_list_reserved = -1;
+static int hf_mpeg_descr_nordig_lcd_v1_service_list_logical_channel_number = -1;
+
+static gint ett_mpeg_descriptor_nordig_lcd_v1_service_list = -1;
+
+#define MPEG_DESCR_NORDIG_LCD_V1_VISIBLE_SERVICE_FLAG_MASK 0x8000
+#define MPEG_DESCR_NORDIG_LCD_V1_RESERVED_MASK             0x4000
+#define MPEG_DESCR_NORDIG_LCD_V1_LCN_MASK                  0x3fff
+
+static void
+proto_mpeg_descriptor_dissect_nordig_lcd_v1(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint   end    = offset + len;
+
+    if (len%4 != 0) {
+        return;
+    }
+
+    guint16 svc_id;
+    proto_tree * svc_tree;
+
+    while (offset < end) {
+        svc_id = tvb_get_ntohs(tvb, offset);
+
+        svc_tree = proto_tree_add_subtree_format(tree, tvb, offset, 3,
+                    ett_mpeg_descriptor_nordig_lcd_v1_service_list, NULL, "Service 0x%04x", svc_id);
+
+        proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v1_service_list_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+
+        proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v1_service_list_visible_service_flag, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v1_service_list_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v1_service_list_logical_channel_number, tvb, offset, 2, ENC_BIG_ENDIAN);
+        offset += 2;
+    }
+
+}
+
+/* 0x87 NorDig Logical Channel Descriptor (version 2) */
+static gint hf_mpeg_descr_nordig_lcd_v2_channel_list_id = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_channel_list_name_length = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_channel_list_name_encoding = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_channel_list_name = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_country_code = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_descriptor_length = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_service_id = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_visible_service_flag = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_reserved = -1;
+static gint hf_mpeg_descr_nordig_lcd_v2_logical_channel_number = -1;
+
+static gint ett_mpeg_descriptor_nordig_lcd_v2_channel_list_list = -1;
+static gint ett_mpeg_descriptor_nordig_lcd_v2_service_list = -1;
+
+#define MPEG_DESCR_NORDIG_LCD_V2_VISIBLE_SERVICE_FLAG_MASK 0x8000
+#define MPEG_DESCR_NORDIG_LCD_V2_RESERVED_MASK             0x7c00
+#define MPEG_DESCR_NORDIG_LCD_V2_LCN_MASK                  0x03ff
+
+static int
+proto_mpeg_descriptor_dissect_nordig_lcd_v2_measure_ch_list(tvbuff_t *tvb, guint offset, guint len)
+{
+    guint l_offset = offset;
+    if (len < 2) {
+        return len;
+    }
+    guint8 channel_list_name_length = tvb_get_guint8(tvb, l_offset + 1);
+    l_offset += 2 + channel_list_name_length + 4;
+    if (l_offset > offset + len) {
+        return len;
+    }
+    guint8 descriptor_len = tvb_get_guint8(tvb, l_offset - 1);
+    l_offset += descriptor_len;
+    if (l_offset > offset + len) {
+        return len;
+    } else {
+        return l_offset - offset;
+    }
+}
+
+static void
+proto_mpeg_descriptor_dissect_nordig_lcd_v2(tvbuff_t *tvb, guint offset, guint len, proto_tree *tree)
+{
+    guint   cnt    = len;
+    guint   end    = offset + len;
+
+    proto_tree * channel_list_tree;
+
+    while (cnt > 0) {
+        int ch_list_len = proto_mpeg_descriptor_dissect_nordig_lcd_v2_measure_ch_list(tvb, offset, end - offset);
+        guint8  channel_list_id;
+        guint8  channel_list_name_length;
+        guint8  descriptor_length;
+        if (cnt < 1) return;
+
+        channel_list_id = tvb_get_guint8(tvb, offset);
+        channel_list_tree = proto_tree_add_subtree_format(tree, tvb, offset, ch_list_len,
+                    ett_mpeg_descriptor_nordig_lcd_v2_channel_list_list, NULL, "Channel list 0x%02x", channel_list_id);
+        proto_tree_add_item(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_channel_list_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        if (cnt < 1) return;
+        channel_list_name_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_channel_list_name_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        channel_list_name_length = MIN(cnt, channel_list_name_length);
+        dvb_encoding_e  encoding;
+        guint enc_len = dvb_analyze_string_charset(tvb, offset, channel_list_name_length, &encoding);
+        dvb_add_chartbl(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_channel_list_name_encoding, tvb, offset, enc_len, encoding);
+
+        proto_tree_add_item(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_channel_list_name, tvb, offset+enc_len, channel_list_name_length-enc_len, dvb_enc_to_item_enc(encoding));
+        offset += channel_list_name_length;
+        cnt    -= channel_list_name_length;
+
+        if (cnt < 3) return;
+        proto_tree_add_item(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_country_code, tvb, offset, 3, ENC_ASCII|ENC_NA);
+        offset += 3;
+        cnt    -= 3;
+
+        if (cnt < 1) return;
+        descriptor_length = tvb_get_guint8(tvb, offset);
+        proto_tree_add_item(channel_list_tree, hf_mpeg_descr_nordig_lcd_v2_descriptor_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        offset += 1;
+        cnt    -= 1;
+
+        descriptor_length = MIN(descriptor_length, cnt);
+        while (descriptor_length > 0) {
+            guint16 svc_id;
+            proto_tree * svc_tree;
+
+            if (cnt < 2) return;
+            svc_id = tvb_get_ntohs(tvb, offset);
+
+            svc_tree = proto_tree_add_subtree_format(channel_list_tree, tvb, offset, 4,
+                        ett_mpeg_descriptor_nordig_lcd_v2_service_list, NULL, "Service 0x%04x", svc_id);
+
+            proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v2_service_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
+            cnt    -= 2;
+            descriptor_length -= 2;
+
+            if (cnt < 2) return;
+            proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v2_visible_service_flag, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v2_reserved, tvb, offset, 2, ENC_BIG_ENDIAN);
+            proto_tree_add_item(svc_tree, hf_mpeg_descr_nordig_lcd_v2_logical_channel_number, tvb, offset, 2, ENC_BIG_ENDIAN);
+            offset += 2;
+            cnt    -= 2;
+            descriptor_length -= 2;
+        }
+
+    }
+}
+
 /* 0xA2 Logon Initialize Descriptor */
 static int hf_mpeg_descr_logon_initialize_group_id = -1;
 static int hf_mpeg_descr_logon_initialize_logon_id = -1;
@@ -3021,8 +3913,23 @@ proto_mpeg_descriptor_dissect(tvbuff_t *tvb, guint offset, proto_tree *tree)
         case 0x5A: /* Terrestrial Delivery System Descriptor */
             proto_mpeg_descriptor_dissect_terrestrial_delivery(tvb, offset, descriptor_tree);
             break;
+        case 0x5B: /* Multilingual Network Name Descriptor */
+            proto_mpeg_descriptor_dissect_multilng_network_name_desc(tvb, offset, len, descriptor_tree);
+            break;
+        case 0x5C: /* Multilingual Bouquet Name Descriptor */
+            proto_mpeg_descriptor_dissect_multilng_bouquet_name_desc(tvb, offset, len, descriptor_tree);
+            break;
+        case 0x5D: /* Multilingual Service Name Descriptor */
+            proto_mpeg_descriptor_dissect_multilng_srv_name_desc(tvb, offset, len, descriptor_tree);
+            break;
+        case 0x5E: /* Multilingual Component Descriptor */
+            proto_mpeg_descriptor_dissect_multilng_component_desc(tvb, offset, len, descriptor_tree);
+            break;
         case 0x5F: /* Private Data Specifier Descriptor */
             proto_mpeg_descriptor_dissect_private_data_specifier(tvb, offset, descriptor_tree);
+            break;
+        case 0x63: /* Partial Transport Stream Descriptor */
+            proto_mpeg_descriptor_dissect_partial_transport_stream(tvb, offset, len, descriptor_tree);
             break;
         case 0x64: /* Data Broadcast Descriptor */
             proto_mpeg_descriptor_dissect_data_bcast(tvb, offset, descriptor_tree);
@@ -3047,6 +3954,12 @@ proto_mpeg_descriptor_dissect(tvbuff_t *tvb, guint offset, proto_tree *tree)
             break;
         case 0x81: /* ATSC A/52 AC-3 Audio Descriptor */
             proto_mpeg_descriptor_dissect_ac3_system_a(tvb, offset, len, descriptor_tree);
+            break;
+        case 0x83: /* NorDig Logical Channel Descriptor (version 1) */
+            proto_mpeg_descriptor_dissect_nordig_lcd_v1(tvb, offset, len, descriptor_tree);
+            break;
+        case 0x87: /* NorDig Logical Channel Descriptor (version 2) */
+            proto_mpeg_descriptor_dissect_nordig_lcd_v2(tvb, offset, len, descriptor_tree);
             break;
         case 0xA2: /* Logon Initialize Descriptor */
             proto_mpeg_descriptor_dissect_logon_initialize(tvb, offset, len, descriptor_tree);
@@ -3211,7 +4124,7 @@ proto_register_mpeg_descriptor(void)
         /* 0x05 Registration Descriptor */
         { &hf_mpeg_descr_reg_form_id, {
             "Format identifier", "mpeg_descr.registration.format_identifier",
-            FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL
+            FT_UINT32, BASE_HEX, VALS(mpeg_descr_registration_reg_form_vals), 0, NULL, HFILL
         } },
 
         { &hf_mpeg_descr_reg_add_id_inf, {
@@ -3470,6 +4383,11 @@ proto_register_mpeg_descriptor(void)
         } },
 
         /* 0x40 Network Name Descriptor */
+        { &hf_mpeg_descr_network_name_encoding, {
+            "Network Name Encoding", "mpeg_descr.net_name.name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
         { &hf_mpeg_descr_network_name_descriptor, {
             "Network Name", "mpeg_descr.net_name.name",
             FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
@@ -3615,8 +4533,13 @@ proto_register_mpeg_descriptor(void)
         } },
 
         /* 0x47 Bouquet Name Descriptor */
+        { &hf_mpeg_descr_bouquet_name_encoding, {
+            "Bouquet Name Encoding", "mpeg_descr.bouquet_name.name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
         { &hf_mpeg_descr_bouquet_name, {
-            "Bouquet Name Descriptor", "mpeg_descr.bouquet_name.name",
+            "Bouquet Name", "mpeg_descr.bouquet_name.name",
             FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
@@ -3638,7 +4561,7 @@ proto_register_mpeg_descriptor(void)
 
         { &hf_mpeg_descr_service_provider, {
             "Service Provider Name", "mpeg_descr.svc.provider_name",
-            FT_STRING, STR_UNICODE, NULL, 0, NULL, HFILL
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         { &hf_mpeg_descr_service_name_length, {
@@ -3653,7 +4576,7 @@ proto_register_mpeg_descriptor(void)
 
         { &hf_mpeg_descr_service_name, {
             "Service Name", "mpeg_descr.svc.svc_name",
-            FT_STRING, STR_UNICODE, NULL, 0, NULL, HFILL
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         /* 0x4A Linkage Descriptor */
@@ -3772,7 +4695,7 @@ proto_register_mpeg_descriptor(void)
 
         { &hf_mpeg_descr_short_event_name, {
             "Event Name", "mpeg_descr.short_evt.name",
-            FT_STRING, STR_UNICODE, NULL, 0, NULL, HFILL
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         { &hf_mpeg_descr_short_event_text_length, {
@@ -3787,7 +4710,7 @@ proto_register_mpeg_descriptor(void)
 
         { &hf_mpeg_descr_short_event_text, {
             "Event Text", "mpeg_descr.short_evt.txt",
-            FT_STRING, STR_UNICODE, NULL, 0, NULL, HFILL
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         /* 0x4E Extended Event Descriptor */
@@ -3843,13 +4766,83 @@ proto_register_mpeg_descriptor(void)
 
         { &hf_mpeg_descr_extended_event_text, {
             "Text", "mpeg_descr.ext_evt.txt",
-            FT_STRING, STR_UNICODE, NULL, 0, NULL, HFILL
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         /* 0x50 Component Descriptor */
-        { &hf_mpeg_descr_component_reserved, {
-            "Reserved", "mpeg_descr.component.reserved",
-            FT_UINT8, BASE_HEX, NULL, MPEG_DESCR_COMPONENT_RESERVED_MASK, NULL, HFILL
+        { &hf_mpeg_descr_component_nga_bits_b7_reserved, {
+            "Reserved zero for future use", "mpeg_descr.component.nga.reserved",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B7_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b6_headphones, {
+            "Pre-rendered for consumption with headphones", "mpeg_descr.component.nga.headphones",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B6_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b5_interactivity, {
+            "Enables interactivity", "mpeg_descr.component.nga.interactivity",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B5_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b4_dialogue_enhancement, {
+            "Enables dialogue enhancement", "mpeg_descr.component.nga.dialogue_enhancement",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B4_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b3_spoken_subtitles, {
+            "Contains spoken subtitles", "mpeg_descr.component.nga.spoken_subtitles",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B3_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b2_audio_description, {
+            "Contains audio description", "mpeg_descr.component.nga.audio_description",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_NGA_BITS_B2_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_nga_bits_b10_channel_layout, {
+            "Preferred reproduction channel layout", "mpeg_descr.component.nga.channel_layout",
+            FT_UINT16, BASE_HEX, VALS(mpeg_descr_component_preferred_reproduction_channel_layout_vals),
+            MPEG_DESCR_COMPONENT_NGA_BITS_B10_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_high_stream_content_n_component_type, {
+            "Stream Content and Component Type", "mpeg_descr.component.content_type",
+            FT_UINT16, BASE_HEX | BASE_EXT_STRING, &mpeg_descr_component_high_content_type_vals_ext,
+            MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_N_COMPONENT_TYPE_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_high_stream_content_both, {
+            "Stream Content both", "mpeg_descr.component.stream_content_both",
+            FT_UINT16, BASE_HEX, VALS(mpeg_descr_component_high_stream_content_vals),
+            MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_BOTH_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_high_stream_content_ext, {
+            "Stream Content Ext", "mpeg_descr.component.stream_content_ext",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_EXT_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_high_stream_content, {
+            "Stream Content", "mpeg_descr.component.stream_content",
+            FT_UINT16, BASE_HEX, NULL,
+            MPEG_DESCR_COMPONENT_HIGH_STREAM_CONTENT_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_high_component_type, {
+            "Component Type", "mpeg_descr.component.type",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_COMPONENT_HIGH_COMPONENT_TYPE_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_stream_content_ext, {
+            "Stream Content Ext", "mpeg_descr.component.stream_content_ext",
+            FT_UINT8, BASE_HEX, NULL, MPEG_DESCR_COMPONENT_STREAM_CONTENT_EXT_MASK, NULL, HFILL
         } },
 
         { &hf_mpeg_descr_component_stream_content, {
@@ -3877,6 +4870,11 @@ proto_register_mpeg_descriptor(void)
         { &hf_mpeg_descr_component_lang_code, {
             "Language Code", "mpeg_descr.component.lang_code",
             FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_component_text_encoding, {
+            "Text Encoding", "mpeg_descr.component.text_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
         } },
 
         { &hf_mpeg_descr_component_text, {
@@ -4091,11 +5089,146 @@ proto_register_mpeg_descriptor(void)
             FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL
         } },
 
+        /* 0x5B Multilingual Network Name Descriptor */
+        { &hf_mpeg_descr_multilng_network_name_desc_iso639_language_code, {
+            "Language ISO 639-2 Code", "mpeg_descr.net_name.lang_code",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_network_name_desc_name_length, {
+            "Network Name Length", "mpeg_descr.net_name.name_length",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_network_name_desc_name_encoding, {
+            "Network Name Encoding", "mpeg_descr.net_name.name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_network_name_desc_name, {
+            "Network Name", "mpeg_descr.net_name.name",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+
+        /* 0x5C Multilingual Bouquet Name Descriptor */
+        { &hf_mpeg_descr_multilng_bouquet_name_desc_iso639_language_code, {
+            "Language ISO 639-2 Code", "mpeg_descr.bouquet_name.lang_code",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_bouquet_name_desc_name_length, {
+            "Bouquet Name Length", "mpeg_descr.bouquet_name.name_length",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_bouquet_name_desc_name_encoding, {
+            "Bouquet Name Encoding", "mpeg_descr.bouquet_name.name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_bouquet_name_desc_name, {
+            "Bouquet Name", "mpeg_descr.bouquet_name.name",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        /* 0x5D Multilingual Service Name Descriptor */
+        { &hf_mpeg_descr_multilng_srv_name_desc_iso639_language_code, {
+            "Language ISO 639-2 Code", "mpeg_descr.svc.lang_code",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_length, {
+            "Service Provider Name Length", "mpeg_descr.svc.provider_name_len",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_provider_name_encoding, {
+            "Service Provider Name Encoding", "mpeg_descr.svc.provider_name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_provider_name, {
+            "Service Provider Name", "mpeg_descr.svc.provider_name",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_name_length, {
+            "Service Name Length", "mpeg_descr.svc.svc_name_len",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_name_encoding, {
+            "Service Name Encoding", "mpeg_descr.svc.svn_name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_srv_name_desc_service_name, {
+            "Service Name", "mpeg_descr.svc.svc_name",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        /* 0x5E Multilingual Component Descriptor */
+        { &hf_mpeg_descr_multilng_component_desc_tag, {
+            "Component Tag", "mpeg_descr.component.tag",
+            FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_component_desc_iso639_language_code, {
+            "Language ISO 639-2 Code", "mpeg_descr.component.lang_code",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_component_desc_text_length, {
+            "Text Length", "mpeg_descr.component.text_length",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_component_desc_text_encoding, {
+            "Text Encoding", "mpeg_descr.component.text_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_multilng_component_desc_text, {
+            "Text", "mpeg_descr.component.text",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
 
         /* 0x5F Private Data Specifier */
         { &hf_mpeg_descr_private_data_specifier_id, {
             "Private Data Specifier", "mpeg_descr.private_data_specifier.id",
             FT_UINT32, BASE_HEX, VALS(mpeg_descr_data_specifier_id_vals), 0, NULL, HFILL
+        } },
+
+        /* 0x63 Partial Transport Stream Descriptor */
+        { &hf_mpeg_descr_partial_transport_stream_reserved_future_use1, {
+            "Reserved", "mpeg_descr.partial_transport_stream.reserved_future_use1",
+            FT_UINT24, BASE_HEX, NULL, PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE1_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_partial_transport_stream_peak_rate, {
+            "Peak Rate", "mpeg_descr.partial_transport_stream.peak_rate",
+            FT_UINT24, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_partial_transport_stream_reserved_future_use2, {
+            "Reserved", "mpeg_descr.partial_transport_stream.reserved_future_use2",
+            FT_UINT24, BASE_HEX, NULL, PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE2_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_partial_transport_stream_minimum_overall_smoothing_rate, {
+            "Minimum Overall Smoothing Rate", "mpeg_descr.partial_transport_stream.minimum_overall_smoothing_rate",
+            FT_UINT24, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_partial_transport_stream_reserved_future_use3, {
+            "Reserved", "mpeg_descr.partial_transport_stream.reserved_future_use3",
+            FT_UINT16, BASE_HEX, NULL, PARTIAL_TRANSPORT_STREAM_DESCR_RESERVED_FUTURE_USE3_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_partial_transport_stream_maximum_overall_smoothing_buffer, {
+            "Maximum Overall Smoothing Buffer", "mpeg_descr.partial_transport_stream.maximum_overall_smoothing_buffer",
+            FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL
         } },
 
         /* 0x64 Data Broadcast Descriptor */
@@ -4407,6 +5540,78 @@ proto_register_mpeg_descriptor(void)
             FT_STRING, BASE_NONE, NULL,  0, NULL, HFILL
         } },
 
+        /* 0x83 NorDig Logical Channel Descriptor (version 1) */
+        { &hf_mpeg_descr_nordig_lcd_v1_service_list_id, {
+            "Service ID", "mpeg_descr.nordig.lcd.svc_list.id",
+            FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v1_service_list_visible_service_flag, {
+            "Visible", "mpeg_descr.nordig.lcd.svc_list.visible",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V1_VISIBLE_SERVICE_FLAG_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v1_service_list_reserved, {
+            "Reserved", "mpeg_descr.nordig.lcd.svc_list.reserved",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V1_RESERVED_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v1_service_list_logical_channel_number, {
+            "Logical Channel Number", "mpeg_descr.nordig.lcd.svc_list.lcn",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V1_LCN_MASK, NULL, HFILL
+        } },
+
+        /* 0x87 NorDig Logical Channel Descriptor (version 2) */
+        { &hf_mpeg_descr_nordig_lcd_v2_channel_list_id, {
+            "Channel List ID", "mpeg_descr.nordig.lcd.ch_list.id",
+            FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_channel_list_name_length, {
+            "Channel List Name Length", "mpeg_descr.nordig.lcd.ch_list.name_length",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_channel_list_name_encoding, {
+            "Channel List Name Encoding", "mpeg_descr.nordig.lcd.ch_list.name_enc",
+            FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_channel_list_name, {
+            "Channel List Name", "mpeg_descr.nordig.lcd.ch_list.name",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_country_code, {
+            "Country Code", "mpeg_descr.nordig.lcd.country_code",
+            FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_descriptor_length, {
+            "Descriptor Length", "mpeg_descr.nordig.lcd.ch_list.descriptor_length",
+            FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_service_id, {
+            "Service ID", "mpeg_descr.nordig.lcd.svc_list.id",
+            FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_visible_service_flag, {
+            "Visible", "mpeg_descr.nordig.lcd.svc_list.visible",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V2_VISIBLE_SERVICE_FLAG_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_reserved, {
+            "Reserved", "mpeg_descr.nordig.lcd.svc_list.reserved",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V2_RESERVED_MASK, NULL, HFILL
+        } },
+
+        { &hf_mpeg_descr_nordig_lcd_v2_logical_channel_number, {
+            "Logical Channel Number", "mpeg_descr.nordig.lcd.svc_list.lcn",
+            FT_UINT16, BASE_HEX, NULL, MPEG_DESCR_NORDIG_LCD_V2_LCN_MASK, NULL, HFILL
+        } },
+
         /* 0xA2 Logon Initialize Descriptor */
         { &hf_mpeg_descr_logon_initialize_group_id, {
             "Group ID", "mpeg_descr.logon_init.group_id",
@@ -4647,9 +5852,16 @@ proto_register_mpeg_descriptor(void)
         &ett_mpeg_descriptor_extended_event_item,
         &ett_mpeg_descriptor_component_content_type,
         &ett_mpeg_descriptor_content_nibble,
+        &ett_mpeg_descriptor_multilng_network_name_desc_lng,
+        &ett_mpeg_descriptor_multilng_bouquet_name_desc_lng,
+        &ett_mpeg_descriptor_multilng_srv_name_desc_lng,
+        &ett_mpeg_descriptor_multilng_component_desc_lng,
         &ett_mpeg_descriptor_vbi_data_service,
         &ett_mpeg_descriptor_content_identifier_crid,
         &ett_mpeg_descriptor_service_list,
+        &ett_mpeg_descriptor_nordig_lcd_v1_service_list,
+        &ett_mpeg_descriptor_nordig_lcd_v2_channel_list_list,
+        &ett_mpeg_descriptor_nordig_lcd_v2_service_list,
         &ett_mpeg_descriptor_ac3_component_type,
         &ett_mpeg_descriptor_linkage_population_id
     };

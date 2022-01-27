@@ -1,4 +1,5 @@
-/*
+/** @file
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2001 Gerald Combs
@@ -47,7 +48,11 @@ dfilter_cleanup(void);
  */
 WS_DLL_PUBLIC
 gboolean
-dfilter_compile(const gchar *text, dfilter_t **dfp, gchar **err_msg);
+dfilter_compile_real(const gchar *text, dfilter_t **dfp,
+			gchar **err_msg, const char *caller);
+
+#define dfilter_compile(text, dfp, err_msg) \
+	dfilter_compile_real(text, dfp, err_msg, __func__)
 
 /* Frees all memory used by dfilter, and frees
  * the dfilter itself. */

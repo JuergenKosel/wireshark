@@ -1,4 +1,4 @@
-/* filesystem.h
+/** @file
  * Filesystem utility definitions
  *
  * Wireshark - Network traffic analyzer
@@ -11,8 +11,7 @@
 #ifndef FILESYSTEM_H
 #define FILESYSTEM_H
 
-#include "ws_symbol_export.h"
-#include "ws_attributes.h"
+#include <wireshark.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,6 +144,12 @@ WS_DLL_PUBLIC char *get_global_profiles_dir(void);
  * files to copy when duplicate a configuration profile.
  */
 WS_DLL_PUBLIC void profile_store_persconffiles(gboolean store);
+
+/*
+ * Register a filename to the personal config files storage.
+ * This is for files which are not read using get_persconffile_path() during startup.
+ */
+WS_DLL_PUBLIC void profile_register_persconffile(const char *filename);
 
 /*
  * Check if given configuration profile exists.

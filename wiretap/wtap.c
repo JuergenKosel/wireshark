@@ -351,7 +351,7 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 
 	if (wtap_block_get_uint64_option_value(if_descr, OPT_IDB_SPEED, &tmp64) == WTAP_OPTTYPE_SUCCESS) {
 		g_string_append_printf(info,
-				"%*cSpeed = %" G_GINT64_MODIFIER "u%s", indent, ' ',
+				"%*cSpeed = %" PRIu64 "%s", indent, ' ',
 				tmp64,
 				line_end);
 	}
@@ -375,7 +375,7 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 			line_end);
 
 	g_string_append_printf(info,
-			"%*cTime ticks per second = %" G_GINT64_MODIFIER "u%s", indent, ' ',
+			"%*cTime ticks per second = %" PRIu64 "%s", indent, ' ',
 			if_descr_mand->time_units_per_second,
 			line_end);
 
@@ -1173,6 +1173,10 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_ETW */
 	{ "etw", "Event Tracing for Windows messages" },
+
+	/* WTAP_ENCAP_ERI_ENB_LOG */
+	{ "eri_enb_log", "Ericsson eNode-B raw log" },
+
 };
 
 WS_DLL_LOCAL
@@ -1378,7 +1382,7 @@ wtap_strerror(int err)
 	if (err < 0) {
 		wtap_errlist_index = -1 - err;
 		if (wtap_errlist_index >= WTAP_ERRLIST_SIZE) {
-			g_snprintf(errbuf, 128, "Error %d", err);
+			snprintf(errbuf, 128, "Error %d", err);
 			return errbuf;
 		}
 		if (wtap_errlist[wtap_errlist_index] == NULL)
@@ -1753,7 +1757,7 @@ wtap_full_file_read_file(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf, int *
 		 * Avoid allocating space for an immensely-large file.
 		 */
 		*err = WTAP_ERR_BAD_FILE;
-		*err_info = g_strdup_printf("%s: File has %" G_GINT64_MODIFIER "d-byte packet, bigger than maximum of %u",
+		*err_info = ws_strdup_printf("%s: File has %" PRId64 "-byte packet, bigger than maximum of %u",
 				wtap_encap_name(wth->file_encap), file_size, G_MAXINT);
 		return FALSE;
 	}
@@ -1767,7 +1771,7 @@ wtap_full_file_read_file(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf, int *
 	for (;;) {
 		if (buffer_size <= 0) {
 			*err = WTAP_ERR_BAD_FILE;
-			*err_info = g_strdup_printf("%s: Uncompressed file is bigger than maximum of %u",
+			*err_info = ws_strdup_printf("%s: Uncompressed file is bigger than maximum of %u",
 					wtap_encap_name(wth->file_encap), G_MAXINT);
 			return FALSE;
 		}

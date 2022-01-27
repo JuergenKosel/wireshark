@@ -1,4 +1,4 @@
-/* pref_models.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -94,8 +94,8 @@ private:
 class AdvancedPrefsModel : public QSortFilterProxyModel
 {
     Q_OBJECT
-public:
 
+public:
     explicit AdvancedPrefsModel(QObject * parent = Q_NULLPTR);
 
     enum AdvancedPrefsModelColumn {
@@ -127,11 +127,11 @@ protected:
 private:
 
     QString filter_;
+    const QChar passwordChar_;
 };
 
 class ModulePrefsModel : public QSortFilterProxyModel
 {
-    Q_OBJECT
 public:
 
     explicit ModulePrefsModel(QObject * parent = Q_NULLPTR);

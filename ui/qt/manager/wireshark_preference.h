@@ -1,4 +1,4 @@
-/* wireshark_preference.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -18,7 +18,6 @@
 
 class WiresharkPreference : public QObject
 {
-    Q_OBJECT
 public:
     explicit Q_INVOKABLE WiresharkPreference(QObject * parent = Q_NULLPTR);
 

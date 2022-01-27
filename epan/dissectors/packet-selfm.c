@@ -54,13 +54,12 @@
 #include "packet-tcp.h"
 #include <epan/prefs.h>
 #include <epan/to_str.h>
+#include <epan/strutil.h>
 #include <epan/reassemble.h>
 #include <epan/expert.h>
 #include <epan/crc16-tvb.h>
 #include <epan/proto_data.h>
-#if 0
-#include <stdio.h>
-#endif
+
 void proto_register_selfm(void);
 
 /* Initialize the protocol and registered fields */
@@ -1262,7 +1261,7 @@ dissect_fmdata_frame(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, int of
 
                 /* If the stored config_cmd matches the expected one we are looking for, mark that the config data was found */
                 if (config_cmd == config_cmd_match) {
-                    proto_item_append_text(fmdata_item, ", using frame number %"G_GUINT32_FORMAT" as Configuration Frame",
+                    proto_item_append_text(fmdata_item, ", using frame number %"PRIu32" as Configuration Frame",
                                    cfg_data->fnum);
                     config_found = TRUE;
                 }

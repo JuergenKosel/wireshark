@@ -1301,7 +1301,7 @@ dissect_homeplug(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
   it = proto_tree_add_item(tree, proto_homeplug, tvb, homeplug_offset, -1, ENC_NA);
   homeplug_tree = proto_item_add_subtree(it, ett_homeplug);
 
-  cursor = ptvcursor_new(homeplug_tree, tvb, 0);
+  cursor = ptvcursor_new(pinfo->pool, homeplug_tree, tvb, 0);
 
   /*  We do not have enough data to read mctrl field stop the dissection */
   if (check_tvb_length(cursor, HOMEPLUG_MCTRL_LEN) != TVB_LEN_SHORTEST) {
@@ -1337,7 +1337,7 @@ dissect_homeplug(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
 static void
 homeplug_fmt_mhz( gchar *result, guint32 ns_bytes40 )
 {
-   g_snprintf( result, ITEM_LABEL_LENGTH, "%.3f", (float)(ns_bytes40)/42);
+   snprintf( result, ITEM_LABEL_LENGTH, "%.3f", (float)(ns_bytes40)/42);
 }
 
 void

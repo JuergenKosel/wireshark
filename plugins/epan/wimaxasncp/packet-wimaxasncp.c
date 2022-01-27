@@ -1537,7 +1537,7 @@ static void wimaxasncp_dissect_tlv_value(
 
                     proto_item_append_text(
                         item, " - %s (%s)",
-                        get_hostname(ip), tvb_ip_to_str(tvb, offset));
+                        get_hostname(ip), tvb_ip_to_str(pinfo->pool, tvb, offset));
 
                     offset += 4;
 
@@ -1546,7 +1546,7 @@ static void wimaxasncp_dissect_tlv_value(
                      * --------------------------------------------------------
                      */
 
-                    s = tvb_ip_to_str(tvb, offset);
+                    s = tvb_ip_to_str(pinfo->pool, tvb, offset);
 
                     proto_tree_add_item(
                         ip_address_mask_tree,
@@ -1939,7 +1939,7 @@ static guint dissect_wimaxasncp_backend(
             tree, hf_wimaxasncp_msid,
             tvb, offset, 6, ENC_NA);
     }
-    pmsid = tvb_ether_to_str(tvb, offset);
+    pmsid = tvb_ether_to_str(pinfo->pool, tvb, offset);
 
     offset += 6;
 
@@ -3231,7 +3231,7 @@ register_wimaxasncp_fields(const char* unused _U_)
     debug_parser = getenv("WIRESHARK_DEBUG_WIMAXASNCP_DICT_PARSER") != NULL;
     dump_dict    = getenv("WIRESHARK_DUMP_WIMAXASNCP_DICT") != NULL;
 
-    dir = g_strdup_printf(
+    dir = ws_strdup_printf(
         "%s" G_DIR_SEPARATOR_S "wimaxasncp",
         get_datafile_dir());
 

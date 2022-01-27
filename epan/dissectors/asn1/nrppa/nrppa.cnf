@@ -163,6 +163,9 @@ id-CGI-NR                                  ProtocolIE-ID
 id-SFNInitialisationTime-NR                ProtocolIE-ID
 id-Cell-ID                                 ProtocolIE-ID
 id-SrsFrequency                            ProtocolIE-ID
+id-TRPType                                 ProtocolIE-ID
+id-SRSSpatialRelationPerSRSResource        ProtocolIE-ID
+
 #.REGISTER
 #NRPPA-PROTOCOL-IES
 
@@ -205,13 +208,13 @@ Measurement-ID                             N nrppa.ies id-RAN-Measurement-ID
 TRP-MeasurementRequestList                 N nrppa.ies id-TRP-MeasurementRequestList
 TRP-MeasurementResponseList                N nrppa.ies id-TRP-MeasurementResponseList
 SRSType                                    N nrppa.ies id-SRSType
-SFNInitialisationTime                      N nrppa.ies id-ActivationTime
+RelativeTime1900                           N nrppa.ies id-ActivationTime
 TRPList                                    N nrppa.ies id-TRPList
 SystemFrameNumber                          N nrppa.ies id-SystemFrameNumber
 SlotNumber                                 N nrppa.ies id-SlotNumber
 TRPMeasurementQuantities                   N nrppa.ies id-TRPMeasurementQuantities
 AbortTransmission                          N nrppa.ies id-AbortTransmission
-SFNInitialisationTime                      N nrppa.ies id-SFNInitialisationTime
+RelativeTime1900                           N nrppa.ies id-SFNInitialisationTime
 ResultNR                                   N nrppa.ies id-ResultNR
 ResultEUTRA                                N nrppa.ies id-ResultEUTRA
 TRPInformationTypeItem                     N nrppa.ies id-TRPInformationTypeItem
@@ -219,12 +222,14 @@ CGI-NR                                     N nrppa.ies id-CGI-NR
 SFNInitialisationTime-EUTRA                N nrppa.ies id-SFNInitialisationTime-NR
 CGI-NR                                     N nrppa.ies id-Cell-ID
 SrsFrequency                               N nrppa.ies id-SrsFrequency
+TRPType                                    N nrppa.ies id-TRPType
 
 
 #NRPPA-PROTOCOL-EXTENSION
 
 GeographicalCoordinates                    N nrppa.extension id-GeographicalCoordinates
-SRSSpatialRelation                         N nrppa.extension id-SRSSpatialRelation
+SpatialRelationInfo                        N nrppa.extension id-SRSSpatialRelation
+SpatialRelationPerSRSResource              N nrppa.extension id-SRSSpatialRelationPerSRSResource
 
 
 #LPPA-ELEMENTARY-PROCEDURE

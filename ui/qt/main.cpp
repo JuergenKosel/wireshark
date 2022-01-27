@@ -21,19 +21,6 @@
 #include "ui/win32/console_win32.h"
 #endif
 
-/*
- * If we have getopt_long() in the system library, include <getopt.h>.
- * Otherwise, we're using our own getopt_long() (either because the
- * system has getopt() but not getopt_long(), as with some UN*Xes,
- * or because it doesn't even have getopt(), as with Windows), so
- * include our getopt_long()'s header.
- */
-#ifdef HAVE_GETOPT_LONG
-#include <getopt.h>
-#else
-#include <wsutil/wsgetopt.h>
-#endif
-
 #include <ui/clopts_common.h>
 #include <ui/cmdarg_err.h>
 #include <ui/exit_codes.h>
@@ -533,6 +520,8 @@ int main(int argc, char *qt_argv[])
 
     /* Initialize log handler early so we can have proper logging during startup. */
     ws_log_init_with_writer("wireshark", console_log_writer, vcmdarg_err);
+    /* For backward compatibility with GLib logging and Wireshark 3.4. */
+    ws_log_console_writer_set_use_stdout(TRUE);
 
     qInstallMessageHandler(qt_log_message_handler);
 
@@ -693,7 +682,7 @@ int main(int argc, char *qt_argv[])
 #endif
 
     /* Create The Wireshark app */
-    wsApp = new WiresharkApplication(argc, qt_argv);
+    WiresharkApplication ws_app(argc, qt_argv);
 
     /* initialize the funnel mini-api */
     // xxx qtshark
@@ -737,9 +726,9 @@ int main(int argc, char *qt_argv[])
     main_w->show();
     // We may not need a queued connection here but it would seem to make sense
     // to force the issue.
-    main_w->connect(wsApp, SIGNAL(openCaptureFile(QString,QString,unsigned int)),
+    main_w->connect(&ws_app, SIGNAL(openCaptureFile(QString,QString,unsigned int)),
             main_w, SLOT(openCaptureFile(QString,QString,unsigned int)));
-    main_w->connect(wsApp, SIGNAL(openCaptureOptions()),
+    main_w->connect(&ws_app, SIGNAL(openCaptureOptions()),
             main_w, SLOT(on_actionCaptureOptions_triggered()));
 
     /* Init the "Open file" dialog directory */
@@ -752,7 +741,7 @@ int main(int argc, char *qt_argv[])
     }
 
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "set_console_log_handler, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "set_console_log_handler, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
 
 #ifdef HAVE_LIBPCAP
@@ -772,7 +761,7 @@ int main(int argc, char *qt_argv[])
 
     splash_update(RA_DISSECTORS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling epan init, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling epan init, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
@@ -786,7 +775,7 @@ int main(int argc, char *qt_argv[])
 #ifdef DEBUG_STARTUP_TIME
     /* epan_init resets the preferences */
     prefs.gui_console_open = console_open_always;
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "epan done, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "epan done, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
 
     /* Register all audio codecs. */
@@ -805,7 +794,7 @@ int main(int argc, char *qt_argv[])
 
     splash_update(RA_LISTENERS, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Register all tap listeners, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Register all tap listeners, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     /* Register all tap listeners; we do this before we parse the arguments,
        as the "-z" argument can specify a registered tap. */
@@ -823,16 +812,16 @@ int main(int argc, char *qt_argv[])
     }
 
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling extcap_register_preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling extcap_register_preferences, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     splash_update(RA_EXTCAP, NULL, NULL);
     extcap_register_preferences();
     splash_update(RA_PREFERENCES, NULL, NULL);
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
 
-    global_commandline_info.prefs_p = wsApp->readConfigurationFiles(false);
+    global_commandline_info.prefs_p = ws_app.readConfigurationFiles(false);
 
     /* Now get our args */
     commandline_other_options(argc, argv, TRUE);
@@ -851,7 +840,7 @@ int main(int argc, char *qt_argv[])
 
 #ifdef HAVE_LIBPCAP
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     splash_update(RA_INTERFACES, NULL, NULL);
 
@@ -894,7 +883,7 @@ int main(int argc, char *qt_argv[])
             interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
 #ifdef HAVE_PCAP_REMOTE
             if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
-                auth_str = g_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
+                auth_str = ws_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
             }
 #endif
             caps = capture_get_if_capabilities(interface_opts->name, interface_opts->monitor_mode,
@@ -928,7 +917,7 @@ int main(int argc, char *qt_argv[])
        changed either from one of the preferences file or from the command
        line that their preferences have changed. */
 #ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
     prefs_apply_all();
     prefs_to_capture_opts();
@@ -974,7 +963,7 @@ int main(int argc, char *qt_argv[])
     }
 
     wsApp->allSystemsGo();
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_MESSAGE, "Wireshark is up and ready to go, elapsed time %.3fs", (float) (g_get_monotonic_time() - start_time) / 1000000);
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Wireshark is up and ready to go, elapsed time %.3fs", (float) (g_get_monotonic_time() - start_time) / 1000000);
     SimpleDialog::displayQueuedMessages(main_w);
 
     /* User could specify filename, or display filter, or both */
@@ -1053,21 +1042,27 @@ int main(int argc, char *qt_argv[])
     }
 #endif /* HAVE_LIBPCAP */
 
-    // UAT files used in configuration profiles which are used in Qt dialogs
-    // are not registered during startup because they only get loaded when
-    // the dialog is shown.  Register them here.
-    g_free(get_persconffile_path("io_graphs", TRUE));
+    // UAT and UI settings files used in configuration profiles which are used
+    // in Qt dialogs are not registered during startup because they only get
+    // loaded when the dialog is shown.  Register them here.
+    profile_register_persconffile("io_graphs");
+    profile_register_persconffile("import_hexdump.json");
 
     profile_store_persconffiles(FALSE);
 
+    // If the wsApp->exec() event loop exits cleanly, we call
+    // WiresharkApplication::cleanup().
     ret_val = wsApp->exec();
+    wsApp = NULL;
+
+    // Many widgets assume that they always have valid epan data, so this
+    // must be called before epan_cleanup().
+    // XXX We need to clean up the Lua GUI here. We currently paper over
+    // this in FunnelStatistics::~FunnelStatistics, which leaks memory.
+    delete main_w;
 
     recent_cleanup();
     epan_cleanup();
-
-    delete main_w;
-    delete wsApp;
-    wsApp = NULL;
 
     extcap_cleanup();
 

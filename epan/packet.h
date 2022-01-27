@@ -1,4 +1,4 @@
-/* packet.h
+/** @file
  * Definitions for packet disassembly structures and routines
  *
  * Wireshark - Network traffic analyzer
@@ -10,6 +10,7 @@
 
 #ifndef __PACKET_H__
 #define __PACKET_H__
+#include <wireshark.h>
 
 #include <wiretap/wtap_opttypes.h>
 #include "proto.h"
@@ -22,8 +23,6 @@
 #include "guid-utils.h"
 #include "tfs.h"
 #include "unit_strings.h"
-#include "ws_symbol_export.h"
-#include "wsutil/glib-compat.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -246,6 +245,13 @@ WS_DLL_PUBLIC void dissector_change_uint(const char *abbrev, const guint32 patte
 /* Reset an entry in a uint dissector table to its initial value. */
 WS_DLL_PUBLIC void dissector_reset_uint(const char *name, const guint32 pattern);
 
+/* Return TRUE if an entry in a uint dissector table is found and has been
+ * changed (i.e. dissector_change_uint() has been called, such as from
+ * Decode As, prefs registered via dissector_add_uint_[range_]with_preference),
+ * etc.), otherwise return FALSE.
+ */
+WS_DLL_PUBLIC gboolean dissector_is_uint_changed(dissector_table_t const sub_dissectors, const guint32 uint_val);
+
 /* Look for a given value in a given uint dissector table and, if found,
    call the dissector with the arguments supplied, and return the number
    of bytes consumed, otherwise return 0. */
@@ -294,6 +300,12 @@ WS_DLL_PUBLIC void dissector_change_string(const char *name, const gchar *patter
 
 /* Reset an entry in a string sub-dissector table to its initial value. */
 WS_DLL_PUBLIC void dissector_reset_string(const char *name, const gchar *pattern);
+
+/* Return TRUE if an entry in a string dissector table is found and has been
+ * changed (i.e. dissector_change_string() has been called, such as from
+ * Decode As), otherwise return FALSE.
+ */
+WS_DLL_PUBLIC gboolean dissector_is_string_changed(dissector_table_t const subdissectors, const gchar *string);
 
 /* Look for a given string in a given dissector table and, if found, call
    the dissector with the arguments supplied, and return the number of

@@ -1,4 +1,5 @@
-/* dissect_opts.h
+/** @file
+ *
  * Dissection options (parameters that affect dissection)
  *
  * Wireshark - Network traffic analyzer
@@ -37,10 +38,10 @@ extern "C" {
  * Options for dissecting common to all dissecting programs.
  */
 #define LONGOPT_DISSECT_COMMON \
-    {"disable-protocol", required_argument, NULL, LONGOPT_DISABLE_PROTOCOL }, \
-    {"enable-heuristic", required_argument, NULL, LONGOPT_ENABLE_HEURISTIC }, \
-    {"disable-heuristic", required_argument, NULL, LONGOPT_DISABLE_HEURISTIC }, \
-    {"enable-protocol", required_argument, NULL, LONGOPT_ENABLE_PROTOCOL }, \
+    {"disable-protocol", ws_required_argument, NULL, LONGOPT_DISABLE_PROTOCOL }, \
+    {"enable-heuristic", ws_required_argument, NULL, LONGOPT_ENABLE_HEURISTIC }, \
+    {"disable-heuristic", ws_required_argument, NULL, LONGOPT_DISABLE_HEURISTIC }, \
+    {"enable-protocol", ws_required_argument, NULL, LONGOPT_ENABLE_PROTOCOL }, \
 
 #define OPTSTRING_DISSECT_COMMON \
     "d:K:nN:t:u:"

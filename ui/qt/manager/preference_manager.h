@@ -1,4 +1,4 @@
-/* preference_manager.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -25,8 +25,6 @@ class WiresharkPreference;
 
 class PreferenceManager : public QObject
 {
-    Q_OBJECT
-
 public:
     static PreferenceManager* instance();
     virtual ~PreferenceManager();
@@ -44,7 +42,6 @@ private:
 
 class PreferenceFactory : public QObject
 {
-    Q_OBJECT
 public:
     virtual ~PreferenceFactory();
     virtual WiresharkPreference * create(QObject * parent = Q_NULLPTR) = 0;

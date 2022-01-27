@@ -21,7 +21,6 @@
 #include <epan/conversation.h>
 #include <epan/wmem_scopes.h>
 #include "packet-http.h"
-#include <stdio.h>
 
 void proto_register_ipp(void);
 void proto_reg_handoff_ipp(void);
@@ -1250,8 +1249,9 @@ add_octetstring_tree(proto_tree *tree, tvbuff_t *tvb, int offset, int name_lengt
             break;
 
         default :
-            value = tvb_bytes_to_str(wmem_packet_scope(), tvb, offset + 1 + 2 + name_length + 2, value_length);
-
+            if (value_length > 0 ) {
+                value = tvb_bytes_to_str(wmem_packet_scope(), tvb, offset + 1 + 2 + name_length + 2, value_length);
+            }
             valoffset += 1 + 2 + name_length + 2 + value_length;
             break;
     }
@@ -1501,7 +1501,7 @@ ipp_fmt_collection(tvbuff_t *tvb, int valoffset, char *buffer, int bufsize)
 static void
 ipp_fmt_version( gchar *result, guint32 revision )
 {
-   g_snprintf( result, ITEM_LABEL_LENGTH, "%u.%u", (guint8)(( revision & 0xFF00 ) >> 8), (guint8)(revision & 0xFF) );
+   snprintf( result, ITEM_LABEL_LENGTH, "%u.%u", (guint8)(( revision & 0xFF00 ) >> 8), (guint8)(revision & 0xFF) );
 }
 
 void

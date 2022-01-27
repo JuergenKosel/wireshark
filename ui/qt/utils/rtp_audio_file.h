@@ -1,4 +1,4 @@
-/* rtp_audio_file.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -44,8 +44,6 @@ typedef struct {
 
 class RtpAudioFile: public QIODevice
 {
-    Q_OBJECT
-
 public:
     explicit RtpAudioFile(bool use_disk_for_temp, bool use_disk_for_frames);
     ~RtpAudioFile();

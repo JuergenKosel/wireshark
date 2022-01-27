@@ -94,15 +94,29 @@ PROTOSHORTNAME  An abbreviated name for the protocol; this is displayed
                 any preferences, in the dialog box of enabled protocols,
                 and in the dialog box for filter fields when constructing
                 a filter expression.
-PROTOABBREV     A name for the protocol for use in filter expressions;
-                it may contain only lower-case letters, digits, and hyphens,
-                underscores, and periods.
+PROTOFILTERNAME A name for the protocol for use in filter expressions;
+                it may contain only letters, digits, hyphens, underscores and
+                periods. Names should use lower case only. (Support for
+                upper/mixed case may be removed in the future.)
+PROTOABBREV     An abbreviation for the protocol; this is used in code and
+                must be a valid C identifier. Additionally it should follow
+                any applicable C style guidelines. It is usually the same as
+                PROTOFILTERNAME with all lower-case letters and
+                non-alphanumerics replaced with underscores.
 LICENSE         The license this dissector is under. Please use a SPDX License
                 identifier.
 YEARS           The years the above license is valid for.
 FIELDNAME       The displayed name for the header field.
-FIELDABBREV     The abbreviated name for the header field; it may contain
-                only letters, digits, hyphens, underscores, and periods.
+FIELDFILTERNAME A name for the header field for use in filter expressions;
+                it may contain only letters, digits, hyphens, underscores and
+                periods. It must start with PROTOFILTERNAME followed by a dot.
+                Names should use lower case only. (Support for upper/mixed case
+                may be removed in the future.)
+FIELDABBREV     An abbreviation for the header field; this is used in code and
+                must be a valid C identifier. Additionally it should follow
+                any applicable C style guidelines. It is usually the same as
+                FIELDFILTERNAME with all lower-case letters and
+                non-alphanumerics replaced with underscores.
 FIELDTYPE       FT_NONE, FT_BOOLEAN, FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24,
                 FT_UINT32, FT_UINT40, FT_UINT48, FT_UINT56, FT_UINT64,
                 FT_INT8, FT_INT16, FT_INT24, FT_INT32, FT_INT40, FT_INT48,
@@ -162,7 +176,7 @@ FIELDDISPLAY    --For FT_UINT{8,16,24,32,40,48,56,64} and
 
                 --For FT_STRING, FT_STRINGZ and FT_UINT_STRING:
 
-                  STR_ASCII or STR_UNICODE
+                  (must be) BASE_NONE
 
                 --For FT_BYTES and FT_UINT_BYTES:
 
@@ -195,7 +209,7 @@ BITMASK         Used to mask a field not 8-bit aligned or with a size other
 FIELDDESCR      A brief description of the field, or NULL. [Please do not use ""].
 
 If, for example, PROTONAME is "Internet Bogosity Discovery Protocol",
-PROTOSHORTNAME would be "IBDP", and PROTOABBREV would be "ibdp". Try to
+PROTOSHORTNAME would be "IBDP", and PROTOFILTERNAME would be "ibdp". Try to
 conform with IANA names.
 
 1.2.1 Automatic substitution in code skeleton
@@ -400,8 +414,8 @@ wrong answer on the PC on which you're doing development, and try
 "tvb_get_letohl()" instead, as "tvb_get_letohl()" will give the wrong
 answer on big-endian machines.
 
-gchar *tvb_ip_to_str(tvbuff_t *tvb, const gint offset)
-gchar *tvb_ip6_to_str(tvbuff_t *tvb, const gint offset)
+gchar *tvb_ip_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
+gchar *tvb_ip6_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
 
 Returns a null-terminated buffer containing a string with IPv4 or IPv6 Address
 from the specified tvbuff, starting at the specified offset.
@@ -578,9 +592,9 @@ anyway, so it's best to use 'col_add_str' rather than 'col_set_str' in
 that case.
 
 For example, to set the "Protocol" column
-to "PROTOABBREV":
+to "PROTOFILTERNAME":
 
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "PROTOABBREV");
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "PROTOFILTERNAME");
 
 
 1.4.2 The col_add_str function.
@@ -828,18 +842,16 @@ A string representing the name of the field. This is the name
 that will appear in the graphical protocol tree. It must be a non-empty
 string.
 
-abbrev (FIELDABBREV)
+abbrev (FIELDFILTERNAME)
 --------------------
-A string with an abbreviation of the field. The abbreviation should start
-with the abbreviation of the parent protocol followed by a period as a
+A string with a filter name for the field. The name should start
+with the filter name of the parent protocol followed by a period as a
 separator. For example, the "src" field in an IP packet would have "ip.src"
-as an abbreviation. It is acceptable to have multiple levels of periods if,
+as a filter name. It is acceptable to have multiple levels of periods if,
 for example, you have fields in your protocol that are then subdivided into
-subfields. For example, TRMAC has multiple error fields, so the abbreviations
+subfields. For example, TRMAC has multiple error fields, so the names
 follow this pattern: "trmac.errors.iso", "trmac.errors.noniso", etc.
-
-The abbreviation is the identifier used in a display filter. As such it
-cannot be an empty string.
+It must be a non-empty string.
 
 type (FIELDTYPE)
 ----------------
@@ -1091,7 +1103,7 @@ If the values in the array are not contiguous (ie: there are "gaps"), but are
 in ascending order a binary search will be used.
 
 Note: "gaps" in a value_string array can be filled with "empty" entries eg:
-{value, "Unknown"} so that direct access to the array is is possible.
+{value, "Unknown"} so that direct access to the array is possible.
 
 Note: the value_string array values are *unsigned*; IOW: -1 is greater than 0.
       So:
@@ -1386,8 +1398,8 @@ another packet, it automatically opens all subtrees of that type.
 If you close one of them, all subtrees of that type will be closed when
 you move to another packet.
 
-There are several functions that the programmer can use to add either
-protocol or field labels to the proto_tree:
+There are many functions that the programmer can use to add either
+protocol or field labels to the proto_tree, for example:
 
     proto_item*
     proto_tree_add_item(tree, id, tvb, start, length, encoding);
@@ -1397,286 +1409,26 @@ protocol or field labels to the proto_tree:
         *retval);
 
     proto_item*
-    proto_tree_add_item_ret_uint(tree, id, tvb, start, length, encoding,
-        *retval);
-
-    proto_item*
-    proto_tree_add_item_ret_uint64(tree, id, tvb, start, length, encoding,
-        *retval);
-
-    proto_item*
-    proto_tree_add_item_ret_boolean(tree, id, tvb, start, length, encoding,
-        *retval);
-
-    proto_item*
     proto_tree_add_subtree(tree, tvb, start, length, idx, tree_item,
         text);
-
-    proto_item*
-    proto_tree_add_subtree_format(tree, tvb, start, length, idx, tree_item,
-        format, ...);
-
-    proto_item*
-    proto_tree_add_none_format(tree, id, tvb, start, length, format, ...);
-
-    proto_item*
-    proto_tree_add_protocol_format(tree, id, tvb, start, length,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_bytes(tree, id, tvb, start, length, start_ptr);
-
-    proto_item *
-    proto_tree_add_bytes_item(tree, id, tvb, start, length, encoding,
-        retval, endoff, err);
-
-    proto_item *
-    proto_tree_add_bytes_format(tree, id, tvb, start, length, start_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_bytes_format_value(tree, id, tvb, start, length,
-        start_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_bytes_with_length(tree, id, tvb, start, tvb_length, start_ptr, ptr_length);
-
-    proto_item *
-    proto_tree_add_time(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_time_item(tree, id, tvb, start, length, encoding,
-        retval, endoff, err);
-
-    proto_item *
-    proto_tree_add_time_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_time_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_ipxnet(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_ipxnet_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_ipxnet_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_ipv4(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_ipv4_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_ipv4_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_ipv6(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_ipv6_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_ipv6_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_ether(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_ether_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_ether_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_guid(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_guid_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_guid_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_oid(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_oid_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_oid_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_string(tree, id, tvb, start, length, value_ptr);
-
-    proto_item *
-    proto_tree_add_string_format(tree, id, tvb, start, length, value_ptr,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_string_format_value(tree, id, tvb, start, length,
-        value_ptr, format, ...);
-
-    proto_item *
-    proto_tree_add_boolean(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_boolean_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_boolean_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_float(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_float_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_float_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_double(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_double_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_double_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_uint(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_uint_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_uint_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_uint64(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_uint64_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_uint64_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_int(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_int_format(tree, id, tvb, start, length, value,
-        format, ...);
 
     proto_item *
     proto_tree_add_int_format_value(tree, id, tvb, start, length,
         value, format, ...);
 
     proto_item *
-    proto_tree_add_int64(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_int64_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_int64_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
-    proto_tree_add_eui64(tree, id, tvb, start, length, value);
-
-    proto_item *
-    proto_tree_add_eui64_format(tree, id, tvb, start, length, value,
-        format, ...);
-
-    proto_item *
-    proto_tree_add_eui64_format_value(tree, id, tvb, start, length,
-        value, format, ...);
-
-    proto_item *
     proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const guint offset,
-        const int hf_checksum, const int hf_checksum_status, struct expert_field* bad_checksum_expert,
-        packet_info *pinfo, guint32 computed_checksum, const guint encoding, const guint flags);
+        const int hf_checksum, const int hf_checksum_status,
+        struct expert_field* bad_checksum_expert, packet_info *pinfo,
+        guint32 computed_checksum, const guint encoding, const guint flags);
 
     proto_item *
     proto_tree_add_bitmask(tree, tvb, start, header, ett, fields,
         encoding);
 
     proto_item *
-    proto_tree_add_bitmask_len(tree, tvb, start, len, header, ett, fields,
-        exp, encoding);
-
-    proto_item *
-    proto_tree_add_bitmask_text(tree, tvb, offset, len, name, fallback,
-        ett, fields, encoding, flags);
-
-    proto_item *
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_hdr, ett,
-        fields, encoding, flags);
-
-    proto_item*
     proto_tree_add_bits_item(tree, id, tvb, bit_offset, no_of_bits,
         encoding);
-
-    proto_item *
-    proto_tree_add_split_bits_item_ret_val(tree, hf_index, tvb, bit_offset,
-        crumb_spec, return_value);
-
-    void
-    proto_tree_add_split_bits_crumb(tree, hf_index, tvb, bit_offset,
-        crumb_spec, crumb_index);
-
-    proto_item *
-    proto_tree_add_bits_ret_val(tree, id, tvb, bit_offset, no_of_bits,
-        return_value, encoding);
-
-    proto_item *
-    proto_tree_add_uint_bits_format_value(tree, id, tvb, bit_offset,
-        no_of_bits, value, format, ...);
-
-    proto_item *
-    proto_tree_add_boolean_bits_format_value(tree, id, tvb, bit_offset,
-        no_of_bits, value, format, ...);
-
-    proto_item *
-    proto_tree_add_int_bits_format_value(tree, id, tvb, bit_offset,
-        no_of_bits, value, format, ...);
-
-    proto_item *
-    proto_tree_add_float_bits_format_value(tree, id, tvb, bit_offset,
-        no_of_bits, value, format, ...);
-
-    proto_item *
-    proto_tree_add_ts_23_038_7bits_item(tree, hf_index, tvb,
-        bit_offset, no_of_chars);
 
 The 'tree' argument is the tree to which the item is to be added. The
 'tvb' argument is the tvbuff from which the item's value is being
@@ -1694,6 +1446,10 @@ dissection is complete, set the length with 'proto_item_set_len()':
 
 The "ti" argument is the value returned by the call that added the item
 to the tree, and the "length" argument is the length of the item.
+
+All available protocol tree functions are declared in epan/proto.h, with
+their documentation. The details of these functions and their parameters
+are described below.
 
 proto_tree_add_item()
 ---------------------
@@ -3297,6 +3053,11 @@ routines -
 
     /* Register a preference with a character-string value. */
     void prefs_register_string_preference(module_t *module, const char *name,
+        const char *title, const char *description, char **var)
+
+    /* Register a preference with a password (a character-string) value. */
+    /* The value is hold during runtime, only in memory. It is never written to disk */
+    void prefs_register_password_preference(module_t *module, const char *name,
         const char *title, const char *description, char **var)
 
     /* Register a preference with a file name (string) value.

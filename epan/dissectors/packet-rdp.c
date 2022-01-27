@@ -90,6 +90,13 @@ static int ett_rdp_mt_req = -1;
 static int ett_rdp_mt_rsp = -1;
 static int ett_rdp_heartbeat = -1;
 
+static int ett_rdp_fastpath = -1;
+static int ett_rdp_fastpath_header = -1;
+static int ett_rdp_fastpath_scancode_flags = -1;
+static int ett_rdp_fastpath_mouse_flags = -1;
+static int ett_rdp_fastpath_mousex_flags = -1;
+static int ett_rdp_fastpath_compression = -1;
+
 static expert_field ei_rdp_neg_len_invalid = EI_INIT;
 static expert_field ei_rdp_not_correlation_info = EI_INIT;
 
@@ -183,7 +190,6 @@ static int hf_rdp_monitorDefTop = -1;
 static int hf_rdp_monitorDefRight = -1;
 static int hf_rdp_monitorDefBottom = -1;
 static int hf_rdp_monitorDefFlags = -1;
-
 
 static int hf_rdp_encryptionMethod = -1;
 static int hf_rdp_encryptionLevel  = -1;
@@ -378,7 +384,132 @@ static int hf_rdp_channelPacketFlushed = -1;
 static int hf_rdp_channelPacketCompressionType = -1;
 static int hf_rdp_virtualChannelData = -1;
 
+static int hf_rdp_pointerFlags = -1;
+static int hf_rdp_pointerFlags_move = -1;
+static int hf_rdp_pointerFlags_down = -1;
+static int hf_rdp_pointerFlags_button1 = -1;
+static int hf_rdp_pointerFlags_button2 = -1;
+static int hf_rdp_pointerFlags_button3 = -1;
+static int hf_rdp_pointerFlags_wheel_rotation = -1;
+static int hf_rdp_pointerFlags_wheel_neg = -1;
+static int hf_rdp_pointerFlags_wheel = -1;
+static int hf_rdp_pointerFlags_hwheel = -1;
+static int hf_rdp_pointer_xpos = -1;
+static int hf_rdp_pointer_ypos = -1;
+
+static int hf_rdp_pointerxFlags = -1;
+static int hf_rdp_pointerxFlags_down = -1;
+static int hf_rdp_pointerxFlags_button1 = -1;
+static int hf_rdp_pointerxFlags_button2 = -1;
+static int hf_rdp_pointerx_xpos = -1;
+static int hf_rdp_pointerx_ypos = -1;
+
+
+static int hf_rdp_fastpathHeader = -1;
+static int hf_rdp_fastpathAction = -1;
+static int hf_rdp_fastpathFlags = -1;
+static int hf_rdp_fastpathClientNumEvents = -1;
+static int hf_rdp_fastpathServerReserved = -1;
+
 static int hf_rdp_fastpathPDULength = -1;
+static int hf_rdp_fastpathServerCompressionType = -1;
+static int hf_rdp_fastpathServerCompressionType_compressed = -1;
+static int hf_rdp_fastpathServerCompressionType_atfront = -1;
+static int hf_rdp_fastpathServerCompressionType_flushed = -1;
+static int hf_rdp_fastpathServerCompressionFlags = -1;
+
+static int hf_rdp_fastpathServerUpdateCode = -1;
+static int hf_rdp_fastpathServerFragmentation = -1;
+static int hf_rdp_fastpathServerCompression = -1;
+static int hf_rdp_fastpathServerSize = -1;
+
+static int hf_rdp_fastpathInputHeader = -1;
+static int hf_rdp_fastpathClientNumEvents2 = -1;
+static int hf_rdp_fastpathClientEventCode = -1;
+static int hf_rdp_fastpathClientFlags = -1;
+static int hf_rdp_fastpathScancodeRelease = -1;
+static int hf_rdp_fastpathScancodeExtended = -1;
+static int hf_rdp_fastpathScancodeExtended1 = -1;
+static int hf_rdp_fastpathScancodeKeyCode = -1;
+static int hf_rdp_fastpathSyncScrollLock = -1;
+static int hf_rdp_fastpathSyncNumLock = -1;
+static int hf_rdp_fastpathSyncCapsLock = -1;
+static int hf_rdp_fastpathSyncKanaLock = -1;
+static int hf_rdp_fastpathQoeTimestamp = -1;
+static int hf_rdp_fastpathUnicodeFlagsRelease = -1;
+static int hf_rdp_fastpathUnicodeCode = -1;
+
+static int * const fastpath_clientHeader_flags[] = {
+	&hf_rdp_fastpathAction,
+	&hf_rdp_fastpathClientNumEvents,
+	&hf_rdp_fastpathFlags,
+	NULL
+};
+
+static int * const fastpath_inputHeader_flags[] = {
+	&hf_rdp_fastpathClientFlags,
+	&hf_rdp_fastpathClientEventCode,
+	NULL
+};
+
+static int * const fastpath_inputsync_flags[] = {
+	&hf_rdp_fastpathSyncScrollLock,
+	&hf_rdp_fastpathSyncNumLock,
+	&hf_rdp_fastpathSyncCapsLock,
+	&hf_rdp_fastpathSyncKanaLock,
+	&hf_rdp_fastpathClientEventCode,
+	NULL
+};
+
+static int * const fastpath_inputunicode_flags[] = {
+	&hf_rdp_fastpathUnicodeFlagsRelease,
+	&hf_rdp_fastpathClientEventCode,
+	NULL
+};
+
+static int * const fastpath_scancode_flags[] = {
+	&hf_rdp_fastpathScancodeRelease,
+	&hf_rdp_fastpathScancodeExtended,
+	&hf_rdp_fastpathScancodeExtended1,
+	&hf_rdp_fastpathClientEventCode,
+	NULL
+};
+
+static int * const ts_pointer_flags[] = {
+	&hf_rdp_pointerFlags_move,
+	&hf_rdp_pointerFlags_down,
+	&hf_rdp_pointerFlags_button1,
+	&hf_rdp_pointerFlags_button2,
+	&hf_rdp_pointerFlags_button3,
+	&hf_rdp_pointerFlags_wheel_rotation,
+	&hf_rdp_pointerFlags_wheel_neg,
+	&hf_rdp_pointerFlags_wheel,
+	&hf_rdp_pointerFlags_hwheel,
+	NULL
+};
+
+static int * const ts_pointerx_flags[] = {
+	&hf_rdp_pointerxFlags_down,
+	&hf_rdp_pointerxFlags_button1,
+	&hf_rdp_pointerxFlags_button2,
+	NULL
+};
+
+static int * const fastpath_serverHeader_flags[] = {
+	&hf_rdp_fastpathAction,
+	&hf_rdp_fastpathServerReserved,
+	&hf_rdp_fastpathFlags,
+	NULL
+};
+
+static int * const fastpath_servercompression_flags[] = {
+	&hf_rdp_fastpathServerCompressionType_compressed,
+	&hf_rdp_fastpathServerCompressionType_atfront,
+	&hf_rdp_fastpathServerCompressionType_flushed,
+	&hf_rdp_fastpathServerCompressionFlags,
+	NULL,
+};
+
 
 static int hf_rdp_wYear = -1;
 static int hf_rdp_wMonth = -1;
@@ -786,6 +917,13 @@ static const value_string rdp_wBlobType_vals[] = {
   { 0, NULL}
 };
 
+static const value_string rdp_fastpath_action_vals[] = {
+  { 0x0, "Fastpath" },
+  { 0x3, "X224" },
+  { 0, NULL},
+};
+
+
 enum {
 	TYPE_ID_AUTODETECT_REQUEST = 0x00,
 	TYPE_ID_AUTODETECT_RESPONSE = 0x01
@@ -836,6 +974,76 @@ static const value_string rdp_mt_response_vals[] = {
 	{ 0x00000000, "S_OK" },
 	{ 0x80004004, "E_ABORT" },
 	{ 0, NULL}
+};
+
+enum {
+	FASTPATH_INPUT_SECURE_CHECKSUM = 1,
+	FASTPATH_INPUT_ENCRYPTED = 2,
+};
+
+enum {
+	FASTPATH_INPUT_EVENT_SCANCODE = 0x0,
+	FASTPATH_INPUT_EVENT_MOUSE = 0x1,
+	FASTPATH_INPUT_EVENT_MOUSEX = 0x2,
+	FASTPATH_INPUT_EVENT_SYNC = 0x3,
+	FASTPATH_INPUT_EVENT_UNICODE = 0x4,
+	FASTPATH_INPUT_EVENT_QOE_TIMESTAMP = 0x6
+};
+
+static const value_string rdp_fastpath_client_event_vals[] = {
+	{ FASTPATH_INPUT_EVENT_SCANCODE, "Scancode" },
+	{ FASTPATH_INPUT_EVENT_MOUSE, "Mouse" },
+	{ FASTPATH_INPUT_EVENT_MOUSEX, "MouseEx" },
+	{ FASTPATH_INPUT_EVENT_SYNC, "Sync" },
+	{ FASTPATH_INPUT_EVENT_UNICODE, "Unicode" },
+	{ FASTPATH_INPUT_EVENT_QOE_TIMESTAMP, "QUOE Timestamp"},
+	{ 0, NULL},
+};
+
+enum {
+	FASTPATH_UPDATETYPE_ORDERS = 0x0,
+	FASTPATH_UPDATETYPE_BITMAP = 0x1,
+	FASTPATH_UPDATETYPE_PALETTE = 0x2,
+	FASTPATH_UPDATETYPE_SYNCHRONIZE = 0x3,
+	FASTPATH_UPDATETYPE_SURFCMDS = 0x4,
+	FASTPATH_UPDATETYPE_PTR_NULL = 0x5,
+	FASTPATH_UPDATETYPE_PTR_DEFAULT = 0x6,
+	FASTPATH_UPDATETYPE_PTR_POSITION = 0x8,
+	FASTPATH_UPDATETYPE_COLOR = 0x9,
+	FASTPATH_UPDATETYPE_CACHED = 0xa,
+	FASTPATH_UPDATETYPE_POINTER = 0xb,
+	FASTPATH_UPDATETYPE_LARGE_POINTER = 0xc
+};
+
+static const value_string rdp_fastpath_server_event_vals[] = {
+	{ FASTPATH_UPDATETYPE_ORDERS, "Orders" },
+	{ FASTPATH_UPDATETYPE_BITMAP, "Bitmap" },
+	{ FASTPATH_UPDATETYPE_PALETTE, "Palette" },
+	{ FASTPATH_UPDATETYPE_SYNCHRONIZE, "Synchronize" },
+	{ FASTPATH_UPDATETYPE_SURFCMDS, "Surface command" },
+	{ FASTPATH_UPDATETYPE_PTR_NULL, "Pointer null" },
+	{ FASTPATH_UPDATETYPE_PTR_DEFAULT, "Pointer default" },
+	{ FASTPATH_UPDATETYPE_PTR_POSITION, "Pointer position" },
+	{ FASTPATH_UPDATETYPE_COLOR, "Color pointer" },
+	{ FASTPATH_UPDATETYPE_CACHED, "Cached pointer" },
+	{ FASTPATH_UPDATETYPE_POINTER, "New pointer" },
+	{ FASTPATH_UPDATETYPE_LARGE_POINTER, "Large pointer" },
+	{ 0, NULL},
+};
+
+enum {
+	FASTPATH_FRAGMENT_SINGLE 	= 0x0,
+	FASTPATH_FRAGMENT_LAST 		= 0x1,
+	FASTPATH_FRAGMENT_FIRST 	= 0x2,
+	FASTPATH_FRAGMENT_NEXT		= 0x3,
+};
+
+static const value_string rdp_fastpath_server_fragmentation_vals[] = {
+	{ FASTPATH_FRAGMENT_SINGLE, "Single fragment" },
+	{ FASTPATH_FRAGMENT_LAST, "Last fragment" },
+	{ FASTPATH_FRAGMENT_FIRST, "First fragment" },
+	{ FASTPATH_FRAGMENT_NEXT, "Next fragment" },
+	{ 0, NULL},
 };
 
 
@@ -972,6 +1180,54 @@ static const value_string rdp_wMonth_vals[] = {
   { 12, "December" },
   {0, NULL },
 };
+
+
+static wmem_map_t *rdp_transport_links;
+
+typedef struct {
+	address serverAddr;
+	guint16 serverPort;
+	gboolean reliable;
+	guint32 requestId;
+	guint8 securityCookie[16];
+
+} rdp_transports_key_t;
+
+typedef struct {
+	rdp_transports_key_t key;
+
+	conversation_t *tcp_conversation;
+	conversation_t *udp_conversation;
+} rdp_transports_link_t;
+
+
+static guint
+rdp_udp_conversation_hash(gconstpointer k)
+{
+	guint h;
+	gint i;
+	const rdp_transports_key_t *key = (const rdp_transports_key_t *)k;
+
+	h = key->serverPort + key->reliable + key->requestId;
+	h = add_address_to_hash(h, &key->serverAddr);
+	for (i = 0; i < 16; i++)
+		h += key->securityCookie[i];
+
+	return h;
+}
+
+static gboolean
+rdp_udp_conversation_equal_matched(gconstpointer k1, gconstpointer k2)
+{
+	const rdp_transports_key_t *key1 = (const rdp_transports_key_t *)k1;
+	const rdp_transports_key_t *key2 = (const rdp_transports_key_t *)k2;
+
+	return addresses_equal(&key1->serverAddr, &key2->serverAddr) &&
+			(key1->serverPort == key2->serverPort) &&
+			(key1->reliable == key2->reliable) &&
+			(key1->requestId == key2->requestId) &&
+			memcmp(key1->securityCookie, key2->securityCookie, 16) == 0;
+}
 
 /*
  * Flags in the flags field of a TS_INFO_PACKET.
@@ -1174,9 +1430,6 @@ dissect_rdp_clientNetworkData(tvbuff_t *tvb, int offset, packet_info *pinfo, pro
   next_tree = proto_item_add_subtree(pi, ett_rdp_clientNetworkData);
 
   offset = dissect_rdp_fields(tvb, offset, pinfo, next_tree, net_fields, 0);
-
-  copy_address(&rdp_info->serverAddr.addr, &pinfo->src);
-  rdp_info->serverAddr.port = pinfo->srcport;
 
   if (channelCount > 0) {
     guint i;
@@ -1595,7 +1848,7 @@ dissect_rdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree)
 
 
 gint
-dissect_rdp_bandwidth_req(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree,	gboolean from_server)
+dissect_rdp_bandwidth_req(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree, gboolean to_server)
 {
 	guint16 payloadLength;
 	rdp_field_info_t bandwidth_fields[] = {
@@ -1606,14 +1859,14 @@ dissect_rdp_bandwidth_req(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_
 		FI_TERMINATOR
 	};
 	guint8 typeId = tvb_get_guint8(tvb, offset + 1);
-	guint16 reqRespType = tvb_get_guint8(tvb, offset + 4);
+	guint16 reqRespType = tvb_get_guint16(tvb, offset + 4, ENC_LITTLE_ENDIAN);
 
 	if (typeId == TYPE_ID_AUTODETECT_RESPONSE)
 		bandwidth_fields[3].pfield = &hf_rdp_bandwidth_resptype;
 
 	offset = dissect_rdp_fields(tvb, offset, pinfo, tree, bandwidth_fields, 0);
 
-	if (from_server) {
+	if (!to_server) {
 		switch (reqRespType) {
 		case 0x0001:
 		case 0x1001:
@@ -1707,6 +1960,50 @@ rdp_isServerAddressTarget(packet_info *pinfo)
 	return FALSE;
 }
 
+void
+rdp_transport_set_udp_conversation(const address *serverAddr, guint16 serverPort, gboolean reliable, guint32 reqId, guint8 *cookie, conversation_t *conv)
+{
+	rdp_transports_key_t key;
+	rdp_transports_link_t *transport_link;
+
+	key.reliable = reliable;
+	key.requestId = reqId;
+	memcpy(key.securityCookie, cookie, 16);
+	copy_address(&key.serverAddr, serverAddr);
+	key.serverPort = serverPort;
+
+	transport_link = (rdp_transports_link_t *)wmem_map_lookup(rdp_transport_links, &key);
+	if (!transport_link) {
+		transport_link = wmem_new(wmem_file_scope(), rdp_transports_link_t);
+
+		memcpy(&transport_link->key, &key, sizeof(key));
+		copy_address_wmem(wmem_file_scope(), &key.serverAddr, serverAddr);
+	}
+
+	transport_link->udp_conversation = conv;
+}
+
+typedef struct {
+	conversation_t *udp;
+	conversation_t *result;
+} find_tcp_conversation_t;
+
+static void
+map_find_tcp_conversation_fn(rdp_transports_key_t *key _U_, rdp_transports_link_t *transport, find_tcp_conversation_t *criteria)
+{
+	if (criteria->udp == transport->udp_conversation)
+		criteria->result = transport->tcp_conversation;
+}
+
+conversation_t *
+rdp_find_tcp_conversation_from_udp(conversation_t *udp)
+{
+	find_tcp_conversation_t criteria = { udp, NULL };
+
+	wmem_map_foreach(rdp_transport_links, (GHFunc)map_find_tcp_conversation_fn, &criteria);
+	return criteria.result;
+}
+
 static int
 dissect_rdp_MessageChannelData(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_) {
 	proto_item *pi;
@@ -1737,33 +2034,54 @@ dissect_rdp_MessageChannelData(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 	offset = dissect_rdp_fields(tvb, offset, pinfo, tree, se_fields, 0);
 
 	if (flags & SEC_TRANSPORT_REQ) {
-		rdp_field_info_t mt_req_fields[] = { { &hf_rdp_mt_req_requestId, 4,
-				NULL, 0, 0, NULL }, { &hf_rdp_mt_req_protocol, 2, NULL, 0, 0,
-				NULL }, { &hf_rdp_mt_req_reserved, 2, NULL, 0, 0, NULL }, {
-				&hf_rdp_mt_req_securityCookie, 16, NULL, 0, 0, NULL },
-		FI_TERMINATOR };
+		guint16 reqProto;
+		rdp_transports_key_t transport_key;
+		rdp_transports_link_t *transport_link;
 
-		col_append_sep_str(pinfo->cinfo, COL_INFO, " ",
-				"MultiTransportRequest");
+		rdp_field_info_t mt_req_fields[] = {
+			{ &hf_rdp_mt_req_requestId, 4, NULL, 0, 0, NULL },
+			{ &hf_rdp_mt_req_protocol, 2, NULL, 0, 0, NULL },
+			{ &hf_rdp_mt_req_reserved, 2, NULL, 0, 0, NULL },
+			{ &hf_rdp_mt_req_securityCookie, 16, NULL, 0, 0, NULL },
+			FI_TERMINATOR
+		};
+		col_append_sep_str(pinfo->cinfo, COL_INFO, " ",	"MultiTransportRequest");
+
+		reqProto = tvb_get_guint16(tvb, offset + 4, ENC_LITTLE_ENDIAN);
+
+		transport_key.reliable = !!(reqProto & INITITATE_REQUEST_PROTOCOL_UDPFECR);
+		transport_key.requestId = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+		copy_address(&transport_key.serverAddr, &pinfo->src);
+		transport_key.serverPort = pinfo->srcport;
+		tvb_memcpy(tvb, transport_key.securityCookie, offset + 8, 16);
+
+		transport_link = (rdp_transports_link_t *)wmem_map_lookup(rdp_transport_links, &transport_key);
+		if (!transport_link) {
+			transport_link = wmem_new(wmem_file_scope(), rdp_transports_link_t);
+
+			memcpy(&transport_link->key, &transport_key, sizeof(transport_key));
+			copy_address_wmem(wmem_file_scope(), &transport_key.serverAddr, &pinfo->src);
+			transport_link->tcp_conversation = find_or_create_conversation(pinfo);
+
+			wmem_map_insert(rdp_transport_links, &transport_link->key , transport_link);
+		}
 
 		next_tree = proto_tree_add_subtree(tree, tvb, offset, -1,
 				ett_rdp_mt_req, NULL, "MultiTransport request");
-		dissect_rdp_fields(tvb, offset, pinfo, next_tree,
-				mt_req_fields, 0);
+		offset = dissect_rdp_fields(tvb, offset, pinfo, next_tree, mt_req_fields, 0);
 
 	} else if (flags & SEC_TRANSPORT_RSP) {
-		rdp_field_info_t mt_resp_fields[] = { { &hf_rdp_mt_rsp_requestId, 4,
-				NULL, 0, 0, NULL }, { &hf_rdp_mt_rsp_hrResponse, 4, NULL, 0, 0,
-				NULL },
-		FI_TERMINATOR };
+		rdp_field_info_t mt_resp_fields[] = {
+			{ &hf_rdp_mt_rsp_requestId, 4, NULL, 0, 0, NULL },
+			{ &hf_rdp_mt_rsp_hrResponse, 4, NULL, 0, 0, NULL },
+			FI_TERMINATOR
+		};
 
-		col_append_sep_str(pinfo->cinfo, COL_INFO, " ",
-				"MultiTransportResponse");
+		col_append_sep_str(pinfo->cinfo, COL_INFO, " ",	"MultiTransport response");
 
 		next_tree = proto_tree_add_subtree(tree, tvb, offset, -1,
 				ett_rdp_mt_rsp, NULL, "MultiTransport response");
-		dissect_rdp_fields(tvb, offset, pinfo, next_tree,
-				mt_resp_fields, 0);
+		dissect_rdp_fields(tvb, offset, pinfo, next_tree, mt_resp_fields, 0);
 
 	} else if (flags & SEC_AUTODETECT_REQ) {
 		col_append_sep_str(pinfo->cinfo, COL_INFO, " ", "Autodetect Req");
@@ -2177,6 +2495,9 @@ dissect_rdp_ClientData(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
   tree = dissect_rdp(tvb, pinfo, tree);
 
   rdp_info = rdp_get_conversation_data(pinfo);
+
+  copy_address(&rdp_info->serverAddr.addr, &pinfo->dst);
+  rdp_info->serverAddr.port = pinfo->destport;
 
   col_append_sep_str(pinfo->cinfo, COL_INFO, " ", "ClientData");
 
@@ -2678,17 +2999,18 @@ dissect_rdp_fastpath(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
   proto_tree *tree;
   guint16 pdu_length;
   guint8 len_size = 1;
+  guint offset = 0;
+  guint32 flags, nevents, i;
+  gboolean client_to_server;
 
   if (tvb_captured_length(tvb) < 3)
     return FALSE;
 
   fp_hdr = tvb_get_guint8(tvb, 0);
-
   if (fp_hdr & 0x3)
     return FALSE;
 
   pdu_length = tvb_get_guint8(tvb, 1);
-
   if (pdu_length == 0)
     return FALSE;
 
@@ -2702,14 +3024,237 @@ dissect_rdp_fastpath(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
   if (pdu_length != tvb_captured_length(tvb))
     return FALSE;
 
+  client_to_server = rdp_isServerAddressTarget(pinfo);
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "RDP");
   col_clear(pinfo->cinfo, COL_INFO);
   col_set_str(pinfo->cinfo, COL_INFO, "Fast-Path PDU");
 
   item = proto_tree_add_item(parent_tree, proto_rdp, tvb, 0, pdu_length, ENC_NA);
   tree = proto_item_add_subtree(item, ett_rdp);
+
+  proto_tree_add_bitmask(tree, tvb, 0, hf_rdp_fastpathHeader, ett_rdp_fastpath_header,
+		  client_to_server ? fastpath_clientHeader_flags : fastpath_serverHeader_flags,
+		  ENC_LITTLE_ENDIAN);
   proto_tree_add_uint(tree, hf_rdp_fastpathPDULength, tvb, 1, len_size, pdu_length);
 
+  flags = (fp_hdr >> 6);
+  if (client_to_server)
+	  nevents = (fp_hdr >> 2) & 0xf;
+
+  offset = 1 + len_size;
+
+  if (flags & FASTPATH_INPUT_ENCRYPTED) {
+	  // TODO: handle encryption
+	  offset += 8;
+  }
+
+
+  if (client_to_server) {
+	  if (!nevents) {
+		  proto_tree_add_item_ret_uint(tree, hf_rdp_fastpathClientNumEvents2, tvb, offset, 1, ENC_NA, &nevents);
+		  offset++;
+	  }
+
+	  for (i = 0; i < nevents; i++) {
+		  guint8 flagsCode;
+		  guint8 eventCode;
+		  guint8 eventSize;
+		  proto_tree *event_tree;
+		  const char *event_name;
+		  int * const *flagsList = fastpath_inputHeader_flags;
+
+		  flagsCode = tvb_get_guint8(tvb, offset);
+		  eventCode = (flagsCode >> 5) & 0x07;
+
+		  switch (eventCode) {
+		  case FASTPATH_INPUT_EVENT_SCANCODE:
+			  event_name = "Scancode";
+			  eventSize = 2;
+			  flagsList = fastpath_scancode_flags;
+			  break;
+		  case FASTPATH_INPUT_EVENT_MOUSE:
+			  event_name = "Mouse";
+			  eventSize = 7;
+			  break;
+		  case FASTPATH_INPUT_EVENT_MOUSEX:
+			  event_name = "MouseEx";
+			  eventSize = 7;
+			  break;
+		  case FASTPATH_INPUT_EVENT_SYNC:
+			  event_name = "Sync";
+			  eventSize = 1;
+			  flagsList = fastpath_inputsync_flags;
+			  break;
+		  case FASTPATH_INPUT_EVENT_UNICODE:
+			  event_name = "Unicode";
+			  eventSize = 3;
+			  flagsList = fastpath_inputunicode_flags;
+			  break;
+		  case FASTPATH_INPUT_EVENT_QOE_TIMESTAMP:
+			  event_name = "QoE timestamp";
+			  eventSize = 5;
+			  break;
+		  default:
+			  eventSize = 1;
+			  event_name = NULL;
+			  break;
+		  }
+
+		  if (event_name) {
+			  col_append_sep_str(pinfo->cinfo, COL_INFO, ",", event_name);
+			  event_tree = proto_tree_add_subtree(tree, tvb, offset, eventSize, ett_rdp_fastpath, NULL, event_name);
+			  proto_tree_add_bitmask(event_tree, tvb, offset, hf_rdp_fastpathInputHeader, ett_rdp_fastpath_header, flagsList, ENC_LITTLE_ENDIAN);
+
+			  switch (eventCode) {
+			  case FASTPATH_INPUT_EVENT_SCANCODE:
+				  proto_tree_add_item(event_tree, hf_rdp_fastpathScancodeKeyCode, tvb, offset+1, 1, ENC_LITTLE_ENDIAN);
+				  break;
+			  case FASTPATH_INPUT_EVENT_MOUSE:
+				  proto_tree_add_bitmask(event_tree, tvb, offset+1, hf_rdp_pointerFlags, ett_rdp_fastpath_mouse_flags, ts_pointer_flags, ENC_LITTLE_ENDIAN);
+				  proto_tree_add_item(event_tree, hf_rdp_pointer_xpos, tvb, offset+1+2, 2, ENC_LITTLE_ENDIAN);
+				  proto_tree_add_item(event_tree, hf_rdp_pointer_ypos, tvb, offset+1+4, 2, ENC_LITTLE_ENDIAN);
+				  break;
+			  case FASTPATH_INPUT_EVENT_MOUSEX:
+				  proto_tree_add_bitmask(event_tree, tvb, offset+1, hf_rdp_pointerxFlags, ett_rdp_fastpath_mousex_flags, ts_pointerx_flags, ENC_LITTLE_ENDIAN);
+				  proto_tree_add_item(event_tree, hf_rdp_pointerx_xpos, tvb, offset+1+2, 2, ENC_LITTLE_ENDIAN);
+				  proto_tree_add_item(event_tree, hf_rdp_pointerx_ypos, tvb, offset+1+4, 2, ENC_LITTLE_ENDIAN);
+				  break;
+			  case FASTPATH_INPUT_EVENT_SYNC:
+				  break;
+			  case FASTPATH_INPUT_EVENT_UNICODE:
+				  proto_tree_add_item(event_tree, hf_rdp_fastpathUnicodeCode, tvb, offset+1, 2, ENC_LITTLE_ENDIAN);
+				  break;
+			  case FASTPATH_INPUT_EVENT_QOE_TIMESTAMP:
+				  proto_tree_add_item(event_tree, hf_rdp_fastpathQoeTimestamp, tvb, offset+1, 4, ENC_LITTLE_ENDIAN);
+				  break;
+			  }
+		  }
+
+		  offset += eventSize;
+	  }
+  } else {
+	  while (offset < (guint)(pdu_length - 1)) {
+		  guint8 updateCode, flagsCode;
+		  guint8 frag, compression;
+		  guint64 compFlags;
+		  guint16 eventSize = 1;
+		  guint16 recordSize;
+		  guint tmp_offset = offset;
+		  proto_tree *event_tree;
+		  const char *event_name;
+
+		  flagsCode = tvb_get_guint8(tvb, tmp_offset);
+		  updateCode = (flagsCode & 0xf);
+		  frag = (flagsCode >> 4) & 0x03;
+		  compression = (flagsCode >> 6) & 0x03;
+		  tmp_offset++;
+
+		  tmp_offset = offset + 1;
+		  if (compression) {
+			  tmp_offset++;
+			  eventSize++;
+		  }
+		  recordSize = tvb_get_guint16(tvb, tmp_offset, ENC_LITTLE_ENDIAN);
+		  eventSize += recordSize;
+
+		  switch (updateCode) {
+		  case FASTPATH_UPDATETYPE_ORDERS:
+			  event_name = "Orders";
+			  break;
+		  case FASTPATH_UPDATETYPE_BITMAP:
+			  event_name = "Bitmap";
+			  break;
+		  case FASTPATH_UPDATETYPE_PALETTE:
+			  event_name = "Palette";
+			  break;
+		  case FASTPATH_UPDATETYPE_SYNCHRONIZE:
+			  event_name = "Synchronize";
+			  break;
+		  case FASTPATH_UPDATETYPE_SURFCMDS:
+			  event_name = "Surface";
+			  break;
+		  case FASTPATH_UPDATETYPE_PTR_NULL:
+			  event_name = "NullPointer";
+			  break;
+		  case FASTPATH_UPDATETYPE_PTR_DEFAULT:
+			  event_name = "DefaultPointer";
+			  break;
+		  case FASTPATH_UPDATETYPE_PTR_POSITION:
+			  event_name = "PointerPosition";
+			  break;
+		  case FASTPATH_UPDATETYPE_COLOR:
+			  event_name = "ColorPointer";
+			  break;
+		  case FASTPATH_UPDATETYPE_CACHED:
+			  event_name = "CachedPointer";
+			  break;
+		  case FASTPATH_UPDATETYPE_POINTER:
+			  event_name = "NewPointer";
+			  break;
+		  case FASTPATH_UPDATETYPE_LARGE_POINTER:
+			  event_name = "LargePointer";
+			  break;
+		  default:
+			  event_name = "Unknown";
+			  break;
+		  }
+
+		  col_append_sep_str(pinfo->cinfo, COL_INFO, ",", event_name);
+		  event_tree = proto_tree_add_subtree(tree, tvb, offset, eventSize, ett_rdp_fastpath, NULL, event_name);
+		  proto_tree_add_item(event_tree, hf_rdp_fastpathServerUpdateCode, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+		  proto_tree_add_item(event_tree, hf_rdp_fastpathServerFragmentation, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+		  proto_tree_add_item(event_tree, hf_rdp_fastpathServerCompression, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+		  offset++;
+
+		  if (frag) {
+			  // TODO: reassemble fragments
+		  }
+
+		  if (compression) {
+			  proto_tree_add_bitmask_ret_uint64(event_tree, tvb, offset, hf_rdp_fastpathServerCompressionType,
+					  ett_rdp_fastpath_compression, fastpath_servercompression_flags,
+					  ENC_LITTLE_ENDIAN, &compFlags);
+
+			  if (compFlags) {
+				  // TODO: decompress
+			  }
+			  offset++;
+		  }
+
+		  proto_tree_add_item(event_tree, hf_rdp_fastpathServerSize, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+		  offset += 2;
+
+		  switch (updateCode) {
+		  case FASTPATH_UPDATETYPE_ORDERS:
+			  break;
+		  case FASTPATH_UPDATETYPE_BITMAP:
+			  break;
+		  case FASTPATH_UPDATETYPE_PALETTE:
+			  break;
+		  case FASTPATH_UPDATETYPE_SURFCMDS:
+			  break;
+		  case FASTPATH_UPDATETYPE_PTR_NULL:
+		  case FASTPATH_UPDATETYPE_PTR_DEFAULT:
+		  case FASTPATH_UPDATETYPE_SYNCHRONIZE:
+			  break;
+		  case FASTPATH_UPDATETYPE_PTR_POSITION:
+			  break;
+		  case FASTPATH_UPDATETYPE_COLOR:
+			  break;
+		  case FASTPATH_UPDATETYPE_CACHED:
+			  break;
+		  case FASTPATH_UPDATETYPE_POINTER:
+			  break;
+		  case FASTPATH_UPDATETYPE_LARGE_POINTER:
+			  break;
+		  default:
+			  break;
+		  }
+
+		  offset += recordSize;
+	  }
+
+  }
   return TRUE;
 }
 
@@ -2723,6 +3268,14 @@ dissect_rdp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, voi
     }
     return dissect_rdp_fastpath(tvb, pinfo, parent_tree, NULL);
 }
+
+
+static void
+init_server_conversations(void)
+{
+	rdp_transport_links = wmem_map_new(wmem_file_scope(), rdp_udp_conversation_hash, rdp_udp_conversation_equal_matched);
+}
+
 
 /*--- proto_register_rdp -------------------------------------------*/
 void
@@ -3191,7 +3744,7 @@ proto_register_rdp(void) {
 		  FT_UINT8, BASE_DEC, NULL, 0,
 		  NULL, HFILL}},
 	{ &hf_rdp_heartbeat_count2,
-		{ "Count1", "rdp.heartbeat.count2",
+		{ "Count2", "rdp.heartbeat.count2",
 		  FT_UINT8, BASE_DEC, NULL, 0,
 		  NULL, HFILL}},
 	{ &hf_rdp_bandwidth_header_len,
@@ -3430,10 +3983,206 @@ proto_register_rdp(void) {
       { "virtualChannelData", "rdp.virtualChannelData",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rdp_fastpathPDULength,
-      { "fastpathPDULength", "rdp.fastpathPDULength",
-        FT_UINT16, BASE_DEC, NULL, 0,
-        NULL, HFILL }},
+	{ &hf_rdp_pointerFlags,
+	  { "pointerFlags", "rdp.pointerflags",
+		FT_UINT16, BASE_HEX, NULL, 0,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_move,
+	  { "Move", "rdp.pointerflags.move",
+		FT_BOOLEAN, 16, NULL, 0x0800,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_down,
+	  { "Down", "rdp.pointerflags.down",
+		FT_BOOLEAN, 16, NULL, 0x8000,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_button1,
+	  { "Button1", "rdp.pointerflags.button1",
+		FT_BOOLEAN, 16, NULL, 0x1000,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_button2,
+	  { "Button2", "rdp.pointerflags.button2",
+		FT_BOOLEAN, 16, NULL, 0x2000,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_button3,
+	  { "Button3", "rdp.pointerflags.button3",
+		FT_BOOLEAN, 16, NULL, 0x4000,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_wheel_rotation,
+	  { "Wheel rotation", "rdp.pointerflags.wheelrotation",
+		FT_UINT16, BASE_DEC, NULL, 0x1ff,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_wheel_neg,
+	  { "Wheel negative", "rdp.pointerflags.wheelnegative",
+		FT_BOOLEAN, 16, NULL, 0x100,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_wheel,
+	  { "Wheel", "rdp.pointerflags.wheel",
+		FT_BOOLEAN, 16, NULL, 0x200,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerFlags_hwheel,
+	  { "Horizontal wheel", "rdp.pointerflags.hwheel",
+		FT_BOOLEAN, 16, NULL, 0x400,
+		NULL, HFILL }},
+	{ &hf_rdp_pointer_xpos,
+	  { "xPos", "rdp.pointer.xpos",
+		FT_UINT16, BASE_DEC, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_pointer_ypos,
+	  { "yPos", "rdp.pointer.ypos",
+		FT_UINT16, BASE_DEC, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerxFlags,
+	  { "PointeFlags", "rdp.pointerxflags",
+		FT_UINT16, BASE_HEX, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerxFlags_down,
+	  { "Down", "rdp.pointerxflags.down",
+		FT_BOOLEAN, 16, NULL, 0x8000,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerxFlags_button1,
+	  { "Button1", "rdp.pointerxflags.button1",
+		FT_BOOLEAN, 16, NULL, 0x0001,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerxFlags_button2,
+	  { "Button2", "rdp.pointerxflags.button2",
+		FT_BOOLEAN, 16, NULL, 0x0002,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerx_xpos,
+	  { "xPos", "rdp.pointerx.xpos",
+		FT_UINT16, BASE_DEC, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_pointerx_ypos,
+	  { "yPos", "rdp.pointerx.ypos",
+		FT_UINT16, BASE_DEC, NULL, 0x0,
+		NULL, HFILL }},
+
+
+	{ &hf_rdp_fastpathHeader,
+	  { "Header", "rdp.fastpath.header",
+		FT_UINT8, BASE_HEX, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathAction,
+	  { "Action", "rdp.fastpath.action",
+		FT_UINT8, BASE_DEC, VALS(rdp_fastpath_action_vals), 0x3,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathClientNumEvents,
+	  { "numEvents", "rdp.fastpath.numevents",
+		FT_UINT8, BASE_DEC, NULL, 0x3c,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathFlags,
+	  { "flags", "rdp.fastpath.flags",
+		FT_UINT8, BASE_DEC, NULL, 0xc0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerReserved,
+	  { "Reserved", "rdp.fastpath.reserved",
+		FT_UINT8, BASE_HEX, NULL, 0x3c,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathPDULength,
+	  { "fastpathPDULength", "rdp.fastpathPDULength",
+		FT_UINT16, BASE_DEC, NULL, 0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathClientNumEvents2,
+	  { "NumEvents2", "rdp.fastpath.numevents2",
+		FT_UINT8, BASE_DEC, NULL, 0x00,
+		NULL, HFILL }},
+#if 0
+	{ &hf_rdp_fastpathOutputHeader,
+	  { "fpOutputHeader", "rdp.fastpath.outputheader",
+		FT_UINT8, BASE_HEX, NULL, 0x00,
+		NULL, HFILL }},
+#endif
+	{ &hf_rdp_fastpathServerUpdateCode,
+	  { "Code", "rdp.fastpath.clienteventcode",
+		FT_UINT8, BASE_DEC, VALS(rdp_fastpath_server_event_vals), 0x0f,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerFragmentation,
+	  { "Fragmentation", "rdp.fastpath.serverfragmentation",
+		FT_UINT8, BASE_DEC, VALS(rdp_fastpath_server_fragmentation_vals), 0x30,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompression,
+	  { "Compression", "rdp.fastpath.servercompression",
+		FT_UINT8, BASE_HEX, NULL, 0xc0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathInputHeader,
+	  { "EventHeaderCode", "rdp.fastpath.eventheader",
+		FT_UINT8, BASE_HEX, NULL, 0x0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathClientEventCode,
+	  { "Code", "rdp.fastpath.clienteventcode",
+		FT_UINT8, BASE_DEC, VALS(rdp_fastpath_client_event_vals), 0xe0,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathClientFlags,
+	  { "Flags", "rdp.fastpath.eventflags",
+		FT_UINT8, BASE_DEC, NULL, 0x1f,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathScancodeRelease,
+	  { "Release", "rdp.fastpath.scancode.release",
+		FT_BOOLEAN, 8, NULL, 0x01,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathScancodeExtended,
+	  { "Extended", "rdp.fastpath.scancode.extended",
+		FT_BOOLEAN, 8, NULL, 0x02,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathScancodeExtended1,
+	  { "Extended1", "rdp.fastpath.scancode.extended1",
+		FT_BOOLEAN, 8, NULL, 0x04,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathScancodeKeyCode,
+	  { "KeyCode", "rdp.fastpath.scancode.keycode",
+		FT_UINT8, BASE_HEX, NULL, 0x00,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathSyncScrollLock,
+	  { "ScrollLock", "rdp.fastpath.sync.scrolllock",
+		FT_BOOLEAN, 8, NULL, 0x01,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathSyncNumLock,
+	  { "NumLock", "rdp.fastpath.sync.numlock",
+		FT_BOOLEAN, 8, NULL, 0x02,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathSyncCapsLock,
+	  { "CapsLock", "rdp.fastpath.sync.capslock",
+		FT_BOOLEAN, 8, NULL, 0x04,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathSyncKanaLock,
+	  { "ScrollLock", "rdp.fastpath.sync.kanalock",
+		FT_BOOLEAN, 8, NULL, 0x08,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathQoeTimestamp,
+	  { "Timestamp", "rdp.fastpath.qoe.timestamp",
+		FT_UINT32, BASE_HEX, NULL, 0x00,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathUnicodeFlagsRelease,
+	  { "Release", "rdp.fastpath.unicode.release",
+		FT_BOOLEAN, 5, NULL, 0x01,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathUnicodeCode,
+	  { "unicodeCode", "rdp.fastpath.unicode.code",
+		FT_UINT16, BASE_HEX, NULL, 0x00,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompressionType,
+	  { "CompressionType", "rdp.fastpath.server.compressiontype",
+		FT_UINT8, BASE_HEX, NULL, 0x00,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompressionType_compressed,
+	  { "Compressed", "rdp.fastpath.server.compressionflags.compressed",
+		FT_BOOLEAN, 8, NULL, PACKET_COMPRESSED,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompressionType_atfront,
+	  { "At front", "rdp.fastpath.server.compressionflags.atfront",
+		FT_BOOLEAN, 8, NULL, PACKET_AT_FRONT,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompressionType_flushed,
+	  { "At front", "rdp.fastpath.server.compressionflags.flushed",
+		FT_BOOLEAN, 8, NULL, PACKET_FLUSHED,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerCompressionFlags,
+	  { "CompressionFlags", "rdp.fastpath.server.compressionflags",
+		FT_UINT8, BASE_HEX, VALS(rdp_compressionType_vals), 0x0f,
+		NULL, HFILL }},
+	{ &hf_rdp_fastpathServerSize,
+	  { "Size", "rdp.fastpath.server.size",
+		FT_UINT16, BASE_DEC, NULL, 0x00,
+		NULL, HFILL }},
     { &hf_rdp_totalLength,
       { "totalLength", "rdp.totalLength",
         FT_UINT16, BASE_DEC, NULL, 0,
@@ -3890,6 +4639,12 @@ proto_register_rdp(void) {
     &ett_rdp_StandardDate,
     &ett_rdp_DaylightDate,
     &ett_rdp_clientTimeZone,
+	&ett_rdp_fastpath,
+	&ett_rdp_fastpath_header,
+	&ett_rdp_fastpath_scancode_flags,
+	&ett_rdp_fastpath_mouse_flags,
+	&ett_rdp_fastpath_mousex_flags,
+	&ett_rdp_fastpath_compression,
   };
   static ei_register_info ei[] = {
      { &ei_rdp_neg_len_invalid, { "rdp.neg_len.invalid", PI_PROTOCOL, PI_ERROR, "Invalid length", EXPFILL }},
@@ -3906,10 +4661,9 @@ proto_register_rdp(void) {
   expert_rdp = expert_register_protocol(proto_rdp);
   expert_register_field_array(expert_rdp, ei, array_length(ei));
 
-  /*   register_dissector("rdp", dissect_rdp, proto_rdp); */
+  register_init_routine(init_server_conversations);
 
   /* Register our configuration options for RDP, particularly our port */
-
   rdp_module = prefs_register_protocol(proto_rdp, NULL);
 
   prefs_register_obsolete_preference(rdp_module, "tcp.port");

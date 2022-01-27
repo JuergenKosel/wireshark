@@ -80,7 +80,6 @@ DIAG_ON(frame-larger-than=)
 
 #include <QAction>
 #include <QActionGroup>
-#include <QDesktopWidget>
 #include <QKeyEvent>
 #include <QList>
 #include <QMessageBox>
@@ -680,8 +679,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(main_ui_->welcomePage, SIGNAL(captureFilterSyntaxChanged(bool)),
             this, SLOT(captureFilterSyntaxChanged(bool)));
 
-    connect(this->welcome_page_, SIGNAL(showExtcapOptions(QString&)),
-            this, SLOT(showExtcapOptionsDialog(QString&)));
+    connect(this, SIGNAL(showExtcapOptions(QString&, bool)),
+            this, SLOT(showExtcapOptionsDialog(QString&, bool)));
+    connect(this->welcome_page_, SIGNAL(showExtcapOptions(QString&, bool)),
+            this, SLOT(showExtcapOptionsDialog(QString&, bool)));
 
 #endif // HAVE_LIBPCAP
 
@@ -2032,15 +2033,15 @@ void MainWindow::findTextCodecs() {
         if (key.localeAwareCompare("IBM") < 0) {
             rank = 1;
         } else if ((match = ibmRegExp.match(key)).hasMatch()) {
-            rank = match.capturedRef(1).size(); // Up to 5
+            rank = match.captured(1).size(); // Up to 5
         } else if (key.localeAwareCompare("ISO-8859-") < 0) {
             rank = 6;
         } else if ((match = iso8859RegExp.match(key)).hasMatch()) {
-            rank = 6 + match.capturedRef(1).size(); // Up to 6 + 2
+            rank = 6 + match.captured(1).size(); // Up to 6 + 2
         } else if (key.localeAwareCompare("WINDOWS-") < 0) {
             rank = 9;
         } else if ((match = windowsRegExp.match(key)).hasMatch()) {
-            rank = 9 + match.capturedRef(1).size(); // Up to 9 + 4
+            rank = 9 + match.captured(1).size(); // Up to 9 + 4
         } else {
             rank = 14;
         }
@@ -2053,7 +2054,7 @@ void MainWindow::findTextCodecs() {
         // For data about use in HTTP (other protocols can be quite different):
         // https://w3techs.com/technologies/overview/character_encoding
 
-        key.prepend('0' + rank);
+        key.prepend(char('0' + rank));
         // We use a map here because, due to backwards compatibility,
         // the same QTextCodec may be returned for multiple MIBs, which
         // happens for GBK/GB2312, EUC-KR/windows-949/UHC, and others.
@@ -2349,7 +2350,7 @@ QString MainWindow::replaceWindowTitleVariables(QString title)
             // Substitute HOME with ~
             QString homedir(g_getenv("HOME"));
             if (!homedir.isEmpty()) {
-                homedir.remove(QRegExp("[/]+$"));
+                homedir.remove(QRegularExpression("[/]+$"));
                 file.replace(homedir, "~");
             }
 #endif
@@ -2363,8 +2364,8 @@ QString MainWindow::replaceWindowTitleVariables(QString title)
     if (title.contains("%S")) {
         // %S is a conditional separator (" - ") that only shows when surrounded by variables
         // with values or static text. Remove repeating, leading and trailing separators.
-        title.replace(QRegExp("(%S)+"), "%S");
-        title.remove(QRegExp("^%S|%S$"));
+        title.replace(QRegularExpression("(%S)+"), "%S");
+        title.remove(QRegularExpression("^%S|%S$"));
 #ifdef __APPLE__
         // On macOS we separate with a unicode em dash
         title.replace("%S", " " UTF8_EM_DASH " ");

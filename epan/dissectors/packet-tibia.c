@@ -811,7 +811,7 @@ static const unit_name_string mb_unit = {"MB", NULL};
 static int
 dissect_loginserv_packet(struct tibia_convo *convo, tvbuff_t *tvb, int offset, int len, packet_info *pinfo, proto_tree *tree, gboolean first_fragment )
 {
-    ptvcursor_t *ptvc = ptvcursor_new(tree, tvb, offset);
+    ptvcursor_t *ptvc = ptvcursor_new(pinfo->pool, tree, tvb, offset);
 
     col_append_str(pinfo->cinfo, COL_INFO, first_fragment ? " commands:" : ",");
     len += offset;
@@ -966,7 +966,7 @@ dissect_coord(ptvcursor_t *ptvc, gboolean with_stackpos)
 static int
 dissect_gameserv_packet(struct tibia_convo *convo, tvbuff_t *tvb, int offset, int len, packet_info *pinfo, proto_tree *tree, gboolean first_fragment)
 {
-    ptvcursor_t *ptvc = ptvcursor_new(tree, tvb, offset);
+    ptvcursor_t *ptvc = ptvcursor_new(pinfo->pool, tree, tvb, offset);
 
     col_append_str(pinfo->cinfo, COL_INFO, first_fragment ? " commands:" : ",");
     len += offset;
@@ -1169,7 +1169,7 @@ dissect_gameserv_packet(struct tibia_convo *convo, tvbuff_t *tvb, int offset, in
 static int
 dissect_client_packet(struct tibia_convo *convo, tvbuff_t *tvb, int offset, int len, packet_info *pinfo, proto_tree *tree, gboolean first_fragment)
 {
-    ptvcursor_t *ptvc = ptvcursor_new(tree, tvb, offset);
+    ptvcursor_t *ptvc = ptvcursor_new(pinfo->pool, tree, tvb, offset);
 
     col_append_str(pinfo->cinfo, COL_INFO, first_fragment ? " commands:" : ",");
     len += offset;
@@ -1487,7 +1487,7 @@ dissect_tibia(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *fragmen
         }
         offset += len;
     } else /* account number */ {
-        char *accnum = wmem_strdup_printf(pinfo->pool, "%" G_GUINT32_FORMAT, tvb_get_letohl(tvb_decrypted, offset));
+        char *accnum = wmem_strdup_printf(pinfo->pool, "%" PRIu32, tvb_get_letohl(tvb_decrypted, offset));
         proto_tree_add_string(tibia_tree, hf_tibia_acc_number, tvb_decrypted, offset, 4, accnum);
         if (!convo->acc)
             convo->acc = (guint8*)wmem_strdup(wmem_file_scope(), accnum);
@@ -1740,7 +1740,7 @@ rsakeys_uat_fld_ip_chk_cb(void* r _U_, const char* ipaddr, guint len _U_, const 
         return TRUE;
     }
 
-    *err = g_strdup_printf("No IPv4 address given.");
+    *err = ws_strdup_printf("No IPv4 address given.");
     return FALSE;
 }
 
@@ -1762,7 +1762,7 @@ rsakeys_uat_fld_fileopen_chk_cb(void* r _U_, const char* p, guint len _U_, const
     if (p && *p) {
         ws_statb64 st;
         if (ws_stat64(p, &st) != 0) {
-            *err = g_strdup_printf("File '%s' does not exist or access is denied.", p);
+            *err = ws_strdup_printf("File '%s' does not exist or access is denied.", p);
             return FALSE;
         }
     } else {
@@ -1785,7 +1785,7 @@ rsakeys_uat_fld_password_chk_cb(void *r, const char *p, guint len _U_, const voi
             gnutls_x509_privkey_t priv_key = rsa_load_pkcs12(fp, p, &msg);
             if (!priv_key) {
                 fclose(fp);
-                *err = g_strdup_printf("Could not load PKCS#12 key file: %s", msg);
+                *err = ws_strdup_printf("Could not load PKCS#12 key file: %s", msg);
                 g_free(msg);
                 return FALSE;
             }
@@ -1793,7 +1793,7 @@ rsakeys_uat_fld_password_chk_cb(void *r, const char *p, guint len _U_, const voi
             gnutls_x509_privkey_deinit(priv_key);
             fclose(fp);
         } else {
-            *err = g_strdup_printf("Leave this field blank if the keyfile is not PKCS#12.");
+            *err = ws_strdup_printf("Leave this field blank if the keyfile is not PKCS#12.");
             return FALSE;
         }
     }
@@ -1865,7 +1865,7 @@ xteakeys_uat_fld_key_chk_cb(void *r _U_, const char *key, guint len, const void 
         }
     }
 
-    *err = g_strdup_printf("XTEA keys are 32 character long hex strings.");
+    *err = ws_strdup_printf("XTEA keys are 32 character long hex strings.");
     return FALSE;
 }
 

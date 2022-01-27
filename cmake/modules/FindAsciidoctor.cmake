@@ -9,12 +9,11 @@ INCLUDE(FindChocolatey)
 FIND_PROGRAM(ASCIIDOCTOR_EXECUTABLE
     NAMES
         asciidoctorj
+        asciidoctor.bat
         asciidoctor
         asciidoctor.ruby2.1
-	# Asciidoctor.js releases
-        asciidoctor-linux
-        asciidoctor-macos
-        asciidoctor-win
+        # XXX Add Asciidoctor.js releases (asciidoctor-linux,
+        # asciidoctor-macos, asciidoctor-win) if that ever becomes an option.
     PATHS
         /bin
         /usr/bin
@@ -33,23 +32,32 @@ if(ASCIIDOCTOR_EXECUTABLE)
 
     function(set_asciidoctor_target_properties _target)
         set_target_properties(${_target} PROPERTIES
-            FOLDER "Docbook"
+            FOLDER "Documentation"
             EXCLUDE_FROM_DEFAULT_BUILD True
-            )
+        )
     endfunction(set_asciidoctor_target_properties)
 
     set (_asciidoctor_common_args
         # Doesn't work with AsciidoctorJ?
         # --failure-level=WARN
+        # --trace
+        --quiet
         --attribute build_dir=${CMAKE_CURRENT_BINARY_DIR}
-        --require ${CMAKE_CURRENT_SOURCE_DIR}/asciidoctor-macros/ws_utils.rb
-        --require ${CMAKE_CURRENT_SOURCE_DIR}/asciidoctor-macros/commaize-block.rb
-        --require ${CMAKE_CURRENT_SOURCE_DIR}/asciidoctor-macros/cveidlink-inline-macro.rb
-        --require ${CMAKE_CURRENT_SOURCE_DIR}/asciidoctor-macros/wsbuglink-inline-macro.rb
-        --require ${CMAKE_CURRENT_SOURCE_DIR}/asciidoctor-macros/wssalink-inline-macro.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/ws_utils.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/commaize-block.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/cveidlink-inline-macro.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/manarg-block.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/wsbuglink-inline-macro.rb
+        --require ${CMAKE_SOURCE_DIR}/docbook/asciidoctor-macros/wssalink-inline-macro.rb
     )
 
     set(_asciidoctor_common_command
+        ${CMAKE_COMMAND} -E env TZ=UTC
+        ${ASCIIDOCTOR_EXECUTABLE}
+        ${_asciidoctor_common_args}
+    )
+
+    set(_asciidoctor_docbook_common_command
         ${CMAKE_COMMAND} -E env TZ=UTC ASCIIDOCTORJ_OPTS=${_asciidoctorj_opts}
         ${ASCIIDOCTOR_EXECUTABLE}
         ${_asciidoctor_common_args}
@@ -62,7 +70,7 @@ if(ASCIIDOCTOR_EXECUTABLE)
         add_custom_command(
             OUTPUT
                 ${_output_xml}
-            COMMAND ${_asciidoctor_common_command}
+            COMMAND ${_asciidoctor_docbook_common_command}
                 --backend docbook
                 --out-file ${_output_xml}
                 ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
@@ -85,7 +93,7 @@ if(ASCIIDOCTOR_EXECUTABLE)
         unset(_output_xml)
     ENDMACRO()
 
-    # Currently single page only.
+    # Single page only, for the release notes and man pages.
     MACRO( ASCIIDOCTOR2HTML _asciidocsource )
         GET_FILENAME_COMPONENT( _source_base_name ${_asciidocsource} NAME_WE )
         set( _output_html ${_source_base_name}.html )
@@ -112,18 +120,68 @@ if(ASCIIDOCTOR_EXECUTABLE)
         set( _output_txt ${_source_base_name}.txt )
 
         ADD_CUSTOM_COMMAND(
-        OUTPUT
+            OUTPUT
                 ${_output_txt}
-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/html2text.py
+            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/html2text.py
                 ${_output_html}
                 > ${_output_txt}
-        DEPENDS
+            DEPENDS
                 ${CMAKE_CURRENT_SOURCE_DIR}/${_asciidocsource}
                 ${_output_html}
                 ${ARGN}
         )
         unset(_output_html)
         unset(_output_txt)
+    ENDMACRO()
+
+    # Generate one or more ROFF man pages
+    MACRO(ASCIIDOCTOR2ROFFMAN _man_section)
+        set(_input_adoc)
+        set(_output_man)
+        foreach(_src_file ${ARGN})
+            list(APPEND _input_adoc ${_src_file})
+            GET_FILENAME_COMPONENT(_source_base_name ${_src_file} NAME_WE )
+            list(APPEND _output_man ${_source_base_name}.${_man_section} )
+        endforeach()
+
+        ADD_CUSTOM_COMMAND(
+            OUTPUT
+                ${_output_man}
+            COMMAND ${_asciidoctor_common_command}
+                --backend manpage
+                --destination-dir ${CMAKE_CURRENT_BINARY_DIR}
+                ${_input_adoc}
+            DEPENDS
+                ${_input_adoc}
+        )
+        unset(_src_file)
+        unset(_input_adoc)
+        unset(_output_man)
+    ENDMACRO()
+
+    # Generate one or more HTML man pages
+    MACRO(ASCIIDOCTOR2HTMLMAN)
+        set(_input_adoc)
+        set(_output_man)
+        foreach(_src_file ${ARGN})
+            list(APPEND _input_adoc ${_src_file})
+            GET_FILENAME_COMPONENT(_source_base_name ${_src_file} NAME_WE )
+            list(APPEND _output_man ${_source_base_name}.html )
+        endforeach()
+
+        ADD_CUSTOM_COMMAND(
+            OUTPUT
+                ${_output_man}
+            COMMAND ${_asciidoctor_common_command}
+                --backend html
+                --destination-dir ${CMAKE_CURRENT_BINARY_DIR}
+                ${_input_adoc}
+            DEPENDS
+                ${_input_adoc}
+        )
+        unset(_src_file)
+        unset(_input_adoc)
+        unset(_output_man)
     ENDMACRO()
 
     # news: release-notes.txt

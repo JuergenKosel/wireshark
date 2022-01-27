@@ -62,7 +62,7 @@ typedef enum {
     _T("C Arrays (packet bytes) (*.c)\0")                _T("*.c\0")     \
     _T("JSON (*.json)\0")                                _T("*.json\0")
 
-static TCHAR *FILE_EXT_EXPORT[] =
+static const TCHAR *FILE_EXT_EXPORT[] =
 {
     _T(""), /* export type starts at 1 */
     _T("txt"),
@@ -773,7 +773,7 @@ preview_set_file_info(HWND of_hwnd, gchar *preview_file) {
     /* Size */
     filesize = wtap_file_size(wth, &err);
     // Windows Explorer uses IEC.
-    size_str = format_size(filesize, format_size_unit_bytes|format_size_prefix_iec);
+    size_str = format_size(filesize, FORMAT_SIZE_UNIT_BYTES, FORMAT_SIZE_PREFIX_IEC);
 
     status = get_stats_for_preview(wth, &stats, &err, &err_info);
 
@@ -1269,7 +1269,7 @@ save_as_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param _U_, LPARAM l_para
                     file_name8 = utf_16to8(notify->lpOFN->lpstrFile);
                     if (files_identical(cf->filename, file_name8)) {
                         /* XXX: Is MessageBox the best way to pop up an error ? How to make text bold ? */
-                        gchar *str = g_strdup_printf(
+                        gchar *str = ws_strdup_printf(
                             "Capture File \"%s\" identical to loaded file.\n\n"
                             "Please choose a different filename.",
                             file_name8);
@@ -1342,7 +1342,7 @@ export_specified_packets_file_hook_proc(HWND sf_hwnd, UINT msg, WPARAM w_param, 
                     file_name8 = utf_16to8(notify->lpOFN->lpstrFile);
                     if (files_identical(cf->filename, file_name8)) {
                         /* XXX: Is MessageBox the best way to pop up an error ? How to make text bold ? */
-                        gchar *str = g_strdup_printf(
+                        gchar *str = ws_strdup_printf(
                             "Capture File \"%s\" identical to loaded file.\n\n"
                             "Please choose a different filename.",
                             file_name8);

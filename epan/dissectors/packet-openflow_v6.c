@@ -2948,7 +2948,7 @@ dissect_openflow_port_v6(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 
     /* uint8_t hw_addr[OFP_ETH_ALEN]; */
     proto_tree_add_item(port_tree, hf_openflow_v6_port_hw_addr, tvb, offset, OFP_ETH_ALEN, ENC_NA);
-    proto_item_append_text(port_tree, ": %s", tvb_ether_to_str(tvb, offset));
+    proto_item_append_text(port_tree, ": %s", tvb_ether_to_str(pinfo->pool, tvb, offset));
     offset+=OFP_ETH_ALEN;
 
     /* uint8_t pad2[2]; */
@@ -5555,6 +5555,11 @@ dissect_openflow_queue_desc_prop_v6(tvbuff_t *tvb, packet_info *pinfo _U_, proto
         break;
 
     case OFPQDPT_EXPERIMENTER:
+        if (prop_len <= 16) {
+            expert_add_info(pinfo, ti, &ei_openflow_v6_length_too_short);
+            offset = length;
+            break;
+        }
         /* uint32_t experimenter; */
         proto_tree_add_item(prop_tree, hf_openflow_v6_queue_desc_prop_experimenter_experimenter, tvb, offset, 4, ENC_BIG_ENDIAN);
         offset+=4;
@@ -5570,6 +5575,11 @@ dissect_openflow_queue_desc_prop_v6(tvbuff_t *tvb, packet_info *pinfo _U_, proto
         break;
 
     default:
+        if (prop_len <= 8) {
+            expert_add_info(pinfo, ti, &ei_openflow_v6_length_too_short);
+            offset = length;
+            break;
+        }
         proto_tree_add_expert_format(prop_tree, pinfo, &ei_openflow_v6_queue_desc_prop_undecoded,
                                      tvb, offset, prop_len - 8, "Unknown queue property body.");
         offset+=prop_len-8;

@@ -11,7 +11,7 @@
  */
 
 #include <config.h>
-#define WS_LOG_DOMAIN LOG_DOMAIN_CAPCHILD
+#define WS_LOG_DOMAIN LOG_DOMAIN_EXTCAP
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -238,7 +238,7 @@ extcap_get_extcap_paths_from_dir(GSList * list, const char * dirname)
     if ((dir = g_dir_open(dirname, 0, NULL)) != NULL) {
         while ((file = g_dir_read_name(dir)) != NULL) {
             /* full path to extcap binary */
-            gchar *extcap_path = g_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dirname, file);
+            gchar *extcap_path = ws_strdup_printf("%s" G_DIR_SEPARATOR_S "%s", dirname, file);
             /* treat anything executable as an extcap binary */
             if (g_file_test(extcap_path, G_FILE_TEST_IS_REGULAR) &&
                 g_file_test(extcap_path, G_FILE_TEST_IS_EXECUTABLE)) {
@@ -883,8 +883,14 @@ static gboolean cb_preference(extcap_callback_info_t cb_info)
                             *arg->pref_valptr = arg->default_complex->_val;
                         }
 
-                        prefs_register_string_preference(dev_module, pref_name_for_prefs,
+                        if (arg->arg_type == EXTCAP_ARG_PASSWORD)
+                        {
+                            prefs_register_password_preference(dev_module, pref_name_for_prefs,
                                                          pref_title, pref_title, (const char **)arg->pref_valptr);
+                        } else {
+                            prefs_register_string_preference(dev_module, pref_name_for_prefs,
+                                                         pref_title, pref_title, (const char **)arg->pref_valptr);
+                        }
                     }
                     else
                     {
@@ -1267,7 +1273,7 @@ void extcap_if_cleanup(capture_options *capture_opts, gchar **errormsg)
                 {
                     if (*errormsg == NULL)
                     {
-                        *errormsg = g_strdup_printf("Error by extcap pipe: %s", pipedata->stderr_msg);
+                        *errormsg = ws_strdup_printf("Error by extcap pipe: %s", pipedata->stderr_msg);
                     }
                     else
                     {
@@ -1534,7 +1540,7 @@ static gboolean extcap_create_pipe(const gchar *ifname, gchar **fifo, HANDLE *ha
     }
     else
     {
-        ws_debug("Wireshark Created pipe =>(%s) handle (%" G_GUINTPTR_FORMAT ")", pipename, *handle_out);
+        ws_debug("Wireshark Created pipe =>(%s) handle (%" PRIuPTR ")", pipename, *handle_out);
         *fifo = g_strdup(pipename);
     }
 
@@ -2038,7 +2044,7 @@ extcap_load_interface_list(void)
         }
 
         get_ws_version_number(&major, &minor, NULL);
-        char *arg_version = g_strdup_printf("%s=%d.%d", EXTCAP_ARGUMENT_VERSION, major, minor);
+        char *arg_version = ws_strdup_printf("%s=%d.%d", EXTCAP_ARGUMENT_VERSION, major, minor);
         const char *argv[] = {
             EXTCAP_ARGUMENT_LIST_INTERFACES,
             arg_version,

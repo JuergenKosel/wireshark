@@ -1,4 +1,4 @@
--- 3GPP TS 38.423 V16.6.0 (2021-07)﻿
+-- 3GPP TS 38.423 V16.8.0 (2021-12)
 -- 9.3.4	PDU Definitions
 -- **************************************************************
 --
@@ -57,6 +57,7 @@ IMPORTS
 	DRBsSubjectToStatusTransfer-List,
 	DRBToQoSFlowMapping-List,
 	E-UTRA-CGI,
+	ExpectedUEActivityBehaviour,
 	ExpectedUEBehaviour,
 	ExtendedUEIdentityIndexValue,
 	FiveGCMobilityRestrictionListContainer,
@@ -381,6 +382,7 @@ FROM XnAP-Containers
 	id-UERadioCapabilityID,
 	id-SCGIndicator,
 	id-UESpecificDRX,
+	id-PDUSessionExpectedUEActivityBehaviour,
 
 
 
@@ -1041,6 +1043,7 @@ PDUSessionsToBeAdded-SNModRequest-Item ::= SEQUENCE {
 }
 
 PDUSessionsToBeAdded-SNModRequest-Item-ExtIEs XNAP-PROTOCOL-EXTENSION ::= {
+	{ID id-PDUSessionExpectedUEActivityBehaviour		CRITICALITY ignore	EXTENSION ExpectedUEActivityBehaviour		PRESENCE optional},
 	...
 }
 
@@ -1059,7 +1062,8 @@ PDUSessionsToBeModified-SNModRequest-Item ::= SEQUENCE {
 }
 
 PDUSessionsToBeModified-SNModRequest-Item-ExtIEs XNAP-PROTOCOL-EXTENSION ::= {
-	{ID id-S-NSSAI		CRITICALITY reject	EXTENSION S-NSSAI		PRESENCE optional},
+	{ID id-S-NSSAI		CRITICALITY reject	EXTENSION S-NSSAI		PRESENCE optional}|
+	{ID id-PDUSessionExpectedUEActivityBehaviour		CRITICALITY ignore	EXTENSION ExpectedUEActivityBehaviour		PRESENCE optional},
 	...
 }
 

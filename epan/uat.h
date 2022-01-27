@@ -1,5 +1,4 @@
-/*
- *  uat.h
+/** @file
  *
  *  User Accessible Tables
  *  Maintain an array of user accessible data structures
@@ -258,7 +257,7 @@ typedef struct _uat_field_t {
 #define UAT_AFFECTS_DISSECTION	0x00000001	/* affects packet dissection */
 #define UAT_AFFECTS_FIELDS	0x00000002	/* affects what named fields exist */
 
-/** Create a new uat
+/** Create a new UAT.
  *
  * @param name The name of the table
  * @param size The size of the structure
@@ -293,12 +292,12 @@ uat_t* uat_new(const char* name,
 			   uat_reset_cb_t reset_cb,
 			   uat_field_t* flds_array);
 
-/** Cleanup all Uats
+/** Cleanup all UATs.
  *
  */
 void uat_cleanup(void);
 
-/** Populate a uat using its file.
+/** Populate a UAT using its file.
  *
  * @param uat_in Pointer to a uat. Must not be NULL.
  * @param filename Filename to load, NULL to fetch from current profile.
@@ -309,7 +308,7 @@ void uat_cleanup(void);
 WS_DLL_PUBLIC
 gboolean uat_load(uat_t* uat_in, const gchar *filename, char** err);
 
-/** Create or update a single uat entry using a string.
+/** Create or update a single UAT entry using a string.
  *
  * @param uat_in Pointer to a uat. Must not be NULL.
  * @param entry The string representation of the entry. Format must match
@@ -320,7 +319,7 @@ gboolean uat_load(uat_t* uat_in, const gchar *filename, char** err);
  */
 gboolean uat_load_str(uat_t* uat_in, char* entry, char** err);
 
-/** Given a uat name or filename, find its pointer.
+/** Given a UAT name or filename, find its pointer.
  *
  * @param name The name or filename of the uat
  *
@@ -330,6 +329,22 @@ uat_t *uat_find(gchar *name);
 
 WS_DLL_PUBLIC
 uat_t* uat_get_table_by_name(const char* name);
+
+/**
+ * Provide default field values for a UAT.
+ *
+ * This can be used to provide forward compatibility when fields are added
+ * to a UAT.
+ *
+ * @param uat_in Pointer to a uat. Must not be NULL.
+ * @param default_values An array of strings with default values. Must
+ * be the same length as flds_array. Individual elements can be NULL,
+ * and can be used to distinguish between mandatory and optional fields,
+ * e.g. { NULL, NULL, NULL, "default value (optional)" }
+ * @todo Use this to provide default values for empty tables.
+ */
+WS_DLL_PUBLIC
+void uat_set_default_values(uat_t *uat_in, const char *default_values[]);
 
 /*
  * Some common uat_fld_chk_cbs
@@ -525,7 +540,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_strtou32(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%u",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%u",((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_DEC(basename,field_name,title,desc) \
@@ -540,7 +555,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_strtou64(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%" G_GINT64_MODIFIER "u",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%" PRIu64,((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_DEC64(basename,field_name,title,desc) \
@@ -555,7 +570,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_strtoi32(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%d",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%d",((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_SIGNED_DEC(basename,field_name,title,desc) \
@@ -570,7 +585,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_strtoi64(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%" G_GINT64_MODIFIER "d",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%" PRId64,((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_SIGNED_DEC64(basename,field_name,title,desc) \
@@ -590,7 +605,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_hexstrtou32(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%x",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%x",((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_HEX(basename,field_name,title,desc) \
@@ -606,7 +621,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	ws_hexstrtou64(tmp_str, NULL, &((rec_t*)rec)->field_name); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%" G_GINT64_MODIFIER "x",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("%" PRIx64,((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_HEX64(basename,field_name,title,desc) \
@@ -625,7 +640,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 		((rec_t*)rec)->field_name = 0; \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("%s",((rec_t*)rec)->field_name ? "TRUE" : "FALSE"); \
+	*out_ptr = ws_strdup_printf("%s",((rec_t*)rec)->field_name ? "TRUE" : "FALSE"); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_BOOL(basename,field_name,title,desc) \
@@ -703,7 +718,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
 	((rec_t*)rec)->field_name = (guint)strtol(tmp_str,NULL,16); \
 	g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-	*out_ptr = g_strdup_printf("#%06X",((rec_t*)rec)->field_name); \
+	*out_ptr = ws_strdup_printf("#%06X",((rec_t*)rec)->field_name); \
 	*out_len = (unsigned)strlen(*out_ptr); }
 
 #define UAT_FLD_COLOR(basename,field_name,title,desc) \

@@ -1,5 +1,4 @@
-/*
- * credentials_model.h
+/** @file
  *
  * Copyright 2019 - Dario Lombardo <lomato@gmail.com>
  *
@@ -23,6 +22,7 @@
 class CredentialsModel : public QAbstractListModel
 {
     Q_OBJECT
+
 public:
     CredentialsModel(QObject *parent);
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const ;

@@ -153,9 +153,9 @@ capture_start(capture_options *capture_opts, GPtrArray *capture_comments,
     wtap_rec_init(&cap_session->rec);
     ws_buffer_init(&cap_session->buf, 1514);
 
-    if (capture_opts->show_info) {
-        cap_session->wtap = NULL;
+    cap_session->wtap = NULL;
 
+    if (capture_opts->show_info) {
         if (cap_data->counts.counts_hash != NULL)
         {
             /* Clean up any previous lists of packet counts */
@@ -307,7 +307,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         case WTAP_ERR_UNSUPPORTED:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" contains record data that Wireshark doesn't support.\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
@@ -319,7 +319,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         case WTAP_ERR_BAD_FILE:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" appears to be damaged or corrupt.\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
@@ -336,7 +336,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         case WTAP_ERR_DECOMPRESS:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" cannot be decompressed; it may be damaged or corrupt.\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
@@ -344,7 +344,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         case WTAP_ERR_INTERNAL:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "An internal error occurred opening the file \"%%s\".\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
@@ -352,7 +352,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         case WTAP_ERR_DECOMPRESSION_NOT_SUPPORTED:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" cannot be decompressed; it is compressed in a way that We don't support.\n"
                        "(%s)", err_info != NULL ? err_info : "no information supplied");
             g_free(err_info);
@@ -360,7 +360,7 @@ cf_open_error_message(int err, gchar *err_info)
             break;
 
         default:
-            g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+            snprintf(errmsg_errno, sizeof(errmsg_errno),
                        "The file \"%%s\" could not be opened: %s.",
                        wtap_strerror(err));
             errmsg = errmsg_errno;
@@ -440,7 +440,7 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
 
         cap_session->wtap = wtap_open_offline(new_file, WTAP_TYPE_AUTO, &err, &err_info, FALSE);
         if (!cap_session->wtap) {
-            err_msg = g_strdup_printf(cf_open_error_message(err, err_info),
+            err_msg = ws_strdup_printf(cf_open_error_message(err, err_info),
                                       new_file);
             ws_warning("capture_input_new_file: %d (%s)", err, err_msg);
             g_free(err_msg);
@@ -549,7 +549,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
         capture_callback_invoke(capture_cb_capture_fixed_continue, cap_session);
     }
 
-    if(capture_opts->show_info)
+    if(cap_session->wtap)
         capture_info_new_packets(to_read, cap_session->wtap, cap_session->cap_data_info);
 }
 
@@ -748,10 +748,10 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
         }
     }
 
-    if(capture_opts->show_info) {
-        capture_info_ui_destroy(&cap_session->cap_data_info->ui);
-        if(cap_session->wtap)
-            wtap_close(cap_session->wtap);
+    capture_info_ui_destroy(&cap_session->cap_data_info->ui);
+    if(cap_session->wtap) {
+        wtap_close(cap_session->wtap);
+        cap_session->wtap = NULL;
     }
 
     cap_session->state = CAPTURE_STOPPED;

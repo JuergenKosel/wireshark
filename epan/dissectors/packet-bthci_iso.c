@@ -252,7 +252,7 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         remote_length = (gint)(strlen(remote_ether_addr) + 3 + strlen(remote_name) + 1);
         remote_addr_name = (gchar *)wmem_alloc(pinfo->pool, remote_length);
 
-        g_snprintf(remote_addr_name, remote_length, "%s (%s)", remote_ether_addr, remote_name);
+        snprintf(remote_addr_name, remote_length, "%s (%s)", remote_ether_addr, remote_name);
 
         if (pinfo->p2p_dir == P2P_DIR_RECV) {
             set_address(&pinfo->net_src, AT_STRINGZ, (int)strlen(remote_name) + 1, remote_name);
@@ -309,7 +309,7 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     localhost_length = (gint)(strlen(localhost_ether_addr) + 3 + strlen(localhost_name) + 1);
     localhost_addr_name = (gchar *)wmem_alloc(pinfo->pool, localhost_length);
 
-    g_snprintf(localhost_addr_name, localhost_length, "%s (%s)", localhost_ether_addr, localhost_name);
+    snprintf(localhost_addr_name, localhost_length, "%s (%s)", localhost_ether_addr, localhost_name);
 
     if (pinfo->p2p_dir == P2P_DIR_RECV) {
         set_address(&pinfo->net_dst, AT_STRINGZ, (int)strlen(localhost_name) + 1, localhost_name);
@@ -407,6 +407,12 @@ dissect_bthci_iso(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             if (!pinfo->fd->visited) {
                 len = tvb_captured_length_remaining(tvb, offset);
                 if (mfp != NULL && !mfp->last_frame) {
+                    int avail = (int)mfp->tot_len - mfp->cur_off;
+                    if (len > avail) {
+                        expert_add_info(pinfo, sub_item, &ei_length_bad);
+                        /* Try to reassemble as much as possible */
+                        len = avail;
+                    }
                     tvb_memcpy(tvb, (guint8 *) mfp->reassembled + mfp->cur_off, offset, len);
                     mfp->cur_off += len;
                     if (pb_flag == 0x03)
@@ -520,7 +526,7 @@ proto_register_bthci_iso(void)
     };
 
     static ei_register_info ei[] = {
-        { &ei_length_bad,      { "bthci_iso.length.bad",      PI_MALFORMED, PI_WARN, "Length too short", EXPFILL }},
+        { &ei_length_bad,      { "bthci_iso.length.bad",      PI_MALFORMED, PI_WARN, "Invalid length", EXPFILL }},
     };
 
     /* Register the protocol name and description */

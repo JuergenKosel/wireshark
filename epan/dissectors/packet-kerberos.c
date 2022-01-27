@@ -1139,11 +1139,11 @@ add_encryption_key(packet_info *pinfo,
 	}
 
 	new_key = wmem_new0(key_scope, enc_key_t);
-	g_snprintf(new_key->key_origin, KRB_MAX_ORIG_LEN, "%s %s in frame %u",
+	snprintf(new_key->key_origin, KRB_MAX_ORIG_LEN, "%s %s in frame %u",
 		   methodl, origin, pinfo->num);
 	new_key->fd_num = pinfo->num;
 	new_key->id = ++private_data->learnt_key_ids;
-	g_snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "%d.%u",
+	snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "%d.%u",
 		   new_key->fd_num, new_key->id);
 	new_key->keytype=keytype;
 	new_key->keylength=keylength;
@@ -1204,7 +1204,7 @@ save_encryption_key(tvbuff_t *tvb _U_, int offset _U_, int length _U_,
 	const char *element = proto_registrar_get_name(hf_index);
 	char origin[KRB_MAX_ORIG_LEN] = { 0, };
 
-	g_snprintf(origin, KRB_MAX_ORIG_LEN, "%s_%s", parent, element);
+	snprintf(origin, KRB_MAX_ORIG_LEN, "%s_%s", parent, element);
 
 	add_encryption_key(actx->pinfo,
 			   private_data,
@@ -1375,12 +1375,12 @@ static void missing_encryption_key(proto_tree *tree, packet_info *pinfo,
 	enc_key_t *mek = NULL;
 
 	mek = wmem_new0(pinfo->pool, enc_key_t);
-	g_snprintf(mek->key_origin, KRB_MAX_ORIG_LEN,
+	snprintf(mek->key_origin, KRB_MAX_ORIG_LEN,
 		   "keytype %d usage %d missing in frame %u",
 		   keytype, usage, pinfo->num);
 	mek->fd_num = pinfo->num;
 	mek->id = ++private_data->missing_key_ids;
-	g_snprintf(mek->id_str, KRB_MAX_ID_STR_LEN, "missing.%u",
+	snprintf(mek->id_str, KRB_MAX_ID_STR_LEN, "missing.%u",
 		   mek->id);
 	mek->keytype=keytype;
 
@@ -1451,12 +1451,12 @@ static void missing_signing_key(proto_tree *tree, packet_info *pinfo,
 	enc_key_t *mek = NULL;
 
 	mek = wmem_new0(pinfo->pool, enc_key_t);
-	g_snprintf(mek->key_origin, KRB_MAX_ORIG_LEN,
+	snprintf(mek->key_origin, KRB_MAX_ORIG_LEN,
 		   "checksum %d keytype %d missing in frame %u",
 		   checksum, keytype, pinfo->num);
 	mek->fd_num = pinfo->num;
 	mek->id = ++private_data->missing_key_ids;
-	g_snprintf(mek->id_str, KRB_MAX_ID_STR_LEN, "missing.%u",
+	snprintf(mek->id_str, KRB_MAX_ID_STR_LEN, "missing.%u",
 		   mek->id);
 	mek->keytype=keytype;
 
@@ -1583,19 +1583,19 @@ read_keytab_file(const char *filename)
 			new_key = wmem_new0(wmem_epan_scope(), enc_key_t);
 			new_key->fd_num = -1;
 			new_key->id = ++kerberos_longterm_ids;
-			g_snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "keytab.%u", new_key->id);
+			snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "keytab.%u", new_key->id);
 			new_key->next = enc_key_list;
 
 			/* generate origin string, describing where this key came from */
 			pos=new_key->key_origin;
 			pos+=MIN(KRB_MAX_ORIG_LEN,
-					 g_snprintf(pos, KRB_MAX_ORIG_LEN, "keytab principal "));
+					 snprintf(pos, KRB_MAX_ORIG_LEN, "keytab principal "));
 			for(i=0;i<key.principal->length;i++){
 				pos+=MIN(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin),
-						 g_snprintf(pos, (gulong)(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin)), "%s%s",(i?"/":""),(key.principal->data[i]).data));
+						 snprintf(pos, (gulong)(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin)), "%s%s",(i?"/":""),(key.principal->data[i]).data));
 			}
 			pos+=MIN(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin),
-					 g_snprintf(pos, (gulong)(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin)), "@%s",key.principal->realm.data));
+					 snprintf(pos, (gulong)(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin)), "@%s",key.principal->realm.data));
 			*pos=0;
 			new_key->keytype=key.key.enctype;
 			new_key->keylength=key.key.length;
@@ -2775,19 +2775,19 @@ read_keytab_file(const char *filename)
 			new_key = wmem_new0(wmem_epan_scope(), enc_key_t);
 			new_key->fd_num = -1;
 			new_key->id = ++kerberos_longterm_ids;
-			g_snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "keytab.%u", new_key->id);
+			snprintf(new_key->id_str, KRB_MAX_ID_STR_LEN, "keytab.%u", new_key->id);
 			new_key->next = enc_key_list;
 
 			/* generate origin string, describing where this key came from */
 			pos=new_key->key_origin;
 			pos+=MIN(KRB_MAX_ORIG_LEN,
-					 g_snprintf(pos, KRB_MAX_ORIG_LEN, "keytab principal "));
+					 snprintf(pos, KRB_MAX_ORIG_LEN, "keytab principal "));
 			for(i=0;i<key.principal->name.name_string.len;i++){
 				pos+=MIN(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin),
-						 g_snprintf(pos, KRB_MAX_ORIG_LEN-(pos-new_key->key_origin), "%s%s",(i?"/":""),key.principal->name.name_string.val[i]));
+						 snprintf(pos, KRB_MAX_ORIG_LEN-(pos-new_key->key_origin), "%s%s",(i?"/":""),key.principal->name.name_string.val[i]));
 			}
 			pos+=MIN(KRB_MAX_ORIG_LEN-(pos-new_key->key_origin),
-					 g_snprintf(pos, KRB_MAX_ORIG_LEN-(pos-new_key->key_origin), "@%s",key.principal->realm));
+					 snprintf(pos, KRB_MAX_ORIG_LEN-(pos-new_key->key_origin), "@%s",key.principal->realm));
 			*pos=0;
 			new_key->keytype=key.keyblock.keytype;
 			new_key->keylength=(int)key.keyblock.keyvalue.length;
@@ -2924,7 +2924,7 @@ add_encryption_key(packet_info *pinfo, int keytype, int keylength, const char *k
 	new_key->keytype = keytype;
 	new_key->length = keylength;
 	new_key->contents = g_memdup2(keyvalue, keylength);
-	g_snprintf(new_key->origin, KRB_MAX_ORIG_LEN, "%s learnt from frame %u", origin, pinfo->num);
+	snprintf(new_key->origin, KRB_MAX_ORIG_LEN, "%s learnt from frame %u", origin, pinfo->num);
 	service_key_list = g_slist_append(service_key_list, (gpointer) new_key);
 }
 
@@ -2939,7 +2939,7 @@ save_encryption_key(tvbuff_t *tvb _U_, int offset _U_, int length _U_,
 	const char *element = proto_registrar_get_name(hf_index);
 	char origin[KRB_MAX_ORIG_LEN] = { 0, };
 
-	g_snprintf(origin, KRB_MAX_ORIG_LEN, "%s_%s", parent, element);
+	snprintf(origin, KRB_MAX_ORIG_LEN, "%s_%s", parent, element);
 
 	add_encryption_key(actx->pinfo,
 			   private_data->key.keytype,
@@ -3052,7 +3052,7 @@ read_keytab_file(const char *service_key_file)
 			sk->keytype = KEYTYPE_DES3_CBC_MD5;
 			sk->length = DES3_KEY_SIZE;
 			sk->contents = g_memdup2(buf + 2, DES3_KEY_SIZE);
-			g_snprintf(sk->origin, KRB_MAX_ORIG_LEN, "3DES service key file, key #%d, offset %ld", count, ftell(skf));
+			snprintf(sk->origin, KRB_MAX_ORIG_LEN, "3DES service key file, key #%d, offset %ld", count, ftell(skf));
 			service_key_list = g_slist_append(service_key_list, (gpointer) sk);
 			if (fseek(skf, newline_skip, SEEK_CUR) < 0) {
 				fprintf(stderr, "unable to seek...\n");
@@ -5342,7 +5342,7 @@ dissect_kerberos_T_address(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
   switch(private_data->addr_type){
   case KERBEROS_ADDR_TYPE_IPV4:
     it=proto_tree_add_item(tree, hf_krb_address_ip, tvb, offset, 4, ENC_BIG_ENDIAN);
-    address_str = tvb_ip_to_str(tvb, offset);
+    address_str = tvb_ip_to_str(actx->pinfo->pool, tvb, offset);
     break;
   case KERBEROS_ADDR_TYPE_NETBIOS:
     {
@@ -5357,7 +5357,7 @@ dissect_kerberos_T_address(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
     break;
   case KERBEROS_ADDR_TYPE_IPV6:
     it=proto_tree_add_item(tree, hf_krb_address_ipv6, tvb, offset, INET6_ADDRLEN, ENC_NA);
-    address_str = tvb_ip6_to_str(tvb, offset);
+    address_str = tvb_ip6_to_str(actx->pinfo->pool, tvb, offset);
     break;
   default:
     proto_tree_add_expert(tree, actx->pinfo, &ei_kerberos_address, tvb, offset, len);
@@ -7699,7 +7699,6 @@ dissect_kerberos_PA_ENC_TS_ENC(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 static int
 dissect_kerberos_T_strengthen_key(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 491 "./asn1/kerberos/kerberos.cnf"
   kerberos_private_data_t *private_data = kerberos_get_private_data(actx);
   gint save_encryption_key_parent_hf_index = private_data->save_encryption_key_parent_hf_index;
   kerberos_key_save_fn saved_encryption_key_fn = private_data->save_encryption_key_fn;
@@ -8568,7 +8567,7 @@ void proto_register_kerberos(void) {
         "Checksum", HFILL }},
     { &hf_krb_patimestamp,
       { "patimestamp", "kerberos.patimestamp",
-        FT_STRING, BASE_NONE, NULL, 0, "KerberosTime", HFILL }},
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, "KerberosTime", HFILL }},
     { &hf_krb_pausec,
       { "pausec", "kerberos.pausec",
         FT_UINT32, BASE_DEC, NULL, 0, "Microseconds", HFILL }},
@@ -8799,19 +8798,19 @@ void proto_register_kerberos(void) {
         "TransitedEncoding", HFILL }},
     { &hf_kerberos_authtime,
       { "authtime", "kerberos.authtime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_starttime,
       { "starttime", "kerberos.starttime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_endtime,
       { "endtime", "kerberos.endtime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_renew_till,
       { "renew-till", "kerberos.renew_till",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_caddr,
       { "caddr", "kerberos.caddr",
@@ -8855,15 +8854,15 @@ void proto_register_kerberos(void) {
         "KDCOptions", HFILL }},
     { &hf_kerberos_from,
       { "from", "kerberos.from",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_till,
       { "till", "kerberos.till",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_rtime,
       { "rtime", "kerberos.rtime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_nonce,
       { "nonce", "kerberos.nonce",
@@ -8907,7 +8906,7 @@ void proto_register_kerberos(void) {
         "LastReq", HFILL }},
     { &hf_kerberos_key_expiration,
       { "key-expiration", "kerberos.key_expiration",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_srealm,
       { "srealm", "kerberos.srealm",
@@ -8927,7 +8926,7 @@ void proto_register_kerberos(void) {
         NULL, HFILL }},
     { &hf_kerberos_lr_value,
       { "lr-value", "kerberos.lr_value",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_ap_options,
       { "ap-options", "kerberos.ap_options",
@@ -8951,7 +8950,7 @@ void proto_register_kerberos(void) {
         "Microseconds", HFILL }},
     { &hf_kerberos_ctime,
       { "ctime", "kerberos.ctime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_authenticator_subkey,
       { "subkey", "kerberos.subkey_element",
@@ -8979,7 +8978,7 @@ void proto_register_kerberos(void) {
         "T_kRB_SAFE_BODY_user_data", HFILL }},
     { &hf_kerberos_timestamp,
       { "timestamp", "kerberos.timestamp",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_usec,
       { "usec", "kerberos.usec",
@@ -9035,7 +9034,7 @@ void proto_register_kerberos(void) {
         "PrincipalName", HFILL }},
     { &hf_kerberos_stime,
       { "stime", "kerberos.stime",
-        FT_STRING, BASE_NONE, NULL, 0,
+        FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0,
         "KerberosTime", HFILL }},
     { &hf_kerberos_susec,
       { "susec", "kerberos.susec",
@@ -9491,7 +9490,7 @@ void proto_register_kerberos(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-kerberos-hfarr.c ---*/
-#line 5047 "./asn1/kerberos/packet-kerberos-template.c"
+#line 5046 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	/* List of subtrees */
@@ -9610,7 +9609,7 @@ void proto_register_kerberos(void) {
     &ett_kerberos_PA_SPAKE,
 
 /*--- End of included file: packet-kerberos-ettarr.c ---*/
-#line 5076 "./asn1/kerberos/packet-kerberos-template.c"
+#line 5075 "./asn1/kerberos/packet-kerberos-template.c"
 	};
 
 	static ei_register_info ei[] = {

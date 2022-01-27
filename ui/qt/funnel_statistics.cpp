@@ -39,6 +39,9 @@
 // - Add a FunnelGraphDialog class?
 
 extern "C" {
+static struct _funnel_text_window_t* text_window_new(funnel_ops_id_t *ops_id, const char* title);
+static void string_dialog_new(funnel_ops_id_t *ops_id, const gchar* title, const gchar** field_names, const gchar** field_values, funnel_dlg_cb_t dialog_cb, void* dialog_cb_data, funnel_dlg_cb_data_free_t dialog_cb_data_free);
+
 static void funnel_statistics_logger(const gchar *, enum ws_log_level, const gchar *message, gpointer);
 static void funnel_statistics_retap_packets(funnel_ops_id_t *ops_id);
 static void funnel_statistics_copy_to_clipboard(GString *text);
@@ -155,8 +158,13 @@ FunnelStatistics::FunnelStatistics(QObject *parent, CaptureFile &cf) :
 
 FunnelStatistics::~FunnelStatistics()
 {
-    delete(funnel_ops_id_);
-    delete(funnel_ops_);
+    // At this point we're probably closing the program and will shortly
+    // call epan_cleanup, which calls ProgDlg__gc and TextWindow__gc.
+    // They in turn depend on funnel_ops_ being valid.
+    memset(funnel_ops_id_, 0, sizeof(struct _funnel_ops_id_t));
+    memset(funnel_ops_, 0, sizeof(struct _funnel_ops_t));
+    // delete(funnel_ops_id_);
+    // delete(funnel_ops_);
 }
 
 void FunnelStatistics::retapPackets()
@@ -217,6 +225,26 @@ void FunnelStatistics::funnelActionTriggered()
 void FunnelStatistics::displayFilterTextChanged(const QString &filter)
 {
     display_filter_ = filter.toUtf8();
+}
+
+struct _funnel_text_window_t* text_window_new(funnel_ops_id_t *ops_id, const char* title)
+{
+    return FunnelTextDialog::textWindowNew(qobject_cast<QWidget *>(ops_id->funnel_statistics->parent()), title);
+}
+
+void string_dialog_new(funnel_ops_id_t *ops_id, const gchar* title, const gchar** field_names, const gchar** field_values, funnel_dlg_cb_t dialog_cb, void* dialog_cb_data, funnel_dlg_cb_data_free_t dialog_cb_data_free)
+{
+    QList<QPair<QString, QString>> field_list;
+    for (int i = 0; field_names[i]; i++) {
+        QPair<QString, QString> field = QPair<QString, QString>(QString(field_names[i]), QString(""));
+        if (field_values != NULL && field_values[i])
+        {
+            field.second = QString(field_values[i]);
+        }
+
+        field_list << field;
+    }
+    FunnelStringDialog::stringDialogNew(qobject_cast<QWidget *>(ops_id->funnel_statistics->parent()), title, field_list, dialog_cb, dialog_cb_data, dialog_cb_data_free);
 }
 
 void funnel_statistics_logger(const gchar *log_domain,

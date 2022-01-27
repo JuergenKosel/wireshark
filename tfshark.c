@@ -19,18 +19,7 @@
 #include <locale.h>
 #include <limits.h>
 
-/*
- * If we have getopt_long() in the system library, include <getopt.h>.
- * Otherwise, we're using our own getopt_long() (either because the
- * system has getopt() but not getopt_long(), as with some UN*Xes,
- * or because it doesn't even have getopt(), as with Windows), so
- * include our getopt_long()'s header.
- */
-#ifdef HAVE_GETOPT_LONG
-#include <getopt.h>
-#else
-#include <wsutil/wsgetopt.h>
-#endif
+#include <wsutil/ws_getopt.h>
 
 #include <errno.h>
 
@@ -212,10 +201,11 @@ print_usage(FILE *output)
   fprintf(output, "  -Q                       only log true errors to stderr (quieter than -q)\n");
   fprintf(output, "  -X <key>:<value>         eXtension options, see the man page for details\n");
   fprintf(output, "  -z <statistics>          various statistics, see the man page for details\n");
+  fprintf(output, "\n");
 
   ws_log_print_usage(output);
-
   fprintf(output, "\n");
+
   fprintf(output, "Miscellaneous:\n");
   fprintf(output, "  -h                       display this help and exit\n");
   fprintf(output, "  -v                       display version info and exit\n");
@@ -285,9 +275,9 @@ main(int argc, char *argv[])
 {
   char                *init_progfile_dir_error;
   int                  opt;
-  static const struct option long_options[] = {
-    {"help", no_argument, NULL, 'h'},
-    {"version", no_argument, NULL, 'v'},
+  static const struct ws_option long_options[] = {
+    {"help", ws_no_argument, NULL, 'h'},
+    {"version", ws_no_argument, NULL, 'v'},
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
@@ -402,20 +392,20 @@ main(int argc, char *argv[])
    * arguments we can't handle until after initializing libwireshark,
    * and then process them after initializing libwireshark?
    */
-  opterr = 0;
+  ws_opterr = 0;
 
-  while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+  while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     switch (opt) {
     case 'C':        /* Configuration Profile */
-      if (profile_exists (optarg, FALSE)) {
-        set_profile_name (optarg);
+      if (profile_exists (ws_optarg, FALSE)) {
+        set_profile_name (ws_optarg);
       } else {
-        cmdarg_err("Configuration Profile \"%s\" does not exist", optarg);
+        cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
         return 1;
       }
       break;
     case 'O':        /* Only output these protocols */
-      output_only = g_strdup(optarg);
+      output_only = g_strdup(ws_optarg);
       /* FALLTHROUGH */
     case 'V':        /* Verbose */
       print_details = TRUE;
@@ -429,7 +419,7 @@ main(int argc, char *argv[])
       print_packet_info = TRUE;
       break;
     case 'X':
-      ex_opt_add(optarg);
+      ex_opt_add(ws_optarg);
       break;
     default:
       break;
@@ -555,29 +545,17 @@ main(int argc, char *argv[])
   output_fields = output_fields_new();
 
   /*
-   * To reset the options parser, set optreset to 1 on platforms that
-   * have optreset (documented in *BSD and macOS, apparently present but
-   * not documented in Solaris - the Illumos repository seems to
-   * suggest that the first Solaris getopt_long(), at least as of 2004,
-   * was based on the NetBSD one, it had optreset) and set optind to 1,
-   * and set optind to 0 otherwise (documented as working in the GNU
-   * getopt_long().  Setting optind to 0 didn't originally work in the
-   * NetBSD one, but that was added later - we don't want to depend on
-   * it if we have optreset).
+   * To reset the options parser, set ws_optreset to 1 and set ws_optind to 1.
    *
-   * Also reset opterr to 1, so that error messages are printed by
+   * Also reset ws_opterr to 1, so that error messages are printed by
    * getopt_long().
    */
-#ifdef HAVE_OPTRESET
-  optreset = 1;
-  optind = 1;
-#else
-  optind = 0;
-#endif
-  opterr = 1;
+  ws_optreset = 1;
+  ws_optind = 1;
+  ws_opterr = 1;
 
   /* Now get our args */
-  while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+  while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     switch (opt) {
     case '2':        /* Perform two pass analysis */
       perform_two_pass_analysis = TRUE;
@@ -587,12 +565,12 @@ main(int argc, char *argv[])
       break;
     case 'e':
       /* Field entry */
-      output_fields_add(output_fields, optarg);
+      output_fields_add(output_fields, ws_optarg);
       break;
     case 'E':
       /* Field option */
-      if (!output_fields_set_option(output_fields, optarg)) {
-        cmdarg_err("\"%s\" is not a valid field output option=value pair.", optarg);
+      if (!output_fields_set_option(output_fields, ws_optarg)) {
+        cmdarg_err("\"%s\" is not a valid field output option=value pair.", ws_optarg);
         output_fields_list_options(stderr);
         exit_status = INVALID_OPTION;
         goto clean_exit;
@@ -634,21 +612,27 @@ main(int argc, char *argv[])
     {
       char *errmsg = NULL;
 
-      switch (prefs_set_pref(optarg, &errmsg)) {
+      switch (prefs_set_pref(ws_optarg, &errmsg)) {
 
       case PREFS_SET_OK:
         break;
 
       case PREFS_SET_SYNTAX_ERR:
-        cmdarg_err("Invalid -o flag \"%s\"%s%s", optarg,
+        cmdarg_err("Invalid -o flag \"%s\"%s%s", ws_optarg,
             errmsg ? ": " : "", errmsg ? errmsg : "");
         g_free(errmsg);
-        return 1;
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
         break;
 
       case PREFS_SET_NO_SUCH_PREF:
+        cmdarg_err("-o flag \"%s\" specifies unknown preference", ws_optarg);
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+        break;
+
       case PREFS_SET_OBSOLETE:
-        cmdarg_err("-o flag \"%s\" specifies unknown preference", optarg);
+        cmdarg_err("-o flag \"%s\" specifies obsolete preference", ws_optarg);
         exit_status = INVALID_OPTION;
         goto clean_exit;
         break;
@@ -663,35 +647,35 @@ main(int argc, char *argv[])
       really_quiet = TRUE;
       break;
     case 'r':        /* Read capture file x */
-      cf_name = g_strdup(optarg);
+      cf_name = g_strdup(ws_optarg);
       break;
     case 'R':        /* Read file filter */
-      rfilter = optarg;
+      rfilter = ws_optarg;
       break;
     case 'S':        /* Set the line Separator to be printed between packets */
-      separator = g_strdup(optarg);
+      separator = g_strdup(ws_optarg);
       break;
     case 'T':        /* printing Type */
-      if (strcmp(optarg, "text") == 0) {
+      if (strcmp(ws_optarg, "text") == 0) {
         output_action = WRITE_TEXT;
         print_format = PR_FMT_TEXT;
-      } else if (strcmp(optarg, "ps") == 0) {
+      } else if (strcmp(ws_optarg, "ps") == 0) {
         output_action = WRITE_TEXT;
         print_format = PR_FMT_PS;
-      } else if (strcmp(optarg, "pdml") == 0) {
+      } else if (strcmp(ws_optarg, "pdml") == 0) {
         output_action = WRITE_XML;
         print_details = TRUE;   /* Need details */
         print_summary = FALSE;  /* Don't allow summary */
-      } else if (strcmp(optarg, "psml") == 0) {
+      } else if (strcmp(ws_optarg, "psml") == 0) {
         output_action = WRITE_XML;
         print_details = FALSE;  /* Don't allow details */
         print_summary = TRUE;   /* Need summary */
-      } else if (strcmp(optarg, "fields") == 0) {
+      } else if (strcmp(ws_optarg, "fields") == 0) {
         output_action = WRITE_FIELDS;
         print_details = TRUE;   /* Need full tree info */
         print_summary = FALSE;  /* Don't allow summary */
       } else {
-        cmdarg_err("Invalid -T parameter \"%s\"; it must be one of:", optarg);                   /* x */
+        cmdarg_err("Invalid -T parameter \"%s\"; it must be one of:", ws_optarg);                   /* x */
         cmdarg_err_cont("\t\"fields\" The values of fields specified with the -e option, in a form\n"
                         "\t         specified by the -E option.\n"
                         "\t\"pdml\"   Packet Details Markup Language, an XML-based format for the\n"
@@ -728,7 +712,7 @@ main(int argc, char *argv[])
       /* already processed; just ignore it now */
       break;
     case 'Y':
-      dfilter = optarg;
+      dfilter = ws_optarg;
       break;
     case 'z':
       /* We won't call the init function for the stat this soon
@@ -736,13 +720,13 @@ main(int argc, char *argv[])
          by the preferences set callback) from being used as
          part of a tap filter.  Instead, we just add the argument
          to a list of stat arguments. */
-      if (strcmp("help", optarg) == 0) {
+      if (strcmp("help", ws_optarg) == 0) {
         fprintf(stderr, "tfshark: The available statistics for the \"-z\" option are:\n");
         list_stat_cmd_args();
         goto clean_exit;
       }
-      if (!process_stat_cmd_arg(optarg)) {
-        cmdarg_err("Invalid -z argument \"%s\"; it must be one of:", optarg);
+      if (!process_stat_cmd_arg(ws_optarg)) {
+        cmdarg_err("Invalid -z argument \"%s\"; it must be one of:", ws_optarg);
         list_stat_cmd_args();
         exit_status = INVALID_OPTION;
         goto clean_exit;
@@ -756,7 +740,7 @@ main(int argc, char *argv[])
     case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
     case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
     case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
-      if (!dissect_opts_handle_opt(opt, optarg)) {
+      if (!dissect_opts_handle_opt(opt, ws_optarg)) {
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
@@ -792,14 +776,14 @@ main(int argc, char *argv[])
 
   /* If no display filter has been specified, and there are still command-
      line arguments, treat them as the tokens of a display filter. */
-  if (optind < argc) {
+  if (ws_optind < argc) {
     if (dfilter != NULL) {
       cmdarg_err("Display filters were specified both with \"-Y\" "
           "and with additional command-line arguments.");
       exit_status = INVALID_OPTION;
       goto clean_exit;
     }
-    dfilter = get_args_as_string(argc, argv, optind);
+    dfilter = get_args_as_string(argc, argv, ws_optind);
   }
 
   /* if "-q" wasn't specified, we should print packet information */
@@ -1978,7 +1962,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
       if (!print_line(print_stream, 0, ""))
         return FALSE;
     }
-    if (!print_hex_data(print_stream, edt))
+    if (!print_hex_data(print_stream, edt, HEXDUMP_SOURCE_MULTI | HEXDUMP_ASCII_INCLUDE))
       return FALSE;
     if (!print_line(print_stream, 0, separator))
       return FALSE;
@@ -2053,7 +2037,7 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
   return CF_OK;
 
 /* fail: */
-  g_snprintf(err_msg, sizeof err_msg,
+  snprintf(err_msg, sizeof err_msg,
              cf_open_error_message(*err, err_info, FALSE, cf->cd_t), fname);
   cmdarg_err("%s", err_msg);
   return CF_ERROR;
@@ -2111,7 +2095,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_UNSUPPORTED:
       /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+      snprintf(errmsg_errno, sizeof(errmsg_errno),
                "The file \"%%s\" isn't a capture file in a format TFShark understands.\n"
                "(%s)", err_info);
       g_free(err_info);
@@ -2120,7 +2104,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_CANT_WRITE_TO_PIPE:
       /* Seen only when opening a capture file for writing. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+      snprintf(errmsg_errno, sizeof(errmsg_errno),
                  "The file \"%%s\" is a pipe, and \"%s\" capture files can't be "
                  "written to a pipe.", ftap_file_type_subtype_short_string(file_type));
       errmsg = errmsg_errno;
@@ -2133,11 +2117,11 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_UNSUPPORTED_ENCAP:
       if (for_writing) {
-        g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+        snprintf(errmsg_errno, sizeof(errmsg_errno),
                    "TFShark can't save this capture as a \"%s\" file.",
                    ftap_file_type_subtype_short_string(file_type));
       } else {
-        g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+        snprintf(errmsg_errno, sizeof(errmsg_errno),
                  "The file \"%%s\" is a capture for a network type that TFShark doesn't support.\n"
                  "(%s)", err_info);
         g_free(err_info);
@@ -2147,7 +2131,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_ENCAP_PER_RECORD_UNSUPPORTED:
       if (for_writing) {
-        g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+        snprintf(errmsg_errno, sizeof(errmsg_errno),
                    "TFShark can't save this capture as a \"%s\" file.",
                    ftap_file_type_subtype_short_string(file_type));
         errmsg = errmsg_errno;
@@ -2157,7 +2141,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_BAD_FILE:
       /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+      snprintf(errmsg_errno, sizeof(errmsg_errno),
                "The file \"%%s\" appears to be damaged or corrupt.\n"
                "(%s)", err_info);
       g_free(err_info);
@@ -2186,7 +2170,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
 
     case FTAP_ERR_DECOMPRESS:
       /* Seen only when opening a capture file for reading. */
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+      snprintf(errmsg_errno, sizeof(errmsg_errno),
                  "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
                  "(%s)", err_info);
       g_free(err_info);
@@ -2194,7 +2178,7 @@ cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
       break;
 
     default:
-      g_snprintf(errmsg_errno, sizeof(errmsg_errno),
+      snprintf(errmsg_errno, sizeof(errmsg_errno),
                  "The file \"%%s\" could not be %s: %s.",
                  for_writing ? "created" : "opened",
                  ftap_strerror(err));

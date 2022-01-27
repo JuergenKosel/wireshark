@@ -317,9 +317,9 @@ static void dissect_msdp_sa(tvbuff_t *tvb, packet_info *pinfo,
                 }
                 entry_tree = proto_tree_add_subtree_format(tree, tvb, *offset, 12, ett_msdp_sa_entry, NULL,
                                          "(S,G) block: %s/%u -> %s",
-                                         tvb_ip_to_str(tvb, *offset + 8),
+                                         tvb_ip_to_str(pinfo->pool, tvb, *offset + 8),
                                          tvb_get_guint8(tvb, *offset + 3),
-                                         tvb_ip_to_str(tvb, *offset + 4));
+                                         tvb_ip_to_str(pinfo->pool, tvb, *offset + 4));
 
                 proto_tree_add_item(entry_tree, hf_msdp_sa_reserved, tvb, *offset, 3, ENC_BIG_ENDIAN);
                 *offset += 3;
@@ -505,7 +505,7 @@ static void dissect_msdp_notification(tvbuff_t *tvb, packet_info *pinfo, proto_t
                         if (tlv_len < 1) {
                                 expert_add_info_format(pinfo, length_item,
                                     &ei_msdp_tlv_len_too_short,
-                                    "TLV length for Notification SA-Response Invalid Invalid Sprefix Length Error < 6");
+                                    "TLV length for Notification SA-Response Invalid Sprefix Length Error < 6");
                                 return;
                         }
                         proto_tree_add_item(tree, hf_msdp_not_sprefix_len, tvb, *offset, 1, ENC_BIG_ENDIAN);

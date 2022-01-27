@@ -130,6 +130,11 @@ static io_graph_settings_t *iog_settings_ = NULL;
 static guint num_io_graphs_ = 0;
 static uat_t *iog_uat_ = NULL;
 
+// y_axis_factor was added in 3.6. Provide backward compatibility.
+static const char *iog_uat_defaults_[] = {
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "1"
+};
+
 extern "C" {
 
 //Allow the enable/disable field to be a checkbox, but for backwards compatibility,
@@ -144,7 +149,7 @@ static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, g
         ((rec_t*)rec)->field_name = 0; \
     g_free(tmp_str); } \
 static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, unsigned* out_len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-    *out_ptr = g_strdup_printf("%s",((rec_t*)rec)->field_name ? "Enabled" : "Disabled"); \
+    *out_ptr = ws_strdup_printf("%s",((rec_t*)rec)->field_name ? "Enabled" : "Disabled"); \
     *out_len = (unsigned)strlen(*out_ptr); }
 
 static gboolean uat_fld_chk_enable(void* u1 _U_, const char* strptr, guint len, const void* u2 _U_, const void* u3 _U_, char** err)
@@ -161,7 +166,7 @@ static gboolean uat_fld_chk_enable(void* u1 _U_, const char* strptr, guint len, 
     }
 
     //User should never see this unless they are manually modifying UAT
-    *err = g_strdup_printf("invalid value: %s (must be Enabled or Disabled)", str);
+    *err = ws_strdup_printf("invalid value: %s (must be Enabled or Disabled)", str);
     g_free(str);
     return FALSE;
 }
@@ -184,7 +189,7 @@ static void io_graph_sma_period_set_cb(void* rec, const char* buf, guint len, co
             g_free(str);
             str = g_strdup("None");
         } else {
-            char *str2 = g_strdup_printf("%s interval SMA", str);
+            char *str2 = ws_strdup_printf("%s interval SMA", str);
             g_free(str);
             str = str2;
         }
@@ -226,7 +231,7 @@ static gboolean sma_period_chk_enum(void* u1 _U_, const char* strptr, guint len,
             g_free(str);
             str = g_strdup("None");
         } else {
-            char *str2 = g_strdup_printf("%s interval SMA", str);
+            char *str2 = ws_strdup_printf("%s interval SMA", str);
             g_free(str);
             str = str2;
         }
@@ -240,7 +245,7 @@ static gboolean sma_period_chk_enum(void* u1 _U_, const char* strptr, guint len,
         }
     }
 
-    *err = g_strdup_printf("invalid value: %s",str);
+    *err = ws_strdup_printf("invalid value: %s",str);
     g_free(str);
     return FALSE;
 }
@@ -348,6 +353,8 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFi
     if (close_bt) {
         close_bt->setDefault(true);
     }
+
+    ui->automaticUpdateCheckBox->setChecked(prefs.gui_io_graph_automatic_update ? true : false);
 
     stat_timer_ = new QTimer(this);
     connect(stat_timer_, SIGNAL(timeout()), this, SLOT(updateStatistics()));
@@ -1141,13 +1148,13 @@ void IOGraphDialog::updateStatistics()
 {
     if (!isVisible()) return;
 
-    if (need_retap_ && !file_closed_) {
+    if (need_retap_ && !file_closed_ && prefs.gui_io_graph_automatic_update) {
         need_retap_ = false;
         cap_file_.retapPackets();
         // The user might have closed the window while tapping, which means
         // we might no longer exist.
     } else {
-        if (need_recalc_ && !file_closed_) {
+        if (need_recalc_ && !file_closed_ && prefs.gui_io_graph_automatic_update) {
             need_recalc_ = false;
             need_replot_ = true;
             int enabled_graphs = 0;
@@ -1199,6 +1206,8 @@ void IOGraphDialog::loadProfileGraphs()
                            NULL,
                            NULL,
                            io_graph_fields);
+
+        uat_set_default_values(iog_uat_, iog_uat_defaults_);
 
         char* err = NULL;
         if (!uat_load(iog_uat_, NULL, &err)) {
@@ -1369,6 +1378,18 @@ void IOGraphDialog::on_logCheckBox_toggled(bool checked)
 
     iop->yAxis->setScaleType(checked ? QCPAxis::stLogarithmic : QCPAxis::stLinear);
     iop->replot();
+}
+
+void IOGraphDialog::on_automaticUpdateCheckBox_toggled(bool checked)
+{
+    prefs.gui_io_graph_automatic_update = checked ? TRUE : FALSE;
+
+    prefs_main_write();
+
+    if(prefs.gui_io_graph_automatic_update)
+    {
+        updateStatistics();
+    }
 }
 
 void IOGraphDialog::on_actionReset_triggered()

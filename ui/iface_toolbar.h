@@ -1,4 +1,4 @@
-/* iface_toolbar.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -10,7 +10,6 @@
 #ifndef __IFACE_TOOLBAR_H__
 #define __IFACE_TOOLBAR_H__
 
-#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {

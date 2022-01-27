@@ -25,6 +25,7 @@
 #endif
 
 #include <glib.h>
+#include <pcre2.h>
 
 #ifdef HAVE_ZLIB
 #include <zlib.h>
@@ -59,7 +60,7 @@ ws_init_version_info(const char *appname,
 	 * version - including the VCS version, for a build from
 	 * a checkout.
 	 */
-	appname_with_version = g_strdup_printf("%s %s",
+	appname_with_version = ws_strdup_printf("%s %s",
 		appname, get_ws_vcs_version_info());
 
 	/* Get the compile-time version information string */
@@ -175,11 +176,19 @@ get_compiled_version_info(void (*prepend_info)(GString *),
 		"GLib (version unknown)");
 #endif
 
+	/* PCRE2 */
+	g_string_append(str, ", with PCRE2");
+
+	/* zlib */
 	g_string_append_printf(str, ", %s", get_zlib_compiled_version_info());
 
 	/* Additional application-dependent information */
 	if (append_info)
 		(*append_info)(str);
+
+#ifdef WS_DISABLE_DEBUG
+	g_string_append(str, ", release build");
+#endif
 
 #ifdef WS_DISABLE_ASSERT
 	g_string_append(str, ", without assertions");
@@ -214,7 +223,7 @@ get_mem_info(GString *str)
 #endif
 
 	if (memsize > 0)
-		g_string_append_printf(str, ", with ""%" G_GINT64_MODIFIER "d" " MB of physical memory", memsize/(1024*1024));
+		g_string_append_printf(str, ", with %" G_GINT64_FORMAT " MB of physical memory", memsize/(1024*1024));
 }
 
 /*
@@ -300,8 +309,10 @@ get_compiler_info(GString *str)
 				#define VS_VERSION	"2015"
 			#elif COMPILER_MINOR_VERSION < 20
 				#define VS_VERSION	"2017"
+			#elif COMPILER_MINOR_VERSION < 30
+			#define VS_VERSION	"2019"
 			#else
-				#define VS_VERSION	"2019"
+				#define VS_VERSION	"2022"
 			#endif
 		#else
 			/*
@@ -381,22 +392,29 @@ get_compiler_info(GString *str)
 	#endif
 }
 
-/* XXX - is the setlocale() return string opaque? For glibc the separator is ';' */
-static gchar *
-get_locale(void)
+static inline void
+get_pcre2_runtime_version_info(GString *str)
 {
-	const gchar *lang;
-	gchar **locv, *loc;
+	/* From pcre2_api(3):
+	 *     The where argument should point to a buffer that is at  least  24  code
+	 *     units  long.  (The  exact  length  required  can  be  found  by calling
+	 *     pcre2_config() with where set to NULL.)
+	 *
+	 * The API should accept a buffer size as additional input. We could opt for a
+	 * stack buffer size greater than 24 but let's just go with the weirdness...
+	 */
+	int size;
+	char *buf_pcre2;
 
-	lang = setlocale(LC_ALL, NULL);
-	if (lang == NULL) {
-		return NULL;
-	}
-
-	locv = g_strsplit(lang, ";", -1);
-	loc = g_strjoinv(", ", locv);
-	g_strfreev(locv);
-	return loc;
+	size = pcre2_config(PCRE2_CONFIG_VERSION, NULL);
+	if (size < 0 || size > 255)
+		return;
+	buf_pcre2 = g_malloc(size + 1);
+	pcre2_config(PCRE2_CONFIG_VERSION, buf_pcre2);
+	buf_pcre2[size] = '\0';
+	g_string_append(str, ", with PCRE2 ");
+	g_string_append(str, buf_pcre2);
+	g_free(buf_pcre2);
 }
 
 /*
@@ -412,7 +430,7 @@ GString *
 get_runtime_version_info(void (*additional_info)(GString *))
 {
 	GString *str;
-	gchar *lang;
+	gchar *lc;
 
 	str = g_string_new("Running on ");
 
@@ -428,6 +446,9 @@ get_runtime_version_info(void (*additional_info)(GString *))
 	g_string_append_printf(str, ", with GLib %u.%u.%u",
 			glib_major_version, glib_minor_version, glib_micro_version);
 
+	/* PCRE2 */
+	get_pcre2_runtime_version_info(str);
+
 	/* zlib */
 #if defined(HAVE_ZLIB) && !defined(_WIN32)
 	g_string_append_printf(str, ", with zlib %s", zlibVersion());
@@ -438,23 +459,12 @@ get_runtime_version_info(void (*additional_info)(GString *))
 		(*additional_info)(str);
 
 	/*
-	 * Locale.
-	 *
-	 * This returns the C language's locale information; this
-	 * returns the locale that's actually in effect, even if
-	 * it doesn't happen to match the settings of any of the
-	 * locale environment variables.
-	 *
-	 * On Windows get_locale returns the full language, country
-	 * name, and code page, e.g. "English_United States.1252":
-	 * https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale?view=vs-2019
+	 * Display LC_CTYPE as a relevant, portable and sort of representative
+	 * locale configuration without being exceedingly verbose and including
+	 * the whole shebang of categories using LC_ALL.
 	 */
-	if ((lang = get_locale()) != NULL) {
-		g_string_append_printf(str, ", with locale %s", lang);
-		g_free(lang);
-	}
-	else {
-		g_string_append(str, ", with default locale");
+	if ((lc = setlocale(LC_CTYPE, NULL)) != NULL) {
+		g_string_append_printf(str, ", with LC_TYPE=%s", lc);
 	}
 
 	/* plugins */

@@ -98,6 +98,9 @@ static int hf_frame_cb_copy_allowed = -1;
 static int hf_frame_bblog = -1;
 static int hf_frame_bblog_ticks = -1;
 static int hf_frame_bblog_serial_nr = -1;
+static int hf_frame_pcaplog_type = -1;
+static int hf_frame_pcaplog_length = -1;
+static int hf_frame_pcaplog_data = -1;
 static int hf_comments_text = -1;
 
 static gint ett_frame = -1;
@@ -106,6 +109,7 @@ static gint ett_flags = -1;
 static gint ett_comments = -1;
 static gint ett_verdict = -1;
 static gint ett_bblog = -1;
+static gint ett_pcaplog_data = -1;
 
 static expert_field ei_comments_text = EI_INIT;
 static expert_field ei_arrive_time_out_of_range = EI_INIT;
@@ -117,6 +121,7 @@ static dissector_handle_t docsis_handle;
 static dissector_handle_t sysdig_handle;
 static dissector_handle_t systemd_journal_handle;
 static dissector_handle_t bblog_handle;
+static dissector_handle_t xml_handle;
 
 /* Preferences */
 static gboolean show_file_off       = FALSE;
@@ -357,6 +362,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	dissector_handle_t dissector_handle;
 	fr_foreach_t fr_user_data;
 	struct nflx_tcpinfo tcpinfo;
+	gboolean tcpinfo_filled = false;
 
 	tree=parent_tree;
 
@@ -438,6 +444,42 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				    P2P_DIR_SENT : P2P_DIR_RECV;
 				break;
 			}
+		}
+
+		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_nflx_custom_option(fr_data->pkt_block,
+									      NFLX_OPT_TYPE_TCPINFO,
+									      (char *)&tcpinfo,
+									      sizeof(struct nflx_tcpinfo))) {
+			tcpinfo_filled = true;
+			if ((tcpinfo.tlb_flags & NFLX_TLB_TF_REQ_SCALE) &&
+			    (tcpinfo.tlb_flags & NFLX_TLB_TF_RCVD_SCALE)) {
+				/* TCP WS option has been sent and received. */
+				switch (pinfo->p2p_dir) {
+				case P2P_DIR_RECV:
+					pinfo->src_win_scale = tcpinfo.tlb_snd_scale;
+					pinfo->dst_win_scale = tcpinfo.tlb_rcv_scale;
+					break;
+				case P2P_DIR_SENT:
+					pinfo->src_win_scale = tcpinfo.tlb_rcv_scale;
+					pinfo->dst_win_scale = tcpinfo.tlb_snd_scale;
+					break;
+				case P2P_DIR_UNKNOWN:
+					pinfo->src_win_scale = -1; /* unknown */
+					pinfo->dst_win_scale = -1; /* unknown */
+					break;
+				default:
+					DISSECTOR_ASSERT_NOT_REACHED();
+				}
+			} else if (NFLX_TLB_IS_SYNCHRONIZED(tcpinfo.tlb_state)) {
+				/* TCP connection is in a synchronized state. */
+				pinfo->src_win_scale = -2; /* window scaling disabled */
+				pinfo->dst_win_scale = -2; /* window scaling disabled */
+			} else {
+				pinfo->src_win_scale = -1; /* unknown */
+				pinfo->dst_win_scale = -1; /* unknown */
+			}
+		} else {
+			tcpinfo_filled = false;
 		}
 		break;
 
@@ -787,7 +829,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				proto_tree_add_uint(fh_tree, hf_link_number, tvb,
 						    0, 0, pinfo->link_number);
 			}
-			if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_nflx_custom_option(fr_data->pkt_block, NFLX_OPT_TYPE_TCPINFO, (char *)&tcpinfo, sizeof(struct nflx_tcpinfo))) {
+			if (tcpinfo_filled) {
 				proto_tree *bblog_tree;
 				proto_item *bblog_item;
 
@@ -801,7 +843,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		if (show_file_off) {
 			proto_tree_add_int64_format_value(fh_tree, hf_frame_file_off, tvb,
 						    0, 0, pinfo->fd->file_off,
-						    "%" G_GINT64_MODIFIER "d (0x%" G_GINT64_MODIFIER "x)",
+						    "%" PRId64 " (0x%" PRIx64 ")",
 						    pinfo->fd->file_off, pinfo->fd->file_off);
 		}
 	}
@@ -909,9 +951,49 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			case REC_TYPE_CUSTOM_BLOCK:
 				switch (pinfo->rec->rec_header.custom_block_header.pen) {
 				case PEN_NFLX:
-					call_dissector_with_data(bblog_handle,
-					                         tvb, pinfo, parent_tree,
-					                         (void *)pinfo->pseudo_header);
+					switch (pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.type) {
+					case BBLOG_TYPE_SKIPPED_BLOCK:
+						col_set_str(pinfo->cinfo, COL_PROTOCOL, "BBLog");
+						col_add_fstr(pinfo->cinfo, COL_INFO, "Number of skipped events: %u",
+						             pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.skipped);
+						break;
+					case BBLOG_TYPE_EVENT_BLOCK:
+						call_dissector_with_data(bblog_handle,
+						                         tvb, pinfo, parent_tree,
+						                         (void *)pinfo->pseudo_header);
+						break;
+					default:
+						col_set_str(pinfo->cinfo, COL_PROTOCOL, "BBLog");
+						col_add_fstr(pinfo->cinfo, COL_INFO, "Unknown type: %u",
+						             pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.type);
+						break;
+					}
+					break;
+				case PEN_VCTR:
+				{
+					guint32 data_type;
+					guint32 data_length;
+					proto_item *pi_tmp;
+					proto_tree *pt_pcaplog_data;
+
+					proto_tree_add_item_ret_uint(fh_tree, hf_frame_pcaplog_type, tvb, 0, 4, ENC_LITTLE_ENDIAN, &data_type);
+					proto_tree_add_item_ret_uint(fh_tree, hf_frame_pcaplog_length, tvb, 4, 4, ENC_LITTLE_ENDIAN, &data_length);
+					pi_tmp = proto_tree_add_item(fh_tree, hf_frame_pcaplog_data, tvb, 8, data_length, ENC_NA);
+					pt_pcaplog_data = proto_item_add_subtree(pi_tmp, ett_pcaplog_data);
+
+					col_set_str(pinfo->cinfo, COL_PROTOCOL, "pcaplog");
+					col_add_fstr(pinfo->cinfo, COL_INFO, "Custom Block: PEN = %s (%d), will%s be copied",
+						enterprises_lookup(pinfo->rec->rec_header.custom_block_header.pen, "Unknown"),
+						pinfo->rec->rec_header.custom_block_header.pen,
+						pinfo->rec->rec_header.custom_block_header.copy_allowed ? "" : " not");
+
+					/* at least data_types 1-3 seem XML-based */
+					if (data_type > 0 && data_type <= 3) {
+						call_dissector(xml_handle, tvb_new_subset_remaining(tvb, 8), pinfo, pt_pcaplog_data);
+					} else {
+						call_data_dissector(tvb_new_subset_remaining(tvb, 8), pinfo, pt_pcaplog_data);
+					}
+				}
 					break;
 				default:
 					col_set_str(pinfo->cinfo, COL_PROTOCOL, "PCAPNG");
@@ -952,7 +1034,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				/* XXX - add other hardware exception codes as required */
 			default:
 				show_exception(tvb, pinfo, parent_tree, DissectorError,
-					       g_strdup_printf("dissector caused an unknown exception: 0x%x", GetExceptionCode()));
+					       ws_strdup_printf("dissector caused an unknown exception: 0x%x", GetExceptionCode()));
 			}
 		}
 #endif
@@ -1020,7 +1102,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					/* XXX - add other hardware exception codes as required */
 				default:
 					show_exception(tvb, pinfo, parent_tree, DissectorError,
-						       g_strdup_printf("dissector caused an unknown exception: 0x%x", GetExceptionCode()));
+						       ws_strdup_printf("dissector caused an unknown exception: 0x%x", GetExceptionCode()));
 				}
 			}
 #endif
@@ -1342,6 +1424,20 @@ proto_register_frame(void)
 		    FT_UINT32, BASE_DEC, NULL, 0x0,
 		    NULL, HFILL}},
 
+		{ &hf_frame_pcaplog_type,
+		{ "Date Type", "frame.pcaplog.data_type",
+		    FT_UINT32, BASE_DEC, NULL, 0x0,
+		    NULL, HFILL} },
+
+		{ &hf_frame_pcaplog_length,
+		{ "Data Length", "frame.pcaplog.data_length",
+		    FT_UINT32, BASE_DEC, NULL, 0x0,
+		    NULL, HFILL} },
+
+		{ &hf_frame_pcaplog_data,
+		{ "Data", "frame.pcaplog.data",
+		    FT_BYTES, BASE_NONE, NULL, 0x0,
+		    NULL, HFILL} },
 	};
 
 	static hf_register_info hf_encap =
@@ -1356,7 +1452,8 @@ proto_register_frame(void)
 		&ett_flags,
 		&ett_comments,
 		&ett_verdict,
-		&ett_bblog
+		&ett_bblog,
+		&ett_pcaplog_data
 	};
 
 	static ei_register_info ei[] = {
@@ -1440,6 +1537,7 @@ proto_reg_handoff_frame(void)
 	sysdig_handle = find_dissector_add_dependency("sysdig", proto_frame);
 	systemd_journal_handle = find_dissector_add_dependency("systemd_journal", proto_frame);
 	bblog_handle = find_dissector_add_dependency("bblog", proto_frame);
+	xml_handle = find_dissector_add_dependency("xml", proto_frame);
 }
 
 /*

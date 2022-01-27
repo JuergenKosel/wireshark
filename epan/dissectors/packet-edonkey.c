@@ -2408,7 +2408,7 @@ static int dissect_kademlia_tag(tvbuff_t *tvb, packet_info *pinfo,
                 proto_tree_add_item( subtree, hf_kademlia_tag_uint64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
 
                 value = tvb_get_letoh64( tvb, offset );
-                proto_item_append_text( tag_node, "%" G_GINT64_MODIFIER "u (0x%08" G_GINT64_MODIFIER "X)", value, value );
+                proto_item_append_text( tag_node, "%" PRIu64 " (0x%08" PRIX64 ")", value, value );
 
                 offset += 8;
             }
@@ -3082,7 +3082,7 @@ static int dissect_edonkey_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 static void
 edonkey_fmt_revision(gchar *result, guint32 revision )
 {
-   g_snprintf( result, ITEM_LABEL_LENGTH, "%u.%u", (guint16)(revision & 0xFFFF), (guint16)(( revision & 0xFFFF0000 ) >> 16) );
+   snprintf( result, ITEM_LABEL_LENGTH, "%u.%u", (guint16)(revision & 0xFFFF), (guint16)(( revision & 0xFFFF0000 ) >> 16) );
 }
 
 void proto_register_edonkey(void) {
@@ -3129,7 +3129,7 @@ void proto_register_edonkey(void) {
                 FT_UINT8, BASE_HEX, NULL, 0, "eDonkey Meta Tag ID", HFILL } },
         { &hf_edonkey_metatag_name,
             { "Meta Tag Name", "edonkey.metatag.name",
-                FT_STRING, STR_ASCII, NULL, 0, "eDonkey Meta Tag Name", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "eDonkey Meta Tag Name", HFILL } },
         { &hf_edonkey_metatag_namesize,
             { "Meta Tag Name Size", "edonkey.metatag.namesize",
                 FT_UINT16, BASE_DEC, NULL, 0, "eDonkey Meta Tag Name Size", HFILL } },
@@ -3138,7 +3138,7 @@ void proto_register_edonkey(void) {
                 FT_BYTES, BASE_NONE, NULL, 0, "eDonkey Hash", HFILL } },
         { &hf_edonkey_string,
             { "String", "edonkey.string",
-                FT_STRING, STR_ASCII, NULL, 0, "eDonkey String", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "eDonkey String", HFILL } },
         { &hf_edonkey_string_length,
             { "String Length", "edonkey.string_length",
                 FT_UINT16, BASE_DEC, NULL, 0, "eDonkey String Length", HFILL } },
@@ -3150,7 +3150,7 @@ void proto_register_edonkey(void) {
                 FT_BYTES, BASE_NONE, NULL, 0, "eDonkey File Status", HFILL } },
         { &hf_edonkey_directory,
             { "Directory", "edonkey.directory",
-                FT_STRING, STR_ASCII, NULL, 0, "eDonkey Directory", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "eDonkey Directory", HFILL } },
         { &hf_edonkey_fileinfo,
             { "eDonkey File Info", "edonkey.fileinfo",
                 FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL } },
@@ -3210,28 +3210,28 @@ void proto_register_edonkey(void) {
                 FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL } },
         { &hf_kademlia_peer_id,
             { "Peer ID", "edonkey.kademlia.peer.id",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia Peer ID", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia Peer ID", HFILL } },
         { &hf_kademlia_hash,
             { "Kademlia Hash", "edonkey.kademlia.hash",
-                FT_STRING, STR_ASCII, NULL, 0, NULL, HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
         { &hf_kademlia_file_id,
             { "File ID", "edonkey.kademlia.file.id",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia File ID", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia File ID", HFILL } },
         { &hf_kademlia_keyword_hash,
             { "Keyword Hash", "edonkey.kademlia.keyword.hash",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia Keyword Hash", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia Keyword Hash", HFILL } },
         { &hf_kademlia_recipients_id,
             { "Recipient's ID", "edonkey.kademlia.recipients.id",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia Recipient's ID", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia Recipient's ID", HFILL } },
         { &hf_kademlia_sender_id,
             { "Sender ID", "edonkey.kademlia.sender.id",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia Sender ID", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia Sender ID", HFILL } },
         { &hf_kademlia_target_id,
             { "Target ID", "edonkey.kademlia.target.id",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia Target ID", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia Target ID", HFILL } },
         { &hf_kademlia_distance,
             { "XOR Distance", "edonkey.kademlia.distance",
-                FT_STRING, STR_ASCII, NULL, 0, "Kademlia XOR Distance", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "Kademlia XOR Distance", HFILL } },
         { &hf_kademlia_version,
             { "Kad Version", "edonkey.kademlia.version",
                 FT_UINT8, BASE_DEC_HEX, VALS(kademlia_versions), 0, NULL, HFILL } },
@@ -3258,7 +3258,7 @@ void proto_register_edonkey(void) {
                 FT_STRING, BASE_NONE, NULL, 0, "HASH Tag Value", HFILL } },
         { &hf_kademlia_tag_string,
             { "Tag Value (String)", "edonkey.kademlia.tag.value.string",
-                FT_STRING, STR_ASCII, NULL, 0, "String Tag Value", HFILL } },
+                FT_STRING, BASE_NONE, NULL, 0, "String Tag Value", HFILL } },
         { &hf_kademlia_tag_bsob,
             { "Tag Value (BSOB)", "edonkey.kademlia.tag.value.bsob",
                 FT_BYTES, BASE_NONE, NULL, 0, "BSOB Tag Value", HFILL } },

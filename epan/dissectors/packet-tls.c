@@ -668,7 +668,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
      * throw an exception before we get the chance to do so). */
     col_set_str(pinfo->cinfo, COL_PROTOCOL,
              val_to_str_const(session->version, ssl_version_short_names, "SSL"));
-    /* clear the the info column */
+    /* clear the info column */
     col_clear(pinfo->cinfo, COL_INFO);
 
     /* TCP packets and TLS records are orthogonal.
@@ -834,6 +834,8 @@ dissect_tls13_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     SslDecryptSession *ssl_session;
     SslSession        *session;
     gint               is_from_server;
+    proto_item        *ti;
+    proto_tree        *ssl_tree;
     /**
      * A value that uniquely identifies this fragment in this frame.
      */
@@ -862,8 +864,11 @@ dissect_tls13_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     ssl_debug_printf("  conversation = %p, ssl_session = %p, from_server = %d\n",
                      (void *)conversation, (void *)ssl_session, is_from_server);
 
-    /* Directly add handshake message to the tree (without proto_tls item). */
-    dissect_tls_handshake(tvb, pinfo, tree, 0,
+    /* Add a proto_tls item to allow simple "tls" display filter */
+    ti = proto_tree_add_item(tree, proto_tls, tvb, 0, -1, ENC_NA);
+    ssl_tree = proto_item_add_subtree(ti, ett_tls);
+
+    dissect_tls_handshake(tvb, pinfo, ssl_tree, 0,
                           tvb_reported_length(tvb), FALSE, record_id, pinfo->curr_layer_num, session,
                           is_from_server, ssl_session, TLSV1DOT3_VERSION);
 
@@ -1895,7 +1900,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     /*
      * if we don't already have a version set for this conversation,
      * but this message's version is authoritative (i.e., it's
-     * not client_hello, then save the version to to conversation
+     * not client_hello, then save the version to the conversation
      * structure and print the column version. If the message is not authorative
      * (i.e. it is a Client Hello), then this version will still be used for
      * display purposes only (it will not be stored in the conversation).
@@ -3554,11 +3559,11 @@ void ssl_set_master_secret(guint32 frame_num, address *addr_srv, address *addr_c
     /* TODO change API to accept 64-bit sequence numbers. */
     if (ssl->client && (client_seq != (guint32)-1)) {
         ssl->client->seq = client_seq;
-        ssl_debug_printf("ssl_set_master_secret client->seq updated to %" G_GUINT64_FORMAT "\n", ssl->client->seq);
+        ssl_debug_printf("ssl_set_master_secret client->seq updated to %" PRIu64 "\n", ssl->client->seq);
     }
     if (ssl->server && (server_seq != (guint32)-1)) {
         ssl->server->seq = server_seq;
-        ssl_debug_printf("ssl_set_master_secret server->seq updated to %" G_GUINT64_FORMAT "\n", ssl->server->seq);
+        ssl_debug_printf("ssl_set_master_secret server->seq updated to %" PRIu64 "\n", ssl->server->seq);
     }
 
     /* update IV from last data */
@@ -4047,12 +4052,12 @@ ssldecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, co
 
     if (!ssl_find_appdata_dissector(p)) {
         if (proto_get_id_by_filter_name(p) != -1) {
-            *err = g_strdup_printf("While '%s' is a valid dissector filter name, that dissector is not configured"
+            *err = ws_strdup_printf("While '%s' is a valid dissector filter name, that dissector is not configured"
                                    " to support TLS decryption.\n\n"
                                    "If you need to decrypt '%s' over TLS, please contact the Wireshark development team.", p, p);
         } else {
             char* ssl_str = ssl_association_info("tls.port", "TCP");
-            *err = g_strdup_printf("Could not find dissector for: '%s'\nCommonly used TLS dissectors include:\n%s", p, ssl_str);
+            *err = ws_strdup_printf("Could not find dissector for: '%s'\nCommonly used TLS dissectors include:\n%s", p, ssl_str);
             g_free(ssl_str);
         }
         return FALSE;
@@ -4073,7 +4078,7 @@ ssl_src_prompt(packet_info *pinfo, gchar *result)
     if (pi != NULL)
         srcport = pi->srcport;
 
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", srcport, UTF8_RIGHTWARDS_ARROW);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", srcport, UTF8_RIGHTWARDS_ARROW);
 }
 
 static gpointer
@@ -4098,7 +4103,7 @@ ssl_dst_prompt(packet_info *pinfo, gchar *result)
     if (pi != NULL)
         destport = pi->destport;
 
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, destport);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, destport);
 }
 
 static gpointer
@@ -4127,7 +4132,7 @@ ssl_both_prompt(packet_info *pinfo, gchar *result)
         destport = pi->destport;
     }
 
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", srcport, UTF8_LEFT_RIGHT_ARROW, destport);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", srcport, UTF8_LEFT_RIGHT_ARROW, destport);
 }
 
 static void

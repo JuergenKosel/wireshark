@@ -1,4 +1,4 @@
-/* stock_icon_tool_button.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -14,7 +14,6 @@
 
 class StockIconToolButton : public QToolButton
 {
-    Q_OBJECT
 public:
     explicit StockIconToolButton(QWidget * parent = 0, QString stock_icon_name = QString());
 

@@ -1,4 +1,5 @@
-/* tabnav_tree_widget.h
+/** @file
+ *
  * Tree widget with saner tab navigation properties.
  *
  * Copyright 2017 Peter Wu <peter@lekensteyn.nl>
@@ -22,7 +23,6 @@
  */
 class TabnavTreeWidget : public QTreeWidget
 {
-    Q_OBJECT
 public:
     TabnavTreeWidget(QWidget *parent = 0);
     QModelIndex moveCursor(CursorAction cursorAction, Qt::KeyboardModifiers modifiers);

@@ -1,4 +1,4 @@
--- 3GPP TS 38.455 V16.3.0 (2021-04)
+-- 3GPP TS 38.455 V16.6.0 (2021-12)
 --9.3.4	PDU Definitions
 --
 -- **************************************************************
@@ -53,13 +53,14 @@ IMPORTS
 	MeasurementBeamInfoRequest,
 	PositioningBroadcastCells,
 	SRSResourceSetID,
-	SRSSpatialRelation,
+	SpatialRelationInfo,
 	SRSResourceTrigger,
 	TRPList,
 	AbortTransmission,
 	SystemFrameNumber,
 	SlotNumber,
-	SFNInitialisationTime
+	RelativeTime1900,
+	SpatialRelationPerSRSResource
 
 	
 FROM NRPPA-IEs
@@ -118,7 +119,8 @@ FROM NRPPA-Containers
 	id-SystemFrameNumber,
 	id-SlotNumber,
 	id-SRSResourceTrigger,
-	id-SFNInitialisationTime
+	id-SFNInitialisationTime,
+	id-SRSSpatialRelationPerSRSResource
 
 
 	
@@ -411,7 +413,7 @@ PositioningInformationResponse ::= SEQUENCE {
 
 PositioningInformationResponse-IEs NRPPA-PROTOCOL-IES ::= {
 	{ ID id-SRSConfiguration			CRITICALITY ignore	TYPE SRSConfiguration			PRESENCE optional}|
-	{ ID id-SFNInitialisationTime		CRITICALITY ignore	TYPE SFNInitialisationTime		PRESENCE optional}|
+	{ ID id-SFNInitialisationTime		CRITICALITY ignore	TYPE RelativeTime1900		PRESENCE optional}|
 	{ ID id-CriticalityDiagnostics		CRITICALITY ignore	TYPE CriticalityDiagnostics		PRESENCE optional},
 	...
 }
@@ -446,7 +448,7 @@ PositioningInformationUpdate ::= SEQUENCE {
 
 PositioningInformationUpdate-IEs NRPPA-PROTOCOL-IES ::= {
 	{ ID id-SRSConfiguration			CRITICALITY ignore	TYPE SRSConfiguration			PRESENCE optional}|
-	{ ID id-SFNInitialisationTime		CRITICALITY ignore	TYPE SFNInitialisationTime		PRESENCE optional},
+	{ ID id-SFNInitialisationTime		CRITICALITY ignore	TYPE RelativeTime1900		PRESENCE optional},
 	...
 }
 
@@ -468,7 +470,7 @@ MeasurementRequest-IEs NRPPA-PROTOCOL-IES ::= {
 	{ ID id-MeasurementPeriodicity			CRITICALITY reject	TYPE MeasurementPeriodicity		PRESENCE conditional}|
 -- The IE shall be present if the Report Characteritics IE is set to “periodic” –
 	{ ID id-TRPMeasurementQuantities			CRITICALITY reject	TYPE TRPMeasurementQuantities		PRESENCE mandatory}|
-	{ ID id-SFNInitialisationTime			CRITICALITY ignore	TYPE SFNInitialisationTime		PRESENCE optional}|
+	{ ID id-SFNInitialisationTime			CRITICALITY ignore	TYPE RelativeTime1900		PRESENCE optional}|
 	{ ID id-SRSConfiguration				CRITICALITY ignore	TYPE SRSConfiguration			PRESENCE optional}|
 	{ ID id-MeasurementBeamInfoRequest		CRITICALITY ignore	TYPE MeasurementBeamInfoRequest	PRESENCE optional}|
 	{ ID id-SystemFrameNumber				CRITICALITY ignore	TYPE SystemFrameNumber			PRESENCE optional}|
@@ -652,7 +654,7 @@ PositioningActivationRequest ::= SEQUENCE {
 
 PositioningActivationRequestIEs NRPPA-PROTOCOL-IES ::= {
 	{ ID id-SRSType					CRITICALITY reject	TYPE SRSType					PRESENCE mandatory	} |
-	{ ID id-ActivationTime			CRITICALITY ignore	TYPE SFNInitialisationTime				PRESENCE optional	},
+	{ ID id-ActivationTime			CRITICALITY ignore	TYPE RelativeTime1900				PRESENCE optional	},
 	...
 } 
 
@@ -673,8 +675,9 @@ SemipersistentSRS ::= SEQUENCE {
 }
 
 SemipersistentSRS-ExtIEs NRPPA-PROTOCOL-EXTENSION ::= {		
-{ ID id-SRSSpatialRelation	CRITICALITY ignore	EXTENSION SRSSpatialRelation PRESENCE optional},
-...
+	{ ID id-SRSSpatialRelation					CRITICALITY ignore	EXTENSION SpatialRelationInfo					PRESENCE optional}|
+	{ ID id-SRSSpatialRelationPerSRSResource		CRITICALITY ignore	EXTENSION SpatialRelationPerSRSResource	PRESENCE optional},
+	...
 }
 
 AperiodicSRS ::= SEQUENCE {

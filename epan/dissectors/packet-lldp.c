@@ -1311,12 +1311,12 @@ static const unit_name_string units_m = { " m", NULL };
 
 static void
 mdi_power_base(gchar *buf, guint32 value) {
-	g_snprintf(buf, ITEM_LABEL_LENGTH, "%u.%u. Watt", value/10, value%10);
+	snprintf(buf, ITEM_LABEL_LENGTH, "%u.%u. Watt", value/10, value%10);
 }
 
 static void
 media_power_base(gchar *buf, guint32 value) {
-	g_snprintf(buf, ITEM_LABEL_LENGTH, "%u mW", value * 100);
+	snprintf(buf, ITEM_LABEL_LENGTH, "%u mW", value * 100);
 }
 
 /* Calculate Latitude and Longitude string */
@@ -1374,7 +1374,7 @@ get_latitude_or_longitude(gchar *buf, int option, guint64 unmasked_value)
 			direction = "East";
 	}
 
-	g_snprintf(buf, ITEM_LABEL_LENGTH, "%u.%04" G_GINT64_MODIFIER "u degrees %s (0x%010" G_GINT64_MODIFIER "X)",
+	snprintf(buf, ITEM_LABEL_LENGTH, "%u.%04" PRIu64 " degrees %s (0x%010" PRIX64 ")",
 	    integerPortion, tempValue, direction, value);
 }
 
@@ -1453,7 +1453,7 @@ dissect_lldp_chassis_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
 		}
 
 		idType="MA";
-		strPtr = tvb_ether_to_str(tvb, offset);
+		strPtr = tvb_ether_to_str(pinfo->pool, tvb, offset);
 		proto_tree_add_item(chassis_tree, hf_chassis_id_mac, tvb, offset, 6, ENC_NA);
 		pn_lldp_column_info->chassis_id_mac = wmem_strdup(pinfo->pool, strPtr);
 		offset += (dataLen - 1);
@@ -1473,7 +1473,7 @@ dissect_lldp_chassis_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
 		switch(addr_family){
 		case AFNUM_INET:
 			if (dataLen == 6){
-				strPtr = tvb_ip_to_str(tvb, offset);
+				strPtr = tvb_ip_to_str(pinfo->pool, tvb, offset);
 			}else{
 				expert_add_info_format(pinfo, lf, &ei_lldp_bad_length,
 					"Invalid Chassis ID Length (%u) for Type (%s, %s), expected (6)", dataLen, val_to_str_const(tlvsubType, chassis_id_subtypes, ""), val_to_str_const(addr_family, afn_vals, ""));
@@ -1485,7 +1485,7 @@ dissect_lldp_chassis_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gui
 			break;
 		case AFNUM_INET6:
 			if  (dataLen == 18){
-				strPtr = tvb_ip6_to_str(tvb, offset);
+				strPtr = tvb_ip6_to_str(pinfo->pool, tvb, offset);
 			}else{
 				expert_add_info_format(pinfo, lf, &ei_lldp_bad_length,
 					"Invalid Chassis ID Length (%u) for Type (%s, %s), expected (18)", dataLen, val_to_str_const(tlvsubType, chassis_id_subtypes, ""), val_to_str_const(addr_family, afn_vals, ""));
@@ -1628,7 +1628,7 @@ dissect_lldp_port_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 		}
 
 		idType = "MA";
-		strPtr = tvb_ether_to_str(tvb, offset);
+		strPtr = tvb_ether_to_str(pinfo->pool, tvb, offset);
 		proto_tree_add_item(port_tree, hf_port_id_mac, tvb, offset, 6, ENC_NA);
 
 		offset += (dataLen - 1);
@@ -1646,7 +1646,7 @@ dissect_lldp_port_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 		switch(addr_family){
 		case AFNUM_INET:
 			if (dataLen == 6){
-				strPtr = tvb_ip_to_str(tvb, offset);
+				strPtr = tvb_ip_to_str(pinfo->pool, tvb, offset);
 			}else{
 				expert_add_info_format(pinfo, lf, &ei_lldp_bad_length,
 					"Invalid Port ID Length (%u) for Type (%s, %s), expected (6)", dataLen, val_to_str_const(tlvsubType, port_id_subtypes, ""), val_to_str_const(addr_family, afn_vals, ""));
@@ -1658,7 +1658,7 @@ dissect_lldp_port_id(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 			break;
 		case AFNUM_INET6:
 			if  (dataLen == 18){
-				strPtr = tvb_ip6_to_str(tvb, offset);
+				strPtr = tvb_ip6_to_str(pinfo->pool, tvb, offset);
 			}else{
 				expert_add_info_format(pinfo, lf, &ei_lldp_bad_length,
 					"Invalid Port ID Length (%u) for Type (%s, %s), expected (18)", dataLen, val_to_str_const(tlvsubType, port_id_subtypes, ""), val_to_str_const(addr_family, afn_vals, ""));

@@ -10,7 +10,6 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <epan/packet.h>
 #include <epan/capture_dissectors.h>
 #include <epan/exceptions.h>
@@ -359,6 +358,13 @@ static int hf_tcp_reset_cause = -1;
 static int hf_tcp_fin_retransmission = -1;
 static int hf_tcp_option_rvbd_probe_reserved = -1;
 static int hf_tcp_option_scps_binding_data = -1;
+static int hf_tcp_syncookie_time = -1;
+static int hf_tcp_syncookie_mss = -1;
+static int hf_tcp_syncookie_hash = -1;
+static int hf_tcp_syncookie_option_timestamp = -1;
+static int hf_tcp_syncookie_option_ecn = -1;
+static int hf_tcp_syncookie_option_sack = -1;
+static int hf_tcp_syncookie_option_wscale = -1;
 
 static gint ett_tcp = -1;
 static gint ett_tcp_flags = -1;
@@ -395,6 +401,8 @@ static gint ett_tcp_opt_recbound = -1;
 static gint ett_tcp_opt_scpscor = -1;
 static gint ett_tcp_unknown_opt = -1;
 static gint ett_tcp_option_other = -1;
+static gint ett_tcp_syncookie = -1;
+static gint ett_tcp_syncookie_option = -1;
 static gint ett_mptcp_analysis = -1;
 static gint ett_mptcp_analysis_subflows = -1;
 
@@ -476,6 +484,9 @@ static gboolean tcp_fastrt_precedence = TRUE;
 
 /* Process info, currently discovered via IPFIX */
 static gboolean tcp_display_process_info = FALSE;
+
+/* Read the sequence number as syn cookie */
+static gboolean read_seq_as_syn_cookie = FALSE;
 
 /*
  *  TCP option
@@ -725,7 +736,7 @@ tcp_flags_to_str(wmem_allocator_t *scope, const struct tcpheader *tcph)
     }
 
     if (buf[0] == '\0')
-        buf = "<None>";
+        g_stpcpy(pbuf, "<None>");
 
     return buf;
 }
@@ -754,7 +765,7 @@ tcp_src_prompt(packet_info *pinfo, gchar *result)
 {
     guint32 port = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, hf_tcp_srcport, pinfo->curr_layer_num));
 
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", port, UTF8_RIGHTWARDS_ARROW);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "source (%u%s)", port, UTF8_RIGHTWARDS_ARROW);
 }
 
 static gpointer
@@ -768,7 +779,7 @@ tcp_dst_prompt(packet_info *pinfo, gchar *result)
 {
     guint32 port = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, hf_tcp_dstport, pinfo->curr_layer_num));
 
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, port);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "destination (%s%u)", UTF8_RIGHTWARDS_ARROW, port);
 }
 
 static gpointer
@@ -782,7 +793,7 @@ tcp_both_prompt(packet_info *pinfo, gchar *result)
 {
     guint32 srcport = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, hf_tcp_srcport, pinfo->curr_layer_num)),
             destport = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, hf_tcp_dstport, pinfo->curr_layer_num));
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", srcport, UTF8_LEFT_RIGHT_ARROW, destport);
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "both (%u%s%u)", srcport, UTF8_LEFT_RIGHT_ARROW, destport);
 }
 
 static const char* tcp_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e filter)
@@ -920,7 +931,7 @@ tcp_build_filter(packet_info *pinfo)
 {
     if( pinfo->net_src.type == AT_IPv4 && pinfo->net_dst.type == AT_IPv4 ) {
         /* TCP over IPv4 */
-        return g_strdup_printf("(ip.addr eq %s and ip.addr eq %s) and (tcp.port eq %d and tcp.port eq %d)",
+        return ws_strdup_printf("(ip.addr eq %s and ip.addr eq %s) and (tcp.port eq %d and tcp.port eq %d)",
             address_to_str(pinfo->pool, &pinfo->net_src),
             address_to_str(pinfo->pool, &pinfo->net_dst),
             pinfo->srcport, pinfo->destport );
@@ -928,7 +939,7 @@ tcp_build_filter(packet_info *pinfo)
 
     if( pinfo->net_src.type == AT_IPv6 && pinfo->net_dst.type == AT_IPv6 ) {
         /* TCP over IPv6 */
-        return g_strdup_printf("(ipv6.addr eq %s and ipv6.addr eq %s) and (tcp.port eq %d and tcp.port eq %d)",
+        return ws_strdup_printf("(ipv6.addr eq %s and ipv6.addr eq %s) and (tcp.port eq %d and tcp.port eq %d)",
             address_to_str(pinfo->pool, &pinfo->net_src),
             address_to_str(pinfo->pool, &pinfo->net_dst),
             pinfo->srcport, pinfo->destport );
@@ -959,7 +970,7 @@ tcp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_,
     flags = tcp_flags_to_str(NULL, tcph);
 
     if ((tcph->th_have_seglen)&&(tcph->th_seglen!=0)){
-        sai->frame_label = g_strdup_printf("%s - Len: %u",flags, tcph->th_seglen);
+        sai->frame_label = ws_strdup_printf("%s - Len: %u",flags, tcph->th_seglen);
     }
     else{
         sai->frame_label = g_strdup(flags);
@@ -968,9 +979,9 @@ tcp_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U_,
     wmem_free(NULL, flags);
 
     if (tcph->th_flags & TH_ACK)
-        sai->comment = g_strdup_printf("Seq = %u Ack = %u",tcph->th_seq, tcph->th_ack);
+        sai->comment = ws_strdup_printf("Seq = %u Ack = %u",tcph->th_seq, tcph->th_ack);
     else
-        sai->comment = g_strdup_printf("Seq = %u",tcph->th_seq);
+        sai->comment = ws_strdup_printf("Seq = %u",tcph->th_seq);
 
     sai->line_style = 1;
     sai->conv_num = (guint16) tcph->th_stream;
@@ -997,7 +1008,7 @@ gchar *tcp_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, guint
             return NULL;
 
         *stream = tcpd->stream;
-        return g_strdup_printf("tcp.stream eq %u", tcpd->stream);
+        return ws_strdup_printf("tcp.stream eq %u", tcpd->stream);
     }
 
     return NULL;
@@ -1005,7 +1016,7 @@ gchar *tcp_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, guint
 
 gchar *tcp_follow_index_filter(guint stream, guint sub_stream _U_)
 {
-    return g_strdup_printf("tcp.stream eq %u", stream);
+    return ws_strdup_printf("tcp.stream eq %u", stream);
 }
 
 gchar *tcp_follow_address_filter(address *src_addr, address *dst_addr, int src_port, int dst_port)
@@ -1017,7 +1028,7 @@ gchar *tcp_follow_address_filter(address *src_addr, address *dst_addr, int src_p
     address_to_str_buf(src_addr, src_addr_str, sizeof(src_addr_str));
     address_to_str_buf(dst_addr, dst_addr_str, sizeof(dst_addr_str));
 
-    return g_strdup_printf("((ip%s.src eq %s and tcp.srcport eq %d) and "
+    return ws_strdup_printf("((ip%s.src eq %s and tcp.srcport eq %d) and "
                      "(ip%s.dst eq %s and tcp.dstport eq %d))"
                      " or "
                      "((ip%s.src eq %s and tcp.srcport eq %d) and "
@@ -1045,11 +1056,11 @@ typedef struct tcp_follow_tap_data
  * dummy data to mark packet loss if any).
  *
  * Returns TRUE if one fragment has been applied or FALSE if no more fragments
- * can be added the the payload (there might still be unacked fragments with
+ * can be added to the payload (there might still be unacked fragments with
  * missing segments before them).
  */
 static gboolean
-check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 acknowledged, guint32 packet_num)
+check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 acknowledged, guint32 packet_num, gboolean use_ack)
 {
     GList *fragment_entry;
     follow_record_t *fragment, *follow_record;
@@ -1127,12 +1138,12 @@ check_follow_fragments(follow_info_t *follow_info, gboolean is_server, guint32 a
         }
     }
 
-    if( GT_SEQ(acknowledged, lowest_seq) ) {
+    if( use_ack && GT_SEQ(acknowledged, lowest_seq) ) {
         /* There are frames missing in the capture file that were seen
          * by the receiving host. Add dummy stream chunk with the data
          * "[xxx bytes missing in capture file]".
          */
-        dummy_str = g_strdup_printf("[%d bytes missing in capture file]",
+        dummy_str = ws_strdup_printf("[%d bytes missing in capture file]",
                         (int)(lowest_seq - follow_info->seq[is_server]) );
         // XXX the dummy replacement could be larger than the actual missing bytes.
 
@@ -1185,7 +1196,7 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
     * seen by the receiving host (Fixes bug 592).
     */
     if (follow_info->fragments[!is_server] != NULL) {
-        while (check_follow_fragments(follow_info, !is_server, follow_data->tcph->th_ack, pinfo->fd->num));
+        while (check_follow_fragments(follow_info, !is_server, follow_data->tcph->th_ack, pinfo->fd->num, TRUE));
     }
 
     /*
@@ -1240,7 +1251,7 @@ follow_tcp_tap_listener(void *tapdata, packet_info *pinfo,
         follow_info->payload = g_list_prepend(follow_info->payload, follow_record);
 
         /* done with the packet, see if it caused a fragment to fit */
-        while(check_follow_fragments(follow_info, is_server, 0, pinfo->fd->num));
+        while(check_follow_fragments(follow_info, is_server, 0, pinfo->fd->num, FALSE));
     } else {
         /* Out of order packet (more preceding segments are expected). */
         follow_info->fragments[is_server] = g_list_append(follow_info->fragments[is_server], follow_record);
@@ -1388,22 +1399,22 @@ static void conversation_completeness_fill(gchar *buf, guint32 value)
 {
     switch(value) {
         case TCP_COMPLETENESS_SYNSENT:
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, SYN_SENT (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, SYN_SENT (%u)", value);
             break;
         case (TCP_COMPLETENESS_SYNSENT|
               TCP_COMPLETENESS_SYNACK):
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, CLIENT_ESTABLISHED (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, CLIENT_ESTABLISHED (%u)", value);
             break;
         case (TCP_COMPLETENESS_SYNSENT|
               TCP_COMPLETENESS_SYNACK|
               TCP_COMPLETENESS_ACK):
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, ESTABLISHED (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, ESTABLISHED (%u)", value);
             break;
         case (TCP_COMPLETENESS_SYNSENT|
               TCP_COMPLETENESS_SYNACK|
               TCP_COMPLETENESS_ACK|
               TCP_COMPLETENESS_DATA):
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, DATA (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete, DATA (%u)", value);
             break;
         case (TCP_COMPLETENESS_SYNSENT|
               TCP_COMPLETENESS_SYNACK|
@@ -1421,7 +1432,7 @@ static void conversation_completeness_fill(gchar *buf, guint32 value)
               TCP_COMPLETENESS_DATA|
               TCP_COMPLETENESS_FIN|
               TCP_COMPLETENESS_RST):
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Complete, WITH_DATA (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Complete, WITH_DATA (%u)", value);
             break;
         case (TCP_COMPLETENESS_SYNSENT|
               TCP_COMPLETENESS_SYNACK|
@@ -1436,10 +1447,10 @@ static void conversation_completeness_fill(gchar *buf, guint32 value)
               TCP_COMPLETENESS_ACK|
               TCP_COMPLETENESS_FIN|
               TCP_COMPLETENESS_RST):
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Complete, NO_DATA (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Complete, NO_DATA (%u)", value);
             break;
         default:
-            g_snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete (%u)", value);
+            snprintf(buf, ITEM_LABEL_LENGTH, "Incomplete (%u)", value);
             break;
     }
 }
@@ -1540,18 +1551,18 @@ process_tcp_payload(tvbuff_t *tvb, volatile int offset, packet_info *pinfo,
 
 
 static struct tcp_analysis *
-init_tcp_conversation_data(packet_info *pinfo)
+init_tcp_conversation_data(packet_info *pinfo, int direction)
 {
     struct tcp_analysis *tcpd;
 
     /* Initialize the tcp protocol data structure to add to the tcp conversation */
     tcpd=wmem_new0(wmem_file_scope(), struct tcp_analysis);
-    tcpd->flow1.win_scale=-1;
+    tcpd->flow1.win_scale = (direction >= 0) ? pinfo->src_win_scale : pinfo->dst_win_scale;
     tcpd->flow1.window = G_MAXUINT32;
     tcpd->flow1.multisegment_pdus=wmem_tree_new(wmem_file_scope());
 
     tcpd->flow2.window = G_MAXUINT32;
-    tcpd->flow2.win_scale=-1;
+    tcpd->flow2.win_scale = (direction >= 0) ? pinfo->dst_win_scale : pinfo->src_win_scale;
     tcpd->flow2.multisegment_pdus=wmem_tree_new(wmem_file_scope());
 
     /* Only allocate the data if its actually going to be analyzed */
@@ -1632,13 +1643,18 @@ get_tcp_conversation_data(conversation_t *conv, packet_info *pinfo)
     /* Get the data for this conversation */
     tcpd=(struct tcp_analysis *)conversation_get_proto_data(conv, proto_tcp);
 
+    direction = cmp_address(&pinfo->src, &pinfo->dst);
+    /* if the addresses are equal, match the ports instead */
+    if (direction == 0) {
+        direction = (pinfo->srcport > pinfo->destport) ? 1 : -1;
+    }
     /* If the conversation was just created or it matched a
      * conversation with template options, tcpd will not
      * have been initialized. So, initialize
      * a new tcpd structure for the conversation.
      */
     if (!tcpd) {
-        tcpd = init_tcp_conversation_data(pinfo);
+        tcpd = init_tcp_conversation_data(pinfo, direction);
         conversation_add_proto_data(conv, proto_tcp, tcpd);
     }
 
@@ -1647,11 +1663,6 @@ get_tcp_conversation_data(conversation_t *conv, packet_info *pinfo)
     }
 
     /* check direction and get ua lists */
-    direction=cmp_address(&pinfo->src, &pinfo->dst);
-    /* if the addresses are equal, match the ports instead */
-    if(direction==0) {
-        direction= (pinfo->srcport > pinfo->destport) ? 1 : -1;
-    }
     if(direction>=0) {
         tcpd->fwd=&(tcpd->flow1);
         tcpd->rev=&(tcpd->flow2);
@@ -2194,7 +2205,16 @@ tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint3
         if(tcpd->mptcp_analysis && (tcpd->mptcp_analysis->mp_operations!=tcpd->fwd->mp_operations)) {
             /* just ignore this DUPLICATE ACK */
         } else {
-            tcpd->fwd->tcp_analyze_seq_info->dupacknum++;
+            switch(tcpd->fwd->tcp_analyze_seq_info->dupacknum) {
+                /* neutralize any 'TCP ACK unseen segment' */
+                case -1:
+                    tcpd->fwd->tcp_analyze_seq_info->dupacknum = 1;
+                    break;
+                /* in normal circumstances, just increment the counter */
+                default:
+                    tcpd->fwd->tcp_analyze_seq_info->dupacknum++;
+                    break;
+            }
             if(!tcpd->ta) {
                 tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
             }
@@ -2228,11 +2248,23 @@ finished_fwd:
         if(!tcpd->ta) {
             tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
         }
-        tcpd->ta->flags|=TCP_A_ACK_LOST_PACKET;
         /* update 'max seq to be acked' in the other direction so we don't get
          * this indication again.
          */
-        tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked=tcpd->rev->tcp_analyze_seq_info->nextseq;
+        if( tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked > tcpd->rev->tcp_analyze_seq_info->nextseq ) {
+          tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked=tcpd->rev->tcp_analyze_seq_info->nextseq;
+          tcpd->ta->flags|=TCP_A_ACK_LOST_PACKET;
+        }
+        /* sometimes the other direction is stalled with pure ACKs, but we still
+         * want to avoid multiple messages related to the very same lost packet.
+         * For this, we need to count at least one ACK seen in this direction,
+         * and decrementation is not necessary.
+         */
+        else {
+          if(tcpd->rev->tcp_analyze_seq_info->dupacknum == 0)
+            tcpd->ta->flags|=TCP_A_ACK_LOST_PACKET;
+          tcpd->rev->tcp_analyze_seq_info->dupacknum = -1;
+        }
     }
 
 
@@ -2322,7 +2354,7 @@ finished_fwd:
 
                     if( seq_not_advanced // XXX is this neccessary?
                     && t < ooo_thres
-                    && tcpd->fwd->tcp_analyze_seq_info->nextseq >= seq + seglen ) {
+                    && tcpd->fwd->tcp_analyze_seq_info->nextseq != seq + seglen ) {
                         if(!tcpd->ta) {
                             tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
                         }
@@ -2399,7 +2431,10 @@ finished_checking_retransmission_type:
     }
 
     /* Store the highest continuous seq number seen so far for 'max seq to be acked',
-     so we can detect TCP_A_ACK_LOST_PACKET condition
+     * so we can detect TCP_A_ACK_LOST_PACKET condition.
+     * If this ever happens, this boundary value can "jump" further in order to
+     * avoid duplicating multiple messages for the very same lost packet. See later
+     * how ACKED LOST PACKET are handled.
      */
     if(EQ_SEQ(seq, tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked) || !tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked) {
         if( !tcpd->ta || !(tcpd->ta->flags&TCP_A_ZERO_WINDOW_PROBE) ) {
@@ -3364,7 +3399,7 @@ again:
          *   The next TCP_A_RETRANSMISSION hopefully takes care of it though.
          *
          * Only shortcircuit here when the first segment of the MSP is known,
-         * and when this this first segment is not one to complete the MSP.
+         * and when this first segment is not one to complete the MSP.
          */
         if ((msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32(tcpd->fwd->multisegment_pdus, seq)) &&
                 nxtseq <= msp->nxtpdu &&
@@ -3427,7 +3462,7 @@ again:
          * retransmissions, but could there be a case where it prevents
          * "tcp_reassemble_out_of_order" from functioning due to skipping
          * retransmission of a lost segment?
-         * If the latter is enabled, it could use use "maxnextseq" for ignoring
+         * If the latter is enabled, it could use "maxnextseq" for ignoring
          * retransmitted single-segment PDUs (that would require storing
          * per-packet state (tcp_per_packet_data_t) to make it work for two-pass
          * and random access dissection). Retransmitted segments that are part
@@ -4025,7 +4060,16 @@ tcp_dissect_pdus(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
              * Support protocols which have a variable length which cannot
              * always be determined within the given fixed_len.
              */
-            DISSECTOR_ASSERT(proto_desegment && pinfo->can_desegment);
+            /*
+             * If another segment was requested but we can't do reassembly,
+             * abort and warn about the unreassembled packet.
+             */
+            THROW_ON(!(proto_desegment && pinfo->can_desegment), FragmentBoundsError);
+            /*
+             * Tell the TCP dissector where the data for this message
+             * starts in the data it handed us, and that we need one
+             * more segment, and return.
+             */
             pinfo->desegment_offset = offset;
             pinfo->desegment_len = DESEGMENT_ONE_MORE_SEGMENT;
             return;
@@ -4592,18 +4636,27 @@ dissect_tcpopt_timestamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
     if (!tcp_option_len_check(length_item, pinfo, len, TCPOLEN_TIMESTAMP))
         return tvb_captured_length(tvb);
 
-    proto_tree_add_item_ret_uint(ts_tree, hf_tcp_option_timestamp_tsval, tvb, offset,
+    ti = proto_tree_add_item_ret_uint(ts_tree, hf_tcp_option_timestamp_tsval, tvb, offset,
                         4, ENC_BIG_ENDIAN, &ts_val);
-    offset += 4;
 
-    proto_tree_add_item_ret_uint(ts_tree, hf_tcp_option_timestamp_tsecr, tvb, offset,
+    proto_tree_add_item_ret_uint(ts_tree, hf_tcp_option_timestamp_tsecr, tvb, offset + 4,
                         4, ENC_BIG_ENDIAN, &ts_ecr);
-    /* offset += 4; */
 
     proto_item_append_text(ti, ": TSval %u, TSecr %u", ts_val, ts_ecr);
     if (tcp_ignore_timestamps == FALSE) {
         tcp_info_append_uint(pinfo, "TSval", ts_val);
         tcp_info_append_uint(pinfo, "TSecr", ts_ecr);
+    }
+
+    if (read_seq_as_syn_cookie) {
+      proto_item_append_text(ti, " (syn cookie)");
+      proto_item* syncookie_ti = proto_item_add_subtree(ti, ett_tcp_syncookie_option);
+      guint32 timestamp = tvb_get_bits32(tvb, offset * 8, 26, ENC_NA) << 6;
+      proto_tree_add_uint_bits_format_value(syncookie_ti, hf_tcp_syncookie_option_timestamp, tvb, offset * 8,
+        26, timestamp, ENC_TIME_SECS, "%s", abs_time_secs_to_str(wmem_packet_scope(), timestamp, ABSOLUTE_TIME_LOCAL, TRUE));
+      proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_ecn, tvb, offset * 8 + 26, 1, ENC_NA);
+      proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_sack, tvb, offset * 8 + 27, 1, ENC_NA);
+      proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_wscale, tvb, offset * 8 + 28, 4, ENC_NA);
     }
 
     return tvb_captured_length(tvb);
@@ -5007,7 +5060,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                 if (mph->mh_dss_flags & MPTCP_DSS_FLAG_DATA_ACK_8BYTES) {
 
                     mph->mh_dss_rawack = tvb_get_ntoh64(tvb,offset);
-                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_ack_raw, tvb, offset, 8, mph->mh_dss_rawack, "%" G_GINT64_MODIFIER "u (64bits)", mph->mh_dss_rawack);
+                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_ack_raw, tvb, offset, 8, mph->mh_dss_rawack, "%" PRIu64 " (64bits)", mph->mh_dss_rawack);
                     offset += 8;
                 }
                 /* 32bits ack */
@@ -5040,7 +5093,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                 if (mph->mh_dss_flags & MPTCP_DSS_FLAG_DSN_8BYTES) {
 
                     dsn = tvb_get_ntoh64(tvb,offset);
-                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_seq_no_raw, tvb, offset, 8, dsn,  "%" G_GINT64_MODIFIER "u  (64bits version)", dsn);
+                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_seq_no_raw, tvb, offset, 8, dsn,  "%" PRIu64 "  (64bits version)", dsn);
 
                     /* if we have the opportunity to complete the 32 Most Significant Bits of the
                      *
@@ -5052,7 +5105,7 @@ dissect_tcpopt_mptcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
                     offset += 8;
                 } else {
                     dsn = tvb_get_ntohl(tvb,offset);
-                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_seq_no_raw, tvb, offset, 4, dsn,  "%" G_GINT64_MODIFIER "u  (32bits version)", dsn);
+                    proto_tree_add_uint64_format_value(mptcp_tree, hf_tcp_option_mptcp_data_seq_no_raw, tvb, offset, 4, dsn,  "%" PRIu64 "  (32bits version)", dsn);
                     offset += 4;
                 }
                 mph->mh_dss_rawdsn = dsn;
@@ -5715,7 +5768,7 @@ rvbd_probe_decode_version_type(const guint8 vt, guint8 *ver, guint8 *type)
 static void
 rvbd_probe_resp_add_info(proto_item *pitem, packet_info *pinfo, tvbuff_t *tvb, int ip_offset, guint16 port)
 {
-    proto_item_append_text(pitem, ", Server Steelhead: %s:%u", tvb_ip_to_str(tvb, ip_offset), port);
+    proto_item_append_text(pitem, ", Server Steelhead: %s:%u", tvb_ip_to_str(pinfo->pool, tvb, ip_offset), port);
 
     col_prepend_fstr(pinfo->cinfo, COL_INFO, "SA+, ");
 }
@@ -5784,7 +5837,7 @@ dissect_tcpopt_rvbd_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
                                 offset + PROBE_V1_APPLI_VERSION_OFFSET, 2,
                                 ENC_BIG_ENDIAN);
 
-            proto_item_append_text(pitem, ", CSH IP: %s", tvb_ip_to_str(tvb, offset + PROBE_V1_PROBER_OFFSET));
+            proto_item_append_text(pitem, ", CSH IP: %s", tvb_ip_to_str(pinfo->pool, tvb, offset + PROBE_V1_PROBER_OFFSET));
 
             option_data = (rvbd_option_data*)p_get_proto_data(pinfo->pool, pinfo, proto_tcp_option_rvbd_probe, pinfo->curr_layer_num);
             if (option_data == NULL)
@@ -6004,8 +6057,8 @@ dissect_tcpopt_rvbd_trpy(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                         tvb, offset + TRPY_DST_PORT_OFFSET, 2, ENC_BIG_ENDIAN);
 
     proto_item_append_text(pitem, " %s:%u -> %s:%u",
-                           tvb_ip_to_str(tvb, offset + TRPY_SRC_ADDR_OFFSET), sport,
-                           tvb_ip_to_str(tvb, offset + TRPY_DST_ADDR_OFFSET), dport);
+                           tvb_ip_to_str(pinfo->pool, tvb, offset + TRPY_SRC_ADDR_OFFSET), sport,
+                           tvb_ip_to_str(pinfo->pool, tvb, offset + TRPY_DST_ADDR_OFFSET), dport);
 
     /* Client port only set on SYN: optlen == 18 */
     if ((flags & RVBD_FLAGS_TRPY_OOB) && (optlen > TCPOLEN_RVBD_TRPY_MIN))
@@ -6163,6 +6216,7 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
     tvbuff_t *next_tvb;
     int low_port, high_port;
     int save_desegment_offset;
+    gboolean try_low_port, try_high_port, try_server_port;
     guint32 save_desegment_len;
     heur_dtbl_entry_t *hdtbl_entry;
     exp_pdu_data_t *exp_pdu_data;
@@ -6206,6 +6260,60 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
         return TRUE;
     }
 
+    /* If the user has manually configured one of the server, low, or high
+     * ports to a dissector other than the default (via Decode As or the
+     * preferences associated with Decode As), try those first, in that order.
+     */
+    try_server_port = FALSE;
+    if (tcpd && tcpd->server_port != 0) {
+        if (dissector_is_uint_changed(subdissector_table, tcpd->server_port)) {
+            if (dissector_try_uint_new(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
+                pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
+                handle_export_pdu_dissection_table(pinfo, next_tvb, tcpd->server_port, tcpinfo);
+                return TRUE;
+            }
+        } else {
+            /* The default; try it later */
+            try_server_port = TRUE;
+        }
+    }
+
+    if (src_port > dst_port) {
+        low_port = dst_port;
+        high_port = src_port;
+    } else {
+        low_port = src_port;
+        high_port = dst_port;
+    }
+
+    try_low_port = FALSE;
+    if (low_port != 0) {
+        if (dissector_is_uint_changed(subdissector_table, low_port)) {
+            if (dissector_try_uint_new(subdissector_table, low_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
+                pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
+                handle_export_pdu_dissection_table(pinfo, next_tvb, low_port, tcpinfo);
+                return TRUE;
+            }
+        } else {
+            /* The default; try it later */
+            try_low_port = TRUE;
+        }
+    }
+
+    try_high_port = FALSE;
+    if (high_port != 0) {
+        if (dissector_is_uint_changed(subdissector_table, high_port)) {
+            if (dissector_try_uint_new(subdissector_table, high_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
+                pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
+                handle_export_pdu_dissection_table(pinfo, next_tvb, high_port, tcpinfo);
+                return TRUE;
+            }
+        } else {
+            /* The default; try it later */
+            try_high_port = TRUE;
+        }
+    }
+
     if (try_heuristic_first) {
         /* do lookup with the heuristic subdissector table */
         if (dissector_try_heuristic(heur_subdissector_list, next_tvb, pinfo, tree, &hdtbl_entry, tcpinfo)) {
@@ -6232,28 +6340,20 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
        XXX - we ignore port numbers of 0, as some dissectors use a port
        number of 0 to disable the port. */
 
-    if (tcpd && tcpd->server_port != 0 &&
+    if (try_server_port &&
         dissector_try_uint_new(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, tcpd->server_port, tcpinfo);
         return TRUE;
     }
 
-    if (src_port > dst_port) {
-        low_port = dst_port;
-        high_port = src_port;
-    } else {
-        low_port = src_port;
-        high_port = dst_port;
-    }
-
-    if (low_port != 0 &&
+    if (try_low_port &&
         dissector_try_uint_new(subdissector_table, low_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, low_port, tcpinfo);
         return TRUE;
     }
-    if (high_port != 0 &&
+    if (try_high_port &&
         dissector_try_uint_new(subdissector_table, high_port, next_tvb, pinfo, tree, TRUE, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, high_port, tcpinfo);
@@ -6566,28 +6666,47 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
      * from the base_seq of the retrieved conversation. If this is the
      * case, create a new conversation with the same addresses and ports
      * and set the TA_PORTS_REUSED flag. If the seq-nr is the same as
-     * the base_seq, then do nothing so it will be marked as a retrans-
-     * mission later.
+     * the base_seq, then restore some flow values to avoid buggy
+     * analysis. In the latter case, it will also be marked as a
+     * retransmission later.
      * XXX - Is this affected by MPTCP which can use multiple SYNs?
      */
     if(tcpd && ((tcph->th_flags&(TH_SYN|TH_ACK))==TH_SYN) &&
-       (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) &&
-       (tcph->th_seq!=tcpd->fwd->base_seq) ) {
-        if (!(pinfo->fd->visited)) {
-            /* Reset the last frame seen in the conversation */
-            if (save_last_frame > 0)
-                conv->last_frame = save_last_frame;
+       (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET)) {
+        if(tcph->th_seq!=tcpd->fwd->base_seq) {
+            if (!(pinfo->fd->visited)) {
+                /* Reset the last frame seen in the conversation */
+                if (save_last_frame > 0)
+                    conv->last_frame = save_last_frame;
 
-            conv=conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, pinfo->srcport, pinfo->destport, 0);
-            tcpd=get_tcp_conversation_data(conv,pinfo);
+                conv=conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_TCP, pinfo->srcport, pinfo->destport, 0);
+                tcpd=get_tcp_conversation_data(conv,pinfo);
 
-            /* As above, a new conversation starting with a SYN implies conversation completeness value 1 */
-            tcpd->conversation_completeness = 1;
+                if(!tcpd->ta)
+                    tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
+                tcpd->ta->flags|=TCP_A_REUSED_PORTS;
+
+                /* As above, a new conversation starting with a SYN implies conversation completeness value 1 */
+                tcpd->conversation_completeness = 1;
+            }
         }
-        if(!tcpd->ta)
-            tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
-        tcpd->ta->flags|=TCP_A_REUSED_PORTS;
+        else {
+            if (!(pinfo->fd->visited)) {
+                /*
+                 * Sometimes we need to restore the nextseq value.
+                 * As stated in RFC 793 3.4 a RST packet might be
+                 * sent with SEQ being equal to the ACK received,
+                 * thus breaking our flow monitoring. (issue 17616)
+                 */
+                tcpd->fwd->tcp_analyze_seq_info->nextseq = tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked;
+
+                if(!tcpd->ta)
+                    tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
+                tcpd->ta->flags|=TCP_A_REUSED_PORTS;
+            }
+        }
     }
+
     /* If this is a SYN/ACK packet, then check if its seq-nr is different
      * from the base_seq of the retrieved conversation. If this is the
      * case, try to find a conversation with the same addresses and ports
@@ -6597,8 +6716,8 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
      * XXX - Is this affected by MPTCP which can use multiple SYNs?
      */
     if(tcpd && ((tcph->th_flags&(TH_SYN|TH_ACK))==(TH_SYN|TH_ACK)) &&
-       (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) &&
-       (tcph->th_seq!=tcpd->fwd->base_seq) ) {
+        (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) &&
+        (tcph->th_seq!=tcpd->fwd->base_seq) ) {
         if (!(pinfo->fd->visited)) {
             /* Reset the last frame seen in the conversation */
             if (save_last_frame > 0)
@@ -6735,7 +6854,16 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     if (!icmp_ip) {
         if(tcp_relative_seq && tcp_analyze_seq) {
             proto_tree_add_uint_format_value(tcp_tree, hf_tcp_seq, tvb, offset + 4, 4, tcph->th_seq, "%u    (relative sequence number)", tcph->th_seq);
-            proto_tree_add_uint(tcp_tree, hf_tcp_seq_abs, tvb, offset + 4, 4, tcph->th_rawseq);
+            item = proto_tree_add_uint(tcp_tree, hf_tcp_seq_abs, tvb, offset + 4, 4, tcph->th_rawseq);
+            if (read_seq_as_syn_cookie) {
+              proto_item* syncookie_ti = NULL;
+              proto_item_append_text(item, " (syn cookie)");
+              syncookie_ti = proto_item_add_subtree(item, ett_tcp_syncookie);
+              proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_time, tvb, (offset + 4) * 8, 5, ENC_NA);
+              proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_mss, tvb, (offset + 4) * 8 + 5, 3, ENC_NA);
+              proto_tree_add_item(syncookie_ti, hf_tcp_syncookie_hash, tvb, offset + 4 + 1, 3, ENC_NA);
+            }
+
         } else {
             proto_tree_add_uint(tcp_tree, hf_tcp_seq, tvb, offset + 4, 4, tcph->th_seq);
             hide_seqack_abs_item = proto_tree_add_uint(tcp_tree, hf_tcp_seq_abs, tvb, offset + 4, 4, tcph->th_rawseq);
@@ -6752,7 +6880,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                         tcph->th_hlen, TCPH_MIN_LEN);
         if (tree) {
             tf = proto_tree_add_uint_bits_format_value(tcp_tree, hf_tcp_hdr_len, tvb, (offset + 12) << 3, 4, tcph->th_hlen,
-                                                       "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen >> 2);
+                                                       ENC_BIG_ENDIAN, "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen >> 2);
             expert_add_info_format(pinfo, tf, &ei_tcp_bogus_header_length,
                                    "Bogus TCP header length (%u, must be at least %u)", tcph->th_hlen, TCPH_MIN_LEN);
         }
@@ -6851,7 +6979,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     if (tree) {
         // This should be consistent with ip.hdr_len.
         proto_tree_add_uint_bits_format_value(tcp_tree, hf_tcp_hdr_len, tvb, (offset + 12) << 3, 4, tcph->th_hlen,
-            "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen>>2);
+            ENC_BIG_ENDIAN, "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen>>2);
         tf = proto_tree_add_uint_format(tcp_tree, hf_tcp_flags, tvb, offset + 12, 2,
                                         tcph->th_flags, "Flags: 0x%03x (%s)", tcph->th_flags, flags_str);
         field_tree = proto_item_add_subtree(tf, ett_tcp_flags);
@@ -7459,7 +7587,7 @@ proto_register_tcp(void)
             NULL, HFILL }},
 
         { &hf_tcp_flags_str,
-        { "TCP Flags",          "tcp.flags.str", FT_STRING, STR_UNICODE, NULL, 0x0,
+        { "TCP Flags",          "tcp.flags.str", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
 
         { &hf_tcp_window_size_value,
@@ -8141,6 +8269,34 @@ proto_register_tcp(void)
         { &hf_tcp_reset_cause,
           { "Reset cause", "tcp.reset_cause", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
+
+        { &hf_tcp_syncookie_time,
+          { "SYN Cookie Time", "tcp.syncookie.time", FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_mss,
+          { "SYN Cookie Maximum Segment Size", "tcp.syncookie.mss", FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_hash,
+          { "SYN Cookie hash", "tcp.syncookie.hash", FT_UINT24, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_option_timestamp,
+          { "SYN Cookie Timestamp", "tcp.options.timestamp.tsval.syncookie.timestamp", FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_option_ecn,
+          { "SYN Cookie ECN", "tcp.options.timestamp.tsval.syncookie.ecn", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_option_sack,
+          { "SYN Cookie SACK", "tcp.options.timestamp.tsval.syncookie.sack", FT_BOOLEAN, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }},
+
+        { &hf_tcp_syncookie_option_wscale,
+          { "SYN Cookie WScale", "tcp.options.timestamp.tsval.syncookie.wscale", FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }},
     };
 
     static gint *ett[] = {
@@ -8178,7 +8334,9 @@ proto_register_tcp(void)
         &ett_tcp_unknown_opt,
         &ett_tcp_opt_recbound,
         &ett_tcp_opt_scpscor,
-        &ett_tcp_option_other
+        &ett_tcp_option_other,
+        &ett_tcp_syncookie,
+        &ett_tcp_syncookie_option
     };
 
     static gint *mptcp_ett[] = {
@@ -8460,6 +8618,11 @@ proto_register_tcp(void)
         "Display process information via IPFIX",
         "Collect and store process information retrieved from IPFIX dissector",
         &tcp_display_process_info);
+
+    prefs_register_bool_preference(tcp_module, "read_seq_as_syn_cookie",
+        "Read the seq no. as syn cookie",
+        "Read the sequence number as it was a syn cookie",
+        &read_seq_as_syn_cookie);
 
     register_init_routine(tcp_init);
     reassembly_table_register(&tcp_reassembly_table,

@@ -375,7 +375,7 @@ static int zbee_nwk_address_to_str(const address* addr, gchar *buf, int buf_len)
         return (int)g_strlcpy(buf, "Broadcast", buf_len) + 1;
     }
     else {
-        return g_snprintf(buf, buf_len, "0x%04x", zbee_nwk_addr) + 1;
+        return snprintf(buf, buf_len, "0x%04x", zbee_nwk_addr) + 1;
     }
 }
 
@@ -1856,7 +1856,7 @@ static gboolean zbee_nwk_filter_valid(packet_info *pinfo)
 
 static gchar* zbee_nwk_build_filter(packet_info *pinfo)
 {
-    return g_strdup_printf("zbee_nwk.addr eq %s and zbee_nwk.addr eq %s",
+    return ws_strdup_printf("zbee_nwk.addr eq %s and zbee_nwk.addr eq %s",
             address_to_str(pinfo->pool, &pinfo->net_src),
             address_to_str(pinfo->pool, &pinfo->net_dst));
 }

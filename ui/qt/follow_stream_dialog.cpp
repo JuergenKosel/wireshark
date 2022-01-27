@@ -47,6 +47,7 @@
 #include <QElapsedTimer>
 #include <QKeyEvent>
 #include <QMessageBox>
+#include <QMutex>
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QScrollBar>
@@ -62,6 +63,12 @@
 
 // Matches SplashOverlay.
 static int info_update_freq_ = 100;
+
+// Handle the loop breaking notification properly
+static QMutex loop_break_mutex;
+
+// Indicates that a Follow Stream is currently running
+static gboolean isReadRunning;
 
 FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, follow_type_t type) :
     WiresharkDialog(parent, cf),
@@ -280,7 +287,11 @@ void FollowStreamDialog::findText(bool go_back)
 
     bool found;
     if (use_regex_find_) {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 13, 0))
+        QRegularExpression regex(ui->leFind->text(), QRegularExpression::UseUnicodePropertiesOption);
+#else
         QRegExp regex(ui->leFind->text());
+#endif
         found = ui->teStreamContent->find(regex);
     } else {
         found = ui->teStreamContent->find(ui->leFind->text());
@@ -403,28 +414,32 @@ void FollowStreamDialog::on_streamNumberSpinBox_valueChanged(int stream_num)
     sub_stream_num = ui->subStreamNumberSpinBox->value();
     ui->subStreamNumberSpinBox->blockSignals(false);
 
-    /* We need to find a suitable sub stream for the new stream */
-    guint sub_stream_num_new = static_cast<guint>(sub_stream_num);
     gboolean ok;
-    if (sub_stream_num < 0) {
-        // Stream ID 0 should always exist as it is used for control messages.
-        sub_stream_num_new = 0;
-        ok = TRUE;
-    } else if (follow_type_ == FOLLOW_HTTP2) {
-        ok = http2_get_stream_id_ge(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
-        if (!ok) {
-            ok = http2_get_stream_id_le(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
+    if (ui->subStreamNumberSpinBox->isVisible()) {
+        /* We need to find a suitable sub stream for the new stream */
+        guint sub_stream_num_new = static_cast<guint>(sub_stream_num);
+        if (sub_stream_num < 0) {
+            // Stream ID 0 should always exist as it is used for control messages.
+            sub_stream_num_new = 0;
+            ok = TRUE;
+        } else if (follow_type_ == FOLLOW_HTTP2) {
+            ok = http2_get_stream_id_ge(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
+            if (!ok) {
+                ok = http2_get_stream_id_le(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
+            }
+        } else if (follow_type_ == FOLLOW_QUIC) {
+            ok = quic_get_stream_id_ge(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
+            if (!ok) {
+                ok = quic_get_stream_id_le(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
+            }
+        } else {
+            // Should not happen, this field is only visible for suitable protocols.
+            return;
         }
-    } else if (follow_type_ == FOLLOW_QUIC) {
-        ok = quic_get_stream_id_ge(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
-        if (!ok) {
-            ok = quic_get_stream_id_le(static_cast<guint>(stream_num), sub_stream_num_new, &sub_stream_num_new);
-        }
+        sub_stream_num = static_cast<gint>(sub_stream_num_new);
     } else {
-        // Should not happen, this field is only visible for suitable protocols.
-        return;
+        ok = true;
     }
-    sub_stream_num = static_cast<gint>(sub_stream_num_new);
 
     if (stream_num >= 0 && ok) {
         follow(previous_filter_, true, stream_num, sub_stream_num);
@@ -539,6 +554,11 @@ void FollowStreamDialog::resetStream()
 frs_return_t
 FollowStreamDialog::readStream()
 {
+
+    // interrupt any reading already running
+    loop_break_mutex.lock();
+    isReadRunning = FALSE;
+    loop_break_mutex.unlock();
 
     ui->teStreamContent->clear();
     text_pos_to_packet_.clear();
@@ -745,7 +765,7 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
                 memset(cur, ' ', 4);
                 cur += 4;
             }
-            cur += g_snprintf(cur, 20, "%08X  ", *global_pos);
+            cur += snprintf(cur, 20, "%08X  ", *global_pos);
             /* 49 is space consumed by hex chars */
             ascii_start = cur + 49 + 2;
             for (i = 0; i < 16 && current_pos + i < nchars; i++) {
@@ -781,7 +801,7 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
 
     case SHOW_CARRAY:
         current_pos = 0;
-        g_snprintf(initbuf, sizeof(initbuf), "char peer%d_%d[] = { /* Packet %u */\n",
+        snprintf(initbuf, sizeof(initbuf), "char peer%d_%d[] = { /* Packet %u */\n",
                    is_from_server ? 1 : 0,
                    is_from_server ? server_buffer_count_++ : client_buffer_count_++,
                    packet_num);
@@ -1132,7 +1152,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
             .arg(hostname1).arg(port1)
             .arg(gchar_free_to_qstring(format_size(
                                             follow_info_.bytes_written[0],
-                                        format_size_unit_bytes|format_size_prefix_si)));
+                                        FORMAT_SIZE_UNIT_BYTES, FORMAT_SIZE_PREFIX_SI)));
 
     client_to_server_string =
             QString("%1:%2 %3 %4:%5 (%6)")
@@ -1141,7 +1161,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
             .arg(hostname0).arg(port0)
             .arg(gchar_free_to_qstring(format_size(
                                             follow_info_.bytes_written[1],
-                                        format_size_unit_bytes|format_size_prefix_si)));
+                                        FORMAT_SIZE_UNIT_BYTES, FORMAT_SIZE_PREFIX_SI)));
 
     wmem_free(NULL, port0);
     wmem_free(NULL, port1);
@@ -1149,7 +1169,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     both_directions_string = tr("Entire conversation (%1)")
             .arg(gchar_free_to_qstring(format_size(
                                             follow_info_.bytes_written[0] + follow_info_.bytes_written[1],
-                    format_size_unit_bytes|format_size_prefix_si)));
+                    FORMAT_SIZE_UNIT_BYTES, FORMAT_SIZE_PREFIX_SI)));
     setWindowSubtitle(tr("Follow %1 Stream (%2)").arg(proto_get_protocol_short_name(find_protocol_by_id(get_follow_proto_id(follower_))))
                                                  .arg(follow_filter));
 
@@ -1211,8 +1231,12 @@ FollowStreamDialog::readFollowStream()
 
     elapsed_timer.start();
 
+    loop_break_mutex.lock();
+    isReadRunning = TRUE;
+    loop_break_mutex.unlock();
+
     for (cur = g_list_last(follow_info_.payload); cur; cur = g_list_previous(cur)) {
-        if (dialogClosed()) break;
+        if (dialogClosed() || !isReadRunning) break;
 
         follow_record = (follow_record_t *)cur->data;
         skip = FALSE;
@@ -1250,6 +1274,10 @@ FollowStreamDialog::readFollowStream()
             }
         }
     }
+
+    loop_break_mutex.lock();
+    isReadRunning = FALSE;
+    loop_break_mutex.unlock();
 
     return FRS_OK;
 }

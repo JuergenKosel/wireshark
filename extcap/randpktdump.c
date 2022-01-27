@@ -11,6 +11,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "randpktdump"
 
 #include "extcap-base.h"
 
@@ -42,16 +43,16 @@ enum {
 	OPT_TYPE
 };
 
-static struct option longopts[] = {
+static struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
-	{ "help",					no_argument,		NULL, OPT_HELP},
-	{ "version",				no_argument,		NULL, OPT_VERSION},
-	{ "maxbytes",				required_argument,	NULL, OPT_MAXBYTES},
-	{ "count",					required_argument,	NULL, OPT_COUNT},
-	{ "delay",					required_argument,	NULL, OPT_DELAY},
-	{ "random-type",			no_argument,		NULL, OPT_RANDOM_TYPE},
-	{ "all-random",				no_argument,		NULL, OPT_ALL_RANDOM},
-	{ "type",					required_argument,	NULL, OPT_TYPE},
+	{ "help",					ws_no_argument,		NULL, OPT_HELP},
+	{ "version",				ws_no_argument,		NULL, OPT_VERSION},
+	{ "maxbytes",				ws_required_argument,	NULL, OPT_MAXBYTES},
+	{ "count",					ws_required_argument,	NULL, OPT_COUNT},
+	{ "delay",					ws_required_argument,	NULL, OPT_DELAY},
+	{ "random-type",			ws_no_argument,		NULL, OPT_RANDOM_TYPE},
+	{ "all-random",				ws_no_argument,		NULL, OPT_ALL_RANDOM},
+	{ "type",					ws_required_argument,	NULL, OPT_TYPE},
     { 0, 0, 0, 0 }
 };
 
@@ -154,10 +155,7 @@ int main(int argc, char *argv[])
 	cmdarg_err_init(randpktdump_cmdarg_err, randpktdump_cmdarg_err);
 
 	/* Initialize log handler early so we can have proper logging during startup. */
-	ws_log_init("randpktdump", NULL);
-
-	/* Early logging command-line initialization. */
-	ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+	extcap_log_init("randpktdump");
 
 	/*
 	 * Get credential information for later use.
@@ -170,7 +168,7 @@ int main(int argc, char *argv[])
 	 */
 	err_msg = init_progfile_dir(argv[0]);
 	if (err_msg != NULL) {
-		ws_warning("Can't get pathname of directory containing the captype program: %s.",
+		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);
 		g_free(err_msg);
 	}
@@ -181,7 +179,7 @@ int main(int argc, char *argv[])
 	g_free(help_url);
 	extcap_base_register_interface(extcap_conf, RANDPKT_EXTCAP_INTERFACE, "Random packet generator", 147, "Generator dependent DLT");
 
-	help_header = g_strdup_printf(
+	help_header = ws_strdup_printf(
 		" %s --extcap-interfaces\n"
 		" %s --extcap-interface=%s --extcap-dlts\n"
 		" %s --extcap-interface=%s --extcap-config\n"
@@ -205,7 +203,7 @@ int main(int argc, char *argv[])
 		goto end;
 	}
 
-	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
+	while ((result = ws_getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 		switch (result) {
 		case OPT_VERSION:
 			extcap_version_print(extcap_conf);
@@ -218,23 +216,23 @@ int main(int argc, char *argv[])
 			goto end;
 
 		case OPT_MAXBYTES:
-			if (!ws_strtou16(optarg, NULL, &maxbytes)) {
+			if (!ws_strtou16(ws_optarg, NULL, &maxbytes)) {
 				ws_warning("Invalid parameter maxbytes: %s (max value is %u)",
-					optarg, G_MAXUINT16);
+					ws_optarg, G_MAXUINT16);
 				goto end;
 			}
 			break;
 
 		case OPT_COUNT:
-			if (!ws_strtou64(optarg, NULL, &count)) {
-				ws_warning("Invalid packet count: %s", optarg);
+			if (!ws_strtou64(ws_optarg, NULL, &count)) {
+				ws_warning("Invalid packet count: %s", ws_optarg);
 				goto end;
 			}
 			break;
 
 		case OPT_DELAY:
-			if (!ws_strtou64(optarg, NULL, &packet_delay_ms)) {
-				ws_warning("Invalid packet delay: %s", optarg);
+			if (!ws_strtou64(ws_optarg, NULL, &packet_delay_ms)) {
+				ws_warning("Invalid packet delay: %s", ws_optarg);
 				goto end;
 			}
 			break;
@@ -249,19 +247,19 @@ int main(int argc, char *argv[])
 
 		case OPT_TYPE:
 			g_free(type);
-			type = g_strdup(optarg);
+			type = g_strdup(ws_optarg);
 			break;
 
 		case ':':
 			/* missing option argument */
-			ws_warning("Option '%s' requires an argument", argv[optind - 1]);
+			ws_warning("Option '%s' requires an argument", argv[ws_optind - 1]);
 			break;
 
 		default:
 			/* Handle extcap specific options */
-			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg))
+			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, ws_optarg))
 			{
-				ws_warning("Invalid option: %s", argv[optind - 1]);
+				ws_warning("Invalid option: %s", argv[ws_optind - 1]);
 				goto end;
 			}
 		}

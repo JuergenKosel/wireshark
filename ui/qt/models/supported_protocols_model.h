@@ -1,4 +1,4 @@
-/* supported_protocols_model.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -77,7 +77,6 @@ private:
 
 class SupportedProtocolsProxyModel : public QSortFilterProxyModel
 {
-    Q_OBJECT
 public:
 
     explicit SupportedProtocolsProxyModel(QObject * parent = Q_NULLPTR);

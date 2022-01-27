@@ -1,4 +1,4 @@
-/* voip_calls_info_model.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -61,8 +61,6 @@ private:
 
 class VoipCallsInfoSortedModel : public QSortFilterProxyModel
 {
-    Q_OBJECT
-
 public:
     VoipCallsInfoSortedModel(QObject *parent = 0);
 

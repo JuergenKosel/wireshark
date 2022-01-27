@@ -615,7 +615,7 @@ dissect_framed_ip_address(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U
 		proto_tree_add_ipv4_format_value(tree, hf_radius_framed_ip_address,
 					   tvb, 0, len, ip, "%s", str);
 	} else {
-		str = tvb_ip_to_str(tvb, 0);
+		str = tvb_ip_to_str(pinfo->pool, tvb, 0);
 		proto_tree_add_item(tree, hf_radius_framed_ip_address,
 					   tvb, 0, len, ENC_BIG_ENDIAN);
 	}
@@ -647,7 +647,7 @@ dissect_login_ip_host(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_)
 		proto_tree_add_ipv4_format_value(tree, hf_radius_login_ip_host,
 					   tvb, 0, len, ip, "%s", str);
 	} else {
-		str = tvb_ip_to_str(tvb, 0);
+		str = tvb_ip_to_str(pinfo->pool, tvb, 0);
 		proto_tree_add_item(tree, hf_radius_login_ip_host,
 					   tvb, 0, len, ENC_BIG_ENDIAN);
 	}
@@ -950,12 +950,12 @@ radius_decrypt_avp(gchar *dest, int dest_len, tvbuff_t *tvb, int offset, int len
 		for (j = 0; j < AUTHENTICATOR_LENGTH; j++) {
 			c = pd[i + j] ^ digest[j];
 			if (g_ascii_isprint(c)) {
-				returned_length = g_snprintf(&dest[totlen], dest_len - totlen,
+				returned_length = snprintf(&dest[totlen], dest_len - totlen,
 					"%c", c);
 				totlen += MIN(returned_length, dest_len - totlen - 1);
 			}
 			else if (c) {
-				returned_length = g_snprintf(&dest[totlen], dest_len - totlen,
+				returned_length = snprintf(&dest[totlen], dest_len - totlen,
 					"\\%03o", c);
 				totlen += MIN(returned_length, dest_len - totlen - 1);
 			}
@@ -995,7 +995,7 @@ radius_integer(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_, 
 		case 8: {
 			guint64 uintv64 = tvb_get_ntoh64(tvb, offset);
 			proto_tree_add_uint64(tree, a->hf_alt, tvb, offset, len, uintv64);
-			proto_item_append_text(avp_item, "%" G_GINT64_MODIFIER "u", uintv64);
+			proto_item_append_text(avp_item, "%" PRIu64, uintv64);
 			return;
 		}
 		default:
@@ -1032,7 +1032,7 @@ radius_signed(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_, t
 		case 8: {
 			guint64 uintv64 = tvb_get_ntoh64(tvb, offset);
 			proto_tree_add_int64(tree, a->hf_alt, tvb, offset, len, uintv64);
-			proto_item_append_text(avp_item, "%" G_GINT64_MODIFIER "u", uintv64);
+			proto_item_append_text(avp_item, "%" PRIu64, uintv64);
 			return;
 		}
 		default:
@@ -1107,7 +1107,7 @@ radius_ipaddr(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_, t
 
 	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_BIG_ENDIAN);
 
-	proto_item_append_text(avp_item, "%s", tvb_ip_to_str(tvb, offset));
+	proto_item_append_text(avp_item, "%s", tvb_ip_to_str(pinfo->pool, tvb, offset));
 }
 
 void
@@ -1121,7 +1121,7 @@ radius_ipv6addr(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_,
 
 	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
 
-	proto_item_append_text(avp_item, "%s", tvb_ip6_to_str(tvb, offset));
+	proto_item_append_text(avp_item, "%s", tvb_ip6_to_str(pinfo->pool, tvb, offset));
 }
 
 void
@@ -1165,10 +1165,10 @@ radius_combo_ip(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_,
 
 	if (len == 4) {
 		proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_BIG_ENDIAN);
-		proto_item_append_text(avp_item, "%s", tvb_ip_to_str(tvb, offset));
+		proto_item_append_text(avp_item, "%s", tvb_ip_to_str(pinfo->pool, tvb, offset));
 	} else if (len == 16) {
 		proto_tree_add_item(tree, a->hf_alt, tvb, offset, len, ENC_NA);
-		proto_item_append_text(avp_item, "%s", tvb_ip6_to_str(tvb, offset));
+		proto_item_append_text(avp_item, "%s", tvb_ip6_to_str(pinfo->pool, tvb, offset));
 	} else {
 		proto_item_append_text(avp_item, "[wrong length for both of IPv4 and IPv6 address]");
 		return;
@@ -1232,7 +1232,7 @@ radius_ether(radius_attr_info_t *a, proto_tree *tree, packet_info *pinfo _U_, tv
 	}
 
 	proto_tree_add_item(tree, a->hf, tvb, offset, len, ENC_NA);
-	proto_item_append_text(avp_item, "%s", tvb_ether_to_str(tvb, offset));
+	proto_item_append_text(avp_item, "%s", tvb_ether_to_str(pinfo->pool, tvb, offset));
 }
 
 void
@@ -2508,7 +2508,7 @@ radius_register_avp_dissector(guint32 vendor_id, guint32 _attribute_id, radius_a
 		if (!vendor) {
 			vendor = g_new(radius_vendor_info_t, 1);
 
-			vendor->name = g_strdup_printf("%s-%u",
+			vendor->name = ws_strdup_printf("%s-%u",
 						       enterprises_lookup(vendor_id, "Unknown"),
 						       vendor_id);
 			vendor->code = vendor_id;
@@ -2534,7 +2534,7 @@ radius_register_avp_dissector(guint32 vendor_id, guint32 _attribute_id, radius_a
 	if (!dictionary_entry) {
 		dictionary_entry = g_new(radius_attr_info_t, 1);
 
-		dictionary_entry->name = g_strdup_printf("Unknown-Attribute-%u", attribute_id.value);
+		dictionary_entry->name = ws_strdup_printf("Unknown-Attribute-%u", attribute_id.value);
 		dictionary_entry->code = attribute_id;
 		dictionary_entry->encrypt = 0;
 		dictionary_entry->type = NULL;

@@ -15,18 +15,7 @@
 #include <string.h>
 #include <glib.h>
 
-/*
- * If we have getopt_long() in the system library, include <getopt.h>.
- * Otherwise, we're using our own getopt_long() (either because the
- * system has getopt() but not getopt_long(), as with some UN*Xes,
- * or because it doesn't even have getopt(), as with Windows), so
- * include our getopt_long()'s header.
- */
-#ifdef HAVE_GETOPT_LONG
-#include <getopt.h>
-#else
-#include <wsutil/wsgetopt.h>
-#endif
+#include <wsutil/ws_getopt.h>
 
 #include <wiretap/wtap.h>
 
@@ -95,7 +84,7 @@ frame_write(FrameRecord_t *frame, wtap *wth, wtap_dumper *pdh,
     int    err;
     gchar  *err_info;
 
-    DEBUG_PRINT("\nDumping frame (offset=%" G_GINT64_MODIFIER "u)\n",
+    DEBUG_PRINT("\nDumping frame (offset=%" PRIu64 ")\n",
                 frame->offset);
 
 
@@ -200,9 +189,9 @@ main(int argc, char *argv[])
     FrameRecord_t *prevFrame = NULL;
 
     int opt;
-    static const struct option long_options[] = {
-        {"help", no_argument, NULL, 'h'},
-        {"version", no_argument, NULL, 'v'},
+    static const struct ws_option long_options[] = {
+        {"help", ws_no_argument, NULL, 'h'},
+        {"version", ws_no_argument, NULL, 'v'},
         {0, 0, 0, 0 }
     };
     int file_count;
@@ -242,7 +231,7 @@ main(int argc, char *argv[])
     wtap_init(TRUE);
 
     /* Process the options first */
-    while ((opt = getopt_long(argc, argv, "hnv", long_options, NULL)) != -1) {
+    while ((opt = ws_getopt_long(argc, argv, "hnv", long_options, NULL)) != -1) {
         switch (opt) {
             case 'n':
                 write_output_regardless = FALSE;
@@ -262,10 +251,10 @@ main(int argc, char *argv[])
     }
 
     /* Remaining args are file names */
-    file_count = argc - optind;
+    file_count = argc - ws_optind;
     if (file_count == 2) {
-        infile  = argv[optind];
-        outfile = argv[optind+1];
+        infile  = argv[ws_optind];
+        outfile = argv[ws_optind+1];
     }
     else {
         print_usage(stderr);

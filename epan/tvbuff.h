@@ -1,4 +1,4 @@
-/* tvbuff.h
+/** @file
  *
  * Testy, Virtual(-izable) Buffer of guint8*'s
  *
@@ -104,8 +104,15 @@ typedef void (*tvbuff_free_cb_t)(void*);
 /** Extracts 'number of bits' starting at 'bit offset'.
  * Returns a pointer to a newly initialized g_malloc'd REAL_DATA
  * tvbuff with the bits octet aligned.
+ * Bits are counted from MSB (0) to LSB (7) within octets.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_new_octet_aligned(tvbuff_t *tvb,
+    guint32 bit_offset, gint32 no_of_bits);
+
+/** Extracts 'number of bits' starting at 'bit offset'.
+ * Bits are counted from LSB (0) to MSB (7) within octets.
+ */
+WS_DLL_PUBLIC tvbuff_t *tvb_new_octet_right_aligned(tvbuff_t *tvb,
     guint32 bit_offset, gint32 no_of_bits);
 
 WS_DLL_PUBLIC tvbuff_t *tvb_new_chain(tvbuff_t *parent, tvbuff_t *backing);
@@ -269,7 +276,9 @@ WS_DLL_PUBLIC guint tvb_offset_from_real_beginning(const tvbuff_t *tvb);
 /* Returns the offset from the first byte of real data. */
 WS_DLL_PUBLIC gint tvb_raw_offset(tvbuff_t *tvb);
 
-/** Set the "this is a fragment" flag. */
+/** Set the "this is a fragment" flag. This affects whether
+ * FragmentBoundsError is thrown instead of ContainedBoundsError
+ * or ReportedBoundsError. */
 WS_DLL_PUBLIC void tvb_set_fragment(tvbuff_t *tvb);
 
 WS_DLL_PUBLIC struct tvbuff *tvb_get_ds_tvb(tvbuff_t *tvb);
@@ -414,7 +423,7 @@ WS_DLL_PUBLIC void tvb_get_guid(tvbuff_t *tvb, const gint offset,
 
 /* Fetches a byte array given a bit offset in a tvb */
 WS_DLL_PUBLIC guint8* tvb_get_bits_array(wmem_allocator_t *scope, tvbuff_t *tvb,
-    const gint offset, size_t length, size_t *data_length);
+    const gint offset, size_t length, size_t *data_length, const guint encoding);
 
 /* Fetch a specified number of bits from bit offset in a tvb.  All of these
  * functions are equivalent, except for the type of the return value.  Note
@@ -764,7 +773,7 @@ WS_DLL_PUBLIC const guint8 *tvb_get_const_stringz(tvbuff_t *tvb,
  * no more than bufsize number of bytes, including terminating NUL, to buffer.
  * Returns length of string (not including terminating NUL), or -1 if the
  * string was truncated in the buffer due to not having reached the terminating
- * NUL.  In this way, it acts like g_snprintf().
+ * NUL.  In this way, it acts like snprintf().
  *
  * When processing a packet where the remaining number of bytes is less
  * than bufsize, an exception is not thrown if the end of the packet

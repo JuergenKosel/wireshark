@@ -31,7 +31,7 @@
 #include "packet-rlc-lte.h"
 #include "packet-pdcp-lte.h"
 
-void proto_register_pdcp(void);
+void proto_register_pdcp_lte(void);
 void proto_reg_handoff_pdcp_lte(void);
 
 /* Described in:
@@ -218,7 +218,7 @@ static gboolean check_valid_key_string(const char* raw_string, char* checked_str
     /* Can't be valid if not long enough. */
     if (length < 32) {
         if (length > 0) {
-            *error = g_strdup_printf("PDCP LTE: Invalid key string (%s) - should include 32 ASCII hex characters (16 bytes) but only %u chars given",
+            *error = ws_strdup_printf("PDCP LTE: Invalid key string (%s) - should include 32 ASCII hex characters (16 bytes) but only %u chars given",
                                      raw_string, length);
         }
 
@@ -240,18 +240,18 @@ static gboolean check_valid_key_string(const char* raw_string, char* checked_str
             checked_string[written++] = c;
         }
         else {
-            *error = g_strdup_printf("PDCP-LTE: Invalid char '%c' given in key", c);
+            *error = ws_strdup_printf("PDCP-LTE: Invalid char '%c' given in key", c);
             return FALSE;
         }
     }
 
     /* Must have found exactly 32 hex ascii chars for 16-byte key */
     if (n<length) {
-        *error = g_strdup_printf("PDCP-LTE: Key (%s) should contain 32 hex characters (16 bytes) but more detected", raw_string);
+        *error = ws_strdup_printf("PDCP-LTE: Key (%s) should contain 32 hex characters (16 bytes) but more detected", raw_string);
         return FALSE;
     }
     if (written != 32) {
-        *error = g_strdup_printf("PDCP-LTE: Key (%s) should contain 32 hex characters (16 bytes) but %u detected", raw_string, written);
+        *error = ws_strdup_printf("PDCP-LTE: Key (%s) should contain 32 hex characters (16 bytes) but %u detected", raw_string, written);
         return FALSE;
     }
     else {
@@ -1121,7 +1121,7 @@ static void write_pdu_label_and_info(proto_item *pdu_ti,
     va_list ap;
 
     va_start(ap, format);
-    g_vsnprintf(info_buffer, MAX_INFO_BUFFER, format, ap);
+    vsnprintf(info_buffer, MAX_INFO_BUFFER, format, ap);
     va_end(ap);
 
     /* Add to indicated places */
@@ -2180,7 +2180,7 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                     for (l=0, j=0; l<8; l++) {
                                         if ((bits << l) & 0x80) {
                                             if (bitmap_tree) {
-                                                j += g_snprintf(&buff[j], BUFF_SIZE-j, "%6u,", (unsigned)(sn+(8*i)+l)%modulo);
+                                                j += snprintf(&buff[j], BUFF_SIZE-j, "%6u,", (unsigned)(sn+(8*i)+l)%modulo);
                                             }
                                         } else {
                                             if (bitmap_tree) {
@@ -2582,7 +2582,7 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 }
 
 
-void proto_register_pdcp(void)
+void proto_register_pdcp_lte(void)
 {
     static hf_register_info hf[] =
     {

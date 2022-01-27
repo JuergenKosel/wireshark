@@ -1430,7 +1430,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
             label_len = (bit_count - 1) / 8 + 1;
 
             if (maxname > 0) {
-              print_len = g_snprintf(np, maxname, "\\[x");
+              print_len = snprintf(np, maxname, "\\[x");
               if (print_len <= maxname) {
                 np      += print_len;
                 maxname -= print_len;
@@ -1442,7 +1442,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
             }
             while (label_len--) {
               if (maxname > 0) {
-                print_len = g_snprintf(np, maxname, "%02x",
+                print_len = snprintf(np, maxname, "%02x",
                                        tvb_get_guint8(tvb, offset));
                 if (print_len <= maxname) {
                   np      += print_len;
@@ -1456,7 +1456,7 @@ expand_dns_name(tvbuff_t *tvb, int offset, int max_len, int dns_data_offset,
               offset++;
             }
             if (maxname > 0) {
-              print_len = g_snprintf(np, maxname, "/%d]", bit_count);
+              print_len = snprintf(np, maxname, "/%d]", bit_count);
               if (print_len <= maxname) {
                 np      += print_len;
                 maxname -= print_len;
@@ -1614,7 +1614,7 @@ rfc1867_angle(tvbuff_t *tvb, int offset, gboolean longitude)
 
   if (longitude ? (angle > 648000000) : (angle > 324000000))
   {
-    g_snprintf(buf, sizeof(buf), "Value out of range");
+    snprintf(buf, sizeof(buf), "Value out of range");
     return buf;
   }
 
@@ -1625,7 +1625,7 @@ rfc1867_angle(tvbuff_t *tvb, int offset, gboolean longitude)
   minutes = angle % 60;
   degrees = angle / 60;
 
-  g_snprintf(buf, sizeof(buf), "%u deg %u min %u.%03u sec %c", degrees, minutes, secs,
+  snprintf(buf, sizeof(buf), "%u deg %u min %u.%03u sec %c", degrees, minutes, secs,
              tsecs, direction);
   return buf;
 }
@@ -2089,7 +2089,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
     {
       const char *addr;
 
-      addr = tvb_ip_to_str(tvb, cur_offset);
+      addr = tvb_ip_to_str(pinfo->pool, tvb, cur_offset);
       col_append_fstr(pinfo->cinfo, COL_INFO, " %s", addr);
 
       proto_item_append_text(trr, ", addr %s", addr);
@@ -2256,7 +2256,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       proto_item     *ti_wks;
       wmem_strbuf_t *bitnames = wmem_strbuf_new_label(wmem_packet_scope());
 
-      wks_addr = tvb_ip_to_str(tvb, cur_offset);
+      wks_addr = tvb_ip_to_str(pinfo->pool, tvb, cur_offset);
       col_append_fstr(pinfo->cinfo, COL_INFO, " %s", wks_addr);
       proto_item_append_text(trr, ", addr %s", wks_addr);
       proto_tree_add_item(rr_tree, hf_dns_wks_address, tvb, cur_offset, 4, ENC_BIG_ENDIAN);
@@ -2624,7 +2624,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
     {
       const char        *addr6;
 
-      addr6 = tvb_ip6_to_str(tvb, cur_offset);
+      addr6 = tvb_ip6_to_str(pinfo->pool, tvb, cur_offset);
       col_append_fstr(pinfo->cinfo, COL_INFO, " %s", addr6);
 
       proto_item_append_text(trr, ", addr %s", addr6);
@@ -3057,7 +3057,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
               cur_offset += 2;
               rropt_len  -= 2;
               if (optlen > 2) {
-                proto_tree_add_item(rropt_tree, hf_dns_opt_ext_error_extra_text, tvb, cur_offset, optlen - 2, ENC_UTF_8|ENC_NA);
+                proto_tree_add_item(rropt_tree, hf_dns_opt_ext_error_extra_text, tvb, cur_offset, optlen - 2, ENC_UTF_8);
                 cur_offset += (optlen - 2);
                 rropt_len  -= (optlen - 2);
               }
@@ -3344,8 +3344,13 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
     {
       int         rr_len, initial_offset = cur_offset;
       guint8      salt_len, hash_len;
-      proto_item *flags_item;
+      proto_item *flags_item, *hash_item;
       proto_tree *flags_tree;
+
+      /* Base 32 Encoding with Extended Hex Alphabet (see RFC 4648 section 7) */
+      const char *base32hex = "0123456789abcdefghijklmnopqrstuv";
+      char       *hash_value_base32hex;
+      int         group, in_offset, out_offset;
 
       proto_tree_add_item(rr_tree, hf_dns_nsec3_algo, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       cur_offset += 1;
@@ -3369,7 +3374,20 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       hash_len = tvb_get_guint8(tvb, cur_offset);
       cur_offset += 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_nsec3_hash_value, tvb, cur_offset, hash_len, ENC_NA);
+      /*
+       * The code below is optimized for simplicity as trailing padding
+       * characters ("=") are not used in the NSEC3 specification (see RFC 5155
+       * section 1.3).
+       */
+      hash_value_base32hex = (char *)wmem_alloc0(wmem_packet_scope(), hash_len * 2);
+      for (in_offset = 0, out_offset = 0;
+           in_offset / 8 < hash_len;
+           in_offset += 5, out_offset += 1) {
+        group = tvb_get_bits8(tvb, cur_offset * 8 + in_offset, 5);
+        hash_value_base32hex[out_offset] = base32hex[group];
+      }
+      hash_item = proto_tree_add_string(rr_tree, hf_dns_nsec3_hash_value, tvb, cur_offset, hash_len, hash_value_base32hex);
+      proto_item_set_generated(hash_item);
       cur_offset += hash_len;
 
       rr_len = data_len - (cur_offset - initial_offset);
@@ -3565,7 +3583,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
             case DNS_SVCB_KEY_IPV4HINT:
               for (svc_param_offset = 0; svc_param_offset < svc_param_length; svc_param_offset += 4) {
                 proto_tree_add_item(svcb_param_tree, hf_dns_svcb_param_ipv4hint_ip, tvb, cur_offset, 4, ENC_NA);
-                proto_item_append_text(svcb_param_ti, "%c%s", (svc_param_offset == 0 ? '=' : ','), tvb_ip_to_str(tvb, cur_offset));
+                proto_item_append_text(svcb_param_ti, "%c%s", (svc_param_offset == 0 ? '=' : ','), tvb_ip_to_str(pinfo->pool, tvb, cur_offset));
                 cur_offset += 4;
               }
               break;
@@ -3576,7 +3594,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
             case DNS_SVCB_KEY_IPV6HINT:
               for (svc_param_offset = 0; svc_param_offset < svc_param_length; svc_param_offset += 16) {
                 proto_tree_add_item(svcb_param_tree, hf_dns_svcb_param_ipv6hint_ip, tvb, cur_offset, 16, ENC_NA);
-                proto_item_append_text(svcb_param_ti, "%c%s", (svc_param_offset == 0 ? '=' : ','), tvb_ip6_to_str(tvb, cur_offset));
+                proto_item_append_text(svcb_param_ti, "%c%s", (svc_param_offset == 0 ? '=' : ','), tvb_ip6_to_str(pinfo->pool, tvb, cur_offset));
                 cur_offset += 16;
               }
               break;
@@ -5138,12 +5156,12 @@ proto_register_dns(void)
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 
-    { & hf_dns_minfo_r_mailbox,
+    { &hf_dns_minfo_r_mailbox,
       { "Responsible Mailbox", "dns.minfo.r",
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 
-    { & hf_dns_minfo_e_mailbox,
+    { &hf_dns_minfo_e_mailbox,
       { "Error Mailbox", "dns.minfo.e",
         FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
@@ -5165,7 +5183,7 @@ proto_register_dns(void)
 
     { &hf_dns_txt,
       { "TXT", "dns.txt",
-        FT_STRING, STR_UNICODE, NULL, 0x0,
+        FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 
     { &hf_dns_openpgpkey,
@@ -5845,7 +5863,7 @@ proto_register_dns(void)
 
     { &hf_dns_opt_ext_error_extra_text,
       { "Extra Text", "dns.opt.ext_error.extra_text",
-        FT_STRING, STR_UNICODE, NULL, 0x0,
+        FT_STRING, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
 
     { &hf_dns_count_questions,
@@ -5915,7 +5933,7 @@ proto_register_dns(void)
 
     { &hf_dns_nsec3_hash_value,
       { "Next hashed owner", "dns.nsec3.hash_value",
-        FT_BYTES, BASE_NONE, NULL, 0,
+        FT_STRING, BASE_NONE, NULL, 0,
         NULL, HFILL }},
 
     { &hf_dns_tlsa_certificate_usage,

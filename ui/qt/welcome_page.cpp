@@ -243,9 +243,9 @@ bool WelcomePage::event(QEvent *event)
     return QFrame::event(event);
 }
 
-void WelcomePage::on_interfaceFrame_showExtcapOptions(QString device_name)
+void WelcomePage::on_interfaceFrame_showExtcapOptions(QString device_name, bool startCaptureOnClose)
 {
-    emit showExtcapOptions(device_name);
+    emit showExtcapOptions(device_name, startCaptureOnClose);
 }
 
 void WelcomePage::on_interfaceFrame_startCapture()
@@ -427,8 +427,6 @@ void WelcomePage::on_helpLabel_clicked()
 
 void WelcomePage::updateStyleSheets()
 {
-    QColor hover_color = ColorUtils::alphaBlend(palette().window(), palette().highlight(), 0.5);
-
     QString welcome_ss = QString(
                 "WelcomePage {"
                 "  padding: 1em;"
@@ -448,7 +446,7 @@ void WelcomePage::updateStyleSheets()
                 "  color: palette(text);"
                 "}"
                 )
-            .arg(hover_color.name());
+            .arg(ColorUtils::hoverBackground().name(QColor::HexArgb));
 #endif
     setStyleSheet(welcome_ss);
 

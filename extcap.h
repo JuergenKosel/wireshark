@@ -1,4 +1,5 @@
-/* extcap.h
+/** @file
+ *
  * Definitions for extcap external capture
  * Copyright 2013, Mike Ryan <mikeryan@lacklustre.net>
  *
@@ -12,7 +13,6 @@
 #ifndef __EXTCAP_H__
 #define __EXTCAP_H__
 
-#include <config.h>
 
 #include <glib.h>
 

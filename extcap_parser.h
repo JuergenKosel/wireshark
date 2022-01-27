@@ -1,4 +1,4 @@
-/* extcap_parser.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -14,7 +14,6 @@
 #include <glib.h>
 #include <string.h>
 
-#include <config.h>
 #include "ui/iface_toolbar.h"
 
 typedef enum {

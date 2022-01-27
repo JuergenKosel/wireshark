@@ -20,18 +20,7 @@
 #include <locale.h>
 #include <limits.h>
 
-/*
- * If we have getopt_long() in the system library, include <getopt.h>.
- * Otherwise, we're using our own getopt_long() (either because the
- * system has getopt() but not getopt_long(), as with some UN*Xes,
- * or because it doesn't even have getopt(), as with Windows), so
- * include our getopt_long()'s header.
- */
-#ifdef HAVE_GETOPT_LONG
-#include <getopt.h>
-#else
-#include <wsutil/wsgetopt.h>
-#endif
+#include <wsutil/ws_getopt.h>
 
 #include <errno.h>
 
@@ -145,6 +134,7 @@
 #define LONGOPT_ELASTIC_MAPPING_FILTER  LONGOPT_BASE_APPLICATION+4
 #define LONGOPT_EXPORT_TLS_SESSION_KEYS LONGOPT_BASE_APPLICATION+5
 #define LONGOPT_CAPTURE_COMMENT         LONGOPT_BASE_APPLICATION+6
+#define LONGOPT_HEXDUMP                 LONGOPT_BASE_APPLICATION+7
 
 capture_file cfile;
 
@@ -182,6 +172,8 @@ static gboolean quiet = FALSE;
 static gboolean really_quiet = FALSE;
 static gchar* delimiter_char = " ";
 static gboolean dissect_color = FALSE;
+static guint hexdump_source_option = HEXDUMP_SOURCE_MULTI; /* Default - Enable legacy multi-source mode */
+static guint hexdump_ascii_option = HEXDUMP_ASCII_INCLUDE; /* Default - Enable legacy undelimited ASCII dump */
 
 static print_format_e print_format = PR_FMT_TEXT;
 static print_stream_t *print_stream = NULL;
@@ -439,6 +431,13 @@ print_usage(FILE *output)
   fprintf(output, "  -P, --print              print packet summary even when writing to a file\n");
   fprintf(output, "  -S <separator>           the line separator to print between packets\n");
   fprintf(output, "  -x                       add output of hex and ASCII dump (Packet Bytes)\n");
+  fprintf(output, "  --hexdump <hexoption>    add hexdump, set options for data source and ASCII dump\n");
+  fprintf(output, "     all                   dump all data sources (-x default)\n");
+  fprintf(output, "     frames                dump only frame data source\n");
+  fprintf(output, "     ascii                 include ASCII dump text (-x default)\n");
+  fprintf(output, "     delimit               delimit ASCII dump text with '|' characters\n");
+  fprintf(output, "     noascii               exclude ASCII dump text\n");
+  fprintf(output, "     help                  display help for --hexdump and exit\n");
   fprintf(output, "  -T pdml|ps|psml|json|jsonraw|ek|tabs|text|fields|?\n");
   fprintf(output, "                           format of text output (def: text)\n");
   fprintf(output, "  -j <protocolfilter>      protocols layers filter if -T ek|pdml|json selected\n");
@@ -483,10 +482,11 @@ print_usage(FILE *output)
   fprintf(output, "                           values\n");
   fprintf(output, "  --elastic-mapping-filter <protocols> If -G elastic-mapping is specified, put only the\n");
   fprintf(output, "                           specified protocols within the mapping file\n");
+  fprintf(output, "\n");
 
   ws_log_print_usage(output);
-
   fprintf(output, "\n");
+
   fprintf(output, "Miscellaneous:\n");
   fprintf(output, "  -h, --help               display this help and exit\n");
   fprintf(output, "  -v, --version            display version info and exit\n");
@@ -534,6 +534,31 @@ glossary_option_help(void)
   fprintf(output, "  -G currentprefs          dump current preferences and exit\n");
   fprintf(output, "  -G defaultprefs          dump default preferences and exit\n");
   fprintf(output, "  -G folders               dump about:folders\n");
+  fprintf(output, "\n");
+}
+
+static void
+hexdump_option_help(FILE *output)
+{
+  fprintf(output, "%s\n", get_appname_and_version());
+  fprintf(output, "\n");
+  fprintf(output, "tshark: Valid --hexdump <hexoption> values include:\n");
+  fprintf(output, "\n");
+  fprintf(output, "Data source options:\n");
+  fprintf(output, "  all                      add hexdump, dump all data sources (-x default)\n");
+  fprintf(output, "  frames                   add hexdump, dump only frame data source\n");
+  fprintf(output, "\n");
+  fprintf(output, "ASCII options:\n");
+  fprintf(output, "  ascii                    add hexdump, include ASCII dump text (-x default)\n");
+  fprintf(output, "  delimit                  add hexdump, delimit ASCII dump text with '|' characters\n");
+  fprintf(output, "  noascii                  add hexdump, exclude ASCII dump text\n");
+  fprintf(output, "\n");
+  fprintf(output, "Miscellaneous:\n");
+  fprintf(output, "  help                     display this help and exit\n");
+  fprintf(output, "\n");
+  fprintf(output, "Example:\n");
+  fprintf(output, "\n");
+  fprintf(output, "    $ tshark ... --hexdump frames --hexdump delimit ...\n");
   fprintf(output, "\n");
 }
 
@@ -699,18 +724,19 @@ main(int argc, char *argv[])
     cfile_close_failure_message
   };
   int                  opt;
-  static const struct option long_options[] = {
-    {"help", no_argument, NULL, 'h'},
-    {"version", no_argument, NULL, 'v'},
+  static const struct ws_option long_options[] = {
+    {"help", ws_no_argument, NULL, 'h'},
+    {"version", ws_no_argument, NULL, 'v'},
     LONGOPT_CAPTURE_COMMON
     LONGOPT_DISSECT_COMMON
-    {"print", no_argument, NULL, 'P'},
-    {"export-objects", required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
-    {"export-tls-session-keys", required_argument, NULL, LONGOPT_EXPORT_TLS_SESSION_KEYS},
-    {"color", no_argument, NULL, LONGOPT_COLOR},
-    {"no-duplicate-keys", no_argument, NULL, LONGOPT_NO_DUPLICATE_KEYS},
-    {"elastic-mapping-filter", required_argument, NULL, LONGOPT_ELASTIC_MAPPING_FILTER},
-    {"capture-comment", required_argument, NULL, LONGOPT_CAPTURE_COMMENT},
+    {"print", ws_no_argument, NULL, 'P'},
+    {"export-objects", ws_required_argument, NULL, LONGOPT_EXPORT_OBJECTS},
+    {"export-tls-session-keys", ws_required_argument, NULL, LONGOPT_EXPORT_TLS_SESSION_KEYS},
+    {"color", ws_no_argument, NULL, LONGOPT_COLOR},
+    {"no-duplicate-keys", ws_no_argument, NULL, LONGOPT_NO_DUPLICATE_KEYS},
+    {"elastic-mapping-filter", ws_required_argument, NULL, LONGOPT_ELASTIC_MAPPING_FILTER},
+    {"capture-comment", ws_required_argument, NULL, LONGOPT_CAPTURE_COMMENT},
+    {"hexdump", ws_required_argument, NULL, LONGOPT_HEXDUMP},
     {0, 0, 0, 0 }
   };
   gboolean             arg_error = FALSE;
@@ -852,21 +878,21 @@ main(int argc, char *argv[])
    * arguments we can't handle until after initializing libwireshark,
    * and then process them after initializing libwireshark?
    */
-  opterr = 0;
+  ws_opterr = 0;
 
-  while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+  while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     switch (opt) {
     case 'C':        /* Configuration Profile */
-      if (profile_exists (optarg, FALSE)) {
-        set_profile_name (optarg);
+      if (profile_exists (ws_optarg, FALSE)) {
+        set_profile_name (ws_optarg);
       } else {
-        cmdarg_err("Configuration Profile \"%s\" does not exist", optarg);
+        cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
       break;
     case 'G':
-      if (g_str_has_suffix(optarg, "prefs") || strcmp(optarg, "folders") == 0) {
+      if (g_str_has_suffix(ws_optarg, "prefs") || strcmp(ws_optarg, "folders") == 0) {
         has_extcap_options = TRUE;
       }
       break;
@@ -874,7 +900,7 @@ main(int argc, char *argv[])
       has_extcap_options = TRUE;
       break;
     case 'o':
-      if (g_str_has_prefix(optarg, "extcap.")) {
+      if (g_str_has_prefix(ws_optarg, "extcap.")) {
         has_extcap_options = TRUE;
       }
       break;
@@ -883,10 +909,10 @@ main(int argc, char *argv[])
       print_summary = TRUE;
       break;
     case 'r':        /* Read capture file x */
-      cf_name = g_strdup(optarg);
+      cf_name = g_strdup(ws_optarg);
       break;
     case 'O':        /* Only output these protocols */
-      output_only = g_strdup(optarg);
+      output_only = g_strdup(ws_optarg);
       /* FALLTHROUGH */
     case 'V':        /* Verbose */
       print_details = TRUE;
@@ -900,10 +926,10 @@ main(int argc, char *argv[])
       print_packet_info = TRUE;
       break;
     case 'X':
-      ex_opt_add(optarg);
+      ex_opt_add(ws_optarg);
       break;
     case LONGOPT_ELASTIC_MAPPING_FILTER:
-      elastic_mapping_filter = optarg;
+      elastic_mapping_filter = ws_optarg;
       break;
     default:
       break;
@@ -1058,29 +1084,17 @@ main(int argc, char *argv[])
   output_fields = output_fields_new();
 
   /*
-   * To reset the options parser, set optreset to 1 on platforms that
-   * have optreset (documented in *BSD and macOS, apparently present but
-   * not documented in Solaris - the Illumos repository seems to
-   * suggest that the first Solaris getopt_long(), at least as of 2004,
-   * was based on the NetBSD one, it had optreset) and set optind to 1,
-   * and set optind to 0 otherwise (documented as working in the GNU
-   * getopt_long().  Setting optind to 0 didn't originally work in the
-   * NetBSD one, but that was added later - we don't want to depend on
-   * it if we have optreset).
+   * To reset the options parser, set ws_optreset to 1 and set ws_optind to 1.
    *
-   * Also reset opterr to 1, so that error messages are printed by
+   * Also reset ws_opterr to 1, so that error messages are printed by
    * getopt_long().
    */
-#ifdef HAVE_OPTRESET
-  optreset = 1;
-  optind = 1;
-#else
-  optind = 0;
-#endif
-  opterr = 1;
+  ws_optreset = 1;
+  ws_optind = 1;
+  ws_opterr = 1;
 
   /* Now get our args */
-  while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
+  while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     switch (opt) {
     case '2':        /* Perform two pass analysis */
       if(epan_auto_reset){
@@ -1094,7 +1108,7 @@ main(int argc, char *argv[])
         cmdarg_err("-M does not support two pass analysis.");
         arg_error=TRUE;
       }
-      epan_auto_reset_count = get_positive_int(optarg, "epan reset count");
+      epan_auto_reset_count = get_positive_int(ws_optarg, "epan reset count");
       epan_auto_reset = TRUE;
       break;
     case 'a':        /* autostop criteria */
@@ -1118,7 +1132,7 @@ main(int argc, char *argv[])
     case LONGOPT_COMPRESS_TYPE:        /* compress type */
       /* These are options only for packet capture. */
 #ifdef HAVE_LIBPCAP
-      exit_status = capture_opts_add_opt(&global_capture_opts, opt, optarg);
+      exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
       if (exit_status != 0) {
         goto clean_exit;
       }
@@ -1129,18 +1143,18 @@ main(int argc, char *argv[])
       break;
     case 'c':        /* Stop after x packets */
 #ifdef HAVE_LIBPCAP
-      exit_status = capture_opts_add_opt(&global_capture_opts, opt, optarg);
+      exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
       if (exit_status != 0) {
         goto clean_exit;
       }
 #else
-      max_packet_count = get_positive_int(optarg, "packet count");
+      max_packet_count = get_positive_int(ws_optarg, "packet count");
 #endif
       break;
     case 'w':        /* Write to file x */
-      output_file_name = g_strdup(optarg);
+      output_file_name = g_strdup(ws_optarg);
 #ifdef HAVE_LIBPCAP
-      exit_status = capture_opts_add_opt(&global_capture_opts, opt, optarg);
+      exit_status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
       if (exit_status != 0) {
         goto clean_exit;
       }
@@ -1173,21 +1187,21 @@ main(int argc, char *argv[])
       break;
     case 'e':
       /* Field entry */
-      output_fields_add(output_fields, optarg);
+      output_fields_add(output_fields, ws_optarg);
       break;
     case 'E':
       /* Field option */
-      if (!output_fields_set_option(output_fields, optarg)) {
-        cmdarg_err("\"%s\" is not a valid field output option=value pair.", optarg);
+      if (!output_fields_set_option(output_fields, ws_optarg)) {
+        cmdarg_err("\"%s\" is not a valid field output option=value pair.", ws_optarg);
         output_fields_list_options(stderr);
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
       break;
     case 'F':
-      out_file_type = wtap_name_to_file_type_subtype(optarg);
+      out_file_type = wtap_name_to_file_type_subtype(ws_optarg);
       if (out_file_type < 0) {
-        cmdarg_err("\"%s\" isn't a valid capture file type", optarg);
+        cmdarg_err("\"%s\" isn't a valid capture file type", ws_optarg);
         list_capture_types();
         exit_status = INVALID_OPTION;
         goto clean_exit;
@@ -1197,30 +1211,30 @@ main(int argc, char *argv[])
       if (protocolfilter) {
         cmdarg_err("-j or -J was already specified! Overwriting previous protocol filter");
       }
-      protocolfilter = wmem_strsplit(wmem_epan_scope(), optarg, " ", -1);
+      protocolfilter = wmem_strsplit(wmem_epan_scope(), ws_optarg, " ", -1);
       break;
     case 'J':
       if (protocolfilter) {
         cmdarg_err("-j or -J was already specified! Overwriting previous protocol filter");
       }
       protocolfilter_flags = PF_INCLUDE_CHILDREN;
-      protocolfilter = wmem_strsplit(wmem_epan_scope(), optarg, " ", -1);
+      protocolfilter = wmem_strsplit(wmem_epan_scope(), ws_optarg, " ", -1);
       break;
     case 'W':        /* Select extra information to save in our capture file */
       /* This is patterned after the -N flag which may not be the best idea. */
-      if (strchr(optarg, 'n')) {
+      if (strchr(ws_optarg, 'n')) {
         out_file_name_res = TRUE;
       } else {
-        cmdarg_err("Invalid -W argument \"%s\"; it must be one of:", optarg);
+        cmdarg_err("Invalid -W argument \"%s\"; it must be one of:", ws_optarg);
         cmdarg_err_cont("\t'n' write network address resolution information (pcapng only)");
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
       break;
     case 'H':        /* Read address to name mappings from a hosts file */
-      if (! add_hosts_file(optarg))
+      if (! add_hosts_file(ws_optarg))
       {
-        cmdarg_err("Can't read host entries from \"%s\"", optarg);
+        cmdarg_err("Can't read host entries from \"%s\"", ws_optarg);
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
@@ -1279,13 +1293,13 @@ main(int argc, char *argv[])
     {
       char *errmsg = NULL;
 
-      switch (prefs_set_pref(optarg, &errmsg)) {
+      switch (prefs_set_pref(ws_optarg, &errmsg)) {
 
       case PREFS_SET_OK:
         break;
 
       case PREFS_SET_SYNTAX_ERR:
-        cmdarg_err("Invalid -o flag \"%s\"%s%s", optarg,
+        cmdarg_err("Invalid -o flag \"%s\"%s%s", ws_optarg,
             errmsg ? ": " : "", errmsg ? errmsg : "");
         g_free(errmsg);
         exit_status = INVALID_OPTION;
@@ -1293,8 +1307,13 @@ main(int argc, char *argv[])
         break;
 
       case PREFS_SET_NO_SUCH_PREF:
+        cmdarg_err("-o flag \"%s\" specifies unknown preference", ws_optarg);
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+        break;
+
       case PREFS_SET_OBSOLETE:
-        cmdarg_err("-o flag \"%s\" specifies unknown preference", optarg);
+        cmdarg_err("-o flag \"%s\" specifies obsolete preference", ws_optarg);
         exit_status = INVALID_OPTION;
         goto clean_exit;
         break;
@@ -1312,13 +1331,13 @@ main(int argc, char *argv[])
       /* already processed; just ignore it now */
       break;
     case 'R':        /* Read file filter */
-      rfilter = optarg;
+      rfilter = ws_optarg;
       break;
     case 'P':
         /* already processed; just ignore it now */
         break;
     case 'S':        /* Set the line Separator to be printed between packets */
-      separator = optarg;
+      separator = ws_optarg;
       break;
     case 'T':        /* printing Type */
       /* output_action has been already set. It means multiple -T. */
@@ -1328,43 +1347,43 @@ main(int argc, char *argv[])
         goto clean_exit;
       }
       print_packet_info = TRUE;
-      if (strcmp(optarg, "text") == 0) {
+      if (strcmp(ws_optarg, "text") == 0) {
         output_action = WRITE_TEXT;
         print_format = PR_FMT_TEXT;
-      } else if (strcmp(optarg, "tabs") == 0) {
+      } else if (strcmp(ws_optarg, "tabs") == 0) {
         output_action = WRITE_TEXT;
         print_format = PR_FMT_TEXT;
         delimiter_char = "\t";
-      } else if (strcmp(optarg, "ps") == 0) {
+      } else if (strcmp(ws_optarg, "ps") == 0) {
         output_action = WRITE_TEXT;
         print_format = PR_FMT_PS;
-      } else if (strcmp(optarg, "pdml") == 0) {
+      } else if (strcmp(ws_optarg, "pdml") == 0) {
         output_action = WRITE_XML;
         print_details = TRUE;   /* Need details */
         print_summary = FALSE;  /* Don't allow summary */
-      } else if (strcmp(optarg, "psml") == 0) {
+      } else if (strcmp(ws_optarg, "psml") == 0) {
         output_action = WRITE_XML;
         print_details = FALSE;  /* Don't allow details */
         print_summary = TRUE;   /* Need summary */
-      } else if (strcmp(optarg, "fields") == 0) {
+      } else if (strcmp(ws_optarg, "fields") == 0) {
         output_action = WRITE_FIELDS;
         print_details = TRUE;   /* Need full tree info */
         print_summary = FALSE;  /* Don't allow summary */
-      } else if (strcmp(optarg, "json") == 0) {
+      } else if (strcmp(ws_optarg, "json") == 0) {
         output_action = WRITE_JSON;
         print_details = TRUE;   /* Need details */
         print_summary = FALSE;  /* Don't allow summary */
-      } else if (strcmp(optarg, "ek") == 0) {
+      } else if (strcmp(ws_optarg, "ek") == 0) {
         output_action = WRITE_EK;
         if (!print_summary)
           print_details = TRUE;
-      } else if (strcmp(optarg, "jsonraw") == 0) {
+      } else if (strcmp(ws_optarg, "jsonraw") == 0) {
         output_action = WRITE_JSON_RAW;
         print_details = TRUE;   /* Need details */
         print_summary = FALSE;  /* Don't allow summary */
       }
       else {
-        cmdarg_err("Invalid -T parameter \"%s\"; it must be one of:", optarg);                   /* x */
+        cmdarg_err("Invalid -T parameter \"%s\"; it must be one of:", ws_optarg);                   /* x */
         cmdarg_err_cont("\t\"fields\"  The values of fields specified with the -e option, in a form\n"
                         "\t          specified by the -E option.\n"
                         "\t\"pdml\"    Packet Details Markup Language, an XML-based format for the\n"
@@ -1398,12 +1417,12 @@ main(int argc, char *argv[])
       }
       break;
     case 'U':        /* Export PDUs to file */
-        if (strcmp(optarg, "") == 0 || strcmp(optarg, "?") == 0) {
+        if (strcmp(ws_optarg, "") == 0 || strcmp(ws_optarg, "?") == 0) {
             list_export_pdu_taps();
             exit_status = INVALID_OPTION;
             goto clean_exit;
         }
-        pdu_export_arg = g_strdup(optarg);
+        pdu_export_arg = g_strdup(ws_optarg);
         break;
     case 'v':         /* Show version and exit */
       show_version();
@@ -1429,7 +1448,7 @@ main(int argc, char *argv[])
       /* already processed; just ignore it now */
       break;
     case 'Y':
-      dfilter = g_strdup(optarg);
+      dfilter = g_strdup(ws_optarg);
       break;
     case 'z':
       /* We won't call the init function for the stat this soon
@@ -1437,14 +1456,14 @@ main(int argc, char *argv[])
          by the preferences set callback) from being used as
          part of a tap filter.  Instead, we just add the argument
          to a list of stat arguments. */
-      if (strcmp("help", optarg) == 0) {
+      if (strcmp("help", ws_optarg) == 0) {
         fprintf(stderr, "tshark: The available statistics for the \"-z\" option are:\n");
         list_stat_cmd_args();
         exit_status = EXIT_SUCCESS;
         goto clean_exit;
       }
-      if (!process_stat_cmd_arg(optarg)) {
-        cmdarg_err("Invalid -z argument \"%s\"; it must be one of:", optarg);
+      if (!process_stat_cmd_arg(ws_optarg)) {
+        cmdarg_err("Invalid -z argument \"%s\"; it must be one of:", ws_optarg);
         list_stat_cmd_args();
         exit_status = INVALID_OPTION;
         goto clean_exit;
@@ -1460,25 +1479,25 @@ main(int argc, char *argv[])
     case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
     case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
     case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
-      if (!dissect_opts_handle_opt(opt, optarg)) {
+      if (!dissect_opts_handle_opt(opt, ws_optarg)) {
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
       break;
     case LONGOPT_EXPORT_OBJECTS:   /* --export-objects */
-      if (strcmp("help", optarg) == 0) {
+      if (strcmp("help", ws_optarg) == 0) {
         fprintf(stderr, "tshark: The available export object types for the \"--export-objects\" option are:\n");
         eo_list_object_types();
         exit_status = EXIT_SUCCESS;
         goto clean_exit;
       }
-      if (!eo_tap_opt_add(optarg)) {
+      if (!eo_tap_opt_add(ws_optarg)) {
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
       break;
     case LONGOPT_EXPORT_TLS_SESSION_KEYS:   /* --export-tls-session-keys */
-      tls_session_keys_file = optarg;
+      tls_session_keys_file = ws_optarg;
       break;
     case LONGOPT_COLOR: /* print in color where appropriate */
       dissect_color = TRUE;
@@ -1491,11 +1510,35 @@ main(int argc, char *argv[])
       if (capture_comments == NULL) {
         capture_comments = g_ptr_array_new_with_free_func(g_free);
       }
-      g_ptr_array_add(capture_comments, g_strdup(optarg));
+      g_ptr_array_add(capture_comments, g_strdup(ws_optarg));
+      break;
+    case LONGOPT_HEXDUMP:
+      print_hex = TRUE;
+      print_packet_info = TRUE;
+      if (strcmp(ws_optarg, "all") == 0)
+        hexdump_source_option = HEXDUMP_SOURCE_MULTI;
+      else if (strcmp(ws_optarg, "frames") == 0)
+        hexdump_source_option = HEXDUMP_SOURCE_PRIMARY;
+      else if (strcmp(ws_optarg, "ascii") == 0)
+        hexdump_ascii_option = HEXDUMP_ASCII_INCLUDE;
+      else if (strcmp(ws_optarg, "delimit") == 0)
+        hexdump_ascii_option = HEXDUMP_ASCII_DELIMIT;
+      else if (strcmp(ws_optarg, "noascii") == 0)
+        hexdump_ascii_option = HEXDUMP_ASCII_EXCLUDE;
+      else if (strcmp("help", ws_optarg) == 0) {
+        hexdump_option_help(stdout);
+        exit_status = EXIT_SUCCESS;
+        goto clean_exit;
+      } else {
+        fprintf(stderr, "tshark: \"%s\" is an invalid value for --hexdump <hexoption>\n", ws_optarg);
+        fprintf(stderr, "For valid <hexoption> values enter: tshark --hexdump help\n");
+        exit_status = INVALID_OPTION;
+        goto clean_exit;
+      }
       break;
     default:
     case '?':        /* Bad flag - print usage message */
-      switch(optopt) {
+      switch(ws_optopt) {
       case 'F':
         list_capture_types();
         break;
@@ -1556,7 +1599,7 @@ main(int argc, char *argv[])
      still command-line arguments, treat them as the tokens of a capture
      filter (if no "-r" flag was specified) or a display filter (if a "-r"
      flag was specified. */
-  if (optind < argc) {
+  if (ws_optind < argc) {
     if (cf_name != NULL) {
       if (dfilter != NULL) {
         cmdarg_err("Display filters were specified both with \"-Y\" "
@@ -1564,7 +1607,7 @@ main(int argc, char *argv[])
         exit_status = INVALID_OPTION;
         goto clean_exit;
       }
-      dfilter = get_args_as_string(argc, argv, optind);
+      dfilter = get_args_as_string(argc, argv, ws_optind);
     } else {
 #ifdef HAVE_LIBPCAP
       guint i;
@@ -1579,7 +1622,7 @@ main(int argc, char *argv[])
         interface_options *interface_opts;
         interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
         if (interface_opts->cfilter == NULL) {
-          interface_opts->cfilter = get_args_as_string(argc, argv, optind);
+          interface_opts->cfilter = get_args_as_string(argc, argv, ws_optind);
         } else {
           cmdarg_err("A capture filter was specified both with \"-f\""
               " and with additional command-line arguments.");
@@ -1587,7 +1630,7 @@ main(int argc, char *argv[])
           goto clean_exit;
         }
       }
-      global_capture_opts.default_options.cfilter = get_args_as_string(argc, argv, optind);
+      global_capture_opts.default_options.cfilter = get_args_as_string(argc, argv, ws_optind);
 #else
       capture_option_specified = TRUE;
 #endif
@@ -2075,7 +2118,7 @@ main(int argc, char *argv[])
       /* Activate the export PDU tap */
       /* Write to our output file with this comment (if the type supports it,
        * otherwise exp_pdu_open() will ignore the comment) */
-      comment = g_strdup_printf("Dump of PDUs from %s", cf_name);
+      comment = ws_strdup_printf("Dump of PDUs from %s", cf_name);
       exp_pdu_status = exp_pdu_open(&exp_pdu_tap_data, exp_pdu_filename,
                                     out_file_type, exp_fd, comment,
                                     &err, &err_info);
@@ -2212,7 +2255,7 @@ main(int argc, char *argv[])
         interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
 #ifdef HAVE_PCAP_REMOTE
         if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
-          auth_str = g_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
+          auth_str = ws_strdup_printf("%s:%s", interface_opts->auth_username, interface_opts->auth_password);
         }
 #endif
         caps = capture_get_if_capabilities(interface_opts->name, interface_opts->monitor_mode,
@@ -3187,7 +3230,7 @@ process_cap_file_first_pass(capture_file *cf, int max_packet_count,
        * (unless we roll over max_packet_count ?)
        */
       if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
-        ws_debug("tshark: max_packet_count (%d) or max_byte_count (%" G_GINT64_MODIFIER "d/%" G_GINT64_MODIFIER "d) reached",
+        ws_debug("tshark: max_packet_count (%d) or max_byte_count (%" PRId64 "/%" PRId64 ") reached",
                       max_packet_count, data_offset, max_byte_count);
         *err = 0; /* This is not an error */
         break;
@@ -3546,7 +3589,7 @@ process_cap_file_single_pass(capture_file *cf, wtap_dumper *pdh,
      * (unless we roll over max_packet_count ?)
      */
     if ( (--max_packet_count == 0) || (max_byte_count != 0 && data_offset >= max_byte_count)) {
-      ws_debug("tshark: max_packet_count (%d) or max_byte_count (%" G_GINT64_MODIFIER "d/%" G_GINT64_MODIFIER "d) reached",
+      ws_debug("tshark: max_packet_count (%d) or max_byte_count (%" PRId64 "/%" PRId64 ") reached",
                     max_packet_count, data_offset, max_byte_count);
       *err = 0; /* This is not an error */
       break;
@@ -3582,12 +3625,25 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
   wtap_dump_params params = WTAP_DUMP_PARAMS_INIT;
   char        *shb_user_appl;
   pass_status_t first_pass_status, second_pass_status;
+  gboolean pcapng_pcapng_workaround = false;
+  wtapng_iface_descriptions_t if_tmp;
 
   if (save_file != NULL) {
     /* Set up to write to the capture file. */
     wtap_dump_params_init_no_idbs(&params, cf->provider.wth);
 
-    /* If we don't have an application name add Tshark */
+    /* workaround for pcapng -> pcapng (e.g., when pcapng starts with a custom block) */
+    if (out_file_type == wtap_pcapng_file_type_subtype() && params.encap == WTAP_ENCAP_UNKNOWN) {
+      pcapng_pcapng_workaround = true;
+      params.encap = WTAP_ENCAP_PER_PACKET;
+      params.dont_copy_idbs = true; /* make sure this stay true */
+      if (params.idb_inf->interface_data != NULL) {
+        /* lets fake an interface, which is not copied anyway */
+        g_array_insert_val(params.idb_inf->interface_data, 0, if_tmp);
+      }
+    }
+
+    /* If we don't have an application name add TShark */
     if (wtap_block_get_string_option_value(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, &shb_user_appl) != WTAP_OPTTYPE_SUCCESS) {
       /* this is free'd by wtap_block_unref() later */
       wtap_block_add_string_option_format(g_array_index(params.shb_hdrs, wtap_block_t, 0), OPT_SHB_USERAPPL, "%s", get_appname_and_version());
@@ -3608,6 +3664,11 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
     } else {
       pdh = wtap_dump_open(save_file, out_file_type, WTAP_UNCOMPRESSED, &params,
                            &err, &err_info);
+    }
+
+    if (pcapng_pcapng_workaround) {
+      /* remove the fake interface before it will be used */
+      g_array_remove_index((params.idb_inf->interface_data), 0);
     }
 
     g_free(params.idb_inf);
@@ -3675,7 +3736,7 @@ process_cap_file(capture_file *cf, char *save_file, int out_file_type,
        * If we got a read error on the first pass, we still do the second
        * pass, so we can at least process the packets we read, and then
        * report the first-pass error after the second pass (and before
-       * we report any second-pass errors), so all the the errors show up
+       * we report any second-pass errors), so all the errors show up
        * at the end.
        */
       second_pass_status = process_cap_file_second_pass(cf, pdh, &err, &err_info,
@@ -4122,7 +4183,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_DST:
         case COL_RES_DST:
         case COL_UNRES_DST:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4142,7 +4203,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_DL_DST:
         case COL_RES_DL_DST:
         case COL_UNRES_DL_DST:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4162,7 +4223,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_NET_DST:
         case COL_RES_NET_DST:
         case COL_UNRES_NET_DST:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_RIGHTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4182,7 +4243,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_SRC:
         case COL_RES_SRC:
         case COL_UNRES_SRC:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4202,7 +4263,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_DL_SRC:
         case COL_RES_DL_SRC:
         case COL_UNRES_DL_SRC:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4222,7 +4283,7 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         case COL_DEF_NET_SRC:
         case COL_RES_NET_SRC:
         case COL_UNRES_NET_SRC:
-          g_snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
+          snprintf(str_format, sizeof(str_format), "%s%s%s", delimiter_char, UTF8_LEFTWARDS_ARROW, delimiter_char);
           put_string(line_bufp + buf_offset, str_format, 5);
           buf_offset += 5;
           break;
@@ -4332,7 +4393,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
       if (!print_line(print_stream, 0, ""))
         return FALSE;
     }
-    if (!print_hex_data(print_stream, edt))
+    if (!print_hex_data(print_stream, edt, hexdump_source_option | hexdump_ascii_option))
       return FALSE;
     if (!print_line(print_stream, 0, separator))
       return FALSE;

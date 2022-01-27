@@ -1486,7 +1486,7 @@ static void update_session(l2tpv3_tunnel_t *tunnel, l2tpv3_session_t *session)
 
 static void l2tp_prompt(packet_info *pinfo _U_, gchar* result)
 {
-    g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Decode L2TPv3 packet type 0x%04x as",
+    snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "Decode L2TPv3 packet type 0x%04x as",
         GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_l2tp, 0)));
 }
 
@@ -1648,11 +1648,11 @@ static int dissect_l2tp_broadband_avps(tvbuff_t *tvb, packet_info *pinfo _U_, pr
     switch (avp_type) {
 
     case BROADBAND_AGENT_CIRCUIT_ID:
-        proto_tree_add_item(l2tp_avp_tree, hf_l2tp_broadband_agent_circuit_id, tvb, offset, avp_len, ENC_UTF_8|ENC_NA);
+        proto_tree_add_item(l2tp_avp_tree, hf_l2tp_broadband_agent_circuit_id, tvb, offset, avp_len, ENC_UTF_8);
         break;
 
     case BROADBAND_AGENT_REMOTE_ID:
-        proto_tree_add_item(l2tp_avp_tree, hf_l2tp_broadband_agent_remote_id, tvb, offset, avp_len, ENC_UTF_8|ENC_NA);
+        proto_tree_add_item(l2tp_avp_tree, hf_l2tp_broadband_agent_remote_id, tvb, offset, avp_len, ENC_UTF_8);
         break;
 
     case BROADBAND_ACTUAL_DR_UP:

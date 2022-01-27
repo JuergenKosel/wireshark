@@ -72,14 +72,14 @@ enum {
 	OPT_PAYLOAD
 };
 
-static struct option longopts[] = {
+static struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	/* Generic application options */
-	{ "help", no_argument, NULL, OPT_HELP},
-	{ "version", no_argument, NULL, OPT_VERSION},
+	{ "help", ws_no_argument, NULL, OPT_HELP},
+	{ "version", ws_no_argument, NULL, OPT_VERSION},
 	/* Interfaces options */
-	{ "port", required_argument, NULL, OPT_PORT},
-	{ "payload", required_argument, NULL, OPT_PAYLOAD},
+	{ "port", ws_required_argument, NULL, OPT_PORT},
+	{ "payload", ws_required_argument, NULL, OPT_PAYLOAD},
     { 0, 0, 0, 0 }
 };
 
@@ -358,10 +358,7 @@ int main(int argc, char *argv[])
 	char* port_msg = NULL;
 
 	/* Initialize log handler early so we can have proper logging during startup. */
-	ws_log_init("udpdump", NULL);
-
-	/* Early logging command-line initialization. */
-	ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+	extcap_log_init("udpdump");
 
 	/*
 	 * Get credential information for later use.
@@ -374,7 +371,7 @@ int main(int argc, char *argv[])
 	 */
 	err_msg = init_progfile_dir(argv[0]);
 	if (err_msg != NULL) {
-		ws_warning("Can't get pathname of directory containing the captype program: %s.",
+		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);
 		g_free(err_msg);
 	}
@@ -385,7 +382,7 @@ int main(int argc, char *argv[])
 	g_free(help_url);
 	extcap_base_register_interface(extcap_conf, UDPDUMP_EXTCAP_INTERFACE, "UDP Listener remote capture", 252, "Exported PDUs");
 
-	help_header = g_strdup_printf(
+	help_header = ws_strdup_printf(
 		" %s --extcap-interfaces\n"
 		" %s --extcap-interface=%s --extcap-dlts\n"
 		" %s --extcap-interface=%s --extcap-config\n"
@@ -395,19 +392,19 @@ int main(int argc, char *argv[])
 	g_free(help_header);
 	extcap_help_add_option(extcap_conf, "--help", "print this help");
 	extcap_help_add_option(extcap_conf, "--version", "print the version");
-	port_msg = g_strdup_printf("the port to listens on. Default: %u", UDPDUMP_DEFAULT_PORT);
+	port_msg = ws_strdup_printf("the port to listens on. Default: %u", UDPDUMP_DEFAULT_PORT);
 	extcap_help_add_option(extcap_conf, "--port <port>", port_msg);
 	g_free(port_msg);
 
-	opterr = 0;
-	optind = 0;
+	ws_opterr = 0;
+	ws_optind = 0;
 
 	if (argc == 1) {
 		extcap_help_print(extcap_conf);
 		goto end;
 	}
 
-	while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
+	while ((result = ws_getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
 		switch (result) {
 
 		case OPT_HELP:
@@ -420,25 +417,25 @@ int main(int argc, char *argv[])
 			goto end;
 
 		case OPT_PORT:
-			if (!ws_strtou16(optarg, NULL, &port)) {
-				ws_warning("Invalid port: %s", optarg);
+			if (!ws_strtou16(ws_optarg, NULL, &port)) {
+				ws_warning("Invalid port: %s", ws_optarg);
 				goto end;
 			}
 			break;
 
 		case OPT_PAYLOAD:
 			g_free(payload);
-			payload = g_strdup(optarg);
+			payload = g_strdup(ws_optarg);
 			break;
 
 		case ':':
 			/* missing option argument */
-			ws_warning("Option '%s' requires an argument", argv[optind - 1]);
+			ws_warning("Option '%s' requires an argument", argv[ws_optind - 1]);
 			break;
 
 		default:
-			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg)) {
-				ws_warning("Invalid option: %s", argv[optind - 1]);
+			if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, ws_optarg)) {
+				ws_warning("Invalid option: %s", argv[ws_optind - 1]);
 				goto end;
 			}
 		}
@@ -446,8 +443,8 @@ int main(int argc, char *argv[])
 
 	extcap_cmdline_debug(argv, argc);
 
-	if (optind != argc) {
-		ws_warning("Unexpected extra option: %s", argv[optind]);
+	if (ws_optind != argc) {
+		ws_warning("Unexpected extra option: %s", argv[ws_optind]);
 		goto end;
 	}
 

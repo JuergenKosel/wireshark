@@ -10,10 +10,10 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "config.h"
-#include <stdio.h>
 
 #include <epan/exceptions.h>
 #include <epan/packet.h>
+#include "packet-amp.h"
 
 /* The AMP standard can be found here:
  * https://tools.ietf.org/html/draft-birrane-dtn-amp-04
@@ -24,8 +24,6 @@
                           being called from dtn.c file when required to decode the bundle protocol's
                           data-payload as AMP. Later in the future, when a dedicated field is given to
                           this, this should be filled. */
-
-void dissect_amp_as_subtree(tvbuff_t *tvb,  packet_info *pinfo, proto_tree *tree, int offset);
 
 /*
  */

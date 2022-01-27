@@ -1,4 +1,5 @@
-/*
+/** @file
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2001 Gerald Combs
@@ -9,6 +10,7 @@
 #ifndef DFVM_H
 #define DFVM_H
 
+#include <wsutil/regex.h>
 #include <epan/proto.h>
 #include "dfilter-int.h"
 #include "syntax-tree.h"
@@ -36,7 +38,7 @@ typedef struct {
 		drange_t		*drange;
 		header_field_info	*hfinfo;
 		df_func_def_t		*funcdef;
-		GRegex			*pcre;
+		ws_regex_t		*pcre;
 	} value;
 
 } dfvm_value_t;
@@ -52,7 +54,9 @@ typedef enum {
 	READ_TREE,
 	PUT_FVALUE,
 	PUT_PCRE,
+	ALL_EQ,
 	ANY_EQ,
+	ALL_NE,
 	ANY_NE,
 	ANY_GT,
 	ANY_GE,

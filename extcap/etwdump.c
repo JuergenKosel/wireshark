@@ -11,6 +11,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN "etwdump"
 
 #include "extcap-base.h"
 
@@ -41,13 +42,13 @@ enum {
     OPT_PARAMS
 };
 
-static struct option longopts[] = {
+static struct ws_option longopts[] = {
     EXTCAP_BASE_OPTIONS,
-    { "help",    no_argument,       NULL, OPT_HELP},
-    { "version", no_argument,       NULL, OPT_VERSION},
-    { "iue",     optional_argument, NULL, OPT_INCLUDE_UNDECIDABLE_EVENT},
-    { "etlfile", required_argument, NULL, OPT_ETLFILE},
-    { "params",  required_argument, NULL, OPT_PARAMS},
+    { "help",    ws_no_argument,       NULL, OPT_HELP},
+    { "version", ws_no_argument,       NULL, OPT_VERSION},
+    { "iue",     ws_optional_argument, NULL, OPT_INCLUDE_UNDECIDABLE_EVENT},
+    { "etlfile", ws_required_argument, NULL, OPT_ETLFILE},
+    { "params",  ws_required_argument, NULL, OPT_PARAMS},
     { 0, 0, 0, 0 }
 };
 
@@ -123,10 +124,7 @@ int main(int argc, char* argv[])
     char* help_header = NULL;
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("etwdump", NULL);
-
-    /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, NULL, LOG_ARGS_NOEXIT);
+    extcap_log_init("etwdump");
 
     /*
      * Get credential information for later use.
@@ -139,7 +137,7 @@ int main(int argc, char* argv[])
      */
     err_msg = init_progfile_dir(argv[0]);
     if (err_msg != NULL) {
-        ws_warning("Can't get pathname of directory containing the captype program: %s.",
+        ws_warning("Can't get pathname of directory containing the extcap program: %s.",
             err_msg);
         g_free(err_msg);
     }
@@ -150,7 +148,7 @@ int main(int argc, char* argv[])
     g_free(help_url);
     extcap_base_register_interface(extcap_conf, ETW_EXTCAP_INTERFACE, "ETW reader", 290, "DLT_ETW");
 
-    help_header = g_strdup_printf(
+    help_header = ws_strdup_printf(
         " %s --extcap-interfaces\n"
         " %s --extcap-interface=%s --extcap-dlts\n"
         " %s --extcap-interface=%s --extcap-config\n"
@@ -170,7 +168,7 @@ int main(int argc, char* argv[])
         goto end;
     }
 
-    while ((result = getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
+    while ((result = ws_getopt_long(argc, argv, ":", longopts, &option_idx)) != -1) {
         switch (result) {
         case OPT_VERSION:
             extcap_version_print(extcap_conf);
@@ -183,12 +181,12 @@ int main(int argc, char* argv[])
             goto end;
 
         case OPT_ETLFILE:
-            etlfile = g_strdup(optarg);
+            etlfile = g_strdup(ws_optarg);
             break;
 
         case OPT_PARAMS:
             /* Add params as the prefix since getopt_long will ignore the first argument always */
-            params = g_strdup_printf("params %s", optarg);
+            params = ws_strdup_printf("params %s", ws_optarg);
             break;
 
         case OPT_INCLUDE_UNDECIDABLE_EVENT:
@@ -197,14 +195,14 @@ int main(int argc, char* argv[])
 
         case ':':
             /* missing option argument */
-            ws_warning("Option '%s' requires an argument", argv[optind - 1]);
+            ws_warning("Option '%s' requires an argument", argv[ws_optind - 1]);
             break;
 
         default:
             /* Handle extcap specific options */
-            if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, optarg))
+            if (!extcap_base_parse_options(extcap_conf, result - EXTCAP_OPT_LIST_INTERFACES, ws_optarg))
             {
-                ws_warning("Invalid option: %s", argv[optind - 1]);
+                ws_warning("Invalid option: %s", argv[ws_optind - 1]);
                 goto end;
             }
         }
@@ -256,13 +254,13 @@ int main(int argc, char* argv[])
             if (etlfile == NULL)
             {
                 if (err_msg != NULL) {
-                    ws_warning("The live session didn't caputre any event. Error message: %s.",
+                    ws_warning("The live session didn't capture any event. Error message: %s.",
                         err_msg);
                     g_free(err_msg);
                 }
                 else
                 {
-                    ws_warning("The live session didn't caputre any event");
+                    ws_warning("The live session didn't capture any event");
                 }
             }
             else

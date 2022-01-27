@@ -1289,7 +1289,7 @@ parse_arg(tvbuff_t      *tvb,
 static void
 alljoyn_typeid( gchar *result, guint32 type )
 {
-   g_snprintf( result, ITEM_LABEL_LENGTH, "'%c' => ", type);
+   snprintf( result, ITEM_LABEL_LENGTH, "'%c' => ", type);
 }
 
 /* This is called by handle_message_header_fields() to handle a single
@@ -1889,7 +1889,7 @@ ns_parse_answers_v0(tvbuff_t *tvb, gint* offset, proto_tree* alljoyn_tree, guint
  *      Bit 0 (ISAT_U6): If '1' then the IPv6 endpoint of an unreliable method
  *      (UDP) transport (IP address and port) is present.
  *
- *      Bit 1 (ISAT_R6): If '1' the the IPv6 endpoint of a reliable method
+ *      Bit 1 (ISAT_R6): If '1' then the IPv6 endpoint of a reliable method
  *      (TCP) transport (IP address and port) is present.
  *
  *      Bit 2 (ISAT_U4): If '1' then the IPv4 endpoint of an unreliable method

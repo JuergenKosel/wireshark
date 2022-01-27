@@ -27,6 +27,8 @@
 #include "uat_dialog.h"
 #include "wireshark_application.h"
 
+#include <QActionGroup>
+
 // To do:
 // - Elide really long items?
 // - Handle color prefs.
@@ -235,6 +237,7 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
     case PREF_RANGE:
     case PREF_DECODE_AS_UINT:
     case PREF_DECODE_AS_RANGE:
+    case PREF_PASSWORD:
     {
         EditorPreferenceAction *epa = new EditorPreferenceAction(pref, this);
         addAction(epa);

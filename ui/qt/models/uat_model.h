@@ -1,4 +1,5 @@
-/* uat_model.h
+/** @file
+ *
  * Data model for UAT records.
  *
  * Copyright 2016 Peter Wu <peter@lekensteyn.nl>
@@ -23,8 +24,6 @@
 
 class UatModel : public QAbstractTableModel
 {
-    Q_OBJECT
-
 public:
     UatModel(QObject *parent, uat_t *uat = 0);
     UatModel(QObject *parent, QString tableName);

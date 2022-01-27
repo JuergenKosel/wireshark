@@ -1,4 +1,4 @@
-/* wtap.h
+/** @file
  *
  * Wiretap Library
  * Copyright (c) 1998 by Gilbert Ramirez <gram@alumni.rice.edu>
@@ -9,14 +9,12 @@
 #ifndef __WTAP_H__
 #define __WTAP_H__
 
-#include <glib.h>
+#include <wireshark.h>
 #include <time.h>
 #include <wsutil/buffer.h>
 #include <wsutil/nstime.h>
 #include <wsutil/inet_addr.h>
 #include "wtap_opttypes.h"
-#include "ws_symbol_export.h"
-#include "ws_attributes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -290,6 +288,7 @@ extern "C" {
 #define WTAP_ENCAP_SLL2                         210
 #define WTAP_ENCAP_ZWAVE_SERIAL                 211
 #define WTAP_ENCAP_ETW                          212
+#define WTAP_ENCAP_ERI_ENB_LOG                  213
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -2236,6 +2235,8 @@ void wtap_register_open_info(struct open_info *oi, const gboolean first_routine)
 WS_DLL_PUBLIC
 gboolean wtap_has_open_info(const gchar *name);
 WS_DLL_PUBLIC
+gboolean wtap_uses_lua_filehandler(const wtap* wth);
+WS_DLL_PUBLIC
 void wtap_deregister_open_info(const gchar *name);
 
 WS_DLL_PUBLIC
@@ -2291,7 +2292,7 @@ void wtap_cleanup(void);
     /** The file couldn't be closed, reason unknown */
 
 #define WTAP_ERR_SHORT_READ                   -12
-    /** An attempt to read read less data than it should have */
+    /** An attempt to read less data than it should have */
 
 #define WTAP_ERR_BAD_FILE                     -13
     /** The file appears to be damaged or corrupted or otherwise bogus */

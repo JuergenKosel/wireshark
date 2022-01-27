@@ -1,7 +1,7 @@
 /* packet-tecmp.c
  * Technically Enhanced Capture Module Protocol (TECMP) dissector.
  * By <lars.voelker@technica-engineering.de>
- * Copyright 2019-2021 Dr. Lars Voelker
+ * Copyright 2019-2022 Dr. Lars Voelker
  * Copyright 2020      Ayoub Kaanich
  *
  * Wireshark - Network traffic analyzer
@@ -41,6 +41,7 @@ static dissector_handle_t eth_handle;
 static int proto_vlan;
 
 static gboolean heuristic_first = FALSE;
+static gboolean analog_samples_are_signed_int = FALSE;
 
 static dissector_table_t fr_subdissector_table;
 static heur_dissector_list_t fr_heur_subdissector_list;
@@ -135,6 +136,7 @@ static int hf_tecmp_payload_data_frame_id = -1;
 
 /* Analog */
 static int hf_tecmp_payload_data_analog_value_raw = -1;
+static int hf_tecmp_payload_data_analog_value_raw_signed = -1;
 static int hf_tecmp_payload_data_analog_value_volt = -1;
 static int hf_tecmp_payload_data_analog_value_amp = -1;
 
@@ -421,6 +423,13 @@ static const value_string tecmp_bus_status_link_quality[] = {
 #define DATA_FLAG_CAN_ERR 0x0008
 #define DATA_FLAG_CAN_BRS 0x0010
 
+#define DATA_FLAG_FR_NF   0x0001
+#define DATA_FLAG_FR_ST   0x0002
+#define DATA_FLAG_FR_SYNC 0x0004
+#define DATA_FLAG_FR_WUS  0x0008
+#define DATA_FLAG_FR_PPI  0x0010
+#define DATA_FLAG_FR_CAS  0x0020
+
 /********* UATs *********/
 
 typedef struct _generic_one_id_string {
@@ -442,7 +451,7 @@ static GHashTable *data_tecmp_cms = NULL;
 static generic_one_id_string_t* tecmp_cms = NULL;
 static guint tecmp_cms_num = 0;
 
-UAT_DEC_CB_DEF(tecmp_cms, id, generic_one_id_string_t)
+UAT_HEX_CB_DEF(tecmp_cms, id, generic_one_id_string_t)
 UAT_CSTRING_CB_DEF(tecmp_cms, name, generic_one_id_string_t)
 
 static GHashTable *data_tecmp_channels = NULL;
@@ -481,7 +490,7 @@ update_generic_one_identifier_16bit(void *r, char **err) {
     generic_one_id_string_t *rec = (generic_one_id_string_t *)r;
 
     if (rec->id > 0xffff) {
-        *err = g_strdup_printf("We currently only support 16 bit identifiers (ID: %i  Name: %s)", rec->id, rec->name);
+        *err = ws_strdup_printf("We currently only support 16 bit identifiers (ID: %i  Name: %s)", rec->id, rec->name);
         return FALSE;
     }
 
@@ -548,7 +557,7 @@ update_channel_config(void *r, char **err) {
     channel_config_t *rec = (channel_config_t *)r;
 
     if (rec->id > 0xffffffff) {
-        *err = g_strdup_printf("We currently only support 32 bit identifiers (ID: %i  Name: %s)", rec->id, rec->name);
+        *err = ws_strdup_printf("We currently only support 32 bit identifiers (ID: %i  Name: %s)", rec->id, rec->name);
         return FALSE;
     }
 
@@ -558,7 +567,7 @@ update_channel_config(void *r, char **err) {
     }
 
     if (rec->bus_id > 0xffff) {
-        *err = g_strdup_printf("We currently only support 16 bit bus identifiers (ID: %i  Name: %s  Bus-ID: %i)", rec->id, rec->name, rec->bus_id);
+        *err = ws_strdup_printf("We currently only support 16 bit bus identifiers (ID: %i  Name: %s  Bus-ID: %i)", rec->id, rec->name, rec->bus_id);
         return FALSE;
     }
 
@@ -1237,7 +1246,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 if (length2 > 0) {
                     lin_info.len = tvb_captured_length_remaining(sub_tvb, offset2);
-                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, tvb_captured_length_remaining(sub_tvb, offset2) - 1);
+                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, length2);
                     guint32 bus_frame_id = lin_info.id | (lin_info.bus_id << 16);
                     if (!dissector_try_uint_new(lin_subdissector_table, bus_frame_id, payload_tvb, pinfo, tree, FALSE, &lin_info)) {
                         if (!dissector_try_uint_new(lin_subdissector_table, lin_info.id, payload_tvb, pinfo, tree, FALSE, &lin_info)) {
@@ -1270,7 +1279,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 }
 
                 if (length2 > 0) {
-                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, tvb_captured_length_remaining(sub_tvb, offset2));
+                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, length2);
 
                     can_info.fd = (msg_type == TECMP_DATA_TYPE_CAN_FD_DATA);
                     can_info.len = tvb_captured_length_remaining(sub_tvb, offset2);
@@ -1315,8 +1324,8 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     length2 = MAX(0, MIN((gint)length2, tvb_captured_length_remaining(sub_tvb, offset2)));
                 }
 
-                if (length2 > 0) {
-                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, tvb_captured_length_remaining(sub_tvb, offset2));
+                if ((dataflags & DATA_FLAG_FR_NF) == 0 && length2 > 0) {
+                    payload_tvb = tvb_new_subset_length(sub_tvb, offset2, length2);
 
                     if (!flexray_call_subdissectors(payload_tvb, pinfo, tree, &fr_info, heuristic_first)) {
                         call_data_dissector(payload_tvb, pinfo, tree);
@@ -1336,16 +1345,27 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 tmp = offset2 + length;
                 while (offset2 + 2 <= tmp) {
-                    guint value = tvb_get_guint16(sub_tvb, offset2, ENC_BIG_ENDIAN);
+                    gdouble scaled_value;
+
+                    if (analog_samples_are_signed_int) {
+                        scaled_value = analog_value_scale_factor * tvb_get_gint16(sub_tvb, offset2, ENC_BIG_ENDIAN);
+                    } else {
+                        scaled_value = analog_value_scale_factor * tvb_get_guint16(sub_tvb, offset2, ENC_BIG_ENDIAN);
+                    }
+
                     switch ((dataflags & TECMP_DATAFLAGS_UNIT_MASK) >> TECMP_DATAFLAGS_UNIT_SHIFT) {
                     case 0x0:
-                        proto_tree_add_double(tecmp_tree, hf_tecmp_payload_data_analog_value_volt, sub_tvb, offset2, 2, (analog_value_scale_factor * value));
+                        proto_tree_add_double(tecmp_tree, hf_tecmp_payload_data_analog_value_volt, sub_tvb, offset2, 2, scaled_value);
                         break;
                     case 0x01:
-                        proto_tree_add_double(tecmp_tree, hf_tecmp_payload_data_analog_value_amp, sub_tvb, offset2, 2, (analog_value_scale_factor * value));
+                        proto_tree_add_double(tecmp_tree, hf_tecmp_payload_data_analog_value_amp, sub_tvb, offset2, 2, scaled_value);
                         break;
                     default:
-                        ti = proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_analog_value_raw, sub_tvb, offset2, 2, ENC_BIG_ENDIAN);
+                        if (analog_samples_are_signed_int) {
+                            ti = proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_analog_value_raw_signed, sub_tvb, offset2, 2, ENC_BIG_ENDIAN);
+                        } else {
+                            ti = proto_tree_add_item(tecmp_tree, hf_tecmp_payload_data_analog_value_raw, sub_tvb, offset2, 2, ENC_BIG_ENDIAN);
+                        }
                         proto_item_append_text(ti, "%s", " (raw)");
                     }
                     offset2 += 2;
@@ -1672,22 +1692,22 @@ proto_register_tecmp_payload(void) {
         /* FlexRay Data */
         { &hf_tecmp_payload_data_flags_nf,
             { "Null Frame", "tecmp.payload.data_flags.null_frame",
-            FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL }},
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_NF, NULL, HFILL }},
         { &hf_tecmp_payload_data_flags_sf,
             { "Startup Frame", "tecmp.payload.data_flags.startup_frame",
-            FT_BOOLEAN, 16, NULL, 0x0002, NULL, HFILL }},
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_ST, NULL, HFILL }},
         { &hf_tecmp_payload_data_flags_sync,
             { "Sync Frame", "tecmp.payload.data_flags.sync_frame",
-            FT_BOOLEAN, 16, NULL, 0x0004, NULL, HFILL }},
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_SYNC, NULL, HFILL }},
         { &hf_tecmp_payload_data_flags_wus,
             { "Wakeup Symbol", "tecmp.payload.data_flags.wakeup_symbol",
-            FT_BOOLEAN, 16, NULL, 0x0008, NULL, HFILL }},
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_WUS, NULL, HFILL }},
         { &hf_tecmp_payload_data_flags_ppi,
             { "Payload Preamble Indicator", "tecmp.payload.data_flags.payload_preamble_indicator",
-            FT_BOOLEAN, 16, NULL, 0x0010, NULL, HFILL }},
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_PPI, NULL, HFILL }},
         { &hf_tecmp_payload_data_flags_cas,
             { "Collision Avoidance Symbol", "tecmp.payload.data_flags.collision_avoidance_symbol",
-            FT_BOOLEAN, 16, NULL, 0x0020, NULL, HFILL } },
+            FT_BOOLEAN, 16, NULL, DATA_FLAG_FR_CAS, NULL, HFILL } },
 
         /* UART/RS232 ASCII */
         { &hf_tecmp_payload_data_flags_dl,
@@ -1716,6 +1736,9 @@ proto_register_tecmp_payload(void) {
         { &hf_tecmp_payload_data_analog_value_raw,
             { "Analog Value", "tecmp.payload.data.analog_value",
             FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_tecmp_payload_data_analog_value_raw_signed,
+            { "Analog Value", "tecmp.payload.data.analog_value_signed",
+            FT_INT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
         { &hf_tecmp_payload_data_analog_value_volt,
             { "Analog Value", "tecmp.payload.data.analog_value_volt",
             FT_DOUBLE, BASE_NONE | BASE_UNIT_STRING, &units_volt, 0x0, NULL, HFILL } },
@@ -1808,7 +1831,7 @@ proto_register_tecmp(void) {
 
     /* UATs for user_data fields */
     static uat_field_t tecmp_cm_id_uat_fields[] = {
-        UAT_FLD_DEC(tecmp_cms, id, "ID", "ID of the Capture Module (decimal uint16)"),
+        UAT_FLD_HEX(tecmp_cms, id, "ID", "ID of the Capture Module (hex uint16 without leading 0x)"),
         UAT_FLD_CSTRING(tecmp_cms, name, "Capture Module Name", "Name of the Capture Module (string)"),
         UAT_END_FIELDS
     };
@@ -1823,7 +1846,7 @@ proto_register_tecmp(void) {
     proto_tecmp = proto_register_protocol("Technically Enhanced Capture Module Protocol", "TECMP", "tecmp");
     proto_register_field_array(proto_tecmp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
-    tecmp_module = prefs_register_protocol(proto_tecmp, &proto_reg_handoff_tecmp);
+    tecmp_module = prefs_register_protocol(proto_tecmp, NULL);
 
     /* UATs */
     tecmp_cmid_uat = uat_new("TECMP Capture Modules",
@@ -1869,6 +1892,11 @@ proto_register_tecmp(void) {
         "Try to decode a packet using an heuristic sub-dissector"
         " before using a sub-dissector registered to \"decode as\"",
         &heuristic_first);
+
+    prefs_register_bool_preference(tecmp_module, "analog_samples_sint",
+        "Decode Analog Samples as Signed Integer",
+        "Treat the analog samples as signed integers and decode them accordingly.",
+        &analog_samples_are_signed_int);
 }
 
 void
@@ -1882,7 +1910,6 @@ proto_reg_handoff_tecmp(void) {
     fr_heur_subdissector_list = find_heur_dissector_list("flexray");
 
     lin_subdissector_table = find_dissector_table("lin.frame_id");
-
 }
 
 /*

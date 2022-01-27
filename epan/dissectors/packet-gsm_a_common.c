@@ -1158,14 +1158,12 @@ dissect_description_of_velocity(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
 {
     proto_item *velocity_item;
     guint32     curr_offset;
-    guint8      velocity_type, uncertainty_speed = 0;
+    guint32     velocity_type, uncertainty_speed = 0;
 
     curr_offset = offset;
 
     /* Bit 8 - 5 Velocity Type */
-    velocity_type = tvb_get_guint8(tvb,curr_offset);
-    proto_tree_add_item(tree, hf_gsm_a_velocity_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-    curr_offset++;
+    proto_tree_add_item_ret_uint(tree, hf_gsm_a_velocity_type, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &velocity_type);
 
     switch (velocity_type) {
     case 0:
@@ -1176,7 +1174,7 @@ dissect_description_of_velocity(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
         proto_tree_add_bits_item(tree, hf_gsm_a_bearing, tvb, (curr_offset<<3)+7, 9, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Horizontal speed is encoded in increments of 1 kilometre per hour using a 16 bit binary coded number N. */
-        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
         curr_offset += 2;
         break;
     case 1:
@@ -1184,17 +1182,17 @@ dissect_description_of_velocity(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
         /* Spare bits */
         proto_tree_add_bits_item(tree, hf_gsm_a_spare_bits, tvb, (curr_offset<<3)+4, 2, ENC_BIG_ENDIAN);
         /* D: Direction of Vertical Speed */
-        proto_tree_add_item(tree, hf_gsm_a_d, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_d, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         /* Bearing is encoded in increments of 1 degree measured clockwise from North using a 9 bit binary coded number N. */
         proto_tree_add_bits_item(tree, hf_gsm_a_bearing, tvb, (curr_offset<<3)+7, 9, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Horizontal speed is encoded in increments of 1 kilometre per hour using a 16 bit binary coded number N. */
-        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Vertical Speed Octet 5
          * Vertical speed is encoded in increments of 1 kilometre per hour using 8 bits giving a number N between 0 and 28-1.
          */
-        proto_tree_add_item(tree, hf_gsm_a_vertical_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_vertical_speed, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         curr_offset++;
         break;
     case 2:
@@ -1205,59 +1203,55 @@ dissect_description_of_velocity(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
         proto_tree_add_bits_item(tree, hf_gsm_a_bearing, tvb, (curr_offset<<3)+7, 9, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Horizontal speed is encoded in increments of 1 kilometre per hour using a 16 bit binary coded number N. */
-        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Uncertainty Speed Octet 5
          * Uncertainty speed is encoded in increments of 1 kilometre per hour using an 8 bit binary coded number N. The value of
          * N gives the uncertainty speed except for N=255 which indicates that the uncertainty is not specified.
          */
-        uncertainty_speed = tvb_get_guint8(tvb,curr_offset);
-        velocity_item = proto_tree_add_item(tree, hf_gsm_a_uncertainty_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
+        velocity_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_uncertainty_speed, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &uncertainty_speed);
         if (uncertainty_speed == 255) {
-            proto_item_append_text(velocity_item, " not specified");
-        }else{
-            proto_item_append_text(velocity_item, " km/h");
+            proto_item_append_text(velocity_item, " (not specified)");
+        } else {
+            proto_item_append_text(velocity_item, "km/h");
         }
-        offset++;
+        curr_offset++;
         break;
     case 3:
         /* 8.15 Coding of Horizontal with Vertical Velocity and Uncertainty */
         /* Spare bits */
         proto_tree_add_bits_item(tree, hf_gsm_a_spare_bits, tvb, (curr_offset<<3)+4, 2, ENC_BIG_ENDIAN);
         /* D: Direction of Vertical Speed */
-        proto_tree_add_item(tree, hf_gsm_a_d, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_d, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         /* Bearing is encoded in increments of 1 degree measured clockwise from North using a 9 bit binary coded number N. */
         proto_tree_add_bits_item(tree, hf_gsm_a_bearing, tvb, (curr_offset<<3)+7, 9, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Horizontal speed is encoded in increments of 1 kilometre per hour using a 16 bit binary coded number N. */
-        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, offset, 2, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_horizontal_speed, tvb, curr_offset, 2, ENC_BIG_ENDIAN);
         curr_offset += 2;
         /* Vertical Speed Octet 5
          * Vertical speed is encoded in increments of 1 kilometre per hour using 8 bits giving a number N between 0 and 28-1.
          */
-        proto_tree_add_item(tree, hf_gsm_a_vertical_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_gsm_a_vertical_speed, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         curr_offset++;
 
         /* Horizontal Uncertainty Speed Octet 6 */
-        uncertainty_speed = tvb_get_guint8(tvb,curr_offset);
-        velocity_item = proto_tree_add_item(tree, hf_gsm_a_h_uncertainty_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
+        velocity_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_h_uncertainty_speed, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &uncertainty_speed);
         if (uncertainty_speed == 255) {
-            proto_item_append_text(velocity_item, " not specified");
-        }else{
-            proto_item_append_text(velocity_item, " km/h");
+            proto_item_append_text(velocity_item, " (not specified)");
+        } else {
+            proto_item_append_text(velocity_item, "km/h");
         }
-        offset++;
+        curr_offset++;
 
         /* Vertical Uncertainty Speed Octet 7 */
-        uncertainty_speed = tvb_get_guint8(tvb,curr_offset);
-        velocity_item = proto_tree_add_item(tree, hf_gsm_a_v_uncertainty_speed, tvb, offset, 1, ENC_BIG_ENDIAN);
+        velocity_item = proto_tree_add_item_ret_uint(tree, hf_gsm_a_v_uncertainty_speed, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &uncertainty_speed);
         if (uncertainty_speed == 255) {
-            proto_item_append_text(velocity_item, " not specified");
-        }else{
-            proto_item_append_text(velocity_item, " km/h");
+            proto_item_append_text(velocity_item, " (not specified)");
+        } else {
+            proto_item_append_text(velocity_item, "km/h");
         }
-        offset++;
-
+        curr_offset++;
         break;
     default:
         break;
@@ -2309,7 +2303,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
         proto_tree_add_item(tree, hf_gsm_a_mobile_identity_type, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
 
         if (add_string)
-            g_snprintf(add_string, string_len, " - No Identity Code");
+            snprintf(add_string, string_len, " - No Identity Code");
 
         curr_offset++;
 
@@ -2353,7 +2347,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
         }
 
         if (add_string)
-            g_snprintf(add_string, string_len, " - %s (%s)",
+            snprintf(add_string, string_len, " - %s (%s)",
                 ((oct & 0x07) == 3) ? "IMEISV" : "IMSI",
                 digit_str);
 
@@ -2385,7 +2379,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
             digit_str);
 
         if (add_string)
-            g_snprintf(add_string, string_len, " - IMEI (%s)", digit_str);
+            snprintf(add_string, string_len, " - IMEI (%s)", digit_str);
 
         curr_offset += len - (curr_offset - offset);
         break;
@@ -2399,7 +2393,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
         proto_tree_add_item_ret_uint(tree, hf_3gpp_tmsi, tvb, curr_offset, 4, ENC_BIG_ENDIAN, &value);
 
         if (add_string)
-            g_snprintf(add_string, string_len, " - TMSI/P-TMSI (0x%04x)", value);
+            snprintf(add_string, string_len, " - TMSI/P-TMSI (0x%04x)", value);
 
         curr_offset += 4;
         break;
@@ -2441,7 +2435,7 @@ de_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset, guin
         expert_add_info_format(pinfo, ti, &ei_gsm_a_mobile_identity_type, "Unknown format %u", (oct & 0x07));
 
         if (add_string)
-            g_snprintf(add_string, string_len, " - Format Unknown");
+            snprintf(add_string, string_len, " - Format Unknown");
 
         curr_offset += len;
         break;
@@ -3580,7 +3574,7 @@ de_plmn_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, guint32 offset
     }
 
     if (add_string)
-        g_snprintf(add_string, string_len, " - %u PLMN%s",
+        snprintf(add_string, string_len, " - %u PLMN%s",
             num_plmn, plurality(num_plmn, "", "s"));
 
     EXTRANEOUS_DATA_CHECK(len, curr_offset - offset, pinfo, &ei_gsm_a_extraneous_data);
@@ -3718,7 +3712,7 @@ static void gsm_a_stat_init(stat_tap_table_ui* new_stat, const char *table_title
         if (msg_str) {
             col_str = g_strdup(msg_str);
         } else {
-            col_str = g_strdup_printf("Unknown message %d", i);
+            col_str = ws_strdup_printf("Unknown message %d", i);
         }
 
         items[IEI_COLUMN].value.uint_value = i;
@@ -4759,7 +4753,7 @@ proto_register_gsm_a_common(void)
         NULL, HFILL }
     },
     { &hf_gsm_a_velocity_type,
-        { "Number of points", "gsm_a.gad.velocity_type",
+        { "Velocity type", "gsm_a.gad.velocity_type",
         FT_UINT8, BASE_DEC, VALS(gsm_a_velocity_type_vals), 0xf0,
         NULL, HFILL }
     },
@@ -4795,7 +4789,7 @@ proto_register_gsm_a_common(void)
     },
     { &hf_gsm_a_d,
         { "Direction of Vertical Speed", "gsm_a.gad.d",
-          FT_BOOLEAN, 8, TFS(&gsm_a_dir_of_ver_speed_vals), 0x08,
+          FT_BOOLEAN, 8, TFS(&gsm_a_dir_of_ver_speed_vals), 0x02,
         NULL, HFILL}
     },
     { &hf_gsm_a_geo_loc_D,

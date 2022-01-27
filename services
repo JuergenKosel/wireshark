@@ -7,7 +7,7 @@
 # https://www.wireshark.org/lists/wireshark-dev/200708/msg00160.html
 #
 # The original file can be found at:
-# http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv
+# https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv
 #
 # The format is the same as that used for services(5). It is allowed to merge
 # identical protocols, for example:
@@ -2579,6 +2579,7 @@ icslap		2869/tcp/udp	# ICSLAP
 daishi		2870/tcp/udp
 msi-selectplay	2871/tcp/udp	# MSI Select Play
 radix		2872/tcp/udp	# RADIX
+psrt		2873/tcp/udp	# PubSub Realtime Telemetry Protocol
 dxmessagebase1	2874/tcp/udp	# DX Message Base Transport Protocol
 dxmessagebase2	2875/tcp/udp	# DX Message Base Transport Protocol
 sps-tunnel	2876/tcp/udp	# SPS Tunnel
@@ -3890,6 +3891,7 @@ dsmipv6		4191/udp	# Dual Stack MIPv6 NAT Traversal
 azeti		4192/tcp	# Azeti Agent Service
 azeti-bd	4192/udp	# azeti blinddate
 pvxplusio	4193/tcp	# PxPlus remote file srvr
+spdm		4194/tcp	# Security Protocol and Data Model
 aws-wsp		4195/tcp/udp/sctp/dccp	# AWS protocol for cloud remoting solution
 hctl		4197/tcp/udp	# Harman HControl Protocol
 eims-admin	4199/tcp/udp	# EIMS ADMIN
@@ -3910,6 +3912,7 @@ perrla		4313/tcp	# PERRLA User Services
 choiceview-agt	4314/tcp	# ChoiceView Agent
 choiceview-clt	4316/tcp	# ChoiceView Client
 opentelemetry	4317/tcp	# OpenTelemetry Protocol
+fox-skytale	4319/tcp/udp	# Fox SkyTale encrypted communication
 fdt-rcatp	4320/tcp/udp	# FDT Remote Categorization Protocol
 rwhois		4321/tcp/udp	# Remote Who Is
 trim-event	4322/tcp/udp	# TRIM Event Service
@@ -4257,7 +4260,6 @@ strexec-d	5026/tcp/udp	# Storix I/O daemon (data)
 strexec-s	5027/tcp/udp	# Storix I/O daemon (stat)
 qvr		5028/tcp	# Quiqum Virtual Relais
 infobright	5029/tcp/udp	# Infobright Database Server
-surfpass	5030/tcp/udp	# SurfPass
 dmp		5031/udp	# Direct Message Protocol
 signacert-agent	5032/tcp	# SignaCert Enterprise Trust Server Agent
 jtnetd-server	5033/tcp	# Janstor Secure Data
@@ -4632,6 +4634,7 @@ cisco-redu	5786/udp	# redundancy notification
 waascluster	5787/udp	# Cisco WAAS Cluster Protocol
 xtreamx		5793/tcp/udp	# XtreamX Supervised Peer message
 spdp		5794/udp	# Simple Peered Discovery Protocol
+enlabel-dpl	5798/tcp	# Proprietary Website deployment service
 icmpd		5813/tcp/udp	# ICMPD
 spt-automation	5814/tcp/udp	# Support Automation
 shiprush-d-ch	5841/tcp	# Z-firm ShipRush interface for web access and bidirectional data
@@ -4966,6 +4969,7 @@ elcn		7101/tcp/udp	# Embedded Light Control Network
 aes-x170	7107/udp	# AES-X170
 rothaga		7117/tcp	# Encrypted chat and file transfer service
 virprot-lm	7121/tcp/udp	# Virtual Prototypes License Manager
+snif		7123/tcp	# End-to-end TLS Relay Control Connection
 scenidm		7128/tcp/udp	# intelligent data manager
 scenccs		7129/tcp/udp	# Catalog Content Search
 cabsm-comm	7161/tcp/udp	# CA BSM Comm
@@ -5994,6 +5998,7 @@ tw-auth-key	27999/tcp/udp	# TW Authentication/Key Distribution and
 nxlmd		28000/tcp/udp	# NX License Manager
 pqsp		28001/tcp	# PQ Service
 gruber-cashreg	28010/tcp	# Gruber cash registry protocol
+thor-engine	28080/tcp	# thor/server - ML engine
 a27-ran-ran	28119/udp	# A27 cdma2000 RAN Management
 voxelstorm	28200/tcp/udp	# VoxelStorm game server
 siemensgsm	28240/tcp/udp	# Siemens GSM
@@ -6111,6 +6116,7 @@ e1-interface	38462/sctp	# E1 signalling transport (3GPP)
 f1-control	38472/sctp	# F1 Control Plane (3GPP)
 sruth		38800/tcp	# Sruth is a service for the distribution of routinely- generated but arbitrary files based on a publish/subscribe distribution model and implemented using a peer-to-peer transport mechanism
 secrmmsafecopya	38865/tcp	# Security approval process for use of the secRMM SafeCopy program
+vroa		39063/tcp	# Children's hearing test/Telemedicine
 turbonote-1	39681/tcp/udp	# TurboNote Default Port
 safetynetp	40000/tcp/udp	# SafetyNET p
 k-patentssensor	40023/udp	# K-PatentsSensorInformation

@@ -622,6 +622,7 @@ static int hf_nvme_get_logpage_sanitize_rsvd = -1;
 
 /* NVMe CQE fields */
 static int hf_nvme_cqe_dword0 = -1;
+static int hf_nvme_cqe_aev_dword0[6] = { NEG_LST_6 };
 static int hf_nvme_cqe_dword0_sf_pm[4] = { NEG_LST_4 };
 static int hf_nvme_cqe_dword0_sf_lbart[3] = { NEG_LST_3 };
 static int hf_nvme_cqe_dword0_sf_nq[3] = { NEG_LST_3 };
@@ -1429,7 +1430,7 @@ static void add_group_mask_entry(tvbuff_t *tvb, proto_tree *tree, guint offset, 
 
 static void add_ctrl_x16_bytes( gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%u bytes)", val, val * 16);
+    snprintf(result, ITEM_LABEL_LENGTH, "%x (%u bytes)", val, val * 16);
 }
 
 static void dissect_nvme_identify_ctrl_resp_nvmeof(tvbuff_t *cmd_tvb, proto_tree *cmd_tree)
@@ -1524,23 +1525,23 @@ static void dissect_nvme_identify_ctrl_resp_power_state_descriptors(tvbuff_t *cm
 
 static void add_ctrl_rab(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"G_GUINT64_FORMAT" command%s)", val, ((guint64)1) << val, val ? "s" : "");
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"PRIu64" command%s)", val, ((guint64)1) << val, val ? "s" : "");
 }
 
 static void add_ctrl_mdts(gchar *result, guint32 val)
 {
     if (val)
-        g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"G_GUINT64_FORMAT" pages)", val, ((guint64)1) << val);
+        snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"PRIu64" pages)", val, ((guint64)1) << val);
     else
-        g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (unlimited)", val);
+        snprintf(result, ITEM_LABEL_LENGTH, "0x%x (unlimited)", val);
 }
 
 static void add_ctrl_rtd3(gchar *result, guint32 val)
 {
     if (!val)
-        g_snprintf(result, ITEM_LABEL_LENGTH, "0 (not reported)");
+        snprintf(result, ITEM_LABEL_LENGTH, "0 (not reported)");
     else
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%u (%u microsecond%s)", val, val, (val > 1) ? "%s" : "");
+        snprintf(result, ITEM_LABEL_LENGTH, "%u (%u microsecond%s)", val, val, (val > 1) ? "%s" : "");
 }
 
 static const value_string ctrl_type_tbl[] = {
@@ -1553,7 +1554,7 @@ static const value_string ctrl_type_tbl[] = {
 
 static void add_ctrl_ms(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%u (%u ms)", val, val * 100);
+    snprintf(result, ITEM_LABEL_LENGTH, "%u (%u ms)", val, val * 100);
 }
 
 static void dissect_nvme_identify_ctrl_resp_ver(tvbuff_t *cmd_tvb, proto_tree *cmd_tree)
@@ -1596,27 +1597,27 @@ static void dissect_nvme_identify_ctrl_resp_mi(tvbuff_t *cmd_tvb, proto_tree *cm
 
 static void add_ctrl_commands(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u command%s)", val, val+1, val ? "s" : "");
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u command%s)", val, val+1, val ? "s" : "");
 }
 
 static void add_ctrl_events(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u event%s)", val, val+1, val ? "s" : "");
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u event%s)", val, val+1, val ? "s" : "");
 }
 
 static void add_ctrl_entries(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u entr%s)", val, val+1, val ? "ies" : "y");
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u entr%s)", val, val+1, val ? "ies" : "y");
 }
 
 static void add_ctrl_states(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u state%s)", val, val+1, val ? "s" : "");
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x: (%u state%s)", val, val+1, val ? "s" : "");
 }
 
 static void add_ctrl_hmpre(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"G_GUINT64_FORMAT" bytes)", val, ((guint64)(val)) * 4096);
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%"PRIu64" bytes)", val, ((guint64)(val)) * 4096);
 }
 
 static void post_add_bytes_from_16bytes(proto_item *ti, tvbuff_t *tvb, guint off, guint8 shiftl)
@@ -1631,30 +1632,30 @@ static void post_add_bytes_from_16bytes(proto_item *ti, tvbuff_t *tvb, guint off
     }
     if (hi) {
         if (!(hi >> 10))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " KiB)", (hi << 54) | (lo >> 10));
+            proto_item_append_text(ti, " (%" PRIu64 " KiB)", (hi << 54) | (lo >> 10));
         else if (!(hi >> 20))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " MiB)", (hi << 44) | (lo >> 20));
+            proto_item_append_text(ti, " (%" PRIu64 " MiB)", (hi << 44) | (lo >> 20));
         else if (!(hi >> 30))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " GiB)", (hi << 34) | (lo >> 30));
+            proto_item_append_text(ti, " (%" PRIu64 " GiB)", (hi << 34) | (lo >> 30));
         else if (!(hi >> 40))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " TiB)", (hi << 24) | (lo >> 40));
+            proto_item_append_text(ti, " (%" PRIu64 " TiB)", (hi << 24) | (lo >> 40));
         else if (!(hi >> 50))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " PiB)", (hi << 14) | (lo >> 50));
+            proto_item_append_text(ti, " (%" PRIu64 " PiB)", (hi << 14) | (lo >> 50));
         else if (!(hi >> 60))
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " EiB)", (hi << 4) | (lo >> 60));
+            proto_item_append_text(ti, " (%" PRIu64 " EiB)", (hi << 4) | (lo >> 60));
         else
-            proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " ZiB)", hi >> 6);
+            proto_item_append_text(ti, " (%" PRIu64 " ZiB)", hi >> 6);
     } else {
-        proto_item_append_text(ti, " (%" G_GUINT64_FORMAT " bytes)", lo);
+        proto_item_append_text(ti, " (%" PRIu64 " bytes)", lo);
     }
 }
 
 static void add_ctrl_tmt(gchar *result, guint32 val)
 {
     if (!val)
-        g_snprintf(result, ITEM_LABEL_LENGTH, "0 (not supported)");
+        snprintf(result, ITEM_LABEL_LENGTH, "0 (not supported)");
     else
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%u degrees K", val);
+        snprintf(result, ITEM_LABEL_LENGTH, "%u degrees K", val);
 }
 
 static const value_string mmas_type_tbl[] = {
@@ -1666,17 +1667,17 @@ static const value_string mmas_type_tbl[] = {
 
 static void add_ctrl_pow2_bytes(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << val);
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" PRIu64" bytes)", val, ((guint64)1) << val);
 }
 
 static void add_ctrl_pow2_page_size(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << (12+val));
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" PRIu64" bytes)", val, ((guint64)1) << (12+val));
 }
 
 static void add_ctrl_pow2_dstrd_size(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" G_GUINT64_FORMAT" bytes)", val, ((guint64)1) << (2+val));
+    snprintf(result, ITEM_LABEL_LENGTH, "0x%x (%" PRIu64" bytes)", val, ((guint64)1) << (2+val));
 }
 
 
@@ -1691,7 +1692,7 @@ static const value_string fcb_type_tbl[] = {
 
 static void add_ctrl_lblocks(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%u logical block%s", val + 1, val ? "%s" : "");
+    snprintf(result, ITEM_LABEL_LENGTH, "%u logical block%s", val + 1, val ? "%s" : "");
 }
 
 static const value_string sgls_ify_type_tbl[] = {
@@ -1850,7 +1851,7 @@ static void dissect_nvme_identify_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree)
 }
 
 static const value_string logpage_tbl[] = {
-    { 0, "Reserved" },
+    { 0, "Unspecified" },
     { 1, "Error Information" },
     { 2, "SMART/Health Information" },
     { 3, "Firmware Slot Information" },
@@ -1882,12 +1883,11 @@ static const char *get_logpage_name(guint lid)
         return "Vendor Specific Page";
     else
         return val_to_str_const(lid, logpage_tbl, "Reserved Page Name");
-
 }
 
 static void add_logpage_lid(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%s (0x%x)", get_logpage_name(val), val);
+    snprintf(result, ITEM_LABEL_LENGTH, "%s (0x%x)", get_logpage_name(val), val);
 }
 
 static const value_string sec_type_tbl[] = {
@@ -1969,7 +1969,7 @@ static void dissect_nvme_get_logpage_ify_rcrd_resp(tvbuff_t *cmd_tvb, proto_tree
     guint tr_type;
 
     ti = proto_tree_add_bytes_format(tree, hf_nvme_get_logpage_ify_rcrd, cmd_tvb, off,
-        (len < 1024) ? len : 1024, NULL, "Discovery Log Entry %"G_GUINT64_FORMAT" (DLE%"G_GUINT64_FORMAT")", rcrd, rcrd);
+        (len < 1024) ? len : 1024, NULL, "Discovery Log Entry %"PRIu64" (DLE%"PRIu64")", rcrd, rcrd);
     grp =  proto_item_add_subtree(ti, ett_data);
 
     if (!roff)
@@ -2494,7 +2494,7 @@ static void dissect_nvme_get_logpage_telemetry_resp(proto_item *ti, tvbuff_t *cm
     len -= poff;
     while (len >= 512) {
          proto_tree_add_bytes_format_value(grp, hf_nvme_get_logpage_telemetry_db, cmd_tvb, poff, 512, NULL,
-                                           "Telemetry %s data block %"G_GUINT64_FORMAT, pfx, next_block);
+                                           "Telemetry %s data block %"PRIu64, pfx, next_block);
         len -= 512;
         next_block++;
         poff += 512;
@@ -3005,7 +3005,7 @@ static void dissect_nvme_get_logpage_cmd(tvbuff_t *cmd_tvb, proto_tree *cmd_tree
 
     add_group_mask_entry(cmd_tvb, cmd_tree, 40, 4, ASPEC(hf_nvme_get_logpage_dword10));
     ti = proto_tree_add_item_ret_uint(cmd_tree, hf_nvme_get_logpage_numd, cmd_tvb, 42, 4, ENC_LITTLE_ENDIAN, &val);
-    proto_item_append_text(ti, " (%"G_GUINT64_FORMAT" bytes)", ((guint64)(val+1)) * 4);
+    proto_item_append_text(ti, " (%"PRIu64" bytes)", ((guint64)(val+1)) * 4);
 
     add_group_mask_entry(cmd_tvb, cmd_tree, 44, 4, ASPEC(hf_nvme_get_logpage_dword11));
 
@@ -3133,7 +3133,7 @@ static const value_string sf_wps[] = {
 
 static void add_nvme_queues(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%u)", val, val+1);
+    snprintf(result, ITEM_LABEL_LENGTH, "%x (%u)", val, val+1);
 }
 
 static void dissect_nvme_set_features_dword11(tvbuff_t *cmd_tvb, proto_tree *cmd_tree, guint fid)
@@ -3394,12 +3394,12 @@ dissect_nvme_data_response(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tree *r
 
 static void add_nvme_qid(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%s)", val, val ? "IOQ" : "AQ");
+    snprintf(result, ITEM_LABEL_LENGTH, "%x (%s)", val, val ? "IOQ" : "AQ");
 }
 
 static void add_zero_base(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%u", val+1);
+    snprintf(result, ITEM_LABEL_LENGTH, "%u", val+1);
 }
 
 static
@@ -3482,17 +3482,17 @@ static void dissect_nvmeof_fabric_prop_get_cmd(proto_tree *cmd_tree, tvbuff_t *c
 
 static void add_500ms_units(gchar *result, guint32 val)
 {
-    g_snprintf(result, ITEM_LABEL_LENGTH, "%x (%u ms)", val, val * 500);
+    snprintf(result, ITEM_LABEL_LENGTH, "%x (%u ms)", val, val * 500);
 }
 
 static void add_ccap_css(gchar *result, guint32 val)
 {
     if (val & 0x1)
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (NVM IO Command Set)", val);
+        snprintf(result, ITEM_LABEL_LENGTH, "%x (NVM IO Command Set)", val);
     else if (val & 0x80)
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (Admin Command Set Only)", val);
+        snprintf(result, ITEM_LABEL_LENGTH, "%x (Admin Command Set Only)", val);
     else
-        g_snprintf(result, ITEM_LABEL_LENGTH, "%x (Reserved)", val);
+        snprintf(result, ITEM_LABEL_LENGTH, "%x (Reserved)", val);
 }
 
 static void dissect_nvmeof_fabric_prop_data(proto_tree *tree, tvbuff_t *tvb, guint off, guint prop_off, guint8 attr)
@@ -3551,7 +3551,7 @@ void dissect_nvmeof_fabric_cmd(tvbuff_t *nvme_tvb, packet_info *pinfo, proto_tre
     guint8 fctype;
     guint32 prop_off;
 
-    fctype = tvb_get_guint8(nvme_tvb, 4);
+    fctype = tvb_get_guint8(nvme_tvb, 4+off);
     cmd->cmd_ctx.fabric_cmd.fctype = fctype;
 
     ti = proto_tree_add_item(nvme_tree, hf_nvmeof_cmd, nvme_tvb, off,
@@ -3832,6 +3832,51 @@ static const value_string nvme_cqe_sc_sf_err_dword0_tbl[] = {
     { 0, NULL },
 };
 
+static const value_string nvme_cqe_aev_aet_dword0_tbl[] = {
+    { 0x0, "Error status" },
+    { 0x1, "SMART / Health status" },
+    { 0x2, "Notice" },
+    { 0x6, "IO Command Set specific status" },
+    { 0x7, "Vendor specific" },
+    { 0, NULL },
+};
+
+static const value_string nvme_cqe_aev_status_error_tbl[] = {
+    { 0x0, "Write to Invalid Doorbell Register" },
+    { 0x1, "Invalid Doorbell Write Value" },
+    { 0x2, "Diagnostic Failure" },
+    { 0x3, "Persistent Internal Error"},
+    { 0x3, "Transient Internal Error"},
+    { 0x4, "Persistent Internal Error"},
+    { 0x5, "Firmware Image Load Error"},
+    { 0, NULL },
+};
+
+static const value_string nvme_cqe_aev_status_smart_tbl[] = {
+    { 0x0, "NVM subsystem Reliability" },
+    { 0x1, "Temperature Threshold" },
+    { 0x2, "Spare Below Threshold" },
+    { 0, NULL },
+};
+
+static const value_string nvme_cqe_aev_status_notice_tbl[] = {
+    { 0x0, "Namespace Attribute Changed" },
+    { 0x1, "Firmware Activation Starting" },
+    { 0x2, "Telemetry Log Changed" },
+    { 0x3, "Asymmetric Namespace Access Change" },
+    { 0x4, "Predictable Latency Event Aggregate Log Change" },
+    { 0x5, "LBA Status Information Alert" },
+    { 0x6, "Endurance Group Event Aggregate Log Page Change" },
+    { 0, NULL },
+};
+
+static const value_string nvme_cqe_aev_status_nvm_tbl[] = {
+    { 0x0, "Reservation Log Page Available" },
+    { 0x1, "Sanitize Operation Completed" },
+    { 0x2, "Sanitize Operation Completed With Unexpected Deallocation" },
+    { 0, NULL },
+};
+
 static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, struct nvme_cmd_ctx *cmd_ctx)
 {
     switch (cmd_ctx->opcode) {
@@ -3856,6 +3901,29 @@ static void decode_dword0_cqe(tvbuff_t *nvme_tvb, proto_tree *cqe_tree, struct n
                         proto_tree_add_item(cqe_tree, hf_nvme_cqe_dword0, nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
                 }
             }
+            break;
+        }
+        case NVME_AQ_OPC_ASYNC_EVE_REQ:
+        {
+            proto_item *ti;
+            proto_tree *grp;
+            guint i;
+            guint8 aet;
+            guint8 aei;
+            ti = proto_tree_add_item(cqe_tree, hf_nvme_cqe_aev_dword0[0], nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
+            grp =  proto_item_add_subtree(ti, ett_data);
+            for (i = 1; i < 4; i++)
+                ti = proto_tree_add_item(grp, hf_nvme_cqe_aev_dword0[i], nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
+            aet = tvb_get_guint8(nvme_tvb, 0) & 0x7;
+            aei = tvb_get_guint8(nvme_tvb, 2);
+            switch (aet) {
+                case 0: proto_item_append_text(ti, " (%s)", val_to_str_const(aei, nvme_cqe_aev_status_error_tbl, "Unknown")); break;
+                case 1: proto_item_append_text(ti, " (%s)", val_to_str_const(aei, nvme_cqe_aev_status_smart_tbl, "Unknown")); break;
+                case 2: proto_item_append_text(ti, " (%s)", val_to_str_const(aei, nvme_cqe_aev_status_notice_tbl, "Unknown")); break;
+                case 6: proto_item_append_text(ti, " (%s)", val_to_str_const(aei, nvme_cqe_aev_status_nvm_tbl, "Unknown")); break;
+            }
+            proto_tree_add_item(grp, hf_nvme_cqe_aev_dword0[4], nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
+            proto_tree_add_item(grp, hf_nvme_cqe_aev_dword0[5], nvme_tvb, 0, 4, ENC_LITTLE_ENDIAN);
             break;
         }
         default:
@@ -5227,11 +5295,11 @@ proto_register_nvme(void)
         },
         { &hf_nvme_identify_ns_nguid,
             { "Namespace Globally Unique Identifier (NGUID)", "nvme.cmd.identify.ns.nguid",
-               FT_BYTES, STR_ASCII, NULL, 0x0, NULL, HFILL}
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ns_eui64,
             { "IEEE Extended Unique Identifier (EUI64)", "nvme.cmd.identify.ns.eui64",
-               FT_BYTES, STR_ASCII, NULL, 0x0, NULL, HFILL}
+               FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL}
         },
         { &hf_nvme_identify_ns_lbafs,
             { "LBA Formats", "nvme.cmd.identify.ns.lbafs",
@@ -7322,6 +7390,30 @@ proto_register_nvme(void)
         { &hf_nvme_cqe_dword0_sf_err,
             { "Set Features Error Specific Code", "nvme.cqe.dword0.set_features.err",
                FT_UINT32, BASE_HEX, VALS(nvme_cqe_sc_sf_err_dword0_tbl), 0x0, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[0],
+            { "DWORD0", "nvme.cqe.dword0.aev",
+               FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[1],
+            { "Asynchronous Event Type", "nvme.cqe.dword0.aev.aet",
+               FT_UINT32, BASE_HEX, VALS(nvme_cqe_aev_aet_dword0_tbl), 0x7, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[2],
+            { "Reserved", "nvme.cqe.dword0.aev.rsvd0",
+               FT_UINT32, BASE_HEX, NULL, 0xf8, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[3],
+            { "Asynchronous Event Information", "nvme.cqe.dword0.aev.aei",
+               FT_UINT32, BASE_HEX, NULL, 0xff00, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[4],
+            { "Log Page Identifier", "nvme.cqe.dword0.aev.lpi",
+               FT_UINT32, BASE_CUSTOM, CF_FUNC(add_logpage_lid), 0xff0000, NULL, HFILL}
+        },
+        { &hf_nvme_cqe_aev_dword0[5],
+            { "Reserved", "nvme.cqe.dword0.aev.rsvd1",
+               FT_UINT32, BASE_HEX, NULL, 0xff000000, NULL, HFILL}
         },
         { &hf_nvme_cqe_dword0_sf_pm[0],
             { "DWORD0: Set Feature Power Management Result", "nvme.cqe.dword0.set_features.pm",

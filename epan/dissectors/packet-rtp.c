@@ -15,11 +15,14 @@
 
 /*
  * This dissector tries to dissect the RTP protocol according to Annex A
- * of ITU-T Recommendation H.225.0 (02/98) or RFC 1889
+ * of ITU-T Recommendation H.225.0 (02/98) or RFC 3550 (obsoleting 1889).
  *
- * RTP traffic is handled by an even UDP portnumber. This can be any
- * port number, but there is a registered port available, port 5004
+ * RTP traffic is traditionally handled by an even UDP portnumber. This can
+ * be any port number, but there is a registered port available, port 5004
  * See Annex B of ITU-T Recommendation H.225.0, section B.7
+ *
+ * Note that nowadays RTP and RTCP are often multiplexed onto a single port,
+ * per RFC 5671.
  *
  * This doesn't dissect older versions of RTP, such as:
  *
@@ -639,11 +642,11 @@ static void rtp_prompt(packet_info *pinfo _U_, gchar* result)
     /* Dynamic payload range, don't expose value as it may change within conversation */
     if (payload_type > 95)
     {
-        g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "RTP payload type as");
+        snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "RTP payload type as");
     }
     else
     {
-        g_snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "RTP payload type %d as", payload_type);
+        snprintf(result, MAX_DECODE_AS_PROMPT_LEN, "RTP payload type %d as", payload_type);
     }
 }
 
@@ -685,7 +688,7 @@ rtp_dump_dyn_payload(rtp_dyn_payload_t *rtp_dyn_payload) {
             DENDENT();
             return;
         }
-        DPRINT2(("ref_count=%" G_GSIZE_FORMAT, rtp_dyn_payload->ref_count));
+        DPRINT2(("ref_count=%zu", rtp_dyn_payload->ref_count));
         if (!rtp_dyn_payload->table) {
             DPRINT2(("null rtp_dyn_payload table"));
             DENDENT();
@@ -1192,9 +1195,14 @@ rtp_add_address(packet_info *pinfo, const port_type ptype, address *addr, int po
 static gboolean
 dissect_rtp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
-    guint8       octet1;
-    unsigned int version;
+    guint8       octet1, octet2;
+    unsigned int version, payload_type;
     unsigned int offset = 0;
+    gint         padding_count;
+
+    if (tvb_captured_length_remaining(tvb, offset) < 2) {
+        return FALSE;
+    }
 
     /* Get the fields in the first octet */
     octet1 = tvb_get_guint8( tvb, offset );
@@ -1230,6 +1238,44 @@ dissect_rtp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
     } else if (version != 2) {
         /* Unknown or unsupported version */
         return FALSE;
+    }
+
+    octet2 = tvb_get_guint8( tvb, offset + 1 );
+    payload_type = RTP_PAYLOAD_TYPE( octet2 );
+
+    if (payload_type >= 72 && payload_type <= 76) {
+        /* XXX: This range is definitely excluded by RFCs 3550, 3551.
+         * There's an argument, per RFC 5761, for expanding the
+         * excluded range to [FIRST_RTCP_CONFLICT_PAYLOAD_TYPE,
+         * LAST_RTCP_CONFLICT_PAYLOAD_TYPE] in the heuristic dissector,
+         * leaving those values only when specificed by other means
+         * (SDP, Decode As, etc.)
+         */
+        return FALSE;
+    }
+
+    /* Skip fixed header */
+    offset += 12;
+
+    offset += 4 * RTP_CSRC_COUNT( octet1 );
+    if (RTP_EXTENSION( octet1 )) {
+        if (tvb_captured_length_remaining(tvb, offset) < 4) {
+            return FALSE;
+        }
+        offset += 4 + 4*tvb_get_guint16(tvb, offset+2, ENC_BIG_ENDIAN);
+    }
+    if (tvb_reported_length(tvb) < offset) {
+        return FALSE;
+    }
+    if (RTP_PADDING( octet1 )) {
+        if (tvb_captured_length(tvb) == tvb_reported_length(tvb)) {
+            /* We can test the padding if the last octet is present. */
+            padding_count = tvb_get_guint8(tvb, tvb_reported_length(tvb) - 1);
+            if (tvb_reported_length_remaining(tvb, offset) < padding_count ||
+                    padding_count == 0) {
+                return FALSE;
+            }
+        }
     }
 
     /* Create a conversation in case none exists so as to allow reassembly code to work */
@@ -1869,6 +1915,33 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     octet1 = tvb_get_guint8( tvb, offset );
     version = RTP_VERSION( octet1 );
 
+    /* RFC 7983 gives current best practice in demultiplexing RTP packets:
+     * Examine the first byte of the packet:
+     *              +----------------+
+     *              |        [0..3] -+--> forward to STUN
+     *              |                |
+     *              |      [16..19] -+--> forward to ZRTP
+     *              |                |
+     *  packet -->  |      [20..63] -+--> forward to DTLS
+     *              |                |
+     *              |      [64..79] -+--> forward to TURN Channel
+     *              |                |
+     *              |    [128..191] -+--> forward to RTP/RTCP
+     *              +----------------+
+     *
+     * DTLS-SRTP MUST support multiplexing of DTLS and RTP over the same
+     * port pair (RFCs 5764, 8835), and this frequently occurs after SDP
+     * has been used to set up a RTP conversation and set the conversation
+     * dissector RTP. In addition, STUN packets sharing one port are common
+     * as well.
+     *
+     * In practice, the default of RTP0_INVALID rejects packets and lets
+     * heuristic dissectors take a look. The STUN, ZRTP, and DTLS heuristic
+     * dissectors are all enabled by default so out of the box it more or
+     * less looks correct - at least on the second pass, on tshark there's
+     * incorrect RTP information in the tree.
+     * XXX: Maybe there should be a "according to RFC 7983" option in the enum?
+     */
     if (version == 0) {
         switch (global_rtp_version0_type) {
         case RTP0_STUN:
@@ -1915,6 +1988,10 @@ dissect_rtp( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             proto_tree_add_uint( rtp_tree, hf_rtp_version, tvb,
                 offset, 1, octet1);
         }
+        /* XXX: Offset is zero here, so in practice this rejects the packet
+         * and lets heuristic dissectors make an attempt, though after
+         * adding entries to the tree (at least on a first pass in tshark.)
+         */
         return offset;
     }
 

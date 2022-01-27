@@ -30,6 +30,7 @@
 #include <epan/prefs.h>
 #include <epan/conversation.h>
 #include <epan/tap.h>
+#include <epan/strutil.h>
 #include <epan/rtd_table.h>
 #include <epan/expert.h>
 #include "packet-mgcp.h"
@@ -1172,7 +1173,7 @@ static void dissect_mgcp_firstline(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 					if (verb_description != NULL)
 					{
 						/* Can show verb along with code if known */
-						g_snprintf(code_with_verb, 64, "%s (%s)", code, verb_description);
+						snprintf(code_with_verb, 64, "%s (%s)", code, verb_description);
 					}
 
 					proto_tree_add_string_format(tree, hf_mgcp_req_verb, tvb,

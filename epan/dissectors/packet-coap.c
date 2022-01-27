@@ -262,9 +262,40 @@ static const value_string vals_ctype[] = {
 	{ 42, "application/octet-stream" },
 	{ 47, "application/exi" },
 	{ 50, "application/json" },
+	{ 51, "application/json-patch+json" },
+	{ 52, "application/merge-patch+json" },
 	{ 60, "application/cbor" },
+	{ 61, "application/cwt" },
+	{ 62, "application/multipart-core" },
+	{ 96, "application/cose; cose-type=\"cose-encrypt\"" },
+	{ 97, "application/cose; cose-type=\"cose-mac\"" },
+	{ 98, "application/cose; cose-type=\"cose-sign\"" },
+	{ 101, "application/cose-key" },
+	{ 102, "application/cose-key-set" },
+	{ 110, "application/senml+json" },
+	{ 111, "application/sensml+json" },
+	{ 112, "application/senml+cbor" },
+	{ 113, "application/sensml+cbor" },
+	{ 114, "application/senml-exi" },
+	{ 115, "application/sensml-exi" },
+	{ 256, "application/coap-group+json" },
+	{ 271, "application/dots+cbor" },
+	{ 272, "application/missing-blocks+cbor-seq" },
+	{ 280, "application/pkcs7-mime; smime-type=server-generated-key" },
+	{ 281, "application/pkcs7-mime; smime-type=certs-only" },
+	{ 284, "application/pkcs8" },
+	{ 285, "application/csrattrs" },
+	{ 286, "application/pkcs10" },
+	{ 287, "application/pkix-cert" },
+	{ 310, "application/senml+xml" },
+	{ 311, "application/sensml+xml" },
+	{ 320, "application/senml-etch+json" },
+	{ 322, "application/senml-etch+cbor" },
+	{ 432, "application/td+json" },
 	{ 1542, "application/vnd.oma.lwm2m+tlv" },
 	{ 1543, "application/vnd.oma.lwm2m+json" },
+	{ 10000, "application/vnd.ocf+cbor" },
+	{ 10001, "application/oscore" },
 	{ 11542, "application/vnd.oma.lwm2m+tlv" },
 	{ 11543, "application/vnd.oma.lwm2m+json" },
 	{ 0, NULL },
@@ -849,7 +880,7 @@ dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tr
 		return -1;
 	}
 
-	g_snprintf(strbuf, sizeof(strbuf),
+	snprintf(strbuf, sizeof(strbuf),
 	    "#%u: %s", opt_count, val_to_str(*opt_num, vals_opt_type,
 	    *opt_num % 14 == 0 ? "No-Op" : "Unknown Option (%d)"));
 	item = proto_tree_add_string(coap_tree, dissect_hf->hf.opt_name,
@@ -858,7 +889,7 @@ dissect_coap_options_main(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tr
 
 	coap_opt_check(pinfo, subtree, *opt_num, opt_length, dissect_hf);
 
-	g_snprintf(strbuf, sizeof(strbuf),
+	snprintf(strbuf, sizeof(strbuf),
 	    "Type %u, %s, %s%s", *opt_num,
 	    (*opt_num & 1) ? "Critical" : "Elective",
 	    (*opt_num & 2) ? "Unsafe" : "Safe",
@@ -1064,7 +1095,7 @@ dissect_coap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, p
 		coap_ctype_str_dis = coinfo->ctype_str;
 	}
 
-	g_snprintf(str_payload, sizeof(str_payload),
+	snprintf(str_payload, sizeof(str_payload),
 			"Payload Content-Format: %s%s, Length: %u",
 			coinfo->ctype_str, coinfo->ctype_value == DEFAULT_COAP_CTYPE_VALUE ?
 			" (no Content-Format)" : "", payload_length);

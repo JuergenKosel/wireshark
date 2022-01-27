@@ -103,7 +103,7 @@ diam_tree_to_csv(proto_node *node, gpointer data)
 			val_str = g_strdup(val_tmp);
 			wmem_free(NULL, val_tmp);
 		} else
-			val_str = g_strdup_printf("unsupported type: %s", ftype_name(ftype));
+			val_str = ws_strdup_printf("unsupported type: %s", ftype_name(ftype));
 
 		/*printf("traverse: name='%s', abbrev='%s',desc='%s', val='%s'\n", hfi->name, hfi->abbrev, ftype_name(hfi->type), val_str);*/
 		printf("%s='%s' ", hfi->name, val_str);
@@ -198,7 +198,7 @@ diameteravp_draw(void *pds)
 {
 	diameteravp_t *ds = (diameteravp_t *)pds;
 	/* printing results */
-	printf("=== Diameter Summary ===\nrequset count:\t%u\nanswer count:\t%u\nreq/ans pairs:\t%u\n", ds->req_count, ds->ans_count, ds->paired_ans_count);
+	printf("=== Diameter Summary ===\nrequest count:\t%u\nanswer count:\t%u\nreq/ans pairs:\t%u\n", ds->req_count, ds->ans_count, ds->paired_ans_count);
 }
 
 

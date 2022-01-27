@@ -99,7 +99,7 @@ tvb_atalkid_to_str(tvbuff_t *tvb, gint offset)
 
   cur=(gchar *)wmem_alloc(wmem_packet_scope(), 16);
   node=tvb_get_guint8(tvb, offset+1)<<8|tvb_get_guint8(tvb, offset+2);
-  g_snprintf(cur, 16, "%d.%d",node,tvb_get_guint8(tvb, offset+3));
+  snprintf(cur, 16, "%d.%d",node,tvb_get_guint8(tvb, offset+3));
   return cur;
 }
 
@@ -109,7 +109,7 @@ tvb_aarphrdaddr_to_str(tvbuff_t *tvb, gint offset, int ad_len, guint16 type)
   if (AARP_HW_IS_ETHER(type, ad_len)) {
     /* Ethernet address (or Token Ring address, which is the same type
        of address). */
-    return tvb_ether_to_str(tvb, offset);
+    return tvb_ether_to_str(wmem_packet_scope(), tvb, offset);
   }
   return tvb_bytes_to_str(wmem_packet_scope(), tvb, offset, ad_len);
 }

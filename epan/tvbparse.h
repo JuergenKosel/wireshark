@@ -1,4 +1,4 @@
-/* tvbparse.h
+/** @file
  *
  * an API for text tvb parsers
  *
@@ -131,6 +131,7 @@ struct _tvbparse_wanted_t {
 
 /* an instance of a per packet parser */
 struct _tvbparse_t {
+    wmem_allocator_t* scope;
     tvbuff_t* tvb;
     int offset;
     int end_offset;
@@ -144,6 +145,7 @@ struct _tvbparse_t {
 struct _tvbparse_elem_t {
     int id;
 
+    tvbparse_t* parser;
     tvbuff_t* tvb;
     int offset;
     int len;
@@ -176,7 +178,7 @@ struct _tvbparse_elem_t {
  * a char element.
  *
  * When looked for it returns a simple element one character long if the char
- * at the current offset matches one of the the needles.
+ * at the current offset matches one of the needles.
  */
 WS_DLL_PUBLIC
 tvbparse_wanted_t* tvbparse_char(const int id,
@@ -189,7 +191,7 @@ tvbparse_wanted_t* tvbparse_char(const int id,
  * a not_char element.
  *
  * When looked for it returns a simple element one character long if the char
- * at the current offset does not match one of the the needles.
+ * at the current offset does not match one of the needles.
  */
 WS_DLL_PUBLIC
 tvbparse_wanted_t* tvbparse_not_char(const int id,
@@ -361,41 +363,6 @@ tvbparse_wanted_t* tvbparse_some(const int id,
 WS_DLL_PUBLIC
 tvbparse_wanted_t* tvbparse_handle(tvbparse_wanted_t** handle);
 
-#if 0
-
-enum ft_cmp_op {
-    TVBPARSE_CMP_GT,
-    TVBPARSE_CMP_GE,
-    TVBPARSE_CMP_EQ,
-    TVBPARSE_CMP_NE,
-    TVBPARSE_CMP_LE,
-    TVBPARSE_CMP_LT
-};
-
-/* not yet tested */
-tvbparse_wanted_t* tvbparse_ft(int id,
-                               const void* data,
-                               tvbparse_action_t before_cb,
-                               tvbparse_action_t after_cb,
-                               enum ftenum ftenum);
-
-/* not yet tested */
-tvbparse_wanted_t* tvbparse_end_of_buffer(int id,
-                                          const void* data,
-                                          tvbparse_action_t before_cb,
-                                          tvbparse_action_t after_cb);
-/* not yet tested */
-tvbparse_wanted_t* tvbparse_ft_numcmp(int id,
-                                      const void* data,
-                                      tvbparse_action_t before_cb,
-                                      tvbparse_action_t after_cb,
-                                      enum ftenum ftenum,
-                                      int little_endian,
-                                      enum ft_cmp_op ft_cmp_op,
-                                      ... );
-
-#endif
-
 /*  quoted
  *  this is a composed candidate, that will try to match a quoted string
  *  (included the quotes) including into it every escaped quote.
@@ -423,6 +390,7 @@ void tvbparse_shrink_token_cb(void* tvbparse_data,
 
 
 /* initialize the parser (at every packet)
+ * scope: memory scope/pool
  * tvb: what are we parsing?
  * offset: from where
  * len: for how many bytes
@@ -430,7 +398,8 @@ void tvbparse_shrink_token_cb(void* tvbparse_data,
  * ignore: a wanted token type to be ignored (the associated cb WILL be called when it matches)
  */
 WS_DLL_PUBLIC
-tvbparse_t* tvbparse_init(tvbuff_t* tvb,
+tvbparse_t* tvbparse_init(wmem_allocator_t *scope,
+                          tvbuff_t* tvb,
                           const int offset,
                           int len,
                           void* private_data,

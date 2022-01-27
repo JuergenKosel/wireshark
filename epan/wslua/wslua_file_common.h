@@ -1,5 +1,4 @@
-/*
- * wslua_file_common.h
+/** @file
  *
  * Wireshark's interface to the Lua Programming Language
  * for file handling related source files.
@@ -15,8 +14,6 @@
 
 
 /* See wslua_file_common.c for details */
-
-#include "config.h"
 
 #include "wslua.h"
 #include <wiretap/wtap_opttypes.h>

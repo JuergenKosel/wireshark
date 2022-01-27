@@ -1,4 +1,4 @@
-/* file_util.h
+/** @file
  * File utility definitions
  *
  * Wireshark - Network traffic analyzer
@@ -101,6 +101,10 @@ WS_DLL_PUBLIC FILE * ws_stdio_freopen (const gchar *filename, const gchar *mode,
  * These routines don't take pathnames, so they don't require
  * pathname-converting wrappers on Windows.
  */
+
+typedef unsigned int ws_file_size_t;
+typedef signed int ws_file_ssize_t;
+
 #define ws_read    _read
 #define ws_write   _write
 #define ws_close   _close
@@ -129,7 +133,7 @@ WS_DLL_PUBLIC FILE * ws_stdio_freopen (const gchar *filename, const gchar *mode,
  * @return TRUE if we were able to call SetDllDirectory, FALSE otherwise.
  */
 WS_DLL_PUBLIC
-gboolean ws_init_dll_search_path();
+gboolean ws_init_dll_search_path(void);
 
 /** Load a DLL using LoadLibrary.
  * Only the system and program directories are searched.
@@ -155,11 +159,11 @@ GModule *ws_module_open(gchar *module_name, GModuleFlags flags);
  * Create or open a mutex which signals that Wireshark or its associated
  * executables is running. Used by the installer to test for a running application.
  */
-WS_DLL_PUBLIC void create_app_running_mutex();
+WS_DLL_PUBLIC void create_app_running_mutex(void);
 
 /** Close our "Wireshark is running" mutex.
  */
-WS_DLL_PUBLIC void close_app_running_mutex();
+WS_DLL_PUBLIC void close_app_running_mutex(void);
 
 #else	/* _WIN32 */
 
@@ -177,6 +181,9 @@ WS_DLL_PUBLIC void close_app_running_mutex();
 #define ws_remove		remove
 #define ws_fopen		fopen
 #define ws_freopen		freopen
+
+typedef size_t ws_file_size_t;
+typedef ssize_t ws_file_ssize_t;
 
 #define ws_read    read
 #define ws_write   write

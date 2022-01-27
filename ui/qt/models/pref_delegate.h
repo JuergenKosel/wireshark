@@ -1,4 +1,5 @@
-/* pref_delegate.h
+/** @file
+ *
  * Delegates for editing prefereneces.
  *
  * Wireshark - Network traffic analyzer
@@ -20,8 +21,6 @@
 
 class AdvancedPrefDelegate : public QStyledItemDelegate
 {
-    Q_OBJECT
-
 public:
     AdvancedPrefDelegate(QObject *parent = 0);
 

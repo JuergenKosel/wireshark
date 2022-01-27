@@ -1,4 +1,4 @@
--- 3GPP TS 38.423 V16.6.0 (2021-07)﻿
+-- 3GPP TS 38.423 V16.8.0 (2021-12)
 -- 9.3.7	Constant definitions
 -- **************************************************************
 --
@@ -137,6 +137,7 @@ maxnoofAdditionalPDCPDuplicationTNL			INTEGER ::= 2
 maxnoofRLCDuplicationstate					INTEGER ::= 3
 maxnoofWLANName								INTEGER ::= 4
 maxnoofNonAnchorCarrierFreqConfig			INTEGER ::= 15
+maxnoofDataForwardingTunneltoE-UTRAN    	INTEGER ::= 256
 
 -- **************************************************************
 --
@@ -394,5 +395,9 @@ id-PagingeDRXInformation																			ProtocolIE-ID ::= 245
 id-CHO-MRDC-EarlyDataForwarding																		ProtocolIE-ID ::= 246
 id-SCGIndicator																						ProtocolIE-ID ::= 247
 id-UESpecificDRX																					ProtocolIE-ID ::= 248
+id-PDUSessionExpectedUEActivityBehaviour															ProtocolIE-ID ::= 249
+id-QoS-Mapping-Information																			ProtocolIE-ID ::= 250
+id-AdditionLocationInformation																		ProtocolIE-ID ::= 251
+id-dataForwardingInfoFromTargetE-UTRANnode															ProtocolIE-ID ::= 252
 
 END

@@ -1,4 +1,5 @@
-/*
+/** @file
+ *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 2001 Gerald Combs
@@ -9,38 +10,16 @@
 #ifndef FTYPES_INT_H
 #define FTYPES_INT_H
 
-#include <epan/proto.h>
 #include "ftypes.h"
-
-
-void
-ftype_register(enum ftenum ftype, ftype_t *ft);
-
-/* These are the ftype registration functions that need to be called.
- * This list and the initialization function could be produced
- * via a script, like the dissector registration, but there's so few
- * that I don't mind doing it by hand for now. */
-void ftype_register_bytes(void);
-void ftype_register_double(void);
-void ftype_register_ieee_11073_float(void);
-void ftype_register_fc(void);
-void ftype_register_integers(void);
-void ftype_register_ipv4(void);
-void ftype_register_ipv6(void);
-void ftype_register_guid(void);
-void ftype_register_none(void);
-void ftype_register_string(void);
-void ftype_register_time(void);
-void ftype_register_tvbuff(void);
-void ftype_register_pcre(void);
+#include <epan/proto.h>
 
 typedef void (*FvalueNewFunc)(fvalue_t*);
 typedef void (*FvalueFreeFunc)(fvalue_t*);
 
 typedef gboolean (*FvalueFromUnparsed)(fvalue_t*, const char*, gboolean, gchar **);
 typedef gboolean (*FvalueFromString)(fvalue_t*, const char*, gchar **);
-typedef void (*FvalueToStringRepr)(fvalue_t*, ftrepr_t, int field_display, char*volatile, unsigned int);
-typedef int (*FvalueStringReprLen)(fvalue_t*, ftrepr_t, int field_display);
+typedef gboolean (*FvalueFromCharConst)(fvalue_t*, unsigned long, gchar **);
+typedef char *(*FvalueToStringRepr)(wmem_allocator_t *, const fvalue_t*, ftrepr_t, int field_display);
 
 typedef void (*FvalueSetByteArrayFunc)(fvalue_t*, GByteArray *);
 typedef void (*FvalueSetBytesFunc)(fvalue_t*, const guint8 *);
@@ -61,8 +40,10 @@ typedef guint64 (*FvalueGetUnsignedInteger64Func)(fvalue_t*);
 typedef gint64 (*FvalueGetSignedInteger64Func)(fvalue_t*);
 typedef double (*FvalueGetFloatingFunc)(fvalue_t*);
 
-typedef gboolean (*FvalueCmp)(const fvalue_t*, const fvalue_t*);
-typedef gboolean (*FvalueMatches)(const fvalue_t*, const GRegex*);
+typedef int (*FvalueCmp)(const fvalue_t*, const fvalue_t*);
+typedef gboolean (*FvalueBitwiseAnd)(const fvalue_t*, const fvalue_t*);
+typedef gboolean (*FvalueContains)(const fvalue_t*, const fvalue_t*);
+typedef gboolean (*FvalueMatches)(const fvalue_t*, const ws_regex_t*);
 
 typedef guint (*FvalueLen)(fvalue_t*);
 typedef void (*FvalueSlice)(fvalue_t*, GByteArray *, guint offset, guint length);
@@ -76,8 +57,8 @@ struct _ftype_t {
 	FvalueFreeFunc		free_value;
 	FvalueFromUnparsed	val_from_unparsed;
 	FvalueFromString	val_from_string;
+	FvalueFromCharConst	val_from_charconst;
 	FvalueToStringRepr	val_to_string_repr;
-	FvalueStringReprLen	len_string_repr;
 
 	union {
 		FvalueSetByteArrayFunc	set_value_byte_array;
@@ -102,40 +83,36 @@ struct _ftype_t {
 		FvalueGetFloatingFunc	get_value_floating;
 	} get_value;
 
-	FvalueCmp		cmp_eq;
-	FvalueCmp		cmp_ne;
-	FvalueCmp		cmp_gt;
-	FvalueCmp		cmp_ge;
-	FvalueCmp		cmp_lt;
-	FvalueCmp		cmp_le;
-	FvalueCmp		cmp_bitwise_and;
-	FvalueCmp		cmp_contains;
+	FvalueCmp		cmp_order;
+	FvalueBitwiseAnd	cmp_bitwise_and;
+	FvalueContains		cmp_contains;
 	FvalueMatches		cmp_matches;
 
 	FvalueLen		len;
 	FvalueSlice		slice;
 };
 
-/* Free all memory used by an fvalue_t. With MSVC and a
- * libwireshark.dll, we need a special declaration.
- */
+void ftype_register(enum ftenum ftype, ftype_t *ft);
 
-#define FVALUE_CLEANUP(fv)					\
-	{							\
-		register FvalueFreeFunc	free_value;		\
-		free_value = (fv)->ftype->free_value;	\
-		if (free_value) {				\
-			free_value((fv));			\
-		}						\
-	}
+void ftype_register_bytes(void);
+void ftype_register_double(void);
+void ftype_register_ieee_11073_float(void);
+void ftype_register_integers(void);
+void ftype_register_ipv4(void);
+void ftype_register_ipv6(void);
+void ftype_register_guid(void);
+void ftype_register_none(void);
+void ftype_register_string(void);
+void ftype_register_time(void);
+void ftype_register_tvbuff(void);
 
-#define FVALUE_FREE(fv)						\
-	{							\
-		FVALUE_CLEANUP(fv)				\
-		g_slice_free(fvalue_t, fv);			\
-	}
+GByteArray *
+byte_array_from_unparsed(const char *s, gchar **err_msg);
 
-#endif
+GByteArray *
+byte_array_from_charconst(unsigned long num, gchar **err_msg);
+
+#endif /* FTYPES_INT_H */
 
 /*
  * Editor modelines  -  https://www.wireshark.org/tools/modelines.html

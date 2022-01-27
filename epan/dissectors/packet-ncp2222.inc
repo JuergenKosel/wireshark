@@ -2445,13 +2445,19 @@ add_ptvc_field(packet_info* pinfo, ptvcursor_t *ptvc, const ptvc_record *rec, gb
 static void
 padd_date( gchar *result, guint32 date_value )
 {
-    g_snprintf( result, ITEM_LABEL_LENGTH, "%04u/%02u/%02u", ((date_value & 0xfe00) >> 9) + 1980, (date_value & 0x01e0) >> 5, date_value & 0x001f);
+    snprintf(result, ITEM_LABEL_LENGTH, "%04u/%02u/%02u",
+                ((date_value & 0xfe00) >> 9) + 1980,
+                (date_value & 0x01e0) >> 5,
+                date_value & 0x001f);
 }
 
 static void
 padd_time( gchar *result, guint32 time_value )
 {
-    g_snprintf( result, ITEM_LABEL_LENGTH, "%02u:%02u:%02u", ((time_value & 0xf800) >> 11), ((time_value & 0x07e0) >> 5), (time_value & 0x001f) * 2);
+    snprintf(result, ITEM_LABEL_LENGTH, "%02u:%02u:%02u",
+                ((time_value & 0xf800) >> 11),
+                ((time_value & 0x07e0) >> 5),
+                (time_value & 0x001f) * 2);
 }
 
 /* Add a value for a ptvc_record, and process the sub-ptvc_record
@@ -2481,7 +2487,7 @@ process_bitfield_sub_ptvc_record(ptvcursor_t *ptvc, const ptvc_record *rec,
         sub_tree = proto_item_add_subtree(item, ett);
 
         /* Make a new ptvcursor */
-        sub_ptvc = ptvcursor_new(sub_tree, ptvcursor_tvbuff(ptvc),
+        sub_ptvc = ptvcursor_new(wmem_packet_scope(), sub_tree, ptvcursor_tvbuff(ptvc),
                                  current_offset);
 
         /* Use it */
@@ -2659,7 +2665,7 @@ process_ptvc_record(ptvcursor_t *ptvc, packet_info *pinfo, const ptvc_record *re
        these records */
     if (ncp_rec->expert_handler_func)
     {
-        expert_ptvc = ptvcursor_new(expert_tree, expert_tvb, expert_offset);
+        expert_ptvc = ptvcursor_new(pinfo->pool, expert_tree, expert_tvb, expert_offset);
         ncp_rec->expert_handler_func(expert_ptvc, pinfo, ncp_rec, request);
         ptvcursor_free(expert_ptvc);
     }
@@ -6437,7 +6443,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         if (request_value->req_mask & 0x0004) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Attributes");
 
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_attributes_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6482,7 +6488,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         /* Extended Attributes oldstyle location*/
         if (request_value->req_mask & 0x0020 && !ncp_newstyle) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Extended Attributes");
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_ea_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6499,7 +6505,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         if (request_value->req_mask & 0x0020 && ncp_newstyle) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Extended Attributes");
 
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_ea_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6515,7 +6521,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         /* Archive Information */
         if (request_value->req_mask & 0x0040) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Archive");
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_archive_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6532,7 +6538,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         if (request_value->req_mask & 0x0080) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Modification");
 
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_modify_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6548,7 +6554,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         /* Creation Information old style location */
         if (request_value->req_mask & 0x0100 && !ncp_newstyle) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Creation");
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_creation_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6564,7 +6570,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         /* Creation Information new style location */
         if (request_value->req_mask & 0x0100 && ncp_newstyle) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Creation");
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_creation_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6591,7 +6597,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         /* Directory Entry */
         if (request_value->req_mask & 0x0400) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Directory Entry");
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_dir_entry_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6606,7 +6612,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         }
         /* Rights Information */
         if (request_value->req_mask & 0x0800) {
-            ptvc = ptvcursor_new(atree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, atree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_rights_info_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6675,7 +6681,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         }
         /* Flush Time */
         if (request_value->req_mask_ext & 0x0004 && ncp_newstyle) {
-            ptvc = ptvcursor_new(atree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, atree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_flush_time_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6705,7 +6711,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         if (request_value->req_mask_ext & 0x0080 && ncp_newstyle) {
             btree = proto_tree_add_subtree(atree, tvb, loffset, -1, ett_ncp, &bitem, "Mac Date");
 
-            ptvc = ptvcursor_new(btree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, btree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_mac_time_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -6714,7 +6720,7 @@ dissect_ncp_8x20reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *volatile nc
         }
         /* Last Access */
         if (request_value->req_mask_ext & 0x0100 && ncp_newstyle) {
-            ptvc = ptvcursor_new(atree, tvb, loffset);
+            ptvc = ptvcursor_new(pinfo->pool, atree, tvb, loffset);
             process_ptvc_record(ptvc, pinfo, ptvc_struct_last_access_time_struct,
                     NULL, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -7277,15 +7283,15 @@ dissect_ncp_request(tvbuff_t *tvb, packet_info *pinfo,
                 proto_tree_add_item(ncp_tree, hf_ncp_length, tvb, 7,
                                     2, ENC_BIG_ENDIAN);
                 proto_tree_add_uint(ncp_tree, hf_ncp_subfunc, tvb, 9, 1, subfunc);
-                ptvc = ptvcursor_new(ncp_tree, tvb, 10);
+                ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 10);
             }
             else {
                 proto_tree_add_uint(ncp_tree, hf_ncp_subfunc, tvb, 7, 1, subfunc);
-                ptvc = ptvcursor_new(ncp_tree, tvb, 8);
+                ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 8);
             }
         }
         else {
-            ptvc = ptvcursor_new(ncp_tree, tvb, 7);
+            ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 7);
         }
 
         /* The group is not part of the packet, but it's useful
@@ -8256,7 +8262,7 @@ dissect_ncp_reply(tvbuff_t *tvb, packet_info *pinfo,
                 req_cond_results = NULL;
             }
             clear_repeat_vars();
-            ptvc = ptvcursor_new(ncp_tree, tvb, 8);
+            ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 8);
             process_ptvc_record(ptvc, pinfo, ncp_rec->reply_ptvc,
                                 req_cond_results, TRUE, ncp_rec, FALSE);
             ptvcursor_free(ptvc);
@@ -8444,7 +8450,7 @@ dissect_nds_request(tvbuff_t *tvb, packet_info *pinfo,
 
             if (ncp_rec && ncp_rec->request_ptvc)
             {
-                ptvc = ptvcursor_new(ncp_tree, tvb, 7);
+                ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 7);
                 clear_repeat_vars();
                 process_ptvc_record(ptvc, pinfo, ncp_rec->request_ptvc, NULL, TRUE, ncp_rec, TRUE);
                 ptvcursor_free(ptvc);
@@ -9524,7 +9530,7 @@ dissect_ping_req(tvbuff_t *tvb, packet_info *pinfo,
             ; /* nothing */
             break;
         }
-        ptvc = ptvcursor_new(ncp_tree, tvb, 7);
+        ptvc = ptvcursor_new(pinfo->pool, ncp_tree, tvb, 7);
         if (ncp_rec && ncp_rec->request_ptvc) {
             clear_repeat_vars();
             process_ptvc_record(ptvc, pinfo, ncp_rec->request_ptvc, NULL, TRUE, ncp_rec, TRUE);

@@ -1,4 +1,5 @@
-/* oui.h
+/** @file
+ *
  * Definitions of OUIs
  *
  * Wireshark - Network traffic analyzer
@@ -35,6 +36,7 @@
 #define OUI_ATHEROS         0x00037F    /* Atheros Communications */
 #define OUI_ORACLE          0x0003BA    /* Oracle */
 #define OUI_AVAYA_EXTREME   0x00040D    /* Avaya Extreme access point */
+#define OUI_EXTREME_MESH    0x000512    /* Extreme MESH */
 #define OUI_SONY_ERICSSON   0x000AD9    /* Sony Ericsson Mobile Communications AB */
 #define OUI_ARUBA           0x000B86    /* Aruba Networks */
 #define OUI_ROUTERBOARD     0x000C42    /* Formerly listed as Mikrotik, however this OUI is owned by Routerboard*/
@@ -55,6 +57,7 @@
 #define OUI_BLUETOOTH       0x001958    /* Bluetooth SIG */
 #define OUI_SONY_ERICSSON_8 0x001963    /* Sony Ericsson Mobile Communications AB */
 #define OUI_AEROHIVE        0x001977    /* Aerohive AP to AP communication */
+#define OUI_ITU_T           0x0019a7    /* International Telecommunication Union (ITU) Telecommunication Standardization Sector */
 #define OUI_DCBX            0x001B21    /* Data Center Bridging Capabilities Exchange Protocol */
 #define OUI_CISCO_UBI       0x001B67    /* Cisco/Ubiquisys */
 #define OUI_IEEE_802_1QBG   0x001B3F    /* IEEE 802.1 Qbg */
@@ -82,6 +85,7 @@
 #define OUI_ZIGBEE          0x4A191B    /* ZigBee Alliance */
 #define OUI_WFA             0x506F9A    /* Wi-Fi Alliance */
 #define OUI_MIST            0x5C5B35    /* Mist Systems */
+#define OUI_RUCKUS          0x001392    /* Ruckus Networks */
 #define OUI_SMPTE           0x6897E8    /* Society of Motion Picture and Television Engineers */
 #define OUI_SGDSN           0x6A5C35    /* Secrétariat Général de la Défense et de la Sécurité Nationale http://www.sgdsn.gouv.fr */
 #define OUI_ONOS            0xA42305    /* Open Networking Laboratory (ONOS) */

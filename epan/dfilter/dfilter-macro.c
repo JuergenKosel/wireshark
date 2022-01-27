@@ -18,7 +18,7 @@
 #include "dfilter-int.h"
 #include "dfilter.h"
 #include "dfilter-macro.h"
-#include <ftypes/ftypes-int.h>
+#include <ftypes/ftypes.h>
 #include <epan/uat-int.h>
 #include <epan/proto.h>
 #include <wsutil/glib-compat.h>
@@ -50,7 +50,7 @@ static gboolean fvt_cache_cb(proto_node * node, gpointer data _U_) {
 
 	if ((e = (fvt_cache_entry_t*)g_hash_table_lookup(fvt_cache,finfo->hfinfo->abbrev))) {
 		e->usable = FALSE;
-	} else if (finfo->value.ftype->val_to_string_repr) {
+	} else {
 		switch (finfo->hfinfo->type) {
 			case FT_NONE:
 			case FT_PROTOCOL:
@@ -58,11 +58,14 @@ static gboolean fvt_cache_cb(proto_node * node, gpointer data _U_) {
 			default:
 				break;
 		}
-		e = g_new(fvt_cache_entry_t,1);
-		e->name = finfo->hfinfo->abbrev;
-		e->repr = fvalue_to_string_repr(NULL, &(finfo->value), FTREPR_DFILTER, finfo->hfinfo->display);
-		e->usable = TRUE;
-		g_hash_table_insert(fvt_cache,(void*)finfo->hfinfo->abbrev,e);
+		char *repr = fvalue_to_string_repr(NULL, &(finfo->value), FTREPR_DFILTER, finfo->hfinfo->display);
+		if (repr) {
+			e = g_new(fvt_cache_entry_t,1);
+			e->name = finfo->hfinfo->abbrev;
+			e->repr = repr;
+			e->usable = TRUE;
+			g_hash_table_insert(fvt_cache,(void*)finfo->hfinfo->abbrev,e);
+		}
 	}
 	return FALSE;
 }
@@ -104,12 +107,12 @@ static gchar* dfilter_macro_resolve(gchar* name, gchar** args, gchar** error) {
 				return wmem_strdup(NULL, e->repr);
 			} else {
 				if (error != NULL)
-					*error = g_strdup_printf("macro '%s' is unusable", name);
+					*error = ws_strdup_printf("macro '%s' is unusable", name);
 				return NULL;
 			}
 		} else {
 			if (error != NULL)
-				*error = g_strdup_printf("macro '%s' does not exist", name);
+				*error = ws_strdup_printf("macro '%s' does not exist", name);
 			return NULL;
 		}
 	}
@@ -122,7 +125,7 @@ static gchar* dfilter_macro_resolve(gchar* name, gchar** args, gchar** error) {
 
 	if (argc != m->argc) {
 		if (error != NULL) {
-			*error = g_strdup_printf("wrong number of arguments for macro '%s', expecting %d instead of %d",
+			*error = ws_strdup_printf("wrong number of arguments for macro '%s', expecting %d instead of %d",
 									  name, m->argc, argc);
 		}
 		return NULL;
@@ -535,7 +538,7 @@ static gboolean macro_name_chk(void *mp, const char *in_name, guint name_len,
 			/* This a string field which is always NUL-terminated,
 			 * so no need to check name_len. */
 			if (!g_strcmp0(in_name, macros[i].name)) {
-				*error = g_strdup_printf("macro '%s' already exists",
+				*error = ws_strdup_printf("macro '%s' already exists",
 							 in_name);
 				return FALSE;
 			}

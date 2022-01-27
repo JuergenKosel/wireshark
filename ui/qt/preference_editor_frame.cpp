@@ -29,6 +29,7 @@
 
 #include <QPushButton>
 #include <QKeyEvent>
+#include <QRegularExpression>
 
 PreferenceEditorFrame::PreferenceEditorFrame(QWidget *parent) :
     AccordionFrame(parent),
@@ -87,8 +88,8 @@ void PreferenceEditorFrame::editPreference(preference *pref, pref_module *module
     switch (prefs_get_type(pref_)) {
     case PREF_UINT:
     case PREF_DECODE_AS_UINT:
-        connect(ui->preferenceLineEdit, SIGNAL(textChanged(QString)),
-                this, SLOT(uintLineEditTextEdited(QString)));
+        connect(ui->preferenceLineEdit, &SyntaxLineEdit::textChanged,
+                this, &PreferenceEditorFrame::uintLineEditTextEdited);
         show = true;
         break;
     case PREF_SAVE_FILENAME:
@@ -97,14 +98,15 @@ void PreferenceEditorFrame::editPreference(preference *pref, pref_module *module
         browse_button = true;
         // Fallthrough
     case PREF_STRING:
-        connect(ui->preferenceLineEdit, SIGNAL(textChanged(QString)),
-                this, SLOT(stringLineEditTextEdited(QString)));
+    case PREF_PASSWORD:
+        connect(ui->preferenceLineEdit, &SyntaxLineEdit::textChanged,
+                this, &PreferenceEditorFrame::stringLineEditTextEdited);
         show = true;
         break;
     case PREF_RANGE:
     case PREF_DECODE_AS_RANGE:
-        connect(ui->preferenceLineEdit, SIGNAL(textChanged(QString)),
-                this, SLOT(rangeLineEditTextEdited(QString)));
+        connect(ui->preferenceLineEdit, &SyntaxLineEdit::textChanged,
+                this, &PreferenceEditorFrame::rangeLineEditTextEdited);
         show = true;
         break;
     default:
@@ -112,7 +114,7 @@ void PreferenceEditorFrame::editPreference(preference *pref, pref_module *module
     }
 
     if (show) {
-        ui->preferenceLineEdit->setText(gchar_free_to_qstring(prefs_pref_to_str(pref_, pref_stashed)).remove(QRegExp("\n\t")));
+        ui->preferenceLineEdit->setText(gchar_free_to_qstring(prefs_pref_to_str(pref_, pref_stashed)).remove(QRegularExpression("\n\t")));
         ui->preferenceBrowseButton->setHidden(!browse_button);
         animatedShow();
     }
@@ -223,6 +225,9 @@ void PreferenceEditorFrame::on_buttonBox_accepted()
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
         apply = prefs_set_string_value(pref_, new_str_.toStdString().c_str(), pref_stashed);
+        break;
+    case PREF_PASSWORD:
+        apply = prefs_set_password_value(pref_, new_str_.toStdString().c_str(), pref_stashed);
         break;
     case PREF_RANGE:
     case PREF_DECODE_AS_RANGE:

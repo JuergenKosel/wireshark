@@ -11,7 +11,7 @@
 #include <ui_funnel_text_dialog.h>
 
 #include <QPushButton>
-#include <QRegExp>
+#include <QRegularExpression>
 #include <QTextCharFormat>
 #include <QTextCursor>
 
@@ -25,8 +25,8 @@
 
 static QHash<QObject *, funnel_bt_t*> text_button_to_funnel_button_;
 
-FunnelTextDialog::FunnelTextDialog(const QString &title) :
-    GeometryStateDialog(NULL),
+FunnelTextDialog::FunnelTextDialog(QWidget *parent, const QString &title) :
+    GeometryStateDialog(parent),
     ui(new Ui::FunnelTextDialog),
     close_cb_(NULL),
     close_cb_data_(NULL)
@@ -73,9 +73,9 @@ void FunnelTextDialog::reject()
     deleteLater();
 }
 
-struct _funnel_text_window_t *FunnelTextDialog::textWindowNew(const QString title)
+struct _funnel_text_window_t *FunnelTextDialog::textWindowNew(QWidget *parent, const QString title)
 {
-    FunnelTextDialog *ftd = new FunnelTextDialog(title);
+    FunnelTextDialog *ftd = new FunnelTextDialog(parent, title);
     ftd->show();
     return &ftd->funnel_text_window_;
 }
@@ -126,7 +126,7 @@ void FunnelTextDialog::addButton(funnel_bt_t *funnel_button, QString label)
     QPushButton *button = new QPushButton(label);
     ui->buttonBox->addButton(button, QDialogButtonBox::ActionRole);
     text_button_to_funnel_button_[button] = funnel_button;
-    connect(button, SIGNAL(clicked(bool)), this, SLOT(buttonClicked()));
+    connect(button, &QPushButton::clicked, this, &FunnelTextDialog::buttonClicked);
 }
 
 void FunnelTextDialog::buttonClicked()
@@ -141,7 +141,8 @@ void FunnelTextDialog::buttonClicked()
 
 void FunnelTextDialog::on_findLineEdit_textChanged(const QString &pattern)
 {
-    QRegExp re(pattern, Qt::CaseInsensitive);
+    QRegularExpression re(pattern, QRegularExpression::CaseInsensitiveOption |
+                          QRegularExpression::UseUnicodePropertiesOption);
     QTextCharFormat plain_fmt, highlight_fmt;
     highlight_fmt.setBackground(Qt::yellow);
     QTextCursor csr(ui->textEdit->document());
@@ -155,24 +156,19 @@ void FunnelTextDialog::on_findLineEdit_textChanged(const QString &pattern)
     csr.setCharFormat(plain_fmt);
 
     // Apply new highlighting
-    if (!pattern.isEmpty()) {
-        int match_pos = 0;
-        while ((match_pos = re.indexIn(ui->textEdit->toPlainText(), match_pos)) > -1) {
-            csr.setPosition(match_pos, QTextCursor::MoveAnchor);
-            csr.setPosition(match_pos + re.matchedLength(), QTextCursor::KeepAnchor);
+    if (!pattern.isEmpty() && re.isValid()) {
+        QRegularExpressionMatchIterator iter = re.globalMatch(ui->textEdit->toPlainText());
+        while (iter.hasNext()) {
+            QRegularExpressionMatch match = iter.next();
+            csr.setPosition(match.capturedStart(), QTextCursor::MoveAnchor);
+            csr.setPosition(match.capturedEnd(), QTextCursor::KeepAnchor);
             csr.setCharFormat(highlight_fmt);
-            match_pos += re.matchedLength();
         }
     }
 
     // Restore cursor and anchor
     csr.setPosition(position, QTextCursor::MoveAnchor);
     setUpdatesEnabled(true);
-}
-
-struct _funnel_text_window_t* text_window_new(const char* title)
-{
-    return FunnelTextDialog::textWindowNew(title);
 }
 
 void text_window_set_text(funnel_text_window_t *ftw, const char* text)

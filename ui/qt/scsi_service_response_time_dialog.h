@@ -1,4 +1,4 @@
-/* scsi_service_response_time_dialog.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -19,7 +19,6 @@ class ScsiServiceResponseTimeDialog : public ServiceResponseTimeDialog
     Q_OBJECT
 
 public:
-
     ScsiServiceResponseTimeDialog(QWidget &parent, CaptureFile &cf, struct register_srt *srt, const QString filter);
     static TapParameterDialog *createScsiSrtDialog(QWidget &parent, const QString, const QString opt_arg, CaptureFile &cf);
 

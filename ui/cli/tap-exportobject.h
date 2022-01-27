@@ -1,4 +1,4 @@
-/* tap-exportobject.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -17,7 +17,7 @@ extern "C" {
 void eo_list_object_types(void);
 
 /* will be called by main each time a --export-objects option is found */
-gboolean eo_tap_opt_add(const char *optarg);
+gboolean eo_tap_opt_add(const char *ws_optarg);
 
 void start_exportobjects(void);
 

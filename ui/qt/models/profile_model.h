@@ -1,4 +1,4 @@
-/* profile_model.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -25,6 +25,7 @@ Q_DECLARE_LOGGING_CATEGORY(profileLogger)
 class ProfileSortModel : public QSortFilterProxyModel
 {
     Q_OBJECT
+
 public:
     ProfileSortModel(QObject *parent = Q_NULLPTR);
 

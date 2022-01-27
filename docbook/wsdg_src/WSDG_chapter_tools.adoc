@@ -1,10 +1,10 @@
 // WSDG Chapter Tools
 
-[[ChapterTools]]
+[#ChapterTools]
 
 == Tool Reference
 
-[[ChToolsIntro]]
+[#ChToolsIntro]
 
 === Introduction
 
@@ -43,7 +43,7 @@ for the UNIX based tools with `**toolname** --help` or the man page via `man
 You will find explanations of the tool usage for some of the specific
 development tasks in <<ChapterSources>>.
 
-[[ChToolsChocolatey]]
+[#ChToolsChocolatey]
 === Chocolatey
 
 Chocolatey is a Windows package manager that can be used to install (and update)
@@ -71,20 +71,15 @@ behavior you'll probably want to install Python using the packages from
 python.org.
 
 Other package managers for Windows include the https://docs.microsoft.com/en-us/windows/package-manager/[Windows Package Manager (winget)] and https://scoop.sh/[Scoop].
-As of May 2020 neither option provides all of the packages we require, but that might change in the future.
+As of January 2022 neither option provides all of the packages we require, but that might change in the future.
 
-[[ChToolsCMake]]
+[#ChToolsCMake]
 
 === CMake
 
-Wireshark’s build environment can be configured using CMake on various
-UNIX-like platforms, including Linux, macOS, and *BSD, and on Windows.
-CMake is designed to support out-of-tree builds - so much so that
-in-tree builds do not work properly in all cases.  Along with being
-cross-platform, CMake supports many build tools and environments
-including traditional make, Ninja, and MSBuild.  Our Buildbot runs
-CMake steps on Ubuntu, Win32, Win64, and macOS.  In particular, the
-macOS and Windows packages are built using CMake.
+Wireshark’s build environment can be configured using CMake on various UNIX-like platforms, including Linux, macOS, and *BSD, and on Windows.
+CMake is designed to support out-of-tree builds - so much so that in-tree builds do not work properly in all cases.
+Along with being cross-platform, CMake supports many build tools and environments including traditional make, Ninja, and MSBuild.
 
 Building with CMake typically includes creating a build directory and
 specifying a *generator*, aka a build tool. For example, to build
@@ -149,11 +144,11 @@ Useful variables: https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/Use
 
 Frequently Asked Questions: https://gitlab.kitware.com/cmake/community/wikis/FAQ
 
-[[ChToolsGNUChain]]
+[#ChToolsGNUChain]
 
 === GNU Compiler Toolchain (UNIX And UNIX-like Platforms)
 
-[[ChToolsGCC]]
+[#ChToolsGCC]
 
 ==== gcc (GNU Compiler Collection)
 
@@ -183,7 +178,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Your version string may vary, of course.
 
-[[ChToolsGDB]]
+[#ChToolsGDB]
 
 ==== gdb (GNU Project Debugger)
 
@@ -217,7 +212,7 @@ There is NO WARRANTY, to the extent permitted by law.
 
 Your version string may vary, of course.
 
-[[ChToolsGNUmake]]
+[#ChToolsGNUmake]
 
 ==== make (GNU Make)
 
@@ -268,7 +263,7 @@ available as a package for your platform, you can get it from:
 https://ninja-build.org.  You can download the source code or binaries
 for Linux, macOS, and Windows (we have not tested Ninja on Windows).
 
-[[ChToolsMSChain]]
+[#ChToolsMSChain]
 
 === Microsoft compiler toolchain (Windows native)
 
@@ -292,6 +287,7 @@ _windows.h_, _WS2_32.lib_)
 
 Official releases are or were built with the following Visual {cpp} versions:
 
+* Wireshark 3.6.x: Microsoft Visual {cpp} 2019.
 * Wireshark 3.4.x: Microsoft Visual {cpp} 2019.
 * Wireshark 3.2.x: Microsoft Visual {cpp} 2019.
 * Wireshark 3.0.x: Microsoft Visual {cpp} 2017.
@@ -399,7 +395,7 @@ However, the version string may vary.
 Documentation on the linker can be found at
 https://docs.microsoft.com/en-us/cpp/build/reference/linking?view=vs-2019[Microsoft Docs]
 
-[[msvc-runtime-redistributable]]
+[#msvc-runtime-redistributable]
 
 ==== Visual {cpp} Runtime “Redistributable” Files
 
@@ -449,20 +445,19 @@ include new and updated APIs.
 When you purchase a commercial Visual Studio or use the Community
 Edition, it will include an SDK.
 
-[[ChToolsDocumentationToolchain]]
+[#ChToolsDocumentationToolchain]
 === Documentation Toolchain
 
-Wireshark’s documentation is split across two directories. The `doc`
-directory contains man pages written in Perl’s POD (Plain Old
-Documentation) format. The `docbook` directory contains the User’s
-Guide, Developer’s Guide, and the release notes, which are written in
-Asciidoctor markup.
+Wireshark’s documentation is split across two directories.
+The `doc` directory contains man pages written in Asciidoctor markup.
+The `docbook` directory contains the User’s Guide, Developer’s Guide, and the release notes, which are also written in Asciidoctor markup.
+The split is for historical reasons (described below), and the documentation will likely be consolidated into one directory in the future.
 
 Our various output formats are generated using the following tools.
 Intermediate formats are in _italics_.
 
-Man page roff:: pod2man
-Man page HTML:: pod2html
+Man page roff:: Asciidoctor
+Man page HTML:: Asciidoctor
 
 Guide HTML:: Asciidoctor → _DocBook XML_ → xsltproc + DocBook XSL
 Guide PDF:: Asciidoctor
@@ -473,14 +468,16 @@ Release notes text:: Asciidoctor → _HTML_ → html2text.py
 ==== Asciidoctor
 
 https://asciidoctor.org/[Asciidoctor] comes in several flavors: a Ruby gem (Asciidoctor), a Java bundle (AsciidoctorJ), and transpiled JavaScript (Asciidoctor.js).
-Any of them can be used to build Wireshark’s documentation.
+The Ruby and Java flavors can be used to build Wireshark’s documentation, but the JavaScript flavor doesn’t support all of the features that we require.
+// We need docbook5, PDF & EPUB output and macros
 
 The guides and release notes were originally written in DocBook (hence the directory name).
 They were later converted to AsciiDoc and then migrated to Asciidoctor.
+The man pages were originally in Perl’s POD (Plain Old Documentation) format and were later converted to Asciidoctor.
 We currently use Asciidoctor’s modern (>= 1.5.0) syntax.
 
 PDF output requires Asciidoctor’s PDF backend.
-It is included with AsciidoctorJ and Asciidoctor.js but _not_ with Asciidoctor.
+It is included with AsciidoctorJ but _not_ with Asciidoctor.
 
 ==== DocBook XML and XSL
 
@@ -495,7 +492,7 @@ These are available via installable packages on most Linux distributions, Chocol
 http://xmlsoft.org/xslt/[xsltproc] converts DocBook XML to various formats based on XSL stylesheets.
 It either ships as part of the operating system or is available via an installable package on most Linux distributions, Chocolatey, and Homebrew.
 
-[[ChToolsDebugger]]
+[#ChToolsDebugger]
 
 === Debugger
 
@@ -504,7 +501,7 @@ Using a good debugger can save you a lot of development time.
 The debugger you use must match the C compiler Wireshark was compiled with,
 otherwise the debugger will simply fail or you will only see a lot of garbage.
 
-[[ChToolsMSVCDebugger]]
+[#ChToolsMSVCDebugger]
 
 ==== Visual Studio Integrated Debugger
 
@@ -547,7 +544,7 @@ order of statements can jump around.
 
 If you require a non-optimised version, then build using a debug configuration.
 
-[[ChToolsMSDebuggingTools]]
+[#ChToolsMSDebuggingTools]
 
 ==== Debugging Tools For Windows
 
@@ -577,13 +574,13 @@ If you require a non-optimised version, then build using a debug configuration, 
 *`msbuild /m /p:Configuration=Debug Wireshark.sln`*. The build products will be found
 in C:\Development\wsbuild64\run\Debug\.
 
-[[ChToolsBash]]
+[#ChToolsBash]
 
 === bash
 
 The bash shell is needed to run several shell scripts.
 
-[[ChToolsGNUBash]]
+[#ChToolsGNUBash]
 
 [discrete]
 ==== Unix
@@ -609,7 +606,7 @@ Copyright (C) 2016 Free Software Foundation, Inc.
 
 Your version string will likely vary.
 
-[[ChToolsPython]]
+[#ChToolsPython]
 
 === Python
 
@@ -656,7 +653,7 @@ Python 3.5.1
 
 Your version string may vary of course.
 
-[[ChToolsPerl]]
+[#ChToolsPerl]
 
 === Perl
 
@@ -666,7 +663,7 @@ https://www.perl.org[]. Perl is used to convert
 various text files into usable source code. Perl version 5.6
 and above should work fine.
 
-[[ChToolsUnixPerl]]
+[#ChToolsUnixPerl]
 
 [discrete]
 ==== Unix
@@ -701,7 +698,7 @@ Internet, point your browser at http://www.perl.org/, the Perl Home Page.
 
 However, the version string may vary.
 
-[[ChToolsWindowsPerl]]
+[#ChToolsWindowsPerl]
 
 [discrete]
 ==== Windows
@@ -745,14 +742,14 @@ Built 18:08:02 Feb  4 2003
 
 However, the version string may vary.
 
-[[ChToolsFlex]]
+[#ChToolsFlex]
 
 === Flex
 
 Flex is a lexical analyzer generator used for Wireshark’s display filters, some
 file formats, and other features.
 
-[[ChToolsUnixFlex]]
+[#ChToolsUnixFlex]
 
 [discrete]
 ==== Unix
@@ -778,7 +775,7 @@ flex version 2.5.4
 
 Your version string may vary.
 
-[[ChToolsWindowsFlex]]
+[#ChToolsWindowsFlex]
 
 [discrete]
 ==== Windows
@@ -796,7 +793,7 @@ Native packages are available from other sources such as
 http://gnuwin32.sourceforge.net/packages/flex.htm[GnuWin]. They aren't
 officially supported but _should_ work.
 
-[[ChToolsGit]]
+[#ChToolsGit]
 
 === Git client
 
@@ -812,7 +809,7 @@ the different ways to obtain the Wireshark sources, see <<ChSrcObtain>>.
 You will find more instructions in <<ChSrcGit>> on how to use the Git
 client.
 
-[[ChToolsUnixGit]]
+[#ChToolsUnixGit]
 
 [discrete]
 ==== Unix
@@ -836,7 +833,7 @@ git version 2.14.1
 
 Your version will likely be different.
 
-[[ChToolsWindowsGit]]
+[#ChToolsWindowsGit]
 
 [discrete]
 ==== Windows
@@ -865,7 +862,7 @@ git version 2.16.1.windows.1
 
 However, the version string may vary.
 
-[[ChToolsGitPowerShellExtensions]]
+[#ChToolsGitPowerShellExtensions]
 
 === Git Powershell Extensions (Optional)
 
@@ -878,7 +875,7 @@ copy status.  You can install it using Chocolatey:
 PS:\> choco install poshgit
 ----
 
-[[ChToolsGitGUI]]
+[#ChToolsGitGUI]
 
 === Git GUI Client (Optional)
 
@@ -889,7 +886,7 @@ https://git-scm.com/downloads/guis[] for details.
 // [[ChToolsUnixGitGUI]]
 // XXX Add Gui client section
 
-[[ChToolsPatch]]
+[#ChToolsPatch]
 
 === patch (Optional)
 
@@ -903,7 +900,7 @@ handle patches for you.
 
 // You will find more instructions in <<ChSrcPatchApply>>on how to use the patch tool.
 
-[[ChToolsUnixPatch]]
+[#ChToolsUnixPatch]
 
 [discrete]
 ==== Unix
@@ -937,7 +934,7 @@ written by Larry Wall and Paul Eggert
 
 However, the version string may vary.
 
-[[ChToolsWindowsPatch]]
+[#ChToolsWindowsPatch]
 
 [discrete]
 ==== Windows
@@ -946,12 +943,12 @@ The Windows native Git tools provide patch. A native Windows patch package can b
 http://gnuwin32.sourceforge.net/[]. The
 installation should be straightforward.
 
-[[ChToolsNSIS]]
+[#ChToolsNSIS]
 
 === Windows: NSIS (Optional)
 
 The NSIS (Nullsoft Scriptable Install System) is used to generate
-_Wireshark-win32-{wireshark-version}.exe_ from all the files
+_Wireshark-win64-{wireshark-version}.exe_ from all the files
 needed to be installed, including all required DLLs, plugins, and supporting
 files.
 
@@ -966,7 +963,7 @@ PS$> choco install nsis
 
 You can find more instructions on using NSIS in <<ChSrcNSIS>>.
 
-[[ChToolsWiX]]
+[#ChToolsWiX]
 
 === Windows: WiX Toolset (Optional)
 
@@ -982,7 +979,7 @@ This also requires the Visual C++ redistributable merge modules, which can be in
 
 Wireshark’s .msi packaging is currently experimental and the generated packages may be incomplete.
 
-[[ChToolsPortableApps]]
+[#ChToolsPortableApps]
 === Windows: PortableApps (Optional)
 
 The PortableApps.com Installer is used to generate

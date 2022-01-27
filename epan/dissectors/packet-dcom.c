@@ -249,7 +249,7 @@ void dcom_interface_dump(void) {
 
 		for(objects = machine->objects; objects != NULL; objects = g_list_next(objects)) {
 			object = (dcom_object_t *)objects->data;
-			/*ws_warning(" Object(#%4u): OID:0x%" G_GINT64_MODIFIER "x private:%p", object->first_packet, object->oid, object->private_data);*/
+			/*ws_warning(" Object(#%4u): OID:0x%" PRIx64 " private:%p", object->first_packet, object->oid, object->private_data);*/
 
 			for(interfaces = object->interfaces; interfaces != NULL; interfaces = g_list_next(interfaces)) {
 				interf = (dcom_interface_t *)interfaces->data;
@@ -726,7 +726,7 @@ dissect_dcom_extent(tvbuff_t *tvb, int offset,
 					  hf_dcom_extent_id, &uuidExtend);
 
 			/* look for a registered uuid name */
-			if((uuid_name = guids_get_uuid_name(&uuidExtend)) != NULL) {
+			if((uuid_name = guids_get_uuid_name(&uuidExtend, pinfo->pool)) != NULL) {
 				proto_tree_add_guid_format_value(sub_tree, hf_dcom_extent_id, tvb,
 								 offset, sizeof(e_guid_t), (e_guid_t *) &uuidExtend,
 								 "%s (%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
@@ -804,13 +804,13 @@ dissect_dcom_this(tvbuff_t *tvb, int offset,
 
 	/* update subtree header */
 	proto_item_append_text(sub_item, ", V%u.%u, Causality ID: %s",
-		u16VersionMajor, u16VersionMinor, guids_resolve_guid_to_str(&uuidCausality));
+		u16VersionMajor, u16VersionMinor, guids_resolve_guid_to_str(&uuidCausality, pinfo->pool));
 	proto_item_set_len(sub_item, offset - u32SubStart);
 
 	if(memcmp(&di->call_data->object_uuid, &uuid_null, sizeof(uuid_null)) != 0) {
 		pi = proto_tree_add_guid_format(tree, hf_dcom_ipid, tvb, offset, 0,
 			(e_guid_t *) &di->call_data->object_uuid,
-			"Object UUID/IPID: %s", guids_resolve_guid_to_str(&di->call_data->object_uuid));
+			"Object UUID/IPID: %s", guids_resolve_guid_to_str(&di->call_data->object_uuid, pinfo->pool));
 		proto_item_set_generated(pi);
 	}
 
@@ -844,7 +844,7 @@ dissect_dcom_that(tvbuff_t *tvb, int offset,
 	if(memcmp(&di->call_data->object_uuid, &uuid_null, sizeof(uuid_null)) != 0) {
 		pi = proto_tree_add_guid_format(tree, hf_dcom_ipid, tvb, offset, 0,
 			(e_guid_t *) &di->call_data->object_uuid,
-			"Object UUID/IPID: %s", guids_resolve_guid_to_str(&di->call_data->object_uuid));
+			"Object UUID/IPID: %s", guids_resolve_guid_to_str(&di->call_data->object_uuid, pinfo->pool));
 		proto_item_set_generated(pi);
 	}
 
@@ -1384,7 +1384,7 @@ dissect_dcom_VARIANT(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				offset = dissect_dcom_I8(tvb, offset, pinfo, NULL, di, drep,
 						0, &cyData);
 				proto_tree_add_int64_format(sub_tree, hf_dcom_vt_cy, tvb, offset - 8,
-						8, cyData, "%s: %" G_GINT64_FORMAT ".%.04" G_GINT64_FORMAT,
+						8, cyData, "%s: %" PRId64 ".%.04" PRId64,
 						proto_registrar_get_name(hf_dcom_vt_cy),
 						cyData / 10000, ABS(cyData % 10000));
 			break;
@@ -1472,7 +1472,7 @@ dissect_dcom_UUID(tvbuff_t *tvb, int offset,
 
 	/* add to the tree */
 	hfi = proto_registrar_get_nth(hfindex);
-	uuid_name = guids_get_uuid_name(&uuid);
+	uuid_name = guids_get_uuid_name(&uuid, pinfo->pool);
 	if(uuid_name) {
 		proto_tree_add_guid_format(tree, hfindex, tvb, offset-16, 16, (e_guid_t *) &uuid,
 			  "%s: %s (%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
@@ -1518,7 +1518,7 @@ dissect_dcom_append_UUID(tvbuff_t *tvb, int offset,
 						hfindex, uuid);
 
 	/* look for a registered uuid name */
-	uuid_name = guids_get_uuid_name(uuid);
+	uuid_name = guids_get_uuid_name(uuid, pinfo->pool);
 
 	/* add to the tree */
 	hfi = proto_registrar_get_nth(hfindex);
@@ -1616,7 +1616,7 @@ dcom_tvb_get_nwstringz0(tvbuff_t *tvb, gint offset, guint32 inLength, gchar *psz
 		for(u32IdxA = 0, u32IdxW = 0;
 		    u32IdxW < u32Idx && u32IdxA < outLength-2;
 		    u32IdxW++, u32IdxA+=2) {
-			g_snprintf(&pszStr[u32IdxA], 3, "%02X", tvb_get_guint8(tvb, offset+u32IdxW));
+			snprintf(&pszStr[u32IdxA], 3, "%02X", tvb_get_guint8(tvb, offset+u32IdxW));
 		}
 	}
 
@@ -1912,7 +1912,7 @@ dissect_dcom_STDOBJREF(tvbuff_t *tvb, gint offset, packet_info *pinfo,
 
 	/* append info to subtree header */
 	proto_item_append_text(sub_item, ": PublicRefs=%u IPID=%s",
-		u32PublicRefs, guids_resolve_guid_to_str(ipid));
+		u32PublicRefs, guids_resolve_guid_to_str(ipid, pinfo->pool));
 	proto_item_set_len(sub_item, offset - u32SubStart);
 
 	return offset;

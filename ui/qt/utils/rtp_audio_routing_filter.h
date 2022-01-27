@@ -1,4 +1,4 @@
-/* rtp_audio_routing_filter.h
+/** @file
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -20,8 +20,6 @@
 
 class AudioRoutingFilter: public QIODevice
 {
-    Q_OBJECT
-
 public:
     explicit AudioRoutingFilter(QIODevice *input, bool stereo_required, AudioRouting audio_routing);
     ~AudioRoutingFilter() { }
