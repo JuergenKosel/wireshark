@@ -46,7 +46,7 @@
 #include <ui/qt/widgets/overlay_scroll_bar.h>
 #include "proto_tree.h"
 #include <ui/qt/utils/qt_ui_utils.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 #include <ui/qt/utils/data_printer.h>
 #include <ui/qt/utils/frame_information.h>
 #include <ui/qt/utils/variant_pointer.h>
@@ -132,6 +132,13 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
     model->flushVisibleRows();
     int row = model->visibleIndexOf(fdata_needle);
     if (row >= 0) {
+        /* Calling ClearAndSelect with setCurrentIndex clears the "current"
+         * item, but doesn't clear the "selected" item. We want to clear
+         * the "selected" item as well so that selectionChanged() will be
+         * emitted in order to force an update of the packet details and
+         * packet bytes after a search.
+         */
+        gbl_cur_packet_list->selectionModel()->clearSelection();
         gbl_cur_packet_list->selectionModel()->setCurrentIndex(model->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         return TRUE;
     }
@@ -238,7 +245,7 @@ PacketList::PacketList(QWidget *parent) :
 {
     setItemsExpandable(false);
     setRootIsDecorated(false);
-    setSortingEnabled(true);
+    setSortingEnabled(prefs.gui_packet_list_sortable);
     setUniformRowHeights(true);
     setAccessibleName("Packet list");
 
@@ -275,8 +282,9 @@ PacketList::PacketList(QWidget *parent) :
 
     connect(packet_list_model_, SIGNAL(goToPacket(int)), this, SLOT(goToPacket(int)));
     connect(packet_list_model_, SIGNAL(itemHeightChanged(const QModelIndex&)), this, SLOT(updateRowHeights(const QModelIndex&)));
-    connect(wsApp, SIGNAL(addressResolutionChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
-    connect(wsApp, SIGNAL(columnDataChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
+    connect(mainApp, SIGNAL(addressResolutionChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
+    connect(mainApp, SIGNAL(columnDataChanged()), this, SLOT(redrawVisiblePacketsDontSelectCurrent()));
+    connect(mainApp, &MainApplication::preferencesChanged, this, [=]() { setSortingEnabled(prefs.gui_packet_list_sortable); });
 
     connect(header(), SIGNAL(sectionResized(int,int,int)),
             this, SLOT(sectionResized(int,int,int)));
@@ -741,7 +749,7 @@ void PacketList::ctxDecodeAsDialog()
     bool create_new = da_action->property("create_new").toBool();
 
     DecodeAsDialog *da_dialog = new DecodeAsDialog(this, cap_file_, create_new);
-    connect(da_dialog, SIGNAL(destroyed(QObject*)), wsApp, SLOT(flushAppSignals()));
+    connect(da_dialog, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
     da_dialog->setWindowModality(Qt::ApplicationModal);
     da_dialog->setAttribute(Qt::WA_DeleteOnClose);
     da_dialog->show();
@@ -921,7 +929,7 @@ void PacketList::keyPressEvent(QKeyEvent *event)
         }
 
         if (content.count() > 0)
-            wsApp->clipboard()->setText(content.join('\n'), QClipboard::Clipboard);
+            mainApp->clipboard()->setText(content.join('\n'), QClipboard::Clipboard);
     }
 }
 
@@ -970,7 +978,7 @@ void PacketList::setRecentColumnWidth(int col)
         int fmt = get_column_format(col);
         const char *long_str = get_column_width_string(fmt, col);
 
-        QFontMetrics fm = QFontMetrics(wsApp->monospaceFont());
+        QFontMetrics fm = QFontMetrics(mainApp->monospaceFont());
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
         if (long_str) {
             col_width = fm.horizontalAdvance(long_str);
@@ -1561,7 +1569,7 @@ void PacketList::setCaptureFile(capture_file *cf)
 void PacketList::setMonospaceFont(const QFont &mono_font)
 {
     setFont(mono_font);
-    header()->setFont(wsApp->font());
+    header()->setFont(mainApp->font());
 }
 
 void PacketList::goNextPacket(void)
@@ -1856,7 +1864,7 @@ void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisua
 
     prefs_main_write();
 
-    wsApp->emitAppSignal(WiresharkApplication::ColumnsChanged);
+    mainApp->emitAppSignal(MainApplication::ColumnsChanged);
 
     // If the column with the sort indicator got shifted, mark the new column
     // after updating the columns contents (via ColumnsChanged) to ensure that
@@ -1930,7 +1938,7 @@ void PacketList::copySummary()
 
     QString copy_text = createSummaryText(currentIndex(), copy_type);
 
-    wsApp->clipboard()->setText(copy_text);
+    mainApp->clipboard()->setText(copy_text);
 }
 
 // We need to tell when the user has scrolled the packet list, either to
@@ -1979,7 +1987,8 @@ void PacketList::drawNearOverlay()
     qreal dp_ratio = overlay_sb_->devicePixelRatio();
     int o_height = overlay_sb_->height() * dp_ratio;
     int o_rows = qMin(packet_list_model_->rowCount(), o_height);
-    int o_width = (wsApp->fontMetrics().height() * 2 * dp_ratio) + 2; // 2ems + 1-pixel border on either side.
+    QFontMetricsF fmf(mainApp->font());
+    int o_width = ((static_cast<int>(fmf.height())) * 2 * dp_ratio) + 2; // 2ems + 1-pixel border on either side.
 
     if (recent.packet_list_colorize && o_rows > 0) {
         QImage overlay(o_width, o_height, QImage::Format_ARGB32_Premultiplied);
@@ -2052,7 +2061,7 @@ void PacketList::drawNearOverlay()
             }
         }
 
-        overlay_sb_->setNearOverlayImage(overlay, packet_list_model_->rowCount(), start, end, positions);
+        overlay_sb_->setNearOverlayImage(overlay, packet_list_model_->rowCount(), start, end, positions, (o_height / o_rows));
     } else {
         QImage overlay;
         overlay_sb_->setNearOverlayImage(overlay);
@@ -2089,7 +2098,7 @@ void PacketList::drawFarOverlay()
         overlay.fill(Qt::transparent);
 
         QColor tick_color = palette().text().color();
-        tick_color.setAlphaF(0.3);
+        tick_color.setAlphaF(0.3f);
         painter.setPen(tick_color);
 
         for (int row = 0; row < pl_rows; row++) {

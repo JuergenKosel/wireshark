@@ -180,6 +180,7 @@ typedef enum {
 #define SSL_HND_QUIC_TP_INITIAL_SOURCE_CONNECTION_ID        0x0f
 #define SSL_HND_QUIC_TP_RETRY_SOURCE_CONNECTION_ID          0x10
 #define SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE             0x20 /* https://datatracker.ietf.org/doc/html/draft-ietf-quic-datagram-06 */
+#define SSL_HND_QUIC_TP_CIBIR_ENCODING                      0x1000 /* https://datatracker.ietf.org/doc/html/draft-banks-quic-cibir-01 */
 #define SSL_HND_QUIC_TP_LOSS_BITS                           0x1057 /* https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03 */
 #define SSL_HND_QUIC_TP_GREASE_QUIC_BIT                     0x2ab2 /* https://tools.ietf.org/html/draft-thomson-quic-bit-grease-00 */
 #define SSL_HND_QUIC_TP_ENABLE_TIME_STAMP                   0x7157 /* https://tools.ietf.org/html/draft-huitema-quic-ts-02 */
@@ -195,7 +196,7 @@ typedef enum {
 #define SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS           0x3128
 /* https://github.com/facebookincubator/mvfst/blob/master/quic/QuicConstants.h */
 #define SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY        0xFF00
-#define SSL_HND_QUIC_TP_VERSION_NEGOTIATION                 0xFF73DB /* https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-05 */
+#define SSL_HND_QUIC_TP_VERSION_INFORMATION                 0xFF73DB /* https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-06 */
 /*
  * Lookup tables
  */
@@ -1023,6 +1024,8 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_initial_source_connection_id;
         gint hs_ext_quictp_parameter_retry_source_connection_id;
         gint hs_ext_quictp_parameter_max_datagram_frame_size;
+        gint hs_ext_quictp_parameter_cibir_encoding_length;
+        gint hs_ext_quictp_parameter_cibir_encoding_offset;
         gint hs_ext_quictp_parameter_loss_bits;
         gint hs_ext_quictp_parameter_enable_time_stamp_v2;
         gint hs_ext_quictp_parameter_min_ack_delay;
@@ -1279,7 +1282,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1                                          \
+        -1, -1, -1, -1, -1, -1, -1, -1                                  \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -2300,6 +2303,16 @@ ssl_common_dissect_t name = {   \
         FT_UINT64, BASE_DEC, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_cibir_encoding_length,         \
+      { "length", prefix ".quic.parameter.cibir_encoding.length",       \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_cibir_encoding_offset,         \
+      { "offset", prefix ".quic.parameter.cibir_encoding.offset",       \
+        FT_UINT64, BASE_DEC, NULL, 0x00,                                \
+        NULL, HFILL }                                                   \
+    },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_loss_bits,                     \
       { "loss_bits", prefix ".quic.parameter.loss_bits",                \
         FT_UINT64, BASE_DEC, NULL, 0x00,                                \
@@ -2371,12 +2384,12 @@ ssl_common_dissect_t name = {   \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_chosen_version,                \
-      { "Chosen Version", prefix ".quic.parameter.vn.chosen_version",   \
+      { "Chosen Version", prefix ".quic.parameter.vi.chosen_version",   \
         FT_UINT32, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_version_vals), 0x00, \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_quictp_parameter_other_version,                 \
-      { "Other Version", prefix ".quic.parameter.vn.other_version",     \
+      { "Other Version", prefix ".quic.parameter.vi.other_version",     \
         FT_UINT32, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_version_vals), 0x00, \
         NULL, HFILL }                                                   \
     },                                                                  \

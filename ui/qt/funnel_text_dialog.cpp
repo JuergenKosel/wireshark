@@ -16,7 +16,7 @@
 #include <QTextCursor>
 
 #include <ui/qt/utils/qt_ui_utils.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 
 // To do:
 // - Add "Find next" to highlighting.
@@ -35,11 +35,11 @@ FunnelTextDialog::FunnelTextDialog(QWidget *parent, const QString &title) :
     if (!title.isEmpty()) {
         loadGeometry(0, 0, QString("Funnel %1").arg(title));
     }
-    setWindowTitle(wsApp->windowTitleString(title));
+    setWindowTitle(mainApp->windowTitleString(title));
 
     funnel_text_window_.funnel_text_dialog = this;
 
-    ui->textEdit->setFont(wsApp->monospaceFont());
+    ui->textEdit->setFont(mainApp->monospaceFont());
     ui->textEdit->setReadOnly(true);
     ui->textEdit->setAcceptRichText(false);
 }
@@ -160,8 +160,8 @@ void FunnelTextDialog::on_findLineEdit_textChanged(const QString &pattern)
         QRegularExpressionMatchIterator iter = re.globalMatch(ui->textEdit->toPlainText());
         while (iter.hasNext()) {
             QRegularExpressionMatch match = iter.next();
-            csr.setPosition(match.capturedStart(), QTextCursor::MoveAnchor);
-            csr.setPosition(match.capturedEnd(), QTextCursor::KeepAnchor);
+            csr.setPosition(static_cast<int>(match.capturedStart()), QTextCursor::MoveAnchor);
+            csr.setPosition(static_cast<int>(match.capturedEnd()), QTextCursor::KeepAnchor);
             csr.setCharFormat(highlight_fmt);
         }
     }

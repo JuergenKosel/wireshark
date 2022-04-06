@@ -91,7 +91,7 @@ get_nsecs(const char *startp, int *nsecs, const char **endptr)
 }
 
 static gboolean
-relative_val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
 	const char    *curptr;
 	char *endptr;
@@ -308,7 +308,7 @@ fail:
 }
 
 static gboolean
-absolute_val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+absolute_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
 	return absolute_val_from_string(fv, s, err_msg);
 }
@@ -318,6 +318,12 @@ time_fvalue_new(fvalue_t *fv)
 {
 	fv->value.time.secs = 0;
 	fv->value.time.nsecs = 0;
+}
+
+static void
+time_fvalue_copy(fvalue_t *dst, const fvalue_t *src)
+{
+	nstime_copy(&dst->value.time, &src->value.time);
 }
 
 static void
@@ -405,6 +411,34 @@ relative_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype
 	return rel_time_to_secs_str(scope, &fv->value.time);
 }
 
+static gboolean
+time_is_zero(const fvalue_t *fv)
+{
+	return nstime_is_zero(&fv->value.time);
+}
+
+static enum ft_result
+time_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
+{
+	dst->value.time.secs = -src->value.time.secs;
+	dst->value.time.nsecs = -src->value.time.nsecs;
+	return FT_OK;
+}
+
+static enum ft_result
+time_add(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
+{
+	nstime_sum(&dst->value.time, &a->value.time, &b->value.time);
+	return FT_OK;
+}
+
+static enum ft_result
+time_subtract(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
+{
+	nstime_delta(&dst->value.time, &a->value.time, &b->value.time);
+	return FT_OK;
+}
+
 void
 ftype_register_time(void)
 {
@@ -415,8 +449,9 @@ ftype_register_time(void)
 		"Date and time",		/* pretty_name */
 		0,				/* wire_size */
 		time_fvalue_new,		/* new_value */
+		time_fvalue_copy,		/* copy_value */
 		NULL,				/* free_value */
-		absolute_val_from_unparsed,	/* val_from_unparsed */
+		absolute_val_from_literal,	/* val_from_literal */
 		absolute_val_from_string,	/* val_from_string */
 		NULL,				/* val_from_charconst */
 		absolute_val_to_repr,		/* val_to_string_repr */
@@ -425,12 +460,19 @@ ftype_register_time(void)
 		{ .get_value_ptr = value_get },		/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
+		time_is_zero,			/* is_zero */
 		NULL,
-		NULL
+		NULL,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	static ftype_t reltime_type = {
 		FT_RELATIVE_TIME,		/* ftype */
@@ -438,8 +480,9 @@ ftype_register_time(void)
 		"Time offset",			/* pretty_name */
 		0,				/* wire_size */
 		time_fvalue_new,		/* new_value */
+		time_fvalue_copy,		/* copy_value */
 		NULL,				/* free_value */
-		relative_val_from_unparsed,	/* val_from_unparsed */
+		relative_val_from_literal,	/* val_from_literal */
 		NULL,				/* val_from_string */
 		NULL,				/* val_from_charconst */
 		relative_val_to_repr,		/* val_to_string_repr */
@@ -448,16 +491,45 @@ ftype_register_time(void)
 		{ .get_value_ptr = value_get },		/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
+		time_is_zero,			/* is_zero */
 		NULL,
-		NULL
+		NULL,
+		NULL,				/* bitwise_and */
+		time_unary_minus,		/* unary_minus */
+		time_add,			/* add */
+		time_subtract,			/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 
 	ftype_register(FT_ABSOLUTE_TIME, &abstime_type);
 	ftype_register(FT_RELATIVE_TIME, &reltime_type);
+}
+
+void
+ftype_register_pseudofields_time(int proto)
+{
+	static int hf_ft_rel_time;
+	static int hf_ft_abs_time;
+
+	static hf_register_info hf_ftypes[] = {
+		{ &hf_ft_abs_time,
+		    { "FT_ABSOLUTE_TIME", "_ws.ftypes.abs_time",
+			FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x00,
+			NULL, HFILL }
+		},
+		{ &hf_ft_rel_time,
+		    { "FT_RELATIVE_TIME", "_ws.ftypes.rel_time",
+			FT_RELATIVE_TIME, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+	};
+
+	proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));
 }
 
 /*

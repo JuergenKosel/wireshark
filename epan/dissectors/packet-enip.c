@@ -5,7 +5,7 @@
  * This dissector includes items from:
  *    CIP Volume 1: Common Industrial Protocol, Edition 3.24
  *    CIP Volume 2: EtherNet/IP Adaptation of CIP, Edition 1.27
- *    CIP Volume 8: CIP Security, Edition 1.11
+ *    CIP Volume 8: CIP Security, Edition 1.13
  *
  * Copyright 2003-2004
  * Magnus Hansson <mah@hms.se>
@@ -688,7 +688,7 @@ static const value_string enip_dlr_redundant_gateway_status_vals[] = {
 
 static const value_string cip_security_state_vals[] = {
    { 0,  "Factory Default Configuration" },
-   { 1,  "Initial Commissioning In Progress" },
+   { 1,  "Configuration In Progress" },
    { 2,  "Configured" },
    { 3,  "Incomplete Configuration" },
 
@@ -699,12 +699,19 @@ static const value_string eip_security_state_vals[] = {
    { 0,  "Factory Default Configuration" },
    { 1,  "Configuration In Progress" },
    { 2,  "Configured" },
+   { 3,  "Pull Model In Progress" },
+   { 4,  "Pull Model Completed" },
+   { 5,  "Pull Model Disabled" },
 
    { 0,  NULL }
 };
 
 static const value_string eip_cert_state_vals[] = {
-   { 0,  "Created" },
+   { 0,  "Non-Existent" },
+   { 1,  "Created" },
+   { 2,  "Configuring" },
+   { 3,  "Verified" },
+   { 4,  "Invalid" },
 
    { 0,  NULL }
 };
@@ -1485,7 +1492,7 @@ dissect_tcpip_interface_config(packet_info *pinfo, proto_tree *tree, proto_item 
    proto_tree_add_item(tree, hf_tcpip_ic_name_server2, tvb, offset+16, 4, ENC_LITTLE_ENDIAN);
 
    domain_length = tvb_get_letohs( tvb, offset+20);
-   proto_tree_add_item(tree, hf_tcpip_ic_domain_name,  tvb, offset+22, domain_length, ENC_ASCII|ENC_NA);
+   proto_tree_add_item(tree, hf_tcpip_ic_domain_name,  tvb, offset+22, domain_length, ENC_ASCII);
 
    /* Add padding. */
    domain_length += domain_length % 2;
@@ -2133,7 +2140,7 @@ dissect_eip_cert_cert_list(packet_info *pinfo, proto_tree *tree, proto_item *ite
    for (i = 0; i < num; i++)
    {
       path_size = tvb_get_guint8( tvb, offset );
-      proto_tree_add_item(tree, hf_eip_cert_cert_name, tvb, offset+1, path_size, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(tree, hf_eip_cert_cert_name, tvb, offset+1, path_size, ENC_ASCII);
       offset += (1+path_size);
 
       path_size = dissect_padded_epath_len_usint(pinfo, cert_tree, ti, tvb, offset, total_len);
@@ -2457,7 +2464,7 @@ static void dissect_item_list_services_response(packet_info* pinfo, tvbuff_t* tv
       tvb_format_stringzpad(pinfo->pool, tvb, offset + 4, 16));
 }
 
-static void display_fwd_open_connection_path(cip_conn_info_t* conn_info, proto_tree* tree, tvbuff_t* tvb, packet_info* pinfo)
+void display_fwd_open_connection_path(cip_conn_info_t* conn_info, proto_tree* tree, tvbuff_t* tvb, packet_info* pinfo)
 {
    if (!conn_info->pFwdOpenPathData)
    {
@@ -3612,7 +3619,7 @@ proto_register_enip(void)
           NULL, HFILL }},
 
       { &hf_enip_eip_security_state,
-        { "EIP Security State", "enip.eip_security_state",
+        { "EtherNet/IP Security State", "enip.eip_security_state",
           FT_UINT8, BASE_DEC, VALS(eip_security_state_vals), 0,
           NULL, HFILL }},
 

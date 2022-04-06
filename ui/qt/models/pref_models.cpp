@@ -152,7 +152,7 @@ int PrefsModel::rowCount(const QModelIndex &parent) const
     if (parent_item == NULL)
         return 0;
 
-    return parent_item->childCount();
+    return static_cast<int>(parent_item->childCount());
 }
 
 int PrefsModel::columnCount(const QModelIndex&) const
@@ -283,14 +283,6 @@ fill_prefs(module_t *module, gpointer root_ptr)
 
 void PrefsModel::populate()
 {
-    //Since "expert" is really a pseudo protocol, it shouldn't be
-    //categorized with other "real" protocols when it comes to
-    //preferences.  Since it's just a UAT, don't bury it in
-    //with the other protocols
-    module_t *expert_module = prefs_find_module("_ws.expert");
-    if (expert_module)
-       expert_module->use_gui = FALSE;
-
     prefs_modules_foreach_submodules(NULL, fill_prefs, (gpointer)root_);
 
     //Add the "specially handled" preferences

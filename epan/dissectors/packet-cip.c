@@ -111,9 +111,11 @@ static int hf_cip_cm_orig_serial_num = -1;
 static int hf_cip_cm_vendor = -1;
 static int hf_cip_cm_timeout_multiplier = -1;
 static int hf_cip_cm_ot_rpi = -1;
+static int hf_cip_cm_ot_timeout = -1;
 static int hf_cip_cm_ot_net_params32 = -1;
 static int hf_cip_cm_ot_net_params16 = -1;
 static int hf_cip_cm_to_rpi = -1;
+static int hf_cip_cm_to_timeout = -1;
 static int hf_cip_cm_to_net_params32 = -1;
 static int hf_cip_cm_to_net_params16 = -1;
 static int hf_cip_cm_transport_type_trigger = -1;
@@ -522,6 +524,7 @@ static int hf_32bitheader_coo = -1;
 static int hf_32bitheader_run_idle = -1;
 
 static int hf_cip_connection = -1;
+static int hf_cip_fwd_open_in = -1;
 
 /* Initialize the subtree pointers */
 static gint ett_cip = -1;
@@ -3351,7 +3354,7 @@ static int dissect_time_sync_prod_desc(packet_info *pinfo, proto_tree *tree, pro
       return total_len;
    }
 
-   proto_tree_add_item( tree, hf_time_sync_prod_desc_str, tvb, offset+4, size, ENC_ASCII|ENC_NA);
+   proto_tree_add_item( tree, hf_time_sync_prod_desc_str, tvb, offset+4, size, ENC_ASCII);
    return size+4;
 }
 
@@ -3380,7 +3383,7 @@ static int dissect_time_sync_revision_data(packet_info *pinfo, proto_tree *tree,
       return total_len;
    }
 
-   proto_tree_add_item( tree, hf_time_sync_revision_data_str, tvb, offset+4, size, ENC_ASCII|ENC_NA);
+   proto_tree_add_item( tree, hf_time_sync_revision_data_str, tvb, offset+4, size, ENC_ASCII);
    return size+4;
 }
 
@@ -3409,7 +3412,7 @@ static int dissect_time_sync_user_desc(packet_info *pinfo, proto_tree *tree, pro
       return total_len;
    }
 
-   proto_tree_add_item( tree, hf_time_sync_user_desc_str, tvb, offset+4, size, ENC_ASCII|ENC_NA);
+   proto_tree_add_item( tree, hf_time_sync_user_desc_str, tvb, offset+4, size, ENC_ASCII);
    return size+4;
 }
 
@@ -3469,7 +3472,7 @@ static int dissect_time_sync_port_phys_addr_info(packet_info *pinfo, proto_tree 
    {
        port_tree = proto_tree_add_subtree_format(tree, tvb, offset+2+i*36, 36, ett_time_sync_port_phys_addr_info, NULL, "Port #%d", i+1);
        proto_tree_add_item(port_tree, hf_time_sync_port_phys_addr_info_port_num, tvb, offset+2+i*36, 2, ENC_LITTLE_ENDIAN);
-       proto_tree_add_item(port_tree, hf_time_sync_port_phys_addr_info_phys_proto, tvb, offset+4+i*36, 16, ENC_ASCII|ENC_NA);
+       proto_tree_add_item(port_tree, hf_time_sync_port_phys_addr_info_phys_proto, tvb, offset+4+i*36, 16, ENC_ASCII);
 
        guint32 addr_size;
        proto_tree_add_item_ret_uint(port_tree, hf_time_sync_port_phys_addr_info_addr_size, tvb, offset+20+i*36, 2, ENC_LITTLE_ENDIAN, &addr_size);
@@ -3938,10 +3941,11 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
    int value_offset;
    wmem_strbuf_t *strbuf;
    gboolean extended_logical = FALSE;
+   guint8 logical_seg_type = segment_type & CI_LOGICAL_SEG_TYPE_MASK;
 
    /* Extended Logical Format is slightly different than other logical formats. An extra byte is
       inserted after the segment type. */
-   if ((segment_type & CI_LOGICAL_SEG_TYPE_MASK) == CI_LOGICAL_SEG_EXT_LOGICAL)
+   if (logical_seg_type == CI_LOGICAL_SEG_EXT_LOGICAL)
    {
       extended_logical = TRUE;
 
@@ -3982,7 +3986,14 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
 
       if (vals == NULL)
       {
-         proto_item_append_text( epath_item, "%s: 0x%02X", segment_name,  temp_data);
+         if (logical_seg_type == CI_LOGICAL_SEG_ATTR_ID)
+         {
+            proto_item_append_text(epath_item, "%s: %d", segment_name, temp_data);
+         }
+         else
+         {
+            proto_item_append_text(epath_item, "%s: 0x%02X", segment_name, temp_data);
+         }
       }
       else
       {
@@ -4031,7 +4042,14 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
 
       if (vals == NULL)
       {
-         proto_item_append_text( epath_item, "%s: 0x%04X", segment_name,  temp_data);
+         if (logical_seg_type == CI_LOGICAL_SEG_ATTR_ID)
+         {
+            proto_item_append_text(epath_item, "%s: %d", segment_name, temp_data);
+         }
+         else
+         {
+            proto_item_append_text(epath_item, "%s: 0x%04X", segment_name, temp_data);
+         }
       }
       else
       {
@@ -4070,7 +4088,14 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
 
       if (vals == NULL)
       {
-         proto_item_append_text( epath_item, "%s: 0x%08X", segment_name,  temp_data);
+         if (logical_seg_type == CI_LOGICAL_SEG_ATTR_ID)
+         {
+            proto_item_append_text(epath_item, "%s: %d", segment_name, temp_data);
+         }
+         else
+         {
+            proto_item_append_text(epath_item, "%s: 0x%08X", segment_name, temp_data);
+         }
       }
       else
       {
@@ -5358,7 +5383,7 @@ void dissect_epath(tvbuff_t *tvb, packet_info *pinfo, proto_tree *path_tree, pro
 } /* end of dissect_epath() */
 
 /* Number of seconds between Jan 1, 1970 00:00:00 epoch and CIP's epoch time of Jan 1, 1972 00:00:00 */
-#define CIP_TIMEBASE 63003600
+#define CIP_TIMEBASE 63072000
 
 void dissect_cip_date_and_time(proto_tree *tree, tvbuff_t *tvb, int offset, int hf_datetime)
 {
@@ -5576,17 +5601,19 @@ int dissect_cip_attribute(packet_info *pinfo, proto_tree *tree, proto_item *item
       consumed = dissect_cip_utime(tree, tvb, offset, *(attr->phf));
       break;
    case cip_date:
-      temp_data = tvb_get_letohs( tvb, offset);
+   {
+      guint16 num_days_since_1972 = tvb_get_letohs(tvb, offset);
       /* Convert to nstime epoch */
-      computed_time = CIP_TIMEBASE+(temp_data*60*60*24);
+      computed_time = CIP_TIMEBASE+(num_days_since_1972*60U*60U*24U);
       date = gmtime(&computed_time);
       if (date != NULL)
-          strftime(date_str, 20, "%b %d, %Y", date);
+          strftime(date_str, 20, "%Y-%m-%d", date);
       else
           (void) g_strlcpy(date_str, "Not representable", sizeof date_str);
-      proto_tree_add_uint_format_value(tree, *(attr->phf), tvb, offset, 2, temp_data, "%s", date_str);
+      proto_tree_add_uint_format_value(tree, *(attr->phf), tvb, offset, 2, num_days_since_1972, "%s", date_str);
       consumed = 2;
       break;
+   }
    case cip_time_of_day:
       temp_time = temp_data = tvb_get_letohl( tvb, offset);
       hour = temp_time/(60*60*1000);
@@ -6453,6 +6480,78 @@ static void save_route_connection_path(packet_info* pinfo, tvbuff_t* tvb, int of
    }
 }
 
+static int get_connection_timeout_multiplier(guint32 timeout_value)
+{
+   guint32 timeout_multiplier;
+   switch (timeout_value)
+   {
+   case 0:
+      timeout_multiplier = 4;
+      break;
+   case 1:
+      timeout_multiplier = 8;
+      break;
+   case 2:
+      timeout_multiplier = 16;
+      break;
+   case 3:
+      timeout_multiplier = 32;
+      break;
+   case 4:
+      timeout_multiplier = 64;
+      break;
+   case 5:
+      timeout_multiplier = 128;
+      break;
+   case 6:
+      timeout_multiplier = 256;
+      break;
+   case 7:
+      timeout_multiplier = 512;
+      break;
+   default:
+      // Invalid
+      timeout_multiplier = 0;
+      break;
+   }
+
+   return timeout_multiplier;
+}
+
+static void display_connection_information_fwd_close_req(packet_info* pinfo, tvbuff_t* tvb, proto_tree* tree, cip_conn_info_t* conn_info)
+{
+   if (!conn_info)
+   {
+      return;
+   }
+
+   proto_item* conn_info_item = NULL;
+   proto_tree* conn_info_tree = proto_tree_add_subtree(tree, tvb, 0, 0, ett_connection_info, &conn_info_item, "Connection Information");
+   proto_item_set_generated(conn_info_item);
+
+   mark_cip_connection(pinfo, tvb, conn_info_tree);
+
+   display_fwd_open_connection_path(conn_info, conn_info_tree, tvb, pinfo);
+
+   proto_item *pi = proto_tree_add_uint(conn_info_tree, hf_cip_fwd_open_in, tvb, 0, 0, conn_info->open_req_frame);
+   proto_item_set_generated(pi);
+
+   // Show the API values
+   pi = proto_tree_add_uint(conn_info_tree, hf_cip_cm_ot_api, tvb, 0, 0, conn_info->O2T.api);
+   proto_item_set_generated(pi);
+
+   pi = proto_tree_add_uint(conn_info_tree, hf_cip_cm_to_api, tvb, 0, 0, conn_info->T2O.api);
+   proto_item_set_generated(pi);
+
+   // Connection timeout values
+   float ot_timeout_ms = (conn_info->O2T.rpi / 1000.0f) * conn_info->timeout_multiplier;
+   float to_timeout_ms = (conn_info->T2O.rpi / 1000.0f) * conn_info->timeout_multiplier;
+   proto_item* ot_timeout_item = proto_tree_add_float(conn_info_tree, hf_cip_cm_ot_timeout, tvb, 0, 0, ot_timeout_ms);
+   proto_item_set_generated(ot_timeout_item);
+
+   proto_item* to_timeout_item = proto_tree_add_float(conn_info_tree, hf_cip_cm_to_timeout, tvb, 0, 0, to_timeout_ms);
+   proto_item_set_generated(to_timeout_item);
+}
 static void
 dissect_cip_cm_fwd_open_req(cip_req_info_t *preq_info, proto_tree *cmd_tree, tvbuff_t *tvb, int offset, gboolean large_fwd_open, packet_info *pinfo)
 {
@@ -6481,11 +6580,14 @@ dissect_cip_cm_fwd_open_req(cip_req_info_t *preq_info, proto_tree *cmd_tree, tvb
       hf_cip_cm_conn_serial_num, hf_cip_cm_vendor, hf_cip_cm_orig_serial_num,
       &conn_triad);
 
-   proto_tree_add_item(cmd_tree, hf_cip_cm_timeout_multiplier, tvb, offset+18, 1, ENC_LITTLE_ENDIAN);
+   guint32 timeout_value;
+   proto_tree_add_item_ret_uint(cmd_tree, hf_cip_cm_timeout_multiplier, tvb, offset+18, 1, ENC_LITTLE_ENDIAN, &timeout_value);
+   guint32 timeout_multiplier = get_connection_timeout_multiplier(timeout_value);
+
    proto_tree_add_item(cmd_tree, hf_cip_reserved24, tvb, offset+19, 3, ENC_LITTLE_ENDIAN);
 
    // O->T parameters
-   proto_tree_add_item(cmd_tree, hf_cip_cm_ot_rpi, tvb, offset + 22, 4, ENC_LITTLE_ENDIAN);
+   proto_tree_add_item_ret_uint(cmd_tree, hf_cip_cm_ot_rpi, tvb, offset + 22, 4, ENC_LITTLE_ENDIAN, &O2T_info.rpi);
    if (large_fwd_open)
    {
       dissect_net_param32(tvb, offset+26, cmd_tree,
@@ -6502,7 +6604,7 @@ dissect_cip_cm_fwd_open_req(cip_req_info_t *preq_info, proto_tree *cmd_tree, tvb
    }
 
    // T->O parameters
-   proto_tree_add_item(cmd_tree, hf_cip_cm_to_rpi, tvb, offset + 26 + net_param_offset, 4, ENC_LITTLE_ENDIAN);
+   proto_tree_add_item_ret_uint(cmd_tree, hf_cip_cm_to_rpi, tvb, offset + 26 + net_param_offset, 4, ENC_LITTLE_ENDIAN, &T2O_info.rpi);
    if (large_fwd_open)
    {
       dissect_net_param32(tvb, offset+26+net_param_offset+4, cmd_tree,
@@ -6551,6 +6653,7 @@ dissect_cip_cm_fwd_open_req(cip_req_info_t *preq_info, proto_tree *cmd_tree, tvb
          preq_info->connInfo->T2O = T2O_info;
 
          preq_info->connInfo->TransportClass_trigger = TransportClass_trigger;
+         preq_info->connInfo->timeout_multiplier = timeout_multiplier;
          preq_info->connInfo->safety = safety_fwdopen;
          preq_info->connInfo->ClassID = connection_path.iClass;
          preq_info->connInfo->ConnPoint = connection_path.iConnPoint;
@@ -6799,7 +6902,9 @@ static void dissect_cip_cm_fwd_close_req(proto_tree* cmd_data_tree, tvbuff_t* tv
    dissect_epath(tvb, pinfo, epath_tree, pi, offset + 12, conn_path_size, FALSE, FALSE, &conn_path, NULL, DISPLAY_CONNECTION_PATH, NULL, FALSE);
    save_route_connection_path(pinfo, tvb, offset + 12, conn_path_size);
 
-   mark_cip_connection(pinfo, tvb, cmd_data_tree);
+
+   cip_conn_info_t* conn_val = (cip_conn_info_t*)p_get_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_CONNECTION_INFO);
+   display_connection_information_fwd_close_req(pinfo, tvb, cmd_data_tree, conn_val);
 }
 
 static int dissect_cip_cm_fwd_close_rsp_success(proto_tree* cmd_data_tree, tvbuff_t* tvb, int offset, packet_info* pinfo, proto_item* cmd_item)
@@ -8575,6 +8680,7 @@ proto_register_cip(void)
       { &hf_32bitheader_run_idle, { "Run/Idle", "cip.32bitheader.run_idle", FT_UINT32, BASE_HEX, VALS(cip_run_idle_vals), 0x1, NULL, HFILL } },
 
       { &hf_cip_connection, { "CIP Connection Index", "cip.connection", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL } },
+      { &hf_cip_fwd_open_in, { "Forward Open Request In", "cip.fwd_open_in", FT_FRAMENUM, BASE_NONE, NULL, 0, NULL, HFILL } },
    };
 
    static hf_register_info hf_cm[] = {
@@ -8594,9 +8700,11 @@ proto_register_cip(void)
       { &hf_cip_cm_vendor, { "Originator Vendor ID", "cip.cm.vendor", FT_UINT16, BASE_HEX|BASE_EXT_STRING, &cip_vendor_vals_ext, 0, NULL, HFILL }},
       { &hf_cip_cm_timeout_multiplier, { "Connection Timeout Multiplier", "cip.cm.timeout_multiplier", FT_UINT8, BASE_DEC, VALS(cip_con_time_mult_vals), 0, NULL, HFILL }},
       { &hf_cip_cm_ot_rpi, { "O->T RPI", "cip.cm.otrpi", FT_UINT32, BASE_CUSTOM, CF_FUNC(cip_rpi_api_fmt), 0, NULL, HFILL }},
+      { &hf_cip_cm_ot_timeout, { "O->T Timeout Threshold", "cip.cm.ot_timeout", FT_FLOAT, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0, NULL, HFILL }},
       { &hf_cip_cm_ot_net_params32, { "O->T Network Connection Parameters", "cip.cm.ot_net_params", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_ot_net_params16, { "O->T Network Connection Parameters", "cip.cm.ot_net_params", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_to_rpi, { "T->O RPI", "cip.cm.torpi", FT_UINT32, BASE_CUSTOM, CF_FUNC(cip_rpi_api_fmt), 0, NULL, HFILL }},
+      { &hf_cip_cm_to_timeout, { "T->O Timeout Threshold", "cip.cm.to_timeout", FT_FLOAT, BASE_NONE|BASE_UNIT_STRING, &units_milliseconds, 0, NULL, HFILL }},
       { &hf_cip_cm_to_net_params32, { "T->O Network Connection Parameters", "cip.cm.to_net_params", FT_UINT32, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_to_net_params16, { "T->O Network Connection Parameters", "cip.cm.to_net_params", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_cm_transport_type_trigger, { "Transport Type/Trigger", "cip.cm.transport_type_trigger", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},

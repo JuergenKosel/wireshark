@@ -970,7 +970,7 @@
     </message>
     <message>
         <source>Hash (SHA256)</source>
-        <translation>Karma SHA256)</translation>
+        <translation>Karma (SHA256)</translation>
     </message>
     <message>
         <source>Hash (RIPEMD160)</source>
@@ -1467,6 +1467,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Belirtilen süre geçtikten sonra yakalamayı durdurun.</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optionally specify a temporary directory for unnamed capture files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;İsteğe bağlı olarak, adsız yakalama dosyaları için geçici bir dizin belirtin.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Directory for temporary files</source>
+        <translation>Geçici dosyalar için dizin</translation>
+    </message>
+    <message>
         <source>Capture Options</source>
         <translation>Yakalama Seçenekleri</translation>
     </message>
@@ -1481,6 +1489,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Specify a Capture File</source>
         <translation>Bir Yakalama Dosyası Belirtin</translation>
+    </message>
+    <message>
+        <source>Specify temporary directory</source>
+        <translation>Geçici dizini belirtin</translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -1967,16 +1979,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Bu alanı kullanarak eşleştir</translation>
     </message>
     <message>
+        <source>Change behavior when the field matches this value</source>
+        <translation>Alan bu değerle eşleştiğinde davranışı değiştir</translation>
+    </message>
+    <message>
+        <source>Field value type (and base, if Integer)</source>
+        <translation>Alan değeri türü (ve Tamsayı ise taban)</translation>
+    </message>
+    <message>
         <source>Current&quot;Decode As&quot; behavior</source>
         <translation>Geçerli &quot;Kodu Farklı Çöz&quot; davranışı</translation>
     </message>
     <message>
         <source>Default &quot;Decode As&quot; behavior</source>
         <translation>Varsayılan &quot;Kodu Farklı Çöz&quot; davranışı</translation>
-    </message>
-    <message>
-        <source>Change behavior when the protocol field matches this value</source>
-        <translation>Protokol alanı bu değerle eşleştiğinde davranışı değiştir</translation>
     </message>
     <message>
         <source>String</source>
@@ -3860,7 +3876,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Time (s)</source>
-        <translation>Süre</translation>
+        <translation>Süre ()</translation>
     </message>
     <message>
         <source>I/O Graphs</source>
@@ -4575,7 +4591,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>The IP Version to use for the dummy IP header</source>
-        <translation type="unfinished"></translation>
+        <translation>Sahte IP başlığı için kullanılacak IP Sürümü</translation>
     </message>
     <message>
         <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
@@ -5662,6 +5678,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Sütun bağlam menüsünde sütun tanımını göster</translation>
     </message>
     <message>
+        <source>Allow the list to be sorted</source>
+        <translation>Listenin sıralanmasına izin ver</translation>
+    </message>
+    <message>
         <source>Enable mouse-over colorization</source>
         <translation>Fareyle üzerine gelindiğinde renklendirmeyi etkinleştir</translation>
     </message>
@@ -6336,10 +6356,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>HTTP</translation>
     </message>
     <message>
-        <source>900000000</source>
-        <translation>900000000</translation>
-    </message>
-    <message>
         <source>&amp;File</source>
         <translation>&amp;DOSYA</translation>
     </message>
@@ -6835,7 +6851,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&amp;Mark/Unmark Packet(s)</source>
         <oldsource>&amp;Mark/Unmark Packet</oldsource>
-        <translation>&amp;Paket(ler)i İşaretle/İşaretini Kaldır</translation>
+        <translation>&amp;Paketi İşaretle/İşaretini Kaldır</translation>
     </message>
     <message>
         <source>Mark All Displayed</source>
@@ -6868,7 +6884,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>&amp;Ignore/Unignore Packet(s)</source>
         <oldsource>&amp;Ignore/Unignore Packet</oldsource>
-        <translation>&amp;Paket(ler)i Yoksay/Yoksay</translation>
+        <translation>&amp;Paketi Yoksay/Yoksaymaktan vazgeç</translation>
     </message>
     <message>
         <source>Ignore All Displayed</source>
@@ -7285,6 +7301,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Filter this Association</source>
         <translation>Bu İlişkilendirmeyi Filtrele</translation>
+    </message>
+    <message>
+        <source>Strip Headers…</source>
+        <translation>Üst Bilgiler…</translation>
+    </message>
+    <message>
+        <source>Strip headers and export higher level encapsulations to file</source>
+        <translation>Üstbilgileri çıkarın ve daha üst düzey kapsüllemeleri dosyaya dışa aktarın</translation>
     </message>
     <message>
         <source>&amp;I/O Graphs</source>
@@ -8848,6 +8872,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;small&gt;&lt;i&gt;&lt;/i&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>Show packet bytes</source>
+        <translation>Paket baytlarını göster</translation>
+    </message>
+    <message>
         <source>Packet %1</source>
         <translation>Paket %1</translation>
     </message>
@@ -8925,6 +8953,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Bytes</source>
         <translation>Bayt</translation>
+    </message>
+    <message>
+        <source>Include secondary data sources</source>
+        <translation>İkincil veri kaynaklarını dahil et</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Çerçeveye ek olarak yeniden birleştirilmiş veya şifresi çözülmüş arabellekler gibi ikincil veri kaynakları için onaltılık dökümler oluşturun&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -9752,11 +9788,11 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Time (s)</source>
-        <translation>Süre</translation>
+        <translation>Süre ()</translation>
     </message>
     <message>
         <source>Window Size (B)</source>
-        <translation>Pencere Boyutu</translation>
+        <translation>Pencere Boyutu (B)</translation>
     </message>
     <message>
         <source>[no capture file]</source>
@@ -10832,7 +10868,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Time Span (s)</source>
-        <translation>Zaman Aralığı</translation>
+        <translation>Zaman Aralığı (s)</translation>
     </message>
     <message>
         <source>Payloads</source>
@@ -12883,12 +12919,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Görüntü</translation>
     </message>
     <message>
+        <source>Json</source>
+        <translation>Json</translation>
+    </message>
+    <message>
         <source>Raw</source>
         <translation>Ham</translation>
     </message>
     <message>
         <source>Rust Array</source>
-        <translation type="unfinished"></translation>
+        <translation>Rust Dizisi</translation>
     </message>
     <message>
         <source>UTF-8</source>
@@ -12997,6 +13037,17 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Unable to find configuration for %1.</source>
         <translation>%1 için yapılandırma bulunamadı.</translation>
+    </message>
+</context>
+<context>
+    <name>StripHeadersDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation>İletişim</translation>
+    </message>
+    <message>
+        <source>Display filter:</source>
+        <translation>Görüntüleme filtresi:</translation>
     </message>
 </context>
 <context>

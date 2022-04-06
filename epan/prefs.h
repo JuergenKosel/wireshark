@@ -190,6 +190,7 @@ typedef struct _e_prefs {
   gboolean     gui_interfaces_show_hidden;
   gboolean     gui_interfaces_remote_display;
   gboolean     gui_io_graph_automatic_update;
+  gboolean     gui_packet_details_show_byteview;
   gchar       *capture_device;
   gchar       *capture_devices_linktypes;
   gchar       *capture_devices_descr;
@@ -228,6 +229,7 @@ typedef struct _e_prefs {
   elide_mode_e gui_packet_list_elide_mode;
   gboolean     gui_packet_list_show_related;
   gboolean     gui_packet_list_show_minimap;
+  gboolean     gui_packet_list_sortable;
   gint         gui_decimal_places1; /* Used for type 1 calculations */
   gint         gui_decimal_places2; /* Used for type 2 calculations */
   gint         gui_decimal_places3; /* Used for type 3 calculations */

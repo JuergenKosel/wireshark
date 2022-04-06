@@ -82,9 +82,9 @@ static int hf_payload_unparsed                              = -1;
 
 static gint ett_spdu_payload                                = -1;
 static gint ett_spdu_signal                                 = -1;
-static gboolean spdu_derserializer_activated                = FALSE;
-static gboolean spdu_derserializer_show_hidden              = FALSE;
-static gboolean spdu_derserializer_hide_raw_values          = TRUE;
+static gboolean spdu_deserializer_activated                = TRUE;
+static gboolean spdu_deserializer_show_hidden              = FALSE;
+static gboolean spdu_deserializer_hide_raw_values          = TRUE;
 
 /*** expert info items ***/
 static expert_field ef_spdu_payload_truncated               = EI_INIT;
@@ -2066,7 +2066,7 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         return -1;
     }
 
-    if (!spdu_derserializer_show_hidden && item->hidden) {
+    if (!spdu_deserializer_show_hidden && item->hidden) {
         return (gint)item->bitlength_encoded_type;
     }
 
@@ -2223,7 +2223,7 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
 
     /* hide raw value per default, if effective value is present */
-    if (spdu_derserializer_hide_raw_values) {
+    if (spdu_deserializer_hide_raw_values) {
         proto_item_set_hidden(ti);
     }
 
@@ -2262,13 +2262,13 @@ dissect_spdu_payload_signal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         /* if frame data was not created on first pass, we cannot calculate it now */
         if (spdu_frame_data != NULL) {
             if (item->aggregate_sum) {
-                ti = proto_tree_add_double(subtree, *(item->hf_id_agg_sum), tvb, offset, signal_length, spdu_frame_data->sum);
+                proto_tree_add_double(subtree, *(item->hf_id_agg_sum), tvb, offset, signal_length, spdu_frame_data->sum);
             }
             if (item->aggregate_avg) {
-                ti = proto_tree_add_double(subtree, *(item->hf_id_agg_avg), tvb, offset, signal_length, spdu_frame_data->avg);
+                proto_tree_add_double(subtree, *(item->hf_id_agg_avg), tvb, offset, signal_length, spdu_frame_data->avg);
             }
             if (item->aggregate_int && (spdu_frame_data->sum_time_value_products == spdu_frame_data->sum_time_value_products)) {
-                ti = proto_tree_add_double(subtree, *(item->hf_id_agg_int), tvb, offset, signal_length, spdu_frame_data->sum_time_value_products);
+                proto_tree_add_double(subtree, *(item->hf_id_agg_int), tvb, offset, signal_length, spdu_frame_data->sum_time_value_products);
             }
         }
     }
@@ -2303,8 +2303,9 @@ dissect_spdu_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tree, g
         return 0;
     }
 
-    if (paramlist == NULL || !spdu_derserializer_activated) {
+    if (paramlist == NULL || !spdu_deserializer_activated) {
         /* we only receive subtvbs with nothing behind us */
+        proto_tree_add_text_internal(tree, tvb, 0, tvb_captured_length(tvb), "Dissection of payload is disabled. It can be enabled via protocol preferences.");
         return tvb_captured_length(tvb);
     }
 
@@ -2646,17 +2647,17 @@ proto_register_signal_pdu(void) {
     prefs_register_bool_preference(spdu_module, "payload_dissector_activated",
         "Dissect Payload",
         "Should the payload dissector be active?",
-        &spdu_derserializer_activated);
+        &spdu_deserializer_activated);
 
     prefs_register_bool_preference(spdu_module, "payload_dissector_show_hidden",
         "Show hidden entries",
         "Should the payload dissector show entries marked as hidden in the configuration?",
-        &spdu_derserializer_show_hidden);
+        &spdu_deserializer_show_hidden);
 
     prefs_register_bool_preference(spdu_module, "payload_dissector_hide_raw_values",
         "Hide raw values",
         "Should the payload dissector hide raw values?",
-        &spdu_derserializer_hide_raw_values);
+        &spdu_deserializer_hide_raw_values);
 
     spdu_parameter_value_names_uat = uat_new("Signal Value Names",
         sizeof(spdu_signal_value_name_uat_t), DATAFILE_SPDU_VALUE_NAMES, TRUE,
@@ -2861,11 +2862,11 @@ proto_reg_handoff_signal_pdu(void) {
 
         signal_pdu_handle_can = register_dissector("signal_pdu_over_can", dissect_spdu_message_can, proto_signal_pdu);
         dissector_add_for_decode_as("can.subdissector", signal_pdu_handle_can);
-        heur_dissector_add("can", dissect_spdu_message_can_heur, "Signal-PDU-Heuristic", "signal_pdu_can_heur", proto_signal_pdu, HEURISTIC_ENABLE);
+        heur_dissector_add("can", dissect_spdu_message_can_heur, "Signal PDU over CAN", "signal_pdu_can_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
         signal_pdu_handle_flexray = register_dissector("signal_pdu_over_flexray", dissect_spdu_message_flexray, proto_signal_pdu);
         dissector_add_for_decode_as("flexray.subdissector", signal_pdu_handle_flexray);
-        heur_dissector_add("flexray", dissect_spdu_message_flexray_heur, "Signal-PDU-Heuristic", "signal_pdu_flexray_heur", proto_signal_pdu, HEURISTIC_ENABLE);
+        heur_dissector_add("flexray", dissect_spdu_message_flexray_heur, "Signal PDU over FlexRay", "signal_pdu_flexray_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
         signal_pdu_handle_lin = register_dissector("signal_pdu_over_lin", dissect_spdu_message_lin, proto_signal_pdu);
 
@@ -2873,9 +2874,9 @@ proto_reg_handoff_signal_pdu(void) {
 
         signal_pdu_handle_ipdum = register_dissector("signal_pdu_over_IPduM", dissect_spdu_message_ipdum, proto_signal_pdu);
 
-        heur_dissector_add("dlt", dissect_spdu_message_dlt_heur, "Signal-PDU-Heuristic", "signal_pdu_dlt_heur", proto_signal_pdu, HEURISTIC_ENABLE);
+        heur_dissector_add("dlt", dissect_spdu_message_dlt_heur, "Signal PDU over DLT", "signal_pdu_dlt_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
-        heur_dissector_add("uds", dissect_spdu_message_uds_heur, "Signal-PDU-Heuristic", "signal_pdu_uds_heur", proto_signal_pdu, HEURISTIC_ENABLE);
+        heur_dissector_add("uds", dissect_spdu_message_uds_heur, "Signal PDU over UDS", "signal_pdu_uds_heur", proto_signal_pdu, HEURISTIC_ENABLE);
 
         initialized = TRUE;
     }

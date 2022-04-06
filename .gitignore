@@ -151,6 +151,9 @@ compile_commands.json
 # Qt Creator
 CMakeLists.txt.user*
 
+# Debian packaging
+debian/
+
 # Misc #
 ########
 .vagrant
@@ -164,3 +167,4 @@ TAGS
 vgcore.*
 .pytest_cache/
 test/*.log
+*.code-workspace

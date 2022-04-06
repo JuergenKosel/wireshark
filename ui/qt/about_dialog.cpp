@@ -12,7 +12,7 @@
 #include "about_dialog.h"
 #include <ui_about_dialog.h>
 
-#include "wireshark_application.h"
+#include "main_application.h"
 #include <wsutil/filesystem.h>
 
 #include <QDesktopServices>
@@ -23,6 +23,7 @@
 #endif
 
 #include <epan/maxmind_db.h>
+#include <epan/prefs.h>
 
 #ifdef HAVE_LUA
 #include <epan/wslua/init_wslua.h>
@@ -39,6 +40,7 @@
 #include "wsutil/plugins.h"
 #include "wsutil/copyright_info.h"
 #include "ui/version_info.h"
+#include "ui/capture_globals.h"
 
 #include "extcap.h"
 
@@ -163,7 +165,7 @@ ShortcutListModel::ShortcutListModel(QObject * parent):
         AStringListListModel(parent)
 {
     QMap<QString, QPair<QString, QString> > shortcuts; // name -> (shortcut, description)
-    foreach (const QWidget *child, wsApp->mainWindow()->findChildren<QWidget *>()) {
+    foreach (const QWidget *child, mainApp->mainWindow()->findChildren<QWidget *>()) {
         // Recent items look funny here.
         if (child->objectName().compare("menuOpenRecentCaptureFile") == 0) continue;
         foreach (const QAction *action, child->actions()) {
@@ -197,7 +199,7 @@ FolderListModel::FolderListModel(QObject * parent):
     appendRow(QStringList() << tr("\"File\" dialogs") << get_last_open_dir() << tr("capture files"));
 
     /* temp */
-    appendRow(QStringList() << tr("Temp") << g_get_tmp_dir() << tr("untitled capture files"));
+    appendRow(QStringList() << tr("Temp") << (global_capture_opts.temp_dir && global_capture_opts.temp_dir[0] ? global_capture_opts.temp_dir : g_get_tmp_dir()) << tr("untitled capture files"));
 
     /* pers conf */
     appendRow(QStringList() << tr("Personal configuration")
@@ -255,7 +257,7 @@ FolderListModel::FolderListModel(QObject * parent):
 
 #ifdef Q_OS_MAC
     /* Mac Extras */
-    QString extras_path = wsApp->applicationDirPath() + "/../Resources/Extras";
+    QString extras_path = mainApp->applicationDirPath() + "/../Resources/Extras";
     appendRow(QStringList() << tr("macOS Extras") << QDir::cleanPath(extras_path) << tr("Extra macOS packages"));
 
 #endif
@@ -290,8 +292,8 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->pte_Authors->moveCursor(QTextCursor::Start);
 
     ui->tblAuthors->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->tblAuthors, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
-    connect(ui->searchAuthors, SIGNAL(textChanged(QString)), proxyAuthorModel, SLOT(setFilter(QString)));
+    connect(ui->tblAuthors, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->searchAuthors, &QLineEdit::textChanged, proxyAuthorModel, &AStringListListSortFilterProxyModel::setFilter);
 
     /* Wireshark tab */
     updateWiresharkText();
@@ -320,9 +322,9 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblFolders->setTextElideMode(Qt::ElideMiddle);
     ui->tblFolders->setSortingEnabled(true);
     ui->tblFolders->sortByColumn(0, Qt::AscendingOrder);
-    connect(ui->tblFolders, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
-    connect(ui->searchFolders, SIGNAL(textChanged(QString)), folderProxyModel, SLOT(setFilter(QString)));
-    connect(ui->tblFolders, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(urlDoubleClicked(QModelIndex)));
+    connect(ui->tblFolders, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->searchFolders, &QLineEdit::textChanged, folderProxyModel, &AStringListListSortFilterProxyModel::setFilter);
+    connect(ui->tblFolders, &QTreeView::doubleClicked, this, &AboutDialog::urlDoubleClicked);
 
 
     /* Plugins */
@@ -345,9 +347,9 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblPlugins->setTextElideMode(Qt::ElideMiddle);
     ui->tblPlugins->setSortingEnabled(true);
     ui->tblPlugins->sortByColumn(0, Qt::AscendingOrder);
-    connect(ui->tblPlugins, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
-    connect(ui->searchPlugins, SIGNAL(textChanged(QString)), pluginFilterModel, SLOT(setFilter(QString)));
-    connect(ui->cmbType, SIGNAL(currentIndexChanged(QString)), pluginTypeModel, SLOT(setFilter(QString)));
+    connect(ui->tblPlugins, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->searchPlugins, &QLineEdit::textChanged, pluginFilterModel, &AStringListListSortFilterProxyModel::setFilter);
+    connect(ui->cmbType, &QComboBox::currentTextChanged, pluginTypeModel, &AStringListListSortFilterProxyModel::setFilter);
     if (ui->tblPlugins->model()->rowCount() < 1) {
         foreach (QWidget *w, ui->tab_plugins->findChildren<QWidget *>()) {
             w->hide();
@@ -369,8 +371,8 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblShortcuts->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->tblShortcuts->setSortingEnabled(true);
     ui->tblShortcuts->sortByColumn(1, Qt::AscendingOrder);
-    connect(ui->tblShortcuts, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(handleCopyMenu(QPoint)));
-    connect(ui->searchShortcuts, SIGNAL(textChanged(QString)), shortcutProxyModel, SLOT(setFilter(QString)));
+    connect(ui->tblShortcuts, &QTreeView::customContextMenuRequested, this, &AboutDialog::handleCopyMenu);
+    connect(ui->searchShortcuts, &QLineEdit::textChanged, shortcutProxyModel, &AStringListListSortFilterProxyModel::setFilter);
 
     /* License */
 #if defined(_WIN32)
@@ -440,9 +442,8 @@ void AboutDialog::updateWiresharkText()
 {
     QString vcs_version_info_str = get_ws_vcs_version_info();
     QString copyright_info_str = get_copyright_info();
-    QString comp_info_str = gstring_free_to_qbytearray(get_compiled_version_info(get_wireshark_qt_compiled_info,
-                                              get_gui_compiled_info));
-    QString runtime_info_str = gstring_free_to_qbytearray(get_runtime_version_info(get_wireshark_runtime_info));
+    QString comp_info_str = gstring_free_to_qbytearray(get_compiled_version_info(gather_wireshark_qt_compiled_info));
+    QString runtime_info_str = gstring_free_to_qbytearray(get_runtime_version_info(gather_wireshark_runtime_info));
 
     QString message = ColorUtils::themeLinkStyle();
 
@@ -460,9 +461,8 @@ void AboutDialog::updateWiresharkText()
     /* Save the info for the clipboard copy */
     clipboardInfo = "";
     clipboardInfo += vcs_version_info_str + "\n\n";
-    clipboardInfo += gstring_free_to_qbytearray(get_compiled_version_info(get_wireshark_qt_compiled_info,
-                                                                          get_gui_compiled_info)) + "\n";
-    clipboardInfo += gstring_free_to_qbytearray(get_runtime_version_info(get_wireshark_runtime_info));
+    clipboardInfo += gstring_free_to_qbytearray(get_compiled_version_info(gather_wireshark_qt_compiled_info)) + "\n";
+    clipboardInfo += gstring_free_to_qbytearray(get_runtime_version_info(gather_wireshark_runtime_info));
 }
 
 void AboutDialog::on_copyToClipboard_clicked()
@@ -526,17 +526,17 @@ void AboutDialog::handleCopyMenu(QPoint pos)
 #endif
         QAction * showInFolderAction = menu->addAction(show_in_str);
         showInFolderAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
-        connect(showInFolderAction, SIGNAL(triggered()), this, SLOT(showInFolderActionTriggered()));
+        connect(showInFolderAction, &QAction::triggered, this, &AboutDialog::showInFolderActionTriggered);
     }
 
     QAction * copyColumnAction = menu->addAction(tr("Copy"));
     copyColumnAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
-    connect(copyColumnAction, SIGNAL(triggered()), this, SLOT(copyActionTriggered()));
+    connect(copyColumnAction, &QAction::triggered, this, &AboutDialog::copyActionTriggered);
 
     QModelIndexList selectedRows = tree->selectionModel()->selectedRows();
-    QAction * copyRowAction = menu->addAction(tr("Copy Row(s)", "", selectedRows.count()));
+    QAction * copyRowAction = menu->addAction(tr("Copy Row(s)", "", static_cast<int>(selectedRows.count())));
     copyRowAction->setData(VariantPointer<QTreeView>::asQVariant(tree));
-    connect(copyRowAction, SIGNAL(triggered()), this, SLOT(copyRowActionTriggered()));
+    connect(copyRowAction, &QAction::triggered, this, &AboutDialog::copyRowActionTriggered);
 
     menu->popup(tree->viewport()->mapToGlobal(pos));
 }

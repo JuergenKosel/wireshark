@@ -377,7 +377,7 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
     info->payload = "data";
 
     /* Initialize the version information. */
-    ws_init_version_info("Text2pcap (Wireshark)", NULL, NULL, NULL);
+    ws_init_version_info("Text2pcap", NULL, NULL);
 
     /* Scan CLI parameters */
     while ((c = ws_getopt_long(argc, argv, "hqab:De:E:F:i:l:m:nN:o:u:P:r:s:S:t:T:v4:6:", long_options, NULL)) != -1) {
@@ -473,7 +473,6 @@ parse_options(int argc, char *argv[], text_import_info_t * const info, wtap_dump
 
         case 'P':
             hdr_export_pdu = TRUE;
-            pcap_link_type = 252;
             info->payload = ws_optarg;
             break;
 
@@ -1052,7 +1051,7 @@ clean_exit:
     if (wdh) {
         int err;
         char *err_info;
-        if (!wtap_dump_close(wdh, &err, &err_info)) {
+        if (!wtap_dump_close(wdh, NULL, &err, &err_info)) {
             cfile_close_failure_message(output_filename, err, err_info);
             ret = 2;
         }

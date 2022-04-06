@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <wsutil/str_util.h>
+
 #include "dfilter-int.h"
 #include "syntax-tree.h"
 #include "grammar.h"
@@ -96,9 +98,28 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 
 %}
 
+WORD_CHAR	[[:alnum:]_-]
+
+hex2		[[:xdigit:]]{2}
+MacAddress	{hex2}:{hex2}:{hex2}:{hex2}:{hex2}:{hex2}|{hex2}-{hex2}-{hex2}-{hex2}-{hex2}-{hex2}|{hex2}\.{hex2}\.{hex2}\.{hex2}\.{hex2}\.{hex2}
+
+hex4		[[:xdigit:]]{4}
+QuadMacAddress	{hex4}\.{hex4}\.{hex4}
+
+dec-octet	[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]
+IPv4address	{dec-octet}\.{dec-octet}\.{dec-octet}\.{dec-octet}
+
+h16		[0-9A-Fa-f]{1,4}
+ls32		{h16}:{h16}|{IPv4address}
+IPv6address	({h16}:){6}{ls32}|::({h16}:){5}{ls32}|({h16})?::({h16}:){4}{ls32}|(({h16}:){0,1}{h16})?::({h16}:){3}{ls32}|(({h16}:){0,2}{h16})?::({h16}:){2}{ls32}|(({h16}:){0,3}{h16})?::{h16}:{ls32}|(({h16}:){0,4}{h16})?::{ls32}|(({h16}:){0,5}{h16})?::{h16}|(({h16}:){0,6}{h16})?::
+
+v4-cidr-prefix	\/[[:digit:]]{1,2}
+v6-cidr-prefix	\/[[:digit:]]{1,3}
+
 %x RANGE
 %x DQUOTE
 %x SQUOTE
+%x REFERENCE
 
 %%
 
@@ -110,6 +131,11 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 "{"		return simple(TOKEN_LBRACE);
 ".."		return simple(TOKEN_DOTDOT);
 "}"		return simple(TOKEN_RBRACE);
+"+"		return simple(TOKEN_PLUS);
+"-"		return simple(TOKEN_MINUS);
+"*"		return simple(TOKEN_STAR);
+"/"		return simple(TOKEN_RSLASH);
+"%"		return simple(TOKEN_PERCENT);
 
 "=="		return simple(TOKEN_TEST_ANY_EQ);
 "eq"		return simple(TOKEN_TEST_ANY_EQ);
@@ -120,7 +146,10 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 "==="		return simple(TOKEN_TEST_ALL_EQ);
 "all_eq"	return simple(TOKEN_TEST_ALL_EQ);
 "!=="		return simple(TOKEN_TEST_ANY_NE);
-"~="		return simple(TOKEN_TEST_ANY_NE);
+"~="		{
+	add_deprecated_token(yyextra->dfw, "The operator \"~=\" is deprecated, use \"!==\" instead.");
+	return simple(TOKEN_TEST_ANY_NE);
+}
 "any_ne"	return simple(TOKEN_TEST_ANY_NE);
 ">"		return simple(TOKEN_TEST_GT);
 "gt"		return simple(TOKEN_TEST_GT);
@@ -130,8 +159,6 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 "lt"		return simple(TOKEN_TEST_LT);
 "<="		return simple(TOKEN_TEST_LE);
 "le"		return simple(TOKEN_TEST_LE);
-"bitwise_and"	return simple(TOKEN_TEST_BITWISE_AND);
-"&"		return simple(TOKEN_TEST_BITWISE_AND);
 "contains"	return simple(TOKEN_TEST_CONTAINS);
 "~"		return simple(TOKEN_TEST_MATCHES);
 "matches"	return simple(TOKEN_TEST_MATCHES);
@@ -142,6 +169,28 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 "||"		return simple(TOKEN_TEST_OR);
 "or"		return simple(TOKEN_TEST_OR);
 "in"		return simple(TOKEN_TEST_IN);
+
+"&"		return simple(TOKEN_BITWISE_AND);
+"bitwise_and"	return simple(TOKEN_BITWISE_AND);
+
+"${"					{
+	BEGIN(REFERENCE);
+	return simple(TOKEN_REF_OPEN);
+}
+
+<REFERENCE>[^}]+		{
+	return set_lval_str(TOKEN_REFERENCE, yytext);
+}
+
+<REFERENCE>"}"				{
+	BEGIN(INITIAL);
+	return simple(TOKEN_REF_CLOSE);
+}
+
+<REFERENCE><<EOF>>				{
+	dfilter_fail(yyextra->dfw, "Right brace missing from field reference.");
+	return SCAN_FAILED;
+}
 
 "["				{
 	BEGIN(RANGE);
@@ -313,35 +362,47 @@ static gboolean parse_charconst(dfwork_t *dfw, const char *s, unsigned long *val
 
 
 	/* None of the patterns below can match ".." anywhere in the token string. */
- 
-[-+[:alnum:]_:./]+ {
-	char *s, *value;
 
-	/* Hack (but lesser) to make sure that ".." is interpreted as a token on its own. */
-	if ((s = strstr(yytext, "..")) != NULL) {
-		/* If it starts with ".." it is its own token. */
-		if (yytext[0] == '.' && yytext[1] == '.') {
-			yyless(2);
-			df_lval->value = g_strdup("..");
-			return TOKEN_DOTDOT;
-		}
+{MacAddress}|{QuadMacAddress}		{
+	/* MAC Address literal. */
+	return set_lval_str(TOKEN_UNPARSED, yytext);
+}
 
-		/* Match only the prefix before "..". */
-		*s = '\0';
-		value = g_strdup(yytext);
-		*s = '.'; /* Restore */
-		yyless(strlen(value));
-		df_lval->value = value;
-		return TOKEN_UNPARSED;
-	}
+{IPv4address}{v4-cidr-prefix}?		{
+	/* IPv4 with or without prefix. */
+	return set_lval_str(TOKEN_UNPARSED, yytext);
+}
 
-	/* It is a variable or a literal value (CIDR, bytes, number, ...). */
+{IPv6address}{v6-cidr-prefix}?		{
+	/* IPv6 with or without prefix. */
+	return set_lval_str(TOKEN_UNPARSED, yytext);
+}
+
+[[:xdigit:]]+:[[:xdigit:]:]*		{
+	/* Bytes. */
+	return set_lval_str(TOKEN_UNPARSED, yytext);
+}
+
+"<"[^>=]+">"			{
+	/* Literal in-between angle brackets (cannot be parsed as a protocol field). */
+	return set_lval_str(TOKEN_LITERAL, yytext);
+}
+
+[:.]?[[:alnum:]_]{WORD_CHAR}*(\.{WORD_CHAR}+)*		{
+	/* Identifier or literal or unparsed. */
+	if (yytext[0] == '.')
+		return set_lval_str(TOKEN_IDENTIFIER, yytext);
+	if (yytext[0] == ':')
+		return set_lval_str(TOKEN_LITERAL, yytext);
 	return set_lval_str(TOKEN_UNPARSED, yytext);
 }
 
 . {
- 	/* Default */
-	dfilter_fail(yyextra->dfw, "\"%s\" was unexpected in this context.", yytext);
+	/* Default */
+	if (isprint_string(yytext))
+		dfilter_fail(yyextra->dfw, "\"%s\" was unexpected in this context.", yytext);
+	else
+		dfilter_fail(yyextra->dfw, "Non-printable ASCII characters may only appear inside double-quotes.");
 	return SCAN_FAILED;
 }
 

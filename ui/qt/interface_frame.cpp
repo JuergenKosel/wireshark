@@ -19,7 +19,7 @@
 
 #include "ui/qt/interface_frame.h"
 #include <ui/qt/simple_dialog.h>
-#include <ui/qt/wireshark_application.h>
+#include <ui/qt/main_application.h>
 
 #include <ui/qt/models/interface_tree_model.h>
 #include <ui/qt/models/sparkline_delegate.h>
@@ -97,7 +97,7 @@ InterfaceFrame::InterfaceFrame(QWidget * parent)
     proxy_model_.setSourceModel(&source_model_);
 
     info_model_.setSourceModel(&proxy_model_);
-    info_model_.setColumn(columns.indexOf(IFTREE_COL_STATS));
+    info_model_.setColumn(static_cast<int>(columns.indexOf(IFTREE_COL_STATS)));
 
     ui->interfaceTree->setModel(&info_model_);
 
@@ -106,8 +106,8 @@ InterfaceFrame::InterfaceFrame(QWidget * parent)
     ui->interfaceTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->interfaceTree, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(showContextMenu(QPoint)));
 
-    connect(wsApp, SIGNAL(appInitialized()), this, SLOT(interfaceListChanged()));
-    connect(wsApp, SIGNAL(localInterfaceListChanged()), this, SLOT(interfaceListChanged()));
+    connect(mainApp, SIGNAL(appInitialized()), this, SLOT(interfaceListChanged()));
+    connect(mainApp, SIGNAL(localInterfaceListChanged()), this, SLOT(interfaceListChanged()));
 
     connect(ui->interfaceTree->selectionModel(), SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)),
             this, SLOT(interfaceTreeSelectionChanged(const QItemSelection &, const QItemSelection &)));
@@ -151,15 +151,12 @@ QMenu * InterfaceFrame::getSelectionMenu()
     }
 #endif
 
-#if 0
-    // Disabled until bug 13354 is fixed
     contextMenu->addSeparator();
     QAction * toggleHideAction = new QAction(tr("Show hidden interfaces"), this);
     toggleHideAction->setCheckable(true);
-    toggleHideAction->setChecked(! proxy_model_->filterHidden());
+    toggleHideAction->setChecked(! proxy_model_.filterHidden());
     connect(toggleHideAction, SIGNAL(triggered()), this, SLOT(toggleHiddenInterfaces()));
     contextMenu->addAction(toggleHideAction);
-#endif
 
     return contextMenu;
 }
@@ -308,7 +305,7 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
         // used if __APPLE__ is defined, so that it reflects the
         // new message text.
         //
-        QString install_chmodbpf_path = wsApp->applicationDirPath() + "/../Resources/Extras/Install ChmodBPF.pkg";
+        QString install_chmodbpf_path = mainApp->applicationDirPath() + "/../Resources/Extras/Install ChmodBPF.pkg";
         ui->warningLabel->setText(tr(
             "<p>"
             "You don't have permission to capture on local interfaces."
@@ -410,10 +407,14 @@ void InterfaceFrame::on_interfaceTree_doubleClicked(const QModelIndex &index)
     if (! realIndex.isValid())
         return;
 
+    QStringList interfaces;
+
 #ifdef HAVE_LIBPCAP
 
     QString device_name = source_model_.getColumnContent(realIndex.row(), IFTREE_COL_NAME).toString();
     QString extcap_string = source_model_.getColumnContent(realIndex.row(), IFTREE_COL_EXTCAP_PATH).toString();
+
+    interfaces << device_name;
 
     /* We trust the string here. If this interface is really extcap, the string is
      * being checked immediatly before the dialog is being generated */
@@ -427,7 +428,8 @@ void InterfaceFrame::on_interfaceTree_doubleClicked(const QModelIndex &index)
         }
     }
 #endif
-    emit startCapture();
+
+    startCapture(interfaces);
 }
 
 #ifdef HAVE_LIBPCAP
@@ -465,7 +467,7 @@ void InterfaceFrame::updateStatistics(void)
 
 #ifdef HAVE_LIBPCAP
 
-    for (int idx = 0; idx < proxy_model_.rowCount(); idx++)
+    for (int idx = 0; idx < source_model_.rowCount(); idx++)
     {
         QModelIndex selectIndex = info_model_.mapFromSource(proxy_model_.mapFromSource(source_model_.index(idx, 0)));
 
@@ -492,7 +494,21 @@ void InterfaceFrame::showContextMenu(QPoint pos)
 {
     QMenu ctx_menu;
 
-    ctx_menu.addAction(tr("Start capture"), this, SIGNAL(startCapture()));
+    ctx_menu.addAction(tr("Start capture"), this, [=] () {
+        QStringList ifaces;
+        QModelIndexList selIndices = ui->interfaceTree->selectionModel()->selectedIndexes();
+        foreach(QModelIndex idx, selIndices)
+        {
+            QModelIndex realIndex = proxy_model_.mapToSource(info_model_.mapToSource(idx));
+            if (realIndex.column() != IFTREE_COL_NAME)
+                realIndex = realIndex.sibling(realIndex.row(), IFTREE_COL_NAME);
+            QString name = realIndex.data(Qt::DisplayRole).toString();
+            if (! ifaces.contains(name))
+                ifaces << name;
+        }
+
+        startCapture(ifaces);
+    });
     ctx_menu.exec(ui->interfaceTree->mapToGlobal(pos));
 }
 

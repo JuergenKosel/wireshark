@@ -246,7 +246,8 @@ known_non_contiguous_fields = { 'wlan.fixed.capabilities.cfpoll.sta',
                                 'ebhscr.eth.rsv',  # matches other fields in same sequence
                                 'v120.lli',  # non-contiguous field (http://www.acacia-net.com/wwwcla/protocol/v120_l2.htm)
                                 'stun.type.class',
-                                'bssgp.csg_id'
+                                'bssgp.csg_id',
+                                'telnet.auth.mod.enc', 'osc.message.midi.bender', 'btle.data_header.rfu'
 
                               }
 ##################################################################################################
@@ -319,7 +320,7 @@ class Item:
         if check_mask:
             if not mask in { 'NULL', '0x0', '0', '0x00'}:
                 self.check_contiguous_bits(mask)
-                self.check_mask_too_long(mask)
+                #self.check_mask_too_long(mask)
                 self.check_num_digits(mask)
                 self.check_digits_all_zeros(mask)
 
@@ -449,7 +450,7 @@ class Item:
     def check_digits_all_zeros(self, mask):
         if mask.startswith('0x') and len(mask) > 3:
             if mask[2:] == '0'*(len(mask)-2):
-                print('Warning: ', self.filename, 'filter=', self.filter, ' - item has all zeros - this is confusing! :', mask)
+                print('Warning:', self.filename, 'filter=', self.filter, ' - item has all zeros - this is confusing! :', mask)
                 global warnings_found
                 warnings_found += 1
 
@@ -573,7 +574,7 @@ def find_items(filename, check_mask=False, check_label=False, check_consecutive=
         contents = f.read()
         # Remove comments so as not to trip up RE.
         contents = removeComments(contents)
-        matches = re.finditer(r'.*\{\s*\&(hf_[a-z_A-Z0-9]*)\s*,\s*{\s*\"(.+)\"\s*,\s*\"([a-zA-Z0-9_\-\.]+)\"\s*,\s*([a-zA-Z0-9_]*)\s*,\s*(.*)\s*,\s*([\&A-Za-z0-9x_<\|\s\(\)]*)\s*,\s*([ a-zA-Z0-9x_\<\~]*)\s*,', contents)
+        matches = re.finditer(r'.*\{\s*\&(hf_[a-z_A-Z0-9]*)\s*,\s*{\s*\"*(.+)\"*\s*,\s*\"([a-zA-Z0-9_\-\.]+)\"\s*,\s*([a-zA-Z0-9_]*)\s*,\s*(.*)\s*,\s*([\&A-Za-z0-9x_<\|\s\(\)]*)\s*,\s*([ a-zA-Z0-9x_\<\~\|\(\)]*)\s*,', contents)
         for m in matches:
             # Store this item.
             hf = m.group(1)
@@ -664,7 +665,7 @@ def checkFile(filename, check_mask=False, check_label=False, check_consecutive=F
 # command-line args.  Controls which dissector files should be checked.
 # If no args given, will just scan epan/dissectors folder.
 parser = argparse.ArgumentParser(description='Check calls in dissectors')
-parser.add_argument('--file', action='store', default='',
+parser.add_argument('--file', action='append',
                     help='specify individual dissector file to test')
 parser.add_argument('--folder', action='store', default='',
                     help='specify folder to test')
@@ -689,11 +690,15 @@ args = parser.parse_args()
 # Get files from wherever command-line args indicate.
 files = []
 if args.file:
-    # Add single specified file
-    if not args.file.startswith('epan') and not os.path.exists(args.file):
-        files.append(os.path.join('epan', 'dissectors', args.file))
-    else:
-        files.append(args.file)
+    # Add specified file(s)
+    for f in args.file:
+        if not f.startswith('epan'):
+            f = os.path.join('epan', 'dissectors', f)
+        if not os.path.isfile(f):
+            print('Chosen file', f, 'does not exist.')
+            exit(1)
+        else:
+            files.append(f)
 elif args.folder:
     # Add all files from a given folder.
     folder = args.folder

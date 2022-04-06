@@ -1,7 +1,8 @@
 # Build options for use by CMake
 
 option(BUILD_wireshark     "Build Wireshark" ON)
-if(BUILD_wireshark)
+option(BUILD_logwolf       "Build Logwolf" OFF)
+if(BUILD_wireshark OR BUILD_logwolf)
 	option(USE_qt6     "Use Qt6 instead of Qt5 - WIP, GUI developers only!" OFF)
 endif()
 option(BUILD_tshark        "Build tshark" ON)
@@ -25,6 +26,7 @@ option(BUILD_sshdump       "Build sshdump" ON)
 option(BUILD_ciscodump     "Build ciscodump" ON)
 option(BUILD_dpauxmon      "Build dpauxmon" ON)
 option(BUILD_randpktdump   "Build randpktdump" ON)
+option(BUILD_wifidump      "BUild wifidump" ON)
 if(WIN32 AND NOT MINGW)
 	# XXX - I don't think building etwdump is possible with MinGW-w64 as of
 	# version 9.0 but I would like to be 100% certain.
@@ -41,12 +43,8 @@ endif()
 option(BUILD_udpdump       "Build udpdump" ON)
 
 option(BUILD_sharkd        "Build sharkd" ON)
-if(WIN32)
-	option(BUILD_fuzzshark     "Build fuzzshark" OFF)
-else()
-	option(BUILD_fuzzshark     "Build fuzzshark" ON)
-endif()
 option(BUILD_mmdbresolve   "Build MaxMind DB resolver" ON)
+option(BUILD_fuzzshark     "Build fuzzshark" OFF)
 
 option(ENABLE_WERROR     "Treat warnings as errors" ON)
 option(ENABLE_DEBUG      "Enable debug code" ON)
@@ -120,6 +118,7 @@ option(ENABLE_BCG729     "Build with G.729 codec support in RTP Player" ON)
 option(ENABLE_ILBC       "Build with iLBC codec support in RTP Player" ON)
 option(ENABLE_LIBXML2    "Build with libxml2 support" ON)
 option(ENABLE_OPUS       "Build with opus support" ON)
+option(ENABLE_SINSP      "Build with libsinsp+libscap support" ON)
 
 # How to install
 set(DUMPCAP_INSTALL_OPTION   "normal" CACHE STRING "Permissions to install")

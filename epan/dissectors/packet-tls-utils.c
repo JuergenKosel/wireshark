@@ -493,6 +493,92 @@ const value_string ssl_extension_curves[] = {
     { 258, "ffdhe4096" }, /* RFC 7919 */
     { 259, "ffdhe6144" }, /* RFC 7919 */
     { 260, "ffdhe8192" }, /* RFC 7919 */
+    /* PQC key exchange algorithms from OQS-OpenSSL,
+        see https://github.com/open-quantum-safe/openssl/blob/OQS-OpenSSL_1_1_1-stable/oqs-template/oqs-kem-info.md */
+    { 0x0200, "frodo640aes" },
+    { 0x2F00, "p256_frodo640aes" },
+    { 0x0201, "frodo640shake" },
+    { 0x2F01, "p256_frodo640shake" },
+    { 0x0202, "frodo976aes" },
+    { 0x2F02, "p384_frodo976aes" },
+    { 0x0203, "frodo976shake" },
+    { 0x2F03, "p384_frodo976shake" },
+    { 0x0204, "frodo1344aes" },
+    { 0x2F04, "p521_frodo1344aes" },
+    { 0x0205, "frodo1344shake" },
+    { 0x2F05, "p521_frodo1344shake" },
+    { 0x023A, "kyber512" },
+    { 0x2F3A, "p256_kyber512" },
+    { 0x023C, "kyber768" },
+    { 0x2F3C, "p384_kyber768" },
+    { 0x023D, "kyber1024" },
+    { 0x2F3D, "p521_kyber1024" },
+    { 0x0214, "ntru_hps2048509" },
+    { 0x2F14, "p256_ntru_hps2048509" },
+    { 0x0215, "ntru_hps2048677" },
+    { 0x2F15, "p384_ntru_hps2048677" },
+    { 0x0216, "ntru_hps4096821" },
+    { 0x2F16, "p521_ntru_hps4096821" },
+    { 0x0245, "ntru_hps40961229" },
+    { 0x2F45, "p521_ntru_hps40961229" },
+    { 0x0217, "ntru_hrss701" },
+    { 0x2F17, "p384_ntru_hrss701" },
+    { 0x0246, "ntru_hrss1373" },
+    { 0x2F46, "p521_ntru_hrss1373" },
+    { 0x0218, "lightsaber" },
+    { 0x2F18, "p256_lightsaber" },
+    { 0x0219, "saber" },
+    { 0x2F19, "p384_saber" },
+    { 0x021A, "firesaber" },
+    { 0x2F1A, "p521_firesaber" },
+    { 0x021B, "sidhp434" },
+    { 0x2F1B, "p256_sidhp434" },
+    { 0x021C, "sidhp503" },
+    { 0x2F1C, "p256_sidhp503" },
+    { 0x021D, "sidhp610" },
+    { 0x2F1D, "p384_sidhp610" },
+    { 0x021E, "sidhp751" },
+    { 0x2F1E, "p521_sidhp751" },
+    { 0x021F, "sikep434" },
+    { 0x2F1F, "p256_sikep434" },
+    { 0x0220, "sikep503" },
+    { 0x2F20, "p256_sikep503" },
+    { 0x0221, "sikep610" },
+    { 0x2F21, "p384_sikep610" },
+    { 0x0222, "sikep751" },
+    { 0x2F22, "p521_sikep751" },
+    { 0x0238, "bikel1" },
+    { 0x2F38, "p256_bikel1" },
+    { 0x023B, "bikel3" },
+    { 0x2F3B, "p384_bikel3" },
+    { 0x023E, "kyber90s512" },
+    { 0x2F3E, "p256_kyber90s512" },
+    { 0x023F, "kyber90s768" },
+    { 0x2F3F, "p384_kyber90s768" },
+    { 0x0240, "kyber90s1024" },
+    { 0x2F40, "p521_kyber90s1024" },
+    { 0x022C, "hqc128" },
+    { 0x2F2C, "p256_hqc128" },
+    { 0x022D, "hqc192" },
+    { 0x2F2D, "p384_hqc192" },
+    { 0x022E, "hqc256" },
+    { 0x2F2E, "p521_hqc256" },
+    { 0x022F, "ntrulpr653" },
+    { 0x2F2F, "p256_ntrulpr653" },
+    { 0x0230, "ntrulpr761" },
+    { 0x2F43, "p256_ntrulpr761" },
+    { 0x0231, "ntrulpr857" },
+    { 0x2F31, "p384_ntrulpr857" },
+    { 0x0241, "ntrulpr1277" },
+    { 0x2F41, "p521_ntrulpr1277" },
+    { 0x0232, "sntrup653" },
+    { 0x2F32, "p256_sntrup653" },
+    { 0x0233, "sntrup761" },
+    { 0x2F44, "p256_sntrup761" },
+    { 0x0234, "sntrup857" },
+    { 0x2F34, "p384_sntrup857" },
+    { 0x0242, "sntrup1277" },
+    { 0x2F42, "p521_sntrup1277" },
     { 2570, "Reserved (GREASE)" }, /* RFC 8701 */
     { 6682, "Reserved (GREASE)" }, /* RFC 8701 */
     { 10794, "Reserved (GREASE)" }, /* RFC 8701 */
@@ -1326,6 +1412,47 @@ const value_string tls13_signature_algorithm[] = {
     { 0x0809, "rsa_pss_pss_sha256" },
     { 0x080a, "rsa_pss_pss_sha384" },
     { 0x080b, "rsa_pss_pss_sha512" },
+    /* PQC digital signature algorithms from OQS-OpenSSL,
+        see https://github.com/open-quantum-safe/openssl/blob/OQS-OpenSSL_1_1_1-stable/oqs-template/oqs-sig-info.md */
+    { 0xfea0, "dilithium2" },
+    { 0xfea1, "p256_dilithium2" },
+    { 0xfea2, "rsa3072_dilithium2" },
+    { 0xfea3, "dilithium3" },
+    { 0xfea4, "p384_dilithium3" },
+    { 0xfea5, "dilithium5" },
+    { 0xfea6, "p521_dilithium5" },
+    { 0xfea7, "dilithium2_aes" },
+    { 0xfea8, "p256_dilithium2_aes" },
+    { 0xfea9, "rsa3072_dilithium2_aes" },
+    { 0xfeaa, "dilithium3_aes" },
+    { 0xfeab, "p384_dilithium3_aes" },
+    { 0xfeac, "dilithium5_aes" },
+    { 0xfead, "p521_dilithium5_aes" },
+    { 0xfe0b, "falcon512" },
+    { 0xfe0c, "p256_falcon512" },
+    { 0xfe0d, "rsa3072_falcon512" },
+    { 0xfe0e, "falcon1024" },
+    { 0xfe0f, "p521_falcon1024" },
+    { 0xfe96, "picnicl1full" },
+    { 0xfe97, "p256_picnicl1full" },
+    { 0xfe98, "rsa3072_picnicl1full" },
+    { 0xfe1b, "picnic3l1" },
+    { 0xfe1c, "p256_picnic3l1" },
+    { 0xfe1d, "rsa3072_picnic3l1" },
+    { 0xfe27, "rainbowIclassic" },
+    { 0xfe28, "p256_rainbowIclassic" },
+    { 0xfe29, "rsa3072_rainbowIclassic" },
+    { 0xfe3c, "rainbowVclassic" },
+    { 0xfe3d, "p521_rainbowVclassic" },
+    { 0xfe42, "sphincsharaka128frobust" },
+    { 0xfe43, "p256_sphincsharaka128frobust" },
+    { 0xfe44, "rsa3072_sphincsharaka128frobust" },
+    { 0xfe5e, "sphincssha256128frobust" },
+    { 0xfe5f, "p256_sphincssha256128frobust" },
+    { 0xfe60, "rsa3072_sphincssha256128frobust" },
+    { 0xfe7a, "sphincsshake256128frobust" },
+    { 0xfe7b, "p256_sphincsshake256128frobust" },
+    { 0xfe7c, "rsa3072_sphincsshake256128frobust" },
     { 0, NULL }
 };
 
@@ -1350,7 +1477,7 @@ const value_string tls_cert_status_type[] = {
 };
 
 /* Generated by tools/make-tls-ct-logids.py
- * Last-Modified Tue, 18 Jan 2022 20:28:00 GMT, 104 entries. */
+ * Last-Modified Thu, 17 Mar 2022 11:58:00 GMT, 104 entries. */
 static const bytes_string ct_logids[] = {
     { (const guint8[]){
           0xfa, 0xd4, 0xc9, 0x7c, 0xc4, 0x9e, 0xe2, 0xf8, 0xac, 0x85, 0xc5,
@@ -2029,11 +2156,12 @@ const value_string quic_transport_parameter_id[] = {
     { SSL_HND_QUIC_TP_INITIAL_SOURCE_CONNECTION_ID, "initial_source_connection_id" },
     { SSL_HND_QUIC_TP_RETRY_SOURCE_CONNECTION_ID, "retry_source_connection_id" },
     { SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE, "max_datagram_frame_size" },
+    { SSL_HND_QUIC_TP_CIBIR_ENCODING, "cibir_encoding" },
     { SSL_HND_QUIC_TP_LOSS_BITS, "loss_bits" },
     { SSL_HND_QUIC_TP_GREASE_QUIC_BIT, "grease_quic_bit" },
     { SSL_HND_QUIC_TP_ENABLE_TIME_STAMP, "enable_time_stamp" },
     { SSL_HND_QUIC_TP_ENABLE_TIME_STAMP_V2, "enable_time_stamp_v2" },
-    { SSL_HND_QUIC_TP_VERSION_NEGOTIATION, "version_negotiation" },
+    { SSL_HND_QUIC_TP_VERSION_INFORMATION, "version_information" },
     { SSL_HND_QUIC_TP_MIN_ACK_DELAY, "min_ack_delay" },
     { SSL_HND_QUIC_TP_GOOGLE_USER_AGENT, "google_user_agent" },
     { SSL_HND_QUIC_TP_GOOGLE_KEY_UPDATE_NOT_YET_SUPPORTED, "google_key_update_not_yet_supported" },
@@ -7801,6 +7929,16 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                 proto_item_append_text(parameter_tree, " %" PRIu64, value);
                 offset += len;
             break;
+            case SSL_HND_QUIC_TP_CIBIR_ENCODING:
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_cibir_encoding_length,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, " Length: %" PRIu64, value);
+                offset += len;
+                proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_cibir_encoding_offset,
+                                               tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
+                proto_item_append_text(parameter_tree, ", Offset: %" PRIu64, value);
+                offset += len;
+            break;
             case SSL_HND_QUIC_TP_LOSS_BITS:
                 proto_tree_add_item_ret_varint(parameter_tree, hf->hf.hs_ext_quictp_parameter_loss_bits,
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
@@ -7878,7 +8016,7 @@ ssl_dissect_hnd_hello_ext_quic_transport_parameters(ssl_common_dissect_t *hf, tv
                                                tvb, offset, -1, ENC_VARINT_QUIC, &value, &len);
                 offset += parameter_length;
             break;
-            case SSL_HND_QUIC_TP_VERSION_NEGOTIATION:
+            case SSL_HND_QUIC_TP_VERSION_INFORMATION:
                 quic_proto_tree_add_version(tvb, parameter_tree,
                                             hf->hf.hs_ext_quictp_parameter_chosen_version, offset);
                 offset += 4;
@@ -8216,7 +8354,7 @@ ssl_dissect_hnd_hello_ext_supported_groups(ssl_common_dissect_t *hf, tvbuff_t *t
         proto_tree_add_item_ret_uint(groups_tree, hf->hf.hs_ext_supported_group, tvb, offset, 2,
                                      ENC_BIG_ENDIAN, &ja3_value);
         offset += 2;
-        if (ja3) {
+        if (ja3 && ((ja3_value & 0x0f0f) != 0x0a0a)) {
             wmem_strbuf_append_printf(ja3, "%i", ja3_value);
             if (offset < offset_end) {
                 wmem_strbuf_append_c(ja3, '-');
@@ -8810,9 +8948,11 @@ ssl_dissect_hnd_cli_hello(ssl_common_dissect_t *hf, tvbuff_t *tvb,
         proto_tree_add_item_ret_uint(cs_tree, hf->hf.hs_cipher_suite, tvb, offset, 2,
                                      ENC_BIG_ENDIAN, &ja3_value);
         offset += 2;
-        wmem_strbuf_append_printf(ja3, "%i", ja3_value);
-        if (offset < next_offset) {
-            wmem_strbuf_append_c(ja3, '-');
+        if ((ja3_value & 0x0f0f) != 0x0a0a) {
+            wmem_strbuf_append_printf(ja3, "%i", ja3_value);
+            if (offset < next_offset) {
+                wmem_strbuf_append_c(ja3, '-');
+            }
         }
     }
     wmem_strbuf_append_c(ja3, ',');
@@ -9609,7 +9749,7 @@ ssl_dissect_hnd_extension(ssl_common_dissect_t *hf, tvbuff_t *tvb, proto_tree *t
         proto_tree_add_uint(ext_tree, hf->hf.hs_ext_type,
                             tvb, offset, 2, ext_type);
         offset += 2;
-        if (ja3) {
+        if (ja3 && ((ext_type & 0x0f0f) != 0x0a0a)) {
             wmem_strbuf_append_printf(ja3, "%i", ext_type);
             if (offset_end - offset - ext_len > 2) {
                 wmem_strbuf_append_c(ja3, '-');

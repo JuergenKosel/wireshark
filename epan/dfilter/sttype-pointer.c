@@ -46,7 +46,7 @@ sttype_fvalue_tostr(const void *data, gboolean pretty)
 	if (pretty)
 		repr = g_strdup(s);
 	else
-		repr = ws_strdup_printf("%s[%s]", fvalue_type_name(fvalue), s);
+		repr = ws_strdup_printf("%s <%s>", s, fvalue_type_name(fvalue));
 	g_free(s);
 	return repr;
 }
@@ -105,6 +105,17 @@ sttype_register_pointer(void)
 		NULL,
 		field_tostr
 	};
+	/* A field reference is a *constant* prototocol field value read directly
+	 * from the currently selected frame in the protocol tree when a filter is
+	 * applied to it. */
+	static sttype_t reference_type = {
+		STTYPE_REFERENCE,
+		"REFERENCE",
+		NULL,
+		NULL,
+		NULL,
+		field_tostr
+	};
 	static sttype_t fvalue_type = {
 		STTYPE_FVALUE,
 		"FVALUE",
@@ -131,6 +142,7 @@ sttype_register_pointer(void)
 	};
 
 	sttype_register(&field_type);
+	sttype_register(&reference_type);
 	sttype_register(&fvalue_type);
 	sttype_register(&pcre_type);
 	sttype_register(&charconst_type);

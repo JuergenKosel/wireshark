@@ -1184,14 +1184,17 @@ tls_msp_fragment_id(struct tcp_multisegment_pdu *msp)
 {
     /*
      * If a frame contains multiple appdata PDUs, then "first_frame" is not
-     * sufficient to uniquely identify groups of fragments. Therefore include
-     * seq (the position of the initial fragment in the TLS stream) in the ID.
+     * sufficient to uniquely identify groups of fragments. Therefore we use
+     * the tcp reassembly functions that also test msp->seq (the position of
+     * the initial fragment in the TLS stream).
      * As a frame most likely does not have multiple PDUs (except maybe for
-     * HTTP2), just let 'seq' contibute only a few bits.
+     * HTTP2), just check 'seq' at the end instead of using it in the hash.
      */
     guint32 id = msp->first_frame;
+#if 0
     id ^= (msp->seq & 0xff) << 24;
     id ^= (msp->seq & 0xff00) << 16;
+#endif
     return id;
 }
 
@@ -1249,8 +1252,13 @@ again:
         const char *prefix;
 
         if (msp->first_frame == pinfo->num) {
+            /* This must be after the first pass. */
             prefix = "";
-            col_set_str(pinfo->cinfo, COL_INFO, "[TLS segment of a reassembled PDU]");
+            if (msp->last_frame == pinfo->num) {
+                col_clear(pinfo->cinfo, COL_INFO);
+            } else {
+                col_set_str(pinfo->cinfo, COL_INFO, "[TLS segment of a reassembled PDU]");
+            }
         } else {
             prefix = "Retransmitted ";
         }
@@ -1281,7 +1289,7 @@ again:
         }
 
         ipfd_head = fragment_add(&ssl_reassembly_table, tvb, offset,
-                                 pinfo, tls_msp_fragment_id(msp), NULL,
+                                 pinfo, tls_msp_fragment_id(msp), msp,
                                  seq - msp->seq,
                                  len, (LT_SEQ (nxtseq,msp->nxtpdu)));
 
@@ -1407,7 +1415,7 @@ again:
                  * needs desegmentation).
                  */
                 fragment_set_partial_reassembly(&ssl_reassembly_table,
-                                                pinfo, tls_msp_fragment_id(msp), NULL);
+                                                pinfo, tls_msp_fragment_id(msp), msp);
                 /* Update msp->nxtpdu to point to the new next
                  * pdu boundary.
                  */
@@ -1553,7 +1561,7 @@ again:
 
             /* add this segment as the first one for this new pdu */
             fragment_add(&ssl_reassembly_table, tvb, deseg_offset,
-                         pinfo, tls_msp_fragment_id(msp), NULL,
+                         pinfo, tls_msp_fragment_id(msp), msp,
                          0, nxtseq - deseg_seq,
                          LT_SEQ(nxtseq, msp->nxtpdu));
         }
@@ -2873,7 +2881,7 @@ dissect_ssl3_hnd_encrypted_exts(tvbuff_t *tvb, proto_tree *tree,
         tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
     proto_tree_add_item(tree, hf_tls_handshake_npn_selected_protocol,
-        tvb, offset, selected_protocol_len, ENC_ASCII|ENC_NA);
+        tvb, offset, selected_protocol_len, ENC_ASCII);
     offset += selected_protocol_len;
 
     padding_len = tvb_get_guint8(tvb, offset);
@@ -4575,7 +4583,7 @@ proto_register_tls(void)
     register_init_routine(ssl_init);
     register_cleanup_routine(ssl_cleanup);
     reassembly_table_register(&ssl_reassembly_table,
-                          &addresses_ports_reassembly_table_functions);
+                          &tcp_reassembly_table_functions);
     reassembly_table_register(&tls_hs_reassembly_table,
                           &addresses_ports_reassembly_table_functions);
     register_decode_as(&ssl_da);

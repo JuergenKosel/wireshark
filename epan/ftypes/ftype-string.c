@@ -12,8 +12,6 @@
 #include <ftypes-int.h>
 #include <string.h>
 
-#define CMP_MATCHES cmp_matches
-
 #include <strutil.h>
 #include <wsutil/ws_assert.h>
 
@@ -21,6 +19,12 @@ static void
 string_fvalue_new(fvalue_t *fv)
 {
 	fv->value.string = NULL;
+}
+
+static void
+string_fvalue_copy(fvalue_t *dst, const fvalue_t *src)
+{
+	dst->value.string = g_strdup(src->value.string);
 }
 
 static void
@@ -70,11 +74,11 @@ val_from_string(fvalue_t *fv, const char *s, gchar **err_msg _U_)
 }
 
 static gboolean
-val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
 	/* Just turn it into a string */
 	/* XXX Should probably be a syntax error instead. It's more user-friendly to ask the
-	 * user to be explicit about the meaning of unparsed than them trying to figure out
+	 * user to be explicit about the meaning of an unquoted literal than them trying to figure out
 	 * why a valid filter expression is giving wrong results. */
 	return val_from_string(fv, s, err_msg);
 }
@@ -82,7 +86,7 @@ val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 static gboolean
 val_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg)
 {
-	/* XXX Should be a syntax error if unparsed is also a syntax error. */
+	/* XXX Should be a syntax error if literal is also a syntax error. */
 
 	/* Free up the old value, if we have one */
 	string_fvalue_free(fv);
@@ -101,6 +105,12 @@ val_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg)
 	fv->value.string[1] = '\0';
 
 	return TRUE;
+}
+
+static gboolean
+string_is_zero(const fvalue_t *fv)
+{
+	return fv->value.string == NULL || strlen(fv->value.string) == 0;
 }
 
 static guint
@@ -165,8 +175,9 @@ ftype_register_string(void)
 		"Character string",		/* pretty_name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
 		string_fvalue_free,		/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
@@ -175,12 +186,19 @@ ftype_register_string(void)
 		{ .get_value_ptr = value_get },	/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,
-		CMP_MATCHES,
+		cmp_matches,
 
+		string_is_zero,			/* is_zero */
 		len,
 		slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	static ftype_t stringz_type = {
 		FT_STRINGZ,			/* ftype */
@@ -188,8 +206,9 @@ ftype_register_string(void)
 		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
 		string_fvalue_free,		/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
@@ -198,12 +217,19 @@ ftype_register_string(void)
 		{ .get_value_ptr = value_get },	/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,			/* cmp_contains */
-		CMP_MATCHES,
+		cmp_matches,
 
+		string_is_zero,			/* is_zero */
 		len,
 		slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	static ftype_t uint_string_type = {
 		FT_UINT_STRING,		/* ftype */
@@ -211,8 +237,9 @@ ftype_register_string(void)
 		"Character string",		/* pretty_name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
 		string_fvalue_free,		/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
@@ -221,12 +248,19 @@ ftype_register_string(void)
 		{ .get_value_ptr = value_get },	/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,			/* cmp_contains */
-		CMP_MATCHES,
+		cmp_matches,
 
+		string_is_zero,			/* is_zero */
 		len,
 		slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	static ftype_t stringzpad_type = {
 		FT_STRINGZPAD,			/* ftype */
@@ -234,8 +268,9 @@ ftype_register_string(void)
 		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
 		string_fvalue_free,		/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
@@ -244,12 +279,19 @@ ftype_register_string(void)
 		{ .get_value_ptr = value_get },	/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,			/* cmp_contains */
-		CMP_MATCHES,
+		cmp_matches,
 
+		string_is_zero,			/* is_zero */
 		len,
 		slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	static ftype_t stringztrunc_type = {
 		FT_STRINGZTRUNC,		/* ftype */
@@ -257,8 +299,9 @@ ftype_register_string(void)
 		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
 		string_fvalue_free,		/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
@@ -267,12 +310,19 @@ ftype_register_string(void)
 		{ .get_value_ptr = value_get },	/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,			/* cmp_contains */
-		CMP_MATCHES,
+		cmp_matches,
 
+		string_is_zero,			/* is_zero */
 		len,
 		slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 
 	ftype_register(FT_STRING, &string_type);
@@ -280,6 +330,46 @@ ftype_register_string(void)
 	ftype_register(FT_UINT_STRING, &uint_string_type);
 	ftype_register(FT_STRINGZPAD, &stringzpad_type);
 	ftype_register(FT_STRINGZTRUNC, &stringztrunc_type);
+}
+
+void
+ftype_register_pseudofields_string(int proto)
+{
+	static int hf_ft_string;
+	static int hf_ft_stringz;
+	static int hf_ft_uint_string;
+	static int hf_ft_stringzpad;
+	static int hf_ft_stringztrunc;
+
+	static hf_register_info hf_ftypes[] = {
+		{ &hf_ft_string,
+		    { "FT_STRING", "_ws.ftypes.string",
+			FT_STRING, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+		{ &hf_ft_stringz,
+		    { "FT_STRINGZ", "_ws.ftypes.stringz",
+			FT_STRINGZ, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+		{ &hf_ft_uint_string,
+		    { "FT_UINT_STRING", "_ws.ftypes.uint_string",
+			FT_UINT_STRING, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+		{ &hf_ft_stringzpad,
+		    { "FT_STRINGZPAD", "_ws.ftypes.stringzpad",
+			FT_STRINGZPAD, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+		{ &hf_ft_stringztrunc,
+		    { "FT_STRINGZTRUNC", "_ws.ftypes.stringztrunc",
+			FT_STRINGZTRUNC, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+	};
+
+	proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));
 }
 
 /*

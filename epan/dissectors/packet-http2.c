@@ -1903,7 +1903,7 @@ fix_partial_header_dissection_support(nghttp2_hd_inflater *hd_inflater, gboolean
                                          HTTP2_HEADER_UNKNOWN /* Name String */
                                          "\0";       /* Value Length */
     const int dummy_header_size = sizeof(dummy_header) - 1;
-    const int dummy_entries_to_add = 4096 / (32 + dummy_header_size - 3);
+    const int dummy_entries_to_add = (int)(nghttp2_hd_inflate_get_max_dynamic_table_size(hd_inflater) / (32 + dummy_header_size - 3));
     for (int i = dummy_entries_to_add - 1; i >= 0; --i) {
         nghttp2_nv nv;
         int inflate_flags = 0;
@@ -3563,7 +3563,7 @@ dissect_http2_continuation(tvbuff_t *tvb, packet_info *pinfo _U_, http2_session_
         THROW(ReportedBoundsError);
     }
     headlen -= padding;
-    proto_tree_add_item(http2_tree, hf_http2_continuation_header, tvb, offset, headlen, ENC_ASCII|ENC_NA);
+    proto_tree_add_item(http2_tree, hf_http2_continuation_header, tvb, offset, headlen, ENC_ASCII);
 
 #ifdef HAVE_NGHTTP2
     inflate_http2_header_block(tvb, pinfo, offset, http2_tree, headlen, h2session, flags);
@@ -3592,12 +3592,12 @@ dissect_http2_altsvc(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *http2_tr
     offset += 2;
     remain -= 2;
 
-    proto_tree_add_item(http2_tree, hf_http2_altsvc_origin, tvb, offset, origin_len, ENC_ASCII|ENC_NA);
+    proto_tree_add_item(http2_tree, hf_http2_altsvc_origin, tvb, offset, origin_len, ENC_ASCII);
     offset += origin_len;
     remain -= origin_len;
 
     if(remain) {
-        proto_tree_add_item(http2_tree, hf_http2_altsvc_field_value, tvb, offset, remain, ENC_ASCII|ENC_NA);
+        proto_tree_add_item(http2_tree, hf_http2_altsvc_field_value, tvb, offset, remain, ENC_ASCII);
         offset += remain;
     }
 
@@ -3622,7 +3622,7 @@ dissect_http2_origin(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *http2_tr
         proto_tree_add_item_ret_uint(origin_entry_tree, hf_http2_origin_origin_len, tvb, offset, 2, ENC_BIG_ENDIAN, &origin_len);
         offset += 2;
 
-        proto_tree_add_item(origin_entry_tree, hf_http2_origin_origin, tvb, offset, origin_len, ENC_ASCII|ENC_NA);
+        proto_tree_add_item(origin_entry_tree, hf_http2_origin_origin, tvb, offset, origin_len, ENC_ASCII);
         offset += origin_len;
     }
 
@@ -3640,7 +3640,7 @@ dissect_http2_priority_update(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
     offset += 4;
     remain -= 4;
 
-    proto_tree_add_item(http2_tree, hf_http2_priority_update_field_value, tvb, offset, remain, ENC_ASCII|ENC_NA);
+    proto_tree_add_item(http2_tree, hf_http2_priority_update_field_value, tvb, offset, remain, ENC_ASCII);
     offset += remain;
 
     return offset;
@@ -3660,6 +3660,12 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     GHashTable* entry;
     struct tcp_analysis* tcpd;
     conversation_t* conversation = find_or_create_conversation(pinfo);
+
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "HTTP2");
+
+    ti = proto_tree_add_item(tree, proto_http2, tvb, 0, -1, ENC_NA);
+
+    http2_tree = proto_item_add_subtree(ti, ett_http2);
 
     if(!p_get_proto_data(wmem_file_scope(), pinfo, proto_http2, 0)) {
         http2_header_data_t *header_data;
@@ -3684,7 +3690,7 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
         |                   Frame Payload (0...)                      ...
         +---------------------------------------------------------------+
     */
-    ti = proto_tree_add_item(tree, hf_http2_stream, tvb, 0, -1, ENC_NA);
+    ti = proto_tree_add_item(http2_tree, hf_http2_stream, tvb, 0, -1, ENC_NA);
 
     http2_tree = proto_item_add_subtree(ti, ett_http2_header);
 
@@ -3705,7 +3711,7 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
         proto_item_set_len(ti, MAGIC_FRAME_LENGTH);
         proto_item_append_text(ti, ": Magic");
 
-        proto_tree_add_item(http2_tree, hf_http2_magic, tvb, offset, MAGIC_FRAME_LENGTH, ENC_ASCII|ENC_NA);
+        proto_tree_add_item(http2_tree, hf_http2_magic, tvb, offset, MAGIC_FRAME_LENGTH, ENC_ASCII);
 
         return MAGIC_FRAME_LENGTH;
     }
@@ -3847,17 +3853,12 @@ static int
 dissect_http2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
               void *data)
 {
-    proto_item *ti;
-    proto_tree *http2_tree;
-
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "HTTP2");
+    /* XXX: Should tcp_dissect_pdus() set a fence after each PDU?
+     * If so the col_clear could be moved inside dissect_http2_pdu.
+     */
     col_clear(pinfo->cinfo, COL_INFO);
 
-    ti = proto_tree_add_item(tree, proto_http2, tvb, 0, -1, ENC_NA);
-
-    http2_tree = proto_item_add_subtree(ti, ett_http2);
-
-    tcp_dissect_pdus(tvb, pinfo, http2_tree, TRUE, FRAME_HEADER_LENGTH,
+    tcp_dissect_pdus(tvb, pinfo, tree, TRUE, FRAME_HEADER_LENGTH,
                      get_http2_message_len, dissect_http2_pdu, data);
 
     return tvb_captured_length(tvb);

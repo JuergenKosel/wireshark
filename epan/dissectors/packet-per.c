@@ -555,12 +555,16 @@ dissect_per_null(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _U_, proto_tree
 }
 
 /* 19 this function dissects a sequence of */
+// Arbitrary. Allow a sequence of NULLs, but not too many since we might add
+// a hierarchy of tree items per NULL
+#define PER_SEQUENCE_OF_MAX_NULLS 10
 static guint32
 dissect_per_sequence_of_helper(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, per_type_fn func, int hf_index, guint32 length)
 {
 	guint32 i;
 
 DEBUG_ENTRY("dissect_per_sequence_of_helper");
+	guint32 old_offset = offset;
 	for(i=0;i<length;i++){
 		guint32 lold_offset=offset;
 		proto_item *litem;
@@ -570,6 +574,9 @@ DEBUG_ENTRY("dissect_per_sequence_of_helper");
 
 		offset=(*func)(tvb, offset, actx, ltree, hf_index);
 		proto_item_set_len(litem, (offset>>3)!=(lold_offset>>3)?(offset>>3)-(lold_offset>>3):1);
+		if (i >= PER_SEQUENCE_OF_MAX_NULLS-1 && offset <= old_offset) {
+			dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "too many nulls in sequence");
+		}
 	}
 
 	return offset;
@@ -997,6 +1004,9 @@ dissect_per_any_oid(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree 
 	DEBUG_ENTRY("dissect_per_any_oid");
 
 	offset = dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_object_identifier_length, &length, NULL);
+	if(length == 0){
+		dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "unexpected length");
+	}
 	if (actx->aligned) BYTE_ALIGN_OFFSET(offset);
 	val_tvb = tvb_new_octet_aligned(tvb, offset, length * 8);
 	/* Add new data source if the offet was unaligned */
@@ -1129,6 +1139,10 @@ dissect_per_integer(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree 
 	if(length>4){
 		dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "too long integer(per_integer)");
 		length=4;
+	}
+
+	if(length == 0){
+		dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "unexpected length");
 	}
 
 	if (actx->aligned) BYTE_ALIGN_OFFSET(offset);
@@ -1661,6 +1675,9 @@ dissect_per_real(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tr
 	double val = 0;
 
 	offset = dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_real_length, &val_length, NULL);
+	if(val_length == 0){
+		dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "unexpected length");
+	}
 	if (actx->aligned) BYTE_ALIGN_OFFSET(offset);
 	val_tvb = tvb_new_octet_aligned(tvb, offset, val_length * 8);
 	/* Add new data source if the offet was unaligned */
@@ -2688,6 +2705,9 @@ call_per_oid_callback(const char *oid, tvbuff_t *tvb, packet_info *pinfo, proto_
 
 	start_offset = offset;
 	offset = dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_open_type_length, &type_length, NULL);
+	if(type_length == 0){
+		dissect_per_not_decoded_yet(tree, actx->pinfo, tvb, "unexpected length");
+	}
 	if (actx->aligned) BYTE_ALIGN_OFFSET(offset);
 	end_offset = offset + type_length;
 

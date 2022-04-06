@@ -20,7 +20,7 @@
 #include <wsutil/utf8_entities.h>
 
 #include <ui/qt/utils/qt_ui_utils.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 
 #include <ui/qt/utils/variant_pointer.h>
 
@@ -41,8 +41,10 @@ enum {
 
 enum {
     present_op_ = 1000,
-    eq_op_,
-    ne_op_,
+    any_eq_op_,
+    all_eq_op_,
+    any_ne_op_,
+    all_ne_op_,
     gt_op_,
     lt_op_,
     ge_op_,
@@ -62,8 +64,8 @@ DisplayFilterExpressionDialog::DisplayFilterExpressionDialog(QWidget *parent) :
     if (parent) loadGeometry(parent->width() * 2 / 3, parent->height());
     setAttribute(Qt::WA_DeleteOnClose, true);
 
-    setWindowTitle(wsApp->windowTitleString(tr("Display Filter Expression")));
-    setWindowIcon(wsApp->normalIcon());
+    setWindowTitle(mainApp->windowTitleString(tr("Display Filter Expression")));
+    setWindowIcon(mainApp->normalIcon());
 
     proto_initialize_all_prefixes();
 
@@ -76,8 +78,10 @@ DisplayFilterExpressionDialog::DisplayFilterExpressionDialog(QWidget *parent) :
 
     // Relation list
     new QListWidgetItem("is present", ui->relationListWidget, present_op_);
-    new QListWidgetItem("==", ui->relationListWidget, eq_op_);
-    new QListWidgetItem("!=", ui->relationListWidget, ne_op_);
+    new QListWidgetItem("==", ui->relationListWidget, any_eq_op_);
+    new QListWidgetItem("!=", ui->relationListWidget, all_ne_op_);
+    new QListWidgetItem("===", ui->relationListWidget, all_eq_op_);
+    new QListWidgetItem("!==", ui->relationListWidget, any_ne_op_);
     new QListWidgetItem(">", ui->relationListWidget, gt_op_);
     new QListWidgetItem("<", ui->relationListWidget, lt_op_);
     new QListWidgetItem(">=", ui->relationListWidget, ge_op_);
@@ -122,7 +126,7 @@ void DisplayFilterExpressionDialog::fillTree()
         proto_list << proto_ti;
     }
 
-    wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
+    mainApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
 
     ui->fieldTreeWidget->invisibleRootItem()->addChildren(proto_list);
     ui->fieldTreeWidget->sortByColumn(0, Qt::AscendingOrder);
@@ -145,14 +149,14 @@ void DisplayFilterExpressionDialog::fillTree()
 
             field_count++;
             if (field_count % 10000 == 0) {
-                wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
+                mainApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
             }
         }
         std::sort(field_list.begin(), field_list.end());
         proto_ti->addChildren(field_list);
     }
 
-    wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
+    mainApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
     ui->fieldTreeWidget->sortByColumn(0, Qt::AscendingOrder);
 
     updateWidgets();
@@ -354,8 +358,10 @@ void DisplayFilterExpressionDialog::on_fieldTreeWidget_itemSelectionChanged()
     for (int i = 0; i < ui->relationListWidget->count(); i++) {
         QListWidgetItem *li = ui->relationListWidget->item(i);
         switch (li->type()) {
-        case eq_op_:
-        case ne_op_:
+        case any_eq_op_:
+        case all_eq_op_:
+        case any_ne_op_:
+        case all_ne_op_:
             li->setHidden(!ftype_can_eq(ftype_) && !(ftype_can_slice(ftype_) && ftype_can_eq(FT_BYTES)));
             break;
         case gt_op_:
@@ -440,5 +446,5 @@ void DisplayFilterExpressionDialog::on_buttonBox_accepted()
 
 void DisplayFilterExpressionDialog::on_buttonBox_helpRequested()
 {
-    wsApp->helpTopicAction(HELP_FILTER_EXPRESSION_DIALOG);
+    mainApp->helpTopicAction(HELP_FILTER_EXPRESSION_DIALOG);
 }

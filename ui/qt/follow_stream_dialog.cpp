@@ -10,8 +10,8 @@
 #include "follow_stream_dialog.h"
 #include <ui_follow_stream_dialog.h>
 
+#include "main_application.h"
 #include "main_window.h"
-#include "wireshark_application.h"
 
 #include "frame_tvbuff.h"
 #include "epan/follow.h"
@@ -307,7 +307,7 @@ void FollowStreamDialog::findText(bool go_back)
 
 void FollowStreamDialog::saveAs()
 {
-    QString file_name = WiresharkFileDialog::getSaveFileName(this, wsApp->windowTitleString(tr("Save Stream Content As…")));
+    QString file_name = WiresharkFileDialog::getSaveFileName(this, mainApp->windowTitleString(tr("Save Stream Content As…")));
     if (file_name.isEmpty()) {
         return;
     }
@@ -327,12 +327,12 @@ void FollowStreamDialog::saveAs()
     }
 
     QDataStream out(&file);
-    out.writeRawData(bytes.constData(), bytes.size());
+    out.writeRawData(bytes.constData(), static_cast<int>(bytes.size()));
 }
 
 void FollowStreamDialog::helpButton()
 {
-    wsApp->helpTopicAction(HELP_FOLLOW_STREAM_DIALOG);
+    mainApp->helpTopicAction(HELP_FOLLOW_STREAM_DIALOG);
 }
 
 void FollowStreamDialog::backButton()
@@ -587,8 +587,8 @@ FollowStreamDialog::readStream()
         break;
 
     default :
-        ws_assert_not_reached();
         ret = (frs_return_t)0;
+        ws_assert_not_reached();
         break;
     }
 
@@ -1269,7 +1269,7 @@ FollowStreamDialog::readFollowStream()
                 return frs_return;
             if (elapsed_timer.elapsed() > info_update_freq_) {
                 fillHintLabel(ui->teStreamContent->textCursor().position());
-                wsApp->processEvents();
+                mainApp->processEvents();
                 elapsed_timer.start();
             }
         }

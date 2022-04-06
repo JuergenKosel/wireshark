@@ -1263,7 +1263,7 @@ dissect_rtcp_psfb_remb( tvbuff_t *tvb, int offset, proto_tree *rtcp_tree, proto_
     fci_tree = proto_tree_add_subtree_format( rtcp_tree, tvb, offset, 8, ett_ssrc, NULL, "REMB %d", num_fci );
 
     /* Unique identifier 'REMB' */
-    proto_tree_add_item( fci_tree, hf_rtcp_psfb_remb_fci_identifier, tvb, offset, 4, ENC_ASCII|ENC_NA );
+    proto_tree_add_item( fci_tree, hf_rtcp_psfb_remb_fci_identifier, tvb, offset, 4, ENC_ASCII );
     offset += 4;
 
     /* Number of ssrcs - they will each be parsed below */
@@ -3048,7 +3048,7 @@ dissect_rtcp_bye( tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tre
         offset++;
 
         reason_offset = offset;
-        proto_tree_add_item( tree, hf_rtcp_sdes_text, tvb, offset, reason_length, ENC_ASCII|ENC_NA);
+        proto_tree_add_item( tree, hf_rtcp_sdes_text, tvb, offset, reason_length, ENC_ASCII);
         offset += reason_length;
     }
 
@@ -3149,13 +3149,13 @@ dissect_rtcp_sdes( tvbuff_t *tvb, int offset, proto_tree *tree, int count )
                     proto_tree_add_item( sdes_item_tree, hf_rtcp_sdes_prefix_len, tvb, offset, 1, ENC_BIG_ENDIAN );
                     offset++;
 
-                    proto_tree_add_item( sdes_item_tree, hf_rtcp_sdes_prefix_string, tvb, offset, prefix_len, ENC_ASCII|ENC_NA );
+                    proto_tree_add_item( sdes_item_tree, hf_rtcp_sdes_prefix_string, tvb, offset, prefix_len, ENC_ASCII );
                     offset   += prefix_len;
                     item_len -= prefix_len +1;
                     if ( item_len == 0 )
                         continue;
                 }
-                proto_tree_add_item( sdes_item_tree, hf_rtcp_sdes_text, tvb, offset, item_len, ENC_ASCII|ENC_NA );
+                proto_tree_add_item( sdes_item_tree, hf_rtcp_sdes_text, tvb, offset, item_len, ENC_ASCII );
                 offset += item_len;
             }
         }
@@ -3675,7 +3675,7 @@ dissect_rtcp_avb( tvbuff_t *tvb, packet_info *pinfo _U_, int offset, proto_tree 
     offset += 4;
 
     /* Name (ASCII) */
-    proto_tree_add_item( tree, hf_rtcp_name_ascii, tvb, offset, 4, ENC_ASCII|ENC_NA );
+    proto_tree_add_item( tree, hf_rtcp_name_ascii, tvb, offset, 4, ENC_ASCII );
     offset += 4;
 
     /* TimeBase Indicator */
@@ -4357,7 +4357,35 @@ dissect_rtcp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     struct srtp_info *srtcp_info          = NULL;
     guint32           srtcp_offset        = 0;
     guint32           srtcp_index         = 0;
+    guint8            temp_byte;
     int proto_to_use = proto_rtcp;
+
+    temp_byte = tvb_get_guint8(tvb, offset);
+    /* RFC 7983 gives current best practice in demultiplexing RT[C]P packets:
+     * Examine the first byte of the packet:
+     *              +----------------+
+     *              |        [0..3] -+--> forward to STUN
+     *              |                |
+     *              |      [16..19] -+--> forward to ZRTP
+     *              |                |
+     *  packet -->  |      [20..63] -+--> forward to DTLS
+     *              |                |
+     *              |      [64..79] -+--> forward to TURN Channel
+     *              |                |
+     *              |    [128..191] -+--> forward to RTP/RTCP
+     *              +----------------+
+     *
+     * DTLS-SRTP MUST support multiplexing of DTLS and RTP over the same
+     * port pair (RFCs 5764, 8835), and STUN packets sharing one port are
+     * common as well. In WebRTC it's common to get a SDP early in the
+     * setup process that sets up a RTCP conversation and sets the dissector
+     * to RTCP, but to still get subsequent STUN and DTLS packets.
+     *
+     * XXX: Add a pref like RTP to specifically send the packet to the correct
+     * other dissector. For now, rejecting packets works for the general setup,
+     * since the other dissectors have fairly good heuristic dissectors that
+     * are enabled by default.
+     */
 
     /* first see if this conversation is encrypted SRTP, and if so do not try to dissect the payload(s) */
     p_conv = find_conversation(pinfo->num, &pinfo->net_src, &pinfo->net_dst,
@@ -4398,6 +4426,21 @@ dissect_rtcp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, (proto_to_use == proto_srtcp) ? "SRTCP" : "RTCP");
 
+    if (RTCP_VERSION(temp_byte) != 2) {
+        /* Unknown or unsupported version */
+        col_add_fstr(pinfo->cinfo, COL_INFO, "Unknown %s version %u", (proto_to_use == proto_srtcp) ? "SRTCP" : "RTCP", RTCP_VERSION(temp_byte));
+        ti = proto_tree_add_item(tree, proto_to_use, tvb, offset, -1, ENC_NA );
+        rtcp_tree = proto_item_add_subtree(ti, ett_rtcp);
+        proto_tree_add_item( rtcp_tree, hf_rtcp_version, tvb,
+                             offset, 1, ENC_BIG_ENDIAN);
+
+        /* XXX: Offset is zero here, so in practice this rejects the packet
+         * and lets heuristic dissectors make an attempt, though extra tree
+         * entries appear on a tshark one pass even if some other dissector
+         * claims the packet.
+         */
+        return offset;
+    }
     /*
      * Check if there are at least 4 bytes left in the frame,
      * the last 16 bits of those is the length of the current
@@ -4405,7 +4448,6 @@ dissect_rtcp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
      * that enables us to break from the while loop.
      */
     while ( !srtcp_now_encrypted && tvb_bytes_exist( tvb, offset, 4) ) {
-        guint temp_byte;
         gint elem_count;
         guint packet_type;
         gint packet_length;
@@ -6619,10 +6661,10 @@ proto_register_rtcp(void)
             {
                 "MxTBR Mantissa",
                 "rtcp.rtpfb.tmmbr.fci.mantissa",
-                FT_UINT32,
+                FT_UINT24,
                 BASE_DEC,
                 NULL,
-                0x3fffe,
+                0x03fffe,
                 NULL, HFILL
             }
         },

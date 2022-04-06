@@ -309,7 +309,7 @@ static int list_config(char *interface, unsigned int remote_port)
 	printf("arg {number=%u}{call=--remote-capture-command}{display=Remote capture command}"
 		"{type=string}{tooltip=The remote command used to capture}{group=Capture}\n", inc++);
 	printf("arg {number=%u}{call=--remote-sudo}{display=Use sudo on the remote machine}"
-		"{type=boolean}{tooltip=Prepend the capture command with sudo on the remote machine}"
+		"{type=boolflag}{tooltip=Prepend the capture command with sudo on the remote machine}"
 		"{group=Capture}\n", inc++);
 	printf("arg {number=%u}{call=--remote-noprom}{display=No promiscuous mode}"
 		"{type=boolflag}{tooltip=Don't use promiscuous mode on the remote machine}{group=Capture}"
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
 	 * Attempt to get the pathname of the directory containing the
 	 * executable file.
 	 */
-	err_msg = init_progfile_dir(argv[0]);
+	err_msg = configuration_init(argv[0], NULL);
 	if (err_msg != NULL) {
 		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);

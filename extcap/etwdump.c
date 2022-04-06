@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    err_msg = init_progfile_dir(argv[0]);
+    err_msg = configuration_init(argv[0], NULL);
     if (err_msg != NULL) {
         ws_warning("Can't get pathname of directory containing the extcap program: %s.",
             err_msg);
@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
     extcap_base_set_util_info(extcap_conf, argv[0], ETWDUMP_VERSION_MAJOR, ETWDUMP_VERSION_MINOR,
         ETWDUMP_VERSION_RELEASE, help_url);
     g_free(help_url);
-    extcap_base_register_interface(extcap_conf, ETW_EXTCAP_INTERFACE, "ETW reader", 290, "DLT_ETW");
+    extcap_base_register_interface(extcap_conf, ETW_EXTCAP_INTERFACE, "Event Tracing for Windows (ETW) reader", 290, "DLT_ETW");
 
     help_header = ws_strdup_printf(
         " %s --extcap-interfaces\n"

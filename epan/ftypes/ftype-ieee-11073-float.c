@@ -42,7 +42,7 @@ sfloat_ieee_11073_fvalue_new(fvalue_t *fv)
 }
 
 static gboolean
-sfloat_ieee_11073_val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg _U_)
+sfloat_ieee_11073_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg _U_)
 {
     const char *i_char = s;
     char          c;
@@ -453,9 +453,9 @@ sfloat_ieee_11073_cmp_order(const fvalue_t *a, const fvalue_t *b)
 }
 
 static gboolean
-sfloat_ieee_11073_cmp_bitwise_and(const fvalue_t *a, const fvalue_t *b)
+sfloat_ieee_11073_is_zero(const fvalue_t *a)
 {
-    return ((a->value.uinteger & b->value.uinteger) != 0);
+    return a->value.sfloat_ieee_11073 == 0;
 }
 
 /*============================================================================*/
@@ -467,7 +467,7 @@ float_ieee_11073_fvalue_new(fvalue_t *fv)
 }
 
 static gboolean
-float_ieee_11073_val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg _U_)
+float_ieee_11073_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg _U_)
 {
     const char *i_char = s;
     char          c;
@@ -862,9 +862,9 @@ float_ieee_11073_cmp_order(const fvalue_t *a, const fvalue_t *b)
 }
 
 static gboolean
-float_ieee_11073_cmp_bitwise_and(const fvalue_t *a, const fvalue_t *b)
+float_ieee_11073_is_zero(const fvalue_t *a)
 {
-    return ((a->value.uinteger & b->value.uinteger) != 0);
+    return a->value.float_ieee_11073 == 0;
 }
 
 /*============================================================================*/
@@ -904,8 +904,9 @@ Example: 114 is 0x0072
         2,                                    /* wire_size */
 
         sfloat_ieee_11073_fvalue_new,         /* new_value */
+        NULL,                                 /* copy_value */
         NULL,                                 /* free_value */
-        sfloat_ieee_11073_val_from_unparsed,  /* val_from_unparsed */
+        sfloat_ieee_11073_val_from_literal,   /* val_from_literal */
         NULL,                                 /* val_from_string */
         NULL,                                 /* val_from_charconst */
         sfloat_ieee_11073_val_to_repr,        /* val_to_string_repr */
@@ -914,12 +915,19 @@ Example: 114 is 0x0072
         { .get_value_uinteger = sfloat_ieee_11073_value_get }, /* union get_value */
 
         sfloat_ieee_11073_cmp_order,
-        sfloat_ieee_11073_cmp_bitwise_and,    /* cmp_bitwise_and */
         NULL,                                 /* cmp_contains */
         NULL,                                 /* cmp_matches */
 
-        NULL,                                 /* len */
-        NULL,                                 /* slice */
+        sfloat_ieee_11073_is_zero,           /* is_zero */
+        NULL,                                /* len */
+        NULL,                                /* slice */
+        NULL,                                /* bitwise_and */
+        NULL,                                 /* unary_minus */
+        NULL,                                 /* add */
+        NULL,                                 /* subtract */
+        NULL,                                 /* multiply */
+        NULL,                                 /* divide */
+        NULL,                                 /* modulo */
     };
 
 /*
@@ -955,8 +963,9 @@ Example: 36.4 is 0xFF00016C
         4,                                    /* wire_size */
 
         float_ieee_11073_fvalue_new,         /* new_value */
+        NULL,                                /* copy_value */
         NULL,                                /* free_value */
-        float_ieee_11073_val_from_unparsed,  /* val_from_unparsed */
+        float_ieee_11073_val_from_literal,   /* val_from_literal */
         NULL,                                /* val_from_string */
         NULL,                                /* val_from_charconst */
         float_ieee_11073_val_to_repr,        /* val_to_string_repr */
@@ -965,16 +974,45 @@ Example: 36.4 is 0xFF00016C
         { .get_value_uinteger = float_ieee_11073_value_get }, /* union get_value */
 
         float_ieee_11073_cmp_order,
-        float_ieee_11073_cmp_bitwise_and,    /* cmp_bitwise_and */
         NULL,                                /* cmp_contains */
         NULL,                                /* cmp_matches */
 
+        float_ieee_11073_is_zero,            /* is_zero */
         NULL,                                /* len */
         NULL,                                /* slice */
+        NULL,                                /* bitwise_and */
+        NULL,                                /* unary_minus */
+        NULL,                                /* add */
+        NULL,                                /* subtract */
+        NULL,                                /* multiply */
+        NULL,                                /* divide */
+        NULL,                                /* modulo */
     };
 
     ftype_register(FT_IEEE_11073_SFLOAT, &sfloat_type);
     ftype_register(FT_IEEE_11073_FLOAT, &float_type);
+}
+
+void
+ftype_register_pseudofields_ieee_11073_float(int proto)
+{
+    static int hf_ft_ieee_11073_sfloat;
+    static int hf_ft_ieee_11073_float;
+
+    static hf_register_info hf_ftypes[] = {
+        { &hf_ft_ieee_11073_sfloat,
+            { "FT_IEEE_11073_SFLOAT", "_ws.ftypes.ieee_11073_sfloat",
+                FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x00,
+                NULL, HFILL }
+            },
+            { &hf_ft_ieee_11073_float,
+                { "FT_IEEE_11073_FLOAT", "_ws.ftypes.ieee_11073_float",
+                    FT_IEEE_11073_FLOAT, BASE_NONE, NULL, 0x00,
+                    NULL, HFILL }
+            },
+    };
+
+    proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));
 }
 
 /*

@@ -1006,7 +1006,7 @@ after_value(void *tvbparse_data, const void *wanted_data _U_, tvbparse_elem_t *t
 
 		case JSON_TOKEN_NUMBER:
 			/* XXX, convert to number */
-			proto_tree_add_item(tree, hf_json_value_number, tok->tvb, tok->offset, tok->len, ENC_ASCII|ENC_NA);
+			proto_tree_add_item(tree, hf_json_value_number, tok->tvb, tok->offset, tok->len, ENC_ASCII);
 
 			break;
 
@@ -2118,6 +2118,8 @@ proto_reg_handoff_json(void)
 	dissector_add_for_decode_as("udp.port", json_file_handle);
 
 	dissector_add_string("media_type", "application/json", json_handle); /* RFC 4627 */
+	dissector_add_string("media_type", "application/senml+json", json_handle); /* RFC 8428 */
+	dissector_add_string("media_type", "application/sensml+json", json_handle); /* RFC 8428 */
 	dissector_add_string("media_type", "application/json-rpc", json_handle); /* JSON-RPC over HTTP */
 	dissector_add_string("media_type", "application/jsonrequest", json_handle); /* JSON-RPC over HTTP */
 	dissector_add_string("media_type", "application/dds-web+json", json_handle); /* DDS Web Integration Service over HTTP */

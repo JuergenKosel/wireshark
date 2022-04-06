@@ -167,8 +167,12 @@ QString html_escape(const QString plain_string) {
 
 
 void smooth_font_size(QFont &font) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    QList<int> size_list = QFontDatabase::smoothSizes(font.family(), font.styleName());
+#else
     QFontDatabase fdb;
     QList<int> size_list = fdb.smoothSizes(font.family(), font.styleName());
+#endif
 
     if (size_list.size() < 2) return;
 
@@ -191,15 +195,18 @@ bool qStringCaseLessThan(const QString &s1, const QString &s2)
     return s1.compare(s2, Qt::CaseInsensitive) < 0;
 }
 
-// https://stackoverflow.com/questions/3490336/how-to-reveal-in-finder-or-show-in-explorer-with-qt
 void desktop_show_in_folder(const QString file_path)
 {
     bool success = false;
 
+    // https://stackoverflow.com/questions/3490336/how-to-reveal-in-finder-or-show-in-explorer-with-qt
+
 #if defined(Q_OS_WIN)
+    QString command = "explorer.exe";
+    QStringList arguments;
     QString path = QDir::toNativeSeparators(file_path);
-    QStringList explorer_args = QStringList() << "/select," + path;
-    success = QProcess::startDetached("explorer.exe", explorer_args);
+    arguments << "/select," << path + "";
+    success = QProcess::startDetached(command, arguments);
 #elif defined(Q_OS_MAC)
     QStringList script_args;
     QString escaped_path = file_path;
@@ -218,7 +225,7 @@ void desktop_show_in_folder(const QString file_path)
 #else
     // Is there a way to highlight the file using xdg-open?
 #endif
-    if (!success) { // Last resort
+    if (!success) {
         QFileInfo file_info(file_path);
         QDesktopServices::openUrl(QUrl::fromLocalFile(file_info.dir().absolutePath()));
     }

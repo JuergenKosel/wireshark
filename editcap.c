@@ -1023,7 +1023,7 @@ editcap_dump_open(const char *filename, const wtap_dump_params *params,
                 int close_err;
                 gchar *close_err_info;
 
-                wtap_dump_close(pdh, &close_err, &close_err_info);
+                wtap_dump_close(pdh, NULL, &close_err, &close_err_info);
                 g_free(close_err_info);
                 wtap_block_unref(if_data_copy);
                 return NULL;
@@ -1102,7 +1102,7 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, GArray *idbs_seen,
 int
 main(int argc, char *argv[])
 {
-    char         *init_progfile_dir_error;
+    char         *configuration_init_error;
     static const struct report_message_routines editcap_report_routines = {
         failure_message,
         failure_message,
@@ -1192,7 +1192,7 @@ main(int argc, char *argv[])
 #endif /* _WIN32 */
 
     /* Initialize the version information. */
-    ws_init_version_info("Editcap (Wireshark)", NULL, NULL, NULL);
+    ws_init_version_info("Editcap", NULL, NULL);
 
     /*
      * Get credential information for later use.
@@ -1203,12 +1203,12 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    init_progfile_dir_error = init_progfile_dir(argv[0]);
-    if (init_progfile_dir_error != NULL) {
+    configuration_init_error = configuration_init(argv[0], NULL);
+    if (configuration_init_error != NULL) {
         fprintf(stderr,
                 "editcap: Can't get pathname of directory containing the editcap program: %s.\n",
-                init_progfile_dir_error);
-        g_free(init_progfile_dir_error);
+                configuration_init_error);
+        g_free(configuration_init_error);
     }
 
     init_report_message("editcap", &editcap_report_routines);
@@ -1808,7 +1808,7 @@ main(int argc, char *argv[])
                 }
                 while (nstime_cmp(&rec->ts, &block_next) > 0) { /* time for the next file */
 
-                    if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+                    if (!wtap_dump_close(pdh, NULL, &write_err, &write_err_info)) {
                         cfile_close_failure_message(filename, write_err,
                                                     write_err_info);
                         ret = WRITE_ERROR;
@@ -1840,7 +1840,7 @@ main(int argc, char *argv[])
         if (split_packet_count != 0) {
             /* time for the next file? */
             if (written_count > 0 && (written_count % split_packet_count) == 0) {
-                if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+                if (!wtap_dump_close(pdh, NULL, &write_err, &write_err_info)) {
                     cfile_close_failure_message(filename, write_err,
                                                 write_err_info);
                     ret = WRITE_ERROR;
@@ -2272,7 +2272,7 @@ main(int argc, char *argv[])
         }
     }
 
-    if (!wtap_dump_close(pdh, &write_err, &write_err_info)) {
+    if (!wtap_dump_close(pdh, NULL, &write_err, &write_err_info)) {
         cfile_close_failure_message(filename, write_err, write_err_info);
         ret = WRITE_ERROR;
         goto clean_exit;

@@ -17,22 +17,26 @@
 #include <epan/exceptions.h>
 #include <wsutil/ws_assert.h>
 
-#define CMP_MATCHES cmp_matches
-
-#define tvb_is_private	fvalue_gboolean1
-
 static void
 value_new(fvalue_t *fv)
 {
 	fv->value.protocol.tvb = NULL;
 	fv->value.protocol.proto_string = NULL;
-	fv->tvb_is_private = FALSE;
+	fv->value.protocol.tvb_is_private = FALSE;
+}
+
+static void
+value_copy(fvalue_t *dst, const fvalue_t *src)
+{
+	dst->value.protocol.tvb = tvb_clone(src->value.protocol.tvb);
+	dst->value.protocol.proto_string = g_strdup(src->value.protocol.proto_string);
+	dst->value.protocol.tvb_is_private = TRUE;
 }
 
 static void
 value_free(fvalue_t *fv)
 {
-	if (fv->value.protocol.tvb && fv->tvb_is_private) {
+	if (fv->value.protocol.tvb && fv->value.protocol.tvb_is_private) {
 		tvb_free_chain(fv->value.protocol.tvb);
 	}
 	g_free(fv->value.protocol.proto_string);
@@ -68,7 +72,7 @@ val_from_string(fvalue_t *fv, const char *s, gchar **err_msg _U_)
 	tvb_set_free_cb(new_tvb, g_free);
 
 	/* And let us know that we need to free the tvbuff */
-	fv->tvb_is_private = TRUE;
+	fv->value.protocol.tvb_is_private = TRUE;
 	/* This "field" is a value, it has no protocol description, but
 	 * we might compare it to a protocol with NULL tvb.
 	 * (e.g., proto_expert) */
@@ -78,7 +82,7 @@ val_from_string(fvalue_t *fv, const char *s, gchar **err_msg _U_)
 }
 
 static gboolean
-val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
 	GByteArray *bytes;
 	tvbuff_t *new_tvb;
@@ -89,7 +93,7 @@ val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 	fv->value.protocol.proto_string = NULL;
 
 	/* Does this look like a byte string? */
-	bytes = byte_array_from_unparsed(s, err_msg);
+	bytes = byte_array_from_literal(s, err_msg);
 	if (bytes != NULL) {
 		/* Make a tvbuff from the bytes */
 		new_tvb = tvb_new_real_data(bytes->data, bytes->len, bytes->len);
@@ -101,7 +105,7 @@ val_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 		g_byte_array_free(bytes, FALSE);
 
 		/* And let us know that we need to free the tvbuff */
-		fv->tvb_is_private = TRUE;
+		fv->value.protocol.tvb_is_private = TRUE;
 		fv->value.protocol.tvb = new_tvb;
 
 		/* This "field" is a value, it has no protocol description, but
@@ -139,7 +143,7 @@ val_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg)
 		g_byte_array_free(bytes, FALSE);
 
 		/* And let us know that we need to free the tvbuff */
-		fv->tvb_is_private = TRUE;
+		fv->value.protocol.tvb_is_private = TRUE;
 		fv->value.protocol.tvb = new_tvb;
 
 		/* This "field" is a value, it has no protocol description, but
@@ -303,6 +307,13 @@ cmp_matches(const fvalue_t *fv, const ws_regex_t *regex)
 	return rc;
 }
 
+static gboolean
+is_zero(const fvalue_t *fv)
+{
+	const protocol_value_t *a = &fv->value.protocol;
+	return a->tvb == NULL && a->proto_string == NULL;
+}
+
 void
 ftype_register_tvbuff(void)
 {
@@ -313,8 +324,9 @@ ftype_register_tvbuff(void)
 		"Protocol",			/* pretty_name */
 		0,				/* wire_size */
 		value_new,			/* new_value */
+		value_copy,			/* copy_value */
 		value_free,			/* free_value */
-		val_from_unparsed,		/* val_from_unparsed */
+		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		val_to_repr,			/* val_to_string_repr */
@@ -323,17 +335,39 @@ ftype_register_tvbuff(void)
 		{ .get_value_ptr = value_get },		/* union get_value */
 
 		cmp_order,
-		NULL,				/* cmp_bitwise_and */
 		cmp_contains,
-		CMP_MATCHES,
+		cmp_matches,
 
+		is_zero,
 		len,
 		slice,
-
+		NULL,
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 
 
 	ftype_register(FT_PROTOCOL, &protocol_type);
+}
+
+void
+ftype_register_pseudofields_tvbuff(int proto)
+{
+	static int hf_ft_protocol;
+
+	static hf_register_info hf_ftypes[] = {
+		{ &hf_ft_protocol,
+		    { "FT_PROTOCOL", "_ws.ftypes.protocol",
+			FT_PROTOCOL, BASE_NONE, NULL, 0x00,
+			NULL, HFILL }
+		},
+	};
+
+	proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));
 }
 
 /*

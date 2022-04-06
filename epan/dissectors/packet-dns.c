@@ -2343,12 +2343,12 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
 
       proto_tree_add_item(rr_tree, hf_dns_hinfo_cpu_length, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       cur_offset += 1;
-      proto_tree_add_item(rr_tree, hf_dns_hinfo_cpu, tvb, cur_offset, cpu_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_hinfo_cpu, tvb, cur_offset, cpu_len, ENC_ASCII);
       cur_offset += cpu_len;
 
       proto_tree_add_item(rr_tree, hf_dns_hinfo_os_length, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       cur_offset += 1;
-      proto_tree_add_item(rr_tree, hf_dns_hinfo_os, tvb, cur_offset, os_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_hinfo_os, tvb, cur_offset, os_len, ENC_ASCII);
       /* cur_offset += os_len;*/
     }
     break;
@@ -2455,7 +2455,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       x25_len = tvb_get_guint8(tvb, cur_offset);
       cur_offset += 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_x25_psdn_address, tvb, cur_offset, x25_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_x25_psdn_address, tvb, cur_offset, x25_len, ENC_ASCII);
       /*cur_offset += x25_len;*/
     }
     break;
@@ -2472,7 +2472,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       cur_offset += 1;
       rr_len     -= 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_isdn_address, tvb, cur_offset, isdn_address_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_isdn_address, tvb, cur_offset, isdn_address_len, ENC_ASCII);
       cur_offset += isdn_address_len;
       rr_len     -= isdn_address_len;
 
@@ -2481,7 +2481,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
         isdn_sa_len = tvb_get_guint8(tvb, cur_offset);
         cur_offset += 1;
 
-        proto_tree_add_item(rr_tree, hf_dns_isdn_sa, tvb, cur_offset, isdn_sa_len, ENC_ASCII|ENC_NA);
+        proto_tree_add_item(rr_tree, hf_dns_isdn_sa, tvb, cur_offset, isdn_sa_len, ENC_ASCII);
       }
     }
     break;
@@ -2601,21 +2601,21 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       long_len = tvb_get_guint8(tvb, cur_offset);
       cur_offset += 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_gpos_longitude, tvb, cur_offset, long_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_gpos_longitude, tvb, cur_offset, long_len, ENC_ASCII);
       cur_offset += long_len;
 
       proto_tree_add_item(rr_tree, hf_dns_gpos_latitude_length, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       lat_len = tvb_get_guint8(tvb, cur_offset);
       cur_offset += 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_gpos_latitude, tvb, cur_offset, lat_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_gpos_latitude, tvb, cur_offset, lat_len, ENC_ASCII);
       cur_offset += lat_len;
 
       proto_tree_add_item(rr_tree, hf_dns_gpos_altitude_length, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       alt_len = tvb_get_guint8(tvb, cur_offset);
       cur_offset += 1;
 
-      proto_tree_add_item(rr_tree, hf_dns_gpos_altitude, tvb, cur_offset, alt_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_gpos_altitude, tvb, cur_offset, alt_len, ENC_ASCII);
       /*cur_offset += alt_len;*/
     }
     break;
@@ -2762,14 +2762,14 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       proto_tree_add_item(rr_tree, hf_dns_naptr_service_length, tvb, offset, 1, ENC_BIG_ENDIAN);
       service_len = tvb_get_guint8(tvb, offset);
       offset += 1;
-      proto_tree_add_item(rr_tree, hf_dns_naptr_service, tvb, offset, service_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_naptr_service, tvb, offset, service_len, ENC_ASCII);
       offset += service_len;
 
       /* Regex */
       proto_tree_add_item(rr_tree, hf_dns_naptr_regex_length, tvb, offset, 1, ENC_BIG_ENDIAN);
       regex_len = tvb_get_guint8(tvb, offset);
       offset += 1;
-      proto_tree_add_item(rr_tree, hf_dns_naptr_regex, tvb, offset, regex_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_naptr_regex, tvb, offset, regex_len, ENC_ASCII);
       offset += regex_len;
 
       /* Replacement */
@@ -3043,7 +3043,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
           case O_CHAIN:
           {
             if (optlen) {
-              proto_tree_add_item(rropt_tree, hf_dns_opt_chain_fqdn, tvb, cur_offset, optlen, ENC_ASCII|ENC_NA);
+              proto_tree_add_item(rropt_tree, hf_dns_opt_chain_fqdn, tvb, cur_offset, optlen, ENC_ASCII);
             }
             cur_offset += optlen;
             rropt_len  -= optlen;
@@ -3347,11 +3347,6 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       proto_item *flags_item, *hash_item;
       proto_tree *flags_tree;
 
-      /* Base 32 Encoding with Extended Hex Alphabet (see RFC 4648 section 7) */
-      const char *base32hex = "0123456789abcdefghijklmnopqrstuv";
-      char       *hash_value_base32hex;
-      int         group, in_offset, out_offset;
-
       proto_tree_add_item(rr_tree, hf_dns_nsec3_algo, tvb, cur_offset, 1, ENC_BIG_ENDIAN);
       cur_offset += 1;
 
@@ -3379,16 +3374,21 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
        * characters ("=") are not used in the NSEC3 specification (see RFC 5155
        * section 1.3).
        */
-      hash_value_base32hex = (char *)wmem_alloc0(wmem_packet_scope(), hash_len * 2);
-      for (in_offset = 0, out_offset = 0;
-           in_offset / 8 < hash_len;
-           in_offset += 5, out_offset += 1) {
-        group = tvb_get_bits8(tvb, cur_offset * 8 + in_offset, 5);
-        hash_value_base32hex[out_offset] = base32hex[group];
+      if (hash_len) {
+        /* Base 32 Encoding with Extended Hex Alphabet (see RFC 4648 section 7) */
+        const char    *base32hex = "0123456789abcdefghijklmnopqrstuv";
+        wmem_strbuf_t *hash_value_base32hex = wmem_strbuf_new(pinfo->pool, "");
+        int            group, in_offset, out_offset;
+        for (in_offset = 0, out_offset = 0;
+            in_offset / 8 < hash_len;
+            in_offset += 5, out_offset += 1) {
+          group = tvb_get_bits8(tvb, cur_offset * 8 + in_offset, 5);
+          wmem_strbuf_append_c(hash_value_base32hex, base32hex[group]);
+        }
+        hash_item = proto_tree_add_string(rr_tree, hf_dns_nsec3_hash_value, tvb, cur_offset, hash_len, wmem_strbuf_finalize(hash_value_base32hex));
+        proto_item_set_generated(hash_item);
+        cur_offset += hash_len;
       }
-      hash_item = proto_tree_add_string(rr_tree, hf_dns_nsec3_hash_value, tvb, cur_offset, hash_len, hash_value_base32hex);
-      proto_item_set_generated(hash_item);
-      cur_offset += hash_len;
 
       rr_len = data_len - (cur_offset - initial_offset);
       dissect_type_bitmap(rr_tree, tvb, cur_offset, rr_len);
@@ -3482,7 +3482,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
 
     case T_OPENPGPKEY: /* OpenPGP Key (61) */
     {
-      proto_tree_add_item(rr_tree, hf_dns_openpgpkey, tvb, cur_offset, data_len, ENC_ASCII|ENC_NA);
+      proto_tree_add_item(rr_tree, hf_dns_openpgpkey, tvb, cur_offset, data_len, ENC_ASCII);
     }
     break;
 
@@ -3627,7 +3627,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
         proto_tree_add_item(rr_tree, hf_dns_spf_length, tvb, spf_offset, 1, ENC_BIG_ENDIAN);
         spf_offset += 1;
         rr_len     -= 1;
-        proto_tree_add_item(rr_tree, hf_dns_spf, tvb, spf_offset, spf_len, ENC_ASCII|ENC_NA);
+        proto_tree_add_item(rr_tree, hf_dns_spf, tvb, spf_offset, spf_len, ENC_ASCII);
         spf_offset +=  spf_len;
         rr_len     -= spf_len;
       }

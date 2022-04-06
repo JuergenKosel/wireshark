@@ -28,7 +28,7 @@
 #include <ui/all_files_wildcard.h>
 #include <ui/alert_box.h>
 #include <ui/urls.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 
 #include <QApplication>
 #include <QContextMenuEvent>
@@ -92,7 +92,7 @@ ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
     connect(verticalScrollBar(), SIGNAL(sliderReleased()),
             this, SLOT(updateContentWidth()));
 
-    connect(wsApp, SIGNAL(appInitialized()), this, SLOT(connectToMainWindow()));
+    connect(mainApp, SIGNAL(appInitialized()), this, SLOT(connectToMainWindow()));
 
     viewport()->installEventFilter(this);
 }
@@ -104,11 +104,11 @@ void ProtoTree::clear() {
 
 void ProtoTree::connectToMainWindow()
 {
-    if (wsApp->mainWindow())
+    if (mainApp->mainWindow())
     {
-        connect(wsApp->mainWindow(), SIGNAL(fieldSelected(FieldInformation *)),
+        connect(mainApp->mainWindow(), SIGNAL(fieldSelected(FieldInformation *)),
                 this, SLOT(selectedFieldChanged(FieldInformation *)));
-        connect(wsApp->mainWindow(), SIGNAL(framesSelected(QList<int>)),
+        connect(mainApp->mainWindow(), SIGNAL(framesSelected(QList<int>)),
                 this, SLOT(selectedFrameChanged(QList<int>)));
     }
 }
@@ -128,7 +128,7 @@ void ProtoTree::ctxCopyVisibleItems()
         clip = toString();
 
     if (clip.length() > 0)
-        wsApp->clipboard()->setText(clip);
+        mainApp->clipboard()->setText(clip);
 }
 
 void ProtoTree::ctxCopyAsFilter()
@@ -143,7 +143,7 @@ void ProtoTree::ctxCopyAsFilter()
         wmem_free(Q_NULLPTR, field_filter);
 
         if (filter.length() > 0)
-            wsApp->clipboard()->setText(filter);
+            mainApp->clipboard()->setText(filter);
     }
 }
 
@@ -183,7 +183,7 @@ void ProtoTree::ctxCopySelectedInfo()
     }
 
     if (clip.length() > 0)
-        wsApp->clipboard()->setText(clip);
+        mainApp->clipboard()->setText(clip);
 }
 
 void ProtoTree::ctxOpenUrlWiki()
@@ -204,7 +204,7 @@ void ProtoTree::ctxOpenUrlWiki()
 
     if (! is_field_reference)
     {
-        int ret = QMessageBox::question(this, wsApp->windowTitleString(tr("Wiki Page for %1").arg(proto_abbrev)),
+        int ret = QMessageBox::question(this, mainApp->windowTitleString(tr("Wiki Page for %1").arg(proto_abbrev)),
                                         tr("<p>The Wireshark Wiki is maintained by the community.</p>"
                                         "<p>The page you are about to load might be wonderful, "
                                         "incomplete, wrong, or nonexistent.</p>"
@@ -213,12 +213,12 @@ void ProtoTree::ctxOpenUrlWiki()
 
         if (ret != QMessageBox::Yes) return;
 
-        url = QString(WS_WIKI_URL("Protocols/%1")).arg(proto_abbrev);
+        url = QString(WS_WIKI_URL("%1")).arg(proto_abbrev);
     }
     else
     {
         if (field_id != hf_text_only) {
-            url = QString(WS_DOCS_URL "/dfref/%1/%2")
+            url = QString(WS_DOCS_URL "dfref/%1/%2")
                 .arg(proto_abbrev[0])
                 .arg(proto_abbrev);
         } else {
@@ -243,11 +243,12 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         buildForDialog = true;
 
     QMenu ctx_menu(this);
+    ctx_menu.setProperty("toolTipsVisible", QVariant::fromValue(true));
 
     QMenu *main_menu_item, *submenu;
     QAction *action;
 
-     bool have_subtree = false;
+    bool have_subtree = false;
     FieldInformation finfo(proto_tree_model_->protoNodeFromIndex(index).protoNode());
     field_info * fi = finfo.fieldInfo();
     bool is_selected = false;
@@ -342,9 +343,23 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         ctx_menu.addSeparator();
     }
 
-    ctx_menu.addAction(tr("Wiki Protocol Page"), this, SLOT(ctxOpenUrlWiki()));
+    int field_id = finfo.headerInfo().id;
+    action = ctx_menu.addAction(tr("Wiki Protocol Page"), this, SLOT(ctxOpenUrlWiki()));
+    action->setProperty("toolTip", QString(WS_WIKI_URL("Protocols/%1")).arg(proto_registrar_get_abbrev(field_id)));
+
     action = ctx_menu.addAction(tr("Filter Field Reference"), this, SLOT(ctxOpenUrlWiki()));
     action->setProperty("field_reference", QVariant::fromValue(true));
+    if (field_id != hf_text_only) {
+        action->setEnabled(true);
+        const QString proto_abbrev = proto_registrar_get_abbrev(field_id);
+        action->setProperty("toolTip", QString(WS_DOCS_URL "dfref/%1/%2")
+                .arg(proto_abbrev[0])
+                .arg(proto_abbrev));
+    }
+    else {
+        action->setEnabled(false);
+        action->setProperty("toolTip", tr("No field reference available for text labels."));
+    }
     ctx_menu.addMenu(&proto_prefs_menu_);
     ctx_menu.addSeparator();
 
@@ -356,16 +371,16 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
 
         ctx_menu.addAction(window()->findChild<QAction *>("actionGoGoToLinkedPacket"));
         ctx_menu.addAction(window()->findChild<QAction *>("actionContextShowLinkedPacketInNewWindow"));
-
-        // The "text only" header field will not give preferences for the selected protocol.
-        // Use parent in this case.
-        proto_node *node = proto_tree_model_->protoNodeFromIndex(index).protoNode();
-        while (node && node->finfo && node->finfo->hfinfo && node->finfo->hfinfo->id == hf_text_only)
-            node = node->parent;
-
-        FieldInformation pref_finfo(node);
-        proto_prefs_menu_.setModule(pref_finfo.moduleName());
     }
+
+    // The "text only" header field will not give preferences for the selected protocol.
+    // Use parent in this case.
+    proto_node *node = proto_tree_model_->protoNodeFromIndex(index).protoNode();
+    while (node && node->finfo && node->finfo->hfinfo && node->finfo->hfinfo->id == hf_text_only)
+        node = node->parent;
+
+    FieldInformation pref_finfo(node);
+    proto_prefs_menu_.setModule(pref_finfo.moduleName());
 
     ctx_menu.exec(event->globalPos());
 }
@@ -613,14 +628,14 @@ void ProtoTree::itemDoubleClicked(const QModelIndex &index)
         if (QApplication::queryKeyboardModifiers() & Qt::ShiftModifier) {
             emit openPacketInNewWindow(true);
         } else {
-            wsApp->gotoFrame(finfo.fieldInfo()->value.value.uinteger);
+            mainApp->gotoFrame(finfo.fieldInfo()->value.value.uinteger);
         }
     } else {
         QString url = finfo.url();
         if (!url.isEmpty()) {
             QApplication::clipboard()->setText(url);
             QString push_msg = tr("Copied ") + url;
-            wsApp->pushStatus(WiresharkApplication::TemporaryStatus, push_msg);
+            mainApp->pushStatus(MainApplication::TemporaryStatus, push_msg);
         }
     }
 }

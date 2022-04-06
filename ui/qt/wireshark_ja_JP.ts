@@ -1466,6 +1466,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>指定時間が経過した後キャプチャを停止します</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optionally specify a temporary directory for unnamed capture files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;オプションで名称未設定のキャプチャファイルの一時ディレクトリを指定します&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Directory for temporary files</source>
+        <translation>一時ファイルのディレクトリ</translation>
+    </message>
+    <message>
         <source>Capture Options</source>
         <translation>キャプチャオプション</translation>
     </message>
@@ -1480,6 +1488,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Specify a Capture File</source>
         <translation>キャプチャファイルを指定します</translation>
+    </message>
+    <message>
+        <source>Specify temporary directory</source>
+        <translation>一時ファイルのディレクトリを指定</translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -1966,16 +1978,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>このフィールドを使って照合</translation>
     </message>
     <message>
+        <source>Change behavior when the field matches this value</source>
+        <translation>フィールドがこの値に一致した場合に動作を変更します</translation>
+    </message>
+    <message>
+        <source>Field value type (and base, if Integer)</source>
+        <translation>フィールド値の型（整数の場合は基数）</translation>
+    </message>
+    <message>
         <source>Current&quot;Decode As&quot; behavior</source>
         <translation>現在の &quot;...としてデコード&quot; の振る舞い</translation>
     </message>
     <message>
         <source>Default &quot;Decode As&quot; behavior</source>
         <translation>デフォルトの &quot;...としてデコード &quot; の振る舞い</translation>
-    </message>
-    <message>
-        <source>Change behavior when the protocol field matches this value</source>
-        <translation>プロトコルフィールドがこの値に一致した際の振る舞いを変更</translation>
     </message>
     <message>
         <source>String</source>
@@ -4574,7 +4590,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>The IP Version to use for the dummy IP header</source>
-        <translation type="unfinished"></translation>
+        <translation>ダミーIPヘッダーに用いるIPバージョン</translation>
     </message>
     <message>
         <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
@@ -5661,6 +5677,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>列コンテキストメニューで列定義を表示</translation>
     </message>
     <message>
+        <source>Allow the list to be sorted</source>
+        <translation>ソートされるリストを許可</translation>
+    </message>
+    <message>
         <source>Enable mouse-over colorization</source>
         <translation>マウスオーバーの色付けを有効化</translation>
     </message>
@@ -6337,10 +6357,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>HTTP</source>
         <translation>HTTP</translation>
-    </message>
-    <message>
-        <source>900000000</source>
-        <translation>900000000</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -7288,6 +7304,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Filter this Association</source>
         <translation>このアソシエーションをフィルタします</translation>
+    </message>
+    <message>
+        <source>Strip Headers…</source>
+        <translation>ヘッダーを除去…</translation>
+    </message>
+    <message>
+        <source>Strip headers and export higher level encapsulations to file</source>
+        <translation>ヘッダを除去して上位のカプセル化をファイルにエクスポートします</translation>
     </message>
     <message>
         <source>&amp;I/O Graphs</source>
@@ -8851,6 +8875,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;small&gt;&lt;i&gt;&lt;/i&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>Show packet bytes</source>
+        <translation>パケットバイト列を表示</translation>
+    </message>
+    <message>
         <source>Packet %1</source>
         <translation>パケット %1</translation>
     </message>
@@ -8928,6 +8956,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Bytes</source>
         <translation>バイト列</translation>
+    </message>
+    <message>
+        <source>Include secondary data sources</source>
+        <translation>第２データソースを含む</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;フレームに加えて第二データソースに対し再組立てや復号化したバッファなどの16進数ダンプを作成します。&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -12886,12 +12922,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>画像形式</translation>
     </message>
     <message>
+        <source>Json</source>
+        <translation>Json</translation>
+    </message>
+    <message>
         <source>Raw</source>
         <translation>Raw(無加工)形式</translation>
     </message>
     <message>
         <source>Rust Array</source>
-        <translation type="unfinished"></translation>
+        <translation>Rust配列</translation>
     </message>
     <message>
         <source>UTF-8</source>
@@ -13000,6 +13040,17 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Unable to find configuration for %1.</source>
         <translation>%1 に対する設定を見つけることができません</translation>
+    </message>
+</context>
+<context>
+    <name>StripHeadersDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation>ダイアログ</translation>
+    </message>
+    <message>
+        <source>Display filter:</source>
+        <translation>表示フィルタ:</translation>
     </message>
 </context>
 <context>

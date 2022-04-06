@@ -39,6 +39,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	eax.h
 	epochs.h
 	exported_pdu_tlvs.h
+	feature_list.h
 	filesystem.h
 	g711.h
 	inet_addr.h
@@ -106,6 +107,7 @@ set(WSUTIL_COMMON_FILES
 	curve25519.c
 	dot11decrypt_wep.c
 	eax.c
+	feature_list.c
 	filesystem.c
 	g711.c
 	inet_addr.c
@@ -254,7 +256,7 @@ endif()
 add_library(wsutil
 	${WSUTIL_FILES}
 	$<TARGET_OBJECTS:wmem>
-	${CMAKE_BINARY_DIR}/image/libwsutil.rc
+	${CMAKE_BINARY_DIR}/resources/libwsutil.rc
 )
 
 set_target_properties(wsutil PROPERTIES

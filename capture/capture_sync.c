@@ -266,6 +266,11 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
         }
     }
 
+    if (capture_opts->temp_dir) {
+            argv = sync_pipe_add_arg(argv, &argc, "--temp-dir");
+            argv = sync_pipe_add_arg(argv, &argc, capture_opts->temp_dir);
+    }
+
     if (capture_opts->multi_files_on) {
         if (capture_opts->has_autostop_filesize) {
             char sfilesize[ARGV_NUMBER_LEN];
@@ -336,6 +341,13 @@ sync_pipe_start(capture_options *capture_opts, GPtrArray *capture_comments,
         argv = sync_pipe_add_arg(argv, &argc, "-a");
         snprintf(sautostop_duration, ARGV_NUMBER_LEN, "duration:%f",capture_opts->autostop_duration);
         argv = sync_pipe_add_arg(argv, &argc, sautostop_duration);
+    }
+
+    if (capture_opts->has_autostop_written_packets) {
+        char scount[ARGV_NUMBER_LEN];
+        argv = sync_pipe_add_arg(argv, &argc, "-a");
+        snprintf(scount, ARGV_NUMBER_LEN, "packets:%d",capture_opts->autostop_written_packets);
+        argv = sync_pipe_add_arg(argv, &argc, scount);
     }
 
     if (capture_opts->group_read_access) {

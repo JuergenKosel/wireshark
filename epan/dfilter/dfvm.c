@@ -7,6 +7,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_DFILTER
 
 #include "dfvm.h"
 
@@ -47,20 +48,39 @@ dfvm_value_free(dfvm_value_t *v)
 	g_free(v);
 }
 
+dfvm_value_t*
+dfvm_value_ref(dfvm_value_t *v)
+{
+	if (v == NULL)
+		return NULL;
+	v->ref_count++;
+	return v;
+}
+
+void
+dfvm_value_unref(dfvm_value_t *v)
+{
+	ws_assert(v);
+	v->ref_count--;
+	if (v->ref_count > 0)
+		return;
+	dfvm_value_free(v);
+}
+
 void
 dfvm_insn_free(dfvm_insn_t *insn)
 {
 	if (insn->arg1) {
-		dfvm_value_free(insn->arg1);
+		dfvm_value_unref(insn->arg1);
 	}
 	if (insn->arg2) {
-		dfvm_value_free(insn->arg2);
+		dfvm_value_unref(insn->arg2);
 	}
 	if (insn->arg3) {
-		dfvm_value_free(insn->arg3);
+		dfvm_value_unref(insn->arg3);
 	}
 	if (insn->arg4) {
-		dfvm_value_free(insn->arg4);
+		dfvm_value_unref(insn->arg4);
 	}
 	g_free(insn);
 }
@@ -73,254 +93,331 @@ dfvm_value_new(dfvm_value_type_t type)
 
 	v = g_new(dfvm_value_t, 1);
 	v->type = type;
+	v->ref_count = 0;
 	return v;
 }
 
+dfvm_value_t*
+dfvm_value_new_fvalue(fvalue_t *fv)
+{
+	dfvm_value_t *v = dfvm_value_new(FVALUE);
+	v->value.fvalue = fv;
+	return v;
+}
 
-void
-dfvm_dump(FILE *f, dfilter_t *df)
+dfvm_value_t*
+dfvm_value_new_hfinfo(header_field_info *hfinfo)
+{
+	dfvm_value_t *v = dfvm_value_new(HFINFO);
+	v->value.hfinfo = hfinfo;
+	return v;
+}
+
+dfvm_value_t*
+dfvm_value_new_register(int reg)
+{
+	dfvm_value_t *v = dfvm_value_new(REGISTER);
+	v->value.numeric = reg;
+	return v;
+}
+
+dfvm_value_t*
+dfvm_value_new_drange(drange_t *dr)
+{
+	dfvm_value_t *v = dfvm_value_new(DRANGE);
+	v->value.drange = dr;
+	return v;
+}
+
+dfvm_value_t*
+dfvm_value_new_funcdef(df_func_def_t *funcdef)
+{
+	dfvm_value_t *v = dfvm_value_new(FUNCTION_DEF);
+	v->value.funcdef = funcdef;
+	return v;
+}
+
+dfvm_value_t*
+dfvm_value_new_pcre(ws_regex_t *re)
+{
+	dfvm_value_t *v = dfvm_value_new(PCRE);
+	v->value.pcre = re;
+	return v;
+}
+
+char *
+dfvm_value_tostr(dfvm_value_t *v)
+{
+	char *s, *aux;
+
+	if (!v)
+		return NULL;
+
+	switch (v->type) {
+		case HFINFO:
+			s = ws_strdup(v->value.hfinfo->abbrev);
+			break;
+		case FVALUE:
+			aux = fvalue_to_debug_repr(NULL, v->value.fvalue);
+			s = ws_strdup_printf("%s <%s>",
+				aux, fvalue_type_name(v->value.fvalue));
+			g_free(aux);
+			break;
+		case DRANGE:
+			s = drange_tostr(v->value.drange);
+			break;
+		case PCRE:
+			s = ws_strdup(ws_regex_pattern(v->value.pcre));
+			break;
+		case REGISTER:
+			s = ws_strdup_printf("reg#%u", v->value.numeric);
+			break;
+		case FUNCTION_DEF:
+			s = ws_strdup(v->value.funcdef->name);
+			break;
+		default:
+			s = ws_strdup("FIXME");
+	}
+	return s;
+}
+
+char *
+dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 {
 	int		id, length;
 	dfvm_insn_t	*insn;
-	dfvm_value_t	*arg1;
-	dfvm_value_t	*arg2;
-	dfvm_value_t	*arg3;
-	dfvm_value_t	*arg4;
-	char		*value_str;
-	GSList		*range_list;
-	drange_node	*range_item;
+	dfvm_value_t	*arg1, *arg2, *arg3, *arg4;
+	char 		*arg1_str, *arg2_str, *arg3_str, *arg4_str;
+	wmem_strbuf_t	*buf;
+	GHashTableIter	ref_iter;
+	gpointer	key, value;
+	char		*str;
 
-	/* First dump the constant initializations */
-	fprintf(f, "Constants:\n");
-	length = df->consts->len;
-	for (id = 0; id < length; id++) {
+	buf = wmem_strbuf_new(alloc, NULL);
 
-		insn = (dfvm_insn_t	*)g_ptr_array_index(df->consts, id);
-		arg1 = insn->arg1;
-		arg2 = insn->arg2;
+	wmem_strbuf_append(buf, "Instructions:\n");
 
-		switch (insn->op) {
-			case PUT_FVALUE:
-				value_str = fvalue_to_string_repr(NULL, arg1->value.fvalue,
-					FTREPR_DFILTER, BASE_NONE);
-				fprintf(f, "%05d PUT_FVALUE\t%s <%s> -> reg#%u\n",
-					id, value_str,
-					fvalue_type_name(arg1->value.fvalue),
-					arg2->value.numeric);
-				wmem_free(NULL, value_str);
-				break;
-			case PUT_PCRE:
-				fprintf(f, "%05d PUT_PCRE  \t%s -> reg#%u\n",
-					id,
-					ws_regex_pattern(arg1->value.pcre),
-					arg2->value.numeric);
-				break;
-			case CHECK_EXISTS:
-			case READ_TREE:
-			case CALL_FUNCTION:
-			case MK_RANGE:
-			case ALL_EQ:
-			case ANY_EQ:
-			case ALL_NE:
-			case ANY_NE:
-			case ANY_GT:
-			case ANY_GE:
-			case ANY_LT:
-			case ANY_LE:
-			case ANY_BITWISE_AND:
-			case ANY_CONTAINS:
-			case ANY_MATCHES:
-			case ANY_IN_RANGE:
-			case NOT:
-			case RETURN:
-			case IF_TRUE_GOTO:
-			case IF_FALSE_GOTO:
-			default:
-				ws_assert_not_reached();
-				break;
-		}
-	}
-
-	fprintf(f, "\nInstructions:\n");
-	/* Now dump the operations */
 	length = df->insns->len;
 	for (id = 0; id < length; id++) {
 
-		insn = (dfvm_insn_t	*)g_ptr_array_index(df->insns, id);
+		insn = g_ptr_array_index(df->insns, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 		arg3 = insn->arg3;
 		arg4 = insn->arg4;
+		arg1_str = dfvm_value_tostr(arg1);
+		arg2_str = dfvm_value_tostr(arg2);
+		arg3_str = dfvm_value_tostr(arg3);
+		arg4_str = dfvm_value_tostr(arg4);
 
 		switch (insn->op) {
 			case CHECK_EXISTS:
-				fprintf(f, "%05d CHECK_EXISTS\t%s\n",
-					id, arg1->value.hfinfo->abbrev);
+				wmem_strbuf_append_printf(buf, "%05d CHECK_EXISTS\t%s\n",
+					id, arg1_str);
 				break;
 
 			case READ_TREE:
-				fprintf(f, "%05d READ_TREE\t\t%s -> reg#%u\n",
-					id, arg1->value.hfinfo->abbrev,
-					arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d READ_TREE\t\t%s -> %s\n",
+					id, arg1_str, arg2_str);
+				break;
+
+			case READ_REFERENCE:
+				wmem_strbuf_append_printf(buf, "%05d READ_REFERENCE\t${%s} -> %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case CALL_FUNCTION:
-				fprintf(f, "%05d CALL_FUNCTION\t%s (",
-					id, arg1->value.funcdef->name);
-				if (arg3) {
-					fprintf(f, "reg#%u", arg3->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d CALL_FUNCTION\t%s(",
+					id, arg1_str);
+				if (arg3_str) {
+					wmem_strbuf_append_printf(buf, "%s", arg3_str);
 				}
-				if (arg4) {
-					fprintf(f, ", reg#%u", arg4->value.numeric);
+				if (arg4_str) {
+					wmem_strbuf_append_printf(buf, ", %s", arg4_str);
 				}
-				fprintf(f, ") --> reg#%u\n", arg2->value.numeric);
-				break;
-
-			case PUT_FVALUE:
-				/* We already dumped these */
-				ws_assert_not_reached();
-				break;
-
-			case PUT_PCRE:
-				/* We already dumped these */
-				ws_assert_not_reached();
+				wmem_strbuf_append_printf(buf, ") -> %s\n", arg2_str);
 				break;
 
 			case MK_RANGE:
 				arg3 = insn->arg3;
-				fprintf(f, "%05d MK_RANGE\t\treg#%u[",
-					id,
-					arg1->value.numeric);
-				for (range_list = arg3->value.drange->range_list;
-				     range_list != NULL;
-				     range_list = range_list->next) {
-					range_item = (drange_node *)range_list->data;
-					switch (range_item->ending) {
-
-					case DRANGE_NODE_END_T_UNINITIALIZED:
-						fprintf(f, "?");
-						break;
-
-					case DRANGE_NODE_END_T_LENGTH:
-						fprintf(f, "%d:%d",
-						    range_item->start_offset,
-						    range_item->length);
-						break;
-
-					case DRANGE_NODE_END_T_OFFSET:
-						fprintf(f, "%d-%d",
-						    range_item->start_offset,
-						    range_item->end_offset);
-						break;
-
-					case DRANGE_NODE_END_T_TO_THE_END:
-						fprintf(f, "%d:",
-						    range_item->start_offset);
-						break;
-					}
-					if (range_list->next != NULL)
-						fprintf(f, ",");
-				}
-				fprintf(f, "] -> reg#%u\n",
-					arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d MK_RANGE\t\t%s[%s] -> %s\n",
+					id, arg1_str, arg3_str, arg2_str);
 				break;
 
 			case ALL_EQ:
-				fprintf(f, "%05d ALL_EQ\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ALL_EQ\t\t%s === %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_EQ:
-				fprintf(f, "%05d ANY_EQ\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_EQ\t\t%s == %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ALL_NE:
-				fprintf(f, "%05d ALL_NE\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ALL_NE\t\t%s != %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_NE:
-				fprintf(f, "%05d ANY_NE\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_NE\t\t%s !== %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_GT:
-				fprintf(f, "%05d ANY_GT\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_GT\t\t%s > %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_GE:
-				fprintf(f, "%05d ANY_GE\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_GE\t\t%s >= %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_LT:
-				fprintf(f, "%05d ANY_LT\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_LT\t\t%s < %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_LE:
-				fprintf(f, "%05d ANY_LE\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_LE\t\t%s <= %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
-			case ANY_BITWISE_AND:
-				fprintf(f, "%05d ANY_BITWISE_AND\t\treg#%u == reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+			case MK_BITWISE_AND:
+				wmem_strbuf_append_printf(buf, "%05d MK_BITWISE_AND\t%s & %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case ANY_ZERO:
+				wmem_strbuf_append_printf(buf, "%05d ANY_ZERO\t\t%s\n",
+					id, arg1_str);
+				break;
+
+			case ALL_ZERO:
+				wmem_strbuf_append_printf(buf, "%05d ALL_ZERO\t\t%s\n",
+					id, arg1_str);
+				break;
+
+			case DFVM_ADD:
+				wmem_strbuf_append_printf(buf, "%05d ADD\t\t%s + %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case DFVM_SUBTRACT:
+				wmem_strbuf_append_printf(buf, "%05d SUBRACT\t\t%s - %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case DFVM_MULTIPLY:
+				wmem_strbuf_append_printf(buf, "%05d MULTIPLY\t\t%s * %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case DFVM_DIVIDE:
+				wmem_strbuf_append_printf(buf, "%05d DIVIDE\t\t%s / %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case DFVM_MODULO:
+				wmem_strbuf_append_printf(buf, "%05d MODULO\t\t%s %% %s -> %s\n",
+					id, arg1_str, arg2_str, arg3_str);
 				break;
 
 			case ANY_CONTAINS:
-				fprintf(f, "%05d ANY_CONTAINS\treg#%u contains reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_CONTAINS\t%s contains %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_MATCHES:
-				fprintf(f, "%05d ANY_MATCHES\treg#%u matches reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_MATCHES\t%s matches %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case ANY_IN_RANGE:
-				fprintf(f, "%05d ANY_IN_RANGE\treg#%u in range reg#%u,reg#%u\n",
-					id, arg1->value.numeric, arg2->value.numeric,
-					arg3->value.numeric);
+				wmem_strbuf_append_printf(buf, "%05d ANY_IN_RANGE\t%s in { %s .. %s }\n",
+					id, arg1_str, arg2_str, arg3_str);
+				break;
+
+			case MK_MINUS:
+				wmem_strbuf_append_printf(buf, "%05d MK_MINUS\t\t-%s -> %s\n",
+					id, arg1_str, arg2_str);
 				break;
 
 			case NOT:
-				fprintf(f, "%05d NOT\n", id);
+				wmem_strbuf_append_printf(buf, "%05d NOT\n", id);
 				break;
 
 			case RETURN:
-				fprintf(f, "%05d RETURN\n", id);
+				wmem_strbuf_append_printf(buf, "%05d RETURN\n", id);
 				break;
 
 			case IF_TRUE_GOTO:
-				fprintf(f, "%05d IF-TRUE-GOTO\t%u\n",
+				wmem_strbuf_append_printf(buf, "%05d IF_TRUE_GOTO\t%u\n",
 						id, arg1->value.numeric);
 				break;
 
 			case IF_FALSE_GOTO:
-				fprintf(f, "%05d IF-FALSE-GOTO\t%u\n",
+				wmem_strbuf_append_printf(buf, "%05d IF_FALSE_GOTO\t%u\n",
 						id, arg1->value.numeric);
 				break;
+		}
 
-			default:
-				ws_assert_not_reached();
-				break;
+		g_free(arg1_str);
+		g_free(arg2_str);
+		g_free(arg3_str);
+		g_free(arg4_str);
+	}
+
+	if (print_references && g_hash_table_size(df->references) > 0) {
+		wmem_strbuf_append(buf, "\nReferences:\n");
+		g_hash_table_iter_init(&ref_iter, df->references);
+		while (g_hash_table_iter_next(&ref_iter, &key, &value)) {
+			const char *abbrev = ((header_field_info *)key)->abbrev;
+			GSList *fvalues = *(GSList **)value;
+
+			wmem_strbuf_append_printf(buf, "${%s} = {", abbrev);
+
+			if (fvalues != NULL) {
+				str = fvalue_to_debug_repr(NULL, fvalues->data);
+				wmem_strbuf_append_printf(buf, "%s <%s>", str, fvalue_type_name(fvalues->data));
+				g_free(str);
+
+				for (fvalues = fvalues->next; fvalues != NULL; fvalues = fvalues->next) {
+					str = fvalue_to_debug_repr(NULL, fvalues->data);
+					wmem_strbuf_append_printf(buf, ", %s <%s>", str, fvalue_type_name(fvalues->data));
+					g_free(str);
+				}
+			}
+			wmem_strbuf_append(buf, "}\n");
 		}
 	}
+
+	return wmem_strbuf_finalize(buf);
+}
+
+void
+dfvm_dump(FILE *f, dfilter_t *df)
+{
+	char *str = dfvm_dump_str(NULL, df, FALSE);
+	fputs(str, f);
+	wmem_free(NULL, str);
 }
 
 /* Reads a field from the proto_tree and loads the fvalues into a register,
  * if that field has not already been read. */
 static gboolean
-read_tree(dfilter_t *df, proto_tree *tree, header_field_info *hfinfo, int reg)
+read_tree(dfilter_t *df, proto_tree *tree,
+				dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
 	GPtrArray	*finfos;
 	field_info	*finfo;
 	int		i, len;
-	GList		*fvalues = NULL;
+	GSList		*fvalues = NULL;
 	gboolean	found_something = FALSE;
+
+	header_field_info *hfinfo = arg1->value.hfinfo;
+	int reg = arg2->value.numeric;
 
 	/* Already loaded in this run of the dfilter? */
 	if (df->attempted_load[reg]) {
@@ -346,8 +443,8 @@ read_tree(dfilter_t *df, proto_tree *tree, header_field_info *hfinfo, int reg)
 
 		len = finfos->len;
 		for (i = 0; i < len; i++) {
-			finfo = (field_info *)g_ptr_array_index(finfos, i);
-			fvalues = g_list_prepend(fvalues, &finfo->value);
+			finfo = g_ptr_array_index(finfos, i);
+			fvalues = g_slist_prepend(fvalues, &finfo->value);
 		}
 
 		hfinfo = hfinfo->same_name_next;
@@ -359,28 +456,40 @@ read_tree(dfilter_t *df, proto_tree *tree, header_field_info *hfinfo, int reg)
 
 	df->registers[reg] = fvalues;
 	// These values are referenced only, do not try to free it later.
-	df->owns_memory[reg] = FALSE;
+	df->free_registers[reg] = NULL;
 	return TRUE;
 }
 
-
-/* Put a constant value in a register. These will not be cleared by
- * free_register_overhead. */
 static gboolean
-put_fvalue(dfilter_t *df, fvalue_t *fv, int reg)
+read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
-	df->registers[reg] = g_list_append(NULL, fv);
-	df->owns_memory[reg] = FALSE;
-	return TRUE;
-}
+	GSList		**fvalues_ptr;
 
-/* Put a constant PCRE in a register. These will not be cleared by
- * free_register_overhead. */
-static gboolean
-put_pcre(dfilter_t *df, ws_regex_t *pcre, int reg)
-{
-	df->registers[reg] = g_list_append(NULL, pcre);
-	df->owns_memory[reg] = FALSE;
+	header_field_info *hfinfo = arg1->value.hfinfo;
+	int reg = arg2->value.numeric;
+
+	/* Already loaded in this run of the dfilter? */
+	if (df->attempted_load[reg]) {
+		if (df->registers[reg]) {
+			return TRUE;
+		}
+		else {
+			return FALSE;
+		}
+	}
+
+	df->attempted_load[reg] = TRUE;
+
+	fvalues_ptr = g_hash_table_lookup(df->references, hfinfo);
+	if (*fvalues_ptr == NULL) {
+		df->registers[reg] = NULL;
+		return FALSE;
+	}
+
+	/* Shallow copy */
+	df->registers[reg] = g_slist_copy(*fvalues_ptr);
+	/* These values are referenced only, do not try to free it later. */
+	df->free_registers[reg] = NULL;
 	return TRUE;
 }
 
@@ -389,139 +498,155 @@ enum match_how {
 	MATCH_ALL
 };
 
-typedef gboolean (*DFVMMatchFunc)(const fvalue_t*, const fvalue_t*);
+typedef gboolean (*DFVMCompareFunc)(const fvalue_t*, const fvalue_t*);
+typedef gboolean (*DFVMTestFunc)(const fvalue_t*);
 
 static gboolean
-cmp_test(dfilter_t *df, enum match_how how, DFVMMatchFunc match_func, int reg1, int reg2)
+cmp_test(enum match_how how, DFVMCompareFunc match_func,
+					GSList *arg1, GSList *arg2)
 {
-	GList	*list_a, *list_b;
+	GSList *list1, *list2;
 	gboolean want_all = (how == MATCH_ALL);
 	gboolean want_any = (how == MATCH_ANY);
 	gboolean have_match;
 
-	list_a = df->registers[reg1];
+	list1 = arg1;
 
-	while (list_a) {
-		list_b = df->registers[reg2];
-		while (list_b) {
-			have_match = match_func(list_a->data, list_b->data);
+	while (list1) {
+		list2 = arg2;
+		while (list2) {
+			have_match = match_func(list1->data, list2->data);
 			if (want_all && !have_match) {
 				return FALSE;
 			}
 			else if (want_any && have_match) {
 				return TRUE;
 			}
-			list_b = g_list_next(list_b);
+			list2 = g_slist_next(list2);
 		}
-		list_a = g_list_next(list_a);
+		list1 = g_slist_next(list1);
 	}
 	/* want_all || !want_any */
 	return want_all;
 }
 
-static inline gboolean
-any_test(dfilter_t *df, DFVMMatchFunc cmp, int reg1, int reg2)
-{
-	/* cmp(A) <=> cmp(a1) OR cmp(a2) OR cmp(a3) OR ... */
-	return cmp_test(df, MATCH_ANY, cmp, reg1, reg2);
-}
-
-static inline gboolean
-all_test(dfilter_t *df, DFVMMatchFunc cmp, int reg1, int reg2)
-{
-	/* cmp(A) <=> cmp(a1) AND cmp(a2) AND cmp(a3) AND ... */
-	return cmp_test(df, MATCH_ALL, cmp, reg1, reg2);
-}
-
-static inline gboolean
-all_eq(dfilter_t *df, int reg1, int reg2)
-{
-	/* A all_eq B <=> a1 == b1 AND a2 == b2 AND a3 == b3 AND ... */
-	return all_test(df, fvalue_eq, reg1, reg2);
-}
-
-static inline gboolean
-any_eq(dfilter_t *df, int reg1, int reg2)
-{
-	/* A any_eq B <=> a1 == b1 OR a2 == b2 OR a3 == b3 OR ... */
-	return any_test(df, fvalue_eq, reg1, reg2);
-}
-
-static inline gboolean
-any_ne(dfilter_t *df, int reg1, int reg2)
-{
-	/* A any_ne B <=> a1 != b1 OR a2 != b2 OR a3 != b3 OR ... */
-	return any_test(df, fvalue_ne, reg1, reg2);
-}
-
-static inline gboolean
-all_ne(dfilter_t *df, int reg1, int reg2)
-{
-	/* A all_ne B <=> a1 != b1 AND a2 != b2 AND a3 != b3 AND ... */
-	return all_test(df, fvalue_ne, reg1, reg2);
-}
-
 static gboolean
-any_matches(dfilter_t *df, int reg1, int reg2)
+cmp_test_unary(enum match_how how, DFVMTestFunc test_func, GSList *arg1)
 {
-	GList	*list_a, *list_b;
+	GSList *list1;
+	gboolean want_all = (how == MATCH_ALL);
+	gboolean want_any = (how == MATCH_ANY);
+	gboolean have_match;
 
-	list_a = df->registers[reg1];
-
-	while (list_a) {
-		list_b = df->registers[reg2];
-		while (list_b) {
-			if (fvalue_matches((fvalue_t *)list_a->data, list_b->data)) {
-				return TRUE;
-			}
-			list_b = g_list_next(list_b);
-		}
-		list_a = g_list_next(list_a);
-	}
-	return FALSE;
-}
-
-static gboolean
-any_in_range(dfilter_t *df, int reg1, int reg2, int reg3)
-{
-	GList	*list1, *list_low, *list_high;
-	fvalue_t *low, *high;
-
-	list1 = df->registers[reg1];
-	list_low = df->registers[reg2];
-	list_high = df->registers[reg3];
-
-	/* The first register contains the values associated with a field, the
-	 * second and third arguments are expected to be a single value for the
-	 * lower and upper bound respectively. These cannot be fields and thus
-	 * the list length MUST be one. This should have been enforced by
-	 * grammar.lemon.
-	 */
-	ws_assert(list_low && !g_list_next(list_low));
-	ws_assert(list_high && !g_list_next(list_high));
-	low = (fvalue_t *)list_low->data;
-	high = (fvalue_t *)list_high->data;
+	list1 = arg1;
 
 	while (list1) {
-		fvalue_t *value = (fvalue_t *)list1->data;
-		if (fvalue_ge(value, low) && fvalue_le(value, high)) {
+		have_match = test_func(list1->data);
+		if (want_all && !have_match) {
+			return FALSE;
+		}
+		else if (want_any && have_match) {
 			return TRUE;
 		}
-		list1 = g_list_next(list1);
+		list1 = g_slist_next(list1);
+	}
+	/* want_all || !want_any */
+	return want_all;
+}
+
+static gboolean
+any_test_unary(dfilter_t *df, DFVMTestFunc func, dfvm_value_t *arg1)
+{
+	ws_assert(arg1->type == REGISTER);
+	GSList *list1 = df->registers[arg1->value.numeric];
+	return cmp_test_unary(MATCH_ANY, func, list1);
+}
+
+static gboolean
+all_test_unary(dfilter_t *df, DFVMTestFunc func, dfvm_value_t *arg1)
+{
+	ws_assert(arg1->type == REGISTER);
+	GSList *list1 = df->registers[arg1->value.numeric];
+	return cmp_test_unary(MATCH_ALL, func, list1);
+}
+
+/* cmp(A) <=> cmp(a1) OR cmp(a2) OR cmp(a3) OR ... */
+static gboolean
+any_test(dfilter_t *df, DFVMCompareFunc cmp,
+				dfvm_value_t *arg1, dfvm_value_t *arg2)
+{
+	ws_assert(arg1->type == REGISTER);
+	GSList *list1 = df->registers[arg1->value.numeric];
+
+	if (arg2->type == REGISTER) {
+		return cmp_test(MATCH_ANY, cmp, list1, df->registers[arg2->value.numeric]);
+	}
+	if (arg2->type == FVALUE) {
+		GSList list2;
+
+		list2.data = arg2->value.fvalue;
+		list2.next = NULL;
+		return cmp_test(MATCH_ANY, cmp, list1, &list2);
+	}
+	ws_assert_not_reached();
+}
+
+/* cmp(A) <=> cmp(a1) AND cmp(a2) AND cmp(a3) AND ... */
+static gboolean
+all_test(dfilter_t *df, DFVMCompareFunc cmp,
+				dfvm_value_t *arg1, dfvm_value_t *arg2)
+{
+	ws_assert(arg1->type == REGISTER);
+	GSList *list1 = df->registers[arg1->value.numeric];
+
+	if (arg2->type == REGISTER) {
+		return cmp_test(MATCH_ALL, cmp, list1, df->registers[arg2->value.numeric]);
+	}
+	if (arg2->type == FVALUE) {
+		GSList list2;
+
+		list2.data = arg2->value.fvalue;
+		list2.next = NULL;
+		return cmp_test(MATCH_ALL, cmp, list1, &list2);
+	}
+	ws_assert_not_reached();
+}
+
+static gboolean
+any_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
+{
+	GSList *list1 = df->registers[arg1->value.numeric];
+	ws_regex_t *re = arg2->value.pcre;
+
+	while (list1) {
+		if (fvalue_matches(list1->data, re)) {
+			return TRUE;
+		}
+		list1 = g_slist_next(list1);
 	}
 	return FALSE;
 }
 
-
-static void
-free_owned_register(gpointer data, gpointer user_data _U_)
+static gboolean
+any_in_range(dfilter_t *df, dfvm_value_t *arg1,
+				dfvm_value_t *arg_low, dfvm_value_t *arg_high)
 {
-	fvalue_t *value = (fvalue_t *)data;
-	fvalue_free(value);
+	GSList *list1 = df->registers[arg1->value.numeric];
+	fvalue_t *low = arg_low->value.fvalue;
+	fvalue_t *high = arg_high->value.fvalue;
+
+	while (list1) {
+		if (fvalue_ge(list1->data, low) &&
+					fvalue_le(list1->data, high)) {
+			return TRUE;
+		}
+		list1 = g_slist_next(list1);
+	}
+	return FALSE;
 }
 
-/* Clear registers that were populated during evaluation (leaving constants
- * intact). If we created the values, then these will be freed as well. */
+/* Clear registers that were populated during evaluation.
+ * If we created the values, then these will be freed as well. */
 static void
 free_register_overhead(dfilter_t* df)
 {
@@ -530,11 +655,13 @@ free_register_overhead(dfilter_t* df)
 	for (i = 0; i < df->num_registers; i++) {
 		df->attempted_load[i] = FALSE;
 		if (df->registers[i]) {
-			if (df->owns_memory[i]) {
-				g_list_foreach(df->registers[i], free_owned_register, NULL);
-				df->owns_memory[i] = FALSE;
+			if (df->free_registers[i]) {
+				for (GSList *l = df->registers[i]; l != NULL; l = l->next) {
+					df->free_registers[i](l->data);
+				}
+				df->free_registers[i] = NULL;
 			}
-			g_list_free(df->registers[i]);
+			g_slist_free(df->registers[i]);
 			df->registers[i] = NULL;
 		}
 	}
@@ -544,31 +671,199 @@ free_register_overhead(dfilter_t* df)
  * to make a new list of fvalue_t's (which are ranges, or byte-slices),
  * and puts the new list into a new register. */
 static void
-mk_range(dfilter_t *df, int from_reg, int to_reg, drange_t *d_range)
+mk_range(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg,
+						dfvm_value_t *drange_arg)
 {
-	GList		*from_list, *to_list;
+	GSList		*from_list, *to_list;
 	fvalue_t	*old_fv, *new_fv;
 
 	to_list = NULL;
-	from_list = df->registers[from_reg];
+	from_list = df->registers[from_arg->value.numeric];
+	drange_t *drange = drange_arg->value.drange;
 
 	while (from_list) {
-		old_fv = (fvalue_t*)from_list->data;
-		new_fv = fvalue_slice(old_fv, d_range);
+		old_fv = from_list->data;
+		new_fv = fvalue_slice(old_fv, drange);
 		/* Assert here because semcheck.c should have
 		 * already caught the cases in which a slice
 		 * cannot be made. */
 		ws_assert(new_fv);
-		to_list = g_list_append(to_list, new_fv);
+		to_list = g_slist_prepend(to_list, new_fv);
 
-		from_list = g_list_next(from_list);
+		from_list = g_slist_next(from_list);
 	}
 
-	df->registers[to_reg] = to_list;
-	df->owns_memory[to_reg] = TRUE;
+	df->registers[to_arg->value.numeric] = to_list;
+	df->free_registers[to_arg->value.numeric] = (GDestroyNotify)fvalue_free;
+}
+
+static gboolean
+call_function(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
+				dfvm_value_t *arg3, dfvm_value_t *arg4)
+{
+	df_func_def_t *funcdef;
+	GSList *param1 = NULL;
+	GSList *param2 = NULL;
+	GSList *retval = NULL;
+	gboolean accum;
+
+	funcdef = arg1->value.funcdef;
+	if (arg3) {
+		param1 = df->registers[arg3->value.numeric];
+	}
+	if (arg4) {
+		param2 = df->registers[arg4->value.numeric];
+	}
+	accum = funcdef->function(param1, param2, &retval);
+
+	df->registers[arg2->value.numeric] = retval;
+	// functions create a new value, so own it.
+	df->free_registers[arg2->value.numeric] = (GDestroyNotify)fvalue_free;
+	return accum;
+}
+
+static void debug_op_error(fvalue_t *v1, fvalue_t *v2, const char *op, const char *msg)
+{
+	char *s1 = fvalue_to_debug_repr(NULL, v1);
+	char *s2 = fvalue_to_debug_repr(NULL, v2);
+	ws_noisy("Error: %s %s %s: %s", s1, op, s2, msg);
+	g_free(s1);
+	g_free(s2);
+}
+
+static void _U_
+debug_register(GSList *reg, guint32 num)
+{
+	wmem_strbuf_t *buf;
+	GSList *l;
+	char *s;
+
+	buf = wmem_strbuf_new(NULL, NULL);
+
+	wmem_strbuf_append_printf(buf, "Reg#%"G_GUINT32_FORMAT" = { ", num);
+	for (l = reg; l != NULL; l = l->next) {
+		s = fvalue_to_debug_repr(NULL, l->data);
+		wmem_strbuf_append(buf, s);
+		g_free(s);
+		wmem_strbuf_append_c(buf, ' ');
+	}
+	wmem_strbuf_append_c(buf, '}');
+	ws_noisy("%s", wmem_strbuf_get_str(buf));
+	wmem_strbuf_destroy(buf);
 }
 
 
+typedef fvalue_t* (*DFVMBinaryFunc)(const fvalue_t*, const fvalue_t*, char **);
+
+static void
+mk_binary_internal(DFVMBinaryFunc func,
+			GSList *arg1, GSList *arg2, GSList **retval)
+{
+	GSList *list1, *list2;
+	GSList *to_list = NULL;
+	fvalue_t *val1, *val2;
+	fvalue_t *result;
+	char *err_msg = NULL;
+
+	list1 = arg1;
+	while (list1) {
+		list2 = arg2;
+		while (list2) {
+			val1 = list1->data;
+			val2 = list2->data;
+			result = func(val1, val2, &err_msg);
+			if (result == NULL) {
+				debug_op_error(val1, val2, "&", err_msg);
+				g_free(err_msg);
+				err_msg = NULL;
+			}
+			else {
+				to_list = g_slist_prepend(to_list, result);
+			}
+			list2 = g_slist_next(list2);
+		}
+		list1 = g_slist_next(list1);
+	}
+	*retval = to_list;
+}
+
+static void
+mk_binary(dfilter_t *df, DFVMBinaryFunc func,
+		dfvm_value_t *arg1, dfvm_value_t *arg2, dfvm_value_t *to_arg)
+{
+	GSList ls1, ls2;
+	GSList *list1, *list2;
+	GSList *result = NULL;
+
+	if (arg1->type == REGISTER) {
+		list1 = df->registers[arg1->value.numeric];
+	}
+	else if (arg1->type == FVALUE) {
+		ls1.data = arg1->value.fvalue;
+		ls1.next = NULL;
+		list1 = &ls1;
+	}
+	else {
+		ws_assert_not_reached();
+	}
+
+	if (arg2->type == REGISTER) {
+		list2 = df->registers[arg2->value.numeric];
+	}
+	else if (arg2->type == FVALUE) {
+		ls2.data = arg2->value.fvalue;
+		ls2.next = NULL;
+		list2 = &ls2;
+	}
+	else {
+		ws_assert_not_reached();
+	}
+
+	mk_binary_internal(func, list1, list2, &result);
+	//debug_register(result, to_arg->value.numeric);
+
+	df->registers[to_arg->value.numeric] = result;
+	df->free_registers[to_arg->value.numeric] = (GDestroyNotify)fvalue_free;
+}
+
+static void
+mk_minus_internal(GSList *arg1, GSList **retval)
+{
+	GSList *list1;
+	GSList *to_list = NULL;
+	fvalue_t *val1;
+	fvalue_t *result;
+	char *err_msg = NULL;
+
+	list1 = arg1;
+	while (list1) {
+		val1 = list1->data;
+		result = fvalue_unary_minus(val1, &err_msg);
+		if (result == NULL) {
+			ws_noisy("unary_minus: %s", err_msg);
+			g_free(err_msg);
+			err_msg = NULL;
+		}
+		else {
+			to_list = g_slist_prepend(to_list, result);
+		}
+		list1 = g_slist_next(list1);
+	}
+	*retval = to_list;
+}
+
+static void
+mk_minus(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *to_arg)
+{
+	ws_assert(arg1->type == REGISTER);
+	GSList *list1 = df->registers[arg1->value.numeric];
+	GSList *result = NULL;
+
+	mk_minus_internal(list1, &result);
+
+	df->registers[to_arg->value.numeric] = result;
+	df->free_registers[to_arg->value.numeric] = (GDestroyNotify)fvalue_free;
+}
 
 gboolean
 dfvm_apply(dfilter_t *df, proto_tree *tree)
@@ -581,8 +876,6 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 	dfvm_value_t	*arg3 = NULL;
 	dfvm_value_t	*arg4 = NULL;
 	header_field_info	*hfinfo;
-	GList		*param1;
-	GList		*param2;
 
 	ws_assert(tree);
 
@@ -591,9 +884,11 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 	for (id = 0; id < length; id++) {
 
 	  AGAIN:
-		insn = (dfvm_insn_t	*)g_ptr_array_index(df->insns, id);
+		insn = g_ptr_array_index(df->insns, id);
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
+		arg3 = insn->arg3;
+		arg4 = insn->arg4;
 
 		switch (insn->op) {
 			case CHECK_EXISTS:
@@ -611,90 +906,99 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				break;
 
 			case READ_TREE:
-				accum = read_tree(df, tree,
-						arg1->value.hfinfo, arg2->value.numeric);
+				accum = read_tree(df, tree, arg1, arg2);
+				break;
+
+			case READ_REFERENCE:
+				accum = read_reference(df, arg1, arg2);
 				break;
 
 			case CALL_FUNCTION:
-				arg3 = insn->arg3;
-				arg4 = insn->arg4;
-				param1 = NULL;
-				param2 = NULL;
-				if (arg3) {
-					param1 = df->registers[arg3->value.numeric];
-				}
-				if (arg4) {
-					param2 = df->registers[arg4->value.numeric];
-				}
-				accum = arg1->value.funcdef->function(param1, param2,
-						&df->registers[arg2->value.numeric]);
-				// functions create a new value, so own it.
-				df->owns_memory[arg2->value.numeric] = TRUE;
+				accum = call_function(df, arg1, arg2, arg3, arg4);
 				break;
 
 			case MK_RANGE:
-				arg3 = insn->arg3;
-				mk_range(df,
-						arg1->value.numeric, arg2->value.numeric,
-						arg3->value.drange);
+				mk_range(df, arg1, arg2, arg3);
 				break;
 
 			case ALL_EQ:
-				accum = all_eq(df, arg1->value.numeric, arg2->value.numeric);
+				accum = all_test(df, fvalue_eq, arg1, arg2);
 				break;
 
 			case ANY_EQ:
-				accum = any_eq(df, arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_eq, arg1, arg2);
 				break;
 
 			case ALL_NE:
-				accum = all_ne(df, arg1->value.numeric, arg2->value.numeric);
+				accum = all_test(df, fvalue_ne, arg1, arg2);
 				break;
 
 			case ANY_NE:
-				accum = any_ne(df, arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_ne, arg1, arg2);
 				break;
 
 			case ANY_GT:
-				accum = any_test(df, fvalue_gt,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_gt, arg1, arg2);
 				break;
 
 			case ANY_GE:
-				accum = any_test(df, fvalue_ge,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_ge, arg1, arg2);
 				break;
 
 			case ANY_LT:
-				accum = any_test(df, fvalue_lt,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_lt, arg1, arg2);
 				break;
 
 			case ANY_LE:
-				accum = any_test(df, fvalue_le,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_le, arg1, arg2);
 				break;
 
-			case ANY_BITWISE_AND:
-				accum = any_test(df, fvalue_bitwise_and,
-						arg1->value.numeric, arg2->value.numeric);
+			case MK_BITWISE_AND:
+				mk_binary(df, fvalue_bitwise_and, arg1, arg2, arg3);
+				break;
+
+			case DFVM_ADD:
+				mk_binary(df, fvalue_add, arg1, arg2, arg3);
+				break;
+
+			case DFVM_SUBTRACT:
+				mk_binary(df, fvalue_subtract, arg1, arg2, arg3);
+				break;
+
+			case DFVM_MULTIPLY:
+				mk_binary(df, fvalue_multiply, arg1, arg2, arg3);
+				break;
+
+			case DFVM_DIVIDE:
+				mk_binary(df, fvalue_divide, arg1, arg2, arg3);
+				break;
+
+			case DFVM_MODULO:
+				mk_binary(df, fvalue_modulo, arg1, arg2, arg3);
+				break;
+
+			case ANY_ZERO:
+				accum = any_test_unary(df, fvalue_is_zero, arg1);
+				break;
+
+			case ALL_ZERO:
+				accum = all_test_unary(df, fvalue_is_zero, arg1);
 				break;
 
 			case ANY_CONTAINS:
-				accum = any_test(df, fvalue_contains,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_test(df, fvalue_contains, arg1, arg2);
 				break;
 
 			case ANY_MATCHES:
-				accum = any_matches(df,
-						arg1->value.numeric, arg2->value.numeric);
+				accum = any_matches(df, arg1, arg2);
 				break;
 
 			case ANY_IN_RANGE:
-				arg3 = insn->arg3;
-				accum = any_in_range(df, arg1->value.numeric,
-						arg2->value.numeric,
-						arg3->value.numeric);
+				accum = any_in_range(df, arg1, arg2, arg3);
+				break;
+
+			case MK_MINUS:
+				mk_minus(df, arg1, arg2);
 				break;
 
 			case NOT:
@@ -718,85 +1022,10 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 					goto AGAIN;
 				}
 				break;
-
-			case PUT_FVALUE:
-#if 0
-				/* These were handled in the constants initialization */
-				accum = put_fvalue(df,
-						arg1->value.fvalue, arg2->value.numeric);
-				break;
-#endif
-
-			case PUT_PCRE:
-#if 0
-				/* These were handled in the constants initialization */
-				accum = put_pcre(df,
-						arg1->value.pcre, arg2->value.numeric);
-				break;
-#endif
-
-			default:
-				ws_assert_not_reached();
-				break;
 		}
 	}
 
 	ws_assert_not_reached();
-	return FALSE; /* to appease the compiler */
-}
-
-void
-dfvm_init_const(dfilter_t *df)
-{
-	int		id, length;
-	dfvm_insn_t	*insn;
-	dfvm_value_t	*arg1;
-	dfvm_value_t	*arg2;
-
-	length = df->consts->len;
-
-	for (id = 0; id < length; id++) {
-
-		insn = (dfvm_insn_t	*)g_ptr_array_index(df->consts, id);
-		arg1 = insn->arg1;
-		arg2 = insn->arg2;
-
-		switch (insn->op) {
-			case PUT_FVALUE:
-				put_fvalue(df,
-						arg1->value.fvalue, arg2->value.numeric);
-				break;
-			case PUT_PCRE:
-				put_pcre(df,
-						arg1->value.pcre, arg2->value.numeric);
-				break;
-			case CHECK_EXISTS:
-			case READ_TREE:
-			case CALL_FUNCTION:
-			case MK_RANGE:
-			case ALL_EQ:
-			case ANY_EQ:
-			case ALL_NE:
-			case ANY_NE:
-			case ANY_GT:
-			case ANY_GE:
-			case ANY_LT:
-			case ANY_LE:
-			case ANY_BITWISE_AND:
-			case ANY_CONTAINS:
-			case ANY_MATCHES:
-			case ANY_IN_RANGE:
-			case NOT:
-			case RETURN:
-			case IF_TRUE_GOTO:
-			case IF_FALSE_GOTO:
-			default:
-				ws_assert_not_reached();
-				break;
-		}
-	}
-
-	return;
 }
 
 /*

@@ -56,14 +56,40 @@ Wireshark 3.7.0 Release Notes
 
         • Adds a new strict equality operator "===" or "all_eq". The
        expression "a === b" is true if and only if all a’s are equal to
-       b. The negation of "===" can now be written as "!==" (any_ne), in
-       addition to "~=" (introduced in Wireshark 3.6.0).
+       b. The negation of "===" can now be written as "!==" (any_ne).
 
         • Adds the aliases "any_eq" for "==" and "all_ne" for "!=".
+
+        • The operator "~=" is deprecated and will be removed in a
+       future version. Use "!==" with the same meaning instead.
 
         • Date and time can be given in UTC using ISO 8601 (with 'Z'
        timezone) or by appending the suffix "UTC" to the legacy formats.
        Otherwise local time is used.
+
+        • Integer literal constants may be written in binary (in
+       addition to decimal/octal/hexadecimal) using the prefix "0b" or
+       "0B".
+
+        • New syntax to disambiguate literals from identifiers. Every
+       value with a leading dot is a protocol or protocol field. Every
+       value with a leading colon or in between angle brackets is a
+       literal value. See the User Guide for details.
+
+        • Floats must be written with a leading and ending digit. For
+       example the values ".7" and "7." are now invalid as floats. It
+       must be written "0.7" and "7.0" respectively.
+
+        • The "bitwise and" operator is now a first-class bit operator,
+       not a boolean operator. In particular this means it is now
+       possible to mask bits, e.g.: frame[0] & 0x0F == 3.
+
+        • Simple arithmetic expressions are supported in filter
+       expressions. It is now possible to use expressions such as
+       "tcp.dstport >= tcp.srcport + 1", or using field references to
+       the selected frame: frame.number > ${frame.number} - 5. Note that
+       the last example is only meaningful using the GUI because TShark
+       has no concept of selected frame.
 
      • text2pcap and "Import from Hex Dump":
 
@@ -116,6 +142,13 @@ Wireshark 3.7.0 Release Notes
        strings. There are new buttons to reset a value back to default
        value.
 
+     • Support to display JSON mapping for Protobuf message.
+
+     • macOS debugging symbols are now shipped in separate packages.
+
+     • ZigBee ZCL Messaging: rename zbee_zcl_se.msg.msg_ctrl.depreciated
+       to zbee_zcl_se.msg.msg_ctrl.deprecated
+
   Removed Features and Support
 
      • CMake: The options starting with DISABLE_something were renamed
@@ -126,9 +159,18 @@ Wireshark 3.7.0 Release Notes
 
   New Protocol Support
 
-   FiveCo’s Legacy Register Access Protocol (5co-legacy), Host IP
-   Configuration Protocol (HICP), Mesh Connex (MCX), and Secure Host IP
-   Configuration Protocol (SHICP)
+   Allied Telesis Loop Detection (AT LDF), AUTOSAR I-PDU Multiplexer
+   (AUTOSAR I-PduM), DTN Bundle Protocol Security (BPSec), DTN Bundle
+   Protocol Version 7 (BPv7), DTN TCP Convergence Layer Protocol
+   (TCPCL), DVB Selection Information Table (DVB SIT), Enhanced Cash
+   Trading Interface 10.0 (XTI), Enhanced Order Book Interface 10.0
+   (EOBI), Enhanced Trading Interface 10.0 (ETI), FiveCo’s Legacy
+   Register Access Protocol (5co-legacy), Generic Data Transfer Protocol
+   (GDT), gRPC Web (gRPC-Web), Host IP Configuration Protocol (HICP),
+   Mesh Connex (MCX), Microsoft Cluster Remote Control Protocol (RCP),
+   Realtek, REdis Serialization Protocol v2 (RESP), Secure File Transfer
+   Protocol (sftp), Secure Host IP Configuration Protocol (SHICP), USB
+   Attached SCSI (UASP), and ZBOSS NCP
 
   Updated Protocol Support
 
@@ -176,7 +218,7 @@ Wireshark 3.7.0 Release Notes
 
   A complete FAQ is available on the Wireshark web site[6].
 
-  Last updated 2022-01-23 16:08:09 UTC
+  Last updated 2022-03-31 18:02:31 UTC
 
  References
 

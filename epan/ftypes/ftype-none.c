@@ -21,8 +21,9 @@ ftype_register_none(void)
 		"Label",			/* pretty_name */
 		0,				/* wire_size */
 		NULL,				/* new_value */
+		NULL,				/* copy_value */
 		NULL,				/* free_value */
-		NULL,				/* val_from_unparsed */
+		NULL,				/* val_from_literal */
 		NULL,				/* val_from_string */
 		NULL,				/* val_from_charconst */
 		NULL,				/* val_to_string_repr */
@@ -31,12 +32,19 @@ ftype_register_none(void)
 		{ NULL },			/* union get_value */
 
 		NULL,				/* cmp_order */
-		NULL,				/* cmp_bitwise_and */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		NULL,
-		NULL,
+		NULL,				/* is_zero */
+		NULL,				/* len */
+		NULL,				/* slice */
+		NULL,				/* biwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
 	};
 	ftype_register(FT_NONE, &none_type);
 }

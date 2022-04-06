@@ -21,6 +21,7 @@
 #include <epan/uat.h>
 #include <epan/dissectors/packet-tcp.h>
 #include <epan/reassemble.h>
+#include <epan/addr_resolv.h>
 #include <epan/stats_tree.h>
 
 #include <packet-udp.h>
@@ -233,8 +234,8 @@ static range_t *someip_ports_udp = NULL;
 static range_t *someip_ports_tcp = NULL;
 
 static gboolean someip_tp_reassemble = TRUE;
-static gboolean someip_derserializer_activated = FALSE;
-static gboolean someip_derserializer_wtlv_default = FALSE;
+static gboolean someip_deserializer_activated = TRUE;
+static gboolean someip_deserializer_wtlv_default = FALSE;
 
 /* SOME/IP Message Types */
 static const value_string someip_msg_type[] = {
@@ -2340,7 +2341,7 @@ expert_someip_payload_alignment_error(proto_tree *tree, packet_info *pinfo, tvbu
 
 /*******************************************
  **************** Statistics ***************
- ******************************************/
+ *******************************************/
 
 static void
 someip_messages_stats_tree_init(stats_tree *st) {
@@ -2353,22 +2354,35 @@ static tap_packet_status
 someip_messages_stats_tree_packet(stats_tree *st, packet_info *pinfo, epan_dissect_t *edt _U_, const void *p) {
     static gchar tmp_srv_str[128];
     static gchar tmp_meth_str[128];
+    static gchar tmp_addr_str[128];
     int tmp;
 
     DISSECTOR_ASSERT(p);
     const someip_messages_tap_t *data = (const someip_messages_tap_t *)p;
 
-    gchar *src_addr = address_to_str(pinfo->pool, &pinfo->net_src);
+    snprintf(tmp_addr_str, sizeof(tmp_addr_str) - 1, "%s (%s)", address_to_str(pinfo->pool, &pinfo->net_src), address_to_name(&pinfo->net_src));
     tick_stat_node(st, st_str_ip_src, 0, FALSE);
-    int src_id = tick_stat_node(st, src_addr, st_node_ip_src, TRUE);
+    int src_id = tick_stat_node(st, tmp_addr_str, st_node_ip_src, TRUE);
 
-    gchar *dst_addr = address_to_str(pinfo->pool, &pinfo->net_dst);
+    snprintf(tmp_addr_str, sizeof(tmp_addr_str) - 1, "%s (%s)", address_to_str(pinfo->pool, &pinfo->net_dst), address_to_name(&pinfo->net_dst));
     tick_stat_node(st, st_str_ip_dst, 0, FALSE);
-    int dst_id = tick_stat_node(st, dst_addr, st_node_ip_dst, TRUE);
+    int dst_id = tick_stat_node(st, tmp_addr_str, st_node_ip_dst, TRUE);
 
-    snprintf(tmp_srv_str, sizeof(tmp_srv_str) - 1, "Service 0x%04x", data->service_id);
-    snprintf(tmp_meth_str, sizeof(tmp_meth_str) - 1, "Method 0x%04x %s", data->method_id,
-             val_to_str(data->message_type, someip_msg_type, "Message-Type: 0x%02x"));
+    char *service_name = someip_lookup_service_name(data->service_id);
+    if (service_name == NULL) {
+        snprintf(tmp_srv_str, sizeof(tmp_srv_str) - 1, "Service 0x%04x", data->service_id);
+    } else {
+        snprintf(tmp_srv_str, sizeof(tmp_srv_str) - 1, "Service 0x%04x (%s)", data->service_id, service_name);
+    }
+
+    char *method_name = someip_lookup_method_name(data->service_id, data->method_id);
+    if (method_name == NULL) {
+        snprintf(tmp_meth_str, sizeof(tmp_meth_str) - 1, "Method 0x%04x %s", data->method_id,
+            val_to_str(data->message_type, someip_msg_type, "Message-Type: 0x%02x"));
+    } else {
+        snprintf(tmp_meth_str, sizeof(tmp_meth_str) - 1, "Method 0x%04x (%s) %s", data->method_id, method_name,
+            val_to_str(data->message_type, someip_msg_type, "Message-Type: 0x%02x"));
+    }
 
     tmp = tick_stat_node(st, tmp_srv_str, src_id, TRUE);
     tick_stat_node(st, tmp_meth_str, tmp, FALSE);
@@ -3200,7 +3214,7 @@ static int dissect_someip_payload_peek_length_of_length(proto_tree *tree, packet
     someip_payload_parameter_struct_t  *tmp_struct_config;
     someip_parameter_union_t           *tmp_union_config;
 
-    switch (item->data_type) {
+    switch (data_type) {
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_STRING:
         tmp_string_config = get_string_config(id_ref);
         if (tmp_string_config == NULL) {
@@ -3259,7 +3273,7 @@ dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     gint      offset_orig_bits = offset_bits;
     gint      bits_parsed = 0;
 
-    if (items == NULL && !someip_derserializer_wtlv_default) {
+    if (items == NULL && !someip_deserializer_wtlv_default) {
         return 0;
     }
 
@@ -3383,7 +3397,7 @@ dissect_someip_payload(tvbuff_t* tvb, packet_info* pinfo, proto_item *ti, guint1
     paramlist = get_parameter_config(serviceid, methodid, version, msgtype);
 
     if (paramlist == NULL) {
-        if (someip_derserializer_wtlv_default) {
+        if (someip_deserializer_wtlv_default) {
             bits_parsed = dissect_someip_payload_parameters(tvb, pinfo, tree, offset, offset_bits, NULL, 0, TRUE);
         } else {
             return;
@@ -3603,8 +3617,12 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
             if (tmp==0) {
                 ti = proto_tree_add_item(someip_tree, hf_someip_payload, subtvb, 0, tvb_length, ENC_NA);
 
-                if (someip_derserializer_activated) {
+                if (someip_deserializer_activated) {
                     dissect_someip_payload(subtvb, pinfo, ti, (guint16)someip_serviceid, (guint16)someip_methodid, (guint8)version, (guint8)(~SOMEIP_MSGTYPE_TP_MASK)&msgtype);
+                }
+                else {
+                    proto_tree* payload_dissection_disabled_info_sub_tree = proto_item_add_subtree(ti, ett_someip_payload);
+                    proto_tree_add_text_internal(payload_dissection_disabled_info_sub_tree, subtvb, 0, tvb_length, "Dissection of payload is disabled. It can be enabled via protocol preferences.");
                 }
             }
         }
@@ -4139,12 +4157,12 @@ proto_register_someip(void) {
     prefs_register_bool_preference(someip_module, "payload_dissector_activated",
         "Dissect Payload",
         "Should the SOME/IP Dissector use the payload dissector?",
-        &someip_derserializer_activated);
+        &someip_deserializer_activated);
 
     prefs_register_bool_preference(someip_module, "payload_dissector_wtlv_default",
         "Try WTLV payload dissection for unconfigured messages (not pure SOME/IP)",
         "Should the SOME/IP Dissector use the payload dissector with the experimental WTLV encoding for unconfigured messages?",
-        &someip_derserializer_wtlv_default);
+        &someip_deserializer_wtlv_default);
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_list", "SOME/IP Parameter List",
         "A table to define names of SOME/IP parameters", someip_parameter_list_uat);
@@ -4333,8 +4351,8 @@ proto_reg_handoff_someip(void) {
         dtls_dissector_add(0, someip_handle_udp);
         ssl_dissector_add(0, someip_handle_tcp);
 
-        heur_dissector_add("udp", dissect_some_ip_heur_udp, "SOME/IP_UDP_Heuristic", "someip_udp_heur", proto_someip, HEURISTIC_DISABLE);
-        heur_dissector_add("tcp", dissect_some_ip_heur_tcp, "SOME/IP_TCP_Heuristic", "someip_tcp_heur", proto_someip, HEURISTIC_DISABLE);
+        heur_dissector_add("udp", dissect_some_ip_heur_udp, "SOME/IP over UDP", "someip_udp_heur", proto_someip, HEURISTIC_DISABLE);
+        heur_dissector_add("tcp", dissect_some_ip_heur_tcp, "SOME/IP over TCP", "someip_tcp_heur", proto_someip, HEURISTIC_DISABLE);
 
         stats_tree_register("someip_messages", "someip_messages", "SOME/IP Messages", 0, someip_messages_stats_tree_packet, someip_messages_stats_tree_init, NULL);
 

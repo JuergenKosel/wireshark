@@ -151,7 +151,7 @@ fuzz_prefs_apply(void)
 static int
 fuzz_init(int argc _U_, char **argv)
 {
-	char                *init_progfile_dir_error;
+	char                *configuration_init_error;
 
 	static const struct report_message_routines fuzzshark_report_routines = {
 		failure_message,
@@ -256,15 +256,15 @@ fuzz_init(int argc _U_, char **argv)
 	/*
 	 * Attempt to get the pathname of the executable file.
 	 */
-	init_progfile_dir_error = init_progfile_dir(argv[0]);
-	if (init_progfile_dir_error != NULL) {
-		fprintf(stderr, "fuzzshark: Can't get pathname of oss-fuzzshark program: %s.\n", init_progfile_dir_error);
-		g_free(init_progfile_dir_error);
+	configuration_init_error = configuration_init(argv[0], NULL);
+	if (configuration_init_error != NULL) {
+		fprintf(stderr, "fuzzshark: Can't get pathname of oss-fuzzshark program: %s.\n", configuration_init_error);
+		g_free(configuration_init_error);
 	}
 
 	/* Initialize the version information. */
-	ws_init_version_info("OSS Fuzzshark (Wireshark)", NULL,
-	    epan_get_compiled_version_info, epan_get_runtime_version_info);
+	ws_init_version_info("OSS Fuzzshark",
+	    epan_gather_compile_info, epan_gather_runtime_info);
 
 	init_report_message("fuzzshark", &fuzzshark_report_routines);
 

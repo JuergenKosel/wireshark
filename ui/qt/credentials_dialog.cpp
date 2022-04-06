@@ -17,7 +17,7 @@
 #include "credentials_dialog.h"
 #include <ui_credentials_dialog.h>
 #include <ui/tap-credentials.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 #include "ui/qt/models/credentials_model.h"
 #include <ui/qt/models/url_link_delegate.h>
@@ -103,9 +103,17 @@ void CredentialsDialog::actionGoToPacket(const QModelIndex& idx)
 
     QVariant packet_data = idx.data(Qt::UserRole);
     QVariant hf_id = idx.data(CredentialsModel::ColumnHFID);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    if (!hf_id.canConvert<int>())
+        hf_id = QVariant::fromValue(0);
+
+    if (packet_data.canConvert<int>())
+        packet_list_->goToPacket(packet_data.toInt(), hf_id.toInt());
+#else
     if (!hf_id.canConvert(QVariant::Int))
         hf_id = QVariant::fromValue(0);
 
     if (packet_data.canConvert(QVariant::Int))
         packet_list_->goToPacket(packet_data.toInt(), hf_id.toInt());
+#endif
 }

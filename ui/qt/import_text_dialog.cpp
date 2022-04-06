@@ -20,6 +20,7 @@
 #include "ui/last_open_dir.h"
 #include "ui/alert_box.h"
 #include "ui/help_url.h"
+#include "ui/capture_globals.h"
 
 #include "file.h"
 #include "wsutil/file_util.h"
@@ -29,7 +30,7 @@
 #include "wsutil/filesystem.h"
 
 #include <ui_import_text_dialog.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 #include <ui/qt/utils/qt_ui_utils.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
@@ -75,7 +76,7 @@ ImportTextDialog::ImportTextDialog(QWidget *parent) :
     int file_type_subtype;
 
     ti_ui_->setupUi(this);
-    setWindowTitle(wsApp->windowTitleString(tr("Import From Hex Dump")));
+    setWindowTitle(mainApp->windowTitleString(tr("Import From Hex Dump")));
     memset(&import_info_, 0, sizeof(import_info_));
 
     import_button_ = ti_ui_->buttonBox->button(QDialogButtonBox::Open);
@@ -510,7 +511,7 @@ int ImportTextDialog::exec() {
     }
     text_import_pre_open(&params, file_type_subtype, import_info_.import_text_filename, interface_name.toUtf8().constData());
     /* Use a random name for the temporary import buffer */
-    import_info_.wdh = wtap_dump_open_tempfile(&tmp, "import", file_type_subtype, WTAP_UNCOMPRESSED, &params, &err, &err_info);
+    import_info_.wdh = wtap_dump_open_tempfile(global_capture_opts.temp_dir, &tmp, "import", file_type_subtype, WTAP_UNCOMPRESSED, &params, &err, &err_info);
     capfile_name_.append(tmp ? tmp : "temporary file");
     import_info_.output_filename = tmp;
 
@@ -529,7 +530,7 @@ int ImportTextDialog::exec() {
     }
 
   cleanup: /* free in reverse order of allocation */
-    if (!wtap_dump_close(import_info_.wdh, &err, &err_info))
+    if (!wtap_dump_close(import_info_.wdh, NULL, &err, &err_info))
     {
         cfile_close_failure_alert_box(capfile_name_.toUtf8().constData(), err, err_info);
     }
@@ -626,7 +627,7 @@ void ImportTextDialog::on_textFileBrowseButton_clicked()
         }
     }
 
-    QString file_name = WiresharkFileDialog::getOpenFileName(this, wsApp->windowTitleString(tr("Import Text File")), open_dir);
+    QString file_name = WiresharkFileDialog::getOpenFileName(this, mainApp->windowTitleString(tr("Import Text File")), open_dir);
     ti_ui_->textFileLineEdit->setText(file_name);
 }
 
@@ -641,7 +642,7 @@ bool ImportTextDialog::checkDateTimeFormat(const QString &time_format)
      * probably better */
     if (time_format == "ISO") {
         ret = true;
-    } else while ((idx = time_format.indexOf("%", idx)) != -1) {
+    } else while ((idx = static_cast<int>(time_format.indexOf("%", idx))) != -1) {
         idx++;
         if ((idx == time_format.size()) || !valid_code.contains(time_format[idx])) {
             return false;
@@ -779,7 +780,12 @@ void ImportTextDialog::enableFieldWidgets(bool enable_direction_input, bool enab
 void ImportTextDialog::on_dataEncodingComboBox_currentIndexChanged(int index)
 {
     QVariant val = ti_ui_->dataEncodingComboBox->itemData(index);
-    if (val != QVariant::Invalid) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    if (val.canConvert<int>())
+#else
+    if (val != QVariant::Invalid)
+#endif
+    {
         // data_encoding_ok = true;
         import_info_.regex.encoding = (enum data_encoding) val.toUInt();
         switch (import_info_.regex.encoding) {
@@ -920,8 +926,12 @@ void ImportTextDialog::enableHeaderWidgets(uint encapsulation) {
 void ImportTextDialog::on_encapComboBox_currentIndexChanged(int index)
 {
     QVariant val = ti_ui_->encapComboBox->itemData(index);
-
-    if (val != QVariant::Invalid) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    if (val.canConvert<int>())
+#else
+    if (val != QVariant::Invalid)
+#endif
+    {
         import_info_.encapsulation = val.toUInt();
     } else {
         import_info_.encapsulation = WTAP_ENCAP_UNKNOWN;
@@ -1074,5 +1084,5 @@ void ImportTextDialog::on_maxLengthLineEdit_textChanged(const QString &max_frame
 
 void ImportTextDialog::on_buttonBox_helpRequested()
 {
-    wsApp->helpTopicAction(HELP_IMPORT_DIALOG);
+    mainApp->helpTopicAction(HELP_IMPORT_DIALOG);
 }

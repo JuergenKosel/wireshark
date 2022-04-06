@@ -18,7 +18,7 @@
 #include <ui/preference_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 
-#include "wireshark_application.h"
+#include "main_application.h"
 
 #include <QAbstractItemModel>
 
@@ -51,7 +51,7 @@ void InterfaceSortFilterModel::setStoreOnChange(bool storeOnChange)
     _storeOnChange = storeOnChange;
     if (storeOnChange)
     {
-        connect(wsApp, &WiresharkApplication::preferencesChanged, this, &InterfaceSortFilterModel::resetPreferenceData);
+        connect(mainApp, &MainApplication::preferencesChanged, this, &InterfaceSortFilterModel::resetPreferenceData);
         resetPreferenceData();
     }
 }
@@ -327,7 +327,7 @@ int InterfaceSortFilterModel::mapSourceToColumn(InterfaceTreeColumns mdlIndex)
     if (! _columns.contains(mdlIndex))
         return -1;
 
-    return _columns.indexOf(mdlIndex, 0);
+    return static_cast<int>(_columns.indexOf(mdlIndex, 0));
 }
 
 QModelIndex InterfaceSortFilterModel::mapToSource(const QModelIndex &proxyIndex) const
@@ -353,7 +353,7 @@ QModelIndex InterfaceSortFilterModel::mapFromSource(const QModelIndex &sourceInd
 
     QModelIndex newIndex = QSortFilterProxyModel::mapFromSource(sourceIndex);
 
-    return index(newIndex.row(), _columns.indexOf((InterfaceTreeColumns) sourceIndex.column()));
+    return index(newIndex.row(), static_cast<int>(_columns.indexOf((InterfaceTreeColumns) sourceIndex.column())));
 }
 
 QString InterfaceSortFilterModel::interfaceError()

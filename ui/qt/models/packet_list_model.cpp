@@ -26,7 +26,7 @@
 
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 #include <ui/qt/main_window.h>
 #include <ui/qt/main_status_bar.h>
 #include <ui/qt/widgets/wireless_timeline.h>
@@ -82,9 +82,9 @@ PacketListModel::PacketListModel(QObject *parent, capture_file *cf) :
     new_visible_rows_.reserve(1000);
     number_to_row_.reserve(reserved_packets_);
 
-    if (qobject_cast<MainWindow *>(wsApp->mainWindow()))
+    if (qobject_cast<MainWindow *>(mainApp->mainWindow()))
     {
-            MainWindow *mw = qobject_cast<MainWindow *>(wsApp->mainWindow());
+            MainWindow *mw = qobject_cast<MainWindow *>(mainApp->mainWindow());
             QWidget * wtWidget = mw->findChild<WirelessTimeline *>();
             if (wtWidget && qobject_cast<WirelessTimeline *>(wtWidget))
             {
@@ -147,18 +147,18 @@ guint PacketListModel::recreateVisibleRows()
 
         if (fdata->passed_dfilter || fdata->ref_time) {
             visible_rows_ << record;
-            if (number_to_row_.size() <= (int)fdata->num) {
+            if (static_cast<guint32>(number_to_row_.size()) <= fdata->num) {
                 number_to_row_.resize(fdata->num + 10000);
             }
-            number_to_row_[fdata->num] = visible_rows_.count();
+            number_to_row_[fdata->num] = static_cast<int>(visible_rows_.count());
         }
     }
     if (!visible_rows_.isEmpty()) {
-        beginInsertRows(QModelIndex(), 0, visible_rows_.count() - 1);
+        beginInsertRows(QModelIndex(), 0, static_cast<int>(visible_rows_.count()) - 1);
         endInsertRows();
     }
     idle_dissection_row_ = 0;
-    return visible_rows_.count();
+    return static_cast<guint>(visible_rows_.count());
 }
 
 void PacketListModel::clear() {
@@ -358,7 +358,7 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
     // something we can interrupt.
     if (!col_title.isEmpty()) {
         QString busy_msg = tr("Sorting \"%1\"…").arg(col_title);
-        wsApp->pushStatus(WiresharkApplication::BusyStatus, busy_msg);
+        mainApp->pushStatus(MainApplication::BusyStatus, busy_msg);
     }
 
     busy_timer_.start();
@@ -376,13 +376,13 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
             if (number_to_row_.size() <= (int)fdata->num) {
                 number_to_row_.resize(fdata->num + 10000);
             }
-            number_to_row_[fdata->num] = visible_rows_.count();
+            number_to_row_[fdata->num] = static_cast<int>(visible_rows_.count());
         }
     }
     emit endResetModel();
 
     if (!col_title.isEmpty()) {
-        wsApp->popStatus(WiresharkApplication::BusyStatus);
+        mainApp->popStatus(MainApplication::BusyStatus);
     }
 
     if (cap_file_->current_frame) {
@@ -468,7 +468,7 @@ bool PacketListModel::recordLessThan(PacketListRecord *r1, PacketListRecord *r2)
     if (busy_timer_.elapsed() > busy_timeout_) {
         // What's the least amount of processing that we can do which will draw
         // the busy indicator?
-        wsApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
+        mainApp->processEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::ExcludeSocketNotifiers, 1);
         busy_timer_.restart();
     }
     if (sort_column_ < 0) {
@@ -543,7 +543,7 @@ void PacketListModel::emitItemHeightChanged(const QModelIndex &ih_index)
 
 int PacketListModel::rowCount(const QModelIndex &) const
 {
-    return visible_rows_.count();
+    return static_cast<int>(visible_rows_.count());
 }
 
 int PacketListModel::columnCount(const QModelIndex &) const
@@ -658,20 +658,20 @@ QVariant PacketListModel::headerData(int section, Qt::Orientation orientation,
 
 void PacketListModel::flushVisibleRows()
 {
-    gint pos = visible_rows_.count();
+    int pos = static_cast<int>(visible_rows_.count());
 
     if (new_visible_rows_.count() > 0) {
-        emit beginInsertRows(QModelIndex(), pos, pos + new_visible_rows_.count());
+        beginInsertRows(QModelIndex(), pos, pos + static_cast<int>(new_visible_rows_.count()));
         foreach (PacketListRecord *record, new_visible_rows_) {
             frame_data *fdata = record->frameData();
 
             visible_rows_ << record;
-            if (number_to_row_.size() <= (int)fdata->num) {
+            if (static_cast<unsigned int>(number_to_row_.size()) <= fdata->num) {
                 number_to_row_.resize(fdata->num + 10000);
             }
-            number_to_row_[fdata->num] = visible_rows_.count();
+            number_to_row_[fdata->num] = static_cast<int>(visible_rows_.count());
         }
-        emit endInsertRows();
+        endInsertRows();
         new_visible_rows_.resize(0);
     }
 }
@@ -713,7 +713,7 @@ void PacketListModel::dissectIdle(bool reset)
 gint PacketListModel::appendPacket(frame_data *fdata)
 {
     PacketListRecord *record = new PacketListRecord(fdata);
-    gint pos = -1;
+    qsizetype pos = -1;
 
 #ifdef DEBUG_PACKET_LIST_MODEL
     if (fdata->num % 10000 == 1) {
@@ -730,10 +730,10 @@ gint PacketListModel::appendPacket(frame_data *fdata)
             // the next UI update.
             QTimer::singleShot(0, this, SLOT(flushVisibleRows()));
         }
-        pos = visible_rows_.count() + new_visible_rows_.count() - 1;
+        pos = static_cast<int>( visible_rows_.count() + new_visible_rows_.count() ) - 1;
     }
 
-    return pos;
+    return static_cast<gint>(pos);
 }
 
 frame_data *PacketListModel::getRowFdata(QModelIndex idx)

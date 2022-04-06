@@ -2045,7 +2045,10 @@ uninstall_nghttp2() {
 install_libtiff() {
     if [ "$LIBTIFF_VERSION" -a ! -f tiff-$LIBTIFF_VERSION-done ] ; then
         echo "Downloading, building, and installing libtiff:"
-        [ -f libtiff-$LIBTIFF_VERSION.tar.gz ] || curl -L -O https://download.osgeo.org/libtiff/tiff-$LIBTIFF_VERSION.tar.gz || exit 1
+        [ -f tiff-$LIBTIFF_VERSION.tar.gz ] || 
+            curl --fail -L -O https://download.osgeo.org/libtiff/tiff-$LIBTIFF_VERSION.tar.gz     || 
+            curl --fail -L -O https://download.osgeo.org/libtiff/old/tiff-$LIBTIFF_VERSION.tar.gz || 
+            exit 1
         $no_build && echo "Skipping installation" && return
         gzcat tiff-$LIBTIFF_VERSION.tar.gz | tar xf - || exit 1
         cd tiff-$LIBTIFF_VERSION
@@ -3520,10 +3523,10 @@ export CFLAGS
 export CXXFLAGS
 
 #
-# You need Xcode or the command-line tools installed to get the compilers.
+# You need Xcode or the command-line tools installed to get the compilers (xcrun checks both).
 #
-if [ ! -x /usr/bin/xcodebuild ]; then
-    echo "Please install Xcode first (should be available on DVD or from the Mac App Store)."
+ if [ ! -x /usr/bin/xcrun ]; then
+    echo "Please install Xcode (app or command line) first (should be available on DVD or from the Mac App Store)."
     exit 1
 fi
 
@@ -3540,9 +3543,12 @@ if [ "$QT_VERSION" ]; then
     #
     if /usr/bin/xcodebuild -version >/dev/null 2>&1; then
         :
+    elif qmake --version >/dev/null 2>&1; then
+        :
     else
         echo "Please install Xcode first (should be available on DVD or from the Mac App Store)."
         echo "The command-line build tools are not sufficient to build Qt."
+        echo "Alternatively build QT according to: https://gist.github.com/shoogle/750a330c851bd1a924dfe1346b0b4a08#:~:text=MacOS%2FQt%5C%20Creator-,Go%20to%20Qt%20Creator%20%3E%20Preferences%20%3E%20Build%20%26%20Run%20%3E%20Kits,for%20both%20compilers%2C%20not%20gcc%20."
         exit 1
     fi
 fi

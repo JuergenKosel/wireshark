@@ -35,7 +35,7 @@
 #include "rtp_audio_stream.h"
 #include <ui/qt/utils/tango_colors.h>
 #include <widgets/rtp_audio_graph.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <QAudio>
@@ -55,7 +55,7 @@
 #include <QToolButton>
 
 #include <ui/qt/utils/stock_icon.h>
-#include "wireshark_application.h"
+#include "main_application.h"
 
 // To do:
 // - Threaded decoding?
@@ -134,11 +134,12 @@ public:
 };
 
 RtpPlayerDialog *RtpPlayerDialog::pinstance_{nullptr};
-std::mutex RtpPlayerDialog::mutex_;
+std::mutex RtpPlayerDialog::init_mutex_;
+std::mutex RtpPlayerDialog::run_mutex_;
 
 RtpPlayerDialog *RtpPlayerDialog::openRtpPlayerDialog(QWidget &parent, CaptureFile &cf, QObject *packet_list, bool capture_running)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(init_mutex_);
     if (pinstance_ == nullptr)
     {
         pinstance_ = new RtpPlayerDialog(parent, cf, capture_running);
@@ -148,7 +149,7 @@ RtpPlayerDialog *RtpPlayerDialog::openRtpPlayerDialog(QWidget &parent, CaptureFi
     return pinstance_;
 }
 
-RtpPlayerDialog::RtpPlayerDialog(QWidget &parent, CaptureFile &cf, bool capture_running) :
+RtpPlayerDialog::RtpPlayerDialog(QWidget &parent, CaptureFile &cf, bool capture_running _U_) :
     WiresharkDialog(parent, cf)
 #ifdef QT_MULTIMEDIA_LIB
     , ui(new Ui::RtpPlayerDialog)
@@ -172,7 +173,7 @@ RtpPlayerDialog::RtpPlayerDialog(QWidget &parent, CaptureFile &cf, bool capture_
 {
     ui->setupUi(this);
     loadGeometry(parent.width(), parent.height());
-    setWindowTitle(wsApp->windowTitleString(tr("RTP Player")));
+    setWindowTitle(mainApp->windowTitleString(tr("RTP Player")));
     ui->streamTreeWidget->installEventFilter(this);
     ui->audioPlot->installEventFilter(this);
     installEventFilter(this);
@@ -377,16 +378,18 @@ QToolButton *RtpPlayerDialog::addPlayerButton(QDialogButtonBox *button_box, QDia
 #ifdef QT_MULTIMEDIA_LIB
 RtpPlayerDialog::~RtpPlayerDialog()
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    cleanupMarkerStream();
-    for (int row = 0; row < ui->streamTreeWidget->topLevelItemCount(); row++) {
-        QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
-        RtpAudioStream *audio_stream = ti->data(stream_data_col_, Qt::UserRole).value<RtpAudioStream*>();
-        if (audio_stream)
-            delete audio_stream;
+    std::lock_guard<std::mutex> lock(init_mutex_);
+    if (pinstance_ != nullptr) {
+        cleanupMarkerStream();
+        for (int row = 0; row < ui->streamTreeWidget->topLevelItemCount(); row++) {
+            QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
+            RtpAudioStream *audio_stream = ti->data(stream_data_col_, Qt::UserRole).value<RtpAudioStream*>();
+            if (audio_stream)
+                delete audio_stream;
+        }
+        delete ui;
+        pinstance_ = nullptr;
     }
-    delete ui;
-    pinstance_ = nullptr;
 }
 
 void RtpPlayerDialog::accept()
@@ -419,7 +422,7 @@ void RtpPlayerDialog::retapPackets()
     }
     lockUI();
     ui->hintLabel->setText("<i><small>" + tr("Decoding streams...") + "</i></small>");
-    wsApp->processEvents();
+    mainApp->processEvents();
 
     // Clear packets from existing streams before retap
     for (int row = 0; row < ui->streamTreeWidget->topLevelItemCount(); row++) {
@@ -463,7 +466,7 @@ void RtpPlayerDialog::rescanPackets(bool rescale_axes)
     // Show information for a user - it can last long time...
     playback_error_.clear();
     ui->hintLabel->setText("<i><small>" + tr("Decoding streams...") + "</i></small>");
-    wsApp->processEvents();
+    mainApp->processEvents();
 
     QAudioDeviceInfo cur_out_device = getCurrentDeviceInfo();
     int row_count = ui->streamTreeWidget->topLevelItemCount();
@@ -580,7 +583,7 @@ void RtpPlayerDialog::createPlot(bool rescale_axes)
             // Sequence numbers
             QCPGraph *seq_graph = ui->audioPlot->addGraph();
             seq_graph->setLineStyle(QCPGraph::lsNone);
-            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssSquare, tango_aluminium_6, Qt::white, wsApp->font().pointSize())); // Arbitrary
+            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssSquare, tango_aluminium_6, Qt::white, mainApp->font().pointSize())); // Arbitrary
             seq_graph->setSelectable(QCP::stNone);
             seq_graph->setData(audio_stream->outOfSequenceTimestamps(relative_timestamps), audio_stream->outOfSequenceSamples(y_offset));
             ti->setData(graph_sequence_data_col_, Qt::UserRole, QVariant::fromValue<QCPGraph *>(seq_graph));
@@ -596,7 +599,7 @@ void RtpPlayerDialog::createPlot(bool rescale_axes)
             // Jitter drops
             QCPGraph *seq_graph = ui->audioPlot->addGraph();
             seq_graph->setLineStyle(QCPGraph::lsNone);
-            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, tango_scarlet_red_5, Qt::white, wsApp->font().pointSize())); // Arbitrary
+            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, tango_scarlet_red_5, Qt::white, mainApp->font().pointSize())); // Arbitrary
             seq_graph->setSelectable(QCP::stNone);
             seq_graph->setData(audio_stream->jitterDroppedTimestamps(relative_timestamps), audio_stream->jitterDroppedSamples(y_offset));
             ti->setData(graph_jitter_data_col_, Qt::UserRole, QVariant::fromValue<QCPGraph *>(seq_graph));
@@ -612,7 +615,7 @@ void RtpPlayerDialog::createPlot(bool rescale_axes)
             // Wrong timestamps
             QCPGraph *seq_graph = ui->audioPlot->addGraph();
             seq_graph->setLineStyle(QCPGraph::lsNone);
-            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDiamond, tango_sky_blue_5, Qt::white, wsApp->font().pointSize())); // Arbitrary
+            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDiamond, tango_sky_blue_5, Qt::white, mainApp->font().pointSize())); // Arbitrary
             seq_graph->setSelectable(QCP::stNone);
             seq_graph->setData(audio_stream->wrongTimestampTimestamps(relative_timestamps), audio_stream->wrongTimestampSamples(y_offset));
             ti->setData(graph_timestamp_data_col_, Qt::UserRole, QVariant::fromValue<QCPGraph *>(seq_graph));
@@ -628,7 +631,7 @@ void RtpPlayerDialog::createPlot(bool rescale_axes)
             // Inserted silence
             QCPGraph *seq_graph = ui->audioPlot->addGraph();
             seq_graph->setLineStyle(QCPGraph::lsNone);
-            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssTriangle, tango_butter_5, Qt::white, wsApp->font().pointSize())); // Arbitrary
+            seq_graph->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssTriangle, tango_butter_5, Qt::white, mainApp->font().pointSize())); // Arbitrary
             seq_graph->setSelectable(QCP::stNone);
             seq_graph->setData(audio_stream->insertedSilenceTimestamps(relative_timestamps), audio_stream->insertedSilenceSamples(y_offset));
             ti->setData(graph_silence_data_col_, Qt::UserRole, QVariant::fromValue<QCPGraph *>(seq_graph));
@@ -773,75 +776,87 @@ void RtpPlayerDialog::unlockUI()
 
 void RtpPlayerDialog::replaceRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lockUI();
+    std::unique_lock<std::mutex> lock(run_mutex_, std::try_to_lock);
+    if (lock.owns_lock()) {
+        lockUI();
 
-    // Delete all existing rows
-    if (last_ti_) {
-        highlightItem(last_ti_, false);
-        last_ti_ = NULL;
-    }
+        // Delete all existing rows
+        if (last_ti_) {
+            highlightItem(last_ti_, false);
+            last_ti_ = NULL;
+        }
 
-    for (int row = ui->streamTreeWidget->topLevelItemCount() - 1; row >= 0; row--) {
-        QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
-        removeRow(ti);
-    }
+        for (int row = ui->streamTreeWidget->topLevelItemCount() - 1; row >= 0; row--) {
+            QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
+            removeRow(ti);
+        }
 
-    // Add all new streams
-    for (int i=0; i < stream_ids.size(); i++) {
-        addSingleRtpStream(stream_ids[i]);
-    }
-    setMarkers();
+        // Add all new streams
+        for (int i=0; i < stream_ids.size(); i++) {
+            addSingleRtpStream(stream_ids[i]);
+        }
+        setMarkers();
 
-    unlockUI();
+        unlockUI();
 #ifdef QT_MULTIMEDIA_LIB
-    QTimer::singleShot(0, this, SLOT(retapPackets()));
+        QTimer::singleShot(0, this, SLOT(retapPackets()));
 #endif
+    } else {
+        ws_warning("replaceRtpStreams was called while other thread locked it. Current call is ignored, try it later.");
+    }
 }
 
 void RtpPlayerDialog::addRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lockUI();
+    std::unique_lock<std::mutex> lock(run_mutex_, std::try_to_lock);
+    if (lock.owns_lock()) {
+        lockUI();
 
-    int tli_count = ui->streamTreeWidget->topLevelItemCount();
+        int tli_count = ui->streamTreeWidget->topLevelItemCount();
 
-    // Add new streams
-    for (int i=0; i < stream_ids.size(); i++) {
-        addSingleRtpStream(stream_ids[i]);
-    }
+        // Add new streams
+        for (int i=0; i < stream_ids.size(); i++) {
+            addSingleRtpStream(stream_ids[i]);
+        }
 
-    if (tli_count == 0) {
-        setMarkers();
-    }
+        if (tli_count == 0) {
+            setMarkers();
+        }
 
-    unlockUI();
+        unlockUI();
 #ifdef QT_MULTIMEDIA_LIB
-    QTimer::singleShot(0, this, SLOT(retapPackets()));
+        QTimer::singleShot(0, this, SLOT(retapPackets()));
 #endif
+    } else {
+        ws_warning("addRtpStreams was called while other thread locked it. Current call is ignored, try it later.");
+    }
 }
 
 void RtpPlayerDialog::removeRtpStreams(QVector<rtpstream_id_t *> stream_ids)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lockUI();
-    int tli_count = ui->streamTreeWidget->topLevelItemCount();
+    std::unique_lock<std::mutex> lock(run_mutex_, std::try_to_lock);
+    if (lock.owns_lock()) {
+        lockUI();
+        int tli_count = ui->streamTreeWidget->topLevelItemCount();
 
-    for (int i=0; i < stream_ids.size(); i++) {
-        for (int row = 0; row < tli_count; row++) {
-            QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
-            RtpAudioStream *row_stream = ti->data(stream_data_col_, Qt::UserRole).value<RtpAudioStream*>();
-            if (row_stream->isMatch(stream_ids[i])) {
-                removeRow(ti);
-                tli_count--;
-                break;
+        for (int i=0; i < stream_ids.size(); i++) {
+            for (int row = 0; row < tli_count; row++) {
+                QTreeWidgetItem *ti = ui->streamTreeWidget->topLevelItem(row);
+                RtpAudioStream *row_stream = ti->data(stream_data_col_, Qt::UserRole).value<RtpAudioStream*>();
+                if (row_stream->isMatch(stream_ids[i])) {
+                    removeRow(ti);
+                    tli_count--;
+                    break;
+                }
             }
         }
-    }
-    updateGraphs();
+        updateGraphs();
 
-    updateWidgets();
-    unlockUI();
+        updateWidgets();
+        unlockUI();
+    } else {
+        ws_warning("removeRtpStreams was called while other thread locked it. Current call is ignored, try it later.");
+    }
 }
 
 void RtpPlayerDialog::setMarkers()
@@ -1105,7 +1120,11 @@ void RtpPlayerDialog::graphClicked(QMouseEvent *event)
 {
     updateWidgets();
     if (event->button() == Qt::RightButton) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
+        graph_ctx_menu_->exec(event->globalPosition().toPoint());
+#else
         graph_ctx_menu_->exec(event->globalPos());
+#endif
     }
 }
 
@@ -1340,7 +1359,7 @@ void RtpPlayerDialog::on_playButton_clicked()
     double start_time;
 
     ui->hintLabel->setText("<i><small>" + tr("Preparing to play...") + "</i></small>");
-    wsApp->processEvents();
+    mainApp->processEvents();
     ui->pauseButton->setChecked(false);
 
     // Protect start time against move of marker during the play
@@ -1940,7 +1959,7 @@ void RtpPlayerDialog::on_todCheckBox_toggled(bool)
 
 void RtpPlayerDialog::on_buttonBox_helpRequested()
 {
-    wsApp->helpTopicAction(HELP_TELEPHONY_RTP_PLAYER_DIALOG);
+    mainApp->helpTopicAction(HELP_TELEPHONY_RTP_PLAYER_DIALOG);
 }
 
 double RtpPlayerDialog::getStartPlayMarker()
@@ -2292,7 +2311,7 @@ save_audio_t RtpPlayerDialog::selectFileAudioFormatAndName(QString *file_path)
 
     QString sel_filter;
     *file_path = WiresharkFileDialog::getSaveFileName(
-                this, tr("Save audio"), wsApp->lastOpenDir().absoluteFilePath(""),
+                this, tr("Save audio"), mainApp->lastOpenDir().absoluteFilePath(""),
                 ext_filter, &sel_filter);
 
     if (file_path->isEmpty()) return save_audio_none;
@@ -2315,7 +2334,7 @@ save_payload_t RtpPlayerDialog::selectFilePayloadFormatAndName(QString *file_pat
 
     QString sel_filter;
     *file_path = WiresharkFileDialog::getSaveFileName(
-                this, tr("Save payload"), wsApp->lastOpenDir().absoluteFilePath(""),
+                this, tr("Save payload"), mainApp->lastOpenDir().absoluteFilePath(""),
                 ext_filter, &sel_filter);
 
     if (file_path->isEmpty()) return save_payload_none;

@@ -1481,6 +1481,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Прекратить захват после окончания указанного времени.</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optionally specify a temporary directory for unnamed capture files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Directory for temporary files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture Options</source>
         <translation>Опции Захвата</translation>
     </message>
@@ -1495,6 +1503,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Specify a Capture File</source>
         <translation>Указать Файл Захвата</translation>
+    </message>
+    <message>
+        <source>Specify temporary directory</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -1981,16 +1993,20 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Подобрать, используя это поле</translation>
     </message>
     <message>
+        <source>Change behavior when the field matches this value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Field value type (and base, if Integer)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Current&quot;Decode As&quot; behavior</source>
         <translation>Текущее поведение  &quot;Декодировать как&quot;</translation>
     </message>
     <message>
         <source>Default &quot;Decode As&quot; behavior</source>
         <translation>&quot;Декодировать Как&quot; поведение по умолчанию</translation>
-    </message>
-    <message>
-        <source>Change behavior when the protocol field matches this value</source>
-        <translation>Изменить поведение, когда поле протокола соответствует этой величине</translation>
     </message>
     <message>
         <source>String</source>
@@ -5700,6 +5716,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Показывать определение столбца в контекстом меню столбца</translation>
     </message>
     <message>
+        <source>Allow the list to be sorted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Enable mouse-over colorization</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6376,10 +6396,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>HTTP</source>
         <translation>HTTP</translation>
-    </message>
-    <message>
-        <source>900000000</source>
-        <translation>900000000</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -7327,6 +7343,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Filter this Association</source>
         <translation>Фильтровать эту Ассоциацию</translation>
+    </message>
+    <message>
+        <source>Strip Headers…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Strip headers and export higher level encapsulations to file</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;I/O Graphs</source>
@@ -8896,6 +8920,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;small&gt;&lt;i&gt;&lt;/i&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>Show packet bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet %1</source>
         <translation>Пакет %1</translation>
     </message>
@@ -8973,6 +9001,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Bytes</source>
         <translation>Байты</translation>
+    </message>
+    <message>
+        <source>Include secondary data sources</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -12949,6 +12985,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Изображение</translation>
     </message>
     <message>
+        <source>Json</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Raw</source>
         <translation>Raw</translation>
     </message>
@@ -13065,6 +13105,17 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Unable to find configuration for %1.</source>
         <translation>Невозможно найти конфигурацию для %1.</translation>
+    </message>
+</context>
+<context>
+    <name>StripHeadersDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation type="unfinished">Диалог</translation>
+    </message>
+    <message>
+        <source>Display filter:</source>
+        <translation type="unfinished">Дисплейный фильтр:</translation>
     </message>
 </context>
 <context>

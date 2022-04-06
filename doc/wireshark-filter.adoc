@@ -77,8 +77,6 @@ operators, their aliases and meaning:
         all_eq, ===   All fields must be equal
         any_ne, !==   Any fields must be not equal
 
-The operator !== (any_ne) can also be written as ~=.
-
 === Search and match operators
 
 Additional operators exist expressed only in English, not C-like syntax:
@@ -172,13 +170,14 @@ Each protocol field is typed. The types are:
     Unsigned integer, 1, 2, 3, 4, or 8 bytes
     1-byte ASCII character
 
-An integer may be expressed in decimal, octal, or hexadecimal notation,
+An integer may be expressed in decimal, octal, hexadecimal or binary notation,
 or as a C-style character constant.  The following six display filters
 are equivalent:
 
     frame.len > 10
     frame.len > 012
     frame.len > 0xa
+    frame.len > 0b1010
     frame.len > '\n'
     frame.len > '\x0a'
     frame.len > '\012'
@@ -372,15 +371,15 @@ can be convenient:
     frame[4] == 0xff
     frame[1:4] contains 0x02
 
-=== Bit field operations
+=== Bitwise operators
 
-It is also possible to define tests with bit field operations. Currently the
-following bit field operation is supported:
+It is also possible to define tests with bitwise operations. Currently the
+following bitwise operator is supported:
 
     bitwise_and, &	Bitwise AND
 
-The bitwise AND operation allows testing to see if one or more bits are set.
-Bitwise AND operates on integer protocol fields and slices.
+The bitwise AND operation allows masking bits and testing to see if one or
+more bits are set. Bitwise AND operates on integer protocol fields and slices.
 
 When testing for TCP SYN packets, you can write:
 
@@ -389,27 +388,62 @@ When testing for TCP SYN packets, you can write:
 That expression will match all packets that contain a "tcp.flags" field
 with the 0x02 bit, i.e. the SYN bit, set.
 
-Similarly, filtering for all WSP GET and extended GET methods is achieved with:
+To match locally administered unicast ethernet addresses you can use:
 
-    wsp.pdu_type & 0x40
+    eth.addr[0] & 0x0f == 2
 
 When using slices, the bit mask must be specified as a byte string, and it must
 have the same number of bytes as the slice itself, as in:
 
     ip[42:2] & 40:ff
 
+=== Arithmetic operators
+
+Simple arithmetic expressions are available. The following operators are
+supported:
+
+    +   Addition
+    -   Subtraction
+    *   Multiplication
+    /   Division
+    %   Modulo (integer remainder)
+
+For example it is possible to filter for UDP destination ports greater or
+equal by one to the source port with the expression:
+
+    udp.dstport >= udp.srcport + 1
+
+=== Protocol field references
+
+A variable using a sigil with the form ${some.proto.field} is called a field
+reference. A field reference is a field value read from the currently
+selected frame in the GUI. This is useful to build dynamic filters such as,
+frames since the last five minutes to the selected frame:
+
+    frame.time_relative >= ${frame.time_relative} - 300
+
+Field references share a similar notation to macros but are distinct
+syntactical elements in the filter language.
+
 === Logical expressions
 
 Tests can be combined using logical expressions.
 These too are expressible in C-like syntax or with English-like
-abbreviations:
+abbreviations. The following table lists the logical operators from
+highest to lowest precedence:
 
-    and, &&   Logical AND
-    or,  ||   Logical OR
-    not, !    Logical NOT
+    not, !    Logical NOT   (right-associative)
+    and, &&   Logical AND   (left-associative)
+    or,  ||   Logical OR    (left-associative)
 
-Expressions can be grouped by parentheses as well.  The following are
-all valid display filter expressions:
+The evaluation is always performed left to right. Expressions can be grouped
+by parentheses as well. The expression "A and B or not C or D and not E or F"
+is read:
+
+    (A and B) or (not C) or (D and (not E)) or F
+
+It's usually better to be explicit about grouping using parenthesis.
+The following are all valid display filter expressions:
 
     tcp.port == 80 and ip.src == 192.168.2.1
     not llc

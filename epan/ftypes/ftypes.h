@@ -144,6 +144,9 @@ typedef enum ftrepr ftrepr_t;
 void
 ftypes_initialize(void);
 
+void
+ftypes_register_pseudofields(void);
+
 /* ---------------- FTYPE ----------------- */
 
 /* given two types, are they similar - for example can two
@@ -182,6 +185,24 @@ ftype_can_cmp(enum ftenum ftype);
 gboolean
 ftype_can_bitwise_and(enum ftenum ftype);
 
+gboolean
+ftype_can_unary_minus(enum ftenum ftype);
+
+gboolean
+ftype_can_add(enum ftenum ftype);
+
+gboolean
+ftype_can_subtract(enum ftenum ftype);
+
+gboolean
+ftype_can_multiply(enum ftenum ftype);
+
+gboolean
+ftype_can_divide(enum ftenum ftype);
+
+gboolean
+ftype_can_modulo(enum ftenum ftype);
+
 WS_DLL_PUBLIC
 gboolean
 ftype_can_contains(enum ftenum ftype);
@@ -189,6 +210,10 @@ ftype_can_contains(enum ftenum ftype);
 WS_DLL_PUBLIC
 gboolean
 ftype_can_matches(enum ftenum ftype);
+
+WS_DLL_PUBLIC
+gboolean
+ftype_can_is_zero(enum ftenum ftype);
 
 /* ---------------- FVALUE ----------------- */
 
@@ -204,6 +229,7 @@ typedef struct _protocol_value_t
 {
 	tvbuff_t	*tvb;
 	gchar		*proto_string;
+	gboolean	tvb_is_private;
 } protocol_value_t;
 
 typedef struct _fvalue_t {
@@ -226,15 +252,13 @@ typedef struct _fvalue_t {
 		guint16			sfloat_ieee_11073;
 		guint32			float_ieee_11073;
 	} value;
-
-	/* The following is provided for private use
-	 * by the fvalue. */
-	gboolean	fvalue_gboolean1;
-
 } fvalue_t;
 
 fvalue_t*
 fvalue_new(ftenum_t ftype);
+
+fvalue_t*
+fvalue_dup(const fvalue_t *fv);
 
 void
 fvalue_init(fvalue_t *fv, ftenum_t ftype);
@@ -247,7 +271,7 @@ fvalue_free(fvalue_t *fv);
 
 WS_DLL_PUBLIC
 fvalue_t*
-fvalue_from_unparsed(ftenum_t ftype, const char *s, gboolean allow_partial_value, gchar **err_msg);
+fvalue_from_literal(ftenum_t ftype, const char *s, gboolean allow_partial_value, gchar **err_msg);
 
 fvalue_t*
 fvalue_from_string(ftenum_t ftype, const char *s, gchar **err_msg);
@@ -265,6 +289,9 @@ fvalue_from_charconst(ftenum_t ftype, unsigned long number, gchar **err_msg);
  * Returns NULL if the string cannot be represented in the given rtype.*/
 WS_DLL_PUBLIC char *
 fvalue_to_string_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int field_display);
+
+#define fvalue_to_debug_repr(scope, fv) \
+	fvalue_to_string_repr(NULL, fv, FTREPR_DFILTER, 0)
 
 WS_DLL_PUBLIC ftenum_t
 fvalue_type_ftenum(fvalue_t *fv);
@@ -345,19 +372,40 @@ gboolean
 fvalue_le(const fvalue_t *a, const fvalue_t *b);
 
 gboolean
-fvalue_bitwise_and(const fvalue_t *a, const fvalue_t *b);
-
-gboolean
 fvalue_contains(const fvalue_t *a, const fvalue_t *b);
 
 gboolean
 fvalue_matches(const fvalue_t *a, const ws_regex_t *re);
+
+gboolean
+fvalue_is_zero(const fvalue_t *a);
 
 guint
 fvalue_length(fvalue_t *fv);
 
 fvalue_t*
 fvalue_slice(fvalue_t *fv, drange_t *dr);
+
+fvalue_t*
+fvalue_bitwise_and(const fvalue_t *a, const fvalue_t *b, char **err_msg);
+
+fvalue_t*
+fvalue_unary_minus(const fvalue_t *fv, char **err_msg);
+
+fvalue_t*
+fvalue_add(const fvalue_t *a, const fvalue_t *b, gchar **err_msg);
+
+fvalue_t*
+fvalue_subtract(const fvalue_t *a, const fvalue_t *b, gchar **err_msg);
+
+fvalue_t*
+fvalue_multiply(const fvalue_t *a, const fvalue_t *b, gchar **err_msg);
+
+fvalue_t*
+fvalue_divide(const fvalue_t *a, const fvalue_t *b, gchar **err_msg);
+
+fvalue_t*
+fvalue_modulo(const fvalue_t *a, const fvalue_t *b, gchar **err_msg);
 
 #ifdef __cplusplus
 }

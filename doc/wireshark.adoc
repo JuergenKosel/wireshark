@@ -189,7 +189,7 @@ filesize is reached.  Note that the filesize is limited to a maximum value of
 2 GiB.
 
 *packets*:__value__ Stop writing to a capture file after it contains __value__
-packets. Same as *-c*<capture packet count>.
+packets. Acts the same as *-c*<capture packet count>.
 --
 
 -b|--ring-buffer  <capture ring buffer option>::
@@ -266,7 +266,7 @@ the default capture buffer size is used instead.
 +
 --
 Set the maximum number of packets to read when capturing live
-data. Same as *-a packets:*<capture packet count>.
+data. Acts the same as *-a packets:*<capture packet count>.
 --
 
 -C  <configuration profile>::
@@ -406,7 +406,7 @@ Network interface names should match one of the names listed in
 "*wireshark -D*" (described above); a number, as reported by
 "*wireshark -D*", can also be used.  If you're using UNIX, "*netstat
  -i*", "*ifconfig -a*" or "*ip link*" might also work to list interface names,
-although not all versions of UNIX support the *-a* flag to *ifconfig*.
+although not all versions of UNIX support the *-a* option to *ifconfig*.
 
 If no interface is specified, *Wireshark* searches the list of
 interfaces, choosing the first non-loopback interface if there are any
@@ -419,6 +419,9 @@ read data from the standard input.  On Windows systems, pipe names must be
 of the form "\\pipe\.\*pipename*".  Data read from pipes must be in
 standard pcapng or pcap format. Pcapng data must have the same
 endianness as the capturing host.
+
+"TCP@<host>:<port>" causes *Wireshark* to attempt to connect to the
+specified port on the specified host and read pcapng or pcap data.
 
 This option can occur multiple times. When capturing from multiple
 interfaces, the capture file will be saved in pcapng format.
@@ -665,6 +668,14 @@ as YYYY/DOY, and time, as UTC, is the actual time and date the packet
 was captured
 
 The default format is relative.
+--
+
+--temp-dir <directory>::
++
+--
+Specifies the directory into which temporary files (including capture files)
+are to be written. The default behaviour is to use your system's temporary
+directory (typically __/tmp__ on Linux, and __C:\\Temp__ on Windows).
 --
 
 --time-stamp-type <type>::

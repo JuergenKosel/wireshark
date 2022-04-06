@@ -38,6 +38,7 @@
 
 #include <wsutil/socket.h>
 #include <wsutil/wslog.h>
+#include <wsutil/file_util.h>
 
 #ifdef HAVE_LIBCAP
 # include <sys/prctl.h>
@@ -434,6 +435,8 @@ print_usage(FILE *output)
     fprintf(output, "  --capture-comment <comment>\n");
     fprintf(output, "                           add a capture comment to the output file\n");
     fprintf(output, "                           (only for pcapng)\n");
+    fprintf(output, "  --temp-dir <directory>   write temporary files to this directory\n");
+    fprintf(output, "                           (default: %s)\n", g_get_tmp_dir());
     fprintf(output, "\n");
 
     ws_log_print_usage(output);
@@ -3678,7 +3681,7 @@ capture_loop_open_output(capture_options *capture_opts, int *save_file_fd,
         } else {
             suffix = ".pcap";
         }
-        *save_file_fd = create_tempfile(&capfile_name, prefix, suffix, &err_tempfile);
+        *save_file_fd = create_tempfile(capture_opts->temp_dir, &capfile_name, prefix, suffix, &err_tempfile);
         g_free(prefix);
         is_tempfile = TRUE;
     }
@@ -3860,31 +3863,26 @@ capture_loop_dequeue_packet(void) {
 static char *
 handle_npcap_bug(char *adapter_name _U_, char *cap_err_str _U_)
 {
-    GString *pcap_info_str;
-    GString *windows_info_str;
-    char *msg;
+    gboolean have_npcap = FALSE;
 
-    pcap_info_str = g_string_new("");
-    get_runtime_caplibs_version(pcap_info_str);
-    if (!g_str_has_prefix(pcap_info_str->str, "with Npcap")) {
+#ifdef _WIN32
+    have_npcap = caplibs_have_npcap();
+#endif
+
+    if (!have_npcap) {
         /*
          * We're not using Npcap, so don't recomment a user
          * file a bug against Npcap.
          */
-        g_string_free(pcap_info_str, TRUE);
         return g_strdup("");
     }
-    windows_info_str = g_string_new("");
-    get_os_version_info(windows_info_str);
-    msg = ws_strdup_printf("If you have not removed that adapter, this "
+
+    return ws_strdup_printf("If you have not removed that adapter, this "
                           "is probably a known issue in Npcap resulting from "
                           "the behavior of the Windows networking stack. "
                           "Work is being done in Npcap to improve the "
                           "handling of this issue; it does not need to "
                           "be reported as a Wireshark or Npcap bug.");
-    g_string_free(windows_info_str, TRUE);
-    g_string_free(pcap_info_str, TRUE);
-    return msg;
 }
 
 /* Do the low-level work of a capture.
@@ -4485,8 +4483,14 @@ capture_loop_wrote_one_packet(capture_src *pcap_src) {
         pcap_src->received++;
     }
 
-    /* check -c NUM / -a packets:NUM */
+    /* check -c NUM */
     if (global_capture_opts.has_autostop_packets && global_ld.packets_captured >= global_capture_opts.autostop_packets) {
+        fflush(global_ld.pdh);
+        global_ld.go = FALSE;
+        return;
+    }
+    /* check -a packets:NUM (treat like -c NUM) */
+    if (global_capture_opts.has_autostop_written_packets && global_ld.packets_captured >= global_capture_opts.autostop_written_packets) {
         fflush(global_ld.pdh);
         global_ld.go = FALSE;
         return;
@@ -4556,8 +4560,8 @@ capture_loop_write_pcapng_cb(capture_src *pcap_src, const pcapng_block_header_t 
             global_ld.go = FALSE;
             global_ld.err = err;
             pcap_src->dropped++;
-        } else if (bh->block_type == BLOCK_TYPE_EPB || bh->block_type == BLOCK_TYPE_SPB || bh->block_type == BLOCK_TYPE_SYSTEMD_JOURNAL_EXPORT) {
-            /* count packet only if we actually have an EPB or SPB */
+        } else if (bh->block_type == BLOCK_TYPE_EPB || bh->block_type == BLOCK_TYPE_SPB || bh->block_type == BLOCK_TYPE_SYSTEMD_JOURNAL_EXPORT || bh->block_type == BLOCK_TYPE_SYSDIG_EVENT || bh->block_type == BLOCK_TYPE_SYSDIG_EVENT_V2 || bh->block_type == BLOCK_TYPE_SYSDIG_EVENT_V2_LARGE) {
+            /* Count packets for block types that should be dissected, i.e. ones that show up in the packet list. */
 #if defined(DEBUG_DUMPCAP) || defined(DEBUG_CHILD_DUMPCAP)
             ws_info("Wrote a pcapng block type %u of length %d captured on interface %u.",
                    bh->block_type, bh->block_total_length, pcap_src->interface_id);
@@ -4805,19 +4809,17 @@ out:
 }
 
 static void
-get_dumpcap_compiled_info(GString *str)
+gather_dumpcap_compiled_info(feature_list l)
 {
     /* Capture libraries */
-    g_string_append(str, ", ");
-    get_compiled_caplibs_version(str);
+    gather_caplibs_compile_info(l);
 }
 
 static void
-get_dumpcap_runtime_info(GString *str)
+gather_dumpcap_runtime_info(feature_list l)
 {
     /* Capture libraries */
-    g_string_append(str, ", ");
-    get_runtime_caplibs_version(str);
+    gather_caplibs_runtime_info(l);
 }
 
 #define LONGOPT_IFNAME             LONGOPT_BASE_APPLICATION+1
@@ -4922,8 +4924,8 @@ main(int argc, char *argv[])
 #endif
 
     /* Initialize the version information. */
-    ws_init_version_info("Dumpcap (Wireshark)", NULL, get_dumpcap_compiled_info,
-                         get_dumpcap_runtime_info);
+    ws_init_version_info("Dumpcap", gather_dumpcap_compiled_info,
+                         gather_dumpcap_runtime_info);
 
 #ifdef HAVE_PCAP_REMOTE
 #define OPTSTRING_r "r"
@@ -5163,6 +5165,7 @@ main(int argc, char *argv[])
         case 'I':        /* Monitor mode */
 #endif
         case LONGOPT_COMPRESS_TYPE:        /* compress type */
+        case LONGOPT_CAPTURE_TMPDIR:       /* capture temp directory */
             status = capture_opts_add_opt(&global_capture_opts, opt, ws_optarg);
             if (status != 0) {
                 exit_main(status);

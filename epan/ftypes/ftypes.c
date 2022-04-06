@@ -13,7 +13,7 @@
 #include <wsutil/ws_assert.h>
 
 /* Keep track of ftype_t's via their ftenum number */
-static ftype_t* type_list[FT_NUM_TYPES];
+ftype_t* type_list[FT_NUM_TYPES];
 
 /* Initialize the ftype module. */
 void
@@ -32,6 +32,30 @@ ftypes_initialize(void)
 	ftype_register_tvbuff();
 }
 
+void
+ftypes_register_pseudofields(void)
+{
+	static int proto_ftypes;
+
+	proto_ftypes = proto_register_protocol(
+				"Wireshark Field/Fundamental Types",
+				"Wireshark FTypes",
+				"_ws.ftypes");
+
+	ftype_register_pseudofields_bytes(proto_ftypes);
+	ftype_register_pseudofields_double(proto_ftypes);
+	ftype_register_pseudofields_ieee_11073_float(proto_ftypes);
+	ftype_register_pseudofields_integer(proto_ftypes);
+	ftype_register_pseudofields_ipv4(proto_ftypes);
+	ftype_register_pseudofields_ipv6(proto_ftypes);
+	ftype_register_pseudofields_guid(proto_ftypes);
+	ftype_register_pseudofields_string(proto_ftypes);
+	ftype_register_pseudofields_time(proto_ftypes);
+	ftype_register_pseudofields_tvbuff(proto_ftypes);
+
+	proto_set_cant_toggle(proto_ftypes);
+}
+
 /* Each ftype_t is registered via this function */
 void
 ftype_register(enum ftenum ftype, ftype_t *ft)
@@ -45,13 +69,6 @@ ftype_register(enum ftenum ftype, ftype_t *ft)
 
 	type_list[ftype] = ft;
 }
-
-/* Given an ftenum number, return an ftype_t* */
-#define FTYPE_LOOKUP(ftype, result)	\
-	/* Check input */		\
-	ws_assert(ftype < FT_NUM_TYPES);	\
-	result = type_list[ftype];
-
 
 
 /* from README.dissector:
@@ -189,7 +206,61 @@ ftype_can_bitwise_and(enum ftenum ftype)
 	ftype_t	*ft;
 
 	FTYPE_LOOKUP(ftype, ft);
-	return ft->cmp_bitwise_and ? TRUE : FALSE;
+	return ft->bitwise_and ? TRUE : FALSE;
+}
+
+gboolean
+ftype_can_unary_minus(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->unary_minus != NULL;
+}
+
+gboolean
+ftype_can_add(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->add != NULL;
+}
+
+gboolean
+ftype_can_subtract(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->subtract != NULL;
+}
+
+gboolean
+ftype_can_multiply(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->multiply != NULL;
+}
+
+gboolean
+ftype_can_divide(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->divide != NULL;
+}
+
+gboolean
+ftype_can_modulo(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->modulo != NULL;
 }
 
 gboolean
@@ -208,6 +279,15 @@ ftype_can_matches(enum ftenum ftype)
 
 	FTYPE_LOOKUP(ftype, ft);
 	return ft->cmp_matches ? TRUE : FALSE;
+}
+
+gboolean
+ftype_can_is_zero(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->is_zero ? TRUE : FALSE;
 }
 
 /* ---------------------------------------------------------- */
@@ -231,6 +311,27 @@ fvalue_new(ftenum_t ftype)
 	}
 
 	return fv;
+}
+
+fvalue_t*
+fvalue_dup(const fvalue_t *fv_orig)
+{
+	fvalue_t		*fv_new;
+	FvalueCopyFunc		copy_value;
+
+	fv_new = g_slice_new(fvalue_t);
+	fv_new->ftype = fv_orig->ftype;
+	copy_value = fv_new->ftype->copy_value;
+	if (copy_value != NULL) {
+		/* deep copy */
+		copy_value(fv_new, fv_orig);
+	}
+	else {
+		/* shallow copy */
+		memcpy(&fv_new->value, &fv_orig->value, sizeof(fv_orig->value));
+	}
+
+	return fv_new;
 }
 
 void
@@ -264,13 +365,22 @@ fvalue_free(fvalue_t *fv)
 }
 
 fvalue_t*
-fvalue_from_unparsed(ftenum_t ftype, const char *s, gboolean allow_partial_value, gchar **err_msg)
+fvalue_from_literal(ftenum_t ftype, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
 	fvalue_t	*fv;
+	gboolean ok = FALSE;
 
 	fv = fvalue_new(ftype);
-	if (fv->ftype->val_from_unparsed) {
-		if (fv->ftype->val_from_unparsed(fv, s, allow_partial_value, err_msg)) {
+	if (fv->ftype->val_from_literal) {
+		if (*s == ':') {
+			ok = fv->ftype->val_from_literal(fv, s + 1, allow_partial_value, err_msg);
+			/* If not ok maybe leading colon is not special syntax but part of the value (e.g: IPv6),
+			 * try again in that case. */
+		}
+		if (!ok) {
+			ok = fv->ftype->val_from_literal(fv, s, allow_partial_value, err_msg);
+		}
+		if (ok) {
 			/* Success */
 			if (err_msg != NULL)
 				*err_msg = NULL;
@@ -721,14 +831,6 @@ fvalue_le(const fvalue_t *a, const fvalue_t *b)
 }
 
 gboolean
-fvalue_bitwise_and(const fvalue_t *a, const fvalue_t *b)
-{
-	/* XXX - check compatibility of a and b */
-	ws_assert(a->ftype->cmp_bitwise_and);
-	return a->ftype->cmp_bitwise_and(a, b);
-}
-
-gboolean
 fvalue_contains(const fvalue_t *a, const fvalue_t *b)
 {
 	/* XXX - check compatibility of a and b */
@@ -741,6 +843,88 @@ fvalue_matches(const fvalue_t *a, const ws_regex_t *re)
 {
 	ws_assert(a->ftype->cmp_matches);
 	return a->ftype->cmp_matches(a, re);
+}
+
+gboolean
+fvalue_is_zero(const fvalue_t *a)
+{
+	return a->ftype->is_zero(a);
+}
+
+static fvalue_t *
+_fvalue_binop(FvalueBinaryOp op, const fvalue_t *a, const fvalue_t *b, char **err_msg)
+{
+	fvalue_t *result;
+
+	result = fvalue_new(a->ftype->ftype);
+	if (op(result, a, b, err_msg) != FT_OK) {
+		fvalue_free(result);
+		return NULL;
+	}
+	return result;
+}
+
+fvalue_t *
+fvalue_bitwise_and(const fvalue_t *a, const fvalue_t *b, char **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->bitwise_and);
+	return _fvalue_binop(a->ftype->bitwise_and, a, b, err_msg);
+}
+
+fvalue_t *
+fvalue_add(const fvalue_t *a, const fvalue_t *b, gchar **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->add);
+	return _fvalue_binop(a->ftype->add, a, b, err_msg);
+}
+
+fvalue_t *
+fvalue_subtract(const fvalue_t *a, const fvalue_t *b, gchar **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->subtract);
+	return _fvalue_binop(a->ftype->subtract, a, b, err_msg);
+}
+
+fvalue_t *
+fvalue_multiply(const fvalue_t *a, const fvalue_t *b, gchar **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->multiply);
+	return _fvalue_binop(a->ftype->multiply, a, b, err_msg);
+}
+
+fvalue_t *
+fvalue_divide(const fvalue_t *a, const fvalue_t *b, gchar **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->divide);
+	return _fvalue_binop(a->ftype->divide, a, b, err_msg);
+}
+
+fvalue_t *
+fvalue_modulo(const fvalue_t *a, const fvalue_t *b, gchar **err_msg)
+{
+	/* XXX - check compatibility of a and b */
+	ws_assert(a->ftype->modulo);
+	return _fvalue_binop(a->ftype->modulo, a, b, err_msg);
+}
+
+fvalue_t*
+fvalue_unary_minus(const fvalue_t *fv, char **err_msg)
+{
+	fvalue_t *result;
+
+	ws_assert(fv->ftype->unary_minus);
+
+	result = fvalue_new(fv->ftype->ftype);
+	if (fv->ftype->unary_minus(result, fv, err_msg) != FT_OK) {
+		fvalue_free(result);
+		return NULL;
+	}
+	return result;
 }
 
 /*

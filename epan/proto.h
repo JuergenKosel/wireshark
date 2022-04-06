@@ -718,6 +718,8 @@ typedef enum {
 
 #define BASE_SHOW_ASCII_PRINTABLE 0x00010000 /**< show byte array as ASCII if it's all printable characters */
 
+#define BASE_SHOW_UTF_8_PRINTABLE 0x00020000 /**< show byte array as UTF-8 if it's all valid and printable UTF-8 characters */
+
 /** BASE_ values that cause the field value to be displayed twice */
 #define IS_BASE_DUAL(b) ((b)==BASE_DEC_HEX||(b)==BASE_HEX_DEC)
 
@@ -1035,9 +1037,6 @@ static inline void proto_item_set_url(proto_item *ti) {
 
 typedef void (*proto_tree_foreach_func)(proto_node *, gpointer);
 typedef gboolean (*proto_tree_traverse_func)(proto_node *, gpointer);
-
-extern gboolean proto_tree_traverse_post_order(proto_tree *tree,
-    proto_tree_traverse_func func, gpointer data);
 
 WS_DLL_PUBLIC void proto_tree_children_foreach(proto_tree *tree,
     proto_tree_foreach_func func, gpointer data);

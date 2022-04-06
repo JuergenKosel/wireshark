@@ -96,6 +96,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ess.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-f1ap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ftam.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-gdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-glow.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-goose.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gsm_map.c
@@ -134,6 +135,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mpeg-audio.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mpeg-pes.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-msgpack.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-msrcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mudurl.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-nbap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ngap.c
@@ -633,6 +635,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-xmpp-other.h
 	packet-xmpp-utils.h
 	packet-xnap.h
+	packet-gdt.h
 	packet-ypbind.h
 	packet-yppasswd.h
 	packet-ypserv.h
@@ -1684,6 +1687,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-redbackli.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-reload-framing.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-reload.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-resp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-retix-bpdu.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rfc2190.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rfid-felica.c
@@ -2037,6 +2041,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-zdp-binding.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-zdp-discovery.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-zdp-management.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbncp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zebra.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zep.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ziop.c

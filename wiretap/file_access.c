@@ -353,8 +353,8 @@ wtap_get_all_capture_file_extensions_list(void)
  * NOTE: when adding file formats to this list you may also want to add them
  * to the following files so that the various desktop environments will
  * know that Wireshark can open the file:
- *	1) org.wireshark.Wireshark-mime.xml (for freedesktop.org environments)
- *	2) packaging/macosx/Info.plist.in (for macOS)
+ *	1) resources/freedesktop/org.wireshark.Wireshark-mime.xml (for freedesktop.org environments)
+ *	2) packaging/macosx/WiresharkInfo.plist.in (for macOS)
  *	3) packaging/nsis/AdditionalTasksPage.ini, packaging/nsis/common.nsh,
  *	   and packaging/wix/ComponentGroups.wxi (for Windows)
  *
@@ -2395,7 +2395,7 @@ wtap_dump_open(const char *filename, int file_type_subtype,
 }
 
 wtap_dumper *
-wtap_dump_open_tempfile(char **filenamep, const char *pfx,
+wtap_dump_open_tempfile(const char *tmpdir, char **filenamep, const char *pfx,
     int file_type_subtype, wtap_compression_type compression_type,
     const wtap_dump_params *params, int *err, gchar **err_info)
 {
@@ -2426,7 +2426,7 @@ wtap_dump_open_tempfile(char **filenamep, const char *pfx,
 	(void) g_strlcat(sfx, ext, 16);
 
 	/* Choose a random name for the file */
-	fd = create_tempfile(filenamep, pfx, sfx, NULL);
+	fd = create_tempfile(tmpdir, filenamep, pfx, sfx, NULL);
 	if (fd == -1) {
 		*err = WTAP_ERR_CANT_OPEN;
 		g_free(wdh);
@@ -2621,7 +2621,8 @@ wtap_dump_flush(wtap_dumper *wdh, int *err)
 }
 
 gboolean
-wtap_dump_close(wtap_dumper *wdh, int *err, gchar **err_info)
+wtap_dump_close(wtap_dumper *wdh, gboolean *needs_reload,
+    int *err, gchar **err_info)
 {
 	gboolean ret = TRUE;
 
@@ -2643,6 +2644,8 @@ wtap_dump_close(wtap_dumper *wdh, int *err, gchar **err_info)
 		}
 		ret = FALSE;
 	}
+	if (needs_reload != NULL)
+		*needs_reload = wdh->needs_reload;
 	g_free(wdh->priv);
 	wtap_block_array_free(wdh->interface_data);
 	wtap_block_array_free(wdh->dsbs_initial);
@@ -2707,10 +2710,6 @@ wtap_dump_discard_decryption_secrets(wtap_dumper *wdh)
 		 */
 		wdh->dsbs_growing_written = wdh->dsbs_growing->len;
 	}
-}
-
-gboolean wtap_dump_get_needs_reload(wtap_dumper *wdh) {
-        return wdh->needs_reload;
 }
 
 /* internally open a file for writing (compressed or not) */

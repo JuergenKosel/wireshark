@@ -67,12 +67,9 @@ test_free(gpointer value)
 static const char *
 test_todisplay(test_op_t op)
 {
-	const char *s;
+	const char *s = "<notset>";
 
 	switch(op) {
-		case TEST_OP_EXISTS:
-			s = "exists";
-			break;
 		case TEST_OP_NOT:
 			s = "!";
 			break;
@@ -106,8 +103,24 @@ test_todisplay(test_op_t op)
 		case TEST_OP_LE:
 			s = "<=";
 			break;
-		case TEST_OP_BITWISE_AND:
+		case OP_BITWISE_AND:
 			s = "&";
+			break;
+		case OP_ADD:
+			s = "+";
+			break;
+		case OP_UNARY_MINUS:
+		case OP_SUBTRACT:
+			s = "-";
+			break;
+		case OP_MULTIPLY:
+			s = "*";
+			break;
+		case OP_DIVIDE:
+			s = "/";
+			break;
+		case OP_MODULO:
+			s = "%";
 			break;
 		case TEST_OP_CONTAINS:
 			s = "contains";
@@ -121,9 +134,6 @@ test_todisplay(test_op_t op)
 		case TEST_OP_UNINITIALIZED:
 			s = "<uninitialized>";
 			break;
-		default:
-			s = "<null>";
-			break;
 	}
 	return s;
 }
@@ -131,12 +141,9 @@ test_todisplay(test_op_t op)
 static const char *
 test_todebug(test_op_t op)
 {
-	const char *s;
+	const char *s = "<notset>";
 
 	switch(op) {
-		case TEST_OP_EXISTS:
-			s = "TEST_EXISTS";
-			break;
 		case TEST_OP_NOT:
 			s = "TEST_NOT";
 			break;
@@ -170,8 +177,26 @@ test_todebug(test_op_t op)
 		case TEST_OP_LE:
 			s = "TEST_LE";
 			break;
-		case TEST_OP_BITWISE_AND:
-			s = "TEST_BITAND";
+		case OP_BITWISE_AND:
+			s = "OP_BITWISE_AND";
+			break;
+		case OP_UNARY_MINUS:
+			s = "OP_UNARY_MINUS";
+			break;
+		case OP_ADD:
+			s = "OP_ADD";
+			break;
+		case OP_SUBTRACT:
+			s = "OP_SUBTRACT";
+			break;
+		case OP_MULTIPLY:
+			s = "OP_MULTIPLY";
+			break;
+		case OP_DIVIDE:
+			s = "OP_DIVIDE";
+			break;
+		case OP_MODULO:
+			s = "OP_MODULO";
 			break;
 		case TEST_OP_CONTAINS:
 			s = "TEST_CONTAINS";
@@ -184,9 +209,6 @@ test_todebug(test_op_t op)
 			break;
 		case TEST_OP_UNINITIALIZED:
 			s = "<uninitialized>";
-			break;
-		default:
-			s = "<null>";
 			break;
 	}
 	return s;
@@ -212,8 +234,8 @@ num_operands(test_op_t op)
 	switch(op) {
 		case TEST_OP_UNINITIALIZED:
 			break;
-		case TEST_OP_EXISTS:
 		case TEST_OP_NOT:
+		case OP_UNARY_MINUS:
 			return 1;
 		case TEST_OP_AND:
 		case TEST_OP_OR:
@@ -225,7 +247,12 @@ num_operands(test_op_t op)
 		case TEST_OP_GE:
 		case TEST_OP_LT:
 		case TEST_OP_LE:
-		case TEST_OP_BITWISE_AND:
+		case OP_BITWISE_AND:
+		case OP_ADD:
+		case OP_SUBTRACT:
+		case OP_MULTIPLY:
+		case OP_DIVIDE:
+		case OP_MODULO:
 		case TEST_OP_CONTAINS:
 		case TEST_OP_MATCHES:
 		case TEST_OP_IN:
@@ -245,6 +272,7 @@ sttype_test_set1(stnode_t *node, test_op_t op, stnode_t *val1)
 	ws_assert(num_operands(op) == 1);
 	test->op = op;
 	test->val1 = val1;
+	test->val2 = NULL;
 }
 
 void
@@ -269,6 +297,7 @@ sttype_test_set1_args(stnode_t *node, stnode_t *val1)
 
 	ws_assert(num_operands(test->op) == 1);
 	test->val1 = val1;
+	test->val2 = NULL;
 }
 
 void
@@ -325,8 +354,17 @@ sttype_register_test(void)
 		test_dup,
 		test_tostr
 	};
+	static sttype_t arithmetic_type = {
+		STTYPE_ARITHMETIC,
+		"ARITHMETIC",
+		test_new,
+		test_free,
+		test_dup,
+		test_tostr
+	};
 
 	sttype_register(&test_type);
+	sttype_register(&arithmetic_type);
 }
 
 /*

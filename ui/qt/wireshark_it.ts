@@ -1474,6 +1474,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Ferma la cattura dopo che la quantità di tempo specificato è trascorsa.</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optionally specify a temporary directory for unnamed capture files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Specifica opzionalmente una cartella temporanea per i file catturati senza nome.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Directory for temporary files</source>
+        <translation>Cartella per i file temporanei</translation>
+    </message>
+    <message>
         <source>Capture Options</source>
         <translation>Opzioni di cattura</translation>
     </message>
@@ -1488,6 +1496,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Specify a Capture File</source>
         <translation>Specifica un file di cattura</translation>
+    </message>
+    <message>
+        <source>Specify temporary directory</source>
+        <translation>Specifica cartella temporanea</translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -1974,16 +1986,20 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Cerca usando questo campo</translation>
     </message>
     <message>
+        <source>Change behavior when the field matches this value</source>
+        <translation>Cambia il comportamento quando il campo corrisponde a questo valore</translation>
+    </message>
+    <message>
+        <source>Field value type (and base, if Integer)</source>
+        <translation>Tipo di valore del campo (e base, se intero)</translation>
+    </message>
+    <message>
         <source>Current&quot;Decode As&quot; behavior</source>
         <translation>Comportamento attuale di &quot;Decodifica come&quot;</translation>
     </message>
     <message>
         <source>Default &quot;Decode As&quot; behavior</source>
         <translation>Comportamento predefinito di &quot;Decodifica come&quot;</translation>
-    </message>
-    <message>
-        <source>Change behavior when the protocol field matches this value</source>
-        <translation>Cambia il comportamento quando il campo del protocollo corrisponde a questo valore</translation>
     </message>
     <message>
         <source>String</source>
@@ -5681,6 +5697,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Mostra la definizione della colonna nel menu contestuale delle colonne</translation>
     </message>
     <message>
+        <source>Allow the list to be sorted</source>
+        <translation>Consenti l&apos;ordinamento dell&apos;elenco</translation>
+    </message>
+    <message>
         <source>Enable mouse-over colorization</source>
         <translation>Abilita la colorazione al passaggio del puntatore</translation>
     </message>
@@ -6355,10 +6375,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>HTTP</source>
         <translation>HTTP</translation>
-    </message>
-    <message>
-        <source>900000000</source>
-        <translation>900000000</translation>
     </message>
     <message>
         <source>&amp;File</source>
@@ -7306,6 +7322,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Filter this Association</source>
         <translation>Filtra questa associazione</translation>
+    </message>
+    <message>
+        <source>Strip Headers…</source>
+        <translation>Rimuovi intestazioni…</translation>
+    </message>
+    <message>
+        <source>Strip headers and export higher level encapsulations to file</source>
+        <translation>Rimuovi le intestazioni ed esporta gli incapsulamenti di livello più alto su file</translation>
     </message>
     <message>
         <source>&amp;I/O Graphs</source>
@@ -8872,6 +8896,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>&lt;small&gt;&lt;i&gt;&lt;/i&gt;&lt;/small&gt;</translation>
     </message>
     <message>
+        <source>Show packet bytes</source>
+        <translation>Mostra byte del pacchetto</translation>
+    </message>
+    <message>
         <source>Packet %1</source>
         <translation>Pacchetto %1</translation>
     </message>
@@ -8949,6 +8977,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Bytes</source>
         <translation>Byte</translation>
+    </message>
+    <message>
+        <source>Include secondary data sources</source>
+        <translation>Includi le fonti di dati secondarie</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Genera dump esadecimali per le fonti di dati secondarie come buffer riassemblati o decifrati in aggiunta al frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -12916,6 +12952,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Immagine</translation>
     </message>
     <message>
+        <source>Json</source>
+        <translation>Json</translation>
+    </message>
+    <message>
         <source>Raw</source>
         <translation>Grezzo</translation>
     </message>
@@ -13031,6 +13071,17 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Unable to find configuration for %1.</source>
         <translation>Impossibile trovare la configurazione per %1.</translation>
+    </message>
+</context>
+<context>
+    <name>StripHeadersDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation>Finestra</translation>
+    </message>
+    <message>
+        <source>Display filter:</source>
+        <translation>Filtro di visualizzazione:</translation>
     </message>
 </context>
 <context>

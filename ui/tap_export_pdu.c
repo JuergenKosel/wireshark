@@ -185,7 +185,7 @@ exp_pdu_close(exp_pdu_t *exp_pdu_tap_data, int *err, gchar **err_info)
 {
     gboolean status;
 
-    status = wtap_dump_close(exp_pdu_tap_data->wdh, err, err_info);
+    status = wtap_dump_close(exp_pdu_tap_data->wdh, NULL, err, err_info);
 
     wtap_block_array_free(exp_pdu_tap_data->shb_hdrs);
     wtap_free_idb_info(exp_pdu_tap_data->idb_inf);
@@ -200,9 +200,6 @@ exp_pdu_pre_open(const char *tap_name, const char *filter, exp_pdu_t *exp_pdu_ta
 {
     GString        *error_string;
 
-    /* XXX: can we always assume WTAP_ENCAP_WIRESHARK_UPPER_PDU? */
-    exp_pdu_tap_data->pkt_encap = WTAP_ENCAP_WIRESHARK_UPPER_PDU;
-
     /* Register this tap listener now */
     error_string = register_tap_listener(tap_name,             /* The name of the tap we want to listen to */
                                          exp_pdu_tap_data,     /* instance identifier/pointer to a struct holding
@@ -215,6 +212,8 @@ exp_pdu_pre_open(const char *tap_name, const char *filter, exp_pdu_t *exp_pdu_ta
                                          NULL);
     if (error_string != NULL)
         return g_string_free(error_string, FALSE);
+
+    exp_pdu_tap_data->pkt_encap = export_pdu_tap_get_encap(tap_name);
 
     return NULL;
 }

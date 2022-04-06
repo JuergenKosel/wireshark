@@ -2105,9 +2105,9 @@ static int dissect_iec60870_104(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 				type = temp8 & 0x03;
 
 			if (type == I_TYPE)
-				proto_tree_add_bits_item(it104tree, hf_apcitype, tvb, (Off + 2) * 8 + 7, 1, ENC_LITTLE_ENDIAN);
+				proto_tree_add_bits_item(it104tree, hf_apcitype, tvb, (Off + 2) * 8 + 7, 1, ENC_BIG_ENDIAN);
 			else
-				proto_tree_add_bits_item(it104tree, hf_apcitype, tvb, (Off + 2) * 8 + 6, 2, ENC_LITTLE_ENDIAN);
+				proto_tree_add_bits_item(it104tree, hf_apcitype, tvb, (Off + 2) * 8 + 6, 2, ENC_BIG_ENDIAN);
 
 			if (len <= APDU_MAX_LEN) {
 				wmem_strbuf_append_printf(res, "%s %s ",
@@ -2981,7 +2981,7 @@ dissect_iec60870_5_103(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 					case 0x05:    /* ASDU 5 - Identification */
 						proto_tree_add_item(iec103_tree, hf_iec60870_5_103_col, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 						offset += 1;
-						proto_tree_add_item(iec103_tree, hf_iec60870_5_103_mfg, tvb, offset, 8, ENC_ASCII|ENC_NA);
+						proto_tree_add_item(iec103_tree, hf_iec60870_5_103_mfg, tvb, offset, 8, ENC_ASCII);
 						offset += 8;
 						proto_tree_add_item(iec103_tree, hf_iec60870_5_103_mfg_sw, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 						offset += 4;

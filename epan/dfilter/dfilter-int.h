@@ -19,15 +19,16 @@
 /* Passed back to user */
 struct epan_dfilter {
 	GPtrArray	*insns;
-	GPtrArray	*consts;
 	guint		num_registers;
-	guint		max_registers;
-	GList		**registers;
+	GSList		**registers;
 	gboolean	*attempted_load;
-	gboolean	*owns_memory;
+	GDestroyNotify	*free_registers;
 	int		*interesting_fields;
 	int		num_interesting_fields;
 	GPtrArray	*deprecated;
+	char		*expanded_text;
+	GHashTable	*references;
+	char		*syntax_tree_str;
 };
 
 typedef struct {
@@ -36,14 +37,13 @@ typedef struct {
 	gboolean	syntax_error;
 	gchar		*error_message;
 	GPtrArray	*insns;
-	GPtrArray	*consts;
 	GHashTable	*loaded_fields;
 	GHashTable	*interesting_fields;
 	int		next_insn_id;
-	int		next_const_id;
 	int		next_register;
-	int		first_constant; /* first register used as a constant */
 	GPtrArray	*deprecated;
+	GHashTable	*references; /* hfinfo -> pointer to GSList of fvalues */
+	GHashTable	*loaded_references;
 } dfwork_t;
 
 /*
@@ -107,6 +107,7 @@ dfilter_vfail(dfwork_t *dfw, const char *format, va_list args);
 void
 dfilter_fail(dfwork_t *dfw, const char *format, ...) G_GNUC_PRINTF(2, 3);
 
+WS_NORETURN
 void
 dfilter_fail_throw(dfwork_t *dfw, long code, const char *format, ...) G_GNUC_PRINTF(3, 4);
 
@@ -119,8 +120,11 @@ free_deprecated(GPtrArray *deprecated);
 void
 DfilterTrace(FILE *TraceFILE, char *zTracePrompt);
 
-stnode_t *
-dfilter_resolve_unparsed(dfwork_t *dfw, stnode_t *node);
+header_field_info *
+dfilter_resolve_unparsed(dfwork_t *dfw, const char *name);
+
+char *
+dfilter_literal_normalized(const char *token);
 
 const char *tokenstr(int token);
 

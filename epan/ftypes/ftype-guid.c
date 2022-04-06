@@ -67,7 +67,7 @@ get_guid(const char *s, e_guid_t *guid)
 }
 
 static gboolean
-guid_from_unparsed(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+guid_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
      e_guid_t guid;
 
@@ -103,8 +103,9 @@ ftype_register_guid(void)
         "Globally Unique Identifier",            /* pretty_name */
         GUID_LEN,            /* wire_size */
         NULL,                /* new_value */
+        NULL,                /* copy_value */
         NULL,                /* free_value */
-        guid_from_unparsed,  /* val_from_unparsed */
+        guid_from_literal,   /* val_from_literal */
         NULL,                /* val_from_string */
         NULL,                /* val_from_charconst */
         guid_to_repr,        /* val_to_string_repr */
@@ -114,14 +115,37 @@ ftype_register_guid(void)
 
         cmp_order,
         NULL,
-        NULL,
         NULL,                /* cmp_matches */
 
         NULL,
         NULL,
+        NULL,
+        NULL,
+        NULL,                /* unary_minus */
+        NULL,                /* add */
+        NULL,                /* subtract */
+        NULL,                /* multiply */
+        NULL,                /* divide */
+        NULL,                /* modulo */
     };
 
     ftype_register(FT_GUID, &guid_type);
+}
+
+void
+ftype_register_pseudofields_guid(int proto)
+{
+    static int hf_ft_guid;
+
+    static hf_register_info hf_ftypes[] = {
+            { &hf_ft_guid,
+                { "FT_GUID", "_ws.ftypes.guid",
+                    FT_GUID, BASE_NONE, NULL, 0x00,
+                    NULL, HFILL }
+            },
+    };
+
+    proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));
 }
 
 /*

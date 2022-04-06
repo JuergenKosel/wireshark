@@ -186,6 +186,7 @@ set(WIRESHARK_QT_HEADERS
 	lte_mac_statistics_dialog.h
 	lte_rlc_graph_dialog.h
 	lte_rlc_statistics_dialog.h
+	main_application.h
 	main_status_bar.h
 	main_window_preferences_frame.h
 	main_window.h
@@ -230,6 +231,7 @@ set(WIRESHARK_QT_HEADERS
 	show_packet_bytes_dialog.h
 	simple_statistics_dialog.h
 	stats_tree_dialog.h
+	strip_headers_dialog.h
 	supported_protocols_dialog.h
 	tabnav_tree_widget.h
 	tap_parameter_dialog.h
@@ -243,6 +245,7 @@ set(WIRESHARK_QT_HEADERS
 	wireless_frame.h
 	wireshark_application.h
 	wireshark_dialog.h
+	wireshark_main_window.h
 	wlan_statistics_dialog.h
 	${WIRESHARK_CUSTOM_QT_HEADERS}
 )
@@ -419,10 +422,10 @@ set(WIRESHARK_QT_SRC
 	lte_mac_statistics_dialog.cpp
 	lte_rlc_graph_dialog.cpp
 	lte_rlc_statistics_dialog.cpp
+	main_application.cpp
 	main_status_bar.cpp
 	main_window_layout.cpp
 	main_window_preferences_frame.cpp
-	main_window_slots.cpp
 	main_window.cpp
 	main.cpp
 	manage_interfaces_dialog.cpp
@@ -465,6 +468,7 @@ set(WIRESHARK_QT_SRC
 	simple_dialog.cpp
 	simple_statistics_dialog.cpp
 	supported_protocols_dialog.cpp
+	strip_headers_dialog.cpp
 	tabnav_tree_widget.cpp
 	tap_parameter_dialog.cpp
 	tcp_stream_dialog.cpp
@@ -477,6 +481,8 @@ set(WIRESHARK_QT_SRC
 	wireless_frame.cpp
 	wireshark_application.cpp
 	wireshark_dialog.cpp
+	wireshark_main_window.cpp
+	wireshark_main_window_slots.cpp
 	${WIRESHARK_CUSTOM_QT_SRCS}
 )
 
@@ -559,7 +565,6 @@ set(WIRESHARK_QT_UI
 	lbm_stream_dialog.ui
 	lte_rlc_graph_dialog.ui
 	main_window_preferences_frame.ui
-	main_window.ui
 	manage_interfaces_dialog.ui
 	module_preferences_scroll_area.ui
 	mtp3_summary_dialog.ui
@@ -587,6 +592,7 @@ set(WIRESHARK_QT_UI
 	search_frame.ui
 	sequence_dialog.ui
 	show_packet_bytes_dialog.ui
+	strip_headers_dialog.ui
 	supported_protocols_dialog.ui
 	tap_parameter_dialog.ui
 	tcp_stream_dialog.ui
@@ -598,6 +604,7 @@ set(WIRESHARK_QT_UI
 	welcome_page.ui
 	widgets/splash_overlay.ui
 	wireless_frame.ui
+	wireshark_main_window.ui
 )
 
 if(HAVE_PCAP_REMOTE)
@@ -630,11 +637,11 @@ endforeach()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/i18n.qrc.in ${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc)
 
 set(WIRESHARK_QT_QRC
-	../../image/about.qrc
-	../../image/languages/languages.qrc
-	../../image/layout.qrc
-	../../image/stock_icons.qrc
-	../../image/wsicon.qrc
+	../../resources/about.qrc
+	../../resources/languages/languages.qrc
+	../../resources/layout.qrc
+	../../resources/stock_icons.qrc
+	../../resources/wsicon.qrc
 	${CMAKE_CURRENT_BINARY_DIR}/i18n.qrc
 )
 

@@ -4373,7 +4373,7 @@ static void rtps_util_add_product_version(proto_tree *tree, tvbuff_t *tvb, gint 
   /* If major revision is smaller than 5, release interpreted as char */
   if (vendor_id == RTPS_VENDOR_RTI_DDS && major < 5) {
     proto_tree_add_item(subtree, hf_rtps_param_product_version_release_as_char,
-        tvb, offset + release_offset, 1, ENC_ASCII|ENC_NA);
+        tvb, offset + release_offset, 1, ENC_ASCII);
   } else {
     proto_tree_add_item(subtree, hf_rtps_param_product_version_release,
         tvb, offset + release_offset, 1, ENC_NA);
@@ -15074,7 +15074,7 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000020, NULL, HFILL }
     },
     { &hf_rtps_flag_security_access_protected, {
-        "Access Protected" ,"rtps.flag.security.access_protected",
+        "Access Protected", "rtps.flag.security.access_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
     },
     { &hf_rtps_flag_security_discovery_protected, {
@@ -15090,35 +15090,35 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000008, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_read_protected,{
-        "Read Protected" ,"rtps.flag.security.info.read_protected",
+        "Read Protected", "rtps.flag.security.info.read_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_write_protected,{
-        "Write Protected" ,"rtps.flag.security.info.write_protected",
+        "Write Protected", "rtps.flag.security.info.write_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000002, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_discovery_protected,{
-        "Discovery Protected" ,"rtps.flag.security.info.discovery_protected",
+        "Discovery Protected", "rtps.flag.security.info.discovery_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000004, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_submessage_protected,{
-        "Submessage Protected" ,"rtps.flag.security.info.submessage_protected",
+        "Submessage Protected", "rtps.flag.security.info.submessage_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000008, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_payload_protected,{
-        "Payload Protected" ,"rtps.flag.security.info.payload_protected",
+        "Payload Protected", "rtps.flag.security.info.payload_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000010, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_key_protected,{
-        "Key Protected" ,"rtps.flag.security.info.key_protected",
+        "Key Protected", "rtps.flag.security.info.key_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000020, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_liveliness_protected,{
-        "Liveliness Protected" ,"rtps.flag.security.info.liveliness_protected",
+        "Liveliness Protected", "rtps.flag.security.info.liveliness_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000040, NULL, HFILL }
     },
     { &hf_rtps_flag_endpoint_security_attribute_flag_is_valid,{
-        "Mask Valid" ,"rtps.flag.security.info.valid",
+        "Mask Valid", "rtps.flag.security.info.valid",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x80000000, NULL, HFILL }
     },
     { &hf_rtps_param_endpoint_security_attributes_mask,{
@@ -15128,19 +15128,19 @@ void proto_register_rtps(void) {
         HFILL }
     },
     { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_payload_encrypted,{
-        "Submessage Encrypted" ,"rtps.flag.security.info.plugin_submessage_encrypted",
+        "Submessage Encrypted", "rtps.flag.security.info.plugin_submessage_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_key_encrypted,{
-        "Payload Encrypted" ,"rtps.flag.security.info.plugin_payload_encrypted",
+        "Payload Encrypted", "rtps.flag.security.info.plugin_payload_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000002, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_liveliness_encrypted,{
-        "Submessage Origin Encrypted" ,"rtps.flag.security.info.plugin_liveliness_encrypted",
+        "Submessage Origin Encrypted", "rtps.flag.security.info.plugin_liveliness_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000004, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_valid,{
-        "Mask Valid" ,"rtps.flag.security.info.plugin_valid",
+        "Mask Valid", "rtps.flag.security.info.plugin_valid",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x80000000, NULL, HFILL }
     },
     { &hf_rtps_param_plugin_endpoint_security_attributes_mask,{
@@ -15151,19 +15151,19 @@ void proto_register_rtps(void) {
         HFILL }
     },
     { &hf_rtps_flag_participant_security_attribute_flag_is_rtps_protected,{
-        "RTPS Protected" ,"rtps.flag.security.info.participant_rtps_protected",
+        "RTPS Protected", "rtps.flag.security.info.participant_rtps_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
     },
     { &hf_rtps_flag_participant_security_attribute_flag_is_discovery_protected,{
-        "Discovery Protected" ,"rtps.flag.security.info.participant_discovery_protected",
+        "Discovery Protected", "rtps.flag.security.info.participant_discovery_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000002, NULL, HFILL }
     },
     { &hf_rtps_flag_participant_security_attribute_flag_is_liveliness_protected,{
-        "Liveliness Protected" ,"rtps.flag.security.info.participant_liveliness_protected",
+        "Liveliness Protected", "rtps.flag.security.info.participant_liveliness_protected",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000004, NULL, HFILL }
     },
     { &hf_rtps_flag_participant_security_attribute_flag_is_valid,{
-        "Mask Valid" ,"rtps.flag.security.info.participant_mask_valid",
+        "Mask Valid", "rtps.flag.security.info.participant_mask_valid",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x80000000, NULL, HFILL }
     },
     { &hf_rtps_param_participant_security_attributes_mask,{
@@ -15174,31 +15174,31 @@ void proto_register_rtps(void) {
         HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_rtps_encrypted,{
-        "RTPS Encrypted" ,"rtps.flag.security.info.plugin_participant_rtps_encrypted",
+        "RTPS Encrypted", "rtps.flag.security.info.plugin_participant_rtps_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_discovery_encrypted,{
-        "Discovery Encrypted" ,"rtps.flag.security.info.plugin_participant_discovery_encrypted",
+        "Discovery Encrypted", "rtps.flag.security.info.plugin_participant_discovery_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000002, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_liveliness_encrypted,{
-        "Liveliness Encrypted" ,"rtps.flag.security.info.plugin_participant_liveliness_encrypted",
+        "Liveliness Encrypted", "rtps.flag.security.info.plugin_participant_liveliness_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000004, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_rtps_origin_encrypted,{
-        "RTPS Origin Encrypted" ,"rtps.flag.security.info.plugin_participant_rtps_origin_encrypted",
+        "RTPS Origin Encrypted", "rtps.flag.security.info.plugin_participant_rtps_origin_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000008, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_discovery_origin_encrypted,{
-        "Discovery Origin Encrypted" ,"rtps.flag.security.info.plugin_participant_discovery_origin_encrypted",
+        "Discovery Origin Encrypted", "rtps.flag.security.info.plugin_participant_discovery_origin_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000010, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_liveliness_origin_encrypted,{
-        "Liveliness Origin Encrypted" ,"rtps.flag.security.info.plugin_participant_liveliness_origin_encrypted",
+        "Liveliness Origin Encrypted", "rtps.flag.security.info.plugin_participant_liveliness_origin_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000020, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_participant_security_attribute_flag_is_valid,{
-        "Mask Valid" ,"rtps.flag.security.info.plugin_participant_mask_valid",
+        "Mask Valid", "rtps.flag.security.info.plugin_participant_mask_valid",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x80000000, NULL, HFILL }
     },
     { &hf_rtps_param_plugin_participant_security_attributes_mask,{
@@ -15533,7 +15533,7 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x08, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_flags, {
-        "UDPv4 WAN locator flags", "rtps.flag.udpv4_wan_locator",
+        "Flags", "rtps.flag.udpv4_wan_locator",
         FT_UINT8, BASE_HEX, NULL, 0, "Bitmask representing the flags UDPv4 WAN locator", HFILL }
     },
     { &hf_rtps_uuid,{
@@ -15541,19 +15541,19 @@ void proto_register_rtps(void) {
         FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_public_ip, {
-        "WAN locator public IP", "rtps.udpv4_wan_locator.public_ip",
+        "Public IP", "rtps.udpv4_wan_locator.public_ip",
         FT_IPv4, BASE_NONE, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_public_port, {
-        "WAN locator public port", "rtps.udpv4_wan_locator.public_port",
+        "Public port", "rtps.udpv4_wan_locator.public_port",
         FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_local_ip,{
-        "WAN locator local IP", "rtps.udpv4_wan_locator.local_ip",
+        "Local IP", "rtps.udpv4_wan_locator.local_ip",
         FT_IPv4, BASE_NONE, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_locator_local_port,{
-        "WAN locator local port", "rtps.udpv4_wan_locator.local_port",
+        "Local port", "rtps.udpv4_wan_locator.local_port",
         FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }
     },
     { &hf_rtps_flag_udpv4_wan_binding_ping_e, {
@@ -15561,7 +15561,7 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x01, NULL, HFILL }
     },
     { &hf_rtps_flag_udpv4_wan_binding_ping_l, {
-        "long address", "rtps.flag.udpv4_wan_binding_ping.l",
+        "Long address", "rtps.flag.udpv4_wan_binding_ping.l",
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x02, NULL, HFILL }
     },
     { &hf_rtps_flag_udpv4_wan_binding_ping_b,{
@@ -15569,11 +15569,11 @@ void proto_register_rtps(void) {
         FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x04, NULL, HFILL }
     },
     { &hf_rtps_udpv4_wan_binding_ping_flags, {
-        "UDPv4 WAN binding ping flags", "rtps.flag.udpv4_wan_binding_ping",
+        "Flags", "rtps.flag.udpv4_wan_binding_ping",
         FT_UINT8, BASE_HEX, NULL, 0, "Bitmask representing the flags UDPv4 WAN binding ping", HFILL }
     },
     { &hf_rtps_udpv4_wan_binding_ping_port, {
-        "UDPv4 WAN binding RTPS port", "rtps.flag.udpv4_wan_binding_rtps_port",
+        "RTPS port", "rtps.flag.udpv4_wan_binding_rtps_port",
         FT_UINT32, BASE_DEC, NULL, 0, "UDPv4 WAN binding ping RTPS port", HFILL }
     },
     { &hf_rtps_long_address, {

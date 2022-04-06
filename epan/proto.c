@@ -91,6 +91,22 @@ struct ptvcursor {
 	CHECK_FOR_NULL_TREE_AND_FREE(tree, ((void)0))
 
 /** See inlined comments.
+ @param length the length of this item
+ @param cleanup_block a code block to call to free resources if this returns
+ @return NULL if 'length' is lower -1 or equal 0 */
+#define CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length, cleanup_block)	\
+	if (length < -1 || length == 0 ) {				\
+		cleanup_block;						\
+		return NULL;						\
+	}
+
+/** See inlined comments.
+ @param length the length of this item
+ @return NULL if 'length' is lower -1 or equal 0 */
+#define CHECK_FOR_ZERO_OR_MINUS_LENGTH(length) \
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length, ((void)0))
+
+/** See inlined comments.
  @param tree the tree to append this item to
  @param hfindex field index
  @param hfinfo header_field
@@ -447,6 +463,9 @@ static const char *reserved_filter_names[] = {
 	/* Display filter keywords. */
 	"eq",
 	"ne",
+	"all_eq",
+	"any_eq",
+	"all_ne",
 	"any_ne",
 	"gt",
 	"ge",
@@ -524,7 +543,7 @@ proto_init(GSList *register_all_plugin_protocols_list,
 
 	proto_reserved_filter_names = g_hash_table_new(g_str_hash, g_str_equal);
 	for (const char **ptr = reserved_filter_names; *ptr != NULL; ptr++) {
-		/* GHashTable has no key destructor. */
+		/* GHashTable has no key destructor so the cast is safe. */
 		g_hash_table_add(proto_reserved_filter_names, *(char **)ptr);
 	}
 
@@ -553,6 +572,10 @@ proto_init(GSList *register_all_plugin_protocols_list,
 	register_type_length_mismatch();
 	register_number_string_decodinws_error();
 	register_string_errors();
+
+#ifndef WS_DISABLE_DEBUG
+	ftypes_register_pseudofields();
+#endif
 
 	/* Have each built-in dissector register its protocols, fields,
 	   dissector tables, and dissectors to be called through a
@@ -714,32 +737,6 @@ proto_tree_traverse_pre_order(proto_tree *tree, proto_tree_traverse_func func,
 		if (proto_tree_traverse_pre_order((proto_tree *)current, func, data))
 			return TRUE;
 	}
-
-	return FALSE;
-}
-
-gboolean
-proto_tree_traverse_post_order(proto_tree *tree, proto_tree_traverse_func func,
-			       gpointer data)
-{
-	proto_node *pnode = tree;
-	proto_node *child;
-	proto_node *current;
-
-	child = pnode->first_child;
-	while (child != NULL) {
-		/*
-		 * The routine we call might modify the child, e.g. by
-		 * freeing it, so we get the child's successor before
-		 * calling that routine.
-		 */
-		current = child;
-		child   = current->next;
-		if (proto_tree_traverse_post_order((proto_tree *)current, func, data))
-			return TRUE;
-	}
-	if (func(pnode, data))
-		return TRUE;
 
 	return FALSE;
 }
@@ -1082,7 +1079,18 @@ hfinfo_format_bytes(wmem_allocator_t *scope, const header_field_info *hfinfo,
 	gboolean is_printable;
 
 	if (bytes) {
-		if (hfinfo->display & BASE_SHOW_ASCII_PRINTABLE) {
+		if (hfinfo->display & BASE_SHOW_UTF_8_PRINTABLE) {
+			/*
+			 * If all bytes are valid and printable UTF-8, show the
+			 * bytes as a string - in quotes to indicate that it's
+			 * a string.
+			 */
+			if (isprint_utf8_string(bytes, length)) {
+				str = wmem_strdup_printf(scope, "\"%.*s\"",
+				    (int)length, bytes);
+				return str;
+			}
+		} else if (hfinfo->display & BASE_SHOW_ASCII_PRINTABLE) {
 			/*
 			 * Check whether all bytes are printable.
 			 */
@@ -1862,7 +1870,7 @@ get_stringztrunc_value(wmem_allocator_t *scope, tvbuff_t *tvb, gint start,
 #define NTP_TIMEDIFF1900TO1970SEC G_GINT64_CONSTANT(2208988800)
 
 /*
- * NTP Era 1: the epoch is January 1, 2036, 00:00:00 UTC.
+ * NTP Era 1: the epoch is February 7, 2036, 06:28:16 UTC.
  */
 #define NTP_TIMEDIFF1970TO2036SEC G_GINT64_CONSTANT(2085978496)
 
@@ -3055,11 +3063,13 @@ proto_tree_add_item_ret_int(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		    hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_item_ret_int",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = 0;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -3116,11 +3126,13 @@ proto_tree_add_item_ret_uint(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		    hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_item_ret_uint",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = 0;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -3348,11 +3360,13 @@ ptvcursor_add_ret_boolean(ptvcursor_t* ptvc, int hfindex, gint length, const gui
 		    hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint64_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to ptvcursor_add_ret_boolean",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = FALSE;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -3407,11 +3421,13 @@ proto_tree_add_item_ret_uint64(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		    hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint64_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_item_ret_uint64",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = 0;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -3470,11 +3486,13 @@ proto_tree_add_item_ret_int64(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 			hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint64_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_item_ret_int64",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = 0;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -3581,11 +3599,13 @@ proto_tree_add_item_ret_boolean(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		    hfinfo->abbrev);
 	}
 
-	/* length validation for native number encoding caught by get_uint64_value() */
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0)
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_item_ret_boolean",
-			length);
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				*retval = FALSE;
+			}
+		} );
 
 	if (encoding & ENC_STRING) {
 		REPORT_DISSECTOR_BUG("wrong encoding");
@@ -4072,12 +4092,7 @@ proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 	DISSECTOR_ASSERT_HINT(validate_proto_tree_add_bytes_ftype(hfinfo->type),
 		"Called proto_tree_add_bytes_item but not a bytes-based FT_XXX type");
 
-	/* length has to be -1 or > 0 regardless of encoding */
-	/* invalid FT_UINT_BYTES length is caught in get_uint_value() */
-	if (length < -1 || length == 0) {
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_bytes_item for %s",
-		    length, ftype_name(hfinfo->type));
-	}
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH(length);
 
 	if (encoding & ENC_STR_NUM) {
 		REPORT_DISSECTOR_BUG("Decoding number strings for byte arrays is not supported");
@@ -4186,11 +4201,13 @@ proto_tree_add_time_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 
 	DISSECTOR_ASSERT_HINT(hfinfo != NULL, "Not passed hfi!");
 
-	/* length has to be -1 or > 0 regardless of encoding */
-	if (length < -1 || length == 0) {
-		REPORT_DISSECTOR_BUG("Invalid length %d passed to proto_tree_add_time_item",
-		    length);
-	}
+	CHECK_FOR_ZERO_OR_MINUS_LENGTH_AND_CLEANUP(length,
+		{
+			if(retval)
+			{
+				nstime_set_zero(retval);
+			}
+		} );
 
 	nstime_set_zero(&time_stamp);
 
@@ -6139,6 +6156,9 @@ get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start,
 	case FT_UINT_BYTES:
 		n = get_uint_value(NULL, tvb, start, length, encoding);
 		item_length += n;
+		if ((int)item_length < length) {
+			THROW(ReportedBoundsError);
+		}
 		break;
 
 	/* XXX - make these just FT_UINT? */
@@ -6218,6 +6238,9 @@ get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const gint start,
 	case FT_UINT_STRING:
 		n = get_uint_value(NULL, tvb, start, length, encoding & ~ENC_CHARENCODING_MASK);
 		item_length += n;
+		if ((int)item_length < length) {
+			THROW(ReportedBoundsError);
+		}
 		break;
 
 	case FT_STRINGZPAD:
@@ -8204,6 +8227,12 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 	 */
 	if (hfinfo->strings != NULL) {
 		switch (hfinfo->type) {
+
+		/*
+		 * These types are allowed to support display value_strings,
+		 * value64_strings, the extended versions of the previous
+		 * two, range strings, or unit strings.
+		 */
 		case FT_CHAR:
 		case FT_UINT8:
 		case FT_UINT16:
@@ -8223,21 +8252,41 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 		case FT_INT64:
 		case FT_BOOLEAN:
 		case FT_PROTOCOL:
+			break;
+
+		/*
+		 * This is allowed to have a value of type
+		 * enum ft_framenum_type to indicate what relationship
+		 * the frame in question has to the frame in which
+		 * the field is put.
+		 */
 		case FT_FRAMENUM:
 			break;
+
+		/*
+		 * These types are allowed to support only unit strings.
+		 */
 		case FT_FLOAT:
 		case FT_DOUBLE:
-			//allowed to support string if its a unit decsription
-			if (hfinfo->display & BASE_UNIT_STRING)
-				break;
+			if (!(hfinfo->display & BASE_UNIT_STRING)) {
+				REPORT_DISSECTOR_BUG("Field '%s' (%s) has a non-unit-strings 'strings' value but is of type %s"
+					" (which is only allowed to have unit strings)",
+					hfinfo->name, hfinfo->abbrev, ftype_name(hfinfo->type));
+			}
+			break;
 
-			//fallthrough
+		/*
+		 * This type is only allowed to support a string if it's
+		 * a protocol (for pinos).
+		 */
 		case FT_BYTES:
-			//allowed to support string if its a protocol (for pinos)
-			if (hfinfo->display & BASE_PROTOCOL_INFO)
-				break;
+			if (!(hfinfo->display & BASE_PROTOCOL_INFO)) {
+				REPORT_DISSECTOR_BUG("Field '%s' (%s) has a non-protocol-info 'strings' value but is of type %s"
+					" (which is only allowed to have protocol-info strings)",
+					hfinfo->name, hfinfo->abbrev, ftype_name(hfinfo->type));
+			}
+			break;
 
-			//fallthrough
 		default:
 			REPORT_DISSECTOR_BUG("Field '%s' (%s) has a 'strings' value but is of type %s"
 				" (which is not allowed to have strings)",
@@ -8993,10 +9042,14 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 	char		   *addr_str;
 	char		   *tmp;
 
+	if (!label_str) {
+		ws_warning("NULL label_str passed to proto_item_fill_label.");
+		return;
+	}
+
+	label_str[0]= '\0';
+
 	if (!fi) {
-		if (label_str)
-			label_str[0]= '\0';
-		/* XXX: Check validity of hfinfo->type */
 		return;
 	}
 
@@ -10796,9 +10849,6 @@ proto_registrar_dump_fieldcount(void)
 static void
 elastic_add_base_mapping(json_dumper *dumper)
 {
-	json_dumper_set_member_name(dumper, "index_patterns");
-	json_dumper_value_string(dumper, "packets-*");
-
 	json_dumper_set_member_name(dumper, "settings");
 	json_dumper_begin_object(dumper);
 	json_dumper_set_member_name(dumper, "index.mapping.total_fields.limit");
@@ -10874,6 +10924,7 @@ proto_registrar_dump_elastic(const gchar* filter)
 	gboolean found;
 	guint j;
 	gchar* type;
+	gchar* prev_item = NULL;
 
 	/* We have filtering protocols. Extract them. */
 	if (filter) {
@@ -10894,24 +10945,21 @@ proto_registrar_dump_elastic(const gchar* filter)
 
 	json_dumper_set_member_name(&dumper, "mappings");
 	json_dumper_begin_object(&dumper); // 2.mappings
-	json_dumper_set_member_name(&dumper, "doc");
-
-	json_dumper_begin_object(&dumper); // 3.doc
 	json_dumper_set_member_name(&dumper, "dynamic");
 	json_dumper_value_anyf(&dumper, "false");
 
 	json_dumper_set_member_name(&dumper, "properties");
-	json_dumper_begin_object(&dumper); // 4.properties
+	json_dumper_begin_object(&dumper); // 3.properties
 	json_dumper_set_member_name(&dumper, "timestamp");
-	json_dumper_begin_object(&dumper); // 5.timestamp
+	json_dumper_begin_object(&dumper); // 4.timestamp
 	json_dumper_set_member_name(&dumper, "type");
 	json_dumper_value_string(&dumper, "date");
-	json_dumper_end_object(&dumper); // 5.timestamp
+	json_dumper_end_object(&dumper); // 4.timestamp
 
 	json_dumper_set_member_name(&dumper, "layers");
-	json_dumper_begin_object(&dumper); // 5.layers
+	json_dumper_begin_object(&dumper); // 4.layers
 	json_dumper_set_member_name(&dumper, "properties");
-	json_dumper_begin_object(&dumper); // 6.properties
+	json_dumper_begin_object(&dumper); // 5.properties
 
 	for (i = 0; i < gpa_hfinfo.len; i++) {
 		if (gpa_hfinfo.hfi[i] == NULL)
@@ -10950,8 +10998,8 @@ proto_registrar_dump_elastic(const gchar* filter)
 			}
 
 			if (prev_proto && g_strcmp0(parent_hfinfo->abbrev, prev_proto)) {
-				json_dumper_end_object(&dumper); // 8.properties
-				json_dumper_end_object(&dumper); // 7.parent_hfinfo->abbrev
+				json_dumper_end_object(&dumper); // 7.properties
+				json_dumper_end_object(&dumper); // 8.parent_hfinfo->abbrev
 				open_object = TRUE;
 			}
 
@@ -10959,34 +11007,38 @@ proto_registrar_dump_elastic(const gchar* filter)
 
 			if (open_object) {
 				json_dumper_set_member_name(&dumper, parent_hfinfo->abbrev);
-				json_dumper_begin_object(&dumper); // 7.parent_hfinfo->abbrev
+				json_dumper_begin_object(&dumper); // 6.parent_hfinfo->abbrev
 				json_dumper_set_member_name(&dumper, "properties");
-				json_dumper_begin_object(&dumper); // 8.properties
+				json_dumper_begin_object(&dumper); // 7.properties
 				open_object = FALSE;
 			}
 			/* Skip the fields that would map into string. This is the default in elasticsearch. */
 			type = ws_type_to_elastic(hfinfo->type);
 			if (type) {
 				str = ws_strdup_printf("%s_%s", prev_proto, hfinfo->abbrev);
-				json_dumper_set_member_name(&dumper, dot_to_underscore(str));
-				g_free(str);
-				json_dumper_begin_object(&dumper); // 9.hfinfo->abbrev
-				json_dumper_set_member_name(&dumper, "type");
-				json_dumper_value_string(&dumper, type);
-				json_dumper_end_object(&dumper); // 9.hfinfo->abbrev
+				dot_to_underscore(str);
+				if (g_strcmp0(prev_item, str)) {
+					json_dumper_set_member_name(&dumper, str);
+					json_dumper_begin_object(&dumper); // 8.hfinfo->abbrev
+					json_dumper_set_member_name(&dumper, "type");
+					json_dumper_value_string(&dumper, type);
+					json_dumper_end_object(&dumper); // 8.hfinfo->abbrev
+				}
+				g_free(prev_item);
+				prev_item = str;
 			}
 		}
 	}
+	g_free(prev_item);
 
 	if (prev_proto) {
-		json_dumper_end_object(&dumper); // 8.properties
-		json_dumper_end_object(&dumper); // 7.parent_hfinfo->abbrev
+		json_dumper_end_object(&dumper); // 7.properties
+		json_dumper_end_object(&dumper); // 6.parent_hfinfo->abbrev
 	}
 
-	json_dumper_end_object(&dumper); // 6.properties
-	json_dumper_end_object(&dumper); // 5.layers
-	json_dumper_end_object(&dumper); // 4.properties
-	json_dumper_end_object(&dumper); // 3.doc
+	json_dumper_end_object(&dumper); // 5.properties
+	json_dumper_end_object(&dumper); // 4.layers
+	json_dumper_end_object(&dumper); // 3.properties
 	json_dumper_end_object(&dumper); // 2.mappings
 	json_dumper_end_object(&dumper); // 1.root
 	gboolean ret = json_dumper_finish(&dumper);

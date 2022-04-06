@@ -687,7 +687,7 @@ netconfsoaphttp	832/tcp/udp	# NETCONF for SOAP over HTTPS
 netconfsoapbeep	833/tcp/udp	# NETCONF for SOAP over BEEP
 dhcp-failover2	847/tcp/udp	# dhcp-failover 2
 gdoi		848/tcp/udp	# GDOI
-domain-s	853/tcp/udp	# DNS query-response protocol run over TLS/DTLS
+domain-s	853/tcp/udp	# DNS query-response protocol run over TLS
 dlep		854/tcp/udp	# Dynamic Link Exchange Protocol (DLEP)
 iscsi		860/tcp/udp	# iSCSI
 owamp-control	861/tcp		# OWAMP-Control
@@ -5283,6 +5283,7 @@ dlpx-sp		8415/tcp	# Delphix Session Protocol
 espeech		8416/tcp/udp	# eSpeech Session Protocol
 espeech-rtp	8417/tcp/udp	# eSpeech RTP Protocol
 aritts		8423/tcp	# Aristech text-to-speech server
+pgbackrest	8432/tcp	# PostgreSQL Backup
 cybro-a-bus	8442/tcp/udp	# CyBro A-bus Protocol
 pcsync-https	8443/tcp/udp	# PCsync HTTPS
 pcsync-http	8444/tcp/udp	# PCsync HTTP
@@ -5474,6 +5475,7 @@ sphinxapi	9312/tcp	# Sphinx search server
 secure-ts	9318/tcp/udp	# PKIX TimeStamp over TLS
 guibase		9321/tcp/udp
 gnmi-gnoi	9339/tcp	# gRPC Network Mgmt/Operations Interface
+gribi		9340/tcp	# gRPC Routing Information Base Interface
 mpidcmgr	9343/tcp/udp	# MpIdcMgr
 mphlpdmc	9344/tcp/udp	# Mphlpdmc
 rancher		9345/tcp	# Rancher Agent
@@ -6114,6 +6116,7 @@ ng-control	38412/sctp	# NG Control Plane (3GPP)
 xn-control	38422/sctp	# Xn Control Plane (3GPP)
 e1-interface	38462/sctp	# E1 signalling transport (3GPP)
 f1-control	38472/sctp	# F1 Control Plane (3GPP)
+psqlmws		38638/tcp	# Premier SQL Middleware Server
 sruth		38800/tcp	# Sruth is a service for the distribution of routinely- generated but arbitrary files based on a publish/subscribe distribution model and implemented using a peer-to-peer transport mechanism
 secrmmsafecopya	38865/tcp	# Security approval process for use of the secRMM SafeCopy program
 vroa		39063/tcp	# Children's hearing test/Telemedicine

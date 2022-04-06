@@ -22,7 +22,9 @@
 typedef enum {
 	STTYPE_UNINITIALIZED,
 	STTYPE_TEST,
+	STTYPE_LITERAL,
 	STTYPE_UNPARSED,
+	STTYPE_REFERENCE,
 	STTYPE_STRING,
 	STTYPE_CHARCONST,
 	STTYPE_FIELD,
@@ -31,12 +33,12 @@ typedef enum {
 	STTYPE_FUNCTION,
 	STTYPE_SET,
 	STTYPE_PCRE,
+	STTYPE_ARITHMETIC,
 	STTYPE_NUM_TYPES
 } sttype_id_t;
 
 typedef enum {
 	TEST_OP_UNINITIALIZED,
-	TEST_OP_EXISTS,
 	TEST_OP_NOT,
 	TEST_OP_AND,
 	TEST_OP_OR,
@@ -48,7 +50,13 @@ typedef enum {
 	TEST_OP_GE,
 	TEST_OP_LT,
 	TEST_OP_LE,
-	TEST_OP_BITWISE_AND,
+	OP_BITWISE_AND,
+	OP_UNARY_MINUS,
+	OP_ADD,
+	OP_SUBTRACT,
+	OP_MULTIPLY,
+	OP_DIVIDE,
+	OP_MODULO,
 	TEST_OP_CONTAINS,
 	TEST_OP_MATCHES,
 	TEST_OP_IN
@@ -70,13 +78,10 @@ typedef struct {
 	STTypeToStrFunc		func_tostr;
 } sttype_t;
 
-#define STNODE_F_INSIDE_PARENS (1 << 0)
-
 /** Node (type instance) information */
 typedef struct {
 	uint32_t	magic;
 	sttype_t	*type;
-	uint16_t	flags;
 	gpointer	data;
 	char 		*repr_token;
 	char 		*repr_display;
@@ -108,10 +113,16 @@ stnode_t *
 stnode_new_test(test_op_t op, char *token);
 
 stnode_t *
+stnode_new_math(test_op_t op, char *token);
+
+stnode_t *
 stnode_new_string(const char *str, char *token);
 
 stnode_t *
 stnode_new_unparsed(const char *str, char *token);
+
+stnode_t *
+stnode_new_literal(const char *str, char *token);
 
 stnode_t *
 stnode_new_charconst(unsigned long number, char *token);
@@ -150,11 +161,10 @@ stnode_tostr(stnode_t *node, gboolean pretty);
 
 #define stnode_todebug(node) stnode_tostr(node, FALSE)
 
-gboolean
-stnode_inside_parens(stnode_t *node);
-
 void
-stnode_set_inside_parens(stnode_t *node, gboolean inside);
+log_node_full(enum ws_log_level level,
+			const char *file, int line, const char *func,
+			stnode_t *node, const char *msg);
 
 void
 log_test_full(enum ws_log_level level,
@@ -162,14 +172,28 @@ log_test_full(enum ws_log_level level,
 			stnode_t *node, const char *msg);
 
 #ifdef WS_DISABLE_DEBUG
+#define log_node(node) (void)0;
 #define log_test(node) (void)0;
+#define LOG_NODE(node) (void)0;
 #else
+#define log_node(node) \
+	log_node_full(LOG_LEVEL_NOISY, __FILE__, __LINE__, __func__, node, #node)
 #define log_test(node) \
 	log_test_full(LOG_LEVEL_NOISY, __FILE__, __LINE__, __func__, node, #node)
+#define LOG_NODE(node) \
+	do { \
+		if (stnode_type_id(node) == STTYPE_TEST) \
+			log_test(node);			\
+		else					\
+			log_node(node);			\
+	} while (0)
 #endif
 
+char *
+dump_syntax_tree_str(stnode_t *root);
+
 void
-log_syntax_tree(enum ws_log_level, stnode_t *root, const char *msg);
+log_syntax_tree(enum ws_log_level, stnode_t *root, const char *msg, char **cache_ptr);
 
 #ifdef WS_DISABLE_DEBUG
 #define ws_assert_magic(obj, mnum) (void)0

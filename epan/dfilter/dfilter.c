@@ -81,33 +81,40 @@ dfilter_fail_throw(dfwork_t *dfw, long code, const char *format, ...)
  * Tries to convert an STTYPE_UNPARSED to a STTYPE_FIELD. If it's not registered as
  * a field pass UNPARSED to the semantic check.
  */
-stnode_t *
-dfilter_resolve_unparsed(dfwork_t *dfw, stnode_t *node)
+header_field_info *
+dfilter_resolve_unparsed(dfwork_t *dfw, const char *name)
 {
-	const char *name;
 	header_field_info *hfinfo;
 
-	ws_assert(stnode_type_id(node) == STTYPE_UNPARSED);
-
-	name = stnode_data(node);
+	if (*name == '.')
+		name += 1;
 
 	hfinfo = proto_registrar_get_byname(name);
 	if (hfinfo != NULL) {
 		/* It's a field name */
-		stnode_replace(node, STTYPE_FIELD, hfinfo);
-		return node;
+		return hfinfo;
 	}
 
 	hfinfo = proto_registrar_get_byalias(name);
 	if (hfinfo != NULL) {
 		/* It's an aliased field name */
 		add_deprecated_token(dfw, name);
-		stnode_replace(node, STTYPE_FIELD, hfinfo);
-		return node;
+		return hfinfo;
 	}
 
 	/* It's not a field. */
-	return node;
+	return NULL;
+}
+
+char *
+dfilter_literal_normalized(const char *token)
+{
+	if (*token == '<') {
+		char *end = strchr(token, '>');
+		return g_strndup(token + 1, end - (token + 1));
+	}
+
+	return g_strdup(token);
 }
 
 /* Initialize the dfilter module */
@@ -183,43 +190,50 @@ free_insns(GPtrArray *insns)
 void
 dfilter_free(dfilter_t *df)
 {
-	guint i;
-
 	if (!df)
 		return;
 
 	if (df->insns) {
 		free_insns(df->insns);
 	}
-	if (df->consts) {
-		free_insns(df->consts);
-	}
 
 	g_free(df->interesting_fields);
 
-	/* Clear registers with constant values (as set by dfvm_init_const).
-	 * Other registers were cleared on RETURN by free_register_overhead. */
-	for (i = df->num_registers; i < df->max_registers; i++) {
-		g_list_free(df->registers[i]);
-	}
+	g_hash_table_destroy(df->references);
 
 	if (df->deprecated)
 		g_ptr_array_unref(df->deprecated);
 
 	g_free(df->registers);
 	g_free(df->attempted_load);
-	g_free(df->owns_memory);
+	g_free(df->free_registers);
+	g_free(df->expanded_text);
+	g_free(df->syntax_tree_str);
 	g_free(df);
+}
+
+static void free_reference(gpointer data)
+{
+	/* List data must be freed. */
+	GSList **fvalues_ptr = data;
+	if (*fvalues_ptr)
+		g_slist_free_full(*fvalues_ptr, (GDestroyNotify)fvalue_free);
+	g_free(fvalues_ptr);
 }
 
 
 static dfwork_t*
 dfwork_new(void)
 {
-	dfwork_t	*dfw;
+	dfwork_t *dfw = g_new0(dfwork_t, 1);
 
-	dfw = g_new0(dfwork_t, 1);
-	dfw->first_constant = -1;
+	dfw->references =
+		g_hash_table_new_full(g_direct_hash, g_direct_equal,
+				NULL, free_reference);
+
+	dfw->loaded_references =
+		g_hash_table_new_full(g_direct_hash, g_direct_equal,
+				NULL, (GDestroyNotify)dfvm_value_unref);
 
 	return dfw;
 }
@@ -239,12 +253,16 @@ dfwork_free(dfwork_t *dfw)
 		g_hash_table_destroy(dfw->interesting_fields);
 	}
 
-	if (dfw->insns) {
-		free_insns(dfw->insns);
+	if (dfw->references) {
+		g_hash_table_destroy(dfw->references);
 	}
 
-	if (dfw->consts) {
-		free_insns(dfw->consts);
+	if (dfw->loaded_references) {
+		g_hash_table_destroy(dfw->loaded_references);
+	}
+
+	if (dfw->insns) {
+		free_insns(dfw->insns);
 	}
 
 	if (dfw->deprecated)
@@ -272,11 +290,18 @@ const char *tokenstr(int token)
 		case TOKEN_TEST_GE:	return "TEST_GE";
 		case TOKEN_TEST_CONTAINS: return "TEST_CONTAINS";
 		case TOKEN_TEST_MATCHES: return "TEST_MATCHES";
-		case TOKEN_TEST_BITWISE_AND: return "TEST_BITWISE_AND";
+		case TOKEN_BITWISE_AND: return "BITWISE_AND";
+		case TOKEN_PLUS:	return "PLUS";
+		case TOKEN_MINUS:	return "MINUS";
+		case TOKEN_STAR:	return "STAR";
+		case TOKEN_RSLASH:	return "RSLASH";
+		case TOKEN_PERCENT:	return "PERCENT";
 		case TOKEN_TEST_NOT:	return "TEST_NOT";
 		case TOKEN_STRING:	return "STRING";
 		case TOKEN_CHARCONST:	return "CHARCONST";
 		case TOKEN_UNPARSED:	return "UNPARSED";
+		case TOKEN_LITERAL:	return "LITERAL";
+		case TOKEN_IDENTIFIER:	return "IDENTIFIER";
 		case TOKEN_LBRACKET:	return "LBRACKET";
 		case TOKEN_RBRACKET:	return "RBRACKET";
 		case TOKEN_COMMA:	return "COMMA";
@@ -287,6 +312,9 @@ const char *tokenstr(int token)
 		case TOKEN_DOTDOT:	return "DOTDOT";
 		case TOKEN_LPAREN:	return "LPAREN";
 		case TOKEN_RPAREN:	return "RPAREN";
+		case TOKEN_REFERENCE:	return "REFERENCE";
+		case TOKEN_REF_OPEN:	return "REF_OPEN";
+		case TOKEN_REF_CLOSE:	return "REF_CLOSE";
 	}
 	return "<unknown>";
 }
@@ -311,7 +339,8 @@ add_deprecated_token(dfwork_t *dfw, const char *token)
 
 gboolean
 dfilter_compile_real(const gchar *text, dfilter_t **dfp,
-			gchar **error_ret, const char *caller)
+			gchar **error_ret, const char *caller,
+			gboolean save_tree)
 {
 	gchar		*expanded_text;
 	int		token;
@@ -322,6 +351,7 @@ dfilter_compile_real(const gchar *text, dfilter_t **dfp,
 	YY_BUFFER_STATE in_buffer;
 	gboolean failure = FALSE;
 	unsigned token_count = 0;
+	char		*tree_str;
 
 	ws_assert(dfp);
 	*dfp = NULL;
@@ -435,14 +465,20 @@ dfilter_compile_real(const gchar *text, dfilter_t **dfp,
 		*dfp = NULL;
 	}
 	else {
-		log_syntax_tree(LOG_LEVEL_NOISY, dfw->st_root, "Syntax tree before semantic check");
+		log_syntax_tree(LOG_LEVEL_NOISY, dfw->st_root, "Syntax tree before semantic check", NULL);
 
 		/* Check semantics and do necessary type conversion*/
 		if (!dfw_semcheck(dfw)) {
 			goto FAILURE;
 		}
 
-		log_syntax_tree(LOG_LEVEL_NOISY, dfw->st_root, "Syntax tree after successful semantic check");
+		/* Cache tree representation in tree_str. */
+		tree_str = NULL;
+		log_syntax_tree(LOG_LEVEL_NOISY, dfw->st_root, "Syntax tree after successful semantic check", &tree_str);
+
+		if (save_tree && tree_str == NULL) {
+			tree_str = dump_syntax_tree_str(dfw->st_root);
+		}
 
 		/* Create bytecode */
 		dfw_gencode(dfw);
@@ -450,21 +486,29 @@ dfilter_compile_real(const gchar *text, dfilter_t **dfp,
 		/* Tuck away the bytecode in the dfilter_t */
 		dfilter = dfilter_new(dfw->deprecated);
 		dfilter->insns = dfw->insns;
-		dfilter->consts = dfw->consts;
 		dfw->insns = NULL;
-		dfw->consts = NULL;
 		dfilter->interesting_fields = dfw_interesting_fields(dfw,
 			&dfilter->num_interesting_fields);
+		dfilter->expanded_text = ws_strdup(expanded_text);
+		dfilter->references = dfw->references;
+		dfw->references = NULL;
+
+		if (save_tree) {
+			ws_assert(tree_str);
+			dfilter->syntax_tree_str = tree_str;
+			tree_str = NULL;
+		}
+		else {
+			dfilter->syntax_tree_str = NULL;
+			g_free(tree_str);
+			tree_str = NULL;
+		}
 
 		/* Initialize run-time space */
-		dfilter->num_registers = dfw->first_constant;
-		dfilter->max_registers = dfw->next_register;
-		dfilter->registers = g_new0(GList*, dfilter->max_registers);
-		dfilter->attempted_load = g_new0(gboolean, dfilter->max_registers);
-		dfilter->owns_memory = g_new0(gboolean, dfilter->max_registers);
-
-		/* Initialize constants */
-		dfvm_init_const(dfilter);
+		dfilter->num_registers = dfw->next_register;
+		dfilter->registers = g_new0(GSList *, dfilter->num_registers);
+		dfilter->attempted_load = g_new0(gboolean, dfilter->num_registers);
+		dfilter->free_registers = g_new0(GDestroyNotify, dfilter->num_registers);
 
 		/* And give it to the user. */
 		*dfp = dfilter;
@@ -555,6 +599,80 @@ dfilter_dump(dfilter_t *df)
 			sep = ", ";
 		}
 		printf("\n");
+	}
+}
+
+const char *
+dfilter_text(dfilter_t *df)
+{
+	return df->expanded_text;
+}
+
+const char *
+dfilter_syntax_tree(dfilter_t *df)
+{
+	return df->syntax_tree_str;
+}
+
+void
+dfilter_log_full(const char *domain, enum ws_log_level level,
+			const char *file, long line, const char *func,
+			dfilter_t *df, const char *msg)
+{
+	if (!ws_log_msg_is_active(domain, level))
+		return;
+
+	if (df == NULL) {
+		ws_log_write_always_full(domain, level, file, line, func,
+				"%s: NULL display filter", msg ? msg : "?");
+		return;
+	}
+
+	char *str = dfvm_dump_str(NULL, df, TRUE);
+	if (G_UNLIKELY(msg == NULL))
+		ws_log_write_always_full(domain, level, file, line, func, "Filter:%s\n%s", dfilter_text(df), str);
+	else
+		ws_log_write_always_full(domain, level, file, line, func, "%s:\nFilter: %s\nInstructions:\n%s", msg, dfilter_text(df), str);
+	g_free(str);
+}
+
+void
+dfilter_load_field_references(const dfilter_t *df, proto_tree *tree)
+{
+	GHashTableIter iter;
+	GPtrArray *finfos;
+	field_info *finfo;
+	header_field_info *hfinfo;
+	GSList **fvalues_ptr;
+	int i, len;
+
+	if (g_hash_table_size(df->references) == 0) {
+		/* Nothing to do. */
+		return;
+	}
+
+	g_hash_table_iter_init( &iter, df->references);
+	while (g_hash_table_iter_next (&iter, (void **)&hfinfo, (void **)&fvalues_ptr)) {
+		/* If we have a previous list free it and the data too */
+		g_slist_free_full(*fvalues_ptr, (GDestroyNotify)fvalue_free);
+		*fvalues_ptr = NULL;
+
+		while (hfinfo) {
+			finfos = proto_find_finfo(tree, hfinfo->id);
+			if ((finfos == NULL) || (g_ptr_array_len(finfos) == 0)) {
+				hfinfo = hfinfo->same_name_next;
+				continue;
+			}
+
+			len = finfos->len;
+			for (i = 0; i < len; i++) {
+				finfo = g_ptr_array_index(finfos, i);
+				*fvalues_ptr = g_slist_prepend(*fvalues_ptr,
+						fvalue_dup(&finfo->value));
+			}
+
+			hfinfo = hfinfo->same_name_next;
+		}
 	}
 }
 

@@ -79,6 +79,7 @@ static gint hf_ber_id_uni_tag_ext = -1;
 static gint hf_ber_id_tag = -1;
 static gint hf_ber_id_tag_ext = -1;
 static gint hf_ber_length = -1;
+static gint hf_ber_length_octets = -1;
 static gint hf_ber_bitstring_padding = -1;
 static gint hf_ber_bitstring_empty = -1;
 static gint hf_ber_unknown_OID = -1;
@@ -111,6 +112,7 @@ static gint hf_ber_single_ASN1_type = -1;         /* T_single_ASN1_type */
 static gint hf_ber_octet_aligned = -1;            /* OCTET_STRING */
 static gint hf_ber_arbitrary = -1;                /* BIT_STRING */
 static gint hf_ber_extra_data = -1;
+static gint hf_ber_encoding_boiler_plate = -1;
 
 /* Generated from convert_proto_tree_add_text.pl */
 static int hf_ber_seq_of_eoc = -1;
@@ -320,6 +322,16 @@ static const fragment_items octet_string_frag_items = {
     /* Tag */
     "OCTET STRING fragments"
 };
+
+void
+add_ber_encoded_label(tvbuff_t* tvb, packet_info* pinfo _U_, proto_tree* tree)
+{
+    proto_item *ti;
+
+    ti = proto_tree_add_item(tree, hf_ber_encoding_boiler_plate, tvb, 0, -1, ENC_NA);
+    proto_item_set_generated(ti);
+
+}
 
 static void *
 oid_copy_cb(void *dest, const void *orig, size_t len _U_)
@@ -1374,7 +1386,12 @@ dissect_ber_length(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int 
         if (tmp_ind) {
             proto_tree_add_uint_format_value(tree, hf_ber_length, tvb, old_offset, 1, tmp_length, "Indefinite length %d", tmp_length);
         } else {
-            proto_tree_add_uint(tree, hf_ber_length, tvb, old_offset, offset - old_offset, tmp_length);
+            if ((offset - old_offset) > 1) {
+                proto_tree_add_uint(tree, hf_ber_length_octets, tvb, old_offset, 1, (tvb_get_guint8(tvb, old_offset) & 0x7f));
+                proto_tree_add_uint(tree, hf_ber_length, tvb, old_offset+1, offset - (old_offset+1), tmp_length);
+            } else {
+                proto_tree_add_uint(tree, hf_ber_length, tvb, old_offset, offset - old_offset, tmp_length);
+            }
         }
     }
     if (length)
@@ -4264,6 +4281,9 @@ proto_register_ber(void)
         { &hf_ber_id_tag_ext, {
                 "Tag", "ber.id.tag", FT_UINT32, BASE_DEC,
                 NULL, 0, "Tag value for non-Universal classes", HFILL }},
+        { &hf_ber_length_octets, {
+                "Length Octets", "ber.length_octets", FT_UINT8, BASE_DEC,
+                NULL, 0, "Number of length octets", HFILL }},
         { &hf_ber_length, {
                 "Length", "ber.length", FT_UINT32, BASE_DEC,
                 NULL, 0, "Length of contents", HFILL }},
@@ -4412,8 +4432,8 @@ proto_register_ber(void)
       { &hf_ber_choice_eoc, { "CHOICE EOC", "ber.choice_eoc", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ber_seq_of_eoc, { "SEQ OF EOC", "ber.seq_of_eoc", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ber_64bit_uint_as_bytes, { "64bits unsigned integer", "ber.64bit_uint_as_bytes", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+      { &hf_ber_encoding_boiler_plate, { "BER encoded protocol, to see BER internal fields set protocol BER preferences", "ber.encoding_boiler_plate", FT_NONE, BASE_NONE, NULL, 0x0, NULL, HFILL }},
     };
-
 
     static gint *ett[] = {
         &ett_ber_octet_string,

@@ -3453,6 +3453,11 @@ prefs_register_modules(void)
                                    "Show the intelligent scroll bar (a minimap of packet list colors in the scrollbar)",
                                    &prefs.gui_packet_list_show_minimap);
 
+    prefs_register_bool_preference(gui_module, "packet_list_is_sortable",
+                                   "Allow packet list to be sortable",
+                                   "To prevent sorting by mistake (which can take some time to calculate), it can be disabled",
+                                   &prefs.gui_packet_list_sortable);
+
 
     prefs_register_bool_preference(gui_module, "interfaces_show_hidden",
                                    "Show hidden interfaces",
@@ -3483,6 +3488,11 @@ prefs_register_modules(void)
         "Enables automatic updates for IO Graph",
         "Enables automatic updates for IO Graph",
         &prefs.gui_io_graph_automatic_update);
+
+    prefs_register_bool_preference(gui_module, "show_byteview_in_dialog",
+        "Show the byte view in the packet details dialog",
+        "Show the byte view in the packet details dialog",
+        &prefs.gui_packet_details_show_byteview);
 
     /* Console
      * These are preferences that can be read/written using the
@@ -4160,6 +4170,7 @@ pre_init_prefs(void)
     prefs.gui_packet_list_elide_mode = ELIDE_RIGHT;
     prefs.gui_packet_list_show_related = TRUE;
     prefs.gui_packet_list_show_minimap = TRUE;
+    prefs.gui_packet_list_sortable     = TRUE;
     g_free (prefs.gui_interfaces_hide_types);
     prefs.gui_interfaces_hide_types = g_strdup("");
     prefs.gui_interfaces_show_hidden = FALSE;
@@ -4225,6 +4236,9 @@ pre_init_prefs(void)
 
     /* set the default values for the io graph dialog */
     prefs.gui_io_graph_automatic_update = TRUE;
+
+    /* set the default values for the packet dialog */
+    prefs.gui_packet_details_show_byteview = TRUE;
 }
 
 /*
