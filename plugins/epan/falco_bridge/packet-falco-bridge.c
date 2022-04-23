@@ -20,26 +20,50 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifndef _WIN32
 #include <unistd.h>
 #include <dlfcn.h>
 #endif
-#include <stdio.h>
-#include <inttypes.h>
 
-
-#include <epan/packet.h>
 #include <epan/exceptions.h>
+#include <epan/packet.h>
 #include <epan/proto.h>
 #include <epan/proto_data.h>
+#include <epan/conversation_filter.h>
+#include <epan/tap.h>
+#include <epan/stat_tap_ui.h>
+
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
-#include <epan/conversation_filter.h>
 
 #include "sinsp-span.h"
-#include "packet-falco-bridge.h"
 #include "conversation-macros.h"
+
+typedef enum bridge_field_flags_e {
+    BFF_NONE = 0,
+    BFF_HIDDEN = 1 << 1, // Unused
+    BFF_INFO = 1 << 2,
+    BFF_CONVERSATION = 1 << 3
+} bridge_field_flags_e;
+
+typedef struct bridge_info {
+    sinsp_source_info_t *ssi;
+    uint32_t source_id;
+    int proto;
+    hf_register_info* hf;
+    int* hf_ids;
+    uint32_t visible_fields;
+    uint32_t* field_flags;
+    int* field_ids;
+} bridge_info;
+
+typedef struct conv_fld_info {
+    const char* proto_name;
+    hf_register_info* field_info;
+    char field_val[4096];
+} conv_fld_info;
 
 static int proto_falco_bridge = -1;
 static gint ett_falco_bridge = -1;
@@ -95,11 +119,10 @@ static hf_register_info hf[] = {
  * Conversation filters mappers setup
  */
 #define MAX_CONV_FILTER_STR_LEN 1024
-conv_fld_info conv_fld_infos[MAX_N_CONV_FILTERS];
+static conv_fld_info conv_fld_infos[MAX_N_CONV_FILTERS];
 DECLARE_CONV_FLTS()
-char conv_flt_vals[MAX_N_CONV_FILTERS][MAX_CONV_FILTER_STR_LEN];
-guint conv_vals_cnt = 0;
-guint conv_fld_cnt = 0;
+static char conv_flt_vals[MAX_N_CONV_FILTERS][MAX_CONV_FILTER_STR_LEN];
+static guint conv_vals_cnt = 0;
 
 void
 register_conversation_filters_mappings(void)
@@ -137,6 +160,8 @@ configure_plugin(bridge_info* bi, char* config _U_)
         bi->field_flags = (guint32*)wmem_alloc(wmem_epan_scope(), bi->visible_fields * sizeof(guint32));
 
         uint32_t fld_cnt = 0;
+        size_t conv_fld_cnt = 0;
+
         for (uint32_t j = 0; j < tot_fields; j++)
         {
             bi->hf_ids[fld_cnt] = -1;
@@ -203,12 +228,16 @@ configure_plugin(bridge_info* bi, char* config _U_)
                 conv_fld_infos[conv_fld_cnt].field_info = ri;
                 const char *source_name = get_sinsp_source_name(bi->ssi);
                 conv_fld_infos[conv_fld_cnt].proto_name = source_name;
+                // XXX We currently build a filter per field. Should we "and" them instead?
                 register_log_conversation_filter(source_name, finfo.hfinfo.name, fv_func[conv_fld_cnt], bfs_func[conv_fld_cnt]);
                 conv_fld_cnt++;
             }
             fld_cnt++;
         }
         proto_register_field_array(proto_falco_bridge, bi->hf, fld_cnt);
+        if (conv_fld_cnt > 0) {
+            add_conversation_filter_protocol(get_sinsp_source_name(bi->ssi));
+        }
     }
 }
 
@@ -284,7 +313,7 @@ proto_register_falcoplugin(void)
      * each plugin.
      */
     if ((dir = ws_dir_open(dname, 0, NULL)) != NULL) {
-        while ((file = ws_dir_read_name(dir)) != NULL) {
+        while ((ws_dir_read_name(dir)) != NULL) {
             nbridges++;
         }
         ws_dir_close(dir);
@@ -331,6 +360,7 @@ get_bridge_info(guint32 source_id)
     return NULL;
 }
 
+#define PROTO_DATA_BRIDGE_HANDLE    0x00
 static int
 dissect_falco_bridge(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {

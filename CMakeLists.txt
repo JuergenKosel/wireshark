@@ -19,13 +19,7 @@ if(WIN32)
 	# Needed for add_custom_command() WORKING_DIRECTORY generator expressions
 	cmake_minimum_required(VERSION 3.13)
 else()
-	cmake_minimum_required(VERSION 3.5)
-endif()
-if(POLICY CMP0069)
-	cmake_policy(SET CMP0069 NEW)
-endif()
-if(POLICY CMP0071)
-	cmake_policy(SET CMP0071 NEW)
+	cmake_minimum_required(VERSION 3.10)
 endif()
 if(POLICY CMP0074)
 	cmake_policy(SET CMP0074 NEW)
@@ -142,6 +136,7 @@ if(WIN32)
 	if(WIRESHARK_TARGET_PLATFORM MATCHES "win64")
 		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE amd64)
 	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "win32")
+		message(FATAL_ERROR "Deprecated target platform ${WIRESHARK_TARGET_PLATFORM}. See https://gitlab.com/wireshark/wireshark/-/issues/17779 for details.")
 		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x86)
 	else()
 		message(FATAL_ERROR "Invalid target platform: ${WIRESHARK_TARGET_PLATFORM}")
@@ -606,7 +601,7 @@ else() # ! MSVC
 	if(APPLE)
 		# MIN_MACOS_VERSION is used to set LSMinimumSystemVersion
 		# in Info.plist, so start with something low.
-		set(MIN_MACOS_VERSION 10.8)
+		set(MIN_MACOS_VERSION 10.10)
 		if(CMAKE_OSX_DEPLOYMENT_TARGET)
 			if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 				message(FATAL_ERROR "We don't support building for macOS < ${MIN_MACOS_VERSION}")
@@ -1134,14 +1129,14 @@ endmacro()
 # The minimum package list
 find_package(Git)
 reset_find_package(GLIB2 GLIB2_MAIN_INCLUDE_DIR GLIB2_INTERNAL_INCLUDE_DIR)
-find_package(GLIB2 "2.38.0" REQUIRED)
+find_package(GLIB2 "2.50.0" REQUIRED)
 include_directories(SYSTEM ${GLIB2_INCLUDE_DIRS})
 reset_find_package(GMODULE2)
 find_package(GMODULE2)
 reset_find_package(GTHREAD2)
 find_package(GTHREAD2 REQUIRED)
 reset_find_package(GCRYPT GCRYPT_ERROR_LIBRARY)
-find_package(GCRYPT "1.5.0" REQUIRED)
+find_package(GCRYPT "1.8.0" REQUIRED)
 # C Asynchronous resolver
 reset_find_package(CARES)
 find_package(CARES "1.5.0" REQUIRED)
@@ -1245,7 +1240,7 @@ if(BUILD_wireshark OR BUILD_logwolf)
 	endif()
 	set(QT_FOUND ON)
 	if(APPLE)
-		ws_find_package(Sparkle ENABLE_SPARKLE HAVE_SOFTWARE_UPDATE 1 EXACT)
+		ws_find_package(Sparkle ENABLE_SPARKLE HAVE_SOFTWARE_UPDATE 2)
 	endif()
 	if(Qt${qtver}Multimedia_FOUND)
 		set(QT_MULTIMEDIA_LIB 1)
@@ -1261,7 +1256,7 @@ reset_find_package(SMI SMI_SHARE_DIR)
 ws_find_package(SMI ENABLE_SMI HAVE_LIBSMI)
 
 # Support for TLS decryption using RSA private keys.
-ws_find_package(GNUTLS ENABLE_GNUTLS HAVE_LIBGNUTLS "3.3.0")
+ws_find_package(GNUTLS ENABLE_GNUTLS HAVE_LIBGNUTLS "3.5.8")
 
 # Kerberos
 ws_find_package(KERBEROS ENABLE_KERBEROS HAVE_KERBEROS)
@@ -1362,7 +1357,7 @@ add_custom_target(dist
 	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-if(GNUTLS_FOUND AND NOT GNUTLS_VERSION VERSION_LESS "3.4.0")
+if(GNUTLS_FOUND)
 	# Calculating public keys from PKCS #11 private keys requires GnuTLS
 	# 3.4.0 or greater.
 	#
@@ -1379,15 +1374,8 @@ if(GNUTLS_FOUND AND NOT GNUTLS_VERSION VERSION_LESS "3.4.0")
 endif()
 
 if (QT_FOUND)
-	if (Qt${qtver}Widgets_VERSION VERSION_LESS 5.6)
-		message(FATAL_ERROR "Qt 5.6 or later is required.")
-	endif()
-	if (Qt${qtver}Widgets_VERSION VERSION_GREATER 5.6
-	    AND qtver MATCHES "5"
-	    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang"))
-		# Qt 5.7 and later require C++ 11.
-		set(CMAKE_CXX_STANDARD 11)
-		set(CMAKE_CXX_STANDARD_REQUIRED ON)
+	if (Qt${qtver}Widgets_VERSION VERSION_LESS 5.9)
+		message(FATAL_ERROR "Qt 5.9 or later is required.")
 	endif()
 	if(NOT DEFINED MOC_OPTIONS)
 		# Squelch moc verbose "nothing to do" output
@@ -1422,19 +1410,14 @@ if (QT_FOUND)
 		# https://doc.qt.io/qt-5.11/supported-platforms-and-configurations.html
 		# https://doc.qt.io/qt-5.15/supported-platforms.html
 		# https://doc-snapshots.qt.io/qt6-dev/supported-platforms.html
-		# CMake < 3.7 doesn't support VERSION_GREATER_EQUAL.
-		if(Qt${qtver}Widgets_VERSION VERSION_GREATER "5.999.999")
+		if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.0.0")
 			set(MIN_MACOS_VERSION 10.14)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.14.999")
+		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.14.0")
 			set(MIN_MACOS_VERSION 10.13)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.11.999")
+		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.0")
 			set(MIN_MACOS_VERSION 10.12)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.9.999")
+		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.10.0")
 			set(MIN_MACOS_VERSION 10.11)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.8.999")
-			set(MIN_MACOS_VERSION 10.10)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER "5.7.999")
-			set(MIN_MACOS_VERSION 10.9)
 		endif()
 		if(CMAKE_OSX_DEPLOYMENT_TARGET AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 			message(FATAL_ERROR "Qt version ${Qt${qtver}Widgets_VERSION} requires CMAKE_OSX_DEPLOYMENT_TARGET (${CMAKE_OSX_DEPLOYMENT_TARGET}) >= ${MIN_MACOS_VERSION}")
@@ -1584,7 +1567,7 @@ if(BUILD_wireshark AND QT_FOUND)
 endif()
 
 if(BUILD_logwolf AND QT_FOUND)
-	add_subdirectory( ui/qt_logwolf )
+	add_subdirectory( ui/logwolf )
 endif()
 
 # Location of our plugins. PLUGIN_DIR should allow running
@@ -1736,6 +1719,7 @@ set(CFG_OUT_FILES
 	resources/libwireshark.rc
 	resources/libwiretap.rc
 	resources/libwsutil.rc
+	resources/logwolf.exe.manifest
 	resources/wireshark.exe.manifest
 	resources/wireshark.rc
 	wireshark.pc
@@ -1861,31 +1845,6 @@ else()
 endif()
 
 feature_summary(WHAT ALL)
-
-# Newer Libgcrypt versions may be required for certain functionality:
-# 1.6
-# - IEEE 802.11 TDLS, AES-GCMP-128 and AES-GCMP-256 decryption
-# - IEEE 802.11 WPA3-Personal / SAE decryption
-# - BT Mesh decryption
-# - Distributed Object Framework (DOF) decryption
-# - IKEv2 integrity check
-# - LoRaWAN integrity check
-# - LTE PDCP EIA2 integrity check
-# - QUIC decryption support
-# - SMB3 AES-128-CCM/GCM decryption
-# - TLS 1.3 0-RTT decryption
-# - TLS GCM/CCM ciphers integrity check
-# 1.7
-# - QUIC ChaCha20-Poly1305 decryption
-# - TLS 1.3 ChaCha20-Poly1305 decryption
-# 1.8
-# - dcerpc-netlogon NETLOGON_FLAG_AES decryption
-# - WireGuard decryption
-if(GCRYPT_VERSION VERSION_LESS 1.6.0)
-	message(WARNING "Libgcrypt version 1.6.0 or newer is strongly recommended for improved decryption support, found ${GCRYPT_VERSION}")
-elseif(GCRYPT_VERSION VERSION_LESS 1.8.0)
-	message(WARNING "Libgcrypt version 1.8.0 or newer is recommended for full decryption functionality, found ${GCRYPT_VERSION}")
-endif()
 
 # Should this be part of libui?
 if(WIN32)
@@ -2456,7 +2415,7 @@ if(BUILD_logwolf AND QT_FOUND)
 	)
 	set(logwolf_FILES
 		$<TARGET_OBJECTS:capture_opts>
-		$<TARGET_OBJECTS:ui_qt_logwolf>
+		$<TARGET_OBJECTS:ui_logwolf>
 		$<TARGET_OBJECTS:shark_common>
 		${LOGWOLF_SRC}
 		${PLATFORM_UI_RC_FILES}
@@ -3823,7 +3782,7 @@ set(_test_group_list
 	suite_dfilter.group_bytes_ipv6
 	suite_dfilter.group_bytes_type
 	suite_dfilter.group_double
-	suite_dfilter.group_dfunction_string
+	suite_dfilter.group_function
 	suite_dfilter.group_integer
 	suite_dfilter.group_integer_1byte
 	suite_dfilter.group_ipv4
