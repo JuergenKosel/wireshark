@@ -1205,7 +1205,7 @@ typedef enum _ras_category {
 #define NUM_RAS_STATS 7
 
 static tap_packet_status
-h225rassrt_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *phi)
+h225rassrt_packet(void *phs, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *phi, tap_flags_t flags _U_)
 {
   rtd_data_t* rtd_data = (rtd_data_t*)phs;
   rtd_stat_table* rs = &rtd_data->stat_table;
@@ -8044,10 +8044,9 @@ static void h225_stat_init(stat_tap_table_ui* new_stat)
     return;
   }
 
+  memset(items, 0x0, sizeof(items));
   table = stat_tap_init_table(table_name, num_fields, 0, NULL);
   stat_tap_add_table(new_stat, table);
-
-  memset(items, 0x0, sizeof(items));
 
   items[MESSAGE_TYPE_COLUMN].type = TABLE_ITEM_STRING;
   items[COUNT_COLUMN].type = TABLE_ITEM_UINT;
@@ -8258,7 +8257,7 @@ static void h225_stat_init(stat_tap_table_ui* new_stat)
 }
 
 static tap_packet_status
-h225_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *hpi_ptr)
+h225_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *hpi_ptr, tap_flags_t flags _U_)
 {
   stat_data_t* stat_data = (stat_data_t*)tapdata;
   const h225_packet_info *hpi = (const h225_packet_info *)hpi_ptr;
@@ -11503,7 +11502,7 @@ void proto_register_h225(void) {
         NULL, HFILL }},
 
 /*--- End of included file: packet-h225-hfarr.c ---*/
-#line 827 "./asn1/h225/packet-h225-template.c"
+#line 828 "./asn1/h225/packet-h225-template.c"
   };
 
   /* List of subtrees */
@@ -11753,7 +11752,7 @@ void proto_register_h225(void) {
     &ett_h225_T_result,
 
 /*--- End of included file: packet-h225-ettarr.c ---*/
-#line 833 "./asn1/h225/packet-h225-template.c"
+#line 834 "./asn1/h225/packet-h225-template.c"
   };
 
   static tap_param h225_stat_params[] = {

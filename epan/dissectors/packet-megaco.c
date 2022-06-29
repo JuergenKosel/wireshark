@@ -333,7 +333,7 @@ megacostat_filtercheck(const char *opt_arg _U_, const char **filter _U_, char** 
 }
 
 static tap_packet_status
-megacostat_packet(void *pms, packet_info *pinfo, epan_dissect_t *edt _U_, const void *pmi)
+megacostat_packet(void *pms, packet_info *pinfo, epan_dissect_t *edt _U_, const void *pmi, tap_flags_t flags _U_)
 {
     rtd_data_t* rtd_data = (rtd_data_t*)pms;
     rtd_stat_table* ms = &rtd_data->stat_table;
@@ -1149,6 +1149,10 @@ nextcontext:
                         } else {
                             /* Try to find the first char of the command */
                             tvb_command_start_offset =  megaco_tvb_skip_wsp(tvb, tvb_command_start_offset + 1);
+                            RBRKT_counter = 0;
+                            LBRKT_counter = 0;
+                            tvb_LBRKT = tvb_command_start_offset;
+                            tvb_RBRKT = tvb_command_start_offset;
                             /*tvb_next_offset = tvb_find_guint8(tvb, tvb_command_start_offset, tvb_transaction_end_offset, '{');*/
                             continue;
                         }

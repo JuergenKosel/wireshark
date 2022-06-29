@@ -53,6 +53,11 @@ class case_syntax(unittest.TestCase):
         dfilter = r'http.host matches r"update\.microsoft\.c.."'
         checkDFilterCount(dfilter, 1)
 
+    def test_matches_5(self, checkDFilterSucceed):
+        # case insensitive
+        dfilter = 'http.request.method matches "^head"'
+        checkDFilterSucceed(dfilter)
+
     def test_equal_1(self, checkDFilterCount):
         dfilter = 'ip.addr == 10.0.0.5'
         checkDFilterCount(dfilter, 1)
@@ -107,8 +112,12 @@ class case_syntax(unittest.TestCase):
         checkDFilterCount(dfilter, 1)
 
     def test_bool_2(self, checkDFilterCount):
-        dfilter = "tcp.flags.push == true"
+        dfilter = "tcp.flags.push == True"
         checkDFilterCount(dfilter, 1)
+
+    def test_bool_2(self, checkDFilterCount):
+        dfilter = "tcp.flags.push == FALSE"
+        checkDFilterCount(dfilter, 0)
 
 @fixtures.uses_fixtures
 class case_equality(unittest.TestCase):
@@ -273,9 +282,58 @@ class case_arithmetic(unittest.TestCase):
 
 @fixtures.uses_fixtures
 class case_field_reference(unittest.TestCase):
-    trace_file = "dhcp.pcap"
+    trace_file = "ipoipoip.pcap"
 
     def test_ref_1(self, checkDFilterCountWithSelectedFrame):
         dfilter = 'frame.number < ${frame.number}'
-        # select frame 3, expect 2 frames out of 4.
-        checkDFilterCountWithSelectedFrame(dfilter, 2, 3)
+        # select frame 2, expect 1 frames out of 2.
+        checkDFilterCountWithSelectedFrame(dfilter, 1, 2)
+
+    def test_ref_2(self, checkDFilterCountWithSelectedFrame):
+        dfilter = 'ip.src#3 == ${ip.src#4}'
+        # select frame 1, expect 1 frames out of 2.
+        checkDFilterCountWithSelectedFrame(dfilter, 1, 1)
+
+@fixtures.uses_fixtures
+class case_field_reference(unittest.TestCase):
+    trace_file = "ipoipoip.pcap"
+
+    def test_layer_1(self, checkDFilterCount):
+        dfilter = 'ip.addr#2 == 4.4.4.4'
+        checkDFilterCount(dfilter, 1)
+
+    def test_layer_2(self, checkDFilterCount):
+        dfilter = 'ip.addr#5'
+        checkDFilterCount(dfilter, 1)
+
+    def test_layer_3(self, checkDFilterCount):
+        dfilter = 'ip.addr#6'
+        checkDFilterCount(dfilter, 0)
+
+    def test_layer_4(self, checkDFilterCount):
+        dfilter = 'ip.dst#[2-4] == 8.8.8.8'
+        checkDFilterCount(dfilter, 1)
+
+    def test_layer_5(self, checkDFilterCount):
+        dfilter = 'ip.dst#[-1] == 8.8.8.8'
+        checkDFilterCount(dfilter, 0)
+
+    def test_layer_6(self, checkDFilterCount):
+        dfilter = 'ip.dst#[-1] == 9.9.9.9'
+        checkDFilterCount(dfilter, 1)
+
+    def test_layer_7(self, checkDFilterCount):
+        dfilter = 'ip.dst#[-5] == 2.2.2.2'
+        checkDFilterCount(dfilter, 1)
+
+@fixtures.uses_fixtures
+class case_quantifiers(unittest.TestCase):
+    trace_file = "ipoipoip.pcap"
+
+    def test_any_1(self, checkDFilterCount):
+        dfilter = 'any ip.addr > 1.1.1.1'
+        checkDFilterCount(dfilter, 2)
+
+    def test_all_1(self, checkDFilterCount):
+        dfilter = 'all ip.addr > 1.1.1.1'
+        checkDFilterCount(dfilter, 1)

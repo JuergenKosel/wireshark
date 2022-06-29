@@ -1314,7 +1314,7 @@ camelstat_init(struct register_srt* srt _U_, GArray* srt_array)
 }
 
 static tap_packet_status
-camelstat_packet(void *pcamel, packet_info *pinfo, epan_dissect_t *edt _U_, const void *psi)
+camelstat_packet(void *pcamel, packet_info *pinfo, epan_dissect_t *edt _U_, const void *psi, tap_flags_t flags _U_)
 {
   guint idx = 0;
   srt_stat_table *camel_srt_table;
@@ -8225,7 +8225,7 @@ static void camel_stat_init(stat_tap_table_ui* new_stat)
 }
 
 static tap_packet_status
-camel_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *csi_ptr)
+camel_stat_packet(void *tapdata, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *csi_ptr, tap_flags_t flags _U_)
 {
   stat_data_t* stat_data = (stat_data_t*)tapdata;
   const struct camelsrt_info_t *csi = (const struct camelsrt_info_t *) csi_ptr;
@@ -8315,7 +8315,7 @@ void proto_reg_handoff_camel(void) {
 
 
 /*--- End of included file: packet-camel-dis-tab.c ---*/
-#line 1280 "./asn1/camel/packet-camel-template.c"
+#line 1281 "./asn1/camel/packet-camel-template.c"
   } else {
     range_foreach(ssn_range, range_delete_callback, NULL);
     wmem_free(wmem_epan_scope(), ssn_range);
@@ -10437,7 +10437,7 @@ void proto_register_camel(void) {
         "InvokeId_present", HFILL }},
 
 /*--- End of included file: packet-camel-hfarr.c ---*/
-#line 1453 "./asn1/camel/packet-camel-template.c"
+#line 1454 "./asn1/camel/packet-camel-template.c"
   };
 
   /* List of subtrees */
@@ -10665,7 +10665,7 @@ void proto_register_camel(void) {
     &ett_camel_InvokeId,
 
 /*--- End of included file: packet-camel-ettarr.c ---*/
-#line 1480 "./asn1/camel/packet-camel-template.c"
+#line 1481 "./asn1/camel/packet-camel-template.c"
   };
 
   static ei_register_info ei[] = {

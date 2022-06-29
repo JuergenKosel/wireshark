@@ -25,6 +25,7 @@
 #include "ui/last_open_dir.h"
 #include "ui/recent.h"
 #include "ui/recent_utils.h"
+#include "ui/packet_list_utils.h"
 #include "ui/simple_dialog.h"
 
 #include <wsutil/file_util.h>
@@ -60,7 +61,9 @@
 #define RECENT_LAST_USED_PROFILE                "gui.last_used_profile"
 #define RECENT_GUI_FILEOPEN_REMEMBERED_DIR      "gui.fileopen_remembered_dir"
 #define RECENT_GUI_CONVERSATION_TABS            "gui.conversation_tabs"
+#define RECENT_GUI_CONVERSATION_TABS_COLUMNS    "gui.conversation_tabs_columns"
 #define RECENT_GUI_ENDPOINT_TABS                "gui.endpoint_tabs"
+#define RECENT_GUI_ENDPOINT_TABS_COLUMNS        "gui.endpoint_tabs_columns"
 #define RECENT_GUI_RLC_PDUS_FROM_MAC_FRAMES     "gui.rlc_pdus_from_mac_frames"
 #define RECENT_GUI_CUSTOM_COLORS                "gui.custom_colors"
 #define RECENT_GUI_TOOLBAR_SHOW                 "gui.additional_toolbar_show"
@@ -674,14 +677,16 @@ write_recent(void)
     }
     g_free(rf_path);
 
-    fputs("# Common recent settings file for Wireshark " VERSION ".\n"
+    fprintf(rf, "# Common recent settings file for %s " VERSION ".\n"
             "#\n"
-            "# This file is regenerated each time Wireshark is quit\n"
+            "# This file is regenerated each time %s is quit\n"
             "# and when changing configuration profile.\n"
             "# So be careful, if you want to make manual changes here.\n"
             "\n"
             "######## Recent capture files (latest last), cannot be altered through command line ########\n"
-            "\n", rf);
+            "\n",
+            get_configuration_namespace(), get_configuration_namespace());
+
 
     menu_recent_file_write_all(rf);
 
@@ -816,12 +821,13 @@ write_profile_recent(void)
     }
     g_free(rf_path);
 
-    fputs("# Recent settings file for Wireshark " VERSION ".\n"
+    fprintf(rf, "# Recent settings file for %s " VERSION ".\n"
             "#\n"
-            "# This file is regenerated each time Wireshark is quit\n"
+            "# This file is regenerated each time %s is quit\n"
             "# and when changing configuration profile.\n"
             "# So be careful, if you want to make manual changes here.\n"
-            "\n", rf);
+            "\n",
+            get_configuration_namespace(), get_configuration_namespace());
 
     write_recent_boolean(rf, "Main Toolbar show (hide)",
             RECENT_KEY_MAIN_TOOLBAR_SHOW,
@@ -915,10 +921,22 @@ write_profile_recent(void)
     fprintf(rf, RECENT_GUI_CONVERSATION_TABS ": %s\n", string_list);
     g_free(string_list);
 
+    fprintf(rf, "\n# Conversation dialog tabs columns.\n");
+    fprintf(rf, "# List of conversation columns numbers.\n");
+    string_list = join_string_list(recent.conversation_tabs_columns);
+    fprintf(rf, RECENT_GUI_CONVERSATION_TABS_COLUMNS ": %s\n", string_list);
+    g_free(string_list);
+
     fprintf(rf, "\n# Open endpoint dialog tabs.\n");
     fprintf(rf, "# List of endpoint names, e.g. \"TCP\", \"IPv6\".\n");
     string_list = join_string_list(recent.endpoint_tabs);
     fprintf(rf, RECENT_GUI_ENDPOINT_TABS ": %s\n", string_list);
+    g_free(string_list);
+
+    fprintf(rf, "\n# Endpoint dialog tabs columns.\n");
+    fprintf(rf, "# List of endpoint columns numbers.\n");
+    string_list = join_string_list(recent.endpoint_tabs_columns);
+    fprintf(rf, RECENT_GUI_ENDPOINT_TABS_COLUMNS ": %s\n", string_list);
     g_free(string_list);
 
     write_recent_boolean(rf, "For RLC stats, whether to use RLC PDUs found inside MAC frames",
@@ -1119,8 +1137,12 @@ read_set_recent_pair_static(gchar *key, const gchar *value,
         recent.has_gui_geometry_main_lower_pane = TRUE;
     } else if (strcmp(key, RECENT_GUI_CONVERSATION_TABS) == 0) {
         recent.conversation_tabs = prefs_get_string_list(value);
+    } else if (strcmp(key, RECENT_GUI_CONVERSATION_TABS_COLUMNS) == 0) {
+        recent.conversation_tabs_columns = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_ENDPOINT_TABS) == 0) {
         recent.endpoint_tabs = prefs_get_string_list(value);
+    } else if (strcmp(key, RECENT_GUI_ENDPOINT_TABS_COLUMNS) == 0) {
+        recent.endpoint_tabs_columns = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_RLC_PDUS_FROM_MAC_FRAMES) == 0) {
         parse_recent_boolean(value, &recent.gui_rlc_use_pdus_from_mac);
     } else if (strcmp(key, RECENT_KEY_COL_WIDTH) == 0) {
@@ -1608,6 +1630,8 @@ recent_cleanup(void)
     g_list_free_full(recent.gui_additional_toolbars, g_free);
     g_list_free_full(recent.interface_toolbars, g_free);
     prefs_clear_string_list(recent.conversation_tabs);
+    prefs_clear_string_list(recent.conversation_tabs_columns);
     prefs_clear_string_list(recent.endpoint_tabs);
+    prefs_clear_string_list(recent.endpoint_tabs_columns);
     prefs_clear_string_list(recent.custom_colors);
 }

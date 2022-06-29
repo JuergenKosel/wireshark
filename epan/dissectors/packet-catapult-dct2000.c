@@ -1096,8 +1096,8 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                                      tvb, offset++, 1, ENC_BIG_ENDIAN, &downlink_sec_mode);
 
         if (len > 2) {
-            tag = tvb_get_guint8(tvb, offset++);  /* Should be 0x21 */
-            len = tvb_get_guint8(tvb, offset++);
+            offset++;  /* tag Should be 0x21 */
+            offset++; /* len */
 
             tag = tvb_get_guint8(tvb, offset++);
             if (tag == 0x25) {
@@ -1118,7 +1118,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                 proto_tree_add_item_ret_uint(sc_tree, hf_catapult_dct2000_ciphering_algorithm,
                                              tvb, offset++, 1, ENC_BIG_ENDIAN, &cipher_algorithm);
 
-                /* Ciphering key (optional */
+                /* Ciphering key (optional) */
                 if (len > 3) {
                     /* Skip tag and length */
                     offset += 2;
@@ -1131,7 +1131,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                             set_pdcp_nr_rrc_ciphering_key(ueid, key, pinfo->num);
                         }
                         else {
-                            set_pdcp_lte_rrc_ciphering_key(ueid, key);
+                            set_pdcp_lte_rrc_ciphering_key(ueid, key, pinfo->num);
                         }
                     }
                     offset += 16;
@@ -1165,7 +1165,7 @@ static void dissect_rrc_lte_nr(tvbuff_t *tvb, gint offset,
                         set_pdcp_nr_rrc_integrity_key(ueid, key, pinfo->num);
                     }
                     else {
-                        set_pdcp_lte_rrc_integrity_key(ueid, key);
+                        set_pdcp_lte_rrc_integrity_key(ueid, key, pinfo->num);
                     }
                 }
                 offset += 16;
@@ -3009,12 +3009,12 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 /* e.g. NRPDCP: RRCPRIM:ueId=   1;setThreadAuthKey: RRC id=1 alg 2 key: 30 30 30 30 30 30 30 30 30 30 30 30 30 30 30 30 */
                 if (strstr(string, "setThreadAuthKey:")) {
                     guint ue_id, id, alg;
-                    if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u; RRC setThreadAuthKey: id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
+                    if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u;setThreadAuthKey: RRC id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
                         char *key = g_strdup(strstr(string, "key: ")+5);
                         set_pdcp_nr_rrc_integrity_key(ue_id, key, pinfo->num);
                         g_free(key);
                     }
-                    else if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u; UP setThreadAuthKey: id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
+                    else if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u;setThreadAuthKey: UP id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
                         char *key = g_strdup(strstr(string, "key: ")+5);
                         set_pdcp_nr_up_integrity_key(ue_id, key, pinfo->num);
                         g_free(key);
@@ -3022,12 +3022,12 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                 }
                 else if (strstr(string, "setThreadCryptKey:")) {
                     guint ue_id, id, alg;
-                    if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u; RRC setThreadCryptKey: id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
+                    if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u;setThreadCryptKey: RRC id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
                         char *key = g_strdup(strstr(string, "key: ")+5);
                         set_pdcp_nr_rrc_ciphering_key(ue_id, key, pinfo->num);
                         g_free(key);
                     }
-                    else if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u; UP setThreadCryptKey: id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
+                    else if (!PINFO_FD_VISITED(pinfo) && sscanf(string, "NRPDCP: RRCPRIM:ueId=   %u;setThreadCryptKey: UP id=%u alg %u key: ", &ue_id, &id, &alg) == 3) {
                         char *key = g_strdup(strstr(string, "key: ")+5);
                         set_pdcp_nr_up_ciphering_key(ue_id, key, pinfo->num);
                         g_free(key);
@@ -3073,7 +3073,7 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                                         0, tvb_reported_length(raw_traffic_tvb), ENC_NA);
 
                     /* Call the dissector! */
-                    sub_dissector_result = call_dissector_only(eth_handle, raw_traffic_tvb, pinfo, tree, NULL);
+                   call_dissector_only(eth_handle, raw_traffic_tvb, pinfo, tree, NULL);
                 }
 
                 return tvb_captured_length(tvb);
@@ -3106,13 +3106,14 @@ dissect_catapult_dct2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
                  (strcmp(protocol_name, "rrc_r12_lte") == 0) ||
                  (strcmp(protocol_name, "rrc_r13_lte") == 0) ||
                  (strcmp(protocol_name, "rrc_r15_lte") == 0) ||
+                 (strcmp(protocol_name, "rrc_r16_lte") == 0) ||
                  (strcmp(protocol_name, "rrcpdcpprim_r15_lte") == 0))) {
 
                 dissect_rrc_lte_nr(tvb, offset, pinfo, tree, LTE);
                 return tvb_captured_length(tvb);
             }
-            else if (strcmp(protocol_name, "rrc_r15_5g") == 0) {
-
+            else if ((strcmp(protocol_name, "rrc_r15_5g") == 0) ||
+                     (strcmp(protocol_name, "rrc_r16_5g") == 0)) {
                 dissect_rrc_lte_nr(tvb, offset, pinfo, tree, NR);
                 return tvb_captured_length(tvb);
             }

@@ -32,7 +32,7 @@ typedef void (*FvalueCopyFunc)(fvalue_t*, const fvalue_t*);
 typedef void (*FvalueFreeFunc)(fvalue_t*);
 
 typedef gboolean (*FvalueFromLiteral)(fvalue_t*, const char*, gboolean, gchar **);
-typedef gboolean (*FvalueFromString)(fvalue_t*, const char*, gchar **);
+typedef gboolean (*FvalueFromString)(fvalue_t*, const char*, size_t, gchar **);
 typedef gboolean (*FvalueFromCharConst)(fvalue_t*, unsigned long, gchar **);
 typedef char *(*FvalueToStringRepr)(wmem_allocator_t *, const fvalue_t*, ftrepr_t, int field_display);
 
@@ -40,15 +40,19 @@ typedef void (*FvalueSetByteArrayFunc)(fvalue_t*, GByteArray *);
 typedef void (*FvalueSetBytesFunc)(fvalue_t*, const guint8 *);
 typedef void (*FvalueSetGuidFunc)(fvalue_t*, const e_guid_t *);
 typedef void (*FvalueSetTimeFunc)(fvalue_t*, const nstime_t *);
-typedef void (*FvalueSetStringFunc)(fvalue_t*, const gchar *value);
-typedef void (*FvalueSetProtocolFunc)(fvalue_t*, tvbuff_t *value, const gchar *name);
+typedef void (*FvalueSetStrbufFunc)(fvalue_t*, wmem_strbuf_t *);
+typedef void (*FvalueSetProtocolFunc)(fvalue_t*, tvbuff_t *value, const gchar *name, int length);
 typedef void (*FvalueSetUnsignedIntegerFunc)(fvalue_t*, guint32);
 typedef void (*FvalueSetSignedIntegerFunc)(fvalue_t*, gint32);
 typedef void (*FvalueSetUnsignedInteger64Func)(fvalue_t*, guint64);
 typedef void (*FvalueSetSignedInteger64Func)(fvalue_t*, gint64);
 typedef void (*FvalueSetFloatingFunc)(fvalue_t*, gdouble);
 
-typedef gpointer (*FvalueGetFunc)(fvalue_t*);
+typedef const guint8 *(*FvalueGetBytesFunc)(fvalue_t*);
+typedef const e_guid_t *(*FvalueGetGuidFunc)(fvalue_t*);
+typedef const nstime_t *(*FvalueGetTimeFunc)(fvalue_t*);
+typedef const wmem_strbuf_t *(*FvalueGetStrbufFunc)(fvalue_t*);
+typedef tvbuff_t *(*FvalueGetProtocolFunc)(fvalue_t*);
 typedef guint32 (*FvalueGetUnsignedIntegerFunc)(fvalue_t*);
 typedef gint32  (*FvalueGetSignedIntegerFunc)(fvalue_t*);
 typedef guint64 (*FvalueGetUnsignedInteger64Func)(fvalue_t*);
@@ -79,26 +83,30 @@ struct _ftype_t {
 	FvalueToStringRepr	val_to_string_repr;
 
 	union {
-		FvalueSetByteArrayFunc	set_value_byte_array;
-		FvalueSetBytesFunc	set_value_bytes;
-		FvalueSetGuidFunc	set_value_guid;
-		FvalueSetTimeFunc	set_value_time;
-		FvalueSetStringFunc	set_value_string;
-		FvalueSetProtocolFunc	set_value_protocol;
+		FvalueSetByteArrayFunc		set_value_byte_array;
+		FvalueSetBytesFunc		set_value_bytes;
+		FvalueSetGuidFunc		set_value_guid;
+		FvalueSetTimeFunc		set_value_time;
+		FvalueSetStrbufFunc		set_value_strbuf;
+		FvalueSetProtocolFunc		set_value_protocol;
 		FvalueSetUnsignedIntegerFunc	set_value_uinteger;
 		FvalueSetSignedIntegerFunc	set_value_sinteger;
 		FvalueSetUnsignedInteger64Func	set_value_uinteger64;
 		FvalueSetSignedInteger64Func	set_value_sinteger64;
-		FvalueSetFloatingFunc	set_value_floating;
+		FvalueSetFloatingFunc		set_value_floating;
 	} set_value;
 
 	union {
-		FvalueGetFunc		get_value_ptr;
+		FvalueGetBytesFunc		get_value_bytes;
+		FvalueGetGuidFunc		get_value_guid;
+		FvalueGetTimeFunc		get_value_time;
+		FvalueGetStrbufFunc		get_value_strbuf;
+		FvalueGetProtocolFunc		get_value_protocol;
 		FvalueGetUnsignedIntegerFunc	get_value_uinteger;
 		FvalueGetSignedIntegerFunc	get_value_sinteger;
 		FvalueGetUnsignedInteger64Func	get_value_uinteger64;
 		FvalueGetSignedInteger64Func	get_value_sinteger64;
-		FvalueGetFloatingFunc	get_value_floating;
+		FvalueGetFloatingFunc		get_value_floating;
 	} get_value;
 
 	FvalueCmp		cmp_order;

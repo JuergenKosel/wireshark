@@ -109,11 +109,13 @@ static int hf_someip_sd_entry_numopt1 = -1;
 static int hf_someip_sd_entry_numopt2 = -1;
 static int hf_someip_sd_entry_opts_referenced = -1;
 static int hf_someip_sd_entry_serviceid = -1;
+static int hf_someip_sd_entry_servicename = -1;
 static int hf_someip_sd_entry_instanceid = -1;
 static int hf_someip_sd_entry_majorver = -1;
 static int hf_someip_sd_entry_ttl = -1;
 static int hf_someip_sd_entry_minorver = -1;
 static int hf_someip_sd_entry_eventgroupid = -1;
+static int hf_someip_sd_entry_eventgroupname = -1;
 static int hf_someip_sd_entry_reserved = -1;
 static int hf_someip_sd_entry_counter = -1;
 static int hf_someip_sd_entry_intial_event_flag = -1;
@@ -449,11 +451,13 @@ dissect_someip_sd_pdu_option_unknown(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 }
 
 static int
-dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *ti, guint32 offset, guint32 length) {
+dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *ti, guint32 offset_orig, guint32 length) {
     guint16             real_length = 0;
     guint8              option_type = 0;
     int                 optionnum = 0;
     tvbuff_t           *subtvb = NULL;
+
+    guint32             offset = offset_orig;
 
     if (!tvb_bytes_exist(tvb, offset, SD_OPTION_MINLENGTH) || !tvb_bytes_exist(tvb, offset, length)) {
         expert_add_info(pinfo, ti, &ef_someipsd_option_array_truncated);
@@ -464,7 +468,7 @@ dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         real_length = tvb_get_ntohs(tvb, offset) + 3;
         option_type = tvb_get_guint8(tvb, offset + 2);
 
-        if (!tvb_bytes_exist(tvb, offset, (gint)real_length)) {
+        if (!tvb_bytes_exist(tvb, offset, (gint)real_length) || offset - offset_orig + real_length > length) {
             expert_add_info(pinfo, ti, &ef_someipsd_option_array_truncated);
             return offset;
         }
@@ -582,6 +586,9 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     description = someip_lookup_service_name((guint16)serviceid);
     if (description != NULL) {
         proto_item_append_text(ti, " (%s)", description);
+        ti = proto_tree_add_string(tree, hf_someip_sd_entry_servicename, tvb, offset, 2, description);
+        proto_item_set_generated(ti);
+        proto_item_set_hidden(ti);
     }
     offset += 2;
 
@@ -613,6 +620,9 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         description = someip_lookup_eventgroup_name((guint16)serviceid, (guint16)eventgroupid);
         if (description != NULL) {
             proto_item_append_text(ti, " (%s)", description);
+            ti = proto_tree_add_string(tree, hf_someip_sd_entry_eventgroupname, tvb, offset, 2, description);
+            proto_item_set_generated(ti);
+            proto_item_set_hidden(ti);
         }
 
         proto_item_append_text(ti_top, " (Service ID 0x%04x, Instance ID 0x%04x, Eventgroup ID 0x%04x, Version %u)", serviceid, instanceid, eventgroupid, majorver);
@@ -899,7 +909,7 @@ stat_create_entry_summary_string(const someip_sd_entries_tap_t *data, gchar *ret
 }
 
 static tap_packet_status
-someipsd_entries_stats_tree_packet(stats_tree *st, packet_info *pinfo, epan_dissect_t *edt _U_, const void *p) {
+someipsd_entries_stats_tree_packet(stats_tree *st, packet_info *pinfo, epan_dissect_t *edt _U_, const void *p, tap_flags_t flags _U_) {
     DISSECTOR_ASSERT(p);
     const someip_sd_entries_tap_t *data = (const someip_sd_entries_tap_t *)p;
     static gchar tmp_addr_str[256];
@@ -1030,6 +1040,9 @@ proto_register_someip_sd(void) {
         { &hf_someip_sd_entry_serviceid,
             { "Service ID", "someipsd.entry.serviceid",
             FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_someip_sd_entry_servicename,
+            { "Service Name", "someipsd.entry.servicename",
+            FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_someip_sd_entry_instanceid,
             { "Instance ID", "someipsd.entry.instanceid",
             FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
@@ -1045,6 +1058,9 @@ proto_register_someip_sd(void) {
         { &hf_someip_sd_entry_eventgroupid,
             { "Eventgroup ID", "someipsd.entry.eventgroupid",
             FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+        { &hf_someip_sd_entry_eventgroupname,
+            { "Eventgroup Name", "someipsd.entry.eventgroupname",
+            FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_someip_sd_entry_reserved,
             { "Reserved", "someipsd.entry.reserved",
             FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },

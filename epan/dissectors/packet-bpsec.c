@@ -1,7 +1,8 @@
 /* packet-sec.c
  * Routines for Bundle Protocol Version 7 Security (BPSec) dissection
  * References:
- *     BPSec: https://datatracker.ietf.org/doc/html/draft-ietf-dtn-bpsec-27
+ *     RFC 9172: https://www.rfc-editor.org/rfc/rfc9172.html
+ *     RFC 9173: https://www.rfc-editor.org/rfc/rfc9173.html
  *
  * Copyright 2019-2021, Brian Sipos <brian.sipos@gmail.com>
  *
@@ -230,35 +231,38 @@ static int dissect_block_asb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     if (!wscbor_skip_if_errors(wmem_packet_scope(), tvb, &offset, chunk_tgt_list)) {
         proto_tree *tree_tgt_list = proto_item_add_subtree(item_tgt_list, ett_tgt_list);
 
-        wscbor_chunk_t *chunk_tgt = wscbor_chunk_read(wmem_packet_scope(), tvb, &offset);
-        guint64 *tgt_blknum = wscbor_require_uint64(wmem_packet_scope(), chunk_tgt);
-        proto_item *item_tgt = proto_tree_add_cbor_uint64(tree_tgt_list, hf_asb_target, pinfo, tvb, chunk_tgt, tgt_blknum);
-        if (tgt_blknum) {
-            wmem_array_append(targets, tgt_blknum, 1);
+        // iterate all targets
+        for (guint64 param_ix = 0; param_ix < chunk_tgt_list->head_value; ++param_ix) {
+            wscbor_chunk_t *chunk_tgt = wscbor_chunk_read(wmem_packet_scope(), tvb, &offset);
+            guint64 *tgt_blknum = wscbor_require_uint64(wmem_packet_scope(), chunk_tgt);
+            proto_item *item_tgt = proto_tree_add_cbor_uint64(tree_tgt_list, hf_asb_target, pinfo, tvb, chunk_tgt, tgt_blknum);
+            if (tgt_blknum) {
+                wmem_array_append(targets, tgt_blknum, 1);
 
-            wmem_map_t *map = NULL;
-            if (*tgt_blknum == 0) {
-                map = (root_hfindex == hf_bib)
-                    ? data->bundle->primary->sec.data_i
-                    : data->bundle->primary->sec.data_c;
-            }
-            else {
-                bp_block_canonical_t *found = wmem_map_lookup(data->bundle->block_nums, tgt_blknum);
-                if (found) {
+                wmem_map_t *map = NULL;
+                if (*tgt_blknum == 0) {
                     map = (root_hfindex == hf_bib)
-                        ? found->sec.data_i
-                        : found->sec.data_c;
+                        ? data->bundle->primary->sec.data_i
+                        : data->bundle->primary->sec.data_c;
                 }
                 else {
-                    expert_add_info(pinfo, item_tgt, &ei_target_invalid);
+                    bp_block_canonical_t *found = wmem_map_lookup(data->bundle->block_nums, tgt_blknum);
+                    if (found) {
+                        map = (root_hfindex == hf_bib)
+                            ? found->sec.data_i
+                            : found->sec.data_c;
+                    }
+                    else {
+                        expert_add_info(pinfo, item_tgt, &ei_target_invalid);
+                    }
                 }
-            }
-            if (map && (data->block->block_number)) {
-                wmem_map_insert(
-                    map,
-                    data->block->block_number,
-                    NULL
-                );
+                if (map && (data->block->block_number)) {
+                    wmem_map_insert(
+                        map,
+                        data->block->block_number,
+                        NULL
+                    );
+                }
             }
         }
 

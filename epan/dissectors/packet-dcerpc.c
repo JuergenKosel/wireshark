@@ -1985,7 +1985,7 @@ dcerpcstat_init(struct register_srt* srt, GArray* srt_array)
 }
 
 static tap_packet_status
-dcerpcstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const void *prv)
+dcerpcstat_packet(void *pss, packet_info *pinfo, epan_dissect_t *edt _U_, const void *prv, tap_flags_t flags _U_)
 {
     guint i = 0;
     srt_stat_table *dcerpc_srt_table;
@@ -4450,7 +4450,7 @@ dissect_dcerpc_cn_stub(tvbuff_t *tvb, int offset, packet_info *pinfo,
        then exit
     */
     if (pinfo->fd->visited) {
-        fd_head = fragment_get_reassembled(&dcerpc_co_reassembly_table, frame);
+        fd_head = fragment_get_reassembled_id(&dcerpc_co_reassembly_table, pinfo, frame);
         goto end_cn_stub;
     }
 

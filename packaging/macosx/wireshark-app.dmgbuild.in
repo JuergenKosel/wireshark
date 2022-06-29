@@ -18,7 +18,7 @@ import os.path
 
 # .. Useful stuff ..............................................................
 
-ws_version = '@VERSION@'
+ws_version = '@PROJECT_VERSION@'
 ws_volname = 'Wireshark ' + ws_version
 ws_srcdir = '@CMAKE_SOURCE_DIR@'
 ws_bindir = '@CMAKE_BINARY_DIR@'
@@ -72,7 +72,7 @@ size = None
 # Files to include
 files = [
     os.path.join(ws_bindir, 'run', ws_app),
-    os.path.join(ws_bindir, 'packaging', 'macosx', ws_readme),
+    os.path.join(ws_bindir, 'packaging', 'macosx', 'wireshark', ws_readme),
 ]
 
 # Symlinks to create

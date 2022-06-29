@@ -1224,13 +1224,13 @@ void LogwolfMainWindow::mergeCaptureFile()
     }
 
     for (;;) {
-        CaptureFileDialog merge_dlg(this, capture_file_.capFile(), read_filter);
+        CaptureFileDialog merge_dlg(this, capture_file_.capFile());
         int file_type;
         cf_status_t  merge_status;
         char        *in_filenames[2];
         char        *tmpname;
 
-        if (merge_dlg.merge(file_name)) {
+        if (merge_dlg.merge(file_name, read_filter)) {
             gchar *err_msg;
 
             if (!dfilter_compile(qUtf8Printable(read_filter), &rfcode, &err_msg)) {
@@ -1411,7 +1411,7 @@ bool LogwolfMainWindow::saveCaptureFile(capture_file *cf, bool dont_reopen) {
                    If we discarded comments, redraw the packet list to reflect
                    any packets that no longer have comments. */
                 if (discard_comments)
-                    packet_list_queue_draw();
+                    packet_list_->redrawVisiblePackets();
 
                 cf->unsaved_changes = false; //we just saved so we signal that we have no unsaved changes
                 updateForUnsavedChanges(); // we update the title bar to remove the *
@@ -1525,7 +1525,7 @@ bool LogwolfMainWindow::saveAsCaptureFile(capture_file *cf, bool must_support_co
             /* If we discarded comments, redraw the packet list to reflect
                any packets that no longer have comments. */
             if (discard_comments)
-                packet_list_queue_draw();
+                packet_list_->redrawVisiblePackets();
 
             cf->unsaved_changes = false; //we just saved so we signal that we have no unsaved changes
             updateForUnsavedChanges(); // we update the title bar to remove the *
@@ -1667,7 +1667,7 @@ void LogwolfMainWindow::exportSelectedPackets() {
             /* If we discarded comments, redraw the packet list to reflect
                any packets that no longer have comments. */
             if (discard_comments)
-                packet_list_queue_draw();
+                packet_list_->redrawVisiblePackets();
             /* Add this filename to the list of recent files in the "Recent Files" submenu */
             add_menu_recent_capture_file(qUtf8Printable(file_name));
             goto cleanup;
@@ -2036,6 +2036,13 @@ void LogwolfMainWindow::findTextCodecs() {
     QRegularExpressionMatch match;
     for (int mib : mibs) {
         QTextCodec *codec = QTextCodec::codecForMib(mib);
+        // QTextCodec::availableMibs() returns a list of hard-coded MIB
+        // numbers, it doesn't check if they are really available. ICU data may
+        // not have been compiled with support for all encodings.
+        if (!codec) {
+            continue;
+        }
+
         QString key = codec->name().toUpper();
         char rank;
 

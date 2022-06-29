@@ -23,6 +23,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/capture_filter_edit.h
 	widgets/clickable_label.h
 	widgets/copy_from_profile_button.h
+	widgets/detachable_tabwidget.h
 	widgets/display_filter_combo.h
 	widgets/display_filter_edit.h
 	widgets/dissector_tables_view.h
@@ -40,6 +41,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/label_stack.h
 	widgets/overlay_scroll_bar.h
 	widgets/packet_list_header.h
+	widgets/path_selection_edit.h
 	widgets/pref_module_view.h
 	widgets/profile_tree_view.h
 	widgets/range_syntax_lineedit.h
@@ -48,6 +50,9 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/stock_icon_tool_button.h
 	widgets/syntax_line_edit.h
 	widgets/tabnav_tree_view.h
+	widgets/traffic_tab.h
+	widgets/traffic_tree.h
+	widgets/traffic_types_list.h
 	widgets/wireless_timeline.h
 	widgets/wireshark_file_dialog.h
 )
@@ -82,6 +87,7 @@ set(WIRESHARK_UTILS_HEADERS
 
 set(WIRESHARK_MODEL_HEADERS
 	models/astringlist_list_model.h
+	models/atap_data_model.h
 	models/cache_proxy_model.h
 	models/coloring_rules_delegate.h
 	models/coloring_rules_model.h
@@ -103,7 +109,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/numeric_value_chooser_delegate.h
 	models/packet_list_model.h
 	models/packet_list_record.h
-	models/path_chooser_delegate.h
+	models/path_selection_delegate.h
 	models/percent_bar_delegate.h
 	models/pref_delegate.h
 	models/pref_models.h
@@ -270,6 +276,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/capture_filter_edit.cpp
 	widgets/clickable_label.cpp
 	widgets/copy_from_profile_button.cpp
+	widgets/detachable_tabwidget.cpp
 	widgets/display_filter_combo.cpp
 	widgets/display_filter_edit.cpp
 	widgets/dissector_tables_view.cpp
@@ -287,6 +294,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/label_stack.cpp
 	widgets/overlay_scroll_bar.cpp
 	widgets/packet_list_header.cpp
+	widgets/path_selection_edit.cpp
 	widgets/pref_module_view.cpp
 	widgets/profile_tree_view.cpp
 	widgets/range_syntax_lineedit.cpp
@@ -295,6 +303,9 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/stock_icon_tool_button.cpp
 	widgets/syntax_line_edit.cpp
 	widgets/tabnav_tree_view.cpp
+	widgets/traffic_tab.cpp
+	widgets/traffic_tree.cpp
+	widgets/traffic_types_list.cpp
 	widgets/wireless_timeline.cpp
 	widgets/wireshark_file_dialog.cpp
 )
@@ -326,6 +337,7 @@ set(WIRESHARK_UTILS_SRCS
 
 set(WIRESHARK_MODEL_SRCS
 	models/astringlist_list_model.cpp
+	models/atap_data_model.cpp
 	models/cache_proxy_model.cpp
 	models/coloring_rules_delegate.cpp
 	models/coloring_rules_model.cpp
@@ -347,7 +359,7 @@ set(WIRESHARK_MODEL_SRCS
 	models/numeric_value_chooser_delegate.cpp
 	models/packet_list_model.cpp
 	models/packet_list_record.cpp
-	models/path_chooser_delegate.cpp
+	models/path_selection_delegate.cpp
 	models/percent_bar_delegate.cpp
 	models/pref_delegate.cpp
 	models/pref_models.cpp
@@ -650,8 +662,15 @@ if(NOT Qt${qtver}Widgets_VERSION VERSION_LESS "5.9")
 	# to help with reproducible builds. We do not use QFileInfo.lastModified
 	# so this has no unwanted side effects. This mtime started appearing in
 	# Qt 5.8. The option to force the old file format without mtime was
-	# added in Qt 5.9. See https://bugreports.qt.io/browse/QTBUG-58769
+	# added in Qt 5.9. See https://bugreports.qt.io/browse/QTBUG-58769.
+	# Force the compression algorithm to zlib, since zstd requires format
+	# version 3. See https://gitlab.com/wireshark/wireshark/-/issues/18100.
+	# Use the number of dashes for each argument as documented at
+	# https://doc.qt.io/qt-6/rcc.html.
 	set(CMAKE_AUTORCC_OPTIONS --format-version 1)
+	if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "5.13")
+		list(APPEND CMAKE_AUTORCC_OPTIONS -compress-algo zlib)
+	endif()
 endif()
 
 if (USE_qt6)

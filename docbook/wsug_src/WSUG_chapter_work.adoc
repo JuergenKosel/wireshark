@@ -589,12 +589,12 @@ Signed integer::
   decimal, octal, hexadecimal or binary.
 
 Boolean::
-  Can be 1 or "true", 0 or "false" (without quotes).
+  Can be 1 or "True" or "TRUE", 0 or "False" or "FALSE" (without quotes).
 +
-A Boolean field is present whether its value is true or false. For example,
+A Boolean field is present regardless if its value is true or false. For example,
 `tcp.flags.syn` is present in all TCP packets containing the flag, whether
 the SYN flag is 0 or 1. To only match TCP packets with the SYN flag set, you need
-to use `tcp.flags.syn == 1` or `tcp.flags.syn == true`.
+to use `tcp.flags.syn == 1` or `tcp.flags.syn == True`.
 
 Ethernet address::
   6 bytes separated by a colon (:), dot (.), or dash (-) with one or two bytes between separators:
@@ -1206,7 +1206,7 @@ The available presentation formats are:
 * menu:Time of Day: 01:02:03.123456[] The absolute time of the day when the packet
   was captured.
 
-* menu:Seconds Since Beginning of Capture: 123.123456[] The time relative to the
+* menu:Seconds Since First Captured Packet: 123.123456[] The time relative to the
   start of the capture file or the first “Time Reference” before this packet
   (see <<ChWorkTimeReferencePacketSection>>).
 
@@ -1249,7 +1249,7 @@ The time references will not be saved permanently and will be lost when you
 close the capture file.
 
 Time referencing will only be useful if the time display format is set to
-“Seconds Since Beginning of Capture”. If one of the other time display formats
+“Seconds Since First Captured Packet”. If one of the other time display formats
 are used, time referencing will have no effect (and will make no sense either).
 
 To work with time references, choose one of the menu:Time Reference[] items in

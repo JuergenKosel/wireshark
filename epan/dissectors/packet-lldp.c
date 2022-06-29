@@ -39,6 +39,7 @@
 #include <epan/wmem_scopes.h>
 #include <epan/oui.h>
 
+#include "packet-enip.h"
 
 #define DEFAULT_COLUMN_INFO            1
 #define PROFINET_SPECIAL_COLUMN_INFO   2
@@ -1795,7 +1796,7 @@ dissect_lldp_time_to_live(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, g
 	return offset;
 }
 
-/* Dissect End of LLDPDU TLV (Mandatory) */
+/* Dissect End of LLDPDU TLV */
 static gint32
 dissect_lldp_end_of_lldpdu(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, guint32 offset)
 {
@@ -4515,6 +4516,9 @@ dissect_organizational_specific_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	case OUI_ONOS:
 		subTypeStr = val_to_str(subType, onos_subtypes, "Unknown subtype (0x%x)");
 		break;
+	case OUI_ODVA:
+		subTypeStr = val_to_str(subType, lldp_cip_subtypes, "Unknown subtype (0x%x)");
+		break;
 	default:
 		subTypeStr = wmem_strdup_printf(pinfo->pool, "Unknown (%d)",subType);
 		break;
@@ -4578,6 +4582,9 @@ dissect_organizational_specific_tlv(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	case OUI_ONOS:
 		dissect_onos_tlv(vendor_tvb, pinfo, org_tlv_tree);
 		break;
+	case OUI_ODVA:
+		dissect_lldp_cip_tlv(vendor_tvb, pinfo, org_tlv_tree);
+		break;
 	default:
 		dissect_oui_default_tlv(vendor_tvb, pinfo, org_tlv_tree);
 	}
@@ -4624,7 +4631,7 @@ dissect_lldp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	gint32 rtnValue = 0;
 	guint16 tempShort;
 	guint8 tlvType;
-	gboolean reachedEnd = FALSE;
+	guint32 tvbLen;
 	profinet_lldp_column_info *pn_lldp_column_info = NULL;
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "LLDP");
 
@@ -4676,9 +4683,9 @@ dissect_lldp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
 	offset += rtnValue;
 
-
-	/* Dissect optional tlv's until end-of-lldpdu is reached */
-	while (!reachedEnd)
+	tvbLen = tvb_captured_length(tvb);
+	/* Dissect optional tlv info that contained in data packets */
+	while (offset < tvbLen)
 	{
 		tempShort = tvb_get_ntohs(tvb, offset);
 		tlvType = TLV_TYPE(tempShort);
@@ -4735,8 +4742,8 @@ dissect_lldp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 		}
 
 		if (rtnValue < 0) {
-			reachedEnd = TRUE;
 			set_actual_length(tvb, offset + rtnValue);
+			break;
 		}
 		else
 			offset += rtnValue;
@@ -5802,10 +5809,9 @@ proto_register_lldp(void)
 			{ "Altitude Resolution", "lldp.media.loc.alt_resolution", FT_UINT16, BASE_DEC,
 			NULL, 0x0FC0, NULL, HFILL }
 		},
-		/* TODO: should mask be 0x3FFFFFFF, or 0x03FFFFFF ? */
 		{ &hf_media_loc_alt,
 			{ "Altitude", "lldp.media.loc.altitude", FT_UINT32, BASE_DEC,
-			NULL, 0x03FFFFFFF, NULL, HFILL }
+			NULL, 0x3FFFFFFF, NULL, HFILL }
 		},
 		{ &hf_media_loc_datum,
 			{ "Datum", "lldp.media.loc.datum", FT_UINT8, BASE_DEC,

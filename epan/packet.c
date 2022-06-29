@@ -591,6 +591,7 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 	edt->pi.ptype = PT_NONE;
 	edt->pi.use_endpoint = FALSE;
 	edt->pi.conv_endpoint = NULL;
+	edt->pi.conv_elements = NULL;
 	edt->pi.p2p_dir = P2P_DIR_UNKNOWN;
 	edt->pi.link_dir = LINK_DIR_UNKNOWN;
 	edt->pi.src_win_scale = -1; /* unknown Rcv.Wind.Shift */
@@ -664,6 +665,7 @@ dissect_file(epan_dissect_t *edt, wtap_rec *rec,
 	edt->pi.ptype = PT_NONE;
 	edt->pi.use_endpoint = FALSE;
 	edt->pi.conv_endpoint = NULL;
+	edt->pi.conv_elements = NULL;
 	edt->pi.p2p_dir = P2P_DIR_UNKNOWN;
 	edt->pi.link_dir = LINK_DIR_UNKNOWN;
 	edt->pi.layers = wmem_list_new(edt->pi.pool);
@@ -729,6 +731,67 @@ struct dissector_handle {
 	protocol_t	*protocol;
 };
 
+static void
+add_layer(packet_info *pinfo, int proto_id)
+{
+	int *proto_layer_num_ptr;
+
+	pinfo->curr_layer_num++;
+	wmem_list_append(pinfo->layers, GINT_TO_POINTER(proto_id));
+
+	/* Increment layer number for this proto id. */
+	if (pinfo->proto_layers == NULL) {
+		pinfo->proto_layers = wmem_map_new(pinfo->pool, g_direct_hash, g_direct_equal);
+	}
+
+	proto_layer_num_ptr = wmem_map_lookup(pinfo->proto_layers, GINT_TO_POINTER(proto_id));
+	if (proto_layer_num_ptr == NULL) {
+		/* Insert new layer */
+		proto_layer_num_ptr = wmem_new(pinfo->pool, int);
+		*proto_layer_num_ptr = 1;
+		wmem_map_insert(pinfo->proto_layers, GINT_TO_POINTER(proto_id), proto_layer_num_ptr);
+	}
+	else {
+		/* Increment layer number */
+		(*proto_layer_num_ptr)++;
+	}
+	pinfo->curr_proto_layer_num = *proto_layer_num_ptr;
+}
+
+static void
+remove_last_layer(packet_info *pinfo, gboolean reduce_count)
+{
+	int *proto_layer_num_ptr;
+	wmem_list_frame_t *frame;
+	int proto_id;
+
+	if (reduce_count) {
+		pinfo->curr_layer_num--;
+	}
+
+	frame = wmem_list_tail(pinfo->layers);
+	proto_id = GPOINTER_TO_INT(wmem_list_frame_data(frame));
+	wmem_list_remove_frame(pinfo->layers, frame);
+
+	if (reduce_count) {
+		/* Reduce count for removed protocol layer. */
+		proto_layer_num_ptr = wmem_map_lookup(pinfo->proto_layers, GINT_TO_POINTER(proto_id));
+		if (proto_layer_num_ptr && *proto_layer_num_ptr > 0) {
+			(*proto_layer_num_ptr)--;
+		}
+	}
+
+	/* Restore count for new last (protocol) layer. */
+	frame = wmem_list_tail(pinfo->layers);
+	if (frame) {
+		proto_id = GPOINTER_TO_INT(wmem_list_frame_data(frame));
+		proto_layer_num_ptr = wmem_map_lookup(pinfo->proto_layers, GINT_TO_POINTER(proto_id));
+		ws_assert(proto_layer_num_ptr);
+		pinfo->curr_proto_layer_num = *proto_layer_num_ptr;
+	}
+}
+
+
 /* This function will return
  * old style dissector :
  *   length of the payload or 1 of the payload is empty
@@ -788,10 +851,9 @@ call_dissector_work_error(dissector_handle_t handle, tvbuff_t *tvb,
 #define PINFO_LAYER_MAX_RECURSION_DEPTH 500
 
 static int
-call_dissector_work(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo_arg,
+call_dissector_work(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo,
 		    proto_tree *tree, gboolean add_proto_name, void *data)
 {
-	packet_info *pinfo = pinfo_arg;
 	const char  *saved_proto;
 	guint16      saved_can_desegment;
 	int          len;
@@ -836,8 +898,7 @@ call_dissector_work(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo
 		 */
 		/* XXX Should we check for a duplicate layer here? */
 		if (add_proto_name) {
-			pinfo->curr_layer_num++;
-			wmem_list_append(pinfo->layers, GINT_TO_POINTER(proto_get_id(handle->protocol)));
+			add_layer(pinfo, proto_get_id(handle->protocol));
 		}
 	}
 
@@ -857,16 +918,13 @@ call_dissector_work(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pinfo
 		 * tree. Remove it.
 		 */
 		while (wmem_list_count(pinfo->layers) > saved_layers_len) {
-			if (len == 0) {
-				/*
-				 * Only reduce the layer number if the dissector
-				 * rejected the data. Since tree can be NULL on
-				 * the first pass, we cannot check it or it will
-				 * break dissectors that rely on a stable value.
-				 */
-				pinfo->curr_layer_num--;
-			}
-			wmem_list_remove_frame(pinfo->layers, wmem_list_tail(pinfo->layers));
+			/*
+			 * Only reduce the layer number if the dissector
+			 * rejected the data. Since tree can be NULL on
+			 * the first pass, we cannot check it or it will
+			 * break dissectors that rely on a stable value.
+			 */
+			remove_last_layer(pinfo, len == 0);
 		}
 	}
 	pinfo->current_proto = saved_proto;
@@ -2875,8 +2933,7 @@ dissector_try_heuristic(heur_dissector_list_t sub_dissectors, tvbuff_t *tvb,
 			 * Add the protocol name to the layers; we'll remove it
 			 * if the dissector fails.
 			 */
-			pinfo->curr_layer_num++;
-			wmem_list_append(pinfo->layers, GINT_TO_POINTER(proto_id));
+			add_layer(pinfo, proto_id);
 		}
 
 		pinfo->heur_list_name = hdtbl_entry->list_name;
@@ -2890,16 +2947,13 @@ dissector_try_heuristic(heur_dissector_list_t sub_dissectors, tvbuff_t *tvb,
 			 * items to the tree so remove it from the list.
 			 */
 			while (wmem_list_count(pinfo->layers) > saved_layers_len) {
-				if (len == 0) {
-					/*
-					 * Only reduce the layer number if the dissector
-					 * rejected the data. Since tree can be NULL on
-					 * the first pass, we cannot check it or it will
-					 * break dissectors that rely on a stable value.
-					 */
-					pinfo->curr_layer_num--;
-				}
-				wmem_list_remove_frame(pinfo->layers, wmem_list_tail(pinfo->layers));
+				/*
+				 * Only reduce the layer number if the dissector
+				 * rejected the data. Since tree can be NULL on
+				 * the first pass, we cannot check it or it will
+				 * break dissectors that rely on a stable value.
+				 */
+				remove_last_layer(pinfo, len == 0);
 			}
 		}
 		if (len) {
@@ -3368,8 +3422,7 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 		/* do NOT change this behavior - wslua uses the protocol short name set here in order
 			to determine which Lua-based heuristic dissector to call */
 		pinfo->current_proto = proto_get_protocol_short_name(heur_dtbl_entry->protocol);
-		pinfo->curr_layer_num++;
-		wmem_list_append(pinfo->layers, GINT_TO_POINTER(proto_get_id(heur_dtbl_entry->protocol)));
+		add_layer(pinfo, proto_get_id(heur_dtbl_entry->protocol));
 	}
 
 	pinfo->heur_list_name = heur_dtbl_entry->list_name;
@@ -3384,8 +3437,7 @@ void call_heur_dissector_direct(heur_dtbl_entry_t *heur_dtbl_entry, tvbuff_t *tv
 		 * items to the tree so remove it from the list.
 		 */
 		while (wmem_list_count(pinfo->layers) > saved_layers_len) {
-			pinfo->curr_layer_num--;
-			wmem_list_remove_frame(pinfo->layers, wmem_list_tail(pinfo->layers));
+			remove_last_layer(pinfo, TRUE);
 		}
 	}
 

@@ -77,6 +77,16 @@ operators, their aliases and meaning:
         all_eq, ===   All fields must be equal
         any_ne, !==   Any fields must be not equal
 
+The operators "any" or "all" can be used with any comparison operator to make
+the test match any or all fields:
+
+    all tcp.port > 1024
+
+    any ip.addr != 1.1.1.1
+
+The "any" and "all" modifiers take precedence over comparison operators such
+as "===" and "any_eq".
+
 === Search and match operators
 
 Additional operators exist expressed only in English, not C-like syntax:
@@ -99,7 +109,7 @@ The "contains" operator cannot be used on atomic fields,
 such as numbers or IP addresses.
 
 The "matches" or "~" operator allows a filter to apply to a specified
-Perl-compatible regular expression (PCRE).  The regular expression must
+Perl-compatible regular expression (PCRE2).  The regular expression must
 be a double quoted string.  The left hand side of the "matches" operator
 must be a string, which can be a non-stringlike field implicitly or
 explicitly converted to a string.  Matches are case-insensitive by default.
@@ -114,10 +124,10 @@ You can force case sensitivity using
 
     wsp.header.user_agent matches "(?-i)cldc"
 
-This is an example of PCRE's *(?*option*)* construct. *(?-i)* performs a
+This is an example of PCRE2's *(?*+option+*)* construct. *(?-i)* performs a
 case-sensitive pattern match but other options can be specified as well. More
 information can be found in the
-pcrepattern(3)|https://www.pcre.org/original/doc/html/pcrepattern.html man page.
+pcre2pattern(3)|https://www.pcre.org/current/doc/html/pcre2pattern.html man page.
 
 === Functions
 
@@ -153,31 +163,35 @@ the largest/smallest. The arguments must all have the same type.
 === Protocol field types
 
 Each protocol field is typed. The types are:
+// `tshark -G ftypes | sed -e 's/.*\t/    /' | sort -f -u`, then fix up by hand
 
-    ASN.1 object identifier
+    ASN.1 object identifier, plain or relative
+    AX.25 address
     Boolean
+    Byte sequence
     Character string
-    Compiled Perl-Compatible Regular Expression (GRegex) object
+    Character, 1 byte
     Date and time
     Ethernet or other MAC address
     EUI64 address
-    Floating point (double-precision)
-    Floating point (single-precision)
+    Fibre Channel WWN
+    Floating point, single or double precision
     Frame number
     Globally Unique Identifier
+    IEEE-11073 floating point, 16 or 32 bits
     IPv4 address
     IPv6 address
     IPX network number
     Label
+    OSI System-ID
     Protocol
-    Sequence of bytes
     Signed integer, 1, 2, 3, 4, or 8 bytes
     Time offset
     Unsigned integer, 1, 2, 3, 4, or 8 bytes
-    1-byte ASCII character
+    VINES address
 
 An integer may be expressed in decimal, octal, hexadecimal or binary notation,
-or as a C-style character constant.  The following six display filters
+or as a C-style character constant.  The following seven display filters
 are equivalent:
 
     frame.len > 10
@@ -189,16 +203,21 @@ are equivalent:
     frame.len > '\012'
 
 Boolean values are either true or false.  In a display filter expression
-testing the value of a Boolean field, "true" is expressed as 1 or any
-other non-zero value, and "false" is expressed as zero.  For example, a
-token-ring packet's source route field is Boolean.  To find any
-source-routed packets, a display filter would be:
+testing the value of a Boolean field, true is expressed as the word "True"
+or "TRUE" (without quotes) or any non-zero number.  False is expressed as
+"False" or "FALSE" or the number zero. For example, a token-ring packet's
+source route field is Boolean.  To find any source-routed packets, a display
+filter would be any of the following:
 
     tr.sr == 1
+    tr.sr == True
+    tr.sr == TRUE
 
 Non source-routed packets can be found with:
 
     tr.sr == 0
+    tr.sr == False
+    tr.sr == FALSE
 
 Ethernet addresses and byte arrays are represented by hex
 digits.  The hex digits may be separated by colons, periods, or hyphens:
@@ -239,7 +258,7 @@ not valid (yet).
 Transaction and other IDs are often represented by unsigned 16 or 32 bit integers
 and formatted as a hexadecimal string with "0x" prefix:
 
-	(dhcp.id == 0xfe089c15) || (ip.id == 0x0373)
+    (dhcp.id == 0xfe089c15) || (ip.id == 0x0373)
 
 Strings are enclosed in double quotes:
 
@@ -271,6 +290,35 @@ as
 String literals prefixed with 'r' are called "raw strings". Such strings treat
 backslash as a literal character. Double quotes may still be escaped with
 backslash but note that backslashes are always preserved in the result.
+
+The following table lists all escape sequences supported with strings
+and character constants:
+
+    \'          single quote
+    \"          double quote
+    \\          backslash
+    \a          audible bell
+    \b          backspace
+    \f          form feed
+    \n          line feed
+    \r          carriage return
+    \t          horizontal tab
+    \v          vertical tab
+    \NNN        arbitrary octal value
+    \xNN        arbitrary hexadecimal value
+    \uNNNN      Unicode codepoint U+NNNN
+    \UNNNNNNNN  Unicode codepoint U+NNNNNNNN
+
+Date and time values can be given in ISO 8601 format or using a legacy
+month-year-time format:
+
+    "2020-07-04T12:34:56"
+    "Sep 26, 2004 23:18:04.954975"
+
+The 'T' separator in ISO 8601 can be omitted. ISO 8601 supports timezone
+designators as UTC or an offset from UTC. Legacy formats can append the
+value "UTC" at the end to specify time in Coordinated Universal Time.
+Otherwise date and time values are interpreted as local time.
 
 === The slice operator
 
@@ -321,6 +369,24 @@ Slices can be combined. You can concatenate them using the comma operator:
 
 This concatenates offset 1, offsets 3-5, and offset 9 to the end of the ftp
 data.
+
+=== The layer operator
+
+A field can be restricted to a certain layer in the protocol stack using the
+layer operator (#), followed by a decimal number:
+
+    ip.addr#2 == 192.168.30.40
+
+matches only the inner (second) layer in the packet.
+Layers use simple stacking semantics and protocol layers are counted sequentially starting from 1.
+For example, in a packet that contains two IPv4 headers, the outer (first) source address can be matched with "ip.src#1" and the inner (second) source address can be matched with "ip.src#2".
+
+For more complicated ranges the same syntax used with slices is valid:
+
+    tcp.port#[2-4]
+
+means layers number 2, 3 or 4 inclusive. The hash symbol is required to
+distinguish a layer range from a slice.
 
 === The membership operator
 
@@ -428,7 +494,7 @@ Do not confuse this usage of curly brackets with set membership.
 An unfortunate quirk in the filter syntax is that the subtraction operator
 must be preceded by a space character, so "A-B" must be written as "A -B"
 or "A - B".
-                                   
+
 === Protocol field references
 
 A variable using a sigil with the form ${some.proto.field} is called a field
@@ -519,7 +585,7 @@ The *xref:wireshark-filter.html[wireshark-filter](4)* manpage is part of the *Wi
 The latest version of *Wireshark* can be found at
 https://www.wireshark.org.
 
-Regular expressions in the "matches" operator are provided by GRegex in GLib.
+Regular expressions in the "matches" operator are provided by the PCRE2 library.
 See https://www.pcre.org/ for more information.
 
 This manpage does not describe the capture filter syntax, which is

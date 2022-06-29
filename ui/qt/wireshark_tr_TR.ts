@@ -1808,6 +1808,81 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>ConversationDataModel</name>
+    <message>
+        <source>Address A</source>
+        <translation>Adres A</translation>
+    </message>
+    <message>
+        <source>Port A</source>
+        <translation>Bağlantı noktası A</translation>
+    </message>
+    <message>
+        <source>Address B</source>
+        <translation>Adres B</translation>
+    </message>
+    <message>
+        <source>Port B</source>
+        <translation>Bağlantı noktası B</translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation>Paketler</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation>Bayt</translation>
+    </message>
+    <message>
+        <source>Stream ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets A </source>
+        <translation>Paketler A</translation>
+    </message>
+    <message>
+        <source>Bytes A </source>
+        <translation>Bayt A</translation>
+    </message>
+    <message>
+        <source>Bytes B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets B </source>
+        <translation type="vanished">Paketler B</translation>
+    </message>
+    <message>
+        <source>Abs Start</source>
+        <translation>Abs Başlangıç</translation>
+    </message>
+    <message>
+        <source>Rel Start</source>
+        <translation>Rel Başlangıç</translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation>Süre</translation>
+    </message>
+    <message>
+        <source>Bits/s A </source>
+        <translation>Bit/s A </translation>
+    </message>
+    <message>
+        <source>Bits/s B </source>
+        <translation>Bit/s B </translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ConversationDialog</name>
     <message>
         <source>Follow Stream…</source>
@@ -2317,6 +2392,65 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>EndpointDataModel</name>
+    <message>
+        <source>Address</source>
+        <translation>Adres</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation>Bağlantı noktası</translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation>Paketler</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation>Bayt</translation>
+    </message>
+    <message>
+        <source>Tx Packets</source>
+        <translation>Tx Paketleri</translation>
+    </message>
+    <message>
+        <source>Tx Bytes</source>
+        <translation>Tx Baytları</translation>
+    </message>
+    <message>
+        <source>Rx Packets</source>
+        <translation>Rx Paketleri</translation>
+    </message>
+    <message>
+        <source>Rx Bytes</source>
+        <translation>Rx Baytları</translation>
+    </message>
+    <message>
+        <source>Country</source>
+        <translation>Ülke</translation>
+    </message>
+    <message>
+        <source>City</source>
+        <translation>Şehir</translation>
+    </message>
+    <message>
+        <source>AS Number</source>
+        <translation>AS Numarası</translation>
+    </message>
+    <message>
+        <source>AS Organization</source>
+        <translation>AS Organizasyonu</translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>EndpointDialog</name>
     <message>
         <source>Map</source>
@@ -2337,14 +2471,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Map file error</source>
         <translation>Harita dosyası hatası</translation>
-    </message>
-    <message>
-        <source>No endpoints available to map</source>
-        <translation>Haritalanacak uç nokta yok</translation>
-    </message>
-    <message>
-        <source>Unable to create temporary file</source>
-        <translation>Geçici dosya oluşturulamıyor</translation>
     </message>
     <message>
         <source>Save Endpoints Map</source>
@@ -4704,6 +4830,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Start capture</source>
         <translation>Yakalamayı başlat</translation>
     </message>
+    <message>
+        <source>Hide Interface</source>
+        <translation>Arayüzü Gizle</translation>
+    </message>
 </context>
 <context>
     <name>InterfaceSortFilterModel</name>
@@ -6960,14 +7090,21 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
-    <name>PathChooserDelegate</name>
+    <name>PathSelectionDelegate</name>
+    <message>
+        <source>Open a pipe</source>
+        <translation>Boru aç</translation>
+    </message>
+</context>
+<context>
+    <name>PathSelectionEdit</name>
     <message>
         <source>Browse</source>
-        <translation>Göz At</translation>
+        <translation>Gözat</translation>
     </message>
     <message>
-        <source>Open Pipe</source>
-        <translation>Boru Aç</translation>
+        <source>Select a path</source>
+        <translation>Bir yol seçin</translation>
     </message>
 </context>
 <context>
@@ -7562,7 +7699,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>PDUs</source>
-        <translation type="unfinished"></translation>
+        <translation>PDUs</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -10783,8 +10920,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Görüntü</translation>
     </message>
     <message>
-        <source>Json</source>
-        <translation>Json</translation>
+        <source>JSON</source>
+        <oldsource>Json</oldsource>
+        <translation type="unfinished">Json</translation>
     </message>
     <message>
         <source>Raw</source>
@@ -11678,6 +11816,25 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>TrafficTab</name>
+    <message>
+        <source>Map file error</source>
+        <translation>Harita dosyası hatası</translation>
+    </message>
+    <message>
+        <source>Could not open base file %1 for reading: %2</source>
+        <translation>%1 temel dosyası şu okuma için açılamadı: %2</translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation>Haritalanacak uç nokta yok</translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation>Geçici dosya oluşturulamıyor</translation>
+    </message>
+</context>
+<context>
     <name>TrafficTableDialog</name>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show resolved addresses and port names rather than plain values. The corresponding name resolution preference must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -11700,20 +11857,35 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Başlangıç zamanı sütununda mutlak zamanları göster.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>GroupBox</source>
+        <translation type="unfinished">GrupKutusu</translation>
+    </message>
+    <message>
         <source>Absolute start time</source>
         <translation>Mutlak başlangıç zamanı</translation>
     </message>
     <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add and remove conversation types.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Konuşma türleri ekleyin ve kaldırın.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>%1 Types</source>
-        <translation>%1 Türler</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>Kopyala</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Bilinmiyor</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTree</name>
+    <message>
+        <source>Resize all columns to content</source>
+        <translation>Tüm sütunları içeriğe göre yeniden boyutlandır</translation>
+    </message>
+    <message>
+        <source>Filter on stream id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy %1 table</source>
+        <translation>%1 tablosunu kopyala</translation>
     </message>
     <message>
         <source>as CSV</source>
@@ -11732,8 +11904,35 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Bu sayfanın tüm değerlerini YAML veri serileştirme biçiminde panoya kopyalayın.</translation>
     </message>
     <message>
-        <source>Unknown</source>
-        <translation>Bilinmiyor</translation>
+        <source>as JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>as Json</source>
+        <translation type="vanished">Json olarak</translation>
+    </message>
+    <message>
+        <source>Copy all values of this page to the clipboard in the Json data serialization format.</source>
+        <translation type="vanished">Bu sayfanın tüm değerlerini Json veri serileştirme biçiminde panoya kopyalayın.</translation>
+    </message>
+    <message>
+        <source>Save data as raw</source>
+        <translation>Verileri ham olarak kaydet</translation>
+    </message>
+    <message>
+        <source>Disable data formatting for export/clipboard and save as raw data</source>
+        <translation>Dışa aktarma/pano için veri biçimlendirmesini devre dışı bırakın ve ham veri olarak kaydedin</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTypesModel</name>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">İletişim Kuralı</translation>
     </message>
 </context>
 <context>
@@ -13306,6 +13505,10 @@ a:hover {
         <translation>Görünüm düzenini varsayılan boyuta sıfırla</translation>
     </message>
     <message>
+        <source>Seconds Since First Captured Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet &amp;Diagram</source>
         <translation>Paket &amp;Şeması</translation>
     </message>
@@ -13628,10 +13831,6 @@ a:hover {
     <message>
         <source>Show packet times as the seconds since the UNIX / POSIX epoch (1970-01-01).</source>
         <translation>Paket sürelerini UNIX / POSIX döneminden (1970-01-01) bu yana saniye olarak göster.</translation>
-    </message>
-    <message>
-        <source>Seconds Since Beginning of Capture</source>
-        <translation>Yakalama Başlangıcından Beri Saniyeler</translation>
     </message>
     <message>
         <source>Seconds Since Previous Captured Packet</source>

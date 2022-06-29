@@ -173,15 +173,14 @@ libwireshark.so.0 libwireshark0 #MINVER#
  conversation_filter_from_packet@Base 2.2.8
  conversation_get_dissector@Base 2.0.0
  conversation_get_endpoint_by_id@Base 2.5.0
- conversation_get_html_hash@Base 2.5.0
  conversation_get_proto_data@Base 1.9.1
- conversation_hash_exact@Base 2.5.0
  conversation_key_addr1@Base 2.5.0
  conversation_key_addr2@Base 2.5.0
  conversation_key_port1@Base 2.5.0
  conversation_key_port2@Base 2.5.0
  conversation_new@Base 1.9.1
  conversation_new_by_id@Base 2.5.0
+ conversation_new_full@Base 3.7.1
  conversation_pt_to_endpoint_type@Base 2.5.0
  conversation_set_dissector@Base 1.9.1
  conversation_set_dissector_from_frame_number@Base 2.0.0
@@ -350,6 +349,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissect_dcom_this@Base 1.9.1
  dissect_dsp_AccessPointInformation@Base 1.9.1
  dissect_e164_cc@Base 1.9.1
+ dissect_e164_isdn@Base 3.7.0
  dissect_e164_msisdn@Base 1.99.0
  dissect_e212_imsi@Base 1.99.0
  dissect_e212_mcc_mnc@Base 1.9.1
@@ -478,6 +478,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  dissect_thrift_t_string_enc@Base 3.5.0
  dissect_thrift_t_stop@Base 2.5.0
  dissect_thrift_t_struct@Base 2.5.0
+ dissect_thrift_t_uuid@Base 3.7.1
  dissect_tpkt_encap@Base 1.9.1
  dissect_unknown_ber@Base 1.9.1
  dissect_xdlc_control@Base 1.9.1
@@ -672,6 +673,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  find_capture_dissector@Base 2.3.0
  find_conversation@Base 1.9.1
  find_conversation_by_id@Base 2.5.0
+ find_conversation_full@Base 3.7.1
  find_conversation_pinfo@Base 2.5.0
  find_depend_dissector_list@Base 2.1.0
  find_dissector@Base 1.9.1
@@ -708,7 +710,6 @@ libwireshark.so.0 libwireshark0 #MINVER#
  fragment_delete@Base 1.9.1
  fragment_end_seq_next@Base 1.9.1
  fragment_get@Base 1.9.1
- fragment_get_reassembled@Base 1.9.1
  fragment_get_reassembled_id@Base 1.9.1
  fragment_get_tot_len@Base 1.9.1
  fragment_set_partial_reassembly@Base 1.9.1
@@ -744,10 +745,15 @@ libwireshark.so.0 libwireshark0 #MINVER#
  funnel_reload_menus@Base 1.99.9
  funnel_set_funnel_ops@Base 1.9.1
  fvalue_from_literal@Base 3.7.0
- fvalue_get@Base 1.9.1
+ fvalue_get_bytes@Base 3.7.1rc0-265-ge42a4de47c6d
  fvalue_get_floating@Base 1.9.1
+ fvalue_get_guid@Base 3.7.1rc0-265-ge42a4de47c6d
+ fvalue_get_protocol@Base 3.7.1rc0-265-ge42a4de47c6d
  fvalue_get_sinteger64@Base 1.99.3
  fvalue_get_sinteger@Base 1.9.1
+ fvalue_get_string@Base 3.7.1rc0-265-ge42a4de47c6d
+ fvalue_get_strbuf@Base 3.7.1rc0-272-gfe25d701baa2
+ fvalue_get_time@Base 3.7.1rc0-265-ge42a4de47c6d
  fvalue_get_uinteger64@Base 1.99.3
  fvalue_get_uinteger@Base 1.9.1
  fvalue_to_string_repr@Base 1.9.1
@@ -800,10 +806,7 @@ libwireshark.so.0 libwireshark0 #MINVER#
  get_conversation_address@Base 1.99.0
  get_conversation_by_proto_id@Base 1.99.0
  get_conversation_filter@Base 1.99.0
- get_conversation_hashtable_exact@Base 1.12.0~rc1
- get_conversation_hashtable_no_addr2@Base 1.12.0~rc1
- get_conversation_hashtable_no_addr2_or_port2@Base 1.12.0~rc1
- get_conversation_hashtable_no_port2@Base 1.12.0~rc1
+ get_conversation_hashtables@Base 3.7.1
  get_conversation_hide_ports@Base 1.99.0
  get_conversation_packet_func@Base 1.99.0
  get_conversation_port@Base 1.99.0

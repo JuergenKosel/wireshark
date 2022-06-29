@@ -3006,6 +3006,7 @@ cytel-lm	3297/tcp/udp	# Cytel License Manager
 deskview	3298/tcp/udp	# DeskView
 pdrncs		3299/tcp/udp
 ceph		3300/tcp	# Ceph monitor
+tarantool	3301/tcp/udp	# Tarantool in-memory computing platform
 mcs-fastmail	3302/tcp/udp	# MCS Fastmail
 opsession-clnt	3303/tcp/udp	# OP Session Client
 opsession-srvr	3304/tcp/udp	# OP Session Server
@@ -4386,6 +4387,8 @@ eenet		5234/tcp/udp	# EEnet communications
 galaxy-network	5235/tcp/udp	# Galaxy Network Service
 padl2sim	5236/tcp/udp
 mnet-discovery	5237/tcp/udp	# m-net discovery
+attune		5242/tcp	# ATTUne API
+xycstatus	5243/tcp	# xyClient Status API and rendevous point
 downtools	5245/tcp	# DownTools Control Protocol
 downtools-disc	5245/udp	# DownTools Discovery Protocol
 capwap-control	5246/udp	# CAPWAP Control Protocol
@@ -4637,6 +4640,7 @@ spdp		5794/udp	# Simple Peered Discovery Protocol
 enlabel-dpl	5798/tcp	# Proprietary Website deployment service
 icmpd		5813/tcp/udp	# ICMPD
 spt-automation	5814/tcp/udp	# Support Automation
+autopassdaemon	5820/tcp	# AutoPass licensing
 shiprush-d-ch	5841/tcp	# Z-firm ShipRush interface for web access and bidirectional data
 reversion	5842/tcp	# Reversion Backup/Restore
 wherehoo	5859/tcp/udp	# WHEREHOO
@@ -4644,6 +4648,13 @@ ppsuitemsg	5863/tcp/udp	# PlanetPress Suite Messeng
 diameters	5868/tcp/sctp	# Diameter over TLS/TCP
 jute		5883/tcp	# Javascript Unit Test Environment
 rfb		5900/tcp/udp	# Remote Framebuffer
+ff-ice		5903/tcp/udp/sctp	# Flight & Flow Info for Collaborative Env
+ag-swim		5904/tcp/udp/sctp	# Air-Ground SWIM
+asmgcs		5905/tcp/udp/sctp	# Adv Surface Mvmnt and Guidance Cont Sys
+rpas-c2		5906/tcp/udp/sctp	# Remotely Piloted Vehicle C&C
+dsd		5907/tcp/udp/sctp	# Distress and Safety Data App
+ipsma		5908/tcp/udp/sctp	# IPS Management Application
+agma		5909/tcp/udp/sctp	# Air-ground media advisory
 cm		5910/tcp/udp/sctp	# Context Management
 cpdlc		5911/tcp/udp/sctp	# Controller Pilot Data Link Communication
 fis		5912/tcp/udp/sctp	# Flight Information Services
@@ -4921,6 +4932,7 @@ swispol		6966/tcp/udp
 acmsoda		6969/tcp/udp
 conductor	6970/tcp	# Conductor test coordination protocol
 conductor-mpx	6970/sctp	# conductor for multiplex
+qolyester	6980/udp	# QoS-extended OLSR protocol
 MobilitySrv	6997/tcp/udp	# Mobility XE Protocol
 iatp-highpri	6998/tcp/udp	# IATP-highPri
 iatp-normalpri	6999/tcp/udp	# IATP-normalPri
@@ -5083,7 +5095,7 @@ imqtunnels	7674/tcp/udp	# iMQ SSL tunnel
 imqtunnel	7675/tcp/udp	# iMQ Tunnel
 imqbrokerd	7676/tcp/udp	# iMQ Broker Rendezvous
 sun-user-https	7677/tcp/udp	# Sun App Server - HTTPS
-pando-pub	7680/tcp/udp	# Pando Media Public Distribution
+ms-do		7680/tcp/udp	# Microsoft Delivery Optimization Peer-to-Peer
 dmt		7683/tcp	# Cleondris DMT
 bolt		7687/tcp	# Bolt database connection
 collaber	7689/tcp/udp	# Collaber Network Service
@@ -5252,7 +5264,7 @@ hncp-dtls-port	8232/udp	# HNCP over DTLS
 synapse-nhttps	8243/tcp/udp	# Synapse Non Blocking HTTPS
 espeasy-p2p	8266/udp	# ESPeasy peer-2-peer communication
 robot-remote	8270/tcp	# Robot Framework Remote Library Interface
-pando-sec	8276/tcp/udp	# Pando Media Controlled Distribution
+ms-mcc		8276/tcp/udp	# Microsoft Connected Cache
 synapse-nhttp	8280/tcp/udp	# Synapse Non Blocking HTTP
 libelle		8282/tcp	# Libelle EnterpriseBus
 libelle-disc	8282/udp	# Libelle EnterpriseBus discovery
@@ -5795,6 +5807,7 @@ amt-soap-https	16993/tcp/udp	# Intel(R) AMT SOAP/HTTPS
 amt-redir-tcp	16994/tcp/udp	# Intel(R) AMT Redirection/TCP
 amt-redir-tls	16995/tcp/udp	# Intel(R) AMT Redirection/TLS
 isode-dua	17007/tcp/udp
+ncpu		17010/tcp	# Plan 9 cpu port
 vestasdlp	17184/tcp	# Vestas Data Layer Protocol
 soundsvirtual	17185/tcp/udp	# Sounds Virtual
 chipper		17219/tcp/udp	# Chipper

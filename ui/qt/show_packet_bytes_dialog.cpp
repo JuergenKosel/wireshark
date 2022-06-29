@@ -74,7 +74,7 @@ ShowPacketBytesDialog::ShowPacketBytesDialog(QWidget &parent, CaptureFile &cf) :
     ui->cbShowAs->addItem(tr("Hex Dump"), ShowAsHexDump);
     ui->cbShowAs->addItem(tr("HTML"), ShowAsHTML);
     ui->cbShowAs->addItem(tr("Image"), ShowAsImage);
-    ui->cbShowAs->addItem(tr("Json"), ShowAsJson);
+    ui->cbShowAs->addItem(tr("JSON"), ShowAsJson);
     ui->cbShowAs->addItem(tr("Raw"), ShowAsRAW);
     ui->cbShowAs->addItem(tr("Rust Array"), ShowAsRustArray);
     // UTF-8 is guaranteed to exist as a QTextCodec
@@ -801,7 +801,17 @@ void ShowPacketBytesDialog::updatePacketBytes(void)
         while (pos < len) {
             QByteArray base64_data = field_bytes_.mid(pos, base64_raw_len);
             pos += base64_data.length();
+            /* XXX: GCC 12.1 has a bogus stringop-overread warning using the Qt
+             * conversions from QByteArray to QString at -O2 and higher due to
+             * computing a branch that will never be taken.
+             */
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_OFF(stringop-overread)
+#endif
             text.append("  " + base64_data.toBase64() + "\n");
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_ON(stringop-overread)
+#endif
         }
 
         ui->tePacketBytes->setLineWrapMode(QTextEdit::NoWrap);

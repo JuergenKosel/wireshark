@@ -24,24 +24,33 @@ dfvm_opcode_tostr(dfvm_opcode_t code)
 		case IF_TRUE_GOTO:	return "IF_TRUE_GOTO";
 		case IF_FALSE_GOTO:	return "IF_FALSE_GOTO";
 		case CHECK_EXISTS:	return "CHECK_EXISTS";
+		case CHECK_EXISTS_R:	return "CHECK_EXISTS_R";
 		case NOT:		return "NOT";
 		case RETURN:		return "RETURN";
 		case READ_TREE:		return "READ_TREE";
+		case READ_TREE_R:	return "READ_TREE_R";
 		case READ_REFERENCE:	return "READ_REFERENCE";
+		case READ_REFERENCE_R:	return "READ_REFERENCE_R";
 		case PUT_FVALUE:	return "PUT_FVALUE";
 		case ALL_EQ:		return "ALL_EQ";
 		case ANY_EQ:		return "ANY_EQ";
 		case ALL_NE:		return "ALL_NE";
 		case ANY_NE:		return "ANY_NE";
+		case ALL_GT:		return "ALL_GT";
 		case ANY_GT:		return "ANY_GT";
+		case ALL_GE:		return "ALL_GE";
 		case ANY_GE:		return "ANY_GE";
+		case ALL_LT:		return "ALL_LT";
 		case ANY_LT:		return "ANY_LT";
+		case ALL_LE:		return "ALL_LE";
 		case ANY_LE:		return "ANY_LE";
-		case ANY_ZERO:		return "ANY_ZERO";
 		case ALL_ZERO:		return "ALL_ZERO";
+		case ANY_ZERO:		return "ANY_ZERO";
+		case ALL_CONTAINS:	return "ALL_CONTAINS";
 		case ANY_CONTAINS:	return "ANY_CONTAINS";
+		case ALL_MATCHES:	return "ALL_MATCHES";
 		case ANY_MATCHES:	return "ANY_MATCHES";
-		case MK_RANGE:		return "MK_RANGE";
+		case MK_SLICE:		return "MK_SLICE";
 		case MK_BITWISE_AND:	return "MK_BITWISE_AND";
 		case MK_MINUS:		return "MK_MINUS";
 		case DFVM_ADD:		return "DFVM_ADD";
@@ -52,6 +61,7 @@ dfvm_opcode_tostr(dfvm_opcode_t code)
 		case CALL_FUNCTION:	return "CALL_FUNCTION";
 		case STACK_PUSH:	return "STACK_PUSH";
 		case STACK_POP:		return "STACK_POP";
+		case ALL_IN_RANGE:	return "ALL_IN_RANGE";
 		case ANY_IN_RANGE:	return "ANY_IN_RANGE";
 	}
 	return "(fix-opcode-string)";
@@ -67,7 +77,6 @@ dfvm_insn_new(dfvm_opcode_t op)
 	insn->arg1 = NULL;
 	insn->arg2 = NULL;
 	insn->arg3 = NULL;
-	insn->arg4 = NULL;
 	return insn;
 }
 
@@ -121,9 +130,6 @@ dfvm_insn_free(dfvm_insn_t *insn)
 	}
 	if (insn->arg3) {
 		dfvm_value_unref(insn->arg3);
-	}
-	if (insn->arg4) {
-		dfvm_value_unref(insn->arg4);
 	}
 	g_free(insn);
 }
@@ -206,7 +212,9 @@ dfvm_value_tostr(dfvm_value_t *v)
 
 	switch (v->type) {
 		case HFINFO:
-			s = ws_strdup(v->value.hfinfo->abbrev);
+			s = ws_strdup_printf("%s <%s>",
+					v->value.hfinfo->abbrev,
+					ftype_name(v->value.hfinfo->type));
 			break;
 		case FVALUE:
 			aux = fvalue_to_debug_repr(NULL, v->value.fvalue);
@@ -261,8 +269,8 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 {
 	int		id, length;
 	dfvm_insn_t	*insn;
-	dfvm_value_t	*arg1, *arg2, *arg3, *arg4;
-	char 		*arg1_str, *arg2_str, *arg3_str, *arg4_str;
+	dfvm_value_t	*arg1, *arg2, *arg3;
+	char 		*arg1_str, *arg2_str, *arg3_str;
 	wmem_strbuf_t	*buf;
 	GHashTableIter	ref_iter;
 	gpointer	key, value;
@@ -281,11 +289,9 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 		arg1 = insn->arg1;
 		arg2 = insn->arg2;
 		arg3 = insn->arg3;
-		arg4 = insn->arg4;
 		arg1_str = dfvm_value_tostr(arg1);
 		arg2_str = dfvm_value_tostr(arg2);
 		arg3_str = dfvm_value_tostr(arg3);
-		arg4_str = dfvm_value_tostr(arg4);
 
 		switch (insn->op) {
 			case CHECK_EXISTS:
@@ -293,14 +299,29 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 					id, arg1_str);
 				break;
 
+			case CHECK_EXISTS_R:
+				wmem_strbuf_append_printf(buf, "%05d CHECK_EXISTS_R\t%s #[%s]\n",
+					id, arg1_str, arg2_str);
+				break;
+
 			case READ_TREE:
 				wmem_strbuf_append_printf(buf, "%05d READ_TREE\t\t%s -> %s\n",
 					id, arg1_str, arg2_str);
 				break;
 
+			case READ_TREE_R:
+				wmem_strbuf_append_printf(buf, "%05d READ_TREE_R\t%s #[%s] -> %s\n",
+					id, arg1_str, arg3_str, arg2_str);
+				break;
+
 			case READ_REFERENCE:
 				wmem_strbuf_append_printf(buf, "%05d READ_REFERENCE\t${%s} -> %s\n",
 					id, arg1_str, arg2_str);
+				break;
+
+			case READ_REFERENCE_R:
+				wmem_strbuf_append_printf(buf, "%05d READ_REFERENCE_R\t${%s} #[%s] -> %s\n",
+					id, arg1_str, arg3_str, arg2_str);
 				break;
 
 			case PUT_FVALUE:
@@ -332,8 +353,8 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 				}
 				break;
 
-			case MK_RANGE:
-				wmem_strbuf_append_printf(buf, "%05d MK_RANGE\t\t%s[%s] -> %s\n",
+			case MK_SLICE:
+				wmem_strbuf_append_printf(buf, "%05d MK_SLICE\t\t%s[%s] -> %s\n",
 					id, arg1_str, arg3_str, arg2_str);
 				break;
 
@@ -357,24 +378,28 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 					id, arg1_str, arg2_str);
 				break;
 
+			case ALL_GT:
 			case ANY_GT:
-				wmem_strbuf_append_printf(buf, "%05d ANY_GT\t\t%s > %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s > %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
+			case ALL_GE:
 			case ANY_GE:
-				wmem_strbuf_append_printf(buf, "%05d ANY_GE\t\t%s >= %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s >= %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
+			case ALL_LT:
 			case ANY_LT:
-				wmem_strbuf_append_printf(buf, "%05d ANY_LT\t\t%s < %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s < %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
+			case ALL_LE:
 			case ANY_LE:
-				wmem_strbuf_append_printf(buf, "%05d ANY_LE\t\t%s <= %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s <= %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
 			case MK_BITWISE_AND:
@@ -382,14 +407,10 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 					id, arg1_str, arg2_str, arg3_str);
 				break;
 
-			case ANY_ZERO:
-				wmem_strbuf_append_printf(buf, "%05d ANY_ZERO\t\t%s\n",
-					id, arg1_str);
-				break;
-
 			case ALL_ZERO:
-				wmem_strbuf_append_printf(buf, "%05d ALL_ZERO\t\t%s\n",
-					id, arg1_str);
+			case ANY_ZERO:
+				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str);
 				break;
 
 			case DFVM_ADD:
@@ -417,19 +438,23 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 					id, arg1_str, arg2_str, arg3_str);
 				break;
 
+			case ALL_CONTAINS:
 			case ANY_CONTAINS:
-				wmem_strbuf_append_printf(buf, "%05d ANY_CONTAINS\t%s contains %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t%s contains %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
+			case ALL_MATCHES:
 			case ANY_MATCHES:
-				wmem_strbuf_append_printf(buf, "%05d ANY_MATCHES\t%s matches %s\n",
-					id, arg1_str, arg2_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t%s matches %s\n",
+					id, dfvm_opcode_tostr(insn->op), arg1_str, arg2_str);
 				break;
 
+			case ALL_IN_RANGE:
 			case ANY_IN_RANGE:
-				wmem_strbuf_append_printf(buf, "%05d ANY_IN_RANGE\t%s in { %s .. %s }\n",
-					id, arg1_str, arg2_str, arg3_str);
+				wmem_strbuf_append_printf(buf, "%05d %s\t%s in { %s .. %s }\n",
+					id, dfvm_opcode_tostr(insn->op),
+					arg1_str, arg2_str, arg3_str);
 				break;
 
 			case MK_MINUS:
@@ -459,7 +484,6 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 		g_free(arg1_str);
 		g_free(arg2_str);
 		g_free(arg3_str);
-		g_free(arg4_str);
 	}
 
 	if (print_references && g_hash_table_size(df->references) > 0) {
@@ -467,20 +491,18 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 		g_hash_table_iter_init(&ref_iter, df->references);
 		while (g_hash_table_iter_next(&ref_iter, &key, &value)) {
 			const char *abbrev = ((header_field_info *)key)->abbrev;
-			GSList *fvalues = *(GSList **)value;
+			GPtrArray *refs_array = value;
+			df_reference_t *ref;
 
 			wmem_strbuf_append_printf(buf, "${%s} = {", abbrev);
-
-			if (fvalues != NULL) {
-				str = fvalue_to_debug_repr(NULL, fvalues->data);
-				wmem_strbuf_append_printf(buf, "%s <%s>", str, fvalue_type_name(fvalues->data));
-				g_free(str);
-
-				for (fvalues = fvalues->next; fvalues != NULL; fvalues = fvalues->next) {
-					str = fvalue_to_debug_repr(NULL, fvalues->data);
-					wmem_strbuf_append_printf(buf, ", %s <%s>", str, fvalue_type_name(fvalues->data));
-					g_free(str);
+			for (i = 0; i < refs_array->len; i++) {
+				if (i != 0) {
+					wmem_strbuf_append(buf, ", ");
 				}
+				ref = refs_array->pdata[i];
+				str = fvalue_to_debug_repr(NULL, ref->value);
+				wmem_strbuf_append_printf(buf, "%s <%s>", str, fvalue_type_name(ref->value));
+				g_free(str);
 			}
 			wmem_strbuf_append(buf, "}\n");
 		}
@@ -497,20 +519,100 @@ dfvm_dump(FILE *f, dfilter_t *df)
 	wmem_free(NULL, str);
 }
 
+static int
+compare_finfo_layer(gconstpointer _a, gconstpointer _b)
+{
+	const field_info *a = *(const field_info **)_a;
+	const field_info *b = *(const field_info **)_b;
+	return a->proto_layer_num - b->proto_layer_num;
+}
+
+static gboolean
+drange_contains_layer(drange_t *dr, int num, int length)
+{
+	drange_node *rn;
+	GSList *list = dr->range_list;
+	int lower, upper;
+
+	while (list) {
+		rn = list->data;
+		lower = rn->start_offset;
+		if (lower < 0) {
+			lower += length + 1;
+		}
+		if (rn->ending == DRANGE_NODE_END_T_LENGTH) {
+			upper = lower + rn->length - 1;
+		}
+		else if (rn->ending == DRANGE_NODE_END_T_OFFSET) {
+			upper = rn->end_offset;
+		}
+		else if (rn->ending == DRANGE_NODE_END_T_TO_THE_END) {
+			upper = INT_MAX;
+		}
+		else {
+			ws_assert_not_reached();
+		}
+
+		if (num >= lower && num <= upper) {  /* inclusive */
+			return TRUE;
+		}
+
+		list = g_slist_next(list);
+	}
+	return FALSE;
+}
+
+GSList *
+filter_finfo_fvalues(GSList *fvalues, GPtrArray *finfos, drange_t *range)
+{
+	int length; /* maximum proto layer number. The numbers are sequential. */
+	field_info *last_finfo, *finfo;
+	int cookie = -1;
+	gboolean cookie_matches = false;
+	int layer;
+
+	g_ptr_array_sort(finfos, compare_finfo_layer);
+	last_finfo = finfos->pdata[finfos->len - 1];
+	length = last_finfo->proto_layer_num;
+
+	for (guint i = 0; i < finfos->len; i++) {
+		finfo = finfos->pdata[i];
+		layer = finfo->proto_layer_num;
+		if (cookie == layer) {
+			if (cookie_matches) {
+				fvalues = g_slist_prepend(fvalues, &finfo->value);
+			}
+		}
+		else {
+			cookie = layer;
+			cookie_matches = drange_contains_layer(range, layer, length);
+			if (cookie_matches) {
+				fvalues = g_slist_prepend(fvalues, &finfo->value);
+			}
+		}
+	}
+	return fvalues;
+}
+
 /* Reads a field from the proto_tree and loads the fvalues into a register,
  * if that field has not already been read. */
 static gboolean
 read_tree(dfilter_t *df, proto_tree *tree,
-				dfvm_value_t *arg1, dfvm_value_t *arg2)
+				dfvm_value_t *arg1, dfvm_value_t *arg2,
+				dfvm_value_t *arg3)
 {
 	GPtrArray	*finfos;
 	field_info	*finfo;
 	int		i, len;
 	GSList		*fvalues = NULL;
-	gboolean	found_something = FALSE;
+	drange_t	*range = NULL;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
 	int reg = arg2->value.numeric;
+
+	if (arg3) {
+		range = arg3->value.drange;
+	}
 
 	/* Already loaded in this run of the dfilter? */
 	if (df->attempted_load[reg]) {
@@ -530,20 +632,22 @@ read_tree(dfilter_t *df, proto_tree *tree,
 			hfinfo = hfinfo->same_name_next;
 			continue;
 		}
-		else {
-			found_something = TRUE;
-		}
 
-		len = finfos->len;
-		for (i = 0; i < len; i++) {
-			finfo = g_ptr_array_index(finfos, i);
-			fvalues = g_slist_prepend(fvalues, &finfo->value);
+		if (range) {
+			fvalues = filter_finfo_fvalues(fvalues, finfos, range);
+		}
+		else {
+			len = finfos->len;
+			for (i = 0; i < len; i++) {
+				finfo = g_ptr_array_index(finfos, i);
+				fvalues = g_slist_prepend(fvalues, &finfo->value);
+			}
 		}
 
 		hfinfo = hfinfo->same_name_next;
 	}
 
-	if (!found_something) {
+	if (fvalues == NULL) {
 		return FALSE;
 	}
 
@@ -553,13 +657,61 @@ read_tree(dfilter_t *df, proto_tree *tree,
 	return TRUE;
 }
 
-static gboolean
-read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
+GSList *
+filter_refs_fvalues(GPtrArray *refs_array, drange_t *range)
 {
-	GSList		**fvalues_ptr;
+	int length; /* maximum proto layer number. The numbers are sequential. */
+	df_reference_t *last_ref = NULL;
+	int cookie = -1;
+	gboolean cookie_matches = false;
+	GSList *fvalues = NULL;
+
+	if (!refs_array || refs_array->len == 0) {
+		return fvalues;
+	}
+
+	/* refs array is sorted. */
+	last_ref = refs_array->pdata[refs_array->len - 1];
+	length = last_ref->proto_layer_num;
+
+	for (guint i = 0; i < refs_array->len; i++) {
+		df_reference_t *ref = refs_array->pdata[i];
+		int layer = ref->proto_layer_num;
+
+		if (range == NULL) {
+			fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+			continue;
+		}
+
+		if (cookie == layer) {
+			if (cookie_matches) {
+				fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+			}
+		}
+		else {
+			cookie = layer;
+			cookie_matches = drange_contains_layer(range, layer, length);
+			if (cookie_matches) {
+				fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+			}
+		}
+	}
+	return fvalues;
+}
+
+static gboolean
+read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
+				dfvm_value_t *arg3)
+{
+	GPtrArray	*refs;
+	drange_t	*range = NULL;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
 	int reg = arg2->value.numeric;
+
+	if (arg3) {
+		range = arg3->value.drange;
+	}
 
 	/* Already loaded in this run of the dfilter? */
 	if (df->attempted_load[reg]) {
@@ -573,16 +725,16 @@ read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 
 	df->attempted_load[reg] = TRUE;
 
-	fvalues_ptr = g_hash_table_lookup(df->references, hfinfo);
-	if (*fvalues_ptr == NULL) {
+	refs = g_hash_table_lookup(df->references, hfinfo);
+	if (refs == NULL || refs->len == 0) {
 		df->registers[reg] = NULL;
 		return FALSE;
 	}
 
 	/* Shallow copy */
-	df->registers[reg] = g_slist_copy(*fvalues_ptr);
-	/* These values are referenced only, do not try to free it later. */
-	df->free_registers[reg] = NULL;
+	df->registers[reg] = filter_refs_fvalues(refs, range);
+	/* Creates new value so own it. */
+	df->free_registers[reg] = (GDestroyNotify)fvalue_free;
 	return TRUE;
 }
 
@@ -721,6 +873,21 @@ any_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 }
 
 static gboolean
+all_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
+{
+	GSList *list1 = df->registers[arg1->value.numeric];
+	ws_regex_t *re = arg2->value.pcre;
+
+	while (list1) {
+		if (!fvalue_matches(list1->data, re)) {
+			return FALSE;
+		}
+		list1 = g_slist_next(list1);
+	}
+	return TRUE;
+}
+
+static gboolean
 any_in_range_internal(GSList *list1, fvalue_t *low, fvalue_t *high)
 {
 	while (list1) {
@@ -734,7 +901,20 @@ any_in_range_internal(GSList *list1, fvalue_t *low, fvalue_t *high)
 }
 
 static gboolean
-any_in_range(dfilter_t *df, dfvm_value_t *arg1,
+all_in_range_internal(GSList *list1, fvalue_t *low, fvalue_t *high)
+{
+	while (list1) {
+		if (!fvalue_ge(list1->data, low) ||
+					!fvalue_le(list1->data, high)) {
+			return FALSE;
+		}
+		list1 = g_slist_next(list1);
+	}
+	return TRUE;
+}
+
+static gboolean
+match_in_range(dfilter_t *df, enum match_how how, dfvm_value_t *arg1,
 				dfvm_value_t *arg_low, dfvm_value_t *arg_high)
 {
 	GSList *list1 = df->registers[arg1->value.numeric];
@@ -763,7 +943,27 @@ any_in_range(dfilter_t *df, dfvm_value_t *arg1,
 	else {
 		ws_assert_not_reached();
 	}
-	return any_in_range_internal(list1, low, high);
+
+	if (how == MATCH_ALL)
+		return all_in_range_internal(list1, low, high);
+	else if (how == MATCH_ANY)
+		return any_in_range_internal(list1, low, high);
+	else
+		ws_assert_not_reached();
+}
+
+static gboolean
+any_in_range(dfilter_t *df, dfvm_value_t *arg1,
+				dfvm_value_t *arg_low, dfvm_value_t *arg_high)
+{
+	return match_in_range(df, MATCH_ANY, arg1, arg_low, arg_high);
+}
+
+static gboolean
+all_in_range(dfilter_t *df, dfvm_value_t *arg1,
+				dfvm_value_t *arg_low, dfvm_value_t *arg_high)
+{
+	return match_in_range(df, MATCH_ALL, arg1, arg_low, arg_high);
 }
 
 /* Clear registers that were populated during evaluation.
@@ -789,10 +989,10 @@ free_register_overhead(dfilter_t* df)
 }
 
 /* Takes the list of fvalue_t's in a register, uses fvalue_slice()
- * to make a new list of fvalue_t's (which are ranges, or byte-slices),
+ * to make a new list of fvalue_t's (which are byte-slices),
  * and puts the new list into a new register. */
 static void
-mk_range(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg,
+mk_slice(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg,
 						dfvm_value_t *drange_arg)
 {
 	GSList		*from_list, *to_list;
@@ -818,12 +1018,6 @@ mk_range(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg,
 	df->free_registers[to_arg->value.numeric] = (GDestroyNotify)fvalue_free;
 }
 
-/*
- * arg1: function def
- * arg2: return register
- * arg3: first input register
- * arg4: number of input registers after first
- */
 static gboolean
 call_function(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 							dfvm_value_t *arg3)
@@ -869,9 +1063,11 @@ debug_register(GSList *reg, guint32 num)
 	wmem_strbuf_append_printf(buf, "Reg#%"G_GUINT32_FORMAT" = { ", num);
 	for (l = reg; l != NULL; l = l->next) {
 		s = fvalue_to_debug_repr(NULL, l->data);
-		wmem_strbuf_append(buf, s);
+		wmem_strbuf_append_printf(buf, "%s <%s>", s, fvalue_type_name(l->data));
 		g_free(s);
-		wmem_strbuf_append_c(buf, ' ');
+		if (l->next != NULL) {
+			wmem_strbuf_append(buf, ", ");
+		}
 	}
 	wmem_strbuf_append_c(buf, '}');
 	WS_DEBUG_HERE("%s", wmem_strbuf_get_str(buf));
@@ -1037,6 +1233,42 @@ stack_pop(dfilter_t *df, dfvm_value_t *arg1)
 	}
 }
 
+static gboolean
+check_exists(proto_tree *tree, dfvm_value_t *arg1, dfvm_value_t *arg2)
+{
+	GPtrArray		*finfos;
+	header_field_info	*hfinfo;
+	drange_t		*range = NULL;
+	gboolean		exists;
+	GSList			*fvalues;
+
+	hfinfo = arg1->value.hfinfo;
+	if (arg2)
+		range = arg2->value.drange;
+
+	while (hfinfo) {
+		finfos = proto_get_finfo_ptr_array(tree, hfinfo->id);
+		if ((finfos == NULL) || (g_ptr_array_len(finfos) == 0)) {
+			hfinfo = hfinfo->same_name_next;
+			continue;
+		}
+		if (range == NULL) {
+			return TRUE;
+		}
+
+		fvalues = filter_finfo_fvalues(NULL, finfos, range);
+		exists = (fvalues != NULL);
+		g_slist_free(fvalues);
+		if (exists) {
+			return TRUE;
+		}
+
+		hfinfo = hfinfo->same_name_next;
+	}
+
+	return FALSE;
+}
+
 gboolean
 dfvm_apply(dfilter_t *df, proto_tree *tree)
 {
@@ -1046,7 +1278,6 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 	dfvm_value_t	*arg1;
 	dfvm_value_t	*arg2;
 	dfvm_value_t	*arg3 = NULL;
-	header_field_info	*hfinfo;
 
 	ws_assert(tree);
 
@@ -1064,25 +1295,27 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 
 		switch (insn->op) {
 			case CHECK_EXISTS:
-				hfinfo = arg1->value.hfinfo;
-				while(hfinfo) {
-					accum = proto_check_for_protocol_or_field(tree,
-							hfinfo->id);
-					if (accum) {
-						break;
-					}
-					else {
-						hfinfo = hfinfo->same_name_next;
-					}
-				}
+				accum = check_exists(tree, arg1, NULL);
+				break;
+
+			case CHECK_EXISTS_R:
+				accum = check_exists(tree, arg1, arg2);
 				break;
 
 			case READ_TREE:
-				accum = read_tree(df, tree, arg1, arg2);
+				accum = read_tree(df, tree, arg1, arg2, NULL);
+				break;
+
+			case READ_TREE_R:
+				accum = read_tree(df, tree, arg1, arg2, arg3);
 				break;
 
 			case READ_REFERENCE:
-				accum = read_reference(df, arg1, arg2);
+				accum = read_reference(df, arg1, arg2, NULL);
+				break;
+
+			case READ_REFERENCE_R:
+				accum = read_reference(df, arg1, arg2, arg3);
 				break;
 
 			case PUT_FVALUE:
@@ -1101,8 +1334,8 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				stack_pop(df, arg1);
 				break;
 
-			case MK_RANGE:
-				mk_range(df, arg1, arg2, arg3);
+			case MK_SLICE:
+				mk_slice(df, arg1, arg2, arg3);
 				break;
 
 			case ALL_EQ:
@@ -1121,16 +1354,32 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				accum = any_test(df, fvalue_ne, arg1, arg2);
 				break;
 
+			case ALL_GT:
+				accum = all_test(df, fvalue_gt, arg1, arg2);
+				break;
+
 			case ANY_GT:
 				accum = any_test(df, fvalue_gt, arg1, arg2);
+				break;
+
+			case ALL_GE:
+				accum = all_test(df, fvalue_ge, arg1, arg2);
 				break;
 
 			case ANY_GE:
 				accum = any_test(df, fvalue_ge, arg1, arg2);
 				break;
 
+			case ALL_LT:
+				accum = all_test(df, fvalue_lt, arg1, arg2);
+				break;
+
 			case ANY_LT:
 				accum = any_test(df, fvalue_lt, arg1, arg2);
+				break;
+
+			case ALL_LE:
+				accum = all_test(df, fvalue_le, arg1, arg2);
 				break;
 
 			case ANY_LE:
@@ -1161,20 +1410,32 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				mk_binary(df, fvalue_modulo, arg1, arg2, arg3);
 				break;
 
+			case ALL_ZERO:
+				accum = all_test_unary(df, fvalue_is_zero, arg1);
+				break;
+
 			case ANY_ZERO:
 				accum = any_test_unary(df, fvalue_is_zero, arg1);
 				break;
 
-			case ALL_ZERO:
-				accum = all_test_unary(df, fvalue_is_zero, arg1);
+			case ALL_CONTAINS:
+				accum = all_test(df, fvalue_contains, arg1, arg2);
 				break;
 
 			case ANY_CONTAINS:
 				accum = any_test(df, fvalue_contains, arg1, arg2);
 				break;
 
+			case ALL_MATCHES:
+				accum = all_matches(df, arg1, arg2);
+				break;
+
 			case ANY_MATCHES:
 				accum = any_matches(df, arg1, arg2);
+				break;
+
+			case ALL_IN_RANGE:
+				accum = all_in_range(df, arg1, arg2, arg3);
 				break;
 
 			case ANY_IN_RANGE:

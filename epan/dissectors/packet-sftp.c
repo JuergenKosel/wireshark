@@ -24,8 +24,8 @@
 
 #include "config.h"
 
-/* Start with G_MESSAGES_DEBUG=sftp to see messages. */
-#define G_LOG_DOMAIN "sftp"
+/* Start with WIRESHARK_LOG_DOMAINS=sftp and WIRESHARK_LOG_LEVEL=debug to see messages. */
+#define WS_LOG_DOMAIN "sftp"
 
 #include <epan/packet.h>
 #include <epan/expert.h>
@@ -697,7 +697,7 @@ proto_register_sftp(void)
         &ett_sftp_attrs,
     };
 
-    proto_sftp = proto_register_protocol("SFTP Protocol", "SFTP", "sftp");
+    proto_sftp = proto_register_protocol("SSH File Transfer Protocol", "SFTP", "sftp");
     proto_register_field_array(proto_sftp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 

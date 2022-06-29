@@ -883,7 +883,7 @@ value_string_ext ieee80211_supported_rates_vals_ext = VALUE_STRING_EXT_INIT(ieee
 static const value_string ieee80211_reason_code[] = {
   {  1, "Unspecified reason" },
   {  2, "Previous authentication no longer valid" },
-  {  3, "Deauthenticated because sending STA is leaving (or has left) IBSS or ESS" },
+  {  3, "Deauthenticated because sending STA is leaving (or has left) the BSS" },
   {  4, "Disassociated due to inactivity" },
   {  5, "Disassociated because AP is unable to handle all currently associated STAs" },
   {  6, "Class 2 frame received from nonauthenticated STA" },
@@ -893,16 +893,16 @@ static const value_string ieee80211_reason_code[] = {
   { 10, "Disassociated because the information in the Power Capability element is unacceptable" },
   { 11, "Disassociated because the information in the Supported Channels element is unacceptable" },
   { 12, "Disassociated due to BSS transition management" },
-  { 13, "Invalid information element, i.e., an information element defined in this standard for which the content does not meet the specifications in Clause 7" },
+  { 13, "Invalid information element, i.e., an information element defined in this standard for which the content does not meet the specifications in Clause 9" },
   { 14, "Message integrity code (MIC) failure" },
-  { 15, "4-Way Handshake timeout" },
-  { 16, "Group Key Handshake timeout" },
-  { 17, "Information element in 4-Way Handshake different from (Re)Association Request/Probe Response/Beacon frame" },
+  { 15, "4-way handshake timeout" },
+  { 16, "Group key handshake timeout" },
+  { 17, "Element in 4-way handshake different from (Re)Association Request/Probe Response/Beacon frame" },
   { 18, "Invalid group cipher" },
   { 19, "Invalid pairwise cipher" },
   { 20, "Invalid AKMP" },
-  { 21, "Unsupported RSN information element version" },
-  { 22, "Invalid RSN information element capabilities" },
+  { 21, "Unsupported RSNE version" },
+  { 22, "Invalid RSNE capabilities" },
   { 23, "IEEE 802.1X authentication failed" },
   { 24, "Cipher suite rejected because of the security policy" },
   { 25, "TDLS direct-link teardown due to TDLS peer STA unreachable via the TDLS direct link" },
@@ -917,17 +917,16 @@ static const value_string ieee80211_reason_code[] = {
   { 34, "Disassociated because excessive number of frames need to be acknowledged, but are not acknowledged due to AP transmissions and/or poor channel conditions" },
   { 35, "Disassociated because STA is transmitting outside the limits of its TXOPs" },
   { 36, "Requested from peer STA as the STA is leaving the BSS (or resetting)" },
-  { 37, "Requested from peer STA as it does not want to use the mechanism" },
-  { 38, "Requested from peer STA as the STA received frames using the mechanism for which a setup is required" },
+  { 37, "Requesting STA is no longer using the stream or session" },
+  { 38, "Requesting STA received frames using a mechanism for which a setup has not been completed" },
   { 39, "Requested from peer STA due to timeout" },
-  { 45, "Peer STA does not support the requested cipher suite" },
   { 46, "Disassociated because authorized access limit reached" },
   { 47, "Disassociated due to external service requirements" },
   { 48, "Invalid FT Action frame count" },
-  { 49, "Invalid pairwise master key identifier (PMKI)" },
+  { 49, "Invalid pairwise master key identifier (PMKID)" },
   { 50, "Invalid MDE" },
   { 51, "Invalid FTE" },
-  { 52, "SME cancels the mesh peering instance with the reason other than reaching the maximum number of peer mesh STAs" },
+  { 52, "Mesh peering canceled for unknown reasons" },
   { 53, "The mesh STA has reached the supported maximum number of peer mesh STAs" },
   { 54, "The received information violates the Mesh Configuration policy configured in the mesh STA profile" },
   { 55, "The mesh STA has received a Mesh Peering Close message requesting to close the mesh peering" },
@@ -942,8 +941,10 @@ static const value_string ieee80211_reason_code[] = {
   { 64, "The Deauthentication frame was sent because the MAC address of the STA already exists in the mesh BSS. See 11.3.3 (Additional mechanisms for an AP collocated with a mesh STA)" },
   { 65, "The mesh STA performs channel switch to meet regulatory requirements" },
   { 66, "The mesh STA performs channel switch with unspecified reason" },
-  { 71, "Disassociated due to poor RSSI." },
-  { 0,    NULL}
+  { 67, "Transmission link establishment in alternative channel failed" },
+  { 68, "The alternative channel is occupied" },
+  { 71, "Disassociated due to poor RSSI" },
+  { 0,  NULL}
 };
 value_string_ext ieee80211_reason_code_ext = VALUE_STRING_EXT_INIT(ieee80211_reason_code);
 
@@ -7988,9 +7989,10 @@ wlan_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e filter)
 static ct_dissector_info_t wlan_ct_dissector_info = {&wlan_conv_get_filter_type};
 
 static tap_packet_status
-wlan_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
+wlan_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
   conv_hash_t *hash = (conv_hash_t*) pct;
+  hash->flags = flags;
   const wlan_hdr_t *whdr=(const wlan_hdr_t *)vip;
 
   add_conversation_table_data(hash, &whdr->src, &whdr->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &wlan_ct_dissector_info, ENDPOINT_NONE);
@@ -8010,9 +8012,10 @@ wlan_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
 static hostlist_dissector_info_t wlan_host_dissector_info = {&wlan_host_get_filter_type};
 
 static tap_packet_status
-wlan_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip)
+wlan_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
   conv_hash_t *hash = (conv_hash_t*) pit;
+  hash->flags = flags;
   const wlan_hdr_t *whdr=(const wlan_hdr_t *)vip;
 
   /* Take two "add" passes per packet, adding for each direction, ensures that all
@@ -14697,7 +14700,6 @@ add_ff_s1g_twt_setup(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int of
   const guint8 ids[] = { TAG_TWT };
   guint start = offset;
 
-  offset += add_ff_dialog_token(tree, tvb, pinfo, offset);
   offset += add_tagged_field(pinfo, tree, tvb, offset, 0, ids, G_N_ELEMENTS(ids), NULL);
 
   return offset - start;
@@ -46062,7 +46064,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_extended_capabilities_b60,
-     {"Protected QLoad Report", "wlan.extcap.b61",
+     {"Protected QLoad Report", "wlan.extcap.b60",
       FT_BOOLEAN, 8, NULL, 0x10,
       NULL, HFILL }},
 
@@ -46108,7 +46110,7 @@ proto_register_ieee80211(void)
       NULL, HFILL }},
 
     {&hf_ieee80211_tag_extended_capabilities_b60_2,
-     {"Protected QLoad Report", "wlan.extcap.b61",
+     {"Protected QLoad Report", "wlan.extcap.b60",
       FT_BOOLEAN, 16, NULL, 0x10,
       NULL, HFILL }},
 

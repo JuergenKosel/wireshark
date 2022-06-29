@@ -414,7 +414,7 @@ ssl_parse_old_keys(void)
 
 
 static tap_packet_status
-ssl_follow_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *ssl)
+ssl_follow_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *ssl, tap_flags_t flags _U_)
 {
     follow_info_t *      follow_info = (follow_info_t*) tapdata;
     follow_record_t * follow_record = NULL;
@@ -2599,6 +2599,11 @@ dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
         proto_tree_add_uint(ssl_hand_tree, hf_tls_handshake_length,
                 tvb, offset, 3, length);
         offset += 3;
+
+        if ((msg_type == SSL_HND_CLIENT_HELLO || msg_type == SSL_HND_SERVER_HELLO)) {
+            /* Prepare for renegotiation by resetting the state. */
+            ssl_reset_session(session, ssl, msg_type == SSL_HND_CLIENT_HELLO);
+        }
 
         /*
          * Add handshake message (including type, length, etc.) to hash (for

@@ -178,8 +178,8 @@ private slots:
     void on_actionAudioRoutingMuteInvert_triggered();
     void on_streamTreeWidget_itemSelectionChanged();
     void on_streamTreeWidget_itemDoubleClicked(QTreeWidgetItem *item, const int column);
-    void on_outputDeviceComboBox_currentIndexChanged(const QString &);
-    void on_outputAudioRate_currentIndexChanged(const QString &);
+    void on_outputDeviceComboBox_currentTextChanged(const QString &);
+    void on_outputAudioRate_currentTextChanged(const QString &);
     void on_jitterSpinBox_valueChanged(double);
     void on_timingComboBox_currentIndexChanged(int);
     void on_todCheckBox_toggled(bool checked);
@@ -242,7 +242,7 @@ private:
 
     // Tap callbacks
 //    static void tapReset(void *tapinfo_ptr);
-    static tap_packet_status tapPacket(void *tapinfo_ptr, packet_info *pinfo, epan_dissect_t *, const void *rtpinfo_ptr);
+    static tap_packet_status tapPacket(void *tapinfo_ptr, packet_info *pinfo, epan_dissect_t *, const void *rtpinfo_ptr, tap_flags_t flags);
     static void tapDraw(void *tapinfo_ptr);
 
     void addPacket(packet_info *pinfo, const struct _rtp_info *rtpinfo);

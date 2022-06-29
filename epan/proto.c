@@ -269,7 +269,7 @@ static void
 proto_tree_set_representation(proto_item *pi, const char *format, va_list ap);
 
 static void
-proto_tree_set_protocol_tvb(field_info *fi, tvbuff_t *tvb, const char* field_data);
+proto_tree_set_protocol_tvb(field_info *fi, tvbuff_t *tvb, const char* field_data, int length);
 static void
 proto_tree_set_bytes(field_info *fi, const guint8* start_ptr, gint length);
 static void
@@ -478,6 +478,8 @@ static const char *reserved_filter_names[] = {
 	"and",
 	"or",
 	"in",
+	"any",
+	"all",
 	NULL
 };
 
@@ -2601,7 +2603,7 @@ proto_tree_new_item(field_info *new_fi, proto_tree *tree,
 			break;
 
 		case FT_PROTOCOL:
-			proto_tree_set_protocol_tvb(new_fi, tvb, new_fi->hfinfo->name);
+			proto_tree_set_protocol_tvb(new_fi, tvb, new_fi->hfinfo->name, length);
 			break;
 
 		case FT_BYTES:
@@ -4331,9 +4333,9 @@ ptvcursor_advance(ptvcursor_t* ptvc, gint length)
 
 
 static void
-proto_tree_set_protocol_tvb(field_info *fi, tvbuff_t *tvb, const char* field_data)
+proto_tree_set_protocol_tvb(field_info *fi, tvbuff_t *tvb, const char* field_data, int length)
 {
-	fvalue_set_protocol(&fi->value, tvb, field_data);
+	fvalue_set_protocol(&fi->value, tvb, field_data, length);
 }
 
 /* Add a FT_PROTOCOL to a proto_tree */
@@ -4362,7 +4364,7 @@ proto_tree_add_protocol_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 
 	va_start(ap, format);
 	protocol_rep = ws_strdup_vprintf(format, ap);
-	proto_tree_set_protocol_tvb(PNODE_FINFO(pi), protocol_tvb, protocol_rep);
+	proto_tree_set_protocol_tvb(PNODE_FINFO(pi), protocol_tvb, protocol_rep, length);
 	g_free(protocol_rep);
 	va_end(ap);
 
@@ -6309,6 +6311,9 @@ new_field_info(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *tvb,
 	fi->appendix_start  = 0;
 	fi->appendix_length = 0;
 
+	fi->total_layer_num = tree->tree_data->pinfo->curr_layer_num;
+	fi->proto_layer_num = tree->tree_data->pinfo->curr_proto_layer_num;
+
 	return fi;
 }
 
@@ -6442,7 +6447,8 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 	header_field_info *hfinfo = finfo->hfinfo;
 	int label_len = 0;
 	char *tmp_str;
-	guint8 *bytes;
+	const char *str;
+	const guint8 *bytes;
 	guint32 number;
 	guint64 number64;
 	const true_false_string  *tfstring;
@@ -6451,7 +6457,6 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 	const char *number_out;
 	address addr;
 	ws_in4_addr ipv4;
-	ws_in6_addr *ipv6;
 
 	switch (hfinfo->type) {
 
@@ -6463,20 +6468,20 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 		case FT_BYTES:
 			tmp_str = hfinfo_format_bytes(NULL,
 				hfinfo,
-				(guint8 *)fvalue_get(&finfo->value),
+				fvalue_get_bytes(&finfo->value),
 				fvalue_length(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
 
 		case FT_ABSOLUTE_TIME:
-			tmp_str = abs_time_to_str(NULL, (const nstime_t *)fvalue_get(&finfo->value), hfinfo->display, TRUE);
+			tmp_str = abs_time_to_str(NULL, fvalue_get_time(&finfo->value), hfinfo->display, TRUE);
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
 
 		case FT_RELATIVE_TIME:
-			tmp_str = rel_time_to_secs_str(NULL, (const nstime_t *)fvalue_get(&finfo->value));
+			tmp_str = rel_time_to_secs_str(NULL, fvalue_get_time(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
@@ -6624,46 +6629,46 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 			break;
 
 		case FT_IPv6:
-			ipv6 = (ws_in6_addr *)fvalue_get(&finfo->value);
-			set_address (&addr, AT_IPv6, sizeof(ws_in6_addr), ipv6);
+			bytes = fvalue_get_bytes(&finfo->value);
+			set_address (&addr, AT_IPv6, sizeof(ws_in6_addr), bytes);
 			address_to_str_buf(&addr, display_label_str, label_str_size);
 			label_len = (int)strlen(display_label_str);
 			break;
 
 		case FT_FCWWN:
-			set_address (&addr, AT_FCWWN, FCWWN_ADDR_LEN, fvalue_get(&finfo->value));
+			set_address (&addr, AT_FCWWN, FCWWN_ADDR_LEN, fvalue_get_bytes(&finfo->value));
 			address_to_str_buf(&addr, display_label_str, label_str_size);
 			label_len = (int)strlen(display_label_str);
 			break;
 
 		case FT_ETHER:
-			set_address (&addr, AT_ETHER, FT_ETHER_LEN, fvalue_get(&finfo->value));
+			set_address (&addr, AT_ETHER, FT_ETHER_LEN, fvalue_get_bytes(&finfo->value));
 			address_to_str_buf(&addr, display_label_str, label_str_size);
 			label_len = (int)strlen(display_label_str);
 			break;
 
 		case FT_GUID:
-			tmp_str = guid_to_str(NULL, (e_guid_t *)fvalue_get(&finfo->value));
+			tmp_str = guid_to_str(NULL, fvalue_get_guid(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
 
 		case FT_REL_OID:
-			bytes = (guint8 *)fvalue_get(&finfo->value);
+			bytes = fvalue_get_bytes(&finfo->value);
 			tmp_str = rel_oid_resolved_from_encoded(NULL, bytes, fvalue_length(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
 
 		case FT_OID:
-			bytes = (guint8 *)fvalue_get(&finfo->value);
+			bytes = fvalue_get_bytes(&finfo->value);
 			tmp_str = oid_resolved_from_encoded(NULL, bytes, fvalue_length(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
 
 		case FT_SYSTEM_ID:
-			bytes = (guint8 *)fvalue_get(&finfo->value);
+			bytes = fvalue_get_bytes(&finfo->value);
 			tmp_str = print_system_id(NULL, bytes, fvalue_length(&finfo->value));
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
@@ -6700,8 +6705,8 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 		case FT_UINT_STRING:
 		case FT_STRINGZPAD:
 		case FT_STRINGZTRUNC:
-			bytes = (guint8 *)fvalue_get(&finfo->value);
-			tmp_str = hfinfo_format_text(NULL, hfinfo, bytes);
+			str = fvalue_get_string(&finfo->value);
+			tmp_str = hfinfo_format_text(NULL, hfinfo, str);
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
@@ -6711,7 +6716,7 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 			tmp_str = fvalue_to_string_repr(NULL, &finfo->value, FTREPR_DISPLAY, hfinfo->display);
 			if (!tmp_str) {
 				/* Default to show as bytes */
-				bytes = (guint8 *)fvalue_get(&finfo->value);
+				bytes = fvalue_get_bytes(&finfo->value);
 				tmp_str = bytes_to_str(NULL, bytes, fvalue_length(&finfo->value));
 			}
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
@@ -6728,7 +6733,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 {
 	guint32             number;
 	guint64             number64;
-	guint8             *bytes;
+	const guint8       *bytes;
 
 	int                 len, prev_len, last, i, offset_r = 0, offset_e = 0, label_len;
 	GPtrArray          *finfos;
@@ -6912,7 +6917,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 					case FT_REL_OID:
 						offset_r += proto_item_fill_display_label(finfo, result+offset_r, size-offset_r);
 
-						bytes = (guint8 *)fvalue_get(&finfo->value);
+						bytes = fvalue_get_bytes(&finfo->value);
 						str = rel_oid_encoded2string(NULL, bytes, fvalue_length(&finfo->value));
 						offset_e += protoo_strlcpy(expr+offset_e, str, size-offset_e);
 						wmem_free(NULL, str);
@@ -6921,7 +6926,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, gint occurrence,
 					case FT_OID:
 						offset_r += proto_item_fill_display_label(finfo, result+offset_r, size-offset_r);
 
-						bytes = (guint8 *)fvalue_get(&finfo->value);
+						bytes = fvalue_get_bytes(&finfo->value);
 						str = oid_encoded2string(NULL, bytes, fvalue_length(&finfo->value));
 						offset_e += protoo_strlcpy(expr+offset_e, str, size-offset_e);
 						wmem_free(NULL, str);
@@ -7096,6 +7101,11 @@ finfo_set_len(field_info *fi, const gint length)
 		fi->length = length_remaining;
 	else
 		fi->length = length;
+
+	/* If we have an FT_PROTOCOL we need to set the length of the fvalue tvbuff as well. */
+	if (fvalue_type_ftenum(&fi->value) == FT_PROTOCOL) {
+		fvalue_set_protocol(&fi->value, NULL, NULL, fi->length);
+	}
 
 	/*
 	 * You cannot just make the "len" field of a GByteArray
@@ -9076,11 +9086,12 @@ void
 proto_item_fill_label(field_info *fi, gchar *label_str)
 {
 	header_field_info  *hfinfo;
-	guint8		   *bytes;
+	const char	   *str;
+	const guint8	   *bytes;
 	guint32		    integer;
 	guint64		    integer64;
 	ws_in4_addr         ipv4;
-	e_guid_t	   *guid;
+	const e_guid_t	   *guid;
 	gchar		   *name;
 	address		    addr;
 	char		   *addr_str;
@@ -9112,7 +9123,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_BYTES:
 		case FT_UINT_BYTES:
 			tmp = hfinfo_format_bytes(NULL, hfinfo,
-			    (guint8 *)fvalue_get(&fi->value),
+			    fvalue_get_bytes(&fi->value),
 			    fvalue_length(&fi->value));
 			label_fill(label_str, 0, hfinfo, tmp);
 			wmem_free(NULL, tmp);
@@ -9213,13 +9224,13 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		}
 
 		case FT_ABSOLUTE_TIME:
-			tmp = abs_time_to_str(NULL, (const nstime_t *)fvalue_get(&fi->value), hfinfo->display, TRUE);
+			tmp = abs_time_to_str(NULL, fvalue_get_time(&fi->value), hfinfo->display, TRUE);
 			label_fill(label_str, 0, hfinfo, tmp);
 			wmem_free(NULL, tmp);
 			break;
 
 		case FT_RELATIVE_TIME:
-			tmp = rel_time_to_secs_str(NULL, (const nstime_t *)fvalue_get(&fi->value));
+			tmp = rel_time_to_secs_str(NULL, fvalue_get_time(&fi->value));
 			snprintf(label_str, ITEM_LABEL_LENGTH,
 				   "%s: %s seconds", hfinfo->name, tmp);
 			wmem_free(NULL, tmp);
@@ -9237,7 +9248,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_AX25:
 			addr.type = AT_AX25;
 			addr.len  = AX25_ADDR_LEN;
-			addr.data = (guint8 *)fvalue_get(&fi->value);
+			addr.data = fvalue_get_bytes(&fi->value);
 
 			addr_str = (char*)address_to_str(NULL, &addr);
 			snprintf(label_str, ITEM_LABEL_LENGTH,
@@ -9248,7 +9259,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_VINES:
 			addr.type = AT_VINES;
 			addr.len  = VINES_ADDR_LEN;
-			addr.data = (guint8 *)fvalue_get(&fi->value);
+			addr.data = fvalue_get_bytes(&fi->value);
 
 			addr_str = (char*)address_to_str(NULL, &addr);
 			snprintf(label_str, ITEM_LABEL_LENGTH,
@@ -9257,7 +9268,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_ETHER:
-			bytes = (guint8 *)fvalue_get(&fi->value);
+			bytes = fvalue_get_bytes(&fi->value);
 
 			addr.type = AT_ETHER;
 			addr.len  = 6;
@@ -9287,7 +9298,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_IPv6:
-			bytes = (guint8 *)fvalue_get(&fi->value);
+			bytes = fvalue_get_bytes(&fi->value);
 
 			addr.type = AT_IPv6;
 			addr.len  = 16;
@@ -9302,7 +9313,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_FCWWN:
 			addr.type = AT_FCWWN;
 			addr.len  = FCWWN_ADDR_LEN;
-			addr.data = (guint8 *)fvalue_get(&fi->value);
+			addr.data = fvalue_get_bytes(&fi->value);
 
 			addr_str = (char*)address_with_resolution_to_str(NULL, &addr);
 			snprintf(label_str, ITEM_LABEL_LENGTH,
@@ -9311,14 +9322,14 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_GUID:
-			guid = (e_guid_t *)fvalue_get(&fi->value);
+			guid = fvalue_get_guid(&fi->value);
 			tmp = guid_to_str(NULL, guid);
 			label_fill(label_str, 0, hfinfo, tmp);
 			wmem_free(NULL, tmp);
 			break;
 
 		case FT_OID:
-			bytes = (guint8 *)fvalue_get(&fi->value);
+			bytes = fvalue_get_bytes(&fi->value);
 			name = oid_resolved_from_encoded(NULL, bytes, fvalue_length(&fi->value));
 			tmp = oid_encoded2string(NULL, bytes, fvalue_length(&fi->value));
 			if (name) {
@@ -9331,7 +9342,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_REL_OID:
-			bytes = (guint8 *)fvalue_get(&fi->value);
+			bytes = fvalue_get_bytes(&fi->value);
 			name = rel_oid_resolved_from_encoded(NULL, bytes, fvalue_length(&fi->value));
 			tmp = rel_oid_encoded2string(NULL, bytes, fvalue_length(&fi->value));
 			if (name) {
@@ -9344,7 +9355,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 			break;
 
 		case FT_SYSTEM_ID:
-			bytes = (guint8 *)fvalue_get(&fi->value);
+			bytes = fvalue_get_bytes(&fi->value);
 			tmp = print_system_id(NULL, bytes, fvalue_length(&fi->value));
 			label_fill(label_str, 0, hfinfo, tmp);
 			wmem_free(NULL, tmp);
@@ -9363,8 +9374,8 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 		case FT_UINT_STRING:
 		case FT_STRINGZPAD:
 		case FT_STRINGZTRUNC:
-			bytes = (guint8 *)fvalue_get(&fi->value);
-			tmp = hfinfo_format_text(NULL, hfinfo, bytes);
+			str = fvalue_get_string(&fi->value);
+			tmp = hfinfo_format_text(NULL, hfinfo, str);
 			label_fill(label_str, 0, hfinfo, tmp);
 			wmem_free(NULL, tmp);
 			break;
@@ -9585,13 +9596,28 @@ fill_label_bitfield(field_info *fi, gchar *label_str, gboolean is_signed)
 		label_fill(label_str, bitfield_byte_length, hfinfo, tmp);
 	}
 	else if (hfinfo->strings) {
-		const char *val_str = hf_try_val_to_str_const(value, hfinfo, "Unknown");
+		const char *val_str = hf_try_val_to_str(value, hfinfo);
 
 		out = hfinfo_number_vals_format(hfinfo, buf, value);
-		if (out == NULL) /* BASE_NONE so don't put integer in descr */
-			label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
-		else
-			label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+		if (hfinfo->display & BASE_SPECIAL_VALS) {
+			/*
+			 * Unique values only display value_string string
+			 * if there is a match. Otherwise it's just a number
+			 */
+			if (val_str) {
+				label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+			} else {
+				label_fill(label_str, bitfield_byte_length, hfinfo, out);
+			}
+		} else {
+			if (val_str == NULL)
+				val_str = "Unknown";
+
+			if (out == NULL) /* BASE_NONE so don't put integer in descr */
+				label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
+			else
+				label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+		}
 	}
 	else {
 		out = hfinfo_number_value_format(hfinfo, buf, value);
@@ -9645,13 +9671,28 @@ fill_label_bitfield64(field_info *fi, gchar *label_str, gboolean is_signed)
 		label_fill(label_str, bitfield_byte_length, hfinfo, tmp);
 	}
 	else if (hfinfo->strings) {
-		const char *val_str = hf_try_val64_to_str_const(value, hfinfo, "Unknown");
+		const char *val_str = hf_try_val64_to_str(value, hfinfo);
 
 		out = hfinfo_number_vals_format64(hfinfo, buf, value);
-		if (out == NULL) /* BASE_NONE so don't put integer in descr */
-			label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
-		else
-			label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+		if (hfinfo->display & BASE_SPECIAL_VALS) {
+			/*
+			 * Unique values only display value_string string
+			 * if there is a match. Otherwise it's just a number
+			 */
+			if (val_str) {
+				label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+			} else {
+				label_fill(label_str, bitfield_byte_length, hfinfo, out);
+			}
+		} else {
+			if (val_str == NULL)
+				val_str = "Unknown";
+
+			if (out == NULL) /* BASE_NONE so don't put integer in descr */
+				label_fill(label_str, bitfield_byte_length, hfinfo, val_str);
+			else
+				label_fill_descr(label_str, bitfield_byte_length, hfinfo, val_str, out);
+		}
 	}
 	else {
 		out = hfinfo_number_value_format64(hfinfo, buf, value);
@@ -11603,6 +11644,14 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 		}
 		tmpval = (value & hf->bitmask) >> hfinfo_bitshift(hf);
 
+		/* XXX: README.developer and the comments have always defined
+		 * BMT_NO_INT as "only boolean flags are added to the title /
+		 * don't add non-boolean (integral) fields", but the
+		 * implementation has always added BASE_CUSTOM and fields with
+		 * value_strings, though not fields with unit_strings.
+		 * Possibly this is because some dissectors use a FT_UINT8
+		 * with a value_string for fields that should be a FT_BOOLEAN.
+		 */
 		switch (hf->type) {
 		case FT_CHAR:
 			if (hf->display == BASE_CUSTOM) {
@@ -11649,24 +11698,28 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 						hf->name, lbl);
 				first = FALSE;
 			}
-			else if ((hf->strings) &&(!(hf->display & BASE_UNIT_STRING))) {
+			else if ((hf->strings) &&(!(hf->display & (BASE_UNIT_STRING|BASE_SPECIAL_VALS)))) {
 				proto_item_append_text(item, "%s%s: %s", first ? "" : ", ",
 										hf->name, hf_try_val_to_str_const((guint32) tmpval, hf, "Unknown"));
 				first = FALSE;
 			}
 			else if (!(flags & BMT_NO_INT)) {
 				char buf[32];
-				const char *out;
+				const char *out = NULL;
 
 				if (!first) {
 					proto_item_append_text(item, ", ");
 				}
 
-				out = hfinfo_number_value_format(hf, buf, (guint32) tmpval);
-				if (hf->display & BASE_UNIT_STRING) {
-					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
-				} else {
-					proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->strings && hf->display & BASE_SPECIAL_VALS) {
+					out = hf_try_val_to_str((guint32) tmpval, hf);
+				}
+				if (out == NULL) {
+					out = hfinfo_number_value_format(hf, buf, (guint32) tmpval);
+				}
+				proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->strings && hf->display & BASE_UNIT_STRING) {
+					proto_item_append_text(item, "%s", unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
 				}
 				first = FALSE;
 			}
@@ -11692,24 +11745,28 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 						hf->name, lbl);
 				first = FALSE;
 			}
-			else if ((hf->strings) &&(!(hf->display & BASE_UNIT_STRING))) {
+			else if ((hf->strings) &&(!(hf->display & (BASE_UNIT_STRING|BASE_SPECIAL_VALS)))) {
 				proto_item_append_text(item, "%s%s: %s", first ? "" : ", ",
 						hf->name, hf_try_val_to_str_const((gint32) integer32, hf, "Unknown"));
 				first = FALSE;
 			}
 			else if (!(flags & BMT_NO_INT)) {
 				char buf[32];
-				const char *out;
+				const char *out = NULL;
 
 				if (!first) {
 					proto_item_append_text(item, ", ");
 				}
 
-				out = hfinfo_number_value_format(hf, buf, (gint32) integer32);
-				if ((hf->strings) &&(!(hf->display & BASE_UNIT_STRING))) {
-					proto_item_append_text(item, "%s: %s%s", hf->name, out, unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
-				} else {
-					proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->strings && hf->display & BASE_SPECIAL_VALS) {
+					out = hf_try_val_to_str((gint32) integer32, hf);
+				}
+				if (out == NULL) {
+					out = hfinfo_number_value_format(hf, buf, (gint32) integer32);
+				}
+				proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->display & BASE_UNIT_STRING) {
+					proto_item_append_text(item, "%s", unit_name_string_get_value((guint32) tmpval, (const unit_name_string*)hf->strings));
 				}
 				first = FALSE;
 			}
@@ -11730,21 +11787,29 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 						hf->name, lbl);
 				first = FALSE;
 			}
-			else if (hf->strings) {
+			else if ((hf->strings) &&(!(hf->display & (BASE_UNIT_STRING|BASE_SPECIAL_VALS)))) {
 				proto_item_append_text(item, "%s%s: %s", first ? "" : ", ",
 						hf->name, hf_try_val64_to_str_const(tmpval, hf, "Unknown"));
 				first = FALSE;
 			}
 			else if (!(flags & BMT_NO_INT)) {
 				char buf[48];
-				const char *out;
+				const char *out = NULL;
 
 				if (!first) {
 					proto_item_append_text(item, ", ");
 				}
 
-				out = hfinfo_number_value_format64(hf, buf, tmpval);
+				if (hf->strings && hf->display & BASE_SPECIAL_VALS) {
+					out = hf_try_val64_to_str(tmpval, hf);
+				}
+				if (out == NULL) {
+					out = hfinfo_number_value_format64(hf, buf, tmpval);
+				}
 				proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->strings && hf->display & BASE_UNIT_STRING) {
+					proto_item_append_text(item, "%s", unit_name_string_get_value64(tmpval, (const unit_name_string*)hf->strings));
+				}
 				first = FALSE;
 			}
 
@@ -11768,21 +11833,29 @@ proto_item_add_bitmask_tree(proto_item *item, tvbuff_t *tvb, const int offset,
 						hf->name, lbl);
 				first = FALSE;
 			}
-			else if (hf->strings) {
+			else if ((hf->strings) &&(!(hf->display & (BASE_UNIT_STRING|BASE_SPECIAL_VALS)))) {
 				proto_item_append_text(item, "%s%s: %s", first ? "" : ", ",
 						hf->name, hf_try_val64_to_str_const((gint64) tmpval, hf, "Unknown"));
 				first = FALSE;
 			}
 			else if (!(flags & BMT_NO_INT)) {
 				char buf[48];
-				const char *out;
+				const char *out = NULL;
 
 				if (!first) {
 					proto_item_append_text(item, ", ");
 				}
 
-				out = hfinfo_number_value_format64(hf, buf, (gint64) tmpval);
+				if (hf->strings && hf->display & BASE_SPECIAL_VALS) {
+					out = hf_try_val64_to_str((gint64) tmpval, hf);
+				}
+				if (out == NULL) {
+					out = hfinfo_number_value_format64(hf, buf, (gint64) tmpval);
+				}
 				proto_item_append_text(item, "%s: %s", hf->name, out);
+				if (hf->strings && hf->display & BASE_UNIT_STRING) {
+					proto_item_append_text(item, "%s", unit_name_string_get_value64(tmpval, (const unit_name_string*)hf->strings));
+				}
 				first = FALSE;
 			}
 

@@ -23,6 +23,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	../qt/widgets/capture_filter_edit.h
 	../qt/widgets/clickable_label.h
 	../qt/widgets/copy_from_profile_button.h
+	../qt/widgets/detachable_tabwidget.h
 	../qt/widgets/display_filter_combo.h
 	../qt/widgets/display_filter_edit.h
 	../qt/widgets/dissector_tables_view.h
@@ -40,6 +41,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	../qt/widgets/label_stack.h
 	../qt/widgets/overlay_scroll_bar.h
 	../qt/widgets/packet_list_header.h
+	../qt/widgets/path_selection_edit.h
 	../qt/widgets/pref_module_view.h
 	../qt/widgets/profile_tree_view.h
 	../qt/widgets/range_syntax_lineedit.h
@@ -48,6 +50,9 @@ set(WIRESHARK_WIDGET_HEADERS
 	../qt/widgets/syntax_line_edit.h
 	../qt/widgets/wireless_timeline.h # Required by PacketListModel
 	../qt/widgets/tabnav_tree_view.h
+	../qt/widgets/traffic_tab.h
+	../qt/widgets/traffic_tree.h
+	../qt/widgets/traffic_types_list.h
 	../qt/widgets/wireshark_file_dialog.h
 )
 
@@ -85,6 +90,7 @@ set (LOGWOLF_UTILS_HEADERS ${WIRESHARK_UTILS_HEADERS})
 
 set(WIRESHARK_MODEL_HEADERS
 	../qt/models/astringlist_list_model.h
+	../qt/models/atap_data_model.h
 	../qt/models/cache_proxy_model.h
 	../qt/models/coloring_rules_delegate.h
 	../qt/models/coloring_rules_model.h
@@ -105,7 +111,7 @@ set(WIRESHARK_MODEL_HEADERS
 	../qt/models/numeric_value_chooser_delegate.h
 	../qt/models/packet_list_model.h
 	../qt/models/packet_list_record.h
-	../qt/models/path_chooser_delegate.h
+	../qt/models/path_selection_delegate.h
 	../qt/models/percent_bar_delegate.h
 	../qt/models/pref_delegate.h
 	../qt/models/pref_models.h
@@ -245,6 +251,7 @@ set(WIRESHARK_WIDGET_SRCS
 	../qt/widgets/capture_filter_edit.cpp
 	../qt/widgets/clickable_label.cpp
 	../qt/widgets/copy_from_profile_button.cpp
+	../qt/widgets/detachable_tabwidget.cpp
 	../qt/widgets/display_filter_combo.cpp
 	../qt/widgets/display_filter_edit.cpp
 	../qt/widgets/dissector_tables_view.cpp
@@ -262,6 +269,7 @@ set(WIRESHARK_WIDGET_SRCS
 	../qt/widgets/label_stack.cpp
 	../qt/widgets/overlay_scroll_bar.cpp
 	../qt/widgets/packet_list_header.cpp
+	../qt/widgets/path_selection_edit.cpp
 	../qt/widgets/pref_module_view.cpp
 	../qt/widgets/profile_tree_view.cpp
 	../qt/widgets/range_syntax_lineedit.cpp
@@ -270,6 +278,9 @@ set(WIRESHARK_WIDGET_SRCS
 	../qt/widgets/syntax_line_edit.cpp
 	../qt/widgets/wireless_timeline.cpp # Required by PacketListModel
 	../qt/widgets/tabnav_tree_view.cpp
+	../qt/widgets/traffic_tab.cpp
+	../qt/widgets/traffic_tree.cpp
+	../qt/widgets/traffic_types_list.cpp
 	../qt/widgets/wireshark_file_dialog.cpp
 )
 
@@ -304,6 +315,7 @@ set (LOGWOLF_UTILS_SRCS ${WIRESHARK_UTILS_SRCS})
 
 set(WIRESHARK_MODEL_SRCS
 	../qt/models/astringlist_list_model.cpp
+	../qt/models/atap_data_model.cpp
 	../qt/models/cache_proxy_model.cpp
 	../qt/models/coloring_rules_delegate.cpp
 	../qt/models/coloring_rules_model.cpp
@@ -324,7 +336,7 @@ set(WIRESHARK_MODEL_SRCS
 	../qt/models/numeric_value_chooser_delegate.cpp
 	../qt/models/packet_list_model.cpp
 	../qt/models/packet_list_record.cpp
-	../qt/models/path_chooser_delegate.cpp
+	../qt/models/path_selection_delegate.cpp
 	../qt/models/percent_bar_delegate.cpp
 	../qt/models/pref_delegate.cpp
 	../qt/models/pref_models.cpp

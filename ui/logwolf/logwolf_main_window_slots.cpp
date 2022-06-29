@@ -172,9 +172,9 @@ bool LogwolfMainWindow::openCaptureFile(QString cf_path, QString read_filter, un
     for (;;) {
 
         if (cf_path.isEmpty()) {
-            CaptureFileDialog open_dlg(this, capture_file_.capFile(), read_filter);
+            CaptureFileDialog open_dlg(this, capture_file_.capFile());
 
-            if (open_dlg.open(file_name, type)) {
+            if (open_dlg.open(file_name, type, read_filter)) {
                 cf_path = file_name;
             } else {
                 ret = false;
@@ -2355,10 +2355,7 @@ void LogwolfMainWindow::setTimestampFormat(QAction *action)
 
         if (packet_list_) {
             packet_list_->resetColumns();
-        }
-        if (capture_file_.capFile()) {
-            /* This call adjusts column width */
-            cf_timestamp_auto_precision(capture_file_.capFile());
+            packet_list_->resizeAllColumns(true);
         }
     }
 }
@@ -2370,16 +2367,12 @@ void LogwolfMainWindow::setTimestampPrecision(QAction *action)
     }
     ts_precision tsp = action->data().value<ts_precision>();
     if (recent.gui_time_precision != tsp) {
-        /* the actual precision will be set in packet_list_queue_draw() below */
         timestamp_set_precision(tsp);
         recent.gui_time_precision = tsp;
 
         if (packet_list_) {
             packet_list_->resetColumns();
-        }
-        if (capture_file_.capFile()) {
-            /* This call adjusts column width */
-            cf_timestamp_auto_precision(capture_file_.capFile());
+            packet_list_->resizeAllColumns(true);
         }
     }
 }
@@ -2395,10 +2388,7 @@ void LogwolfMainWindow::on_actionViewTimeDisplaySecondsWithHoursAndMinutes_trigg
 
     if (packet_list_) {
         packet_list_->resetColumns();
-    }
-    if (capture_file_.capFile()) {
-        /* This call adjusts column width */
-        cf_timestamp_auto_precision(capture_file_.capFile());
+        packet_list_->resizeAllColumns(true);
     }
 }
 
@@ -2467,8 +2457,7 @@ void LogwolfMainWindow::on_actionViewNormalSize_triggered()
 
 void LogwolfMainWindow::on_actionViewColorizePacketList_triggered(bool checked) {
     recent.packet_list_colorize = checked;
-    packet_list_recolor_packets();
-    packet_list_->resetColorized();
+    packet_list_->recolorPackets();
 }
 
 void LogwolfMainWindow::on_actionViewColoringRules_triggered()
@@ -2865,10 +2854,8 @@ void LogwolfMainWindow::openFollowStreamDialogForType(follow_type_t type) {
 // -z expert
 void LogwolfMainWindow::statCommandExpertInfo(const char *, void *)
 {
-    ExpertInfoDialog *expert_dialog = new ExpertInfoDialog(*this, capture_file_);
     const DisplayFilterEdit *df_edit = dynamic_cast<DisplayFilterEdit *>(df_combo_box_->lineEdit());
-
-    expert_dialog->setDisplayFilter(df_edit->text());
+    ExpertInfoDialog *expert_dialog = new ExpertInfoDialog(*this, capture_file_, df_edit->text());
 
     connect(expert_dialog->getExpertInfoView(), SIGNAL(goToPacket(int, int)),
             packet_list_, SLOT(goToPacket(int, int)));
@@ -2903,10 +2890,9 @@ void LogwolfMainWindow::openStatisticsTreeDialog(const gchar *abbr)
     st_dialog->show();
 }
 
-// -z conv,...
-void LogwolfMainWindow::statCommandConversations(const char *arg, void *userdata)
+void LogwolfMainWindow::on_actionStatisticsConversations_triggered()
 {
-    ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_, GPOINTER_TO_INT(userdata), arg);
+    ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_);
     connect(conv_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
         this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
     connect(conv_dialog, SIGNAL(openFollowStreamDialog(follow_type_t, guint, guint)),
@@ -2914,15 +2900,9 @@ void LogwolfMainWindow::statCommandConversations(const char *arg, void *userdata
     conv_dialog->show();
 }
 
-void LogwolfMainWindow::on_actionStatisticsConversations_triggered()
+void LogwolfMainWindow::on_actionStatisticsEndpoints_triggered()
 {
-    statCommandConversations(NULL, NULL);
-}
-
-// -z endpoints,...
-void LogwolfMainWindow::statCommandEndpoints(const char *arg, void *userdata)
-{
-    EndpointDialog *endp_dialog = new EndpointDialog(*this, capture_file_, GPOINTER_TO_INT(userdata), arg);
+    EndpointDialog *endp_dialog = new EndpointDialog(*this, capture_file_);
     connect(endp_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
             this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
     connect(endp_dialog, SIGNAL(openFollowStreamDialog(follow_type_t)),
@@ -2930,18 +2910,12 @@ void LogwolfMainWindow::statCommandEndpoints(const char *arg, void *userdata)
     endp_dialog->show();
 }
 
-void LogwolfMainWindow::on_actionStatisticsEndpoints_triggered()
-{
-    statCommandEndpoints(NULL, NULL);
-}
-
 void LogwolfMainWindow::on_actionStatisticsPacketLengths_triggered()
 {
     openStatisticsTreeDialog("plen");
 }
 
-// -z io,stat
-void LogwolfMainWindow::statCommandIOGraph(const char *, void *)
+void LogwolfMainWindow::on_actionStatisticsIOGraph_triggered()
 {
     const DisplayFilterEdit *df_edit = qobject_cast<DisplayFilterEdit *>(df_combo_box_->lineEdit());
     QString displayFilter;
@@ -2952,11 +2926,6 @@ void LogwolfMainWindow::statCommandIOGraph(const char *, void *)
     connect(iog_dialog, SIGNAL(goToPacket(int)), packet_list_, SLOT(goToPacket(int)));
     connect(this, SIGNAL(reloadFields()), iog_dialog, SLOT(reloadFields()));
     iog_dialog->show();
-}
-
-void LogwolfMainWindow::on_actionStatisticsIOGraph_triggered()
-{
-    statCommandIOGraph(NULL, NULL);
 }
 
 void LogwolfMainWindow::actionStatisticsPlugin_triggered()

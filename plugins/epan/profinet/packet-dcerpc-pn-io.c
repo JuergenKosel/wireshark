@@ -82,6 +82,27 @@ void proto_reg_handoff_pn_io(void);
 #define PN_INPUT_CR              1      /* PROFINET Input Connect Request value */
 #define PN_INPUT_DATADESCRITPION 1      /* PROFINET Input Data Description value */
 
+#define PA_PROFILE_API 0x9700u
+#define PA_PROFILE_DAP_MASK 0xFFFF0000u
+#define PA_PROFILE_DAP_IDENT 0x00FD0000u
+
+#define PA_PROFILE_BLOCK_DAP 0u
+#define PA_PROFILE_BLOCK_PB 1u
+#define PA_PROFILE_BLOCK_FB 2u
+#define PA_PROFILE_BLOCK_TB 3u
+
+#define PA_PROFILE_TB_PARENT_PRESSURE 1u
+#define PA_PROFILE_TB_PARENT_TEMPERATURE 2u
+#define PA_PROFILE_TB_PARENT_FLOW 3u
+#define PA_PROFILE_TB_PARENT_LEVEL 1u
+#define PA_PROFILE_TB_PARENT_ACTUATOR 1u
+#define PA_PROFILE_TB_PARENT_DISCRETE_IO 1u
+#define PA_PROFILE_TB_PARENT_LIQUID_ANALYZER 1u
+#define PA_PROFILE_TB_PARENT_GAS_ANALYZER 1u
+#define PA_PROFILE_TB_PARENT_ENUMERATED_IO 1u
+#define PA_PROFILE_TB_PARENT_BINARY_IO 1u
+
+
 
 static int proto_pn_io = -1;
 static int proto_pn_io_device = -1;
@@ -1899,6 +1920,368 @@ static const value_string pn_io_channel_error_type[] = {
     /* ends */
     /*0x800D - 0x8FFF reserved */
     /*0x9000 - 0x9FFF reserved for profile */
+    /*0x9000 - 0x902F NE107 common (PA Profile 4.02) */
+    { 0x9000, "Sensor element exciter faulty" },
+    { 0x9001, "Error in evaluation electronics" },
+    { 0x9002, "Error in internal energy supply" },
+    { 0x9003, "Error in sensor element" },
+    { 0x9004, "Error in actuator element" },
+    { 0x9005, "Faulty installat e.g. dead space" },
+    { 0x9006, "Parameter setting error" },
+    { 0x9008, "Overloading" },
+    { 0x9009, "Wrong polarity of aux power" },
+    { 0x900A, "Maximum line length exceeded" },
+    { 0x900B, "Corrosion/abrasion by medium" },
+    { 0x900C, "Fouling on sensor element" },
+    { 0x900D, "Auxil medium missing or insufficient" },
+    { 0x900E, "Wear reserve used up (operation)" },
+    { 0x900F, "Wear reserve used up (wear)" },
+    { 0x9010, "Error in peripherals" },
+    { 0x9011, "Electromag interference too high" },
+    { 0x9012, "Temperature of medium too high" },
+    { 0x9013, "Ambient temperature too high" },
+    { 0x9014, "Vibration/Impact load too high" },
+    { 0x9015, "Auxiliary power range off-spec" },
+    { 0x9016, "Auxiliary medium missing" },
+    { 0x9017, "Excessive temperature shock" },
+    { 0x9018, "Deviation from measurement" },
+    { 0x9019, "Humidity in electronics area" },
+    { 0x901A, "Medium in electronics area" },
+    { 0x901B, "Mechanical damage" },
+    { 0x901C, "Communication error" },
+    { 0x901D, "Foreign material in electro area" },
+    /*0x9030 - 0x906F NE107 contact thermometer (PA Profile 4.02) */
+    { 0x9030, "Immersion depth too limited" },
+    { 0x9031, "Unequate medium around sensor" },
+    { 0x9032, "Temp distrib not representative" },
+    { 0x9033, "Inadequate thermal contact" },
+    { 0x9034, "Sensor close to heat source/sink" },
+    { 0x9035, "External temperature influence" },
+    { 0x9036, "Insufficient thermocoupling" },
+    { 0x9037, "Thermocoupling too high" },
+    { 0x9038, "Friction heat by flowing gases" },
+    { 0x9039, "Thermalcapac of sensor too high" },
+    { 0x903A, "Deposits" },
+    { 0x903B, "Systemrelated resonant vibration" },
+    { 0x903C, "Resonantvibrat excited by flow" },
+    { 0x903D, "Leakage" },
+    { 0x903E, "Abrasion" },
+    { 0x903F, "Corrosion" },
+    { 0x9040, "Flow approach speed too high" },
+    { 0x9041, "Insulation to ground too low" },
+    { 0x9042, "Insulation betw. lines too low" },
+    { 0x9043, "Parasitic thermal elements" },
+    { 0x9044, "Parasitic galvanic elements" },
+    { 0x9045, "Short circuit" },
+    { 0x9046, "Shorted coil and break" },
+    { 0x9047, "Line/contact resistance too high" },
+    { 0x9048, "Compression spring failure" },
+    { 0x9049, "Drift of sensor charact curve" },
+    { 0x904A, "Insuff contact of meas insert" },
+    { 0x904B, "Meas insert mechanical seized" },
+    { 0x904C, "Measuring insert in thermowell" },
+    { 0x904D, "Measuring insert too short" },
+    { 0x904E, "Resistance wire abrasion" },
+    { 0x904F, "Mechanic stress character curve" },
+    { 0x9050, "Thermal stress character curve" },
+    { 0x9051, "Intrinsic heating too severe" },
+    { 0x9052, "EMI on measuring circuit" },
+    { 0x9053, "Faulty linearisation" },
+    { 0x9054, "Incorrect sensor position" },
+    { 0x9055, "Faulty comparative point temp" },
+    { 0x9056, "Faulty compar of line resistance" },
+    { 0x9057, "Unsymmet supply line resistance" },
+    { 0x9058, "Wrong material of compens line" },
+    { 0x9059, "Damage to supply lines" },
+    { 0x905A, "Capacitive feedback" },
+    { 0x905B, "Potential transfer" },
+    { 0x905C, "Potential differences exceeded" },
+    { 0x905D, "Impermiss mix of wire systems" },
+    { 0x905E, "Reverse polarity of lines" },
+    { 0x905F, "Reverse polarity of lines" },
+    /*0x9070 - 0x90A7 NE107 pressure (PA Profile 4.02) */
+    { 0x9070, "Pressure peaks outside range" },
+    { 0x9071, "Deposits on the seal diaphragm" },
+    { 0x9072, "Characteristic curve change" },
+    { 0x9073, "Inc. measuring err. (turn down)" },
+    { 0x9074, "Wear on the seal diaphragm" },
+    { 0x9075, "Process seal at flush diaphragm" },
+    { 0x9076, "Offset error due to inst. pos." },
+    { 0x9077, "Seal diaphragm deformation" },
+    { 0x9078, "Hydrogen penetration" },
+    { 0x9079, "Mean value deviation" },
+    { 0x907A, "Pressure sensor system leakage" },
+    { 0x907B, "Hydrostatic offset" },
+    { 0x907C, "Gas seepage from pressure sensor" },
+    { 0x907D, "Add. measuring err. due to temp." },
+    { 0x907E, "Delta T in capillary tubing" },
+    { 0x907F, "Increase in compensation times" },
+    { 0x9080, "Oleic acid leak" },
+    { 0x9081, "Pulse lines blocked" },
+    { 0x9082, "Gas inclusion in liquid medium" },
+    { 0x9083, "Delta T in pulse lines" },
+    { 0x9084, "Liquid inclusion in gas" },
+    { 0x9088, "Sedimentation on sensor" },
+    { 0x9089, "Change of density" },
+    { 0x908A, "Wrong height / wrong adjustment" },
+    { 0x908B, "Clogged membrane" },
+    { 0x908C, "Error with pulse line" },
+    { 0x908D, "Internal tank pressure influence" },
+    { 0x908E, "Influence of temperature" },
+    { 0x908F, "Hydrogen diffusion" },
+    { 0x9090, "Absence of bubble gas" },
+    { 0x9091, "Air-bubble feed line blocked" },
+    { 0x9092, "Wear and tear of diaphragm" },
+    { 0x9093, "Gas seepage" },
+    { 0x9094, "Pressure rise at rel. of bubbles" },
+    { 0x9095, "Pressure sensor overload" },
+    { 0x9096, "Flow rate of bubble gas too high" },
+    /*0x90F8 - 0x910F NE107 coriolis (PA Profile 4.02) */
+    { 0x90F8, "Gas bubbles in the liquid" },
+    { 0x90F9, "Fouling, clogging" },
+    { 0x90FA, "Erosion, corrosion" },
+    { 0x90FB, "Faulty mounting" },
+    { 0x90FC, "Asymmetry of measuring tubes" },
+    { 0x90FD, "External vibrations" },
+    { 0x90FE, "Pulsating flow" },
+    { 0x90FF, "Incomplete filling" },
+    /*0x9110 - 0x9127 NE107 EMF (PA Profile 4.02) */
+    { 0x9110, "Gas bubbles in the liquid" },
+    { 0x9111, "Corrosion of electrodes" },
+    { 0x9112, "Electrical conductivity too low" },
+    { 0x9113, "Liner damage" },
+    { 0x9114, "Electrode fouling" },
+    { 0x9115, "External magnetic fields" },
+    { 0x9116, "Electrode short circuit" },
+    { 0x9117, "Incomplete filling" },
+    /*0x9128 - 0x913F NE107 thermal mass (PA Profile 4.02) */
+    /* empty */
+    /*0x9140 - 0x915F NE107 ultrasonic (PA Profile 4.02) */
+    { 0x9140, "Particle inclusions Check process" },
+    { 0x9141, "Gas bubbles in the liquid" },
+    { 0x9142, "Body fouling" },
+    { 0x9143, "External ultrasonic waves" },
+    { 0x9144, "Sensor fouling" },
+    { 0x9145, "Erosion" },
+    { 0x9146, "Faulty mounting (clamp on)" },
+    { 0x9147, "Pulsating flow" },
+    { 0x9148, "Sound conductivity" },
+    { 0x9149, "Signal lost due to overrange" },
+    { 0x914A, "Flow profile disturbance" },
+    { 0x914B, "Incomplete filling" },
+    /*0x9160 - 0x9177 NE107 variable area (PA Profile 4.02) */
+    { 0x9160, "Blocked float" },
+    { 0x9161, "Fouling" },
+    { 0x9162, "Erosion, corrosion" },
+    { 0x9163, "Gas bubbles in the liquid" },
+    { 0x9164, "Pulsating flow" },
+    { 0x9165, "External magnetic fields" },
+    /*0x9178 - 0x9197 NE107 vortex (PA Profile 4.02) */
+    { 0x9178, "Gas bubbles in the liquid" },
+    { 0x9179, "External vibrations" },
+    { 0x917A, "Pulsating flow" },
+    { 0x917B, "Two phase flow" },
+    { 0x917C, "Cavitation in device" },
+    { 0x917D, "Out of linear range" },
+    { 0x917E, "Sensor fouling" },
+    { 0x917F, "Solid particles" },
+    { 0x9180, "Flow profile disturbance" },
+    { 0x9181, "Incomplete filling" },
+    { 0x9182, "Bluff body fouling" },
+    /*0x9198 - 0x91B7 NE107 buoyancy (PA Profile 4.02) */
+    { 0x9198, "Gas density change above liquid" },
+    { 0x9199, "Vibration/strokes from outside" },
+    { 0x919A, "Displacer partly inside compartm" },
+    { 0x919B, "Displacer too heavy/too light" },
+    { 0x919C, "Density change or displac config" },
+    { 0x919D, "Sticking of torque or spring" },
+    { 0x919E, "Displacer swinging freedomly" },
+    { 0x919F, "Displac mounting faulty" },
+    { 0x91A0, "Displacer blocked or bended" },
+    { 0x91A1, "Displacer too light, corrosion" },
+    { 0x91A2, "Displacer leakage" },
+    { 0x91A3, "Force sensor broken" },
+    /*0x91B8 - 0x91FF NE107 radar (PA Profile 4.02) */
+    { 0x91B8, "Change of running time, encrust?" },
+    { 0x91B9, "False echoes, encrustation?" },
+    { 0x91BA, "Wrong/no indication, foam" },
+    { 0x91BB, "Poor reflection" },
+    { 0x91BC, "Problems with tank wall" },
+    { 0x91BD, "Surge tube or vent blocked" },
+    { 0x91BE, "Nozzle too long/high" },
+    { 0x91BF, "No metallic reflecting surface" },
+    { 0x91C0, "Blocking distance underrun" },
+    { 0x91C1, "Mechanical overloading of probe" },
+    { 0x91C2, "Probe lost or torn off" },
+    { 0x91C3, "Overload by external power" },
+    { 0x91C4, "Product or moisture in coupler" },
+    { 0x91C5, "Change of microwave speed" },
+    { 0x91C6, "Corr,abras, coating detachment" },
+    { 0x91C7, "Probe in filling flow" },
+    { 0x91D8, "No clear interface Emulsion?" },
+    { 0x91D9, "Wrong indication param setting" },
+    { 0x91DA, "Diff dielecon too small" },
+    { 0x91DB, "More than one interface" },
+    { 0x91DC, "First phase thickness too small" },
+    { 0x91E0, "Attenuation due to deposits" },
+    { 0x91E1, "False echoes due to deposits" },
+    { 0x91E2, "Corrosion surge tube (inside)" },
+    { 0x91E3, "Impurity in wave coupler area" },
+    { 0x91E4, "Antenna immersed in product" },
+    { 0x91E5, "Wrong signal due to foam" },
+    { 0x91E6, "Strong signal attenuation" },
+    { 0x91E7, "Shift of radar signal speed" },
+    { 0x91E8, "Reflection" },
+    { 0x91E9, "False interpretation of the echo" },
+    { 0x91EA, "Bad polarization of the signal" },
+    { 0x91EB, "Surge tube or vent blocked" },
+    { 0x91EC, "Nozzle too long for antenna" },
+    { 0x91ED, "Wall clearance, not vertical" },
+    { 0x91EE, "Corrosion on antenna" },
+    { 0x91EF, "Attenuation due to fog or dust" },
+    { 0x91F0, "Antenna signal blocked" },
+    { 0x91F1, "Blocking distance under-run" },
+    { 0x91F2, "Echo too strong (overmodulation)" },
+    /*0x9208 - 0x9257 NE107 electro (PA Profile 4.02) */
+    { 0x9208, "Faulty torque monitoring" },
+    { 0x9209, "Worn gear/spindle" },
+    { 0x920A, "Drive torque off-spec" },
+    { 0x920B, "Device temperature too high" },
+    { 0x920C, "Faulty limit position monitoring" },
+    { 0x920D, "Motor overload" },
+    { 0x920E, "Oil quality off-spec" },
+    { 0x920F, "Oil loss" },
+    { 0x9210, "Blocked drive" },
+    { 0x9211, "Off-spec seat/plug leakage" },
+    { 0x9212, "Off-spec spindle/shaft seal leak" },
+    { 0x9213, "Alteration and wear on spindle" },
+    { 0x9214, "Altered friction" },
+    { 0x9215, "Wear in the valve" },
+    { 0x9216, "Blocked valve" },
+    { 0x9217, "Change in valve move performance" },
+    { 0x9218, "Changed breakaway moment" },
+    { 0x9219, "Spindle deformation" },
+    { 0x921A, "Plug torn off" },
+    { 0x921B, "Off-spec valve temperature" },
+    { 0x921C, "Off-spec characteristic line" },
+    { 0x921E, "Incorrect position sensing" },
+    { 0x921F, "Input signal off-spec" },
+    { 0x9220, "Vibration off-spec" },
+    { 0x9221, "Temp in positioner too high/low" },
+    { 0x9222, "Moisture in positioner" },
+    { 0x9223, "Additional IO module defect" },
+    { 0x9224, "Signal without end position" },
+    { 0x9225, "No signal in end position" },
+    { 0x9226, "Control loop oscillation" },
+    { 0x9227, "Hysteresis" },
+    { 0x9228, "Changed friction" },
+    { 0x9229, "Backlash between drive and valve" },
+    { 0x922A, "Persistent deviation of control" },
+    { 0x922B, "Inadmissible dynamic stress" },
+    { 0x922C, "Faulty mounting" },
+    { 0x922D, "Faulty mount positioner to motor" },
+    { 0x922E, "Leak in piping" },
+    { 0x922F, "Insufficient drive power" },
+    { 0x9231, "Operator error during operation" },
+    { 0x9232, "Inadmissible static stress" },
+    { 0x9233, "Recording of pers. control dev." },
+    { 0x9234, "Parameter plausibility check" },
+    { 0x9235, "Status report on operating mode" },
+    { 0x9236, "Histogram for valve positions" },
+    { 0x9237, "Zero point and endpoint shift" },
+    { 0x9238, "Running time monitoring" },
+    { 0x9239, "Evaluation of internal signals" },
+    { 0x923A, "Operating hours counter" },
+    { 0x923B, "Pressure-displacement diagram" },
+    { 0x923C, "Total valve travel" },
+    { 0x923D, "Step response diagnostics" },
+    { 0x923E, "Internal temperature monitoring" },
+    { 0x923F, "Counter for direction changes" },
+    { 0x9240, "Operating archive" },
+    { 0x9241, "Report archive" },
+    { 0x9242, "Status reports on access control" },
+    { 0x9243, "Cavitation / flashing" },
+    { 0x9244, "Partial stroke test" },
+    { 0x9245, "P dif measurement across valve" },
+    { 0x9246, "Noise level measurement" },
+    /*0x9258 - 0x92A7 NE107 electro pneumatic (PA Profile 4.02) */
+    { 0x9258, "Minor drive leakage" },
+    { 0x9259, "High friction" },
+    { 0x925A, "Feed air pressure off-spec" },
+    { 0x925B, "Vent blockage" },
+    { 0x925C, "Diaphragm damage" },
+    { 0x925D, "Broken spring" },
+    { 0x925E, "Moist air in spring chamber" },
+    { 0x925F, "Blocked drive" },
+    { 0x9260, "Drive leakage too big" },
+    { 0x9261, "Off-spec seat/plug leakage" },
+    { 0x9262, "Off-spec spindle/shaft seal leak" },
+    { 0x9263, "Alteration and wear on spindle" },
+    { 0x9264, "Altered friction" },
+    { 0x9265, "Wear in the valve" },
+    { 0x9266, "Blocked valve" },
+    { 0x9267, "Change in valve move performance" },
+    { 0x9268, "Changed breakaway moment" },
+    { 0x9269, "Spindle deformation" },
+    { 0x926A, "Plug torn off" },
+    { 0x926B, "Off-spec valve temperature" },
+    { 0x926C, "Off-spec characteristic line" },
+    { 0x926D, "Fault in the pneumatic unit" },
+    { 0x926E, "Incorrect position sensing" },
+    { 0x926F, "Input signal off-spec" },
+    { 0x9270, "Vibration off-spec" },
+    { 0x9271, "Temp in positioner too high/low" },
+    { 0x9272, "Moisture in positioner" },
+    { 0x9273, "Additional IO module defect" },
+    { 0x9274, "Signal without end position" },
+    { 0x9275, "No signal in end position" },
+    { 0x9276, "Control loop oscillation" },
+    { 0x9277, "Hysteresis" },
+    { 0x9278, "Changed friction" },
+    { 0x9279, "Backlash between drive and valve" },
+    { 0x927A, "Persistent deviation of control" },
+    { 0x927B, "Inadmissible dynamic stress" },
+    { 0x927C, "Faulty mounting" },
+    { 0x927D, "Faulty mount positioner to drive" },
+    { 0x927E, "Leak in piping" },
+    { 0x927F, "Insufficient drive power" },
+    { 0x9280, "Quality of feed air off-spec" },
+    { 0x9281, "Operator error during operation" },
+    { 0x9282, "Inadmissible static stress" },
+    { 0x9283, "Recording of pers. control dev." },
+    { 0x9284, "Parameter plausibility check" },
+    { 0x9285, "Status report on operating mode" },
+    { 0x9286, "Histogram for valve positions" },
+    { 0x9287, "Zero point and endpoint shift" },
+    { 0x9288, "Running time monitoring" },
+    { 0x9289, "Evaluation of internal signals" },
+    { 0x928A, "Operating hours counter" },
+    { 0x928B, "Pressure-displacement diagram" },
+    { 0x928C, "Total valve travel" },
+    { 0x928D, "Step response diagnostics" },
+    { 0x928E, "Internal temperature monitoring" },
+    { 0x928F, "Counter for direction changes" },
+    { 0x9290, "Operating archive" },
+    { 0x9291, "Report archive" },
+    { 0x9292, "Status reports on access control" },
+    { 0x9293, "Cavitation / flashing" },
+    { 0x9294, "Partial stroke test" },
+    { 0x9295, "P dif measurement across valve" },
+    { 0x9296, "Noise level measurement" },
+    /*0x92A8 - 0x92BF NE107 sol valve (PA Profile 4.02) */
+    { 0x92A8, "Failure to reach safe position" },
+    { 0x92A9, "Failure to reach operat position" },
+    { 0x92AA, "High temperature in coil" },
+    { 0x92AB, "Moisture, humidity" },
+    { 0x92AC, "Signal outside of endposition" },
+    { 0x92AD, "No signal at endposition" },
+    /*0x92C0 - 0x92DF Physical block (PA Profile 4.02) */
+    { 0x92CD, "Maintenance" },
+    { 0x92D0, "Maintenance alarm" },
+    { 0x92D1, "Maintenance demanded" },
+    { 0x92D2, "Function check" },
+    { 0x92D3, "Out of spec." },
+    { 0x92D4, "Update event" },
     /*0xA000 - 0xFFFF reserved */
     { 0, NULL }
 };
@@ -2137,15 +2520,15 @@ static const value_string pn_io_qualified_channel_qualifier[] = {
     {0x00000002, "Reserved"},
     {0x00000004, "Reserved"},
     {0x00000008, "Qualifier_3 (Advice)"},
-    {0x00000010, "Qualifier_4 (Advice)"},
-    {0x00000020, "Qualifier_5 (Advice)"},
+    {0x00000010, "Qualifier_4 (Advice, PA: UpdateEvent)"},
+    {0x00000020, "Qualifier_5 (Advice, PA: OutOfSpecification)"},
     {0x00000040, "Qualifier_6 (Advice)"},
     {0x00000080, "Qualifier_7 (MaintenanceRequired)"},
     {0x00000100, "Qualifier_8 (MaintenanceRequired)"},
     {0x00000200, "Qualifier_9 (MaintenanceRequired)"},
     {0x00000400, "Qualifier_10 (MaintenanceRequired)"},
     {0x00000800, "Qualifier_11 (MaintenanceRequired)"},
-    {0x00001000, "Qualifier_12 (MaintenanceRequired)"},
+    {0x00001000, "Qualifier_12 (MaintenanceRequired, PA: MaintenanceRequired)"},
     {0x00002000, "Qualifier_13 (MaintenanceRequired)"},
     {0x00004000, "Qualifier_14 (MaintenanceRequired)"},
     {0x00008000, "Qualifier_15 (MaintenanceRequired)"},
@@ -2155,15 +2538,15 @@ static const value_string pn_io_qualified_channel_qualifier[] = {
     {0x00080000, "Qualifier_19 (MaintenanceDemanded)"},
     {0x00100000, "Qualifier_20 (MaintenanceDemanded)"},
     {0x00200000, "Qualifier_21 (MaintenanceDemanded)"},
-    {0x00400000, "Qualifier_22 (MaintenanceDemanded)"},
+    {0x00400000, "Qualifier_22 (MaintenanceDemanded, PA: MaintenanceDemanded)"},
     {0x00800000, "Qualifier_23 (MaintenanceDemanded)"},
-    {0x01000000, "Qualifier_24 (MaintenanceDemanded)"},
+    {0x01000000, "Qualifier_24 (MaintenanceDemanded, PA: FunctionCheck)"},
     {0x02000000, "Qualifier_25 (MaintenanceDemanded)"},
     {0x04000000, "Qualifier_26 (MaintenanceDemanded)"},
     {0x08000000, "Qualifier_27 (Fault)"},
     {0x10000000, "Qualifier_28 (Fault)"},
     {0x20000000, "Qualifier_29 (Fault)"},
-    {0x40000000, "Qualifier_30 (Fault)"},
+    {0x40000000, "Qualifier_30 (Fault, PA: Fault)"},
     {0x80000000, "Qualifier_31 (Fault)"},
     {0, NULL}};
 
@@ -3109,6 +3492,227 @@ static const value_string pn_io_tsn_port_capabilities_queue_masking_vals[] = {
     { 0x01, "Queue Masking is supported at this port" },
     { 0, NULL }
 };
+
+/* Format of submodule ident number as per PA Profile 4.02 specification:
+   [VariantOfSubmodule, Block_object, Parent_Class, Class] */
+static const value_string pn_io_pa_profile_block_object_vals[] = {
+    { 0, "DAP" },
+    { 1, "PB" },
+    { 2, "FB" },
+    { 3, "TB" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_dap_submodule_vals[] = {
+    { 1, "DAP" },
+    { 2, "Device Management" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_physical_block_parent_class_vals[] = {
+    { 1, "Transmitter" },
+    { 2, "Actuator" },
+    { 3, "Discrete I/O" },
+    { 4, "Controller" },
+    { 5, "Analyzer" },
+    { 6, "Lab Device" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_function_block_class_vals[] = {
+    { 1, "Input" },
+    { 2, "Output" },
+    { 3, "Further Input" },
+    { 4, "Further Output" },
+    { 128, "Manuf. specific Input" },
+    { 129, "Manuf. specific Output" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_function_block_parent_class_vals[] = {
+    {0, "Analog Temperature" },
+    {1, "Analog Temperature Difference"},
+    {2, "Analog Average Temperature"},
+    {3, "Analog Electronics Temperature"},
+    {4, "Analog Transmitter Temperature"},
+    {5, "Analog Sensor Temperature"},
+    {6, "Analog Frame Temperature"},
+    {7, "Analog Auxiliary Temperature"},
+    {8, "Analog Energy Supply Temperature"},
+    {9, "Analog Energy Return Temperature"},
+    {20, "Analog Pressure"},
+    {21, "Analog Absolute Pressure"},
+    {22, "Analog Gauge Pressure"},
+    {23, "Analog Differential Pressure"},
+    {30, "Analog Level"},
+    {31, "Analog Distance"},
+    {32, "Analog Interface Level"},
+    {33, "Analog Interface Distance"},
+    {40, "Analog Volume"},
+    {41, "Analog Ullage"},
+    {42, "Analog Interface Volume"},
+    {43, "Analog Standard Volume"},
+    {44, "Analog Fraction Substance 1 Volume"},
+    {45, "Analog Fraction Substance 2 Volume"},
+    {46, "Analog Fraction Substance 1 Std Volume"},
+    {47, "Analog Fraction Substance 2 Std Volume"},
+    {50, "Analog Mass"},
+    {51, "Analog Net Mass"},
+    {52, "Analog Fraction Substance 1 Mass"},
+    {53, "Analog Fraction Substance 2 Mass"},
+    {60, "Analog Volume Flow"},
+    {61, "Analog Standard Volume Flow"},
+    {62, "Analog Fraction Substance 1 Volume Flow"},
+    {63, "Analog Fraction Substance 2 Volume Flow"},
+    {70, "Analog Mass Flow"},
+    {71, "Analog Fraction Substance 1 Mass Flow"},
+    {72, "Analog Fraction Substance 2 Mass Flow"},
+    {80, "Analog Density"},
+    {81, "Analog Standard Density"},
+    {82, "Analog Analog Api Gravity"},
+    {83, "Analog Standard Api Gravity"},
+    {84, "Analog Specific Gravity"},
+    {85, "Analog Standard Specific Gravity"},
+    {90, "Analog Flow Velocity"},
+    {91, "Analog Sound Velocity"},
+    {92, "Analog Rate Of Change"},
+    {100, "Analog Kinematic Viscosity"},
+    {101, "Analog Dynamic Viscosity"},
+    {110, "Analog Energy"},
+    {111, "Analog Power"},
+    {120, "Analog Vortex Frequency"},
+    {130, "Analog Concentration"},
+    {131, "Analog Energy Efficiency Rating"},
+    {132, "Analog Coefficient Of Performance"},
+    {133, "Analog Fraction Substance 1%"},
+    {134, "Analog Fraction Substance 2%"},
+    {140, "Analog pH"},
+    {141, "Analog Conductivity"},
+    {142, "Analog Resistivity"},
+    {143, "Analog Gas Concentration"},
+    {149, "Flexible AI"},
+    {150, "Totalizer"},
+    {160, "Actuator"},
+    {170, "Discrete"},
+    {180, "Enumerated"},
+    {190, "Binary(8 Bit)"},
+    {191, "Binary(16 Bit)"},
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_parent_class_vals[] = {
+    { 1, "Pressure" },
+    { 2, "Temperature" },
+    { 3, "Flow" },
+    { 4, "Level" },
+    { 5, "Actuator" },
+    { 6, "Discrete I/O" },
+    { 7, "Liquid analyzer" },
+    { 8, "Gas analyzer" },
+    { 10, "Enumerated I/O" },
+    { 11, "Binary I/O" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_pressure_class_vals[] = {
+    { 1, "Pressure" },
+    { 2, "Pressure + level" },
+    { 3, "Pressure + flow" },
+    { 4, "Pressure + level + flow" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_temperature_class_vals[] = {
+    { 1, "Thermocouple (TC)" },
+    { 2, "Resistance thermometer (RTD)" },
+    { 3, "Pyrometer" },
+    { 16, "TC + DC U (DC Voltage)" },
+    { 17, "RTD + R (R-Resistance)" },
+    { 18, "TC+RTD+r+DC U" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_flow_class_vals[] = {
+    { 1, "Electromagnetic" },
+    { 2, "Vortex" },
+    { 3, "Coriolis" },
+    { 4, "Thermal mass" },
+    { 5, "Ultrasonic" },
+    { 6, "Variable area" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_level_class_vals[] = {
+    { 1, "Hydrostatic" },
+    { 2, "Ultrasonic" },
+    { 3, "Radiometric" },
+    { 4, "Capacitance" },
+    { 5, "Displacer" },
+    { 6, "Float" },
+    { 7, "Radar" },
+    { 8, "Buoyancy" },
+    { 9, "Air bubble system" },
+    { 10, "Gravimetric" },
+    { 11, "Optical" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_actuator_class_vals[] = {
+    { 1, "Electric" },
+    { 2, "Electro-pneumatic" },
+    { 3, "Electro-hydraulic" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_discrete_io_class_vals[] = {
+    { 1, "Input" },
+    { 2, "Output" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_liquid_analyzer_class_vals[] = {
+    { 1, "pH" },
+    { 2, "Conductivity" },
+    { 3, "Oxygen" },
+    { 4, "Chlorine" },
+    { 5, "Resistivity" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_gas_analyzer_class_vals[] = {
+    { 1, "Standard" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_enumerated_io_class_vals[] = {
+    { 1, "Input" },
+    { 2, "Output" },
+    { 0, NULL }
+};
+
+static const value_string pn_io_pa_profile_transducer_block_binary_io_class_vals[] = {
+    { 2, "8 Bit output" },
+    { 3, "8 Bit input" },
+    { 4, "16 Bit output" },
+    { 5, "16 Bit input" },
+    { 0, NULL }
+};
+
+static const value_string* pn_io_pa_profile_transducer_block_class_vals[] = {
+    NULL,
+    pn_io_pa_profile_transducer_block_pressure_class_vals,
+    pn_io_pa_profile_transducer_block_temperature_class_vals,
+    pn_io_pa_profile_transducer_block_flow_class_vals,
+    pn_io_pa_profile_transducer_block_level_class_vals,
+    pn_io_pa_profile_transducer_block_actuator_class_vals,
+    pn_io_pa_profile_transducer_block_discrete_io_class_vals,
+    pn_io_pa_profile_transducer_block_liquid_analyzer_class_vals,
+    pn_io_pa_profile_transducer_block_gas_analyzer_class_vals,
+    NULL,
+    pn_io_pa_profile_transducer_block_enumerated_io_class_vals,
+    pn_io_pa_profile_transducer_block_binary_io_class_vals
+};
+
 
 static int
 dissect_profidrive_value(tvbuff_t *tvb, gint offset, packet_info *pinfo,
@@ -10693,6 +11297,7 @@ dissect_DataDescription(tvbuff_t *tvb, int offset,
                 io_data_object = (ioDataObject*)wmem_list_frame_data(frame);
                 if (io_data_object->slotNr == tmp_io_data_object->slotNr && io_data_object->subSlotNr == tmp_io_data_object->subSlotNr) {
                     /* Write additional data from dissect_ExpectedSubmoduleBlockReq_block() to corresponding io_data_object */
+                    io_data_object->api = tmp_io_data_object->api;
                     io_data_object->moduleIdentNr = tmp_io_data_object->moduleIdentNr;
                     io_data_object->subModuleIdentNr = tmp_io_data_object->subModuleIdentNr;
                     io_data_object->length = u16SubmoduleDataLength;
@@ -10712,6 +11317,108 @@ dissect_DataDescription(tvbuff_t *tvb, int offset,
     return offset;
 }
 
+
+static int
+resolve_pa_profile_submodule_name(ioDataObject *io_data_object)
+{
+    const uint32_t u32SubmoduleIdentNumber = io_data_object->subModuleIdentNr;
+    /* split components of submodule ident number */
+    const uint8_t variant = (u32SubmoduleIdentNumber >> 24u) & 0xFFu;
+    const uint8_t block_object = (u32SubmoduleIdentNumber >> 16u) & 0xFFu;
+    const uint8_t parent_class = (u32SubmoduleIdentNumber >> 8u) & 0xFFu;
+    const uint8_t class = (u32SubmoduleIdentNumber) & 0xFFu;
+
+    const gchar* parent_class_name = NULL;
+    const gchar* class_name        = NULL;
+
+    const gchar* block_object_name = try_val_to_str(block_object, pn_io_pa_profile_block_object_vals);
+
+    if (block_object_name != NULL)
+    {
+        switch (block_object)
+        {
+        case PA_PROFILE_BLOCK_DAP:
+            if (parent_class == 0u)
+            {
+                class_name = try_val_to_str(class, pn_io_pa_profile_dap_submodule_vals);
+                if (class_name != NULL)
+                {
+                    (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - %s", block_object_name, class_name);
+                }
+            }
+            else
+            {
+                /* we have an interface or a port */
+                if (class == 0u)
+                {
+                    (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "Interface %d", parent_class);
+                }
+                else
+                {
+                    (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "Port %d Interface %d", class, parent_class);
+                }
+            }
+            break;
+
+        case PA_PROFILE_BLOCK_PB:
+            parent_class_name = try_val_to_str(parent_class, pn_io_pa_profile_physical_block_parent_class_vals);
+            if (parent_class_name != NULL)
+            {
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - %s", block_object_name, parent_class_name);
+            }
+            else
+            {
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - Unknown", block_object_name);
+            }
+            break;
+
+        case PA_PROFILE_BLOCK_FB:
+            class_name = try_val_to_str(class, pn_io_pa_profile_function_block_class_vals);
+            if (class <= 2u)
+            {
+                parent_class_name = try_val_to_str(parent_class, pn_io_pa_profile_function_block_parent_class_vals);
+            }
+            else
+            {
+                parent_class_name = (class <= 4u) ? "Analog" : "";
+            }
+
+            if ((parent_class_name != NULL) && (class_name != NULL))
+            {
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - %s %s", block_object_name, parent_class_name, class_name);
+            }
+            else
+            {
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - Unknown", block_object_name);
+            }
+            break;
+
+        case PA_PROFILE_BLOCK_TB:
+            parent_class_name = try_val_to_str(parent_class, pn_io_pa_profile_transducer_block_parent_class_vals);
+            if (parent_class_name != NULL)
+            {
+                class_name = try_val_to_str(class, pn_io_pa_profile_transducer_block_class_vals[parent_class]);
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - %s (%s)", block_object_name, parent_class_name, class_name);
+            }
+            else
+            {
+                (void)snprintf(io_data_object->moduleNameStr, MAX_NAMELENGTH, "%s - Unknown", block_object_name);
+            }
+            break;
+        }
+
+        if (variant != 0u)
+        {
+            g_strlcat (io_data_object->moduleNameStr, " (VARIANT)", MAX_NAMELENGTH);
+        }
+
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
 
 /* dissect the ExpectedSubmoduleBlockReq */
 static int
@@ -10966,11 +11673,28 @@ dissect_ExpectedSubmoduleBlockReq_block(tvbuff_t *tvb, int offset,
             offset = dissect_dcerpc_uint16(tvb, offset, pinfo, submodule_tree, drep,
                             hf_pn_io_submodule_properties_type, &u16SubmoduleProperties);
 
+            io_data_object->api = u32Api;
             io_data_object->slotNr = u16SlotNr;
             io_data_object->subSlotNr = u16SubslotNr;
             io_data_object->moduleIdentNr = u32ModuleIdentNumber;
             io_data_object->subModuleIdentNr = u32SubmoduleIdentNumber;
             io_data_object->discardIOXS = u16SubmoduleProperties & 0x0020;
+
+            /* Before searching the GSD, check if we have a PA Profile 4.02 submodule. If yes
+               then the submodule's name is defined in the specification and can be resolved
+               without the GSD.
+               We still read the GSD afterwards, in case the user wants to override the specification's
+               names with a GSD.
+               Most PA Profile submodules are located in API 0x9700, but the DAP and the interfaces/ports
+               are located in API 0 per PROFINET specification, so we need to filter also on the DAP module
+               ident number.
+            */
+            if ((io_data_object->api == PA_PROFILE_API) ||
+                ((io_data_object->moduleIdentNr & PA_PROFILE_DAP_MASK) == PA_PROFILE_DAP_IDENT))
+            {
+                resolve_pa_profile_submodule_name(io_data_object);
+            }
+
 
             /* Search the moduleID and subModuleID, find if PROFIsafe and also search for F-Par. Indexnumber
              * ---------------------------------------------------------------------------------------------
@@ -13089,6 +13813,8 @@ dissect_RecordDataWrite(tvbuff_t *tvb, int offset,
     case(0x8090):   /* PDInterfaceFSUDataAdjust */
     case(0x80B0):   /* CombinedObjectContainer*/
     case(0x80CF):   /* RS_AdjustObserver */
+    case(0xaff1):   /* I&M1 */
+    case(0xaff2):   /* I&M2 */
     case(0xaff3):   /* I&M3 */
     case(0xe050):   /* FastStartUp data for one AR */
     case(0xe061):   /* RS_AckEvent (using RecordDataWrite service) */

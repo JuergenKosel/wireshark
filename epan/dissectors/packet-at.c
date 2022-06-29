@@ -16,7 +16,9 @@
 #include <stdio.h>      /* for sscanf() */
 
 #include <epan/packet.h>
+#include <epan/conversation.h>
 #include <epan/expert.h>
+#include <epan/proto_data.h>
 
 #include "packet-e212.h"
 
@@ -26,8 +28,10 @@ void proto_reg_handoff_at_command(void);
 static int proto_at = -1;
 
 static dissector_handle_t gsm_sim_handle;
+static dissector_handle_t gsm_sms_handle;
 
 static int hf_command                                                      = -1;
+static int hf_data_part                                                    = -1;
 static int hf_parameters                                                   = -1;
 static int hf_role                                                         = -1;
 static int hf_at_cmd                                                       = -1;
@@ -50,6 +54,12 @@ static int hf_cmer_bfr                                                     = -1;
 static int hf_cmee                                                         = -1;
 static int hf_cme_error                                                    = -1;
 static int hf_cme_error_verbose                                            = -1;
+static int hf_cmgl_req_status                                              = -1;
+static int hf_cmgl_msg_index                                               = -1;
+static int hf_cmgl_msg_status                                              = -1;
+static int hf_cmgl_msg_originator_name                                     = -1;
+static int hf_cmgl_msg_length                                              = -1;
+static int hf_cmgl_msg_pdu                                                 = -1;
 static int hf_cmux_k                                                       = -1;
 static int hf_cmux_n1                                                      = -1;
 static int hf_cmux_n2                                                      = -1;
@@ -134,16 +144,17 @@ static expert_field ei_vts_dtmf                                       = EI_INIT;
 static expert_field ei_at_type                                        = EI_INIT;
 static expert_field ei_cnum_service                                   = EI_INIT;
 static expert_field ei_cnum_itc                                       = EI_INIT;
-static expert_field ei_csim_empty_hex                                 = EI_INIT;
-static expert_field ei_csim_invalid_hex                               = EI_INIT;
-static expert_field ei_csim_odd_len                                   = EI_INIT;
+static expert_field ei_empty_hex                                      = EI_INIT;
+static expert_field ei_invalid_hex                                    = EI_INIT;
+static expert_field ei_odd_len                                        = EI_INIT;
 static expert_field ei_csq_ber                                        = EI_INIT;
-static expert_field ei_csq_rssi                                        = EI_INIT;
+static expert_field ei_csq_rssi                                       = EI_INIT;
 
 
 /* Subtree handles: set by register_subtree_array */
 static gint ett_at = -1;
 static gint ett_at_command    = -1;
+static gint ett_at_data_part    = -1;
 static gint ett_at_parameters = -1;
 
 #define ROLE_UNKNOWN   0
@@ -157,6 +168,8 @@ static gint ett_at_parameters = -1;
 #define TYPE_ACTION_SIMPLY 0x000d
 #define TYPE_READ          0x003f
 #define TYPE_TEST          0x3d3f
+
+#define STORE_COMMAND_MAX_LEN 20
 
 static gint at_role = ROLE_UNKNOWN;
 
@@ -479,6 +492,37 @@ static const value_string zusim_usim_card_vals[] = {
 
 extern value_string_ext csd_data_rate_vals_ext;
 
+struct _at_packet_info_t;
+
+/* A command that either finished or is currently being processed */
+typedef struct _at_processed_cmd_t {
+    gchar name[STORE_COMMAND_MAX_LEN];
+    guint16 type;
+    /* Indicates how many more textual data lines are we expecting */
+    guint32 expected_data_parts;
+    /* Indicates how many textual data lines were already processed */
+    guint32 consumed_data_parts;
+    /* Index of the command in within the original AT packet */
+    guint32 cmd_indx;
+    /* Handler for textual data lines */
+    gboolean (*dissect_data)(tvbuff_t *tvb, packet_info *pinfo,
+            proto_tree *tree, gint offset, gint role, guint16 type,
+            guint8 *data_part_stream, guint data_part_number,
+            gint data_part_length, struct _at_packet_info_t *at_info);
+} at_processed_cmd_t;
+
+typedef struct _at_conv_info_t {
+    at_processed_cmd_t dte_command;
+    at_processed_cmd_t dce_command;
+} at_conv_info_t;
+
+typedef struct _at_packet_info_t {
+    at_processed_cmd_t initial_dte_command;
+    at_processed_cmd_t initial_dce_command;
+    at_processed_cmd_t current_dte_command;
+    at_processed_cmd_t current_dce_command;
+} at_packet_info_t;
+
 typedef struct _at_cmd_t {
     const gchar *name;
     const gchar *long_name;
@@ -487,9 +531,58 @@ typedef struct _at_cmd_t {
     gboolean (*dissect_parameter)(tvbuff_t *tvb, packet_info *pinfo,
             proto_tree *tree, gint offset, gint role, guint16 type,
             guint8 *parameter_stream, guint parameter_number,
-            gint parameter_length, void **data);
+            gint parameter_length, at_packet_info_t *at_info, void **data);
 } at_cmd_t;
 
+static at_conv_info_t *
+get_at_conv_info(conversation_t *conversation)
+{
+    if (!conversation)
+        return NULL;
+    at_conv_info_t *at_conv_info;
+    /* do we have conversation specific data ? */
+    at_conv_info = (at_conv_info_t *)conversation_get_proto_data(conversation, proto_at);
+    if (!at_conv_info) {
+        /* no not yet so create some */
+        at_conv_info = wmem_new0(wmem_file_scope(), at_conv_info_t);
+        conversation_add_proto_data(conversation, proto_at, at_conv_info);
+    }
+    return at_conv_info;
+}
+
+static at_packet_info_t *
+get_at_packet_info(packet_info *pinfo, at_conv_info_t *at_conv)
+{
+    at_packet_info_t *at_info;
+    at_info = (at_packet_info_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_at, 0);
+    if (!at_info) {
+        at_info = wmem_new0(wmem_file_scope(), at_packet_info_t);
+        p_add_proto_data(wmem_file_scope(), pinfo, proto_at, 0, at_info);
+        if(at_conv) {
+            at_info->initial_dce_command = at_conv->dce_command;
+            at_info->initial_dte_command = at_conv->dte_command;
+        }
+    }
+    at_info->current_dce_command = at_info->initial_dce_command;
+    at_info->current_dte_command = at_info->initial_dte_command;
+    return at_info;
+}
+
+static void
+set_at_packet_info(packet_info *pinfo, at_conv_info_t *at_conv, at_packet_info_t *at_info)
+{
+    if(at_conv && !PINFO_FD_VISITED(pinfo))
+    {
+        at_conv->dce_command = at_info->current_dce_command;
+        at_conv->dte_command = at_info->current_dte_command;
+    }
+}
+
+static at_processed_cmd_t *get_current_role_last_command(at_packet_info_t *at_info, guint32 role)
+{
+    if(!at_info) return NULL;
+    return role == ROLE_DCE ? &at_info->current_dce_command : &at_info->current_dte_command;
+}
 
 static guint32 get_uint_parameter(wmem_allocator_t *pool, guint8 *parameter_stream, gint parameter_length)
 {
@@ -631,6 +724,13 @@ static gboolean check_cmer(gint role, guint16 type) {
     return FALSE;
 }
 
+static gboolean check_cmgl(gint role, guint16 type) {
+    if (role == ROLE_DTE && (type == TYPE_ACTION || type == TYPE_READ || type == TYPE_TEST)) return TRUE;
+    if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
+
+    return FALSE;
+}
+
 static gboolean check_cmux(gint role, guint16 type) {
     if (role == ROLE_DTE && (type == TYPE_ACTION || type == TYPE_READ || type == TYPE_TEST)) return TRUE;
     if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
@@ -744,7 +844,7 @@ static gboolean check_zusim(gint role, guint16 type) {
 static gboolean
 dissect_ccwa_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -810,7 +910,7 @@ dissect_ccwa_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cfun_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -861,7 +961,7 @@ dissect_cfun_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cgmi_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -877,7 +977,7 @@ dissect_cgmi_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cgmm_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -893,7 +993,7 @@ dissect_cgmm_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cgmr_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -909,7 +1009,7 @@ dissect_cgmr_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_chld_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
 
@@ -945,7 +1045,7 @@ dissect_chld_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_ciev_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data)
 {
     guint32      value;
     guint        indicator_index;
@@ -976,7 +1076,7 @@ dissect_ciev_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cimi_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
      proto_item  *pitem;
 
@@ -997,7 +1097,7 @@ dissect_cimi_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cind_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!check_cind(role, type)) return FALSE;
     if (parameter_number > 19) return FALSE;
@@ -1011,7 +1111,7 @@ dissect_cind_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_clcc_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1068,7 +1168,7 @@ dissect_clcc_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_clip_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1124,7 +1224,7 @@ dissect_clip_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cme_error_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
     gint         i;
@@ -1155,7 +1255,7 @@ dissect_cme_error_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *t
 static gboolean
 dissect_cmee_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
 
@@ -1175,7 +1275,7 @@ dissect_cmee_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cmer_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1220,9 +1320,114 @@ dissect_cmer_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 }
 
 static gboolean
+dissect_cmgl_data_part(tvbuff_t *tvb, packet_info *pinfo,
+            proto_tree *tree, gint offset, gint role, guint16 type,
+            guint8 *data_part_stream _U_, guint data_part_number _U_,
+            gint data_part_length, at_packet_info_t *at_info _U_)
+{
+    proto_item  *pitem;
+    gint      hex_length;
+    gint      bytes_count;
+    gint      i;
+    guint8   *final_arr;
+    tvbuff_t *final_tvb = NULL;
+
+    if (!(role  == ROLE_DCE && type == TYPE_RESPONSE)) {
+        return FALSE;
+    }
+    pitem = proto_tree_add_item(tree, hf_cmgl_msg_pdu, tvb, offset, data_part_length, ENC_NA | ENC_ASCII);
+
+    hex_length = data_part_length;
+    if (hex_length % 2 == 1) {
+        expert_add_info(pinfo, pitem, &ei_odd_len);
+        return TRUE;
+    }
+    if (hex_length < 1) {
+        expert_add_info(pinfo, pitem, &ei_empty_hex);
+        return TRUE;
+    }
+    bytes_count = hex_length / 2;
+    final_arr = wmem_alloc0_array(pinfo->pool, guint8, bytes_count + 1);
+    /* Try to parse the hex string into a byte array */
+    guint8 *pos = data_part_stream;
+    pos += 16;
+    for (i = 8; i < bytes_count; i++) {
+        if (!g_ascii_isxdigit(*pos) || !g_ascii_isxdigit(*(pos + 1))) {
+            /* Either current or next char isn't a hex character */
+            expert_add_info(pinfo, pitem, &ei_invalid_hex);
+            return TRUE;
+        }
+        sscanf((char *)pos, "%2hhx", &(final_arr[i-8]));
+        pos += 2;
+    }
+    final_tvb = tvb_new_child_real_data(tvb, final_arr, bytes_count, bytes_count);
+    add_new_data_source(pinfo, final_tvb, "GSM SMS payload");
+
+    /* Adjusting P2P direction as it is read by the SMS dissector */
+    int at_dir = pinfo->p2p_dir;
+    pinfo->p2p_dir = P2P_DIR_SENT;
+
+    /* Call GSM SMS dissector*/
+    call_dissector_only(gsm_sms_handle, final_tvb, pinfo, tree, NULL);
+
+    /* Restoring P2P direction */
+    pinfo->p2p_dir = at_dir;
+    return TRUE;
+}
+
+static gboolean
+dissect_cmgl_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+        gint offset, gint role, guint16 type, guint8 *parameter_stream,
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info, void **data _U_)
+{
+    guint32      value = 0;
+    if (!((role == ROLE_DTE && type == TYPE_ACTION) ||
+          (role == ROLE_DCE && type == TYPE_RESPONSE))) {
+        return FALSE;
+    }
+
+    if (role == ROLE_DTE && type == TYPE_ACTION && parameter_number > 0)
+        return FALSE;
+    else if (role == ROLE_DCE && parameter_number > 3)
+        return FALSE;
+
+    if (role == ROLE_DTE && type == TYPE_ACTION) {
+        proto_tree_add_item(tree, hf_cmgl_req_status, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+    } else {
+        switch (parameter_number) {
+        case 0:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+            proto_tree_add_uint(tree, hf_cmgl_msg_index, tvb, offset, parameter_length, value);
+            break;
+        case 1:
+            proto_tree_add_item(tree, hf_cmgl_msg_status, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+            break;
+        case 2:
+            proto_tree_add_item(tree, hf_cmgl_msg_originator_name, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+            break;
+        case 3:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+            proto_tree_add_uint(tree, hf_cmgl_msg_length, tvb, offset, parameter_length, value);
+            // If we reached the length parameter we are
+            // expecting the next line to be our encoded data
+            at_processed_cmd_t * at_cmd = get_current_role_last_command(at_info, role);
+            if (!at_cmd)
+                break;
+            at_cmd->type = type;
+            at_cmd->expected_data_parts = 1;
+            at_cmd->consumed_data_parts = 0;
+            at_cmd->dissect_data = dissect_cmgl_data_part;
+            break;
+        }
+    }
+
+    return TRUE;
+}
+
+static gboolean
 dissect_cmux_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value = 0;
     if (!((role == ROLE_DTE && type == TYPE_ACTION) ||
@@ -1275,7 +1480,7 @@ dissect_cmux_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cnum_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1320,7 +1525,7 @@ dissect_cnum_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_cops_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
 
@@ -1355,7 +1560,7 @@ dissect_cops_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cpin_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     gboolean     is_ready;
@@ -1398,7 +1603,7 @@ dissect_cpin_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cpms_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
     if (!((role == ROLE_DTE && type == TYPE_ACTION) ||
@@ -1455,7 +1660,7 @@ dissect_cpms_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_cscs_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!((role == ROLE_DTE && type == TYPE_ACTION) ||
           (role == ROLE_DCE && type == TYPE_RESPONSE))) {
@@ -1475,7 +1680,7 @@ dissect_cscs_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_csim_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data)
 {
     proto_item  *pitem;
     guint32   value;
@@ -1508,11 +1713,11 @@ dissect_csim_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             }
             hex_length = (parameter_length - 2); /* ignoring leading and trailing quotes */
             if (hex_length % 2 == 1) {
-                expert_add_info(pinfo, pitem, &ei_csim_odd_len);
+                expert_add_info(pinfo, pitem, &ei_odd_len);
                 return TRUE;
             }
             if(hex_length < 1) {
-                expert_add_info(pinfo, pitem, &ei_csim_empty_hex);
+                expert_add_info(pinfo, pitem, &ei_empty_hex);
                 return TRUE;
             }
             bytes_count = hex_length / 2;
@@ -1523,7 +1728,7 @@ dissect_csim_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             for (i = 0; i < bytes_count; i++) {
                 if (!g_ascii_isxdigit(*pos) || !g_ascii_isxdigit(*(pos + 1))) {
                     /* Either current or next char isn't a hex character */
-                    expert_add_info(pinfo, pitem, &ei_csim_invalid_hex);
+                    expert_add_info(pinfo, pitem, &ei_invalid_hex);
                     return TRUE;
                 }
                 sscanf((char *)pos, "%2hhx", &(final_arr[i]));
@@ -1542,7 +1747,7 @@ dissect_csim_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_csq_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1572,7 +1777,7 @@ dissect_csq_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_gmi_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -1588,7 +1793,7 @@ dissect_gmi_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_gmm_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -1604,7 +1809,7 @@ dissect_gmm_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_gmr_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -1620,7 +1825,7 @@ dissect_gmr_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_vts_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     proto_item  *pitem;
     guint32      value;
@@ -1646,7 +1851,7 @@ dissect_vts_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static gboolean
 dissect_zpas_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream _U_,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     if (!(role == ROLE_DCE && type == TYPE_RESPONSE)) {
         return FALSE;
@@ -1670,7 +1875,7 @@ dissect_zpas_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_zusim_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         gint offset, gint role, guint16 type, guint8 *parameter_stream,
-        guint parameter_number, gint parameter_length, void **data _U_)
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info _U_, void **data _U_)
 {
     guint32      value;
 
@@ -1689,7 +1894,7 @@ dissect_zusim_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static gboolean
 dissect_no_parameter(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_,
         gint offset _U_, gint role _U_, guint16 type _U_, guint8 *parameter_stream _U_,
-        guint parameter_number _U_, gint parameter_length _U_, void **data _U_)
+        guint parameter_number _U_, gint parameter_length _U_, at_packet_info_t *at_info _U_, void **data _U_)
 {
     return FALSE;
 }
@@ -1717,6 +1922,7 @@ static const at_cmd_t at_cmds[] = {
     { "+CME ERROR", "Mobile Termination Error Result Code",                    check_cme,  dissect_cme_error_parameter },
     { "+CMEE",      "Mobile Equipment Error",                                  check_cmee, dissect_cmee_parameter },
     { "+CMER",      "Event Reporting Activation/Deactivation",                 check_cmer, dissect_cmer_parameter },
+    { "+CMGL",      "List SMS messages",                                       check_cmgl, dissect_cmgl_parameter },
     { "+CMUX",      "Multiplexing mode",                                       check_cmux, dissect_cmux_parameter },
     { "+CNUM",      "Subscriber Number Information",                           check_cnum, dissect_cnum_parameter },
     { "+COPS",      "Reading Network Operator",                                check_cops, dissect_cops_parameter },
@@ -1746,7 +1952,7 @@ static const at_cmd_t at_cmds[] = {
 
 static gint
 dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
-        gint offset, guint32 role, gint command_number)
+        gint offset, guint32 role, gint command_number, at_packet_info_t *at_info)
 {
     proto_item      *pitem;
     proto_tree      *command_item = NULL;
@@ -1755,6 +1961,7 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_item      *parameters_tree = NULL;
     gchar           *at_stream;
     gchar           *at_command = NULL;
+    char            *name;
     gint             i_char = 0;
     guint            i_char_fix = 0;
     gint             length;
@@ -1769,6 +1976,7 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     gboolean         quotation;
     gboolean         next;
     void            *data;
+    at_processed_cmd_t *last_command;
 
     length = tvb_reported_length_remaining(tvb, offset);
     if (length <= 0)
@@ -1869,13 +2077,11 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             }
         }
 
+        name = (char *) wmem_alloc(pinfo->pool, i_char + 2);
+        (void) g_strlcpy(name, at_command, i_char + 1);
+        name[i_char + 1] = '\0';
 
         if (i_at_cmd && i_at_cmd->name == NULL) {
-            char *name;
-
-            name = (char *) wmem_alloc(pinfo->pool, i_char + 2);
-            (void) g_strlcpy(name, at_command, i_char + 1);
-            name[i_char + 1] = '\0';
             proto_item_append_text(command_item, ": %s (Unknown)", name);
             proto_item_append_text(pitem, " (Unknown)");
             expert_add_info(pinfo, pitem, &ei_unknown_command);
@@ -1914,6 +2120,15 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 pitem = proto_tree_add_uint(command_tree, hf_at_cmd_type, tvb, offset, 0, type);
                 proto_item_set_generated(pitem);
             }
+        }
+
+        /* Setting new command's info in the Last Command field */
+        last_command = get_current_role_last_command(at_info, role);
+        if (last_command) {
+            g_strlcpy(last_command->name, name, STORE_COMMAND_MAX_LEN);
+            last_command->type = type;
+            last_command->expected_data_parts = 0;
+            last_command->consumed_data_parts = 0;
         }
 
         if (i_at_cmd && i_at_cmd->check_command && !i_at_cmd->check_command(role, type)) {
@@ -1974,7 +2189,7 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 if (type == TYPE_ACTION || type == TYPE_RESPONSE) {
                     if (i_at_cmd && (i_at_cmd->dissect_parameter != NULL &&
                             !i_at_cmd->dissect_parameter(tvb, pinfo, parameters_tree, offset, role,
-                            type, &at_command[i_char], parameter_number, parameter_length, &data) )) {
+                            type, &at_command[i_char], parameter_number, parameter_length, at_info, &data) )) {
                         pitem = proto_tree_add_item(parameters_tree,
                                 hf_unknown_parameter, tvb, offset,
                                 parameter_length, ENC_NA | ENC_ASCII);
@@ -2026,6 +2241,51 @@ dissect_at_command(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     return offset;
 }
 
+static gint
+dissect_at_command_continuation(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+        gint offset, guint32 role, gint command_number, at_packet_info_t *at_info)
+{
+    at_processed_cmd_t *cmd;
+    proto_item      *data_part_item;
+    proto_item      *data_part_tree;
+    proto_item      *pitem;
+    gchar           *data_stream;
+    gint             data_part_index;
+    gint             length;
+    gint             data_part_length = 0;
+
+    cmd = get_current_role_last_command(at_info, role);
+    if (!cmd)
+        return offset;
+    data_part_index = cmd->consumed_data_parts;
+
+    length = tvb_reported_length_remaining(tvb, offset);
+    if (length <= 0)
+        return tvb_reported_length(tvb);
+
+    data_stream = (guint8 *) wmem_alloc(pinfo->pool, length + 1);
+    tvb_memcpy(tvb, data_stream, offset, length);
+    data_stream[length] = '\0';
+
+    while (data_part_length < length && data_stream[data_part_length] != '\r') {
+        data_part_length += 1;
+    }
+
+    data_part_item = proto_tree_add_none_format(tree, hf_data_part, tvb,
+                        offset, data_part_length, "Command %u's Data Part %u", command_number, data_part_index);
+    data_part_tree = proto_item_add_subtree(data_part_item, ett_at_data_part);
+
+    if (cmd && (cmd->dissect_data != NULL &&
+               !cmd->dissect_data(tvb, pinfo, data_part_tree, offset, role, cmd->type,
+                                       data_stream, data_part_index, data_part_length,
+                                       at_info) )) {
+        pitem = proto_tree_add_item(data_part_tree, hf_unknown_parameter, tvb, offset,
+                                    data_part_length, ENC_NA | ENC_ASCII);
+        expert_add_info(pinfo, pitem, &ei_unknown_parameter);
+    }
+    offset += data_part_length;
+    return offset;
+}
 
 /* The dissector itself */
 static int dissect_at(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
@@ -2036,7 +2296,11 @@ static int dissect_at(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
     guint32     role = ROLE_UNKNOWN;
     gint        offset;
     gint        len;
-    guint32         cmd_indx;
+    guint32     cmd_indx;
+    conversation_t *conversation;
+    at_conv_info_t *at_conv;
+    at_packet_info_t *at_info;
+    at_processed_cmd_t *last_command;
 
     string = tvb_format_text_wsp(pinfo->pool, tvb, 0, tvb_captured_length(tvb));
     col_append_sep_str(pinfo->cinfo, COL_PROTOCOL, "/", "AT");
@@ -2084,11 +2348,33 @@ static int dissect_at(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
     len = tvb_captured_length(tvb);
     offset = 0;
     cmd_indx = 0;
-    while(offset < len) {
-        offset = dissect_at_command(tvb, pinfo, at_tree, offset, role, cmd_indx);
-        cmd_indx++;
-    }
 
+    conversation = find_conversation(pinfo->num,
+                               &pinfo->src, &pinfo->dst,
+                               conversation_pt_to_endpoint_type(pinfo->ptype),
+                               pinfo->srcport, pinfo->destport, 0);
+    at_conv = get_at_conv_info(conversation);
+    at_info = get_at_packet_info(pinfo, at_conv);
+
+    while(offset < len) {
+        last_command = get_current_role_last_command(at_info, role);
+        if (last_command && last_command->expected_data_parts > last_command->consumed_data_parts) {
+            // Continuing a previous command
+            offset = dissect_at_command_continuation(tvb, pinfo, at_tree, offset, role, last_command->cmd_indx, at_info);
+            last_command->consumed_data_parts++;
+        }
+        else {
+            // New Command
+            offset = dissect_at_command(tvb, pinfo, at_tree, offset, role, cmd_indx, at_info);
+            /* Only if the command is expecting data parts save its index */
+            last_command = get_current_role_last_command(at_info, role);
+            if (last_command && last_command->expected_data_parts > last_command->consumed_data_parts) {
+                last_command->cmd_indx = cmd_indx;
+            }
+            cmd_indx++;
+        }
+    }
+    set_at_packet_info(pinfo, at_conv, at_info);
     return tvb_captured_length(tvb);
 }
 
@@ -2163,6 +2449,11 @@ proto_register_at_command(void)
     static hf_register_info hf[] = {
         { &hf_command,
            { "Command",                          "at.command",
+           FT_NONE, BASE_NONE, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_data_part,
+           { "Data Part",                        "at.data_part",
            FT_NONE, BASE_NONE, NULL, 0,
            NULL, HFILL}
         },
@@ -2249,6 +2540,41 @@ proto_register_at_command(void)
         { &hf_cmee,
            { "Mode",                             "at.cmee",
            FT_UINT8, BASE_DEC, VALS(cmee_vals), 0,
+           NULL, HFILL}
+        },
+        { &hf_cmgl_req_status,
+           { "Requested Status",                 "at.cmgl.req_status",
+           FT_STRING, BASE_NONE, NULL, 0,
+           "Status of the requested messages to list",
+           HFILL}
+        },
+        { &hf_cmgl_msg_index,
+           { "Index",                            "at.cmgl.msg_index",
+           FT_UINT16, BASE_DEC, NULL, 0,
+           "Index of the message",
+           HFILL}
+        },
+        { &hf_cmgl_msg_status,
+           { "Status",                           "at.cmgl.msg_status",
+           FT_STRING, BASE_NONE, NULL, 0,
+           "Status of the message",
+           HFILL}
+        },
+        { &hf_cmgl_msg_originator_name,
+           { "Originator Name",                  "at.cmgl.originator_name",
+           FT_STRING, BASE_NONE, NULL, 0,
+           "Originator name as saved in the phonebook",
+           HFILL}
+        },
+        { &hf_cmgl_msg_length,
+           { "Length",                           "at.cmgl.pdu_length",
+           FT_UINT16, BASE_DEC, NULL, 0,
+           "PDU Length",
+           HFILL}
+        },
+        { &hf_cmgl_msg_pdu,
+           { "SMS PDU",                          "at.cmgl.pdu",
+           FT_STRING, BASE_NONE, NULL, 0,
            NULL, HFILL}
         },
         { &hf_cmux_k,
@@ -2740,9 +3066,9 @@ proto_register_at_command(void)
         { &ei_at_type,                 { "at.expert.at.type", PI_PROTOCOL, PI_WARN, "Unknown type value", EXPFILL }},
         { &ei_cnum_service,            { "at.expert.cnum.service", PI_PROTOCOL, PI_WARN, "Only 0-5 are valid", EXPFILL }},
         { &ei_cnum_itc,                { "at.expert.cnum.itc", PI_PROTOCOL, PI_WARN, "Only 0-1 are valid", EXPFILL }},
-        { &ei_csim_empty_hex,          { "at.expert.csim.empty_hex", PI_PROTOCOL, PI_WARN, "Hex string is empty", EXPFILL }},
-        { &ei_csim_invalid_hex,        { "at.expert.csim.invalid_hex", PI_PROTOCOL, PI_WARN, "Non hex character found in hex string", EXPFILL }},
-        { &ei_csim_odd_len,            { "at.expert.csim.odd_len", PI_PROTOCOL, PI_WARN, "Odd hex string length", EXPFILL }},
+        { &ei_empty_hex,               { "at.expert.csim.empty_hex", PI_PROTOCOL, PI_WARN, "Hex string is empty", EXPFILL }},
+        { &ei_invalid_hex,             { "at.expert.csim.invalid_hex", PI_PROTOCOL, PI_WARN, "Non hex character found in hex string", EXPFILL }},
+        { &ei_odd_len,                 { "at.expert.csim.odd_len", PI_PROTOCOL, PI_WARN, "Odd hex string length", EXPFILL }},
         { &ei_csq_ber,                 { "at.expert.csq.ber", PI_PROTOCOL, PI_WARN, "Only 0-7 and 99 are valid", EXPFILL }},
         { &ei_csq_rssi,                { "at.expert.csq.rssi", PI_PROTOCOL, PI_WARN, "Only 0-31 and 99 are valid", EXPFILL }},
     };
@@ -2750,6 +3076,7 @@ proto_register_at_command(void)
     static gint *ett[] = {
         &ett_at,
         &ett_at_command,
+        &ett_at_data_part,
         &ett_at_parameters,
     };
 
@@ -2774,6 +3101,7 @@ void
 proto_reg_handoff_at_command(void)
 {
     gsm_sim_handle       = find_dissector_add_dependency("gsm_sim.part", proto_at);
+    gsm_sms_handle       = find_dissector_add_dependency("gsm_sms", proto_at);
 
     heur_dissector_add("usb.bulk", heur_dissect_at, "AT Command USB bulk endpoint", "at_usb_bulk", proto_at, HEURISTIC_ENABLE);
     heur_dissector_add("usb.control", heur_dissect_at, "AT Command USB control endpoint", "at_usb_control", proto_at, HEURISTIC_ENABLE);

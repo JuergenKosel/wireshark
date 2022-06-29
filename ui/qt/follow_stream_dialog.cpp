@@ -891,7 +891,17 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
             int len = current_pos + base64_raw_len < nchars ? base64_raw_len : (int) nchars - current_pos;
             QByteArray base64_data(&buffer[current_pos], len);
 
+            /* XXX: GCC 12.1 has a bogus stringop-overread warning using the Qt
+             * conversions from QByteArray to QString at -O2 and higher due to
+             * computing a branch that will never be taken.
+             */
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_OFF(stringop-overread)
+#endif
             yaml_text += "      " + base64_data.toBase64() + "\n";
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_ON(stringop-overread)
+#endif
 
             current_pos += len;
             (*global_pos) += len;
@@ -947,13 +957,12 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
         return false;
     }
 
-    if (cap_file_.capFile()->edt == NULL)
-    {
-        QMessageBox::warning(this, tr("Error following stream."), tr("Capture file invalid."));
-        return false;
-    }
-
     if (!use_stream_index) {
+        if (cap_file_.capFile()->edt == NULL)
+        {
+            QMessageBox::warning(this, tr("Error following stream."), tr("Capture file invalid."));
+            return false;
+        }
         is_follower = proto_is_frame_protocol(cap_file_.capFile()->edt->pi.layers, proto_get_protocol_filter_name(get_follow_proto_id(follower_)));
         if (!is_follower) {
             QMessageBox::warning(this, tr("Error following stream."), tr("Please make sure you have a %1 packet selected.").arg

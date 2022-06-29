@@ -672,7 +672,7 @@ void RtpAnalysisDialog::tapReset(void *tapinfo_ptr)
     rtp_analysis_dialog->resetStatistics();
 }
 
-tap_packet_status RtpAnalysisDialog::tapPacket(void *tapinfo_ptr, packet_info *pinfo, epan_dissect_t *, const void *rtpinfo_ptr)
+tap_packet_status RtpAnalysisDialog::tapPacket(void *tapinfo_ptr, packet_info *pinfo, epan_dissect_t *, const void *rtpinfo_ptr, tap_flags_t)
 {
     RtpAnalysisDialog *rtp_analysis_dialog = dynamic_cast<RtpAnalysisDialog *>((RtpAnalysisDialog*)tapinfo_ptr);
     if (!rtp_analysis_dialog) return TAP_PACKET_DONT_REDRAW;
@@ -732,7 +732,7 @@ void RtpAnalysisDialog::resetStatistics()
 
 void RtpAnalysisDialog::addPacket(tab_info_t *tab, packet_info *pinfo, const _rtp_info *rtpinfo)
 {
-    rtppacket_analyse(&tab->stream.rtp_stats, pinfo, rtpinfo);
+    rtpstream_info_analyse_process(&tab->stream, pinfo, rtpinfo);
     new RtpAnalysisTreeWidgetItem(tab->tree_widget, &tab->stream.rtp_stats, pinfo, rtpinfo);
     tab->time_vals->append(tab->stream.rtp_stats.time / 1000);
     tab->jitter_vals->append(tab->stream.rtp_stats.jitter);

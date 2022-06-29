@@ -219,7 +219,7 @@ typedef struct _tftp_eo_t {
 
 /* Tap function */
 static tap_packet_status
-tftp_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data)
+tftp_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data, tap_flags_t flags _U_)
 {
   export_object_list_t *object_list = (export_object_list_t *)tapdata;
   const tftp_eo_t *eo_info = (const tftp_eo_t *)data;
@@ -759,7 +759,7 @@ tftp_info_for_conversation(conversation_t *conversation)
 }
 
 static gboolean
-is_valid_requerest_body(tvbuff_t *tvb)
+is_valid_request_body(tvbuff_t *tvb)
 {
   gint offset = 2;
   guint zeros_counter = 0;
@@ -788,14 +788,14 @@ is_valid_requerest_body(tvbuff_t *tvb)
 }
 
 static gboolean
-is_valid_requerest(tvbuff_t *tvb)
+is_valid_request(tvbuff_t *tvb)
 {
   if (tvb_captured_length(tvb) < MIN_HDR_LEN)
     return FALSE;
   guint16 opcode = tvb_get_ntohs(tvb, 0);
   if ((opcode != TFTP_RRQ) && (opcode != TFTP_WRQ))
     return FALSE;
-  return is_valid_requerest_body(tvb);
+  return is_valid_request_body(tvb);
 }
 
 static conversation_t* create_tftp_conversation(packet_info *pinfo)
@@ -820,7 +820,7 @@ static conversation_t* create_tftp_conversation(packet_info *pinfo)
 static gboolean
 dissect_tftp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  if (is_valid_requerest_body(tvb)) {
+  if (is_valid_request_body(tvb)) {
     conversation_t* conversation = create_tftp_conversation(pinfo);
     dissect_tftp_message(tftp_info_for_conversation(conversation), tvb, pinfo, tree);
     return TRUE;
@@ -850,7 +850,7 @@ dissect_embeddedtftp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     case TFTP_RRQ:
     case TFTP_WRQ:
       /* These 2 opcodes have a NULL-terminated source file name after opcode. Verify */
-      if (!is_valid_requerest_body(tvb))
+      if (!is_valid_request_body(tvb))
         return FALSE;
      /* Intentionally dropping through here... */
     case TFTP_DATA:
@@ -910,7 +910,7 @@ dissect_tftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
    */
   if ((value_is_in_range(global_tftp_port_range, pinfo->destport) ||
        (pinfo->match_uint == pinfo->destport)) &&
-      is_valid_requerest(tvb))
+      is_valid_request(tvb))
   {
     conversation = create_tftp_conversation(pinfo);
   }
@@ -918,26 +918,41 @@ dissect_tftp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
   if (conversation == NULL)
   {
     /* Not the initial read or write request */
-    if (!PINFO_FD_VISITED(pinfo)) {
-      /* During first pass, look for conversation based upon client port */
-      conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
-                                       pinfo->destport, 0, NO_PORT2);
-      if (conversation != NULL) {
-        /* Set other side of conversation (server port) */
-        if (pinfo->destport == conversation_key_port1(conversation->key_ptr))
-          conversation_set_port2(conversation, pinfo->srcport);
-        else
-          /* Direction of conv match must have been wrong - ignore! */
-          return 0;
-      }
-    }
-    if (conversation == NULL) {
+    /* Look for wildcarded conversation based upon client port */
+    if ((conversation = find_conversation(pinfo->num, &pinfo->dst, &pinfo->src, ENDPOINT_UDP,
+                                     pinfo->destport, 0, NO_PORT_B)) && conversation_get_dissector(conversation, pinfo->num) == tftp_handle) {
+#if 0
+      /* XXX: While setting the wildcarded port makes sense, if we do that,
+       * it's more complicated to find the correct conversation if ports are
+       * reused. (find_conversation with full information prefers any exact
+       * match, even with an earlier setup frame, to any wildcarded match.)
+       * We would want to find the most recent conversations with one wildcard
+       * and with both ports, and take the latest of those.
+       */
+      /* Set other side of conversation (server port) */
+      if (pinfo->destport == conversation_key_port1(conversation->key_ptr))
+        conversation_set_port2(conversation, pinfo->srcport);
+#endif
+    } else if ((conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, ENDPOINT_UDP,
+                                     pinfo->srcport, 0, NO_PORT_B)) && conversation_get_dissector(conversation, pinfo->num) == tftp_handle) {
+
+    } else {
+      /* How did we get here? We must have matched one of the TFTP ports
+       * and missed the WRQ/RRQ. While it is contrary to the spirit of
+       * RFC 1350 for the server not to change ports, there appear to be
+       * such servers out there (issue #18122), and since the default port
+       * is IANA assigned it doesn't do harm to process it. Note that in
+       * that case the conversation won't have the tftp dissector set. */
       conversation = find_conversation_pinfo(pinfo, 0);
-      if (conversation == NULL || conversation_get_dissector(conversation, pinfo->num) != tftp_handle)
+      if (conversation == NULL) {
         return 0;
+      }
     }
   }
 
+  if (pinfo->num > conversation->last_frame) {
+    conversation->last_frame = pinfo->num;
+  }
   dissect_tftp_message(tftp_info_for_conversation(conversation), tvb, pinfo, tree);
   return tvb_captured_length(tvb);
 }

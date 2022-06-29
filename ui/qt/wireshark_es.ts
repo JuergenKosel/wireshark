@@ -1790,6 +1790,77 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
 </context>
 <context>
+    <name>ConversationDataModel</name>
+    <message>
+        <source>Address A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Address B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">Paquetes</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished">Bytes</translation>
+    </message>
+    <message>
+        <source>Stream ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Abs Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rel Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished">Duración</translation>
+    </message>
+    <message>
+        <source>Bits/s A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bits/s B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ConversationDialog</name>
     <message>
         <source>Follow Stream…</source>
@@ -2299,6 +2370,65 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
 </context>
 <context>
+    <name>EndpointDataModel</name>
+    <message>
+        <source>Address</source>
+        <translation type="unfinished">Dirección</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">Paquetes</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished">Bytes</translation>
+    </message>
+    <message>
+        <source>Tx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Country</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>City</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Number</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Organization</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>EndpointDialog</name>
     <message>
         <source>Map</source>
@@ -2318,14 +2448,6 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
     <message>
         <source>Map file error</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>No endpoints available to map</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Unable to create temporary file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4682,6 +4804,10 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <source>Start capture</source>
         <translation>Iniciar captura</translation>
     </message>
+    <message>
+        <source>Hide Interface</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>InterfaceSortFilterModel</name>
@@ -6915,13 +7041,20 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
 </context>
 <context>
-    <name>PathChooserDelegate</name>
+    <name>PathSelectionDelegate</name>
+    <message>
+        <source>Open a pipe</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PathSelectionEdit</name>
     <message>
         <source>Browse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open Pipe</source>
+        <source>Select a path</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10713,7 +10846,8 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <translation>Imagen</translation>
     </message>
     <message>
-        <source>Json</source>
+        <source>JSON</source>
+        <oldsource>Json</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11570,6 +11704,25 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
 </context>
 <context>
+    <name>TrafficTab</name>
+    <message>
+        <source>Map file error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open base file %1 for reading: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>TrafficTableDialog</name>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show resolved addresses and port names rather than plain values. The corresponding name resolution preference must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -11592,24 +11745,39 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Muestra tiempos absolutos en la columna de hora de inicio.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>GroupBox</source>
+        <translation type="unfinished">GroupBox</translation>
+    </message>
+    <message>
         <source>Absolute start time</source>
         <translation>Hora de inicio absoluta</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add and remove conversation types.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Añade o elimina tipos de conversación.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>%1 Types</source>
-        <translation>Tipos de %1</translation>
     </message>
     <message>
         <source>Copy</source>
         <translation>Copiar</translation>
     </message>
     <message>
+        <source>Unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTree</name>
+    <message>
+        <source>Resize all columns to content</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter on stream id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy %1 table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>as CSV</source>
-        <translation>como CSV</translation>
+        <translation type="unfinished">como CSV</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in CSV (Comma Separated Values) format.</source>
@@ -11617,15 +11785,34 @@ Por ejemplo, use 1 hora para tener creado un nuevo archivo cada hora en punto.</
     </message>
     <message>
         <source>as YAML</source>
-        <translation>como YAML</translation>
+        <translation type="unfinished">como YAML</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the YAML data serialization format.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unknown</source>
+        <source>as JSON</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save data as raw</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disable data formatting for export/clipboard and save as raw data</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTypesModel</name>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">Protocolo</translation>
     </message>
 </context>
 <context>
@@ -13199,6 +13386,10 @@ text-decoration: none;
         <translation>Restablece el diseño de apariencia al tamaño por defecto</translation>
     </message>
     <message>
+        <source>Seconds Since First Captured Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet &amp;Diagram</source>
         <translation>&amp;Diagrama de paquete</translation>
     </message>
@@ -13521,10 +13712,6 @@ text-decoration: none;
     <message>
         <source>Show packet times as the seconds since the UNIX / POSIX epoch (1970-01-01).</source>
         <translation>Muestra la fecha de los paquetes como los segundos desde la etapa de UNIX / POSIX (1970-01-01).</translation>
-    </message>
-    <message>
-        <source>Seconds Since Beginning of Capture</source>
-        <translation>Segundos desde inicio de captura</translation>
     </message>
     <message>
         <source>Seconds Since Previous Captured Packet</source>

@@ -1255,13 +1255,13 @@ void WiresharkMainWindow::mergeCaptureFile()
     }
 
     for (;;) {
-        CaptureFileDialog merge_dlg(this, capture_file_.capFile(), read_filter);
+        CaptureFileDialog merge_dlg(this, capture_file_.capFile());
         int file_type;
         cf_status_t  merge_status;
         char        *in_filenames[2];
         char        *tmpname;
 
-        if (merge_dlg.merge(file_name)) {
+        if (merge_dlg.merge(file_name, read_filter)) {
             gchar *err_msg;
 
             if (!dfilter_compile(qUtf8Printable(read_filter), &rfcode, &err_msg)) {
@@ -1442,7 +1442,7 @@ bool WiresharkMainWindow::saveCaptureFile(capture_file *cf, bool dont_reopen) {
                    If we discarded comments, redraw the packet list to reflect
                    any packets that no longer have comments. */
                 if (discard_comments)
-                    packet_list_queue_draw();
+                    packet_list_->redrawVisiblePackets();
 
                 cf->unsaved_changes = false; //we just saved so we signal that we have no unsaved changes
                 updateForUnsavedChanges(); // we update the title bar to remove the *
@@ -1556,7 +1556,7 @@ bool WiresharkMainWindow::saveAsCaptureFile(capture_file *cf, bool must_support_
             /* If we discarded comments, redraw the packet list to reflect
                any packets that no longer have comments. */
             if (discard_comments)
-                packet_list_queue_draw();
+                packet_list_->redrawVisiblePackets();
 
             cf->unsaved_changes = false; //we just saved so we signal that we have no unsaved changes
             updateForUnsavedChanges(); // we update the title bar to remove the *
@@ -1698,7 +1698,7 @@ void WiresharkMainWindow::exportSelectedPackets() {
             /* If we discarded comments, redraw the packet list to reflect
                any packets that no longer have comments. */
             if (discard_comments)
-                packet_list_queue_draw();
+                packet_list_->redrawVisiblePackets();
             /* Add this filename to the list of recent files in the "Recent Files" submenu */
             add_menu_recent_capture_file(qUtf8Printable(file_name));
             goto cleanup;
@@ -2067,6 +2067,13 @@ void WiresharkMainWindow::findTextCodecs() {
     QRegularExpressionMatch match;
     for (int mib : mibs) {
         QTextCodec *codec = QTextCodec::codecForMib(mib);
+        // QTextCodec::availableMibs() returns a list of hard-coded MIB
+        // numbers, it doesn't check if they are really available. ICU data may
+        // not have been compiled with support for all encodings.
+        if (!codec) {
+            continue;
+        }
+
         QString key = codec->name().toUpper();
         char rank;
 
@@ -2204,7 +2211,7 @@ void WiresharkMainWindow::initTimeDisplayFormatMenu()
     td_actions[main_ui_->actionViewTimeDisplayFormatDateYDOYandTimeOfDay] = TS_ABSOLUTE_WITH_YDOY;
     td_actions[main_ui_->actionViewTimeDisplayFormatTimeOfDay] = TS_ABSOLUTE;
     td_actions[main_ui_->actionViewTimeDisplayFormatSecondsSinceEpoch] = TS_EPOCH;
-    td_actions[main_ui_->actionViewTimeDisplayFormatSecondsSinceBeginningOfCapture] = TS_RELATIVE;
+    td_actions[main_ui_->actionViewTimeDisplayFormatSecondsSinceFirstCapturedPacket] = TS_RELATIVE;
     td_actions[main_ui_->actionViewTimeDisplayFormatSecondsSincePreviousCapturedPacket] = TS_DELTA;
     td_actions[main_ui_->actionViewTimeDisplayFormatSecondsSincePreviousDisplayedPacket] = TS_DELTA_DIS;
     td_actions[main_ui_->actionViewTimeDisplayFormatUTCDateYMDandTimeOfDay] = TS_UTC_WITH_YMD;

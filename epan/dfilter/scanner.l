@@ -84,7 +84,6 @@ static int set_lval_str(df_scanner_state_t *state, int token, const char *token_
 
 static int set_lval_quoted_string(df_scanner_state_t *state, int token, GString *quoted_string);
 static int set_lval_charconst(df_scanner_state_t *state, int token, GString *quoted_string);
-static int set_lval_range_node(df_scanner_state_t *state, int token, const char *token_value);
 static int set_lval_field(df_scanner_state_t *state, int token, const char *token_value);
 
 #define simple(token)	(update_location(yyextra, yytext), set_lval_simple(yyextra, token, yytext, STTYPE_UNINITIALIZED))
@@ -92,6 +91,7 @@ static int set_lval_field(df_scanner_state_t *state, int token, const char *toke
 #define math(token)	(update_location(yyextra, yytext), set_lval_simple(yyextra, token, yytext, STTYPE_ARITHMETIC))
 
 static gboolean append_escaped_char(df_scanner_state_t *state, GString *str, char c);
+static gboolean append_universal_character_name(df_scanner_state_t *state, GString *str, const char *ucn);
 static gboolean parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep);
 
 static void update_location(df_scanner_state_t *state, const char *text);
@@ -136,6 +136,7 @@ dot-bytes	{hex2}(\.{hex2})+
 hyphen-bytes	{hex2}(-{hex2})+
 
 %x RANGE
+%x LAYER
 %x DQUOTE
 %x SQUOTE
 %x REFERENCE
@@ -152,6 +153,9 @@ hyphen-bytes	{hex2}(-{hex2})+
 "{"		return simple(TOKEN_LBRACE);
 ".."		return simple(TOKEN_DOTDOT);
 "}"		return simple(TOKEN_RBRACE);
+"$"		return simple(TOKEN_DOLLAR);
+"any"		return simple(TOKEN_ANY);
+"all"		return simple(TOKEN_ALL);
 
 "=="		return test(TOKEN_TEST_ANY_EQ);
 "eq"		return test(TOKEN_TEST_ANY_EQ);
@@ -194,14 +198,31 @@ hyphen-bytes	{hex2}(-{hex2})+
 "&"		return math(TOKEN_BITWISE_AND);
 "bitwise_and"	return math(TOKEN_BITWISE_AND);
 
-"["				{
+"#"				{
+	BEGIN(LAYER);
+	return simple(TOKEN_HASH);
+}
+
+<LAYER>[[:digit:]]+		{
+	BEGIN(INITIAL);
+	update_location(yyextra, yytext);
+	return set_lval_simple(yyextra, TOKEN_INTEGER, yytext, STTYPE_UNINITIALIZED);
+}
+
+<LAYER>[^[:digit:][]			{
+	update_location(yyextra, yytext);
+	FAIL("Expected digit or \"[\", not \"%s\"", yytext);
+	return SCAN_FAILED;
+}
+
+<INITIAL,LAYER>"["		{
 	BEGIN(RANGE);
 	return simple(TOKEN_LBRACKET);
 }
 
 <RANGE>[^],]+			{
 	update_location(yyextra, yytext);
-	return set_lval_range_node(yyextra, TOKEN_RANGE_NODE, yytext);
+	return set_lval_simple(yyextra, TOKEN_RANGE_NODE, yytext, STTYPE_UNINITIALIZED);
 }
 
 <RANGE>","			{
@@ -230,7 +251,7 @@ hyphen-bytes	{hex2}(-{hex2})+
 	update_location(yyextra, yytext);
 	yyextra->string_loc = yyextra->location;
 
-	yyextra->quoted_string = g_string_new("\"");
+	yyextra->quoted_string = g_string_new(NULL);
 
 	if (yytext[0] == 'r' || yytext[0] == 'R') {
 		/*
@@ -262,7 +283,6 @@ hyphen-bytes	{hex2}(-{hex2})+
 	/* end quote */
 	BEGIN(INITIAL);
 	update_string_loc(yyextra, yytext);
-	g_string_append_c(yyextra->quoted_string, '"');
 	int token = set_lval_quoted_string(yyextra, TOKEN_STRING, yyextra->quoted_string);
 	yyextra->quoted_string = NULL;
 	yyextra->string_loc.col_start = -1;
@@ -278,12 +298,6 @@ hyphen-bytes	{hex2}(-{hex2})+
 	else {
 		unsigned long result;
 		result = strtoul(yytext + 1, NULL, 8);
-		if (result == 0) {
-			g_string_free(yyextra->quoted_string, TRUE);
-			yyextra->quoted_string = NULL;
-			FAIL("%s (NUL byte) cannot be used with a regular string.", yytext);
-			return SCAN_FAILED;
-		}
 		if (result > 0xff) {
 			g_string_free(yyextra->quoted_string, TRUE);
 			yyextra->quoted_string = NULL;
@@ -307,13 +321,33 @@ hyphen-bytes	{hex2}(-{hex2})+
 	else {
 		unsigned long result;
 		result = strtoul(yytext + 2, NULL, 16);
-		if (result == 0) {
-			g_string_free(yyextra->quoted_string, TRUE);
-			yyextra->quoted_string = NULL;
-			FAIL("%s (NUL byte) cannot be used with a regular string.", yytext);
-			return SCAN_FAILED;
-		}
 		g_string_append_c(yyextra->quoted_string, (gchar) result);
+	}
+}
+
+<DQUOTE>\\u[[:xdigit:]]{0,4} {
+	/* universal character name */
+	update_string_loc(yyextra, yytext);
+	if (yyextra->raw_string) {
+		g_string_append(yyextra->quoted_string, yytext);
+	}
+	else if (!append_universal_character_name(yyextra, yyextra->quoted_string, yytext)) {
+		g_string_free(yyextra->quoted_string, TRUE);
+		yyextra->quoted_string = NULL;
+		return SCAN_FAILED;
+	}
+}
+
+<DQUOTE>\\U[[:xdigit:]]{0,8} {
+	/* universal character name */
+	update_string_loc(yyextra, yytext);
+	if (yyextra->raw_string) {
+		g_string_append(yyextra->quoted_string, yytext);
+	}
+	else if (!append_universal_character_name(yyextra, yyextra->quoted_string, yytext)) {
+		g_string_free(yyextra->quoted_string, TRUE);
+		yyextra->quoted_string = NULL;
+		return SCAN_FAILED;
 	}
 }
 
@@ -433,12 +467,6 @@ hyphen-bytes	{hex2}(-{hex2})+
 	return set_lval_str(yyextra, TOKEN_UNPARSED, yytext);
 }
 
-"${"{Identifier}"}"		{
-	char *end = strchr(yytext, '}');
-	*end = '\0';
-	return set_lval_field(yyextra, TOKEN_REFERENCE, yytext + 2);
-}
-
 . {
 	/* Default */
 	update_location(yyextra, yytext);
@@ -508,12 +536,9 @@ static int
 set_lval_quoted_string(df_scanner_state_t *state, int token, GString *quoted_string)
 {
 	ws_assert(token == TOKEN_STRING);
-	char *token_value = g_string_free(quoted_string, FALSE);
+	char *token_value = ws_escape_string_len(NULL, quoted_string->str, quoted_string->len, true);
 
-	/* Strip start and end quote. */
-	char *data = g_strndup(token_value + 1, strlen(token_value + 1) - 1);
-
-	stnode_init(df_lval, STTYPE_STRING, data, token_value, &state->string_loc);
+	stnode_init(df_lval, STTYPE_STRING, quoted_string, token_value, &state->string_loc);
 	return token;
 }
 
@@ -544,9 +569,6 @@ set_lval_field(df_scanner_state_t *state, int token, const char *token_value)
 		case TOKEN_FIELD:
 			type_id = STTYPE_FIELD;
 			break;
-		case TOKEN_REFERENCE:
-			type_id = STTYPE_REFERENCE;
-			break;
 		default:
 			ws_assert_not_reached();
 	}
@@ -556,23 +578,6 @@ set_lval_field(df_scanner_state_t *state, int token, const char *token_value)
 		dfilter_fail(state->dfw, &state->location, "\"%s\" is not a valid protocol or protocol field.", token_value);
 	}
 	stnode_init(df_lval, type_id, hfinfo, g_strdup(token_value), &state->location);
-	return token;
-}
-
-static int
-set_lval_range_node(df_scanner_state_t *state, int token, const char *token_value)
-{
-	ws_assert(token == TOKEN_RANGE_NODE);
-	char *err = NULL;
-	drange_node *range;
-
-	range = drange_node_from_str(token_value, &err);
-	if (err != NULL) {
-		dfilter_fail(state->dfw, &state->location, "%s", err);
-		g_free(err);
-		return SCAN_FAILED;
-	}
-	stnode_init(df_lval, STTYPE_RANGE_NODE, range, g_strdup(token_value), &state->location);
 	return token;
 }
 
@@ -616,10 +621,81 @@ append_escaped_char(df_scanner_state_t *state, GString *str, char c)
 }
 
 static gboolean
+parse_universal_character_name(df_scanner_state_t *state _U_, const char *str, char **ret_endptr, gunichar *valuep)
+{
+	guint64 val;
+	char *endptr;
+	int ndigits;
+
+	if (str[0] != '\\')
+		return FALSE;
+
+	if (str[1] == 'u')
+		ndigits = 4;
+	else if (str[1] == 'U')
+		ndigits = 8;
+	else
+		return FALSE;
+
+	for (int i = 2; i < ndigits + 2; i++) {
+		if (!g_ascii_isxdigit(str[i])) {
+			return FALSE;
+		}
+	}
+
+	errno = 0;
+	val = g_ascii_strtoull(str + 2, &endptr, 16); /* skip leading 'u' or 'U' */
+
+	if (errno != 0 || endptr == str || val > G_MAXUINT32) {
+		return FALSE;
+	}
+
+	/*
+	 * Ref: https://en.cppreference.com/w/c/language/escape
+	 * Range of universal character names
+	 *
+	 * If a universal character name corresponds to a code point that is
+	 * not 0x24 ($), 0x40 (@), nor 0x60 (`) and less than 0xA0, or a
+	 * surrogate code point (the range 0xD800-0xDFFF, inclusive), or
+	 * greater than 0x10FFFF, i.e. not a Unicode code point (since C23),
+	 * the program is ill-formed. In other words, members of basic source
+	 * character set and control characters (in ranges 0x0-0x1F and
+	 * 0x7F-0x9F) cannot be expressed in universal character names.
+	 */
+	if (val < 0xA0 && val != 0x24 && val != 0x40 && val != 0x60)
+		return FALSE;
+	else if (val >= 0xD800 && val <= 0xDFFF)
+		return FALSE;
+	else if (val > 0x10FFFF)
+		return FALSE;
+
+	*valuep = (gunichar)val;
+	if (ret_endptr)
+		*ret_endptr = endptr;
+	return TRUE;
+}
+
+static gboolean
+append_universal_character_name(df_scanner_state_t *state, GString *str, const char *ucn)
+{
+	gunichar val;
+
+	if (!parse_universal_character_name(state, ucn, NULL, &val)) {
+		dfilter_fail(state->dfw, &state->location, "%s is not a valid universal character name", ucn);
+		return FALSE;
+	}
+
+	g_string_append_unichar(str, val);
+	return TRUE;
+}
+
+static gboolean
 parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep)
 {
 	const char *cp;
 	unsigned long value;
+	gunichar unival;
+	char *endptr;
 
 	cp = s + 1;	/* skip the leading ' */
 	if (*cp == '\'') {
@@ -644,14 +720,17 @@ parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep)
 
 		case 'a':
 			value = '\a';
+			cp++;
 			break;
 
 		case 'b':
 			value = '\b';
+			cp++;
 			break;
 
 		case 'f':
 			value = '\f';
+			cp++;
 			break;
 
 		case 'n':
@@ -660,26 +739,32 @@ parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep)
 
 		case 'r':
 			value = '\r';
+			cp++;
 			break;
 
 		case 't':
 			value = '\t';
+			cp++;
 			break;
 
 		case 'v':
 			value = '\v';
+			cp++;
 			break;
 
 		case '\'':
 			value = '\'';
+			cp++;
 			break;
 
 		case '\\':
 			value = '\\';
+			cp++;
 			break;
 
 		case '"':
 			value = '"';
+			cp++;
 			break;
 
 		case 'x':
@@ -708,6 +793,17 @@ parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep)
 					return FALSE;
 				}
 			}
+			cp++;
+			break;
+
+		case 'u':
+		case 'U':
+			if (!parse_universal_character_name(state, s+1, &endptr, &unival)) {
+				dfilter_fail(state->dfw, &state->string_loc, "%s is not a valid universal character name", s);
+				return FALSE;
+			}
+			value = (unsigned long)unival;
+			cp = endptr;
 			break;
 
 		default:
@@ -742,15 +838,16 @@ parse_charconst(df_scanner_state_t *state, const char *s, unsigned long *valuep)
 				dfilter_fail(state->dfw, &state->string_loc, "%s is too large to be a valid character constant.", s);
 				return FALSE;
 			}
+			cp++;
 		}
 	} else {
-		value = *cp;
+		value = *cp++;
 		if (!g_ascii_isprint(value)) {
 			dfilter_fail(state->dfw, &state->string_loc, "Non-printable value '0x%02lx' in character constant.", value);
 			return FALSE;
 		}
 	}
-	cp++;
+
 	if ((*cp != '\'') || (*(cp + 1) != '\0')){
 		dfilter_fail(state->dfw, &state->string_loc, "%s is too long to be a valid character constant.", s);
 		return FALSE;

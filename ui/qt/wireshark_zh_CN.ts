@@ -1806,6 +1806,77 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>ConversationDataModel</name>
+    <message>
+        <source>Address A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Address B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">分组</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stream ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Abs Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rel Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished">持续时间</translation>
+    </message>
+    <message>
+        <source>Bits/s A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bits/s B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ConversationDialog</name>
     <message>
         <source>Follow Stream…</source>
@@ -2313,6 +2384,65 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>EndpointDataModel</name>
+    <message>
+        <source>Address</source>
+        <translation type="unfinished">地址</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">分组</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Country</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>City</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Number</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Organization</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>EndpointDialog</name>
     <message>
         <source>Map</source>
@@ -2332,14 +2462,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Map file error</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>No endpoints available to map</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Unable to create temporary file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4700,6 +4822,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Start capture</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Hide Interface</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>InterfaceSortFilterModel</name>
@@ -6955,14 +7081,21 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
-    <name>PathChooserDelegate</name>
+    <name>PathSelectionDelegate</name>
+    <message>
+        <source>Open a pipe</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PathSelectionEdit</name>
     <message>
         <source>Browse</source>
-        <translation>浏览</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open Pipe</source>
-        <translation>打开管道</translation>
+        <source>Select a path</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -10772,7 +10905,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>图像</translation>
     </message>
     <message>
-        <source>Json</source>
+        <source>JSON</source>
+        <oldsource>Json</oldsource>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11663,6 +11797,25 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
+    <name>TrafficTab</name>
+    <message>
+        <source>Map file error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not open base file %1 for reading: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>TrafficTableDialog</name>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show resolved addresses and port names rather than plain values. The corresponding name resolution preference must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -11685,40 +11838,74 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在开始时间列中显示绝对时间。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>GroupBox</source>
+        <translation type="unfinished">分组框</translation>
+    </message>
+    <message>
         <source>Absolute start time</source>
         <translation>绝对开始时间</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add and remove conversation types.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;添加、删除对话类型。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>%1 Types</source>
-        <translation>%1 类型</translation>
     </message>
     <message>
         <source>Copy</source>
         <translation>复制</translation>
     </message>
     <message>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTree</name>
+    <message>
+        <source>Resize all columns to content</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter on stream id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy %1 table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>as CSV</source>
-        <translation>作为 CSV</translation>
+        <translation type="unfinished">作为 CSV</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in CSV (Comma Separated Values) format.</source>
-        <translation>复制此页的所有值到剪贴板，使用 CSV（逗号分隔值）格式。</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>as YAML</source>
-        <translation>作为YAML</translation>
+        <translation type="unfinished">作为YAML</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the YAML data serialization format.</source>
-        <translation>复制此页的所有值到剪贴板，使用 YAML 数据串行格式。</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unknown</source>
-        <translation>未知</translation>
+        <source>as JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save data as raw</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disable data formatting for export/clipboard and save as raw data</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTypesModel</name>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">协议</translation>
     </message>
 </context>
 <context>
@@ -13261,6 +13448,10 @@ a:hover {
         <translation>重置外观布局为默认尺寸</translation>
     </message>
     <message>
+        <source>Seconds Since First Captured Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet &amp;Diagram</source>
         <translation>分组图(&amp;D)</translation>
     </message>
@@ -13583,10 +13774,6 @@ a:hover {
     <message>
         <source>Show packet times as the seconds since the UNIX / POSIX epoch (1970-01-01).</source>
         <translation>使用自 UNIX / POSIX 时间戳 (1970-01-01) 以来的秒数来显示分组时间。</translation>
-    </message>
-    <message>
-        <source>Seconds Since Beginning of Capture</source>
-        <translation>自捕获开始经过的秒数</translation>
     </message>
     <message>
         <source>Seconds Since Previous Captured Packet</source>

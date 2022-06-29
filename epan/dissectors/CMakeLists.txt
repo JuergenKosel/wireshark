@@ -167,6 +167,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-qsig.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ranap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rnsap.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-roon_discovery.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ros.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rrc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rrlp.c
@@ -1148,6 +1149,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gprs-llc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gprscdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gre.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-grebonding.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-grpc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gsm_a_bssmap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-gsm_a_common.c
@@ -1619,6 +1621,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdcp-lte.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdcp-nr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pdu-transport.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-peap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-peekremote.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-per.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pfcp.c

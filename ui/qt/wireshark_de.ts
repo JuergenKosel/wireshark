@@ -1815,6 +1815,77 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
+    <name>ConversationDataModel</name>
+    <message>
+        <source>Address A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port A</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Address B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port B</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">Pakete</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stream ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bytes B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Abs Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rel Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Duration</source>
+        <translation type="unfinished">Dauer</translation>
+    </message>
+    <message>
+        <source>Bits/s A </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bits/s B </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ConversationDialog</name>
     <message>
         <source>Follow Stream…</source>
@@ -2324,6 +2395,65 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
+    <name>EndpointDataModel</name>
+    <message>
+        <source>Address</source>
+        <translation type="unfinished">Adresse</translation>
+    </message>
+    <message>
+        <source>Port</source>
+        <translation type="unfinished">Port</translation>
+    </message>
+    <message>
+        <source>Packets</source>
+        <translation type="unfinished">Pakete</translation>
+    </message>
+    <message>
+        <source>Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rx Bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Country</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>City</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Number</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AS Organization</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Total Packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Percent Filtered</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>EndpointDialog</name>
     <message>
         <source>Map</source>
@@ -2344,14 +2474,6 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     <message>
         <source>Map file error</source>
         <translation>Fehler bei der Kartendatei</translation>
-    </message>
-    <message>
-        <source>No endpoints available to map</source>
-        <translation>Keine Geräte gefunden</translation>
-    </message>
-    <message>
-        <source>Unable to create temporary file</source>
-        <translation>Fehler beim Erstellen der temporären Datei</translation>
     </message>
     <message>
         <source>Save Endpoints Map</source>
@@ -4721,6 +4843,10 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <source>Start capture</source>
         <translation>Mitschnitt starten</translation>
     </message>
+    <message>
+        <source>Hide Interface</source>
+        <translation>Schnittstelle verbergen</translation>
+    </message>
 </context>
 <context>
     <name>InterfaceSortFilterModel</name>
@@ -6981,14 +7107,21 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
-    <name>PathChooserDelegate</name>
+    <name>PathSelectionDelegate</name>
+    <message>
+        <source>Open a pipe</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PathSelectionEdit</name>
     <message>
         <source>Browse</source>
-        <translation>Öffnen</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open Pipe</source>
-        <translation>Öffne Pipe</translation>
+        <source>Select a path</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -7589,7 +7722,7 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
     <message>
         <source>PDUs</source>
-        <translation type="unfinished"></translation>
+        <translation>PDUs</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -10813,8 +10946,9 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>Abbild</translation>
     </message>
     <message>
-        <source>Json</source>
-        <translation>Json</translation>
+        <source>JSON</source>
+        <oldsource>Json</oldsource>
+        <translation type="unfinished">Json</translation>
     </message>
     <message>
         <source>Raw</source>
@@ -11709,6 +11843,25 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
     </message>
 </context>
 <context>
+    <name>TrafficTab</name>
+    <message>
+        <source>Map file error</source>
+        <translation type="unfinished">Fehler bei der Kartendatei</translation>
+    </message>
+    <message>
+        <source>Could not open base file %1 for reading: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No endpoints available to map</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to create temporary file</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>TrafficTableDialog</name>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show resolved addresses and port names rather than plain values. The corresponding name resolution preference must be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
@@ -11731,40 +11884,74 @@ Um zum Beispiel eine neue Datei zu jeder vollen Stunde zu haben, 1 Stunde angebe
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Absolute Zeit in der Spalte Startzeit anzeigen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
+        <source>GroupBox</source>
+        <translation type="unfinished">Gruppierungsbox</translation>
+    </message>
+    <message>
         <source>Absolute start time</source>
         <translation>Absolute Startzeit</translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Add and remove conversation types.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Verbindungstypen hinzufügen oder entfernen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
-    </message>
-    <message>
-        <source>%1 Types</source>
-        <translation>%1 Typen</translation>
     </message>
     <message>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
+        <source>Unknown</source>
+        <translation>Unbekannt</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTree</name>
+    <message>
+        <source>Resize all columns to content</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter on stream id</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy %1 table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>as CSV</source>
-        <translation>als CSV</translation>
+        <translation type="unfinished">als CSV</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in CSV (Comma Separated Values) format.</source>
-        <translation>Alle Werte dieser Seite im CSV-Format (Comma Separated Values) in die Zwischenablage kopieren.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>as YAML</source>
-        <translation>als YAML</translation>
+        <translation type="unfinished">als YAML</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the YAML data serialization format.</source>
-        <translation>Alle Werte dieser Seite im YAML-Format in die Zwischenablage kopieren.</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Unknown</source>
-        <translation>Unbekannt</translation>
+        <source>as JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save data as raw</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Disable data formatting for export/clipboard and save as raw data</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTypesModel</name>
+    <message>
+        <source>Protocol</source>
+        <translation type="unfinished">Protokoll</translation>
     </message>
 </context>
 <context>
@@ -12157,7 +12344,7 @@ text-decoration: underline;
     </message>
     <message>
         <source>Welcome to %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Willkommen zu %1</translation>
     </message>
     <message>
         <source>All interfaces shown</source>
@@ -13338,6 +13525,10 @@ text-decoration: underline;
         <translation>Anzeige auf Ausgangsgröße zurücksetzen</translation>
     </message>
     <message>
+        <source>Seconds Since First Captured Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet &amp;Diagram</source>
         <translation>Paket&amp;diagramm</translation>
     </message>
@@ -13660,10 +13851,6 @@ text-decoration: underline;
     <message>
         <source>Show packet times as the seconds since the UNIX / POSIX epoch (1970-01-01).</source>
         <translation>Zeit des Pakets in Sekunden seit der UNIX / POSIX Epoche (1970-01-01) anzeigen.</translation>
-    </message>
-    <message>
-        <source>Seconds Since Beginning of Capture</source>
-        <translation>Sekunden seit dem Start der Aufnahme</translation>
     </message>
     <message>
         <source>Seconds Since Previous Captured Packet</source>
@@ -14200,12 +14387,12 @@ text-decoration: underline;
     <message>
         <source>Stop and Quit &amp;without Saving</source>
         <oldsource>Stop and Quit without Saving</oldsource>
-        <translation>Stoppen und beenden &amp;ohne zu speichern</translation>
+        <translation>Stoppen und beenden &amp;ohne zu Speichern</translation>
     </message>
     <message>
         <source>Quit &amp;without Saving</source>
         <oldsource>Quit without Saving</oldsource>
-        <translation>&amp;Ohne speichern beenden</translation>
+        <translation>&amp;Ohne Speichern beenden</translation>
     </message>
     <message>
         <source>There is no &quot;rtp.ssrc&quot; field in this version of Wireshark.</source>
@@ -14268,6 +14455,14 @@ text-decoration: underline;
     <message>
         <source>No Keys</source>
         <translation>Keine Schlüssel</translation>
+    </message>
+    <message numerus="yes">
+        <source>Export SSL Session Keys (%Ln key(s))</source>
+        <oldsource>Export SSL Session Keys (%1 key%2</oldsource>
+        <translation type="vanished">
+            <numerusform>SSL Session Keys exportieren (%Ln Key)</numerusform>
+            <numerusform>SSL Session Key exportieren (%Ln Keys)</numerusform>
+        </translation>
     </message>
     <message>
         <source>Raw data (*.bin *.dat *.raw);;All Files (</source>

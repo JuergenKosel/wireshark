@@ -2618,7 +2618,7 @@ static int
 mysql_dissect_ok_packet(tvbuff_t *tvb, packet_info *pinfo, int offset,
 			proto_tree *tree, mysql_conn_data_t *conn_data)
 {
-	guint64 lenstr;
+	guint64 lenstr = 0;
 	guint64 affected_rows;
 	guint64 insert_id;
 	int fle;
@@ -2643,7 +2643,8 @@ mysql_dissect_ok_packet(tvbuff_t *tvb, packet_info *pinfo, int offset,
 		/* 4.1+ protocol only: 2 bytes number of warnings */
 		if (conn_data->clnt_caps & conn_data->srv_caps & MYSQL_CAPS_CU) {
 			proto_tree_add_item(tree, hf_mysql_num_warn, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-		offset += 2;
+			lenstr = tvb_get_ntohs(tvb, offset);
+			offset += 2;
 		}
 	}
 
@@ -2679,7 +2680,8 @@ mysql_dissect_ok_packet(tvbuff_t *tvb, packet_info *pinfo, int offset,
 	} else {
 		/* optional: message string */
 		if (tvb_reported_length_remaining(tvb, offset) > 0) {
-			lenstr = tvb_reported_length_remaining(tvb, offset);
+			if(lenstr > (guint64)tvb_reported_length_remaining(tvb, offset))
+				lenstr = tvb_reported_length_remaining(tvb, offset);
 			proto_tree_add_item(tree, hf_mysql_message, tvb, offset, (gint)lenstr, ENC_ASCII);
 			offset += (int)lenstr;
 		}

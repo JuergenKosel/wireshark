@@ -77,12 +77,15 @@ enum ftenum {
 	 (ft) == FT_INT16 || \
 	 (ft) == FT_INT24 || \
 	 (ft) == FT_INT32)
+
 #define IS_FT_INT64(ft) \
 	((ft) == FT_INT40 || \
 	 (ft) == FT_INT48 || \
 	 (ft) == FT_INT56 || \
 	 (ft) == FT_INT64)
+
 #define IS_FT_INT(ft) (IS_FT_INT32(ft) || IS_FT_INT64(ft))
+
 #define IS_FT_UINT32(ft) \
 	((ft) == FT_CHAR ||   \
 	 (ft) == FT_UINT8 ||  \
@@ -90,17 +93,21 @@ enum ftenum {
 	 (ft) == FT_UINT24 || \
 	 (ft) == FT_UINT32 || \
 	 (ft) == FT_FRAMENUM)
+
 #define IS_FT_UINT64(ft) \
 	((ft) == FT_UINT40 || \
 	 (ft) == FT_UINT48 || \
 	 (ft) == FT_UINT56 || \
 	 (ft) == FT_UINT64)
+
 #define IS_FT_UINT(ft) (IS_FT_UINT32(ft) || IS_FT_UINT64(ft))
+
 #define IS_FT_TIME(ft) \
 	((ft) == FT_ABSOLUTE_TIME || (ft) == FT_RELATIVE_TIME)
+
 #define IS_FT_STRING(ft) \
 	((ft) == FT_STRING || (ft) == FT_STRINGZ || (ft) == FT_STRINGZPAD || \
-	 (ft) == FT_STRINGZTRUNC)
+	 (ft) == FT_STRINGZTRUNC || (ft) == FT_UINT_STRING)
 
 /* field types lengths */
 #define FT_ETHER_LEN		6
@@ -232,6 +239,7 @@ ftype_can_is_negative(enum ftenum ftype);
 typedef struct _protocol_value_t
 {
 	tvbuff_t	*tvb;
+	int		length;
 	gchar		*proto_string;
 	gboolean	tvb_is_private;
 } protocol_value_t;
@@ -245,8 +253,7 @@ typedef struct _fvalue_t {
 		guint64			uinteger64;
 		gint64			sinteger64;
 		gdouble			floating;
-		gchar			*string;
-		guchar			*ustring;
+		wmem_strbuf_t		*strbuf;
 		GByteArray		*bytes;
 		ipv4_addr_and_mask	ipv4;
 		ipv6_addr_and_prefix	ipv6;
@@ -277,8 +284,9 @@ WS_DLL_PUBLIC
 fvalue_t*
 fvalue_from_literal(ftenum_t ftype, const char *s, gboolean allow_partial_value, gchar **err_msg);
 
+/* String *MUST* be null-terminated. Length is optional (pass zero) and does not include the null terminator. */
 fvalue_t*
-fvalue_from_string(ftenum_t ftype, const char *s, gchar **err_msg);
+fvalue_from_string(ftenum_t ftype, const char *s, size_t len, gchar **err_msg);
 
 fvalue_t*
 fvalue_from_charconst(ftenum_t ftype, unsigned long number, gchar **err_msg);
@@ -319,7 +327,10 @@ void
 fvalue_set_string(fvalue_t *fv, const gchar *value);
 
 void
-fvalue_set_protocol(fvalue_t *fv, tvbuff_t *value, const gchar *name);
+fvalue_set_strbuf(fvalue_t *fv, wmem_strbuf_t *value);
+
+void
+fvalue_set_protocol(fvalue_t *fv, tvbuff_t *value, const gchar *name, int length);
 
 void
 fvalue_set_uinteger(fvalue_t *fv, guint32 value);
@@ -337,8 +348,28 @@ void
 fvalue_set_floating(fvalue_t *fv, gdouble value);
 
 WS_DLL_PUBLIC
-gpointer
-fvalue_get(fvalue_t *fv);
+const guint8 *
+fvalue_get_bytes(fvalue_t *fv);
+
+WS_DLL_PUBLIC
+const e_guid_t *
+fvalue_get_guid(fvalue_t *fv);
+
+WS_DLL_PUBLIC
+const nstime_t *
+fvalue_get_time(fvalue_t *fv);
+
+WS_DLL_PUBLIC
+const char *
+fvalue_get_string(fvalue_t *fv);
+
+WS_DLL_PUBLIC
+const wmem_strbuf_t *
+fvalue_get_strbuf(fvalue_t *fv);
+
+WS_DLL_PUBLIC
+tvbuff_t *
+fvalue_get_protocol(fvalue_t *fv);
 
 WS_DLL_PUBLIC guint32
 fvalue_get_uinteger(fvalue_t *fv);

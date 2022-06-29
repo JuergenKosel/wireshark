@@ -3746,6 +3746,10 @@ Martin Mayer		<martin.mayer[AT]m2-it-solutions.de> {
 	Allied Telesis Loop Detection Frames (LDF) dissector
 }
 
+Mattia Cazzola		<mattiac[AT]alinet.it> {
+	Provided a patch to the hex dump display routine.
+}
+
 and by:
 
 Georgi Guninski		<guninski[AT]guninski.com>
@@ -4005,6 +4009,7 @@ Triton Circonflexe	<triton+enuiqr[AT]kumal.info>
 
 = From git log =
 
+Aaron Turner		<synfinatic[AT]gmail.com>
 Abhinay Ramesh		<rabhinay[AT]vmware.com>
 Achuthan Paramanathan	<acp[AT]kamstrup.com>
 Adam Goldman		<adam.goldman[AT]intel.com>
@@ -4039,6 +4044,8 @@ Alex Sirr		<alexsirruw[AT]gmail.com>
 Alex Tessmer		<dev[AT]tessmer.me>
 AlexL			<loginov.alex.valer[AT]gmail.com>
 Alexander Aring		<aahringo[AT]redhat.com>
+Alexander Clouter	<aclouter[AT]networkradius.com>
+Alexander Clouter	<alex[AT]digriz.org.uk>
 Alexander Couzens	<lynxis[AT]fe80.eu>
 Alexander Dahl		<ada[AT]thorsis.com>
 Alexander Gryanko	<xpahos[AT]gmail.com>
@@ -4066,6 +4073,7 @@ Amitoj Setia		<asetia[AT]juniper.net>
 Ana Pantar		<ana.pantar[AT]gmail.com>
 Anaël Fiaux		<anael[AT]fiaux.org>
 Anders Esbensen		<Anders.Esbensen[AT]silabs.com>
+Andoni Diaz de Cerio	<andoni.diazdecerio[AT]nemergent-solutions.com>
 Andre Luyer		<andre[AT]luyer.nl>
 Andre Puschmann		<andre[AT]softwareradiosystems.com>
 Andreas Gruenbacher	<andreas.gruenbacher[AT]gmail.com>
@@ -4302,6 +4310,7 @@ Edward Smith		<edward.smith[AT]nowlegent.com>
 Edwin Groothuis		<edwin[AT]mavetju.org>
 Eelco Chaudron		<echaudro[AT]redhat.com>
 Eldon Stegall		<wireshark-gerrit[AT]eldondev.com>
+Elijah Conners		<business[AT]elijahpepe.com>
 Eliot Lear		<lear[AT]cisco.com>
 Elvin Arias Soto	<eeariass[AT]gmail.com>
 Emanuele Bovisio	<emanuele.bovisio[AT]eolo.it>
@@ -4366,6 +4375,7 @@ Gerhard KHUENY		<Gerhard.KHUENY[AT]bachmann.info>
 Gianluca Borello	<g.borello[AT]gmail.com>
 Gilbert Ramirez		<gilbertr[AT]gmail.com>
 Gilles Dufour		<dufour.gilles[AT]gmail.com>
+Gisle Vanem		<gvanem[AT]online.no>
 Gizem Yurdagul		<gizemnuryurdagul[AT]gmail.com>
 Glenden Lee		<thornhillextreme[AT]gmail.com>
 Gloria Pozuelo		<gloria.pozuelo[AT]bics.com>
@@ -4377,6 +4387,7 @@ Gregor Jasny		<gjasny[AT]googlemail.com>
 Gregor Jasny		<gregor.jasny[AT]logmein.com>
 Gregor Miernik		<gregor.miernik[AT]hytec.de>
 Grzegorz Niemirowski	<grzegorz[AT]grzegorz.net>
+Gtker			<git[AT]gtker.com>
 Gtker			<wireshark[AT]gtker.com>
 Guillaume Autran	<gautran[AT]clearpathrobotics.com>
 Guvenc Gulce		<guvenc[AT]linux.ibm.com>
@@ -4417,8 +4428,10 @@ J M			<jm.commercial[AT]posteo.de>
 J. Bruce Fields		<bfields[AT]redhat.com>
 JC Wren			<jcwren[AT]jcwren.com>
 Jack Culhane		<jackculhane[AT]gmail.com>
+Jack Kaplan		<efraimkaplan7[AT]gmail.com>
 Jaime Caamaño Ruiz	<jcaamano[AT]suse.com>
 Jakub Adam		<jakub.adam[AT]collabora.com>
+Jakub Jirutka		<jakub[AT]jirutka.cz>
 Jakub Pawlowski		<jpawlowski[AT]google.com>
 Jambukumar Kulandaivel	<jambukumar[AT]codeaurora.org>
 James Coleman		<jamesc[AT]dspsrv.com>
@@ -4435,6 +4448,7 @@ Jan-Hendrik Bolte	<jabolte[AT]uos.de>
 Jann Horn		<jannh[AT]google.com>
 Jano Svitok		<jsv[AT]whitestein.com>
 Jared Rittle		<jrittle[AT]cisco.com>
+Jason Cohen		<7011141-kryojenik[AT]users.noreply.gitlab.com>
 Jason Cohen		<j.cohen[AT]f5.com>
 Jason Cohen		<kryojenik2[AT]gmail.com>
 Jason Heimann		<jheimann[AT]pertino.com>
@@ -4457,6 +4471,7 @@ Jeremy Browne		<jer[AT]ifni.ca>
 Jeremy Hitt		<jeremy.hitt[AT]isilon.com>
 Jeremy Kerr		<jk[AT]ozlabs.org>
 Jeremy Martin		<boardermartin[AT]gmail.com>
+Jeremy McCormick	<jeremy.mccormick[AT]craftdesigns.net>
 Jeroen Roovers		<jer[AT]gentoo.org>
 Jeroen Sack		<jeroen.sack[AT]agcocorp.com>
 Jeroen Sack		<jeroen[AT]jeroensack.nl>
@@ -4526,6 +4541,7 @@ Jörg Mayer		<jmghc[AT]loplof.de>
 Ka-Shu Wong		<kswong[AT]exablaze.com>
 Kaige Ye		<ye[AT]kaige.org>
 Karl Knoebl		<karl.knoebl[AT]technikum-wien.at>
+Karsten Graul		<kgraul[AT]linux.ibm.com>
 Kary Rogers		<kary.rogers[AT]gmail.com>
 Kasper Deng		<kasper.deng[AT]ericsson.com>
 Keith Scott		<keithlscott[AT]gmail.com>
@@ -4688,11 +4704,13 @@ Mikhail Gusarov		<dottedmag[AT]dottedmag.net>
 Milan Stute		<mstute[AT]seemoo.tu-darmstadt.de>
 Milos Jovanovic		<jeyem815[AT]gmail.com>
 Miltos Patsiouras	<mipatsio[AT]gmail.com>
+Min Wang		<wang[AT]mins.app>
 Minh Phan		<phanducnhatminh[AT]gmail.com>
 Mirko Parthey		<mirko.parthey[AT]web.de>
 Moraney Jalil		<moraney.jalil[AT]outlook.com>
 Morten Tryfoss		<morten[AT]tryfoss.no>
 Moshe Kaplan		<me[AT]moshekaplan.com>
+Moshe Kaplan		<mosheekaplan[AT]gmail.com>
 Nan Xiao		<nan[AT]chinadtrace.org>
 Natale Patriciello	<natale.patriciello[AT]gmail.com>
 Nathan Cole		<nath[AT]thecoleresidence.co.uk>
@@ -4988,6 +5006,7 @@ Trond Norbye		<trond.norbye[AT]gmail.com>
 Trond Norbye		<trond[AT]couchbase.com>
 Ugur ILTER		<ugur.ilter[AT]airties.com>
 Ulf			<ulf33286[AT]gmail.com>
+Uli Heilmeier		<ulrich.heilmeier[AT]vitesco.com>
 Uli Schlachter		<psychon[AT]znc.in>
 Umberto Corponi		<umberto.corponi[AT]athonet.com>
 Uri Simchoni		<urisimchoni[AT]gmail.com>
@@ -5053,6 +5072,7 @@ Yoni Gilad		<yonig[AT]radcom.com>
 Yoshihiro Ueda		<uyoshihiro[AT]users.noreply.gitlab.com>
 Yoshiyuki Kurauchi	<ahochauwaaaaa[AT]gmail.com>
 Yu Gao			<katgao[AT]cisco.com>
+Yu Gao			<katherinegy0515[AT]gmail.com>
 Yuri Chislov		<yuri.chislov[AT]gmail.com>
 Yurii Lysyi		<yurii.lysyi[AT]ericsson.com>
 Yury Gargay		<yury.gargay[AT]gmail.com>
@@ -5087,11 +5107,14 @@ kardam			<netkardam[AT]gmail.com>
 kkoizumi		<kkoizumi46[AT]gmail.com>
 kor			<drkor[AT]bk.ru>
 liam-black		<liam.black[AT]enea.com>
+lindnerp		<lindnerp[AT]ohio.edu>
 liningjie		<1350445139[AT]qq.com>
 lutianxiong		<lutianxiong[AT]huawei.com>
+mGhony99		<mGhony99[AT]gmail.com>
 mbutkereit		<marvin.butkereit[AT]haw-hamburg.de>
 mirkodeckert		<mirko.deckert[AT]adtran.com>
 mkg20001		<mkg20001[AT]gmail.com>
+naesten			<naesten[AT]gmail.com>
 naf			<naf[AT]sdf.org>
 nickvsnetworking	<nick[AT]nickvsnetworking.com>
 pavol47			<pavoloresky47[AT]gmail.com>
@@ -5116,13 +5139,11 @@ zhudewen		<zhudewen[AT]iauto.com>
 
 Dan Lasley <dlasley[AT]promus.com> gave permission for his dumpit() hex-dump routine to be used.
 
-Mattia Cazzola <mattiac[AT]alinet.it> provided a patch to the hex dump display routine.
-
 We use the exception module from Kazlib, a C library written by Kaz Kylheku <kaz[AT]kylheku.com>. Thanks go to him for his well-written library. The Kazlib home page can be found at http://www.kylheku.com/~kaz/kazlib.html
 
 We use Lua BitOp, written by Mike Pall, for bitwise operations on numbers in Lua. The Lua BitOp home page can be found at https://bitop.luajit.org
 
-snax <snax[AT]shmoo.com> gave permission to use his(?) weak key detection code from Airsnort.
+Snax <snax[AT]shmoo.com> gave permission to use the weak key detection code from Airsnort.
 
 IANA gave permission for their port-numbers file to be used.
 
@@ -5133,3 +5154,7 @@ Emanuel Eichhammer <support[AT]qcustomplot.com> granted permission to use QCusto
 Some icons made by Freepik, http://www.freepik.com from https://www.flaticon.com
 
 Insecure.Com LLC ("The Nmap Project") has granted the Wireshark Foundation permission to distribute Npcap with our Windows installers.
+
+We use the overflow-safe math functions from the portable snippets repository (https://github.com/nemequ/portable-snippets).
+
+We use the Lrexlib Lua library, specifically the PCRE2 flavour, to provide a regular expression API for Lua. The Lrexlib repository is hosted at https://github.com/rrthomas/lrexlib.

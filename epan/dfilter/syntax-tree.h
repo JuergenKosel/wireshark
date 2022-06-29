@@ -30,8 +30,7 @@ typedef enum {
 	STTYPE_CHARCONST,
 	STTYPE_FIELD,
 	STTYPE_FVALUE,
-	STTYPE_RANGE,
-	STTYPE_RANGE_NODE,
+	STTYPE_SLICE,
 	STTYPE_FUNCTION,
 	STTYPE_SET,
 	STTYPE_PCRE,
@@ -63,6 +62,12 @@ typedef enum {
 	TEST_OP_MATCHES,
 	TEST_OP_IN
 } test_op_t;
+
+typedef enum {
+	ST_MATCH_DEF,
+	ST_MATCH_ANY,
+	ST_MATCH_ALL,
+} test_match_t;
 
 typedef gpointer        (*STTypeNewFunc)(gpointer);
 typedef gpointer        (*STTypeDupFunc)(gconstpointer);
@@ -97,11 +102,11 @@ typedef struct {
 } stnode_t;
 
 /* These are the sttype_t registration function prototypes. */
+void sttype_register_field(void);
 void sttype_register_function(void);
-void sttype_register_integer(void);
 void sttype_register_pointer(void);
-void sttype_register_range(void);
 void sttype_register_set(void);
+void sttype_register_slice(void);
 void sttype_register_string(void);
 void sttype_register_test(void);
 
@@ -140,6 +145,9 @@ stnode_type_id(stnode_t *node);
 
 gpointer
 stnode_data(stnode_t *node);
+
+GString *
+stnode_string(stnode_t *node);
 
 gpointer
 stnode_steal_data(stnode_t *node);

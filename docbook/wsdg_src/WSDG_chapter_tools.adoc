@@ -98,7 +98,7 @@ $ cmake -G Ninja ../wireshark
 $ ninja (or cmake --build .)
 ----
 
-Using CMake on Windows is described further in <<ChWin32Generate>>.
+Using CMake on Windows is described further in <<ChWindowsGenerate>>.
 
 Along with specifying a generator with the `-G` flag you can set variables
 using the `-D` flag. Useful variables and generators include the following:
@@ -106,6 +106,8 @@ using the `-D` flag. Useful variables and generators include the following:
 -DBUILD_wireshark=OFF:: Don't build the Wireshark GUI application.
 Each command line utility has its own BUILD_xxx flag as well. For
 example, you can use -DBUILD_mmdbresolve=OFF to disable mmdbresolve.
+
+-DENABLE_CCACHE=ON:: Build using the ccache compiler cache.
 
 -DENABLE_CAP=OFF:: Disable the POSIX capabilities check
 
@@ -126,6 +128,31 @@ For example, if you’re building for macOS 10.12 you’ll need to install https
 You can list all build variables (with help) by running `cmake -LH [options]
 ../<Name_of_WS_source_dir>`. This lists the cache of build variables
 after the cmake run. To only view the current cache, add option `-N`.
+
+Depending on your needs, it might be useful to save your CMake configuration options in a file outside your build directory.
+CMake supports this via its https://cmake.org/cmake/help/v3.23/manual/cmake-presets.7.html[presets] option.
+For example, adding the follwing to `CMakeUserPresets.json` would let you build using Ninja in the `build` directory, enable ccache, and set a custom Qt directory by running `cmake --preset mydev`:
+
+[source,json]
+----
+{
+  "version: 4,
+  "configurePresets": [
+    {
+      "name": "mydev",
+      "displayName": "Local development",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "ENABLE_CCACHE": "ON",
+      },
+      "environment": {
+        "CMAKE_PREFIX_PATH": "/usr/local/Qt6"
+      }
+    }
+  ]
+}
+----
 
 After running cmake, you can always run `make help` to see a list of all possible make targets.
 

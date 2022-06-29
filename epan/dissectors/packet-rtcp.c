@@ -988,6 +988,9 @@ dissect_rtcp_heur( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     unsigned int first_byte;
     unsigned int packet_type;
 
+    if (tvb_captured_length(tvb) < 2)
+        return FALSE;
+
     /* Look at first byte */
     first_byte = tvb_get_guint8(tvb, offset);
 
@@ -2547,12 +2550,8 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                     break;
                 }
                 /* Reject Phrase */
-                proto_tree_add_item(sub_tree, hf_rtcp_sdes_type, tvb, offset, 1, ENC_BIG_ENDIAN);
-                offset += 1;
-                proto_tree_add_item(sub_tree, hf_rtcp_sdes_length, tvb, offset, 1, ENC_BIG_ENDIAN);
-                offset += 1;
-                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_rej_phrase, tvb, offset, mcptt_fld_len - 4, ENC_UTF_8 | ENC_NA);
-                offset += (mcptt_fld_len - 4);
+                proto_tree_add_item(sub_tree, hf_rtcp_mcptt_rej_phrase, tvb, offset, mcptt_fld_len - 2, ENC_UTF_8 | ENC_NA);
+                offset += (mcptt_fld_len - 2);
                 break;
             }
             case 3:
@@ -2610,9 +2609,19 @@ dissect_rtcp_app_mcpt(tvbuff_t* tvb, packet_info* pinfo, int offset, proto_tree*
                 proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_mcptt_part_type_len, tvb, offset, 1, ENC_BIG_ENDIAN, &fld_len);
                 offset += 1;
                 rem_len -= 1;
+                int part_type_padding = (4 - (fld_len % 4));
                 proto_tree_add_item(sub_tree, hf_rtcp_mcptt_participant_type, tvb, offset, fld_len, ENC_UTF_8 | ENC_NA);
                 offset += fld_len;
                 rem_len -= fld_len;
+                if(part_type_padding > 0){
+                    guint32 data;
+                    proto_tree_add_item_ret_uint(sub_tree, hf_rtcp_app_data_padding, tvb, offset, part_type_padding, ENC_BIG_ENDIAN, &data);
+                    if (data != 0) {
+                        proto_tree_add_expert(sub_tree, pinfo, &ei_rtcp_appl_non_zero_pad, tvb, offset, part_type_padding);
+                    }
+                    offset += part_type_padding;
+                    rem_len -= part_type_padding;
+                }
                 if (rem_len > 0) {
                     num_ref = 1;
                     /* Floor Participant Reference */
@@ -5220,7 +5229,7 @@ proto_register_rtcp(void)
             {
                 "Priority",
                 "rtcp.app.poc1.priority",
-                FT_UINT8,
+                FT_UINT16,
                 BASE_DEC,
                 VALS(rtcp_app_poc1_qsresp_priority_vals),
                 0x0,

@@ -400,13 +400,13 @@ fvalue_from_literal(ftenum_t ftype, const char *s, gboolean allow_partial_value,
 }
 
 fvalue_t*
-fvalue_from_string(ftenum_t ftype, const char *s, gchar **err_msg)
+fvalue_from_string(ftenum_t ftype, const char *str, size_t len, gchar **err_msg)
 {
 	fvalue_t	*fv;
 
 	fv = fvalue_new(ftype);
 	if (fv->ftype->val_from_string) {
-		if (fv->ftype->val_from_string(fv, s, err_msg)) {
+		if (fv->ftype->val_from_string(fv, str, len, err_msg)) {
 			/* Success */
 			if (err_msg != NULL)
 				*err_msg = NULL;
@@ -415,8 +415,8 @@ fvalue_from_string(ftenum_t ftype, const char *s, gchar **err_msg)
 	}
 	else {
 		if (err_msg != NULL) {
-			*err_msg = ws_strdup_printf("\"%s\" cannot be converted to %s.",
-					s, ftype_pretty_name(ftype));
+			*err_msg = ws_strdup_printf("%s cannot be converted from a string (\"%s\").",
+					ftype_pretty_name(ftype), str);
 		}
 	}
 	fvalue_free(fv);
@@ -629,18 +629,28 @@ fvalue_set_time(fvalue_t *fv, const nstime_t *value)
 void
 fvalue_set_string(fvalue_t *fv, const gchar *value)
 {
-	ws_assert(IS_FT_STRING(fv->ftype->ftype) ||
-			fv->ftype->ftype == FT_UINT_STRING);
-	ws_assert(fv->ftype->set_value.set_value_string);
-	fv->ftype->set_value.set_value_string(fv, value);
+	wmem_strbuf_t *buf = wmem_strbuf_new(NULL, value);
+	fvalue_set_strbuf(fv, buf);
 }
 
 void
-fvalue_set_protocol(fvalue_t *fv, tvbuff_t *value, const gchar *name)
+fvalue_set_strbuf(fvalue_t *fv, wmem_strbuf_t *value)
+{
+	if (value->allocator != NULL) {
+		/* XXX Can this condition be relaxed? */
+		ws_critical("Fvalue strbuf allocator must be NULL");
+	}
+	ws_assert(IS_FT_STRING(fv->ftype->ftype));
+	ws_assert(fv->ftype->set_value.set_value_strbuf);
+	fv->ftype->set_value.set_value_strbuf(fv, value);
+}
+
+void
+fvalue_set_protocol(fvalue_t *fv, tvbuff_t *value, const gchar *name, int length)
 {
 	ws_assert(fv->ftype->ftype == FT_PROTOCOL);
 	ws_assert(fv->ftype->set_value.set_value_protocol);
-	fv->ftype->set_value.set_value_protocol(fv, value, name);
+	fv->ftype->set_value.set_value_protocol(fv, value, name, length);
 }
 
 void
@@ -704,9 +714,8 @@ fvalue_set_floating(fvalue_t *fv, gdouble value)
 	fv->ftype->set_value.set_value_floating(fv, value);
 }
 
-
-gpointer
-fvalue_get(fvalue_t *fv)
+const guint8 *
+fvalue_get_bytes(fvalue_t *fv)
 {
 	ws_assert(fv->ftype->ftype == FT_BYTES ||
 			fv->ftype->ftype == FT_UINT_BYTES ||
@@ -717,14 +726,47 @@ fvalue_get(fvalue_t *fv)
 			fv->ftype->ftype == FT_REL_OID ||
 			fv->ftype->ftype == FT_SYSTEM_ID ||
 			fv->ftype->ftype == FT_FCWWN ||
-			fv->ftype->ftype == FT_GUID ||
-			fv->ftype->ftype == FT_IPv6 ||
-			fv->ftype->ftype == FT_PROTOCOL ||
-			IS_FT_STRING(fv->ftype->ftype) ||
-			fv->ftype->ftype == FT_UINT_STRING ||
-			IS_FT_TIME(fv->ftype->ftype));
-	ws_assert(fv->ftype->get_value.get_value_ptr);
-	return fv->ftype->get_value.get_value_ptr(fv);
+			fv->ftype->ftype == FT_IPv6);
+	ws_assert(fv->ftype->get_value.get_value_bytes);
+	return fv->ftype->get_value.get_value_bytes(fv);
+}
+
+const e_guid_t *
+fvalue_get_guid(fvalue_t *fv)
+{
+	ws_assert(fv->ftype->ftype == FT_GUID);
+	ws_assert(fv->ftype->get_value.get_value_guid);
+	return fv->ftype->get_value.get_value_guid(fv);
+}
+
+const nstime_t *
+fvalue_get_time(fvalue_t *fv)
+{
+	ws_assert(IS_FT_TIME(fv->ftype->ftype));
+	ws_assert(fv->ftype->get_value.get_value_time);
+	return fv->ftype->get_value.get_value_time(fv);
+}
+
+const char *
+fvalue_get_string(fvalue_t *fv)
+{
+	return wmem_strbuf_get_str(fvalue_get_strbuf(fv));
+}
+
+const wmem_strbuf_t *
+fvalue_get_strbuf(fvalue_t *fv)
+{
+	ws_assert(IS_FT_STRING(fv->ftype->ftype));
+	ws_assert(fv->ftype->get_value.get_value_strbuf);
+	return fv->ftype->get_value.get_value_strbuf(fv);
+}
+
+tvbuff_t *
+fvalue_get_protocol(fvalue_t *fv)
+{
+	ws_assert(fv->ftype->ftype == FT_PROTOCOL);
+	ws_assert(fv->ftype->get_value.get_value_protocol);
+	return fv->ftype->get_value.get_value_protocol(fv);
 }
 
 guint32

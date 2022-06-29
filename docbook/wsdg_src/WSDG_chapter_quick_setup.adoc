@@ -16,7 +16,6 @@ The following must be installed in order to build Wireshark:
 
 * a C compiler and a C++ compiler;
 * the Flex lexical analyzer;
-* either Bison or Berkeley YACC;
 * Perl;
 * Python 3;
 * CMake;
@@ -157,16 +156,24 @@ the file _docbook/README.adoc_ in the Wireshark sources.
 
 ==== Optional: Create an installable or source code package
 
-To create a source code tarball, build the `dist` target.
+You can create packages using the following build targets and commands:
 
-To create an installable package after successfully building Wireshark:
+Source code tarball::
+  Build the `dist` target.
 
-* to build a Debian package, build the `deb-package` target;
-* to build an RPM package, build the `rpm-package` target;
-* to build an https://appimage.org[AppImage] package, build the
-`appimage` target;
-* to build a macOS dmg package containing am application bundle, build
-the `dmg_package` target.
+deb (Debian) package::
+  Create a symlink in the top-level source directory to _packaging/debian_, then run `dpkg-buildpackage`.
+
+RPM package::
+  Build the `wireshark_rpm` target.
+
+https://appimage.org[AppImage] package::
+  Build the `wireshark_appimage` target.
+
+macOS .dmg package containing an application bundle::
+  Build the `wireshark_dmg` or `logwolf_dmg` targets.
+
+Installable packages typically require building Wireshark first.
 
 ==== Troubleshooting during the build and install on Unix
 
@@ -442,9 +449,10 @@ path and that xsltproc uses the DocBook catalog.
 
 ==== Install winflexbison
 
-Get the winFlexBison installer from https://sourceforge.net/projects/winflexbison/
-and install into the default location. Ensure the directory containing win_flex.exe
-and win_bison.exe is on your path.
+Get the winFlexBison installer from
+https://sourceforge.net/projects/winflexbison/
+and install into the default location.
+Ensure the directory containing win_flex.exe is on your path.
 
 Alternatively you can install Winflexbison using Chocolatey:
 
@@ -562,10 +570,10 @@ Create (if required) and change to the appropriate build directory.
 ----
 to create and jump into the build directory.
 
-The build directory can be deleted at any time and the build files regenerated as detailed in <<ChWin32Generate>>.
+The build directory can be deleted at any time and the build files regenerated as detailed in <<ChWindowsGenerate>>.
 --
 
-[#ChWin32Generate]
+[#ChWindowsGenerate]
 
 ==== Generate the build files
 
@@ -582,22 +590,15 @@ If you've closed the Visual Studio Command Prompt <<ChSetupPrepareCommandCom,pre
 
 To generate the build files enter the following at the Visual Studio command prompt:
 ----
-> cmake -G "Visual Studio 16 2019" -A x64 ..\wireshark
-> : or
 > cmake -G "Visual Studio 17 2022" -A x64 ..\wireshark
+> : or
+> cmake -G "Visual Studio 16 2019" -A x64 ..\wireshark
 ----
 
 Adjusting the path to the Wireshark source tree as required.
 To use a different generator modify the `-G` parameter.
 `cmake -G` lists all the CMake supported generators, but only Visual Studio is supported for Wireshark builds.
-
-To build a 32-bit / x86 version, specify “Win32” as the architecture:
-
-----
-> cmake -G "Visual Studio 16 2019" -A Win32 ..\wireshark
-> : or
-> cmake -G "Visual Studio 17 2022" -A Win32 ..\wireshark
-----
+32-bit builds are no longer supported.
 
 The CMake generation process will download the required 3rd party libraries (apart from Qt)
 as required, then test each library for usability before generating the build files.
@@ -613,7 +614,7 @@ If you get any other output, there is an issue in your environment that must be 
 Check the parameters passed to CMake, especially the `-G` option and the path to the Wireshark sources and
 the environment variables `WIRESHARK_BASE_DIR` and `CMAKE_PREFIX_PATH`.
 
-[#ChWin32Build]
+[#ChWindowsBuild]
 
 ==== Build Wireshark
 
@@ -656,7 +657,7 @@ on using the <<ChToolsDebugger, Debugger Tools>>.
 To build the Wireshark User's Guide and the Wireshark Developer's Guide,
 build the `all_guides` target, e.g.  `msbuild all_guides.vcxproj`.
 Detailed information to build these guides can be found in the file
-_docbook\README.md_ in the Wireshark sources.
+_docbook\README.adoc_ in the Wireshark sources.
 
 ==== Optional: Create a Wireshark Installer
 
@@ -675,12 +676,12 @@ If you've closed the Visual Studio Command Prompt <<ChSetupPrepareCommandCom,pre
 Run
 
 ----
-> msbuild /m /p:Configuration=RelWithDebInfo nsis_package_prep.vcxproj
-> msbuild /m /p:Configuration=RelWithDebInfo nsis_package.vcxproj
+> msbuild /m /p:Configuration=RelWithDebInfo wireshark_nsis_prep.vcxproj
+> msbuild /m /p:Configuration=RelWithDebInfo wireshark_nsis.vcxproj
 ----
 
-to build a Wireshark installer. If you sign your executables you should do
-so between the “nsis_package_prep” and “nsis_package” steps.
+to build a Wireshark installer.
+If you sign your executables you should do so between the “wireshark_nsis_prep” and “wireshark_nsis” steps.
 
 Run
 
@@ -688,6 +689,5 @@ Run
 > packaging\nsis\wireshark-win64-{wireshark-version}-myprotocol123.exe
 ----
 
-to test your new installer. It’s a good idea to test on a different
-machine than the developer machine. Note that if you've built an x86
-version, the installer name will contain “win32”.
+to test your new installer.
+It’s a good idea to test on a different machine than the developer machine.

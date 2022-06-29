@@ -162,13 +162,13 @@ guint PacketListModel::recreateVisibleRows()
 }
 
 void PacketListModel::clear() {
-    emit beginResetModel();
+    beginResetModel();
     qDeleteAll(physical_rows_);
     physical_rows_.resize(0);
     visible_rows_.resize(0);
     new_visible_rows_.resize(0);
     number_to_row_.resize(0);
-    emit endResetModel();
+    endResetModel();
     max_row_height_ = 0;
     max_line_count_ = 1;
     idle_dissection_row_ = 0;
@@ -177,7 +177,7 @@ void PacketListModel::clear() {
 void PacketListModel::invalidateAllColumnStrings()
 {
     PacketListRecord::invalidateAllRecords();
-    dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1),
+    emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1),
             QVector<int>() << Qt::DisplayRole);
 }
 
@@ -194,7 +194,7 @@ void PacketListModel::resetColumns()
 void PacketListModel::resetColorized()
 {
     PacketListRecord::resetColorization();
-    dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1),
+    emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1),
             QVector<int>() << Qt::BackgroundRole << Qt::ForegroundRole);
 }
 
@@ -222,7 +222,7 @@ void PacketListModel::toggleFrameMark(const QModelIndexList &indeces)
         else
             cf_mark_frame(cap_file_, fdata);
 
-        dataChanged(index.sibling(index.row(), 0), index.sibling(index.row(), sectionMax),
+        emit dataChanged(index.sibling(index.row(), 0), index.sibling(index.row(), sectionMax),
                 QVector<int>() << Qt::BackgroundRole << Qt::ForegroundRole);
     }
 }
@@ -264,7 +264,7 @@ void PacketListModel::toggleFrameIgnore(const QModelIndexList &indeces)
         else
             cf_ignore_frame(cap_file_, fdata);
 
-        dataChanged(index.sibling(index.row(), 0), index.sibling(index.row(), sectionMax),
+        emit dataChanged(index.sibling(index.row(), 0), index.sibling(index.row(), sectionMax),
                 QVector<int>() << Qt::BackgroundRole << Qt::ForegroundRole << Qt::DisplayRole);
     }
 }
@@ -347,6 +347,9 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
     if (!cap_file_ || visible_rows_.count() < 1) return;
     if (column < 0) return;
 
+    if (physical_rows_.count() < 1)
+        return;
+
     sort_column_ = column;
     text_sort_column_ = PacketListRecord::textColumn(column);
     sort_order_ = order;
@@ -365,7 +368,7 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
     sort_column_is_numeric_ = isNumericColumn(sort_column_);
     std::sort(physical_rows_.begin(), physical_rows_.end(), recordLessThan);
 
-    emit beginResetModel();
+    beginResetModel();
     visible_rows_.resize(0);
     number_to_row_.fill(0);
     foreach (PacketListRecord *record, physical_rows_) {
@@ -379,7 +382,7 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
             number_to_row_[fdata->num] = static_cast<int>(visible_rows_.count());
         }
     }
-    emit endResetModel();
+    endResetModel();
 
     if (!col_title.isEmpty()) {
         mainApp->popStatus(MainApplication::BusyStatus);
@@ -478,15 +481,16 @@ bool PacketListModel::recordLessThan(PacketListRecord *r1, PacketListRecord *r2)
         // Column comes directly from frame data
         cmp_val = frame_data_compare(sort_cap_file_->epan, r1->frameData(), r2->frameData(), sort_cap_file_->cinfo.columns[sort_column_].col_fmt);
     } else  {
-        if (r1->columnString(sort_cap_file_, sort_column_).constData() == r2->columnString(sort_cap_file_, sort_column_).constData()) {
-            cmp_val = 0;
-        } else if (sort_column_is_numeric_) {
+        QString r1String = r1->columnString(sort_cap_file_, sort_column_);
+        QString r2String = r2->columnString(sort_cap_file_, sort_column_);
+        cmp_val = r1String.compare(r2String);
+        if (cmp_val != 0 && sort_column_is_numeric_) {
             // Custom column with numeric data (or something like a port number).
             // Attempt to convert to numbers.
             // XXX This is slow. Can we avoid doing this?
             bool ok_r1, ok_r2;
-            double num_r1 = parseNumericColumn(r1->columnString(sort_cap_file_, sort_column_), &ok_r1);
-            double num_r2 = parseNumericColumn(r2->columnString(sort_cap_file_, sort_column_), &ok_r2);
+            double num_r1 = parseNumericColumn(r1String, &ok_r1);
+            double num_r2 = parseNumericColumn(r2String, &ok_r2);
 
             if (!ok_r1 && !ok_r2) {
                 cmp_val = 0;
@@ -497,8 +501,6 @@ bool PacketListModel::recordLessThan(PacketListRecord *r1, PacketListRecord *r2)
             } else if (!ok_r2 || (num_r1 > num_r2)) {
                 cmp_val = 1;
             }
-        } else {
-            cmp_val = r1->columnString(sort_cap_file_, sort_column_).compare(r2->columnString(sort_cap_file_, sort_column_));
         }
 
         if (cmp_val == 0) {
@@ -648,6 +650,8 @@ QVariant PacketListModel::headerData(int section, Qt::Orientation orientation,
             return QVariant::fromValue(QString(get_column_title(section)));
         case Qt::ToolTipRole:
             return QVariant::fromValue(gchar_free_to_qstring(get_column_tooltip(section)));
+        case PacketListModel::HEADER_CAN_RESOLVE:
+            return (bool)resolve_column(section, cap_file_);
         default:
             break;
         }
@@ -699,7 +703,7 @@ void PacketListModel::dissectIdle(bool reset)
     }
 
     if (idle_dissection_row_ < physical_rows_.count()) {
-        QTimer::singleShot(idle_dissection_interval_, this, SLOT(dissectIdle()));
+        QTimer::singleShot(0, this, SLOT(dissectIdle()));
     } else {
         idle_dissection_timer_->invalidate();
     }

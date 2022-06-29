@@ -37,7 +37,7 @@
 
 #include "ui/capture_ui_utils.h"
 
-#include <ui/qt/models/path_chooser_delegate.h>
+#include <ui/qt/models/path_selection_delegate.h>
 
 #include <QCheckBox>
 #include <QHBoxLayout>
@@ -49,7 +49,7 @@
 // To do:
 // - Check the validity of pipes and remote interfaces and provide feedback
 //   via hintLabel.
-// - We might want to move PathChooserDelegate to its own module and use it in
+// - We might want to move PathSelectionDelegate to its own module and use it in
 //   other parts of the application such as the general preferences and UATs.
 //   Qt Creator has a much more elaborate version from which we might want
 //   to draw inspiration.
@@ -153,6 +153,9 @@ ManageInterfacesDialog::ManageInterfacesDialog(QWidget *parent) :
     proxyModel->setColumns(columns);
     proxyModel->setSourceModel(sourceModel);
     proxyModel->setFilterHidden(false);
+#ifdef HAVE_PCAP_REMOTE
+    proxyModel->setRemoteDisplay(false);
+#endif
     proxyModel->setFilterByType(false);
 
     ui->localView->setModel(proxyModel);
@@ -165,17 +168,18 @@ ManageInterfacesDialog::ManageInterfacesDialog(QWidget *parent) :
     pipeProxyModel->setColumns(columns);
     pipeProxyModel->setSourceModel(sourceModel);
     pipeProxyModel->setFilterHidden(true);
+#ifdef HAVE_PCAP_REMOTE
+    pipeProxyModel->setRemoteDisplay(false);
+#endif
     pipeProxyModel->setFilterByType(true, true);
     pipeProxyModel->setInterfaceTypeVisible(IF_PIPE, false);
     ui->pipeView->setModel(pipeProxyModel);
     ui->delPipe->setEnabled(pipeProxyModel->rowCount() > 0);
 
-    ui->pipeView->setItemDelegateForColumn(
-            pipeProxyModel->mapSourceToColumn(IFTREE_COL_PIPE_PATH), new PathChooserDelegate()
-            );
-    connect(ui->pipeView->selectionModel(),
-            SIGNAL(selectionChanged(const QItemSelection &, const QItemSelection &)), this,
-            SLOT(onSelectionChanged(const QItemSelection &, const QItemSelection &)));
+    ui->pipeView->setItemDelegateForColumn(pipeProxyModel->mapSourceToColumn(IFTREE_COL_PIPE_PATH), new PathSelectionDelegate());
+     connect(ui->pipeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [=](const QItemSelection &sel, const QItemSelection &) {
+        ui->delPipe->setEnabled(sel.count() > 0);
+    });
 
 #if defined(HAVE_PCAP_REMOTE)
     // The default indentation (20) means our checkboxes are shifted too far on Windows.
@@ -206,11 +210,6 @@ ManageInterfacesDialog::ManageInterfacesDialog(QWidget *parent) :
 ManageInterfacesDialog::~ManageInterfacesDialog()
 {
     delete ui;
-}
-
-void ManageInterfacesDialog::onSelectionChanged(const QItemSelection &sel, const QItemSelection &)
-{
-    ui->delPipe->setEnabled(sel.count() > 0);
 }
 
 void ManageInterfacesDialog::updateWidgets()
@@ -563,26 +562,37 @@ void ManageInterfacesDialog::showRemoteInterfaces()
 {
     guint i;
     interface_t *device;
+    QTreeWidgetItem * item = nullptr;
 
     // We assume that remote interfaces are grouped by host.
     for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
+        QTreeWidgetItem * child = nullptr;
         device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
         if (!device->local) {
 
-            QList<QTreeWidgetItem*> items = ui->remoteList->findItems(QString(device->name), Qt::MatchCaseSensitive | Qt::MatchFixedString, col_r_host_dev_);
-
             // check if the QTreeWidgetItem for that interface already exists
-            if (items.count() == 0) {
-                items = ui->remoteList->findItems(QString(device->remote_opts.remote_host_opts.remote_host),
-                    Qt::MatchCaseSensitive | Qt::MatchFixedString, col_r_host_dev_);
+            QList<QTreeWidgetItem*> items = ui->remoteList->findItems(QString(device->name), Qt::MatchCaseSensitive | Qt::MatchFixedString, col_r_host_dev_);
+            if (items.count() > 0)
+               continue;
 
-                if (items.count() == 0) {
-                    // get or create the QTreeWidgetItem for the host
-                    QTreeWidgetItem* item = items.at(0);
-                    QTreeWidgetItem* child = new QTreeWidgetItem(item);
-                    child->setCheckState(col_r_show_, device->hidden ? Qt::Unchecked : Qt::Checked);
-                    child->setText(col_r_host_dev_, QString(device->name));
-                }
+            // create or find the QTreeWidgetItem for the remote host configuration
+            QString parentName = QString(device->remote_opts.remote_host_opts.remote_host);
+            items = ui->remoteList->findItems(parentName, Qt::MatchCaseSensitive | Qt::MatchFixedString, col_r_host_dev_);
+            if (items.count() == 0) {
+                item = new QTreeWidgetItem(ui->remoteList);
+                item->setText(col_r_host_dev_, parentName);
+                item->setExpanded(true);
+            }
+            else {
+                item = items.at(0);
+            }
+
+            items = ui->remoteList->findItems(QString(device->name), Qt::MatchCaseSensitive | Qt::MatchFixedString | Qt::MatchRecursive, col_r_host_dev_);
+            if (items.count() == 0)
+            {
+                child = new QTreeWidgetItem(item);
+                child->setCheckState(col_r_show_, device->hidden ? Qt::Unchecked : Qt::Checked);
+                child->setText(col_r_host_dev_, QString(device->name));
             }
         }
     }

@@ -50,24 +50,33 @@ typedef enum {
 	IF_TRUE_GOTO,
 	IF_FALSE_GOTO,
 	CHECK_EXISTS,
+	CHECK_EXISTS_R,
 	NOT,
 	RETURN,
 	READ_TREE,
+	READ_TREE_R,
 	READ_REFERENCE,
+	READ_REFERENCE_R,
 	PUT_FVALUE,
 	ALL_EQ,
 	ANY_EQ,
 	ALL_NE,
 	ANY_NE,
+	ALL_GT,
 	ANY_GT,
+	ALL_GE,
 	ANY_GE,
+	ALL_LT,
 	ANY_LT,
+	ALL_LE,
 	ANY_LE,
-	ANY_ZERO,
 	ALL_ZERO,
+	ANY_ZERO,
+	ALL_CONTAINS,
 	ANY_CONTAINS,
+	ALL_MATCHES,
 	ANY_MATCHES,
-	MK_RANGE,
+	MK_SLICE,
 	MK_BITWISE_AND,
 	MK_MINUS,
 	DFVM_ADD,
@@ -78,8 +87,8 @@ typedef enum {
 	CALL_FUNCTION,
 	STACK_PUSH,
 	STACK_POP,
-	ANY_IN_RANGE
-
+	ALL_IN_RANGE,
+	ANY_IN_RANGE,
 } dfvm_opcode_t;
 
 const char *
@@ -91,7 +100,6 @@ typedef struct {
 	dfvm_value_t	*arg1;
 	dfvm_value_t	*arg2;
 	dfvm_value_t	*arg3;
-	dfvm_value_t	*arg4;
 } dfvm_insn_t;
 
 dfvm_insn_t*
