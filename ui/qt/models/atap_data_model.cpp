@@ -17,6 +17,7 @@
 
 #include <wsutil/utf8_entities.h>
 #include <wsutil/nstime.h>
+#include <wsutil/str_util.h>
 
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/variant_pointer.h>
@@ -106,6 +107,7 @@ bool ATapDataModel::enableTap()
     GString * errorString = register_tap_listener(tap().toUtf8().constData(), hash(), _filter.toUtf8().constData(),
         TL_IGNORE_DISPLAY_FILTER, &ATapDataModel::tapReset, conversationPacketHandler(), &ATapDataModel::tapDraw, nullptr);
     if (errorString && errorString->len > 0) {
+        g_string_free(errorString, TRUE);
         _disableTap = true;
         emit tapListenerChanged(false);
         return false;
@@ -172,7 +174,7 @@ tap_packet_cb ATapDataModel::conversationPacketHandler()
     register_ct_t* table = registerTable();
     if (table) {
         if (_type == ATapDataModel::DATAMODEL_ENDPOINT)
-            return get_hostlist_packet_func(table);
+            return get_endpoint_packet_func(table);
         else if (_type == ATapDataModel::DATAMODEL_CONVERSATION)
             return get_conversation_packet_func(table);
     }
@@ -188,7 +190,7 @@ void ATapDataModel::resetData()
     beginResetModel();
     storage_ = nullptr;
     if (_type == ATapDataModel::DATAMODEL_ENDPOINT)
-        reset_hostlist_table_data(&hash_);
+        reset_endpoint_table_data(&hash_);
     else if (_type == ATapDataModel::DATAMODEL_CONVERSATION)
         reset_conversation_table_data(&hash_);
 
@@ -231,16 +233,22 @@ bool ATapDataModel::allowsNameResolution() const
     if (_protoId < 0)
         return false;
 
-    QStringList mac_protos = QStringList() << "eth" << "tr"<< "wlan";
-    QStringList net_protos = QStringList() << "ip" << "ipv6" << "jxta"
-                                           << "mptcp" << "rsvp" << "sctp"
+    QStringList mac_protos = QStringList() << "bluetooth" << "eth" << "fddi"
+                                           << "sll" << "tr" << "wlan";
+    QStringList net_protos = QStringList() << "dccp" << "ip" << "ipv6"
+                                           << "jxta" << "mptcp" << "ncp"
+                                           << "rsvp" << "sctp" << "sll"
                                            << "tcp" << "udp";
+    QStringList transport_protos = QStringList() << "dccp" << "mptcp" << "sctp"
+                                                 << "tcp" << "udp";
 
     QString table_proto = proto_get_protocol_filter_name(_protoId);
 
     if (mac_protos.contains(table_proto) && gbl_resolv_flags.mac_name)
         return true;
     if (net_protos.contains(table_proto) && gbl_resolv_flags.network_name)
+        return true;
+    if (transport_protos.contains(table_proto) && gbl_resolv_flags.transport_name)
         return true;
 
     return false;
@@ -364,7 +372,7 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         return QVariant();
 
     // Column text cooked representation.
-    hostlist_talker_t *item = &g_array_index(storage_, hostlist_talker_t, idx.row());
+    endpoint_item_t *item = &g_array_index(storage_, endpoint_item_t, idx.row());
     const mmdb_lookup_t *mmdb_lookup = nullptr;
 #ifdef HAVE_MAXMINDDB
     char addr[WS_INET6_ADDRSTRLEN];
@@ -376,6 +384,8 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         const ws_in6_addr * ip6 = (const ws_in6_addr *) item->myaddress.data;
         mmdb_lookup = maxmind_db_lookup_ipv6(ip6);
         ws_inet_ntop6(ip6, addr, sizeof(addr));
+    } else {
+        addr[0] = '\0';
     }
     QString ipAddress(addr);
 #endif
@@ -390,7 +400,7 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         }
         case ENDP_COLUMN_PORT:
             if (_resolveNames) {
-                char* port_str = get_conversation_port(NULL, item->port, item->etype, _resolveNames);
+                char* port_str = get_endpoint_port(NULL, item, _resolveNames);
                 QString q_port_str(port_str);
                 wmem_free(NULL, port_str);
                 return q_port_str;
@@ -459,7 +469,7 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
             return Qt::AlignLeft;
         return Qt::AlignRight;
     } else if (role == ATapDataModel::DISPLAY_FILTER) {
-        return QString(get_hostlist_filter(item));
+        return QString(get_endpoint_filter(item));
     } else if (role == ATapDataModel::ROW_IS_FILTERED) {
         return (bool)item->filtered && showTotalColumn();
     }
@@ -559,7 +569,7 @@ QVariant ConversationDataModel::headerData(int section, Qt::Orientation orientat
         case CONV_COLUMN_BYTES_AB:
             return tr("Bytes A " UTF8_RIGHTWARDS_ARROW " B"); break;
         case CONV_COLUMN_PKT_BA:
-            return tr("Packets A " UTF8_RIGHTWARDS_ARROW " B"); break;
+            return tr("Packets B " UTF8_RIGHTWARDS_ARROW " A"); break;
         case CONV_COLUMN_BYTES_BA:
             return tr("Bytes B " UTF8_RIGHTWARDS_ARROW " A"); break;
         case CONV_COLUMN_START:
@@ -610,7 +620,7 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
             }
         case CONV_COLUMN_SRC_PORT:
             if (_resolveNames) {
-                char* port_str = get_conversation_port(NULL, conv_item->src_port, conv_item->etype, _resolveNames);
+                char* port_str = get_conversation_port(NULL, conv_item->src_port, conv_item->ctype, _resolveNames);
                 QString q_port_str(port_str);
                 wmem_free(NULL, port_str);
                 return q_port_str;
@@ -626,7 +636,7 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
             }
         case CONV_COLUMN_DST_PORT:
             if (_resolveNames) {
-                char* port_str = get_conversation_port(NULL, conv_item->dst_port, conv_item->etype, _resolveNames);
+                char* port_str = get_conversation_port(NULL, conv_item->dst_port, conv_item->ctype, _resolveNames);
                 QString q_port_str(port_str);
                 wmem_free(NULL, port_str);
                 return q_port_str;
@@ -719,7 +729,7 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
             return QVariant::fromValue(span_data);
         }
     } else if (role == ATapDataModel::ENDPOINT_DATATYPE) {
-        return (int)(conv_item->etype);
+        return (int)(conv_item->ctype);
     } else if (role == ATapDataModel::CONVERSATION_ID) {
         return (int)(conv_item->conv_id);
     } else if (role == ATapDataModel::ROW_IS_FILTERED) {
@@ -763,7 +773,7 @@ bool ConversationDataModel::showConversationId(int row) const
         return false;
 
     conv_item_t *conv_item = (conv_item_t *)&g_array_index(storage_, conv_item_t, row);
-    if (conv_item && (conv_item->etype == ENDPOINT_TCP || conv_item->etype == ENDPOINT_UDP))
+    if (conv_item && (conv_item->ctype == CONVERSATION_TCP || conv_item->ctype == CONVERSATION_UDP))
         return true;
     return false;
 }

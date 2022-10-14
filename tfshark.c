@@ -62,7 +62,6 @@
 #include <epan/tap.h>
 #include <epan/stat_tap_ui.h>
 #include <epan/ex-opt.h>
-#include "extcap.h"
 
 #include <wiretap/wtap-int.h>
 #include <wiretap/file_wrappers.h>
@@ -342,6 +341,8 @@ main(int argc, char *argv[])
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
 
+    ws_noisy("Finished log init and parsing command line log arguments");
+
 #ifdef _WIN32
     create_app_running_mutex();
 #endif /* _WIN32 */
@@ -391,6 +392,29 @@ main(int argc, char *argv[])
         switch (opt) {
             case 'C':        /* Configuration Profile */
                 if (profile_exists (ws_optarg, FALSE)) {
+                    set_profile_name (ws_optarg);
+                } else if (profile_exists (ws_optarg, TRUE)) {
+                    char  *pf_dir_path, *pf_dir_path2, *pf_filename;
+                    /* Copy from global profile */
+                    if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
+                        cmdarg_err("Can't create directory\n\"%s\":\n%s.",
+                            pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_dir_path);
+                        exit_status = INVALID_FILE;
+                        goto clean_exit;
+                    }
+                    if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
+                            &pf_dir_path, &pf_dir_path2) == -1) {
+                        cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
+                            pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_filename);
+                        g_free(pf_dir_path);
+                        g_free(pf_dir_path2);
+                        exit_status = INVALID_FILE;
+                        goto clean_exit;
+                    }
                     set_profile_name (ws_optarg);
                 } else {
                     cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
@@ -550,7 +574,7 @@ main(int argc, char *argv[])
     /* Now get our args */
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
-            case '2':        /* Perform two pass analysis */
+            case '2':        /* Perform two-pass analysis */
                 perform_two_pass_analysis = TRUE;
                 break;
             case 'C':
@@ -943,7 +967,6 @@ clean_exit:
     destroy_print_stream(print_stream);
     epan_free(cfile.epan);
     epan_cleanup();
-    extcap_cleanup();
 
     output_fields_free(output_fields);
     output_fields = NULL;
@@ -1697,13 +1720,14 @@ print_columns(capture_file *cf)
         /* Skip columns not marked as visible. */
         if (!get_column_visible(i))
             continue;
+        const gchar* col_text = get_column_text(&cf->cinfo, i);
         switch (col_item->col_fmt) {
             case COL_NUMBER:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 3)
                     column_len = 3;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_CLS_TIME:
@@ -1714,11 +1738,11 @@ print_columns(capture_file *cf)
             case COL_UTC_TIME:
             case COL_UTC_YMD_TIME:  /* XXX - wider */
             case COL_UTC_YDOY_TIME: /* XXX - wider */
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 10)
                     column_len = 10;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_DEF_SRC:
@@ -1730,11 +1754,11 @@ print_columns(capture_file *cf)
             case COL_DEF_NET_SRC:
             case COL_RES_NET_SRC:
             case COL_UNRES_NET_SRC:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 12)
                     column_len = 12;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_DEF_DST:
@@ -1746,17 +1770,17 @@ print_columns(capture_file *cf)
             case COL_DEF_NET_DST:
             case COL_RES_NET_DST:
             case COL_UNRES_NET_DST:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 12)
                     column_len = 12;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_string_spaces(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_string_spaces(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             default:
-                column_len = strlen(col_item->col_data);
+                column_len = strlen(col_text);
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_string(line_bufp + buf_offset, col_item->col_data, column_len);
+                put_string(line_bufp + buf_offset, col_text, column_len);
                 break;
         }
         buf_offset += column_len;

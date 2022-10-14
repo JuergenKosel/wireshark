@@ -79,10 +79,10 @@ TapParameterDialog::TapParameterDialog(QWidget &parent, CaptureFile &cf, int hel
 
     QPushButton *button;
     button = ui->buttonBox->addButton(tr("Copy"), QDialogButtonBox::ActionRole);
-    connect(button, SIGNAL(clicked()), this, SLOT(on_actionCopyToClipboard_triggered()));
+    connect(button, &QPushButton::clicked, this, &TapParameterDialog::on_actionCopyToClipboard_triggered);
 
     button = ui->buttonBox->addButton(tr("Save as…"), QDialogButtonBox::ActionRole);
-    connect(button, SIGNAL(clicked()), this, SLOT(on_actionSaveAs_triggered()));
+    connect(button, &QPushButton::clicked, this, &TapParameterDialog::on_actionSaveAs_triggered);
 
     connect(ui->displayFilterLineEdit, SIGNAL(textChanged(QString)),
             this, SLOT(updateWidgets()));
@@ -428,7 +428,7 @@ void TapParameterDialog::contextMenuEvent(QContextMenuEvent *event)
         fa->setEnabled(enable);
     }
 
-    ctx_menu_.exec(event->globalPos());
+    ctx_menu_.popup(event->globalPos());
 }
 
 void TapParameterDialog::addFilterActions()

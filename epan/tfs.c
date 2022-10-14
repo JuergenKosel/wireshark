@@ -9,8 +9,12 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "config.h"
+/*
+ * Note: Adding a true_false_string here must be accompanied by an addition to
+ * both tfs.h and libwireshark*.symbols.
+ */
 
+#include "config.h"
 #include "tfs.h"
 
 /** Returns the string representing the true or false value. */
@@ -39,6 +43,7 @@ const true_false_string tfs_odd_even = { "Odd", "Even" };
 const true_false_string tfs_allow_block = { "Allow", "Block" };
 const true_false_string tfs_restricted_allowed = { "Restricted", "Allowed" };
 const true_false_string tfs_restricted_not_restricted = { "Restricted", "Not restricted" };
+const true_false_string tfs_not_restricted_restricted = { "Not restricted", "Restricted" };
 const true_false_string tfs_accept_reject = { "Accept", "Reject" };
 const true_false_string tfs_more_nomore = { "More", "No more" };
 const true_false_string tfs_present_absent = { "Present", "Absent" };

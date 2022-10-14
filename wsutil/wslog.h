@@ -22,6 +22,7 @@
 #include <ws_symbol_export.h>
 #include <ws_attributes.h>
 #include <ws_log_defs.h>
+#include <ws_posix_compat.h>
 
 #ifdef WS_LOG_DOMAIN
 #define _LOG_DOMAIN WS_LOG_DOMAIN
@@ -44,6 +45,21 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+/*
+ * Console open preference is stored in the Windows registry.
+ *   HKEY_CURRENT_USER\Software\Wireshark\ConsoleOpen
+ */
+#define LOG_HKCU_CONSOLE_OPEN   "ConsoleOpen"
+
+typedef enum {
+    LOG_CONSOLE_OPEN_NEVER,
+    LOG_CONSOLE_OPEN_AUTO, /* On demand. */
+    LOG_CONSOLE_OPEN_ALWAYS, /* Open during startup. */
+} ws_log_console_open_pref;
+
+WSUTIL_EXPORT
+ws_log_console_open_pref ws_log_console_open;
 
 
 /** Callback for registering a log writer. */
@@ -128,6 +144,14 @@ enum ws_log_level ws_log_set_level_str(const char *str_level);
 WS_DLL_PUBLIC
 void ws_log_set_domain_filter(const char *domain_filter);
 
+/** Set a fatal domain filter from a string.
+ *
+ * Domain filter is a case insensitive list separated by ',' or ';'. Domains
+ * in the filter will cause the program to abort.
+ */
+WS_DLL_PUBLIC
+void ws_log_set_fatal_domain_filter(const char *domain_filter);
+
 
 /** Set a debug filter from a string.
  *
@@ -155,7 +179,7 @@ void ws_log_set_noisy_filter(const char *str_filter);
  * Level LOG_LEVEL_ERROR is always fatal.
  */
 WS_DLL_PUBLIC
-enum ws_log_level ws_log_set_fatal(enum ws_log_level level);
+enum ws_log_level ws_log_set_fatal_level(enum ws_log_level level);
 
 
 /** Set the fatal log level from a string.
@@ -164,7 +188,7 @@ enum ws_log_level ws_log_set_fatal(enum ws_log_level level);
  * "warning" instead as arguments.
  */
 WS_DLL_PUBLIC
-enum ws_log_level  ws_log_set_fatal_str(const char *str_level);
+enum ws_log_level  ws_log_set_fatal_level_str(const char *str_level);
 
 
 /** Set the active log writer.
@@ -358,6 +382,22 @@ void ws_log_fatal_full(const char *domain, enum ws_log_level level,
 /** Used for temporary debug print outs, always active. */
 #define WS_DEBUG_HERE(...) \
         _LOG_FULL(true, LOG_LEVEL_ECHO, __VA_ARGS__)
+
+
+WS_DLL_PUBLIC
+void ws_log_utf8_full(const char *domain, enum ws_log_level level,
+                    const char *file, long line, const char *func,
+                    const char *string, ssize_t length, const char *endptr);
+
+
+#define ws_log_utf8(str, len, endptr) \
+    do {                                                        \
+        if (_LOG_DEBUG_ENABLED) {                               \
+            ws_log_utf8_full(LOG_DOMAIN_UTF_8, LOG_LEVEL_DEBUG, \
+                                __FILE__, __LINE__, __func__,   \
+                                str, len, endptr);              \
+        }                                                       \
+    } while (0)
 
 
 /** This function is called to log a buffer (bytes array).

@@ -495,7 +495,7 @@ dissect_PNIO_C_SDU_RTC1(tvbuff_t *tvb, int offset,
         return(tvb_captured_length(tvb));
 
     /* Only dissect cyclic RTC1 frames, if PN Connect Request has been read */
-    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, ENDPOINT_NONE, 0, 0, 0);
+    conversation = find_conversation(pinfo->num, &pinfo->dl_src, &pinfo->dl_dst, CONVERSATION_NONE, 0, 0, 0);
 
     /* Detect input data package and output data package */
     if (conversation != NULL) {
@@ -1316,7 +1316,7 @@ init_pn_io_rtc1(int proto)
         },
         { &hf_pn_pa_profile_value_float,
             { "Value", "pn_io.pa.value",
-            FT_FLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_FLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
     };

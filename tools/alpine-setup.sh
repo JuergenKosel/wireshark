@@ -18,6 +18,7 @@ function print_usage() {
 	printf "The basic usage installs the needed software\\n\\n"
 	printf "Usage: %s [--install-optional] [--install-deb-deps] [...other options...]\\n" "$0"
 	printf "\\t--install-optional: install optional software as well\\n"
+	printf "\\t--install-all: install everything\\n"
 	printf "\\t[other]: other options are passed as-is to apt\\n"
 }
 
@@ -30,6 +31,9 @@ for arg; do
 			exit 0
 			;;
 		--install-optional)
+			ADDITIONAL=1
+			;;
+		--install-all)
 			ADDITIONAL=1
 			;;
 		*)
@@ -52,7 +56,6 @@ BASIC_LIST="cmake \
 	glib-dev \
 	libgcrypt-dev \
 	flex \
-	perl \
 	tiff-dev \
 	c-ares-dev \
 	pcre2-dev \
@@ -81,6 +84,7 @@ ADDITIONAL_LIST="
 	minizip-dev \
 	speexdsp-dev \
 	brotli-dev \
+	perl \
 	"
 
 # Uncomment to add PNG compression utilities used by compress-pngs:

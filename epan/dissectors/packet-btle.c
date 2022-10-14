@@ -160,6 +160,7 @@ static int hf_control_interval = -1;
 static int hf_control_latency = -1;
 static int hf_control_timeout = -1;
 static int hf_control_instant = -1;
+static int hf_control_rfu_5 = -1;
 static int hf_control_interval_min = -1;
 static int hf_control_interval_max = -1;
 static int hf_control_preferred_periodicity = -1;
@@ -733,6 +734,7 @@ static const value_string ll_version_number_vals[] = {
     { 0x09, "5.0" },
     { 0x0A, "5.1" },
     { 0x0B, "5.2" },
+    { 0x0C, "5.3" },
     { 0, NULL }
 };
 static value_string_ext ll_version_number_vals_ext = VALUE_STRING_EXT_INIT(ll_version_number_vals);
@@ -3412,13 +3414,29 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
                 break;
             case 0x18: /* LL_PHY_UPDATE_IND */
-                proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_m_to_s_phy, ett_m_to_s_phy, hfx_control_phys_update, ENC_NA);
+            {
+                guint64 phy_c_to_p, phy_p_to_c;
+
+                item = proto_tree_add_bitmask_ret_uint64(btle_tree, tvb, offset, hf_control_m_to_s_phy, ett_m_to_s_phy, hfx_control_phys_update, ENC_NA, &phy_c_to_p);
+                if (phy_c_to_p == 0) {
+                    proto_item_append_text(item, ", No change");
+                }
                 offset += 1;
 
-                proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_s_to_m_phy, ett_s_to_m_phy, hfx_control_phys_update, ENC_NA);
+                item = proto_tree_add_bitmask_ret_uint64(btle_tree, tvb, offset, hf_control_s_to_m_phy, ett_s_to_m_phy, hfx_control_phys_update, ENC_NA, &phy_p_to_c);
+                if (phy_p_to_c == 0) {
+                    proto_item_append_text(item, ", No change");
+                }
                 offset += 1;
 
-                proto_tree_add_item_ret_uint(btle_tree, hf_control_instant, tvb, offset, 2, ENC_LITTLE_ENDIAN, &item_value);
+                if (phy_c_to_p != 0 && phy_p_to_c != 0) {
+                    proto_tree_add_item_ret_uint(btle_tree, hf_control_instant, tvb, offset, 2, ENC_LITTLE_ENDIAN, &item_value);
+                } else {
+                    /* If both the PHY_C_TO_P and PHY_P_TO_C fields are zero then there is no
+                     * Instant and the Instant field is reserved for future use.
+                     */
+                    proto_tree_add_item(btle_tree, hf_control_rfu_5, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+                }
                 offset += 2;
 
                 if (connection_info && !btle_frame_info->retransmit) {
@@ -3430,11 +3448,13 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
                             last_control_proc[BTLE_DIR_MASTER_SLAVE]->frames[2] = pinfo->num;
 
-                            if (btle_context && btle_context->event_counter_valid) {
+                            if (btle_context && btle_context->event_counter_valid && phy_c_to_p != 0 && phy_p_to_c != 0) {
                                 last_control_proc[BTLE_DIR_MASTER_SLAVE]->instant = item_value;
                                 last_control_proc[BTLE_DIR_MASTER_SLAVE]->frame_with_instant_value = pinfo->num;
                             } else {
-                                /* Event counter is not available, assume the procedure completes now. */
+                                /* 1. If the event counter is not available we can only assume the procedure completes now.
+                                 * 2. If both the PHY_C_TO_P and PHY_P_TO_C fields are zero then the procedure completes now.
+                                 */
                                 last_control_proc[BTLE_DIR_MASTER_SLAVE]->last_frame = pinfo->num;
                             }
 
@@ -3466,6 +3486,7 @@ dissect_btle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 }
 
                 break;
+            }
             case 0x19: /* LL_MIN_USED_CHANNELS_IND */
                 proto_tree_add_bitmask(btle_tree, tvb, offset, hf_control_phys, ett_phys, hfx_control_phys, ENC_NA);
                 offset += 1;
@@ -4503,6 +4524,11 @@ proto_register_btle(void)
             FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_control_rfu_5,
+            { "Reserved for future use",         "btle.control.reserved",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_control_interval_min,
             { "Interval Min",                    "btle.control.interval.min",
             FT_UINT16, BASE_DEC, NULL, 0x0,
@@ -4734,7 +4760,7 @@ proto_register_btle(void)
             NULL, HFILL }
         },
         { &hf_control_cte_rfu,
-           { "MinCTELenReq", "btle.control.cte.rfu",
+           { "Reserved", "btle.control.cte.rfu",
             FT_UINT8, BASE_DEC, NULL, 0x20,
             NULL, HFILL }
         },

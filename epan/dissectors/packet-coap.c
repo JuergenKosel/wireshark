@@ -39,9 +39,22 @@
 
 void proto_register_coap(void);
 
+static dissector_table_t coap_tmf_media_type_dissector_table;
 static dissector_table_t media_type_dissector_table;
 
 static int proto_coap						= -1;
+/*
+ * Used only to register the "CoAP for Thread Management Framework"
+ * dissector, which uses the same protocol and field IDs as the
+ * regular CoAP dissector, as it's just "CoAP except that we interpret
+ * application/octet-stream as meaning Thread Management Framework
+ * messages", because the Thread protocol, for whatever reasons (trying
+ * to keep the CoAP layer of their messages as short and simple to parse
+ * as possible, to save power and reduce the chances of low-power
+ * transmissions being misreceived?), did not register a media type for
+ * its messages and a 'cf' value for that media type.
+ */
+static int proto_coap_for_tmf					= -1;
 
 static int hf_coap_length					= -1;
 static int hf_coap_version					= -1;
@@ -82,7 +95,9 @@ static expert_field ei_retransmitted				= EI_INIT;
 
 static COAP_COMMON_LIST_T(dissect_coap_hf);
 
-static dissector_handle_t coap_handle;
+static dissector_handle_t coap_tcp_tls_handle;
+static dissector_handle_t coap_other_handle;
+static dissector_handle_t coap_for_tmf_handle;
 static dissector_handle_t oscore_handle;
 
 /* CoAP's IANA-assigned TCP/UDP port numbers */
@@ -354,7 +369,7 @@ find_or_create_conversation_noaddrb(packet_info *pinfo, gboolean request)
 		}
 		/* Have we seen this conversation before? */
 		if((conv = find_conversation(pinfo->num, addr_a, addr_b,
-					     conversation_pt_to_endpoint_type(pinfo->ptype), port_a,
+					     conversation_pt_to_conversation_type(pinfo->ptype), port_a,
 					     port_b, NO_ADDR_B|NO_PORT_B)) != NULL) {
 			if (pinfo->num > conv->last_frame) {
 				conv->last_frame = pinfo->num;
@@ -362,7 +377,7 @@ find_or_create_conversation_noaddrb(packet_info *pinfo, gboolean request)
 		} else {
 			/* No, this is a new conversation. */
 			conv = conversation_new(pinfo->num, &pinfo->src,
-						&pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype),
+						&pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
 						pinfo->srcport, pinfo->destport, NO_ADDR2|NO_PORT2);
 		}
 	} else {
@@ -1067,6 +1082,7 @@ dissect_coap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, p
 	const char *coap_ctype_str_dis;
 	http_message_info_t message_info;
 	char	    str_payload[80];
+	int	    result = 0;
 
 	/* coinfo->ctype_value == DEFAULT_COAP_CTYPE_VALUE: No Content-Format option present */
 	if (coinfo->ctype_value == DEFAULT_COAP_CTYPE_VALUE) {
@@ -1113,9 +1129,33 @@ dissect_coap_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *coap_tree, p
 
 	message_info.type = HTTP_OTHERS;
 	message_info.media_str = wmem_strbuf_get_str(coinfo->uri_str_strbuf);
-	dissector_try_string(media_type_dissector_table, coap_ctype_str_dis,
-			     payload_tvb, pinfo, parent_tree, &message_info);
-
+	/*
+	 * The Thread protocol uses application/octet-stream for its
+	 * messages, rather than having its own media type for those
+	 * messages, as, for example, the Internet Printing Protocol
+	 * does.
+	 *
+	 * Handle "application/octet-stream" specially if this is
+	 * being dissected by the "CoAP for Thread Management Framework"
+	 * dissector.
+	 */
+	if (coinfo->is_coap_for_tmf) {
+		/*
+		 * Try the media type dissector table for CoAP-TMF first.
+		 */
+		result = dissector_try_string(coap_tmf_media_type_dissector_table,
+		    coap_ctype_str_dis, payload_tvb, pinfo, parent_tree,
+		    &message_info);
+	}
+	if (result == 0) {
+		/*
+		 * That either failed or we didn't try it.
+		 * Now try the regular media type table.
+		 */
+		dissector_try_string(media_type_dissector_table,
+		    coap_ctype_str_dis, payload_tvb, pinfo, parent_tree,
+		    &message_info);
+	}
 	if (coinfo->object_security && !oscore) {
 		proto_item_set_text(payload_item, "Encrypted OSCORE Data");
 		call_dissector_with_data(oscore_handle, payload_tvb, pinfo, parent_tree, coinfo->oscore_info);
@@ -1159,7 +1199,7 @@ coap_frame_length(tvbuff_t *tvb, guint offset, gint *size)
 }
 
 static int
-dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, gboolean is_tcp, gboolean is_websocket)
+dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, coap_parent_protocol parent_protocol, gboolean is_coap_for_tmf)
 {
 	gint              offset = 0;
 	proto_item       *coap_root;
@@ -1191,6 +1231,9 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 		p_add_proto_data(wmem_file_scope(), pinfo, proto_coap, 0, coinfo);
 	}
 
+//	coinfo->parent_protocol = parent_protocol;
+	coinfo->is_coap_for_tmf = is_coap_for_tmf;
+
 	/* initialize the CoAP length and the content-Format */
 	/*
 	 * The length of CoAP message is not specified in the CoAP header using
@@ -1198,7 +1241,7 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	 * explicit length is present.
 	 */
 	coap_length = tvb_reported_length(tvb);
-	if (is_tcp && !is_websocket) {
+	if (parent_protocol == PARENT_TCP_TLS) {
 		token_len = tvb_get_guint8(tvb, offset) & 0xf;
 		coap_length = coap_frame_length(tvb, offset, &length_size);
 		if (length_size < 0) {
@@ -1227,7 +1270,7 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	coap_root = proto_tree_add_item(parent_tree, proto_coap, tvb, offset, -1, ENC_NA);
 	coap_tree = proto_item_add_subtree(coap_root, ett_coap);
 
-	if (!is_tcp) {
+	if (parent_protocol == PARENT_OTHER) {
 		proto_tree_add_item(coap_tree, hf_coap_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 
 		proto_tree_add_item(coap_tree, hf_coap_ttype, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1256,7 +1299,7 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 				       mid);
 	} else {
 		guint len = coap_length;
-		if (is_websocket) {
+		if (parent_protocol == PARENT_WEBSOCKETS) {
 			len = tvb_get_guint8(tvb, offset) >> 4;
 			length_size = 1;
 		}
@@ -1504,28 +1547,27 @@ dissect_coap_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 }
 
 static int
-dissect_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+dissect_coap_tcp_tls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-	wmem_list_frame_t *prev_layer;
-	const char *name;
+	return dissect_coap_message(tvb, pinfo, tree, PARENT_TCP_TLS, FALSE);
+}
 
-	/* retrieve parent protocol */
-	prev_layer = wmem_list_frame_prev(wmem_list_tail(pinfo->layers));
-	if (prev_layer) {
-		name = proto_get_protocol_filter_name(GPOINTER_TO_INT(wmem_list_frame_data(prev_layer)));
-	} else {
-		name = NULL;
-	}
-	if (proto_is_frame_protocol(pinfo->layers, "websocket")) {
-		/* WebSockets */
-		return dissect_coap_message(tvb, pinfo, tree, TRUE, TRUE);
-	} else if (!g_strcmp0(name, "tcp") || !g_strcmp0(name, "tls")) {
-		/* TCP */
-		return dissect_coap_message(tvb, pinfo, tree, TRUE, FALSE);
-	} else {
-		/* Assume UDP */
-		return dissect_coap_message(tvb, pinfo, tree, FALSE, FALSE);
-	}
+static int
+dissect_coap_websockets(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+	return dissect_coap_message(tvb, pinfo, tree, PARENT_WEBSOCKETS, FALSE);
+}
+
+static int
+dissect_coap_other(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+	return dissect_coap_message(tvb, pinfo, tree, PARENT_OTHER, FALSE);
+}
+
+static int
+dissect_coap_for_tmf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+	return dissect_coap_message(tvb, pinfo, tree, PARENT_OTHER, TRUE);
 }
 
 /*
@@ -1690,21 +1732,40 @@ proto_register_coap(void)
 
 	reassembly_table_register (&coap_block_reassembly_table, &addresses_reassembly_table_functions);
 
-	coap_handle = register_dissector("coap", dissect_coap, proto_coap);
+	coap_other_handle = register_dissector("coap", dissect_coap_other, proto_coap);
+	coap_tcp_tls_handle = register_dissector("coap_tcp_tls", dissect_coap_tcp_tls, proto_coap);
+	coap_for_tmf_handle = register_dissector_with_description("coap_for_tmf", "CoAP-TMF", dissect_coap_for_tmf, proto_coap_for_tmf);
+
+	/*
+	 * Set up a subdissector table for media types for CoAP-TMF.
+	 */
+	coap_tmf_media_type_dissector_table =
+	    register_dissector_table("coap_tmf_media_type",
+		"Internet media type for CoAP-TMF", proto_coap, FT_STRING, BASE_NONE);
 }
 
 void
 proto_reg_handoff_coap(void)
 {
-	media_type_dissector_table = find_dissector_table("media_type");
-	dissector_add_uint_with_preference("udp.port", DEFAULT_COAP_PORT, coap_handle);
-	dtls_dissector_add(DEFAULT_COAPS_PORT, coap_handle);
+	dissector_handle_t coap_websockets_handle;
 
-	/* TCP, TLS, WebSockets (RFC 8323) */
-	dissector_add_uint_with_preference("tcp.port", DEFAULT_COAP_PORT, coap_handle);
-	ssl_dissector_add(DEFAULT_COAPS_PORT, coap_handle);
-	dissector_add_string("tls.alpn", "coap", coap_handle);
-	dissector_add_string("ws.protocol", "coap", coap_handle);
+	media_type_dissector_table = find_dissector_table("media_type");
+
+	/* UDP and DTLS */
+	dissector_add_uint_with_preference("udp.port", DEFAULT_COAP_PORT, coap_other_handle);
+	dtls_dissector_add(DEFAULT_COAPS_PORT, coap_other_handle);
+
+	/* TCP, TLS */
+	dissector_add_uint_with_preference("tcp.port", DEFAULT_COAP_PORT, coap_tcp_tls_handle);
+	ssl_dissector_add(DEFAULT_COAPS_PORT, coap_tcp_tls_handle);
+	dissector_add_string("tls.alpn", "coap", coap_tcp_tls_handle);
+
+	/* WebSockets (RFC 8323) */
+	coap_websockets_handle = create_dissector_handle(dissect_coap_websockets, proto_coap);
+	dissector_add_string("ws.protocol", "coap", coap_websockets_handle);
+
+	/* CoAP for Thread Management Framework */
+	dissector_add_for_decode_as("udp.port", coap_for_tmf_handle);
 
 	oscore_handle = find_dissector("oscore");
 }

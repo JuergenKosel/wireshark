@@ -11,7 +11,15 @@
 
 #include <errno.h>
 
+#include <ws_diag_control.h>
+
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_OFF(stringop-overflow)
+#endif
 #include "interface_toolbar.h"
+#if WS_IS_AT_LEAST_GNUC_VERSION(12,1)
+DIAG_ON(stringop-overflow)
+#endif
 #include <ui/qt/widgets/interface_toolbar_lineedit.h>
 #include "simple_dialog.h"
 #include "main_application.h"
@@ -971,14 +979,14 @@ void InterfaceToolbar::interfaceListChanged()
     if (!keep_selected)
     {
         // Select the first interface
-        on_interfacesComboBox_currentIndexChanged(ui->interfacesComboBox->currentText());
+        on_interfacesComboBox_currentTextChanged(ui->interfacesComboBox->currentText());
     }
 
     updateWidgets();
 #endif
 }
 
-void InterfaceToolbar::on_interfacesComboBox_currentIndexChanged(const QString &ifname)
+void InterfaceToolbar::on_interfacesComboBox_currentTextChanged(const QString &ifname)
 {
     foreach (int num, control_widget_.keys())
     {

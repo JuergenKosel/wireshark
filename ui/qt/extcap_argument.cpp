@@ -263,6 +263,52 @@ void ExtArgSelector::setDefaultValue()
 }
 
 
+ExtArgEditSelector::ExtArgEditSelector(extcap_arg * argument, QObject * parent) :
+        ExtArgSelector(argument, parent) {}
+
+QWidget * ExtArgEditSelector::createEditor(QWidget * parent)
+{
+    QWidget *editor = ExtArgSelector::createEditor(parent);
+
+    boxSelection->setEditable(true);
+    boxSelection->setInsertPolicy(QComboBox::NoInsert);
+
+    return editor;
+}
+
+QString ExtArgEditSelector::value()
+{
+    if (boxSelection == nullptr) {
+        return QString();
+    }
+
+    if (boxSelection->currentIndex() > -1) {
+        return ExtArgSelector::value();
+    }
+
+    return boxSelection->currentText();
+}
+
+void ExtArgEditSelector::setDefaultValue()
+{
+    ExtArgSelector::setDefaultValue();
+
+    if (boxSelection == nullptr) {
+        return;
+    }
+
+    const char *prefval = (_argument->pref_valptr && strlen(*_argument->pref_valptr)) ? *_argument->pref_valptr : NULL;
+    QString stored(prefval ? prefval : "");
+    QVariant data = boxSelection->currentData();
+
+    if (data.toString() != stored) {
+        // createEditor may not have been called at this point?
+        boxSelection->setEditable(true);
+        boxSelection->setInsertPolicy(QComboBox::NoInsert);
+        boxSelection->setEditText(stored);
+    }
+}
+
 
 ExtArgRadio::ExtArgRadio(extcap_arg * argument, QObject * parent) :
         ExtcapArgument(argument, parent), selectorGroup(0), callStrings(0) {}
@@ -281,7 +327,7 @@ QWidget * ExtArgRadio::createEditor(QWidget * parent)
 
     callStrings = new QList<QString>();
 
-    if (values.length() > 0  )
+    if (values.length() > 0)
     {
         ExtcapValueList::const_iterator iter = values.constBegin();
 
@@ -316,7 +362,7 @@ QString ExtArgRadio::value()
 
     idx = selectorGroup->checkedId();
     if (idx > -1 && callStrings->length() > idx)
-        return callStrings->takeAt(idx);
+        return callStrings->at(idx);
 
     return QString();
 }
@@ -353,28 +399,29 @@ bool ExtArgRadio::isSetDefaultValueSupported()
 
 void ExtArgRadio::setDefaultValue()
 {
-    int count = 0;
-    bool anyChecked = false;
+    int counter = 0;
+    int selected = 0;
 
-    if (values.length() > 0  )
+    const char *prefval = (_argument->pref_valptr && strlen(*_argument->pref_valptr)) ? *_argument->pref_valptr : NULL;
+    QString stored(prefval ? prefval : "");
+
+    if (values.length() > 0)
     {
         ExtcapValueList::const_iterator iter = values.constBegin();
 
         while (iter != values.constEnd())
         {
-            if ((*iter).isDefault())
-            {
-                selectorGroup->button(count)->setChecked(true);
-                anyChecked = true;
-            }
-            count++;
+            if (!prefval && (*iter).isDefault())
+                selected = counter;
+            else if (prefval && stored.compare((*iter).call()) == 0)
+                selected = counter;
+
+            counter++;
             ++iter;
         }
-    }
 
-    /* No default was provided, and not saved value exists */
-    if (anyChecked == false && count > 0)
-        ((QRadioButton*)(selectorGroup->button(0)))->setChecked(true);
+        ((QRadioButton*)(selectorGroup->button(selected)))->setChecked(true);
+    }
 }
 
 
@@ -942,6 +989,8 @@ ExtcapArgument * ExtcapArgument::create(extcap_arg * argument, QObject *parent)
         result = new ExtArgBool(argument, parent);
     else if (argument->arg_type == EXTCAP_ARG_SELECTOR)
         result = new ExtArgSelector(argument, parent);
+    else if (argument->arg_type == EXTCAP_ARG_EDIT_SELECTOR)
+        result = new ExtArgEditSelector(argument, parent);
     else if (argument->arg_type == EXTCAP_ARG_RADIO)
         result = new ExtArgRadio(argument, parent);
     else if (argument->arg_type == EXTCAP_ARG_FILESELECT)

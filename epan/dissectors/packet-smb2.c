@@ -43,6 +43,20 @@
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/ws_roundup.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+/* Defined in winnt.h */
+#define OWNER_SECURITY_INFORMATION 0x00000001
+#define GROUP_SECURITY_INFORMATION 0x00000002
+#define DACL_SECURITY_INFORMATION 0x00000004
+#define SACL_SECURITY_INFORMATION 0x00000008
+#define LABEL_SECURITY_INFORMATION 0x00000010
+#define ATTRIBUTE_SECURITY_INFORMATION 0x00000020
+#define SCOPE_SECURITY_INFORMATION 0x00000040
+#define BACKUP_SECURITY_INFORMATION 0x00010000
+#endif
+
 //#define DEBUG_SMB2
 #ifdef DEBUG_SMB2
 #define DEBUG(...) g_ ## warning(__VA_ARGS__)
@@ -3525,7 +3539,7 @@ static void
 dissect_smb2_secblob(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, smb2_info_t *si _U_)
 {
 	if ((tvb_captured_length(tvb)>=7)
-	&&  (!tvb_memeql(tvb, 0, "NTLMSSP", 7))) {
+	&&  (!tvb_memeql(tvb, 0, (const guint8*)"NTLMSSP", 7))) {
 		call_dissector(ntlmssp_handle, tvb, pinfo, tree);
 	} else {
 		call_dissector(gssapi_handle, tvb, pinfo, tree);
@@ -5538,18 +5552,6 @@ static const true_false_string tfs_additional_backup = {
 	"Requesting backup operation security information",
 	"NOT requesting backup operation security information",
 };
-
-#ifndef _MSC_VER
-/*  Those macros are already defined by winnt.h for Windows build */
-#define OWNER_SECURITY_INFORMATION 0x00000001
-#define GROUP_SECURITY_INFORMATION 0x00000002
-#define DACL_SECURITY_INFORMATION 0x00000004
-#define SACL_SECURITY_INFORMATION 0x00000008
-#define LABEL_SECURITY_INFORMATION 0x00000010
-#define ATTRIBUTE_SECURITY_INFORMATION 0x00000020
-#define SCOPE_SECURITY_INFORMATION 0x00000040
-#define BACKUP_SECURITY_INFORMATION 0x00010000
-#endif
 
 static int
 dissect_additional_information_sec_mask(tvbuff_t *tvb, proto_tree *parent_tree, int offset)

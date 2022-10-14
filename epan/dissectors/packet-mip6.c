@@ -459,7 +459,7 @@ static const value_string mip6_auth_subtype_value[] = {
 
 /* mobile network prefix flag description */
 static const true_false_string mip6_ipv4ha_p_flag_value = {
-    "mobile network prefixt requested",
+    "mobile network prefix requested",
     "mobile network prefix not requested"
 };
 
@@ -3717,7 +3717,7 @@ dissect_mipv6_options(tvbuff_t *tvb, int offset, guint length,
             if (option_dissector == NULL) {
                 name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
             } else {
-                name = dissector_handle_get_short_name(option_dissector);
+                name = dissector_handle_get_protocol_short_name(option_dissector);
             }
 
             /* Option has a length. Is it in the packet? */

@@ -1188,6 +1188,12 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_USB_2_0_HIGH_SPEED */
 	{ "usb-20-high", "High-Speed USB 2.0 packets" },
+
+	/* WTAP_ENCAP_AUTOSAR_DLT */
+	{ "autosardlt", "AUTOSAR DLT" },
+
+	/* WTAP_ENCAP_AUERSWALD_LOG */
+	{ "auerlog", "Auerswald Log" },
 };
 
 WS_DLL_LOCAL
@@ -1381,6 +1387,9 @@ static const char *wtap_errlist[] = {
 
 	/* WTAP_ERR_DECOMPRESSION_NOT_SUPPORTED */
 	"We don't support decompressing that type of compressed file",
+
+	/* WTAP_ERR_TIME_STAMP_NOT_SUPPORTED */
+	"We don't support writing that record's time stamp to that file type",
 };
 #define	WTAP_ERRLIST_SIZE	(sizeof wtap_errlist / sizeof wtap_errlist[0])
 
@@ -1579,13 +1588,6 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 	 */
 	if (rec->rec_type == REC_TYPE_PACKET) {
 		/*
-		 * It makes no sense for the captured data length
-		 * to be bigger than the actual data length.
-		 */
-		if (rec->rec_header.packet_header.caplen > rec->rec_header.packet_header.len)
-			rec->rec_header.packet_header.caplen = rec->rec_header.packet_header.len;
-
-		/*
 		 * Make sure that it's not WTAP_ENCAP_PER_PACKET, as that
 		 * probably means the file has that encapsulation type
 		 * but the read routine didn't set this packet's
@@ -1741,13 +1743,6 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 	 * Is this a packet record?
 	 */
 	if (rec->rec_type == REC_TYPE_PACKET) {
-		/*
-		 * It makes no sense for the captured data length
-		 * to be bigger than the actual data length.
-		 */
-		if (rec->rec_header.packet_header.caplen > rec->rec_header.packet_header.len)
-			rec->rec_header.packet_header.caplen = rec->rec_header.packet_header.len;
-
 		/*
 		 * Make sure that it's not WTAP_ENCAP_PER_PACKET, as that
 		 * probably means the file has that encapsulation type

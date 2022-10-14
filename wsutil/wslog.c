@@ -29,13 +29,23 @@
 #ifdef _WIN32
 #include <process.h>
 #include <windows.h>
+#include <conio.h>
 #endif
 
 #include "file_util.h"
 #include "time_util.h"
 #include "to_str.h"
 #include "strtoi.h"
+#ifdef _WIN32
+#include "console_win32.h"
+#endif
 
+
+#ifndef WS_DISABLE_ASSERT
+#define ASSERT(expr)    assert(expr)
+#else
+#define ASSERT(expr)    (void)(expr);
+#endif
 
 /* Runtime log level. */
 #define ENV_VAR_LEVEL       "WIRESHARK_LOG_LEVEL"
@@ -49,6 +59,12 @@
 /* Log level that generates a trap and aborts. Can be "critical"
  * or "warning". */
 #define ENV_VAR_FATAL       "WIRESHARK_LOG_FATAL"
+
+/* Log domains that are fatal. */
+#define ENV_VAR_FATAL_DOMAIN    "WIRESHARK_LOG_FATAL_DOMAIN"
+
+/* Alias "domain" and "domains". */
+#define ENV_VAR_FATAL_DOMAIN_S  "WIRESHARK_LOG_FATAL_DOMAINS"
 
 /* Domains that will produce debug output, regardless of log level or
  * domain filter. */
@@ -99,6 +115,9 @@ static log_filter_t *debug_filter = NULL;
 /* List of domains to output noisy level unconditionally. */
 static log_filter_t *noisy_filter = NULL;
 
+/* List of domains that are fatal. */
+static log_filter_t *fatal_filter = NULL;
+
 static ws_log_writer_cb *registered_log_writer = NULL;
 
 static void *registered_log_writer_data = NULL;
@@ -109,9 +128,9 @@ static FILE *custom_log = NULL;
 
 static enum ws_log_level fatal_log_level = LOG_LEVEL_ERROR;
 
-#ifndef WS_DISABLE_DEBUG
 static bool init_complete = false;
-#endif
+
+ws_log_console_open_pref ws_log_console_open = LOG_CONSOLE_OPEN_NEVER;
 
 
 static void print_err(void (*vcmdarg_err)(const char *, va_list ap),
@@ -240,6 +259,15 @@ bool ws_log_msg_is_active(const char *domain, enum ws_log_level level)
         return true;
 
     /*
+     * Check if the domain has been configured as fatal.
+     */
+    if (DOMAIN_DEFINED(domain) && fatal_filter != NULL) {
+        if (filter_contains(fatal_filter, domain) && fatal_filter->positive) {
+            return true;
+        }
+    }
+
+    /*
      * The debug/noisy filter overrides the other parameters.
      */
     if (DOMAIN_DEFINED(domain)) {
@@ -309,10 +337,14 @@ enum ws_log_level ws_log_set_level_str(const char *str_level)
 
 
 static const char *opt_level   = "--log-level";
-/* Alias "domain" and "domains". */
 static const char *opt_domain  = "--log-domain";
+/* Alias "domain" and "domains". */
+static const char *opt_domain_s = "--log-domains";
 static const char *opt_file    = "--log-file";
 static const char *opt_fatal   = "--log-fatal";
+static const char *opt_fatal_domain = "--log-fatal-domain";
+/* Alias "domain" and "domains". */
+static const char *opt_fatal_domain_s = "--log-fatal-domains";
 static const char *opt_debug   = "--log-debug";
 static const char *opt_noisy   = "--log-noisy";
 
@@ -323,11 +355,11 @@ static void print_err(void (*vcmdarg_err)(const char *, va_list ap),
 {
     va_list ap;
 
-    if (vcmdarg_err == NULL)
-        return;
-
     va_start(ap, fmt);
-    vcmdarg_err(fmt, ap);
+    if (vcmdarg_err)
+        vcmdarg_err(fmt, ap);
+    else
+        vfprintf(stderr, fmt, ap);
     va_end(ap);
     if (exit_failure != LOG_ARGS_NOEXIT)
         exit(exit_failure);
@@ -349,7 +381,7 @@ parse_console_compat_option(char *argv[],
     uint32_t mask;
     enum ws_log_level level;
 
-    assert(argv != NULL);
+    ASSERT(argv != NULL);
 
     if (argv[0] == NULL)
         return;
@@ -415,6 +447,25 @@ parse_console_compat_option(char *argv[],
     ws_log_set_level(level);
 }
 
+/* Match "arg_name=value" or "arg_name value" to opt_name. */
+static bool optequal(const char *arg, const char *opt)
+{
+    ASSERT(arg);
+    ASSERT(opt);
+#define ARGEND(arg) (*(arg) == '\0' || *(arg) == ' ' || *(arg) == '=')
+
+    while (!ARGEND(arg) && *opt != '\0') {
+        if (*arg != *opt) {
+            return false;
+        }
+        arg += 1;
+        opt += 1;
+    }
+    if (ARGEND(arg) && *opt == '\0') {
+        return true;
+    }
+    return false;
+}
 
 int ws_log_parse_args(int *argc_ptr, char *argv[],
                         void (*vcmdarg_err)(const char *, va_list ap),
@@ -430,34 +481,45 @@ int ws_log_parse_args(int *argc_ptr, char *argv[],
     if (argc_ptr == NULL || argv == NULL)
         return -1;
 
+    /* Assert ws_log_init() was called before ws_log_parse_args(). */
+    ASSERT(init_complete);
+
     /* Configure from command line. */
 
     while (*ptr != NULL) {
-        if (g_str_has_prefix(*ptr, opt_level)) {
+        if (optequal(*ptr, opt_level)) {
             option = opt_level;
             optlen = strlen(opt_level);
         }
-        else if (g_str_has_prefix(*ptr, opt_domain)) {
+        else if (optequal(*ptr, opt_domain)) {
             option = opt_domain;
             optlen = strlen(opt_domain);
-            /* Alias "domain" and "domains". Last form wins. */
-            if (*(*ptr + optlen) == 's') {
-                optlen += 1;
-            }
         }
-        else if (g_str_has_prefix(*ptr, opt_file)) {
+        else if (optequal(*ptr, opt_domain_s)) {
+            option = opt_domain; /* Alias */
+            optlen = strlen(opt_domain_s);
+        }
+        else if (optequal(*ptr, opt_fatal_domain)) {
+            option = opt_fatal_domain;
+            optlen = strlen(opt_fatal_domain);
+        }
+        else if (optequal(*ptr, opt_fatal_domain_s)) {
+            option = opt_fatal_domain; /* Alias */
+            optlen = strlen(opt_fatal_domain_s);
+        }
+        else if (optequal(*ptr, opt_file)) {
             option = opt_file;
             optlen = strlen(opt_file);
         }
-        else if (g_str_has_prefix(*ptr, opt_fatal)) {
+        else if (optequal(*ptr, opt_fatal)) {
             option = opt_fatal;
             optlen = strlen(opt_fatal);
         }
-        else if (g_str_has_prefix(*ptr, opt_debug)) {
+        else if (optequal(*ptr, opt_debug)) {
             option = opt_debug;
             optlen = strlen(opt_debug);
         }
-        else if (g_str_has_prefix(*ptr, opt_noisy)) {
+        else if (optequal(*ptr, opt_noisy)) {
             option = opt_noisy;
             optlen = strlen(opt_noisy);
         }
@@ -517,6 +579,9 @@ int ws_log_parse_args(int *argc_ptr, char *argv[],
         else if (option == opt_domain) {
             ws_log_set_domain_filter(value);
         }
+        else if (option == opt_fatal_domain) {
+            ws_log_set_fatal_domain_filter(value);
+        }
         else if (value && option == opt_file) {
             FILE *fp = ws_fopen(value, "w");
             if (fp == NULL) {
@@ -530,7 +595,7 @@ int ws_log_parse_args(int *argc_ptr, char *argv[],
             }
         }
         else if (option == opt_fatal) {
-            if (ws_log_set_fatal_str(value) == LOG_LEVEL_NONE) {
+            if (ws_log_set_fatal_level_str(value) == LOG_LEVEL_NONE) {
                 print_err(vcmdarg_err, exit_failure,
                             "Fatal log level must be \"critical\" or "
                             "\"warning\", not \"%s\".\n", value);
@@ -584,8 +649,8 @@ static void tokenize_filter_str(log_filter_t **filter_ptr,
     bool negated = false;
     log_filter_t *filter;
 
-    assert(filter_ptr);
-    assert(*filter_ptr == NULL);
+    ASSERT(filter_ptr);
+    ASSERT(*filter_ptr == NULL);
 
     if (str_filter == NULL)
         return;
@@ -626,6 +691,13 @@ void ws_log_set_domain_filter(const char *str_filter)
 }
 
 
+void ws_log_set_fatal_domain_filter(const char *str_filter)
+{
+    free_log_filter(&fatal_filter);
+    tokenize_filter_str(&fatal_filter, str_filter, LOG_LEVEL_NONE);
+}
+
+
 void ws_log_set_debug_filter(const char *str_filter)
 {
     free_log_filter(&debug_filter);
@@ -640,7 +712,7 @@ void ws_log_set_noisy_filter(const char *str_filter)
 }
 
 
-enum ws_log_level ws_log_set_fatal(enum ws_log_level level)
+enum ws_log_level ws_log_set_fatal_level(enum ws_log_level level)
 {
     if (level <= LOG_LEVEL_NONE || level >= _LOG_LEVEL_LAST)
         return LOG_LEVEL_NONE;
@@ -654,12 +726,12 @@ enum ws_log_level ws_log_set_fatal(enum ws_log_level level)
 }
 
 
-enum ws_log_level ws_log_set_fatal_str(const char *str_level)
+enum ws_log_level ws_log_set_fatal_level_str(const char *str_level)
 {
     enum ws_log_level level;
 
     level = string_to_log_level(str_level);
-    return ws_log_set_fatal(level);
+    return ws_log_set_fatal_level(level);
 }
 
 
@@ -717,6 +789,30 @@ static void glib_log_handler(const char *domain, GLogLevelFlags flags,
 }
 
 
+#ifdef _WIN32
+static void load_registry()
+{
+    LONG lResult;
+    DWORD ptype;
+    DWORD data;
+    DWORD data_size = sizeof(DWORD);
+
+    lResult = RegGetValueA(HKEY_CURRENT_USER,
+                            "Software\\Wireshark",
+                            LOG_HKCU_CONSOLE_OPEN,
+                            RRF_RT_REG_DWORD,
+                            &ptype,
+                            &data,
+                            &data_size);
+    if (lResult != ERROR_SUCCESS || ptype != REG_DWORD) {
+        return;
+    }
+
+    ws_log_console_open = (ws_log_console_open_pref)data;
+}
+#endif
+
+
 /*
  * We can't write to stderr in ws_log_init() because dumpcap uses stderr
  * to communicate with the parent and it will block. We have to use
@@ -745,6 +841,15 @@ void ws_log_init(const char *progname,
     g_log_set_handler("GLib", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL,
                         glib_log_handler, NULL);
 
+#ifdef _WIN32
+    load_registry(vcmdarg_err);
+
+    /* if the user wants a console to be always there, well, we should open one for him */
+    if (ws_log_console_open == LOG_CONSOLE_OPEN_ALWAYS) {
+        create_console();
+    }
+#endif
+
     atexit(ws_log_cleanup);
 
     /* Configure from environment. */
@@ -760,7 +865,7 @@ void ws_log_init(const char *progname,
 
     env = g_getenv(ENV_VAR_FATAL);
     if (env != NULL) {
-        if (ws_log_set_fatal_str(env) == LOG_LEVEL_NONE) {
+        if (ws_log_set_fatal_level_str(env) == LOG_LEVEL_NONE) {
             print_err(vcmdarg_err, LOG_ARGS_NOEXIT,
                         "Ignoring invalid environment value %s=\"%s\"",
                         ENV_VAR_FATAL, env);
@@ -773,6 +878,12 @@ void ws_log_init(const char *progname,
     else if ((env = g_getenv(ENV_VAR_DOMAIN)) != NULL)
         ws_log_set_domain_filter(env);
 
+    /* Alias "domain" and "domains". The plural form wins. */
+    if ((env = g_getenv(ENV_VAR_FATAL_DOMAIN_S)) != NULL)
+        ws_log_set_fatal_domain_filter(env);
+    else if ((env = g_getenv(ENV_VAR_FATAL_DOMAIN)) != NULL)
+        ws_log_set_fatal_domain_filter(env);
+
     env = g_getenv(ENV_VAR_DEBUG);
     if (env != NULL)
         ws_log_set_debug_filter(env);
@@ -781,9 +892,7 @@ void ws_log_init(const char *progname,
     if (env != NULL)
         ws_log_set_noisy_filter(env);
 
-#ifndef WS_DISABLE_DEBUG
     init_complete = true;
-#endif
 }
 
 
@@ -860,10 +969,8 @@ static void log_write_do_work(FILE *fp, bool use_color,
                                 const char *file, long line, const char *func,
                                 const char *user_format, va_list user_ap)
 {
-#ifndef WS_DISABLE_DEBUG
     if (!init_complete)
         fputs(" ** (noinit)", fp);
-#endif
 
     /* Process */
     fprintf(fp, " ** (%s:%ld) ", registered_progname, (long)getpid());
@@ -891,6 +998,7 @@ static void log_write_do_work(FILE *fp, bool use_color,
     else if (file != NULL)
         fprintf(fp, "%s ", file);
 
+    /* Any formatting changes here need to be synced with ui/capture.c:capture_input_closed. */
     fputs("-- ", fp);
 
     /* Function name */
@@ -944,8 +1052,25 @@ static void log_write_dispatch(const char *domain, enum ws_log_level level,
 {
     struct timespec tstamp;
     struct tm *cookie = NULL;
+    bool fatal_event = false;
+
+    if (level >= fatal_log_level && level != LOG_LEVEL_ECHO) {
+        fatal_event = true;
+    }
+    else if (fatal_filter != NULL) {
+        if (filter_contains(fatal_filter, domain) && fatal_filter->positive) {
+            fatal_event = true;
+        }
+    }
 
     ws_clock_get_realtime(&tstamp);
+
+#ifdef _WIN32
+    if (fatal_event || ws_log_console_open != LOG_CONSOLE_OPEN_NEVER) {
+        /* the user wants a console or the application will terminate immediately */
+        create_console();
+    }
+#endif /* _WIN32 */
 
     if (custom_log) {
         va_list user_ap_copy;
@@ -971,7 +1096,16 @@ static void log_write_dispatch(const char *domain, enum ws_log_level level,
                             user_format, user_ap);
     }
 
-    if (level >= fatal_log_level && level != LOG_LEVEL_ECHO) {
+#ifdef _WIN32
+    if (fatal_event) {
+        /* wait for a key press before the following error handler will terminate the program
+            this way the user at least can read the error message */
+        printf("\n\nPress any key to exit\n");
+        _getch();
+    }
+#endif /* _WIN32 */
+
+    if (fatal_event) {
         abort();
     }
 }
@@ -1052,6 +1186,75 @@ void ws_log_write_always_full(const char *domain, enum ws_log_level level,
 }
 
 
+static char *
+make_utf8_display(const char *src, size_t src_length, size_t good_length)
+{
+    wmem_strbuf_t *buf;
+    unsigned char ch;
+    size_t offset = 0;
+
+    buf = wmem_strbuf_new(NULL, NULL);
+
+    for (size_t pos = 0; pos < good_length; pos++) {
+        ch = src[pos];
+        wmem_strbuf_append_c(buf, ch);
+        if ((ch >> 6) != 2) {
+            /* first byte */
+            offset += 1;
+        }
+    }
+    for (size_t pos = good_length; pos < src_length; pos++) {
+        ch = src[pos];
+        wmem_strbuf_append_hex(buf, ch);
+    }
+    wmem_strbuf_append_c(buf, '\n');
+
+    for (size_t pos = 0; pos < offset; pos++) {
+        wmem_strbuf_append_c(buf, ' ');
+    }
+    wmem_strbuf_append(buf, "^^^^");
+    for (size_t pos = good_length + 1; pos < src_length; pos++) {
+        wmem_strbuf_append(buf, "~~~~");
+    }
+    return wmem_strbuf_finalize(buf);
+}
+
+
+void ws_log_utf8_full(const char *domain, enum ws_log_level level,
+                    const char *file, long line, const char *func,
+                    const char *string, ssize_t _length, const char *endptr)
+{
+    if (!ws_log_msg_is_active(domain, level))
+        return;
+
+    char *display;
+    size_t length;
+    size_t good_length;
+
+    if (_length < 0)
+        length = strlen(string);
+    else
+        length = _length;
+
+    if (endptr == NULL || endptr < string) {
+        /* Find the pointer to the first invalid byte. */
+        if (g_utf8_validate(string, length, &endptr)) {
+            /* Valid string - should not happen. */
+            return;
+        }
+    }
+    good_length = endptr - string;
+
+    display = make_utf8_display(string, length, good_length);
+
+    ws_log_write_always_full(domain, level, file, line, func,
+            "Invalid UTF-8 at address %p offset %zu (length = %zu):\n%s",
+            string, good_length, length, display);
+
+    g_free(display);
+}
+
+
 void ws_log_buffer_full(const char *domain, enum ws_log_level level,
                     const char *file, long line, const char *func,
                     const uint8_t *ptr, size_t size,  size_t max_bytes_len,
@@ -1120,6 +1323,7 @@ static void ws_log_cleanup(void)
     free_log_filter(&domain_filter);
     free_log_filter(&debug_filter);
     free_log_filter(&noisy_filter);
+    free_log_filter(&fatal_filter);
 }
 
 
@@ -1139,13 +1343,16 @@ void ws_log_add_custom_file(FILE *fp)
     "sets level to abort the program (\"critical\" or \"warning\")"
 
 #define USAGE_DOMAINS \
-    "comma separated list of the active log domains"
+    "comma-separated list of the active log domains"
+
+#define USAGE_FATAL_DOMAINS \
+    "list of domains that cause the program to abort"
 
 #define USAGE_DEBUG \
-    "comma separated list of domains with \"debug\" level"
+    "list of domains with \"debug\" level"
 
 #define USAGE_NOISY \
-    "comma separated list of domains with \"noisy\" level"
+    "list of domains with \"noisy\" level"
 
 #define USAGE_FILE \
     "file to output messages to (in addition to stderr)"
@@ -1156,6 +1363,8 @@ void ws_log_print_usage(FILE *fp)
     fprintf(fp, "  --log-level <level>      " USAGE_LEVEL "\n");
     fprintf(fp, "  --log-fatal <level>      " USAGE_FATAL "\n");
     fprintf(fp, "  --log-domains <[!]list>  " USAGE_DOMAINS "\n");
+    fprintf(fp, "  --log-fatal-domains <list>\n");
+    fprintf(fp, "                           " USAGE_FATAL_DOMAINS "\n");
     fprintf(fp, "  --log-debug <[!]list>    " USAGE_DEBUG "\n");
     fprintf(fp, "  --log-noisy <[!]list>    " USAGE_NOISY "\n");
     fprintf(fp, "  --log-file <path>        " USAGE_FILE "\n");

@@ -25,6 +25,8 @@
 void proto_register_17221(void);
 void proto_reg_handoff_17221(void);
 
+static dissector_handle_t avb17221_handle;
+
 /* 17221 Offsets */
 #define P1722_HEADER_OFFSET                 12
 
@@ -2740,7 +2742,6 @@ dissect_17221_ctrl_val(tvbuff_t *tvb, proto_tree *tree, guint16 num_ctrl_vals, g
    proto_item *ctrl_subtree;
    int i;
    guint32 bin_blob_size;
-   gint string_length;
    ctrl_ref_vals ref;
 
    /* set up control values tree */
@@ -2802,9 +2803,8 @@ dissect_17221_ctrl_val(tvbuff_t *tvb, proto_tree *tree, guint16 num_ctrl_vals, g
 
       /* UTF8 STRING TYPE */
    } else if (ctrl_val_type == 0x14) {
-      tvb_get_const_stringz(tvb, ctrl_offset, &string_length);
       proto_tree_add_item(ctrl_subtree, hf_aem_string, tvb,
-            ctrl_offset, string_length, ENC_ASCII);
+            ctrl_offset, -1, ENC_ASCII);
 
       /* BODE_PLOT TYPE */
    } else if (ctrl_val_type == 0x15) {
@@ -6661,7 +6661,7 @@ proto_register_17221(void)
       /* STRINGS */
       { &hf_aem_string,
          {"String", "ieee17221.string",
-            FT_STRING, BASE_NONE, NULL, 0x00, NULL, HFILL }
+            FT_STRINGZ, BASE_NONE, NULL, 0x00, NULL, HFILL }
       },
 
       /* MATRIX SIGNAL */
@@ -7015,6 +7015,7 @@ proto_register_17221(void)
 
    /* Register the protocol name and description */
    proto_17221 = proto_register_protocol("IEEE 1722.1 Protocol", "IEEE1722.1", "ieee17221");
+   avb17221_handle = register_dissector("ieee17221", dissect_17221, proto_17221);
 
    /* Required function calls to register the header fields and subtrees used */
    proto_register_field_array(proto_17221, hf, array_length(hf));
@@ -7027,12 +7028,6 @@ proto_register_17221(void)
 void
 proto_reg_handoff_17221(void)
 {
-
-   dissector_handle_t avb17221_handle;
-
-   /* avb17221_handle = find_dissector("ieee1722"); */
-
-   avb17221_handle = create_dissector_handle(dissect_17221, proto_17221);
    dissector_add_uint("ieee1722.subtype", 0xFA, avb17221_handle);
    dissector_add_uint("ieee1722.subtype", 0xFB, avb17221_handle);
    dissector_add_uint("ieee1722.subtype", 0xFC, avb17221_handle);

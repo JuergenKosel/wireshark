@@ -28,7 +28,7 @@
         <translation>Kopiera versionsinformationen till urklipp</translation>
     </message>
     <message>
-        <source>Copy To Clipboard</source>
+        <source>Copy to Clipboard</source>
         <translation>Kopiera till urklipp</translation>
     </message>
     <message>
@@ -379,7 +379,7 @@
     </message>
     <message>
         <source>Ctrl+M</source>
-        <translation type="unfinished">Ctrl+M</translation>
+        <translation>Ctrl+M</translation>
     </message>
     <message>
         <source>Mark/Unmark Cell</source>
@@ -723,7 +723,7 @@
     <name>ByteViewText</name>
     <message>
         <source>Allow hover highlighting</source>
-        <translation type="unfinished"></translation>
+        <translation>Tillåt markering vid hovring</translation>
     </message>
     <message>
         <source>Show bytes as hexadecimal</source>
@@ -1475,11 +1475,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Optionally specify a temporary directory for unnamed capture files.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Ange om så önskas en tillfällig katalog för namnlösa fångstfiler.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>Directory for temporary files</source>
-        <translation type="unfinished"></translation>
+        <translation>Katalog för tillfälliga filer</translation>
     </message>
     <message>
         <source>Capture Options</source>
@@ -1499,7 +1499,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Specify temporary directory</source>
-        <translation type="unfinished"></translation>
+        <translation>Ange temporärkatalog</translation>
     </message>
     <message>
         <source>%1: %2</source>
@@ -1737,6 +1737,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Förekomst:</translation>
     </message>
     <message>
+        <source>Resolve Names:</source>
+        <translation>Slå upp namn:</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Visa mänskligt läsbara strängar istället för råa värden för fält. Endast tillämpligt på anpassade kolumner med fält som har värdesträngar.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
         <source>Missing fields.</source>
         <translation>Saknade fält.</translation>
     </message>
@@ -1770,6 +1778,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Field Occurrence</source>
         <translation>Fältförekomst</translation>
+    </message>
+    <message>
+        <source>Resolved</source>
+        <translation>Uppslagen</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;Show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings.&lt;/html&gt;</source>
+        <translation>&lt;html&gt;Visa mänskligt läsbara strängar istället för råa värden för fält. Endast tillämpligt på anpassade kolumner med fält som har värdesträngar.&lt;/html&gt;</translation>
     </message>
     <message>
         <source>New Column</source>
@@ -1818,71 +1834,75 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>ConversationDataModel</name>
     <message>
         <source>Address A</source>
-        <translation type="unfinished"></translation>
+        <translation>Adress A</translation>
     </message>
     <message>
         <source>Port A</source>
-        <translation type="unfinished"></translation>
+        <translation>Port A</translation>
     </message>
     <message>
         <source>Address B</source>
-        <translation type="unfinished"></translation>
+        <translation>Adress B</translation>
     </message>
     <message>
         <source>Port B</source>
-        <translation type="unfinished"></translation>
+        <translation>Port B</translation>
     </message>
     <message>
         <source>Packets</source>
-        <translation type="unfinished">Paket</translation>
+        <translation>Paket</translation>
     </message>
     <message>
         <source>Bytes</source>
-        <translation type="unfinished">Byte</translation>
+        <translation>Byte</translation>
     </message>
     <message>
         <source>Stream ID</source>
-        <translation type="unfinished"></translation>
+        <translation>Ström-ID</translation>
     </message>
     <message>
         <source>Packets A </source>
-        <translation type="unfinished"></translation>
+        <translation>Paket A</translation>
     </message>
     <message>
         <source>Bytes A </source>
+        <translation>Byte A</translation>
+    </message>
+    <message>
+        <source>Packets B </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Bytes B </source>
-        <translation type="unfinished"></translation>
+        <translation>Byte B</translation>
     </message>
     <message>
         <source>Abs Start</source>
-        <translation type="unfinished"></translation>
+        <translation>Abs start</translation>
     </message>
     <message>
         <source>Rel Start</source>
-        <translation type="unfinished"></translation>
+        <translation>Rel start</translation>
     </message>
     <message>
         <source>Duration</source>
-        <translation type="unfinished">Varaktighet</translation>
+        <translation>Varaktighet</translation>
     </message>
     <message>
         <source>Bits/s A </source>
-        <translation type="unfinished"></translation>
+        <translation>Bitar/s A</translation>
     </message>
     <message>
         <source>Bits/s B </source>
-        <translation type="unfinished"></translation>
+        <translation>Bitar/s B</translation>
     </message>
     <message>
         <source>Total Packets</source>
-        <translation type="unfinished"></translation>
+        <translation>Totalt antal paket</translation>
     </message>
     <message>
         <source>Percent Filtered</source>
-        <translation type="unfinished"></translation>
+        <translation>Procent filtrerade</translation>
     </message>
 </context>
 <context>
@@ -2007,6 +2027,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Kopiera paketbyte som en ström av hex.</translation>
     </message>
     <message>
+        <source>…as a Base64 String</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy packet bytes as a base64 encoded string.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>…as Raw Binary</source>
         <translation>… som rå binär</translation>
     </message>
@@ -2058,11 +2086,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Change behavior when the field matches this value</source>
-        <translation type="unfinished"></translation>
+        <translation>Ändra beteenden när fältet matchar detta värde</translation>
     </message>
     <message>
         <source>Field value type (and base, if Integer)</source>
-        <translation type="unfinished"></translation>
+        <translation>Fältvärdetypen (och basen, ifall heltal)</translation>
     </message>
     <message>
         <source>Current&quot;Decode As&quot; behavior</source>
@@ -2168,7 +2196,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Invalid filter: </source>
-        <translation>Felaktigt filter: </translation>
+        <translation type="unfinished">Felaktigt filter: </translation>
     </message>
     <message>
         <source>Save this filter</source>
@@ -2220,6 +2248,22 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Relation</source>
         <translation>Relation</translation>
+    </message>
+    <message>
+        <source>By default order comparisons and contains/matches/in relations are true if any value matches. The quantifier &quot;all&quot; can be used to apply the test to all values in a frame.</source>
+        <translation>Som standard är ordningsjämförelser och innehåller-/matchar-/i-relationer sanna om något värde matchar. Kvantifieraren ”all” kan användas för att tillämpa testet på alla värden i en ram.</translation>
+    </message>
+    <message>
+        <source>Quantifier</source>
+        <translation>Kvantifierare</translation>
+    </message>
+    <message>
+        <source>Any</source>
+        <translation>Något</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Alla</translation>
     </message>
     <message>
         <source>Match against this value.</source>
@@ -2292,8 +2336,8 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Sträng</translation>
     </message>
     <message>
-        <source>Dissector</source>
-        <translation>Dissekerare</translation>
+        <source>Dissector Description</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Integer</source>
@@ -2398,59 +2442,59 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>EndpointDataModel</name>
     <message>
         <source>Address</source>
-        <translation type="unfinished">Adress</translation>
+        <translation>Adress</translation>
     </message>
     <message>
         <source>Port</source>
-        <translation type="unfinished">Port</translation>
+        <translation>Port</translation>
     </message>
     <message>
         <source>Packets</source>
-        <translation type="unfinished">Paket</translation>
+        <translation>Paket</translation>
     </message>
     <message>
         <source>Bytes</source>
-        <translation type="unfinished">Byte</translation>
+        <translation>Byte</translation>
     </message>
     <message>
         <source>Tx Packets</source>
-        <translation type="unfinished"></translation>
+        <translation>Snd paket</translation>
     </message>
     <message>
         <source>Tx Bytes</source>
-        <translation type="unfinished"></translation>
+        <translation>Snd byte</translation>
     </message>
     <message>
         <source>Rx Packets</source>
-        <translation type="unfinished"></translation>
+        <translation>Mott paket</translation>
     </message>
     <message>
         <source>Rx Bytes</source>
-        <translation type="unfinished"></translation>
+        <translation>Mott byte</translation>
     </message>
     <message>
         <source>Country</source>
-        <translation type="unfinished"></translation>
+        <translation>Land</translation>
     </message>
     <message>
         <source>City</source>
-        <translation type="unfinished"></translation>
+        <translation>Stad</translation>
     </message>
     <message>
         <source>AS Number</source>
-        <translation type="unfinished"></translation>
+        <translation>AS-nummer</translation>
     </message>
     <message>
         <source>AS Organization</source>
-        <translation type="unfinished"></translation>
+        <translation>AS-organisation</translation>
     </message>
     <message>
         <source>Total Packets</source>
-        <translation type="unfinished"></translation>
+        <translation>Totalt antal paket</translation>
     </message>
     <message>
         <source>Percent Filtered</source>
-        <translation type="unfinished"></translation>
+        <translation>Procent filtrerade</translation>
     </message>
 </context>
 <context>
@@ -2807,7 +2851,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Save</source>
-        <translation type="unfinished"></translation>
+        <translation>Spara</translation>
     </message>
     <message>
         <source>Default</source>
@@ -2815,7 +2859,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Restore default value of the item</source>
-        <translation type="unfinished"></translation>
+        <translation>Återställ standardvärdet för objektet</translation>
     </message>
     <message>
         <source>Extcap Help cannot be found</source>
@@ -3381,10 +3425,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
             <numerusform>Maximalt QUIC-ström-ID för den valda förbindelsen: %Ln</numerusform>
             <numerusform>Maximalt QUIC-ström-ID för den valda förbindelsen: %Ln</numerusform>
         </translation>
-    </message>
-    <message>
-        <source>No streams</source>
-        <translation>Inga strömmar</translation>
     </message>
     <message>
         <source>Entire conversation (%1)</source>
@@ -4470,11 +4510,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Whether to do extra processing detecting the start of the ASCII representation at the end of a hex+ASCII line even if it looks like hex bytes.&lt;/p&gt;&lt;p&gt;Do not enable if the hex dump does not contain ASCII.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Huruvida den extra bearbetningen skall göras för att upptäcka början på ASCII-representationen vid slutet av en hex+ASCII-rad även om det ser ut som hexbyte:ar.&lt;/p&gt;&lt;p&gt;Aktivera inte om hexdumpen inte innehåller ASCII.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>ASCII identification:</source>
-        <translation type="unfinished"></translation>
+        <translation>ASCII-identifikation:</translation>
     </message>
     <message>
         <source>Regular Expression</source>
@@ -4542,19 +4582,19 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>IP version:</source>
-        <translation type="unfinished"></translation>
+        <translation>IP-version:</translation>
     </message>
     <message>
         <source>Interface name:</source>
-        <translation type="unfinished"></translation>
+        <translation>Gränssnittsnamn:</translation>
     </message>
     <message>
         <source>The name of the interface to write to the import capture file</source>
-        <translation type="unfinished"></translation>
+        <translation>Namnet på gränssnittet att skriva till importfångstfilen</translation>
     </message>
     <message>
         <source>Fake IF, Import from Hex Dump</source>
-        <translation type="unfinished"></translation>
+        <translation>Låtsat IF, importera från hexdump</translation>
     </message>
     <message>
         <source>Maximum frame length:</source>
@@ -4582,7 +4622,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The format in which to parse timestamps in the text file (e.g. %H:%M:%S.%f).&lt;/p&gt;&lt;p&gt;Format specifiers are based on strptime(3) with the addition of %f for second fractions. The precision of %f is determined from its length.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Formatet i vilket tidsstämplar skall tolkas i textfilen (t.ex. %H.%M.%S,%f).&lt;/p&gt;&lt;p&gt;Formatspecificerare baseras på strptime(3) med tillägget %f för delar av sekunder. Upplösningen på %f avgörs från dess längd.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>%H:%M:%S.%f</source>
@@ -4602,35 +4642,35 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Prefix each frame with an Ethernet and IP header</source>
-        <translation type="unfinished"></translation>
+        <translation>Föregå varje ram med ett Ethernet- och IP-huvud</translation>
     </message>
     <message>
         <source>IP</source>
-        <translation type="unfinished"></translation>
+        <translation>IP</translation>
     </message>
     <message>
         <source>Prefix each frame with an Ethernet, IP and UDP header</source>
-        <translation type="unfinished"></translation>
+        <translation>Föregå varje ram med ett Ethernet-, IP-, och UDP-huvud</translation>
     </message>
     <message>
         <source>Prefix each frame with an Ethernet, IP and TCP header</source>
-        <translation type="unfinished"></translation>
+        <translation>Föregå varje ram med ett Ethernet-, IP-, och TCP-huvud</translation>
     </message>
     <message>
         <source>Prefix each frame with an Ethernet, IP and SCTP header</source>
-        <translation type="unfinished"></translation>
+        <translation>Föregå varje ram med ett Ethernet-, IP-, och SCTP-huvud</translation>
     </message>
     <message>
         <source>Prefix each frame with an Ethernet, IP and SCTP (DATA) header</source>
-        <translation type="unfinished"></translation>
+        <translation>Föregå varje ram med ett Ethernet-, IP-, och SCTP (DATA)-huvud</translation>
     </message>
     <message>
         <source>Source address:</source>
-        <translation type="unfinished"></translation>
+        <translation>Källadress:</translation>
     </message>
     <message>
         <source>Destination address:</source>
-        <translation type="unfinished"></translation>
+        <translation>Destinationsadress:</translation>
     </message>
     <message>
         <source>Dissector</source>
@@ -4638,15 +4678,15 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>The IP protocol ID for each frame</source>
-        <translation type="unfinished"></translation>
+        <translation>IP protokoll-ID för varje ram</translation>
     </message>
     <message>
         <source>The IP source address for each frame</source>
-        <translation type="unfinished"></translation>
+        <translation>IP-källadressen för varje ram</translation>
     </message>
     <message>
         <source>The IP destination address for each frame</source>
-        <translation type="unfinished"></translation>
+        <translation>IP-destinationsadressen för varje ram</translation>
     </message>
     <message>
         <source>The UDP, TCP or SCTP source port for each frame</source>
@@ -4730,7 +4770,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>The IP Version to use for the dummy IP header</source>
-        <translation type="unfinished"></translation>
+        <translation>IP-versionen att använda för attrapp-IP-huvud</translation>
     </message>
     <message>
         <source>The maximum size of the frames to write to the import capture file (max 256kiB)</source>
@@ -4817,7 +4857,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>&lt;p&gt;Local interfaces are unavailable because no packet capture driver is installed.&lt;/p&gt;&lt;p&gt;You can fix this by installing &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;p&gt;Lokala gränssnitt är inte tillgängliga för att ingen paketfångstdrivrutin är installerad&lt;/p&gt;&lt;p&gt;Man kan lösa detta genom att installera &lt;a href=&quot;https://npcap.com/&quot;&gt;Npcap&lt;/a&gt;.&lt;/p&gt;</translation>
     </message>
     <message>
         <source>&lt;p&gt;Local interfaces are unavailable because the packet capture driver isn&apos;t loaded.&lt;/p&gt;&lt;p&gt;You can fix this by running &lt;pre&gt;net start npcap&lt;/pre&gt; if you have Npcap installed or &lt;pre&gt;net start npf&lt;/pre&gt; if you have WinPcap installed. Both commands must be run as Administrator.&lt;/p&gt;</source>
@@ -4845,7 +4885,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Hide Interface</source>
-        <translation type="unfinished"></translation>
+        <translation>Dölj gränssnitt</translation>
     </message>
 </context>
 <context>
@@ -5824,7 +5864,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Allow the list to be sorted</source>
-        <translation type="unfinished"></translation>
+        <translation>Tillåt att listan sorteras</translation>
     </message>
     <message>
         <source>Enable mouse-over colorization</source>
@@ -6880,7 +6920,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Show packet bytes</source>
-        <translation type="unfinished"></translation>
+        <translation>Visa paketbyte</translation>
     </message>
     <message>
         <source>Packet %1</source>
@@ -6963,11 +7003,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Include secondary data sources</source>
-        <translation type="unfinished"></translation>
+        <translation>Inkludera sekundära datakällor</translation>
     </message>
     <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generate hexdumps for secondary data sources like reassembled or decrypted buffers in addition to the frame&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Generera hexdumpar för sekundära datakällor såsom återsammansatta eller dekrypterade buffertar utöver ramen&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
 </context>
 <context>
@@ -7110,18 +7150,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>PathSelectionDelegate</name>
     <message>
         <source>Open a pipe</source>
-        <translation type="unfinished"></translation>
+        <translation>Öppna ett rör</translation>
     </message>
 </context>
 <context>
     <name>PathSelectionEdit</name>
     <message>
         <source>Browse</source>
-        <translation type="unfinished"></translation>
+        <translation>Bläddra</translation>
     </message>
     <message>
         <source>Select a path</source>
-        <translation type="unfinished"></translation>
+        <translation>Välj en sökväg</translation>
     </message>
 </context>
 <context>
@@ -7722,7 +7762,7 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>PDUs</source>
-        <translation type="unfinished"></translation>
+        <translation>PDU:er</translation>
     </message>
     <message>
         <source>&lt;small&gt;&lt;i&gt;A hint.&lt;/i&gt;&lt;/small&gt;</source>
@@ -10910,6 +10950,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Hexsiffror</translation>
     </message>
     <message>
+        <source>Percent-Encoding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Quoted-Printable</source>
         <translation>Quoted-Printable</translation>
     </message>
@@ -10946,17 +10990,12 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Bild</translation>
     </message>
     <message>
-        <source>JSON</source>
-        <oldsource>Json</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Raw</source>
         <translation>Rå</translation>
     </message>
     <message>
         <source>Rust Array</source>
-        <translation type="unfinished"></translation>
+        <translation>Rust-vektor</translation>
     </message>
     <message>
         <source>UTF-8</source>
@@ -10988,6 +11027,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
             <numerusform>Visar %Ln byte.</numerusform>
             <numerusform>Visar %Ln byte.</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>JSON</source>
+        <translation>JSON</translation>
     </message>
     <message>
         <source>Regex Find:</source>
@@ -11072,11 +11115,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>StripHeadersDialog</name>
     <message>
         <source>Dialog</source>
-        <translation type="unfinished">Dialog</translation>
+        <translation>Dialog</translation>
     </message>
     <message>
         <source>Display filter:</source>
-        <translation type="unfinished">Visningsfilter:</translation>
+        <translation>Visningsfilter:</translation>
     </message>
 </context>
 <context>
@@ -11127,6 +11170,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 </context>
 <context>
     <name>SyntaxLineEdit</name>
+    <message>
+        <source>Invalid filter: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>&quot;%1&quot; is deprecated in favour of &quot;%2&quot;. See Help section 6.4.8 for details.</source>
         <translation>”%1” bör undvikas till förmån för ”%2”.  Se hjälpen avsnitt 6.4.8 för detaljer.</translation>
@@ -11767,11 +11814,11 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     </message>
     <message>
         <source>Collapse All</source>
-        <translation type="unfinished">Fäll ihop alla</translation>
+        <translation>Fäll ihop alla</translation>
     </message>
     <message>
         <source>Expand All</source>
-        <translation type="unfinished">Fäll ut alla</translation>
+        <translation>Fäll ut alla</translation>
     </message>
     <message>
         <source>Save Statistics As…</source>
@@ -11846,19 +11893,19 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>TrafficTab</name>
     <message>
         <source>Map file error</source>
-        <translation type="unfinished">Kartfilsfel</translation>
+        <translation>Kartfilsfel</translation>
     </message>
     <message>
         <source>Could not open base file %1 for reading: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Kunde inte öppna basfien %1 för läsning: %2</translation>
     </message>
     <message>
         <source>No endpoints available to map</source>
-        <translation type="unfinished"></translation>
+        <translation>Inga ändpunkter tillgängliga att kartlägga</translation>
     </message>
     <message>
         <source>Unable to create temporary file</source>
-        <translation type="unfinished"></translation>
+        <translation>Kan inte skapa en temporärfil</translation>
     </message>
 </context>
 <context>
@@ -11880,12 +11927,20 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Begränsa till visningsfilter</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show types matching the filter value&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa endast typer som matchar filtervärdet&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Filter list for specific type</source>
+        <translation>Filterlista för specifik typ</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show absolute times in the start time column.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Visa absoluta tider i starttidskolumen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
     <message>
         <source>GroupBox</source>
-        <translation type="unfinished">GroupBox</translation>
+        <translation>Gruppruta</translation>
     </message>
     <message>
         <source>Absolute start time</source>
@@ -11904,54 +11959,81 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <name>TrafficTree</name>
     <message>
         <source>Resize all columns to content</source>
-        <translation type="unfinished"></translation>
+        <translation>Ändra storleken på alla kolumner för att passa med innehållet</translation>
     </message>
     <message>
         <source>Filter on stream id</source>
-        <translation type="unfinished"></translation>
+        <translation>Filtrera på ström-id</translation>
     </message>
     <message>
         <source>Copy %1 table</source>
-        <translation type="unfinished"></translation>
+        <translation>Kopiera tabellen %1</translation>
     </message>
     <message>
         <source>as CSV</source>
-        <translation type="unfinished">som CSV</translation>
+        <translation>som CSV</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in CSV (Comma Separated Values) format.</source>
-        <translation type="unfinished"></translation>
+        <translation>Kopiera alla värden på denna sida till urklipp i CSV-format (kommaseparerade värden).</translation>
     </message>
     <message>
         <source>as YAML</source>
-        <translation type="unfinished">som YAML</translation>
+        <translation>som YAML</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the YAML data serialization format.</source>
-        <translation type="unfinished"></translation>
+        <translation>Kopiera alla värden på denna sida till urklipp i dataserialiseringsformatet YAML.</translation>
     </message>
     <message>
         <source>as JSON</source>
-        <translation type="unfinished"></translation>
+        <translation>som JSON</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
-        <translation type="unfinished"></translation>
+        <translation>Kopiera alla värden på denna sida till urklipp i dataserialiseringsformatet JSON.</translation>
     </message>
     <message>
         <source>Save data as raw</source>
-        <translation type="unfinished"></translation>
+        <translation>Spara data som rått</translation>
     </message>
     <message>
         <source>Disable data formatting for export/clipboard and save as raw data</source>
-        <translation type="unfinished"></translation>
+        <translation>Avaktivera dataformatering vid export/urklipp och spara som råa data</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTreeHeaderView</name>
+    <message>
+        <source>Less than</source>
+        <translation>Mindre än</translation>
+    </message>
+    <message>
+        <source>Greater than</source>
+        <translation>Större än</translation>
+    </message>
+    <message>
+        <source>Equal</source>
+        <translation>Lika med</translation>
+    </message>
+    <message>
+        <source>Columns to display</source>
+        <translation>Kolumner att visa</translation>
+    </message>
+    <message>
+        <source>Filter %1 by</source>
+        <translation>Filtrera %1 enligt</translation>
+    </message>
+    <message>
+        <source>Enter filter value</source>
+        <translation>Ange filtervärde</translation>
     </message>
 </context>
 <context>
     <name>TrafficTypesModel</name>
     <message>
         <source>Protocol</source>
-        <translation type="unfinished">Protokoll</translation>
+        <translation>Protokoll</translation>
     </message>
 </context>
 <context>
@@ -12300,39 +12382,17 @@ a:hover {
 
 &lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Mailing Lists&lt;/a&gt;&lt;/th&gt;
 
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://sharkfest.wireshark.org/&quot;&gt;SharkFest&lt;/a&gt;&lt;/th&gt;
+
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://discord.com/invite/ts9GZCjGj5&quot;&gt;Wireshark Discord&lt;/a&gt;&lt;/th&gt;
+
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head&gt;
-&lt;style&gt;
-a:link {
-  color: palette(text);;
-  text-decoration: none;
-}
-a:hover {
-  color: palette(text);
-  text-decoration: underline;
-}
-&lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-
-&lt;table&gt;&lt;tr&gt;
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/docs/wsug_html_chunked/&quot;&gt;Användarguide&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://gitlab.com/wireshark/wireshark/-/wikis/&quot;&gt;Wiki&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://ask.wireshark.org/&quot;&gt;Frågor och svar&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Sändlistor&lt;/a&gt;&lt;/th&gt;
-
-&lt;/tr&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Show in Finder</source>
@@ -12344,7 +12404,7 @@ a:hover {
     </message>
     <message>
         <source>Welcome to %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Välkommen till %1</translation>
     </message>
     <message>
         <source>All interfaces shown</source>
@@ -12895,7 +12955,7 @@ a:hover {
     </message>
     <message>
         <source>SOME/IP</source>
-        <translation type="unfinished"></translation>
+        <translation>SOME/IP</translation>
     </message>
     <message>
         <source>Osmux</source>
@@ -13362,19 +13422,19 @@ a:hover {
     </message>
     <message>
         <source>SOME/IP Messages</source>
-        <translation type="unfinished"></translation>
+        <translation>SOME/IP-meddelanden</translation>
     </message>
     <message>
         <source>SOME/IP Message statistics</source>
-        <translation type="unfinished"></translation>
+        <translation>SOME/IP-meddelandestatistik</translation>
     </message>
     <message>
         <source>SOME/IP-SD Entries</source>
-        <translation type="unfinished"></translation>
+        <translation>SOME/IP-SD-poster</translation>
     </message>
     <message>
         <source>SOME/IP-SD Entries statistics</source>
-        <translation type="unfinished"></translation>
+        <translation>SOME/IP-SD-poststatistik</translation>
     </message>
     <message>
         <source>&amp;ISUP Messages</source>
@@ -13490,11 +13550,11 @@ a:hover {
     </message>
     <message>
         <source>Strip Headers…</source>
-        <translation type="unfinished"></translation>
+        <translation>Ta bort huvuden …</translation>
     </message>
     <message>
         <source>Strip headers and export higher level encapsulations to file</source>
-        <translation type="unfinished"></translation>
+        <translation>Ta bort huvuden och exportera högnivåinkapsling till en fil</translation>
     </message>
     <message>
         <source>&amp;I/O Graphs</source>
@@ -13526,7 +13586,7 @@ a:hover {
     </message>
     <message>
         <source>Seconds Since First Captured Packet</source>
-        <translation type="unfinished"></translation>
+        <translation>Sekunder sedan första fångade paket</translation>
     </message>
     <message>
         <source>Packet &amp;Diagram</source>
@@ -14456,6 +14516,14 @@ a:hover {
         <source>No Keys</source>
         <translation>Inga nycklar</translation>
     </message>
+    <message numerus="yes">
+        <source>Export SSL Session Keys (%Ln key(s))</source>
+        <oldsource>Export SSL Session Keys (%1 key%2</oldsource>
+        <translation type="vanished">
+            <numerusform>Exportera SSL-sessionsnycklar (%Ln nyckel)</numerusform>
+            <numerusform>Exportera SSL-sessionsnycklar (%Ln nycklar)</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Raw data (*.bin *.dat *.raw);;All Files (</source>
         <translation>Rå data (*.bin *.dat *.raw);;Alla filer (</translation>
@@ -14494,7 +14562,7 @@ a:hover {
     </message>
     <message>
         <source>Configure all extcaps before start of capture.</source>
-        <translation type="unfinished"></translation>
+        <translation>Konfigurera alla extcap:ar före start av fångst</translation>
     </message>
     <message>
         <source>Invalid capture filter.</source>

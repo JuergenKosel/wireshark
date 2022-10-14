@@ -246,6 +246,7 @@ void MainStatusBar::changeEvent(QEvent *event)
     if (event->type() == QEvent::LanguageChange) {
         info_status_.popText(STATUS_CTX_MAIN);
         info_status_.pushText(ready_msg_, STATUS_CTX_MAIN);
+        setStatusbarForCaptureFile();
         showCaptureStatistics();
         setProfileName();
     }
@@ -256,6 +257,17 @@ void MainStatusBar::setCaptureFile(capture_file *cf)
 {
     cap_file_ = cf;
     comment_button_->setEnabled(cap_file_ != NULL);
+}
+
+void MainStatusBar::setStatusbarForCaptureFile()
+{
+    if (cap_file_ && cap_file_->filename && (cap_file_->state != FILE_CLOSED)) {
+        popGenericStatus(STATUS_CTX_FILE);
+        QString msgtip = QString("%1 (%2)")
+                .arg(cap_file_->filename)
+                .arg(file_size_to_qstring(cap_file_->f_datalen));
+        pushGenericStatus(STATUS_CTX_FILE, cf_get_display_name(cap_file_), msgtip);
+    }
 }
 
 void MainStatusBar::selectedFieldChanged(FieldInformation * finfo)
@@ -479,9 +491,10 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
 {
     ProfileModel model;
 
-    QMenu profile_menu_;
-    QActionGroup global(this);
-    QActionGroup user(this);
+    QMenu * profile_menu = new QMenu(this);
+    profile_menu->setAttribute(Qt::WA_DeleteOnClose);
+    QActionGroup * global = new QActionGroup(profile_menu);
+    QActionGroup * user = new QActionGroup(profile_menu);
 
     for (int cnt = 0; cnt < model.rowCount(); cnt++)
     {
@@ -499,16 +512,16 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
 
         if (idx.data(ProfileModel::DATA_IS_DEFAULT).toBool())
         {
-            pa = profile_menu_.addAction(name);
+            pa = profile_menu->addAction(name);
         }
         else if (idx.data(ProfileModel::DATA_IS_GLOBAL).toBool())
         {
             /* Check if this profile does not exist as user */
             if (cnt == model.findByName(name))
-                pa = global.addAction(name);
+                pa = global->addAction(name);
         }
         else
-            pa = user.addAction(name);
+            pa = user->addAction(name);
 
         if (! pa)
             continue;
@@ -524,12 +537,12 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
         connect(pa, &QAction::triggered, this, &MainStatusBar::switchToProfile);
     }
 
-    profile_menu_.addActions(user.actions());
-    profile_menu_.addSeparator();
-    profile_menu_.addActions(global.actions());
+    profile_menu->addActions(user->actions());
+    profile_menu->addSeparator();
+    profile_menu->addActions(global->actions());
 
     if (button == Qt::LeftButton) {
-        profile_menu_.exec(global_pos);
+        profile_menu->popup(global_pos);
     } else {
 
         bool enable_edit = false;
@@ -538,21 +551,22 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
         if (! idx.data(ProfileModel::DATA_IS_DEFAULT).toBool() && ! idx.data(ProfileModel::DATA_IS_GLOBAL).toBool())
             enable_edit = true;
 
-        profile_menu_.setTitle(tr("Switch to"));
-        QMenu ctx_menu_;
-        QAction * action = ctx_menu_.addAction(tr("Manage Profiles…"), this, SLOT(manageProfile()));
+        profile_menu->setTitle(tr("Switch to"));
+        QMenu * ctx_menu_ = new QMenu(this);
+        ctx_menu_->setAttribute(Qt::WA_DeleteOnClose);
+        QAction * action = ctx_menu_->addAction(tr("Manage Profiles…"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::ShowProfiles);
 
-        ctx_menu_.addSeparator();
-        action = ctx_menu_.addAction(tr("New…"), this, SLOT(manageProfile()));
+        ctx_menu_->addSeparator();
+        action = ctx_menu_->addAction(tr("New…"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::NewProfile);
-        action = ctx_menu_.addAction(tr("Edit…"), this, SLOT(manageProfile()));
+        action = ctx_menu_->addAction(tr("Edit…"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::EditCurrentProfile);
         action->setEnabled(enable_edit);
-        action = ctx_menu_.addAction(tr("Delete"), this, SLOT(manageProfile()));
+        action = ctx_menu_->addAction(tr("Delete"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::DeleteCurrentProfile);
         action->setEnabled(enable_edit);
-        ctx_menu_.addSeparator();
+        ctx_menu_->addSeparator();
 
 #ifdef HAVE_MINIZIP
         QMenu * importMenu = new QMenu(tr("Import"));
@@ -560,11 +574,11 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
         action->setProperty("dialog_action_", (int)ProfileDialog::ImportZipProfile);
         action = importMenu->addAction(tr("from directory"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::ImportDirProfile);
-        ctx_menu_.addMenu(importMenu);
+        ctx_menu_->addMenu(importMenu);
 
         if (model.userProfilesExist())
         {
-            QMenu * exportMenu = new QMenu(tr("Export"));
+            QMenu * exportMenu = new QMenu(tr("Export"), ctx_menu_);
             if (enable_edit)
             {
                 action = exportMenu->addAction(tr("selected personal profile"), this, SLOT(manageProfile()));
@@ -573,17 +587,17 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
             }
             action = exportMenu->addAction(tr("all personal profiles"), this, SLOT(manageProfile()));
             action->setProperty("dialog_action_", (int)ProfileDialog::ExportAllProfiles);
-            ctx_menu_.addMenu(exportMenu);
+            ctx_menu_->addMenu(exportMenu);
         }
 
 #else
-        action = ctx_menu_.addAction(tr("Import"), this, SLOT(manageProfile()));
+        action = ctx_menu_->addAction(tr("Import"), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::ImportDirProfile);
 #endif
-        ctx_menu_.addSeparator();
+        ctx_menu_->addSeparator();
 
-        ctx_menu_.addMenu(&profile_menu_);
-        ctx_menu_.exec(global_pos);
+        ctx_menu_->addMenu(profile_menu);
+        ctx_menu_->popup(global_pos);
     }
 }
 

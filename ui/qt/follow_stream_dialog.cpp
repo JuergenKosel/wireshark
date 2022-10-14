@@ -15,9 +15,6 @@
 
 #include "frame_tvbuff.h"
 #include "epan/follow.h"
-#include "epan/dissectors/packet-tcp.h"
-#include "epan/dissectors/packet-udp.h"
-#include "epan/dissectors/packet-dccp.h"
 #include "epan/dissectors/packet-http2.h"
 #include "epan/dissectors/packet-quic.h"
 #include "epan/prefs.h"
@@ -91,6 +88,9 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, follow_
 {
     ui->setupUi(this);
     loadGeometry(parent.width() * 2 / 3, parent.height());
+
+    ui->streamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
+    ui->subStreamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
 
     switch(type)
     {
@@ -434,6 +434,10 @@ void FollowStreamDialog::on_streamNumberSpinBox_valueChanged(int stream_num)
         }
         sub_stream_num = static_cast<gint>(sub_stream_num_new);
     } else {
+        /* XXX: For HTTP and TLS, we use the TCP stream index, and really should
+         * return false if the TCP stream doesn't have HTTP or TLS. (Or we could
+         * switch to having separate HTTP and TLS stream numbers.)
+         */
         ok = true;
     }
 
@@ -948,6 +952,8 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     QString             client_to_server_string;
     QString             both_directions_string;
     gboolean            is_follower = FALSE;
+    int                 stream_count;
+    follow_stream_count_func stream_count_func = NULL;
 
     resetStream();
 
@@ -971,12 +977,6 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
         }
     }
 
-    if (follow_type_ == FOLLOW_TLS || follow_type_ == FOLLOW_HTTP)
-    {
-        /* we got tls/http so we can follow */
-        removeStreamControls();
-    }
-
     follow_reset_stream(&follow_info_);
 
     /* Create a new filter that matches all packets in the TCP stream,
@@ -992,6 +992,10 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
                                  tr("Error creating filter for this stream."),
                                  tr("QUIC streams not found on the selected packet."));
         } else {
+            // XXX: This error probably has to do with tunneling, where
+            // the addresses or ports changed after the TCP or UDP layer.
+            // (The appropriate layer must be present, or else the GUI
+            // doesn't allow the option to be selected.)
             QMessageBox::warning(this,
                                  tr("Error creating filter for this stream."),
                                  tr("A transport or network layer header is needed."));
@@ -1028,54 +1032,24 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     ui->subStreamNumberSpinBox->setVisible(false);
     ui->subStreamNumberLabel->setVisible(false);
 
+    stream_count_func = get_follow_stream_count_func(follower_);
+
+    if (stream_count_func == NULL) {
+        removeStreamControls();
+    } else {
+        stream_count = stream_count_func();
+        ui->streamNumberSpinBox->blockSignals(true);
+        ui->streamNumberSpinBox->setMaximum(stream_count-1);
+        ui->streamNumberSpinBox->setValue(stream_num);
+        ui->streamNumberSpinBox->blockSignals(false);
+        ui->streamNumberSpinBox->setToolTip(tr("%Ln total stream(s).", "", stream_count));
+        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
+    }
+
     switch (follow_type_)
     {
-    case FOLLOW_TCP:
-    {
-        int stream_count = get_tcp_stream_count();
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(stream_count-1);
-        ui->streamNumberSpinBox->setValue(stream_num);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("%Ln total stream(s).", "", stream_count));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
-        break;
-    }
-    case FOLLOW_UDP:
-    {
-        int stream_count = get_udp_stream_count();
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(stream_count-1);
-        ui->streamNumberSpinBox->setValue(stream_num);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("%Ln total stream(s).", "", stream_count));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
-        break;
-    }
-    case FOLLOW_DCCP:
-    {
-        int stream_count = get_dccp_stream_count();
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(stream_count-1);
-        ui->streamNumberSpinBox->setValue(stream_num);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("%Ln total stream(s).", "", stream_count));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
-        break;
-    }
     case FOLLOW_HTTP2:
     {
-        int stream_count = get_tcp_stream_count();
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(stream_count-1);
-        ui->streamNumberSpinBox->setValue(stream_num);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("%Ln total stream(s).", "", stream_count));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
         guint substream_max_id = 0;
         http2_get_stream_id_le(static_cast<guint>(stream_num), G_MAXINT32, &substream_max_id);
         stream_count = static_cast<gint>(substream_max_id);
@@ -1093,14 +1067,6 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     }
     case FOLLOW_QUIC:
     {
-        int stream_count = get_quic_connections_count();
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(stream_count-1);
-        ui->streamNumberSpinBox->setValue(stream_num);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("Total number of QUIC connections: %Ln", "", stream_count));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
         guint substream_max_id = 0;
         quic_get_stream_id_le(static_cast<guint>(stream_num), G_MAXINT32, &substream_max_id);
         stream_count = static_cast<gint>(substream_max_id);
@@ -1116,23 +1082,9 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
 
         break;
     }
-    case FOLLOW_TLS:
-    case FOLLOW_HTTP:
+    default:
         /* No extra handling */
         break;
-    case FOLLOW_SIP:
-    {
-        /* There are no more streams */
-        ui->streamNumberSpinBox->setEnabled(false);
-        ui->streamNumberSpinBox->blockSignals(true);
-        ui->streamNumberSpinBox->setMaximum(0);
-        ui->streamNumberSpinBox->setValue(0);
-        ui->streamNumberSpinBox->blockSignals(false);
-        ui->streamNumberSpinBox->setToolTip(tr("No streams"));
-        ui->streamNumberLabel->setToolTip(ui->streamNumberSpinBox->toolTip());
-
-        break;
-    }
     }
 
     beginRetapPackets();

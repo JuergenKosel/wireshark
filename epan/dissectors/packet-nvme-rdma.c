@@ -180,7 +180,7 @@ find_ib_conversation(packet_info *pinfo, conversation_infiniband_data **uni_conv
     conversation_infiniband_data *conv_data;
 
     conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->dst,
-                             ENDPOINT_IBQP, pinfo->destport, pinfo->destport,
+                             CONVERSATION_IBQP, pinfo->destport, pinfo->destport,
                              NO_ADDR_B|NO_PORT_B);
     if (!conv)
         return NULL;   /* nothing to do with no conversation context */
@@ -194,7 +194,7 @@ find_ib_conversation(packet_info *pinfo, conversation_infiniband_data **uni_conv
      * conversation, so that we can relate to nvme q.
      */
     return find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-                             ENDPOINT_IBQP, pinfo->srcport, pinfo->destport, 0);
+                             CONVERSATION_IBQP, pinfo->srcport, pinfo->destport, 0);
 }
 
 static guint16 find_nvme_qid(packet_info *pinfo)
@@ -204,7 +204,7 @@ static guint16 find_nvme_qid(packet_info *pinfo)
     guint16 qid;
 
     conv = find_conversation(pinfo->num, &pinfo->dst, &pinfo->dst,
-                             ENDPOINT_IBQP, pinfo->destport, pinfo->destport,
+                             CONVERSATION_IBQP, pinfo->destport, pinfo->destport,
                              NO_ADDR_B|NO_PORT_B);
     if (!conv)
         return 0;   /* nothing to do with no conversation context */
@@ -218,7 +218,7 @@ static guint16 find_nvme_qid(packet_info *pinfo)
         return qid;
     }
     conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->src,
-                             ENDPOINT_IBQP, conv_data->src_qp, conv_data->src_qp,
+                             CONVERSATION_IBQP, conv_data->src_qp, conv_data->src_qp,
                              NO_ADDR_B|NO_PORT_B);
     if (!conv)
         return 0;
@@ -256,7 +256,7 @@ find_ib_cm_conversation(packet_info *pinfo)
     conversation_t *conv;
 
     conv = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-                             ENDPOINT_IBQP, pinfo->srcport, pinfo->destport, 0);
+                             CONVERSATION_IBQP, pinfo->srcport, pinfo->destport, 0);
     if (!conv)
         return NULL;
 
@@ -808,7 +808,6 @@ proto_register_nvme_rdma(void)
     proto_register_subtree_array(ett, array_length(ett));
 
     /* Register preferences */
-    //nvme_rdma_module = prefs_register_protocol(proto_nvme_rdma, proto_reg_handoff_nvme_rdma);
     nvme_rdma_module = prefs_register_protocol(proto_nvme_rdma, NULL);
 
     range_convert_str(wmem_epan_scope(), &gPORT_RANGE, NVME_RDMA_TCP_PORT_RANGE, MAX_TCP_PORT);

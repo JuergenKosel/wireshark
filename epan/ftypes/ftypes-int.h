@@ -22,11 +22,6 @@ extern ftype_t* type_list[FT_NUM_TYPES];
 	ws_assert(ftype < FT_NUM_TYPES);	\
 	result = type_list[ftype];
 
-enum ft_result {
-	FT_OK,
-	FT_ERROR,
-};
-
 typedef void (*FvalueNewFunc)(fvalue_t*);
 typedef void (*FvalueCopyFunc)(fvalue_t*, const fvalue_t*);
 typedef void (*FvalueFreeFunc)(fvalue_t*);
@@ -35,6 +30,9 @@ typedef gboolean (*FvalueFromLiteral)(fvalue_t*, const char*, gboolean, gchar **
 typedef gboolean (*FvalueFromString)(fvalue_t*, const char*, size_t, gchar **);
 typedef gboolean (*FvalueFromCharConst)(fvalue_t*, unsigned long, gchar **);
 typedef char *(*FvalueToStringRepr)(wmem_allocator_t *, const fvalue_t*, ftrepr_t, int field_display);
+
+typedef enum ft_result (*FvalueToUnsignedInteger64Func)(const fvalue_t*, guint64 *);
+typedef enum ft_result (*FvalueToSignedInteger64Func)(const fvalue_t*, gint64 *);
 
 typedef void (*FvalueSetByteArrayFunc)(fvalue_t*, GByteArray *);
 typedef void (*FvalueSetBytesFunc)(fvalue_t*, const guint8 *);
@@ -59,9 +57,9 @@ typedef guint64 (*FvalueGetUnsignedInteger64Func)(fvalue_t*);
 typedef gint64 (*FvalueGetSignedInteger64Func)(fvalue_t*);
 typedef double (*FvalueGetFloatingFunc)(fvalue_t*);
 
-typedef int (*FvalueCmp)(const fvalue_t*, const fvalue_t*);
-typedef gboolean (*FvalueContains)(const fvalue_t*, const fvalue_t*);
-typedef gboolean (*FvalueMatches)(const fvalue_t*, const ws_regex_t*);
+typedef enum ft_result (*FvalueCmp)(const fvalue_t*, const fvalue_t*, int*);
+typedef enum ft_result (*FvalueContains)(const fvalue_t*, const fvalue_t*, gboolean*);
+typedef enum ft_result (*FvalueMatches)(const fvalue_t*, const ws_regex_t*, gboolean*);
 
 typedef gboolean (*FvalueIs)(const fvalue_t*);
 typedef guint (*FvalueLen)(fvalue_t*);
@@ -81,6 +79,9 @@ struct _ftype_t {
 	FvalueFromString	val_from_string;
 	FvalueFromCharConst	val_from_charconst;
 	FvalueToStringRepr	val_to_string_repr;
+
+	FvalueToUnsignedInteger64Func		val_to_uinteger64;
+	FvalueToSignedInteger64Func		val_to_sinteger64;
 
 	union {
 		FvalueSetByteArrayFunc		set_value_byte_array;
@@ -140,6 +141,7 @@ void ftype_register_string(void);
 void ftype_register_time(void);
 void ftype_register_tvbuff(void);
 
+/* For debugging. */
 void ftype_register_pseudofields_bytes(int proto);
 void ftype_register_pseudofields_double(int proto);
 void ftype_register_pseudofields_ieee_11073_float(int proto);
@@ -147,6 +149,7 @@ void ftype_register_pseudofields_integer(int proto);
 void ftype_register_pseudofields_ipv4(int proto);
 void ftype_register_pseudofields_ipv6(int proto);
 void ftype_register_pseudofields_guid(int proto);
+void ftype_register_pseudofields_none(int proto);
 void ftype_register_pseudofields_string(int proto);
 void ftype_register_pseudofields_time(int proto);
 void ftype_register_pseudofields_tvbuff(int proto);

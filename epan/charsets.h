@@ -169,9 +169,6 @@ get_utf_16_string(wmem_allocator_t *scope, const guint8 *ptr, gint length, const
  *
  * XXX - should map lead and trail surrogate values to a "substitute"
  * UTF-8 character?
- * XXX - should map code points > 10FFFF to REPLACEMENT CHARACTERs.
- * XXX - if the number of bytes isn't a multiple of 4, should put a
- * REPLACEMENT CHARACTER at the end.
  */
 WS_DLL_PUBLIC guint8 *
 get_ucs_4_string(wmem_allocator_t *scope, const guint8 *ptr, gint length, const guint encoding);
@@ -229,15 +226,6 @@ get_euc_kr_string(wmem_allocator_t *scope, const guint8 *ptr, gint length);
 
 WS_DLL_PUBLIC guint8 *
 get_t61_string(wmem_allocator_t *scope, const guint8 *ptr, gint length);
-
-#if 0
-void ASCII_to_EBCDIC(guint8 *buf, guint bytes);
-guint8 ASCII_to_EBCDIC1(guint8 c);
-#endif
-WS_DLL_PUBLIC
-void EBCDIC_to_ASCII(guint8 *buf, guint bytes);
-WS_DLL_PUBLIC
-guint8 EBCDIC_to_ASCII1(guint8 c);
 
 #ifdef __cplusplus
 }

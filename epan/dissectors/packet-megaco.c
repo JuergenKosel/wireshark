@@ -192,7 +192,6 @@ typedef enum
 * a detailed tree that expresses a somewhat more semantically meaningful
 * decode.
 */
-static guint global_megaco_txt_sctp_port = PORT_MEGACO_TXT;
 #if 0
 static guint global_megaco_bin_sctp_port = PORT_MEGACO_BIN;
 static guint global_megaco_bin_tcp_port = PORT_MEGACO_BIN;
@@ -425,7 +424,7 @@ megacostat_packet(void *pms, packet_info *pinfo, epan_dissect_t *edt _U_, const 
 static void
 export_megaco_pdu(packet_info *pinfo, tvbuff_t *tvb)
 {
-    exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "megaco", EXP_PDU_TAG_PROTO_NAME);
+    exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "megaco", EXP_PDU_TAG_DISSECTOR_NAME);
 
     exp_pdu_data->tvb_captured_length = tvb_captured_length(tvb);
     exp_pdu_data->tvb_reported_length = tvb_reported_length(tvb);
@@ -2706,10 +2705,8 @@ dissect_megaco_topologydescriptor(tvbuff_t *tvb, proto_tree *megaco_tree_command
     gint    tokenlen;
 
     tokenlen =  (tvb_RBRKT+1) - tvb_previous_offset;
-    proto_tree_add_string(megaco_tree_command_line, hf_megaco_topology_descriptor, tvb,
-                            tvb_previous_offset, tokenlen,
-                            tvb_format_text_wsp(wmem_packet_scope(), tvb, tvb_previous_offset,
-                            tokenlen));
+    proto_tree_add_item(megaco_tree_command_line, hf_megaco_topology_descriptor, tvb,
+                            tvb_previous_offset, tokenlen, ENC_ASCII);
 
 }
 static void
@@ -3754,7 +3751,7 @@ proto_register_megaco(void)
           { "Termination State Descriptor", "megaco.terminationstate", FT_NONE, BASE_NONE, NULL, 0x0,
             "Termination State Descriptor in Media Descriptor", HFILL }},
         { &hf_megaco_topology_descriptor,
-          { "Topology Descriptor", "megaco.topology", FT_STRING, BASE_NONE, NULL, 0x0,
+          { "Topology Descriptor", "megaco.topology", FT_STRING, BASE_STR_WSP, NULL, 0x0,
             "Topology Descriptor of the megaco Command", HFILL }},
         { &hf_megaco_transaction,
           { "Transaction", "megaco.transaction", FT_STRING, BASE_NONE, NULL, 0x0,
@@ -3839,12 +3836,7 @@ proto_register_megaco(void)
 
     /* Register our configuration options, particularly our ports */
 
-    megaco_module = prefs_register_protocol(proto_megaco, proto_reg_handoff_megaco);
-
-    prefs_register_uint_preference(megaco_module, "sctp.txt_port",
-                                   "MEGACO Text SCTP Port",
-                                   "Set the SCTP port for MEGACO text messages",
-                                   10, &global_megaco_txt_sctp_port);
+    megaco_module = prefs_register_protocol(proto_megaco, NULL);
 
 #if 0
     prefs_register_uint_preference(megaco_module, "sctp.bin_port",
@@ -3898,43 +3890,30 @@ proto_register_megaco(void)
 void
 proto_reg_handoff_megaco(void)
 {
-    static gboolean megaco_prefs_initialized = FALSE;
-    static dissector_handle_t megaco_text_tcp_handle;
+    dissector_handle_t megaco_text_tcp_handle;
 
         /*
     * Variables to allow for proper deletion of dissector registration when
     * the user changes port from the gui.
     */
-    static guint txt_sctp_port;
 #if 0
     static guint bin_sctp_port;
     static guint bin_tcp_port;
     static guint bin_udp_port;
 #endif
 
-    if (!megaco_prefs_initialized) {
-        sdp_handle = find_dissector_add_dependency("sdp", proto_megaco);
-        h245_handle = find_dissector_add_dependency("h245dg", proto_megaco);
-        h248_handle = find_dissector_add_dependency("h248", proto_megaco);
-        h248_otp_handle = find_dissector_add_dependency("h248_otp", proto_megaco);
-        data_handle = find_dissector("data");
+    sdp_handle = find_dissector_add_dependency("sdp", proto_megaco);
+    h245_handle = find_dissector_add_dependency("h245dg", proto_megaco);
+    h248_handle = find_dissector_add_dependency("h248", proto_megaco);
+    h248_otp_handle = find_dissector_add_dependency("h248_otp", proto_megaco);
+    data_handle = find_dissector("data");
 
-        megaco_text_tcp_handle = create_dissector_handle(dissect_megaco_text_tcp, proto_megaco);
+    megaco_text_tcp_handle = create_dissector_handle(dissect_megaco_text_tcp, proto_megaco);
 
-        dissector_add_uint_with_preference("tcp.port", PORT_MEGACO_TXT, megaco_text_tcp_handle);
-        dissector_add_uint_with_preference("udp.port", PORT_MEGACO_TXT, megaco_text_handle);
-        dissector_add_uint("sctp.ppi", H248_PAYLOAD_PROTOCOL_ID,   megaco_text_handle);
-
-        megaco_prefs_initialized = TRUE;
-    } else {
-        dissector_delete_uint("sctp.port", txt_sctp_port, megaco_text_handle);
-    }
-
-    /* Set our port number for future use */
-
-    txt_sctp_port = global_megaco_txt_sctp_port;
-
-    dissector_add_uint("sctp.port", global_megaco_txt_sctp_port, megaco_text_handle);
+    dissector_add_uint_with_preference("tcp.port", PORT_MEGACO_TXT, megaco_text_tcp_handle);
+    dissector_add_uint_with_preference("udp.port", PORT_MEGACO_TXT, megaco_text_handle);
+    dissector_add_uint_with_preference("sctp.port", PORT_MEGACO_TXT, megaco_text_handle);
+    dissector_add_uint("sctp.ppi", H248_PAYLOAD_PROTOCOL_ID,   megaco_text_handle);
 
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
 

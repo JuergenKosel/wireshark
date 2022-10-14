@@ -14,7 +14,7 @@
 #include "main_application.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
-#include "epan/charsets.h"
+#include "epan/strutil.h"
 
 #include "wsutil/utf8_entities.h"
 
@@ -62,6 +62,7 @@ ShowPacketBytesDialog::ShowPacketBytesDialog(QWidget &parent, CaptureFile &cf) :
     ui->cbDecodeAs->addItem(tr("Base64"), DecodeAsBASE64);
     ui->cbDecodeAs->addItem(tr("Compressed"), DecodeAsCompressed);
     ui->cbDecodeAs->addItem(tr("Hex Digits"), DecodeAsHexDigits);
+    ui->cbDecodeAs->addItem(tr("Percent-Encoding"), DecodeAsPercentEncoding);
     ui->cbDecodeAs->addItem(tr("Quoted-Printable"), DecodeAsQuotedPrintable);
     ui->cbDecodeAs->addItem(tr("ROT13"), DecodeAsROT13);
     ui->cbDecodeAs->blockSignals(false);
@@ -565,6 +566,26 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
         field_bytes_ = QByteArray::fromHex(QByteArray::fromRawData((const char *)bytes, length));
         break;
 
+    case DecodeAsPercentEncoding:
+    {
+        bytes = tvb_get_ptr(finfo_->ds_tvb, start, -1);
+#if GLIB_CHECK_VERSION(2, 66, 0)
+        GBytes *ba = g_uri_unescape_bytes((const char*)bytes, length, NULL, NULL);
+        if (ba != NULL) {
+            gsize size;
+            const char* data = (const char *)g_bytes_unref_to_data(ba, &size);
+            field_bytes_ = QByteArray(data, (int)size);
+        }
+#else
+        GByteArray *ba = g_byte_array_new();
+        if (uri_to_bytes((const char*)bytes, ba, length)) {
+            field_bytes_ = QByteArray((const char *)ba->data, ba->len);
+        }
+        g_byte_array_free(ba, TRUE);
+#endif
+        break;
+    }
+
     case DecodeAsQuotedPrintable:
         bytes = tvb_get_ptr(finfo_->ds_tvb, start, -1);
         field_bytes_ = decodeQuotedPrintable(bytes, length);
@@ -854,6 +875,7 @@ void ShowPacketBytesTextEdit::contextMenuEvent(QContextMenuEvent *event)
     QMenu *menu = createStandardContextMenu();
     QAction *action;
 
+    menu->setAttribute(Qt::WA_DeleteOnClose);
     menu->addSeparator();
 
     action = menu->addAction(tr("Show Selected"));
@@ -864,8 +886,7 @@ void ShowPacketBytesTextEdit::contextMenuEvent(QContextMenuEvent *event)
     action->setEnabled(menus_enabled_);
     connect(action, SIGNAL(triggered()), this, SLOT(showAll()));
 
-    menu->exec(event->globalPos());
-    delete menu;
+    menu->popup(event->globalPos());
 }
 
 void ShowPacketBytesTextEdit::showSelected()

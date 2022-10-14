@@ -30,6 +30,7 @@
 #include <wsutil/json_dumper.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/utf8_entities.h>
+#include <wsutil/str_util.h>
 #include <wsutil/ws_assert.h>
 #include <ftypes/ftypes.h>
 
@@ -1176,7 +1177,7 @@ write_ek_summary(column_info *cinfo, write_json_data* pdata)
         if (!get_column_visible(i))
             continue;
         json_dumper_set_member_name(pdata->dumper, g_ascii_strdown(cinfo->columns[i].col_title, -1));
-        json_dumper_value_string(pdata->dumper, cinfo->columns[i].col_data);
+        json_dumper_value_string(pdata->dumper, get_column_text(cinfo, i));
     }
 }
 
@@ -1620,7 +1621,7 @@ write_psml_columns(epan_dissect_t *edt, FILE *fh, gboolean use_color)
         if (!get_column_visible(i))
             continue;
         fprintf(fh, "<section>");
-        print_escaped_xml(fh, edt->pi.cinfo->columns[i].col_data);
+        print_escaped_xml(fh, get_column_text(edt->pi.cinfo, i));
         fprintf(fh, "</section>\n");
     }
 
@@ -1686,9 +1687,9 @@ write_csv_columns(epan_dissect_t *edt, FILE *fh)
     for (i = 0; i < edt->pi.cinfo->num_cols - 1; i++) {
         if (!get_column_visible(i))
             continue;
-        csv_write_str(edt->pi.cinfo->columns[i].col_data, ',', fh);
+        csv_write_str(get_column_text(edt->pi.cinfo, i), ',', fh);
     }
-    csv_write_str(edt->pi.cinfo->columns[i].col_data, '\n', fh);
+    csv_write_str(get_column_text(edt->pi.cinfo,i), '\n', fh);
 }
 
 void
@@ -1806,40 +1807,56 @@ print_escaped_xml(FILE *fh, const char *unescaped_string)
 {
     const char *p;
 
-#define ESCAPED_BUFFER_MAX 256
-    static char temp_buffer[ESCAPED_BUFFER_MAX];
+#define ESCAPED_BUFFER_SIZE 256
+#define ESCAPED_BUFFER_LIMIT (ESCAPED_BUFFER_SIZE - (int)sizeof("&quot;"))
+    static char temp_buffer[ESCAPED_BUFFER_SIZE];
     gint        offset = 0;
 
     if (fh == NULL || unescaped_string == NULL) {
         return;
     }
 
-    for (p = unescaped_string; *p != '\0' && (offset<(ESCAPED_BUFFER_MAX-1)); p++) {
+    /* XXX: Why not use xml_escape() from epan/strutil.h ? */
+    for (p = unescaped_string; *p != '\0' && (offset <= ESCAPED_BUFFER_LIMIT); p++) {
         switch (*p) {
         case '&':
-            (void) g_strlcpy(&temp_buffer[offset], "&amp;", ESCAPED_BUFFER_MAX-offset);
+            (void) g_strlcpy(&temp_buffer[offset], "&amp;", ESCAPED_BUFFER_SIZE-offset);
             offset += 5;
             break;
         case '<':
-            (void) g_strlcpy(&temp_buffer[offset], "&lt;", ESCAPED_BUFFER_MAX-offset);
+            (void) g_strlcpy(&temp_buffer[offset], "&lt;", ESCAPED_BUFFER_SIZE-offset);
             offset += 4;
             break;
         case '>':
-            (void) g_strlcpy(&temp_buffer[offset], "&gt;", ESCAPED_BUFFER_MAX-offset);
+            (void) g_strlcpy(&temp_buffer[offset], "&gt;", ESCAPED_BUFFER_SIZE-offset);
             offset += 4;
             break;
         case '"':
-            (void) g_strlcpy(&temp_buffer[offset], "&quot;", ESCAPED_BUFFER_MAX-offset);
+            (void) g_strlcpy(&temp_buffer[offset], "&quot;", ESCAPED_BUFFER_SIZE-offset);
             offset += 6;
             break;
         case '\'':
-            (void) g_strlcpy(&temp_buffer[offset], "&#x27;", ESCAPED_BUFFER_MAX-offset);
+            (void) g_strlcpy(&temp_buffer[offset], "&#x27;", ESCAPED_BUFFER_SIZE-offset);
             offset += 6;
             break;
-        default:
+        case '\t':
+        case '\n':
+        case '\r':
             temp_buffer[offset++] = *p;
+            break;
+        default:
+            /* XML 1.0 doesn't allow ASCII control characters, except
+             * for the three whitespace ones above (which do *not*
+             * include '\v' and '\f', so not the same group as isspace),
+             * even as character references.
+             * There's no official way to escape them, so we'll do this. */
+            if (g_ascii_iscntrl(*p)) {
+                offset += snprintf(&temp_buffer[offset], ESCAPED_BUFFER_SIZE-offset, "\\x%x", (guint8)*p);
+            } else {
+                temp_buffer[offset++] = *p;
+            }
         }
-        if (offset > ESCAPED_BUFFER_MAX-8) {
+        if (offset > ESCAPED_BUFFER_LIMIT) {
             /* Getting close to end of buffer so flush to fh */
             temp_buffer[offset] = '\0';
             fputs(temp_buffer, fh);
@@ -2006,112 +2023,18 @@ print_hex_data(print_stream_t *stream, epan_dissect_t *edt, guint hexdump_option
     return TRUE;
 }
 
-/*
- * This routine is based on a routine created by Dan Lasley
- * <DLASLEY@PROMUS.com>.
- *
- * It was modified for Wireshark by Gilbert Ramirez and others.
- */
-
-#define MAX_OFFSET_LEN   8       /* max length of hex offset of bytes */
-#define BYTES_PER_LINE  16      /* max byte values printed on a line */
-#define HEX_DUMP_LEN    (BYTES_PER_LINE*3)
-                                /* max number of characters hex dump takes -
-                                   2 digits plus trailing blank */
-#define DATA_DUMP_LEN   (HEX_DUMP_LEN + 2 + 2 + BYTES_PER_LINE)
-                                /* number of characters those bytes take;
-                                   3 characters per byte of hex dump,
-                                   2 blanks separating hex from ASCII,
-                                   2 optional ASCII dump delimiters,
-                                   1 character per byte of ASCII dump */
-#define MAX_LINE_LEN    (MAX_OFFSET_LEN + 2 + DATA_DUMP_LEN)
-                                /* number of characters per line;
-                                   offset, 2 blanks separating offset
-                                   from data dump, data dump */
-
-static gboolean
-print_hex_data_buffer(print_stream_t *stream, const guchar *cp,
-                      guint length, packet_char_enc encoding, guint ascii_option)
+static gboolean print_hex_data_line(void *stream, const char *line)
 {
-    register unsigned int ad, i, j, k, l;
-    guchar                c;
-    gchar                 line[MAX_LINE_LEN + 1];
-    unsigned int          use_digits;
+    return print_line(stream, 0, line);
+}
 
-    static gchar binhex[16] = {
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-
-    /*
-     * How many of the leading digits of the offset will we supply?
-     * We always supply at least 4 digits, but if the maximum offset
-     * won't fit in 4 digits, we use as many digits as will be needed.
-     */
-    if (((length - 1) & 0xF0000000) != 0)
-        use_digits = 8; /* need all 8 digits */
-    else if (((length - 1) & 0x0F000000) != 0)
-        use_digits = 7; /* need 7 digits */
-    else if (((length - 1) & 0x00F00000) != 0)
-        use_digits = 6; /* need 6 digits */
-    else if (((length - 1) & 0x000F0000) != 0)
-        use_digits = 5; /* need 5 digits */
-    else
-        use_digits = 4; /* we'll supply 4 digits */
-
-    ad = 0;
-    i = 0;
-    j = 0;
-    k = 0;
-    while (i < length) {
-        if ((i & 15) == 0) {
-            /*
-             * Start of a new line.
-             */
-            j = 0;
-            l = use_digits;
-            do {
-                l--;
-                c = (ad >> (l*4)) & 0xF;
-                line[j++] = binhex[c];
-            } while (l != 0);
-            line[j++] = ' ';
-            line[j++] = ' ';
-            memset(line+j, ' ', DATA_DUMP_LEN);
-
-            /*
-             * Offset in line of ASCII dump.
-             */
-            k = j + HEX_DUMP_LEN + 2;
-            if (ascii_option == HEXDUMP_ASCII_DELIMIT)
-                line[k++] = '|';
-        }
-        c = *cp++;
-        line[j++] = binhex[c>>4];
-        line[j++] = binhex[c&0xf];
-        j++;
-        if (ascii_option != HEXDUMP_ASCII_EXCLUDE ) {
-            if (encoding == PACKET_CHAR_ENC_CHAR_EBCDIC) {
-                c = EBCDIC_to_ASCII1(c);
-            }
-            line[k++] = ((c >= ' ') && (c < 0x7f)) ? c : '.';
-        }
-        i++;
-        if (((i & 15) == 0) || (i == length)) {
-            /*
-             * We'll be starting a new line, or
-             * we're finished printing this buffer;
-             * dump out the line we've constructed,
-             * and advance the offset.
-             */
-            if (ascii_option == HEXDUMP_ASCII_DELIMIT)
-                line[k++] = '|';
-            line[k] = '\0';
-            if (!print_line(stream, 0, line))
-                return FALSE;
-            ad += 16;
-        }
-    }
-    return TRUE;
+static gboolean print_hex_data_buffer(print_stream_t *stream, const guchar *cp,
+                                      guint length, packet_char_enc encoding,
+                                      guint hexdump_options)
+{
+    return hex_dump_buffer(print_hex_data_line, stream, cp, length,
+                        encoding == PACKET_CHAR_ENC_CHAR_EBCDIC ? HEXDUMP_ENC_EBCDIC : HEXDUMP_ENC_ASCII,
+                        hexdump_options);
 }
 
 gsize output_fields_num_fields(output_fields_t* fields)
@@ -2515,7 +2438,7 @@ static void write_specified_fields(fields_format format, output_fields_t *fields
             g_free(col_name);
 
             if (NULL != field_index) {
-                format_field_values(fields, field_index, g_strdup(cinfo->columns[col].col_data));
+                format_field_values(fields, field_index, g_strdup(get_column_text(cinfo, col)));
             }
         }
     }

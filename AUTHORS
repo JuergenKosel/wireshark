@@ -3744,6 +3744,7 @@ Erik Rigtorp		<erik[AT]rigtorp.se> {
 
 Martin Mayer		<martin.mayer[AT]m2-it-solutions.de> {
 	Allied Telesis Loop Detection Frames (LDF) dissector
+	Open Control Protocol for AES70/OCA (OCP.1) dissector
 }
 
 Mattia Cazzola		<mattiac[AT]alinet.it> {
@@ -4029,6 +4030,7 @@ Adrian-Ken Rueegsegger	<ken[AT]codelabs.ch>
 Adrien Aubry		<adraub[AT]gmail.com>
 Adrien Destugues	<adestugues[AT]toulouse.viveris.com>
 Adrien Destugues	<adrien.destugues[AT]opensource.viveris.fr>
+Aeneas Jaißle		<aj[AT]ajaissle.de>
 Ahmad Fatoum		<ahmad[AT]a3f.at>
 Ahmet Alperen		<bltalperen[AT]gmail.com>
 Aidan MacDonald		<amachronic[AT]protonmail.com>
@@ -4037,6 +4039,7 @@ Ajay Panicker		<apanicke[AT]google.com>
 Alan Birtles		<alan.birtles[AT]eu.sony.com>
 Alan Partis		<alpartis[AT]thundernet.com>
 Aleksej Matis		<amat[AT]magure.de>
+Ales Povalac		<alpov[AT]alpov.net>
 Alex Badea		<abadea[AT]ixiacom.com>
 Alex Converse		<alexconv[AT]twitch.tv>
 Alex Nik		<rage.iz.me[AT]gmail.com>
@@ -4092,6 +4095,7 @@ Andy Grover		<agrover[AT]cloudflare.com>
 Andy Ling		<Andy.Ling[AT]quantel.com>
 Andy Ling		<andy.ling[AT]s-a-m.com>
 Andy Zhao		<jinhzhx[AT]gmail.com>
+Angelo Spampinato	<aspampinato[AT]protonmail.com>
 Angelos Drossos		<wireshark.develangel[AT]mail.drossos.de>
 Anil Kumar		<anilkumar911[AT]gmail.com>
 Anndy Ke		<anndymaktub[AT]yahoo.com.tw>
@@ -4176,6 +4180,7 @@ Charles Nepveu		<charles.nepveu[AT]verint.com>
 Charlie Lenahan		<clenahan[AT]sonicbison.com>
 Chema Gonzalez		<chemag[AT]fb.com>
 Chema Gonzalez		<chemag[AT]gmail.com>
+Chien Wong		<m[AT]xv97.com>
 Chloe Pelling		<cpelling[AT]google.com>
 Chris Bontje		<chris_bontje[AT]selinc.com>
 Chris Brandson		<chris.brandson[AT]gmail.com>
@@ -4260,8 +4265,10 @@ David Zoller		<zollerd[AT]gmail.com>
 Davide Caratti		<davide.caratti[AT]gmail.com>
 Deep Datta		<ddatta[AT]ixiacom.com>
 Deep Datta		<deep.datta[AT]keysight.com>
+Deepthi Mary		<deepthi.kalaiarasan[AT]microchip.com>
 Denis Janssen		<janssend[AT]gmail.com>
 Denis Pronin		<dannftk[AT]yandex.ru>
+Denis Zhang		<daquan.zhang[AT]perfectek.com>
 Dennis Bush		<bush[AT]tcnj.edu>
 Dennis Lanov		<dennis.lanov[AT]gmail.com>
 Derick Rethans		<github[AT]derickrethans.nl>
@@ -4316,6 +4323,7 @@ Elvin Arias Soto	<eeariass[AT]gmail.com>
 Emanuele Bovisio	<emanuele.bovisio[AT]eolo.it>
 Emery Hemingway		<emery[AT]vfemail.net>
 Emmanuel Grumbach	<emmanuel.grumbach[AT]intel.com>
+Emmanuel Pauchard	<emmanuel.pauchard[AT]gmail.com>
 Emmanuel Touzery	<etouzery[AT]gmail.com>
 Enrique Giraldo		<enrique.giraldo[AT]wslw.es>
 Eric Anderson		<andersoe[AT]cs.cmu.edu>
@@ -4340,6 +4348,8 @@ Fabrice Fontaine	<fontaine.fabrice[AT]gmail.com>
 Fabrizio Demaria	<fabrizio.demaria[AT]intel.com>
 Federico Di Pierro	<nierro92[AT]gmail.com>
 Felix Ruess		<felix.ruess[AT]roboception.de>
+Ferry Huberts		<ferry.huberts[AT]pelagic.nl>
+Ferry Huberts		<mailings[AT]hupie.com>
 Filip Kågesson		<exfik[AT]hms.se>
 Filip Sohajek		<filip.sohajek[AT]gmail.com>
 Filipe Laíns		<lains[AT]archlinux.org>
@@ -4353,6 +4363,7 @@ Francois Nguyen		<francois[AT]daily-prophet.org>
 Francois Schneider	<francois.schneider[AT]airbus.com>
 Francois-Xavier Le Bail	<fx.lebail[AT]yahoo.com>
 Frank Carpenter		<frank.carpenter[AT]spectralink.com>
+Frank Gorgas-Waller	<frank.gorgas-waller[AT]auerswald.de>
 Franklin Mathieu	<franklinmathieu[AT]gmail.com>
 Frédéric Perrin		<fred[AT]fperrin.net>
 GBLCA\amrobles		<amrobles[AT]gblsys.com>
@@ -4471,7 +4482,7 @@ Jeremy Browne		<jer[AT]ifni.ca>
 Jeremy Hitt		<jeremy.hitt[AT]isilon.com>
 Jeremy Kerr		<jk[AT]ozlabs.org>
 Jeremy Martin		<boardermartin[AT]gmail.com>
-Jeremy McCormick	<jeremy.mccormick[AT]craftdesigns.net>
+Jeremy McCormick	<jjmccormick[AT]protonmail.com>
 Jeroen Roovers		<jer[AT]gentoo.org>
 Jeroen Sack		<jeroen.sack[AT]agcocorp.com>
 Jeroen Sack		<jeroen[AT]jeroensack.nl>
@@ -4485,6 +4496,7 @@ Jim Young		<jim.young.ws[AT]gmail.com>
 Jim Young		<jyoung[AT]gsu.edu>
 Jiri Pirko		<jiri[AT]resnulli.us>
 Jo Rueschel		<wireshark[AT]rueschel.de>
+Jo-Philipp Wich		<jo[AT]mein.io>
 Joakim Andersson	<joakim.andersson[AT]nordicsemi.no>
 Joakim Andersson	<joerchan[AT]gmail.com>
 Joakim Karlsson		<oakimk[AT]gmail.com>
@@ -4505,6 +4517,7 @@ John Tapparo		<j.tapparo[AT]f5.com>
 John Viklund		<john.viklund[AT]effnet.com>
 Jon DeVree		<nuxi[AT]vault24.org>
 Jon Dennis		<j.dennis[AT]cablelabs.com>
+Jonas Blust		<jonas.blust[AT]rohde-schwarz.com>
 Jonas Falkevik		<jonas.falkevik[AT]gmail.com>
 Jonas Jonsson		<jonas[AT]ludd.ltu.se>
 Jonathan Brucker	<jonathan.brucke[AT]gmail.com>
@@ -4537,6 +4550,7 @@ Justin Iurman		<justin.iurman[AT]uliege.be>
 Justin J. Novack	<jnovack[AT]gmail.com>
 JustinKu		<jiunrong[AT]gmail.com>
 Jérôme LAFORGE		<jerome.laforge[AT]gmail.com>
+Jérôme Pouiller		<jerome.pouiller[AT]silabs.com>
 Jörg Mayer		<jmghc[AT]loplof.de>
 Ka-Shu Wong		<kswong[AT]exablaze.com>
 Kaige Ye		<ye[AT]kaige.org>
@@ -4571,7 +4585,9 @@ Laszlo Papp		<laszlo.papp[AT]hubersuhner.com>
 Laurenz Kamp		<laurenz.kamp[AT]gmx.de>
 Lee Mitchell		<lee[AT]indigopepper.com>
 Lee Serin		<serinee95[AT]gmail.com>
+Leonard Penzer		<leonard.penzer[AT]rohde-schwarz.com>
 Lev Stipakov		<lstipakov[AT]gmail.com>
+LiangYuxuan		<lyx[AT]lyx.es>
 Lichen Liu		<llc123456a[AT]gmail.com>
 Lin Sun			<lin.sun[AT]zoom.us>
 Lin Sun			<sunlin7[AT]yahoo.com>
@@ -4693,6 +4709,7 @@ Michele Baldessari	<michele[AT]acksyn.org>
 Michele Mazzante	<mazzante[AT]gmail.com>
 Miguel Company		<MiguelCompany[AT]eprosima.com>
 Mihai Codrean		<mihaicodrean[AT]gmail.com>
+Mikael Kanstrup		<mikaeka[AT]axis.com>
 Mikael Kanstrup		<mikael.kanstrup[AT]axis.com>
 Mikael Kanstrup		<mikael.kanstrup[AT]gmail.com>
 Mike Frysinger		<vapier[AT]chromium.org>
@@ -4705,8 +4722,10 @@ Milan Stute		<mstute[AT]seemoo.tu-darmstadt.de>
 Milos Jovanovic		<jeyem815[AT]gmail.com>
 Miltos Patsiouras	<mipatsio[AT]gmail.com>
 Min Wang		<wang[AT]mins.app>
+Ming Chen		<mingc2099[AT]gmail.com>
 Minh Phan		<phanducnhatminh[AT]gmail.com>
 Mirko Parthey		<mirko.parthey[AT]web.de>
+Mokhtar Ben Messaoud	<mokhtar.ben-messaoud[AT]sagemcom.com>
 Moraney Jalil		<moraney.jalil[AT]outlook.com>
 Morten Tryfoss		<morten[AT]tryfoss.no>
 Moshe Kaplan		<me[AT]moshekaplan.com>
@@ -4764,6 +4783,7 @@ Pascal Artho		<pascalartho[AT]gmail.com>
 Pascal Quantin		<pascal[AT]wireshark.org>
 Pascal S. de Kloe	<pascal[AT]quies.net>
 Patrice Fournier	<patrice.fournier[AT]ifax.com>
+Patricia Lindner	<lindnerp[AT]ohio.edu>
 Patricia Lindner	<plindner6912[AT]gmail.com>
 Patrick Große		<patrick.pgrosse[AT]gmail.com>
 Patrick MacArthur	<pmacarth[AT]iol.unh.edu>
@@ -4793,6 +4813,7 @@ Pedro Jose Marron	<pjmarron[AT]locoslab.com>
 Pedro Malagon		<malagon[AT]die.upm.es>
 Peng Li			<seudut[AT]gmail.com>
 Peng Tao		<tao.peng[AT]primarydata.com>
+Peter Dobransky		<pdobransky[AT]verizon.net>
 Peter Dobransky		<peter.dobransky[AT]harmonicinc.com>
 Peter Eszlari		<peter.eszlari[AT]gmail.com>
 Peter Hamilton		<qmear55[AT]protonmail.com>
@@ -4859,6 +4880,7 @@ Robert Shade		<rshade[AT]blueorigin.com>
 Rody Liu		<rody.liu[AT]ericsson.com>
 Roger Light		<roger[AT]atchoo.org>
 Rohan Saini		<rohan.saini[AT]nokia.com>
+Roi Berkovich		<roiberkovich[AT]gmail.com>
 Roland Haenel		<roland[AT]haenel.me>
 Roland Knall		<r.knall[AT]commend.com>
 Roland Knall		<r.knall[AT]moba.cc>
@@ -4919,6 +4941,7 @@ Shudong Zhou		<shudongzhou[AT]gmail.com>
 Signat Sibirskiy	<ord.blant[AT]gmail.com>
 Silvio Gissi		<silvio.gissi[AT]gmail.com>
 Simon Barber		<simon.barber[AT]meraki.net>
+Simon Cornish		<cgpmp5vkq2[AT]liamekaens.com>
 Simon Graham		<simgrxp[AT]gmail.com>
 Simon Holesch		<simon[AT]holesch.de>
 Simon Long		<hobei[AT]whitedoor.plus.com>
@@ -4940,6 +4963,7 @@ Stella Randall		<stella.randall[AT]emeerson.com>
 Stephan Kappertz	<octopus.sk[AT]googlemail.com>
 Stephane Bryant		<stephane.ml.bryant[AT]gmail.com>
 Stephen Donnelly	<stephen.donnelly[AT]endace.com>
+Stephen Hemminger	<stephen[AT]networkplumber.org>
 Steve Osselton		<steve.osselton[AT]gmail.com>
 Stijn Last		<stijn.last[AT]barco.com>
 Stéphane Lapie		<stephane.lapie[AT]darkbsd.org>
@@ -5007,6 +5031,7 @@ Trond Norbye		<trond[AT]couchbase.com>
 Ugur ILTER		<ugur.ilter[AT]airties.com>
 Ulf			<ulf33286[AT]gmail.com>
 Uli Heilmeier		<ulrich.heilmeier[AT]vitesco.com>
+Uli Heilmeier		<ulrich.heilmeier[AT]web.de>
 Uli Schlachter		<psychon[AT]znc.in>
 Umberto Corponi		<umberto.corponi[AT]athonet.com>
 Uri Simchoni		<urisimchoni[AT]gmail.com>
@@ -5076,7 +5101,9 @@ Yu Gao			<katherinegy0515[AT]gmail.com>
 Yuri Chislov		<yuri.chislov[AT]gmail.com>
 Yurii Lysyi		<yurii.lysyi[AT]ericsson.com>
 Yury Gargay		<yury.gargay[AT]gmail.com>
+Yuya Kawakami		<github[AT]yuyarin.net>
 Yuya Kawakami		<yuyarin[AT]yuyarin.net>
+Yuya Kusakabe		<y-kusakabe[AT]bbsakura.net>
 Zachary Holcomb		<zholcomb2017[AT]my.fit.edu>
 Zdeněk Žamberský	<zzdevel[AT]seznam.cz>
 Zhao Lin		<zlbinghamton[AT]gmail.com>
@@ -5100,6 +5127,7 @@ diego dupin		<diego.dupin[AT]mariadb.com>
 eckart haug		<wireshark[AT]syntacs.com>
 ferst			<matheus.ferst[AT]gmail.com>
 frst			<frst[AT]LT-FD3L2F3>
+garrymar		<g.djavadyan[AT]gmail.com>
 heinrich5991		<heinrich5991[AT]gmail.com>
 ishaangandhi		<ishaangandhi[AT]gmail.com>
 jfp_martin		<john[AT]purplemeanie.co.uk>
@@ -5107,7 +5135,6 @@ kardam			<netkardam[AT]gmail.com>
 kkoizumi		<kkoizumi46[AT]gmail.com>
 kor			<drkor[AT]bk.ru>
 liam-black		<liam.black[AT]enea.com>
-lindnerp		<lindnerp[AT]ohio.edu>
 liningjie		<1350445139[AT]qq.com>
 lutianxiong		<lutianxiong[AT]huawei.com>
 mGhony99		<mGhony99[AT]gmail.com>
@@ -5123,6 +5150,7 @@ pengtian		<pengtianabc[AT]hotmail.com>
 po307ax			<pavol.oresky[AT]student.tuke.sk>
 rbroker			<rstbroker[AT]gmail.com>
 shqking			<shqking[AT]gmail.com>
+steve71			<steve[AT]clarke.org.uk>
 subhav8			<subhadevi88[AT]gmail.com>
 yuanjungong		<yuanjungong96[AT]gmail.com>
 zhang zhilei		<zhangzhilei[AT]360.cn>
@@ -5133,28 +5161,3 @@ zhudewen		<zhudewen[AT]iauto.com>
 Øyvind Rønningstad	<ronningstad[AT]gmail.com>
 Đorđije Manojlović	<djordjije.manojlovic[AT]omicronenergy.com>
 Дмитрий Цветцих		<dmitrycvet[AT]gmail.com>
-
-
-= Acknowledgements =
-
-Dan Lasley <dlasley[AT]promus.com> gave permission for his dumpit() hex-dump routine to be used.
-
-We use the exception module from Kazlib, a C library written by Kaz Kylheku <kaz[AT]kylheku.com>. Thanks go to him for his well-written library. The Kazlib home page can be found at http://www.kylheku.com/~kaz/kazlib.html
-
-We use Lua BitOp, written by Mike Pall, for bitwise operations on numbers in Lua. The Lua BitOp home page can be found at https://bitop.luajit.org
-
-Snax <snax[AT]shmoo.com> gave permission to use the weak key detection code from Airsnort.
-
-IANA gave permission for their port-numbers file to be used.
-
-We use the natural order string comparison algorithm, written by Martin Pool <mbp[AT]sourcefrog.net>.
-
-Emanuel Eichhammer <support[AT]qcustomplot.com> granted permission to use QCustomPlot.
-
-Some icons made by Freepik, http://www.freepik.com from https://www.flaticon.com
-
-Insecure.Com LLC ("The Nmap Project") has granted the Wireshark Foundation permission to distribute Npcap with our Windows installers.
-
-We use the overflow-safe math functions from the portable snippets repository (https://github.com/nemequ/portable-snippets).
-
-We use the Lrexlib Lua library, specifically the PCRE2 flavour, to provide a regular expression API for Lua. The Lrexlib repository is hosted at https://github.com/rrthomas/lrexlib.

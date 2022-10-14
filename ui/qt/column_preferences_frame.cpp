@@ -11,7 +11,6 @@
 
 #include <glib.h>
 
-#include <epan/column-info.h>
 #include <epan/column.h>
 #include <epan/prefs.h>
 #include <epan/proto.h>
@@ -68,6 +67,8 @@ ColumnPreferencesFrame::ColumnPreferencesFrame(QWidget *parent) :
     ui->columnTreeView->resizeColumnToContents(ColumnListModel::COL_DISPLAYED);
     ui->columnTreeView->resizeColumnToContents(ColumnListModel::COL_TITLE);
     ui->columnTreeView->resizeColumnToContents(ColumnListModel::COL_TYPE);
+    ui->columnTreeView->resizeColumnToContents(ColumnListModel::COL_OCCURRENCE);
+    ui->columnTreeView->resizeColumnToContents(ColumnListModel::COL_RESOLVED);
 
     connect(ui->columnTreeView->selectionModel(), &QItemSelectionModel::selectionChanged,
         this, &ColumnPreferencesFrame::selectionChanged);
@@ -115,9 +116,10 @@ void ColumnPreferencesFrame::on_chkShowDisplayedOnly_stateChanged(int /*state*/)
 void ColumnPreferencesFrame::on_columnTreeView_customContextMenuRequested(const QPoint &pos)
 {
     QMenu * contextMenu = new QMenu(this);
+    contextMenu->setAttribute(Qt::WA_DeleteOnClose);
     QAction * action = contextMenu->addAction(tr("Reset all changes"));
     connect(action, &QAction::triggered, this, &ColumnPreferencesFrame::resetAction);
-    contextMenu->exec(mapToGlobal(pos));
+    contextMenu->popup(mapToGlobal(pos));
 }
 
 void ColumnPreferencesFrame::resetAction(bool /*checked*/)

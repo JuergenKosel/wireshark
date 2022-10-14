@@ -1615,7 +1615,7 @@ uninstall_snappy() {
         # just remove what we know it installs.
         #
         # $DO_MAKE_UNINSTALL || exit 1
-        if [ -s build_dir/install_manifest.txt] ; then
+        if [ -s build_dir/install_manifest.txt ] ; then
             while read -r ; do $DO_RM -v "$REPLY" ; done < <(cat build_dir/install_manifest.txt; echo)
         else
             $DO_RM -f /usr/local/lib/libsnappy.1.1.8.dylib \
@@ -3563,11 +3563,11 @@ echo
 echo "mkdir build; cd build"
 if [ ! -z "$NINJA_VERSION" ]; then
     echo "cmake -G Ninja .."
-    echo "ninja wireshark_app_bundle logwolf_app_bundle # (Modify as needed)"
+    echo "ninja wireshark_app_bundle logray_app_bundle # (Modify as needed)"
     echo "ninja install/strip"
 else
     echo "cmake .."
-    echo "make $MAKE_BUILD_OPTS wireshark_app_bundle logwolf_app_bundle # (Modify as needed)"
+    echo "make $MAKE_BUILD_OPTS wireshark_app_bundle logray_app_bundle # (Modify as needed)"
     echo "make install/strip"
 fi
 echo

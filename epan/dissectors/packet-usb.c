@@ -891,6 +891,18 @@ static const value_string usb_endpoint_direction_vals[] = {
     {0, NULL}
 };
 
+static const range_string usb_setup_flag_rvals[] = {
+    {0, 0, "relevant"},
+    {1, 255, "not relevant"},
+    {0, 0, NULL}
+};
+
+static const range_string usb_data_flag_rvals[] = {
+    {0, 0, "present"},
+    {1, 255, "not present"},
+    {0, 0, NULL}
+};
+
 extern value_string_ext ext_usb_vendors_vals;
 extern value_string_ext ext_usb_products_vals;
 extern value_string_ext ext_usb_audio_subclass_vals;
@@ -1796,7 +1808,7 @@ get_usb_conversation(packet_info *pinfo,
      */
     conversation = find_conversation(pinfo->num,
                                src_addr, dst_addr,
-                               conversation_pt_to_endpoint_type(pinfo->ptype),
+                               conversation_pt_to_conversation_type(pinfo->ptype),
                                src_endpoint, dst_endpoint, 0);
     if (conversation) {
         return conversation;
@@ -1805,7 +1817,7 @@ get_usb_conversation(packet_info *pinfo,
     /* We don't yet have a conversation, so create one. */
     conversation = conversation_new(pinfo->num,
                            src_addr, dst_addr,
-                           conversation_pt_to_endpoint_type(pinfo->ptype),
+                           conversation_pt_to_conversation_type(pinfo->ptype),
                            src_endpoint, dst_endpoint, 0);
     return conversation;
 }
@@ -1850,7 +1862,7 @@ get_existing_usb_ep_conv_info(packet_info* pinfo, guint16 bus_id, guint16 device
     set_address(&dst, usb_address_type, USB_ADDR_LEN, (char *)dst_addr);
 
     conversation = find_conversation(pinfo->num, &src, &dst,
-                                     conversation_pt_to_endpoint_type(PT_USB),
+                                     conversation_pt_to_conversation_type(PT_USB),
                                      src_addr->endpoint, dst_addr->endpoint, 0);
     if (conversation) {
         usb_conv_info = (usb_conv_info_t *)conversation_get_proto_data(conversation, proto_usb);
@@ -1880,14 +1892,14 @@ usb_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, 
     conv_hash_t *hash = (conv_hash_t*) pct;
     hash->flags = flags;
 
-    add_conversation_table_data(hash, &pinfo->src, &pinfo->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &usb_ct_dissector_info, ENDPOINT_NONE);
+    add_conversation_table_data(hash, &pinfo->src, &pinfo->dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &usb_ct_dissector_info, CONVERSATION_NONE);
 
     return TAP_PACKET_REDRAW;
 }
 
-static const char* usb_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
+static const char* usb_endpoint_get_filter_type(endpoint_item_t* endpoint, conv_filter_type_e filter)
 {
-    if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == usb_address_type))
+    if ((filter == CONV_FT_ANY_ADDRESS) && (endpoint->myaddress.type == usb_address_type))
         return "usb.addr";
 
     return CONV_FILTER_INVALID;
@@ -1899,19 +1911,19 @@ usb_col_filter_str(const address* addr _U_, gboolean is_src)
     return is_src ? "usb.src" : "usb.dst";
 }
 
-static hostlist_dissector_info_t usb_host_dissector_info = {&usb_host_get_filter_type};
+static et_dissector_info_t usb_endpoint_dissector_info = {&usb_endpoint_get_filter_type};
 
 static tap_packet_status
-usb_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip _U_, tap_flags_t flags)
+usb_endpoint_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip _U_, tap_flags_t flags)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
     hash->flags = flags;
 
     /* Take two "add" passes per packet, adding for each direction, ensures that all
        packets are counted properly (even if address is sending to itself)
-       XXX - this could probably be done more efficiently inside hostlist_table */
-    add_hostlist_table_data(hash, &pinfo->src, 0, TRUE, 1, pinfo->fd->pkt_len, &usb_host_dissector_info, ENDPOINT_NONE);
-    add_hostlist_table_data(hash, &pinfo->dst, 0, FALSE, 1, pinfo->fd->pkt_len, &usb_host_dissector_info, ENDPOINT_NONE);
+       XXX - this could probably be done more efficiently inside endpoint_table */
+    add_endpoint_table_data(hash, &pinfo->src, 0, TRUE, 1, pinfo->fd->pkt_len, &usb_endpoint_dissector_info, ENDPOINT_NONE);
+    add_endpoint_table_data(hash, &pinfo->dst, 0, FALSE, 1, pinfo->fd->pkt_len, &usb_endpoint_dissector_info, ENDPOINT_NONE);
 
     return TAP_PACKET_REDRAW;
 }
@@ -4070,7 +4082,7 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
     guint8  endpoint_byte;
     guint8  transfer_type_and_direction;
     guint8  urb_type;
-    guint8  flag[2];
+    guint32 flag;
     guint32 bus_id;
 
     *urb_id = tvb_get_guint64(tvb, 0, ENC_HOST_ENDIAN);
@@ -4107,27 +4119,16 @@ dissect_linux_usb_pseudo_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
      * sizeof(struct usb_device_setup_hdr) bytes. The content of these
      * bytes only have meaning in case setup_flag == 0.
      */
-    flag[0] = tvb_get_guint8(tvb, 14);
-    flag[1] = '\0';
-    if (flag[0] == 0) {
+    proto_tree_add_item_ret_uint(tree, hf_usb_setup_flag, tvb, 14, 1, ENC_NA, &flag);
+    if (flag == 0) {
         usb_conv_info->is_setup = TRUE;
-        proto_tree_add_string(tree, hf_usb_setup_flag, tvb, 14, 1, "relevant (0)");
         if (usb_conv_info->transfer_type!=URB_CONTROL)
             proto_tree_add_expert(tree, pinfo, &ei_usb_invalid_setup, tvb, 14, 1);
     } else {
         usb_conv_info->is_setup = FALSE;
-        proto_tree_add_string_format_value(tree, hf_usb_setup_flag, tvb,
-            14, 1, flag, "not relevant ('%c')", g_ascii_isprint(flag[0]) ? flag[0]: '.');
     }
 
-    flag[0] = tvb_get_guint8(tvb, 15);
-    flag[1] = '\0';
-    if (flag[0] == 0) {
-        proto_tree_add_string(tree, hf_usb_data_flag, tvb, 15, 1, "present (0)");
-    } else {
-        proto_tree_add_string_format_value(tree, hf_usb_data_flag, tvb,
-            15, 1, flag, "not present ('%c')", g_ascii_isprint(flag[0]) ? flag[0] : '.');
-    }
+    proto_tree_add_item(tree, hf_usb_data_flag, tvb, 15, 1, ENC_NA);
 
     proto_tree_add_item(tree, hf_usb_urb_ts_sec, tvb, 16, 8, ENC_HOST_ENDIAN);
     proto_tree_add_item(tree, hf_usb_urb_ts_usec, tvb, 24, 4, ENC_HOST_ENDIAN);
@@ -5830,12 +5831,12 @@ proto_register_usb(void)
 
         { &hf_usb_setup_flag,
           { "Device setup request", "usb.setup_flag",
-            FT_STRING, BASE_NONE, NULL, 0x0,
+            FT_CHAR, BASE_HEX|BASE_RANGE_STRING, RVALS(usb_setup_flag_rvals), 0x0,
             "USB device setup request is relevant (0) or not", HFILL }},
 
         { &hf_usb_data_flag,
           { "Data", "usb.data_flag",
-            FT_STRING, BASE_NONE, NULL, 0x0,
+            FT_CHAR, BASE_HEX|BASE_RANGE_STRING, RVALS(usb_data_flag_rvals), 0x0,
             "USB data is present (0) or not", HFILL }},
 
         { &hf_usb_urb_ts_sec,
@@ -6979,7 +6980,7 @@ proto_register_usb(void)
 
     usb_address_type = address_type_dissector_register("AT_USB", "USB Address", usb_addr_to_str, usb_addr_str_len, NULL, usb_col_filter_str, NULL, NULL, NULL);
 
-    register_conversation_table(proto_usb, TRUE, usb_conversation_packet, usb_hostlist_packet);
+    register_conversation_table(proto_usb, TRUE, usb_conversation_packet, usb_endpoint_packet);
 }
 
 void

@@ -511,23 +511,23 @@ ip_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, c
     hash->flags = flags;
     const ws_ip4 *iph=(const ws_ip4 *)vip;
 
-    add_conversation_table_data(hash, &iph->ip_src, &iph->ip_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ip_ct_dissector_info, ENDPOINT_NONE);
+    add_conversation_table_data(hash, &iph->ip_src, &iph->ip_dst, 0, 0, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &ip_ct_dissector_info, CONVERSATION_NONE);
 
     return TAP_PACKET_REDRAW;
 }
 
-static const char* ip_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
+static const char* ip_endpoint_get_filter_type(endpoint_item_t* endpoint, conv_filter_type_e filter)
 {
-    if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == AT_IPv4))
+    if ((filter == CONV_FT_ANY_ADDRESS) && (endpoint->myaddress.type == AT_IPv4))
         return "ip.addr";
 
     return CONV_FILTER_INVALID;
 }
 
-static hostlist_dissector_info_t ip_host_dissector_info = {&ip_host_get_filter_type};
+static et_dissector_info_t ip_endpoint_dissector_info = {&ip_endpoint_get_filter_type};
 
 static tap_packet_status
-ip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
+ip_endpoint_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
     hash->flags = flags;
@@ -535,9 +535,9 @@ ip_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const
 
     /* Take two "add" passes per packet, adding for each direction, ensures that all
     packets are counted properly (even if address is sending to itself)
-    XXX - this could probably be done more efficiently inside hostlist_table */
-    add_hostlist_table_data(hash, &iph->ip_src, 0, TRUE, 1, pinfo->fd->pkt_len, &ip_host_dissector_info, ENDPOINT_NONE);
-    add_hostlist_table_data(hash, &iph->ip_dst, 0, FALSE, 1, pinfo->fd->pkt_len, &ip_host_dissector_info, ENDPOINT_NONE);
+    XXX - this could probably be done more efficiently inside endpoint_table */
+    add_endpoint_table_data(hash, &iph->ip_src, 0, TRUE, 1, pinfo->fd->pkt_len, &ip_endpoint_dissector_info, ENDPOINT_NONE);
+    add_endpoint_table_data(hash, &iph->ip_dst, 0, FALSE, 1, pinfo->fd->pkt_len, &ip_endpoint_dissector_info, ENDPOINT_NONE);
     return TAP_PACKET_REDRAW;
 }
 
@@ -1585,7 +1585,7 @@ dissect_ip_options(tvbuff_t *tvb, int offset, guint length,
       if (option_dissector == NULL) {
         name = wmem_strdup_printf(pinfo->pool, "Unknown (0x%02x)", opt);
       } else {
-        name = dissector_handle_get_short_name(option_dissector);
+        name = dissector_handle_get_protocol_short_name(option_dissector);
       }
 
       /* Option has a length. Is it in the packet? */
@@ -3013,7 +3013,7 @@ proto_register_ip(void)
   exported_pdu_tap = register_export_pdu_tap_with_encap("IP", WTAP_ENCAP_RAW_IP);
 
   register_decode_as(&ip_da);
-  register_conversation_table(proto_ip, TRUE, ip_conversation_packet, ip_hostlist_packet);
+  register_conversation_table(proto_ip, TRUE, ip_conversation_packet, ip_endpoint_packet);
   register_conversation_filter("ip", "IPv4", ip_filter_valid, ip_build_filter);
 
   ip_cap_handle = register_capture_dissector("ip", capture_ip, proto_ip);
@@ -3068,7 +3068,7 @@ proto_reg_handoff_ip(void)
   dissector_add_uint("pwach.channel_type", PW_ACH_TYPE_IPV4, ip_handle);
   dissector_add_uint("mcc.proto", PW_ACH_TYPE_IPV4, ip_handle);
   dissector_add_uint("sflow_245.header_protocol", SFLOW_245_HEADER_IPv4, ip_handle);
-  dissector_add_uint("l2tp.pw_type", L2TPv3_PROTOCOL_IP, ip_handle);
+  dissector_add_uint("l2tp.pw_type", L2TPv3_PW_IP, ip_handle);
   dissector_add_for_decode_as_with_preference("udp.port", ip_handle);
   dissector_add_for_decode_as("pcli.payload", ip_handle);
   dissector_add_uint("wtap_encap", WTAP_ENCAP_RAW_IP4, ip_handle);

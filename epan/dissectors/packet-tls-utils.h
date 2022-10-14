@@ -251,7 +251,7 @@ typedef struct _StringInfo {
                                           http://www-archive.mozilla.org/projects/security/pki/nss/ssl/draft02.html */
 #define SSLV3_VERSION          0x300
 #define TLSV1_VERSION          0x301
-#define GMTLSV1_VERSION        0x101
+#define TLCPV1_VERSION         0x101
 #define TLSV1DOT1_VERSION      0x302
 #define TLSV1DOT2_VERSION      0x303
 #define TLSV1DOT3_VERSION      0x304
@@ -394,17 +394,17 @@ typedef struct {
 #define ENC_CAMELLIA256 0x38
 #define ENC_SEED        0x39
 #define ENC_CHACHA20    0x3A
-#define ENC_NULL        0x3B
-#define ENC_SM1         0x3C
-#define ENC_SM4         0x3D
+#define ENC_SM1         0x3B
+#define ENC_SM4         0x3C
+#define ENC_NULL        0x3D
 
 
 #define DIG_MD5         0x40
 #define DIG_SHA         0x41
 #define DIG_SHA256      0x42
 #define DIG_SHA384      0x43
-#define DIG_NA          0x44 /* Not Applicable */
-#define DIG_SM3         0x45
+#define DIG_SM3         0x44
+#define DIG_NA          0x45 /* Not Applicable */
 
 typedef struct {
     const gchar *name;

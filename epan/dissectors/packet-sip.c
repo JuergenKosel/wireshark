@@ -1394,7 +1394,7 @@ sip_cleanup_protocol(void)
 static void
 export_sip_pdu(packet_info *pinfo, tvbuff_t *tvb)
 {
-  exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "sip", EXP_PDU_TAG_PROTO_NAME);
+  exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "sip", EXP_PDU_TAG_DISSECTOR_NAME);
 
   exp_pdu_data->tvb_captured_length = tvb_captured_length(tvb);
   exp_pdu_data->tvb_reported_length = tvb_reported_length(tvb);
@@ -3497,7 +3497,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
          * RFC 6594, Section 20.14. requires Content-Length for TCP.
          */
         if (!req_resp_hdrs_do_reassembly(tvb, offset, pinfo,
-            sip_desegment_headers, sip_desegment_body, FALSE)) {
+            sip_desegment_headers, sip_desegment_body, FALSE, NULL)) {
             /*
              * More data needed for desegmentation.
              */
@@ -7755,7 +7755,7 @@ void proto_register_sip(void)
     ws_mempbrk_compile(&pbrk_via_param_end, "\t;, ");
 
     register_follow_stream(proto_sip, "sip_follow", sip_follow_conv_filter, sip_follow_index_filter, sip_follow_address_filter,
-                           udp_port_to_display, follow_tvb_tap_listener);
+                           udp_port_to_display, follow_tvb_tap_listener, NULL);
 }
 
 void
@@ -7785,6 +7785,14 @@ proto_reg_handoff_sip(void)
         heur_dissector_add("tcp", dissect_sip_tcp_heur, "SIP over TCP", "sip_tcp", proto_sip, HEURISTIC_ENABLE);
         heur_dissector_add("sctp", dissect_sip_heur, "SIP over SCTP", "sip_sctp", proto_sip, HEURISTIC_ENABLE);
         heur_dissector_add("stun", dissect_sip_heur, "SIP over TURN", "sip_stun", proto_sip, HEURISTIC_ENABLE);
+
+        dissector_add_uint("acdr.tls_application_port", 5061, sip_handle);
+        dissector_add_uint("acdr.tls_application", TLS_APP_SIP, sip_handle);
+        dissector_add_string("protobuf_field", "adc.sip.ResponsePDU.body", sip_handle);
+        dissector_add_string("protobuf_field", "adc.sip.RequestPDU.body", sip_handle);
+
+        exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
+
         sip_prefs_initialized = TRUE;
     } else {
         ssl_dissector_delete(saved_sip_tls_port, sip_tcp_handle);
@@ -7793,12 +7801,6 @@ proto_reg_handoff_sip(void)
     ssl_dissector_add(sip_tls_port, sip_tcp_handle);
     saved_sip_tls_port = sip_tls_port;
 
-    dissector_add_uint("acdr.tls_application_port", 5061, sip_handle);
-    dissector_add_uint("acdr.tls_application", TLS_APP_SIP, sip_handle);
-    dissector_add_string("protobuf_field", "adc.sip.ResponsePDU.body", sip_handle);
-    dissector_add_string("protobuf_field", "adc.sip.RequestPDU.body", sip_handle);
-
-    exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
 }
 
 /*

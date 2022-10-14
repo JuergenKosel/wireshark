@@ -16,7 +16,7 @@
 #define VERSION_MINOR ${PROJECT_MINOR_VERSION}
 #define VERSION_MICRO ${PROJECT_PATCH_VERSION}
 
-/* Version number of Logwolf and associated utilities */
+/* Version number of Logray and associated utilities */
 #define LOG_VERSION "${LOG_PROJECT_VERSION}${VERSION_EXTRA}"
 
 #define PLUGIN_PATH_ID "${PLUGIN_PATH_ID}"
@@ -316,11 +316,6 @@
 #endif
 
 #if defined(_WIN32)
-   /* WpdPack/INclude/pcap/pcap.h checks for "#if defined(WIN32)" */
-#  ifndef WIN32
-#    define WIN32	1
-#  endif
-
    /*
     * Flex (v 2.5.35) uses this symbol to "exclude" unistd.h
     */

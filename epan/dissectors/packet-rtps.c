@@ -430,6 +430,11 @@ static dissector_table_t rtps_type_name_table;
 #define PID_DATA_TAGS                           (0x1003)
 #define PID_ENDPOINT_SECURITY_INFO              (0x1004)
 #define PID_PARTICIPANT_SECURITY_INFO           (0x1005)
+#define PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGO     (0x1006)
+#define PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGO     (0x1007)
+#define PID_PARTICIPANT_SECURITY_SYMMETRIC_CIPHER_ALGO      (0x1008)
+#define PID_ENDPOINT_SECURITY_SYMMETRIC_CIPHER_ALGO         (0x1009)
+
 #define PID_TYPE_OBJECT_LB                      (0x8021)
 
 /* Vendor-specific: ADLink */
@@ -480,6 +485,12 @@ static dissector_table_t rtps_type_name_table;
 #define ENTITYID_BUILTIN_PARTICIPANT_READER     (0x000100c7)
 #define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER (0x000200c2)
 #define ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER (0x000200c7)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER (0x00010082)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_READER (0x00010087)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER    (0x00010182)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_READER    (0x00010187)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER (0xff010182)
+#define ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER (0xff010187)
 
 /* Secure DDS */
 #define ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_WRITER          (0x000201c3)
@@ -716,6 +727,22 @@ static dissector_table_t rtps_type_name_table;
 #define CRYPTO_TRANSFORMATION_KIND_AES256_GMAC   (3)
 #define CRYPTO_TRANSFORMATION_KIND_AES256_GCM    (4)
 
+#define SECURITY_SYMMETRIC_CIPHER_BIT_AES128_GCM         0x00000001
+#define SECURITY_SYMMETRIC_CIPHER_BIT_AES256_GCM         0x00000002
+#define SECURITY_SYMMETRIC_CIPHER_BIT_CUSTOM_ALGORITHM   0x80000000
+
+#define SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPSSMGF1SHA256_2048_SHA256  0x00000001
+#define SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPKCS1V15_2048_SHA256       0x00000002
+#define SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P256_SHA256                0x00000004
+#define SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P384_SHA384                0x00000008
+#define SECURITY_DIGITAL_SIGNATURE_BIT_CUSTOM_ALGORITHM                 0x80000000
+
+#define SECURITY_KEY_ESTABLISHMENT_BIT_DHE_MODP2048256     0x00000001
+#define SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P256      0x00000002
+#define SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P384      0x00000004
+#define SECURITY_KEY_ESTABLISHMENT_BIT_CUSTOM_ALGORITHM    0x80000000
+
+
 #define TOPIC_INFO_ADD_GUID                      (0x01)
 #define TOPIC_INFO_ADD_TYPE_NAME                 (0x02)
 #define TOPIC_INFO_ADD_TOPIC_NAME                (0x04)
@@ -727,7 +754,22 @@ static dissector_table_t rtps_type_name_table;
 #define RTI_OSAPI_COMPRESSION_CLASS_ID_NONE      (0)
 #define RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB      (1)
 #define RTI_OSAPI_COMPRESSION_CLASS_ID_BZIP2     (2)
+#define RTI_OSAPI_COMPRESSION_CLASS_ID_LZ4       (4)
 #define RTI_OSAPI_COMPRESSION_CLASS_ID_AUTO      (G_MAXUINT32)
+
+/* VENDOR_BUILTIN_ENDPOINT_SET FLAGS */
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_WRITER          (0x00000001U << 7)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_READER          (0x00000001U << 8)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_SECURE_WRITER   (0x00000001U << 9)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_SECURE_READER   (0x00000001U << 10)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_PERIODIC_WRITER         (0x00000001U << 11)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_PERIODIC_READER         (0x00000001U << 12)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_EVENT_WRITER            (0x00000001U << 13)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_EVENT_READER            (0x00000001U << 14)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_LOGGING_WRITER          (0x00000001U << 15)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_LOGGING_READER          (0x00000001U << 16)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_BOOTSTRAP_WRITER       (0x00000001U << 17)
+#define VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_BOOTSTRAP_READER       (0x00000001U << 18)
 
 static int hf_rtps_dissection_boolean = -1;
 static int hf_rtps_dissection_byte    = -1;
@@ -1081,6 +1123,7 @@ static int hf_rtps_flag_reserved0200                            = -1;
 static int hf_rtps_flag_reserved0100                            = -1;
 static int hf_rtps_flag_reserved0080                            = -1;
 static int hf_rtps_flag_reserved0040                            = -1;
+
 static int hf_rtps_flag_builtin_endpoint_set_reserved           = -1;
 static int hf_rtps_flag_unregister                              = -1;
 static int hf_rtps_flag_inline_qos_v1                           = -1;
@@ -1149,11 +1192,49 @@ static int hf_rtps_flag_locator_ping_writer                     = -1;
 static int hf_rtps_flag_locator_ping_reader                     = -1;
 static int hf_rtps_flag_secure_service_request_writer           = -1;
 static int hf_rtps_flag_cloud_discovery_service_announcer       = -1;
+static int hf_rtps_flag_participant_config_writer               = -1;
+static int hf_rtps_flag_participant_config_reader               = -1;
+static int hf_rtps_flag_participant_config_secure_writer        = -1;
+static int hf_rtps_flag_participant_config_secure_reader        = -1;
+static int hf_rtps_flag_participant_bootstrap_writer            = -1;
+static int hf_rtps_flag_participant_bootstrap_reader            = -1;
+static int hf_rtps_flag_monitoring_periodic_writer              = -1;
+static int hf_rtps_flag_monitoring_periodic_reader              = -1;
+static int hf_rtps_flag_monitoring_event_writer                 = -1;
+static int hf_rtps_flag_monitoring_event_reader                 = -1;
+static int hf_rtps_flag_monitoring_logging_writer               = -1;
+static int hf_rtps_flag_monitoring_logging_reader               = -1;
 static int hf_rtps_flag_secure_service_request_reader           = -1;
 static int hf_rtps_flag_security_access_protected               = -1;
 static int hf_rtps_flag_security_discovery_protected            = -1;
 static int hf_rtps_flag_security_submessage_protected           = -1;
-static int hf_rtps_flag_security_payload_protected              = -1;
+static int hf_rtps_param_endpoint_security_symmetric_cipher_algorithms_used_bit                                       = -1;
+static int hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_used_bit                  = -1;
+static int hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_key_exchange_used_bit     = -1;
+static int hf_rtps_param_participant_security_symmetric_cipher_algorithms_supported_mask    = -1;
+static int hf_rtps_flag_security_symmetric_cipher_mask_aes128_gcm                           = -1;
+static int hf_rtps_flag_security_symmetric_cipher_mask_aes256_gcm                           = -1;
+static int hf_rtps_flag_security_symmetric_cipher_mask_custom_algorithm                     = -1;
+static int hf_rtps_param_compression_id_mask                                                = -1;
+static int hf_rtps_flag_compression_id_zlib                                                 = -1;
+static int hf_rtps_flag_compression_id_bzip2                                                = -1;
+static int hf_rtps_flag_compression_id_lz4                                                  = -1;
+static int hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_supported_mask                   = -1;
+static int hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_used_mask                        = -1;
+static int hf_rtps_param_participant_security_digital_signature_algorithms_auth_supported_mask                          = -1;
+static int hf_rtps_flag_security_digital_signature_mask_rsassapssmgf1sha256_2048_sha256    = -1;
+static int hf_rtps_flag_security_digital_signature_mask_rsassapkcs1v15_2048_sha256         = -1;
+static int hf_rtps_flag_security_digital_signature_mask_ecdsa_p256_sha256                  = -1;
+static int hf_rtps_flag_security_digital_signature_mask_ecdsa_p384_sha384                  = -1;
+static int hf_rtps_flag_security_digital_signature_mask_custom_algorithm                   = -1;
+static int hf_rtps_param_participant_security_key_establishment_algorithms_supported_mask  = -1;
+static int hf_rtps_param_participant_security_key_establishment_algorithms_preferred_bit   = -1;
+static int hf_rtps_param_participant_security_digital_signature_algorithms_auth_used_bit   = -1;
+static int hf_rtps_flag_security_key_establishment_mask_dhe_modp2048256                    = -1;
+static int hf_rtps_flag_security_key_establishment_mask_ecdheceum_p256                     = -1;
+static int hf_rtps_flag_security_key_establishment_mask_ecdheceum_p384                     = -1;
+static int hf_rtps_flag_security_key_establishment_mask_custom_algorithm                   = -1;
+static int hf_rtps_flag_security_payload_protected                                        = -1;
 static int hf_rtps_flag_endpoint_security_attribute_flag_is_read_protected                = -1;
 static int hf_rtps_flag_endpoint_security_attribute_flag_is_write_protected               = -1;
 static int hf_rtps_flag_endpoint_security_attribute_flag_is_discovery_protected           = -1;
@@ -1356,6 +1437,12 @@ static const value_string entity_id_vals[] = {
   { ENTITYID_RTI_BUILTIN_LOCATOR_PING_READER,       "ENTITYID_RTI_BUILTIN_LOCATOR_PING_READER" },
   { ENTITYID_RTI_BUILTIN_SERVICE_REQUEST_WRITER,    "ENTITYID_RTI_BUILTIN_SERVICE_REQUEST_WRITER" },
   { ENTITYID_RTI_BUILTIN_SERVICE_REQUEST_READER,    "ENTITYID_RTI_BUILTIN_SERVICE_REQUEST_READER" },
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER, "ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER" },
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_READER, "ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_READER" },
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER,    "ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER" },
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_READER,    "ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_READER" },
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER, "ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER"},
+  { ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER, "ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER"},
 
   /* Deprecated Items */
   { ENTITYID_APPLICATIONS_WRITER,               "writerApplications [DEPRECATED]" },
@@ -1661,6 +1748,10 @@ static const value_string parameter_id_v2_vals[] = {
   { PID_DATA_TAGS,                      "PID_DATA_TAGS" },
   { PID_ENDPOINT_SECURITY_INFO,         "PID_ENDPOINT_SECURITY_INFO" },
   { PID_PARTICIPANT_SECURITY_INFO,      "PID_PARTICIPANT_SECURITY_INFO" },
+  { PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGO,    "PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGO" },
+  { PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGO,    "PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGO" },
+  { PID_PARTICIPANT_SECURITY_SYMMETRIC_CIPHER_ALGO,     "PID_PARTICIPANT_SECURITY_SYMMETRIC_CIPHER_ALGO" },
+  { PID_ENDPOINT_SECURITY_SYMMETRIC_CIPHER_ALGO,        "PID_ENDPOINT_SECURITY_SYMMETRIC_CIPHER_ALGO" },
   { PID_DOMAIN_ID,                      "PID_DOMAIN_ID" },
   { PID_DOMAIN_TAG,                     "PID_DOMAIN_TAG" },
   { PID_GROUP_COHERENT_SET,             "PID_GROUP_COHERENT_SET" },
@@ -1870,6 +1961,31 @@ static const value_string acknowledgement_kind_vals[] = {
   { APPLICATION_EXPLICIT_ACKNOWLEDGMENT,  "APPLICATION_EXPLICIT_ACKNOWLEDGMENT" },
   { 0, NULL }
 };
+
+static const value_string security_symmetric_cipher_bit_vals[] = {
+  { SECURITY_SYMMETRIC_CIPHER_BIT_AES128_GCM, "AES128_GCM"},
+  { SECURITY_SYMMETRIC_CIPHER_BIT_AES256_GCM, "AES256_GCM"},
+  { SECURITY_SYMMETRIC_CIPHER_BIT_CUSTOM_ALGORITHM, "Custom Algorithm"},
+  {0, NULL}
+};
+
+static const value_string security_digital_signature_bit_vals[] = {
+  { SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPSSMGF1SHA256_2048_SHA256, "RSASSAPSSMGF1SHA256_2048_SHA256"},
+  { SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPKCS1V15_2048_SHA256,      "RSASSAPKCS1V15_2048_SHA256"},
+  { SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P256_SHA256,               "ECDSA_P256_SHA256"},
+  { SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P384_SHA384,               "ECDSA_P384_SHA384"},
+  { SECURITY_DIGITAL_SIGNATURE_BIT_CUSTOM_ALGORITHM,                "Custom Algorithm"},
+  { 0, NULL}
+};
+
+static const value_string security_key_establishment_bit_vals[] = {
+  { SECURITY_KEY_ESTABLISHMENT_BIT_DHE_MODP2048256, "DHE_MODP2048256" },
+  { SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P256, "ECDHECEUM_P256" },
+  { SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P384, "ECDHECEUM_P384" },
+  { SECURITY_KEY_ESTABLISHMENT_BIT_CUSTOM_ALGORITHM, "Custom Algorithm" },
+  { 0, NULL}
+};
+
 
 static int* const TYPE_FLAG_FLAGS[] = {
   &hf_rtps_flag_typeflag_nested,                /* Bit 2 */
@@ -2376,6 +2492,18 @@ static int* const NACK_FLAGS[] = {
 #endif
 
 static int* const VENDOR_BUILTIN_ENDPOINT_FLAGS[] = {
+  &hf_rtps_flag_participant_bootstrap_reader,         /* Bit 18 */
+  &hf_rtps_flag_participant_bootstrap_writer,         /* Bit 17 */
+  &hf_rtps_flag_monitoring_logging_reader,            /* Bit 16 */
+  &hf_rtps_flag_monitoring_logging_writer,            /* Bit 15 */
+  &hf_rtps_flag_monitoring_event_reader,              /* Bit 14 */
+  &hf_rtps_flag_monitoring_event_writer,              /* Bit 13 */
+  &hf_rtps_flag_monitoring_periodic_reader,           /* Bit 12 */
+  &hf_rtps_flag_monitoring_periodic_writer,           /* Bit 11 */
+  &hf_rtps_flag_participant_config_secure_reader,     /* Bit 10 */
+  &hf_rtps_flag_participant_config_secure_writer,     /* Bit 9 */
+  &hf_rtps_flag_participant_config_reader,            /* Bit 8 */
+  &hf_rtps_flag_participant_config_writer,            /* Bit 7 */
   &hf_rtps_flag_cloud_discovery_service_announcer,    /* Bit 6 */
   &hf_rtps_flag_secure_service_request_reader,        /* Bit 5 */
   &hf_rtps_flag_secure_service_request_writer,        /* Bit 4 */
@@ -2393,6 +2521,39 @@ static int* const ENDPOINT_SECURITY_ATTRIBUTES[] = {
   &hf_rtps_flag_security_access_protected,             /* Bit 0 */
   NULL
 };
+
+
+static int* const SECURITY_SIMMETRIC_CIPHER_MASK_FLAGS[] = {
+  &hf_rtps_flag_security_symmetric_cipher_mask_custom_algorithm,
+  &hf_rtps_flag_security_symmetric_cipher_mask_aes256_gcm,
+  &hf_rtps_flag_security_symmetric_cipher_mask_aes128_gcm,
+  NULL
+};
+
+static int* const COMPRESSION_ID_MASK_FLAGS[] = {
+  &hf_rtps_flag_compression_id_lz4,
+  &hf_rtps_flag_compression_id_bzip2,
+  &hf_rtps_flag_compression_id_zlib,
+  NULL
+};
+
+static int* const SECURITY_KEY_ESTABLISHMENT_MASK_FLAGS[] = {
+  &hf_rtps_flag_security_key_establishment_mask_custom_algorithm,
+  &hf_rtps_flag_security_key_establishment_mask_ecdheceum_p384,
+  &hf_rtps_flag_security_key_establishment_mask_ecdheceum_p256,
+  &hf_rtps_flag_security_key_establishment_mask_dhe_modp2048256,
+  NULL
+};
+
+static int* const SECURITY_DIGITAL_SIGNATURE_MASK_FLAGS[] = {
+  &hf_rtps_flag_security_digital_signature_mask_custom_algorithm,
+  &hf_rtps_flag_security_digital_signature_mask_ecdsa_p384_sha384,
+  &hf_rtps_flag_security_digital_signature_mask_ecdsa_p256_sha256,
+  &hf_rtps_flag_security_digital_signature_mask_rsassapkcs1v15_2048_sha256,
+  &hf_rtps_flag_security_digital_signature_mask_rsassapssmgf1sha256_2048_sha256,
+  NULL
+};
+
 
 /**TCP get DomainId feature constants**/
 #define RTPS_UNKNOWN_DOMAIN_ID_VAL -1
@@ -2650,12 +2811,24 @@ static gint dissect_user_defined(proto_tree *tree, tvbuff_t * tvb, gint offset, 
             member_kind = type_id;
         }
     }
-    if (info && (flags & MEMBER_OPTIONAL) == MEMBER_OPTIONAL) {
-        gint offset_before = offset;
-        rtps_util_dissect_parameter_header(tvb, &offset, encoding, &member_id, &member_length);
-        offset = offset_before;
-        if (element_member_id != 0 && member_id != element_member_id)
+    if ((flags & MEMBER_OPTIONAL) != 0) {
+		gint offset_before = offset;
+		/* Parameter header is at minimun 4 bytes */
+		ALIGN_ZERO(
+            offset,
+            get_native_type_cdr_alignment(RTI_CDR_TYPE_OBJECT_TYPE_KIND_UINT_32_TYPE, encoding_version),
+            offset_zero);
+		rtps_util_dissect_parameter_header(tvb, &offset, encoding, &member_id, &member_length);
+        if (info
+                && (flags & MEMBER_OPTIONAL) == MEMBER_OPTIONAL
+                && element_member_id != 0
+                && member_id != element_member_id) {
+			offset = offset_before;
             return offset;
+        }
+        if (member_length == 0) {
+            return offset;
+        }
     }
     if (extensibility == EXTENSIBILITY_MUTABLE) {
       rtps_util_dissect_parameter_header(tvb, &offset, encoding, &member_id, &member_length);
@@ -3113,7 +3286,7 @@ static gint dissect_mutable_member(proto_tree *tree , tvbuff_t * tvb, gint offse
                 proto_item_append_text(member, "(base found 0x%016" PRIx64 ")", key);
                 dissect_user_defined(tree, tvb, offset, encoding, encoding_version, NULL, mapping->member_type_id,
                     mapping->member_name, EXTENSIBILITY_INVALID, offset, 0, mapping->member_id, show);
-                PROTO_ITEM_SET_HIDDEN(member);
+                proto_item_set_hidden(member);
                 return offset + member_length;
             } else
                 proto_item_append_text(member, "(base not found 0x%016" PRIx64 " from 0x%016" PRIx64 ")",
@@ -3131,7 +3304,7 @@ static gint dissect_mutable_member(proto_tree *tree , tvbuff_t * tvb, gint offse
     } else
         proto_item_append_text(member, "(not found 0x%016" PRIx64 " from 0x%016" PRIx64 ")",
                   key, info->type_id);
-    PROTO_ITEM_SET_HIDDEN(member);
+    proto_item_set_hidden(member);
     return offset + member_length;
 }
 
@@ -3164,8 +3337,14 @@ static void append_status_info(packet_info *pinfo,
    * ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_WRITER    | M
    * ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER          | W
    * ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER         | R
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER        | Pc
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_READER        | Pc
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER           | Pb
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_READER           | Pb
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER    | sPc
+   * ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER    | sPc
 
-   *
+
    * The letter is followed by:
    * status_info &1 | status_info & 2       | Text
    * ---------------+-----------------------+--------------
@@ -3215,6 +3394,18 @@ static void append_status_info(packet_info *pinfo,
       break;
     case ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER:
       writerId = "R";
+      break;
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER:
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_READER:
+      writerId = "Pb";
+      break;
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER:
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_READER:
+      writerId = "Pc";
+      break;
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER:
+    case ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER:
+      writerId = "sPc";
       break;
     default:
     /* Unknown writer ID, don't format anything */
@@ -3462,6 +3653,7 @@ static gint rtps_util_add_locator_t(proto_tree *tree, packet_info *pinfo, tvbuff
       proto_item_append_text(tree, " (%s, %s:%u)",
                  val_to_str(kind, rtps_locator_kind_vals, "%02x"),
                  tvb_ip_to_str(pinfo->pool, tvb, offset + 20), port);
+      proto_tree_add_item(locator_tree, hf_rtps_locator_ipv4, tvb, offset + 20, 4, ENC_BIG_ENDIAN);
       break;
     }
     case LOCATOR_KIND_TCPV4_LAN:
@@ -6569,6 +6761,7 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
       proto_tree_add_bitmask_value(rtps_parameter_tree, tvb, offset,
               hf_rtps_param_participant_security_attributes_mask, ett_rtps_flags,
               PARTICIPANT_SECURITY_INFO_FLAGS, flags);
+      offset += 4;
       flags = tvb_get_guint32(tvb, offset, encoding);
       proto_tree_add_bitmask_value(rtps_parameter_tree, tvb, offset,
               hf_rtps_param_plugin_participant_security_attributes_mask, ett_rtps_flags,
@@ -7115,6 +7308,102 @@ static gboolean dissect_parameter_sequence_rti_dds(proto_tree *rtps_parameter_tr
     case PID_UNICAST_LOCATOR_EX: {
       ENSURE_LENGTH(28);
       rtps_util_add_locator_ex_t(rtps_parameter_tree, pinfo, tvb, offset, encoding, param_length);
+      break;
+    }
+
+    case PID_ENDPOINT_SECURITY_SYMMETRIC_CIPHER_ALGO: {
+        ENSURE_LENGTH(4);
+        proto_tree_add_item(
+            rtps_parameter_tree,
+            hf_rtps_param_endpoint_security_symmetric_cipher_algorithms_used_bit,
+            tvb,
+            offset,
+            4,
+            encoding);
+      break;
+    }
+
+    case PID_PARTICIPANT_SECURITY_SYMMETRIC_CIPHER_ALGO: {
+        ENSURE_LENGTH(12);
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            offset,
+            hf_rtps_param_participant_security_symmetric_cipher_algorithms_supported_mask,
+            ett_rtps_flags,
+            SECURITY_SIMMETRIC_CIPHER_MASK_FLAGS,
+            encoding);
+        offset += 4;
+        proto_tree_add_item(
+            rtps_parameter_tree,
+            hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_used_bit,
+            tvb,
+            offset,
+            4,
+            encoding);
+        offset += 4;
+        proto_tree_add_item(
+            rtps_parameter_tree,
+            hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_key_exchange_used_bit,
+            tvb,
+            offset,
+            4,
+            encoding);
+      break;
+    }
+
+    case PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGO: {
+        ENSURE_LENGTH(8);
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            offset,
+            hf_rtps_param_participant_security_key_establishment_algorithms_supported_mask,
+            ett_rtps_flags, SECURITY_KEY_ESTABLISHMENT_MASK_FLAGS,
+            encoding);
+        offset += 4;
+        proto_tree_add_item(
+            rtps_parameter_tree,
+            hf_rtps_param_participant_security_key_establishment_algorithms_preferred_bit,
+            tvb, offset,
+            4,
+            encoding);
+      break;
+    }
+
+    case PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGO: {
+        ENSURE_LENGTH(16);
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            offset,
+            hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_supported_mask,
+            ett_rtps_flags, SECURITY_DIGITAL_SIGNATURE_MASK_FLAGS,
+            encoding);
+        offset += 4;
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            offset,
+            hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_used_mask,
+            ett_rtps_flags, SECURITY_DIGITAL_SIGNATURE_MASK_FLAGS,
+            encoding);
+        offset += 4;
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            offset,
+            hf_rtps_param_participant_security_digital_signature_algorithms_auth_supported_mask,
+            ett_rtps_flags, SECURITY_DIGITAL_SIGNATURE_MASK_FLAGS,
+            encoding);
+        offset += 4;
+        proto_tree_add_item(
+            rtps_parameter_tree,
+            hf_rtps_param_participant_security_digital_signature_algorithms_auth_used_bit,
+            tvb,
+            offset,
+            4,
+            encoding);
       break;
     }
 
@@ -8456,7 +8745,14 @@ static gboolean dissect_parameter_sequence_v2(proto_tree *rtps_parameter_tree, p
     * +---------------+-------------------------------+---------------+
     * | ...                           | int16 DataRepresentationId[N] |
     * +---------------+---------------+---------------+---------------+
+    * |             uint32_t Compression_id (Optional)                |
+    * +---------------+---------------+---------------+---------------+
+    * compression_iD flags:
+    * ZLIB: 0001b
+    * BZIP: 0010b
+    * LZ4:  0100b
     */
+
     case PID_DATA_REPRESENTATION: {
       proto_tree *data_representation_seq_subtree;
       proto_item *item;
@@ -8464,6 +8760,8 @@ static gboolean dissect_parameter_sequence_v2(proto_tree *rtps_parameter_tree, p
       guint item_offset;
       guint seq_size;
       guint counter = 0;
+      guint initial_offset = offset;
+      guint compression_id_offset = 0;
 
       seq_size = tvb_get_guint32(tvb, offset, encoding);
       data_representation_seq_subtree = proto_tree_add_subtree_format(rtps_parameter_tree, tvb, offset,
@@ -8476,6 +8774,18 @@ static gboolean dissect_parameter_sequence_v2(proto_tree *rtps_parameter_tree, p
           val_to_str(value, data_representation_kind_vals, "Unknown data representation value: %u"),
           value);
         item_offset += 2;
+      }
+      compression_id_offset = item_offset;
+      ALIGN_ME(compression_id_offset, 4);
+      if (compression_id_offset - initial_offset >= 4) {
+        proto_tree_add_bitmask(
+            rtps_parameter_tree,
+            tvb,
+            compression_id_offset,
+            hf_rtps_param_compression_id_mask,
+            ett_rtps_flags,
+            COMPRESSION_ID_MASK_FLAGS,
+            encoding);
       }
       break;
     }
@@ -9929,8 +10239,12 @@ static void dissect_DATA_v2(tvbuff_t *tvb, packet_info *pinfo, gint offset, guin
 
   /* SerializedData */
   if ((flags & FLAG_DATA_D_v2) != 0) {
-    from_builtin_writer =
-        (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+    from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+      || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+	  || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+	  || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
     dissect_serialized_data(tree, pinfo, tvb, offset,
                         octets_to_next_header - (offset - old_offset) + 4,
                         "serializedData", vendor_id, from_builtin_writer, guid, NOT_A_FRAGMENT);
@@ -10060,8 +10374,12 @@ static void dissect_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offset, gu
 
   /* SerializedData */
   if ((flags & FLAG_DATA_D_v2) != 0) {
-    from_builtin_writer =
-        (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+    from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+      || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
     dissect_serialized_data(tree, pinfo, tvb, offset,
                         octets_to_next_header - (offset - old_offset) + 4,
                         "serializedData", vendor_id, from_builtin_writer, NULL, (gint32)frag_number);
@@ -10198,8 +10516,12 @@ static void dissect_NOKEY_DATA(tvbuff_t *tvb, packet_info *pinfo, gint offset, g
   }
 
   if ((version >= 0x0200) && (flags & FLAG_DATA_D_v2) != 0) {
-    from_builtin_writer =
-        (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+    from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+      || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
     dissect_serialized_data(tree, pinfo, tvb, offset,
                         octets_to_next_header - (offset - old_offset) + 4,
                         "serializedData", vendor_id, from_builtin_writer, NULL, NOT_A_FRAGMENT);
@@ -10303,8 +10625,12 @@ static void dissect_NOKEY_DATA_FRAG(tvbuff_t *tvb, packet_info *pinfo, gint offs
 
   /* SerializedData */
   if ((flags & FLAG_DATA_D_v2) != 0) {
-    from_builtin_writer =
-      (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+    from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+      || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
     dissect_serialized_data(tree, pinfo, tvb,offset,
                         octets_to_next_header - (offset - old_offset) + 4,
                         "serializedData", vendor_id, from_builtin_writer, NULL, (gint32)frag_number);
@@ -11329,8 +11655,12 @@ static void dissect_RTPS_DATA(tvbuff_t *tvb, packet_info *pinfo, gint offset, gu
         label = "<invalid or unknown data type>";
       }
 
-      from_builtin_writer =
-        (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+      from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+          || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+          || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+          || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+          || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+          || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
       /* At the end still dissect the rest of the bytes as raw data */
       dissect_serialized_data(tree, pinfo, tvb, offset,
                         octets_to_next_header - (offset - old_offset) + 4,
@@ -11513,8 +11843,12 @@ static void dissect_RTPS_DATA_FRAG_kind(tvbuff_t *tvb, packet_info *pinfo, gint 
     if ((flags & FLAG_RTPS_DATA_FRAG_K) != 0) {
         snprintf(label, 14, "serializedKey");
     }
-    from_builtin_writer =
-      (((wid & 0xc2) == 0xc2) || ((wid & 0xc3) == 0xc3)) ? TRUE : FALSE;
+    from_builtin_writer = (((wid & ENTITYKIND_BUILTIN_WRITER_WITH_KEY) == ENTITYKIND_BUILTIN_WRITER_WITH_KEY)
+      || ((wid & ENTITYKIND_BUILTIN_WRITER_NO_KEY) == ENTITYKIND_BUILTIN_WRITER_NO_KEY)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_BOOTSTRAP_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_WRITER))
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_WRITER)
+      || (wid == ENTITYID_RTI_BUILTIN_PARTICIPANT_CONFIG_SECURE_READER) ? TRUE : FALSE;
 
     guint32 frag_index_in_submessage = 0, this_frag_number = 0, this_frag_size = 0, fragment_offset = 0;
     gboolean more_fragments = FALSE;
@@ -15124,12 +15458,126 @@ void proto_register_rtps(void) {
     { &hf_rtps_param_endpoint_security_attributes_mask,{
         "EndpointSecurityAttributesMask", "rtps.param.endpoint_security_attributes",
         FT_UINT32, BASE_HEX, NULL, 0,
-        "bitmask representing the EndpointSecurityAttributes flags in PID_ENDPOINT_SECURITY_INFO",
+        "Bitmask representing the EndpointSecurityAttributes flags in PID_ENDPOINT_SECURITY_INFO",
         HFILL }
     },
-    { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_payload_encrypted,{
+    { &hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_used_bit, {
+        "Builtin Endpoints Used Bit", "rtps.param.participant_security_symmetric_cipher_algorithms.builtin_endpoints_used_bit",
+        FT_UINT32, BASE_HEX, VALS(security_symmetric_cipher_bit_vals), 0,
+        "Enum representing the Symmetric Cipher algorithm the builtin endpoints use",
+        HFILL }
+    },
+    { &hf_rtps_param_endpoint_security_symmetric_cipher_algorithms_used_bit, {
+        "Used Bit", "rtps.param.endpoint_security_symmetric_cipher_algorithm.used_bit",
+        FT_UINT32, BASE_HEX, VALS(security_symmetric_cipher_bit_vals), 0,
+        "Enum representing the Symmetric Cipher algorithm the endpoint uses",
+        HFILL }
+    },
+    { &hf_rtps_param_participant_security_symmetric_cipher_algorithms_builtin_endpoints_key_exchange_used_bit, {
+        "Key Exchange Builtin Endpoints Used Bit", "rtps.param.participant_security_symmetric_cipher_algorithms.builtin_endpoints_key_exchange_used_bit",
+        FT_UINT32, BASE_HEX, VALS(security_symmetric_cipher_bit_vals), 0,
+        "Enum representing the Symmetric Cipher algorithm the key exchange builtin endpoints use",
+        HFILL }
+    },
+    { &hf_rtps_param_participant_security_symmetric_cipher_algorithms_supported_mask, {
+        "Supported Mask", "rtps.param.participant_security_symmetric_cipher_algorithms.supported_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing Symmetric Cipher algorithms the participant supports",
+		HFILL }
+    },
+    { &hf_rtps_param_compression_id_mask, {
+        "Compression Id Mask", "rtps.param.compression_id_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing compression id.", HFILL }
+    },
+    { &hf_rtps_flag_compression_id_zlib, {
+        "ZLIB", "rtps.flag.compression_id_zlib",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), RTI_OSAPI_COMPRESSION_CLASS_ID_ZLIB, NULL, HFILL }
+    },
+    { &hf_rtps_flag_compression_id_bzip2, {
+        "BZIP2", "rtps.flag.compression_id_bzip2",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), RTI_OSAPI_COMPRESSION_CLASS_ID_BZIP2, NULL, HFILL }
+    },
+    { &hf_rtps_flag_compression_id_lz4, {
+        "LZ4", "rtps.flag.compression_id_lz4",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), RTI_OSAPI_COMPRESSION_CLASS_ID_LZ4, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_symmetric_cipher_mask_aes128_gcm, {
+        "AES128 GCM", "rtps.flag.security_symmetric_cipher_mask.aes128_gcm",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_SYMMETRIC_CIPHER_BIT_AES128_GCM, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_symmetric_cipher_mask_aes256_gcm, {
+        "AES256 GCM", "rtps.flag.security_symmetric_cipher_mask.aes256_gcm",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_SYMMETRIC_CIPHER_BIT_AES256_GCM, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_symmetric_cipher_mask_custom_algorithm, {
+        "Custom Algorithm", "rtps.flag.security_symmetric_cipher_mask.custom_algorithm",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_SYMMETRIC_CIPHER_BIT_CUSTOM_ALGORITHM, NULL, HFILL }
+    },
+    { &hf_rtps_param_participant_security_key_establishment_algorithms_preferred_bit, {
+        "Preferred Bit", "rtps.param.participant_security_key_establishment_algorithms.preferred_bit",
+        FT_UINT32, BASE_HEX, VALS(security_key_establishment_bit_vals), 0,
+        "Enum representing the Key Establishment algorithm the participant will use if it is the authentication initiator",  HFILL }
+    },
+    { &hf_rtps_param_participant_security_digital_signature_algorithms_auth_used_bit, {
+        "Authentication Used Bit", "rtps.participant_security_digital_signature_algorithms.auth_used_bit",
+        FT_UINT32, BASE_HEX, VALS(security_digital_signature_bit_vals), 0,
+        "Enum representing the Digital Signature algorithm the participant will use during Authentication",  HFILL }
+    },
+    { &hf_rtps_param_participant_security_key_establishment_algorithms_supported_mask, {
+        "Supported Mask", "rtps.param.participant_security_key_establishment_algorithms.supported_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing the Key Establishment algorithms the participant supports",
+		HFILL }
+    },
+    { &hf_rtps_flag_security_key_establishment_mask_dhe_modp2048256, {
+        "DHE_MODP2048256", "rtps.flag.security_key_establishment_mask.dhe_modp2048256",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_KEY_ESTABLISHMENT_BIT_DHE_MODP2048256, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_key_establishment_mask_ecdheceum_p256, {
+        "ECDHECEUM_P256", "rtps.flag.security_key_establishment_mask.ecdheceum_p256",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P256, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_key_establishment_mask_ecdheceum_p384, {
+        "ECDHECEUM_P384", "rtps.flag.security_key_establishment_mask.ecdheceum_p384",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_KEY_ESTABLISHMENT_BIT_ECDHECEUM_P384, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_key_establishment_mask_custom_algorithm, {
+        "Custom Algorithm", "rtps.flag.security_key_establishment_mask.custom_algorithm",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_KEY_ESTABLISHMENT_BIT_CUSTOM_ALGORITHM, NULL, HFILL }
+    },
+    { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_payload_encrypted, {
         "Submessage Encrypted", "rtps.flag.security.info.plugin_submessage_encrypted",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000001, NULL, HFILL }
+    },
+    { &hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_supported_mask, {
+        "Trust Chain Supported Mask", "rtps.param.participant_security_digital_signature_algorithms.trust_chain_supported_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing the Trust Chain Digital Signature algorithms the participant supports", HFILL }
+    },
+    { &hf_rtps_param_participant_security_digital_signature_algorithms_trust_chain_used_mask, {
+        "Trust Chain Used Mask", "rtps.param.participant_security_digital_signature_algorithms.trust_chain_used_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing the Digital Signature algorithms the participant will use to build its Trust Chain", HFILL }
+    },
+    { &hf_rtps_param_participant_security_digital_signature_algorithms_auth_supported_mask, {
+        "Authentication Supported Mask", "rtps.param.participant_security_digital_signature_algorithms.auth_supported_mask",
+        FT_UINT32, BASE_HEX, 0, 0, "Bitmask representing the Authentication Digital Signature algorithms the participant supports", HFILL }
+    },
+    { &hf_rtps_flag_security_digital_signature_mask_rsassapssmgf1sha256_2048_sha256, {
+        "RSASSAPSSMGF1SHA256_2048_SHA256", "rtps.flag.security_digital_signature_mask.rsassapssmgf1sha256_2048_sha256",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPSSMGF1SHA256_2048_SHA256, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_digital_signature_mask_rsassapkcs1v15_2048_sha256, {
+        "RSASSAPKCS1V15_2048_SHA256", "rtps.flag.security_digital_signature_mask.rsassapkcs1v15_2048_sha256",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_DIGITAL_SIGNATURE_BIT_RSASSAPKCS1V15_2048_SHA256, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_digital_signature_mask_ecdsa_p256_sha256, {
+        "ECDSA_P256_SHA256", "rtps.flag.security_digital_signature_mask.ecdsa_p256_sha256",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P256_SHA256, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_digital_signature_mask_ecdsa_p384_sha384, {
+        "ECDSA_P384_SHA384", "rtps.flag.security_digital_signature_mask.ecdsa_p384_sha384",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_DIGITAL_SIGNATURE_BIT_ECDSA_P384_SHA384, NULL, HFILL }
+    },
+    { &hf_rtps_flag_security_digital_signature_mask_custom_algorithm, {
+        "Custom Algorithm", "rtps.flag.security_digital_signature_mask.custom_algorithm",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), SECURITY_DIGITAL_SIGNATURE_BIT_CUSTOM_ALGORITHM, NULL, HFILL }
     },
     { &hf_rtps_flag_plugin_endpoint_security_attribute_flag_is_key_encrypted,{
         "Payload Encrypted", "rtps.flag.security.info.plugin_payload_encrypted",
@@ -15594,6 +16042,54 @@ void proto_register_rtps(void) {
     { &hf_rtps_flag_cloud_discovery_service_announcer,{
         "Cloud Discovery Service Announcer", "rtps.flag.cloud_discovery_service_announcer",
         FT_BOOLEAN, 32, TFS(&tfs_set_notset), 0x00000040, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_config_writer,{
+        "Participant Config Writer", "rtps.flag.participant_config_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_config_reader,{
+        "Participant Config Reader", "rtps.flag.participant_config_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_READER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_config_secure_writer,{
+        "Participant Config Secure Writer", "rtps.flag.participant_config_secure_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_SECURE_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_config_secure_reader,{
+        "Participant Config Secure Reader", "rtps.flag.participant_config_secure_reader",
+	    FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_CONFIG_SECURE_READER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_bootstrap_writer,{
+        "Participant Bootstrap Writer", "rtps.flag.participant_bootstrap_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_BOOTSTRAP_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_participant_bootstrap_reader,{
+        "Participant Bootstrap Reader", "rtps.flag.participant_bootstrap_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_PARTICIPANT_BOOTSTRAP_READER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_periodic_writer,{
+        "Monitoring Periodic Writer", "rtps.flag.monitoring_periodic_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_PERIODIC_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_periodic_reader,{
+        "Monitoring Periodic Reader", "rtps.flag.monitoring_periodic_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_PERIODIC_READER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_event_writer,{
+        "Monitoring Event Writer", "rtps.flag.monitoring_event_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_EVENT_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_event_reader,{
+        "Monitoring Event Reader", "rtps.flag.monitoring_event_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_EVENT_READER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_logging_writer,{
+        "Monitoring Logging Writer", "rtps.flag.monitoring_logging_writer",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_LOGGING_WRITER, NULL, HFILL }
+    },
+    { &hf_rtps_flag_monitoring_logging_reader,{
+        "Monitoring Logging Reader", "rtps.flag.monitoring_logging_reader",
+        FT_BOOLEAN, 32, TFS(&tfs_set_notset), VENDOR_BUILTIN_ENDPOINT_SET_FLAG_MONITORING_LOGGING_READER, NULL, HFILL }
     }
   };
 

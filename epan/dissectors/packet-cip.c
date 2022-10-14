@@ -44,6 +44,8 @@
 // 4. Dissector Table "cip.data_segment.iface" - Unknown. This may be removed in the future
 // 5. attribute_info_t: Use this to add handling for an attribute, using a 3 tuple key (Class, Instance, Attribute)
 //    See 'cip_attribute_vals' for an example.
+// 6. cip_service_info_t: Use this to add handling for a service, using a 2 tuple key (Class, Service)
+//    See 'cip_obj_spec_service_table' for an example.
 
 #include "config.h"
 
@@ -70,6 +72,7 @@ static dissector_handle_t cip_handle;
 static dissector_handle_t cip_class_generic_handle;
 static dissector_handle_t cip_class_cm_handle;
 static dissector_handle_t cip_class_pccc_handle;
+static dissector_handle_t cip_class_mb_handle;
 static dissector_handle_t modbus_handle;
 static dissector_handle_t cip_class_cco_handle;
 static heur_dissector_list_t  heur_subdissector_service;
@@ -3719,6 +3722,28 @@ static int dissect_port_node_range(packet_info *pinfo _U_, proto_tree *tree, pro
    return 4;
 }
 
+
+/// Identity - Services
+static int dissect_identity_reset(packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, tvbuff_t *tvb, int offset, gboolean request)
+{
+   int parsed_len = 0;
+
+   if (request)
+   {
+      if (tvb_reported_length_remaining(tvb, offset) > 0)
+      {
+         proto_tree_add_item(tree, hf_cip_sc_reset_param, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+         parsed_len = 1;
+      }
+   }
+   else
+   {
+      parsed_len = 0;
+   }
+
+   return parsed_len;
+}
+
 static attribute_info_t cip_attribute_vals[] = {
     /* Identity Object (class attributes) */
    {0x01, TRUE, 1, 0, CLASS_ATTRIBUTE_1_NAME, cip_uint, &hf_attr_class_revision, NULL },
@@ -3856,6 +3881,20 @@ static attribute_info_t cip_attribute_vals[] = {
    { 0xF4, FALSE, 11, -1, "Associated Communication Objects", cip_dissector_func, NULL, dissect_port_associated_comm_objects },
 };
 
+// Table of CIP services defined by this dissector.
+static cip_service_info_t cip_obj_spec_service_table[] = {
+    { 0x1, SC_RESET, "Reset", dissect_identity_reset },
+};
+
+// Look up a given CIP service from this dissector.
+static cip_service_info_t* cip_get_service_cip(guint32 class_id, guint8 service_id)
+{
+   return cip_get_service_one_table(&cip_obj_spec_service_table[0],
+      sizeof(cip_obj_spec_service_table) / sizeof(cip_service_info_t),
+      class_id,
+      service_id);
+}
+
 typedef struct attribute_val_array {
    size_t size;
    attribute_info_t* attrs;
@@ -3918,6 +3957,45 @@ attribute_info_t* cip_get_attribute(guint class_id, guint instance, guint attrib
             return pattr;
          }
       }
+   }
+
+   return NULL;
+}
+
+// Look up a given CIP service from a table of cip_service_info_t.
+cip_service_info_t* cip_get_service_one_table(cip_service_info_t* services, size_t size, guint32 class_id, guint8 service_id)
+{
+   for (guint32 i = 0; i < size; i++)
+   {
+      cip_service_info_t* entry = &services[i];
+      if (entry->class_id == class_id && entry->service_id == (service_id & CIP_SC_MASK))
+      {
+         return entry;
+      }
+   }
+
+   return NULL;
+}
+
+// Look through all CIP Service tables from different dissectors, to find a definition for a given CIP service.
+static cip_service_info_t* cip_get_service(packet_info *pinfo, guint8 service_id)
+{
+   cip_req_info_t *cip_req_info = (cip_req_info_t*)p_get_proto_data(wmem_file_scope(), pinfo, proto_cip, 0);
+   if (!cip_req_info || !cip_req_info->ciaData)
+   {
+      return NULL;
+   }
+
+   cip_service_info_t* pService = cip_get_service_cip(cip_req_info->ciaData->iClass, service_id);
+   if (pService)
+   {
+      return pService;
+   }
+
+   pService = cip_get_service_enip(cip_req_info->ciaData->iClass, service_id);
+   if (pService)
+   {
+      return pService;
    }
 
    return NULL;
@@ -5471,7 +5549,7 @@ int dissect_cip_utime(proto_tree* tree, tvbuff_t* tvb, int offset, int hf_dateti
    nstime_t ts_nstime = { 0 };
    guint64 timestamp = tvb_get_letoh64(tvb, offset);
    ts_nstime.secs = timestamp / 1000000;
-   ts_nstime.nsecs = timestamp % 1000000;
+   ts_nstime.nsecs = (timestamp % 1000000) * 1000;
 
    proto_tree_add_time(tree, hf_datetime, tvb, offset, 8, &ts_nstime);
 
@@ -5668,6 +5746,86 @@ int dissect_cip_attribute(packet_info *pinfo, proto_tree *tree, proto_item *item
    }
 
    return consumed;
+}
+
+static int dissect_cip_service(packet_info *pinfo, tvbuff_t *tvb, int offset,
+   proto_item *ti, proto_tree *item_tree, cip_service_info_t *service_entry, guint8 service)
+{
+   int parsed_len = 0;
+
+   if (service_entry != NULL && service_entry->pdissect)
+   {
+      gboolean request = !(service & CIP_SC_RESPONSE_MASK);
+      parsed_len = service_entry->pdissect(pinfo, item_tree, ti, tvb, offset, request);
+   }
+
+   return parsed_len;
+}
+
+static int dissect_cip_object_specific_service(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item* msp_item, cip_service_info_t *service_entry)
+{
+   DISSECTOR_ASSERT(service_entry != NULL);
+
+   int offset = 0;
+   guint8 service = tvb_get_guint8(tvb, offset);
+   guint8 gen_status = 0;
+
+   // Skip over the Request/Response header to get to the actual data.
+   if (service & CIP_SC_RESPONSE_MASK)
+   {
+      gen_status = tvb_get_guint8(tvb, offset + 2);
+
+      guint16 add_stat_size = tvb_get_guint8(tvb, offset + 3) * 2;
+      offset = 4 + add_stat_size;
+   }
+   else
+   {
+      guint16 req_path_size = tvb_get_guint8(tvb, offset + 1) * 2;
+      offset = 2 + req_path_size;
+   }
+
+   // Display the service name, even if there is no payload data.
+   if (service_entry->service_name)
+   {
+      col_append_str(pinfo->cinfo, COL_INFO, service_entry->service_name);
+      col_set_fence(pinfo->cinfo, COL_INFO);
+
+      proto_item_append_text(msp_item, "%s", service_entry->service_name);
+   }
+
+   // Only dissect responses with specific response statuses.
+   if ((service & CIP_SC_RESPONSE_MASK)
+      && (should_dissect_cip_response(tvb, offset, gen_status) == FALSE))
+   {
+      return 0;
+   }
+
+   proto_item *payload_item;
+   proto_tree *payload_tree = proto_tree_add_subtree(tree, tvb, offset, tvb_reported_length_remaining(tvb, offset), ett_cmd_data, &payload_item, "");
+
+   // Add the service info to the tree item.
+   proto_item_append_text(payload_item, "%s", service_entry->service_name);
+
+   if (service & CIP_SC_RESPONSE_MASK)
+   {
+      proto_item_append_text(payload_item, " (Response)");
+   }
+   else
+   {
+      proto_item_append_text(payload_item, " (Request)");
+   }
+
+   // Process any known command-specific data.
+   offset += dissect_cip_service(pinfo, tvb, offset, payload_item, payload_tree, service_entry, service);
+
+   // Add any remaining data.
+   int len_remain = tvb_reported_length_remaining(tvb, offset);
+   if (len_remain > 0)
+   {
+      proto_tree_add_item(payload_tree, hf_cip_data, tvb, offset, len_remain, ENC_NA);
+   }
+
+   return tvb_reported_length(tvb);
 }
 
 /************************************************
@@ -6006,14 +6164,6 @@ dissect_cip_generic_service_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
       break;
    case SC_SET_ATT_LIST:
       parsed_len = dissect_cip_set_attribute_list_req(tvb, pinfo, cmd_data_tree, cmd_data_item, offset, req_data);
-      break;
-   case SC_RESET:
-      // Parameter to reset is optional.
-      if (tvb_reported_length_remaining(tvb, offset) > 0)
-      {
-         proto_tree_add_item(cmd_data_tree, hf_cip_sc_reset_param, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-         parsed_len = 1;
-      }
       break;
    case SC_MULT_SERV_PACK:
       parsed_len = dissect_cip_multiple_service_packet(tvb, pinfo, cmd_data_tree, cmd_data_item, offset, TRUE);
@@ -7066,17 +7216,22 @@ dissect_cip_cm_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, int item_
             /* Check to see if service is 'generic' */
             try_val_to_str_idx((service & CIP_SC_MASK), cip_sc_vals, &service_index);
 
+            cip_service_info_t* service_entry = cip_get_service(pinfo, service);
             if ( pembedded_req_info && pembedded_req_info->dissector )
             {
                call_dissector(pembedded_req_info->dissector, next_tvb, pinfo, item_tree );
             }
-            else if (service_index >= 0)
+            else if (service_index >= 0 && !service_entry)
             {
                /* See if object dissector wants to override generic service handling */
                if (!dissector_try_heuristic(heur_subdissector_service, tvb, pinfo, item_tree, &hdtbl_entry, NULL))
                {
                    dissect_cip_generic_service_rsp(tvb, pinfo, item_tree);
                }
+            }
+            else if (service_entry)
+            {
+               dissect_cip_object_specific_service(tvb, pinfo, item_tree, NULL, service_entry);
             }
             else
             {
@@ -8243,6 +8398,8 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       /* Check to see if service is 'generic' */
       try_val_to_str_idx((service & CIP_SC_MASK), cip_sc_vals, &service_index);
 
+      cip_service_info_t* service_entry = cip_get_service(pinfo, service);
+
       /* If the request set a dissector, then check that first. This ensures
          that Unconnected Send responses are properly parsed based on the
          embedded request. */
@@ -8250,13 +8407,17 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       {
          call_dissector(preq_info->dissector, tvb, pinfo, item_tree);
       }
-      else if (service_index >= 0)
+      else if (service_index >= 0 && !service_entry)
       {
          /* See if object dissector wants to override generic service handling */
          if(!dissector_try_heuristic(heur_subdissector_service, tvb, pinfo, item_tree, &hdtbl_entry, NULL))
          {
            dissect_cip_generic_service_rsp(tvb, pinfo, cip_tree);
          }
+      }
+      else if (service_entry)
+      {
+         dissect_cip_object_specific_service(tvb, pinfo, cip_tree, msp_item, service_entry);
       }
       else
       {
@@ -8321,7 +8482,9 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
 
       /* Check to see if service is 'generic' */
       try_val_to_str_idx(service, cip_sc_vals, &service_index);
-      if (service_index >= 0)
+
+      cip_service_info_t* service_entry = cip_get_service(pinfo, service);
+      if (service_index >= 0 && !service_entry)
       {
           /* See if object dissector wants to override generic service handling */
           if(!dissector_try_heuristic(heur_subdissector_service, tvb, pinfo, item_tree, &hdtbl_entry, NULL))
@@ -8338,6 +8501,10 @@ void dissect_cip_data( proto_tree *item_tree, tvbuff_t *tvb, int offset, packet_
       else if ( dissector )
       {
          call_dissector( dissector, tvb, pinfo, item_tree );
+      }
+      else if (service_entry)
+      {
+         dissect_cip_object_specific_service(tvb, pinfo, cip_tree, msp_item, service_entry);
       }
       else
       {
@@ -9067,25 +9234,35 @@ proto_register_cip(void)
    /* Register the protocol name and description */
    proto_cip_class_generic = proto_register_protocol("CIP Class Generic",
        "CIPCLS", "cipcls");
+   cip_class_generic_handle = register_dissector("cipcls",
+       dissect_cip_class_generic, proto_cip_class_generic);
 
    /* Register the protocol name and description */
    proto_cip_class_cm = proto_register_protocol("CIP Connection Manager",
        "CIPCM", "cipcm");
+   cip_class_cm_handle = register_dissector("cipcm",
+       dissect_cip_class_cm, proto_cip_class_cm);
    proto_register_field_array(proto_cip_class_cm, hf_cm, array_length(hf_cm));
    proto_register_subtree_array(ett_cm, array_length(ett_cm));
 
    proto_cip_class_pccc = proto_register_protocol("CIP PCCC Object",
        "CIPPCCC", "cippccc");
+   cip_class_pccc_handle = register_dissector("cippccc",
+       dissect_cip_class_pccc, proto_cip_class_pccc);
    proto_register_field_array(proto_cip_class_pccc, hf_pccc, array_length(hf_pccc));
    proto_register_subtree_array(ett_pccc, array_length(ett_pccc));
 
    proto_cip_class_mb = proto_register_protocol("CIP Modbus Object",
        "CIPMB", "cipmb");
+   cip_class_mb_handle = register_dissector("cipmb",
+       dissect_cip_class_mb, proto_cip_class_mb);
    proto_register_field_array(proto_cip_class_mb, hf_mb, array_length(hf_mb));
    proto_register_subtree_array(ett_mb, array_length(ett_mb));
 
    proto_cip_class_cco = proto_register_protocol("CIP Connection Configuration Object",
        "CIPCCO", "cipcco");
+   cip_class_cco_handle = register_dissector("cipcco",
+       dissect_cip_class_cco, proto_cip_class_cco);
    proto_register_field_array(proto_cip_class_cco, hf_cco, array_length(hf_cco));
    proto_register_subtree_array(ett_cco, array_length(ett_cco));
 
@@ -9099,33 +9276,25 @@ proto_register_cip(void)
 void
 proto_reg_handoff_cip(void)
 {
-   dissector_handle_t cip_class_mb_handle;
-
-   /* Create dissector handles */
    /* Register for UCMM CIP data, using EtherNet/IP SendRRData service*/
    dissector_add_uint( "enip.srrd.iface", ENIP_CIP_INTERFACE, cip_handle );
 
    dissector_add_uint("cip.connection.class", CI_CLS_MR, cip_handle);
 
-   /* Create and register dissector handle for generic class */
-   cip_class_generic_handle = create_dissector_handle( dissect_cip_class_generic, proto_cip_class_generic );
+   /* Register dissector handle for generic class */
    dissector_add_uint( "cip.class.iface", 0, cip_class_generic_handle );
 
-   /* Create and register dissector handle for Connection Manager */
-   cip_class_cm_handle = create_dissector_handle( dissect_cip_class_cm, proto_cip_class_cm );
+   /* Register dissector handle for Connection Manager */
    dissector_add_uint( "cip.class.iface", CI_CLS_CM, cip_class_cm_handle );
 
-   /* Create and register dissector handle for the PCCC class */
-   cip_class_pccc_handle = create_dissector_handle( dissect_cip_class_pccc, proto_cip_class_pccc );
+   /* Register dissector handle for the PCCC class */
    dissector_add_uint( "cip.class.iface", CI_CLS_PCCC, cip_class_pccc_handle );
 
-   /* Create and register dissector handle for Modbus Object */
-   cip_class_mb_handle = create_dissector_handle( dissect_cip_class_mb, proto_cip_class_mb );
+   /* Register dissector handle for Modbus Object */
    dissector_add_uint( "cip.class.iface", CI_CLS_MB, cip_class_mb_handle );
    modbus_handle = find_dissector_add_dependency("modbus", proto_cip_class_mb);
 
-   /* Create and register dissector handle for Connection Configuration Object */
-   cip_class_cco_handle = create_dissector_handle( dissect_cip_class_cco, proto_cip_class_cco );
+   /* Register dissector handle for Connection Configuration Object */
    dissector_add_uint( "cip.class.iface", CI_CLS_CCO, cip_class_cco_handle );
    heur_dissector_add("cip.sc", dissect_class_cco_heur, "CIP Connection Configuration Object", "cco_cip", proto_cip_class_cco, HEURISTIC_ENABLE);
 

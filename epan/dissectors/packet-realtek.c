@@ -18,6 +18,9 @@
 #include <epan/packet.h>
 #include <etypes.h>
 
+void proto_register_realtek(void);
+void proto_reg_handoff_realtek(void);
+
 #define RTL_PROTOCOL_RRCP    0x01    /* RRCP */
 #define RTL_PROTOCOL_REP     0x02    /* REP */
 #define RTL_PROTOCOL_RLDP    0x03    /* RLDP */
@@ -71,6 +74,8 @@ static const value_string rrcp_opcode_names[] = {
    { RRCP_OPCODE_SET,   "Set" },
    {0, NULL}
 };
+
+static dissector_handle_t realtek_handle;
 
 static int proto_realtek = -1;
 
@@ -412,6 +417,7 @@ proto_register_realtek(void)
 
   proto_realtek = proto_register_protocol("Realtek Layer 2 Protocols",
                                           "Realtek", "realtek");
+  realtek_handle = register_dissector("realtek", dissect_realtek, proto_realtek);
   proto_register_field_array(proto_realtek, hf_realtek, array_length(hf_realtek));
   realtek_heur_subdissector_list = register_heur_dissector_list("realtek",
                                                                 proto_realtek);
@@ -435,9 +441,6 @@ proto_register_realtek(void)
 void
 proto_reg_handoff_realtek(void)
 {
-  dissector_handle_t realtek_handle;
-
-  realtek_handle = create_dissector_handle(dissect_realtek, proto_realtek);
   dissector_add_uint("ethertype", ETHERTYPE_REALTEK, realtek_handle);
 
   heur_dissector_add("realtek", dissect_rrcp, "Realtek Remote Control Protocol",

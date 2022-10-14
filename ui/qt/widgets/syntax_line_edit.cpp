@@ -14,7 +14,7 @@
 #include <epan/prefs.h>
 #include <epan/proto.h>
 #include <epan/dfilter/dfilter.h>
-#include <epan/column-info.h>
+#include <epan/column.h>
 
 #include <wsutil/utf8_entities.h>
 
@@ -78,6 +78,7 @@ void SyntaxLineEdit::allowCompletion(bool enabled)
 void SyntaxLineEdit::setSyntaxState(SyntaxState state) {
     syntax_state_ = state;
 
+    // XXX Should we drop the background colors here in favor of ::paintEvent below?
     QColor valid_bg = ColorUtils::fromColorT(&prefs.gui_text_valid);
     QColor valid_fg = ColorUtils::contrastingTextColor(valid_bg);
     QColor invalid_bg = ColorUtils::fromColorT(&prefs.gui_text_invalid);
@@ -134,8 +135,31 @@ void SyntaxLineEdit::setSyntaxState(SyntaxState state) {
     setStyleSheet(style_sheet_);
 }
 
-QString SyntaxLineEdit::syntaxErrorMessage() {
+QString SyntaxLineEdit::syntaxErrorMessage()
+{
     return syntax_error_message_;
+}
+
+QString SyntaxLineEdit::syntaxErrorMessageFull()
+{
+    return syntax_error_message_full_;
+}
+
+QString SyntaxLineEdit::createSyntaxErrorMessageFull(
+                                const QString &filter, const QString &err_msg,
+                                qsizetype loc_start, size_t loc_length)
+{
+    QString msg = tr("Invalid filter: %1").arg(err_msg);
+
+    if (loc_start >= 0 && loc_length >= 1) {
+        // Add underlined location
+        msg = QString("<p>%1<pre>  %2\n  %3^%4</pre></p>")
+            .arg(msg)
+            .arg(filter)
+            .arg(QString(' ').repeated(static_cast<int>(loc_start)))
+            .arg(QString('~').repeated(static_cast<int>(loc_length) - 1));
+    }
+    return msg;
 }
 
 QString SyntaxLineEdit::styleSheet() const {
@@ -178,7 +202,8 @@ bool SyntaxLineEdit::checkDisplayFilter(QString filter)
 
     dfilter_t *dfp = NULL;
     gchar *err_msg;
-    if (dfilter_compile(filter.toUtf8().constData(), &dfp, &err_msg)) {
+    dfilter_loc_t loc;
+    if (dfilter_compile2(filter.toUtf8().constData(), &dfp, &err_msg, &loc)) {
         GPtrArray *depr = NULL;
         if (dfp) {
             depr = dfilter_deprecated_tokens(dfp);
@@ -207,6 +232,7 @@ bool SyntaxLineEdit::checkDisplayFilter(QString filter)
     } else {
         setSyntaxState(SyntaxLineEdit::Invalid);
         syntax_error_message_ = QString::fromUtf8(err_msg);
+        syntax_error_message_full_ = createSyntaxErrorMessageFull(filter, syntax_error_message_, loc.col_start, loc.col_len);
         g_free(err_msg);
     }
     dfilter_free(dfp);
@@ -409,7 +435,24 @@ void SyntaxLineEdit::paintEvent(QPaintEvent *event)
     // Must match CaptureFilterEdit and DisplayFilterEdit stylesheets.
     int pad = style()->pixelMetric(QStyle::PM_DefaultFrameWidth) + 1;
     QRect full_cr = cr.adjusted(-pad, 0, 0, 0);
-    painter.fillRect(full_cr, palette().base());
+    QBrush bg;
+
+    switch (syntax_state_) {
+    case Valid:
+        bg = ColorUtils::fromColorT(&prefs.gui_text_valid);
+        break;
+    case Invalid:
+        bg = ColorUtils::fromColorT(&prefs.gui_text_invalid);
+        break;
+    case Deprecated:
+        bg = ColorUtils::fromColorT(&prefs.gui_text_deprecated);
+        break;
+    default:
+        bg = palette().base();
+        break;
+    }
+
+    painter.fillRect(full_cr, bg);
 #endif
 
     QLineEdit::paintEvent(event);

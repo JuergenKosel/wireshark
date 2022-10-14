@@ -60,12 +60,12 @@
 #include <wsutil/adler32.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/str_util.h>
+#include <wsutil/ws_roundup.h>
 
 #include "packet-sctp.h"
 
 #define LT(x, y) ((gint32)((x) - (y)) < 0)
 
-#define ADD_PADDING(x) ((((x) + 3) >> 2) << 2)
 #define UDP_TUNNELING_PORT 9899
 
 #define MAX_NUMBER_OF_PPIDS     2
@@ -788,13 +788,13 @@ sctp_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_,
   const struct _sctp_info *sctphdr=(const struct _sctp_info *)vip;
 
   add_conversation_table_data(hash, &sctphdr->ip_src, &sctphdr->ip_dst,
-        sctphdr->sport, sctphdr->dport, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &sctp_ct_dissector_info, ENDPOINT_SCTP);
+        sctphdr->sport, sctphdr->dport, 1, pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts, &sctp_ct_dissector_info, CONVERSATION_SCTP);
 
 
   return TAP_PACKET_REDRAW;
 }
 
-static const char* sctp_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
+static const char* sctp_endpoint_get_filter_type(endpoint_item_t* endpoint, conv_filter_type_e filter)
 {
     if (filter == CONV_FT_SRC_PORT)
         return "sctp.srcport";
@@ -805,38 +805,38 @@ static const char* sctp_host_get_filter_type(hostlist_talker_t* host, conv_filte
     if (filter == CONV_FT_ANY_PORT)
         return "sctp.port";
 
-    if(!host) {
+    if(!endpoint) {
         return CONV_FILTER_INVALID;
     }
 
     if (filter == CONV_FT_SRC_ADDRESS) {
-        if (host->myaddress.type == AT_IPv4)
+        if (endpoint->myaddress.type == AT_IPv4)
             return "ip.src";
-        if (host->myaddress.type == AT_IPv6)
+        if (endpoint->myaddress.type == AT_IPv6)
             return "ipv6.src";
     }
 
     if (filter == CONV_FT_DST_ADDRESS) {
-        if (host->myaddress.type == AT_IPv4)
+        if (endpoint->myaddress.type == AT_IPv4)
             return "ip.dst";
-        if (host->myaddress.type == AT_IPv6)
+        if (endpoint->myaddress.type == AT_IPv6)
             return "ipv6.dst";
     }
 
     if (filter == CONV_FT_ANY_ADDRESS) {
-        if (host->myaddress.type == AT_IPv4)
+        if (endpoint->myaddress.type == AT_IPv4)
             return "ip.addr";
-        if (host->myaddress.type == AT_IPv6)
+        if (endpoint->myaddress.type == AT_IPv6)
             return "ipv6.addr";
     }
 
     return CONV_FILTER_INVALID;
 }
 
-static hostlist_dissector_info_t sctp_host_dissector_info = {&sctp_host_get_filter_type};
+static et_dissector_info_t sctp_endpoint_dissector_info = {&sctp_endpoint_get_filter_type};
 
 static tap_packet_status
-sctp_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
+sctp_endpoint_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
   conv_hash_t *hash = (conv_hash_t*) pit;
   hash->flags = flags;
@@ -845,9 +845,9 @@ sctp_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, con
 
   /* Take two "add" passes per packet, adding for each direction, ensures that all
   packets are counted properly (even if address is sending to itself)
-  XXX - this could probably be done more efficiently inside hostlist_table */
-  add_hostlist_table_data(hash, &sctphdr->ip_src, sctphdr->sport, TRUE, 1, pinfo->fd->pkt_len, &sctp_host_dissector_info, ENDPOINT_SCTP);
-  add_hostlist_table_data(hash, &sctphdr->ip_dst, sctphdr->dport, FALSE, 1, pinfo->fd->pkt_len, &sctp_host_dissector_info, ENDPOINT_SCTP);
+  XXX - this could probably be done more efficiently inside endpoint_table */
+  add_endpoint_table_data(hash, &sctphdr->ip_src, sctphdr->sport, TRUE, 1, pinfo->fd->pkt_len, &sctp_endpoint_dissector_info, ENDPOINT_SCTP);
+  add_endpoint_table_data(hash, &sctphdr->ip_dst, sctphdr->dport, FALSE, 1, pinfo->fd->pkt_len, &sctp_endpoint_dissector_info, ENDPOINT_SCTP);
 
   return TAP_PACKET_REDRAW;
 }
@@ -1421,14 +1421,20 @@ dissect_cookie_preservative_parameter(tvbuff_t *parameter_tvb, proto_tree *param
 #define HOSTNAME_OFFSET PARAMETER_VALUE_OFFSET
 
 static void
-dissect_hostname_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item)
+dissect_hostname_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, proto_item *parameter_item, proto_item *additional_item)
 {
+  gchar *hostname;
   guint16 hostname_length;
 
   hostname_length = tvb_get_ntohs(parameter_tvb, PARAMETER_LENGTH_OFFSET) - PARAMETER_HEADER_LENGTH;
   proto_tree_add_item(parameter_tree, hf_hostname, parameter_tvb, HOSTNAME_OFFSET, hostname_length, ENC_ASCII);
-  proto_item_append_text(parameter_item, " (Hostname: %.*s)", hostname_length, tvb_format_text(wmem_packet_scope(), parameter_tvb, HOSTNAME_OFFSET, hostname_length));
-
+  if (hostname_length > 1) {
+    hostname = tvb_format_text(wmem_packet_scope(), parameter_tvb, HOSTNAME_OFFSET, hostname_length - 1);
+    proto_item_append_text(parameter_item, " (Hostname: %.*s)", hostname_length - 1, hostname);
+    if (additional_item != NULL) {
+      proto_item_append_text(additional_item, " (Hostname: %.*s)", hostname_length - 1, hostname);
+    }
+  }
 }
 
 #define IPv4_ADDRESS_TYPE      5
@@ -1436,10 +1442,10 @@ dissect_hostname_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, 
 #define HOSTNAME_ADDRESS_TYPE 11
 
 static const value_string address_types_values[] = {
-  {  IPv4_ADDRESS_TYPE,    "IPv4 address"     },
-  {  IPv6_ADDRESS_TYPE,    "IPv6 address"     },
+  { IPv4_ADDRESS_TYPE,     "IPv4 address"     },
+  { IPv6_ADDRESS_TYPE,     "IPv6 address"     },
   { HOSTNAME_ADDRESS_TYPE, "Hostname address" },
-  {  0, NULL               }
+  { 0,                     NULL               }
 };
 
 #define SUPPORTED_ADDRESS_TYPE_PARAMETER_ADDRESS_TYPE_LENGTH 2
@@ -1610,11 +1616,6 @@ dissect_add_incoming_streams_parameter(tvbuff_t *parameter_tvb, proto_tree *para
 
 static void
 dissect_ecn_parameter(tvbuff_t *parameter_tvb _U_)
-{
-}
-
-static void
-dissect_nonce_supported_parameter(tvbuff_t *parameter_tvb _U_)
 {
 }
 
@@ -1812,7 +1813,6 @@ dissect_unknown_parameter(tvbuff_t *parameter_tvb, proto_tree *parameter_tree, p
 #define ADD_OUTGOING_STREAMS_REQUEST_PARAMETER_ID 0x0011
 #define ADD_INCOMING_STREAMS_REQUEST_PARAMETER_ID 0x0012
 #define ECN_PARAMETER_ID                          0x8000
-#define NONCE_SUPPORTED_PARAMETER_ID              0x8001
 #define RANDOM_PARAMETER_ID                       0x8002
 #define CHUNKS_PARAMETER_ID                       0x8003
 #define HMAC_ALGO_PARAMETER_ID                    0x8004
@@ -1841,7 +1841,6 @@ static const value_string parameter_identifier_values[] = {
   { ADD_INCOMING_STREAMS_REQUEST_PARAMETER_ID, "Add incoming streams request" },
   { SUPPORTED_ADDRESS_TYPES_PARAMETER_ID,      "Supported address types"      },
   { ECN_PARAMETER_ID,                          "ECN"                          },
-  { NONCE_SUPPORTED_PARAMETER_ID,              "Nonce supported"              },
   { RANDOM_PARAMETER_ID,                       "Random"                       },
   { CHUNKS_PARAMETER_ID,                       "Authenticated Chunk list"     },
   { HMAC_ALGO_PARAMETER_ID,                    "Requested HMAC Algorithm"     },
@@ -1931,7 +1930,7 @@ dissect_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo,
     dissect_cookie_preservative_parameter(parameter_tvb, parameter_tree, parameter_item);
     break;
   case HOSTNAME_ADDRESS_PARAMETER_ID:
-    dissect_hostname_parameter(parameter_tvb, parameter_tree, parameter_item);
+    dissect_hostname_parameter(parameter_tvb, parameter_tree, parameter_item, additional_item);
     break;
   case SUPPORTED_ADDRESS_TYPES_PARAMETER_ID:
     dissect_supported_address_types_parameter(parameter_tvb, parameter_tree, parameter_item);
@@ -1957,8 +1956,6 @@ dissect_parameter(tvbuff_t *parameter_tvb, packet_info *pinfo,
   case ECN_PARAMETER_ID:
     dissect_ecn_parameter(parameter_tvb);
     break;
-  case NONCE_SUPPORTED_PARAMETER_ID:
-    dissect_nonce_supported_parameter(parameter_tvb);
     break;
   case RANDOM_PARAMETER_ID:
     dissect_random_parameter(parameter_tvb, parameter_tree);
@@ -2017,7 +2014,7 @@ dissect_parameters(tvbuff_t *parameters_tvb, packet_info *pinfo, proto_tree *tre
       proto_item_append_text(additional_item, " ");
 
     length       = tvb_get_ntohs(parameters_tvb, offset + PARAMETER_LENGTH_OFFSET);
-    total_length = ADD_PADDING(length);
+    total_length = WS_ROUNDUP_4(length);
 
     /*  If we have less bytes than we need, throw an exception while dissecting
      *  the parameter--not when generating the parameter_tvb below.
@@ -2114,9 +2111,7 @@ dissect_unresolvable_address_cause(tvbuff_t *cause_tvb, packet_info *pinfo, prot
   parameter_tvb    = tvb_new_subset_length_caplen(cause_tvb, CAUSE_INFO_OFFSET,
                                     MIN(parameter_length, tvb_captured_length_remaining(cause_tvb, CAUSE_INFO_OFFSET)),
                                     MIN(parameter_length, tvb_reported_length_remaining(cause_tvb, CAUSE_INFO_OFFSET)));
-  proto_item_append_text(cause_item, " (Address: ");
-  dissect_parameter(parameter_tvb, pinfo, cause_tree, cause_item, FALSE, FALSE);
-  proto_item_append_text(cause_item, ")");
+  dissect_parameter(parameter_tvb, pinfo, cause_tree, cause_item, FALSE, TRUE);
 }
 
 static gboolean
@@ -2414,7 +2409,7 @@ dissect_error_causes(tvbuff_t *causes_tvb, packet_info *pinfo, proto_tree *tree)
   offset = 0;
   while((remaining_length = tvb_reported_length_remaining(causes_tvb, offset))) {
     length       = tvb_get_ntohs(causes_tvb, offset + CAUSE_LENGTH_OFFSET);
-    total_length = ADD_PADDING(length);
+    total_length = WS_ROUNDUP_4(length);
 
     /*  If we have less bytes than we need, throw an exception while dissecting
      *  the cause--not when generating the causes_tvb below.
@@ -3221,7 +3216,7 @@ create_exp_pdu_table(packet_info *pinfo, tvbuff_t *tvb, const char *table_name, 
 static exp_pdu_data_t*
 create_exp_pdu_proto_name(packet_info *pinfo, tvbuff_t *tvb, const gchar *proto_name)
 {
-  exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, proto_name, EXP_PDU_TAG_PROTO_NAME);
+  exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, proto_name, EXP_PDU_TAG_DISSECTOR_NAME);
 
   exp_pdu_data->tvb_captured_length = tvb_captured_length(tvb);
   exp_pdu_data->tvb_reported_length = tvb_reported_length(tvb);
@@ -4587,7 +4582,7 @@ dissect_sctp_chunks(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_i
   while((remaining_length = tvb_reported_length_remaining(tvb, offset))) {
     /* extract the chunk length and compute number of padding bytes */
     length         = tvb_get_ntohs(tvb, offset + CHUNK_LENGTH_OFFSET);
-    total_length   = ADD_PADDING(length);
+    total_length   = WS_ROUNDUP_4(length);
 
     /*  If we have less bytes than we need, throw an exception while dissecting
      *  the chunk--not when generating the chunk_tvb below.
@@ -4907,7 +4902,7 @@ proto_register_sctp(void)
     { &hf_data_chunk_b_bit,                         { "B-Bit",                                          "sctp.data_b_bit",                                      FT_BOOLEAN, 8,         TFS(&sctp_data_chunk_b_bit_value),              SCTP_DATA_CHUNK_B_BIT,              NULL, HFILL } },
     { &hf_data_chunk_u_bit,                         { "U-Bit",                                          "sctp.data_u_bit",                                      FT_BOOLEAN, 8,         TFS(&sctp_data_chunk_u_bit_value),              SCTP_DATA_CHUNK_U_BIT,              NULL, HFILL } },
     { &hf_data_chunk_i_bit,                         { "I-Bit",                                          "sctp.data_i_bit",                                      FT_BOOLEAN, 8,         TFS(&sctp_data_chunk_i_bit_value),              SCTP_DATA_CHUNK_I_BIT,              NULL, HFILL } },
-    { &hf_sack_chunk_ns,                            { "Nounce sum",                                     "sctp.sack_nounce_sum",                                 FT_UINT8,   BASE_DEC,  NULL,                                           SCTP_SACK_CHUNK_NS_BIT,             NULL, HFILL } },
+    { &hf_sack_chunk_ns,                            { "Nonce sum",                                      "sctp.sack_nonce_sum",                                  FT_UINT8,   BASE_DEC,  NULL,                                           SCTP_SACK_CHUNK_NS_BIT,             NULL, HFILL } },
     { &hf_sack_chunk_cumulative_tsn_ack,            { "Cumulative TSN ACK (relative)",                  "sctp.sack_cumulative_tsn_ack",                         FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_sack_chunk_cumulative_tsn_ack_raw,        { "Cumulative TSN ACK (absolute)",                  "sctp.sack_cumulative_tsn_ack_raw",                     FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_sack_chunk_adv_rec_window_credit,         { "Advertised receiver window credit (a_rwnd)",     "sctp.sack_a_rwnd",                                     FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
@@ -4919,7 +4914,7 @@ proto_register_sctp(void)
     { &hf_sack_chunk_gap_block_end_tsn,             { "End TSN",                                        "sctp.sack_gap_block_end_tsn",                          FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_sack_chunk_number_tsns_gap_acked,         { "Number of TSNs in gap acknowledgement blocks",   "sctp.sack_number_of_tsns_gap_acked",                   FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_sack_chunk_duplicate_tsn,                 { "Duplicate TSN",                                  "sctp.sack_duplicate_tsn",                              FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
-    { &hf_nr_sack_chunk_ns,                         { "Nounce sum",                                     "sctp.nr_sack_nounce_sum",                              FT_UINT8,   BASE_DEC,  NULL,                                           SCTP_NR_SACK_CHUNK_NS_BIT,          NULL, HFILL } },
+    { &hf_nr_sack_chunk_ns,                         { "Nonce sum",                                      "sctp.nr_sack_nonce_sum",                               FT_UINT8,   BASE_DEC,  NULL,                                           SCTP_NR_SACK_CHUNK_NS_BIT,          NULL, HFILL } },
     { &hf_nr_sack_chunk_cumulative_tsn_ack,         { "Cumulative TSN ACK",                             "sctp.nr_sack_cumulative_tsn_ack",                      FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_nr_sack_chunk_adv_rec_window_credit,      { "Advertised receiver window credit (a_rwnd)",     "sctp.nr_sack_a_rwnd",                                  FT_UINT32,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
     { &hf_nr_sack_chunk_number_of_gap_blocks,       { "Number of gap acknowledgement blocks",           "sctp.nr_sack_number_of_gap_blocks",                    FT_UINT16,  BASE_DEC,  NULL,                                           0x0,                                NULL, HFILL } },
@@ -5191,7 +5186,7 @@ proto_register_sctp(void)
   register_decode_as(&sctp_da_port);
   register_decode_as(&sctp_da_ppi);
 
-  register_conversation_table(proto_sctp, FALSE, sctp_conversation_packet, sctp_hostlist_packet);
+  register_conversation_table(proto_sctp, FALSE, sctp_conversation_packet, sctp_endpoint_packet);
 }
 
 void

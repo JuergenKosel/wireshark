@@ -140,9 +140,12 @@ void DisplayFilterEdit::connectToMainWindow()
 
 void DisplayFilterEdit::contextMenuEvent(QContextMenuEvent *event) {
     QMenu *menu = this->createStandardContextMenu();
+    menu->setAttribute(Qt::WA_DeleteOnClose);
 
-    if (menu->actions().count() <= 0)
+    if (menu->actions().count() <= 0) {
+        menu->deleteLater();
         return;
+    }
 
     QAction * first = menu->actions().at(0);
 
@@ -159,7 +162,7 @@ void DisplayFilterEdit::contextMenuEvent(QContextMenuEvent *event) {
 
     menu->insertSeparator(first);
 
-    menu->exec(event->globalPos());
+    menu->popup(event->globalPos());
 }
 
 void DisplayFilterEdit::triggerAlignementAction()
@@ -338,7 +341,7 @@ void DisplayFilterEdit::checkFilter(const QString& filter_text)
         alignActionButtons();
     }
 
-    if (filter_text.length() <= 0)
+    if ((filter_text.length() <= 0) && mainApp->mainWindow()->isActiveWindow())
         mainApp->popStatus(MainApplication::FilterSyntax);
 
     emit popFilterSyntaxStatus();
@@ -348,14 +351,16 @@ void DisplayFilterEdit::checkFilter(const QString& filter_text)
     switch (syntaxState()) {
     case Deprecated:
     {
-        mainApp->pushStatus(MainApplication::FilterSyntax, syntaxErrorMessage());
+        if (mainApp->mainWindow()->isActiveWindow())
+            mainApp->pushStatus(MainApplication::FilterSyntax, syntaxErrorMessage());
         setToolTip(syntaxErrorMessage());
         break;
     }
     case Invalid:
     {
         QString invalidMsg = tr("Invalid filter: ").append(syntaxErrorMessage());
-        mainApp->pushStatus(MainApplication::FilterSyntax, syntaxErrorMessage());
+        if (mainApp->mainWindow()->isActiveWindow())
+            mainApp->pushStatus(MainApplication::FilterSyntax, syntaxErrorMessage());
         setToolTip(invalidMsg);
         break;
     }
@@ -471,14 +476,16 @@ void DisplayFilterEdit::buildCompletionList(const QString &field_word)
 {
     // Push a hint about the current field.
     if (syntaxState() == Valid) {
-        mainApp->popStatus(MainApplication::FilterSyntax);
+        if (mainApp->mainWindow()->isActiveWindow())
+            mainApp->popStatus(MainApplication::FilterSyntax);
 
         header_field_info *hfinfo = proto_registrar_get_byname(field_word.toUtf8().constData());
         if (hfinfo) {
             QString cursor_field_msg = QString("%1: %2")
                     .arg(hfinfo->name)
                     .arg(ftype_pretty_name(hfinfo->type));
-            mainApp->pushStatus(MainApplication::FilterSyntax, cursor_field_msg);
+            if (mainApp->mainWindow()->isActiveWindow())
+                mainApp->pushStatus(MainApplication::FilterSyntax, cursor_field_msg);
         }
     }
 
@@ -762,11 +769,12 @@ void DisplayFilterEdit::createFilterTextDropMenu(QDropEvent *event, bool prepare
 
     FilterAction::Action filterAct = prepare ? FilterAction::ActionPrepare : FilterAction::ActionApply;
     QMenu * applyMenu = FilterAction::createFilterMenu(filterAct, filterText, true, this);
+    applyMenu->setAttribute(Qt::WA_DeleteOnClose);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-    applyMenu->exec(this->mapToGlobal(event->position().toPoint()));
+    applyMenu->popup(this->mapToGlobal(event->position().toPoint()));
 #else
-    applyMenu->exec(this->mapToGlobal(event->pos()));
+    applyMenu->popup(this->mapToGlobal(event->pos()));
 #endif
 }
 

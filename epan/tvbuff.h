@@ -268,8 +268,14 @@ WS_DLL_PUBLIC guint tvb_ensure_reported_length_remaining(const tvbuff_t *tvb,
    dissector's payload may include padding as well as the packet for
    this protocol.
 
-   Also adjusts the data length. */
+   Also adjusts the available and contained length. */
 WS_DLL_PUBLIC void tvb_set_reported_length(tvbuff_t *tvb, const guint);
+
+/* Repair a tvbuff where the captured length is greater than the
+ * reported length; such a tvbuff makes no sense, as it's impossible
+ * to capture more data than is in the packet.
+ */
+WS_DLL_PUBLIC void tvb_fix_reported_length(tvbuff_t *tvb);
 
 WS_DLL_PUBLIC guint tvb_offset_from_real_beginning(const tvbuff_t *tvb);
 
@@ -765,8 +771,16 @@ WS_DLL_PUBLIC guint8 *tvb_get_stringz_enc(wmem_allocator_t *scope,
  * of the string, in whatever encoding they happen to be in, and, if
  * the string is not valid in that encoding, with invalid octet sequences
  * as they are in the packet.
+ *
+ * This function is deprecated because it does no validation of the string
+ * encoding. Do not use in new code. Prefer other APIs such as:
+ * 	tvb_get_stringz_enc()
+ * 	proto_tree_add_item_ret_string_and_length()
+ * 	tvb_strsize() and validate the pointed to memory region manually.
  */
-WS_DLL_PUBLIC const guint8 *tvb_get_const_stringz(tvbuff_t *tvb,
+WS_DLL_PUBLIC
+WS_DEPRECATED_X("Use APIs that return a valid UTF-8 string instead")
+const guint8 *tvb_get_const_stringz(tvbuff_t *tvb,
     const gint offset, gint *lengthp);
 
 /** Looks for a stringz (NUL-terminated string) in tvbuff and copies

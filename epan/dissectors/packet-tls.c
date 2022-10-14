@@ -716,7 +716,7 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
         case TLSV1_VERSION:
         case TLSV1DOT1_VERSION:
         case TLSV1DOT2_VERSION:
-        case GMTLSV1_VERSION:
+        case TLCPV1_VERSION:
             /* SSLv3/TLS record headers need at least 1+2+2 = 5 bytes. */
             if (tvb_reported_length_remaining(tvb, offset) < 5) {
                 if (tls_desegment && pinfo->can_desegment) {
@@ -913,7 +913,7 @@ is_sslv3_or_tls(tvbuff_t *tvb)
         protocol_version != TLSV1_VERSION &&
         protocol_version != TLSV1DOT1_VERSION &&
         protocol_version != TLSV1DOT2_VERSION &&
-        protocol_version != GMTLSV1_VERSION ) {
+        protocol_version != TLCPV1_VERSION ) {
         return FALSE;
     }
 
@@ -1144,6 +1144,7 @@ decrypt_tls13_early_data(tvbuff_t *tvb, packet_info *pinfo, guint32 offset,
         0x1303, /* TLS_CHACHA20_POLY1305_SHA256 */
         0x1304, /* TLS_AES_128_CCM_SHA256 */
         0x1305, /* TLS_AES_128_CCM_8_SHA256 */
+        0x00c6, /* TLS_SM4_GCM_SM3 */
     };
     const guchar   *record = tvb_get_ptr(tvb, offset, record_length);
     for (guint i = 0; i < G_N_ELEMENTS(tls13_ciphers); i++) {
@@ -1248,6 +1249,7 @@ again:
      */
     if ((msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32(flow->multisegment_pdus, seq))) {
         const char *prefix;
+        gboolean is_retransmission = FALSE;
 
         if (msp->first_frame == pinfo->num) {
             /* This must be after the first pass. */
@@ -1259,8 +1261,19 @@ again:
             }
         } else {
             prefix = "Retransmitted ";
+            is_retransmission = TRUE;
         }
 
+        if (!is_retransmission) {
+            ipfd_head = fragment_get(&ssl_reassembly_table, pinfo, msp->first_frame, msp);
+            if (ipfd_head != NULL && ipfd_head->reassembled_in !=0 &&
+                ipfd_head->reassembled_in != pinfo->num) {
+                /* Show what frame this was reassembled in if not this one. */
+                item=proto_tree_add_uint(tree, *ssl_segment_items.hf_reassembled_in,
+                                         tvb, 0, 0, ipfd_head->reassembled_in);
+                proto_item_set_generated(item);
+            }
+        }
         nbytes = tvb_reported_length_remaining(tvb, offset);
         ssl_proto_tree_add_segment_data(tree, tvb, offset, nbytes, prefix);
         return;
@@ -1291,7 +1304,8 @@ again:
                                  seq - msp->seq,
                                  len, (LT_SEQ (nxtseq,msp->nxtpdu)));
 
-        if (msp->flags & MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT) {
+        if (!PINFO_FD_VISITED(pinfo)
+        && msp->flags & MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT) {
             msp->flags &= (~MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT);
 
             /* If we consumed the entire segment there is no
@@ -1388,7 +1402,7 @@ again:
             next_tvb = tvb_new_chain(tvb, ipfd_head->tvb_data);
 
             /* add desegmented data to the data source list */
-            add_new_data_source(pinfo, next_tvb, "Reassembled SSL");
+            add_new_data_source(pinfo, next_tvb, "Reassembled TLS");
 
             /* call subdissector */
             process_ssl_payload(next_tvb, 0, pinfo, tree, session, app_handle_port);
@@ -1567,9 +1581,10 @@ again:
 
     if (!called_dissector || pinfo->desegment_len != 0) {
         if (ipfd_head != NULL && ipfd_head->reassembled_in != 0 &&
+            ipfd_head->reassembled_in != pinfo->num &&
             !(ipfd_head->flags & FD_PARTIAL_REASSEMBLY)) {
             /*
-             * We know what frame this PDU is reassembled in;
+             * We know what other frame this PDU is reassembled in;
              * let the user know.
              */
             item=proto_tree_add_uint(tree, *ssl_segment_items.hf_reassembled_in,
@@ -1664,7 +1679,7 @@ process_ssl_payload(tvbuff_t *tvb, int offset, packet_info *pinfo,
                              (void *)session->app_handle,
                              dissector_handle_get_dissector_name(session->app_handle));
             if (have_tap_listener(exported_pdu_tap)) {
-                export_pdu_packet(next_tvb, pinfo, EXP_PDU_TAG_HEUR_PROTO_NAME, hdtbl_entry->short_name);
+                export_pdu_packet(next_tvb, pinfo, EXP_PDU_TAG_HEUR_DISSECTOR_NAME, hdtbl_entry->short_name);
             }
             return;
         }
@@ -1688,7 +1703,7 @@ process_ssl_payload(tvbuff_t *tvb, int offset, packet_info *pinfo,
                      dissector_handle_get_dissector_name(session->app_handle));
 
     if (have_tap_listener(exported_pdu_tap)) {
-        export_pdu_packet(next_tvb, pinfo, EXP_PDU_TAG_PROTO_NAME,
+        export_pdu_packet(next_tvb, pinfo, EXP_PDU_TAG_DISSECTOR_NAME,
                           dissector_handle_get_dissector_name(session->app_handle));
     }
     saved_match_port = pinfo->match_uint;
@@ -1795,7 +1810,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
     if ((session->version==TLSV1_VERSION ||
          session->version==TLSV1DOT1_VERSION ||
          session->version==TLSV1DOT2_VERSION ||
-         session->version==GMTLSV1_VERSION ) &&
+         session->version==TLCPV1_VERSION ) &&
         (available_bytes >=1 ) && !ssl_is_valid_content_type(tvb_get_guint8(tvb, offset))) {
         proto_tree_add_expert(tree, pinfo, &ei_tls_ignored_unknown_record, tvb, offset, available_bytes);
         col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Ignored Unknown Record");
@@ -2044,14 +2059,14 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
            "%s Record Layer: %s Protocol: %s",
             val_to_str_const(version, ssl_version_short_names, "SSL"),
             val_to_str_const(content_type, ssl_31_content_type, "unknown"),
-            app_handle ? dissector_handle_get_dissector_name(app_handle)
+            app_handle ? dissector_handle_get_protocol_long_name(app_handle)
             : "Application Data");
 
         proto_tree_add_item(ssl_record_tree, hf_tls_record_appdata, tvb,
                        offset, record_length, ENC_NA);
 
         if (app_handle) {
-            ti = proto_tree_add_string(ssl_record_tree, hf_tls_record_appdata_proto, tvb, 0, 0, dissector_handle_get_dissector_name(app_handle));
+            ti = proto_tree_add_string(ssl_record_tree, hf_tls_record_appdata_proto, tvb, 0, 0, dissector_handle_get_protocol_long_name(app_handle));
             proto_item_set_generated(ti);
         }
 
@@ -2065,7 +2080,7 @@ dissect_ssl3_record(tvbuff_t *tvb, packet_info *pinfo,
                "%s Record Layer: %s Protocol: %s",
                 val_to_str_const(version, ssl_version_short_names, "SSL"),
                 val_to_str_const(content_type, ssl_31_content_type, "unknown"),
-                dissector_handle_get_dissector_name(session->app_handle));
+                dissector_handle_get_protocol_long_name(session->app_handle));
 
         break;
     }
@@ -3488,11 +3503,11 @@ void ssl_set_master_secret(guint32 frame_num, address *addr_srv, address *addr_c
 
     ssl_debug_printf("\nssl_set_master_secret enter frame #%u\n", frame_num);
 
-    conversation = find_conversation(frame_num, addr_srv, addr_cli, conversation_pt_to_endpoint_type(ptype), port_srv, port_cli, 0);
+    conversation = find_conversation(frame_num, addr_srv, addr_cli, conversation_pt_to_conversation_type(ptype), port_srv, port_cli, 0);
 
     if (!conversation) {
         /* create a new conversation */
-        conversation = conversation_new(frame_num, addr_srv, addr_cli, conversation_pt_to_endpoint_type(ptype), port_srv, port_cli, 0);
+        conversation = conversation_new(frame_num, addr_srv, addr_cli, conversation_pt_to_conversation_type(ptype), port_srv, port_cli, 0);
         ssl_debug_printf("  new conversation = %p created\n", (void *)conversation);
     }
     ssl = ssl_get_session(conversation, tls_handle);
@@ -3508,7 +3523,7 @@ void ssl_set_master_secret(guint32 frame_num, address *addr_srv, address *addr_c
         case TLSV1_VERSION:
         case TLSV1DOT1_VERSION:
         case TLSV1DOT2_VERSION:
-        case GMTLSV1_VERSION:
+        case TLCPV1_VERSION:
             ssl->session.version = version;
             ssl->state |= SSL_VERSION;
             ssl_debug_printf("%s set version 0x%04X -> state 0x%02X\n", G_STRFUNC, ssl->session.version, ssl->state);
@@ -3691,7 +3706,7 @@ ssl_looks_like_sslv3(tvbuff_t *tvb, const guint32 offset)
     case TLSV1_VERSION:
     case TLSV1DOT1_VERSION:
     case TLSV1DOT2_VERSION:
-    case GMTLSV1_VERSION:
+    case TLCPV1_VERSION:
         return 1;
     }
     return 0;
@@ -4583,7 +4598,7 @@ proto_register_tls(void)
         "tls", tls_tap);
 
     register_follow_stream(proto_tls, "tls", tcp_follow_conv_filter, tcp_follow_index_filter, tcp_follow_address_filter,
-                            tcp_port_to_display, ssl_follow_tap_listener);
+                            tcp_port_to_display, ssl_follow_tap_listener, get_tcp_stream_count);
     secrets_register_type(SECRETS_TYPE_TLS, tls_secrets_block_callback);
 }
 

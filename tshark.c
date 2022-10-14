@@ -866,6 +866,7 @@ main(int argc, char *argv[])
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
 
+    ws_noisy("Finished log init and parsing command line log arguments");
     ws_debug("tshark started with %d args", argc);
 
 #ifdef _WIN32
@@ -935,6 +936,29 @@ main(int argc, char *argv[])
         switch (opt) {
             case 'C':        /* Configuration Profile */
                 if (profile_exists (ws_optarg, FALSE)) {
+                    set_profile_name (ws_optarg);
+                } else if (profile_exists (ws_optarg, TRUE)) {
+                    char  *pf_dir_path, *pf_dir_path2, *pf_filename;
+                    /* Copy from global profile */
+                    if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
+                        cmdarg_err("Can't create directory\n\"%s\":\n%s.",
+                            pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_dir_path);
+                        exit_status = INVALID_FILE;
+                        goto clean_exit;
+                    }
+                    if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
+                            &pf_dir_path, &pf_dir_path2) == -1) {
+                        cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
+                            pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_filename);
+                        g_free(pf_dir_path);
+                        g_free(pf_dir_path2);
+                        exit_status = INVALID_FILE;
+                        goto clean_exit;
+                    }
                     set_profile_name (ws_optarg);
                 } else {
                     cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
@@ -1039,7 +1063,7 @@ main(int argc, char *argv[])
     }
 
     conversation_table_set_gui_info(init_iousers);
-    hostlist_table_set_gui_info(init_hostlists);
+    endpoint_table_set_gui_info(init_endpoints);
     srt_table_iterate_tables(register_srt_tables, NULL);
     rtd_table_iterate_tables(register_rtd_tables, NULL);
     stat_tap_iterate_tables(register_simple_stat_tables, NULL);
@@ -1148,7 +1172,7 @@ main(int argc, char *argv[])
     /* Now get our args */
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
-            case '2':        /* Perform two pass analysis */
+            case '2':        /* Perform two-pass analysis */
                 if(epan_auto_reset){
                     cmdarg_err("-2 does not support auto session reset.");
                     arg_error=TRUE;
@@ -1157,7 +1181,7 @@ main(int argc, char *argv[])
                 break;
             case 'M':
                 if(perform_two_pass_analysis){
-                    cmdarg_err("-M does not support two pass analysis.");
+                    cmdarg_err("-M does not support two-pass analysis.");
                     arg_error=TRUE;
                 }
                 epan_auto_reset_count = get_positive_int(ws_optarg, "epan reset count");
@@ -2475,104 +2499,8 @@ clean_exit:
     return exit_status;
 }
 
-/*#define USE_BROKEN_G_MAIN_LOOP*/
-
-#ifdef USE_BROKEN_G_MAIN_LOOP
-    GMainLoop *loop;
-#else
-    gboolean loop_running = FALSE;
-#endif
-    guint32 packet_count = 0;
-
-
-typedef struct pipe_input_tag {
-    gint             source;
-    gpointer         user_data;
-    ws_process_id   *child_process;
-    pipe_input_cb_t  input_cb;
-    guint            pipe_input_id;
-#ifdef _WIN32
-    GMutex          *callback_running;
-#endif
-} pipe_input_t;
-
-static pipe_input_t pipe_input;
-
-#ifdef _WIN32
-/* The timer has expired, see if there's stuff to read from the pipe,
-   if so, do the callback */
-static gint
-pipe_timer_cb(gpointer data)
-{
-    HANDLE        handle;
-    DWORD         avail        = 0;
-    gboolean      result;
-    DWORD         childstatus;
-    pipe_input_t *pipe_input_p = data;
-    gint          iterations   = 0;
-
-    g_mutex_lock (pipe_input_p->callback_running);
-
-    /* try to read data from the pipe only 5 times, to avoid blocking */
-    while(iterations < 5) {
-        /* Oddly enough although Named pipes don't work on win9x,
-           PeekNamedPipe does !!! */
-        handle = (HANDLE) _get_osfhandle (pipe_input_p->source);
-        result = PeekNamedPipe(handle, NULL, 0, NULL, &avail, NULL);
-
-        /* Get the child process exit status */
-        GetExitCodeProcess((HANDLE)*(pipe_input_p->child_process),
-                &childstatus);
-
-        /* If the Peek returned an error, or there are bytes to be read
-           or the childwatcher thread has terminated then call the normal
-           callback */
-        if (!result || avail > 0 || childstatus != STILL_ACTIVE) {
-
-            /* And call the real handler */
-            if (!pipe_input_p->input_cb(pipe_input_p->source, pipe_input_p->user_data)) {
-                ws_debug("input pipe closed, iterations: %u", iterations);
-                /* pipe closed, return false so that the timer is stopped */
-                g_mutex_unlock (pipe_input_p->callback_running);
-                return FALSE;
-            }
-        }
-        else {
-            /* No data, stop now */
-            break;
-        }
-
-        iterations++;
-    }
-
-    g_mutex_unlock (pipe_input_p->callback_running);
-
-    /* we didn't stopped the timer, so let it run */
-    return TRUE;
-}
-#endif
-
-
-void
-pipe_input_set_handler(gint source, gpointer user_data, ws_process_id *child_process, pipe_input_cb_t input_cb)
-{
-
-    pipe_input.source         = source;
-    pipe_input.child_process  = child_process;
-    pipe_input.user_data      = user_data;
-    pipe_input.input_cb       = input_cb;
-
-#ifdef _WIN32
-    pipe_input.callback_running = g_new(GMutex, 1);
-    g_mutex_init(pipe_input.callback_running);
-    /* Tricky to use pipes in win9x, as no concept of wait.  NT can
-       do this but that doesn't cover all win32 platforms.  GTK can do
-       this but doesn't seem to work over processes.  Attempt to do
-       something similar here, start a timer and check for data on every
-       timeout. */
-    pipe_input.pipe_input_id = g_timeout_add(200, pipe_timer_cb, &pipe_input);
-#endif
-}
+gboolean loop_running = FALSE;
+guint32 packet_count = 0;
 
 static const nstime_t *
 tshark_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
@@ -2615,9 +2543,7 @@ capture(void)
     volatile gboolean ret = TRUE;
     guint             i;
     GString          *str;
-#ifdef USE_TSHARK_SELECT
-    fd_set            readfds;
-#endif
+    GMainContext     *ctx;
 #ifndef _WIN32
     struct sigaction  action, oldaction;
 #endif
@@ -2691,54 +2617,15 @@ capture(void)
      */
     set_resolution_synchrony(TRUE);
 
-    /* the actual capture loop
-     *
-     * XXX - glib doesn't seem to provide any event based loop handling.
-     *
-     * XXX - for whatever reason,
-     * calling g_main_loop_new() ends up in 100% cpu load.
-     *
-     * But that doesn't matter: in UNIX we can use select() to find an input
-     * source with something to do.
-     *
-     * But that doesn't matter because we're in a CLI (that doesn't need to
-     * update a GUI or something at the same time) so it's OK if we block
-     * trying to read from the pipe.
-     *
-     * So all the stuff in USE_TSHARK_SELECT could be removed unless I'm
-     * wrong (but I leave it there in case I am...).
-     */
-
-#ifdef USE_TSHARK_SELECT
-    FD_ZERO(&readfds);
-    FD_SET(pipe_input.source, &readfds);
-#endif
-
+    /* the actual capture loop */
+    ctx = g_main_context_default();
     loop_running = TRUE;
 
     TRY
     {
         while (loop_running)
         {
-#ifdef USE_TSHARK_SELECT
-            ret = select(pipe_input.source+1, &readfds, NULL, NULL, NULL);
-
-            if (ret == -1)
-            {
-                fprintf(stderr, "%s: %s\n", "select()", g_strerror(errno));
-                ret = TRUE;
-                loop_running = FALSE;
-            } else if (ret == 1) {
-#endif
-                /* Call the real handler */
-                if (!pipe_input.input_cb(pipe_input.source, pipe_input.user_data)) {
-                    ws_debug("input pipe closed");
-                    ret = FALSE;
-                    loop_running = FALSE;
-                }
-#ifdef USE_TSHARK_SELECT
-            }
-#endif
+            g_main_context_iteration(ctx, TRUE);
         }
     }
     CATCH(OutOfMemoryError) {
@@ -2808,10 +2695,12 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
     gboolean is_tempfile;
     int      err;
 
-    if (cap_session->state == CAPTURE_PREPARING) {
-        ws_message("Capture started.");
+    if (really_quiet == FALSE) {
+        if (cap_session->state == CAPTURE_PREPARING) {
+            ws_message("Capture started.");
+        }
+        ws_message("File: \"%s\"", new_file);
     }
-    ws_message("File: \"%s\"", new_file);
 
     ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
@@ -3051,12 +2940,7 @@ capture_input_closed(capture_session *cap_session _U_, gchar *msg)
 
     report_counts();
 
-#ifdef USE_BROKEN_G_MAIN_LOOP
-    /*g_main_loop_quit(loop);*/
-    g_main_loop_quit(loop);
-#else
     loop_running = FALSE;
-#endif
 }
 
 #ifdef _WIN32
@@ -4190,13 +4074,14 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
         /* Skip columns not marked as visible. */
         if (!get_column_visible(i))
             continue;
+        const gchar* col_text = get_column_text(&cf->cinfo, i);
         switch (col_item->col_fmt) {
             case COL_NUMBER:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 5)
                     column_len = 5;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_CLS_TIME:
@@ -4207,11 +4092,11 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
             case COL_UTC_TIME:
             case COL_UTC_YMD_TIME:  /* XXX - wider */
             case COL_UTC_YDOY_TIME: /* XXX - wider */
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 10)
                     column_len = 10;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_DEF_SRC:
@@ -4223,11 +4108,11 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
             case COL_DEF_NET_SRC:
             case COL_RES_NET_SRC:
             case COL_UNRES_NET_SRC:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 12)
                     column_len = 12;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_spaces_string(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_spaces_string(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             case COL_DEF_DST:
@@ -4239,17 +4124,17 @@ print_columns(capture_file *cf, const epan_dissect_t *edt)
             case COL_DEF_NET_DST:
             case COL_RES_NET_DST:
             case COL_UNRES_NET_DST:
-                column_len = col_len = strlen(col_item->col_data);
+                column_len = col_len = strlen(col_text);
                 if (column_len < 12)
                     column_len = 12;
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_string_spaces(line_bufp + buf_offset, col_item->col_data, col_len, column_len);
+                put_string_spaces(line_bufp + buf_offset, col_text, col_len, column_len);
                 break;
 
             default:
-                column_len = strlen(col_item->col_data);
+                column_len = strlen(col_text);
                 line_bufp = get_line_buf(buf_offset + column_len);
-                put_string(line_bufp + buf_offset, col_item->col_data, column_len);
+                put_string(line_bufp + buf_offset, col_text, column_len);
                 break;
         }
         buf_offset += column_len;

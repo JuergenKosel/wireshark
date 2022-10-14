@@ -14,6 +14,8 @@
 
 #include <strutil.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/unicode-utils.h>
+
 
 static void
 string_fvalue_new(fvalue_t *fv)
@@ -42,6 +44,7 @@ string_fvalue_set_strbuf(fvalue_t *fv, wmem_strbuf_t *value)
 	string_fvalue_free(fv);
 
 	fv->value.strbuf = value;
+	WS_UTF_8_SANITIZE_STRBUF(fv->value.strbuf);
 }
 
 static char *
@@ -73,20 +76,19 @@ val_from_string(fvalue_t *fv, const char *s, size_t len, gchar **err_msg _U_)
 		fv->value.strbuf = wmem_strbuf_new_len(NULL, s, len);
 	else
 		fv->value.strbuf = wmem_strbuf_new(NULL, s);
+
+	WS_UTF_8_SANITIZE_STRBUF(fv->value.strbuf);
 	return TRUE;
 }
 
 static gboolean
-val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg _U_)
+val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
 	/* Just turn it into a string */
 	/* XXX Should probably be a syntax error instead. It's more user-friendly to ask the
 	 * user to be explicit about the meaning of an unquoted literal than them trying to figure out
 	 * why a valid filter expression is giving wrong results. */
-	string_fvalue_free(fv);
-
-	fv->value.strbuf = wmem_strbuf_new(NULL, s);
-	return TRUE;
+	return val_from_string(fv, s, 0, err_msg);
 }
 
 static gboolean
@@ -134,40 +136,46 @@ slice(fvalue_t *fv, GByteArray *bytes, guint offset, guint length)
 	g_byte_array_append(bytes, data, length);
 }
 
-static int
-cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	return wmem_strbuf_strcmp(a->value.strbuf, b->value.strbuf);
+	*cmp = wmem_strbuf_strcmp(a->value.strbuf, b->value.strbuf);
+	return FT_OK;
 }
 
-static gboolean
-cmp_contains(const fvalue_t *fv_a, const fvalue_t *fv_b)
+static enum ft_result
+cmp_contains(const fvalue_t *fv_a, const fvalue_t *fv_b, gboolean *contains)
 {
 	/* According to
 	* http://www.introl.com/introl-demo/Libraries/C/ANSI_C/string/strstr.html
 	* strstr() returns a non-NULL value if needle is an empty
 	* string. We don't that behavior for cmp_contains. */
 	if (fv_b->value.strbuf->len == 0) {
-		return FALSE;
+		*contains = FALSE;
+		return FT_OK;
 	}
 
 	if (wmem_strbuf_strstr(fv_a->value.strbuf, fv_b->value.strbuf)) {
-		return TRUE;
+		*contains = TRUE;
 	}
 	else {
-		return FALSE;
+		*contains = FALSE;
 	}
+
+	return FT_OK;
 }
 
-static gboolean
-cmp_matches(const fvalue_t *fv, const ws_regex_t *regex)
+static enum ft_result
+cmp_matches(const fvalue_t *fv, const ws_regex_t *regex, gboolean *matches)
 {
 	wmem_strbuf_t *buf = fv->value.strbuf;
 
 	if (regex == NULL) {
-		return FALSE;
+		return FT_BADARG;
 	}
-	return ws_regex_matches_length(regex, buf->str, buf->len);
+
+	*matches = ws_regex_matches_length(regex, buf->str, buf->len);
+	return FT_OK;
 }
 
 void
@@ -186,6 +194,9 @@ ftype_register_string(void)
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
+
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -219,6 +230,9 @@ ftype_register_string(void)
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
 
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
+
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
 
@@ -250,6 +264,9 @@ ftype_register_string(void)
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
+
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -283,6 +300,9 @@ ftype_register_string(void)
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
 
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
+
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
 
@@ -314,6 +334,9 @@ ftype_register_string(void)
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
 		string_to_repr,			/* val_to_string_repr */
+
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */

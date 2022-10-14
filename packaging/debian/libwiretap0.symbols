@@ -36,6 +36,7 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_block_add_ipv4_option@Base 2.1.2
  wtap_block_add_ipv6_option@Base 2.1.2
  wtap_block_add_nflx_custom_option@Base 3.5.0
+ wtap_block_add_packet_hash_option@Base 4.1.0
  wtap_block_add_packet_verdict_option@Base 3.5.1
  wtap_block_add_string_option@Base 2.1.2
  wtap_block_add_string_option_format@Base 2.1.2
@@ -146,11 +147,15 @@ libwiretap.so.0 libwiretap0 #MINVER#
  wtap_get_writable_file_types_subtypes@Base 3.5.0
  wtap_has_open_info@Base 1.12.0~rc1
  wtap_init@Base 2.3.0
+ wtap_inspect_enums@Base 4.1.0rc0-408-gda4277971fe0
+ wtap_inspect_enums_bsearch@Base 4.1.0rc0-408-gda4277971fe0
+ wtap_inspect_enums_count@Base 4.1.0rc0-408-gda4277971fe0
  wtap_name_to_encap@Base 2.9.1
  wtap_name_to_file_type_subtype@Base 3.5.0
  wtap_open_offline@Base 1.9.1
  wtap_opttypes_initialize@Base 2.1.2
  wtap_opttypes_cleanup@Base 2.3.0
+ wtap_packet_hash_free@Base 4.1.0
  wtap_packet_verdict_free@Base 3.5.1
  wtap_pcap_encap_to_wtap_encap@Base 1.9.1
  wtap_pcap_file_type_subtype@Base 3.5.0

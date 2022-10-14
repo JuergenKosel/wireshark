@@ -6,6 +6,8 @@ editcap: The available encapsulation types for the "-T" flag are:
     atm-pdus - ATM PDUs
     atm-pdus-untruncated - ATM PDUs - untruncated
     atm-rfc1483 - RFC 1483 ATM
+    auerlog - Auerswald Log
+    autosardlt - AUTOSAR DLT
     ax25 - Amateur Radio AX.25
     ax25-kiss - AX.25 with KISS header
     bacnet-ms-tp - BACnet MS/TP
@@ -178,6 +180,9 @@ editcap: The available encapsulation types for the "-T" flag are:
     unknown - Unknown
     unknown-nettl - Unknown link-layer type with nettl headers
     usb-20 - USB 2.0/1.1/1.0 packets
+    usb-20-full - Full-Speed USB 2.0/1.1/1.0 packets
+    usb-20-high - High-Speed USB 2.0 packets
+    usb-20-low - Low-Speed USB 2.0/1.1/1.0 packets
     usb-darwin - USB packets with Darwin (macOS, etc.) headers
     usb-freebsd - USB packets with FreeBSD header
     usb-linux - USB packets with Linux header

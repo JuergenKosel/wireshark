@@ -37,9 +37,27 @@ void proto_reg_handoff_uds(void);
 #define UDS_RESPONSE_CODES_FPEORA   0x26
 #define UDS_RESPONSE_CODES_ROOR     0x31
 #define UDS_RESPONSE_CODES_SAD      0x33
+#define UDS_RESPONSE_CODES_AR       0x34
 #define UDS_RESPONSE_CODES_IK       0x35
 #define UDS_RESPONSE_CODES_ENOA     0x36
 #define UDS_RESPONSE_CODES_RTDNE    0x37
+#define UDS_RESPONSE_CODES_SDTR     0x38
+#define UDS_RESPONSE_CODES_SDTNA    0x39
+#define UDS_RESPONSE_CODES_SDTF     0x3A
+#define UDS_RESPONSE_CODES_CVFITP   0x50
+#define UDS_RESPONSE_CODES_CVFIS    0x51
+#define UDS_RESPONSE_CODES_CVFICOT  0x52
+#define UDS_RESPONSE_CODES_CVFIT    0x53
+#define UDS_RESPONSE_CODES_CVFIF    0x54
+#define UDS_RESPONSE_CODES_CVFIC    0x55
+#define UDS_RESPONSE_CODES_CVFISD   0x56
+#define UDS_RESPONSE_CODES_CVFICR   0x57
+#define UDS_RESPONSE_CODES_OVF      0x58
+#define UDS_RESPONSE_CODES_CCF      0x59
+#define UDS_RESPONSE_CODES_SARF     0x5A
+#define UDS_RESPONSE_CODES_SKCDF    0x5B
+#define UDS_RESPONSE_CODES_CDUF     0x5C
+#define UDS_RESPONSE_CODES_DAF      0x5D
 #define UDS_RESPONSE_CODES_UDNA     0x70
 #define UDS_RESPONSE_CODES_TDS      0x71
 #define UDS_RESPONSE_CODES_GPF      0x72
@@ -47,6 +65,25 @@ void proto_reg_handoff_uds(void);
 #define UDS_RESPONSE_CODES_RCRRP    0x78
 #define UDS_RESPONSE_CODES_SFNSIAS  0x7E
 #define UDS_RESPONSE_CODES_SNSIAS   0x7F
+#define UDS_RESPONSE_CODES_RPMTH    0x81
+#define UDS_RESPONSE_CODES_RPMTL    0x82
+#define UDS_RESPONSE_CODES_EIR      0x83
+#define UDS_RESPONSE_CODES_EINR     0x84
+#define UDS_RESPONSE_CODES_ERTTL    0x85
+#define UDS_RESPONSE_CODES_TEMPTH   0x86
+#define UDS_RESPONSE_CODES_TEMPTL   0x87
+#define UDS_RESPONSE_CODES_VSTH     0x88
+#define UDS_RESPONSE_CODES_VSTL     0x89
+#define UDS_RESPONSE_CODES_TPTH     0x8a
+#define UDS_RESPONSE_CODES_TPTL     0x8b
+#define UDS_RESPONSE_CODES_TRNIN    0x8c
+#define UDS_RESPONSE_CODES_TRNIG    0x8d
+#define UDS_RESPONSE_CODES_BSNC     0x8f
+#define UDS_RESPONSE_CODES_SLNIP    0x90
+#define UDS_RESPONSE_CODES_TCCL     0x91
+#define UDS_RESPONSE_CODES_VTH      0x92
+#define UDS_RESPONSE_CODES_VTL      0x93
+#define UDS_RESPONSE_CODES_RTNA     0x94
 
 #define UDS_SID_OFFSET  0
 #define UDS_SID_LEN     1
@@ -79,8 +116,23 @@ void proto_reg_handoff_uds(void);
 #define UDS_RDTCI_TYPES_SNAPSHOT_IDENTIFICATION   0x3
 #define UDS_RDTCI_TYPES_SNAPSHOT_RECORD_BY_DTC    0x4
 #define UDS_RDTCI_TYPES_SNAPSHOT_RECORD_BY_RECORD 0x5
-#define UDS_RDTCI_TYPES_EXTENDED_RECARD_BY_DTC    0x6
+#define UDS_RDTCI_TYPES_EXTENDED_RECORD_BY_DTC    0x6
+#define UDS_RDTCI_TYPES_NUM_DTC_BY_SEVERITY_MASK  0x7
+#define UDS_RDTCI_TYPES_BY_SEVERITY_MASK          0x8
+#define UDS_RDTCI_TYPES_SEVERITY_INFO_OF_DTC      0x9
 #define UDS_RDTCI_TYPES_SUPPORTED_DTC             0xA
+#define UDS_RDTCI_TYPES_MOST_RECENT_TEST_FAILED   0xB
+#define UDS_RDTCI_TYPES_MOST_RECENT_CONFIRMED_DTC 0xC
+#define UDS_RDTCI_TYPES_DTC_FAULT_DETECT_CTR      0x14
+#define UDS_RDTCI_TYPES_DTC_WITH_PERM_STATUS      0x15
+#define UDS_RDTCI_TYPES_DTC_EXT_DATA_REC_BY_NUM   0x16
+#define UDS_RDTCI_TYPES_USER_MEM_DTC_BY_STATUS_M  0x17
+#define UDS_RDTCI_TYPES_USER_MEM_DTC_REC_BY_DTC_N 0x18
+#define UDS_RDTCI_TYPES_USER_MEM_DTC_EXT_REC_BY_N 0x19
+#define UDS_RDTCI_TYPES_SUP_DTC_EXT_RECORD        0x1A
+#define UDS_RDTCI_TYPES_WWH_OBD_DTC_BY_MASK_REC   0x42
+#define UDS_RDTCI_TYPES_WWH_OBD_DTC_PERM_STATUS   0x55
+#define UDS_RDTCI_TYPES_WWH_OBD_BY_GROUP_READY    0x56
 
 #define UDS_RDBI_DATA_IDENTIFIER_OFFSET (UDS_DATA_OFFSET + 0)
 #define UDS_RDBI_DATA_IDENTIFIER_LEN    2
@@ -157,6 +209,66 @@ void proto_reg_handoff_uds(void);
 #define UDS_CDTCS_ACTIONS_ON  1
 #define UDS_CDTCS_ACTIONS_OFF 2
 
+#define UDS_DID_BSIDID          0xF180
+#define UDS_DID_ASIDID          0xF181
+#define UDS_DID_ADIDID          0xF182
+#define UDS_DID_BSFPDID         0xF183
+#define UDS_DID_ASFPDID         0xF184
+#define UDS_DID_ADFPDID         0xF185
+#define UDS_DID_ADSDID          0xF186
+#define UDS_DID_VMSPNDID        0xF187
+#define UDS_DID_VMECUSNDID      0xF188
+#define UDS_DID_VMECUSVNDID     0xF189
+#define UDS_DID_SSIDDID         0xF18A
+#define UDS_DID_ECUMDDID        0xF18B
+#define UDS_DID_ECUSNDID        0xF18C
+#define UDS_DID_SFUDID          0xF18D
+#define UDS_DID_VMKAPNDID       0xF18E
+#define UDS_DID_RXSWIN          0xF18F
+#define UDS_DID_VINDID          0xF190
+#define UDS_DID_VMECUHNDID      0xF191
+#define UDS_DID_SSECUHWNDID     0xF192
+#define UDS_DID_SSECUHWVNDID    0xF193
+#define UDS_DID_SSECUSWNDID     0xF194
+#define UDS_DID_SSECUSWVNDID    0xF195
+#define UDS_DID_EROTANDID       0xF196
+#define UDS_DID_SNOETDID        0xF197
+#define UDS_DID_RSCOTSNDID      0xF198
+#define UDS_DID_PDDID           0xF199
+#define UDS_DID_CRSCOCESNDID    0xF19A
+#define UDS_DID_CDDID           0xF19B
+#define UDS_DID_CESWNDID        0xF19D
+#define UDS_DID_EIDDID          0xF19D
+#define UDS_DID_ODXFDID         0xF19E
+#define UDS_DID_EDID            0xF19F
+#define UDS_DID_ADDID_FA00      0xFA00
+#define UDS_DID_ADDID_FA01      0xFA01
+#define UDS_DID_ADDID_FA02      0xFA02
+#define UDS_DID_ADDID_FA03      0xFA03
+#define UDS_DID_ADDID_FA04      0xFA04
+#define UDS_DID_ADDID_FA05      0xFA05
+#define UDS_DID_ADDID_FA06      0xFA06
+#define UDS_DID_ADDID_FA07      0xFA07
+#define UDS_DID_ADDID_FA08      0xFA08
+#define UDS_DID_ADDID_FA09      0xFA09
+#define UDS_DID_ADDID_FA0A      0xFA0A
+#define UDS_DID_ADDID_FA0B      0xFA0B
+#define UDS_DID_ADDID_FA0C      0xFA0C
+#define UDS_DID_ADDID_FA0D      0xFA0D
+#define UDS_DID_ADDID_FA0E      0xFA0E
+#define UDS_DID_ADDID_FA0F      0xFA0F
+#define UDS_DID_NOEDRD          0xFA10
+#define UDS_DID_EDRI            0xFA11
+#define UDS_DID_EDRDAI          0xFA12
+#define UDS_DID_UDSVDID         0xFF00
+#define UDS_DID_RESRVDCPADLC    0xFF01
+
+#define UDS_RID_EXSPLRI_        0xE200
+#define UDS_RID_DLRI_           0xE201
+#define UDS_RID_EM_             0xFF00
+#define UDS_RID_CPD_            0xFF01
+#define UDS_RID_FF02            0xFF02
+
 /*
  * Enums
  */
@@ -172,6 +284,7 @@ static const value_string uds_services[]= {
         {UDS_SERVICES_RSDBI, "Read Scaling Data By Identifier"},
         {UDS_SERVICES_SA,    "Security Access"},
         {UDS_SERVICES_CC,    "Communication Control"},
+        {UDS_SERVICES_ARS,   "Authentication"},
         {UDS_SERVICES_RDBPI, "Read Data By Periodic Identifier"},
         {UDS_SERVICES_DDDI,  "Dynamically Define Data Identifier"},
         {UDS_SERVICES_WDBI,  "Write Data By Identifier"},
@@ -185,7 +298,10 @@ static const value_string uds_services[]= {
         {UDS_SERVICES_WMBA,  "Write Memory By Address"},
         {UDS_SERVICES_TP,    "Tester Present"},
         {UDS_SERVICES_ERR,   "Error"},
+        {UDS_SERVICES_SDT,   "Secured Data Transmission"},
         {UDS_SERVICES_CDTCS, "Control DTC Setting"},
+        {UDS_SERVICES_ROE,   "Response On Event"},
+        {UDS_SERVICES_LC,    "Link Control"},
         {0, NULL}
 };
 /* Response code */
@@ -202,9 +318,27 @@ static const value_string uds_response_codes[]= {
         {UDS_RESPONSE_CODES_FPEORA,  "Failure prevents execution of requested action"},
         {UDS_RESPONSE_CODES_ROOR,    "Request Out of Range"},
         {UDS_RESPONSE_CODES_SAD,     "Security Access Denied"},
+        {UDS_RESPONSE_CODES_AR,      "Authentication Required"},
         {UDS_RESPONSE_CODES_IK,      "Invalid Key"},
         {UDS_RESPONSE_CODES_ENOA,    "Exceeded Number Of Attempts"},
         {UDS_RESPONSE_CODES_RTDNE,   "Required Time Delay Not Expired"},
+        {UDS_RESPONSE_CODES_SDTR,    "Secure Data Transmission Required"},
+        {UDS_RESPONSE_CODES_SDTNA,   "Secure Data Transmission Not Allowed"},
+        {UDS_RESPONSE_CODES_SDTF,    "Secure Data Verification Failed"},
+        {UDS_RESPONSE_CODES_CVFITP,  "Certificate Verification Failed: Invalid Time Period"},
+        {UDS_RESPONSE_CODES_CVFIS,   "Certificate Verification Failed: Invalid Signature"},
+        {UDS_RESPONSE_CODES_CVFICOT, "Certificate Verification Failed: Invalid Chain of Trust"},
+        {UDS_RESPONSE_CODES_CVFIT,   "Certificate Verification Failed: Invalid Type"},
+        {UDS_RESPONSE_CODES_CVFIF,   "Certificate Verification Failed: Invalid Format"},
+        {UDS_RESPONSE_CODES_CVFIC,   "Certificate Verification Failed: Invalid Content"},
+        {UDS_RESPONSE_CODES_CVFISD,  "Certificate Verification Failed: Invalid Scope"},
+        {UDS_RESPONSE_CODES_CVFICR,  "Certificate Verification Failed: Invalid Certificate (revoked)"},
+        {UDS_RESPONSE_CODES_OVF,     "Ownership Verification Failed"},
+        {UDS_RESPONSE_CODES_CCF,     "Challenge Calculation Failed"},
+        {UDS_RESPONSE_CODES_SARF,    "Setting Access Rights Failed"},
+        {UDS_RESPONSE_CODES_SKCDF,   "Session Key Creation/Derivation Failed"},
+        {UDS_RESPONSE_CODES_CDUF,    "Configuration Data Usage Failed"},
+        {UDS_RESPONSE_CODES_DAF,     "DeAuthentication Failed"},
         {UDS_RESPONSE_CODES_UDNA,    "Upload/Download not accepted"},
         {UDS_RESPONSE_CODES_TDS,     "Transfer data suspended"},
         {UDS_RESPONSE_CODES_GPF,     "General Programming Failure"},
@@ -212,6 +346,25 @@ static const value_string uds_response_codes[]= {
         {UDS_RESPONSE_CODES_RCRRP,   "Request correctly received, but response is pending"},
         {UDS_RESPONSE_CODES_SFNSIAS, "Sub-Function not supported in active session"},
         {UDS_RESPONSE_CODES_SNSIAS,  "Service not supported in active session"},
+        {UDS_RESPONSE_CODES_RPMTH,   "RPM Too High"},
+        {UDS_RESPONSE_CODES_RPMTL,   "RPM Too Low"},
+        {UDS_RESPONSE_CODES_EIR,     "Engine Is Running"},
+        {UDS_RESPONSE_CODES_EINR,    "Engine Is Not Running"},
+        {UDS_RESPONSE_CODES_ERTTL,   "Run Time Too Low"},
+        {UDS_RESPONSE_CODES_TEMPTH,  "Temperature Too High"},
+        {UDS_RESPONSE_CODES_TEMPTL,  "Temperature Too Low"},
+        {UDS_RESPONSE_CODES_VSTH,    "Vehicle Speed Too High"},
+        {UDS_RESPONSE_CODES_VSTL,    "Vehicle Speed Too Low"},
+        {UDS_RESPONSE_CODES_TPTH,    "Throttle/Pedal Too High"},
+        {UDS_RESPONSE_CODES_TPTL,    "Throttle/Pedal Too Low"},
+        {UDS_RESPONSE_CODES_TRNIN,   "Transmission Range Not In Neutral"},
+        {UDS_RESPONSE_CODES_TRNIG,   "Transmission Range Not In Gear"},
+        {UDS_RESPONSE_CODES_BSNC,    "Brake Switch(es) Not Closed"},
+        {UDS_RESPONSE_CODES_SLNIP,   "Shifter/Lever Not in Park"},
+        {UDS_RESPONSE_CODES_TCCL,    "Torque Converter Clutch Locked"},
+        {UDS_RESPONSE_CODES_VTH,     "Voltage Too High"},
+        {UDS_RESPONSE_CODES_VTL,     "Voltage Too Low"},
+        {UDS_RESPONSE_CODES_RTNA,    "Resource Temporarily Not Available"},
         {0, NULL}
 };
 
@@ -252,8 +405,23 @@ static const value_string uds_rdtci_types[] = {
         {UDS_RDTCI_TYPES_SNAPSHOT_IDENTIFICATION,   "Report DTC Snapshot Identification"},
         {UDS_RDTCI_TYPES_SNAPSHOT_RECORD_BY_DTC,    "Report DTC Snapshot Record by DTC Number"},
         {UDS_RDTCI_TYPES_SNAPSHOT_RECORD_BY_RECORD, "Report DTC Snapshot Record by Record Number"},
-        {UDS_RDTCI_TYPES_EXTENDED_RECARD_BY_DTC,    "Report DTC Extended Data Record by DTC Number"},
+        {UDS_RDTCI_TYPES_EXTENDED_RECORD_BY_DTC,    "Report DTC Extended Data Record by DTC Number"},
+        {UDS_RDTCI_TYPES_NUM_DTC_BY_SEVERITY_MASK,  "Report Number of DTC By Severity Mask"},
+        {UDS_RDTCI_TYPES_BY_SEVERITY_MASK,          "Report DTC by Severity Mask"},
+        {UDS_RDTCI_TYPES_SEVERITY_INFO_OF_DTC,      "Report Severity Information of DTC"},
         {UDS_RDTCI_TYPES_SUPPORTED_DTC,             "Report Supported DTC"},
+        {UDS_RDTCI_TYPES_MOST_RECENT_TEST_FAILED,   "Report Most Recent Test Failed DTC"},
+        {UDS_RDTCI_TYPES_MOST_RECENT_CONFIRMED_DTC, "Report Most Recent Confirmed DTC"},
+        {UDS_RDTCI_TYPES_DTC_FAULT_DETECT_CTR,      "Report DTC Fault Detection Counter"},
+        {UDS_RDTCI_TYPES_DTC_WITH_PERM_STATUS,      "Report DTC with Permanent Status"},
+        {UDS_RDTCI_TYPES_DTC_EXT_DATA_REC_BY_NUM,   "Report DTC Extended Data Record by Record Number"},
+        {UDS_RDTCI_TYPES_USER_MEM_DTC_BY_STATUS_M,  "Report User Defined Memory DTC By Status Mask"},
+        {UDS_RDTCI_TYPES_USER_MEM_DTC_REC_BY_DTC_N, "Report User Defined Memory DTC Snapshot Record By DTC Number"},
+        {UDS_RDTCI_TYPES_USER_MEM_DTC_EXT_REC_BY_N, "Report User Defined Memory DTC Extended Data Record by DTC Number"},
+        {UDS_RDTCI_TYPES_SUP_DTC_EXT_RECORD,        "Report List of DTCs Supporting Specific Extended Data Record"},
+        {UDS_RDTCI_TYPES_WWH_OBD_DTC_BY_MASK_REC,   "Report WWH-OBD DTC By Mask Record"},
+        {UDS_RDTCI_TYPES_WWH_OBD_DTC_PERM_STATUS,   "Report WWH-OBD DTC With Permanent Status"},
+        {UDS_RDTCI_TYPES_WWH_OBD_BY_GROUP_READY,    "Report WWH-OBD DTC By Readiness Group Identifier"},
         {0, NULL}
 };
 
@@ -283,6 +451,73 @@ static const value_string uds_cdtcs_types[] = {
         {0, NULL}
 };
 
+/* DIDS */
+static const value_string uds_standard_did_types[] = {
+        {UDS_DID_BSIDID,        "BootSoftwareIdentificationDataIdentifier"},
+        {UDS_DID_ASIDID,        "applicationSoftwareIdentificationDataIdentifier"},
+        {UDS_DID_ADIDID,        "applicationDataIdentificationDataIdentifier"},
+        {UDS_DID_BSFPDID,       "bootSoftwareFingerprintDataIdentifier"},
+        {UDS_DID_ASFPDID,       "applicationSoftwareFingerprintDataIdentifier"},
+        {UDS_DID_ADFPDID,       "applicationDataFingerprintDataIdentifier"},
+        {UDS_DID_ADSDID,        "ActiveDiagnosticSessionDataIdentifier"},
+        {UDS_DID_VMSPNDID,      "vehicleManufacturerSparePartNumberDataIdentifier"},
+        {UDS_DID_VMECUSNDID,    "vehicleManufacturerECUSoftwareNumberDataIdentifier"},
+        {UDS_DID_VMECUSVNDID,   "vehicleManufacturerECUSoftwareVersionNumberDataIdentifier"},
+        {UDS_DID_SSIDDID,       "systemSupplierIdentifierDataIdentifier"},
+        {UDS_DID_ECUMDDID,      "ECUManufacturingDateDataIdentifier (year/month/day)"},
+        {UDS_DID_ECUSNDID,      "ECUSerialNumberDataIdentifier"},
+        {UDS_DID_SFUDID,        "supportedFunctionalUnitsDataIdentifier"},
+        {UDS_DID_VMKAPNDID,     "VehicleManufacturerKitAssemblyPartNumberDataIdentifier"},
+        {UDS_DID_RXSWIN,        "RegulationXSoftwareIdentificationNumbers (RxSWIN)"},
+        {UDS_DID_VINDID,        "VINDataIdentifier"},
+        {UDS_DID_VMECUHNDID,    "vehicleManufacturerECUHardwareNumberDataIdentifier"},
+        {UDS_DID_SSECUHWNDID,   "systemSupplierECUHardwareNumberDataIdentifier"},
+        {UDS_DID_SSECUHWVNDID,  "systemSupplierECUHardwareVersionNumberDataIdentifier"},
+        {UDS_DID_SSECUSWNDID,   "systemSupplierECUSoftwareNumberDataIdentifier"},
+        {UDS_DID_SSECUSWVNDID,  "systemSupplierECUSoftwareVersionNumberDataIdentifier"},
+        {UDS_DID_EROTANDID,     "exhaustRegulationOrTypeApprovalNumberDataIdentifier"},
+        {UDS_DID_SNOETDID,      "systemNameOrEngineTypeDataIdentifier"},
+        {UDS_DID_RSCOTSNDID,    "repairShopCodeOrTesterSerialNumberDataIdentifier"},
+        {UDS_DID_PDDID,         "programmingDateDataIdentifier (year/month/day)"},
+        {UDS_DID_CRSCOCESNDID,  "calibrationRepairShopCodeOrCalibrationEquipmentSerialNumberDataIdentifier"},
+        {UDS_DID_CDDID,         "calibrationDateDataIdentifier (year/month/day)"},
+        {UDS_DID_CESWNDID,      "calibrationEquipmentSoftwareNumberDataIdentifier"},
+        {UDS_DID_EIDDID,        "ECUInstallationDateDataIdentifier (year/month/day)"},
+        {UDS_DID_ODXFDID,       "ODXFileDataIdentifier"},
+        {UDS_DID_EDID,          "EntityDataIdentifier"},
+        {UDS_DID_ADDID_FA00,    "AirbagDeployment: Number of PCUs (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA01,    "AirbagDeployment: Deployment Method Version (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA02,    "AirbagDeployment: Address Information of PCU (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA03,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA04,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA05,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA06,    "AirbagDeployment: Deployment Loop Table of PCU (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA07,    "AirbagDeployment: Dismantler Info (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA08,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA09,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0A,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0B,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0C,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0D,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0E,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_ADDID_FA0F,    "AirbagDeployment (ISO 26021-2)"},
+        {UDS_DID_NOEDRD,        "NumberOfEDRDevices"},
+        {UDS_DID_EDRI,          "EDRIdentification"},
+        {UDS_DID_EDRDAI,        "EDRDeviceAddressInformation"},
+        {UDS_DID_UDSVDID,       "EDRDAI"},
+        {UDS_DID_RESRVDCPADLC,  "ReservedForISO15765-5 (CAN, CAN-FD, CAN+CAN-FD, ...)"},
+        {0, NULL}
+};
+
+/* RIDS */
+static const value_string uds_standard_rid_types[] = {
+        {UDS_RID_EXSPLRI_,      "Execute SPL"},
+        {UDS_RID_DLRI_,         "DeployLoopRoutineID"},
+        {UDS_RID_EM_,           "eraseMemory"},
+        {UDS_RID_CPD_,          "checkProgrammingDependencies"},
+        {UDS_RID_FF02,          "eraseMirrorMemoryDTCs (deprecated)"},
+        {0, NULL}
+};
 /*
  * Fields
  */
@@ -552,14 +787,20 @@ post_update_uds_routine_cb(void) {
     post_update_one_id_string_template_cb(uds_uat_routine_ids, uds_uat_routine_id_num, uds_ht_routine_ids);
 }
 
-static char *
+static const char *
 uds_lookup_routine_name(guint32 addr, guint16 id) {
-    return generic_lookup_addr_id(addr, id, uds_ht_routine_ids);
+    const char *tmp = generic_lookup_addr_id(addr, id, uds_ht_routine_ids);
+
+    if (tmp == NULL) {
+        tmp = try_val_to_str(id, uds_standard_rid_types);
+    }
+
+    return tmp;
 }
 
 static void
 protoitem_append_routine_name(proto_item *ti, guint32 addr, guint16 data_identifier) {
-    gchar *routine_name = uds_lookup_routine_name(addr, data_identifier);
+    const gchar *routine_name = uds_lookup_routine_name(addr, data_identifier);
     if (routine_name != NULL) {
         proto_item_append_text(ti, " (%s)", routine_name);
     }
@@ -567,7 +808,7 @@ protoitem_append_routine_name(proto_item *ti, guint32 addr, guint16 data_identif
 
 static void
 infocol_append_routine_name(packet_info *pinfo, guint32 addr, guint16 routine_identifier) {
-    gchar *routine_name = uds_lookup_routine_name(addr, routine_identifier);
+    const gchar *routine_name = uds_lookup_routine_name(addr, routine_identifier);
     if (routine_name != NULL) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", routine_name);
     }
@@ -595,14 +836,20 @@ post_update_uds_data_cb(void) {
     post_update_one_id_string_template_cb(uds_uat_data_ids, uds_uat_data_id_num, uds_ht_data_ids);
 }
 
-static char *
+static const char *
 uds_lookup_data_name(guint32 addr, guint16 id) {
-    return generic_lookup_addr_id(addr, id, uds_ht_data_ids);
+    const char *tmp = generic_lookup_addr_id(addr, id, uds_ht_data_ids);
+
+    if (tmp == NULL) {
+        tmp = try_val_to_str(id, uds_standard_did_types);
+    }
+
+    return tmp;
 }
 
 static void
 protoitem_append_data_name(proto_item *ti, guint32 addr, guint16 data_identifier) {
-    gchar *data_name = uds_lookup_data_name(addr, data_identifier);
+    const gchar *data_name = uds_lookup_data_name(addr, data_identifier);
     if (data_name != NULL) {
         proto_item_append_text(ti, " (%s)", data_name);
     }
@@ -610,7 +857,7 @@ protoitem_append_data_name(proto_item *ti, guint32 addr, guint16 data_identifier
 
 static void
 infocol_append_data_name(packet_info *pinfo, guint32 addr, guint16 data_identifier) {
-    gchar *data_name = uds_lookup_data_name(addr, data_identifier);
+    const gchar *data_name = uds_lookup_data_name(addr, data_identifier);
     if (data_name != NULL) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (%s)", data_name);
     }

@@ -7,9 +7,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# Catch symbol additions.
-export DPKG_GENSYMBOLS_CHECK_LEVEL=4
-
 distrelease  := $(shell lsb_release -cs)
 ifeq ($(distrelease),n/a)
   distrelease     := sid
@@ -34,7 +31,7 @@ endif
 	dh $@ --with python3 --buildsystem $(DH_BUILDSYSTEM) --with quilt
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DBUILD_xxx2deb=ON -DBUILD_corbaidl2wrs=ON
+	dh_auto_configure -- -DBUILD_xxx2deb=ON -DBUILD_corbaidl2wrs=ON -DUSE_qt6=OFF
 
 override_dh_auto_build:
 	# Ignore warnings from asn2wrs.py about duplicate field names.
@@ -44,7 +41,7 @@ override_dh_auto_build:
 	$(MAKE) -C $(CURDIR)/obj-* user_guide_html developer_guide_html
 	# fix links in documentation
 	sed -i "s|$(CURDIR)/docbook|..|" obj-*/docbook/ws*g_html_chunked/*.html
-ifneq ($(filter $(DEB_BUILD_OPTIONS),nocheck),)
+ifeq (,$(filter $(DEB_BUILD_OPTIONS),nocheck))
 	# Required for the "unittests" suite.
 	$(MAKE) -C $(CURDIR)/obj-* test-programs
 endif
@@ -60,7 +57,6 @@ override_dh_auto_install:
 	dh_auto_install
 	rm -f debian/*.shlibs
 	rm -rf $(CURDIR)/debian/tmp/usr/share/wireshark/COPYING
-	cp debian/license-text-about-dialog $(CURDIR)/debian/tmp/usr/share/wireshark/ABOUT.GPL
 	mkdir -p $(CURDIR)/debian/tmp/etc/wireshark/
 	mv $(CURDIR)/debian/tmp/usr/share/wireshark/init.lua \
 		$(CURDIR)/debian/tmp/etc/wireshark/
@@ -78,9 +74,8 @@ override_dh_fixperms:
 		debian/wireshark-dev/usr/share/pyshared/wireshark_be.py \
 		debian/wireshark-dev/usr/share/pyshared/wireshark_gen.py
 
-# Adapted from https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=861988
 override_dh_auto_test:
-ifneq ($(filter $(DEB_BUILD_OPTIONS),nocheck),)
+ifeq (,$(filter $(DEB_BUILD_OPTIONS),nocheck))
 	# XXX Add -- --verbose?
 	dh_auto_test
 else

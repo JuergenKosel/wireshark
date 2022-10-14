@@ -81,6 +81,8 @@ typedef void (*custom_fmt_func_t)(gchar *, guint32);
 
 typedef void (*custom_fmt_func_64_t)(gchar *, guint64);
 
+typedef void (*custom_fmt_func_double_t)(gchar *, double);
+
 /** Make a custom format function pointer look like a void pointer. Used to set header_field_info.strings.
  *
  * We cast to gsize first, which 1) is guaranteed to be wide enough to
@@ -361,9 +363,7 @@ void proto_report_dissector_bug(const char *format, ...)
  * values are encoded in all but the top bit (which is the byte-order
  * bit, required for FT_UINT_STRING and for UCS-2 and UTF-16 strings)
  * and the bottom bit (which we ignore for now so that programs that
- * pass TRUE for the encoding just do ASCII).  (The encodings are given
- * directly as even numbers in hex, so that make-init-lua.py can just
- * turn them into numbers for use in init.lua.)
+ * pass TRUE for the encoding just do ASCII).
  *
  * We don't yet process ASCII and UTF-8 differently.  Ultimately, for
  * ASCII, all bytes with the 8th bit set should be mapped to some "this
@@ -586,10 +586,6 @@ void proto_report_dissector_bug(const char *format, ...)
  *
  *  ENC_TIME_CLASSIC_MAC_OS_SECS - 4-8 bytes, representing a count of seconds
  *  since January 1, 1904, 00:00:00 UTC.
- *
- * The backwards-compatibility names are defined as hex numbers so that
- * the script to generate init.lua will add them as global variables,
- * along with the new names.
  */
 #define ENC_TIME_SECS_NSECS          0x00000000
 #define ENC_TIME_TIMESPEC            0x00000000 /* for backwards source compatibility */
@@ -654,48 +650,44 @@ void proto_report_dissector_bug(const char *format, ...)
 /** FIELD_DISPLAY_E_MASK selects the field_display_e value. */
 #define FIELD_DISPLAY_E_MASK 0xFF
 
-/*
- * Note that this enum values are parsed in make-init-lua.py so make sure
- * any changes here still makes valid entries in init.lua.
- * XXX The script requires the equals sign.
- */
 typedef enum {
     BASE_NONE    = 0,   /**< none */
 
-/* Integral types */
-    BASE_DEC     = 1,   /**< decimal */
-    BASE_HEX     = 2,   /**< hexadecimal */
-    BASE_OCT     = 3,   /**< octal */
-    BASE_DEC_HEX = 4,   /**< decimal (hexadecimal) */
-    BASE_HEX_DEC = 5,   /**< hexadecimal (decimal) */
-    BASE_CUSTOM  = 6,   /**< call custom routine (in ->strings) to format */
-
-/* Float types */
-    BASE_FLOAT   = BASE_NONE, /**< decimal-format float */
+/* Integral and float types */
+    BASE_DEC,           /**< decimal [integer, float] */
+    BASE_HEX,           /**< hexadecimal [integer, float] */
+    BASE_OCT,           /**< octal [integer] */
+    BASE_DEC_HEX,       /**< decimal (hexadecimal) [integer] */
+    BASE_HEX_DEC,       /**< hexadecimal (decimal) [integer] */
+    BASE_CUSTOM,        /**< call custom routine to format [integer, float] */
+    BASE_EXP,           /**< exponential [float] */
 
 /* Byte separators */
-    SEP_DOT      = 8,   /**< hexadecimal bytes with a period (.) between each byte */
-    SEP_DASH     = 9,   /**< hexadecimal bytes with a dash (-) between each byte */
-    SEP_COLON    = 10,  /**< hexadecimal bytes with a colon (:) between each byte */
-    SEP_SPACE    = 11,  /**< hexadecimal bytes with a space between each byte */
+    SEP_DOT,            /**< hexadecimal bytes with a period (.) between each byte */
+    SEP_DASH,           /**< hexadecimal bytes with a dash (-) between each byte */
+    SEP_COLON,          /**< hexadecimal bytes with a colon (:) between each byte */
+    SEP_SPACE,          /**< hexadecimal bytes with a space between each byte */
 
 /* Address types */
-    BASE_NETMASK = 12,  /**< Used for IPv4 address that shouldn't be resolved (like for netmasks) */
+    BASE_NETMASK,       /**< Used for IPv4 address that shouldn't be resolved (like for netmasks) */
 
 /* Port types */
-    BASE_PT_UDP  = 13,  /**< UDP port */
-    BASE_PT_TCP  = 14,  /**< TCP port */
-    BASE_PT_DCCP = 15,  /**< DCCP port */
-    BASE_PT_SCTP = 16,  /**< SCTP port */
+    BASE_PT_UDP,        /**< UDP port */
+    BASE_PT_TCP,        /**< TCP port */
+    BASE_PT_DCCP,       /**< DCCP port */
+    BASE_PT_SCTP,       /**< SCTP port */
 
 /* OUI types */
-    BASE_OUI     = 17,  /**< OUI resolution */
+    BASE_OUI,           /**< OUI resolution */
 
 /* Time types */
-    ABSOLUTE_TIME_LOCAL   = 18,     /**< local time in our time zone, with month and day */
-    ABSOLUTE_TIME_UTC     = 19,     /**< UTC, with month and day */
-    ABSOLUTE_TIME_DOY_UTC = 20,     /**< UTC, with 1-origin day-of-year */
-    ABSOLUTE_TIME_NTP_UTC = 21,     /**< UTC, with "NULL" when timestamp is all zeros */
+    ABSOLUTE_TIME_LOCAL,        /**< local time in our time zone, with month and day */
+    ABSOLUTE_TIME_UTC,          /**< UTC, with month and day */
+    ABSOLUTE_TIME_DOY_UTC,      /**< UTC, with 1-origin day-of-year */
+    ABSOLUTE_TIME_NTP_UTC,      /**< UTC, with "NULL" when timestamp is all zeros */
+
+/* String types */
+    BASE_STR_WSP,       /**< Replace all whitespace characters (newline, formfeed, etc) with "space". */
 } field_display_e;
 
 #define FIELD_DISPLAY(d) ((d) & FIELD_DISPLAY_E_MASK)
@@ -896,7 +888,6 @@ typedef proto_node proto_item;
  * the bottom up.
  */
 
-/* do not modify the PI_SEVERITY_MASK name - it's used by make-init-lua.py */
 /* expert severities */
 #define PI_SEVERITY_MASK        0x00F00000  /**< mask usually for internal use only! */
 /** Packet comment */
@@ -910,7 +901,6 @@ typedef proto_node proto_item;
 /** Serious problems, e.g. a malformed packet */
 #define PI_ERROR                0x00800000
 
-/* do not modify the PI_GROUP_MASK name - it's used by make-init-lua.py */
 /* expert "event groups" */
 #define PI_GROUP_MASK           0xFF000000  /**< mask usually for internal use only! */
 /** The protocol field has a bad checksum, usually uses PI_WARN severity */
@@ -1988,7 +1978,9 @@ proto_tree_add_oid_format(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint sta
     gint length, const guint8* value_ptr, const char *format, ...) G_GNUC_PRINTF(7,8);
 
 /** Add an FT_STRING, FT_STRINGZ, FT_STRINGZPAD, or FT_STRINGZTRUNC to a
-    proto_tree.
+    proto_tree. The value passed in should be a UTF-8 encoded null terminated
+    string, such as produced by tvb_get_string_enc(), regardless of the original
+    packet data.
  @param tree the tree to append this item to
  @param hfindex field index
  @param tvb the tv buffer of the current data
@@ -2674,6 +2666,12 @@ WS_DLL_PUBLIC void proto_get_frame_protocols(const wmem_list_t *layers,
  */
 WS_DLL_PUBLIC gboolean proto_is_frame_protocol(const wmem_list_t *layers, const char* proto_name);
 
+/** Create a string of all layers in the packet.
+ * @param pinfo Pointer to packet info
+ * @return string of layer names
+ */
+WS_DLL_PUBLIC gchar * proto_list_layers(const packet_info *pinfo);
+
 /** Mark protocol with the given item number as disabled by default.
  @param proto_id protocol id (0-indexed) */
 WS_DLL_PUBLIC void proto_disable_by_default(const int proto_id);
@@ -2980,6 +2978,25 @@ proto_tree_add_bitmask_value_with_flags(proto_tree *tree, tvbuff_t *tvb, const g
 WS_DLL_PUBLIC void
 proto_tree_add_bitmask_list(proto_tree *tree, tvbuff_t *tvb, const guint offset,
                                 const int len, int * const *fields, const guint encoding);
+
+/** This function will dissect a value that describe a bitmask. Similar to proto_tree_add_bitmask_list(),
+    but with a return value
+ @param tree the tree to append this item to
+ @param tvb the tv buffer of the current data
+ @param offset start of data in tvb
+ @param len number of bytes of data
+ @param fields an array of pointers to int that lists all the fields of the
+        bitmask. These fields can be either of the type FT_BOOLEAN for flags
+        or another integer of the same type/size as hf_hdr with a mask specified.
+        This array is terminated by a NULL entry.
+        FT_BOOLEAN bits that are set to 1 will have the name added to the expansion.
+        FT_integer fields that have a value_string attached will have the
+        matched string displayed on the expansion line.
+ @param encoding big or little endian byte representation (ENC_BIG_ENDIAN/ENC_LITTLE_ENDIAN/ENC_HOST_ENDIAN)
+ @param retval if a pointer is passed here the value is returned. */
+WS_DLL_PUBLIC  void
+proto_tree_add_bitmask_list_ret_uint64(proto_tree *tree, tvbuff_t *tvb, const guint offset,
+					const int len, int * const *fields, const guint encoding, guint64 *retval);
 
 /** This function will dissect a value that describe a bitmask. Similar to proto_tree_add_bitmask_list(),
     but with a passed in value (presumably because it can't be retrieved directly from tvb)

@@ -3470,7 +3470,7 @@ dissect_sac_msg(guint32 tag, tvbuff_t *tvb, gint offset,
         tvb_composite_append(clear_sac_msg_tvb, clear_sac_body_tvb);
         tvb_composite_finalize(clear_sac_msg_tvb);
 
-        exp_pdu_data = export_pdu_create_tags(pinfo, EXPORTED_SAC_MSG_PROTO, EXP_PDU_TAG_PROTO_NAME, dvbci_exp_pdu_items);
+        exp_pdu_data = export_pdu_create_tags(pinfo, EXPORTED_SAC_MSG_PROTO, EXP_PDU_TAG_DISSECTOR_NAME, dvbci_exp_pdu_items);
 
         exp_pdu_data->tvb_captured_length = tvb_captured_length(clear_sac_msg_tvb);
         exp_pdu_data->tvb_reported_length = tvb_reported_length(clear_sac_msg_tvb);
@@ -4426,7 +4426,7 @@ dissect_dvbci_spdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 break;
             }
             col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "Session opened");
-            conv = conversation_new_by_id(pinfo->num, ENDPOINT_DVBCI, CT_ID(ssnb, tcid));
+            conv = conversation_new_by_id(pinfo->num, CONVERSATION_DVBCI, CT_ID(ssnb, tcid));
             /* we always add the resource id immediately after the circuit
                 was created */
             conversation_add_proto_data(conv, proto_dvbci, GUINT_TO_POINTER(res_id));
@@ -4447,7 +4447,7 @@ dissect_dvbci_spdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             ssnb = tvb_get_ntohs(tvb, offset+1);
             proto_tree_add_item(sess_tree, hf_dvbci_sess_nb,
                     tvb, offset+1, 2, ENC_BIG_ENDIAN);
-            conv = find_conversation_by_id(pinfo->num, ENDPOINT_DVBCI, CT_ID(ssnb, tcid));
+            conv = find_conversation_by_id(pinfo->num, CONVERSATION_DVBCI, CT_ID(ssnb, tcid));
             if (conv)
                 conv->last_frame = pinfo->num;
             break;
@@ -4464,7 +4464,7 @@ dissect_dvbci_spdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
 
     if (ssnb && !conv)
-        conv = find_conversation_by_id(pinfo->num, ENDPOINT_DVBCI, CT_ID(ssnb, tcid));
+        conv = find_conversation_by_id(pinfo->num, CONVERSATION_DVBCI, CT_ID(ssnb, tcid));
 
     /* if the packet contains no resource id, we add the cached id from
        the circuit so that each packet has a resource id that can be
@@ -6430,8 +6430,7 @@ proto_register_dvbci(void)
     expert_dvbci = expert_register_protocol(proto_dvbci);
     expert_register_field_array(expert_dvbci, ei, array_length(ei));
 
-    dvbci_module = prefs_register_protocol(
-        proto_dvbci, proto_reg_handoff_dvbci);
+    dvbci_module = prefs_register_protocol(proto_dvbci, proto_reg_handoff_dvbci);
     prefs_register_string_preference(dvbci_module,
             "sek", "SAC Encryption Key", "SAC Encryption Key (16 hex bytes)",
             &dvbci_sek);
@@ -6472,14 +6471,19 @@ proto_register_dvbci(void)
 void
 proto_reg_handoff_dvbci(void)
 {
-    dissector_add_uint("wtap_encap", WTAP_ENCAP_DVBCI, dvbci_handle);
+    static gboolean initialized = FALSE;
 
-    data_handle = find_dissector("data");
-    mpeg_pmt_handle = find_dissector_add_dependency("mpeg_pmt", proto_dvbci);
-    dvb_nit_handle = find_dissector_add_dependency("dvb_nit", proto_dvbci);
-    mime_handle = find_dissector_add_dependency("mime_dlt", proto_dvbci);
-    tcp_dissector_table = find_dissector_table("tcp.port");
-    udp_dissector_table = find_dissector_table("udp.port");
+    if (!initialized) {
+        dissector_add_uint("wtap_encap", WTAP_ENCAP_DVBCI, dvbci_handle);
+
+        data_handle = find_dissector("data");
+        mpeg_pmt_handle = find_dissector_add_dependency("mpeg_pmt", proto_dvbci);
+        dvb_nit_handle = find_dissector_add_dependency("dvb_nit", proto_dvbci);
+        mime_handle = find_dissector_add_dependency("mime_dlt", proto_dvbci);
+        tcp_dissector_table = find_dissector_table("tcp.port");
+        udp_dissector_table = find_dissector_table("udp.port");
+        initialized = TRUE;
+    }
 
     g_free(dvbci_sek_bin);
     g_free(dvbci_siv_bin);

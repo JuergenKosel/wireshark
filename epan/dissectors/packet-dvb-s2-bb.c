@@ -109,9 +109,6 @@ static dissector_handle_t data_handle;
 static dissector_handle_t mp2t_handle;
 static dissector_handle_t dvb_s2_modeadapt_handle;
 
-/* The dynamic payload type range which will be dissected as H.264 */
-static range_t *temp_dynamic_payload_type_range = NULL;
-
 void proto_register_dvb_s2_modeadapt(void);
 void proto_reg_handoff_dvb_s2_modeadapt(void);
 
@@ -311,8 +308,6 @@ static const fragment_items dvb_s2_gse_frag_items = {
   &hf_dvb_s2_gse_reassembled_data,
   "DVB-S2 GSE fragments"
 };
-
-static unsigned char _use_low_rolloff_value = 0;
 
 /* Offset in SYNC MARKER */
 #define DVB_S2_OFFS_SYNCBYTE 0
@@ -1040,6 +1035,31 @@ virtual_stream_init(void)
     virtual_stream_count = 1;
 }
 
+/* Data that is associated with a receiver at the BBFrame level, stored
+ * at the conversation level. The Transmission Roll-off factor applies
+ * for all ISI in a Multiple Input Stream Configuration (see ETSI EN
+ * 302 307-2, clause 5.1.6 "Base-Band Header insertion".) Upon first
+ * detection of '11' for the RO value, receiver will switch to low
+ * roll-off range for the entire conversation.
+ */
+typedef struct {
+    guint32 use_low_ro;
+} dvbs2_bb_conv_data;
+
+static dvbs2_bb_conv_data *
+get_dvbs2_bb_conv_data(conversation_t *conv)
+{
+    dvbs2_bb_conv_data *bb_data;
+
+    bb_data = (dvbs2_bb_conv_data *)conversation_get_proto_data(conv, proto_dvb_s2_bb);
+    if (!bb_data) {
+        bb_data = wmem_new0(wmem_file_scope(), dvbs2_bb_conv_data);
+        conversation_add_proto_data(conv, proto_dvb_s2_bb, bb_data);
+    }
+
+    return bb_data;
+}
+
 /* Data that is associated with one BBFrame, used by GSE or TS packets
  * contained within it. Lifetime of the packet.
  */
@@ -1472,6 +1492,7 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     stream_t *ts_stream;
     stream_pdu_fragment_t *ts_frag;
     fragment_head *fd_head;
+    dvbs2_bb_conv_data *conv_data;
     dvbs2_bb_data *pdata;
 
     gboolean    npd, composite_init = FALSE;
@@ -1503,6 +1524,8 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         NULL
     };
 
+    conv = find_or_create_conversation(pinfo);
+
     col_append_str(pinfo->cinfo, COL_PROTOCOL, "BB ");
     col_append_str(pinfo->cinfo, COL_INFO, "Baseband ");
 
@@ -1519,13 +1542,12 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     issyi = (matype1 & DVB_S2_BB_ISSYI_MASK) >> DVB_S2_BB_ISSYI_POS;
     npd = (matype1 & DVB_S2_BB_NPD_MASK) >> DVB_S2_BB_NPD_POS;
 
-    if ((pinfo->fd->num == 1) && (_use_low_rolloff_value != 0)) {
-        _use_low_rolloff_value = 0;
+    conv_data = get_dvbs2_bb_conv_data(conv);
+
+    if (((matype1 & DVB_S2_BB_RO_MASK) == 3) && !conv_data->use_low_ro) {
+        conv_data->use_low_ro = pinfo->num;
     }
-    if (((matype1 & DVB_S2_BB_RO_MASK) == 3) && !_use_low_rolloff_value) {
-        _use_low_rolloff_value = 1;
-    }
-    if (_use_low_rolloff_value) {
+    if (conv_data->use_low_ro && pinfo->num >= conv_data->use_low_ro) {
         proto_tree_add_bitmask_with_flags(dvb_s2_bb_tree, tvb, DVB_S2_BB_OFFS_MATYPE1, hf_dvb_s2_bb_matype1,
         ett_dvb_s2_bb_matype1, bb_header_bitfields_low_ro, ENC_BIG_ENDIAN, BMT_NO_FLAGS);
     } else {
@@ -1596,8 +1618,6 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
      * create a virtual ISI.
      */
 
-    conv = find_conversation_pinfo(pinfo, 0);
-
     /* UDP and RTP both always create conversations. If we later have
      * support for DVB Base Band Frames as the link-layer of a capture file,
      * we'll need to handle it differently. In that case just use the
@@ -1608,7 +1628,7 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     if (conv) {
         virtual_id = virtual_stream_lookup(conv, isi);
         /* DVB Base Band streams are unidirectional. Differentiate by direction
-         * for the unlikely case of two streams between the same endpoints in
+         * for the unlikely case of two streams between the same endpointss in
          * the opposite direction.
          */
         if (addresses_equal(&pinfo->src, conversation_key_addr1(conv->key_ptr))) {
@@ -1621,19 +1641,20 @@ static int dissect_dvb_s2_bb(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         virtual_id = isi;
         pinfo->p2p_dir = P2P_DIR_SENT;
     }
-    subcircuit = find_conversation_by_id(pinfo->num, ENDPOINT_DVBBBF, virtual_id);
+    subcircuit = find_conversation_by_id(pinfo->num, CONVERSATION_DVBBBF, virtual_id);
     if (subcircuit == NULL) {
-        subcircuit = conversation_new_by_id(pinfo->num, ENDPOINT_DVBBBF, virtual_id);
+        subcircuit = conversation_new_by_id(pinfo->num, CONVERSATION_DVBBBF, virtual_id);
     }
 
-    /* conversation_create_endpoint() could be useful for the subdissectors
+    /* conversation_set_conv_addr_port_endpoints() could be useful for the subdissectors
      * this calls (whether GSE or TS, and replace passing the packet data
      * below), but it could cause problems when the subdissectors of those
      * subdissectors try and call find_or_create_conversation().
-     * pinfo->use_endpoint doesn't affect reassembly tables in the default
-     * reassembly functions, either. So maybe the eventual approach is
-     * to create an endpoint but set pinfo->use_endpoint back to FALSE, and
-     * also make the GSE and MP2T dissectors more (DVB BBF) endpoint aware,
+     * pinfo->use_conv_addr_port_endpoints doesn't affect reassembly tables
+     * in the default reassembly functions, either. So maybe the eventual
+     * approach is to create a conversation key but set
+     * pinfo->use_conv_addr_port_endpoints back to FALSE, and also make the
+     * GSE and MP2T dissectors more (DVB BBF) conversation key aware,
      * including in their reassembly functions.
      */
 
@@ -2524,7 +2545,7 @@ void proto_register_dvb_s2_modeadapt(void)
     expert_dvb_s2_gse = expert_register_protocol(proto_dvb_s2_gse);
     expert_register_field_array(expert_dvb_s2_gse, ei_gse, array_length(ei_gse));
 
-    dvb_s2_modeadapt_module = prefs_register_protocol(proto_dvb_s2_modeadapt, proto_reg_handoff_dvb_s2_modeadapt);
+    dvb_s2_modeadapt_module = prefs_register_protocol(proto_dvb_s2_modeadapt, NULL);
 
     prefs_register_obsolete_preference(dvb_s2_modeadapt_module, "enable");
 
@@ -2550,11 +2571,7 @@ void proto_register_dvb_s2_modeadapt(void)
         " Frames with the preferred type",
         &dvb_s2_try_all_modeadapt);
 
-    prefs_register_range_preference(dvb_s2_modeadapt_module, "dynamic.payload.type",
-                            "DVB-S2 RTP dynamic payload types",
-                            "RTP Dynamic payload types which will be interpreted as DVB-S2"
-                            "; values must be in the range 1 - 127",
-                            &temp_dynamic_payload_type_range, 127);
+    prefs_register_obsolete_preference(dvb_s2_modeadapt_module, "dynamic.payload.type");
 
     register_init_routine(dvb_s2_gse_defragment_init);
     register_init_routine(&virtual_stream_init);
@@ -2566,30 +2583,17 @@ void proto_register_dvb_s2_modeadapt(void)
 
 void proto_reg_handoff_dvb_s2_modeadapt(void)
 {
-    static range_t  *dynamic_payload_type_range = NULL;
-    static gboolean prefs_initialized = FALSE;
+    heur_dissector_add("udp", dissect_dvb_s2_modeadapt_heur, "DVB-S2 over UDP", "dvb_s2_udp", proto_dvb_s2_modeadapt, HEURISTIC_DISABLE);
+    dissector_add_for_decode_as("udp.port", dvb_s2_modeadapt_handle);
+    ip_handle   = find_dissector_add_dependency("ip", proto_dvb_s2_bb);
+    ipv6_handle = find_dissector_add_dependency("ipv6", proto_dvb_s2_bb);
+    dvb_s2_table_handle = find_dissector("dvb-s2_table");
+    eth_withoutfcs_handle = find_dissector("eth_withoutfcs");
+    data_handle = find_dissector("data");
+    mp2t_handle = find_dissector_add_dependency("mp2t", proto_dvb_s2_bb);
 
-    if (!prefs_initialized) {
-        heur_dissector_add("udp", dissect_dvb_s2_modeadapt_heur, "DVB-S2 over UDP", "dvb_s2_udp", proto_dvb_s2_modeadapt, HEURISTIC_DISABLE);
-        dissector_add_for_decode_as("udp.port", dvb_s2_modeadapt_handle);
-        ip_handle   = find_dissector_add_dependency("ip", proto_dvb_s2_bb);
-        ipv6_handle = find_dissector_add_dependency("ipv6", proto_dvb_s2_bb);
-        dvb_s2_table_handle = find_dissector("dvb-s2_table");
-        eth_withoutfcs_handle = find_dissector("eth_withoutfcs");
-        data_handle = find_dissector("data");
-        mp2t_handle = find_dissector_add_dependency("mp2t", proto_dvb_s2_bb);
-
-        dissector_add_string("rtp_dyn_payload_type","DVB-S2", dvb_s2_modeadapt_handle);
-
-        prefs_initialized = TRUE;
-    } else {
-        dissector_delete_uint_range("rtp.pt", dynamic_payload_type_range, dvb_s2_modeadapt_handle);
-        wmem_free(wmem_epan_scope(), dynamic_payload_type_range);
-    }
-
-    dynamic_payload_type_range = range_copy(wmem_epan_scope(), temp_dynamic_payload_type_range);
-    range_remove_value(wmem_epan_scope(), &dynamic_payload_type_range, 0);
-    dissector_add_uint_range("rtp.pt", dynamic_payload_type_range, dvb_s2_modeadapt_handle);
+    dissector_add_string("rtp_dyn_payload_type","DVB-S2", dvb_s2_modeadapt_handle);
+    dissector_add_uint_range_with_preference("rtp.pt", "", dvb_s2_modeadapt_handle);
 }
 
 /*

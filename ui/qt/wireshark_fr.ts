@@ -28,8 +28,8 @@
         <translation>Copier les informations de version dans le presse-papier</translation>
     </message>
     <message>
-        <source>Copy To Clipboard</source>
-        <translation>Copier dans le Presse-papiers</translation>
+        <source>Copy to Clipboard</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Authors</source>
@@ -1737,6 +1737,14 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
         <translation>Occurrence :</translation>
     </message>
     <message>
+        <source>Resolve Names:</source>
+        <translation>Résoudre les noms&#xa0;:</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;p&gt;Afficher des chaînes lisibles par l&apos;homme au lieu de valeurs brutes pour les champs. Applicable uniquement aux colonnes personnalisées avec des champs contenant des chaînes de valeur.&lt;/body&gt;</translation>
+    </message>
+    <message>
         <source>Missing fields.</source>
         <translation>Champs manquants.</translation>
     </message>
@@ -1770,6 +1778,14 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     <message>
         <source>Field Occurrence</source>
         <translation>Occurrence d&apos;un champ</translation>
+    </message>
+    <message>
+        <source>Resolved</source>
+        <translation>Résolu</translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;Show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings.&lt;/html&gt;</source>
+        <translation>&lt;html&gt;Afficher des chaînes lisibles par l&apos;homme au lieu de valeurs brutes pour les champs. Applicable uniquement aux colonnes personnalisées avec des champs contenant des chaînes de valeur.</translation>
     </message>
     <message>
         <source>New Column</source>
@@ -1842,7 +1858,7 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     </message>
     <message>
         <source>Stream ID</source>
-        <translation type="unfinished"></translation>
+        <translation>ID de flux</translation>
     </message>
     <message>
         <source>Packets A </source>
@@ -1853,12 +1869,12 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
         <translation>Octets A</translation>
     </message>
     <message>
-        <source>Bytes B </source>
+        <source>Packets B </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Packets B </source>
-        <translation type="vanished">Paquets B</translation>
+        <source>Bytes B </source>
+        <translation>Octets B</translation>
     </message>
     <message>
         <source>Abs Start</source>
@@ -2009,6 +2025,14 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     <message>
         <source>Copy packet bytes as a stream of hex.</source>
         <translation>Copier les octets du paquet sous forme de flux Hex.</translation>
+    </message>
+    <message>
+        <source>…as a Base64 String</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy packet bytes as a base64 encoded string.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>…as Raw Binary</source>
@@ -2172,7 +2196,7 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     </message>
     <message>
         <source>Invalid filter: </source>
-        <translation>Filtre invalide : </translation>
+        <translation type="unfinished">Filtre invalide : </translation>
     </message>
     <message>
         <source>Save this filter</source>
@@ -2222,6 +2246,22 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     <message>
         <source>Relation</source>
         <translation>Relation</translation>
+    </message>
+    <message>
+        <source>By default order comparisons and contains/matches/in relations are true if any value matches. The quantifier &quot;all&quot; can be used to apply the test to all values in a frame.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Quantifier</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Any</source>
+        <translation type="unfinished">Tout</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation type="unfinished">Tout</translation>
     </message>
     <message>
         <source>Match against this value.</source>
@@ -2294,8 +2334,8 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
         <translation>Chaine de Caractères</translation>
     </message>
     <message>
-        <source>Dissector</source>
-        <translation>Dissecteur</translation>
+        <source>Dissector Description</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Integer</source>
@@ -3383,10 +3423,6 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
             <numerusform>ID de flux QUIC maximum pour la connexion sélectionné : %Ln</numerusform>
             <numerusform>ID de flux QUIC maximum pour la connexion sélectionné : %Ln</numerusform>
         </translation>
-    </message>
-    <message>
-        <source>No streams</source>
-        <translation>Aucun flux</translation>
     </message>
     <message>
         <source>Entire conversation (%1)</source>
@@ -10911,6 +10947,10 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
         <translation>Chiffres Hex</translation>
     </message>
     <message>
+        <source>Percent-Encoding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Quoted-Printable</source>
         <translation>Quoted-Printable</translation>
     </message>
@@ -10945,11 +10985,6 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
     <message>
         <source>Image</source>
         <translation>Image</translation>
-    </message>
-    <message>
-        <source>JSON</source>
-        <oldsource>Json</oldsource>
-        <translation type="unfinished">Json</translation>
     </message>
     <message>
         <source>Raw</source>
@@ -10989,6 +11024,10 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
             <numerusform>Affichage de %Ln octet.</numerusform>
             <numerusform>Affichage de %Ln octets.</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>JSON</source>
+        <translation>JSON</translation>
     </message>
     <message>
         <source>Regex Find:</source>
@@ -11128,6 +11167,10 @@ Pas exemple, inquiquez 1 heure pour avoir un nouveau fichier créé toutes les h
 </context>
 <context>
     <name>SyntaxLineEdit</name>
+    <message>
+        <source>Invalid filter: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>&quot;%1&quot; is deprecated in favour of &quot;%2&quot;. See Help section 6.4.8 for details.</source>
         <translation>&quot;%1&quot; est obsolète au profit de &quot;%2&quot;. Voir la section Aide 6.4.8 pour plus de détails.</translation>
@@ -11882,6 +11925,14 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
         <translation>Limiter au Filtre d&apos;Affichage</translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Only show types matching the filter value&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Afficher uniquement les types correspondant à la valeur du filtre&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
+    </message>
+    <message>
+        <source>Filter list for specific type</source>
+        <translation>Filtrer la liste pour un type spécifique</translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Show absolute times in the start time column.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Afficher les heures absolues dans la colonne de l&apos;heure de début.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -11910,7 +11961,7 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>Filter on stream id</source>
-        <translation type="unfinished"></translation>
+        <translation>Filtrer sur l&apos;ID de flux</translation>
     </message>
     <message>
         <source>Copy %1 table</source>
@@ -11934,19 +11985,11 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     </message>
     <message>
         <source>as JSON</source>
-        <translation type="unfinished"></translation>
+        <translation>comme JSON</translation>
     </message>
     <message>
         <source>Copy all values of this page to the clipboard in the JSON data serialization format.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>as Json</source>
-        <translation type="vanished">comme Json</translation>
-    </message>
-    <message>
-        <source>Copy all values of this page to the clipboard in the Json data serialization format.</source>
-        <translation type="vanished">Copier toutes les valeurs de cette page dans le presse-papiers au format de sérialisation des données Json.</translation>
+        <translation>Copier toutes les valeurs de cette page dans le presse-papiers au format de sérialisation des données JSON.</translation>
     </message>
     <message>
         <source>Save data as raw</source>
@@ -11955,6 +11998,33 @@ Changer la direction de la connexion (voir le flux inverse).&lt;/p&gt;&lt;/body&
     <message>
         <source>Disable data formatting for export/clipboard and save as raw data</source>
         <translation>Désactiver le formatage des données pour l&apos;exportation/le presse-papiers et enregistrer en tant que données brutes</translation>
+    </message>
+</context>
+<context>
+    <name>TrafficTreeHeaderView</name>
+    <message>
+        <source>Less than</source>
+        <translation>Moins que</translation>
+    </message>
+    <message>
+        <source>Greater than</source>
+        <translation>Plus grand que</translation>
+    </message>
+    <message>
+        <source>Equal</source>
+        <translation>Égal</translation>
+    </message>
+    <message>
+        <source>Columns to display</source>
+        <translation>Colonnes à afficher</translation>
+    </message>
+    <message>
+        <source>Filter %1 by</source>
+        <translation>Filtrer %1 par</translation>
+    </message>
+    <message>
+        <source>Enter filter value</source>
+        <translation>Entrer la valeur du filtre</translation>
     </message>
 </context>
 <context>
@@ -12310,39 +12380,17 @@ a:hover {
 
 &lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Mailing Lists&lt;/a&gt;&lt;/th&gt;
 
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://sharkfest.wireshark.org/&quot;&gt;SharkFest&lt;/a&gt;&lt;/th&gt;
+
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://discord.com/invite/ts9GZCjGj5&quot;&gt;Wireshark Discord&lt;/a&gt;&lt;/th&gt;
+
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</source>
-        <translation>&lt;html&gt;&lt;head&gt;
-&lt;style&gt;
-a:link {
-  color: palette(text);
-  text-decoration: none;
-}
-a:hover {
-  color: palette(text);
-  text-decoration: underline;
-}
-&lt;/style&gt;
-&lt;/head&gt;
-&lt;body&gt;
-
-&lt;table&gt;&lt;tr&gt;
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/docs/wsug_html_chunked/&quot;&gt;Guide Utilisateur&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://gitlab.com/wireshark/wireshark/-/wikis/&quot;&gt;Wiki&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://ask.wireshark.org/&quot;&gt;Questions et Réponses&lt;/a&gt;&lt;/th&gt;
-
-&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
-
-&lt;th&gt;&lt;a href=&quot;https://www.wireshark.org/lists/&quot;&gt;Listes de diffusion&lt;/a&gt;&lt;/th&gt;
-
-&lt;/tr&gt;&lt;/table&gt;
-&lt;/body&gt;&lt;/html&gt;</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Show in Finder</source>

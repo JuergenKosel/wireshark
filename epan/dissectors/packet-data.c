@@ -45,6 +45,7 @@ static int
 dissect_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	gint bytes;
+	char *display_str;
 
 	if (tree) {
 		bytes = tvb_captured_length(tvb);
@@ -82,13 +83,17 @@ dissect_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 			}
 
 			if (show_as_text) {
+				tvbuff_t *text_tvb;
+				int text_length;
 				if (uncompr_tvb && uncompr_len > 0) {
-					proto_tree_add_item(data_tree, hf_data_text, uncompr_tvb, 0, uncompr_len, ENC_ASCII);
-					col_add_fstr(pinfo->cinfo, COL_INFO, "%s", tvb_format_text_wsp(pinfo->pool, uncompr_tvb, 0, uncompr_len));
+					text_tvb = uncompr_tvb;
+					text_length = uncompr_len;
 				} else {
-					proto_tree_add_item(data_tree, hf_data_text, data_tvb, 0, bytes, ENC_ASCII);
-					col_add_fstr(pinfo->cinfo, COL_INFO, "%s", tvb_format_text_wsp(pinfo->pool, data_tvb, 0, bytes));
+					text_tvb = data_tvb;
+					text_length = bytes;
 				}
+				proto_tree_add_item_ret_display_string(data_tree, hf_data_text, text_tvb, 0, text_length, ENC_ASCII, pinfo->pool, &display_str);
+				col_add_str(pinfo->cinfo, COL_INFO, display_str);
 			}
 
 			if(generate_md5_hash) {
@@ -195,12 +200,25 @@ proto_register_data(void)
 	proto_set_cant_toggle(proto_data);
 }
 
+static void
+add_foreach_decode_as(const gchar *table_name, const gchar *ui_name _U_, gpointer user_data)
+{
+        dissector_handle_t handle = (dissector_handle_t) user_data;
+        dissector_table_t dissector_table = find_dissector_table(table_name);
+
+
+        if (dissector_table_supports_decode_as(dissector_table))
+                dissector_add_for_decode_as(table_name, handle);
+}
+
 void
 proto_reg_handoff_data(void)
 {
 	dissector_add_string("media_type", "application/octet-stream", data_handle);
 	ssl_dissector_add(0, data_handle);
 	dtls_dissector_add(0, data_handle);
+
+	dissector_all_tables_foreach_table(add_foreach_decode_as, (gpointer)data_handle, NULL);
 }
 
 /*

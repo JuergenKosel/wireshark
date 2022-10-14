@@ -73,30 +73,6 @@ df_func_upper(GSList *args, guint32 arg_count, GSList **retval)
     return string_walk(args, arg_count, retval, g_ascii_toupper);
 }
 
-/* dfilter function: len() */
-static gboolean
-df_func_len(GSList *args, guint32 arg_count, GSList **retval)
-{
-    GSList      *arg1;
-    fvalue_t    *arg_fvalue;
-    fvalue_t    *ft_len;
-
-    ws_assert(arg_count == 1);
-    arg1 = args->data;
-    if (arg1 == NULL)
-        return FALSE;
-
-    while (arg1) {
-        arg_fvalue = (fvalue_t *)arg1->data;
-        ft_len = fvalue_new(FT_UINT32);
-        fvalue_set_uinteger(ft_len, fvalue_length(arg_fvalue));
-        *retval = g_slist_prepend(*retval, ft_len);
-        arg1 = arg1->next;
-    }
-
-    return TRUE;
-}
-
 /* dfilter function: count() */
 static gboolean
 df_func_count(GSList *args, guint32 arg_count, GSList **retval)
@@ -274,8 +250,6 @@ ul_semcheck_is_field_string(dfwork_t *dfw, const char *func_name, ftenum_t lhs_f
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *st_node = param_list->data;
 
-    dfw_resolve_unparsed(dfw, st_node);
-
     if (stnode_type_id(st_node) == STTYPE_FIELD) {
         hfinfo = sttype_field_hfinfo(st_node);
         if (IS_FT_STRING(hfinfo->type)) {
@@ -292,8 +266,6 @@ ul_semcheck_is_field(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype _U
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *st_node = param_list->data;
 
-    dfw_resolve_unparsed(dfw, st_node);
-
     if (stnode_type_id(st_node) == STTYPE_FIELD)
         return FT_UINT32;
 
@@ -308,8 +280,6 @@ ul_semcheck_string_param(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftyp
 
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *st_node = param_list->data;
-
-    dfw_resolve_unparsed(dfw, st_node);
 
     if (stnode_type_id(st_node) == STTYPE_FIELD) {
         hfinfo = sttype_field_hfinfo(st_node);
@@ -366,7 +336,6 @@ ul_semcheck_compare(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype,
     fvalue_t *fv;
 
     arg = param_list->data;
-    dfw_resolve_unparsed(dfw, arg);
 
     if (stnode_type_id(arg) == STTYPE_ARITHMETIC) {
         ftype = check_arithmetic_expr(dfw, arg, lhs_ftype);
@@ -390,7 +359,6 @@ ul_semcheck_compare(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype,
 
     for (l = param_list->next; l != NULL; l = l->next) {
         arg = l->data;
-        dfw_resolve_unparsed(dfw, arg);
 
         if (stnode_type_id(arg) == STTYPE_ARITHMETIC) {
             ft_arg = check_arithmetic_expr(dfw, arg, ftype);
@@ -436,21 +404,29 @@ ul_semcheck_absolute_value(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ft
     fvalue_t *fv;
 
     st_node = param_list->data;
-    dfw_resolve_unparsed(dfw, st_node);
 
     if (stnode_type_id(st_node) == STTYPE_ARITHMETIC) {
         ftype = check_arithmetic_expr(dfw, st_node, lhs_ftype);
     }
-    else if (stnode_type_id(st_node) == STTYPE_LITERAL && lhs_ftype != FT_NONE) {
-        fv = dfilter_fvalue_from_literal(dfw, lhs_ftype, st_node, FALSE, NULL);
-        stnode_replace(st_node, STTYPE_FVALUE, fv);
-        ftype = fvalue_type_ftenum(fv);
+    else if (stnode_type_id(st_node) == STTYPE_LITERAL) {
+        if (lhs_ftype != FT_NONE) {
+            /* Convert RHS literal to the same ftype as LHS. */
+            fv = dfilter_fvalue_from_literal(dfw, lhs_ftype, st_node, FALSE, NULL);
+            stnode_replace(st_node, STTYPE_FVALUE, fv);
+            ftype = fvalue_type_ftenum(fv);
+        }
+        else {
+            FAIL(dfw, st_node, "Need a field or field-like value on the LHS.");
+        }
     }
     else if (stnode_type_id(st_node) == STTYPE_FUNCTION) {
         ftype = check_function(dfw, st_node, lhs_ftype);
     }
-    else {
+    else if (stnode_type_id(st_node) == STTYPE_FIELD) {
         ftype = sttype_field_ftenum(st_node);
+    }
+    else {
+        ftype = FT_NONE;
     }
 
     if (ftype == FT_NONE) {
@@ -469,7 +445,8 @@ static df_func_def_t
 df_functions[] = {
     { "lower",  df_func_lower,  1, 1, ul_semcheck_is_field_string },
     { "upper",  df_func_upper,  1, 1, ul_semcheck_is_field_string },
-    { "len",    df_func_len,    1, 1, ul_semcheck_is_field },
+    /* Length function is implemented as a DFVM instruction. */
+    { "len",    NULL,           1, 1, ul_semcheck_is_field },
     { "count",  df_func_count,  1, 1, ul_semcheck_is_field },
     { "string", df_func_string, 1, 1, ul_semcheck_string_param },
     { "max",    df_func_max,    1, 0, ul_semcheck_compare },
@@ -485,7 +462,7 @@ df_func_lookup(const char *name)
     df_func_def_t *func_def;
 
     func_def = df_functions;
-    while (func_def->function != NULL) {
+    while (func_def->name != NULL) {
         if (strcmp(func_def->name, name) == 0) {
             return func_def;
         }

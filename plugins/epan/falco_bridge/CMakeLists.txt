@@ -38,7 +38,7 @@ register_plugin_files(plugin.c
 	${DISSECTOR_SRC}
 )
 
-add_logwolf_plugin_library(falco-bridge epan)
+add_logray_plugin_library(falco-bridge epan)
 
 # XXX Hacks; need to fix in falcosecurity-libs.
 target_compile_definitions(falco-bridge PRIVATE
@@ -52,7 +52,7 @@ target_include_directories(falco-bridge SYSTEM PRIVATE
 
 target_link_libraries(falco-bridge
 	epan
-	${SINSP_LIBRARIES}
+	${SINSP_LINK_LIBRARIES}
 )
 
 install_plugin(falco-bridge epan)

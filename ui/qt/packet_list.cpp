@@ -18,7 +18,6 @@
 #include <epan/epan.h>
 #include <epan/epan_dissect.h>
 
-#include <epan/column-info.h>
 #include <epan/column.h>
 #include <epan/expert.h>
 #include <epan/ipproto.h>
@@ -32,6 +31,7 @@
 #include "ui/recent.h"
 #include "ui/recent_utils.h"
 #include "ui/ws_ui_util.h"
+#include "ui/simple_dialog.h"
 #include <wsutil/utf8_entities.h>
 #include "ui/util.h"
 
@@ -612,6 +612,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
             new FrameInformation(new CaptureFile(this, cap_file_), packet_list_model_->getRowFdata(ctxIndex.row()));
 
     QMenu * ctx_menu = new QMenu(this);
+    ctx_menu->setAttribute(Qt::WA_DeleteOnClose);
     // XXX We might want to reimplement setParent() and fill in the context
     // menu there.
     ctx_menu->addAction(window()->findChild<QAction *>("actionEditMarkPacket"));
@@ -712,7 +713,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     else
         emit framesSelected(QList<int>());
 
-    ctx_menu->exec(event->globalPos());
+    ctx_menu->popup(event->globalPos());
 }
 
 void PacketList::ctxDecodeAsDialog()
@@ -880,7 +881,19 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
 
 void PacketList::keyPressEvent(QKeyEvent *event)
 {
-    QTreeView::keyPressEvent(event);
+    bool handled = false;
+    if (event->key() == Qt::Key_Down || event->key() == Qt::Key_Up) {
+        if (currentIndex().isValid() && currentIndex().column() > 0) {
+            int pos = horizontalScrollBar()->value();
+            QTreeView::keyPressEvent(event);
+            horizontalScrollBar()->setValue(pos);
+            handled = true;
+        }
+    }
+
+    if (!handled)
+        QTreeView::keyPressEvent(event);
+
     if (event->matches(QKeySequence::Copy))
     {
         QStringList content;
@@ -1402,6 +1415,18 @@ void PacketList::addPacketComment(QString new_comment)
 
         wtap_block_t pkt_block = cf_get_packet_block(cap_file_, fdata);
 
+        /*
+         * Make sure this would fit in a pcapng option.
+         *
+         * XXX - 65535 is the maximum size for an option in pcapng;
+         * what if another capture file format supports larger
+         * comments?
+         */
+        if (ba.size() > 65535) {
+            simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
+                          "That comment is too large to save in a capture file.");
+            return;
+        }
         wtap_block_add_string_option(pkt_block, OPT_COMMENT, ba.data(), ba.size());
 
         cf_set_modified_block(cap_file_, fdata, pkt_block);
@@ -1428,6 +1453,18 @@ void PacketList::setPacketComment(guint c_number, QString new_comment)
         wtap_block_remove_nth_option_instance(pkt_block, OPT_COMMENT, c_number);
     } else {
         QByteArray ba = new_comment.toLocal8Bit();
+        /*
+         * Make sure this would fit in a pcapng option.
+         *
+         * XXX - 65535 is the maximum size for an option in pcapng;
+         * what if another capture file format supports larger
+         * comments?
+         */
+        if (ba.size() > 65535) {
+            simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK,
+                          "That comment is too large to save in a capture file.");
+            return;
+        }
         wtap_block_set_nth_string_option_value(pkt_block, OPT_COMMENT, c_number, ba.data(), ba.size());
     }
 

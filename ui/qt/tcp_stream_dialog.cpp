@@ -131,6 +131,8 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     if (parent) loadGeometry(parent->width() * 2 / 3, parent->height() * 4 / 5);
     setAttribute(Qt::WA_DeleteOnClose, true);
 
+    ui->streamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
+
     guint32 th_stream = select_tcpip_session(cap_file_);
     if (th_stream == G_MAXUINT32) {
         done(QDialog::Rejected);
@@ -1664,9 +1666,9 @@ void TCPStreamDialog::graphClicked(QMouseEvent *event)
         // XXX We should find some way to get streamPlot to handle a
         // contextMenuEvent instead.
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-        ctx_menu_.exec(event->globalPosition().toPoint());
+        ctx_menu_.popup(event->globalPosition().toPoint());
 #else
-        ctx_menu_.exec(event->globalPos());
+        ctx_menu_.popup(event->globalPos());
 #endif
     } else  if (mouse_drags_) {
         if (sp->axisRect()->rect().contains(event->pos())) {

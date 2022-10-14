@@ -133,6 +133,8 @@
 #include <epan/to_str.h>
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
+#include <epan/conversation.h>
+#include <epan/proto_data.h>
 #include <wsutil/str_util.h>
 #include "packet-tcp.h"
 #include "packet-udp.h"
@@ -140,6 +142,8 @@
 
 void proto_register_netflow(void);
 void proto_reg_handoff_netflow(void);
+
+static int dissect_tcp_netflow(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
 
 #if 0
 #define ipfix_debug(...) ws_warning(__VA_ARGS__)
@@ -1688,6 +1692,11 @@ static const value_string v10_template_types_ixia[] = {
     {  281, "TCP Application Response Time (us)"},
     {  282, "TCP Count of Retransmitted Packets"},
     {  283, "Connection Average Round Trip Time (us)"},
+    {  284, "UDP Average Response Time (us)"},
+    {  285, "Time to complete a QUIC Handshake (us)"},
+    {  286, "QUIC Network RTT (us)"},
+    {  287, "QUIC RTT for Application Packets (us)"},
+    {  288, "The Name of the Matched Filter"},
     { 0, NULL }
 };
 static value_string_ext v10_template_types_ixia_ext = VALUE_STRING_EXT_INIT(v10_template_types_ixia);
@@ -3476,6 +3485,7 @@ static int      hf_pie_ixia_udpAppResponseTime          = -1;
 static int      hf_pie_ixia_quicConnSetupTime           = -1;
 static int      hf_pie_ixia_quicConnRTT                 = -1;
 static int      hf_pie_ixia_quicAppResponseTime         = -1;
+static int      hf_pie_ixia_matchedFilterName           = -1;
 
 static int      hf_pie_netscaler                                         = -1;
 static int      hf_pie_netscaler_roundtriptime                           = -1;
@@ -4069,17 +4079,24 @@ typedef struct netflow_domain_state_t {
     guint32 current_frame_number;
 } netflow_domain_state_t;
 
-static wmem_map_t *netflow_sequence_analysis_domain_hash = NULL;
-
-/* Frame number -> domain state */
-static wmem_map_t *netflow_sequence_analysis_result_hash = NULL;
-
 /* On first pass, check ongoing sequence of observation domain, and only store a result
    if the sequence number is not as expected */
 static void store_sequence_analysis_info(guint32 domain_id, guint32 seqnum, unsigned int version, guint32 new_flows,
                                          packet_info *pinfo)
 {
     /* Find current domain info */
+    /* XXX: "Each SCTP Stream counts sequence numbers separately," but
+     * SCTP conversations are per association. This is correct for TCP
+     * connections and UDP sessions, though.
+     */
+    conversation_t *conv = find_conversation_pinfo(pinfo, 0);
+    if (conv == NULL) {
+        return;
+    }
+    wmem_map_t *netflow_sequence_analysis_domain_hash = conversation_get_proto_data(conv, proto_netflow);
+    if (netflow_sequence_analysis_domain_hash == NULL) {
+        return;
+    }
     netflow_domain_state_t *domain_state = (netflow_domain_state_t *)wmem_map_lookup(netflow_sequence_analysis_domain_hash,
                                                                                          GUINT_TO_POINTER(domain_id));
     if (domain_state == NULL) {
@@ -4098,7 +4115,7 @@ static void store_sequence_analysis_info(guint32 domain_id, guint32 seqnum, unsi
         *result_state = *domain_state;
 
         /* Add into result table for current frame number */
-        wmem_map_insert(netflow_sequence_analysis_result_hash, GUINT_TO_POINTER(pinfo->num), result_state);
+        p_add_proto_data(wmem_file_scope(), pinfo, proto_netflow, 0, result_state);
     }
 
     /* Update domain info for the next frame to consult.
@@ -4114,8 +4131,7 @@ static void show_sequence_analysis_info(guint32 domain_id, guint32 seqnum,
                                         proto_item *flow_sequence_ti, proto_tree *tree)
 {
     /* Look for info stored for this frame */
-    netflow_domain_state_t *state = (netflow_domain_state_t *)wmem_map_lookup(netflow_sequence_analysis_result_hash,
-                                                                                  GUINT_TO_POINTER(pinfo->num));
+    netflow_domain_state_t *state = (netflow_domain_state_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_netflow, 0);
     if (state != NULL) {
         proto_item *ti;
 
@@ -10756,6 +10772,10 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             ti = proto_tree_add_item(pdutree, hf_pie_ixia_quicAppResponseTime,
                                      tvb, offset, length, ENC_BIG_ENDIAN);
             break;
+	case ((VENDOR_IXIA << 16) | 288):
+	    ti = proto_tree_add_item(pdutree, hf_pie_ixia_matchedFilterName,
+			              tvb, offset, length, ENC_ASCII);
+	    break;
             /* END Ixia Communications */
 
             /* START Netscaler Communications */
@@ -12586,6 +12606,14 @@ dissect_v9_v10_data_template(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdut
                              hdrinfo_t *hdrinfo_p, guint16 flowset_id _U_)
 {
     int remaining;
+
+    conversation_t *conv = find_or_create_conversation(pinfo);
+    wmem_map_t *netflow_sequence_analysis_domain_hash = (wmem_map_t *)conversation_get_proto_data(conv, proto_netflow);
+    if (netflow_sequence_analysis_domain_hash == NULL) {
+        netflow_sequence_analysis_domain_hash = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
+        conversation_add_proto_data(conv, proto_netflow, netflow_sequence_analysis_domain_hash);
+    }
+
     proto_item_append_text(pdutree, " (Data Template): ");
     col_append_fstr(pinfo->cinfo, COL_INFO, " [Data-Template:");
 
@@ -13326,7 +13354,7 @@ proto_register_netflow(void)
         {&hf_cflow_ipv4_router_sc,
          {"ipv4RouterSc", "cflow.ipv4_router_sc",
           FT_IPv4, BASE_NONE, NULL, 0x0,
-          "ipv4 Router Shortcur", HFILL}
+          "ipv4 Router Shortcut", HFILL}
         },
         {&hf_cflow_srcprefix,
          {"SrcPrefix", "cflow.srcprefix",
@@ -18874,28 +18902,35 @@ proto_register_netflow(void)
         {&hf_pie_ixia_udpAppResponseTime,
          {"UDP Average Application Response Time (us)", "cflow.pie.ixia.udpAppResponseTime",
          FT_UINT32, BASE_DEC, NULL, 0x0,
-         NULL, HFILL}
+         "Average UDP Application Response Time (us)", HFILL}
         },
 
         /* ixia, 3054 / 285 */
         {&hf_pie_ixia_quicConnSetupTime,
          {"Time to complete a QUIC Handshake (us)", "cflow.pie.ixia.quicConnectionSetupTime",
          FT_UINT32, BASE_DEC, NULL, 0x0,
-         NULL, HFILL}
+         "QUIC Handshake Completion Time", HFILL}
         },
 
         /* ixia, 3054 / 286 */
         {&hf_pie_ixia_quicConnRTT,
          {"QUIC Network RTT (us)", "cflow.pie.ixia.quicConnectionRTT",
          FT_UINT32, BASE_DEC, NULL, 0x0,
-         NULL, HFILL}
+         "QUIC Network Round Trip Time", HFILL}
         },
 
         /* ixia, 3054 / 287 */
         {&hf_pie_ixia_quicAppResponseTime,
          {"QUIC RTT for application packets (us)", "cflow.pie.ixia.quicAppResponseTime",
          FT_UINT32, BASE_DEC, NULL, 0x0,
-         NULL, HFILL}
+         "QUIC Round Trip Time for Application Packets", HFILL}
+        },
+
+        /* ixia, 3054 / 288 */
+        {&hf_pie_ixia_matchedFilterName,
+         {"Matched Filter Name", "cflow.pie.ixia.matchedFilterName",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          "The Name of the Matched Filter", HFILL}
         },
 
         /* Netscaler root (a hidden item to allow filtering) */
@@ -20909,6 +20944,8 @@ proto_register_netflow(void)
     expert_module_t* expert_netflow;
 
     proto_netflow = proto_register_protocol("Cisco NetFlow/IPFIX", "CFLOW", "cflow");
+    netflow_handle = register_dissector("netflow", dissect_netflow, proto_netflow);
+    netflow_tcp_handle = register_dissector("netflow_tcp", dissect_tcp_netflow, proto_netflow);
 
     register_dissector("cflow", dissect_netflow, proto_netflow);
 
@@ -20948,8 +20985,6 @@ proto_register_netflow(void)
     prefs_register_bool_preference(netflow_module, "desegment", "Reassemble Netflow v10 messages spanning multiple TCP segments.", "Whether the Netflow/Ipfix dissector should reassemble messages spanning multiple TCP segments.  To use this option, you must also enable \"Allow subdissectors to reassemble TCP streams\" in the TCP protocol settings.", &netflow_preference_desegment);
 
     v9_v10_tmplt_table = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), v9_v10_tmplt_table_hash, v9_v10_tmplt_table_equal);
-    netflow_sequence_analysis_domain_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
-    netflow_sequence_analysis_result_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);
 }
 
 static guint
@@ -21004,12 +21039,10 @@ proto_reg_handoff_netflow(void)
     static range_t  *netflow_ports;
     static range_t  *ipfix_ports;
 
-    /* Find eth_handle used for IE315*/
-    eth_handle = find_dissector ("eth_withoutfcs");
-
     if (!netflow_prefs_initialized) {
-        netflow_handle = create_dissector_handle(dissect_netflow, proto_netflow);
-        netflow_tcp_handle = create_dissector_handle(dissect_tcp_netflow, proto_netflow);
+        /* Find eth_handle used for IE315*/
+        eth_handle = find_dissector ("eth_withoutfcs");
+
         netflow_prefs_initialized = TRUE;
         dissector_add_uint("wtap_encap", WTAP_ENCAP_RAW_IPFIX, netflow_handle);
         dissector_add_uint_range_with_preference("tcp.port", IPFIX_UDP_PORTS, netflow_tcp_handle);

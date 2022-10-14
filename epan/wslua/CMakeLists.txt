@@ -36,7 +36,7 @@ set(WSLUA_MODULES
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_struct.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_tree.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_tvb.c
-	${CMAKE_CURRENT_SOURCE_DIR}/wslua_util.c
+	${CMAKE_CURRENT_SOURCE_DIR}/wslua_utility.c
 	${CMAKE_CURRENT_SOURCE_DIR}/wslua_wtap.c
 )
 
@@ -88,48 +88,32 @@ add_custom_command(
 
 add_custom_command(
 	OUTPUT
-		${CMAKE_BINARY_DIR}/epan/wslua/declare_wslua.h
-		${CMAKE_BINARY_DIR}/epan/wslua/register_wslua.c
+		declare_wslua.h
+		register_wslua.c
 	COMMAND
 		${PYTHON_EXECUTABLE}
 		${CMAKE_SOURCE_DIR}/epan/wslua/make-reg.py
 		${WSLUA_MODULES}
-	WORKING_DIRECTORY
-		${CMAKE_BINARY_DIR}/epan/wslua
 	DEPENDS
 		${CMAKE_SOURCE_DIR}/epan/wslua/make-reg.py
 		${WSLUA_MODULES}
 		# ${CMAKE_CURRENT_BINARY_DIR}/taps_wslua.c
 )
 
-add_custom_command(
-	OUTPUT init.lua
-	COMMAND ${PYTHON_EXECUTABLE}
-		${CMAKE_CURRENT_SOURCE_DIR}/make-init-lua.py
-		${CMAKE_CURRENT_SOURCE_DIR}/template-init.lua
-		init.lua
-	DEPENDS
-		${CMAKE_CURRENT_SOURCE_DIR}/make-init-lua.py
-		${CMAKE_CURRENT_SOURCE_DIR}/template-init.lua
-		${CMAKE_SOURCE_DIR}/epan/ftypes/ftypes.h
-		${CMAKE_SOURCE_DIR}/wiretap/wtap.h
-		${CMAKE_SOURCE_DIR}/epan/epan.h
-		${CMAKE_SOURCE_DIR}/epan/stat_groups.h
-)
-
 add_custom_target(
-	wsluaauxiliary ALL
+	register_wslua ALL
 	DEPENDS
-		init.lua
+		declare_wslua.h
+		register_wslua.c
 )
 
-set_target_properties(wsluaauxiliary PROPERTIES FOLDER "Auxiliary")
+set_target_properties(register_wslua PROPERTIES FOLDER "Libs/epan/wslua")
 
 install(
 	FILES
 		console.lua
 		dtd_gen.lua
-		${CMAKE_CURRENT_BINARY_DIR}/init.lua
+		init.lua
 	DESTINATION
 		${CMAKE_INSTALL_DATADIR}
 )

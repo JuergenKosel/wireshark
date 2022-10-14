@@ -306,7 +306,7 @@ set(WSLUA_MODULES
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_capture_info.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_dir.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_wtap.c
-	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_util.c
+	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_utility.c
 	${CMAKE_SOURCE_DIR}/epan/wslua/wslua_struct.c
 )
 
@@ -315,13 +315,14 @@ ADD_CUSTOM_COMMAND(
 	OUTPUT
 		wsluarm
 	COMMAND ${CMAKE_COMMAND} -E make_directory wsluarm_src
-	COMMAND ${PERL_EXECUTABLE}
-		${CMAKE_CURRENT_SOURCE_DIR}/make-wsluarm.pl
+	COMMAND ${PYTHON_EXECUTABLE}
+		${CMAKE_CURRENT_SOURCE_DIR}/make-wsluarm.py
+		--output-directory wsluarm_src
 		${WSLUA_MODULES}
 	COMMAND ${CMAKE_COMMAND} -E touch
 		wsluarm
 	DEPENDS
-		${CMAKE_CURRENT_SOURCE_DIR}/make-wsluarm.pl
+		${CMAKE_CURRENT_SOURCE_DIR}/make-wsluarm.py
 		${WSLUA_MODULES}
 )
 

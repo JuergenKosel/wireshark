@@ -25,6 +25,9 @@
 #include <ui/exit_codes.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/ws_assert.h>
+#ifdef _WIN32
+#include <wsutil/console_win32.h>
+#endif
 
 #include <epan/ex-opt.h>
 #include <epan/packet.h>
@@ -36,7 +39,6 @@
 #include "capture_opts.h"
 #include "persfilepath_opt.h"
 #include "preference_utils.h"
-#include "console.h"
 #include "recent.h"
 #include "decode_as_utils.h"
 
@@ -264,6 +266,27 @@ void commandline_early_options(int argc, char *argv[])
         switch (opt) {
             case 'C':        /* Configuration Profile */
                 if (profile_exists (ws_optarg, FALSE)) {
+                    set_profile_name (ws_optarg);
+                } else if (profile_exists (ws_optarg, TRUE)) {
+                    char  *pf_dir_path, *pf_dir_path2, *pf_filename;
+                    /* Copy from global profile */
+                    if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
+                        cmdarg_err("Can't create directory\n\"%s\":\n%s.",
+                            pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_dir_path);
+                        exit(INVALID_FILE);
+                    }
+                    if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
+                            &pf_dir_path, &pf_dir_path2) == -1) {
+                        cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
+                            pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
+
+                        g_free(pf_filename);
+                        g_free(pf_dir_path);
+                        g_free(pf_dir_path2);
+                        exit(INVALID_FILE);
+                    }
                     set_profile_name (ws_optarg);
                 } else {
                     cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);

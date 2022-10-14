@@ -191,6 +191,14 @@ struct pcapng_option {
 #define OPT_VERDICT_TYPE_TC  1
 #define OPT_VERDICT_TYPE_XDP 2
 
+/* OPT_EPB_HASH sub-types */
+#define OPT_HASH_2COMP    0
+#define OPT_HASH_XOR	  1
+#define OPT_HASH_CRC32    2
+#define OPT_HASH_MD5      3
+#define OPT_HASH_SHA1     4
+#define OPT_HASH_TOEPLITZ 5
+
 /*
  * In order to keep from trying to allocate large chunks of memory,
  * which could either fail or, even if it succeeds, chew up so much
@@ -1044,12 +1052,12 @@ pcapng_process_section_header_block_option(wtapng_block_t *wblock,
      * standardized option codes in either section 3.5 "Options"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-options
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-options
      *
      * or in the list of options in section 4.1 "Section Header Block"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-section-header-block
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-section-header-block
      *
      * All option codes in this switch statement here must be listed
      * in one of those places as standardized option types.
@@ -1249,12 +1257,12 @@ pcapng_process_if_descr_block_option(wtapng_block_t *wblock,
      * standardized option codes in either section 3.5 "Options"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-options
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-options
      *
      * or in the list of options in section 4.1 "Section Header Block"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-section-header-block
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-section-header-block
      *
      * All option codes in this switch statement here must be listed
      * in one of those places as standardized option types.
@@ -1644,6 +1652,7 @@ pcapng_process_packet_block_option(wtapng_block_t *wblock,
 {
     guint64 tmp64;
     packet_verdict_opt_t packet_verdict;
+    packet_hash_opt_t packet_hash;
 
     /*
      * Handle option content.
@@ -1652,12 +1661,12 @@ pcapng_process_packet_block_option(wtapng_block_t *wblock,
      * standardized option codes in either section 3.5 "Options"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-options
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-options
      *
      * or in the list of options in section 4.3 "Enhanced Packet Block"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-enhanced-packet-block
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-enhanced-packet-block
      *
      * All option codes in this switch statement here must be listed
      * in one of those places as standardized option types.
@@ -1677,8 +1686,22 @@ pcapng_process_packet_block_option(wtapng_block_t *wblock,
                                          option_content);
             break;
         case(OPT_EPB_HASH):
-            ws_debug("epb_hash %u currently not handled - ignoring %u bytes",
-                     option_code, option_length);
+            if (option_length < 1) {
+                *err = WTAP_ERR_BAD_FILE;
+                *err_info = ws_strdup_printf("pcapng: packet block hash option length %u is < 1",
+                                            option_length);
+                /* XXX - free anything? */
+                return FALSE;
+            }
+            packet_hash.type = option_content[0];
+            packet_hash.hash_bytes =
+                g_byte_array_new_take((guint8 *)g_memdup2(&option_content[1],
+                                                          option_length - 1),
+                                      option_length - 1);
+            wtap_block_add_packet_hash_option(wblock->block, option_code, &packet_hash);
+            wtap_packet_hash_free(&packet_hash);
+            ws_debug("hash type %u, data len %u",
+                     option_content[0], option_length - 1);
             break;
         case(OPT_EPB_DROPCOUNT):
             if (option_length != 8) {
@@ -2243,12 +2266,12 @@ pcapng_process_name_resolution_block_option(wtapng_block_t *wblock,
      * standardized option codes in either section 3.5 "Options"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-options
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-options
      *
      * or in the list of options in section 4.1 "Section Header Block"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-section-header-block
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-section-header-block
      *
      * All option codes in this switch statement here must be listed
      * in one of those places as standardized option types.
@@ -2521,12 +2544,12 @@ pcapng_process_interface_statistics_block_option(wtapng_block_t *wblock,
      * standardized option codes in either section 3.5 "Options"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-options
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-options
      *
      * or in the list of options in section 4.1 "Section Header Block"
      * of the current pcapng spec, at
      *
-     *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html#name-section-header-block
+     *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html#name-section-header-block
      *
      * All option codes in this switch statement here must be listed
      * in one of those places as standardized option types.
@@ -3148,7 +3171,7 @@ pcapng_read_block(wtap *wth, FILE_T fh, pcapng_t *pn,
          */
         wblock->type = bh.block_type;
 
-        ws_debug("block_type 0x%08x", bh.block_type);
+        ws_debug("block_type BLOCK_TYPE_SHB (0x%08x)", bh.block_type);
 
         /*
          * Fill in the section_info_t passed to us for use when
@@ -3207,7 +3230,7 @@ pcapng_read_block(wtap *wth, FILE_T fh, pcapng_t *pn,
 
         wblock->type = bh.block_type;
 
-        ws_debug("block_type 0x%08x", bh.block_type);
+        ws_noisy("block_type 0x%08x", bh.block_type);
 
         /* Don't try to allocate memory for a huge number of options, as
            that might fail and, even if it succeeds, it might not leave
@@ -3225,7 +3248,7 @@ pcapng_read_block(wtap *wth, FILE_T fh, pcapng_t *pn,
          * ***DO NOT*** add any items to this table that are not
          * standardized block types in the current pcapng spec at
          *
-         *    https://pcapng.github.io/pcapng/draft-tuexen-opsawg-pcapng.html
+         *    https://pcapng.github.io/pcapng/draft-ietf-opsawg-pcapng.html
          *
          * All block types in this switch statement here must be
          * listed there as standardized block types, ideally with
@@ -3576,7 +3599,7 @@ pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
     /* read next block */
     while (1) {
         *data_offset = file_tell(wth->fh);
-        ws_debug("data_offset is %" PRId64, *data_offset);
+        ws_noisy("data_offset is %" PRId64, *data_offset);
 
         /*
          * Get the section_info_t for the current section.
@@ -3589,7 +3612,7 @@ pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
          */
         if (!pcapng_read_block(wth, wth->fh, pcapng, current_section,
                                &new_section, &wblock, err, err_info)) {
-            ws_debug("data_offset is finally %" PRId64, *data_offset);
+            ws_noisy("data_offset is finally %" PRId64, *data_offset);
             ws_debug("couldn't read packet block");
             wtap_block_unref(wblock.block);
             return FALSE;
@@ -3599,7 +3622,7 @@ pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
             /*
              * This is a block type we return to the caller to process.
              */
-            ws_debug("rec_type %u", wblock.rec->rec_type);
+            ws_noisy("rec_type %u", wblock.rec->rec_type);
             break;
         }
 
@@ -3708,7 +3731,7 @@ pcapng_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
     }
 
     /*ws_debug("Read length: %u Packet length: %u", bytes_read, rec->rec_header.packet_header.caplen);*/
-    ws_debug("data_offset is finally %" PRId64, *data_offset);
+    ws_noisy("data_offset is finally %" PRId64, *data_offset);
 
     /* Provide the section number */
     rec->presence_flags |= WTAP_HAS_SECTION_NUMBER;
@@ -3732,7 +3755,7 @@ pcapng_seek_read(wtap *wth, gint64 seek_off,
     if (file_seek(wth->random_fh, seek_off, SEEK_SET, err) < 0) {
         return FALSE;   /* Seek error */
     }
-    ws_debug("reading at offset %" PRIu64, seek_off);
+    ws_noisy("reading at offset %" PRIu64, seek_off);
 
     /*
      * Find the section_info_t for the section in which this block
@@ -3905,6 +3928,39 @@ static guint32 pcapng_compute_custom_option_size(wtap_optval_t *optval)
     size += pad;
 
     return (guint32)size;
+}
+
+static guint32 pcapng_compute_packet_hash_option_size(wtap_optval_t *optval)
+{
+    packet_hash_opt_t* hash = &optval->packet_hash;
+    guint32 size;
+    guint32 pad;
+
+    switch (hash->type) {
+    case OPT_HASH_CRC32:
+        size = 4;
+        break;
+    case OPT_HASH_MD5:
+        size = 16;
+        break;
+    case OPT_HASH_SHA1:
+        size = 20;
+        break;
+    case OPT_HASH_TOEPLITZ:
+        size = 4;
+        break;
+    default:
+        /* 2COMP and XOR size not defined in standard (yet) */
+        size = hash->hash_bytes->len;
+        break;
+    }
+    if ((size % 4)) {
+        pad = 4 - (size % 4);
+    } else {
+        pad = 0;
+    }
+    size += pad;
+    return size;
 }
 
 static guint32 pcapng_compute_packet_verdict_option_size(wtap_optval_t *optval)
@@ -4756,6 +4812,9 @@ compute_epb_option_size(wtap_block_t block _U_, guint option_id, wtap_opttype_e 
         break;
     case OPT_EPB_VERDICT:
         size = pcapng_compute_packet_verdict_option_size(optval);
+        break;
+    case OPT_EPB_HASH:
+        size = pcapng_compute_packet_hash_option_size(optval);
         break;
     default:
         /* Unknown options - size by datatype? */

@@ -16,6 +16,7 @@
  */
 
 #include <config.h>
+#define WS_LOG_DOMAIN  LOG_DOMAIN_MAIN
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1187,6 +1188,8 @@ main(int argc, char *argv[])
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
 
+    ws_noisy("Finished log init and parsing command line log arguments");
+
 #ifdef _WIN32
     create_app_running_mutex();
 #endif /* _WIN32 */
@@ -1284,6 +1287,21 @@ main(int argc, char *argv[])
 
         case LONGOPT_CAPTURE_COMMENT:
         {
+            /*
+             * Make sure this would fit in a pcapng option.
+             *
+             * XXX - 65535 is the maximum size for an option in pcapng;
+             * what if another capture file format supports larger
+             * comments?
+             */
+            if (strlen(ws_optarg) > 65535) {
+                /* It doesn't fit.  Tell the user and give up. */
+                cmdarg_err("Capture comment %u is too large to save in a capture file.",
+                           capture_comments->len + 1);
+                ret = INVALID_OPTION;
+                goto clean_exit;
+            }
+
             /* pcapng supports multiple comments, so support them here too.
              */
             if (!capture_comments) {
@@ -1307,6 +1325,21 @@ main(int argc, char *argv[])
             if ((sscanf(ws_optarg, "%u:%n", &frame_number, &string_start_index) < 1) || (string_start_index == 0)) {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid <frame>:<comment>\n\n",
                         ws_optarg);
+                ret = INVALID_OPTION;
+                goto clean_exit;
+            }
+
+            /*
+             * Make sure this would fit in a pcapng option.
+             *
+             * XXX - 65535 is the maximum size for an option in pcapng;
+             * what if another capture file format supports larger
+             * comments?
+             */
+            if (strlen(ws_optarg+string_start_index) > 65535) {
+                /* It doesn't fit.  Tell the user and give up. */
+                cmdarg_err("A comment for frame %u is too large to save in a capture file.",
+                           frame_number);
                 ret = INVALID_OPTION;
                 goto clean_exit;
             }

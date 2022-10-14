@@ -60,6 +60,12 @@ static int hf_cmgl_msg_status                                              = -1;
 static int hf_cmgl_msg_originator_name                                     = -1;
 static int hf_cmgl_msg_length                                              = -1;
 static int hf_cmgl_msg_pdu                                                 = -1;
+static int hf_cmgr_address                                                 = -1;
+static int hf_cmgr_mode                                                    = -1;
+static int hf_cmgr_msg_index                                               = -1;
+static int hf_cmgr_msg_length                                              = -1;
+static int hf_cmgr_msg_pdu                                                 = -1;
+static int hf_cmgr_stat                                                    = -1;
 static int hf_cmux_k                                                       = -1;
 static int hf_cmux_n1                                                      = -1;
 static int hf_cmux_n2                                                      = -1;
@@ -116,6 +122,12 @@ static int hf_ccwa_mode                                                    = -1;
 static int hf_ccwa_class                                                   = -1;
 static int hf_cfun_fun                                                     = -1;
 static int hf_cfun_rst                                                     = -1;
+static int hf_cgdcont_cid                                                  = -1;
+static int hf_cgdcont_pdp_type                                             = -1;
+static int hf_cgdcont_apn                                                  = -1;
+static int hf_cgdcont_pdp_addr                                             = -1;
+static int hf_cgdcont_d_comp                                               = -1;
+static int hf_cgdcont_h_comp                                               = -1;
 static int hf_cgmi_manufacturer_id                                         = -1;
 static int hf_cgmm_model_id                                                = -1;
 static int hf_cgmr_revision_id                                             = -1;
@@ -409,6 +421,21 @@ static const value_string clcc_mpty_vals[] = {
     { 0, NULL }
 };
 
+static const value_string cmgr_mode_vals[] = {
+    { 0,   "Normal (Change unread to read)" },
+    { 1,   "Do not change unread to read" },
+    { 0, NULL }
+};
+
+static const value_string cmgr_stat_vals[] = {
+    { 0,   "Received unread (i.e. new message)" },
+    { 1,   "Received read" },
+    { 2,   "Stored unsent" },
+    { 3,   "Stored sent" },
+    { 4,   "All" },
+    { 0, NULL }
+};
+
 static const value_string ccwa_show_result_code_vals[] = {
     { 0,   "Disabled" },
     { 1,   "Enabled" },
@@ -623,6 +650,14 @@ static gboolean check_cfun(gint role, guint16 type) {
     return FALSE;
 }
 
+static gboolean check_cgdcont(gint role, guint16 type) {
+    if (role == ROLE_DTE && (type == TYPE_ACTION || type == TYPE_ACTION_SIMPLY ||
+                             type == TYPE_READ || type == TYPE_TEST)) return TRUE;
+    if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
+
+    return FALSE;
+}
+
 static gboolean check_cgmi(gint role, guint16 type) {
     if (role == ROLE_DTE && (type == TYPE_ACTION_SIMPLY || type == TYPE_TEST)) return TRUE;
     if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
@@ -726,6 +761,13 @@ static gboolean check_cmer(gint role, guint16 type) {
 
 static gboolean check_cmgl(gint role, guint16 type) {
     if (role == ROLE_DTE && (type == TYPE_ACTION || type == TYPE_READ || type == TYPE_TEST)) return TRUE;
+    if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
+
+    return FALSE;
+}
+
+static gboolean check_cmgr(gint role, guint16 type) {
+    if (role == ROLE_DTE && (type == TYPE_ACTION || type == TYPE_TEST)) return TRUE;
     if (role == ROLE_DCE && type == TYPE_RESPONSE) return TRUE;
 
     return FALSE;
@@ -953,6 +995,46 @@ dissect_cfun_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             if (value > 1)
                 expert_add_info(pinfo, pitem, &ei_cfun_rst);
             break;
+    }
+
+    return TRUE;
+}
+
+static gboolean
+dissect_cgdcont_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+                          gint offset, gint role, guint16 type, guint8 *parameter_stream,
+                          guint parameter_number, gint parameter_length,
+                          at_packet_info_t *at_info _U_, void **data _U_)
+{
+    guint32      value;
+
+    if (!check_cgdcont(role, type)) return FALSE;
+
+    switch (parameter_number) {
+    case 0:
+        value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+        proto_tree_add_uint(tree, hf_cgdcont_cid, tvb, offset, parameter_length, value);
+        break;
+    case 1:
+        proto_tree_add_item(tree, hf_cgdcont_pdp_type, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+        break;
+    case 2:
+        proto_tree_add_item(tree, hf_cgdcont_apn, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+        break;
+    case 3:
+        proto_tree_add_item(tree, hf_cgdcont_pdp_addr, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+        break;
+    case 4:
+        value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+        proto_tree_add_uint(tree, hf_cgdcont_d_comp, tvb, offset, parameter_length, value);
+        break;
+    case 5:
+        value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+        proto_tree_add_uint(tree, hf_cgdcont_h_comp, tvb, offset, parameter_length, value);
+        break;
+    default:
+        proto_tree_add_item(tree, hf_parameter, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+        break;
     }
 
     return TRUE;
@@ -1417,6 +1499,117 @@ dissect_cmgl_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
             at_cmd->expected_data_parts = 1;
             at_cmd->consumed_data_parts = 0;
             at_cmd->dissect_data = dissect_cmgl_data_part;
+            break;
+        }
+    }
+
+    return TRUE;
+}
+
+static gboolean
+dissect_cmgr_data_part(tvbuff_t *tvb, packet_info *pinfo,
+            proto_tree *tree, gint offset, gint role, guint16 type,
+            guint8 *data_part_stream _U_, guint data_part_number _U_,
+            gint data_part_length, at_packet_info_t *at_info _U_)
+{
+    proto_item  *pitem;
+    gint      hex_length;
+    gint      bytes_count;
+    gint      i;
+    guint8   *final_arr;
+    tvbuff_t *final_tvb = NULL;
+
+    if (!(role  == ROLE_DCE && type == TYPE_RESPONSE)) {
+        return FALSE;
+    }
+    pitem = proto_tree_add_item(tree, hf_cmgr_msg_pdu, tvb, offset, data_part_length, ENC_NA | ENC_ASCII);
+
+    hex_length = data_part_length;
+    if (hex_length % 2 == 1) {
+        expert_add_info(pinfo, pitem, &ei_odd_len);
+        return TRUE;
+    }
+    if (hex_length < 1) {
+        expert_add_info(pinfo, pitem, &ei_empty_hex);
+        return TRUE;
+    }
+    bytes_count = hex_length / 2;
+    final_arr = wmem_alloc0_array(pinfo->pool, guint8, bytes_count + 1);
+    /* Try to parse the hex string into a byte array */
+    guint8 *pos = data_part_stream;
+    pos += 16;
+    for (i = 8; i < bytes_count; i++) {
+        if (!g_ascii_isxdigit(*pos) || !g_ascii_isxdigit(*(pos + 1))) {
+            /* Either current or next char isn't a hex character */
+            expert_add_info(pinfo, pitem, &ei_invalid_hex);
+            return TRUE;
+        }
+        sscanf((char *)pos, "%2hhx", &(final_arr[i-8]));
+        pos += 2;
+    }
+    final_tvb = tvb_new_child_real_data(tvb, final_arr, bytes_count, bytes_count);
+    add_new_data_source(pinfo, final_tvb, "GSM SMS payload");
+
+    /* Adjusting P2P direction as it is read by the SMS dissector */
+    int at_dir = pinfo->p2p_dir;
+    pinfo->p2p_dir = P2P_DIR_SENT;
+
+    /* Call GSM SMS dissector*/
+    call_dissector_only(gsm_sms_handle, final_tvb, pinfo, tree, NULL);
+
+    /* Restoring P2P direction */
+    pinfo->p2p_dir = at_dir;
+    return TRUE;
+}
+
+static gboolean
+dissect_cmgr_parameter(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+        gint offset, gint role, guint16 type, guint8 *parameter_stream,
+        guint parameter_number, gint parameter_length, at_packet_info_t *at_info, void **data _U_)
+{
+    guint32      value = 0;
+    if (!((role == ROLE_DTE && type == TYPE_ACTION) ||
+          (role == ROLE_DCE && type == TYPE_RESPONSE))) {
+        return FALSE;
+    }
+
+    if (role == ROLE_DTE && parameter_number > 1)
+        return FALSE;
+    else if (role == ROLE_DCE && parameter_number > 3)
+        return FALSE;
+
+    if (role == ROLE_DTE) {
+        switch (parameter_number) {
+        case 0:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+            proto_tree_add_uint(tree, hf_cmgr_msg_index, tvb, offset, parameter_length, value);
+            break;
+        case 1:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+			proto_tree_add_uint(tree, hf_cmgr_mode, tvb, offset, parameter_length, value);
+            break;
+		}
+    } else {
+        switch (parameter_number) {
+        case 0:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+            proto_tree_add_uint(tree, hf_cmgr_stat, tvb, offset, parameter_length, value);
+            break;
+        case 1:
+            proto_tree_add_item(tree, hf_cmgr_address, tvb, offset, parameter_length, ENC_NA | ENC_ASCII);
+            break;
+        case 2:
+            value = get_uint_parameter(pinfo->pool, parameter_stream, parameter_length);
+            proto_tree_add_uint(tree, hf_cmgr_msg_length, tvb, offset, parameter_length, value);
+            // If we reached the length parameter we are
+            // expecting the next line to be our encoded data
+            at_processed_cmd_t * at_cmd = get_current_role_last_command(at_info, role);
+            if (!at_cmd)
+                break;
+            at_cmd->type = type;
+            at_cmd->expected_data_parts = 1;
+            at_cmd->consumed_data_parts = 0;
+            at_cmd->dissect_data = dissect_cmgr_data_part;
             break;
         }
     }
@@ -1906,6 +2099,7 @@ dissect_no_parameter(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree
 static const at_cmd_t at_cmds[] = {
     { "+CCWA",      "Call Waiting Notification",                               check_ccwa, dissect_ccwa_parameter },
     { "+CFUN",      "Set Phone Functionality",                                 check_cfun, dissect_cfun_parameter },
+    { "+CGDCONT",   "PDP context define",                                      check_cgdcont, dissect_cgdcont_parameter },
     { "+CGMI",      "Request manufacturer identification",                     check_cgmi, dissect_cgmi_parameter },
     { "+CGMM",      "Request model identification",                            check_cgmm, dissect_cgmm_parameter },
     { "+CGMR",      "Request revision identification",                         check_cgmr, dissect_cgmr_parameter },
@@ -1923,6 +2117,7 @@ static const at_cmd_t at_cmds[] = {
     { "+CMEE",      "Mobile Equipment Error",                                  check_cmee, dissect_cmee_parameter },
     { "+CMER",      "Event Reporting Activation/Deactivation",                 check_cmer, dissect_cmer_parameter },
     { "+CMGL",      "List SMS messages",                                       check_cmgl, dissect_cmgl_parameter },
+    { "+CMGR",      "Read SMS message",                                        check_cmgr, dissect_cmgr_parameter },
     { "+CMUX",      "Multiplexing mode",                                       check_cmux, dissect_cmux_parameter },
     { "+CNUM",      "Subscriber Number Information",                           check_cnum, dissect_cnum_parameter },
     { "+COPS",      "Reading Network Operator",                                check_cops, dissect_cops_parameter },
@@ -2351,7 +2546,7 @@ static int dissect_at(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
 
     conversation = find_conversation(pinfo->num,
                                &pinfo->src, &pinfo->dst,
-                               conversation_pt_to_endpoint_type(pinfo->ptype),
+                               conversation_pt_to_conversation_type(pinfo->ptype),
                                pinfo->srcport, pinfo->destport, 0);
     at_conv = get_at_conv_info(conversation);
     at_info = get_at_packet_info(pinfo, at_conv);
@@ -2576,6 +2771,40 @@ proto_register_at_command(void)
            { "SMS PDU",                          "at.cmgl.pdu",
            FT_STRING, BASE_NONE, NULL, 0,
            NULL, HFILL}
+        },
+        { &hf_cmgr_address,
+           { "Address",                          "at.cmgr.address",
+           FT_STRING, BASE_NONE, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cmgr_mode,
+           { "Mode",                             "at.cmgr.mode",
+           FT_UINT16,  BASE_DEC, VALS(cmgr_mode_vals), 0,
+           "Reading mode",
+           HFILL}
+        },
+        { &hf_cmgr_msg_index,
+           { "Index",                            "at.cmgr.msg_index",
+           FT_UINT16, BASE_DEC, NULL, 0,
+           "Index of the message",
+           HFILL}
+        },
+        { &hf_cmgr_msg_length,
+           { "Length",                           "at.cmgr.pdu_length",
+           FT_UINT16, BASE_DEC, NULL, 0,
+           "PDU Length",
+           HFILL}
+        },
+        { &hf_cmgr_msg_pdu,
+           { "SMS PDU",                          "at.cmgr.pdu",
+           FT_STRING, BASE_NONE, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cmgr_stat,
+           { "Status",                             "at.cmgr.status",
+           FT_UINT32, BASE_DEC, VALS(cmgr_stat_vals), 0,
+           "Status of the returned message",
+		   HFILL}
         },
         { &hf_cmux_k,
            { "Window Size",                      "at.k",
@@ -2898,6 +3127,36 @@ proto_register_at_command(void)
         { &hf_cfun_rst,
            { "Reset",                             "at.cfun.rst",
            FT_UINT8, BASE_DEC, VALS(cfun_rst_vals), 0,
+           NULL, HFILL}
+        },
+        { &hf_cgdcont_cid,
+           { "CID",                               "at.cgdcont.cid",
+           FT_UINT32, BASE_DEC, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cgdcont_pdp_type,
+           { "PDP type",                          "at.cgdcont.pdp_type",
+           FT_STRING, BASE_NONE, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cgdcont_apn,
+           { "APN",                               "at.cgdcont.apn",
+           FT_STRING, BASE_NONE, NULL, 0,
+           "Access Point Name", HFILL}
+        },
+        { &hf_cgdcont_pdp_addr,
+           { "PDP address",                       "at.cgdcont.pdp_addr",
+           FT_STRING, BASE_NONE, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cgdcont_d_comp,
+           { "Data compression",                  "at.cgdcont.d_comp",
+           FT_UINT32, BASE_DEC, NULL, 0,
+           NULL, HFILL}
+        },
+        { &hf_cgdcont_h_comp,
+           { "Header compression",                "at.cgdcont.h_comp",
+           FT_UINT32, BASE_DEC, NULL, 0,
            NULL, HFILL}
         },
         { &hf_cgmi_manufacturer_id,

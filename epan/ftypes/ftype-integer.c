@@ -18,6 +18,12 @@
 #include <wsutil/pint.h>
 #include <wsutil/safe-math.h>
 
+static gboolean
+binary_strtoll(const char *s, gint64 *ptr, char **err_msg);
+
+static gboolean
+binary_strtoull(const char *s, guint64 *ptr, char **err_msg);
+
 static void
 int_fvalue_new(fvalue_t *fv)
 {
@@ -49,54 +55,18 @@ get_sinteger(fvalue_t *fv)
 	return fv->value.sinteger;
 }
 
-static unsigned long
-binary_strtoul(const char *s, char **endptr)
-{
-	const char *binstr = s;
-
-	if (binstr[0] == '0' && (binstr[1] == 'b' || binstr[1] == 'B')) {
-		return strtoul(binstr + 2, endptr, 2);
-	}
-
-	return strtoul(s, endptr, 0);
-}
-
 static gboolean
-uint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   guint32 max)
+_uint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
+		   guint64 max)
 {
-	unsigned long value;
-	char	*endptr;
+	guint64 value;
 
-	errno = 0;
-	value = binary_strtoul(s, &endptr);
-
-	if (errno == EINVAL || endptr == s || *endptr != '\0') {
-		/* This isn't a valid number. */
-		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" is not a valid number.", s);
+	if (!binary_strtoull(s, &value, err_msg))
 		return FALSE;
-	}
-	if (errno == ERANGE) {
-		if (err_msg != NULL) {
-			if (value == ULONG_MAX) {
-				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.",
-				    s);
-			}
-			else {
-				/*
-				 * XXX - can "strtoul()" set errno to
-				 * ERANGE without returning ULONG_MAX?
-				 */
-				*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
-			}
-		}
-		return FALSE;
-	}
 
 	if (value > max) {
 		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %u.", s, max);
+			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %"PRIu64".", s, max);
 		return FALSE;
 	}
 
@@ -107,25 +77,25 @@ uint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 static gboolean
 uint32_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT32);
+	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT32);
 }
 
 static gboolean
 uint24_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return uint_from_literal (fv, s, allow_partial_value, err_msg, 0xFFFFFF);
+	return _uint_from_literal (fv, s, allow_partial_value, err_msg, 0xFFFFFF);
 }
 
 static gboolean
 uint16_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT16);
+	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT16);
 }
 
 static gboolean
 uint8_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT8);
+	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT8);
 }
 
 static gboolean
@@ -135,61 +105,24 @@ uint_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
 	return TRUE;
 }
 
-static long
-binary_strtol(const char *s, char **endptr)
-{
-	const char *binstr = s;
-
-	if (binstr[0] == '0' && (binstr[1] == 'b' || binstr[1] == 'B')) {
-		return strtol(binstr + 2, endptr, 2);
-	}
-
-	return strtol(s, endptr, 0);
-}
-
 static gboolean
-sint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   gint32 max, gint32 min)
+_sint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
+		   gint64 max, gint64 min)
 {
-	long value;
-	char *endptr;
+	gint64 value;
 
-	errno = 0;
-	value = binary_strtol(s, &endptr);
-
-	if (errno == EINVAL || endptr == s || *endptr != '\0') {
-		/* This isn't a valid number. */
-		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" is not a valid number.", s);
+	if (!binary_strtoll(s, &value, err_msg))
 		return FALSE;
-	}
-	if (errno == ERANGE) {
-		if (err_msg != NULL) {
-			if (value == LONG_MAX) {
-				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.", s);
-			}
-			else if (value == LONG_MIN) {
-				*err_msg = ws_strdup_printf("\"%s\" causes an integer underflow.", s);
-			}
-			else {
-				/*
-				 * XXX - can "strtol()" set errno to
-				 * ERANGE without returning ULONG_MAX?
-				 */
-				*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
-			}
-		}
-		return FALSE;
-	}
 
 	if (value > max) {
 		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %d.",
+			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %"PRId64".",
 				s, max);
 		return FALSE;
-	} else if (value < min) {
+	}
+	else if (value < min) {
 		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too small for this field, minimum %d.",
+			*err_msg = ws_strdup_printf("\"%s\" too small for this field, minimum %"PRId64".",
 				s, min);
 		return FALSE;
 	}
@@ -201,25 +134,25 @@ sint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_,
 static gboolean
 sint32_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT32, G_MININT32);
+	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT32, G_MININT32);
 }
 
 static gboolean
 sint24_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return sint_from_literal (fv, s, allow_partial_value, err_msg, 0x7FFFFF, -0x800000);
+	return _sint_from_literal (fv, s, allow_partial_value, err_msg, 0x7FFFFF, -0x800000);
 }
 
 static gboolean
 sint16_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT16, G_MININT16);
+	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT16, G_MININT16);
 }
 
 static gboolean
 sint8_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
 {
-	return sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT8, G_MININT8);
+	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT8, G_MININT8);
 }
 
 static gboolean
@@ -386,36 +319,60 @@ ipxnet_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int 
 	return uinteger_to_repr(scope, fv, rtype, BASE_HEX);
 }
 
-static int
-uinteger_cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+uint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	if (a->value.uinteger == b->value.uinteger)
-		return 0;
-	return a->value.uinteger < b->value.uinteger ? -1 : 1;
+	guint64 val_a, val_b;
+	enum ft_result res;
+
+	res = fvalue_to_uinteger64(a, &val_a);
+	if (res != FT_OK)
+		return res;
+
+	res = fvalue_to_uinteger64(b, &val_b);
+	if (res != FT_OK)
+		return res;
+
+	if (val_a == val_b)
+		*cmp = 0;
+	else
+		*cmp = val_a < val_b ? -1 : 1;
+
+	return FT_OK;
 }
 
-static int
-sinteger_cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+uint_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	if (a->value.sinteger == b->value.sinteger)
-		return 0;
-	return a->value.sinteger < b->value.sinteger ? -1 : 1;
+	return uint64_cmp_order(a, b, cmp);
 }
 
-static int
-uinteger64_cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+sint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	if (a->value.uinteger64 == b->value.uinteger64)
-		return 0;
-	return a->value.uinteger64 < b->value.uinteger64 ? -1 : 1;
+	gint64 val_a, val_b;
+	enum ft_result res;
+
+	res = fvalue_to_sinteger64(a, &val_a);
+	if (res != FT_OK)
+		return res;
+
+	res = fvalue_to_sinteger64(b, &val_b);
+	if (res != FT_OK)
+		return res;
+
+	if (val_a == val_b)
+		*cmp = 0;
+	else
+		*cmp = val_a < val_b ? -1 : 1;
+
+	return FT_OK;
 }
 
-static int
-sinteger64_cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+sint_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	if (a->value.sinteger64 == b->value.sinteger64)
-		return 0;
-	return a->value.sinteger64 < b->value.sinteger64 ? -1 : 1;
+	return sint64_cmp_order(a, b, cmp);
 }
 
 static void
@@ -448,27 +405,18 @@ get_sinteger64(fvalue_t *fv)
 	return fv->value.sinteger64;
 }
 
-static unsigned long long
-binary_strtoull(const char *s, char **endptr)
-{
-	const char *binstr = s;
-
-	if (binstr[0] == '0' && (binstr[1] == 'b' || binstr[1] == 'B')) {
-		return g_ascii_strtoull(binstr + 2, endptr, 2);
-	}
-
-	return g_ascii_strtoull(s, endptr, 0);
-}
-
 static gboolean
-_uint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   guint64 max)
+binary_strtoull(const char *s, guint64 *ptr, char **err_msg)
 {
-	guint64 value;
-	char	*endptr;
+	char *endptr;
 
 	errno = 0;
-	value = binary_strtoull(s, &endptr);
+	if (s[0] == '0' && (s[1] == 'b' || s[1] == 'B')) {
+		*ptr = g_ascii_strtoull(s + 2, &endptr, 2);
+	}
+	else {
+		*ptr = g_ascii_strtoull(s, &endptr, 0);
+	}
 
 	if (errno == EINVAL || endptr == s || *endptr != '\0') {
 		/* This isn't a valid number. */
@@ -477,20 +425,32 @@ _uint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _
 		return FALSE;
 	}
 	if (errno == ERANGE) {
-		if (err_msg != NULL) {
-			if (value == G_MAXUINT64) {
+		if (*ptr == G_MAXUINT64) {
+			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.", s);
 			}
-			else {
-				/*
-				 * XXX - can "strtoul()" set errno to
-				 * ERANGE without returning ULONG_MAX?
-				 */
-				*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
-			}
+		}
+		else if (err_msg != NULL) {
+			/*
+			 * XXX - can "strtol()" set errno to
+			 * ERANGE without returning LONG_MAX?
+			 */
+			*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
 		}
 		return FALSE;
 	}
+
+	return TRUE;
+}
+
+static gboolean
+_uint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
+		   guint64 max)
+{
+	guint64 value;
+
+	if (!binary_strtoull(s, &value, err_msg))
+		return FALSE;
 
 	if (value > max) {
 		if (err_msg != NULL)
@@ -533,27 +493,18 @@ uint64_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
 	return TRUE;
 }
 
-static long long
-binary_strtoll(const char *s, char **endptr)
-{
-	const char *binstr = s;
-
-	if (binstr[0] == '0' && (binstr[1] == 'b' || binstr[1] == 'B')) {
-		return g_ascii_strtoll(binstr + 2, endptr, 2);
-	}
-
-	return g_ascii_strtoll(s, endptr, 0);
-}
-
 static gboolean
-_sint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   gint64 max, gint64 min)
+binary_strtoll(const char *s, gint64 *ptr, char **err_msg)
 {
-	gint64 value;
-	char   *endptr;
+	char *endptr;
 
 	errno = 0;
-	value = binary_strtoll(s, &endptr);
+	if (s[0] == '0' && (s[1] == 'b' || s[1] == 'B')) {
+		*ptr = g_ascii_strtoll(s + 2, &endptr, 2);
+	}
+	else {
+		*ptr = g_ascii_strtoll(s, &endptr, 0);
+	}
 
 	if (errno == EINVAL || endptr == s || *endptr != '\0') {
 		/* This isn't a valid number. */
@@ -562,35 +513,50 @@ _sint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _
 		return FALSE;
 	}
 	if (errno == ERANGE) {
-		if (err_msg != NULL) {
-			if (value == G_MAXINT64) {
+		if (*ptr == G_MAXINT64) {
+			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.", s);
 			}
-			else if (value == G_MININT64) {
+		}
+		else if (*ptr == G_MININT64) {
+			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer underflow.", s);
 			}
-			else {
-				/*
-				 * XXX - can "strtol()" set errno to
-				 * ERANGE without returning LONG_MAX?
-				 */
-				*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
-			}
+		}
+		else if (err_msg != NULL) {
+			/*
+			 * XXX - can "strtol()" set errno to
+			 * ERANGE without returning LONG_MAX?
+			 */
+			*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
 		}
 		return FALSE;
 	}
 
+	return TRUE;
+}
+
+static gboolean
+_sint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
+		   gint64 max, gint64 min)
+{
+	gint64 value;
+
+	if (!binary_strtoll(s, &value, err_msg))
+		return FALSE;
+
 	if (value > max) {
 		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %" PRIu64".", s, max);
+			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %" PRId64".", s, max);
 		return FALSE;
-	} else if (value < min) {
+	}
+	else if (value < min) {
 		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too small for this field, maximum %" PRIu64 ".", s, max);
+			*err_msg = ws_strdup_printf("\"%s\" too small for this field, minimum %" PRId64 ".", s, min);
 		return FALSE;
 	}
 
-	fv->value.sinteger64 = (guint64)value;
+	fv->value.sinteger64 = value;
 	return TRUE;
 }
 
@@ -666,26 +632,26 @@ uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _
 	return result;
 }
 
-enum ft_result
+static enum ft_result
 uint_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
 {
 	dst->value.uinteger = a->value.uinteger & b->value.uinteger;
 	return FT_OK;
 }
 
-gboolean
+static gboolean
 uint_is_zero(const fvalue_t *fv)
 {
 	return fv->value.uinteger == 0;
 }
 
-gboolean
+static gboolean
 uint_is_negative(const fvalue_t *fv _U_)
 {
 	return FALSE;
 }
 
-enum ft_result
+static enum ft_result
 uint_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
 {
 	/* Unsigned integers are promoted to signed 32 bits. */
@@ -700,26 +666,26 @@ uint_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
 	return FT_OK;
 }
 
-enum ft_result
+static enum ft_result
 uint64_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
 {
 	dst->value.uinteger64 = a->value.uinteger64 & b->value.uinteger64;
 	return FT_OK;
 }
 
-gboolean
+static gboolean
 uint64_is_zero(const fvalue_t *fv)
 {
 	return fv->value.uinteger64 == 0;
 }
 
-gboolean
+static gboolean
 uint64_is_negative(const fvalue_t *fv _U_)
 {
 	return FALSE;
 }
 
-enum ft_result
+static enum ft_result
 uint64_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
 {
 	/* Unsigned64 integers are promoted to signed 64 bits. */
@@ -734,52 +700,52 @@ uint64_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
 	return FT_OK;
 }
 
-enum ft_result
+static enum ft_result
 sint_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
 {
 	dst->value.sinteger = a->value.sinteger & b->value.sinteger;
 	return FT_OK;
 }
 
-gboolean
+static gboolean
 sint_is_zero(const fvalue_t *fv)
 {
 	return fv->value.sinteger == 0;
 }
 
-gboolean
+static gboolean
 sint_is_negative(const fvalue_t *fv)
 {
 	return fv->value.sinteger < 0;
 }
 
-enum ft_result
+static enum ft_result
 sint_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
 {
 	dst->value.sinteger = -src->value.sinteger;
 	return FT_OK;
 }
 
-enum ft_result
+static enum ft_result
 sint64_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
 {
 	dst->value.sinteger64 = a->value.sinteger64 & b->value.sinteger64;
 	return FT_OK;
 }
 
-gboolean
+static gboolean
 sint64_is_zero(const fvalue_t *fv)
 {
 	return fv->value.sinteger64 == 0;
 }
 
-gboolean
+static gboolean
 sint64_is_negative(const fvalue_t *fv)
 {
 	return fv->value.sinteger64 < 0;
 }
 
-enum ft_result
+static enum ft_result
 sint64_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
 {
 	dst->value.sinteger64 = -src->value.sinteger64;
@@ -1060,6 +1026,63 @@ uint64_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 	return FT_OK;
 }
 
+static enum ft_result uint_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+{
+	*dst = src->value.uinteger;
+	return FT_OK;
+}
+
+static enum ft_result uint_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+{
+	*dst = (gint64)src->value.uinteger;
+	return FT_OK;
+}
+
+static enum ft_result sint_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+{
+	if (src->value.sinteger < 0)
+		return FT_OVERFLOW;
+
+	*dst = (guint64)src->value.sinteger;
+	return FT_OK;
+}
+
+static enum ft_result sint_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+{
+	*dst = src->value.sinteger;
+	return FT_OK;
+}
+
+static enum ft_result uint64_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+{
+	*dst = src->value.uinteger64;
+	return FT_OK;
+}
+
+static enum ft_result uint64_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+{
+	if (src->value.uinteger64 > G_MAXINT64)
+		return FT_OVERFLOW;
+
+	*dst = (gint64)src->value.uinteger64;
+	return FT_OK;
+}
+
+static enum ft_result sint64_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+{
+	if (src->value.sinteger64 < 0)
+		return FT_OVERFLOW;
+
+	*dst = (guint64)src->value.sinteger64;
+	return FT_OK;
+}
+
+static enum ft_result sint64_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+{
+	*dst = src->value.sinteger64;
+	return FT_OK;
+}
+
 /* BOOLEAN-specific */
 
 static gboolean
@@ -1092,19 +1115,33 @@ boolean_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_,
  * F  T  -1
  * T  F   1
  */
-static int
-boolean_cmp_order(const fvalue_t *a, const fvalue_t *b)
+static enum ft_result
+boolean_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	if (a->value.uinteger64) {
-		if (b->value.uinteger64) {
-			return 0;
+	guint64 val_a, val_b;
+	enum ft_result res;
+
+	val_a = a->value.uinteger64;
+	res = fvalue_to_uinteger64(b, &val_b);
+	if (res != FT_OK)
+		return res;
+
+	if (val_a) {
+		if (val_b) {
+			*cmp = 0;
 		}
-		return 1;
+		else {
+			*cmp = 1;
+		}
 	}
-	if (b->value.uinteger64) {
-		return -1;
+	else if (val_b) {
+		*cmp = -1;
 	}
-	return 0;
+	else {
+		*cmp = 0;
+	}
+
+	return FT_OK;
 }
 
 /* EUI64-specific */
@@ -1174,10 +1211,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		char_to_repr,			/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1206,10 +1246,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		uinteger_to_repr,		/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1238,10 +1281,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		uinteger_to_repr,		/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1270,10 +1316,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		uinteger_to_repr,		/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1302,10 +1351,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		uinteger_to_repr,		/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1334,10 +1386,13 @@ ftype_register_integers(void)
 		uint64_from_charconst,		/* val_from_charconst */
 		uinteger64_to_repr,		/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		uinteger64_cmp_order,
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1366,10 +1421,13 @@ ftype_register_integers(void)
 		uint64_from_charconst,		/* val_from_charconst */
 		uinteger64_to_repr,		/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		uinteger64_cmp_order,
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1398,10 +1456,13 @@ ftype_register_integers(void)
 		uint64_from_charconst,		/* val_from_charconst */
 		uinteger64_to_repr,		/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		uinteger64_cmp_order,
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1430,10 +1491,13 @@ ftype_register_integers(void)
 		uint64_from_charconst,		/* val_from_charconst */
 		uinteger64_to_repr,		/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		uinteger64_cmp_order,
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1462,10 +1526,13 @@ ftype_register_integers(void)
 		sint_from_charconst,		/* val_from_charconst */
 		integer_to_repr,		/* val_to_string_repr */
 
+		sint_val_to_uinteger64,		/* val_to_uinteger64 */
+		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sinteger_cmp_order,
+		sint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1494,10 +1561,13 @@ ftype_register_integers(void)
 		sint_from_charconst,		/* val_from_charconst */
 		integer_to_repr,		/* val_to_string_repr */
 
+		sint_val_to_uinteger64,		/* val_to_uinteger64 */
+		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sinteger_cmp_order,
+		sint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1526,10 +1596,13 @@ ftype_register_integers(void)
 		sint_from_charconst,		/* val_from_charconst */
 		integer_to_repr,		/* val_to_string_repr */
 
+		sint_val_to_uinteger64,		/* val_to_uinteger64 */
+		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sinteger_cmp_order,
+		sint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1558,10 +1631,13 @@ ftype_register_integers(void)
 		sint_from_charconst,		/* val_from_charconst */
 		integer_to_repr,		/* val_to_string_repr */
 
+		sint_val_to_uinteger64,		/* val_to_uinteger64 */
+		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sinteger_cmp_order,
+		sint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1590,10 +1666,13 @@ ftype_register_integers(void)
 		sint64_from_charconst,		/* val_from_charconst */
 		integer64_to_repr,		/* val_to_string_repr */
 
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_sinteger64 = set_sinteger64 },	/* union set_value */
 		{ .get_value_sinteger64 = get_sinteger64 },	/* union get_value */
 
-		sinteger64_cmp_order,
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1622,10 +1701,13 @@ ftype_register_integers(void)
 		sint64_from_charconst,		/* val_from_charconst */
 		integer64_to_repr,		/* val_to_string_repr */
 
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_sinteger64 = set_sinteger64 },	/* union set_value */
 		{ .get_value_sinteger64 = get_sinteger64 },	/* union get_value */
 
-		sinteger64_cmp_order,
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1654,10 +1736,13 @@ ftype_register_integers(void)
 		sint64_from_charconst,		/* val_from_charconst */
 		integer64_to_repr,		/* val_to_string_repr */
 
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_sinteger64 = set_sinteger64 },	/* union set_value */
 		{ .get_value_sinteger64 = get_sinteger64 },	/* union get_value */
 
-		sinteger64_cmp_order,
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1686,10 +1771,13 @@ ftype_register_integers(void)
 		sint64_from_charconst,		/* val_from_charconst */
 		integer64_to_repr,		/* val_to_string_repr */
 
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_sinteger64 = set_sinteger64 },	/* union set_value */
 		{ .get_value_sinteger64 = get_sinteger64 },	/* union get_value */
 
-		sinteger64_cmp_order,
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1718,10 +1806,13 @@ ftype_register_integers(void)
 		uint64_from_charconst,		/* val_from_charconst */
 		boolean_to_repr,		/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		boolean_cmp_order,		/* cmp_eq */
+		boolean_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1751,10 +1842,13 @@ ftype_register_integers(void)
 		NULL,				/* val_from_charconst */
 		ipxnet_to_repr,			/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1784,10 +1878,13 @@ ftype_register_integers(void)
 		uint_from_charconst,		/* val_from_charconst */
 		uinteger_to_repr,		/* val_to_string_repr */
 
+		uint_val_to_uinteger64,		/* val_to_uinteger64 */
+		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uinteger_cmp_order,
+		uint_cmp_order,			/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
@@ -1817,10 +1914,13 @@ ftype_register_integers(void)
 		NULL,				/* val_from_charconst */
 		eui64_to_repr,			/* val_to_string_repr */
 
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
+
 		{ .set_value_uinteger64 = set_uinteger64 },	/* union set_value */
 		{ .get_value_uinteger64 = get_uinteger64 },	/* union get_value */
 
-		uinteger64_cmp_order,
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 

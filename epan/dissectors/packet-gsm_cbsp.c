@@ -346,6 +346,8 @@ static const struct tlv_definition cbsp_att_tlvdef = {
 void proto_register_cbsp(void);
 void proto_reg_handoff_cbsp(void);
 
+static dissector_handle_t cbsp_handle;
+
 static int proto_cbsp = -1;
 
 static int hf_cbsp_msg_type = -1;
@@ -701,8 +703,17 @@ dissect_cbsp_tlvs(tvbuff_t *tvb, int base_offs, int length, packet_info *pinfo, 
 			proto_item_append_text(ti, ": %s", val_to_str_const(tmp_u, cbsp_category_names, ""));
 			break;
 		case CBSP_IEI_REP_PERIOD:
-			proto_tree_add_item_ret_uint(att_tree, hf_cbsp_rep_period, tvb, offset, len, ENC_BIG_ENDIAN, &tmp_u);
-			proto_item_append_text(ti, ": %u", tmp_u);
+			{
+				guint64 tmp_u64;
+				crumb_spec_t cbsp_rep_period_crumbs[] = {
+					{  0, 8 },
+					{ 12, 4 },
+					{  0, 0 }
+				};
+
+				proto_tree_add_split_bits_item_ret_val(att_tree, hf_cbsp_rep_period, tvb, offset<<3, cbsp_rep_period_crumbs, &tmp_u64);
+				proto_item_append_text(ti, ": %u", (guint16)tmp_u64);
+			}
 			break;
 		case CBSP_IEI_NUM_BCAST_REQ:
 			proto_tree_add_item_ret_uint(att_tree, hf_cbsp_num_bcast_req, tvb, offset, len, ENC_BIG_ENDIAN, &tmp_u);
@@ -909,6 +920,7 @@ proto_register_cbsp(void)
 	};
 
 	proto_cbsp = proto_register_protocol("3GPP/GSM Cell Broadcast Service Protocol", "cbsp", "cbsp");
+	cbsp_handle = register_dissector("cbsp", dissect_cbsp, proto_cbsp);
 	proto_register_field_array(proto_cbsp, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
 }
@@ -916,8 +928,6 @@ proto_register_cbsp(void)
 void
 proto_reg_handoff_cbsp(void)
 {
-	dissector_handle_t cbsp_handle;
-	cbsp_handle = create_dissector_handle(dissect_cbsp, proto_cbsp);
 	dissector_add_uint_with_preference("tcp.port", CBSP_TCP_PORT, cbsp_handle);
 }
 

@@ -22,6 +22,7 @@
 #include <epan/prefs.h>
 #include <epan/dfilter/dfilter.h>
 #include <epan/column.h>
+#include <epan/column-info.h>
 #include <epan/packet.h>
 #include <wsutil/ws_assert.h>
 
@@ -804,6 +805,20 @@ get_column_tooltip(const gint col)
     g_strfreev(fields);
 
     return g_string_free (column_tooltip, FALSE);
+}
+
+const gchar*
+get_column_text(column_info *cinfo, const gint col)
+{
+  ws_assert(cinfo);
+  ws_assert(col < cinfo->num_cols);
+
+  if (!get_column_resolved(col) && cinfo->col_expr.col_expr_val[col]) {
+      /* Use the unresolved value in col_expr_val */
+      return cinfo->col_expr.col_expr_val[col];
+  }
+
+  return cinfo->columns[col].col_data;
 }
 
 void

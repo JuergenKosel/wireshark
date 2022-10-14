@@ -477,6 +477,7 @@ rpc_proc_name_internal(wmem_allocator_t *allocator, guint32 prog, guint32 vers, 
 	key.proc = proc;
 
 	/* Look at both tables for possible procedure names */
+	/* XXX - dissector name, or protocol name? */
 	if ((dissect_function = dissector_get_custom_table_handle(subdissector_call_table, &key)) != NULL)
 		procname = wmem_strdup(allocator, dissector_handle_get_dissector_name(dissect_function));
 	else if ((dissect_function = dissector_get_custom_table_handle(subdissector_reply_table, &key)) != NULL)
@@ -713,7 +714,8 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 	/* int string_item_offset; */
 
 	char *string_buffer = NULL;
-	const char *string_buffer_print = NULL;
+	uint8_t *bytes_buffer;
+	const char *formatted_text = NULL;
 
 	if (fixed_length) {
 		string_length = length;
@@ -779,9 +781,9 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 	if (string_data) {
 		string_buffer = tvb_get_string_enc(wmem_packet_scope(), tvb, data_offset, string_length_copy, ENC_ASCII);
 	} else {
-		string_buffer = (char *)tvb_memcpy(tvb, wmem_alloc(wmem_packet_scope(), string_length_copy+1), data_offset, string_length_copy);
+		bytes_buffer = tvb_memcpy(tvb, wmem_alloc(wmem_packet_scope(), string_length_copy), data_offset, string_length_copy);
 	}
-	string_buffer[string_length_copy] = '\0';
+
 	/* calculate a nice printable string */
 	if (string_length) {
 		if (string_length != string_length_copy) {
@@ -790,25 +792,25 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 
 				formatted = format_text(wmem_packet_scope(), string_buffer, strlen(string_buffer));
 				/* copy over the data and append <TRUNCATED> */
-				string_buffer_print=wmem_strdup_printf(wmem_packet_scope(), "%s%s", formatted, RPC_STRING_TRUNCATED);
+				formatted_text=wmem_strdup_printf(wmem_packet_scope(), "%s%s", formatted, RPC_STRING_TRUNCATED);
 			} else {
-				string_buffer_print=RPC_STRING_DATA RPC_STRING_TRUNCATED;
+				formatted_text=RPC_STRING_DATA RPC_STRING_TRUNCATED;
 			}
 		} else {
 			if (string_data) {
-				string_buffer_print = format_text(wmem_packet_scope(), string_buffer, strlen(string_buffer));
+				formatted_text = format_text(wmem_packet_scope(), string_buffer, strlen(string_buffer));
 			} else {
-				string_buffer_print=RPC_STRING_DATA;
+				formatted_text=RPC_STRING_DATA;
 			}
 		}
 	} else {
-		string_buffer_print=RPC_STRING_EMPTY;
+		formatted_text=RPC_STRING_EMPTY;
 	}
 
 	/* string_item_offset = offset; */
 	string_tree = proto_tree_add_subtree_format(tree, tvb,offset, -1,
 			ett_rpc_string, &string_item, "%s: %s", proto_registrar_get_name(hfindex),
-			string_buffer_print);
+			formatted_text);
 
 	if (!fixed_length) {
 		proto_tree_add_uint(string_tree, hf_rpc_opaque_length, tvb,offset, 4, string_length);
@@ -820,12 +822,12 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 			proto_tree_add_string_format(string_tree,
 			    hfindex, tvb, offset, string_length_copy,
 			    string_buffer,
-			    "contents: %s", string_buffer_print);
+			    "contents: %s", formatted_text);
 		} else {
 			proto_tree_add_bytes_format(string_tree,
 			    hfindex, tvb, offset, string_length_copy,
-			    string_buffer,
-			    "contents: %s", string_buffer_print);
+			    bytes_buffer,
+			    "contents: %s", formatted_text);
 		}
 	}
 
@@ -846,7 +848,7 @@ dissect_rpc_opaque_data(tvbuff_t *tvb, int offset,
 	proto_item_set_end(string_item, tvb, offset);
 
 	if (string_buffer_ret != NULL)
-		*string_buffer_ret = string_buffer_print;
+		*string_buffer_ret = formatted_text;
 
 	/*
 	 * If the data was truncated, throw the appropriate exception,
@@ -1687,18 +1689,18 @@ get_conversation_for_call(packet_info *pinfo)
 		 * if you use NO_ADDR_B.
 		 */
 		conversation = find_conversation(pinfo->num,
-		    &pinfo->src, &null_address, conversation_pt_to_endpoint_type(pinfo->ptype),
+		    &pinfo->src, &null_address, conversation_pt_to_conversation_type(pinfo->ptype),
 		    pinfo->destport, 0, NO_ADDR_B|NO_PORT_B);
 	}
 
 	if (conversation == NULL) {
 		if (pinfo->ptype == PT_TCP || pinfo->ptype == PT_IBQP || pinfo->ptype == PT_IWARP_MPA) {
 			conversation = conversation_new(pinfo->num,
-			    &pinfo->src, &pinfo->dst, conversation_pt_to_endpoint_type(pinfo->ptype),
+			    &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
 			    pinfo->srcport, pinfo->destport, 0);
 		} else {
 			conversation = conversation_new(pinfo->num,
-			    &pinfo->src, &null_address, conversation_pt_to_endpoint_type(pinfo->ptype),
+			    &pinfo->src, &null_address, conversation_pt_to_conversation_type(pinfo->ptype),
 			    pinfo->destport, 0, NO_ADDR2|NO_PORT2);
 		}
 	}
@@ -1739,7 +1741,7 @@ find_conversation_for_reply(packet_info *pinfo)
 		 * if you use NO_ADDR_B.
 		 */
 		conversation = find_conversation(pinfo->num,
-		    &pinfo->dst, &null_address, conversation_pt_to_endpoint_type(pinfo->ptype),
+		    &pinfo->dst, &null_address, conversation_pt_to_conversation_type(pinfo->ptype),
 		    pinfo->srcport, 0, NO_ADDR_B|NO_PORT_B);
 	}
 	return conversation;
@@ -1754,22 +1756,22 @@ new_conversation_for_reply(packet_info *pinfo)
 	{
 	case PT_TCP:
 		conversation = conversation_new(pinfo->num,
-		    &pinfo->src, &pinfo->dst, ENDPOINT_TCP,
+		    &pinfo->src, &pinfo->dst, CONVERSATION_TCP,
 		    pinfo->srcport, pinfo->destport, 0);
 		break;
 	case PT_IBQP:
 		conversation = conversation_new(pinfo->num,
-		    &pinfo->src, &pinfo->dst, ENDPOINT_IBQP,
+		    &pinfo->src, &pinfo->dst, CONVERSATION_IBQP,
 		    pinfo->srcport, pinfo->destport, 0);
 		break;
 	case PT_IWARP_MPA:
 		conversation = conversation_new(pinfo->num,
-		    &pinfo->src, &pinfo->dst, ENDPOINT_IWARP_MPA,
+		    &pinfo->src, &pinfo->dst, CONVERSATION_IWARP_MPA,
 		    pinfo->srcport, pinfo->destport, 0);
 		break;
 	default:
 		conversation = conversation_new(pinfo->num,
-		    &pinfo->dst, &null_address, conversation_pt_to_endpoint_type(pinfo->ptype),
+		    &pinfo->dst, &null_address, conversation_pt_to_conversation_type(pinfo->ptype),
 		    pinfo->srcport, 0, NO_ADDR2|NO_PORT2);
 		break;
 	}
@@ -1937,6 +1939,7 @@ dissect_rpc_indir_reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 	dissect_function = dissector_get_custom_table_handle(subdissector_reply_table, &key);
 	if (dissect_function != NULL) {
+		/* XXX - dissector name, or protocol name? */
 		procname = dissector_handle_get_dissector_name(dissect_function);
 	}
 	else {
@@ -2371,6 +2374,7 @@ dissect_rpc_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		key.proc = proc;
 
 		if ((dissect_function = dissector_get_custom_table_handle(subdissector_call_table, &key)) != NULL) {
+			/* XXX - dissector name, or protocol name? */
 			procname = dissector_handle_get_dissector_name(dissect_function);
 		}
 		else {
@@ -2552,6 +2556,7 @@ dissect_rpc_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 		dissect_function = dissector_get_custom_table_handle(subdissector_reply_table, &key);
 		if (dissect_function != NULL) {
+			/* XXX - dissector name, or protocol name? */
 			procname = dissector_handle_get_dissector_name(dissect_function);
 		}
 		else {
@@ -4354,8 +4359,8 @@ proto_register_rpc(void)
 
 	proto_rpc = proto_register_protocol("Remote Procedure Call", "RPC", "rpc");
 
-	subdissector_call_table = register_custom_dissector_table("rpc.call", "RPC Call Functions", proto_rpc, rpc_proc_hash, rpc_proc_equal);
-	subdissector_reply_table = register_custom_dissector_table("rpc.reply", "RPC Reply Functions", proto_rpc, rpc_proc_hash, rpc_proc_equal);
+	subdissector_call_table = register_custom_dissector_table("rpc.call", "RPC Call Functions", proto_rpc, rpc_proc_hash, rpc_proc_equal, g_free);
+	subdissector_reply_table = register_custom_dissector_table("rpc.reply", "RPC Reply Functions", proto_rpc, rpc_proc_hash, rpc_proc_equal, g_free);
 
 	/* this is a dummy dissector for all those unknown rpc programs */
 	proto_register_field_array(proto_rpc, hf, array_length(hf));

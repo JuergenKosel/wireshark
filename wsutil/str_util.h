@@ -213,6 +213,133 @@ const char *ws_strerrorname_r(int errnum, char *buf, size_t buf_size);
 WS_DLL_PUBLIC
 char *ws_strdup_underline(wmem_allocator_t *allocator, long offset, size_t len);
 
+/** Given a wmem scope, a not-necessarily-null-terminated string,
+ *  expected to be in UTF-8 but possibly containing invalid sequences
+ *  (as it may have come from packet data), and the length of the string,
+ *  generate a valid UTF-8 string from it, allocated in the specified
+ *  wmem scope, that:
+ *
+ *   shows printable Unicode characters as themselves;
+ *
+ *   shows non-printable ASCII characters as C-style escapes (octal
+ *   if not one of the standard ones such as LF -> '\n');
+ *
+ *   shows non-printable Unicode-but-not-ASCII characters as
+ *   their universal character names;
+ *
+ *   Replaces illegal UTF-8 sequences with U+FFFD (replacement character) ;
+ *
+ *  and return a pointer to it.
+ *
+ * @param allocator The wmem scope
+ * @param string A pointer to the input string
+ * @param len The length of the input string
+ * @return A pointer to the formatted string
+ *
+ * @see tvb_format_text()
+ */
+WS_DLL_PUBLIC
+char *format_text(wmem_allocator_t* allocator, const char *string, size_t len);
+
+/** Same as format_text() but accepts a nul-terminated string.
+ *
+ * @param allocator The wmem scope
+ * @param string A pointer to the input string
+ * @return A pointer to the formatted string
+ *
+ * @see tvb_format_text()
+ */
+WS_DLL_PUBLIC
+char *format_text_string(wmem_allocator_t* allocator, const char *string);
+
+/**
+ * Same as format_text() but replaces any whitespace characters
+ * (space, tab, carriage return, new line, vertical tab, or formfeed)
+ * with a space.
+ *
+ * @param allocator The wmem scope
+ * @param line A pointer to the input string
+ * @param len The length of the input string
+ * @return A pointer to the formatted string
+ *
+ */
+WS_DLL_PUBLIC
+char *format_text_wsp(wmem_allocator_t* allocator, const char *line, size_t len);
+
+/**
+ * Given a string, generate a string from it that shows non-printable
+ * characters as the chr parameter passed, except a whitespace character
+ * (space, tab, carriage return, new line, vertical tab, or formfeed)
+ * which will be replaced by a space, and return a pointer to it.
+ *
+ * This does *not* treat the input string as UTF-8.
+ *
+ * This is useful for displaying binary data that frequently but not always
+ * contains text; otherwise the number of C escape codes makes it unreadable.
+ *
+ * @param allocator The wmem scope
+ * @param string A pointer to the input string
+ * @param len The length of the input string
+ * @param chr The character to use to replace non-printable characters
+ * @return A pointer to the formatted string
+ *
+ */
+WS_DLL_PUBLIC
+char *format_text_chr(wmem_allocator_t *allocator,
+                        const char *string, size_t len, char chr);
+
+/**
+ * Truncate a UTF-8 string in place so that it is no larger than len bytes,
+ * ensuring that the string is null terminated and ends with a complete
+ * character instead of a partial sequence (e.g., possibly truncating up
+ * to 3 additional bytes if the terminal character is 4 bytes long).
+ *
+ * The buffer holding the string must be large enough (at least len + 1
+ * including the null terminator), and the first len bytes of the buffer
+ * must be a valid UTF-8 string, except for possibly ending in a partial
+ * sequence or not being null terminated. This is a convenience function
+ * that for speed does not check either of those conditions.
+ *
+ * A common use case is when a valid UTF-8 string has been copied into a
+ * buffer of length len+1 via snprintf, strlcpy, or strlcat and truncated,
+ * to ensure that the final UTF-8 character is not a partial sequence.
+ *
+ * @param string A pointer to the input string
+ * @param len The maximum length to truncate to
+ * @return    ptr to the string
+ */
+WS_DLL_PUBLIC
+char* ws_utf8_truncate(char *string, size_t len);
+
+WS_DLL_PUBLIC
+void EBCDIC_to_ASCII(guint8 *buf, guint bytes);
+
+WS_DLL_PUBLIC
+guint8 EBCDIC_to_ASCII1(guint8 c);
+
+/* Types of character encodings */
+typedef enum {
+    HEXDUMP_ENC_ASCII     = 0, /* ASCII */
+    HEXDUMP_ENC_EBCDIC    = 1  /* EBCDIC */
+} hex_dump_enc;
+
+/*
+ * Hexdump options for ASCII:
+ */
+
+#define HEXDUMP_ASCII_MASK            (0x0003U)
+#define HEXDUMP_ASCII_OPTION(option)  ((option) & HEXDUMP_ASCII_MASK)
+
+#define HEXDUMP_ASCII_INCLUDE         (0x0000U) /* include ASCII section no delimiters (legacy tshark behavior) */
+#define HEXDUMP_ASCII_DELIMIT         (0x0001U) /* include ASCII section with delimiters, useful for reliable detection of last hexdata */
+#define HEXDUMP_ASCII_EXCLUDE         (0x0002U) /* exclude ASCII section from hexdump reports, if we really don't want or need it */
+
+WS_DLL_PUBLIC
+gboolean hex_dump_buffer(gboolean (*print_line)(void *, const char *), void *fp,
+                                    const guchar *cp, guint length,
+                                    hex_dump_enc encoding,
+                                    guint ascii_option);
+
 /* To pass one of two strings, singular or plural */
 #define plurality(d,s,p) ((d) == 1 ? (s) : (p))
 

@@ -342,12 +342,24 @@ gboolean cose_param_key_equal(gconstpointer a, gconstpointer b) {
     return match;
 }
 
+void cose_param_key_free(gpointer ptr) {
+    cose_param_key_t *obj = (cose_param_key_t *)ptr;
+    if (obj->principal) {
+        g_variant_unref(obj->principal);
+    }
+    if (obj->label) {
+        g_variant_unref(obj->label);
+    }
+    g_free(obj);
+}
+
 /** Dissect an ID-value pair within a context.
  *
  * @param dis_table The cose_param_key_t dissector table.
  * @param[in,out] ctx The context from other pairs.
+ * @return True if the pair was dissected (even as opaque CBOR data).
  */
-static void dissect_header_pair(dissector_table_t dis_table, cose_header_context_t *ctx, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset) {
+static gboolean dissect_header_pair(dissector_table_t dis_table, cose_header_context_t *ctx, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset) {
     wscbor_chunk_t *chunk_label = wscbor_chunk_read(wmem_packet_scope(), tvb, offset);
 
     proto_item *item_label = NULL;
@@ -390,6 +402,7 @@ static void dissect_header_pair(dissector_table_t dis_table, cose_header_context
         key.principal = NULL;
         dissector = dissector_get_custom_table_handle(dis_table, &key);
     }
+    /* XXX - dissector name, or protocol name? */
     const char *dis_name = dissector_handle_get_dissector_name(dissector);
     if (dis_name) {
         proto_item_set_text(item_label, "Label: %s (%s)", dis_name, label_str);
@@ -399,7 +412,9 @@ static void dissect_header_pair(dissector_table_t dis_table, cose_header_context
 
     // Peek into the value as tvb
     const gint offset_value = *offset;
-    wscbor_skip_next_item(wmem_packet_scope(), tvb, offset);
+    if (!wscbor_skip_next_item(wmem_packet_scope(), tvb, offset)) {
+        return FALSE;
+    }
     tvb_value = tvb_new_subset_length(tvb, offset_value, *offset - offset_value);
 
     gint sublen = 0;
@@ -421,6 +436,7 @@ static void dissect_header_pair(dissector_table_t dis_table, cose_header_context
         CATCH_ALL {}
         ENDTRY;
     }
+    return TRUE;
 }
 
 /** Dissect an entire header map, either for messages, recipients, or keys.
@@ -441,7 +457,9 @@ static void dissect_header_map(dissector_table_t dis_table, tvbuff_t *tvb, packe
         cose_header_context_t *ctx = wmem_new0(wmem_packet_scope(), cose_header_context_t);
 
         for (guint64 ix = 0; ix < chunk_hdr_map->head_value; ++ix) {
-            dissect_header_pair(dis_table, ctx, tvb, pinfo, tree_hdr_map, offset);
+            if (!dissect_header_pair(dis_table, ctx, tvb, pinfo, tree_hdr_map, offset)) {
+                break;
+            }
         }
 
         if (ctx->principal) {
@@ -1219,7 +1237,7 @@ void proto_register_cose(void) {
 
     handle_cose_msg_hdr = register_dissector("cose.msg.headers", dissect_cose_msg_header_map, proto_cose);
 
-    table_cose_msg_tag = register_custom_dissector_table("cose.msgtag", "COSE Message Tag", proto_cose, g_int64_hash, g_int64_equal);
+    table_cose_msg_tag = register_custom_dissector_table("cose.msgtag", "COSE Message Tag", proto_cose, g_int64_hash, g_int64_equal, g_free);
     handle_cose_msg_tagged = register_dissector("cose", dissect_cose_msg_tagged, proto_cose_params);
     handle_cose_sign = register_dissector("cose_sign", dissect_cose_sign, proto_cose);
     handle_cose_sign1 = register_dissector("cose_sign1", dissect_cose_sign1, proto_cose);
@@ -1228,12 +1246,12 @@ void proto_register_cose(void) {
     handle_cose_mac = register_dissector("cose_mac", dissect_cose_mac, proto_cose);
     handle_cose_mac0 = register_dissector("cose_mac0", dissect_cose_mac0, proto_cose);
 
-    table_header = register_custom_dissector_table("cose.header", "COSE Header Parameter", proto_cose, cose_param_key_hash, cose_param_key_equal);
+    table_header = register_custom_dissector_table("cose.header", "COSE Header Parameter", proto_cose, cose_param_key_hash, cose_param_key_equal, cose_param_key_free);
 
     handle_cose_key = register_dissector("cose_key", dissect_cose_key, proto_cose);
     handle_cose_key_set = register_dissector("cose_key_set", dissect_cose_key_set, proto_cose);
 
-    table_keyparam = register_custom_dissector_table("cose.keyparam", "COSE Key Parameter", proto_cose, cose_param_key_hash, cose_param_key_equal);
+    table_keyparam = register_custom_dissector_table("cose.keyparam", "COSE Key Parameter", proto_cose, cose_param_key_hash, cose_param_key_equal, cose_param_key_free);
 
     module_t *module_cose = prefs_register_protocol(proto_cose, cose_reinit);
     (void)module_cose;
@@ -1282,6 +1300,7 @@ void proto_reg_handoff_cose(void) {
         register_keyparam_dissector(dissect_keyparam_crv, kty, g_variant_new_int64(-1), "crv");
         register_keyparam_dissector(dissect_keyparam_xcoord, kty, g_variant_new_int64(-2), "x");
         register_keyparam_dissector(dissect_keyparam_dcoord, kty, g_variant_new_int64(-3), "d");
+        g_variant_unref(kty);
     }
     {
         GVariant *kty = g_variant_new_int64(2);
@@ -1289,10 +1308,12 @@ void proto_reg_handoff_cose(void) {
         register_keyparam_dissector(dissect_keyparam_xcoord, kty, g_variant_new_int64(-2), "x");
         register_keyparam_dissector(dissect_keyparam_ycoord, kty, g_variant_new_int64(-3), "y");
         register_keyparam_dissector(dissect_keyparam_dcoord, kty, g_variant_new_int64(-4), "d");
+        g_variant_unref(kty);
     }
     {
         GVariant *kty = g_variant_new_int64(4);
         register_keyparam_dissector(dissect_keyparam_k, kty, g_variant_new_int64(-1), "k");
+        g_variant_unref(kty);
     }
 
     cose_reinit();

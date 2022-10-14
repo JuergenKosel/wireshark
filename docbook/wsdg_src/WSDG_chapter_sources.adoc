@@ -899,16 +899,16 @@ show how to restrict access using setcap and setuid respectively:
 ===== Customization
 
 Custom version information can be added by running
-`tools/make-version.pl`. If your package contains significant changes we
+`tools/make-version.py`. If your package contains significant changes we
 recommend that you use this to differentiate it from official Wireshark
 releases.
 
 [source, sh]
 ----
-tools/make-version.pl --set-release --untagged-version-extra=-{vcsinfo}-FooCorp --tagged-version-extra=-FooCorp
+tools/make-version.py --set-release --untagged-version-extra=-{vcsinfo}-FooCorp --tagged-version-extra=-FooCorp .
 ----
 
-See `tools/make-version.pl` for details.
+See `tools/make-version.py` for details.
 
 The Git version corresponding to each release is in _version.h_. It's
 defined as a string. If you need a numeric definition, let us know.
@@ -931,6 +931,7 @@ In the wireshark directory, type:
 [source,sh]
 ----
 ln -snf packaging/debian
+export DEB_BUILD_OPTIONS="nocheck"
 dpkg-buildpackage -b -us -uc -jauto
 ----
 
@@ -1011,9 +1012,9 @@ In your build directory, type:
 
 [source,sh]
 ----
-ninja wireshark_dmg logwolf_dmg # (Modify as needed)
+ninja wireshark_dmg logray_dmg # (Modify as needed)
 # ...or, if you're using GNU make...
-make wireshark_dmg logwolf_dmg # (Modify as needed)
+make wireshark_dmg logray_dmg # (Modify as needed)
 ----
 
 to build the macOS Packages.
@@ -1054,22 +1055,22 @@ the _packaging/nsis_ directory in your build directory.
 _PortableApps.com_ is an environment that lets users run popular applications
 from portable media such as flash drives and cloud drive services.
 
-Install the _PortableApps.com Platform_. Install for “all users”, which
-will place it in `C:\PortableApps`. Add the following apps:
+* Install the _PortableApps.com Platform_. Install for “all users”, which
+will place it in `C:\PortableApps`.  +
 
-- NSIS Portable (Unicode)
-- PortableApps.com Installer
-- PortableApps.com Launcher
-- PortableApps.com AppCompactor
+* Add the following apps:
+
+** PortableApps.com Installer
+** PortableApps.com Launcher
 
 When building with CMake you must first build the _wireshark_nsis_prep_ target
 (which takes care of general packaging dependencies), followed by the
-_portableapps_package_ target, e.g.
+_wireshark_portableapps_ target, e.g.
 
 [source,cmd]
 ----
 > msbuild /m /p:Configuration=RelWithDebInfo wireshark_nsis_prep.vcxproj
-> msbuild /m /p:Configuration=RelWithDebInfo portableapps_package.vcxproj
+> msbuild /m /p:Configuration=RelWithDebInfo wireshark_portableapps.vcxproj
 ----
 
 [TIP]
@@ -1080,7 +1081,7 @@ It might take some time, even on fast machines.
 ====
 
 If everything went well, you will now find something like:
-_WiresharkPortable64_{wireshark-version}.paf.exe_ in
+_WiresharkPortable64{underscore}{wireshark-version}.paf.exe_ in
 the _packaging/portableapps_ directory.
 
 [#ChSrcMimeTypes]

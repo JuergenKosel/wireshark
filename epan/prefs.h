@@ -103,15 +103,6 @@ typedef enum {
 } layout_pane_content_e;
 
 /*
- * open console behaviour (win32 only)
- */
-typedef enum {
-    console_open_never,
-    console_open_auto,
-    console_open_always
-} console_open_e;
-
-/*
  * Places version information will show up
  */
 typedef enum {
@@ -166,7 +157,6 @@ typedef struct _e_prefs {
   gboolean     gui_geometry_save_position;
   gboolean     gui_geometry_save_size;
   gboolean     gui_geometry_save_maximized;
-  console_open_e gui_console_open;
   guint        gui_recent_df_entries_max;
   guint        gui_recent_files_count_max;
   guint        gui_fileopen_style;
@@ -747,27 +737,6 @@ void prefs_register_custom_preference(module_t *module, const char *name,
 void prefs_register_decode_as_range_preference(module_t *module, const char *name,
     const char *title, const char *description, range_t **var,
     guint32 max_value);
-
-/**
- * Register a (internal) "Decode As" preference with an unsigned integral value
- * for a dissector table.
- *
- * @param module the preferences module returned by prefs_register_protocol() or
- *               prefs_register_protocol_subtree()
- * @param name the preference's identifier. This is appended to the name of the
- *             protocol, with a "." between them, to create a unique identifier.
- *             The identifier should not include the protocol name, as the name in
- *             the preference file will already have it. Make sure that
- *             only lower-case ASCII letters, numbers, underscores and
- *             dots appear in the preference name.
- * @param title Field's title in the preferences dialog
- * @param description description to include in the preferences file
- *                    and shown as tooltip in the GUI, or NULL
- * @param var pointer to the storage location that is updated when the
- *                    field is changed in the preference dialog box.
- */
-void prefs_register_decode_as_preference(module_t *module, const char *name,
-    const char *title, const char *description, guint *var);
 
 /**
  * Register a preference with an password (password is never stored).

@@ -16,6 +16,10 @@
 
 #include <wsutil/to_str.h>
 
+
+static const char hex[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                              '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
 gchar *
 wmem_strconcat(wmem_allocator_t *allocator, const gchar *first, ...)
 {
@@ -558,6 +562,711 @@ ws_strdup_underline(wmem_allocator_t *allocator, long offset, size_t len)
     }
 
     return wmem_strbuf_finalize(buf);
+}
+
+#define    INITIAL_FMTBUF_SIZE    128
+
+/*
+ * Declare, and initialize, the variables used for an output buffer.
+ */
+#define FMTBUF_VARS \
+    gchar *fmtbuf = (gchar*)wmem_alloc(allocator, INITIAL_FMTBUF_SIZE); \
+    guint fmtbuf_len = INITIAL_FMTBUF_SIZE; \
+    guint column = 0
+
+/*
+ * Expand the buffer to be large enough to add nbytes bytes, plus a
+ * terminating '\0'.
+ */
+#define FMTBUF_EXPAND(nbytes) \
+    /* \
+     * Is there enough room for those bytes and also enough room for \
+     * a terminating '\0'? \
+     */ \
+    if (column+(nbytes+1) >= fmtbuf_len) { \
+        /* \
+         * Double the buffer's size if it's not big enough. \
+         * The size of the buffer starts at 128, so doubling its size \
+         * adds at least another 128 bytes, which is more than enough \
+         * for one more character plus a terminating '\0'. \
+         */ \
+        fmtbuf_len *= 2; \
+        fmtbuf = (gchar *)wmem_realloc(allocator, fmtbuf, fmtbuf_len); \
+    }
+
+/*
+ * Put a byte into the buffer; space must have been ensured for it.
+ */
+#define FMTBUF_PUTCHAR(b) \
+    fmtbuf[column] = (b); \
+    column++
+
+/*
+ * Add the one-byte argument, as an octal escape sequence, to the end
+ * of the buffer.
+ */
+#define FMTBUF_PUTBYTE_OCTAL(b) \
+    FMTBUF_PUTCHAR((((b)>>6)&03) + '0'); \
+    FMTBUF_PUTCHAR((((b)>>3)&07) + '0'); \
+    FMTBUF_PUTCHAR((((b)>>0)&07) + '0')
+
+/*
+ * Add the one-byte argument, as a hex escape sequence, to the end
+ * of the buffer.
+ */
+#define FMTBUF_PUTBYTE_HEX(b) \
+    FMTBUF_PUTCHAR('\\'); \
+    FMTBUF_PUTCHAR('x'); \
+    FMTBUF_PUTCHAR(hex[((b) >> 4) & 0xF]); \
+    FMTBUF_PUTCHAR(hex[((b) >> 0) & 0xF])
+
+/*
+ * Put the trailing '\0' at the end of the buffer.
+ */
+#define FMTBUF_ENDSTR \
+    fmtbuf[column] = '\0'
+
+/* REPLACEMENT CHARACTER */
+#define UNREPL 0xFFFD
+
+#define UNPOOP 0x1F4A9
+
+static gchar *
+format_text_internal(wmem_allocator_t *allocator,
+                        const guchar *string, size_t len,
+                        gboolean replace_space)
+{
+    FMTBUF_VARS;
+    const guchar *stringend = string + len;
+    guchar c;
+
+    while (string < stringend) {
+        /*
+         * Get the first byte of this character.
+         */
+        c = *string++;
+        if (g_ascii_isprint(c)) {
+            /*
+             * Printable ASCII, so not part of a multi-byte UTF-8 sequence.
+             * Make sure there's enough room for one more byte, and add
+             * the character.
+             */
+            FMTBUF_EXPAND(1);
+            FMTBUF_PUTCHAR(c);
+        } else if (replace_space && g_ascii_isspace(c)) {
+            /*
+             * ASCII, so not part of a multi-byte UTF-8 sequence, but
+             * not printable, but is a space character; show it as a
+             * blank.
+             *
+             * Make sure there's enough room for one more byte, and add
+             * the blank.
+             */
+            FMTBUF_EXPAND(1);
+            FMTBUF_PUTCHAR(' ');
+        } else if (c < 128) {
+            /*
+             * ASCII, so not part of a multi-byte UTF-8 sequence, but not
+             * printable.
+             *
+             * That requires a minimum of 2 bytes, one for the backslash
+             * and one for a letter, so make sure we have enough room
+             * for that, plus a trailing '\0'.
+             */
+            FMTBUF_EXPAND(2);
+            FMTBUF_PUTCHAR('\\');
+            switch (c) {
+
+                case '\a':
+                    FMTBUF_PUTCHAR('a');
+                    break;
+
+                case '\b':
+                    FMTBUF_PUTCHAR('b'); /* BS */
+                    break;
+
+                case '\f':
+                    FMTBUF_PUTCHAR('f'); /* FF */
+                    break;
+
+                case '\n':
+                    FMTBUF_PUTCHAR('n'); /* NL */
+                    break;
+
+                case '\r':
+                    FMTBUF_PUTCHAR('r'); /* CR */
+                    break;
+
+                case '\t':
+                    FMTBUF_PUTCHAR('t'); /* tab */
+                    break;
+
+                case '\v':
+                    FMTBUF_PUTCHAR('v');
+                    break;
+
+                default:
+                    /*
+                     * We've already put the backslash, but this
+                     * will put 3 more characters for the octal
+                     * number; make sure we have enough room for
+                     * that, plus the trailing '\0'.
+                     */
+                    FMTBUF_EXPAND(3);
+                    FMTBUF_PUTBYTE_OCTAL(c);
+                    break;
+            }
+        } else {
+            /*
+             * We've fetched the first byte of a multi-byte UTF-8
+             * sequence into c.
+             */
+            int utf8_len;
+            guchar mask;
+            gunichar uc;
+            guchar first;
+
+            if ((c & 0xe0) == 0xc0) {
+                /* Starts a 2-byte UTF-8 sequence; 1 byte left */
+                utf8_len = 1;
+                mask = 0x1f;
+            } else if ((c & 0xf0) == 0xe0) {
+                /* Starts a 3-byte UTF-8 sequence; 2 bytes left */
+                utf8_len = 2;
+                mask = 0x0f;
+            } else if ((c & 0xf8) == 0xf0) {
+                /* Starts a 4-byte UTF-8 sequence; 3 bytes left */
+                utf8_len = 3;
+                mask = 0x07;
+            } else if ((c & 0xfc) == 0xf8) {
+                /* Starts an old-style 5-byte UTF-8 sequence; 4 bytes left */
+                utf8_len = 4;
+                mask = 0x03;
+            } else if ((c & 0xfe) == 0xfc) {
+                /* Starts an old-style 6-byte UTF-8 sequence; 5 bytes left */
+                utf8_len = 5;
+                mask = 0x01;
+            } else {
+                /* 0xfe or 0xff or a continuation byte - not valid */
+                utf8_len = -1;
+            }
+            if (utf8_len > 0) {
+                /* Try to construct the Unicode character */
+                uc = c & mask;
+                for (int i = 0; i < utf8_len; i++) {
+                    if (string >= stringend) {
+                        /*
+                         * Ran out of octets, so the character is
+                         * incomplete.  Put in a REPLACEMENT CHARACTER
+                         * instead, and then continue the loop, which
+                         * will terminate.
+                         */
+                        uc = UNREPL;
+                        break;
+                    }
+                    c = *string;
+                    if ((c & 0xc0) != 0x80) {
+                        /*
+                         * Not valid UTF-8 continuation character; put in
+                         * a replacement character, and then re-process
+                         * this octet as the beginning of a new character.
+                         */
+                        uc = UNREPL;
+                        break;
+                    }
+                    string++;
+                    uc = (uc << 6) | (c & 0x3f);
+                }
+
+                /*
+                 * If this isn't a valid Unicode character, put in
+                 * a REPLACEMENT CHARACTER.
+                 */
+                if (!g_unichar_validate(uc))
+                    uc = UNREPL;
+            } else {
+                /* 0xfe or 0xff; put it a REPLACEMENT CHARACTER */
+                uc = UNREPL;
+            }
+
+            /*
+             * OK, is it a printable Unicode character?
+             */
+            if (g_unichar_isprint(uc)) {
+                /*
+                 * Yes - put it into the string as UTF-8.
+                 * This means that if it was an overlong
+                 * encoding, this will put out the right
+                 * sized encoding.
+                 */
+                if (uc < 0x80) {
+                    first = 0;
+                    utf8_len = 1;
+                } else if (uc < 0x800) {
+                    first = 0xc0;
+                    utf8_len = 2;
+                } else if (uc < 0x10000) {
+                    first = 0xe0;
+                    utf8_len = 3;
+                } else if (uc < 0x200000) {
+                    first = 0xf0;
+                    utf8_len = 4;
+                } else if (uc < 0x4000000) {
+                    /*
+                     * This should never happen, as Unicode doesn't
+                     * go that high.
+                     */
+                    first = 0xf8;
+                    utf8_len = 5;
+                } else {
+                    /*
+                     * This should never happen, as Unicode doesn't
+                     * go that high.
+                     */
+                    first = 0xfc;
+                    utf8_len = 6;
+                }
+                FMTBUF_EXPAND(utf8_len);
+                for (int i = utf8_len - 1; i > 0; i--) {
+                    fmtbuf[column + i] = (uc & 0x3f) | 0x80;
+                    uc >>= 6;
+                }
+                fmtbuf[column] = uc | first;
+                column += utf8_len;
+            } else if (replace_space && g_unichar_isspace(uc)) {
+                /*
+                 * Not printable, but is a space character; show it
+                 * as a blank.
+                 *
+                 * Make sure there's enough room for one more byte,
+                 * and add the blank.
+                 */
+                FMTBUF_EXPAND(1);
+                FMTBUF_PUTCHAR(' ');
+            } else if (c < 128) {
+                /*
+                 * ASCII, but not printable.
+                 * Yes, this could happen with an overlong encoding.
+                 *
+                 * That requires a minimum of 2 bytes, one for the
+                 * backslash and one for a letter, so make sure we
+                 * have enough room for that, plus a trailing '\0'.
+                 */
+                FMTBUF_EXPAND(2);
+                FMTBUF_PUTCHAR('\\');
+                switch (c) {
+
+                    case '\a':
+                        FMTBUF_PUTCHAR('a');
+                        break;
+
+                    case '\b':
+                        FMTBUF_PUTCHAR('b'); /* BS */
+                        break;
+
+                    case '\f':
+                        FMTBUF_PUTCHAR('f'); /* FF */
+                        break;
+
+                    case '\n':
+                        FMTBUF_PUTCHAR('n'); /* NL */
+                        break;
+
+                    case '\r':
+                        FMTBUF_PUTCHAR('r'); /* CR */
+                        break;
+
+                    case '\t':
+                        FMTBUF_PUTCHAR('t'); /* tab */
+                        break;
+
+                    case '\v':
+                        FMTBUF_PUTCHAR('v');
+                        break;
+
+                    default:
+                        /*
+                         * We've already put the backslash, but this
+                         * will put 3 more characters for the octal
+                         * number; make sure we have enough room for
+                         * that, plus the trailing '\0'.
+                         */
+                        FMTBUF_EXPAND(3);
+                        FMTBUF_PUTBYTE_OCTAL(c);
+                        break;
+                }
+            } else {
+                /*
+                 * Unicode, but not printable, and not ASCII;
+                 * put it out as \uxxxx or \Uxxxxxxxx.
+                 */
+                if (uc <= 0xFFFF) {
+                    FMTBUF_EXPAND(6);
+                    FMTBUF_PUTCHAR('\\');
+                    FMTBUF_PUTCHAR('u');
+                    FMTBUF_PUTCHAR(hex[(uc >> 12) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 8) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 4) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 0) & 0xF]);
+                } else {
+                    FMTBUF_EXPAND(10);
+                    FMTBUF_PUTCHAR('\\');
+                    FMTBUF_PUTCHAR('U');
+                    FMTBUF_PUTCHAR(hex[(uc >> 28) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 24) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 20) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 16) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 12) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 8) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 4) & 0xF]);
+                    FMTBUF_PUTCHAR(hex[(uc >> 0) & 0xF]);
+                }
+            }
+        }
+    }
+
+    FMTBUF_ENDSTR;
+
+    return fmtbuf;
+}
+
+/*
+ * Given a wmem scope, a not-necessarily-null-terminated string,
+ * expected to be in UTF-8 but possibly containing invalid sequences
+ * (as it may have come from packet data), and the length of the string,
+ * generate a valid UTF-8 string from it, allocated in the specified
+ * wmem scope, that:
+ *
+ *   shows printable Unicode characters as themselves;
+ *
+ *   shows non-printable ASCII characters as C-style escapes (octal
+ *   if not one of the standard ones such as LF -> '\n');
+ *
+ *   shows non-printable Unicode-but-not-ASCII characters as
+ *   their universal character names;
+ *
+ *   shows illegal UTF-8 sequences as a sequence of bytes represented
+ *   as C-style hex escapes (XXX: Does not actually do this. Some illegal
+ *   sequences, such as overlong encodings, the sequences reserved for
+ *   UTF-16 surrogate halves (paired or unpaired), and values outside
+ *   Unicode (i.e., the old sequences for code points above U+10FFFF)
+ *   will be decoded in a permissive way. Other illegal sequences,
+ *   such 0xFE and 0xFF and the presence of a continuation byte where
+ *   not expected (or vice versa its absence), are replaced with
+ *   REPLACEMENT CHARACTER.)
+ *
+ * and return a pointer to it.
+ */
+char *
+format_text(wmem_allocator_t *allocator,
+                        const char *string, size_t len)
+{
+    return format_text_internal(allocator, string, len, FALSE);
+}
+
+/** Given a wmem scope and a null-terminated string, expected to be in
+ *  UTF-8 but possibly containing invalid sequences (as it may have come
+ *  from packet data), and the length of the string, generate a valid
+ *  UTF-8 string from it, allocated in the specified wmem scope, that:
+ *
+ *   shows printable Unicode characters as themselves;
+ *
+ *   shows non-printable ASCII characters as C-style escapes (octal
+ *   if not one of the standard ones such as LF -> '\n');
+ *
+ *   shows non-printable Unicode-but-not-ASCII characters as
+ *   their universal character names;
+ *
+ *   shows illegal UTF-8 sequences as a sequence of bytes represented
+ *   as C-style hex escapes;
+ *
+ *  and return a pointer to it.
+ */
+char *
+format_text_string(wmem_allocator_t* allocator, const char *string)
+{
+    return format_text_internal(allocator, string, strlen(string), FALSE);
+}
+
+/*
+ * Given a string, generate a string from it that shows non-printable
+ * characters as C-style escapes except a whitespace character
+ * (space, tab, carriage return, new line, vertical tab, or formfeed)
+ * which will be replaced by a space, and return a pointer to it.
+ */
+char *
+format_text_wsp(wmem_allocator_t* allocator, const char *string, size_t len)
+{
+    return format_text_internal(allocator, string, len, TRUE);
+}
+
+/*
+ * Given a string, generate a string from it that shows non-printable
+ * characters as the chr parameter passed, except a whitespace character
+ * (space, tab, carriage return, new line, vertical tab, or formfeed)
+ * which will be replaced by a space, and return a pointer to it.
+ *
+ * This does *not* treat the input string as UTF-8.
+ *
+ * This is useful for displaying binary data that frequently but not always
+ * contains text; otherwise the number of C escape codes makes it unreadable.
+ */
+char *
+format_text_chr(wmem_allocator_t *allocator, const char *string, size_t len, char chr)
+{
+    wmem_strbuf_t *buf;
+
+    buf = wmem_strbuf_sized_new(allocator, len + 1, 0);
+    for (const char *p = string; p < string + len; p++) {
+        if (g_ascii_isprint(*p)) {
+            wmem_strbuf_append_c(buf, *p);
+        }
+        else if (g_ascii_isspace(*p)) {
+            wmem_strbuf_append_c(buf, ' ');
+        }
+        else {
+            wmem_strbuf_append_c(buf, chr);
+        }
+    }
+    return wmem_strbuf_finalize(buf);
+}
+
+char*
+ws_utf8_truncate(char *string, size_t len)
+{
+    char* last_char;
+
+    /* Ensure that it is null terminated */
+    string[len] = '\0';
+    last_char = g_utf8_find_prev_char(string, string + len);
+    if (last_char != NULL && g_utf8_get_char_validated(last_char, -1) == (gunichar)-2) {
+        /* The last UTF-8 character was truncated into a partial sequence. */
+        *last_char = '\0';
+    }
+    return string;
+}
+
+/* ASCII/EBCDIC conversion tables from
+ * https://web.archive.org/web/20060813174742/http://www.room42.com/store/computer_center/code_tables.shtml
+ */
+#if 0
+static const guint8 ASCII_translate_EBCDIC [ 256 ] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+    0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+    0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+    0x40, 0x5A, 0x7F, 0x7B, 0x5B, 0x6C, 0x50, 0x7D, 0x4D,
+    0x5D, 0x5C, 0x4E, 0x6B, 0x60, 0x4B, 0x61,
+    0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8,
+    0xF9, 0x7A, 0x5E, 0x4C, 0x7E, 0x6E, 0x6F,
+    0x7C, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8,
+    0xC9, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6,
+    0xD7, 0xD8, 0xD9, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7,
+    0xE8, 0xE9, 0xAD, 0xE0, 0xBD, 0x5F, 0x6D,
+    0x7D, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88,
+    0x89, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96,
+    0x97, 0x98, 0x99, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7,
+    0xA8, 0xA9, 0xC0, 0x6A, 0xD0, 0xA1, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B,
+    0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B
+};
+
+void
+ASCII_to_EBCDIC(guint8 *buf, guint bytes)
+{
+    guint    i;
+    guint8    *bufptr;
+
+    bufptr = buf;
+
+    for (i = 0; i < bytes; i++, bufptr++) {
+        *bufptr = ASCII_translate_EBCDIC[*bufptr];
+    }
+}
+
+guint8
+ASCII_to_EBCDIC1(guint8 c)
+{
+    return ASCII_translate_EBCDIC[c];
+}
+#endif
+
+static const guint8 EBCDIC_translate_ASCII [ 256 ] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+    0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+    0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F,
+    0x2E, 0x2E, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+    0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x2E, 0x3F,
+    0x20, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x2E, 0x2E, 0x3C, 0x28, 0x2B, 0x7C,
+    0x26, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x21, 0x24, 0x2A, 0x29, 0x3B, 0x5E,
+    0x2D, 0x2F, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x7C, 0x2C, 0x25, 0x5F, 0x3E, 0x3F,
+    0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x3A, 0x23, 0x40, 0x27, 0x3D, 0x22,
+    0x2E, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+    0x68, 0x69, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70,
+    0x71, 0x72, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x7E, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78,
+    0x79, 0x7A, 0x2E, 0x2E, 0x2E, 0x5B, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x5D, 0x2E, 0x2E,
+    0x7B, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+    0x48, 0x49, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x7D, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50,
+    0x51, 0x52, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x5C, 0x2E, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
+    0x59, 0x5A, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+    0x38, 0x39, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E
+};
+
+void
+EBCDIC_to_ASCII(guint8 *buf, guint bytes)
+{
+    guint   i;
+    guint8 *bufptr;
+
+    bufptr = buf;
+
+    for (i = 0; i < bytes; i++, bufptr++) {
+        *bufptr = EBCDIC_translate_ASCII[*bufptr];
+    }
+}
+
+guint8
+EBCDIC_to_ASCII1(guint8 c)
+{
+    return EBCDIC_translate_ASCII[c];
+}
+
+/*
+ * This routine is based on a routine created by Dan Lasley
+ * <DLASLEY@PROMUS.com>.
+ *
+ * It was modified for Wireshark by Gilbert Ramirez and others.
+ */
+
+#define MAX_OFFSET_LEN   8       /* max length of hex offset of bytes */
+#define BYTES_PER_LINE  16      /* max byte values printed on a line */
+#define HEX_DUMP_LEN    (BYTES_PER_LINE*3)
+                                /* max number of characters hex dump takes -
+                                   2 digits plus trailing blank */
+#define DATA_DUMP_LEN   (HEX_DUMP_LEN + 2 + 2 + BYTES_PER_LINE)
+                                /* number of characters those bytes take;
+                                   3 characters per byte of hex dump,
+                                   2 blanks separating hex from ASCII,
+                                   2 optional ASCII dump delimiters,
+                                   1 character per byte of ASCII dump */
+#define MAX_LINE_LEN    (MAX_OFFSET_LEN + 2 + DATA_DUMP_LEN)
+                                /* number of characters per line;
+                                   offset, 2 blanks separating offset
+                                   from data dump, data dump */
+
+gboolean
+hex_dump_buffer(gboolean (*print_line)(void *, const char *), void *fp,
+                                    const guchar *cp, guint length,
+                                    hex_dump_enc encoding,
+                                    guint ascii_option)
+{
+    register unsigned int ad, i, j, k, l;
+    guchar                c;
+    gchar                 line[MAX_LINE_LEN + 1];
+    unsigned int          use_digits;
+
+    static gchar binhex[16] = {
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+    /*
+     * How many of the leading digits of the offset will we supply?
+     * We always supply at least 4 digits, but if the maximum offset
+     * won't fit in 4 digits, we use as many digits as will be needed.
+     */
+    if (((length - 1) & 0xF0000000) != 0)
+        use_digits = 8; /* need all 8 digits */
+    else if (((length - 1) & 0x0F000000) != 0)
+        use_digits = 7; /* need 7 digits */
+    else if (((length - 1) & 0x00F00000) != 0)
+        use_digits = 6; /* need 6 digits */
+    else if (((length - 1) & 0x000F0000) != 0)
+        use_digits = 5; /* need 5 digits */
+    else
+        use_digits = 4; /* we'll supply 4 digits */
+
+    ad = 0;
+    i = 0;
+    j = 0;
+    k = 0;
+    while (i < length) {
+        if ((i & 15) == 0) {
+            /*
+             * Start of a new line.
+             */
+            j = 0;
+            l = use_digits;
+            do {
+                l--;
+                c = (ad >> (l*4)) & 0xF;
+                line[j++] = binhex[c];
+            } while (l != 0);
+            line[j++] = ' ';
+            line[j++] = ' ';
+            memset(line+j, ' ', DATA_DUMP_LEN);
+
+            /*
+             * Offset in line of ASCII dump.
+             */
+            k = j + HEX_DUMP_LEN + 2;
+            if (ascii_option == HEXDUMP_ASCII_DELIMIT)
+                line[k++] = '|';
+        }
+        c = *cp++;
+        line[j++] = binhex[c>>4];
+        line[j++] = binhex[c&0xf];
+        j++;
+        if (ascii_option != HEXDUMP_ASCII_EXCLUDE ) {
+            if (encoding == HEXDUMP_ENC_EBCDIC) {
+                c = EBCDIC_to_ASCII1(c);
+            }
+            line[k++] = ((c >= ' ') && (c < 0x7f)) ? c : '.';
+        }
+        i++;
+        if (((i & 15) == 0) || (i == length)) {
+            /*
+             * We'll be starting a new line, or
+             * we're finished printing this buffer;
+             * dump out the line we've constructed,
+             * and advance the offset.
+             */
+            if (ascii_option == HEXDUMP_ASCII_DELIMIT)
+                line[k++] = '|';
+            line[k] = '\0';
+            if (!print_line(fp, line))
+                return FALSE;
+            ad += 16;
+        }
+    }
+    return TRUE;
 }
 
 /*

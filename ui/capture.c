@@ -21,6 +21,7 @@
 
 #include <epan/packet.h>
 #include <epan/dfilter/dfilter.h>
+#include "extcap.h"
 #include "file.h"
 #include "ui/capture.h"
 #include "capture/capture_ifinfo.h"
@@ -182,8 +183,13 @@ capture_stop(capture_session *cap_session)
 
     capture_callback_invoke(capture_cb_capture_stopping, cap_session);
 
-    /* stop the capture child gracefully */
-    sync_pipe_stop(cap_session);
+    if (!extcap_session_stop(cap_session)) {
+        extcap_request_stop(cap_session);
+        cap_session->capture_opts->stop_after_extcaps = TRUE;
+    } else {
+        /* stop the capture child gracefully */
+        sync_pipe_stop(cap_session);
+    }
 }
 
 
@@ -672,8 +678,26 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
     ws_message("Capture stopped.");
     ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
-    if (msg != NULL)
-        simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", msg);
+    if (msg != NULL) {
+        ESD_TYPE_E dlg_type = ESD_TYPE_ERROR;
+        if (strstr(msg, " WARNING] ")) {
+            dlg_type = ESD_TYPE_WARN;
+        }
+        /*
+         * ws_log prefixes log messages with a timestamp delimited by " -- " and possibly
+         * a function name delimted by "(): ". Log it to sterr, but omit it in the UI.
+         */
+        char *plain_msg = strstr(msg, "(): ");
+        if (plain_msg != NULL) {
+            plain_msg += strlen("(): ");
+        } else if ((plain_msg = strstr(msg, " -- ")) != NULL) {
+            plain_msg += strlen(" -- ");
+        } else {
+            plain_msg = msg;
+        }
+        ws_warning("%s", msg);
+        simple_dialog(dlg_type, ESD_BTN_OK, "%s", plain_msg);
+    }
 
     wtap_rec_cleanup(&cap_session->rec);
     ws_buffer_free(&cap_session->buf);

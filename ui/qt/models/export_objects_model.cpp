@@ -53,6 +53,13 @@ ExportObjectModel::ExportObjectModel(register_eo_t* eo, QObject *parent) :
     export_object_list_.gui_data = (void*)&eo_gui_data_;
 }
 
+ExportObjectModel::~ExportObjectModel()
+{
+    foreach (QVariant v, objects_) {
+        eo_free_entry(VariantPointer<export_object_entry_t>::asPtr(v));
+    }
+}
+
 QVariant ExportObjectModel::data(const QModelIndex &index, int role) const
 {
     if ((!index.isValid()) || ((role != Qt::DisplayRole) && (role != Qt::UserRole))) {
@@ -70,13 +77,13 @@ QVariant ExportObjectModel::data(const QModelIndex &index, int role) const
         case colPacket:
             return QString::number(entry->pkt_num);
         case colHostname:
-            return entry->hostname;
+            return QString::fromUtf8(entry->hostname);
         case colContent:
-            return entry->content_type;
+            return QString::fromUtf8(entry->content_type);
         case colSize:
             return file_size_to_qstring(entry->payload_len);
         case colFilename:
-            return entry->filename;
+            return QString::fromUtf8(entry->filename);
         }
     }
     else if (role == Qt::UserRole)

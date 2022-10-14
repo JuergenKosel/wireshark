@@ -2345,6 +2345,7 @@ print_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec, Buffer *buf,
     char            bookmark_name[9+10+1];  /* "__frameNNNNNNNNNN__\0" */
     char            bookmark_title[6+10+1]; /* "Frame NNNNNNNNNN__\0"  */
     col_item_t*     col_item;
+    const gchar*    col_text;
 
     /* Fill in the column information if we're printing the summary
        information. */
@@ -2394,8 +2395,9 @@ print_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec, Buffer *buf,
         line_len = 0;
         for (i = 0; i < args->num_visible_cols; i++) {
             col_item = &cf->cinfo.columns[args->visible_cols[i]];
+            col_text = get_column_text(&cf->cinfo, args->visible_cols[i]);
             /* Find the length of the string for this column. */
-            column_len = (int) strlen(col_item->col_data);
+            column_len = (int) strlen(col_text);
             if (args->col_widths[i] > column_len)
                 column_len = args->col_widths[i];
 
@@ -2411,9 +2413,9 @@ print_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec, Buffer *buf,
 
             /* Right-justify the packet number column. */
             if (col_item->col_fmt == COL_NUMBER)
-                snprintf(cp, column_len+1, "%*s", args->col_widths[i], col_item->col_data);
+                snprintf(cp, column_len+1, "%*s", args->col_widths[i], col_text);
             else
-                snprintf(cp, column_len+1, "%-*s", args->col_widths[i], col_item->col_data);
+                snprintf(cp, column_len+1, "%-*s", args->col_widths[i], col_text);
             cp += column_len;
             if (i != args->num_visible_cols - 1)
                 *cp++ = ' ';
@@ -3144,7 +3146,7 @@ match_subtree_text(proto_node *node, gpointer data)
     }
 
     if (cf->regex) {
-        if (g_regex_match(cf->regex, label_ptr, (GRegexMatchFlags) 0, NULL)) {
+        if (ws_regex_matches(cf->regex, label_ptr)) {
             mdata->frame_matched = TRUE;
             mdata->finfo = fi;
             return;
@@ -3218,10 +3220,10 @@ match_summary_line(capture_file *cf, frame_data *fdata,
     for (colx = 0; colx < cf->cinfo.num_cols; colx++) {
         if (cf->cinfo.columns[colx].fmt_matx[COL_INFO]) {
             /* Found it.  See if we match. */
-            info_column = edt.pi.cinfo->columns[colx].col_data;
+            info_column = get_column_text(edt.pi.cinfo, colx);
             info_column_len = strlen(info_column);
             if (cf->regex) {
-                if (g_regex_match(cf->regex, info_column, (GRegexMatchFlags) 0, NULL)) {
+                if (ws_regex_matches(cf->regex, info_column)) {
                     result = MR_MATCHED;
                     break;
                 }
@@ -3745,7 +3747,7 @@ match_regex(capture_file *cf, frame_data *fdata,
         wtap_rec *rec, Buffer *buf, void *criterion _U_)
 {
     match_result  result = MR_NOTMATCHED;
-    GMatchInfo   *match_info = NULL;
+    size_t result_pos[2] = {0, 0};
 
     /* Load the frame's data. */
     if (!cf_read_record(cf, fdata, rec, buf)) {
@@ -3753,13 +3755,13 @@ match_regex(capture_file *cf, frame_data *fdata,
         return MR_ERROR;
     }
 
-    if (g_regex_match_full(cf->regex, (const gchar *)ws_buffer_start_ptr(buf), fdata->cap_len,
-                0, (GRegexMatchFlags) 0, &match_info, NULL))
-    {
-        gint start_pos = 0, end_pos = 0;
-        g_match_info_fetch_pos (match_info, 0, &start_pos, &end_pos);
-        cf->search_pos = end_pos - 1;
-        cf->search_len = end_pos - start_pos;
+    if (ws_regex_matches_pos(cf->regex,
+                                (const gchar *)ws_buffer_start_ptr(buf),
+                                fdata->cap_len,
+                                result_pos)) {
+        //TODO: Fix cast.
+        cf->search_pos = (guint32)(result_pos[1] - 1); /* last byte = end position - 1 */
+        cf->search_len = (guint32)(result_pos[1] - result_pos[0]);
         result = MR_MATCHED;
     }
     return result;
@@ -4591,7 +4593,9 @@ rescan_file(capture_file *cf, const char *fname, gboolean is_tempfile)
                     &data_offset))) {
         framenum++;
         fdata = frame_data_sequence_find(cf->provider.frames, framenum);
-        fdata->file_off = data_offset;
+        if (G_LIKELY(fdata != NULL)) {
+            fdata->file_off = data_offset;
+        }
         if (size >= 0) {
             count++;
             cf->f_datalen = wtap_read_so_far(cf->provider.wth);

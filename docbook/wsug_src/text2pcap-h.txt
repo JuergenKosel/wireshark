@@ -1,4 +1,4 @@
-Text2pcap (Wireshark) 3.7.1 (v3.7.1rc0-27-gf2fb1662b23b)
+Text2pcap (Wireshark) 4.1.0 (v4.1.0rc0-428-g517d2be1494f)
 Generate a capture file from an ASCII hexdump of packets.
 See https://www.wireshark.org for more information.
 
@@ -87,17 +87,19 @@ Prepend dummy header:
                          Automatically prepends a dummy SCTP DATA
                          chunk header with payload protocol identifier ppi.
                          Example: -S 30,40,34
-  -P <dissector>         prepend EXPORTED_PDU header with specifieddissector
-                         as the payload PROTO_NAME tag.
+  -P <dissector>         prepend EXPORTED_PDU header with specified dissector
+                         as the payload DISSECTOR_NAME tag.
                          Automatically sets link type to Upper PDU Export.
                          EXPORTED_PDU payload defaults to "data" otherwise.
 
 Diagnostic output:
   --log-level <level>      sets the active log level ("critical", "warning", etc.)
   --log-fatal <level>      sets level to abort the program ("critical" or "warning")
-  --log-domains <[!]list>  comma separated list of the active log domains
-  --log-debug <[!]list>    comma separated list of domains with "debug" level
-  --log-noisy <[!]list>    comma separated list of domains with "noisy" level
+  --log-domains <[!]list>  comma-separated list of the active log domains
+  --log-fatal-domains <list>
+                           list of domains that cause the program to abort
+  --log-debug <[!]list>    list of domains with "debug" level
+  --log-noisy <[!]list>    list of domains with "noisy" level
   --log-file <path>        file to output messages to (in addition to stderr)
 
 Miscellaneous:

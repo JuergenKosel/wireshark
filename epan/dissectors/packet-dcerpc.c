@@ -762,7 +762,7 @@ dcerpc_add_conv_to_bind_table(decode_dcerpc_bind_values_t *binding)
         0,
         &binding->addr_a,
         &binding->addr_b,
-        conversation_pt_to_endpoint_type(binding->ptype),
+        conversation_pt_to_conversation_type(binding->ptype),
         binding->port_a,
         binding->port_b,
         0);
@@ -772,7 +772,7 @@ dcerpc_add_conv_to_bind_table(decode_dcerpc_bind_values_t *binding)
             0,
             &binding->addr_a,
             &binding->addr_b,
-            conversation_pt_to_endpoint_type(binding->ptype),
+            conversation_pt_to_conversation_type(binding->ptype),
             binding->port_a,
             binding->port_b,
             0);
@@ -1714,7 +1714,7 @@ dcerpc_get_proto_name(e_guid_t *uuid, guint16 ver)
         return NULL;
     }
 
-    return dissector_handle_get_short_name(handle);
+    return dissector_handle_get_protocol_short_name(handle);
 }
 
 /* Function to find the opnum hf-field of a registered protocol

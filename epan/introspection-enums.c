@@ -5,9 +5,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Generated automatically from make-enums.py.
- *
- * It can be re-created using "make gen-enums".
+ * Generated automatically from make-enums.py. It can be re-created by running
+ * "tools/make-enums.py" from the top source directory.
  *
  * It is fine to edit this file by hand. Particularly if a symbol
  * disappears from the API it can just be removed here. There is no
@@ -18,6 +17,7 @@
 #include <epan/ipproto.h>
 #include <epan/proto.h>
 #include <epan/ftypes/ftypes.h>
+#include <epan/stat_groups.h>
 
 #define ENUM(arg) { #arg, arg }
 
@@ -44,8 +44,8 @@ static ws_enum_t all_enums[] = {
     ENUM(BASE_CUSTOM),
     ENUM(BASE_DEC),
     ENUM(BASE_DEC_HEX),
+    ENUM(BASE_EXP),
     ENUM(BASE_EXT_STRING),
-    ENUM(BASE_FLOAT),
     ENUM(BASE_HEX),
     ENUM(BASE_HEX_DEC),
     ENUM(BASE_NETMASK),
@@ -62,6 +62,7 @@ static ws_enum_t all_enums[] = {
     ENUM(BASE_SHOW_ASCII_PRINTABLE),
     ENUM(BASE_SHOW_UTF_8_PRINTABLE),
     ENUM(BASE_SPECIAL_VALS),
+    ENUM(BASE_STR_WSP),
     ENUM(BASE_UNIT_STRING),
     ENUM(BASE_VAL64_STRING),
     ENUM(BMT_NO_APPEND),
@@ -172,14 +173,17 @@ static ws_enum_t all_enums[] = {
     ENUM(FT_ABSOLUTE_TIME),
     ENUM(FT_AX25),
     ENUM(FT_AX25_ADDR_LEN),
+    ENUM(FT_BADARG),
     ENUM(FT_BOOLEAN),
     ENUM(FT_BYTES),
     ENUM(FT_CHAR),
     ENUM(FT_DOUBLE),
+    ENUM(FT_ERROR),
     ENUM(FT_ETHER),
     ENUM(FT_ETHER_LEN),
     ENUM(FT_EUI64),
     ENUM(FT_EUI64_LEN),
+    ENUM(FT_FALSE),
     ENUM(FT_FCWWN),
     ENUM(FT_FCWWN_LEN),
     ENUM(FT_FLOAT),
@@ -213,6 +217,8 @@ static ws_enum_t all_enums[] = {
     ENUM(FT_NONE),
     ENUM(FT_NUM_TYPES),
     ENUM(FT_OID),
+    ENUM(FT_OK),
+    ENUM(FT_OVERFLOW),
     ENUM(FT_PROTOCOL),
     ENUM(FT_RELATIVE_TIME),
     ENUM(FT_REL_OID),
@@ -221,6 +227,7 @@ static ws_enum_t all_enums[] = {
     ENUM(FT_STRINGZPAD),
     ENUM(FT_STRINGZTRUNC),
     ENUM(FT_SYSTEM_ID),
+    ENUM(FT_TRUE),
     ENUM(FT_UINT16),
     ENUM(FT_UINT24),
     ENUM(FT_UINT32),
@@ -426,9 +433,30 @@ static ws_enum_t all_enums[] = {
     ENUM(PT_TCP),
     ENUM(PT_UDP),
     ENUM(PT_USB),
+    ENUM(REGISTER_ANALYZE_GROUP_CONVERSATION_FILTER),
+    ENUM(REGISTER_LOG_ANALYZE_GROUP_UNSORTED),
+    ENUM(REGISTER_LOG_STAT_GROUP_UNSORTED),
+    ENUM(REGISTER_PACKET_ANALYZE_GROUP_UNSORTED),
+    ENUM(REGISTER_PACKET_STAT_GROUP_UNSORTED),
+    ENUM(REGISTER_STAT_GROUP_CONVERSATION_LIST),
+    ENUM(REGISTER_STAT_GROUP_ENDPOINT_LIST),
+    ENUM(REGISTER_STAT_GROUP_GENERIC),
+    ENUM(REGISTER_STAT_GROUP_RESPONSE_TIME),
+    ENUM(REGISTER_STAT_GROUP_RSERPOOL),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY_ANSI),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY_GSM),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY_LTE),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY_MTP3),
+    ENUM(REGISTER_STAT_GROUP_TELEPHONY_SCTP),
+    ENUM(REGISTER_TOOLS_GROUP_UNSORTED),
     ENUM(SEP_COLON),
     ENUM(SEP_DASH),
     ENUM(SEP_DOT),
     ENUM(SEP_SPACE),
+    ENUM(ST_FORMAT_CSV),
+    ENUM(ST_FORMAT_PLAIN),
+    ENUM(ST_FORMAT_XML),
+    ENUM(ST_FORMAT_YAML),
     { NULL, 0 },
 };

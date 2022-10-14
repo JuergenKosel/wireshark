@@ -192,23 +192,23 @@ jxta_conversation_packet(void *pct, packet_info *pinfo _U_, epan_dissect_t *edt 
     const jxta_tap_header *jxtahdr = (const jxta_tap_header *) vip;
 
     add_conversation_table_data(hash, &jxtahdr->src_address, &jxtahdr->dest_address,
-        0, 0, 1, jxtahdr->size, NULL, NULL, &jxta_ct_dissector_info, ENDPOINT_NONE);
+        0, 0, 1, jxtahdr->size, NULL, NULL, &jxta_ct_dissector_info, CONVERSATION_NONE);
 
     return TAP_PACKET_REDRAW;
 }
 
-static const char* jxta_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
+static const char* jxta_endpoint_get_filter_type(endpoint_item_t* endpoint, conv_filter_type_e filter)
 {
-    if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == uri_address_type))
+    if ((filter == CONV_FT_ANY_ADDRESS) && (endpoint->myaddress.type == uri_address_type))
         return "jxta.message.address";
 
     return CONV_FILTER_INVALID;
 }
 
-static hostlist_dissector_info_t jxta_host_dissector_info = {&jxta_host_get_filter_type};
+static et_dissector_info_t jxta_endpoint_dissector_info = {&jxta_endpoint_get_filter_type};
 
 static tap_packet_status
-jxta_hostlist_packet(void *pit, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
+jxta_endpoint_packet(void *pit, packet_info *pinfo _U_, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
     hash->flags = flags;
@@ -217,9 +217,9 @@ jxta_hostlist_packet(void *pit, packet_info *pinfo _U_, epan_dissect_t *edt _U_,
 
     /* Take two "add" passes per packet, adding for each direction, ensures that all
     packets are counted properly (even if address is sending to itself)
-    XXX - this could probably be done more efficiently inside hostlist_table */
-    add_hostlist_table_data(hash, &jxtahdr->src_address, 0, TRUE, 1, jxtahdr->size, &jxta_host_dissector_info, ENDPOINT_NONE);
-    add_hostlist_table_data(hash, &jxtahdr->dest_address, 0, FALSE, 1, jxtahdr->size, &jxta_host_dissector_info, ENDPOINT_NONE);
+    XXX - this could probably be done more efficiently inside endpoint_table */
+    add_endpoint_table_data(hash, &jxtahdr->src_address, 0, TRUE, 1, jxtahdr->size, &jxta_endpoint_dissector_info, ENDPOINT_NONE);
+    add_endpoint_table_data(hash, &jxtahdr->dest_address, 0, FALSE, 1, jxtahdr->size, &jxta_endpoint_dissector_info, ENDPOINT_NONE);
     return TAP_PACKET_REDRAW;
 }
 
@@ -465,7 +465,7 @@ static int dissect_jxta_udp(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tr
             break;
         }
 
-        if (tvb_memeql(tvb, offset, JXTA_UDP_SIG, sizeof(JXTA_UDP_SIG)) != 0) {
+        if (tvb_memeql(tvb, offset, (const guint8*)JXTA_UDP_SIG, sizeof(JXTA_UDP_SIG)) != 0) {
             /* not ours */
             return 0;
         }
@@ -571,7 +571,7 @@ static int dissect_jxta_stream(tvbuff_t * tvb, packet_info * pinfo, proto_tree *
         goto Common_Exit;
     }
 
-    if (0 == tvb_memeql(tvb, 0, JXTA_WELCOME_MSG_SIG, sizeof(JXTA_WELCOME_MSG_SIG))) {
+    if (0 == tvb_memeql(tvb, 0, (const guint8*)JXTA_WELCOME_MSG_SIG, sizeof(JXTA_WELCOME_MSG_SIG))) {
         /* The beginning of a JXTA stream connection */
         address *welcome_addr;
         gboolean initiator = FALSE;
@@ -765,11 +765,11 @@ static conversation_t *get_peer_conversation(packet_info * pinfo, jxta_stream_co
 
     if ((AT_NONE != tpt_conv_data->initiator_address.type) && (AT_NONE != tpt_conv_data->receiver_address.type)) {
         peer_conversation = find_conversation(pinfo->num, &tpt_conv_data->initiator_address, &tpt_conv_data->receiver_address,
-                                               ENDPOINT_NONE, 0, 0, NO_PORT_B);
+                                               CONVERSATION_NONE, 0, 0, NO_PORT_B);
 
         if (create && (NULL == peer_conversation)) {
             peer_conversation = conversation_new(pinfo->num, &tpt_conv_data->initiator_address,
-                                                  &tpt_conv_data->receiver_address, ENDPOINT_NONE, 0, 0, NO_PORT2);
+                                                  &tpt_conv_data->receiver_address, CONVERSATION_NONE, 0, 0, NO_PORT2);
             conversation_set_dissector(peer_conversation, stream_jxta_handle);
         }
 
@@ -802,7 +802,7 @@ static int dissect_jxta_welcome(tvbuff_t * tvb, packet_info * pinfo, proto_tree 
         return (gint) (available - sizeof(JXTA_WELCOME_MSG_SIG));
     }
 
-    if (0 != tvb_memeql(tvb, 0, JXTA_WELCOME_MSG_SIG, sizeof(JXTA_WELCOME_MSG_SIG))) {
+    if (0 != tvb_memeql(tvb, 0, (const guint8*)JXTA_WELCOME_MSG_SIG, sizeof(JXTA_WELCOME_MSG_SIG))) {
         /* not ours! */
         return 0;
     }
@@ -1176,7 +1176,7 @@ static int dissect_jxta_message(tvbuff_t * tvb, packet_info * pinfo, proto_tree 
             break;
         }
 
-        if (tvb_memeql(tvb, offset, JXTA_MSG_SIG, sizeof(JXTA_MSG_SIG)) != 0) {
+        if (tvb_memeql(tvb, offset, (const guint8*)JXTA_MSG_SIG, sizeof(JXTA_MSG_SIG)) != 0) {
             /* It is not one of ours */
             return 0;
         }
@@ -1478,7 +1478,7 @@ static int dissect_jxta_message_element_1(tvbuff_t * tvb, packet_info * pinfo, p
             needed = (gint) (sizeof(JXTA_MSGELEM_SIG) - available);
         }
 
-        if (tvb_memeql(tvb, offset, JXTA_MSGELEM_SIG, sizeof(JXTA_MSGELEM_SIG)) != 0) {
+        if (tvb_memeql(tvb, offset, (const guint8*)JXTA_MSGELEM_SIG, sizeof(JXTA_MSGELEM_SIG)) != 0) {
             /* It is not one of ours */
             return 0;
         }
@@ -1726,7 +1726,7 @@ static int dissect_jxta_message_element_2(tvbuff_t * tvb, packet_info * pinfo, p
             needed = (gint) (sizeof(JXTA_MSGELEM_SIG) - available);
         }
 
-        if (tvb_memeql(tvb, offset, JXTA_MSGELEM_SIG, sizeof(JXTA_MSGELEM_SIG)) != 0) {
+        if (tvb_memeql(tvb, offset, (const guint8*)JXTA_MSGELEM_SIG, sizeof(JXTA_MSGELEM_SIG)) != 0) {
             /* It is not one of ours */
             return 0;
         }
@@ -2369,7 +2369,7 @@ void proto_register_jxta(void)
     prefs_register_obsolete_preference(jxta_module, "tcp.heuristic");
     prefs_register_obsolete_preference(jxta_module, "sctp.heuristic");
 
-    register_conversation_table(proto_jxta, TRUE, jxta_conversation_packet, jxta_hostlist_packet);
+    register_conversation_table(proto_jxta, TRUE, jxta_conversation_packet, jxta_endpoint_packet);
 }
 
 
@@ -2391,6 +2391,10 @@ void proto_reg_handoff_jxta(void)
 
         media_handle = find_dissector_add_dependency("media", proto_jxta);
 
+        heur_dissector_add("udp", dissect_jxta_UDP_heur, "JXTA over UDP", "jxta_udp", proto_jxta, HEURISTIC_ENABLE);
+        heur_dissector_add("tcp", dissect_jxta_TCP_heur, "JXTA over TCP", "jxta_tcp", proto_jxta, HEURISTIC_ENABLE);
+        heur_dissector_add("sctp", dissect_jxta_SCTP_heur, "JXTA over SCTP", "jxta_sctp", proto_jxta, HEURISTIC_ENABLE);
+
         init_done = TRUE;
         }
 
@@ -2407,15 +2411,6 @@ void proto_reg_handoff_jxta(void)
             msg_media_register_done = FALSE;
             }
     }
-
-    /* ws_message( "Registering UDP Heuristic dissector" ); */
-    heur_dissector_add("udp", dissect_jxta_UDP_heur, "JXTA over UDP", "jxta_udp", proto_jxta, HEURISTIC_ENABLE);
-
-    /* ws_message( "Registering TCP Heuristic dissector" ); */
-    heur_dissector_add("tcp", dissect_jxta_TCP_heur, "JXTA over TCP", "jxta_tcp", proto_jxta, HEURISTIC_ENABLE);
-
-    /* ws_message( "Registering SCTP Heuristic dissector" ); */
-    heur_dissector_add("sctp", dissect_jxta_SCTP_heur, "JXTA over SCTP", "jxta_sctp", proto_jxta, HEURISTIC_ENABLE);
 }
 
 /*

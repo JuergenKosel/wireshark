@@ -1921,7 +1921,7 @@ bind_receiver(proto_tree *tree, tvbuff_t *tvb, int offset)
     offset += 1;
     proto_tree_add_item(tree, hf_smpp_addr_npi, tvb, offset, 1, ENC_NA);
     offset += 1;
-    smpp_handle_string(tree, tvb, hf_smpp_address_range, &offset);
+    smpp_handle_string_z(tree, tvb, hf_smpp_address_range, &offset, "NULL");
 }
 
 static void
@@ -2194,7 +2194,7 @@ static void
 broadcast_sm(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int offset)
 {
     nstime_t     zero_time = NSTIME_INIT_ZERO;
-    tvbuff_t    *tvb_msg;
+    tvbuff_t    *tvb_msg = NULL;
     smpp_data_t *smpp_data;
     const char  *src_str = NULL;
 
@@ -2409,7 +2409,7 @@ get_smpp_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _
 static void
 export_smpp_pdu(packet_info *pinfo, tvbuff_t *tvb)
 {
-    exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "smpp", EXP_PDU_TAG_PROTO_NAME);
+    exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "smpp", EXP_PDU_TAG_DISSECTOR_NAME);
 
     exp_pdu_data->tvb_captured_length = tvb_captured_length(tvb);
     exp_pdu_data->tvb_reported_length = tvb_reported_length(tvb);

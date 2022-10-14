@@ -24,6 +24,7 @@
 #include <epan/addr_resolv.h>
 #include <epan/maxmind_db.h>
 #include <epan/prefs.h>
+#include <epan/uat.h>
 #include <epan/conversation_table.h>
 #include <epan/conversation_filter.h>
 #include <epan/reassemble.h>
@@ -187,7 +188,10 @@ static int hf_ipv6_6to4_sla_id                  = -1;
 static int hf_ipv6_teredo_server_ipv4           = -1;
 static int hf_ipv6_teredo_port                  = -1;
 static int hf_ipv6_teredo_client_ipv4           = -1;
+static int hf_ipv6_embed_ipv4_prefix            = -1;
 static int hf_ipv6_embed_ipv4                   = -1;
+static int hf_ipv6_embed_ipv4_u                 = -1;
+static int hf_ipv6_embed_ipv4_suffix            = -1;
 static int hf_ipv6_opt                          = -1;
 static int hf_ipv6_opt_type                     = -1;
 static int hf_ipv6_opt_type_action              = -1;
@@ -427,6 +431,7 @@ static expert_field ei_ipv6_opt_header_mismatch = EI_INIT;
 static expert_field ei_ipv6_opt_ioam_invalid_nodelen = EI_INIT;
 static expert_field ei_ipv6_opt_ioam_invalid_remlen = EI_INIT;
 static expert_field ei_ipv6_opt_ioam_invalid_trace_type = EI_INIT;
+static expert_field ei_ipv6_embed_ipv4_u_value = EI_INIT;
 
 static dissector_handle_t ipv6_handle;
 
@@ -531,33 +536,33 @@ ipv6_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_,
 
     add_conversation_table_data(hash, &ip6->ip6_src, &ip6->ip6_dst, 0, 0, 1,
             pinfo->fd->pkt_len, &pinfo->rel_ts, &pinfo->abs_ts,
-            &ipv6_ct_dissector_info, ENDPOINT_NONE);
+            &ipv6_ct_dissector_info, CONVERSATION_NONE);
 
     return TAP_PACKET_REDRAW;
 }
 
-static const char* ipv6_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter)
+static const char* ipv6_endpoint_get_filter_type(endpoint_item_t* endpoint, conv_filter_type_e filter)
 {
-    if ((filter == CONV_FT_ANY_ADDRESS) && (host->myaddress.type == AT_IPv6))
+    if ((filter == CONV_FT_ANY_ADDRESS) && (endpoint->myaddress.type == AT_IPv6))
         return "ipv6.addr";
 
     return CONV_FILTER_INVALID;
 }
 
-static hostlist_dissector_info_t ipv6_host_dissector_info = {&ipv6_host_get_filter_type};
+static et_dissector_info_t ipv6_endpoint_dissector_info = {&ipv6_endpoint_get_filter_type};
 
 static tap_packet_status
-ipv6_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
+ipv6_endpoint_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)
 {
     conv_hash_t *hash = (conv_hash_t*) pit;
     hash->flags = flags;
 
     const ipv6_tap_info_t *ip6 = (const ipv6_tap_info_t *)vip;
 
-    add_hostlist_table_data(hash, &ip6->ip6_src, 0, TRUE, 1,
-                pinfo->fd->pkt_len, &ipv6_host_dissector_info, ENDPOINT_NONE);
-    add_hostlist_table_data(hash, &ip6->ip6_dst, 0, FALSE, 1,
-                pinfo->fd->pkt_len, &ipv6_host_dissector_info, ENDPOINT_NONE);
+    add_endpoint_table_data(hash, &ip6->ip6_src, 0, TRUE, 1,
+                pinfo->fd->pkt_len, &ipv6_endpoint_dissector_info, ENDPOINT_NONE);
+    add_endpoint_table_data(hash, &ip6->ip6_dst, 0, FALSE, 1,
+                pinfo->fd->pkt_len, &ipv6_endpoint_dissector_info, ENDPOINT_NONE);
 
     return TAP_PACKET_REDRAW;
 }
@@ -575,6 +580,86 @@ ipv6_build_filter(packet_info *pinfo)
                 address_to_str(pinfo->pool, &pinfo->net_src),
                 address_to_str(pinfo->pool, &pinfo->net_dst));
 }
+
+
+/* UAT for providing a list of NAT64 prefixes */
+
+struct nat64_prefix_data {
+    char *ipaddr;
+    uint8_t prefix_len;
+    uint32_t prefix_wildcard_len;
+};
+
+
+static uat_t *nat64_prefix_uat = NULL;
+static struct nat64_prefix_data *nat64_prefix_uats = NULL;
+static guint number_of_nat64_prefix = 0;
+
+
+UAT_CSTRING_CB_DEF(nat64_prefix_uats, ipaddr, struct nat64_prefix_data)
+
+static gboolean
+nat64_prefix_uat_fld_ip_chk_cb(void *r _U_, const char *ipaddr, guint len _U_, const void *u1 _U_, const void *u2 _U_, char **err)
+{
+    /* Check for a valid IPv6 address */
+    ws_in6_addr addr;
+
+    if (ws_inet_pton6(ipaddr, &addr)) {
+        *err = NULL;
+        return TRUE;
+    }
+
+    *err = ws_strdup_printf("No valid IPv6 address given.");
+    return FALSE;
+}
+
+static const value_string nat64_prefix_length_vals[] =
+{
+    { 32, "32" },
+    { 40, "40" },
+    { 48, "48" },
+    { 56, "56" },
+    { 64, "64" },
+    { 96, "96" },
+    {  0, NULL }
+};
+
+UAT_VS_DEF(nat64_prefix_uats, prefix_len, struct nat64_prefix_data, uint8_t, 96, "96")
+
+static const value_string nat64_prefix_wildcard_length_vals[] =
+{
+    {  0, "0" },
+    {  8, "8" },
+    { 16, "16" },
+    { 32, "32" },
+    { 64, "64" },
+    {  0, NULL }
+};
+
+UAT_VS_DEF(nat64_prefix_uats, prefix_wildcard_len, struct nat64_prefix_data, uint8_t, 0, "0")
+
+
+static void
+nat64_prefix_free_cb(void *data)
+{
+    struct nat64_prefix_data *h = (struct nat64_prefix_data *)data;
+
+    g_free(h->ipaddr);
+}
+
+static void *
+nat64_prefix_copy_cb(void *dst_, const void *src_, size_t len _U_)
+{
+    const struct nat64_prefix_data *src = (const struct nat64_prefix_data *)src_;
+    struct nat64_prefix_data *dst = (struct nat64_prefix_data *)dst_;
+
+    dst->ipaddr = g_strdup(src->ipaddr);
+    dst->prefix_len = src->prefix_len;
+    dst->prefix_wildcard_len = src->prefix_wildcard_len;
+
+    return dst;
+}
+
 
 static gint
 ipv6_previous_layer_id(packet_info *pinfo)
@@ -2813,26 +2898,122 @@ add_ipv6_address_isatap(proto_tree *tree, tvbuff_t *tvb, int offset, gint hf_isa
 
 /* RFC 6052 */
 static void
-add_ipv6_address_embed_ipv4(proto_tree *tree, tvbuff_t *tvb, int offset, gint hf_embed)
+add_ipv6_address_embed_ipv4(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, gint hf_embed)
 {
-    /* Well-Known Prefix for IPv4-Embedded IPv6 Address: 64:FF9B::/96 */
-    static const guint8 ipv6_embedded_ipv4_well_known_prefix[] = {
+    /* Section 2.1: Well-Known Prefix for IPv4-Embedded IPv6 Address: 64:FF9B::/96 */
+    static const guint8 well_known_prefix[] = {
         0x00, 0x64, 0xFF, 0x9B,
         0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00
     };
-    /* Check for well-known prefix */
-    if (tvb_memeql(tvb, offset, ipv6_embedded_ipv4_well_known_prefix, 12) != 0)
-        return;
 
-    struct { gint embed; } hf[2] = {
-        { hf_embed },
-        { hf_ipv6_embed_ipv4 }
-    };
-    proto_item *ti;
-    for (int i = 0; i < 2; i++) {
-        ti = proto_tree_add_item(tree, hf[i].embed, tvb, offset + 12, 4, ENC_NA);
-        ADDRESS_SET_GENERATED_HIDDEN(ti);
+    ws_in6_addr ipv6_addr;
+    ws_in4_addr ipv4_addr;
+    gint ipv4_prefix;
+    gint ipv4_offset;
+    gboolean ipv6_embed_ipv4 = false;
+
+    if (tvb_memeql(tvb, offset, well_known_prefix, sizeof well_known_prefix) == 0) {
+        ipv4_addr = tvb_get_bits32(tvb, 96, 32, ENC_BIG_ENDIAN);
+        ipv4_prefix = 96;
+        ipv4_offset = 96;
+        ipv6_embed_ipv4 = true;
+    } else {
+        for (size_t j = 0; j < number_of_nat64_prefix; j++) {
+            if (nat64_prefix_uats[j].prefix_len <= nat64_prefix_uats[j].prefix_wildcard_len) {
+                continue;
+            }
+
+            if (ws_inet_pton6(nat64_prefix_uats[j].ipaddr, &ipv6_addr)) {
+                if (tvb_memeql(tvb, offset, (const guint8 *)&ipv6_addr,
+                    (nat64_prefix_uats[j].prefix_len - nat64_prefix_uats[j].prefix_wildcard_len) / 8) == 0) {
+                    switch (nat64_prefix_uats[j].prefix_len)
+                    {
+                        case 32:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 32, 32, ENC_BIG_ENDIAN);
+                            break;
+                        case 40:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 40, 24, ENC_BIG_ENDIAN) << 8;
+                            ipv4_addr |= tvb_get_bits32(tvb, (offset * 8) + 72, 8, ENC_BIG_ENDIAN);
+                            break;
+                        case 48:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 48, 16, ENC_BIG_ENDIAN) << 16;
+                            ipv4_addr |= tvb_get_bits32(tvb, (offset * 8) + 72, 16, ENC_BIG_ENDIAN);
+                            break;
+                        case 56:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 56, 8, ENC_BIG_ENDIAN) << 24;
+                            ipv4_addr |= tvb_get_bits32(tvb, (offset * 8) + 72, 24, ENC_BIG_ENDIAN);
+                            break;
+                        case 64:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 72, 32, ENC_BIG_ENDIAN);
+                            break;
+                        case 96:
+                            ipv4_addr = tvb_get_bits32(tvb, (offset * 8) + 96, 32, ENC_BIG_ENDIAN);
+                            break;
+                        default:
+                            DISSECTOR_ASSERT_NOT_REACHED();
+                    }
+
+                    ipv4_prefix = nat64_prefix_uats[j].prefix_len;
+                    if (ipv4_prefix != 64) {
+                        ipv4_offset = ipv4_prefix;
+                    } else {
+                        ipv4_offset = 72;
+                    }
+                    ipv6_embed_ipv4 = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (ipv6_embed_ipv4) {
+        proto_item *ti;
+
+        // The prefix
+        ti = proto_tree_add_item(tree, hf_ipv6_embed_ipv4_prefix, tvb, offset, ipv4_prefix / 8, ENC_NA);
+        proto_item_set_generated(ti);
+
+        // Majority of IPv4 address is after u-field
+        if (ipv4_prefix >= 56) {
+            if (ipv4_prefix < 96) {
+                ti = proto_tree_add_item(tree, hf_ipv6_embed_ipv4_u, tvb, offset + 8, 1, ENC_NA);
+                proto_item_set_generated(ti);
+            }
+            if (tvb_get_guint8(tvb, offset + 8)) {
+                expert_add_info(pinfo, ti, &ei_ipv6_embed_ipv4_u_value);
+            }
+        }
+
+        // IPv4 embedded address
+        ipv4_addr = g_ntohl(ipv4_addr);
+        ti = proto_tree_add_ipv4(tree, hf_embed, tvb,
+                                 offset + (ipv4_offset / 8),
+                                 (ipv4_offset > 32 && ipv4_offset < 64) ? 5 : 4, ipv4_addr);
+        proto_item_set_generated(ti);
+
+        ti = proto_tree_add_ipv4(tree, hf_ipv6_embed_ipv4, tvb,
+                                 offset + (ipv4_offset / 8),
+                                 (ipv4_offset > 32 && ipv4_offset < 64) ? 5 : 4, ipv4_addr);
+        proto_item_set_generated(ti);
+
+        // Majority of IPv4 address is before u-field
+        if (ipv4_prefix < 56) {
+            ti = proto_tree_add_item(tree, hf_ipv6_embed_ipv4_u, tvb, offset + 8, 1, ENC_NA);
+            proto_item_set_generated(ti);
+            if (tvb_get_guint8(tvb, offset + 8)) {
+                expert_add_info(pinfo, ti, &ei_ipv6_embed_ipv4_u_value);
+            }
+        }
+
+        // Suffix, if present
+        if (ipv4_prefix < 96) {
+            ti = proto_tree_add_item(tree, hf_ipv6_embed_ipv4_suffix, tvb,
+                                     offset + ((72 + ipv4_prefix - 32) / 8),
+                                     (56 - (ipv4_prefix - 32)) / 8,
+                                     ENC_NA);
+            proto_item_set_generated(ti);
+        }
     }
 }
 
@@ -2983,8 +3164,8 @@ dissect_ipv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
         add_ipv6_address_isatap(ipv6_tree, tvb, offset + IP6H_SRC, hf_ipv6_src_isatap_ipv4);
         add_ipv6_address_isatap(ipv6_tree, tvb, offset + IP6H_DST, hf_ipv6_dst_isatap_ipv4);
 
-        add_ipv6_address_embed_ipv4(ipv6_tree, tvb, offset + IP6H_SRC, hf_ipv6_src_embed_ipv4);
-        add_ipv6_address_embed_ipv4(ipv6_tree, tvb, offset + IP6H_DST, hf_ipv6_dst_embed_ipv4);
+        add_ipv6_address_embed_ipv4(pinfo, ipv6_tree, tvb, offset + IP6H_SRC, hf_ipv6_src_embed_ipv4);
+        add_ipv6_address_embed_ipv4(pinfo, ipv6_tree, tvb, offset + IP6H_DST, hf_ipv6_dst_embed_ipv4);
 
         if (ipv6_use_geoip) {
             add_geoip_info(ipv6_tree, pinfo, tvb, offset, ip6_src, ip6_dst);
@@ -3209,7 +3390,7 @@ proto_register_ipv6(void)
         { &hf_ipv6_src_embed_ipv4,
             { "Source Embedded IPv4", "ipv6.src_embed_ipv4",
                 FT_IPv4, BASE_NONE, NULL, 0x0,
-                "Source IPv4-Embedded IPv6 Address with Well-Known Prefix", HFILL }
+                "Source IPv4-Embedded IPv6 Address", HFILL }
         },
         { &hf_ipv6_dst,
             { "Destination Address", "ipv6.dst",
@@ -3259,7 +3440,7 @@ proto_register_ipv6(void)
         { &hf_ipv6_dst_embed_ipv4,
             { "Destination Embedded IPv4", "ipv6.dst_embed_ipv4",
                 FT_IPv4, BASE_NONE, NULL, 0x0,
-                "Destination IPv4-Embedded IPv6 Address with Well-Known Prefix", HFILL }
+                "Destination IPv4-Embedded IPv6 Address", HFILL }
         },
         { &hf_ipv6_addr,
             { "Source or Destination Address", "ipv6.addr",
@@ -3306,10 +3487,25 @@ proto_register_ipv6(void)
                 FT_IPv4, BASE_NONE, NULL, 0x0,
                 "IPv6 Teredo Client Encapsulated IPv4 Address", HFILL }
         },
+        { &hf_ipv6_embed_ipv4_prefix,
+            { "Embedded IPv4 Prefix", "ipv6.embed_ipv4_prefix",
+                FT_BYTES, BASE_NONE, NULL, 0x0,
+                "IPv4-Embedded IPv6 Address Prefix", HFILL }
+        },
         { &hf_ipv6_embed_ipv4,
             { "Embedded IPv4", "ipv6.embed_ipv4",
                 FT_IPv4, BASE_NONE, NULL, 0x0,
-                "IPv4-Embedded IPv6 Address with Well-Known Prefix", HFILL }
+                "IPv4-Embedded IPv6 Address", HFILL }
+        },
+        { &hf_ipv6_embed_ipv4_u,
+            { "Embedded IPv4 u field", "ipv6.embed_ipv4_u",
+                FT_BYTES, BASE_NONE, NULL, 0x0,
+                "IPv4-Embedded IPv6 Address u field", HFILL }
+        },
+        { &hf_ipv6_embed_ipv4_suffix,
+            { "Embedded IPv4 Suffix", "ipv6.embed_ipv4_suffix",
+                FT_BYTES, BASE_NONE, NULL, 0x0,
+                "IPv4-Embedded IPv6 Address Suffix", HFILL }
         },
 
         { &hf_geoip_country,
@@ -4355,6 +4551,10 @@ proto_register_ipv6(void)
             { "ipv6.opt.ioam.trace.invalid_type", PI_PROTOCOL, PI_ERROR,
                 "Mismatch between Trace Type and NodeLen", EXPFILL }
         },
+        { &ei_ipv6_embed_ipv4_u_value,
+            { "ipv6.embed_ipv4.u.nonzero", PI_PROTOCOL, PI_WARN,
+                "IPv4-Embedded IPv6 address bit 64 to 71 must be zero", EXPFILL }
+        }
     };
 
     static ei_register_info ei_ipv6_hopopts[] = {
@@ -4515,6 +4715,33 @@ proto_register_ipv6(void)
                                     "Whether to correct for TSO-enabled (TCP segmentation offload) hardware "
                                     "captures, such as spoofing the IPv6 packet length", &ipv6_tso_supported);
 
+    static uat_field_t nat64_uats_flds[] = {
+        UAT_FLD_CSTRING_OTHER(nat64_prefix_uats, ipaddr, "NAT64 Prefix", nat64_prefix_uat_fld_ip_chk_cb, "IPv6 prefix address"),
+        UAT_FLD_VS(nat64_prefix_uats, prefix_len, "Prefix length", nat64_prefix_length_vals, "IPv6 prefix address length"),
+        UAT_FLD_VS(nat64_prefix_uats, prefix_wildcard_len, "Prefix wildcard length", nat64_prefix_wildcard_length_vals, "IPv6 prefix address wildcard length"),
+        UAT_END_FIELDS
+    };
+
+    nat64_prefix_uat = uat_new("NAT64 Network-Specific Prefixes",
+        sizeof(struct nat64_prefix_data),
+        "NAT64_NSP_list",               /* filename */
+        TRUE,                           /* from_profile */
+        &nat64_prefix_uats,             /* data_ptr */
+        &number_of_nat64_prefix,        /* numitems_ptr */
+        UAT_AFFECTS_DISSECTION,
+        NULL,
+        nat64_prefix_copy_cb,
+        NULL,
+        nat64_prefix_free_cb,
+        NULL,
+        NULL,
+        nat64_uats_flds);
+
+    prefs_register_uat_preference(ipv6_module, "nat64_prefixes",
+        "NAT64 Prefixes",
+        "A list of IPv6 prefixes used for NAT64s",
+        nat64_prefix_uat);
+
     ipv6_handle = register_dissector("ipv6", dissect_ipv6, proto_ipv6);
     reassembly_table_register(&ipv6_reassembly_table,
                           &addresses_reassembly_table_functions);
@@ -4526,7 +4753,7 @@ proto_register_ipv6(void)
     register_decode_as(&ipv6_fraghdr_da);
     register_decode_as(&ipv6_dstopts_da);
 
-    register_conversation_table(proto_ipv6, TRUE, ipv6_conversation_packet, ipv6_hostlist_packet);
+    register_conversation_table(proto_ipv6, TRUE, ipv6_conversation_packet, ipv6_endpoint_packet);
     register_conversation_filter("ipv6", "IPv6", ipv6_filter_valid, ipv6_build_filter);
 
     register_capture_dissector("ipv6", capture_ipv6, proto_ipv6);

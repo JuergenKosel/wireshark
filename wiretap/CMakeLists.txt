@@ -9,6 +9,7 @@
 
 set(WIRETAP_PUBLIC_HEADERS
 	file_wrappers.h
+	introspection.h
 	merge.h
 	pcap-encap.h
 	pcapng_module.h
@@ -33,6 +34,7 @@ set(WIRETAP_C_MODULE_FILES
 	${CMAKE_CURRENT_SOURCE_DIR}/aethra.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ascendtext.c
 	${CMAKE_CURRENT_SOURCE_DIR}/atm.c
+	${CMAKE_CURRENT_SOURCE_DIR}/autosar_dlt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/ber.c
 	${CMAKE_CURRENT_SOURCE_DIR}/blf.c
 	${CMAKE_CURRENT_SOURCE_DIR}/btsnoop.c
@@ -111,6 +113,7 @@ set(WIRETAP_MODULE_FILES
 set(WIRETAP_NONGENERATED_C_FILES
 	${WIRETAP_C_MODULE_FILES}
 	${CMAKE_CURRENT_SOURCE_DIR}/pcapng.c
+	${CMAKE_CURRENT_SOURCE_DIR}/introspection.c
 	${CMAKE_CURRENT_SOURCE_DIR}/libpcap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file_access.c
 	${CMAKE_CURRENT_SOURCE_DIR}/file_wrappers.c

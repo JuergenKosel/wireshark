@@ -5,14 +5,14 @@ on: [push]
 jobs:
   ubuntu:
     name: Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: get-submodule
         run: git submodule update --init
       - name: Install deps
-        run: sudo tools/debian-setup.sh --install-optional --install-test-deps --install-deb-deps python3-pip -y
+        run: sudo tools/debian-setup.sh --install-all python3-pip -y
       - name: Mkdir
         run: mkdir build
       - name: Cmake
@@ -25,7 +25,7 @@ jobs:
         run: ninja test-programs
         working-directory: build
       - name: Set up Python 3.8
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Install pytest
@@ -38,13 +38,19 @@ jobs:
       - name: Build debian pkg
         run: |
           ln --symbolic --no-dereference --force packaging/debian
+          # Ignore changed symbols (on development branch).
+          export DPKG_GENSYMBOLS_CHECK_LEVEL=0
+          tools/make-version.py --set-release .
+          export DEB_BUILD_OPTIONS="nocheck parallel=$(( $(getconf _NPROCESSORS_ONLN) + 2 ))"
+          export DH_QUIET=1
+          export MAKEFLAGS=--silent
           dpkg-buildpackage -b -us -uc -jauto
       - name: Move deb packages
         run: |
           mkdir deb
           mv ../*.deb deb
       - name: Upload deb packages
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: packages
           path: deb

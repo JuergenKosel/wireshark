@@ -77,6 +77,7 @@ static proto_tree *top_tree;
 
 /* https://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml */
 
+#define SRTP_PROFILE_RESERVED       0x0000
 #define SRTP_AES128_CM_HMAC_SHA1_80 0x0001
 #define SRTP_AES128_CM_HMAC_SHA1_32 0x0002
 #define SRTP_NULL_HMAC_SHA1_80      0x0005
@@ -161,6 +162,7 @@ static expert_field ei_dtls_handshake_fragment_past_end_msg = EI_INIT;
 static expert_field ei_dtls_msg_len_diff_fragment = EI_INIT;
 static expert_field ei_dtls_heartbeat_payload_length = EI_INIT;
 static expert_field ei_dtls_cid_invalid_content_type = EI_INIT;
+static expert_field ei_dtls_use_srtp_profiles_length = EI_INIT;
 #if 0
 static expert_field ei_dtls_cid_invalid_enc_content = EI_INIT;
 #endif
@@ -1009,14 +1011,14 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
                         val_to_str_const(session->version, ssl_version_short_names, "DTLS"),
                         val_to_str_const(content_type, ssl_31_content_type, "unknown"),
                         session->app_handle
-                        ? dissector_handle_get_dissector_name(session->app_handle)
+                        ? dissector_handle_get_protocol_long_name(session->app_handle)
                         : "Application Data");
 
     proto_tree_add_item(dtls_record_tree, hf_dtls_record_appdata, tvb,
                         offset, record_length, ENC_NA);
 
     if (session->app_handle) {
-      ti = proto_tree_add_string(dtls_record_tree, hf_dtls_record_appdata_proto, tvb, 0, 0, dissector_handle_get_dissector_name(session->app_handle));
+      ti = proto_tree_add_string(dtls_record_tree, hf_dtls_record_appdata_proto, tvb, 0, 0, dissector_handle_get_protocol_long_name(session->app_handle));
       proto_item_set_generated(ti);
     }
 
@@ -1043,7 +1045,7 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
           ssl_print_data("decrypted app data", record->plain_data, record->data_len);
 
           if (have_tap_listener(exported_pdu_tap)) {
-            export_pdu_packet(decrypted, pinfo, EXP_PDU_TAG_PROTO_NAME,
+            export_pdu_packet(decrypted, pinfo, EXP_PDU_TAG_DISSECTOR_NAME,
                               dissector_handle_get_dissector_name(session->app_handle));
           }
 
@@ -1053,7 +1055,7 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
           /* try heuristic subdissectors */
           dissected = dissector_try_heuristic(heur_subdissector_list, decrypted, pinfo, top_tree, &hdtbl_entry, NULL);
           if (dissected && have_tap_listener(exported_pdu_tap)) {
-            export_pdu_packet(decrypted, pinfo, EXP_PDU_TAG_HEUR_PROTO_NAME, hdtbl_entry->short_name);
+            export_pdu_packet(decrypted, pinfo, EXP_PDU_TAG_HEUR_DISSECTOR_NAME, hdtbl_entry->short_name);
           }
         }
         pinfo->match_uint = saved_match_port;
@@ -1686,6 +1688,7 @@ dtls_dissect_hnd_hello_ext_use_srtp(packet_info *pinfo, tvbuff_t *tvb,
    * SRTPProtectionProfile SRTPProtectionProfiles<2..2^16-1>;
    */
 
+  proto_item *ti;
   guint32 profiles_length, profiles_end, profile, mki_length;
 
   if (ext_len < 2) {
@@ -1694,21 +1697,26 @@ dtls_dissect_hnd_hello_ext_use_srtp(packet_info *pinfo, tvbuff_t *tvb,
   }
 
   /* SRTPProtectionProfiles list length */
-  proto_tree_add_item_ret_uint(tree, hf_dtls_hs_ext_use_srtp_protection_profiles_length,
+  ti = proto_tree_add_item_ret_uint(tree, hf_dtls_hs_ext_use_srtp_protection_profiles_length,
       tvb, offset, 2, ENC_BIG_ENDIAN, &profiles_length);
   if (profiles_length > ext_len - 2) {
-    /* XXX expert info because length exceeds extension_data field */
     profiles_length = ext_len - 2;
+    expert_add_info_format(pinfo, ti, &ei_dtls_use_srtp_profiles_length,
+                           "The protection profiles length exceeds the extension data field length");
+  }
+  if (is_server && profiles_length != 2) {
+    /* The server, if sending the use_srtp extension, MUST return a
+     * a single chosen profile that the client has offered.
+     */
+    profile = SRTP_PROFILE_RESERVED;
+    expert_add_info_format(pinfo, ti, &ei_dtls_use_srtp_profiles_length,
+                           "The server MUST return a single chosen protection profile");
   }
   offset += 2;
 
   /* SRTPProtectionProfiles list items */
   profiles_end = offset + profiles_length;
   while (offset < profiles_end) {
-    /* The server, if sending the use_srtp extension, MUST return a
-     * single chosen profile that the client has offered. We will
-     * use that to set up the connection.
-     */
     proto_tree_add_item_ret_uint(tree,
         hf_dtls_hs_ext_use_srtp_protection_profile, tvb, offset, 2,
         ENC_BIG_ENDIAN, &profile);
@@ -1725,8 +1733,8 @@ dtls_dissect_hnd_hello_ext_use_srtp(packet_info *pinfo, tvbuff_t *tvb,
     offset += mki_length;
   }
 
-  /* If we only get the Client Hello, we don't know which SRTP protection
-   * profile is chosen, unless only one was provided.
+  /* We don't know which SRTP protection profile is chosen, unless only one
+   * was provided.
    */
   if (is_server || profiles_length == 2) {
     struct srtp_info *srtp_info = wmem_new0(wmem_file_scope(), struct srtp_info);
@@ -2187,6 +2195,7 @@ proto_register_dtls(void)
      { &ei_dtls_msg_len_diff_fragment, { "dtls.msg_len_diff_fragment", PI_PROTOCOL, PI_ERROR, "Message length differs from value in earlier fragment", EXPFILL }},
      { &ei_dtls_heartbeat_payload_length, { "dtls.heartbeat_message.payload_length.invalid", PI_MALFORMED, PI_ERROR, "Invalid heartbeat payload length", EXPFILL }},
      { &ei_dtls_cid_invalid_content_type, { "dtls.cid.content_type.invalid", PI_MALFORMED, PI_ERROR, "Invalid real content type", EXPFILL }},
+     { &ei_dtls_use_srtp_profiles_length, { "dtls.use_srtp.protection_profiles_length.invalid", PI_PROTOCOL, PI_ERROR, "Invalid real content type", EXPFILL }},
 #if 0
      { &ei_dtls_cid_invalid_enc_content, { "dtls.cid.enc_content.invalid", PI_MALFORMED, PI_ERROR, "Invalid encrypted content", EXPFILL }},
 #endif
@@ -2303,13 +2312,13 @@ proto_reg_handoff_dtls(void)
   dtls_parse_uat();
   dtls_parse_old_keys();
 #endif
-  exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
 
   if (initialized == FALSE) {
     heur_dissector_add("udp", dissect_dtls_heur, "DTLS over UDP", "dtls_udp", proto_dtls, HEURISTIC_ENABLE);
     heur_dissector_add("stun", dissect_dtls_heur, "DTLS over STUN", "dtls_stun", proto_dtls, HEURISTIC_DISABLE);
     heur_dissector_add("classicstun", dissect_dtls_heur, "DTLS over CLASSICSTUN", "dtls_classicstun", proto_dtls, HEURISTIC_DISABLE);
     dissector_add_uint("sctp.ppi", DIAMETER_DTLS_PROTOCOL_ID, dtls_handle);
+    exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_7);
   }
 
   initialized = TRUE;

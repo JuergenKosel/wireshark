@@ -49,6 +49,7 @@
 #define SOMEIP_NAME                             "SOME/IP"
 #define SOMEIP_NAME_LONG                        "SOME/IP Protocol"
 #define SOMEIP_NAME_FILTER                      "someip"
+#define SOMEIP_NAME_PREFIX                      "someip.payload"
 
 #define SOMEIP_NAME_LONG_MULTIPLE               "SOME/IP Protocol (Multiple Payloads)"
 #define SOMEIP_NAME_LONG_BROKEN                 "SOME/IP: Incomplete headers!"
@@ -232,9 +233,6 @@ static const fragment_items someip_tp_frag_items = {
 };
 
 static reassembly_table someip_tp_reassembly_table;
-
-static range_t *someip_ports_udp = NULL;
-static range_t *someip_ports_tcp = NULL;
 
 static gboolean someip_tp_reassemble = TRUE;
 static gboolean someip_deserializer_activated = TRUE;
@@ -817,22 +815,29 @@ someip_lookup_client_name(guint16 serviceid, guint16 clientid) {
     return (char *)g_hash_table_lookup(data_someip_clients, &tmp);
 }
 
+
 /*** SOME/IP Services ***/
 UAT_HEX_CB_DEF        (someip_service_ident, id,    generic_one_id_string_t)
 UAT_CSTRING_CB_DEF    (someip_service_ident, name,  generic_one_id_string_t)
 
 static void
-post_update_someip_service_cb(void) {
+reset_someip_service_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_services) {
         g_hash_table_destroy(data_someip_services);
         data_someip_services = NULL;
     }
+}
+
+static void
+post_update_someip_service_cb(void) {
+    reset_someip_service_cb();
 
     /* create new hash table */
     data_someip_services = g_hash_table_new_full(g_int_hash, g_int_equal, &someip_free_key, &simple_free);
     post_update_one_id_string_template_cb(someip_service_ident, someip_service_ident_num, data_someip_services);
 }
+
 
 /*** SOME/IP Methods/Events/Fields ***/
 UAT_HEX_CB_DEF      (someip_method_ident, id,   generic_two_id_string_t)
@@ -840,17 +845,23 @@ UAT_HEX_CB_DEF      (someip_method_ident, id2,  generic_two_id_string_t)
 UAT_CSTRING_CB_DEF  (someip_method_ident, name, generic_two_id_string_t)
 
 static void
-post_update_someip_method_cb(void) {
+reset_someip_method_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_methods) {
         g_hash_table_destroy(data_someip_methods);
         data_someip_methods = NULL;
     }
+}
+
+static void
+post_update_someip_method_cb(void) {
+    reset_someip_method_cb();
 
     /* create new hash table */
     data_someip_methods = g_hash_table_new_full(g_int_hash, g_int_equal, &someip_free_key, &simple_free);
     post_update_generic_two_id_string_template_cb(someip_method_ident, someip_method_ident_num, data_someip_methods);
 }
+
 
 /*** SOME/IP Eventgroups ***/
 UAT_HEX_CB_DEF      (someip_eventgroup_ident, id,   generic_two_id_string_t)
@@ -858,17 +869,23 @@ UAT_HEX_CB_DEF      (someip_eventgroup_ident, id2,  generic_two_id_string_t)
 UAT_CSTRING_CB_DEF  (someip_eventgroup_ident, name, generic_two_id_string_t)
 
 static void
-post_update_someip_eventgroup_cb(void) {
+reset_someip_eventgroup_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_eventgroups) {
         g_hash_table_destroy(data_someip_eventgroups);
         data_someip_eventgroups = NULL;
     }
+}
+
+static void
+post_update_someip_eventgroup_cb(void) {
+    reset_someip_eventgroup_cb();
 
     /* create new hash table */
     data_someip_eventgroups = g_hash_table_new_full(g_int_hash, g_int_equal, &someip_free_key, &simple_free);
     post_update_generic_two_id_string_template_cb(someip_eventgroup_ident, someip_eventgroup_ident_num, data_someip_eventgroups);
 }
+
 
 /*** SOME/IP Clients ***/
 UAT_HEX_CB_DEF(someip_client_ident, id, generic_two_id_string_t)
@@ -876,12 +893,17 @@ UAT_HEX_CB_DEF(someip_client_ident, id2, generic_two_id_string_t)
 UAT_CSTRING_CB_DEF(someip_client_ident, name, generic_two_id_string_t)
 
 static void
-post_update_someip_client_cb(void) {
+reset_someip_client_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_clients) {
         g_hash_table_destroy(data_someip_clients);
         data_someip_clients = NULL;
     }
+}
+
+static void
+post_update_someip_client_cb(void) {
+    reset_someip_client_cb();
 
     /* create new hash table */
     data_someip_clients = g_hash_table_new_full(g_int_hash, g_int_equal, &someip_free_key, &simple_free);
@@ -891,11 +913,6 @@ post_update_someip_client_cb(void) {
 static void
 someip_payload_free_key(gpointer key) {
     wmem_free(wmem_epan_scope(), key);
-}
-
-static void
-someip_payload_free_generic_data(gpointer data) {
-    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static gint64
@@ -1081,7 +1098,27 @@ static void
 free_someip_parameter_list_cb(void *r) {
     someip_parameter_list_uat_t *rec = (someip_parameter_list_uat_t *)r;
 
-    if (rec->name) g_free(rec->name);
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+
+    if (rec->filter_string) {
+        g_free(rec->filter_string);
+        rec->filter_string = NULL;
+    }
+}
+
+static void
+free_someip_parameter_list(gpointer data) {
+    someip_parameter_list_t *list = (someip_parameter_list_t *)data;
+
+    if (list->items != NULL) {
+        wmem_free(wmem_epan_scope(), (void *)(list->items));
+        list->items = NULL;
+    }
+
+    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static void
@@ -1113,9 +1150,7 @@ post_update_someip_parameter_list_read_in_data(someip_parameter_list_uat_t *data
             list->wtlv_encoding = data[i].wtlv_encoding;
             list->num_of_items  = data[i].num_of_params;
 
-            items = (someip_payload_parameter_item_t *)wmem_alloc_array(wmem_epan_scope(), someip_payload_parameter_item_t, data[i].num_of_params);
-            memset(items, 0, sizeof(someip_payload_parameter_item_t) * data[i].num_of_params);
-
+            items = (someip_payload_parameter_item_t *)wmem_alloc0_array(wmem_epan_scope(), someip_payload_parameter_item_t, data[i].num_of_params);
             list->items = items;
 
             /* create new entry ... */
@@ -1140,14 +1175,19 @@ post_update_someip_parameter_list_read_in_data(someip_parameter_list_uat_t *data
 }
 
 static void
-post_update_someip_parameter_list_cb(void) {
+reset_someip_parameter_list_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_parameter_list) {
         g_hash_table_destroy(data_someip_parameter_list);
         data_someip_parameter_list = NULL;
     }
+}
 
-    data_someip_parameter_list = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &someip_payload_free_generic_data);
+static void
+post_update_someip_parameter_list_cb(void) {
+    reset_someip_parameter_list_cb();
+
+    data_someip_parameter_list = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &free_someip_parameter_list);
     post_update_someip_parameter_list_read_in_data(someip_parameter_list, someip_parameter_list_num, data_someip_parameter_list);
     update_dynamic_hf_entries_someip_parameter_list();
 }
@@ -1193,17 +1233,22 @@ update_someip_parameter_enum(void *r, char **err) {
     /* enum name is not used in a filter yet. */
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Name cannot be empty");
+        *err = ws_strdup_printf("Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->value_name == NULL || rec->value_name[0] == 0) {
-        *err = ws_strdup_printf("Value Name cannot be empty");
+        *err = ws_strdup_printf("Value Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->num_of_items == 0) {
-        *err = ws_strdup_printf("Number_of_Items = 0");
+        *err = ws_strdup_printf("Number_of_Items = 0 (ID: 0x%x)!", rec->id);
+        return FALSE;
+    }
+
+    if (rec->data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_ENUM) {
+        *err = ws_strdup_printf("An enum cannot reference an enum (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1213,8 +1258,27 @@ update_someip_parameter_enum(void *r, char **err) {
 static void
 free_someip_parameter_enum_cb(void*r) {
     someip_parameter_enum_uat_t *rec = (someip_parameter_enum_uat_t *)r;
-    if (rec->name) g_free(rec->name);
-    if (rec->value_name) g_free(rec->value_name);
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+
+    if (rec->value_name) {
+        g_free(rec->value_name);
+        rec->value_name = NULL;
+    }
+}
+
+static void
+free_someip_parameter_enum(gpointer data) {
+    someip_payload_parameter_enum_t *list = (someip_payload_parameter_enum_t *)data;
+
+    if (list->items != NULL) {
+        wmem_free(wmem_epan_scope(), (void *)(list->items));
+        list->items = NULL;
+    }
+
+    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static void
@@ -1245,8 +1309,7 @@ post_update_someip_parameter_enum_read_in_data(someip_parameter_enum_uat_t *data
             list->id_ref       = data[i].id_ref;
             list->num_of_items = data[i].num_of_items;
 
-            list->items = (someip_payload_parameter_enum_item_t *)wmem_alloc_array(wmem_epan_scope(), someip_payload_parameter_enum_item_t, list->num_of_items);
-            memset(list->items, 0, sizeof(someip_payload_parameter_enum_item_t) * list->num_of_items);
+            list->items = (someip_payload_parameter_enum_item_t *)wmem_alloc0_array(wmem_epan_scope(), someip_payload_parameter_enum_item_t, list->num_of_items);
 
             /* create new entry ... */
             g_hash_table_insert(ht, key, list);
@@ -1274,14 +1337,19 @@ post_update_someip_parameter_enum_read_in_data(someip_parameter_enum_uat_t *data
 }
 
 static void
-post_update_someip_parameter_enum_cb(void) {
+reset_someip_parameter_enum_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_parameter_enums) {
         g_hash_table_destroy(data_someip_parameter_enums);
         data_someip_parameter_enums = NULL;
     }
+}
 
-    data_someip_parameter_enums = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &someip_payload_free_generic_data);
+static void
+post_update_someip_parameter_enum_cb(void) {
+    reset_someip_parameter_enum_cb();
+
+    data_someip_parameter_enums = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &free_someip_parameter_enum);
     post_update_someip_parameter_enum_read_in_data(someip_parameter_enums, someip_parameter_enums_num, data_someip_parameter_enums);
 }
 
@@ -1333,23 +1401,28 @@ update_someip_parameter_array(void *r, char **err) {
     char                         *tmp;
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Name cannot be empty");
+        *err = ws_strdup_printf("Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->num >= rec->num_of_dims) {
-        *err = ws_strdup_printf("Dimension >= Number of Dimensions");
+        *err = ws_strdup_printf("Dimension >= Number of Dimensions (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->filter_string == NULL || rec->filter_string[0] == 0) {
-        *err = ws_strdup_printf("Filter String cannot be empty");
+        *err = ws_strdup_printf("Filter String cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     tmp = check_filter_string(rec->filter_string, rec->id);
     if (tmp != NULL) {
         *err = tmp;
+        return FALSE;
+    }
+
+    if (rec->data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_ARRAY && rec->id == rec->id_ref) {
+        *err = ws_strdup_printf("An array cannot include itself (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1361,6 +1434,22 @@ free_someip_parameter_array_cb(void*r) {
     someip_parameter_array_uat_t *rec = (someip_parameter_array_uat_t *)r;
 
     if (rec->name) g_free(rec->name);
+    rec->name = NULL;
+
+    if (rec->filter_string) g_free(rec->filter_string);
+    rec->filter_string = NULL;
+}
+
+static void
+free_someip_parameter_array(gpointer data) {
+    someip_parameter_array_t *list = (someip_parameter_array_t *)data;
+
+    if (list->dims != NULL) {
+        wmem_free(wmem_epan_scope(), (void *)(list->dims));
+        list->dims = NULL;
+    }
+
+    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static void
@@ -1391,9 +1480,7 @@ post_update_someip_parameter_array_read_in_data(someip_parameter_array_uat_t *da
             list->num_of_dims   = data[i].num_of_dims;
             list->filter_string = data[i].filter_string;
 
-            items = (someip_parameter_array_dim_t *)wmem_alloc_array(wmem_epan_scope(), someip_parameter_array_dim_t, data[i].num_of_dims);
-            memset(items, 0, sizeof(someip_parameter_array_dim_t) * data[i].num_of_dims);
-
+            items = (someip_parameter_array_dim_t *)wmem_alloc0_array(wmem_epan_scope(), someip_parameter_array_dim_t, data[i].num_of_dims);
             list->dims = items;
 
             /* create new entry ... */
@@ -1422,9 +1509,18 @@ post_update_someip_parameter_array_cb(void) {
         data_someip_parameter_arrays = NULL;
     }
 
-    data_someip_parameter_arrays = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &someip_payload_free_generic_data);
+    data_someip_parameter_arrays = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &free_someip_parameter_array);
     post_update_someip_parameter_array_read_in_data(someip_parameter_arrays, someip_parameter_arrays_num, data_someip_parameter_arrays);
     update_dynamic_hf_entries_someip_parameter_arrays();
+}
+
+static void
+reset_someip_parameter_array_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_someip_parameter_arrays) {
+        g_hash_table_destroy(data_someip_parameter_arrays);
+        data_someip_parameter_arrays = NULL;
+    }
 }
 
 UAT_HEX_CB_DEF(someip_parameter_structs, id, someip_parameter_struct_uat_t)
@@ -1484,12 +1580,12 @@ update_someip_parameter_struct(void *r, char **err) {
     char                          *tmp = NULL;
 
     if (rec->struct_name == NULL || rec->struct_name[0] == 0) {
-        *err = ws_strdup_printf("Struct name cannot be empty");
+        *err = ws_strdup_printf("Struct name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->filter_string == NULL || rec->filter_string[0] == 0) {
-        *err = ws_strdup_printf("Struct name cannot be empty");
+        *err = ws_strdup_printf("Struct name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1500,12 +1596,17 @@ update_someip_parameter_struct(void *r, char **err) {
     }
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Name cannot be empty");
+        *err = ws_strdup_printf("Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->pos >= rec->num_of_items) {
-        *err = ws_strdup_printf("Position >= Number of Parameters");
+        *err = ws_strdup_printf("Position >= Number of Parameters (ID: 0x%x)!", rec->id);
+        return FALSE;
+    }
+
+    if (rec->data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_STRUCT && rec->id == rec->id_ref) {
+        *err = ws_strdup_printf("A struct cannot include itself (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1513,11 +1614,29 @@ update_someip_parameter_struct(void *r, char **err) {
 }
 
 static void
-free_someip_parameter_struct_cb(void*r) {
+free_someip_parameter_struct_cb(void *r) {
     someip_parameter_struct_uat_t *rec = (someip_parameter_struct_uat_t *)r;
 
     if (rec->struct_name) g_free(rec->struct_name);
+    rec->struct_name = NULL;
+
     if (rec->name) g_free(rec->name);
+    rec->name = NULL;
+
+    if (rec->filter_string) g_free(rec->filter_string);
+    rec->filter_string = NULL;
+}
+
+static void
+free_someip_parameter_struct(gpointer data) {
+    someip_payload_parameter_struct_t *list = (someip_payload_parameter_struct_t *)data;
+
+    if (list->items != NULL) {
+        wmem_free(wmem_epan_scope(), (void *)(list->items));
+        list->items = NULL;
+    }
+
+    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static void
@@ -1538,7 +1657,6 @@ post_update_someip_parameter_struct_read_in_data(someip_parameter_struct_uat_t *
 
         list = (someip_payload_parameter_struct_t *)g_hash_table_lookup(ht, key);
         if (list == NULL) {
-
             list = wmem_new(wmem_epan_scope(), someip_payload_parameter_struct_t);
             INIT_SOMEIP_PAYLOAD_PARAMETER_STRUCT(list)
 
@@ -1549,9 +1667,7 @@ post_update_someip_parameter_struct_read_in_data(someip_parameter_struct_uat_t *
             list->wtlv_encoding    = data[i].wtlv_encoding;
             list->num_of_items     = data[i].num_of_items;
 
-            items = (someip_payload_parameter_item_t *)wmem_alloc_array(wmem_epan_scope(), someip_payload_parameter_item_t, data[i].num_of_items);
-            memset(items, 0, sizeof(someip_payload_parameter_item_t) * data[i].num_of_items);
-
+            items = (someip_payload_parameter_item_t *)wmem_alloc0_array(wmem_epan_scope(), someip_payload_parameter_item_t, data[i].num_of_items);
             list->items = items;
 
             /* create new entry ... */
@@ -1581,9 +1697,18 @@ post_update_someip_parameter_struct_cb(void) {
         data_someip_parameter_structs = NULL;
     }
 
-    data_someip_parameter_structs = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &someip_payload_free_generic_data);
+    data_someip_parameter_structs = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &free_someip_parameter_struct);
     post_update_someip_parameter_struct_read_in_data(someip_parameter_structs, someip_parameter_structs_num, data_someip_parameter_structs);
     update_dynamic_hf_entries_someip_parameter_structs();
+}
+
+static void
+reset_someip_parameter_struct_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_someip_parameter_structs) {
+        g_hash_table_destroy(data_someip_parameter_structs);
+        data_someip_parameter_structs = NULL;
+    }
 }
 
 UAT_HEX_CB_DEF(someip_parameter_unions, id, someip_parameter_union_uat_t)
@@ -1643,7 +1768,7 @@ update_someip_parameter_union(void *r, char **err) {
     gchar                        *tmp;
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Union name cannot be empty");
+        *err = ws_strdup_printf("Union name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1654,7 +1779,12 @@ update_someip_parameter_union(void *r, char **err) {
     }
 
     if (rec->type_name == NULL || rec->type_name[0] == 0) {
-        *err = ws_strdup_printf("Type Name cannot be empty");
+        *err = ws_strdup_printf("Type Name cannot be empty (ID: 0x%x)!", rec->id);
+        return FALSE;
+    }
+
+    if (rec->data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_UNION && rec->id == rec->id_ref) {
+        *err = ws_strdup_printf("A union cannot include itself (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1665,8 +1795,32 @@ static void
 free_someip_parameter_union_cb(void*r) {
     someip_parameter_union_uat_t *rec = (someip_parameter_union_uat_t *)r;
 
-    if (rec->name) g_free(rec->name);
-    if (rec->type_name) g_free(rec->type_name);
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+
+    if (rec->type_name) {
+        g_free(rec->type_name);
+        rec->type_name = NULL;
+    }
+
+    if (rec->filter_string) {
+        g_free(rec->filter_string);
+        rec->filter_string = NULL;
+    }
+}
+
+static void
+free_someip_parameter_union(gpointer data) {
+    someip_parameter_union_t *list = (someip_parameter_union_t *)data;
+
+    if (list->items != NULL) {
+        wmem_free(wmem_epan_scope(), (void *)(list->items));
+        list->items = NULL;
+    }
+
+    wmem_free(wmem_epan_scope(), (void *)data);
 }
 
 static void
@@ -1697,8 +1851,7 @@ post_update_someip_parameter_union_read_in_data(someip_parameter_union_uat_t *da
             list->pad_to           = data[i].pad_to;
             list->num_of_items     = data[i].num_of_items;
 
-            list->items = (someip_parameter_union_item_t *)wmem_alloc_array(wmem_epan_scope(), someip_parameter_union_item_t, list->num_of_items);
-            memset(list->items, 0, sizeof(someip_parameter_union_item_t) * list->num_of_items);
+            list->items = (someip_parameter_union_item_t *)wmem_alloc0_array(wmem_epan_scope(), someip_parameter_union_item_t, list->num_of_items);
 
             /* create new entry ... */
             g_hash_table_insert(ht, key, list);
@@ -1728,14 +1881,19 @@ post_update_someip_parameter_union_read_in_data(someip_parameter_union_uat_t *da
 }
 
 static void
-post_update_someip_parameter_union_cb(void) {
+reset_someip_parameter_union_cb(void) {
     /* destroy old hash table, if it exists */
     if (data_someip_parameter_unions) {
         g_hash_table_destroy(data_someip_parameter_unions);
         data_someip_parameter_unions = NULL;
     }
+}
 
-    data_someip_parameter_unions = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &someip_payload_free_generic_data);
+static void
+post_update_someip_parameter_union_cb(void) {
+    reset_someip_parameter_union_cb();
+
+    data_someip_parameter_unions = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, &free_someip_parameter_union);
     post_update_someip_parameter_union_read_in_data(someip_parameter_unions, someip_parameter_unions_num, data_someip_parameter_unions);
     update_dynamic_hf_entries_someip_parameter_unions();
 }
@@ -1777,12 +1935,24 @@ update_someip_parameter_base_type_list(void *r, char **err) {
     someip_parameter_base_type_list_uat_t *rec = (someip_parameter_base_type_list_uat_t *)r;
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Name cannot be empty");
+        *err = ws_strdup_printf("Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
     if (rec->id > 0xffffffff) {
         *err = ws_strdup_printf("We currently only support 32 bit IDs (%i) Name: %s", rec->id, rec->name);
+        return FALSE;
+    }
+
+    if (rec->bitlength_base_type != 8 && rec->bitlength_base_type != 16 && rec->bitlength_base_type != 32 && rec->bitlength_base_type != 64) {
+        *err = ws_strdup_printf("Bit length of base type may only be 8, 16, 32, or 64. Affected item: ID (%i) Name (%s).", rec->id, rec->name);
+        return FALSE;
+    }
+
+    /* As long as we check that rec->bitlength_base_type equals rec->bitlength_encoded_type, we do not have to check that bitlength_encoded_type is 8, 16, 32, or 64. */
+
+    if (rec->bitlength_base_type != rec->bitlength_encoded_type) {
+        *err = ws_strdup_printf("Bit length of encoded type must be equal to bit length of base type. Affected item: ID (%i) Name (%s). Shortened types supported by Signal-PDU dissector.", rec->id, rec->name);
         return FALSE;
     }
 
@@ -1793,8 +1963,24 @@ static void
 free_someip_parameter_base_type_list_cb(void*r) {
     someip_parameter_base_type_list_uat_t *rec = (someip_parameter_base_type_list_uat_t *)r;
 
-    if (rec->name) g_free(rec->name);
-    if (rec->data_type) g_free(rec->data_type);
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+
+    if (rec->data_type) {
+        g_free(rec->data_type);
+        rec->data_type = NULL;
+    }
+}
+
+static void
+reset_someip_parameter_base_type_list_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_someip_parameter_base_type_list) {
+        g_hash_table_destroy(data_someip_parameter_base_type_list);
+        data_someip_parameter_base_type_list = NULL;
+    }
 }
 
 static void
@@ -1802,11 +1988,7 @@ post_update_someip_parameter_base_type_list_cb(void) {
     guint   i;
     gint64 *key = NULL;
 
-    /* destroy old hash table, if it exists */
-    if (data_someip_parameter_base_type_list) {
-        g_hash_table_destroy(data_someip_parameter_base_type_list);
-        data_someip_parameter_base_type_list = NULL;
-    }
+    reset_someip_parameter_base_type_list_cb();
 
     /* we don't need to free the data as long as we don't alloc it first */
     data_someip_parameter_base_type_list = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, NULL);
@@ -1866,7 +2048,7 @@ update_someip_parameter_string_list(void *r, char **err) {
     someip_parameter_string_uat_t *rec = (someip_parameter_string_uat_t *)r;
 
     if (rec->name == NULL || rec->name[0] == 0) {
-        *err = ws_strdup_printf("Name cannot be empty");
+        *err = ws_strdup_printf("Name cannot be empty (ID: 0x%x)!", rec->id);
         return FALSE;
     }
 
@@ -1892,8 +2074,24 @@ static void
 free_someip_parameter_string_list_cb(void*r) {
     someip_parameter_string_uat_t *rec = (someip_parameter_string_uat_t *)r;
 
-    if (rec->name) g_free(rec->name);
-    if (rec->encoding) g_free(rec->encoding);
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+
+    if (rec->encoding) {
+        g_free(rec->encoding);
+        rec->encoding = NULL;
+    }
+}
+
+static void
+reset_someip_parameter_string_list_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_someip_parameter_strings) {
+        g_hash_table_destroy(data_someip_parameter_strings);
+        data_someip_parameter_strings = NULL;
+    }
 }
 
 static void
@@ -1956,13 +2154,31 @@ update_someip_parameter_typedef_list(void *r, char **err) {
         return FALSE;
     }
 
+    if (rec->data_type == SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_TYPEDEF && rec->id == rec->id_ref) {
+        *err = ws_strdup_printf("A typedef cannot reference itself (ID: 0x%x)!", rec->id);
+        return FALSE;
+    }
+
     return TRUE;
 }
 
 static void
 free_someip_parameter_typedef_list_cb(void*r) {
     someip_parameter_typedef_uat_t *rec = (someip_parameter_typedef_uat_t *)r;
-    if (rec->name) g_free(rec->name);
+
+    if (rec->name) {
+        g_free(rec->name);
+        rec->name = NULL;
+    }
+}
+
+static void
+reset_someip_parameter_typedef_list_cb(void) {
+    /* destroy old hash table, if it exists */
+    if (data_someip_parameter_typedefs) {
+        g_hash_table_destroy(data_someip_parameter_typedefs);
+        data_someip_parameter_typedefs = NULL;
+    }
 }
 
 static void
@@ -1970,11 +2186,7 @@ post_update_someip_parameter_typedef_list_cb(void) {
     guint   i;
     gint64 *key = NULL;
 
-    /* destroy old hash table, if it exists */
-    if (data_someip_parameter_typedefs) {
-        g_hash_table_destroy(data_someip_parameter_typedefs);
-        data_someip_parameter_typedefs = NULL;
-    }
+    reset_someip_parameter_typedef_list_cb();
 
     /* we don't need to free the data as long as we don't alloc it first */
     data_someip_parameter_typedefs = g_hash_table_new_full(g_int64_hash, g_int64_equal, &someip_payload_free_key, NULL);
@@ -2002,6 +2214,7 @@ deregister_dynamic_hf_data(hf_register_info **hf_array, guint *hf_size) {
             if ((*hf_array)[i].p_id != NULL) {
                 proto_deregister_field(proto_someip, *((*hf_array)[i].p_id));
                 g_free((*hf_array)[i].p_id);
+                (*hf_array)[i].p_id = NULL;
             }
         }
         proto_add_deregistered_data(*hf_array);
@@ -2103,10 +2316,10 @@ get_param_attributes(guint8 data_type, guint32 id_ref) {
                 ret.type = FT_INT64;
             } else if (g_strcmp0(tmp->data_type, "float32") == 0) {
                 ret.type = FT_FLOAT;
-                ret.display_base = BASE_FLOAT;
+                ret.display_base = BASE_NONE;
             } else if (g_strcmp0(tmp->data_type, "float64") == 0) {
                 ret.type = FT_DOUBLE;
-                ret.display_base = BASE_FLOAT;
+                ret.display_base = BASE_NONE;
             } else {
                 ret.type = FT_NONE;
             }
@@ -2120,7 +2333,7 @@ get_param_attributes(guint8 data_type, guint32 id_ref) {
 }
 
 static gint*
-update_dynamic_hf_entry(hf_register_info *hf_array, int pos, guint32 data_type, guint id_ref, char *param_name, char *abbrev) {
+update_dynamic_hf_entry(hf_register_info *hf_array, int pos, guint32 data_type, guint id_ref, char *param_name, char *filter_string) {
     param_return_attributes_t   attribs;
     gint                       *hf_id;
 
@@ -2143,7 +2356,7 @@ update_dynamic_hf_entry(hf_register_info *hf_array, int pos, guint32 data_type, 
         hf_array[pos].hfinfo.name = ws_strdup_printf("%s [%s]", param_name, attribs.base_type_name);
     }
 
-    hf_array[pos].hfinfo.abbrev = abbrev;
+    hf_array[pos].hfinfo.abbrev = ws_strdup_printf("%s.%s", SOMEIP_NAME_PREFIX, filter_string);
     hf_array[pos].hfinfo.type = attribs.type;
     hf_array[pos].hfinfo.display = attribs.display_base;
 
@@ -2158,54 +2371,14 @@ update_dynamic_param_hf_entry(gpointer key _U_, gpointer value, gpointer data) {
     someip_parameter_list_t    *list = (someip_parameter_list_t *)value;
     guint                       i = 0;
 
-    if (*pos >= dynamic_hf_param_size) {
-        return;
-    }
-
     for (i = 0; i < list->num_of_items ; i++) {
+        if (*pos >= dynamic_hf_param_size) {
+            return;
+        }
+
         someip_payload_parameter_item_t *item = &(list->items[i]);
 
-        gboolean service_name_needs_free = FALSE;
-        gboolean method_name_needs_free  = FALSE;
-
-        guchar c;
-        char *service_name = someip_lookup_service_name(list->service_id);
-        char *method_name = someip_lookup_method_name(list->service_id, list->method_id);
-
-        if (service_name != NULL) {
-            c = proto_check_field_name(service_name);
-            if (c) {
-                service_name = NULL;
-            }
-        }
-
-        if (service_name == NULL) {
-            service_name_needs_free = TRUE;
-            service_name = ws_strdup_printf("0x%04x", list->service_id);
-        }
-
-        if (method_name != NULL) {
-            c = proto_check_field_name(method_name);
-            if (c) {
-                method_name = NULL;
-            }
-        }
-
-        if (method_name == NULL) {
-            method_name_needs_free = TRUE;
-            method_name = ws_strdup_printf("0x%04x", list->method_id);
-        }
-
-        char *abbrev = ws_strdup_printf("someip.payload.%s", item->filter_string);
-        item->hf_id = update_dynamic_hf_entry(dynamic_hf_param, *pos, item->data_type, item->id_ref, item->name, abbrev);
-
-        if (service_name_needs_free) {
-            g_free(service_name);
-        }
-
-        if (method_name_needs_free) {
-            g_free(method_name);
-        }
+        item->hf_id = update_dynamic_hf_entry(dynamic_hf_param, *pos, item->data_type, item->id_ref, item->name, item->filter_string);
 
         if (item->hf_id != NULL) {
             (*pos)++;
@@ -2217,14 +2390,12 @@ static void
 update_dynamic_array_hf_entry(gpointer key _U_, gpointer value, gpointer data) {
     guint32                    *pos = (guint32 *)data;
     someip_parameter_array_t   *item = (someip_parameter_array_t *)value;
-    char                       *abbrev = NULL;
 
     if (*pos >= dynamic_hf_array_size) {
         return;
     }
 
-    abbrev = ws_strdup_printf("someip.payload.%s", item->filter_string);
-    item->hf_id = update_dynamic_hf_entry(dynamic_hf_array, *pos, item->data_type, item->id_ref, item->name, abbrev);
+    item->hf_id = update_dynamic_hf_entry(dynamic_hf_array, *pos, item->data_type, item->id_ref, item->name, item->filter_string);
 
     if (item->hf_id != NULL) {
         (*pos)++;
@@ -2237,15 +2408,13 @@ update_dynamic_struct_hf_entry(gpointer key _U_, gpointer value, gpointer data) 
     someip_payload_parameter_struct_t  *list = (someip_payload_parameter_struct_t *)value;
     guint                               i = 0;
 
-    if (*pos >= dynamic_hf_struct_size) {
-        return;
-    }
-
     for (i = 0; i < list->num_of_items; i++) {
+        if (*pos >= dynamic_hf_struct_size) {
+            return;
+        }
         someip_payload_parameter_item_t *item = &(list->items[i]);
 
-        char *abbrev = ws_strdup_printf("someip.payload.%s", item->filter_string);
-        item->hf_id = update_dynamic_hf_entry(dynamic_hf_struct, *pos, item->data_type, item->id_ref, item->name, abbrev);
+        item->hf_id = update_dynamic_hf_entry(dynamic_hf_struct, *pos, item->data_type, item->id_ref, item->name, item->filter_string);
 
         if (item->hf_id != NULL) {
             (*pos)++;
@@ -2259,15 +2428,14 @@ update_dynamic_union_hf_entry(gpointer key _U_, gpointer value, gpointer data) {
     someip_parameter_union_t   *list = (someip_parameter_union_t *)value;
     guint                       i = 0;
 
-    if (*pos >= dynamic_hf_union_size) {
-        return;
-    }
-
     for (i = 0; i < list->num_of_items; i++) {
+        if (*pos >= dynamic_hf_union_size) {
+            return;
+        }
+
         someip_parameter_union_item_t *item = &(list->items[i]);
 
-        char *abbrev = ws_strdup_printf("someip.payload.%s", item->filter_string);
-        item->hf_id = update_dynamic_hf_entry(dynamic_hf_union, *pos, item->data_type, item->id_ref, item->name, abbrev);
+        item->hf_id = update_dynamic_hf_entry(dynamic_hf_union, *pos, item->data_type, item->id_ref, item->name, item->filter_string);
 
         if (item->hf_id != NULL) {
             (*pos)++;
@@ -2307,6 +2475,7 @@ update_dynamic_hf_entries_someip_parameter_structs(void) {
         proto_register_field_array(proto_someip, dynamic_hf_struct, pos);
     }
 }
+
 static void
 update_dynamic_hf_entries_someip_parameter_unions(void) {
     if (data_someip_parameter_unions != NULL) {
@@ -2334,12 +2503,6 @@ static void
 expert_someip_payload_config_error(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length, const char *message) {
     proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_config_error, tvb, offset, length, "SOME/IP Payload: %s", message);
     col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Config Error]");
-}
-
-static void
-expert_someip_payload_alignment_error(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
-    proto_tree_add_expert(tree, pinfo, &ef_someip_payload_alignment_error, tvb, offset, length);
-    col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Alignment problem]");
 }
 
 /*******************************************
@@ -2400,10 +2563,10 @@ someip_messages_stats_tree_packet(stats_tree *st, packet_info *pinfo, epan_disse
  *******************************************/
 
 static int
-dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, guint8 data_type, guint32 idref, gchar *name, int *hf_id_ptr, gint wtlv_offset);
+dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, guint8 data_type, guint32 idref, gchar *name, int *hf_id_ptr, gint wtlv_offset);
 
 static int
-dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, someip_payload_parameter_item_t *items, guint32 num_of_items, gboolean wtlv);
+dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, someip_payload_parameter_item_t *items, guint32 num_of_items, gboolean wtlv);
 
 /* add a flexible size length field, -1 for error*/
 static gint64
@@ -2499,75 +2662,15 @@ dissect_someip_payload_add_wtlv_if_needed(tvbuff_t *tvb, packet_info *pinfo _U_,
     }
 }
 
-static guint64
-dissect_shifted_and_shortened_uint(tvbuff_t *tvb, gint offset, gint offset_bits, gint offset_end, gint offset_end_bits, gboolean big_endian) {
-    gint32      i = 0;
-    guint8      tmp = 0;
-    gint        tmp_bit_count = 8;
-    guint64     value_guint64 = 0;
-
-    if (!big_endian) {
-        /* offset and offset_end need to be included */
-        for (i = offset_end; i >= offset; i--) {
-
-            if (i != offset_end || offset_end_bits != 0) {
-                tmp = tvb_get_guint8(tvb, i);
-                tmp_bit_count = 8;
-
-                if (i == offset_end) {
-                    tmp = tmp & (0xff >> (8 - offset_end_bits));
-                    /* don't need to shift value, in the first round */
-                    tmp_bit_count = 0;
-                }
-
-                if (i == offset) {
-                    tmp >>= offset_bits;
-                    tmp_bit_count = 8 - offset_bits;
-                }
-
-                value_guint64 <<= (guint)tmp_bit_count;
-                value_guint64 |= tmp;
-            }
-        }
-    } else {
-        /* offset_end needs to be included. */
-        for (i = offset; i <= offset_end; i++) {
-
-            /* Do not read the last byte, if you do not need any bit of it. Else we read behind buffer! */
-            if (i != offset_end || offset_end_bits != 0) {
-                tmp = tvb_get_guint8(tvb, i);
-                tmp_bit_count = 8;
-
-                if (i == offset) {
-                    tmp = tmp & (0xff >> offset_bits);
-                    /* don't need to shift value, in the first round */
-                    tmp_bit_count = 0;
-                }
-
-                if (i == offset_end) {
-                    tmp >>= 8 - offset_end_bits;
-                    tmp_bit_count = offset_end_bits;
-                }
-
-                value_guint64 <<= (guint)tmp_bit_count;
-                value_guint64 |= tmp;
-            }
-        }
-    }
-    return value_guint64;
-}
-
 static gint
-dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset, gint offset_bits, guint8 data_type, guint32 id, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
+dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, gint offset, guint8 data_type, guint32 id, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
     someip_payload_parameter_base_type_list_t  *base_type = NULL;
     someip_payload_parameter_enum_t            *enum_config = NULL;
 
     guint32     basetype_id = 0;
     guint32     enum_id = 0;
 
-    gint        buf_length = -1;
     gint        param_length = -1;
-    guint32     bit_length = 0;
 
     proto_item *ti = NULL;
 
@@ -2578,19 +2681,12 @@ dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
     guint32     i = 0;
     gchar      *value_name = NULL;
 
-    gint        offset_end = 0;
-    gint        offset_end_bits = 0;
-
     gboolean    big_endian = TRUE;
 
     int         hf_id = -1;
 
     if (hf_id_ptr != NULL) {
         hf_id = *hf_id_ptr;
-    }
-
-    if (offset_bits < 0) {
-        return 0;
     }
 
     switch (data_type) {
@@ -2615,59 +2711,30 @@ dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
     }
 
     big_endian = base_type->big_endian;
-    buf_length = tvb_captured_length_remaining(tvb, 0);
-    bit_length = base_type->bitlength_encoded_type;
+    param_length = (gint)((base_type->bitlength_base_type) / 8);
 
-    /* +7 to round up, if more than 0 bits */
-    param_length = (gint)((offset_bits + bit_length + 7) / 8);
+    if (param_length > tvb_captured_length_remaining(tvb, 0) - offset) {
+        return 0;
+    }
 
-    if (param_length <= buf_length - offset) {
-        if (offset_bits == 0 && base_type->bitlength_base_type == bit_length && bit_length % 8 == 0) {
-            /* Regular (non-shortened!) SOME/IP types! */
-            if (hf_id != -1) {
-                if (strncmp(base_type->data_type, "uint", 4) == 0) {
-                    if (base_type->bitlength_base_type > 32) {
-                        ti = proto_tree_add_item_ret_uint64(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN, &value);
-                    } else {
-                        ti = proto_tree_add_item_ret_uint(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN, &value32);
-                        value = (guint64)value32;
-                    }
-                    value_set = TRUE;
-                } else {
-                    ti = proto_tree_add_item(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN);
-                }
+    if (hf_id != -1) {
+        if (strncmp(base_type->data_type, "uint", 4) == 0) {
+            if (base_type->bitlength_base_type > 32) {
+                ti = proto_tree_add_item_ret_uint64(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN, &value);
             } else {
-                if (name == NULL) {
-                    ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "[%s]", base_type->name);
-                } else {
-                    ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "%s [%s]", name, base_type->name);
-                }
-            }
-        } else {
-            /* Shortened datatypes (e.g. CAN over SOME/IP) */
-            offset_end = (gint)((8 * offset + offset_bits + bit_length) / 8);
-            offset_end_bits = (gint)((8 * offset + offset_bits + bit_length) % 8);
-            value = dissect_shifted_and_shortened_uint(tvb, offset, offset_bits, offset_end, offset_end_bits, big_endian);
-
-            if (hf_id != -1) {
-                if (base_type->bitlength_base_type > 32) {
-                    ti = proto_tree_add_uint64(tree, hf_id, tvb, offset, param_length, value);
-                } else {
-                    ti = proto_tree_add_uint(tree, hf_id, tvb, offset, param_length, (guint32)value);
-                }
-            } else {
-                if (name == NULL) {
-                    ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "[%s]: %" PRIu64 " (0x%" PRIx64 ")",
-                        base_type->name, value, value);
-                } else {
-                    ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "%s [%s]: %" PRIu64 " (0x%" PRIx64 ")",
-                        name, base_type->name, value, value);
-                }
+                ti = proto_tree_add_item_ret_uint(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN, &value32);
+                value = (guint64)value32;
             }
             value_set = TRUE;
+        } else {
+            ti = proto_tree_add_item(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN);
         }
     } else {
-        return 0;
+        if (name == NULL) {
+            ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "[%s]", base_type->name);
+        } else {
+            ti = proto_tree_add_string_format(tree, hf_payload_str_base, tvb, offset, param_length, base_type->name, "%s [%s]", name, base_type->name);
+        }
     }
 
     dissect_someip_payload_add_wtlv_if_needed(tvb, pinfo, wtlv_offset, ti, NULL);
@@ -2684,11 +2751,11 @@ dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         }
     }
 
-    return (gint)bit_length;
+    return param_length;
 }
 
 static int
-dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, guint32 id, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
+dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, guint32 id, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
     someip_payload_parameter_string_t *config = NULL;
 
     guint8     *buf = NULL;
@@ -2699,7 +2766,6 @@ dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     gint64      tmp = 0;
     guint32     length = 0;
     gint        offset_orig = offset;
-    gint        offset_bits_orig = offset_bits;
 
     guint       str_encoding = 0;
     int         hf_id = hf_payload_str_string;
@@ -2710,7 +2776,7 @@ dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     config = get_string_config(id);
 
-    if (config == NULL || offset_bits != 0) {
+    if (config == NULL) {
         return 0;
     }
 
@@ -2774,11 +2840,11 @@ dissect_someip_payload_string(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     proto_item_set_end(ti, tvb, offset);
 
-    return 8 * (offset - offset_orig) + (offset_bits - offset_bits_orig);
+    return offset - offset_orig;
 }
 
 static int
-dissect_someip_payload_struct(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, gint offset_bits_orig, guint32 id, gchar *name, gint wtlv_offset) {
+dissect_someip_payload_struct(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, guint32 id, gchar *name, gint wtlv_offset) {
     someip_payload_parameter_struct_t *config = NULL;
 
     proto_tree *subtree = NULL;
@@ -2787,8 +2853,6 @@ dissect_someip_payload_struct(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     gint64      length = 0;
     gint        offset = offset_orig;
-    gint        offset_bits = offset_bits_orig;
-    gint        bits_parsed = 0;
 
     config = get_struct_config(id);
 
@@ -2827,27 +2891,20 @@ dissect_someip_payload_struct(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         subtvb = tvb_new_subset_length_caplen(tvb, 0, endpos, endpos);
     }
 
-    bits_parsed = dissect_someip_payload_parameters(subtvb, pinfo, subtree, offset, offset_bits, config->items, config->num_of_items, config->wtlv_encoding);
-    offset = (8 * offset + offset_bits + bits_parsed) / 8;
-    offset_bits = (8 * offset + offset_bits + bits_parsed) % 8;
+    offset += dissect_someip_payload_parameters(subtvb, pinfo, subtree, offset, config->items, config->num_of_items, config->wtlv_encoding);
 
     if (length_of_length == 0) {
-        if (offset_bits == 0) {
-            proto_item_set_end(ti, tvb, offset);
-        } else {
-            proto_item_set_end(ti, tvb, offset + 1);
-        }
+        proto_item_set_end(ti, tvb, offset);
 
-        return 8 * (offset - offset_orig) + (offset_bits - offset_bits_orig);
+        return offset - offset_orig;
     } else {
-        return 8 * ((length_of_length / 8) + (guint32)length);
+        return (length_of_length / 8) + (guint32)length;
     }
 }
 
 static int
-dissect_someip_payload_typedef(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, guint32 id, gchar *name _U_, int *hf_id, gint wtlv_offset) {
+dissect_someip_payload_typedef(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, guint32 id, gchar *name _U_, int *hf_id, gint wtlv_offset) {
     someip_payload_parameter_typedef_t *config = NULL;
-    gint bits_parsed = 0;
 
     config = get_typedef_config(id);
 
@@ -2856,9 +2913,7 @@ dissect_someip_payload_typedef(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     }
 
     /* we basically skip over the typedef for now */
-    bits_parsed = dissect_someip_payload_parameter(tvb, pinfo, tree, offset, offset_bits, (guint8)config->data_type, config->id_ref, config->name, hf_id, wtlv_offset);
-
-    return bits_parsed;
+    return dissect_someip_payload_parameter(tvb, pinfo, tree, offset, (guint8)config->data_type, config->id_ref, config->name, hf_id, wtlv_offset);
 }
 
 /* returns bytes parsed, length needs to be gint to encode "non-existing" as -1 */
@@ -2900,14 +2955,13 @@ dissect_someip_payload_array_dim_length(tvbuff_t *tvb, packet_info *pinfo, proto
     return offset - offset_orig;
 }
 
-/* returns bits parsed, length needs to be gint to encode "non-existing" as -1 */
+/* returns bytes parsed, length needs to be gint to encode "non-existing" as -1 */
 static gint
 dissect_someip_payload_array_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, gint length, gint lower_limit, gint upper_limit,
     someip_parameter_array_t *config) {
     tvbuff_t   *subtvb = NULL;
     guint32     offset = offset_orig;
-    guint32     offset_bits = 0;
-    guint32     bits_parsed = 0;
+    guint32     bytes_parsed = 0;
     guint32     ret = 0;
     gint        count = 0;
 
@@ -2924,13 +2978,13 @@ dissect_someip_payload_array_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tr
         subtvb = tvb;
     }
 
-    while ((length == -1 && count < upper_limit) || ((gint)(8 * offset + offset_bits) < 8 * length)) {
-        bits_parsed = dissect_someip_payload_parameter(subtvb, pinfo, tree, offset, offset_bits, (guint8)config->data_type, config->id_ref, config->name, config->hf_id, -1);
-        if (bits_parsed == 0) {
+    while ((length == -1 && count < upper_limit) || ((gint)offset < length)) {
+        bytes_parsed = dissect_someip_payload_parameter(subtvb, pinfo, tree, offset, (guint8)config->data_type, config->id_ref, config->name, config->hf_id, -1);
+        if (bytes_parsed == 0) {
+            /* does this make sense? */
             return 1;
         }
-        offset = (8 * offset + bits_parsed) / 8;
-        offset_bits = (8 * offset + bits_parsed) % 8;
+        offset += bytes_parsed;
         count++;
     }
 
@@ -2941,15 +2995,15 @@ dissect_someip_payload_array_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     }
 
     if (length != -1) {
-        ret = 8 * offset + offset_bits;
+        /* we created subtvb first and set offset to 0 */
+        ret = offset;
     } else {
-        ret = 8 * (offset - offset_orig) + offset_bits;
+        ret = offset - offset_orig;
     }
 
     return ret;
 }
 
-/* returns bits parsed */
 static gint
 dissect_someip_payload_array_dim(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, gint length, gint lower_limit, gint upper_limit, someip_parameter_array_t *config, guint current_dim, gchar *name, guint32 length_of_length) {
     proto_item *ti = NULL;
@@ -2961,12 +3015,10 @@ dissect_someip_payload_array_dim(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 
     gint        sub_offset = 0;
     gint        offset = offset_orig;
-    gint        offset_bits = 0;
-    gint        ret = 0;
 
     if (config->num_of_dims == current_dim + 1) {
         /* only payload left. :) */
-        offset_bits += dissect_someip_payload_array_payload(tvb, pinfo, tree, offset, length, lower_limit, upper_limit, config);
+        offset += dissect_someip_payload_array_payload(tvb, pinfo, tree, offset, length, lower_limit, upper_limit, config);
     } else {
         if (length != -1) {
             while (offset < offset_orig + (gint)length) {
@@ -2982,15 +3034,9 @@ dissect_someip_payload_array_dim(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
                     return 0;
                 }
 
-                offset_bits += dissect_someip_payload_array_dim(tvb, pinfo, subtree, offset, sub_length, sub_lower_limit, sub_upper_limit, config, current_dim + 1, name, length_of_length);
-                offset = (8 * offset + offset_bits) / 8;
-                offset_bits = (8 * offset + offset_bits) % 8;
-                if (offset_bits == 0) {
-                    proto_item_set_end(ti, tvb, offset);
-                } else {
-                    proto_item_set_end(ti, tvb, offset + 1);
-                }
+                offset += dissect_someip_payload_array_dim(tvb, pinfo, subtree, offset, sub_length, sub_lower_limit, sub_upper_limit, config, current_dim + 1, name, length_of_length);
 
+                proto_item_set_end(ti, tvb, offset);
             }
         } else {
             /* Multi-dim static array */
@@ -3003,19 +3049,17 @@ dissect_someip_payload_array_dim(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         }
     }
 
-    ret = 8 * (offset - offset_orig) + (offset_bits - 0);
-    return ret;
+    return offset - offset_orig;
 }
 
 static int
-dissect_someip_payload_array(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, gint offset_bits_orig, guint32 id, gchar *name, gint wtlv_offset) {
+dissect_someip_payload_array(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, guint32 id, gchar *name, gint wtlv_offset) {
     someip_parameter_array_t *config = NULL;
 
     proto_tree *subtree;
     proto_item *ti = NULL;
 
     gint        offset = offset_orig;
-    gint        offset_bits = offset_bits_orig;
 
     gint        length = 0;
     gint        size_of_length = 0;
@@ -3033,11 +3077,6 @@ dissect_someip_payload_array(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         return 0;
     }
 
-    if (offset_bits_orig != 0) {
-        expert_someip_payload_alignment_error(tree, pinfo, tvb, offset, 0);
-        return 0;
-    }
-
     ti = proto_tree_add_string_format(tree, hf_payload_str_array, tvb, offset, 0, config->name, "array %s", name);
     subtree = proto_item_add_subtree(ti, ett_someip_array);
     guint32 length_of_length = dissect_someip_payload_add_wtlv_if_needed(tvb, pinfo, wtlv_offset, ti, subtree);
@@ -3051,28 +3090,21 @@ dissect_someip_payload_array(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
          proto_item_append_text(ti, " (elements limit: %d)", upper_limit);
     }
 
-    offset_bits += dissect_someip_payload_array_dim(tvb, pinfo, subtree, offset, length, lower_limit, upper_limit, config, 0, name, length_of_length);
+    offset += dissect_someip_payload_array_dim(tvb, pinfo, subtree, offset, length, lower_limit, upper_limit, config, 0, name, length_of_length);
 
-    offset = (8 * offset + offset_bits) / 8;
-    offset_bits = (8 * offset + offset_bits) % 8;
-
-    if (offset_bits == 0) {
-        proto_item_set_end(ti, tvb, offset);
-    } else {
-        proto_item_set_end(ti, tvb, offset + 1);
-    }
+    proto_item_set_end(ti, tvb, offset);
 
     if (length >= 0) {
         /* length field present */
-        return 8 * (size_of_length + length);
+        return size_of_length + length;
     } else {
         /* We have no length field, so we return what has been parsed! */
-        return 8 * (offset - offset_orig) + (offset_bits - offset_bits_orig);
+        return offset - offset_orig;
     }
 }
 
 static int
-dissect_someip_payload_union(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, gint offset_bits_orig, guint32 id, gchar *name, gint wtlv_offset) {
+dissect_someip_payload_union(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset_orig, guint32 id, gchar *name, gint wtlv_offset) {
     someip_parameter_union_t        *config = NULL;
     someip_parameter_union_item_t   *item = NULL;
 
@@ -3089,18 +3121,12 @@ dissect_someip_payload_union(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
     guint32     i = 0;
 
     gint        offset = offset_orig;
-    gint        offset_bits = offset_bits_orig;
 
     config = get_union_config(id);
     buf_length = tvb_captured_length_remaining(tvb, 0);
 
     if (config == NULL) {
         expert_someip_payload_config_error(tree, pinfo, tvb, offset, 0, "Union ID not configured");
-        return 0;
-    }
-
-    if (offset_bits_orig != 0) {
-        expert_someip_payload_alignment_error(tree, pinfo, tvb, offset_orig, 0);
         return 0;
     }
 
@@ -3124,14 +3150,14 @@ dissect_someip_payload_union(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
     tmp = dissect_someip_payload_length_field(tvb, pinfo, subtree, offset_orig, length_of_length);
     if (tmp == -1) {
-        return 8 * (offset - offset_orig) + (offset_bits - 0);
+        return offset - offset_orig;
     } else {
         length = (guint32)tmp;
     }
 
     tmp = dissect_someip_payload_type_field(tvb, pinfo, subtree, offset_orig + length_of_length / 8, config->length_of_type);
     if (tmp == -1) {
-        return 8 * (offset - offset_orig) + (offset_bits - 0);
+        return offset - offset_orig;
     } else {
         type = (guint32)tmp;
     }
@@ -3148,38 +3174,37 @@ dissect_someip_payload_union(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 
     if (item != NULL) {
         subtvb = tvb_new_subset_length_caplen(tvb, offset, length, length);
-        dissect_someip_payload_parameter(subtvb, pinfo, subtree, 0, 0, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, -1);
+        dissect_someip_payload_parameter(subtvb, pinfo, subtree, 0, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, -1);
     } else {
         expert_someip_payload_config_error(tree, pinfo, tvb, offset, 0, "Union type not configured");
     }
 
-    /* there might be some padding present, if 8*length != bits_parsed */
-    return 8 * length + config->length_of_type + length_of_length;
+    return length + (config->length_of_type + length_of_length) / 8;
 }
 
 static int
-dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, guint8 data_type, guint32 idref, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
-    gint bits_parsed = 0;
+dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, guint8 data_type, guint32 idref, gchar *name, int *hf_id_ptr, gint wtlv_offset) {
+    gint bytes_parsed = 0;
 
     switch (data_type) {
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_TYPEDEF:
-        bits_parsed = dissect_someip_payload_typedef(tvb, pinfo, tree, offset, offset_bits, idref, name, hf_id_ptr, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_typedef(tvb, pinfo, tree, offset, idref, name, hf_id_ptr, wtlv_offset);
         break;
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_BASE_TYPE:
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_ENUM:
-        bits_parsed = dissect_someip_payload_base_type(tvb, pinfo, tree, offset, offset_bits, data_type, idref, name, hf_id_ptr, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_base_type(tvb, pinfo, tree, offset, data_type, idref, name, hf_id_ptr, wtlv_offset);
         break;
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_STRING:
-        bits_parsed = dissect_someip_payload_string(tvb, pinfo, tree, offset, offset_bits, idref, name, hf_id_ptr, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_string(tvb, pinfo, tree, offset, idref, name, hf_id_ptr, wtlv_offset);
         break;
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_ARRAY:
-        bits_parsed = dissect_someip_payload_array(tvb, pinfo, tree, offset, offset_bits, idref, name, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_array(tvb, pinfo, tree, offset, idref, name, wtlv_offset);
         break;
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_STRUCT:
-        bits_parsed = dissect_someip_payload_struct(tvb, pinfo, tree, offset, offset_bits, idref, name, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_struct(tvb, pinfo, tree, offset, idref, name, wtlv_offset);
         break;
     case SOMEIP_PAYLOAD_PARAMETER_DATA_TYPE_UNION:
-        bits_parsed = dissect_someip_payload_union(tvb, pinfo, tree, offset, offset_bits, idref, name, wtlv_offset);
+        bytes_parsed = dissect_someip_payload_union(tvb, pinfo, tree, offset, idref, name, wtlv_offset);
         break;
     default:
         proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_config_error, tvb, offset, 0,
@@ -3189,7 +3214,7 @@ dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         break;
     }
 
-    return bits_parsed;
+    return bytes_parsed;
 }
 
 /*
@@ -3269,12 +3294,10 @@ static int dissect_someip_payload_peek_length_of_length(proto_tree *tree, packet
 }
 
 static int
-dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, gint offset_bits, someip_payload_parameter_item_t *items, guint32 num_of_items, gboolean wtlv) {
+dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint offset, someip_payload_parameter_item_t *items, guint32 num_of_items, gboolean wtlv) {
     someip_payload_parameter_item_t *item;
 
     gint      offset_orig = offset;
-    gint      offset_orig_bits = offset_bits;
-    gint      bits_parsed = 0;
 
     if (items == NULL && !someip_deserializer_wtlv_default) {
         return 0;
@@ -3282,12 +3305,6 @@ dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
     if (wtlv) {
         while (tvb_captured_length_remaining(tvb, offset) >= 2) {
-            /* WTLV only works if payload is aligned to bytes */
-            if (offset_bits != 0) {
-                expert_someip_payload_malformed(tree, pinfo, tvb, offset, 0);
-                return offset - offset_orig;
-            }
-
             guint64 tagdata = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
             guint wiretype = (tagdata & SOMEIP_WTLV_MASK_WIRE_TYPE) >> 12;
             guint param_id = tagdata & SOMEIP_WTLV_MASK_DATA_ID;
@@ -3348,14 +3365,13 @@ dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
             tvbuff_t *subtvb = tvb_new_subset_length_caplen(tvb, offset - 2, param_length + 2, param_length + 2);
             if (item != NULL) {
-                dissect_someip_payload_parameter(subtvb, pinfo, tree, 2, 0, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, 0);
+                dissect_someip_payload_parameter(subtvb, pinfo, tree, 2, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, 0);
             } else {
                 proto_item *ti = proto_tree_add_item(tree, hf_payload_unparsed, subtvb, 2, param_length, ENC_NA);
                 dissect_someip_payload_add_wtlv_if_needed(tvb, pinfo, offset - 2, ti, NULL);
             }
             offset += param_length;
         }
-        bits_parsed = 8 * (offset - offset_orig);
     } else {
         if (items == NULL) {
             return 0;
@@ -3363,14 +3379,11 @@ dissect_someip_payload_parameters(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
         guint32 i;
         for (i = 0; i < num_of_items; i++) {
             item = &(items[i]);
-            bits_parsed = dissect_someip_payload_parameter(tvb, pinfo, tree, offset, offset_bits, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, -1);
-            offset = (8 * offset + offset_bits + bits_parsed) / 8;
-            offset_bits = (8 * offset + offset_bits + bits_parsed) % 8;
+            offset += dissect_someip_payload_parameter(tvb, pinfo, tree, offset, (guint8)item->data_type, item->id_ref, item->name, item->hf_id, -1);
         }
-        bits_parsed = 8 * (offset - offset_orig) + (offset_bits + offset_orig_bits);
     }
 
-    return bits_parsed;
+    return offset - offset_orig;
 }
 
 static void
@@ -3379,8 +3392,6 @@ dissect_someip_payload(tvbuff_t* tvb, packet_info* pinfo, proto_item *ti, guint1
 
     gint        length = -1;
     gint        offset = 0;
-    gint        offset_bits = 0;
-    gint        bits_parsed = 0;
 
     proto_tree *tree = NULL;
 
@@ -3401,22 +3412,12 @@ dissect_someip_payload(tvbuff_t* tvb, packet_info* pinfo, proto_item *ti, guint1
 
     if (paramlist == NULL) {
         if (someip_deserializer_wtlv_default) {
-            bits_parsed = dissect_someip_payload_parameters(tvb, pinfo, tree, offset, offset_bits, NULL, 0, TRUE);
+            offset += dissect_someip_payload_parameters(tvb, pinfo, tree, offset, NULL, 0, TRUE);
         } else {
             return;
         }
     } else {
-        bits_parsed = dissect_someip_payload_parameters(tvb, pinfo, tree, offset, offset_bits, paramlist->items, paramlist->num_of_items, paramlist->wtlv_encoding);
-    }
-
-    offset = (8 * offset + offset_bits + bits_parsed) / 8;
-    offset_bits = (8 * offset + offset_bits + bits_parsed) % 8;
-
-    if (offset_bits != 0) {
-        expert_someip_payload_malformed(tree, pinfo, tvb, offset, 0);
-
-        /* align to byte */
-        offset += 1;
+        offset += dissect_someip_payload_parameters(tvb, pinfo, tree, offset, paramlist->items, paramlist->num_of_items, paramlist->wtlv_encoding);
     }
 
     if (length > offset) {
@@ -3478,7 +3479,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     /* Message ID = Service ID + Method ID*/
     someip_messageid = tvb_get_ntohl(tvb, 0);
     ti = proto_tree_add_uint_format_value(someip_tree, hf_someip_messageid, tvb, offset, 4, someip_messageid, "0x%08x", someip_messageid);
-    PROTO_ITEM_SET_HIDDEN(ti);
+    proto_item_set_hidden(ti);
 
     /* Service ID */
     ti = proto_tree_add_item_ret_uint(someip_tree, hf_someip_serviceid, tvb, offset, 2, ENC_BIG_ENDIAN, &someip_serviceid);
@@ -3631,8 +3632,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
                 if (someip_deserializer_activated) {
                     dissect_someip_payload(subtvb, pinfo, ti, (guint16)someip_serviceid, (guint16)someip_methodid, (guint8)version, (guint8)(~SOMEIP_MSGTYPE_TP_MASK)&msgtype);
-                }
-                else {
+                } else {
                     proto_tree* payload_dissection_disabled_info_sub_tree = proto_item_add_subtree(ti, ett_someip_payload);
                     proto_tree_add_text_internal(payload_dissection_disabled_info_sub_tree, subtvb, 0, tvb_length, "Dissection of payload is disabled. It can be enabled via protocol preferences.");
                 }
@@ -4071,105 +4071,97 @@ proto_register_someip(void) {
     /* Register preferences */
     someip_module = prefs_register_protocol(proto_someip, &proto_reg_handoff_someip);
 
-    range_convert_str(wmem_epan_scope(), &someip_ports_udp, "", 65535);
-    prefs_register_range_preference(someip_module, "ports.udp", "UDP Ports",
-        "SOME/IP Port Ranges UDP.",
-        &someip_ports_udp, 65535);
-
-    range_convert_str(wmem_epan_scope(), &someip_ports_tcp, "", 65535);
-    prefs_register_range_preference(someip_module, "ports.tcp", "TCP Ports",
-        "SOME/IP Port Ranges TCP.",
-        &someip_ports_tcp, 65535);
-
     /* UATs */
     someip_service_uat = uat_new("SOME/IP Services",
-        sizeof(generic_one_id_string_t),            /* record size           */
-        DATAFILE_SOMEIP_SERVICES,                   /* filename              */
-        TRUE,                                       /* from profile          */
-        (void **) &someip_service_ident,            /* data_ptr              */
-        &someip_service_ident_num,                  /* numitems_ptr          */
-        UAT_AFFECTS_DISSECTION,                     /* but not fields        */
-        NULL,                                       /* help                  */
-        copy_generic_one_id_string_cb,              /* copy callback         */
-        update_generic_one_identifier_16bit,        /* update callback       */
-        free_generic_one_id_string_cb,              /* free callback         */
-        post_update_someip_service_cb,              /* post update callback  */
-        NULL,                                       /* reset callback        */
-        someip_service_uat_fields                   /* UAT field definitions */
+        sizeof(generic_one_id_string_t),                   /* record size           */
+        DATAFILE_SOMEIP_SERVICES,                          /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **) &someip_service_ident,                   /* data_ptr              */
+        &someip_service_ident_num,                         /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_generic_one_id_string_cb,                     /* copy callback         */
+        update_generic_one_identifier_16bit,               /* update callback       */
+        free_generic_one_id_string_cb,                     /* free callback         */
+        post_update_someip_service_cb,                     /* post update callback  */
+        reset_someip_service_cb,                           /* reset callback        */
+        someip_service_uat_fields                          /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "services", "SOME/IP Services",
         "A table to define names of SOME/IP services", someip_service_uat);
 
     someip_method_uat = uat_new("SOME/IP Methods/Events/Fields",
-        sizeof(generic_two_id_string_t),            /* record size           */
-        DATAFILE_SOMEIP_METHODS,                    /* filename              */
-        TRUE,                                       /* from profile          */
-        (void **) &someip_method_ident,             /* data_ptr              */
-        &someip_method_ident_num,                   /* numitems_ptr          */
-        UAT_AFFECTS_DISSECTION,                     /* but not fields        */
-        NULL,                                       /* help                  */
-        copy_generic_two_id_string_cb,              /* copy callback         */
-        update_generic_two_identifier_16bit,        /* update callback       */
-        free_generic_two_id_string_cb,              /* free callback         */
-        post_update_someip_method_cb,               /* post update callback  */
-        NULL,                                       /* reset callback        */
-        someip_method_uat_fields                    /* UAT field definitions */
+        sizeof(generic_two_id_string_t),                    /* record size           */
+        DATAFILE_SOMEIP_METHODS,                            /* filename              */
+        TRUE,                                               /* from profile          */
+        (void **) &someip_method_ident,                     /* data_ptr              */
+        &someip_method_ident_num,                           /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                             /* but not fields        */
+        NULL,                                               /* help                  */
+        copy_generic_two_id_string_cb,                      /* copy callback         */
+        update_generic_two_identifier_16bit,                /* update callback       */
+        free_generic_two_id_string_cb,                      /* free callback         */
+        post_update_someip_method_cb,                       /* post update callback  */
+        reset_someip_method_cb,                             /* reset callback        */
+        someip_method_uat_fields                            /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "methods", "SOME/IP Methods",
         "A table to define names of SOME/IP methods", someip_method_uat);
 
     someip_eventgroup_uat = uat_new("SOME/IP Eventgroups",
-        sizeof(generic_two_id_string_t),            /* record size           */
-        DATAFILE_SOMEIP_EVENTGROUPS,                /* filename              */
-        TRUE,                                       /* from profile          */
-        (void **) &someip_eventgroup_ident,         /* data_ptr              */
-        &someip_eventgroup_ident_num,               /* numitems_ptr          */
-        UAT_AFFECTS_DISSECTION,                     /* but not fields        */
-        NULL,                                       /* help                  */
-        copy_generic_two_id_string_cb,              /* copy callback         */
-        update_generic_two_identifier_16bit,        /* update callback       */
-        free_generic_two_id_string_cb,              /* free callback         */
-        post_update_someip_eventgroup_cb,           /* post update callback  */
-        NULL,                                       /* reset callback        */
-        someip_eventgroup_uat_fields                /* UAT field definitions */
+        sizeof(generic_two_id_string_t),                   /* record size           */
+        DATAFILE_SOMEIP_EVENTGROUPS,                       /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **) &someip_eventgroup_ident,                /* data_ptr              */
+        &someip_eventgroup_ident_num,                      /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_generic_two_id_string_cb,                     /* copy callback         */
+        update_generic_two_identifier_16bit,               /* update callback       */
+        free_generic_two_id_string_cb,                     /* free callback         */
+        post_update_someip_eventgroup_cb,                  /* post update callback  */
+        reset_someip_eventgroup_cb,                        /* reset callback        */
+        someip_eventgroup_uat_fields                       /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "eventgroups", "SOME/IP Eventgroups",
         "A table to define names of SOME/IP eventgroups", someip_eventgroup_uat);
 
     someip_client_uat = uat_new("SOME/IP Clients",
-        sizeof(generic_two_id_string_t),            /* record size           */
-        DATAFILE_SOMEIP_CLIENTS,                    /* filename              */
-        TRUE,                                       /* from profile          */
-        (void **)&someip_client_ident,              /* data_ptr              */
-        &someip_client_ident_num,                   /* numitems_ptr          */
-        UAT_AFFECTS_DISSECTION,                     /* but not fields        */
-        NULL,                                       /* help                  */
-        copy_generic_two_id_string_cb,              /* copy callback         */
-        update_generic_two_identifier_16bit,        /* update callback       */
-        free_generic_two_id_string_cb,              /* free callback         */
-        post_update_someip_client_cb,               /* post update callback  */
-        NULL,                                       /* reset callback        */
-        someip_client_uat_fields                    /* UAT field definitions */
+        sizeof(generic_two_id_string_t),                   /* record size           */
+        DATAFILE_SOMEIP_CLIENTS,                           /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_client_ident,                     /* data_ptr              */
+        &someip_client_ident_num,                          /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_generic_two_id_string_cb,                     /* copy callback         */
+        update_generic_two_identifier_16bit,               /* update callback       */
+        free_generic_two_id_string_cb,                     /* free callback         */
+        post_update_someip_client_cb,                      /* post update callback  */
+        reset_someip_client_cb,                            /* reset callback        */
+        someip_client_uat_fields                           /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "clients", "SOME/IP Clients",
         "A table to define names of SOME/IP clients", someip_client_uat);
 
     someip_parameter_list_uat = uat_new("SOME/IP Parameter List",
-        sizeof(someip_parameter_list_uat_t), DATAFILE_SOMEIP_PARAMETERS, TRUE,
-        (void **)&someip_parameter_list,
-        &someip_parameter_list_num,
+        sizeof(someip_parameter_list_uat_t),               /* record size           */
+        DATAFILE_SOMEIP_PARAMETERS,                        /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_list,                   /* data_ptr              */
+        &someip_parameter_list_num,                        /* numitems_ptr          */
         UAT_AFFECTS_DISSECTION | UAT_AFFECTS_FIELDS,
-        NULL, /* help */
-        copy_someip_parameter_list_cb,
-        update_someip_parameter_list,
-        free_someip_parameter_list_cb,
-        post_update_someip_parameter_list_cb,
-        NULL, /* reset */
-        someip_parameter_list_uat_fields
+        NULL,                                              /* help                  */
+        copy_someip_parameter_list_cb,                     /* copy callback         */
+        update_someip_parameter_list,                      /* update callback       */
+        free_someip_parameter_list_cb,                     /* free callback         */
+        post_update_someip_parameter_list_cb,              /* post update callback  */
+        reset_someip_parameter_list_cb,                    /* reset callback        */
+        someip_parameter_list_uat_fields                   /* UAT field definitions */
     );
 
     prefs_register_bool_preference(someip_module, "reassemble_tp", "Reassemble SOME/IP-TP",
@@ -4189,119 +4181,133 @@ proto_register_someip(void) {
         "A table to define names of SOME/IP parameters", someip_parameter_list_uat);
 
     someip_parameter_arrays_uat = uat_new("SOME/IP Parameter Arrays",
-        sizeof(someip_parameter_array_uat_t), DATAFILE_SOMEIP_ARRAYS, TRUE,
-        (void **)&someip_parameter_arrays,
-        &someip_parameter_arrays_num,
+        sizeof(someip_parameter_array_uat_t),              /* record size           */
+        DATAFILE_SOMEIP_ARRAYS,                            /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_arrays,                 /* data_ptr              */
+        &someip_parameter_arrays_num,                      /* numitems_ptr          */
         UAT_AFFECTS_DISSECTION | UAT_AFFECTS_FIELDS,
-        NULL, /* help */
-        copy_someip_parameter_array_cb,
-        update_someip_parameter_array,
-        free_someip_parameter_array_cb,
-        post_update_someip_parameter_array_cb,
-        NULL, /* reset */
-        someip_parameter_array_uat_fields
+        NULL,                                              /* help                  */
+        copy_someip_parameter_array_cb,                    /* copy callback         */
+        update_someip_parameter_array,                     /* update callback       */
+        free_someip_parameter_array_cb,                    /* free callback         */
+        post_update_someip_parameter_array_cb,             /* post update callback  */
+        reset_someip_parameter_array_cb,                   /* reset callback        */
+        someip_parameter_array_uat_fields                  /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_arrays", "SOME/IP Parameter Arrays",
         "A table to define arrays used by SOME/IP", someip_parameter_arrays_uat);
 
     someip_parameter_structs_uat = uat_new("SOME/IP Parameter Structs",
-        sizeof(someip_parameter_struct_uat_t), DATAFILE_SOMEIP_STRUCTS, TRUE,
-        (void **)&someip_parameter_structs,
-        &someip_parameter_structs_num,
+        sizeof(someip_parameter_struct_uat_t),             /* record size           */
+        DATAFILE_SOMEIP_STRUCTS,                           /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_structs,                /* data_ptr              */
+        &someip_parameter_structs_num,                     /* numitems_ptr          */
         UAT_AFFECTS_DISSECTION | UAT_AFFECTS_FIELDS,
-        NULL, /* help */
-        copy_someip_parameter_struct_cb,
-        update_someip_parameter_struct,
-        free_someip_parameter_struct_cb,
-        post_update_someip_parameter_struct_cb,
-        NULL, /* reset */
-        someip_parameter_struct_uat_fields
+        NULL,                                              /* help                  */
+        copy_someip_parameter_struct_cb,                   /* copy callback         */
+        update_someip_parameter_struct,                    /* update callback       */
+        free_someip_parameter_struct_cb,                   /* free callback         */
+        post_update_someip_parameter_struct_cb,            /* post update callback  */
+        reset_someip_parameter_struct_cb,                  /* reset callback        */
+        someip_parameter_struct_uat_fields                 /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_structs", "SOME/IP Parameter Structs",
         "A table to define structs used by SOME/IP", someip_parameter_structs_uat);
 
     someip_parameter_unions_uat = uat_new("SOME/IP Parameter Unions",
-        sizeof(someip_parameter_union_uat_t), DATAFILE_SOMEIP_UNIONS, TRUE,
-        (void **)&someip_parameter_unions,
-        &someip_parameter_unions_num,
+        sizeof(someip_parameter_union_uat_t),              /* record size           */
+        DATAFILE_SOMEIP_UNIONS,                            /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_unions,                 /* data_ptr              */
+        &someip_parameter_unions_num,                      /* numitems_ptr          */
         UAT_AFFECTS_DISSECTION | UAT_AFFECTS_FIELDS,
-        NULL, /* help */
-        copy_someip_parameter_union_cb,
-        update_someip_parameter_union,
-        free_someip_parameter_union_cb,
-        post_update_someip_parameter_union_cb,
-        NULL, /* reset */
-        someip_parameter_union_uat_fields
+        NULL,                                              /* help                  */
+        copy_someip_parameter_union_cb,                    /* copy callback         */
+        update_someip_parameter_union,                     /* update callback       */
+        free_someip_parameter_union_cb,                    /* free callback         */
+        post_update_someip_parameter_union_cb,             /* post update callback  */
+        reset_someip_parameter_union_cb,                   /* reset callback        */
+        someip_parameter_union_uat_fields                  /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_unions", "SOME/IP Parameter Unions",
         "A table to define unions used by SOME/IP", someip_parameter_unions_uat);
 
     someip_parameter_enums_uat = uat_new("SOME/IP Parameter Enums",
-        sizeof(someip_parameter_enum_uat_t), DATAFILE_SOMEIP_ENUMS, TRUE,
-        (void **)&someip_parameter_enums,
-        &someip_parameter_enums_num,
-        UAT_AFFECTS_DISSECTION,
-        NULL, /* help */
-        copy_someip_parameter_enum_cb,
-        update_someip_parameter_enum,
-        free_someip_parameter_enum_cb,
-        post_update_someip_parameter_enum_cb,
-        NULL, /* reset */
-        someip_parameter_enum_uat_fields
+        sizeof(someip_parameter_enum_uat_t),               /* record size           */
+        DATAFILE_SOMEIP_ENUMS,                             /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_enums,                  /* data_ptr              */
+        &someip_parameter_enums_num,                       /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_someip_parameter_enum_cb,                     /* copy callback         */
+        update_someip_parameter_enum,                      /* update callback       */
+        free_someip_parameter_enum_cb,                     /* free callback         */
+        post_update_someip_parameter_enum_cb,              /* post update callback  */
+        reset_someip_parameter_enum_cb,                    /* reset callback        */
+        someip_parameter_enum_uat_fields                   /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_enums", "SOME/IP Parameter Enums",
         "A table to define enumerations used by SOME/IP", someip_parameter_enums_uat);
 
     someip_parameter_base_type_list_uat = uat_new("SOME/IP Parameter Base Type List",
-        sizeof(someip_parameter_base_type_list_uat_t), DATAFILE_SOMEIP_BASE_TYPES, TRUE,
-        (void **)&someip_parameter_base_type_list,
-        &someip_parameter_base_type_list_num,
-        UAT_AFFECTS_DISSECTION,
-        NULL, /* help */
-        copy_someip_parameter_base_type_list_cb,
-        update_someip_parameter_base_type_list,
-        free_someip_parameter_base_type_list_cb,
-        post_update_someip_parameter_base_type_list_cb,
-        NULL, /* reset */
-        someip_parameter_base_type_list_uat_fields
+        sizeof(someip_parameter_base_type_list_uat_t),     /* record size           */
+        DATAFILE_SOMEIP_BASE_TYPES,                        /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_base_type_list,         /* data_ptr              */
+        &someip_parameter_base_type_list_num,              /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_someip_parameter_base_type_list_cb,           /* copy callback         */
+        update_someip_parameter_base_type_list,            /* update callback       */
+        free_someip_parameter_base_type_list_cb,           /* free callback         */
+        post_update_someip_parameter_base_type_list_cb,    /* post update callback  */
+        reset_someip_parameter_base_type_list_cb,          /* reset callback        */
+        someip_parameter_base_type_list_uat_fields         /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_base_type_list", "SOME/IP Parameter Base Type List",
         "A table to define base types of SOME/IP parameters", someip_parameter_base_type_list_uat);
 
     someip_parameter_strings_uat = uat_new("SOME/IP Parameter String List",
-        sizeof(someip_parameter_string_uat_t), DATAFILE_SOMEIP_STRINGS, TRUE,
-        (void **)&someip_parameter_strings,
-        &someip_parameter_strings_num,
-        UAT_AFFECTS_DISSECTION,
-        NULL, /* help */
-        copy_someip_parameter_string_list_cb,
-        update_someip_parameter_string_list,
-        free_someip_parameter_string_list_cb,
-        post_update_someip_parameter_string_list_cb,
-        NULL, /* reset */
-        someip_parameter_string_list_uat_fields
+        sizeof(someip_parameter_string_uat_t),             /* record size           */
+        DATAFILE_SOMEIP_STRINGS,                           /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_strings,                /* data_ptr              */
+        &someip_parameter_strings_num,                     /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_someip_parameter_string_list_cb,              /* copy callback         */
+        update_someip_parameter_string_list,               /* update callback       */
+        free_someip_parameter_string_list_cb,              /* free callback         */
+        post_update_someip_parameter_string_list_cb,       /* post update callback  */
+        reset_someip_parameter_string_list_cb,             /* reset callback        */
+        someip_parameter_string_list_uat_fields            /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_string_list", "SOME/IP Parameter String List",
         "A table to define strings parameters", someip_parameter_strings_uat);
 
     someip_parameter_typedefs_uat = uat_new("SOME/IP Parameter Typedef List",
-        sizeof(someip_parameter_typedef_uat_t), DATAFILE_SOMEIP_TYPEDEFS, TRUE,
-        (void **)&someip_parameter_typedefs,
-        &someip_parameter_typedefs_num,
-        UAT_AFFECTS_DISSECTION,
-        NULL, /* help */
-        copy_someip_parameter_typedef_list_cb,
-        update_someip_parameter_typedef_list,
-        free_someip_parameter_typedef_list_cb,
-        post_update_someip_parameter_typedef_list_cb,
-        NULL, /* reset */
-        someip_parameter_typedef_list_uat_fields
+        sizeof(someip_parameter_typedef_uat_t),            /* record size           */
+        DATAFILE_SOMEIP_TYPEDEFS,                          /* filename              */
+        TRUE,                                              /* from profile          */
+        (void **)&someip_parameter_typedefs,               /* data_ptr              */
+        &someip_parameter_typedefs_num,                    /* numitems_ptr          */
+        UAT_AFFECTS_DISSECTION,                            /* but not fields        */
+        NULL,                                              /* help                  */
+        copy_someip_parameter_typedef_list_cb,             /* copy callback         */
+        update_someip_parameter_typedef_list,              /* update callback       */
+        free_someip_parameter_typedef_list_cb,             /* free callback         */
+        post_update_someip_parameter_typedef_list_cb,      /* post update callback  */
+        reset_someip_parameter_typedef_list_cb,            /* reset callback        */
+        someip_parameter_typedef_list_uat_fields           /* UAT field definitions */
     );
 
     prefs_register_uat_preference(someip_module, "_someip_parameter_typedef_list", "SOME/IP Parameter Typedef List",
@@ -4377,16 +4383,13 @@ proto_reg_handoff_someip(void) {
 
         stats_tree_register("someip_messages", "someip_messages", "SOME/IP Messages", 0, someip_messages_stats_tree_packet, someip_messages_stats_tree_init, NULL);
 
+        dissector_add_uint_range_with_preference("udp.port", "", someip_handle_udp);
+        dissector_add_uint_range_with_preference("tcp.port", "", someip_handle_tcp);
+
         initialized = TRUE;
     } else {
-        /* delete all my ports even the dynamically registered ones */
-        dissector_delete_all("udp.port", someip_handle_udp);
-        dissector_delete_all("tcp.port", someip_handle_tcp);
-
         clean_all_hashtables_with_empty_uat();
     }
-    dissector_add_uint_range("udp.port", someip_ports_udp, someip_handle_udp);
-    dissector_add_uint_range("tcp.port", someip_ports_tcp, someip_handle_tcp);
 
     update_dynamic_hf_entries_someip_parameter_list();
     update_dynamic_hf_entries_someip_parameter_arrays();

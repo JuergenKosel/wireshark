@@ -63,7 +63,6 @@
 #include "wsutil/utf8_entities.h"
 
 #ifdef _WIN32
-#  include "ui/win32/console_win32.h"
 #  include "wsutil/file_util.h"
 #  include <QMessageBox>
 #  include <QSettings>
@@ -646,7 +645,6 @@ MainApplication::MainApplication(int &argc,  char **argv) :
     Q_INIT_RESOURCE(i18n);
     Q_INIT_RESOURCE(layout);
     Q_INIT_RESOURCE(stock_icons);
-    Q_INIT_RESOURCE(wsicon);
     Q_INIT_RESOURCE(languages);
 
 #ifdef Q_OS_WIN
@@ -904,19 +902,6 @@ void MainApplication::clearDynamicMenuGroupItems()
     }
 }
 
-void MainApplication::initializeIcons()
-{
-    // Do this as late as possible in order to allow time for
-    // MimeDatabaseInitThread to do its work.
-    QList<int> icon_sizes = QList<int>() << 16 << 24 << 32 << 48 << 64 << 128 << 256 << 512 << 1024;
-    foreach (int icon_size, icon_sizes) {
-        QString icon_path = QString(":/wsicon/wsicon%1.png").arg(icon_size);
-        normal_icon_.addFile(icon_path);
-        icon_path = QString(":/wsicon/wsiconcap%1.png").arg(icon_size);
-        capture_icon_.addFile(icon_path);
-    }
-}
-
 QList<QAction *> MainApplication::dynamicMenuGroupItems(int group)
 {
     if (!dynamic_menu_groups_.contains(group)) {
@@ -1086,13 +1071,6 @@ _e_prefs *MainApplication::readConfigurationFiles(bool reset)
 
     /* Load libwireshark settings from the current profile. */
     prefs_p = epan_load_settings();
-
-#ifdef _WIN32
-    /* if the user wants a console to be always there, well, we should open one for him */
-    if (prefs_p->gui_console_open == console_open_always) {
-        create_console();
-    }
-#endif
 
     /* Read the capture filter file. */
     read_filter_list(CFILTER_LIST);

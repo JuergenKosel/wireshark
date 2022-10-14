@@ -153,6 +153,7 @@ static int hf_isakmp_notify_data = -1;
 static int hf_isakmp_notify_data_dpd_are_you_there = -1;
 static int hf_isakmp_notify_data_dpd_are_you_there_ack = -1;
 static int hf_isakmp_notify_data_unity_load_balance = -1;
+static int hf_isakmp_notify_data_fortinet_network_overlay_id = -1;
 static int hf_isakmp_notify_data_accepted_dh_group = -1;
 static int hf_isakmp_notify_data_ipcomp_cpi = -1;
 static int hf_isakmp_notify_data_ipcomp_transform_id = -1;
@@ -288,6 +289,8 @@ static int hf_isakmp_ike_attr_prf = -1;
 static int hf_isakmp_ike_attr_key_length = -1;
 static int hf_isakmp_ike_attr_field_size = -1;
 static int hf_isakmp_ike_attr_group_order = -1;
+static int hf_isakmp_ike_attr_block_size = -1;
+static int hf_isakmp_ike_attr_asymmetric_cryptographic_algorithm_type = -1;
 
 static attribute_common_fields hf_isakmp_resp_lifetime_ike_attr = { -1, -1, -1, -1, -1 };
 static int hf_isakmp_resp_lifetime_ike_attr_life_type = -1;
@@ -817,6 +820,8 @@ static const range_string tek_key_attr_type[] = {
 #define IKE_ATTR_KEY_LENGTH                             14
 #define IKE_ATTR_FIELD_SIZE                             15
 #define IKE_ATTR_GROUP_ORDER                    16
+#define IKE_ATTR_BLOCK_SIZE                     17
+#define IKE_ATTR_ACAT                           20
 
 
 
@@ -837,7 +842,10 @@ static const range_string ike_attr_type[] = {
   { 14,14,       "Key-Length" },
   { 15,15,       "Field-Size" },
   { 16,16,       "Group-Order" },
-  { 17,16383,    "Unassigned (Future use)" },
+  { 17,17,       "Block-Size" },
+  { 18,19,       "Unassigned (Future use)" },
+  { 20,20,       "Asymmetric-Cryptographic-Algorithm-Type" },
+  { 21,16383,    "Unassigned (Future use)" },
   { 16384,32767, "Private use" },
   { 0,0,         NULL },
 };
@@ -957,6 +965,9 @@ static const value_string ipsec_attr_auth_algo[] = {
 #define ENC_CAST_CBC            6
 #define ENC_AES_CBC             7
 #define ENC_CAMELLIA_CBC        8
+#define ENC_SM4_CBC_DEPRECATED  127
+#define ENC_SM1_CBC             128
+#define ENC_SM4_CBC             129
 
 static const value_string ike_attr_enc_algo[] = {
   { 0,                          "RESERVED" },
@@ -968,6 +979,9 @@ static const value_string ike_attr_enc_algo[] = {
   { ENC_CAST_CBC,               "CAST-CBC" },
   { ENC_AES_CBC,                "AES-CBC" },
   { ENC_CAMELLIA_CBC,           "CAMELLIA-CBC" },
+  { ENC_SM4_CBC_DEPRECATED,     "SM4-CBC (DEPRECATED)" },
+  { ENC_SM1_CBC,                "SM1-CBC" },
+  { ENC_SM4_CBC,                "SM4-CBC" },
   { 0,  NULL },
 };
 
@@ -977,6 +991,7 @@ static const value_string ike_attr_enc_algo[] = {
 #define HMAC_SHA2_256   4
 #define HMAC_SHA2_384   5
 #define HMAC_SHA2_512   6
+#define HMAC_SM3        20
 
 static const value_string ike_attr_hash_algo[] = {
   { 0,                  "RESERVED" },
@@ -986,6 +1001,16 @@ static const value_string ike_attr_hash_algo[] = {
   { HMAC_SHA2_256,      "SHA2-256" },
   { HMAC_SHA2_384,      "SHA2-384" },
   { HMAC_SHA2_512,      "SHA2-512" },
+  { HMAC_SM3,           "SM3" },
+  { 0,  NULL },
+};
+
+#define ASYMMETRIC_RSA   1
+#define ASYMMETRIC_SM2   2
+
+static const value_string ike_attr_asym_algo[] = {
+  { ASYMMETRIC_RSA,      "RSA" },
+  { ASYMMETRIC_SM2,      "SM2" },
   { 0,  NULL },
 };
 
@@ -1490,8 +1515,12 @@ static const range_string notifmsg_v2_3gpp_type[] = {
   { 55505,55505,      "UP_IP6_ADDRESS" },                           /* TS 24.502 */
   { 55506,55506,      "NAS_TCP_PORT" },                             /* TS 24.502 */
   { 55507,55507,      "N3GPP_BACKOFF_TIMER" },                      /* TS 24.502 */
-  { 55508,65535,      "Private Use - STATUS TYPES" },
-
+  { 55508,61471,      "Private Use - STATUS TYPES" },
+  { 61472,61472,      "Auto-Discovery Sender (Fortinet)" },
+  { 61473,61473,      "Auto-Discovery Receiver (Fortinet)" },
+  { 61474,61519,      "Private Use - STATUS TYPES" },
+  { 61520,61520,      "Network Overlay ID (Fortinet" },
+  { 61521,65535,      "Private Use - STATUS TYPES" },
   { 0,0,        NULL },
 };
 
@@ -2959,6 +2988,21 @@ static const guint8 VID_FORTINET_ENDPOINT_CONTROL[] = { /* Endpoint Control (For
         0x0B, 0xAF, 0xBB, 0xD3, 0x4A, 0xD3, 0x04, 0x4E
 };
 
+static const guint8 VID_FORTINET_AUTODISCOVERY_RECEIVER[] = { /* Auto-Discovery Receiver (Fortinet) */
+        0xCA, 0x4A, 0x4C, 0xBB, 0x12, 0xEA, 0xB6, 0xC5,
+        0x8C, 0x57, 0x06, 0x7C, 0x2E, 0x65, 0x37, 0x86
+};
+
+static const guint8 VID_FORTINET_AUTODISCOVERY_SENDER[] = { /* Auto-Discovery Sender (Fortinet) */
+        0x9B, 0x15, 0xE6, 0x5A, 0x87, 0x1A, 0xFF, 0x34,
+        0x26, 0x66, 0x62, 0x3B, 0xA5, 0x02, 0x2E, 0x60
+};
+
+static const guint8 VID_FORTINET_EXCHANGE_INTERFACE_IP[] = { /* Exchange Interface IP (Fortinet) */
+        0xA5, 0x8F, 0xEC, 0x50, 0x36, 0xF5, 0x7B, 0x21,
+        0xE8, 0xB4, 0x99, 0xE3, 0x36, 0xC7, 0x6E, 0xE6
+};
+
 static const bytes_string vendor_id[] = {
   { VID_SSH_IPSEC_EXPRESS_1_1_0, sizeof(VID_SSH_IPSEC_EXPRESS_1_1_0), "Ssh Communications Security IPSEC Express version 1.1.0" },
   { VID_SSH_IPSEC_EXPRESS_1_1_1, sizeof(VID_SSH_IPSEC_EXPRESS_1_1_1), "Ssh Communications Security IPSEC Express version 1.1.1" },
@@ -3071,6 +3115,9 @@ static const bytes_string vendor_id[] = {
   { VID_FORTINET_FORTIGATE, sizeof(VID_FORTINET_FORTIGATE), "Fortigate (Fortinet)" },
   { VID_FORTINET_FORTICLIENT_CONNECT, sizeof(VID_FORTINET_FORTICLIENT_CONNECT), "Forticlient connect license (Fortinet)" },
   { VID_FORTINET_ENDPOINT_CONTROL, sizeof(VID_FORTINET_ENDPOINT_CONTROL), "Endpoint Control (Fortinet)" },
+  { VID_FORTINET_AUTODISCOVERY_RECEIVER, sizeof(VID_FORTINET_AUTODISCOVERY_RECEIVER), "Auto-Discovery Receiver (Fortinet)" },
+  { VID_FORTINET_AUTODISCOVERY_SENDER, sizeof(VID_FORTINET_AUTODISCOVERY_SENDER), "Auto-Discovery Sender (Fortinet)" },
+  { VID_FORTINET_EXCHANGE_INTERFACE_IP, sizeof(VID_FORTINET_EXCHANGE_INTERFACE_IP), "Exchange Interface IP (Fortinet)" },
   { 0, 0, NULL }
 };
 
@@ -4013,6 +4060,13 @@ dissect_ike_attribute(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int o
       break;
     case IKE_ATTR_GROUP_ORDER:
       proto_tree_add_item(attr_tree, hf_isakmp_ike_attr_group_order, tvb, offset, value_len, ENC_NA);
+      break;
+    case IKE_ATTR_BLOCK_SIZE:
+      proto_tree_add_item(attr_tree, hf_isakmp_ike_attr_block_size, tvb, offset, value_len, ENC_NA);
+      break;
+    case IKE_ATTR_ACAT:
+      proto_tree_add_item(attr_tree, hf_isakmp_ike_attr_asymmetric_cryptographic_algorithm_type, tvb, offset, value_len, ENC_BIG_ENDIAN);
+      proto_item_append_text(attr_item, ": %s", val_to_str(tvb_get_ntohs(tvb, offset), ike_attr_asym_algo, "Unknown %d"));
       break;
     default:
       /* No Default Action */
@@ -5005,6 +5059,9 @@ dissect_notif(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_t
             offset += current_em_num_len; //moving to the next number in the list
           }
         }
+        break;
+      case 61520: /* Network Overlay ID (Fortinet) */
+        proto_tree_add_item(tree, hf_isakmp_notify_data_fortinet_network_overlay_id, tvb, offset, length, ENC_BIG_ENDIAN);
         break;
       default:
         /* No Default Action */
@@ -6733,6 +6790,10 @@ proto_register_isakmp(void)
       { "UNITY LOAD BALANCE", "isakmp.notify.data.unity.load_balance",
         FT_IPv4, BASE_NONE, NULL, 0x0,
         NULL, HFILL }},
+    { &hf_isakmp_notify_data_fortinet_network_overlay_id,
+      { "Network Overlay ID", "isakmp.notify.data.fortinet.network_overlay_id",
+        FT_UINT8, BASE_DEC_HEX, NULL, 0x0,
+        NULL, HFILL }},
     { &hf_isakmp_notify_data_accepted_dh_group,
       { "Accepted DH group number", "isakmp.notify.data.accepted_dh_group",
         FT_UINT16, BASE_DEC, VALS(dh_group), 0x0,
@@ -7355,6 +7416,14 @@ proto_register_isakmp(void)
     { &hf_isakmp_ike_attr_group_order,
       { "Group Order", "isakmp.ike.attr.group_order",
         FT_BYTES, BASE_NONE, NULL, 0x00,
+        NULL, HFILL }},
+    { &hf_isakmp_ike_attr_block_size,
+      { "Block Size", "isakmp.ike.attr.block_size",
+        FT_BYTES, BASE_NONE, NULL, 0x00,
+        NULL, HFILL }},
+    { &hf_isakmp_ike_attr_asymmetric_cryptographic_algorithm_type,
+      { "Asymmetric Cryptographic Algorithm Type", "isakmp.ike.attr.asymmetric_cryptographic_algorithm_type",
+        FT_UINT16, BASE_DEC, VALS(ike_attr_asym_algo), 0x00,
         NULL, HFILL }},
 
     /* Responder Lifetime Notification for IKEv1 SA */

@@ -23,6 +23,7 @@
 void proto_register_etag(void);
 void proto_reg_handoff_etag(void);
 
+static dissector_handle_t etag_handle;
 static dissector_handle_t ethertype_handle;
 
 static int proto_etag = -1;
@@ -205,11 +206,12 @@ proto_register_etag(void)
     module_t *etag_module;
 
     proto_etag = proto_register_protocol("802.1BR E-Tag", "ETAG", "etag");
+    etag_handle = register_dissector("etag", dissect_etag, proto_etag);
     proto_register_field_array(proto_etag, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    etag_module = prefs_register_protocol(proto_etag, proto_reg_handoff_etag);
-        prefs_register_bool_preference(etag_module, "summary_in_tree",
+    etag_module = prefs_register_protocol(proto_etag, NULL);
+    prefs_register_bool_preference(etag_module, "summary_in_tree",
         "Show E-Tag summary in protocol tree",
         "Whether the E-Tag summary line should be shown in the protocol tree",
         &etag_summary_in_tree);
@@ -218,9 +220,6 @@ proto_register_etag(void)
 void
 proto_reg_handoff_etag(void)
 {
-    dissector_handle_t etag_handle;
-
-    etag_handle = create_dissector_handle(dissect_etag, proto_etag);
     dissector_add_uint("ethertype", ETHERTYPE_IEEE_802_1BR, etag_handle);
 
     ethertype_handle = find_dissector_add_dependency("ethertype", proto_etag);

@@ -1095,6 +1095,7 @@ insert_chunk(active_file   *file, export_object_entry_t *entry, const smb_eo_t *
 		if (chunk_offset<=current_free_chunk->start_offset && chunk_end_offset>=current_free_chunk->end_offset) {
 			file->data_gathered += current_free_chunk->end_offset-current_free_chunk->start_offset+1;
 			file->free_chunk_list = g_slist_remove(file->free_chunk_list, current_free_chunk);
+			g_free(current_free_chunk);
 			nfreechunks -= 1;
 			if (nfreechunks == 0) { /* The free chunk list is empty */
 				g_slist_free(file->free_chunk_list);
@@ -1718,12 +1719,8 @@ static GSList *conv_tables = NULL;
    End of request/response matching functions
    XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX */
 
-/* Max string length for displaying Unicode strings.  */
-#define	MAX_UNICODE_STR_LEN	256
-
 /* Turn a little-endian Unicode '\0'-terminated string into a string we
    can display.
-   XXX - for now, we just handle the ISO 8859-1 characters.
    If exactlen==TRUE then us_lenp contains the exact len of the string in
    bytes. It might not be null terminated !
    bc specifies the number of bytes in the byte parameters; Windows 2000,
@@ -1734,64 +1731,23 @@ static gchar *
 unicode_to_str(tvbuff_t *tvb, int offset, int *us_lenp, gboolean exactlen,
 	       guint16 bc)
 {
-	gchar    *cur;
-	gchar    *p;
-	guint16   uchar;
-	int       len;
-	int       us_len;
-	gboolean  overflow = FALSE;
-
-	cur=(gchar *)wmem_alloc(wmem_packet_scope(), MAX_UNICODE_STR_LEN+3+1);
-	p = cur;
-	len = MAX_UNICODE_STR_LEN;
-	us_len = 0;
-	for (;;) {
-		if (bc == 0)
-			break;
-
-		if (bc == 1) {
-			/* XXX - explain this */
-			if (!exactlen)
-				us_len += 1;	/* this is a one-byte null terminator */
-			break;
-		}
-
-		uchar = tvb_get_letohs(tvb, offset);
-		if (uchar == 0) {
-			us_len += 2;	/* this is a two-byte null terminator */
-			break;
-		}
-
-		if (len > 0) {
-			if ((uchar & 0xFF00) == 0)
-				*p++ = (gchar) uchar;	/* ISO 8859-1 */
-			else
-				*p++ = '?';	/* not 8859-1 */
-			len--;
-		} else
-			overflow = TRUE;
-
-		offset += 2;
-		bc -= 2;
-		us_len += 2;
-
-		if(exactlen){
-			if(us_len>= *us_lenp){
-				break;
+	int len;
+	if (exactlen) {
+		return tvb_get_string_enc(wmem_packet_scope(), tvb, offset, *us_lenp, ENC_UTF_16|ENC_LITTLE_ENDIAN);
+	} else {
+		/* Handle the odd cases where Windows 2000 has a Unicode
+		 * string followed by a single NUL byte when the string
+		 * takes up the entire byte count.
+		 */
+		len = tvb_find_guint16(tvb, offset, bc, 0);
+		if (len == -1) {
+			if (bc % 2 == 1	&& tvb_get_guint8(tvb, offset + bc - 1) == 0) {
+				*us_lenp = bc;
+				return tvb_get_string_enc(wmem_packet_scope(), tvb, offset, bc - 1, ENC_UTF_16|ENC_LITTLE_ENDIAN);
 			}
 		}
+		return tvb_get_stringz_enc(wmem_packet_scope(), tvb, offset, us_lenp, ENC_UTF_16|ENC_LITTLE_ENDIAN);
 	}
-	if (overflow) {
-		/* Note that we're not showing the full string.  */
-		*p++ = '.';
-		*p++ = '.';
-		*p++ = '.';
-	}
-
-	*p = '\0';
-	*us_lenp = us_len;
-
-	return cur;
 }
 
 /* nopad == TRUE : Do not add any padding before this string
@@ -1804,11 +1760,9 @@ get_unicode_or_ascii_string(tvbuff_t *tvb, int *offsetp,
 			    gboolean useunicode, int *len, gboolean nopad, gboolean exactlen,
 			    guint16 *bcp)
 {
-	gchar       *cur;
 	const gchar *string;
 	int          string_len = 0;
 	int          copylen;
-	gboolean     overflow   = FALSE;
 
 	if (*bcp == 0) {
 		/* Not enough data in buffer */
@@ -1839,11 +1793,16 @@ get_unicode_or_ascii_string(tvbuff_t *tvb, int *offsetp,
 		string = unicode_to_str(tvb, *offsetp, &string_len, exactlen, *bcp);
 
 	} else {
+		/* XXX: Use the local OEM (extended ASCII DOS) code page.
+                 * On US English machines that means ENC_CP437, but it
+                 * could be CP850 (which contains the characters of
+                 * ISO-8859-1, arranged differently), CP866, etc.
+                 * Using ENC_ASCII is safest.
+                 *
+                 * There could be a preference for local code page.
+                 * (The same should apply in packet-smb-browser.c too)
+                 */
 		if(exactlen){
-			/*
-			 * The string we return must be null-terminated.
-			 */
-			cur=(gchar *)wmem_alloc(wmem_packet_scope(), MAX_UNICODE_STR_LEN+3+1);
 			copylen = *len;
 
 			if (copylen < 0) {
@@ -1853,23 +1812,9 @@ get_unicode_or_ascii_string(tvbuff_t *tvb, int *offsetp,
 				copylen = INT_MAX;
 			}
 
-			tvb_ensure_bytes_exist(tvb, *offsetp, copylen);
-
-			if (copylen > MAX_UNICODE_STR_LEN) {
-				copylen = MAX_UNICODE_STR_LEN;
-				overflow = TRUE;
-			}
-
-			tvb_memcpy(tvb, (guint8 *)cur, *offsetp, copylen);
-			cur[copylen] = '\0';
-
-			if (overflow)
-				(void) g_strlcat(cur, "...",MAX_UNICODE_STR_LEN+3+1);
-
-			string_len = *len;
-			string = cur;
+			return tvb_get_string_enc(wmem_packet_scope(), tvb, *offsetp, copylen, ENC_ASCII);
 		} else {
-			string = tvb_get_const_stringz(tvb, *offsetp, &string_len);
+			return tvb_get_stringz_enc(wmem_packet_scope(), tvb, *offsetp, len, ENC_ASCII);
 		}
 	}
 
@@ -2849,7 +2794,15 @@ dissect_negprot_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 
 		/* XXX - what if this runs past bc? */
 		tvb_ensure_bytes_exist(tvb, offset+1, 1);
-		str = tvb_get_const_stringz(tvb, offset+1, &len);
+
+		/* XXX: This is an OEM String according to MS-CIFS and
+                 * should use the local OEM (extended ASCII DOS) code page,
+                 * It doesn't appear than any known dialect strings use
+                 * anything outside ASCII, though.
+                 *
+                 * There could be a dissector preference for local code page.
+                 */
+		str = tvb_get_stringz_enc(pinfo->pool, tvb, offset+1, &len, ENC_ASCII);
 
 		if (tr) {
 			dit = proto_tree_add_string(tr, hf_smb_dialect, tvb, offset, len+1, str);
@@ -2864,8 +2817,8 @@ dissect_negprot_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 
 		/*Dialect Name */
 		CHECK_BYTE_COUNT(len);
-		proto_tree_add_string(dtr, hf_smb_dialect_name, tvb, offset,
-			len, str);
+		proto_tree_add_item(dtr, hf_smb_dialect_name, tvb,
+			offset, len, ENC_ASCII);
 		COUNT_BYTES(len);
 
 		if (!pinfo->fd->visited && dialects && (dialects->num < MAX_DIALECTS)) {
@@ -6010,11 +5963,11 @@ dissect_search_dir_info(tvbuff_t *tvb, packet_info *pinfo,
 	COUNT_BYTES_SUBR(4);
 
 	/* file name */
-	/* XXX - [MS-CIFS] says this is 13 *bytes*, suggesting that it's
-	   in an OEM code page (i.e., ASCII superset), not Unicode in
-	   UTF-16 encoding.  Is it *ever* Unicode? */
+	/* [MS-CIFS] says this is 13 *bytes*, and also says "Unicode is
+           not supported; names are returned in the extended ASCII
+           (OEM) character set only." */
 	fn_len = 13;
-	fn = get_unicode_or_ascii_string(tvb, &offset, si->unicode, &fn_len,
+	fn = get_unicode_or_ascii_string(tvb, &offset, FALSE/*Never Unicode*/, &fn_len,
 		TRUE, TRUE, bcp);
 	CHECK_STRING_SUBR(fn);
 	/* ensure that it's null-terminated */

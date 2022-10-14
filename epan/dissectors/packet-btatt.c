@@ -10664,6 +10664,7 @@ btatt_dissect_attribute_handle(guint16 handle, tvbuff_t *tvb, packet_info *pinfo
     if (attribute_handler == NULL)
         return 0;
 
+    /* XXX - dissector name, or protocol name? */
     attribute_name = dissector_handle_get_dissector_name(attribute_handler); /* abbrev */
     DISSECTOR_ASSERT(attribute_name);
 
@@ -12826,22 +12827,22 @@ proto_register_btatt(void)
         },
         {&hf_btatt_battery_power_state_level,
             {"Level", "btatt.battery_power_state.level",
-            FT_UINT8, BASE_HEX, VALS(battery_power_state_level_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(battery_power_state_level_vals), 0xC0,
             NULL, HFILL}
         },
         {&hf_btatt_battery_power_state_charging,
             {"Charging", "btatt.battery_power_state.charging",
-            FT_UINT8, BASE_HEX, VALS(battery_power_state_charging_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(battery_power_state_charging_vals), 0x30,
             NULL, HFILL}
         },
         {&hf_btatt_battery_power_state_discharging,
             {"Discharging", "btatt.battery_power_state.discharging",
-            FT_UINT8, BASE_HEX, VALS(battery_power_state_discharging_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(battery_power_state_discharging_vals), 0x0C,
             NULL, HFILL}
         },
         {&hf_btatt_battery_power_state_present,
             {"Present", "btatt.battery_power_state.present",
-            FT_UINT8, BASE_HEX, VALS(battery_power_state_present_vals), 0x0,
+            FT_UINT8, BASE_HEX, VALS(battery_power_state_present_vals), 0x03,
             NULL, HFILL}
         },
         {&hf_btatt_temperature_type,
@@ -13931,12 +13932,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_glucose_measurement_glucose_concentration_kg_per_l,
             {"Glucose Concentration [kg/l]", "btatt.glucose_measurement.glucose_concentration.kg_per_l",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_glucose_concentration_mol_per_l,
             {"Glucose Concentration [mol/l]", "btatt.glucose_measurement.glucose_concentration.mol_per_l",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_type_and_sample_location,
@@ -14186,12 +14187,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_temperature_measurement_value_celsius,
             {"Value [Celsius]", "btatt.temperature_measurement.value.celsius",
-            FT_IEEE_11073_FLOAT, BASE_FLOAT, NULL, 0x00,
+            FT_IEEE_11073_FLOAT, BASE_NONE, NULL, 0x00,
             NULL, HFILL}
         },
         {&hf_btatt_temperature_measurement_value_fahrenheit,
             {"Value [Fahrenheit]", "btatt.temperature_measurement.value.fahrenheit",
-            FT_IEEE_11073_FLOAT, BASE_FLOAT, NULL, 0x00,
+            FT_IEEE_11073_FLOAT, BASE_NONE, NULL, 0x00,
             NULL, HFILL}
         },
         {&hf_btatt_temperature_measurement_timestamp,
@@ -14266,7 +14267,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_glucose_measurement_context_carbohydrate_kg,
             {"Carbohydrate [kg]", "btatt.glucose_measurement_context.carbohydrate.kg",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_context_meal,
@@ -14306,17 +14307,17 @@ proto_register_btatt(void)
         },
         {&hf_btatt_glucose_measurement_context_medication_l,
             {"Medication [l]", "btatt.glucose_measurement_context.medication.l",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_context_medication_kg,
             {"Medication [kg]", "btatt.glucose_measurement_context.medication.kg",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_glucose_measurement_context_hba1c,
             {"HbA1c", "btatt.glucose_measurement_context.hba1c",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_flags,
@@ -14356,32 +14357,32 @@ proto_register_btatt(void)
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_systolic_kpa,
             {"Systolic [kPa]", "btatt.blood_pressure_measurement.compound_value.systolic.kpa",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_diastolic_kpa,
             {"Diastolic [kPa]", "btatt.blood_pressure_measurement.compound_value.diastolic.kpa",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_mean_arterial_pressure_kpa,
             {"Arterial Pressure [kPa]", "btatt.blood_pressure_measurement.compound_value.arterial_pressure.kpa",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_systolic_mmhg,
             {"Systolic [mmHg]", "btatt.blood_pressure_measurement.compound_value.systolic.mmhg",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_diastolic_mmhg,
             {"Diastolic [mmHg]", "btatt.blood_pressure_measurement.compound_value.diastolic.mmhg",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_compound_value_mean_arterial_pressure_mmhg,
             {"Arterial Pressure [mmHg]", "btatt.blood_pressure_measurement.compound_value.arterial_pressure.mmhg",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_timestamp,
@@ -14391,7 +14392,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_blood_pressure_measurement_pulse_rate,
             {"Pulse Rate", "btatt.blood_pressure_measurement.pulse_rate",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_blood_pressure_measurement_user_id,
@@ -15798,7 +15799,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_cgm_measurement_glucose_concentration,
             {"Glucose Concentration", "btatt.cgm_measurement.glucose_concentration",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_measurement_time_offset,
@@ -15938,12 +15939,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_cgm_measurement_trend_information,
             {"Trend Information", "btatt.cgm_measurement.trend_information",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_measurement_quality,
             {"Quality", "btatt.cgm_measurement.quality",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_e2e_crc,
@@ -16098,7 +16099,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_cgm_specific_ops_control_point_calibration_glucose_concentration,
             {"Calibration Glucose Concentration", "btatt.cgm_specific_ops_control_point.operand.calibration_glucose_concentration",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_specific_ops_control_point_calibration_time,
@@ -16148,12 +16149,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_cgm_specific_ops_control_point_operand_alert_level,
             {"Alert Level [mg/dL]", "btatt.cgm_specific_ops_control_point.operand.alert_level",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_specific_ops_control_point_operand_alert_level_rate,
             {"Alert Level Rate [mg/dL/min]", "btatt.cgm_specific_ops_control_point.operand.alert_level_rate",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_cgm_specific_ops_control_point_request_opcode,
@@ -16573,12 +16574,12 @@ proto_register_btatt(void)
         },
         {&hf_btatt_plx_spo2,
             {"SpO2", "btatt.plxs.spot_check_measurement.spo2",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_plx_pulse_rate,
             {"Pulse Rate", "btatt.plxs.spot_check_measurement.pulse_rate",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_plx_spot_check_measurement_timestamp,
@@ -16743,7 +16744,7 @@ proto_register_btatt(void)
         },
         {&hf_btatt_plx_pulse_amplitude_index,
             {"Pulse Amplitude Index", "btatt.plxs.spot_check_measurement.pulse_amplitude_index",
-            FT_IEEE_11073_SFLOAT, BASE_FLOAT, NULL, 0x0,
+            FT_IEEE_11073_SFLOAT, BASE_NONE, NULL, 0x0,
             NULL, HFILL}
         },
         {&hf_btatt_plx_spo2pr_spot_check,
@@ -17497,7 +17498,7 @@ proto_register_btatt(void)
         { &ei_btatt_mtu_exceeded,           { "btatt.mtu.exceeded",                   PI_PROTOCOL,  PI_WARN, "Packet size exceed current ATT_MTU", EXPFILL }},
         { &ei_btatt_mtu_full,               { "btatt.mtu.full",                       PI_PROTOCOL,  PI_NOTE, "Reached ATT_MTU. Attribute value may be longer.", EXPFILL }},
         { &ei_btatt_consent_out_of_bounds,  { "btatt.consent.out_of_bounds",          PI_PROTOCOL,  PI_WARN, "Consent Code is out of bounds (0 to 9999)", EXPFILL }},
-        { &ei_btatt_cgm_size_too_small,     { "btatt.cgm_measurement.size.too_small", PI_PROTOCOL,  PI_WARN, "Size too small (6 or geater)", EXPFILL }},
+        { &ei_btatt_cgm_size_too_small,     { "btatt.cgm_measurement.size.too_small", PI_PROTOCOL,  PI_WARN, "Size too small (6 or greater)", EXPFILL }},
         { &ei_btatt_opcode_invalid_request, { "btatt.opcode.invalid_request" ,        PI_PROTOCOL,  PI_WARN, "Invalid request", EXPFILL }},
         { &ei_btatt_opcode_invalid_response,{ "btatt.opcode.invalid_response",        PI_PROTOCOL,  PI_WARN, "Invalid response", EXPFILL }},
         { &ei_btatt_invalid_usage,          { "btatt.invalid_usage",                  PI_PROTOCOL,  PI_WARN, "Invalid usage of this characteristic with this opcode", EXPFILL }},
