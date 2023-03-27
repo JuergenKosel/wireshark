@@ -266,7 +266,9 @@ Source Package:
 # Job to generate packages for Debian stable
 Debian Stable APT Package:
   extends: .build-linux
-  rules: !reference [.if-2x-daily-schedule]
+  rules:
+    - !reference [.if-2x-daily-schedule]
+    - when: on_success
   image: registry.gitlab.com/wireshark/wireshark-containers/debian-stable-dev
   script:
     - ln --symbolic --no-dereference --force packaging/debian
