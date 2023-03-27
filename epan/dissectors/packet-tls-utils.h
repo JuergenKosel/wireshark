@@ -179,6 +179,7 @@ typedef enum {
 #define SSL_HND_QUIC_TP_ACTIVE_CONNECTION_ID_LIMIT          0x0e
 #define SSL_HND_QUIC_TP_INITIAL_SOURCE_CONNECTION_ID        0x0f
 #define SSL_HND_QUIC_TP_RETRY_SOURCE_CONNECTION_ID          0x10
+#define SSL_HND_QUIC_TP_VERSION_INFORMATION                 0x11 /* https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-14 */
 #define SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE             0x20 /* https://datatracker.ietf.org/doc/html/draft-ietf-quic-datagram-06 */
 #define SSL_HND_QUIC_TP_CIBIR_ENCODING                      0x1000 /* https://datatracker.ietf.org/doc/html/draft-banks-quic-cibir-01 */
 #define SSL_HND_QUIC_TP_LOSS_BITS                           0x1057 /* https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03 */
@@ -196,7 +197,6 @@ typedef enum {
 #define SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS           0x3128
 /* https://github.com/facebookincubator/mvfst/blob/master/quic/QuicConstants.h */
 #define SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY        0xFF00
-#define SSL_HND_QUIC_TP_VERSION_INFORMATION                 0xFF73DB /* https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-06 */
 #define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xFF03DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-01 */
 /*
  * Lookup tables
@@ -258,6 +258,7 @@ typedef struct _StringInfo {
 #define DTLSV1DOT0_VERSION     0xfeff
 #define DTLSV1DOT0_OPENSSL_VERSION 0x100
 #define DTLSV1DOT2_VERSION     0xfefd
+#define DTLSV1DOT3_VERSION     0xfefc
 
 /* Returns the TLS 1.3 draft version or 0 if not applicable. */
 static inline guint8 extract_tls13_draft_version(guint32 version) {
@@ -1099,6 +1100,7 @@ typedef struct ssl_common_dissect {
     } ett;
     struct {
         /* Generic expert info for malformed packets. */
+        expert_field client_version_error;
         expert_field malformed_vector_length;
         expert_field malformed_buffer_too_small;
         expert_field malformed_trailing_data;
@@ -1294,7 +1296,8 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1          \
     },                                                                  \
     /* ei */ {                                                          \
-        EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT   \
+        EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT,  \
+        EI_INIT                                                         \
     },                                                                  \
 }
 /* }}} */
@@ -2501,6 +2504,10 @@ ssl_common_dissect_t name = {   \
 
 /* {{{ */
 #define SSL_COMMON_EI_LIST(name, prefix)                       \
+    { & name .ei.client_version_error, \
+        { prefix ".handshake.client_version_error", PI_PROTOCOL, PI_WARN, \
+        "Client Hello legacy version field specifies version 1.3, not version 1.2; some servers may not be able to handle that.", EXPFILL } \
+    }, \
     { & name .ei.malformed_vector_length, \
         { prefix ".malformed.vector_length", PI_PROTOCOL, PI_WARN, \
         "Variable vector length is outside the permitted range", EXPFILL } \

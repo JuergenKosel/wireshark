@@ -34,6 +34,7 @@
 #include <epan/strutil.h>
 #include <epan/column.h>
 #include <epan/decode_as.h>
+#include <capture_opts.h>
 #include "print.h"
 #include <wsutil/file_util.h>
 #include <wsutil/report_message.h>
@@ -353,6 +354,9 @@ free_pref(gpointer data, gpointer user_data _U_)
         if (strcmp(pref->name, "columns") == 0)
           pref->stashed_val.boolval = TRUE;
         pref->custom_cbs.free_cb(pref);
+        break;
+    /* non-generic preferences */
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         break;
     }
 
@@ -1885,6 +1889,28 @@ prefs_register_custom_preference(module_t *module, const char *name,
 }
 
 /*
+ * Register a dedicated TCP preference for SEQ analysis overriding.
+ * We are reusing the data structure from enum preference, as they are
+ * similar in practice.
+
+ */
+void
+prefs_register_custom_preference_TCP_Analysis(module_t *module, const char *name,
+                               const char *title, const char *description,
+                               gint *var, const enum_val_t *enumvals,
+                               gboolean radio_buttons)
+{
+    pref_t *preference;
+
+    preference = register_preference(module, name, title, description,
+                                     PREF_PROTO_TCP_SNDAMB_ENUM);
+    preference->varp.enump = var;
+    preference->default_val.enumval = *var;
+    preference->info.enum_info.enumvals = enumvals;
+    preference->info.enum_info.radio_buttons = radio_buttons;
+}
+
+/*
  * Register a (internal) "Decode As" preference with a ranged value.
  */
 void prefs_register_decode_as_range_preference(module_t *module, const char *name,
@@ -2023,6 +2049,7 @@ pref_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         pref->stashed_val.enumval = *pref->varp.enump;
         break;
 
@@ -2110,6 +2137,15 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
             unstash_data->module->prefs_changed_flags |= prefs_get_effect_flags(pref);
             *pref->varp.enump = pref->stashed_val.enumval;
         }
+        break;
+
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
+        /*if (*pref->varp.enump != pref->stashed_val.enumval) {
+            unstash_data->module->prefs_changed_flags |= prefs_get_effect_flags(pref);
+            //unstash_data->module->prefs_changed_flags = 1;
+            *pref->varp.enump = pref->stashed_val.enumval;
+        }*/
+        unstash_data->module->prefs_changed_flags = 1;
         break;
 
     case PREF_STRING:
@@ -2216,6 +2252,7 @@ reset_stashed_pref(pref_t *pref) {
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         pref->stashed_val.enumval = pref->default_val.enumval;
         break;
 
@@ -2262,6 +2299,7 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         break;
 
     case PREF_STRING:
@@ -3285,6 +3323,18 @@ prefs_register_modules(void)
                                    10,
                                    &prefs.gui_update_interval);
 
+    prefs_register_uint_preference(gui_module, "debounce.timer",
+                                   "How long to wait before processing computationally intensive user input",
+                                   "How long to wait (in milliseconds) before processing\
+                                   computationally intensive user input.\
+                                   If you type quickly, consider lowering the value for a 'snappier'\
+                                   experience.\
+                                   If you type slowly, consider increasing the value to avoid performance issues.\
+                                   This is currently used to delay searches in View -> Internals -> Supported Protocols\
+                                   and Preferences -> Advanced menu.",
+                                   10,
+                                   &prefs.gui_debounce_timer);
+
     register_string_like_preference(gui_module, "window_title", "Custom window title",
         "Custom window title to be appended to the existing title\n"
         "%F = file path of the capture file\n"
@@ -3448,6 +3498,11 @@ prefs_register_modules(void)
                                    "To prevent sorting by mistake (which can take some time to calculate), it can be disabled",
                                    &prefs.gui_packet_list_sortable);
 
+    prefs_register_uint_preference(gui_module, "packet_list_cached_rows_max",
+                                   "Maximum cached rows",
+                                   "Maximum number of rows that can be sorted by columns that require dissection. Increasing this increases memory consumption by caching column text",
+                                   10,
+                                   &prefs.gui_packet_list_cached_rows_max);
 
     prefs_register_bool_preference(gui_module, "interfaces_show_hidden",
                                    "Show hidden interfaces",
@@ -3563,6 +3618,12 @@ prefs_register_modules(void)
 
     prefs_register_bool_preference(capture_module, "real_time_update", "Update packet list in real time during capture",
         "Update packet list in real time during capture?", &prefs.capture_real_time);
+
+    prefs_register_uint_preference(capture_module, "update_interval",
+                                   "Capture update interval",
+                                   "Capture update interval in ms",
+                                   10,
+                                   &prefs.capture_update_interval);
 
     prefs_register_bool_preference(capture_module, "no_interface_load", "Don't load interfaces on startup",
         "Don't automatically load capture interfaces on startup", &prefs.capture_no_interface_load);
@@ -4138,6 +4199,7 @@ pre_init_prefs(void)
     prefs.gui_update_enabled         = TRUE;
     prefs.gui_update_channel         = UPDATE_CHANNEL_STABLE;
     prefs.gui_update_interval        = 60*60*24; /* Seconds */
+    prefs.gui_debounce_timer         = 400; /* milliseconds */
     g_free(prefs.gui_window_title);
     prefs.gui_window_title           = g_strdup("");
     g_free(prefs.gui_prepend_window_title);
@@ -4153,6 +4215,7 @@ pre_init_prefs(void)
     prefs.gui_packet_list_show_related = TRUE;
     prefs.gui_packet_list_show_minimap = TRUE;
     prefs.gui_packet_list_sortable     = TRUE;
+    prefs.gui_packet_list_cached_rows_max = 10000;
     g_free (prefs.gui_interfaces_hide_types);
     prefs.gui_interfaces_hide_types = g_strdup("");
     prefs.gui_interfaces_show_hidden = FALSE;
@@ -4189,6 +4252,7 @@ pre_init_prefs(void)
     prefs.capture_prom_mode             = TRUE;
     prefs.capture_pcap_ng               = TRUE;
     prefs.capture_real_time             = TRUE;
+    prefs.capture_update_interval       = DEFAULT_UPDATE_INTERVAL;
     prefs.capture_no_extcap             = FALSE;
     prefs.capture_auto_scroll           = TRUE;
     prefs.capture_show_info             = FALSE;
@@ -4257,6 +4321,7 @@ reset_pref(pref_t *pref)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         /*
          * For now, we save the "description" value, so that if we
          * save the preferences older versions of Wireshark can at
@@ -4582,7 +4647,7 @@ read_prefs_file(const char *pf_path, FILE *pf,
                             break;
 
                         case PREFS_SET_SYNTAX_ERR:
-                            ws_warning("Syntax error in preference \"%s\" at line %d of\n%s %s",
+                            report_warning("Syntax error in preference \"%s\" at line %d of\n%s %s",
                                        cur_var->str, pline, pf_path, hint);
                             break;
 
@@ -5959,16 +6024,27 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
                 } else if (strcmp(pref_name, "name_resolve_suppress_smi_errors") == 0) {
                     pref = prefs_find_preference(nameres_module, "suppress_smi_errors");
                 }
+            } else if (strcmp(module->name, "extcap") == 0) {
+                /* Handle the old "sshdump.remotesudo" preference; map it to the new
+                  "sshdump.remotepriv" preference, and map the boolean values to the
+                  appropriate strings of the new preference. */
+                if (strcmp(dotp, "sshdump.remotesudo") == 0) {
+                    pref = prefs_find_preference(module, "sshdump.remotepriv");
+                    if (g_ascii_strcasecmp(value, "true") == 0)
+                        value = "sudo";
+                    else
+                        value = "none";
+                }
             }
         }
         if (pref == NULL ) {
             if (strcmp(module->name, "extcap") == 0 && g_list_length(module->prefs) <= 1) {
-                /*
-                 * Assume that we've skipped extcap preference registration
-                 * and that only extcap.gui_save_on_start is loaded.
-                 */
-                return PREFS_SET_OK;
-            }
+                    /*
+                    * Assume that we've skipped extcap preference registration
+                    * and that only extcap.gui_save_on_start is loaded.
+                    */
+                    return PREFS_SET_OK;
+                }
             return PREFS_SET_NO_SUCH_PREF;    /* no such preference */
         }
 
@@ -6037,6 +6113,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
             break;
 
         case PREF_ENUM:
+        case PREF_PROTO_TCP_SNDAMB_ENUM:
             /* XXX - give an error if it doesn't match? */
             enum_val = find_val_for_string(value, pref->info.enum_info.enumvals,
                                            *pref->varp.enump);
@@ -6197,6 +6274,7 @@ prefs_pref_type_name(pref_t *pref)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         type_name = "Choice";
         break;
 
@@ -6332,6 +6410,7 @@ prefs_pref_type_description(pref_t *pref)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
     {
         const enum_val_t *enum_valp = pref->info.enum_info.enumvals;
         GString *enum_str = g_string_new("One of: ");
@@ -6433,6 +6512,7 @@ prefs_pref_is_default(pref_t *pref)
         break;
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         if (pref->default_val.enumval == *pref->varp.enump)
             return TRUE;
         break;
@@ -6538,6 +6618,7 @@ prefs_pref_to_str(pref_t *pref, pref_source_t source) {
         return g_strdup((*(gboolean *) valp) ? "TRUE" : "FALSE");
 
     case PREF_ENUM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
     {
         gint pref_enumval = *(gint *) valp;
         /*

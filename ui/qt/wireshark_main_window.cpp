@@ -24,7 +24,7 @@ DIAG_ON(frame-larger-than=)
 #include <wsutil/filesystem.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 #include <epan/prefs.h>
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
@@ -58,6 +58,7 @@ DIAG_ON(frame-larger-than=)
 #include "export_object_action.h"
 #include "file_set_dialog.h"
 #include "filter_dialog.h"
+#include "follow_stream_action.h"
 #include "funnel_statistics.h"
 #include "import_text_dialog.h"
 #include "interface_toolbar.h"
@@ -329,8 +330,6 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
     , capture_options_dialog_(NULL)
     , info_data_()
 #endif
-    , display_filter_dlg_(NULL)
-    , capture_filter_dlg_(NULL)
 #if defined(Q_OS_MAC)
     , dock_menu_(NULL)
 #endif
@@ -409,6 +408,7 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
     connect(mainApp, SIGNAL(appInitialized()), this, SLOT(addPluginIFStructures()));
     connect(mainApp, SIGNAL(appInitialized()), this, SLOT(initConversationMenus()));
     connect(mainApp, SIGNAL(appInitialized()), this, SLOT(initExportObjectsMenus()));
+    connect(mainApp, SIGNAL(appInitialized()), this, SLOT(initFollowStreamMenus()));
 
     connect(mainApp, SIGNAL(profileChanging()), this, SLOT(saveWindowGeometry()));
     connect(mainApp, SIGNAL(preferencesChanged()), this, SLOT(layoutPanes()));
@@ -522,6 +522,9 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connect(packet_list_, SIGNAL(framesSelected(QList<int>)), this, SLOT(setMenusForSelectedPacket()));
     connect(packet_list_, SIGNAL(framesSelected(QList<int>)), this, SIGNAL(framesSelected(QList<int>)));
 
+    QAction *action = main_ui_->menuPacketComment->addAction(tr("Add New Comment…"));
+    connect(action, &QAction::triggered, this, &WiresharkMainWindow::addPacketComment);
+    action->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_C));
     connect(main_ui_->menuPacketComment, SIGNAL(aboutToShow()), this, SLOT(setEditCommentsMenu()));
 
     proto_tree_ = new ProtoTree(&master_split_);
@@ -631,31 +634,7 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connectViewMenuActions();
     connectGoMenuActions();
     connectCaptureMenuActions();
-
-    connect(main_ui_->actionAnalyzeFollowTCPStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_TCP); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowUDPStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_UDP); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowDCCPStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_DCCP); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowTLSStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_TLS); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowHTTPStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_HTTP); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowHTTP2Stream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_HTTP2); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowQUICStream, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_QUIC); },
-            Qt::QueuedConnection);
-    connect(main_ui_->actionAnalyzeFollowSIPCall, &QAction::triggered, this,
-            [this]() { this->openFollowStreamDialogForType(FOLLOW_SIP); },
-            Qt::QueuedConnection);
+    connectAnalyzeMenuActions();
 
     connect(packet_list_, SIGNAL(packetDissectionChanged()),
             this, SLOT(redissectPackets()));
@@ -680,8 +659,9 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connect(proto_tree_, SIGNAL(editProtocolPreference(preference*, pref_module*)),
             main_ui_->preferenceEditorFrame, SLOT(editPreference(preference*, pref_module*)));
 
-    connect(main_ui_->statusBar, &MainStatusBar::showExpertInfo,
-            this, &WiresharkMainWindow::on_actionAnalyzeExpertInfo_triggered);
+    connect(main_ui_->statusBar, &MainStatusBar::showExpertInfo, this, [=]() {
+        statCommandExpertInfo(NULL, NULL);
+    });
 
     connect(main_ui_->statusBar, &MainStatusBar::stopLoading,
             &capture_file_, &CaptureFile::stopLoading);
@@ -759,8 +739,6 @@ WiresharkMainWindow::~WiresharkMainWindow()
     // freed by its parent. Free then here explicitly to avoid leak and numerous
     // Valgrind complaints.
     delete file_set_dialog_;
-    delete capture_filter_dlg_;
-    delete display_filter_dlg_;
 #ifdef HAVE_LIBPCAP
     delete capture_options_dialog_;
 #endif
@@ -936,6 +914,13 @@ void WiresharkMainWindow::keyPressEvent(QKeyEvent *event) {
 }
 
 void WiresharkMainWindow::closeEvent(QCloseEvent *event) {
+    if (main_ui_->actionCaptureStop->isEnabled()) {
+        // Capture is running, we should stop it before close and ignore the event
+        stopCapture();
+        event->ignore();
+        return;
+    }
+
     saveWindowGeometry();
 
     /* If we're in the middle of stopping a capture, don't do anything;
@@ -1224,16 +1209,16 @@ void WiresharkMainWindow::mergeCaptureFile()
         char        *tmpname;
 
         if (merge_dlg.merge(file_name, read_filter)) {
-            gchar *err_msg;
+            df_error_t *df_err = NULL;
 
-            if (!dfilter_compile(qUtf8Printable(read_filter), &rfcode, &err_msg)) {
+            if (!dfilter_compile(qUtf8Printable(read_filter), &rfcode, &df_err)) {
                 /* Not valid. Tell the user, and go back and run the file
                    selection box again once they dismiss the alert. */
                 // Similar to commandline_info.jfilter section in main().
                 QMessageBox::warning(this, tr("Invalid Read Filter"),
-                                     QString(tr("The filter expression %1 isn't a valid read filter. (%2).").arg(read_filter, err_msg)),
+                                     QString(tr("The filter expression %1 isn't a valid read filter. (%2).").arg(read_filter, df_err->msg)),
                                      QMessageBox::Ok);
-                g_free(err_msg);
+                dfilter_error_free(df_err);
                 continue;
             }
         } else {
@@ -2320,6 +2305,52 @@ void WiresharkMainWindow::initExportObjectsMenus()
     eo_iterate_tables(addExportObjectsMenuItem, this);
 }
 
+gboolean WiresharkMainWindow::addFollowStreamMenuItem(const void *key, void *value, void *userdata)
+{
+    const char *short_name = (const char*)key;
+    register_follow_t *follow = (register_follow_t*)value;
+    WiresharkMainWindow *window = (WiresharkMainWindow*)userdata;
+
+    FollowStreamAction *follow_action = new FollowStreamAction(window->main_ui_->menuFollow, follow);
+    window->main_ui_->menuFollow->addAction(follow_action);
+
+    follow_action->setEnabled(false);
+
+    /* Special features for some of the built in follow types, like
+     * shortcuts and overriding the name. XXX: Should these go in
+     * FollowStreamAction, or should some of these (e.g. TCP and UDP)
+     * be registered in initFollowStreamMenus so that they can be
+     * on the top of the menu list too?
+     */
+    if (g_strcmp0(short_name, "TCP") == 0) {
+        follow_action->setShortcut(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_T);
+    } else if (g_strcmp0(short_name, "UDP") == 0) {
+        follow_action->setShortcut(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_U);
+    } else if (g_strcmp0(short_name, "DCCP") == 0) {
+        /* XXX: Not sure this one is widely enough used to need a shortcut. */
+        follow_action->setShortcut(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_E);
+    } else if (g_strcmp0(short_name, "TLS") == 0) {
+        follow_action->setShortcut(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_S);
+    } else if (g_strcmp0(short_name, "HTTP") == 0) {
+        follow_action->setShortcut(Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_H);
+    } else if (g_strcmp0(short_name, "HTTP2") == 0) {
+        follow_action->setText(tr("HTTP/2 Stream"));
+    } else if (g_strcmp0(short_name, "SIP") == 0) {
+        follow_action->setText(tr("SIP Call"));
+    }
+
+    connect(follow_action, &QAction::triggered, window,
+            [window, follow]() { window->openFollowStreamDialog(get_follow_proto_id(follow)); },
+            Qt::QueuedConnection);
+    return FALSE;
+}
+
+void WiresharkMainWindow::initFollowStreamMenus()
+{
+    /* This puts them all in the menus in alphabetical order.  */
+    follow_iterate_followers(addFollowStreamMenuItem, this);
+}
+
 // Titlebar
 void WiresharkMainWindow::setTitlebarForCaptureFile()
 {
@@ -2453,6 +2484,11 @@ void WiresharkMainWindow::setMenusForCaptureFile(bool force_disable)
     main_ui_->actionFileSave->setEnabled(can_save);
     main_ui_->actionFileSaveAs->setEnabled(can_save_as);
     main_ui_->actionStatisticsCaptureFileProperties->setEnabled(enable);
+    /* The Protocol Hierarchy statistics run on all the packets that
+     * pass the current filter, don't enable if a read or rescan is
+     * still in progress.
+     */
+    main_ui_->actionStatisticsProtocolHierarchy->setEnabled(enable);
     /*
      * "Export Specified Packets..." should be available only if
      * we can write the file out in at least one format.
@@ -2994,14 +3030,6 @@ void WiresharkMainWindow::setMwFileName(QString fileName)
     return;
 }
 
-frame_data * WiresharkMainWindow::frameDataForRow(int row) const
-{
-    if (packet_list_)
-        return packet_list_->getFDataForRow(row);
-
-    return Q_NULLPTR;
-}
-
 // Finds rtp id for selected stream and adds it to stream_ids
 // If reverse is set, tries to find reverse stream too
 // Return error string if error happens
@@ -3014,7 +3042,7 @@ QString WiresharkMainWindow::findRtpStreams(QVector<rtpstream_id_t *> *stream_id
     bool fwd_id_used, rev_id_used;
     const gchar filter_text[] = "rtp && rtp.version == 2 && rtp.ssrc && (ip || ipv6)";
     dfilter_t *sfcode;
-    gchar *err_msg;
+    df_error_t *df_err = NULL;
 
     /* Try to get the hfid for "rtp.ssrc". */
     int hfid_rtp_ssrc = proto_registrar_get_id_byname("rtp.ssrc");
@@ -3023,9 +3051,9 @@ QString WiresharkMainWindow::findRtpStreams(QVector<rtpstream_id_t *> *stream_id
     }
 
     /* Try to compile the filter. */
-    if (!dfilter_compile(filter_text, &sfcode, &err_msg)) {
-        QString err = QString(err_msg);
-        g_free(err_msg);
+    if (!dfilter_compile(filter_text, &sfcode, &df_err)) {
+        QString err = QString(df_err->msg);
+        dfilter_error_free(df_err);
         return err;
     }
 
@@ -3121,10 +3149,11 @@ QString WiresharkMainWindow::findRtpStreams(QVector<rtpstream_id_t *> *stream_id
     //
     if (!fwd_id_used) {
         rtpstream_id_free(fwd_id);
+        g_free(fwd_id);
     }
     if (!rev_id_used) {
         rtpstream_id_free(rev_id);
+        g_free(rev_id);
     }
     return NULL;
 }
-

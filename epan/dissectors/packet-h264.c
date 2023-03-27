@@ -688,8 +688,8 @@ dissect_h264_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, gint
         overflow = TRUE;
         codenum = G_MAXUINT32;
         if (descriptor == H264_SE_V) {
-            value = tvb_get_bits32(tvb, bit_offset + leading_zero_bits / 32, leading_zero_bits % 32, ENC_BIG_ENDIAN);
-            if (value % 1) {
+            value = tvb_get_bits32(tvb, bit_offset + 32*(leading_zero_bits / 32), leading_zero_bits % 32, ENC_BIG_ENDIAN);
+            if (value % 2) {
                 se_value = G_MININT32;
             } else {
                 se_value = G_MAXINT32;
@@ -705,7 +705,7 @@ dissect_h264_exp_golomb_code(proto_tree *tree, int hf_index, tvbuff_t *tvb, gint
             if (value != 1) {
                 overflow = TRUE;
             }
-            if (value % 1) {
+            if (value % 2) {
                 se_value = G_MININT32;
             } else {
                 se_value = G_MAXINT32;
@@ -2468,7 +2468,7 @@ dissect_h264(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
 
     /* Make entries in Protocol column and Info column on summary display */
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "H264");
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "H.264");
 
     type = tvb_get_guint8(tvb, offset)&0x1f;
 
@@ -3498,7 +3498,7 @@ proto_register_h264(void)
         },
         { &hf_h264_sei_ms_layer_desc_coded_width,
             { "Coded Width", "h264.sei.ms.layout.desc.coded_width",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
+            FT_UINT16, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_h264_sei_ms_layer_desc_coded_height,

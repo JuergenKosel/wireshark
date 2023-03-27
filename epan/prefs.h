@@ -193,6 +193,7 @@ typedef struct _e_prefs {
   gboolean     capture_prom_mode;
   gboolean     capture_pcap_ng;
   gboolean     capture_real_time;
+  guint        capture_update_interval;
   gboolean     capture_auto_scroll; /* XXX - Move to recent */
   gboolean     capture_no_interface_load;
   gboolean     capture_no_extcap;
@@ -208,9 +209,9 @@ typedef struct _e_prefs {
   gboolean     gui_update_enabled;
   software_update_channel_e gui_update_channel;
   gint         gui_update_interval;
+  gint         gui_debounce_timer;
   gchar       *saved_at_version;
   gboolean     unknown_prefs; /* unknown or obsolete pref(s) */
-  gboolean     unknown_colorfilters; /* Warn when saving unknown or obsolete color filters. */
   gboolean     gui_qt_packet_list_separator;
   gboolean     gui_qt_packet_header_column_definition;
   gboolean     gui_qt_packet_list_hover_style; /* Enable/Disable mouse-over colorization */
@@ -220,6 +221,7 @@ typedef struct _e_prefs {
   gboolean     gui_packet_list_show_related;
   gboolean     gui_packet_list_show_minimap;
   gboolean     gui_packet_list_sortable;
+  guint        gui_packet_list_cached_rows_max;
   gint         gui_decimal_places1; /* Used for type 1 calculations */
   gint         gui_decimal_places2; /* Used for type 2 calculations */
   gint         gui_decimal_places3; /* Used for type 3 calculations */
@@ -775,6 +777,30 @@ WS_DLL_PUBLIC void prefs_register_password_preference(module_t *module, const ch
  */
 WS_DLL_PUBLIC void prefs_register_obsolete_preference(module_t *module,
     const char *name);
+
+/**
+ * Register a preference with an enumerated value.
+ * @param module the preferences module returned by prefs_register_protocol() or
+ *               prefs_register_protocol_subtree()
+ * @param name the preference's identifier. This is appended to the name of the
+ *             protocol, with a "." between them, to create a unique identifier.
+ *             The identifier should not include the protocol name, as the name in
+ *             the preference file will already have it. Make sure that
+ *             only lower-case ASCII letters, numbers, underscores and
+ *             dots appear in the preference name.
+ * @param title Field's title in the preferences dialog
+ * @param description description to include in the preferences file
+ *                    and shown as tooltip in the GUI, or NULL
+ * @param var pointer to the storage location that is updated when the
+ *                    field is changed in the preference dialog box
+ * @param enumvals a null-terminated array of enum_val_t structures
+ * @param radio_buttons TRUE if the field is to be displayed in the
+ *                  preferences dialog as a set of radio buttons,
+ *                  FALSE if it is to be displayed as an option menu
+ */
+WS_DLL_PUBLIC void prefs_register_custom_preference_TCP_Analysis(module_t *module, const char *name,
+    const char *title, const char *description, gint *var,
+    const enum_val_t *enumvals, gboolean radio_buttons);
 
 /**
  * Mark a preference that affects fields change. This works for bool, enum,

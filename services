@@ -706,6 +706,8 @@ kink		910/tcp/udp	# Kerberized Internet Negotiation of Keys (KINK)
 xact-backup	911/tcp/udp
 apex-mesh	912/tcp/udp	# APEX relay-relay service
 apex-edge	913/tcp/udp	# APEX endpoint-relay service
+rift-lies	914/udp		# Routing in Fat Trees Link Information Elements (TEMPORARY - registered 2023-02-17, expires 2024-02-17)
+rift-ties	915/udp		# Routing in Fat Trees Topology Information Elements (TEMPORARY - registered 2023-02-17, expires 2024-02-17)
 rndc		953/tcp		# BIND9 remote name daemon controller
 ftps-data	989/tcp/udp	# ftp protocol, data, over TLS/SSL
 ftps		990/tcp/udp	# ftp protocol, control, over TLS/SSL
@@ -1969,6 +1971,7 @@ vrtp		2255/tcp/udp	# VRTP - ViRtue Transfer Protocol
 pcc-mfp		2256/tcp/udp	# PCC MFP
 simple-tx-rx	2257/tcp/udp	# simple text/file transfer
 rcts		2258/tcp/udp	# Rotorcraft Communications Test System
+bid-serv	2259/tcp/udp	# BIF identifiers resolution service
 apc-2260	2260/tcp/udp	# APC 2260
 comotionmaster	2261/tcp/udp	# CoMotion Master Server
 comotionback	2262/tcp/udp	# CoMotion Backup Server
@@ -5303,6 +5306,7 @@ espeech		8416/tcp/udp	# eSpeech Session Protocol
 espeech-rtp	8417/tcp/udp	# eSpeech RTP Protocol
 aritts		8423/tcp	# Aristech text-to-speech server
 pgbackrest	8432/tcp	# PostgreSQL Backup
+aws-as2		8433/udp	# Non Persistent Desktop and Application Streaming
 cybro-a-bus	8442/tcp/udp	# CyBro A-bus Protocol
 pcsync-https	8443/tcp/udp	# PCsync HTTPS
 pcsync-http	8444/tcp/udp	# PCsync HTTP
@@ -5877,8 +5881,8 @@ jcp		19541/tcp/udp	# JCP Client
 mle		19788/udp	# Mesh Link Establishment
 faircom-db	19790/tcp	# FairCom Database
 iec-104-sec	19998/tcp	# IEC 60870-5-104 process control - secure
-dnp-sec		19999/tcp/udp	# Distributed Network Protocol - Secure
-dnp		20000/tcp/udp	# DNP
+dnp-sec		19999/tcp/udp/sctp	# Distributed Network Protocol - Secure
+dnp		20000/tcp/udp/sctp	# DNP
 microsan	20001/tcp/udp	# MicroSAN
 commtact-http	20002/tcp/udp	# Commtact HTTP
 commtact-https	20003/tcp/udp	# Commtact HTTPS
@@ -6160,6 +6164,7 @@ crestron-ctps	41797/tcp	# Crestron Secure Terminal Port
 candp		42508/tcp/udp	# Computer Associates network discovery protocol
 candrp		42509/tcp/udp	# CA discovery response
 caerpc		42510/tcp/udp	# CA eTrust RPC
+curiosity	42999/tcp	# API endpoint for search application
 recvr-rc	43000/tcp	# Receiver Remote Control
 recvr-rc-disc	43000/udp	# Receiver Remote Control Discovery
 reachout	43188/tcp/udp	# REACHOUT

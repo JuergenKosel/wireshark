@@ -623,8 +623,6 @@ DEBUG_ENTRY("dissect_per_sequence_of");
 	return offset;
 }
 
-#define UNREPL 0xFFFD
-
 /* XXX we don't do >64k length strings   yet */
 static guint32
 dissect_per_restricted_character_string_sorted(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, gboolean has_extension, guint16 lb, guint16 ub, const char *alphabet, int alphabet_length, tvbuff_t **value_tvb)
@@ -687,6 +685,7 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 			bits_per_char=8;
 		}
 	}
+
 	/* 27.4	If the type is extensible for PER encodings (see 9.3.16),
 	 * then a bit-field consisting of a single bit shall be added to the field-list.
 	 * The single bit shall be set to zero if the value is within the range of the extension root,
@@ -718,6 +717,7 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 
 	/* xx.x */
 	length=max_len;
+	old_offset = offset;
 	if (max_len == NO_BOUND) {
 		offset = dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_octet_string_length, &length, NULL);
 		/* the unconstrained strings are always byte aligned (27.6.3)*/
@@ -733,7 +733,9 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 		/* there is no string at all, so don't do any byte alignment */
 		/* byte_aligned=FALSE; */
 		/* Advance offset to next 'element' */
-		offset = offset + 1;	}
+		if (offset == old_offset)
+			offset = offset + 1;
+	}
 
 	if((byte_aligned)&&(actx->aligned)){
 		BYTE_ALIGN_OFFSET(offset);
@@ -759,7 +761,7 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 		}
 		if(use_canonical_order == FALSE){
 			if (val > ub || val < lb) {
-				wmem_strbuf_append_unichar(buf, UNREPL);
+				wmem_strbuf_append_unichar_repl(buf);
 			} else {
 				wmem_strbuf_append_c(buf, val);
 			}
@@ -767,14 +769,14 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 			if (val < alphabet_length){
 				wmem_strbuf_append_c(buf, alphabet[val]);
 			} else {
-				wmem_strbuf_append_unichar(buf, UNREPL);
+				wmem_strbuf_append_unichar_repl(buf);
 			}
 		}
 	}
 	str_len = (int)wmem_strbuf_get_len(buf);
 	str = wmem_strbuf_finalize(buf);
-	/* Note that str can contain embedded nulls */
-	proto_tree_add_string(tree, hf_index, tvb, (old_offset>>3), (offset>>3)-(old_offset>>3), str);
+	/* Note that str can contain embedded nulls. Length claims any bytes partially used.  */
+	proto_tree_add_string(tree, hf_index, tvb, (old_offset>>3), ((offset+7)>>3)-(old_offset>>3), str);
 	if (value_tvb) {
 		*value_tvb = tvb_new_child_real_data(tvb, str, str_len, str_len);
 	}
@@ -782,7 +784,7 @@ DEBUG_ENTRY("dissect_per_restricted_character_string");
 }
 
 static const char*
-sort_alphabet(char *sorted_alphabet, const char *alphabet, int alphabet_length)
+sort_alphabet(char *sorted_alphabet, const char *alphabet, int alphabet_length, guint16 *lb, guint16 *ub)
 {
 	int i, j;
 	guchar c, c_max, c_min;
@@ -790,7 +792,10 @@ sort_alphabet(char *sorted_alphabet, const char *alphabet, int alphabet_length)
 
 	/*
 	 * XXX - presumably all members of alphabet will be in the
-	 * range 0 to 127.
+	 * range 0 to 127. asn2wrs.py doesn't properly handle the
+	 * Quadruple or CharacterStringList types needed for other
+	 * characters, nor representing characters outside ASCII
+	 * in the "cstring" notation (possibly in UTF-8?)
 	 */
 	if (!alphabet_length) return sorted_alphabet;
 	memset(tmp_buf, 0, 256);
@@ -804,6 +809,8 @@ sort_alphabet(char *sorted_alphabet, const char *alphabet, int alphabet_length)
 	for (i=c_min,j=0; i<=c_max; i++) {
 		if (tmp_buf[i]) sorted_alphabet[j++] = i;
 	}
+	*lb = (guint16)c_min;
+	*ub = (guint16)c_max;
 	return sorted_alphabet;
 }
 
@@ -812,14 +819,24 @@ dissect_per_restricted_character_string(tvbuff_t *tvb, guint32 offset, asn1_ctx_
 {
 	const char *alphabet_ptr;
 	char sorted_alphabet[128];
+	guint16 lb = 0;
+	guint16 ub = 65535;
 
+	/* XXX: We don't handle permitted-alphabet characters outside the
+	 * ASCII range if used in BMPString (UCS2) or UniversalString (UCS4)
+	 */
 	if (alphabet_length > 127) {
 		alphabet_ptr = alphabet;
 	} else {
-		alphabet_ptr = sort_alphabet(sorted_alphabet, alphabet, alphabet_length);
+		alphabet_ptr = sort_alphabet(sorted_alphabet, alphabet, alphabet_length, &lb, &ub);
 	}
-	/* Not a known-multiplier character string: enforce lb and ub to max values */
-	return dissect_per_restricted_character_string_sorted(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension, 0, 65535, alphabet_ptr, alphabet_length, value_tvb);
+
+	/* This is for a restricted character string type with a permitted-
+	 * alphabet constraint type. Such constraints are only PER-visible for
+	 * the known-multiplier character string types.
+	 */
+
+	return dissect_per_restricted_character_string_sorted(tvb, offset, actx, tree, hf_index, min_len, max_len, has_extension, lb, ub, alphabet_ptr, alphabet_length, value_tvb);
 }
 
 guint32
@@ -894,10 +911,43 @@ dissect_per_BMPString(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tre
 	return offset;
 }
 guint32
-dissect_per_UTF8String(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len, int max_len, gboolean has_extension _U_)
+dissect_per_UTF8String(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index, int min_len _U_, int max_len _U_, gboolean has_extension _U_)
 {
-	offset=dissect_per_restricted_character_string_sorted(tvb, offset, actx, tree,
-		hf_index, min_len, max_len, has_extension, 0, 255, NULL, 256, NULL);
+	tvbuff_t *val_tvb;
+	guint32   length;
+
+	/* UTF8String is not a known-multiplier character string (UTF8
+	 * characters are variable width.) Hence subclause 27.6 applies,
+	 * and "constraints are never PER-visible, and the type can never
+	 * be extensible for PER encoding."
+	 */
+
+	/* 27.6.3 unconstrained length determinant with "n" in octets */
+	offset = dissect_per_length_determinant(tvb, offset, actx, tree, hf_per_octet_string_length, &length, NULL);
+
+	if(length){
+
+		/* Unnecessary because the length determinant is aligned. */
+		if(actx->aligned) {
+			BYTE_ALIGN_OFFSET(offset);
+		}
+
+		val_tvb = tvb_new_octet_aligned(tvb, offset, length * 8);
+		/* Add new data source if the offset was unaligned */
+		if ((offset & 7) != 0) {
+			add_new_data_source(actx->pinfo, val_tvb, "Unaligned UTF8String");
+		}
+
+		proto_tree_add_item(tree, hf_index, val_tvb, 0, length, ENC_UTF_8);
+	} else {
+		/* tvb_new_octet_aligned doesn't like zero length.
+		 * length zero indicates a present but empty string, so add it
+		 */
+		proto_tree_add_item(tree, hf_index, tvb, (offset-1)>>3, length, ENC_UTF_8);
+	}
+
+	offset+=(length<<3);
+
 	return offset;
 }
 
@@ -1719,7 +1769,6 @@ dissect_per_choice(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tree *
 {
 	gboolean /*extension_present,*/ extension_flag;
 	int extension_root_entries;
-	int extension_addition_entries;
 	guint32 choice_index;
 	int i, idx, cidx;
 	guint32 ext_length = 0;
@@ -1743,7 +1792,6 @@ DEBUG_ENTRY("dissect_per_choice");
 
 	/* count the number of entries in the extension root and extension addition */
 	extension_root_entries = 0;
-	extension_addition_entries = 0;
 	for (i=0; choice[i].p_id; i++) {
 		switch(choice[i].extension){
 			case ASN1_NO_EXTENSIONS:
@@ -1751,7 +1799,6 @@ DEBUG_ENTRY("dissect_per_choice");
 				extension_root_entries++;
 				break;
 			case ASN1_NOT_EXTENSION_ROOT:
-				extension_addition_entries++;
 				break;
 		}
 	}
@@ -2731,7 +2778,8 @@ call_per_oid_callback(const char *oid, tvbuff_t *tvb, packet_info *pinfo, proto_
 	end_offset = offset + type_length;
 
 
-	val_tvb = tvb_new_octet_aligned(tvb, offset, type_length);
+	/* length in bits */
+	val_tvb = tvb_new_octet_aligned(tvb, offset, type_length * 8);
 	if ((offset & 7) != 0) {
 		add_new_data_source(actx->pinfo, val_tvb, "Unaligned OCTET STRING");
 	}

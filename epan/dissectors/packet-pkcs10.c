@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkcs10.c                                                            */
-/* asn2wrs.py -b -p pkcs10 -c ./pkcs10.cnf -s ./packet-pkcs10-template -D . -O ../.. PKCS10.asn */
+/* asn2wrs.py -b -L -p pkcs10 -c ./pkcs10.cnf -s ./packet-pkcs10-template -D . -O ../.. PKCS10.asn */
 
-/* Input file: packet-pkcs10-template.c */
-
-#line 1 "./asn1/pkcs10/packet-pkcs10-template.c"
 /* packet-p10.c
  *
  * Routines for PKCS10 packet dissection
@@ -50,9 +47,6 @@ void proto_register_pkcs10(void);
 
 /* Initialize the protocol and registered fields */
 static int proto_pkcs10 = -1;
-
-/*--- Included file: packet-pkcs10-hf.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-hf.c"
 static int hf_pkcs10_Attributes_PDU = -1;         /* Attributes */
 static int hf_pkcs10_CertificationRequest_PDU = -1;  /* CertificationRequest */
 static int hf_pkcs10_version = -1;                /* T_version */
@@ -67,24 +61,12 @@ static int hf_pkcs10_certificationRequestInfo = -1;  /* CertificationRequestInfo
 static int hf_pkcs10_signatureAlgorithm = -1;     /* AlgorithmIdentifier */
 static int hf_pkcs10_signature = -1;              /* BIT_STRING */
 
-/*--- End of included file: packet-pkcs10-hf.c ---*/
-#line 46 "./asn1/pkcs10/packet-pkcs10-template.c"
-
 /* Initialize the subtree pointers */
-
-/*--- Included file: packet-pkcs10-ett.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-ett.c"
 static gint ett_pkcs10_CertificationRequestInfo = -1;
 static gint ett_pkcs10_Attributes = -1;
 static gint ett_pkcs10_Attribute = -1;
 static gint ett_pkcs10_T_values = -1;
 static gint ett_pkcs10_CertificationRequest = -1;
-
-/*--- End of included file: packet-pkcs10-ett.c ---*/
-#line 49 "./asn1/pkcs10/packet-pkcs10-template.c"
-
-/*--- Included file: packet-pkcs10-fn.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-fn.c"
 
 static const value_string pkcs10_T_version_vals[] = {
   {   0, "v1" },
@@ -113,9 +95,7 @@ dissect_pkcs10_T_type(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 
 static int
 dissect_pkcs10_T_values_item(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 29 "./asn1/pkcs10/pkcs10.cnf"
     offset=call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -224,17 +204,11 @@ static int dissect_CertificationRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinf
 }
 
 
-/*--- End of included file: packet-pkcs10-fn.c ---*/
-#line 50 "./asn1/pkcs10/packet-pkcs10-template.c"
-
 /*--- proto_register_pkcs10 ----------------------------------------------*/
 void proto_register_pkcs10(void) {
 
 	/* List of fields */
 	static hf_register_info hf[] = {
-
-/*--- Included file: packet-pkcs10-hfarr.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-hfarr.c"
     { &hf_pkcs10_Attributes_PDU,
       { "Attributes", "pkcs10.Attributes",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -287,24 +261,15 @@ void proto_register_pkcs10(void) {
       { "signature", "pkcs10.signature",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING", HFILL }},
-
-/*--- End of included file: packet-pkcs10-hfarr.c ---*/
-#line 57 "./asn1/pkcs10/packet-pkcs10-template.c"
 	};
 
 	/* List of subtrees */
 	static gint *ett[] = {
-
-/*--- Included file: packet-pkcs10-ettarr.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-ettarr.c"
     &ett_pkcs10_CertificationRequestInfo,
     &ett_pkcs10_Attributes,
     &ett_pkcs10_Attribute,
     &ett_pkcs10_T_values,
     &ett_pkcs10_CertificationRequest,
-
-/*--- End of included file: packet-pkcs10-ettarr.c ---*/
-#line 62 "./asn1/pkcs10/packet-pkcs10-template.c"
 	};
 	/* Register protocol */
 	proto_pkcs10 = proto_register_protocol(PNAME, PSNAME, PFNAME);
@@ -323,14 +288,8 @@ void proto_register_pkcs10(void) {
 void proto_reg_handoff_pkcs10(void) {
   dissector_handle_t csr_handle;
 
-
-/*--- Included file: packet-pkcs10-dis-tab.c ---*/
-#line 1 "./asn1/pkcs10/packet-pkcs10-dis-tab.c"
   register_ber_oid_dissector("1.2.840.113549.1.9.9", dissect_Attributes_PDU, proto_pkcs10, "pkcs-9-at-extendedCertificateAttributes");
 
-
-/*--- End of included file: packet-pkcs10-dis-tab.c ---*/
-#line 81 "./asn1/pkcs10/packet-pkcs10-template.c"
 
   csr_handle = create_dissector_handle(dissect_CertificationRequest_PDU, proto_pkcs10);
   dissector_add_string("media_type", "application/pkcs10", csr_handle); /* RFC 5967 */

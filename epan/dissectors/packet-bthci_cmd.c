@@ -943,6 +943,8 @@ static gint hf_btcommon_eir_ad_biginfo_gskd = -1;
 static gint hf_btcommon_eir_ad_biginfo_big_control_access_address = -1;
 static gint hf_btcommon_eir_ad_biginfo_bis_access_address = -1;
 static gint hf_btcommon_eir_ad_broadcast_code = -1;
+static gint hf_btcommon_eir_ad_rsi = -1;
+static gint hf_btcommon_eir_ad_broadcast_name = -1;
 
 static gint hf_btcommon_cod_class_of_device = -1;
 static gint hf_btcommon_cod_format_type = -1;
@@ -1111,10 +1113,10 @@ static dissector_handle_t bthci_cmd_handle;
 static dissector_handle_t btmesh_handle;
 static dissector_handle_t btmesh_pbadv_handle;
 static dissector_handle_t btmesh_beacon_handle;
-static dissector_handle_t gaen_handle;
 
 static dissector_table_t  bluetooth_eir_ad_manufacturer_company_id;
 static dissector_table_t  bluetooth_eir_ad_tds_organization_id;
+static dissector_table_t  bluetooth_eir_ad_service_uuid;
 
 wmem_tree_t *bthci_cmds = NULL;
 
@@ -1835,6 +1837,9 @@ static const value_string bthci_cmd_eir_data_type_vals[] = {
     {0x2B, "Mesh Beacon" },
     {0x2C, "BIGInfo" },
     {0x2D, "Broadcast Code" },
+    {0x2E, "Resolvable Set Identifier" },
+    {0x2F, "Advertising Interval - long" },
+    {0x30, "Broadcast_Name" },
     {0x3D, "3D Information Data" },
     {0xFF, "Manufacturer Specific" },
     {   0, NULL }
@@ -7628,37 +7633,37 @@ proto_register_bthci_cmd(void)
         },
         { &hf_bthci_cmd_advertising_properties_incl_txpower,
           { "Include Tx Power", "bthci_cmd.adv_properties.txpower",
-            FT_BOOLEAN, 16, NULL, 0x40,
+            FT_BOOLEAN, 16, NULL, 0x0040,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_anonymous_adv,
           { "Anonymous Advertisement", "bthci_cmd.adv_properties.anonymous_adv",
-            FT_BOOLEAN, 16, NULL, 0x20,
+            FT_BOOLEAN, 16, NULL, 0x0020,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_legacy_adv,
           { "Use Legacy PDUs", "bthci_cmd.adv_properties.legacy_adv",
-            FT_BOOLEAN, 16, NULL, 0x10,
+            FT_BOOLEAN, 16, NULL, 0x0010,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_hdc_connectable_directed,
           { "High Duty Cycle Connectable Directed", "bthci_cmd.adv_properties.hdc_connectable_directed",
-            FT_BOOLEAN, 16, NULL, 0x08,
+            FT_BOOLEAN, 16, NULL, 0x0008,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_directed,
           { "Directed", "bthci_cmd.adv_properties.directed",
-            FT_BOOLEAN, 16, NULL, 0x04,
+            FT_BOOLEAN, 16, NULL, 0x0004,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_scannable,
           { "Scannable", "bthci_cmd.adv_properties.scannable",
-            FT_BOOLEAN, 16, NULL, 0x02,
+            FT_BOOLEAN, 16, NULL, 0x0002,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_connectable,
           { "Connectable", "bthci_cmd.adv_properties.connectable",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_cmd_advertising_properties_reserved,
@@ -9033,7 +9038,7 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
                     proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
                 } else {
                     sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
                 }
 
                 offset += 4;
@@ -9047,12 +9052,12 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
             while (offset < end_offset) {
                 uuid = get_bluetooth_uuid(tvb, offset, 16);
                 if (uuid.bt_uuid) {
-                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(&uuid));
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
                     proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
                 }
                 else {
-                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(&uuid));
-                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
                 }
 
                 offset += 16;
@@ -9175,13 +9180,8 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
 
             if (length - 2 > 0) {
                 uuid = get_bluetooth_uuid(tvb, offset-2, 2);
-                /* XXX A dissector table should be used here if we get many of these*/
-                if (uuid.bt_uuid == 0xFD6F) /* GAEN Identifier */
-                {
-                    call_dissector(gaen_handle, tvb, pinfo, entry_tree);
-                }
-                else
-                {
+                if (!dissector_try_string(bluetooth_eir_ad_service_uuid, print_numeric_bluetooth_uuid(pinfo->pool, &uuid),
+                        tvb_new_subset_length(tvb, offset, length - 2), pinfo, entry_tree, bluetooth_eir_ad_data)) {
                     proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_service_data, tvb, offset, length - 2, ENC_NA);
                 }
                 offset += length - 2;
@@ -9189,13 +9189,16 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
             break;
         case 0x20: /* Service Data - 32 bit UUID */
             uuid = get_bluetooth_uuid(tvb, offset, 4);
-            if (uuid.bt_uuid) {
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
-            }
-            else {
-                sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-                proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
+            if (!dissector_try_string(bluetooth_eir_ad_service_uuid, print_numeric_bluetooth_uuid(pinfo->pool, &uuid),
+                    tvb_new_subset_length(tvb, offset + 4, length - 4), pinfo, entry_tree, bluetooth_eir_ad_data)) {
+                if (uuid.bt_uuid) {
+                        sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+                        proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
+                }
+                else {
+                    sub_item = proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_custom_uuid_32, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                }
             }
             offset += 4;
 
@@ -9206,13 +9209,16 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
             break;
         case 0x21: /* Service Data - 128 bit UUID */
             uuid = get_bluetooth_uuid(tvb, offset, 16);
-            if (uuid.bt_uuid) {
-                sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(&uuid));
-                proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
-            }
-            else {
-                sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(&uuid));
-                proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(&uuid));
+            if (!dissector_try_string(bluetooth_eir_ad_service_uuid, print_numeric_bluetooth_uuid(pinfo->pool, &uuid),
+                    tvb_new_subset_length(tvb, offset + 16, length - 16), pinfo, entry_tree, bluetooth_eir_ad_data)) {
+                if (uuid.bt_uuid) {
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", val_to_str_ext_const(uuid.bt_uuid, &bluetooth_uuid_vals_ext, "Unknown"));
+                }
+                else {
+                    sub_item = proto_tree_add_bytes_format_value(entry_tree, hf_btcommon_eir_ad_custom_uuid_128, tvb, offset, 16, uuid.data, "%s", print_numeric_bluetooth_uuid(pinfo->pool, &uuid));
+                    proto_item_append_text(sub_item, " (%s)", print_bluetooth_uuid(pinfo->pool, &uuid));
+                }
             }
             offset += 16;
 
@@ -9481,6 +9487,16 @@ dissect_eir_ad_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bluetoo
         case 0x2d: /* Broadcast Code */
             proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_code, tvb, offset, length, ENC_UTF_8 | ENC_NA);
             proto_item_append_text(entry_item, ": %s", tvb_format_text(pinfo->pool, tvb, offset, length));
+            offset += length;
+
+            break;
+        case 0x2e: /* Resolvable Set Identifier */
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_rsi, tvb, offset, length, ENC_NA);
+            offset += length;
+
+            break;
+        case 0x30: /* Broadcast Name */
+            proto_tree_add_item(entry_tree, hf_btcommon_eir_ad_broadcast_name, tvb, offset, length, ENC_UTF_8 | ENC_NA);
             offset += length;
 
             break;
@@ -10469,6 +10485,16 @@ proto_register_btcommon(void)
             FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_btcommon_eir_ad_rsi,
+          { "Resolvable Set Identifier", "btcommon.eir_ad.entry.rsi",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_btcommon_eir_ad_broadcast_name,
+          { "Broadcast Name", "btcommon.eir_ad.entry.broadcast_name",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_btcommon_cod_class_of_device,
           { "Class of Device", "btcommon.cod.class_of_device",
             FT_UINT24, BASE_HEX, NULL, 0x0,
@@ -10877,6 +10903,10 @@ proto_register_btcommon(void)
     bluetooth_eir_ad_manufacturer_company_id = register_dissector_table("btcommon.eir_ad.manufacturer_company_id", "BT EIR/AD Manufacturer Company ID", proto_btcommon, FT_UINT16, BASE_HEX);
     bluetooth_eir_ad_tds_organization_id     = register_dissector_table("btcommon.eir_ad.tds_organization_id",     "BT EIR/AD TDS Organization ID", proto_btcommon, FT_UINT8, BASE_HEX);
 
+    // Key for this table is the lower-case hex-representation of the service UUID. 16-bit UUIDs will have 4 characters, 32-bit UUIDs will have 8 characters.
+    // 128-bit UUIDs have 4 dashes in them, and therefore have 36 characters.
+    bluetooth_eir_ad_service_uuid            = register_dissector_table("btcommon.eir_ad.entry.uuid",              "BT EIR/AD Service UUID", proto_btcommon, FT_STRING, BASE_NONE);
+
     register_decode_as(&bluetooth_eir_ad_manufacturer_company_id_da);
     register_decode_as(&bluetooth_eir_ad_tds_organization_id_da);
 }
@@ -10887,7 +10917,6 @@ proto_reg_handoff_btcommon(void)
     btmesh_handle = find_dissector("btmesh.msg");
     btmesh_pbadv_handle = find_dissector("btmesh.pbadv");
     btmesh_beacon_handle = find_dissector("btmesh.beacon");
-    gaen_handle = find_dissector("bluetooth.gaen");
 }
 
 

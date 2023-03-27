@@ -959,6 +959,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 	gint32 result_rows_columns_count = 0;
 	gint64 j = 0;
 	gint64 k = 0;
+	guint32 short_bytes_length = 0;
 	gint32 bytes_length = 0;
 	gint32 result_rows_row_count = 0;
 
@@ -1106,7 +1107,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 			} else {
 				/* Now re-setup the tvb buffer to have the new data */
 				tvb = tvb_new_child_real_data(raw_tvb, decompressed_buffer, orig_size, orig_size);
-				add_new_data_source(pinfo, tvb, "Decompressed Data");
+				add_new_data_source(pinfo, tvb, "LZ4 Decompressed Data");
 				/* mark the decompression as successful */
 				compression_level = CQL_COMPRESSION_LZ4;
 				message_length= orig_size;
@@ -1142,7 +1143,7 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 			/* if the decompression succeeded build the new tvb */
 			if (ret == SNAPPY_OK) {
 				tvb = tvb_new_child_real_data(raw_tvb, decompressed_buffer, (guint32)orig_size, (guint32)orig_size);
-				add_new_data_source(pinfo, tvb, "Decompressed Data");
+				add_new_data_source(pinfo, tvb, "Snappy Decompressed Data");
 				compression_level = CQL_COMPRESSION_SNAPPY;
 				message_length = (guint32)orig_size;
 			} else {
@@ -1221,10 +1222,10 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 				/* TODO: link to original PREPARE? */
 
 				/* Query ID */
-				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &bytes_length);
+				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 				offset += 2;
-				proto_tree_add_item(cql_subtree, hf_cql_query_id, tvb, offset, bytes_length, ENC_NA);
-				offset += bytes_length;
+				proto_tree_add_item(cql_subtree, hf_cql_query_id, tvb, offset, short_bytes_length, ENC_NA);
+				offset += short_bytes_length;
 
 				/* Query parameters */
 				dissect_cql_query_parameters(cql_subtree, tvb, offset, 1);
@@ -1266,11 +1267,17 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 					proto_tree_add_item_ret_uint(cql_subtree, hf_cql_value_count, tvb, offset, 2, ENC_BIG_ENDIAN, &value_count);
 					offset += 2;
 					for (k = 0; k < value_count; ++k) {
-						guint32 batch_bytes_length = 0;
+						gint32 batch_bytes_length = 0;
 						proto_tree_add_item_ret_int(cql_subtree, hf_cql_bytes_length, tvb, offset, 4, ENC_BIG_ENDIAN, &batch_bytes_length);
 						offset += 4;
-						proto_tree_add_item(cql_subtree, hf_cql_bytes, tvb, offset, batch_bytes_length, ENC_NA);
-						offset += batch_bytes_length;
+						if (batch_bytes_length > 0) {
+							proto_tree_add_item(cql_subtree, hf_cql_bytes, tvb, offset, batch_bytes_length, ENC_NA);
+							offset += batch_bytes_length;
+						}
+						/* TODO - handle both -1 and -2 batch_bytes_length values:
+						-1 no byte should follow and the value represented is `null`.
+						-2 no byte should follow and the value represented is `not set` not resulting in any change to the existing value.
+						< -2 is an invalid value and results in an error. */
 					}
 				}
 				/* consistency */
@@ -1318,7 +1325,29 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 
 
 			case CQL_OPCODE_SUPPORTED:
-				/* Not implemented. */
+				cql_subtree = proto_tree_add_subtree(cql_tree, tvb, offset, message_length, ett_cql_message, &ti, "Message SUPPORTED");
+				guint32 multimap_count, value_count;
+
+				/* string multimap */
+				proto_tree_add_item_ret_uint(cql_subtree, hf_cql_value_count, tvb, offset, 2, ENC_BIG_ENDIAN, &multimap_count);
+				offset += 2;
+				for (k = 0; k < multimap_count; ++k) {
+						/* key - string */
+						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
+						offset += 2;
+						proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8 | ENC_NA);
+						offset += string_length;
+
+						/* value - string list */
+						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_list_size, tvb, offset, 2, ENC_BIG_ENDIAN, &value_count);
+						offset += 2;
+						for(i = 0; i < value_count; ++i) {
+								proto_tree_add_item_ret_uint(cql_subtree, hf_cql_string_length, tvb, offset, 2, ENC_BIG_ENDIAN, &string_length);
+								offset += 2;
+								proto_tree_add_item(cql_subtree, hf_cql_string, tvb, offset, string_length, ENC_UTF_8 | ENC_NA);
+								offset += string_length;
+						}
+				}
 				break;
 
 
@@ -1414,7 +1443,8 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 
 						if (result_rows_columns_count) {
 							for (j = 0; j < result_rows_row_count; ++j) {
-								columns_subtree = proto_tree_add_subtree(rows_subtree, tvb, offset, 0, ett_cql_result_columns, &ti, "Data (Columns)");
+								columns_subtree = proto_tree_add_subtree(rows_subtree, tvb, offset, 0, ett_cql_result_columns, &ti, "Data (columns)");
+								proto_item_append_text(columns_subtree, " for row # %" PRId64, j + 1);
 
 								if (offset_row_metadata) {
 									offset = parse_row(columns_subtree, pinfo, tvb, offset_row_metadata, offset, result_rows_columns_count);
@@ -1422,8 +1452,10 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 									for (k = 0; k < result_rows_columns_count; ++k) {
 										proto_tree_add_item_ret_int(columns_subtree, hf_cql_bytes_length, tvb, offset, 4, ENC_BIG_ENDIAN, &bytes_length);
 										offset += 4;
-										proto_tree_add_item(columns_subtree, hf_cql_bytes, tvb, offset, bytes_length, ENC_NA);
-										offset += bytes_length;
+										if (bytes_length > 0) {
+											proto_tree_add_item(columns_subtree, hf_cql_bytes, tvb, offset, bytes_length, ENC_NA);
+											offset += bytes_length;
+										}
 									}
 								}
 							}
@@ -1441,9 +1473,9 @@ dissect_cql_tcp_pdu(tvbuff_t* raw_tvb, packet_info* pinfo, proto_tree* tree, voi
 
 					case CQL_RESULT_KIND_PREPARED:
 						/* Query ID */
-						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &bytes_length);
+						proto_tree_add_item_ret_uint(cql_subtree, hf_cql_short_bytes_length, tvb, offset, 2, ENC_BIG_ENDIAN, &short_bytes_length);
 						offset += 2;
-						proto_tree_add_item(cql_subtree, hf_cql_query_id, tvb, offset, bytes_length, ENC_NA);
+						proto_tree_add_item(cql_subtree, hf_cql_query_id, tvb, offset, short_bytes_length, ENC_NA);
 						break;
 
 

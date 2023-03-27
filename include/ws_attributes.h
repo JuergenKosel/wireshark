@@ -28,7 +28,7 @@ extern "C" {
   /* This includes clang */
   #define _U_ __attribute__((unused))
 #elif defined(_MSC_VER)
-  #define _U_ __pragma(warning(suppress:4100))
+  #define _U_ __pragma(warning(suppress:4100 4189))
 #else
   #define _U_
 #endif
@@ -107,10 +107,23 @@ extern "C" {
  * the major UN*X C compilers support __thread and the major Windows C
  * compilers support __declspec(thread).
  */
-#ifdef _WIN32
+#ifdef _MSC_VER
   #define WS_THREAD_LOCAL __declspec(thread)
 #else
   #define WS_THREAD_LOCAL __thread
+#endif
+
+/*
+ * The warn_unused_result attribute causes a warning to be emitted if a caller
+ * of the function with this attribute does not use its return value. This is
+ * useful for functions where not checking the result is either a security
+ * problem or always a bug, such as realloc.
+ */
+#if defined(__GNUC__)
+  /* This includes clang */
+  #define WS_WARN_UNUSED __attribute__((warn_unused_result))
+#else
+  #define WS_WARN_UNUSED
 #endif
 
 #ifdef __cplusplus

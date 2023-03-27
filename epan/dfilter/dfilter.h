@@ -13,6 +13,8 @@
 #include <glib.h>
 #include "ws_symbol_export.h"
 
+#include "dfilter-loc.h"
+
 /* Passed back to user */
 typedef struct epan_dfilter dfilter_t;
 
@@ -52,23 +54,40 @@ dfilter_expand(const char *expr, char **err_ret);
  * Returns TRUE on success, FALSE on failure.
  */
 
-typedef struct _dfilter_loc {
-	long col_start;
-	size_t col_len;
-} dfilter_loc_t;
+#define DF_ERROR_GENERIC		-1
+#define DF_ERROR_UNEXPECTED_END		-2
+
+typedef struct {
+	int code;
+	char *msg;
+	df_loc_t loc;
+} df_error_t;
+
+WS_DLL_PUBLIC
+void
+dfilter_error_free(df_error_t *);
+
+/* Save textual representation of syntax tree (for debugging purposes). */
+#define DF_SAVE_TREE		(1U << 0)
+/* Perform macro substitution on filter text. */
+#define DF_EXPAND_MACROS	(1U << 1)
+/* Do an optimization pass on the compiled filter. */
+#define DF_OPTIMIZE		(1U << 2)
+/* Enable debug trace for flex. */
+#define DF_DEBUG_FLEX		(1U << 3)
+/* Enable debug trace for lemon. */
+#define DF_DEBUG_LEMON		(1U << 4)
 
 WS_DLL_PUBLIC
 gboolean
 dfilter_compile_real(const gchar *text, dfilter_t **dfp,
-			gchar **err_msg, dfilter_loc_t *loc_ptr,
-			const char *caller, gboolean save_tree,
-			gboolean apply_macros);
+			df_error_t **errpp, unsigned flags,
+			const char *caller);
 
-#define dfilter_compile(text, dfp, err_msg) \
-	dfilter_compile_real(text, dfp, err_msg, NULL, __func__, FALSE, TRUE)
-
-#define dfilter_compile2(text, dfp, err_msg, loc_ptr) \
-	dfilter_compile_real(text, dfp, err_msg, loc_ptr, __func__, FALSE, TRUE)
+#define dfilter_compile(text, dfp, errp) \
+	dfilter_compile_real(text, dfp, errp, \
+				DF_EXPAND_MACROS|DF_OPTIMIZE, \
+				__func__)
 
 /* Frees all memory used by dfilter, and frees
  * the dfilter itself. */
@@ -98,14 +117,40 @@ dfilter_load_field_references(const dfilter_t *df, proto_tree *tree);
 gboolean
 dfilter_has_interesting_fields(const dfilter_t *df);
 
+/* Check if dfilter is interested in a given field
+ *
+ * @param df The dfilter
+ * @param hfid The header field info ID to check
+ * @return TRUE if the field is interesting to the dfilter
+ */
+gboolean
+dfilter_interested_in_field(const dfilter_t *df, int hfid);
+
+/* Check if dfilter is interested in a given protocol
+ *
+ * @param df The dfilter
+ * @param hfid The protocol ID to check
+ * @return TRUE if the dfilter is interested in a field whose
+ * parent is proto_id
+ */
+gboolean
+dfilter_interested_in_proto(const dfilter_t *df, int proto_id);
+
 WS_DLL_PUBLIC
 GPtrArray *
 dfilter_deprecated_tokens(dfilter_t *df);
 
-/* Print bytecode of dfilter to stdout */
+WS_DLL_PUBLIC
+GSList *
+dfilter_get_warnings(dfilter_t *df);
+
+#define DF_DUMP_REFERENCES	(1U << 0)
+#define DF_DUMP_SHOW_FTYPE	(1U << 1)
+
+/* Print bytecode of dfilter to fp */
 WS_DLL_PUBLIC
 void
-dfilter_dump(dfilter_t *df);
+dfilter_dump(FILE *fp, dfilter_t *df, uint16_t flags);
 
 /* Text after macro expansion. */
 WS_DLL_PUBLIC
@@ -124,7 +169,7 @@ dfilter_log_full(const char *domain, enum ws_log_level level,
 			const char *file, long line, const char *func,
 			dfilter_t *dfcode, const char *msg);
 
-#ifndef WS_DISABLE_DEBUG
+#ifdef WS_DEBUG
 #define dfilter_log(dfcode, msg) \
 	dfilter_log_full(LOG_DOMAIN_DFILTER, LOG_LEVEL_NOISY,	\
 				__FILE__, __LINE__, __func__,	\

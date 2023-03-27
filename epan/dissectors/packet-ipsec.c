@@ -2134,10 +2134,9 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
           if (err)
           {
+            gcry_cipher_close(*cipher_hd);
             REPORT_DISSECTOR_BUG("<IPsec/ESP Dissector> Error in Algorithm %s, Mode %d, gcry_cipher_decrypt failed: %s\n",
                                  gcry_cipher_algo_name(crypt_algo_libgcrypt), crypt_mode_libgcrypt, gcry_strerror(err));
-            gcry_cipher_close(*cipher_hd);
-            decrypt_ok = FALSE;
           }
           else
           {
@@ -2373,7 +2372,7 @@ dissect_ipcomp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dissec
     /*
      * try to uncompress as if it were DEFLATEd.  With negotiated
      * CPIs, we don't know the algorithm beforehand; if we get it
-     * wrong, tvb_uncompress() returns NULL and nothing is displayed.
+     * wrong, tvb_child_uncompress() returns NULL and nothing is displayed.
      */
     decomp = tvb_child_uncompress(data, data, 0, tvb_captured_length(data));
     if (decomp) {

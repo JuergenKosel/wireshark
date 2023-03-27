@@ -399,11 +399,6 @@
       <string>Prepare as Filter</string>
      </property>
     </widget>
-    <widget class="QMenu" name="menuFollow">
-     <property name="title">
-      <string>Follow</string>
-     </property>
-    </widget>
     <widget class="QMenu" name="menuConversationFilter">
      <property name="title">
       <string>Conversation Filter</string>
@@ -413,7 +408,7 @@
     <addaction name="actionAnalyzeDisplayFilterMacros"/>
     <addaction name="actionDisplayFilterExpression"/>
     <addaction name="separator"/>
-    <addaction name="actionAnalyzeCreateAColumn"/>
+    <addaction name="actionAnalyzeApplyAsColumn"/>
     <addaction name="menuApplyAsFilter"/>
     <addaction name="menuPrepareAFilter"/>
     <addaction name="menuConversationFilter"/>
@@ -421,8 +416,6 @@
     <addaction name="actionAnalyzeEnabledProtocols"/>
     <addaction name="actionAnalyzeDecodeAs"/>
     <addaction name="actionAnalyzeReloadLuaPlugins"/>
-    <addaction name="separator"/>
-    <addaction name="menuFollow"/>
     <addaction name="separator"/>
     <addaction name="actionAnalyzeShowPacketBytes"/>
     <addaction name="actionAnalyzeExpertInfo"/>
@@ -1186,7 +1179,7 @@
     <string>Display Filter &amp;Macros…</string>
    </property>
   </action>
-  <action name="actionAnalyzeCreateAColumn">
+  <action name="actionAnalyzeApplyAsColumn">
    <property name="text">
     <string>Apply as Column</string>
    </property>

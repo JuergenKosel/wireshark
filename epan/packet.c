@@ -423,7 +423,7 @@ get_data_source_tvb_by_name(packet_info *pinfo, const char *name)
 {
 	GSList *source;
 	for (source = pinfo->data_src; source; source = source->next) {
-		struct data_source *this_source = (struct data_source *)source;
+		struct data_source *this_source = (struct data_source *)source->data;
 		if (this_source->name && strcmp(this_source->name, name) == 0) {
 			return this_source->tvb;
 		}
@@ -445,11 +445,17 @@ free_data_sources(packet_info *pinfo)
 }
 
 void
-mark_frame_as_depended_upon(packet_info *pinfo, guint32 frame_num)
+mark_frame_as_depended_upon(frame_data *fd, guint32 frame_num)
 {
 	/* Don't mark a frame as dependent on itself */
-	if (frame_num != pinfo->num) {
-		pinfo->dependent_frames = g_slist_prepend(pinfo->dependent_frames, GUINT_TO_POINTER(frame_num));
+	if (frame_num != fd->num) {
+		/* ws_assert(frame_num < fd->num) - we assume in several other
+		 * places in the code that frames don't depend on future
+		 * frames. */
+		if (fd->dependent_frames == NULL) {
+			fd->dependent_frames = g_hash_table_new(g_direct_hash, g_direct_equal);
+		}
+		g_hash_table_insert(fd->dependent_frames, GUINT_TO_POINTER(frame_num), NULL);
 	}
 }
 
@@ -3284,6 +3290,12 @@ create_dissector_handle_with_name_and_description(dissector_t dissector,
 						const char* description)
 {
 	return new_dissector_handle(DISSECTOR_TYPE_SIMPLE, dissector, proto, name, description, NULL);
+}
+
+dissector_handle_t
+create_dissector_handle_with_data(dissector_cb_t dissector, const int proto, void* cb_data)
+{
+	return new_dissector_handle(DISSECTOR_TYPE_CALLBACK, dissector, proto, NULL, NULL, cb_data);
 }
 
 /* Destroy an anonymous handle for a dissector. */

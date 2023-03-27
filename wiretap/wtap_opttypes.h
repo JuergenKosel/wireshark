@@ -228,6 +228,14 @@ typedef struct wtapng_if_descr_mandatory_s {
 } wtapng_if_descr_mandatory_t;
 
 /**
+ * Holds the required data from a WTAP_BLOCK_NAME_RESOLUTION.
+ */
+typedef struct wtapng_nrb_mandatory_s {
+    GList       *ipv4_addr_list;
+    GList       *ipv6_addr_list;
+}  wtapng_nrb_mandatory_t;
+
+/**
  * Holds the required data from a WTAP_BLOCK_IF_STATISTICS.
  */
 typedef struct wtapng_if_stats_mandatory_s {
@@ -781,6 +789,17 @@ wtap_block_get_ipv6_option_value(wtap_block_t block, guint option_id, ws_in6_add
  */
 WS_DLL_PUBLIC wtap_opttype_return_val
 wtap_block_add_string_option(wtap_block_t block, guint option_id, const char *value, gsize value_length);
+
+/** Add a string option to a block taking ownership of the null-terminated string.
+ *
+ * @param[in] block Block to which to add the option
+ * @param[in] option_id Identifier value for option
+ * @param[in] value Value of option
+ * @return wtap_opttype_return_val - WTAP_OPTTYPE_SUCCESS if successful,
+ * error code otherwise
+ */
+WS_DLL_PUBLIC wtap_opttype_return_val
+wtap_block_add_string_option_owned(wtap_block_t block, guint option_id, char *value);
 
 /** Add a string option to a block with a printf-formatted string as its value
  *

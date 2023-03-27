@@ -3179,7 +3179,7 @@ s7comm_decode_pistart_parameters(tvbuff_t *tvb,
     guint8 i;
     guint8 len;
     wmem_strbuf_t *args_buf;
-    args_buf = wmem_strbuf_new_label(pinfo->pool);
+    args_buf = wmem_strbuf_create(pinfo->pool);
 
     for (i = 0; i < nfields; i++) {
         len = tvb_get_guint8(tvb, offset);
@@ -3308,7 +3308,7 @@ s7comm_decode_pi_service(tvbuff_t *tvb,
                     col_append_str(pinfo->cinfo, COL_INFO, ", ");
                 }
                 itemadd = proto_tree_add_item(file_tree, hf_s7comm_data_blockcontrol_dest_filesys, tvb, paramoffset, 1, ENC_ASCII);
-                proto_item_append_text(itemadd, " (%s)", val_to_str(tvb_get_guint8(tvb, paramoffset), blocktype_attribute2_names, "Unknown filesys: %c"));
+                proto_item_append_text(itemadd, " (%s)", char_val_to_str(tvb_get_guint8(tvb, paramoffset), blocktype_attribute2_names, "Unknown filesys"));
                 paramoffset += 1;
             }
             col_append_str(pinfo->cinfo, COL_INFO, ")");
@@ -3667,7 +3667,7 @@ s7comm_decode_plc_controls_filename(tvbuff_t *tvb,
                 col_append_str(pinfo->cinfo, COL_INFO, "NaN]");
             }
             itemadd = proto_tree_add_item(file_tree, hf_s7comm_data_blockcontrol_dest_filesys, tvb, offset, 1, ENC_ASCII);
-            proto_item_append_text(itemadd, " (%s)", val_to_str(tvb_get_guint8(tvb, offset), blocktype_attribute2_names, "Unknown filesys: %c"));
+            proto_item_append_text(itemadd, " (%s)", char_val_to_str(tvb_get_guint8(tvb, offset), blocktype_attribute2_names, "Unknown filesys"));
             offset += 1;
         }
     }
@@ -6221,7 +6221,7 @@ s7comm_decode_ud_block_subfunc(tvbuff_t *tvb,
                     }
                     offset += 5;
                     itemadd = proto_tree_add_item(data_tree, hf_s7comm_ud_blockinfo_filesys, tvb, offset, 1, ENC_ASCII);
-                    proto_item_append_text(itemadd, " (%s)", val_to_str(tvb_get_guint8(tvb, offset), blocktype_attribute2_names, "Unknown filesys: %c"));
+                    proto_item_append_text(itemadd, " (%s)", char_val_to_str(tvb_get_guint8(tvb, offset), blocktype_attribute2_names, "Unknown filesys"));
                     offset += 1;
                 }
                 know_data = TRUE;
@@ -7217,7 +7217,7 @@ proto_register_s7comm (void)
         { "Address", "s7comm.param.item.address", FT_UINT24, BASE_HEX, NULL, 0x0,
           NULL, HFILL }},
         { &hf_s7comm_item_address_byte,
-        { "Byte Address", "s7comm.param.item.address.byte", FT_UINT24, BASE_DEC, NULL, 0x7fff8,
+        { "Byte Address", "s7comm.param.item.address.byte", FT_UINT24, BASE_DEC, NULL, 0x07fff8,
           NULL, HFILL }},
         { &hf_s7comm_item_address_bit,
         { "Bit Address", "s7comm.param.item.address.bit", FT_UINT24, BASE_DEC, NULL, 0x000007,

@@ -545,18 +545,23 @@ static void OUT_RXString(ptvcursor_t *cursor, int field)
 static void OUT_RXStringV(ptvcursor_t *cursor, int field, guint32 length)
 {
 	tvbuff_t* tvb = ptvcursor_tvbuff(cursor);
-	char* str = (char*)wmem_alloc(wmem_packet_scope(), length+1);
+	wmem_strbuf_t *strbuf = wmem_strbuf_new_sized(wmem_packet_scope(), length+1);
 	int offset = ptvcursor_current_offset(cursor),
 		start_offset = offset;
 	guint32 idx;
 
 	for (idx = 0; idx<length; idx++)
 	{
-		str[idx] = (char)tvb_get_ntohl(tvb, offset);
+		wmem_strbuf_append_c(strbuf, (char)tvb_get_ntohl(tvb, offset));
 		offset += 4;
 	}
-	str[length] = '\0';
-	proto_tree_add_string(ptvcursor_tree(cursor), field, tvb, start_offset, length*4, str);
+	/* XXX: There's no indication what encoding this string has.
+	 * Treat it as UTF-8 for now.
+	 */
+	if (!wmem_strbuf_utf8_validate(strbuf, NULL)) {
+		wmem_strbuf_utf8_make_valid(strbuf);
+	}
+	proto_tree_add_string(ptvcursor_tree(cursor), field, tvb, start_offset, length*4, wmem_strbuf_finalize(strbuf));
 	ptvcursor_advance(cursor, length*4);
 }
 
@@ -3419,13 +3424,13 @@ proto_register_afs(void)
 		FT_UINT32, BASE_HEX, 0, 0, NULL, HFILL }},
 
 	{ &hf_afs_vldb_flags_rwexists, { "Read/Write Exists", "afs.vldb.flags.rwexists",
-		FT_BOOLEAN, 32, 0, 0x1000, NULL, HFILL }},
+		FT_BOOLEAN, 32, 0, 0x00001000, NULL, HFILL }},
 	{ &hf_afs_vldb_flags_roexists, { "Read-Only Exists", "afs.vldb.flags.roexists",
-		FT_BOOLEAN, 32, 0, 0x2000, NULL, HFILL }},
+		FT_BOOLEAN, 32, 0, 0x00002000, NULL, HFILL }},
 	{ &hf_afs_vldb_flags_bkexists, { "Backup Exists", "afs.vldb.flags.bkexists",
-		FT_BOOLEAN, 32, 0, 0x4000, NULL, HFILL }},
+		FT_BOOLEAN, 32, 0, 0x00004000, NULL, HFILL }},
 	{ &hf_afs_vldb_flags_dfsfileset, { "DFS Fileset", "afs.vldb.flags.dfsfileset",
-		FT_BOOLEAN, 32, 0, 0x8000, NULL, HFILL }},
+		FT_BOOLEAN, 32, 0, 0x00008000, NULL, HFILL }},
 
 	{ &hf_afs_vldb_spare1, { "Spare 1", "afs.vldb.spare1",
 		FT_UINT32, BASE_DEC, 0, 0, NULL, HFILL }},
@@ -3485,7 +3490,7 @@ proto_register_afs(void)
 	{ &hf_afs_cm_capabilities, { "Capabilities", "afs.cm.capabilities",
 		FT_UINT32, BASE_HEX, 0, 0, NULL, HFILL }},
 	{ &hf_afs_cm_cap_errortrans, { "ERRORTRANS", "afs.cm.capabilities.errortrans",
-		FT_BOOLEAN, 32, 0, 0x0001, NULL, HFILL }},
+		FT_BOOLEAN, 32, 0, 0x00000001, NULL, HFILL }},
 
 /* PROT Server Fields */
 	{ &hf_afs_prot_errcode, { "Error Code", "afs.prot.errcode",

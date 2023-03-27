@@ -130,8 +130,6 @@ public:
     QString getMwFileName();
     void setMwFileName(QString fileName);
 
-    frame_data * frameDataForRow(int row) const;
-
 protected:
     virtual bool eventFilter(QObject *obj, QEvent *event);
     virtual bool event(QEvent *event);
@@ -189,8 +187,6 @@ private:
     CaptureOptionsDialog *capture_options_dialog_;
     info_data_t info_data_;
 #endif
-    FilterDialog *display_filter_dlg_;
-    FilterDialog *capture_filter_dlg_;
 
 #if defined(Q_OS_MAC)
     QMenu *dock_menu_;
@@ -249,7 +245,6 @@ private:
 
 signals:
     void setDissectedCaptureFile(capture_file *cf);
-    void displayFilterSuccess(bool success);
     void closePacketDialogs();
     void reloadFields();
     void packetInfoChanged(struct _packet_info *pinfo);
@@ -324,6 +319,8 @@ private slots:
     void initConversationMenus();
     static gboolean addExportObjectsMenuItem(const void *key, void *value, void *userdata);
     void initExportObjectsMenus();
+    static gboolean addFollowStreamMenuItem(const void *key, void *value, void *userdata);
+    void initFollowStreamMenus();
 
     // in main_window_slots.cpp
     /**
@@ -370,7 +367,6 @@ private slots:
     void applyGlobalCommandLineOptions();
     void setFeaturesEnabled(bool enabled = true);
 
-    void on_actionDisplayFilterExpression_triggered();
     void on_actionNewDisplayFilterExpression_triggered();
     void onFilterSelected(QString, bool);
     void onFilterPreferences();
@@ -452,25 +448,20 @@ private slots:
     void connectCaptureMenuActions();
     void startCaptureTriggered();
 
-    void on_actionAnalyzeDisplayFilters_triggered();
-    void on_actionAnalyzeDisplayFilterMacros_triggered();
+    void connectAnalyzeMenuActions();
+
     void matchFieldFilter(FilterAction::Action action, FilterAction::ActionType filter_type);
-    void on_actionAnalyzeCreateAColumn_triggered();
+    void applyFieldAsColumn();
 
     void filterMenuAboutToShow();
 
     void applyConversationFilter();
     void applyExportObject();
 
-    void on_actionAnalyzeEnabledProtocols_triggered();
-    void on_actionAnalyzeDecodeAs_triggered();
-    void on_actionAnalyzeReloadLuaPlugins_triggered();
-
-    void openFollowStreamDialog(follow_type_t type, guint stream_num, guint sub_stream_num, bool use_stream_index = true);
-    void openFollowStreamDialogForType(follow_type_t type);
+    void openFollowStreamDialog(int proto_id, guint stream_num, guint sub_stream_num, bool use_stream_index = true);
+    void openFollowStreamDialog(int proto_id);
 
     void statCommandExpertInfo(const char *, void *);
-    void on_actionAnalyzeExpertInfo_triggered();
 
     void on_actionHelpContents_triggered();
     void on_actionHelpMPWireshark_triggered();
@@ -591,8 +582,6 @@ private slots:
     void on_actionToolsCredentials_triggered();
 
     void externalMenuItem_triggered();
-
-    void on_actionAnalyzeShowPacketBytes_triggered();
 
     void on_actionContextWikiProtocolPage_triggered();
     void on_actionContextFilterFieldReference_triggered();

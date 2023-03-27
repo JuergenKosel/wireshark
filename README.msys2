@@ -1,69 +1,47 @@
-This document contains instructions to build Wireshark natively on Windows
+This document contains instructions on how to build and install Wireshark on Windows
 using GCC and MinGW-w64 with the MSYS2 distribution.
 
-Steps to setup the build environment:
+The MSYS2 installer can be downloaded from https://www.msys2.org.
 
-1. Download and install MSYS2 from https://www.msys2.org.
+Wireshark is available as an MSYS2 binary package[1]. It can be installed using pacman,
+for example using the UCRT64 shell:
 
-2. Open the MSYS2 MSYS shell.
+    $ pacman -S mingw-w64-ucrt-x86_64-wireshark
 
-3. Update with "pacman -Syu" as many times as necessary. You may also wish
-   to install base-devel at this point: pacman -S base-devel. Anytime you
-   want to run pacman it's recommended to do so from the MSYS shell.
+If you wish to build wireshark from source code keep reading.
 
-4. Install pactoys for convenience:
+How to build Wireshark from source:
 
-     $ pacman -S pactoys
+1. Open the shell for the selected 64-bit environment.
 
-5. Install the dependencies. From the source directory run:
+2. Build using CMake + Ninja:
 
-     $ ./tools/msys2-setup.sh --install-all
-   
-   Individual packages can be installed using pacboy:
+    $ cd $srcdir
+    $ mkdir build && cd build
+    $ cmake ..
+    $ ninja
+    $ ninja test        # optional
+    $ ninja install     # optional
 
-     $ pacboy -S toolchain:x cmake:x ninja:x ccache:x
+The application should be launched using the same shell. Alternatively you
+can also use the PKGBUILD included in the Wireshark distribution.
 
-   There isn't a native git package provided with MSYS2 so it's recommended that
-   you continue using the Git-For-Windows installer (or see [1]).
+Currently the MSYS2 build has the following limitations compared to
+the build using Visual Studio (MSVC):
 
-From this point on it's a typical ninja build:
+* The Event Tracing for Windows (ETW) extcap cannot be compiled using MinGW-w64.
 
-1. Open the MSYS2 MINGW64 shell.
+* Lua version is 5.1 (MSVC uses Lua 5.2) and does not have UTF-8 patches[2].
 
-2. Create the build directory. This example will assume the build directory
-   is under the source directory:
+* Enhanced Kerberos dissection with decryption is not available.
 
-     $ cd $srcdir && mkdir build && cd build
+* AirPcap SDK is not available. AirPcap is EOL and currently there is no plan to
+  add support for it with MSYS2 builds.
 
-3. Run cmake:
-
-     $ cmake -DENABLE_CCACHE=Yes -DENABLE_WERROR=No ..
-
-4. Build by running "ninja" in the build directory:
-
-     $ ninja
-
-Currently the Wireshark MinGW-w64 build using MSYS2 has the following
-limitations:
-
-* The ETW extcap (etwdump) does not build.
-
-* Some optional dependencies are not available in the official MSYS2
-  repositories. These are:
-
-    - AirPcap
-    - libsmi
-    - Kerberos
-    - Lua-unicode (Lua 5.1 is available and can be used instead)
-    - SBC codec
-    - BCG729 codec
-
-* There is no Wireshark binary package available. More work is
-  needed to implement this. To be decided if it will use NSIS or something
-  else.
-
-* Many compiler warnings to be fixed.
+* TODO: Add a stand-alone distributable binary installer that can be
+  deployed outside the MSYS2 environment.
 
 References:
 
-[1]https://github.com/git-for-windows/git/wiki/Install-inside-MSYS2-proper
+[1]https://packages.msys2.org/base/mingw-w64-wireshark
+[2]https://github.com/Lekensteyn/lua-unicode

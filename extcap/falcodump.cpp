@@ -81,9 +81,8 @@ struct plugin_configuration {
     std::vector<struct config_properties> property_list;
 
     std::string json_config() {
-        json_dumper dumper = {
-            .output_string = g_string_new(NULL),
-        };
+        json_dumper dumper = {};
+        dumper.output_string = g_string_new(NULL);
 
         json_dumper_begin_object(&dumper);
 
@@ -118,8 +117,6 @@ struct plugin_configuration {
     }
 };
 
-//using config_override_func = void(*)(int, const char *, const char *);
-
 // Read a line without trailing (CR)LF. Returns -1 on failure. Copied from addr_resolv.c.
 // XXX Use g_file_get_contents or GMappedFile instead?
 static int
@@ -138,7 +135,7 @@ void print_cloudtrail_aws_profile_config(int arg_num, const char *display, const
     char buf[MAX_AWS_LINELEN];
     char profile[MAX_AWS_LINELEN];
     FILE *aws_fp;
-    std::set<const std::string>profiles;
+    std::set<std::string>profiles;
 
     // Look in files as specified in https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
     char *cred_path = g_strdup(g_getenv("AWS_SHARED_CREDENTIALS_FILE"));
@@ -213,13 +210,14 @@ void print_cloudtrail_aws_profile_config(int arg_num, const char *display, const
 
 void print_cloudtrail_aws_region_config(int arg_num, const char *display, const char *description) {
     // aws ec2 describe-regions --all-regions --query "Regions[].{Name:RegionName}" --output text
-    std::set<const std::string> regions = {
+    std::set<std::string> regions = {
         "af-south-1",
         "ap-east-1",
         "ap-northeast-1",
         "ap-northeast-2",
         "ap-northeast-3",
         "ap-south-1",
+        "ap-south-2",
         "ap-southeast-1",
         "ap-southeast-2",
         "ap-southeast-3",
@@ -227,6 +225,7 @@ void print_cloudtrail_aws_region_config(int arg_num, const char *display, const 
         "eu-central-1",
         "eu-north-1",
         "eu-south-1",
+        "eu-south-2",
         "eu-west-1",
         "eu-west-2",
         "eu-west-3",
@@ -276,6 +275,18 @@ static void load_plugins(sinsp &inspector) {
     WS_DIR *dir;
     WS_DIRENT *file;
     char *plugin_path = g_build_filename(get_plugins_dir_with_version(), "falco", NULL);
+
+    if ((dir = ws_dir_open(plugin_path, 0, NULL)) != NULL) {
+        while ((file = ws_dir_read_name(dir)) != NULL) {
+            char *libname = g_build_filename(plugin_path, ws_dir_get_name(file), NULL);
+            inspector.register_plugin(libname);
+            g_free(libname);
+        }
+        ws_dir_close(dir);
+    }
+    g_free(plugin_path);
+
+    plugin_path = g_build_filename(get_plugins_pers_dir_with_version(), "falco", NULL);
 
     if ((dir = ws_dir_open(plugin_path, 0, NULL)) != NULL) {
         while ((file = ws_dir_read_name(dir)) != NULL) {
@@ -631,7 +642,7 @@ static bool get_plugin_config_schema(const std::shared_ptr<sinsp_plugin> &plugin
                 ws_warning("replacing: %s\n", schema_blob.substr(key_tok->start - 1, val_tok->end - key_tok->start + 2).c_str());
 #endif
                 schema_blob.replace(key_tok->start - 1, val_tok->end - key_tok->start + 2, ref_body);
-            } catch (std::out_of_range) {
+            } catch (std::out_of_range const&) {
                 ws_warning("Unknown reference %s.", key.c_str());
                 return false;
             }
@@ -941,8 +952,7 @@ int main(int argc, char **argv)
             goto end;
         }
 
-        int fifo_fd = ws_open(extcap_conf->fifo, O_WRONLY|O_BINARY, 0);
-        sinsp_dumper dumper = (&inspector);
+        sinsp_dumper dumper;
 #ifdef DEBUG_SINSP
         inspector.set_debug_mode(true);
         inspector.set_log_stderr();
@@ -955,13 +965,10 @@ int main(int argc, char **argv)
                 goto end;
             }
             inspector.open_plugin(extcap_conf->interface, plugin_source);
-            dumper.fdopen(fifo_fd, false);
-        } catch (sinsp_exception e) {
-            if (dumper.is_open()) {
-                dumper.close();
-            } else {
-                ws_close(fifo_fd);
-            }
+            // scap_dump_open handles "-"
+            dumper.open(&inspector, extcap_conf->fifo, false);
+        } catch (sinsp_exception &e) {
+            dumper.close();
             ws_warning("%s", e.what());
             goto end;
         }
@@ -970,12 +977,20 @@ int main(int argc, char **argv)
         while (!extcap_end_application) {
             try {
                 int32_t res = inspector.next(&evt);
-                if (res != SCAP_SUCCESS) {
+                switch (res) {
+                case SCAP_TIMEOUT:
+                case SCAP_FILTERED_EVENT:
+                    break;
+                case SCAP_SUCCESS:
+                    dumper.dump(evt);
+                    dumper.flush();
+                    break;
+                default:
+                    ws_noisy("Inspector exited with %d", res);
+                    extcap_end_application = true;
                     break;
                 }
-                dumper.dump(evt);
-                dumper.flush();
-            } catch (sinsp_exception e) {
+            } catch (sinsp_exception &e) {
                 ws_warning("%s", e.what());
                 goto end;
             }

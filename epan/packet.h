@@ -598,6 +598,8 @@ WS_DLL_PUBLIC dissector_handle_t create_dissector_handle_with_name(dissector_t d
     const int proto, const char* name);
 WS_DLL_PUBLIC dissector_handle_t create_dissector_handle_with_name_and_description(dissector_t dissector,
     const int proto, const char* name, const char* description);
+WS_DLL_PUBLIC dissector_handle_t create_dissector_handle_with_data(dissector_cb_t dissector,
+    const int proto, void* cb_data);
 
 /** Call a dissector through a handle and if no dissector was found
  * pass it over to the "data" dissector instead.
@@ -772,7 +774,7 @@ extern void free_data_sources(packet_info *pinfo);
  * if the user does a File->Save-As of only the Displayed packets and the
  * current frame passed the display filter.
  */
-WS_DLL_PUBLIC void mark_frame_as_depended_upon(packet_info *pinfo, guint32 frame_num);
+WS_DLL_PUBLIC void mark_frame_as_depended_upon(frame_data *fd, guint32 frame_num);
 
 /* Structure passed to the frame dissector */
 typedef struct frame_data_s

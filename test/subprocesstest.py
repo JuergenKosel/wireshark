@@ -64,7 +64,7 @@ class LoggingPopen(subprocess.Popen):
         super().__init__(proc_args, *args, **kwargs)
         self.stdout_str = ''
         self.stderr_str = ''
-    
+
     @staticmethod
     def trim_output(out_log, max_lines):
         lines = out_log.splitlines(True)
@@ -118,8 +118,18 @@ class SubprocessTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.exit_ok = 0
+
+        # See ws_exit_codes.h
         self.exit_command_line = 1
-        self.exit_error = 2
+        self.exit_invalid_interface = 2
+        self.exit_invalid_file_error = 3
+        self.exit_invalid_filter_error = 4
+        self.exit_invalid_capability = 5
+        self.exit_iface_no_link_types = 6
+        self.exit_iface_has_no_timestamp_types = 7
+        self.exit_init_failed = 8
+        self.exit_open_error = 9
+
         self.exit_code = None
         self.log_fname = None
         self.log_fd = None
@@ -165,7 +175,14 @@ class SubprocessTestCase(unittest.TestCase):
         # It remains None when running in debug mode (`pytest --pdb`).
         # The property is available since Python 3.4 until at least Python 3.7.
         if self._outcome:
-            for test_case, exc_info in self._outcome.errors:
+            if hasattr(self._outcome, 'errors'):
+                # Python 3.4 - 3.10
+                result = self.defaultTestResult()
+                self._feedErrorsToResult(result, self._outcome.errors)
+            else:
+                # Python 3.11+
+                result = self._outcome.result
+            for test_case, exc_info in (result.errors + result.failures):
                 if exc_info:
                     return True
         # No errors occurred or running in debug mode.

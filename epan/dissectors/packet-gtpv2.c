@@ -6196,29 +6196,27 @@ dissect_gtpv2_node_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 static void
 dissect_gtpv2_fqdn(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, guint16 length, guint8 message_type _U_, guint8 instance _U_, session_args_t * args _U_)
 {
-    int     offset = 0, name_len, tmp;
-    guint8 *fqdn   = NULL;
+    int     offset = 0, name_len;
+    const guint8 *fqdn   = NULL;
 
     /* The FQDN field encoding shall be identical to the encoding of
      * a FQDN within a DNS message of section 3.1 of IETF
      * RFC 1035 [31] but excluding the trailing zero byte.
+     *
+     * XXX: is compression possible?
      */
     if (length > 0) {
         name_len = tvb_get_guint8(tvb, offset);
 
-        if (name_len < 0x20) {
-            fqdn = tvb_get_string_enc(pinfo->pool, tvb, offset + 1, length - 1, ENC_ASCII);
-            for (;;) {
-                if (name_len >= length - 1)
-                    break;
-                tmp = name_len;
-                name_len = name_len + fqdn[tmp] + 1;
-                fqdn[tmp] = '.';
-            }
+        /* "NOTE 1: The FQDN field in the IE is not encoded as a dotted string"
+         * but if the first byte is large (in the letter range or higher),
+         * assume that it is so encoded incorrectly.
+         */
+        if (name_len < 0x40) {
+            proto_tree_add_item_ret_string(tree, hf_gtpv2_fqdn, tvb, offset, length, ENC_APN_STR, wmem_packet_scope(), &fqdn);
         } else {
-            fqdn = tvb_get_string_enc(pinfo->pool, tvb, offset, length, ENC_ASCII);
+            proto_tree_add_item_ret_string(tree, hf_gtpv2_fqdn, tvb, offset, length, ENC_ASCII, wmem_packet_scope(), &fqdn);
         }
-        proto_tree_add_string(tree, hf_gtpv2_fqdn, tvb, offset, length, fqdn);
         proto_item_append_text(item, "%s", fqdn);
     }
 }
@@ -8864,6 +8862,10 @@ track_gtpv2_session(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, gtpv
                         add_gtp_session(pinfo->num, session);
                     }
                 }
+                else if (gtpv2_hdr->message == GTPV2_MODIFY_BEARER_REQUEST) {
+                    /* If MBEAREQ and not already in the list then we create a new session*/
+                    add_gtp_session(pinfo->num, gtp_session_count++);
+                }
             }
         }
     }
@@ -9151,12 +9153,12 @@ void proto_register_gtpv2(void)
     static hf_register_info hf_gtpv2[] = {
         { &hf_gtpv2_response_in,
         { "Response In", "gtpv2.response_in",
-        FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+        FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0x0,
         "The response to this GTP request is in this frame", HFILL }
         },
         { &hf_gtpv2_response_to,
         { "Response To", "gtpv2.response_to",
-        FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+        FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0x0,
         "This is a response to the GTP request in this frame", HFILL }
         },
         { &hf_gtpv2_response_time,
@@ -10866,7 +10868,7 @@ void proto_register_gtpv2(void)
         },
         { &hf_gtpv2_mm_context_ensct,
           {"ENSCT (EPS NAS Security Context Type)", "gtpv2.mm_context_ensct",
-           FT_UINT8, BASE_DEC, VALS(gtpv2_mm_context_eps_nas_security_context_type_vals), 0x01,
+           FT_UINT8, BASE_DEC, VALS(gtpv2_mm_context_eps_nas_security_context_type_vals), 0x03,
            NULL, HFILL}
         },
         { &hf_gtpv2_mm_context_samb_ri,

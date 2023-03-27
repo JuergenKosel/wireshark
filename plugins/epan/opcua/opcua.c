@@ -224,8 +224,9 @@ static int dissect_opcua_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
             guint8 chunkType = 0;
             guint32 opcua_seqid = 0;
             guint32 opcua_num = 0;
-            guint32 opcua_seqnum = 0;
+            guint32 opcua_seqnum;
             fragment_head *frag_msg = NULL;
+            fragment_item *frag_i = NULL;
 
             offset = 3;
 
@@ -281,8 +282,15 @@ static int dissect_opcua_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
                        arbitrary value, so we have to fake the numbers in the stored fragments.
                        this way Wireshark reassembles the message, as it expects the fragment
                        sequence numbers to start at 0 */
-                    while (frag_msg->next) {frag_msg = frag_msg->next;}
-                    opcua_seqnum = frag_msg->offset + 1;
+                    for (frag_i = frag_msg->next; frag_i; frag_i = frag_i->next) {}
+                    if (frag_i) {
+                        opcua_seqnum = frag_i->offset + 1;
+                    } else {
+                        /* We should never have a fragment head with no fragment items, but
+                         * just in case.
+                         */
+                        opcua_seqnum = 0;
+                    }
 
                     if (chunkType == 'F')
                     {

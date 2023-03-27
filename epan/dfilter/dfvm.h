@@ -21,6 +21,7 @@ typedef enum {
 	EMPTY,
 	FVALUE,
 	HFINFO,
+	RAW_HFINFO,
 	INSN_NUMBER,
 	REGISTER,
 	INTEGER,
@@ -121,7 +122,7 @@ dfvm_value_t*
 dfvm_value_new_fvalue(fvalue_t *fv);
 
 dfvm_value_t*
-dfvm_value_new_hfinfo(header_field_info *hfinfo);
+dfvm_value_new_hfinfo(header_field_info *hfinfo, gboolean raw);
 
 dfvm_value_t*
 dfvm_value_new_register(int reg);
@@ -139,12 +140,15 @@ dfvm_value_t*
 dfvm_value_new_guint(guint num);
 
 void
-dfvm_dump(FILE *f, dfilter_t *df);
+dfvm_dump(FILE *f, dfilter_t *df, uint16_t flags);
 
 char *
-dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references);
+dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df,  uint16_t flags);
 
 gboolean
 dfvm_apply(dfilter_t *df, proto_tree *tree);
+
+fvalue_t *
+dfvm_get_raw_fvalue(const field_info *fi);
 
 #endif

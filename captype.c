@@ -27,12 +27,12 @@
 
 #include <wiretap/wtap.h>
 
-#include <ui/cmdarg_err.h>
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <cli_main.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>

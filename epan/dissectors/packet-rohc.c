@@ -69,6 +69,7 @@ static int hf_rohc_opt_loss = -1;
 static int hf_rohc_profile = -1;
 static int hf_rohc_d_bit = -1;
 static int hf_rohc_ip_version = -1;
+static int hf_rohc_ip_version_ip_profile = -1;
 static int hf_rohc_ip_protocol = -1;
 static int hf_rohc_static_ipv4 = -1;
 static int hf_rohc_ipv4_src = -1;
@@ -297,8 +298,18 @@ static const value_string rohc_opt_type_vals[] =
 
 static const value_string rohc_ip_version_vals[] =
 {
+    { 0,    "Unknown" },
     { 4,    "IPv4" },
     { 6,    "IPv6" },
+    { 0, NULL },
+};
+
+static const value_string rohc_ip_version_ip_profile_vals[] =
+{
+    { 0x4,    "IPv4" },
+    { 0x6,    "IPv6" },
+    { 0xc,    "IPv4" },
+    { 0xe,    "IPv6" },
     { 0, NULL },
 };
 
@@ -2188,7 +2199,13 @@ dissect_rohc_ir_rtp_udp_ip_profile_static(tvbuff_t *tvb, proto_tree *tree, packe
     /* for all profiles except uncompressed */
     if (profile != ROHC_PROFILE_UNCOMPRESSED) {
         version = tvb_get_guint8(tvb,offset)>>4;
-        ver_item = proto_tree_add_item(sub_tree, hf_rohc_ip_version, tvb, offset, 1, ENC_BIG_ENDIAN);
+        if (profile == ROHC_PROFILE_IP) {
+            /* RFC 3843 chapter 3.1; alternate encoding can set IP version field MSB to 1 */
+            version &= 0x07;
+            ver_item = proto_tree_add_item(sub_tree, hf_rohc_ip_version_ip_profile, tvb, offset, 1, ENC_BIG_ENDIAN);
+        } else {
+            ver_item = proto_tree_add_item(sub_tree, hf_rohc_ip_version, tvb, offset, 1, ENC_BIG_ENDIAN);
+        }
         rohc_cid_context->rohc_ip_version = version;
 
         switch (version) {
@@ -2412,7 +2429,10 @@ dissect_rohc_ir_packet(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         proto_tree_add_item(ir_tree, hf_rohc_d_bit, tvb, x_bit_offset, 1, ENC_BIG_ENDIAN);
     }
 
-    /* Profile */
+    /* Profile.
+     *  In the IR packet, the profile identifier is abbreviated to the 8 least
+     * significant bits.  It selects the highest-number profile in the
+     * channel state parameter PROFILES that matches the 8 LSBs given. */
     proto_tree_add_item(ir_tree, hf_rohc_profile, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
 
@@ -2452,7 +2472,7 @@ dissect_rohc_ir_packet(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         } else {
             rohc_cid_context = wmem_new(wmem_file_scope(), rohc_cid_context_t);
             rohc_cid_context->large_cid_present = p_rohc_info->large_cid_present;
-            /*rohc_cid_context->mode     mode;*/
+            rohc_cid_context->mode = 0;
             /*rohc_cid_context->d_mode;*/
             rohc_cid_context->rnd = FALSE;
             rohc_cid_context->udp_checksum_present = FALSE;
@@ -2576,9 +2596,8 @@ dissect_rohc_ir_dyn_packet(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
             p_add_proto_data(wmem_file_scope(), pinfo, proto_rohc, 0, rohc_cid_context);
         } else {
             rohc_cid_context = wmem_new(wmem_file_scope(), rohc_cid_context_t);
-            /*rohc_cid_context->rohc_ip_version;*/
+            rohc_cid_context->rohc_ip_version = 0;
             rohc_cid_context->large_cid_present = p_rohc_info->large_cid_present;
-            /*rohc_cid_context->mode     mode;*/
             /*rohc_cid_context->d_mode;*/
             rohc_cid_context->rnd = FALSE;
             rohc_cid_context->udp_checksum_present = FALSE;
@@ -3150,6 +3169,12 @@ proto_register_rohc(void)
             { &hf_rohc_ip_version,
               { "Version","rohc.ip.version",
                 FT_UINT8, BASE_DEC, VALS(rohc_ip_version_vals), 0xf0,
+                NULL , HFILL
+              }
+            },
+            { &hf_rohc_ip_version_ip_profile,
+              { "Version","rohc.ip.version",
+                FT_UINT8, BASE_DEC, VALS(rohc_ip_version_ip_profile_vals), 0xf0,
                 NULL , HFILL
               }
             },

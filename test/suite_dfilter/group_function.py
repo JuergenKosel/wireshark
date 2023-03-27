@@ -66,6 +66,15 @@ class case_dfunction_maxmin(unittest.TestCase):
         dfilter = 'max(udp.srcport, udp.dstport) < 5060'
         checkDFilterCount(dfilter, 1)
 
+    def test_max_4(self, checkDFilterCount):
+        dfilter = 'max(5060, udp.dstport) == udp.srcport'
+        checkDFilterCount(dfilter, 2)
+
+    def test_max_5(self, checkDFilterFail):
+        error = 'Constant expression is invalid on the LHS'
+        dfilter = 'max(5060, 5070) == udp.srcport'
+        checkDFilterFail(dfilter, error)
+
 @fixtures.uses_fixtures
 class case_dfunction_abs(unittest.TestCase):
     trace_file = "dhcp.pcapng"

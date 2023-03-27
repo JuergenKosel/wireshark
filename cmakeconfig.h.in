@@ -34,6 +34,9 @@
 /* Link Wireshark libraries statically */
 #cmakedefine ENABLE_STATIC 1
 
+/* Enable AddressSanitizer (and LeakSanitizer on clang/gcc) */
+#cmakedefine ENABLE_ASAN 1
+
 /* Enable AirPcap */
 #cmakedefine HAVE_AIRPCAP 1
 
@@ -163,6 +166,9 @@
 /* Define to use Lua */
 #cmakedefine HAVE_LUA 1
 
+/* Define to 1 if we have Lua with Unicode for Windows patches. */
+#cmakedefine HAVE_LUA_UNICODE 1
+
 /* Define to use MIT kerberos */
 #cmakedefine HAVE_MIT_KERBEROS 1
 
@@ -229,14 +235,14 @@
 /* Define to 1 if you have the bcg729 library. */
 #cmakedefine HAVE_BCG729 1
 
+/* Define to 1 if you have the opencore-amrnb library. */
+#cmakedefine HAVE_AMRNB 1
+
 /* Define to 1 if you have the ilbc library. */
 #cmakedefine HAVE_ILBC 1
 
 /* Define to 1 if you have the opus library. */
 #cmakedefine HAVE_OPUS 1
-
-/* Define to 1 if you have the speexdsp library. */
-#cmakedefine HAVE_SPEEXDSP 1
 
 /* Define to 1 if you have the lixbml2 library. */
 #cmakedefine HAVE_LIBXML2 1
@@ -309,6 +315,9 @@
 /* Define to 1 if the 'ssize_t' type exists. */
 #cmakedefine HAVE_SSIZE_T 1
 
+/* Define to 1 if we are using the msys2 environment to build. */
+#cmakedefine HAVE_MSYSTEM 1
+
 #if defined(_MSC_VER)
 #  define strncasecmp strnicmp
 #  define popen       _popen
@@ -324,10 +333,75 @@
 #  ifndef __STDC__
 #    define __STDC__ 0
 #  endif
+
+/*
+ * Make sure everyone is using the same API and that it's sufficient
+ * for our needs.
+ * This should match the following:
+ * - The <compatibility><application> section in resources\wireshark.exe.manifest.in
+ * - The GetWindowsVersion parts of packaging\nsis\wireshark.nsi
+ * - The VersionNT parts of packaging\wix\Prerequisites.wxi
+ */
+#  ifndef NTDDI_VERSION
+#  define NTDDI_VERSION   NTDDI_WIN7
+#  endif
+
+#  ifndef _WIN32_WINNT
+#  define _WIN32_WINNT    _WIN32_WINNT_WIN7
+#  endif
 #endif
 
 #ifdef HAVE_PCRE2
 #define PCRE2_CODE_UNIT_WIDTH  8
+#endif
+
+/*
+ * If HAVE_PCAP_REMOTE is defined, it forces the WinPcap header files to
+ * define things required for remote capture, by defining HAVE_REMOTE.
+ *
+ * With all versions of the WinPcap SDK, if:
+ *
+ *    1) you are building with any current WinPcap SDK;
+ *    2) you do not define HAVE_REMOTE before including pcap.h (or
+ *       pcap/pcap.h);
+ *    3) you define a struct pcap_stat and pass it to a call to
+ *       pcap_stats();
+ *    4) the system you're running on has WinPcap, rather than Npcap,
+ *       installed;
+ *
+ * whatever is in memory after the struct pcap_stat may get overwritten,
+ * with unpredictable results, because the pcap_stats() implementation for
+ * WinPcap will assume that the structure has the additional members that
+ * are added if and only if HAVE_REMOTE is defined, and will fill them in,
+ * even if they're not there.
+ *
+ * Yes, this is q WinPcap bug; if your project has a public header file
+ * that checks or otherwise uses a #define that's defined by your project's
+ * configuration process, and don't ensure that it's always defined
+ * appropriately when that header file is included, before its first use,
+ * you have made a mistake.
+ *
+ * In libpcap 1.7.0 and later, the pcap_stats() implementation for WinPcap
+ * will not fill those fields in; however, no WinPcap implementation was
+ * based on that recent a libpcap release, so they all have the bug.
+ *
+ * Npcap was originally based on libpcap 1.8.0, and later releases are
+ * based on later releases of libpcap, so they will not overwrite memory
+ * past the end of the structure.
+ *
+ * The header file bug is fixed in libpcap 1.9.0 or later - the fields
+ * are present on Windows, regardless of whether HAVE_REMOTE is defined
+ * or not when the header is included (and are not present on UN*X), so
+ * if you build with an SDK with libpcap 1.9.0 or later headers, you
+ * do not need to define HAVE_REMOTE before including pcap.h (including it
+ * will make no difference).
+ *
+ * No version of the WinPcap SDK provided libpcap 1.9.0-or-later headers.
+ * The Npcap SDK, as of SDK version 1.04, provides them, so this is
+ * only necessary for building with the WinPcap SDK.
+ */
+#ifdef HAVE_PCAP_REMOTE
+#define HAVE_REMOTE
 #endif
 
 #include <ws_log_defs.h>

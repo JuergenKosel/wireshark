@@ -463,6 +463,8 @@ static int hf_smb2_share_caps_assymetric = -1;
 static int hf_smb2_share_caps_redirect_to_owner = -1;
 static int hf_smb2_create_flags = -1;
 static int hf_smb2_lock_count = -1;
+static int hf_smb2_lock_sequence_number = -1;
+static int hf_smb2_lock_sequence_index = -1;
 static int hf_smb2_min_count = -1;
 static int hf_smb2_remaining_bytes = -1;
 static int hf_smb2_channel_info_offset = -1;
@@ -4082,13 +4084,9 @@ dissect_smb2_tree_connect_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
 	offset = dissect_smb2_olb_tvb_max_offset(offset, &olb);
 
-	/* treelen  +1 is overkill here if the string is unicode,
-	 * but who ever has more than a handful of TCON in a trace anyways
-	 */
 	if (!pinfo->fd->visited && si->saved && buf && olb.len) {
 		si->saved->extra_info_type = SMB2_EI_TREENAME;
-		si->saved->extra_info = wmem_alloc(wmem_file_scope(), olb.len+1);
-		snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
+		si->saved->extra_info = wmem_strdup(wmem_file_scope(), buf);
 	}
 
 	if (buf) {
@@ -4417,8 +4415,7 @@ dissect_smb2_find_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 
 	if (!pinfo->fd->visited && si->saved && olb.len) {
 		si->saved->extra_info_type = SMB2_EI_FINDPATTERN;
-		si->saved->extra_info = wmem_alloc(wmem_file_scope(), olb.len+1);
-		snprintf((char *)si->saved->extra_info,olb.len+1,"%s",buf);
+		si->saved->extra_info = wmem_strdup(wmem_file_scope(), buf);
 	}
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, " %s Pattern: %s",
@@ -6164,8 +6161,9 @@ dissect_smb2_lock_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 	proto_tree_add_item(tree, hf_smb2_lock_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
-	/* reserved */
-	proto_tree_add_item(tree, hf_smb2_reserved, tvb, offset, 4, ENC_NA);
+	/* Lock Sequence Number/Index */
+	proto_tree_add_item(tree, hf_smb2_lock_sequence_number, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	proto_tree_add_item(tree, hf_smb2_lock_sequence_index, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 	offset += 4;
 
 	/* fid */
@@ -6292,6 +6290,7 @@ dissect_file_data_smb2_pipe(tvbuff_t *raw_tvb, packet_info *pinfo, proto_tree *t
 	const smb2_fid_info_t *file = NULL;
 	guint32 id;
 	fragment_head *fd_head;
+	fragment_item *fd_i;
 	tvbuff_t *tvb;
 	tvbuff_t *new_tvb;
 	proto_item *frag_tree_item;
@@ -6391,12 +6390,10 @@ dissect_file_data_smb2_pipe(tvbuff_t *raw_tvb, packet_info *pinfo, proto_tree *t
 		   we might pick up from the Read/Write calls instead of
 		   assuming we always get them in the correct order
 		*/
-		while (fd_head->next) {
-			fd_head = fd_head->next;
-		}
+		for (fd_i = fd_head->next; fd_i->next; fd_i = fd_i->next) {}
 		fd_head = fragment_add_check(&smb2_pipe_reassembly_table,
 			tvb, 0, pinfo, id, NULL,
-			fd_head->offset+fd_head->len,
+			fd_i->offset+fd_i->len,
 			reported_len, TRUE);
 
 		/* if we completed reassembly */
@@ -8215,13 +8212,11 @@ add_timestamp_to_info_col(tvbuff_t *tvb, packet_info *pinfo, smb2_info_t *si,
 	if (!pinfo->fd->visited) {
 		if (si->saved && si->saved->extra_info_type == SMB2_EI_FILENAME) {
 			gchar *saved_name = (gchar *)si->saved->extra_info;
-			gulong len = (gulong)strlen(saved_name);
 
-			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), len + 32 + 1);
-			snprintf((gchar *)si->saved->extra_info,
-				   len + 32 + 1 , "%s@%s", (char *)saved_name,
-				   abs_time_to_str(pinfo->pool, &ts,
-					           ABSOLUTE_TIME_UTC, FALSE));
+			si->saved->extra_info = wmem_strdup_printf(wmem_file_scope(),
+				"%s@%s", (char *)saved_name,
+				abs_time_to_str(pinfo->pool, &ts,
+					ABSOLUTE_TIME_UTC, FALSE));
 			wmem_free(wmem_file_scope(), saved_name);
 		}
 	}
@@ -9179,8 +9174,7 @@ dissect_smb2_create_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		}
 		if (si->saved && f_olb.len < 1024) {
 			si->saved->extra_info_type = SMB2_EI_FILENAME;
-			si->saved->extra_info = (gchar *)wmem_alloc(wmem_file_scope(), f_olb.len+1);
-			snprintf((gchar *)si->saved->extra_info, f_olb.len+1, "%s", fname);
+			si->saved->extra_info = wmem_strdup(wmem_file_scope(), fname);
 		}
 	}
 
@@ -12773,6 +12767,16 @@ proto_register_smb2(void)
 		{ &hf_smb2_lock_count,
 			{ "Lock Count", "smb2.lock_count", FT_UINT16, BASE_DEC,
 			NULL, 0, NULL, HFILL }
+		},
+
+		{ &hf_smb2_lock_sequence_number,
+			{ "Lock Sequence Number", "smb2.lock_sequence_number", FT_UINT32, BASE_DEC,
+			NULL, 0x0000000F, NULL, HFILL }
+		},
+
+		{ &hf_smb2_lock_sequence_index,
+			{ "Lock Sequence Index", "smb2.lock_sequence_index", FT_UINT32, BASE_DEC,
+			NULL, 0xFFFFFFF0, NULL, HFILL }
 		},
 
 		{ &hf_smb2_capabilities,

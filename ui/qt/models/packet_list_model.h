@@ -22,6 +22,8 @@
 #include <QFont>
 #include <QVector>
 
+#include <ui/qt/progress_frame.h>
+
 #include "packet_list_record.h"
 
 #include "cfile.h"
@@ -72,6 +74,10 @@ public:
     void setDisplayedFrameIgnore(gboolean set);
     void toggleFrameRefTime(const QModelIndex &rt_index);
     void unsetAllFrameRefTime();
+    void addFrameComment(const QModelIndexList &indices, const QByteArray &comment);
+    void setFrameComment(const QModelIndex &index, const QByteArray &comment, guint c_number);
+    void deleteFrameComments(const QModelIndexList &indices);
+    void deleteAllFrameComments();
 
     void setMaximumRowHeight(int height);
 
@@ -84,6 +90,7 @@ signals:
 
 public slots:
     void sort(int column, Qt::SortOrder order = Qt::AscendingOrder);
+    void stopSorting();
     void flushVisibleRows();
     void dissectIdle(bool reset = false);
 
@@ -106,10 +113,13 @@ private:
     static bool recordLessThan(PacketListRecord *r1, PacketListRecord *r2);
     static double parseNumericColumn(const QString &val, bool *ok);
 
+    static gboolean stop_flag_;
+    static ProgressFrame *progress_frame_;
+    static double exp_comps_;
+    static double comps_;
+
     QElapsedTimer *idle_dissection_timer_;
     int idle_dissection_row_;
-
-    struct _GStringChunk *string_cache_pool_;
 
     bool isNumericColumn(int column);
 

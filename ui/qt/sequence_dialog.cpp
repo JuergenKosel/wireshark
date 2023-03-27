@@ -78,6 +78,7 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
     QAction *action;
 
     ui->setupUi(this);
+    ui->hintLabel->setSmallText();
 
     QCustomPlot *sp = ui->sequencePlot;
     setWindowSubtitle(info_ ? tr("Call Flow") : tr("Flow"));
@@ -388,8 +389,7 @@ void SequenceDialog::mouseMoved(QMouseEvent *event)
                 current_rtp_sai_hovered_ = sai;
             }
             packet_num_ = sai->frame_number;
-            QString raw_comment = html_escape(sai->comment);
-            hint = QString("Packet %1: %2").arg(packet_num_).arg(raw_comment);
+            hint = QString("Packet %1: %2").arg(packet_num_).arg(sai->comment);
         }
     }
 
@@ -402,8 +402,6 @@ void SequenceDialog::mouseMoved(QMouseEvent *event)
         }
     }
 
-    hint.prepend("<small><i>");
-    hint.append("</i></small>");
     ui->hintLabel->setText(hint);
 }
 

@@ -290,6 +290,7 @@ static expert_field ei_sip_header_not_terminated = EI_INIT;
 #if 0
 static expert_field ei_sip_odd_register_response = EI_INIT;
 #endif
+static expert_field ei_sip_call_id_invalid = EI_INIT;
 static expert_field ei_sip_sipsec_malformed = EI_INIT;
 static expert_field ei_sip_via_sent_by_port = EI_INIT;
 static expert_field ei_sip_content_length_invalid = EI_INIT;
@@ -1213,19 +1214,19 @@ static void dfilter_sip_request_line(tvbuff_t *tvb, proto_tree *tree, packet_inf
 static void dfilter_sip_status_line(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, gint line_end, gint offset);
 static void tvb_raw_text_add(tvbuff_t *tvb, int offset, int length, proto_tree *tree);
 static guint sip_is_packet_resend(packet_info *pinfo,
-                gchar* cseq_method,
+                const char *cseq_method,
                 gchar* call_id,
                 guchar cseq_number_set, guint32 cseq_number,
                 line_type_t line_type);
 
 static guint sip_find_request(packet_info *pinfo,
-                gchar* cseq_method,
+                const char *cseq_method,
                 gchar* call_id,
                 guchar cseq_number_set, guint32 cseq_number,
                 guint32 *response_time);
 
 static guint sip_find_invite(packet_info *pinfo,
-                gchar* cseq_method,
+                const char *cseq_method,
                 gchar* call_id,
                 guchar cseq_number_set, guint32 cseq_number,
                 guint32 *response_time);
@@ -1327,7 +1328,7 @@ typedef struct
 {
     guint32             cseq;
     transaction_state_t transaction_state;
-    gchar               method[MAX_CSEQ_METHOD_SIZE];
+    const char         *method;
     nstime_t            request_time;
     guint32             response_code;
     gint                frame_number;
@@ -3322,6 +3323,14 @@ dissect_sip_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
     }
 
     remaining_length = tvb_reported_length(tvb);
+    /* If we have exactly one non printable byte of payload, this is
+     * probably just a keep alive at the beginning of a capture. Better
+     * to treat it as such than to mark it and everything up to the next
+     * line end as Continuation Data.
+     */
+    if (remaining_length == 1 && !g_ascii_isprint(octet)) {
+        return 0;
+    }
     /* Check if we have enough data or if we need another segment, as a safty measure set a length limit*/
     if (remaining_length < 1500){
         linelen = tvb_find_line_end(tvb, offset, remaining_length, NULL, TRUE);
@@ -3424,8 +3433,8 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
     guchar contacts = 0, contact_is_star = 0, expires_is_0 = 0, contacts_expires_0 = 0, contacts_expires_unknown = 0;
     guint32 cseq_number = 0;
     guchar  cseq_number_set = 0;
-    char    cseq_method[MAX_CSEQ_METHOD_SIZE] = "";
-    char    call_id[MAX_CALL_ID_SIZE] = "";
+    const char *cseq_method = "";
+    char   *call_id = NULL;
     gchar  *media_type_str_lower_case = NULL;
     http_message_info_t message_info = { SIP_DATA, NULL, NULL, NULL };
     char   *content_encoding_parameter_str = NULL;
@@ -4082,25 +4091,19 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                         strlen_to_copy = (int)value_len-sub_value_offset;
                         if (strlen_to_copy > MAX_CSEQ_METHOD_SIZE) {
                             /* Note the error in the protocol tree */
-                            if (hdr_tree) {
-                                proto_tree_add_string_format(hdr_tree,
+                            proto_tree_add_string_format(hdr_tree,
                                                              hf_header_array[hf_index], tvb,
                                                              offset, next_offset - offset,
                                                              value+sub_value_offset, "%s String too big: %d bytes",
                                                              sip_headers[POS_CSEQ].name,
                                                              strlen_to_copy);
-                            }
                             return offset - orig_offset;
                         }
                         else {
-                            (void) g_strlcpy(cseq_method, value+sub_value_offset, MAX_CSEQ_METHOD_SIZE);
-
                             /* Add CSeq method to the tree */
-                            if (cseq_tree)
-                            {
-                                proto_tree_add_item(cseq_tree, hf_sip_cseq_method, tvb,
-                                                    value_offset + sub_value_offset, strlen_to_copy, ENC_UTF_8);
-                            }
+                            proto_tree_add_item_ret_string(cseq_tree, hf_sip_cseq_method, tvb,
+                                                    value_offset + sub_value_offset, strlen_to_copy, ENC_UTF_8,
+                                                    pinfo->pool, (const guint8 **)&cseq_method);
                         }
                     }
                     break;
@@ -4188,22 +4191,21 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
 
                     case POS_CALL_ID :
                     {
-                        char *value = tvb_get_string_enc(wmem_packet_scope(), tvb, value_offset, value_len, ENC_UTF_8|ENC_NA);
+                        call_id = tvb_get_string_enc(pinfo->pool, tvb, value_offset, value_len, ENC_UTF_8|ENC_NA);
                         proto_item *gen_item;
 
                         /* Store the Call-id */
-                        (void) g_strlcpy(call_id, value, MAX_CALL_ID_SIZE);
-                        stat_info->tap_call_id = wmem_strdup(wmem_packet_scope(), call_id);
+                        stat_info->tap_call_id = call_id;
 
                         /* Add 'Call-id' string item to tree */
                         sip_element_item = proto_tree_add_string(hdr_tree,
                                                     hf_header_array[hf_index], tvb,
                                                     offset, next_offset - offset,
-                                                    value);
+                                                    call_id);
                         gen_item = proto_tree_add_string(hdr_tree,
                                                     hf_sip_call_id_gen, tvb,
                                                     offset, next_offset - offset,
-                                                    value);
+                                                    call_id);
                         proto_item_set_generated(gen_item);
                         if (sip_hide_generatd_call_ids) {
                             proto_item_set_hidden(gen_item);
@@ -4665,6 +4667,15 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
             reported_datalen = content_length;
     }
 
+    if (!call_id) {
+        call_id = wmem_strdup(pinfo->pool, "");
+        expert_add_info(pinfo, hdr_tree, &ei_sip_call_id_invalid);
+        /* XXX: The hash table lookups below (setup time, request/response,
+         * resend) are less reliable when the mandatory Call-Id header field
+         * is missing.
+         */
+    }
+
     /* Add to info column interesting things learned from header fields. */
 
     /* for either REGISTER requests or responses, any contacts without expires
@@ -4793,7 +4804,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
             (!strncmp(content_encoding_parameter_str, "gzip", 4) ||
              !strncmp(content_encoding_parameter_str,"deflate",7))){
             /* The body is gzip:ed */
-            next_tvb = tvb_uncompress(tvb, offset,  datalen);
+            next_tvb = tvb_child_uncompress(tvb, tvb, offset,  datalen);
             if (next_tvb) {
                 add_new_data_source(pinfo, next_tvb, "gunzipped data");
                 if(sip_tree) {
@@ -5239,7 +5250,7 @@ tvb_raw_text_add(tvbuff_t *tvb, int offset, int length, proto_tree *tree)
 /* Check to see if this packet is a resent request.  Return value is the frame number
    of the original frame this packet seems to be resending (0 = no resend). */
 guint sip_is_packet_resend(packet_info *pinfo,
-            gchar *cseq_method,
+            const char *cseq_method,
             gchar *call_id,
             guchar cseq_number_set,
             guint32 cseq_number, line_type_t line_type)
@@ -5317,7 +5328,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
         if (cseq_number != p_val->cseq)
         {
             p_val->cseq = cseq_number;
-            (void) g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
+            p_val->method = wmem_strdup(wmem_file_scope(), cseq_method);
             p_val->transaction_state = nothing_seen;
             p_val->frame_number = 0;
             if (line_type == REQUEST_LINE)
@@ -5346,7 +5357,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
         }
 
         p_val->cseq = cseq_number;
-        (void) g_strlcpy(p_val->method, cseq_method, MAX_CSEQ_METHOD_SIZE);
+        p_val->method = wmem_strdup(wmem_file_scope(), cseq_method);
         p_val->transaction_state = nothing_seen;
         if (line_type == REQUEST_LINE)
         {
@@ -5437,7 +5448,7 @@ guint sip_is_packet_resend(packet_info *pinfo,
 /* Check to see if this packet is a resent request.  Return value is the frame number
    of the original frame this packet seems to be resending (0 = no resend). */
 guint sip_find_request(packet_info *pinfo,
-            gchar *cseq_method,
+            const char *cseq_method,
             gchar *call_id,
             guchar cseq_number_set,
             guint32 cseq_number,
@@ -5549,7 +5560,7 @@ guint sip_find_request(packet_info *pinfo,
  * Find the initial INVITE to calculate the total setup time
  */
 guint sip_find_invite(packet_info *pinfo,
-            gchar *cseq_method _U_,
+            const char *cseq_method _U_,
             gchar *call_id,
             guchar cseq_number_set,
             guint32 cseq_number _U_,
@@ -7554,6 +7565,7 @@ void proto_register_sip(void)
 #if 0
         { &ei_sip_odd_register_response, { "sip.response.unusual", PI_RESPONSE_CODE, PI_WARN, "SIP Response is unusual", EXPFILL }},
 #endif
+        { &ei_sip_call_id_invalid, { "sip.Call-ID.invalid", PI_PROTOCOL, PI_WARN, "Call ID is mandatory", EXPFILL }},
         { &ei_sip_sipsec_malformed, { "sip.sec_mechanism.malformed", PI_MALFORMED, PI_WARN, "SIP Security-mechanism header malformed", EXPFILL }},
         { &ei_sip_via_sent_by_port, { "sip.Via.sent-by.port.invalid", PI_MALFORMED, PI_NOTE, "Invalid SIP Via sent-by-port", EXPFILL }},
         { &ei_sip_content_length_invalid, { "sip.content_length.invalid", PI_MALFORMED, PI_NOTE, "Invalid content_length", EXPFILL }},
@@ -7755,7 +7767,7 @@ void proto_register_sip(void)
     ws_mempbrk_compile(&pbrk_via_param_end, "\t;, ");
 
     register_follow_stream(proto_sip, "sip_follow", sip_follow_conv_filter, sip_follow_index_filter, sip_follow_address_filter,
-                           udp_port_to_display, follow_tvb_tap_listener, NULL);
+                           udp_port_to_display, follow_tvb_tap_listener, NULL, NULL);
 }
 
 void

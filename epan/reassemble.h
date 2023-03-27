@@ -51,13 +51,28 @@
 
 typedef struct _fragment_item {
 	struct _fragment_item *next;
-	guint32 frame;			/* XXX - does this apply to reassembly heads? */
-	guint32	offset;			/* XXX - does this apply to reassembly heads? */
-	guint32	len;			/* XXX - does this apply to reassembly heads? */
+	guint32 frame;			/**< frame number where the fragment is from */
+	guint32	offset;			/**< fragment number for FD_BLOCKSEQUENCE, byte
+					 * offset otherwise */
+	guint32	len;			/**< fragment length */
+	guint32 flags;			/**< XXX - do some of these apply only to reassembly
+					 * heads and others only to fragments within
+					 * a reassembly? */
+	tvbuff_t *tvb_data;
+} fragment_item;
+
+typedef struct _fragment_head {
+	struct _fragment_item *next;
+	struct _fragment_item *first_gap;	/**< pointer to last fragment before first gap.
+					 * NULL if there is no fragment starting at offset 0 */
+	guint32 contiguous_len;	/**< contigous length from head up to first gap */
+	guint32 frame;			/**< maximum of all frame numbers added to reassembly */
+	guint32	len;			/**< When flags&FD_BLOCKSEQUENCE and FD_DEFRAGMENTED
+					 * are set, the number of bytes of the full datagram.
+					 * Otherwise not valid. */
 	guint32 fragment_nr_offset;	/**< offset for frame numbering, for sequences, where the
 					 * provided fragment number of the first fragment does
-					 * not start with 0
-					 * XXX - does this apply only to reassembly heads? */
+					 * not start with 0 */
 	guint32 datalen;		/**< When flags&FD_BLOCKSEQUENCE is set, the
 					 * index of the last block (segments in
 					 * datagram + 1); otherwise the number of
@@ -65,11 +80,11 @@ typedef struct _fragment_item {
 					 * the first item of the fragments list when
 					 * flags&FD_DATALEN is set.*/
 	guint32 reassembled_in;		/**< frame where this PDU was reassembled,
-					 * only valid in the first item of the list
-					 * and when FD_DEFRAGMENTED is set*/
-	guint8 reas_in_layer_num;	/**< The current "depth" or layer number in the current frame where reassembly was completed.
-					 * Example: in SCTP there can be several data chunks and we want the reassemblied tvb for the final
-					 * segment only. */
+					 * only valid when FD_DEFRAGMENTED is set */
+	guint8 reas_in_layer_num;	/**< The current "depth" or layer number in the current
+					 * frame where reassembly was completed.
+					 * Example: in SCTP there can be several data chunks and
+					 * we want the reassemblied tvb for the final segment only. */
 	guint32 flags;			/**< XXX - do some of these apply only to reassembly
 					 * heads and others only to fragments within
 					 * a reassembly? */
@@ -77,14 +92,9 @@ typedef struct _fragment_item {
 	/**
 	 * Null if the reassembly had no error; non-null if it had
 	 * an error, in which case it's the string for the error.
-	 *
-	 * XXX - this is wasted in all but the reassembly head; we
-	 * should probably have separate data structures for a
-	 * reassembly and for the fragments in a reassembly.
 	 */
 	const char *error;
-} fragment_item, fragment_head;
-
+} fragment_head;
 
 /*
  * Flags for fragment_add_seq_*
@@ -254,6 +264,22 @@ fragment_add_check(reassembly_table *table, tvbuff_t *tvb, const int offset,
 		   const guint32 frag_data_len, const gboolean more_frags);
 
 /*
+ * Like fragment_add_check, but handles retransmissions after reassembly.
+ *
+ * Start new reassembly only if there is no reassembly in progress and there
+ * is no completed reassembly reachable from fallback_frame. If there is
+ * completed reassembly (reachable from fallback_frame), simply links this
+ * packet into the list, updating the flags if necessary (however actual data
+ * and reassembled in frame won't be modified).
+ */
+WS_DLL_PUBLIC fragment_head *
+fragment_add_check_with_fallback(reassembly_table *table, tvbuff_t *tvb, const int offset,
+		   const packet_info *pinfo, const guint32 id,
+		   const void *data, const guint32 frag_offset,
+		   const guint32 frag_data_len, const gboolean more_frags,
+		   const guint32 fallback_frame);
+
+/*
  * Like fragment_add, but fragments have a block sequence number starting from
  * zero (for the first fragment of each datagram). This differs from
  * fragment_add for which the fragment may start at any offset.
@@ -359,7 +385,8 @@ fragment_start_seq_check(reassembly_table *table, const packet_info *pinfo,
  * Mark end of reassembly and returns the reassembled fragment (if completed).
  * Use it when fragments were added with "more_flags" set while you discovered
  * that no more fragments have to be added.
- * XXX rename to fragment_finish as it works also for fragment_add?
+ * This is for fragments added with add_seq_next; it doesn't check for gaps,
+ * and doesn't set datalen correctly for the fragment_add family.
  */
 WS_DLL_PUBLIC fragment_head *
 fragment_end_seq_next(reassembly_table *table, const packet_info *pinfo,

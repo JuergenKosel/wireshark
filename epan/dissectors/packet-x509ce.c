@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-x509ce.c                                                            */
-/* asn2wrs.py -b -p x509ce -c ./x509ce.cnf -s ./packet-x509ce-template -D . -O ../.. CertificateExtensions.asn CertificateExtensionsCiplus.asn */
+/* asn2wrs.py -b -L -p x509ce -c ./x509ce.cnf -s ./packet-x509ce-template -D . -O ../.. CertificateExtensions.asn CertificateExtensionsCiplus.asn */
 
-/* Input file: packet-x509ce-template.c */
-
-#line 1 "./asn1/x509ce/packet-x509ce-template.c"
 /* packet-x509ce.c
  * Routines for X.509 Certificate Extensions packet dissection
  *  Ronnie Sahlberg 2004
@@ -44,9 +41,6 @@ static int hf_x509ce_id_ce_baseUpdateTime = -1;
 static int hf_x509ce_object_identifier_id = -1;
 static int hf_x509ce_IPAddress_ipv4 = -1;
 static int hf_x509ce_IPAddress_ipv6 = -1;
-
-/*--- Included file: packet-x509ce-hf.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-hf.c"
 static int hf_x509ce_AuthorityKeyIdentifier_PDU = -1;  /* AuthorityKeyIdentifier */
 static int hf_x509ce_SubjectKeyIdentifier_PDU = -1;  /* SubjectKeyIdentifier */
 static int hf_x509ce_KeyUsage_PDU = -1;           /* KeyUsage */
@@ -245,13 +239,7 @@ static int hf_x509ce_EntrustInfoFlags_enterpriseCategory = -1;
 static int hf_x509ce_EntrustInfoFlags_webCategory = -1;
 static int hf_x509ce_EntrustInfoFlags_sETCategory = -1;
 
-/*--- End of included file: packet-x509ce-hf.c ---*/
-#line 40 "./asn1/x509ce/packet-x509ce-template.c"
-
 /* Initialize the subtree pointers */
-
-/*--- Included file: packet-x509ce-ett.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-ett.c"
 static gint ett_x509ce_AuthorityKeyIdentifier = -1;
 static gint ett_x509ce_KeyUsage = -1;
 static gint ett_x509ce_KeyPurposeIDs = -1;
@@ -313,12 +301,6 @@ static gint ett_x509ce_EntrustVersionInfo = -1;
 static gint ett_x509ce_EntrustInfoFlags = -1;
 static gint ett_x509ce_ScramblerCapabilities = -1;
 
-/*--- End of included file: packet-x509ce-ett.c ---*/
-#line 43 "./asn1/x509ce/packet-x509ce-template.c"
-
-/*--- Included file: packet-x509ce-fn.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-fn.c"
-
 
 int
 dissect_x509ce_KeyIdentifier(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
@@ -341,9 +323,7 @@ dissect_x509ce_OtherNameType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_x509ce_OtherNameValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 187 "./asn1/x509ce/x509ce.cnf"
   offset=call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -398,10 +378,8 @@ dissect_x509ce_T_uniformResourceIdentifier(gboolean implicit_tag _U_, tvbuff_t *
                                             actx, tree, tvb, offset, hf_index,
                                             NULL);
 
-#line 190 "./asn1/x509ce/x509ce.cnf"
 
   proto_item_set_url(actx->created_item);
-
 
   return offset;
 }
@@ -410,7 +388,6 @@ dissect_x509ce_T_uniformResourceIdentifier(gboolean implicit_tag _U_, tvbuff_t *
 
 static int
 dissect_x509ce_T_iPAddress(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 172 "./asn1/x509ce/x509ce.cnf"
   switch (tvb_reported_length(tvb)) {
   case 4: /* IPv4 */
     proto_tree_add_item(tree, hf_x509ce_IPAddress_ipv4, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -421,7 +398,6 @@ dissect_x509ce_T_iPAddress(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
     offset += 16;
     break;
   }
-
 
 
   return offset;
@@ -601,9 +577,7 @@ dissect_x509ce_T_policyQualifierId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_,
 
 static int
 dissect_x509ce_T_qualifier(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 169 "./asn1/x509ce/x509ce.cnf"
   offset=call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -1943,9 +1917,6 @@ static int dissect_CicamBrandId_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, p
 }
 
 
-/*--- End of included file: packet-x509ce-fn.c ---*/
-#line 44 "./asn1/x509ce/packet-x509ce-template.c"
-
 /* CI+ (www.ci-plus.com) defines some X.509 certificate extensions
    that use OIDs which are not officially assigned
    dissection of these extensions can be enabled temporarily using the
@@ -2012,9 +1983,6 @@ void proto_register_x509ce(void) {
       { "iPAddress", "x509ce.IPAddress.ipv6", FT_IPv6, BASE_NONE, NULL, 0,
         "IPv6 address", HFILL }},
 
-
-/*--- Included file: packet-x509ce-hfarr.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-hfarr.c"
     { &hf_x509ce_AuthorityKeyIdentifier_PDU,
       { "AuthorityKeyIdentifier", "x509ce.AuthorityKeyIdentifier_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -2799,16 +2767,10 @@ void proto_register_x509ce(void) {
       { "sETCategory", "x509ce.EntrustInfoFlags.sETCategory",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-
-/*--- End of included file: packet-x509ce-hfarr.c ---*/
-#line 112 "./asn1/x509ce/packet-x509ce-template.c"
   };
 
   /* List of subtrees */
   static gint *ett[] = {
-
-/*--- Included file: packet-x509ce-ettarr.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-ettarr.c"
     &ett_x509ce_AuthorityKeyIdentifier,
     &ett_x509ce_KeyUsage,
     &ett_x509ce_KeyPurposeIDs,
@@ -2869,9 +2831,6 @@ void proto_register_x509ce(void) {
     &ett_x509ce_EntrustVersionInfo,
     &ett_x509ce_EntrustInfoFlags,
     &ett_x509ce_ScramblerCapabilities,
-
-/*--- End of included file: packet-x509ce-ettarr.c ---*/
-#line 117 "./asn1/x509ce/packet-x509ce-template.c"
   };
 
   /* Register protocol */
@@ -2886,9 +2845,6 @@ void proto_register_x509ce(void) {
 
 /*--- proto_reg_handoff_x509ce -------------------------------------------*/
 void proto_reg_handoff_x509ce(void) {
-
-/*--- Included file: packet-x509ce-dis-tab.c ---*/
-#line 1 "./asn1/x509ce/packet-x509ce-dis-tab.c"
   register_ber_oid_dissector("2.5.29.3", dissect_CertificatePoliciesSyntax_PDU, proto_x509ce, "id-ce-certificatePolicies");
   register_ber_oid_dissector("2.5.29.9", dissect_AttributesSyntax_PDU, proto_x509ce, "id-ce-subjectDirectoryAttributes");
   register_ber_oid_dissector("2.5.29.14", dissect_SubjectKeyIdentifier_PDU, proto_x509ce, "id-ce-subjectKeyIdentifier");
@@ -2932,9 +2888,6 @@ void proto_reg_handoff_x509ce(void) {
   register_ber_oid_dissector("1.3.6.1.4.1.311.21.10", dissect_CertificatePoliciesSyntax_PDU, proto_x509ce, "id-ms-application-certificate-policies");
   register_ber_oid_dissector("1.2.840.113533.7.65.0", dissect_EntrustVersionInfo_PDU, proto_x509ce, "id-ce-entrustVersionInfo");
 
-
-/*--- End of included file: packet-x509ce-dis-tab.c ---*/
-#line 132 "./asn1/x509ce/packet-x509ce-template.c"
   register_ber_oid_dissector("2.5.29.24", dissect_x509ce_invalidityDate_callback, proto_x509ce, "id-ce-invalidityDate");
   register_ber_oid_dissector("2.5.29.51", dissect_x509ce_baseUpdateTime_callback, proto_x509ce, "id-ce-baseUpdateTime");
   oid_add_from_string("anyPolicy","2.5.29.32.0");

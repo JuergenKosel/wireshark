@@ -229,7 +229,13 @@ public:
         case packets_col_:
             return stream_info_->packet_count < other_rstwi.stream_info_->packet_count;
         case lost_col_:
-            return lost_ < other_rstwi.lost_;
+            rtpstream_info_calculate(stream_info_, &calc1);
+            rtpstream_info_calculate(other_rstwi.stream_info_, &calc2);
+            /* XXX: Should this sort on the total number or the percentage?
+             * lost_num is displayed first and lost_perc in parenthesis,
+             * so let's use the total number.
+             */
+            return calc1.lost_num < calc2.lost_num;
         case min_delta_col_:
             return stream_info_->rtp_stats.min_delta < other_rstwi.stream_info_->rtp_stats.min_delta;
         case mean_delta_col_:
@@ -257,7 +263,6 @@ public:
 
 private:
     rtpstream_info_t *stream_info_;
-    guint32 lost_;
     gboolean tod_;
 };
 
@@ -493,13 +498,16 @@ void RtpStreamDialog::tapReset(rtpstream_tapinfo_t *tapinfo)
         rtp_stream_dialog->freeLastSelected();
         /* Copy currently selected rtpstream_ids */
         QTreeWidgetItemIterator iter(rtp_stream_dialog->ui->streamTreeWidget);
+        rtpstream_id_t selected_id;
         while (*iter) {
             RtpStreamTreeWidgetItem *rsti = static_cast<RtpStreamTreeWidgetItem*>(*iter);
             rtpstream_info_t *stream_info = rsti->streamInfo();
             if ((*iter)->isSelected()) {
-                rtpstream_id_t *i = (rtpstream_id_t *)g_malloc0(sizeof(rtpstream_id_t));
-                rtpstream_id_copy(&stream_info->id, i);
-                rtp_stream_dialog->last_selected_.append(*i);
+                /* QList.append() does a member by member copy, so allocate new
+                 * addresses. rtpstream_id_copy() overwrites all struct members.
+                 */
+                rtpstream_id_copy(&stream_info->id, &selected_id);
+                rtp_stream_dialog->last_selected_.append(selected_id);
             }
             ++iter;
         }

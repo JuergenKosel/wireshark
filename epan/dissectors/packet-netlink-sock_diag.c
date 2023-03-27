@@ -98,6 +98,9 @@ enum ws_inet_diag_attr_type {
 	WS_INET_DIAG_CLASS_ID  = 17,
 	WS_INET_DIAG_MD5SIG    = 18,
 	WS_INET_DIAG_ULP_INFO  = 19,
+	WS_INET_DIAG_SK_BPF_STORAGES = 20,
+	WS_INET_DIAG_CGROUP_ID = 21,
+	WS_INET_DIAG_SOCKOPT   = 22,
 };
 
 enum ws_netlink_diag_show_type {
@@ -502,6 +505,12 @@ static const value_string netlink_sock_diag_inet_attr_vals[] = {
 	{ WS_INET_DIAG_PAD,        "pad" },
 	{ WS_INET_DIAG_MARK,       "mark" },
 	{ WS_INET_DIAG_BBRINFO,    "bbrinfo" },
+	{ WS_INET_DIAG_CLASS_ID,   "class_id" },
+	{ WS_INET_DIAG_MD5SIG,     "md5sig" },
+	{ WS_INET_DIAG_ULP_INFO,   "ulp_info" },
+	{ WS_INET_DIAG_SK_BPF_STORAGES, "sk_bpf_storages" },
+	{ WS_INET_DIAG_CGROUP_ID,  "cgroup_id" },
+	{ WS_INET_DIAG_SOCKOPT,    "sockopt" },
 	{ 0, NULL }
 };
 
@@ -1267,7 +1276,7 @@ proto_register_netlink_sock_diag(void)
 	proto_register_field_array(proto_netlink_sock_diag, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
 
-	netlink_sock_diag_handle = create_dissector_handle(dissect_netlink_sock_diag, proto_netlink_sock_diag);
+	netlink_sock_diag_handle = register_dissector("netlink-sock_diag", dissect_netlink_sock_diag, proto_netlink_sock_diag);
 }
 
 void

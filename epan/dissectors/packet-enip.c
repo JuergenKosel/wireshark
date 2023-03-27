@@ -1108,9 +1108,7 @@ enip_conn_equal(gconstpointer v, gconstpointer w)
   const enip_conn_key_t *v1 = (const enip_conn_key_t *)v;
   const enip_conn_key_t *v2 = (const enip_conn_key_t *)w;
 
-  if ((v1->triad.ConnSerialNumber == v2->triad.ConnSerialNumber) &&
-      (v1->triad.VendorID == v2->triad.VendorID) &&
-      (v1->triad.DeviceSerialNumber == v2->triad.DeviceSerialNumber) &&
+  if (cip_connection_triad_match(&v1->triad, &v2->triad) &&
       ((v1->O2TConnID == 0) || (v2->O2TConnID == 0) || (v1->O2TConnID == v2->O2TConnID)) &&
       ((v1->T2OConnID == 0) || (v2->T2OConnID == 0) || (v1->T2OConnID == v2->T2OConnID)))
     return TRUE;
@@ -1266,13 +1264,19 @@ enip_close_cip_connection(packet_info *pinfo, const cip_connection_triad_t* tria
    conn_key.T2OConnID          = 0;
 
    cip_conn_info_t* conn_val = (cip_conn_info_t*)wmem_map_lookup( enip_conn_hashtable, &conn_key );
-   if ( conn_val )
+   if (!conn_val)
+   {
+      return;
+   }
+
+   // Only mark the first Forward Close Request for a given connection.
+   if (conn_val->close_frame == 0)
    {
       conn_val->close_frame = pinfo->num;
-
-      /* Save the connection info for the conversation filter */
-      p_add_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_CONNECTION_INFO, conn_val);
    }
+
+   /* Save the connection info for the conversation filter */
+   p_add_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_CONNECTION_INFO, conn_val);
 }
 
 /* Save the connection info for the conversation filter */
@@ -2614,7 +2618,7 @@ static void dissect_cip_class01_io(packet_info* pinfo, tvbuff_t* tvb, int offset
       }
       else
       {
-         dissector_handle_t dissector = dissector_get_uint_handle(subdissector_io_table, conn_info->ClassID);
+         dissector_handle_t dissector = dissector_get_uint_handle(subdissector_io_table, conn_info->connection_path.iClass);
          if (dissector)
          {
             call_dissector_with_data(dissector, next_tvb, pinfo, dissector_tree, &io_data_input);
@@ -2660,14 +2664,14 @@ static void dissect_cip_class23_data(packet_info* pinfo, tvbuff_t* tvb, int offs
 
    if (conn_info != NULL)
    {
-      dissector_handle_t dissector = dissector_get_uint_handle(subdissector_cip_connection_table, conn_info->ClassID);
+      dissector_handle_t dissector = dissector_get_uint_handle(subdissector_cip_connection_table, conn_info->connection_path.iClass);
       if (dissector)
       {
-         call_dissector_with_data(dissector, next_tvb, pinfo, dissector_tree, GUINT_TO_POINTER(conn_info->ClassID));
+         call_dissector_with_data(dissector, next_tvb, pinfo, dissector_tree, GUINT_TO_POINTER(conn_info->connection_path.iClass));
       }
       else
       {
-         call_dissector_with_data(cip_implicit_handle, next_tvb, pinfo, dissector_tree, GUINT_TO_POINTER(conn_info->ClassID));
+         call_dissector_with_data(cip_implicit_handle, next_tvb, pinfo, dissector_tree, GUINT_TO_POINTER(conn_info->connection_path.iClass));
       }
    }
    else
@@ -3187,15 +3191,12 @@ dissect_enip_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
          break;
 
       case LIST_SERVICES:
-         dissect_cpf( &request_key, encap_cmd, tvb, pinfo, csftree, tree, enip_tree, NULL, 24, 0 );
-         break;
-
       case LIST_IDENTITY:
-         dissect_cpf( &request_key, encap_cmd, tvb, pinfo, csftree, tree, enip_tree, NULL, 24, 0 );
-         break;
-
       case LIST_INTERFACES:
-         dissect_cpf( &request_key, encap_cmd, tvb, pinfo, csftree, tree, enip_tree, NULL, 24, 0 );
+         if (packet_type == ENIP_RESPONSE_PACKET)
+         {
+            dissect_cpf( &request_key, encap_cmd, tvb, pinfo, csftree, tree, enip_tree, NULL, 24, 0 );
+         }
          break;
 
       case REGISTER_SESSION:
@@ -4219,22 +4220,22 @@ proto_register_enip(void)
 
       { &hf_elink_icapability_capability_bits_manual,
         { "Manual Setting Requires Reset", "cip.elink.icapability.capability_bits.manual",
-          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x0001,
+          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x00000001,
           NULL, HFILL }},
 
       { &hf_elink_icapability_capability_bits_auto_neg,
         { "Auto-negotiate", "cip.elink.icapability.capability_bits.auto_neg",
-          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x0002,
+          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x00000002,
           NULL, HFILL }},
 
       { &hf_elink_icapability_capability_bits_auto_mdix,
         { "Auto-MDIX", "cip.elink.icapability.capability_bits.auto_mdix",
-          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x0004,
+          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x00000004,
           NULL, HFILL } },
 
       { &hf_elink_icapability_capability_bits_manual_speed,
         { "Manual Speed/Duplex", "cip.elink.icapability.capability_bits.manual_speed",
-          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x0008,
+          FT_BOOLEAN, 32, TFS(&tfs_enabled_disabled), 0x00000008,
           NULL, HFILL } },
 
       { &hf_elink_icapability_capability_speed_duplex_array_count,
@@ -5069,7 +5070,7 @@ proto_register_enip(void)
 } /* end of proto_register_enip() */
 
 const value_string lldp_cip_subtypes[] = {
-   { 1, "CIP Identification" },
+   { 1, "Deprecated CIP Identification" },
    { 2, "CIP MAC Address" },
    { 3, "CIP Interface Label" },
    { 4, "Position ID" },
@@ -5077,6 +5078,7 @@ const value_string lldp_cip_subtypes[] = {
    { 6, "Commission Request" },
    { 7, "Commission Response" },
    { 8, "Discover Topology Response" },
+   { 9, "CIP Identification" },
 
 	{ 0, NULL }
 };
@@ -5093,7 +5095,7 @@ int dissect_lldp_cip_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
    {
       case 1:
       {
-         dissect_electronic_key_format(tvb, offset, tree, FALSE, CI_E_SERIAL_NUMBER_KEY_FORMAT_VAL);
+         dissect_electronic_key_format(tvb, offset, tree, FALSE, CI_E_SERIAL_NUMBER_KEY_FORMAT_VAL, ENC_LITTLE_ENDIAN);
          break;
       }
 
@@ -5106,6 +5108,12 @@ int dissect_lldp_cip_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
          // The string is all the data, minus Subtype (1 byte).
          int string_len = total_len - 1;
          proto_tree_add_item(tree, hf_elink_interface_label, tvb, offset, string_len, ENC_ASCII | ENC_NA);
+         break;
+      }
+
+      case 9:
+      {
+         dissect_electronic_key_format(tvb, offset, tree, FALSE, CI_E_SERIAL_NUMBER_KEY_FORMAT_VAL, ENC_BIG_ENDIAN);
          break;
       }
 

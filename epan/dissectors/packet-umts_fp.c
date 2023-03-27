@@ -86,6 +86,7 @@ static int hf_fp_dch_control_frame_type = -1;
 static int hf_fp_dch_rx_timing_deviation = -1;
 static int hf_fp_quality_estimate = -1;
 static int hf_fp_payload_crc = -1;
+static int hf_fp_payload_crc_status = -1;
 static int hf_fp_edch_header_crc = -1;
 static int hf_fp_edch_fsn = -1;
 static int hf_fp_edch_subframe = -1;
@@ -308,12 +309,6 @@ static const value_string division_vals[] =
 static const value_string frame_type_vals[] = {
     { FT_DATA,      "Data" },
     { FT_CONTROL,   "Control" },
-    { 0,   NULL }
-};
-
-static const value_string direction_vals[] = {
-    { 0,   "Downlink" },
-    { 1,   "Uplink" },
     { 0,   NULL }
 };
 
@@ -1012,7 +1007,7 @@ dissect_spare_extension_and_crc(tvbuff_t *tvb, packet_info *pinfo,
                                 int offset, guint header_length)
 {
     int         crc_size = 0;
-    int         remain   = tvb_captured_length_remaining(tvb, offset);
+    int         remain   = tvb_reported_length_remaining(tvb, offset);
 
     /* Payload CRC (optional) */
     if ((dch_crc_present == 1) || ((dch_crc_present == 2) && (remain >= 2))) {
@@ -1029,25 +1024,28 @@ dissect_spare_extension_and_crc(tvbuff_t *tvb, packet_info *pinfo,
     }
 
     if (crc_size) {
-        proto_item * pi = proto_tree_add_item(tree, hf_fp_payload_crc, tvb, offset, crc_size,
-                            ENC_BIG_ENDIAN);
+        guint flags = PROTO_CHECKSUM_NO_FLAGS;
+        guint16 calc_crc = 0;
         if (preferences_payload_checksum) {
-            guint16 calc_crc, read_crc;
+            flags = PROTO_CHECKSUM_VERIFY;
             if ((guint)offset > header_length) {
                 guint8 * data = (guint8 *)tvb_memdup(wmem_packet_scope(), tvb, header_length, offset-header_length);
                 calc_crc = crc16_8005_noreflect_noxor(data, offset-header_length);
-            } else {
-                calc_crc = 0;
-            }
-            read_crc = tvb_get_bits16(tvb, offset*8, 16, ENC_BIG_ENDIAN);
-
-            if (calc_crc == read_crc) {
-                proto_item_append_text(pi, " [correct]");
-            } else {
-                proto_item_append_text(pi, " [incorrect, should be 0x%x]", calc_crc);
-                expert_add_info(pinfo, pi, &ei_fp_bad_payload_checksum);
             }
         }
+        if ((guint)offset == header_length && remain == 0) {
+            /* 3GPP TS 25.427 and TS 25.435: "The Payload CRC IE may
+             * only be present if the frame contains payload" (even
+             * if defined as present at the setup of the transport bearer.)
+             * If there's room for the CRC and no payload, assume zero,
+             * otherwise, assume it's absent.
+             */
+            flags = PROTO_CHECKSUM_NOT_PRESENT;
+        }
+        proto_tree_add_checksum(tree, tvb, offset,
+                hf_fp_payload_crc, hf_fp_payload_crc_status,
+                &ei_fp_bad_payload_checksum, pinfo, calc_crc,
+                ENC_BIG_ENDIAN, flags);
     }
 }
 
@@ -1486,7 +1484,7 @@ dissect_rach_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     guint32 ft;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
-    guint header_length = 0;
+    guint header_length;
 
     /* Header CRC */
     header_crc_pi = proto_tree_add_item_ret_uint(tree, hf_fp_header_crc, tvb, offset, 1, ENC_BIG_ENDIAN, &header_crc);
@@ -1742,7 +1740,7 @@ dissect_fach_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     guint32 ft;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
-    guint header_length = 0;
+    guint header_length;
 
     /* Header CRC */
     header_crc_pi = proto_tree_add_item_ret_uint(tree, hf_fp_header_crc, tvb, offset, 1, ENC_BIG_ENDIAN, &header_crc);
@@ -2538,7 +2536,7 @@ dissect_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 {
     guint32 ft;
     guint32   cfn;
-    guint header_length = 0;
+    guint header_length;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
 
@@ -2613,7 +2611,7 @@ dissect_e_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
     proto_item * item;
-    guint header_length = 0;
+    guint header_length;
     rlc_info * rlcinf;
 
     if (p_fp_info->edch_type == 1) {
@@ -2645,7 +2643,7 @@ dissect_e_dch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     else {
         /********************************/
         /* E-DCH data here              */
-        guint  bit_offset = 0;
+        guint  bit_offset;
         guint  total_pdus = 0;
         guint  total_bits = 0;
         gboolean dissected = FALSE;
@@ -3169,7 +3167,7 @@ dissect_hsdsch_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                             int offset, struct fp_info *p_fp_info, void *data)
 {
     guint32 ft;
-    guint header_length = 0;
+    guint header_length;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
 
@@ -3388,7 +3386,7 @@ dissect_hsdsch_type_2_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     guint32 ft;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
-    guint16 header_length = 0;
+    guint16 header_length;
 
     /* Header CRC */
     header_crc_pi = proto_tree_add_item_ret_uint(tree, hf_fp_header_crc, tvb, offset, 1, ENC_BIG_ENDIAN, &header_crc);
@@ -3649,7 +3647,7 @@ void dissect_hsdsch_common_channel_info(tvbuff_t *tvb, packet_info *pinfo, proto
     guint32 ft;
     guint32 header_crc = 0;
     proto_item * header_crc_pi = NULL;
-    guint header_length = 0;
+    guint header_length;
 
     /* Header CRC */
     header_crc_pi = proto_tree_add_item_ret_uint(tree, hf_fp_header_crc, tvb, offset, 1, ENC_BIG_ENDIAN, &header_crc);
@@ -5907,7 +5905,7 @@ dissect_fp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
     }
 
     /* Add link direction as a generated field */
-    ti = proto_tree_add_uint(fp_tree, hf_fp_direction, tvb, 0, 0, p_fp_info->is_uplink);
+    ti = proto_tree_add_boolean(fp_tree, hf_fp_direction, tvb, 0, 0, p_fp_info->is_uplink);
     proto_item_set_generated(ti);
 
     /* Don't currently handle IuR-specific formats, but it's useful to even see
@@ -6102,7 +6100,7 @@ void proto_register_fp(void)
             },
             { &hf_fp_direction,
               { "Direction",
-                "fp.direction", FT_UINT8, BASE_HEX, VALS(direction_vals), 0x0,
+                "fp.direction", FT_BOOLEAN, 8, TFS(&tfs_uplink_downlink), 0x0,
                 "Link direction", HFILL
               }
             },
@@ -6225,6 +6223,12 @@ void proto_register_fp(void)
             { &hf_fp_payload_crc,
               { "Payload CRC",
                 "fp.payload-crc", FT_UINT16, BASE_HEX, 0, 0x0,
+                NULL, HFILL
+              }
+            },
+            { &hf_fp_payload_crc_status,
+              { "Payload CRC Status",
+                "fp.payload-crc.status", FT_UINT8, BASE_NONE, VALS(proto_checksum_vals), 0x0,
                 NULL, HFILL
               }
             },

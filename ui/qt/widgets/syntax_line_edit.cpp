@@ -201,14 +201,19 @@ bool SyntaxLineEdit::checkDisplayFilter(QString filter)
     }
 
     dfilter_t *dfp = NULL;
-    gchar *err_msg;
-    dfilter_loc_t loc;
-    if (dfilter_compile2(filter.toUtf8().constData(), &dfp, &err_msg, &loc)) {
+    df_error_t *df_err = NULL;
+    if (dfilter_compile(filter.toUtf8().constData(), &dfp, &df_err)) {
+        GSList *warn;
         GPtrArray *depr = NULL;
-        if (dfp) {
-            depr = dfilter_deprecated_tokens(dfp);
-        }
-        if (depr) {
+        if (dfp != NULL && (warn = dfilter_get_warnings(dfp)) != NULL) {
+            // FIXME Need to use a different state or rename ::Deprecated
+            setSyntaxState(SyntaxLineEdit::Deprecated);
+            /*
+            * We're being lazy and only printing the first warning.
+            * Would it be better to print all of them?
+            */
+            syntax_error_message_  = QString(static_cast<gchar *>(warn->data));
+        } else if (dfp != NULL && (depr = dfilter_deprecated_tokens(dfp)) != NULL) {
             // You keep using that word. I do not think it means what you think it means.
             // Possible alternatives: ::Troubled, or ::Problematic maybe?
             setSyntaxState(SyntaxLineEdit::Deprecated);
@@ -231,9 +236,9 @@ bool SyntaxLineEdit::checkDisplayFilter(QString filter)
         }
     } else {
         setSyntaxState(SyntaxLineEdit::Invalid);
-        syntax_error_message_ = QString::fromUtf8(err_msg);
-        syntax_error_message_full_ = createSyntaxErrorMessageFull(filter, syntax_error_message_, loc.col_start, loc.col_len);
-        g_free(err_msg);
+        syntax_error_message_ = QString::fromUtf8(df_err->msg);
+        syntax_error_message_full_ = createSyntaxErrorMessageFull(filter, syntax_error_message_, df_err->loc.col_start, df_err->loc.col_len);
+        dfilter_error_free(df_err);
     }
     dfilter_free(dfp);
 
@@ -378,10 +383,9 @@ void SyntaxLineEdit::completionKeyPressEvent(QKeyEvent *event)
         return;
     }
 
-    QPoint token_coords(getTokenUnderCursor());
-
-    QString token_word = text().mid(token_coords.x(), token_coords.y());
-    buildCompletionList(token_word);
+    QStringList sentence(splitLineUnderCursor());
+    Q_ASSERT(sentence.size() == 2);     // (preamble, token)
+    buildCompletionList(sentence[1] /* token */, sentence[0] /* preamble */);
 
     if (completion_model_->stringList().length() < 1) {
         completer_->popup()->hide();
@@ -532,4 +536,20 @@ QPoint SyntaxLineEdit::getTokenUnderCursor()
     }
 
     return QPoint(start, len);
+}
+
+QStringList SyntaxLineEdit::splitLineUnderCursor()
+{
+    QPoint token_coords(getTokenUnderCursor());
+
+    // Split line into preamble and word under cursor.
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    QString preamble = text().first(token_coords.x()).trimmed();
+#else
+    QString preamble = text().mid(0, token_coords.x()).trimmed();
+#endif
+    // This should be trimmed already
+    QString token_word = text().mid(token_coords.x(), token_coords.y());
+
+    return QStringList{ preamble, token_word };
 }

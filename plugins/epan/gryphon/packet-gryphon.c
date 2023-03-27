@@ -2032,6 +2032,7 @@ cmd_sched(tvbuff_t *tvb, int offset, proto_tree *pt)
         tree1 = proto_item_add_subtree (item1, ett_gryphon_flags);
         proto_tree_add_item(tree1, hf_gryphon_sched_skip_transmit_period, tvb, offset, 2, ENC_BIG_ENDIAN);
         if (i == 1) {
+            /* N.B. Same bit as skip_transmit_period..? */
             proto_tree_add_item(tree1, hf_gryphon_sched_skip_sleep, tvb, offset, 2, ENC_BIG_ENDIAN);
         }
 
@@ -4002,10 +4003,16 @@ decode_response(tvbuff_t *tvb, packet_info* pinfo, int offset, int src, proto_tr
         p_add_proto_data(wmem_file_scope(), pinfo, proto_gryphon, (guint32)tvb_raw_offset(tvb), pkt_info);
     }
 
-    /* this is the old original way of displaying */
+    /*
+     * This is the old original way of displaying.
+     *
+     * XXX - is there some reason not to display the context for ioctl
+     * commands, and to display the ioctl code here, rather than in
+     * the part of the tree for the ioctl response?
+     */
     proto_tree_add_uint(pt, hf_gryphon_command, tvb, offset, 1, cmd);
     if (pkt_info->ioctl_command != 0) {
-        proto_tree_add_uint(pt, hf_gryphon_cmd_ioctl_context, tvb, offset + 1, 1, pkt_info->ioctl_command);
+        proto_tree_add_uint(pt, hf_gryphon_cmd_ioctl_context, tvb, 0, 0, pkt_info->ioctl_command);
     } else {
         proto_tree_add_item(pt, hf_gryphon_cmd_context, tvb, offset + 1, 1, ENC_NA);
     }
@@ -4378,7 +4385,7 @@ proto_register_gryphon(void)
           { "Context",      "gryphon.cmd.context", FT_UINT8, BASE_DEC, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_gryphon_cmd_ioctl_context,
-          { "IOCTL Response",  "gryphon.cmd.ioctl_response", FT_UINT8, BASE_DEC, VALS(ioctls), 0x0,
+          { "IOCTL Response",  "gryphon.cmd.ioctl_response", FT_UINT32, BASE_DEC, VALS(ioctls), 0x0,
                 NULL, HFILL }},
         { &hf_gryphon_data,
           { "Data",          "gryphon.data", FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -4652,7 +4659,7 @@ proto_register_gryphon(void)
           { "Flags", "gryphon.sched.flags", FT_UINT32, BASE_HEX, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_gryphon_sched_flags_scheduler,
-          { "Scheduler", "gryphon.sched.flags.scheduler", FT_BOOLEAN, 32, TFS(&critical_normal), 0x01,
+          { "Scheduler", "gryphon.sched.flags.scheduler", FT_BOOLEAN, 32, TFS(&critical_normal), 0x00000001,
                 NULL, HFILL }},
         { &hf_gryphon_sched_sleep,
           { "Sleep (milliseconds)", "gryphon.sched.sleep", FT_UINT32, BASE_DEC, NULL, 0x0,
@@ -4667,10 +4674,10 @@ proto_register_gryphon(void)
           { "Flags", "gryphon.sched.transmit_flags", FT_UINT16, BASE_HEX, NULL, 0x0,
                 NULL, HFILL }},
         { &hf_gryphon_sched_skip_transmit_period,
-          { "Last transmit period", "gryphon.sched.skip_transmit_period", FT_BOOLEAN, 16, TFS(&skip_not_skip), 0x01,
+          { "Last transmit period", "gryphon.sched.skip_transmit_period", FT_BOOLEAN, 16, TFS(&skip_not_skip), 0x0001,
                 NULL, HFILL }},
         { &hf_gryphon_sched_skip_sleep,
-          { "Last transmit period", "gryphon.sched.skip_transmit_period", FT_BOOLEAN, 16, TFS(&skip_not_skip), 0x01,
+          { "Last transmit period", "gryphon.sched.skip_transmit_period", FT_BOOLEAN, 16, TFS(&skip_not_skip), 0x0001,
                 NULL, HFILL }},
         { &hf_gryphon_sched_channel,
           { "Channel", "gryphon.sched.channel", FT_UINT8, BASE_DEC, NULL, 0x0,

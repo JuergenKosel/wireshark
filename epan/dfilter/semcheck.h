@@ -11,13 +11,21 @@
 #ifndef SEMCHECK_H
 #define SEMCHECK_H
 
+#include "dfilter-int.h"
+
 gboolean
 dfw_semcheck(dfwork_t *dfw);
 
 ftenum_t
-check_arithmetic_expr(dfwork_t *dfw, stnode_t *st_node, ftenum_t lhs_ftype);
+check_arithmetic(dfwork_t *dfw, stnode_t *st_node, ftenum_t lhs_ftype);
 
 ftenum_t
 check_function(dfwork_t *dfw, stnode_t *st_node, ftenum_t lhs_ftype);
+
+ftenum_t
+check_slice(dfwork_t *dfw, stnode_t *st, ftenum_t lhs_ftype);
+
+gboolean
+compatible_ftypes(ftenum_t a, ftenum_t b);
 
 #endif

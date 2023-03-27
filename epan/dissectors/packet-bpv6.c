@@ -56,8 +56,16 @@ static int dissect_admin_record(proto_tree *primary_tree, tvbuff_t *tvb, packet_
 extern void
 dissect_amp_as_subtree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset);
 
+
+static int evaluate_sdnv(tvbuff_t *tvb, int offset, int *bytecount);
+
+/// Return an error_info index if not valid
+static int evaluate_sdnv_ei(tvbuff_t *tvb, int offset, int *bytecount, expert_field **error);
+
 static int add_sdnv_time_to_tree(proto_tree *tree, tvbuff_t *tvb, int offset, int hf_sdnv_time);
 
+static gint64
+evaluate_sdnv_64(tvbuff_t *tvb, int offset, int *bytecount);
 
 static int proto_bundle = -1;
 static dissector_handle_t bundle_handle = NULL;
@@ -1578,7 +1586,8 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
         proto_tree_add_item(block_tree, hf_bundle_block_previous_hop_eid, tvb, offset, block_length-scheme_length, ENC_ASCII);
         if (block_length - scheme_length < 1) {
             expert_add_info_format(pinfo, ti, &ei_bundle_offset_error, "Metadata Block Length Error");
-            return tvb_reported_length_remaining(tvb, offset);
+            *lastheader = TRUE;
+            return offset;
         }
         offset += block_length - scheme_length;
 
@@ -1623,7 +1632,8 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
             params_length = evaluate_sdnv_ei(tvb, offset, &sdnv_length, &ei);
             if (ei) {
                 proto_tree_add_expert(block_tree, pinfo, ei, tvb, offset, -1);
-                return tvb_reported_length_remaining(tvb, offset);
+                *lastheader = TRUE;
+                return offset;
             }
             param_tree = proto_tree_add_subtree(block_tree, tvb, offset, params_length+1, ett_sec_block_param_data, NULL, "Ciphersuite Parameters Data");
             proto_tree_add_int(param_tree, hf_block_ciphersuite_params_length, tvb, offset, sdnv_length, params_length);
@@ -1640,7 +1650,8 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
                 proto_tree_add_int(param_tree, hf_block_ciphersuite_params_item_length, tvb, offset, sdnv_length, item_length);
                 if (ei) {
                     proto_tree_add_expert(param_tree, pinfo, ei, tvb, offset, -1);
-                    return tvb_reported_length_remaining(tvb, offset);
+                    *lastheader = TRUE;
+                    return offset;
                 }
 
                 offset += sdnv_length;
@@ -1693,8 +1704,8 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
             proto_tree_add_int(result_tree, hf_block_ciphersuite_result_item_length, tvb, offset, sdnv_length, result_item_length);
             if (ei) {
                 proto_tree_add_expert(result_tree, pinfo, ei, tvb, offset, -1);
-                offset = tvb_reported_length_remaining(tvb, offset);
-                break;
+                *lastheader = TRUE;
+                return offset;
             }
             offset += sdnv_length;
 
@@ -1749,7 +1760,8 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
         /* and second is the creator custodian EID */
         if (block_length - sdnv_length < 1) {
             expert_add_info_format(pinfo, ti, &ei_bundle_offset_error, "Metadata Block Length Error");
-            return tvb_reported_length_remaining(tvb, offset);
+            *lastheader = TRUE;
+            return offset;
         }
         cteb_creator_custodian_eid_length = block_length - sdnv_length;
         ti = proto_tree_add_item_ret_string(block_tree, hf_block_control_block_cteb_creator_custodian_eid, tvb, offset,
@@ -1834,48 +1846,24 @@ display_extension_block(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo, int
 }
 
 /*3rd arg is number of bytes in field (returned)*/
-int
+static int
 evaluate_sdnv(tvbuff_t *tvb, int offset, int *bytecount)
 {
-    int    value = 0;
-    guint8 curbyte;
+    guint64 value = 0;
+    *bytecount = tvb_get_varint(tvb, offset, FT_VARINT_MAX_LEN, &value, ENC_VARINT_SDNV);
 
-    *bytecount = 0;
-
-    if (!tvb_bytes_exist(tvb, offset, 1)) {
+    if (*bytecount == 0) {
         return -1;
     }
-
-    /*
-     * Get 1st byte and continue to get them while high-order bit is 1
-     */
-
-    while ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK) {
-        if (*bytecount >= (int) sizeof(int)) {
-            *bytecount = 0;
-            return -1;
-        }
-        value = value << 7;
-        value |= (curbyte & SDNV_MASK);
-        ++offset;
-        ++*bytecount;
-
-        if (!tvb_bytes_exist(tvb, offset, 1)) {
-            return -1;
-        }
+    if (value > G_MAXINT) {
+        ws_warning("evaluate_sdnv decoded a value too large to fit in an int, truncating");
+        return G_MAXINT;
     }
-
-    /*
-     * Add in the byte whose high-order bit is 0 (last one)
-     */
-
-    value = value << 7;
-    value |= (curbyte & SDNV_MASK);
-    ++*bytecount;
-    return value;
+    return (int)value;
 }
 
-int evaluate_sdnv_ei(tvbuff_t *tvb, int offset, int *bytecount, expert_field **error) {
+static int
+evaluate_sdnv_ei(tvbuff_t *tvb, int offset, int *bytecount, expert_field **error) {
     int value = evaluate_sdnv(tvb, offset, bytecount);
     *error = (value < 0) ? &ei_bundle_sdnv_length : NULL;
     return value;
@@ -1883,198 +1871,17 @@ int evaluate_sdnv_ei(tvbuff_t *tvb, int offset, int *bytecount, expert_field **e
 
 /* Special Function to evaluate 64 bit SDNVs */
 /*3rd arg is number of bytes in field (returned)*/
-gint64
+static gint64
 evaluate_sdnv_64(tvbuff_t *tvb, int offset, int *bytecount)
 {
-    gint64 value = 0;
-    guint8 curbyte;
+    guint64 val = 0;
+    *bytecount = tvb_get_varint(tvb, offset, FT_VARINT_MAX_LEN, &val, ENC_VARINT_SDNV);
 
-    *bytecount = 0;
-
-    if (!tvb_bytes_exist(tvb, offset, 1)) {
+    if (*bytecount == 0) {
         return -1;
     }
-
-    /*
-     * Get 1st byte and continue to get them while high-order bit is 1
-     */
-
-    while ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK) {
-        if (*bytecount >= (int) sizeof(gint64)) {
-            *bytecount = 0;
-            return -1;
-        }
-        value = value << 7;
-        value |= (curbyte & SDNV_MASK);
-        ++offset;
-        ++*bytecount;
-
-        if (!tvb_bytes_exist(tvb, offset, 1)) {
-            return -1;
-        }
-    }
-
-    /*
-     * Add in the byte whose high-order bit is 0 (last one)
-     */
-
-    value = value << 7;
-    value |= (curbyte & SDNV_MASK);
-    ++*bytecount;
-    return value;
+    return val & G_MAXINT64;
 }
-
-/* Special Function to evaluate 32 bit unsigned SDNVs with error indication
- *    bytecount returns the number bytes consumed
- *    value returns the actual value
- *
- *    result is TRUE (1) on success else FALSE (0)
- */
-int
-evaluate_sdnv32(tvbuff_t *tvb, int offset, int *bytecount, guint32 *value)
-{
-    int result;
-    int num_bits_in_value;
-    guint8 curbyte;
-    guint8 high_bit;
-
-    *value = 0;
-    *bytecount = 0;
-
-    result = FALSE;
-    num_bits_in_value = 0;
-
-    if (tvb_bytes_exist(tvb, offset, 1)) {
-        /*
-         * Get 1st byte and continue to get them while high-order bit is 1
-         */
-        result = TRUE;
-
-        /* Determine number of non-zero bits in first SDNV byte */
-        /* technically 0x80 0x80 ... 0x81 is a valid inefficient representation of "1" */
-        while ((0 == num_bits_in_value) && ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK)) {
-            if (!tvb_bytes_exist(tvb, offset, 1)) {
-                result = FALSE;
-                break;
-            } else {
-                num_bits_in_value = 7;
-                high_bit = 0x40;
-                while ((num_bits_in_value > 0) && (!(curbyte & high_bit))) {
-                    --num_bits_in_value;
-                    high_bit = high_bit >> 1;
-                }
-
-                *value |= (curbyte & SDNV_MASK);
-                ++offset;
-                ++*bytecount;
-            }
-        }
-
-
-        /* Process additional bytes that have the high order bit set */
-        while (result && ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK)) {
-            /* Since the high order bit is set there must be 7 low order bits after this byte */
-            if (!tvb_bytes_exist(tvb, offset, 1) || ((num_bits_in_value + 7) > (32 - 7))) {
-                result = FALSE;
-            } else {
-                *value = *value << 7;
-                *value |= (curbyte & SDNV_MASK);
-                ++offset;
-                ++*bytecount;
-            }
-        }
-
-        if (result) {
-            /*
-             * Add in the byte whose high-order bit is 0 (last one)
-             */
-            *value = *value << 7;
-            *value |= (curbyte & SDNV_MASK);
-            ++*bytecount;
-        } else {
-            *bytecount = 0;
-        }
-    }
-
-    return result;
-}
-
-
-/* Special Function to evaluate 64 bit unsigned SDNVs with error indication
- *    bytecount returns the number bytes consumed or zero on error
- *    value returns the actual value
- *
- *    result is TRUE (1) on success else FALSE (0)
- */
-int
-evaluate_sdnv64(tvbuff_t *tvb, int offset, int *bytecount, guint64 *value)
-{
-    int result;
-    int num_bits_in_value;
-    guint8 curbyte;
-    guint8 high_bit;
-
-    *value = 0;
-    *bytecount = 0;
-
-    result = FALSE;
-    num_bits_in_value = 0;
-
-    if (tvb_bytes_exist(tvb, offset, 1)) {
-        /*
-         * Get 1st byte and continue to get them while high-order bit is 1
-         */
-        result = TRUE;
-
-        /* Determine number of non-zero bits in first SDNV byte */
-        /* technically 0x80 0x80 ... 0x81 is a valid inefficient representation of "1" */
-        while ((0 == num_bits_in_value) && ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK)) {
-            if (!tvb_bytes_exist(tvb, offset, 1)) {
-                result = FALSE;
-                break;
-            } else {
-                num_bits_in_value = 7;
-                high_bit = 0x40;
-                while ((num_bits_in_value > 0) && (!(curbyte & high_bit))) {
-                    --num_bits_in_value;
-                    high_bit = high_bit >> 1;
-                }
-
-                *value |= (curbyte & SDNV_MASK);
-                ++offset;
-                ++*bytecount;
-            }
-        }
-
-
-        /* Process additional bytes that have the high order bit set */
-        while (result && ((curbyte = tvb_get_guint8(tvb, offset)) & ~SDNV_MASK)) {
-            /* Since the high order bit is set there must be 7 low order bits after this byte */
-            if (!tvb_bytes_exist(tvb, offset, 1) || ((num_bits_in_value + 7) > (64 - 7))) {
-                result = FALSE;
-            } else {
-                *value = *value << 7;
-                *value |= (curbyte & SDNV_MASK);
-                ++offset;
-                ++*bytecount;
-            }
-        }
-
-        if (result) {
-            /*
-             * Add in the byte whose high-order bit is 0 (last one)
-             */
-            *value = *value << 7;
-            *value |= (curbyte & SDNV_MASK);
-            ++*bytecount;
-        } else {
-            *bytecount = 0;
-        }
-    }
-
-    return result;
-}
-
 
 static int
 dissect_bpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
@@ -2163,11 +1970,11 @@ dissect_bundle(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
         }
     }
 
-    wscbor_chunk_t *frame = wscbor_chunk_read(wmem_packet_scope(), tvb, &offset);
+    wscbor_chunk_t *frame = wscbor_chunk_read(pinfo->pool, tvb, &offset);
     if (frame->type_major == CBOR_TYPE_ARRAY) {
-        wscbor_chunk_t *primary = wscbor_chunk_read(wmem_packet_scope(), tvb, &offset);
+        wscbor_chunk_t *primary = wscbor_chunk_read(pinfo->pool, tvb, &offset);
         if (primary->type_major == CBOR_TYPE_ARRAY) {
-            wscbor_chunk_t *version = wscbor_chunk_read(wmem_packet_scope(), tvb, &offset);
+            wscbor_chunk_t *version = wscbor_chunk_read(pinfo->pool, tvb, &offset);
             if (version->type_major == CBOR_TYPE_UINT) {
                 guint64 vers_val = version->head_value;
                 if (vers_val == 7) {

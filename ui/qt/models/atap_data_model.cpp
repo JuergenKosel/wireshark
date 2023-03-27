@@ -318,6 +318,13 @@ EndpointDataModel::EndpointDataModel(int protoId, QString filter, QObject *paren
 
 int EndpointDataModel::columnCount(const QModelIndex &) const
 {
+#ifdef HAVE_MAXMINDDB
+    int proto_ipv4 = proto_get_id_by_filter_name("ip");
+    int proto_ipv6 = proto_get_id_by_filter_name("ipv6");
+    if (protoId() == proto_ipv4 || protoId() == proto_ipv6) {
+        return ENDP_NUM_GEO_COLUMNS;
+    }
+#endif
     return ENDP_NUM_COLUMNS;
 }
 
@@ -352,14 +359,25 @@ QVariant EndpointDataModel::headerData(int section, Qt::Orientation orientation,
                 return tr("Country"); break;
             case ENDP_COLUMN_GEO_CITY:
                 return tr("City"); break;
+            case ENDP_COLUMN_GEO_LATITUDE:
+                return tr("Latitude"); break;
+            case ENDP_COLUMN_GEO_LONGITUDE:
+                return tr("Longitude"); break;
             case ENDP_COLUMN_GEO_AS_NUM:
                 return tr("AS Number"); break;
             case ENDP_COLUMN_GEO_AS_ORG:
                 return tr("AS Organization"); break;
         }
     } else if (role == Qt::TextAlignmentRole) {
-        if (section == ENDP_COLUMN_ADDR)
+        switch (section) {
+        case ENDP_COLUMN_ADDR:
+        case ENDP_COLUMN_GEO_COUNTRY:
+        case ENDP_COLUMN_GEO_CITY:
+        case ENDP_COLUMN_GEO_AS_ORG:
             return Qt::AlignLeft;
+        default:
+            break;
+        }
         return Qt::AlignRight;
     }
 
@@ -410,7 +428,7 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         case ENDP_COLUMN_PACKETS:
         {
             qlonglong packets = (qlonglong)(item->tx_frames + item->rx_frames);
-            return role == Qt::DisplayRole ? formatString(packets) : (QVariant)packets;
+            return role == Qt::DisplayRole ? QString("%L1").arg(packets) : (QVariant)packets;
         }
         case ENDP_COLUMN_BYTES:
             return role == Qt::DisplayRole ? formatString((qlonglong)(item->tx_bytes + item->rx_bytes)) :
@@ -429,16 +447,21 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
                 qlonglong totalPackets = (qlonglong)(item->tx_frames_total + item->rx_frames_total);
                 qlonglong packets = (qlonglong)(item->tx_frames + item->rx_frames);
                 percent = totalPackets == 0 ? 0 : (double) packets * 100 / (double) totalPackets;
-                return QString::number(percent, 'f', 2) + "%";
             }
-            return role == Qt::DisplayRole ? QString::number(percent, 'f', 2) + "%" : (QVariant)percent;
+            QString rounded = QString::number(percent, 'f', 2);
+            /* Qt guarantees that this roundtrip conversion compares equally,
+             * so filtering with equality will work as expected.
+             * Perhaps the UNFORMATTED_DISPLAYDATA role shoud be split
+             * into one used for raw data export, and one used for comparisons.
+             */
+            return role == Qt::DisplayRole ? rounded + "%" : QVariant(rounded.toDouble());
         }
         case ENDP_COLUMN_PKT_AB:
-            return role == Qt::DisplayRole ? formatString((qlonglong)item->tx_frames) : QVariant((qlonglong) item->tx_frames);
+            return role == Qt::DisplayRole ? QString("%L1").arg((qlonglong)item->tx_frames) : QVariant((qlonglong) item->tx_frames);
         case ENDP_COLUMN_BYTES_AB:
             return role == Qt::DisplayRole ? formatString((qlonglong)item->tx_bytes) : QVariant((qlonglong)item->tx_bytes);
         case ENDP_COLUMN_PKT_BA:
-            return role == Qt::DisplayRole ? formatString((qlonglong)item->rx_frames) : QVariant((qlonglong) item->rx_frames);
+            return role == Qt::DisplayRole ? QString("%L1").arg((qlonglong)item->rx_frames) : QVariant((qlonglong) item->rx_frames);
         case ENDP_COLUMN_BYTES_BA:
             return role == Qt::DisplayRole ? formatString((qlonglong)item->rx_bytes) : QVariant((qlonglong)item->rx_bytes);
         case ENDP_COLUMN_GEO_COUNTRY:
@@ -449,6 +472,16 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         case ENDP_COLUMN_GEO_CITY:
             if (mmdb_lookup && mmdb_lookup->found && mmdb_lookup->city) {
                 return QVariant(mmdb_lookup->city);
+            }
+            return QVariant();
+        case ENDP_COLUMN_GEO_LATITUDE:
+            if (mmdb_lookup && mmdb_lookup->found && mmdb_lookup->latitude >= -90.0 && mmdb_lookup->latitude <= 90.0) {
+                return role == Qt::DisplayRole ? QString("%L1" UTF8_DEGREE_SIGN).arg(mmdb_lookup->latitude) : QVariant(mmdb_lookup->latitude);
+            }
+            return QVariant();
+        case ENDP_COLUMN_GEO_LONGITUDE:
+            if (mmdb_lookup && mmdb_lookup->found && mmdb_lookup->longitude >= -180.0 && mmdb_lookup->longitude <= 180.0) {
+                return role == Qt::DisplayRole ? QString("%L1" UTF8_DEGREE_SIGN).arg(mmdb_lookup->longitude) : QVariant(mmdb_lookup->longitude);
             }
             return QVariant();
         case ENDP_COLUMN_GEO_AS_NUM:
@@ -465,8 +498,15 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
             return QVariant();
         }
     } else if (role == Qt::TextAlignmentRole) {
-        if (idx.column() == ENDP_COLUMN_ADDR)
+        switch (idx.column()) {
+        case ENDP_COLUMN_ADDR:
+        case ENDP_COLUMN_GEO_COUNTRY:
+        case ENDP_COLUMN_GEO_CITY:
+        case ENDP_COLUMN_GEO_AS_ORG:
             return Qt::AlignLeft;
+        default:
+            break;
+        }
         return Qt::AlignRight;
     } else if (role == ATapDataModel::DISPLAY_FILTER) {
         return QString(get_endpoint_filter(item));
@@ -482,7 +522,9 @@ QVariant EndpointDataModel::data(const QModelIndex &idx, int role) const
         return ipAddress;
     }
 #endif
-    else if (role == ATapDataModel::DATA_ADDRESS_TYPE) {
+    else if (role == ATapDataModel::PROTO_ID) {
+        return protoId();
+    } else if (role == ATapDataModel::DATA_ADDRESS_TYPE) {
         if (idx.column() == EndpointDataModel::ENDP_COLUMN_ADDR)
             return (int)item->myaddress.type;
         return (int) AT_NONE;
@@ -669,7 +711,14 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
                 qlonglong packets = (qlonglong)(conv_item->tx_frames + conv_item->rx_frames);
                 percent = totalPackets == 0 ? 0 : (double) packets * 100 / (double) totalPackets;
             }
-            return role == Qt::DisplayRole ? QString::number(percent, 'f', 2) + "%" : (QVariant)percent;
+            QString rounded = QString::number(percent, 'f', 2);
+            /* Qt guarantees that this roundtrip conversion compares equally,
+             * so filtering with equality will work as expected.
+             * XXX: Perhaps the UNFORMATTED_DISPLAYDATA role shoud be split
+             * into one used for raw data export and comparisions with each
+             * other, and another for comparing with filters?
+             */
+            return role == Qt::DisplayRole ? rounded + "%" : QVariant(rounded.toDouble());
         }
         case CONV_COLUMN_PKT_AB:
         {
@@ -691,8 +740,21 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
 
             if (_absoluteTime) {
                 nstime_t *abs_time = &conv_item->start_abs_time;
+                /* XXX: QDateTime only supports millisecond resolution,
+                 * and we have microseconds or nanoseconds.
+                 * Should we use something else, particularly for exporting
+                 * raw data? GDateTime handles microseconds.
+                 */
                 QDateTime abs_dt = QDateTime::fromMSecsSinceEpoch(nstime_to_msec(abs_time));
-                return role == Qt::DisplayRole ? abs_dt.toString("hh:mm:ss.zzzz") : (QVariant)abs_dt;
+                if (role == Qt::DisplayRole) {
+                    if (_maxRelStopTime >= 24*60*60) {
+                        return abs_dt.toString(Qt::ISODateWithMs);
+                    } else {
+                        return abs_dt.time().toString(Qt::ISODateWithMs);
+                    }
+                } else {
+                    return QVariant(abs_dt);
+                }
             } else {
                 return role == Qt::DisplayRole ?
                     QString::number(nstime_to_sec(&conv_item->start_time), 'f', width) :
@@ -705,9 +767,9 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
             return role == Qt::DisplayRole ? QString::number(duration, 'f', width) : (QVariant)duration;
         }
         case CONV_COLUMN_BPS_AB:
-            return bpsCalculated ? (role == Qt::DisplayRole ? formatString(bps_ab) : QVariant((qlonglong)bps_ab)): QVariant();
+            return bpsCalculated ? (role == Qt::DisplayRole ? gchar_free_to_qstring(format_size((int64_t)bps_ab, FORMAT_SIZE_UNIT_BITS_S, FORMAT_SIZE_PREFIX_SI)) : QVariant((qlonglong)bps_ab)): QVariant();
         case CONV_COLUMN_BPS_BA:
-            return bpsCalculated ? (role == Qt::DisplayRole ? formatString(bps_ba) : QVariant((qlonglong)bps_ba)): QVariant();
+            return bpsCalculated ? (role == Qt::DisplayRole ? gchar_free_to_qstring(format_size((int64_t)bps_ba, FORMAT_SIZE_UNIT_BITS_S, FORMAT_SIZE_PREFIX_SI)) : QVariant((qlonglong)bps_ba)): QVariant();
         }
     } else if (role == Qt::ToolTipRole) {
         if (idx.column() == CONV_COLUMN_START || idx.column() == CONV_COLUMN_DURATION)
@@ -730,6 +792,8 @@ QVariant ConversationDataModel::data(const QModelIndex &idx, int role) const
         }
     } else if (role == ATapDataModel::ENDPOINT_DATATYPE) {
         return (int)(conv_item->ctype);
+    } else if (role == ATapDataModel::PROTO_ID) {
+        return protoId();
     } else if (role == ATapDataModel::CONVERSATION_ID) {
         return (int)(conv_item->conv_id);
     } else if (role == ATapDataModel::ROW_IS_FILTERED) {
@@ -769,7 +833,7 @@ conv_item_t * ConversationDataModel::itemForRow(int row)
 
 bool ConversationDataModel::showConversationId(int row) const
 {
-    if (!storage_ || row >= (int) storage_->len)
+    if (!storage_ || row < 0 || row >= (int) storage_->len)
         return false;
 
     conv_item_t *conv_item = (conv_item_t *)&g_array_index(storage_, conv_item_t, row);

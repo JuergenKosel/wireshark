@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 24.501 17.8.0
+ * References: 3GPP TS 24.501 17.9.0
  */
 
 #include "config.h"
@@ -124,6 +124,7 @@ static int hf_nas_5gs_cmn_service_level_aa_param_resp_slar = -1;
 static int hf_nas_5gs_cmn_service_level_aa_param_payload_type = -1;
 static int hf_nas_5gs_cmn_service_level_aa_param_payload = -1;
 static int hf_nas_5gs_cmn_service_level_aa_param_pending_ind_slapi = -1;
+static int hf_nas_5gs_cmn_service_level_aa_param_service_status_ind_uas = -1;
 static int hf_nas_5gs_cmn_service_level_aa_param_unknown = -1;
 static int hf_nas_5gs_mm_sms_requested = -1;
 static int hf_nas_5gs_mm_ng_ran_rcu = -1;
@@ -281,6 +282,7 @@ static int hf_nas_5gs_mm_event_notif_b2 = -1;
 static int hf_nas_5gs_mm_ssnpnsi_b3 = -1;
 static int hf_nas_5gs_mm_ex_cag_b4 = -1;
 static int hf_nas_5gs_mm_nsag_b5 = -1;
+static int hf_nas_5gs_mm_uas_b6 = -1;
 static int hf_nas_5gs_mm_type_id = -1;
 static int hf_nas_5gs_mm_odd_even = -1;
 static int hf_nas_5gs_mm_length = -1;
@@ -755,11 +757,11 @@ static int hf_nas_5gs_mm_relay_key_req_params_relay_service_code = -1;
 static int hf_nas_5gs_mm_relay_key_req_params_nonce_1 = -1;
 static int hf_nas_5gs_mm_relay_key_req_params_ruit = -1;
 static int hf_nas_5gs_mm_relay_key_req_params_remote_ue_id = -1;
-static int hf_nas_5gs_mm_relay_key_resp_params_5gpii = -1;
 static int hf_nas_5gs_mm_relay_key_resp_params_key_knr_prose = -1;
 static int hf_nas_5gs_mm_relay_key_resp_params_nonce_2 = -1;
-static int hf_nas_5gs_mm_relay_key_resp_params_5gpruk_id = -1;
+static int hf_nas_5gs_mm_relay_key_resp_params_cp_pruk_id = -1;
 static int hf_nas_5gs_mm_prio_ind_mpsi = -1;
+static int hf_nas_5gs_ue_os_id = -1;
 
 static expert_field ei_nas_5gs_extraneous_data = EI_INIT;
 static expert_field ei_nas_5gs_unknown_pd = EI_INIT;
@@ -932,7 +934,7 @@ de_nas_5gs_mm_5gmm_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
 
     static int * const flags5[] = {
         &hf_nas_5gs_spare_b7,
-        &hf_nas_5gs_spare_b6,
+        &hf_nas_5gs_mm_uas_b6,
         &hf_nas_5gs_mm_nsag_b5,
         &hf_nas_5gs_mm_ex_cag_b4,
         &hf_nas_5gs_mm_ssnpnsi_b3,
@@ -1422,7 +1424,7 @@ static true_false_string tfs_nas_5gs_mm_reg_res_emergency_reg = {
 };
 
 static true_false_string tfs_nas_5gs_mm_reg_res_disaster_roaming_reg_res = {
-    "Request for registration for disaster roaming service accepted as registration not for disaster roaming service",
+    "Request for registration for disaster roaming services accepted as registration not for disaster roaming services",
     "No additional information"
 };
 
@@ -1832,8 +1834,8 @@ de_nas_5gs_mm_conf_upd_ind(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
  * 9.11.3.18A   CAG information list
  */
 static true_false_string tfs_5gs_mm_cag_info_entry_cag_only = {
-    "the UE is allowed to access 5GS via non-CAG cells",
-    "the UE is not allowed to access 5GS via non-CAG cells"
+    "the UE is not allowed to access 5GS via non-CAG cells",
+    "the UE is allowed to access 5GS via non-CAG cells"
 };
 
 static guint16
@@ -4026,7 +4028,7 @@ de_nas_5gs_mm_extended_rejected_nssai(tvbuff_t* tvb, proto_tree* tree, packet_in
     proto_tree* sub_partial_tree;
     proto_tree* sub_rejected_tree;
     proto_item* item;
-    int i = 1;
+    int i;
     guint num_partial_items = 1;
     guint32 curr_offset = offset;
     guint32 type_of_list, number_of_element, nssai_len;
@@ -4421,7 +4423,7 @@ de_nas_5gs_mm_prose_relay_trans_id(tvbuff_t* tvb, proto_tree* tree, packet_info*
  * 9.11.3.89    Relay key request parameters
  */
 static true_false_string tfs_nas_5gs_mm_relay_key_req_params_ruit = {
-    "5GPRUK ID",
+    "CP-PRUK ID",
     "SUCI"
 };
 
@@ -4454,14 +4456,11 @@ de_nas_5gs_mm_relay_key_resp_params(tvbuff_t* tvb _U_, proto_tree* tree _U_, pac
 {
     guint32 curr_offset = offset;
 
-    proto_tree_add_bits_item(tree, hf_nas_5gs_spare_bits, tvb, (curr_offset << 3), 7, ENC_BIG_ENDIAN);
-    proto_tree_add_item(tree, hf_nas_5gs_mm_relay_key_resp_params_5gpii, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
-    curr_offset++;
     proto_tree_add_item(tree, hf_nas_5gs_mm_relay_key_resp_params_key_knr_prose, tvb, curr_offset, 32, ENC_NA);
     curr_offset += 32;
     proto_tree_add_item(tree, hf_nas_5gs_mm_relay_key_resp_params_nonce_2, tvb, offset, 16, ENC_NA);
     curr_offset += 16;
-    proto_tree_add_item(tree, hf_nas_5gs_mm_relay_key_resp_params_5gpruk_id, tvb, curr_offset, len - (curr_offset - offset), ENC_NA);
+    proto_tree_add_item(tree, hf_nas_5gs_mm_relay_key_resp_params_cp_pruk_id, tvb, curr_offset, len - (curr_offset - offset), ENC_NA);
 
     return len;
 }
@@ -4754,9 +4753,8 @@ de_nas_5gs_sm_mapped_eps_b_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
     proto_tree * sub_tree, *sub_tree1;
     guint32 num_cont, length, opt_code, num_eps_parms, param_id;
     proto_item * item;
-    guint i, curr_len;
+    guint i;
 
-    curr_len = len;
     curr_offset = offset;
     num_cont = 1;
 
@@ -4785,12 +4783,10 @@ de_nas_5gs_sm_mapped_eps_b_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
         /* EPS bearer identity */
         proto_tree_add_item(sub_tree, hf_nas_5gs_sm_mapd_eps_b_cont_id, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         curr_offset++;
-        curr_len--;
 
         /* Length of Mapped EPS bearer context*/
         proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_sm_length, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &length);
         curr_offset += 2;
-        curr_len -= 2;
 
         /*  8     7     6     5     4     3     2     1          */
         /* operation code | spare | E | number of EPS params     */
@@ -4810,7 +4806,6 @@ de_nas_5gs_sm_mapped_eps_b_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
 
         }
         curr_offset++;
-        curr_len--;
         i = 1;
 
         /* EPS parameters list */
@@ -4823,12 +4818,10 @@ de_nas_5gs_sm_mapped_eps_b_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
             proto_tree_add_item_ret_uint(sub_tree1, hf_nas_5gs_sm_mapd_eps_b_cont_param_id, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &param_id);
             proto_item_append_text(item, " - %s", val_to_str_const(param_id, nas_5gs_sm_mapd_eps_b_cont_param_id_vals, "Unknown"));
             curr_offset++;
-            curr_len--;
 
             /*length of the EPS parameter contents field */
             proto_tree_add_item_ret_uint(sub_tree1, hf_nas_5gs_sm_length, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &length);
             curr_offset++;
-            curr_len--;
 
             proto_item_set_len(item, length + 2);
             /*content of the EPS parameter contents field */
@@ -4858,7 +4851,6 @@ de_nas_5gs_sm_mapped_eps_b_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pi
                 break;
             }
             curr_offset +=length;
-            curr_len -= length;
             i++;
             num_eps_parms--;
         }
@@ -6051,6 +6043,11 @@ static true_false_string nas_5gs_cmn_service_level_aa_param_pending_ind_slapi_va
     "Reserved"
 };
 
+static true_false_string nas_5gs_enabled_not_enabled_value = {
+    "Enabled",
+    "Not enabled"
+};
+
 guint16
 de_nas_5gs_cmn_service_level_aa_cont(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     guint32 offset, guint len,
@@ -6138,7 +6135,20 @@ de_nas_5gs_cmn_service_level_aa_cont(tvbuff_t *tvb, proto_tree *tree, packet_inf
                     &hf_nas_5gs_cmn_service_level_aa_param_pending_ind_slapi,
                     NULL
                 };
-                /* curre_offset was already incremented, need to use previous byte */
+                /* curr_offset was already incremented, need to use previous byte */
+                proto_tree_add_bitmask_list(subtree, tvb, curr_offset-1, 1, flags, ENC_BIG_ENDIAN);
+            }
+            break;
+        case 0xb0:
+            {
+                static int * const flags[] = {
+                    &hf_nas_5gs_spare_b3,
+                    &hf_nas_5gs_spare_b2,
+                    &hf_nas_5gs_spare_b1,
+                    &hf_nas_5gs_cmn_service_level_aa_param_service_status_ind_uas,
+                    NULL
+                };
+                /* curr_offset was already incremented, need to use previous byte */
                 proto_tree_add_bitmask_list(subtree, tvb, curr_offset-1, 1, flags, ENC_BIG_ENDIAN);
             }
             break;
@@ -6932,6 +6942,8 @@ nas_5gs_mm_registration_req(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     ELEM_OPT_TLV(0x16, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PLMN_ID, " - MS determined PLMN with disaster condition");
     /* 2A    Requested PEIPS assistance information    PEIPS assistance information 9.11.3.80    O    TLV    3-n */
     ELEM_OPT_TLV(0x2A, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PEIPS_ASSIST_INFO, " - Requested");
+    /* 3B    Requested T3512 value    GPRS timer 3     9.11.2.5    O    TLV    3 */
+    ELEM_OPT_TLV(0x3B, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Requested T3512 value");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
 
@@ -7022,7 +7034,7 @@ nas_5gs_mm_registration_accept(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     /* 74    Ciphering key data    Ciphering key data 9.11.3.18C    O    TLV-E    34-n */
     ELEM_OPT_TLV_E(0x74, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CIPHERING_KEY_DATA, NULL);
     /* 75    CAG information list    CAG information list 9.11.3.18A    O    TLV-E    3-n */
-    ELEM_OPT_TLV(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
+    ELEM_OPT_TLV_E(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
     /* 1B    Truncated 5G-S-TMSI configuration    Truncated 5G-S-TMSI configuration 9.11.3.70    O    TLV    3 */
     ELEM_OPT_TLV(0x1B, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_TRUNCATED_5G_S_TMSI_CONF, NULL);
     /* 1C    Negotiated WUS assistance information    WUS assistance information 9.11.3.71    O    TLV    3-n */
@@ -7034,10 +7046,10 @@ nas_5gs_mm_registration_accept(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     /* 7B    Service-level-AA container    Service-level-AA container 9.11.2.10    O    TLV-E    6-n */
     ELEM_OPT_TLV_E(0x7B, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_SERVICE_LEVEL_AA_CONT, NULL);
     /* 33    Negotiated PEIPS assistance information    PEIPS assistance information 9.11.3.80    O    TLV    3-n */
-    ELEM_OPT_TLV(0x33, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PEIPS_ASSIST_INFO, " - Negociated");
+    ELEM_OPT_TLV(0x33, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PEIPS_ASSIST_INFO, " - Negotiated");
     /* 34    5GS additional request result    5GS additional request result 9.11.3.81    O    TLV    3 */
     ELEM_OPT_TLV(0x34, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_ADD_REQ_RES, NULL);
-    /* 70    NSSRG information    NSSRG information 9.11.3.82    O    TLV-E    7-65538 */
+    /* 70    NSSRG information    NSSRG information 9.11.3.82    O    TLV-E    7-4099 */
     ELEM_OPT_TLV_E(0x70, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NSSRG_INFO, NULL);
     /* 14    Disaster roaming wait range    Registration wait range 9.11.3.84    O    TLV    4 */
     ELEM_OPT_TLV(0x14, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_REG_WAIT_RANGE, " - Disaster roaming");
@@ -7051,7 +7063,7 @@ nas_5gs_mm_registration_accept(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     ELEM_OPT_TLV(0x1E, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
     /* 71    Extended CAG information list    Extended CAG information list 9.11.3.86    O    TLV-E    3-n */
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXT_CAG_INFO_LIST, NULL);
-    /* 7C    NSAG information    NSAG information 9.11.3.87    O    TLV-E    10-n */
+    /* 7C    NSAG information    NSAG information 9.11.3.87    O    TLV-E    9-3143 */
     ELEM_OPT_TLV_E(0x7C, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NSAG_INFO, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
@@ -7106,7 +7118,7 @@ nas_5gs_mm_registration_rej(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo 
     /* 69    Rejected NSSAI    Rejected NSSAI 9.11.3.46    O    TLV    4-42 DE_NAS_5GS_MM_REJ_NSSAI*/
     ELEM_OPT_TLV(0x69, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_REJ_NSSAI, NULL);
     /* 75    CAG information list    CAG information list 9.11.3.18A    O    TLV-E    3-n */
-    ELEM_OPT_TLV(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
+    ELEM_OPT_TLV_E(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
     /* 68    Extended rejected NSSAI    Extended rejected NSSAI 9.11.3.75    O    TLV    5-90 */
     ELEM_OPT_TLV(0x68, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXTENDED_REJECTED_NSSAI, NULL);
     /* 2C    Disaster return wait range    Registration wait range 9.11.3.84    O    TLV    4 */
@@ -7115,10 +7127,10 @@ nas_5gs_mm_registration_rej(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo 
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXT_CAG_INFO_LIST, NULL);
     /* 3A    Lower bound timer value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x3A, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Lower bound timer value");
-    /* 3B    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3B, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
-    /* 3C    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3C, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
+    /* 1D    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1D, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
+    /* 1E    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1E, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
 
@@ -7264,7 +7276,7 @@ nas_5gs_mm_de_registration_req_ue_term(tvbuff_t *tvb, proto_tree *tree, packet_i
     /* 6D    Rejected NSSAI    Rejected NSSAI 9.11.3.46    O    TLV    4-42 */
     ELEM_OPT_TLV(0x6D, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_REJ_NSSAI, NULL);
     /* 75    CAG information list    CAG information list 9.11.3.18A    O    TLV-E    3-n */
-    ELEM_OPT_TLV(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
+    ELEM_OPT_TLV_E(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
     /* 68    Extended rejected NSSAI    Extended rejected NSSAI 9.11.3.75    O    TLV    5-90 */
     ELEM_OPT_TLV(0x68, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXTENDED_REJECTED_NSSAI, NULL);
     /* 2C    Disaster return wait range    Registration wait range 9.11.3.84    O    TLV    4 */
@@ -7273,10 +7285,10 @@ nas_5gs_mm_de_registration_req_ue_term(tvbuff_t *tvb, proto_tree *tree, packet_i
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXT_CAG_INFO_LIST, NULL);
     /* 3A    Lower bound timer value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x3A, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Lower bound timer value");
-    /* 3B    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3B, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
-    /* 3C    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3C, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
+    /* 1D    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1D, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
+    /* 1E    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1E, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
 
@@ -7381,17 +7393,17 @@ nas_5gs_mm_service_rej(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_, 
     /* 6B    T3448 value    GPRS timer 3 9.11.2.4    O    TLV    3 */
     ELEM_OPT_TLV(0x6B, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_2, " - T3448 value");
     /* 75    CAG information list    CAG information list 9.11.3.18A    O    TLV-E    3-n */
-    ELEM_OPT_TLV(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
+    ELEM_OPT_TLV_E(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
     /* 2C    Disaster return wait range    Registration wait range 9.11.3.84    O    TLV    4 */
     ELEM_OPT_TLV(0x2C, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_REG_WAIT_RANGE, " - Disaster return");
     /* 71    Extended CAG information list    Extended CAG information list 9.11.3.86    O    TLV-E    3-n */
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXT_CAG_INFO_LIST, NULL);
     /* 3A    Lower bound timer value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x3A, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - Lower bound timer value");
-    /* 3B    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3B, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
-    /* 3C    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
-    ELEM_OPT_TLV(0x3C, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
+    /* 1D    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for roaming"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1D, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for roaming\"");
+    /* 1E    Forbidden TAI(s) for the list of "5GS forbidden tracking areas for regional provision of service"    5GS tracking area identity list 9.11.3.9    O    TLV    9-114 */
+    ELEM_OPT_TLV(0x1E, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_TA_ID_LIST, " - Forbidden TAI(s) for the list of \"5GS forbidden tracking areas for regional provision of service\"");
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_5gs_extraneous_data);
 
@@ -7447,7 +7459,7 @@ nas_5gs_mm_conf_upd_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     /* 6C    T3447 value    GPRS timer 3 9.11.2.5    O    TLV    3 */
     ELEM_OPT_TLV(0x6c, GSM_A_PDU_TYPE_GM, DE_GPRS_TIMER_3, " - T3447");
     /* 75    C75    CAG information list    CAG information list 9.11.3.18A    O    TLV-E    3-n  */
-    ELEM_OPT_TLV(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
+    ELEM_OPT_TLV_E(0x75, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_CAG_INFORMATION_LIST, NULL);
     /* 67    UE radio capability ID    UE radio capability ID 9.11.3.68    O    TLV    3-n  */
     ELEM_OPT_TLV(0x67, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID, NULL);
     /* A-    UE radio capability ID deletion indication    UE radio capability ID deletion indication 9.11.3.69    O    TV    1 */
@@ -7462,7 +7474,7 @@ nas_5gs_mm_conf_upd_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     ELEM_OPT_TLV(0x68, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXTENDED_REJECTED_NSSAI, NULL);
     /* 72    Service-level-AA container    Service-level-AA container 9.11.2.10    O    TLV-E    6-n */
     ELEM_OPT_TLV_E(0x72, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_SERVICE_LEVEL_AA_CONT, NULL);
-    /* 70    NSSRG information    NSSRG information 9.11.3.82    O    TLV-E    7-65538 */
+    /* 70    NSSRG information    NSSRG information 9.11.3.82    O    TLV-E    7-4099 */
     ELEM_OPT_TLV_E(0x70, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NSSRG_INFO, NULL);
     /* 14    Disaster roaming wait range    Registration wait range 9.11.3.84    O    TLV    4 */
     ELEM_OPT_TLV(0x14, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_REG_WAIT_RANGE, " - Disaster roaming");
@@ -7474,7 +7486,7 @@ nas_5gs_mm_conf_upd_cmd(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     ELEM_OPT_TLV_E(0x71, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_EXT_CAG_INFO_LIST, NULL);
     /* 1F    Updated PEIPS assistance information    PEIPS assistance information 9.11.3.80    O    TLV    3-n */
     ELEM_OPT_TLV(0x1F, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PEIPS_ASSIST_INFO, " - Updated");
-    /* 73    NSAG information    NSAG information 9.11.3.87    O    TLV-E    10-n */
+    /* 73    NSAG information    NSAG information 9.11.3.87    O    TLV-E    9-3143 */
     ELEM_OPT_TLV_E(0x73, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NSAG_INFO, NULL);
     /* E-    Priority indicator    Priority indicator 9.11.3.91    O    TV    1 */
     ELEM_OPT_TV_SHORT(0xE0, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PRIO_IND, NULL);
@@ -8045,7 +8057,7 @@ nas_5gs_sm_pdu_ses_est_acc(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _
     /* 25    DNN    DNN 9.11.2.1B    O    TLV    3-102 */
     ELEM_OPT_TLV(0x25, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_DNN, NULL);
     /* 17    5GSM network feature support    5GSM network feature support 9.11.4.18    O    TLV    3-15  */
-    ELEM_OPT_TLV(0x25, NAS_5GS_PDU_TYPE_SM, DE_NAS_5GS_SM_5GSM_NW_FEATURE_SUP, NULL);
+    ELEM_OPT_TLV(0x17, NAS_5GS_PDU_TYPE_SM, DE_NAS_5GS_SM_5GSM_NW_FEATURE_SUP, NULL);
     /* 18    Serving PLMN rate control    Serving PLMN rate control 9.11.4.20    O    TLV    4  */
     ELEM_OPT_TLV(0x18, NAS_PDU_TYPE_ESM, DE_ESM_SERV_PLMN_RATE_CTRL, NULL);
     /* 77    ATSSS container    ATSSS container 9.11.4.22    O    TLV-E    3-65538  */
@@ -9270,18 +9282,16 @@ de_nas_5gs_updp_ue_policy_cm(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo
 
 /* D.6.6 UE OS Id */
 static guint16
-de_nas_5gs_updp_ue_os_id(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo,
+de_nas_5gs_updp_ue_os_id(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo _U_,
     guint32 offset, guint len,
     gchar* add_string _U_, int string_len _U_)
 {
-    gint32 length;
     guint32 curr_offset = offset;
-
-
-    proto_tree_add_item_ret_uint(tree, hf_nas_5gs_os_id_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &length);
-    curr_offset++;
-
-    proto_tree_add_expert(tree, pinfo, &ei_nas_5gs_ie_not_dis, tvb, curr_offset, length);
+    /* OS Id:
+    * The OS Id is coded as a sequence of a sixteen octet OS Id value field.
+    *  The OS Id value field is defined as Universally Unique IDentifier (UUID) as specified in IETF RFC 4122 [35A].
+    */
+    proto_tree_add_item(tree, hf_nas_5gs_ue_os_id, tvb, curr_offset, len, ENC_BIG_ENDIAN);
 
     return len;
 }
@@ -9436,7 +9446,7 @@ nas_5gs_updp_manage_ue_policy_cmd(tvbuff_t* tvb, proto_tree* tree, packet_info* 
     ELEM_MAND_LV_E(NAS_5GS_PDU_TYPE_UPDP, DE_NAS_5GS_UPDP_UE_POLICY_SECTION_MGM_LST, NULL, ei_nas_5gs_missing_mandatory_element);
 
     /* 42    UE policy network classmark    UE policy network classmark D.6.7    O    TLV    3-5 */
-    ELEM_OPT_TLV(0x42, NAS_5GS_PDU_TYPE_UPDP, DE_NAS_5GS_UPDP_UE_OS_ID, NULL);
+    ELEM_OPT_TLV(0x42, NAS_5GS_PDU_TYPE_UPDP, DE_NAS_5GS_UPDP_UE_POLICY_NW_CLASSMARK, NULL);
 
 }
 
@@ -10263,10 +10273,9 @@ dissect_nas_5gs_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             str = json_get_string(json_data, cur_tok, "contentId");
         } else {
             /* TS 29.502 ch6.1.6.4.4 n1SmInfoFromUe, n1SmInfoToUe, unknownN1SmInfo */
-            if (!cur_tok) {
-                cur_tok = json_get_object(json_data, tokens, N1_SMINFO_FROM_UE);
-                n1_msg_class = N1_SMINFO_FROM_UE;
-            }
+            cur_tok = json_get_object(json_data, tokens, N1_SMINFO_FROM_UE);
+            n1_msg_class = N1_SMINFO_FROM_UE;
+
             if (!cur_tok) {
                 cur_tok = json_get_object(json_data, tokens, N1_SMINFO_TO_UE);
                 n1_msg_class = N1_SMINFO_TO_UE;
@@ -10586,8 +10595,13 @@ proto_register_nas_5gs(void)
             NULL, HFILL }
         },
         { &hf_nas_5gs_cmn_service_level_aa_param_pending_ind_slapi,
-        { "Service-level-AA payload", "nas_5gs.cmn.service_level_aa_param.pending_indication.slapi",
+        { "Service-level-AA pending indication (SLAPI)", "nas_5gs.cmn.service_level_aa_param.pending_indication.slapi",
             FT_BOOLEAN, 8, TFS(&nas_5gs_cmn_service_level_aa_param_pending_ind_slapi_value), 0x01,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_cmn_service_level_aa_param_service_status_ind_uas,
+        { "UAS", "nas_5gs.cmn.service_level_aa_param.service_status_indication.uas",
+            FT_BOOLEAN, 8, TFS(&nas_5gs_enabled_not_enabled_value), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_cmn_service_level_aa_param_unknown,
@@ -11378,6 +11392,11 @@ proto_register_nas_5gs(void)
         { &hf_nas_5gs_mm_nsag_b5,
         { "NSAG",   "nas_5gs.mm.nsag_b5",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x20,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_uas_b6,
+        { "UAS",   "nas_5gs.mm.uas_b6",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_type_id,
@@ -13427,7 +13446,7 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_mm_relay_key_req_params_relay_service_code,
         { "Relay service code", "nas_5gs.mm.relay_key_req_params.relay_service_code",
-            FT_UINT8, BASE_DEC, NULL, 0,
+            FT_UINT24, BASE_DEC, NULL, 0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_relay_key_req_params_nonce_1,
@@ -13445,11 +13464,6 @@ proto_register_nas_5gs(void)
             FT_BYTES, BASE_NONE, NULL, 0,
             NULL, HFILL }
         },
-        { &hf_nas_5gs_mm_relay_key_resp_params_5gpii,
-        { "5GPRUK ID indication (5GPII)", "nas_5gs.mm.relay_key_resp_params.5gpii",
-            FT_BOOLEAN, 8, TFS(&tfs_included_not_included), 0x01,
-            NULL, HFILL }
-        },
         { &hf_nas_5gs_mm_relay_key_resp_params_key_knr_prose,
         { "Key KNR_ProSe", "nas_5gs.mm.relay_key_resp_params.key_knr_prose",
             FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -13460,14 +13474,19 @@ proto_register_nas_5gs(void)
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_nas_5gs_mm_relay_key_resp_params_5gpruk_id,
-        { "5GPRUK ID", "nas_5gs.mm.relay_key_resp_params.5gpruk_id",
+        { &hf_nas_5gs_mm_relay_key_resp_params_cp_pruk_id,
+        { "CP-PRUK ID", "nas_5gs.mm.relay_key_resp_params.cp_pruk_id",
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_prio_ind_mpsi,
         { "MPS indicator (MPSI)", "nas_5gs.mm.priority_indicator.mpsi",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_mm_prio_ind_mpsi), 0x01,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_ue_os_id,
+        { "UE OS ID UUID", "nas_5gs.ue_os_id",
+            FT_GUID, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
     };

@@ -82,6 +82,9 @@ macro(set_extcap_executable_properties _executable)
 endmacro()
 
 macro(set_extlog_executable_properties _executable)
+	set_target_properties(${_executable} PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
+	)
 	if(ENABLE_APPLICATION_BUNDLE)
 		if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
 			# Xcode
@@ -133,7 +136,6 @@ if(BUILD_androiddump)
 			ui
 			wiretap
 			wsutil
-			${ZLIB_LIBRARIES}
 			${CMAKE_DL_LIBS}
 			${WIN_WS2_32_LIBRARY}
 		)
@@ -233,6 +235,7 @@ if(BUILD_dpauxmon AND HAVE_LIBNL3)
 	set(dpauxmon_LIBS
 		wsutil
 		writecap
+		${GLIB2_LIBRARIES}
 		${CMAKE_DL_LIBS}
 		${NL_LIBRARIES}
 	)
@@ -279,7 +282,6 @@ if(BUILD_randpktdump)
 		randpkt_core
 		wiretap
 		wsutil
-		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 		${WIN_WS2_32_LIBRARY}
 	)
@@ -305,7 +307,6 @@ if(BUILD_etwdump AND WIN32)
 		tdh
 		wevtapi
 		rpcrt4
-		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 		${WIN_WS2_32_LIBRARY}
 	)
@@ -328,13 +329,10 @@ endif()
 
 if(BUILD_sdjournal AND SYSTEMD_FOUND)
 	set(sdjournal_LIBS
-		wiretap
 		writecap
 		wsutil
-		${ZLIB_LIBRARIES}
 		${CMAKE_DL_LIBS}
 		${SYSTEMD_LIBRARIES}
-		${GCRYPT_LIBRARIES}
 	)
 	set(sdjournal_FILES
 		$<TARGET_OBJECTS:extcap-base>

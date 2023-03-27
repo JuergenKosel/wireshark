@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-ldap.c                                                              */
-/* asn2wrs.py -b -p ldap -c ./ldap.cnf -s ./packet-ldap-template -D . -O ../.. Lightweight-Directory-Access-Protocol-V3.asn */
+/* asn2wrs.py -b -L -p ldap -c ./ldap.cnf -s ./packet-ldap-template -D . -O ../.. Lightweight-Directory-Access-Protocol-V3.asn */
 
-/* Input file: packet-ldap-template.c */
-
-#line 1 "./asn1/ldap/packet-ldap-template.c"
 /* packet-ldap-template.c
  * Routines for ldap packet dissection
  *
@@ -90,6 +87,7 @@
 #include <epan/asn1.h>
 #include <epan/expert.h>
 #include <epan/uat.h>
+#include <epan/charsets.h>
 #include <wsutil/str_util.h>
 #include "packet-frame.h"
 #include "packet-tcp.h"
@@ -190,9 +188,6 @@ static int hf_ldap_incremental_value_flag = -1;
 static int hf_ldap_oid = -1;
 static int hf_ldap_gssapi_encrypted_payload = -1;
 
-
-/*--- Included file: packet-ldap-hf.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-hf.c"
 static int hf_ldap_SearchControlValue_PDU = -1;   /* SearchControlValue */
 static int hf_ldap_SortKeyList_PDU = -1;          /* SortKeyList */
 static int hf_ldap_SortResult_PDU = -1;           /* SortResult */
@@ -335,9 +330,6 @@ static int hf_ldap_timeBeforeExpiration = -1;     /* INTEGER_0_maxInt */
 static int hf_ldap_graceAuthNsRemaining = -1;     /* INTEGER_0_maxInt */
 static int hf_ldap_error = -1;                    /* T_error */
 
-/*--- End of included file: packet-ldap-hf.c ---*/
-#line 186 "./asn1/ldap/packet-ldap-template.c"
-
 /* Initialize the subtree pointers */
 static gint ett_ldap = -1;
 static gint ett_ldap_msg = -1;
@@ -348,9 +340,6 @@ static gint ett_mscldap_ntver_flags = -1;
 static gint ett_mscldap_ipdetails = -1;
 static gint ett_ldap_DirSyncFlagsSubEntry = -1;
 
-
-/*--- Included file: packet-ldap-ett.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-ett.c"
 static gint ett_ldap_LDAPMessage = -1;
 static gint ett_ldap_ProtocolOp = -1;
 static gint ett_ldap_AttributeDescriptionList = -1;
@@ -406,9 +395,6 @@ static gint ett_ldap_T_syncIdSet = -1;
 static gint ett_ldap_SET_OF_SyncUUID = -1;
 static gint ett_ldap_PasswordPolicyResponseValue = -1;
 static gint ett_ldap_T_warning = -1;
-
-/*--- End of included file: packet-ldap-ett.c ---*/
-#line 198 "./asn1/ldap/packet-ldap-template.c"
 
 static expert_field ei_ldap_exceeded_filter_length = EI_INIT;
 static expert_field ei_ldap_too_many_filter_elements = EI_INIT;
@@ -1120,9 +1106,6 @@ ldap_match_call_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gu
     return lcrp;
 }
 
-
-/*--- Included file: packet-ldap-fn.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-fn.c"
 /*--- Cyclic dependencies ---*/
 
 /* Filter -> Filter/and -> Filter/and/_item -> Filter */
@@ -1135,14 +1118,12 @@ static int dissect_ldap_Filter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 static int
 dissect_ldap_MessageID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 91 "./asn1/ldap/ldap.cnf"
 
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &MessageID);
 
 
   ldm_tree = tree;
-
 
 
   return offset;
@@ -1162,7 +1143,6 @@ dissect_ldap_INTEGER_1_127(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 static int
 dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 301 "./asn1/ldap/ldap.cnf"
   tvbuff_t  *parameter_tvb = NULL;
   const char *ldapstring = NULL;
   gchar *sc = NULL; /* semi-colon pointer */
@@ -1251,7 +1231,6 @@ dissect_ldap_LDAPString(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
   }
 
 
-
   return offset;
 }
 
@@ -1268,7 +1247,6 @@ dissect_ldap_LDAPDN(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_ldap_Simple(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 148 "./asn1/ldap/ldap.cnf"
 ldap_conv_info_t *ldap_info;
 
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -1279,7 +1257,6 @@ ldap_conv_info_t *ldap_info;
   ldap_info->auth_type = LDAP_AUTH_SIMPLE;
 
 
-
   return offset;
 }
 
@@ -1287,7 +1264,6 @@ ldap_conv_info_t *ldap_info;
 
 static int
 dissect_ldap_Mechanism(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 156 "./asn1/ldap/ldap.cnf"
 
 ldap_conv_info_t *ldap_info;
 tvbuff_t  *parameter_tvb;
@@ -1324,7 +1300,6 @@ char *mechanism = NULL;
     }
   }
 
-
   return offset;
 }
 
@@ -1332,7 +1307,6 @@ char *mechanism = NULL;
 
 static int
 dissect_ldap_Credentials(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 190 "./asn1/ldap/ldap.cnf"
 
 tvbuff_t *parameter_tvb;
 ldap_conv_info_t *ldap_info;
@@ -1376,7 +1350,6 @@ gint32 tag;
 
 
 
-
   return offset;
 }
 
@@ -1399,13 +1372,11 @@ dissect_ldap_SaslCredentials(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_ldap_T_ntlmsspNegotiate(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 683 "./asn1/ldap/ldap.cnf"
   /* make sure the protocol op comes first */
   ldap_do_protocolop(actx->pinfo);
 
   call_dissector(ntlmssp_handle, tvb, actx->pinfo, tree);
   offset+=tvb_reported_length_remaining(tvb, offset);
-
 
 
   return offset;
@@ -1415,13 +1386,11 @@ dissect_ldap_T_ntlmsspNegotiate(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 static int
 dissect_ldap_T_ntlmsspAuth(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 690 "./asn1/ldap/ldap.cnf"
   /* make sure the protocol op comes first */
   ldap_do_protocolop(actx->pinfo);
 
   call_dissector(ntlmssp_handle, tvb, actx->pinfo, tree);
   offset+=tvb_reported_length_remaining(tvb, offset);
-
 
 
   return offset;
@@ -1446,7 +1415,6 @@ static const ber_choice_t AuthenticationChoice_choice[] = {
 
 static int
 dissect_ldap_AuthenticationChoice(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 480 "./asn1/ldap/ldap.cnf"
   gint branch = -1;
   gint auth = -1;
   const gchar *valstr;
@@ -1469,7 +1437,6 @@ dissect_ldap_AuthenticationChoice(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 
   if(ldm_tree)
     proto_item_append_text(ldm_tree, " %s", valstr);
-
 
 
 
@@ -1553,7 +1520,6 @@ static const value_string ldap_BindResponse_resultCode_vals[] = {
 
 static int
 dissect_ldap_BindResponse_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 421 "./asn1/ldap/ldap.cnf"
 
   const gchar *valstr;
 
@@ -1571,7 +1537,6 @@ dissect_ldap_BindResponse_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U
     proto_item_append_text(ldm_tree, " %s", valstr);
 
 
-
   return offset;
 }
 
@@ -1579,7 +1544,6 @@ dissect_ldap_BindResponse_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U
 
 static int
 dissect_ldap_T_bindResponse_matchedDN(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 697 "./asn1/ldap/ldap.cnf"
   tvbuff_t *new_tvb=NULL;
 
   offset = dissect_ber_octet_string(FALSE, actx, tree, tvb, offset, hf_ldap_matchedDN, &new_tvb);
@@ -1593,7 +1557,6 @@ dissect_ldap_T_bindResponse_matchedDN(gboolean implicit_tag _U_, tvbuff_t *tvb _
 
     call_dissector(ntlmssp_handle, new_tvb, actx->pinfo, tree);
   }
-
 
 
   return offset;
@@ -1615,9 +1578,7 @@ dissect_ldap_LDAPURL(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
                                        NULL);
 
-#line 54 "./asn1/ldap/ldap.cnf"
   proto_item_set_url(actx->created_item);
-
 
   return offset;
 }
@@ -1639,7 +1600,6 @@ dissect_ldap_Referral(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 
 static int
 dissect_ldap_ServerSaslCreds(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 231 "./asn1/ldap/ldap.cnf"
 
 tvbuff_t *parameter_tvb = NULL;
 ldap_conv_info_t *ldap_info;
@@ -1712,7 +1672,6 @@ ldap_conv_info_t *ldap_info;
   actx->private_data = ldap_info;
 
 
-
   return offset;
 }
 
@@ -1757,7 +1716,6 @@ dissect_ldap_NULL(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_ldap_UnbindRequest(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 502 "./asn1/ldap/ldap.cnf"
 
   implicit_tag = TRUE; /* correct problem with asn2wrs */
 
@@ -1766,7 +1724,6 @@ dissect_ldap_UnbindRequest(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 
   ldap_do_protocolop(actx->pinfo);
-
 
 
 
@@ -1787,7 +1744,6 @@ static const value_string ldap_T_scope_vals[] = {
 
 static int
 dissect_ldap_T_scope(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 389 "./asn1/ldap/ldap.cnf"
 
   guint32 scope = 0xffff;
   const gchar *valstr;
@@ -1804,7 +1760,6 @@ dissect_ldap_T_scope(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
   if(ldm_tree)
     proto_item_append_text(ldm_tree, " %s", valstr);
-
 
 
   return offset;
@@ -1853,13 +1808,11 @@ static int
 dissect_ldap_T_and_item(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_Filter(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 548 "./asn1/ldap/ldap.cnf"
   if(and_filter_string){
     and_filter_string=wmem_strdup_printf(actx->pinfo->pool, "(&%s%s)",and_filter_string,Filter_string);
   } else {
     and_filter_string=Filter_string;
   }
-
 
   return offset;
 }
@@ -1871,7 +1824,6 @@ static const ber_sequence_t T_and_set_of[1] = {
 
 static int
 dissect_ldap_T_and(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 555 "./asn1/ldap/ldap.cnf"
   proto_tree *tr=NULL;
   proto_item *it=NULL;
   const char *old_and_filter_string=and_filter_string;
@@ -1892,7 +1844,6 @@ dissect_ldap_T_and(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   and_filter_string=old_and_filter_string;
 
 
-
   return offset;
 }
 
@@ -1902,13 +1853,11 @@ static int
 dissect_ldap_T_or_item(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_Filter(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 573 "./asn1/ldap/ldap.cnf"
   if(or_filter_string){
     or_filter_string=wmem_strdup_printf(actx->pinfo->pool, "(|%s%s)",or_filter_string,Filter_string);
   } else {
     or_filter_string=Filter_string;
   }
-
 
 
   return offset;
@@ -1921,7 +1870,6 @@ static const ber_sequence_t T_or_set_of[1] = {
 
 static int
 dissect_ldap_T_or(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 581 "./asn1/ldap/ldap.cnf"
   proto_tree *tr;
   proto_item *it;
   const char *old_or_filter_string=or_filter_string;
@@ -1940,7 +1888,6 @@ dissect_ldap_T_or(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
   or_filter_string=old_or_filter_string;
 
 
-
   return offset;
 }
 
@@ -1950,9 +1897,7 @@ static int
 dissect_ldap_T_not(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_Filter(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 600 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(!%s)",string_or_null(Filter_string));
-
 
   return offset;
 }
@@ -1988,11 +1933,9 @@ static int
 dissect_ldap_T_equalityMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 525 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
-
 
 
   return offset;
@@ -2019,7 +1962,6 @@ dissect_ldap_T_substringFilter_substrings_item(gboolean implicit_tag _U_, tvbuff
                                  T_substringFilter_substrings_item_choice, hf_index, ett_ldap_T_substringFilter_substrings_item,
                                  NULL);
 
-#line 626 "./asn1/ldap/ldap.cnf"
   if (substring_item_final) {
     substring_value=wmem_strdup_printf(actx->pinfo->pool, "%s%s",
                                       (substring_value?substring_value:"*"),
@@ -2032,7 +1974,6 @@ dissect_ldap_T_substringFilter_substrings_item(gboolean implicit_tag _U_, tvbuff
     substring_value=wmem_strdup_printf(actx->pinfo->pool, "%s*",
                                        substring_item_init);
   }
-
 
   return offset;
 }
@@ -2059,7 +2000,6 @@ static const ber_sequence_t SubstringFilter_sequence[] = {
 
 static int
 dissect_ldap_SubstringFilter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 640 "./asn1/ldap/ldap.cnf"
   proto_tree *tr;
   proto_item *it;
   const char *old_substring_value=substring_value;
@@ -2083,7 +2023,6 @@ dissect_ldap_SubstringFilter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
   substring_value=old_substring_value;
 
 
-
   return offset;
 }
 
@@ -2093,11 +2032,9 @@ static int
 dissect_ldap_T_greaterOrEqual(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 531 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s>=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
-
 
 
   return offset;
@@ -2109,11 +2046,9 @@ static int
 dissect_ldap_T_lessOrEqual(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 537 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s<=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
-
 
 
   return offset;
@@ -2125,9 +2060,7 @@ static int
 dissect_ldap_T_present(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_AttributeDescription(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 597 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s=*)",string_or_null(Filter_string));
-
 
   return offset;
 }
@@ -2138,11 +2071,9 @@ static int
 dissect_ldap_T_approxMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ldap_AttributeValueAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 543 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s~=%s)",
                                    string_or_null(attributedesc_string),
                                    string_or_null(ldapvalue_string));
-
 
   return offset;
 }
@@ -2160,14 +2091,12 @@ dissect_ldap_MatchingRuleId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_ldap_T_dnAttributes(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 603 "./asn1/ldap/ldap.cnf"
   gboolean val;
 
   offset = dissect_ber_boolean(implicit_tag, actx, tree, tvb, offset, hf_index, &val);
 
 
   matching_rule_dnattr = val;
-
 
 
 
@@ -2195,23 +2124,19 @@ dissect_ldap_MatchingRuleAssertion(gboolean implicit_tag _U_, tvbuff_t *tvb _U_,
 
 static int
 dissect_ldap_T_extensibleMatch(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 612 "./asn1/ldap/ldap.cnf"
   attr_type=NULL;
   matching_rule_string=NULL;
   ldapvalue_string=NULL;
   matching_rule_dnattr=FALSE;
 
-
   offset = dissect_ldap_MatchingRuleAssertion(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 618 "./asn1/ldap/ldap.cnf"
   Filter_string=wmem_strdup_printf(actx->pinfo->pool, "(%s:%s%s%s=%s)",
                                   (attr_type?attr_type:""),
                                   (matching_rule_dnattr?"dn:":""),
                                   (matching_rule_string?matching_rule_string:""),
                                   (matching_rule_string?":":""),
                                    string_or_null(ldapvalue_string));
-
 
   return offset;
 }
@@ -2247,7 +2172,6 @@ static const ber_choice_t Filter_choice[] = {
 
 static int
 dissect_ldap_Filter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 661 "./asn1/ldap/ldap.cnf"
   proto_tree *tr;
   proto_item *it;
   attributedesc_string=NULL;
@@ -2273,7 +2197,6 @@ dissect_ldap_Filter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
     proto_item_append_text(it, "%s", string_or_null(Filter_string));
 
 
-
   return offset;
 }
 
@@ -2281,20 +2204,16 @@ dissect_ldap_Filter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_ldap_T_filter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 514 "./asn1/ldap/ldap.cnf"
   Filter_string=NULL;
   Filter_elements = 0;
   Filter_length = 0;
 
-
   offset = dissect_ldap_Filter(implicit_tag, tvb, offset, actx, tree, hf_index);
 
-#line 519 "./asn1/ldap/ldap.cnf"
   Filter_string=NULL;
   and_filter_string=NULL;
   Filter_elements = 0;
   Filter_length = 0;
-
 
   return offset;
 }
@@ -2347,7 +2266,6 @@ dissect_ldap_SearchRequest(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 static int
 dissect_ldap_AttributeValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 451 "./asn1/ldap/ldap.cnf"
 
   tvbuff_t  *next_tvb = NULL;
   gchar *string;
@@ -2377,7 +2295,6 @@ dissect_ldap_AttributeValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
       proto_item_set_text(actx->created_item, "AttributeValue: %s", string);
     }
   }
-
 
 
   return offset;
@@ -2500,7 +2417,6 @@ static const value_string ldap_T_resultCode_vals[] = {
 
 static int
 dissect_ldap_T_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 405 "./asn1/ldap/ldap.cnf"
 
   const gchar *valstr;
 
@@ -2516,7 +2432,6 @@ dissect_ldap_T_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
   if(ldm_tree)
     proto_item_append_text(ldm_tree, " %s", valstr);
-
 
 
 
@@ -2567,14 +2482,12 @@ dissect_ldap_SEQUENCE_OF_LDAPURL(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 static int
 dissect_ldap_SearchResultReference(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 789 "./asn1/ldap/ldap.cnf"
 
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_APP, 19, TRUE, dissect_ldap_SEQUENCE_OF_LDAPURL);
 
 
   ldap_do_protocolop(actx->pinfo);
-
 
 
 
@@ -2845,14 +2758,12 @@ dissect_ldap_CompareResponse(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_ldap_AbandonRequest(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 796 "./asn1/ldap/ldap.cnf"
 
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
                                       hf_index, BER_CLASS_APP, 16, TRUE, dissect_ldap_MessageID);
 
 
   ldap_do_protocolop(actx->pinfo);
-
 
 
   return offset;
@@ -2862,17 +2773,14 @@ dissect_ldap_AbandonRequest(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_ldap_LDAPOID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 57 "./asn1/ldap/ldap.cnf"
 
   tvbuff_t  *parameter_tvb;
   const gchar *name;
   ldap_conv_info_t *ldap_info = (ldap_conv_info_t *)actx->private_data;
 
-
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
                                        &parameter_tvb);
 
-#line 65 "./asn1/ldap/ldap.cnf"
 
   object_identifier_id = NULL;
 
@@ -2898,7 +2806,6 @@ dissect_ldap_LDAPOID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
     ldap_info->start_tls_pending = TRUE;
   }
 
-
   return offset;
 }
 
@@ -2906,7 +2813,6 @@ dissect_ldap_LDAPOID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 static int
 dissect_ldap_T_requestValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 731 "./asn1/ldap/ldap.cnf"
 
   if((object_identifier_id != NULL) && oid_has_dissector(object_identifier_id)) {
     offset = call_ber_oid_callback(object_identifier_id, tvb, offset, actx->pinfo, tree, NULL);
@@ -2915,7 +2821,6 @@ dissect_ldap_T_requestValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
                                        NULL);
 
   }
-
 
 
   return offset;
@@ -2997,7 +2902,6 @@ static const value_string ldap_ExtendedResponse_resultCode_vals[] = {
 
 static int
 dissect_ldap_ExtendedResponse_resultCode(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 436 "./asn1/ldap/ldap.cnf"
   guint32  resultCode;
   ldap_conv_info_t *ldap_info = (ldap_conv_info_t *)actx->private_data;
 
@@ -3010,7 +2914,6 @@ dissect_ldap_ExtendedResponse_resultCode(gboolean implicit_tag _U_, tvbuff_t *tv
     ssl_starttls_ack(find_dissector("tls"), actx->pinfo, ldap_handle);
     ldap_info->start_tls_pending = FALSE;
   }
-
 
 
 
@@ -3069,12 +2972,9 @@ dissect_ldap_ExtendedResponse(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 static int
 dissect_ldap_T_intermediateResponse_responseValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 739 "./asn1/ldap/ldap.cnf"
 
   const gchar *name;
 
-
-#line 743 "./asn1/ldap/ldap.cnf"
   if(ldm_tree && object_identifier_id) {
     proto_item_set_text(ldm_tree, "%s %s", "IntermediateResponse", object_identifier_id);
     name = oid_resolved_from_string(actx->pinfo->pool, object_identifier_id);
@@ -3088,7 +2988,6 @@ dissect_ldap_T_intermediateResponse_responseValue(gboolean implicit_tag _U_, tvb
                                        NULL);
 
   }
-
 
 
   return offset;
@@ -3172,18 +3071,15 @@ static const ber_choice_t ProtocolOp_choice[] = {
 
 static int
 dissect_ldap_ProtocolOp(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 99 "./asn1/ldap/ldap.cnf"
 
   ldap_call_response_t *lcrp;
   ldap_conv_info_t *ldap_info = (ldap_conv_info_t *)actx->private_data;
   do_protocolop = TRUE;
 
-
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  ProtocolOp_choice, hf_index, ett_ldap_ProtocolOp,
                                  &ProtocolOp);
 
-#line 105 "./asn1/ldap/ldap.cnf"
 
   if (ProtocolOp == -1) {
     return offset;
@@ -3226,7 +3122,6 @@ dissect_ldap_ProtocolOp(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
   }
 
 
-
   return offset;
 }
 
@@ -3243,7 +3138,6 @@ dissect_ldap_ControlType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_ldap_T_controlValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 712 "./asn1/ldap/ldap.cnf"
   gint8 ber_class;
   gboolean pc, ind;
   gint32 tag;
@@ -3262,7 +3156,6 @@ dissect_ldap_T_controlValue(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
                                        NULL);
 
   }
-
 
 
 
@@ -3414,7 +3307,6 @@ dissect_ldap_SortResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 static int
 dissect_ldap_DirSyncFlags(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 756 "./asn1/ldap/ldap.cnf"
   gint8 ber_class;
   gboolean pc;
   gint32 tag;
@@ -3446,7 +3338,6 @@ dissect_ldap_DirSyncFlags(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
   } else {
     proto_tree_add_uint(tree, hf_index, tvb, otheroffset+len, len, 0);
   }
-
 
 
   return offset;
@@ -3814,9 +3705,6 @@ static int dissect_PasswordPolicyResponseValue_PDU(tvbuff_t *tvb _U_, packet_inf
   return offset;
 }
 
-
-/*--- End of included file: packet-ldap-fn.c ---*/
-#line 910 "./asn1/ldap/packet-ldap-template.c"
 static int dissect_LDAPMessage_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, ldap_conv_info_t *ldap_info) {
 
   int offset = 0;
@@ -4222,11 +4110,7 @@ static void
   }
 }
 
-/*
- * prepend_dot is no longer used, but is being left in place in order to
- * maintain ABI compatibility.
- */
-int dissect_mscldap_string(tvbuff_t *tvb, int offset, char *str, int max_len, gboolean prepend_dot _U_)
+int dissect_mscldap_string(tvbuff_t *tvb, int offset, int max_len, char **str)
 {
   int compr_len;
   const gchar *name;
@@ -4234,7 +4118,7 @@ int dissect_mscldap_string(tvbuff_t *tvb, int offset, char *str, int max_len, gb
 
   /* The name data MUST start at offset 0 of the tvb */
   compr_len = get_dns_name(tvb, offset, max_len, 0, &name, &name_len);
-  (void) g_strlcpy(str, name, max_len);
+  *str = get_utf_8_string(wmem_packet_scope(), name, name_len);
   return offset + compr_len;
 }
 
@@ -4333,7 +4217,7 @@ static int dissect_mscldap_netlogon_flags(proto_tree *parent_tree, tvbuff_t *tvb
 static int dissect_NetLogon_PDU(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
 {
   int old_offset, offset=0;
-  char str[256];
+  char *str;
   guint16 itype;
   guint16 len;
   guint32 version;
@@ -4397,17 +4281,17 @@ static int dissect_NetLogon_PDU(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
 
         /* Forest */
         old_offset=offset;
-        offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+        offset=dissect_mscldap_string(tvb, offset, 255, &str);
         proto_tree_add_string(tree, hf_mscldap_forest, tvb, old_offset, offset-old_offset, str);
 
         /* Domain */
         old_offset=offset;
-        offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+        offset=dissect_mscldap_string(tvb, offset, 255, &str);
         proto_tree_add_string(tree, hf_mscldap_domain, tvb, old_offset, offset-old_offset, str);
 
         /* Hostname */
         old_offset=offset;
-        offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+        offset=dissect_mscldap_string(tvb, offset, 255, &str);
         proto_tree_add_string(tree, hf_mscldap_hostname, tvb, old_offset, offset-old_offset, str);
 
         /* DC IP Address */
@@ -4433,42 +4317,42 @@ static int dissect_NetLogon_PDU(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tre
 
       /* Forest */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_forest, tvb, old_offset, offset-old_offset, str);
 
       /* Domain */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_domain, tvb, old_offset, offset-old_offset, str);
 
       /* Hostname */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_hostname, tvb, old_offset, offset-old_offset, str);
 
       /* NetBIOS Domain */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_nb_domain, tvb, old_offset, offset-old_offset, str);
 
       /* NetBIOS Hostname */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_nb_hostname, tvb, old_offset, offset-old_offset, str);
 
       /* User */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_username, tvb, old_offset, offset-old_offset, str);
 
       /* Server Site */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_sitename, tvb, old_offset, offset-old_offset, str);
 
       /* Client Site */
       old_offset=offset;
-      offset=dissect_mscldap_string(tvb, offset, str, 255, FALSE);
+      offset=dissect_mscldap_string(tvb, offset, 255, &str);
       proto_tree_add_string(tree, hf_mscldap_clientsitename, tvb, old_offset, offset-old_offset, str);
 
       /* get the version number from the end of the buffer, as the
@@ -5085,9 +4969,6 @@ void proto_register_ldap(void) {
       { "GSS-API Encrypted payload", "ldap.gssapi_encrypted_payload", FT_BYTES, BASE_NONE,
         NULL, 0, NULL, HFILL }},
 
-
-/*--- Included file: packet-ldap-hfarr.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-hfarr.c"
     { &hf_ldap_SearchControlValue_PDU,
       { "SearchControlValue", "ldap.SearchControlValue_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -5652,9 +5533,6 @@ void proto_register_ldap(void) {
       { "error", "ldap.error",
         FT_UINT32, BASE_DEC, VALS(ldap_T_error_vals), 0,
         NULL, HFILL }},
-
-/*--- End of included file: packet-ldap-hfarr.c ---*/
-#line 2179 "./asn1/ldap/packet-ldap-template.c"
   };
 
   /* List of subtrees */
@@ -5668,9 +5546,6 @@ void proto_register_ldap(void) {
     &ett_mscldap_ipdetails,
     &ett_ldap_DirSyncFlagsSubEntry,
 
-
-/*--- Included file: packet-ldap-ettarr.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-ettarr.c"
     &ett_ldap_LDAPMessage,
     &ett_ldap_ProtocolOp,
     &ett_ldap_AttributeDescriptionList,
@@ -5726,9 +5601,6 @@ void proto_register_ldap(void) {
     &ett_ldap_SET_OF_SyncUUID,
     &ett_ldap_PasswordPolicyResponseValue,
     &ett_ldap_T_warning,
-
-/*--- End of included file: packet-ldap-ettarr.c ---*/
-#line 2193 "./asn1/ldap/packet-ldap-template.c"
   };
   /* UAT for header fields */
   static uat_field_t custom_attribute_types_uat_fields[] = {
@@ -5920,9 +5792,6 @@ proto_reg_handoff_ldap(void)
   dissector_add_string("ldap.name", "objectSid", create_dissector_handle(dissect_ldap_sid, proto_ldap));
   dissector_add_string("ldap.name", "nTSecurityDescriptor", create_dissector_handle(dissect_ldap_nt_sec_desc, proto_ldap));
 
-
-/*--- Included file: packet-ldap-dis-tab.c ---*/
-#line 1 "./asn1/ldap/packet-ldap-dis-tab.c"
   register_ber_oid_dissector("1.2.840.113556.1.4.319", dissect_SearchControlValue_PDU, proto_ldap, "pagedResultsControl");
   register_ber_oid_dissector("1.2.840.113556.1.4.473", dissect_SortKeyList_PDU, proto_ldap, "sortKeyList");
   register_ber_oid_dissector("1.2.840.113556.1.4.474", dissect_SortResult_PDU, proto_ldap, "sortResult");
@@ -5935,9 +5804,6 @@ proto_reg_handoff_ldap(void)
   register_ber_oid_dissector("1.3.6.1.4.1.4203.1.9.1.4", dissect_SyncInfoValue_PDU, proto_ldap, "syncInfoOID");
   register_ber_oid_dissector("1.3.6.1.4.1.42.2.27.8.5.1", dissect_PasswordPolicyResponseValue_PDU, proto_ldap, "passwordPolicy");
 
-
-/*--- End of included file: packet-ldap-dis-tab.c ---*/
-#line 2385 "./asn1/ldap/packet-ldap-template.c"
 
  dissector_add_uint_range_with_preference("tcp.port", TCP_PORT_RANGE_LDAP, ldap_handle);
 

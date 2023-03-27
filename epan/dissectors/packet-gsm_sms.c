@@ -412,7 +412,7 @@ sm_fragment_temporary_key(const packet_info *pinfo,
     const gchar* addr = (const char*)data;
     sm_fragment_key *key;
 
-    if (addr == NULL || pinfo->src.data == NULL || pinfo->dst.data == NULL)
+    if (addr == NULL)
         return NULL;
 
     key = g_slice_new(sm_fragment_key);
@@ -432,7 +432,7 @@ sm_fragment_persistent_key(const packet_info *pinfo,
     const gchar* addr = (const char*)data;
     sm_fragment_key *key = g_slice_new(sm_fragment_key);
 
-    if (addr == NULL || pinfo->src.data == NULL || pinfo->dst.data == NULL)
+    if (addr == NULL)
         return NULL;
 
     key->addr_info = wmem_strdup(NULL, addr);
@@ -3439,12 +3439,12 @@ proto_register_gsm_sms(void)
                 NULL, HFILL }
             },
             { &hf_gsm_sms_formatting_mode_alignment,
-              { "Alignment", "gsm_sms.udh_created",
+              { "Alignment", "gsm_sms.formatting_mode.alignment",
                 FT_UINT8, BASE_DEC, VALS(alignment_values), 0x03,
                 NULL, HFILL }
             },
             { &hf_gsm_sms_formatting_mode_font_size,
-              { "Font Size", "gsm_sms.udh_created",
+              { "Font Size", "gsm_sms.formatting_mode.font_size",
                 FT_UINT8, BASE_DEC, VALS(font_size_values), 0x0C,
                 NULL, HFILL }
             },

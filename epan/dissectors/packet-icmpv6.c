@@ -82,6 +82,7 @@ void proto_reg_handoff_icmpv6(void);
  * RFC 7731: MPL Control Message
  * RFC 8335: PROBE: A Utility for Probing Interfaces
  * RFC 8781: Discovering PREF64 in Router Advertisements
+ * RFC 8505: Registration Extensions for IPv6 over Low-Power Wireless Personal Area Network (6LoWPAN) Neighbor Discovery
  * http://www.iana.org/assignments/icmpv6-parameters (last updated 2016-02-24)
  */
 
@@ -221,6 +222,12 @@ static int hf_icmpv6_opt_dnssl_lifetime = -1;
 static int hf_icmpv6_opt_dnssl = -1;
 
 static int hf_icmpv6_opt_aro_status = -1;
+static int hf_icmpv6_opt_earo_opaque = -1;
+static int hf_icmpv6_opt_earo_flag = -1;
+static int hf_icmpv6_opt_earo_flag_i = -1;
+static int hf_icmpv6_opt_earo_flag_t = -1;
+static int hf_icmpv6_opt_earo_flag_r = -1;
+static int hf_icmpv6_opt_earo_tid = -1;
 static int hf_icmpv6_opt_aro_registration_lifetime = -1;
 static int hf_icmpv6_opt_aro_eui64 = -1;
 static int hf_icmpv6_opt_6co_context_length = -1;
@@ -476,6 +483,10 @@ static int hf_icmpv6_rpl_opt_transit_flag_e = -1;
 static int hf_icmpv6_rpl_opt_transit_flag_rsv = -1;
 static int hf_icmpv6_rpl_opt_transit_pathseq = -1;
 static int hf_icmpv6_rpl_opt_transit_pathctl = -1;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc1 = -1;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc2 = -1;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc3 = -1;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc4 = -1;
 static int hf_icmpv6_rpl_opt_transit_pathlifetime = -1;
 static int hf_icmpv6_rpl_opt_transit_parent = -1;
 static int hf_icmpv6_rpl_opt_solicited_instance = -1;
@@ -573,6 +584,7 @@ static gint ett_icmpv6_flag_map = -1;
 static gint ett_icmpv6_flag_route_info = -1;
 static gint ett_icmpv6_flag_6lowpan = -1;
 static gint ett_icmpv6_flag_efo = -1;
+static gint ett_icmpv6_flag_earo = -1;
 static gint ett_icmpv6_rpl_opt = -1;
 static gint ett_icmpv6_rpl_metric_type = -1;
 static gint ett_icmpv6_rpl_metric_flags = -1;
@@ -589,6 +601,7 @@ static gint ett_icmpv6_rpl_flag_solicited = -1;
 static gint ett_icmpv6_rpl_flag_prefix = -1;
 static gint ett_icmpv6_rpl_route_discovery_flag = -1;
 static gint ett_icmpv6_rpl_route_discovery_addr_vec = -1;
+static gint ett_icmpv6_rpl_transit_pathctl = -1;
 static gint ett_icmpv6_rpl_p2p_dro_flag = -1;
 static gint ett_icmpv6_rpl_p2p_droack_flag = -1;
 static gint ett_icmpv6_flag_ni = -1;
@@ -1055,13 +1068,37 @@ static const value_string nd_opt_naack_status_val[] = {
     { 0,    NULL }
 };
 
+static const value_string nd_opt_earo_status_val[] = {
+    { 0,  "Success" },
+    { 1,  "Duplicate Address" },
+    { 2,  "Neighbor Cache Full" },
+    { 3,  "Moved" },
+    { 4,  "Removed" },
+    { 5,  "Validation Requested" },
+    { 6,  "Duplicate Source Address" },
+    { 7,  "Invalid Source Address" },
+    { 8,  "Registered Address Topologically Incorrect" },
+    { 9,  "6LBR Registry Saturated" },
+    { 10, "Validation Failed" },
+    { 0,  NULL }
+};
+
+#define ND_OPT_EARO_FLAG_I 0x0C
+#define ND_OPT_EARO_FLAG_R 0x02
+#define ND_OPT_EARO_FLAG_T 0x01
+
+static const value_string nd_opt_earo_flag_val[] = {
+    { 0, "Default" },
+    { 0, NULL }
+};
+
 #define ND_OPT_6CO_FLAG_C        0x10
 #define ND_OPT_6CO_FLAG_CID      0x0F
 #define ND_OPT_6CO_FLAG_RESERVED 0xE0
 
-static const value_string nd_opt_6lowpannd_status_val[] = {
+static const value_string nd_opt_da_status_val[] = {
     { 0, "Success" },
-    { 1, "Duplicate Exists" },
+    { 1, "Duplicate Address" },
     { 2, "Neighbor Cache Full" },
     { 0, NULL }
 };
@@ -1168,6 +1205,10 @@ static const value_string icmpv6_option_cert_type_vals[] = {
 #define RPL_OPT_CONFIG_FLAG_RESERVED    0xF0
 #define RPL_OPT_TRANSIT_FLAG_E          0x80
 #define RPL_OPT_TRANSIT_FLAG_RSV        0x7F
+#define RPL_OPT_TRANSIT_PATHCTL_PC1     0xC0
+#define RPL_OPT_TRANSIT_PATHCTL_PC2     0x30
+#define RPL_OPT_TRANSIT_PATHCTL_PC3     0x0C
+#define RPL_OPT_TRANSIT_PATHCTL_PC4     0x03
 #define RPL_OPT_SOLICITED_FLAG_V        0x80
 #define RPL_OPT_SOLICITED_FLAG_I        0x40
 #define RPL_OPT_SOLICITED_FLAG_D        0x20
@@ -1761,6 +1802,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                     NULL
                 };
 
+                guint32 lifetime;
                 guint8 prefix_len;
                 /* RFC 4861 */
 
@@ -1774,11 +1816,13 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 opt_offset += 1;
 
                 /* Prefix Valid Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_prefix_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_prefix_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 /* Prefix Preferred Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_prefix_preferred_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_prefix_preferred_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_reserved, tvb, opt_offset, 4, ENC_NA);
@@ -2129,6 +2173,8 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                     NULL
                 };
 
+                guint32 lifetime;
+
                 /* Dist */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_map_dist, tvb, opt_offset, 1, ENC_BIG_ENDIAN);
 
@@ -2141,7 +2187,8 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 opt_offset += 1;
 
                 /* Valid Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_map_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_map_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 /* Global Address */
@@ -2154,6 +2201,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 /* RFC 4191 */
                 guint8 prefix_len;
                 guint8 route_preference;
+                guint32 lifetime;
                 ws_in6_addr prefix;
                 address prefix_addr;
                 static int * const route_flags[] = {
@@ -2176,7 +2224,8 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 opt_offset += 1;
 
                 /* Route Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_route_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_route_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 /* Prefix */
@@ -2207,12 +2256,15 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
             case ND_OPT_RECURSIVE_DNS_SERVER: /* Recursive DNS Server Option (25) */
             {
+                guint32 lifetime;
+
                 /* Reserved */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_reserved, tvb, opt_offset, 2, ENC_NA);
                 opt_offset += 2;
 
                 /* RDNSS Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_rdnss_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_rdnss_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 while(opt_offset < (offset + opt_len) ) {
@@ -2350,15 +2402,17 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
             }
             case ND_OPT_DNS_SEARCH_LIST: /* DNS Search List Option (31) */
             {
+                guint32 lifetime;
                 int dnssl_len;
-                const gchar *dnssl_name;
+                const gchar *dnssl_name, *name_out;
 
                 /* Reserved */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_reserved, tvb, opt_offset, 2, ENC_NA);
                 opt_offset += 2;
 
                 /* DNSSL Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_dnssl_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_dnssl_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
                 while(opt_offset < (offset + opt_len) ) {
 
@@ -2370,8 +2424,9 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                         break;
                     }
                     used_bytes = get_dns_name(tvb, opt_offset, 0, opt_offset, &dnssl_name, &dnssl_len);
-                    proto_tree_add_string(icmp6opt_tree, hf_icmpv6_opt_dnssl, tvb, opt_offset, used_bytes, format_text(pinfo->pool, dnssl_name, dnssl_len));
-                    proto_item_append_text(ti, " %s", dnssl_name);
+                    name_out = format_text(pinfo->pool, dnssl_name, dnssl_len);
+                    proto_tree_add_string(icmp6opt_tree, hf_icmpv6_opt_dnssl, tvb, opt_offset, used_bytes, name_out);
+                    proto_item_append_text(ti, " %s", name_out);
                     opt_offset += used_bytes;
 
                 }
@@ -2405,15 +2460,29 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
             {
                 /* 6lowpan-ND */
                 guint8 status;
+                static int * const earo_flags[] = {
+                    &hf_icmpv6_opt_earo_flag_i,
+                    &hf_icmpv6_opt_earo_flag_r,
+                    &hf_icmpv6_opt_earo_flag_t,
+                    NULL
+                };
 
                 /* Status */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_aro_status, tvb, opt_offset, 1, ENC_BIG_ENDIAN);
                 status = tvb_get_guint8(tvb, opt_offset);
                 opt_offset += 1;
 
-                /* Reserved */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_reserved, tvb, opt_offset, 3, ENC_NA);
-                opt_offset += 3;
+                /* EARO Opaque */
+                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_earo_opaque, tvb, opt_offset, 1, ENC_BIG_ENDIAN);
+                opt_offset += 1;
+
+                /* EARO Flags */
+                proto_tree_add_bitmask(icmp6opt_tree, tvb, opt_offset, hf_icmpv6_opt_earo_flag, ett_icmpv6_flag_earo, earo_flags, ENC_BIG_ENDIAN);
+                opt_offset += 1;
+
+                /* EARO Transaction ID */
+                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_earo_tid, tvb, opt_offset, 1, ENC_BIG_ENDIAN);
+                opt_offset += 1;
 
                 /* Lifetime */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_aro_registration_lifetime, tvb, opt_offset, 2, ENC_BIG_ENDIAN);
@@ -2421,7 +2490,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* EUI-64 */
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_aro_eui64, tvb, opt_offset, 8, ENC_BIG_ENDIAN);
-                proto_item_append_text(ti, " : Register %s %s", tvb_eui64_to_str(pinfo->pool, tvb, opt_offset), val_to_str(status, nd_opt_6lowpannd_status_val, "Unknown %d"));
+                proto_item_append_text(ti, " : Register %s %s", tvb_eui64_to_str(pinfo->pool, tvb, opt_offset), val_to_str(status, nd_opt_earo_status_val, "Unknown %d"));
                 opt_offset += 8;
 
             }
@@ -2969,6 +3038,13 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                     &hf_icmpv6_rpl_opt_transit_flag_rsv,
                     NULL
                 };
+                static int * const rpl_transit_pathctl[] = {
+                    &hf_icmpv6_rpl_opt_transit_pathctl_pc1,
+                    &hf_icmpv6_rpl_opt_transit_pathctl_pc2,
+                    &hf_icmpv6_rpl_opt_transit_pathctl_pc3,
+                    &hf_icmpv6_rpl_opt_transit_pathctl_pc4,
+                    NULL,
+                };
 
                 /* Flags */
                 proto_tree_add_bitmask(icmp6opt_tree, tvb, opt_offset, hf_icmpv6_rpl_opt_transit_flag,
@@ -2976,7 +3052,8 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                 opt_offset += 1;
 
                 /* Path Control */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_rpl_opt_transit_pathctl, tvb, opt_offset, 1, ENC_BIG_ENDIAN);
+                proto_tree_add_bitmask(icmp6opt_tree, tvb, opt_offset, hf_icmpv6_rpl_opt_transit_pathctl,
+                                    ett_icmpv6_rpl_transit_pathctl, rpl_transit_pathctl, ENC_BIG_ENDIAN);
                 opt_offset += 1;
 
                 /* Path Sequence */
@@ -3027,7 +3104,8 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
             }
             case RPL_OPT_PREFIX: {
                 /* Destination prefix option. */
-                guint32              prefix_len;
+                guint32 lifetime;
+                guint32 prefix_len;
                 static int * const rpl_prefix_flags[] = {
                     &hf_icmpv6_rpl_opt_prefix_flag_l,
                     &hf_icmpv6_rpl_opt_prefix_flag_a,
@@ -3045,12 +3123,14 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
                                     ett_icmpv6_rpl_flag_prefix, rpl_prefix_flags, ENC_BIG_ENDIAN);
                 opt_offset += 1;
 
-                /* Valid lifetime. */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_vlifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                /* Valid Lifetime */
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_vlifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 /* Preferred Lifetime */
-                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_plifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN);
+                ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_plifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
                 opt_offset += 4;
 
                 /* 4 reserved bytes. */
@@ -3726,6 +3806,7 @@ dissect_rrenum(tvbuff_t *tvb, int rr_offset, packet_info *pinfo _U_, proto_tree 
         while ((int)tvb_reported_length(tvb) > rr_offset) {
             /* Use-Prefix Part */
             guint8 uselen, keeplen;
+            guint32 lifetime;
             static int * const mask_flags[] = {
                 &hf_icmpv6_rr_pco_up_flagmask_l,
                 &hf_icmpv6_rr_pco_up_flagmask_a,
@@ -3767,11 +3848,13 @@ dissect_rrenum(tvbuff_t *tvb, int rr_offset, packet_info *pinfo _U_, proto_tree 
             rr_offset += 1;
 
             /* Valid Lifetime */
-            proto_tree_add_item(up_tree, hf_icmpv6_rr_pco_up_validlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN);
+            ti = proto_tree_add_item_ret_uint(up_tree, hf_icmpv6_rr_pco_up_validlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
             rr_offset += 4;
 
             /* Preferred Lifetime */
-            proto_tree_add_item(up_tree, hf_icmpv6_rr_pco_up_preferredlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN);
+            ti = proto_tree_add_item_ret_uint(up_tree, hf_icmpv6_rr_pco_up_preferredlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN, &lifetime);
+            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
             rr_offset += 4;
 
             /* Flags */
@@ -4377,7 +4460,7 @@ dissect_icmpv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
             case ICMP6_ND_NEIGHBOR_ADVERT: /* Neighbor Advertisement (136) */
             {
                 guint32 na_flags;
-                wmem_strbuf_t *flags_strbuf = wmem_strbuf_new_label(pinfo->pool);
+                wmem_strbuf_t *flags_strbuf = wmem_strbuf_create(pinfo->pool);
                 static int * const nd_na_flags[] = {
                     &hf_icmpv6_nd_na_flag_r,
                     &hf_icmpv6_nd_na_flag_s,
@@ -4827,8 +4910,8 @@ proto_register_icmpv6(void)
           { "Prf (Default Router Preference)", "icmpv6.nd.ra.flag.prf", FT_UINT8, BASE_DEC, VALS(nd_flag_router_pref), ND_RA_FLAG_PRF,
             "Indicates whether to prefer this router over other default routers", HFILL }},
         { &hf_icmpv6_nd_ra_flag_p,
-          { "Proxy", "icmpv6.nd.ra.flag.p", FT_BOOLEAN, 8, TFS(&tfs_set_notset), ND_RA_FLAG_P,
-           NULL, HFILL }},
+          { "ND Proxy", "icmpv6.nd.ra.flag.p", FT_BOOLEAN, 8, TFS(&tfs_set_notset), ND_RA_FLAG_P,
+            "Neighbor Discovery Proxy (Experimental - RFC4389)" , HFILL }},
         { &hf_icmpv6_nd_ra_flag_rsv,
           { "Reserved", "icmpv6.nd.ra.flag.rsv", FT_UINT8, BASE_DEC, NULL, ND_RA_FLAG_RSV,
             "Must be Zero", HFILL }},
@@ -5171,8 +5254,26 @@ proto_register_icmpv6(void)
           { "Domain Names", "icmpv6.opt.dnssl", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
         { &hf_icmpv6_opt_aro_status,
-          { "Status", "icmpv6.opt.aro.status", FT_UINT8, BASE_DEC, VALS(nd_opt_6lowpannd_status_val), 0x00,
+          { "Status", "icmpv6.opt.aro.status", FT_UINT8, BASE_DEC, VALS(nd_opt_earo_status_val), 0x00,
             "Indicates the status of a registration in the NA response", HFILL }},
+        { &hf_icmpv6_opt_earo_opaque,
+          { "Opaque", "icmpv6.opt.earo.opaque", FT_UINT8, BASE_HEX, NULL, 0x00,
+            "An opaque field whose content is dictated by flag I", HFILL }},
+        { &hf_icmpv6_opt_earo_flag,
+          { "Flags", "icmpv6.opt.earo.flag", FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL }},
+        { &hf_icmpv6_opt_earo_flag_i,
+          { "I", "icmpv6.opt.earo.flag.i", FT_UINT8, BASE_DEC, VALS(nd_opt_earo_flag_val), ND_OPT_EARO_FLAG_I,
+            "Indicates the contents of the Opaque field", HFILL }},
+        { &hf_icmpv6_opt_earo_flag_r,
+          { "R", "icmpv6.opt.earo.flag.r", FT_BOOLEAN, 8, TFS(&tfs_set_notset), ND_OPT_EARO_FLAG_R,
+            "Request reachability services for the Registered Address from a Routing Registrar", HFILL }},
+        { &hf_icmpv6_opt_earo_flag_t,
+          { "T", "icmpv6.opt.earo.flag.t", FT_BOOLEAN, 8, TFS(&tfs_set_notset), ND_OPT_EARO_FLAG_T,
+            "When 0, the Transaction ID field must be ignored", HFILL }},
+        { &hf_icmpv6_opt_earo_tid,
+          { "TID (Transaction ID)", "icmpv6.opt.earo.tid", FT_UINT8, BASE_DEC, NULL, 0x00,
+            "Unsigned integer maintained by the node and incremented with each registration.", HFILL }},
         { &hf_icmpv6_opt_aro_registration_lifetime,
           { "Registration  Lifetime", "icmpv6.opt.aro.registration_lifetime", FT_UINT16, BASE_DEC, NULL, 0x00,
             "The amount of time (in a unit of 60 seconds) that the router should retain the Neighbor Cache entry", HFILL }},
@@ -5881,8 +5982,20 @@ proto_register_icmpv6(void)
            { "Reserved", "icmpv6.rpl.opt.transit.flag.rsv", FT_UINT8, BASE_DEC, NULL, RPL_OPT_TRANSIT_FLAG_RSV,
              "Must be Zero", HFILL }},
         { &hf_icmpv6_rpl_opt_transit_pathctl,
-           { "Path Control", "icmpv6.rpl.opt.transit.pathctl", FT_UINT8, BASE_DEC, NULL, 0x0,
+           { "Path Control", "icmpv6.rpl.opt.transit.pathctl", FT_UINT8, BASE_HEX, NULL, 0x0,
               "Limits the number of DAO-Parents to which a DAO message advertising connectivity", HFILL }},
+        { &hf_icmpv6_rpl_opt_transit_pathctl_pc1,
+           { "PC1", "icmpv6.rpl.opt.transit.pathctl.pc1", FT_UINT8, BASE_HEX, NULL, RPL_OPT_TRANSIT_PATHCTL_PC1,
+              NULL, HFILL }},
+        { &hf_icmpv6_rpl_opt_transit_pathctl_pc2,
+           { "PC2", "icmpv6.rpl.opt.transit.pathctl.pc2", FT_UINT8, BASE_HEX, NULL, RPL_OPT_TRANSIT_PATHCTL_PC2,
+              NULL, HFILL }},
+        { &hf_icmpv6_rpl_opt_transit_pathctl_pc3,
+           { "PC3", "icmpv6.rpl.opt.transit.pathctl.pc3", FT_UINT8, BASE_HEX, NULL, RPL_OPT_TRANSIT_PATHCTL_PC3,
+              NULL, HFILL }},
+        { &hf_icmpv6_rpl_opt_transit_pathctl_pc4,
+           { "PC4", "icmpv6.rpl.opt.transit.pathctl.pc4", FT_UINT8, BASE_HEX, NULL, RPL_OPT_TRANSIT_PATHCTL_PC4,
+              NULL, HFILL }},
         { &hf_icmpv6_rpl_opt_transit_pathseq,
            { "Path Sequence", "icmpv6.rpl.opt.transit.pathseq", FT_UINT8, BASE_DEC, NULL, 0x0,
               "Increments the Path Sequence each time it issues a RPL Target option with updated information", HFILL }},
@@ -6032,7 +6145,7 @@ proto_register_icmpv6(void)
 
         /* 6lowpan-nd: Neighbour Discovery for 6LoWPAN Networks */
         { &hf_icmpv6_da_status,
-          { "Status", "icmpv6.6lowpannd.da.status", FT_UINT8, BASE_DEC, VALS(nd_opt_6lowpannd_status_val), 0x0,
+          { "Status", "icmpv6.6lowpannd.da.status", FT_UINT8, BASE_DEC, VALS(nd_opt_da_status_val), 0x0,
             "Indicates the status of a registration in the DAC", HFILL }},
         { &hf_icmpv6_da_rsv,
           { "Reserved", "icmpv6.6lowpannd.da.rsv", FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -6113,6 +6226,7 @@ proto_register_icmpv6(void)
         &ett_icmpv6_flag_prefix,
         &ett_icmpv6_flag_map,
         &ett_icmpv6_flag_route_info,
+        &ett_icmpv6_flag_earo,
         &ett_icmpv6_flag_6lowpan,
         &ett_icmpv6_flag_efo,
         &ett_icmpv6_rpl_opt,
@@ -6131,6 +6245,7 @@ proto_register_icmpv6(void)
         &ett_icmpv6_rpl_flag_prefix,
         &ett_icmpv6_rpl_route_discovery_flag,
         &ett_icmpv6_rpl_route_discovery_addr_vec,
+        &ett_icmpv6_rpl_transit_pathctl,
         &ett_icmpv6_rpl_p2p_dro_flag,
         &ett_icmpv6_rpl_p2p_droack_flag,
         &ett_icmpv6_flag_ni,

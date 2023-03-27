@@ -32,8 +32,10 @@ struct epan_dfilter {
 	int		*interesting_fields;
 	int		num_interesting_fields;
 	GPtrArray	*deprecated;
+	GSList		*warnings;
 	char		*expanded_text;
 	GHashTable	*references;
+	GHashTable	*raw_references;
 	char		*syntax_tree_str;
 	/* Used to pass arguments to functions. List of Lists (list of registers). */
 	GSList		*function_stack;
@@ -42,18 +44,25 @@ struct epan_dfilter {
 typedef struct {
 	/* Syntax Tree stuff */
 	stnode_t	*st_root;
-	gboolean	syntax_error;
-	gchar		*error_message;
+	gboolean	parse_failure;
+	unsigned	field_count;
+	df_error_t	error;
 	GPtrArray	*insns;
 	GHashTable	*loaded_fields;
+	GHashTable	*loaded_raw_fields;
 	GHashTable	*interesting_fields;
 	int		next_insn_id;
 	int		next_register;
 	GPtrArray	*deprecated;
 	GHashTable	*references; /* hfinfo -> pointer to array of references */
-	GHashTable	*loaded_references;
+	GHashTable	*raw_references; /* hfinfo -> pointer to array of references */
 	char		*expanded_text;
-	stloc_t		err_loc;
+	gboolean	apply_optimization;
+	wmem_allocator_t *dfw_scope; /* Because we use exceptions for error handling sometimes
+	                                cleaning up memory allocations is inconvenient. Memory
+					allocated from this pool will be freed when the dfwork_t
+					context is destroyed. */
+	GSList		*warnings;
 } dfwork_t;
 
 /*
@@ -61,10 +70,11 @@ typedef struct {
  */
 typedef struct {
 	dfwork_t *dfw;
+	stnode_t *df_lval;
 	GString* quoted_string;
 	gboolean raw_string;
-	stloc_t string_loc;
-	stloc_t location;
+	df_loc_t string_loc;
+	df_loc_t location;
 } df_scanner_state_t;
 
 /* Constructor/Destructor prototypes for Lemon Parser */
@@ -78,23 +88,26 @@ void Dfilter(void*, int, stnode_t*, dfwork_t*);
 #define SCAN_FAILED	-1	/* not 0, as that means end-of-input */
 
 void
-dfilter_vfail(dfwork_t *dfw, stloc_t *err_loc,
+dfilter_vfail(dfwork_t *dfw, int code, df_loc_t err_loc,
 			const char *format, va_list args);
 
 void
-dfilter_fail(dfwork_t *dfw, stloc_t *err_loc,
-			const char *format, ...) G_GNUC_PRINTF(3, 4);
+dfilter_fail(dfwork_t *dfw, int code, df_loc_t err_loc,
+			const char *format, ...) G_GNUC_PRINTF(4, 5);
 
 WS_NORETURN
 void
-dfilter_fail_throw(dfwork_t *dfw, stloc_t *err_loc,
-			const char *format, ...) G_GNUC_PRINTF(3, 4);
+dfilter_fail_throw(dfwork_t *dfw, int code, df_loc_t err_loc,
+			const char *format, ...) G_GNUC_PRINTF(4, 5);
 
 void
-dfw_set_error_location(dfwork_t *dfw, stloc_t *err_loc);
+dfw_set_error_location(dfwork_t *dfw, df_loc_t err_loc);
 
 void
 add_deprecated_token(dfwork_t *dfw, const char *token);
+
+void
+add_compile_warning(dfwork_t *dfw, const char *format, ...);
 
 void
 free_deprecated(GPtrArray *deprecated);
@@ -119,9 +132,18 @@ dfilter_fvalue_from_charconst(dfwork_t *dfw, ftenum_t ftype, stnode_t *st);
 const char *tokenstr(int token);
 
 df_reference_t *
-reference_new(const field_info *finfo);
+reference_new(const field_info *finfo, gboolean raw);
 
 void
 reference_free(df_reference_t *ref);
+
+void dfw_error_init(df_error_t *err);
+
+void dfw_error_clear(df_error_t *err);
+
+void dfw_error_set_msg(df_error_t **errp, const char *fmt, ...)
+G_GNUC_PRINTF(2, 3);
+
+void dfw_error_take(df_error_t **errp, df_error_t *src);
 
 #endif

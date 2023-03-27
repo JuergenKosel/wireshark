@@ -88,6 +88,9 @@ typedef struct _io_graph_settings_t {
 
 static const value_string graph_style_vs[] = {
     { IOGraph::psLine, "Line" },
+    { IOGraph::psDotLine, "Dot Line" },
+    { IOGraph::psStepLine, "Step Line" },
+    { IOGraph::psDotStepLine, "Dot Step Line" },
     { IOGraph::psImpulse, "Impulse" },
     { IOGraph::psBar, "Bar" },
     { IOGraph::psStackedBar, "Stacked Bar" },
@@ -321,6 +324,7 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFi
     datetime_ticker_(new QCPAxisTickerDateTime)
 {
     ui->setupUi(this);
+    ui->hintLabel->setSmallText();
     loadGeometry();
 
     setWindowSubtitle(tr("I/O Graphs"));
@@ -331,12 +335,16 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFi
     ui->deleteToolButton->setStockIcon("list-remove");
     ui->copyToolButton->setStockIcon("list-copy");
     ui->clearToolButton->setStockIcon("list-clear");
+    ui->moveUpwardsToolButton->setStockIcon("list-move-up");
+    ui->moveDownwardsToolButton->setStockIcon("list-move-down");
 
 #ifdef Q_OS_MAC
     ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->clearToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->moveUpwardsToolButton->setAttribute(Qt::WA_MacSmallSize, true);
+    ui->moveDownwardsToolButton->setAttribute(Qt::WA_MacSmallSize, true);
 #endif
 
     QPushButton *save_bt = ui->buttonBox->button(QDialogButtonBox::Save);
@@ -1035,8 +1043,10 @@ void IOGraphDialog::mouseMoved(QMouseEvent *event)
     QString hint;
     Qt::CursorShape shape = Qt::ArrowCursor;
 
+    // XXX: ElidedLabel doesn't support rich text / HTML, we
+    // used to bold this error
     if (!hint_err_.isEmpty()) {
-        hint += QString("<b>%1</b> ").arg(hint_err_);
+        hint += QString("%1 ").arg(hint_err_);
     }
     if (event) {
         if (event->buttons().testFlag(Qt::LeftButton)) {
@@ -1104,8 +1114,6 @@ void IOGraphDialog::mouseMoved(QMouseEvent *event)
         }
     }
 
-    hint.prepend("<small><i>");
-    hint.append("</i></small>");
     ui->hintLabel->setText(hint);
 }
 
@@ -1290,10 +1298,14 @@ void IOGraphDialog::on_graphUat_currentItemChanged(const QModelIndex &current, c
         ui->deleteToolButton->setEnabled(true);
         ui->copyToolButton->setEnabled(true);
         ui->clearToolButton->setEnabled(true);
+        ui->moveUpwardsToolButton->setEnabled(true);
+        ui->moveDownwardsToolButton->setEnabled(true);
     } else {
         ui->deleteToolButton->setEnabled(false);
         ui->copyToolButton->setEnabled(false);
         ui->clearToolButton->setEnabled(false);
+        ui->moveUpwardsToolButton->setEnabled(false);
+        ui->moveDownwardsToolButton->setEnabled(false);
     }
 }
 
@@ -1361,6 +1373,40 @@ void IOGraphDialog::on_clearToolButton_clicked()
 
     hint_err_.clear();
     mouseMoved(NULL);
+}
+
+void IOGraphDialog::on_moveUpwardsToolButton_clicked()
+{
+    const QModelIndex& current = ui->graphUat->currentIndex();
+    if (uat_model_ && current.isValid()) {
+
+        int current_row = current.row();
+        if (current_row > 0){
+            // Swap current row with the one above
+            IOGraph* temp = ioGraphs_[current_row - 1];
+            ioGraphs_[current_row - 1] = ioGraphs_[current_row];
+            ioGraphs_[current_row] = temp;
+
+            uat_model_->moveRow(current_row, current_row - 1);
+        }
+    }
+}
+
+void IOGraphDialog::on_moveDownwardsToolButton_clicked()
+{
+    const QModelIndex& current = ui->graphUat->currentIndex();
+    if (uat_model_ && current.isValid()) {
+
+        int current_row = current.row();
+        if (current_row < uat_model_->rowCount() - 1) {
+            // Swap current row with the one below
+            IOGraph* temp = ioGraphs_[current_row + 1];
+            ioGraphs_[current_row + 1] = ioGraphs_[current_row];
+            ioGraphs_[current_row] = temp;
+
+            uat_model_->moveRow(current_row, current_row + 1);
+        }
+    }
 }
 
 void IOGraphDialog::on_dragRadioButton_toggled(bool checked)
@@ -1660,12 +1706,12 @@ void IOGraph::setFilter(const QString &filter)
     if (!full_filter.isEmpty()) {
         dfilter_t *dfilter;
         bool status;
-        gchar *err_msg;
-        status = dfilter_compile(full_filter.toUtf8().constData(), &dfilter, &err_msg);
+        df_error_t *df_err = NULL;
+        status = dfilter_compile(full_filter.toUtf8().constData(), &dfilter, &df_err);
         dfilter_free(dfilter);
         if (!status) {
-            config_err_ = QString::fromUtf8(err_msg);
-            g_free(err_msg);
+            config_err_ = QString::fromUtf8(df_err->msg);
+            dfilter_error_free(df_err);
             filter_ = full_filter;
             return;
         }
@@ -1779,6 +1825,23 @@ void IOGraph::setPlotStyle(int style)
     case psLine:
         if (graph_) {
             graph_->setLineStyle(QCPGraph::lsLine);
+        }
+        break;
+    case psDotLine:
+        if (graph_) {
+            graph_->setLineStyle(QCPGraph::lsLine);
+            graph_->setScatterStyle(QCPScatterStyle::ssDisc);
+        }
+        break;
+    case psStepLine:
+        if (graph_) {
+            graph_->setLineStyle(QCPGraph::lsStepLeft);
+        }
+        break;
+    case psDotStepLine:
+        if (graph_) {
+            graph_->setLineStyle(QCPGraph::lsStepLeft);
+            graph_->setScatterStyle(QCPScatterStyle::ssDisc);
         }
         break;
     case psImpulse:
@@ -1929,7 +1992,7 @@ void IOGraph::clearAllData()
 void IOGraph::recalcGraphData(capture_file *cap_file, bool enable_scaling)
 {
     /* Moving average variables */
-    unsigned int mavg_in_average_count = 0, mavg_left = 0, mavg_right = 0;
+    unsigned int mavg_in_average_count = 0, mavg_left = 0;
     unsigned int mavg_to_remove = 0, mavg_to_add = 0;
     double mavg_cumulated = 0;
     QCPAxis *x_axis = nullptr;
@@ -1964,7 +2027,6 @@ void IOGraph::recalcGraphData(capture_file *cap_file, bool enable_scaling)
 
             mavg_cumulated += getItemValue((int)warmup_interval / interval_, cap_file);
             mavg_in_average_count++;
-            mavg_right++;
         }
         mavg_to_add = (unsigned int)warmup_interval;
     }
@@ -1989,8 +2051,6 @@ void IOGraph::recalcGraphData(capture_file *cap_file, bool enable_scaling)
                     mavg_in_average_count++;
                     mavg_cumulated += getItemValue((int)mavg_to_add / interval_, cap_file);
                     mavg_to_add += interval_;
-                } else {
-                    mavg_right--;
                 }
             }
             if (mavg_in_average_count > 0) {

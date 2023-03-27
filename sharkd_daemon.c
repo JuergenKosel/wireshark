@@ -38,7 +38,7 @@
 #endif
 
 #include <wsutil/strtoi.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
 #include "sharkd.h"
 
@@ -130,7 +130,7 @@ socket_init(char *path)
             return INVALID_SOCKET;
 
         s_in.sin_family = AF_INET;
-        ws_inet_pton4(path, &(s_in.sin_addr.s_addr));
+        ws_inet_pton4(path, (ws_in4_addr *)&(s_in.sin_addr.s_addr));
         s_in.sin_port = g_htons(port);
         *port_sep = ':';
 
@@ -423,7 +423,7 @@ sharkd_loop(int argc _U_, char* argv[])
             handles[i_handles++] = si.hStdError;
         }
 
-        exename = ws_strdup_printf("%s\\%s", get_progfile_dir(), "sharkd.exe");
+        exename = get_executable_path("sharkd");
 
         // we need to pass in all of the command line parameters except the -a parameter
         // passing in -a at this point would could a loop, each iteration of which would generate a new session process

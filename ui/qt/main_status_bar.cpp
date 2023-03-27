@@ -570,9 +570,9 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
 
 #ifdef HAVE_MINIZIP
         QMenu * importMenu = new QMenu(tr("Import"));
-        action = importMenu->addAction(tr("from zip file"), this, SLOT(manageProfile()));
+        action = importMenu->addAction(tr("From Zip File..."), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::ImportZipProfile);
-        action = importMenu->addAction(tr("from directory"), this, SLOT(manageProfile()));
+        action = importMenu->addAction(tr("From Directory..."), this, SLOT(manageProfile()));
         action->setProperty("dialog_action_", (int)ProfileDialog::ImportDirProfile);
         ctx_menu_->addMenu(importMenu);
 
@@ -581,11 +581,11 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
             QMenu * exportMenu = new QMenu(tr("Export"), ctx_menu_);
             if (enable_edit)
             {
-                action = exportMenu->addAction(tr("selected personal profile"), this, SLOT(manageProfile()));
+                action = exportMenu->addAction(tr("Selected Personal Profile..."), this, SLOT(manageProfile()));
                 action->setProperty("dialog_action_", (int)ProfileDialog::ExportSingleProfile);
                 action->setEnabled(enable_edit);
             }
-            action = exportMenu->addAction(tr("all personal profiles"), this, SLOT(manageProfile()));
+            action = exportMenu->addAction(tr("All Personal Profiles..."), this, SLOT(manageProfile()));
             action->setProperty("dialog_action_", (int)ProfileDialog::ExportAllProfiles);
             ctx_menu_->addMenu(exportMenu);
         }
@@ -630,10 +630,11 @@ void MainStatusBar::manageProfile()
     QAction *pa = qobject_cast<QAction*>(sender());
 
     if (pa) {
-        ProfileDialog cp_dialog;
+        ProfileDialog * cp_dialog = new ProfileDialog(this);
+        cp_dialog->setAttribute(Qt::WA_DeleteOnClose);
 
         int profileAction = pa->property("dialog_action_").toInt();
-        cp_dialog.execAction(static_cast<ProfileDialog::ProfileAction>(profileAction));
+        cp_dialog->execAction(static_cast<ProfileDialog::ProfileAction>(profileAction));
     }
 }
 

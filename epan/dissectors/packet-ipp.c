@@ -1054,6 +1054,10 @@ add_octetstring_tree(proto_tree *tree, tvbuff_t *tvb, int offset, int name_lengt
                 guint8 seconds = tvb_get_guint8(tvb, valoffset + 6);
                 guint8 decisecs = tvb_get_guint8(tvb, valoffset + 7);
                 guint8 utcsign = tvb_get_guint8(tvb, valoffset + 8);
+                if (utcsign != '+' && utcsign != '-') {
+                    // XXX Add expert info
+                    utcsign = '?';
+                }
                 guint8 utchours = tvb_get_guint8(tvb, valoffset + 9);
                 guint8 utcminutes = tvb_get_guint8(tvb, valoffset + 10);
 
@@ -1286,6 +1290,10 @@ add_octetstring_value(const gchar *tag_desc, proto_tree *tree, tvbuff_t *tvb,
                 guint8 seconds = tvb_get_guint8(tvb, valoffset + 6);
                 guint8 decisecs = tvb_get_guint8(tvb, valoffset + 7);
                 guint8 utcsign = tvb_get_guint8(tvb, valoffset + 8);
+                if (utcsign != '+' && utcsign != '-') {
+                    // XXX Add expert info
+                    utcsign = '?';
+                }
                 guint8 utchours = tvb_get_guint8(tvb, valoffset + 9);
                 guint8 utcminutes = tvb_get_guint8(tvb, valoffset + 10);
 
@@ -1419,6 +1427,7 @@ static void
 add_charstring_value(const gchar *tag_desc, proto_tree *tree, tvbuff_t *tvb,
                      int offset, int name_length, const gchar *name _U_, int value_length, guint8 tag)
 {
+    proto_item *ti;
     int valoffset = offset + 1 + 2 + name_length + 2;
 
     if (name_length > 0)
@@ -1426,8 +1435,14 @@ add_charstring_value(const gchar *tag_desc, proto_tree *tree, tvbuff_t *tvb,
 
     if (tag == TAG_MEMBERATTRNAME)
         proto_tree_add_item(tree, hf_ipp_memberattrname, tvb, valoffset, value_length, ENC_ASCII);
-    else
-        proto_tree_add_string_format(tree, hf_ipp_charstring_value, tvb, valoffset, value_length, NULL, "%s value: '%s'", tag_desc, tvb_format_text(wmem_packet_scope(), tvb, valoffset, value_length));
+    else {
+        ti = proto_tree_add_item(tree, hf_ipp_charstring_value, tvb, valoffset, value_length, ENC_ASCII);
+        if (strcmp(tag_desc, "") == 0) {
+            proto_item_prepend_text(ti, "string ");
+        } else {
+            proto_item_prepend_text(ti, "%s ", tag_desc);
+        }
+    }
 }
 
 static int
@@ -1437,6 +1452,11 @@ ipp_fmt_collection(tvbuff_t *tvb, int valoffset, char *buffer, int bufsize)
     guint8 tag;
     int name_length, value_length;
     int overflow = 0;
+
+    /* Should be larger to be meaningful, but at least prevent illegal
+     * memory accesses.
+     */
+    DISSECTOR_ASSERT_CMPINT(bufsize, >=, 2);
 
     *bufptr++ = '{';
     buffer ++;
@@ -1493,6 +1513,10 @@ ipp_fmt_collection(tvbuff_t *tvb, int valoffset, char *buffer, int bufsize)
       *bufptr++ = '}';
 
     *bufptr = '\0';
+    if (bufptr == bufend) {
+        /* buffer was already advanced past the initial '{' */
+        ws_utf8_truncate(buffer, bufsize - 2);
+    }
 
     return (valoffset);
 }
@@ -1527,7 +1551,7 @@ proto_register_ipp(void)
       { &hf_ipp_enum_value_print_quality, { "print-quality", "ipp.enum_value", FT_INT32, BASE_DEC, VALS(quality_vals), 0x0, NULL, HFILL }},
       { &hf_ipp_enum_value_transmission_status, { "transmission-status", "ipp.enum_value", FT_INT32, BASE_DEC, VALS(transmission_status_vals), 0x0, NULL, HFILL }},
       { &hf_ipp_outofband_value, { "out-of-band value", "ipp.outofband_value", FT_UINT8, BASE_HEX, VALS(tag_vals), 0x0, NULL, HFILL }},
-      { &hf_ipp_charstring_value, { "string value", "ipp.charstring_value", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
+      { &hf_ipp_charstring_value, { "value", "ipp.charstring_value", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ipp_octetstring_value, { "octetString value", "ipp.octetstring_value", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ipp_datetime_value, { "dateTime value", "ipp.datetime_value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
       { &hf_ipp_resolution_value, { "resolution value", "ipp.resolution_value", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},

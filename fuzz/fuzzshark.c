@@ -21,13 +21,13 @@
 
 #include <epan/epan.h>
 
-#include <ui/cmdarg_err.h>
+#include <wsutil/cmdarg_err.h>
 #include <ui/failure_message.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
 #include <wsutil/wslog.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
 #include <wiretap/wtap.h>
 

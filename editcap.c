@@ -23,14 +23,17 @@
 #include <string.h>
 #include <stdarg.h>
 #include <math.h>
+#include <stddef.h>
 
 #include <time.h>
 #include <glib.h>
+#include <gcrypt.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
+#include <ws_exit_codes.h>
 #include <wsutil/ws_getopt.h>
 
 #include <wiretap/secrets-types.h>
@@ -44,19 +47,17 @@
 #include <winsock2.h>
 #endif
 
-#include <ui/clopts_common.h>
-#include <ui/cmdarg_err.h>
-#include <ui/exit_codes.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
-#include <wsutil/wsgcrypt.h>
 #include <wsutil/plugins.h>
 #include <wsutil/privileges.h>
 #include <wsutil/report_message.h>
 #include <wsutil/strnatcmp.h>
 #include <wsutil/str_util.h>
 #include <cli_main.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 #include <wsutil/pint.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/ws_assert.h>
@@ -156,6 +157,7 @@ static gboolean               dup_detect_by_time        = FALSE;
 static gboolean               skip_radiotap             = FALSE;
 static gboolean               discard_all_secrets       = FALSE;
 static gboolean               discard_cap_comments      = FALSE;
+static gboolean               set_unused                = FALSE;
 
 static int                    do_strict_time_adjustment = FALSE;
 static struct time_adjustment strict_time_adj           = {NSTIME_INIT_ZERO, 0}; /* strict time adjustment */
@@ -542,19 +544,69 @@ set_rel_time(char *optarg_str_p)
     return TRUE;
 }
 
-#define LINUX_SLL_OFFSETP 14
+#define SLL_ADDRLEN 8 /* length of address field */
+struct sll_header {
+	uint16_t sll_pkttype;		/* packet type */
+	uint16_t sll_hatype;		/* link-layer address type */
+	uint16_t sll_halen;		/* link-layer address length */
+	uint8_t  sll_addr[SLL_ADDRLEN];	/* link-layer address */
+	uint16_t sll_protocol;		/* protocol */
+};
+
+struct sll2_header {
+	uint16_t sll2_protocol;			/* protocol */
+	uint16_t sll2_reserved_mbz;		/* reserved - must be zero */
+	uint32_t sll2_if_index;			/* 1-based interface index */
+	uint16_t sll2_hatype;			/* link-layer address type */
+	uint8_t  sll2_pkttype;			/* packet type */
+	uint8_t  sll2_halen;			/* link-layer address length */
+	uint8_t  sll2_addr[SLL_ADDRLEN];	/* link-layer address */
+};
+
 #define VLAN_SIZE 4
 static void
 sll_remove_vlan_info(guint8* fd, guint32* len) {
-    if (pntoh16(fd + LINUX_SLL_OFFSETP) == ETHERTYPE_VLAN) {
+    if (pntoh16(fd + offsetof(struct sll_header, sll_protocol)) == ETHERTYPE_VLAN) {
         int rest_len;
         /* point to start of vlan */
-        fd = fd + LINUX_SLL_OFFSETP;
+        fd = fd + offsetof(struct sll_header, sll_protocol);
         /* bytes to read after vlan info */
-        rest_len = *len - (LINUX_SLL_OFFSETP + VLAN_SIZE);
+        rest_len = *len - (offsetof(struct sll_header, sll_protocol) + VLAN_SIZE);
         /* remove vlan info from packet */
         memmove(fd, fd + VLAN_SIZE, rest_len);
         *len -= 4;
+    }
+}
+
+
+
+static void
+sll_set_unused_info(guint8* fd) {
+    guint32 ha_len;
+    ha_len = pntoh16(fd + offsetof(struct sll_header, sll_halen));
+
+    if (ha_len < SLL_ADDRLEN) {
+        int unused;
+        unused = SLL_ADDRLEN - ha_len;
+        /* point to end of sll_ddr */
+        fd = fd + offsetof(struct sll_header, sll_addr) + ha_len;
+        /* set zeros in the unused data */
+        memset(fd, 0, unused);
+    }
+}
+
+static void
+sll2_set_unused_info(guint8* fd) {
+    guint32 ha_len;
+    ha_len = *(fd + offsetof(struct sll2_header, sll2_halen));
+
+    if (ha_len < SLL_ADDRLEN) {
+        int unused;
+        unused = SLL_ADDRLEN - ha_len;
+        /* point to end of sll2_addr */
+        fd = fd + offsetof(struct sll2_header, sll2_addr) + ha_len;
+        /* set zeros in the unused data */
+        memset(fd, 0, unused);
     }
 }
 
@@ -563,6 +615,21 @@ remove_vlan_info(const wtap_packet_header *phdr, guint8* fd, guint32* len) {
     switch (phdr->pkt_encap) {
         case WTAP_ENCAP_SLL:
             sll_remove_vlan_info(fd, len);
+            break;
+        default:
+            /* no support for current pkt_encap */
+            break;
+    }
+}
+
+static void
+set_unused_info(const wtap_packet_header *phdr, guint8* fd) {
+    switch (phdr->pkt_encap) {
+        case WTAP_ENCAP_SLL:
+            sll_set_unused_info(fd);
+            break;
+        case WTAP_ENCAP_SLL2:
+            sll2_set_unused_info(fd);
             break;
         default:
             /* no support for current pkt_encap */
@@ -768,6 +835,7 @@ print_usage(FILE *output)
     fprintf(output, "  --skip-radiotap-header skip radiotap header when checking for packet duplicates.\n");
     fprintf(output, "                         Useful when processing packets captured by multiple radios\n");
     fprintf(output, "                         on the same channel in the vicinity of each other.\n");
+    fprintf(output, "  --set-unused           set unused byts to zero in sll link addr.\n");
     fprintf(output, "\n");
     fprintf(output, "Packet manipulation:\n");
     fprintf(output, "  -s <snaplen>           truncate each packet to max. <snaplen> bytes of data.\n");
@@ -1054,7 +1122,7 @@ process_new_idbs(wtap *wth, wtap_dumper *pdh, GArray *idbs_seen,
          * That mean that the abstract interface provided by libwiretap
          * involves WTAP_BLOCK_IF_ID_AND_INFO blocks.
          */
-        if (wtap_file_type_subtype_supports_block(wtap_dump_file_type_subtype(pdh),
+        if (pdh != NULL && wtap_file_type_subtype_supports_block(wtap_dump_file_type_subtype(pdh),
                                                   WTAP_BLOCK_IF_ID_AND_INFO) != BLOCK_NOT_SUPPORTED) {
             wtap_block_t if_data_copy;
 
@@ -1128,6 +1196,7 @@ main(int argc, char *argv[])
 #define LONGOPT_DISCARD_ALL_SECRETS  LONGOPT_BASE_APPLICATION+5
 #define LONGOPT_CAPTURE_COMMENT      LONGOPT_BASE_APPLICATION+6
 #define LONGOPT_DISCARD_CAPTURE_COMMENT LONGOPT_BASE_APPLICATION+7
+#define LONGOPT_SET_UNUSED           LONGOPT_BASE_APPLICATION+8
 
     static const struct ws_option long_options[] = {
         {"novlan", ws_no_argument, NULL, LONGOPT_NO_VLAN},
@@ -1139,6 +1208,7 @@ main(int argc, char *argv[])
         {"version", ws_no_argument, NULL, 'v'},
         {"capture-comment", ws_required_argument, NULL, LONGOPT_CAPTURE_COMMENT},
         {"discard-capture-comment", ws_no_argument, NULL, LONGOPT_DISCARD_CAPTURE_COMMENT},
+        {"set-unused", ws_no_argument, NULL, LONGOPT_SET_UNUSED},
         {0, 0, 0, 0 }
     };
 
@@ -1186,7 +1256,7 @@ main(int argc, char *argv[])
     ws_log_init("editcap", vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -1238,7 +1308,7 @@ main(int argc, char *argv[])
             if (sscanf(ws_optarg, "%u", &seed) != 1) {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid seed\n\n",
                         ws_optarg);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             valid_seed = TRUE;
@@ -1259,14 +1329,14 @@ main(int argc, char *argv[])
                 if (secrets_type_id == 0) {
                     fprintf(stderr, "editcap: \"%s\" isn't a valid secrets type\n", splitted[0]);
                     g_strfreev(splitted);
-                    ret = INVALID_OPTION;
+                    ret = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 secrets_filename = splitted[1];
             } else {
                 fprintf(stderr, "editcap: no secrets type was specified for --inject-secrets\n");
                 g_strfreev(splitted);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             if (!dsb_filenames) {
@@ -1298,7 +1368,7 @@ main(int argc, char *argv[])
                 /* It doesn't fit.  Tell the user and give up. */
                 cmdarg_err("Capture comment %u is too large to save in a capture file.",
                            capture_comments->len + 1);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
 
@@ -1317,6 +1387,12 @@ main(int argc, char *argv[])
             break;
         }
 
+        case LONGOPT_SET_UNUSED:
+        {
+            set_unused = TRUE;
+            break;
+        }
+
         case 'a':
         {
             guint frame_number;
@@ -1325,7 +1401,7 @@ main(int argc, char *argv[])
             if ((sscanf(ws_optarg, "%u:%n", &frame_number, &string_start_index) < 1) || (string_start_index == 0)) {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid <frame>:<comment>\n\n",
                         ws_optarg);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
 
@@ -1340,7 +1416,7 @@ main(int argc, char *argv[])
                 /* It doesn't fit.  Tell the user and give up. */
                 cmdarg_err("A comment for frame %u is too large to save in a capture file.",
                            frame_number);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
 
@@ -1373,7 +1449,7 @@ main(int argc, char *argv[])
             else {
                 fprintf(stderr, "editcap: \"%s\" isn't a valid date and time\n\n",
                         ws_optarg);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
         }
@@ -1398,7 +1474,7 @@ main(int argc, char *argv[])
             default:
                 fprintf(stderr, "editcap: \"%s\" isn't a valid chop length or offset:length\n",
                         ws_optarg);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
                 break;
             }
@@ -1432,7 +1508,7 @@ main(int argc, char *argv[])
             if (dup_window > MAX_DUP_DEPTH) {
                 fprintf(stderr, "editcap: \"%d\" duplicate window value must be between 0 and %d inclusive.\n",
                         dup_window, MAX_DUP_DEPTH);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1442,7 +1518,7 @@ main(int argc, char *argv[])
             if (p == ws_optarg || err_prob < 0.0 || err_prob > 1.0) {
                 fprintf(stderr, "editcap: probability \"%s\" must be between 0.0 and 1.0\n",
                         ws_optarg);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1453,7 +1529,7 @@ main(int argc, char *argv[])
                 fprintf(stderr, "editcap: \"%s\" isn't a valid capture file type\n\n",
                         ws_optarg);
                 list_capture_types(stderr);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1469,7 +1545,7 @@ main(int argc, char *argv[])
             double spb = get_positive_double(ws_optarg, "time interval");
             if (spb == 0.0) {
               cmdarg_err("The specified interval is zero");
-              ret = INVALID_OPTION;
+              ret = WS_EXIT_INVALID_OPTION;
               goto clean_exit;
             }
 
@@ -1495,7 +1571,7 @@ main(int argc, char *argv[])
         case 'r':
             if (keep_em) {
                 cmdarg_err("-r was specified twice");
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             keep_em = TRUE;
@@ -1507,7 +1583,7 @@ main(int argc, char *argv[])
 
         case 'S':
             if (!set_strict_time_adj(ws_optarg)) {
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             do_strict_time_adjustment = TRUE;
@@ -1515,7 +1591,7 @@ main(int argc, char *argv[])
 
         case 't':
             if (!set_time_adjustment(ws_optarg)) {
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1526,7 +1602,7 @@ main(int argc, char *argv[])
                 fprintf(stderr, "editcap: \"%s\" isn't a valid encapsulation type\n\n",
                         ws_optarg);
                 list_encap_types(stderr);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1534,7 +1610,7 @@ main(int argc, char *argv[])
         case 'V':
             if (verbose) {
                 cmdarg_err("-V was specified twice");
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             verbose = TRUE;
@@ -1550,7 +1626,7 @@ main(int argc, char *argv[])
             dup_detect_by_time = TRUE;
             dup_window = MAX_DUP_DEPTH;
             if (!set_rel_time(ws_optarg)) {
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             break;
@@ -1571,7 +1647,7 @@ main(int argc, char *argv[])
                     fprintf(stderr, "editcap: option requires an argument -- '%c'\n", ws_optopt);
                 }
                 print_usage(stderr);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 break;
             }
             goto clean_exit;
@@ -1585,7 +1661,7 @@ main(int argc, char *argv[])
 
     if ((argc - ws_optind) < 2) {
         print_usage(stderr);
-        ret = INVALID_OPTION;
+        ret = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -1607,14 +1683,14 @@ main(int argc, char *argv[])
     if (have_starttime && have_stoptime &&
         nstime_cmp(&starttime, &stoptime) > 0) {
         fprintf(stderr, "editcap: start time is after the stop time\n");
-        ret = INVALID_OPTION;
+        ret = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
     if (split_packet_count != 0 && !nstime_is_unset(&secs_per_block)) {
         fprintf(stderr, "editcap: can't split on both packet count and time interval\n");
         fprintf(stderr, "editcap: at the same time\n");
-        ret = INVALID_OPTION;
+        ret = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -1622,7 +1698,7 @@ main(int argc, char *argv[])
 
     if (!wth) {
         cfile_open_failure_message(argv[ws_optind], read_err, read_err_info);
-        ret = INVALID_FILE;
+        ret = WS_EXIT_INVALID_FILE;
         goto clean_exit;
     }
 
@@ -1635,7 +1711,7 @@ main(int argc, char *argv[])
         if (ignored_bytes != 0) {
             fprintf(stderr, "editcap: can't skip radiotap headers and %d byte(s)\n", ignored_bytes);
             fprintf(stderr, "editcap: at the start of packet at the same time\n");
-            ret = INVALID_OPTION;
+            ret = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
 
@@ -1649,7 +1725,7 @@ main(int argc, char *argv[])
                         wtap_encap_description(WTAP_ENCAP_IEEE_802_11_RADIOTAP),
                         wtap_encap_description(wtap_file_encap(wth)));
             }
-            ret = INVALID_OPTION;
+            ret = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
     }
@@ -1701,7 +1777,7 @@ main(int argc, char *argv[])
             if (!g_file_get_contents(secrets_filename, &data, &data_len, &err)) {
                 fprintf(stderr, "editcap: \"%s\" could not be read: %s\n", secrets_filename, err->message);
                 g_clear_error(&err);
-                ret = INVALID_OPTION;
+                ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
             if (data_len == 0) {
@@ -1753,6 +1829,12 @@ main(int argc, char *argv[])
         if (add_selection(argv[i], &max_packet_number) == FALSE)
             break;
 
+    if (keep_em && max_selected == 0) {
+        fprintf(stderr, "editcap: must specify packets to keep when using -r\n");
+        ret = WS_EXIT_INVALID_OPTION;
+        goto clean_exit;
+    }
+
     if (!keep_em)
         max_packet_number = G_MAXUINT;
 
@@ -1773,9 +1855,9 @@ main(int argc, char *argv[])
     while (wtap_read(wth, &read_rec, &read_buf, &read_err, &read_err_info, &data_offset)) {
         /*
          * XXX - what about non-packet records in the file after this?
-         * We can *probably* ignore IDBs after this point, as they
-         * presumably indicate that we weren't capturing on that
-         * interface at this point, but what about, for example, NRBs?
+         * NRBs, DSBs, and ISBs are now written when wtap_dump_close() calls
+         * pcapng_dump_finish(), and we handle IDBs below, but what about
+         * custom blocks?
          */
         if (max_packet_number <= read_count)
             break;
@@ -1810,7 +1892,7 @@ main(int argc, char *argv[])
                 cfile_dump_open_failure_message(filename,
                                                 write_err, write_err_info,
                                                 out_file_type_subtype);
-                ret = INVALID_FILE;
+                ret = WS_EXIT_INVALID_FILE;
                 goto clean_exit;
             }
         } /* first packet only handling */
@@ -1824,6 +1906,13 @@ main(int argc, char *argv[])
                                         read_count,
                                         out_file_type_subtype);
             ret = DUMP_ERROR;
+
+            /*
+             * Close the dump file, but don't report an error
+             * or set the exit code, as we've already reported
+             * an error.
+             */
+            wtap_dump_close(pdh, NULL, &write_err, &write_err_info);
             goto clean_exit;
         }
 
@@ -1863,7 +1952,7 @@ main(int argc, char *argv[])
                                                         write_err,
                                                         write_err_info,
                                                         out_file_type_subtype);
-                        ret = INVALID_FILE;
+                        ret = WS_EXIT_INVALID_FILE;
                         goto clean_exit;
                     }
                 }
@@ -1893,7 +1982,7 @@ main(int argc, char *argv[])
                     cfile_dump_open_failure_message(filename,
                                                     write_err, write_err_info,
                                                     out_file_type_subtype);
-                    ret = INVALID_FILE;
+                    ret = WS_EXIT_INVALID_FILE;
                     goto clean_exit;
                 }
             }
@@ -2064,6 +2153,12 @@ main(int argc, char *argv[])
                                 &rec->rec_header.packet_header, &buf,
                                 adjlen);
                 rec = &temp_rec;
+
+                /* set unused info */
+                if (set_unused) {
+                    /* set unused bytes to zero so that duplicates check ignores unused bytes */
+                    set_unused_info(&rec->rec_header.packet_header, buf);
+                }
 
                 /* remove vlan info */
                 if (rem_vlan) {
@@ -2269,6 +2364,13 @@ main(int argc, char *argv[])
                                             read_count,
                                             out_file_type_subtype);
                 ret = DUMP_ERROR;
+
+                /*
+                 * Close the dump file, but don't report an error
+                 * or set the exit code, as we've already reported
+                 * an error.
+                 */
+                wtap_dump_close(pdh, NULL, &write_err, &write_err_info);
                 goto clean_exit;
             }
             written_count++;
@@ -2289,7 +2391,7 @@ main(int argc, char *argv[])
     }
 
     if (!pdh) {
-        /* No valid packages found, open the outfile so we can write an
+        /* No valid packets found, open the outfile so we can write an
          * empty header */
         g_free (filename);
         filename = g_strdup(argv[ws_optind+1]);
@@ -2300,20 +2402,34 @@ main(int argc, char *argv[])
             cfile_dump_open_failure_message(filename,
                                             write_err, write_err_info,
                                             out_file_type_subtype);
-            ret = INVALID_FILE;
+            ret = WS_EXIT_INVALID_FILE;
             goto clean_exit;
         }
+    }
+
+    /*
+     * Process whatever IDBs we haven't seen yet.
+     */
+    if (!process_new_idbs(wth, pdh, idbs_seen, &write_err, &write_err_info)) {
+        cfile_write_failure_message(argv[ws_optind], filename,
+                                    write_err, write_err_info,
+                                    read_count,
+                                    out_file_type_subtype);
+        ret = DUMP_ERROR;
+
+        /*
+         * Close the dump file, but don't report an error
+         * or set the exit code, as we've already reported
+         * an error.
+         */
+        wtap_dump_close(pdh, NULL, &write_err, &write_err_info);
+        goto clean_exit;
     }
 
     if (!wtap_dump_close(pdh, NULL, &write_err, &write_err_info)) {
         cfile_close_failure_message(filename, write_err, write_err_info);
         ret = WRITE_ERROR;
         goto clean_exit;
-    }
-    g_free(filename);
-
-    if (frames_user_comments) {
-        g_tree_destroy(frames_user_comments);
     }
 
     if (dup_detect) {
@@ -2329,6 +2445,12 @@ main(int argc, char *argv[])
     }
 
 clean_exit:
+    if (filename) {
+        g_free(filename);
+    }
+    if (frames_user_comments) {
+        g_tree_destroy(frames_user_comments);
+    }
     if (dsb_filenames) {
         g_array_free(dsb_types, TRUE);
         g_ptr_array_free(dsb_filenames, TRUE);

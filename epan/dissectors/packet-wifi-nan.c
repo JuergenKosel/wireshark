@@ -12,6 +12,8 @@
 #include <epan/expert.h>
 #include <epan/dissectors/packet-ieee80211.h>
 
+#include <wsutil/str_util.h>
+
 void proto_reg_handoff_nan(void);
 void proto_register_nan(void);
 
@@ -1525,7 +1527,7 @@ dissect_attr_availability(proto_tree* attr_tree, tvbuff_t* tvb, gint offset, gui
         guint64 avail_entry;
         const gchar* entry_type_msg = val_to_str(entry_type, availability_entry_type,
             "Unknown type (%u)");
-        gchar* info_msg = g_strconcat("Availability Type : ", entry_type_msg, NULL);
+        gchar* info_msg = wmem_strconcat(pinfo->pool, "Availability Type : ", entry_type_msg, NULL);
         proto_tree* entry_tree = proto_tree_add_subtree(attr_tree, tvb, offset, entry_len + 2,
             ett_availability_entry, NULL, info_msg);
         proto_tree_add_item(entry_tree, hf_nan_attr_availability_entry_len, tvb,
@@ -2912,70 +2914,70 @@ proto_register_nan(void)
             {
             "FSD Required",
             "nan.sdea.ctr_fsd",
-            FT_BOOLEAN, 16, NULL, 0x001, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_fsd_w_gas,
             {
             "FSD with GAS",
             "nan.sdea.ctr_fsd_w_gas",
-            FT_BOOLEAN, 16, NULL, 0x002, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0002, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_data_path,
             {
             "Data Path Required",
             "nan.sdea.ctr_data_path",
-            FT_BOOLEAN, 16, NULL, 0x004, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0004, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_data_path_type,
             {
             "Data Path Type",
             "nan.sdea.ctr_data_path_type",
-            FT_BOOLEAN, 16, TFS(&sdea_ctr_data_path_type_flags), 0x008, NULL, HFILL
+            FT_BOOLEAN, 16, TFS(&sdea_ctr_data_path_type_flags), 0x0008, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_reserved_multicast_type,
             {
             "Reserved (Multicast Type)",
             "nan.sdea.ctr_reserved_multicast_type",
-            FT_BOOLEAN, 16, TFS(&sdea_ctr_reserved_multicast_type_flags), 0x010, NULL, HFILL
+            FT_BOOLEAN, 16, TFS(&sdea_ctr_reserved_multicast_type_flags), 0x0010, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_qos,
             {
             "QoS Required",
             "nan.sdea.ctr_qos",
-            FT_BOOLEAN, 16, NULL, 0x020, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0020, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_security,
             {
             "Security Required",
             "nan.sdea.ctr_security",
-            FT_BOOLEAN, 16, NULL, 0x040, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0040, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_ranging,
             {
             "Ranging Required",
             "nan.sdea.ctr_ranging",
-            FT_BOOLEAN, 16, NULL, 0x080, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_range_limit,
             {
             "Range Limit Present",
             "nan.sdea.ctr_range_limit",
-            FT_BOOLEAN, 16, NULL, 0x100, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0100, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ctr_service_update_indicator,
             {
             "Service Update Indicator Present",
             "nan.sdea.ctr_service_update_indicator",
-            FT_BOOLEAN, 16, NULL, 0x200, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0200, NULL, HFILL
             }
         },
         { &hf_nan_attr_sdea_ingress_range_limit,
@@ -3059,14 +3061,14 @@ proto_register_nan(void)
              {
              "IBSS",
              "nan.connection_cap.ibss",
-             FT_BOOLEAN, 16, NULL, 0x10, NULL, HFILL
+             FT_BOOLEAN, 16, NULL, 0x0010, NULL, HFILL
              }
         },
         { &hf_nan_attr_connection_cap_mesh,
              {
              "Mesh",
              "nan.connection_cap.mesh",
-             FT_BOOLEAN, 16, NULL, 0x20, NULL, HFILL
+             FT_BOOLEAN, 16, NULL, 0x0020, NULL, HFILL
              }
         },
         { &hf_nan_attr_wlan_infra_device_role,
@@ -3493,49 +3495,49 @@ proto_register_nan(void)
             {
             "Map ID",
             "nan.availability.map_id",
-            FT_UINT16, BASE_HEX_DEC, NULL, 0x00F, NULL, HFILL
+            FT_UINT16, BASE_HEX_DEC, NULL, 0x000F, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_committed_changed,
             {
             "Committed Changed",
             "nan.availability.committed_changed",
-            FT_BOOLEAN, 16, NULL, 0x010, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0010, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_potential_changed,
             {
             "Potential Changed",
             "nan.availability.potential_changed",
-            FT_BOOLEAN, 16, NULL, 0x020, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0020, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_public_availability_changed,
             {
             "Public Availability Attribute Changed",
             "nan.availability.public_availability_changed",
-            FT_BOOLEAN, 16, NULL, 0x040, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0040, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_ndc_changed,
             {
             "NDC Attribute Changed",
             "nan.availability.ndc_changed",
-            FT_BOOLEAN, 16, NULL, 0x080, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_reserved_multicast_schedule_changed,
             {
             "Reserved (Multicast Schedule Attribute Changed)",
             "nan.availability.reserved_multicast_schedule_changed",
-            FT_BOOLEAN, 16, NULL, 0x100, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0100, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_reserved_multicast_schedule_change_changed,
             {
             "Reserved (Multicast Schedule Change Attribute Change Changed)",
             "nan.availability.reserved_multicast_schedule_change_changed",
-            FT_BOOLEAN, 16, NULL, 0x200, NULL, HFILL
+            FT_BOOLEAN, 16, NULL, 0x0200, NULL, HFILL
             }
         },
         { &hf_nan_attr_availability_entry_len,
@@ -3801,7 +3803,7 @@ proto_register_nan(void)
             {
             "Sequence ID",
             "nan.unaligned_schedule.ctrl.sequence_id",
-            FT_UINT16, BASE_HEX_DEC, NULL, 0xF00, NULL, HFILL
+            FT_UINT16, BASE_HEX_DEC, NULL, 0x0F00, NULL, HFILL
             }
         },
         { &hf_nan_attr_unaligned_sch_starting_time,
@@ -3976,7 +3978,7 @@ proto_register_nan(void)
              {
              "Min Delta FTM",
              "nan.ranging_setup.ftm.min_delta_ftm",
-             FT_UINT24, BASE_HEX_DEC, NULL, 0x3F0, NULL, HFILL
+             FT_UINT24, BASE_HEX_DEC, NULL, 0x03F0, NULL, HFILL
              }
         },
         { &hf_nan_attr_ranging_setup_ftm_max_per_burst,

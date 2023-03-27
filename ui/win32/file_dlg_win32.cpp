@@ -49,7 +49,7 @@ typedef enum {
     merge_prepend
 } merge_action_e;
 
-#define FILE_OPEN_DEFAULT 1 /* All Files */
+#define FILE_OPEN_DEFAULT 2 /* All Capture Files */
 
 #define FILE_MERGE_DEFAULT FILE_OPEN_DEFAULT
 
@@ -94,6 +94,7 @@ static GetThreadDpiAwarenessContextProc GetThreadDpiAwarenessContextP;
 static SetThreadDpiAwarenessContextProc SetThreadDpiAwarenessContextP;
 static gboolean got_proc_addresses = FALSE;
 
+DIAG_OFF(cast-function-type)
 static gboolean get_proc_addresses(void) {
     if (got_proc_addresses) return TRUE;
 
@@ -111,6 +112,7 @@ static gboolean get_proc_addresses(void) {
     got_proc_addresses = got_all;
     return got_all;
 }
+DIAG_ON(cast-function-type)
 
 // Enabling DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 causes issues
 // when dragging our open file dialog between differently-DPIed
@@ -988,8 +990,8 @@ open_file_hook_proc(HWND of_hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
                     g_format_type = (unsigned int) SendMessage(cur_ctrl, CB_GETCURSEL, 0, 0);
 
                     /* The list of file formats is sorted. Get the format by name. */
-                    guint label_len;
-                    label_len = (guint) SendMessage(cur_ctrl, CB_GETLBTEXTLEN, (WPARAM) g_format_type, 0);
+                    LRESULT label_len;
+                    label_len = SendMessage(cur_ctrl, CB_GETLBTEXTLEN, (WPARAM) g_format_type, 0);
                     if (label_len != CB_ERR) {
                         TCHAR *label = g_new(TCHAR, label_len+1);
                         SendMessage(cur_ctrl, CB_GETLBTEXT, (WPARAM) g_format_type, (LPARAM) label);
@@ -1054,7 +1056,6 @@ append_file_extension_type(GArray *sa, int et)
 
     /* Construct the list of patterns. */
     extensions_list = wtap_get_file_extension_type_extensions(et);
-    g_string_printf(pattern_str, "");
     sep = '\0';
     for (extension = extensions_list; extension != NULL;
          extension = g_slist_next(extension)) {
@@ -1188,7 +1189,6 @@ append_file_type(GArray *sa, int ft)
            g_string_printf(pattern_str, ALL_FILES_WILDCARD);
     } else {
         /* Construct the list of patterns. */
-        g_string_printf(pattern_str, "");
         sep = '\0';
         for (extension = extensions_list; extension != NULL;
              extension = g_slist_next(extension)) {

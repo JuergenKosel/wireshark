@@ -337,7 +337,7 @@ void ExtcapOptionsDialog::updateWidgets()
             editWidget = argument->createEditor((QWidget *) this);
             if (editWidget != NULL)
             {
-                editWidget->setProperty(QString("extcap").toLocal8Bit(), VariantPointer<ExtcapArgument>::asQVariant(argument));
+                editWidget->setProperty("extcap", VariantPointer<ExtcapArgument>::asQVariant(argument));
                 layout->addWidget(editWidget, counter, 1, Qt::AlignVCenter);
 
                 if (argument->isSetDefaultValueSupported())
@@ -419,11 +419,12 @@ void ExtcapOptionsDialog::on_buttonBox_helpRequested()
 
     /* Check the existence for a local file */
     if (help_url.isLocalFile()) {
-        QFileInfo help_file(help_url.toLocalFile());
+        QString local_path = help_url.toLocalFile();
+        QFileInfo help_file(local_path);
         if (!help_file.exists()) {
             QMessageBox::warning(this, tr("Extcap Help cannot be found"),
                 QString(tr("The help for the extcap interface %1 cannot be found. Given file: %2"))
-                    .arg(device->name).arg(help_url.path()),
+                    .arg(device->name).arg(QDir::toNativeSeparators(local_path)),
                 QMessageBox::Ok);
             return;
         }
@@ -447,15 +448,32 @@ bool ExtcapOptionsDialog::saveOptionToCaptureInfo()
     {
         QString call = (*iter)->call();
         QString value = (*iter)->value();
+        QString prefValue = (*iter)->prefValue();
 
         if ((*iter)->argument()->arg_type != EXTCAP_ARG_BOOLFLAG && value.length() == 0)
             continue;
 
-        if (call.length() <= 0)
+        if (call.length() <= 0) {
+            /* BOOLFLAG was cleared, make its value empty */
+            if ((*iter)->argument()->arg_type == EXTCAP_ARG_BOOLFLAG) {
+                *(*iter)->argument()->pref_valptr[0] = 0;
+            }
             continue;
+        }
 
-        if (value.compare((*iter)->defaultValue()) == 0)
+        if (value.compare((*iter)->defaultValue()) == 0) {
+            extcap_arg *arg = (*iter)->argument();
+
+            // If previous value is not default, set it to default value
+            if (arg->default_complex != NULL && arg->default_complex->_val != NULL) {
+                g_free(*arg->pref_valptr);
+                *arg->pref_valptr = g_strdup(arg->default_complex->_val);
+            } else {
+                // Set empty value if there is no default value
+                *arg->pref_valptr[0] = 0;
+            }
             continue;
+        }
 
         gchar * call_string = g_strdup(call.toStdString().c_str());
         gchar * value_string = NULL;
@@ -463,6 +481,14 @@ bool ExtcapOptionsDialog::saveOptionToCaptureInfo()
             value_string = g_strdup(value.toStdString().c_str());
 
         g_hash_table_insert(ret_args, call_string, value_string);
+
+        // For current value we need strdup even it is empty
+        value_string = g_strdup(prefValue.toStdString().c_str());
+        // Update current value with new value
+        // We use prefValue because for bool/boolflag it returns value
+        // even it is false
+        g_free(*(*iter)->argument()->pref_valptr);
+        *(*iter)->argument()->pref_valptr = value_string;
     }
 
     if (device->external_cap_args_settings != NULL)
@@ -515,7 +541,7 @@ void ExtcapOptionsDialog::resetValues()
                 {
                     /* Don't need labels, the edit widget contains the extcapargument property value */
                     ExtcapArgument * arg = 0;
-                    QVariant prop = child->property(QString("extcap").toLocal8Bit());
+                    QVariant prop = child->property("extcap");
 
                     if (prop.isValid())
                     {
@@ -557,7 +583,9 @@ GHashTable *ExtcapOptionsDialog::getArgumentSettings(bool useCallsAsKey, bool in
         if (dynamic_cast<ExtArgBool *>((*iter)) != NULL)
         {
             value = ((ExtArgBool *)*iter)->prefValue();
-            isBoolflag = true;
+            // For boolflag there should be no value
+            if ((*iter)->argument()->arg_type != EXTCAP_ARG_BOOLFLAG)
+                isBoolflag = true;
         }
         else if (dynamic_cast<ExtArgRadio *>((*iter)) != NULL)
         {

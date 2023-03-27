@@ -326,6 +326,19 @@ StringTypes = ['Numeric', 'Printable', 'IA5', 'BMP', 'Universal', 'UTF8',
                'Teletex', 'T61', 'Videotex', 'Graphic', 'ISO646', 'Visible',
                'General']
 
+# Effective permitted-alphabet constraints are PER-visible only
+# for the known-multiplier character string types (X.691 27.1)
+#
+# XXX: This should include BMPString (UCS2) and UniversalString (UCS4),
+# but asn2wrs only suports the RestrictedCharacterStringValue
+# notation of "cstring", but not that of "CharacterStringList",
+# "Quadruple", or "Tuple" (See X.680 41.8), and packet-per.c does
+# not support members of the permitted-alphabet being outside the
+# ASCII range. We don't currently have any ASN.1 modules that need it,
+# anyway.
+KnownMultiplierStringTypes = ('NumericString', 'PrintableString', 'IA5String',
+                              'ISO646String', 'VisibleString')
+
 for s in StringTypes:
     reserved_words[s + 'String'] = s + 'String'
 
@@ -802,7 +815,7 @@ class EthCtx:
 
     #--- eth_reg_assign ---------------------------------------------------------
     def eth_reg_assign(self, ident, val, virt=False):
-        #print "eth_reg_assign(ident='%s')" % (ident)
+        #print("eth_reg_assign(ident='%s')" % (ident), 'module=', self.Module())
         if ident in self.assign:
             raise DuplicateError("assignment", ident)
         self.assign[ident] = { 'val' : val , 'virt' : virt }
@@ -922,13 +935,14 @@ class EthCtx:
 
     #--- eth_reg_type -----------------------------------------------------------
     def eth_reg_type(self, ident, val, mod=None):
-        #print "eth_reg_type(ident='%s', type='%s')" % (ident, val.type)
+        #print("eth_reg_type(ident='%s', type='%s')" % (ident, val.type))
         if ident in self.type:
             if self.type[ident]['import'] and (self.type[ident]['import'] == self.Module()) :
                 # replace imported type
                 del self.type[ident]
                 self.type_imp.remove(ident)
             else:
+                #print('DuplicateError: import=', self.type[ident]['import'], 'module=', self.Module())
                 raise DuplicateError("type", ident)
         val.ident = ident
         self.type[ident] = { 'val' : val, 'import' : None }
@@ -2981,22 +2995,22 @@ class EthOut:
         print("\n")
 
     #--- make_single_file -------------------------------------------------------
-    def make_single_file(self):
+    def make_single_file(self, suppress_line):
         if (not self.single_file): return
         in_nm = self.single_file + '.c'
         out_nm = os.path.join(self.outdir, self.output_fname(''))
-        self.do_include(out_nm, in_nm)
+        self.do_include(out_nm, in_nm, suppress_line)
         in_nm = self.single_file + '.h'
         if (os.path.exists(in_nm)):
             out_nm = os.path.join(self.outdir, self.output_fname('', ext='h'))
-            self.do_include(out_nm, in_nm)
+            self.do_include(out_nm, in_nm, suppress_line)
         if (not self.keep):
             for fn in self.created_files_ord:
                 if not self.created_files[fn]:
                     os.unlink(fn)
 
     #--- do_include -------------------------------------------------------
-    def do_include(self, out_nm, in_nm):
+    def do_include(self, out_nm, in_nm, suppress_line):
         def check_file(fn, fnlist):
             fnfull = os.path.normcase(os.path.abspath(fn))
             if (fnfull in fnlist and os.path.exists(fnfull)):
@@ -3005,9 +3019,10 @@ class EthOut:
         fin = open(in_nm, "r")
         fout = open(out_nm, "w")
         fout.write(self.fhdr(out_nm))
-        fout.write('/* Input file: ' + os.path.basename(in_nm) +' */\n')
-        fout.write('\n')
-        fout.write('#line %u "%s"\n' % (1, rel_dissector_path(in_nm)))
+        if (not suppress_line):
+            fout.write('/* Input file: ' + os.path.basename(in_nm) +' */\n')
+            fout.write('\n')
+            fout.write('#line %u "%s"\n' % (1, rel_dissector_path(in_nm)))
 
         include = re.compile(r'^\s*#\s*include\s+[<"](?P<fname>[^>"]+)[>"]', re.IGNORECASE)
 
@@ -3027,14 +3042,16 @@ class EthOut:
                 if (not ifile):
                     ifile = check_file(result.group('fname'), self.created_files)
             if (ifile):
-                fout.write('\n')
-                fout.write('/*--- Included file: ' + ifile + ' ---*/\n')
-                fout.write('#line %u "%s"\n' % (1, rel_dissector_path(ifile)))
+                if (not suppress_line):
+                    fout.write('\n')
+                    fout.write('/*--- Included file: ' + ifile + ' ---*/\n')
+                    fout.write('#line %u "%s"\n' % (1, rel_dissector_path(ifile)))
                 finc = open(ifile, "r")
                 fout.write(finc.read())
-                fout.write('\n')
-                fout.write('/*--- End of included file: ' + ifile + ' ---*/\n')
-                fout.write('#line %u "%s"\n' % (cont_linenum+1, rel_dissector_path(in_nm)) )
+                if (not suppress_line):
+                    fout.write('\n')
+                    fout.write('/*--- End of included file: ' + ifile + ' ---*/\n')
+                    fout.write('#line %u "%s"\n' % (cont_linenum+1, rel_dissector_path(in_nm)) )
                 finc.close()
             else:
                 fout.write(line)
@@ -3662,7 +3679,8 @@ class Constraint (Node):
     def Needs64b(self, ectx):
         (minv, maxv, ext) = self.GetValue(ectx)
         if ((str(minv).isdigit() or ((str(minv)[0] == "-") and str(minv)[1:].isdigit())) \
-        and str(maxv).isdigit() and (abs(int(maxv) - int(minv)) >= 2**32)) \
+        and (str(maxv).isdigit() or ((str(maxv)[0] == "-") and str(maxv)[1:].isdigit())) \
+        and ((abs(int(maxv) - int(minv)) >= 2**32) or (int(minv) < -2**31) or (int(maxv) >= 2**32))) \
         or (maxv == 'MAX') or (minv == 'MIN'):
             return True
         return False
@@ -5147,7 +5165,11 @@ class RestrictedCharacterStringType (CharacterStringType):
                                         par=(('%(IMPLICIT_TAG)s', '%(STRING_TAG)s'),
                                              ('%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s', '%(HF_INDEX)s'),
                                              ('%(VAL_PTR)s',),))
-        elif (ectx.Per() and self.HasPermAlph()):
+        elif (ectx.Per() and self.HasPermAlph() and self.eth_tsname() in KnownMultiplierStringTypes):
+            # XXX: If there is a permitted alphabet but it is extensible,
+            # then the permitted-alphabet is not PER-visible and should be
+            # ignored. (X.691 9.3.10, 9.3.18) We don't handle extensible
+            # permitted-alphabets.
             body = ectx.eth_fn_call('dissect_%(ER)s_restricted_character_string', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s'),
                                          ('%(MIN_VAL)s', '%(MAX_VAL)s', '%(EXT)s', '%(ALPHABET)s', '%(ALPHABET_LEN)s'),
@@ -8000,6 +8022,8 @@ def eth_main():
             ectx.srcdir = relpath(a)
         if o in ("-C",):
             ectx.constraints_check = True
+        if o in ("-L",):
+            ectx.suppress_line = True
         if o in ("-X",):
             warnings.warn("Command line option -X is obsolete and can be removed")
         if o in ("-T",):
@@ -8083,7 +8107,7 @@ def eth_main():
 
     if ectx.dbg('o'):
         ectx.output.dbg_print()
-    ectx.output.make_single_file()
+    ectx.output.make_single_file(ectx.suppress_line)
 
 
 # Python compiler

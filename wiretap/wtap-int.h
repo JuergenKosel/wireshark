@@ -42,7 +42,7 @@ struct wtap {
     GArray                      *shb_hdrs;
     GArray                      *interface_data;        /**< An array holding the interface data from pcapng IDB:s or equivalent(?)*/
     guint                       next_interface_data;    /**< Next interface data that wtap_get_next_interface_description() will show */
-    GArray                      *nrb_hdrs;              /**< holds the Name Res Block's comment/custom_opts, or NULL */
+    GArray                      *nrbs;                  /**< holds the Name Res Blocks, or NULL */
     GArray                      *dsbs;                  /**< An array of DSBs (of type wtap_block_t), or NULL if not supported. */
 
     char                        *pathname;              /**< File pathname; might just be "-" */
@@ -95,7 +95,12 @@ struct wtap_dumper {
     WFILE_T                 fh;
     int                     file_type_subtype;
     int                     snaplen;
-    int                     encap;
+    int                     file_encap;      /* per-file, for those
+                                              * file formats that have
+                                              * per-file encapsulation
+                                              * types rather than per-packet
+                                              * encapsulation types
+                                              */
     wtap_compression_type   compression_type;
     gboolean                needs_reload;    /* TRUE if the file requires re-loading after saving with wtap */
     gint64                  bytes_dumped;
@@ -109,7 +114,6 @@ struct wtap_dumper {
 
     addrinfo_lists_t        *addrinfo_lists; /**< Struct containing lists of resolved addresses */
     GArray                  *shb_hdrs;
-    GArray                  *nrb_hdrs;       /**< name resolution comment/custom_opt, or NULL */
     GArray                  *interface_data; /**< An array holding the interface data from pcapng IDB:s or equivalent(?) NULL if not present.*/
     GArray                  *dsbs_initial;   /**< An array of initial DSBs (of type wtap_block_t) */
 
@@ -117,7 +121,9 @@ struct wtap_dumper {
      * Additional blocks that might grow as data is being collected.
      * Subtypes should write these blocks before writing new packet blocks.
      */
+    const GArray            *nrbs_growing;          /**< A reference to an array of NRBs (of type wtap_block_t) */
     const GArray            *dsbs_growing;          /**< A reference to an array of DSBs (of type wtap_block_t) */
+    guint                   nrbs_growing_written;   /**< Number of already processed NRBs in nrbs_growing. */
     guint                   dsbs_growing_written;   /**< Number of already processed DSBs in dsbs_growing. */
 };
 
@@ -339,6 +345,12 @@ wtap_full_file_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
  */
 void
 wtap_add_idb(wtap *wth, wtap_block_t idb);
+
+/**
+ * Invokes the callback with the given name resolution block.
+ */
+void
+wtapng_process_nrb(wtap *wth, wtap_block_t nrb);
 
 /**
  * Invokes the callback with the given decryption secrets block.

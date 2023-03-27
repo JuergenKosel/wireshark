@@ -33,6 +33,8 @@
 void proto_register_rsl(void);
 void proto_reg_handoff_rsl(void);
 
+guint16 parse_reduced_frame_number(tvbuff_t *tvb, const gint offset);
+
 /* Initialize the protocol and registered fields */
 static int proto_rsl        = -1;
 
@@ -52,6 +54,7 @@ static int hf_rsl_req_ref_ra_est_cause = -1;
 static int hf_rsl_req_ref_T1prim       = -1;
 static int hf_rsl_req_ref_T3           = -1;
 static int hf_rsl_req_ref_T2           = -1;
+static int hf_rsl_req_ref_rfn          = -1;
 static int hf_rsl_timing_adv           = -1;
 static int hf_rsl_ho_ref               = -1;
 static int hf_rsl_l1inf_power_lev      = -1;
@@ -1152,10 +1155,9 @@ static const value_string rsl_ra_if_data_rte_vals[] = {
     { 0,            NULL }
 };
 
-#if 0
 static const value_string rsl_data_rte_vals[] = {
     {  0x38,    "32 kbit/s" },
-    {  0x22,    "39 kbit/s" },
+    {  0x22,    "29 kbit/s" },
     {  0x18,    "14.4 kbit/s" },
     {  0x10,    "9.6 kbit/s" },
     {  0x11,    "4.8 kbit/s" },
@@ -1165,7 +1167,6 @@ static const value_string rsl_data_rte_vals[] = {
     {  0x15,    "1 200/75 bit/s (1 200 network-to-MS, 75 MS-to-network)" },
     { 0,            NULL }
 };
-#endif
 
 static int
 dissect_rsl_ie_ch_mode(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean is_mandatory)
@@ -1306,7 +1307,9 @@ static int
 dissect_rsl_ie_frame_no(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int offset, gboolean is_mandatory)
 {
     proto_tree *ie_tree;
+    proto_item *ti;
     guint8      ie_id;
+    guint16     rfn;
 
     if (is_mandatory == FALSE) {
         ie_id = tvb_get_guint8(tvb, offset);
@@ -1320,11 +1323,14 @@ dissect_rsl_ie_frame_no(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     proto_tree_add_item(ie_tree, hf_rsl_ie_id, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
 
+    rfn = parse_reduced_frame_number(tvb, offset);
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T1prim, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T3, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset++;
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T2, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
+    ti = proto_tree_add_uint(ie_tree, hf_rsl_req_ref_rfn, tvb, offset - 2, 2, rfn);
+    proto_item_set_generated(ti);
 
     return offset;
 }
@@ -1848,6 +1854,7 @@ dissect_rsl_ie_req_ref(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
 {
     proto_tree *ie_tree, *ra_tree;
     guint8      ie_id;
+    guint16     rfn;
     proto_item *ti;
 
     if (is_mandatory == FALSE) {
@@ -1865,11 +1872,14 @@ dissect_rsl_ie_req_ref(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, 
     ra_tree = proto_item_add_subtree(ti, ett_ie_req_ref_ra);
     proto_tree_add_item(ra_tree, hf_rsl_req_ref_ra_est_cause, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
+    rfn = parse_reduced_frame_number(tvb, offset);
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T1prim, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T3, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset++;
     proto_tree_add_item(ie_tree, hf_rsl_req_ref_T2, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
+    ti = proto_tree_add_uint(ie_tree, hf_rsl_req_ref_rfn, tvb, offset - 2, 2, rfn);
+    proto_item_set_generated(ti);
     return offset;
 }
 
@@ -4801,6 +4811,11 @@ void proto_register_rsl(void)
             FT_UINT8, BASE_DEC, NULL, 0x1f,
             NULL, HFILL }
         },
+        { &hf_rsl_req_ref_rfn,
+          { "RFN",          "gsm_abis_rsl.req_ref_rfn",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            "Reduced Frame Number", HFILL }
+        },
         { &hf_rsl_timing_adv,
           { "Timing Advance",           "gsm_abis_rsl.timing_adv",
             FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -4988,7 +5003,7 @@ void proto_register_rsl(void)
         },
         { &hf_rsl_data_rte,
           { "Data rate",           "gsm_abis_rsl.data_rte",
-            FT_UINT8, BASE_DEC, VALS(rsl_ra_if_data_rte_vals), 0x3f,
+            FT_UINT8, BASE_DEC, VALS(rsl_data_rte_vals), 0x3f,
             NULL, HFILL }
         },
         { &hf_rsl_alg_id,

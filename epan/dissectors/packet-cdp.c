@@ -156,7 +156,7 @@ dissect_nrgyz_tlv(tvbuff_t *tvb, packet_info* pinfo, int offset, guint16 length,
 static void
 dissect_spare_poe_tlv(tvbuff_t *tvb, int offset, int length, proto_tree *tree);
 static void
-add_multi_line_string_to_tree(proto_tree *tree, tvbuff_t *tvb, gint start,
+add_multi_line_string_to_tree(wmem_allocator_t *scope, proto_tree *tree, tvbuff_t *tvb, gint start,
   gint len, int hf);
 
 #define TYPE_DEVICE_ID          0x0001
@@ -452,7 +452,7 @@ dissect_cdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                                            length, ett_cdp_tlv, NULL, "Software Version");
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvtype, tvb, offset + TLV_TYPE, 2, ENC_BIG_ENDIAN);
                 proto_tree_add_item(tlv_tree, hf_cdp_tlvlength, tvb, offset + TLV_LENGTH, 2, ENC_BIG_ENDIAN);
-                add_multi_line_string_to_tree(tlv_tree, tvb, offset + 4,
+                add_multi_line_string_to_tree(pinfo->pool, tlv_tree, tvb, offset + 4,
                                               length - 4, hf_cdp_software_version);
             }
             offset += length;
@@ -1279,7 +1279,7 @@ dissect_spare_poe_tlv(tvbuff_t *tvb, int offset, int length,
 }
 
 static void
-add_multi_line_string_to_tree(proto_tree *tree, tvbuff_t *tvb, gint start,
+add_multi_line_string_to_tree(wmem_allocator_t *scope, proto_tree *tree, tvbuff_t *tvb, gint start,
   gint len, int hf)
 {
     gint next;
@@ -1289,7 +1289,7 @@ add_multi_line_string_to_tree(proto_tree *tree, tvbuff_t *tvb, gint start,
     while (len > 0) {
         line_len = tvb_find_line_end(tvb, start, len, &next, FALSE);
         data_len = next - start;
-        proto_tree_add_string(tree, hf, tvb, start, data_len, tvb_format_stringzpad(wmem_packet_scope(), tvb, start, line_len));
+        proto_tree_add_string(tree, hf, tvb, start, data_len, tvb_format_stringzpad(scope, tvb, start, line_len));
         start += data_len;
         len   -= data_len;
     }
@@ -1349,47 +1349,47 @@ proto_register_cdp(void)
 
         { &hf_cdp_capabilities_router,
         {"Router", "cdp.capabilities.router", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x01, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000001, NULL, HFILL }},
 
         { &hf_cdp_capabilities_trans_bridge,
         {"Transparent Bridge", "cdp.capabilities.trans_bridge", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x02, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000002, NULL, HFILL }},
 
         { &hf_cdp_capabilities_src_bridge,
         {"Source Route Bridge", "cdp.capabilities.src_bridge", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x04, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000004, NULL, HFILL }},
 
         { &hf_cdp_capabilities_switch,
         {"Switch", "cdp.capabilities.switch", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x08, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000008, NULL, HFILL }},
 
         { &hf_cdp_capabilities_host,
         {"Host", "cdp.capabilities.host", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x10, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000010, NULL, HFILL }},
 
         { &hf_cdp_capabilities_igmp_capable,
         {"IGMP capable", "cdp.capabilities.igmp_capable", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x20, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000020, NULL, HFILL }},
 
         { &hf_cdp_capabilities_repeater,
         {"Repeater", "cdp.capabilities.repeater", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x40, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000040, NULL, HFILL }},
 
         { &hf_cdp_capabilities_voip_phone,
         {"VoIP Phone", "cdp.capabilities.voip_phone", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x80, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000080, NULL, HFILL }},
 
         { &hf_cdp_capabilities_remote,
         {"Remotely Managed Device", "cdp.capabilities.remote", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x0100, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000100, NULL, HFILL }},
 
         { &hf_cdp_capabilities_cvta,
         {"CVTA/STP Dispute Resolution/Cisco VT Camera", "cdp.capabilities.cvta", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x0200, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000200, NULL, HFILL }},
 
         { &hf_cdp_capabilities_mac_relay,
         {"Two Port Mac Relay", "cdp.capabilities.mac_relay", FT_BOOLEAN, 32,
-                TFS(&tfs_yes_no), 0x0400, NULL, HFILL }},
+                TFS(&tfs_yes_no), 0x00000400, NULL, HFILL }},
 
         { &hf_cdp_spare_poe_tlv,
         { "Spare Pair PoE", "cdp.spare_poe_tlv", FT_UINT8, BASE_HEX,

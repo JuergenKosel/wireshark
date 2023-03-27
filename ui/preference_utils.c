@@ -45,6 +45,7 @@ prefs_to_capture_opts(void)
     global_capture_opts.use_pcapng                   = prefs.capture_pcap_ng;
     global_capture_opts.show_info                    = prefs.capture_show_info;
     global_capture_opts.real_time_mode               = prefs.capture_real_time;
+    global_capture_opts.update_interval              = prefs.capture_update_interval;
     auto_scroll_live                                 = prefs.capture_auto_scroll;
 #endif /* HAVE_LIBPCAP */
 }
@@ -219,7 +220,7 @@ column_prefs_has_custom(const gchar *custom_field)
             continue;
 
         cfmt = (fmt_data *) clp->data;
-        if (cfmt->fmt == COL_CUSTOM && strcmp(custom_field, cfmt->custom_fields) == 0) {
+        if (cfmt->fmt == COL_CUSTOM && cfmt->custom_occurrence == 0 && strcmp(custom_field, cfmt->custom_fields) == 0) {
             colnr = i;
             break;
         }
@@ -242,7 +243,7 @@ column_prefs_custom_resolve(const gchar* custom_field)
     for (guint i = 0; i < g_strv_length(fields); i++) {
         if (fields[i] && *fields[i]) {
             hfi = proto_registrar_get_byname(fields[i]);
-            if (hfi && ((hfi->type == FT_OID) || (hfi->type == FT_REL_OID) || (hfi->type == FT_BOOLEAN) ||
+            if (hfi && ((hfi->type == FT_OID) || (hfi->type == FT_REL_OID) || (hfi->type == FT_ETHER) || (hfi->type == FT_IPv4) || (hfi->type == FT_IPv6) || (hfi->type == FT_FCWWN) || (hfi->type == FT_BOOLEAN) ||
                     ((hfi->strings != NULL) &&
                      (IS_FT_INT(hfi->type) || IS_FT_UINT(hfi->type)))))
                 {

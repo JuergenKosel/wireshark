@@ -426,7 +426,7 @@ void InterfaceFrame::on_interfaceTree_doubleClicked(const QModelIndex &index)
     if (extcap_string.length() > 0)
     {
         /* this checks if configuration is required and not yet provided or saved via prefs */
-        if (extcap_has_configuration((const char *)(device_name.toStdString().c_str()), TRUE))
+        if (extcap_requires_configuration((const char *)(device_name.toStdString().c_str())))
         {
             emit showExtcapOptions(device_name, true);
             return;
@@ -434,7 +434,10 @@ void InterfaceFrame::on_interfaceTree_doubleClicked(const QModelIndex &index)
     }
 #endif
 
-    startCapture(interfaces);
+    // Start capture for all columns except the first one with extcap
+    if (IFTREE_COL_EXTCAP != realIndex.column()) {
+        startCapture(interfaces);
+    }
 }
 
 #ifdef HAVE_LIBPCAP
@@ -455,7 +458,7 @@ void InterfaceFrame::on_interfaceTree_clicked(const QModelIndex &index)
         if (extcap_string.length() > 0)
         {
             /* this checks if configuration is required and not yet provided or saved via prefs */
-            if (extcap_has_configuration((const char *)(device_name.toStdString().c_str()), FALSE))
+            if (extcap_has_configuration((const char *)(device_name.toStdString().c_str())))
             {
                 emit showExtcapOptions(device_name, false);
                 return;

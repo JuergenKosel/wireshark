@@ -7,6 +7,9 @@
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
  *
+ * Dissector for Parallel Virtual File System (PVFS) version 2.
+ * https://web.archive.org/web/20160701052501/http://www.pvfs.org/
+ *
  * Copied from packet-smb.c and others
  *
  * TODO
@@ -25,6 +28,7 @@
 #include <epan/prefs.h>
 #include <epan/strutil.h>
 #include <epan/expert.h>
+#include <epan/charsets.h>
 #include <wsutil/ws_roundup.h>
 #include "packet-tcp.h"
 
@@ -713,7 +717,7 @@ dissect_pvfs2_attrmask(tvbuff_t *tvb, proto_tree *tree, int offset,
 
 	for (i = 0; i < 32; i++)
 	{
-		if (attrmask & (1 << i))
+		if (attrmask & (1u << i))
 			proto_tree_add_uint(attrtree, hf_pvfs_attr, tvb, offset, 4, i);
 	}
 
@@ -860,22 +864,16 @@ dissect_pvfs_opaque_data(tvbuff_t *tvb, int offset,
 	}
 
 	if (string_data) {
-		char *tmpstr;
-
-		tmpstr = (char *) tvb_get_string_enc(pinfo->pool, tvb, data_offset,
-				string_length_copy, ENC_ASCII);
-
-		string_buffer = (char *)memcpy(wmem_alloc(pinfo->pool, string_length_copy+1), tmpstr, string_length_copy);
+		string_buffer = tvb_get_string_enc(pinfo->pool, tvb, data_offset, string_length_copy, ENC_ASCII);
 	} else {
 		string_buffer = (char *) tvb_memcpy(tvb,
 				wmem_alloc(pinfo->pool, string_length_copy+1), data_offset, string_length_copy);
+		string_buffer[string_length_copy] = '\0';
 	}
-
-	string_buffer[string_length_copy] = '\0';
 
 	/* calculate a nice printable string */
 	if (string_length) {
-		if (string_length != string_length_copy) {
+		if (string_length != strlen(string_buffer)) {
 			if (string_data) {
 				char *formatted;
 				size_t string_buffer_size = 0;
@@ -2369,8 +2367,8 @@ dissect_pvfs2_getconfig_response(tvbuff_t *tvb, proto_tree *parent_tree,
 
 		*pentry= '\0';
 
-		tmp_entry = entry;
-		tmp_entry_length = entry_length;
+		tmp_entry = get_ascii_string(pinfo->pool, entry, entry_length);
+		tmp_entry_length = (guint32)strlen(tmp_entry);
 
 		/* Remove all whitespace from front of entry */
 		while ((tmp_entry_length > 0) && (!g_ascii_isalnum(*tmp_entry)) &&

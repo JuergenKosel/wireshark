@@ -21,6 +21,7 @@
 #include <wsutil/buffer.h>
 #include <wsutil/ws_assert.h>
 #include <wsutil/wslog.h>
+#include <wsutil/exported_pdu_tlvs.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
 #endif
@@ -28,6 +29,8 @@
 #ifdef HAVE_PLUGINS
 static plugins_t *libwiretap_plugins = NULL;
 #endif
+
+#define PADDING4(x) ((((x + 3) >> 2) << 2) - x)
 
 static GSList *wtap_plugins = NULL;
 
@@ -49,7 +52,7 @@ int
 wtap_plugins_supported(void)
 {
 #ifdef HAVE_PLUGINS
-	return g_module_supported() ? 0 : 1;
+	return plugins_supported() ? 0 : 1;
 #else
 	return -1;
 #endif
@@ -212,7 +215,8 @@ wtap_add_generated_idb(wtap *wth)
 	int snaplen;
 
 	ws_assert(wth->file_encap != WTAP_ENCAP_UNKNOWN &&
-	    wth->file_encap != WTAP_ENCAP_PER_PACKET);
+	    wth->file_encap != WTAP_ENCAP_PER_PACKET &&
+	    wth->file_encap != WTAP_ENCAP_NONE);
 	ws_assert(wth->file_tsprec != WTAP_TSPREC_UNKNOWN &&
 	    wth->file_tsprec != WTAP_TSPREC_PER_PACKET);
 
@@ -440,31 +444,31 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 wtap_block_t
 wtap_file_get_nrb(wtap *wth)
 {
-	if ((wth == NULL) || (wth->nrb_hdrs == NULL) || (wth->nrb_hdrs->len == 0))
+	if ((wth == NULL) || (wth->nrbs == NULL) || (wth->nrbs->len == 0))
 		return NULL;
 
-	return g_array_index(wth->nrb_hdrs, wtap_block_t, 0);
+	return g_array_index(wth->nrbs, wtap_block_t, 0);
 }
 
 GArray*
 wtap_file_get_nrb_for_new_file(wtap *wth)
 {
 	guint nrb_count;
-	wtap_block_t nrb_hdr_src, nrb_hdr_dest;
-	GArray* nrb_hdrs;
+	wtap_block_t nrb_src, nrb_dest;
+	GArray* nrbs;
 
-	if ((wth == NULL || wth->nrb_hdrs == NULL) || (wth->nrb_hdrs->len == 0))
+	if ((wth == NULL || wth->nrbs == NULL) || (wth->nrbs->len == 0))
 		return NULL;
 
-	nrb_hdrs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
+	nrbs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
 
-	for (nrb_count = 0; nrb_count < wth->nrb_hdrs->len; nrb_count++) {
-		nrb_hdr_src = g_array_index(wth->nrb_hdrs, wtap_block_t, nrb_count);
-		nrb_hdr_dest = wtap_block_make_copy(nrb_hdr_src);
-		g_array_append_val(nrb_hdrs, nrb_hdr_dest);
+	for (nrb_count = 0; nrb_count < wth->nrbs->len; nrb_count++) {
+		nrb_src = g_array_index(wth->nrbs, wtap_block_t, nrb_count);
+		nrb_dest = wtap_block_make_copy(nrb_src);
+		g_array_append_val(nrbs, nrb_dest);
 	}
 
-	return nrb_hdrs;
+	return nrbs;
 }
 
 void
@@ -479,10 +483,10 @@ wtap_dump_params_init(wtap_dump_params *params, wtap *wth)
 	params->tsprec = wtap_file_tsprec(wth);
 	params->shb_hdrs = wtap_file_get_shb_for_new_file(wth);
 	params->idb_inf = wtap_file_get_idb_info(wth);
-	params->nrb_hdrs = wtap_file_get_nrb_for_new_file(wth);
 	/* Assume that the input handle remains open until the dumper is closed.
 	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
 	 * as they become available. */
+	params->nrbs_growing = wth->nrbs;
 	params->dsbs_growing = wth->dsbs;
 	params->dont_copy_idbs = FALSE;
 }
@@ -503,12 +507,18 @@ wtap_dump_params_init_no_idbs(wtap_dump_params *params, wtap *wth)
 	params->tsprec = wtap_file_tsprec(wth);
 	params->shb_hdrs = wtap_file_get_shb_for_new_file(wth);
 	params->idb_inf = wtap_file_get_idb_info(wth);
-	params->nrb_hdrs = wtap_file_get_nrb_for_new_file(wth);
 	/* Assume that the input handle remains open until the dumper is closed.
 	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
 	 * as they become available. */
+	params->nrbs_growing = wth->nrbs;
 	params->dsbs_growing = wth->dsbs;
 	params->dont_copy_idbs = TRUE;
+}
+
+void
+wtap_dump_params_discard_name_resolution(wtap_dump_params *params)
+{
+	params->nrbs_growing = NULL;
 }
 
 void
@@ -523,7 +533,6 @@ wtap_dump_params_cleanup(wtap_dump_params *params)
 {
 	wtap_block_array_free(params->shb_hdrs);
 	/* params->idb_inf is currently expected to be freed by the caller. */
-	wtap_block_array_free(params->nrb_hdrs);
 
 	memset(params, 0, sizeof(*params));
 }
@@ -1194,6 +1203,9 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_AUERSWALD_LOG */
 	{ "auerlog", "Auerswald Log" },
+
+	/* WTAP_ENCAP_ATSC_ALP */
+	{ "alp", "ATSC Link-Layer Protocol (A/330) packets" },
 };
 
 WS_DLL_LOCAL
@@ -1241,8 +1253,10 @@ wtap_register_encap_type(const char *description, const char *name)
 const char *
 wtap_encap_name(int encap)
 {
-	if (encap < WTAP_ENCAP_PER_PACKET || encap >= WTAP_NUM_ENCAP_TYPES)
+	if (encap < WTAP_ENCAP_NONE || encap >= WTAP_NUM_ENCAP_TYPES)
 		return "illegal";
+	else if (encap == WTAP_ENCAP_NONE)
+		return "none";
 	else if (encap == WTAP_ENCAP_PER_PACKET)
 		return "per-packet";
 	else
@@ -1253,8 +1267,10 @@ wtap_encap_name(int encap)
 const char *
 wtap_encap_description(int encap)
 {
-	if (encap < WTAP_ENCAP_PER_PACKET || encap >= WTAP_NUM_ENCAP_TYPES)
+	if (encap < WTAP_ENCAP_NONE || encap >= WTAP_NUM_ENCAP_TYPES)
 		return "Illegal";
+	else if (encap == WTAP_ENCAP_NONE)
+		return "None";
 	else if (encap == WTAP_ENCAP_PER_PACKET)
 		return "Per packet";
 	else
@@ -1474,7 +1490,7 @@ wtap_close(wtap *wth)
 	}
 
 	wtap_block_array_free(wth->shb_hdrs);
-	wtap_block_array_free(wth->nrb_hdrs);
+	wtap_block_array_free(wth->nrbs);
 	wtap_block_array_free(wth->interface_data);
 	wtap_block_array_free(wth->dsbs);
 
@@ -1487,14 +1503,77 @@ wtap_cleareof(wtap *wth) {
 	file_clearerr(wth->fh);
 }
 
+static inline void
+wtapng_process_nrb_ipv4(wtap *wth, wtap_block_t nrb)
+{
+	const wtapng_nrb_mandatory_t *nrb_mand = (wtapng_nrb_mandatory_t*)wtap_block_get_mandatory_data(nrb);
+
+	if (wth->add_new_ipv4) {
+		for (GList *elem = nrb_mand->ipv4_addr_list; elem != NULL; elem = elem->next) {
+			hashipv4_t *tp = elem->data;
+			wth->add_new_ipv4(tp->addr, tp->name, FALSE);
+		}
+	}
+}
+
+static inline void
+wtapng_process_nrb_ipv6(wtap *wth, wtap_block_t nrb)
+{
+	const wtapng_nrb_mandatory_t *nrb_mand = (wtapng_nrb_mandatory_t*)wtap_block_get_mandatory_data(nrb);
+
+	if (wth->add_new_ipv6) {
+		for (GList *elem = nrb_mand->ipv6_addr_list; elem != NULL; elem = elem->next) {
+			hashipv6_t *tp = elem->data;
+			wth->add_new_ipv6(tp->addr, tp->name, FALSE);
+		}
+	}
+}
+
 void wtap_set_cb_new_ipv4(wtap *wth, wtap_new_ipv4_callback_t add_new_ipv4) {
-	if (wth)
-		wth->add_new_ipv4 = add_new_ipv4;
+	if (!wth)
+		return;
+
+	wth->add_new_ipv4 = add_new_ipv4;
+
+	/* Are there any existing NRBs? */
+	if (!wth->nrbs)
+		return;
+	/*
+	 * Send all NRBs that were read so far to the new callback. file.c
+	 * relies on this to support redissection (during redissection, the
+	 * previous name resolutions are lost and has to be resupplied).
+	 */
+	for (guint i = 0; i < wth->nrbs->len; i++) {
+		wtap_block_t nrb = g_array_index(wth->nrbs, wtap_block_t, i);
+		wtapng_process_nrb_ipv4(wth, nrb);
+	}
 }
 
 void wtap_set_cb_new_ipv6(wtap *wth, wtap_new_ipv6_callback_t add_new_ipv6) {
-	if (wth)
-		wth->add_new_ipv6 = add_new_ipv6;
+	if (!wth)
+		return;
+
+	wth->add_new_ipv6 = add_new_ipv6;
+
+	/* Are there any existing NRBs? */
+	if (!wth->nrbs)
+		return;
+	/*
+	 * Send all NRBs that were read so far to the new callback. file.c
+	 * relies on this to support redissection (during redissection, the
+	 * previous name resolutions are lost and has to be resupplied).
+	 */
+	for (guint i = 0; i < wth->nrbs->len; i++) {
+		wtap_block_t nrb = g_array_index(wth->nrbs, wtap_block_t, i);
+		wtapng_process_nrb_ipv6(wth, nrb);
+	}
+}
+
+void
+wtapng_process_nrb(wtap *wth, wtap_block_t nrb)
+{
+	wtapng_process_nrb_ipv4(wth, nrb);
+	wtapng_process_nrb_ipv6(wth, nrb);
 }
 
 void wtap_set_cb_new_secrets(wtap *wth, wtap_new_secrets_callback_t add_new_secrets) {
@@ -1558,6 +1637,7 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 	 * Initialize the record to default values.
 	 */
 	wtap_init_rec(wth, rec);
+	ws_buffer_clean(buf);
 
 	*err = 0;
 	*err_info = NULL;
@@ -1594,6 +1674,7 @@ wtap_read(wtap *wth, wtap_rec *rec, Buffer *buf, int *err,
 		 * encapsulation type.
 		 */
 		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
+		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_NONE);
 	}
 
 	return TRUE;	/* success */
@@ -1673,9 +1754,14 @@ gboolean
 wtap_read_packet_bytes(FILE_T fh, Buffer *buf, guint length, int *err,
     gchar **err_info)
 {
+	gboolean rv;
 	ws_buffer_assure_space(buf, length);
-	return wtap_read_bytes(fh, ws_buffer_start_ptr(buf), length, err,
+	rv = wtap_read_bytes(fh, ws_buffer_end_ptr(buf), length, err,
 	    err_info);
+	if (rv) {
+		ws_buffer_increase_length(buf, length);
+	}
+	return rv;
 }
 
 /*
@@ -1725,6 +1811,7 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 	 * Initialize the record to default values.
 	 */
 	wtap_init_rec(wth, rec);
+	ws_buffer_clean(buf);
 
 	*err = 0;
 	*err_info = NULL;
@@ -1750,6 +1837,7 @@ wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 		 * encapsulation type.
 		 */
 		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_PER_PACKET);
+		ws_assert(rec->rec_header.packet_header.pkt_encap != WTAP_ENCAP_NONE);
 	}
 
 	return TRUE;
@@ -1843,6 +1931,67 @@ wtap_full_file_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
 		return FALSE;
 
 	return wtap_full_file_read_file(wth, wth->random_fh, rec, buf, err, err_info);
+}
+
+void
+wtap_buffer_append_epdu_tag(Buffer *buf, guint16 epdu_tag, const guint8 *data, guint16 data_len)
+{
+	guint8 pad_len = 0;
+	guint space_needed = 4; /* 2 for tag field, 2 for length field */
+	guint8 *buf_data;
+
+	if (epdu_tag != 0 && data != NULL && data_len != 0) {
+		pad_len += PADDING4(data_len);
+		space_needed += data_len + pad_len;
+	}
+	else {
+		data_len = 0;
+	}
+
+	ws_buffer_assure_space(buf, space_needed);
+	buf_data = ws_buffer_end_ptr(buf);
+	memset(buf_data, 0, space_needed);
+	phton16(buf_data + 0, epdu_tag);
+	/* It seems as though the convention for exported_pdu is to specify
+	 * the fully-padded length of the tag value, not just its useful length.
+	 * e.g. the string value 'a' would be given a length of 4.
+	 */
+	phton16(buf_data + 2, data_len + pad_len);
+	if (data_len > 0) {
+		/* Still only copy as many bytes as we actually have */
+		memcpy(buf_data + 4, data, data_len);
+	}
+	ws_buffer_increase_length(buf, space_needed);
+}
+
+void
+wtap_buffer_append_epdu_uint(Buffer *buf, guint16 epdu_tag, guint32 val)
+{
+	const guint space_needed = 8; /* 2 for tag field, 2 for length field, 4 for value */
+	guint8 *buf_data;
+
+	ws_assert(epdu_tag != 0);
+	ws_buffer_assure_space(buf, space_needed);
+	buf_data = ws_buffer_end_ptr(buf);
+	memset(buf_data, 0, space_needed);
+	phton16(buf_data + 0, epdu_tag);
+	phton16(buf_data + 2, 4);
+	phton32(buf_data + 4, val);
+	ws_buffer_increase_length(buf, space_needed);
+}
+
+gint
+wtap_buffer_append_epdu_end(Buffer *buf)
+{
+	const guint space_needed = 4; /* 2 for tag (=0000), 2 for length field (=0) */
+	guint8 *buf_data;
+
+	ws_buffer_assure_space(buf, space_needed);
+	buf_data = ws_buffer_end_ptr(buf);
+	memset(buf_data, 0, space_needed);
+	ws_buffer_increase_length(buf, space_needed);
+
+	return (gint)ws_buffer_length(buf);
 }
 
 /*

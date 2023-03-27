@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-smrse.c                                                             */
-/* asn2wrs.py -b -p smrse -c ./smrse.cnf -s ./packet-smrse-template -D . -O ../.. SMRSE.asn */
+/* asn2wrs.py -b -L -p smrse -c ./smrse.cnf -s ./packet-smrse-template -D . -O ../.. SMRSE.asn */
 
-/* Input file: packet-smrse-template.c */
-
-#line 1 "./asn1/smrse/packet-smrse-template.c"
 /* packet-smrse.c
  * Routines for SMRSE Short Message Relay Service packet dissection
  *   Ronnie Sahlberg 2004
@@ -40,9 +37,6 @@ static int hf_smrse_reserved = -1;
 static int hf_smrse_tag = -1;
 static int hf_smrse_length = -1;
 static int hf_smrse_Octet_Format = -1;
-
-/*--- Included file: packet-smrse-hf.c ---*/
-#line 1 "./asn1/smrse/packet-smrse-hf.c"
 static int hf_smrse_sc_address = -1;              /* SMS_Address */
 static int hf_smrse_password = -1;                /* Password */
 static int hf_smrse_address_type = -1;            /* T_address_type */
@@ -70,14 +64,8 @@ static int hf_smrse_alerting_MS_ISDN = -1;        /* SMS_Address */
 static int hf_smrse_sm_diag_info = -1;            /* RP_UD */
 static int hf_smrse_ms_address = -1;              /* SMS_Address */
 
-/*--- End of included file: packet-smrse-hf.c ---*/
-#line 36 "./asn1/smrse/packet-smrse-template.c"
-
 /* Initialize the subtree pointers */
 static gint ett_smrse = -1;
-
-/*--- Included file: packet-smrse-ett.c ---*/
-#line 1 "./asn1/smrse/packet-smrse-ett.c"
 static gint ett_smrse_SMR_Bind = -1;
 static gint ett_smrse_SMS_Address = -1;
 static gint ett_smrse_T_address_value = -1;
@@ -90,13 +78,7 @@ static gint ett_smrse_RPAck = -1;
 static gint ett_smrse_RPError = -1;
 static gint ett_smrse_RPAlertSC = -1;
 
-/*--- End of included file: packet-smrse-ett.c ---*/
-#line 40 "./asn1/smrse/packet-smrse-template.c"
 
-
-
-/*--- Included file: packet-smrse-fn.c ---*/
-#line 1 "./asn1/smrse/packet-smrse-fn.c"
 
 static const value_string smrse_T_address_type_vals[] = {
   {   0, "unknown-type" },
@@ -141,7 +123,6 @@ dissect_smrse_T_numbering_plan(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
 
 static int
 dissect_smrse_T_octet_format(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 19 "./asn1/smrse/smrse.cnf"
 	char *strp,tmpstr[21];
 	guint32 i, start_offset;
 	gint8 ber_class;
@@ -169,7 +150,6 @@ dissect_smrse_T_octet_format(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 	proto_tree_add_string(tree, hf_smrse_Octet_Format, tvb, start_offset, offset-start_offset, tmpstr);
 
 	return offset;
-
 
 
   return offset;
@@ -466,9 +446,6 @@ dissect_smrse_RPAlertSC(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 }
 
 
-/*--- End of included file: packet-smrse-fn.c ---*/
-#line 43 "./asn1/smrse/packet-smrse-template.c"
-
 static const value_string tag_vals[] = {
 	{  1,	"AliveTest" },
 	{  2,	"AliveTestRsp" },
@@ -570,9 +547,6 @@ void proto_register_smrse(void) {
         FT_STRING, BASE_NONE, NULL, 0,
         "SMS-Address/address-value/octet-format", HFILL }},
 
-
-/*--- Included file: packet-smrse-hfarr.c ---*/
-#line 1 "./asn1/smrse/packet-smrse-hfarr.c"
     { &hf_smrse_sc_address,
       { "sc-address", "smrse.sc_address_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -677,17 +651,11 @@ void proto_register_smrse(void) {
       { "ms-address", "smrse.ms_address_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SMS_Address", HFILL }},
-
-/*--- End of included file: packet-smrse-hfarr.c ---*/
-#line 146 "./asn1/smrse/packet-smrse-template.c"
   };
 
   /* List of subtrees */
   static gint *ett[] = {
     &ett_smrse,
-
-/*--- Included file: packet-smrse-ettarr.c ---*/
-#line 1 "./asn1/smrse/packet-smrse-ettarr.c"
     &ett_smrse_SMR_Bind,
     &ett_smrse_SMS_Address,
     &ett_smrse_T_address_value,
@@ -699,9 +667,6 @@ void proto_register_smrse(void) {
     &ett_smrse_RPAck,
     &ett_smrse_RPError,
     &ett_smrse_RPAlertSC,
-
-/*--- End of included file: packet-smrse-ettarr.c ---*/
-#line 152 "./asn1/smrse/packet-smrse-template.c"
   };
 
   /* Register protocol */

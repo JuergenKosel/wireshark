@@ -18,19 +18,22 @@ variables:
   # brighter, more glorious future we might be able to use --shallow-since:
   # https://gitlab.com/gitlab-org/gitlab-runner/-/issues/3460
   # In the mean time, fetching the last 5000 commits does the job.
+  # Ensure that all variables are string
   GIT_DEPTH: "1"
   GIT_FETCH_EXTRA_FLAGS: "--depth=5000"
   CCACHE_DIR: "${CI_PROJECT_DIR}/ccache"
   GIT_SUBMODULE_STRATEGY: normal
   # Preferred version of clang available on wireshark-ubuntu-dev
-  CLANG_VERSION: 14
+  CLANG_VERSION: "15"
   # Enable color output in CMake, Ninja, and other tools. https://bixense.com/clicolors/
-  CLICOLOR_FORCE: 1
+  CLICOLOR_FORCE: "1"
   # Skip irrelevant SAST scanners:
   SAST_EXCLUDED_ANALYZERS: "brakeman,eslint,security-code-scan,semgrep,spotbugs"
 
 # Scheduled builds additionally set SCHEDULE_TYPE, which can be one of:
+# - 2x-daily: Twice daily at 07:00 and 19:00 UTC
 # - daily: Daily at 10:00 UTC
+# - weekly: Sunday at 14:00 UTC
 # - coverity-visual-c++: Monday, Wednesday, & Friday at 12:00 UTC
 # - coverity-gcc: Sunday, Tuesday, Thursday & Saturday at 12:00 UTC
 
@@ -66,10 +69,16 @@ variables:
 .if-w-w-only-merge-request:
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_URL =~ /.*gitlab.com\/wireshark\/wireshark/'
     when: always
-# Daily jobs. Care should be taken when changing this since the scheduler
+# Scheduled jobs. Care should be taken when changing this since the scheduler
 # often doesn't report errors.
+.if-weekly-schedule:
+  - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "weekly"'
+    when: always
 .if-daily-schedule:
   - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "daily"'
+    when: always
+.if-2x-daily-schedule:
+  - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "2x-daily"'
     when: always
 # Fuzz jobs. Care should be taken when changing this since the scheduler
 # often doesn't report errors.
@@ -126,12 +135,6 @@ variables:
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
-    - ninja shellcheck
-    - ninja test-programs
-    - chown -R user .
-    - if [ -x run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
-    - if [ -x run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
-    - su user -c pytest-3
   after_script:
     # The cache should be large enough to be useful but it shouldn't take
     # too long to restore+save each run.
@@ -139,10 +142,10 @@ variables:
 
 .build-rpm:
   extends: .build-linux
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
   before_script:
-    # It might make sense to set "GIT_STRATEGY: none" and build from
-    # the tarball.
+    # Hack to let ninja make full use of the system on Fedora and Rocky.
+    - export RPM_BUILD_NCPUS=$(( $( getconf _NPROCESSORS_ONLN ) + 2 ))
     - git config --global user.email "you@example.com"
     - git config --global user.name "Your Name"
     - mkdir build
@@ -158,7 +161,7 @@ variables:
 
 .test-rpm:
   extends: .test-linux
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
 
 .build-windows:
   stage: build
@@ -184,18 +187,73 @@ variables:
     - cd build
   needs: []
 
+# macOS runners are still beta:
+# https://about.gitlab.com/blog/2021/08/23/build-cloud-for-macos-beta/
+# https://docs.gitlab.com/ee/ci/runners/saas/macos/environment.html#vm-images
+# https://gitlab.com/gitlab-org/ci-cd/shared-runners/images/macstadium/orka/-/blob/main/toolchain/monterey.yml
+.build-macos:
+  stage: build
+  tags: [ shared-macos-amd64 ]
+  image: macos-11-xcode-12 # https://docs.gitlab.com/ee/ci/runners/saas/macos/environment.html
+  retry: 1
+  # https://gould.cx/ted/blog/2017/06/10/ccache-for-Gitlab-CI/
+  cache:
+    key: ${CI_JOB_NAME}-master
+    paths:
+      - ccache/
+  variables:
+    HOMEBREW_COLOR: "1"
+    HOMEBREW_DISPLAY_INSTALL_TIMES: "1"
+    HOMEBREW_NO_AUTO_UPDATE: "1"
+    HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    HOMEBREW_NO_INSTALL_UPGRADE: "1"
+    HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
+  before_script:
+    # At the time of this writing (January 2023), the macOS SaaS builder has the following PATH:
+    # /Users/gitlab/.asdf/shims:/Users/gitlab/.asdf/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin
+    # The suite_clopts.case_tshark_extcap.test_tshark_extcap_interfaces test will fail because
+    # it sets an alternate HOME, which results in asdf returning
+    #   unknown command: python3. Perhaps you have to reshim?
+    # Make sure /usr/local/bin is first in order to work around asdf.
+    - export PATH=/usr/local/bin:$PATH
+    - printf "\e[0Ksection_start:%s:brew_section[collapsed=true]\r\e[0KInstalling prerequisites" "$( date +%s)"
+    - ./tools/macos-setup-brew.sh --install-optional
+    - printf "\e[0Ksection_end:%s:brew_section\r\e[0K" "$( date +%s)"
+    - export PYTEST_ADDOPTS=--skip-missing-programs=dumpcap,rawshark
+    - mkdir -p ccache
+    - ccache --show-stats
+    - NUM_COMMITS=$(curl $CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID/commits | jq length)
+    - echo "$NUM_COMMITS commit(s) in this MR"
+    - mkdir build
+    - cd build
+  script:
+    - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
+    - cmake -G Ninja -DENABLE_CCACHE=ON -DTEST_EXTRA_ARGS=--disable-capture ..
+    - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
+    - ninja
+    - ninja test-programs
+    - ctest --parallel 4 --output-on-failure
+  after_script:
+    # The cache should be large enough to be useful but it shouldn't take
+    # too long to restore+save each run.
+    - ccache --max-size $( gdu --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
+  needs: []
+
 Source Package:
   extends: .build-ubuntu
   stage: .pre
-  rules: !reference [.if-merged]
+  rules:
+    - !reference [.if-merged]
+    - !reference [.if-2x-daily-schedule]
   script:
     - ../tools/make-version.py --set-release ..
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja $CMAKE_ARGS -DENABLE_CCACHE=ON ..
+    - cmake -G Ninja $CMAKE_ARGS ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - cd $CI_PROJECT_DIR
     - build/packaging/source/git-export-release.sh -d .
   after_script:
+    - if [ -n "$SCHEDULE_TYPE" ] ; then exit 0 ; fi
     # - ccache --max-size $( du --summarize --block-size=1M "$CI_PROJECT_DIR/build" | awk '{printf ("%dM", $1 * 1.5)}' )
     - stat --format="%n %s bytes" wireshark-*.tar.*
     - for digest in sha512 sha256 sha1 ; do openssl $digest wireshark-*.tar.* ; done
@@ -208,7 +266,7 @@ Source Package:
 # Job to generate packages for Debian stable
 Debian Stable APT Package:
   extends: .build-linux
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
   image: registry.gitlab.com/wireshark/wireshark-containers/debian-stable-dev
   script:
     - ln --symbolic --no-dereference --force packaging/debian
@@ -231,7 +289,7 @@ Debian Stable APT Package:
 
 Debian Stable APT Test:
   extends: .test-linux
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
   image: registry.gitlab.com/wireshark/wireshark-containers/debian-stable-dev
   stage: test
   script:
@@ -249,7 +307,7 @@ Fedora RPM Package:
     # https://gitlab.com/gitlab-com/support-forum/issues/2790
     - export FORCE_CMAKE_NINJA_NON_VERBOSE=1
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake3 -GNinja ..
+    - cmake3 -G Ninja ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja wireshark_rpm
 
@@ -261,29 +319,29 @@ Fedora RPM Package:
 #     - tshark --version
 #  needs: [ 'Fedora RPM Package' ]
 
-openSUSE 15.3 RPM Package:
+openSUSE 15.4 RPM Package:
   extends: .build-rpm
-  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.3-dev
+  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.4-dev
   script:
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -GNinja -DUSE_qt6=OFF ..
+    - cmake -G Ninja -DUSE_qt6=OFF ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja wireshark_rpm
 
-openSUSE 15.3 RPM Test:
+openSUSE 15.4 RPM Test:
   extends: .test-rpm
-  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.3-dev
+  image: registry.gitlab.com/wireshark/wireshark-containers/opensuse-15.4-dev
   script:
     - zypper --no-gpg-checks --no-remote install -y build/packaging/rpm/RPMS/x86_64/*.rpm
     - tshark --version
-  needs: [ 'openSUSE 15.3 RPM Package' ]
+  needs: [ 'openSUSE 15.4 RPM Package' ]
 
 Rocky Linux 9 RPM Package:
   extends: .build-rpm
   image: registry.gitlab.com/wireshark/wireshark-containers/rockylinux-9-dev
   script:
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -GNinja -DUSE_qt6=OFF ..
+    - cmake -G Ninja -DUSE_qt6=OFF ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja wireshark_rpm
 
@@ -297,7 +355,7 @@ Rocky Linux 9 RPM Test:
 
 Ubuntu APT Package:
   extends: .build-ubuntu
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
@@ -318,7 +376,7 @@ Ubuntu APT Package:
 
 Ubuntu APT Test:
   extends: .test-linux
-  rules: !reference [.if-merged]
+  rules: !reference [.if-2x-daily-schedule]
   image: registry.gitlab.com/wireshark/wireshark-containers/ubuntu-dev
   stage: test
   script:
@@ -500,38 +558,34 @@ Commit Check:
     - bash ./tools/pre-commit "HEAD~$NUM_COMMITS"
     - tools/validate-commit.py
 
-# Rely on fedora:latest and debian-stable jobs for testing a recent GCC version.
-Latest Clang:
+GCC Release Build:
   extends: .build-ubuntu
   rules: !reference [.if-merge-request]
-  variables:
-    CC: "clang-$CLANG_VERSION"
-    CXX: "clang++-$CLANG_VERSION"
-
-GCC Warnings:
-  extends: .build-ubuntu
-  rules: !reference [.if-merge-request]
+  needs: [ 'Commit Check' ]
   script:
     # build-ubuntu puts us in `build`.
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     # Test release build.
-    - CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_EXTRA_COMPILER_WARNINGS=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DENABLE_CCACHE=ON -G Ninja ..
+    - CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DENABLE_CCACHE=ON -DENABLE_WERROR=ON -G Ninja ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - script --command ninja --flush --quiet --return ../gcc_report.txt
     - ansi2html < ../gcc_report.txt > ../gcc_report.html
     - ninja test-programs
     - chown -R user .
+    - if [ -f run/dumpcap ]; then setcap cap_net_raw,cap_net_admin+eip run/dumpcap; fi
+    - if [ -f run/dumpcap ]; then su user -c "run/dumpcap -D" ; fi
     - su user -c "ctest --parallel $(getconf _NPROCESSORS_ONLN) --force-new-ctest-process --output-on-failure"
   artifacts:
     paths:
       - gcc_report.html
 
-Code Checks + Clang Warnings:
+Clang + Code Checks:
   extends: .build-ubuntu
   rules: !reference [.if-merge-request]
   variables:
     CC: "clang-$CLANG_VERSION"
     CXX: "clang++-$CLANG_VERSION"
+  needs: [ 'Commit Check' ]
   script:
     # build-ubuntu puts us in `build`.
     - cd ..
@@ -540,12 +594,10 @@ Code Checks + Clang Warnings:
     - ./tools/cppcheck/cppcheck.sh -l $NUM_COMMITS | tee cppcheck/cppcheck_report.txt
     - if [[ -s "cppcheck/cppcheck_report.txt" ]]; then ./tools/cppcheck/cppcheck.sh -l $NUM_COMMITS -x > cppcheck/cppcheck_report.xml ; fi
     - if [[ -s "cppcheck/cppcheck_report.txt" ]]; then cppcheck-htmlreport --file cppcheck/cppcheck_report.xml  --report-dir cppcheck ; fi
-    - ./tools/check_typed_item_calls.py --consecutive --label --mask --commits $NUM_COMMITS | tee item_calls_check.txt
-    - ./tools/check_tfs.py --commits $NUM_COMMITS | tee tfs_check.txt
     - cd build
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
     # We don't have an "All options" job, so build fuzzshark and tfshark here.
-    - cmake -DENABLE_EXTRA_COMPILER_WARNINGS=on -DENABLE_CHECKHF_CONFLICT=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DBUILD_fuzzshark=ON -DBUILD_tfshark=On -DBUILD_logray=ON -DENABLE_CCACHE=ON -G Ninja ..
+    - cmake -DENABLE_CHECKHF_CONFLICT=on -DCMAKE_EXPORT_COMPILE_COMMANDS=on -DBUILD_fuzzshark=ON -DBUILD_tfshark=On -DBUILD_logray=ON -DENABLE_CCACHE=ON -DENABLE_WERROR=ON -G Ninja ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - mkdir ../html
     - script --command ninja --flush --quiet --return ../tmp_clang_report.txt
@@ -556,6 +608,10 @@ Code Checks + Clang Warnings:
     - ansi2txt < ../tmp_clang_analyzer_check.txt > ../clang_analyzer_check.txt
     - ansi2html < ../tmp_clang_analyzer_check.txt > ../html/clang_analyzer_check.html
     - ninja checkAPI
+    - ninja shellcheck
+    - cd ..
+    - ./tools/check_typed_item_calls.py --consecutive --label --mask --commits $NUM_COMMITS | tee item_calls_check.txt
+    - ./tools/check_tfs.py --commits $NUM_COMMITS | tee tfs_check.txt
   artifacts:
     paths:
       - clang_report.txt
@@ -569,6 +625,7 @@ Code Checks + Clang Warnings:
 No options:
   extends: .build-ubuntu
   rules: !reference [.if-merge-request]
+  needs: [ 'Commit Check' ]
   script: |
     cmake -GNinja -DENABLE_CCACHE=ON \
       -DENABLE_BROTLI=OFF -DENABLE_CAP=OFF -DENABLE_CARES=OFF -DENABLE_CHECKHF_CONFLICT=ON -DENABLE_GNUTLS=OFF \
@@ -584,6 +641,7 @@ Windows Build:
   rules: !reference [.if-w-w-only-merge-request]
   tags:
     - wireshark-windows-merge-req
+  needs: [ 'Commit Check' ]
   script:
     - cmake -G "Visual Studio 17 2022" -A x64 -DENABLE_LTO=off ..
     - msbuild /verbosity:minimal /maxcpucount Wireshark.sln
@@ -595,10 +653,16 @@ Windows Qt5 Build:
   rules: !reference [.if-w-w-only-merge-request]
   tags:
     - wireshark-windows-merge-req
+  needs: [ 'Commit Check' ]
   script:
     - $env:CMAKE_PREFIX_PATH = "C:\qt\5.15.2\msvc2019_64"
     - cmake -G "Visual Studio 17 2022" -A x64 -DUSE_qt6=OFF -DENABLE_LTO=off ..
     - msbuild /verbosity:minimal /maxcpucount ui\qt\qtui.vcxproj
+
+macOS Build:
+  extends: .build-macos
+  rules: !reference [.if-w-w-only-merge-request]
+  needs: [ 'Commit Check' ]
 
 # Adapted from https://www.synopsys.com/blogs/software-security/integrating-coverity-scan-with-gitlab-ci/
 # and https://gitlab.gnome.org/GNOME/glib/-/blob/8f57a5b9/.gitlab-ci.yml#L481
@@ -827,9 +891,9 @@ ASan Menagerie Fuzz:
   extends: .fuzz-ubuntu
   stage: fuzz-asan
   script:
-    - MAX_SECONDS=$(( 4 * 60 * 60 ))
+    - MAX_SECONDS=$(( 6 * 60 * 60 ))
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON ..
+    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
@@ -844,7 +908,7 @@ ASan randpkt Fuzz:
   script:
     # XXX Reuse fuzz-asan?
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON ..
+    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install
@@ -865,7 +929,7 @@ Valgrind Menagerie Fuzz:
     - DEBIAN_FRONTEND=noninteractive apt-get --yes install valgrind
     - MAX_SECONDS=$(( 3 * 60 * 60 ))
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
-    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=OFF -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON ..
+    - cmake -G Ninja -DBUILD_wireshark=OFF -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=OFF -DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX -DENABLE_CCACHE=ON -DENABLE_WERROR=Off ..
     - printf "\e[0Ksection_end:%s:cmake_section\r\e[0K" "$( date +%s)"
     - ninja
     - ninja install

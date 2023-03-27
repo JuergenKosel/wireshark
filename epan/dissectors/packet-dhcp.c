@@ -183,7 +183,8 @@ static int hf_dhcp_option_value = -1;
 static int hf_dhcp_option_value_8 = -1;
 static int hf_dhcp_option_value_16 = -1;
 static int hf_dhcp_option_value_u32 = -1;
-static int hf_dhcp_option_value_i32 = -1;
+static int hf_dhcp_option_value_s_secs = -1;
+static int hf_dhcp_option_value_u_secs = -1;
 static int hf_dhcp_option_value_stringz = -1;
 static int hf_dhcp_option_value_ip_address = -1;
 static int hf_dhcp_option_value_boolean = -1;
@@ -1132,7 +1133,7 @@ static const enum_val_t pkt_ccc_protocol_versions[] = {
 static gint pkt_ccc_protocol_version = PACKETCABLE_CCC_RFC_3495;
 static guint pkt_ccc_option = 122;
 
-static void dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb,
+static void dissect_docsis_cm_cap(packet_info *pinfo, proto_tree *v_tree, tvbuff_t *tvb,
 				  int voff, int len, gboolean opt125);
 
 #define ARUBA_INSTANT_AP "ArubaInstantAP"
@@ -1637,6 +1638,28 @@ static struct opt_info default_dhcp_opt[DHCP_OPT_NUM] = {
 /* 255 */ { "End",					opaque, NULL }
 };
 
+static void
+dhcp_time_in_s_secs_fmt(gchar *s, guint32 v)
+{
+	/* Only used by option 2 Time Offset, which is deprecated. */
+	char* secs_str = signed_time_secs_to_str(NULL, (gint32)v);
+	snprintf(s, ITEM_LABEL_LENGTH, "%s (%d)", secs_str, (gint32)v);
+	wmem_free(NULL, secs_str);
+}
+
+static void
+dhcp_time_in_u_secs_fmt(gchar *s, guint32 v)
+{
+	/* RFC 2131: 3.3 Interpretation and representation of time values */
+	if (v != 0xffffffff) {
+		char* secs_str = unsigned_time_secs_to_str(NULL, v);
+		snprintf(s, ITEM_LABEL_LENGTH, "%s (%d)", secs_str, v);
+		wmem_free(NULL, secs_str);
+	} else {
+		snprintf(s, ITEM_LABEL_LENGTH, "infinity (%d)", v);
+	}
+}
+
 /*-------------------------------------
  * UAT for BOOTP
  *-------------------------------------
@@ -1721,8 +1744,6 @@ dhcp_handle_basic_types(packet_info *pinfo, proto_tree *tree, proto_item *item, 
 			 gint *hf, struct basic_types_hfs* hf_default)
 {
 	int	i, left;
-	gint32	time_s_secs;
-	guint32 time_u_secs;
 	int	consumed = 0;
 
 	switch (ftype) {
@@ -1861,9 +1882,7 @@ dhcp_handle_basic_types(packet_info *pinfo, proto_tree *tree, proto_item *item, 
 		}
 
 		if (hf != NULL) {
-			time_s_secs = tvb_get_ntohil(tvb, offset);
-			proto_tree_add_int_format_value(tree, *hf,
-				tvb, offset, 4, time_s_secs, "(%ds) %s", time_s_secs, signed_time_secs_to_str(wmem_packet_scope(), time_s_secs));
+			proto_tree_add_item(tree, *hf, tvb, offset, 4, ENC_BIG_ENDIAN);
 		}
 		else if (hf_default->time_in_s_secs != NULL)
 			proto_tree_add_item(tree, *hf_default->time_in_s_secs, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -1878,10 +1897,7 @@ dhcp_handle_basic_types(packet_info *pinfo, proto_tree *tree, proto_item *item, 
 		}
 
 		if (hf != NULL) {
-			time_u_secs = tvb_get_ntohl(tvb, offset);
-			proto_tree_add_uint_format_value(tree, *hf,
-				tvb, offset, 4, time_u_secs, "(%us) %s", time_u_secs,
-				((time_u_secs == 0xffffffff) ? "infinity" : unsigned_time_secs_to_str(wmem_packet_scope(), time_u_secs)));
+			proto_tree_add_item(tree, *hf, tvb, offset, 4, ENC_BIG_ENDIAN);
 		}
 		else if (hf_default->time_in_u_secs != NULL)
 			proto_tree_add_item(tree, *hf_default->time_in_u_secs, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -1910,8 +1926,8 @@ dissect_dhcpopt_basic_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 		&hf_dhcp_option_value_16,
 		&hf_dhcp_option_value_16,
 		&hf_dhcp_option_value_u32,
-		&hf_dhcp_option_value_i32,
-		&hf_dhcp_option_value_u32
+		&hf_dhcp_option_value_s_secs,
+		&hf_dhcp_option_value_u_secs,
 	};
 
 	opt = dhcp_get_opt(option_data->option);
@@ -2035,7 +2051,7 @@ dhcp_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree, int voff,
 
 			case 60:
 				*vendor_class_id_p =
-					tvb_get_string_enc(wmem_packet_scope(),
+					tvb_get_string_enc(pinfo->pool,
 					tvb, voff+2, consumed-2, ENC_ASCII);
 				break;
 			case 119:
@@ -2279,7 +2295,7 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 			proto_tree_add_item(tree, hf_dhcp_hw_ether_addr, tvb, offset+1, 6, ENC_NA);
 		else
 			proto_tree_add_string(tree, hf_dhcp_client_hardware_address, tvb, offset+1, 6,
-				tvb_arphrdaddr_to_str(tvb, offset+1, 6, byte));
+				tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+1, 6, byte));
 	} else if (length == 17 && byte == 0) {
 		/* Identifier is a UUID */
 		proto_tree_add_item(tree, hf_dhcp_client_identifier_uuid, tvb, offset + 1, 16, dhcp_uuid_endian);
@@ -2295,7 +2311,7 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 		/*	The type field is immediately followed by the IAID, which is
 			an opaque 32-bit quantity	*/
 		proto_tree_add_string(tree, hf_dhcp_client_id_iaid, tvb, offset+1, 4,
-			tvb_arphrdaddr_to_str(tvb, offset+1, 4, byte));
+			tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+1, 4, byte));
 		offset += 5;
 		duidtype = tvb_get_ntohs(tvb, offset);
 		proto_tree_add_item(tree, hf_dhcp_client_id_duid_type, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -2313,7 +2329,7 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 			proto_tree_add_item(tree, hf_dhcp_client_identifier_time, tvb, offset + 4, 4, ENC_BIG_ENDIAN);
 			if (length > 8) {
 				proto_tree_add_string(tree, hf_dhcp_client_identifier_link_layer_address, tvb, offset + 8,
-					length - 13, tvb_arphrdaddr_to_str(tvb, offset+8, length-13, hwtype));
+					length - 13, tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+8, length-13, hwtype));
 			}
 			break;
 		case DUID_EN:
@@ -2337,7 +2353,7 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 
 			if (length > 4) {
 				proto_tree_add_string(tree, hf_dhcp_client_identifier_link_layer_address, tvb, offset + 4,
-					length - 9, tvb_arphrdaddr_to_str(tvb, offset+4, length-9, hwtype));
+					length - 9, tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+4, length-9, hwtype));
 			}
 			break;
 		}
@@ -2488,7 +2504,7 @@ dissect_dhcpopt_client_full_domain_name(tvbuff_t *tvb, packet_info *pinfo, proto
 		if (fqdn_flags & F_FQDN_E) {
 			get_dns_name(tvb, offset+3, length-3, offset+3, (const char **)&dns_name, &dns_name_len);
 			proto_tree_add_string(tree, hf_dhcp_fqdn_name,
-				tvb, offset+3, length-3, format_text(wmem_packet_scope(), dns_name, dns_name_len));
+				tvb, offset+3, length-3, format_text(pinfo->pool, dns_name, dns_name_len));
 		} else {
 			proto_tree_add_item(tree, hf_dhcp_fqdn_asciiname, tvb, offset+3, length-3, ENC_ASCII);
 		}
@@ -2669,7 +2685,7 @@ dissect_dhcpopt_client_network_interface_id(tvbuff_t *tvb, packet_info *pinfo _U
 }
 
 static int
-dissect_dhcpopt_client_identifier_uuid(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
+dissect_dhcpopt_client_identifier_uuid(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	int offset = 0, length = tvb_reported_length(tvb);
 	guint8 byte;
@@ -2694,7 +2710,7 @@ dissect_dhcpopt_client_identifier_uuid(tvbuff_t *tvb, packet_info *pinfo _U_, pr
 			proto_tree_add_item(tree, hf_dhcp_hw_ether_addr, tvb, offset+1, 6, ENC_NA);
 		else
 			proto_tree_add_string(tree, hf_dhcp_client_hardware_address, tvb, offset+1, 6,
-				tvb_arphrdaddr_to_str(tvb, offset+1, 6, byte));
+				tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+1, 6, byte));
 	} else if (length == 17 && byte == 0) {
 		/* Identifier is a UUID */
 		proto_tree_add_item(tree, hf_dhcp_client_identifier_uuid, tvb, offset + 1, 16, dhcp_uuid_endian);
@@ -2789,7 +2805,7 @@ dissect_dhcpopt_name_server_search(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 }
 
 static int
-dissect_dhcpopt_dhcp_domain_search(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void* data _U_)
+dissect_dhcpopt_dhcp_domain_search(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	int length = tvb_reported_length(tvb);
 	gchar		*name_out;
@@ -2801,10 +2817,10 @@ dissect_dhcpopt_dhcp_domain_search(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 	rfc3396_dns_domain_search_list.index_current_block++;
 	if (rfc3396_dns_domain_search_list.total_number_of_block > 1) {
 		proto_tree_add_string(tree, hf_dhcp_option_dhcp_dns_domain_search_list_rfc_3396_detected, tvb, 0, length,
-								wmem_strdup_printf(wmem_packet_scope(), "%u/%u", rfc3396_dns_domain_search_list.index_current_block, rfc3396_dns_domain_search_list.total_number_of_block));
+								wmem_strdup_printf(pinfo->pool, "%u/%u", rfc3396_dns_domain_search_list.index_current_block, rfc3396_dns_domain_search_list.total_number_of_block));
 		if (rfc3396_dns_domain_search_list.index_current_block != rfc3396_dns_domain_search_list.total_number_of_block) {
 			proto_tree_add_string(tree, hf_dhcp_option_dhcp_dns_domain_search_list_refer_last_option, tvb, 0, length,
-								wmem_strdup_printf(wmem_packet_scope(), "%u/%u", rfc3396_dns_domain_search_list.total_number_of_block, rfc3396_dns_domain_search_list.total_number_of_block));
+								wmem_strdup_printf(pinfo->pool, "%u/%u", rfc3396_dns_domain_search_list.total_number_of_block, rfc3396_dns_domain_search_list.total_number_of_block));
 		}
 	}
 
@@ -2829,7 +2845,7 @@ dissect_dhcpopt_dhcp_domain_search(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 			/* use the get_dns_name method that manages all techniques of RFC 1035 (compression pointer and so on) */
 			consumedx = get_dns_name(rfc3396_dns_domain_search_list.tvb_composite, composite_offset,
 				tvb_reported_length(rfc3396_dns_domain_search_list.tvb_composite), 0, (const gchar **)&dns_name, &dns_name_len);
-			name_out = format_text(wmem_packet_scope(), dns_name, dns_name_len);
+			name_out = format_text(pinfo->pool, dns_name, dns_name_len);
 			if (rfc3396_dns_domain_search_list.total_number_of_block == 1) {
 				/* RFC 3396 is not used, so we can easily link the fqdn with v_tree. */
 				proto_tree_add_string(tree, hf_dhcp_option_dhcp_dns_domain_search_list_fqdn, tvb, composite_offset, consumedx, name_out);
@@ -2858,10 +2874,10 @@ dissect_dhcpopt_sip_servers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	rfc3396_sip_server.index_current_block++;
 	if (rfc3396_sip_server.total_number_of_block > 1) {
 		proto_tree_add_string(tree, hf_dhcp_option_sip_server_rfc_3396_detected, tvb, 0, length,
-								wmem_strdup_printf(wmem_packet_scope(), "%u/%u", rfc3396_sip_server.index_current_block, rfc3396_sip_server.total_number_of_block));
+								wmem_strdup_printf(pinfo->pool, "%u/%u", rfc3396_sip_server.index_current_block, rfc3396_sip_server.total_number_of_block));
 		if (rfc3396_sip_server.index_current_block != rfc3396_sip_server.total_number_of_block) {
 			proto_tree_add_string(tree, hf_dhcp_option_sip_server_refer_last_option, tvb, 0, length,
-								wmem_strdup_printf(wmem_packet_scope(), "%u/%u", rfc3396_sip_server.total_number_of_block, rfc3396_sip_server.total_number_of_block));
+								wmem_strdup_printf(pinfo->pool, "%u/%u", rfc3396_sip_server.total_number_of_block, rfc3396_sip_server.total_number_of_block));
 		}
 	}
 
@@ -2903,7 +2919,7 @@ dissect_dhcpopt_sip_servers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 				/* use the get_dns_name method that manages all techniques of RFC 1035 (compression pointer and so on) */
 				consumedx = get_dns_name(rfc3396_sip_server.tvb_composite, composite_offset, tvb_reported_length(rfc3396_sip_server.tvb_composite),
 					1 /* ignore enc */, (const gchar **)&dns_name, &dns_name_len);
-				name_out = format_text(wmem_packet_scope(), dns_name, dns_name_len);
+				name_out = format_text(pinfo->pool, dns_name, dns_name_len);
 
 				if (rfc3396_sip_server.total_number_of_block == 1) {
 					/* RFC 3396 is not used, so we can easily link the fqdn with v_tree. */
@@ -3121,7 +3137,7 @@ dissect_dhcpopt_rdnss(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*
 
 	get_dns_name(tvb, offset, tvb_reported_length_remaining(tvb,offset), offset, (const gchar **)&dns_name, &dns_name_len);
 	proto_tree_add_string(tree, hf_dhcp_option_rdnss_domain, tvb, offset,
-			tvb_reported_length_remaining(tvb,offset), format_text(wmem_packet_scope(), dns_name, dns_name_len));
+			tvb_reported_length_remaining(tvb,offset), format_text(pinfo->pool, dns_name, dns_name_len));
 
 	return tvb_captured_length(tvb);
 }
@@ -3276,10 +3292,10 @@ dissect_dhcpopt_avaya_ip_telephone(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 		expert_add_info_format(pinfo, tree, &ei_dhcp_bad_length, "Avaya IP Telephone option length isn't >= 5");
 		return 1;
 	}
-	avaya_ti = proto_tree_add_item_ret_string(tree, hf_dhcp_option242_avaya, tvb, offset, tvb_reported_length(tvb), ENC_ASCII|ENC_NA, wmem_packet_scope(), (const guint8 **)&avaya_option);
+	avaya_ti = proto_tree_add_item_ret_string(tree, hf_dhcp_option242_avaya, tvb, offset, tvb_reported_length(tvb), ENC_ASCII|ENC_NA, pinfo->pool, (const guint8 **)&avaya_option);
 	o242avaya_v_tree = proto_item_add_subtree(avaya_ti, ett_dhcp_option242_suboption);
-	avaya_param_buf = wmem_strbuf_new(wmem_packet_scope(), "");
-	gchar **fields = wmem_strsplit(wmem_packet_scope(), avaya_option, ",", -1);
+	avaya_param_buf = wmem_strbuf_new(pinfo->pool, "");
+	gchar **fields = wmem_strsplit(pinfo->pool, avaya_option, ",", -1);
 	for (int i = 0; fields[i]; i++) {
 		const gchar *field = fields[i];
 		if (!strchr(field, '=')) {
@@ -5388,7 +5404,7 @@ dissect_vendor_tr111_suboption(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 			}
 			else if (o125_tr111_opt[subopt].ftype == oui) {
 				/* Get hex string.  Expecting 6 characters. */
-				const gchar   *oui_string =  (gchar *)tvb_get_string_enc(wmem_packet_scope(), tvb, offset, subopt_len, ENC_ASCII);
+				const gchar   *oui_string =  (gchar *)tvb_get_string_enc(pinfo->pool, tvb, offset, subopt_len, ENC_ASCII);
 				/* Convert to OUI number.  Only 3 bytes so no data lost in downcast. */
 				guint32 oui_number = (guint32)strtol(oui_string, NULL, 16);
 				/* Add item using oui_vals */
@@ -5485,7 +5501,7 @@ dissect_vendor_cl_suboption(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 					proto_tree_add_item(o125_v_tree, hf_dhcp_option125_value, tvb, offset, subopt_len, ENC_NA);
 				switch(subopt){
 					case 5: /* Modem Capabilities */
-						dissect_docsis_cm_cap(o125_v_tree, tvb, offset-2, subopt_len+2, TRUE);
+						dissect_docsis_cm_cap(pinfo, o125_v_tree, tvb, offset-2, subopt_len+2, TRUE);
 					break;
 				}
 				break;
@@ -5681,14 +5697,16 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 	int		   off	  = PKT_MDC_TLV_OFF + voff;
 	int		   subopt_off, max_len;
 	guint	       tlv_len, i, mib_val;
-	guint8	       asc_val[3] = "  ", flow_val_str[5];
+	guint8	       flow_val_str[5];
+	guint8        *asc_val;
 	proto_item    *ti, *mib_ti;
 	proto_tree    *subtree, *subtree2;
 
-	tvb_memcpy (tvb, asc_val, off, 2);
+	asc_val = tvb_get_string_enc(pinfo->pool, tvb, off, 2, ENC_ASCII);
 	if (sscanf((gchar*)asc_val, "%x", &tlv_len) != 1 || tlv_len > 0xff) {
 		proto_tree_add_expert_format(v_tree, pinfo, &ei_dhcp_bad_length, tvb, off, len - off,
-			"Bogus length: %s", asc_val);
+			"Bogus length: %s",
+			format_text_string(pinfo->pool, asc_val));
 		return;
 	} else {
 		proto_tree_add_uint(v_tree, hf_dhcp_pkt_mta_cap_len, tvb, off, 2, tlv_len);
@@ -5699,11 +5717,12 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 			raw_val = tvb_get_ntohs (tvb, off);
 
 			/* Length */
-			tvb_memcpy(tvb, asc_val, off + 2, 2);
+			asc_val = tvb_get_string_enc(pinfo->pool, tvb, off + 2, 2, ENC_ASCII);
 			if (sscanf((gchar*)asc_val, "%x", &tlv_len) != 1
 			    || tlv_len < 1 || tlv_len > G_MAXUINT16) {
 				proto_tree_add_expert_format(v_tree, pinfo, &ei_dhcp_bad_length, tvb, off, len - off,
-						    "Bogus length: %s", asc_val);
+					"Bogus length: %s",
+					format_text_string(pinfo->pool, asc_val));
 				return;
 			} else {
 				/* Value(s) */
@@ -5825,29 +5844,30 @@ dissect_packetcable_mta_cap(proto_tree *v_tree, packet_info *pinfo, tvbuff_t *tv
 				while (subopt_off < max_len) {
 					raw_val = tvb_get_ntohs(tvb, subopt_off);
 					if (raw_val != 0x3032) { /* We only know how to handle a length of 2 */
-						tvb_memcpy(tvb, asc_val, subopt_off, 2);
+						asc_val = tvb_get_string_enc(pinfo->pool, tvb, subopt_off, 2, ENC_ASCII);
 						proto_tree_add_expert_format(subtree, pinfo, &ei_dhcp_bad_length, tvb, subopt_off, 2,
-									"Bogus length: %s", asc_val);
+							"Bogus length: %s",
+							format_text_string(pinfo->pool, asc_val));
 						return;
 					}
 
 					subopt_off += 2;
 					raw_val = tvb_get_ntohs(tvb, subopt_off);
-					tvb_memcpy(tvb, asc_val, subopt_off, 2);
-
+					asc_val = tvb_get_string_enc(pinfo->pool, tvb, subopt_off, 2, ENC_ASCII);
 					subtree2 = proto_tree_add_subtree_format(subtree, tvb, subopt_off, 2,
 						ett_dhcp_option, &mib_ti, "%s (%s)",
-						val_to_str_const(raw_val, pkt_mdc_mib_orgs, "Unknown"), asc_val);
+						val_to_str_const(raw_val, pkt_mdc_mib_orgs, "Unknown"),
+						format_text_string(pinfo->pool, asc_val));
 					if (subopt_off > off + 4 + 2) {
 						proto_item_append_text(ti, ", ");
 					}
 					proto_item_append_text(ti, "%s", val_to_str_const(raw_val, pkt_mdc_mib_orgs, "Unknown"));
 
 					subopt_off += 2;
-					tvb_memcpy(tvb, asc_val, subopt_off, 2);
+					asc_val = tvb_get_string_enc(pinfo->pool, tvb, subopt_off, 2, ENC_ASCII);
 					if (sscanf((gchar*)asc_val, "%x", &mib_val) != 1) {
 						proto_tree_add_expert_format(v_tree, pinfo, &ei_dhcp_bad_bitfield, tvb, subopt_off, 2,
-									"Bogus bitfield: %s", asc_val);
+							"Bogus bitfield: %s", format_text_string(pinfo->pool, asc_val));
 						return;
 					}
 					switch (raw_val) {
@@ -5918,7 +5938,7 @@ dissect_packetcable_mta_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo, proto
 		return FALSE;
 	}
 
-	vendor_id = tvb_get_string_enc(wmem_packet_scope(), tvb, 0, 8, ENC_ASCII|ENC_NA);
+	vendor_id = tvb_get_string_enc(pinfo->pool, tvb, 0, 8, ENC_ASCII|ENC_NA);
 	if ((strcmp((const char*)vendor_id, PACKETCABLE_MTA_CAP10) == 0) ||
 		(strcmp((const char*)vendor_id, PACKETCABLE_MTA_CAP15) == 0) ||
 		(strcmp((const char*)vendor_id, PACKETCABLE_MTA_CAP20) == 0)) {
@@ -6159,22 +6179,22 @@ display_uint_with_range_checking(proto_item *ti, guint8 val_byte, guint16 val_ui
 	}
 }
 
-static void get_opt125_tlv(tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlvlen, guint8 **value)
+static void get_opt125_tlv(wmem_allocator_t *scope, tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlvlen, guint8 **value)
 {
 	/* Type */
 	*tlvtype = tvb_get_guint8(tvb, off);
 	/* Length */
 	*tlvlen	 = tvb_get_guint8(tvb, off+1);
 	/* Value */
-	*value = (guint8 *)tvb_memdup(wmem_packet_scope(), tvb, off + 2, *tlvlen);
+	*value = (guint8 *)tvb_memdup(scope, tvb, off + 2, *tlvlen);
 }
 
-static void get_opt60_tlv(tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlvlen, guint8 **value)
+static void get_opt60_tlv(wmem_allocator_t *scope, tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlvlen, guint8 **value)
 {
 	guint	i;
 	guint8 *val_asc;
 
-	val_asc = (guint8 *)wmem_alloc0(wmem_packet_scope(), 4);
+	val_asc = (guint8 *)wmem_alloc0(scope, 4);
 	/* Type */
 	tvb_memcpy(tvb, val_asc, off, 2);
 	*tlvtype = (guint8)strtoul((gchar*)val_asc, NULL, 16);
@@ -6182,7 +6202,7 @@ static void get_opt60_tlv(tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlv
 	tvb_memcpy(tvb, val_asc, off + 2, 2);
 	*tlvlen = (guint8)strtoul((gchar*)val_asc, NULL, 16);
 	/* Value */
-	*value = (guint8 *)wmem_alloc0(wmem_packet_scope(), *tlvlen);
+	*value = (guint8 *)wmem_alloc0(scope, *tlvlen);
 	for (i=0; i<*tlvlen; i++)
 	{
 		memset(val_asc, 0, 4);
@@ -6192,7 +6212,7 @@ static void get_opt60_tlv(tvbuff_t *tvb, guint off, guint8 *tlvtype, guint8 *tlv
 }
 
 static void
-dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboolean opt125)
+dissect_docsis_cm_cap(packet_info *pinfo, proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboolean opt125)
 {
 	guint8	   *asc_val;
 	proto_item *ti;
@@ -6239,7 +6259,7 @@ dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboo
 
 		if (opt125)
 		{
-			get_opt125_tlv(tvb, off, &tlv_type, &tlv_len, &val_other);
+			get_opt125_tlv(pinfo->pool, tvb, off, &tlv_type, &tlv_len, &val_other);
 			ti =  proto_tree_add_uint_format(v_tree, hf_dhcp_docsis_cm_cap_type, tvb, off,
 							 tlv_len + 2,
 							 tlv_type,
@@ -6252,7 +6272,7 @@ dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboo
 			/* Option 60 is formatted as an ASCII string.  Since the capabilities
 			   are the same for both options I am converting the Option 60 values
 			   from ASCII to uint8s to allow the same parser to work for both */
-			get_opt60_tlv(tvb, off, &tlv_type, &tlv_len, &val_other);
+			get_opt60_tlv(pinfo->pool, tvb, off, &tlv_type, &tlv_len, &val_other);
 			ti =  proto_tree_add_uint_format(v_tree, hf_dhcp_docsis_cm_cap_type, tvb, off,
 							 (tlv_len * 2) + 4,
 							 tlv_type,
@@ -6521,7 +6541,7 @@ dissect_docsis_cm_cap(proto_tree *v_tree, tvbuff_t *tvb, int voff, int len, gboo
 }
 
 static gboolean
-dissect_packetcable_cm_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_ )
+dissect_packetcable_cm_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_ )
 {
 	guint8* vendor_id;
 
@@ -6529,10 +6549,10 @@ dissect_packetcable_cm_vendor_id_heur( tvbuff_t *tvb, packet_info *pinfo _U_, pr
 		return FALSE;
 	}
 
-	vendor_id = tvb_get_string_enc(wmem_packet_scope(), tvb, 0, 10, ENC_ASCII|ENC_NA);
+	vendor_id = tvb_get_string_enc(pinfo->pool, tvb, 0, 10, ENC_ASCII|ENC_NA);
 	if ((strcmp((const char*)vendor_id, PACKETCABLE_CM_CAP11) == 0) ||
 		(strcmp((const char*)vendor_id, PACKETCABLE_CM_CAP20) == 0)) {
-		dissect_docsis_cm_cap(tree, tvb, 0, tvb_reported_length(tvb), FALSE);
+		dissect_docsis_cm_cap(pinfo, tree, tvb, 0, tvb_reported_length(tvb), FALSE);
 		return TRUE;
 	}
 
@@ -6804,7 +6824,7 @@ dissect_packetcable_ietf_ccc(packet_info *pinfo, proto_item *v_ti, proto_tree *v
 
 		case 0:
 			get_dns_name(tvb, suboptoff, subopt_len, suboptoff, (const char **)&dns_name, &dns_name_len);
-			proto_item_append_text(vti, "%s (%u byte%s)", format_text(wmem_packet_scope(), dns_name, dns_name_len),
+			proto_item_append_text(vti, "%s (%u byte%s)", format_text(pinfo->pool, dns_name, dns_name_len),
 					       subopt_len - 1, plurality(subopt_len, "", "s") );
 			break;
 
@@ -6862,7 +6882,7 @@ dissect_packetcable_ietf_ccc(packet_info *pinfo, proto_item *v_ti, proto_tree *v
 
 	case PKT_CCC_KRB_REALM: /* String values */
 		get_dns_name(tvb, suboptoff, subopt_len, suboptoff, (const gchar **)&dns_name, &dns_name_len);
-		proto_item_append_text(vti, "%s (%u byte%s)", format_text(wmem_packet_scope(), dns_name, dns_name_len),
+		proto_item_append_text(vti, "%s (%u byte%s)", format_text(pinfo->pool, dns_name, dns_name_len),
 				       subopt_len, plurality(subopt_len, "", "s") );
 		suboptoff += subopt_len;
 		break;
@@ -7009,12 +7029,12 @@ dissect_dhcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 		if ((htype == ARPHRD_ETHER || htype == ARPHRD_IEEE802)
 		    && hlen == 6) {
 			col_add_fstr(pinfo->cinfo, COL_INFO, "Boot Request from %s (%s)",
-				     tvb_arphrdaddr_to_str(tvb, 28, hlen, htype),
+				     tvb_arphrdaddr_to_str(pinfo->pool, tvb, 28, hlen, htype),
 				     tvb_get_ether_name(tvb, 28));
 		}
 		else {
 			col_add_fstr(pinfo->cinfo, COL_INFO, "Boot Request from %s",
-				     tvb_arphrdaddr_to_str(tvb, 28, hlen, htype));
+				     tvb_arphrdaddr_to_str(pinfo->pool, tvb, 28, hlen, htype));
 		}
 		break;
 
@@ -7127,7 +7147,7 @@ dissect_dhcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 			/* The chaddr element is 16 bytes in length,
 			   although only the first hlen bytes are used */
 			proto_tree_add_bytes_format_value(bp_tree, hf_dhcp_hw_addr, tvb, 28, 16,
-					   NULL, "%s", tvb_arphrdaddr_to_str(tvb, 28, hlen, htype));
+					   NULL, "%s", tvb_arphrdaddr_to_str(pinfo->pool, tvb, 28, hlen, htype));
 		if ((16 - hlen) > 0)
 			proto_tree_add_item(bp_tree, hf_dhcp_hw_addr_padding, tvb, 28+hlen, 16-hlen, ENC_NA);
 	} else {
@@ -7518,22 +7538,22 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_pkt_mta_cap_type,
 		  { "Type", "dhcp.vendor.pktc.mta_cap_type",
-		    FT_UINT8, BASE_DEC, VALS(pkt_mdc_type_vals), 0x0,
+		    FT_UINT16, BASE_DEC, VALS(pkt_mdc_type_vals), 0x0,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_pkt_mdc_supp_flow_secure,
 		  { "Secure Flow (Full Secure Provisioning Flow)", "dhcp.vendor.pktc.mdc.supp_flow.secure",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x01,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0001,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_pkt_mdc_supp_flow_hybrid,
 		  { "Hybrid Flow", "dhcp.vendor.pktc.mdc.supp_flow.hybrid",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x02,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0002,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_pkt_mdc_supp_flow_basic,
 		  { "Basic Flow", "dhcp.vendor.pktc.mdc.supp_flow.basic",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x04,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0004,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_pkt_mdc_mib_cl_mta,
@@ -7638,148 +7658,150 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_docsis_cm_cap_ranging_hold_off_cm,
 		  { "CM", "dhcp.docsis_cm_cap.ranging_hold_off.cm",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x01,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0001,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_ranging_hold_off_eps,
 		  { "ePS or eRouter", "dhcp.docsis_cm_cap.ranging_hold_off.eps",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x02,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0002,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_ranging_hold_off_emta,
 		  { "EMTA or EDVA", "dhcp.docsis_cm_cap.ranging_hold_off.emta",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x04,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0004,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_ranging_hold_off_dsg,
 		  { "DSG/eSTB", "dhcp.docsis_cm_cap.ranging_hold_off.dsg",
-		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x08,
+		    FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0008,
 		    NULL, HFILL }},
+
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_stpid,
 		  { "[IEEE 802.1ad] S-TPID", "dhcp.docsis_cm_cap.mpls.stpid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x01,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000001,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_svid,
 		  { "[IEEE 802.1ad] S-VID", "dhcp.docsis_cm_cap.mpls.svid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x02,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000002,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_spcp,
 		  { "[IEEE 802.1ad] S-PCP", "dhcp.docsis_cm_cap.mpls.spcp",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x04,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000004,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_sdei,
 		  { "[IEEE 802.1ad] S-DEI", "dhcp.docsis_cm_cap.mpls.sdei",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x08,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000008,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_ctpid,
 		  { "[IEEE 802.1ad] C-TPID", "dhcp.docsis_cm_cap.mpls.ctpid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x10,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000010,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_cvid,
 		  { "[IEEE 802.1ad] C-VID", "dhcp.docsis_cm_cap.mpls.cvid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x20,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000020,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_cpcp,
 		  { "[IEEE 802.1ad] C-PCP", "dhcp.docsis_cm_cap.mpls.cpcp",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x40,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000040,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_ccfi,
 		  { "[IEEE 802.1ad] C-CFI", "dhcp.docsis_cm_cap.mpls.ccfi",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x80,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000080,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_stci,
 		  { "[IEEE 802.1ad] S-TCI", "dhcp.docsis_cm_cap.mpls.stci",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x100,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000100,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_ctci,
 		  { "[IEEE 802.1ad] C-TCI", "dhcp.docsis_cm_cap.mpls.ctci",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x200,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000200,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_itpid,
 		  { "[IEEE 802.1ad] I-TPID", "dhcp.docsis_cm_cap.mpls.itpid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x400,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000400,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_isid,
 		  { "[IEEE 802.1ad] I-SID", "dhcp.docsis_cm_cap.mpls.isid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x800,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00000800,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_itci,
 		  { "[IEEE 802.1ad] I-TCI", "dhcp.docsis_cm_cap.mpls.itci",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x1000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00001000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_ipcp,
 		  { "[IEEE 802.1ad] I-PCP", "dhcp.docsis_cm_cap.mpls.ipcp",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x2000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00002000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_idei,
 		  { "[IEEE 802.1ad] I-DEI", "dhcp.docsis_cm_cap.mpls.idei",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x4000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00004000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_iuca,
 		  { "[IEEE 802.1ad] I-UCA", "dhcp.docsis_cm_cap.mpls.iuca",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x8000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00008000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_btpid,
 		  { "[IEEE 802.1ad] B-TPID", "dhcp.docsis_cm_cap.mpls.btpid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x10000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00010000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_btci,
 		  { "[IEEE 802.1ad] B-TCI", "dhcp.docsis_cm_cap.mpls.btci",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x20000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00020000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_bpcp,
 		  { "[IEEE 802.1ad] B-PCP", "dhcp.docsis_cm_cap.mpls.bpcp",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x40000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00040000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_bdei,
 		  { "[IEEE 802.1ad] B-DEI", "dhcp.docsis_cm_cap.mpls.bdei",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x80000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00080000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_bvid,
 		  { "[IEEE 802.1ad] B-VID", "dhcp.docsis_cm_cap.mpls.bvid",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x100000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00100000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_bda,
 		  { "[IEEE 802.1ad] B-DA", "dhcp.docsis_cm_cap.mpls.bda",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x200000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00200000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_bsa,
 		  { "[IEEE 802.1ad] B-SA", "dhcp.docsis_cm_cap.mpls.bsa",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x200000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00400000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_tc,
 		  { "MPLS TC", "dhcp.docsis_cm_cap.mpls.tc",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x200000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x00800000,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_docsis_cm_cap_mpls_label,
 		  { "MPLS Label", "dhcp.docsis_cm_cap.mpls.label",
-		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x200000,
+		    FT_BOOLEAN, 32, TFS(&tfs_supported_not_supported), 0x01000000,
 		    NULL, HFILL }},
+
 
 		{ &hf_dhcp_docsis_cm_cap_ussymrate_160,
 		  { "160 ksps symbol rate", "dhcp.docsis_cm_cap.ussymrate.160",
@@ -7906,9 +7928,14 @@ proto_register_dhcp(void)
 		    FT_UINT32, BASE_HEX, NULL, 0x0,
 		    "32-bit DHCP/BOOTP option value", HFILL }},
 
-		{ &hf_dhcp_option_value_i32,
-		  { "Value", "dhcp.option.value.int",
-		    FT_INT32, BASE_DEC, NULL, 0x0,
+		{ &hf_dhcp_option_value_s_secs,
+		  { "Value", "dhcp.option.value.secs",
+		    FT_INT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_s_secs_fmt), 0x0,
+		    "32-bit DHCP/BOOTP option value", HFILL }},
+
+		{ &hf_dhcp_option_value_u_secs,
+		  { "Value", "dhcp.option.value.usecs",
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "32-bit DHCP/BOOTP option value", HFILL }},
 
 		{ &hf_dhcp_option_value_stringz,
@@ -7938,7 +7965,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_time_offset,
 		  { "Time Offset", "dhcp.option.time_offset",
-		    FT_INT32, BASE_DEC, NULL, 0x00,
+		    FT_INT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_s_secs_fmt), 0x0,
 		    "Option 2: Time Offset", HFILL }},
 
 		{ &hf_dhcp_option_router,
@@ -8053,7 +8080,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_path_mtu_aging_timeout,
 		  { "Path MTU Aging Timeout", "dhcp.option.path_mtu_aging_timeout",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 24: Path MTU Aging Timeout", HFILL }},
 
 		{ &hf_dhcp_option_path_mtu_plateau_table_item,
@@ -8113,7 +8140,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_arp_cache_timeout,
 		  { "ARP Cache Timeout", "dhcp.option.arp_cache_timeout",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 35: ARP Cache Timeout", HFILL }},
 
 		{ &hf_dhcp_option_ethernet_encapsulation,
@@ -8128,7 +8155,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_tcp_keepalive_interval,
 		  { "TCP Keepalive Interval", "dhcp.option.tcp_keepalive_interval",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 38: TCP Keepalive Interval", HFILL }},
 
 		{ &hf_dhcp_option_tcp_keepalive_garbage,
@@ -8731,7 +8758,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_ip_address_lease_time,
 		  { "IP Address Lease Time", "dhcp.option.ip_address_lease_time",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 51: IP Address Lease Time", HFILL }},
 
 		{ &hf_dhcp_option_option_overload,
@@ -8766,12 +8793,12 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_renewal_time_value,
 		  { "Renewal Time Value", "dhcp.option.renewal_time_value",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 58: Renewal Time Value", HFILL }},
 
 		{ &hf_dhcp_option_rebinding_time_value,
 		  { "Rebinding Time Value", "dhcp.option.rebinding_time_value",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 59: Rebinding Time Value", HFILL }},
 
 		{ &hf_dhcp_option_vendor_class_id,
@@ -9400,7 +9427,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_client_last_transaction_time,
 		  { "Client last transaction time", "dhcp.option.client_last_transaction_time",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "Option 91: Client last transaction time", HFILL }},
 
 		{ &hf_dhcp_option_associated_ip_option,
@@ -9564,7 +9591,7 @@ proto_register_dhcp(void)
 		    "Option 123: Altitude type", HFILL }},
 
 		{ &hf_dhcp_option_rfc3825_map_datum,
-		  { "Map Datum", "dhcp.option.cl_dss_id.option",
+		  { "Map Datum", "dhcp.option.rfc3825.map_datum",
 		    FT_UINT8, BASE_DEC, VALS(map_datum_type_values), 0x0,
 		    "Option 123: Map Datum", HFILL }},
 
@@ -9780,7 +9807,7 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_option_bulk_lease_start_time_of_state,
 		  { "Start Time Of State", "dhcp.option.bulk_lease.start_time_of_state",
-		    FT_UINT32, BASE_DEC, NULL, 0x00,
+		    FT_UINT32, BASE_CUSTOM, CF_FUNC(dhcp_time_in_u_secs_fmt), 0x0,
 		    "DHCPv4 Bulk Leasequery Start Time Of State", HFILL }},
 
 		{ &hf_dhcp_option_bulk_lease_query_start,
@@ -9935,12 +9962,12 @@ proto_register_dhcp(void)
 
 		{ &hf_dhcp_ccc_ietf_sec_tkt_pc_provision_server,
 		  { "Invalidate PacketCable Provisioning Server", "dhcp.ccc.ietf.sec_tkt.pc_provision_server",
-		    FT_BOOLEAN, 16, TFS(&tfs_yes_no), 0x01,
+		    FT_BOOLEAN, 16, TFS(&tfs_yes_no), 0x0001,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_ccc_ietf_sec_tkt_all_pc_call_management,
 		  { "Invalidate All PacketCable Call Management Servers", "dhcp.ccc.ietf.sec_tkt.all_pc_call_management",
-		    FT_BOOLEAN, 16, TFS(&tfs_yes_no), 0x02,
+		    FT_BOOLEAN, 16, TFS(&tfs_yes_no), 0x0002,
 		    NULL, HFILL }},
 
 		{ &hf_dhcp_option242_avaya,

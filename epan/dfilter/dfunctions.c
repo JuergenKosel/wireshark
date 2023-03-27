@@ -7,6 +7,7 @@
  */
 
 #include "config.h"
+#define WS_LOG_DOMAIN LOG_DOMAIN_DFILTER
 
 #include <glib.h>
 
@@ -22,11 +23,14 @@
 #include <wsutil/ws_assert.h>
 
 #define FAIL(dfw, node, ...) \
-	dfilter_fail_throw(dfw, stnode_location(node), __VA_ARGS__)
+    do { \
+        ws_noisy("Semantic check failed here."); \
+        dfilter_fail_throw(dfw, DF_ERROR_GENERIC, stnode_location(node), __VA_ARGS__); \
+    } while (0)
 
 /* Convert an FT_STRING using a callback function */
 static gboolean
-string_walk(GSList *args, guint32 arg_count, GSList **retval, gchar(*conv_func)(gchar))
+string_walk(GSList *args, guint32 arg_count _U_, GSList **retval, gchar(*conv_func)(gchar))
 {
     GSList      *arg1;
     fvalue_t    *arg_fvalue;
@@ -44,7 +48,7 @@ string_walk(GSList *args, guint32 arg_count, GSList **retval, gchar(*conv_func)(
         /* XXX - it would be nice to handle FT_TVBUFF, too */
         if (IS_FT_STRING(fvalue_type_ftenum(arg_fvalue))) {
             src = fvalue_get_strbuf(arg_fvalue);
-            dst = wmem_strbuf_sized_new(NULL, src->len, 0);
+            dst = wmem_strbuf_new_sized(NULL, src->len);
             for (size_t i = 0; i < src->len; i++) {
                     wmem_strbuf_append_c(dst, conv_func(src->str[i]));
             }
@@ -75,7 +79,7 @@ df_func_upper(GSList *args, guint32 arg_count, GSList **retval)
 
 /* dfilter function: count() */
 static gboolean
-df_func_count(GSList *args, guint32 arg_count, GSList **retval)
+df_func_count(GSList *args, guint32 arg_count _U_, GSList **retval)
 {
     GSList   *arg1;
     fvalue_t *ft_ret;
@@ -96,7 +100,7 @@ df_func_count(GSList *args, guint32 arg_count, GSList **retval)
 
 /* dfilter function: string() */
 static gboolean
-df_func_string(GSList *args, guint32 arg_count, GSList **retval)
+df_func_string(GSList *args, guint32 arg_count _U_, GSList **retval)
 {
     GSList   *arg1;
     fvalue_t *arg_fvalue;
@@ -203,7 +207,7 @@ df_func_min(GSList *args, guint32 arg_count, GSList **retval)
 }
 
 static gboolean
-df_func_abs(GSList *args, guint32 arg_count, GSList **retval)
+df_func_abs(GSList *args, guint32 arg_count _U_, GSList **retval)
 {
     GSList   *arg1;
     fvalue_t *fv_arg, *new_fv;
@@ -243,7 +247,7 @@ df_func_abs(GSList *args, guint32 arg_count, GSList **retval)
  * it is an FT_STRING */
 static ftenum_t
 ul_semcheck_is_field_string(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype _U_,
-                            GSList *param_list, stloc_t *func_loc _U_)
+                            GSList *param_list, df_loc_t func_loc _U_)
 {
     header_field_info *hfinfo;
 
@@ -251,6 +255,7 @@ ul_semcheck_is_field_string(dfwork_t *dfw, const char *func_name, ftenum_t lhs_f
     stnode_t *st_node = param_list->data;
 
     if (stnode_type_id(st_node) == STTYPE_FIELD) {
+        dfw->field_count++;
         hfinfo = sttype_field_hfinfo(st_node);
         if (IS_FT_STRING(hfinfo->type)) {
             return FT_STRING;
@@ -261,20 +266,22 @@ ul_semcheck_is_field_string(dfwork_t *dfw, const char *func_name, ftenum_t lhs_f
 
 static ftenum_t
 ul_semcheck_is_field(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype _U_,
-                            GSList *param_list, stloc_t *func_loc _U_)
+                            GSList *param_list, df_loc_t func_loc _U_)
 {
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *st_node = param_list->data;
 
-    if (stnode_type_id(st_node) == STTYPE_FIELD)
+    if (stnode_type_id(st_node) == STTYPE_FIELD) {
+        dfw->field_count++;
         return FT_UINT32;
+    }
 
     FAIL(dfw, st_node, "Only fields can be used as parameter for %s()", func_name);
 }
 
 static ftenum_t
 ul_semcheck_string_param(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype _U_,
-                            GSList *param_list, stloc_t *func_loc _U_)
+                            GSList *param_list, df_loc_t func_loc _U_)
 {
     header_field_info *hfinfo;
 
@@ -282,6 +289,7 @@ ul_semcheck_string_param(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftyp
     stnode_t *st_node = param_list->data;
 
     if (stnode_type_id(st_node) == STTYPE_FIELD) {
+        dfw->field_count++;
         hfinfo = sttype_field_hfinfo(st_node);
         switch (hfinfo->type) {
             case FT_UINT8:
@@ -326,77 +334,95 @@ ul_semcheck_string_param(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftyp
 }
 
 /* Check arguments are all the same type and they can be compared. */
+/*
+  Every STTYPE_LITERAL needs to be resolved to a STTYPE_FVALUE. If we don't
+  have type information (lhs_ftype is FT_NONE) and we have not seen an argument
+  with a definite type we defer resolving literals to values until we have examined
+  the entire list of function arguments. If we still cannot resolve to a definite
+  type after that (all arguments must have the same type) then we give up and
+  return FT_NONE.
+*/
 static ftenum_t
 ul_semcheck_compare(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype,
-                        GSList *param_list, stloc_t *func_loc _U_)
+                        GSList *param_list, df_loc_t func_loc _U_)
 {
     stnode_t *arg;
+    sttype_id_t type;
     ftenum_t ftype, ft_arg;
     GSList *l;
     fvalue_t *fv;
+    wmem_list_t *literals = NULL;
 
-    arg = param_list->data;
+    ftype = lhs_ftype;
 
-    if (stnode_type_id(arg) == STTYPE_ARITHMETIC) {
-        ftype = check_arithmetic_expr(dfw, arg, lhs_ftype);
-    }
-    else if (stnode_type_id(arg) == STTYPE_LITERAL && lhs_ftype != FT_NONE) {
-        fv = dfilter_fvalue_from_literal(dfw, lhs_ftype, arg, FALSE, NULL);
-        stnode_replace(arg, STTYPE_FVALUE, fv);
-        ftype = fvalue_type_ftenum(fv);
-    }
-    else if (stnode_type_id(arg) == STTYPE_FUNCTION) {
-        ftype = check_function(dfw, arg, lhs_ftype);
-    }
-    else {
-        ftype = sttype_field_ftenum(arg);
-    }
-
-    if (ftype == FT_NONE) {
-        FAIL(dfw, arg, "Argument '%s' (FT_NONE) is not valid for %s()",
-                                stnode_todisplay(arg), func_name);
-    }
-
-    for (l = param_list->next; l != NULL; l = l->next) {
+    for (l = param_list; l != NULL; l = l->next) {
         arg = l->data;
+        type = stnode_type_id(arg);
 
-        if (stnode_type_id(arg) == STTYPE_ARITHMETIC) {
-            ft_arg = check_arithmetic_expr(dfw, arg, ftype);
+        if (type == STTYPE_ARITHMETIC) {
+            ft_arg = check_arithmetic(dfw, arg, ftype);
         }
-        else if (stnode_type_id(arg) == STTYPE_LITERAL && ftype != FT_NONE) {
-            fv = dfilter_fvalue_from_literal(dfw, ftype, arg, FALSE, NULL);
-            stnode_replace(arg, STTYPE_FVALUE, fv);
-            ft_arg = fvalue_type_ftenum(fv);
+        else if (type == STTYPE_LITERAL) {
+            if (ftype != FT_NONE) {
+                fv = dfilter_fvalue_from_literal(dfw, ftype, arg, FALSE, NULL);
+                stnode_replace(arg, STTYPE_FVALUE, fv);
+                ft_arg = fvalue_type_ftenum(fv);
+            }
+            else {
+                if (literals == NULL) {
+                    literals = wmem_list_new(dfw->dfw_scope);
+                }
+                wmem_list_append(literals, arg);
+                ft_arg = FT_NONE;
+            }
         }
-        else if (stnode_type_id(arg) == STTYPE_FUNCTION) {
+        else if (type == STTYPE_FUNCTION) {
             ft_arg = check_function(dfw, arg, ftype);
         }
-        else {
+        else if (type == STTYPE_FIELD) {
+            dfw->field_count++;
             ft_arg = sttype_field_ftenum(arg);
         }
-
-        if (ft_arg == FT_NONE) {
-            FAIL(dfw, arg, "Argument '%s' (FT_NONE) is not valid for %s()",
+        else if (type == STTYPE_REFERENCE) {
+            ft_arg = sttype_field_ftenum(arg);
+        }
+        else {
+            FAIL(dfw, arg, "Argument '%s' is not valid for %s()",
                                     stnode_todisplay(arg), func_name);
         }
+
         if (ftype == FT_NONE) {
             ftype = ft_arg;
         }
-        if (ft_arg != ftype) {
-            FAIL(dfw, arg, "Arguments to '%s' must have the same type (expected %s, got %s)",
+        if (ft_arg != FT_NONE && ftype != FT_NONE && !compatible_ftypes(ft_arg, ftype)) {
+            FAIL(dfw, arg, "Arguments to '%s' must be type compatible (expected %s, got %s)",
                                         func_name, ftype_name(ftype), ftype_name(ft_arg));
         }
-        if (!ftype_can_cmp(ft_arg)) {
+        if (ft_arg != FT_NONE && !ftype_can_cmp(ft_arg)) {
             FAIL(dfw, arg, "Argument '%s' to '%s' cannot be ordered",
                                     stnode_todisplay(arg), func_name);
         }
     }
+
+    if (literals != NULL) {
+        if (ftype != FT_NONE) {
+            wmem_list_frame_t *fp;
+            stnode_t *st;
+            for (fp = wmem_list_head(literals); fp != NULL; fp = wmem_list_frame_next(fp)) {
+                st = wmem_list_frame_data(fp);
+                fv = dfilter_fvalue_from_literal(dfw, ftype, st, FALSE, NULL);
+                stnode_replace(st, STTYPE_FVALUE, fv);
+            }
+        }
+        wmem_destroy_list(literals);
+    }
+
     return ftype;
 }
 
 static ftenum_t
 ul_semcheck_absolute_value(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ftype,
-                        GSList *param_list, stloc_t *func_loc _U_)
+                        GSList *param_list, df_loc_t func_loc _U_)
 {
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *st_node;
@@ -406,7 +432,7 @@ ul_semcheck_absolute_value(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ft
     st_node = param_list->data;
 
     if (stnode_type_id(st_node) == STTYPE_ARITHMETIC) {
-        ftype = check_arithmetic_expr(dfw, st_node, lhs_ftype);
+        ftype = check_arithmetic(dfw, st_node, lhs_ftype);
     }
     else if (stnode_type_id(st_node) == STTYPE_LITERAL) {
         if (lhs_ftype != FT_NONE) {
@@ -423,6 +449,7 @@ ul_semcheck_absolute_value(dfwork_t *dfw, const char *func_name, ftenum_t lhs_ft
         ftype = check_function(dfw, st_node, lhs_ftype);
     }
     else if (stnode_type_id(st_node) == STTYPE_FIELD) {
+        dfw->field_count++;
         ftype = sttype_field_ftenum(st_node);
     }
     else {

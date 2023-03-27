@@ -359,7 +359,7 @@ QToolButton *RtpPlayerDialog::addPlayerButton(QDialogButtonBox *button_box, QDia
     player_button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     player_button->setPopupMode(QToolButton::MenuButtonPopup);
 
-    ca = new QAction(tr("&Play Streams"));
+    ca = new QAction(tr("&Play Streams"), player_button);
     ca->setToolTip(tr("Open RTP player dialog"));
     ca->setIcon(StockIcon("media-playback-start"));
     connect(ca, SIGNAL(triggered()), dialog, SLOT(rtpPlayerReplace()));
@@ -1422,6 +1422,9 @@ void RtpPlayerDialog::on_playButton_clicked()
     }
 
     // Start progress marker and then audio streams
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    notify_timer_start_diff_ = -1;
+#endif
     marker_stream_->start(new AudioSilenceGenerator());
     // It may happen that stream play is finished before all others are started
     // therefore we do not use playing_streams_ there, but separate temporarly
@@ -1451,7 +1454,6 @@ QAudioDevice RtpPlayerDialog::getCurrentDeviceInfo()
 void RtpPlayerDialog::sinkStateChanged()
 {
     if (marker_stream_->state() == QAudio::ActiveState) {
-        notify_timer_start_diff_ = -1;
         notify_timer_.start();
     } else {
         notify_timer_.stop();

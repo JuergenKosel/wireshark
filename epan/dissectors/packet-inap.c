@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-inap.c                                                              */
-/* asn2wrs.py -b -p inap -c ./inap.cnf -s ./packet-inap-template -D . -O ../.. IN-common-classes.asn IN-SSF-SCF-Classes.asn IN-SCF-SRF-Classes.asn IN-operationcodes.asn IN-object-identifiers.asn IN-common-datatypes.asn IN-SSF-SCF-datatypes.asn IN-SSF-SCF-ops-args.asn IN-SCF-SRF-datatypes.asn IN-SCF-SRF-ops-args.asn IN-errorcodes.asn IN-errortypes.asn ../ros/Remote-Operations-Information-Objects.asn ../ros/Remote-Operations-Generic-ROS-PDUs.asn */
+/* asn2wrs.py -b -L -p inap -c ./inap.cnf -s ./packet-inap-template -D . -O ../.. IN-common-classes.asn IN-SSF-SCF-Classes.asn IN-SCF-SRF-Classes.asn IN-operationcodes.asn IN-object-identifiers.asn IN-common-datatypes.asn IN-SSF-SCF-datatypes.asn IN-SSF-SCF-ops-args.asn IN-SCF-SRF-datatypes.asn IN-SCF-SRF-ops-args.asn IN-errorcodes.asn IN-errortypes.asn ../ros/Remote-Operations-Information-Objects.asn ../ros/Remote-Operations-Generic-ROS-PDUs.asn */
 
-/* Input file: packet-inap-template.c */
-
-#line 1 "./asn1/inap/packet-inap-template.c"
 /* packet-inap-template.c
  * Routines for INAP
  * Copyright 2004, Tim Endean <endeant@hotmail.com>
@@ -49,9 +46,6 @@ void proto_reg_handoff_inap(void);
 static int proto_inap = -1;
 
 /* include constants */
-
-/*--- Included file: packet-inap-val.h ---*/
-#line 1 "./asn1/inap/packet-inap-val.h"
 #define opcode_initialDP               0
 #define opcode_originationAttemptAuthorized 1
 #define opcode_collectedInformation    2
@@ -446,12 +440,6 @@ static int proto_inap = -1;
 #define errcode_chainingRefused        23
 #define noInvokeId                     NULL
 
-/*--- End of included file: packet-inap-val.h ---*/
-#line 45 "./asn1/inap/packet-inap-template.c"
-
-
-/*--- Included file: packet-inap-hf.c ---*/
-#line 1 "./asn1/inap/packet-inap-hf.c"
 static int hf_inap_ActivateServiceFilteringArg_PDU = -1;  /* ActivateServiceFilteringArg */
 static int hf_inap_AnalysedInformationArg_PDU = -1;  /* AnalysedInformationArg */
 static int hf_inap_AnalyseInformationArg_PDU = -1;  /* AnalyseInformationArg */
@@ -1013,9 +1001,6 @@ static int hf_inap_returnErrorProblem = -1;       /* ReturnErrorProblem */
 static int hf_inap_present = -1;                  /* INTEGER */
 static int hf_inap_InvokeId_present = -1;         /* InvokeId_present */
 
-/*--- End of included file: packet-inap-hf.c ---*/
-#line 47 "./asn1/inap/packet-inap-template.c"
-
 #define MAX_SSN 254
 static range_t *global_ssn_range;
 
@@ -1057,9 +1042,6 @@ static gint ett_inap_prefix = -1;
 static gint ett_inap_iPAddressValue = -1;
 static gint ett_inap_digitsResponse = -1;
 
-
-/*--- Included file: packet-inap-ett.c ---*/
-#line 1 "./asn1/inap/packet-inap-ett.c"
 static gint ett_inap_Extensions = -1;
 static gint ett_inap_ExtensionField = -1;
 static gint ett_inap_AlternativeIdentities = -1;
@@ -1297,16 +1279,10 @@ static gint ett_inap_Reject = -1;
 static gint ett_inap_T_problem_01 = -1;
 static gint ett_inap_InvokeId = -1;
 
-/*--- End of included file: packet-inap-ett.c ---*/
-#line 90 "./asn1/inap/packet-inap-template.c"
-
 static expert_field ei_inap_unknown_invokeData = EI_INIT;
 static expert_field ei_inap_unknown_returnResultData = EI_INIT;
 static expert_field ei_inap_unknown_returnErrorData = EI_INIT;
 
-
-/*--- Included file: packet-inap-table.c ---*/
-#line 1 "./asn1/inap/packet-inap-table.c"
 
 /* INAP OPERATIONS */
 const value_string inap_opr_code_strings[] = {
@@ -1427,9 +1403,6 @@ static const value_string inap_err_code_string_vals[] = {
 };
 
 
-/*--- End of included file: packet-inap-table.c ---*/
-#line 96 "./asn1/inap/packet-inap-template.c"
-
 const value_string inap_general_problem_strings[] = {
 {0,"General Problem Unrecognized Component"},
 {1,"General Problem Mistyped Component"},
@@ -1442,9 +1415,6 @@ static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_
 static int dissect_returnResultData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx _U_);
 static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx);
 
-
-/*--- Included file: packet-inap-fn.c ---*/
-#line 1 "./asn1/inap/packet-inap-fn.c"
 
 const value_string inap_CriticalityType_vals[] = {
   {   0, "ignore" },
@@ -1465,7 +1435,6 @@ dissect_inap_CriticalityType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_inap_T_code_local(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 172 "./asn1/inap/inap.cnf"
     offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &opcode);
 
@@ -1479,7 +1448,6 @@ dissect_inap_T_code_local(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
       col_append_str(actx->pinfo->cinfo, COL_INFO, " ");
       col_set_fence(actx->pinfo->cinfo, COL_INFO);
     }
-
 
 
   return offset;
@@ -1520,7 +1488,6 @@ dissect_inap_Code(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_inap_T_value(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 235 "./asn1/inap/inap.cnf"
   proto_tree *ext_tree;
   ext_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_inap_extension_data, NULL, "Extension Data");
   if (obj_id){
@@ -1529,7 +1496,6 @@ dissect_inap_T_value(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
     call_data_dissector(tvb, actx->pinfo, ext_tree);
     offset = tvb_reported_length_remaining(tvb,offset);
   }
-
 
 
 
@@ -1547,9 +1513,7 @@ static const ber_sequence_t ExtensionField_sequence[] = {
 
 static int
 dissect_inap_ExtensionField(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 230 "./asn1/inap/inap.cnf"
   obj_id = NULL;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ExtensionField_sequence, hf_index, ett_inap_ExtensionField);
@@ -1717,7 +1681,6 @@ dissect_inap_AdditionalATMCellRate(gboolean implicit_tag _U_, tvbuff_t *tvb _U_,
 
 static int
 dissect_inap_Digits(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 345 "./asn1/inap/inap.cnf"
   /*
    *-- Indicates the address signalling digits. Refer to the Q.763 Generic Number and Generic Digits parameter
    *-- for encoding. The coding of the subfield's 'NumberQualifier' in Generic Number and 'TypeOfDigits' in
@@ -1791,7 +1754,6 @@ dissect_inap_Digits(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
   } else {
     dissect_isup_generic_number_parameter(parameter_tvb, actx->pinfo, subtree, NULL);
   }
-
 
   return offset;
 }
@@ -2274,7 +2236,6 @@ dissect_inap_BCSMEvent(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 static int
 dissect_inap_T_bearerCap(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 268 "./asn1/inap/inap.cnf"
 
   tvbuff_t *parameter_tvb;
 
@@ -2286,7 +2247,6 @@ dissect_inap_T_bearerCap(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offse
     return offset;
 
   dissect_q931_bearer_capability_ie(parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), tree);
-
 
 
   return offset;
@@ -2429,7 +2389,6 @@ dissect_inap_CalledPartyBusinessGroupID(gboolean implicit_tag _U_, tvbuff_t *tvb
 
 static int
 dissect_inap_CalledPartyNumber(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 247 "./asn1/inap/inap.cnf"
   tvbuff_t *parameter_tvb;
 
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -2440,7 +2399,6 @@ dissect_inap_CalledPartyNumber(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int
   return offset;
 
 dissect_isup_called_party_number_parameter(parameter_tvb, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -2480,7 +2438,6 @@ dissect_inap_CallingPartyBusinessGroupID(gboolean implicit_tag _U_, tvbuff_t *tv
 
 static int
 dissect_inap_CallingPartyNumber(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 257 "./asn1/inap/inap.cnf"
   tvbuff_t *parameter_tvb;
 
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -2491,7 +2448,6 @@ dissect_inap_CallingPartyNumber(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
     return offset;
 
   dissect_isup_calling_party_number_parameter(parameter_tvb, actx->pinfo, tree, NULL);
-
 
 
 
@@ -2583,7 +2539,6 @@ dissect_inap_Carrier(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 static int
 dissect_inap_Cause(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 328 "./asn1/inap/inap.cnf"
   /*
    * -- Indicates the cause for interface related information. Refer to the Q.763 Cause  parameter for encoding
    * -- For the use of cause and location values refer to Q.850.
@@ -2601,7 +2556,6 @@ dissect_inap_Cause(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   subtree = proto_item_add_subtree(actx->created_item, ett_inap_cause);
 
   dissect_q931_cause_ie(parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), subtree, hf_inap_cause_indicator, &Cause_value, isup_parameter_type_value);
-
 
 
   return offset;
@@ -4636,7 +4590,6 @@ dissect_inap_GlobalCallReference(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 int
 dissect_inap_HighLayerCompatibility(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 314 "./asn1/inap/inap.cnf"
 /*
  * -- Indicates the teleservice. For encoding, DSS1 (Q.931) is used.
  */
@@ -4651,7 +4604,6 @@ dissect_inap_HighLayerCompatibility(gboolean implicit_tag _U_, tvbuff_t *tvb _U_
 
   subtree = proto_item_add_subtree(actx->created_item, ett_inap_HighLayerCompatibility);
   dissect_q931_high_layer_compat_ie(parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb,0), subtree);
-
 
 
   return offset;
@@ -4810,7 +4762,6 @@ dissect_inap_NumberingPlan(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 static int
 dissect_inap_OriginalCalledPartyID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 292 "./asn1/inap/inap.cnf"
 
   tvbuff_t *parameter_tvb;
 
@@ -4822,7 +4773,6 @@ dissect_inap_OriginalCalledPartyID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_,
     return offset;
 
   dissect_isup_original_called_number_parameter(parameter_tvb, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -4874,7 +4824,6 @@ dissect_inap_Reason(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_inap_RedirectingPartyID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 303 "./asn1/inap/inap.cnf"
 
   tvbuff_t *parameter_tvb;
 
@@ -4888,7 +4837,6 @@ dissect_inap_RedirectingPartyID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
    dissect_isup_redirecting_number_parameter(parameter_tvb, actx->pinfo, tree, NULL);
 
 
-
   return offset;
 }
 
@@ -4896,7 +4844,6 @@ dissect_inap_RedirectingPartyID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 int
 dissect_inap_RedirectionInformation(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 279 "./asn1/inap/inap.cnf"
 
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
@@ -4910,7 +4857,6 @@ dissect_inap_RedirectionInformation(gboolean implicit_tag _U_, tvbuff_t *tvb _U_
 
  subtree = proto_item_add_subtree(actx->created_item, ett_inap_RedirectionInformation);
  dissect_isup_redirection_information_parameter(parameter_tvb, subtree, NULL);
-
 
 
   return offset;
@@ -5262,9 +5208,7 @@ dissect_inap_T_triggerId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_inap_T_triggerPar(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 216 "./asn1/inap/inap.cnf"
 /* FIX ME */
-
 
 
   return offset;
@@ -7840,9 +7784,7 @@ dissect_inap_MessageReceivedArg(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 static int
 dissect_inap_T_uIScriptSpecificInfo(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 222 "./asn1/inap/inap.cnf"
 /* FIX ME */
-
 
 
   return offset;
@@ -7869,9 +7811,7 @@ dissect_inap_ScriptCloseArg(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_inap_T_uIScriptResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 219 "./asn1/inap/inap.cnf"
 /* FIX ME */
-
 
 
   return offset;
@@ -7899,9 +7839,7 @@ dissect_inap_ScriptEventArg(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_inap_T_uIScriptSpecificInfo_01(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 225 "./asn1/inap/inap.cnf"
 /* FIX ME */
-
 
   return offset;
 }
@@ -7927,9 +7865,7 @@ dissect_inap_ScriptInformationArg(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 static int
 dissect_inap_T_uIScriptSpecificInfo_02(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 227 "./asn1/inap/inap.cnf"
 /* FIX ME */
-
 
 
   return offset;
@@ -8158,10 +8094,8 @@ dissect_inap_T_linkedId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 static int
 dissect_inap_T_argument(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 201 "./asn1/inap/inap.cnf"
 
   offset = dissect_invokeData(tree, tvb, offset, actx);
-
 
 
   return offset;
@@ -8178,10 +8112,8 @@ static const ber_sequence_t Invoke_sequence[] = {
 
 static int
 dissect_inap_Invoke(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 185 "./asn1/inap/inap.cnf"
 
   inap_opcode_type=INAP_OPCODE_INVOKE;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    Invoke_sequence, hf_index, ett_inap_Invoke);
@@ -8193,10 +8125,8 @@ dissect_inap_Invoke(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_inap_ResultArgument(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 205 "./asn1/inap/inap.cnf"
 
   offset = dissect_returnResultData(tree, tvb, offset, actx);
-
 
 
   return offset;
@@ -8226,10 +8156,8 @@ static const ber_sequence_t ReturnResult_sequence[] = {
 
 static int
 dissect_inap_ReturnResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 189 "./asn1/inap/inap.cnf"
 
   inap_opcode_type=INAP_OPCODE_RETURN_RESULT;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ReturnResult_sequence, hf_index, ett_inap_ReturnResult);
@@ -8241,10 +8169,8 @@ dissect_inap_ReturnResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 static int
 dissect_inap_T_parameter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 209 "./asn1/inap/inap.cnf"
 
   offset = dissect_returnErrorData(tree, tvb, offset, actx);
-
 
 
 
@@ -8262,10 +8188,8 @@ static const ber_sequence_t ReturnError_sequence[] = {
 
 static int
 dissect_inap_ReturnError(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 193 "./asn1/inap/inap.cnf"
 
   inap_opcode_type=INAP_OPCODE_RETURN_ERROR;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ReturnError_sequence, hf_index, ett_inap_ReturnError);
@@ -8383,10 +8307,8 @@ static const ber_sequence_t Reject_sequence[] = {
 
 static int
 dissect_inap_Reject(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 197 "./asn1/inap/inap.cnf"
 
   inap_opcode_type=INAP_OPCODE_REJECT;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    Reject_sequence, hf_index, ett_inap_Reject);
@@ -9087,9 +9009,6 @@ static int dissect_PAR_taskRefused_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_
   return offset;
 }
 
-
-/*--- End of included file: packet-inap-fn.c ---*/
-#line 110 "./asn1/inap/packet-inap-template.c"
 /*
 TC-Invokable OPERATION ::=
   {activateServiceFiltering | activityTest | analysedInformation |
@@ -9110,9 +9029,6 @@ TC-Invokable OPERATION ::=
    promptAndCollectUserInformation}
 */
 
-
-/*--- Included file: packet-inap-table2.c ---*/
-#line 1 "./asn1/inap/packet-inap-table2.c"
 
 static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx) {
 
@@ -9438,9 +9354,6 @@ static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset,a
 }
 
 
-/*--- End of included file: packet-inap-table2.c ---*/
-#line 131 "./asn1/inap/packet-inap-template.c"
-
 
 static guint8 inap_pdu_type = 0;
 static guint8 inap_pdu_size = 0;
@@ -9522,9 +9435,6 @@ void proto_register_inap(void) {
     FT_UINT8, BASE_DEC | BASE_EXT_STRING, &q850_cause_code_vals_ext, 0x7f,
     NULL, HFILL } },
 
-
-/*--- Included file: packet-inap-hfarr.c ---*/
-#line 1 "./asn1/inap/packet-inap-hfarr.c"
     { &hf_inap_ActivateServiceFilteringArg_PDU,
       { "ActivateServiceFilteringArg", "inap.ActivateServiceFilteringArg_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -11765,9 +11675,6 @@ void proto_register_inap(void) {
       { "InvokeId.present", "inap.InvokeId_present",
         FT_INT32, BASE_DEC, NULL, 0,
         "InvokeId_present", HFILL }},
-
-/*--- End of included file: packet-inap-hfarr.c ---*/
-#line 214 "./asn1/inap/packet-inap-template.c"
   };
 
 
@@ -11798,9 +11705,6 @@ void proto_register_inap(void) {
     &ett_inap_prefix,
     &ett_inap_iPAddressValue,
     &ett_inap_digitsResponse,
-
-/*--- Included file: packet-inap-ettarr.c ---*/
-#line 1 "./asn1/inap/packet-inap-ettarr.c"
     &ett_inap_Extensions,
     &ett_inap_ExtensionField,
     &ett_inap_AlternativeIdentities,
@@ -12037,9 +11941,6 @@ void proto_register_inap(void) {
     &ett_inap_Reject,
     &ett_inap_T_problem_01,
     &ett_inap_InvokeId,
-
-/*--- End of included file: packet-inap-ettarr.c ---*/
-#line 245 "./asn1/inap/packet-inap-template.c"
   };
 
   static ei_register_info ei[] = {

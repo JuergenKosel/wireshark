@@ -29,6 +29,7 @@
 #include <epan/expert.h>
 #include <epan/conversation.h>
 #include <epan/asn1.h>
+#include <epan/strutil.h>
 
 #include "packet-gsm_a_common.h"
 #include "packet-gsm_map.h"
@@ -314,6 +315,7 @@ static expert_field ei_sm_rp_oa_invalid = EI_INIT;
 static expert_field ei_gsup_ie_len_invalid = EI_INIT;
 
 static dissector_handle_t gsm_map_handle;
+static dissector_handle_t gsup_handle;
 static dissector_handle_t gsm_sms_handle;
 static dissector_handle_t bssap_imei_handle;
 static dissector_handle_t bssap_handle;
@@ -790,9 +792,12 @@ dissect_gsup_tlvs(tvbuff_t *tvb, int base_offs, int length, packet_info *pinfo, 
 				if (ch == '*')
 					proto_item_append_text(ti, ", '*' (Wildcard)");
 			} else {
+                                char *name_out;
+
 				get_dns_name(tvb, offset, len, 0, &apn, &apn_len);
-				proto_tree_add_string(att_tree, hf_gsup_apn, tvb, offset, len, apn);
-				proto_item_append_text(ti, ", %s", apn);
+				name_out = format_text(pinfo->pool, apn, apn_len);
+				proto_tree_add_string(att_tree, hf_gsup_apn, tvb, offset, len, name_out);
+				proto_item_append_text(ti, ", %s", name_out);
 			}
 			break;
 		case OSMO_GSUP_PDP_CONTEXT_ID_IE:
@@ -1025,6 +1030,8 @@ proto_register_gsup(void)
 	proto_register_field_array(proto_gsup, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
 
+	gsup_handle = register_dissector("gsup", dissect_gsup, proto_gsup);
+
 	expert_gsup = expert_register_protocol(proto_gsup);
 	expert_register_field_array(expert_gsup, ei, array_length(ei));
 
@@ -1039,8 +1046,6 @@ proto_register_gsup(void)
 void
 proto_reg_handoff_gsup(void)
 {
-	dissector_handle_t gsup_handle;
-	gsup_handle = create_dissector_handle(dissect_gsup, proto_gsup);
 	dissector_add_uint_with_preference("ipa.osmo.protocol", IPAC_PROTO_EXT_GSUP, gsup_handle);
 	gsm_map_handle = find_dissector_add_dependency("gsm_map", proto_gsup);
 	gsm_sms_handle = find_dissector_add_dependency("gsm_sms", proto_gsup);

@@ -252,7 +252,7 @@ add_unix_interface_ifinfo(if_info_t *if_info, const char *name,
 			if_info->type = IF_USB;
 	}
 }
-#else
+#elif !defined(_WIN32)
 /*
  * On other UN*Xes, if there is a description, it's a friendly
  * name, and there is no vendor description.  ("Other UN*Xes"
@@ -449,8 +449,8 @@ if_info_new(const char *name, const char *description, gboolean loopback)
 	} else if (description && (strstr(description, "Wireless") != NULL ||
 	    strstr(description,"802.11") != NULL)) {
 		if_info->type = IF_WIRELESS;
-	} else if (description && strstr(description, "AirPcap") != NULL ||
-	    strstr(name, "airpcap") != NULL) {
+	} else if (description && (strstr(description, "AirPcap") != NULL ||
+	    strstr(name, "airpcap") != NULL)) {
 		if_info->type = IF_AIRPCAP;
 	} else if (description && strstr(description, "Bluetooth") != NULL ) {
 		if_info->type = IF_BLUETOOTH;
@@ -557,8 +557,7 @@ if_info_add_address(if_info_t *if_info, struct sockaddr *addr)
 		ai = (struct sockaddr_in *)(void *)addr;
 		if_addr = (if_addr_t *)g_malloc(sizeof(*if_addr));
 		if_addr->ifat_type = IF_AT_IPv4;
-		if_addr->addr.ip4_addr =
-		    *((guint32 *)&(ai->sin_addr.s_addr));
+		if_addr->addr.ip4_addr = ai->sin_addr.s_addr;
 		if_info->addrs = g_slist_prepend(if_info->addrs, if_addr);
 		break;
 

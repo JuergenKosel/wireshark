@@ -38,7 +38,7 @@
 #include "wsutil/file_util.h"
 #include "wsutil/tempfile.h"
 #include "wsutil/plugins.h"
-#include "ui/version_info.h"
+#include "wsutil/version_info.h"
 #include "ui/capture_globals.h"
 
 #include "extcap.h"
@@ -69,7 +69,7 @@ AStringListListModel(parent)
 {
     QFile f_authors;
 
-    f_authors.setFileName(get_datafile_path("AUTHORS-SHORT"));
+    f_authors.setFileName(":/about/authors.csv");
     f_authors.open(QFile::ReadOnly | QFile::Text);
     QTextStream ReadFile_authors(&f_authors);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -78,18 +78,15 @@ AStringListListModel(parent)
     ReadFile_authors.setCodec("UTF-8");
 #endif
 
-    QRegularExpression rx("(.*)[<(]([\\s'a-zA-Z0-9._%+-]+(\\[[Aa][Tt]\\])?[a-zA-Z0-9._%+-]+)[>)]");
     while (!ReadFile_authors.atEnd()) {
         QString line = ReadFile_authors.readLine();
-
-        if (line.trimmed().length() == 0)
-                continue;
-        if (line.startsWith("------"))
-            continue;
-
-        QRegularExpressionMatch match = rx.match(line);
-        if (match.hasMatch()) {
-            appendRow(QStringList() << match.captured(1).trimmed() << match.captured(2).trimmed());
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+        QStringList entry = line.split(",", Qt::SkipEmptyParts);
+#else
+        QStringList entry = QStringList() << line.section(',', 0, 0) << line.section(',', 1, 1);
+#endif
+        if (entry.size() == 2) {
+            appendRow(entry);
         }
     }
     f_authors.close();
@@ -215,15 +212,15 @@ FolderListModel::FolderListModel(QObject * parent):
 
 #ifdef HAVE_LUA
     /* pers plugins */
-    appendRow(QStringList() << tr("Personal Lua Plugins") << get_plugins_pers_dir() << tr("lua scripts"));
+    appendRow(QStringList() << tr("Personal Lua Plugins") << get_plugins_pers_dir() << tr("Lua scripts"));
 
     /* global plugins */
-    appendRow(QStringList() << tr("Global Lua Plugins") << get_plugins_dir() << tr("lua scripts"));
+    appendRow(QStringList() << tr("Global Lua Plugins") << get_plugins_dir() << tr("Lua scripts"));
 #endif
 
     /* Extcap */
-    appendRow(QStringList() << tr("Personal Extcap path") << QString(get_persconffile_path("extcap", FALSE)).trimmed() << tr("Extcap Plugins search path"));
-    appendRow(QStringList() << tr("Global Extcap path") << QString(get_extcap_dir()).trimmed() << tr("Extcap Plugins search path"));
+    appendRow(QStringList() << tr("Personal Extcap path") << QString(get_extcap_pers_dir()) << tr("external capture (extcap) plugins"));
+    appendRow(QStringList() << tr("Global Extcap path") << QString(get_extcap_dir()) << tr("external capture (extcap) plugins"));
 
 #ifdef HAVE_MAXMINDDB
     /* MaxMind DB */
@@ -358,7 +355,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     connect(ui->searchShortcuts, &QLineEdit::textChanged, shortcutProxyModel, &AStringListListSortFilterProxyModel::setFilter);
 
     /* Acknowledgements */
-    f_acknowledgements.setFileName(get_datafile_path("Acknowledgements.md"));
+    f_acknowledgements.setFileName(":/about/Acknowledgements.md");
 
     f_acknowledgements.open(QFile::ReadOnly | QFile::Text);
     QTextStream ReadFile_acks(&f_acknowledgements);
@@ -380,7 +377,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
 #endif
 
     /* License */
-    f_license.setFileName(get_datafile_path("gpl-2.0-standalone.html"));
+    f_license.setFileName(":/about/gpl-2.0-standalone.html");
 
     f_license.open(QFile::ReadOnly | QFile::Text);
     QTextStream ReadFile_license(&f_license);

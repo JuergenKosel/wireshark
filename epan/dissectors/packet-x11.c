@@ -1319,7 +1319,7 @@ static void colorFlags(tvbuff_t *tvb, int *offsetp, proto_tree *t)
 
       if (do_red_green_blue) {
             int sep = FALSE;
-            wmem_strbuf_t *buffer = wmem_strbuf_new_label(wmem_packet_scope());
+            wmem_strbuf_t *buffer = wmem_strbuf_create(wmem_packet_scope());
             wmem_strbuf_append(buffer, "flags: ");
 
             if (do_red_green_blue & 0x1) {
@@ -1517,7 +1517,7 @@ static void listOfColorItem(tvbuff_t *tvb, int *offsetp, proto_tree *t, int hf,
             wmem_strbuf_t *buffer;
             const char *sep;
 
-            buffer=wmem_strbuf_new_label(wmem_packet_scope());
+            buffer=wmem_strbuf_create(wmem_packet_scope());
             wmem_strbuf_append(buffer, "colorItem ");
             red = tvb_get_guint16(tvb, *offsetp + 4, byte_order);
             green = tvb_get_guint16(tvb, *offsetp + 6, byte_order);
@@ -2223,8 +2223,6 @@ static int stringIsActuallyAn8BitString(tvbuff_t *tvb, int offset, guint length)
       return TRUE;
 }
 
-#define UNREPL 0x00FFFD
-
 /* XXX - assumes that the string encoding is ASCII; even if 0x00 through
    0x7F are ASCII, 0x80 through 0xFF might not be, and even 0x00 through
    0x7F aren't necessarily ASCII. */
@@ -2233,7 +2231,7 @@ static char *tvb_get_ascii_string16(tvbuff_t *tvb, int offset, guint length)
       wmem_strbuf_t *str;
       guint8 ch;
 
-      str = wmem_strbuf_sized_new(wmem_packet_scope(), length + 1, 0);
+      str = wmem_strbuf_new_sized(wmem_packet_scope(), length + 1);
 
       while(length--) {
             offset++;
@@ -2241,7 +2239,7 @@ static char *tvb_get_ascii_string16(tvbuff_t *tvb, int offset, guint length)
             if (ch < 0x80)
                   wmem_strbuf_append_c(str, ch);
             else
-                  wmem_strbuf_append_unichar(str, UNREPL);
+                  wmem_strbuf_append_unichar_repl(str);
             offset++;
       }
       return wmem_strbuf_finalize(str);

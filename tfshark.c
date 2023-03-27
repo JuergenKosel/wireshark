@@ -19,6 +19,7 @@
 #include <locale.h>
 #include <limits.h>
 
+#include <ws_exit_codes.h>
 #include <wsutil/ws_getopt.h>
 
 #include <errno.h>
@@ -28,9 +29,8 @@
 #include <epan/exceptions.h>
 #include <epan/epan.h>
 
-#include <ui/clopts_common.h>
-#include <ui/cmdarg_err.h>
-#include <ui/exit_codes.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/cmdarg_err.h>
 #include <ui/urls.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
@@ -39,7 +39,7 @@
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
 #include <cli_main.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
 #include "globals.h"
 #include <epan/timestamp.h>
@@ -121,8 +121,6 @@ static void show_print_file_io_error(int err);
 static gboolean write_preamble(capture_file *cf);
 static gboolean print_packet(capture_file *cf, epan_dissect_t *edt);
 static gboolean write_finale(void);
-static const char *cf_open_error_message(int err, gchar *err_info,
-        gboolean for_writing, int file_type);
 
 static void tfshark_cmdarg_err(const char *msg_format, va_list ap);
 static void tfshark_cmdarg_err_cont(const char *msg_format, va_list ap);
@@ -284,7 +282,7 @@ main(int argc, char *argv[])
     gchar               *dfilter = NULL;
     dfilter_t           *rfcode = NULL;
     dfilter_t           *dfcode = NULL;
-    gchar               *err_msg;
+    df_error_t          *df_err;
     e_prefs             *prefs_p;
     gchar               *output_only = NULL;
 
@@ -339,7 +337,7 @@ main(int argc, char *argv[])
     ws_log_init("tfshark", vcmdarg_err);
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
@@ -401,7 +399,7 @@ main(int argc, char *argv[])
                             pf_dir_path, g_strerror(errno));
 
                         g_free(pf_dir_path);
-                        exit_status = INVALID_FILE;
+                        exit_status = WS_EXIT_INVALID_FILE;
                         goto clean_exit;
                     }
                     if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
@@ -412,7 +410,7 @@ main(int argc, char *argv[])
                         g_free(pf_filename);
                         g_free(pf_dir_path);
                         g_free(pf_dir_path2);
-                        exit_status = INVALID_FILE;
+                        exit_status = WS_EXIT_INVALID_FILE;
                         goto clean_exit;
                     }
                     set_profile_name (ws_optarg);
@@ -477,7 +475,7 @@ main(int argc, char *argv[])
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
     if (!epan_init(NULL, NULL, TRUE)) {
-        exit_status = INIT_FAILED;
+        exit_status = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
 
@@ -543,7 +541,7 @@ main(int argc, char *argv[])
                 glossary_option_help();
             else {
                 cmdarg_err("Invalid \"%s\" option for -G flag, enter -G ? for more help.", argv[2]);
-                exit_status = INVALID_OPTION;
+                exit_status = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
             }
         }
@@ -589,7 +587,7 @@ main(int argc, char *argv[])
                 if (!output_fields_set_option(output_fields, ws_optarg)) {
                     cmdarg_err("\"%s\" is not a valid field output option=value pair.", ws_optarg);
                     output_fields_list_options(stderr);
-                    exit_status = INVALID_OPTION;
+                    exit_status = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 break;
@@ -639,19 +637,19 @@ main(int argc, char *argv[])
                             cmdarg_err("Invalid -o flag \"%s\"%s%s", ws_optarg,
                                     errmsg ? ": " : "", errmsg ? errmsg : "");
                             g_free(errmsg);
-                            exit_status = INVALID_OPTION;
+                            exit_status = WS_EXIT_INVALID_OPTION;
                             goto clean_exit;
                             break;
 
                         case PREFS_SET_NO_SUCH_PREF:
                             cmdarg_err("-o flag \"%s\" specifies unknown preference", ws_optarg);
-                            exit_status = INVALID_OPTION;
+                            exit_status = WS_EXIT_INVALID_OPTION;
                             goto clean_exit;
                             break;
 
                         case PREFS_SET_OBSOLETE:
                             cmdarg_err("-o flag \"%s\" specifies obsolete preference", ws_optarg);
-                            exit_status = INVALID_OPTION;
+                            exit_status = WS_EXIT_INVALID_OPTION;
                             goto clean_exit;
                             break;
                     }
@@ -710,7 +708,7 @@ main(int argc, char *argv[])
                                     "\t         packets, or a multi-line view of the details of each of the\n"
                                     "\t         packets, depending on whether the -V flag was specified.\n"
                                     "\t         This is the default.");
-                    exit_status = INVALID_OPTION;
+                    exit_status = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 break;
@@ -746,7 +744,7 @@ main(int argc, char *argv[])
                 if (!process_stat_cmd_arg(ws_optarg)) {
                     cmdarg_err("Invalid -z argument \"%s\"; it must be one of:", ws_optarg);
                     list_stat_cmd_args();
-                    exit_status = INVALID_OPTION;
+                    exit_status = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 break;
@@ -759,14 +757,14 @@ main(int argc, char *argv[])
             case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
             case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
                 if (!dissect_opts_handle_opt(opt, ws_optarg)) {
-                    exit_status = INVALID_OPTION;
+                    exit_status = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
                 break;
             default:
             case '?':        /* Bad flag - print usage message */
                 print_usage(stderr);
-                exit_status = INVALID_OPTION;
+                exit_status = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
                 break;
         }
@@ -781,7 +779,7 @@ main(int argc, char *argv[])
         cmdarg_err("\"-Tfields\" was specified, but no fields were "
                 "specified with \"-e\".");
 
-        exit_status = INVALID_OPTION;
+        exit_status = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -798,7 +796,7 @@ main(int argc, char *argv[])
         if (dfilter != NULL) {
             cmdarg_err("Display filters were specified both with \"-Y\" "
                     "and with additional command-line arguments.");
-            exit_status = INVALID_OPTION;
+            exit_status = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
         dfilter = get_args_as_string(argc, argv, ws_optind);
@@ -810,14 +808,14 @@ main(int argc, char *argv[])
 
     if (arg_error) {
         print_usage(stderr);
-        exit_status = INVALID_OPTION;
+        exit_status = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
     if (print_hex) {
         if (output_action != WRITE_TEXT) {
             cmdarg_err("Raw packet hex data can only be printed as text or PostScript");
-            exit_status = INVALID_OPTION;
+            exit_status = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
     }
@@ -827,7 +825,7 @@ main(int argc, char *argv[])
 
         if (!print_details) {
             cmdarg_err("-O requires -V");
-            exit_status = INVALID_OPTION;
+            exit_status = WS_EXIT_INVALID_OPTION;
             goto clean_exit;
         }
 
@@ -839,7 +837,7 @@ main(int argc, char *argv[])
 
     if (rfilter != NULL && !perform_two_pass_analysis) {
         cmdarg_err("-R without -2 is deprecated. For single-pass filtering use -Y.");
-        exit_status = INVALID_OPTION;
+        exit_status = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -853,7 +851,7 @@ main(int argc, char *argv[])
      * command-line options.
      */
     if (!setup_enabled_and_disabled_protocols()) {
-        exit_status = INVALID_OPTION;
+        exit_status = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -861,20 +859,20 @@ main(int argc, char *argv[])
     build_column_format_array(&cfile.cinfo, prefs_p->num_cols, TRUE);
 
     if (rfilter != NULL) {
-        if (!dfilter_compile(rfilter, &rfcode, &err_msg)) {
-            cmdarg_err("%s", err_msg);
-            g_free(err_msg);
-            exit_status = INVALID_FILTER;
+        if (!dfilter_compile(rfilter, &rfcode, &df_err)) {
+            cmdarg_err("%s", df_err->msg);
+            dfilter_error_free(df_err);
+            exit_status = WS_EXIT_INVALID_FILTER;
             goto clean_exit;
         }
     }
     cfile.rfcode = rfcode;
 
     if (dfilter != NULL) {
-        if (!dfilter_compile(dfilter, &dfcode, &err_msg)) {
-            cmdarg_err("%s", err_msg);
-            g_free(err_msg);
-            exit_status = INVALID_FILTER;
+        if (!dfilter_compile(dfilter, &dfcode, &df_err)) {
+            cmdarg_err("%s", df_err->msg);
+            dfilter_error_free(df_err);
+            exit_status = WS_EXIT_INVALID_FILTER;
             goto clean_exit;
         }
     }
@@ -918,7 +916,7 @@ main(int argc, char *argv[])
     /* TODO: if tfshark is ever changed to give the user a choice of which
        open_routine reader to use, then the following needs to change. */
     if (cf_open(&cfile, cf_name, WTAP_TYPE_AUTO, FALSE, &err) != CF_OK) {
-        exit_status = OPEN_ERROR;
+        exit_status = WS_EXIT_OPEN_ERROR;
         goto clean_exit;
     }
 
@@ -1070,11 +1068,11 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
         cf->provider.prev_cap = cf->provider.prev_dis = frame_data_sequence_add(cf->provider.frames, &fdlocal);
 
         /* If we're not doing dissection then there won't be any dependent frames.
-         * More importantly, edt.pi.dependent_frames won't be initialized because
+         * More importantly, edt.pi.fd.dependent_frames won't be initialized because
          * epan hasn't been initialized.
          */
-        if (edt) {
-            g_slist_foreach(edt->pi.dependent_frames, find_and_mark_frame_depended_upon, cf->provider.frames);
+        if (edt && edt->pi.fd->dependent_frames) {
+            g_hash_table_foreach(edt->pi.fd->dependent_frames, find_and_mark_frame_depended_upon, cf->provider.frames);
         }
 
         cf->count++;
@@ -1966,7 +1964,7 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
                 break;
 
             case WRITE_XML:
-                write_pdml_proto_tree(NULL, NULL, PF_NONE, edt, &cf->cinfo, stdout, FALSE);
+                write_pdml_proto_tree(NULL, NULL, edt, &cf->cinfo, stdout, FALSE);
                 printf("\n");
                 return !ferror(stdout);
             case WRITE_FIELDS:
@@ -2014,11 +2012,8 @@ write_finale(void)
 }
 
 cf_status_t
-cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_tempfile, int *err)
+cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_tempfile, int *err _U_)
 {
-    gchar *err_info;
-    char   err_msg[2048+1];
-
     /* The open isn't implemented yet.  Fill in the information for this file. */
 
     /* Create new epan session for dissection. */
@@ -2055,10 +2050,14 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
     return CF_OK;
 
 /* fail: */
+/*
+    gchar *err_info;
+    char   err_msg[2048+1];
     snprintf(err_msg, sizeof err_msg,
             cf_open_error_message(*err, err_info, FALSE, cf->cd_t), fname);
     cmdarg_err("%s", err_msg);
     return CF_ERROR;
+*/
 }
 
 static void
@@ -2083,130 +2082,6 @@ show_print_file_io_error(int err)
                     g_strerror(err));
             break;
     }
-}
-
-static const char *
-cf_open_error_message(int err, gchar *err_info _U_, gboolean for_writing,
-        int file_type _U_)
-{
-    const char *errmsg;
-    /* static char errmsg_errno[1024+1]; */
-
-#if 0
-    if (err < 0) {
-        /* Wiretap error. */
-        switch (err) {
-
-            case FTAP_ERR_NOT_REGULAR_FILE:
-                errmsg = "The file \"%s\" is a \"special file\" or socket or other non-regular file.";
-                break;
-
-            case FTAP_ERR_RANDOM_OPEN_PIPE:
-                /* Seen only when opening a capture file for reading. */
-                errmsg = "The file \"%s\" is a pipe or FIFO; TFShark can't read pipe or FIFO files in two-pass mode.";
-                break;
-
-            case FTAP_ERR_FILE_UNKNOWN_FORMAT:
-                /* Seen only when opening a capture file for reading. */
-                errmsg = "The file \"%s\" isn't a capture file in a format TFShark understands.";
-                break;
-
-            case FTAP_ERR_UNSUPPORTED:
-                /* Seen only when opening a capture file for reading. */
-                snprintf(errmsg_errno, sizeof(errmsg_errno),
-                        "The file \"%%s\" isn't a capture file in a format TFShark understands.\n"
-                        "(%s)", err_info);
-                g_free(err_info);
-                errmsg = errmsg_errno;
-                break;
-
-            case FTAP_ERR_CANT_WRITE_TO_PIPE:
-                /* Seen only when opening a capture file for writing. */
-                snprintf(errmsg_errno, sizeof(errmsg_errno),
-                        "The file \"%%s\" is a pipe, and \"%s\" capture files can't be "
-                        "written to a pipe.", ftap_file_type_subtype_short_string(file_type));
-                errmsg = errmsg_errno;
-                break;
-
-            case FTAP_ERR_UNSUPPORTED_FILE_TYPE:
-                /* Seen only when opening a capture file for writing. */
-                errmsg = "TFShark doesn't support writing capture files in that format.";
-                break;
-
-            case FTAP_ERR_UNSUPPORTED_ENCAP:
-                if (for_writing) {
-                    snprintf(errmsg_errno, sizeof(errmsg_errno),
-                            "TFShark can't save this capture as a \"%s\" file.",
-                            ftap_file_type_subtype_short_string(file_type));
-                } else {
-                    snprintf(errmsg_errno, sizeof(errmsg_errno),
-                            "The file \"%%s\" is a capture for a network type that TFShark doesn't support.\n"
-                            "(%s)", err_info);
-                    g_free(err_info);
-                }
-                errmsg = errmsg_errno;
-                break;
-
-            case FTAP_ERR_ENCAP_PER_RECORD_UNSUPPORTED:
-                if (for_writing) {
-                    snprintf(errmsg_errno, sizeof(errmsg_errno),
-                            "TFShark can't save this capture as a \"%s\" file.",
-                            ftap_file_type_subtype_short_string(file_type));
-                    errmsg = errmsg_errno;
-                } else
-                    errmsg = "The file \"%s\" is a capture for a network type that TFShark doesn't support.";
-                break;
-
-            case FTAP_ERR_BAD_FILE:
-                /* Seen only when opening a capture file for reading. */
-                snprintf(errmsg_errno, sizeof(errmsg_errno),
-                        "The file \"%%s\" appears to be damaged or corrupt.\n"
-                        "(%s)", err_info);
-                g_free(err_info);
-                errmsg = errmsg_errno;
-                break;
-
-            case FTAP_ERR_CANT_OPEN:
-                if (for_writing)
-                    errmsg = "The file \"%s\" could not be created for some unknown reason.";
-                else
-                    errmsg = "The file \"%s\" could not be opened for some unknown reason.";
-                break;
-
-            case FTAP_ERR_SHORT_READ:
-                errmsg = "The file \"%s\" appears to have been cut short"
-                    " in the middle of a packet or other data.";
-                break;
-
-            case FTAP_ERR_SHORT_WRITE:
-                errmsg = "A full header couldn't be written to the file \"%s\".";
-                break;
-
-            case FTAP_ERR_COMPRESSION_NOT_SUPPORTED:
-                errmsg = "This file type cannot be written as a compressed file.";
-                break;
-
-            case FTAP_ERR_DECOMPRESS:
-                /* Seen only when opening a capture file for reading. */
-                snprintf(errmsg_errno, sizeof(errmsg_errno),
-                        "The compressed file \"%%s\" appears to be damaged or corrupt.\n"
-                        "(%s)", err_info);
-                g_free(err_info);
-                errmsg = errmsg_errno;
-                break;
-
-            default:
-                snprintf(errmsg_errno, sizeof(errmsg_errno),
-                        "The file \"%%s\" could not be %s: %s.",
-                        for_writing ? "created" : "opened",
-                        ftap_strerror(err));
-                errmsg = errmsg_errno;
-                break;
-        }
-    } else
-#endif
-        errmsg = file_open_error_message(err, for_writing);
-    return errmsg;
 }
 
 /*

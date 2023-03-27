@@ -149,7 +149,7 @@ win32strexception(DWORD exception)
 {
     static char errbuf[ERRBUF_SIZE+1];
     static const struct exception_msg {
-        int code;
+        DWORD code;
         char *msg;
     } exceptions[] = {
         { EXCEPTION_ACCESS_VIOLATION, "Access violation" },
@@ -177,13 +177,12 @@ win32strexception(DWORD exception)
         { 0, NULL }
     };
 #define N_EXCEPTIONS    (sizeof exceptions / sizeof exceptions[0])
-    int i;
 
-    for (i = 0; i < N_EXCEPTIONS; i++) {
+    for (size_t i = 0; i < N_EXCEPTIONS; i++) {
         if (exceptions[i].code == exception)
             return exceptions[i].msg;
     }
-    snprintf(errbuf, (gulong)sizeof errbuf, "Exception 0x%08x", exception);
+    snprintf(errbuf, (gulong)sizeof errbuf, "Exception 0x%08lx", exception);
     return errbuf;
 }
 

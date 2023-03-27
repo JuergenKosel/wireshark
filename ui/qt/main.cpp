@@ -22,9 +22,9 @@
 #include <wsutil/console_win32.h>
 #endif
 
-#include <ui/clopts_common.h>
-#include <ui/cmdarg_err.h>
-#include <ui/exit_codes.h>
+#include <ws_exit_codes.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/cmdarg_err.h>
 #include <ui/urls.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
@@ -36,7 +36,7 @@
 #include <wsutil/report_message.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/unicode-utils.h>
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
 #include <epan/addr_resolv.h>
 #include <epan/ex-opt.h>
@@ -227,11 +227,6 @@ gather_wireshark_qt_compiled_info(feature_list l)
     without_feature(l, "AirPcap");
 #endif
 #endif /* _WIN32 */
-#ifdef HAVE_SPEEXDSP
-    with_feature(l, "SpeexDSP (using system library)");
-#else
-    with_feature(l, "SpeexDSP (using bundled resampler)");
-#endif
 
 #ifdef HAVE_MINIZIP
     with_feature(l, "Minizip");
@@ -275,16 +270,23 @@ gather_wireshark_runtime_info(feature_list l)
 }
 
 static void
-qt_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString &msg)
+qt_log_message_handler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
-    enum ws_log_level log_level = LOG_LEVEL_DEBUG;
+    enum ws_log_level log_level = LOG_LEVEL_NONE;
+
+    // QMessageLogContext may contain null/zero for release builds.
+    const char *file = context.file;
+    int line = context.line > 0 ? context.line : -1;
+    const char *func = context.function;
 
     switch (type) {
     case QtInfoMsg:
         log_level = LOG_LEVEL_INFO;
+        // Omit the file/line/function for this level.
+        file = nullptr;
+        line = -1;
+        func = nullptr;
         break;
-    // We want qDebug() messages to show up at our default log level.
-    case QtDebugMsg:
     case QtWarningMsg:
         log_level = LOG_LEVEL_WARNING;
         break;
@@ -294,10 +296,24 @@ qt_log_message_handler(QtMsgType type, const QMessageLogContext &, const QString
     case QtFatalMsg:
         log_level = LOG_LEVEL_ERROR;
         break;
-    default:
+    // We want qDebug() messages to show up always for temporary print-outs.
+    case QtDebugMsg:
+        log_level = LOG_LEVEL_ECHO;
         break;
     }
-    ws_log(LOG_DOMAIN_QTUI, log_level, "%s", qUtf8Printable(msg));
+
+    // Qt gives the full method declaration as the function. Our convention
+    // (following the C/C++ standards) is to display only the function name.
+    // Hack the name into the message as a workaround to avoid formatting
+    // issues.
+    if (func != nullptr) {
+        ws_log_full(LOG_DOMAIN_QTUI, log_level, file, line, nullptr,
+                        "%s -- %s", func, qUtf8Printable(msg));
+    }
+    else {
+        ws_log_full(LOG_DOMAIN_QTUI, log_level, file, line, nullptr,
+                        "%s", qUtf8Printable(msg));
+    }
 }
 
 #ifdef HAVE_LIBPCAP
@@ -326,7 +342,7 @@ check_and_warn_user_startup()
 }
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(HAVE_MSYSTEM)
 // Try to avoid library search path collisions. QCoreApplication will
 // search QT_INSTALL_PREFIX/plugins for platform DLLs before searching
 // the application directory. If
@@ -344,6 +360,9 @@ check_and_warn_user_startup()
 // same path on the build machine. At any rate, loading DLLs from paths
 // you don't control is ill-advised. We work around this by removing every
 // path except our application directory.
+//
+// NOTE: This does not apply to MinGW-w64 using MSYS2. In that case we use
+// the system's Qt plugins with the default search paths.
 
 static inline void
 win32_reset_library_path(void)
@@ -430,6 +449,7 @@ int main(int argc, char *qt_argv[])
 #endif
 #endif
     gchar               *err_msg = NULL;
+    df_error_t          *df_err = NULL;
 
     QString              dfilter, read_filter;
 #ifdef HAVE_LIBPCAP
@@ -537,7 +557,7 @@ int main(int argc, char *qt_argv[])
 #endif /* _WIN32 */
 
     /* Early logging command-line initialization. */
-    ws_log_parse_args(&argc, argv, vcmdarg_err, INVALID_OPTION);
+    ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
     ws_noisy("Finished log init and parsing command line log arguments");
 
     /*
@@ -630,7 +650,7 @@ int main(int argc, char *qt_argv[])
 
     commandline_early_options(argc, argv);
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(HAVE_MSYSTEM)
     win32_reset_library_path();
 #endif
 
@@ -644,12 +664,20 @@ int main(int argc, char *qt_argv[])
     // https://doc.qt.io/qt-5/highdpi.html
     // https://bugreports.qt.io/browse/QTBUG-53022 - The device pixel ratio is pretty much bogus on Windows.
     // https://bugreports.qt.io/browse/QTBUG-55510 - Windows have wrong size
-#if defined(Q_OS_WIN)
+    //
+    // Deprecated in Qt6.
+    //    warning: 'Qt::AA_EnableHighDpiScaling' is deprecated: High-DPI scaling is always enabled.
+    //    This attribute no longer has any effect.
+#if defined(Q_OS_WIN) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
 
     /* Create The Wireshark app */
     WiresharkApplication ws_app(argc, qt_argv);
+
+    // Default value is 400ms = "quickly typing" when searching in Preferences->Protocols
+    // 1000ms allows a more "hunt/peck" typing speed. 2000ms tested - too long.
+    QApplication::setKeyboardInputInterval(1000);
 
     /* initialize the funnel mini-api */
     // xxx qtshark
@@ -666,7 +694,7 @@ int main(int argc, char *qt_argv[])
         cmdarg_err("%s", err_msg);
         g_free(err_msg);
         cmdarg_err_cont("%s", please_report_bug());
-        ret_val = INIT_FAILED;
+        ret_val = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
 
@@ -738,7 +766,7 @@ int main(int argc, char *qt_argv[])
        case any dissectors register preferences. */
     if (!epan_init(splash_update, NULL, TRUE)) {
         SimpleDialog::displayQueuedMessages(main_w);
-        ret_val = INIT_FAILED;
+        ret_val = WS_EXIT_INIT_FAILED;
         goto clean_exit;
     }
 #ifdef DEBUG_STARTUP_TIME
@@ -862,7 +890,7 @@ int main(int argc, char *qt_argv[])
                 cmdarg_err("%s%s%s", err_str, err_str_secondary ? "\n" : "", err_str_secondary ? err_str_secondary : "");
                 g_free(err_str);
                 g_free(err_str_secondary);
-                ret_val = INVALID_CAPABILITY;
+                ret_val = WS_EXIT_INVALID_CAPABILITY;
                 break;
             }
             ret_val = capture_opts_print_if_capabilities(caps, interface_opts,
@@ -913,7 +941,7 @@ int main(int argc, char *qt_argv[])
      * command-line options.
      */
     if (!setup_enabled_and_disabled_protocols()) {
-        ret_val = INVALID_OPTION;
+        ret_val = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }
 
@@ -957,13 +985,13 @@ int main(int argc, char *qt_argv[])
             } else if (global_commandline_info.jfilter != NULL) {
                 dfilter_t *jump_to_filter = NULL;
                 /* try to compile given filter */
-                if (!dfilter_compile(global_commandline_info.jfilter, &jump_to_filter, &err_msg)) {
+                if (!dfilter_compile(global_commandline_info.jfilter, &jump_to_filter, &df_err)) {
                     // Similar code in MainWindow::mergeCaptureFile().
                     QMessageBox::warning(main_w, QObject::tr("Invalid Display Filter"),
                                          QObject::tr("The filter expression %1 isn't a valid display filter. (%2).")
-                                                 .arg(global_commandline_info.jfilter, err_msg),
+                                                 .arg(global_commandline_info.jfilter, df_err->msg),
                                          QMessageBox::Ok);
-                    g_free(err_msg);
+                    dfilter_error_free(df_err);
                 } else {
                     /* Filter ok, jump to the first packet matching the filter
                        conditions. Default search direction is forward, but if

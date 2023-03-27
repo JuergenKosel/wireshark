@@ -13,8 +13,7 @@
 
 #include <epan/dfilter/dfilter.h>
 
-#include <ui/filter_files.h>
-
+#include <wsutil/filter_files.h>
 #include <wsutil/utf8_entities.h>
 
 #include <ui/qt/widgets/field_filter_edit.h>
@@ -125,7 +124,7 @@ void FieldFilterEdit::checkFilter(const QString& filter_text)
 // - Recent and saved display filters in popup when editing first word.
 
 // ui/gtk/filter_autocomplete.c:build_autocompletion_list
-void FieldFilterEdit::buildCompletionList(const QString &field_word)
+void FieldFilterEdit::buildCompletionList(const QString &field_word, const QString &preamble _U_)
 {
     // Push a hint about the current field.
     if (syntaxState() == Valid) {

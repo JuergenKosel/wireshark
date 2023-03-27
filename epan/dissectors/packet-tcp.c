@@ -96,6 +96,18 @@ static gboolean tcp_check_checksum = FALSE;
 };
 
 /*
+ * Analysis overriding values to be used when not satisfied by the automatic
+ * result. (Accessed through preferences but not stored as a preference)
+ */
+ enum override_analysis_value {
+  OverrideAnalysis_0=0,
+  OverrideAnalysis_1,
+  OverrideAnalysis_2,
+  OverrideAnalysis_3,
+  OverrideAnalysis_4
+};
+
+/*
  * Using enum instead of boolean make API easier
  */
 enum mptcp_dsn_conversion {
@@ -121,6 +133,8 @@ static const value_string mp_tcprst_reasons[] = {
 };
 
 static gint tcp_default_window_scaling = (gint)WindowScaling_NotKnown;
+
+static gint tcp_default_override_analysis = (gint)OverrideAnalysis_0;
 
 static int proto_tcp = -1;
 static int proto_ip = -1;
@@ -2097,6 +2111,7 @@ tcp_analyze_get_acked_struct(guint32 frame, guint32 seq, guint32 ack, gboolean c
 }
 
 
+
 /* fwd contains a list of all segments processed but not yet ACKed in the
  *     same direction as the current segment.
  * rev contains a list of all segments received but not yet ACKed in the
@@ -2108,12 +2123,11 @@ tcp_analyze_get_acked_struct(guint32 frame, guint32 seq, guint32 ack, gboolean c
  * Guide: docbook/wsug_src/WSUG_chapter_advanced.adoc
  */
 static void
-tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint32 seglen, guint16 flags, guint32 window, struct tcp_analysis *tcpd)
+tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint32 seglen, guint16 flags, guint32 window, struct tcp_analysis *tcpd, struct tcp_per_packet_data_t *tcppd)
 {
     tcp_unacked_t *ual=NULL;
     tcp_unacked_t *prevual=NULL;
     guint32 nextseq;
-    int ackcount;
 
 #if 0
     printf("\nanalyze_sequence numbers   frame:%u\n",pinfo->num);
@@ -2127,43 +2141,6 @@ tcp_analyze_sequence_number(packet_info *pinfo, guint32 seq, guint32 ack, guint3
 
     if (!tcpd) {
         return;
-    }
-
-    /* if this is the first segment for this list we need to store the
-     * base_seq
-     * We use TCP_S_SAW_SYN/SYNACK to distinguish between client and server
-     *
-     * Start relative seq and ack numbers at 1 if this
-     * is not a SYN packet. This makes the relative
-     * seq/ack numbers to be displayed correctly in the
-     * event that the SYN or SYN/ACK packet is not seen
-     * (this solves bug 1542)
-     */
-    if( !(tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET)) {
-        if(flags & TH_SYN) {
-            tcpd->fwd->base_seq = seq;
-            tcpd->fwd->static_flags |= (flags & TH_ACK) ? TCP_S_SAW_SYNACK : TCP_S_SAW_SYN;
-        }
-        else {
-            tcpd->fwd->base_seq = seq-1;
-        }
-        tcpd->fwd->static_flags |= TCP_S_BASE_SEQ_SET;
-    }
-
-    /* Only store reverse sequence if this isn't the SYN
-     * There's no guarantee that the ACK field of a SYN
-     * contains zeros; get the ISN from the first segment
-     * with the ACK bit set instead (usually the SYN/ACK).
-     *
-     * If the SYN and SYN/ACK were received out-of-order,
-     * the ISN is ack-1. If we missed the SYN/ACK, but got
-     * the last ACK of the 3WHS, the ISN is ack-1. For all
-     * other packets the ISN is unknown, so ack-1 is
-     * as good a guess as ack.
-     */
-    if( !(tcpd->rev->static_flags & TCP_S_BASE_SEQ_SET) && (flags & TH_ACK) ) {
-        tcpd->rev->base_seq = ack-1;
-        tcpd->rev->static_flags |= TCP_S_BASE_SEQ_SET;
     }
 
     if( flags & TH_ACK ) {
@@ -2369,7 +2346,7 @@ finished_fwd:
         /* update 'max seq to be acked' in the other direction so we don't get
          * this indication again.
          */
-        if( tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked > tcpd->rev->tcp_analyze_seq_info->nextseq ) {
+        if( LT_SEQ(tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked, tcpd->rev->tcp_analyze_seq_info->nextseq) ) {
           tcpd->rev->tcp_analyze_seq_info->maxseqtobeacked=tcpd->rev->tcp_analyze_seq_info->nextseq;
           tcpd->ta->flags|=TCP_A_ACK_LOST_PACKET;
         }
@@ -2470,14 +2447,28 @@ finished_fwd:
                         ooo_thres = tcpd->ts_first_rtt.nsecs + tcpd->ts_first_rtt.secs*1000000000;
                     }
 
-                    if( seq_not_advanced // XXX is this neccessary?
-                    && t < ooo_thres
-                    && tcpd->fwd->tcp_analyze_seq_info->nextseq != (seq + seglen + (flags&(TH_SYN|TH_FIN) ? 1 : 0))) {
-                        if(!tcpd->ta) {
-                            tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+                    if(seq_not_advanced && t < ooo_thres) {
+                        /* ordinary OOO with SEQ numbers and lengths clearly stating the situation */
+                        if( tcpd->fwd->tcp_analyze_seq_info->nextseq != (seq + seglen + (flags&(TH_SYN|TH_FIN) ? 1 : 0))) {
+                            if(!tcpd->ta) {
+                                tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+                            }
+
+                            tcpd->ta->flags|=TCP_A_OUT_OF_ORDER;
+                            goto finished_checking_retransmission_type;
                         }
-                        tcpd->ta->flags|=TCP_A_OUT_OF_ORDER;
-                        goto finished_checking_retransmission_type;
+                        else {
+                            /* facing an OOO closing a series of disordered packets,
+                               all preceded by a pure ACK. See issue 17214 */
+                            if(tcpd->fwd->tcp_analyze_seq_info->lastacklen == 0) {
+                                if(!tcpd->ta) {
+                                    tcp_analyze_get_acked_struct(pinfo->num, seq, ack, TRUE, tcpd);
+                                }
+
+                                tcpd->ta->flags|=TCP_A_OUT_OF_ORDER;
+                                goto finished_checking_retransmission_type;
+                            }
+                        }
                     }
                     precedence_count=!precedence_count;
                     break;
@@ -2502,17 +2493,70 @@ finished_fwd:
              * better case scenario: if we have a list of the previous unacked packets,
              * go back to the eldest one, which in theory is likely to be the one retransmitted here.
              * It's not always the perfect match, particularly when original captured packet used LSO
+             * We may parse this list and try to find an obvious matching packet present in the
+             * capture. If such packet is actually missing, we'll reach the list first entry.
+             * See : issue #12259
+             * See : issue #17714
              */
             ual = tcpd->fwd->tcp_analyze_seq_info->segments;
             while(ual) {
-                nstime_delta(&tcpd->ta->rto_ts, &pinfo->abs_ts, &ual->ts );
-                tcpd->ta->rto_frame=ual->frame;
+                if(GE_SEQ(ual->seq, seq)) {
+                    nstime_delta(&tcpd->ta->rto_ts, &pinfo->abs_ts, &ual->ts );
+                    tcpd->ta->rto_frame=ual->frame;
+                }
                 ual=ual->next;
             }
         }
     }
 
 finished_checking_retransmission_type:
+
+    /* Override the TCP sequence analysis with the value given
+     * manually by the user. This only applies to flagged packets.
+     */
+    if(tcppd && tcpd->ta &&
+      (tcppd->tcp_snd_manual_analysis>0) &&
+      (tcpd->ta->flags & TCP_A_RETRANSMISSION ||
+       tcpd->ta->flags & TCP_A_OUT_OF_ORDER ||
+       tcpd->ta->flags & TCP_A_FAST_RETRANSMISSION ||
+       tcpd->ta->flags & TCP_A_SPURIOUS_RETRANSMISSION)) {
+
+        /* clean flags set during the automatic analysis */
+        tcpd->ta->flags &= ~(TCP_A_RETRANSMISSION|
+                             TCP_A_OUT_OF_ORDER|
+                             TCP_A_FAST_RETRANSMISSION|
+                             TCP_A_SPURIOUS_RETRANSMISSION);
+
+        /* set the corresponding flag chosen by the user */
+        switch(tcppd->tcp_snd_manual_analysis) {
+            case 0:
+                /* the user asked for an empty overriding, which
+                 * means removing any previous value, thus restoring
+                 * the automatic analysis.
+                 */
+                break;
+
+            case 1:
+                tcpd->ta->flags|=TCP_A_OUT_OF_ORDER;
+                break;
+
+            case 2:
+                tcpd->ta->flags|=TCP_A_RETRANSMISSION;
+                break;
+
+            case 3:
+                tcpd->ta->flags|=TCP_A_FAST_RETRANSMISSION;
+                break;
+
+            case 4:
+                tcpd->ta->flags|=TCP_A_SPURIOUS_RETRANSMISSION;
+                break;
+
+            default:
+                /* there is no expected default case */
+                break;
+        }
+    }
 
     nextseq = seq+seglen;
     if ((seglen || flags&(TH_SYN|TH_FIN)) && tcpd->fwd->tcp_analyze_seq_info->segment_count < TCP_MAX_UNACKED_SEGMENTS) {
@@ -2532,6 +2576,14 @@ finished_checking_retransmission_type:
             nextseq+=1;
         }
         ual->nextseq=nextseq;
+    }
+
+    /* Every time we are moving the highest number seen,
+     * we are also tracking the segment length then we will know for sure,
+     * later, if this was a pure ACK or an ordinary data packet. */
+    if(!tcpd->fwd->tcp_analyze_seq_info->nextseq
+       || GT_SEQ(nextseq, tcpd->fwd->tcp_analyze_seq_info->nextseq + (flags&(TH_SYN|TH_FIN) ? 1 : 0))) {
+        tcpd->fwd->tcp_analyze_seq_info->lastacklen=seglen;
     }
 
     /* Store the highest number seen so far for nextseq so we can detect
@@ -2584,7 +2636,6 @@ finished_checking_retransmission_type:
 
     /* remove all segments this ACKs and we don't need to keep around any more
      */
-    ackcount=0;
     prevual = NULL;
     ual = tcpd->rev->tcp_analyze_seq_info->segments;
     while(ual) {
@@ -2609,7 +2660,6 @@ finished_checking_retransmission_type:
         }
 
         /* This segment is old, or an exact match.  Delete the segment from the list */
-        ackcount++;
         tmpual=ual->next;
 
         if (tcpd->rev->scps_capable) {
@@ -3224,6 +3274,7 @@ mptcp_add_analysis_subtree(packet_info *pinfo, tvbuff_t *tvb, proto_tree *parent
 
     proto_item_set_generated(item);
 
+#if 0 // nbOptionsChanged is currently unused.
     /* store the TCP Options related to MPTCP then we will avoid false DUP ACKs later */
     guint8 nbOptionsChanged = 0;
     if((tcpd->mptcp_analysis->mp_operations&(0x01))!=tcph->th_mptcp->mh_mpc) {
@@ -3259,6 +3310,7 @@ mptcp_add_analysis_subtree(packet_info *pinfo, tvbuff_t *tvb, proto_tree *parent
         nbOptionsChanged++;
     }
     /* we could track MPTCP option changes here, with nbOptionsChanged */
+#endif
 
     item = proto_tree_add_uint(tree, hf_mptcp_stream, tvb, 0, 0, mptcpd->stream);
     proto_item_set_generated(item);
@@ -3605,7 +3657,7 @@ find_maxnextseq(packet_info *pinfo, struct tcp_multisegment_pdu *msp, guint32 ma
 
     /* Find length of contiguous fragments. */
     guint32 max = maxnextseq - msp->seq;
-    for (fragment_item *frag = fd_head; frag; frag = frag->next) {
+    for (fragment_item *frag = fd_head->next; frag; frag = frag->next) {
         guint32 frag_end = frag->offset + frag->len;
         if (frag->offset <= max && max < frag_end) {
             max = frag_end;
@@ -4222,7 +4274,7 @@ again:
                                  seq - msp->seq, len,
                                  (LT_SEQ (nxtseq,msp->nxtpdu)) );
 
-        if (!PINFO_FD_VISITED(pinfo)
+        if (!PINFO_FD_VISITED(pinfo) && ipfd_head
         && msp->flags & MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT) {
             msp->flags &= (~MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT);
 
@@ -5041,27 +5093,27 @@ dissect_tcpopt_tfo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 
 /*
  * TCP ACK Rate Request option is based on
- * https://datatracker.ietf.org/doc/html/draft-gomez-tcpm-ack-rate-request-05
+ * https://datatracker.ietf.org/doc/html/draft-gomez-tcpm-ack-rate-request-06
  */
 
-#define TCPOPT_TARR_RATE_MASK     0xffe0
-#define TCPOPT_TARR_RESERVED_MASK 0x001f
-#define TCPOPT_TARR_RATE_SHIFT    5
+#define TCPOPT_TARR_RATE_MASK     0xfe
+#define TCPOPT_TARR_RESERVED_MASK 0x01
+#define TCPOPT_TARR_RATE_SHIFT    1
 
 static void
 dissect_tcpopt_tarr_data(tvbuff_t *tvb, int data_offset, guint data_len,
     packet_info *pinfo, proto_tree *tree, proto_item *item, void *data _U_)
 {
-    guint16 rate;
+    guint8 rate;
 
     switch (data_len) {
     case 0:
         col_append_str(pinfo->cinfo, COL_INFO, " TARR");
         break;
-    case 2:
-        rate = (tvb_get_ntohs(tvb, data_offset) & TCPOPT_TARR_RATE_MASK) >> TCPOPT_TARR_RATE_SHIFT;
-        proto_tree_add_item(tree, hf_tcp_option_tarr_rate, tvb, data_offset, 2, ENC_BIG_ENDIAN);
-        proto_tree_add_item(tree, hf_tcp_option_tarr_reserved, tvb, data_offset, 2, ENC_BIG_ENDIAN);
+    case 1:
+        rate = (tvb_get_guint8(tvb, data_offset) & TCPOPT_TARR_RATE_MASK) >> TCPOPT_TARR_RATE_SHIFT;
+        proto_tree_add_item(tree, hf_tcp_option_tarr_rate, tvb, data_offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tree, hf_tcp_option_tarr_reserved, tvb, data_offset, 1, ENC_BIG_ENDIAN);
         tcp_info_append_uint(pinfo, "TARR", rate);
         proto_item_append_text(item, " %u", rate);
         break;
@@ -5191,9 +5243,9 @@ dissect_tcpopt_exp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
             proto_item_append_text(item, ": %s", val_to_str_const(exid, tcp_exid_vs, "Unknown"));
             switch (exid) {
             case TCPEXID_TARR:
-                if (optlen != 4 && optlen != 6) {
+                if (optlen != 4 && optlen != 5) {
                     expert_add_info_format(pinfo, length_item, &ei_tcp_opt_len_invalid,
-                                           "option length should be 4 or 6 instead of %d",
+                                           "option length should be 4 or 5 instead of %d",
                                            optlen);
                 } else {
                     dissect_tcpopt_tarr_data(tvb, offset + 4, optlen - 4,
@@ -5539,7 +5591,7 @@ dissect_tcpopt_timestamp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
       proto_item* syncookie_ti = proto_item_add_subtree(ti, ett_tcp_syncookie_option);
       guint32 timestamp = tvb_get_bits32(tvb, offset * 8, 26, ENC_NA) << 6;
       proto_tree_add_uint_bits_format_value(syncookie_ti, hf_tcp_syncookie_option_timestamp, tvb, offset * 8,
-        26, timestamp, ENC_TIME_SECS, "%s", abs_time_secs_to_str(wmem_packet_scope(), timestamp, ABSOLUTE_TIME_LOCAL, TRUE));
+        26, timestamp, ENC_TIME_SECS, "%s", abs_time_secs_to_str(pinfo->pool, timestamp, ABSOLUTE_TIME_LOCAL, TRUE));
       proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_ecn, tvb, offset * 8 + 26, 1, ENC_NA);
       proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_sack, tvb, offset * 8 + 27, 1, ENC_NA);
       proto_tree_add_bits_item(syncookie_ti, hf_tcp_syncookie_option_wscale, tvb, offset * 8 + 28, 4, ENC_NA);
@@ -7596,7 +7648,9 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                      * sent with SEQ being equal to the ACK received,
                      * thus breaking our flow monitoring. (issue 17616)
                      */
-                    tcpd->fwd->tcp_analyze_seq_info->nextseq = tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked;
+                    if(tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info) {
+                        tcpd->fwd->tcp_analyze_seq_info->nextseq = tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked;
+                    }
 
                     if(!tcpd->ta)
                         tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, TRUE, tcpd);
@@ -7667,6 +7721,12 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             tcp_calculate_timestamps(pinfo, tcpd, tcppd);
     }
 
+    /* is there any manual analysis waiting ? */
+    if(pinfo->fd->tcp_snd_manual_analysis > 0) {
+        tcppd = (struct tcp_per_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tcp, pinfo->curr_layer_num);
+        tcppd->tcp_snd_manual_analysis = pinfo->fd->tcp_snd_manual_analysis;
+    }
+
     /*
      * If we've been handed an IP fragment, we don't know how big the TCP
      * segment is, so don't do anything that requires that we know that.
@@ -7700,10 +7760,50 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             pi = proto_tree_add_uint(ti, hf_tcp_len, tvb, offset+12, 1, tcph->th_seglen);
             proto_item_set_generated(pi);
 
+            /* initialize base_seq numbers */
+            if(!(pinfo->fd->visited) && tcpd) {
+                /* if this is the first segment for this list we need to store the
+                 * base_seq
+                 * We use TCP_S_SAW_SYN/SYNACK to distinguish between client and server
+                 *
+                 * Start relative seq and ack numbers at 1 if this
+                 * is not a SYN packet. This makes the relative
+                 * seq/ack numbers to be displayed correctly in the
+                 * event that the SYN or SYN/ACK packet is not seen
+                 * (this solves bug 1542)
+                 */
+                if( !(tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET)) {
+                    if(tcph->th_flags & TH_SYN) {
+                        tcpd->fwd->base_seq = tcph->th_seq;
+                        tcpd->fwd->static_flags |= (tcph->th_flags & TH_ACK) ? TCP_S_SAW_SYNACK : TCP_S_SAW_SYN;
+                    }
+                    else {
+                        tcpd->fwd->base_seq = tcph->th_seq-1;
+                    }
+                    tcpd->fwd->static_flags |= TCP_S_BASE_SEQ_SET;
+                }
+
+                /* Only store reverse sequence if this isn't the SYN
+                 * There's no guarantee that the ACK field of a SYN
+                 * contains zeros; get the ISN from the first segment
+                 * with the ACK bit set instead (usually the SYN/ACK).
+                 *
+                 * If the SYN and SYN/ACK were received out-of-order,
+                 * the ISN is ack-1. If we missed the SYN/ACK, but got
+                 * the last ACK of the 3WHS, the ISN is ack-1. For all
+                 * other packets the ISN is unknown, so ack-1 is
+                 * as good a guess as ack.
+                 */
+                if( !(tcpd->rev->static_flags & TCP_S_BASE_SEQ_SET) && (tcph->th_flags & TH_ACK) ) {
+                    tcpd->rev->base_seq = tcph->th_ack-1;
+                    tcpd->rev->static_flags |= TCP_S_BASE_SEQ_SET;
+                }
+            }
+
             /* handle TCP seq# analysis parse all new segments we see */
             if(tcp_analyze_seq) {
                 if(!(pinfo->fd->visited)) {
-                    tcp_analyze_sequence_number(pinfo, tcph->th_seq, tcph->th_ack, tcph->th_seglen, tcph->th_flags, tcph->th_win, tcpd);
+                    tcp_analyze_sequence_number(pinfo, tcph->th_seq, tcph->th_ack, tcph->th_seglen, tcph->th_flags, tcph->th_win, tcpd, tcppd);
                 }
                 if(tcpd && tcp_relative_seq) {
                     (tcph->th_seq) -= tcpd->fwd->base_seq;
@@ -8309,7 +8409,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
              * for this flow, terminate reassembly and dissect the
              * results. */
             tcpd->fwd->fin = pinfo->num;
-            msp=(struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(tcpd->fwd->multisegment_pdus, tcph->th_seq-1);
+            msp=(struct tcp_multisegment_pdu *)wmem_tree_lookup32_le(tcpd->fwd->multisegment_pdus, tcph->th_seq);
             if(msp) {
                 fragment_head *ipfd_head;
 
@@ -8911,11 +9011,11 @@ proto_register_tcp(void)
             NULL, 0x0, NULL, HFILL}},
 
         { &hf_tcp_option_tarr_rate,
-          { "TARR Rate", "tcp.options.tarr.rate", FT_UINT16, BASE_DEC,
+          { "TARR Rate", "tcp.options.tarr.rate", FT_UINT8, BASE_DEC,
             NULL, TCPOPT_TARR_RATE_MASK, NULL, HFILL}},
 
         { &hf_tcp_option_tarr_reserved,
-          { "TARR Reserved", "tcp.options.tar.reserved", FT_UINT16, BASE_DEC,
+          { "TARR Reserved", "tcp.options.tar.reserved", FT_UINT8, BASE_DEC,
             NULL, TCPOPT_TARR_RESERVED_MASK, NULL, HFILL}},
 
         { &hf_tcp_option_acc_ecn_ee0b,
@@ -9323,6 +9423,15 @@ proto_register_tcp(void)
         {NULL, NULL, -1}
     };
 
+    static const enum_val_t override_analysis_vals[] = {
+        {"0",          "0 (none)",                   OverrideAnalysis_0},
+        {"1",          "1 (Out-of-Order)",           OverrideAnalysis_1},
+        {"2",          "2 (Retransmission)",         OverrideAnalysis_2},
+        {"3",          "3 (Fast Retransmission)",    OverrideAnalysis_3},
+        {"4",          "4 (Spurious Retransmission)",OverrideAnalysis_4},
+        {NULL, NULL, -1}
+    };
+
     static ei_register_info ei[] = {
         { &ei_tcp_opt_len_invalid, { "tcp.option.len.invalid", PI_SEQUENCE, PI_NOTE, "Invalid length for option", EXPFILL }},
         { &ei_tcp_analysis_retransmission, { "tcp.analysis.retransmission", PI_SEQUENCE, PI_NOTE, "This frame is a (suspected) retransmission", EXPFILL }},
@@ -9528,6 +9637,12 @@ proto_register_tcp(void)
         "Make the TCP dissector use relative sequence numbers instead of absolute ones. "
         "To use this option you must also enable \"Analyze TCP sequence numbers\". ",
         &tcp_relative_seq);
+
+    prefs_register_custom_preference_TCP_Analysis(tcp_module, "default_override_analysis",
+        "Force interpretation to selected packet(s)",
+        "Override the default analysis with this value for the selected packet",
+        &tcp_default_override_analysis, override_analysis_vals, FALSE);
+
     prefs_register_enum_preference(tcp_module, "default_window_scaling",
         "Scaling factor to use when not available from capture",
         "Make the TCP dissector use this scaling factor for streams where the signalled scaling factor "
@@ -9633,7 +9748,7 @@ proto_register_tcp(void)
 
     register_conversation_table(proto_mptcp, FALSE, mptcpip_conversation_packet, tcpip_endpoint_packet);
     register_follow_stream(proto_tcp, "tcp_follow", tcp_follow_conv_filter, tcp_follow_index_filter, tcp_follow_address_filter,
-                            tcp_port_to_display, follow_tcp_tap_listener, get_tcp_stream_count);
+                            tcp_port_to_display, follow_tcp_tap_listener, get_tcp_stream_count, NULL);
 }
 
 void

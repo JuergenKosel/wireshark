@@ -168,6 +168,11 @@ static gchar* recolonize(mate_config* mc, gchar* s) {
 	return r;
 }
 
+DIAG_OFF_LEMON()
+} /* end of %include */
+
+%code {
+DIAG_ON_LEMON()
 }
 
 %name MateParser

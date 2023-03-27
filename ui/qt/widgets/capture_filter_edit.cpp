@@ -16,7 +16,7 @@
 #include "capture_opts.h"
 
 #include <ui/capture_globals.h>
-#include <ui/filter_files.h>
+#include <wsutil/filter_files.h>
 #include <wsutil/utf8_entities.h>
 
 #include <ui/qt/widgets/capture_filter_edit.h>
@@ -462,7 +462,7 @@ void CaptureFilterEdit::clearFilter()
     emit textEdited(text());
 }
 
-void CaptureFilterEdit::buildCompletionList(const QString &primitive_word)
+void CaptureFilterEdit::buildCompletionList(const QString &primitive_word, const QString &preamble _U_)
 {
     if (primitive_word.length() < 1) {
         completion_model_->setStringList(QStringList());

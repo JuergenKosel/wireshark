@@ -783,29 +783,16 @@ WS_DEPRECATED_X("Use APIs that return a valid UTF-8 string instead")
 const guint8 *tvb_get_const_stringz(tvbuff_t *tvb,
     const gint offset, gint *lengthp);
 
-/** Looks for a stringz (NUL-terminated string) in tvbuff and copies
+/** Looks for a NUL byte in tvbuff and copies
  * no more than bufsize number of bytes, including terminating NUL, to buffer.
- * Returns length of string (not including terminating NUL), or -1 if the
- * string was truncated in the buffer due to not having reached the terminating
- * NUL.  In this way, it acts like snprintf().
+ * Returns number of bytes copied (not including terminating NUL).
  *
  * When processing a packet where the remaining number of bytes is less
  * than bufsize, an exception is not thrown if the end of the packet
- * is reached before the NUL is found. If no NUL is found before reaching
- * the end of the short packet, -1 is still returned, and the string
- * is truncated with a NUL, albeit not at buffer[bufsize - 1], but
- * at the correct spot, terminating the string.
+ * is reached before the NUL is found. The byte buffer is guaranteed to
+ * have a terminating NUL.
  */
-WS_DLL_PUBLIC gint tvb_get_nstringz(tvbuff_t *tvb, const gint offset,
-    const guint bufsize, guint8 *buffer);
-
-/** Like tvb_get_nstringz(), but never returns -1. The string is guaranteed to
- * have a terminating NUL. If the string was truncated when copied into buffer,
- * a NUL is placed at the end of buffer to terminate it.
- *
- * bufsize MUST be greater than 0.
- */
-WS_DLL_PUBLIC gint tvb_get_nstringz0(tvbuff_t *tvb, const gint offset,
+WS_DLL_PUBLIC gint tvb_get_raw_bytes_as_stringz(tvbuff_t *tvb, const gint offset,
     const guint bufsize, guint8 *buffer);
 
 /*
@@ -833,6 +820,13 @@ WS_DLL_PUBLIC gboolean tvb_ascii_isprint(tvbuff_t *tvb, const gint offset,
 * @see isprint_utf8_string()
 */
 WS_DLL_PUBLIC gboolean tvb_utf_8_isprint(tvbuff_t *tvb, const gint offset,
+	const gint length);
+
+/** Iterates over the provided portion of the tvb checking that each byte
+* is an ascii digit.
+* Returns TRUE if all bytes are digits, FALSE otherwise
+*/
+WS_DLL_PUBLIC gboolean tvb_ascii_isdigit(tvbuff_t *tvb, const gint offset,
 	const gint length);
 
 /**
@@ -1025,13 +1019,17 @@ WS_DLL_PUBLIC gint tvb_find_tvb(tvbuff_t *haystack_tvb, tvbuff_t *needle_tvb,
  * Uncompresses a zlib compressed packet inside a tvbuff at offset with
  * length comprlen.  Returns an uncompressed tvbuffer if uncompression
  * succeeded or NULL if uncompression failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress to simplify memory management.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_uncompress(tvbuff_t *tvb, const int offset,
     int comprlen);
 
 /**
  * Uncompresses a zlib compressed packet inside a tvbuff at offset with
- * length comprlen.  Returns an uncompressed tvbuffer attached to tvb if
+ * length comprlen.  Returns an uncompressed tvbuffer attached to parent if
  * uncompression succeeded or NULL if uncompression failed.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress(tvbuff_t *parent, tvbuff_t *tvb,
@@ -1043,13 +1041,17 @@ WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress(tvbuff_t *parent, tvbuff_t *tvb,
  * Uncompresses a brotli compressed packet inside a tvbuff at offset with
  * length comprlen.  Returns an uncompressed tvbuffer if uncompression
  * succeeded or NULL if uncompression failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress_brotli to simplify memory management.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_brotli(tvbuff_t *tvb, const int offset,
     int comprlen);
 
 /**
  * Uncompresses a brotli compressed packet inside a tvbuff at offset with
- * length comprlen.  Returns an uncompressed tvbuffer attached to tvb if
+ * length comprlen.  Returns an uncompressed tvbuffer attached to parent if
  * uncompression succeeded or NULL if uncompression failed.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_brotli(tvbuff_t *parent, tvbuff_t *tvb,
@@ -1062,6 +1064,10 @@ WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_brotli(tvbuff_t *parent, tvbuff_t *
  * tvbuff at offset with length comprlen.  Returns an uncompressed
  * tvbuffer if uncompression succeeded or NULL if uncompression
  * failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress_lz77 to simplify memory management.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lz77(tvbuff_t *tvb,
     const int offset, int comprlen);
@@ -1069,7 +1075,7 @@ WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lz77(tvbuff_t *tvb,
 /**
  * Uncompresses a Microsoft Plain LZ77 compressed payload inside a
  * tvbuff at offset with length comprlen.  Returns an uncompressed
- * tvbuffer attached to tvb if uncompression succeeded or NULL if
+ * tvbuffer attached to parent if uncompression succeeded or NULL if
  * uncompression failed.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lz77(tvbuff_t *parent,
@@ -1082,6 +1088,10 @@ WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lz77(tvbuff_t *parent,
  * tvbuff at offset with length comprlen.  Returns an uncompressed
  * tvbuffer if uncompression succeeded or NULL if uncompression
  * failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress_lz77huff to simplify memory management.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lz77huff(tvbuff_t *tvb,
     const int offset, int comprlen);
@@ -1089,7 +1099,7 @@ WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lz77huff(tvbuff_t *tvb,
 /**
  * Uncompresses a Microsoft LZ77+Huffman compressed payload inside a
  * tvbuff at offset with length comprlen.  Returns an uncompressed
- * tvbuffer attached to tvb if uncompression succeeded or NULL if
+ * tvbuffer attached to parent if uncompression succeeded or NULL if
  * uncompression failed.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lz77huff(tvbuff_t *parent,
@@ -1102,6 +1112,10 @@ WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lz77huff(tvbuff_t *parent,
  * a tvbuff at offset with length comprlen.  Returns an uncompressed
  * tvbuffer if uncompression succeeded or NULL if uncompression
  * failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress_lznt1 to simplify memory management.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lznt1(tvbuff_t *tvb,
     const int offset, int comprlen);
@@ -1109,10 +1123,32 @@ WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_lznt1(tvbuff_t *tvb,
 /**
  * Uncompresses a Microsoft LZNT1 compressed payload inside
  * a tvbuff at offset with length comprlen.  Returns an uncompressed
- * tvbuffer if uncompression succeeded or NULL if uncompression
- * failed.
+ * tvbuffer attached to parent if uncompression succeeded or NULL if
+ * uncompression failed.
  */
 WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_lznt1(tvbuff_t *parent,
+    tvbuff_t *tvb, const int offset, int comprlen);
+
+/**
+ * Uncompresses a ZSTD compressed payload inside a
+ * tvbuff at offset with length comprlen.  Returns an uncompressed
+ * tvbuffer if uncompression succeeded or NULL if uncompression
+ * failed.
+ *
+ * The returned tvbuffer must be freed with `tvb_free` or added to the
+ * chain of another tvbuffer to avoid a memory leak. Consider using
+ * tvb_child_uncompress_zstd to simplify memory management.
+ */
+WS_DLL_PUBLIC tvbuff_t *tvb_uncompress_zstd(tvbuff_t *tvb,
+    const int offset, int comprlen);
+
+/**
+ * Uncompresses a ZSTD compressed payload inside a
+ * tvbuff at offset with length comprlen.  Returns an uncompressed
+ * tvbuffer attached to parent if uncompression succeeded or NULL
+ * if uncompression failed.
+ */
+WS_DLL_PUBLIC tvbuff_t *tvb_child_uncompress_zstd(tvbuff_t *parent,
     tvbuff_t *tvb, const int offset, int comprlen);
 
 /* From tvbuff_base64.c */
@@ -1151,7 +1187,7 @@ extern tvbuff_t* base64uri_tvb_to_new_tvb(tvbuff_t* parent, int offset, int leng
  * @param offset The offset in tvb from which we begin trying to extract integer.
  * @param maxlen The maximum distance from offset that we may try to extract integer
  * @param value  if parsing succeeds, parsed varint will store here.
- * @param encoding The ENC_* that defines the format (e.g., ENC_VARINT_PROTOBUF, ENC_VARINT_QUIC, ENC_VARINT_ZIGZAG)
+ * @param encoding The ENC_* that defines the format (e.g., ENC_VARINT_PROTOBUF, ENC_VARINT_QUIC, ENC_VARINT_ZIGZAG, ENC_VARINT_SDNV)
  * @return   the length of this varint in tvb. 0 means parsing failed.
  */
 WS_DLL_PUBLIC guint tvb_get_varint(tvbuff_t *tvb, guint offset, guint maxlen, guint64 *value, const guint encoding);

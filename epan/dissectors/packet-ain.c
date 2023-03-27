@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-ain.c                                                               */
-/* asn2wrs.py -b -p ain -c ./ain.cnf -s ./packet-ain-template -D . -O ../.. AIN-Operations.asn AIN-Errors.asn AIN-Parameters.asn ../ros/Remote-Operations-Information-Objects.asn ../ros/Remote-Operations-Generic-ROS-PDUs.asn */
+/* asn2wrs.py -b -L -p ain -c ./ain.cnf -s ./packet-ain-template -D . -O ../.. AIN-Operations.asn AIN-Errors.asn AIN-Parameters.asn ../ros/Remote-Operations-Information-Objects.asn ../ros/Remote-Operations-Generic-ROS-PDUs.asn */
 
-/* Input file: packet-ain-template.c */
-
-#line 1 "./asn1/ain/packet-ain-template.c"
 /* packet-ain-template.c
 * Routines for AIN
 * Copyright 2018, Anders Broman <anders.broman@ericsson.com>
@@ -54,13 +51,7 @@ static int proto_ain = -1;
 static dissector_handle_t   ain_handle;
 
 /* include constants */
-
-/*--- Included file: packet-ain-val.h ---*/
-#line 1 "./asn1/ain/packet-ain-val.h"
 #define noInvokeId                     NULL
-
-/*--- End of included file: packet-ain-val.h ---*/
-#line 50 "./asn1/ain/packet-ain-template.c"
 
 static int hf_ain_ext_type_oid = -1;
 static int hf_ain_odd_even_indicator = -1;
@@ -73,9 +64,6 @@ static int hf_ain_nr_digits = -1;
 static int hf_ain_carrier_bcd_digits = -1;
 static int hf_ain_amaslpid = -1;
 
-
-/*--- Included file: packet-ain-hf.c ---*/
-#line 1 "./asn1/ain/packet-ain-hf.c"
 static int hf_ain_CallInfoFromResourceArg_PDU = -1;  /* CallInfoFromResourceArg */
 static int hf_ain_CloseArg_PDU = -1;              /* CloseArg */
 static int hf_ain_CTRClearArg_PDU = -1;           /* CTRClearArg */
@@ -561,18 +549,12 @@ static int hf_ain_Request6_delayInterval = -1;
 static int hf_ain_RequestMemorySlot_incoming = -1;
 static int hf_ain_RequestMemorySlot_outgoing = -1;
 
-/*--- End of included file: packet-ain-hf.c ---*/
-#line 63 "./asn1/ain/packet-ain-template.c"
-
 /* Initialize the subtree pointers */
 static int ett_ain = -1;
 static int ett_ain_digits = -1;
 static int ett_ain_carrierformat = -1;
 static int ett_ain_amaslpid = -1;
 
-
-/*--- Included file: packet-ain-ett.c ---*/
-#line 1 "./asn1/ain/packet-ain-ett.c"
 static gint ett_ain_CallInfoFromResourceArg = -1;
 static gint ett_ain_CloseArg = -1;
 static gint ett_ain_CTRClearArg = -1;
@@ -748,9 +730,6 @@ static gint ett_ain_Reject = -1;
 static gint ett_ain_T_problem = -1;
 static gint ett_ain_InvokeId = -1;
 
-/*--- End of included file: packet-ain-ett.c ---*/
-#line 71 "./asn1/ain/packet-ain-template.c"
-
 static expert_field ei_ain_unknown_invokeData = EI_INIT;
 static expert_field ei_ain_unknown_returnResultData = EI_INIT;
 static expert_field ei_ain_unknown_returnErrorData = EI_INIT;
@@ -803,9 +782,6 @@ static const value_string ain_nature_of_carrier_vals[] = {
     {   0, NULL }
 };
 
-
-/*--- Included file: packet-ain-table.c ---*/
-#line 1 "./asn1/ain/packet-ain-table.c"
 
 /* AIN OPERATIONS */
 const value_string ain_opr_code_strings[] = {
@@ -883,12 +859,6 @@ static const value_string ain_err_code_string_vals[] = {
 };
 
 
-/*--- End of included file: packet-ain-table.c ---*/
-#line 125 "./asn1/ain/packet-ain-template.c"
-
-
-/*--- Included file: packet-ain-fn.c ---*/
-#line 1 "./asn1/ain/packet-ain-fn.c"
 
 
 static int
@@ -943,7 +913,6 @@ dissect_ain_SpcID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 
 static int
 dissect_ain_AINDigits(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 188 "./asn1/ain/ain.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
 
@@ -961,7 +930,6 @@ dissect_ain_AINDigits(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
   proto_tree_add_item(subtree, hf_ain_numbering_plan, parameter_tvb, 1, 1, ENC_BIG_ENDIAN);
 
   proto_tree_add_item(subtree, hf_ain_bcd_digits, parameter_tvb, 2, tvb_reported_length_remaining(parameter_tvb, 2), ENC_BCD_DIGITS_0_9);
-
 
 
   return offset;
@@ -1145,9 +1113,7 @@ dissect_ain_T_assignmentAuthority(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 static int
 dissect_ain_T_parameters(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 185 "./asn1/ain/ain.cnf"
   offset=call_ber_oid_callback(actx->external.direct_reference, tvb, offset, actx->pinfo, tree, NULL);
-
 
 
   return offset;
@@ -1546,7 +1512,6 @@ dissect_ain_CollectedAddressInfo(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 static int
 dissect_ain_CarrierFormat(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 205 "./asn1/ain/ain.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
 
@@ -1566,7 +1531,6 @@ dissect_ain_CarrierFormat(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
   /* 2nd Digit 1st Digit .. */
   proto_tree_add_item(subtree, hf_ain_carrier_bcd_digits, parameter_tvb, 2, tvb_reported_length_remaining(parameter_tvb, 2), ENC_BCD_DIGITS_0_9);
-
 
 
   return offset;
@@ -3209,7 +3173,6 @@ dissect_ain_SEQUENCE_SIZE_1_2_OF_AMALineNumber(gboolean implicit_tag _U_, tvbuff
 
 static int
 dissect_ain_AMAslpID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 224 "./asn1/ain/ain.cnf"
   tvbuff_t *parameter_tvb;
   proto_tree *subtree;
 
@@ -3223,7 +3186,6 @@ dissect_ain_AMAslpID(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
   subtree = proto_item_add_subtree(actx->created_item, ett_ain_amaslpid);
 
   proto_tree_add_item(subtree, hf_ain_amaslpid, parameter_tvb, 0, tvb_reported_length_remaining(parameter_tvb, 0), ENC_BCD_DIGITS_0_9);
-
 
 
   return offset;
@@ -8142,7 +8104,6 @@ dissect_ain_PAR_failureReport(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 static int
 dissect_ain_T_local(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 140 "./asn1/ain/ain.cnf"
     offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &opcode);
 
@@ -8156,7 +8117,6 @@ dissect_ain_T_local(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
       col_append_str(actx->pinfo->cinfo, COL_INFO, " ");
       col_set_fence(actx->pinfo->cinfo, COL_INFO);
     }
-
 
 
   return offset;
@@ -8251,10 +8211,8 @@ dissect_ain_T_linkedId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 static int
 dissect_ain_T_argument(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 169 "./asn1/ain/ain.cnf"
 
   offset = dissect_invokeData(tree, tvb, offset, actx);
-
 
 
   return offset;
@@ -8271,10 +8229,8 @@ static const ber_sequence_t Invoke_sequence[] = {
 
 static int
 dissect_ain_Invoke(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 153 "./asn1/ain/ain.cnf"
 
   ain_opcode_type=AIN_OPCODE_INVOKE;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    Invoke_sequence, hf_index, ett_ain_Invoke);
@@ -8286,10 +8242,8 @@ dissect_ain_Invoke(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_ain_T_result_01(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 173 "./asn1/ain/ain.cnf"
 
   offset = dissect_returnResultData(tree, tvb, offset, actx);
-
 
 
   return offset;
@@ -8319,10 +8273,8 @@ static const ber_sequence_t ReturnResult_sequence[] = {
 
 static int
 dissect_ain_ReturnResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 157 "./asn1/ain/ain.cnf"
 
   ain_opcode_type=AIN_OPCODE_RETURN_RESULT;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ReturnResult_sequence, hf_index, ett_ain_ReturnResult);
@@ -8334,10 +8286,8 @@ dissect_ain_ReturnResult(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_ain_T_parameter(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 177 "./asn1/ain/ain.cnf"
 
   offset = dissect_returnErrorData(tree, tvb, offset, actx);
-
 
 
   return offset;
@@ -8353,10 +8303,8 @@ static const ber_sequence_t ReturnError_sequence[] = {
 
 static int
 dissect_ain_ReturnError(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 161 "./asn1/ain/ain.cnf"
 
   ain_opcode_type=AIN_OPCODE_RETURN_ERROR;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ReturnError_sequence, hf_index, ett_ain_ReturnError);
@@ -8474,10 +8422,8 @@ static const ber_sequence_t Reject_sequence[] = {
 
 static int
 dissect_ain_Reject(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 165 "./asn1/ain/ain.cnf"
 
   ain_opcode_type=AIN_OPCODE_REJECT;
-
 
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    Reject_sequence, hf_index, ett_ain_Reject);
@@ -9039,12 +8985,6 @@ static int dissect_PAR_failureReport_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _
 }
 
 
-/*--- End of included file: packet-ain-fn.c ---*/
-#line 127 "./asn1/ain/packet-ain-template.c"
-
-
-/*--- Included file: packet-ain-table2.c ---*/
-#line 1 "./asn1/ain/packet-ain-table2.c"
 
 static int dissect_invokeData(proto_tree *tree, tvbuff_t *tvb, int offset, asn1_ctx_t *actx) {
 
@@ -9307,9 +9247,6 @@ static int dissect_returnErrorData(proto_tree *tree, tvbuff_t *tvb, int offset,a
 }
 
 
-/*--- End of included file: packet-ain-table2.c ---*/
-#line 129 "./asn1/ain/packet-ain-template.c"
-
 
 static int
 dissect_ain(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data _U_)
@@ -9425,9 +9362,6 @@ void proto_register_ain(void) {
     FT_STRING, BASE_NONE, NULL, 0,
     NULL, HFILL } },
 
-
-/*--- Included file: packet-ain-hfarr.c ---*/
-#line 1 "./asn1/ain/packet-ain-hfarr.c"
     { &hf_ain_CallInfoFromResourceArg_PDU,
       { "CallInfoFromResourceArg", "ain.CallInfoFromResourceArg_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -11360,9 +11294,6 @@ void proto_register_ain(void) {
       { "outgoing", "ain.RequestMemorySlot.outgoing",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-
-/*--- End of included file: packet-ain-hfarr.c ---*/
-#line 246 "./asn1/ain/packet-ain-template.c"
     };
 
     /* List of subtrees */
@@ -11371,9 +11302,6 @@ void proto_register_ain(void) {
         &ett_ain_digits,
         &ett_ain_carrierformat,
         &ett_ain_amaslpid,
-
-/*--- Included file: packet-ain-ettarr.c ---*/
-#line 1 "./asn1/ain/packet-ain-ettarr.c"
     &ett_ain_CallInfoFromResourceArg,
     &ett_ain_CloseArg,
     &ett_ain_CTRClearArg,
@@ -11548,9 +11476,6 @@ void proto_register_ain(void) {
     &ett_ain_Reject,
     &ett_ain_T_problem,
     &ett_ain_InvokeId,
-
-/*--- End of included file: packet-ain-ettarr.c ---*/
-#line 255 "./asn1/ain/packet-ain-template.c"
     };
 
     static ei_register_info ei[] = {

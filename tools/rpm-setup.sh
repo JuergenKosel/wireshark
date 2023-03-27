@@ -22,7 +22,7 @@ function print_usage() {
 	printf "\\t--install-qt5-deps: force installation of packages required to use Qt5\\n"
 	printf "\\t--install-qt6-deps: force installation of packages required to use Qt6\\n"
 	printf "\\t--install-all: install everything\\n"
-	printf "\t[other]: other options are passed as-is to the packet manager\n"
+	printf "\t[other]: other options are passed as-is to the package manager\n"
 }
 
 ADDITIONAL=0
@@ -159,9 +159,6 @@ add_packages() {
 	eval "${list}=\"\${${list}} \${pkgnames}\""
 }
 
-add_package BASIC_LIST cmake3 || add_package BASIC_LIST cmake ||
-echo "Required package cmake|cmake3 is unavailable" >&2
-
 add_package BASIC_LIST glib2 || add_package BASIC_LIST libglib-2_0-0 ||
 echo "Required package glib2|libglib-2_0-0 is unavailable" >&2
 
@@ -182,6 +179,9 @@ echo "Required package zlib|libz1 is unavailable" >&2
 
 add_package BASIC_LIST c-ares-devel || add_package BASIC_LIST libcares-devel ||
 echo "Required package c-ares-devel|libcares-devel is unavailable" >&2
+
+add_package BASIC_LIST speexdsp-devel || add_package BASIC_LIST speex-devel ||
+echo "Required package speexdsp-devel|speex-devel is unavailable" >&2
 
 if [ $HAVE_ADD_QT -eq 0 ]
 then
@@ -232,7 +232,7 @@ then
 			qt6-qt5compat-devel
 			qt6-qtmultimedia-devel
 			libxkbcommon-devel)
-		
+
 	for pkg in ${QT6_LIST[@]}
 	do
 		add_package BASIC_LIST "$pkg" ||
@@ -289,9 +289,6 @@ echo "Optional package libxslt|libxslt1 is unavailable" >&2
 
 add_package ADDITIONAL_LIST brotli-devel || add_packages ADDITIONAL_LIST libbrotli-devel libbrotlidec1 ||
 echo "Optional packages brotli-devel|libbrotli-devel is unavailable" >&2
-
-add_package ADDITIONAL_LIST speexdsp-devel || add_package ADDITIONAL_LIST speex-devel ||
-echo "Optional package speexdsp-devel|speex-devel is unavailable" >&2
 
 add_package ADDITIONAL_LIST libnl3-devel || add_package ADDITIONAL_LIST libnl-devel ||
 echo "Optional package libnl3-devel|libnl-devel are unavailable" >&2

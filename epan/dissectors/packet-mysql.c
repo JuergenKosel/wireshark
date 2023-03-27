@@ -49,8 +49,8 @@ void proto_reg_handoff_mysql(void);
 #define MARIADB_RPL_VERSION_HACK "5.5.5-"
 
 /* client/server capabilities
- * Source: http://dev.mysql.com/doc/internals/en/capability-flags.html
- * Source: mysql_com.h
+ * Docs:   https://dev.mysql.com/doc/dev/mysql-server/latest/group__group__cs__capabilities__flags.html
+ * Source: https://github.com/mysql/mysql-server/blob/8.0/include/mysql_com.h
  */
 #define MYSQL_CAPS_LP 0x0001 /* CLIENT_LONG_PASSWORD/CLIENT_IS_MYSQL */
 #define MYSQL_CAPS_FR 0x0002 /* CLIENT_FOUND_ROWS */
@@ -168,6 +168,54 @@ void proto_reg_handoff_mysql(void);
 #define MYSQL_DAEMON              29
 #define MYSQL_BINLOG_DUMP_GTID    30 /* replication */
 #define MYSQL_RESET_CONNECTION    31
+#define MYSQL_CLONE               32
+#define MYSQL_SUBSCRIBE_GROUP_REPLICATION_STREAM  33
+
+/* MySQL Native Cloning Commands */
+#define MYSQL_CLONE_COM_INIT    1
+#define MYSQL_CLONE_COM_ATTACH  2
+#define MYSQL_CLONE_COM_REINIT  3
+#define MYSQL_CLONE_COM_EXECUTE 4
+#define MYSQL_CLONE_COM_ACK     5
+#define MYSQL_CLONE_COM_EXIT    6
+
+/* decoding table: clone command */
+static const value_string mysql_clone_command_vals[] = {
+	{MYSQL_CLONE_COM_INIT,    "Init"},
+	{MYSQL_CLONE_COM_ATTACH,  "Attach"},
+	{MYSQL_CLONE_COM_REINIT,  "Re-init"},
+	{MYSQL_CLONE_COM_EXECUTE, "Execute"},
+	{MYSQL_CLONE_COM_ACK,     "Ack"},
+	{MYSQL_CLONE_COM_EXIT,    "Exit"},
+	{0, NULL}
+};
+
+/* MySQL Native Cloning Responses */
+#define MYSQL_CLONE_COM_RES_LOCS        1
+#define MYSQL_CLONE_COM_RES_DATA_DESC   2
+#define MYSQL_CLONE_COM_RES_DATA        3
+#define MYSQL_CLONE_COM_RES_PLUGIN      4
+#define MYSQL_CLONE_COM_RES_CONFIG      5
+#define MYSQL_CLONE_COM_RES_COLLATION   6
+#define MYSQL_CLONE_COM_RES_PLUGIN_V2   7
+#define MYSQL_CLONE_COM_RES_CONFIG_V3   8
+#define MYSQL_CLONE_COM_RES_COMPLETE   99
+#define MYSQL_CLONE_COM_RES_ERROR     100
+
+/* decoding table: clone command */
+static const value_string mysql_clone_response_vals[] = {
+	{MYSQL_CLONE_COM_RES_LOCS,      "Remote Resource Locator"},
+	{MYSQL_CLONE_COM_RES_DATA_DESC, "Remote Data Descriptor"},
+	{MYSQL_CLONE_COM_RES_DATA,      "Remote Data"},
+	{MYSQL_CLONE_COM_RES_PLUGIN,    "Plugin V1"},
+	{MYSQL_CLONE_COM_RES_CONFIG,    "Config"},
+	{MYSQL_CLONE_COM_RES_COLLATION, "Collation"},
+	{MYSQL_CLONE_COM_RES_PLUGIN_V2, "Plugin V2"},
+	{MYSQL_CLONE_COM_RES_CONFIG_V3, "Plugin V3"},
+	{MYSQL_CLONE_COM_RES_COMPLETE,  "Complete"},
+	{MYSQL_CLONE_COM_RES_ERROR,     "Error"},
+	{0, NULL}
+};
 
 /* MariaDB specific commands */
 #define MARIADB_STMT_BULK_EXECUTE 250
@@ -206,11 +254,13 @@ void proto_reg_handoff_mysql(void);
 #define MYSQL_COMPRESS_NONE   0
 #define MYSQL_COMPRESS_INIT   1
 #define MYSQL_COMPRESS_ACTIVE 2
+#define MYSQL_COMPRESS_PAYLOAD 3
 
 /* Generic Response Codes */
-#define MYSQL_RESPONSE_OK   0x00
-#define MYSQL_RESPONSE_ERR  0xFF
-#define MYSQL_RESPONSE_EOF  0xFE
+#define MYSQL_RESPONSE_OK     0x00
+#define MYSQL_RESPONSE_ERR    0xFF
+#define MYSQL_RESPONSE_EOF    0xFE
+#define MYSQL_RESPONSE_INFILE 0xFB
 
 /* mariadb extended keys */
 #define MARIADB_EXT_META_TYPE   0
@@ -250,6 +300,8 @@ static const value_string mysql_command_vals[] = {
 	{MYSQL_DAEMON, "Daemon"},
 	{MYSQL_BINLOG_DUMP_GTID, "Send Binlog GTID"},
 	{MYSQL_RESET_CONNECTION, "Reset Connection"},
+	{MYSQL_CLONE, "Native cloning"},
+	{MYSQL_SUBSCRIBE_GROUP_REPLICATION_STREAM, "Subscribe Group Replication Stream"},
 	{MARIADB_STMT_BULK_EXECUTE, "Execute Bulk Statement"},
 	{0, NULL}
 };
@@ -884,9 +936,10 @@ static const value_string mysql_session_track_type_vals[] = {
 };
 
 static const value_string mysql_response_code_vals[] = {
-    { MYSQL_RESPONSE_OK,    "OK Packet" },
-    { MYSQL_RESPONSE_ERR,   "ERR Packet" },
-    { MYSQL_RESPONSE_EOF,   "EOF Packet" },
+    { MYSQL_RESPONSE_OK,     "OK Packet" },
+    { MYSQL_RESPONSE_ERR,    "ERR Packet" },
+    { MYSQL_RESPONSE_EOF,    "EOF Packet" },
+    { MYSQL_RESPONSE_INFILE, "LOCAL INFILE Packet" },
     { 0, NULL }
 };
 
@@ -1056,9 +1109,11 @@ static int hf_mysql_exec_flags4 = -1;
 static int hf_mysql_exec_flags5 = -1;
 static int hf_mysql_exec_iter = -1;
 static int hf_mysql_binlog_position = -1;
+static int hf_mysql_binlog_position8 = -1;
 static int hf_mysql_binlog_flags = -1;
 static int hf_mysql_binlog_server_id = -1;
 static int hf_mysql_binlog_file_name = -1;
+static int hf_mysql_binlog_file_name_length = -1;
 static int hf_mysql_binlog_slave_hostname_length = -1;
 static int hf_mysql_binlog_slave_hostname = -1;
 static int hf_mysql_binlog_slave_user_length = -1;
@@ -1078,8 +1133,12 @@ static int hf_mysql_binlog_event_checksum = -1;
 static int hf_mysql_binlog_event_heartbeat_v2 = -1;
 static int hf_mysql_binlog_event_heartbeat_v2_otw = -1;
 static int hf_mysql_binlog_event_heartbeat_v2_otw_type = -1;
+static int hf_mysql_binlog_gtid_data = -1;
+static int hf_mysql_binlog_gtid_data_length = -1;
 static int hf_mysql_binlog_hb_event_filename = -1;
 static int hf_mysql_binlog_hb_event_log_position = -1;
+static int hf_mysql_clone_command_code = -1;
+static int hf_mysql_clone_response_code = -1;
 static int hf_mysql_eof = -1;
 static int hf_mysql_num_fields = -1;
 static int hf_mysql_extra = -1;
@@ -1138,11 +1197,15 @@ static int hf_mysql_auth_switch_request_status = -1;
 static int hf_mysql_auth_switch_request_name = -1;
 static int hf_mysql_auth_switch_request_data = -1;
 static int hf_mysql_auth_switch_response_data = -1;
+static int hf_mysql_sha2_auth = -1;
+static int hf_mysql_sha2_response = -1;
+static int hf_mysql_pubkey = -1;
 static int hf_mysql_compressed_packet_length = -1;
 static int hf_mysql_compressed_packet_length_uncompressed = -1;
 static int hf_mysql_compressed_packet_number = -1;
-static int hf_mysql_prefix = -1;
-static int hf_mysql_length = -1;
+static int hf_mysql_loaddata_filename = -1;
+static int hf_mysql_loaddata_payload = -1;
+
 //static int hf_mariadb_fld_charsetnr = -1;
 static int hf_mariadb_server_language = -1;
 static int hf_mariadb_charset = -1;
@@ -1229,7 +1292,15 @@ typedef enum mysql_state {
 	PREPARED_FIELDS,
 	AUTH_SWITCH_REQUEST,
 	AUTH_SWITCH_RESPONSE,
-	BINLOG_DUMP
+	AUTH_SHA2,
+	AUTH_PUBKEY,
+	AUTH_SHA2_RESPONSE,
+	BINLOG_DUMP,
+	CLONE_INIT,
+	CLONE_ACTIVE,
+	CLONE_EXIT,
+	RESPONSE_LOCALINFILE,
+	INFILE_DATA
 } mysql_state_t;
 
 static const value_string state_vals[] = {
@@ -1251,7 +1322,15 @@ static const value_string state_vals[] = {
 	{PREPARED_FIELDS,      "fields in response to PREPARE"},
 	{AUTH_SWITCH_REQUEST,  "authentication switch request"},
 	{AUTH_SWITCH_RESPONSE, "authentication switch response"},
+	{AUTH_SHA2,            "caching_sha2_password"},
+	{AUTH_PUBKEY,          "public key request"},
+	{AUTH_SHA2_RESPONSE,   "caching_sha2_password response"},
 	{BINLOG_DUMP,          "binlog event"},
+	{CLONE_INIT,           "cloning initializing"},
+	{CLONE_ACTIVE,         "cloning active"},
+	{CLONE_EXIT,           "cloning shutting down"},
+	{RESPONSE_LOCALINFILE, "local infile"},
+	{INFILE_DATA,          "local infile data"},
 	{0, NULL}
 };
 
@@ -1318,6 +1397,8 @@ static int mysql_dissect_response_prepare(tvbuff_t *tvb, packet_info *pinfo, int
 static int mysql_dissect_auth_switch_request(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, mysql_conn_data_t *conn_data);
 static int mysql_dissect_eof(tvbuff_t *tvb, packet_info *pinfo, proto_item *pi, int offset, proto_tree *tree, mysql_conn_data_t *conn_data);
 static int mysql_dissect_auth_switch_response(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, mysql_conn_data_t *conn_data);
+static int mysql_dissect_auth_sha2(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, mysql_conn_data_t *conn_data);
+static int mysql_dissect_loaddata(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, mysql_conn_data_t *conn_data);
 static void mysql_dissect_exec_string(tvbuff_t *tvb, int *param_offset, proto_item *field_tree);
 static void mysql_dissect_exec_datetime(tvbuff_t *tvb, int *param_offset, proto_item *field_tree);
 static void mysql_dissect_exec_tiny(tvbuff_t *tvb, int *param_offset, proto_item *field_tree);
@@ -1346,6 +1427,8 @@ static gint my_tvb_strsize(tvbuff_t *tvb, int offset);
 static int tvb_get_fle(tvbuff_t *tvb, proto_tree* tree, int offset, guint64 *res, guint8 *is_null);
 
 static int mysql_field_add_lestring(tvbuff_t *tvb, int offset, proto_tree *tree, int field);
+static int dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_);
+static guint get_mysql_pdu_len(packet_info *pinfo, tvbuff_t *tvb, int offset, void *data _U_);
 
 static const mysql_exec_dissector_t mysql_exec_dissectors[] = {
 	{ 0x01, 0, mysql_dissect_exec_tiny },
@@ -1993,8 +2076,19 @@ mysql_dissect_request(tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *
 	my_stmt_data_t *stmt_data;
 	int stmt_pos, param_offset;
 
-	if(current_state == AUTH_SWITCH_RESPONSE){
+	/* LOCAL INFILE Request sends an empty packet after sending the file content
+	 * https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_local_infile_request.html */
+	if (tvb_reported_length_remaining(tvb, offset) == 0)
+		return offset;
+
+	switch(current_state) {
+	case AUTH_SWITCH_RESPONSE:
 		return mysql_dissect_auth_switch_response(tvb, pinfo, offset, tree, conn_data);
+	case AUTH_SHA2:
+		return mysql_dissect_auth_sha2(tvb, pinfo, offset, tree, conn_data);
+	case INFILE_DATA:
+		return mysql_dissect_loaddata(tvb, pinfo, offset, tree, conn_data);
+	default:;
 	}
 
 	request_item = proto_tree_add_item(tree, hf_mysql_request, tvb, offset, -1, ENC_NA);
@@ -2063,6 +2157,12 @@ mysql_dissect_request(tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *
 					offset = mysql_field_add_lestring(tvb, offset, query_attrs_tree, hf_mysql_query_attribute_value);
 				}
 			}
+		} else if ((conn_data->clnt_caps_ext == 0) && (conn_data->srv_caps_ext == 0)){
+			// No server/client capabilities, probably in the middle of a conversation
+			// As the query isn't likely to start with 0x00 this probably means these are
+			// query attributes we need to skip
+			if (tvb_get_guint8(tvb, offset) == 0)
+				offset += 2;
 		}
 		lenstr = my_tvb_strsize(tvb, offset);
 		proto_tree_add_item(req_tree, hf_mysql_query, tvb, offset, lenstr, ENC_ASCII);
@@ -2342,6 +2442,35 @@ mysql_dissect_request(tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *
 		break;
 
 	case MYSQL_BINLOG_DUMP_GTID:
+		// See mysql_binlog_open() in "sql-common/client.cc"
+
+		proto_tree_add_item(req_tree, hf_mysql_binlog_flags, tvb, offset, 2, ENC_BIG_ENDIAN);
+		offset += 2;
+
+		proto_tree_add_item(req_tree, hf_mysql_binlog_server_id, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		lenstr = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+		proto_tree_add_item(req_tree, hf_mysql_binlog_file_name_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		proto_tree_add_item(req_tree, hf_mysql_binlog_position8, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+		offset += 8;
+
+		if (tree && lenstr > 0) {
+			proto_tree_add_item(req_tree, hf_mysql_binlog_file_name, tvb, offset, lenstr, ENC_ASCII);
+		}
+		offset += lenstr;
+
+		lenstr = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+		proto_tree_add_item(req_tree, hf_mysql_binlog_gtid_data_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+		offset += 4;
+
+		proto_tree_add_item(req_tree, hf_mysql_binlog_gtid_data, tvb, offset, lenstr, ENC_ASCII);
+		offset += lenstr;
+
+		mysql_set_conn_state(pinfo, conn_data, BINLOG_DUMP);
+		break;
 	case MYSQL_BINLOG_DUMP:
 		proto_tree_add_item(req_tree, hf_mysql_binlog_position, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 		offset += 4;
@@ -2408,6 +2537,13 @@ mysql_dissect_request(tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *
 		mysql_set_conn_state(pinfo, conn_data, REQUEST);
 		break;
 
+	case MYSQL_CLONE:
+		mysql_set_conn_state(pinfo, conn_data, CLONE_INIT);
+		break;
+
+	case MYSQL_RESET_CONNECTION:
+		break;
+
 	default:
 		ti = proto_tree_add_item(req_tree, hf_mysql_payload, tvb, offset, -1, ENC_NA);
 		expert_add_info(pinfo, ti, &ei_mysql_command);
@@ -2420,13 +2556,13 @@ mysql_dissect_request(tvbuff_t *tvb,packet_info *pinfo, int offset, proto_tree *
 }
 
 /*
- * Decode the header of a compressed packet
- * https://dev.mysql.com/doc/internals/en/compressed-packet-header.html
+ * Decode a compressed packet
+ * https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_compression.html
  */
 static int
-mysql_dissect_compressed_header(tvbuff_t *tvb, int offset, proto_tree *mysql_tree, packet_info *pinfo)
+mysql_dissect_compressed(tvbuff_t *tvb, int offset, proto_tree *mysql_tree, packet_info *pinfo, mysql_conn_data_t *conn_data)
 {
-	tvbuff_t *next_tvb;
+	tvbuff_t *next_tvb, *next_tvb2;
 	guint clen, ulen;
 
 	clen = tvb_get_letoh24(tvb, offset);
@@ -2441,12 +2577,35 @@ mysql_dissect_compressed_header(tvbuff_t *tvb, int offset, proto_tree *mysql_tre
 	offset += 3;
 
 	if (ulen>0) {
-		next_tvb = tvb_uncompress(tvb, offset, clen);
+		next_tvb = tvb_child_uncompress(tvb, tvb, offset, clen);
 		if (next_tvb) {
 			add_new_data_source(pinfo, next_tvb, "compressed data");
-			// call_dissector(mysql_handle, next_tvb, pinfo, mysql_tree);
+
+			int next_offset = 0;
+			while (tvb_reported_length_remaining(next_tvb, next_offset) > 0) {
+				guint32 pdulen = tvb_get_letoh24(next_tvb, next_offset) + 4;
+				next_tvb2 = tvb_new_subset_length(next_tvb, next_offset, pdulen);
+
+				conn_data->compressed_state = MYSQL_COMPRESS_PAYLOAD;
+				dissect_mysql_pdu(next_tvb2, pinfo, mysql_tree, NULL);
+				conn_data->compressed_state = MYSQL_COMPRESS_ACTIVE;
+
+				next_offset += pdulen;
+			}
+			offset += clen;
 		} else {
 			expert_add_info_format(pinfo, mysql_tree, &ei_mysql_compression, "Can't uncompress packet");
+		}
+	} else {
+		while (tvb_reported_length_remaining(tvb, offset) > 0) {
+			guint32 pdulen = tvb_get_letoh24(tvb, offset) + 4;
+			next_tvb = tvb_new_subset_length(tvb, offset, pdulen);
+
+			conn_data->compressed_state = MYSQL_COMPRESS_PAYLOAD;
+			dissect_mysql_pdu(next_tvb, pinfo, mysql_tree, NULL);
+			conn_data->compressed_state = MYSQL_COMPRESS_ACTIVE;
+
+			offset += pdulen;
 		}
 	}
 
@@ -2496,7 +2655,6 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 				proto_item_append_text(pi, " - %s", val_to_str(RESPONSE_EOF, state_vals, "Unknown (%u)"));
 				mysql_set_conn_state(pinfo, conn_data, REQUEST);
 			}
-
 		} else if (tvb_reported_length_remaining(tvb, offset) < 0xffffff) {
 			// not an EOF
 			if (current_state == AUTH_SWITCH_REQUEST) {
@@ -2513,6 +2671,18 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 			mysql_set_conn_state(pinfo, conn_data, ROW_PACKET);
 			offset = mysql_dissect_text_row_packet(tvb, offset, tree);
 		}
+		break;
+
+	case 0xfb:
+		/* https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_local_infile_request.html */
+		col_append_str(pinfo->cinfo, COL_INFO, " LOCAL INFILE");
+		proto_tree_add_item(tree, hf_mysql_response_code, tvb, offset, 1, ENC_NA);
+		proto_item_append_text(pi, " - %s", val_to_str(RESPONSE_LOCALINFILE, state_vals, "Unknown (%u)"));
+
+		lenstr = tvb_reported_length_remaining(tvb, ++offset);
+		proto_tree_add_item(tree, hf_mysql_loaddata_filename, tvb, offset, lenstr, ENC_ASCII);
+		offset += lenstr;
+		mysql_set_conn_state(pinfo, conn_data, INFILE_DATA);
 		break;
 
 	case 0x00:
@@ -2538,6 +2708,8 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 				/* This is the OK packet which follows the compressed protocol setup */
 				conn_data->compressed_state = MYSQL_COMPRESS_ACTIVE;
 			}
+			if (current_state == CLONE_INIT)
+				mysql_set_conn_state(pinfo, conn_data, CLONE_ACTIVE);
 			break;
 		}
 		break;
@@ -2597,8 +2769,13 @@ mysql_dissect_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
 			break;
 
 		case AUTH_SWITCH_REQUEST:
-			proto_item_append_text(pi, " - %s", val_to_str(AUTH_SWITCH_REQUEST, state_vals, "Unknown (%u)"));
-			offset = mysql_dissect_auth_switch_request(tvb, pinfo, offset, tree, conn_data);
+			if (tvb_reported_length_remaining(tvb,offset) == 2) {
+				proto_item_append_text(pi, " - %s", val_to_str(AUTH_SHA2, state_vals, "Unknown (%u)"));
+				offset = mysql_dissect_auth_sha2(tvb, pinfo, offset, tree, conn_data);
+			} else {
+				proto_item_append_text(pi, " - %s", val_to_str(AUTH_SWITCH_REQUEST, state_vals, "Unknown (%u)"));
+				offset = mysql_dissect_auth_switch_request(tvb, pinfo, offset, tree, conn_data);
+			}
 			break;
 
 		default:
@@ -2796,7 +2973,8 @@ mysql_dissect_ok_packet(tvbuff_t *tvb, packet_info *pinfo, int offset,
 		offset = mysql_dissect_server_status(tvb, offset, tree, &server_status);
 
 		/* 4.1+ protocol only: 2 bytes number of warnings */
-		if (conn_data->clnt_caps & conn_data->srv_caps & MYSQL_CAPS_CU) {
+		if ((conn_data->clnt_caps & conn_data->srv_caps & MYSQL_CAPS_CU)
+			|| ((conn_data->clnt_caps == 0) && (conn_data->srv_caps == 0))) {
 			proto_tree_add_item(tree, hf_mysql_num_warn, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 			lenstr = tvb_get_ntohs(tvb, offset);
 			offset += 2;
@@ -2833,6 +3011,12 @@ mysql_dissect_ok_packet(tvbuff_t *tvb, packet_info *pinfo, int offset,
 			}
 		}
 	} else {
+		if ((tvb_reported_length_remaining(tvb, offset) > 0)
+			&& ((conn_data->clnt_caps == 0) && (conn_data->srv_caps == 0))) {
+			// No client or server capabilities to work with, Let's try to skip over session state
+			offset += tvb_get_fle(tvb, tree, offset, &lenstr, NULL);
+		}
+
 		/* optional: message string */
 		if (tvb_reported_length_remaining(tvb, offset) > 0) {
 			if(lenstr > (guint64)tvb_reported_length_remaining(tvb, offset))
@@ -2960,7 +3144,6 @@ mysql_dissect_result_header(tvbuff_t *tvb, packet_info *pinfo, int offset,
 		}
 
 	}
-
 
 	if (tvb_reported_length_remaining(tvb, offset)) {
 		fle = tvb_get_fle(tvb, tree, offset, &extra, NULL);
@@ -3099,7 +3282,7 @@ mysql_dissect_field_packet(tvbuff_t *tvb, proto_item *pi _U_, int offset, proto_
 	}
 
 	/* default (Only use for show fields) */
-	if (tree && tvb_reported_length_remaining(tvb, offset) > 0) {
+	if (tvb_reported_length_remaining(tvb, offset) > 0) {
 		offset = mysql_field_add_lestring(tvb, offset, tree, hf_mysql_fld_default);
 	}
 	return offset;
@@ -3537,6 +3720,158 @@ mysql_dissect_auth_switch_response(tvbuff_t *tvb, packet_info *pinfo, int offset
 	return offset + tvb_reported_length_remaining(tvb, offset);
 
 }
+
+/*
+ caching_sha2_password authentication state
+
+ Doc: https://dev.mysql.com/doc/dev/mysql-server/latest/page_caching_sha2_authentication_exchanges.html
+*/
+static int
+mysql_dissect_auth_sha2(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, mysql_conn_data_t *conn_data _U_)
+{
+	col_set_str(pinfo->cinfo, COL_INFO, "Caching_sha2_password " );
+	col_set_fence(pinfo->cinfo, COL_INFO);
+
+	if (tvb_reported_length_remaining(tvb,offset) == 2)
+		offset++;
+	char *auth2_state;
+	guint8 c = tvb_get_guint8(tvb, offset);
+	switch (c) {
+		case 2:
+			auth2_state = "request_public_key";
+			mysql_set_conn_state(pinfo, conn_data, AUTH_PUBKEY);
+			break;
+		case 3:
+			auth2_state = "fast_auth_success";
+			break;
+		case 4:
+			auth2_state = "perform_full_authentication";
+			mysql_set_conn_state(pinfo, conn_data, AUTH_SHA2);
+			break;
+		default:
+			auth2_state = "unknown";
+	}
+	col_append_str(pinfo->cinfo, COL_INFO, auth2_state);
+	proto_tree_add_string(tree, hf_mysql_sha2_auth, tvb, offset, 1, auth2_state);
+	offset++;
+
+	return offset + tvb_reported_length_remaining(tvb, offset);
+}
+
+/*
+ Public key as requested during caching_sha2_password authentication
+*/
+static int
+mysql_dissect_pubkey(tvbuff_t *tvb, packet_info *pinfo, int offset,
+		       proto_tree *tree, mysql_conn_data_t *conn_data _U_, proto_item *pi _U_, mysql_state_t current_state _U_)
+{
+	tvbuff_t *next_tvb;
+	col_set_str(pinfo->cinfo, COL_INFO, "Public key " );
+	col_set_fence(pinfo->cinfo, COL_INFO);
+	mysql_set_conn_state(pinfo, conn_data, AUTH_SHA2_RESPONSE);
+
+	offset++;
+	gint len = tvb_reported_length_remaining(tvb, offset) - 1;
+	next_tvb = tvb_new_subset_length(tvb, offset, len);
+	add_new_data_source(pinfo, next_tvb, "public key");
+	proto_tree_add_item(tree, hf_mysql_pubkey, tvb, offset, len, ENC_ASCII);
+	offset += len;
+
+	return offset + tvb_reported_length_remaining(tvb,offset);
+}
+
+/*
+ If caching_sha2_password authentication is used over a non-secure channel
+ then the authentication response (password) is encrypted with a RSA public key.
+
+ This means that we can't dissect this response without access to the RSA private key.
+*/
+static int
+mysql_dissect_sha2_response(tvbuff_t *tvb, packet_info *pinfo _U_, int offset,
+		       proto_tree *tree _U_, mysql_conn_data_t *conn_data _U_, proto_item *pi _U_, mysql_state_t current_state _U_)
+{
+	gint len = tvb_reported_length_remaining(tvb, offset);
+	proto_tree_add_item(tree, hf_mysql_sha2_response, tvb, offset, len, ENC_NA);
+	return offset + tvb_reported_length_remaining(tvb, offset);
+}
+
+static int
+mysql_dissect_clone_request(tvbuff_t *tvb _U_, packet_info *pinfo _U_, int offset _U_,
+		       proto_tree *tree _U_, mysql_conn_data_t *conn_data _U_, proto_item *pi _U_, mysql_state_t current_state _U_)
+{
+	guint8 req_code = tvb_get_guint8(tvb, offset);
+	switch (req_code) {
+		case MYSQL_CLONE_COM_INIT:
+		case MYSQL_CLONE_COM_ATTACH:
+		case MYSQL_CLONE_COM_REINIT:
+		case MYSQL_CLONE_COM_EXECUTE:
+		case MYSQL_CLONE_COM_ACK:
+			col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(req_code, mysql_clone_command_vals, "%s"));
+			proto_tree_add_item(tree, hf_mysql_clone_command_code, tvb, offset, 1, ENC_NA);
+			break;
+		case MYSQL_CLONE_COM_EXIT:
+			col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(req_code, mysql_clone_command_vals, "%s"));
+			proto_tree_add_item(tree, hf_mysql_clone_command_code, tvb, offset, 1, ENC_NA);
+			mysql_set_conn_state(pinfo, conn_data, CLONE_EXIT);
+			break;
+		default:
+			col_append_str(pinfo->cinfo, COL_INFO, " Unknown Clone Command Code") ;
+			/* TODO, Set error etc */
+	}
+	offset++;
+
+	return offset;
+}
+
+static int
+mysql_dissect_clone_response(tvbuff_t *tvb, packet_info *pinfo, int offset,
+		       proto_tree *tree, mysql_conn_data_t *conn_data, proto_item *pi _U_, mysql_state_t current_state)
+{
+	guint8 resp_code = tvb_get_guint8(tvb, offset);
+	switch (resp_code) {
+		case MYSQL_CLONE_COM_RES_LOCS:
+		case MYSQL_CLONE_COM_RES_DATA_DESC:
+		case MYSQL_CLONE_COM_RES_DATA:
+		case MYSQL_CLONE_COM_RES_PLUGIN:
+		case MYSQL_CLONE_COM_RES_CONFIG:
+		case MYSQL_CLONE_COM_RES_COLLATION:
+		case MYSQL_CLONE_COM_RES_PLUGIN_V2:
+		case MYSQL_CLONE_COM_RES_CONFIG_V3:
+		case MYSQL_CLONE_COM_RES_COMPLETE:
+			if (current_state == CLONE_EXIT)
+				mysql_set_conn_state(pinfo, conn_data, REQUEST);
+			/* fall through */
+		case MYSQL_CLONE_COM_RES_ERROR:
+			col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str(resp_code, mysql_clone_response_vals, "%s"));
+			proto_tree_add_item(tree, hf_mysql_clone_response_code, tvb, offset, 1, ENC_NA);
+			break;
+		default:
+			col_append_str(pinfo->cinfo, COL_INFO, " Unknown Clone Response Code") ;
+			/* TODO, Set error etc */
+	}
+	offset++;
+
+	return offset;
+}
+
+/*
+ This is the payload (file content) of the LOAD DATA LOCAL INFILE
+ https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_query_response_local_infile_data.html
+*/
+static int
+mysql_dissect_loaddata(tvbuff_t *tvb, packet_info *pinfo _U_, int offset, proto_tree *tree, mysql_conn_data_t *conn_data _U_)
+{
+	col_append_str(pinfo->cinfo, COL_INFO, " LOCAL INFILE Payload");
+	col_set_fence(pinfo->cinfo, COL_INFO);
+	gint lenstr = tvb_reported_length_remaining(tvb, offset);
+	tvbuff_t *next_tvb = tvb_new_subset_length(tvb, offset, lenstr);
+	add_new_data_source(pinfo, next_tvb, "local infile");
+	proto_tree_add_item(tree, hf_mysql_loaddata_payload, tvb, offset, lenstr, ENC_NA);
+	offset += lenstr;
+	mysql_set_conn_state(pinfo, conn_data, REQUEST);
+	return offset;
+}
+
 /*
  get length of string in packet buffer
 
@@ -3579,18 +3914,19 @@ my_tvb_strsize(tvbuff_t *tvb, int offset)
    read FLE from packet buffer and store its value and ISNULL flag
    in caller provided variables
 
+   Docs: https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_dt_integers.html
+
  RETURN VALUE
    length of FLE
 */
 static int
-tvb_get_fle(tvbuff_t *tvb, proto_tree *tree, int offset, guint64 *res, guint8 *is_null)
+tvb_get_fle(tvbuff_t *tvb, proto_tree *tree _U_, int offset, guint64 *res, guint8 *is_null)
 {
-	guint32 prefix;
-	proto_item* ti;
-	int num_bytes, len_len;
+	guint8 prefix;
+	int num_bytes;
 	guint64 length;
 
-	ti = proto_tree_add_item_ret_uint(tree, hf_mysql_prefix, tvb, offset, 1, ENC_BIG_ENDIAN, &prefix);
+	prefix = tvb_get_guint8(tvb, offset);
 
 	if (is_null) {
 		*is_null = 0;
@@ -3602,32 +3938,27 @@ tvb_get_fle(tvbuff_t *tvb, proto_tree *tree, int offset, guint64 *res, guint8 *i
 			*res = 0;
 		if (is_null)
 			*is_null = 1;
-		proto_item_append_text(ti, "(NULL)");
 		return 1;
-	case 252:
-		proto_item_append_text(ti, " Length in following 2 bytes");
+	case 252: // 0xFC
 		num_bytes = 3;
-		len_len = 2;
 		offset++;
+		length = (guint64)tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
 		break;
-	case 253:
-		proto_item_append_text(ti, " Length in following 3 bytes");
+	case 253: // 0xFD
 		num_bytes = 4;
-		len_len = 3;
 		offset++;
+		length = (guint64)tvb_get_guint24(tvb, offset, ENC_LITTLE_ENDIAN);
 		break;
-	case 254:
-		proto_item_append_text(ti, " Length in following 8 bytes");
+	case 254: // 0xFE
 		num_bytes = 9;
-		len_len = 8;
 		offset++;
+		length = tvb_get_guint64(tvb, offset, ENC_LITTLE_ENDIAN);
 		break;
 	default:
-		len_len = 1;
 		num_bytes = 1;
+		length = tvb_get_guint8(tvb, offset);
 	}
 
-	proto_tree_add_item_ret_uint64(tree, hf_mysql_length, tvb, offset, len_len, ENC_LITTLE_ENDIAN, &length);
 	if (res) {
 		*res = length;
 	}
@@ -3700,7 +4031,8 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
 	if ((conn_data->frame_start_compressed) && (pinfo->num > conn_data->frame_start_compressed)) {
 		if (conn_data->compressed_state == MYSQL_COMPRESS_ACTIVE) {
-			offset = mysql_dissect_compressed_header(tvb, offset, tree, pinfo);
+			mysql_dissect_compressed(tvb, offset, tree, pinfo, conn_data);
+			return tvb_reported_length(tvb);
 		}
 	}
 
@@ -3747,6 +4079,12 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 		if (packet_number == 0 && mysql_frame_data_p->state == UNDEFINED) {
 			col_set_str(pinfo->cinfo, COL_INFO, "Server Greeting ");
 			offset = mysql_dissect_greeting(tvb, pinfo, offset, mysql_tree, conn_data);
+		} else if ((mysql_frame_data_p->state == CLONE_ACTIVE) || (mysql_frame_data_p->state == CLONE_EXIT)) {
+			col_set_str(pinfo->cinfo, COL_INFO, "Clone Response");
+			offset = mysql_dissect_clone_response(tvb, pinfo, offset, mysql_tree, conn_data, ti, mysql_frame_data_p->state);
+		} else if (mysql_frame_data_p->state == AUTH_PUBKEY) {
+			col_set_str(pinfo->cinfo, COL_INFO, "Public key ");
+			offset = mysql_dissect_pubkey(tvb, pinfo, offset, mysql_tree, conn_data, ti, mysql_frame_data_p->state);
 		} else {
 			col_set_str(pinfo->cinfo, COL_INFO, "Response ");
 			offset = mysql_dissect_response(tvb, pinfo, offset, mysql_tree, conn_data, ti, mysql_frame_data_p->state);
@@ -3761,6 +4099,12 @@ dissect_mysql_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 					conn_data->compressed_state = MYSQL_COMPRESS_INIT;
 				}
 			}
+		} else if ((mysql_frame_data_p->state == CLONE_ACTIVE) || (mysql_frame_data_p->state == CLONE_EXIT)) {
+			col_set_str(pinfo->cinfo, COL_INFO, "Clone Request");
+			offset = mysql_dissect_clone_request(tvb, pinfo, offset, mysql_tree, conn_data, ti, mysql_frame_data_p->state);
+		} else if (mysql_frame_data_p->state == AUTH_SHA2_RESPONSE) {
+			col_set_str(pinfo->cinfo, COL_INFO, "Caching_sha2_password response");
+			offset = mysql_dissect_sha2_response(tvb, pinfo, offset, mysql_tree, conn_data, ti, mysql_frame_data_p->state);
 		} else {
 			col_set_str(pinfo->cinfo, COL_INFO, "Request");
 			offset = mysql_dissect_request(tvb, pinfo, offset, mysql_tree, conn_data, mysql_frame_data_p->state);
@@ -4096,7 +4440,7 @@ void proto_register_mysql(void)
 		NULL, HFILL }},
 
 		{ &hf_mysql_cap_optional_metadata,
-		{ "Client can hanle optional resultset metadata","mysql.caps.optional_metadata",
+		{ "Client can handle optional resultset metadata","mysql.caps.optional_metadata",
 		FT_BOOLEAN, 16, TFS(&tfs_set_notset), MYSQL_CAPS_RM,
 		NULL, HFILL }},
 
@@ -4516,6 +4860,11 @@ void proto_register_mysql(void)
 		FT_UINT32, BASE_DEC, NULL, 0x0,
 		"Position to start at", HFILL }},
 
+		{ &hf_mysql_binlog_position8,
+		{ "Binlog Position", "mysql.binlog.position8",
+		FT_UINT64, BASE_DEC, NULL, 0x0,
+		"Position to start at", HFILL }},
+
 		{ &hf_mysql_binlog_flags,
 		{ "Binlog Flags", "mysql.binlog.flags",
 		FT_UINT16, BASE_HEX, NULL, 0x0,
@@ -4523,7 +4872,7 @@ void proto_register_mysql(void)
 
 		{ &hf_mysql_binlog_server_id,
 		{ "Binlog server id", "mysql.binlog.server_id",
-		FT_UINT32, BASE_HEX, NULL, 0x0,
+		FT_UINT32, BASE_DEC, NULL, 0x0,
 		"server_id of the slave", HFILL }},
 
 		{ &hf_mysql_binlog_slave_hostname_length,
@@ -4574,6 +4923,21 @@ void proto_register_mysql(void)
 		{ &hf_mysql_binlog_file_name,
 		{ "Binlog file name", "mysql.binlog.file_name",
 		FT_STRINGZ, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_binlog_file_name_length,
+		{ "Binlog file name length", "mysql.binlog.file_name_length",
+		FT_UINT32, BASE_DEC, NULL, 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_binlog_gtid_data,
+		{ "Binlog GTID Data", "mysql.binlog.gtid_data",
+		  FT_BYTES, BASE_NONE, NULL, 0x0,
+		  NULL, HFILL }},
+
+		{ &hf_mysql_binlog_gtid_data_length,
+		{ "Binlog file GTID data length", "mysql.binlog.gtid_data_length",
+		FT_UINT32, BASE_DEC, NULL, 0x0,
 		NULL, HFILL }},
 
 		{ &hf_mysql_binlog_event_header_timestamp,
@@ -4635,6 +4999,16 @@ void proto_register_mysql(void)
 		{ "Binlog Position", "mysql.binlog.hb_event.log_position",
 		FT_UINT64, BASE_DEC, NULL, 0x0,
 		"position of the next event", HFILL }},
+
+		{ &hf_mysql_clone_command_code,
+		{ "Clone Command Code", "mysql.clone.command_code",
+		FT_UINT8, BASE_HEX, VALS(mysql_clone_command_vals), 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_clone_response_code,
+		{ "Clone Response Code", "mysql.clone.response_code",
+		FT_UINT8, BASE_HEX, VALS(mysql_clone_response_vals), 0x0,
+		NULL, HFILL }},
 
 		{ &hf_mysql_eof,
 		{ "EOF marker", "mysql.eof",
@@ -4931,6 +5305,21 @@ void proto_register_mysql(void)
 		FT_BYTES, BASE_NONE, NULL, 0x0,
 		NULL, HFILL }},
 
+		{ &hf_mysql_sha2_auth,
+		{ "SHA2 Auth State", "mysql.hf_mysql_sha2_auth.name",
+		FT_STRING, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_pubkey,
+		{ "Public Key", "mysql.hf_mysql_pubkey",
+		FT_STRINGZ, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_sha2_response,
+		{ "SHA2 Auth Response", "mysql.hf_mysql_sha2_response",
+		FT_BYTES, BASE_NONE, NULL, 0x0,
+		NULL, HFILL }},
+
 		{ &hf_mysql_compressed_packet_length,
 		{ "Compressed Packet Length", "mysql.compressed_packet_length",
 		FT_UINT24, BASE_DEC, NULL,  0x0,
@@ -4944,6 +5333,16 @@ void proto_register_mysql(void)
 		{ &hf_mysql_compressed_packet_length_uncompressed,
 		{ "Uncompressed Packet Length", "mysql.compressed_packet_length_uncompressed",
 		FT_UINT24, BASE_DEC, NULL,  0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_loaddata_filename,
+		{ "LOCAL INFILE Filename", "mysql.load_data.filename",
+		FT_STRING, BASE_NONE, NULL,  0x0,
+		NULL, HFILL }},
+
+		{ &hf_mysql_loaddata_payload,
+		{ "LOCAL INFILE Payload", "mysql.load_data.payload",
+		FT_BYTES, BASE_NONE, NULL,  0x0,
 		NULL, HFILL }},
 
 		{ &hf_mariadb_cap_progress,
@@ -5010,16 +5409,6 @@ void proto_register_mysql(void)
 		{ "Row nr", "mariadb.bulk.row_nr",
 		FT_UINT32, BASE_DEC, NULL, 0x00,
 		NULL, HFILL }},
-
-		{ &hf_mysql_prefix,
-		{ "Prefix", "mariadb.prefix",
-		FT_UINT8, BASE_DEC, NULL, 0x00,
-		NULL, HFILL }},
-
-		{ &hf_mysql_length,
-		{ "Length", "mariadb.length",
-		FT_UINT64, BASE_DEC, NULL, 0x00,
-		NULL, HFILL }}
 	};
 
 	static gint *ett[]=
@@ -5055,7 +5444,7 @@ void proto_register_mysql(void)
 		{ &ei_mysql_command, { "mysql.command.invalid", PI_PROTOCOL, PI_WARN, "Unknown/invalid command code", EXPFILL }},
 		{ &ei_mysql_unknown_response, { "mysql.unknown_response", PI_UNDECODED, PI_WARN, "unknown/invalid response", EXPFILL }},
 		{ &ei_mysql_invalid_length, { "mysql.invalid_length", PI_MALFORMED, PI_ERROR, "Invalid length", EXPFILL }},
-		{ &ei_mysql_compression, { "mysql.uncompress_failure", PI_MALFORMED, PI_WARN, "Uncompression faled", EXPFILL }},
+		{ &ei_mysql_compression, { "mysql.uncompress_failure", PI_MALFORMED, PI_WARN, "Uncompression failed", EXPFILL }},
 	};
 
 	module_t *mysql_module;

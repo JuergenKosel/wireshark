@@ -253,6 +253,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	tvbuff_real.c
 	tvbuff_subset.c
 	tvbuff_zlib.c
+	tvbuff_zstd.c
 	tvbuff_lz77.c
 	tvbuff_lz77huff.c
 	tvbuff_lznt1.c
@@ -285,7 +286,7 @@ add_lemon_files(LEMON_FILES LIBWIRESHARK_FILES
 )
 
 set_source_files_properties(
-	${LIBWIRESHARK_FILES}
+	${LIBWIRESHARK_NONGENERATED_FILES}
 	PROPERTIES
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
@@ -322,16 +323,15 @@ endif()
 
 target_link_libraries(epan
 	PUBLIC
-		wiretap
 		wsutil
 		${GLIB2_LIBRARIES}
 	PRIVATE
+		wiretap
 		${BROTLI_LIBRARIES}
 		${CARES_LIBRARIES}
 		${GCRYPT_LIBRARIES}
 		${GIO2_LIBRARIES}
 		${GNUTLS_LIBRARIES}
-		${GTHREAD2_LIBRARIES}
 		${KERBEROS_LIBRARIES}
 		${LIBXML2_LIBRARIES}
 		${LUA_LIBRARIES}
@@ -365,7 +365,6 @@ target_include_directories(epan
 		${GCRYPT_INCLUDE_DIRS}
 		${GLIB2_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
-		${GTHREAD2_INCLUDE_DIRS}
 		${LIBXML2_INCLUDE_DIRS}
 		${LUA_INCLUDE_DIRS}
 		${LZ4_INCLUDE_DIRS}
@@ -389,6 +388,8 @@ install(TARGETS epan
 
 install(FILES ${LIBWIRESHARK_PUBLIC_HEADERS}
 	DESTINATION "${PROJECT_INSTALL_INCLUDEDIR}/epan"
+	COMPONENT "Development"
+	EXCLUDE_FROM_ALL
 )
 
 add_executable(exntest EXCLUDE_FROM_ALL exntest.c except.c)
@@ -397,14 +398,16 @@ set_target_properties(exntest PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 add_executable(oids_test EXCLUDE_FROM_ALL oids_test.c)
-target_link_libraries(oids_test epan ${ZLIB_LIBRARIES})
+target_link_libraries(oids_test epan)
 set_target_properties(oids_test PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 add_executable(reassemble_test EXCLUDE_FROM_ALL reassemble_test.c)
@@ -412,6 +415,7 @@ target_link_libraries(reassemble_test epan)
 set_target_properties(reassemble_test PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 add_executable(tvbtest EXCLUDE_FROM_ALL tvbtest.c)
@@ -420,6 +424,7 @@ set_target_properties(tvbtest PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 add_executable(wscbor_test EXCLUDE_FROM_ALL wscbor_test.c)
@@ -427,6 +432,15 @@ target_link_libraries(wscbor_test epan)
 set_target_properties(wscbor_test PROPERTIES
     FOLDER "Tests"
     EXCLUDE_FROM_DEFAULT_BUILD True
+    COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
+)
+
+add_executable(test_epan EXCLUDE_FROM_ALL test_epan.c)
+target_link_libraries(test_epan epan)
+set_target_properties(test_epan PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 CHECKAPI(

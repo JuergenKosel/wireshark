@@ -3671,6 +3671,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
     guint32                  k_frame_number;
     guint32                  k_device_address;
     guint32                  k_bus_id;
+    usb_conv_info_t         *old_conv_info = usb_conv_info;
     usb_trans_info_t        *usb_trans_info;
     heur_dtbl_entry_t       *hdtbl_entry;
     heur_dissector_list_t    heur_subdissector_list = NULL;
@@ -3824,6 +3825,14 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
                 usb_dissector_table = usb_control_dissector_table;
             }
 
+            if (old_conv_info != usb_conv_info) {
+                /* Preserve URB specific information */
+                usb_conv_info->is_setup = old_conv_info->is_setup;
+                usb_conv_info->is_request = old_conv_info->is_request;
+                usb_conv_info->setup_requesttype = old_conv_info->setup_requesttype;
+                usb_conv_info->speed = old_conv_info->speed;
+            }
+
             usb_tap_queue_packet(pinfo, urb_type, usb_conv_info);
             sub_item = proto_tree_add_uint(urb_tree, hf_usb_bInterfaceClass, next_tvb, 0, 0, usb_conv_info->interfaceClass);
             proto_item_set_generated(sub_item);
@@ -3851,6 +3860,15 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
             usb_class = usb_conv_info->interfaceClass;
         }
 
+        ret = dissector_try_uint_new(usb_dissector_table, usb_class,
+                next_tvb, pinfo, use_setup_tree ? setup_tree : tree, TRUE, usb_conv_info);
+        if (ret)
+            return tvb_captured_length(next_tvb);
+
+        /* try protocol specific dissector if there is one */
+        usb_class = USB_PROTOCOL_KEY(usb_conv_info->interfaceClass,
+                                     usb_conv_info->interfaceSubclass,
+                                     usb_conv_info->interfaceProtocol);
         ret = dissector_try_uint_new(usb_dissector_table, usb_class,
                 next_tvb, pinfo, use_setup_tree ? setup_tree : tree, TRUE, usb_conv_info);
         if (ret)
@@ -5202,10 +5220,10 @@ dissect_usb_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent,
         break;
 
     case USB_HEADER_DARWIN:
-        urb_type = tvb_get_guint8(tvb, 1);
+        urb_type = tvb_get_guint8(tvb, 3) ? URB_COMPLETE : URB_SUBMIT;
         endpoint = tvb_get_guint8(tvb, 30) & 0x7F;
         device_address = (guint16)tvb_get_guint8(tvb, 29);
-        location = tvb_get_letohl(tvb, 23);
+        location = tvb_get_letohl(tvb, 24);
         bus_id = location >> 24;
         break;
 
@@ -5821,7 +5839,7 @@ proto_register_usb(void)
 
         { &hf_usb_device_address,
           { "Device", "usb.device_address",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             "USB device address", HFILL }},
 
         { &hf_usb_bus_id,
@@ -6000,7 +6018,7 @@ proto_register_usb(void)
 
         { &hf_usb_win32_data_len,
           { "Packet Data Length", "usb.data_len",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }},
 
         { &hf_usb_win32_control_stage,
@@ -6189,12 +6207,12 @@ proto_register_usb(void)
     /* --------------------------------- */
         { &hf_usb_iso_error_count,                /* host endian byte order */
           { "ISO error count", "usb.iso.error_count",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }},
 
         { &hf_usb_iso_numdesc,
           { "Number of ISO descriptors", "usb.iso.numdesc",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }},
 
         /* fields of struct mon_bin_isodesc from linux/drivers/usb/mon/mon_bin.c */
@@ -6489,7 +6507,7 @@ proto_register_usb(void)
 
         { &hf_usb_wMaxPacketSize_size,
           { "Maximum Packet Size", "usb.wMaxPacketSize.size",
-            FT_UINT16, BASE_DEC, NULL, 0x3FF,
+            FT_UINT16, BASE_DEC, NULL, 0x03FF,
             NULL, HFILL }},
 
         { &hf_usb_wMaxPacketSize_slots,
@@ -6793,7 +6811,7 @@ proto_register_usb(void)
         },
         { &hf_usbport_urb_header_status,
             { "URB Header Status",          "usbport.urb_header_status",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_usbport_urb_header_usbddevice_handle,
@@ -6954,13 +6972,13 @@ proto_register_usb(void)
     product_to_dissector = register_dissector_table("usb.product",   "USB product",  proto_usb, FT_UINT32, BASE_HEX);
 
     usb_bulk_dissector_table = register_dissector_table("usb.bulk",
-        "USB bulk endpoint", proto_usb, FT_UINT8, BASE_DEC);
+        "USB bulk endpoint", proto_usb, FT_UINT32, BASE_HEX);
     heur_bulk_subdissector_list = register_heur_dissector_list("usb.bulk", proto_usb);
     usb_control_dissector_table = register_dissector_table("usb.control",
-        "USB control endpoint", proto_usb, FT_UINT8, BASE_DEC);
+        "USB control endpoint", proto_usb, FT_UINT32, BASE_HEX);
     heur_control_subdissector_list = register_heur_dissector_list("usb.control", proto_usb);
     usb_interrupt_dissector_table = register_dissector_table("usb.interrupt",
-        "USB interrupt endpoint", proto_usb, FT_UINT8, BASE_DEC);
+        "USB interrupt endpoint", proto_usb, FT_UINT32, BASE_HEX);
     heur_interrupt_subdissector_list = register_heur_dissector_list("usb.interrupt", proto_usb);
     usb_descriptor_dissector_table = register_dissector_table("usb.descriptor",
         "USB descriptor", proto_usb, FT_UINT8, BASE_DEC);

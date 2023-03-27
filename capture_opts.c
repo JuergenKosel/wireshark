@@ -25,20 +25,20 @@
 
 #include <glib.h>
 
+#include <ws_exit_codes.h>
+
 #include "capture_opts.h"
 #include "ringbuffer.h"
 
-#include <ui/clopts_common.h>
-#include <ui/cmdarg_err.h>
-#include <ui/exit_codes.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/file_util.h>
 #include <wsutil/ws_pipe.h>
 #include <wsutil/ws_assert.h>
+#include <wsutil/filter_files.h>
 
 #include "capture/capture_ifinfo.h"
 #include "capture/capture-pcap-util.h"
-
-#include "ui/filter_files.h"
 
 static gboolean capture_opts_output_to_pipe(const char *save_file, gboolean *is_pipe);
 
@@ -99,6 +99,7 @@ capture_opts_init(capture_options *capture_opts)
     capture_opts->save_file                       = NULL;
     capture_opts->group_read_access               = FALSE;
     capture_opts->use_pcapng                      = TRUE;             /* Save as pcapng by default */
+    capture_opts->update_interval                 = DEFAULT_UPDATE_INTERVAL; /* 100 ms */
     capture_opts->real_time_mode                  = TRUE;
     capture_opts->show_info                       = TRUE;
     capture_opts->restart                         = FALSE;
@@ -194,7 +195,7 @@ capture_opts_log(const char *log_domain, enum ws_log_level log_level, capture_op
         ws_log(log_domain, log_level, "Promiscuous Mode[%02d]: %s", i, interface_opts->promisc_mode?"TRUE":"FALSE");
         ws_log(log_domain, log_level, "Extcap[%02d]          : %s", i, interface_opts->extcap ? interface_opts->extcap : "(unspecified)");
         ws_log(log_domain, log_level, "Extcap FIFO[%02d]     : %s", i, interface_opts->extcap_fifo ? interface_opts->extcap_fifo : "(unspecified)");
-        ws_log(log_domain, log_level, "Extcap PID[%02d]      : %d", i, interface_opts->extcap_pid);
+        ws_log(log_domain, log_level, "Extcap PID[%02d]      : %"PRIdMAX, i, (intmax_t)interface_opts->extcap_pid);
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
         ws_log(log_domain, log_level, "Buffer size[%02d]     : %d (MB)", i, interface_opts->buffer_size);
 #endif
@@ -270,6 +271,7 @@ capture_opts_log(const char *log_domain, enum ws_log_level log_level, capture_op
     ws_log(log_domain, log_level, "SaveFile            : %s", (capture_opts->save_file) ? capture_opts->save_file : "");
     ws_log(log_domain, log_level, "GroupReadAccess     : %u", capture_opts->group_read_access);
     ws_log(log_domain, log_level, "Fileformat          : %s", (capture_opts->use_pcapng) ? "PCAPNG" : "PCAP");
+    ws_log(log_domain, log_level, "UpdateInterval      : %u (ms)", capture_opts->update_interval);
     ws_log(log_domain, log_level, "RealTimeMode        : %u", capture_opts->real_time_mode);
     ws_log(log_domain, log_level, "ShowInfo            : %u", capture_opts->show_info);
 
@@ -1056,6 +1058,9 @@ capture_opts_add_opt(capture_options *capture_opts, int opt, const char *optarg_
 #endif /* S_IRWXU */
         capture_opts->temp_dir = g_strdup(optarg_str_p);
         break;
+    case LONGOPT_UPDATE_INTERVAL:  /* capture update interval */
+        capture_opts->update_interval = get_positive_int(optarg_str_p, "update interval");
+        break;
     default:
         /* the caller is responsible to send us only the right opt's */
         ws_assert_not_reached();
@@ -1075,7 +1080,7 @@ capture_opts_print_if_capabilities(if_capabilities_t *caps,
         if (caps->data_link_types == NULL) {
             cmdarg_err("The capture device \"%s\" has no data link types.",
                        interface_opts->name);
-            return IFACE_HAS_NO_LINK_TYPES;
+            return WS_EXIT_IFACE_HAS_NO_LINK_TYPES;
         }
         if (caps->can_set_rfmon)
             printf("Data link types of interface %s when %sin monitor mode (use option -y to set):\n",
@@ -1100,7 +1105,7 @@ capture_opts_print_if_capabilities(if_capabilities_t *caps,
         if (caps->timestamp_types == NULL) {
             cmdarg_err("The capture device \"%s\" has no timestamp types.",
                        interface_opts->name);
-            return IFACE_HAS_NO_TIMESTAMP_TYPES;
+            return WS_EXIT_IFACE_HAS_NO_TIMESTAMP_TYPES;
         }
         printf("Timestamp types of the interface (use option --time-stamp-type to set):\n");
         for (ts_entry = caps->timestamp_types; ts_entry != NULL;

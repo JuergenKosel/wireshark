@@ -9,17 +9,6 @@
 
 find_package( Asciidoctor 1.5 )
 
-add_custom_command(
-	OUTPUT AUTHORS-SHORT
-	COMMAND ${PYTHON_EXECUTABLE}
-		${CMAKE_CURRENT_SOURCE_DIR}/make-authors-short.py
-		< ${CMAKE_SOURCE_DIR}/AUTHORS
-		> ${CMAKE_CURRENT_BINARY_DIR}/AUTHORS-SHORT
-	DEPENDS
-		${CMAKE_CURRENT_SOURCE_DIR}/make-authors-short.py
-		${CMAKE_SOURCE_DIR}/AUTHORS
-)
-
 set(MAN1_SOURCE_FILES)
 set(MAN4_SOURCE_FILES)
 set(MAN1_INSTALL_FILES)
@@ -47,7 +36,6 @@ ADD_MAN_PAGE(androiddump 1)
 ADD_MAN_PAGE(capinfos    1)
 ADD_MAN_PAGE(captype     1)
 ADD_MAN_PAGE(ciscodump   1)
-ADD_MAN_PAGE(dftest      1)
 ADD_MAN_PAGE(dumpcap     1)
 ADD_MAN_PAGE(editcap     1)
 ADD_MAN_PAGE(mergecap    1)
@@ -94,7 +82,7 @@ set(WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES ${MAN4_INSTALL_FILES} PARENT_SCOP
 set(LOGRAY_BUNDLE_RESOURCE_SHARE_MAN1_FILES ${WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN1_FILES} PARENT_SCOPE)
 set(LOGRAY_BUNDLE_RESOURCE_SHARE_MAN4_FILES ${WIRESHARK_BUNDLE_RESOURCE_SHARE_MAN4_FILES} PARENT_SCOPE)
 
-set(MAN_INCLUDES diagnostic-options.adoc)
+set(MAN_INCLUDES diagnostic-options.adoc dissection-options.adoc)
 
 if(ASCIIDOCTOR_FOUND)
 	ASCIIDOCTOR2ROFFMAN(1 ${MAN1_SOURCE_FILES})
@@ -111,7 +99,6 @@ endif()
 add_custom_target(
 	docs ALL
 	DEPENDS
-		${CMAKE_CURRENT_BINARY_DIR}/AUTHORS-SHORT
 		${MAN1_INSTALL_FILES}
 		${MAN4_INSTALL_FILES}
 		${HTML_INSTALL_FILES}
@@ -134,10 +121,12 @@ if(ASCIIDOCTOR_FOUND)
 	)
 endif()
 
-#
-# Installation of HTML manuals is done
-# elsewhere to CMAKE_INSTALL_DATADIR.
-#
+install(
+	FILES
+		${HTML_INSTALL_FILES}
+	DESTINATION
+		${CMAKE_INSTALL_DOCDIR}
+)
 
 #
 # Editor modelines  -  https://www.wireshark.org/tools/modelines.html

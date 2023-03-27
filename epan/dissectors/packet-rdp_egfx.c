@@ -19,7 +19,9 @@
 #include <epan/prefs.h>
 #include <epan/conversation.h>
 #include <epan/expert.h>
+#include <epan/proto_data.h>
 #include <epan/tvbuff_rdp.h>
+#include <epan/crc32-tvb.h>
 
 #include "packet-rdp.h"
 #include "packet-rdpudp.h"
@@ -65,6 +67,7 @@ static int ett_rdp_egfx = -1;
 static int ett_egfx_caps = -1;
 static int ett_egfx_capsconfirm = -1;
 static int ett_egfx_cap = -1;
+static int ett_egfx_cap_version = -1;
 static int ett_egfx_ack = -1;
 static int ett_egfx_ackqoe = -1;
 static int ett_egfx_reset = -1;
@@ -109,12 +112,15 @@ enum {
 enum {
 	RDPGFX_CAPVERSION_8 = 0x00080004,
 	RDPGFX_CAPVERSION_81 = 0x00080105,
+	RDPGFX_CAPVERSION_10 = 0x000A0002,
 	RDPGFX_CAPVERSION_101 = 0x000A0100,
 	RDPGFX_CAPVERSION_102 = 0x000A0200,
 	RDPGFX_CAPVERSION_103 = 0x000A0301,
 	RDPGFX_CAPVERSION_104 = 0x000A0400,
 	RDPGFX_CAPVERSION_105 = 0x000A0502,
-	RDPGFX_CAPVERSION_106 = 0x000A0600
+	RDPGFX_CAPVERSION_106_ERROR = 0x000A0600,
+	RDPGFX_CAPVERSION_106 = 0x000A0601,
+	RDPGFX_CAPVERSION_107 = 0x000A0701
 };
 
 static const value_string rdp_egfx_cmd_vals[] = {
@@ -130,7 +136,7 @@ static const value_string rdp_egfx_cmd_vals[] = {
 	{ RDPGFX_CMDID_DELETESURFACE, "Delete surface" },
 	{ RDPGFX_CMDID_STARTFRAME, "Start frame" },
 	{ RDPGFX_CMDID_ENDFRAME, "End frame" },
-	{ RDPGFX_CMDID_FRAMEACKNOWLEDGE, "Frame acknowlegde" },
+	{ RDPGFX_CMDID_FRAMEACKNOWLEDGE, "Frame acknowledge" },
 	{ RDPGFX_CMDID_RESETGRAPHICS, "Reset graphics" },
 	{ RDPGFX_CMDID_MAPSURFACETOOUTPUT, "Map Surface to output" },
 	{ RDPGFX_CMDID_CACHEIMPORTOFFER, "Cache import offer" },
@@ -138,21 +144,24 @@ static const value_string rdp_egfx_cmd_vals[] = {
 	{ RDPGFX_CMDID_CAPSADVERTISE, "Caps advertise" },
 	{ RDPGFX_CMDID_CAPSCONFIRM, "Caps confirm" },
 	{ RDPGFX_CMDID_MAPSURFACETOWINDOW, "Map surface to window" },
-	{ RDPGFX_CMDID_QOEFRAMEACKNOWLEDGE, "Qoe frame acknowlegde" },
+	{ RDPGFX_CMDID_QOEFRAMEACKNOWLEDGE, "Qoe frame acknowledge" },
 	{ RDPGFX_CMDID_MAPSURFACETOSCALEDOUTPUT, "Map surface to scaled output" },
 	{ RDPGFX_CMDID_MAPSURFACETOSCALEDWINDOW, "Map surface to scaled window" },
 	{ 0x0, NULL },
 };
 
 static const value_string rdp_egfx_caps_version_vals[] = {
-	{ RDPGFX_CAPVERSION_8, "8" },
+	{ RDPGFX_CAPVERSION_8, "8.0" },
 	{ RDPGFX_CAPVERSION_81, "8.1" } ,
+	{ RDPGFX_CAPVERSION_10, "10.0" } ,
 	{ RDPGFX_CAPVERSION_101, "10.1" },
 	{ RDPGFX_CAPVERSION_102, "10.2" },
 	{ RDPGFX_CAPVERSION_103, "10.3" },
 	{ RDPGFX_CAPVERSION_104, "10.4" },
 	{ RDPGFX_CAPVERSION_105, "10.5" },
+	{ RDPGFX_CAPVERSION_106_ERROR, "10.6 bogus" },
 	{ RDPGFX_CAPVERSION_106, "10.6" },
+	{ RDPGFX_CAPVERSION_107, "10.7" },
 	{ 0x0, NULL },
 };
 
@@ -167,6 +176,23 @@ typedef struct {
 	zgfx_context_t *zgfx;
 } egfx_conv_info_t;
 
+enum {
+	EGFX_PDU_KEY = 1
+};
+
+typedef struct {
+	wmem_tree_t* pdus;
+} egfx_pdu_info_t;
+
+static const char *
+find_egfx_version(guint32 v) {
+	const value_string *vs = rdp_egfx_caps_version_vals;
+	for ( ; vs->strptr; vs++)
+		if (vs->value == v)
+			return vs->strptr;
+
+	return "<unknown>";
+}
 
 static egfx_conv_info_t *
 egfx_get_conversation_data(packet_info *pinfo)
@@ -200,7 +226,7 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 	proto_tree *tree;
 	proto_tree *subtree;
 	gint offset = 0;
-	guint16 cmdId = 0;
+	guint32 cmdId = 0;
 	guint32 pduLength;
 	guint32 i;
 
@@ -215,8 +241,7 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 		item = proto_tree_add_item(parent_tree, proto_rdp_egfx, tvb, offset, pduLength, ENC_NA);
 		tree = proto_item_add_subtree(item, ett_rdp_egfx);
 
-		cmdId = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
-		proto_tree_add_item(tree, hf_egfx_cmdId, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+		proto_tree_add_item_ret_uint(tree, hf_egfx_cmdId, tvb, offset, 2, ENC_LITTLE_ENDIAN, &cmdId);
 		offset += 2;
 
 		proto_tree_add_item(tree, hf_egfx_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -230,6 +255,7 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			return offset;
 		}
 
+		gint nextOffset = offset + (pduLength - 8);
 		switch (cmdId) {
 		case RDPGFX_CMDID_CAPSADVERTISE: {
 			guint16 capsSetCount = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
@@ -241,13 +267,14 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			offset += 2;
 
 			for (i = 0; i < capsSetCount; i++) {
-				guint32 capsDataLength;
+				guint32 version = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+				guint32 capsDataLength = tvb_get_guint32(tvb, offset + 4, ENC_LITTLE_ENDIAN);
+				proto_tree* vtree = proto_tree_add_subtree(subtree, tvb, offset, 8 + capsDataLength, ett_egfx_cap_version, NULL, find_egfx_version(version));
 
-				proto_tree_add_item(subtree, hf_egfx_cap_version, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+				proto_tree_add_item(vtree, hf_egfx_cap_version, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 				offset += 4;
 
-				proto_tree_add_item(subtree, hf_egfx_cap_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-				capsDataLength = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+				proto_tree_add_item(vtree, hf_egfx_cap_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 				offset += 4;
 
 				offset += capsDataLength;
@@ -265,7 +292,6 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			offset += 4;
 
 			proto_tree_add_item_ret_uint(subtree, hf_egfx_cap_length, tvb, offset, 4, ENC_LITTLE_ENDIAN, &capsDataLength);
-			offset += 4 + capsDataLength;
 			break;
 		}
 
@@ -274,7 +300,7 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			proto_tree *monitors_tree;
 			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Reset graphics");
 
-			subtree = proto_tree_add_subtree(tree, tvb, offset, pduLength-4, ett_egfx_reset, NULL, "Reset graphics");
+			subtree = proto_tree_add_subtree(tree, tvb, offset, pduLength-8, ett_egfx_reset, NULL, "Reset graphics");
 			proto_tree_add_item(subtree, hf_egfx_reset_width, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 			offset += 4;
 
@@ -311,8 +337,6 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 				proto_tree_add_item(monitor_tree, hf_egfx_reset_monitorDefFlags, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 				offset += 4;
 			}
-
-			offset += (pduLength - 8);
 			break;
 		}
 
@@ -323,14 +347,12 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			offset += 4;
 
 			proto_tree_add_item(tree, hf_egfx_start_frameid, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-			offset += 4;
 			break;
 		}
 
 		case RDPGFX_CMDID_ENDFRAME:
 			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "End frame");
 			proto_tree_add_item(tree, hf_egfx_end_frameid, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-			offset += 4;
 			break;
 
 		case RDPGFX_CMDID_FRAMEACKNOWLEDGE:
@@ -343,7 +365,6 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			offset += 4;
 
 			proto_tree_add_item(subtree, hf_egfx_ack_total_decoded, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-			offset += 4;
 			break;
 
 		case RDPGFX_CMDID_QOEFRAMEACKNOWLEDGE:
@@ -359,13 +380,77 @@ dissect_rdp_egfx_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 			offset += 2;
 
 			proto_tree_add_item(subtree, hf_egfx_ackqoe_timediffedr, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-			offset += 2;
+			break;
+
+		case RDPGFX_CMDID_CREATESURFACE:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Create Surface");
+			break;
+
+		case RDPGFX_CMDID_MAPSURFACETOOUTPUT:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Map Surface To Output");
+			break;
+
+		case RDPGFX_CMDID_WIRETOSURFACE_1:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Wire To Surface 1");
+			break;
+
+		case RDPGFX_CMDID_WIRETOSURFACE_2:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Wire To Surface 2");
+			break;
+
+		case RDPGFX_CMDID_DELETEENCODINGCONTEXT:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Delete Encoding Context");
+			break;
+
+		case RDPGFX_CMDID_SOLIDFILL:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Solid Fill");
+			break;
+
+		case RDPGFX_CMDID_SURFACETOSURFACE:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Surface To Surface");
+			break;
+
+		case RDPGFX_CMDID_SURFACETOCACHE:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Surface To Cache");
+			break;
+
+		case RDPGFX_CMDID_CACHETOSURFACE:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Cache To Surface");
+			break;
+
+		case RDPGFX_CMDID_EVICTCACHEENTRY:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Evict Cache Entry");
+			break;
+
+		case RDPGFX_CMDID_DELETESURFACE:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Delete Surface");
+			break;
+
+		case RDPGFX_CMDID_CACHEIMPORTOFFER:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Cache Import Offer");
+			break;
+
+		case RDPGFX_CMDID_CACHEIMPORTREPLY:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Cache Import Reply");
+			break;
+
+		case RDPGFX_CMDID_MAPSURFACETOWINDOW:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Map Surface To Window");
+			break;
+
+		case RDPGFX_CMDID_MAPSURFACETOSCALEDOUTPUT:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Map Surface To Scaled Output");
+			break;
+
+		case RDPGFX_CMDID_MAPSURFACETOSCALEDWINDOW:
+			col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "Map Surface To Scaled Window");
 			break;
 
 		default:
-			offset += (pduLength - 8);
 			break;
 		}
+
+		offset = nextOffset;
 	}
 	return offset;
 }
@@ -382,15 +467,36 @@ dissect_rdp_egfx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, voi
 
 	if (!rdp_isServerAddressTarget(pinfo)) {
 		egfx_conv_info_t *infos = egfx_get_conversation_data(pinfo);
-		work_tvb = rdp8_decompress(infos->zgfx, wmem_packet_scope(), tvb, 0);
-		if (!work_tvb && parent_tree) {
-			expert_add_info_format(pinfo, parent_tree->last_child, &ei_egfx_invalid_compression, "invalid compression");
-			return 0;
+		guint32 hash = crc32_ccitt_tvb(tvb, tvb_captured_length_remaining(tvb, 0));
+		egfx_pdu_info_t *pdu_infos = p_get_proto_data(wmem_file_scope(), pinfo, proto_rdp_egfx, EGFX_PDU_KEY);
+		if (!pdu_infos) {
+			pdu_infos = wmem_alloc(wmem_file_scope(), sizeof(*pdu_infos));
+			pdu_infos->pdus = wmem_tree_new(wmem_file_scope());
+			p_set_proto_data(wmem_file_scope(), pinfo, proto_rdp_egfx, EGFX_PDU_KEY, pdu_infos);
 		}
-		add_new_data_source(pinfo, work_tvb, "Uncompressed GFX");
+
+		if (!PINFO_FD_VISITED(pinfo)) {
+			work_tvb = rdp8_decompress(infos->zgfx, wmem_file_scope(), tvb, 0);
+			if (work_tvb) {
+				printf("%d: zgfx sz=%d\n", pinfo->num, tvb_captured_length(work_tvb));
+				wmem_tree_insert32(pdu_infos->pdus, hash, work_tvb);
+			}
+		} else {
+			pdu_infos = p_get_proto_data(wmem_file_scope(), pinfo, proto_rdp_egfx, EGFX_PDU_KEY);
+			work_tvb = wmem_tree_lookup32(pdu_infos->pdus, hash);
+		}
+
+		if (work_tvb)
+			add_new_data_source(pinfo, work_tvb, "Uncompressed GFX");
 	}
 
-	dissect_rdp_egfx_payload(work_tvb, pinfo, parent_tree, data);
+	if (work_tvb)
+		dissect_rdp_egfx_payload(work_tvb, pinfo, parent_tree, data);
+	else {
+		if (parent_tree)
+			expert_add_info_format(pinfo, parent_tree->last_child, &ei_egfx_invalid_compression, "invalid compression");
+	}
+
 	return tvb_reported_length(tvb);
 }
 
@@ -523,6 +629,7 @@ void proto_register_rdp_egfx(void) {
 		&ett_rdp_egfx,
 		&ett_egfx_caps,
 		&ett_egfx_cap,
+		&ett_egfx_cap_version,
 		&ett_egfx_ack,
 		&ett_egfx_ackqoe,
 		&ett_egfx_reset,

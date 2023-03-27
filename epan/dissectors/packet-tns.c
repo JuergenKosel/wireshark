@@ -694,7 +694,7 @@ static void dissect_tns_data(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
 				proto_tree_add_item(data_tree, hf_tns_data_opi_version2_banner, tvb, offset, len, ENC_ASCII);
 				offset += len + (skip == 1 ? 1 : 0);
 
-				proto_tree_add_item(data_tree, hf_tns_data_opi_version2_vsnum, tvb, offset, 4, skip == 1 ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN);
+				proto_tree_add_item(data_tree, hf_tns_data_opi_version2_vsnum, tvb, offset, 4, (skip == 1) ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN);
 				offset += 4;
 			}
 			else if ( opi == OPI_OSESSKEY || opi == OPI_OAUTH )
@@ -1522,22 +1522,22 @@ void proto_register_tns(void)
 			NULL, 0x8, NULL, HFILL }},
 		{ &hf_tns_data_flag_more, {
 			"More Data to Come", "tns.data_flag.more", FT_BOOLEAN, 16,
-			NULL, 0x20, NULL, HFILL }},
+			NULL, 0x0020, NULL, HFILL }},
 		{ &hf_tns_data_flag_eof, {
 			"End of File", "tns.data_flag.eof", FT_BOOLEAN, 16,
-			NULL, 0x40, NULL, HFILL }},
+			NULL, 0x0040, NULL, HFILL }},
 		{ &hf_tns_data_flag_dic, {
 			"Do Immediate Confirmation", "tns.data_flag.dic", FT_BOOLEAN, 16,
-			NULL, 0x80, NULL, HFILL }},
+			NULL, 0x0080, NULL, HFILL }},
 		{ &hf_tns_data_flag_rts, {
 			"Request To Send", "tns.data_flag.rts", FT_BOOLEAN, 16,
-			NULL, 0x100, NULL, HFILL }},
+			NULL, 0x0100, NULL, HFILL }},
 		{ &hf_tns_data_flag_sntt, {
 			"Send NT Trailer", "tns.data_flag.sntt", FT_BOOLEAN, 16,
-			NULL, 0x200, NULL, HFILL }},
+			NULL, 0x0200, NULL, HFILL }},
 
 		{ &hf_tns_data_id, {
-			"Data ID", "tns.data_id", FT_UINT8, BASE_HEX,
+			"Data ID", "tns.data_id", FT_UINT32, BASE_HEX,
 			VALS(tns_data_funcs), 0x0, NULL, HFILL }},
 		{ &hf_tns_data_length, {
 			"Data Length", "tns.data_length", FT_UINT16, BASE_DEC,

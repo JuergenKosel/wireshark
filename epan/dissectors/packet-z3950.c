@@ -1,11 +1,8 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-z3950.c                                                             */
-/* asn2wrs.py -b -p z3950 -c ./z3950.cnf -s ./packet-z3950-template -D . -O ../.. z3950.asn z3950-oclc.asn z3950-externals.asn */
+/* asn2wrs.py -b -L -p z3950 -c ./z3950.cnf -s ./packet-z3950-template -D . -O ../.. z3950.asn z3950-oclc.asn z3950-externals.asn */
 
-/* Input file: packet-z3950-template.c */
-
-#line 1 "./asn1/z3950/packet-z3950-template.c"
 /* packet-z3950.c
  * Routines for dissection of the NISO Z39.50 Information Retrieval protocol
  * Also contains a dissector for the MARC Machine Readable Cataloging file
@@ -659,9 +656,6 @@ static const value_string z3950_bib1_diagconditions[] = {
     { 0, NULL}
 };
 
-
-/*--- Included file: packet-z3950-hf.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-hf.c"
 static int hf_z3950_OCLC_UserInformation_PDU = -1;  /* OCLC_UserInformation */
 static int hf_z3950_SutrsRecord_PDU = -1;         /* SutrsRecord */
 static int hf_z3950_OPACRecord_PDU = -1;          /* OPACRecord */
@@ -1509,18 +1503,12 @@ static int hf_z3950_Options_U_level_2Segmentation = -1;
 static int hf_z3950_Options_U_concurrentOperations = -1;
 static int hf_z3950_Options_U_namedResultSets = -1;
 
-/*--- End of included file: packet-z3950-hf.c ---*/
-#line 655 "./asn1/z3950/packet-z3950-template.c"
-
 static int hf_z3950_referenceId_printable = -1;
 static int hf_z3950_general_printable = -1;
 
 /* Initialize the subtree pointers */
 static int ett_z3950 = -1;
 
-
-/*--- Included file: packet-z3950-ett.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-ett.c"
 static gint ett_z3950_PDU = -1;
 static gint ett_z3950_InitializeRequest = -1;
 static gint ett_z3950_T_idAuthentication = -1;
@@ -1813,9 +1801,6 @@ static gint ett_z3950_T_databases = -1;
 static gint ett_z3950_QueryExpression = -1;
 static gint ett_z3950_T_queryExpression_term = -1;
 
-/*--- End of included file: packet-z3950-ett.c ---*/
-#line 663 "./asn1/z3950/packet-z3950-template.c"
-
 /* MARC variables and forwards */
 
 static int dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * data _U_);
@@ -2072,9 +2057,6 @@ dissect_z3950_printable_OCTET_STRING(gboolean implicit_tag _U_, tvbuff_t *tvb _U
     return offset;
 }
 
-
-/*--- Included file: packet-z3950-fn.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-fn.c"
 /*--- Cyclic dependencies ---*/
 
 /* RPNStructure -> RPNStructure/rpnRpnOp -> RPNStructure */
@@ -2102,11 +2084,9 @@ dissect_z3950_OCTET_STRING(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int off
 
 static int
 dissect_z3950_ReferenceId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 142 "./asn1/z3950/z3950.cnf"
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
               hf_index, BER_CLASS_CON, 2, TRUE,
               dissect_z3950_printable_OCTET_STRING);
-
 
 
   return offset;
@@ -2502,9 +2482,7 @@ dissect_z3950_ElementSetNames(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int 
 
 static int
 dissect_z3950_T_type_0(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 139 "./asn1/z3950/z3950.cnf"
 /*XXX Not implemented yet */
-
 
 
   return offset;
@@ -2514,13 +2492,10 @@ dissect_z3950_T_type_0(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 
 static int
 dissect_z3950_AttributeSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 152 "./asn1/z3950/z3950.cnf"
   tvbuff_t *oid_tvb=NULL;
-
 
   offset = dissect_ber_object_identifier(implicit_tag, actx, tree, tvb, offset, hf_index, &oid_tvb);
 
-#line 156 "./asn1/z3950/z3950.cnf"
   if (oid_tvb) {
     packet_info *pinfo = actx->pinfo;
     guint len = tvb_reported_length_remaining(oid_tvb, 0);
@@ -2544,7 +2519,6 @@ dissect_z3950_AttributeSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
     }
   }
 
-
   return offset;
 }
 
@@ -2552,22 +2526,18 @@ dissect_z3950_AttributeSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_z3950_T_attributeElement_attributeType(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 180 "./asn1/z3950/z3950.cnf"
   gint att_type=0;
   packet_info *pinfo = actx->pinfo;
   z3950_atinfo_t *atinfo_data;
-
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &att_type);
 
-#line 185 "./asn1/z3950/z3950.cnf"
   atinfo_data = (z3950_atinfo_t *)p_get_proto_data(pinfo->pool, pinfo, proto_z3950, Z3950_ATINFO_KEY);
   if (atinfo_data && atinfo_data->atsetidx == Z3950_ATSET_BIB1) {
     proto_item_append_text(actx->created_item, " (%s)",
       val_to_str(att_type, z3950_bib1_att_types, "Unknown bib-1 attributeType %d"));
     atinfo_data->attype = att_type;
   }
-
   return offset;
 }
 
@@ -2575,16 +2545,13 @@ dissect_z3950_T_attributeElement_attributeType(gboolean implicit_tag _U_, tvbuff
 
 static int
 dissect_z3950_T_attributeValue_numeric(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 192 "./asn1/z3950/z3950.cnf"
   gint att_value=0;
   packet_info *pinfo = actx->pinfo;
   z3950_atinfo_t *atinfo_data;
   const value_string *att_value_string = NULL;
-
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &att_value);
 
-#line 198 "./asn1/z3950/z3950.cnf"
   atinfo_data = (z3950_atinfo_t *)p_get_proto_data(pinfo->pool, pinfo, proto_z3950, Z3950_ATINFO_KEY);
   if (atinfo_data && atinfo_data->atsetidx == Z3950_ATSET_BIB1) {
     switch (atinfo_data->attype) {
@@ -2614,7 +2581,6 @@ dissect_z3950_T_attributeValue_numeric(gboolean implicit_tag _U_, tvbuff_t *tvb 
         val_to_str(att_value, att_value_string, "Unknown bib-1 attributeValue %d"));
     }
   }
-
   return offset;
 }
 
@@ -2746,11 +2712,9 @@ dissect_z3950_AttributeList(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_z3950_T_general(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 147 "./asn1/z3950/z3950.cnf"
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
               hf_index, BER_CLASS_CON, 2, TRUE,
               dissect_z3950_printable_OCTET_STRING);
-
 
 
   return offset;
@@ -3196,13 +3160,10 @@ dissect_z3950_PresentStatus(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_z3950_T_diagnosticSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 228 "./asn1/z3950/z3950.cnf"
   tvbuff_t *oid_tvb=NULL;
-
 
   offset = dissect_ber_object_identifier(implicit_tag, actx, tree, tvb, offset, hf_index, &oid_tvb);
 
-#line 232 "./asn1/z3950/z3950.cnf"
   if (oid_tvb) {
     packet_info *pinfo = actx->pinfo;
     guint len = tvb_reported_length_remaining(oid_tvb, 0);
@@ -3226,7 +3187,6 @@ dissect_z3950_T_diagnosticSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
     }
   }
 
-
   return offset;
 }
 
@@ -3234,22 +3194,18 @@ dissect_z3950_T_diagnosticSetId(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 static int
 dissect_z3950_T_condition(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 256 "./asn1/z3950/z3950.cnf"
   gint diag_condition=0;
   packet_info *pinfo = actx->pinfo;
   z3950_diaginfo_t *diaginfo_data;
-
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &diag_condition);
 
-#line 261 "./asn1/z3950/z3950.cnf"
   diaginfo_data = (z3950_diaginfo_t *)p_get_proto_data(pinfo->pool, pinfo, proto_z3950, Z3950_DIAGSET_KEY);
   if (diaginfo_data && diaginfo_data->diagsetidx == Z3950_DIAGSET_BIB1) {
     proto_item_append_text(actx->created_item, " (%s)",
       val_to_str(diag_condition, z3950_bib1_diagconditions, "Unknown bib-1 diagnostic %d"));
     diaginfo_data->diagcondition = diag_condition;
   }
-
   return offset;
 }
 
@@ -4777,14 +4733,11 @@ static const ber_choice_t PDU_choice[] = {
 
 static int
 dissect_z3950_PDU(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-#line 127 "./asn1/z3950/z3950.cnf"
   gint choice;
-
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  PDU_choice, hf_index, ett_z3950_PDU,
                                  &choice);
 
-#line 130 "./asn1/z3950/z3950.cnf"
   if (choice >= 0) {
     packet_info *pinfo = actx->pinfo;
     gint32 tag = PDU_choice[choice].tag;
@@ -4792,7 +4745,6 @@ dissect_z3950_PDU(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
     col_set_str(pinfo->cinfo, COL_INFO,
       val_to_str_const(tag, z3950_PDU_vals, "Unknown Z39.50 PDU"));
   }
-
 
   return offset;
 }
@@ -8649,9 +8601,6 @@ static int dissect_SearchInfoReport_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U
 }
 
 
-/*--- End of included file: packet-z3950-fn.c ---*/
-#line 921 "./asn1/z3950/packet-z3950-template.c"
-
 static int
 dissect_z3950(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
@@ -8666,7 +8615,7 @@ dissect_z3950(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
 
     /* create the z3950 protocol tree */
-    z3950_item = proto_tree_add_item(tree, proto_z3950, tvb, 0, -1, FALSE);
+    z3950_item = proto_tree_add_item(tree, proto_z3950, tvb, 0, -1, ENC_NA);
     z3950_tree = proto_item_add_subtree(z3950_item, ett_z3950);
 
     return dissect_z3950_PDU(FALSE, tvb, offset, &asn1_ctx, z3950_tree, -1);
@@ -8706,9 +8655,6 @@ void proto_register_z3950(void) {
     /* List of fields */
     static hf_register_info hf[] = {
 
-
-/*--- Included file: packet-z3950-hfarr.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-hfarr.c"
     { &hf_z3950_OCLC_UserInformation_PDU,
       { "OCLC-UserInformation", "z3950.OCLC_UserInformation_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -12090,9 +12036,6 @@ void proto_register_z3950(void) {
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
 
-/*--- End of included file: packet-z3950-hfarr.c ---*/
-#line 977 "./asn1/z3950/packet-z3950-template.c"
-
     { &hf_z3950_referenceId_printable,
         { "referenceId", "z3950.referenceId.printable",
         FT_STRING, BASE_NONE, NULL, 0,
@@ -12248,9 +12191,6 @@ void proto_register_z3950(void) {
                   &ett_marc_directory_entry,
                   &ett_marc_fields,
                   &ett_marc_field,
-
-/*--- Included file: packet-z3950-ettarr.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-ettarr.c"
     &ett_z3950_PDU,
     &ett_z3950_InitializeRequest,
     &ett_z3950_T_idAuthentication,
@@ -12542,9 +12482,6 @@ void proto_register_z3950(void) {
     &ett_z3950_T_databases,
     &ett_z3950_QueryExpression,
     &ett_z3950_T_queryExpression_term,
-
-/*--- End of included file: packet-z3950-ettarr.c ---*/
-#line 1134 "./asn1/z3950/packet-z3950-template.c"
     };
 
     module_t *z3950_module;
@@ -12595,9 +12532,6 @@ proto_reg_handoff_z3950(void)
     dissector_add_uint_with_preference("tcp.port",
 	global_z3950_port, z3950_handle);
 
-
-/*--- Included file: packet-z3950-dis-tab.c ---*/
-#line 1 "./asn1/z3950/packet-z3950-dis-tab.c"
   register_ber_oid_dissector("1.2.840.10003.5.100", dissect_Explain_Record_PDU, proto_z3950, "Explain-record");
   register_ber_oid_dissector("1.2.840.10003.5.101", dissect_SutrsRecord_PDU, proto_z3950, "Sutrs-record");
   register_ber_oid_dissector("1.2.840.10003.5.102", dissect_OPACRecord_PDU, proto_z3950, "OPAC-record");
@@ -12611,9 +12545,6 @@ proto_reg_handoff_z3950(void)
   register_ber_oid_dissector("1.2.840.10003.10.1", dissect_SearchInfoReport_PDU, proto_z3950, "SearchResult-1");
   register_ber_oid_dissector("1.2.840.10003.10.1000.17.1", dissect_OCLC_UserInformation_PDU, proto_z3950, "OCLC-UserInfo-1");
 
-
-/*--- End of included file: packet-z3950-dis-tab.c ---*/
-#line 1185 "./asn1/z3950/packet-z3950-template.c"
 
     register_ber_oid_dissector(Z3950_RECORDSYNTAX_MARC21_OID, dissect_marc_record, proto_z3950, "MARC21");
 

@@ -155,9 +155,14 @@ dfvm_value_new_fvalue(fvalue_t *fv)
 }
 
 dfvm_value_t*
-dfvm_value_new_hfinfo(header_field_info *hfinfo)
+dfvm_value_new_hfinfo(header_field_info *hfinfo, gboolean raw)
 {
-	dfvm_value_t *v = dfvm_value_new(HFINFO);
+	dfvm_value_t *v;
+
+	if (raw)
+		v = dfvm_value_new(RAW_HFINFO);
+	else
+		v = dfvm_value_new(HFINFO);
 	v->value.hfinfo = hfinfo;
 	return v;
 }
@@ -205,22 +210,20 @@ dfvm_value_new_guint(guint num)
 static char *
 dfvm_value_tostr(dfvm_value_t *v)
 {
-	char *s, *aux;
+	char *s;
 
 	if (!v)
 		return NULL;
 
 	switch (v->type) {
 		case HFINFO:
-			s = ws_strdup_printf("%s <%s>",
-					v->value.hfinfo->abbrev,
-					ftype_name(v->value.hfinfo->type));
+			s = ws_strdup(v->value.hfinfo->abbrev);
+			break;
+		case RAW_HFINFO:
+			s = ws_strdup_printf("@%s", v->value.hfinfo->abbrev);
 			break;
 		case FVALUE:
-			aux = fvalue_to_debug_repr(NULL, v->value.fvalue);
-			s = ws_strdup_printf("%s <%s>",
-				aux, fvalue_type_name(v->value.fvalue));
-			g_free(aux);
+			s = fvalue_to_debug_repr(NULL, v->value.fvalue);
 			break;
 		case DRANGE:
 			s = drange_tostr(v->value.drange);
@@ -229,7 +232,7 @@ dfvm_value_tostr(dfvm_value_t *v)
 			s = ws_strdup(ws_regex_pattern(v->value.pcre));
 			break;
 		case REGISTER:
-			s = ws_strdup_printf("reg#%"G_GUINT32_FORMAT, v->value.numeric);
+			s = ws_strdup_printf("R%"G_GUINT32_FORMAT, v->value.numeric);
 			break;
 		case FUNCTION_DEF:
 			s = ws_strdup(v->value.funcdef->name);
@@ -243,6 +246,29 @@ dfvm_value_tostr(dfvm_value_t *v)
 	return s;
 }
 
+static char *
+value_type_tostr(dfvm_value_t *v, gboolean show_ftype)
+{
+	const char *s;
+
+	if (!v || !show_ftype)
+		return ws_strdup("");
+
+	switch (v->type) {
+		case HFINFO:
+		case RAW_HFINFO:
+			s = ftype_name(v->value.hfinfo->type);
+			break;
+		case FVALUE:
+			s = fvalue_type_name(v->value.fvalue);
+			break;
+		default:
+			return ws_strdup("");
+			break;
+	}
+	return ws_strdup_printf(" <%s>", s);
+}
+
 static GSList *
 dump_str_stack_push(GSList *stack, const char *str)
 {
@@ -250,253 +276,357 @@ dump_str_stack_push(GSList *stack, const char *str)
 }
 
 static GSList *
-dump_str_stack_pop(GSList *stack)
+dump_str_stack_pop(GSList *stack, guint32 count)
 {
-	if (!stack) {
-		return NULL;
+	while (stack && count-- > 0) {
+		g_free(stack->data);
+		stack = g_slist_delete_link(stack, stack);
 	}
-
-	char *str;
-
-	str = stack->data;
-	stack = g_slist_delete_link(stack, stack);
-	g_free(str);
 	return stack;
 }
 
-char *
-dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
+static void
+append_call_function(wmem_strbuf_t *buf, const char *func, uint32_t nargs,
+					GSList *stack_print)
 {
-	int		id, length;
-	dfvm_insn_t	*insn;
+	uint32_t idx;
+	GString	*gs;
+	GSList *l;
+	const char *sep = "";
+
+	wmem_strbuf_append_printf(buf, "%s(", func);
+	if (nargs > 0) {
+		gs = g_string_new(NULL);
+		for (l = stack_print, idx = 0; l != NULL && idx < nargs; idx++, l = l->next) {
+			g_string_prepend(gs, sep);
+			g_string_prepend(gs, l->data);
+			sep = ", ";
+		}
+		wmem_strbuf_append(buf, gs->str);
+		g_string_free(gs, TRUE);
+	}
+	wmem_strbuf_append(buf, ")");
+}
+
+static void
+indent(wmem_strbuf_t *buf, size_t offset, size_t start)
+{
+	size_t pos = buf->len - start;
+	if (pos >= offset)
+		return;
+	wmem_strbuf_append_c_count(buf, ' ', offset - pos);
+}
+#define indent1(buf, start) indent(buf, 24, start)
+#define indent2(buf, start) indent(buf, 16, start)
+
+static void
+append_to_register(wmem_strbuf_t *buf, const char *reg)
+{
+	wmem_strbuf_append_printf(buf, " -> %s", reg);
+}
+
+static void
+append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
+							uint16_t flags)
+{
 	dfvm_value_t	*arg1, *arg2, *arg3;
 	char 		*arg1_str, *arg2_str, *arg3_str;
-	const char	*opcode_str;
-	wmem_strbuf_t	*buf;
+	char 		*arg1_str_type, *arg2_str_type, *arg3_str_type;
+	size_t		col_start;
+
+	arg1 = insn->arg1;
+	arg2 = insn->arg2;
+	arg3 = insn->arg3;
+	arg1_str = dfvm_value_tostr(arg1);
+	arg2_str = dfvm_value_tostr(arg2);
+	arg3_str = dfvm_value_tostr(arg3);
+	arg1_str_type = value_type_tostr(arg1, flags & DF_DUMP_SHOW_FTYPE);
+	arg2_str_type = value_type_tostr(arg2, flags & DF_DUMP_SHOW_FTYPE);
+	arg3_str_type = value_type_tostr(arg3, flags & DF_DUMP_SHOW_FTYPE);
+
+	col_start = buf->len;
+
+	switch (insn->op) {
+		case DFVM_CHECK_EXISTS:
+			wmem_strbuf_append_printf(buf, "%s%s",
+						arg1_str, arg1_str_type);
+			break;
+
+		case DFVM_CHECK_EXISTS_R:
+			wmem_strbuf_append_printf(buf, "%s#[%s]%s",
+						arg1_str, arg2_str, arg1_str_type);
+			break;
+
+		case DFVM_READ_TREE:
+			wmem_strbuf_append_printf(buf, "%s%s",
+						arg1_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_READ_TREE_R:
+			wmem_strbuf_append_printf(buf, "%s#[%s]%s",
+						arg1_str, arg3_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_READ_REFERENCE:
+			wmem_strbuf_append_printf(buf, "${%s}%s",
+						arg1_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_READ_REFERENCE_R:
+			wmem_strbuf_append_printf(buf, "${%s#[%s]}%s",
+						arg1_str, arg3_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_PUT_FVALUE:
+			wmem_strbuf_append_printf(buf, "%s%s",
+						arg1_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_CALL_FUNCTION:
+			append_call_function(buf, arg1_str, arg3->value.numeric, *stack_print);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_STACK_PUSH:
+			wmem_strbuf_append_printf(buf, "%s", arg1_str);
+			*stack_print = dump_str_stack_push(*stack_print, arg1_str);
+			break;
+
+		case DFVM_STACK_POP:
+			wmem_strbuf_append_printf(buf, "%s", arg1_str);
+			*stack_print = dump_str_stack_pop(*stack_print, arg1->value.numeric);
+			break;
+
+		case DFVM_SLICE:
+			wmem_strbuf_append_printf(buf, "%s[%s]%s",
+						arg1_str, arg3_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_LENGTH:
+			wmem_strbuf_append_printf(buf, "%s%s",
+						arg1_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_ALL_EQ:
+			wmem_strbuf_append_printf(buf, "%s%s === %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ANY_EQ:
+			wmem_strbuf_append_printf(buf, "%s%s == %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_NE:
+			wmem_strbuf_append_printf(buf, "%s%s != %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ANY_NE:
+			wmem_strbuf_append_printf(buf, "%s%s !== %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_GT:
+		case DFVM_ANY_GT:
+			wmem_strbuf_append_printf(buf, "%s%s > %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_GE:
+		case DFVM_ANY_GE:
+			wmem_strbuf_append_printf(buf, "%s%s >= %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_LT:
+		case DFVM_ANY_LT:
+			wmem_strbuf_append_printf(buf, "%s%s < %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_LE:
+		case DFVM_ANY_LE:
+			wmem_strbuf_append_printf(buf, "%s%s <= %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_NOT_ALL_ZERO:
+			wmem_strbuf_append_printf(buf, "%s%s",
+						arg1_str, arg1_str_type);
+			break;
+
+		case DFVM_ALL_CONTAINS:
+		case DFVM_ANY_CONTAINS:
+			wmem_strbuf_append_printf(buf, "%s%s contains %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_MATCHES:
+		case DFVM_ANY_MATCHES:
+			wmem_strbuf_append_printf(buf, "%s%s matches %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			break;
+
+		case DFVM_ALL_IN_RANGE:
+		case DFVM_ANY_IN_RANGE:
+			wmem_strbuf_append_printf(buf, "%s%s in { %s%s .. %s%s }",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type, arg3_str, arg3_str_type);
+			break;
+
+		case DFVM_BITWISE_AND:
+			wmem_strbuf_append_printf(buf, "%s%s & %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_UNARY_MINUS:
+			wmem_strbuf_append_printf(buf, "-%s%s",
+						arg1_str, arg1_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_ADD:
+			wmem_strbuf_append_printf(buf, "%s%s + %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_SUBTRACT:
+			wmem_strbuf_append_printf(buf, "%s%s - %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_MULTIPLY:
+			wmem_strbuf_append_printf(buf, "%s%s * %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_DIVIDE:
+			wmem_strbuf_append_printf(buf, "%s%s / %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_MODULO:
+			wmem_strbuf_append_printf(buf, "%s%s %% %s%s",
+						arg1_str, arg1_str_type, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
+			break;
+
+		case DFVM_IF_TRUE_GOTO:
+		case DFVM_IF_FALSE_GOTO:
+			wmem_strbuf_append_printf(buf, "%u", arg1->value.numeric);
+			break;
+
+		case DFVM_NOT:
+		case DFVM_RETURN:
+			ws_assert_not_reached();
+	}
+
+	g_free(arg1_str);
+	g_free(arg2_str);
+	g_free(arg3_str);
+	g_free(arg1_str_type);
+	g_free(arg2_str_type);
+	g_free(arg3_str_type);
+}
+
+static void
+append_references(wmem_strbuf_t *buf, GHashTable *references, gboolean raw)
+{
 	GHashTableIter	ref_iter;
 	gpointer	key, value;
 	char		*str;
-	GSList		*stack_print = NULL, *l;
 	guint		i;
+
+	g_hash_table_iter_init(&ref_iter, references);
+	while (g_hash_table_iter_next(&ref_iter, &key, &value)) {
+		const char *abbrev = ((header_field_info *)key)->abbrev;
+		GPtrArray *refs_array = value;
+		df_reference_t *ref;
+
+		if (raw)
+			wmem_strbuf_append_printf(buf, " ${@%s} = {", abbrev);
+		else
+			wmem_strbuf_append_printf(buf, " ${%s} = {", abbrev);
+		for (i = 0; i < refs_array->len; i++) {
+			if (i != 0) {
+				wmem_strbuf_append(buf, ", ");
+			}
+			ref = refs_array->pdata[i];
+			str = fvalue_to_debug_repr(NULL, ref->value);
+			wmem_strbuf_append_printf(buf, "%s <%s>", str, fvalue_type_name(ref->value));
+			g_free(str);
+		}
+		wmem_strbuf_append(buf, "}\n");
+	}
+}
+
+char *
+dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, uint16_t flags)
+{
+	int		id, length;
+	dfvm_insn_t	*insn;
+	wmem_strbuf_t	*buf;
+	GSList		*stack_print = NULL;
+	size_t		col_start;
 
 	buf = wmem_strbuf_new(alloc, NULL);
 
-	wmem_strbuf_append(buf, "Instructions:\n");
+	if ((flags & DF_DUMP_REFERENCES) && g_hash_table_size(df->references) > 0) {
+		wmem_strbuf_append(buf, "References:\n");
+		append_references(buf, df->references, FALSE);
+		wmem_strbuf_append_c(buf, '\n');
+	}
+
+	if ((flags & DF_DUMP_REFERENCES) && g_hash_table_size(df->raw_references) > 0) {
+		wmem_strbuf_append(buf, "Raw references:\n");
+		append_references(buf, df->raw_references, TRUE);
+		wmem_strbuf_append_c(buf, '\n');
+	}
+
+	wmem_strbuf_append(buf, "Instructions:");
 
 	length = df->insns->len;
 	for (id = 0; id < length; id++) {
-
 		insn = g_ptr_array_index(df->insns, id);
-		arg1 = insn->arg1;
-		arg2 = insn->arg2;
-		arg3 = insn->arg3;
-		arg1_str = dfvm_value_tostr(arg1);
-		arg2_str = dfvm_value_tostr(arg2);
-		arg3_str = dfvm_value_tostr(arg3);
-		opcode_str = dfvm_opcode_tostr(insn->op);
+		col_start = buf->len;
+		wmem_strbuf_append_printf(buf, "\n %04d %s", id, dfvm_opcode_tostr(insn->op));
 
 		switch (insn->op) {
-			case DFVM_CHECK_EXISTS:
-			case DFVM_CHECK_EXISTS_R:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s\n",
-					id, opcode_str, arg1_str);
-				break;
-
-			case DFVM_READ_TREE:
-			case DFVM_READ_TREE_R:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_READ_REFERENCE:
-			case DFVM_READ_REFERENCE_R:
-				wmem_strbuf_append_printf(buf, "%05d %s\t${%s} -> %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_PUT_FVALUE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_CALL_FUNCTION:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s(",
-					id, opcode_str, arg1_str);
-				for (l = stack_print, i = 0; i < arg3->value.numeric; i++, l = l->next) {
-					if (l != stack_print) {
-						wmem_strbuf_append(buf, ", ");
-					}
-					wmem_strbuf_append(buf, l->data);
-				}
-				wmem_strbuf_append_printf(buf, ") -> %s\n", arg2_str);
-				break;
-
-			case DFVM_STACK_PUSH:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s\n",
-					id, opcode_str, arg1_str);
-				stack_print = dump_str_stack_push(stack_print, arg1_str);
-				break;
-
-			case DFVM_STACK_POP:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s\n",
-					id, opcode_str, arg1_str);
-				for (i = 0; i < arg1->value.numeric; i ++) {
-					stack_print = dump_str_stack_pop(stack_print);
-				}
-				break;
-
-			case DFVM_SLICE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s[%s] -> %s\n",
-					id, opcode_str, arg1_str, arg3_str, arg2_str);
-				break;
-
-			case DFVM_LENGTH:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_EQ:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s === %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ANY_EQ:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s == %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_NE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s != %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ANY_NE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s !== %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_GT:
-			case DFVM_ANY_GT:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s > %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_GE:
-			case DFVM_ANY_GE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s >= %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_LT:
-			case DFVM_ANY_LT:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s < %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_LE:
-			case DFVM_ANY_LE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s <= %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_NOT_ALL_ZERO:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s\n",
-					id, opcode_str, arg1_str);
-				break;
-
-			case DFVM_ALL_CONTAINS:
-			case DFVM_ANY_CONTAINS:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s contains %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_MATCHES:
-			case DFVM_ANY_MATCHES:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s matches %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ALL_IN_RANGE:
-			case DFVM_ANY_IN_RANGE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s in { %s .. %s }\n",
-					id, opcode_str,
-					arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_BITWISE_AND:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%s & %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_UNARY_MINUS:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t-%s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str);
-				break;
-
-			case DFVM_ADD:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s + %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_SUBTRACT:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s - %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_MULTIPLY:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s * %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_DIVIDE:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s / %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
-			case DFVM_MODULO:
-				wmem_strbuf_append_printf(buf, "%05d %s\t\t%s %% %s -> %s\n",
-					id, opcode_str, arg1_str, arg2_str, arg3_str);
-				break;
-
 			case DFVM_NOT:
-				wmem_strbuf_append_printf(buf, "%05d NOT\n", id);
-				break;
-
 			case DFVM_RETURN:
-				wmem_strbuf_append_printf(buf, "%05d RETURN\n", id);
+				/* Nothing here */
 				break;
-
-			case DFVM_IF_TRUE_GOTO:
-			case DFVM_IF_FALSE_GOTO:
-				wmem_strbuf_append_printf(buf, "%05d %s\t%u\n",
-						id, opcode_str, arg1->value.numeric);
+			default:
+				indent1(buf, col_start);
+				append_op_args(buf, insn, &stack_print, flags);
 				break;
-		}
-
-		g_free(arg1_str);
-		g_free(arg2_str);
-		g_free(arg3_str);
-	}
-
-	if (print_references && g_hash_table_size(df->references) > 0) {
-		wmem_strbuf_append(buf, "\nReferences:\n");
-		g_hash_table_iter_init(&ref_iter, df->references);
-		while (g_hash_table_iter_next(&ref_iter, &key, &value)) {
-			const char *abbrev = ((header_field_info *)key)->abbrev;
-			GPtrArray *refs_array = value;
-			df_reference_t *ref;
-
-			wmem_strbuf_append_printf(buf, "${%s} = {", abbrev);
-			for (i = 0; i < refs_array->len; i++) {
-				if (i != 0) {
-					wmem_strbuf_append(buf, ", ");
-				}
-				ref = refs_array->pdata[i];
-				str = fvalue_to_debug_repr(NULL, ref->value);
-				wmem_strbuf_append_printf(buf, "%s <%s>", str, fvalue_type_name(ref->value));
-				g_free(str);
-			}
-			wmem_strbuf_append(buf, "}\n");
 		}
 	}
 
@@ -504,10 +634,11 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, gboolean print_references)
 }
 
 void
-dfvm_dump(FILE *f, dfilter_t *df)
+dfvm_dump(FILE *f, dfilter_t *df, uint16_t flags)
 {
-	char *str = dfvm_dump_str(NULL, df, FALSE);
+	char *str = dfvm_dump_str(NULL, df, flags);
 	fputs(str, f);
+	fputc('\n', f);
 	wmem_free(NULL, str);
 }
 
@@ -554,11 +685,43 @@ drange_contains_layer(drange_t *dr, int num, int length)
 	return FALSE;
 }
 
+fvalue_t *
+dfvm_get_raw_fvalue(const field_info *fi)
+{
+	GByteArray *bytes;
+	fvalue_t *fv;
+	int length, tvb_length;
+
+	/*
+	 * XXX - a field can have a length that runs past
+	 * the end of the tvbuff.  Ideally, that should
+	 * be fixed when adding an item to the protocol
+	 * tree, but checking the length when doing
+	 * that could be expensive.  Until we fix that,
+	 * we'll do the check here.
+	 */
+	tvb_length = tvb_captured_length_remaining(fi->ds_tvb, fi->start);
+	if (tvb_length < 0) {
+		return NULL;
+	}
+	length = fi->length;
+	if (length > tvb_length)
+		length = tvb_length;
+
+	bytes = g_byte_array_new();
+	g_byte_array_append(bytes, tvb_get_ptr(fi->ds_tvb, fi->start, length), length);
+
+	fv = fvalue_new(FT_BYTES);
+	fvalue_set_byte_array(fv, bytes);
+	return fv;
+}
+
 static GSList *
-filter_finfo_fvalues(GSList *fvalues, GPtrArray *finfos, drange_t *range)
+filter_finfo_fvalues(GSList *fvalues, GPtrArray *finfos, drange_t *range, gboolean raw)
 {
 	int length; /* maximum proto layer number. The numbers are sequential. */
 	field_info *last_finfo, *finfo;
+	fvalue_t *fv;
 	int cookie = -1;
 	gboolean cookie_matches = false;
 	int layer;
@@ -572,14 +735,22 @@ filter_finfo_fvalues(GSList *fvalues, GPtrArray *finfos, drange_t *range)
 		layer = finfo->proto_layer_num;
 		if (cookie == layer) {
 			if (cookie_matches) {
-				fvalues = g_slist_prepend(fvalues, &finfo->value);
+				if (raw)
+					fv = dfvm_get_raw_fvalue(finfo);
+				else
+					fv = &finfo->value;
+				fvalues = g_slist_prepend(fvalues, fv);
 			}
 		}
 		else {
 			cookie = layer;
 			cookie_matches = drange_contains_layer(range, layer, length);
 			if (cookie_matches) {
-				fvalues = g_slist_prepend(fvalues, &finfo->value);
+				if (raw)
+					fv = dfvm_get_raw_fvalue(finfo);
+				else
+					fv = &finfo->value;
+				fvalues = g_slist_prepend(fvalues, fv);
 			}
 		}
 	}
@@ -597,9 +768,13 @@ read_tree(dfilter_t *df, proto_tree *tree,
 	field_info	*finfo;
 	int		i, len;
 	GSList		*fvalues = NULL;
+	fvalue_t	*fv;
 	drange_t	*range = NULL;
+	gboolean	raw;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
+	raw = arg1->type == RAW_HFINFO;
+
 	int reg = arg2->value.numeric;
 
 	if (arg3) {
@@ -626,13 +801,17 @@ read_tree(dfilter_t *df, proto_tree *tree,
 		}
 
 		if (range) {
-			fvalues = filter_finfo_fvalues(fvalues, finfos, range);
+			fvalues = filter_finfo_fvalues(fvalues, finfos, range, raw);
 		}
 		else {
 			len = finfos->len;
 			for (i = 0; i < len; i++) {
 				finfo = g_ptr_array_index(finfos, i);
-				fvalues = g_slist_prepend(fvalues, &finfo->value);
+				if (raw)
+					fv = dfvm_get_raw_fvalue(finfo);
+				else
+					fv = &finfo->value;
+				fvalues = g_slist_prepend(fvalues, fv);
 			}
 		}
 
@@ -644,8 +823,13 @@ read_tree(dfilter_t *df, proto_tree *tree,
 	}
 
 	df->registers[reg] = fvalues;
-	// These values are referenced only, do not try to free it later.
-	df->free_registers[reg] = NULL;
+	if (raw) {
+		df->free_registers[reg] = (GDestroyNotify)fvalue_free;
+	}
+	else {
+		// These values are referenced only, do not try to free it later.
+		df->free_registers[reg] = NULL;
+	}
 	return TRUE;
 }
 
@@ -671,20 +855,20 @@ filter_refs_fvalues(GPtrArray *refs_array, drange_t *range)
 		int layer = ref->proto_layer_num;
 
 		if (range == NULL) {
-			fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+			fvalues = g_slist_prepend(fvalues, ref->value);
 			continue;
 		}
 
 		if (cookie == layer) {
 			if (cookie_matches) {
-				fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+				fvalues = g_slist_prepend(fvalues, ref->value);
 			}
 		}
 		else {
 			cookie = layer;
 			cookie_matches = drange_contains_layer(range, layer, length);
 			if (cookie_matches) {
-				fvalues = g_slist_prepend(fvalues, fvalue_dup(ref->value));
+				fvalues = g_slist_prepend(fvalues, ref->value);
 			}
 		}
 	}
@@ -697,8 +881,11 @@ read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 {
 	GPtrArray	*refs;
 	drange_t	*range = NULL;
+	gboolean	raw;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
+	raw = arg1->type == RAW_HFINFO;
+
 	int reg = arg2->value.numeric;
 
 	if (arg3) {
@@ -717,16 +904,18 @@ read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 
 	df->attempted_load[reg] = TRUE;
 
-	refs = g_hash_table_lookup(df->references, hfinfo);
+	if (raw)
+		refs = g_hash_table_lookup(df->raw_references, hfinfo);
+	else
+		refs = g_hash_table_lookup(df->references, hfinfo);
 	if (refs == NULL || refs->len == 0) {
 		df->registers[reg] = NULL;
 		return FALSE;
 	}
 
-	/* Shallow copy */
 	df->registers[reg] = filter_refs_fvalues(refs, range);
-	/* Creates new value so own it. */
-	df->free_registers[reg] = (GDestroyNotify)fvalue_free;
+	// These values are referenced only, do not try to free it later.
+	df->free_registers[reg] = NULL;
 	return TRUE;
 }
 
@@ -739,7 +928,7 @@ typedef ft_bool_t (*DFVMCompareFunc)(const fvalue_t*, const fvalue_t*);
 typedef ft_bool_t (*DFVMTestFunc)(const fvalue_t*);
 
 static gboolean
-cmp_test(enum match_how how, DFVMCompareFunc match_func,
+cmp_test_internal(enum match_how how, DFVMCompareFunc match_func,
 					GSList *arg1, GSList *arg2)
 {
 	GSList *list1, *list2;
@@ -799,25 +988,46 @@ all_test_unary(dfilter_t *df, DFVMTestFunc func, dfvm_value_t *arg1)
 	return cmp_test_unary(MATCH_ALL, func, list1);
 }
 
-/* cmp(A) <=> cmp(a1) OR cmp(a2) OR cmp(a3) OR ... */
 static gboolean
+cmp_test(dfilter_t *df, DFVMCompareFunc cmp,
+			dfvm_value_t *arg1, dfvm_value_t *arg2,
+			enum match_how how)
+{
+	GSList list1, list2, *l1, *l2;
+
+	if (arg1->type == REGISTER) {
+		l1 = df->registers[arg1->value.numeric];
+	}
+	else if (arg1->type == FVALUE) {
+		list1.data = arg1->value.fvalue;
+		list1.next = NULL;
+		l1 = &list1;
+	}
+	else {
+		ws_assert_not_reached();
+	}
+
+	if (arg2->type == REGISTER) {
+		l2 = df->registers[arg2->value.numeric];
+	}
+	else if (arg2->type == FVALUE) {
+		list2.data = arg2->value.fvalue;
+		list2.next = NULL;
+		l2 = &list2;
+	}
+	else {
+		ws_assert_not_reached();
+	}
+
+	return cmp_test_internal(how, cmp, l1, l2);
+}
+
+/* cmp(A) <=> cmp(a1) OR cmp(a2) OR cmp(a3) OR ... */
+static inline gboolean
 any_test(dfilter_t *df, DFVMCompareFunc cmp,
 				dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
-	ws_assert(arg1->type == REGISTER);
-	GSList *list1 = df->registers[arg1->value.numeric];
-
-	if (arg2->type == REGISTER) {
-		return cmp_test(MATCH_ANY, cmp, list1, df->registers[arg2->value.numeric]);
-	}
-	if (arg2->type == FVALUE) {
-		GSList list2;
-
-		list2.data = arg2->value.fvalue;
-		list2.next = NULL;
-		return cmp_test(MATCH_ANY, cmp, list1, &list2);
-	}
-	ws_assert_not_reached();
+	return cmp_test(df, cmp, arg1, arg2, MATCH_ANY);
 }
 
 /* cmp(A) <=> cmp(a1) AND cmp(a2) AND cmp(a3) AND ... */
@@ -825,20 +1035,7 @@ static gboolean
 all_test(dfilter_t *df, DFVMCompareFunc cmp,
 				dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
-	ws_assert(arg1->type == REGISTER);
-	GSList *list1 = df->registers[arg1->value.numeric];
-
-	if (arg2->type == REGISTER) {
-		return cmp_test(MATCH_ALL, cmp, list1, df->registers[arg2->value.numeric]);
-	}
-	if (arg2->type == FVALUE) {
-		GSList list2;
-
-		list2.data = arg2->value.fvalue;
-		list2.next = NULL;
-		return cmp_test(MATCH_ALL, cmp, list1, &list2);
-	}
-	ws_assert_not_reached();
+	return cmp_test(df, cmp, arg1, arg2, MATCH_ALL);
 }
 
 static gboolean
@@ -1183,9 +1380,21 @@ mk_minus_internal(GSList *arg1, GSList **retval)
 static void
 mk_minus(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *to_arg)
 {
-	ws_assert(arg1->type == REGISTER);
-	GSList *list1 = df->registers[arg1->value.numeric];
+	GSList ls1;
+	GSList *list1;
 	GSList *result = NULL;
+
+	if (arg1->type == REGISTER) {
+		list1 = df->registers[arg1->value.numeric];
+	}
+	else if (arg1->type == FVALUE) {
+		ls1.data = arg1->value.fvalue;
+		ls1.next = NULL;
+		list1 = &ls1;
+	}
+	else {
+		ws_assert_not_reached();
+	}
 
 	mk_minus_internal(list1, &result);
 
@@ -1262,7 +1471,7 @@ check_exists(proto_tree *tree, dfvm_value_t *arg1, dfvm_value_t *arg2)
 			return TRUE;
 		}
 
-		fvalues = filter_finfo_fvalues(NULL, finfos, range);
+		fvalues = filter_finfo_fvalues(NULL, finfos, range, FALSE);
 		exists = (fvalues != NULL);
 		g_slist_free(fvalues);
 		if (exists) {

@@ -25,7 +25,7 @@
 #include <wsutil/report_message.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/wslog.h>
-#include <ui/cmdarg_err.h>
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/exported_pdu_tlvs.h>
 
@@ -58,7 +58,7 @@
 #define PCAP_RECORD_HEADER_LENGTH              16
 
 #ifdef ANDROIDDUMP_USE_LIBPCAP
-    #include "wspcap.h"
+    #include <pcap.h>
     #include <pcap-bpf.h>
     #include <pcap/bluetooth.h>
 
@@ -549,7 +549,7 @@ static socket_handle_t adb_connect(const char *server_ip, unsigned short *server
 
     server.sin_family = AF_INET;
     server.sin_port = GINT16_TO_BE(*server_tcp_port);
-    ws_inet_pton4(server_ip, &(server.sin_addr.s_addr));
+    ws_inet_pton4(server_ip, (ws_in4_addr *)&(server.sin_addr.s_addr));
 
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET) {
         ws_warning("Cannot open system TCP socket: %s", strerror(errno));
@@ -999,7 +999,7 @@ static int register_interfaces(extcap_parameters * extcap_conf, const char *adb_
     const char            *adb_ps_droid_bluetooth = "shell:ps droid.bluetooth";
     const char            *adb_ps_bluetooth_app   = "shell:ps com.android.bluetooth";
     const char            *adb_ps_with_grep       = "shell:ps | grep com.android.bluetooth";
-    const char            *adb_ps_all_with_grep   = "shell:ps -A | grep com.android.bluetooth";
+    const char            *adb_ps_all_with_grep   = "shell:ps -A | grep com.*android.bluetooth";
     char                   serial_number[SERIAL_NUMBER_LENGTH_MAX];
     char                   model_name[MODEL_NAME_LENGTH_MAX];
     int                    result;
@@ -1709,7 +1709,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
         memset(&server, 0 , sizeof(server));
         server.sin_family = AF_INET;
         server.sin_port = GINT16_TO_BE(*bt_local_tcp_port);
-        ws_inet_pton4(bt_local_ip, &(server.sin_addr.s_addr));
+        ws_inet_pton4(bt_local_ip, (ws_in4_addr *)&(server.sin_addr.s_addr));
 
         useSndTimeout(sock);
 
@@ -1784,7 +1784,7 @@ static int capture_android_bluetooth_external_parser(char *interface,
 
                 server.sin_family = AF_INET;
                 server.sin_port = GINT16_TO_BE(*bt_local_tcp_port);
-                ws_inet_pton4(bt_local_ip, &(server.sin_addr.s_addr));
+                ws_inet_pton4(bt_local_ip, (ws_in4_addr *)&(server.sin_addr.s_addr));
 
                 useSndTimeout(sock);
 

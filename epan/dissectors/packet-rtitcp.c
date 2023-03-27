@@ -615,19 +615,16 @@ static guint16 dissect_control_message(proto_tree *rtitcp_tree, tvbuff_t *tvb, p
 
 /* This function dissects all the control messages found */
 static guint dissect_rtitcp_control_protocol(proto_tree *rtitcp_tree, tvbuff_t *tvb, packet_info *pinfo) {
-    guint messages_count, offset;
+    guint offset;
     guint16 msg_length;
     guint32 tvb_len;
 
     offset = 0;
     tvb_len = tvb_reported_length(tvb);
 
-    messages_count = 0;
-
     while (offset < tvb_len) {
         msg_length = dissect_control_message(rtitcp_tree, tvb, pinfo, offset);
         offset += msg_length;
-        ++messages_count;
     }
 
     return offset;
@@ -783,7 +780,7 @@ proto_register_rtitcp(void)
 
         { &hf_rtitcp_header_control_byte, {
             "Control Byte", "rtitcp.header.control_byte",
-            FT_UINT8, BASE_HEX, NULL, 0,
+            FT_UINT16, BASE_HEX, NULL, 0,
             0, HFILL }
         },
 

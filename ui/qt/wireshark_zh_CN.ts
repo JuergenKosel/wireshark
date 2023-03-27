@@ -1560,6 +1560,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>实时更新分组列表</translation>
     </message>
     <message>
+        <source>Interval between updates (ms)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;How often the capture notifies the GUI of new packets. Affects how often the GUI updates and the granularity of timers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The interval between new packet updates. Affects how often the GUI updates and the granularity of timers.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Keep the packet list scrolled to the bottom while capturing.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
         <translation>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;在捕获进行时，保持分组列表滚动到底部。&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</translation>
     </message>
@@ -1675,11 +1687,11 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Your coloring rules file contains unknown rules</source>
-        <translation>您的着色规则文件包含未知规则</translation>
+        <translation type="vanished">您的着色规则文件包含未知规则</translation>
     </message>
     <message>
         <source>Wireshark doesn&apos;t recognize one or more of your coloring rules. They have been disabled.</source>
-        <translation>Wireshark 无法识别您的一个或多个着色规则。它们已被禁用。</translation>
+        <translation type="vanished">Wireshark 无法识别您的一个或多个着色规则。它们已被禁用。</translation>
     </message>
 </context>
 <context>
@@ -2470,6 +2482,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Latitude</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Longitude</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>AS Number</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3219,19 +3239,19 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>个人 Lua 插件</translation>
     </message>
     <message>
-        <source>lua scripts</source>
-        <translation>lua 脚本</translation>
-    </message>
-    <message>
         <source>Global Lua Plugins</source>
         <translation>全局 Lua 插件</translation>
     </message>
     <message>
-        <source>Extcap Plugins search path</source>
-        <translation>Extcap 插件搜索路径</translation>
+        <source>Lua scripts</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Personal Extcap path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>external capture (extcap) plugins</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3273,6 +3293,13 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Typical Files</source>
         <translation>典型文件</translation>
+    </message>
+</context>
+<context>
+    <name>FollowStreamAction</name>
+    <message>
+        <source>%1 Stream</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -3385,26 +3412,8 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>请确保您已选中一个 %1 分组。</translation>
     </message>
     <message>
-        <source>QUIC streams not found on the selected packet.</source>
+        <source>%1 stream not found on the selected packet.</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message numerus="yes">
-        <source>%Ln total sub stream(s).</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>Total number of QUIC connections: %Ln</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>Max QUIC Stream ID for the selected connection: %Ln</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
     </message>
     <message>
         <source>Entire conversation (%1)</source>
@@ -3426,14 +3435,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>[Stream output truncated]</source>
         <translation>[流输出被截断]</translation>
     </message>
-    <message>
-        <source>A transport or network layer header is needed.</source>
-        <translation>需要传输层或网络层头部。</translation>
-    </message>
     <message numerus="yes">
         <source>%Ln total stream(s).</source>
         <translation>
             <numerusform>%Ln 全部流。</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>Max sub stream ID for the selected stream: %Ln</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
         </translation>
     </message>
     <message>
@@ -3798,6 +3809,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Clear all graphs.</source>
         <translation>清除所有图形。</translation>
+    </message>
+    <message>
+        <source>Move this graph upwards.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Move this graph downwards.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Mouse</source>
@@ -5844,6 +5863,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Maximum number of cached rows (affects sorting)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If more than this many rows are displayed, then sorting by columns that require packet dissection will be disabled. Increasing this number increases memory consumption by caching column values.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Enable mouse-over colorization</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6330,14 +6357,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">导入</translation>
     </message>
     <message>
-        <source>from zip file</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>from directory</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Export</source>
         <translation type="unfinished">导出</translation>
     </message>
@@ -6429,11 +6448,19 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>无分组</translation>
     </message>
     <message>
-        <source>selected personal profile</source>
+        <source>From Zip File...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>all personal profiles</source>
+        <source>From Directory...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected Personal Profile...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All Personal Profiles...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6541,6 +6568,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Use system setting</source>
         <translation>使用系统设置</translation>
+    </message>
+    <message>
+        <source>Debounce Timer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;How long to wait (in milliseconds) before processing user input&lt;br/&gt;If you type quickly, consider lowering the value for a &apos;snappier&apos; experience.&lt;br/&gt; If you type slowly, consider increasing the value to avoid performance issues.&lt;br/&gt;This is currently used to delay searches in View -&gt; Internals -&gt; Supported Protocols and Preferences -&gt; Advanced menu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Open Files In</source>
@@ -7069,7 +7104,19 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>PacketListModel</name>
     <message>
+        <source>Column</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 can only be sorted with %2 or fewer visible rows; increase cache size in Layout preferences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Sorting &quot;%1&quot;…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sorting …</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -7357,6 +7404,24 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">导出</translation>
     </message>
     <message>
+        <source>From Zip File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>From Directory...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%Ln Selected Personal Profile(s)...</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>All Personal Profiles...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>New profile</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7375,12 +7440,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Select zip file for export</source>
         <translation type="unfinished"></translation>
-    </message>
-    <message numerus="yes">
-        <source>%Ln selected personal profile(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-        </translation>
     </message>
     <message>
         <source>An import of profiles is not allowed, while changes are pending</source>
@@ -7414,18 +7473,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Zip File (*.zip)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>from zip file</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>from directory</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>all personal profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -12344,6 +12391,10 @@ a:hover {
 
 &lt;th&gt;&lt;a href=&quot;https://discord.com/invite/ts9GZCjGj5&quot;&gt;Wireshark Discord&lt;/a&gt;&lt;/th&gt;
 
+&lt;td style=&quot;padding-left: 8px; padding-right: 8px;&quot;&gt;·&lt;/td&gt;
+
+&lt;th&gt;&lt;a href=&quot;https://wiresharkfoundation.org/donate/&quot;&gt;Donate&lt;/a&gt;&lt;/th&gt;
+
 &lt;/tr&gt;&lt;/table&gt;
 &lt;/body&gt;&lt;/html&gt;</source>
         <translation type="unfinished"></translation>
@@ -12911,6 +12962,10 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&amp;DTN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Osmux</source>
         <translation type="unfinished"></translation>
     </message>
@@ -13206,23 +13261,15 @@ a:hover {
         <translation>TCP 窗口尺寸</translation>
     </message>
     <message>
-        <source>DCCP Stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>TLS Stream</source>
-        <translation>TLS 流</translation>
+        <translation type="vanished">TLS 流</translation>
     </message>
     <message>
         <source>HTTP Stream</source>
-        <translation>HTTP 流</translation>
+        <translation type="vanished">HTTP 流</translation>
     </message>
     <message>
         <source>HTTP/2 Stream</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>QUIC Stream</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13390,6 +13437,14 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&amp;LTP</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>LTP segment and block statistics</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>&amp;ISUP Messages</source>
         <translation>ISUP 消息(&amp;I)</translation>
     </message>
@@ -13539,6 +13594,10 @@ a:hover {
     </message>
     <message>
         <source>Seconds Since First Captured Packet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show packet times as the seconds since the first captured packet.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -13755,11 +13814,11 @@ a:hover {
     </message>
     <message>
         <source>TCP Stream</source>
-        <translation>TCP 流</translation>
+        <translation type="vanished">TCP 流</translation>
     </message>
     <message>
         <source>UDP Stream</source>
-        <translation>UDP 流</translation>
+        <translation type="vanished">UDP 流</translation>
     </message>
     <message>
         <source>Request Sequences</source>

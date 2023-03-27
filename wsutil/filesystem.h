@@ -53,9 +53,25 @@ WS_DLL_PUBLIC const char *get_configuration_namespace(void);
 WS_DLL_PUBLIC bool is_packet_configuration_namespace(void);
 
 /*
- * Get the directory in which the program resides.
+ * Get the directory in which the main (Wireshark, TShark, Logray, etc)
+ * program resides.
+ * Extcaps should use get_extcap_dir() to get their path.
+ *
+ * @return The main program file directory.
  */
 WS_DLL_PUBLIC const char *get_progfile_dir(void);
+
+/*
+ * Construct the path name of a non-extcap Wireshark executable file,
+ * given the program name.  The executable name doesn't include ".exe";
+ * append it on Windows, so that callers don't have to worry about that.
+ *
+ * This presumes that all non-extcap executables are in the same directory.
+ *
+ * The returned file name was g_malloc()'d so it must be g_free()d when the
+ * caller is done with it.
+ */
+WS_DLL_PUBLIC char *get_executable_path(const char *filename);
 
 /*
  * Get the directory in which plugins are stored; this must not be called
@@ -87,6 +103,11 @@ WS_DLL_PUBLIC const char *get_plugins_pers_dir_with_version(void);
 WS_DLL_PUBLIC const char *get_extcap_dir(void);
 
 /*
+ * Get the personal extcap dir.
+ */
+WS_DLL_PUBLIC const char *get_extcap_pers_dir(void);
+
+/*
  * Get the flag indicating whether we're running from a build
  * directory.
  */
@@ -106,6 +127,30 @@ WS_DLL_PUBLIC const char *get_datafile_dir(void);
  * caller is done with it.
  */
 WS_DLL_PUBLIC char *get_datafile_path(const char *filename);
+
+/*
+ * Get the directory in which global documentation files are
+ * stored.
+ */
+WS_DLL_PUBLIC const char *get_doc_dir(void);
+
+/*
+ * Construct the path name of a global documentation file, given the
+ * file name.
+ *
+ * The returned file name was g_malloc()'d so it must be g_free()d when the
+ * caller is done with it.
+ */
+WS_DLL_PUBLIC char *get_docfile_path(const char *filename);
+
+/*
+ * Construct the path URL of a global documentation file, given the
+ * file name.
+ *
+ * The returned file name was g_malloc()'d so it must be g_free()d when the
+ * caller is done with it.
+ */
+WS_DLL_PUBLIC char *doc_file_url(const char *filename);
 
 /*
  * Get the directory in which files that, at least on UNIX, are

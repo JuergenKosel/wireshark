@@ -56,10 +56,7 @@ void ElidedLabel::updateText()
 
     if (url_.length() > 0) {
         label_text.prepend(ColorUtils::themeLinkStyle());
-        label_text.append(QString("<a href=\"%1\">%2</a>")
-                .arg(url_)
-                .arg(elided_text)
-                );
+        label_text.append(QString("<a href=\"%1\">%2</a>").arg(url_, elided_text));
     } else {
         label_text += elided_text;
     }
@@ -77,6 +74,6 @@ void ElidedLabel::clear()
 
 void ElidedLabel::setText(const QString &text)
 {
-    full_text_ = text;
+    full_text_ = text.toHtmlEscaped();
     updateText();
 }

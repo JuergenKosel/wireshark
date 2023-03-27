@@ -10,18 +10,14 @@
 
 #include "config.h"
 
-/* Because ws_assert() dependes on ws_error() we do not use it
- * here and fall back on assert() instead. */
-#if defined(WS_DISABLE_ASSERT) && !defined(NDEBUG)
-#define NDEBUG
-#endif
-
 #include "wslog.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+/* Because ws_assert() dependes on ws_error() we do not use it
+ * here and fall back on assert() instead. */
 #include <assert.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -40,12 +36,7 @@
 #include "console_win32.h"
 #endif
 
-
-#ifndef WS_DISABLE_ASSERT
 #define ASSERT(expr)    assert(expr)
-#else
-#define ASSERT(expr)    (void)(expr);
-#endif
 
 /* Runtime log level. */
 #define ENV_VAR_LEVEL       "WIRESHARK_LOG_LEVEL"
@@ -643,9 +634,7 @@ static void tokenize_filter_str(log_filter_t **filter_ptr,
                                     const char *str_filter,
                                     enum ws_log_level min_level)
 {
-    char *tok, *str;
     const char *sep = ",;";
-    GPtrArray *ptr;
     bool negated = false;
     log_filter_t *filter;
 
@@ -662,22 +651,8 @@ static void tokenize_filter_str(log_filter_t **filter_ptr,
     if (*str_filter == '\0')
         return;
 
-    ptr = g_ptr_array_new_with_free_func(g_free);
-    str = g_strdup(str_filter);
-
-    for (tok = strtok(str, sep); tok != NULL; tok = strtok(NULL, sep)) {
-        g_ptr_array_add(ptr, g_strdup(tok));
-    }
-
-    g_free(str);
-    if (ptr->len == 0) {
-        g_ptr_array_free(ptr, true);
-        return;
-    }
-    g_ptr_array_add(ptr, NULL);
-
     filter = g_new(log_filter_t, 1);
-    filter->domainv = (void *)g_ptr_array_free(ptr, false);
+    filter->domainv = g_strsplit_set(str_filter, sep, -1);
     filter->positive = !negated;
     filter->min_level = min_level;
     *filter_ptr = filter;
@@ -790,7 +765,7 @@ static void glib_log_handler(const char *domain, GLogLevelFlags flags,
 
 
 #ifdef _WIN32
-static void load_registry()
+static void load_registry(void)
 {
     LONG lResult;
     DWORD ptype;
@@ -822,6 +797,7 @@ void ws_log_init(const char *progname,
                             void (*vcmdarg_err)(const char *, va_list ap))
 {
     const char *env;
+    int fd;
 
     if (progname != NULL) {
         registered_progname = progname;
@@ -830,8 +806,10 @@ void ws_log_init(const char *progname,
 
     current_log_level = DEFAULT_LOG_LEVEL;
 
-    stdout_color_enabled = g_log_writer_supports_color(fileno(stdout));
-    stderr_color_enabled = g_log_writer_supports_color(fileno(stderr));
+    if ((fd = fileno(stdout)) >= 0)
+        stdout_color_enabled = g_log_writer_supports_color(fd);
+    if ((fd = fileno(stderr)) >= 0)
+        stderr_color_enabled = g_log_writer_supports_color(fd);
 
     /* Set the GLib log handler for the default domain. */
     g_log_set_handler(NULL, G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL,
@@ -842,7 +820,7 @@ void ws_log_init(const char *progname,
                         glib_log_handler, NULL);
 
 #ifdef _WIN32
-    load_registry(vcmdarg_err);
+    load_registry();
 
     /* if the user wants a console to be always there, well, we should open one for him */
     if (ws_log_console_open == LOG_CONSOLE_OPEN_ALWAYS) {
@@ -1186,37 +1164,68 @@ void ws_log_write_always_full(const char *domain, enum ws_log_level level,
 }
 
 
+static void
+append_trailer(const char *src, size_t src_length, wmem_strbuf_t *display, wmem_strbuf_t *underline)
+{
+    gunichar ch;
+    size_t hex_len;
+
+    while (src_length > 0) {
+        ch = g_utf8_get_char_validated(src, src_length);
+        if (ch == (gunichar)-1 || ch == (gunichar)-2) {
+            wmem_strbuf_append_hex(display, *src);
+            wmem_strbuf_append_c_count(underline, '^', 4);
+            src += 1;
+            src_length -= 1;
+        }
+        else {
+            if (g_unichar_isprint(ch)) {
+                wmem_strbuf_append_unichar(display, ch);
+                wmem_strbuf_append_c_count(underline, ' ', 1);
+            }
+            else {
+                hex_len = wmem_strbuf_append_hex_unichar(display, ch);
+                wmem_strbuf_append_c_count(underline, ' ', hex_len);
+            }
+            const char *tmp = g_utf8_next_char(src);
+            src_length -= tmp - src;
+            src = tmp;
+        }
+    }
+}
+
+
 static char *
 make_utf8_display(const char *src, size_t src_length, size_t good_length)
 {
-    wmem_strbuf_t *buf;
-    unsigned char ch;
-    size_t offset = 0;
+    wmem_strbuf_t *display;
+    wmem_strbuf_t *underline;
+    gunichar ch;
+    size_t hex_len;
 
-    buf = wmem_strbuf_new(NULL, NULL);
+    display = wmem_strbuf_create(NULL);
+    underline = wmem_strbuf_create(NULL);
 
-    for (size_t pos = 0; pos < good_length; pos++) {
-        ch = src[pos];
-        wmem_strbuf_append_c(buf, ch);
-        if ((ch >> 6) != 2) {
-            /* first byte */
-            offset += 1;
+    for (const char *s = src; s < src + good_length; s = g_utf8_next_char(s)) {
+        ch = g_utf8_get_char(s);
+
+        if (g_unichar_isprint(ch)) {
+            wmem_strbuf_append_unichar(display, ch);
+            wmem_strbuf_append_c(underline, ' ');
+        }
+        else {
+            hex_len = wmem_strbuf_append_hex_unichar(display, ch);
+            wmem_strbuf_append_c_count(underline, ' ', hex_len);
         }
     }
-    for (size_t pos = good_length; pos < src_length; pos++) {
-        ch = src[pos];
-        wmem_strbuf_append_hex(buf, ch);
-    }
-    wmem_strbuf_append_c(buf, '\n');
 
-    for (size_t pos = 0; pos < offset; pos++) {
-        wmem_strbuf_append_c(buf, ' ');
-    }
-    wmem_strbuf_append(buf, "^^^^");
-    for (size_t pos = good_length + 1; pos < src_length; pos++) {
-        wmem_strbuf_append(buf, "~~~~");
-    }
-    return wmem_strbuf_finalize(buf);
+    append_trailer(&src[good_length], src_length - good_length, display, underline);
+
+    wmem_strbuf_append_c(display, '\n');
+    wmem_strbuf_append(display, underline->str);
+    wmem_strbuf_destroy(underline);
+
+    return wmem_strbuf_finalize(display);
 }
 
 

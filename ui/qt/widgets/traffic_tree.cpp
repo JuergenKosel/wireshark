@@ -44,6 +44,8 @@
 #include <QWidgetAction>
 #include <QLineEdit>
 #include <QActionGroup>
+#include <QDateTime>
+#include <QTime>
 
 MenuEditAction::MenuEditAction(QString text, QString hintText, QObject * parent) :
     QWidgetAction(parent),
@@ -264,14 +266,17 @@ TrafficDataFilterProxy::TrafficDataFilterProxy(QObject *parent) :
     _filterColumn(-1),
     _filterOn(-1),
     _filterText(QString())
-{}
+{
+    setSortRole(ATapDataModel::UNFORMATTED_DISPLAYDATA);
+}
+
 
 void TrafficDataFilterProxy::filterForColumn(int column, int filterOn, QString filterText)
 {
     if (filterOn < 0 || filterOn > TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
         column = -1;
 
-    _filterColumn = column;
+    _filterColumn = mapToSourceColumn(column);
     _filterOn = filterOn;
     _filterText = filterText;
     invalidateFilter();
@@ -280,35 +285,32 @@ void TrafficDataFilterProxy::filterForColumn(int column, int filterOn, QString f
 int TrafficDataFilterProxy::mapToSourceColumn(int proxyColumn) const
 {
     ATapDataModel * model = qobject_cast<ATapDataModel *>(sourceModel());
-    int column = proxyColumn;
-    if (model) {
+    if (!model || proxyColumn == -1) {
+        return proxyColumn;
+    }
 
-        if (qobject_cast<EndpointDataModel *>(model))
-        {
-            if (model->portsAreHidden() && column > EndpointDataModel::ENDP_COLUMN_ADDR)
-                column++;
-            if (! model->showTotalColumn()) {
-                if (column > EndpointDataModel::ENDP_COLUMN_BYTES)
-                    column+=2;
-            }
-        } else if (qobject_cast<ConversationDataModel *>(model)) {
-            if (model->portsAreHidden()) {
-                if (column > ConversationDataModel::CONV_COLUMN_SRC_ADDR)
-                    column++;
-                if (column > ConversationDataModel::CONV_COLUMN_DST_ADDR)
-                    column++;
-            }
-            ConversationDataModel * convModel = qobject_cast<ConversationDataModel *>(model);
-            if (convModel->showConversationId() && column > ConversationDataModel::CONV_COLUMN_BYTES)
-                column++;
-            if (! model->showTotalColumn()) {
-                if (column > ConversationDataModel::CONV_COLUMN_BYTES)
-                    column+=2;
+    if (rowCount() > 0) {
+        return mapToSource(index(0, proxyColumn)).column();
+    }
+
+    /* mapToSource() requires a valid QModelIndex, and thus does not work when
+     * all rows are filtered out by the current filter. (E.g., the user has
+     * accidentally entered an incorrect filter or operator and wants to fix
+     * it.) Since our filterAcceptsColumn doesn't depend on the row, we can
+     * determine the mapping between the currently displayed column number and
+     * the column number in the model this way, even if no rows are displayed.
+     * It is linear time in the number of columns, though.
+     */
+    int currentProxyColumn = 0;
+    for (int column=0; column < model->columnCount(); ++column) {
+        if (filterAcceptsColumn(column, QModelIndex())) {
+            if (currentProxyColumn++ == proxyColumn) {
+                return column;
             }
         }
     }
 
-    return column;
+    return -1;
 }
 
 bool TrafficDataFilterProxy::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
@@ -318,20 +320,120 @@ bool TrafficDataFilterProxy::filterAcceptsRow(int source_row, const QModelIndex 
         bool isFiltered = dataModel->data(dataModel->index(source_row, 0), ATapDataModel::ROW_IS_FILTERED).toBool();
         if (isFiltered && dataModel->filter().length() > 0)
             return false;
+        /* XXX: What if the filter column is now hidden? Should the filter
+         * still apply or should it be cleared? Right now it is still applied.
+         */
 
-        int sourceColumn = mapToSourceColumn(_filterColumn);
-        QModelIndex srcIdx = dataModel->index(source_row, sourceColumn);
+        QModelIndex srcIdx = dataModel->index(source_row, _filterColumn);
         if (srcIdx.isValid()) {
             QVariant data = srcIdx.data(ATapDataModel::UNFORMATTED_DISPLAYDATA);
 
             bool filtered = false;
-            if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
-                filtered = data.toLongLong() < _filterText.toLongLong();
-            else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
-                filtered = data.toLongLong() > _filterText.toLongLong();
-            else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL) {
-                filtered = data.toLongLong() == _filterText.toLongLong();
+            /* QVariant comparisons coerce to the first parameter type, so
+             * putting data first and converting the string to it is important.
+             */
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            /* QVariant::compare coerces strings to numeric types, but does
+             * not try to automatically convert them to datetime related types.
+             */
+            QVariant rhs = QVariant(_filterText);
+            if (data.userType() == QMetaType::QDateTime) {
+                /* Try to parse with a date included in the filter, and
+                 * fallback to time only if that fails.
+                 */
+                QDateTime filter_dt = QDateTime::fromString(_filterText, Qt::ISODateWithMs);
+                if (filter_dt.isValid()) {
+                    rhs.setValue(filter_dt);
+                } else {
+                    QTime filterTime = QTime::fromString(_filterText, Qt::ISODateWithMs);
+                    if (filterTime.isValid()) {
+                        rhs.setValue(filterTime);
+                        data.setValue(data.toTime());
+                    } else {
+                        rhs = QVariant();
+                    }
+                }
             }
+            QPartialOrdering result = QVariant::compare(data, rhs);
+            if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                filtered = result < 0;
+            else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                filtered = result > 0;
+            else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                filtered = result == 0;
+#else
+            /* The comparisons are deprecated in 5.15. This is most of the
+             * implementation of QAbstractItemModelPrivate::isVariantLessThan
+             * from the Qt source.
+             */
+            if (_filterText.isEmpty())
+                filtered = true;
+            else if (data.isNull())
+                filtered = false;
+            else {
+                switch (data.userType()) {
+                case QMetaType::Int:
+                case QMetaType::UInt:
+                case QMetaType::LongLong:
+                    if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                        filtered = data.toLongLong() < _filterText.toLongLong();
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                        filtered = data.toLongLong() > _filterText.toLongLong();
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                        filtered = data.toLongLong() == _filterText.toLongLong();
+                    break;
+                case QMetaType::Float:
+                case QMetaType::Double:
+                    if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                        filtered = data.toDouble() < _filterText.toDouble();
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                        filtered = data.toDouble() > _filterText.toDouble();
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                        filtered = data.toDouble() == _filterText.toDouble();
+                    break;
+                case QMetaType::QDateTime:
+                {
+                    /* Try to parse with a date included, and fall back to time
+                     * only if that fails.
+                     */
+                    QDateTime filter_dt = QDateTime::fromString(_filterText, Qt::ISODateWithMs);
+                    if (filter_dt.isValid()) {
+                        if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                            filtered = data.toDateTime() < filter_dt;
+                        else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                            filtered = data.toDateTime() > filter_dt;
+                        else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                            filtered = data.toDateTime() == filter_dt;
+                        break;
+                    }
+                }
+                /* FALLTHROUGH */
+                case QMetaType::QTime:
+                {
+                    QTime filter_t = QTime::fromString(_filterText, Qt::ISODateWithMs);
+                    if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                        filtered = data.toTime() < filter_t;
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                        filtered = data.toTime() > filter_t;
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                        filtered = data.toTime() == filter_t;
+                    break;
+                }
+                case QMetaType::QString:
+                default:
+                    /* XXX: We don't do UTF-8 aware coallating in Packet List
+                     * (because it's slow), but possibly could here.
+                     */
+                    if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_LESS)
+                        filtered = data.toString() < _filterText;
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_GREATER)
+                        filtered = data.toString() > _filterText;
+                    else if (_filterOn == TrafficDataFilterProxy::TRAFFIC_DATA_EQUAL)
+                        filtered = data.toString() == _filterText;
+                    break;
+                }
+            }
+#endif
 
             if (!filtered)
                 return false;
@@ -426,9 +528,6 @@ bool TrafficDataFilterProxy::lessThan(const QModelIndex &source_left, const QMod
 
         return result;
     }
-
-    if (datA.canConvert<double>() && datB.canConvert<double>())
-        return datA.toDouble() < datB.toDouble();
 
     return QSortFilterProxyModel::lessThan(source_left, source_right);
 }
@@ -535,6 +634,10 @@ void TrafficTree::customContextMenu(const QPoint &pos)
     bool isConv = false;
 
     QModelIndex idx = indexAt(pos);
+    TrafficDataFilterProxy * proxy = qobject_cast<TrafficDataFilterProxy *>(model());
+    if (proxy)
+        idx = proxy->mapToSource(idx);
+
     ConversationDataModel * model = qobject_cast<ConversationDataModel *>(dataModel());
     if (model)
         isConv = true;
@@ -680,19 +783,26 @@ void TrafficTree::toggleSaveRawAction()
 
 void TrafficTree::copyToClipboard(eTrafficTreeClipboard type)
 {
-    ATapDataModel * model = dataModel();
-    if (!model)
+    if (!model())
         return;
 
     QString clipText;
     QTextStream stream(&clipText, QIODevice::Text);
 
     if (type == CLIPBOARD_CSV) {
-        for (int row = 0; row < model->rowCount(); row++) {
-            QStringList rdsl;
-            for (int col = 0; col < model->columnCount(); col++) {
-                QModelIndex idx = model->index(row, col);
-                QVariant v = model->data(idx, _exportRole);
+        QMap<int, QString> headers;
+        QStringList rdsl;
+        for (int cnt = 0; cnt < model()->columnCount(); cnt++)
+        {
+            rdsl << model()->headerData(cnt, Qt::Horizontal, Qt::DisplayRole).toString();
+        }
+        stream << rdsl.join(",") << "\n";
+
+        for (int row = 0; row < model()->rowCount(); row++) {
+            rdsl.clear();
+            for (int col = 0; col < model()->columnCount(); col++) {
+                QModelIndex idx = model()->index(row, col);
+                QVariant v = model()->data(idx, _exportRole);
                 if (!v.isValid()) {
                     rdsl << "\"\"";
                 } else if (v.userType() == QMetaType::QString) {
@@ -705,26 +815,30 @@ void TrafficTree::copyToClipboard(eTrafficTreeClipboard type)
         }
     } else if (type == CLIPBOARD_YAML) {
         stream << "---" << '\n';
-        for (int row = 0; row < model->rowCount(); row++) {
+        QMap<int, QString> headers;
+        for (int cnt = 0; cnt < model()->columnCount(); cnt++)
+            headers.insert(cnt, model()->headerData(cnt, Qt::Horizontal, Qt::DisplayRole).toString());
+
+        for (int row = 0; row < model()->rowCount(); row++) {
             stream << "-" << '\n';
-            for (int col = 0; col < model->columnCount(); col++) {
-                QModelIndex idx = model->index(row, col);
-                QVariant v = model->data(idx, _exportRole);
-                stream << " - " << v.toString() << '\n';
+            for (int col = 0; col < model()->columnCount(); col++) {
+                QModelIndex idx = model()->index(row, col);
+                QVariant v = model()->data(idx, _exportRole);
+                stream << " - " << headers[col] << ": " << v.toString() << '\n';
             }
         }
     } else if (type == CLIPBOARD_JSON) {
         QMap<int, QString> headers;
-        for (int cnt = 0; cnt < model->columnCount(); cnt++)
-            headers.insert(cnt, model->headerData(cnt, Qt::Horizontal, Qt::DisplayRole).toString());
+        for (int cnt = 0; cnt < model()->columnCount(); cnt++)
+            headers.insert(cnt, model()->headerData(cnt, Qt::Horizontal, Qt::DisplayRole).toString());
 
         QJsonArray records;
 
-        for (int row = 0; row < model->rowCount(); row++) {
+        for (int row = 0; row < model()->rowCount(); row++) {
             QJsonObject rowData;
             foreach(int col, headers.keys()) {
-                QModelIndex idx = model->index(row, col);
-                rowData.insert(headers[col], model->data(idx, _exportRole).toString());
+                QModelIndex idx = model()->index(row, col);
+                rowData.insert(headers[col], model()->data(idx, _exportRole).toString());
             }
             records.push_back(rowData);
         }

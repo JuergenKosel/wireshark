@@ -12,6 +12,8 @@
 #ifndef __WMEM_STRBUF_H__
 #define __WMEM_STRBUF_H__
 
+#include <ws_codepoints.h>
+
 #include "wmem_core.h"
 
 #ifdef __cplusplus
@@ -45,24 +47,22 @@ struct _wmem_strbuf_t {
 
     /* private fields */
     size_t alloc_size;
-    size_t max_size;
 };
 
 typedef struct _wmem_strbuf_t wmem_strbuf_t;
 
 WS_DLL_PUBLIC
 wmem_strbuf_t *
-wmem_strbuf_sized_new(wmem_allocator_t *allocator,
-                      size_t alloc_size, size_t max_size)
+wmem_strbuf_new_sized(wmem_allocator_t *allocator, size_t alloc_size)
 G_GNUC_MALLOC;
-
-#define wmem_strbuf_new_label(ALLOCATOR) \
-    wmem_strbuf_sized_new((ALLOCATOR), 0, ITEM_LABEL_LENGTH)
 
 WS_DLL_PUBLIC
 wmem_strbuf_t *
 wmem_strbuf_new(wmem_allocator_t *allocator, const gchar *str)
 G_GNUC_MALLOC;
+
+#define wmem_strbuf_create(allocator) \
+    wmem_strbuf_new(allocator, "")
 
 WS_DLL_PUBLIC
 wmem_strbuf_t *
@@ -100,11 +100,30 @@ wmem_strbuf_append_c(wmem_strbuf_t *strbuf, const gchar c);
 
 WS_DLL_PUBLIC
 void
+wmem_strbuf_append_c_count(wmem_strbuf_t *strbuf, const gchar c, size_t count);
+
+WS_DLL_PUBLIC
+void
 wmem_strbuf_append_unichar(wmem_strbuf_t *strbuf, const gunichar c);
+
+#define wmem_strbuf_append_unichar_repl(buf) \
+            wmem_strbuf_append_unichar(buf, UNICODE_REPLACEMENT_CHARACTER)
+
+/* As wmem_strbuf_append_unichar but appends a REPLACEMENT CHARACTER
+ * instead for any invalid Unicode codepoints.
+ */
+WS_DLL_PUBLIC
+void
+wmem_strbuf_append_unichar_validated(wmem_strbuf_t *strbuf, const gunichar c);
 
 WS_DLL_PUBLIC
 void
 wmem_strbuf_append_hex(wmem_strbuf_t *strbuf, uint8_t);
+
+/* Returns the number of characters written (4, 6 or 10). */
+WS_DLL_PUBLIC
+size_t
+wmem_strbuf_append_hex_unichar(wmem_strbuf_t *strbuf, gunichar);
 
 WS_DLL_PUBLIC
 void
@@ -139,6 +158,11 @@ WS_DLL_PUBLIC
 void
 wmem_strbuf_destroy(wmem_strbuf_t *strbuf);
 
+/* Validates the string buffer as UTF-8.
+ * Unlike g_utf8_validate(), accepts embedded NUL bytes as valid UTF-8.
+ * If endpptr is non-NULL, then the end of the valid range is stored there
+ * (i.e. the first invalid character, or the end of the buffer otherwise).
+ */
 WS_DLL_PUBLIC
 bool
 wmem_strbuf_utf8_validate(wmem_strbuf_t *strbuf, const char **endptr);

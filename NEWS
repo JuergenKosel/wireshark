@@ -12,6 +12,27 @@ Wireshark 4.1.0 Release Notes
 
   Wireshark is now better about generating valid UTF-8 output.
 
+  A new display filter feature for filtering raw bytes has been added.
+
+  Display filter autocomplete is smarter about not suggesting invalid
+  syntax.
+
+  The Windows build has a new SpeexDSP external dependency
+  (https://www.speex.org). The speex code that was previously bundled
+  has been removed.
+
+  The personal extcap plugin folder location on Unix has been changed to
+  follow existing conventions for architecture-dependent files. The
+  extcap personal folder is now `$HOME/.local/lib/wireshark/extcap`.
+  Previously it was `$XDG_CONFIG_HOME/wireshark/extcap`.
+
+  The installation target no longer installs development headers by
+  default. That must be done explicitly using `cmake --install
+  <builddir> --component Development`.
+
+  The Wireshark installation is relocatable on Linux (and other ELF
+  platforms with support for relative RPATHs).
+
   Many other improvements have been made. See the “New and Updated
   Features” section below for more details.
 
@@ -21,6 +42,9 @@ Wireshark 4.1.0 Release Notes
 
      • Issue 18413[1] - RTP player do not play audio frequently on Win32
        builds with Qt6
+
+     • Issue 18510[2] - Playback marker do not move after unpause with
+       Qt6
 
   New and Updated Features
 
@@ -33,18 +57,52 @@ Wireshark 4.1.0 Release Notes
      • Wireshark now builds with Qt6 by default. To use Qt5 instead pass
        USE_qt6=OFF to CMake.
 
-  Removed Features and Support
+     • It is now possible to filter on raw packet data for any field by
+       using the syntax `@some.field == <bytes…​>`. This can be useful
+       to filter on malformed UTF-8 strings, among other use cases where
+       it is necessary to look at the field’s raw data.
 
-     • The experimental display filter syntax for literals using angle
-       brackets <…​> that was introduced in Wireshark 4.0.0 has been
-       removed. For byte arrays a colon prefix can be used instead. See
-       the User’s Guide[2] for details.
+     • Negation (unary minus) now works with any display filter
+       arithmetic expression.
+
+     • ciscodump support Cisco IOS XE 17.x
+
+     • The default interval between GUI updates when capturing has been
+       decreased from 500ms to 100ms, and is now configurable.
 
   New Protocol Support
 
+   DECT DLC protocol layer (DECT-DLC), DECT NWK protocol layer
+   (DECT-NWK), DECT proprietary Mitel OMM/RFP Protocol (also named
+   AaMiDe), Low Level Signalling (ATSC3 LLS), Management Component
+   Transport Protocol (MCTP), Management Component Transport Protocol -
+   Control Protocol (MCTP CP), Non-volatile Memory Express - Management
+   Interface (NVMe-MI) over MCTP, SAP Enqueue Server (SAPEnqueue), SAP
+   GUI (SAPDiag), SAP HANA SQL Command Network Protocol (SAPHDB), SAP
+   Internet Graphic Server (SAP IGS), SAP Message Server (SAPMS), SAP
+   Network Interface (SAPNI), SAP Router (SAPROUTER), SAP Secure Network
+   Connection (SNC), Support for almost all WoW 1.12 messages has been
+   added., Train Real-Time Data Protocol (TRDP), Windows Delivery
+   Optimization (MS-DO), and World of Warcraft World (WOWW) display
+   filters have been changed to be more internally consistent.
+
   Updated Protocol Support
 
-   Too many protocols have been updated to list here.
+     • The JSON dissector now has a preference to enable/disable
+       "unescaping" of string values. By default it is off. Previously
+       it was always on.
+
+     • The JSON dissector now supports "Display JSON in raw form".
+
+     • The IPv6 dissector has a new preference to show some semantic
+       details about addresses (default off).
+
+     • The XML dissector now supports display character according to the
+       "encoding" attribute of the XML declaration, and has a new
+       preference to set default character encoding for some XML
+       document without "encoding" attribute.
+
+   Too many other protocols have been updated to list them all here.
 
   New and Updated Capture File Support
 
@@ -82,18 +140,24 @@ Wireshark 4.1.0 Release Notes
   You can learn protocol analysis and meet Wireshark’s developers at
   SharkFest[7].
 
+ How You Can Help
+
+  The Wireshark Foundation helps as many people as possible understand
+  their networks as much as possible. You can find out more and donate
+  at wiresharkfoundation.org[8].
+
  Frequently Asked Questions
 
-  A complete FAQ is available on the Wireshark web site[8].
+  A complete FAQ is available on the Wireshark web site[9].
 
  References
 
    1. https://gitlab.com/wireshark/wireshark/-/issues/18413
-   2. https://www.wireshark.org/docs/wsug_html_chunked/ChWorkBuildDispla
-  yFilterSection.html#_some_protocol_names_can_be_ambiguous
+   2. https://gitlab.com/wireshark/wireshark/-/issues/18510
    3. https://www.wireshark.org/download.html
    4. https://ask.wireshark.org/
    5. https://www.wireshark.org/lists/
    6. https://gitlab.com/wireshark/wireshark/-/issues
    7. https://sharkfest.wireshark.org
-   8. https://www.wireshark.org/faq.html
+   8. https://wiresharkfoundation.org
+   9. https://www.wireshark.org/faq.html

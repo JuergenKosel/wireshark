@@ -14,6 +14,8 @@
 
 #include <string.h>
 
+#include <ws_codepoints.h>
+
 #include <wsutil/to_str.h>
 
 
@@ -490,7 +492,7 @@ escape_string_len(wmem_allocator_t *alloc, const char *string, ssize_t len,
     if (add_quotes)
         alloc_size += 2;
 
-    buf = wmem_strbuf_sized_new(alloc, alloc_size, 0);
+    buf = wmem_strbuf_new_sized(alloc, alloc_size);
 
     if (add_quotes)
         wmem_strbuf_append_c(buf, '"');
@@ -550,7 +552,7 @@ ws_strdup_underline(wmem_allocator_t *allocator, long offset, size_t len)
     if (offset < 0)
         return NULL;
 
-    wmem_strbuf_t *buf = wmem_strbuf_sized_new(allocator, offset + len, 0);
+    wmem_strbuf_t *buf = wmem_strbuf_new_sized(allocator, offset + len);
 
     for (int i = 0; i < offset; i++) {
         wmem_strbuf_append_c(buf, ' ');
@@ -625,11 +627,6 @@ ws_strdup_underline(wmem_allocator_t *allocator, long offset, size_t len)
  */
 #define FMTBUF_ENDSTR \
     fmtbuf[column] = '\0'
-
-/* REPLACEMENT CHARACTER */
-#define UNREPL 0xFFFD
-
-#define UNPOOP 0x1F4A9
 
 static gchar *
 format_text_internal(wmem_allocator_t *allocator,
@@ -761,7 +758,7 @@ format_text_internal(wmem_allocator_t *allocator,
                          * instead, and then continue the loop, which
                          * will terminate.
                          */
-                        uc = UNREPL;
+                        uc = UNICODE_REPLACEMENT_CHARACTER;
                         break;
                     }
                     c = *string;
@@ -771,7 +768,7 @@ format_text_internal(wmem_allocator_t *allocator,
                          * a replacement character, and then re-process
                          * this octet as the beginning of a new character.
                          */
-                        uc = UNREPL;
+                        uc = UNICODE_REPLACEMENT_CHARACTER;
                         break;
                     }
                     string++;
@@ -783,10 +780,10 @@ format_text_internal(wmem_allocator_t *allocator,
                  * a REPLACEMENT CHARACTER.
                  */
                 if (!g_unichar_validate(uc))
-                    uc = UNREPL;
+                    uc = UNICODE_REPLACEMENT_CHARACTER;
             } else {
                 /* 0xfe or 0xff; put it a REPLACEMENT CHARACTER */
-                uc = UNREPL;
+                uc = UNICODE_REPLACEMENT_CHARACTER;
             }
 
             /*
@@ -1016,7 +1013,7 @@ format_text_chr(wmem_allocator_t *allocator, const char *string, size_t len, cha
 {
     wmem_strbuf_t *buf;
 
-    buf = wmem_strbuf_sized_new(allocator, len + 1, 0);
+    buf = wmem_strbuf_new_sized(allocator, len + 1);
     for (const char *p = string; p < string + len; p++) {
         if (g_ascii_isprint(*p)) {
             wmem_strbuf_append_c(buf, *p);
@@ -1029,6 +1026,34 @@ format_text_chr(wmem_allocator_t *allocator, const char *string, size_t len, cha
         }
     }
     return wmem_strbuf_finalize(buf);
+}
+
+char *
+format_char(wmem_allocator_t *allocator, char c)
+{
+    char *buf;
+    char r;
+
+    if (g_ascii_isprint(c)) {
+        buf = wmem_alloc_array(allocator, char, 2);
+        buf[0] = c;
+        buf[1] = '\0';
+        return buf;
+    }
+    if (escape_char(c, &r)) {
+        buf = wmem_alloc_array(allocator, char, 3);
+        buf[0] = '\\';
+        buf[1] = r;
+        buf[2] = '\0';
+        return buf;
+    }
+    buf = wmem_alloc_array(allocator, char, 5);
+    buf[0] = '\\';
+    buf[1] = 'x';
+    buf[2] = hex[((uint8_t)c >> 4) & 0xF];
+    buf[3] = hex[((uint8_t)c >> 0) & 0xF];
+    buf[4] = '\0';
+    return buf;
 }
 
 char*

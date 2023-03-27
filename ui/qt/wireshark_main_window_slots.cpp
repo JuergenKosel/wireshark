@@ -116,6 +116,7 @@ DIAG_ON(frame-larger-than=)
 #include "filter_action.h"
 #include "filter_dialog.h"
 #include "firewall_rules_dialog.h"
+#include "follow_stream_action.h"
 #include "funnel_statistics.h"
 #include "gsm_map_summary_dialog.h"
 #include "iax2_analysis_dialog.h"
@@ -188,7 +189,7 @@ bool WiresharkMainWindow::openCaptureFile(QString cf_path, QString read_filter, 
 {
     QString file_name = "";
     dfilter_t *rfcode = NULL;
-    gchar *err_msg;
+    df_error_t *df_err = NULL;
     int err;
     gboolean name_param;
     gboolean ret = true;
@@ -221,7 +222,7 @@ bool WiresharkMainWindow::openCaptureFile(QString cf_path, QString read_filter, 
             goto finish;
         }
 
-        if (dfilter_compile(qUtf8Printable(read_filter), &rfcode, &err_msg)) {
+        if (dfilter_compile(qUtf8Printable(read_filter), &rfcode, &df_err)) {
             cf_set_rfcode(CaptureFile::globalCapFile(), rfcode);
         } else {
             /* Not valid.  Tell the user, and go back and run the file
@@ -231,9 +232,9 @@ bool WiresharkMainWindow::openCaptureFile(QString cf_path, QString read_filter, 
                     QString("The filter expression ") +
                     read_filter +
                     QString(" isn't a valid display filter. (") +
-                    err_msg + QString(")."),
+                    df_err->msg + QString(")."),
                     QMessageBox::Ok);
-
+            dfilter_error_free(df_err);
             if (!name_param) {
                 // go back to the selection dialogue only if the file
                 // was selected from this dialogue
@@ -313,9 +314,6 @@ void WiresharkMainWindow::filterPackets(QString new_filter, bool force)
         emit displayFilterSuccess(true);
     } else {
         emit displayFilterSuccess(false);
-    }
-    if (packet_list_) {
-        packet_list_->resetColumns();
     }
 }
 
@@ -874,7 +872,7 @@ void WiresharkMainWindow::startCapture(QStringList interfaces _U_) {
             /* device is EXTCAP and is selected. Check if all mandatory
              * settings are set.
              */
-            if (extcap_has_configuration(device->name, TRUE))
+            if (extcap_requires_configuration(device->name))
             {
                 /* Request openning of extcap options dialog */
                 QString device_name(device->name);
@@ -1170,8 +1168,8 @@ void WiresharkMainWindow::setEditCommentsMenu()
 
 void WiresharkMainWindow::setMenusForSelectedPacket()
 {
-    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_dccp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE,
-             is_http = FALSE, is_http2 = FALSE, is_quic = FALSE, is_sip = FALSE, is_exported_pdu = FALSE;
+    gboolean is_ip = FALSE, is_tcp = FALSE, is_udp = FALSE, is_sctp = FALSE, is_tls = FALSE, is_rtp = FALSE, is_lte_rlc = FALSE,
+             is_quic = FALSE, is_exported_pdu = FALSE;
 
     /* Making the menu context-sensitive allows for easier selection of the
        desired item and has the added benefit, with large captures, of
@@ -1240,18 +1238,25 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
             proto_get_frame_protocols(capture_file_.capFile()->edt->pi.layers,
                                       &is_ip, &is_tcp, &is_udp, &is_sctp,
                                       &is_tls, &is_rtp, &is_lte_rlc);
-            is_dccp = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "dccp");
-            is_http = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http");
-            is_http2 = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "http2");
             /* TODO: to follow a QUIC stream we need a *decrypted* QUIC connection, i.e. checking for "quic" in the protocol stack is not enough */
             is_quic = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "quic");
-            is_sip = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "sip");
             is_exported_pdu = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, "exported_pdu");
             /* For Exported PDU there is a tag inserting IP addresses into the SRC and DST columns */
             if (is_exported_pdu &&
                (capture_file_.capFile()->edt->pi.net_src.type == AT_IPv4 || capture_file_.capFile()->edt->pi.net_src.type == AT_IPv6) &&
                (capture_file_.capFile()->edt->pi.net_dst.type == AT_IPv4 || capture_file_.capFile()->edt->pi.net_dst.type == AT_IPv6)) {
                 is_ip = TRUE;
+            }
+            foreach (FollowStreamAction *follow_action, main_ui_->menuFollow->findChildren<FollowStreamAction *>()) {
+                /* QUIC has TLS handshakes; don't enabled Follow TLS Stream if
+                 * there's QUIC.
+                 */
+                gboolean is_frame = proto_is_frame_protocol(capture_file_.capFile()->edt->pi.layers, follow_action->filterName());
+                if (g_strcmp0(follow_action->filterName(), "tls") == 0) {
+                    follow_action->setEnabled(is_frame && !is_quic);
+                } else {
+                    follow_action->setEnabled(is_frame);
+                }
             }
         }
     }
@@ -1293,15 +1298,6 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
     main_ui_->actionGoNextHistoryPacket->setEnabled(next_selection_history);
     main_ui_->actionGoPreviousHistoryPacket->setEnabled(previous_selection_history);
 
-    main_ui_->actionAnalyzeFollowTCPStream->setEnabled(is_tcp);
-    main_ui_->actionAnalyzeFollowUDPStream->setEnabled(is_udp);
-    main_ui_->actionAnalyzeFollowDCCPStream->setEnabled(is_dccp);
-    main_ui_->actionAnalyzeFollowTLSStream->setEnabled(is_tls && !is_quic);
-    main_ui_->actionAnalyzeFollowHTTPStream->setEnabled(is_http);
-    main_ui_->actionAnalyzeFollowHTTP2Stream->setEnabled(is_http2);
-    main_ui_->actionAnalyzeFollowQUICStream->setEnabled(is_quic);
-    main_ui_->actionAnalyzeFollowSIPCall->setEnabled(is_sip);
-
     foreach(QAction *cc_action, cc_actions) {
         cc_action->setEnabled(frame_selected);
     }
@@ -1338,7 +1334,6 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
 
     bool can_match_selected = false;
     bool is_framenum = false;
-    bool have_field_info = false;
     bool have_subtree = false;
     bool can_open_url = false;
     bool have_packet_bytes = false;
@@ -1365,7 +1360,6 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
         header_field_info *hfinfo = fi->hfinfo;
         int linked_frame = -1;
 
-        have_field_info = true;
         can_match_selected = proto_can_match_selected(capture_file_.capFile()->finfo_selected, capture_file_.capFile()->edt);
         if (hfinfo && hfinfo->type == FT_FRAMENUM) {
             is_framenum = true;
@@ -1375,6 +1369,7 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
         char *tmp_field = proto_construct_match_selected_string(fi, capture_file_.capFile()->edt);
         field_filter = tmp_field;
         wmem_free(NULL, tmp_field);
+        emit fieldFilterChanged(field_filter);
 
         field_id = fi->hfinfo->id;
         /* if the selected field isn't a protocol, get its parent */
@@ -1399,8 +1394,6 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
     }
 
     // Always enable / disable the following items.
-    main_ui_->actionFileExportPacketBytes->setEnabled(have_field_info);
-
     main_ui_->actionCopyAllVisibleItems->setEnabled(capture_file_.capFile() != NULL && ! packet_list_->multiSelectActive());
     main_ui_->actionCopyAllVisibleSelectedTreeItems->setEnabled(can_match_selected);
     main_ui_->actionEditCopyDescription->setEnabled(can_match_selected);
@@ -1416,7 +1409,7 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
 
     main_ui_->actionGoGoToLinkedPacket->setEnabled(is_framenum);
 
-    main_ui_->actionAnalyzeCreateAColumn->setEnabled(can_match_selected);
+    main_ui_->actionAnalyzeApplyAsColumn->setEnabled(can_match_selected);
 
     main_ui_->actionContextShowLinkedPacketInNewWindow->setEnabled(is_framenum);
 
@@ -1429,7 +1422,6 @@ void WiresharkMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
     if (!proto_tree_ || !proto_tree_->hasFocus()) return;
 
     emit packetInfoChanged(capture_file_.packetInfo());
-    emit fieldFilterChanged(field_filter);
 
     //    set_menu_sensitivity(ui_manager_tree_view_menu, "/TreeViewPopup/ResolveName",
     //                         frame_selected && (gbl_resolv_flags.mac_name || gbl_resolv_flags.network_name ||
@@ -1547,6 +1539,7 @@ void WiresharkMainWindow::reloadLuaPlugins()
     mainApp->setReloadingLua(true);
 
     wslua_reload_plugins(NULL, NULL);
+    this->clearAddedPacketMenus();
     funnel_statistics_reload_menus();
     reloadDynamicMenus();
     closePacketDialogs();
@@ -1703,16 +1696,6 @@ void WiresharkMainWindow::setFeaturesEnabled(bool enabled)
 
 // Display Filter Toolbar
 
-void WiresharkMainWindow::on_actionDisplayFilterExpression_triggered()
-{
-    DisplayFilterExpressionDialog *dfe_dialog = new DisplayFilterExpressionDialog(this);
-
-    connect(dfe_dialog, SIGNAL(insertDisplayFilter(QString)),
-            df_combo_box_->lineEdit(), SLOT(insertFilter(const QString &)));
-
-    dfe_dialog->show();
-}
-
 void WiresharkMainWindow::on_actionNewDisplayFilterExpression_triggered()
 {
     main_ui_->filterExpressionFrame->addExpression(df_combo_box_->lineEdit()->text());
@@ -1845,7 +1828,7 @@ void WiresharkMainWindow::connectFileMenuActions()
         [this]() { exportDissections(export_type_json); });
 
     connect(main_ui_->actionFileExportPacketBytes, &QAction::triggered, this,
-        [this]() { exportPacketBytes(); });
+        [this]() { exportPacketBytes(); }, Qt::QueuedConnection);
 
     connect(main_ui_->actionFileExportPDU, &QAction::triggered, this,
         [this]() { exportPDU(); });
@@ -2513,7 +2496,7 @@ void WiresharkMainWindow::showHideMainWidgets(QAction *action)
             if (widget == toolbar) {
                 GList *entry = g_list_find_custom(recent.interface_toolbars, action->text().toUtf8(), (GCompareFunc)strcmp);
                 if (show && !entry) {
-                    recent.interface_toolbars = g_list_append(recent.interface_toolbars, g_strdup(action->text().toUtf8()));
+                    recent.interface_toolbars = g_list_append(recent.interface_toolbars, g_strdup(action->text().toUtf8().constData()));
                 } else if (!show && entry) {
                     recent.interface_toolbars = g_list_remove(recent.interface_toolbars, entry->data);
                 }
@@ -2905,12 +2888,10 @@ void WiresharkMainWindow::connectCaptureMenuActions()
     });
 
     connect(main_ui_->actionCaptureCaptureFilters, &QAction::triggered, this, [this]() {
-        if (!capture_filter_dlg_) {
-            capture_filter_dlg_ = new FilterDialog(this, FilterDialog::CaptureFilter);
-        }
-        capture_filter_dlg_->show();
-        capture_filter_dlg_->raise();
-        capture_filter_dlg_->activateWindow();
+        FilterDialog *capture_filter_dlg = new FilterDialog(window(), FilterDialog::CaptureFilter);
+        capture_filter_dlg->setWindowModality(Qt::ApplicationModal);
+        capture_filter_dlg->setAttribute(Qt::WA_DeleteOnClose);
+        capture_filter_dlg->show();
     });
 
 #ifdef HAVE_LIBPCAP
@@ -3011,6 +2992,73 @@ void WiresharkMainWindow::startCaptureTriggered()
 
 // Analyze Menu
 
+struct epan_uat;
+
+void WiresharkMainWindow::connectAnalyzeMenuActions()
+{
+    connect(main_ui_->actionAnalyzeDisplayFilters, &QAction::triggered, this, [=]() {
+        FilterDialog *display_filter_dlg = new FilterDialog(window(), FilterDialog::DisplayFilter);
+        display_filter_dlg->setWindowModality(Qt::ApplicationModal);
+        display_filter_dlg->setAttribute(Qt::WA_DeleteOnClose);
+        display_filter_dlg->show();
+    });
+
+    connect(main_ui_->actionAnalyzeDisplayFilterMacros, &QAction::triggered, this, [=]() {
+        struct epan_uat* dfm_uat;
+        dfilter_macro_get_uat(&dfm_uat);
+        UatDialog *uat_dlg = new UatDialog(parentWidget(), dfm_uat);
+        connect(uat_dlg, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
+
+        uat_dlg->setWindowModality(Qt::ApplicationModal);
+        uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
+        uat_dlg->show();
+    });
+
+    connect(main_ui_->actionDisplayFilterExpression, &QAction::triggered, this, [=]() {
+        DisplayFilterExpressionDialog *dfe_dialog = new DisplayFilterExpressionDialog(this);
+
+        connect(dfe_dialog, &DisplayFilterExpressionDialog::insertDisplayFilter,
+                qobject_cast<SyntaxLineEdit *>(df_combo_box_->lineEdit()), &SyntaxLineEdit::insertFilter);
+
+        dfe_dialog->show();
+    });
+
+    connect(main_ui_->actionAnalyzeApplyAsColumn, &QAction::triggered, this, &WiresharkMainWindow::applyFieldAsColumn);
+
+    connect(main_ui_->actionAnalyzeEnabledProtocols, &QAction::triggered, this, [=]() {
+        EnabledProtocolsDialog *enable_proto_dialog = new EnabledProtocolsDialog(this);
+        connect(enable_proto_dialog, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
+
+        enable_proto_dialog->setWindowModality(Qt::ApplicationModal);
+        enable_proto_dialog->setAttribute(Qt::WA_DeleteOnClose);
+        enable_proto_dialog->show();
+    });
+
+    connect(main_ui_->actionAnalyzeDecodeAs, &QAction::triggered, this, [=]() {
+        QAction *da_action = qobject_cast<QAction*>(sender());
+        bool create_new = da_action && da_action->property("create_new").toBool();
+
+        DecodeAsDialog *da_dialog = new DecodeAsDialog(this, capture_file_.capFile(), create_new);
+        connect(da_dialog, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
+
+        da_dialog->setWindowModality(Qt::ApplicationModal);
+        da_dialog->setAttribute(Qt::WA_DeleteOnClose);
+        da_dialog->show();
+    });
+
+    connect(main_ui_->actionAnalyzeReloadLuaPlugins, &QAction::triggered, this, &WiresharkMainWindow::reloadLuaPlugins);
+
+    connect(main_ui_->actionAnalyzeShowPacketBytes, &QAction::triggered, this, [=]() {
+        ShowPacketBytesDialog *spbd = new ShowPacketBytesDialog(*this, capture_file_);
+        spbd->addCodecs(text_codec_map_);
+        spbd->show();
+    });
+
+    connect(main_ui_->actionAnalyzeExpertInfo, &QAction::triggered, this, [=]() {
+        statCommandExpertInfo(NULL, NULL);
+    });
+}
+
 void WiresharkMainWindow::filterMenuAboutToShow()
 {
     QMenu * menu = qobject_cast<QMenu *>(sender());
@@ -3052,30 +3100,7 @@ void WiresharkMainWindow::matchFieldFilter(FilterAction::Action action, FilterAc
     setDisplayFilter(field_filter, action, filter_type);
 }
 
-void WiresharkMainWindow::on_actionAnalyzeDisplayFilters_triggered()
-{
-    if (!display_filter_dlg_) {
-        display_filter_dlg_ = new FilterDialog(this, FilterDialog::DisplayFilter);
-    }
-    display_filter_dlg_->show();
-    display_filter_dlg_->raise();
-    display_filter_dlg_->activateWindow();
-}
-
-struct epan_uat;
-void WiresharkMainWindow::on_actionAnalyzeDisplayFilterMacros_triggered()
-{
-    struct epan_uat* dfm_uat;
-    dfilter_macro_get_uat(&dfm_uat);
-    UatDialog *uat_dlg = new UatDialog(parentWidget(), dfm_uat);
-    connect(uat_dlg, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
-
-    uat_dlg->setWindowModality(Qt::ApplicationModal);
-    uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
-    uat_dlg->show();
-}
-
-void WiresharkMainWindow::on_actionAnalyzeCreateAColumn_triggered()
+void WiresharkMainWindow::applyFieldAsColumn()
 {
     if (capture_file_.capFile() != 0 && capture_file_.capFile()->finfo_selected != 0) {
         header_field_info *hfinfo = capture_file_.capFile()->finfo_selected->hfinfo;
@@ -3130,36 +3155,8 @@ void WiresharkMainWindow::applyExportObject()
     export_dialog->show();
 }
 
-void WiresharkMainWindow::on_actionAnalyzeEnabledProtocols_triggered()
-{
-    EnabledProtocolsDialog *enable_proto_dialog = new EnabledProtocolsDialog(this);
-    connect(enable_proto_dialog, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
-
-    enable_proto_dialog->setWindowModality(Qt::ApplicationModal);
-    enable_proto_dialog->setAttribute(Qt::WA_DeleteOnClose);
-    enable_proto_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionAnalyzeDecodeAs_triggered()
-{
-    QAction *da_action = qobject_cast<QAction*>(sender());
-    bool create_new = da_action && da_action->property("create_new").toBool();
-
-    DecodeAsDialog *da_dialog = new DecodeAsDialog(this, capture_file_.capFile(), create_new);
-    connect(da_dialog, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
-
-    da_dialog->setWindowModality(Qt::ApplicationModal);
-    da_dialog->setAttribute(Qt::WA_DeleteOnClose);
-    da_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionAnalyzeReloadLuaPlugins_triggered()
-{
-    reloadLuaPlugins();
-}
-
-void WiresharkMainWindow::openFollowStreamDialog(follow_type_t type, guint stream_num, guint sub_stream_num, bool use_stream_index) {
-    FollowStreamDialog *fsd = new FollowStreamDialog(*this, capture_file_, type);
+void WiresharkMainWindow::openFollowStreamDialog(int proto_id, guint stream_num, guint sub_stream_num, bool use_stream_index) {
+    FollowStreamDialog *fsd = new FollowStreamDialog(*this, capture_file_, proto_id);
     connect(fsd, SIGNAL(updateFilter(QString, bool)), this, SLOT(filterPackets(QString, bool)));
     connect(fsd, SIGNAL(goToPacket(int)), packet_list_, SLOT(goToPacket(int)));
     fsd->addCodecs(text_codec_map_);
@@ -3173,8 +3170,8 @@ void WiresharkMainWindow::openFollowStreamDialog(follow_type_t type, guint strea
     }
 }
 
-void WiresharkMainWindow::openFollowStreamDialogForType(follow_type_t type) {
-    openFollowStreamDialog(type, 0, 0, false);
+void WiresharkMainWindow::openFollowStreamDialog(int proto_id) {
+    openFollowStreamDialog(proto_id, 0, 0, false);
 }
 
 void WiresharkMainWindow::openSCTPAllAssocsDialog()
@@ -3263,18 +3260,6 @@ void WiresharkMainWindow::statCommandExpertInfo(const char *, void *)
             this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
 
     expert_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionAnalyzeShowPacketBytes_triggered()
-{
-    ShowPacketBytesDialog *spbd = new ShowPacketBytesDialog(*this, capture_file_);
-    spbd->addCodecs(text_codec_map_);
-    spbd->show();
-}
-
-void WiresharkMainWindow::on_actionAnalyzeExpertInfo_triggered()
-{
-    statCommandExpertInfo(NULL, NULL);
 }
 
 
@@ -3467,8 +3452,8 @@ void WiresharkMainWindow::on_actionStatisticsConversations_triggered()
     ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_);
     connect(conv_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
         this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    connect(conv_dialog, SIGNAL(openFollowStreamDialog(follow_type_t, guint, guint)),
-        this, SLOT(openFollowStreamDialog(follow_type_t, guint, guint)));
+    connect(conv_dialog, SIGNAL(openFollowStreamDialog(int, guint, guint)),
+        this, SLOT(openFollowStreamDialog(int, guint, guint)));
     connect(conv_dialog, SIGNAL(openTcpStreamGraph(int)),
         this, SLOT(openTcpStreamDialog(int)));
     conv_dialog->show();
@@ -3479,8 +3464,8 @@ void WiresharkMainWindow::on_actionStatisticsEndpoints_triggered()
     EndpointDialog *endp_dialog = new EndpointDialog(*this, capture_file_);
     connect(endp_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
             this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    connect(endp_dialog, SIGNAL(openFollowStreamDialog(follow_type_t)),
-            this, SLOT(openFollowStreamDialogForType(follow_type_t)));
+    connect(endp_dialog, SIGNAL(openFollowStreamDialog(int)),
+            this, SLOT(openFollowStreamDialog(int)));
     connect(endp_dialog, SIGNAL(openTcpStreamGraph(int)),
             this, SLOT(openTcpStreamDialog(int)));
     endp_dialog->show();

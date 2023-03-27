@@ -15,8 +15,8 @@
  * RFC9000 QUIC: A UDP-Based Multiplexed and Secure Transport
  * RFC9001 Using TLS to Secure QUIC
  * RFC8889 Version-Independent Properties of QUIC
- * https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-06
- * https://datatracker.ietf.org/doc/html/draft-ietf-quic-v2-01
+ * https://tools.ietf.org/html/draft-ietf-quic-version-negotiation-14
+ * https://datatracker.ietf.org/doc/html/draft-ietf-quic-v2-10
  *
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
@@ -29,7 +29,7 @@
  *
  * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
  * draft-25, draft-26, draft-27, draft-28, draft-29, draft-30, draft-31, draft-32,
- * draft-33, draft-34, v1, v2-draft-01
+ * draft-33, draft-34, v1, v2-draft-10
  * For a table of supported QUIC versions per Wireshark version, see
  * https://github.com/quicwg/base-drafts/wiki/Tools#wireshark
  *
@@ -280,7 +280,7 @@ static const fragment_items quic_crypto_fragment_items = {
  * - QUIC packets might appear out-of-order (short packets before handshake
  *   message is captured), lost or retransmitted/duplicated.
  * - During live capture, keys might not be immediately be available. 1-RTT
- *   client keys will be ready while client proceses Server Hello (Handshake).
+ *   client keys will be ready while client processes Server Hello (Handshake).
  *   1-RTT server keys will be ready while server creates Handshake message in
  *   response to Initial Handshake.
  * - So delay cipher creation until first short packet is received.
@@ -402,7 +402,8 @@ typedef struct quic_follow_tap_data {
  * State for a single QUIC connection, identified by one or more Destination
  * Connection IDs (DCID).
  */
-typedef struct quic_info_data {
+typedef struct quic_info_data quic_info_data_t;
+struct quic_info_data {
     guint32         number;         /** Similar to "udp.stream", but for identifying QUIC connections across migrations. */
     guint32         version;
     address         server_address;
@@ -436,7 +437,8 @@ typedef struct quic_info_data {
     wmem_map_t     *client_crypto;
     wmem_map_t     *server_crypto;
     gquic_info_data_t *gquic_info; /**< GQUIC info for >Q050 flows. */
-} quic_info_data_t;
+    quic_info_data_t *prev; /**< The previous QUIC connection multiplexed on the same network 5-tuple. Used by checking Stateless Reset tokens */
+};
 
 typedef struct _quic_crypto_info {
     const guint64 packet_number; /**< Reconstructed full packet number. */
@@ -519,16 +521,14 @@ static inline guint8 quic_draft_version(guint32 version) {
         return 34;
     }
     /* QUIC Version 2 */
-    /* TODO: for the time being use 100 as a number for V2 and let
-       see how v2 drafts evolve */
-    if (version == 0x709A50C4) {
+    if (version == 0x6b3343cf) {
        return 100;
     }
     return 0;
 }
 
 static inline gboolean is_quic_v2(guint32 version) {
-    return version == 0x709A50C4;
+    return version == 0x6b3343cf;
 }
 
 static inline gboolean is_quic_draft_max(guint32 version, guint8 max_version) {
@@ -595,7 +595,8 @@ const range_string quic_version_vals[] = {
     { 0xff000022, 0xff000022, "draft-34" },
     /* QUICv2 */
     { 0xff020000, 0xff020000, "v2-draft-00" }, /* Never used; not really supported */
-    { 0x709A50C4, 0x709A50C4, "v2-draft-01" },
+    { 0x709A50C4, 0x709A50C4, "v2-draft-01" }, /* Never used; not really supported */
+    { 0x6b3343cf, 0x6b3343cf, "2" },
     { 0, 0, NULL }
 };
 
@@ -743,9 +744,9 @@ static const range_string quic_transport_error_code_vals[] = {
     { 0x000e, 0x000e, "KEY_UPDATE_ERROR" },
     { 0x000f, 0x000f, "AEAD_LIMIT_REACHED" },
     { 0x0010, 0x0010, "NO_VIABLE_PATH" },
+    { 0x0011, 0x0011, "VERSION_NEGOTIATION_ERROR" },
     { 0x0100, 0x01ff, "CRYPTO_ERROR" },
     /* 0x40 - 0x3fff Assigned via Specification Required policy. */
-    { 0x53F8, 0x53F8, "VERSION_NEGOTIATION_ERROR" },
     { 0, 0, NULL }
 };
 
@@ -968,12 +969,12 @@ quic_set_full_packet_number(quic_info_data_t *quic_info, quic_packet_info_t *qui
 }
 
 static const char *
-cid_to_string(const quic_cid_t *cid)
+cid_to_string(wmem_allocator_t *pool, const quic_cid_t *cid)
 {
     if (cid->len == 0) {
         return "(none)";
     }
-    char *str = (char *)wmem_alloc0(wmem_packet_scope(), 2 * cid->len + 1);
+    char *str = (char *)wmem_alloc0(pool, 2 * cid->len + 1);
     bytes_to_hexstr(str, cid->cid, cid->len);
     return str;
 }
@@ -1031,9 +1032,13 @@ quic_cids_is_known_length(const quic_cid_t *cid)
 }
 
 /**
- * Returns the QUIC connection for the current UDP stream. This may return NULL
- * after connection migration if the new UDP association was not properly linked
- * via a match based on the Connection ID.
+ * Returns the most recent QUIC connection for the current UDP stream. This may
+ * return NULL after connection migration if the new UDP association was not
+ * properly linked via a match based on the Connection ID.
+ *
+ * There may be more than one QUIC connection multiplexed on the same UDP
+ * 5-tuple; previous connections can be found by looking at the ->prev pointer.
+ * Per RFC 9000, multiplexed connections with zero-length CIDs will fail.
  */
 static quic_info_data_t *
 quic_connection_from_conv(packet_info *pinfo)
@@ -1046,7 +1051,8 @@ quic_connection_from_conv(packet_info *pinfo)
 }
 
 /**
- * Tries to lookup a matching connection (Connection ID is optional).
+ * Tries to lookup a matching connection (if Connection ID is NULL, the
+ * most recent connection on the network 5-tuple is returned, if any).
  * If connection is found, "from_server" is set accordingly.
  */
 static quic_info_data_t *
@@ -1145,12 +1151,15 @@ quic_connection_find(packet_info *pinfo, guint8 long_packet_type,
     if (!is_long_packet && !conn) {
         // For short packets, first try to find a match based on the address.
         conn = quic_connection_find_dcid(pinfo, NULL, from_server);
-        if (conn) {
-            if ((*from_server && !quic_cids_has_match(&conn->client_cids, dcid)) ||
-                (!*from_server && !quic_cids_has_match(&conn->server_cids, dcid))) {
-                // Connection does not match packet.
-                conn = NULL;
+        /* Since we don't know the DCID, check all connections multiplexed
+         * on the same 5-tuple for a match. */
+        while (conn) {
+            if ((*from_server && quic_cids_has_match(&conn->client_cids, dcid)) ||
+                (!*from_server && quic_cids_has_match(&conn->server_cids, dcid))) {
+                // Connection matches packet.
+                break;
             }
+            conn = conn->prev;
         }
 
         // No match found so far, potentially connection migration. Length of
@@ -1174,7 +1183,8 @@ quic_connection_find(packet_info *pinfo, guint8 long_packet_type,
 static quic_info_data_t *
 quic_connection_create(packet_info *pinfo, guint32 version)
 {
-    quic_info_data_t *conn = NULL;
+    conversation_t   *conv;
+    quic_info_data_t *prev_conn, *conn = NULL;
 
     conn = wmem_new0(wmem_file_scope(), quic_info_data_t);
     wmem_list_append(quic_connections, conn);
@@ -1184,7 +1194,15 @@ quic_connection_create(packet_info *pinfo, guint32 version)
     conn->server_port = pinfo->destport;
 
     // For faster lookups without having to check DCID
-    conversation_t *conv = find_or_create_conversation(pinfo);
+    conv = find_or_create_conversation(pinfo);
+    // Check for another connection multiplexed on the 5-tuple
+    prev_conn = conversation_get_proto_data(conv, proto_quic);
+    if (prev_conn) {
+        conn->prev = prev_conn;
+    }
+    conversation_add_proto_data(conv, proto_quic, conn);
+
+    conv = find_or_create_conversation_by_id(pinfo, CONVERSATION_QUIC, conn->number);
     conversation_add_proto_data(conv, proto_quic, conn);
 
     if (version == 0x51303530 || version == 0x54303530 || version == 0x54303531) {
@@ -2345,7 +2363,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
 
             proto_tree_add_item(ft_tree, hf_quic_stream_data, tvb, offset, (int)length, ENC_NA);
             if (have_tap_listener(quic_follow_tap)) {
-                quic_follow_tap_data_t *follow_data = wmem_new0(wmem_packet_scope(), quic_follow_tap_data_t);
+                quic_follow_tap_data_t *follow_data = wmem_new0(pinfo->pool, quic_follow_tap_data_t);
 
                 follow_data->tvb = tvb_new_subset_remaining(tvb, offset);
                 follow_data->stream_id = stream_id;
@@ -2765,7 +2783,7 @@ quic_pp_cipher_init(quic_pp_cipher *pp_cipher, int hash_algo, guint8 key_length,
  */
 static void
 quic_decrypt_message(quic_pp_cipher *pp_cipher, tvbuff_t *head, guint header_length,
-                     guint8 first_byte, guint pkn_len, guint64 packet_number, quic_decrypt_result_t *result)
+                     guint8 first_byte, guint pkn_len, guint64 packet_number, quic_decrypt_result_t *result, wmem_allocator_t *pool)
 {
     gcry_error_t    err;
     guint8         *header;
@@ -2780,7 +2798,7 @@ quic_decrypt_message(quic_pp_cipher *pp_cipher, tvbuff_t *head, guint header_len
     DISSECTOR_ASSERT(pkn_len < header_length);
     DISSECTOR_ASSERT(1 <= pkn_len && pkn_len <= 4);
     // copy header, but replace encrypted first byte and PKN by plaintext.
-    header = (guint8 *)tvb_memdup(wmem_packet_scope(), head, 0, header_length);
+    header = (guint8 *)tvb_memdup(pool, head, 0, header_length);
     header[0] = first_byte;
     for (guint i = 0; i < pkn_len; i++) {
         header[header_length - 1 - i] = (guint8)(packet_number >> (8 * i));
@@ -2898,9 +2916,9 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         0x7a, 0x4e, 0xde, 0xf4, 0xe7, 0xcc, 0xee, 0x5f, 0xa4, 0x50,
         0x6c, 0x19, 0x12, 0x4f, 0xc8, 0xcc, 0xda, 0x6e, 0x03, 0x3d
     };
-    static const guint8 handshake_salt_v2_draft_00[20] = {
-        0xa7, 0x07, 0xc2, 0x03, 0xa5, 0x9b, 0x47, 0x18, 0x4a, 0x1d,
-        0x62, 0xca, 0x57, 0x04, 0x06, 0xea, 0x7a, 0xe3, 0xe5, 0xd3
+    static const guint8 handshake_salt_v2[20] = {
+        0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93,
+        0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd, 0x2e, 0xd9
     };
 
     gcry_error_t    err;
@@ -2928,7 +2946,7 @@ quic_derive_initial_secrets(const quic_cid_t *cid,
         err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_v1, sizeof(handshake_salt_v1),
                            cid->cid, cid->len, secret);
     } else {
-        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_v2_draft_00, sizeof(handshake_salt_v2_draft_00),
+        err = hkdf_extract(GCRY_MD_SHA256, handshake_salt_v2, sizeof(handshake_salt_v2),
                            cid->cid, cid->len, secret);
     }
     if (err) {
@@ -3105,7 +3123,7 @@ quic_create_decoders(packet_info *pinfo, quic_info_data_t *quic_info, quic_ciphe
     }
 
     guint hash_len = gcry_md_get_algo_dlen(quic_info->hash_algo);
-    char *secret = (char *)wmem_alloc0(wmem_packet_scope(), hash_len);
+    char *secret = (char *)wmem_alloc0(pinfo->pool, hash_len);
 
     if (!tls13_get_quic_secret(pinfo, from_server, type, hash_len, hash_len, secret)) {
         *error = "Secrets are not available";
@@ -3127,7 +3145,7 @@ static gboolean
 quic_get_traffic_secret(packet_info *pinfo, int hash_algo, quic_pp_state_t *pp_state, gboolean from_client)
 {
     guint hash_len = gcry_md_get_algo_dlen(hash_algo);
-    char *secret = (char *)wmem_alloc0(wmem_packet_scope(), hash_len);
+    char *secret = (char *)wmem_alloc0(pinfo->pool, hash_len);
     if (!tls13_get_quic_secret(pinfo, !from_client, TLS_SECRET_APP, hash_len, hash_len, secret)) {
         return FALSE;
     }
@@ -3353,7 +3371,7 @@ quic_process_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_
      */
     if (!PINFO_FD_VISITED(pinfo)) {
         if (!quic_packet->decryption.error && quic_is_pp_cipher_initialized(pp_cipher)) {
-            quic_decrypt_message(pp_cipher, tvb, offset, first_byte, pkn_len, quic_packet->packet_number, &quic_packet->decryption);
+            quic_decrypt_message(pp_cipher, tvb, offset, first_byte, pkn_len, quic_packet->packet_number, &quic_packet->decryption, pinfo->pool);
         }
     }
 
@@ -3397,9 +3415,9 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
         0xcc, 0xce, 0x18, 0x7e, 0xd0, 0x9a, 0x09, 0xd0,
         0x57, 0x28, 0x15, 0x5a, 0x6c, 0xb9, 0x6b, 0xe1
     };
-    static const guint8 key_v2_draft_00[] = {
-        0xba, 0x85, 0x8d, 0xc7, 0xb4, 0x3d, 0xe5, 0xdb,
-        0xf8, 0x76, 0x17, 0xff, 0x4a, 0xb2, 0x53, 0xdb
+    static const guint8 key_v2[] = {
+        0x8f, 0xb4, 0xb0, 0x1b, 0x56, 0xac, 0x48, 0xe2,
+        0x60, 0xfb, 0xcb, 0xce, 0xad, 0x7c, 0xcc, 0x92
     };
     static const guint8 nonce_draft_29[] = {
         0xe5, 0x49, 0x30, 0xf9, 0x7f, 0x21, 0x36, 0xf0, 0x53, 0x0a, 0x8c, 0x1c
@@ -3411,8 +3429,8 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
     static const guint8 nonce_draft_25[] = {
         0x4d, 0x16, 0x11, 0xd0, 0x55, 0x13, 0xa5, 0x52, 0xc5, 0x87, 0xd5, 0x75,
     };
-    static const guint8 nonce_v2_draft_00[] = {
-        0x14, 0x1b, 0x99, 0xc2, 0x39, 0xb0, 0x3e, 0x78, 0x5d, 0x6a, 0x2e, 0x9f
+    static const guint8 nonce_v2[] = {
+        0xd8, 0x69, 0x69, 0xbc, 0x2d, 0x7c, 0x6d, 0x99, 0x90, 0xef, 0xb0, 0x4a
     };
     gcry_cipher_hd_t    h = NULL;
     gcry_error_t        err;
@@ -3429,7 +3447,7 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
     } else if (is_quic_draft_max(version, 34)) {
        err = gcry_cipher_setkey(h, key_v1, sizeof(key_v1));
     } else {
-       err = gcry_cipher_setkey(h, key_v2_draft_00, sizeof(key_v2_draft_00));
+       err = gcry_cipher_setkey(h, key_v2, sizeof(key_v2));
     }
     DISSECTOR_ASSERT_HINT(err == 0, "set key");
     if (is_quic_draft_max(version, 28)) {
@@ -3439,7 +3457,7 @@ quic_verify_retry_token(tvbuff_t *tvb, quic_packet_info_t *quic_packet, const qu
     } else if (is_quic_draft_max(version, 34)) {
         err = gcry_cipher_setiv(h, nonce_v1, sizeof(nonce_v1));
     } else {
-        err = gcry_cipher_setiv(h, nonce_v2_draft_00, sizeof(nonce_v2_draft_00));
+        err = gcry_cipher_setiv(h, nonce_v2, sizeof(nonce_v2));
     }
     DISSECTOR_ASSERT_HINT(err == 0, "set nonce");
     G_STATIC_ASSERT(sizeof(odcid->len) == 1);
@@ -3494,21 +3512,29 @@ quic_add_loss_bits(packet_info *pinfo, guint64 value)
 static quic_info_data_t *
 quic_find_stateless_reset_token(packet_info *pinfo, tvbuff_t *tvb, gboolean *from_server)
 {
-    /* This is used when we have not found a connection, so use
-     * the 5-tuple. (XXX: When we do handle multiple connections
-     * on the same 5-tuple properly (#17099), this needs to search
-     * all of them.)
+    /* RFC 9000 10.3.1 Detecting a Stateless Reset
+     * "The endpoint identifies a received datagram as a Stateless
+     * Reset by comparing the last 16 bytes of the datagram with all
+     * stateless reset tokens associated with the remote address on
+     * which the datagram was received." That means we check all QUIC
+     * connections on the 5-tuple (as when a nonzero Connection ID is
+     * used there can be more than one.)
      */
     quic_info_data_t* conn = quic_connection_from_conv(pinfo);
     const quic_cid_item_t *cids;
 
-    if (conn) {
+    while (conn) {
         gboolean conn_from_server;
         conn_from_server = conn->server_port == pinfo->srcport &&
                 addresses_equal(&conn->server_address, &pinfo->src);
         cids = conn_from_server ? &conn->server_cids : &conn->client_cids;
         while (cids) {
             const quic_cid_t *cid = &cids->data;
+            /* XXX: Ibid., "An endpoint MUST NOT check for any stateless
+             * reset token associated with connection IDs it has not
+             * used or for connection IDs that have been retired,"
+             * so we ideally should track when they are retired.
+             */
             if (cid->reset_token_set &&
                     !tvb_memeql(tvb, -16, cid->reset_token, 16) ) {
                 *from_server = conn_from_server;
@@ -3516,6 +3542,7 @@ quic_find_stateless_reset_token(packet_info *pinfo, tvbuff_t *tvb, gboolean *fro
             }
             cids = cids->next;
         }
+        conn = conn->prev;
     }
     return NULL;
 }
@@ -3574,13 +3601,18 @@ quic_add_connection_info(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, qu
         return;
     }
 
+    /* Set the conversation elements so that TLS and other subdissectors
+     * calling find_conversation_pinfo() find this QUIC connection and
+     * not all QUIC connections multiplexed on the same network 5-tuple.
+     */
+    conversation_set_elements_by_id(pinfo, CONVERSATION_QUIC, conn->number);
     pi = proto_tree_add_uint(ctree, hf_quic_connection_number, tvb, 0, 0, conn->number);
     proto_item_set_generated(pi);
 #if 0
-    proto_tree_add_debug_text(ctree, "Client CID: %s", cid_to_string(&conn->client_cids.data));
-    proto_tree_add_debug_text(ctree, "Server CID: %s", cid_to_string(&conn->server_cids.data));
+    proto_tree_add_debug_text(ctree, "Client CID: %s", cid_to_string(pinfo->pool, &conn->client_cids.data));
+    proto_tree_add_debug_text(ctree, "Server CID: %s", cid_to_string(pinfo->pool, &conn->server_cids.data));
     // Note: for Retry, this value has been cleared before.
-    proto_tree_add_debug_text(ctree, "InitialCID: %s", cid_to_string(&conn->client_dcid_initial));
+    proto_tree_add_debug_text(ctree, "InitialCID: %s", cid_to_string(pinfo->pool, &conn->client_dcid_initial));
 #endif
 }
 
@@ -3630,10 +3662,10 @@ dissect_quic_long_header_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *q
     }
 
     if (dcid->len > 0) {
-        col_append_fstr(pinfo->cinfo, COL_INFO, ", DCID=%s", cid_to_string(dcid));
+        col_append_fstr(pinfo->cinfo, COL_INFO, ", DCID=%s", cid_to_string(pinfo->pool, dcid));
     }
     if (scid->len > 0) {
-        col_append_fstr(pinfo->cinfo, COL_INFO, ", SCID=%s", cid_to_string(scid));
+        col_append_fstr(pinfo->cinfo, COL_INFO, ", SCID=%s", cid_to_string(pinfo->pool, scid));
     }
     return offset;
 }
@@ -3935,7 +3967,7 @@ dissect_quic_short_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tr
         proto_tree_add_item(hdr_tree, hf_quic_dcid, tvb, offset, dcid.len, ENC_NA);
         tvb_memcpy(tvb, dcid.cid, offset, dcid.len);
         offset += dcid.len;
-        const char *dcid_str = cid_to_string(&dcid);
+        const char *dcid_str = cid_to_string(pinfo->pool, &dcid);
         col_append_fstr(pinfo->cinfo, COL_INFO, ", DCID=%s", dcid_str);
         proto_item_append_text(pi, " DCID=%s", dcid_str);
     }
@@ -4230,7 +4262,7 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         dgram_info->conn = conn;
         dgram_info->from_server = from_server;
 #if 0
-        proto_tree_add_debug_text(quic_tree, "Connection: %d %p DCID=%s SCID=%s from_server:%d", pinfo->num, dgram_info->conn, cid_to_string(&dcid), cid_to_string(&scid), dgram_info->from_server);
+        proto_tree_add_debug_text(quic_tree, "Connection: %d %p DCID=%s SCID=%s from_server:%d", pinfo->num, dgram_info->conn, cid_to_string(pinfo->pool, &dcid), cid_to_string(pinfo->pool, &scid), dgram_info->from_server);
     } else {
         proto_tree_add_debug_text(quic_tree, "Connection: %d %p from_server:%d", pinfo->num, dgram_info->conn, dgram_info->from_server);
 #endif
@@ -4517,6 +4549,16 @@ quic_get_stream_id_ge(guint streamid, guint sub_stream_id, guint *sub_stream_id_
     }
 
     return FALSE;
+}
+
+static gboolean
+quic_get_sub_stream_id(guint streamid, guint sub_stream_id, gboolean le, guint *sub_stream_id_out)
+{
+    if (le) {
+        return quic_get_stream_id_le(streamid, sub_stream_id, sub_stream_id_out);
+    } else {
+        return quic_get_stream_id_ge(streamid, sub_stream_id, sub_stream_id_out);
+    }
 }
 
 static gchar *
@@ -5377,7 +5419,8 @@ proto_register_quic(void)
     register_cleanup_routine(quic_cleanup);
 
     register_follow_stream(proto_quic, "quic_follow", quic_follow_conv_filter, quic_follow_index_filter, quic_follow_address_filter,
-                           udp_port_to_display, follow_quic_tap_listener, get_quic_connections_count);
+                           udp_port_to_display, follow_quic_tap_listener, get_quic_connections_count,
+                           quic_get_sub_stream_id);
 
     // TODO implement custom reassembly functions that uses the QUIC Connection
     // ID instead of address and port numbers.

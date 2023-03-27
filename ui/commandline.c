@@ -16,13 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <ws_exit_codes.h>
 #include <wsutil/ws_getopt.h>
 
-#include <ui/version_info.h>
+#include <wsutil/version_info.h>
 
-#include <ui/clopts_common.h>
-#include <ui/cmdarg_err.h>
-#include <ui/exit_codes.h>
+#include <wsutil/clopts_common.h>
+#include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/ws_assert.h>
 #ifdef _WIN32
@@ -83,9 +83,6 @@ commandline_print_usage(gboolean for_help_option) {
 #endif
     fprintf(output, "  -p, --no-promiscuous-mode\n");
     fprintf(output, "                           don't capture in promiscuous mode\n");
-    fprintf(output, "  -k                       start capturing immediately (def: do nothing)\n");
-    fprintf(output, "  -S                       update packet display when new packets are captured\n");
-    fprintf(output, "  -l                       turn on automatic scrolling while -S is in use\n");
 #ifdef HAVE_PCAP_CREATE
     fprintf(output, "  -I, --monitor-mode       capture in monitor mode, if available\n");
 #endif
@@ -101,6 +98,11 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "                           print list of link-layer types of iface and exit\n");
     fprintf(output, "  --list-time-stamp-types  print list of timestamp types for iface and exit\n");
     fprintf(output, "\n");
+    fprintf(output, "Capture display:\n");
+    fprintf(output, "  -k                       start capturing immediately (def: do nothing)\n");
+    fprintf(output, "  -S                       update packet display when new packets are captured\n");
+    fprintf(output, "  --update-interval        interval between updates with new packets (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
+    fprintf(output, "  -l                       turn on automatic scrolling while -S is in use\n");
     fprintf(output, "Capture stop conditions:\n");
     fprintf(output, "  -c <packet count>        stop after n packets (def: infinite)\n");
     fprintf(output, "  -a <autostop cond.> ..., --autostop <autostop cond.> ...\n");
@@ -275,7 +277,7 @@ void commandline_early_options(int argc, char *argv[])
                             pf_dir_path, g_strerror(errno));
 
                         g_free(pf_dir_path);
-                        exit(INVALID_FILE);
+                        exit(WS_EXIT_INVALID_FILE);
                     }
                     if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
                             &pf_dir_path, &pf_dir_path2) == -1) {
@@ -285,7 +287,7 @@ void commandline_early_options(int argc, char *argv[])
                         g_free(pf_filename);
                         g_free(pf_dir_path);
                         g_free(pf_dir_path2);
-                        exit(INVALID_FILE);
+                        exit(WS_EXIT_INVALID_FILE);
                     }
                     set_profile_name (ws_optarg);
                 } else {
@@ -303,7 +305,7 @@ void commandline_early_options(int argc, char *argv[])
                         cmdarg_err("%s", err_str);
                         g_free(err_str);
                     }
-                    exit(INVALID_INTERFACE);
+                    exit(WS_EXIT_INVALID_INTERFACE);
                 }
 #ifdef _WIN32
                 create_console();
@@ -438,6 +440,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case 'i':        /* Use interface x */
             case LONGOPT_SET_TSTAMP_TYPE: /* Set capture timestamp type */
             case LONGOPT_CAPTURE_TMPDIR: /* capture temp directory */
+            case LONGOPT_UPDATE_INTERVAL: /* sync pipe update interval */
 #ifdef HAVE_PCAP_CREATE
             case 'I':        /* Capture in monitor mode, if available */
 #endif

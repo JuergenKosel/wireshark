@@ -24,9 +24,13 @@ class case_syntax(unittest.TestCase):
         dfilter = "ip.proto == 6"
         checkDFilterCount(dfilter, 1)
 
-    def test_commute_2(self, checkDFilterFail):
+    def test_commute_2(self, checkDFilterCount):
         dfilter = "6 == ip.proto"
-        error = "Left side of \"==\" expression must be a field or function"
+        checkDFilterCount(dfilter, 1)
+
+    def test_commute_3(self, checkDFilterFail):
+        dfilter = "6 == 7"
+        error = "Constant expression is invalid"
         checkDFilterFail(dfilter, error)
 
     def test_func_1(self, checkDFilterCount):
@@ -92,7 +96,7 @@ class case_syntax(unittest.TestCase):
 
     def test_deprecated_1(self, checkDFilterSucceed):
         dfilter = "bootp"
-        checkDFilterSucceed(dfilter, "Deprecated tokens: \"bootp\"")
+        checkDFilterSucceed(dfilter, "Deprecated token \"bootp\"")
 
     def test_charconst_bytes_1(self, checkDFilterCount):
         # Bytes as a character constant.
@@ -123,6 +127,16 @@ class case_syntax(unittest.TestCase):
         # Issue #18418
         dfilter = "icmp and ((icmp.type > 0 and icmp.type < 8) or icmp.type > 8)"
         checkDFilterSucceed(dfilter)
+
+    def test_whitespace(self, checkDFilterSucceed):
+        dfilter = '\ttcp.stream \r\n== 1'
+        checkDFilterSucceed(dfilter)
+
+    def test_func_name_clash1(self, checkDFilterFail):
+        # "tcp" is a (non-existent) function, not a protocol
+        error = "Function 'tcp' does not exist"
+        dfilter = 'frame == tcp()'
+        checkDFilterFail(dfilter, error)
 
 @fixtures.uses_fixtures
 class case_equality(unittest.TestCase):
@@ -174,10 +188,30 @@ class case_equality(unittest.TestCase):
         dfilter = 'frame[37] == :fc'
         checkDFilterCount(dfilter, 1)
 
-    def test_rhs_literal_bias_4(self, checkDFilterCount):
+    def test_rhs_bias_3(self, checkDFilterCount):
+        # Byte 0xFC on the RHS
+        dfilter = 'frame[37] == fc:'
+        checkDFilterCount(dfilter, 1)
+
+    def test_rhs_bias_4(self, checkDFilterCount):
         # Protocol "Fibre Channel" on the RHS
         dfilter = 'frame[37] == .fc'
         checkDFilterCount(dfilter, 0)
+
+    def test_rhs_bias_5(self, checkDFilterSucceed):
+        # Protocol "Fibre Channel" on the RHS (with warning)
+        dfilter = 'frame contains fc'
+        checkDFilterSucceed(dfilter, 'Interpreting "fc" as Fibre Channel')
+
+    def test_rhs_bias_6(self, checkDFilterSucceed):
+        # Protocol "Fibre Channel" on the RHS (without warning)
+        dfilter = 'frame contains .fc'
+        checkDFilterSucceed(dfilter)
+
+    def test_rhs_bias_7(self, checkDFilterSucceed):
+        # Byte 0xFC on the RHS
+        dfilter = 'frame contains fc:'
+        checkDFilterSucceed(dfilter)
 
 @fixtures.uses_fixtures
 class case_bitwise(unittest.TestCase):
@@ -224,8 +258,17 @@ class case_unary_minus(unittest.TestCase):
         checkDFilterCount(dfilter, 0)
 
     def test_unary_3(self, checkDFilterFail):
-        error = 'Constant arithmetic expression on the LHS is invalid'
+        error = 'Constant expression is invalid on the LHS'
         dfilter = "-2 == tcp.dstport"
+        checkDFilterFail(dfilter, error)
+
+    def test_unary_4(self, checkDFilterCount):
+        dfilter = "tcp.window_size_scalefactor == -{tcp.dstport * 20}"
+        checkDFilterCount(dfilter, 0)
+
+    def test_unary_invalid_1(self, checkDFilterFail):
+        error = 'FT_PROTOCOL cannot be negated'
+        dfilter = "-tcp"
         checkDFilterFail(dfilter, error)
 
 @fixtures.uses_fixtures
@@ -244,9 +287,19 @@ class case_arithmetic(unittest.TestCase):
         dfilter = "udp.dstport == 66+1"
         checkDFilterCount(dfilter, 2)
 
-    def test_add_3(self, checkDFilterFail):
-        error = 'Constant arithmetic expression on the LHS is invalid'
-        dfilter = "2 + 3 == frame.number"
+    def test_add_4(self, checkDFilterFail):
+        error = 'Unknown type for left side of +'
+        dfilter = "1 + 2 == frame.number"
+        checkDFilterFail(dfilter, error)
+
+    def test_add_5(self, checkDFilterFail):
+        error = 'Unknown type for left side of +'
+        dfilter = "1 + 2 == 2 + 1"
+        checkDFilterFail(dfilter, error)
+
+    def test_add_6(self, checkDFilterFail):
+        error = 'Unknown type for left side of -'
+        dfilter = "1 - 2"
         checkDFilterFail(dfilter, error)
 
     def test_sub_1(self, checkDFilterCount):
@@ -290,7 +343,7 @@ class case_field_reference(unittest.TestCase):
         checkDFilterCountWithSelectedFrame(dfilter, 1, 1)
 
 @fixtures.uses_fixtures
-class case_field_reference(unittest.TestCase):
+class case_layer(unittest.TestCase):
     trace_file = "ipoipoip.pcap"
 
     def test_layer_1(self, checkDFilterCount):
@@ -332,3 +385,24 @@ class case_quantifiers(unittest.TestCase):
     def test_all_1(self, checkDFilterCount):
         dfilter = 'all ip.addr > 1.1.1.1'
         checkDFilterCount(dfilter, 1)
+
+@fixtures.uses_fixtures
+class case_raw_modifier(unittest.TestCase):
+    trace_file = "s7comm-fuzz.pcapng.gz"
+
+    def test_regular(self, checkDFilterCount):
+        dfilter = 's7comm.blockinfo.blocktype == "0\uFFFD"'
+        checkDFilterCount(dfilter, 3)
+
+    def test_raw1(self, checkDFilterCount):
+        dfilter = '@s7comm.blockinfo.blocktype == 30:aa'
+        checkDFilterCount(dfilter, 2)
+
+    def test_raw2(self, checkDFilterCount):
+        dfilter = '@s7comm.blockinfo.blocktype == 30:fe'
+        checkDFilterCount(dfilter, 1)
+
+    def test_raw_ref(self, checkDFilterCountWithSelectedFrame):
+        dfilter = '@s7comm.blockinfo.blocktype == ${@s7comm.blockinfo.blocktype}'
+        # select frame 3, expect 2 frames out of 3.
+        checkDFilterCountWithSelectedFrame(dfilter, 2, 3)

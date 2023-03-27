@@ -261,7 +261,7 @@ void proto_report_dissector_bug(const char *format, ...)
                                            IS_FT_UINT((hfinfo)->type))
 
 #define __DISSECTOR_ASSERT_FIELD_TYPE_IS_STRING(hfinfo) \
-  (REPORT_DISSECTOR_BUG("%s:%u: field %s is not of type FT_STRING, FT_STRINGZ, FT_STRINGZPAD, or FT_STRINGZTRUNC", \
+  (REPORT_DISSECTOR_BUG("%s:%u: field %s is not of type FT_STRING, FT_STRINGZ, FT_STRINGZPAD, FT_STRINGZTRUNC, or FT_UINT_STRING", \
         __FILE__, __LINE__, (hfinfo)->abbrev))
 
 #define DISSECTOR_ASSERT_FIELD_TYPE_IS_STRING(hfinfo)  \
@@ -426,6 +426,8 @@ void proto_report_dissector_bug(const char *format, ...)
 #define ENC_GB18030                       0x00000050
 #define ENC_EUC_KR                        0x00000052
 #define ENC_APN_STR                       0x00000054 /* The encoding the APN/DNN field follows 3GPP TS 23.003 [2] clause 9.1.*/
+#define ENC_DECT_STANDARD_8BITS           0x00000056 /* DECT standard character set as defined in ETSI EN 300 175-5 Annex D */
+#define ENC_DECT_STANDARD_4BITS_TBCD      0x00000058 /* DECT standard 4bits character set as defined in ETSI EN 300 175-5 Annex D (BCD with 0xb = SPACE)*/
 /*
  * TODO:
  *
@@ -639,8 +641,13 @@ void proto_report_dissector_bug(const char *format, ...)
  * See https://developers.google.com/protocol-buffers/docs/encoding?csw=1#types
  */
 #define ENC_VARINT_ZIGZAG        0x00000008
+/*
+ * Decodes a variable-length integer used in DTN protocols
+ * See https://www.rfc-editor.org/rfc/rfc6256.html
+ */
+#define ENC_VARINT_SDNV          0x00000010
 
-#define ENC_VARINT_MASK          (ENC_VARINT_PROTOBUF|ENC_VARINT_QUIC|ENC_VARINT_ZIGZAG)
+#define ENC_VARINT_MASK          (ENC_VARINT_PROTOBUF|ENC_VARINT_QUIC|ENC_VARINT_ZIGZAG|ENC_VARINT_SDNV)
 
 /* Values for header_field_info.display */
 
@@ -1981,6 +1988,14 @@ proto_tree_add_oid_format(proto_tree *tree, int hfindex, tvbuff_t *tvb, gint sta
     proto_tree. The value passed in should be a UTF-8 encoded null terminated
     string, such as produced by tvb_get_string_enc(), regardless of the original
     packet data.
+
+    This function is used to add a custom string *value* to the protocol tree.
+    Do not format the string value for display, for example by using format_text().
+    The input string represents packet data, not a display label. Formatting
+    labels is a concern of the UI. Doing that here would change the meaning of the packet
+    data, restrict the options for formatting later and make display filtering unintuitive
+    for whitespace and other special characters.
+
  @param tree the tree to append this item to
  @param hfindex field index
  @param tvb the tv buffer of the current data
@@ -3337,9 +3352,9 @@ WS_DLL_PUBLIC guchar
 proto_check_field_name_lower(const gchar *field_name);
 
 
-/** Check if given string is a valid field name
+/** Set the column text for a custom column
  @param tree the tree to append this item to
- @param field_id the field id used for custom column
+ @param field_id the field ids used for custom column
  @param occurrence the occurrence of the field used for custom column
  @param result the buffer to fill with the field string
  @param expr the filter expression
@@ -3350,7 +3365,18 @@ proto_custom_set(proto_tree* tree, GSList *field_id,
                              gchar *result,
                              gchar *expr, const int size );
 
+/** Construct a display filter string for a custom column
+ @param edt epan dissecting
+ @param field_id the field ids used for custom column
+ @param occurrence the occurrence of the field used for custom column
+ @return allocated display filter string.  Needs to be freed with g_free(...) */
+gchar *
+proto_custom_get_filter(struct epan_dissect *edt, GSList *field_id, gint occurrence);
+
 /** @} */
+
+const char *
+hfinfo_char_value_format_display(int display, char buf[7], guint32 value);
 
 #ifdef __cplusplus
 }

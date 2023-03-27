@@ -1088,7 +1088,6 @@ wmem_test_strbuf(void)
     wmem_allocator_t   *allocator;
     wmem_strbuf_t      *strbuf;
     int                 i;
-    char               *str;
 
     allocator = wmem_allocator_new(WMEM_ALLOCATOR_STRICT);
 
@@ -1113,6 +1112,10 @@ wmem_test_strbuf(void)
     g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "TESTFUZZ3aq\xC2\xA9");
     g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 13);
 
+    wmem_strbuf_append_c_count(strbuf, '+', 8);
+    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "TESTFUZZ3aq\xC2\xA9++++++++");
+    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 21);
+
     wmem_strbuf_truncate(strbuf, 32);
     wmem_strbuf_truncate(strbuf, 24);
     wmem_strbuf_truncate(strbuf, 16);
@@ -1127,35 +1130,6 @@ wmem_test_strbuf(void)
     wmem_strbuf_append_len(strbuf, "TFUZZ1234", 5);
     g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "TESTFUZZ");
     g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 8);
-
-    strbuf = wmem_strbuf_sized_new(allocator, 10, 10);
-    g_assert_true(strbuf);
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 0);
-
-    wmem_strbuf_append(strbuf, "FUZZ");
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "FUZZ");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 4);
-
-    wmem_strbuf_append_printf(strbuf, "%d%s", 3, "abcdefghijklmnop");
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "FUZZ3abcd");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 9);
-
-    wmem_strbuf_append(strbuf, "abcdefghijklmnopqrstuvwxyz");
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "FUZZ3abcd");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 9);
-
-    wmem_strbuf_append_c(strbuf, 'q');
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "FUZZ3abcd");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 9);
-
-    wmem_strbuf_append_unichar(strbuf, g_utf8_get_char("\xC2\xA9"));
-    g_assert_cmpstr(wmem_strbuf_get_str(strbuf), ==, "FUZZ3abcd");
-    g_assert_cmpuint(wmem_strbuf_get_len(strbuf), ==, 9);
-
-    str = wmem_strbuf_finalize(strbuf);
-    g_assert_cmpstr(str, ==, "FUZZ3abcd");
-    g_assert_cmpuint(strlen(str), ==, 9);
 
     wmem_free_all(allocator);
 
@@ -1173,6 +1147,34 @@ wmem_test_strbuf(void)
              wmem_strbuf_get_len(strbuf));
 
     wmem_destroy_allocator(allocator);
+}
+
+static void
+wmem_test_strbuf_validate(void)
+{
+    wmem_strbuf_t *strbuf;
+    const char *endptr;
+
+    strbuf = wmem_strbuf_new(NULL, "TEST\xEF ABC");
+    g_assert_false(wmem_strbuf_utf8_validate(strbuf, &endptr));
+    g_assert_true(endptr == &strbuf->str[4]);
+    wmem_strbuf_destroy(strbuf);
+
+    strbuf = wmem_strbuf_new(NULL, NULL);
+    wmem_strbuf_append_len(strbuf, "TEST\x00\x00 ABC", 10);
+    g_assert_true(wmem_strbuf_utf8_validate(strbuf, &endptr));
+    wmem_strbuf_destroy(strbuf);
+
+    strbuf = wmem_strbuf_new(NULL, NULL);
+    wmem_strbuf_append_len(strbuf, "TEST\x00\xEF ABC", 10);
+    g_assert_false(wmem_strbuf_utf8_validate(strbuf, &endptr));
+    g_assert_true(endptr == &strbuf->str[5]);
+    wmem_strbuf_destroy(strbuf);
+
+    strbuf = wmem_strbuf_new(NULL, NULL);
+    wmem_strbuf_append_len(strbuf, "TEST\x00 ABC \x00 DEF \x00", 17);
+    g_assert_true(wmem_strbuf_utf8_validate(strbuf, &endptr));
+    wmem_strbuf_destroy(strbuf);
 }
 
 static void
@@ -1466,6 +1468,7 @@ main(int argc, char **argv)
     g_test_add_func("/wmem/datastruct/queue",  wmem_test_queue);
     g_test_add_func("/wmem/datastruct/stack",  wmem_test_stack);
     g_test_add_func("/wmem/datastruct/strbuf", wmem_test_strbuf);
+    g_test_add_func("/wmem/datastruct/strbuf/validate", wmem_test_strbuf_validate);
     g_test_add_func("/wmem/datastruct/tree",   wmem_test_tree);
     g_test_add_func("/wmem/datastruct/itree",  wmem_test_itree);
 

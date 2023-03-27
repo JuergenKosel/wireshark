@@ -3440,7 +3440,7 @@ dissect_isup_digits_common(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto
     return NULL;
   }
 
-  strbuf_number = wmem_strbuf_sized_new(pinfo->pool, MAXDIGITS+1, 0);
+  strbuf_number = wmem_strbuf_new_sized(pinfo->pool, MAXDIGITS+1);
 
   /* Make the digit string, looping on captured length (in case a snaplen was set) */
   captured_length = tvb_captured_length_remaining(tvb, offset);
@@ -3839,7 +3839,7 @@ static const value_string q850_cause_code_vals[] = {
   { 0x7C,  "Unassigned" },
   { 0x7D,  "Unassigned" },
   { 0x7E,  "Unassigned" },
-  { 0x7F,  "Internetworking, unspecified" },
+  { 0x7F,  "Interworking, unspecified" },
   { 0,  NULL }
 };
 value_string_ext q850_cause_code_vals_ext = VALUE_STRING_EXT_INIT(q850_cause_code_vals);
@@ -7151,7 +7151,7 @@ dissect_japan_isup_network_poi_cad(tvbuff_t *parameter_tvb, packet_info *pinfo, 
   guint8         carrier_info_length;
   gint           num_octets_with_digits = 0;
   gint           digit_index = 0;
-  wmem_strbuf_t *ca_number = wmem_strbuf_sized_new(pinfo->pool, MAXDIGITS+1, 0);
+  wmem_strbuf_t *ca_number = wmem_strbuf_new_sized(pinfo->pool, MAXDIGITS+1);
 
   /* POI Hierarchy information
 
@@ -7518,7 +7518,7 @@ dissect_japan_isup_carrier_information(tvbuff_t *parameter_tvb, packet_info *pin
         /* Lets now load up the digits.*/
         /* If the odd indicator is set... drop the Filler from the last octet.*/
         /* This loop also loads up ca_number with the digits for display*/
-        ca_number = wmem_strbuf_sized_new(pinfo->pool, MAXDIGITS+1, 0);
+        ca_number = wmem_strbuf_new_sized(pinfo->pool, MAXDIGITS+1);
         digit_index = 0;
         while (num_octets_with_digits > 0) {
           offset += 1;
@@ -7588,7 +7588,7 @@ dissect_japan_isup_carrier_information(tvbuff_t *parameter_tvb, packet_info *pin
         /* Lets now load up the digits.*/
         /* If the odd indicator is set... drop the Filler from the last octet.*/
         /* This loop also loads up cid_number with the digits for display*/
-        cid_number = wmem_strbuf_sized_new(pinfo->pool, MAXDIGITS+1, 0);
+        cid_number = wmem_strbuf_new_sized(pinfo->pool, MAXDIGITS+1);
         digit_index = 0;
         while (num_octets_with_digits > 0) {
           offset += 1;
@@ -7718,7 +7718,7 @@ dissect_japan_isup_charge_area_info(tvbuff_t *parameter_tvb, packet_info *pinfo,
   gint odd_even;
   gint digit_index = 0;
 
-  wmem_strbuf_t *ca_number = wmem_strbuf_sized_new(pinfo->pool, MAXDIGITS+1, 0);
+  wmem_strbuf_t *ca_number = wmem_strbuf_new_sized(pinfo->pool, MAXDIGITS+1);
 
   /*Octet 1 : Indicator*/
   octet = tvb_get_guint8(parameter_tvb, 0);
