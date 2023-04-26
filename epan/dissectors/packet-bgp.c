@@ -9068,7 +9068,7 @@ dissect_bgp_update_ext_com(proto_tree *parent_tree, tvbuff_t *tvb, guint16 tlen,
                         tvb_get_ntohs(tvb,offset+2), tvb_get_ntohs(tvb,offset+4), tvb_get_ntohs(tvb,offset+6));
                 break;
         }
-        proto_item_append_text (community_item, " [%s]", val_to_str(com_type_high_byte, bgpext_com_type_high, "Unknown community"));
+        proto_item_append_text (community_item, " [%s]", val_to_str_const(com_type_high_byte, bgpext_com_type_high, "Unknown community"));
         offset = offset + 8;
     }
     return(0);
@@ -12154,16 +12154,16 @@ proto_register_bgp(void)
           TFS(&tfs_set_notset), BGPNLRI_FSPEC_UNUSED_BIT5, "Unused (must be zero)", HFILL}},
       { &hf_bgp_flowspec_nlri_dec_val_8,
         { "Decimal value", "bgp.flowspec_nlri.dec_val_8", FT_UINT8, BASE_DEC,
-          NULL, 0X0, NULL, HFILL }},
+          NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_flowspec_nlri_dec_val_16,
         { "Decimal value", "bgp.flowspec_nlri.dec_val_16", FT_UINT16, BASE_DEC,
-          NULL, 0X0, NULL, HFILL }},
+          NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_flowspec_nlri_dec_val_32,
         { "Decimal value", "bgp.flowspec_nlri.dec_val_32", FT_UINT32, BASE_DEC,
-          NULL, 0X0, NULL, HFILL }},
+          NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_flowspec_nlri_dec_val_64,
         { "Decimal value", "bgp.flowspec_nlri.dec_val_64", FT_UINT64, BASE_DEC,
-          NULL, 0X0, NULL, HFILL }},
+          NULL, 0x0, NULL, HFILL }},
       { &hf_bgp_flowspec_nlri_op_lt,
         { "less than", "bgp.flowspec_nlri.op.lt", FT_BOOLEAN, 8,
           TFS(&tfs_set_notset), BGPNLRI_FSPEC_LESS_THAN, NULL, HFILL }},

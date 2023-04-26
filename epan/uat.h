@@ -520,7 +520,7 @@ static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, 
  */
 #define UAT_BUFFER_CB_DEF(basename,field_name,rec_t,ptr_element,len_element) \
 static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, guint len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
-        unsigned char* new_buf = len ? (char *)g_memdup2(buf,len) : NULL; \
+	unsigned char* new_buf = len ? (unsigned char *)g_memdup2(buf,len) : NULL; \
 	g_free((((rec_t*)rec)->ptr_element)); \
 	(((rec_t*)rec)->ptr_element) = new_buf; \
 	(((rec_t*)rec)->len_element) = len; } \
@@ -734,10 +734,8 @@ static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, 
 #define UAT_DISSECTOR_DEF(basename, field_name, dissector_field, name_field, rec_t) \
 static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, guint len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
 	if (len) { \
-		gchar *tmp = g_strndup(buf,len); \
-		((rec_t*)rec)->name_field = g_ascii_strdown(tmp, -1); \
-		g_free(tmp); \
-		g_strchug(((rec_t*)rec)->name_field); \
+		((rec_t*)rec)->name_field = g_strndup(buf, len); \
+		g_strstrip(((rec_t*)rec)->name_field); \
 		((rec_t*)rec)->dissector_field = find_dissector(((rec_t*)rec)->name_field); \
 	} else { \
 		((rec_t*)rec)->dissector_field = find_dissector("data"); \

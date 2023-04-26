@@ -865,7 +865,11 @@ Code Lines:
     MAX_PASSES: 15
   before_script:
     - DEBIAN_FRONTEND=noninteractive apt-get update
-    - DEBIAN_FRONTEND=noninteractive apt-get --yes install llvm-$CLANG_VERSION
+    # Use DPkg::options::="--force-overwrite" until
+    # https://bugs.launchpad.net/ubuntu/+source/llvm-toolchain-15/+bug/2008755
+    # https://github.com/llvm/llvm-project/issues/62104
+    # are fixed.
+    - DEBIAN_FRONTEND=noninteractive apt-get --yes --option DPkg::options::="--force-overwrite" install llvm-$CLANG_VERSION
     - mkdir -p ccache
     # Signal after_script, which runs in its own shell.
     - echo "export FUZZ_PASSED=true" > /tmp/fuzz_result.sh
@@ -892,6 +896,8 @@ Code Lines:
 ASan Menagerie Fuzz:
   extends: .fuzz-ubuntu
   stage: fuzz-asan
+  variables:
+    WIRESHARK_LOG_FATAL: "critical"
   script:
     - MAX_SECONDS=$(( 6 * 60 * 60 ))
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
@@ -907,6 +913,8 @@ ASan Menagerie Fuzz:
 ASan randpkt Fuzz:
   extends: .fuzz-ubuntu
   stage: fuzz-randpkt
+  variables:
+    WIRESHARK_LOG_FATAL: "critical"
   script:
     # XXX Reuse fuzz-asan?
     - printf "\e[0Ksection_start:%s:cmake_section[collapsed=true]\r\e[0KRunning CMake" "$( date +%s)"
@@ -921,11 +929,13 @@ ASan randpkt Fuzz:
 Valgrind Menagerie Fuzz:
   extends: .fuzz-ubuntu
   stage: fuzz-valgrind
+  resource_group: fuzz-master-valgrind
   variables:
     # Use DWARF-4 debug info. Valgrind does not support Clang 14 with DWARF-5.
     # https://gitlab.com/wireshark/wireshark/-/issues/18191
     # https://www.mail-archive.com/valgrind-users@lists.sourceforge.net/msg07239.html
     CFLAGS: "-gdwarf-4"
+    WIRESHARK_LOG_FATAL: "critical"
   script:
     - DEBIAN_FRONTEND=noninteractive apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get --yes install valgrind

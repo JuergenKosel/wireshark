@@ -678,6 +678,13 @@ static dissector_table_t rtps_type_name_table;
 #define RTPS_VENDOR_ECLIPSE_STRING       "Eclipse Foundation - Cyclone DDS"
 #define RTPS_VENDOR_GURUM                (0x0111)
 #define RTPS_VENDOR_GURUM_STRING         "GurumNetworks Ltd. - GurumDDS"
+#define RTPS_VENDOR_RUST                 (0x0112)
+#define RTPS_VENDOR_RUST_STRING          "Atostek - RustDDS"
+#define RTPS_VENDOR_ZRDDS                (0x0113)
+#define RTPS_VENDOR_ZRDDS_STRING         "Nanjing Zhenrong Software Technology Co. - ZRDDS"
+#define RTPS_VENDOR_DUST                 (0x0114)
+#define RTPS_VENDOR_DUST_STRING          "S2E Software Systems B.V. - Dust DDS"
+
 
 /* Data encapsulation */
 #define ENCAPSULATION_CDR_BE            (0x0000)
@@ -1471,6 +1478,9 @@ static const value_string vendor_vals[] = {
   { RTPS_VENDOR_EPROSIMA,      RTPS_VENDOR_EPROSIMA_STRING},
   { RTPS_VENDOR_ECLIPSE,       RTPS_VENDOR_ECLIPSE_STRING},
   { RTPS_VENDOR_GURUM,         RTPS_VENDOR_GURUM_STRING},
+  { RTPS_VENDOR_RUST,          RTPS_VENDOR_RUST_STRING},
+  { RTPS_VENDOR_ZRDDS,         RTPS_VENDOR_ZRDDS_STRING},
+  { RTPS_VENDOR_DUST,          RTPS_VENDOR_DUST_STRING},
   { 0, NULL }
 };
 
@@ -4590,7 +4600,7 @@ static void rtps_util_add_transport_info(proto_tree *tree,
     proto_tree *xport_info_tree;
 
     xport_info_tree = proto_tree_add_subtree_format(tree, tvb, offset, 8, ett_rtps_transport_info, NULL,
-            "transportInfo %d: %s", transport_index,val_to_str(classId, ndds_transport_class_id_vals, "unknown"));
+            "transportInfo %d: %s", transport_index, val_to_str_const(classId, ndds_transport_class_id_vals, "unknown"));
 
     proto_tree_add_item(xport_info_tree, hf_rtps_transportInfo_classId, tvb,
       offset, 4, encoding);
@@ -4727,10 +4737,10 @@ static void rtps_util_add_product_version(proto_tree *tree, tvbuff_t *tvb, gint 
   if (vendor_id == RTPS_VENDOR_RTI_DDS) {
     if (major < 5 && revision == 0) {
       subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
-              "Product version: %d.%d%c", major, minor, release);
+              "Product version: %d.%d%s", major, minor, format_char(wmem_packet_scope(), release));
     } else if (major < 5 && revision > 0) {
           subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
-              "Product version: %d.%d%c rev%d", major, minor, release, revision);
+              "Product version: %d.%d%s rev%d", major, minor, format_char(wmem_packet_scope(), release), revision);
     } else {
           subtree = proto_tree_add_subtree_format(tree, tvb, offset, 4, ett_rtps_product_version, NULL,
               "Product version: %d.%d.%d.%d", major, minor, release, revision);

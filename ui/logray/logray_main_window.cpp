@@ -1178,7 +1178,7 @@ void LograyMainWindow::mergeCaptureFile()
                 QMessageBox::warning(this, tr("Invalid Read Filter"),
                                      QString(tr("The filter expression %1 isn't a valid read filter. (%2).").arg(read_filter, df_err->msg)),
                                      QMessageBox::Ok);
-                dfilter_error_free(df_err);
+                df_error_free(&df_err);
                 continue;
             }
         } else {
@@ -2193,7 +2193,7 @@ void LograyMainWindow::initConversationMenus()
         main_ui_->menuConversationFilter->addAction(conv_action);
 
         connect(this, SIGNAL(packetInfoChanged(_packet_info*)), conv_action, SLOT(setPacketInfo(_packet_info*)));
-        connect(conv_action, SIGNAL(triggered()), this, SLOT(applyConversationFilter()));
+        connect(conv_action, SIGNAL(triggered()), this, SLOT(applyConversationFilter()), Qt::QueuedConnection);
 
         // Packet list context menu items
         packet_list_->conversationMenu()->addAction(conv_action);

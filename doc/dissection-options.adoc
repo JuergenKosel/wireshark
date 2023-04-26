@@ -1,5 +1,6 @@
 == DISSECTION OPTIONS
 
+// tag::decode_as[]
 [#decode_as]
 -d  <layer type>==<selector>,<decode-as protocol>::
 +
@@ -41,6 +42,7 @@ that can be selected with an ethertype.
 See the xref:tshark.html#decode_as[tshark](1) manual page for more examples.
 // end::not_tshark[]
 --
+// end::decode_as[]
 
 --disable-protocol <proto_name>::
 +
@@ -97,26 +99,30 @@ The argument is a string that may contain the letters:
 
 *d* to enable resolution from captured DNS packets
 
+*g* to enable IP address geolocation information lookup from configured
+MaxMind databases
+
 *m* to enable MAC address resolution
 
 *n* to enable network address resolution
 
 *N* to enable using external resolvers (e.g., DNS) for network address
 resolution; no effect without *n* also enabled.
-// tag::tshark[]
-[CAUTION]
-In tshark single-pass mode, external resolution is performed synchronously.
-For live captures, which are always in single-pass mode, this makes it
-more difficult for dissection to keep up with a busy network, possibly
-leading to dropped packets.
-// end::tshark[]
 
 *t* to enable transport-layer port number resolution
 
 *v* to enable VLAN IDs to names resolution
+
+// tag::tshark[]
+[CAUTION]
+In tshark single-pass mode, external resolution and geolocation lookup is
+performed synchronously. For live captures, which are always in single-pass
+mode, this makes it more difficult for dissection to keep up with a busy
+network, possibly leading to dropped packets.
+// end::tshark[]
 --
 
--t  a|ad|adoy|d|dd|e|r|u|ud|udoy::
+-t  (a|ad|adoy|d|dd|e|r|u|ud|udoy)[.[N]]|.[N]::
 +
 --
 Set the format of the packet timestamp displayed in the default time
@@ -154,7 +160,10 @@ and time, as UTC, is the actual time and date the packet was captured
 as YYYY/DOY, and time, as UTC, is the actual time and date the packet
 was captured
 
-The default format is relative.
+*.[N]* Set the precision: N is the number of decimals (0, 1, 2, 3, 6 or 9).
+If using "." without N, automatically determine precision from trace.
+
+The default format is relative with precision based on capture format.
 --
 
 -u <s|hms>::

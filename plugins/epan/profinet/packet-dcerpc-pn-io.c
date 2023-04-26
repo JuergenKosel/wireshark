@@ -3077,7 +3077,7 @@ static const value_string pn_io_profidrive_format_vals[] = {
     { 0, NULL }
 };
 
-static const value_string pn_io_profidrive_parameter_resp_errors[] = 
+static const value_string pn_io_profidrive_parameter_resp_errors[] =
 {
     {0x0, "Disallowed parameter number" },
     {0x1, "The parameter value cannot be changed" },
@@ -12407,7 +12407,7 @@ dissect_block(tvbuff_t *tvb, int offset,
         val_to_str(u16BlockType, pn_io_block_type, "Unknown (0x%04x)"));
 
     col_append_fstr(pinfo->cinfo, COL_INFO, ", %s",
-        val_to_str(u16BlockType, pn_io_block_type, "Unknown"));
+        val_to_str_const(u16BlockType, pn_io_block_type, "Unknown"));
 
     /* block length is without type and length fields, but with version field */
     /* as it's already dissected, remove it */
@@ -13043,7 +13043,7 @@ dissect_ProfiDriveParameterRequest(tvbuff_t *tvb, int offset,
                         hf_pn_io_profidrive_no_of_parameters, &no_of_parameters);
 
     proto_item_append_text(profidrive_item, "ReqRef:0x%02x, ReqId:%s, DO:%u, NoOfParameters:%u",
-        request_reference, val_to_str(request_id, pn_io_profidrive_request_id_vals, "Unknown"),
+        request_reference, val_to_str_const(request_id, pn_io_profidrive_request_id_vals, "Unknown"),
         do_id, no_of_parameters);
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "PROFIDrive Write Request, ReqRef:0x%02x, %s DO:%u",
@@ -13076,7 +13076,7 @@ dissect_ProfiDriveParameterRequest(tvbuff_t *tvb, int offset,
                             hf_pn_io_profidrive_param_subindex, &idx);
 
         proto_item_append_text(sub_item, "Attr:%s, Elems:%u, Parameter:%u, Index:%u",
-            val_to_str(attribute, pn_io_profidrive_attribute_vals, "Unknown"), no_of_elems,
+            val_to_str_const(attribute, pn_io_profidrive_attribute_vals, "Unknown"), no_of_elems,
             parameter, idx);
 
             if (no_of_elems>1) {
@@ -13105,7 +13105,7 @@ dissect_ProfiDriveParameterRequest(tvbuff_t *tvb, int offset,
                                 hf_pn_io_profidrive_param_no_of_values, &no_of_vals);
 
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
-                val_to_str(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
+                val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
 
             while (no_of_vals--)
             {
@@ -13128,7 +13128,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
     guint8      addr_idx;
     proto_item *profidrive_item;
     proto_tree *profidrive_tree;
-    
+
     profidrive_item = proto_tree_add_item(tree, hf_pn_io_block, tvb, offset, 0, ENC_NA);
     profidrive_tree = proto_item_add_subtree(profidrive_item, ett_pn_io_profidrive_parameter_response);
     proto_item_set_text(profidrive_item, "PROFIDrive Parameter Response: ");
@@ -13141,11 +13141,11 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
     offset = dissect_dcerpc_uint8(tvb, offset, pinfo, profidrive_tree, drep,
                         hf_pn_io_profidrive_no_of_parameters, &no_of_parameters);
     proto_item_append_text(profidrive_item, "ReqRef:0x%02x, RspId:%s, DO:%u, NoOfParameters:%u",
-        request_reference, val_to_str(response_id, pn_io_profidrive_response_id_vals, "Unknown"),
+        request_reference, val_to_str_const(response_id, pn_io_profidrive_response_id_vals, "Unknown"),
         do_id, no_of_parameters);
     col_add_fstr(pinfo->cinfo, COL_INFO, "PROFIDrive Read Response, ReqRef:0x%02x, RspId:%s",
                            request_reference,
-                           val_to_str(response_id, pn_io_profidrive_response_id_vals, "Unknown response"));
+                           val_to_str_const(response_id, pn_io_profidrive_response_id_vals, "Unknown response"));
     /* in case of  parameter response value list */
     if (response_id == 0x01) {
         for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
@@ -13164,7 +13164,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
                                 hf_pn_io_profidrive_param_no_of_values, &no_of_vals);
 
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
-                val_to_str(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
+                val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
 
             while (no_of_vals--)
             {
@@ -13176,7 +13176,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
     if(response_id == 0x02){
         // change parameter response ok, no data
     }
-    
+
     if(response_id == 0x81){
          for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
             guint8 format;
@@ -13195,12 +13195,12 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
                                 hf_pn_io_profidrive_param_no_of_values, &no_of_vals);
 
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
-                val_to_str(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
+                val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
 
             if(format == 0x44){
-                
+
                 offset = dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree, drep,
-                                   hf_pn_io_profidrive_param_value_error, &value16);    
+                                   hf_pn_io_profidrive_param_value_error, &value16);
                 if(value16 == 0x23){
 
                     addr_idx = no_of_parameters;
@@ -13231,7 +13231,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
             }
         }
     }
-    
+
     if(response_id == 0x82){
 
         for(addr_idx=0; addr_idx<no_of_parameters; addr_idx++) {
@@ -13251,17 +13251,17 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
                                 hf_pn_io_profidrive_param_no_of_values, &no_of_vals);
 
             proto_item_append_text(sub_item, "Format:%s, NoOfVals:%u",
-                val_to_str(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
+                val_to_str_const(format, pn_io_profidrive_format_vals, "Unknown"), no_of_vals);
 
             if(format == 0x44){
-                
+
                 offset = dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree, drep,
-                                   hf_pn_io_profidrive_param_value_error, &value16);    
+                                   hf_pn_io_profidrive_param_value_error, &value16);
 
                 if(value16 == 0x23){
                     addr_idx = no_of_parameters;
                 }
-                
+
                 while (--no_of_vals)
                 {
                     switch(value16)
@@ -13273,7 +13273,7 @@ dissect_ProfiDriveParameterResponse(tvbuff_t *tvb, int offset,
                         case 0x7:
                         case 0x14:
                         case 0x20:
-                            
+
                             offset = dissect_dcerpc_uint16(tvb, offset, pinfo, sub_tree, drep,
                                     hf_pn_io_profidrive_param_value_error_sub, &value16);
                             break;
@@ -14115,7 +14115,7 @@ dissect_PNIO_RTA(tvbuff_t *tvb, int offset,
                     hf_pn_io_pdu_type_version, &u8PDUVersion);
     u8PDUVersion >>= 4;
     proto_item_append_text(sub_item, ", Type: %s, Version: %u",
-        val_to_str(u8PDUType, pn_io_pdu_type, "Unknown"),
+        val_to_str_const(u8PDUType, pn_io_pdu_type, "Unknown"),
         u8PDUVersion);
 
     /* additional flags */
@@ -14263,7 +14263,7 @@ dissect_PNIO_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 
 static gboolean
-pn_io_ar_conv_valid(packet_info *pinfo)
+pn_io_ar_conv_valid(packet_info *pinfo, void *user_data _U_)
 {
     void* profinet_type = p_get_proto_data(pinfo->pool, pinfo, proto_pn_io, 0);
 
@@ -14271,7 +14271,7 @@ pn_io_ar_conv_valid(packet_info *pinfo)
 }
 
 static gchar *
-pn_io_ar_conv_filter(packet_info *pinfo)
+pn_io_ar_conv_filter(packet_info *pinfo, void *user_data _U_)
 {
     pnio_ar_t *ar = (pnio_ar_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_pn_io, 0);
     void* profinet_type = p_get_proto_data(pinfo->pool, pinfo, proto_pn_io, 0);
@@ -14296,7 +14296,7 @@ pn_io_ar_conv_filter(packet_info *pinfo)
 }
 
 static gchar *
-pn_io_ar_conv_data_filter(packet_info *pinfo)
+pn_io_ar_conv_data_filter(packet_info *pinfo, void *user_data _U_)
 {
     pnio_ar_t *ar = (pnio_ar_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_pn_io, 0);
     void* profinet_type = p_get_proto_data(pinfo->pool, pinfo, proto_pn_io, 0);
@@ -17750,8 +17750,8 @@ proto_register_pn_io (void)
     /* Cleanup functions of PNIO protocol */
     register_cleanup_routine(pnio_cleanup);
 
-    register_conversation_filter("pn_io", "PN-IO AR", pn_io_ar_conv_valid, pn_io_ar_conv_filter);
-    register_conversation_filter("pn_io", "PN-IO AR (with data)", pn_io_ar_conv_valid, pn_io_ar_conv_data_filter);
+    register_conversation_filter("pn_io", "PN-IO AR", pn_io_ar_conv_valid, pn_io_ar_conv_filter, NULL);
+    register_conversation_filter("pn_io", "PN-IO AR (with data)", pn_io_ar_conv_valid, pn_io_ar_conv_data_filter, NULL);
 }
 
 

@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 24.501 17.9.0
+ * References: 3GPP TS 24.501 17.10.0
  */
 
 #include "config.h"
@@ -29,7 +29,7 @@
 
 #include "packet-gsm_a_common.h"
 #include "packet-e212.h"
-#include "packet-http.h"
+#include "packet-media-type.h"
 #include "packet-tcp.h"
 
 void proto_register_nas_5gs(void);
@@ -283,6 +283,7 @@ static int hf_nas_5gs_mm_ssnpnsi_b3 = -1;
 static int hf_nas_5gs_mm_ex_cag_b4 = -1;
 static int hf_nas_5gs_mm_nsag_b5 = -1;
 static int hf_nas_5gs_mm_uas_b6 = -1;
+static int hf_nas_5gs_mm_mpsiu_b7 = -1;
 static int hf_nas_5gs_mm_type_id = -1;
 static int hf_nas_5gs_mm_odd_even = -1;
 static int hf_nas_5gs_mm_length = -1;
@@ -700,7 +701,6 @@ static int hf_nas_5gs_dnn_len = -1;
 static int hf_nas_5gs_upsi_sublist_len = -1;
 static int hf_nas_5gs_upsc = -1;
 static int hf_nas_5gs_os_id = -1;
-static int hf_nas_5gs_os_id_len = -1;
 static int hf_nas_5gs_upds_cause = -1;
 static int hf_nas_5gs_v2xuui = -1;
 static int hf_nas_5gs_v2xpc5i = -1;
@@ -933,7 +933,7 @@ de_nas_5gs_mm_5gmm_cap(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U_,
     };
 
     static int * const flags5[] = {
-        &hf_nas_5gs_spare_b7,
+        &hf_nas_5gs_mm_mpsiu_b7,
         &hf_nas_5gs_mm_uas_b6,
         &hf_nas_5gs_mm_nsag_b5,
         &hf_nas_5gs_mm_ex_cag_b4,
@@ -4375,9 +4375,9 @@ de_nas_5gs_mm_nsag_info(tvbuff_t* tvb _U_, proto_tree* tree _U_, packet_info* pi
         guint32 nsag_len, s_nssai_len, tai_len;
 
         subtree = proto_tree_add_subtree_format(tree, tvb, curr_offset, -1, ett_nas_5gs_mm_nsag_info, &item, "NSSRG values for S-NSSAI %u", i);
-        proto_tree_add_item_ret_uint(subtree, hf_nas_5gs_mm_nsag_info_len, tvb, curr_offset, 2, ENC_BIG_ENDIAN, &nsag_len);
-        curr_offset += 2;
-        proto_item_set_len(item, nsag_len + 2);
+        proto_tree_add_item_ret_uint(subtree, hf_nas_5gs_mm_nsag_info_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &nsag_len);
+        curr_offset++;
+        proto_item_set_len(item, nsag_len + 1);
         proto_tree_add_item(subtree, hf_nas_5gs_mm_nsag_id, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item_ret_uint(subtree, hf_nas_5gs_mm_nsag_info_s_nssai_len, tvb, curr_offset, 1, ENC_BIG_ENDIAN, &s_nssai_len);
         curr_offset++;
@@ -7047,8 +7047,8 @@ nas_5gs_mm_registration_accept(tvbuff_t *tvb, proto_tree *tree, packet_info *pin
     ELEM_OPT_TLV_E(0x7B, NAS_5GS_PDU_TYPE_COMMON, DE_NAS_5GS_CMN_SERVICE_LEVEL_AA_CONT, NULL);
     /* 33    Negotiated PEIPS assistance information    PEIPS assistance information 9.11.3.80    O    TLV    3-n */
     ELEM_OPT_TLV(0x33, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_PEIPS_ASSIST_INFO, " - Negotiated");
-    /* 34    5GS additional request result    5GS additional request result 9.11.3.81    O    TLV    3 */
-    ELEM_OPT_TLV(0x34, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_ADD_REQ_RES, NULL);
+    /* 35    5GS additional request result    5GS additional request result 9.11.3.81    O    TLV    3 */
+    ELEM_OPT_TLV(0x35, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_5GS_ADD_REQ_RES, NULL);
     /* 70    NSSRG information    NSSRG information 9.11.3.82    O    TLV-E    7-4099 */
     ELEM_OPT_TLV_E(0x70, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_NSSRG_INFO, NULL);
     /* 14    Disaster roaming wait range    Registration wait range 9.11.3.84    O    TLV    4 */
@@ -10245,9 +10245,9 @@ dissect_nas_5gs_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     jsmntok_t *tokens, *cur_tok;
     dissector_handle_t subdissector;
     tvbuff_t* json_tvb = (tvbuff_t*)p_get_proto_data(pinfo->pool, pinfo, proto_json, 0);
-    http_message_info_t *message_info = (http_message_info_t *)data;
+    media_content_info_t *content_info = (media_content_info_t *)data;
 
-    if (!json_tvb || !message_info || !message_info->content_id)
+    if (!json_tvb || !content_info || !content_info->content_id)
         return 0;
 
     json_data = tvb_get_string_enc(pinfo->pool, json_tvb, 0, tvb_reported_length(json_tvb), ENC_UTF_8|ENC_NA);
@@ -10291,7 +10291,7 @@ dissect_nas_5gs_media_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
             }
         }
     }
-    if (!str || strcmp(str, message_info->content_id))
+    if (!str || strcmp(str, content_info->content_id))
         return 0;
     if (!strcmp(n1_msg_class, "5GMM") ||
         !strcmp(n1_msg_class, "SM")) {
@@ -11397,6 +11397,11 @@ proto_register_nas_5gs(void)
         { &hf_nas_5gs_mm_uas_b6,
         { "UAS",   "nas_5gs.mm.uas_b6",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x40,
+            NULL, HFILL }
+        },
+        { &hf_nas_5gs_mm_mpsiu_b7,
+        { "MPSIU",   "nas_5gs.mm.mpsiu_b7",
+            FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_type_id,
@@ -13180,11 +13185,6 @@ proto_register_nas_5gs(void)
           { "OS id(UUID)", "nas_5gs.os_id",
             FT_GUID, BASE_NONE, NULL, 0x0,
             NULL, HFILL } },
-        { &hf_nas_5gs_os_id_len,
-        { "Length", "nas_5gs.os_id_len",
-            FT_UINT8, BASE_DEC, NULL, 0x0,
-            NULL, HFILL }
-        },
         { &hf_nas_5gs_upds_cause,
         { "UPDS cause", "nas_5gs.upds_cause",
             FT_UINT8, BASE_DEC, VALS(nas_5gs_updp_upds_cause_vals), 0x0,
@@ -13416,7 +13416,7 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_mm_nsag_info_len,
         { "Length of NSAG",   "nas_5gs.mm.nsag_info.len",
-            FT_UINT16, BASE_DEC, NULL, 0x0,
+            FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_nsag_id,

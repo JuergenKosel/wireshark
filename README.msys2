@@ -14,11 +14,15 @@ How to build Wireshark from source:
 
 1. Open the shell for the selected 64-bit environment.
 
-2. Build using CMake + Ninja:
+2. Install needed dependencies:
 
     $ cd $srcdir
+    $ tools/msys2-setup.sh --install-all
+
+3. Build using CMake + Ninja:
+
     $ mkdir build && cd build
-    $ cmake ..
+    $ cmake -DENABLE_CCACHE=On ..
     $ ninja
     $ ninja test        # optional
     $ ninja install     # optional

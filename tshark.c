@@ -464,7 +464,7 @@ print_usage(FILE *output)
     fprintf(output, "     aggregator=,|/s|<char> select comma, space, printable character as\n");
     fprintf(output, "                           aggregator\n");
     fprintf(output, "     quote=d|s|n           select double, single, no quotes for values\n");
-    fprintf(output, "  -t a|ad|adoy|d|dd|e|r|u|ud|udoy\n");
+    fprintf(output, "  -t (a|ad|adoy|d|dd|e|r|u|ud|udoy)[.[N]]|.[N]\n");
     fprintf(output, "                           output format of time stamps (def: r: rel. to first)\n");
     fprintf(output, "  -u s|hms                 output format of seconds (def: s: seconds)\n");
     fprintf(output, "  -l                       flush standard output after each packet\n");
@@ -640,19 +640,18 @@ static gboolean
 _compile_dfilter(const char *text, dfilter_t **dfp, const char *caller)
 {
     gboolean ok;
-    char *err_msg = NULL;
     df_error_t *df_err;
     char *err_off;
     char *expanded;
 
-    expanded = dfilter_expand(text, &err_msg);
+    expanded = dfilter_expand(text, &df_err);
     if (expanded == NULL) {
-        cmdarg_err("%s", err_msg);
-        g_free(err_msg);
+        cmdarg_err("%s", df_err->msg);
+        df_error_free(&df_err);
         return FALSE;
     }
 
-    ok = dfilter_compile_real(expanded, dfp, &df_err, DF_OPTIMIZE, caller);
+    ok = dfilter_compile_full(expanded, dfp, &df_err, DF_OPTIMIZE, caller);
     if (!ok ) {
         cmdarg_err("%s", df_err->msg);
 
@@ -662,7 +661,7 @@ _compile_dfilter(const char *text, dfilter_t **dfp, const char *caller)
             cmdarg_err_cont("    %s", err_off);
             g_free(err_off);
         }
-        dfilter_error_free(df_err);
+        df_error_free(&df_err);
     }
 
     g_free(expanded);
@@ -2114,6 +2113,7 @@ main(int argc, char *argv[])
     }
 
     timestamp_set_type(global_dissect_options.time_format);
+    timestamp_set_precision(global_dissect_options.time_precision);
 
     /*
      * Enabled and disabled protocols and heuristic dissectors as per

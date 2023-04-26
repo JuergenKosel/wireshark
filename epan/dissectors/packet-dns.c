@@ -1202,9 +1202,13 @@ static const value_string tlsa_matching_type_vals[] = {
 };
 
 /* IPSECKEY RFC4025 */
+/* IPSECKEY RFC8005 */
+/* IPSECKEY RFC9373 */
 static const value_string gw_algo_vals[] = {
   { 1,     "DSA" },
   { 2,     "RSA" },
+  { 3,     "ECDSA" },
+  { 4,     "EdDSA" },
   { 0,      NULL }
 };
 
@@ -1333,7 +1337,12 @@ static const range_string dns_ext_err_info_code[] = {
   {    22,    22, "No Reachable Authority"       },
   {    23,    23, "Network Error"                },
   {    24,    24, "Invalid Data"                 },
-  {    25, 49151, "Unassigned"                   },
+  {    25,    25, "Signature Expired before Valid" },
+  {    26,    26, "Too Early"                    },
+  {    27,    27, "Unsupported NSEC3 Iterations Value" },
+  {    28,    28, "Unable to conform to policy"  },
+  {    29,    29, "Synthesized"                  },
+  {    30, 49151, "Unassigned"                   },
   { 49152, 65535, "Reserved for Private Use"     },
   {     0,     0, NULL                           } };
 
@@ -1675,7 +1684,7 @@ dissect_dns_query(tvbuff_t *tvb, int offset, int dns_data_offset,
     *is_multiple_responds = TRUE;
   }
 
-  type_name = val_to_str_ext(type, &dns_types_vals_ext, "Unknown (%d)");
+  type_name = val_to_str_ext(type, &dns_types_vals_ext, "Unknown (%u)");
 
   /*
    * The name might contain octets that aren't printable characters,
@@ -1833,7 +1842,7 @@ dissect_type_bitmap(proto_tree *rr_tree, tvbuff_t *tvb, int cur_offset, int rr_l
         if (bits & mask) {
           proto_tree_add_uint_format(rr_tree, hf_dns_rr_type, tvb, cur_offset, 1, rr_type,
             "RR type in bit map: %s %s",
-            val_to_str_ext(rr_type, &dns_types_vals_ext, " "),
+            val_to_str_ext_const(rr_type, &dns_types_vals_ext, " "),
             val_to_str_ext(rr_type, &dns_types_description_vals_ext, "Unknown (%d)")
             );
         }
@@ -1863,7 +1872,7 @@ dissect_type_bitmap_nxt(proto_tree *rr_tree, tvbuff_t *tvb, int cur_offset, int 
       if (bits & mask) {
           proto_tree_add_uint_format(rr_tree, hf_dns_rr_type, tvb, cur_offset, 1, rr_type,
             "RR type in bit map: %s %s",
-            val_to_str_ext(rr_type, &dns_types_vals_ext, " "),
+            val_to_str_ext_const(rr_type, &dns_types_vals_ext, " "),
             val_to_str_ext(rr_type, &dns_types_description_vals_ext, "Unknown (%d)"));
         }
       mask >>= 1;
@@ -4108,7 +4117,7 @@ dissect_dso_data(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *
 
     proto_tree_add_item_ret_uint(dso_tlv_tree, hf_dns_dso_tlv_type, tvb, offset, 2, ENC_BIG_ENDIAN, &dso_tlv_type);
     offset += 2;
-    proto_item_append_text(dso_tlv_ti, ": %s", rval_to_str(dso_tlv_type, dns_dso_type_rvals, "Unknown Type"));
+    proto_item_append_text(dso_tlv_ti, ": %s", rval_to_str_const(dso_tlv_type, dns_dso_type_rvals, "Unknown Type"));
 
     proto_tree_add_item(dso_tlv_tree, hf_dns_dso_tlv_length, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset += 2;

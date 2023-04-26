@@ -241,8 +241,8 @@ dissect_bfcp_attributes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 			offset = offset + pad_len;
 			break;
 		case 7: /* ERROR-INFO */
-			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_error_info_text, tvb, offset, length-3, ENC_ASCII);
-			offset = offset + length-3;
+			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_error_info_text, tvb, offset, length-2, ENC_ASCII);
+			offset = offset + length-2;
 			pad_len = length & 0x03;
 			if(pad_len != 0){
 				pad_len = 4 - pad_len;
@@ -251,8 +251,8 @@ dissect_bfcp_attributes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 			offset = offset + pad_len;
 			break;
 		case 8: /* PARTICIPANT-PROVIDED-INFO */
-			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_part_prov_info_text, tvb, offset, length-3, ENC_ASCII);
-			offset = offset + length-3;
+			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_part_prov_info_text, tvb, offset, length-2, ENC_ASCII);
+			offset = offset + length-2;
 			pad_len = length & 0x03;
 			if(pad_len != 0){
 				pad_len = 4 - pad_len;
@@ -261,8 +261,8 @@ dissect_bfcp_attributes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 			offset = offset + pad_len;
 			break;
 		case 9: /* STATUS-INFO */
-			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_status_info_text, tvb, offset, length-3, ENC_ASCII);
-			offset = offset + length-3;
+			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_status_info_text, tvb, offset, length-2, ENC_ASCII);
+			offset = offset + length-2;
 			pad_len = length & 0x03;
 			if(pad_len != 0){
 				pad_len = 4 - pad_len;
@@ -297,8 +297,8 @@ dissect_bfcp_attributes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 			offset = offset + pad_len;
 			break;
 		case 12: /* USER-DISPLAY-NAME */
-			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_user_disp_name, tvb, offset, length-3, ENC_ASCII);
-			offset = offset + length-3;
+			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_user_disp_name, tvb, offset, length-2, ENC_ASCII);
+			offset = offset + length-2;
 			pad_len = length & 0x03;
 			if(pad_len != 0){
 				pad_len = 4 - pad_len;
@@ -307,8 +307,8 @@ dissect_bfcp_attributes(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 			offset = offset + pad_len;
 			break;
 		case 13: /* USER-URI */
-			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_user_uri, tvb, offset, length-3, ENC_ASCII);
-			offset = offset + length-3;
+			proto_tree_add_item(bfcp_attr_tree, hf_bfcp_user_uri, tvb, offset, length-2, ENC_ASCII);
+			offset = offset + length-2;
 			pad_len = length & 0x03;
 			if(pad_len != 0){
 				pad_len = 4 - pad_len;
@@ -391,10 +391,11 @@ dissect_bfcp_heur_check(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree 
 	first_byte = tvb_get_guint8(tvb, 0);
 
 	/* If first_byte of bfcp_packet is a combination of the
-	 * version and the I bit. The value must be either 0x20 or 0x30
+	 * version, the R-bit and the F-bit. The value must be:
+	 * 0x20 || 0x30 || 0x40 || 0x48 || 0x50 || 0x58
 	 * if the bit is set, otherwise it is not BFCP.
 	 */
-	if ((first_byte != 0x20) && (first_byte != 0x30))
+	if ((first_byte != 0x20) && (first_byte != 0x30) && (first_byte != 0x40) && (first_byte != 0x48) && (first_byte != 0x50) && (first_byte != 0x58))
 		return FALSE;
 
 	primitive = tvb_get_guint8(tvb, 1);

@@ -206,7 +206,7 @@ bool LograyMainWindow::openCaptureFile(QString cf_path, QString read_filter, uns
                     QString(" isn't a valid display filter. (") +
                     df_err->msg + QString(")."),
                     QMessageBox::Ok);
-            dfilter_error_free(df_err);
+            df_error_free(&df_err);
 
             if (!name_param) {
                 // go back to the selection dialogue only if the file
@@ -1258,7 +1258,7 @@ void LograyMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
         can_match_selected = proto_can_match_selected(capture_file_.capFile()->finfo_selected, capture_file_.capFile()->edt);
         if (hfinfo && hfinfo->type == FT_FRAMENUM) {
             is_framenum = true;
-            linked_frame = fvalue_get_uinteger(&fi->value);
+            linked_frame = fvalue_get_uinteger(fi->value);
         }
 
         char *tmp_field = proto_construct_match_selected_string(fi, capture_file_.capFile()->edt);
@@ -1363,6 +1363,16 @@ void LograyMainWindow::applyGlobalCommandLineOptions()
                 tda->setChecked(true);
                 recent.gui_time_format = global_dissect_options.time_format;
                 timestamp_set_type(global_dissect_options.time_format);
+                break;
+            }
+        }
+    }
+    if (global_dissect_options.time_precision != TS_PREC_NOT_SET) {
+        foreach(QAction* tpa, tp_actions.keys()) {
+            if (global_dissect_options.time_precision == tp_actions[tpa]) {
+                tpa->setChecked(true);
+                recent.gui_time_precision = global_dissect_options.time_precision;
+                timestamp_set_precision(global_dissect_options.time_precision);
                 break;
             }
         }
@@ -2534,7 +2544,7 @@ void LograyMainWindow::openPacketDialog(bool from_reference)
 
     /* Find the frame for which we're popping up a dialog */
     if (from_reference) {
-        guint32 framenum = fvalue_get_uinteger(&(capture_file_.capFile()->finfo_selected->value));
+        guint32 framenum = fvalue_get_uinteger(capture_file_.capFile()->finfo_selected->value);
         if (framenum == 0)
             return;
 

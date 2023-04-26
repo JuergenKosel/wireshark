@@ -603,6 +603,7 @@ typedef struct {
 
 
 /* Work out bundle allocation for ext 11.  Take into account ext6, ext12 or ext13 in this section before ext 11. */
+/* Won't be called with numBundPrb=0 */
 static void ext11_work_out_bundles(guint startPrbc,
                                    guint numPrbc,
                                    guint numBundPrb,             /* number of PRBs pre (full) bundle */
@@ -639,7 +640,7 @@ static void ext11_work_out_bundles(guint startPrbc,
         settings->num_bundles = bundles_set;
     }
 
-    /* Allocation configured by ext 6 */
+    /* Allocation configured by ext 12 */
     else if (settings->ext12_set) {
         /* First, allocate normally from startPrbc, numPrbc */
         settings->num_bundles = (numPrbc+numBundPrb-1) / numBundPrb;
@@ -699,6 +700,10 @@ static void ext11_work_out_bundles(guint startPrbc,
         for (guint alloc=0; alloc < settings->ext13_num_start_prbs; alloc++) {
             guint alloc_start = alloc * alloc_size;
             for (guint32 n=0; n < alloc_size; n++) {
+                if ((alloc_start+n) >= MAX_BFW_BUNDLES) {
+                    /* ERROR */
+                    return;
+                }
                 settings->bundles[alloc_start+n].start = settings->ext13_start_prbs[alloc] + startPrbc + n*numBundPrb;
                 settings->bundles[alloc_start+n].end =   settings->bundles[alloc_start+n].start + numBundPrb-1;
                 if (settings->bundles[alloc_start+n].end > settings->ext13_start_prbs[alloc] + numPrbc) {
@@ -866,11 +871,6 @@ static float uncompressed_to_float(guint32 h)
     return ((float)i16) / 0x7fff;
 }
 
-static gfloat digital_power_scaling(gfloat f)
-{
-    return f / (1 << 15);
-}
-
 /* 7.7.1.2 bfwCompHdr (beamforming weight compression header) */
 static int dissect_bfwCompHdr(tvbuff_t *tvb, proto_tree *tree, gint offset,
                               guint32 *iq_width, guint32 *comp_meth, proto_item **comp_meth_ti)
@@ -997,7 +997,7 @@ static gfloat decompress_value(guint32 bits, guint32 comp_method, guint8 iq_widt
         case BFP_AND_SELECTIVE_RE:
         case MOD_COMPR_AND_SELECTIVE_RE:
         default:
-            /* Not supported! */
+            /* TODO: Not supported! */
             return 0.0;
     }
 }
@@ -2409,9 +2409,10 @@ static int dissect_oran_c(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     proto_item_set_len(section_tree, offset - section_tree_offset);
 
     proto_item_append_text(sectionHeading, "%d, %s, Frame: %d, Subframe: %d, Slot: %d, StartSymbol: %d",
-                           sectionType, val_to_str(direction, data_direction_vals, "Unknown"),
+                           sectionType, val_to_str_const(direction, data_direction_vals, "Unknown"),
                            frameId, subframeId, slotId, startSymbolId);
-    write_pdu_label_and_info(protocol_item, NULL, pinfo, ", Type: %d %s", sectionType, rval_to_str(sectionType, section_types_short, "Unknown"));
+    write_pdu_label_and_info(protocol_item, NULL, pinfo, ", Type: %d %s", sectionType,
+                             rval_to_str_const(sectionType, section_types_short, "Unknown"));
 
     /* Dissect each C section */
     for (guint32 i = 0; i < nSections; ++i) {
@@ -2497,7 +2498,7 @@ dissect_oran_u(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
     proto_item_set_generated(pi);
 
     proto_item_append_text(timingHeader, " %s, Frame: %d, Subframe: %d, Slot: %d, Symbol: %d",
-        val_to_str(direction, data_direction_vals, "Unknown"), frameId, subframeId, slotId, symbolId);
+        val_to_str_const(direction, data_direction_vals, "Unknown"), frameId, subframeId, slotId, symbolId);
 
     guint sample_bit_width;
     gint compression;
@@ -2606,7 +2607,6 @@ dissect_oran_u(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
                     /* I */
                     guint i_bits = tvb_get_bits(tvb, samples_offset, sample_bit_width, ENC_BIG_ENDIAN);
                     gfloat i_value = decompress_value(i_bits, COMP_BLOCK_FP, sample_bit_width, exponent);
-                    i_value = digital_power_scaling(i_value);
                     guint sample_len_in_bytes = ((samples_offset%8)+sample_bit_width+7)/8;
                     proto_item *i_ti = proto_tree_add_float(rb_tree, hf_oran_iSample, tvb, samples_offset/8, sample_len_in_bytes, i_value);
                     proto_item_set_text(i_ti, "iSample: %0.12f  0x%04x (iSample-%u in the PRB)", i_value, i_bits, sample_number);
@@ -2614,7 +2614,6 @@ dissect_oran_u(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
                     /* Q */
                     guint q_bits = tvb_get_bits(tvb, samples_offset, sample_bit_width, ENC_BIG_ENDIAN);
                     gfloat q_value = decompress_value(q_bits, COMP_BLOCK_FP, sample_bit_width, exponent);
-                    q_value = digital_power_scaling(q_value);
                     sample_len_in_bytes = ((samples_offset%8)+sample_bit_width+7)/8;
                     proto_item *q_ti = proto_tree_add_float(rb_tree, hf_oran_qSample, tvb, samples_offset/8, sample_len_in_bytes, q_value);
                     proto_item_set_text(q_ti, "qSample: %0.12f  0x%04x (qSample-%u in the PRB)", q_value, q_bits, sample_number);
