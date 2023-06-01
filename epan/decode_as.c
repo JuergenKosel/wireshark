@@ -150,31 +150,27 @@ gboolean decode_as_default_reset(const gchar *name, gconstpointer pattern)
 
 gboolean decode_as_default_change(const gchar *name, gconstpointer pattern, gconstpointer handle, const gchar *list_name _U_)
 {
-    const dissector_handle_t* dissector = (const dissector_handle_t*)handle;
-    if (dissector != NULL) {
-        switch (get_dissector_table_selector_type(name)) {
-        case FT_UINT8:
-        case FT_UINT16:
-        case FT_UINT24:
-        case FT_UINT32:
-            dissector_change_uint(name, GPOINTER_TO_UINT(pattern), *dissector);
-            return TRUE;
-        case FT_NONE:
-            dissector_change_payload(name, *dissector);
-            return TRUE;
-        case FT_STRING:
-        case FT_STRINGZ:
-        case FT_UINT_STRING:
-        case FT_STRINGZPAD:
-        case FT_STRINGZTRUNC:
-            dissector_change_string(name, (!pattern)?"":(const gchar *) pattern, *dissector);
-            return TRUE;
-        default:
-            return FALSE;
-        };
-
+    const dissector_handle_t dissector = (const dissector_handle_t)handle;
+    switch (get_dissector_table_selector_type(name)) {
+    case FT_UINT8:
+    case FT_UINT16:
+    case FT_UINT24:
+    case FT_UINT32:
+        dissector_change_uint(name, GPOINTER_TO_UINT(pattern), dissector);
+        return TRUE;
+    case FT_NONE:
+        dissector_change_payload(name, dissector);
+        return TRUE;
+    case FT_STRING:
+    case FT_STRINGZ:
+    case FT_UINT_STRING:
+    case FT_STRINGZPAD:
+    case FT_STRINGZTRUNC:
+        dissector_change_string(name, (!pattern)?"":(const gchar *) pattern, dissector);
+        return TRUE;
+    default:
         return FALSE;
-    }
+    };
 
     return TRUE;
 }
@@ -248,23 +244,24 @@ read_set_decode_as_entries(gchar *key, const gchar *value,
                     }
 
                     /* Now apply the value data back to dissector table preference */
-                    proto_name = proto_get_protocol_filter_name(dissector_handle_get_protocol_index(handle));
-                    module = prefs_find_module(proto_name);
-                    pref_value = prefs_find_preference(module, values[0]);
-                    if (pref_value != NULL) {
-                        gboolean replace = FALSE;
-                        if (g_hash_table_lookup(processed_entries, proto_name) == NULL) {
-                            /* First decode as entry for this protocol, ranges may be replaced */
-                            replace = TRUE;
+                    if (handle != NULL) {
+                        proto_name = proto_get_protocol_filter_name(dissector_handle_get_protocol_index(handle));
+                        module = prefs_find_module(proto_name);
+                        pref_value = prefs_find_preference(module, values[0]);
+                        if (pref_value != NULL) {
+                            gboolean replace = FALSE;
+                            if (g_hash_table_lookup(processed_entries, proto_name) == NULL) {
+                                /* First decode as entry for this protocol, ranges may be replaced */
+                                replace = TRUE;
 
-                            /* Remember we've processed this protocol */
-                            g_hash_table_insert(processed_entries, (gpointer)proto_name, (gpointer)proto_name);
+                                /* Remember we've processed this protocol */
+                                g_hash_table_insert(processed_entries, (gpointer)proto_name, (gpointer)proto_name);
+                            }
+
+                            prefs_add_decode_as_value(pref_value, (guint)long_value, replace);
+                            module->prefs_changed_flags |= prefs_get_effect_flags(pref_value);
                         }
-
-                        prefs_add_decode_as_value(pref_value, (guint)long_value, replace);
-                        module->prefs_changed_flags |= prefs_get_effect_flags(pref_value);
                     }
-
                 }
             }
             if (is_valid) {

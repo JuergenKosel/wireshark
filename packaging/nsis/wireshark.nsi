@@ -38,7 +38,7 @@ ${StrRep}
 ; ============================================================================
 
 ; The file to write
-OutFile "${OUTFILE_DIR}\${PROGRAM_NAME}-${WIRESHARK_TARGET_PLATFORM}-${VERSION}.exe"
+OutFile "${OUTFILE_DIR}\${PROGRAM_NAME}-${VERSION}-${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}.exe"
 ; Installer icon
 Icon "${TOP_SRC_DIR}\resources\icons\wiresharkinst.ico"
 
@@ -271,10 +271,21 @@ Var WIX_UNINSTALLSTRING
 !include WinMessages.nsh
 
 Function .onInit
-  !if ${WIRESHARK_TARGET_PLATFORM} == "win64"
-    ; http://forums.winamp.com/printthread.php?s=16ffcdd04a8c8d52bee90c0cae273ac5&threadid=262873
-    ${IfNot} ${RunningX64}
-      MessageBox MB_OK "Wireshark only runs on x64 machines.$\nTry installing a 32-bit version (3.6 or earlier) instead." /SD IDOK
+  ; http://forums.winamp.com/printthread.php?s=16ffcdd04a8c8d52bee90c0cae273ac5&threadid=262873
+  ${IfNot} ${RunningX64}
+    MessageBox MB_OK "Wireshark only runs on 64 bit machines.$\nTry installing a 32 bit version (3.6 or earlier) instead." /SD IDOK
+    Abort
+  ${EndIf}
+
+  !if ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE} == "x64"
+    ${If} ${IsNativeARM64}
+      MessageBox MB_OK "You're installing the x64 version of Wireshark on an Arm64 system.$\nThe native Arm64 installer might work better." /SD IDOK
+    ${EndIf}
+  !endif
+
+  !if ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE} == "arm64"
+    ${IfNot} ${IsNativeARM64}
+      MessageBox MB_OK "You're trying to install the Arm64 version of Wireshark on an x64 system.$\nTry the native x64 installer instead." /SD IDOK
       Abort
     ${EndIf}
   !endif
@@ -498,7 +509,9 @@ Section "-Required"
 SetShellVarContext all
 
 SetOutPath $INSTDIR
+!ifndef SKIP_UNINSTALLER
 File "${STAGING_DIR}\${UNINSTALLER_NAME}"
+!endif
 File "${STAGING_DIR}\libwiretap.dll"
 File "${STAGING_DIR}\libwireshark.dll"
 File "${STAGING_DIR}\libwsutil.dll"
@@ -521,6 +534,7 @@ File "${STAGING_DIR}\dumpcap.html"
 File "${STAGING_DIR}\extcap.html"
 File "${STAGING_DIR}\ipmap.html"
 
+!ifdef USE_VCREDIST
 ; C-runtime redistributable
 ; vc_redist.x64.exe or vc_redist.x86.exe - copy and execute the redistributable installer
 File "${VCREDIST_DIR}\${VCREDIST_EXE}"
@@ -553,6 +567,7 @@ ${Switch} $0
 ${EndSwitch}
 
 Delete "$INSTDIR\${VCREDIST_EXE}"
+!endif
 
 
 ; global config files - don't overwrite if already existing
@@ -1008,13 +1023,23 @@ Section "Codec Plugins" SecCodec
 ;-------------------------------------------
 SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs'
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\g711.dll"
+!ifdef SPANDSP_FOUND
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\g722.dll"
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\g726.dll"
+!endif
+!ifdef BCG729_FOUND
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\g729.dll"
+!endif
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\l16mono.dll"
+!ifdef SBC_FOUND
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\sbc.dll"
+!endif
+!ifdef ILBC_FOUND
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\ilbc.dll"
+!endif
+!ifdef OPUS_FOUND
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\codecs\opus_dec.dll"
+!endif
 SectionEnd
 
 Section "Configuration Profiles" SecProfiles
@@ -1162,11 +1187,13 @@ Section /o "Androiddump" SecAndroiddump
 SectionEnd
 !insertmacro CheckExtrasFlag "androiddump"
 
+!ifdef BUILD_etwdump
 Section "Etwdump" SecEtwdump
 ;-------------------------------------------
   !insertmacro InstallExtcap "Etwdump"
 SectionEnd
 !insertmacro CheckExtrasFlag "Etwdump"
+!endif
 
 Section /o "Randpktdump" SecRandpktdump
 ;-------------------------------------------
@@ -1174,6 +1201,7 @@ Section /o "Randpktdump" SecRandpktdump
 SectionEnd
 !insertmacro CheckExtrasFlag "randpktdump"
 
+!ifdef LIBSSH_FOUND
 Section /o "Sshdump, Ciscodump, and Wifidump" SecSshdump
 ;-------------------------------------------
   !insertmacro InstallExtcap "sshdump"
@@ -1183,6 +1211,7 @@ SectionEnd
 !insertmacro CheckExtrasFlag "sshdump"
 !insertmacro CheckExtrasFlag "ciscodump"
 !insertmacro CheckExtrasFlag "wifidump"
+!endif
 
 Section /o "UDPdump" SecUDPdump
 ;-------------------------------------------
@@ -1245,7 +1274,9 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecCaptype} "Print the type(format) of capture files."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecEditCap} "Copy packets to a new file, optionally trimming packets, omitting them, or saving to a different format."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMergecap} "Combine multiple saved capture files into a single output file."
+  !ifdef MMDBRESOLVE_EXE
   !insertmacro MUI_DESCRIPTION_TEXT ${SecMMDBResolve} "MaxMind Database resolution tool - read IPv4 and IPv6 addresses and print their IP geolocation information."
+  !endif
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRandpkt} "Create a pcap trace file full of random packets. (randpkt produces very bad packets)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRawshark} "Dump and analyze raw pcap data."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecReordercap} "Copy packets to a new file, sorted by time."
@@ -1253,9 +1284,13 @@ SectionEnd
 
   !insertmacro MUI_DESCRIPTION_TEXT ${SecExtcapGroup} "External Capture Interfaces"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecAndroiddump} "Provide capture interfaces from Android devices."
+  !ifdef BUILD_etwdump
   !insertmacro MUI_DESCRIPTION_TEXT ${SecEtwdump} "Provide an interface to read Event Tracing for Windows (ETW) event trace (ETL)."
+  !endif
   !insertmacro MUI_DESCRIPTION_TEXT ${SecRandpktdump} "Provide an interface to the random packet generator. (see also randpkt)"
+  !ifdef LIBSSH_FOUND
   !insertmacro MUI_DESCRIPTION_TEXT ${SecSshdump} "Provide remote capture through SSH. (tcpdump, Cisco EPC, wifi)"
+  !endif
   !insertmacro MUI_DESCRIPTION_TEXT ${SecUDPdump} "Provide capture interface to receive UDP packets streamed from network devices."
 
 !ifdef DOCBOOK_DIR

@@ -94,7 +94,9 @@ ADDITIONAL_LIST="libcap-devel \
 	libxml2-devel \
 	perl \
 	spandsp-devel \
-	systemd-devel"
+	systemd-devel \
+	python3-pytest \
+	python3-pytest-xdist"
 
 # Uncomment to add PNG compression utilities used by compress-pngs:
 # ADDITIONAL_LIST="$ADDITIONAL_LIST \
@@ -287,6 +289,9 @@ echo "Optional package ninja|ninja-build is unavailable" >&2
 add_package ADDITIONAL_LIST libxslt || add_package ADDITIONAL_LIST libxslt1 ||
 echo "Optional package libxslt|libxslt1 is unavailable" >&2
 
+add_package ADDITIONAL_LIST docbook-style-xsl || add_package ADDITIONAL_LIST docbook-xsl-stylesheets ||
+echo "Optional package docbook-style-xsl|docbook-xsl-stylesheets is unavailable" >&2
+
 add_package ADDITIONAL_LIST brotli-devel || add_packages ADDITIONAL_LIST libbrotli-devel libbrotlidec1 ||
 echo "Optional packages brotli-devel|libbrotli-devel is unavailable" >&2
 
@@ -316,6 +321,9 @@ echo "Optional package sbc-devel is unavailable"
 
 add_package ADDITIONAL_LIST libsmi-devel ||
 echo "Optional package libsmi-devel is unavailable"
+
+add_package ADDITIONAL_LIST opencore-amr-devel ||
+echo "Optional package opencore-amr-devel is unavailable" >&2
 
 ACTUAL_LIST=$BASIC_LIST
 

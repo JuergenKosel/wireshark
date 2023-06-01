@@ -40,6 +40,7 @@
 #include <epan/uat.h>
 #include <epan/decode_as.h>
 #include <nghttp2/nghttp2.h>
+#include <epan/export_object.h>
 #endif
 
 #include <epan/tap.h>
@@ -81,6 +82,8 @@ static gboolean http2_decompress_body = FALSE;
 
 /* Try to dissect reassembled http2.data.data according to content-type later */
 static dissector_table_t media_type_dissector_table;
+
+static int http_eo_tap = -1;
 #endif
 
 /* Some protocols on top of http2 require http2 streams to remain open. For example, the stream
@@ -255,7 +258,10 @@ typedef struct {
     guint32 stream_id;
     guint32 request_in_frame_num;
     guint32 response_in_frame_num;
+    nstime_t request_ts;
     enum http2_data_reassembly_mode_t reassembly_mode;
+    char *authority;
+    char *path;
 } http2_stream_info_t;
 #endif
 /* struct to hold data per HTTP/2 session */
@@ -509,6 +515,7 @@ static int hf_http2_origin_origin = -1;
 static int hf_http2_priority_update_stream_id = -1;
 static int hf_http2_priority_update_field_value = -1;
 /* Generated fields */
+static int hf_http2_time = -1;
 static int hf_http2_request_in = -1;
 static int hf_http2_response_in = -1;
 
@@ -1406,6 +1413,7 @@ get_stream_info(packet_info *pinfo, http2_session_t *http2_session, gboolean ini
         stream_info->oneway_stream_info[0].current_window_size = INITIAL_WINDOW_SIZE;
         stream_info->oneway_stream_info[1].is_window_initialized = FALSE;
         stream_info->oneway_stream_info[1].current_window_size = INITIAL_WINDOW_SIZE;
+        nstime_set_unset(&(stream_info->request_ts));
         wmem_map_insert(stream_map, GINT_TO_POINTER(stream_id), stream_info);
     }
 
@@ -1852,6 +1860,7 @@ populate_http_header_tracking(tvbuff_t *tvb, packet_info *pinfo, http2_session_t
     if (strcmp(header_name, HTTP2_HEADER_METHOD) == 0) {
         http2_stream_info_t *stream_info = get_stream_info(pinfo, h2session, FALSE);
         stream_info->request_in_frame_num = pinfo->num;
+        stream_info->request_ts = pinfo->abs_ts;
     }
     if (strcmp(header_name, HTTP2_HEADER_STATUS) == 0) {
         http2_stream_info_t *stream_info = get_stream_info(pinfo, h2session, FALSE);
@@ -1902,6 +1911,16 @@ populate_http_header_tracking(tvbuff_t *tvb, packet_info *pinfo, http2_session_t
                 dissector_add_uint("http2.streamid", stream_info->stream_id, handle);
             }
         }
+    }
+
+    if (strcmp(header_name, HTTP2_HEADER_PATH) == 0) {
+        http2_stream_info_t *stream_info = get_stream_info(pinfo, h2session, FALSE);
+        stream_info->path = wmem_strndup(wmem_file_scope(), header_value, header_value_length);
+    }
+
+    if (strcmp(header_name, HTTP2_HEADER_AUTHORITY) == 0) {
+        http2_stream_info_t *stream_info = get_stream_info(pinfo, h2session, FALSE);
+        stream_info->authority = wmem_strndup(wmem_file_scope(), header_value, header_value_length);
     }
 }
 
@@ -2282,6 +2301,8 @@ inflate_http2_header_block(tvbuff_t *tvb, packet_info *pinfo, guint offset, prot
         hoffset += header_value_length;
 
         /* Only track HEADER and CONTINUATION frames part there of. Don't look at PUSH_PROMISE and trailing CONTINUATION.
+         * (XXX: For PUSH_PROMISE, header information should be tracked, but
+         * using the promised stream ID instead.)
          * Only do it for the first pass in case the current layer changes, altering where the headers frame number,
          * http2_frame_num_t points to. */
         if (is_in_header_context(tvb, pinfo, h2session) && !PINFO_FD_VISITED(pinfo)) {
@@ -2786,13 +2807,35 @@ dissect_body_data(proto_tree *tree, packet_info *pinfo, http2_session_t* h2sessi
                   const gint start, gint length, const guint encoding, gboolean streaming_mode)
 {
     http2_data_stream_body_info_t *body_info = get_data_stream_body_info(pinfo, h2session);
+    http2_stream_info_t *stream_info = get_stream_info(pinfo, h2session, FALSE);
     gchar *content_type = body_info->content_type;
     media_content_info_t metadata_used_for_media_type_handle = { MEDIA_CONTAINER_HTTP_OTHERS, body_info->content_type_parameters, NULL, NULL };
+    http_eo_t *eo_info;
     guint32 stream_id;
 
     stream_id = http2_get_stream_id(pinfo);
     if (!streaming_mode)
         proto_tree_add_item(tree, hf_http2_data_data, tvb, start, length, encoding);
+
+    if (have_tap_listener(http2_follow_tap) && get_body_uncompression_info(pinfo, h2session) != BODY_UNCOMPRESSION_NONE) {
+        http2_follow_tap_data_t *follow_data = wmem_new0(wmem_packet_scope(), http2_follow_tap_data_t);
+
+        follow_data->tvb = tvb;
+        follow_data->stream_id = stream_id;
+
+        tap_queue_packet(http2_follow_tap, pinfo, follow_data);
+    }
+
+    if (have_tap_listener(http_eo_tap)) {
+        eo_info = wmem_new0(pinfo->pool, http_eo_t);
+
+        eo_info->filename = stream_info->path;
+        eo_info->hostname = stream_info->authority;
+        eo_info->content_type = content_type;
+        eo_info->payload = tvb_new_subset_length(tvb, start, length);
+
+        tap_queue_packet(http_eo_tap, pinfo, eo_info);
+    }
 
     if (content_type != NULL) {
         /* add it to STREAM level */
@@ -3530,6 +3573,12 @@ dissect_http2_headers(tvbuff_t *tvb, packet_info *pinfo, http2_session_t* h2sess
     /* Display request/response links */
     if (pinfo->num > stream_info->request_in_frame_num && stream_info->request_in_frame_num > 0) {
         /* Response frame */
+        if (! nstime_is_unset(&(stream_info->request_ts))) {
+            nstime_t delta;
+
+            nstime_delta(&delta, &pinfo->abs_ts, &(stream_info->request_ts));
+            proto_item_set_generated(proto_tree_add_time(http2_tree, hf_http2_time, tvb, 0, 0, &delta));
+        }
         proto_item_set_generated(proto_tree_add_uint(http2_tree, hf_http2_request_in, tvb, 0, 0, stream_info->request_in_frame_num));
     }
     if (pinfo->num == stream_info->request_in_frame_num && stream_info->response_in_frame_num > 0) {
@@ -3847,7 +3896,7 @@ dissect_http2_continuation(tvbuff_t *tvb, packet_info *pinfo _U_, http2_session_
         THROW(ReportedBoundsError);
     }
     headlen -= padding;
-    proto_tree_add_item(http2_tree, hf_http2_continuation_header, tvb, offset, headlen, ENC_ASCII);
+    proto_tree_add_item(http2_tree, hf_http2_continuation_header, tvb, offset, headlen, ENC_NA);
 
 #ifdef HAVE_NGHTTP2
     inflate_http2_header_block(tvb, pinfo, offset, http2_tree, headlen, h2session, flags);
@@ -4051,6 +4100,11 @@ dissect_http2_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     switch(type){
         case HTTP2_DATA: /* Data (0) */
             dissect_http2_data(tvb, pinfo, http2_session, http2_tree, offset, flags);
+#ifdef HAVE_NGHTTP2
+            if (get_body_uncompression_info(pinfo, http2_session) != BODY_UNCOMPRESSION_NONE) {
+                use_follow_tap = FALSE;
+            }
+#endif
         break;
 
         case HTTP2_HEADERS: /* Headers (1) */
@@ -4634,9 +4688,9 @@ proto_register_http2(void)
 
         /* Continuation */
         { &hf_http2_continuation_header,
-            { "Continuation Header", "http2.continuation.header",
-               FT_STRING, BASE_NONE, NULL, 0x0,
-              "Contains a header block fragment", HFILL }
+            { "Header Block Fragment", "http2.continuation.header",
+               FT_BYTES, BASE_NONE, NULL, 0x0,
+              "Continues a HEADERS or PUSH_PROMISE field block", HFILL }
         },
         { &hf_http2_continuation_padding,
             { "Padding", "http2.continuation.padding",
@@ -4690,6 +4744,11 @@ proto_register_http2(void)
             { "Priority Update Field Value", "http2.priority_update_field_value",
               FT_STRING, BASE_NONE, NULL, 0x0,
               NULL, HFILL }
+        },
+        { &hf_http2_time,
+          { "Time since request", "http2.time",
+            FT_RELATIVE_TIME, BASE_NONE, NULL, 0,
+            "Time since the request was sent", HFILL }
         },
         { &hf_http2_request_in,
             { "Request in frame", "http2.request_in",
@@ -4872,7 +4931,7 @@ proto_register_http2(void)
 
     streaming_content_type_dissector_table =
         register_dissector_table("streaming_content_type",
-            "Data Transmitted over HTTP2 in Streaming Mode", proto_http2, FT_STRING, BASE_NONE);
+            "Data Transmitted over HTTP2 in Streaming Mode", proto_http2, FT_STRING, STRING_CASE_SENSITIVE);
 
     stream_id_content_type_dissector_table =
         register_dissector_table("http2.streamid", "HTTP2 content type in stream", proto_http2, FT_UINT32, BASE_DEC);
@@ -4923,6 +4982,13 @@ proto_reg_handoff_http2(void)
     heur_dissector_add("http", dissect_http2_heur, "HTTP2 over TCP", "http2_tcp", proto_http2, HEURISTIC_ENABLE);
 
     stats_tree_register("http2", "http2", "HTTP2", 0, http2_stats_tree_packet, http2_stats_tree_init, NULL);
+
+#ifdef HAVE_NGHTTP2
+    register_eo_t *http_eo = get_eo_by_name("http");
+    if (http_eo) {
+        http_eo_tap = find_tap_id(get_eo_tap_listener_name(http_eo));
+    }
+#endif
 }
 
 /*

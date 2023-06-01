@@ -187,7 +187,9 @@ tvbuff_t *oid_tvb=NULL;
 tvbuff_t *value_tvb=NULL;
 
 static dissector_handle_t snmp_handle;
+static dissector_handle_t snmp_tcp_handle;
 static dissector_handle_t data_handle;
+static dissector_handle_t smux_handle;
 
 static next_tvb_list_t *var_list;
 
@@ -1365,7 +1367,8 @@ dissect_snmp_engineid(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int o
 		if (len_remain<1) return offset;
 		format = tvb_get_guint8(tvb, offset);
 		item = proto_tree_add_uint_format(tree, hf_snmp_engineid_format, tvb, offset, 1, format, "Engine ID Format: %s (%d)",
-						  val_to_str(format, snmp_engineid_format_vals, "Reserved/Enterprise-specific"), format);
+						  val_to_str_const(format, snmp_engineid_format_vals, "Reserved/Enterprise-specific"),
+						  format);
 		offset+=1;
 		len_remain-=1;
 
@@ -3219,7 +3222,7 @@ dissect_snmp_pdu(tvbuff_t *tvb, int offset, packet_info *pinfo,
 			 */
 			pinfo->desegment_offset = offset;
 			pinfo->desegment_len = DESEGMENT_ONE_MORE_SEGMENT;
-			return -1;
+			return 0;
 		}
 	}
 
@@ -3383,7 +3386,7 @@ dissect_snmp_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 	guint message_len;
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
-		message_len = dissect_snmp_pdu(tvb, 0, pinfo, tree, proto_snmp, ett_snmp, TRUE);
+		message_len = dissect_snmp_pdu(tvb, offset, pinfo, tree, proto_snmp, ett_snmp, TRUE);
 		if (message_len == 0) {
 			/*
 			 * We don't have all the data for that message,
@@ -4031,6 +4034,8 @@ void proto_register_snmp(void) {
 	expert_snmp = expert_register_protocol(proto_snmp);
 	expert_register_field_array(expert_snmp, ei, array_length(ei));
 
+	/* Register dissector */
+	snmp_tcp_handle = register_dissector("snmp.tcp", dissect_snmp_tcp, proto_snmp);
 
 	/* Register configuration preferences */
 	snmp_module = prefs_register_protocol(proto_snmp, process_prefs);
@@ -4069,7 +4074,7 @@ void proto_register_snmp(void) {
 				"MIB settings can be changed in the Name Resolution preferences");
 #endif
 
-	value_sub_dissectors_table = register_dissector_table("snmp.variable_oid","SNMP Variable OID", proto_snmp, FT_STRING, BASE_NONE);
+	value_sub_dissectors_table = register_dissector_table("snmp.variable_oid","SNMP Variable OID", proto_snmp, FT_STRING, STRING_CASE_SENSITIVE);
 
 	register_init_routine(init_ue_cache);
 	register_cleanup_routine(cleanup_ue_cache);
@@ -4084,7 +4089,6 @@ void proto_register_snmp(void) {
 
 /*--- proto_reg_handoff_snmp ---------------------------------------*/
 void proto_reg_handoff_snmp(void) {
-	dissector_handle_t snmp_tcp_handle;
 
 	dissector_add_uint_with_preference("udp.port", UDP_PORT_SNMP, snmp_handle);
 	dissector_add_uint("ethertype", ETHERTYPE_SNMP, snmp_handle);
@@ -4092,7 +4096,6 @@ void proto_reg_handoff_snmp(void) {
 	dissector_add_uint("ipx.socket", IPX_SOCKET_SNMP_SINK, snmp_handle);
 	dissector_add_uint("hpext.dxsap", HPEXT_SNMP, snmp_handle);
 
-	snmp_tcp_handle = create_dissector_handle(dissect_snmp_tcp, proto_snmp);
 	dissector_add_uint_with_preference("tcp.port", TCP_PORT_SNMP, snmp_tcp_handle);
 	/* Since "regular" SNMP port and "trap" SNMP port use the same handler,
 	   the "trap" port doesn't really need a separate preference.  Just register
@@ -4133,14 +4136,12 @@ proto_register_smux(void)
 
 	proto_register_subtree_array(ett, array_length(ett));
 
+	smux_handle = register_dissector("smux", dissect_smux, proto_smux);
 }
 
 void
 proto_reg_handoff_smux(void)
 {
-	dissector_handle_t smux_handle;
-
-	smux_handle = create_dissector_handle(dissect_smux, proto_smux);
 	dissector_add_uint_with_preference("tcp.port", TCP_PORT_SMUX, smux_handle);
 }
 

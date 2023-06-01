@@ -813,7 +813,7 @@ dissect_coap_opt_block(tvbuff_t *tvb, proto_item *head_item, proto_tree *subtree
 	    tvb, offset + opt_length - 1, 1, encoded_block_size, "Block Size: %u (%u encoded)", block_esize, encoded_block_size);
 
 	/* add info to the head of the packet detail */
-	proto_item_append_text(head_item, ": NUM:%u, M:%u, SZX:%u",
+	proto_item_append_text(head_item, ": NUM:%u, M:%u, SZ:%u",
 	    coinfo->block_number, coinfo->block_mflag, block_esize);
 }
 
@@ -1843,7 +1843,7 @@ proto_register_coap(void)
 	 */
 	coap_tmf_media_type_dissector_table =
 	    register_dissector_table("coap_tmf_media_type",
-		"Internet media type for CoAP-TMF", proto_coap, FT_STRING, BASE_NONE);
+		"Internet media type for CoAP-TMF", proto_coap, FT_STRING, STRING_CASE_SENSITIVE);
 }
 
 void

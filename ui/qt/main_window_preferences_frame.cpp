@@ -7,7 +7,6 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "main_application.h"
 #include "main_window_preferences_frame.h"
 #include <ui/qt/utils/qt_ui_utils.h>
 
@@ -16,6 +15,7 @@
 
 #include <epan/prefs-int.h>
 #include <ui/qt/models/pref_models.h>
+#include <ui/qt/utils/color_utils.h>
 #include <wsutil/filesystem.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
@@ -39,7 +39,6 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     pref_toolbar_main_style_ = prefFromPrefPtr(&prefs.gui_toolbar_main_style);
     pref_window_title_ = prefFromPrefPtr(&prefs.gui_window_title);
     pref_prepend_window_title_ = prefFromPrefPtr(&prefs.gui_prepend_window_title);
-    pref_debounce_timer_ = prefFromPrefPtr(&prefs.gui_debounce_timer);
 
     QStyleOption style_opt;
     QString indent_ss = QString(
@@ -56,6 +55,10 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     ui->maxFilterLineEdit->setMaximumWidth(num_entry_width);
     ui->maxRecentLineEdit->setMaximumWidth(num_entry_width);
 
+    QString li_path = QString(":/languages/language%1.svg").arg(ColorUtils::themeIsDark() ? ".dark" : "");
+    QIcon language_icon = QIcon(li_path);
+    ui->languageComboBox->setItemIcon(0, language_icon);
+
     QString globalLanguagesPath(QString(get_datafile_dir()) + "/languages/");
     QString userLanguagesPath(gchar_free_to_qstring(get_persconffile_path("languages/", FALSE)));
 
@@ -70,15 +73,8 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
         locale.remove(0, locale.indexOf('_') + 1);
 
         QString lang = QLocale::languageToString(QLocale(locale).language());
-        QIcon ico = QIcon();
-        if (QFile::exists(QString(":/languages/%1.svg").arg(locale)))
-            ico.addFile(QString(":/languages/%1.svg").arg(locale));
-        if (QFile::exists(globalLanguagesPath + locale + ".svg"))
-            ico.addFile(globalLanguagesPath + locale + ".svg");
-        if (QFile::exists(userLanguagesPath + locale + ".svg"))
-            ico.addFile(userLanguagesPath + locale + ".svg");
 
-        ui->languageComboBox->addItem(ico, lang, locale);
+        ui->languageComboBox->addItem(lang, locale);
     }
 
     ui->languageComboBox->setItemData(0, USE_SYSTEM_LANGUAGE);
@@ -137,7 +133,6 @@ void MainWindowPreferencesFrame::updateWidgets()
 
     ui->windowTitle->setText(prefs_get_string_value(pref_window_title_, pref_stashed));
     ui->prependWindowTitle->setText(prefs_get_string_value(pref_prepend_window_title_, pref_stashed));
-    ui->debounceTime->setText(QString::number(prefs_get_uint_value_real(pref_debounce_timer_, pref_stashed)));
 }
 
 void MainWindowPreferencesFrame::on_geometryCheckBox_toggled(bool checked)
@@ -220,9 +215,4 @@ void MainWindowPreferencesFrame::on_windowTitle_textEdited(const QString &new_ti
 void MainWindowPreferencesFrame::on_prependWindowTitle_textEdited(const QString &new_prefix)
 {
     prefs_set_string_value(pref_prepend_window_title_, new_prefix.toStdString().c_str(), pref_stashed);
-}
-
-void MainWindowPreferencesFrame::on_debounceTime_textEdited(const QString &new_timer)
-{
-    prefs_set_uint_value(pref_debounce_timer_, new_timer.toUInt(), pref_stashed);
 }

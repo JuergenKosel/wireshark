@@ -350,13 +350,8 @@ development of Wireshark scripts and plugins.
 
 %cmake_install
 %cmake_install --component Development
-
 %if %{with guides}
-%if %{with ninja}
-%ninja_install install_guides -C %{__cmake_builddir}
-%else
-make DESTDIR=$RPM_BUILD_ROOT install_guides -C %{__cmake_builddir}
-%endif
+%cmake_install --component UserGuide
 %endif
 
 # If we're being installed in an unusual prefix tell the loader where
@@ -453,6 +448,8 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %exclude %{_mandir}/man1/wireshark.*
 %{_mandir}/man1/*
 %{_mandir}/man4/*
+
+%config(noreplace) %{_datadir}/wireshark/diameter/Custom.xml
 %{_datadir}/wireshark
 
 %if 0%{?install_ld_so_conf}

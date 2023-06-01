@@ -53,7 +53,6 @@
 #include <epan/capture_dissectors.h>
 #include <epan/exceptions.h>
 #include <wsutil/pint.h>
-#include <wsutil/str_util.h>
 #include <wsutil/ws_roundup.h>
 #include <epan/addr_resolv.h>
 #include <epan/address_types.h>
@@ -61,8 +60,6 @@
 #include <epan/prefs.h>
 #include <epan/reassemble.h>
 #include "packet-eapol.h"
-#include "packet-ipx.h"
-#include "packet-llc.h"
 #include "packet-ieee80211.h"
 #include <epan/etypes.h>
 #include <epan/oui.h>
@@ -72,7 +69,6 @@
 #include <epan/conversation_table.h>
 #include <epan/uat.h>
 #include <epan/eapol_keydes_types.h>
-#include <epan/to_str.h>
 #include <epan/proto_data.h>
 
 #include "packet-wps.h"
@@ -1105,7 +1101,7 @@ static const value_string ieee80211_status_code[] = {
   { 132, "NSEP priority access denied due to reason outside the scope of this standard"},
   { 133, "Request denied because the requested TID-to-link mapping is unacceptable"},
   { 134, "Preferred TID-to-link mapping suggested"},
-  { 135, "Association denied because the requesting STA dones not support EHT features"},
+  { 135, "Association denied because the requesting STA does not support EHT features"},
   {   0, NULL}
 };
 value_string_ext ieee80211_status_code_ext = VALUE_STRING_EXT_INIT(ieee80211_status_code);
@@ -4456,13 +4452,12 @@ static int hf_ieee80211_eht_common_info_medium_sync_threshold = -1;
 static int hf_ieee80211_eht_common_info_medium_sync_max_txops = -1;
 static int hf_ieee80211_eht_common_field_eml_capabilities = -1;
 static int hf_ieee80211_eht_common_info_eml_capa_emslr_support = -1;
-static int hf_ieee80211_eht_common_info_eml_capa_emslr_delay = -1;
+static int hf_ieee80211_eht_common_info_eml_capa_emslr_padding_delay = -1;
+static int hf_ieee80211_eht_common_info_eml_capa_emslr_transition_delay = -1;
 static int hf_ieee80211_eht_common_info_eml_capa_emlmr_support = -1;
 static int hf_ieee80211_eht_common_info_eml_capa_emlmr_delay = -1;
 static int hf_ieee80211_eht_common_info_eml_capa_transition_timeout = -1;
 static int hf_ieee80211_eht_common_info_eml_capa_reserved = -1;
-static int hf_ieee80211_eht_common_info_eml_capa_emlmr_rx_nss = -1;
-static int hf_ieee80211_eht_common_info_eml_capa_emlmr_tx_nss = -1;
 static int hf_ieee80211_eht_common_field_mld_capabilities = -1;
 static int hf_ieee80211_eht_common_info_mld_max_simul_links = -1;
 static int hf_ieee80211_eht_common_info_mld_srs_support = -1;
@@ -5488,6 +5483,10 @@ static int hf_ieee80211_tag_20_40_bc_20_mhz_bss_width_request = -1;
 static int hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_request = -1;
 static int hf_ieee80211_tag_20_40_bc_obss_scanning_exemption_grant = -1;
 static int hf_ieee80211_tag_20_40_bc_reserved = -1;
+
+static int hf_ieee80211_tag_intolerant_operating_class = -1;
+static int hf_ieee80211_tag_intolerant_channel_list = -1;
+static int hf_ieee80211_tag_intolerant_channel = -1;
 
 static int hf_ieee80211_tag_power_constraint_local = -1;
 
@@ -7920,6 +7919,8 @@ static gint ett_tag_rsnx_octet2 = -1;
 
 static gint ett_tag_multiple_bssid_subelem_tree = -1;
 static gint ett_tag_20_40_bc = -1;
+
+static gint ett_tag_intolerant_tree = -1;
 
 static gint ett_tag_tclas_mask_tree = -1;
 
@@ -23581,6 +23582,37 @@ dissect_20_40_bss_coexistence(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
   return offset;
 }
 
+/* 20/40 BSS Intolerant Channel Report (73) */
+static int
+dissect_20_40_bss_intolerant(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+  proto_item *intolerant_item;
+  proto_tree *intolerant_tree;
+  int tag_len = tvb_reported_length(tvb);
+  ieee80211_tagged_field_data_t* field_data = (ieee80211_tagged_field_data_t*)data;
+  int offset = 0;
+  int channel_report_size = tag_len - 1; // minus regulator_class field
+  int i;
+
+  if (tag_len < 2) {
+      expert_add_info_format(pinfo, field_data->item_tag_length, &ei_ieee80211_tag_length,
+                             "20/40 BSS Intolerant Channel Report length %u wrong, must > 1", tag_len);
+  }
+
+  proto_tree_add_item(tree, hf_ieee80211_tag_intolerant_operating_class, tvb, offset, 1, ENC_NA);
+  offset += 1;
+
+  intolerant_item = proto_tree_add_item(tree, hf_ieee80211_tag_intolerant_channel_list, tvb, offset, channel_report_size, ENC_NA);
+  intolerant_tree = proto_item_add_subtree(intolerant_item, ett_tag_intolerant_tree);
+  for (i = 0; i < channel_report_size; i++)
+  {
+    proto_tree_add_item(intolerant_tree, hf_ieee80211_tag_intolerant_channel, tvb, offset, 1, ENC_NA);
+    offset += 1;
+  }
+
+  return offset;
+}
+
 static int
 dissect_ht_capability_ie_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
                          guint32 tag_len, proto_item *ti_len, gboolean vendorspecific)
@@ -25117,13 +25149,12 @@ static int * const eht_medium_sync_delay_hdrs[] = {
 
 static int * const eht_eml_capabilities_hdrs[] = {
   &hf_ieee80211_eht_common_info_eml_capa_emslr_support,
-  &hf_ieee80211_eht_common_info_eml_capa_emslr_delay,
+  &hf_ieee80211_eht_common_info_eml_capa_emslr_padding_delay,
+  &hf_ieee80211_eht_common_info_eml_capa_emslr_transition_delay,
   &hf_ieee80211_eht_common_info_eml_capa_emlmr_support,
   &hf_ieee80211_eht_common_info_eml_capa_emlmr_delay,
   &hf_ieee80211_eht_common_info_eml_capa_transition_timeout,
   &hf_ieee80211_eht_common_info_eml_capa_reserved,
-  &hf_ieee80211_eht_common_info_eml_capa_emlmr_rx_nss,
-  &hf_ieee80211_eht_common_info_eml_capa_emlmr_tx_nss,
   NULL
 };
 
@@ -25183,7 +25214,7 @@ dissect_multi_link(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
   /* Handle common info for basic element */
   common_info_len = tvb_get_guint8(tvb, offset);
-  common_tree = proto_tree_add_subtree(tree, tvb, offset, common_info_len + 1,
+  common_tree = proto_tree_add_subtree(tree, tvb, offset, common_info_len,
                                        ett_eht_multi_link_common_info,
                                        NULL, "Common Info");
   proto_tree_add_item(common_tree, hf_ieee80211_eht_common_field_length, tvb,
@@ -25222,7 +25253,7 @@ dissect_multi_link(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                            hf_ieee80211_eht_common_field_eml_capabilities,
                            ett_eht_multi_link_common_info_eml_capa,
                            eht_eml_capabilities_hdrs, ENC_LITTLE_ENDIAN);
-    offset += 3;
+    offset += 2;
   }
 
   if (present & EHT_MLD_CAPA) {
@@ -46866,6 +46897,17 @@ proto_register_ieee80211(void)
       FT_UINT8, BASE_HEX, NULL, 0xE0,
       "Must be zero", HFILL }},
 
+    {&hf_ieee80211_tag_intolerant_operating_class,
+     {"Intolerant Operating Class", "wlan.tag.intolerant.operating_class",
+      FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
+
+    {&hf_ieee80211_tag_intolerant_channel_list,
+     {"Intolerant Channel List", "wlan.tag.intolerant.channel_list",
+      FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
+
+    {&hf_ieee80211_tag_intolerant_channel,
+     {"Intolerant Channel", "wlan.tag.intolerant.channel",
+      FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
     {&hf_ieee80211_tag_power_constraint_local,
      {"Local Power Constraint", "wlan.powercon.local",
@@ -53379,47 +53421,42 @@ proto_register_ieee80211(void)
 
     {&hf_ieee80211_eht_common_field_eml_capabilities,
      {"EML Capabilities", "wlan.eht.multi_link.common_info.eml_capabilities",
-      FT_UINT24, BASE_HEX, NULL, 0x0, NULL, HFILL }},
+      FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_info_eml_capa_emslr_support,
      {"EMLSR Support",
       "wlan.eht.multi_link.common_info.eml_capabilities.emlsr_support",
-      FT_BOOLEAN, 24, NULL, 0x000001, NULL, HFILL }},
+      FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL }},
 
-    {&hf_ieee80211_eht_common_info_eml_capa_emslr_delay,
-     {"EMLSR Delay",
-      "wlan.eht.multi_linl.common_info.eml_capabilities.emlsr_delay",
-      FT_UINT24, BASE_DEC, NULL, 0x00000E, NULL, HFILL }},
+    {&hf_ieee80211_eht_common_info_eml_capa_emslr_padding_delay,
+     {"EMLSR Padding Delay",
+      "wlan.eht.multi_linl.common_info.eml_capabilities.emlsr_padding_delay",
+      FT_UINT16, BASE_DEC, NULL, 0x000E, NULL, HFILL }},
+
+    {&hf_ieee80211_eht_common_info_eml_capa_emslr_transition_delay,
+     {"EMLSR Transition Delay",
+      "wlan.eht.multi_linl.common_info.eml_capabilities.emlsr_transition_delay",
+      FT_UINT16, BASE_DEC, NULL, 0x0070, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_info_eml_capa_emlmr_support,
      {"EMLMR Support",
       "wlan.eht.multi_link.common_info.eml_capabilities.emlmr_support",
-      FT_BOOLEAN, 24, NULL, 0x000010, NULL, HFILL }},
+      FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_info_eml_capa_emlmr_delay,
      {"EMLMR Delay",
       "wlan.eht.multi_link.common_info.eml_capabilities.emlmr_delay",
-      FT_UINT24, BASE_DEC, NULL, 0x0000E0, NULL, HFILL }},
+      FT_UINT16, BASE_DEC, NULL, 0x0700, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_info_eml_capa_transition_timeout,
      {"Transition Timeout",
       "wlan.eht.multi_link.common_info.eml_capabilities.transition_timeout",
-      FT_UINT24, BASE_DEC, NULL, 0x000f00, NULL, HFILL }},
+      FT_UINT16, BASE_DEC, NULL, 0x7800, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_info_eml_capa_reserved,
      {"Reserved",
       "wlan.eht.multi_link.common_info.eml_capabilities.cap_reserved",
-      FT_UINT24, BASE_HEX, NULL, 0x00F000, NULL, HFILL }},
-
-    {&hf_ieee80211_eht_common_info_eml_capa_emlmr_rx_nss,
-     {"EMLMR Rx NSS",
-      "wlan.eht.multi_link.common_info.eml_capabilities.emlmr_rx_nss",
-      FT_UINT24, BASE_DEC, NULL, 0x0F0000, NULL, HFILL }},
-
-    {&hf_ieee80211_eht_common_info_eml_capa_emlmr_tx_nss,
-     {"EMLMR Tx NSS",
-      "wlan.eht.multi_link.common_info.eml_capabilities.emlmr_tx_mss",
-      FT_UINT24, BASE_DEC, NULL, 0xF00000, NULL, HFILL }},
+      FT_UINT16, BASE_HEX, NULL, 0x8000, NULL, HFILL }},
 
     {&hf_ieee80211_eht_common_field_mld_capabilities,
      {"MLD Capabilities", "wlan.eht.multi_link.common_info.mld_capabilities",
@@ -53901,13 +53938,13 @@ proto_register_ieee80211(void)
     {&hf_ieee80211_eht_phy_bits_64_71_rx_1024_qam_wid_bw_dl_ofdma_sup,
      {"Rx 1024-QAM In Wider Bandwidth DL OFDMA Support",
       "wlan.eht.phy_capabilities.bits_64_71.rx_1024_qam_in_wider_bw_dl_ofdma",
-      FT_BOOLEAN, 24, TFS(&tfs_supported_not_supported),
+      FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported),
       0x01, NULL, HFILL }},
 
     {&hf_ieee80211_eht_phy_bits_64_71_rx_4096_qam_wid_bw_dl_ofdma_sup,
      {"Rx 4096-QAM In Wider Bandwidth DL OFDMA SUpport",
       "wlan.eht.phy_capabilities.bits_64_71.rx_4096_qam_in_wider_bw_dl_ofdma",
-      FT_BOOLEAN, 24, TFS(&tfs_supported_not_supported),
+      FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported),
       0x02, NULL, HFILL }},
 
     {&hf_ieee80211_eht_phy_bits_64_71_reserved,
@@ -54359,6 +54396,8 @@ proto_register_ieee80211(void)
     &ett_tag_multiple_bssid_subelem_tree,
 
     &ett_tag_20_40_bc,
+
+    &ett_tag_intolerant_tree,
 
     &ett_tag_tclas_mask_tree,
 
@@ -55266,6 +55305,7 @@ proto_reg_handoff_ieee80211(void)
   dissector_add_uint("wlan.tag.number", TAG_RM_ENABLED_CAPABILITY, create_dissector_handle(dissect_rm_enabled_capabilities_ie, -1));
   dissector_add_uint("wlan.tag.number", TAG_MULTIPLE_BSSID, create_dissector_handle(dissect_multiple_bssid_ie, -1));
   dissector_add_uint("wlan.tag.number", TAG_20_40_BSS_CO_EX, create_dissector_handle(dissect_20_40_bss_coexistence, -1));
+  dissector_add_uint("wlan.tag.number", TAG_20_40_BSS_INTOL_CH_REP, create_dissector_handle(dissect_20_40_bss_intolerant, -1));
   dissector_add_uint("wlan.tag.number", TAG_OVERLAP_BSS_SCAN_PAR, create_dissector_handle(dissect_overlap_bss_scan_par, -1));
   dissector_add_uint("wlan.tag.number", TAG_RIC_DESCRIPTOR, create_dissector_handle(dissect_ric_descriptor, -1));
   dissector_add_uint("wlan.tag.number", TAG_MESH_PEERING_MGMT, create_dissector_handle(ieee80211_tag_mesh_peering_mgmt, -1));

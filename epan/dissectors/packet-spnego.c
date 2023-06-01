@@ -30,7 +30,6 @@
 #include <epan/conversation.h>
 #include <epan/proto_data.h>
 #include <wsutil/wsgcrypt.h>
-#include "packet-dcerpc.h"
 #include "packet-gssapi.h"
 #include "packet-kerberos.h"
 #include "packet-ber.h"
@@ -41,6 +40,8 @@
 
 void proto_register_spnego(void);
 void proto_reg_handoff_spnego(void);
+
+static dissector_handle_t spnego_wrap_handle;
 
 /* Initialize the protocol and registered fields */
 static int proto_spnego = -1;
@@ -1185,20 +1186,14 @@ decrypt_gssapi_krb_cfx_wrap(proto_tree *tree,
  * This is for GSSAPI Wrap tokens ...
  */
 static int
-dissect_spnego_krb5_wrap_base(tvbuff_t *tvb, int offset, packet_info *pinfo
-#ifndef HAVE_KERBEROS
-  _U_
-#endif
-    , proto_tree *tree, guint16 token_id
-#ifndef HAVE_KERBEROS
-  _U_
-#endif
-  , gssapi_encrypt_info_t* gssapi_encrypt
-  )
+dissect_spnego_krb5_wrap_base(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, guint16 token_id, gssapi_encrypt_info_t* gssapi_encrypt)
 {
   guint16 sgn_alg, seal_alg;
 #ifdef HAVE_KERBEROS
   int start_offset=offset;
+#else
+  (void) pinfo;
+  (void) token_id;
 #endif
 
   /*
@@ -1394,18 +1389,14 @@ dissect_spnego_krb5_cfx_flags(tvbuff_t *tvb, int offset,
  * This is for GSSAPI CFX Wrap tokens ...
  */
 static int
-dissect_spnego_krb5_cfx_wrap_base(tvbuff_t *tvb, int offset, packet_info *pinfo
-#ifndef HAVE_KERBEROS
-  _U_
-#endif
-  , proto_tree *tree, guint16 token_id _U_
-  , gssapi_encrypt_info_t* gssapi_encrypt
-  )
+dissect_spnego_krb5_cfx_wrap_base(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, guint16 token_id _U_, gssapi_encrypt_info_t* gssapi_encrypt)
 {
   guint8 flags;
   guint16 ec;
 #if defined(HAVE_HEIMDAL_KERBEROS) || defined(HAVE_MIT_KERBEROS)
   guint16 rrc;
+#else
+  (void) pinfo;
 #endif
   int checksum_size;
   int start_offset=offset;
@@ -1966,6 +1957,7 @@ void proto_register_spnego(void) {
   proto_spnego = proto_register_protocol(PNAME, PSNAME, PFNAME);
 
   spnego_handle = register_dissector("spnego", dissect_spnego, proto_spnego);
+  spnego_wrap_handle = register_dissector("spnego-wrap", dissect_spnego_wrap, proto_spnego);
 
   proto_spnego_krb5 = proto_register_protocol("SPNEGO-KRB5", "SPNEGO-KRB5", "spnego-krb5");
 
@@ -1983,11 +1975,8 @@ void proto_register_spnego(void) {
 /*--- proto_reg_handoff_spnego ---------------------------------------*/
 void proto_reg_handoff_spnego(void) {
 
-  dissector_handle_t spnego_wrap_handle;
-
   /* Register protocol with GSS-API module */
 
-  spnego_wrap_handle = create_dissector_handle(dissect_spnego_wrap,  proto_spnego);
   gssapi_init_oid("1.3.6.1.5.5.2", proto_spnego, ett_spnego,
                   spnego_handle, spnego_wrap_handle,
                   "SPNEGO - Simple Protected Negotiation");

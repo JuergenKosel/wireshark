@@ -6,11 +6,6 @@
 #                     absolute path (e.g. "${CMAKE_CURRENT_SOURCE_DIR}").
 
 function(ASN2WRS)
-	if(NOT PY_ASN2WRS)
-		include(LocatePythonModule)
-		locate_python_module(asn2wrs REQUIRED PATHS "${CMAKE_SOURCE_DIR}/tools")
-	endif()
-
 	if(NOT PROTO_OPT)
 		set(PROTO_OPT -p ${PROTOCOL_NAME})
 	elseif(PROTO_OPT STREQUAL "_EMPTY_")
@@ -42,8 +37,8 @@ function(ASN2WRS)
 	# Creates a dissector in the source directory and store the timestamp.
 	add_custom_command(
 		OUTPUT packet-${PROTOCOL_NAME}-stamp
-		COMMAND "${PYTHON_EXECUTABLE}"
-			${PY_ASN2WRS}
+		COMMAND "${Python3_EXECUTABLE}"
+			${CMAKE_SOURCE_DIR}/tools/asn2wrs.py
 			${A2W_FLAGS}
 			${PROTO_OPT}
 			-c "${CMAKE_CURRENT_SOURCE_DIR}/${PROTOCOL_NAME}.cnf"
@@ -52,12 +47,12 @@ function(ASN2WRS)
 			-O "${A2W_OUTPUT_DIR}"
 			${EXT_ASN_FILE_LIST} ${ASN_FILE_LIST} ${EXT_ASN_FILE_LIST_LATE}
 		COMMAND
-			"${PYTHON_EXECUTABLE}" -c
+			"${Python3_EXECUTABLE}" -c
 				"import shutil, sys; x,s,d=sys.argv; open(d, 'w'); shutil.copystat(s, d)"
 				"${A2W_OUTPUT_DIR}/packet-${PROTOCOL_NAME}.c"
 				packet-${PROTOCOL_NAME}-stamp
 		DEPENDS
-			"${PY_ASN2WRS}"
+			${CMAKE_SOURCE_DIR}/tools/asn2wrs.py
 			${SRC_FILES}
 			${EXTRA_CNF_targets}
 			${EXTRA_CNF}
@@ -71,8 +66,8 @@ function(ASN2WRS)
 	foreach(_asn2wrs_export_file IN LISTS EXPORT_FILES)
 		add_custom_command(
 			OUTPUT ${_asn2wrs_export_file}
-			COMMAND "${PYTHON_EXECUTABLE}"
-				"${PY_ASN2WRS}"
+			COMMAND "${Python3_EXECUTABLE}"
+				${CMAKE_SOURCE_DIR}/tools/asn2wrs.py
 				-E
 				${A2W_FLAGS}
 				${PROTO_OPT}
@@ -80,7 +75,7 @@ function(ASN2WRS)
 				-D "${CMAKE_CURRENT_SOURCE_DIR}"
 				${EXT_ASN_FILE_LIST} ${ASN_FILE_LIST} ${EXT_ASN_FILE_LIST_LATE}
 			DEPENDS
-				"${PY_ASN2WRS}"
+				${CMAKE_SOURCE_DIR}/tools/asn2wrs.py
 				${SRC_FILES}
 				${EXPORT_DEPENDS_targets}
 				${EXPORT_DEPENDS}

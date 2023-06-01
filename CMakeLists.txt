@@ -20,6 +20,9 @@ cmake_minimum_required(VERSION 3.13)
 if(POLICY CMP0083)
 	cmake_policy(SET CMP0083 NEW)
 endif()
+if(POLICY CMP0135)
+	cmake_policy(SET CMP0135 NEW)
+endif()
 
 if(WIN32)
 	if(DEFINED ENV{MSYSTEM})
@@ -78,6 +81,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 message(STATUS "Generating build using CMake ${CMAKE_VERSION}")
 
+if(USE_MSYSTEM)
+	# Use the deprecated FindPythonInterp.cmake module to Work around bugs and odd behavior in MSYS2 CMake
+	# searching in the wrong paths for python3.exe using FindPython3.cmake
+	find_package(PythonInterp REQUIRED)
+	set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE} CACHE FILEPATH "")
+else()
+	find_package(Python3 3.6 REQUIRED)
+endif()
+
 # Set a default build type if none was specified
 set(_default_build_type "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -115,6 +127,10 @@ endif()
 # WIRESHARK_TARGET_PLATFORM accordingly. Otherwise use
 # %WIRESHARK_TARGET_PLATFORM%.
 
+# XXX We should probably consolidate WIRESHARK_TARGET_PLATFORM and
+# WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE and just use "x64"
+# instead of "win64"
+
 if(WIN32)
 	if(DEFINED ENV{WIRESHARK_TARGET_PLATFORM})
 		string(TOLOWER $ENV{WIRESHARK_TARGET_PLATFORM} _target_platform)
@@ -133,26 +149,26 @@ if(WIN32)
 		elseif($ENV{MSYSTEM_CARCH} MATCHES "i686")
 			set(WIRESHARK_TARGET_PLATFORM win32)
 		elseif($ENV{MSYSTEM_CARCH} MATCHES "aarch64")
-			set(WIRESHARK_TARGET_PLATFORM "win64arm")
+			set(WIRESHARK_TARGET_PLATFORM "arm64")
 		else()
 			set(WIRESHARK_TARGET_PLATFORM "$ENV{MSYSTEM_CARCH}")
 		endif()
-	elseif(CMAKE_CL_64 OR CMAKE_GENERATOR MATCHES "Win64")
+	elseif($ENV{Platform} MATCHES arm64 OR CMAKE_GENERATOR_PLATFORM MATCHES arm64)
+		set(WIRESHARK_TARGET_PLATFORM arm64)
+	elseif(CMAKE_CL_64 OR CMAKE_GENERATOR MATCHES Win64)
 		set(WIRESHARK_TARGET_PLATFORM win64)
-	elseif(CMAKE_GENERATOR MATCHES "Visual Studio")
-		set(WIRESHARK_TARGET_PLATFORM win32)
 	else()
 		message(WARNING "Assuming \"win64\" target platform")
 		set(WIRESHARK_TARGET_PLATFORM win64)
 	endif()
 
+	set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE ${WIRESHARK_TARGET_PLATFORM})
 	if(WIRESHARK_TARGET_PLATFORM MATCHES "win64")
-		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE amd64)
+		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x64)
+	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "arm64")
+	    # Pass
 	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "win32")
 		message(FATAL_ERROR "Deprecated target platform ${WIRESHARK_TARGET_PLATFORM}. See https://gitlab.com/wireshark/wireshark/-/issues/17779 for details.")
-		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x86)
-	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "win64arm")
-		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE arm64)
 	else()
 		message(FATAL_ERROR "Invalid target platform: ${WIRESHARK_TARGET_PLATFORM}")
 	endif()
@@ -178,10 +194,12 @@ if(WIN32)
 and CPU target ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}"
 	)
 
+	if(NOT CMAKE_CROSSCOMPILING)
+		find_package(PowerShell REQUIRED)
+	endif()
+
 	# Determine where the 3rd party libraries will be
 	if(USE_REPOSITORY)
-		find_package(PowerShell REQUIRED)
-
 		if( DEFINED ENV{WIRESHARK_LIB_DIR} )
 			# The buildbots set WIRESHARK_LIB_DIR but not WIRESHARK_BASE_DIR.
 			file( TO_CMAKE_PATH "$ENV{WIRESHARK_LIB_DIR}" _PROJECT_LIB_DIR )
@@ -213,7 +231,37 @@ and CPU target ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}"
 		set(EXTRA_INSTALLER_DIR ${_ws_lib_dir})
 
 		# XXX Add a dependency on ${_ws_lib_dir}/current_tag.txt?
+	else()
+		set(EXTRA_INSTALLER_DIR ${CMAKE_BINARY_DIR}/packaging/nsis)
 	endif()
+
+	include(FetchContent)
+	set(LIBS_URL "https://dev-libs.wireshark.org/windows/packages")
+	file(TO_CMAKE_PATH ${EXTRA_INSTALLER_DIR} _file_download_dir)
+
+	# Download Npcap required by the Windows installer
+	set(NPCAP_VERSION "1.75")
+	set(NPCAP_SHA256 "9ac38dff01b48e18033e8a9015b27042ef847c8c84a9065961a30f8ae22d5245")
+	set(NPCAP_FILENAME "npcap-${NPCAP_VERSION}.exe")
+	set(NPCAP_URL "${LIBS_URL}/Npcap/${NPCAP_FILENAME}")
+	FetchContent_Declare(Npcap
+		URL ${NPCAP_URL}
+		DOWNLOAD_DIR ${_file_download_dir}
+		URL_HASH SHA256=${NPCAP_SHA256}
+		DOWNLOAD_NO_EXTRACT True
+	)
+
+	# Download USBPcap required by the Windows installer
+	set(USBPCAP_VERSION "1.5.4.0")
+	set(USBPCAP_SHA256 "87a7edf9bbbcf07b5f4373d9a192a6770d2ff3add7aa1e276e82e38582ccb622")
+	set(USBPCAP_FILENAME "USBPcapSetup-${USBPCAP_VERSION}.exe")
+	set(USBPCAP_URL "${LIBS_URL}/USBPcap/${USBPCAP_FILENAME}")
+	FetchContent_Declare(USBPcap
+		URL ${USBPCAP_URL}
+		DOWNLOAD_DIR ${_file_download_dir}
+		URL_HASH SHA256=${USBPCAP_SHA256}
+		DOWNLOAD_NO_EXTRACT True
+	)
 endif(WIN32)
 
 include(UseCustomIncludes)
@@ -360,6 +408,10 @@ else()
 endif()
 
 # Used in .rc files and manifests
+set(MANIFEST_PROCESSOR_ARCHITECTURE ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE})
+if (MANIFEST_PROCESSOR_ARCHITECTURE MATCHES "x64")
+	set(MANIFEST_PROCESSOR_ARCHITECTURE "amd64")
+endif()
 set(RC_VERSION ${PROJECT_MAJOR_VERSION},${PROJECT_MINOR_VERSION},${PROJECT_PATCH_VERSION},${PROJECT_BUILD_VERSION})
 set(LOG_RC_VERSION ${LOG_PROJECT_MAJOR_VERSION},${LOG_PROJECT_MINOR_VERSION},${PROJECT_PATCH_VERSION},${PROJECT_BUILD_VERSION})
 
@@ -582,14 +634,17 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 
 	# MSVC 14.28 + C11 enables C5105, but older Windows SDKs aren't completely compatible.
 	# Windows SDK 10.0.17763.0 generates syntax errors with C11 enabled.
-	if (CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION VERSION_LESS 10.0.18362.0)
-		message(FATAL_ERROR "Windows SDK ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION} doesn't support C11. Please make sure you're using 10.0.20348.0 or later.")
-	endif()
-	# Windows SDK 10.0.18362.0 to 10.0.19041.685 generate warning C5105 with C11 enabled.
-	if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION VERSION_LESS 10.0.20348.0)
-		message(WARNING "Windows SDK ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION} doesn't support C11. Please make sure you're using 10.0.20348.0 or later.")
-		## 5105: macro expansion producing 'defined' has undefined behavior
-		list(APPEND LOCAL_CFLAGS /wd5105)
+	# The variable CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION does not work with the Ninja generator. Presumably it requires a VS generator.
+	if (CMAKE_GENERATOR MATCHES "Visual Studio")
+		if (CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION VERSION_LESS 10.0.18362.0)
+			message(FATAL_ERROR "Windows SDK ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION} doesn't support C11. Please make sure you're using 10.0.20348.0 or later.")
+		endif()
+		# Windows SDK 10.0.18362.0 to 10.0.19041.685 generate warning C5105 with C11 enabled.
+		if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION VERSION_LESS 10.0.20348.0)
+			message(WARNING "Windows SDK ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION} doesn't support C11. Please make sure you're using 10.0.20348.0 or later.")
+			## 5105: macro expansion producing 'defined' has undefined behavior
+			list(APPEND LOCAL_CFLAGS /wd5105)
+		endif()
 	endif()
 
 	# We've matched these to specific compiler versions using the
@@ -1153,11 +1208,6 @@ find_package(LEX REQUIRED)
 find_package(Perl)
 find_package(PCRE2 REQUIRED)
 
-find_package(Python3 3.6 REQUIRED)
-# Several files (including LocatePythonModule) still use the old name
-# from FindPythonInterp, let's stick to it for now.
-set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-
 if (NOT WIN32)
 	find_package(Gettext)
 	find_package(M REQUIRED)
@@ -1219,7 +1269,9 @@ if(BUILD_wireshark OR BUILD_logray)
 		#   https://gitlab.kitware.com/cmake/cmake/-/issues/18837
 		# The below test can be found in Qt6, lib/cmake/Qt6/QtFeature.cmake
 		if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND MSVC_VERSION GREATER_EQUAL 1913)
-			add_definitions("-Zc:__cplusplus")
+			# Cannot use add_definitions() here because rc.exe does not understand this flag.
+			# https://cmake.org/pipermail/cmake/2009-August/031672.html
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Zc:__cplusplus")
 		endif()
 		list(APPEND QT_PACKAGELIST Qt6Core5Compat)
 	else()
@@ -1343,6 +1395,7 @@ endif()
 ws_find_package(WinSparkle ENABLE_WINSPARKLE HAVE_SOFTWARE_UPDATE)
 
 find_package( Asciidoctor 1.5 )
+find_package( XSLTPROC )
 
 find_package(DOXYGEN)
 
@@ -1396,11 +1449,30 @@ if (QT_FOUND)
 	)
 	# Use qmake to find windeployqt and macdeployqt. Ideally one of
 	# the modules in ${QTDIR}/lib/cmake would do this for us.
-	if(WIN32 AND NOT USE_MSYSTEM)
-		find_program(QT_WINDEPLOYQT_EXECUTABLE windeployqt
+	if(WIN32)
+		if (USE_qt6 AND USE_MSYSTEM)
+			set(_windeployqt_name "windeployqt-qt6")
+		else()
+			set(_windeployqt_name "windeployqt")
+		endif()
+		find_program(QT_WINDEPLOYQT_EXECUTABLE ${_windeployqt_name}
 			HINTS "${QT_BIN_PATH}"
 			DOC "Path to the windeployqt utility."
 		)
+		# As of Qt 6.5.0, the official Qt "MSVC 2019 ARM64 (TP)" libraries don't ship
+		# with native Arm64 executables. Instead, you get x64 executables installed in
+		# msvc2019_x64. Look for the path to "qmake.bat", which has to be passed to
+		# windeployqt so that it can install the proper DLLs.
+		# https://bugreports.qt.io/browse/QTBUG-100070
+		set(QT_WINDEPLOYQT_EXTRA_ARGS)
+		find_program(_qt_qmake_bat qmake.bat
+			HINTS ENV CMAKE_PREFIX_PATH
+			PATH_SUFFIXES bin
+			DOC "Path to qmake.bat."
+		)
+		if(_qt_qmake_bat)
+			set (QT_WINDEPLOYQT_EXTRA_ARGS "--qmake \"${_qt_qmake_bat}\"")
+		endif()
 	elseif(APPLE)
 		find_program(QT_MACDEPLOYQT_EXECUTABLE macdeployqt
 			HINTS "${QT_BIN_PATH}"
@@ -1541,8 +1613,12 @@ add_subdirectory( docbook EXCLUDE_FROM_ALL )
 add_subdirectory( epan )
 add_subdirectory( extcap )
 add_subdirectory( randpkt_core )
-add_subdirectory( tools/lemon )
-add_subdirectory( tools/radiotap-gen )
+if(NOT LEMON_EXECUTABLE)
+	add_subdirectory( tools/lemon )
+endif()
+if(PCAP_FOUND)
+	add_subdirectory( tools/radiotap-gen )
+endif()
 add_subdirectory( ui )
 add_subdirectory( wiretap )
 add_subdirectory( writecap )
@@ -1715,7 +1791,7 @@ if(VCSVERSION_OVERRIDE)
 else()
 	add_custom_target(vcs_version
 		BYPRODUCTS vcs_version.h
-		COMMAND ${PYTHON_EXECUTABLE}
+		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_SOURCE_DIR}/tools/make-version.py
 			${CMAKE_SOURCE_DIR}
 	)
@@ -2231,7 +2307,7 @@ if(USE_REPOSITORY)
 	if(ZIP_EXECUTABLE)
 		add_custom_target(pdb_zip_package COMMENT "This packages .PDBs but will not create them.")
 		set_target_properties(pdb_zip_package PROPERTIES FOLDER "Packaging")
-		set(_pdb_zip "${CMAKE_BINARY_DIR}/Wireshark-pdb-${WIRESHARK_TARGET_PLATFORM}-${PROJECT_VERSION}.zip")
+		set(_pdb_zip "${CMAKE_BINARY_DIR}/Wireshark-pdb-${PROJECT_VERSION}-${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}.zip")
 		file(TO_NATIVE_PATH "${_pdb_zip}" _pdb_zip_win)
 		add_custom_command(TARGET pdb_zip_package POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E remove -f "${_pdb_zip}"
@@ -2246,7 +2322,7 @@ endif()
 # List of extra dependencies for the "copy_data_files" target
 set(copy_data_files_depends)
 
-if(WIN32 AND NOT USE_MSYSTEM)
+if(WIN32)
 	foreach(_install_as_txt_file COPYING NEWS README.md README.windows)
 		# On Windows, install some files with a .txt extension so that they're
 		# double-clickable.
@@ -2636,7 +2712,7 @@ if(BUILD_wireshark AND QT_FOUND)
 		${WIN_WS2_32_LIBRARY}
 		${WIN_VERSION_LIBRARY}
 		${WINSPARKLE_LIBRARIES}
-		$<$<BOOL:${WIN32}>:UxTheme.lib>
+		$<$<BOOL:${WIN32}>:uxtheme.lib>
 		${SPEEXDSP_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${MINIZIP_LIBRARIES}
@@ -2703,10 +2779,17 @@ if(BUILD_wireshark AND QT_FOUND)
 		set_target_properties(copy_qt_dlls PROPERTIES FOLDER "Copy Tasks")
 		# Will we ever need to use --debug? Windeployqt seems to
 		# be smart enough to copy debug DLLs when needed.
+		if (USE_MSYSTEM AND Qt${qtver}Widgets_VERSION VERSION_EQUAL 6.5.0)
+			# windeployqt released with Qt 6.5.0 is broken.
+			# https://bugreports.qt.io/browse/QTBUG-112204
+			message(WARNING "Qt Deploy Tool 6.5.0 is broken, please upgrade to a later version.")
+			# lconvert will fail
+		endif()
 		add_custom_command(TARGET copy_qt_dlls
 			POST_BUILD
 			COMMAND set "PATH=${QT_BIN_PATH};%PATH%"
 			COMMAND "${QT_WINDEPLOYQT_EXECUTABLE}"
+				${QT_WINDEPLOYQT_EXTRA_ARGS}
 				--no-compiler-runtime
 				--verbose 0
 				$<$<BOOL:${MSVC}>:--pdb>
@@ -2741,7 +2824,7 @@ if(BUILD_logray AND QT_FOUND)
 		${WIN_WS2_32_LIBRARY}
 		${WIN_VERSION_LIBRARY}
 		${WINSPARKLE_LIBRARIES}
-		$<$<BOOL:${WIN32}>:UxTheme.lib>
+		$<$<BOOL:${WIN32}>:uxtheme.lib>
 		${SPEEXDSP_LIBRARIES}
 		${ZLIB_LIBRARIES}
 		${MINIZIP_LIBRARIES}
@@ -3245,7 +3328,7 @@ if(BUILD_dcerpcidl2wrs)
 	install(TARGETS idl2wrs RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
-if(MSVC)
+if(WIN32)
 	find_package( MSVC_REDIST )
 
 	# Must come after executable targets are defined.
@@ -3673,7 +3756,7 @@ if(RPMBUILD_EXECUTABLE)
 	endif()
 
 	execute_process(
-		COMMAND ${PYTHON_EXECUTABLE}
+		COMMAND ${Python3_EXECUTABLE}
 			${CMAKE_SOURCE_DIR}/tools/make-version.py
 			${CMAKE_SOURCE_DIR}
 	)
@@ -3845,6 +3928,21 @@ install(
 		${CMAKE_INSTALL_DOCDIR}
 )
 
+if(ASCIIDOCTOR_FOUND AND XSLTPROC_EXECUTABLE)
+	install(
+		DIRECTORY "${CMAKE_BINARY_DIR}/docbook/wsug_html_chunked"
+		DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+		COMPONENT "UserGuide"
+		EXCLUDE_FROM_ALL
+	)
+	install(
+		DIRECTORY "${CMAKE_BINARY_DIR}/docbook/wsdg_html_chunked"
+		DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+		COMPONENT "DeveloperGuide"
+		EXCLUDE_FROM_ALL
+	)
+endif()
+
 set(SHARK_PUBLIC_HEADERS
 	cfile.h
 	cli_main.h
@@ -3888,9 +3986,6 @@ if(BUILD_wireshark AND QT_FOUND AND NOT APPLE AND (NOT WIN32 OR USE_MSYSTEM))
 			DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${size}x${size}/mimetypes"
 			RENAME org.wireshark.Wireshark-mimetype.png)
 	endforeach()
-	install(FILES resources/icons/wsicon.svg
-		DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
-		RENAME org.wireshark.Wireshark.svg)
 endif()
 
 if(BUILD_logray AND QT_FOUND AND NOT APPLE AND (NOT WIN32 OR USE_MSYSTEM))
@@ -4042,77 +4137,21 @@ set_target_properties(test-programs PROPERTIES
 	EXCLUDE_FROM_DEFAULT_BUILD True
 )
 
-# Test suites
-enable_testing()
-# We could try to build this list dynamically, but given that we tend to
-# go years between adding suites just run
-#     test/test.py --list-groups | sort
-# and paste the output here.
-set(_test_group_list
-	suite_capture
-	suite_clopts
-	suite_decryption
-	suite_dfilter.group_bytes
-	suite_dfilter.group_double
-	suite_dfilter.group_ether
-	suite_dfilter.group_function
-	suite_dfilter.group_integer
-	suite_dfilter.group_ipv4
-	suite_dfilter.group_ipv6
-	suite_dfilter.group_membership
-	suite_dfilter.group_scanner
-	suite_dfilter.group_slice
-	suite_dfilter.group_string
-	suite_dfilter.group_syntax
-	suite_dfilter.group_time
-	suite_dfilter.group_tvb
-	suite_dissection
-	suite_dissectors.group_asterix
-	suite_extcaps
-	suite_fileformats
-	suite_follow
-	suite_follow_dccp
-	suite_follow_multistream
-	suite_io
-	suite_mergecap
-	suite_nameres
-	suite_netperfmeter
-	suite_outputformats
-	suite_release
-	suite_sharkd
-	suite_text2pcap
-	suite_unittests
-	suite_wslua
+# Add target to enable capturing from the build directory. Requires Linux capabilities
+# and running with sudo.
+if(TARGET dumpcap AND SETCAP_EXECUTABLE)
+	add_custom_target(test-capture
+		COMMAND ${SETCAP_EXECUTABLE} cap_net_raw,cap_net_admin+ep $<TARGET_FILE:dumpcap>
+	)
+endif()
+
+add_custom_target(test
+	COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
+		${Python3_EXECUTABLE} -m pytest
+	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+	DEPENDS test-programs
+	USES_TERMINAL
 )
-
-# We don't currently handle spaces in arguments. On Windows this
-# means that you will probably have to pass in an interface index
-# instead of a name.
-set(TEST_EXTRA_ARGS "" CACHE STRING "Extra arguments to pass to test/test.py")
-separate_arguments(TEST_EXTRA_ARGS)
-
-add_test(build_unittests
-	"${CMAKE_COMMAND}"
-	--build "${CMAKE_BINARY_DIR}"
-	--config "${CONFIG}"
-	--target test-programs
-)
-set_tests_properties(build_unittests PROPERTIES FIXTURES_SETUP unittests)
-
-foreach(_group_name ${_test_group_list})
-	add_test(
-		NAME ${_group_name}
-		COMMAND ${CMAKE_COMMAND} -E env PYTHONIOENCODING=UTF-8
-			${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/test/test.py
-			--verbose
-			--program-path $<TARGET_FILE_DIR:wmem_test>
-			${TEST_EXTRA_ARGS}
-			${_group_name}
-		)
-	set_tests_properties(${_group_name} PROPERTIES TIMEOUT 600)
-endforeach()
-
-set_tests_properties(suite_unittests PROPERTIES FIXTURES_REQUIRED unittests)
 
 # Make it possible to run pytest without passing the full path as argument.
 if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
@@ -4127,7 +4166,7 @@ if (GIT_EXECUTABLE)
 	# Update AUTHORS file with entries from git shortlog
 	add_custom_target(
 		gen-authors
-		COMMAND ${PYTHON_EXECUTABLE} tools/generate_authors.py AUTHORS
+		COMMAND ${Python3_EXECUTABLE} tools/generate_authors.py AUTHORS
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 	)
 else (GIT_EXECUTABLE)

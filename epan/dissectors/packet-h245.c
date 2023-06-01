@@ -485,9 +485,9 @@ static void print_info_column(column_info *cinfo, const gint32 *value,
   }
 
   if (info_col_fmt_prepend == FALSE) {
-    col_append_fstr(cinfo, COL_INFO, "%s ", val_to_str(*value, vals, "<unknown>"));
+    col_append_fstr(cinfo, COL_INFO, "%s ", val_to_str_const(*value, vals, "<unknown>"));
   } else {
-    col_prepend_fstr(cinfo, COL_INFO, "%s ", val_to_str(*value, vals, "<unknown>"));
+    col_prepend_fstr(cinfo, COL_INFO, "%s ", val_to_str_const(*value, vals, "<unknown>"));
   }
 }
 
@@ -2758,7 +2758,8 @@ dissect_h245_T_availableBitRates(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 static int
 dissect_h245_NumericString_SIZE_1_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_NumericString(tvb, offset, actx, tree, hf_index,
-                                          1, 16, FALSE);
+                                          1, 16, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -3531,7 +3532,8 @@ dissect_h245_OCTET_STRING_SIZE_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_h245_IA5String_SIZE_1_64(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 64, FALSE);
+                                          1, 64, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -10239,7 +10241,8 @@ dissect_h245_CallInformationReq(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 static int
 dissect_h245_NumericString_SIZE_0_40(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_NumericString(tvb, offset, actx, tree, hf_index,
-                                          0, 40, FALSE);
+                                          0, 40, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -10249,7 +10252,8 @@ dissect_h245_NumericString_SIZE_0_40(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 static int
 dissect_h245_IA5String_SIZE_1_40(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 40, FALSE);
+                                          1, 40, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -20490,10 +20494,10 @@ void proto_register_h245(void) {
   MultimediaSystemControlMessage_handle = register_dissector("h245dg", dissect_h245_h245, proto_h245);
   h245_handle = register_dissector("h245", dissect_h245, proto_h245);
 
-  nsp_object_dissector_table = register_dissector_table("h245.nsp.object", "H.245 NonStandardParameter (object)", proto_h245, FT_STRING, BASE_NONE);
+  nsp_object_dissector_table = register_dissector_table("h245.nsp.object", "H.245 NonStandardParameter (object)", proto_h245, FT_STRING, STRING_CASE_SENSITIVE);
   nsp_h221_dissector_table = register_dissector_table("h245.nsp.h221", "H.245 NonStandardParameter (h221)", proto_h245, FT_UINT32, BASE_HEX);
-  gef_name_dissector_table = register_dissector_table("h245.gef.name", "H.245 Generic Extensible Framework Name", proto_h245, FT_STRING, BASE_NONE);
-  gef_content_dissector_table = register_dissector_table("h245.gef.content", "H.245 Generic Extensible Framework Content", proto_h245, FT_STRING, BASE_NONE);
+  gef_name_dissector_table = register_dissector_table("h245.gef.name", "H.245 Generic Extensible Framework Name", proto_h245, FT_STRING, STRING_CASE_SENSITIVE);
+  gef_content_dissector_table = register_dissector_table("h245.gef.content", "H.245 Generic Extensible Framework Content", proto_h245, FT_STRING, STRING_CASE_SENSITIVE);
 
   h245_tap = register_tap("h245");
   h245dg_tap = register_tap("h245dg");

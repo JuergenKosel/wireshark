@@ -308,6 +308,7 @@ extern "C" {
 #define WTAP_ENCAP_AUERSWALD_LOG                219
 #define WTAP_ENCAP_ATSC_ALP                     220
 #define WTAP_ENCAP_FIRA_UCI                     221
+#define WTAP_ENCAP_SILABS_DEBUG_CHANNEL         222
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -1383,6 +1384,8 @@ typedef struct {
     guint     section_number;    /* section, within file, containing this record */
     nstime_t  ts;                /* time stamp */
     int       tsprec;            /* WTAP_TSPREC_ value for this record */
+    nstime_t  ts_rel_cap;        /* time stamp relative from capture start */
+    gboolean  ts_rel_cap_valid;  /* is ts_rel_cap valid and can be used? */
     union {
         wtap_packet_header packet_header;
         wtap_ft_specific_header ft_specific_header;

@@ -669,7 +669,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/authors.qrc"
 
 add_custom_command(
 	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
-	COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
+	COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/make-authors-csv.py
 			< ${CMAKE_SOURCE_DIR}/AUTHORS
 			> ${CMAKE_CURRENT_BINARY_DIR}/authors.csv
 	DEPENDS
@@ -710,6 +710,15 @@ elseif(NOT Qt${qtver}Widgets_VERSION VERSION_LESS "5.11")
 	QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS} OPTIONS -silent)
 else()
 	QT5_ADD_TRANSLATION(WIRESHARK_QT_QM ${WIRESHARK_QT_TS})
+endif()
+
+if (WIN32)
+	add_custom_target(copy_qt_translations ALL)
+	add_custom_command(TARGET copy_qt_translations
+		POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:wireshark>/translations
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${WIRESHARK_QT_QM} $<TARGET_FILE_DIR:wireshark>/translations
+	)
 endif()
 
 add_custom_target(

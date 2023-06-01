@@ -377,9 +377,9 @@ struct _protocol {
 	gboolean    enabled_by_default; /* TRUE if protocol is enabled by default */
 	gboolean    can_toggle;         /* TRUE if is_enabled can be changed */
 	int         parent_proto_id;    /* Used to identify "pino"s (Protocol In Name Only).
-                                       For dissectors that need a protocol name so they
-                                       can be added to a dissector table, but use the
-                                       parent_proto_id for things like enable/disable */
+	                                   For dissectors that need a protocol name so they
+	                                   can be added to a dissector table, but use the
+	                                   parent_proto_id for things like enable/disable */
 	GList      *heur_list;          /* Heuristic dissectors associated with this protocol */
 };
 
@@ -3856,12 +3856,14 @@ proto_tree_add_item_ret_display_string_and_length(proto_tree *tree, int hfindex,
 		ws_label_strcpy(*retval, ITEM_LABEL_LENGTH, 0, value, label_strcat_flags(hfinfo));
 		break;
 	case FT_BYTES:
+		tvb_ensure_bytes_exist(tvb, start, length);
 		value = tvb_get_ptr(tvb, start, length);
 		*retval = format_bytes_hfinfo(scope, hfinfo, value, length);
 		*lenretval = length;
 		break;
 	case FT_UINT_BYTES:
 		n = get_uint_value(tree, tvb, start, length, encoding);
+		tvb_ensure_bytes_exist(tvb, start + length, n);
 		value = tvb_get_ptr(tvb, start + length, n);
 		*retval = format_bytes_hfinfo(scope, hfinfo, value, n);
 		*lenretval = length + n;
@@ -4178,6 +4180,7 @@ proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 			n = length; /* n is now the "header" length */
 			length = get_uint_value(tree, tvb, start, n, encoding);
 			/* length is now the value's length; only store the value in the array */
+			tvb_ensure_bytes_exist(tvb, start + n, length);
 			g_byte_array_append(bytes, tvb_get_ptr(tvb, start + n, length), length);
 		}
 		else if (length > 0) {
@@ -4501,6 +4504,7 @@ proto_tree_add_bytes_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 static void
 proto_tree_set_bytes(field_info *fi, const guint8* start_ptr, gint length)
 {
+	DISSECTOR_ASSERT(length >= 0);
 	DISSECTOR_ASSERT(start_ptr != NULL || length == 0);
 
 	fvalue_set_bytes_data(fi->value, start_ptr, length);
@@ -4510,6 +4514,7 @@ proto_tree_set_bytes(field_info *fi, const guint8* start_ptr, gint length)
 static void
 proto_tree_set_bytes_tvb(field_info *fi, tvbuff_t *tvb, gint offset, gint length)
 {
+	tvb_ensure_bytes_exist(tvb, offset, length);
 	proto_tree_set_bytes(fi, tvb_get_ptr(tvb, offset, length), length);
 }
 
@@ -6428,7 +6433,7 @@ protoo_strlcpy(gchar *dest, const gchar *src, gsize dest_size)
 	gsize res = g_strlcpy(dest, src, dest_size);
 
 	/* At most dest_size - 1 characters will be copied
-         * (unless dest_size is 0). */
+	 * (unless dest_size is 0). */
 	if (res >= dest_size)
 		res = dest_size - 1;
 	return (int) res;
@@ -7158,12 +7163,12 @@ proto_item_set_len(proto_item *pi, const gint length)
 	field_info *fi;
 
 	/* XXX: We actually want to set the length of non visible proto_items
-         * that are protocols, if we're not faking protocols, so that
-         * ui/proto_hier_stats can work correctly. (#17877) But we don't
-         * want to set the length of the protocol accidentally when intending
-         * to set the length of a faked child. However, we can't tell whether
-         * this is called by the original item or the child when faking items.
-         */
+	 * that are protocols, if we're not faking protocols, so that
+	 * ui/proto_hier_stats can work correctly. (#17877) But we don't
+	 * want to set the length of the protocol accidentally when intending
+	 * to set the length of a faked child. However, we can't tell whether
+	 * this is called by the original item or the child when faking items.
+	 */
 	TRY_TO_FAKE_THIS_REPR_VOID(pi);
 
 	fi = PITEM_FINFO(pi);

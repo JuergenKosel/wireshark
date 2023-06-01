@@ -4771,7 +4771,8 @@ dissect_ngap_AlternativeQoSParaSetList(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 static int
 dissect_ngap_AMFName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_PrintableString(tvb, offset, actx, tree, hf_index,
-                                          1, 150, TRUE);
+                                          1, 150, TRUE,
+                                          NULL);
 
   return offset;
 }
@@ -4781,7 +4782,8 @@ dissect_ngap_AMFName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 static int
 dissect_ngap_AMFNameVisibleString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_VisibleString(tvb, offset, actx, tree, hf_index,
-                                          1, 150, TRUE);
+                                          1, 150, TRUE,
+                                          NULL);
 
   return offset;
 }
@@ -9425,7 +9427,8 @@ dissect_ngap_ExtendedPacketDelayBudget(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 static int
 dissect_ngap_RANNodeNameVisibleString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_VisibleString(tvb, offset, actx, tree, hf_index,
-                                          1, 150, TRUE);
+                                          1, 150, TRUE,
+                                          NULL);
 
   return offset;
 }
@@ -18032,7 +18035,8 @@ dissect_ngap_QoSFlowsUsageReportList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 static int
 dissect_ngap_RANNodeName(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_PrintableString(tvb, offset, actx, tree, hf_index,
-                                          1, 150, TRUE);
+                                          1, 150, TRUE,
+                                          NULL);
 
   return offset;
 }
@@ -20392,7 +20396,8 @@ dissect_ngap_UPTransportLayerInformationList(tvbuff_t *tvb _U_, int offset _U_, 
 static int
 dissect_ngap_URI_address(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_VisibleString(tvb, offset, actx, tree, hf_index,
-                                          NO_BOUND, NO_BOUND, FALSE);
+                                          NO_BOUND, NO_BOUND, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -34410,7 +34415,7 @@ void proto_register_ngap(void) {
   ngap_proc_imsg_dissector_table = register_dissector_table("ngap.proc.imsg", "NGAP-ELEMENTARY-PROCEDURE InitiatingMessage", proto_ngap, FT_UINT32, BASE_DEC);
   ngap_proc_sout_dissector_table = register_dissector_table("ngap.proc.sout", "NGAP-ELEMENTARY-PROCEDURE SuccessfulOutcome", proto_ngap, FT_UINT32, BASE_DEC);
   ngap_proc_uout_dissector_table = register_dissector_table("ngap.proc.uout", "NGAP-ELEMENTARY-PROCEDURE UnsuccessfulOutcome", proto_ngap, FT_UINT32, BASE_DEC);
-  ngap_n2_ie_type_dissector_table = register_dissector_table("ngap.n2_ie_type", "NGAP N2 IE Type", proto_ngap, FT_STRING, FALSE);
+  ngap_n2_ie_type_dissector_table = register_dissector_table("ngap.n2_ie_type", "NGAP N2 IE Type", proto_ngap, FT_STRING, STRING_CASE_SENSITIVE);
 
   /* Register configuration options for ports */
   ngap_module = prefs_register_protocol(proto_ngap, apply_ngap_prefs);

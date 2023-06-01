@@ -68,6 +68,9 @@
 #include "capture/capture_ifinfo.h"
 #include "capture/capture-pcap-util.h"
 #include "capture/capture-pcap-util-int.h"
+#ifdef _WIN32
+#include "capture/capture-wpcap.h"
+#endif
 
 #include <wsutil/file_util.h>
 #include <wsutil/please_report_bug.h>
@@ -75,6 +78,8 @@
 
 #ifndef _WIN32
 #include <netinet/in.h>
+#else
+#include <ws2tcpip.h>
 #endif
 
 #ifdef _WIN32
@@ -621,7 +626,7 @@ get_interface_list_findalldevs_ex(const char *hostname, const char *port,
 	auth.username = g_strdup(username);
 	auth.password = g_strdup(passwd);
 
-	if (pcap_findalldevs_ex(source, &auth, &alldevs, errbuf) == -1) {
+	if (ws_pcap_findalldevs_ex(source, &auth, &alldevs, errbuf) == -1) {
 		*err = CANT_GET_INTERFACE_LIST;
 		if (err_str != NULL)
 			*err_str = cant_get_if_list_error_message(errbuf);
@@ -1402,11 +1407,13 @@ open_capture_device_pcap_create(
 			    sizeof *open_status_str);
 			break;
 
+#ifdef HAVE_PCAP_ERROR_PROMISC_PERM_DENIED
 		case PCAP_ERROR_PROMISC_PERM_DENIED:
 			*open_status = CAP_DEVICE_OPEN_ERROR_PROMISC_PERM_DENIED;
 			(void) g_strlcpy(*open_status_str, pcap_geterr(pcap_h),
 			    sizeof *open_status_str);
 			break;
+#endif
 
 		case PCAP_ERROR_RFMON_NOTSUP:
 			*open_status = CAP_DEVICE_OPEN_ERROR_RFMON_NOTSUP;
@@ -1448,11 +1455,13 @@ open_capture_device_pcap_create(
 			    sizeof *open_status_str);
 			break;
 
+#ifdef HAVE_PCAP_WARNING_TSTAMP_TYPE_NOTSUP
 		case PCAP_WARNING_TSTAMP_TYPE_NOTSUP:
 			*open_status = CAP_DEVICE_OPEN_WARNING_TSTAMP_TYPE_NOTSUP;
 			(void) g_strlcpy(*open_status_str, pcap_geterr(pcap_h),
 			    sizeof *open_status_str);
 			break;
+#endif
 
 		case PCAP_WARNING:
 			*open_status = CAP_DEVICE_OPEN_WARNING_OTHER;

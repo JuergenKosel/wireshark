@@ -73,6 +73,8 @@
  * See Also: http://plan9.bell-labs.com/sys/man/5/INDEX.html
  */
 
+static dissector_handle_t ninep_handle;
+
 enum _9p_msg_t {
 	_9P_TLERROR = 6,
 	_9P_RLERROR,
@@ -1315,7 +1317,7 @@ static int dissect_9P_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 		if(!pinfo->fd->visited) {
 			_9p_len = tvb_get_letohs(tvb, offset);
 			tvb_s = (char*)tvb_get_string_enc(pinfo->pool, tvb, offset+2, _9p_len, ENC_UTF_8|ENC_NA);
-			conv_set_fid(pinfo, fid, tvb_s, _9p_len+1);
+			conv_set_fid(pinfo, fid, tvb_s, strlen(tvb_s)+1);
 		}
 		offset += _9p_dissect_string(tvb, ninep_tree, offset, hf_9P_aname, ett_9P_aname);
 
@@ -2685,14 +2687,12 @@ void proto_register_9P(void)
 	expert_register_field_array(expert_9P, ei, array_length(ei));
 
 	_9p_hashtable = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), _9p_hash_hash, _9p_hash_equal);
+
+	ninep_handle = register_dissector("9p", dissect_9P, proto_9P);
 }
 
 void proto_reg_handoff_9P(void)
 {
-	dissector_handle_t ninep_handle;
-
-	ninep_handle = create_dissector_handle(dissect_9P, proto_9P);
-
 	dissector_add_uint_with_preference("tcp.port", NINEPORT, ninep_handle);
 }
 

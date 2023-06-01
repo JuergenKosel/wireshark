@@ -28,7 +28,6 @@
 #include <wsutil/wsjson.h>
 
 #include "packet-gsm_a_common.h"
-#include "packet-e212.h"
 #include "packet-media-type.h"
 #include "packet-tcp.h"
 
@@ -546,6 +545,7 @@ static int ett_nas_5gs_mm_mapped_nssai = -1;
 static int ett_nas_5gs_mm_partial_extended_rejected_nssai_list = -1;
 static int ett_nas_5gs_mm_ext_rej_nssai = -1;
 static int ett_nas_5gs_mm_op_def_acc_cat_def = -1;
+static int ett_nas_5gs_mm_op_def_acc_cat_criteria_component = -1;
 static int ett_nas_5gs_mm_op_def_acc_cat_criteria = -1;
 static int ett_nas_5gs_cmn_service_level_aa_cont_param = -1;
 static int ett_nas_5gs_mm_pld_cont_event_notif_ind = -1;
@@ -594,7 +594,6 @@ static int hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id_len = -1;
 static int hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id = -1;
 static int hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_count = -1;
 static int hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_len = -1;
-static int hf_nas_5gs_mm_op_def_access_cat_criteria_payload = -1;
 static int hf_nas_5gs_mm_op_def_access_cat_standardized_number = -1;
 static int hf_nas_5gs_mm_sms_indic_sai = -1;
 
@@ -2000,10 +1999,6 @@ de_nas_5gs_mm_ciot_small_data_cont(tvbuff_t* tvb, proto_tree* tree, packet_info*
 /*
  * 9.11.3.18C   Ciphering key data
  */
-static const true_false_string nas_5gs_applicable_not_applicable = {
-    "Applicable",
-    "Not applicable"
-};
 
 static guint16
 de_nas_5gs_mm_ciphering_key_data(tvbuff_t* tvb, proto_tree* tree, packet_info* pinfo,
@@ -2716,11 +2711,11 @@ de_nas_5gs_mm_op_def_acc_cat_def(tvbuff_t *tvb, proto_tree *tree, packet_info *p
     guint32 offset, guint len,
     gchar *add_string _U_, int string_len _U_)
 {
-    proto_tree *sub_tree, *sub_tree2;
-    proto_item *item, *item2;
-    int i = 1;
-    guint32 length, criteria_length, criteria_type, criteria_count, j;
-    guint32 curr_offset, saved_offset, saved_offset2;
+    proto_tree *sub_tree, *sub_tree2, *sub_tree3;
+    proto_item *item, *item2, *item3;
+    guint32 i = 1, j, k;
+    guint32 length, criteria_length, criteria_type, criteria_count;
+    guint32 curr_offset, saved_offset, saved_offset2, saved_offset3, criteria_offset;
     gboolean psac;
 
     curr_offset = offset;
@@ -2749,72 +2744,75 @@ de_nas_5gs_mm_op_def_acc_cat_def(tvbuff_t *tvb, proto_tree *tree, packet_info *p
         proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_length,
                                      tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_length);
         curr_offset++;
-        /* Criteria */
-        proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_type,
-                                     tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_type);
-        curr_offset++;
-        switch (criteria_type) {
-        case 0:
-            proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_dnn_count,
-                                         tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
+        criteria_offset = curr_offset;
+        j = 1;
+        while ((curr_offset - criteria_offset) < criteria_length) {
+            saved_offset2 = curr_offset;
+            sub_tree2 = proto_tree_add_subtree_format(sub_tree, tvb, curr_offset, 1, ett_nas_5gs_mm_op_def_acc_cat_criteria_component,
+                                                      &item2, "Criteria component %u", j++);
+            /* Criteria */
+            proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_type,
+                                         tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_type);
             curr_offset++;
-            for (j = 1; j <= criteria_count; j++) {
-                guint32 dnn_len;
-                saved_offset2 = curr_offset;
-                sub_tree2 = proto_tree_add_subtree_format(sub_tree, tvb, curr_offset, -1,
-                                                          ett_nas_5gs_mm_op_def_acc_cat_criteria, &item2, "DNN %u", j);
-                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_dnn_len,
-                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &dnn_len);
+            switch (criteria_type) {
+            case 0:
+                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_dnn_count,
+                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
                 curr_offset++;
-                de_nas_5gs_cmn_dnn(tvb, sub_tree2, pinfo, curr_offset, dnn_len, NULL, 0);
-                curr_offset += dnn_len;
-                proto_item_set_len(item2, curr_offset - saved_offset2);
-            }
-            break;
-        case 1:
-            proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_os_id_os_app_id_count,
-                                         tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
-            curr_offset++;
-            for (j = 1; j <= criteria_count; j++) {
-                guint32 os_app_id_len;
-                saved_offset2 = curr_offset;
-                sub_tree2 = proto_tree_add_subtree_format(sub_tree, tvb, curr_offset, -1, ett_nas_5gs_mm_op_def_acc_cat_criteria,
-                                                          &item2, "OS Id + Os App Id %u", j);
-                proto_tree_add_item(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_os_id,
-                                    tvb, curr_offset, 16, ENC_NA);
-                curr_offset += 16;
-                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id_len,
-                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &os_app_id_len);
+                for (k = 1; k <= criteria_count; k++) {
+                    guint32 dnn_len;
+                    saved_offset3 = curr_offset;
+                    sub_tree3 = proto_tree_add_subtree_format(sub_tree2, tvb, curr_offset, -1,
+                                                              ett_nas_5gs_mm_op_def_acc_cat_criteria, &item3, "DNN %u", k);
+                    proto_tree_add_item_ret_uint(sub_tree3, hf_nas_5gs_mm_op_def_access_cat_criteria_dnn_len,
+                                                 tvb, curr_offset, 1, ENC_BIG_ENDIAN, &dnn_len);
+                    curr_offset++;
+                    de_nas_5gs_cmn_dnn(tvb, sub_tree3, pinfo, curr_offset, dnn_len, NULL, 0);
+                    curr_offset += dnn_len;
+                    proto_item_set_len(item3, curr_offset - saved_offset3);
+                }
+                break;
+            case 1:
+                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_os_id_os_app_id_count,
+                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
                 curr_offset++;
-                proto_tree_add_item(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id,
-                                    tvb, curr_offset, os_app_id_len, ENC_NA);
-                curr_offset += os_app_id_len;
-                proto_item_set_len(item2, curr_offset - saved_offset2);
-            }
-            break;
-        case 2:
-            proto_tree_add_item_ret_uint(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_count,
-                                         tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
-            curr_offset++;
-            for (j = 1; j <= criteria_count; j++) {
-                guint32 s_nssai_len;
-                saved_offset2 = curr_offset;
-                sub_tree2 = proto_tree_add_subtree_format(sub_tree, tvb, curr_offset, -1,
-                                                          ett_nas_5gs_mm_op_def_acc_cat_criteria, &item2, "S-NSSAI %u", j);
-                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_len,
-                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &s_nssai_len);
+                for (k = 1; k <= criteria_count; k++) {
+                    guint32 os_app_id_len;
+                    saved_offset3 = curr_offset;
+                    sub_tree3 = proto_tree_add_subtree_format(sub_tree2, tvb, curr_offset, -1, ett_nas_5gs_mm_op_def_acc_cat_criteria,
+                                                              &item3, "OS Id + Os App Id %u", k);
+                    proto_tree_add_item(sub_tree3, hf_nas_5gs_mm_op_def_access_cat_criteria_os_id,
+                                        tvb, curr_offset, 16, ENC_NA);
+                    curr_offset += 16;
+                    proto_tree_add_item_ret_uint(sub_tree3, hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id_len,
+                                                 tvb, curr_offset, 1, ENC_BIG_ENDIAN, &os_app_id_len);
+                    curr_offset++;
+                    proto_tree_add_item(sub_tree3, hf_nas_5gs_mm_op_def_access_cat_criteria_os_app_id,
+                                        tvb, curr_offset, os_app_id_len, ENC_NA);
+                    curr_offset += os_app_id_len;
+                    proto_item_set_len(item3, curr_offset - saved_offset3);
+                }
+                break;
+            case 2:
+                proto_tree_add_item_ret_uint(sub_tree2, hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_count,
+                                             tvb, curr_offset, 1, ENC_BIG_ENDIAN, &criteria_count);
                 curr_offset++;
-                curr_offset += de_nas_5gs_cmn_s_nssai(tvb, sub_tree2, pinfo, curr_offset, s_nssai_len, NULL, 0);
-                proto_item_set_len(item2, curr_offset - saved_offset2);
+                for (k = 1; k <= criteria_count; k++) {
+                    guint32 s_nssai_len;
+                    saved_offset3 = curr_offset;
+                    sub_tree3 = proto_tree_add_subtree_format(sub_tree2, tvb, curr_offset, -1,
+                                                              ett_nas_5gs_mm_op_def_acc_cat_criteria, &item3, "S-NSSAI %u", k);
+                    proto_tree_add_item_ret_uint(sub_tree3, hf_nas_5gs_mm_op_def_access_cat_criteria_s_nssai_len,
+                                                 tvb, curr_offset, 1, ENC_BIG_ENDIAN, &s_nssai_len);
+                    curr_offset++;
+                    curr_offset += de_nas_5gs_cmn_s_nssai(tvb, sub_tree3, pinfo, curr_offset, s_nssai_len, NULL, 0);
+                    proto_item_set_len(item3, curr_offset - saved_offset3);
+                }
+                break;
+            default:
+                break;
             }
-            break;
-        default:
-            if (criteria_length > 1) {
-                proto_tree_add_item(sub_tree, hf_nas_5gs_mm_op_def_access_cat_criteria_payload,
-                                    tvb, curr_offset, criteria_length - 1, ENC_NA);
-                curr_offset += criteria_length - 1;
-            }
-            break;
+            proto_item_set_len(item2, curr_offset - saved_offset2);
         }
         if (psac) {
             /* 0 Spare    0 Spare    0 Spare    Standardized access category */
@@ -10781,367 +10779,367 @@ proto_register_nas_5gs(void)
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_1,
         { "Ciphering data set for E-UTRA positioning SIB type 1-1","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_2,
         { "Ciphering data set for E-UTRA positioning SIB type 1-2","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_2",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_3,
         { "Ciphering data set for E-UTRA positioning SIB type 1-3","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_3",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_4,
         { "Ciphering data set for E-UTRA positioning SIB type 1-4","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_4",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_5,
         { "Ciphering data set for E-UTRA positioning SIB type 1-5","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_5",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_6,
         { "Ciphering data set for E-UTRA positioning SIB type 1-6","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_6",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_7,
         { "Ciphering data set for E-UTRA positioning SIB type 1-7","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_7",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_1_8,
         { "Ciphering data set for E-UTRA positioning SIB type 1-8","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_1_8",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_1,
         { "Ciphering data set for E-UTRA positioning SIB type 2-1","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_2,
         { "Ciphering data set for E-UTRA positioning SIB type 2-2","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_2",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_3,
         { "Ciphering data set for E-UTRA positioning SIB type 2-3","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_3",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_4,
         { "Ciphering data set for E-UTRA positioning SIB type 2-4","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_4",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_5,
         { "Ciphering data set for E-UTRA positioning SIB type 2-5","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_5",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_6,
         { "Ciphering data set for E-UTRA positioning SIB type 2-6","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_6",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_7,
         { "Ciphering data set for E-UTRA positioning SIB type 2-7","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_7",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_8,
         { "Ciphering data set for E-UTRA positioning SIB type 2-8","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_8",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_9,
         { "Ciphering data set for E-UTRA positioning SIB type 2-9","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_9",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_10,
         { "Ciphering data set for E-UTRA positioning SIB type 2-10","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_10",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_11,
         { "Ciphering data set for E-UTRA positioning SIB type 2-11","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_11",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_12,
         { "Ciphering data set for E-UTRA positioning SIB type 2-12","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_12",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_13,
         { "Ciphering data set for E-UTRA positioning SIB type 2-13","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_13",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_14,
         { "Ciphering data set for E-UTRA positioning SIB type 2-14","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_14",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_15,
         { "Ciphering data set for E-UTRA positioning SIB type 2-15","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_15",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_16,
         { "Ciphering data set for E-UTRA positioning SIB type 2-16","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_16",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_17,
         { "Ciphering data set for E-UTRA positioning SIB type 2-17","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_17",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_18,
         { "Ciphering data set for E-UTRA positioning SIB type 2-18","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_18",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_19,
         { "Ciphering data set for E-UTRA positioning SIB type 2-19","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_19",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_20,
         { "Ciphering data set for E-UTRA positioning SIB type 2-20","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_20",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_21,
         { "Ciphering data set for E-UTRA positioning SIB type 2-21","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_21",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_22,
         { "Ciphering data set for E-UTRA positioning SIB type 2-22","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_22",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_23,
         { "Ciphering data set for E-UTRA positioning SIB type 2-23","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_23",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_24,
         { "Ciphering data set for E-UTRA positioning SIB type 2-24","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_24",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_2_25,
         { "Ciphering data set for E-UTRA positioning SIB type 2-25","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_2_25",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_3_1,
         { "Ciphering data set for E-UTRA positioning SIB type 3-1","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_3_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_4_1,
         { "Ciphering data set for E-UTRA positioning SIB type 4-1","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_4_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_eutra_pos_sib_type_5_1,
         { "Ciphering data set for E-UTRA positioning SIB type 5-1","nas_5gs.mm.ciph_key_data.eutra_pos_sib_type_5_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_1,
         { "Ciphering data set for NR positioning SIB type 1-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_2,
         { "Ciphering data set for NR positioning SIB type 1-2","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_2",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_3,
         { "Ciphering data set for NR positioning SIB type 1-3","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_3",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_4,
         { "Ciphering data set for NR positioning SIB type 1-4","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_4",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_5,
         { "Ciphering data set for NR positioning SIB type 1-5","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_5",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_6,
         { "Ciphering data set for NR positioning SIB type 1-6","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_6",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_7,
         { "Ciphering data set for NR positioning SIB type 1-7","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_7",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_1_8,
         { "Ciphering data set for NR positioning SIB type 1-8","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_1_8",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_1,
         { "Ciphering data set for NR positioning SIB type 2-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_2,
         { "Ciphering data set for NR positioning SIB type 2-2","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_2",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_3,
         { "Ciphering data set for NR positioning SIB type 2-3","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_3",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_4,
         { "Ciphering data set for NR positioning SIB type 2-4","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_4",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_5,
         { "Ciphering data set for NR positioning SIB type 2-5","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_5",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_6,
         { "Ciphering data set for NR positioning SIB type 2-6","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_6",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_7,
         { "Ciphering data set for NR positioning SIB type 2-7","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_7",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_8,
         { "Ciphering data set for NR positioning SIB type 2-8","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_8",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_9,
         { "Ciphering data set for NR positioning SIB type 2-9","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_9",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_10,
         { "Ciphering data set for NR positioning SIB type 2-10","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_10",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_11,
         { "Ciphering data set for NR positioning SIB type 2-11","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_11",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_12,
         { "Ciphering data set for NR positioning SIB type 2-12","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_12",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_13,
         { "Ciphering data set for NR positioning SIB type 2-13","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_13",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_14,
         { "Ciphering data set for NR positioning SIB type 2-14","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_14",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_15,
         { "Ciphering data set for NR positioning SIB type 2-15","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_15",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_16,
         { "Ciphering data set for NR positioning SIB type 2-16","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_16",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_17,
         { "Ciphering data set for NR positioning SIB type 2-17","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_17",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_18,
         { "Ciphering data set for NR positioning SIB type 2-18","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_18",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_19,
         { "Ciphering data set for NR positioning SIB type 2-19","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_19",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_20,
         { "Ciphering data set for NR positioning SIB type 2-20","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_20",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_21,
         { "Ciphering data set for NR positioning SIB type 2-21","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_21",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_22,
         { "Ciphering data set for NR positioning SIB type 2-22","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_22",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x04,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_2_23,
         { "Ciphering data set for NR positioning SIB type 2-23","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_2_23",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x02,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_3_1,
         { "Ciphering data set for NR positioning SIB type 3-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_3_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x01,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_4_1,
         { "Ciphering data set for NR positioning SIB type 4-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_4_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x80,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x80,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_5_1,
         { "Ciphering data set for NR positioning SIB type 5-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_5_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x40,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_6_1,
         { "Ciphering data set for NR positioning SIB type 6-1","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_6_1",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x20,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_6_2,
         { "Ciphering data set for NR positioning SIB type 6-2","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_6_2",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x10,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_nr_pos_sib_type_6_3,
         { "Ciphering data set for NR positioning SIB type 6-3","nas_5gs.mm.ciph_key_data.nr_pos_sib_type_6_3",
-            FT_BOOLEAN, 8, TFS(&nas_5gs_applicable_not_applicable), 0x08,
+            FT_BOOLEAN, 8, TFS(&tfs_applicable_not_applicable), 0x08,
             NULL, HFILL }
         },
         { &hf_nas_5gs_mm_ciph_key_data_ciphering_set_id,
@@ -11785,22 +11783,22 @@ proto_register_nas_5gs(void)
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_4_b4,
-        { "PSI(4)","nas_5gs.pdu_ses_rect_res_psi_3_b4",
+        { "PSI(4)","nas_5gs.pdu_ses_rect_res_psi_4_b4",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x10,
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_5_b5,
-        { "PSI(5)","nas_5gs.pdu_ses_rect_res_psi_3_b5",
+        { "PSI(5)","nas_5gs.pdu_ses_rect_res_psi_5_b5",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_6_b6,
-        { "PSI(6)","nas_5gs.pdu_ses_rect_res_psi_3_b6",
+        { "PSI(6)","nas_5gs.pdu_ses_rect_res_psi_6_b6",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_7_b7,
-        { "PSI(7)","nas_5gs.pdu_ses_rect_res_psi_3_b7",
+        { "PSI(7)","nas_5gs.pdu_ses_rect_res_psi_7_b7",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x80,
             NULL, HFILL }
         },
@@ -11830,17 +11828,17 @@ proto_register_nas_5gs(void)
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_13_b5,
-        { "PSI(13)","nas_5gs.pdu_ses_sts_psi_13_b5",
+        { "PSI(13)","nas_5gs.pdu_ses_res_psi_13_b5",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x20,
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_14_b6,
-        { "PSI(14)","nas_5gs.pdu_ses_sts_psi_14_b6",
+        { "PSI(14)","nas_5gs.pdu_ses_res_psi_14_b6",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x40,
             NULL, HFILL }
         },
         { &hf_nas_5gs_pdu_ses_rect_res_psi_15_b7,
-        { "PSI(15)","nas_5gs.pdu_ses_sts_psi_15_b7",
+        { "PSI(15)","nas_5gs.pdu_ses_res_psi_15_b7",
             FT_BOOLEAN, 8, TFS(&tfs_nas_5gs_pdu_ses_rect_res_psi), 0x80,
             NULL, HFILL }
         },
@@ -12816,11 +12814,6 @@ proto_register_nas_5gs(void)
             FT_UINT8, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-        { &hf_nas_5gs_mm_op_def_access_cat_criteria_payload,
-        { "Criteria payload", "nas_5gs.mm.operator_defined_access_cat.criteria_payload",
-            FT_BYTES, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }
-        },
         { &hf_nas_5gs_mm_op_def_access_cat_standardized_number,
         { "Standardized access category number", "nas_5gs.mm.operator_defined_access_cat.standardized_number",
             FT_UINT8, BASE_CUSTOM, CF_FUNC(nas_5gs_mm_access_standardized_cat_number), 0x1f,
@@ -13495,7 +13488,7 @@ proto_register_nas_5gs(void)
     guint     last_offset;
 
     /* Setup protocol subtree array */
-#define NUM_INDIVIDUAL_ELEMS    41
+#define NUM_INDIVIDUAL_ELEMS    42
     gint *ett[NUM_INDIVIDUAL_ELEMS +
         NUM_NAS_5GS_COMMON_ELEM +
         NUM_NAS_5GS_MM_MSG + NUM_NAS_5GS_MM_ELEM +
@@ -13536,14 +13529,15 @@ proto_register_nas_5gs(void)
     ett[30] = &ett_nas_5gs_mm_partial_extended_rejected_nssai_list;
     ett[31] = &ett_nas_5gs_mm_ext_rej_nssai;
     ett[32] = &ett_nas_5gs_mm_op_def_acc_cat_def;
-    ett[33] = &ett_nas_5gs_mm_op_def_acc_cat_criteria;
-    ett[34] = &ett_nas_5gs_cmn_service_level_aa_cont_param;
-    ett[35] = &ett_nas_5gs_mm_pld_cont_event_notif_ind;
-    ett[36] = &ett_nas_5gs_mm_peips_assist_info;
-    ett[37] = &ett_nas_5gs_mm_nssrg_info;
-    ett[38] = &ett_nas_5gs_mm_plmns_list_disaster_cond;
-    ett[39] = &ett_nas_5gs_mm_reg_wait_range;
-    ett[40] = &ett_nas_5gs_mm_nsag_info;
+    ett[33] = &ett_nas_5gs_mm_op_def_acc_cat_criteria_component;
+    ett[34] = &ett_nas_5gs_mm_op_def_acc_cat_criteria;
+    ett[35] = &ett_nas_5gs_cmn_service_level_aa_cont_param;
+    ett[36] = &ett_nas_5gs_mm_pld_cont_event_notif_ind;
+    ett[37] = &ett_nas_5gs_mm_peips_assist_info;
+    ett[38] = &ett_nas_5gs_mm_nssrg_info;
+    ett[39] = &ett_nas_5gs_mm_plmns_list_disaster_cond;
+    ett[40] = &ett_nas_5gs_mm_reg_wait_range;
+    ett[41] = &ett_nas_5gs_mm_nsag_info;
 
     last_offset = NUM_INDIVIDUAL_ELEMS;
 

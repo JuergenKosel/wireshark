@@ -58,8 +58,6 @@
 #include "packet-tcp.h"
 
 #include <epan/rtp_pt.h>
-#include <epan/conversation.h>
-#include <epan/reassemble.h>
 #include <epan/tap.h>
 #include <epan/prefs.h>
 
@@ -657,11 +655,6 @@ static gpointer rtp_value(packet_info *pinfo)
 {
     guint payload_type = GPOINTER_TO_UINT(p_get_proto_data(pinfo->pool, pinfo, proto_rtp, RTP_DECODE_AS_PROTO_DATA));
 
-    /* Dynamic payload range, don't use value as it may change within conversation */
-    if (payload_type > 95)
-        return GUINT_TO_POINTER(0);
-
-    /* Used fixed value range */
     return GUINT_TO_POINTER(payload_type);
 }
 
@@ -3395,7 +3388,7 @@ proto_register_rtp(void)
     rtp_pt_dissector_table = register_dissector_table("rtp.pt",
                                     "RTP payload type", proto_rtp, FT_UINT8, BASE_DEC);
     rtp_dyn_pt_dissector_table = register_dissector_table("rtp_dyn_payload_type",
-                                    "Dynamic RTP payload type", proto_rtp, FT_STRING, TRUE);
+                                    "Dynamic RTP payload type", proto_rtp, FT_STRING, STRING_CASE_INSENSITIVE);
 
 
     rtp_hdr_ext_dissector_table = register_dissector_table("rtp.hdr_ext",

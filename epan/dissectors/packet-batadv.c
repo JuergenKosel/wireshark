@@ -1720,7 +1720,7 @@ static int dissect_batadv_iv_ogm_v15(tvbuff_t *tvb, int offset,
 	/* Set tree info */
 	ti = proto_tree_add_protocol_format(tree, proto_batadv_plugin,
 					    tvb, offset,
-					    IV_OGM_PACKET_V15_SIZE + iv_ogm_packeth->tvlv_len,
+					    IV_OGM_PACKET_V15_SIZE,
 					    "B.A.T.M.A.N. IV OGM, Orig: %s",
 					    tvb_address_with_resolution_to_str(pinfo->pool, tvb, AT_ETHER, offset + 8));
 	batadv_iv_ogm_tree = proto_item_add_subtree(ti, ett_batadv_iv_ogm);
@@ -1778,6 +1778,7 @@ static int dissect_batadv_iv_ogm_v15(tvbuff_t *tvb, int offset,
 	offset += 1;
 
 	iv_ogm_packeth->tvlv_len = tvb_get_ntohs(tvb, offset);
+	proto_item_set_len(ti, IV_OGM_PACKET_V15_SIZE + iv_ogm_packeth->tvlv_len);
 	proto_tree_add_item(batadv_iv_ogm_tree, hf_batadv_iv_ogm_tvlv_len, tvb,
 			    offset, 2, ENC_BIG_ENDIAN);
 	offset += 2;
@@ -5502,7 +5503,7 @@ void proto_register_batadv(void)
 				      "batadv"           /* abbrev */
 			      );
 
-	register_dissector("batadv",dissect_batadv_plugin,proto_batadv_plugin);
+	batman_handle = register_dissector("batadv",dissect_batadv_plugin,proto_batadv_plugin);
 
 	batadv_module = prefs_register_protocol(proto_batadv_plugin,
 						proto_reg_handoff_batadv);
@@ -5528,8 +5529,6 @@ void proto_reg_handoff_batadv(void)
 	static unsigned int old_batadv_ethertype;
 
 	if (!inited) {
-		batman_handle = create_dissector_handle(dissect_batadv_plugin, proto_batadv_plugin);
-
 		eth_handle = find_dissector_add_dependency("eth_withoutfcs", proto_batadv_plugin);
 
 		batadv_tap = register_tap("batman");

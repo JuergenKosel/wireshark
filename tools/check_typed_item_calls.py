@@ -71,6 +71,28 @@ common_hf_var_names = { 'hf_index', 'hf_item', 'hf_idx', 'hf_x', 'hf_id', 'hf_co
                         'hf_tag', 'hf_type', 'hf_hdr', 'hf_field', 'hf_opcode', 'hf_size',
                         'hf_entry', 'field' }
 
+item_lengths = {}
+item_lengths['FT_CHAR']  = 1
+item_lengths['FT_UINT8']  = 1
+item_lengths['FT_INT8']   = 1
+item_lengths['FT_UINT16'] = 2
+item_lengths['FT_INT16']  = 2
+item_lengths['FT_UINT24'] = 3
+item_lengths['FT_INT24']  = 3
+item_lengths['FT_UINT32'] = 4
+item_lengths['FT_INT32']  = 4
+item_lengths['FT_UINT40'] = 5
+item_lengths['FT_INT40']  = 5
+item_lengths['FT_UINT48'] = 6
+item_lengths['FT_INT48']  = 6
+item_lengths['FT_UINT56'] = 7
+item_lengths['FT_INT56']  = 7
+item_lengths['FT_UINT64'] = 8
+item_lengths['FT_INT64']  = 8
+item_lengths['FT_ETHER']  = 6
+# TODO: other types...
+
+
 # A check for a particular API function.
 class APICheck:
     def __init__(self, fun_name, allowed_types, positive_length=False):
@@ -143,6 +165,17 @@ class APICheck:
         global warnings_found
 
         for call in self.calls:
+
+            # Check lengths, but for now only for APIs that have length in bytes.
+            if self.fun_name.find('add_bits') == -1 and call.hf_name in items_defined:
+                if call.length and items_defined[call.hf_name].item_type in item_lengths:
+                    if item_lengths[items_defined[call.hf_name].item_type] < call.length:
+                        print('Warning:', self.file + ':' + str(call.line_number),
+                              self.fun_name + ' called for', call.hf_name, ' - ',
+                              'item type is', items_defined[call.hf_name].item_type, 'but call has len', call.length)
+                        warnings_found += 1
+
+
             if self.positive_length and call.length != None:
                 if call.length != -1 and call.length <= 0:
                     print('Error: ' +  self.fun_name + '(.., ' + call.hf_name + ', ...) called at ' +
@@ -195,27 +228,6 @@ class ProtoTreeAddItemCheck(APICheck):
             self.fun_name = 'ptvcursor_add'
             self.p = re.compile('[^\n]*' + self.fun_name + '\s*\([^,.]+?,\s*([^,.]+?),\s*([^,.]+?),\s*([a-zA-Z0-9_\-\>]+)')
 
-
-        self.lengths = {}
-        self.lengths['FT_CHAR']  = 1
-        self.lengths['FT_UINT8']  = 1
-        self.lengths['FT_INT8']   = 1
-        self.lengths['FT_UINT16'] = 2
-        self.lengths['FT_INT16']  = 2
-        self.lengths['FT_UINT24'] = 3
-        self.lengths['FT_INT24']  = 3
-        self.lengths['FT_UINT32'] = 4
-        self.lengths['FT_INT32']  = 4
-        self.lengths['FT_UINT40'] = 5
-        self.lengths['FT_INT40']  = 5
-        self.lengths['FT_UINT48'] = 6
-        self.lengths['FT_INT48']  = 6
-        self.lengths['FT_UINT56'] = 7
-        self.lengths['FT_INT56']  = 7
-        self.lengths['FT_UINT64'] = 8
-        self.lengths['FT_INT64']  = 8
-        self.lengths['FT_ETHER']  = 6
-        # TODO: other types...
 
     def find_calls(self, file, macros):
         self.file = file
@@ -271,7 +283,9 @@ class ProtoTreeAddItemCheck(APICheck):
                                             'big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN',
                                             '(skip == 1) ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN',
                                             'pdu_info->sbc', 'pdu_info->mbc',
-                                            'seq_info->txt_enc | ENC_NA'  }:
+                                            'seq_info->txt_enc | ENC_NA',
+                                            'BASE_SHOW_UTF_8_PRINTABLE'
+                                          }:
                                 global warnings_found
 
                                 print('Warning:', self.file + ':' + str(line_number),
@@ -289,8 +303,8 @@ class ProtoTreeAddItemCheck(APICheck):
 
         for call in self.calls:
             if call.hf_name in items_defined:
-                if call.length and items_defined[call.hf_name].item_type in self.lengths:
-                    if self.lengths[items_defined[call.hf_name].item_type] < call.length:
+                if call.length and items_defined[call.hf_name].item_type in item_lengths:
+                    if item_lengths[items_defined[call.hf_name].item_type] < call.length:
                         print('Warning:', self.file + ':' + str(call.line_number),
                               self.fun_name + ' called for', call.hf_name, ' - ',
                               'item type is', items_defined[call.hf_name].item_type, 'but call has len', call.length)
@@ -328,7 +342,9 @@ known_non_contiguous_fields = { 'wlan.fixed.capabilities.cfpoll.sta',
                                 'dnp3.al.ana.int',
                                 'pwcesopsn.cw.lm',
                                 'gsm_a.rr.format_id', # EN 301 503
-                                'siii.mst.phase' # comment in code seems convinced
+                                'siii.mst.phase', # comment in code seems convinced
+                                'xmcp.type.class',
+                                'xmcp.type.method'
                               }
 ##################################################################################################
 
@@ -450,7 +466,9 @@ def is_ignored_consecutive_filter(filter):
         re.compile(r'^bthfp.chld.mode'),
         re.compile(r'^nat-pmp.pml'),
         re.compile(r'^isystemactivator.actproperties.ts.hdr'),
-        re.compile(r'^rtpdump.txt_addr')
+        re.compile(r'^rtpdump.txt_addr'),
+        re.compile(r'^unistim.vocoder.id'),
+        re.compile(r'^mac.ueid')
     ]
 
     for patt in ignore_patterns:
@@ -653,20 +671,21 @@ class Item:
                     extra_digits = mask[2:2+(len(mask)-2 - int(self.get_field_width_in_bits()/4))]
                     # Its definitely an error if any of these are non-zero, as they won't have any effect!
                     if extra_digits != '0'*len(extra_digits):
-                        print('Error:', self.filename, self.hf, 'filter=', self.filter, self.mask, "with len is", len(mask)-2,
+                        print('Error:', self.filename, self.hf, 'filter=', self.filter, 'mask', self.mask, "with len is", len(mask)-2,
                               "but type", self.item_type, " indicates max of", int(self.get_field_width_in_bits()/4),
                               "and extra digits are non-zero (" + extra_digits + ")")
                         errors_found += 1
                     else:
                         # Has extra leading zeros, still confusing, so warn.
-                        print('Warning:', self.filename, self.hf, 'filter=', self.filter, self.mask, "with len", len(mask)-2,
+                        print('Warning:', self.filename, self.hf, 'filter=', self.filter, 'mask', self.mask, "with len", len(mask)-2,
                               "but type", self.item_type, " indicates max of", int(self.get_field_width_in_bits()/4))
                         warnings_found += 1
 
                 # Strict/fussy check - expecting mask length to match field width exactly!
-                # Currently only doing for FT_BOOLEAN
+                # Currently only doing for FT_BOOLEAN, and don't expect to be in full for 64-bit fields!
                 if self.mask_exact_width:
-                    if self.item_type == 'FT_BOOLEAN' and  len(mask)-2 != int(self.get_field_width_in_bits()/4):
+                    ideal_mask_width = int(self.get_field_width_in_bits()/4)
+                    if self.item_type == 'FT_BOOLEAN' and ideal_mask_width < 16 and len(mask)-2 != ideal_mask_width:
                         print('Warning:', self.filename, self.hf, 'filter=', self.filter, 'mask', self.mask, "with len", len(mask)-2,
                                 "but type", self.item_type, "|", self.type_modifier,  " indicates should be", int(self.get_field_width_in_bits()/4))
                         warnings_found += 1
@@ -682,6 +701,53 @@ class Item:
                 print('Warning:', self.filename, self.hf, 'filter=', self.filter, ' - item mask has all zeros - this is confusing! :', '"' + mask + '"')
                 global warnings_found
                 warnings_found += 1
+
+    # Return True if appears to be a match
+    def check_label_vs_filter(self, reportError=True):
+        global warnings_found
+
+        last_filter = self.filter.split('.')[-1]
+        last_filter_orig = last_filter
+        last_filter = last_filter.replace('-', '')
+        last_filter = last_filter.replace('_', '')
+        last_filter = last_filter.replace(' ', '')
+        label = self.label
+        label_orig = label
+        label = label.replace(' ', '')
+        label = label.replace('-', '')
+        label = label.replace('_', '')
+        label = label.replace('(', '')
+        label = label.replace(')', '')
+
+
+        # OK if filter is abbrev of label.
+        label_words = self.label.split(' ')
+        label_words = [w for w in label_words if len(w)]
+        if len(label_words) == len(last_filter):
+            #print(label_words)
+            abbrev_letters = [w[0] for w in label_words]
+            abbrev = ''.join(abbrev_letters)
+            if abbrev.lower() == last_filter.lower():
+                return True
+
+        # If both have numbers, they should probably match!
+        label_numbers =  re.findall(r'\d+', label_orig)
+        filter_numbers = re.findall(r'\d+', last_filter_orig)
+        if len(label_numbers) == len(filter_numbers) and label_numbers != filter_numbers:
+            if reportError:
+                print('Warning:', self.filename, self.hf, 'label="' + self.label + '" has different **numbers** from  filter="' + self.filter + '"')
+                print(label_numbers, filter_numbers)
+                warnings_found += 1
+            return False
+
+        # Are they just different?
+        if label.lower().find(last_filter.lower()) == -1:
+            if reportError:
+                print('Warning:', self.filename, self.hf, 'label="' + self.label + '" does not seem to match filter="' + self.filter + '"')
+                warnings_found += 1
+            return False
+
+        return True
 
 
 class CombinedCallsCheck:
@@ -982,9 +1048,9 @@ def is_dissector_file(filename):
     return p.match(filename)
 
 
-def findDissectorFilesInFolder(folder, dissector_files=None, recursive=False):
-    if dissector_files is None:
-        dissector_files = []
+def findDissectorFilesInFolder(folder, recursive=False):
+    dissector_files = []
+
     if recursive:
         for root, subfolders, files in os.walk(folder):
             for f in files:
@@ -1004,7 +1070,8 @@ def findDissectorFilesInFolder(folder, dissector_files=None, recursive=False):
 
 
 # Run checks on the given dissector file.
-def checkFile(filename, check_mask=False, mask_exact_width=False, check_label=False, check_consecutive=False, check_missing_items=False, check_bitmask_fields=False):
+def checkFile(filename, check_mask=False, mask_exact_width=False, check_label=False, check_consecutive=False,
+              check_missing_items=False, check_bitmask_fields=False, label_vs_filter=False):
     # Check file exists - e.g. may have been deleted in a recent commit.
     if not os.path.exists(filename):
         print(filename, 'does not exist!')
@@ -1037,6 +1104,19 @@ def checkFile(filename, check_mask=False, mask_exact_width=False, check_label=Fa
     if check_bitmask_fields:
         field_arrays = find_field_arrays(filename, fields, items_defined)
 
+    if label_vs_filter:
+        matches = 0
+        for hf in items_defined:
+            if items_defined[hf].check_label_vs_filter(reportError=False):
+                matches += 1
+
+        # Only checking if almost every field does match.
+        checking = len(items_defined) and matches<len(items_defined) and ((matches / len(items_defined)) > 0.9)
+        if checking:
+            print(filename, ':', matches, 'label-vs-filter matches of out of', len(items_defined), 'so reporting mismatches')
+            for hf in items_defined:
+                items_defined[hf].check_label_vs_filter(reportError=True)
+
 
 
 #################################################################
@@ -1065,6 +1145,8 @@ parser.add_argument('--missing-items', action='store_true',
                     help='when set, look for used items that were never registered')
 parser.add_argument('--check-bitmask-fields', action='store_true',
                     help='when set, attempt to check arrays of hf items passed to add_bitmask() calls')
+parser.add_argument('--label-vs-filter', action='store_true',
+                    help='when set, check whether label matches last part of filter')
 parser.add_argument('--all-checks', action='store_true',
                     help='when set, apply all checks to selected files')
 
@@ -1077,6 +1159,7 @@ if args.all_checks:
     args.mask_exact_width = True
     args.consecutive = True
     args.check_bitmask_fields = True
+    args.label_vs_filter = True
 
 
 # Get files from wherever command-line args indicate.
@@ -1084,8 +1167,6 @@ files = []
 if args.file:
     # Add specified file(s)
     for f in args.file:
-        if not f.startswith('epan'):
-            f = os.path.join('epan', 'dissectors', f)
         if not os.path.isfile(f):
             print('Chosen file', f, 'does not exist.')
             exit(1)
@@ -1125,8 +1206,8 @@ elif args.open:
             files.append(f)
 else:
     # Find all dissector files.
-    files = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
-    files = findDissectorFilesInFolder(os.path.join('plugins', 'epan'), recursive=True, dissector_files=files)
+    files  = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
+    files += findDissectorFilesInFolder(os.path.join('plugins', 'epan'), recursive=True)
 
 
 # If scanning a subset of files, list them here.
@@ -1146,7 +1227,7 @@ for f in files:
         exit(1)
     checkFile(f, check_mask=args.mask, mask_exact_width=args.mask_exact_width, check_label=args.label,
               check_consecutive=args.consecutive, check_missing_items=args.missing_items,
-              check_bitmask_fields=args.check_bitmask_fields)
+              check_bitmask_fields=args.check_bitmask_fields, label_vs_filter=args.label_vs_filter)
 
     # Do checks against all calls.
     if args.consecutive:

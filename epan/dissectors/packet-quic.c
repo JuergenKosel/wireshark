@@ -2367,7 +2367,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             if (have_tap_listener(quic_follow_tap)) {
                 quic_follow_tap_data_t *follow_data = wmem_new0(pinfo->pool, quic_follow_tap_data_t);
 
-                follow_data->tvb = tvb_new_subset_remaining(tvb, offset);
+                follow_data->tvb = tvb_new_subset_length(tvb, offset, (int)length);
                 follow_data->stream_id = stream_id;
                 follow_data->from_server = from_server;
 
@@ -5467,7 +5467,7 @@ proto_register_quic(void)
      * This could in theory be an arbitrary octet string with embedded NUL
      * bytes, but in practice these do not exist yet.
      */
-    quic_proto_dissector_table = register_dissector_table("quic.proto", "QUIC Protocol", proto_quic, FT_STRING, FALSE);
+    quic_proto_dissector_table = register_dissector_table("quic.proto", "QUIC Protocol", proto_quic, FT_STRING, STRING_CASE_SENSITIVE);
 }
 
 void

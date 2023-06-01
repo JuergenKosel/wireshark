@@ -23,6 +23,7 @@
 #include <ws_attributes.h>
 
 #include "capture/capture-wpcap.h"
+#include <wsutil/feature_list.h>
 
 gboolean has_wpcap = FALSE;
 
@@ -419,7 +420,7 @@ pcap_open(const char *a, int b, int c, int d, struct pcap_rmtauth *e, char *errb
 }
 
 int
-pcap_findalldevs_ex(const char *a, struct pcap_rmtauth *b, pcap_if_t **c, char *errbuf)
+ws_pcap_findalldevs_ex(const char *a, struct pcap_rmtauth *b, pcap_if_t **c, char *errbuf)
 {
 	int ret;
 	ws_assert(has_wpcap);

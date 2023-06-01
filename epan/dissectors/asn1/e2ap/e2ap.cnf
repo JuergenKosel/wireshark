@@ -9,6 +9,7 @@ ALIGNED
 #.USE_VALS_EXT
 ProcedureCode
 ProtocolIE-ID
+NI-ProtocolIE-ID
 
 #.EXPORTS ONLY_VALS WS_DLL
 
@@ -30,11 +31,19 @@ E2SM-RC-RANFunctionDefinition
 E2SM-RC-IndicationMessage
 E2SM-RC-IndicationHeader
 E2SM-RC-CallProcessID
-
 E2SM-RC-ControlHeader
 E2SM-RC-ControlMessage
 E2SM-RC-ControlOutcome
 
+E2SM-NI-EventTriggerDefinition
+E2SM-NI-ActionDefinition
+E2SM-NI-RANfunction-Description
+E2SM-NI-IndicationMessage
+E2SM-NI-IndicationHeader
+E2SM-NI-CallProcessID
+E2SM-NI-ControlHeader
+E2SM-NI-ControlMessage
+E2SM-NI-ControlOutcome
 
 
 #.MAKE_ENUM
@@ -539,14 +548,13 @@ E2RemovalResponse                        N e2ap.proc.sout id-E2removal
   e2ap_data->ran_function_id = value;
 
 
-#.FN_BODY RANfunction-Name/ranFunction-ShortName
-  gint start_offset = offset;
+#.FN_BODY RANfunction-Name/ranFunction-ShortName VAL_PTR=&value_tvb
+  tvbuff_t *value_tvb;
 %(DEFAULT_BODY)s
-  /* TODO: is there a nicer/reliable way to get PrintableString here (VAL_PTR won't get assigned..) */
   struct e2ap_private_data *e2ap_data = e2ap_get_private_data(actx->pinfo);
   ran_functionid_table_t *table = get_ran_functionid_table(actx->pinfo);
   store_ran_function_mapping(actx->pinfo, table, e2ap_data,
-                             tvb_get_stringz_enc(wmem_packet_scope(), tvb, (start_offset+15)/8, NULL, ENC_ASCII));
+                             tvb_get_string_enc(wmem_packet_scope(), value_tvb, 0, tvb_captured_length(value_tvb), ENC_ASCII));
 
 #.FN_BODY GlobalgNB-ID/gnb-id
   int start_offset = offset;

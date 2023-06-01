@@ -382,16 +382,15 @@ void MainApplication::setMonospaceFont(const char *font_string) {
     substitutes << x11_alt_fonts << win_default_font << win_alt_font << osx_default_font << osx_alt_fonts << fallback_fonts;
 #endif // Q_OS
 
-    mono_font_.setFamily(default_font);
+    mono_font_ = QFont(default_font, mainApp->font().pointSize() + font_size_adjust);
     mono_font_.insertSubstitutions(default_font, substitutes);
-    mono_font_.setPointSize(mainApp->font().pointSize() + font_size_adjust);
     mono_font_.setBold(false);
 
     // Retrieve the effective font and apply it.
     mono_font_.setFamily(QFontInfo(mono_font_).family());
 
-    g_free(prefs.gui_qt_font_name);
-    prefs.gui_qt_font_name = qstring_strdup(mono_font_.toString());
+    g_free(prefs.gui_font_name);
+    prefs.gui_font_name = qstring_strdup(mono_font_.toString());
 }
 
 int MainApplication::monospaceTextSize(const char *str)
@@ -486,7 +485,7 @@ void MainApplication::setConfigurationProfile(const gchar *profile_name, bool wr
     update_local_interfaces();
 #endif
 
-    setMonospaceFont(prefs.gui_qt_font_name);
+    setMonospaceFont(prefs.gui_font_name);
 
     emit columnsChanged();
     emit preferencesChanged();

@@ -520,7 +520,7 @@ static void dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
                                   SslSession *session, gint is_from_server,
                                   SslDecryptSession *conv_data,
                                   const guint16 version,
-                                  gboolean is_first_msg);
+                                  gboolean is_first_msg, guint8 curr_layer_num_tls);
 
 /* heartbeat message dissector */
 static void dissect_ssl3_heartbeat(tvbuff_t *tvb, packet_info *pinfo,
@@ -2365,6 +2365,9 @@ is_encrypted_handshake_message(tvbuff_t *tvb, packet_info *pinfo, guint32 offset
                                gboolean maybe_encrypted, SslSession *session, gboolean is_from_server)
 {
     guint record_length = offset_end - offset;
+    guint msg_length;
+    guint8 msg_type;
+    guint16 version;
 
     if (record_length < 16) {
         /*
@@ -2390,14 +2393,9 @@ is_encrypted_handshake_message(tvbuff_t *tvb, packet_info *pinfo, guint32 offset
     if (maybe_encrypted) {
         maybe_encrypted = tvb_get_ntoh40(tvb, offset) == 0;
         /*
-         * Everything after the ChangeCipherSpec message is encrypted.
          * TODO handle Finished message after CCS in the same frame and remove the
          * above nonce-based heuristic.
          */
-        if (!maybe_encrypted) {
-            guint32 ccs_frame = is_from_server ? session->server_ccs_frame : session->client_ccs_frame;
-            maybe_encrypted = ccs_frame != 0 && pinfo->num > ccs_frame;
-        }
     }
 
     if (!maybe_encrypted) {
@@ -2409,12 +2407,59 @@ is_encrypted_handshake_message(tvbuff_t *tvb, packet_info *pinfo, guint32 offset
          * - Disallow handshake fragmentation except for some common cases like
          *   Certificate messages (due to large certificates).
          */
-        guint8 msg_type = tvb_get_guint8(tvb, offset);
+        msg_type = tvb_get_guint8(tvb, offset);
         maybe_encrypted = try_val_to_str(msg_type, ssl_31_handshake_type) == NULL;
         if (!maybe_encrypted) {
-            guint msg_length = tvb_get_ntoh24(tvb, offset + 1);
+            msg_length = tvb_get_ntoh24(tvb, offset + 1);
             // Assume handshake messages are below 64K.
             maybe_encrypted = msg_length >= 0x010000;
+        }
+    }
+
+    if (!maybe_encrypted) {
+
+        /*
+         * Everything after the ChangeCipherSpec message should be encrypted.
+         * At least some buggy clients send a new handshake in the clear
+         * when renegotiating, though. (#18867).
+         */
+        guint32 *ccs_frame = is_from_server ? &session->server_ccs_frame : &session->client_ccs_frame;
+        if (*ccs_frame != 0 && pinfo->num > *ccs_frame) {
+            switch (msg_type) {
+
+            case SSL_HND_CLIENT_HELLO:
+            case SSL_HND_SERVER_HELLO:
+                version = tvb_get_ntohs(tvb, offset + 4);
+                maybe_encrypted = !ssl_is_valid_ssl_version(version);
+
+                if (!maybe_encrypted) {
+                    // Assume ClientHello and ServerHello are < 1024.
+                    maybe_encrypted = msg_length >= 0x400;
+                }
+
+                if (!maybe_encrypted) {
+                    /*
+                     * This is after the CCS, but looks like an unencrypted
+                     * ClientHello or ServerHello. This is a new handshake;
+                     * it's a buggy renegotiation or possibly retransmissions.
+                     */
+                    *ccs_frame = 0;
+                    /* XXX: Resetting the CCS frame state will allow us to
+                     * detect the new handshake, but can mean false positives
+                     * on earlier frames on later passes (reporting as
+                     * cleartext handshake messages that were encrypted and
+                     * we failed to decrypt on the first pass.) Maybe we
+                     * should store some additional state, either per packet
+                     * in SslPacketInfo or more complicated information about
+                     * encrypted handshake state changes. (E.g., in a wmem_tree
+                     * store the frames where we get a CCS and the frames
+                     * where this happens.)
+                     */
+                }
+                break;
+            default:
+                maybe_encrypted = TRUE;
+            }
         }
     }
     return maybe_encrypted;
@@ -2636,7 +2681,7 @@ dissect_tls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             tvbuff_t *next_tvb = tvb_new_chain(tvb, fh->tvb_data);
             add_new_data_source(pinfo, next_tvb, "Reassembled TLS Handshake");
             show_fragment_tree(fh, &tls_hs_fragment_items, tree, pinfo, next_tvb, &frag_tree_item);
-            dissect_tls_handshake_full(next_tvb, pinfo, tree, 0, session, is_from_server, ssl, version, TRUE);
+            dissect_tls_handshake_full(next_tvb, pinfo, tree, 0, session, is_from_server, ssl, version, TRUE, curr_layer_num_tls);
             is_first_msg = FALSE;
 
             // Skip to the next fragment in case this records ends with another
@@ -2695,7 +2740,7 @@ dissect_tls_handshake(tvbuff_t *tvb, packet_info *pinfo,
             break;
         }
 
-        dissect_tls_handshake_full(tvb, pinfo, tree, offset, session, is_from_server, ssl, version, is_first_msg);
+        dissect_tls_handshake_full(tvb, pinfo, tree, offset, session, is_from_server, ssl, version, is_first_msg, curr_layer_num_tls);
         offset += msg_len;
         is_first_msg = FALSE;
     }
@@ -2708,7 +2753,7 @@ dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
                            SslSession *session, gint is_from_server,
                            SslDecryptSession *ssl,
                            const guint16 version,
-                           gboolean is_first_msg)
+                           gboolean is_first_msg, guint8 curr_layer_num_tls)
 {
     /*     struct {
      *         HandshakeType msg_type;
@@ -2730,11 +2775,12 @@ dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
      *         } body;
      *     } Handshake;
      */
-    proto_tree  *ssl_hand_tree = NULL;
-    const gchar *msg_type_str;
-    guint8       msg_type;
-    guint32      length;
-    proto_item  *ti;
+    proto_tree    *ssl_hand_tree = NULL;
+    const gchar   *msg_type_str;
+    guint8         msg_type;
+    guint32        length;
+    proto_item    *ti;
+    SslPacketInfo *pi;
 
     {
         guint32 hs_offset = offset;
@@ -2886,6 +2932,15 @@ dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
                 break;
 
             case SSL_HND_SERVER_KEY_EXCHG:
+                if (!PINFO_FD_VISITED(pinfo)) {
+                    pi = tls_add_packet_info(proto_tls, pinfo, curr_layer_num_tls);
+                    pi->cipher = session->cipher;
+                } else {
+                    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tls, curr_layer_num_tls);
+                    if (pi) {
+                        session->cipher = pi->cipher;
+                    }
+                }
                 ssl_dissect_hnd_srv_keyex(&dissect_ssl3_hf, tvb, pinfo, ssl_hand_tree, offset, offset + length, session);
                 break;
 
@@ -2903,6 +2958,15 @@ dissect_tls_handshake_full(tvbuff_t *tvb, packet_info *pinfo,
                 break;
 
             case SSL_HND_CLIENT_KEY_EXCHG:
+                if (!PINFO_FD_VISITED(pinfo)) {
+                    pi = tls_add_packet_info(proto_tls, pinfo, curr_layer_num_tls);
+                    pi->cipher = session->cipher;
+                } else {
+                    pi = (SslPacketInfo *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tls, curr_layer_num_tls);
+                    if (pi) {
+                        session->cipher = pi->cipher;
+                    }
+                }
                 ssl_dissect_hnd_cli_keyex(&dissect_ssl3_hf, tvb, ssl_hand_tree, offset, length, session);
 
                 if (!ssl)
@@ -4354,7 +4418,7 @@ proto_register_tls(void)
             "Always set to value 23, actual content type is known after decryption", HFILL}
         },
         { &hf_ssl2_msg_type,
-          { "Handshake Message Type", "tls.handshake.type",
+          { "Handshake Message Type", "tls.ssl2.handshake.type",
             FT_UINT8, BASE_DEC, VALS(ssl_20_msg_types), 0x0,
             "SSLv2 handshake message type", HFILL}
         },
@@ -4424,7 +4488,7 @@ proto_register_tls(void)
             "Length of handshake message", HFILL }
         },
         { &hf_ssl2_handshake_cipher_spec,
-          { "Cipher Spec", "tls.handshake.cipherspec",
+          { "Cipher Spec", "tls.ssl2.handshake.cipherspec",
             FT_UINT24, BASE_HEX|BASE_EXT_STRING, &ssl_20_cipher_suites_ext, 0x0,
             "Cipher specification", HFILL }
         },
@@ -4536,7 +4600,7 @@ proto_register_tls(void)
             "Did the server find the client's Session ID?", HFILL }
         },
         { &hf_ssl2_handshake_cert_type,
-          { "Certificate Type", "tls.handshake.cert_type",
+          { "Certificate Type", "tls.ssl2.handshake.cert_type",
             FT_UINT8, BASE_DEC, VALS(ssl_20_certificate_type), 0x0,
             NULL, HFILL }
         },

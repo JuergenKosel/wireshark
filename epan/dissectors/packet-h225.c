@@ -1721,7 +1721,8 @@ dissect_h225_BMPString_SIZE_1_256(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_h225_IA5String_SIZE_1_512(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 512, FALSE);
+                                          1, 512, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -2745,7 +2746,8 @@ dissect_h225_T_tunnelledProtocolObjectID(tvbuff_t *tvb _U_, int offset _U_, asn1
 static int
 dissect_h225_IA5String_SIZE_1_64(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 64, FALSE);
+                                          1, 64, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -3319,7 +3321,8 @@ dissect_h225_T_connectionParameters(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 static int
 dissect_h225_IA5String_SIZE_1_32(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 32, FALSE);
+                                          1, 32, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -3394,7 +3397,8 @@ dissect_h225_INTEGER_0_255(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 static int
 dissect_h225_IA5String_SIZE_0_512(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          0, 512, FALSE);
+                                          0, 512, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -3585,7 +3589,8 @@ dissect_h225_INTEGER_0_4294967295(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_h225_IA5String_SIZE_1_128(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 128, FALSE);
+                                          1, 128, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -3867,7 +3872,8 @@ dissect_h225_T_raw(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, prot
 static int
 dissect_h225_IA5String(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          NO_BOUND, NO_BOUND, FALSE);
+                                          NO_BOUND, NO_BOUND, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -5650,7 +5656,8 @@ dissect_h225_CallCreditCapability(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_h225_PrintableString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_PrintableString(tvb, offset, actx, tree, hf_index,
-                                          NO_BOUND, NO_BOUND, FALSE);
+                                          NO_BOUND, NO_BOUND, FALSE,
+                                          NULL);
 
   return offset;
 }
@@ -11634,11 +11641,11 @@ void proto_register_h225(void) {
   register_dissector("h323ui",dissect_h225_H323UserInformation, proto_h225);
   h225ras_handle = register_dissector("h225.ras", dissect_h225_h225_RasMessage, proto_h225);
 
-  nsp_object_dissector_table = register_dissector_table("h225.nsp.object", "H.225 NonStandardParameter Object", proto_h225, FT_STRING, BASE_NONE);
+  nsp_object_dissector_table = register_dissector_table("h225.nsp.object", "H.225 NonStandardParameter Object", proto_h225, FT_STRING, STRING_CASE_SENSITIVE);
   nsp_h221_dissector_table = register_dissector_table("h225.nsp.h221", "H.225 NonStandardParameter h221", proto_h225, FT_UINT32, BASE_HEX);
-  tp_dissector_table = register_dissector_table("h225.tp", "H.225 Tunnelled Protocol", proto_h225, FT_STRING, BASE_NONE);
-  gef_name_dissector_table = register_dissector_table("h225.gef.name", "H.225 Generic Extensible Framework Name", proto_h225, FT_STRING, BASE_NONE);
-  gef_content_dissector_table = register_dissector_table("h225.gef.content", "H.225 Generic Extensible Framework Content", proto_h225, FT_STRING, BASE_NONE);
+  tp_dissector_table = register_dissector_table("h225.tp", "H.225 Tunnelled Protocol", proto_h225, FT_STRING, STRING_CASE_SENSITIVE);
+  gef_name_dissector_table = register_dissector_table("h225.gef.name", "H.225 Generic Extensible Framework Name", proto_h225, FT_STRING, STRING_CASE_SENSITIVE);
+  gef_content_dissector_table = register_dissector_table("h225.gef.content", "H.225 Generic Extensible Framework Content", proto_h225, FT_STRING, STRING_CASE_SENSITIVE);
 
   for(i=0;i<7;i++) {
     ras_calls[i] = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), h225ras_call_hash, h225ras_call_equal);

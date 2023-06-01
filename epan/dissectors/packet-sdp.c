@@ -23,7 +23,6 @@
 #include <epan/rtp_pt.h>
 #include <epan/show_exception.h>
 #include <epan/addr_resolv.h>
-#include <epan/proto_data.h>
 #include <epan/conversation.h>
 
 #include <wsutil/strtoi.h>
@@ -3433,7 +3432,7 @@ proto_register_sdp(void)
     expert_register_field_array(expert_sdp, ei, array_length(ei));
 
     key_mgmt_dissector_table = register_dissector_table("key_mgmt",
-                                                        "Key Management", proto_sdp, FT_STRING, BASE_NONE);
+                                                        "Key Management", proto_sdp, FT_STRING, STRING_CASE_SENSITIVE);
     /*
      * Preferences registration
      */

@@ -342,7 +342,7 @@ check_and_warn_user_startup()
 }
 #endif
 
-#if defined(_WIN32) && !defined(HAVE_MSYSTEM)
+#if defined(_WIN32) && !defined(__MINGW32__)
 // Try to avoid library search path collisions. QCoreApplication will
 // search QT_INSTALL_PREFIX/plugins for platform DLLs before searching
 // the application directory. If
@@ -363,6 +363,9 @@ check_and_warn_user_startup()
 //
 // NOTE: This does not apply to MinGW-w64 using MSYS2. In that case we use
 // the system's Qt plugins with the default search paths.
+//
+// NOTE 2: When using MinGW-w64 without MSYS2 we also search for the system DLLS,
+// because our installer might not have deployed them.
 
 static inline void
 win32_reset_library_path(void)
@@ -652,7 +655,7 @@ int main(int argc, char *qt_argv[])
 
     commandline_early_options(argc, argv);
 
-#if defined(_WIN32) && !defined(HAVE_MSYSTEM)
+#if defined(_WIN32) && !defined(__MINGW32__)
     win32_reset_library_path();
 #endif
 
@@ -949,7 +952,7 @@ int main(int argc, char *qt_argv[])
     wsApp->emitAppSignal(WiresharkApplication::ColumnsChanged); // We read "recent" widths above.
     wsApp->emitAppSignal(WiresharkApplication::RecentPreferencesRead); // Must be emitted after PreferencesChanged.
 
-    wsApp->setMonospaceFont(prefs.gui_qt_font_name);
+    wsApp->setMonospaceFont(prefs.gui_font_name);
 
     /* For update of WindowTitle (When use gui.window_title preference) */
     main_w->setWSWindowTitle();
