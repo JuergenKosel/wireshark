@@ -7,7 +7,7 @@
 #  to set in the callers scope.
 
 function( FindWSWinLibs _WS_LIB_SEARCH_PATH _LIB_HINT_VAR )
-  if( WIN32 )
+  if(USE_REPOSITORY)
     if( ARGN )
       set( _PROJECT_LIB_DIR ${ARGN} )
     else()
@@ -26,7 +26,7 @@ function( FindWSWinLibs _WS_LIB_SEARCH_PATH _LIB_HINT_VAR )
     foreach( _DIR ${_SUBDIR} )
       if( IS_DIRECTORY ${_DIR} )
         if( "${_DIR}" MATCHES ".*/${_WS_LIB_SEARCH_PATH}" )
-          set(_vcpkg_dir "${_DIR}/installed/${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}-windows")
+          set(_vcpkg_dir "${_DIR}/installed/${WIRESHARK_TARGET_PLATFORM}-windows")
           if( IS_DIRECTORY "${_vcpkg_dir}")
             set( ${_LIB_HINT_VAR} ${_vcpkg_dir} PARENT_SCOPE )
           else()
@@ -40,7 +40,7 @@ endfunction()
 
 # Add a single DLL
 function(AddWSWinDLL _PKG_NAME _PKG_HINTS _DLL_GLOB)
-  if(WIN32 AND ${_PKG_NAME}_FOUND)
+  if(USE_REPOSITORY AND ${_PKG_NAME}_FOUND)
     string(TOUPPER ${_PKG_NAME} _PKG_VAR)
     set ( ${_PKG_VAR}_DLL_DIR "${${_PKG_HINTS}}/bin"
       CACHE PATH "Path to ${_PKG_NAME} DLL"
@@ -66,7 +66,7 @@ endfunction()
 
 # Add a list of DLLs
 function(AddWSWinDLLS _PKG_NAME _PKG_HINTS) # ...DLL globs
-  if(WIN32 AND ${_PKG_NAME}_FOUND)
+  if(USE_REPOSITORY AND ${_PKG_NAME}_FOUND)
     string(TOUPPER ${_PKG_NAME} _PKG_VAR)
     set ( ${_PKG_VAR}_DLL_DIR "${${_PKG_HINTS}}/bin"
       CACHE PATH "Path to ${_PKG_NAME} DLLs"

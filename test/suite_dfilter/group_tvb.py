@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-import unittest
-import fixtures
+import pytest
 from suite_dfilter.dfiltertest import *
 
 
-@fixtures.uses_fixtures
-class case_tvb(unittest.TestCase):
+class TestDfilterProtocol:
     trace_file = "http.pcap"
 
     def test_slice_1(self, checkDFilterCount):
@@ -49,5 +47,8 @@ class case_tvb(unittest.TestCase):
 
     def test_protocol_2(self, checkDFilterFail):
         dfilter = 'frame contains aa.bb.hh'
-        checkDFilterFail(dfilter, 'not a valid byte string.')
+        checkDFilterFail(dfilter, 'not a valid protocol or protocol field')
 
+    def test_protocol_3(self, checkDFilterFail):
+        dfilter = 'ip.port == 5'
+        checkDFilterFail(dfilter, '"ip.port" is not a valid protocol or protocol field')

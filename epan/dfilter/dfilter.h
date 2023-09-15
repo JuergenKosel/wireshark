@@ -144,12 +144,16 @@ dfilter_interested_in_field(const dfilter_t *df, int hfid);
 /* Check if dfilter is interested in a given protocol
  *
  * @param df The dfilter
- * @param hfid The protocol ID to check
+ * @param proto_id The protocol ID to check
  * @return TRUE if the dfilter is interested in a field whose
  * parent is proto_id
  */
 gboolean
 dfilter_interested_in_proto(const dfilter_t *df, int proto_id);
+
+WS_DLL_PUBLIC
+gboolean
+dfilter_requires_columns(const dfilter_t *df);
 
 WS_DLL_PUBLIC
 GPtrArray *

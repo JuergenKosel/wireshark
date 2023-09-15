@@ -26,8 +26,7 @@
 #include <epan/address_types.h>
 #include <epan/to_str.h>
 #include <epan/expert.h>
-#include <epan/dissectors/packet-llc.h>
-#include <wiretap/wtap.h>
+#include "packet-llc.h"
 #include <epan/capture_dissectors.h>
 #include "packet-atalk.h"
 #include "packet-afp.h"
@@ -1967,7 +1966,7 @@ proto_register_atalk(void)
         NULL, HFILL }},
 
     { &hf_zip_flags,
-      { "Flags",        "zip.flags", FT_UINT8, BASE_HEX, NULL, 0xC0,
+      { "Flags",        "zip.flags", FT_UINT8, BASE_HEX, NULL, 0xE0,
         NULL, HFILL }},
     { &hf_zip_last_flag,
       { "Last Flag",    "zip.last_flag", FT_BOOLEAN, BASE_NONE, NULL, 0x0,

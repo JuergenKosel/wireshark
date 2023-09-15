@@ -87,6 +87,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	expert.h
 	export_object.h
 	exported_pdu.h
+	fifo_string_cache.h
 	filter_expressions.h
 	follow.h
 	frame_data.h
@@ -193,12 +194,14 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	disabled_protos.c
 	conversation_filter.c
 	dvb_chartbl.c
+	enterprises.c
 	epan.c
 	ex-opt.c
 	except.c
 	expert.c
 	export_object.c
 	exported_pdu.c
+	fifo_string_cache.c
 	filter_expressions.c
 	follow.c
 	frame_data.c
@@ -211,6 +214,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	in_cksum.c
 	introspection.c
 	ipproto.c
+	manuf.c
 	maxmind_db.c
 	media_params.c
 	next_tvb.c
@@ -233,6 +237,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	sctpppids.c
 	secrets.c
 	sequence_analysis.c
+	services.c
 	show_exception.c
 	srt_table.c
 	stat_tap_ui.c
@@ -338,6 +343,7 @@ target_link_libraries(epan
 		${LZ4_LIBRARIES}
 		${M_LIBRARIES}
 		${NGHTTP2_LIBRARIES}
+		${NGHTTP3_LIBRARIES}
 		${SMI_LIBRARIES}
 		${SNAPPY_LIBRARIES}
 		${WIN_PSAPI_LIBRARY}
@@ -369,6 +375,7 @@ target_include_directories(epan
 		${LUA_INCLUDE_DIRS}
 		${LZ4_INCLUDE_DIRS}
 		${NGHTTP2_INCLUDE_DIRS}
+		${NGHTTP3_INCLUDE_DIRS}
 		${SMI_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
 		${ZSTD_INCLUDE_DIRS}
@@ -395,6 +402,15 @@ install(FILES ${LIBWIRESHARK_PUBLIC_HEADERS}
 add_executable(exntest EXCLUDE_FROM_ALL exntest.c except.c)
 target_link_libraries(exntest epan)
 set_target_properties(exntest PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
+	COMPILE_DEFINITIONS "WS_BUILD_DLL"
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
+)
+
+add_executable(fifo_string_cache_test EXCLUDE_FROM_ALL fifo_string_cache_test.c)
+target_link_libraries(fifo_string_cache_test epan)
+set_target_properties(fifo_string_cache_test PROPERTIES
 	FOLDER "Tests"
 	EXCLUDE_FROM_DEFAULT_BUILD True
 	COMPILE_DEFINITIONS "WS_BUILD_DLL"

@@ -961,7 +961,8 @@ static const value_string sod_idx_names[] = {
 	{0x10300009, "Valid_BOOL"},
 
 	{0x10500000, "NMT_RelativeLatencyDiff_AU32"},
-	{0x10500000, "RelativeLatencyDiff"},
+	/* TODO: same value, so effectively hidden.  Is there another value?
+	{0x10500000, "RelativeLatencyDiff"}, */
 
 	{0x11010000, "DIA_NMTTelegrCount_REC"},
 	{0x11010001, "IsochrCyc_U32"},
@@ -1818,6 +1819,7 @@ static expert_field ei_sendseq_value          = EI_INIT;
 static expert_field ei_real_length_differs    = EI_INIT;
 
 static dissector_handle_t epl_handle;
+static dissector_handle_t epl_udp_handle;
 
 static gboolean show_cmd_layer_for_duplicated = FALSE;
 static gboolean show_pdo_meta_info = FALSE;
@@ -1919,7 +1921,7 @@ static wmem_map_t *epl_profiles_by_device, *epl_profiles_by_nodeid, *epl_profile
 static struct profile *epl_default_profile;
 static const char *epl_default_profile_path = NULL, *epl_default_profile_path_last = NULL;
 
-static gboolean
+static bool
 profile_del_cb(wmem_allocator_t *pool _U_, wmem_cb_event_t event _U_, void *_profile)
 {
 	struct profile *profile = (struct profile*)_profile;
@@ -6356,6 +6358,7 @@ proto_register_epl(void)
 
 	/* Registering protocol to be called by another dissector */
 	epl_handle = register_dissector("epl", dissect_epl, proto_epl);
+	epl_udp_handle = register_dissector("epl.udp", dissect_epludp, proto_epl);
 
 	/* Required function calls to register the header fields and subtrees used */
 	proto_register_field_array(proto_epl, hf, array_length(hf));
@@ -6450,8 +6453,6 @@ proto_register_epl(void)
 void
 proto_reg_handoff_epl(void)
 {
-	dissector_handle_t epl_udp_handle = create_dissector_handle(dissect_epludp, proto_epl);
-
 	dissector_add_uint("ethertype", ETHERTYPE_EPL_V2, epl_handle);
 	dissector_add_uint_with_preference("udp.port", UDP_PORT_EPL, epl_udp_handle);
         apply_prefs();

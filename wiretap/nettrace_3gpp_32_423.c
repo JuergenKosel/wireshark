@@ -16,7 +16,6 @@
 #include <unistd.h>
 #endif
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -448,7 +447,7 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 	}
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_COL_PROT_BIT) {
-		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_COL_PROT_TEXT, exported_pdu_info.proto_col_str, (guint16)strlen(exported_pdu_info.proto_col_str));
+		wtap_buffer_append_epdu_string(buf, EXP_PDU_TAG_COL_PROT_TEXT, exported_pdu_info.proto_col_str);
 		g_free(exported_pdu_info.proto_col_str);
 		exported_pdu_info.proto_col_str = NULL;
 	}
@@ -457,14 +456,14 @@ nettrace_msg_to_packet(nettrace_3gpp_32_423_file_info_t *file_info, wtap_rec *re
 		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV4_SRC, exported_pdu_info.src_ip, EXP_PDU_TAG_IPV4_LEN);
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP_DST_BIT) {
-		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV4_SRC, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV4_LEN);
+		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV4_DST, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV4_LEN);
 	}
 
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP6_SRC_BIT) {
 		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV6_SRC, exported_pdu_info.src_ip, EXP_PDU_TAG_IPV6_LEN);
 	}
 	if (exported_pdu_info.presence_flags & EXP_PDU_TAG_IP6_DST_BIT) {
-		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV6_SRC, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV6_LEN);
+		wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_IPV6_DST, exported_pdu_info.dst_ip, EXP_PDU_TAG_IPV6_LEN);
 	}
 
 	if (exported_pdu_info.presence_flags & (EXP_PDU_TAG_SRC_PORT_BIT | EXP_PDU_TAG_DST_PORT_BIT)) {
@@ -653,7 +652,8 @@ nettrace_3gpp_32_423_file_open(wtap *wth, int *err, gchar **err_info)
 {
 	char magic_buf[MAGIC_BUF_SIZE+1];
 	int bytes_read;
-	char *curr_pos;
+	const char *curr_pos;
+	nstime_t start_time;
 	nettrace_3gpp_32_423_file_info_t *file_info;
 	gint64 start_offset;
 
@@ -690,10 +690,15 @@ nettrace_3gpp_32_423_file_open(wtap *wth, int *err, gchar **err_info)
 		return WTAP_OPEN_NOT_MINE;
 	}
 	curr_pos += CLEN(c_begin_time);
+	/* Next we expect an ISO 8601-format time */
+	curr_pos = iso8601_to_nstime(&start_time, curr_pos, ISO8601_DATETIME);
+	if (!curr_pos) {
+		return WTAP_OPEN_NOT_MINE;
+	}
 
 	/* Ok it's our file. From here we'll need to free memory */
 	file_info = g_new0(nettrace_3gpp_32_423_file_info_t, 1);
-	curr_pos += iso8601_to_nstime(&file_info->start_time, curr_pos, ISO8601_DATETIME);
+	file_info->start_time = start_time;
 	file_info->start_offset = start_offset + (curr_pos - magic_buf);
 	file_info->buffer = g_byte_array_sized_new(RINGBUFFER_START_SIZE);
 	g_byte_array_append(file_info->buffer, curr_pos, (guint)(bytes_read - (curr_pos - magic_buf)));

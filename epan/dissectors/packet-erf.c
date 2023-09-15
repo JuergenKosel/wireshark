@@ -16,12 +16,14 @@
 #include <epan/ipproto.h>
 #include <epan/to_str.h>
 #include <wsutil/str_util.h>
+#include <wiretap/wtap.h>
+#include <wiretap/erf_record.h>
+
 #include "packet-erf.h"
 #include "packet-ptp.h"
 
 /*
 */
-#include "wiretap/erf_record.h"
 
 void proto_register_erf(void);
 void proto_reg_handoff_erf(void);
@@ -2645,7 +2647,7 @@ meta_tag_expected_length(erf_meta_tag_info_t *tag_info) {
       break;
 
     default:
-      expected_length = ftype_length(ftype); /* Returns 0 if unknown */
+      expected_length = ftype_wire_size(ftype); /* Returns 0 if unknown */
       break;
   }
 
@@ -2915,7 +2917,7 @@ dissect_meta_record_tags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree) {
       case ERF_META_TAG_ns_host_ib_lid:
       case ERF_META_TAG_ns_host_fc_id:
       {
-        int addr_len = ftype_length(tag_ft);
+        int addr_len = ftype_wire_size(tag_ft);
 
         DISSECTOR_ASSERT(tag_info->extra);
 
@@ -2983,11 +2985,11 @@ dissect_meta_record_tags(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree) {
 
       /* If not special case, dissect generically from template */
       if (!dissected) {
-        if (IS_FT_INT(tag_ft) || IS_FT_UINT(tag_ft)) {
+        if (FT_IS_INT(tag_ft) || FT_IS_UINT(tag_ft)) {
           tag_pi = proto_tree_add_item(section_tree, tag_info->hf_value, tvb, offset + 4, taglength, ENC_BIG_ENDIAN);
-        } else if (IS_FT_STRING(tag_ft)) {
+        } else if (FT_IS_STRING(tag_ft)) {
           tag_pi = proto_tree_add_item(section_tree, tag_info->hf_value, tvb, offset + 4, taglength, ENC_UTF_8);
-        } else if (IS_FT_TIME(tag_ft)) {
+        } else if (FT_IS_TIME(tag_ft)) {
           /*
            * ERF timestamps are conveniently the same as NTP/PTP timestamps but
            * little endian.

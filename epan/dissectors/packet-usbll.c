@@ -22,6 +22,7 @@
 #include <epan/to_str.h>
 #include <epan/proto_data.h>
 #include <epan/reassemble.h>
+#include <wiretap/wtap.h>
 #include "packet-usb.h"
 
 void proto_register_usbll(void);
@@ -237,7 +238,7 @@ static guint besl_to_us(guint8 besl)
     return us;
 }
 
-static void lpm_besl_str(gchar *buf, guint32 value)
+void usb_lpm_besl_str(gchar *buf, guint32 value)
 {
     snprintf(buf, ITEM_LABEL_LENGTH, "%d us (%d)", besl_to_us(value), value);
 }
@@ -1860,7 +1861,7 @@ dissect_usbll_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offs
                         /* Merge SETUP data with OUT Data to pass to USB dissector */
                         transfer->more_frags = TRUE;
                         ep_out->active_transfer_key = pinfo->num;
-                        ep_out->requested_transfer_length = requested_length;
+                        ep_out->requested_transfer_length = 8 + requested_length;
                         ep_out->transfer_offset = 8;
                         ep_out->last_data_pid = pid;
                         ep_out->last_data_acked = FALSE;
@@ -2652,7 +2653,7 @@ proto_register_usbll(void)
               NULL, HFILL }},
         { &hf_usbll_lpm_besl,
             { "BESL", "usbll.lpm_besl",
-              FT_UINT16, BASE_CUSTOM, CF_FUNC(lpm_besl_str), 0x00F0,
+              FT_UINT16, BASE_CUSTOM, CF_FUNC(usb_lpm_besl_str), 0x00F0,
               "Best Effort Service Latency", HFILL}},
         { &hf_usbll_lpm_remote_wake,
             { "bRemoteWake", "usbll.lpm_remote_wake",

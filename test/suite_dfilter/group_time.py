@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-import unittest
-import fixtures
+import pytest
 from suite_dfilter.dfiltertest import *
 
 
-@fixtures.uses_fixtures
-class case_time(unittest.TestCase):
+class TestDfilterTime:
     trace_file = "http.pcap"
 
     def test_eq_1(self, checkDFilterCount):
@@ -21,6 +19,10 @@ class case_time(unittest.TestCase):
 
     def test_eq_3(self, checkDFilterCount):
         dfilter = 'frame.time == "2002-12-31 13:55:31.3"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_eq_4(self, checkDFilterCount):
+        dfilter = 'frame.time == 1041342931.3'
         checkDFilterCount(dfilter, 1)
 
     def test_ne_1(self, checkDFilterCount):
@@ -83,11 +85,9 @@ class case_time(unittest.TestCase):
         dfilter = 'frame.time == "Dec 31, 2002 13:55:31.3 UTC"'
         checkDFilterCount(dfilter, 1)
 
-    def test_bad_time_1(self, checkDFilterFail):
-        # This is an error, only UTC timezone can be used
-        dfilter = 'frame.time == "Dec 31, 2002 13:56:31.3 WET"'
-        error = 'Unexpected data after time value'
-        checkDFilterFail(dfilter, error)
+    def test_utc_time_2(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 13:55:31.3 UTC"'
+        checkDFilterCount(dfilter, 1)
 
     def test_bad_time_2(self, checkDFilterFail):
         # Miliseconds can only occur after seconds.
@@ -101,8 +101,7 @@ class case_time(unittest.TestCase):
         error = '"mrt 1, 2000 00:00:00" is not a valid absolute time. Example: "Nov 12, 1999 08:55:44.123" or "2011-07-04 12:34:56"'
         checkDFilterFail(dfilter, error)
 
-@fixtures.uses_fixtures
-class case_time_relative(unittest.TestCase):
+class TestDfilterTimeRelative:
     trace_file = "nfs.pcap"
 
     def test_relative_time_1(self, checkDFilterCount):
@@ -115,4 +114,35 @@ class case_time_relative(unittest.TestCase):
 
     def test_relative_time_3(self, checkDFilterCount):
         dfilter = "frame.time_delta < 0.7"
+        checkDFilterCount(dfilter, 1)
+
+class TestDfilterTimezone:
+    trace_file = "http.pcap"
+
+    # These are all the same value expressed in different
+    # ways and timezones
+
+    def test_time_1(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 13:55:31.3"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_time_2(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 13:55:31.3Z"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_time_3(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 15:55:31.3 +02:00"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_time_4(self, checkDFilterCount):
+        # Foxtrot time zone
+        dfilter = 'frame.time == "2002-12-31 19:55:31.3    F"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_time_5(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 05:55:31.3 PST"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_time_6(self, checkDFilterCount):
+        dfilter = 'frame.time == "2002-12-31 07:55:31.3 CST"'
         checkDFilterCount(dfilter, 1)

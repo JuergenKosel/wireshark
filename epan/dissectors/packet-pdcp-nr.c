@@ -1265,6 +1265,8 @@ static wmem_map_t *pdcp_security_result_hash = NULL;
    - the info column
    - the top-level PDCP PDU item */
 static void write_pdu_label_and_info(proto_item *pdu_ti,
+                                     packet_info *pinfo, const char *format, ...) G_GNUC_PRINTF(3, 4);
+static void write_pdu_label_and_info(proto_item *pdu_ti,
                                      packet_info *pinfo, const char *format, ...)
 {
     #define MAX_INFO_BUFFER 256
@@ -2462,10 +2464,12 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 
     if (p_pdcp_info->plane == NR_SIGNALING_PLANE) {
         /* Compute payload length (no MAC on common control Bearers) */
-        guint32 data_length = tvb_reported_length_remaining(payload_tvb, offset)-4;
+        guint32 data_length = tvb_reported_length_remaining(payload_tvb, offset);
+        if (p_pdcp_info->maci_present) {
+            data_length -= 4;
+        }
 
-        /* RRC data is all but last 4 bytes.
-           Call nr-rrc dissector (according to direction and Bearer type) if we have valid data */
+        /* Call nr-rrc dissector (according to direction and Bearer type) if we have valid data */
         if ((global_pdcp_dissect_signalling_plane_as_rrc) &&
             ((pdu_security == NULL) || (pdu_security->ciphering == nea0) || payload_deciphered ||
              p_pdcp_info->ciphering_disabled || !pdu_security->seen_next_ul_pdu || pdu_security->dl_after_reest_request)) {
@@ -2611,8 +2615,8 @@ static int dissect_pdcp_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     if (p_pdcp_info->maci_present) {
         /* Last 4 bytes are MAC */
         gint mac_offset = tvb_reported_length(payload_tvb)-4;
-        guint32 mac = tvb_get_ntohl(payload_tvb, mac_offset);
-        mac_ti = proto_tree_add_item(pdcp_tree, hf_pdcp_nr_mac, payload_tvb, mac_offset, 4, ENC_BIG_ENDIAN);
+        guint32 mac;
+        mac_ti = proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_nr_mac, payload_tvb, mac_offset, 4, ENC_BIG_ENDIAN, &mac);
         offset += 4;
 
         if (digest_was_calculated) {

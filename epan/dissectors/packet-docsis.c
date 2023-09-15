@@ -44,7 +44,6 @@
 #include <epan/prefs.h>
 #include <epan/reassemble.h>
 #include <epan/addr_resolv.h>
-#include <wiretap/wtap.h>
 #include <epan/exceptions.h>
 #include <epan/crc16-tvb.h>
 #include <epan/crc32-tvb.h>
@@ -995,7 +994,7 @@ proto_register_docsis (void)
     },
     {&hf_docsis_requested_size,
      {"Requested bytes in units of N bytes, N a parameter of the service flow for which this request is being made", "docsis.ehdr.reqsize",
-      FT_UINT16, BASE_DEC, NULL, 0xFFFF,
+      FT_UINT16, BASE_DEC, NULL, 0x0,
       NULL, HFILL}
     },
     {&hf_docsis_key_seq,

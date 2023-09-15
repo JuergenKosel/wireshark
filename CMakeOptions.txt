@@ -53,7 +53,7 @@ option(ENABLE_WERROR     "Treat warnings as errors" ON)
 # Debugging is enabled for "Debug" and "RelWithDebInfo" build types.
 option(ENABLE_DEBUG      "Enable debugging for all build configurations" OFF)
 # UTF-8 debugging is enabled for "Debug" and "RelWithDebInfo" build types.
-option(ENABLE_DEBUG_UTF_8  "Enable UTF-8 sanity checks for all build configurations" OFF)
+option(ENABLE_DEBUG_UTF_8  "Enable UTF-8 sanity checks (requires ENABLE_DEBUG)" ON)
 option(ENABLE_DEBUG_A2W  "Enable line directive from .cnf file" OFF)
 
 option(ENABLE_CCACHE     "Speed up compiling and linking using ccache if possible" OFF)
@@ -107,6 +107,7 @@ option(ENABLE_BROTLI     "Build with brotli compression support" ON)
 option(ENABLE_SNAPPY     "Build with Snappy compression support" ON)
 option(ENABLE_ZSTD       "Build with Facebook zstd compression support" ON)
 option(ENABLE_NGHTTP2    "Build with HTTP/2 header decompression support" ON)
+option(ENABLE_NGHTTP3    "Build with HTTP/3 header decompression support" ON)
 option(ENABLE_LUA        "Build with Lua dissector support" ON)
 option(ENABLE_SMI        "Build with libsmi snmp support" ON)
 option(ENABLE_GNUTLS     "Build with RSA decryption support" ON)
@@ -133,6 +134,8 @@ option(ENABLE_LIBXML2    "Build with libxml2 support" ON)
 option(ENABLE_OPUS       "Build with opus support" ON)
 option(ENABLE_SINSP      "Build with libsinsp+libscap support" ON)
 
+option(FETCH_lua         "Download and build Lua" OFF)
+
 # How to install
 set(DUMPCAP_INSTALL_OPTION   "normal" CACHE STRING "Permissions to install")
 set_property(CACHE DUMPCAP_INSTALL_OPTION PROPERTY STRINGS "normal" "suid" "capabilities")
@@ -148,14 +151,19 @@ if(APPLE)
 endif()
 
 if(WIN32)
+	# Enable signing of NSIS installer by default only if we have 'sign-wireshark.bat' on the path
+	# of the host system.
+	set(_enable_signed_nsis False)
+	if(CMAKE_HOST_WIN32)
+		find_file(SIGN_WIRESHARK_BAT "sign-wireshark.bat")
+		if (SIGN_WIRESHARK_BAT)
+			set(_enable_signed_nsis True)
+		endif()
+	endif()
+	option(ENABLE_SIGNED_NSIS         "Enable the code signing step of the NSIS installer build" ${_enable_signed_nsis})
+
 	# Advanced options for developers to work-around limitations in the build
 	# when cross-compiling to Windows.
-	option(SKIP_NSIS_QT_DEPLOYMENT    "Skip deploying Qt runtime with installer" OFF)
-	if(CMAKE_CROSSCOMPILING)
-		option(SKIP_NSIS_UNINSTALLER      "Skip creating a Windows uninstaller" ON)
-	else()
-		option(SKIP_NSIS_UNINSTALLER      "Skip creating a Windows uninstaller" OFF)
-	endif()
-	mark_as_advanced(SKIP_NSIS_QT_DEPLOYMENT)
-	mark_as_advanced(SKIP_NSIS_UNINSTALLER)
+	option(SKIP_NSIS_QT_DLLS    "Skip deploying Qt runtime DLLs with installer" OFF)
+	mark_as_advanced(SKIP_NSIS_QT_DLLS)
 endif()

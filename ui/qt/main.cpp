@@ -266,6 +266,20 @@ gather_wireshark_runtime_info(feature_list l)
         } else {
             without_feature(l, "HiDPI");
         }
+        QString session = qEnvironmentVariable("XDG_SESSION_TYPE");
+        if (!session.isEmpty()) {
+            if (session == "wayland") {
+                with_feature(l, "Wayland");
+            } else if (session == "x11") {
+                with_feature(l, "Xorg");
+            } else {
+                with_feature(l, "XDG_SESSION_TYPE=%s", qUtf8Printable(session));
+            }
+        }
+        QString platform = qApp->platformName();
+        if (!platform.isEmpty()) {
+            with_feature(l, "QPA plugin \"%s\"", qUtf8Printable(platform));
+        }
     }
 }
 
@@ -425,6 +439,23 @@ macos_enable_layer_backing(void)
         }
     }
 #endif
+}
+#endif
+
+#ifdef HAVE_LIBPCAP
+static GList *
+capture_opts_get_interface_list(int *err, char **err_str)
+{
+    /*
+     * XXX - should this pass an update callback?
+     * We already have a window up by the time we start parsing
+     * the majority of the command-line arguments, because
+     * we need to do a bunch of initialization work before
+     * parsing those arguments, and we want to let the user
+     * know that we're doing that initialization, given that
+     * it can take a while.
+     */
+    return capture_interface_list(err, err_str, NULL);
 }
 #endif
 
@@ -749,7 +780,7 @@ int main(int argc, char *qt_argv[])
 #ifdef HAVE_LIBPCAP
     /* Set the initial values in the capture options. This might be overwritten
        by preference settings and then again by the command line parameters. */
-    capture_opts_init(&global_capture_opts);
+    capture_opts_init(&global_capture_opts, capture_opts_get_interface_list);
 #endif
 
     /*
@@ -919,6 +950,7 @@ int main(int argc, char *qt_argv[])
 #ifdef DEBUG_STARTUP_TIME
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
+    splash_update(RA_PREFERENCES_APPLY, NULL, NULL);
     prefs_apply_all();
     prefs_to_capture_opts();
     wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
@@ -962,6 +994,14 @@ int main(int argc, char *qt_argv[])
         g_free(err_msg);
     }
 
+    /* allSystemsGo() emits appInitialized(), which signals the WelcomePage to
+     * delete the splash overlay. However, it doesn't get redrawn until
+     * processEvents() is called. If we're opening a capture file that happens
+     * either when we finish reading the file or when the progress bar appears.
+     * It's probably better to leave the splash overlay up until that happens
+     * rather than showing the user the welcome page, so we don't call
+     * processEvents() here.
+     */
     wsApp->allSystemsGo();
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Wireshark is up and ready to go, elapsed time %.3fs", (float) (g_get_monotonic_time() - start_time) / 1000000);
     SimpleDialog::displayQueuedMessages(main_w);

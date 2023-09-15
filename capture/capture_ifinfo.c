@@ -13,11 +13,10 @@
 
 #ifdef HAVE_LIBPCAP
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <wireshark.h>
 
-#include <glib.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "capture_opts.h"
 
@@ -84,9 +83,9 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
     int        ret;
     GList     *if_list = NULL;
     int        i, j;
-    gchar     *data, *primary_msg, *secondary_msg;
-    gchar    **raw_list, **if_parts, **addr_parts;
-    gchar     *name;
+    char     *data, *primary_msg, *secondary_msg;
+    char    **raw_list, **if_parts, **addr_parts;
+    char     *name;
     if_info_t *if_info;
     if_addr_t *if_addr;
 
@@ -95,27 +94,26 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
         *err_str = NULL;
     }
 
-    /* Try to get our interface list */
+    /* Try to get the local interface list */
     ret = sync_interface_list_open(&data, &primary_msg, &secondary_msg, update_cb);
     if (ret != 0) {
-        /* Add the extcap interfaces that can exist, even if no native interfaces have been found */
-        ws_info("Loading External Capture Interface List ...");
-        if_list = append_extcap_interface_list(if_list, err_str);
-        /* err_str is ignored, as the error for the interface loading list will take precedence */
-        if ( g_list_length(if_list) == 0 ) {
-
-            ws_info("Capture Interface List failed. Error %d, %s (%s)",
-                  *err, primary_msg ? primary_msg : "no message",
+        ws_info("sync_interface_list_open() failed. %s (%s)",
+                  primary_msg ? primary_msg : "no message",
                   secondary_msg ? secondary_msg : "no secondary message");
-            if (err_str) {
-                *err_str = primary_msg;
-            } else {
-                g_free(primary_msg);
-            }
-            g_free(secondary_msg);
-            *err = CANT_GET_INTERFACE_LIST;
-
+        if (err_str) {
+            *err_str = primary_msg;
+        } else {
+            g_free(primary_msg);
         }
+        g_free(secondary_msg);
+        *err = CANT_GET_INTERFACE_LIST;
+
+        /*
+         * Add the extcap interfaces that can exist; they may exist
+         * even if no native interfaces have been found.
+         */
+        ws_info("Loading External Capture Interface List ...");
+        if_list = append_extcap_interface_list(if_list);
         return if_list;
     }
 
@@ -168,7 +166,7 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
             }
         }
         if (strcmp(if_parts[5], "loopback") == 0)
-            if_info->loopback = TRUE;
+            if_info->loopback = true;
         if_info->extcap = g_strdup(if_parts[6]);
         g_strfreev(if_parts);
         g_strfreev(addr_parts);
@@ -177,6 +175,7 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
     g_strfreev(raw_list);
 
 #ifdef HAVE_PCAP_REMOTE
+    /* Add the remote interface list */
     if (remote_interface_list && g_list_length(remote_interface_list) > 0) {
         if_list = append_remote_list(if_list);
     }
@@ -184,7 +183,7 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
 
     /* Add the extcap interfaces after the native and remote interfaces */
     ws_info("Loading External Capture Interface List ...");
-    if_list = append_extcap_interface_list(if_list, err_str);
+    if_list = append_extcap_interface_list(if_list);
 
     return if_list;
 }
@@ -192,16 +191,16 @@ capture_interface_list(int *err, char **err_str, void (*update_cb)(void))
 /* XXX - We parse simple text output to get our interface list.  Should
  * we use "real" data serialization instead, e.g. via XML? */
 if_capabilities_t *
-capture_get_if_capabilities(const gchar *ifname, gboolean monitor_mode,
-                            const gchar *auth_string,
+capture_get_if_capabilities(const char *ifname, bool monitor_mode,
+                            const char *auth_string,
                             char **err_primary_msg, char **err_secondary_msg,
                             void (*update_cb)(void))
 {
     if_capabilities_t *caps;
     GList              *linktype_list = NULL, *timestamp_list = NULL;
     int                 err, i;
-    gchar              *data, *primary_msg, *secondary_msg;
-    gchar             **raw_list;
+    char              *data, *primary_msg, *secondary_msg;
+    char             **raw_list;
 
     /* see if the interface is from extcap */
     caps = extcap_get_if_dlts(ifname, err_primary_msg);
@@ -256,11 +255,11 @@ capture_get_if_capabilities(const gchar *ifname, gboolean monitor_mode,
     switch (*raw_list[0]) {
 
     case '0':
-        caps->can_set_rfmon = FALSE;
+        caps->can_set_rfmon = false;
         break;
 
     case '1':
-        caps->can_set_rfmon = TRUE;
+        caps->can_set_rfmon = true;
         break;
 
     default:

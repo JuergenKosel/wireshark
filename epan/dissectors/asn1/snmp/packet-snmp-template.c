@@ -89,7 +89,7 @@ static tvbuff_t* snmp_usm_priv_aes128(snmp_usm_params_t*, tvbuff_t*, packet_info
 static tvbuff_t* snmp_usm_priv_aes192(snmp_usm_params_t*, tvbuff_t*, packet_info *pinfo, gchar const**);
 static tvbuff_t* snmp_usm_priv_aes256(snmp_usm_params_t*, tvbuff_t*, packet_info *pinfo, gchar const**);
 
-static gboolean snmp_usm_auth(const packet_info *pinfo, const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8**, guint*, gchar const**);
+static bool snmp_usm_auth(const packet_info *pinfo, const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8**, guint*, gchar const**);
 
 static const value_string auth_types[] = {
 	{SNMP_USM_AUTH_MD5,"MD5"},
@@ -357,6 +357,9 @@ dissector_table_t value_sub_dissectors_table;
 typedef struct snmp_conv_info_t {
 	wmem_map_t *request_response;
 } snmp_conv_info_t;
+
+static snmp_conv_info_t*
+snmp_find_conversation_and_get_conv_data(packet_info *pinfo);
 
 static snmp_request_response_t *
 snmp_get_request_response_pointer(wmem_map_t *map, guint32 requestId)
@@ -638,15 +641,15 @@ dissect_snmp_variable_date_and_time(proto_tree *tree, packet_info *pinfo, int hf
  */
 
 static int
-dissect_snmp_VarBind(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset,
+dissect_snmp_VarBind(bool implicit_tag _U_, tvbuff_t *tvb, int offset,
 		     asn1_ctx_t *actx, proto_tree *tree, int hf_index _U_)
 {
 	int seq_offset, name_offset, value_offset, value_start;
 	guint32 seq_len, name_len, value_len;
 	gint8 ber_class;
-	gboolean pc;
+	bool pc;
 	gint32 tag;
-	gboolean ind;
+	bool ind;
 	guint32* subids;
 	guint8* oid_bytes;
 	oid_info_t* oid_info = NULL;
@@ -659,7 +662,7 @@ dissect_snmp_VarBind(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset,
 	char* valstr;
 	int hfid = -1;
 	int min_len = 0, max_len = 0;
-	gboolean oid_info_is_ok;
+	bool oid_info_is_ok;
 	const char* oid_string = NULL;
 	enum {BER_NO_ERROR, BER_WRONG_LENGTH, BER_WRONG_TAG} format_error = BER_NO_ERROR;
 
@@ -841,7 +844,7 @@ dissect_snmp_VarBind(gboolean implicit_tag _U_, tvbuff_t *tvb, int offset,
 								goto indexing_done;
 							}
 							case OID_KEY_TYPE_INTEGER: {
-								if (IS_FT_INT(k->ft_type)) {
+								if (FT_IS_INT(k->ft_type)) {
 									proto_tree_add_int(pt_name,k->hfid,tvb,name_offset,name_len,(guint)subids[key_start]);
 								} else { /* if it's not an unsigned int let proto_tree_add_uint throw a warning */
 									proto_tree_add_uint64(pt_name,k->hfid,tvb,name_offset,name_len,(guint)subids[key_start]);
@@ -1669,7 +1672,7 @@ get_user_assoc(tvbuff_t* engine_tvb, tvbuff_t* user_tvb, packet_info *pinfo)
 	return NULL;
 }
 
-static gboolean
+static bool
 snmp_usm_auth(const packet_info *pinfo, const snmp_usm_auth_model_t model, snmp_usm_params_t* p, guint8** calc_auth_p,
 	guint* calc_auth_len_p, gchar const** error)
 {
@@ -1890,7 +1893,7 @@ check_ScopedPdu(tvbuff_t* tvb)
 {
 	int offset;
 	gint8 ber_class;
-	gboolean pc;
+	bool pc;
 	gint32 tag;
 	int hoffset, eoffset;
 	guint32 len;
@@ -1927,16 +1930,27 @@ check_ScopedPdu(tvbuff_t* tvb)
 static snmp_conv_info_t*
 snmp_find_conversation_and_get_conv_data(packet_info *pinfo) {
 
-	conversation_t *conversation;
+	conversation_t *conversation = NULL;
 	snmp_conv_info_t *snmp_info = NULL;
 
-	conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
-		pinfo->srcport, pinfo->destport, 0);
-
-	if( (conversation == NULL) || (conversation_get_dissector(conversation, pinfo->num)!=snmp_handle) ) {
-		conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
-			pinfo->srcport, pinfo->destport, 0);
-		conversation_set_dissector(conversation, snmp_handle);
+	/* Get the conversation with the wildcarded port, if it exists
+	 * and is associated with SNMP, so that requests and responses
+	 * can be matched even if the response comes from a different,
+	 * ephemeral, source port, as originally done in OS/400.
+	 * On UDP, we do not automatically call conversation_set_port2()
+	 * and we do not want to do so. Possibly this should eventually
+	 * use find_conversation_full and separate the "SNMP conversation"
+	 * from "the transport layer conversation that carries SNMP."
+	 */
+	if (pinfo->destport == UDP_PORT_SNMP) {
+		conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
+			pinfo->srcport, 0, NO_PORT_B);
+	} else if (pinfo->srcport == UDP_PORT_SNMP) {
+		conversation = find_conversation(pinfo->fd->num, &pinfo->dst, &pinfo->src, conversation_pt_to_conversation_type(pinfo->ptype),
+			pinfo->destport, 0, NO_PORT_B);
+	}
+	if ((conversation == NULL) || (conversation_get_dissector(conversation, pinfo->num) != snmp_handle)) {
+		conversation = find_or_create_conversation(pinfo);
 	}
 
 	snmp_info = (snmp_conv_info_t *)conversation_get_proto_data(conversation, proto_snmp);
@@ -1956,7 +1970,7 @@ dissect_snmp_pdu(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
 	guint length_remaining;
 	gint8 ber_class;
-	gboolean pc, ind = 0;
+	bool pc, ind = 0;
 	gint32 tag;
 	guint32 len;
 	guint message_length;
@@ -2122,10 +2136,10 @@ dissect_snmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 {
 	int offset;
 	gint8 tmp_class;
-	gboolean tmp_pc;
+	bool tmp_pc;
 	gint32 tmp_tag;
 	guint32 tmp_length;
-	gboolean tmp_ind;
+	bool tmp_ind;
 
 	/*
 	 * See if this looks like SNMP or not. if not, return 0 so
@@ -2143,18 +2157,21 @@ dissect_snmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 	}
 	/* then comes a length which spans the rest of the tvb */
 	offset = get_ber_length(tvb, offset, &tmp_length, &tmp_ind);
-	/* if(tmp_length!=(guint32)tvb_reported_length_remaining(tvb, offset)) {
-	 * Loosen the heuristic a bit to handle the case where data has intentionally
-	 * been added after the snmp PDU ( UDP case)
+	/* Loosen the heuristic a bit to handle the case where data has intentionally
+	 * been added after the snmp PDU ( UDP case) (#3684)
+	 * If this is fragmented or carried in ICMP, we don't expect the tvb to
+	 * have the full legnth, so don't check.
 	 */
-	if ( pinfo->ptype == PT_UDP ) {
-		if(tmp_length>(guint32)tvb_reported_length_remaining(tvb, offset)) {
-			return 0;
-		}
-	}else{
-		if(tmp_length!=(guint32)tvb_reported_length_remaining(tvb, offset)) {
-			return 0;
-		}
+	if (!pinfo->fragmented && !pinfo->flags.in_error_pkt) {
+	    if ( pinfo->ptype == PT_UDP ) {
+		    if(tmp_length>(guint32)tvb_reported_length_remaining(tvb, offset)) {
+			    return 0;
+		    }
+	    }else{
+		    if(tmp_length!=(guint32)tvb_reported_length_remaining(tvb, offset)) {
+			    return 0;
+		    }
+	    }
 	}
 	/* then comes an INTEGER (version)*/
 	get_ber_identifier(tvb, offset, &tmp_class, &tmp_pc, &tmp_tag);
@@ -2165,11 +2182,20 @@ dissect_snmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
 
 	/*
-	 * The first SNMP packet goes to the SNMP port; the second one
-	 * may come from some *other* port, but goes back to the same
-	 * IP address and port as the ones from which the first packet
-	 * came; all subsequent packets presumably go between those two
-	 * IP addresses and ports.
+	 * The IBM i (OS/400) SNMP agent, at least originally, would
+	 * send responses back from some *other* UDP port, an ephemeral
+	 * port above 5000, going back to the same IP address and port
+	 * from which the request came, similar to TFTP. This only happens
+	 * with the agent port, 161, not with the trap port, etc. As of
+	 * 2015 with the latest fixes applied, it no longer does this:
+	 * https://www.ibm.com/support/pages/ptf/SI55487
+	 * https://www.ibm.com/support/pages/ptf/SI55537
+	 *
+	 * The SNMP RFCs are silent on this (cf. L2TP RFC 2661, which
+	 * supports using either the well-known port or an ephemeral
+	 * port as the source port for responses, while noting that
+	 * the latter can cause issues with firewalls and NATs.) so
+	 * possibly some other implementations could do this.
 	 *
 	 * If this packet went to the SNMP port, we check to see if
 	 * there's already a conversation with one address/port pair
@@ -2182,6 +2208,17 @@ dissect_snmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 	 * the destination address of this packet, and its port 2 being
 	 * wildcarded, and give it the SNMP dissector as a dissector.
 	 */
+
+	if (pinfo->destport == UDP_PORT_SNMP) {
+		conversation_t *conversation = find_conversation(pinfo->fd->num, &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
+			pinfo->srcport, 0, NO_PORT_B);
+
+		if( (conversation == NULL) || (conversation_get_dissector(conversation, pinfo->num)!=snmp_handle) ) {
+			conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst, conversation_pt_to_conversation_type(pinfo->ptype),
+				pinfo->srcport, 0, NO_PORT2);
+			conversation_set_dissector(conversation, snmp_handle);
+		}
+	}
 
 	return dissect_snmp_pdu(tvb, 0, pinfo, tree, proto_snmp, ett_snmp, FALSE);
 }

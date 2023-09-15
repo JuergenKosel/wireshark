@@ -24,7 +24,6 @@
 #include <epan/prefs.h>
 #include <epan/to_str.h>
 #include <epan/sequence_analysis.h>
-#include <wiretap/wtap.h>
 #include <epan/tap.h>
 #include <epan/expert.h>
 #include <wsutil/wsgcrypt.h>
@@ -34,6 +33,7 @@
 #include <epan/proto_data.h>
 #include <epan/addr_resolv.h>
 #include <epan/wmem_scopes.h>
+#include <epan/column-info.h>
 
 #include "packet-frame.h"
 #include "packet-bblog.h"
@@ -49,9 +49,10 @@ static int proto_pkt_comment = -1;
 static int proto_syscall = -1;
 static int proto_bblog = -1;
 
-static int hf_frame_arrival_time = -1;
-static int hf_frame_shift_offset = -1;
+static int hf_frame_arrival_time_local = -1;
+static int hf_frame_arrival_time_utc = -1;
 static int hf_frame_arrival_time_epoch = -1;
+static int hf_frame_shift_offset = -1;
 static int hf_frame_time_delta = -1;
 static int hf_frame_time_delta_displayed = -1;
 static int hf_frame_time_relative = -1;
@@ -223,7 +224,6 @@ static dissector_handle_t xml_handle;
 static gboolean show_file_off       = FALSE;
 static gboolean force_docsis_encap  = FALSE;
 static gboolean generate_md5_hash   = FALSE;
-static gboolean generate_epoch_time = TRUE;
 static gboolean generate_bits_field = TRUE;
 static gboolean disable_packet_size_limited_in_summary = FALSE;
 static guint    max_comment_lines   = 30;
@@ -487,8 +487,9 @@ frame_add_comment(wtap_block_t block _U_, guint option_id, wtap_opttype_e option
 
 			comment_item = comments_tree;
 		}
-		expert_add_info_format(fr_user_data->pinfo, comment_item, &ei_comments_text,
+		hidden_item = expert_add_info_format(fr_user_data->pinfo, comment_item, &ei_comments_text,
 				"%s",  option->stringval);
+		proto_item_set_hidden(hidden_item);
 	}
 	fr_user_data->n_changes++;
 	return TRUE;
@@ -1001,8 +1002,9 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			proto_tree_add_int(fh_tree, hf_frame_wtap_encap, tvb, 0, 0, pinfo->rec->rec_header.packet_header.pkt_encap);
 
 		if (pinfo->presence_flags & PINFO_HAS_TS) {
-			proto_tree_add_time(fh_tree, hf_frame_arrival_time, tvb,
-					    0, 0, &(pinfo->abs_ts));
+			proto_tree_add_time(fh_tree, hf_frame_arrival_time_local, tvb, 0, 0, &pinfo->abs_ts);
+			proto_tree_add_time(fh_tree, hf_frame_arrival_time_utc, tvb, 0, 0, &pinfo->abs_ts);
+			proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb, 0, 0, &pinfo->abs_ts);
 			if (pinfo->abs_ts.nsecs < 0 || pinfo->abs_ts.nsecs >= 1000000000) {
 				expert_add_info_format(pinfo, ti, &ei_arrive_time_out_of_range,
 								  "Arrival Time: Fractional second %09ld is invalid,"
@@ -1012,11 +1014,6 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			item = proto_tree_add_time(fh_tree, hf_frame_shift_offset, tvb,
 					    0, 0, &(pinfo->fd->shift_offset));
 			proto_item_set_generated(item);
-
-			if (generate_epoch_time) {
-				proto_tree_add_time(fh_tree, hf_frame_arrival_time_epoch, tvb,
-						    0, 0, &(pinfo->abs_ts));
-			}
 
 			if (proto_field_is_referenced(tree, hf_frame_time_delta)) {
 				nstime_t     del_cap_ts;
@@ -1453,6 +1450,18 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		proto_item_set_generated(ti);
 	}
 
+	/* Add the columns as fields. We have to do this here, so that
+	 * they're available for postdissectors that want all the fields.
+	 *
+	 * Note the coloring rule names are set after this, which means
+	 * that you can set a coloring rule based on the value of a column,
+	 * like _ws.col.protocol or _ws.col.info.
+	 * OTOH, if we created _ws.col.custom, and a custom column used
+	 * frame.coloring_rule.name, filtering with it wouldn't work -
+	 * but you can filter on that field directly, so that doesn't matter.
+	 */
+	col_dissect(tvb, pinfo, parent_tree);
+
 	/*  Call postdissectors if we have any (while trying to avoid another
 	 *  TRY/CATCH)
 	 */
@@ -1566,20 +1575,25 @@ void
 proto_register_frame(void)
 {
 	static hf_register_info hf[] = {
-		{ &hf_frame_arrival_time,
+		{ &hf_frame_arrival_time_local,
 		  { "Arrival Time", "frame.time",
 		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0,
-		    "Absolute time when this frame was captured", HFILL }},
+		    "Absolute time when this frame was captured, in local time", HFILL }},
+
+		{ &hf_frame_arrival_time_utc,
+		  { "UTC Arrival Time", "frame.time_utc",
+		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x0,
+		    "Absolute time when this frame was captured, in Coordinated Universal Time (UTC)", HFILL }},
+
+		{ &hf_frame_arrival_time_epoch,
+		  { "Epoch Arrival Time", "frame.time_epoch",
+		    FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UNIX, NULL, 0x0,
+		    "Absolute time when this frame was captured, in Epoch time (also known as Unix time)", HFILL }},
 
 		{ &hf_frame_shift_offset,
 		  { "Time shift for this packet", "frame.offset_shift",
 		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
 		    "Time shift applied to this packet", HFILL }},
-
-		{ &hf_frame_arrival_time_epoch,
-		  { "Epoch Time", "frame.time_epoch",
-		    FT_RELATIVE_TIME, BASE_NONE, NULL, 0x0,
-		    "Epoch time when this frame was captured", HFILL }},
 
 		{ &hf_frame_time_delta,
 		  { "Time delta from previous captured frame", "frame.time_delta",
@@ -2363,10 +2377,7 @@ proto_register_frame(void)
 	    "Generate an MD5 hash of each frame",
 	    "Whether or not MD5 hashes should be generated for each frame, useful for finding duplicate frames.",
 	    &generate_md5_hash);
-	prefs_register_bool_preference(frame_module, "generate_epoch_time",
-	    "Generate an epoch time entry for each frame",
-	    "Whether or not an Epoch time entry should be generated for each frame.",
-	    &generate_epoch_time);
+	prefs_register_obsolete_preference(frame_module, "generate_epoch_time");
 	prefs_register_bool_preference(frame_module, "generate_bits_field",
 	    "Show the number of bits in the frame",
 	    "Whether or not the number of bits in the frame should be shown.",

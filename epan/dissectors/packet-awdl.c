@@ -18,9 +18,9 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
-#include <epan/dissectors/packet-llc.h>
-#include <epan/dissectors/packet-ieee80211.h>
-#include <epan/dissectors/packet-dns.h>
+#include "packet-llc.h"
+#include "packet-ieee80211.h"
+#include "packet-dns.h"
 #include <epan/oui.h>
 
 void proto_register_awdl(void);
@@ -706,7 +706,8 @@ static int
 awdl_tag_channel_sequence(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_) {
   proto_item *chanlist_item, *channel_item;
   proto_tree *chanlist_tree, *channel_tree;
-  guint channels, chan_number;
+  guint channels;
+  guint32 chan_number;
   wmem_strbuf_t *strbuf;
   int offset = 0;
 
@@ -755,8 +756,9 @@ awdl_tag_channel_sequence(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     chanlist_item = proto_tree_add_item(tree, hf_awdl_channelseq_channel_list, tvb, offset, 2 * channels, ENC_NA);
     chanlist_tree = proto_item_add_subtree(chanlist_item, ett_awdl_channelseq_channel_list);
     for (guint i = 0; i < channels; i++) {
-      chan_number = tvb_get_guint8(tvb, offset + 1);
-      channel_item = proto_tree_add_uint(chanlist_tree, hf_awdl_channelseq_channel, tvb, offset, 2, chan_number);
+      /* channel number is 2nd byte */
+      channel_item = proto_tree_add_item_ret_uint(chanlist_tree, hf_awdl_channelseq_channel, tvb, offset, 2,
+                                                  ENC_LITTLE_ENDIAN, &chan_number);
       channel_tree = proto_item_add_subtree(channel_item, ett_awdl_channelseq_channel);
       proto_tree_add_bitmask(channel_tree, tvb, offset, hf_awdl_channelseq_channel_flags,
                              ett_awdl_channelseq_flags, flags_fields, ENC_LITTLE_ENDIAN);
@@ -776,8 +778,9 @@ awdl_tag_channel_sequence(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
     chanlist_item = proto_tree_add_item(tree, hf_awdl_channelseq_channel_list, tvb, offset, 2 * channels, ENC_NA);
     chanlist_tree = proto_item_add_subtree(chanlist_item, ett_awdl_channelseq_channel_list);
     for (guint i = 0; i < channels; i++) {
-      chan_number = tvb_get_guint8(tvb, offset);
-      channel_item = proto_tree_add_uint(chanlist_tree, hf_awdl_channelseq_channel, tvb, offset, 2, chan_number);
+      /* channel number is 2nd byte */
+      channel_item = proto_tree_add_item_ret_uint(chanlist_tree, hf_awdl_channelseq_channel, tvb, offset, 2,
+                                                  ENC_LITTLE_ENDIAN, &chan_number);
       channel_tree = proto_item_add_subtree(channel_item, ett_awdl_channelseq_channel);
       proto_tree_add_item(channel_tree, hf_awdl_channelseq_channel_number, tvb, offset, 1, ENC_LITTLE_ENDIAN);
       offset += 1;
@@ -1671,7 +1674,7 @@ void proto_register_awdl(void)
       }
     },
     { &hf_awdl_datastate_flags_7,
-      { "Bit 6", "awdl.datastate.flags.7",
+      { "Bit 7", "awdl.datastate.flags.7",
         FT_BOOLEAN, 16, NULL, 0x0080, NULL, HFILL
       }
     },
@@ -1978,7 +1981,7 @@ void proto_register_awdl(void)
     },
     { &hf_awdl_channelseq_channel_number,
       { "Channel Number", "awdl.channelseq.channel.number",
-        FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL
+        FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL
       }
     },
     { &hf_awdl_channelseq_channel_operating_class,

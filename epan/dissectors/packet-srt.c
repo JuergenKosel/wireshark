@@ -23,11 +23,12 @@
  */
 
 #include <config.h>
-#include <wsutil/str_util.h>
 
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/conversation.h>
+#include <wsutil/str_util.h>
+#include <wsutil/inet_addr.h>
 
 /* Prototypes */
 void proto_reg_handoff_srt(void);
@@ -69,6 +70,7 @@ static int hf_srt_handshake_isn = -1;
 static int hf_srt_handshake_mtu = -1;
 static int hf_srt_handshake_flow_window = -1;
 static int hf_srt_handshake_reqtype = -1;
+static int hf_srt_handshake_failure_type = -1;
 static int hf_srt_handshake_id = -1;
 static int hf_srt_handshake_cookie = -1;
 static int hf_srt_handshake_peerip = -1;
@@ -90,7 +92,7 @@ static int hf_srt_srths_peer_latency = -1; // TSBPD delay
 static int hf_srt_srtkm_msg = -1;
 static int hf_srt_srtkm_error = -1;
 static int hf_srt_srths_sid = -1;
-static int hf_srt_srths_conjestcontrol = -1;
+static int hf_srt_srths_congestcontrol = -1;
 
 static gint ett_srt = -1;
 static gint ett_srt_handshake_ext_flags = -1;
@@ -193,7 +195,7 @@ enum UDTMessageType
 #define SRT_CMD_KMREQ       3
 #define SRT_CMD_KMRSP       4
 #define SRT_CMD_SID         5
-#define SRT_CMD_CONJESTCTRL 6
+#define SRT_CMD_CONGESTCTRL 6
 
 enum SrtDataStruct
 {
@@ -213,9 +215,7 @@ enum UDTRequestType
     URQ_WAVEAHAND     =    0,
     URQ_INDUCTION     =    1,
 
-    URQ_FAILURE_TYPES = 1000,
-    URQ_REJECT        = 1002,
-    URQ_INVALID       = 1004
+    URQ_FAILURE_TYPES = 1000
 };
 
 
@@ -249,7 +249,7 @@ static const value_string srt_ctrlmsg_exttypes[] = {
     {SRT_CMD_KMREQ,       "SRT_CMD_KMREQ"},
     {SRT_CMD_KMRSP,       "SRT_CMD_KMRSP"},
     {SRT_CMD_SID,         "SRT_CMD_SID"},
-    {SRT_CMD_CONJESTCTRL, "SRT_CMD_CONJESTCTRL"},
+    {SRT_CMD_CONGESTCTRL, "SRT_CMD_CONGESTCTRL"},
 
     { 0, NULL },
 };
@@ -300,8 +300,6 @@ static const value_string srt_hs_request_types[] = {
     {URQ_CONCLUSION, "URQ_CONCLUSION"},
     {URQ_WAVEAHAND,  "URQ_WAVEAHAND (rendezvous invocation)"},
     {URQ_AGREEMENT,  "URQ_AGREEMENT (rendezvous finalization)"},
-    {URQ_REJECT,     "!REJECT"},
-    {URQ_INVALID,    "!INVALID"},
     {0, NULL}
 };
 
@@ -579,6 +577,7 @@ dissect_srt_control_packet(tvbuff_t *tvb, packet_info* pinfo,
             const int version = tvb_get_ntohl(tvb, 16);
             const int final_length = tvb_reported_length(tvb);
             int baselen = 64;
+            int handshake_reqtype;
 
             /* This contains the handshake version (currently 4 or 5) */
             proto_tree_add_item(tree, hf_srt_handshake_version, tvb,
@@ -612,8 +611,21 @@ dissect_srt_control_packet(tvbuff_t *tvb, packet_info* pinfo,
                         28,  4, ENC_BIG_ENDIAN);
             proto_tree_add_item(tree, hf_srt_handshake_flow_window, tvb,
                         32,  4, ENC_BIG_ENDIAN);
-            proto_tree_add_item(tree, hf_srt_handshake_reqtype, tvb,
+            handshake_reqtype = tvb_get_ntohl(tvb, 36);
+            if (handshake_reqtype < URQ_FAILURE_TYPES)
+            {
+                proto_tree_add_item(tree, hf_srt_handshake_reqtype, tvb,
                         36,  4, ENC_BIG_ENDIAN);
+            }
+            else
+            {
+                int error_code = handshake_reqtype - URQ_FAILURE_TYPES;
+                proto_tree_add_uint_format_value(tree, hf_srt_handshake_failure_type, tvb, 36, 4, handshake_reqtype,
+                        "%d (%s)", error_code,
+                        error_code < 1000 ? "SRT internal" :
+                        error_code < 2000 ? "SRT predefined" : "user-defined");
+            }
+
             proto_tree_add_item(tree, hf_srt_handshake_id, tvb,
                         40,  4, ENC_BIG_ENDIAN);
             proto_tree_add_item(tree, hf_srt_handshake_cookie, tvb,
@@ -670,8 +682,8 @@ dissect_srt_control_packet(tvbuff_t *tvb, packet_info* pinfo,
                         format_text_reorder_32(tree, tvb, hf_srt_srths_sid, begin, 4 * blocklen);
                         break;
 
-                    case SRT_CMD_CONJESTCTRL:
-                        format_text_reorder_32(tree, tvb, hf_srt_srths_conjestcontrol, begin, 4 * blocklen);
+                    case SRT_CMD_CONGESTCTRL:
+                        format_text_reorder_32(tree, tvb, hf_srt_srths_congestcontrol, begin, 4 * blocklen);
                         break;
 
                     default:
@@ -1097,6 +1109,11 @@ void proto_register_srt(void)
             FT_INT32, BASE_DEC,
             VALS(srt_hs_request_types), 0, NULL, HFILL}},
 
+        {&hf_srt_handshake_failure_type, {
+            "Handshake FAILURE code", "srt.hs.failtype",
+            FT_UINT32, BASE_DEC,
+            NULL, 0, NULL, HFILL}},
+
         {&hf_srt_handshake_id, {
             "Socket ID", "srt.hs.id",
             FT_UINT32, BASE_HEX,
@@ -1209,8 +1226,8 @@ void proto_register_srt(void)
             FT_STRING, BASE_NONE,
             NULL, 0, NULL, HFILL}},
 
-        {&hf_srt_srths_conjestcontrol, {
-            "Congestion Control Type", "srt.hs.conjestctrl",
+        {&hf_srt_srths_congestcontrol, {
+            "Congestion Control Type", "srt.hs.congestctrl",
             FT_STRING, BASE_NONE,
             NULL, 0, NULL, HFILL}}
     };

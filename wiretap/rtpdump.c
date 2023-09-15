@@ -56,7 +56,6 @@
 #include <wsutil/wslog.h>
 #include "rtpdump.h"
 #include <string.h>
-#include <errno.h>
 
 /* NB. I've included the version string in the magic for stronger identification.
  * If we add/change version support, we'll also need to edit:
@@ -296,11 +295,11 @@ rtpdump_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
     if (plen == 0) {
         /* RTCP sample */
         plen = length;
-        wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_DISSECTOR_NAME, (const guint8 *)"rtcp", 4);
+        wtap_buffer_append_epdu_string(buf, EXP_PDU_TAG_DISSECTOR_NAME, "rtcp");
     }
     else {
         /* RTP sample */
-        wtap_buffer_append_epdu_tag(buf, EXP_PDU_TAG_DISSECTOR_NAME, (const guint8 *)"rtp", 3);
+        wtap_buffer_append_epdu_string(buf, EXP_PDU_TAG_DISSECTOR_NAME, "rtp");
     }
     epdu_len = wtap_buffer_append_epdu_end(buf);
 

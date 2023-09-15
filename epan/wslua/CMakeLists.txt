@@ -109,18 +109,13 @@ add_custom_target(
 
 set_target_properties(register_wslua PROPERTIES FOLDER "Libs/epan/wslua")
 
-install(
-	FILES
-		console.lua
-		dtd_gen.lua
-		init.lua
-	DESTINATION
-		${CMAKE_INSTALL_DATADIR}
-)
-
 add_library(wslua OBJECT
 	${WSLUA_FILES}
 )
+
+if(FETCH_lua)
+	add_dependencies(wslua lua52)
+endif()
 
 target_include_directories(wslua
 	SYSTEM PRIVATE

@@ -17,7 +17,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Ref:
- * 3GPP TS 36.423 V17.4.0 (2023-03)
+ * 3GPP TS 36.423 V17.5.0 (2023-06)
  */
 
 #include "config.h"
@@ -671,6 +671,7 @@ static int hf_x2ap_encryptionAlgorithms_Reserved = -1;
 static int hf_x2ap_integrityProtectionAlgorithms_EIA1 = -1;
 static int hf_x2ap_integrityProtectionAlgorithms_EIA2 = -1;
 static int hf_x2ap_integrityProtectionAlgorithms_EIA3 = -1;
+static int hf_x2ap_integrityProtectionAlgorithms_EIA7 = -1;
 static int hf_x2ap_integrityProtectionAlgorithms_Reserved = -1;
 static int hf_x2ap_measurementsToActivate_M1 = -1;
 static int hf_x2ap_measurementsToActivate_M2 = -1;
@@ -8260,6 +8261,12 @@ static const value_string x2ap_NRNRB_vals[] = {
   {  26, "nrb264" },
   {  27, "nrb270" },
   {  28, "nrb273" },
+  {  29, "nrb44" },
+  {  30, "nrb58" },
+  {  31, "nrb92" },
+  {  32, "nrb119" },
+  {  33, "nrb188" },
+  {  34, "nrb242" },
   { 0, NULL }
 };
 
@@ -8269,7 +8276,7 @@ static value_string_ext x2ap_NRNRB_vals_ext = VALUE_STRING_EXT_INIT(x2ap_NRNRB_v
 static int
 dissect_x2ap_NRNRB(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     29, NULL, TRUE, 0, NULL);
+                                     29, NULL, TRUE, 6, NULL);
 
   return offset;
 }
@@ -8788,6 +8795,7 @@ dissect_x2ap_IntegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, as
       &hf_x2ap_integrityProtectionAlgorithms_EIA1,
       &hf_x2ap_integrityProtectionAlgorithms_EIA2,
       &hf_x2ap_integrityProtectionAlgorithms_EIA3,
+      &hf_x2ap_integrityProtectionAlgorithms_EIA7,
       &hf_x2ap_integrityProtectionAlgorithms_Reserved,
       NULL
     };
@@ -23351,9 +23359,13 @@ void proto_register_x2ap(void) {
       { "128-EIA3", "x2ap.integrityProtectionAlgorithms.EIA3",
         FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
         NULL, HFILL }},
+    { &hf_x2ap_integrityProtectionAlgorithms_EIA7,
+      { "EIA7", "x2ap.integrityProtectionAlgorithms.EIA7",
+        FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
+        NULL, HFILL }},
     { &hf_x2ap_integrityProtectionAlgorithms_Reserved,
       { "Reserved", "x2ap.integrityProtectionAlgorithms.Reserved",
-        FT_UINT16, BASE_HEX, NULL, 0x1fff,
+        FT_UINT16, BASE_HEX, NULL, 0x1dff,
         NULL, HFILL }},
     { &hf_x2ap_measurementsToActivate_M1,
       { "M1", "x2ap.measurementsToActivate.M1",

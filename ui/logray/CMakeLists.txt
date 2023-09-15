@@ -180,6 +180,7 @@ set(WIRESHARK_QT_HEADERS
 	../qt/interface_frame.h
 	../qt/interface_toolbar_reader.h
 	../qt/interface_toolbar.h
+	../qt/io_console_dialog.h
 	../qt/io_graph_dialog.h
 	../qt/layout_preferences_frame.h
 	../qt/main_application.h
@@ -400,6 +401,7 @@ set(WIRESHARK_QT_SRC
 	../qt/interface_frame.cpp
 	../qt/interface_toolbar_reader.cpp
 	../qt/interface_toolbar.cpp
+	../qt/io_console_dialog.cpp
 	../qt/layout_preferences_frame.cpp
 	../qt/main_application.cpp
 	../qt/main_status_bar.cpp
@@ -511,6 +513,7 @@ set(WIRESHARK_QT_UI
 	../qt/import_text_dialog.ui
 	../qt/interface_frame.ui
 	../qt/interface_toolbar.ui
+	../qt/io_console_dialog.ui
 	../qt/io_graph_dialog.ui
 	../qt/layout_preferences_frame.ui
 	../qt/main_window_preferences_frame.ui
@@ -679,10 +682,10 @@ add_library(ui_logray OBJECT
 target_include_directories(ui_logray
 	SYSTEM PRIVATE
 		# Include Qt before anything else, see the comment about
-		# QT_INCLUDE_DIRS in the top-level CMakeLists.txt
+		# QT5_INCLUDE_DIRS in the top-level CMakeLists.txt
 		# Basically, qt@5 headers should be prioritized over qt@6 which
 		# would be found due to GCRYPT_INCLUDE_DIRS=/usr/local/include
-		${QT_INCLUDE_DIRS}
+		${QT5_INCLUDE_DIRS}
 		${GCRYPT_INCLUDE_DIRS}
 		${MINIZIP_INCLUDE_DIRS}
 		${PCAP_INCLUDE_DIRS}
@@ -694,9 +697,21 @@ target_include_directories(ui_logray
 		${CMAKE_CURRENT_SOURCE_DIR}/../qt
 )
 
+if(USE_qt6)
+	target_link_libraries(ui_logray PUBLIC
+		Qt6::Widgets
+		Qt6::Core5Compat
+		Qt6::Concurrent
+		Qt6::PrintSupport
+	)
+	if(Qt6Multimedia_FOUND)
+		target_link_libraries(ui_logray PUBLIC Qt6::Multimedia)
+	endif()
+endif()
+
 target_compile_definitions(ui_logray
 	PUBLIC
-		${QT_COMPILE_DEFINITIONS}
+		${QT5_COMPILE_DEFINITIONS}
 )
 
 set_target_properties(ui_logray PROPERTIES

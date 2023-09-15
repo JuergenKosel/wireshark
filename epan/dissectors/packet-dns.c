@@ -211,6 +211,8 @@ static int hf_dns_rr_z_reserved = -1;
 static int hf_dns_rr_ttl = -1;
 static int hf_dns_rr_len = -1;
 static int hf_dns_a = -1;
+static int hf_dns_a_ch_domain = -1;
+static int hf_dns_a_ch_addr = -1;
 static int hf_dns_md = -1;
 static int hf_dns_mf = -1;
 static int hf_dns_mb = -1;
@@ -264,6 +266,7 @@ static int hf_dns_svcb_param_port = -1;
 static int hf_dns_svcb_param_ipv4hint_ip = -1;
 static int hf_dns_svcb_param_echconfig = -1;
 static int hf_dns_svcb_param_ipv6hint_ip = -1;
+static int hf_dns_svcb_param_dohpath = -1;
 static int hf_dns_svcb_param_odohconfig = -1;
 static int hf_dns_openpgpkey = -1;
 static int hf_dns_spf_length = -1;
@@ -500,6 +503,7 @@ static gint ett_dns_dso_tlv = -1;
 static gint ett_dns_svcb = -1;
 static gint ett_dns_extraneous = -1;
 
+static expert_field ei_dns_a_class_undecoded = EI_INIT;
 static expert_field ei_dns_opt_bad_length = EI_INIT;
 static expert_field ei_dns_depr_opc = EI_INIT;
 static expert_field ei_ttl_high_bit_set = EI_INIT;
@@ -1262,6 +1266,7 @@ static const range_string dns_dso_type_rvals[] = {
 #define DNS_SVCB_KEY_IPV4HINT         4
 #define DNS_SVCB_KEY_ECHCONFIG        5
 #define DNS_SVCB_KEY_IPV6HINT         6
+#define DNS_SVCB_KEY_DOHPATH          7 /* draft-ietf-add-svcb-dns-08 */
 #define DNS_SVCB_KEY_ODOHCONFIG   32769 /* draft-pauly-dprive-oblivious-doh-02 */
 #define DNS_SVCB_KEY_RESERVED     65535
 
@@ -1277,6 +1282,7 @@ static const value_string dns_svcb_param_key_vals[] = {
   { DNS_SVCB_KEY_IPV4HINT,      "ipv4hint" },
   { DNS_SVCB_KEY_ECHCONFIG,     "echconfig" },
   { DNS_SVCB_KEY_IPV6HINT,      "ipv6hint" },
+  { DNS_SVCB_KEY_DOHPATH,       "dohpath" },
   { DNS_SVCB_KEY_ODOHCONFIG,    "odohconfig" },
   { DNS_SVCB_KEY_RESERVED,      "key65535" },
   { 0,                          NULL }
@@ -2133,19 +2139,60 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
 
     case T_A: /* a host Address (1) */
     {
-      const char *addr;
+      switch (dns_class) {
+          /* RFC 1034 Section 3.6
+           * RDATA
+           *         A   For the IN class, a 32 bit IP address
+           *
+           *             For the CH class, a domain name followed
+           *             by a 16 bit octal Chaos address.
+           */
+        case C_IN:
+        {
+          const char *addr;
 
-      addr = tvb_ip_to_str(pinfo->pool, tvb, cur_offset);
-      col_append_fstr(pinfo->cinfo, COL_INFO, " %s", addr);
+          addr = tvb_ip_to_str(pinfo->pool, tvb, cur_offset);
+          col_append_fstr(pinfo->cinfo, COL_INFO, " %s", addr);
 
-      proto_item_append_text(trr, ", addr %s", addr);
-      proto_tree_add_item(rr_tree, hf_dns_a, tvb, cur_offset, 4, ENC_BIG_ENDIAN);
+          proto_item_append_text(trr, ", addr %s", addr);
+          proto_tree_add_item(rr_tree, hf_dns_a, tvb, cur_offset, 4, ENC_BIG_ENDIAN);
 
-      if (gbl_resolv_flags.dns_pkt_addr_resolution && (dns_class & 0x7f) == C_IN &&
-          !PINFO_FD_VISITED(pinfo)) {
-        guint32 addr_int;
-        tvb_memcpy(tvb, &addr_int, cur_offset, sizeof(addr_int));
-        add_ipv4_name(addr_int, name, FALSE);
+          if (gbl_resolv_flags.dns_pkt_addr_resolution && dns_class == C_IN &&
+              !PINFO_FD_VISITED(pinfo)) {
+            guint32 addr_int;
+            tvb_memcpy(tvb, &addr_int, cur_offset, sizeof(addr_int));
+            add_ipv4_name(addr_int, name, FALSE);
+          }
+        }
+        break;
+
+        case C_CH:
+        {
+          const gchar *domain_name;
+          int domain_name_len;
+          guint32 ch_addr;
+
+          used_bytes = get_dns_name(tvb, cur_offset, 0, dns_data_offset, &domain_name, &domain_name_len);
+          name_out = format_text(pinfo->pool, (const guchar*)domain_name, domain_name_len);
+          col_append_fstr(pinfo->cinfo, COL_INFO, " %s", name_out);
+          proto_item_append_text(trr, ", domain/addr %s", name_out);
+          proto_tree_add_string(rr_tree, hf_dns_a_ch_domain, tvb, cur_offset, used_bytes, name_out);
+
+          proto_tree_add_item_ret_uint(rr_tree, hf_dns_a_ch_addr, tvb, cur_offset + used_bytes, 2, ENC_BIG_ENDIAN, &ch_addr);
+          col_append_fstr(pinfo->cinfo, COL_INFO, "/0%o", ch_addr);
+          proto_item_append_text(trr, "/0%o", ch_addr);
+        }
+        break;
+
+        default:
+        {
+          expert_add_info_format(pinfo, trr, &ei_dns_a_class_undecoded,
+                                 "A record dissection for class (%d)"
+                                 " code not implemented, Contact Wireshark developers"
+                                 " if you want this supported", dns_class);
+          proto_tree_add_item(rr_tree, hf_dns_data, tvb, cur_offset, data_len, ENC_NA);
+        }
+        break;
       }
     }
     break;
@@ -3610,6 +3657,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       guint32       svc_param_alpn_length;
       const gchar  *target;
       int           target_len;
+      const guint8 *dohpath;
       int           start_offset = cur_offset;
       proto_item   *svcb_param_ti;
       proto_tree   *svcb_param_tree;
@@ -3681,6 +3729,11 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
                 proto_item_append_text(svcb_param_ti, "%c%s", (svc_param_offset == 0 ? '=' : ','), tvb_ip6_to_str(pinfo->pool, tvb, cur_offset));
                 cur_offset += 16;
               }
+              break;
+            case DNS_SVCB_KEY_DOHPATH:
+              proto_tree_add_item_ret_string(svcb_param_tree, hf_dns_svcb_param_dohpath, tvb, cur_offset, svc_param_length, ENC_UTF_8|ENC_NA, pinfo->pool, &dohpath);
+              cur_offset += svc_param_length;
+              proto_item_append_text(svcb_param_ti, "=%s", dohpath);
               break;
             case DNS_SVCB_KEY_ODOHCONFIG:
               dissect_dns_svcparam_base64(svcb_param_tree, svcb_param_ti, hf_dns_svcb_param_odohconfig, tvb, cur_offset, svc_param_length);
@@ -3920,6 +3973,34 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
       }
     }
     break;
+
+    case T_URI: /* Uniform Resource Locator (256) */
+    {
+      int           rr_len   = data_len;
+      guint16       priority = 0;
+      guint16       weight   = 0;
+      int           target_len = rr_len - 4;
+      const gchar  *target;
+
+      proto_tree_add_item(rr_tree, hf_dns_srv_priority, tvb, cur_offset, 2, ENC_BIG_ENDIAN);
+      priority = tvb_get_ntohs(tvb, cur_offset);
+      cur_offset += 2;
+
+      proto_tree_add_item(rr_tree, hf_dns_srv_weight, tvb, cur_offset, 2, ENC_BIG_ENDIAN);
+      weight = tvb_get_ntohs(tvb, cur_offset);
+      cur_offset += 2;
+
+      target = (const char*)tvb_get_string_enc(pinfo->pool, tvb, cur_offset, target_len, ENC_ASCII|ENC_NA);
+
+      proto_tree_add_string(rr_tree, hf_dns_srv_target, tvb, cur_offset, used_bytes, target);
+
+      col_append_fstr(pinfo->cinfo, COL_INFO, " %u %u %s", priority, weight, target);
+      proto_item_append_text(trr,
+                             ", priority %u, weight %u, target %s",
+                             priority, weight, target);
+    }
+    break;
+
 
     case T_CAA: /* Certification Authority Restriction (257) */
     {
@@ -4208,9 +4289,9 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   opcode = (guint16) ((flags & F_OPCODE) >> OPCODE_SHIFT);
   rcode  = (guint16)  (flags & F_RCODE);
 
-  col_add_fstr(pinfo->cinfo, COL_INFO, "%s%s 0x%04x",
-                val_to_str(opcode, opcode_vals, "Unknown operation (%u)"),
-                (flags&F_RESPONSE)?" response":"", id);
+  col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "%s%s 0x%04x",
+                      val_to_str(opcode, opcode_vals, "Unknown operation (%u)"),
+                      (flags&F_RESPONSE)?" response":"", id);
 
   if (flags & F_RESPONSE) {
     if (rcode != RCODE_NOERROR) {
@@ -4480,6 +4561,7 @@ dissect_dns_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     cur_off += dissect_answer_records(tvb, cur_off, dns_data_offset, add, dns_tree, "Additional records",
                                       pinfo, is_mdns);
   }
+  col_set_fence(pinfo->cinfo, COL_INFO);
 
   /* print state tracking in the tree */
   if (!(flags&F_RESPONSE)) {
@@ -5129,7 +5211,17 @@ proto_register_dns(void)
     { &hf_dns_a,
       { "Address", "dns.a",
         FT_IPv4, BASE_NONE, NULL, 0x0,
-        "Response Address", HFILL }},
+        "Response IPv4 Address", HFILL }},
+
+    { &hf_dns_a_ch_domain,
+      { "Chaos Domain", "dns.a.ch.domain",
+        FT_STRING, BASE_NONE, NULL, 0x0,
+        "Response Chaos Domain", HFILL }},
+
+    { &hf_dns_a_ch_addr,
+      { "Chaos Address", "dns.a.ch.addr",
+        FT_UINT16, BASE_OCT, NULL, 0x0,
+        "Response Chaos Address", HFILL }},
 
     { &hf_dns_md,
       { "Mail Destination", "dns.md",
@@ -5400,6 +5492,11 @@ proto_register_dns(void)
       { "IP", "dns.svcb.svcparam.ipv6hint.ip",
         FT_IPv6, BASE_NONE, NULL, 0x0,
         "IPv6 address hints", HFILL }},
+
+    { &hf_dns_svcb_param_dohpath,
+      { "DoH path", "dns.svcb.svcparam.dohpath",
+        FT_STRING, BASE_NONE, NULL, 0x0,
+        "DoH URI template", HFILL}},
 
     { &hf_dns_svcb_param_odohconfig,
       { "ODoHConfig", "dns.svcb.svcparam.odohconfig",
@@ -6491,6 +6588,7 @@ proto_register_dns(void)
   };
 
   static ei_register_info ei[] = {
+    { &ei_dns_a_class_undecoded, { "dns.a.class.undecoded", PI_UNDECODED, PI_NOTE, "Undecoded class", EXPFILL }},
     { &ei_dns_opt_bad_length, { "dns.rr.opt.bad_length", PI_MALFORMED, PI_ERROR, "Length too long for any type of IP address.", EXPFILL }},
     { &ei_dns_undecoded_option, { "dns.undecoded.type", PI_UNDECODED, PI_NOTE, "Undecoded option", EXPFILL }},
     { &ei_dns_depr_opc, { "dns.depr.opc", PI_PROTOCOL, PI_WARN, "Deprecated opcode", EXPFILL }},

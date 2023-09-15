@@ -121,6 +121,7 @@ set(CLEAN_ASN1_DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-isdn-sup.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-its.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-kerberos.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-kpm-v2.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lcsap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ldap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lnpdqp.c
@@ -281,6 +282,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-bacnet.h
 	packet-bblog.h
 	packet-ber.h
+	packet-bfcp.h
 	packet-bfd.h
 	packet-bgp.h
 	packet-bicc_mst.h
@@ -410,6 +412,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-h323.h
 	packet-h450-ros.h
 	packet-hpext.h
+	packet-hsfz.h
 	packet-http.h
 	packet-http2.h
 	packet-iana-oui.h
@@ -748,7 +751,9 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aruba-erm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aruba-iap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-aruba-papi.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-aruba-ubt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ar_drone.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-asam-cmp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-asap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-asap+enrp-common.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ascend.c
@@ -1017,6 +1022,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-docsis-vendor.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dof.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-doip.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-do-irp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpaux.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dpauxmon.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dplay.c
@@ -1132,6 +1138,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fmtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-force10-oui.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-forces.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-fortinet-fgcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fortinet-sso.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-foundry.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-fp_hint.c
@@ -1256,6 +1263,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hpfeeds.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hpsw.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hpteam.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-hsfz.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hsms.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hsr-prp-supervision.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-hsr.c
@@ -1275,6 +1283,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-icmpv6.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-icp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-icq.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-id3v2.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-idp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-idrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-iec104.c
@@ -1424,6 +1433,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-llc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lldp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-llrp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-lls-slt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lls.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-llt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-lltd.c
@@ -1467,6 +1477,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mcpe.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mctp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mctp-control.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-mdb.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mdshdr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-media.c
@@ -1863,6 +1874,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sml.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smpp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-smpte-2110-20.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-smtp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-sna.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-snaeth.c
@@ -2017,6 +2029,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vnc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vntag.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vp8.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-vp9.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vpp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vrrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-vrt.c
@@ -2084,6 +2097,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ypserv.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ypxfr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-z3950.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-zabbix.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-aps.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-nwk.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-nwk-gp.c
@@ -2207,6 +2221,7 @@ target_include_directories(dissectors
 		${LIBXML2_INCLUDE_DIRS}
 		${LZ4_INCLUDE_DIRS}
 		${NGHTTP2_INCLUDE_DIRS}
+		${NGHTTP3_INCLUDE_DIRS}
 		${SMI_INCLUDE_DIRS}
 		${SNAPPY_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}

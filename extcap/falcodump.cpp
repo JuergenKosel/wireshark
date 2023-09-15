@@ -209,7 +209,7 @@ void print_cloudtrail_aws_profile_config(int arg_num, const char *display, const
 }
 
 void print_cloudtrail_aws_region_config(int arg_num, const char *display, const char *description) {
-    // aws ec2 describe-regions --all-regions --query "Regions[].{Name:RegionName}" --output text
+    // printf '        "%s",\n' $(aws ec2 describe-regions --all-regions --query "Regions[].{Name:RegionName}" --output text) | sort
     std::set<std::string> regions = {
         "af-south-1",
         "ap-east-1",
@@ -221,8 +221,10 @@ void print_cloudtrail_aws_region_config(int arg_num, const char *display, const 
         "ap-southeast-1",
         "ap-southeast-2",
         "ap-southeast-3",
+        "ap-southeast-4",
         "ca-central-1",
         "eu-central-1",
+        "eu-central-2",
         "eu-north-1",
         "eu-south-1",
         "eu-south-2",
@@ -285,7 +287,8 @@ static void load_plugins(sinsp &inspector) {
             while ((file = ws_dir_read_name(dir)) != NULL) {
                 char *libname = g_build_filename(plugin_path, ws_dir_get_name(file), NULL);
                 try {
-                    inspector.register_plugin(libname);
+                    auto plugin = inspector.register_plugin(libname);
+                    ws_debug("Registered plugin %s via %s", plugin->name().c_str(), libname);
                 } catch (sinsp_exception &e) {
                     ws_warning("%s", e.what());
                 }
@@ -669,17 +672,22 @@ static bool get_plugin_config_schema(const std::shared_ptr<sinsp_plugin> &plugin
 
 // For each loaded plugin, get its name and properties.
 static bool get_source_plugins(sinsp &inspector, std::map<std::string, struct plugin_configuration> &plugin_configs) {
-    const sinsp_plugin_manager *plugin_manager = inspector.get_plugin_manager();
+    const auto plugin_manager = inspector.get_plugin_manager();
 
     // XXX sinsp_plugin_manager::sources() can return different names, e.g. aws_cloudtrail vs cloudtrail.
-    for (const auto &plugin : plugin_manager->plugins()) {
-        if (plugin->caps() & CAP_SOURCING) {
-            plugin_configuration plugin_config = {};
-            if (!get_plugin_config_schema(plugin, plugin_config)) {
-                return false;
+    try {
+        for (auto &plugin : plugin_manager->plugins()) {
+            if (plugin->caps() & CAP_SOURCING) {
+                plugin_configuration plugin_config = {};
+                if (!get_plugin_config_schema(plugin, plugin_config)) {
+                    return false;
+                }
+                plugin_configs[plugin->name()] = plugin_config;
             }
-            plugin_configs[plugin->name()] = plugin_config;
         }
+    } catch (sinsp_exception &e) {
+        ws_warning("%s", e.what());
+        return false;
     }
     return true;
 }
@@ -724,9 +732,9 @@ static int show_config(const std::string &interface, const struct plugin_configu
     printf(
         "arg {number=%u}"
         "{call=--plugin-source}"
-        "{display=Plugin source}"
+        "{display=Log data URL}"
         "{type=string}"
-        "{tooltip=The plugin data source. This us usually a URL.}"
+        "{tooltip=The plugin data source. This is usually a URL.}"
         "{placeholder=Enter a source URL" UTF8_HORIZONTAL_ELLIPSIS "}"
         "{required=true}"
         "{group=Capture}\n",
@@ -938,8 +946,8 @@ int main(int argc, char **argv)
         }
 
         std::shared_ptr<sinsp_plugin> plugin_interface;
-        const sinsp_plugin_manager *pm = inspector.get_plugin_manager();
-        for (auto &plugin : pm->plugins()) {
+        const auto plugin_manager = inspector.get_plugin_manager();
+        for (auto &plugin : plugin_manager->plugins()) {
             if (plugin->name() == extcap_conf->interface) {
                 plugin_interface = plugin;
             }

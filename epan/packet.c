@@ -236,8 +236,32 @@ packet_cache_proto_handles(void)
 /* List of routines that are called before we make a pass through a capture file
  * and dissect all its packets. See register_init_routine, register_cleanup_routine
  * and register_shutdown_routine in packet.h */
+/**
+ * List of "init" routines, which are called before we make a pass through
+ * a capture file and dissect all its packets (e.g., when we read in a
+ * new capture file, or run a "filter packets" or "colorize packets"
+ * pass over the current capture file or when the preferences are changed).
+ *
+ * See register_init_routine().
+ */
 static GSList *init_routines = NULL;
+
+/**
+ * List of "cleanup" routines, which are called after closing a capture
+ * file (or when preferences are changed; in that case these routines
+ * are called before the init routines are executed). They can be used
+ * to release resources that are allocated in an "init" routine.
+ *
+ * See register_cleanup_routine().
+ */
 static GSList *cleanup_routines = NULL;
+
+/*
+ * List of "shutdown" routines, which are called once, just before
+ * program exit.
+ *
+ * See register_shutdown_routine().
+ */
 static GSList *shutdown_routines = NULL;
 
 typedef void (*void_func_t)(void);
@@ -455,7 +479,7 @@ mark_frame_as_depended_upon(frame_data *fd, guint32 frame_num)
 		if (fd->dependent_frames == NULL) {
 			fd->dependent_frames = g_hash_table_new(g_direct_hash, g_direct_equal);
 		}
-		g_hash_table_insert(fd->dependent_frames, GUINT_TO_POINTER(frame_num), NULL);
+		g_hash_table_add(fd->dependent_frames, GUINT_TO_POINTER(frame_num));
 	}
 }
 
@@ -1604,7 +1628,7 @@ find_string_dtbl_entry(dissector_table_t const sub_dissectors, const gchar *patt
 		ws_assert_not_reached();
 	}
 
-	if (sub_dissectors->param == TRUE) {
+	if (sub_dissectors->param == STRING_CASE_INSENSITIVE) {
 		key = g_ascii_strdown(pattern, -1);
 	} else {
 		key = g_strdup(pattern);
@@ -1672,7 +1696,7 @@ dissector_add_string(const char *name, const gchar *pattern,
 	dtbl_entry->current = handle;
 	dtbl_entry->initial = dtbl_entry->current;
 
-	if (sub_dissectors->param == TRUE) {
+	if (sub_dissectors->param == STRING_CASE_INSENSITIVE) {
 		key = g_ascii_strdown(pattern, -1);
 	} else {
 		key = g_strdup(pattern);
@@ -3101,10 +3125,13 @@ display_heur_dissector_table_entries(const char *table_name,
     heur_dtbl_entry_t *hdtbl_entry, gpointer user_data _U_)
 {
 	if (hdtbl_entry->protocol != NULL) {
-		printf("%s\t%s\t%c\n",
+		printf("%s\t%s\t%c\t%c\t%s\t%s\n",
 		       table_name,
 		       proto_get_protocol_filter_name(proto_get_id(hdtbl_entry->protocol)),
-		       (proto_is_protocol_enabled(hdtbl_entry->protocol) && hdtbl_entry->enabled) ? 'T' : 'F');
+		       (proto_is_protocol_enabled(hdtbl_entry->protocol) && hdtbl_entry->enabled) ? 'T' : 'F',
+		       (proto_is_protocol_enabled_by_default(hdtbl_entry->protocol) && hdtbl_entry->enabled) ? 'T' : 'F',
+		       hdtbl_entry->short_name,
+		       hdtbl_entry->display_name);
 	}
 }
 
@@ -3637,16 +3664,21 @@ dissector_dump_decodes(void)
 }
 
 /*
- * Dumps the "layer type"/"decode as" associations to stdout, similar
- * to the proto_registrar_dump_*() routines.
+ * Dumps information about dissector tables to stdout.
  *
  * There is one record per line. The fields are tab-delimited.
  *
- * Field 1 = layer type, e.g. "tcp.port"
- * Field 2 = selector in decimal
- * Field 3 = "decode as" name, e.g. "http"
+ * Field 1 = dissector table name, e.g. "tcp.port"
+ * Field 2 = name used for the dissector table in the GUI
+ * Field 3 = type (textual representation of the ftenum type)
+ * Field 4 = base for display (for integer types)
+ * Field 5 = protocol name
+ * Field 6 = "decode as" support
+ *
+ * This does not dump the *individual entries* in the dissector tables,
+ * i.e. it doesn't show what dissector handles what particular value
+ * of the key in the dissector table.
  */
-
 
 static void
 dissector_dump_dissector_tables_display (gpointer key, gpointer user_data _U_)
@@ -3718,6 +3750,57 @@ dissector_dump_dissector_tables(void)
 	list = g_list_sort(list, compare_dissector_key_name);
 	g_list_foreach(list, dissector_dump_dissector_tables_display, NULL);
 	g_list_free(list);
+}
+
+/*
+ * Dumps the entries in the table of registered dissectors.
+ *
+ * There is one record per line. The fields are tab-delimited.
+ *
+ * Field 1 = dissector name
+ * Field 2 = dissector description
+ */
+
+struct dissector_info {
+	const char *name;
+	const char *description;
+};
+
+static int
+compare_dissector_info_names(const void *arg1, const void *arg2)
+{
+	const struct dissector_info *info1 = (const struct dissector_info *) arg1;
+	const struct dissector_info *info2 = (const struct dissector_info *) arg2;
+
+	return strcmp(info1->name, info2->name);
+}
+
+void
+dissector_dump_dissectors(void)
+{
+	GHashTableIter iter;
+	struct dissector_info *dissectors_info;
+	guint num_protocols;
+	gpointer key, value;
+	guint proto_index;
+
+	g_hash_table_iter_init(&iter, registered_dissectors);
+	num_protocols = g_hash_table_size(registered_dissectors);
+	dissectors_info = g_new(struct dissector_info, num_protocols);
+	proto_index = 0;
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		dissectors_info[proto_index].name = (const char *)key;
+		dissectors_info[proto_index].description =
+		    ((dissector_handle_t) value)->description;
+		proto_index++;
+	}
+	qsort(dissectors_info, num_protocols, sizeof(struct dissector_info),
+	    compare_dissector_info_names);
+	for (proto_index = 0; proto_index < num_protocols; proto_index++) {
+		printf("%s\t%s\n", dissectors_info[proto_index].name,
+		    dissectors_info[proto_index].description);
+	}
+	g_free(dissectors_info);
 }
 
 void

@@ -1,15 +1,18 @@
 // Common attributes
 
-:wireshark-version: 4.1.0
+:wireshark-version: 4.1.1
 :logray-version: 0.9.0
 
 // Required for btn, kbd:, and menu: macros.
 :experimental:
 
-// Don't add a "Last updated" footer to our man pages.
+// We want footers (which include page numbers) in our PDF output but
+// not elsewhere, particularly in our man pages.
 // We could use the "reproducible" attribute here, but it generates an
 // empty black box.
+ifndef::backend-pdf[]
 :nofooter:
+endif::[]
 
 // Create PA4 (210 × 280mm) pages: https://en.wikipedia.org/wiki/Paper_size#PA4_or_L4
 // This is the approximate intersection of A4 (210 × 297mm) and U.S. Letter
@@ -27,6 +30,8 @@
 :wireshark-main-url: https://www.wireshark.org/
 :wireshark-gitlab-project-url: https://gitlab.com/wireshark/wireshark
 :wireshark-qa-url: https://ask.wireshark.org/
+:wireshark-foundation-url: https://wiresharkfoundation.org/
+:sharkfest-url: https://sharkfest.wireshark.org/
 
 // Wireshark secondary URLs (pages)
 :wireshark-bugs-url: {wireshark-gitlab-project-url}/-/issues

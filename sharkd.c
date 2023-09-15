@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
-#include <errno.h>
 #include <signal.h>
 
 #include <glib.h>
@@ -204,7 +203,7 @@ main(int argc, char *argv[])
 #ifdef HAVE_MAXMINDDB
     /* mmdbresolve is started from mmdb_resolve_start(), which is called from epan_load_settings via: read_prefs -> (...) uat_load_all -> maxmind_db_post_update_cb.
      * Need to stop it, otherwise all sharkd will have same mmdbresolve process, including pipe descriptors to read and write. */
-    uat_clear(uat_get_table_by_name("MaxMind Database Paths"));
+    uat_get_table_by_name("MaxMind Database Paths")->reset_cb();
 #endif
 
     ret = sharkd_loop(argc, argv);
@@ -585,7 +584,7 @@ sharkd_retap(void)
     tap_flags = union_of_tap_listener_flags();
 
     /* If any tap listeners require the columns, construct them. */
-    cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cfile.cinfo : NULL;
+    cinfo = (tap_listeners_require_columns()) ? &cfile.cinfo : NULL;
 
     /*
      * Determine whether we need to create a protocol tree.

@@ -176,7 +176,7 @@ print_usage(FILE *output)
     fprintf(output, "  -d <encap:linktype>|<proto:protoname>\n");
     fprintf(output, "                           packet encapsulation or protocol\n");
     fprintf(output, "  -F <field>               field to display\n");
-#ifndef _WIN32
+#if !defined(_WIN32) && defined(RLIMIT_AS)
     fprintf(output, "  -m                       virtual memory limit, in bytes\n");
 #endif
     fprintf(output, "  -n                       disable all name resolutions (def: \"mNd\" enabled, or\n");
@@ -190,6 +190,11 @@ print_usage(FILE *output)
     fprintf(output, "                           enable dissection of proto_name\n");
     fprintf(output, "  --disable-protocol <proto_name>\n");
     fprintf(output, "                           disable dissection of proto_name\n");
+    fprintf(output, "  --only-protocols <protocols>\n");
+    fprintf(output, "                           Only enable dissection of these protocols, comma\n");
+    fprintf(output, "                           separated. Disable everything else\n");
+    fprintf(output, "  --disable-all-protocols\n");
+    fprintf(output, "                           Disable dissection of all protocols\n");
     fprintf(output, "  --enable-heuristic <short_name>\n");
     fprintf(output, "                           enable dissection of heuristic protocol\n");
     fprintf(output, "  --disable-heuristic <short_name>\n");
@@ -412,7 +417,7 @@ main(int argc, char *argv[])
     int                  opt, i;
     df_error_t          *df_err;
 
-#ifndef _WIN32
+#if !defined(_WIN32) && defined(RLIMIT_AS)
     struct rlimit limit;
 #endif  /* !_WIN32 */
 
@@ -584,13 +589,14 @@ main(int argc, char *argv[])
                    and the output buffer is only flushed when it fills up). */
                 line_buffered = TRUE;
                 break;
-#ifndef _WIN32
+#if !defined(_WIN32) && defined(RLIMIT_AS)
             case 'm':
                 limit.rlim_cur = get_positive_int(ws_optarg, "memory limit");
                 limit.rlim_max = get_positive_int(ws_optarg, "memory limit");
 
                 if(setrlimit(RLIMIT_AS, &limit) != 0) {
-                    cmdarg_err("setrlimit() returned error");
+                    cmdarg_err("setrlimit(RLIMIT_AS) failed: %s",
+                               g_strerror(errno));
                     ret = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
                 }
@@ -671,6 +677,8 @@ main(int argc, char *argv[])
             case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
             case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
             case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
+            case LONGOPT_ONLY_PROTOCOLS: /* enable dissection of only this comma separated list of protocols */
+            case LONGOPT_DISABLE_ALL_PROTOCOLS: /* enable dissection of protocol (that is disabled by default) */
                 if (!dissect_opts_handle_opt(opt, ws_optarg)) {
                     ret = WS_EXIT_INVALID_OPTION;
                     goto clean_exit;
@@ -732,8 +740,10 @@ main(int argc, char *argv[])
         goto clean_exit;
     }
 
-    timestamp_set_type(global_dissect_options.time_format);
-    timestamp_set_precision(global_dissect_options.time_precision);
+    if (global_dissect_options.time_format != TS_NOT_SET)
+        timestamp_set_type(global_dissect_options.time_format);
+    if (global_dissect_options.time_precision != TS_PREC_NOT_SET)
+        timestamp_set_precision(global_dissect_options.time_precision);
 
     /*
      * Enabled and disabled protocols and heuristic dissectors as per
@@ -1141,7 +1151,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
         fs_ptr = fs_buf;
 
         /* String types are quoted. Remove them. */
-        if (IS_FT_STRING(fvalue_type_ftenum(finfo->value)) && fs_len > 2) {
+        if (FT_IS_STRING(fvalue_type_ftenum(finfo->value)) && fs_len > 2) {
             fs_buf[fs_len - 1] = '\0';
             fs_ptr++;
         }

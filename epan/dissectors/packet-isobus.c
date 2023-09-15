@@ -14,11 +14,13 @@
 
 #include <epan/packet.h>
 #include <epan/reassemble.h>
-#include <epan/dissectors/packet-socketcan.h>
+#include "packet-socketcan.h"
 #include <epan/wmem_scopes.h>
 
 void proto_register_isobus(void);
 void proto_reg_handoff_isobus(void);
+
+static dissector_handle_t isobus_handle;
 
 /* Initialize the protocol and registered fields */
 static int proto_isobus = -1;
@@ -844,14 +846,13 @@ proto_register_isobus(void)
 
     subdissector_table = register_dissector_table("isobus.pdu_format",
         "PDU format", proto_isobus, FT_UINT8, BASE_DEC);
+
+    isobus_handle = register_dissector("isobus",  dissect_isobus, proto_isobus );
 }
 
 void
 proto_reg_handoff_isobus(void)
 {
-   dissector_handle_t isobus_handle;
-
-   isobus_handle = create_dissector_handle( dissect_isobus, proto_isobus );
    dissector_add_for_decode_as("can.subdissector", isobus_handle );
 }
 

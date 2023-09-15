@@ -12,6 +12,7 @@
 
 #include <glib.h>
 
+#include <errno.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -142,6 +143,11 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "                           enable dissection of proto_name\n");
     fprintf(output, "  --disable-protocol <proto_name>\n");
     fprintf(output, "                           disable dissection of proto_name\n");
+    fprintf(output, "  --only-protocols <proto_name>\n");
+    fprintf(output, "                           Only enable dissection of these protocols, comma\n");
+    fprintf(output, "                           separated. Disable everything else\n");
+    fprintf(output, "  --disable-all-protocols\n");
+    fprintf(output, "                           Disable dissection of all protocols\n");
     fprintf(output, "  --enable-heuristic <short_name>\n");
     fprintf(output, "                           enable dissection of heuristic protocol\n");
     fprintf(output, "  --disable-heuristic <short_name>\n");
@@ -226,6 +232,7 @@ void commandline_early_options(int argc, char *argv[])
     int err;
     GList *if_list;
     gchar *err_str;
+    int exit_status;
 #else
     gboolean capture_option_specified;
 #endif
@@ -297,15 +304,31 @@ void commandline_early_options(int argc, char *argv[])
                 break;
             case 'D':        /* Print a list of capture devices and exit */
 #ifdef HAVE_LIBPCAP
+                exit_status = EXIT_SUCCESS;
                 if_list = capture_interface_list(&err, &err_str, NULL);
+                if (err != 0) {
+                    /*
+                     * An error occurred when fetching the local
+                     * interfaces.  Report it.
+                     */
+#ifdef _WIN32
+                    create_console();
+#endif /* _WIN32 */
+                    cmdarg_err("%s", err_str);
+                    g_free(err_str);
+                    exit_status = WS_EXIT_PCAP_ERROR;
+                }
                 if (if_list == NULL) {
-                    if (err == 0)
+                    /*
+                     * No interfaces were found.  If that's not the
+                     * result of an error when fetching the local
+                     * interfaces, let the user know.
+                     */
+                    if (err == 0) {
                         cmdarg_err("There are no interfaces on which a capture can be done");
-                    else {
-                        cmdarg_err("%s", err_str);
-                        g_free(err_str);
+                        exit_status = WS_EXIT_NO_INTERFACES;
                     }
-                    exit(WS_EXIT_INVALID_INTERFACE);
+                    exit(exit_status);
                 }
 #ifdef _WIN32
                 create_console();
@@ -315,7 +338,7 @@ void commandline_early_options(int argc, char *argv[])
 #ifdef _WIN32
                 destroy_console();
 #endif /* _WIN32 */
-                exit(EXIT_SUCCESS);
+                exit(exit_status);
 #else /* HAVE_LIBPCAP */
                 capture_option_specified = TRUE;
 #endif /* HAVE_LIBPCAP */
@@ -411,7 +434,6 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
     }
 
     /* Initialize with default values */
-    dissect_opts_init();
     global_commandline_info.jump_backwards = SD_FORWARD;
     global_commandline_info.go_to_packet = 0;
     global_commandline_info.jfilter = NULL;
@@ -488,7 +510,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                 break;
             case 'l':        /* Automatic scrolling in live capture mode */
 #ifdef HAVE_LIBPCAP
-                auto_scroll_live = TRUE;
+                recent.capture_auto_scroll = TRUE;
 #else
                 capture_option_specified = TRUE;
                 arg_error = TRUE;
@@ -604,6 +626,8 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case LONGOPT_ENABLE_HEURISTIC: /* enable heuristic dissection of protocol */
             case LONGOPT_DISABLE_HEURISTIC: /* disable heuristic dissection of protocol */
             case LONGOPT_ENABLE_PROTOCOL: /* enable dissection of protocol (that is disabled by default) */
+            case LONGOPT_ONLY_PROTOCOLS: /* enable dissection of these comma separated protocols only */
+            case LONGOPT_DISABLE_ALL_PROTOCOLS: /* disable dissection of all protocols */
                 if (!dissect_opts_handle_opt(opt, ws_optarg))
                    exit_application(1);
                 break;

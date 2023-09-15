@@ -137,13 +137,14 @@ int main(int argc, char *argv[])
 	char* err_msg;
 	int option_idx = 0;
 	int result;
-	guint16 maxbytes = 5000;
-	guint64 count = 1000;
-	guint64 packet_delay_ms = 0;
-	int random_type = FALSE;
-	int all_random = FALSE;
+	uint16_t maxbytes = 5000;
+	uint64_t count = 1000;
+	uint64_t packet_delay_ms = 0;
+	int random_type = false;
+	int all_random = false;
 	char* type = NULL;
 	int produce_type = -1;
+	int file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
 	randpkt_example	*example;
 	wtap_dumper* savedump;
 	int ret = EXIT_FAILURE;
@@ -218,7 +219,7 @@ int main(int argc, char *argv[])
 		case OPT_MAXBYTES:
 			if (!ws_strtou16(ws_optarg, NULL, &maxbytes)) {
 				ws_warning("Invalid parameter maxbytes: %s (max value is %u)",
-					ws_optarg, G_MAXUINT16);
+					ws_optarg, UINT16_MAX);
 				goto end;
 			}
 			break;
@@ -238,11 +239,11 @@ int main(int argc, char *argv[])
 			break;
 
 		case OPT_RANDOM_TYPE:
-			random_type = TRUE;
+			random_type = true;
 			break;
 
 		case OPT_ALL_RANDOM:
-			all_random = TRUE;
+			all_random = true;
 			break;
 
 		case OPT_TYPE:
@@ -304,7 +305,11 @@ int main(int argc, char *argv[])
 			goto end;
 		}
 
-		wtap_init(FALSE);
+		wtap_init(false);
+
+		if (file_type_subtype == WTAP_FILE_TYPE_SUBTYPE_UNKNOWN) {
+			file_type_subtype = wtap_pcapng_file_type_subtype();
+		}
 
 		if (!all_random) {
 			produce_type = randpkt_parse_type(type);
@@ -315,7 +320,7 @@ int main(int argc, char *argv[])
 
 			ws_debug("Generating packets: %s", example->abbrev);
 
-			randpkt_example_init(example, extcap_conf->fifo, maxbytes);
+			randpkt_example_init(example, extcap_conf->fifo, maxbytes, file_type_subtype);
 			randpkt_loop(example, count, packet_delay_ms);
 			randpkt_example_close(example);
 		} else {
@@ -323,7 +328,7 @@ int main(int argc, char *argv[])
 			example = randpkt_find_example(produce_type);
 			if (!example)
 				goto end;
-			randpkt_example_init(example, extcap_conf->fifo, maxbytes);
+			randpkt_example_init(example, extcap_conf->fifo, maxbytes, file_type_subtype);
 
 			while (count-- > 0) {
 				randpkt_loop(example, 1, packet_delay_ms);

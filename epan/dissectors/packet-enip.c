@@ -3,7 +3,7 @@
  * EtherNet/IP Home: www.odva.org
  *
  * This dissector includes items from:
- *    CIP Volume 1: Common Industrial Protocol, Edition 3.24
+ *    CIP Volume 1: Common Industrial Protocol, Edition 3.34
  *    CIP Volume 2: EtherNet/IP Adaptation of CIP, Edition 1.30
  *    CIP Volume 8: CIP Security, Edition 1.13
  *
@@ -448,6 +448,8 @@ static dissector_handle_t  enip_udp_handle;
 static dissector_handle_t  cipio_handle;
 static dissector_handle_t  cip_class1_handle;
 static dissector_handle_t  dtls_handle;
+static dissector_handle_t  dlr_handle;
+
 
 static gboolean enip_desegment  = TRUE;
 static gboolean enip_OTrun_idle = TRUE;
@@ -1190,7 +1192,7 @@ enip_conv_info_t* get_conversation_info_one_direction(packet_info* pinfo, addres
 }
 
 // connInfo - Connection Information that is known so far (from the Forward Open Request).
-static void enip_open_cip_connection( packet_info *pinfo, cip_conn_info_t* connInfo)
+static void enip_open_cip_connection( packet_info *pinfo, cip_conn_info_t* connInfo, guint8 service)
 {
    if (pinfo->fd->visited)
       return;
@@ -1217,6 +1219,7 @@ static void enip_open_cip_connection( packet_info *pinfo, cip_conn_info_t* connI
       // These values are not copies from the Forward Open Request. Initialize these separately.
       conn_val->open_reply_frame = pinfo->num;
       conn_val->connid = enip_unique_connid++;
+      conn_val->is_concurrent_connection = (service == SC_CM_CONCURRENT_FWD_OPEN);
 
       wmem_map_insert(enip_conn_hashtable, conn_key, conn_val );
 
@@ -2822,6 +2825,7 @@ static void dissect_item_unconnected_message_over_udp(packet_info* pinfo, tvbuff
 static gboolean is_forward_open(guint8 cip_service)
 {
    return (cip_service == SC_CM_FWD_OPEN
+      || cip_service == SC_CM_CONCURRENT_FWD_OPEN
       || cip_service == SC_CM_LARGE_FWD_OPEN);
 }
 
@@ -2964,6 +2968,18 @@ dissect_cpf(enip_request_key_t *request_key, int command, tvbuff_t *tvb,
 
             case CPF_ITEM_CONNECTED_DATA:  // 2nd item for: Connected messages (both Class 0/1 and Class 3)
                // Save the connection info for the conversation filter
+
+               if (conn_info && conn_info->is_concurrent_connection)
+               {
+                  int cc_header_len = dissect_concurrent_connection_packet(pinfo, tvb, offset, dissector_tree);
+
+                  // The header length only includes the beginning part of the header. But, the actual data length
+                  // needs to remove the header AND the CRC field. The CRC field was parsed as part of the previous
+                  // header function.
+                  offset += cc_header_len;
+                  item_length = item_length - cc_header_len - CC_CRC_LENGTH;
+               }
+
                if (!pinfo->fd->visited && conn_info)
                {
                   p_add_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_CONNECTION_INFO, conn_info);
@@ -3027,7 +3043,7 @@ dissect_cpf(enip_request_key_t *request_key, int command, tvbuff_t *tvb,
       enip_request_info_t* request_info = (enip_request_info_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_REQUEST_INFO);
       if (request_info != NULL)
       {
-         enip_open_cip_connection(pinfo, request_info->cip_info->connInfo);
+         enip_open_cip_connection(pinfo, request_info->cip_info->connInfo, request_info->cip_info->bService & CIP_SC_MASK);
       }
       p_remove_proto_data(wmem_file_scope(), pinfo, proto_enip, ENIP_REQUEST_INFO);
    }
@@ -5014,6 +5030,7 @@ proto_register_enip(void)
       FT_PROTOCOL);
 
    enip_tcp_handle = register_dissector("enip", dissect_enip_tcp, proto_enip);
+   enip_udp_handle = register_dissector("enip.udp", dissect_enip_udp, proto_enip);
    cipio_handle = register_dissector("cipio", dissect_cipio, proto_cipio);
    cip_class1_handle = register_dissector("cipio_class1", dissect_cip_class1, proto_cip_class1);
    cip_io_generic_handle = register_dissector("cipgenericio", dissect_cip_io_generic, proto_cipio);
@@ -5063,6 +5080,7 @@ proto_register_enip(void)
    /* Required function calls to register the header fields and subtrees used */
    proto_register_field_array(proto_dlr, hfdlr, array_length(hfdlr));
    proto_register_subtree_array(ettdlr, array_length(ettdlr));
+   dlr_handle = register_dissector("dlr", dissect_dlr, proto_dlr);
 
    register_conversation_filter("enip", "CIP Connection", cip_connection_conv_valid, cip_connection_conv_filter, NULL);
 
@@ -5127,13 +5145,10 @@ int dissect_lldp_cip_tlv(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 void
 proto_reg_handoff_enip(void)
 {
-   dissector_handle_t dlr_handle;
-
    /* Register for EtherNet/IP, using TCP */
    dissector_add_uint_with_preference("tcp.port", ENIP_ENCAP_PORT, enip_tcp_handle);
 
    /* Register for EtherNet/IP, using UDP */
-   enip_udp_handle = create_dissector_handle(dissect_enip_udp, proto_enip);
    dissector_add_uint_with_preference("udp.port", ENIP_ENCAP_PORT, enip_udp_handle);
 
    /* Register for EtherNet/IP IO data (UDP) */
@@ -5160,7 +5175,6 @@ proto_reg_handoff_enip(void)
    cip_handle = find_dissector_add_dependency("cip", proto_enip);
 
    /* Register for EtherNet/IP Device Level Ring protocol */
-   dlr_handle = create_dissector_handle(dissect_dlr, proto_dlr);
    dissector_add_uint("ethertype", ETHERTYPE_DLR, dlr_handle);
 
    subdissector_class_table = find_dissector_table("cip.class.iface");

@@ -27,10 +27,11 @@
 #include <epan/proto_data.h>
 #include <wsutil/utf8_entities.h>
 
-#include <packet-tecmp.h>
-#include <packet-socketcan.h>
-#include <packet-flexray.h>
-#include <packet-lin.h>
+#include "packet-tecmp.h"
+#include "packet-socketcan.h"
+#include "packet-flexray.h"
+#include "packet-lin.h"
+
 
 void proto_register_tecmp(void);
 void proto_reg_handoff_tecmp(void);
@@ -46,9 +47,8 @@ static int proto_vlan;
 static gboolean heuristic_first = FALSE;
 static gboolean analog_samples_are_signed_int = TRUE;
 static gboolean show_ethernet_in_tecmp_tree = FALSE;
+static gboolean detect_asam_cmp = TRUE;
 
-static dissector_table_t fr_subdissector_table;
-static heur_dissector_list_t fr_heur_subdissector_list;
 static dissector_table_t lin_subdissector_table;
 static dissector_table_t data_subdissector_table;
 static dissector_handle_t text_lines_handle;
@@ -311,6 +311,8 @@ static gint ett_tecmp_status_bus_vendor_data_flags = -1;
 static gint ett_tecmp_ctrl_message_10baset1s_flags = -1;
 static gint ett_tecmp_ctrl_message_10baset1s_events_errors = -1;
 
+/* dissector handle to hand off to ASAM CMP (successor protocol) */
+static dissector_handle_t asam_cmp_handle;
 
 /*** expert info items ***/
 static expert_field ef_tecmp_payload_length_mismatch = EI_INIT;
@@ -1293,34 +1295,34 @@ dissect_tecmp_status_bus_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, prot
             proto_tree_add_bitmask(tree, tvb, offset, hf_tecmp_payload_status_bus_vendor_technica_10m_flags, ett_tecmp_status_bus_vendor_data_flags, vendor_data_flags_10BASE_T1S, ENC_BIG_ENDIAN);
             offset += 1;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res0, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res0, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_beacon_counter, tvb, offset, 4, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_beacon_counter, tvb, offset, 4, ENC_NA);
             offset += 4;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_link_quality, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_link_quality, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res1, tvb, offset, 1, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res1, tvb, offset, 1, ENC_NA);
             offset += 1;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res2, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_res2, tvb, offset, 2, ENC_NA);
             offset += 2;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_5b_decode_err_cnt, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_5b_decode_err_cnt, tvb, offset, 2, ENC_NA);
             offset += 2;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_eos_delim_err_cnt, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_eos_delim_err_cnt, tvb, offset, 2, ENC_NA);
             offset += 2;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_detected_cnt, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_detected_cnt, tvb, offset, 2, ENC_NA);
             offset += 2;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_missing_cnt, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_missing_cnt, tvb, offset, 2, ENC_NA);
             offset += 2;
 
-            ti = proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_empty_cycle_cnt, tvb, offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_plca_symbols_empty_cycle_cnt, tvb, offset, 2, ENC_NA);
         } else {
             if (bytes_remaining >= 1) {
                 proto_tree_add_item(tree, hf_tecmp_payload_status_bus_vendor_technica_link_status, tvb, offset, 1, ENC_NA);
@@ -1364,18 +1366,15 @@ dissect_tecmp_status_device_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, p
         offset += 1;
         tmp = tvb_get_guint24(tvb, offset, ENC_BIG_ENDIAN);
         proto_tree_add_string_format(tree, hf_tecmp_payload_status_dev_vendor_technica_sw, tvb, offset, 3, NULL,
-                                     "Software Version: v.%d.%d.%d",
-                                     (tmp&0x00ff0000)>>16, (tmp&0x0000ff00)>>8, tmp&0x000000ff);
+                                     "Software Version: v%d.%d.%d", (tmp&0x00ff0000)>>16, (tmp&0x0000ff00)>>8, tmp&0x000000ff);
         offset += 3;
 
         tmp = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
         proto_tree_add_string_format(tree, hf_tecmp_payload_status_dev_vendor_technica_hw, tvb, offset, 2, NULL,
-                                     "Hardware Version: v.%d.%x",
-                                     (tmp & 0x0000ff00) >> 8, tmp & 0x000000ff);
+                                     "Hardware Version: v%d.%x", (tmp & 0x0000ff00) >> 8, tmp & 0x000000ff);
         offset += 2;
 
-        ti = proto_tree_add_item(tree, hf_tecmp_payload_status_dev_vendor_technica_buffer_fill_level, tvb, offset, 1,
-                                 ENC_NA);
+        ti = proto_tree_add_item(tree, hf_tecmp_payload_status_dev_vendor_technica_buffer_fill_level, tvb, offset, 1, ENC_NA);
         proto_item_append_text(ti, "%s", "%");
         offset += 1;
 
@@ -1387,8 +1386,7 @@ dissect_tecmp_status_device_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, p
                                          4, tmp * 128, "%d MB", tmp * 128);
         offset += 4;
 
-        ti = proto_tree_add_item_ret_uint64(tree, hf_tecmp_payload_status_dev_vendor_technica_lifecycle, tvb, offset, 8,
-                                 ENC_BIG_ENDIAN, &tmp64);
+        ti = proto_tree_add_item_ret_uint64(tree, hf_tecmp_payload_status_dev_vendor_technica_lifecycle, tvb, offset, 8, ENC_BIG_ENDIAN, &tmp64);
 
         guint64 nanos = tmp64 % 1000000000;
         guint64 secs = tmp64 / 1000000000;
@@ -1410,8 +1408,7 @@ dissect_tecmp_status_device_vendor_data(tvbuff_t *tvb, packet_info *pinfo _U_, p
         tmp = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
 
         double voltage_value = (double)((tmp & 0x0000ff00) >> 8) + (tmp & 0x000000ff) / 100.0;
-        /* we are adding the base unit manually since currently proto.c does not do this for doubles */
-        proto_tree_add_double_format_value(tree, hf_tecmp_payload_status_dev_vendor_technica_voltage, tvb, offset, 2, voltage_value, "%g %s", voltage_value, unit_name_string_get_double(voltage_value, &units_volt));
+        proto_tree_add_double(tree, hf_tecmp_payload_status_dev_vendor_technica_voltage, tvb, offset, 2, voltage_value);
         offset += 2;
 
         if (tvb_captured_length_remaining(tvb, offset) == 1) {
@@ -1598,7 +1595,7 @@ dissect_tecmp_status_device(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_item_append_text(ti_tecmp_payload, " Status Device");
 
             if (vendor_data_len > 0) {
-                sub_tvb = tvb_new_subset_length_caplen(tvb, offset, (gint)vendor_data_len, (gint)vendor_data_len);
+                sub_tvb = tvb_new_subset_length(tvb, offset, (gint)vendor_data_len);
                 ti_tecmp_vendor_data = proto_tree_add_item(tecmp_tree, hf_tecmp_payload_status_vendor_data, tvb, offset, (gint)vendor_data_len, ENC_NA);
 
                 dissect_tecmp_status_device_vendor_data(sub_tvb, pinfo, ti_tecmp_vendor_data, (guint8)device_type, (guint8)vendor_id, timestamp_ns);
@@ -1635,7 +1632,7 @@ dissect_tecmp_status_device(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 offset += 12;
 
                 if (vendor_data_len > 0) {
-                    sub_tvb = tvb_new_subset_length_caplen(tvb, offset, (gint)vendor_data_len, (gint)vendor_data_len);
+                    sub_tvb = tvb_new_subset_length(tvb, offset, (gint)vendor_data_len);
                     ti_tecmp_vendor_data = proto_tree_add_item(tecmp_tree_bus, hf_tecmp_payload_status_vendor_data,
                                                                tvb, offset, (gint)vendor_data_len, ENC_NA);
 
@@ -1653,7 +1650,7 @@ dissect_tecmp_status_device(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_item_append_text(ti_tecmp_payload, " Status Configuration");
 
             if (vendor_data_len > 0) {
-                sub_tvb = tvb_new_subset_length_caplen(tvb, offset, (gint)vendor_data_len, (gint)vendor_data_len);
+                sub_tvb = tvb_new_subset_length(tvb, offset, (gint)vendor_data_len);
                 ti_tecmp_vendor_data = proto_tree_add_item(tecmp_tree, hf_tecmp_payload_status_vendor_data, tvb,
                                                            offset, (gint)vendor_data_len, ENC_NA);
 
@@ -1760,7 +1757,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         first = FALSE;
 
         if (length > 0) {
-            sub_tvb = tvb_new_subset_length_caplen(tvb, offset, (gint)length, (gint)length);
+            sub_tvb = tvb_new_subset_length(tvb, offset, (gint)length);
             offset2 = 0;
 
             switch (data_type) {
@@ -1769,9 +1766,10 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 proto_tree_add_bitmask(tecmp_tree, sub_tvb, offset2, hf_tecmp_payload_data_id_field_8bit, ett_tecmp_payload_lin_id, tecmp_payload_id_flags_lin, ENC_BIG_ENDIAN);
                 lin_info.bus_id = ht_interface_config_to_bus_id(interface_id);
-                ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_length, sub_tvb, offset2 + 1, 1,
-                                                  ENC_NA, &length2);
+                ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_length, sub_tvb, offset2 + 1, 1, ENC_NA, &length2);
                 offset2 += 2;
+
+                lin_set_source_and_destination_columns(pinfo, &lin_info);
 
                 if (length2 > 0 && tvb_captured_length_remaining(sub_tvb, offset2) < (gint)(length2 + 1)) {
                     expert_add_info(pinfo, ti, &ef_tecmp_payload_length_mismatch);
@@ -1831,6 +1829,8 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         can_info.id |= CAN_ERR_FLAG;
                     }
 
+                    socketcan_set_source_and_destination_columns(pinfo, &can_info);
+
                     if (!socketcan_call_subdissectors(payload_tvb, pinfo, tree, &can_info, heuristic_first)) {
                         dissect_data(payload_tvb, pinfo, tree, device_id, tecmp_msg_type, data_type, interface_id);
                     }
@@ -1863,6 +1863,8 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                 ti = proto_tree_add_item_ret_uint(tecmp_tree, hf_tecmp_payload_data_length, sub_tvb, offset2 + 3, 1, ENC_NA, &length2);
                 offset2 += 4;
+
+                flexray_set_source_and_destination_columns(pinfo, &fr_info);
 
                 if (tvb_captured_length_remaining(sub_tvb, offset2) < (gint)length2) {
                     expert_add_info(pinfo, ti, &ef_tecmp_payload_length_mismatch);
@@ -1954,7 +1956,7 @@ dissect_tecmp_log_or_replay_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     nstime_t timestamp;
                     timestamp.secs = (time_t)(ns / 1000000000);
                     timestamp.nsecs = (int)(ns % 1000000000);
-                    ti = proto_tree_add_time(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp, sub_tvb, offset2, 8, &timestamp);
+                    proto_tree_add_time(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp, sub_tvb, offset2, 8, &timestamp);
                     ti = proto_tree_add_uint64(tecmp_tree, hf_tecmp_payload_data_beacon_timestamp_ns, sub_tvb, offset2, 8, ns);
                     proto_item_set_hidden(ti);
 
@@ -2088,6 +2090,16 @@ dissect_tecmp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
         &hf_tecmp_flags_dev_overflow,
         NULL
     };
+
+    /* ASAM CMP is the successor of TECMP and uses the same EtherType.
+     *
+     * How to detect what the message is:
+     * The first byte in TECMP is always 0.
+     * The first byte in ASAM CMP is defined as version and is required to be > 0.
+     * If the first byte is not 0, we pass it be ASAM CMP */
+    if (detect_asam_cmp && asam_cmp_handle != 0 && tvb_get_guint8(tvb, offset) != 0) {
+        return call_dissector_with_data(asam_cmp_handle, tvb, pinfo, tree, data);
+    }
 
     col_clear(pinfo->cinfo, COL_INFO);
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "TECMP");
@@ -2395,7 +2407,7 @@ proto_register_tecmp_payload(void) {
             FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x0, NULL, HFILL } },
         { &hf_tecmp_payload_status_dev_vendor_technica_voltage,
             { "Voltage", "tecmp.payload.status_dev.vendor_technica.voltage",
-            FT_DOUBLE, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+            FT_DOUBLE, BASE_NONE | BASE_UNIT_STRING, &units_volt, 0x0, NULL, HFILL } },
         { &hf_tecmp_payload_status_dev_vendor_technica_temperature,
             { "Temperature", "tecmp.payload.status_dev.vendor_technica.temperature",
             FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_degree_celsius, 0x0, NULL, HFILL }},
@@ -2874,6 +2886,11 @@ proto_register_tecmp(void) {
         "More compact Ethernet representation (move into TECMP Tree)",
         "Move Ethernet into the TECMP Tree to be more space efficient.",
         &show_ethernet_in_tecmp_tree);
+
+    prefs_register_bool_preference(tecmp_module, "detect_asam_cmp",
+        "Detect ASAM CMP",
+        "Detect ASAM CMP messages and the ASAM CMP dissector handle them.",
+        &detect_asam_cmp);
 }
 
 void
@@ -2883,12 +2900,10 @@ proto_reg_handoff_tecmp(void) {
     tecmp_handle = create_dissector_handle(dissect_tecmp, proto_tecmp);
     dissector_add_uint("ethertype", ETHERTYPE_TECMP, tecmp_handle);
 
-    fr_subdissector_table  = find_dissector_table("flexray.subdissector");
-    fr_heur_subdissector_list = find_heur_dissector_list("flexray");
-
     lin_subdissector_table = find_dissector_table("lin.frame_id");
 
     text_lines_handle = find_dissector_add_dependency("data-text-lines", proto_tecmp);
+    asam_cmp_handle = find_dissector("asam-cmp");
 }
 
 /*

@@ -21,6 +21,8 @@
 void proto_register_homeplug_av(void);
 void proto_reg_handoff_homeplug_av(void);
 
+static dissector_handle_t homeplug_av_handle;
+
 static int proto_homeplug_av                     = -1;
 
 static int hf_homeplug_av_mmhdr                  = -1;
@@ -1542,7 +1544,7 @@ static const value_string homeplug_av_key_type_vals[] = {
     { 0, NULL }
 };
 
-#define HOMEPLUG_AV_DEV_ID_MASK 0xff
+#define HOMEPLUG_AV_DEV_ID_MASK 0x0
 
 static const value_string homeplug_av_dev_id_vals[] = {
     { 0x00, "Unknown" },
@@ -8436,14 +8438,13 @@ proto_register_homeplug_av(void)
     proto_register_field_array(proto_homeplug_av, hf, array_length(hf));
 
     proto_register_subtree_array(ett, array_length(ett));
+
+    homeplug_av_handle = register_dissector("homeplug-av", dissect_homeplug_av, proto_homeplug_av);
 }
 
 void
 proto_reg_handoff_homeplug_av(void)
 {
-    dissector_handle_t homeplug_av_handle;
-
-    homeplug_av_handle = create_dissector_handle(dissect_homeplug_av, proto_homeplug_av);
     dissector_add_uint("ethertype", ETHERTYPE_HOMEPLUG_AV, homeplug_av_handle);
 }
 

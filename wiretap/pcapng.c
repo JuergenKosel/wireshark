@@ -53,6 +53,9 @@ pcapng_close(wtap *wth);
 static gboolean
 pcapng_encap_is_ft_specific(int encap);
 
+static gboolean
+pcapng_write_if_descr_block(wtap_dumper *wdh, wtap_block_t int_data, int *err);
+
 /*
  * Minimum block size = size of block header + size of block trailer.
  */
@@ -1494,7 +1497,9 @@ pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
                            section_info_t *section_info,
                            wtapng_block_t *wblock, int *err, gchar **err_info)
 {
-    guint64 time_units_per_second = 1000000; /* default = 10^6 */
+    /* Default time stamp resolution is 10^6 */
+    guint64 time_units_per_second = 1000000;
+    int     tsprecision = 6;
     guint   opt_cont_buf_len;
     pcapng_interface_description_block_t idb;
     wtapng_if_descr_mandatory_t* if_descr_mand;
@@ -1570,24 +1575,108 @@ pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
         /*
          * Yes.  Set time_units_per_second appropriately.
          */
-        guint64 base;
-        guint64 result;
-        guint8 i, exponent;
+        guint8 exponent;
 
-        if (if_tsresol & 0x80) {
-            base = 2;
-        } else {
-            base = 10;
-        }
         exponent = (guint8)(if_tsresol & 0x7f);
-        if (((base == 2) && (exponent < 64)) || ((base == 10) && (exponent < 20))) {
+        if (if_tsresol & 0x80) {
+            /*
+             * 2^63 fits in a 64-bit unsigned number; 2^64 does not.
+             *
+             * ((2^64-1)/(2^63) is about 1.99, so, in practice, that
+             * fine a time stamp resolution works only if you start
+             * capturing at the Unix/POSIX epoch and capture for about
+             * 1.9 seconds, so the maximum useful power-of-2 exponent
+             * in a pcapng file is less than 63.)
+             */
+            if (exponent > 63) {
+                /*
+                 * Time units per second won't fit in a 64-bit integer,
+                 * so Wireshark's current code can't read the file.
+                 */
+                *err = WTAP_ERR_UNSUPPORTED;
+                *err_info = ws_strdup_printf("pcapng: IDB power-of-2 time stamp resolution %u > 63",
+                                             exponent);
+                return FALSE;
+            }
+
+            /* 2^exponent */
+            time_units_per_second = G_GUINT64_CONSTANT(1) << exponent;
+
+            /*
+             * Set the display precision to a value large enough to
+             * show the fractional time units we get, so that we
+             * don't display more digits than are justified.
+             *
+             * (That's also used as the base-10 if_tsresol value we use
+             * if we write this file as a pcapng file.  Yes, that means
+             * that we won't write out the exact value we read in.
+             *
+             * Dealing with base-2 time stamps is a bit of a mess,
+             * thanks to humans counting with their fingers rather
+             * than their hands, and it applies to mroe files than
+             * pcapng files, e.g. ERF files.)
+             */
+            if (time_units_per_second >= 1000000000)
+                tsprecision = WTAP_TSPREC_NSEC;
+            else if (time_units_per_second >= 100000000)
+                tsprecision = WTAP_TSPREC_10_NSEC;
+            else if (time_units_per_second >= 10000000)
+                tsprecision = WTAP_TSPREC_100_NSEC;
+            else if (time_units_per_second >= 1000000)
+                tsprecision = WTAP_TSPREC_USEC;
+            else if (time_units_per_second >= 100000)
+                tsprecision = WTAP_TSPREC_10_USEC;
+            else if (time_units_per_second >= 10000)
+                tsprecision = WTAP_TSPREC_100_USEC;
+            else if (time_units_per_second >= 1000)
+                tsprecision = WTAP_TSPREC_MSEC;
+            else if (time_units_per_second >= 100)
+                tsprecision = WTAP_TSPREC_10_MSEC;
+            else if (time_units_per_second >= 10)
+                tsprecision = WTAP_TSPREC_100_MSEC;
+            else
+                tsprecision = WTAP_TSPREC_SEC;
+        } else {
+            /*
+             * 10^19 fits in a 64-bit unsigned number; 10^20 does not.
+             *
+             * ((2^64-1)/(10^19) is about 1.84, so, in practice, that
+             * fine a time stamp resolution works only if you start
+             * capturing at the Unix/POSIX epoch and capture for about
+             * 1.8 seconds, so the maximum useful power-of-10 exponent
+             * in a pcapng file is less than 19.)
+             */
+            guint64 result;
+
+            if (exponent > 19) {
+                /*
+                 * Time units per second won't fit in a 64-bit integer,
+                 * so Wireshark's current code can't read the file.
+                 */
+                *err = WTAP_ERR_UNSUPPORTED;
+                *err_info = ws_strdup_printf("pcapng: IDB power-of-10 time stamp resolution %u > 19",
+                                             exponent);
+                return FALSE;
+            }
+
+            /* 10^exponent */
             result = 1;
-            for (i = 0; i < exponent; i++) {
-                result *= base;
+            for (guint i = 0; i < exponent; i++) {
+                result *= 10U;
             }
             time_units_per_second = result;
-        } else {
-            time_units_per_second = G_MAXUINT64;
+
+            /*
+             * Set the display precision to min(exponent, WS_TSPREC_MAX),
+             * so that we don't display more digits than are justified.
+             * (That's also used as the base-10 if_tsresol value we use
+             * if we write this file as a pcapng file.)
+             */
+            if (exponent <= WS_TSPREC_MAX) {
+                tsprecision = exponent;
+            } else {
+                tsprecision = WS_TSPREC_MAX;
+            }
         }
         if (time_units_per_second > (((guint64)1) << 32)) {
             ws_debug("time conversion might be inaccurate");
@@ -1598,18 +1687,13 @@ pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
      * Set the time units per second for this interface.
      */
     if_descr_mand->time_units_per_second = time_units_per_second;
-    if (time_units_per_second >= 1000000000)
-        if_descr_mand->tsprecision = WTAP_TSPREC_NSEC;
-    else if (time_units_per_second >= 1000000)
-        if_descr_mand->tsprecision = WTAP_TSPREC_USEC;
-    else if (time_units_per_second >= 1000)
-        if_descr_mand->tsprecision = WTAP_TSPREC_MSEC;
-    else if (time_units_per_second >= 100)
-        if_descr_mand->tsprecision = WTAP_TSPREC_CSEC;
-    else if (time_units_per_second >= 10)
-        if_descr_mand->tsprecision = WTAP_TSPREC_DSEC;
-    else
-        if_descr_mand->tsprecision = WTAP_TSPREC_SEC;
+
+    /*
+     * Set the number of digits of precision to display (and the
+     * number to use for this interface if saving to a pcapng
+     * file).
+     */
+    if_descr_mand->tsprecision = tsprecision;
 
     /*
      * If the per-file encapsulation isn't known, set it to this
@@ -4944,28 +5028,39 @@ pcapng_write_enhanced_packet_block(wtap_dumper *wdh, const wtap_rec *rec,
         options_size = compute_options_size(rec->block, compute_epb_option_size);
     }
 
-    /* write (enhanced) packet block header */
-    bh.block_type = BLOCK_TYPE_EPB;
-    bh.block_total_length = (guint32)sizeof(bh) + (guint32)sizeof(epb) + phdr_len + rec->rec_header.packet_header.caplen + pad_len + options_total_length + options_size + 4;
-
-    if (!wtap_dump_file_write(wdh, &bh, sizeof bh, err))
-        return FALSE;
-
-    /* write block fixed content */
+    /*
+     * Check the interface ID. Do this before writing the header,
+     * in case we need to add a new IDB.
+     */
     if (rec->presence_flags & WTAP_HAS_INTERFACE_ID)
         epb.interface_id        = rec->rec_header.packet_header.interface_id;
     else {
         /*
-         * XXX - we should support writing WTAP_ENCAP_PER_PACKET
-         * data to pcapng files even if we *don't* have interface
-         * IDs.
+         * The source isn't sending us IDBs. See if we already have a
+         * matching interface, and use it if so.
          */
-        epb.interface_id        = 0;
+        for (epb.interface_id = 0; epb.interface_id < wdh->interface_data->len; ++epb.interface_id) {
+            int_data = g_array_index(wdh->interface_data, wtap_block_t,
+                                     epb.interface_id);
+            int_data_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(int_data);
+            if (int_data_mand->wtap_encap == rec->rec_header.packet_header.pkt_encap) {
+                if (int_data_mand->tsprecision == rec->tsprec || (!(rec->presence_flags & WTAP_HAS_TS))) {
+                    break;
+                }
+            }
+        }
+        if (epb.interface_id == wdh->interface_data->len) {
+            /*
+             * We don't have a matching IDB. Generate a new one
+             * and write it to the file.
+             */
+            int_data = wtap_rec_generate_idb(rec);
+            g_array_append_val(wdh->interface_data, int_data);
+            if (!pcapng_write_if_descr_block(wdh, int_data, err)) {
+                return FALSE;
+            }
+        }
     }
-    /*
-     * Split the 64-bit timestamp into two 32-bit pieces, using
-     * the time stamp resolution for the interface.
-     */
     if (epb.interface_id >= wdh->interface_data->len) {
         /*
          * Our caller is doing something bad.
@@ -4989,6 +5084,19 @@ pcapng_write_enhanced_packet_block(wtap_dumper *wdh, const wtap_rec *rec,
                                     rec->rec_header.packet_header.pkt_encap);
         return FALSE;
     }
+
+    /* write (enhanced) packet block header */
+    bh.block_type = BLOCK_TYPE_EPB;
+    bh.block_total_length = (guint32)sizeof(bh) + (guint32)sizeof(epb) + phdr_len + rec->rec_header.packet_header.caplen + pad_len + options_total_length + options_size + 4;
+
+    if (!wtap_dump_file_write(wdh, &bh, sizeof bh, err))
+        return FALSE;
+
+    /* write block fixed content */
+    /*
+     * Split the 64-bit timestamp into two 32-bit pieces, using
+     * the time stamp resolution for the interface.
+     */
     ts = ((guint64)rec->ts.secs) * int_data_mand->time_units_per_second +
         (((guint64)rec->ts.nsecs) * int_data_mand->time_units_per_second) / 1000000000;
     epb.timestamp_high      = (guint32)(ts >> 32);

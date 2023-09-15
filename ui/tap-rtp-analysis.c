@@ -27,7 +27,6 @@
 #include <epan/addr_resolv.h>
 #include <epan/proto_data.h>
 #include <epan/dissectors/packet-rtp.h>
-#include <wsutil/pint.h>
 #include "rtp_stream.h"
 #include "tap-rtp-common.h"
 #include "tap-rtp-analysis.h"
@@ -168,7 +167,8 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
     double current_jitter = 0;
     double current_diff = 0;
     double nominaltime;
-    double arrivaltime;         /* Time relative to start_time */
+    double nominaltime_diff;
+    double arrivaltime;
     double expected_time;
     double absskew;
     guint32 clock_rate;
@@ -184,9 +184,11 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
         statinfo->seq_num = rtpinfo->info_seq_num;
         statinfo->start_time = current_time;
         statinfo->timestamp = rtpinfo->info_timestamp;
+        statinfo->seq_timestamp = rtpinfo->info_timestamp;
         statinfo->first_timestamp = rtpinfo->info_timestamp;
         statinfo->time = current_time;
         statinfo->lastnominaltime = 0;
+        statinfo->lastarrivaltime = 0;
         statinfo->pt = rtpinfo->info_payload_type;
         statinfo->reg_pt = rtpinfo->info_payload_type;
         if (pinfo->net_src.type == AT_IPv6) {
@@ -360,22 +362,28 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
     }
 
     /* diff/jitter/skew calculations are done just for in sequence packets */
-    if ( in_time_sequence ) {
-
-        /* Handle wraparound ? */
-        arrivaltime = current_time - statinfo->start_time;
-
-        nominaltime = (double)(guint32_wraparound_diff(rtpinfo->info_timestamp, statinfo->first_timestamp));
+    /* Note, "in_time_sequence" just means relative to the first packet in
+     * stream (within 0x80000000), excluding packets that are before the first
+     * packet in timestamp (or implausibly far away.)
+     * XXX: Do we really need to exclude those? The underlying problem in
+     * #16330 was not allowing the time difference to be negative.
+     */
+    if ( in_time_sequence || TRUE ) {
+        /* XXX: We try to handle clock rate changes, but if the clock rate
+         * changed during a dropped packet (or if we go backwards because
+         * a packet is reorderd), it won't be quite right.
+         */
+        nominaltime_diff = (double)(TIMESTAMP_DIFFERENCE(statinfo->seq_timestamp, rtpinfo->info_timestamp));
 
         /* Can only analyze defined sampling rates */
         if (clock_rate != 0) {
             statinfo->clock_rate = clock_rate;
             /* Convert from sampling clock to ms */
-            nominaltime = nominaltime /(clock_rate/1000);
+            nominaltime_diff = nominaltime_diff /(clock_rate/1000);
 
             /* Calculate the current jitter(in ms) */
             if (!statinfo->first_packet) {
-                expected_time = statinfo->time + (nominaltime - statinfo->lastnominaltime);
+                expected_time = statinfo->time + nominaltime_diff;
                 current_diff = fabs(current_time - expected_time);
                 current_jitter = (15 * statinfo->jitter + current_diff) / 16;
 
@@ -383,7 +391,8 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
                 statinfo->jitter = current_jitter;
                 statinfo->diff = current_diff;
             }
-            statinfo->lastnominaltime = nominaltime;
+            nominaltime = statinfo->lastnominaltime + nominaltime_diff;
+            arrivaltime = statinfo->lastarrivaltime + statinfo->delta;
             /* Calculate skew, i.e. absolute jitter that also catches clock drift
              * Skew is positive if TS (nominal) is too fast
              */
@@ -409,6 +418,8 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
             statinfo->sumTS  += 1.0 * nominaltime;
             statinfo->sumt2  += 1.0 * arrivaltime * arrivaltime;
             statinfo->sumtTS += 1.0 * arrivaltime * nominaltime;
+            statinfo->lastnominaltime = nominaltime;
+            statinfo->lastarrivaltime = arrivaltime;
         } else {
             if (!statinfo->first_packet) {
                 statinfo->delta = current_time-(statinfo->time);
@@ -523,11 +534,12 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
          * therefore diff calculations are correct for it
          */
         statinfo->time = current_time;
+        statinfo->seq_timestamp = rtpinfo->info_timestamp;
     }
     statinfo->timestamp = rtpinfo->info_timestamp;
     statinfo->stop_seq_nr = rtpinfo->info_seq_num;
     statinfo->total_nr++;
-    statinfo->last_payload_len = rtpinfo->info_payload_len - rtpinfo->info_padding_count;
+    statinfo->last_payload_len = rtpinfo->info_payload_len;
 
     return;
 }

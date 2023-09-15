@@ -1500,12 +1500,15 @@ order.
 For string fields, the encoding specifies the character set used for the
 string and the way individual code points in that character set are
 encoded. For FT_UINT_STRING fields, the byte order of the count must be
-specified; for UCS-2 and UTF-16, the byte order of the encoding must be
-specified (for counted UCS-2 and UTF-16 strings, the byte order of the
-count and the 16-bit values in the string must be the same). In other
-cases the string encoding has no endianness or the endianness is implicitly
-specified and nothing should be used. The character encodings that are
-currently supported are:
+specified. For UTF-16, UCS-2, and UCS-4, the byte order of the encoding
+must be specified, and optionally ENC_BOM can also be indicated to detect
+an initial BYTE ORDER MARK (the specified value is used if the field does
+not begin with a BOM.) For counted UTF-16, UCS-2, and UCS-4 strings, the
+byte order of the count and the characters in the string must be the same,
+unless a BOM overrides the value for the characters. In other cases the
+string encoding has no endianness or the endianness is implicitly specified
+and nothing should be used. The character encodings that are currently
+supported are:
 
     ENC_ASCII - ASCII (currently treated as UTF-8; in the future,
         all bytes with the 8th bit set will be treated as
@@ -1514,7 +1517,7 @@ currently supported are:
     ENC_UTF_16 - UTF-16-encoded Unicode, with surrogate pairs
     ENC_UCS_2 - UCS-2-encoded subset of Unicode, with no surrogate pairs
         and thus no code points above 0xFFFF
-    ENC_UCS_4 - UCS-4-encoded Unicode
+    ENC_UCS_4 - UCS-4-encoded Unicode (aka UTF-32)
     ENC_WINDOWS_1250 - Windows-1250 code page
     ENC_WINDOWS_1251 - Windows-1251 code page
     ENC_WINDOWS_1252 - Windows-1252 code page
@@ -1724,7 +1727,7 @@ For string-decoding, the passed-in encoding argument needs to specify the
 string encoding (e.g., ENC_ASCII, ENC_UTF_8) as well as the format. For
 some XXX types, the format is constrained - for example for the encoding format
 for proto_tree_add_time_item() can only be one of the ENC_ISO_8601_* ones
-or ENC_RFC_822 or ENC_RFC_1123. For proto_tree_add_bytes_item() it can only
+or ENC_IMF_DATE_TIME. For proto_tree_add_bytes_item() it can only
 be ENC_STR_HEX bit-or'ed with one or more of the ENC_SEP_* separator types.
 
 proto_tree_add_protocol_format()
@@ -2477,7 +2480,7 @@ See item 2.2.1.5 for more information about use of the 'data' pointer.
 This routine will create a new conversation based upon two address/port
 pairs. If you want to associate with the conversation a pointer to a
 private data structure you must use the conversation_add_proto_data
-function. The ptype variable is used to differentiate between
+function. The ctype variable is used to differentiate between
 conversations over different protocols, i.e. TCP and UDP. The options
 variable is used to define a conversation that will accept any destination
 address and/or port. Set options = 0 if the destination port and address
@@ -2486,17 +2489,17 @@ information on usage of the options parameter.
 
 The conversation_new prototype:
     conversation_t *conversation_new(guint32 setup_frame, address *addr1,
-        address *addr2, port_type ptype, guint32 port1, guint32 port2,
+        address *addr2, conversation_type ctype, guint32 port1, guint32 port2,
         guint options);
 
 Where:
-    guint32 setup_frame = The lowest numbered frame for this conversation
-    address* addr1      = first data packet address
-    address* addr2      = second data packet address
-    endpoint_type etype = endpoint type, defined in conversation.h
-    guint32 port1       = first data packet port
-    guint32 port2       = second data packet port
-    guint options       = conversation options, NO_ADDR2 and/or NO_PORT2
+    guint32 setup_frame     = The lowest numbered frame for this conversation
+    address* addr1          = first data packet address
+    address* addr2          = second data packet address
+    conversation_type ctype = conversation type, defined in conversation.h
+    guint32 port1           = first data packet port
+    guint32 port2           = second data packet port
+    guint options           = conversation options, NO_ADDR2 and/or NO_PORT2
 
 setup_frame indicates the first frame for this conversation, and is used to
 distinguish multiple conversations with the same addr1/port1 and addr2/port2
@@ -2544,17 +2547,17 @@ the routine will return a NULL value.
 The find_conversation prototype:
 
     conversation_t *find_conversation(guint32 frame_num, address *addr_a,
-        address *addr_b, port_type ptype, guint32 port_a, guint32 port_b,
+        address *addr_b, conversation_type ctype, guint32 port_a, guint32 port_b,
         guint options);
 
 Where:
-    guint32 frame_num = a frame number to match
-    address* addr_a = first address
-    address* addr_b = second address
-    port_type ptype = port type
-    guint32 port_a = first data packet port
-    guint32 port_b = second data packet port
-    guint options = conversation options, NO_ADDR_B and/or NO_PORT_B
+    guint32 frame_num       = a frame number to match
+    address* addr_a         = first address
+    address* addr_b         = second address
+    conversation_type ctype = conversation type
+    guint32 port_a          = first data packet port
+    guint32 port_b          = second data packet port
+    guint options           = conversation options, NO_ADDR_B and/or NO_PORT_B
 
 frame_num is a frame number to match. The conversation returned is where
     (frame_num >= conversation->setup_frame
@@ -2609,16 +2612,17 @@ find_conversation())
 
 The find_conversation_pinfo prototype:
 
-    extern conversation_t *find_conversation_pinfo(packet_info *pinfo, const guint options);
+    extern conversation_t *find_conversation_pinfo(packet_info *pinfo,
+        const guint options);
 
 Where:
-    packet_info *pinfo = the packet_info structure
+    packet_info *pinfo  = the packet_info structure
     const guint options = conversation options, NO_ADDR_B and/or NO_PORT_B
 
 The frame number and the addresses necessary for find_conversation() are
 taken from the addresses and ports in the pinfo structure,
-pinfo->conv_addr_port_endpoints if pinfo->use_conv_addr_port_endpoints is set, or
-pinfo->conv_elements if it is set.
+pinfo->conv_addr_port_endpoints if pinfo->use_conv_addr_port_endpoints is set,
+or pinfo->conv_elements if it is set.
 
 2.2.1.7 The find_or_create_conversation function.
 
@@ -2789,7 +2793,8 @@ my_entry_t *data_ptr;
 /* look up the conversation */
 
 conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-        pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+        conversation_pt_to_conversation_type(pinfo->ptype), 
+        pinfo->srcport, pinfo->destport, 0);
 
 /* if conversation found get the data pointer that you stored */
 if (conversation)
@@ -2804,7 +2809,8 @@ else {
 
     /* create the conversation with your data pointer  */
 
-    conversation = conversation_new(pinfo->num,  &pinfo->src, &pinfo->dst, pinfo->ptype,
+    conversation = conversation_new(pinfo->num,  &pinfo->src, &pinfo->dst,
+        conversation_pt_to_conversation_type(pinfo->ptype),
         pinfo->srcport, pinfo->destport, 0);
     conversation_add_proto_data(conversation, my_proto, (void *)data_ptr);
 }
@@ -2828,15 +2834,16 @@ that starts at the specific frame number.
 /* in the dissector routine */
 
     conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst,
-        pinfo->ptype, pinfo->srcport, pinfo->destport, 0);
+        conversation_pt_to_conversation_type(pinfo->ptype),
+        pinfo->srcport, pinfo->destport, 0);
     if (conversation == NULL || (conversation->setup_frame != pinfo->num)) {
         /* It's not part of any conversation or the returned
          * conversation->setup_frame doesn't match the current frame
          * create a new one.
          */
-        conversation = conversation_new(pinfo->num, &pinfo->src,
-            &pinfo->dst, pinfo->ptype, pinfo->srcport, pinfo->destport,
-            NULL, 0);
+        conversation = conversation_new(pinfo->num, &pinfo->src, &pinfo->dst,
+            conversation_pt_to_conversation_type(pinfo->ptype),
+            pinfo->srcport, pinfo->destport, 0);
     }
 
 
@@ -2911,13 +2918,23 @@ an application cycle. By keeping track of the frame number a conversation
 was started in Wireshark can still tell these different protocols apart.
 
 The second argument to conversation_set_dissector is a dissector handle,
-which is created with a call to create_dissector_handle or
-register_dissector.
+which is created with a call to create_dissector_handle,
+register_dissector, or register_dissector_with_description.
+
+register_dissector_with_description takes as arguments a string giving a name
+for the dissector, a string with a human-readable summary of the dissector, a
+pointer to the dissector function, and a protocol ID as returned by
+proto_register_protocol.
+
+register_dissector takes as arguments a string giving a name for the
+dissector, a pointer to the dissector function, and a protocol ID
+as returned by proto_register_protocol.
 
 create_dissector_handle takes as arguments a pointer to the dissector
-function and a protocol ID as returned by proto_register_protocol;
-register_dissector takes as arguments a string giving a name for the
-dissector, a pointer to the dissector function, and a protocol ID.
+function and a protocol ID as returned by proto_register_protocol.
+It is recommended to use one of the above two functions instead of this one,
+since they allow the dissector to be referenced by name from the command line,
+by other dissectors via calls to find_dissector, etc.
 
 The protocol ID is the ID for the protocol dissected by the function.
 The function will not be called if the protocol has been disabled by the
@@ -2940,7 +2957,7 @@ static void sub_dissector(tvbuff_t *tvb, packet_info *pinfo,
     socketpair
 */
     conversation = find_conversation(pinfo->num,
-                &pinfo->src, &pinfo->dst, protocol,
+                &pinfo->src, &pinfo->dst, conversation_type,
                 src_port, dst_port,  0);
 
 /* If there is no such conversation, or if there is one but for
@@ -2967,7 +2984,7 @@ proto_register_PROTOABBREV(void)
 {
     ...
 
-    sub_dissector_handle = create_dissector_handle(sub_dissector,
+    sub_dissector_handle = register_dissector("PROTOABBREV", sub_dissector,
         proto);
 
     ...
@@ -3043,7 +3060,7 @@ static dissector_handle_t sub_dissector_handle;
     if ( (conversation == NULL) ||
          (conversation->dissector_handle != sub_dissector_handle) ) {
         conversation = conversation_new(pinfo->num,
-        &server_src_addr, 0, protocol,
+        &server_src_addr, 0, conversation_type,
         server_src_port, 0, new_conv_info, NO_ADDR2 | NO_PORT2);
 
 /* set the dissector for the new conversation */
@@ -3243,10 +3260,10 @@ example, stolen from packet-hartip.c:
     dissector_handle_t hartip_tcp_handle;
     dissector_handle_t hartip_udp_handle;
 
-    hartip_tcp_handle = create_dissector_handle(dissect_hartip_tcp, proto_hartip);
-    hartip_udp_handle = create_dissector_handle(dissect_hartip_udp, proto_hartip);
+    hartip_udp_handle = register_dissector_with_description("hart_ip", "HART-IP over UDP", dissect_hartip_udp, proto_hartip);
+    hartip_tcp_handle = register_dissector_with_description("hart_ip.tcp", "HART-IP over TCP", dissect_hartip_tcp, proto_hartip);
 
-    dissector_add_uint("udp.port", HARTIP_PORT, hartip_udp_handle);
+    dissector_add_uint_with_preference("udp.port", HARTIP_PORT, hartip_udp_handle);
     dissector_add_uint_with_preference("tcp.port", HARTIP_PORT, hartip_tcp_handle);
 
 The dissect_hartip_udp function does very little work and calls
@@ -3394,11 +3411,11 @@ example using UDP and TCP dissection, stolen from packet-dnp.c:
     dissector_handle_t dnp3_tcp_handle;
     dissector_handle_t dnp3_udp_handle;
 
-    dnp3_tcp_handle = create_dissector_handle(dissect_dnp3_tcp, proto_dnp3);
-    dnp3_udp_handle = create_dissector_handle(dissect_dnp3_udp, proto_dnp3);
+    dnp3_tcp_handle = register_dissector("dnp3.tcp", dissect_dnp3_tcp, proto_dnp3);
+    dnp3_udp_handle = register_dissector("dnp3.udp", dissect_dnp3_udp, proto_dnp3);
 
-    dissector_add_uint("tcp.port", TCP_PORT_DNP, dnp3_tcp_handle);
-    dissector_add_uint("udp.port", UDP_PORT_DNP, dnp3_udp_handle);
+    dissector_add_uint_with_preference("tcp.port", TCP_PORT_DNP, dnp3_tcp_handle);
+    dissector_add_uint_with_preference("udp.port", UDP_PORT_DNP, dnp3_udp_handle);
 
 Both dissect_dnp3_tcp and dissect_dnp3_udp call tcp_dissect_pdus and
 udp_dissect_pdus respectively, with a reference to the same callbacks which

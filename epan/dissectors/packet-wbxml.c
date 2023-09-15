@@ -3960,7 +3960,7 @@ static const value_string  wbxml_uaprof_tags_cp2[] = {
 	{0x18, "prf:JavaScriptVersion"},
 	{0x19, "prf:PreferenceForFrames"},
 	{0x1A, "prf:TablesCapable"},
-	{0x1B, "Prf:XhtmlVersion"},
+	{0x1B, "prf:XhtmlVersion"},
 	{0x1C, "prf:XhtmlModules"},
 
 	{ 0x00, NULL }
@@ -6526,7 +6526,6 @@ static const value_string vals_wv_csp_13_element_value_tokens[] = {
 	{ 0x35, "GRANTED" },
 	{ 0x82, "Gray" },
 	{ 0x88, "Green" },
-	{ 0x3D, "History" },
 	{ 0x0E, "http://" },
 	{ 0x0F, "https://" },
 	{ 0x7C, "Huge" },

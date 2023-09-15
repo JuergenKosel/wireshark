@@ -8,20 +8,53 @@
 #
 '''Subprocess test case superclass'''
 
-import difflib
-import io
 import os
 import os.path
 import re
 import subprocess
 import sys
-import unittest
+import enum
 
 # To do:
 # - Add a subprocesstest.SkipUnlessCapture decorator?
 # - Try to catch crashes? See the comments below in waitProcess.
 
 process_timeout = 300 # Seconds
+
+class ExitCodes(enum.IntEnum):
+    OK = 0
+    COMMAND_LINE = 1
+    INVALID_INTERFACE = 2
+    INVALID_FILE_ERROR = 3
+    INVALID_FILTER_ERROR = 4
+    INVALID_CAPABILITY = 5
+    IFACE_NO_LINK_TYPES = 6
+    IFACE_HAS_NO_TIMESTAMP_TYPES = 7
+    INIT_FAILED = 8
+    OPEN_ERROR = 9
+    PCAP_NOT_SUPPORTED = 10
+    DUMPCAP_NOT_SUPPORTED = 11
+    NO_INTERFACES = 12
+    PCAP_ERROR = 13
+
+def run(*args, capture_output=False, stdout=None, stderr=None, encoding='utf-8', **kwargs):
+    ''' Wrapper for subprocess.run() that captures and decodes output.'''
+
+    # If the user told us what to do with standard streams use that.
+    if capture_output or stdout or stderr:
+        return subprocess.run(*args, capture_output=capture_output, stdout=stdout, stderr=stderr, encoding=encoding, **kwargs)
+
+    # If the user doesn't want to capture output try to ensure the child inherits the parents stdout and stderr on
+    # all platforms, so pytest can reliably capture it and do the right thing. Otherwise the child output may be interleaved
+    # on the console with the parent and mangle pytest's status output.
+    #
+    # Make the child inherit only the parents stdout and stderr.
+    return subprocess.run(*args, close_fds=True, stdout=sys.stdout, stderr=sys.stderr, encoding=encoding, **kwargs)
+
+def check_run(*args, **kwargs):
+    ''' Same as run(), also check child process returns 0 (success)'''
+    proc = run(*args, check=True, **kwargs)
+    return proc
 
 def cat_dhcp_command(mode):
     '''Create a command string for dumping dhcp.pcap to stdout'''
@@ -46,232 +79,47 @@ def cat_cap_file_command(cap_files):
         return 'copy {} CON'.format(quoted_paths)
     return 'cat {}'.format(quoted_paths)
 
-class LoggingPopen(subprocess.Popen):
-    '''Run a process using subprocess.Popen. Capture and log its output.
+def count_output(text, search_pat=None):
+    '''Returns the number of output lines (search_pat=None), otherwise returns a match count.'''
 
-    Stdout and stderr are captured to memory and decoded as UTF-8. On
-    Windows, CRLF line endings are normalized to LF. The program command
-    and output is written to log_fd.
-    '''
-    def __init__(self, proc_args, *args, **kwargs):
-        self.log_fd = kwargs.pop('log_fd', None)
-        self.max_lines = kwargs.pop('max_lines', None)
-        kwargs['stdout'] = subprocess.PIPE
-        kwargs['stderr'] = subprocess.PIPE
-        # Make sure communicate() gives us bytes.
-        kwargs['universal_newlines'] = False
-        self.proc_args = proc_args
-        super().__init__(proc_args, *args, **kwargs)
-        self.stdout_str = ''
-        self.stderr_str = ''
+    if not text:
+        return 0
 
-    @staticmethod
-    def trim_output(out_log, max_lines):
-        lines = out_log.splitlines(True)
-        if not len(lines) > max_lines * 2 + 1:
-            return out_log
-        header = lines[:max_lines]
-        body = lines[max_lines:-max_lines]
-        body = "<<< trimmed {} lines of output >>>\n".format(len(body))
-        footer = lines[-max_lines:]
-        return ''.join(header) + body + ''.join(footer)
+    if not search_pat:
+        return len(text.splitlines())
 
-    def wait_and_log(self):
-        '''Wait for the process to finish and log its output.'''
-        out_data, err_data = self.communicate(timeout=process_timeout)
-        out_log = out_data.decode('UTF-8', 'replace')
-        if self.max_lines and self.max_lines > 0:
-            out_log = self.trim_output(out_log, self.max_lines)
-        err_log = err_data.decode('UTF-8', 'replace')
-        self.log_fd.flush()
-        if isinstance(self.proc_args, list):
-            cmd_str = ' '.join(self.proc_args)
-        else:
-            cmd_str = self.proc_args
-        self.log_fd.write('-- Command: {}\n'.format(cmd_str))
-        if out_log:
-            self.log_fd.write('-- Begin stdout\n')
-            self.log_fd.write(out_log)
-            self.log_fd.write('-- End stdout\n')
-        else:
-            self.log_fd.write('-- Empty stdout\n')
-        if err_log:
-            self.log_fd.write('-- Begin stderr\n')
-            self.log_fd.write(err_log)
-            self.log_fd.write('-- End stderr\n')
-        else:
-            self.log_fd.write('-- Empty stderr\n')
-        self.log_fd.flush()
-        # Make sure our output is the same everywhere.
-        # Throwing a UnicodeDecodeError exception here is arguably a good thing.
-        self.stdout_str = out_data.decode('UTF-8', 'strict').replace('\r\n', '\n')
-        self.stderr_str = err_data.decode('UTF-8', 'strict').replace('\r\n', '\n')
+    match_count = 0
 
-    def stop_process(self, kill=False):
-        '''Stop the process immediately.'''
-        if kill:
-            super().kill()
-        else:
-            super().terminate()
+    search_re = re.compile(search_pat)
+    for line in text.splitlines():
+        if search_re.search(line):
+            match_count += 1
 
-    def terminate(self):
-        '''Terminate the process. Do not log its output.'''
-        # XXX Currently unused.
-        self.stop_process(kill=False)
+    return match_count
 
-    def kill(self):
-        '''Kill the process. Do not log its output.'''
-        self.stop_process(kill=True)
+def grep_output(text, search_pat):
+    return count_output(text, search_pat) > 0
 
-class SubprocessTestCase(unittest.TestCase):
-    '''Run a program and gather its stdout and stderr.'''
+def check_packet_count(cmd_capinfos, num_packets, cap_file):
+    '''Make sure a capture file contains a specific number of packets.'''
+    got_num_packets = False
+    capinfos_testout = subprocess.run([cmd_capinfos, cap_file], capture_output=True, check=True, encoding='utf-8')
+    assert capinfos_testout.returncode == 0
+    assert capinfos_testout.stdout
+    count_pat = r'Number of packets:\s+{}'.format(num_packets)
+    if re.search(count_pat, capinfos_testout.stdout):
+        got_num_packets = True
+    assert got_num_packets, 'Failed to capture exactly {} packets'.format(num_packets)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.exit_ok = 0
+def get_capture_info(cmd_capinfos, capinfos_args, cap_file):
+    '''Run capinfos on a capture file and log its output.
 
-        # See ws_exit_codes.h
-        self.exit_command_line = 1
-        self.exit_invalid_interface = 2
-        self.exit_invalid_file_error = 3
-        self.exit_invalid_filter_error = 4
-        self.exit_invalid_capability = 5
-        self.exit_iface_no_link_types = 6
-        self.exit_iface_has_no_timestamp_types = 7
-        self.exit_init_failed = 8
-        self.exit_open_error = 9
+    capinfos_args must be a sequence.'''
 
-        self.exit_code = None
-        self.log_fd = sys.stdout
-        self.processes = []
-        self.cleanup_files = []
-        self.dump_files = []
-
-    def log_fd_write_bytes(self, log_data):
-        self.log_fd.write(log_data)
-
-    def kill_processes(self):
-        '''Kill any processes we've opened so far'''
-        for proc in self.processes:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-
-    def tearDown(self):
-        """
-        Tears down a single test. Kills stray processes and closes the log file.
-        On errors, display the log contents. On success, remove temporary files.
-        """
-        self.kill_processes()
-
-    def getCaptureInfo(self, capinfos_args=None, cap_file=None):
-        '''Run capinfos on a capture file and log its output.
-
-        capinfos_args must be a sequence.
-        Default cap_file is <test id>.testout.pcap.'''
-        # XXX convert users to use a new fixture instead of this function.
-        cmd_capinfos = self._fixture_request.getfixturevalue('cmd_capinfos')
-        if not cap_file:
-            cap_file = self._fixture_request.getfixturevalue('result_file')('testout.pcap')
-        self.log_fd.write('\nOutput of {0} {1}:\n'.format(cmd_capinfos, cap_file))
-        capinfos_cmd = [cmd_capinfos]
-        if capinfos_args is not None:
-            capinfos_cmd += capinfos_args
-        capinfos_cmd.append(cap_file)
-        capinfos_data = subprocess.check_output(capinfos_cmd)
-        capinfos_stdout = capinfos_data.decode('UTF-8', 'replace')
-        self.log_fd.write(capinfos_stdout)
-        return capinfos_stdout
-
-    def checkPacketCount(self, num_packets, cap_file=None):
-        '''Make sure a capture file contains a specific number of packets.'''
-        got_num_packets = False
-        capinfos_testout = self.getCaptureInfo(cap_file=cap_file)
-        count_pat = r'Number of packets:\s+{}'.format(num_packets)
-        if re.search(count_pat, capinfos_testout):
-            got_num_packets = True
-        self.assertTrue(got_num_packets, 'Failed to capture exactly {} packets'.format(num_packets))
-
-    def countOutput(self, search_pat=None, count_stdout=True, count_stderr=False, proc=None):
-        '''Returns the number of output lines (search_pat=None), otherwise returns a match count.'''
-        match_count = 0
-        self.assertTrue(count_stdout or count_stderr, 'No output to count.')
-
-        if proc is None:
-            proc = self.processes[-1]
-
-        out_data = ''
-        if count_stdout:
-            out_data = proc.stdout_str
-        if count_stderr:
-            out_data += proc.stderr_str
-
-        if search_pat is None:
-            return len(out_data.splitlines())
-
-        search_re = re.compile(search_pat)
-        for line in out_data.splitlines():
-            if search_re.search(line):
-                match_count += 1
-
-        return match_count
-
-    def grepOutput(self, search_pat, proc=None):
-        return self.countOutput(search_pat, count_stderr=True, proc=proc) > 0
-
-    def diffOutput(self, blob_a, blob_b, *args, **kwargs):
-        '''Check for differences between blob_a and blob_b. Return False and log a unified diff if they differ.
-
-        blob_a and blob_b must be UTF-8 strings.'''
-        lines_a = blob_a.splitlines()
-        lines_b = blob_b.splitlines()
-        diff = '\n'.join(list(difflib.unified_diff(lines_a, lines_b, *args, **kwargs)))
-        if len(diff) > 0:
-            self.log_fd.flush()
-            self.log_fd.write('-- Begin diff output --\n')
-            self.log_fd.writelines(diff)
-            self.log_fd.write('-- End diff output --\n')
-            return False
-        return True
-
-    def startProcess(self, proc_args, stdin=None, env=None, shell=False, cwd=None, max_lines=None):
-        '''Start a process in the background. Returns a subprocess.Popen object.
-
-        You typically wait for it using waitProcess() or assertWaitProcess().'''
-        if env is None:
-            # Apply default test environment if no override is provided.
-            env = getattr(self, 'injected_test_env', None)
-            # Not all tests need test_env, but those that use runProcess or
-            # startProcess must either pass an explicit environment or load the
-            # fixture (via a test method parameter or class decorator).
-            assert not (env is None and hasattr(self, '_fixture_request')), \
-                "Decorate class with @fixtures.mark_usefixtures('test_env')"
-        proc = LoggingPopen(proc_args, stdin=stdin, env=env, shell=shell, log_fd=self.log_fd, cwd=cwd, max_lines=max_lines)
-        self.processes.append(proc)
-        return proc
-
-    def waitProcess(self, process):
-        '''Wait for a process to finish.'''
-        process.wait_and_log()
-        # XXX The shell version ran processes using a script called run_and_catch_crashes
-        # which looked for core dumps and printed stack traces if found. We might want
-        # to do something similar here. This may not be easy on modern Ubuntu systems,
-        # which default to using Apport: https://wiki.ubuntu.com/Apport
-
-    def assertWaitProcess(self, process, expected_return=0):
-        '''Wait for a process to finish and check its exit code.'''
-        process.wait_and_log()
-        self.assertEqual(process.returncode, expected_return)
-
-    def runProcess(self, args, env=None, shell=False, cwd=None, max_lines=None):
-        '''Start a process and wait for it to finish.'''
-        process = self.startProcess(args, env=env, shell=shell, cwd=cwd, max_lines=max_lines)
-        process.wait_and_log()
-        return process
-
-    def assertRun(self, args, env=None, shell=False, expected_return=0, cwd=None, max_lines=None):
-        '''Start a process and wait for it to finish. Check its return code.'''
-        process = self.runProcess(args, env=env, shell=shell, cwd=cwd, max_lines=max_lines)
-        self.assertEqual(process.returncode, expected_return)
-        return process
+    capinfos_cmd = [cmd_capinfos]
+    if capinfos_args:
+        capinfos_cmd += capinfos_args
+    capinfos_cmd.append(cap_file)
+    capinfos_data = subprocess.check_output(capinfos_cmd)
+    capinfos_stdout = capinfos_data.decode('UTF-8', 'replace')
+    return capinfos_stdout

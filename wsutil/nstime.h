@@ -11,10 +11,8 @@
 #ifndef __NSTIME_H__
 #define __NSTIME_H__
 
-#include <glib.h>
+#include <wireshark.h>
 #include <time.h>
-
-#include "ws_symbol_export.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -131,15 +129,55 @@ typedef enum {
     ISO8601_DATETIME_AUTO,  /** Autodetect the presence of separators */
 } iso8601_fmt_e;
 
-/** parse an ISO 8601 format datetime string to nstime, returns number of
-    chars parsed on success, 0 on failure.
+/** parse an ISO 8601 format datetime string to nstime, returns pointer
+    to the first character after the last character, NULL on failure
     Note that nstime is set to unset in the case of failure */
-WS_DLL_PUBLIC guint8 iso8601_to_nstime(nstime_t *nstime, const char *ptr, iso8601_fmt_e format);
+WS_DLL_PUBLIC const char * iso8601_to_nstime(nstime_t *nstime, const char *ptr, iso8601_fmt_e format);
 
 /** parse an Unix epoch timestamp format datetime string to nstime, returns
-    number of chars parsed on success, 0 on failure.
+    pointer to the first character after the last character, NULL on failure
     Note that nstime is set to unset in the case of failure */
-WS_DLL_PUBLIC guint8 unix_epoch_to_nstime(nstime_t *nstime, const char *ptr);
+WS_DLL_PUBLIC const char * unix_epoch_to_nstime(nstime_t *nstime, const char *ptr);
+
+#define NSTIME_ISO8601_BUFSIZE  sizeof("YYYY-MM-DDTHH:MM:SS.123456789Z")
+
+WS_DLL_PUBLIC size_t nstime_to_iso8601(char *buf, size_t buf_size, const nstime_t *nstime);
+
+/* 64 bit signed number plus nanosecond fractional part */
+#define NSTIME_UNIX_BUFSIZE  (20+10+1)
+
+WS_DLL_PUBLIC void nstime_to_unix(char *buf, size_t buf_size, const nstime_t *nstime);
+
+/*
+ * Timestamp precision values.
+ *
+ * The value is the number of digits of precision after the integral part.
+ */
+typedef enum {
+    WS_TSPREC_SEC      = 0,
+    WS_TSPREC_100_MSEC = 1,
+    WS_TSPREC_10_MSEC  = 2,
+    WS_TSPREC_MSEC     = 3,
+    WS_TSPREC_100_USEC = 4,
+    WS_TSPREC_10_USEC  = 5,
+    WS_TSPREC_USEC     = 6,
+    WS_TSPREC_100_NSEC = 7,
+    WS_TSPREC_10_NSEC  = 8,
+    WS_TSPREC_NSEC     = 9
+} ws_tsprec_e;
+
+/*
+ * Maximum time stamp precision supported.
+ * Note that going beyond nanosecond precision would require expanding
+ * the fractional part of an nstime_t to 64 bits, and changing code
+ * that currently only handles second to nanosecond precision.
+ */
+#define WS_TSPREC_MAX 9
+
+/*
+ * Total number of valid precision values.
+ */
+#define NUM_WS_TSPREC_VALS (WS_TSPREC_MAX + 1)
 
 #ifdef __cplusplus
 }

@@ -77,6 +77,7 @@ any "error" symbols are shifted, if possible. */
 
 /* Associativity */
 %left TEST_OR.
+%left TEST_XOR.
 %left TEST_AND.
 %right TEST_NOT.
 %nonassoc TEST_ALL_EQ TEST_ANY_EQ TEST_ALL_NE TEST_ANY_NE TEST_LT TEST_LE TEST_GT TEST_GE
@@ -105,6 +106,22 @@ expr(X) ::= expr(Y) TEST_OR(T) expr(Z).
 {
     X = T;
     sttype_oper_set2(X, STNODE_OP_OR, Y, Z);
+    stnode_merge_location(X, Y, Z);
+}
+
+expr(X) ::= expr(Y) TEST_XOR(T) expr(Z).
+{
+    stnode_t *A = stnode_new(STTYPE_TEST, NULL, NULL, DFILTER_LOC_EMPTY);
+    sttype_oper_set2(A, STNODE_OP_OR, stnode_dup(Y), stnode_dup(Z));
+
+    stnode_t *B = stnode_new(STTYPE_TEST, NULL, NULL, DFILTER_LOC_EMPTY);
+    sttype_oper_set2(B, STNODE_OP_AND, Y, Z);
+
+    stnode_t *C = stnode_new(STTYPE_TEST, NULL, NULL, DFILTER_LOC_EMPTY);
+    sttype_oper_set1(C, STNODE_OP_NOT, B);
+
+    X = T;
+    sttype_oper_set2(X, STNODE_OP_AND, A, C);
     stnode_merge_location(X, Y, Z);
 }
 
@@ -371,11 +388,10 @@ relation_test(T) ::= entity(E) TEST_IN(O) set(S).
     stnode_merge_location(T, E, S);
 }
 
-relation_test(T) ::= entity(E) TEST_NOT(P) TEST_IN(O) set(S).
+relation_test(T) ::= entity(E) TEST_NOT TEST_IN(O) set(S).
 {
-    T = P;
-    sttype_oper_set2(O, STNODE_OP_IN, E, S);
-    sttype_oper_set1(T, STNODE_OP_NOT, O);
+    T = O;
+    sttype_oper_set2(O, STNODE_OP_NOT_IN, E, S);
     stnode_merge_location(T, E, S);
 }
 
@@ -399,32 +415,13 @@ relation(R) ::= ALL(A) relation_test(T).
 
 /* Sets */
 
-set_entity(N) ::= entity(E).
-{
-    N = E;
-}
-
-set_entity(N) ::= MINUS(M) entity(E).
-{
-    N = M;
-    sttype_oper_set1(N, STNODE_OP_UNARY_MINUS, E);
-    stnode_merge_location(N, M, E);
-}
-
-set_entity(N) ::= PLUS(P) entity(E).
-{
-    N = E;
-    stnode_merge_location(N, P, E);
-    stnode_free(P);
-}
-
-set_element_list(N) ::= set_entity(X).
+set_element_list(N) ::= arithmetic_expr(X).
 {
     N = g_slist_append(NULL, X);
     N = g_slist_append(N, NULL);
 }
 
-set_element_list(N) ::= set_entity(X) DOTDOT set_entity(Y).
+set_element_list(N) ::= arithmetic_expr(X) DOTDOT arithmetic_expr(Y).
 {
     N = g_slist_append(NULL, X);
     N = g_slist_append(N, Y);

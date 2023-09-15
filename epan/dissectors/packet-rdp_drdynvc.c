@@ -11,7 +11,6 @@
 
 #include "config.h"
 
-#include <stdbool.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/proto_data.h>
@@ -161,6 +160,40 @@ static drdynvc_know_channel_def knownChannels[] = {
 	/* static channels that can be reopened on the dynamic channel */
 	{"rail", "rail", DRDYNVC_CHANNEL_RAIL},
 	{"cliprdr", "cliprdr", DRDYNVC_CHANNEL_CLIPRDR},
+};
+
+static const value_string drdynvc_tunneltype_vals[] = {
+	{   0x1, 	"reliable" },
+	{   0x3, 	"lossy" },
+	{   0x0, NULL},
+};
+
+static const value_string rdp_drdynvc_cbId_vals[] = {
+	{   0x0, "1 byte" },
+	{   0x1, "2 bytes" },
+	{   0x2, "4 bytes" },
+	{   0x0, NULL},
+};
+
+static const value_string rdp_drdynvc_prio_vals[] = {
+	{   0x0, "PriorityCharge0" },
+	{   0x1, "PriorityCharge1" },
+	{   0x2, "PriorityCharge2" },
+	{   0x3, "PriorityCharge3" },
+	{   0x0, NULL},
+};
+
+static const value_string rdp_drdynvc_cmd_vals[] = {
+	{   DRDYNVC_CREATE_REQUEST_PDU, 	"Create PDU" },
+	{   DRDYNVC_DATA_FIRST_PDU, 		"Data first PDU" },
+	{   DRDYNVC_DATA_PDU, 			"Data PDU" },
+	{   DRDYNVC_CLOSE_REQUEST_PDU, 	"Close PDU" },
+	{   DRDYNVC_CAPABILITY_REQUEST_PDU, "Capabilities PDU" },
+	{   DRDYNVC_DATA_FIRST_COMPRESSED_PDU, "Data first compressed PDU" },
+	{   DRDYNVC_DATA_COMPRESSED_PDU, 	"Data compressed PDU" },
+	{   DRDYNVC_SOFT_SYNC_REQUEST_PDU,"Soft-Sync request PDU" },
+	{   DRDYNVC_SOFT_SYNC_RESPONSE_PDU,"Soft-Sync response PDU" },
+	{   0x0, NULL},
 };
 
 static drdynvc_known_channel_t
@@ -341,8 +374,6 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 					//printf("dynamic %s -> 0x%x\n", channel->name, channel->channelId);
 
 					wmem_multimap_insert32(info->channels, GUINT_TO_POINTER(channelId), pinfo->num, channel);
-				} else {
-					channel = wmem_multimap_lookup32_le(info->channels, GUINT_TO_POINTER(channelId), pinfo->num);
 				}
 
 			} else {
@@ -533,8 +564,8 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 			col_set_str(pinfo->cinfo, COL_INFO, "Data compressed");
 			break;
 		case DRDYNVC_SOFT_SYNC_REQUEST_PDU: {
-			guint16 ntunnels;
-			guint16 flags;
+			guint32 ntunnels;
+			guint32 flags;
 
 			col_set_str(pinfo->cinfo, COL_INFO, "SoftSync Request");
 
@@ -545,13 +576,11 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 			proto_tree_add_item(tree, hf_rdp_drdynvc_softsync_req_length, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 			offset += 4;
 
-			flags = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
-			proto_tree_add_item(tree, hf_rdp_drdynvc_softsync_req_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+			proto_tree_add_item_ret_uint(tree, hf_rdp_drdynvc_softsync_req_flags, tvb, offset, 2, ENC_LITTLE_ENDIAN, &flags);
 			offset += 2;
 			// XXX: TODO should decode flags but they are always set to SOFT_SYNC_TCP_FLUSHED|SOFT_SYNC_CHANNEL_LIST_PRESENT
 
-			ntunnels = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
-			proto_tree_add_item(tree, hf_rdp_drdynvc_softsync_req_ntunnels, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+			proto_tree_add_item_ret_uint(tree, hf_rdp_drdynvc_softsync_req_ntunnels, tvb, offset, 2, ENC_LITTLE_ENDIAN, &ntunnels);
 			offset += 2;
 
 			if (flags & 0x02) { /* SOFT_SYNC_CHANNEL_LIST_PRESENT */
@@ -584,7 +613,6 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 						if (!label)
 							showLabel = "DVC";
 						dvc_tree = proto_tree_add_subtree(channel_tree, tvb, offset, 4, ett_rdp_drdynvc_softsync_dvc, NULL, showLabel);
-
 						proto_tree_add_item(dvc_tree, hf_rdp_drdynvc_softsync_req_channel_dvcid, tvb, offset, 4, ENC_LITTLE_ENDIAN);
 
 						if (label) {
@@ -605,8 +633,7 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 			proto_tree_add_item(tree, hf_rdp_drdynvc_pad, tvb, offset, 1, ENC_NA);
 			offset++;
 
-			proto_tree_add_item(tree, hf_rdp_drdynvc_softsync_resp_ntunnels, tvb, offset, 4, ENC_LITTLE_ENDIAN);
-			ntunnels = tvb_get_guint32(tvb, offset, ENC_LITTLE_ENDIAN);
+			proto_tree_add_item_ret_uint(tree, hf_rdp_drdynvc_softsync_resp_ntunnels, tvb, offset, 4, ENC_LITTLE_ENDIAN, &ntunnels);
 			offset += 4;
 
 			if (ntunnels) {
@@ -633,41 +660,7 @@ dissect_rdp_drdynvc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, 
 	return offset;
 }
 
-static const value_string drdynvc_tunneltype_vals[] = {
-  {   0x1, 	"reliable" },
-  {   0x3, 	"lossy" },
-  {   0x0, NULL},
-};
-
-
 void proto_register_rdp_drdynvc(void) {
-	static const value_string rdp_drdynvc_cbId_vals[] = {
-	  {   0x0, "1 byte" },
-	  {   0x1, "2 bytes" },
-	  {   0x2, "4 bytes" },
-	  {   0x0, NULL},
-	};
-
-	static const value_string rdp_drdynvc_prio_vals[] = {
-	  {   0x0, "PriorityCharge0" },
-	  {   0x1, "PriorityCharge1" },
-	  {   0x2, "PriorityCharge2" },
-	  {   0x3, "PriorityCharg32" },
-	  {   0x0, NULL},
-	};
-
-	static const value_string rdp_drdynvc_cmd_vals[] = {
-	  {   DRDYNVC_CREATE_REQUEST_PDU, 	"Create PDU" },
-	  {   DRDYNVC_DATA_FIRST_PDU, 		"Data first PDU" },
-	  {   DRDYNVC_DATA_PDU, 			"Data PDU" },
-	  {   DRDYNVC_CLOSE_REQUEST_PDU, 	"Close PDU" },
-	  {   DRDYNVC_CAPABILITY_REQUEST_PDU, "Capabilities PDU" },
-	  {   DRDYNVC_DATA_FIRST_COMPRESSED_PDU, "Data first compressed PDU" },
-	  {   DRDYNVC_DATA_COMPRESSED_PDU, 	"Data compressed PDU" },
-	  {   DRDYNVC_SOFT_SYNC_REQUEST_PDU,"Soft-Sync request PDU" },
-	  {   DRDYNVC_SOFT_SYNC_RESPONSE_PDU,"Soft-Sync response PDU" },
-	  {   0x0, NULL},
-	};
 
 	/* List of fields */
 	static hf_register_info hf[] = {
@@ -736,7 +729,7 @@ void proto_register_rdp_drdynvc(void) {
 			FT_UINT16, BASE_DEC, NULL, 0,
 			NULL, HFILL }},
 		{ &hf_rdp_drdynvc_softsync_req_ntunnels,
-		  { "Length", "rdp_drdynvc.softsyncreq.ntunnels",
+		  { "NumberOfTunnels", "rdp_drdynvc.softsyncreq.ntunnels",
 			FT_UINT16, BASE_DEC, NULL, 0,
 			NULL, HFILL }},
 		{ &hf_rdp_drdynvc_softsync_req_channel_tunnelType,
@@ -759,10 +752,10 @@ void proto_register_rdp_drdynvc(void) {
 		  { "Number of tunnels", "rdp_drdynvc.softsyncresp.tunnel",
 			FT_UINT32, BASE_DEC, VALS(drdynvc_tunneltype_vals), 0,
 			NULL, HFILL }},
-        { &hf_rdp_drdynvc_createresp_channelname,
-          { "ChannelName", "rdp_drdynvc.createresp",
-            FT_STRINGZ, BASE_NONE, NULL, 0x0,
-            NULL, HFILL }},
+		{ &hf_rdp_drdynvc_createresp_channelname,
+		  { "ChannelName", "rdp_drdynvc.createresp",
+			FT_STRINGZ, BASE_NONE, NULL, 0x0,
+			NULL, HFILL }},
 		{ &hf_rdp_drdynvc_data_progress,
 		  { "DataProgress", "rdp_drdynvc.data_progress",
 			FT_STRINGZ, BASE_NONE, NULL, 0x0,

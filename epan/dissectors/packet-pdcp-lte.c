@@ -1200,6 +1200,8 @@ static wmem_map_t *pdcp_security_result_hash = NULL;
    - the info column
    - the top-level RLC PDU item */
 static void write_pdu_label_and_info(proto_item *pdu_ti,
+                                     packet_info *pinfo, const char *format, ...) G_GNUC_PRINTF(3, 4);
+static void write_pdu_label_and_info(proto_item *pdu_ti,
                                      packet_info *pinfo, const char *format, ...)
 {
     #define MAX_INFO_BUFFER 256
@@ -2543,8 +2545,8 @@ static int dissect_pdcp_lte(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         if (p_pdcp_info->channelType == Channel_DCCH) {
             /* Last 4 bytes are MAC */
-            mac = tvb_get_ntohl(payload_tvb, offset);
-            mac_ti = proto_tree_add_item(pdcp_tree, hf_pdcp_lte_mac, payload_tvb, offset, 4, ENC_BIG_ENDIAN);
+            mac_ti = proto_tree_add_item_ret_uint(pdcp_tree, hf_pdcp_lte_mac, payload_tvb, offset, 4,
+                                                  ENC_BIG_ENDIAN, &mac);
             offset += 4;
 
             if (digest_was_calculated) {

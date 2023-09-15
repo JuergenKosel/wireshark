@@ -1714,6 +1714,34 @@ smb_saved_info_hash_matched(gconstpointer k)
 
 static GSList *conv_tables = NULL;
 
+static gint
+smb_find_unicode_null_offset(tvbuff_t *tvb, gint offset, const gint maxlength, const guint16 needle, const guint encoding)
+{
+    guint captured_length = tvb_captured_length(tvb);
+    if (G_LIKELY((guint) offset > captured_length)) {
+        return -1;
+    }
+
+    guint limit = captured_length - offset;
+
+    /* Only search to end of tvbuff, w/o throwing exception. */
+    if (maxlength >= 0 && limit > (guint) maxlength) {
+        /* Maximum length doesn't go past end of tvbuff; search
+           to that value. */
+        limit = (guint) maxlength;
+    }
+
+    limit = limit & ~1;
+
+    while(limit){
+        if (needle == tvb_get_guint16(tvb, offset, encoding)){
+            return offset;
+        }
+        offset += 2;
+        limit -= 2;
+    }
+    return -1;
+}
 
 /* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
    End of request/response matching functions
@@ -1739,7 +1767,7 @@ unicode_to_str(tvbuff_t *tvb, int offset, int *us_lenp, gboolean exactlen,
 		 * string followed by a single NUL byte when the string
 		 * takes up the entire byte count.
 		 */
-		len = tvb_find_guint16(tvb, offset, bc, 0);
+		len = smb_find_unicode_null_offset(tvb, offset, bc, 0, ENC_LITTLE_ENDIAN);
 		if (len == -1) {
 			if (bc % 2 == 1	&& tvb_get_guint8(tvb, offset + bc - 1) == 0) {
 				*us_lenp = bc;
@@ -1787,11 +1815,12 @@ get_unicode_or_ascii_string(tvbuff_t *tvb, int *offsetp,
 				   it to the largest signed number, so that we throw the appropriate
 				   exception. */
 				string_len = INT_MAX;
+			} else if (string_len > *bcp){
+				string_len = *bcp;
 			}
 		}
 
 		string = unicode_to_str(tvb, *offsetp, &string_len, exactlen, *bcp);
-
 	} else {
 		/* XXX: Use the local OEM (extended ASCII DOS) code page.
                  * On US English machines that means ENC_CP437, but it
@@ -4806,7 +4835,7 @@ dissect_read_file_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 }
 
 int
-dissect_file_data(tvbuff_t *tvb, proto_tree *tree, int offset, guint16 bc, guint16 datalen)
+dissect_file_data(tvbuff_t *tvb, proto_tree *tree, int offset, guint16 bc, int dataoffset, guint16 datalen)
 {
 	int tvblen;
 
@@ -4818,13 +4847,15 @@ dissect_file_data(tvbuff_t *tvb, proto_tree *tree, int offset, guint16 bc, guint
 		offset += bc-datalen;
 		bc = datalen;
 	}
-	tvblen = tvb_reported_length_remaining(tvb, offset);
+	tvblen = tvb_reported_length_remaining(tvb, dataoffset > 0 ? dataoffset : offset );
 	if (bc > tvblen) {
-		proto_tree_add_bytes_format_value(tree, hf_smb_file_data, tvb, offset, tvblen, NULL, "Incomplete. Only %d of %u bytes", tvblen, bc);
-		offset += tvblen;
+		proto_tree_add_bytes_format_value(tree, hf_smb_file_data, tvb, dataoffset > 0 ? dataoffset : offset, tvblen, NULL, "Incomplete. Only %d of %u bytes", tvblen, bc);
+		if (dataoffset == -1 || dataoffset == offset)
+			offset += tvblen;
 	} else {
-		proto_tree_add_item(tree, hf_smb_file_data, tvb, offset, bc, ENC_NA);
-		offset += bc;
+		proto_tree_add_item(tree, hf_smb_file_data, tvb, dataoffset > 0 ? dataoffset : offset, bc, ENC_NA);
+		if (dataoffset == -1 || dataoffset == offset)
+			offset += bc;
 	}
 	return offset;
 }
@@ -4866,17 +4897,18 @@ dissect_file_data_dcerpc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 static int
 dissect_file_data_maybe_dcerpc(tvbuff_t *tvb, packet_info *pinfo,
     proto_tree *tree, proto_tree *top_tree, int offset, guint16 bc,
-    guint16 datalen, guint32 ofs, guint16 fid, smb_info_t *si)
+    int dataoffset, guint16 datalen, guint32 ofs, guint16 fid, smb_info_t *si)
 {
 	DISSECTOR_ASSERT(si);
 
 	if ( (si->sip && (si->sip->flags & SMB_SIF_TID_IS_IPC)) && (ofs == 0) ) {
 		/* dcerpc call */
+		/* XXX - use the data offset to determine where the data starts? */
 		return dissect_file_data_dcerpc(tvb, pinfo, tree,
 		    top_tree, offset, bc, datalen, fid, si);
 	} else {
 		/* ordinary file data */
-		return dissect_file_data(tvb, tree, offset, bc, datalen);
+		return dissect_file_data(tvb, tree, offset, bc, dataoffset, datalen);
 	}
 }
 
@@ -4919,7 +4951,7 @@ dissect_read_file_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	/* file data, might be DCERPC on a pipe */
 	if (bc) {
 		offset = dissect_file_data_maybe_dcerpc(tvb, pinfo, tree,
-		    top_tree_global, offset, bc, bc, 0, (guint16) fid, si);
+		    top_tree_global, offset, bc, -1, bc, 0, (guint16) fid, si);
 		bc = 0;
 	}
 
@@ -5068,7 +5100,7 @@ dissect_write_file_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	/* file data, might be DCERPC on a pipe */
 	if (bc != 0) {
 		offset = dissect_file_data_maybe_dcerpc(tvb, pinfo, tree,
-		    top_tree_global, offset, bc, bc, ofs, fid, si);
+		    top_tree_global, offset, bc, -1, bc, ofs, fid, si);
 		bc = 0;
 	}
 
@@ -5405,7 +5437,7 @@ dissect_write_and_close_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *t
 	proto_tree_add_item(tree, hf_smb_padding, tvb, offset, 1, ENC_NA);
 	COUNT_BYTES(1);
 
-	offset = dissect_file_data(tvb, tree, offset, cnt, cnt);
+	offset = dissect_file_data(tvb, tree, offset, cnt, -1, cnt);
 	bc = 0;	/* XXX */
 
 	END_OF_SMB
@@ -5617,7 +5649,8 @@ dissect_read_mpx_response(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 	BYTE_COUNT;
 
 	/* file data */
-	offset = dissect_file_data(tvb, tree, offset, bc, datalen);
+	/* XXX - use the data offset to determine where the data starts? */
+	offset = dissect_file_data(tvb, tree, offset, bc, -1, datalen);
 	bc = 0;
 
 	END_OF_SMB
@@ -5743,7 +5776,7 @@ dissect_write_raw_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 
 	/* file data */
 	/* XXX - use the data offset to determine where the data starts? */
-	offset = dissect_file_data(tvb, tree, offset, bc, datalen);
+	offset = dissect_file_data(tvb, tree, offset, bc, -1, datalen);
 	bc = 0;
 
 	END_OF_SMB
@@ -5821,7 +5854,7 @@ dissect_write_mpx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
 
 	/* file data */
 	/* XXX - use the data offset to determine where the data starts? */
-	offset = dissect_file_data(tvb, tree, offset, bc, datalen);
+	offset = dissect_file_data(tvb, tree, offset, bc, -1,datalen);
 	bc = 0;
 
 	END_OF_SMB
@@ -7171,7 +7204,7 @@ dissect_read_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	/* file data, might be DCERPC on a pipe */
 	if (bc) {
 		offset = dissect_file_data_maybe_dcerpc(tvb, pinfo, tree,
-		    top_tree_global, offset, bc, (guint16) datalen, 0, (guint16) fid, si);
+		    top_tree_global, offset, bc, -1, (guint16) datalen, 0, (guint16) fid, si);
 		bc = 0;
 	}
 
@@ -7193,6 +7226,9 @@ dissect_read_andx_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 	return offset;
 }
 
+/*  SMB_COM_WRITE_ANDX(0x2F)
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cifs/a66126d2-a1db-446b-8736-b9f5559c49bd
+*/
 static int
 dissect_write_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, proto_tree *smb_tree, smb_info_t *si)
 {
@@ -7346,8 +7382,14 @@ dissect_write_andx_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 
 	/* file data, might be DCERPC on a pipe */
 	if (bc != 0) {
+		/* https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cifs/a66126d2-a1db-446b-8736-b9f5559c49bd
+		   The DataOffset field can be used to relocate the SMB_Data.Bytes.Data
+		   block to the end of the message,even if the message is a multi-part AndX
+		   chain. If the SMB_Data.Bytes.Data block is relocated, the contents of
+		   SMB_Data.Bytes will not be contiguous.
+		*/
 		offset = dissect_file_data_maybe_dcerpc(tvb, pinfo, tree,
-		    top_tree_global, offset, bc, (guint16) datalen, 0, (guint16) fid, si);
+		    top_tree_global, offset, bc, dataoffset, (guint16) datalen, 0, (guint16) fid, si);
 		bc = 0;
 	}
 
@@ -10173,7 +10215,7 @@ dissect_write_print_file_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 	COUNT_BYTES(2);
 
 	/* file data */
-	offset = dissect_file_data(tvb, tree, offset, (guint16) cnt, (guint16) cnt);
+	offset = dissect_file_data(tvb, tree, offset, (guint16) cnt, -1, (guint16) cnt);
 
 	END_OF_SMB
 
@@ -12637,6 +12679,11 @@ dissect_qsfi_SMB_FILE_ENDOFFILE_INFO(tvbuff_t *tvb, packet_info *pinfo _U_, prot
    and 2.2.8.3.11 of the MS-CIFS spec
    although the latter two are used to fetch the 8.3 name
    rather than the long name
+
+   https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/4718fc40-e539-4014-8e33-b675af74e3e1
+
+   FileNormalizedNameInformation:
+   https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/20bcadba-808c-4880-b757-4af93e41edf6
 */
 int
 dissect_qfi_SMB_FILE_NAME_INFO(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
@@ -12647,12 +12694,14 @@ dissect_qfi_SMB_FILE_NAME_INFO(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
 
 	/* file name len */
 	CHECK_BYTE_COUNT_SUBR(4);
-	proto_tree_add_item(tree, hf_smb_file_name_len, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	proto_tree_add_item_ret_uint(tree, hf_smb_file_name_len, tvb, offset, 4, ENC_LITTLE_ENDIAN, &fn_len);
 	COUNT_BYTES_SUBR(4);
 
 	/* file name */
-	fn = get_unicode_or_ascii_string(tvb, &offset, unicode, &fn_len, FALSE, FALSE, bcp);
+	fn = get_unicode_or_ascii_string(tvb, &offset, unicode, &fn_len, TRUE, TRUE, bcp);
+
 	CHECK_STRING_SUBR(fn);
+
 	proto_tree_add_string(tree, hf_smb_file_name, tvb, offset, fn_len,
 		fn);
 	COUNT_BYTES_SUBR(fn_len);
@@ -18943,11 +18992,11 @@ proto_register_smb(void)
 
 	{ &hf_smb_copy_flags_tree_copy,
 		{ "Tree copy", "smb.copy.flags.tree_copy", FT_BOOLEAN, 16,
-		TFS(&tfs_cf_tree_copy), 0x0010, "Is copy a tree copy?", HFILL }},
+		TFS(&tfs_cf_tree_copy), 0x0020, "Is copy a tree copy?", HFILL }},
 
 	{ &hf_smb_copy_flags_ea_action,
 		{ "EA action if EAs not supported on dest", "smb.copy.flags.ea_action", FT_BOOLEAN, 16,
-		TFS(&tfs_cf_ea_action), 0x0010, "Fail copy if source file has EAs and dest doesn't support EAs?", HFILL }},
+		TFS(&tfs_cf_ea_action), 0x0040, "Fail copy if source file has EAs and dest doesn't support EAs?", HFILL }},
 
 	{ &hf_smb_count,
 		{ "Count", "smb.count", FT_UINT32, BASE_DEC,

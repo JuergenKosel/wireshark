@@ -123,7 +123,7 @@ PCRE2_VERSION=10.39
 # "QT_VERSION=5.10.1 ./macos-setup.sh"
 # will build and install with QT 5.10.1.
 #
-QT_VERSION=${QT_VERSION-5.12.12}
+QT_VERSION=${QT_VERSION-6.2.4}
 
 if [ "$QT_VERSION" ]; then
     QT_MAJOR_VERSION="`expr $QT_VERSION : '\([0-9][0-9]*\).*'`"
@@ -139,7 +139,7 @@ fi
 # the optional libraries are required by other optional libraries.
 #
 LIBSMI_VERSION=0.4.8
-GNUTLS_VERSION=3.6.15
+GNUTLS_VERSION=3.7.8
 if [ "$GNUTLS_VERSION" ]; then
     #
     # We'll be building GnuTLS, so we may need some additional libraries.
@@ -148,46 +148,48 @@ if [ "$GNUTLS_VERSION" ]; then
     #
     GNUTLS_MAJOR_VERSION="`expr $GNUTLS_VERSION : '\([0-9][0-9]*\).*'`"
     GNUTLS_MINOR_VERSION="`expr $GNUTLS_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
-    NETTLE_VERSION=3.6
+    NETTLE_VERSION=3.9.1
 
     #
     # And, in turn, Nettle requires GMP.
     #
-    GMP_VERSION=6.2.1
+    GMP_VERSION=6.3.0
 
     #
     # And p11-kit
-    P11KIT_VERSION=0.23.21
+    P11KIT_VERSION=0.25.0
 
     # Which requires libtasn1
-    LIBTASN1_VERSION=4.16.0
+    LIBTASN1_VERSION=4.19.0
 fi
 # Use 5.2.4, not 5.3, for now; lua_bitop.c hasn't been ported to 5.3
 # yet, and we need to check for compatibility issues (we'd want Lua
 # scripts to work with 5.1, 5.2, and 5.3, as long as they only use Lua
 # features present in all three versions)
 LUA_VERSION=5.2.4
-SNAPPY_VERSION=1.1.8
-ZSTD_VERSION=1.4.2
-LIBXML2_VERSION=2.9.9
-LZ4_VERSION=1.9.2
-SBC_VERSION=1.3
-CARES_VERSION=1.15.0
-LIBSSH_VERSION=0.9.6
+SNAPPY_VERSION=1.1.10
+ZSTD_VERSION=1.4.5
+LIBXML2_VERSION=2.11.5
+LZ4_VERSION=1.9.4
+SBC_VERSION=2.0
+CARES_VERSION=1.19.1
+LIBSSH_VERSION=0.10.5
 # mmdbresolve
 MAXMINDDB_VERSION=1.4.3
-NGHTTP2_VERSION=1.46.0
+NGHTTP2_VERSION=1.56.0
+NGHTTP3_VERSION=0.15.0
 SPANDSP_VERSION=0.0.6
-SPEEXDSP_VERSION=1.2.0
+SPEEXDSP_VERSION=1.2.1
 if [ "$SPANDSP_VERSION" ]; then
     #
     # SpanDSP depends on libtiff.
     #
     LIBTIFF_VERSION=3.8.1
 fi
-BCG729_VERSION=1.0.2
+BCG729_VERSION=1.1.1
+# libilbc 3.0.0 & later link with absiel, which is released under Apache 2.0
 ILBC_VERSION=2.0.2
-OPUS_VERSION=1.3.1
+OPUS_VERSION=1.4
 
 #
 # Is /usr/bin/python3 a working version of Python?  It may be, as it
@@ -1427,7 +1429,7 @@ install_p11_kit() {
         # but it's not clear that this matters to us, so we just
         # configure p11-kit not to use libffi.
         #
-        CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --without-libffi --without-trust-paths || exit 1
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -L/usr/local/lib" LIBS=-lintl ./configure --without-libffi --without-trust-paths || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1468,11 +1470,7 @@ install_nettle() {
         $no_build && echo "Skipping installation" && return
         gzcat nettle-$NETTLE_VERSION.tar.gz | tar xf - || exit 1
         cd nettle-$NETTLE_VERSION
-        if [ "$DARWIN_PROCESSOR_ARCH" = "arm" ] ; then
-            CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-assembler || exit 1
-        else
-            CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
-        fi
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -I/usr/local/include" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -L/usr/local/lib" ./configure || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1533,7 +1531,7 @@ install_gnutls() {
             bzcat gnutls-$GNUTLS_VERSION.tar.bz2 | tar xf - || exit 1
         fi
         cd gnutls-$GNUTLS_VERSION
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --with-included-unistring --disable-guile || exit 1
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -I /usr/local/include" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -I/usr/local/include/" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS -L/usr/local/lib" ./configure --with-included-unistring --disable-guile || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1612,6 +1610,10 @@ install_snappy() {
         $no_build && echo "Skipping installation" && return
         gzcat snappy-$SNAPPY_VERSION.tar.gz | tar xf - || exit 1
         cd snappy-$SNAPPY_VERSION
+	if [ "$SNAPPY_VERSION" = "1.1.10" ] ; then
+	    # This patch corresponds to https://github.com/google/snappy/commit/27f34a580be4a3becf5f8c0cba13433f53c21337
+	    patch -p0 <${topdir}/macosx-support-lib-patches/snappy-signed.patch || exit 1
+	fi
         mkdir build_dir
         cd build_dir
         #
@@ -1621,7 +1623,7 @@ install_snappy() {
         # will carry that dependency with it, so linking with it should
         # Just Work.
         #
-        MACOSX_DEPLOYMENT_TARGET=$min_osx_target SDKROOT="$SDKPATH" cmake -DBUILD_SHARED_LIBS=YES ../ || exit 1
+        MACOSX_DEPLOYMENT_TARGET=$min_osx_target SDKROOT="$SDKPATH" cmake -DBUILD_SHARED_LIBS=YES -DSNAPPY_BUILD_BENCHMARKS=NO -DSNAPPY_BUILD_TESTS=NO ../ || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ../..
@@ -1717,9 +1719,12 @@ uninstall_zstd() {
 install_libxml2() {
     if [ "$LIBXML2_VERSION" -a ! -f libxml2-$LIBXML2_VERSION-done ] ; then
         echo "Downloading, building, and installing libxml2:"
-        [ -f libxml2-$LIBXML2_VERSION.tar.gz ] || curl -L -O ftp://xmlsoft.org/libxml2/libxml2-$LIBXML2_VERSION.tar.gz || exit 1
+        LIBXML2_MAJOR_VERSION="`expr $LIBXML2_VERSION : '\([0-9][0-9]*\).*'`"
+        LIBXML2_MINOR_VERSION="`expr $LIBXML2_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        LIBXML2_MAJOR_MINOR_VERSION=$LIBXML2_MAJOR_VERSION.$LIBXML2_MINOR_VERSION
+        [ -f libxml2-$LIBXML2_VERSION.tar.gz ] || curl -L -O https://download.gnome.org/sources/libxml2/$LIBXML2_MAJOR_MINOR_VERSION/libxml2-$LIBXML2_VERSION.tar.xz || exit 1
         $no_build && echo "Skipping installation" && return
-        gzcat libxml2-$LIBXML2_VERSION.tar.gz | tar xf - || exit 1
+        xzcat libxml2-$LIBXML2_VERSION.tar.xz | tar xf - || exit 1
         cd libxml2-$LIBXML2_VERSION
         #
         # At least on macOS 12.0.1 with Xcode 13.1, when we build
@@ -1749,7 +1754,7 @@ uninstall_libxml2() {
             # Get rid of the previously downloaded and unpacked version.
             #
             rm -rf libxml2-$installed_libxml2_version
-            rm -rf libxml2-$installed_libxml2_version.tar.gz
+            rm -rf libxml2-$installed_libxml2_version.tar.xz
         fi
 
         installed_libxml2_version=""
@@ -2037,6 +2042,42 @@ uninstall_nghttp2() {
     fi
 }
 
+install_nghttp3() {
+    if [ "$NGHTTP3_VERSION" -a ! -f nghttp3-$NGHTTP3_VERSION-done ] ; then
+        echo "Downloading, building, and installing nghttp3:"
+        [ -f nghttp3-$NGHTTP3_VERSION.tar.xz ] || curl -L -O https://github.com/ngtcp2/nghttp3/releases/download/v$NGHTTP3_VERSION/nghttp3-$NGHTTP3_VERSION.tar.xz || exit 1
+        $no_build && echo "Skipping installation" && return
+        xzcat nghttp3-$NGHTTP3_VERSION.tar.xz | tar xf - || exit 1
+        cd nghttp3-$NGHTTP3_VERSION
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --enable-lib-only || exit 1
+        make $MAKE_BUILD_OPTS || exit 1
+        $DO_MAKE_INSTALL || exit 1
+        cd ..
+        touch nghttp3-$NGHTTP3_VERSION-done
+    fi
+}
+
+uninstall_nghttp3() {
+    if [ ! -z "$installed_nghttp3_version" ] ; then
+        echo "Uninstalling nghttp3:"
+        cd nghttp3-$installed_nghttp3_version
+        $DO_MAKE_UNINSTALL || exit 1
+        make distclean || exit 1
+        cd ..
+        rm nghttp3-$installed_nghttp3_version-done
+
+        if [ "$#" -eq 1 -a "$1" = "-r" ] ; then
+            #
+            # Get rid of the previously downloaded and unpacked version.
+            #
+            rm -rf nghttp3-$installed_nghttp3_version
+            rm -rf nghttp3-$installed_nghttp3_version.tar.xz
+        fi
+
+        installed_nghttp3_version=""
+    fi
+}
+
 install_libtiff() {
     if [ "$LIBTIFF_VERSION" -a ! -f tiff-$LIBTIFF_VERSION-done ] ; then
         echo "Downloading, building, and installing libtiff:"
@@ -2157,14 +2198,16 @@ uninstall_speexdsp() {
 install_bcg729() {
     if [ "$BCG729_VERSION" -a ! -f bcg729-$BCG729_VERSION-done ] ; then
         echo "Downloading, building, and installing bcg729:"
-        [ -f bcg729-$BCG729_VERSION.tar.gz ] || curl -L -O https://download.savannah.gnu.org/releases/linphone/plugins/sources/bcg729-$BCG729_VERSION.tar.gz || exit 1
+        [ -f bcg729-$BCG729_VERSION.tar.gz ] || curl -L -O https://gitlab.linphone.org/BC/public/bcg729/-/archive/$BCG729_VERSION/bcg729-$BCG729_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat bcg729-$BCG729_VERSION.tar.gz | tar xf - || exit 1
         cd bcg729-$BCG729_VERSION
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure || exit 1
+        mkdir build_dir
+        cd build_dir
+        MACOSX_DEPLOYMENT_TARGET=$min_osx_target SDKROOT="$SDKPATH" cmake  ../ || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
-        cd ..
+        cd ../..
         touch bcg729-$BCG729_VERSION-done
     fi
 }
@@ -2173,8 +2216,21 @@ uninstall_bcg729() {
     if [ ! -z "$installed_bcg729_version" ] ; then
         echo "Uninstalling bcg729:"
         cd bcg729-$installed_bcg729_version
-        $DO_MAKE_UNINSTALL || exit 1
-        make distclean || exit 1
+        #
+        # bcg729 uses cmake on macOS and doesn't support "make uninstall";
+        # just remove what we know it installs.
+        #
+        # $DO_MAKE_UNINSTALL || exit 1
+        $DO_RM -rf /usr/local/share/Bcg729 \
+                   /usr/local/lib/libbcg729* \
+                   /usr/local/include/bcg729 \
+                   /usr/local/lib/pkgconfig/libbcg729* || exit 1
+        #
+        # bcg729 uses cmake on macOS and doesn't support "make distclean";
+        # just remove the enire build directory.
+        #
+        # make distclean || exit 1
+        rm -rf build_dir || exit 1
         cd ..
         rm bcg729-$installed_bcg729_version-done
 
@@ -2229,7 +2285,7 @@ uninstall_ilbc() {
 install_opus() {
     if [ "$OPUS_VERSION" -a ! -f opus-$OPUS_VERSION-done ] ; then
         echo "Downloading, building, and installing opus:"
-        [ -f opus-$OPUS_VERSION.tar.gz ] || curl -L -O https://archive.mozilla.org/pub/opus/opus-$OPUS_VERSION.tar.gz || exit 1
+        [ -f opus-$OPUS_VERSION.tar.gz ] || curl -L -O https://downloads.xiph.org/releases/opus/opus-$OPUS_VERSION.tar.gz || exit 1
         $no_build && echo "Skipping installation" && return
         gzcat opus-$OPUS_VERSION.tar.gz | tar xf - || exit 1
         cd opus-$OPUS_VERSION
@@ -2571,6 +2627,17 @@ install_all() {
             echo "Requested nghttp2 version is $NGHTTP2_VERSION"
         fi
         uninstall_nghttp2 -r
+    fi
+
+    if [ ! -z "$installed_nghttp3_version" -a \
+              "$installed_nghttp3_version" != "$NGHTTP3_VERSION" ] ; then
+        echo "Installed nghttp3 version is $installed_nghttp3_version"
+        if [ -z "$NGHTTP3_VERSION" ] ; then
+            echo "nghttp3 is not requested"
+        else
+            echo "Requested nghttp3 version is $NGHTTP3_VERSION"
+        fi
+        uninstall_nghttp3 -r
     fi
 
     if [ ! -z "$installed_libssh_version" -a \
@@ -3073,6 +3140,8 @@ install_all() {
 
     install_nghttp2
 
+    install_nghttp3
+
     install_libtiff
 
     install_spandsp
@@ -3125,6 +3194,8 @@ uninstall_all() {
         uninstall_libtiff
 
         uninstall_nghttp2
+
+        uninstall_nghttp3
 
         uninstall_libssh
 
@@ -3341,6 +3412,7 @@ then
     installed_cares_version=`ls c-ares-*-done 2>/dev/null | sed 's/c-ares-\(.*\)-done/\1/'`
     installed_libssh_version=`ls libssh-*-done 2>/dev/null | sed 's/libssh-\(.*\)-done/\1/'`
     installed_nghttp2_version=`ls nghttp2-*-done 2>/dev/null | sed 's/nghttp2-\(.*\)-done/\1/'`
+    installed_nghttp3_version=`ls nghttp3-*-done 2>/dev/null | sed 's/nghttp3-\(.*\)-done/\1/'`
     installed_libtiff_version=`ls tiff-*-done 2>/dev/null | sed 's/tiff-\(.*\)-done/\1/'`
     installed_spandsp_version=`ls spandsp-*-done 2>/dev/null | sed 's/spandsp-\(.*\)-done/\1/'`
     installed_speexdsp_version=`ls speexdsp-*-done 2>/dev/null | sed 's/speexdsp-\(.*\)-done/\1/'`
@@ -3579,7 +3651,22 @@ if $no_build; then
     exit 0
 fi
 
-echo "You are now prepared to build Wireshark."
+if [ "$QT_VERSION" ]; then
+    if [ -f qt-$QT_VERSION-done ]; then
+        echo "You are now prepared to build Wireshark."
+    else
+        echo "Qt was not installed; you will have to install it in order to build the"
+        echo "Wireshark application, but you can build all the command-line tools in"
+        echo "the Wireshark distribution."
+        echo ""
+        echo "See section 2.1.1. \"Build environment setup\" of the Wireshark Developer's"
+        echo "Guide for instructions on how to install Qt."
+    fi
+else
+    echo "You did not install Qt; you will have to install it in order to build"
+    echo "the Wireshark application, but you can build all the command-line tools in"
+    echo "the Wireshark distribution."
+fi
 echo
 echo "To build:"
 echo

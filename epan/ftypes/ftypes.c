@@ -166,12 +166,21 @@ ftype_pretty_name(enum ftenum ftype)
 }
 
 int
-ftype_length(enum ftenum ftype)
+ftype_wire_size(enum ftenum ftype)
 {
 	ftype_t	*ft;
 
 	FTYPE_LOOKUP(ftype, ft);
 	return ft->wire_size;
+}
+
+gboolean
+ftype_can_length(enum ftenum ftype)
+{
+	ftype_t	*ft;
+
+	FTYPE_LOOKUP(ftype, ft);
+	return ft->len ? TRUE : FALSE;
 }
 
 gboolean
@@ -505,13 +514,14 @@ fvalue_type_name(const fvalue_t *fv)
 }
 
 
-guint
-fvalue_length(fvalue_t *fv)
+gsize
+fvalue_length2(fvalue_t *fv)
 {
-	if (fv->ftype->len)
-		return fv->ftype->len(fv);
-	else
-		return fv->ftype->wire_size;
+	if (!fv->ftype->len) {
+		ws_critical("fv->ftype->len is NULL");
+		return 0;
+	}
+	return fv->ftype->len(fv);
 }
 
 char *
@@ -567,38 +577,26 @@ fvalue_to_sinteger64(const fvalue_t *fv, gint64 *repr)
 
 typedef struct {
 	fvalue_t	*fv;
-	GByteArray	*bytes;
+	void		*ptr;
 	gboolean	slice_failure;
 } slice_data_t;
 
-static void
-slice_func(gpointer data, gpointer user_data)
+static gboolean
+compute_drnode(gsize field_length, drange_node *drnode, gsize *offset_ptr, gsize *length_ptr)
 {
-	drange_node	*drnode = (drange_node	*)data;
-	slice_data_t	*slice_data = (slice_data_t *)user_data;
-	gint		start_offset;
-	gint		length = 0;
-	gint		end_offset = 0;
-	guint		field_length;
-	fvalue_t	*fv;
+	gssize		start_offset;
+	gssize		length = 0;
+	gssize		end_offset = 0;
 	drange_node_end_t	ending;
-
-	if (slice_data->slice_failure) {
-		return;
-	}
 
 	start_offset = drange_node_get_start_offset(drnode);
 	ending = drange_node_get_ending(drnode);
-
-	fv = slice_data->fv;
-	field_length = fvalue_length(fv);
 
 	/* Check for negative start */
 	if (start_offset < 0) {
 		start_offset = field_length + start_offset;
 		if (start_offset < 0) {
-			slice_data->slice_failure = TRUE;
-			return;
+			return FALSE;
 		}
 	}
 
@@ -607,15 +605,13 @@ slice_func(gpointer data, gpointer user_data)
 	if (ending == DRANGE_NODE_END_T_TO_THE_END) {
 		length = field_length - start_offset;
 		if (length <= 0) {
-			slice_data->slice_failure = TRUE;
-			return;
+			return FALSE;
 		}
 	}
 	else if (ending == DRANGE_NODE_END_T_LENGTH) {
 		length = drange_node_get_length(drnode);
 		if (start_offset + length > (int) field_length) {
-			slice_data->slice_failure = TRUE;
-			return;
+			return FALSE;
 		}
 	}
 	else if (ending == DRANGE_NODE_END_T_OFFSET) {
@@ -623,12 +619,10 @@ slice_func(gpointer data, gpointer user_data)
 		if (end_offset < 0) {
 			end_offset = field_length + end_offset;
 			if (end_offset < start_offset) {
-				slice_data->slice_failure = TRUE;
-				return;
+				return FALSE;
 			}
 		} else if (end_offset >= (int) field_length) {
-			slice_data->slice_failure = TRUE;
-			return;
+			return FALSE;
 		}
 		length = end_offset - start_offset + 1;
 	}
@@ -636,20 +630,64 @@ slice_func(gpointer data, gpointer user_data)
 		ws_assert_not_reached();
 	}
 
-	ws_assert(start_offset >=0 && length > 0);
-	fv->ftype->slice(fv, slice_data->bytes, start_offset, length);
+	*offset_ptr = start_offset;
+	*length_ptr = length;
+	return TRUE;
 }
 
+static void
+slice_func(gpointer data, gpointer user_data)
+{
+	drange_node	*drnode = (drange_node	*)data;
+	slice_data_t	*slice_data = (slice_data_t *)user_data;
+	gsize		start_offset;
+	gsize		length = 0;
+	fvalue_t	*fv;
 
-/* Returns a new FT_BYTES fvalue_t* if possible, otherwise NULL */
-fvalue_t*
-fvalue_slice(fvalue_t *fv, drange_t *d_range)
+	if (slice_data->slice_failure) {
+		return;
+	}
+
+	fv = slice_data->fv;
+	if (!compute_drnode((guint)fvalue_length2(fv), drnode, &start_offset, &length)) {
+		slice_data->slice_failure = TRUE;
+		return;
+	}
+
+	ws_assert(length > 0);
+	fv->ftype->slice(fv, slice_data->ptr, (guint)start_offset, (guint)length);
+}
+
+static fvalue_t *
+slice_string(fvalue_t *fv, drange_t *d_range)
 {
 	slice_data_t	slice_data;
 	fvalue_t	*new_fv;
 
 	slice_data.fv = fv;
-	slice_data.bytes = g_byte_array_new();
+	slice_data.ptr = wmem_strbuf_create(NULL);
+	slice_data.slice_failure = FALSE;
+
+	/* XXX - We could make some optimizations here based on
+	 * drange_has_total_length() and
+	 * drange_get_max_offset().
+	 */
+
+	drange_foreach_drange_node(d_range, slice_func, &slice_data);
+
+	new_fv = fvalue_new(FT_STRING);
+	fvalue_set_strbuf(new_fv, slice_data.ptr);
+	return new_fv;
+}
+
+static fvalue_t *
+slice_bytes(fvalue_t *fv, drange_t *d_range)
+{
+	slice_data_t	slice_data;
+	fvalue_t	*new_fv;
+
+	slice_data.fv = fv;
+	slice_data.ptr = g_byte_array_new();
 	slice_data.slice_failure = FALSE;
 
 	/* XXX - We could make some optimizations here based on
@@ -660,10 +698,18 @@ fvalue_slice(fvalue_t *fv, drange_t *d_range)
 	drange_foreach_drange_node(d_range, slice_func, &slice_data);
 
 	new_fv = fvalue_new(FT_BYTES);
-	GBytes *bytes = g_byte_array_free_to_bytes(slice_data.bytes);
-	fvalue_set_bytes(new_fv, bytes);
-	g_bytes_unref(bytes);
+	fvalue_set_byte_array(new_fv, slice_data.ptr);
 	return new_fv;
+}
+
+/* Returns a new slice fvalue_t* if possible, otherwise NULL */
+fvalue_t*
+fvalue_slice(fvalue_t *fv, drange_t *d_range)
+{
+	if (FT_IS_STRING(fvalue_type_ftenum(fv))) {
+		return slice_string(fv, d_range);
+	}
+	return slice_bytes(fv, d_range);
 }
 
 void
@@ -741,7 +787,7 @@ fvalue_set_guid(fvalue_t *fv, const e_guid_t *value)
 void
 fvalue_set_time(fvalue_t *fv, const nstime_t *value)
 {
-	ws_assert(IS_FT_TIME(fv->ftype->ftype));
+	ws_assert(FT_IS_TIME(fv->ftype->ftype));
 	ws_assert(fv->ftype->set_value.set_value_time);
 	fv->ftype->set_value.set_value_time(fv, value);
 }
@@ -760,7 +806,7 @@ fvalue_set_strbuf(fvalue_t *fv, wmem_strbuf_t *value)
 		/* XXX Can this condition be relaxed? */
 		ws_critical("Fvalue strbuf allocator must be NULL");
 	}
-	ws_assert(IS_FT_STRING(fv->ftype->ftype));
+	ws_assert(FT_IS_STRING(fv->ftype->ftype));
 	ws_assert(fv->ftype->set_value.set_value_strbuf);
 	fv->ftype->set_value.set_value_strbuf(fv, value);
 }
@@ -888,7 +934,7 @@ fvalue_get_guid(fvalue_t *fv)
 const nstime_t *
 fvalue_get_time(fvalue_t *fv)
 {
-	ws_assert(IS_FT_TIME(fv->ftype->ftype));
+	ws_assert(FT_IS_TIME(fv->ftype->ftype));
 	ws_assert(fv->ftype->get_value.get_value_time);
 	return fv->ftype->get_value.get_value_time(fv);
 }
@@ -902,7 +948,7 @@ fvalue_get_string(fvalue_t *fv)
 const wmem_strbuf_t *
 fvalue_get_strbuf(fvalue_t *fv)
 {
-	ws_assert(IS_FT_STRING(fv->ftype->ftype));
+	ws_assert(FT_IS_STRING(fv->ftype->ftype));
 	ws_assert(fv->ftype->get_value.get_value_strbuf);
 	return fv->ftype->get_value.get_value_strbuf(fv);
 }

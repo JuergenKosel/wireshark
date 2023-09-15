@@ -463,6 +463,9 @@ LograyMainWindow::LograyMainWindow(QWidget *parent) :
     main_ui_->goToGo->setAttribute(Qt::WA_MacSmallSize, true);
     main_ui_->goToCancel->setAttribute(Qt::WA_MacSmallSize, true);
 
+    connect(main_ui_->goToGo, &QPushButton::pressed, this, &LograyMainWindow::goToGoClicked);
+    connect(main_ui_->goToCancel, &QPushButton::pressed, this, &LograyMainWindow::goToCancelClicked);
+
     main_ui_->actionEditPreferences->setMenuRole(QAction::PreferencesRole);
 
 #endif // Q_OS_MAC
@@ -547,6 +550,8 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connect(&capture_file_, SIGNAL(captureEvent(CaptureEvent)),
             main_ui_->statusBar, SLOT(captureEventHandler(CaptureEvent)));
 
+    connect(mainApp, SIGNAL(freezePacketList(bool)),
+            packet_list_, SLOT(freezePacketList(bool)));
     connect(mainApp, SIGNAL(columnsChanged()),
             packet_list_, SLOT(columnsChanged()));
     connect(mainApp, SIGNAL(preferencesChanged()),
@@ -605,6 +610,8 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
     connectGoMenuActions();
     connectCaptureMenuActions();
     connectAnalyzeMenuActions();
+    connectStatisticsMenuActions();
+    connectHelpMenuActions();
 
     connect(packet_list_, SIGNAL(packetDissectionChanged()),
             this, SLOT(redissectPackets()));
@@ -637,7 +644,7 @@ main_ui_->goToLineEdit->setValidator(goToLineQiv);
             &capture_file_, &CaptureFile::stopLoading);
 
     connect(main_ui_->statusBar, &MainStatusBar::editCaptureComment,
-            this, &LograyMainWindow::on_actionStatisticsCaptureFileProperties_triggered);
+            main_ui_->actionStatisticsCaptureFileProperties, &QAction::trigger);
 
     connect(main_ui_->menuApplyAsFilter, &QMenu::aboutToShow,
             this, &LograyMainWindow::filterMenuAboutToShow);
@@ -861,9 +868,9 @@ void LograyMainWindow::keyPressEvent(QKeyEvent *event) {
     if (mainApp->focusWidget() == main_ui_->goToLineEdit) {
         if (event->modifiers() == Qt::NoModifier) {
             if (event->key() == Qt::Key_Escape) {
-                on_goToCancel_clicked();
+                goToCancelClicked();
             } else if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) {
-                on_goToGo_clicked();
+                goToGoClicked();
             }
         }
         return; // goToLineEdit didn't want it and we don't either.
@@ -1231,7 +1238,7 @@ void LograyMainWindow::mergeCaptureFile()
            previous read filter attached to "cf"). */
         cf_set_rfcode(CaptureFile::globalCapFile(), rfcode);
 
-        switch (cf_read(CaptureFile::globalCapFile(), FALSE)) {
+        switch (cf_read(CaptureFile::globalCapFile(), /*reloading=*/FALSE)) {
 
         case CF_READ_OK:
         case CF_READ_ERROR:
@@ -1791,11 +1798,14 @@ bool LograyMainWindow::testCaptureFileClose(QString before_what, FileCloseContex
     }
 
 #ifdef HAVE_LIBPCAP
-    if (capture_file_.capFile()->state == FILE_READ_IN_PROGRESS) {
+    if (capture_file_.capFile()->state == FILE_READ_IN_PROGRESS ||
+        capture_file_.capFile()->state == FILE_READ_PENDING) {
         /*
-         * This (FILE_READ_IN_PROGRESS) is true if we're reading a capture file
+         * FILE_READ_IN_PROGRESS is true if we're reading a capture file
          * *or* if we're doing a live capture. From the capture file itself we
          * cannot differentiate the cases, so check the current capture session.
+         * FILE_READ_PENDING is only used for a live capture, but it doesn't
+         * hurt to check it here.
          */
         capture_in_progress = captureSession()->state != CAPTURE_STOPPED;
     }
@@ -1988,7 +1998,8 @@ bool LograyMainWindow::testCaptureFileClose(QString before_what, FileCloseContex
 void LograyMainWindow::captureStop() {
     stopCapture();
 
-    while (capture_file_.capFile() && capture_file_.capFile()->state == FILE_READ_IN_PROGRESS) {
+    while (capture_file_.capFile() && (capture_file_.capFile()->state == FILE_READ_IN_PROGRESS ||
+                                       capture_file_.capFile()->state == FILE_READ_PENDING)) {
         WiresharkApplication::processEvents();
     }
 }
@@ -2167,10 +2178,14 @@ void LograyMainWindow::initTimePrecisionFormatMenu()
 
     tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionAutomatic] = TS_PREC_AUTO;
     tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionSeconds] = TS_PREC_FIXED_SEC;
-    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionDeciseconds] = TS_PREC_FIXED_DSEC;
-    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionCentiseconds] = TS_PREC_FIXED_CSEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision100Milliseconds] = TS_PREC_FIXED_100_MSEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision10Milliseconds] = TS_PREC_FIXED_10_MSEC;
     tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionMilliseconds] = TS_PREC_FIXED_MSEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision100Microseconds] = TS_PREC_FIXED_100_USEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision10Microseconds] = TS_PREC_FIXED_10_USEC;
     tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionMicroseconds] = TS_PREC_FIXED_USEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision100Nanoseconds] = TS_PREC_FIXED_100_NSEC;
+    tp_actions[main_ui_->actionViewTimeDisplayFormatPrecision10Nanoseconds] = TS_PREC_FIXED_10_NSEC;
     tp_actions[main_ui_->actionViewTimeDisplayFormatPrecisionNanoseconds] = TS_PREC_FIXED_NSEC;
 
     foreach(QAction* tpa, tp_actions.keys()) {
@@ -2268,7 +2283,7 @@ void LograyMainWindow::initConversationMenus()
     connect(colorize_action, SIGNAL(triggered()), this, SLOT(colorizeActionTriggered()));
 }
 
-gboolean LograyMainWindow::addExportObjectsMenuItem(const void *, void *value, void *userdata)
+bool LograyMainWindow::addExportObjectsMenuItem(const void *, void *value, void *userdata)
 {
     register_eo_t *eo = (register_eo_t*)value;
     LograyMainWindow *window = (LograyMainWindow*)userdata;
@@ -2406,7 +2421,7 @@ void LograyMainWindow::setMenusForCaptureFile(bool force_disable)
     bool can_save = false;
     bool can_save_as = false;
 
-    if (force_disable || capture_file_.capFile() == NULL || capture_file_.capFile()->state == FILE_READ_IN_PROGRESS) {
+    if (force_disable || capture_file_.capFile() == NULL || capture_file_.capFile()->state == FILE_READ_IN_PROGRESS || capture_file_.capFile()->state == FILE_READ_PENDING) {
         /* We have no capture file or we're currently reading a file */
         enable = false;
     } else {
@@ -2591,8 +2606,7 @@ void LograyMainWindow::setForCaptureInProgress(bool capture_in_progress, bool ha
     setMenusForCaptureInProgress(capture_in_progress);
 
 #ifdef HAVE_LIBPCAP
-    packet_list_->setCaptureInProgress(capture_in_progress);
-    packet_list_->setVerticalAutoScroll(capture_in_progress && main_ui_->actionGoAutoScroll->isChecked());
+    packet_list_->setCaptureInProgress(capture_in_progress, main_ui_->actionGoAutoScroll->isChecked());
 
 //    set_capture_if_dialog_for_capture_in_progress(capture_in_progress);
 #endif
@@ -2735,8 +2749,7 @@ void LograyMainWindow::externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, g
             itemAction = subMenu->addAction(item->name);
             itemAction->setData(QVariant::fromValue(static_cast<void *>(item)));
             itemAction->setText(item->label);
-            connect(itemAction, SIGNAL(triggered()),
-                    this, SLOT(externalMenuItem_triggered()));
+            connect(itemAction, &QAction::triggered, this, &LograyMainWindow::externalMenuItemTriggered);
         }
 
         /* Iterate Loop */

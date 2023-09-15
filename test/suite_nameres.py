@@ -10,33 +10,39 @@
 
 import os.path
 import shutil
-import subprocesstest
-import fixtures
+import subprocess
+from subprocesstest import grep_output
+import pytest
 
 tf_str = { True: 'TRUE', False: 'FALSE' }
 
 custom_profile_name = 'Custom Profile'
 
-@fixtures.fixture
-def nameres_env(test_env, program_path, conf_path):
+@pytest.fixture
+def nameres_setup(program_path, conf_path):
     bundle_path = os.path.join(program_path, 'Wireshark.app', 'Contents', 'MacOS')
     if os.path.isdir(bundle_path):
-        global_path = bundle_path
+        # Don't modify our application bundle.
+        global_path = None
     else:
         global_path = program_path
     custom_profile_path = os.path.join(conf_path, 'profiles', custom_profile_name)
     os.makedirs(custom_profile_path)
     this_dir = os.path.dirname(__file__)
     hosts_path_pfx = os.path.join(this_dir, 'hosts.')
-    shutil.copyfile(hosts_path_pfx + 'global', os.path.join(global_path, 'hosts'))
+
+    if global_path is not None:
+        shutil.copyfile(hosts_path_pfx + 'global', os.path.join(global_path, 'hosts'))
     shutil.copyfile(hosts_path_pfx + 'personal', os.path.join(conf_path, 'hosts'))
     shutil.copyfile(hosts_path_pfx + 'custom', os.path.join(custom_profile_path, 'hosts'))
-    return test_env
+    return global_path is not None
 
 
-@fixtures.fixture
-def check_name_resolution(cmd_tshark, capture_file, nameres_env):
-    def check_name_resolution_real(self, o_net_name, o_external_name_res, o_hosts_file, custom_profile, grep_str, fail_on_match=False):
+@pytest.fixture
+def check_name_resolution(cmd_tshark, capture_file, nameres_setup, test_env):
+    def check_name_resolution_real(o_net_name, o_external_name_res, o_hosts_file, custom_profile, grep_str, fail_on_match=False):
+        if grep_str.startswith('global') and not nameres_setup:
+            pytest.skip('Global name resolution tests would require modifying the application bundle')
         tshark_cmd = (cmd_tshark,
             '-r', capture_file('dns+icmp.pcapng.gz'),
             '-o', 'nameres.network_name: ' + tf_str[o_net_name],
@@ -45,17 +51,15 @@ def check_name_resolution(cmd_tshark, capture_file, nameres_env):
             )
         if custom_profile:
             tshark_cmd += ('-C', custom_profile_name)
-        self.assertRun(tshark_cmd, env=nameres_env)
+        proc = subprocess.run(tshark_cmd, check=True, capture_output=True, encoding='utf-8', env=test_env)
         if fail_on_match:
-            self.assertFalse(self.grepOutput(grep_str))
+            assert not grep_output(proc.stdout, grep_str)
         else:
-            self.assertTrue(self.grepOutput(grep_str))
+            assert grep_output(proc.stdout, grep_str)
     return check_name_resolution_real
 
 
-@fixtures.mark_usefixtures('test_env')
-@fixtures.uses_fixtures
-class case_name_resolution(subprocesstest.SubprocessTestCase):
+class TestNameResolution:
 
     def test_name_resolution_net_t_ext_f_hosts_f_global(self, check_name_resolution):
         '''Name resolution, no external, no profile hosts, global profile.'''
@@ -63,7 +67,7 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres.use_external_name_resolver: False
         # nameres.hosts_file_handling: False
         # Profile: Default
-        check_name_resolution(self, True, False, False, False, 'global-8-8-8-8')
+        check_name_resolution(True, False, False, False, 'global-8-8-8-8')
 
     def test_name_resolution_net_t_ext_f_hosts_f_personal(self, check_name_resolution):
         '''Name resolution, no external, no profile hosts, personal profile.'''
@@ -71,7 +75,7 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres.use_external_name_resolver: False
         # nameres.hosts_file_handling: False
         # Profile: Default
-        check_name_resolution(self, True, False, False, False, 'personal-8-8-4-4')
+        check_name_resolution(True, False, False, False, 'personal-8-8-4-4')
 
     def test_name_resolution_net_t_ext_f_hosts_f_custom(self, check_name_resolution):
         '''Name resolution, no external, no profile hosts, custom profile.'''
@@ -79,7 +83,7 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres_use_external_name_resolver: False
         # nameres.hosts_file_handling: False
         # Profile: Custom
-        check_name_resolution(self, True, False, False, True, 'custom-4-2-2-2')
+        check_name_resolution(True, False, False, True, 'custom-4-2-2-2')
 
     def test_name_resolution_net_t_ext_f_hosts_t_global(self, check_name_resolution):
         '''Name resolution, no external, profile hosts, global profile.'''
@@ -87,7 +91,7 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres.use_external_name_resolver: False
         # nameres.hosts_file_handling: True
         # Profile: Default
-        check_name_resolution(self, True, False, True, False, 'global-8-8-8-8', True)
+        check_name_resolution(True, False, True, False, 'global-8-8-8-8', True)
 
     def test_name_resolution_net_t_ext_f_hosts_t_personal(self, check_name_resolution):
         '''Name resolution, no external, profile hosts, personal profile.'''
@@ -95,7 +99,7 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres.use_external_name_resolver: False
         # nameres.hosts_file_handling: True
         # Profile: Default
-        check_name_resolution(self, True, False, True, False, 'personal-8-8-4-4')
+        check_name_resolution(True, False, True, False, 'personal-8-8-4-4')
 
     def test_name_resolution_net_t_ext_f_hosts_t_custom(self, check_name_resolution):
         '''Name resolution, no external, profile hosts, custom profile.'''
@@ -103,28 +107,28 @@ class case_name_resolution(subprocesstest.SubprocessTestCase):
         # nameres_use_external_name_resolver: False
         # nameres.hosts_file_handling: True
         # Profile: Custom
-        check_name_resolution(self, True, False, True, True, 'custom-4-2-2-2')
+        check_name_resolution(True, False, True, True, 'custom-4-2-2-2')
 
     def test_hosts_any(self, cmd_tshark, capture_file):
-        self.assertRun((cmd_tshark,
+        stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('dns+icmp.pcapng.gz'),
                 '-qz', 'hosts',
-                ))
-        self.assertTrue(self.grepOutput('174.137.42.65\twww.wireshark.org'))
-        self.assertTrue(self.grepOutput('fe80::6233:4bff:fe13:c558\tCrunch.local'))
+                ), encoding='utf-8')
+        assert '174.137.42.65\twww.wireshark.org' in stdout
+        assert 'fe80::6233:4bff:fe13:c558\tCrunch.local' in stdout
 
     def test_hosts_ipv4(self, cmd_tshark, capture_file):
-        self.assertRun((cmd_tshark,
+        stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('dns+icmp.pcapng.gz'),
                 '-qz', 'hosts,ipv4',
-                ))
-        self.assertTrue(self.grepOutput('174.137.42.65\twww.wireshark.org'))
-        self.assertFalse(self.grepOutput('fe80::6233:4bff:fe13:c558\tCrunch.local'))
+                ), encoding='utf-8')
+        assert '174.137.42.65\twww.wireshark.org' in stdout
+        assert 'fe80::6233:4bff:fe13:c558\tCrunch.local' not in stdout
 
     def test_hosts_ipv6(self, cmd_tshark, capture_file):
-        self.assertRun((cmd_tshark,
+        stdout = subprocess.check_output((cmd_tshark,
                 '-r', capture_file('dns+icmp.pcapng.gz'),
                 '-qz', 'hosts,ipv6',
-                ))
-        self.assertTrue(self.grepOutput('fe80::6233:4bff:fe13:c558\tCrunch.local'))
-        self.assertFalse(self.grepOutput('174.137.42.65\twww.wireshark.org'))
+                ), encoding='utf-8')
+        assert '174.137.42.65\twww.wireshark.org' not in stdout
+        assert 'fe80::6233:4bff:fe13:c558\tCrunch.local' in stdout

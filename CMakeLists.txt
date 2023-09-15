@@ -20,26 +20,14 @@ cmake_minimum_required(VERSION 3.13)
 if(POLICY CMP0083)
 	cmake_policy(SET CMP0083 NEW)
 endif()
+if(POLICY CMP0092)
+	cmake_policy(SET CMP0092 NEW)
+endif()
 if(POLICY CMP0135)
 	cmake_policy(SET CMP0135 NEW)
 endif()
 
-if(WIN32)
-	if(DEFINED ENV{MSYSTEM})
-		set(_msystem $ENV{MSYSTEM})
-		set(_repository False)
-		message(STATUS "Using MSYS2 with MSYSTEM=${_msystem}")
-	else()
-		set(_msystem False)
-		set(_repository True)
-		message(STATUS "Using 3rd party repository")
-	endif()
-	set(USE_MSYSTEM ${_msystem} CACHE INTERNAL "Use MSYS2 subsystem")
-	set(HAVE_MSYSTEM ${USE_MSYSTEM}) # For config.h
-	set(USE_REPOSITORY ${_repository} CACHE INTERNAL "Use Wireshark 3rd Party Repository")
-endif()
-
-if(WIN32 AND NOT USE_MSYSTEM)
+if(WIN32 AND NOT DEFINED ENV{MSYSTEM})
 	set(_project_name Wireshark)
 	set(_log_project_name Logray)
 else()
@@ -49,10 +37,27 @@ endif()
 
 project(${_project_name} C CXX)
 
+if(WIN32)
+	set(_msystem False)
+	set(_repository False)
+	if(DEFINED ENV{MSYSTEM})
+		set(_msystem $ENV{MSYSTEM})
+		message(STATUS "Using MSYS2 with MSYSTEM=${_msystem}")
+	elseif(MSVC)
+		set(_repository True)
+		message(STATUS "Using 3rd party repository")
+	else()
+		# Neither own package repository nor MSYS2 repository.
+	endif()
+	set(USE_MSYSTEM ${_msystem} CACHE INTERNAL "Use MSYS2 subsystem")
+	set(HAVE_MSYSTEM ${USE_MSYSTEM}) # For config.h
+	set(USE_REPOSITORY ${_repository} CACHE INTERNAL "Use Wireshark 3rd Party Repository")
+endif()
+
 # Updated by tools/make-version.py
 set(PROJECT_MAJOR_VERSION 4)
 set(PROJECT_MINOR_VERSION 1)
-set(PROJECT_PATCH_VERSION 0)
+set(PROJECT_PATCH_VERSION 1)
 set(PROJECT_BUILD_VERSION 0)
 set(PROJECT_VERSION_EXTENSION "")
 
@@ -127,10 +132,6 @@ endif()
 # WIRESHARK_TARGET_PLATFORM accordingly. Otherwise use
 # %WIRESHARK_TARGET_PLATFORM%.
 
-# XXX We should probably consolidate WIRESHARK_TARGET_PLATFORM and
-# WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE and just use "x64"
-# instead of "win64"
-
 if(WIN32)
 	if(DEFINED ENV{WIRESHARK_TARGET_PLATFORM})
 		string(TOLOWER $ENV{WIRESHARK_TARGET_PLATFORM} _target_platform)
@@ -142,10 +143,10 @@ if(WIN32)
 		#    The differences among the environments are mainly environment
 		#    variables, default compilers/linkers, architecture,
 		#    system libraries used etc. If you are unsure, go with UCRT64.
-		set(WIRESHARK_TARGET_PLATFORM win64)
+		set(WIRESHARK_TARGET_PLATFORM x64)
 	elseif(USE_MSYSTEM)
 		if($ENV{MSYSTEM_CARCH} MATCHES "x86_64")
-			set(WIRESHARK_TARGET_PLATFORM win64)
+			set(WIRESHARK_TARGET_PLATFORM x64)
 		elseif($ENV{MSYSTEM_CARCH} MATCHES "i686")
 			set(WIRESHARK_TARGET_PLATFORM win32)
 		elseif($ENV{MSYSTEM_CARCH} MATCHES "aarch64")
@@ -155,43 +156,34 @@ if(WIN32)
 		endif()
 	elseif($ENV{Platform} MATCHES arm64 OR CMAKE_GENERATOR_PLATFORM MATCHES arm64)
 		set(WIRESHARK_TARGET_PLATFORM arm64)
-	elseif(CMAKE_CL_64 OR CMAKE_GENERATOR MATCHES Win64)
-		set(WIRESHARK_TARGET_PLATFORM win64)
+	elseif(CMAKE_CL_64 OR CMAKE_GENERATOR MATCHES x64)
+		set(WIRESHARK_TARGET_PLATFORM x64)
 	else()
-		message(WARNING "Assuming \"win64\" target platform")
-		set(WIRESHARK_TARGET_PLATFORM win64)
+		message(WARNING "Assuming \"x64\" target platform")
+		set(WIRESHARK_TARGET_PLATFORM x64)
 	endif()
 
-	set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE ${WIRESHARK_TARGET_PLATFORM})
-	if(WIRESHARK_TARGET_PLATFORM MATCHES "win64")
-		set(WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE x64)
-	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "arm64")
-	    # Pass
-	elseif(WIRESHARK_TARGET_PLATFORM MATCHES "win32")
+	if(WIRESHARK_TARGET_PLATFORM MATCHES "win32")
 		message(FATAL_ERROR "Deprecated target platform ${WIRESHARK_TARGET_PLATFORM}. See https://gitlab.com/wireshark/wireshark/-/issues/17779 for details.")
-	else()
+	elseif(NOT (WIRESHARK_TARGET_PLATFORM MATCHES "x64" OR WIRESHARK_TARGET_PLATFORM MATCHES "arm64"))
 		message(FATAL_ERROR "Invalid target platform: ${WIRESHARK_TARGET_PLATFORM}")
 	endif()
 
 	# Sanity check
-	if(MSVC)
-		if(DEFINED ENV{PLATFORM})
-			string(TOLOWER $ENV{PLATFORM} _vs_platform)
-		else()
-			set(_vs_platform "[undefined]") # x86
-		endif()
+	if(MSVC AND DEFINED ENV{PLATFORM})
+		string(TOLOWER $ENV{PLATFORM} _vs_platform)
 		if(
-			(_vs_platform STREQUAL "x64" AND NOT WIRESHARK_TARGET_PLATFORM STREQUAL "win64")
+			(_vs_platform STREQUAL "x64" AND NOT WIRESHARK_TARGET_PLATFORM STREQUAL "x64")
 			OR
-			(_vs_platform STREQUAL "[undefined]" AND NOT WIRESHARK_TARGET_PLATFORM STREQUAL "win32")
+			(_vs_platform STREQUAL "arm64" AND NOT WIRESHARK_TARGET_PLATFORM STREQUAL "arm64")
 		)
 			message(FATAL_ERROR "The PLATFORM environment variable (${_vs_platform})"
 				" doesn't match the generator platform (${WIRESHARK_TARGET_PLATFORM})")
 		endif()
 	endif()
+
 	message(STATUS
-		"Building for ${WIRESHARK_TARGET_PLATFORM} \
-and CPU target ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}"
+		"Building for ${WIRESHARK_TARGET_PLATFORM}"
 	)
 
 	if(NOT CMAKE_CROSSCOMPILING)
@@ -408,7 +400,7 @@ else()
 endif()
 
 # Used in .rc files and manifests
-set(MANIFEST_PROCESSOR_ARCHITECTURE ${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE})
+set(MANIFEST_PROCESSOR_ARCHITECTURE ${WIRESHARK_TARGET_PLATFORM})
 if (MANIFEST_PROCESSOR_ARCHITECTURE MATCHES "x64")
 	set(MANIFEST_PROCESSOR_ARCHITECTURE "amd64")
 endif()
@@ -523,8 +515,8 @@ set_property(DIRECTORY
 	PROPERTY COMPILE_DEFINITIONS
 		"G_DISABLE_DEPRECATED"
 		"G_DISABLE_SINGLE_INCLUDES"
-		$<$<OR:$<BOOL:${ENABLE_DEBUG}>,$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:WS_DEBUG>
-		$<$<OR:$<BOOL:${ENABLE_DEBUG_UTF_8}>,$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:WS_DEBUG_UTF_8>
+		$<$<OR:$<BOOL:${ENABLE_DEBUG}>,$<CONFIG:Debug>>:WS_DEBUG>
+		$<$<OR:$<AND:$<BOOL:${ENABLE_DEBUG}>,$<BOOL:${ENABLE_DEBUG_UTF_8}>>,$<CONFIG:Debug>>:WS_DEBUG_UTF_8>
 )
 
 if(WIN32)
@@ -585,7 +577,7 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		/D_CRT_NONSTDC_NO_WARNINGS
 	)
 
-	if(NOT WIRESHARK_TARGET_PLATFORM STREQUAL "win64")
+	if(NOT WIRESHARK_TARGET_PLATFORM STREQUAL "x64")
 		add_definitions("/D_BIND_TO_CURRENT_CRT_VERSION=1")
 	endif()
 
@@ -610,6 +602,7 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 	#                                   See https://devblogs.microsoft.com/cppblog/spectre-mitigations-in-msvc/
 	list(APPEND LOCAL_CFLAGS /diagnostics:caret /Zo /utf-8 /guard:cf)
 	set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /guard:cf")
+	set(WS_LINK_FLAGS "${WS_LINK_FLAGS} /STACK:0x800000")
 	# /Qspectre is not available for VS2015 or older VS2017. Test for its availability.
 	set(WIRESHARK_COMMON_FLAGS /Qspectre)
 
@@ -620,7 +613,10 @@ if( CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		# https://gitlab.kitware.com/cmake/cmake/-/issues/19682
 		# For now, we set CAExcludePath=C:\Qt;%include% in the Visual Studio
 		# Code Analys builder's environment.
-		list(APPEND LOCAL_CFLAGS /analyze:WX-)
+		list(APPEND LOCAL_CFLAGS
+			/analyze:WX-
+			/analyze:log:format:sarif
+			)
 	endif()
 
 	# Additional compiler warnings to be treated as "Level 3"
@@ -1227,43 +1223,11 @@ ws_find_package(Systemd BUILD_sdjournal HAVE_SYSTEMD)
 # Build one of the Qt GUIs?
 if(BUILD_wireshark OR BUILD_logray)
 	if(USE_qt6)
-		set(qtver "6")
+		set(qtver 6)
 		if(DEFINED ENV{WIRESHARK_QT6_PREFIX_PATH})
 			list(APPEND CMAKE_PREFIX_PATH $ENV{WIRESHARK_QT6_PREFIX_PATH})
 		endif()
-	else()
-		set(qtver "5")
-		if(DEFINED ENV{WIRESHARK_QT5_PREFIX_PATH})
-			list(APPEND CMAKE_PREFIX_PATH $ENV{WIRESHARK_QT5_PREFIX_PATH})
-		# XXX We used to recommend setting QT5_BASE_DIR. Remove after the 4.0 branch is created.
-		elseif(WIN32 AND NOT USE_MSYSTEM AND DEFINED ENV{QT5_BASE_DIR})
-			message(WARNING "Support for QT5_BASE_DIR will be removed in a future release.")
-			set(QT5_BASE_PATH "$ENV{QT5_BASE_DIR}")
-			set(CMAKE_PREFIX_PATH "${QT5_BASE_PATH}")
-		endif()
-	endif()
-	if(APPLE AND EXISTS /usr/local/opt/qt5)
-		# Homebrew installs Qt5 (up to at least 5.11.0) in
-		# /usr/local/qt5. Ensure that it can be found by CMake
-		# since it is not in the default /usr/local prefix.
-		# Add it to PATHS so that it doesn't override the
-		# CMAKE_PREFIX_PATH environment variable.
-		# QT_FIND_PACKAGE_OPTIONS should be passed to find_package,
-		# e.g. find_package(Qt5Core ${QT_FIND_PACKAGE_OPTIONS})
-		list(APPEND QT_FIND_PACKAGE_OPTIONS PATHS /usr/local/opt/qt5)
-	endif()
-	set(QT_PACKAGELIST
-		Qt${qtver}Core
-		Qt${qtver}Gui
-		Qt${qtver}LinguistTools
-		Qt${qtver}PrintSupport
-		Qt${qtver}Widgets
-		Qt${qtver}Concurrent
-	)
-	set(QT_OPTIONAL_PACKAGELIST
-		Qt${qtver}Multimedia
-	)
-	if(USE_qt6)
+
 		set(CMAKE_CXX_STANDARD 17)
 		# Setting CMAKE_CXX_STANDARD is not sufficient with MSVC, see
 		#   https://gitlab.kitware.com/cmake/cmake/-/issues/18837
@@ -1273,39 +1237,90 @@ if(BUILD_wireshark OR BUILD_logray)
 			# https://cmake.org/pipermail/cmake/2009-August/031672.html
 			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Zc:__cplusplus")
 		endif()
-		list(APPEND QT_PACKAGELIST Qt6Core5Compat)
-	else()
-		if(WIN32)
-			list(APPEND QT_PACKAGELIST Qt5WinExtras)
+
+		find_package(Qt6 REQUIRED
+			COMPONENTS
+				Core
+				Gui
+				LinguistTools
+				PrintSupport
+				Widgets
+				Concurrent
+				Core5Compat
+			OPTIONAL_COMPONENTS
+				Multimedia
+		)
+	else(USE_qt6)
+		set(qtver 5)
+		if(DEFINED ENV{WIRESHARK_QT5_PREFIX_PATH})
+			list(APPEND CMAKE_PREFIX_PATH $ENV{WIRESHARK_QT5_PREFIX_PATH})
 		endif()
-	endif()
-	foreach(_qt_package IN LISTS QT_PACKAGELIST)
-		find_package(${_qt_package} REQUIRED ${QT_FIND_PACKAGE_OPTIONS})
-		list(APPEND QT_LIBRARIES ${${_qt_package}_LIBRARIES})
-		list(APPEND QT_INCLUDE_DIRS ${${_qt_package}_INCLUDE_DIRS})
-		list(APPEND QT_COMPILE_DEFINITIONS ${${_qt_package}_COMPILE_DEFINITIONS})
-	endforeach()
-	foreach(_qt_package IN LISTS QT_OPTIONAL_PACKAGELIST)
-		find_package(${_qt_package} ${QT_FIND_PACKAGE_OPTIONS})
-		list(APPEND QT_LIBRARIES ${${_qt_package}_LIBRARIES})
-		list(APPEND QT_INCLUDE_DIRS ${${_qt_package}_INCLUDE_DIRS})
-		list(APPEND QT_COMPILE_DEFINITIONS ${${_qt_package}_COMPILE_DEFINITIONS})
-	endforeach()
-	if(APPLE AND "/usr/local/opt/qt5/lib/QtCore.framework" IN_LIST Qt5Core_INCLUDE_DIRS)
-		# When qt@6 and qt@5 are both installed via Homebrew,
-		# /usr/local/include/QtCore/qvariant.h points to Qt 6 headers.
-		# Normally the Headers from `-iframework /usr/local/opt/qt5/lib`
-		# should be used, but `-isystem /usr/local/include` (via
-		# Libgcrypt and others) seems to prioritized, resulting in use
-		# of the Qt6 headers. Resolve this by explicit including Qt5.
-		list(APPEND QT_INCLUDE_DIRS /usr/local/opt/qt5/include)
-	endif()
+		if(APPLE AND EXISTS /usr/local/opt/qt5)
+			# Homebrew installs Qt5 (up to at least 5.11.0) in
+			# /usr/local/qt5. Ensure that it can be found by CMake
+			# since it is not in the default /usr/local prefix.
+			# Add it to PATHS so that it doesn't override the
+			# CMAKE_PREFIX_PATH environment variable.
+			# QT_FIND_PACKAGE_OPTIONS should be passed to find_package,
+			# e.g. find_package(Qt5Core ${QT_FIND_PACKAGE_OPTIONS})
+			list(APPEND QT5_FIND_PACKAGE_OPTIONS PATHS /usr/local/opt/qt5)
+		endif()
+
+		set(QT5_PACKAGELIST
+			Qt5Core
+			Qt5Gui
+			Qt5LinguistTools
+			Qt5PrintSupport
+			Qt5Widgets
+			Qt5Concurrent
+		)
+		set(QT5_OPTIONAL_PACKAGELIST
+			Qt5Multimedia
+		)
+		if(WIN32)
+			list(APPEND QT5_PACKAGELIST Qt5WinExtras)
+		endif()
+		foreach(_qt5_package IN LISTS QT5_PACKAGELIST)
+			find_package(${_qt5_package} REQUIRED ${QT5_FIND_PACKAGE_OPTIONS})
+			list(APPEND QT5_LIBRARIES ${${_qt5_package}_LIBRARIES})
+			list(APPEND QT5_INCLUDE_DIRS ${${_qt5_package}_INCLUDE_DIRS})
+			list(APPEND QT5_COMPILE_DEFINITIONS ${${_qt5_package}_COMPILE_DEFINITIONS})
+		endforeach()
+		foreach(_qt5_package IN LISTS QT5_OPTIONAL_PACKAGELIST)
+			find_package(${_qt5_package} ${QT5_FIND_PACKAGE_OPTIONS})
+			list(APPEND QT5_LIBRARIES ${${_qt5_package}_LIBRARIES})
+			list(APPEND QT5_INCLUDE_DIRS ${${_qt5_package}_INCLUDE_DIRS})
+			list(APPEND QT5_COMPILE_DEFINITIONS ${${_qt5_package}_COMPILE_DEFINITIONS})
+		endforeach()
+
+		if (Qt5Widgets_VERSION VERSION_LESS 5.10)
+			message(FATAL_ERROR "Qt 5.12 or later is required.")
+		endif()
+		if (Qt5Widgets_VERSION VERSION_LESS 5.12)
+			message(WARNING "Wireshark can be build with this version of Qt, though 5.12 or higher is recommended.")
+		endif()
+
+		if(APPLE AND "/usr/local/opt/qt5/lib/QtCore.framework" IN_LIST Qt5Core_INCLUDE_DIRS)
+			# When qt@6 and qt@5 are both installed via Homebrew,
+			# /usr/local/include/QtCore/qvariant.h points to Qt 6 headers.
+			# Normally the Headers from `-iframework /usr/local/opt/qt5/lib`
+			# should be used, but `-isystem /usr/local/include` (via
+			# Libgcrypt and others) seems to prioritized, resulting in use
+			# of the Qt6 headers. Resolve this by explicit including Qt5.
+			list(APPEND QT5_INCLUDE_DIRS /usr/local/opt/qt5/include)
+		endif()
+	endif(USE_qt6)
+
 	set(QT_FOUND ON)
 	if(APPLE)
 		ws_find_package(Sparkle ENABLE_SPARKLE HAVE_SOFTWARE_UPDATE 2)
 	endif()
-	if(Qt${qtver}Multimedia_FOUND)
+	if(Qt6Multimedia_FOUND OR Qt5Multimedia_FOUND)
 		set(QT_MULTIMEDIA_LIB 1)
+	endif()
+	if(NOT DEFINED MOC_OPTIONS)
+		# Squelch moc verbose "nothing to do" output
+		set(MOC_OPTIONS -nn)
 	endif()
 endif()
 
@@ -1344,8 +1359,17 @@ ws_find_package(ZSTD ENABLE_ZSTD HAVE_ZSTD "1.0.0")
 # Enhanced HTTP/2 dissection
 ws_find_package(NGHTTP2 ENABLE_NGHTTP2 HAVE_NGHTTP2 "1.11.0")
 
+# Enhanced HTTP/3 dissection
+ws_find_package(NGHTTP3 ENABLE_NGHTTP3 HAVE_NGHTTP3 "0.6.0")
+
 # Embedded Lua interpreter
-ws_find_package(LUA ENABLE_LUA HAVE_LUA "5.1")
+if(FETCH_lua)
+	# Download and build lua
+	include(${CMAKE_SOURCE_DIR}/cmake/external/lua52/Lua52.cmake)
+else()
+	set(LUA_FIND_VERSIONS "5.2;5.1" CACHE STRING "Lua versions valid for the build (as a list)")
+	ws_find_package(Lua ENABLE_LUA HAVE_LUA)
+endif()
 
 ws_find_package(NL ENABLE_NETLINK HAVE_LIBNL)
 
@@ -1427,17 +1451,6 @@ if(GNUTLS_FOUND)
 endif()
 
 if (QT_FOUND)
-	if (Qt${qtver}Widgets_VERSION VERSION_LESS 5.10)
-		message(FATAL_ERROR "Qt 5.12 or later is required.")
-	endif()
-	if (Qt${qtver}Widgets_VERSION VERSION_LESS 5.12)
-		message(WARNING "Wireshark can be build with this version of Qt, though 5.12 or higher is recommended.")
-	endif()
-	if(NOT DEFINED MOC_OPTIONS)
-		# Squelch moc verbose "nothing to do" output
-		set(MOC_OPTIONS -nn)
-	endif()
-
 	# CMake uses qmake to find Qt4. It relies on Qt's CMake modules
 	# to find Qt5. This means that we can't assume that the qmake
 	# in our PATH is the correct one. We can fetch qmake's location
@@ -1485,7 +1498,9 @@ if (QT_FOUND)
 		# https://doc.qt.io/qt-5.11/supported-platforms-and-configurations.html
 		# https://doc.qt.io/qt-5.15/supported-platforms.html
 		# https://doc-snapshots.qt.io/qt6-dev/supported-platforms.html
-		if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.0.0")
+		if(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.5.0")
+			set(MIN_MACOS_VERSION 11.0)
+		elseif(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.0.0")
 			set(MIN_MACOS_VERSION 10.14)
 		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.14.0")
 			set(MIN_MACOS_VERSION 10.13)
@@ -1911,6 +1926,11 @@ set_package_properties(NGHTTP2 PROPERTIES
 	URL "https://nghttp2.org"
 	PURPOSE "Header decompression in HTTP2"
 )
+set_package_properties(NGHTTP3 PROPERTIES
+	DESCRIPTION "HTTP/3 C library and tools"
+	URL "https://nghttp2.org"
+	PURPOSE "Header decompression in HTTP3"
+)
 set_package_properties(CARES PROPERTIES
 	DESCRIPTION "Library for asynchronous DNS requests"
 	URL "https://c-ares.org/"
@@ -1955,6 +1975,11 @@ set_package_properties(Sinsp PROPERTIES
 	DESCRIPTION "libsinsp and libscap"
 	URL "https://github.com/falcosecurity/libs/"
 	PURPOSE "Support for Falco plugins"
+)
+set_package_properties(Lua PROPERTIES
+	DESCRIPTION "Lua is a powerful, efficient, lightweight, embeddable scripting language"
+	URL "https://www.lua.org/"
+	PURPOSE "Lua allows writing dissectors and other extensions without a C/C++ compiler"
 )
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _build_type)
@@ -2017,6 +2042,7 @@ set(TSHARK_TAP_SRC
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-srt.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-stats_tree.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-sv.c
+	${CMAKE_SOURCE_DIR}/ui/cli/tap-voip.c
 	${CMAKE_SOURCE_DIR}/ui/cli/tap-wspstat.c
 	${CUSTOM_TSHARK_TAP_SRC}
 
@@ -2034,18 +2060,16 @@ set(INSTALL_DIRS
 
 # Installed into ${DATAFILE_DIR}
 set(INSTALL_FILES
-	enterprises.tsv
-	manuf
 	resources/share/wireshark/cfilters
 	resources/share/wireshark/colorfilters
 	resources/share/wireshark/dfilter_macros
 	resources/share/wireshark/dfilters
+	resources/share/wireshark/ipmap.html
 	resources/share/wireshark/smi_modules
-	services
 	wka
 )
+
 set(DOC_FILES
-	resources/share/doc/wireshark/ipmap.html
 	resources/share/doc/wireshark/pdml2html.xsl
 	doc/README.xml-output
 	docbook/ws.css
@@ -2179,6 +2203,10 @@ if(USE_REPOSITORY)
 		list (APPEND THIRD_PARTY_DLLS "${NGHTTP2_DLL_DIR}/${NGHTTP2_DLL}")
 		list (APPEND THIRD_PARTY_PDBS "${NGHTTP2_DLL_DIR}/${NGHTTP2_PDB}")
 	endif(NGHTTP2_FOUND)
+	if (NGHTTP3_FOUND)
+		list (APPEND THIRD_PARTY_DLLS "${NGHTTP3_DLL_DIR}/${NGHTTP3_DLL}")
+		list (APPEND THIRD_PARTY_PDBS "${NGHTTP3_DLL_DIR}/${NGHTTP3_PDB}")
+	endif(NGHTTP3_FOUND)
 	if (PCRE2_FOUND)
 		list (APPEND THIRD_PARTY_DLLS "${PCRE2_DLL_DIR}/${PCRE2_DLL}")
 		list (APPEND THIRD_PARTY_PDBS "${PCRE2_DLL_DIR}/${PCRE2_PDB}")
@@ -2269,7 +2297,7 @@ if(USE_REPOSITORY)
 		list (APPEND THIRD_PARTY_DLLS "${SPEEXDSP_DLL_DIR}/${SPEEXDSP_DLL}")
 	endif()
 
-	# With libs downloaded to c:/wireshark-win64-libs this currently
+	# With libs downloaded to c:/wireshark-x64-libs this currently
 	# (early 2018) expands to about 1900 characters.
 	if (THIRD_PARTY_DLLS)
 		add_custom_command(TARGET copy_cli_dlls PRE_BUILD
@@ -2307,7 +2335,7 @@ if(USE_REPOSITORY)
 	if(ZIP_EXECUTABLE)
 		add_custom_target(pdb_zip_package COMMENT "This packages .PDBs but will not create them.")
 		set_target_properties(pdb_zip_package PROPERTIES FOLDER "Packaging")
-		set(_pdb_zip "${CMAKE_BINARY_DIR}/Wireshark-pdb-${PROJECT_VERSION}-${WIRESHARK_TARGET_PROCESSOR_ARCHITECTURE}.zip")
+		set(_pdb_zip "${CMAKE_BINARY_DIR}/Wireshark-pdb-${PROJECT_VERSION}-${WIRESHARK_TARGET_PLATFORM}.zip")
 		file(TO_NATIVE_PATH "${_pdb_zip}" _pdb_zip_win)
 		add_custom_command(TARGET pdb_zip_package POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E remove -f "${_pdb_zip}"
@@ -2370,30 +2398,6 @@ if (BUILD_logray AND ENABLE_APPLICATION_BUNDLE)
 		list(APPEND copy_data_files_depends "${_output_file}")
 	endforeach()
 endif()
-
-# Install Lua files in staging directory such that Lua can used when Wireshark
-# is ran from the build directory. For install targets, see
-# epan/wslua/CMakeLists.txt
-if(LUA_FOUND AND ENABLE_LUA)
-	set(_lua_files
-		"${CMAKE_SOURCE_DIR}/epan/wslua/init.lua"
-		"${CMAKE_SOURCE_DIR}/epan/wslua/console.lua"
-		"${CMAKE_SOURCE_DIR}/epan/wslua/dtd_gen.lua"
-	)
-	foreach(_lua_file ${_lua_files})
-		get_filename_component(_lua_filename "${_lua_file}" NAME)
-		list(APPEND copy_data_files_depends
-			"${DATAFILE_DIR}/${_lua_filename}")
-		add_custom_command(OUTPUT "${DATAFILE_DIR}/${_lua_filename}"
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-				"${_lua_file}"
-				"${DATAFILE_DIR}/${_lua_filename}"
-			DEPENDS
-				"${_lua_file}"
-		)
-	endforeach()
-endif(LUA_FOUND AND ENABLE_LUA)
-# doc/*.html handled elsewhere.
 
 set(_protocol_data_dir ${CMAKE_SOURCE_DIR}/resources/protocols)
 # Glob patterns relative to the source directory that should be copied to
@@ -2559,7 +2563,6 @@ if(BUILD_wireshark AND QT_FOUND)
 	)
 	set(wireshark_FILES
 		$<TARGET_OBJECTS:capture_opts>
-		$<TARGET_OBJECTS:qtui>
 		$<TARGET_OBJECTS:shark_common>
 		${WIRESHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
@@ -2576,7 +2579,6 @@ if(BUILD_logray AND QT_FOUND)
 	)
 	set(logray_FILES
 		$<TARGET_OBJECTS:capture_opts>
-		$<TARGET_OBJECTS:ui_logray>
 		$<TARGET_OBJECTS:shark_common>
 		${LOGRAY_SRC}
 		${PLATFORM_UI_RC_FILES}
@@ -2697,13 +2699,14 @@ endif()
 if(BUILD_wireshark AND QT_FOUND)
 	set(wireshark_LIBS
 		ui
+		qtui
 		capchild
 		caputils
 		iface_monitor
 		wiretap
 		epan
 		summary
-		${QT_LIBRARIES}
+		${QT5_LIBRARIES}
 		${APPLE_APPLICATION_SERVICES_LIBRARY}
 		${APPLE_APPKIT_LIBRARY}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
@@ -2809,13 +2812,14 @@ endif()
 if(BUILD_logray AND QT_FOUND)
 	set(logray_LIBS
 		ui
+		ui_logray
 		capchild
 		caputils
 		iface_monitor
 		wiretap
 		epan
 		summary
-		${QT_LIBRARIES}
+		${QT5_LIBRARIES}
 		${APPLE_APPLICATION_SERVICES_LIBRARY}
 		${APPLE_APPKIT_LIBRARY}
 		${APPLE_CORE_FOUNDATION_LIBRARY}
@@ -3050,6 +3054,8 @@ if(BUILD_sharkd)
 		${APPLE_SYSTEM_CONFIGURATION_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
 		${SPEEXDSP_LIBRARIES}
+		${M_LIBRARIES}
+		${GCRYPT_LIBRARIES}
 	)
 	set(sharkd_FILES
 		#
@@ -3057,9 +3063,11 @@ if(BUILD_sharkd)
 		# $<TARGET_OBJECTS:cli_main> and has real_main().
 		#
 		$<TARGET_OBJECTS:shark_common>
+		ui/cli/simple_dialog.c
 		sharkd.c
 		sharkd_daemon.c
 		sharkd_session.c
+		${TSHARK_TAP_SRC}
 	)
 	set_executable_resources(sharkd "SharkD")
 	add_executable(sharkd ${sharkd_FILES})
@@ -4046,7 +4054,7 @@ if(WIN32 AND NOT USE_MSYSTEM)
 	# path (incorrect relative path computation).
 	set(WIRESHARK_INSTALL_CMAKEDIR "cmake")
 else()
-	set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/cmake")
+	set(WIRESHARK_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 endif()
 
 include(CMakePackageConfigHelpers)
@@ -4123,6 +4131,7 @@ endif(DOXYGEN_EXECUTABLE)
 
 add_custom_target(test-programs
 	DEPENDS exntest
+		fifo_string_cache_test
 		oids_test
 		reassemble_test
 		tvbtest
@@ -4258,6 +4267,11 @@ if(MSVC)
 		set_target_properties(${_target} PROPERTIES VS_DEBUGGER_ENVIRONMENT "G_DEBUG=fatal-criticals")
 	endforeach()
 endif()
+
+# -----------------------------------------------------------------------------
+# Packaging (CPack)
+# -----------------------------------------------------------------------------
+include(ConfigCPack.cmake)
 
 #
 # Editor modelines  -  https://www.wireshark.org/tools/modelines.html

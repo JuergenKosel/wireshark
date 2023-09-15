@@ -423,11 +423,11 @@ static const value_string user_identify_type_vals[] = {
 /* Used for DICOM Export Object feature */
 typedef struct _dicom_eo_t {
     guint32  pkt_num;
-    gchar   *hostname;
-    gchar   *filename;
-    gchar   *content_type;
+    const gchar   *hostname;
+    const gchar   *filename;
+    const gchar   *content_type;
     guint32  payload_len;
-    guint8  *payload_data;
+    const guint8  *payload_data;
 } dicom_eo_t;
 
 static tap_packet_status
@@ -440,18 +440,18 @@ dcm_eo_packet(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_,
 
     if (eo_info) { /* We have data waiting for us */
         /*
-           Don't copy any data. dcm_export_create_object() is already g_malloc() the items
-           Still, the values will be freed when the export Object window is closed.
-           Therefore, strings and buffers must be copied
+           The values will be freed when the export Object window is closed.
+           Therefore, strings and buffers must be copied.
         */
         entry = g_new(export_object_entry_t, 1);
 
         entry->pkt_num = pinfo->num;
-        entry->hostname = eo_info->hostname;
-        entry->content_type = eo_info->content_type;
+        entry->hostname = g_strdup(eo_info->hostname);
+        entry->content_type = g_strdup(eo_info->content_type);
+        /* g_path_get_basename() allocates a new string */
         entry->filename = g_path_get_basename(eo_info->filename);
         entry->payload_len  = eo_info->payload_len;
-        entry->payload_data = eo_info->payload_data;
+        entry->payload_data = (guint8 *)g_memdup2(eo_info->payload_data, eo_info->payload_len);
 
         object_list->add_entry(object_list->gui_data, entry);
 
@@ -1056,12 +1056,12 @@ dcm_set_syntax(dcm_state_pctx_t *pctx, gchar *xfer_uid, const gchar *xfer_desc)
     if ((pctx == NULL) || (xfer_uid == NULL) || (xfer_desc == NULL))
         return;
 
-    g_free(pctx->xfer_uid);     /* free prev allocated xfer */
-    g_free(pctx->xfer_desc);    /* free prev allocated xfer */
+    wmem_free(wmem_file_scope(), pctx->xfer_uid);  /* free prev allocated xfer */
+    wmem_free(wmem_file_scope(), pctx->xfer_desc); /* free prev allocated xfer */
 
     pctx->syntax = 0;
-    pctx->xfer_uid = g_strdup(xfer_uid);
-    pctx->xfer_desc = g_strdup(xfer_desc);
+    pctx->xfer_uid = wmem_strdup(wmem_file_scope(), xfer_uid);
+    pctx->xfer_desc = wmem_strdup(wmem_file_scope(), xfer_desc);
 
     /* this would be faster to skip the common parts, and have a FSA to
      * find the syntax.
@@ -1362,7 +1362,7 @@ dcm_export_create_object(packet_info *pinfo, dcm_state_assoc_t *assoc, dcm_state
     if (dcm_header_len + pdv_combined_len >= global_dcm_export_minsize) {
         /* Allocate the final size */
 
-        pdv_combined = (guint8 *)wmem_alloc0(wmem_file_scope(), dcm_header_len + pdv_combined_len);
+        pdv_combined = (guint8 *)wmem_alloc0(pinfo->pool, dcm_header_len + pdv_combined_len);
 
         pdv_combined_curr = pdv_combined;
 
@@ -1382,13 +1382,15 @@ dcm_export_create_object(packet_info *pinfo, dcm_state_assoc_t *assoc, dcm_state
         memmove(pdv_combined_curr, pdv->data, pdv->data_len);       /* this is a copy not a move */
 
         /* Add to list */
-        eo_info = wmem_new0(wmem_file_scope(), dicom_eo_t);
-        eo_info->hostname = g_strdup(hostname);
-        eo_info->filename = g_strdup(filename);
-        eo_info->content_type = g_strdup(pdv->desc);
+        /* The tap will copy the values and free the copies; this only
+         * needs packet lifetime. */
+        eo_info = wmem_new0(pinfo->pool, dicom_eo_t);
+        eo_info->hostname = hostname;
+        eo_info->filename = filename;
+        eo_info->content_type = pdv->desc;
 
-        eo_info->payload_data = pdv_combined;
         eo_info->payload_len  = dcm_header_len + pdv_combined_len;
+        eo_info->payload_data = pdv_combined;
 
         tap_queue_packet(dicom_eo_tap, pinfo, eo_info);
     }
@@ -3049,8 +3051,8 @@ dissect_dcm_tag(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             vr = (gchar *)tvb_get_string_enc(pinfo->pool, tvb, offset, 2, ENC_ASCII);
             offset += 2;
 
-            g_free(pdv->open_tag.vr);
-            pdv->open_tag.vr = g_strdup(vr);        /* needs to survive within a session */
+            wmem_free(wmem_file_scope(), pdv->open_tag.vr);
+            pdv->open_tag.vr = wmem_strdup(wmem_file_scope(), vr);        /* needs to survive within a session */
         }
 
         if ((strcmp(vr, "OB") == 0) || (strcmp(vr, "OW") == 0) || (strcmp(vr, "OF") == 0) || (strcmp(vr, "OD") == 0) || (strcmp(vr, "OL") == 0) ||

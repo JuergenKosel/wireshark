@@ -57,8 +57,8 @@ def make_dissectors(outfile, infiles):
     output += """\
 #include "dissectors.h"
 
-const gulong dissector_reg_proto_count = {0};
-const gulong dissector_reg_handoff_count = {1};
+const unsigned long dissector_reg_proto_count = {0};
+const unsigned long dissector_reg_handoff_count = {1};
 
 """.format(len(protos), len(handoffs))
 
@@ -90,7 +90,7 @@ def make_wtap_modules(outfile, infiles):
     output += """\
 #include "wtap_modules.h"
 
-const guint wtap_module_count = {0};
+const unsigned wtap_module_count = {0};
 
 """.format(len(wtap_modules))
 
@@ -118,7 +118,7 @@ def make_taps(outfile, infiles):
     output += """\
 #include "ui/taps.h"
 
-const gulong tap_reg_listener_count = {0};
+const unsigned long tap_reg_listener_count = {0};
 
 """.format(len(taps))
 

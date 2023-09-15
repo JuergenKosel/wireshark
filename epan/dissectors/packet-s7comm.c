@@ -6583,7 +6583,7 @@ s7comm_decode_ud_data(tvbuff_t *tvb,
                     next_tvb = new_tvb;
                     offset = 0;
                 } else { /* make a new subset */
-                    next_tvb = tvb_new_subset_length_caplen(tvb, offset, -1, -1);
+                    next_tvb = tvb_new_subset_length(tvb, offset, -1);
                     col_append_fstr(pinfo->cinfo, COL_INFO, " (S7COMM fragment%s)", str_fragadd);
                     proto_item_append_text(data_tree, " (S7COMM fragment%s)", str_fragadd);
                     offset = 0;
@@ -7652,10 +7652,10 @@ proto_register_s7comm (void)
         /* Organization block local data */
         { &hf_s7comm_ob_ev_class,
         { "OB Event class", "s7comm.ob.ev_class", FT_UINT8, BASE_HEX, NULL, 0x0,
-          "OB Event class (Bits 0-3 = 1 (Coming event), Bits 4-7 = 1 (Event class 1)", HFILL }},
+          "OB Event class (Bits 0-3 = 1 (Coming event), Bits 4-7 = 1 (Event class 1))", HFILL }},
         { &hf_s7comm_ob_scan_1,
         { "OB Scan 1", "s7comm.ob.scan_1", FT_UINT8, BASE_HEX, NULL, 0x0,
-          "OB Scan 1 (1=Cold restart scan 1 of OB 1), 3=Scan 2-n of OB 1)", HFILL }},
+          "OB Scan 1 (1=Cold restart scan 1 of OB 1), (3=Scan 2-n of OB 1)", HFILL }},
         { &hf_s7comm_ob_strt_inf,
         { "OB Start info", "s7comm.ob.strt_info", FT_UINT8, BASE_HEX, NULL, 0x0,
           "OB Start info (OB n has started)", HFILL }},

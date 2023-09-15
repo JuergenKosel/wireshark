@@ -643,7 +643,7 @@ static const value_string z3950_bib1_diagconditions[] = {
     { 1067, "Encapsulation: Encapsulated sequence of PDUs not supported" },
     { 1068, "Encapsulation: Base operation (and encapsulated PDUs) not executed based on pre-screening analysis" },
     { 1069, "No syntaxes available for this request" },
-    { 1070, "user not authorized to receive record(s) in requested syntax" },
+    { 1070, "User not authorized to receive record(s) in requested syntax" },
     { 1071, "preferredRecordSyntax not supplied" },
     { 1072, "Query term includes characters that do not translate into the target character set" },
     { 1073, "Database records do not contain data associated with access point" },
@@ -882,7 +882,7 @@ static const value_string marc_tag_names[] = {
 };
 
 static int
-dissect_z3950_printable_OCTET_STRING(gboolean implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_z3950_printable_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
     tvbuff_t *next_tvb = NULL;
     int hf_alternate = -1;
     guint old_offset = offset;

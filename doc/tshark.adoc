@@ -176,7 +176,7 @@ have elapsed. Floating point values (e.g. 0.5) are allowed.
 were written.
 
 *filesize*:__value__ Stop writing to a capture file after it reaches a size of
-__value__ kB.  If this option is used together with the -b option, *TShark*
+__value__ kB.  If this option is used together with the *-b* option, *TShark*
 will stop writing to the current capture file and switch to the next one if
 filesize is reached.  When reading a capture file, *TShark* will stop reading
 the file after the number of bytes read exceeds this number (the complete
@@ -266,7 +266,7 @@ system or interface on which you're capturing might silently limit the
 capture buffer size to a lower value or raise it to a higher value.
 
 This is available on UNIX-compatible systems, such as Linux, macOS,
-\*BSD, Solaris, and AIX, with libpcap 1.0.0 or later, and on Windows. 
+\*BSD, Solaris, and AIX, with libpcap 1.0.0 or later, and on Windows.
 It is not available on UNIX-compatible systems with earlier versions of
 libpcap.
 
@@ -299,7 +299,7 @@ Run with the given configuration profile.
 --
 Print a list of the interfaces on which *TShark* can capture, and
 exit.  For each network interface, a number and an interface name,
-possibly followed by a text description of the interface, is printed. 
+possibly followed by a text description of the interface, is printed.
 The interface name or the number can be supplied to the *-i* flag to
 specify an interface on which to capture.  The number can be useful on
 Windows systems, where the interfaces have long names that usually
@@ -312,9 +312,9 @@ contain a GUID.
 Add a field to the list of fields to display if *-T ek|fields|json|pdml*
 is selected.  This option can be used multiple times on the command line.
 At least one field must be provided if the *-T fields* option is
-selected. Column names may be used prefixed with "_ws.col."
+selected. Column types may be used prefixed with "_ws.col."
 
-Example: *tshark -e frame.number -e ip.addr -e udp -e _ws.col.Info*
+Example: *tshark -e frame.number -e ip.addr -e udp -e _ws.col.info*
 
 Fields are separated by tab characters by default.  *-E* controls the
 format of the printed fields.
@@ -358,6 +358,11 @@ option may be used.
 
 *quote=d|s|n* Set the quote character to use to surround fields.  *d*
 uses double-quotes, *s* single-quotes, *n* no quotes (the default).
+
+*escape=y|n* If *y*, the whitespace control characters (tab, line feed,
+carriage return, form feed, and vertical tab) and backspace will be
+replaced in field values by C-style escapes, e.g. "\n" for line feed.
+If *n*, field value strings will be printed as-is.  Defaults to *y*.
 --
 
 -f  <capture filter>::
@@ -423,6 +428,13 @@ Field 3:: "decode as" name, e.g. "http"
 
 *defaultprefs*  Dumps a default preferences file to stdout.
 
+*dissectors*  Dumps a list of registered dissectors to stdout.  There is
+one record per line.  The fields are tab-delimited.
+
+[horizontal]
+Field 1:: dissector name
+Field 2:: dissector description
+
 *dissector-tables*  Dumps a list of dissector tables to stdout.  There
 is one record per line.  The fields are tab-delimited.
 
@@ -436,6 +448,8 @@ Field 6:: "decode as" support
 
 *elastic-mapping*  Dumps the ElasticSearch mapping file to stdout. Fields
 falling in the default case (string) won't be mapped.
+
+*enterprises* Dumps the IANA Private Enterprise Number (PEN) table.
 
 *fieldcount*  Dumps the number of header fields to stdout.
 
@@ -462,6 +476,15 @@ Field 6:: base for display (for integer types); "parent bitfield width" for FT_B
 Field 7:: bitmask: format: hex: 0x....
 Field 8:: blurb describing field
 
+An optional search prefix argument can be given to
+*fields*, in which case the output is limited to protocols and fields whose
+abbreviation starts with the search prefix.
+
+.Search Output
+[horizontal]
+Field 1:: protocol or field abbreviation
+Field 2:: descriptive protocol or field name
+
 *folders* Dumps various folders used by *TShark*.  This is essentially the
 same data reported in Wireshark's About | Folders tab.
 There is one record per line.  The fields are tab-delimited.
@@ -482,10 +505,15 @@ There is one record per line.  The fields are tab-delimited.
 
 [horizontal]
 Field 1:: underlying dissector (e.g. "tcp")
-Field 2:: name of heuristic decoder (e.g. ucp")
+Field 2:: name of heuristic decoder (e.g. "ucp")
 Field 3:: heuristic enabled (e.g. "T" or "F")
+Field 4:: heuristic enabled by default (e.g. "T" or "F")
+Field 5:: heuristic short name (e.g. "ucp_tcp")
+Field 6:: heuristic display name (e.g. "UCP over TCP")
 
 *help* Displays the available report types.
+
+*manuf* Dumps the MAC address lookup table in `manuf` format.
 
 *plugins* Dumps the plugins currently installed.
 There is one record per line.  The fields are tab-delimited.
@@ -504,6 +532,11 @@ or HTML or whatever.  There is one record per line.  The fields are tab-delimite
 Field 1:: protocol name
 Field 2:: protocol short name
 Field 3:: protocol filter name
+Field 4:: protocol enabled (e.g. "T" or "F")
+Field 5:: protocol enabled by default (e.g. "T" or "F")
+Field 6:: protocol can toggle (e.g. "T" or "F")
+
+*services* Dumps the TCP, UDP, and SCTP transport service (port) table.
 
 *values* Dumps the value_strings, range_strings or true/false strings
 for fields that have them.  There is one record per line.  Fields are
@@ -719,10 +752,8 @@ done, the continuous count of packets captured shown when saving a
 capture to a file, and the final message giving the count of packets
 captured.  Only true errors are displayed on the standard error.
 
-only display true errors; don't display the
-initial message indicating the.  This outputs less
-than the *-q* option, so the interface name and total packet
-count and the end of a capture are not sent to stderr.
+This outputs less than the *-q* option, so the interface name and total
+packet count and the end of a capture are not sent to stderr.
 
 When reading a capture file, or when capturing and not saving to a file,
 don't print packet information; this is useful if you're using a *-z*
@@ -745,8 +776,8 @@ particular: those that can be read without seeking backwards).
 Cause the specified filter (which uses the syntax of read/display filters,
 rather than that of capture filters) to be applied during the first pass of
 analysis. Packets not matching the filter are not considered for future
-passes. Only makes sense with multiple passes, see -2. For regular filtering
-on single-pass dissect see -Y instead.
+passes. Only makes sense with multiple passes, see *-2*. For regular filtering
+on single-pass dissect see *-Y* instead.
 
 Note that forward-looking fields such as 'response in frame #' cannot be used
 with this filter, since they will not have been calculate when this filter is
@@ -825,7 +856,7 @@ Example of usage:
 
 *pdml* Packet Details Markup Language, an XML-based format for the
 details of a decoded packet.  This information is equivalent to the
-packet details printed with the *-V* option.  Using the --color option
+packet details printed with the *-V* option.  Using the *--color* option
 will add color attributes to *pdml* output.  These attributes are
 nonstandard.
 
@@ -836,7 +867,7 @@ depending on whether the *-V* option was specified.
 *psml* Packet Summary Markup Language, an XML-based format for the summary
 information of a decoded packet.  This information is equivalent to the
 information shown in the one-line summary printed by default.
-Using the --color option will add color attributes to *pdml* output. These
+Using the *--color* option will add color attributes to *pdml* output. These
 attributes are nonstandard.
 
 *tabs* Similar to the default *text* report except the human-readable one-line
@@ -863,7 +894,7 @@ typically defaults to __%USERPROFILE%\AppData\Local\Temp__.
 +
 --
 PDUs export, exports PDUs from infile to outfile according to the tap
-name given. Use -Y to filter.
+name given. Use *-Y* to filter.
 
 Enter an empty tap name "" or a tap name of ? to get a list of available
 names.
@@ -887,7 +918,7 @@ Cause *TShark* to print a view of the packet details.
 Write raw packet data to __outfile__ or to the standard output if
 __outfile__ is '-'.
 
-NOTE: -w provides raw packet data, not text.  If you want text output
+NOTE: *-w* provides raw packet data, not text.  If you want text output
 you need to redirect stdout (e.g. using '>'), don't use the *-w*
 option for this.
 --
@@ -961,7 +992,7 @@ Enable hexdump without printing any ASCII dump text.
 
 *help*::
 
-Display --hexdump specific help then exit.
+Display *--hexdump* specific help then exit.
 
 The use of *--hexdump <hexoption>* is particularly useful to generate output
 that can be used to create a pcap or pcapng file from a capture file type such
@@ -1040,8 +1071,8 @@ depend upon (e.g., fragments), are not printed but are written to file;
 packets not matching the filter nor depended upon are discarded rather
 than being printed or written.
 
-Use this instead of -R for filtering using single-pass analysis. If doing
-two-pass analysis (see -2) then only packets matching the read filter (if there
+Use this instead of *-R* for filtering using single-pass analysis. If doing
+two-pass analysis (see *-2*) then only packets matching the read filter (if there
 is one) will be checked against this filter.
 --
 
@@ -1055,7 +1086,7 @@ For example,
 
 will reset session every 100000 packets.
 
-This feature does not support -2 two-pass analysis
+This feature does not support *-2* two-pass analysis
 --
 
 -z  <statistics>::
@@ -1930,6 +1961,13 @@ Calculate statistics on IPv4 addresses, with source and destination addresses
 separated into separate categories.
 --
 
+*-z* ip_ttl,tree[,__filter__]::
++
+--
+Calculate statistics on the time to live (TTL) values that occur for each
+IPv4 source address.
+--
+
 *-z* ip6_dests,tree[,__filter__]::
 +
 --
@@ -1956,6 +1994,13 @@ Calculate statistics on port types that occur on IPv6 packets.
 Calculate statistics on IPv6 addresses, with source and destination addresses
 separated into separate categories.
 --
+
+*-z* ip6_hop,tree[,__filter__]::
++
+--
+Calculate statistics on the hop limits that occur for each IPv6 source address.
+--
+
 
 *-z* isup_msg,tree[,__filter__]::
 +
@@ -2434,7 +2479,7 @@ configuring color filters.
 --
 If a key appears multiple times in an object, only write it a single time with
 as value a json array containing all the separate values. (Only works with
--T json)
+*-T json*)
 --
 
 --elastic-mapping-filter <protocol>,<protocol>,...::
@@ -2459,6 +2504,14 @@ Duplicate files are not overwritten, instead an increasing number is appended
 before the file extension.
 
 This interface is subject to change, adding the possibility to filter on files.
+--
+
+--print-timers::
++
+--
+Output JSON containing elapsed times for each pass tshark does to process a capture
+file and the sum elapsed time for all passes. The per-pass output contains the total
+elapsed time and aggregate counters for per-packet operations (dissection and filtering).
 --
 
 include::dissection-options.adoc[tag=!not_tshark]

@@ -4990,7 +4990,7 @@ BACnetPropertyStates [] = {
     {256, "-- example-one"},
     {257, "-- example-two"},
     {258, "sc-connection-state"},
-    {258, "sc-hub-connecto-state"},
+    {259, "sc-hub-connecto-state"},
     { 0, NULL}
 /* Tag values 0-63 are reserved for definition by ASHRAE.
    Tag values of 64-254 may be used by others to accommodate
@@ -5018,7 +5018,7 @@ BACnetProgramRequest [] = {
     { 2, "run"},
     { 3, "halt"},
     { 4, "restart"},
-    { 4, "unload"},
+    { 5, "unload"},
     { 0, NULL}
 };
 
@@ -5029,7 +5029,7 @@ BACnetProgramState [] = {
     { 2, "running"},
     { 3, "waiting"},
     { 4, "halted"},
-    { 4, "unloading"},
+    { 5, "unloading"},
     { 0, NULL}
 };
 
@@ -14518,7 +14518,7 @@ fAuthenticationFactor(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
 
         switch (tag_no) {
         case 0: /* format-type */
-            offset = fEnumeratedTag(tvb, pinfo, tree, offset, "formet-type: ", NULL);
+            offset = fEnumeratedTag(tvb, pinfo, tree, offset, "format-type: ", NULL);
             break;
         case 1: /* format-class */
             offset = fUnsignedTag(tvb, pinfo, tree, offset, "format-class: ");
@@ -14553,7 +14553,7 @@ fAuthenticationFactorFormat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         switch (tag_no) {
         case 0: /* format-type */
-            offset = fEnumeratedTag(tvb, pinfo, tree, offset, "formet-type: ", NULL);
+            offset = fEnumeratedTag(tvb, pinfo, tree, offset, "format-type: ", NULL);
             break;
         case 1: /* vendor-id */
             offset = fUnsignedTag(tvb, pinfo, tree, offset, "vendor-id: ");

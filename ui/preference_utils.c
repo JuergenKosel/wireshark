@@ -30,10 +30,6 @@
 #include "ui/preference_utils.h"
 #include "ui/simple_dialog.h"
 
-#ifdef HAVE_LIBPCAP
-gboolean auto_scroll_live;
-#endif
-
 /* Fill in capture options with values from the preferences */
 void
 prefs_to_capture_opts(void)
@@ -46,7 +42,6 @@ prefs_to_capture_opts(void)
     global_capture_opts.show_info                    = prefs.capture_show_info;
     global_capture_opts.real_time_mode               = prefs.capture_real_time;
     global_capture_opts.update_interval              = prefs.capture_update_interval;
-    auto_scroll_live                                 = prefs.capture_auto_scroll;
 #endif /* HAVE_LIBPCAP */
 }
 
@@ -245,7 +240,7 @@ column_prefs_custom_resolve(const gchar* custom_field)
             hfi = proto_registrar_get_byname(fields[i]);
             if (hfi && ((hfi->type == FT_OID) || (hfi->type == FT_REL_OID) || (hfi->type == FT_ETHER) || (hfi->type == FT_IPv4) || (hfi->type == FT_IPv6) || (hfi->type == FT_FCWWN) || (hfi->type == FT_BOOLEAN) ||
                     ((hfi->strings != NULL) &&
-                     (IS_FT_INT(hfi->type) || IS_FT_UINT(hfi->type)))))
+                     (FT_IS_INT(hfi->type) || FT_IS_UINT(hfi->type)))))
                 {
                     resolve = TRUE;
                     break;

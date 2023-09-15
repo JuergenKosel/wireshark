@@ -27,9 +27,6 @@
 #endif
 
 #include <sys/types.h>
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
 
 #include <glib.h>
 
@@ -671,7 +668,7 @@ extcap_get_help_for_ifname(const char *ifname)
 }
 
 GList *
-append_extcap_interface_list(GList *list, char **err_str _U_)
+append_extcap_interface_list(GList *list)
 {
     GList *interface_list = NULL;
     extcap_interface *data = NULL;

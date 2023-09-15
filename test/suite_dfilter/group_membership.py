@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-import unittest
-import fixtures
+import pytest
 from suite_dfilter.dfiltertest import *
 
 
-@fixtures.uses_fixtures
-class case_membership(unittest.TestCase):
+class TestDfilterMembership:
     trace_file = "http.pcap"
 
     def test_membership_match_1(self, checkDFilterCount):
@@ -30,6 +28,22 @@ class case_membership(unittest.TestCase):
     def test_membership_match_5(self, checkDFilterCount):
         dfilter = 'tcp.port in {  80  ,  3267  }'
         checkDFilterCount(dfilter, 1)
+
+    def test_membership_any_1(self, checkDFilterCount):
+        dfilter = 'any tcp.port in {80, 3267}'
+        checkDFilterCount(dfilter, 1)
+
+    def test_membership_any_2(self, checkDFilterCount):
+        dfilter = 'any tcp.port in {70, 80, 90}'
+        checkDFilterCount(dfilter, 1)
+
+    def test_membership_all_1(self, checkDFilterCount):
+        dfilter = 'all tcp.port in {80, 3267}'
+        checkDFilterCount(dfilter, 1)
+
+    def test_membership_all_2(self, checkDFilterCount):
+        dfilter = 'all tcp.port in {70, 80, 90}'
+        checkDFilterCount(dfilter, 0)
 
     def test_membership_range_match_1(self, checkDFilterCount):
         dfilter = 'tcp.port in {80..81}'
@@ -76,7 +90,7 @@ class case_membership(unittest.TestCase):
         # expression should be parsed as "0.1 .. .7"
         # .7 is the identifier (protocol) named "7"
         dfilter = 'frame.time_delta in {0.1...7}'
-        error = 'not a valid protocol or protocol field'
+        error = '"." was unexpected in this context'
         checkDFilterFail(dfilter, error)
 
     def test_membership_10_bad_lhs_number(self, checkDFilterFail):
@@ -92,3 +106,7 @@ class case_membership(unittest.TestCase):
     def test_membership_12_value_string(self, checkDFilterCount):
         dfilter = 'tcp.checksum.status in {"Unverified", "Good"}'
         checkDFilterCount(dfilter, 1)
+
+    def test_membership_arithmetic_1(self, checkDFilterCountWithSelectedFrame):
+        dfilter = 'frame.time_epoch in {${frame.time_epoch}-46..${frame.time_epoch}+43}'
+        checkDFilterCountWithSelectedFrame(dfilter, 1, 1)

@@ -145,6 +145,7 @@ typedef struct _e_prefs {
   color_t      gui_active_fg;
   color_t      gui_active_bg;
   gint         gui_active_style;
+  gchar       *gui_browser_sslkeylog_path;
   color_t      gui_inactive_fg;
   color_t      gui_inactive_bg;
   gint         gui_inactive_style;
@@ -195,7 +196,6 @@ typedef struct _e_prefs {
   gboolean     capture_pcap_ng;
   gboolean     capture_real_time;
   guint        capture_update_interval;
-  gboolean     capture_auto_scroll; /* XXX - Move to recent */
   gboolean     capture_no_interface_load;
   gboolean     capture_no_extcap;
   gboolean     capture_show_info;
@@ -206,6 +206,8 @@ typedef struct _e_prefs {
   gboolean     enable_incomplete_dissectors_check;
   gboolean     incomplete_dissectors_check_debug;
   gboolean     strict_conversation_tracking_heuristics;
+  gboolean     ignore_dup_frames;
+  guint        ignore_dup_frames_cache_entries;
   gboolean     filter_expressions_old;  /* TRUE if old filter expressions preferences were loaded. */
   gboolean     gui_update_enabled;
   software_update_channel_e gui_update_channel;

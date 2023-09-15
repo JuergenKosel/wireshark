@@ -83,6 +83,13 @@ endif()
 check_symbol_exists("clock_gettime"  "time.h"   HAVE_CLOCK_GETTIME)
 # Some platforms (macOS pre 10.15) are non-conformant with C11 and lack timespec_get()
 check_symbol_exists("timespec_get"   "time.h"   HAVE_TIMESPEC_GET)
+if(NOT MSVC)
+	check_symbol_exists("localtime_r"    "time.h"   HAVE_LOCALTIME_R)
+	check_symbol_exists("gmtime_r"       "time.h"   HAVE_GMTIME_R)
+	check_symbol_exists("timegm"         "time.h"   HAVE_TIMEGM)
+	check_symbol_exists("tzset"          "time.h"   HAVE_TZSET)
+	check_symbol_exists("tzname"         "time.h"   HAVE_TZNAME)
+endif()
 check_function_exists("getifaddrs"       HAVE_GETIFADDRS)
 check_function_exists("issetugid"        HAVE_ISSETUGID)
 check_function_exists("setresgid"        HAVE_SETRESGID)
@@ -110,9 +117,7 @@ check_struct_has_member("struct stat"     st_blksize     sys/stat.h   HAVE_STRUC
 check_struct_has_member("struct stat"     st_birthtime   sys/stat.h   HAVE_STRUCT_STAT_ST_BIRTHTIME)
 check_struct_has_member("struct stat"     __st_birthtime sys/stat.h   HAVE_STRUCT_STAT___ST_BIRTHTIME)
 check_struct_has_member("struct tm"       tm_zone        time.h       HAVE_STRUCT_TM_TM_ZONE)
-
-#Symbols but NOT enums or types
-check_symbol_exists(tzname "time.h" HAVE_TZNAME)
+check_struct_has_member("struct tm"       tm_gmtoff      time.h       HAVE_STRUCT_TM_TM_GMTOFF)
 
 # Types
 include(CheckTypeSize)

@@ -591,7 +591,7 @@ static const value_string LinkDownReason[] = {
     { 36, "Neighbor Unknown (not locally initiated)" },
     { 39, "FM initiated bounce" },
     { 40, "Link outside speed policy" },
-    { 41, "link downgrade outside" },
+    { 41, "Link downgrade outside" },
     { 49, "Disconnected" },
     { 50, "Local media not installed" },
     { 51, "Not installed" },
@@ -2905,8 +2905,8 @@ static gboolean parse_RMPP(proto_tree *parentTree, packet_info *pinfo, tvbuff_t 
     RMPP->Version = tvb_get_guint8(tvb, local_offset);
     local_offset += 1;
 
-    RMPP_type_item = proto_tree_add_item(RMPP_header_tree, hf_opa_rmpp_type, tvb, local_offset, 1, ENC_BIG_ENDIAN);
-    RMPP->Type = tvb_get_guint8(tvb, local_offset);
+    RMPP_type_item = proto_tree_add_item_ret_uint(RMPP_header_tree, hf_opa_rmpp_type, tvb, local_offset, 1, ENC_BIG_ENDIAN,
+                                                  (guint32*)&RMPP->Type);
     local_offset += 1;
     proto_tree_add_item(RMPP_header_tree, hf_opa_rmpp_r_resp_time, tvb, local_offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(RMPP_header_tree, hf_opa_rmpp_flags_last, tvb, local_offset, 1, ENC_BIG_ENDIAN);
@@ -2915,8 +2915,8 @@ static gboolean parse_RMPP(proto_tree *parentTree, packet_info *pinfo, tvbuff_t 
     RMPP->resptime_flags = tvb_get_guint8(tvb, local_offset);
     local_offset += 1;
 
-    proto_tree_add_item(RMPP_header_tree, hf_opa_rmpp_status, tvb, local_offset, 1, ENC_BIG_ENDIAN);
-    RMPP->Status = tvb_get_guint8(tvb, local_offset);
+    proto_tree_add_item_ret_uint(RMPP_header_tree, hf_opa_rmpp_status, tvb, local_offset, 1, ENC_BIG_ENDIAN,
+                                 (guint32*)&RMPP->Status);
     local_offset += 1;
 
     if (!(RMPP->resptime_flags & RMPP_FLAG_ACTIVE_MASK) && RMPP->Type == RMPP_ILLEGAL) {
@@ -8741,7 +8741,7 @@ void proto_register_opa_mad(void)
         },
         { &hf_opa_rmpp_status, {
                 "RMPP Status", "opa.rmpp.rmppstatus",
-                FT_UINT8, BASE_HEX, VALS(RMPP_Status), 0xFF, NULL, HFILL }
+                FT_UINT8, BASE_HEX, VALS(RMPP_Status), 0x0, NULL, HFILL }
         },
         { &hf_opa_rmpp_data1, {
                 "RMPP Data 1", "opa.rmpp.data1",

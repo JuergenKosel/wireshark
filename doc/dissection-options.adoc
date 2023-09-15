@@ -44,10 +44,19 @@ See the xref:tshark.html#decode_as[tshark](1) manual page for more examples.
 --
 // end::decode_as[]
 
---disable-protocol <proto_name>::
+--disable-all-protocols::
++
+--
+Disable dissection of all protocols.
+--
+
+--disable-protocol <proto_name>[,<proto_name>,...]::
 +
 --
 Disable dissection of proto_name.
+Use a proto_name of *ALL* to override
+your chosen profile's default enabled protocol list and temporarily
+disable all protocols.
 --
 
 --disable-heuristic <short_name>::
@@ -56,10 +65,18 @@ Disable dissection of proto_name.
 Disable dissection of heuristic protocol.
 --
 
---enable-protocol <proto_name>::
+--enable-protocol <proto_name>[,<proto_name>,...]::
 +
 --
 Enable dissection of proto_name.
+Use a proto_name of *ALL* to override
+your chosen profile's default disabled protocol list and temporarily
+enable all protocols which are enabled by default.
+
+If a protocol is implicated in both *--disable-protocol*
+and *--enable-protocol*, the protocol is enabled. This allows you to
+temporarily disable all protocols but a list of exceptions.
+Example: *--disable-protocol ALL --enable-protocol eth,ip*
 --
 
 --enable-heuristic <short_name>::
@@ -122,6 +139,12 @@ network, possibly leading to dropped packets.
 // end::tshark[]
 --
 
+--only-protocols <protocols>::
++
+--
+Only enable dissection of these protocols, comma separated. Disable everything else.
+--
+
 -t  (a|ad|adoy|d|dd|e|r|u|ud|udoy)[.[N]]|.[N]::
 +
 --
@@ -160,7 +183,7 @@ and time, as UTC, is the actual time and date the packet was captured
 as YYYY/DOY, and time, as UTC, is the actual time and date the packet
 was captured
 
-*.[N]* Set the precision: N is the number of decimals (0, 1, 2, 3, 6 or 9).
+*.[N]* Set the precision: N is the number of decimals (0 through 9).
 If using "." without N, automatically determine precision from trace.
 
 The default format is relative with precision based on capture format.

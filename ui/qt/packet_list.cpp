@@ -96,7 +96,6 @@
 static PacketList *gbl_cur_packet_list = NULL;
 
 const int max_comments_to_fetch_ = 20000000; // Arbitrary
-const int tail_update_interval_ = 100; // Milliseconds.
 const int overlay_update_interval_ = 100; // 250; // Milliseconds.
 
 
@@ -132,6 +131,7 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
          */
         gbl_cur_packet_list->selectionModel()->clearSelection();
         gbl_cur_packet_list->selectionModel()->setCurrentIndex(model->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        gbl_cur_packet_list->scrollTo(gbl_cur_packet_list->currentIndex(), PacketList::PositionAtCenter);
         return TRUE;
     }
 
@@ -201,9 +201,7 @@ PacketList::PacketList(QWidget *parent) :
     create_far_overlay_(true),
     mouse_pressed_at_(QModelIndex()),
     capture_in_progress_(false),
-    tail_timer_id_(0),
     tail_at_end_(0),
-    rows_inserted_(false),
     columns_changed_(false),
     set_column_visibility_(false),
     frozen_current_row_(QModelIndex()),
@@ -765,24 +763,9 @@ void PacketList::ctxDecodeAsDialog()
     da_dialog->show();
 }
 
-// Auto scroll if:
-// - We're not at the end
-// - We are capturing
-// - actionGoAutoScroll in the main UI is checked.
-// - It's been more than tail_update_interval_ ms since we last scrolled
-// - The last user-set vertical scrollbar position was at the end.
-
-// Using a timer assumes that we can save CPU overhead by updating
-// periodically. If that's not the case we can dispense with it and call
-// scrollToBottom() from rowsInserted().
 void PacketList::timerEvent(QTimerEvent *event)
 {
-    if (event->timerId() == tail_timer_id_) {
-        if (rows_inserted_ && capture_in_progress_ && tail_at_end_) {
-            scrollToBottom();
-            rows_inserted_ = false;
-        }
-    } else if (event->timerId() == overlay_timer_id_) {
+    if (event->timerId() == overlay_timer_id_) {
         if (!capture_in_progress_) {
             if (create_near_overlay_) drawNearOverlay();
             if (create_far_overlay_) drawFarOverlay();
@@ -919,8 +902,10 @@ void PacketList::keyPressEvent(QKeyEvent *event)
     bool handled = false;
     // If scrolling up/down, want to preserve horizontal scroll extent.
     if (event->key() == Qt::Key_Down     || event->key() == Qt::Key_Up ||
-        event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp)
+        event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
+        event->key() == Qt::Key_End      || event->key() == Qt::Key_Home )
     {
+        // XXX: Why allow jumping to the left if the first column is current?
         if (currentIndex().isValid() && currentIndex().column() > 0) {
             int pos = horizontalScrollBar()->value();
             QTreeView::keyPressEvent(event);
@@ -1105,6 +1090,8 @@ frame_data *PacketList::getFDataForRow(int row) const
 void PacketList::columnsChanged()
 {
     columns_changed_ = true;
+    column_register_fields();
+    mainApp->emitAppSignal(MainApplication::FieldsChanged);
     if (!cap_file_) {
         // Keep columns_changed_ = true until we load a capture file.
         return;
@@ -1198,23 +1185,24 @@ void PacketList::preferencesChanged()
     setTextElideMode(elide_mode);
 }
 
+void PacketList::freezePacketList(bool changing_profile)
+{
+    changing_profile_ = changing_profile;
+    freeze(true);
+}
+
 void PacketList::recolorPackets()
 {
     packet_list_model_->resetColorized();
     redrawVisiblePackets();
 }
 
-/* Enable autoscroll timer. Note: must be called after the capture is started,
- * otherwise the timer will not be executed. */
+// Enable autoscroll.
 void PacketList::setVerticalAutoScroll(bool enabled)
 {
     tail_at_end_ = enabled;
     if (enabled && capture_in_progress_) {
         scrollToBottom();
-        if (tail_timer_id_ == 0) tail_timer_id_ = startTimer(tail_update_interval_);
-    } else if (tail_timer_id_ != 0) {
-        killTimer(tail_timer_id_);
-        tail_timer_id_ = 0;
     }
 }
 
@@ -1233,34 +1221,58 @@ void PacketList::captureFileReadFinished()
     }
 }
 
-void PacketList::freeze()
+bool PacketList::freeze(bool keep_current_frame)
 {
+    if (!cap_file_ || model() == Q_NULLPTR) {
+        // No capture file or already frozen
+        return false;
+    }
+
+    frame_data *current_frame = cap_file_->current_frame;
     column_state_ = header()->saveState();
     setHeaderHidden(true);
     frozen_current_row_ = currentIndex();
-    frozen_selected_rows_ = selectedIndexes();
+    frozen_selected_rows_ = selectionModel()->selectedRows();
     selectionModel()->clear();
     setModel(Q_NULLPTR);
     // It looks like GTK+ sends a cursor-changed signal at this point but Qt doesn't
     // call selectionChanged.
     related_packet_delegate_.clear();
 
+    if (keep_current_frame) {
+        cap_file_->current_frame = current_frame;
+    }
+
     /* Clears packet list as well as byteview */
     emit framesSelected(QList<int>());
+
+    return true;
 }
 
-void PacketList::thaw(bool restore_selection)
+bool PacketList::thaw(bool restore_selection)
 {
+    if (!cap_file_ || model() != Q_NULLPTR) {
+        // No capture file or not frozen
+        return false;
+    }
+
     setHeaderHidden(false);
     // Note that if we have a current sort status set in the header,
     // this will automatically try to sort the model (we don't want
     // that to happen if we're in the middle of reading the file).
     setModel(packet_list_model_);
 
-    // Resetting the model resets our column widths so we restore them here.
-    // We don't reapply the recent settings because the user could have
-    // resized the columns manually since they were initially loaded.
-    header()->restoreState(column_state_);
+    if (changing_profile_) {
+        // When changing profile the new recent settings must be applied to the columns.
+        applyRecentColumnWidths();
+        setColumnVisibility();
+        changing_profile_ = false;
+    } else {
+        // Resetting the model resets our column widths so we restore them here.
+        // We don't reapply the recent settings because the user could have
+        // resized the columns manually since they were initially loaded.
+        header()->restoreState(column_state_);
+    }
 
     if (restore_selection && frozen_selected_rows_.length() > 0 && selectionModel()) {
         /* This updates our selection, which redissects the current packet,
@@ -1271,9 +1283,12 @@ void PacketList::thaw(bool restore_selection)
         foreach (QModelIndex idx, frozen_selected_rows_) {
             selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
         }
+        scrollTo(currentIndex(), PositionAtCenter);
     }
     frozen_current_row_ = QModelIndex();
     frozen_selected_rows_ = QModelIndexList();
+
+    return true;
 }
 
 void PacketList::clear() {
@@ -1541,6 +1556,7 @@ void PacketList::setCaptureFile(capture_file *cf)
         }
     }
     create_near_overlay_ = true;
+    changing_profile_ = false;
     sortByColumn(-1, Qt::AscendingOrder);
 }
 
@@ -1591,14 +1607,12 @@ void PacketList::goPreviousPacket(void)
     scrollViewChanged(false);
 }
 
-void PacketList::goFirstPacket(bool user_selected) {
+void PacketList::goFirstPacket(void) {
     if (packet_list_model_->rowCount() < 1) return;
     selectionModel()->setCurrentIndex(packet_list_model_->index(0, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
     scrollTo(currentIndex());
 
-    if (user_selected) {
-        scrollViewChanged(false);
-    }
+    scrollViewChanged(false);
 }
 
 void PacketList::goLastPacket(void) {
@@ -1618,6 +1632,7 @@ void PacketList::goToPacket(int packet, int hf_id)
     int row = packet_list_model_->packetNumberToRow(packet);
     if (row >= 0) {
         selectionModel()->setCurrentIndex(packet_list_model_->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        scrollTo(currentIndex(), PositionAtCenter);
         proto_tree_->goToHfid(hf_id);
     }
 
@@ -1933,8 +1948,14 @@ void PacketList::vScrollBarActionTriggered(int)
 
 void PacketList::scrollViewChanged(bool at_end)
 {
-    if (capture_in_progress_ && prefs.capture_auto_scroll) {
-        emit packetListScrolled(at_end);
+    if (capture_in_progress_) {
+        // We want to start auto scrolling when the user scrolls to (or past)
+        // the end only if recent.capture_auto_scroll is set.
+        // We want to stop autoscrolling if the user scrolls up or uses
+        // Go to Packet regardless of the preference setting.
+        if (recent.capture_auto_scroll || !at_end) {
+            emit packetListScrolled(at_end);
+        }
     }
 }
 
@@ -2108,15 +2129,29 @@ void PacketList::drawFarOverlay()
     }
 }
 
+// Auto scroll if:
+// - We are capturing
+// - actionGoAutoScroll in the main UI is checked.
+
+// actionGoAutoScroll in the main UI:
+// - Is set to the value of recent.capture_auto_scroll when beginning a capture
+// - Can be triggered manually by the user
+// - Is turned on if the last user-set vertical scrollbar position is at the
+//   end and recent.capture_auto_scroll is enabled
+// - Is turned off if the last user-set vertical scrollbar is not at the end,
+//   or if one of the Go to Packet actions is used (XXX: Should keyboard
+//   navigation in keyPressEvent turn it off for similar reasons?)
 void PacketList::rowsInserted(const QModelIndex &parent, int start, int end)
 {
     QTreeView::rowsInserted(parent, start, end);
-    rows_inserted_ = true;
+    if (capture_in_progress_ && tail_at_end_) {
+        scrollToBottom();
+    }
 }
 
 void PacketList::resizeAllColumns(bool onlyTimeFormatted)
 {
-    if (!cap_file_ || cap_file_->state == FILE_CLOSED)
+    if (!cap_file_ || cap_file_->state == FILE_CLOSED || cap_file_->state == FILE_READ_PENDING)
         return;
 
     for (int col = 0; col < cap_file_->cinfo.num_cols; col++) {

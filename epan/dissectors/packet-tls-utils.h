@@ -197,7 +197,10 @@ typedef enum {
 #define SSL_HND_QUIC_TP_GOOGLE_CONNECTION_OPTIONS           0x3128
 /* https://github.com/facebookincubator/mvfst/blob/master/quic/QuicConstants.h */
 #define SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY        0xFF00
-#define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xFF03DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-01 */
+#define SSL_HND_QUIC_TP_MIN_ACK_DELAY_DRAFT_V1              0xFF03DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-01 */
+#define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xFF04DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-04 */
+#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH_DRAFT04            0x0F739BBC1B666D04 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-04 */
+#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH                    0x0F739BBC1B666D05 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-05 */
 /*
  * Lookup tables
  */
@@ -234,9 +237,10 @@ extern const value_string tls_hello_ext_max_fragment_length[];
 extern const value_string tls_hello_ext_psk_ke_mode[];
 extern const value_string tls13_key_update_request[];
 extern const value_string compress_certificate_algorithm_vals[];
-extern const value_string quic_transport_parameter_id[];
+extern const val64_string quic_transport_parameter_id[];
 extern const range_string quic_version_vals[];
 extern const val64_string quic_enable_time_stamp_v2_vals[];
+extern const val64_string quic_enable_multipath_vals[];
 
 /* XXX Should we use GByteArray instead? */
 typedef struct _StringInfo {
@@ -560,6 +564,14 @@ typedef struct {
     GHashTable *tls13_server_appdata;
     GHashTable *tls13_early_exporter;
     GHashTable *tls13_exporter;
+
+    /* The hash tables above store the static keylog file contents and secrets
+     * from any DSB, not all of which may be used, in addition to any master
+     * secrets derived at runtime ([D]TLS < 1.3). These store the used
+     * Client Random for exporting master secrets and derived secrets in
+     * TLS Export Sessions or adding a DSB.
+     */
+    GHashTable *used_crandom;
 } ssl_master_key_map_t;
 
 gint ssl_get_keyex_alg(gint cipher);
@@ -762,7 +774,7 @@ ssl_common_cleanup(ssl_master_key_map_t *master_key_map, FILE **ssl_keylog_file,
  * (This is a transition function, it would be nice if the static keylog file
  * contents was separated from keys derived at runtime.)
  */
-extern ssl_master_key_map_t *
+WS_DLL_PUBLIC ssl_master_key_map_t *
 tls_get_master_key_map(gboolean load_secrets);
 
 /* Process lines from the TLS key log and populate the secrets map. */
@@ -780,12 +792,15 @@ extern void
 ssl_parse_key_list(const ssldecrypt_assoc_t * uats, GHashTable *key_hash, const char* dissector_table_name, dissector_handle_t main_handle, gboolean tcp);
 #endif
 
-/* store master secret into session data cache */
-extern void
-ssl_save_session(SslDecryptSession* ssl, GHashTable *session_hash);
-
 extern void
 ssl_finalize_decryption(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map);
+
+/**
+ * Mark a Client Random as used (not just present in the keylog file),
+ * to enable "Export TLS Sessions Keys" or "Inject Secrets"
+ */
+extern void
+tls_save_crandom(SslDecryptSession *ssl, ssl_master_key_map_t *mk_map);
 
 extern gboolean
 tls13_generate_keys(SslDecryptSession *ssl_session, const StringInfo *secret, gboolean is_from_server);
@@ -872,6 +887,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_psk_binders_length;
         gint hs_ext_psk_binders;
         gint hs_ext_psk_identity_selected;
+        gint hs_ext_session_ticket;
         gint hs_ext_supported_versions_len;
         gint hs_ext_supported_version;
         gint hs_ext_cookie_len;
@@ -1050,6 +1066,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_quictp_parameter_facebook_partial_reliability;
         gint hs_ext_quictp_parameter_chosen_version;
         gint hs_ext_quictp_parameter_other_version;
+        gint hs_ext_quictp_parameter_enable_multipath;
 
         gint esni_suite;
         gint esni_record_digest_length;
@@ -1291,7 +1308,7 @@ ssl_common_dissect_t name = {   \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1                                  \
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1                          \
     },                                                                  \
     /* ett */ {                                                         \
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
@@ -1469,6 +1486,11 @@ ssl_common_dissect_t name = {   \
     { & name .hf.hs_ext_psk_identity_selected,                          \
       { "Selected Identity", prefix ".handshake.extensions.psk.identity.selected", \
         FT_UINT16, BASE_DEC, NULL, 0x0,                                 \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_session_ticket,                                 \
+      { "Session Ticket", prefix ".handshake.extensions.session_ticket", \
+        FT_BYTES, BASE_NONE, NULL, 0x0,                                 \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_supported_versions_len,                         \
@@ -2401,6 +2423,11 @@ ssl_common_dissect_t name = {   \
     { & name .hf.hs_ext_quictp_parameter_other_version,                 \
       { "Other Version", prefix ".quic.parameter.vi.other_version",     \
         FT_UINT32, BASE_RANGE_STRING | BASE_HEX, RVALS(quic_version_vals), 0x00, \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_quictp_parameter_enable_multipath,              \
+      { "Enable Multipath", prefix ".quic.parameter.enable_multipath", \
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(quic_enable_multipath_vals), 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
     { & name .hf.hs_ext_connection_id_length,                           \

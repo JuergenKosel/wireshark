@@ -97,6 +97,7 @@ DIAG_ON(frame-larger-than=)
 #include "capture_options_dialog.h"
 #endif
 #include <ui/qt/utils/color_utils.h>
+#include "browser_sslkeylog_dialog.h"
 #include "coloring_rules_dialog.h"
 #include "conversation_dialog.h"
 #include "conversation_colorize_action.h"
@@ -117,6 +118,7 @@ DIAG_ON(frame-larger-than=)
 #include "filter_dialog.h"
 #include "firewall_rules_dialog.h"
 #include "follow_stream_action.h"
+#include "follow_stream_dialog.h"
 #include "funnel_statistics.h"
 #include "gsm_map_summary_dialog.h"
 #include "iax2_analysis_dialog.h"
@@ -130,6 +132,7 @@ DIAG_ON(frame-larger-than=)
 #include "lte_rlc_statistics_dialog.h"
 #include "lte_rlc_graph_dialog.h"
 #include "main_application.h"
+#include "manuf_dialog.h"
 #include "mtp3_summary_dialog.h"
 #include "multicast_statistics_dialog.h"
 #include "packet_comment_dialog.h"
@@ -259,7 +262,7 @@ bool WiresharkMainWindow::openCaptureFile(QString cf_path, QString read_filter, 
             continue;
         }
 
-        switch (cf_read(CaptureFile::globalCapFile(), FALSE)) {
+        switch (cf_read(CaptureFile::globalCapFile(), /*reloading=*/FALSE)) {
         case CF_READ_OK:
         case CF_READ_ERROR:
             /* Just because we got an error, that doesn't mean we were unable
@@ -371,9 +374,6 @@ void WiresharkMainWindow::updatePreferenceActions()
     main_ui_->actionViewNameResolutionPhysical->setChecked(gbl_resolv_flags.mac_name);
     main_ui_->actionViewNameResolutionNetwork->setChecked(gbl_resolv_flags.network_name);
     main_ui_->actionViewNameResolutionTransport->setChecked(gbl_resolv_flags.transport_name);
-
-    // Should this be a "recent" setting?
-    main_ui_->actionGoAutoScroll->setChecked(prefs.capture_auto_scroll);
 }
 
 void WiresharkMainWindow::updateRecentActions()
@@ -418,6 +418,8 @@ void WiresharkMainWindow::updateRecentActions()
     main_ui_->actionViewTimeDisplaySecondsWithHoursAndMinutes->setChecked(recent.gui_seconds_format == TS_SECONDS_HOUR_MIN_SEC);
 
     main_ui_->actionViewColorizePacketList->setChecked(recent.packet_list_colorize);
+
+    main_ui_->actionGoAutoScroll->setChecked(recent.capture_auto_scroll);
 }
 
 // Don't connect to this directly. Connect to or emit fiterAction(...) instead.
@@ -523,6 +525,7 @@ void WiresharkMainWindow::captureCaptureUpdateStarted(capture_session *session) 
     /* We've done this in "prepared" above, but it will be cleared while
        switching to the next multiple file. */
     setTitlebarForCaptureInProgress();
+    setWindowIcon(mainApp->captureIcon());
 
     bool handle_toolbars = (session->session_will_restart ? false : true);
     setForCaptureInProgress(true, handle_toolbars, session->capture_opts->ifaces);
@@ -904,6 +907,7 @@ void WiresharkMainWindow::startCapture(QStringList interfaces _U_) {
     showCapture();
 
     /* XXX - we might need to init other pref data as well... */
+    main_ui_->actionGoAutoScroll->setChecked(recent.capture_auto_scroll);
 
     /* XXX - can this ever happen? */
     if (cap_session_.state != CAPTURE_STOPPED)
@@ -1466,6 +1470,10 @@ void WiresharkMainWindow::applyGlobalCommandLineOptions()
         foreach(QAction* tda, td_actions.keys()) {
             if (global_dissect_options.time_format == td_actions[tda]) {
                 tda->setChecked(true);
+                // XXX - this means that if the user sets the
+                // time stamp format with the -t flag, that
+                // setting will persist and will be used as
+                // the default the next time Wireshark is run.
                 recent.gui_time_format = global_dissect_options.time_format;
                 timestamp_set_type(global_dissect_options.time_format);
                 break;
@@ -1476,6 +1484,10 @@ void WiresharkMainWindow::applyGlobalCommandLineOptions()
         foreach(QAction* tpa, tp_actions.keys()) {
             if (global_dissect_options.time_precision == tp_actions[tpa]) {
                 tpa->setChecked(true);
+                // XXX - this means that if the user sets the
+                // time stamp precision with the -t flag, that
+                // setting will persist and will be used as
+                // the default the next time Wireshark is run.
                 recent.gui_time_precision = global_dissect_options.time_precision;
                 timestamp_set_precision(global_dissect_options.time_precision);
                 break;
@@ -1695,7 +1707,7 @@ void WiresharkMainWindow::setFeaturesEnabled(bool enabled)
     {
         main_ui_->statusBar->clearMessage();
 #ifdef HAVE_LIBPCAP
-        main_ui_->actionGoAutoScroll->setChecked(auto_scroll_live);
+        main_ui_->actionGoAutoScroll->setChecked(recent.capture_auto_scroll);
 #endif
     }
     else
@@ -2088,6 +2100,12 @@ void WiresharkMainWindow::connectEditMenuActions()
     connect(main_ui_->actionDeleteAllPacketComments, &QAction::triggered, this,
             [this]() { deleteAllPacketComments(); }, Qt::QueuedConnection);
 
+    connect(main_ui_->actionEditInjectSecrets, &QAction::triggered, this,
+            [this]() { injectSecrets(); }, Qt::QueuedConnection);
+
+    connect(main_ui_->actionEditDiscardAllSecrets, &QAction::triggered, this,
+            [this]() { discardAllSecrets(); }, Qt::QueuedConnection);
+
     connect(main_ui_->actionEditConfigurationProfiles, &QAction::triggered, this,
             [this]() { editConfigurationProfiles(); }, Qt::QueuedConnection);
 
@@ -2315,6 +2333,72 @@ void WiresharkMainWindow::deleteAllPacketCommentsFinished(int result)
         /* XXX Do we need a wait/hourglass for large files? */
         packet_list_->deleteAllPacketComments();
         updateForUnsavedChanges();
+    }
+}
+
+void WiresharkMainWindow::injectSecrets()
+{
+    int keylist_len;
+
+    keylist_len = ssl_session_key_count();
+    /* don't do anything if no data has to be saved */
+    if (keylist_len < 1) {
+        QMessageBox::Button ret = QMessageBox::warning(
+            this,
+            tr("No TLS Secrets"),
+            tr("There are no available secrets used to decrypt TLS traffic in the capture file.\
+  Would you like to view information about how to decrypt TLS traffic on the wiki?"),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+
+        if (ret != QMessageBox::Yes) return;
+
+        QUrl wiki_url = QString(WS_WIKI_URL("TLS/#tls-decryption"));
+        QDesktopServices::openUrl(wiki_url);
+        return;
+    }
+
+    if (!capture_file_.isValid())
+        return;
+
+    /* XXX: It would be nice to handle other types of secrets that
+     * can be written to a DSB, maybe have a proper dialog.
+     */
+    capture_file *cf = capture_file_.capFile();
+    tls_export_dsb(cf);
+    updateForUnsavedChanges();
+}
+
+void WiresharkMainWindow::discardAllSecrets()
+{
+    if (!capture_file_.isValid())
+        return;
+
+    QMessageBox* msg_dialog = new QMessageBox();
+    connect(msg_dialog, SIGNAL(finished(int)), this, SLOT(discardAllSecretsFinished(int)));
+
+    msg_dialog->setIcon(QMessageBox::Question);
+    msg_dialog->setText(tr("Are you sure you want to discard all decryption secrets?"));
+
+    msg_dialog->setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    msg_dialog->setDefaultButton(QMessageBox::Ok);
+
+    msg_dialog->setWindowModality(Qt::ApplicationModal);
+    msg_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    msg_dialog->show();
+}
+
+void WiresharkMainWindow::discardAllSecretsFinished(int result)
+{
+    if (result == QMessageBox::Ok) {
+        /* XXX: It would be nice to handle other types of secrets that
+         * can be written to a DSB, maybe have a proper dialog.
+         */
+        capture_file* cf = capture_file_.capFile();
+        if (wtap_file_discard_decryption_secrets(cf->provider.wth)) {
+            cf->unsaved_changes = TRUE;
+            updateForUnsavedChanges();
+        }
     }
 }
 
@@ -2593,8 +2677,10 @@ void WiresharkMainWindow::editResolvedName()
     //int column = packet_list_->selectedColumn();
     int column = -1;
 
-    if (packet_list_->currentIndex().isValid()) {
-        column = packet_list_->currentIndex().column();
+    if (packet_list_->contextMenuActive() || packet_list_->hasFocus()) {
+        if (packet_list_->currentIndex().isValid()) {
+            column = packet_list_->currentIndex().column();
+        }
     }
 
     main_ui_->addressEditorFrame->editAddresses(capture_file_, column);
@@ -2828,7 +2914,16 @@ void WiresharkMainWindow::connectGoMenuActions()
     connect(main_ui_->actionGoPreviousHistoryPacket, &QAction::triggered,
             packet_list_, &PacketList::goPreviousHistoryPacket);
 
+    // triggered is whenever the user clicks the button; save that as
+    // the new recent value
     connect(main_ui_->actionGoAutoScroll, &QAction::triggered, this,
+            [](bool checked) { recent.capture_auto_scroll = checked; });
+
+    // toggled is whenever the value changes; if it changes programmatically
+    // (e.g., the user scrolls upwards so we stop auto scrolling) change
+    // whether the button is checked but don't save value to recent (it's
+    // a temporary change)
+    connect(main_ui_->actionGoAutoScroll, &QAction::toggled, this,
             [this](bool checked) { packet_list_->setVerticalAutoScroll(checked); });
 }
 
@@ -3253,11 +3348,6 @@ void WiresharkMainWindow::statCommandWlanStatistics(const char *arg, void *)
     wlan_stats_dlg->show();
 }
 
-void WiresharkMainWindow::on_actionWirelessWlanStatistics_triggered()
-{
-    statCommandWlanStatistics(NULL, NULL);
-}
-
 // -z expert
 void WiresharkMainWindow::statCommandExpertInfo(const char *, void *)
 {
@@ -3277,10 +3367,138 @@ void WiresharkMainWindow::statCommandExpertInfo(const char *, void *)
 
 // Statistics Menu
 
-void WiresharkMainWindow::on_actionStatisticsFlowGraph_triggered()
+void WiresharkMainWindow::connectStatisticsMenuActions()
 {
-    SequenceDialog *sequence_dialog = new SequenceDialog(*this, capture_file_);
-    sequence_dialog->show();
+    connect(main_ui_->actionStatisticsCaptureFileProperties, &QAction::triggered, this, [=]() {
+        CaptureFilePropertiesDialog *capture_file_properties_dialog = new CaptureFilePropertiesDialog(*this, capture_file_);
+        connect(capture_file_properties_dialog, SIGNAL(captureCommentChanged()),
+                this, SLOT(updateForUnsavedChanges()));
+        capture_file_properties_dialog->show();
+    });
+
+    connect(main_ui_->actionStatisticsResolvedAddresses, &QAction::triggered, this, &WiresharkMainWindow::showResolvedAddressesDialog);
+
+    connect(main_ui_->actionStatisticsProtocolHierarchy, &QAction::triggered, this, [=]() {
+        ProtocolHierarchyDialog *phd = new ProtocolHierarchyDialog(*this, capture_file_);
+        connect(phd, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
+                this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
+        phd->show();
+    });
+
+    connect(main_ui_->actionStatisticsConversations, &QAction::triggered, this, &WiresharkMainWindow::showConversationsDialog);
+    connect(main_ui_->actionStatisticsEndpoints, &QAction::triggered, this, &WiresharkMainWindow::showEndpointsDialog);
+
+    connect(main_ui_->actionStatisticsPacketLengths, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("plen"); });
+
+    connect(main_ui_->actionStatisticsIOGraph, &QAction::triggered, this, [=]() { statCommandIOGraph(NULL, NULL); });
+
+    connect(main_ui_->actionStatisticsFlowGraph, &QAction::triggered, this, [=]() {
+        SequenceDialog *sequence_dialog = new SequenceDialog(*this, capture_file_);
+        sequence_dialog->show();
+    });
+
+    connect(main_ui_->actionStatisticsCollectd, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("collectd"); });
+    connect(main_ui_->actionStatisticsDNS, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("dns"); });
+    connect(main_ui_->actionStatisticsHART_IP, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("hart_ip"); });
+    connect(main_ui_->actionStatisticsHpfeeds, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("hpfeeds"); });
+    connect(main_ui_->actionStatisticsHTTP2, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("http2"); });
+    connect(main_ui_->actionStatisticsUdpMulticastStreams, &QAction::triggered, this, [=]() { statCommandMulticastStatistics(NULL, NULL); });
+
+    connect(main_ui_->actionStatistics29WestTopics_Advertisements_by_Topic, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_ads_topic");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Advertisements_by_Source, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_ads_source");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Advertisements_by_Transport, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_ads_transport");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Queries_by_Topic, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_queries_topic");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Queries_by_Receiver, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_queries_receiver");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Wildcard_Queries_by_Pattern, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_queries_pattern");
+    });
+
+    connect(main_ui_->actionStatistics29WestTopics_Wildcard_Queries_by_Receiver, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_topic_queries_pattern_receiver");
+    });
+
+    connect(main_ui_->actionStatistics29WestQueues_Advertisements_by_Queue, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_queue_ads_queue");
+    });
+
+    connect(main_ui_->actionStatistics29WestQueues_Advertisements_by_Source, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_queue_ads_source");
+    });
+
+    connect(main_ui_->actionStatistics29WestQueues_Queries_by_Queue, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_queue_queries_queue");
+    });
+
+    connect(main_ui_->actionStatistics29WestQueues_Queries_by_Receiver, &QAction::triggered, this, [=]() {
+        openStatisticsTreeDialog("lbmr_queue_queries_receiver");
+    });
+
+    connect(main_ui_->actionStatistics29WestUIM_Streams, &QAction::triggered, this, [=]() {
+        LBMStreamDialog *stream_dialog = new LBMStreamDialog(this, capture_file_.capFile());
+    //    connect(stream_dialog, SIGNAL(goToPacket(int)),
+    //            packet_list_, SLOT(goToPacket(int)));
+        connect(this, SIGNAL(setCaptureFile(capture_file*)),
+                stream_dialog, SLOT(setCaptureFile(capture_file*)));
+        stream_dialog->show();
+    });
+
+    connect(main_ui_->actionStatistics29WestLBTRM, &QAction::triggered, this, [=]() {
+        LBMLBTRMTransportDialog * lbtrm_dialog = new LBMLBTRMTransportDialog(this, capture_file_.capFile());
+        connect(lbtrm_dialog, SIGNAL(goToPacket(int)),
+                packet_list_, SLOT(goToPacket(int)));
+        connect(this, SIGNAL(setCaptureFile(capture_file*)),
+                lbtrm_dialog, SLOT(setCaptureFile(capture_file*)));
+        lbtrm_dialog->show();
+    });
+
+    connect(main_ui_->actionStatistics29WestLBTRU, &QAction::triggered, this, [=]() {
+        LBMLBTRUTransportDialog * lbtru_dialog = new LBMLBTRUTransportDialog(this, capture_file_.capFile());
+        connect(lbtru_dialog, SIGNAL(goToPacket(int)),
+                packet_list_, SLOT(goToPacket(int)));
+        connect(this, SIGNAL(setCaptureFile(capture_file*)),
+                lbtru_dialog, SLOT(setCaptureFile(capture_file*)));
+        lbtru_dialog->show();
+    });
+
+    connect(main_ui_->actionStatisticsTcpStreamStevens, &QAction::triggered, this, [=]() { openTcpStreamDialog(GRAPH_TSEQ_STEVENS); });
+    connect(main_ui_->actionStatisticsTcpStreamTcptrace, &QAction::triggered, this, [=]() { openTcpStreamDialog(GRAPH_TSEQ_TCPTRACE); });
+    connect(main_ui_->actionStatisticsTcpStreamThroughput, &QAction::triggered, this, [=]() { openTcpStreamDialog(GRAPH_THROUGHPUT); });
+    connect(main_ui_->actionStatisticsTcpStreamRoundTripTime, &QAction::triggered, this, [=]() { openTcpStreamDialog(GRAPH_RTT); });
+    connect(main_ui_->actionStatisticsTcpStreamWindowScaling, &QAction::triggered, this, [=]() { openTcpStreamDialog(GRAPH_WSCALE); });
+
+    connect(main_ui_->actionStatisticsANCP, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("ancp"); });
+
+    connect(main_ui_->actionStatisticsBACappInstanceId, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("bacapp_instanceid"); });
+    connect(main_ui_->actionStatisticsBACappIP, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("bacapp_ip"); });
+    connect(main_ui_->actionStatisticsBACappObjectId, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("bacapp_objectid"); });
+    connect(main_ui_->actionStatisticsBACappService, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("bacapp_service"); });
+
+    connect(main_ui_->actionStatisticsHTTPPacketCounter, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("http"); });
+    connect(main_ui_->actionStatisticsHTTPRequests, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("http_req"); });
+    connect(main_ui_->actionStatisticsHTTPLoadDistribution, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("http_srv"); });
+    connect(main_ui_->actionStatisticsHTTPRequestSequences, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("http_seq"); });
+
+    connect(main_ui_->actionStatisticsSametime, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("sametime"); });
+
+    connect(main_ui_->actionStatisticsSOMEIPmessages, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("someip_messages"); });
+    connect(main_ui_->actionStatisticsSOMEIPSDentries, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("someipsd_entries"); });
+
+    connect(main_ui_->actionStatisticsLTP, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("ltp"); });
 }
 
 void WiresharkMainWindow::openTcpStreamDialog(int graph_type)
@@ -3295,31 +3513,6 @@ void WiresharkMainWindow::openTcpStreamDialog(int graph_type)
     }
 }
 
-void WiresharkMainWindow::on_actionStatisticsTcpStreamStevens_triggered()
-{
-    openTcpStreamDialog(GRAPH_TSEQ_STEVENS);
-}
-
-void WiresharkMainWindow::on_actionStatisticsTcpStreamTcptrace_triggered()
-{
-    openTcpStreamDialog(GRAPH_TSEQ_TCPTRACE);
-}
-
-void WiresharkMainWindow::on_actionStatisticsTcpStreamThroughput_triggered()
-{
-    openTcpStreamDialog(GRAPH_THROUGHPUT);
-}
-
-void WiresharkMainWindow::on_actionStatisticsTcpStreamRoundTripTime_triggered()
-{
-    openTcpStreamDialog(GRAPH_RTT);
-}
-
-void WiresharkMainWindow::on_actionStatisticsTcpStreamWindowScaling_triggered()
-{
-    openTcpStreamDialog(GRAPH_WSCALE);
-}
-
 // -z mcast,stat
 void WiresharkMainWindow::statCommandMulticastStatistics(const char *arg, void *)
 {
@@ -3329,191 +3522,12 @@ void WiresharkMainWindow::statCommandMulticastStatistics(const char *arg, void *
     mcast_stats_dlg->show();
 }
 
-void WiresharkMainWindow::on_actionStatisticsUdpMulticastStreams_triggered()
-{
-    statCommandMulticastStatistics(NULL, NULL);
-}
-
 void WiresharkMainWindow::openStatisticsTreeDialog(const gchar *abbr)
 {
     StatsTreeDialog *st_dialog = new StatsTreeDialog(*this, capture_file_, abbr);
 //    connect(st_dialog, SIGNAL(goToPacket(int)),
 //            packet_list_, SLOT(goToPacket(int)));
     st_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Advertisements_by_Topic_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_ads_topic");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Advertisements_by_Source_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_ads_source");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Advertisements_by_Transport_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_ads_transport");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Queries_by_Topic_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_queries_topic");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Queries_by_Receiver_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_queries_receiver");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Wildcard_Queries_by_Pattern_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_queries_pattern");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestTopics_Wildcard_Queries_by_Receiver_triggered()
-{
-    openStatisticsTreeDialog("lbmr_topic_queries_pattern_receiver");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestQueues_Advertisements_by_Queue_triggered()
-{
-    openStatisticsTreeDialog("lbmr_queue_ads_queue");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestQueues_Advertisements_by_Source_triggered()
-{
-    openStatisticsTreeDialog("lbmr_queue_ads_source");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestQueues_Queries_by_Queue_triggered()
-{
-    openStatisticsTreeDialog("lbmr_queue_queries_queue");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestQueues_Queries_by_Receiver_triggered()
-{
-    openStatisticsTreeDialog("lbmr_queue_queries_receiver");
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestUIM_Streams_triggered()
-{
-    LBMStreamDialog *stream_dialog = new LBMStreamDialog(this, capture_file_.capFile());
-//    connect(stream_dialog, SIGNAL(goToPacket(int)),
-//            packet_list_, SLOT(goToPacket(int)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            stream_dialog, SLOT(setCaptureFile(capture_file*)));
-    stream_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatistics29WestLBTRM_triggered()
-{
-    LBMLBTRMTransportDialog * lbtrm_dialog = new LBMLBTRMTransportDialog(this, capture_file_.capFile());
-    connect(lbtrm_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            lbtrm_dialog, SLOT(setCaptureFile(capture_file*)));
-    lbtrm_dialog->show();
-}
-void WiresharkMainWindow::on_actionStatistics29WestLBTRU_triggered()
-{
-    LBMLBTRUTransportDialog * lbtru_dialog = new LBMLBTRUTransportDialog(this, capture_file_.capFile());
-    connect(lbtru_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    connect(this, SIGNAL(setCaptureFile(capture_file*)),
-            lbtru_dialog, SLOT(setCaptureFile(capture_file*)));
-    lbtru_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatisticsANCP_triggered()
-{
-    openStatisticsTreeDialog("ancp");
-}
-
-
-void WiresharkMainWindow::on_actionStatisticsBACappInstanceId_triggered()
-{
-    openStatisticsTreeDialog("bacapp_instanceid");
-}
-
-void WiresharkMainWindow::on_actionStatisticsBACappIP_triggered()
-{
-    openStatisticsTreeDialog("bacapp_ip");
-}
-
-void WiresharkMainWindow::on_actionStatisticsBACappObjectId_triggered()
-{
-    openStatisticsTreeDialog("bacapp_objectid");
-}
-
-void WiresharkMainWindow::on_actionStatisticsBACappService_triggered()
-{
-    openStatisticsTreeDialog("bacapp_service");
-}
-
-void WiresharkMainWindow::on_actionStatisticsCollectd_triggered()
-{
-    openStatisticsTreeDialog("collectd");
-}
-
-void WiresharkMainWindow::on_actionStatisticsConversations_triggered()
-{
-    ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_);
-    connect(conv_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
-        this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    connect(conv_dialog, SIGNAL(openFollowStreamDialog(int, guint, guint)),
-        this, SLOT(openFollowStreamDialog(int, guint, guint)));
-    connect(conv_dialog, SIGNAL(openTcpStreamGraph(int)),
-        this, SLOT(openTcpStreamDialog(int)));
-    conv_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatisticsEndpoints_triggered()
-{
-    EndpointDialog *endp_dialog = new EndpointDialog(*this, capture_file_);
-    connect(endp_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
-            this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    connect(endp_dialog, SIGNAL(openFollowStreamDialog(int)),
-            this, SLOT(openFollowStreamDialog(int)));
-    connect(endp_dialog, SIGNAL(openTcpStreamGraph(int)),
-            this, SLOT(openTcpStreamDialog(int)));
-    endp_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatisticsHART_IP_triggered()
-{
-    openStatisticsTreeDialog("hart_ip");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHpfeeds_triggered()
-{
-    openStatisticsTreeDialog("hpfeeds");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHTTPPacketCounter_triggered()
-{
-    openStatisticsTreeDialog("http");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHTTPRequests_triggered()
-{
-    openStatisticsTreeDialog("http_req");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHTTPLoadDistribution_triggered()
-{
-    openStatisticsTreeDialog("http_srv");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHTTPRequestSequences_triggered()
-{
-    openStatisticsTreeDialog("http_seq");
-}
-
-void WiresharkMainWindow::on_actionStatisticsPacketLengths_triggered()
-{
-    openStatisticsTreeDialog("plen");
 }
 
 // -z io,stat
@@ -3530,43 +3544,61 @@ void WiresharkMainWindow::statCommandIOGraph(const char *, void *)
     iog_dialog->show();
 }
 
-void WiresharkMainWindow::on_actionStatisticsIOGraph_triggered()
-{
-    statCommandIOGraph(NULL, NULL);
-}
-
-void WiresharkMainWindow::on_actionStatisticsSametime_triggered()
-{
-    openStatisticsTreeDialog("sametime");
-}
-
-void WiresharkMainWindow::on_actionStatisticsDNS_triggered()
-{
-    openStatisticsTreeDialog("dns");
-}
-
-void WiresharkMainWindow::on_actionStatisticsHTTP2_triggered()
-{
-    openStatisticsTreeDialog("http2");
-
-}
-
-void WiresharkMainWindow::on_actionStatisticsSOMEIPmessages_triggered()
-{
-    openStatisticsTreeDialog("someip_messages");
-}
-
-void WiresharkMainWindow::on_actionStatisticsSOMEIPSDentries_triggered()
-{
-    openStatisticsTreeDialog("someipsd_entries");
-}
-
-void WiresharkMainWindow::on_actionStatisticsLTP_triggered()
-{
-    openStatisticsTreeDialog("ltp");
-}
-
 // Telephony Menu
+
+void WiresharkMainWindow::connectTelephonyMenuActions()
+{
+    connect(main_ui_->actionTelephonyVoipCalls, &QAction::triggered, this, [=]() {
+                VoipCallsDialog *dialog = VoipCallsDialog::openVoipCallsDialogVoip(*this, capture_file_, packet_list_);
+                dialog->show();
+    });
+
+    connect(main_ui_->actionTelephonyIax2StreamAnalysis, &QAction::triggered, this, [=]() {
+        Iax2AnalysisDialog *iax2_analysis_dialog = new  Iax2AnalysisDialog(*this, capture_file_);
+        connect(iax2_analysis_dialog, &Iax2AnalysisDialog::goToPacket, this, [=](int packet) { packet_list_->goToPacket(packet); });
+        iax2_analysis_dialog->show();
+    });
+
+    connect(main_ui_->actionTelephonyISUPMessages, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("isup_msg"); });
+
+    connect(main_ui_->actionTelephonyGsmMapSummary, &QAction::triggered, this, [=]() {
+        GsmMapSummaryDialog *gms_dialog = new GsmMapSummaryDialog(*this, capture_file_);
+        gms_dialog->show();
+    });
+
+    connect(main_ui_->actionTelephonyLteMacStatistics, &QAction::triggered, this, [=]() { statCommandLteMacStatistics(NULL, NULL); });
+    connect(main_ui_->actionTelephonyLteRlcGraph, &QAction::triggered, this, [=]() {
+        // We don't yet know the channel.
+        launchRLCGraph(false, 0, 0, 0, 0, 0);
+    });
+    connect(main_ui_->actionTelephonyLteRlcStatistics, &QAction::triggered, this, [=]() { statCommandLteRlcStatistics(NULL, NULL); });
+
+    connect(main_ui_->actionTelephonyMtp3Summary, &QAction::triggered, this, [=]() {
+        Mtp3SummaryDialog *mtp3s_dialog = new Mtp3SummaryDialog(*this, capture_file_);
+        mtp3s_dialog->show();
+    });
+
+    connect(main_ui_->actionTelephonyOsmuxPacketCounter, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("osmux"); });
+
+    connect(main_ui_->actionTelephonyRtpStreams, &QAction::triggered, this, &WiresharkMainWindow::openTelephonyRtpStreamsDialog);
+    connect(main_ui_->actionTelephonyRtpStreamAnalysis, &QAction::triggered, this, &WiresharkMainWindow::openRtpStreamAnalysisDialog);
+    connect(main_ui_->actionTelephonyRtpPlayer, &QAction::triggered, this, &WiresharkMainWindow::openRtpPlayerDialog);
+
+    connect(main_ui_->actionTelephonyRTSPPacketCounter, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("rtsp"); });
+
+    connect(main_ui_->actionTelephonySMPPOperations, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("smpp_commands"); });
+
+    connect(main_ui_->actionTelephonyUCPMessages, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("ucp_messages"); });
+
+    connect(main_ui_->actionTelephonyF1APMessages, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("f1ap"); });
+
+    connect(main_ui_->actionTelephonyNGAPMessages, &QAction::triggered, this, [=]() { openStatisticsTreeDialog("ngap"); });
+
+    connect(main_ui_->actionTelephonySipFlows, &QAction::triggered, this, [=]() {
+        VoipCallsDialog *dialog = VoipCallsDialog::openVoipCallsDialogSip(*this, capture_file_, packet_list_);
+        dialog->show();
+    });
+}
 
 RtpPlayerDialog *WiresharkMainWindow::openTelephonyRtpPlayerDialog()
 {
@@ -3583,26 +3615,6 @@ RtpPlayerDialog *WiresharkMainWindow::openTelephonyRtpPlayerDialog()
     return dialog;
 }
 
-VoipCallsDialog *WiresharkMainWindow::openTelephonyVoipCallsDialogVoip()
-{
-    VoipCallsDialog *dialog;
-
-    dialog = VoipCallsDialog::openVoipCallsDialogVoip(*this, capture_file_, packet_list_);
-    dialog->show();
-
-    return dialog;
-}
-
-VoipCallsDialog *WiresharkMainWindow::openTelephonyVoipCallsDialogSip()
-{
-    VoipCallsDialog *dialog;
-
-    dialog = VoipCallsDialog::openVoipCallsDialogSip(*this, capture_file_, packet_list_);
-    dialog->show();
-
-    return dialog;
-}
-
 RtpAnalysisDialog *WiresharkMainWindow::openTelephonyRtpAnalysisDialog()
 {
     RtpAnalysisDialog *dialog;
@@ -3613,30 +3625,6 @@ RtpAnalysisDialog *WiresharkMainWindow::openTelephonyRtpAnalysisDialog()
     return dialog;
 }
 
-void WiresharkMainWindow::on_actionTelephonyVoipCalls_triggered()
-{
-    openTelephonyVoipCallsDialogVoip();
-}
-
-void WiresharkMainWindow::on_actionTelephonyGsmMapSummary_triggered()
-{
-    GsmMapSummaryDialog *gms_dialog = new GsmMapSummaryDialog(*this, capture_file_);
-    gms_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionTelephonyIax2StreamAnalysis_triggered()
-{
-    Iax2AnalysisDialog *iax2_analysis_dialog = new  Iax2AnalysisDialog(*this, capture_file_);
-    connect(iax2_analysis_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    iax2_analysis_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionTelephonyISUPMessages_triggered()
-{
-    openStatisticsTreeDialog("isup_msg");
-}
-
 // -z mac-lte,stat
 void WiresharkMainWindow::statCommandLteMacStatistics(const char *arg, void *)
 {
@@ -3644,11 +3632,6 @@ void WiresharkMainWindow::statCommandLteMacStatistics(const char *arg, void *)
     connect(lte_mac_stats_dlg, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
             this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
     lte_mac_stats_dlg->show();
-}
-
-void WiresharkMainWindow::on_actionTelephonyLteMacStatistics_triggered()
-{
-    statCommandLteMacStatistics(NULL, NULL);
 }
 
 void WiresharkMainWindow::statCommandLteRlcStatistics(const char *arg, void *)
@@ -3662,11 +3645,6 @@ void WiresharkMainWindow::statCommandLteRlcStatistics(const char *arg, void *)
             this, SLOT(launchRLCGraph(bool, guint16, guint8, guint16, guint16, guint8)));
 
     lte_rlc_stats_dlg->show();
-}
-
-void WiresharkMainWindow::on_actionTelephonyLteRlcStatistics_triggered()
-{
-    statCommandLteRlcStatistics(NULL, NULL);
 }
 
 void WiresharkMainWindow::launchRLCGraph(bool channelKnown,
@@ -3683,39 +3661,15 @@ void WiresharkMainWindow::launchRLCGraph(bool channelKnown,
     lrg_dialog->show();
 }
 
-void WiresharkMainWindow::on_actionTelephonyLteRlcGraph_triggered()
-{
-    // We don't yet know the channel.
-    launchRLCGraph(false, 0, 0, 0, 0, 0);
-}
-
-void WiresharkMainWindow::on_actionTelephonyMtp3Summary_triggered()
-{
-    Mtp3SummaryDialog *mtp3s_dialog = new Mtp3SummaryDialog(*this, capture_file_);
-    mtp3s_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionTelephonyOsmuxPacketCounter_triggered()
-{
-    openStatisticsTreeDialog("osmux");
-}
-
 RtpStreamDialog *WiresharkMainWindow::openTelephonyRtpStreamsDialog()
 {
-    RtpStreamDialog *dialog;
-
-    dialog = RtpStreamDialog::openRtpStreamDialog(*this, capture_file_, packet_list_);
+    RtpStreamDialog *dialog = RtpStreamDialog::openRtpStreamDialog(*this, capture_file_, packet_list_);
     dialog->show();
 
     return dialog;
 }
 
-void WiresharkMainWindow::on_actionTelephonyRtpStreams_triggered()
-{
-    openTelephonyRtpStreamsDialog();
-}
-
-void WiresharkMainWindow::on_actionTelephonyRtpStreamAnalysis_triggered()
+void WiresharkMainWindow::openRtpStreamAnalysisDialog()
 {
     QVector<rtpstream_id_t *> stream_ids;
     QString err;
@@ -3738,7 +3692,7 @@ void WiresharkMainWindow::on_actionTelephonyRtpStreamAnalysis_triggered()
     }
 }
 
-void WiresharkMainWindow::on_actionTelephonyRtpPlayer_triggered()
+void WiresharkMainWindow::openRtpPlayerDialog()
 {
     QVector<rtpstream_id_t *> stream_ids;
     QString err;
@@ -3763,157 +3717,99 @@ void WiresharkMainWindow::on_actionTelephonyRtpPlayer_triggered()
     }
 }
 
-void WiresharkMainWindow::on_actionTelephonyRTSPPacketCounter_triggered()
-{
-    openStatisticsTreeDialog("rtsp");
-}
-
-void WiresharkMainWindow::on_actionTelephonySMPPOperations_triggered()
-{
-    openStatisticsTreeDialog("smpp_commands");
-}
-
-void WiresharkMainWindow::on_actionTelephonyUCPMessages_triggered()
-{
-    openStatisticsTreeDialog("ucp_messages");
-}
-
-void WiresharkMainWindow::on_actionTelephonyF1APMessages_triggered()
-{
-	openStatisticsTreeDialog("f1ap");
-}
-
-void WiresharkMainWindow::on_actionTelephonyNGAPMessages_triggered()
-{
-    openStatisticsTreeDialog("ngap");
-}
-
-void WiresharkMainWindow::on_actionTelephonySipFlows_triggered()
-{
-    openTelephonyVoipCallsDialogSip();
-}
-
 // Wireless Menu
 
-void WiresharkMainWindow::on_actionBluetoothATT_Server_Attributes_triggered()
+void WiresharkMainWindow::connectWirelessMenuActions()
 {
-    BluetoothAttServerAttributesDialog *bluetooth_att_sever_attributes_dialog = new BluetoothAttServerAttributesDialog(*this, capture_file_);
-    connect(bluetooth_att_sever_attributes_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    connect(bluetooth_att_sever_attributes_dialog, SIGNAL(updateFilter(QString, bool)),
-            this, SLOT(filterPackets(QString, bool)));
-    bluetooth_att_sever_attributes_dialog->show();
-}
+    connect(main_ui_->actionBluetoothATT_Server_Attributes, &QAction::triggered, this, [=]() {
+        BluetoothAttServerAttributesDialog *bluetooth_att_sever_attributes_dialog = new BluetoothAttServerAttributesDialog(*this, capture_file_);
+        connect(bluetooth_att_sever_attributes_dialog, SIGNAL(goToPacket(int)),
+                packet_list_, SLOT(goToPacket(int)));
+        connect(bluetooth_att_sever_attributes_dialog, SIGNAL(updateFilter(QString, bool)),
+                this, SLOT(filterPackets(QString, bool)));
+        bluetooth_att_sever_attributes_dialog->show();
+    });
 
-void WiresharkMainWindow::on_actionBluetoothDevices_triggered()
-{
-    BluetoothDevicesDialog *bluetooth_devices_dialog = new BluetoothDevicesDialog(*this, capture_file_, packet_list_);
-    connect(bluetooth_devices_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    connect(bluetooth_devices_dialog, SIGNAL(updateFilter(QString, bool)),
-            this, SLOT(filterPackets(QString, bool)));
-    bluetooth_devices_dialog->show();
-}
+    connect(main_ui_->actionBluetoothDevices, &QAction::triggered, this, [=]() {
+        BluetoothDevicesDialog *bluetooth_devices_dialog = new BluetoothDevicesDialog(*this, capture_file_, packet_list_);
+        connect(bluetooth_devices_dialog, SIGNAL(goToPacket(int)),
+                packet_list_, SLOT(goToPacket(int)));
+        connect(bluetooth_devices_dialog, SIGNAL(updateFilter(QString, bool)),
+                this, SLOT(filterPackets(QString, bool)));
+        bluetooth_devices_dialog->show();
+    });
 
-void WiresharkMainWindow::on_actionBluetoothHCI_Summary_triggered()
-{
-    BluetoothHciSummaryDialog *bluetooth_hci_summary_dialog = new BluetoothHciSummaryDialog(*this, capture_file_);
-    connect(bluetooth_hci_summary_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
-    connect(bluetooth_hci_summary_dialog, SIGNAL(updateFilter(QString, bool)),
-            this, SLOT(filterPackets(QString, bool)));
-    bluetooth_hci_summary_dialog->show();
+    connect(main_ui_->actionBluetoothHCI_Summary, &QAction::triggered, this, [=]() {
+        BluetoothHciSummaryDialog *bluetooth_hci_summary_dialog = new BluetoothHciSummaryDialog(*this, capture_file_);
+        connect(bluetooth_hci_summary_dialog, SIGNAL(goToPacket(int)),
+                packet_list_, SLOT(goToPacket(int)));
+        connect(bluetooth_hci_summary_dialog, SIGNAL(updateFilter(QString, bool)),
+                this, SLOT(filterPackets(QString, bool)));
+        bluetooth_hci_summary_dialog->show();
+    });
+
+    connect(main_ui_->actionWirelessWlanStatistics, &QAction::triggered, this, [=]() { statCommandWlanStatistics(NULL, NULL); });
 }
 
 // Tools Menu
 
-void WiresharkMainWindow::on_actionToolsFirewallAclRules_triggered()
+void WiresharkMainWindow::connectToolsMenuActions()
 {
-    FirewallRulesDialog *firewall_rules_dialog = new FirewallRulesDialog(*this, capture_file_);
-    firewall_rules_dialog->show();
-}
+  connect(main_ui_->actionToolsFirewallAclRules, &QAction::triggered, this, [=]() {
+        FirewallRulesDialog *firewall_rules_dialog = new FirewallRulesDialog(*this, capture_file_);
+        firewall_rules_dialog->show();
+    });
 
-void WiresharkMainWindow::on_actionToolsCredentials_triggered()
-{
-    CredentialsDialog *credentials_dialog = new CredentialsDialog(*this, capture_file_, packet_list_);
-    credentials_dialog->show();
+    connect(main_ui_->actionToolsCredentials, &QAction::triggered, this, [=]() {
+        CredentialsDialog *credentials_dialog = new CredentialsDialog(*this, capture_file_, packet_list_);
+        credentials_dialog->show();
+    });
+
+    connect(main_ui_->actionToolsMacLookup, &QAction::triggered, this, [=]() {
+        ManufDialog *manuf_dialog = new ManufDialog(*this, capture_file_);
+        manuf_dialog->show();
+    });
+
+    connect(main_ui_->actionToolsSSLKeylog, &QAction::triggered, this, &WiresharkMainWindow::openBrowserKeylogDialog);
 }
 
 // Help Menu
-void WiresharkMainWindow::on_actionHelpContents_triggered() {
+void WiresharkMainWindow::connectHelpMenuActions()
+{
 
-    mainApp->helpTopicAction(HELP_CONTENT);
-}
+    connect(main_ui_->actionHelpAbout, &QAction::triggered, this, [=]() {
+        AboutDialog *about_dialog = new AboutDialog(this);
 
-void WiresharkMainWindow::on_actionHelpMPWireshark_triggered() {
+        if (about_dialog->isMinimized() == true)
+        {
+            about_dialog->showNormal();
+        }
+        else
+        {
+            about_dialog->show();
+        }
 
-    mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK);
-}
+        about_dialog->raise();
+        about_dialog->activateWindow();
+    });
 
-void WiresharkMainWindow::on_actionHelpMPWireshark_Filter_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK_FILTER);
-}
-
-void WiresharkMainWindow::on_actionHelpMPCapinfos_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_CAPINFOS);
-}
-
-void WiresharkMainWindow::on_actionHelpMPDumpcap_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_DUMPCAP);
-}
-
-void WiresharkMainWindow::on_actionHelpMPEditcap_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_EDITCAP);
-}
-
-void WiresharkMainWindow::on_actionHelpMPMergecap_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_MERGECAP);
-}
-
-void WiresharkMainWindow::on_actionHelpMPRawshark_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_RAWSHARK);
-}
-
-void WiresharkMainWindow::on_actionHelpMPReordercap_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_REORDERCAP);
-}
-
-void WiresharkMainWindow::on_actionHelpMPText2pcap_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_TEXT2PCAP);
-}
-
-void WiresharkMainWindow::on_actionHelpMPTShark_triggered() {
-    mainApp->helpTopicAction(LOCALPAGE_MAN_TSHARK);
-}
-
-void WiresharkMainWindow::on_actionHelpWebsite_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_HOME);
-}
-
-void WiresharkMainWindow::on_actionHelpFAQ_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_FAQ);
-}
-
-void WiresharkMainWindow::on_actionHelpAsk_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_ASK);
-}
-
-void WiresharkMainWindow::on_actionHelpDownloads_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_DOWNLOAD);
-}
-
-void WiresharkMainWindow::on_actionHelpWiki_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_WIKI);
-}
-
-void WiresharkMainWindow::on_actionHelpSampleCaptures_triggered() {
-
-    mainApp->helpTopicAction(ONLINEPAGE_SAMPLE_FILES);
+    connect(main_ui_->actionHelpContents, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(HELP_CONTENT); });
+    connect(main_ui_->actionHelpMPWireshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK); });
+    connect(main_ui_->actionHelpMPWireshark_Filter, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK_FILTER); });
+    connect(main_ui_->actionHelpMPCapinfos, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_CAPINFOS); });
+    connect(main_ui_->actionHelpMPDumpcap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_DUMPCAP); });
+    connect(main_ui_->actionHelpMPEditcap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_EDITCAP); });
+    connect(main_ui_->actionHelpMPMergecap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_MERGECAP); });
+    connect(main_ui_->actionHelpMPRawshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_RAWSHARK); });
+    connect(main_ui_->actionHelpMPReordercap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_REORDERCAP); });
+    connect(main_ui_->actionHelpMPText2pcap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_TEXT2PCAP); });
+    connect(main_ui_->actionHelpMPTShark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_TSHARK); });
+    connect(main_ui_->actionHelpWebsite, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_HOME); });
+    connect(main_ui_->actionHelpFAQ, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_FAQ); });
+    connect(main_ui_->actionHelpAsk, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_ASK); });
+    connect(main_ui_->actionHelpDownloads, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_DOWNLOAD); });
+    connect(main_ui_->actionHelpWiki, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_WIKI); });
+    connect(main_ui_->actionHelpSampleCaptures, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_SAMPLE_FILES); });
 }
 
 #ifdef HAVE_SOFTWARE_UPDATE
@@ -3923,28 +3819,11 @@ void WiresharkMainWindow::checkForUpdates()
 }
 #endif
 
-void WiresharkMainWindow::on_actionHelpAbout_triggered()
-{
-    AboutDialog *about_dialog = new AboutDialog(this);
-
-    if (about_dialog->isMinimized() == true)
-    {
-        about_dialog->showNormal();
-    }
-    else
-    {
-        about_dialog->show();
-    }
-
-    about_dialog->raise();
-    about_dialog->activateWindow();
-}
-
 void WiresharkMainWindow::resetPreviousFocus() {
     previous_focus_ = NULL;
 }
 
-void WiresharkMainWindow::on_goToCancel_clicked()
+void WiresharkMainWindow::goToCancelClicked()
 {
     main_ui_->goToFrame->animatedHide();
     if (previous_focus_) {
@@ -3954,27 +3833,19 @@ void WiresharkMainWindow::on_goToCancel_clicked()
     }
 }
 
-void WiresharkMainWindow::on_goToGo_clicked()
+void WiresharkMainWindow::goToGoClicked()
 {
     gotoFrame(main_ui_->goToLineEdit->text().toInt());
 
-    on_goToCancel_clicked();
+    goToCancelClicked();
 }
 
-void WiresharkMainWindow::on_goToLineEdit_returnPressed()
+void WiresharkMainWindow::goToLineEditReturnPressed()
 {
-    on_goToGo_clicked();
+    goToGoClicked();
 }
 
-void WiresharkMainWindow::on_actionStatisticsCaptureFileProperties_triggered()
-{
-    CaptureFilePropertiesDialog *capture_file_properties_dialog = new CaptureFilePropertiesDialog(*this, capture_file_);
-    connect(capture_file_properties_dialog, SIGNAL(captureCommentChanged()),
-            this, SLOT(updateForUnsavedChanges()));
-    capture_file_properties_dialog->show();
-}
-
-void WiresharkMainWindow::on_actionStatisticsResolvedAddresses_triggered()
+void WiresharkMainWindow::showResolvedAddressesDialog()
 {
     QString capFileName;
     wtap* wth = Q_NULLPTR;
@@ -3988,15 +3859,31 @@ void WiresharkMainWindow::on_actionStatisticsResolvedAddresses_triggered()
     resolved_addresses_dialog->show();
 }
 
-void WiresharkMainWindow::on_actionStatisticsProtocolHierarchy_triggered()
+void WiresharkMainWindow::showConversationsDialog()
 {
-    ProtocolHierarchyDialog *phd = new ProtocolHierarchyDialog(*this, capture_file_);
-    connect(phd, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
-            this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
-    phd->show();
+    ConversationDialog *conv_dialog = new ConversationDialog(*this, capture_file_);
+    connect(conv_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
+        this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
+    connect(conv_dialog, SIGNAL(openFollowStreamDialog(int, guint, guint)),
+        this, SLOT(openFollowStreamDialog(int, guint, guint)));
+    connect(conv_dialog, SIGNAL(openTcpStreamGraph(int)),
+        this, SLOT(openTcpStreamDialog(int)));
+    conv_dialog->show();
 }
 
-void WiresharkMainWindow::externalMenuItem_triggered()
+void WiresharkMainWindow::showEndpointsDialog()
+{
+    EndpointDialog *endp_dialog = new EndpointDialog(*this, capture_file_);
+    connect(endp_dialog, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)),
+            this, SIGNAL(filterAction(QString, FilterAction::Action, FilterAction::ActionType)));
+    connect(endp_dialog, SIGNAL(openFollowStreamDialog(int)),
+            this, SLOT(openFollowStreamDialog(int)));
+    connect(endp_dialog, SIGNAL(openTcpStreamGraph(int)),
+            this, SLOT(openTcpStreamDialog(int)));
+    endp_dialog->show();
+}
+
+void WiresharkMainWindow::externalMenuItemTriggered()
 {
     QAction * triggerAction = NULL;
     QVariant v;

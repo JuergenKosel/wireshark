@@ -16,6 +16,7 @@
 
 #include <wsutil/wmem/wmem.h>
 #include <wsutil/inet_ipv6.h>
+#include <wsutil/nstime.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -146,8 +147,8 @@ WS_DLL_PUBLIC char *bytes_to_hexstr_punct(char *out, const guint8 *ad, size_t le
  * @return A pointer to the formatted string
  */
 WS_DLL_PUBLIC char *bytes_to_str_punct_maxlen(wmem_allocator_t *scope,
-				const guint8 *buf, size_t buf_size,
-				char punct, size_t max_bytes_len);
+                                const guint8 *buf, size_t buf_size,
+                                char punct, size_t max_bytes_len);
 
 #define bytes_to_str_punct(scope, buf, buf_size, punct) \
     bytes_to_str_punct_maxlen(scope, buf, buf_size, punct, 24)
@@ -161,8 +162,8 @@ WS_DLL_PUBLIC char *bytes_to_str_punct_maxlen(wmem_allocator_t *scope,
  * @return A pointer to the formatted string
  */
 WS_DLL_PUBLIC char *bytes_to_str_maxlen(wmem_allocator_t *scope,
-				const guint8 *buf, size_t buf_size,
-				size_t max_bytes_len);
+                                const guint8 *buf, size_t buf_size,
+                                size_t max_bytes_len);
 
 #define bytes_to_str(scope, buf, buf_size) \
     bytes_to_str_maxlen(scope, buf, buf_size, 36)
@@ -297,6 +298,14 @@ WS_DLL_PUBLIC char *ip6_to_str(wmem_allocator_t *scope, const ws_in6_addr *ad);
 WS_DLL_PUBLIC gchar *ipxnet_to_str_punct(wmem_allocator_t *scope, const guint32 ad, const char punct);
 
 WS_DLL_PUBLIC gchar *eui64_to_str(wmem_allocator_t *scope, const guint64 ad);
+
+WS_DLL_PUBLIC int format_fractional_part_nsecs(gchar *, size_t, guint32, const char *, int);
+
+WS_DLL_PUBLIC void display_epoch_time(gchar *, size_t, const nstime_t *, int);
+
+WS_DLL_PUBLIC void display_signed_time(gchar *, size_t, const nstime_t *, int);
+
+WS_DLL_PUBLIC void format_nstime_as_iso8601(gchar *, size_t, const nstime_t *, char *, gboolean, int);
 
 #ifdef __cplusplus
 }

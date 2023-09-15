@@ -12,7 +12,7 @@
  */
 
 /*
- * https://standards.ieee.org/findstds/standard/1905.1-2013.html
+ * https://standards.ieee.org/ieee/1905.1/4995/
  *
  * IEEE Standard for a Convergent Digital Home Network for Heterogeneous
  * Technologies
@@ -33,6 +33,7 @@
 #include "packet-wifi-dpp.h"
 #include "packet-ieee80211.h"
 
+static dissector_handle_t ieee1905_handle;
 static dissector_handle_t eapol_handle;
 
 extern value_string_ext ieee80211_reason_code_ext;
@@ -914,7 +915,7 @@ static expert_field ei_ieee1905_deprecated_tlv = EI_INIT;
 #define UNASSOCIATED_STA_LINK_METRICS_QUERY_MESSAGE    0x800F
 #define UNASSOCIATED_STA_LINK_METRICS_RESPONSE_MESSAGE 0x8010
 #define BEACON_METRICS_QUERY_MESSAGE                   0x8011
-#define BEACON_METRICS_REPONSE_METRICS                 0x8012
+#define BEACON_METRICS_RESPONSE_METRICS                0x8012
 #define COMBINED_INFRASTRUCTURE_METRICS_MESSAGE        0x8013
 #define CLIENT_STEERING_REQUEST_MESSAGE                0x8014
 #define CLIENT_STEERING_BTM_REPORT_MESSAGE             0x8015
@@ -990,7 +991,7 @@ static const value_string ieee1905_message_type_vals[] = {
   { UNASSOCIATED_STA_LINK_METRICS_QUERY_MESSAGE, "Unassociated STA Link Metrics Query" },
   { UNASSOCIATED_STA_LINK_METRICS_RESPONSE_MESSAGE, "Unassociated STA Link Metrics Response" },
   { BEACON_METRICS_QUERY_MESSAGE,                "Beacon Metrics Query" },
-  { BEACON_METRICS_REPONSE_METRICS,              "Beacon Metrics Response" },
+  { BEACON_METRICS_RESPONSE_METRICS,              "Beacon Metrics Response" },
   { COMBINED_INFRASTRUCTURE_METRICS_MESSAGE,     "Combined Infrastructure Metrics" },
   { CLIENT_STEERING_REQUEST_MESSAGE,             "Client Steering Request" },
   { CLIENT_STEERING_BTM_REPORT_MESSAGE,          "Client Steering BTM Report" },
@@ -1533,7 +1534,7 @@ static const value_string ieee1905_channel_select_resp_code_vals[] = {
   { 0x00, "Accept" },
   { 0x01, "Declined because request violates current preferences" },
   { 0x02, "Declined because request violates most recently reported preferences" },
-  { 0x02, "Declined because request would prevent operation of a current backhaul link" },
+  { 0x03, "Declined because request would prevent operation of a current backhaul link" },
   { 0, NULL }
 };
 
@@ -4269,7 +4270,7 @@ dissect_beacon_metrics_response(tvbuff_t *tvb, packet_info *pinfo _U_,
          * is the next field. Create a new TVB?
          */
         new_len = tvb_get_guint8(tvb, offset + 1);
-        new_tvb = tvb_new_subset_length_caplen(tvb, offset + 2, new_len, new_len);
+        new_tvb = tvb_new_subset_length(tvb, offset + 2, new_len);
 
         dissect_measurement_report(new_tvb, pinfo, report_tree);
 
@@ -9314,7 +9315,7 @@ proto_register_ieee1905(void)
             FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_channel_select_resp_code,
-          { "Response coce", "ieee1905.channel_select.response_code",
+          { "Response code", "ieee1905.channel_select.response_code",
             FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_op_channel_report_radio_id,
@@ -10391,8 +10392,8 @@ proto_register_ieee1905(void)
             FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
 
         { &hf_ieee1905_1905_gtk_key_id,
-          { "MIC Version", "ieee1905.mic.group_temporal_key_id.mic_version",
-            FT_UINT8, BASE_DEC, NULL, 0xF0, NULL, HFILL }},
+          { "Key ID", "ieee1905.mic.group_temporal_key_id.key_id",
+            FT_UINT8, BASE_DEC, NULL, 0xC0, NULL, HFILL }},
 
         { &hf_ieee1905_mic_version,
           { "MIC Version", "ieee1905.mic.group_temporal_key_id.mic_version",
@@ -11538,16 +11539,13 @@ proto_register_ieee1905(void)
 
     reassembly_table_register(&g_ieee1905_reassembly_table,
                               &ieee1905_reassembly_table_functions);
+
+    ieee1905_handle = register_dissector("ieee1905", dissect_ieee1905, proto_ieee1905);
 }
 
 void
 proto_reg_handoff_ieee1905(void)
 {
-    static dissector_handle_t ieee1905_handle;
-
-    ieee1905_handle = create_dissector_handle(dissect_ieee1905,
-                proto_ieee1905);
-
     dissector_add_uint("ethertype", ETHERTYPE_IEEE_1905, ieee1905_handle);
 
     eapol_handle = find_dissector("eapol");

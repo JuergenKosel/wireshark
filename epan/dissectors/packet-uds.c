@@ -12,11 +12,13 @@
 
 #include <epan/packet.h>
 #include <epan/uat.h>
-#include <epan/dissectors/packet-uds.h>
-#include <epan/dissectors/packet-doip.h>
-#include <epan/dissectors/packet-iso10681.h>
-#include <epan/dissectors/packet-iso15765.h>
-#include <epan/dissectors/packet-ber.h>
+#include "packet-uds.h"
+#include "packet-doip.h"
+#include "packet-hsfz.h"
+#include "packet-iso10681.h"
+#include "packet-iso15765.h"
+#include "packet-ber.h"
+#include "packet-x509af.h"
 #include <wsutil/utf8_entities.h>
 
 void proto_register_uds(void);
@@ -433,6 +435,7 @@ static const value_string uds_cdtci_group_of_dtc[] = {
         {0xffff33, "Emissions-system group"},
         {0xffffd0, "Safety-system group"},
         {0xfffffe, "VOBD system"},
+        {0xffffff, "All Groups (all DTCs)"},
         {0, NULL}
 };
 
@@ -795,8 +798,16 @@ static const value_string uds_standard_did_types[] = {
     {UDS_DID_NOEDRD,        "NumberOfEDRDevices"},
     {UDS_DID_EDRI,          "EDRIdentification"},
     {UDS_DID_EDRDAI,        "EDRDeviceAddressInformation"},
-    {UDS_DID_UDSVDID,       "EDRDAI"},
+    {UDS_DID_UDSVDID,       "UDSVersionDataIdentifier"},
     {UDS_DID_RESRVDCPADLC,  "ReservedForISO15765-5 (CAN, CAN-FD, CAN+CAN-FD, ...)"},
+    {0, NULL}
+};
+
+/* ReservedForISO15765 */
+static const value_string uds_did_resrvdcpadlc_types[] = {
+    {0, "CAN Classic Only"},
+    {1, "CAN FD only"},
+    {2, "CAN Classic and CAN FD"},
     {0, NULL}
 };
 
@@ -957,6 +968,8 @@ static int hf_uds_ars_auth_ret_param = -1;
 static int hf_uds_ars_length_of_session_key_info = -1;
 static int hf_uds_ars_session_key_info = -1;
 
+static int hf_uds_signedCertificate = -1;
+
 static int hf_uds_rdbpi_transmission_mode = -1;
 static int hf_uds_rdbpi_periodic_data_identifier = -1;
 
@@ -1026,6 +1039,11 @@ static int hf_uds_lc_subfunction_pos_rsp_msg_ind = -1;
 static int hf_uds_lc_control_mode_id = -1;
 static int hf_uds_lc_link_record = -1;
 
+static int hf_uds_did_reply_f186_diag_session = -1;
+static int hf_uds_did_reply_f190_vin = -1;
+static int hf_uds_did_reply_ff00_version = -1;
+static int hf_uds_did_reply_ff01_dlc_support = -1;
+
 static int hf_uds_unparsed_bytes = -1;
 
 /*
@@ -1041,6 +1059,7 @@ static gint ett_uds_dsc_parameter_record = -1;
 static gint ett_uds_rsdbi_scaling_byte = -1;
 static gint ett_uds_rsdbi_formula_constant = -1;
 static gint ett_uds_cc_communication_type = -1;
+static gint ett_uds_ars_certificate = -1;
 static gint ett_uds_ars_algo_indicator = -1;
 static gint ett_uds_dddi_entry = -1;
 static gint ett_uds_sdt_admin_param = -1;
@@ -1050,6 +1069,7 @@ static int proto_uds = -1;
 
 static dissector_handle_t uds_handle;
 static dissector_handle_t uds_handle_doip;
+static dissector_handle_t uds_handle_hsfz;
 static dissector_handle_t uds_handle_iso10681;
 static dissector_handle_t uds_handle_iso15765;
 static dissector_handle_t obd_ii_handle;
@@ -1059,6 +1079,25 @@ static heur_dissector_list_t heur_subdissector_list;
 static heur_dtbl_entry_t *heur_dtbl_entry;
 
 /*** Configuration ***/
+enum certificate_decoding_strategies {
+    cert_parsing_off = -1,
+    ber_cert_single_false = 0,
+    ber_cert_single_true  = 1,
+    ber_cert_multi_false  = 2,
+    ber_cert_multi_true   = 3,
+};
+
+static const enum_val_t certificate_decoding_vals[] = {
+    {"0", "BER Certificate w/o implicit tag", ber_cert_single_false},
+    {"1", "BER Certificate w implicit tag", ber_cert_single_true},
+    {"2", "BER Certificates w/o implicit tag", ber_cert_multi_false},
+    {"3", "BER Certificates w implicit tag", ber_cert_multi_true},
+    {"off", "Do not parse", cert_parsing_off},
+    {NULL, NULL, -1}
+};
+
+static gint uds_certificate_decoding_config = (gint)cert_parsing_off;
+
 static gboolean uds_dissect_small_sids_with_obd_ii = TRUE;
 
 typedef struct _address_string {
@@ -1444,7 +1483,7 @@ uds_proto_tree_add_address_name(proto_tree *tree, int hf, tvbuff_t *tvb, const g
 /*** Configuration End ***/
 
 static gboolean
-call_heur_subdissector_uds(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint8 service, gboolean reply, guint32 id, guint32 uds_address)
+call_heur_subdissector_uds(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *uds_tree, guint8 service, gboolean reply, guint32 id, guint32 uds_address)
 {
     uds_info_t uds_info;
 
@@ -1453,7 +1492,33 @@ call_heur_subdissector_uds(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     uds_info.reply = reply;
     uds_info.service = service;
 
-    return dissector_try_heuristic(heur_subdissector_list, tvb, pinfo, tree, &heur_dtbl_entry, &uds_info);
+    gboolean ret = dissector_try_heuristic(heur_subdissector_list, tvb, pinfo, tree, &heur_dtbl_entry, &uds_info);
+
+    if (!ret) {
+        if (service == UDS_SERVICES_RDBI && reply && id == UDS_DID_ADSDID) {
+            proto_tree_add_item(uds_tree, hf_uds_did_reply_f186_diag_session, tvb, 0, 1, ENC_NA);
+            return true;
+        }
+
+        if (service == UDS_SERVICES_RDBI && reply && id == UDS_DID_VINDID) {
+            proto_tree_add_item(uds_tree, hf_uds_did_reply_f190_vin, tvb, 0, 17, ENC_ASCII);
+            return true;
+        }
+
+        if (service == UDS_SERVICES_RDBI && reply && id == UDS_DID_UDSVDID) {
+            guint32 tmp = tvb_get_guint32(tvb, 0, ENC_BIG_ENDIAN);
+            proto_tree_add_uint_format(uds_tree, hf_uds_did_reply_ff00_version, tvb, 0, 4, tmp, "UDS Version: %d.%d.%d.%d",
+                                       (tmp & 0xff000000) >> 24, (tmp & 0x00ff0000) >> 16, (tmp & 0x0000ff00) >> 8, tmp & 0x000000ff);
+            return true;
+        }
+
+        if (service == UDS_SERVICES_RDBI && reply && id == UDS_DID_RESRVDCPADLC) {
+            proto_tree_add_item(uds_tree, hf_uds_did_reply_ff01_dlc_support, tvb, 0, 1, ENC_NA);
+            return true;
+        }
+    }
+
+    return ret;
 }
 
 static guint
@@ -2114,6 +2179,40 @@ dissect_uds_memory_addr_size(tvbuff_t *tvb, packet_info *pinfo, proto_tree *uds_
 }
 
 static int
+dissect_uds_certificates_into_tree(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *ti, guint32 offset, guint length) {
+    asn1_ctx_t  asn1_ctx;
+
+    if (!tree || !tvb || !ti || length == 0 || uds_certificate_decoding_config == cert_parsing_off) {
+        return 0;
+    }
+
+    tvbuff_t *sub_tvb = tvb_new_subset_length(tvb, offset, length);
+
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    proto_tree *cert_tree = proto_item_add_subtree(ti, ett_uds_ars_certificate);
+
+    switch (uds_certificate_decoding_config) {
+    case ber_cert_single_false:
+        return dissect_x509af_Certificate(FALSE, sub_tvb, 0, &asn1_ctx, cert_tree, hf_uds_signedCertificate);
+        break;
+
+    case ber_cert_single_true:
+        return dissect_x509af_Certificate(TRUE, sub_tvb, 0, &asn1_ctx, cert_tree, hf_uds_signedCertificate);
+        break;
+
+    case ber_cert_multi_false:
+        return dissect_x509af_Certificates(FALSE, sub_tvb, 0, &asn1_ctx, cert_tree, hf_uds_signedCertificate);
+        break;
+
+    case ber_cert_multi_true:
+        return dissect_x509af_Certificates(TRUE, sub_tvb, 0, &asn1_ctx, cert_tree, hf_uds_signedCertificate);
+        break;
+    }
+
+    return 0;
+}
+
+static int
 dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 source_address, guint32 target_address, guint8 number_of_addresses_valid)
 {
     proto_tree *uds_tree;
@@ -2248,20 +2347,25 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
                 protoitem_append_data_name(ti, ecu_address, (guint16)data_identifier);
                 offset += 2;
 
-                /* ISO14229: at least one byte for data record. Just make sure, we show an error, if less than 1 byte left! */
-                proto_tree_add_item(uds_tree, hf_uds_data_record, tvb, offset, MAX(1, data_length - offset), ENC_NA);
-
                 col_append_fstr(pinfo->cinfo, COL_INFO, "   0x%04x", data_identifier);
                 infocol_append_data_name(pinfo, ecu_address, data_identifier);
 
+                gboolean dissection_ok = false;
                 if (data_length > offset) {
                     col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, data_length - offset, ' '));
 
                     payload_tvb = tvb_new_subset_length(tvb, offset, data_length - offset);
-                    call_heur_subdissector_uds(payload_tvb, pinfo, tree, service, TRUE, data_identifier, ecu_address);
-
-                    offset = data_length;
+                    dissection_ok = call_heur_subdissector_uds(payload_tvb, pinfo, tree, uds_tree, service, TRUE, data_identifier, ecu_address);
                 }
+
+                if (!dissection_ok) {
+                    /* ISO14229: at least one byte for data record. Just make sure, we show an error, if less than 1 byte left! */
+                    proto_tree_add_item(uds_tree, hf_uds_data_record, tvb, offset, MAX(1, data_length - offset), ENC_NA);
+                }
+
+                offset = data_length;
+
+
             } else {
                 /* ISO14229: data identifiers are 2 bytes and at least one has to be present. */
                 do {
@@ -2438,7 +2542,8 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
                     proto_tree_add_item_ret_uint(uds_tree, hf_uds_ars_length_of_cert_server, tvb, offset, 2, ENC_NA, &length_field);
                     offset += 2;
 
-                    proto_tree_add_item(uds_tree, hf_uds_ars_cert_server, tvb, offset, length_field, ENC_NA);
+                    ti = proto_tree_add_item(uds_tree, hf_uds_ars_cert_server, tvb, offset, length_field, ENC_NA);
+                    dissect_uds_certificates_into_tree(tvb, pinfo, uds_tree, ti, offset, length_field);
                     offset += length_field;
 
                     proto_tree_add_item_ret_uint(uds_tree, hf_uds_ars_length_of_proof_of_ownership_server, tvb, offset, 2, ENC_NA, &length_field);
@@ -2555,7 +2660,8 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
                     proto_tree_add_item_ret_uint(uds_tree, hf_uds_ars_length_of_cert_client, tvb, offset, 2, ENC_NA, &length_cert_client);
                     offset += 2;
 
-                    proto_tree_add_item(uds_tree, hf_uds_ars_cert_client, tvb, offset, length_cert_client, ENC_NA);
+                    ti = proto_tree_add_item(uds_tree, hf_uds_ars_cert_client, tvb, offset, length_cert_client, ENC_NA);
+                    dissect_uds_certificates_into_tree(tvb, pinfo, uds_tree, ti, offset, length_cert_client);
                     offset += length_cert_client;
 
                     guint length_challenge_client;
@@ -2750,14 +2856,17 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
             offset += 2;
 
             if (!(sid & UDS_REPLY_MASK)) {
-                /* This needs to be at least one byte says the standard */
-                proto_tree_add_item(uds_tree, hf_uds_data_record, tvb, offset, MAX(1, data_length - offset), ENC_NA);
-
+                gboolean dissection_ok = false;
                 if (data_length > offset) {
-                    payload_tvb = tvb_new_subset_length(tvb, offset, data_length - offset);
-                    call_heur_subdissector_uds(payload_tvb, pinfo, tree, service, FALSE, enum_val, ecu_address);
-
                     col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, data_length - offset, ' '));
+
+                    payload_tvb = tvb_new_subset_length(tvb, offset, data_length - offset);
+                    dissection_ok = call_heur_subdissector_uds(payload_tvb, pinfo, tree, uds_tree, service, FALSE, enum_val, ecu_address);
+                }
+
+                if (!dissection_ok) {
+                    /* ISO14229: at least one byte for data record. Just make sure, we show an error, if less than 1 byte left! */
+                    proto_tree_add_item(uds_tree, hf_uds_data_record, tvb, offset, MAX(1, data_length - offset), ENC_NA);
                 }
 
                 offset = data_length;
@@ -2805,21 +2914,25 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
                     offset += 1;
 
                     if (data_length > offset) {
-                        proto_tree_add_item(uds_tree, hf_uds_rc_status_record, tvb, offset, data_length - offset, ENC_NA);
                         col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, data_length - offset, ' '));
 
                         payload_tvb = tvb_new_subset_length(tvb, offset, data_length - offset);
-                        call_heur_subdissector_uds(payload_tvb, pinfo, tree, service, TRUE, identifier, ecu_address);
+                        if (!call_heur_subdissector_uds(payload_tvb, pinfo, tree, uds_tree, service, TRUE, identifier, ecu_address)) {
+                            proto_tree_add_item(uds_tree, hf_uds_rc_status_record, tvb, offset, data_length - offset, ENC_NA);
+                        }
+
                         offset = data_length;
                     }
                 }
             } else {
                 if (data_length > offset) {
-                    proto_tree_add_item(uds_tree, hf_uds_rc_option_record, tvb, offset, data_length - offset, ENC_NA);
                     col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", tvb_bytes_to_str_punct(pinfo->pool, tvb, offset, data_length - offset, ' '));
 
                     payload_tvb = tvb_new_subset_length(tvb, offset, data_length - offset);
-                    call_heur_subdissector_uds(payload_tvb, pinfo, tree, service, FALSE, identifier, ecu_address);
+                    if (!call_heur_subdissector_uds(payload_tvb, pinfo, tree, uds_tree, service, FALSE, identifier, ecu_address)) {
+                        proto_tree_add_item(uds_tree, hf_uds_rc_option_record, tvb, offset, data_length - offset, ENC_NA);
+                    }
+
                     offset = data_length;
                 }
             }
@@ -3076,12 +3189,12 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 }
 
 static int
-dissect_uds_no_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data _U_) {
+dissect_uds_no_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_) {
     return dissect_uds_internal(tvb, pinfo, tree, 0, 0, 0);
 }
 
 static int
-dissect_uds_doip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data) {
+dissect_uds_doip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
     DISSECTOR_ASSERT(data);
 
     doip_info_t *doip_info = (doip_info_t *)data;
@@ -3089,7 +3202,15 @@ dissect_uds_doip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *
 }
 
 static int
-dissect_uds_iso15765(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data) {
+dissect_uds_hsfz(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
+    DISSECTOR_ASSERT(data);
+
+    hsfz_info_t *hsfz_info = (hsfz_info_t *)data;
+    return dissect_uds_internal(tvb, pinfo, tree, hsfz_info->source_address, hsfz_info->target_address, 2);
+}
+
+static int
+dissect_uds_iso15765(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
     DISSECTOR_ASSERT(data);
 
     iso15765_info_t *info = (iso15765_info_t *)data;
@@ -3097,7 +3218,7 @@ dissect_uds_iso15765(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
 }
 
 static int
-dissect_uds_iso10681(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data) {
+dissect_uds_iso10681(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
     DISSECTOR_ASSERT(data);
 
     iso10681_info_t *info = (iso10681_info_t *)data;
@@ -3386,6 +3507,9 @@ proto_register_uds(void) {
         { &hf_uds_ars_session_key_info, {
             "Session Key Info", "uds.ars.session_key_info", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
 
+        { &hf_uds_signedCertificate, {
+            "signedCertificate", "uds.signedCertificate_element", FT_NONE, BASE_NONE, NULL, 0, NULL, HFILL } },
+
         { &hf_uds_rdbpi_transmission_mode, {
             "Transmission Mode", "uds.rdbpi.transmission_mode", FT_UINT8, BASE_HEX, VALS(uds_rdbpi_transmission_mode), 0x0, NULL, HFILL } },
         { &hf_uds_rdbpi_periodic_data_identifier, {
@@ -3511,6 +3635,15 @@ proto_register_uds(void) {
         { &hf_uds_lc_link_record, {
             "Link Record", "uds.lc.link_record", FT_UINT24, BASE_HEX, NULL, 0x0, NULL, HFILL } },
 
+        { &hf_uds_did_reply_f186_diag_session, {
+            "Diagnostic Session", "uds.did_f186.diagnostic_session", FT_UINT8, BASE_HEX, VALS(uds_dsc_types), 0x0, NULL, HFILL } },
+        { &hf_uds_did_reply_f190_vin, {
+            "VIN", "uds.did_f190.vin", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL } },
+        { &hf_uds_did_reply_ff00_version, {
+            "Version", "uds.did_ff00.version", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL } },
+        { &hf_uds_did_reply_ff01_dlc_support, {
+            "DLC Supports", "uds.did_ff01.dlc_supports", FT_UINT8, BASE_HEX, VALS(uds_did_resrvdcpadlc_types), 0x0, NULL, HFILL } },
+
         { &hf_uds_unparsed_bytes, {
             "Unparsed Bytes", "uds.unparsed_bytes", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
     };
@@ -3532,6 +3665,7 @@ proto_register_uds(void) {
         &ett_uds_rsdbi_scaling_byte,
         &ett_uds_rsdbi_formula_constant,
         &ett_uds_cc_communication_type,
+        &ett_uds_ars_certificate,
         &ett_uds_ars_algo_indicator,
         &ett_uds_dddi_entry,
         &ett_uds_sdt_admin_param,
@@ -3549,6 +3683,7 @@ proto_register_uds(void) {
 
     uds_handle = register_dissector("uds", dissect_uds_no_data, proto_uds);
     uds_handle_doip = register_dissector("uds_over_doip", dissect_uds_doip, proto_uds);
+    uds_handle_hsfz = register_dissector("uds_over_hsfz", dissect_uds_hsfz, proto_uds);
     uds_handle_iso10681 = register_dissector("uds_over_iso10681", dissect_uds_iso10681, proto_uds);
     uds_handle_iso15765 = register_dissector("uds_over_iso15765", dissect_uds_iso15765, proto_uds);
 
@@ -3666,6 +3801,11 @@ proto_register_uds(void) {
         "Dissect Service Identifiers smaller 0x10 with OBD II Dissector?",
         "Dissect Service Identifiers smaller 0x10 with OBD II Dissector?",
         &uds_dissect_small_sids_with_obd_ii);
+
+    prefs_register_enum_preference(uds_module, "cert_decode_strategy",
+        "Certificate Decoding Strategy",
+        "Decide how the certificate bytes are decoded",
+        &uds_certificate_decoding_config, certificate_decoding_vals, FALSE);
 
     heur_subdissector_list = register_heur_dissector_list("uds", proto_uds);
 }

@@ -1,4 +1,4 @@
-TShark (Wireshark) 4.1.0 (v4.1.0rc0-1991-g04aed725ef4c)
+TShark (Wireshark) 4.1.1 (v4.1.1rc0-23-g1a4d139953f5)
 Dump and analyze network traffic.
 See https://www.wireshark.org for more information.
 
@@ -64,6 +64,11 @@ Processing:
                            enable dissection of proto_name
   --disable-protocol <proto_name>
                            disable dissection of proto_name
+  --only-protocols <protocols>
+                           Only enable dissection of these protocols, comma
+                           separated. Disable everything else
+  --disable-all-protocols
+                           Disable dissection of all protocols
   --enable-heuristic <short_name>
                            enable dissection of heuristic protocol
   --disable-heuristic <short_name>
@@ -97,7 +102,7 @@ Output:
   -J <protocolfilter>      top level protocol filter if -T ek|pdml|json selected
                            (e.g. "http tcp", filter which expands all child nodes)
   -e <field>               field to print if -Tfields selected (e.g. tcp.port,
-                           _ws.col.Info)
+                           _ws.col.info)
                            this option can be repeated to print multiple fields
   -E<fieldsoption>=<value> set options for output when -Tfields selected:
      bom=y|n               print a UTF-8 BOM

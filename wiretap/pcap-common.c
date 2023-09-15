@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include "wtap-int.h"
 #include "file_wrappers.h"
 #include "atm.h"
@@ -504,6 +503,9 @@ static const struct {
 
 	/* Ultra-wideband (UWB) controller interface protocol (UCI) */
 	{ 299,		WTAP_ENCAP_FIRA_UCI },
+
+	/* MDB (Multi-Drop Bus) */
+	{ 300,		WTAP_ENCAP_MDB },
 
 	/*
 	 * To repeat:

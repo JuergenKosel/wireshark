@@ -144,6 +144,13 @@ capture_start(capture_options *capture_opts, GPtrArray *capture_comments,
         return FALSE;
     }
 
+    // Do we need data structures for ignoring duplicate frames?
+    if (prefs.ignore_dup_frames && capture_opts->real_time_mode) {
+        fifo_string_cache_init(&cap_session->frame_dup_cache,
+                prefs.ignore_dup_frames_cache_entries, g_free);
+        cap_session->frame_cksum = g_checksum_new(G_CHECKSUM_SHA256);
+    }
+
     /* the capture child might not respond shortly after bringing it up */
     /* (for example: it will block if no input arrives from an input capture pipe (e.g. mkfifo)) */
 
@@ -253,7 +260,7 @@ capture_input_read_all(capture_session *cap_session, gboolean is_tempfile,
     }
 
     /* read in the packet data */
-    switch (cf_read((capture_file *)cap_session->cf, FALSE)) {
+    switch (cf_read((capture_file *)cap_session->cf, /*reloading=*/FALSE)) {
 
         case CF_READ_OK:
         case CF_READ_ERROR:
@@ -379,7 +386,7 @@ cf_open_error_message(int err, gchar *err_info)
 }
 
 /* capture child tells us we have a new (or the first) capture file */
-static gboolean
+static bool
 capture_input_new_file(capture_session *cap_session, gchar *new_file)
 {
     capture_options *capture_opts = cap_session->capture_opts;
@@ -399,16 +406,15 @@ capture_input_new_file(capture_session *cap_session, gchar *new_file)
     if(capture_opts->save_file != NULL) {
         /* we start a new capture file, close the old one (if we had one before). */
         /* (we can only have an open capture file in real_time_mode!) */
-        if( ((capture_file *) cap_session->cf)->state != FILE_CLOSED) {
-            if(capture_opts->real_time_mode) {
-                cap_session->session_will_restart = TRUE;
-                capture_callback_invoke(capture_cb_capture_update_finished, cap_session);
-                cf_finish_tail((capture_file *)cap_session->cf,
-                               &cap_session->rec, &cap_session->buf, &err);
-                cf_close((capture_file *)cap_session->cf);
-            } else {
-                capture_callback_invoke(capture_cb_capture_fixed_finished, cap_session);
-            }
+        if (((capture_file*)cap_session->cf)->state == FILE_READ_PENDING) {
+            capture_callback_invoke(capture_cb_capture_fixed_finished, cap_session);
+        } else if (((capture_file*)cap_session->cf)->state != FILE_CLOSED) {
+            cap_session->session_will_restart = TRUE;
+            capture_callback_invoke(capture_cb_capture_update_finished, cap_session);
+            cf_finish_tail((capture_file *)cap_session->cf,
+                           &cap_session->rec, &cap_session->buf, &err,
+                           &cap_session->frame_dup_cache, cap_session->frame_cksum);
+            cf_close((capture_file *)cap_session->cf);
         }
         g_free(capture_opts->save_file);
         is_tempfile = FALSE;
@@ -529,9 +535,26 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
     ws_assert(capture_opts->save_file);
 
     if(capture_opts->real_time_mode) {
+        if (((capture_file*)cap_session->cf)->state == FILE_READ_PENDING) {
+            /* Attempt to open the capture file and set up to read from it. */
+            switch (cf_open((capture_file*)cap_session->cf, capture_opts->save_file, WTAP_TYPE_AUTO, cf_is_tempfile((capture_file*)cap_session->cf), &err)) {
+            case CF_OK:
+                break;
+            case CF_ERROR:
+                /* Don't unlink (delete) the save file - leave it around,
+                   for debugging purposes. */
+                g_free(capture_opts->save_file);
+                capture_opts->save_file = NULL;
+                capture_kill_child(cap_session);
+            }
+            capture_callback_invoke(capture_cb_capture_update_started, cap_session);
+        }
         /* Read from the capture file the number of records the child told us it added. */
+        to_read += cap_session->count_pending;
+        cap_session->count_pending = 0;
         switch (cf_continue_tail((capture_file *)cap_session->cf, to_read,
-                                 &cap_session->rec, &cap_session->buf, &err)) {
+                                 &cap_session->rec, &cap_session->buf, &err,
+                                 &cap_session->frame_dup_cache, cap_session->frame_cksum)) {
 
             case CF_READ_OK:
             case CF_READ_ERROR:
@@ -551,6 +574,7 @@ capture_input_new_packets(capture_session *cap_session, int to_read)
         }
     } else {
         cf_fake_continue_tail((capture_file *)cap_session->cf);
+        cap_session->count_pending += to_read;
 
         capture_callback_invoke(capture_cb_capture_fixed_continue, cap_session);
     }
@@ -596,7 +620,7 @@ capture_input_error(capture_session *cap_session _U_, char *error_msg,
     ws_assert(cap_session->state == CAPTURE_PREPARING || cap_session->state == CAPTURE_RUNNING);
 
     safe_error_msg = simple_dialog_format_message(error_msg);
-    if (*secondary_error_msg != '\0') {
+    if (secondary_error_msg != NULL && *secondary_error_msg != '\0') {
         /* We have both primary and secondary messages. */
         safe_secondary_error_msg = simple_dialog_format_message(secondary_error_msg);
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s%s%s\n\n%s",
@@ -710,12 +734,23 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
         /* We started a capture; process what's left of the capture file if
            we were in "update list of packets in real time" mode, or process
            all of it if we weren't. */
-        if(capture_opts->real_time_mode) {
+        if(((capture_file*)cap_session->cf)->state == FILE_READ_IN_PROGRESS) {
             cf_read_status_t status;
 
             /* Read what remains of the capture file. */
             status = cf_finish_tail((capture_file *)cap_session->cf,
-                                    &cap_session->rec, &cap_session->buf, &err);
+                                    &cap_session->rec, &cap_session->buf, &err,
+                                    &cap_session->frame_dup_cache, cap_session->frame_cksum);
+
+            // The real-time reading of the pcap is done. Now we can clear the
+            // dup-frame cache, if present. But check that we actually have
+            // data structures to clear (by checking frame-checksum); the user
+            // could have changed the preference *during* the live capture.
+            if (cap_session->frame_cksum != NULL) {
+                fifo_string_cache_free(&cap_session->frame_dup_cache);
+                g_checksum_free(cap_session->frame_cksum);
+                cap_session->frame_cksum = NULL;
+            }
 
             /* Tell the GUI we are not doing a capture any more.
                Must be done after the cf_finish_tail(), so file lengths are
@@ -760,7 +795,7 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
                     exit_application(0);
                     break;
             }
-        } else {
+        } else if (((capture_file*)cap_session->cf)->state == FILE_READ_PENDING) {
             /* first of all, we are not doing a capture any more */
             capture_callback_invoke(capture_cb_capture_fixed_finished, cap_session);
 

@@ -282,6 +282,7 @@ static expert_field ei_geonw_analysis_duplicate = EI_INIT;
 static expert_field ei_geonw_resp_not_found     = EI_INIT;
 static expert_field ei_geonw_out_of_range       = EI_INIT;
 static expert_field ei_geonw_payload_len        = EI_INIT;
+static expert_field ei_geonw_intx_too_big       = EI_INIT;
 
 static dissector_table_t geonw_subdissector_table;
 static dissector_table_t ssp_subdissector_table;
@@ -1260,7 +1261,9 @@ dissect_sec_intx(tvbuff_t *tvb, gint *offset, packet_info *pinfo, proto_tree *tr
         // EI Error if more than 7
         expert_add_info(pinfo, ti, &ei_sgeonw_len_too_long);
     if (ret) {
-        DISSECTOR_ASSERT(!(tmp_val & 0xffffffff00000000));
+        if(tmp_val & 0xffffffff00000000) {
+            expert_add_info(pinfo, ti, &ei_geonw_intx_too_big);
+        }
         *ret = (guint32) tmp_val;
     }
 
@@ -2861,10 +2864,7 @@ proto_register_btpa(void)
 void
 proto_reg_handoff_btpa(void)
 {
-    dissector_handle_t btpa_handle_;
-
-    btpa_handle_ = create_dissector_handle(dissect_btpa, proto_btpa);
-    dissector_add_uint("geonw.ch.nh", 1, btpa_handle_);
+    dissector_add_uint("geonw.ch.nh", 1, btpa_handle);
 
     find_dissector_add_dependency("gnw", proto_btpa);
 
@@ -2915,10 +2915,7 @@ proto_register_btpb(void)
 void
 proto_reg_handoff_btpb(void)
 {
-    dissector_handle_t btpb_handle_;
-
-    btpb_handle_ = create_dissector_handle(dissect_btpb, proto_btpb);
-    dissector_add_uint("geonw.ch.nh", 2, btpb_handle_);
+    dissector_add_uint("geonw.ch.nh", 2, btpb_handle);
 
     find_dissector_add_dependency("gnw", proto_btpb);
 
@@ -3596,6 +3593,7 @@ proto_register_geonw(void)
         { &ei_sgeonw_subj_info_too_long, { "geonw.sec.bogus_sinfo", PI_MALFORMED, PI_ERROR, "Subject info length shall be at most 255", EXPFILL }},
         { &ei_sgeonw_ssp_too_long, { "geonw.sec.bogus_ssp", PI_MALFORMED, PI_ERROR, "Service specific permission length shall be at most 31", EXPFILL }},
         { &ei_sgeonw_bogus, { "geonw.sec.bogus", PI_MALFORMED, PI_ERROR, "Malformed message (check length)", EXPFILL }},
+        { &ei_geonw_intx_too_big, { "geonw.intx_too_big", PI_MALFORMED, PI_ERROR, "IntX value exceeds 32 bits", EXPFILL }},
     };
     static gint *ett[] = {
         &ett_geonw,
@@ -3665,13 +3663,13 @@ proto_register_geonw(void)
 void
 proto_reg_handoff_geonw(void)
 {
-    dissector_handle_t geonw_handle_;
     dissector_handle_t sgeonw_handle_;
 
-    geonw_handle_ = create_dissector_handle(dissect_geonw, proto_geonw);
+    // This is a minimal dissector that just stores the tvbuff for later use;
+    // not useful from outside a dissector table, so not using register_dissector()
     sgeonw_handle_ = create_dissector_handle(dissect_sgeonw, proto_geonw);
 
-    dissector_add_uint_with_preference("ethertype", ETHERTYPE_GEONETWORKING, geonw_handle_);
+    dissector_add_uint_with_preference("ethertype", ETHERTYPE_GEONETWORKING, geonw_handle);
 
     // IPv6 over GeoNetworking Protocols
     ipv6_handle = find_dissector("ipv6");

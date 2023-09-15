@@ -309,6 +309,7 @@ extern "C" {
 #define WTAP_ENCAP_ATSC_ALP                     220
 #define WTAP_ENCAP_FIRA_UCI                     221
 #define WTAP_ENCAP_SILABS_DEBUG_CHANNEL         222
+#define WTAP_ENCAP_MDB                          223
 
 /* After adding new item here, please also add new item to encap_table_base array */
 
@@ -320,11 +321,22 @@ extern "C" {
 /* timestamp precision (currently only these values are supported) */
 #define WTAP_TSPREC_UNKNOWN    -2
 #define WTAP_TSPREC_PER_PACKET -1  /* as a per-file value, means per-packet */
+/*
+ * These values are the number of digits of precision after the integral part.
+ * Thry're the same as WS_TSPREC values; we define them here so that
+ * tools/make-enums.py sees them.
+ */
 #define WTAP_TSPREC_SEC         0
-#define WTAP_TSPREC_DSEC        1
-#define WTAP_TSPREC_CSEC        2
+#define WTAP_TSPREC_100_MSEC    1
+#define WTAP_TSPREC_DSEC        1 /* Backwards compatibility */
+#define WTAP_TSPREC_10_MSEC     2
+#define WTAP_TSPREC_CSEC        2 /* Backwards compatibility */
 #define WTAP_TSPREC_MSEC        3
+#define WTAP_TSPREC_100_USEC    4
+#define WTAP_TSPREC_10_USEC     5
 #define WTAP_TSPREC_USEC        6
+#define WTAP_TSPREC_100_NSEC    7
+#define WTAP_TSPREC_10_NSEC     8
 #define WTAP_TSPREC_NSEC        9
 /* if you add to the above, update wtap_tsprec_string() */
 
@@ -1378,7 +1390,7 @@ typedef struct {
  */
 #define WTAP_NSTIME_32BIT_SECS_MAX ((time_t)(sizeof(time_t) > sizeof(gint32) ? G_MAXUINT32 : G_MAXINT32))
 
-typedef struct {
+typedef struct wtap_rec {
     guint     rec_type;          /* what type of record is this? */
     guint32   presence_flags;    /* what stuff do we have? */
     guint     section_number;    /* section, within file, containing this record */
@@ -1521,18 +1533,39 @@ typedef struct wtap_wslua_file_info {
  * the user can ask to see all capture files (as identified
  * by file extension) or particular types of capture files.
  *
- * Each file type has a description, a flag indicating whether it's
- * a capture file or just some file whose contents we can dissect,
- * and a list of extensions the file might have.
+ * Each item has a human-readable description of the file types
+ * (possibly more than one!) that use all of this set of extensions,
+ * a flag indicating whether it's a capture file or just some file
+ * whose contents we can dissect, and a list of extensions files of
+ * that type might have.
  *
- * Some file types aren't real file types, they're just generic types,
+ * Note that entries in this table do *not* necessarily correspoond
+ * to single file types; for example, the entry that lists just "cap"
+ * is for several file formats, all of which use the extension ".cap".
+ *
+ * Also note that a given extension may appear in multiple entries;
+ * for example, "cap" (again!) is in an entry for some file types
+ * that use only ".cap" and in entries for file types that use
+ * ".cap" and some other extensions, and ".trc" is used both for
+ * DOS Sniffer Token Ring captures ("trc") and EyeSDN USB ISDN
+ * trace files ("tr{a}c{e}").
+ *
+ * Some entries aren't for capture file types, they're just generic types,
  * such as "text file" or "XML file", that can be used for, among other
- * things, captures we can read, or for extensions such as ".cap" that
- * were unimaginatively chosen by several different sniffers for their
- * file formats.
+ * things, captures we can read, or for file formats we can read in
+ * order to dissect the contents of the file (think of this as "Fileshark",
+ * which is a program that we really should have).  Those are marked
+ * specially, because, in file section dialogs, the user should be able
+ * to select "All Capture Files" and get a set of extensions that are
+ * associated with capture file formats, but not with files in other
+ * formats that might or might not contain captured packets (such as
+ * .txt or .xml") or formats that aren't capture files but that we
+ * support as "we're being Fileshark now" (such as .jpeg).  The routine
+ * that constructs a list of extensions for "All Capture Files" omits
+ * extensions for those entries.
  */
 struct file_extension_info {
-    /* the file type name */
+    /* the file type description */
     const char *name;
 
     /* TRUE if this is a capture file type */
@@ -1545,8 +1578,7 @@ struct file_extension_info {
 /*
  * For registering file types that we can open.
  *
- * Each file type has an open routine and an optional list of extensions
- * the file might have.
+ * Each file type has an open routine.
  *
  * The open routine should return:
  *
@@ -1558,8 +1590,8 @@ struct file_extension_info {
  *      WTAP_OPEN_NOT_MINE if the file it's reading isn't one of the
  *      types it handles.
  *
- * If the routine handles this type of file, it should set the "file_type"
- * field in the "struct wtap" to the type of the file.
+ * If the routine handles this type of file, it should set the
+ * "file_type_subtype" field in the "struct wtap" to the type of the file.
  *
  * Note that the routine does not have to free the private data pointer on
  * error. The caller takes care of that by calling wtap_close on error.
@@ -1596,7 +1628,6 @@ typedef wtap_open_return_val (*wtap_open_routine_t)(struct wtap*, int *,
  * the ones that don't, to handle the case where a file of one type
  * might be recognized by the heuristics for a different file type.
  */
-
 typedef enum {
     OPEN_INFO_MAGIC = 0,
     OPEN_INFO_HEURISTIC = 1
@@ -1606,13 +1637,39 @@ WS_DLL_PUBLIC void init_open_routines(void);
 
 void cleanup_open_routines(void);
 
+/*
+ * Information about a given file type that applies to all subtypes of
+ * the file type.
+ *
+ * Each file type has:
+ *
+ *    a human-readable description of the file type, for use in the
+ *      user interface;
+ *    a wtap_open_type indication of how the open routine
+ *      determines whether a file is of that type;
+ *    an open routine;
+ *    an optional list of extensions used for this file type;
+ *    data to be passed to Lua file readers - this should be NULL for
+ *      non-Lua (C) file readers.
+ *
+ * The list of file extensions is used as a hint when calling open routines
+ * to open a file; heuristic open routines whose list of extensions includes
+ * the file's extension are called before heuristic open routines whose
+ * (possibly-empty) list of extensions doesn't contain the file's extension,
+ * to reduce the chances that a file will be misidentified due to an heuristic
+ * test with a weak heuristic being done before a heuristic test for the
+ * file's type.
+ *
+ * The list of extensions should be NULL for magic-number open routines,
+ * as it will not be used for any purpose (no such hinting is done).
+ */
 struct open_info {
-    const char *name;
-    wtap_open_type type;
-    wtap_open_routine_t open_routine;
-    const char *extensions;
-    gchar **extensions_set; /* populated using extensions member during initialization */
-    void* wslua_data; /* should be NULL for C-code file readers */
+    const char *name;                 /* Description */
+    wtap_open_type type;              /* Open routine type */
+    wtap_open_routine_t open_routine; /* Open routine */
+    const char *extensions;           /* List of extensions used for this file type */
+    gchar **extensions_set;           /* Array of those extensions; populated using extensions member during initialization */
+    void* wslua_data;                 /* Data for Lua file readers */
 };
 WS_DLL_PUBLIC struct open_info *open_routines;
 
@@ -1981,6 +2038,28 @@ gchar *wtap_get_debug_if_descr(const wtap_block_t if_descr,
 WS_DLL_PUBLIC
 wtap_block_t wtap_file_get_nrb(wtap *wth);
 
+/**
+ * @brief Adds a Decryption Secrets Block to the open wiretap session.
+ * @details The passed-in DSB is added to the DSBs for the current
+ *          session.
+ *
+ * @param wth The wiretap session.
+ * @param dsb The Decryption Secrets Block to add
+ */
+WS_DLL_PUBLIC
+void wtap_file_add_decryption_secrets(wtap *wth, const wtap_block_t dsb);
+
+/**
+ * Remove any decryption secret information from the per-file information;
+ * used if we're stripping decryption secrets while the file is open
+ *
+ * @param wth The wiretap session from which to remove the
+ * decryption secrets.
+ * @return TRUE if any DSBs were removed
+ */
+WS_DLL_PUBLIC
+gboolean wtap_file_discard_decryption_secrets(wtap *wth);
+
 /*** close the file descriptors for the current file ***/
 WS_DLL_PUBLIC
 void wtap_fdclose(wtap *wth);
@@ -2240,6 +2319,17 @@ WS_DLL_PUBLIC
 void wtap_buffer_append_epdu_uint(Buffer *buf, guint16 epdu_tag, guint32 val);
 
 /**
+ * Generates packet data for a string in "exported PDU" format.
+ * For filetype readers to transform non-packetized data.
+ *
+ * @param[in,out] buf   Buffer into which to write field
+ * @param epdu_tag      tag ID of field to create
+ * @param val           string value to write to buf
+ */
+WS_DLL_PUBLIC
+void wtap_buffer_append_epdu_string(Buffer *buf, guint16 epdu_tag, const char *val);
+
+/**
  * Close off a set of "exported PDUs" added to the buffer.
  * For filetype readers to transform non-packetized data.
  *
@@ -2264,7 +2354,7 @@ typedef enum {
  * WTAP_ENCAP_ types and the given bitmask of comment types.
  */
 WS_DLL_PUBLIC
-GArray *wtap_get_savable_file_types_subtypes_for_file(int file_type,
+GArray *wtap_get_savable_file_types_subtypes_for_file(int file_type_subtype,
     const GArray *file_encaps, guint32 required_comment_types,
     ft_sort_order sort_order);
 
@@ -2293,7 +2383,7 @@ int wtap_pcapng_file_type_subtype(void);
  * the block in question.
  */
 WS_DLL_PUBLIC
-block_support_t wtap_file_type_subtype_supports_block(int filetype,
+block_support_t wtap_file_type_subtype_supports_block(int file_type_subtype,
     wtap_block_type_t type);
 
 /**
@@ -2301,20 +2391,74 @@ block_support_t wtap_file_type_subtype_supports_block(int filetype,
  * the option in queston for the block in question.
  */
 WS_DLL_PUBLIC
-option_support_t wtap_file_type_subtype_supports_option(int filetype,
+option_support_t wtap_file_type_subtype_supports_option(int file_type_subtype,
     wtap_block_type_t type, guint opttype);
 
-/*** various file extension functions ***/
+/* Return a list of all extensions that are used by all capture file
+ * types, including compressed extensions, e.g. not just "pcap" but
+ * also "pcap.gz" if we can read gzipped files.
+ *
+ * "Capture files" means "include file types that correspond to
+ * collections of network packets, but not file types that
+ * store data that just happens to be transported over protocols
+ * such as HTTP but that aren't collections of network packets",
+ * so that it could be used for "All Capture Files" without picking
+ * up JPEG files or files such as that - those aren't capture files,
+ * and we *do* have them listed in the long list of individual file
+ * types, so omitting them from "All Capture Files" is the right
+ * thing to do.
+ *
+ * All strings in the list are allocated with g_malloc() and must be freed
+ * with g_free().
+ *
+ * This is used to generate a list of extensions to look for if the user
+ * chooses "All Capture Files" in a file open dialog.
+ */
 WS_DLL_PUBLIC
 GSList *wtap_get_all_capture_file_extensions_list(void);
-WS_DLL_PUBLIC
-const char *wtap_default_file_extension(int filetype);
-WS_DLL_PUBLIC
-GSList *wtap_get_file_extensions_list(int filetype, gboolean include_compressed);
+
+/* Return a list of all extensions that are used by all file types that
+ * we can read, including compressed extensions, e.g. not just "pcap" but
+ * also "pcap.gz" if we can read gzipped files.
+ *
+ * "File type" means "include file types that correspond to collections
+ * of network packets, as well as file types that store data that just
+ * happens to be transported over protocols such as HTTP but that aren't
+ * collections of network packets, and plain text files".
+ *
+ * All strings in the list are allocated with g_malloc() and must be freed
+ * with g_free().
+ */
 WS_DLL_PUBLIC
 GSList *wtap_get_all_file_extensions_list(void);
+
+/*
+ * Free a list returned by wtap_get_file_extension_type_extensions(),
+ * wtap_get_all_capture_file_extensions_list, wtap_get_file_extensions_list(),
+ * or wtap_get_all_file_extensions_list().
+ */
 WS_DLL_PUBLIC
 void wtap_free_extensions_list(GSList *extensions);
+
+/*
+ * Return the default file extension to use with the specified file type
+ * and subtype; that's just the extension, without any ".".
+ */
+WS_DLL_PUBLIC
+const char *wtap_default_file_extension(int file_type_subtype);
+
+/* Return a list of file extensions that are used by the specified file type
+ * and subtype.
+ *
+ * If include_compressed is TRUE, the list will include compressed
+ * extensions, e.g. not just "pcap" but also "pcap.gz" if we can read
+ * gzipped files.
+ *
+ * All strings in the list are allocated with g_malloc() and must be freed
+ * with g_free().
+ */
+WS_DLL_PUBLIC
+GSList *wtap_get_file_extensions_list(int file_type_subtype, gboolean include_compressed);
 
 WS_DLL_PUBLIC
 const char *wtap_encap_name(int encap);

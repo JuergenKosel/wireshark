@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v17.4.0 (2023-03)
+ * References: 3GPP TS 38.413 v17.5.0 (2023-06)
  */
 
 #include "config.h"
@@ -120,6 +120,7 @@ static int hf_ngap_EUTRAencryptionAlgorithms_reserved = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia1 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia2 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia3 = -1;
+static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved = -1;
 static int hf_ngap_MeasurementsToActivate_M1 = -1;
 static int hf_ngap_MeasurementsToActivate_M2 = -1;
@@ -371,7 +372,6 @@ static const value_string mtype_names[] = {
     { MTYPE_HANDOVER_SUCCESS,                            "HandoverSuccess" },
     { MTYPE_INITIAL_CONTEXT_SETUP_REQUEST,               "InitialContextSetupRequest" },
     { MTYPE_INITIAL_CONTEXT_SETUP_RESPONSE,              "InitialContextSetupResponse" },
-    { MTYPE_INITIAL_CONTEXT_SETUP_FAILURE,               "InitialContextSetupFailure" },
     { MTYPE_INITIAL_CONTEXT_SETUP_FAILURE,               "InitialContextSetupFailure" },
     { MTYPE_INITIAL_UE_MESSAGE,                          "InitialUEMessage" },
     { MTYPE_LOCATION_REPORT,                             "LocationReport" },
@@ -1293,9 +1293,13 @@ void proto_register_ngap(void) {
       { "128-EIA3", "ngap.EUTRAintegrityProtectionAlgorithms.eia3",
         FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
         NULL, HFILL }},
+    { &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7,
+      { "EIA7", "ngap.EUTRAintegrityProtectionAlgorithms.eia7",
+        FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
+        NULL, HFILL }},
     { &hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved,
       { "Reserved", "ngap.EUTRAintegrityProtectionAlgorithms.reserved",
-        FT_UINT16, BASE_HEX, NULL, 0x1fff,
+        FT_UINT16, BASE_HEX, NULL, 0x1dff,
         NULL, HFILL }},
     { &hf_ngap_MeasurementsToActivate_M1,
       { "M1", "ngap.MeasurementsToActivate.M1",

@@ -15,7 +15,7 @@
  *
  * Based on the RANAP dissector
  *
- * References: 3GPP TS 36.413 V17.4.0 (2023-03)
+ * References: 3GPP TS 36.413 V17.5.0 (2023-06)
  */
 
 #include "config.h"
@@ -591,6 +591,7 @@ static int hf_s1ap_encryptionAlgorithms_Reserved = -1;
 static int hf_s1ap_integrityProtectionAlgorithms_EIA1 = -1;
 static int hf_s1ap_integrityProtectionAlgorithms_EIA2 = -1;
 static int hf_s1ap_integrityProtectionAlgorithms_EIA3 = -1;
+static int hf_s1ap_integrityProtectionAlgorithms_EIA7 = -1;
 static int hf_s1ap_integrityProtectionAlgorithms_Reserved = -1;
 static int hf_s1ap_SerialNumber_gs = -1;
 static int hf_s1ap_SerialNumber_msg_code = -1;
@@ -7297,6 +7298,7 @@ dissect_s1ap_IntegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U_, as
       &hf_s1ap_integrityProtectionAlgorithms_EIA1,
       &hf_s1ap_integrityProtectionAlgorithms_EIA2,
       &hf_s1ap_integrityProtectionAlgorithms_EIA3,
+      &hf_s1ap_integrityProtectionAlgorithms_EIA7,
       &hf_s1ap_integrityProtectionAlgorithms_Reserved,
       NULL
     };
@@ -7398,6 +7400,8 @@ static const value_string s1ap_T_subcarrierSpacingSSB_vals[] = {
   {   2, "kHz60" },
   {   3, "kHz120" },
   {   4, "kHz240" },
+  {   5, "kHz480" },
+  {   6, "kHz960" },
   { 0, NULL }
 };
 
@@ -7405,7 +7409,7 @@ static const value_string s1ap_T_subcarrierSpacingSSB_vals[] = {
 static int
 dissect_s1ap_T_subcarrierSpacingSSB(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     5, NULL, TRUE, 0, NULL);
+                                     5, NULL, TRUE, 2, NULL);
 
   return offset;
 }
@@ -18731,9 +18735,13 @@ void proto_register_s1ap(void) {
       { "128-EIA3", "s1ap.integrityProtectionAlgorithms.EIA3",
         FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
         NULL, HFILL }},
+    { &hf_s1ap_integrityProtectionAlgorithms_EIA7,
+      { "EIA7", "s1ap.integrityProtectionAlgorithms.EIA7",
+        FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
+        NULL, HFILL }},
     { &hf_s1ap_integrityProtectionAlgorithms_Reserved,
       { "Reserved", "s1ap.integrityProtectionAlgorithms.Reserved",
-        FT_UINT16, BASE_HEX, NULL, 0x1fff,
+        FT_UINT16, BASE_HEX, NULL, 0x1dff,
         NULL, HFILL }},
     { &hf_s1ap_SerialNumber_gs,
       { "Geographical Scope", "s1ap.SerialNumber.gs",

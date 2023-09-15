@@ -74,7 +74,8 @@
 #endif
 
 static gboolean read_record(capture_file *cf, wtap_rec *rec, Buffer *buf,
-    dfilter_t *dfcode, epan_dissect_t *edt, column_info *cinfo, gint64 offset);
+    dfilter_t *dfcode, epan_dissect_t *edt, column_info *cinfo, gint64 offset,
+    fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum);
 
 static void rescan_packets(capture_file *cf, const char *action, const char *action_item, gboolean redissect);
 
@@ -346,7 +347,7 @@ void
 cf_close(capture_file *cf)
 {
     cf->stop_flag = FALSE;
-    if (cf->state == FILE_CLOSED)
+    if (cf->state == FILE_CLOSED || cf->state == FILE_READ_PENDING)
         return; /* Nothing to do */
 
     /* Die if we're in the middle of reading a file. */
@@ -428,7 +429,7 @@ cf_close(capture_file *cf)
 
 /*
  * TRUE if the progress dialog doesn't exist and it looks like we'll
- * take > 2s to load, FALSE otherwise.
+ * take > PROGBAR_SHOW_DELAY (500ms) to load, FALSE otherwise.
  */
 static inline gboolean
 progress_is_slow(progdlg_t *progdlg, GTimer *prog_timer, gint64 size, gint64 pos)
@@ -437,7 +438,10 @@ progress_is_slow(progdlg_t *progdlg, GTimer *prog_timer, gint64 size, gint64 pos
 
     if (progdlg) return FALSE;
     elapsed = g_timer_elapsed(prog_timer, NULL);
-    if ((elapsed / 2 > PROGBAR_SHOW_DELAY && (size / pos) > 2) /* It looks like we're going to be slow. */
+    /* This only gets checked between reading records, which doesn't help if
+     * a single record takes a very long time, e.g., the first TLS packet if
+     * the SSLKEYLOGFILE is very large. (#17051) */
+    if ((elapsed * 2 > PROGBAR_SHOW_DELAY && (size / pos) >= 2) /* It looks like we're going to be slow. */
             || elapsed > PROGBAR_SHOW_DELAY) { /* We are indeed slow. */
         return TRUE;
     }
@@ -559,11 +563,23 @@ cf_read(capture_file *cf, gboolean reloading)
 
     epan_dissect_init(&edt, cf->epan, create_proto_tree, FALSE);
 
-    /* If any tap listeners require the columns, construct them. */
-    cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cf->cinfo : NULL;
+    /* If the display filter or any tap listeners require the columns,
+     * construct them. */
+    cinfo = (tap_listeners_require_columns() ||
+        dfilter_requires_columns(dfcode)) ? &cf->cinfo : NULL;
 
     /* Find the size of the file. */
     size = wtap_file_size(cf->provider.wth, NULL);
+
+    /* If we are to ignore duplicate frames, we need a container to store
+     * hashes frame contents */
+    fifo_string_cache_t frame_dup_cache;
+    GChecksum *volatile cksum = NULL;
+
+    if (prefs.ignore_dup_frames) {
+        fifo_string_cache_init(&frame_dup_cache, prefs.ignore_dup_frames_cache_entries, g_free);
+        cksum = g_checksum_new(G_CHECKSUM_SHA256);
+    }
 
     g_timer_start(prog_timer);
 
@@ -636,7 +652,7 @@ cf_read(capture_file *cf, gboolean reloading)
                    hours even on fast machines) just to see that it was the wrong file. */
                 break;
             }
-            read_record(cf, &rec, &buf, dfcode, &edt, cinfo, data_offset);
+            read_record(cf, &rec, &buf, dfcode, &edt, cinfo, data_offset, &frame_dup_cache, cksum);
             wtap_rec_reset(&rec);
         }
     }
@@ -653,6 +669,14 @@ cf_read(capture_file *cf, gboolean reloading)
 #endif
     }
     ENDTRY;
+
+    // If we're ignoring duplicate frames, clear the data structures.
+    // We really could look at prefs.ignore_dup_frames here, but it's even
+    // safer to check if we had allocated 'cksum'.
+    if (cksum != NULL) {
+        fifo_string_cache_free(&frame_dup_cache);
+        g_checksum_free(cksum);
+    }
 
     /* We're done reading sequentially through the file. */
     cf->state = FILE_READ_DONE;
@@ -759,7 +783,7 @@ cf_read(capture_file *cf, gboolean reloading)
 #ifdef HAVE_LIBPCAP
 cf_read_status_t
 cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
-        Buffer *buf, int *err)
+        Buffer *buf, int *err, fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum)
 {
     gchar            *err_info;
     volatile int      newly_displayed_packets = 0;
@@ -809,8 +833,10 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
         gint64 data_offset = 0;
         column_info *cinfo;
 
-        /* If any tap listeners require the columns, construct them. */
-        cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cf->cinfo : NULL;
+        /* If the display filter or any tap listeners require the columns,
+         * construct them. */
+        cinfo = (tap_listeners_require_columns() ||
+            dfilter_requires_columns(dfcode)) ? &cf->cinfo : NULL;
 
         while (to_read != 0) {
             wtap_cleareof(cf->provider.wth);
@@ -824,7 +850,7 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
                    aren't any packets left to read) exit. */
                 break;
             }
-            if (read_record(cf, rec, buf, dfcode, &edt, cinfo, data_offset)) {
+            if (read_record(cf, rec, buf, dfcode, &edt, cinfo, data_offset, frame_dup_cache, frame_cksum)) {
                 newly_displayed_packets++;
             }
             to_read--;
@@ -889,11 +915,14 @@ cf_continue_tail(capture_file *cf, volatile int to_read, wtap_rec *rec,
 void
 cf_fake_continue_tail(capture_file *cf)
 {
-    cf->state = FILE_READ_DONE;
+    if (cf->state == FILE_CLOSED) {
+        cf->state = FILE_READ_PENDING;
+    }
 }
 
 cf_read_status_t
-cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
+cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err,
+        fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum)
 {
     gchar     *err_info;
     gint64     data_offset;
@@ -916,8 +945,10 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
     /* Get the union of the flags for all tap listeners. */
     tap_flags = union_of_tap_listener_flags();
 
-    /* If any tap listeners require the columns, construct them. */
-    cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cf->cinfo : NULL;
+    /* If the display filter or any tap listeners require the columns,
+     * construct them. */
+    cinfo = (tap_listeners_require_columns() ||
+        dfilter_requires_columns(dfcode)) ? &cf->cinfo : NULL;
 
     /*
      * Determine whether we need to create a protocol tree.
@@ -953,7 +984,7 @@ cf_finish_tail(capture_file *cf, wtap_rec *rec, Buffer *buf, int *err)
                aren't any packets left to read) exit. */
             break;
         }
-        read_record(cf, rec, buf, dfcode, &edt, cinfo, data_offset);
+        read_record(cf, rec, buf, dfcode, &edt, cinfo, data_offset, frame_dup_cache, frame_cksum);
         wtap_rec_reset(rec);
     }
 
@@ -1242,12 +1273,15 @@ add_packet_to_packet_list(frame_data *fdata, capture_file *cf,
  */
 static gboolean
 read_record(capture_file *cf, wtap_rec *rec, Buffer *buf, dfilter_t *dfcode,
-        epan_dissect_t *edt, column_info *cinfo, gint64 offset)
+        epan_dissect_t *edt, column_info *cinfo, gint64 offset,
+        fifo_string_cache_t *frame_dup_cache, GChecksum *frame_cksum)
 {
     frame_data    fdlocal;
     frame_data   *fdata;
     gboolean      passed = TRUE;
     gboolean      added = FALSE;
+    const gchar   *cksum_string;
+    gboolean      was_in_cache;
 
     /* Add this packet's link-layer encapsulation type to cf->linktypes, if
        it's not already there.
@@ -1265,12 +1299,16 @@ read_record(capture_file *cf, wtap_rec *rec, Buffer *buf, dfilter_t *dfcode,
 
     if (cf->rfcode) {
         epan_dissect_t rf_edt;
+        column_info *rf_cinfo = NULL;
 
         epan_dissect_init(&rf_edt, cf->epan, TRUE, FALSE);
         epan_dissect_prime_with_dfilter(&rf_edt, cf->rfcode);
+        if (dfilter_requires_columns(cf->rfcode)) {
+                rf_cinfo = &cf->cinfo;
+        }
         epan_dissect_run(&rf_edt, cf->cd_t, rec,
                 frame_tvbuff_new_buffer(&cf->provider, &fdlocal, buf),
-                &fdlocal, NULL);
+                &fdlocal, rf_cinfo);
         passed = dfilter_apply_edt(cf->rfcode, &rf_edt);
         epan_dissect_cleanup(&rf_edt);
     }
@@ -1284,7 +1322,21 @@ read_record(capture_file *cf, wtap_rec *rec, Buffer *buf, dfilter_t *dfcode,
         cf->count++;
         if (rec->block != NULL)
             cf->packet_comment_count += wtap_block_count_option(rec->block, OPT_COMMENT);
-        cf->f_datalen = offset + fdlocal.cap_len;
+         cf->f_datalen = offset + fdlocal.cap_len;
+
+        // Should we check if the frame data is a duplicate, and thus, ignore
+        // this frame?
+        if (frame_cksum != NULL && rec->rec_type == REC_TYPE_PACKET) {
+            g_checksum_reset(frame_cksum);
+            g_checksum_update(frame_cksum, ws_buffer_start_ptr(buf), ws_buffer_length(buf));
+            cksum_string = g_strdup(g_checksum_get_string(frame_cksum));
+            was_in_cache = fifo_string_cache_insert(frame_dup_cache, cksum_string);
+            if (was_in_cache) {
+                g_free((gpointer)cksum_string);
+                fdata->ignored = TRUE;
+                cf->ignored_count++;
+            }
+        }
 
         /* When a redissection is in progress (or queued), do not process packets.
          * This will be done once all (new) packets have been scanned. */
@@ -1643,6 +1695,10 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
     guint32     frames_count;
     gboolean    queued_rescan_type = RESCAN_NONE;
 
+    if (cf->state == FILE_CLOSED || cf->state == FILE_READ_PENDING) {
+        return;
+    }
+
     /* Rescan in progress, clear pending actions. */
     cf->redissection_queued = RESCAN_NONE;
     ws_assert(!cf->read_lock);
@@ -1680,8 +1736,10 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
     /* Get the union of the flags for all tap listeners. */
     tap_flags = union_of_tap_listener_flags();
 
-    /* If any tap listeners require the columns, construct them. */
-    cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cf->cinfo : NULL;
+    /* If the display filter or any tap listeners require the columns,
+     * construct them. */
+    cinfo = (tap_listeners_require_columns() ||
+        dfilter_requires_columns(dfcode)) ? &cf->cinfo : NULL;
 
     /*
      * Determine whether we need to create a protocol tree.
@@ -1740,6 +1798,9 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
            called via epan_new() / init_dissection() when reloading Lua plugins. */
         if (!create_proto_tree && have_filtering_tap_listeners()) {
             create_proto_tree = TRUE;
+        }
+        if (!cinfo && tap_listeners_require_columns()) {
+            cinfo = &cf->cinfo;
         }
 
         /* We need to redissect the packets so we have to discard our old
@@ -2063,14 +2124,6 @@ cf_reftime_packets(capture_file* cf)
         if (fdata->ref_time)
             cf->provider.ref = fdata;
 
-        /* If we don't have the time stamp of the previous displayed packet,
-           it's because this is the first displayed packet.  Save the time
-           stamp of this packet as the time stamp of the previous displayed
-           packet. */
-        if (cf->provider.prev_dis == NULL) {
-            cf->provider.prev_dis = fdata;
-        }
-
         /* Get the time elapsed between the first packet and this packet. */
         fdata->frame_ref_num = (fdata != cf->provider.ref) ? cf->provider.ref->num : 0;
         nstime_delta(&rel_ts, &fdata->abs_ts, &cf->provider.ref->abs_ts);
@@ -2086,6 +2139,14 @@ cf_reftime_packets(capture_file* cf)
         /* If this frame is displayed, get the time elapsed between the
            previous displayed packet and this packet. */
         if ( fdata->passed_dfilter ) {
+            /* If we don't have the time stamp of the previous displayed packet,
+               it's because this is the first displayed packet.  Save the time
+               stamp of this packet as the time stamp of the previous displayed
+               packet. */
+            if (cf->provider.prev_dis == NULL) {
+                cf->provider.prev_dis = fdata;
+            }
+
             fdata->prev_dis_num = cf->provider.prev_dis->num;
             cf->provider.prev_dis = fdata;
         }
@@ -2294,7 +2355,7 @@ cf_retap_packets(capture_file *cf)
     tap_flags = union_of_tap_listener_flags();
 
     /* If any tap listeners require the columns, construct them. */
-    callback_args.cinfo = (tap_flags & TL_REQUIRES_COLUMNS) ? &cf->cinfo : NULL;
+    callback_args.cinfo = (tap_listeners_require_columns()) ? &cf->cinfo : NULL;
 
     /*
      * Determine whether we need to create a protocol tree.
@@ -2721,7 +2782,7 @@ write_pdml_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
             fdata, NULL);
 
     /* Write out the information in that tree. */
-    write_pdml_proto_tree(NULL, NULL, &args->edt, &cf->cinfo, args->fh, FALSE);
+    write_pdml_proto_tree(NULL, &args->edt, &cf->cinfo, args->fh, FALSE);
 
     epan_dissect_reset(&args->edt);
 
@@ -3020,7 +3081,7 @@ write_json_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
 
     /* Write out the information in that tree. */
     write_json_proto_tree(NULL, args->print_args->print_dissections,
-            args->print_args->print_hex, NULL,
+            args->print_args->print_hex,
             &args->edt, &cf->cinfo, proto_node_group_children_by_unique,
             &args->jdumper);
 
@@ -4637,6 +4698,9 @@ rescan_file(capture_file *cf, const char *fname, gboolean is_tempfile)
     /* Set the file name because we need it to set the follow stream filter.
        XXX - is that still true?  We need it for other reasons, though,
        in any case. */
+    if (cf->filename != NULL) {
+        g_free(cf->filename);
+    }
     cf->filename = g_strdup(fname);
 
     /* Indicate whether it's a permanent or temporary file. */
@@ -4646,6 +4710,9 @@ rescan_file(capture_file *cf, const char *fname, gboolean is_tempfile)
     cf->unsaved_changes = FALSE;
 
     cf->cd_t        = wtap_file_type_subtype(cf->provider.wth);
+    if (cf->linktypes != NULL) {
+        g_array_free(cf->linktypes, TRUE);
+    }
     cf->linktypes = g_array_sized_new(FALSE, FALSE, (guint) sizeof(int), 1);
 
     cf->snap      = wtap_snapshot_length(cf->provider.wth);
@@ -4718,6 +4785,7 @@ rescan_file(capture_file *cf, const char *fname, gboolean is_tempfile)
         if (rec.rec_type == REC_TYPE_PACKET) {
             cf_add_encapsulation_type(cf, rec.rec_header.packet_header.pkt_encap);
         }
+        wtap_rec_reset(&rec);
     }
     wtap_rec_cleanup(&rec);
     ws_buffer_free(&buf);
@@ -4883,7 +4951,7 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
         wtap_dump_params params;
         int encap;
 
-        /* XXX: what free's params.shb_hdr? */
+        how_to_save = SAVE_WITH_WTAP;
         wtap_dump_params_init(&params, cf->provider.wth);
 
         /* Determine what file encapsulation type we should use. */
@@ -4940,6 +5008,7 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
                 if (fname_new != NULL)
                     ws_unlink(fname_new);
                 cf_callback_invoke(cf_cb_file_save_stopped, NULL);
+                wtap_dump_params_cleanup(&params);
                 return CF_WRITE_ABORTED;
 
             case PSP_FAILED:
@@ -4948,15 +5017,17 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
                 if (fname_new != NULL)
                     ws_unlink(fname_new);
                 wtap_dump_close(pdh, NULL, &err, &err_info);
+                wtap_dump_params_cleanup(&params);
                 goto fail;
         }
 
         if (!wtap_dump_close(pdh, &needs_reload, &err, &err_info)) {
             cfile_close_failure_alert_box(fname, err, err_info);
+            wtap_dump_params_cleanup(&params);
             goto fail;
         }
 
-        how_to_save = SAVE_WITH_WTAP;
+        wtap_dump_params_cleanup(&params);
     }
 
     if (fname_new != NULL) {
@@ -5059,7 +5130,7 @@ cf_save_records(capture_file *cf, const char *fname, guint save_format,
                    In that case, we need to reload the whole file */
                 if(needs_reload) {
                     if (cf_open(cf, fname, WTAP_TYPE_AUTO, FALSE, &err) == CF_OK) {
-                        if (cf_read(cf, TRUE) != CF_READ_OK) {
+                        if (cf_read(cf, /*reloading=*/TRUE) != CF_READ_OK) {
                             /* The rescan failed; just close the file.  Either
                                a dialog was popped up for the failure, so the
                                user knows what happened, or they stopped the
@@ -5140,7 +5211,6 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
        written, don't special-case the operation - read each packet
        and then write it out if it's one of the specified ones. */
 
-    /* XXX: what free's params.shb_hdr? */
     wtap_dump_params_init(&params, cf->provider.wth);
 
     /* Determine what file encapsulation type we should use. */
@@ -5204,6 +5274,8 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
                 ws_unlink(fname_new);
                 g_free(fname_new);
             }
+            wtap_dump_params_cleanup(&params);
+
             return CF_WRITE_ABORTED;
             break;
 
@@ -5233,6 +5305,7 @@ cf_export_specified_packets(capture_file *cf, const char *fname,
         }
         g_free(fname_new);
     }
+    wtap_dump_params_cleanup(&params);
 
     return CF_WRITE_OK;
 
@@ -5247,6 +5320,8 @@ fail:
         ws_unlink(fname_new);
         g_free(fname_new);
     }
+    wtap_dump_params_cleanup(&params);
+
     return CF_WRITE_ERROR;
 }
 
@@ -5316,7 +5391,7 @@ cf_reload(capture_file *cf)
     is_tempfile = cf->is_tempfile;
     cf->is_tempfile = FALSE;
     if (cf_open(cf, filename, cf->open_type, is_tempfile, &err) == CF_OK) {
-        switch (cf_read(cf, TRUE)) {
+        switch (cf_read(cf, /*reloading=*/TRUE)) {
 
             case CF_READ_OK:
             case CF_READ_ERROR:

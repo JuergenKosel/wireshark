@@ -74,6 +74,8 @@ libwsutil.so.0 libwsutil0 #MINVER#
  decrypt_xtea_le_ecb@Base 2.5.0
  delete_persconffile_profile@Base 1.12.0~rc1
  deregister_codec@Base 3.1.0
+ display_epoch_time@Base 4.1.0
+ display_signed_time@Base 4.1.0
  doc_file_url@Base 4.1.0
  dword_to_hex@Base 3.5.1
  dword_to_hex_punct@Base 3.5.1
@@ -87,6 +89,8 @@ libwsutil.so.0 libwsutil0 #MINVER#
  find_codec@Base 3.1.0
  find_last_pathname_separator@Base 1.12.0~rc1
  format_char@Base 4.1.0
+ format_fractional_part_nsecs@Base 4.1.1
+ format_nstime_as_iso8601@Base 4.1.1
  format_size_wmem@Base 3.5.0
  format_text@Base 4.1.0
  format_text_chr@Base 4.1.0
@@ -211,8 +215,10 @@ libwsutil.so.0 libwsutil0 #MINVER#
  nstime_set_unset@Base 1.12.0~rc1
  nstime_set_zero@Base 1.12.0~rc1
  nstime_sum@Base 1.12.0~rc1
+ nstime_to_iso8601@Base 4.1.0
  nstime_to_msec@Base 1.12.0~rc1
  nstime_to_sec@Base 1.12.0~rc1
+ nstime_to_unix@Base 4.1.0
  oct64_to_str_back@Base 3.5.1
  oct_to_str_back@Base 3.5.1
  please_report_bug@Base 3.1.0
@@ -435,6 +441,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_getopt@Base 3.5.1
  ws_getopt_long@Base 3.5.1
  ws_getopt_long_only@Base 3.5.1
+ ws_gmtime_r@Base 4.1.1
  ws_hexstrtou16@Base 2.3.0
  ws_hexstrtou32@Base 2.3.0
  ws_hexstrtou64@Base 2.3.0
@@ -447,6 +454,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_inet_pton6@Base 2.1.2
  ws_init_sockets@Base 3.1.0
  ws_init_version_info@Base 4.1.0
+ ws_localtime_r@Base 4.1.1
  ws_log@Base 3.5.0
  ws_log_add_custom_file@Base 3.5.0
  ws_log_buffer_full@Base 3.5.1
@@ -503,6 +511,7 @@ libwsutil.so.0 libwsutil0 #MINVER#
  ws_strdup_underline@Base 3.7.0
  ws_strerrorname_r@Base 3.7.0
  ws_strptime@Base 3.7.0
+ ws_strptime_p@Base 4.1.1
  ws_strtoi16@Base 2.3.0
  ws_strtoi32@Base 2.3.0
  ws_strtoi64@Base 2.3.0

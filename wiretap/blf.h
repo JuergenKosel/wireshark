@@ -189,6 +189,7 @@ typedef struct blf_canfdmessage {
     guint8  dlc;
     guint32 id;
     guint32 frameLength_in_ns;
+    guint8  arbitration_bit_count;
     guint8  canfdflags;
     guint8  validDataBytes;
     guint8  reservedCanFdMessage1;
@@ -452,7 +453,9 @@ typedef struct blf_linmessage_trailer {
     guint16 crc;
     guint8  dir;            /* 0 RX, 1 TX Receipt, 2 TX Req */
     guint8  res1;
+/*  This field is optional and skipping does not hurt us.
     guint32 res2;
+*/
 } blf_linmessage_trailer_t;
 
 
@@ -468,6 +471,8 @@ typedef struct blf_apptext {
 #define BLF_APPTEXT_COMMENT  0x00000000
 #define BLF_APPTEXT_CHANNEL  0x00000001
 #define BLF_APPTEXT_METADATA 0x00000002
+#define BLF_APPTEXT_FAILED   0x000000FF
+
 
 #define BLF_BUSTYPE_CAN 1
 #define BLF_BUSTYPE_LIN 5
@@ -477,6 +482,21 @@ typedef struct blf_apptext {
 #define BLF_BUSTYPE_ETHERNET 11
 #define BLF_BUSTYPE_WLAN 13
 #define BLF_BUSTYPE_AFDX 14
+
+/* see https://bitbucket.org/tobylorenz/vector_blf/src/master/src/Vector/BLF/EthernetStatus.h */
+typedef struct blf_ethernet_status {
+    uint16_t channel;
+    uint16_t flags;
+    uint8_t linkStatus;
+    uint8_t ethernetPhy;
+    uint8_t duplex;
+    uint8_t mdi;
+    uint8_t connector;
+    uint8_t clockMode;
+    uint8_t pairs;
+    uint8_t hardwareChannel;
+    uint32_t bitrate;
+} blf_ethernet_status_t;
 
 
 /* see https://bitbucket.org/tobylorenz/vector_blf/src/master/src/Vector/BLF/ObjectHeaderBase.h */
@@ -603,6 +623,16 @@ typedef struct blf_apptext {
 #define BLF_OBJTYPE_CAN_SETTING_CHANGED         129
 #define BLF_OBJTYPE_DISTRIBUTED_OBJECT_MEMBER   130
 #define BLF_OBJTYPE_ATTRIBUTE_EVENT             131
+
+#define BLF_ETH_STATUS_LINKSTATUS 0x0001
+#define BLF_ETH_STATUS_BITRATE 0x0002
+#define BLF_ETH_STATUS_ETHERNETPHY 0x0004
+#define BLF_ETH_STATUS_DUPLEX 0x0008
+#define BLF_ETH_STATUS_MDITYPE 0x0010
+#define BLF_ETH_STATUS_CONNECTOR 0x0020
+#define BLF_ETH_STATUS_CLOCKMODE  0x0040
+#define BLF_ETH_STATUS_BRPAIR 0x0080
+#define BLF_ETH_STATUS_HARDWARECHANNEL 0x0100
 
 #endif
 

@@ -48,6 +48,10 @@
 
 #define LOG_DOMAIN_EINVAL     "InvalidArg"
 
+#define LOG_DOMAIN_PLUGINS    "Plugins"
+
+#define LOG_DOMAIN_WSLUA      "Lua"
+
 /*
  * Ascending order by priority needs to be maintained. Higher priorities have
  * higher values.

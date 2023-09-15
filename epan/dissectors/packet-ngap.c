@@ -14,7 +14,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v17.4.0 (2023-03)
+ * References: 3GPP TS 38.413 v17.5.0 (2023-06)
  */
 
 #include "config.h"
@@ -602,7 +602,8 @@ typedef enum _ProtocolIE_ID_enum {
   id_BeamMeasurementsReportConfiguration = 361,
   id_HFCNode_ID_new = 362,
   id_GlobalCable_ID_new = 363,
-  id_TargetHomeENB_ID = 364
+  id_TargetHomeENB_ID = 364,
+  id_HashedUEIdentityIndexValue = 365
 } ProtocolIE_ID_enum;
 
 typedef enum _GlobalRANNodeID_enum {
@@ -680,6 +681,7 @@ static int hf_ngap_EUTRAencryptionAlgorithms_reserved = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia1 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia2 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia3 = -1;
+static int hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7 = -1;
 static int hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved = -1;
 static int hf_ngap_MeasurementsToActivate_M1 = -1;
 static int hf_ngap_MeasurementsToActivate_M2 = -1;
@@ -773,6 +775,7 @@ static int hf_ngap_HandoverRequestAcknowledgeTransfer_PDU = -1;  /* HandoverRequ
 static int hf_ngap_HandoverRequiredTransfer_PDU = -1;  /* HandoverRequiredTransfer */
 static int hf_ngap_HandoverResourceAllocationUnsuccessfulTransfer_PDU = -1;  /* HandoverResourceAllocationUnsuccessfulTransfer */
 static int hf_ngap_HandoverType_PDU = -1;         /* HandoverType */
+static int hf_ngap_HashedUEIdentityIndexValue_PDU = -1;  /* HashedUEIdentityIndexValue */
 static int hf_ngap_HFCNode_ID_new_PDU = -1;       /* HFCNode_ID_new */
 static int hf_ngap_IAB_Authorized_PDU = -1;       /* IAB_Authorized */
 static int hf_ngap_IAB_Supported_PDU = -1;        /* IAB_Supported */
@@ -3113,7 +3116,6 @@ static const value_string mtype_names[] = {
     { MTYPE_INITIAL_CONTEXT_SETUP_REQUEST,               "InitialContextSetupRequest" },
     { MTYPE_INITIAL_CONTEXT_SETUP_RESPONSE,              "InitialContextSetupResponse" },
     { MTYPE_INITIAL_CONTEXT_SETUP_FAILURE,               "InitialContextSetupFailure" },
-    { MTYPE_INITIAL_CONTEXT_SETUP_FAILURE,               "InitialContextSetupFailure" },
     { MTYPE_INITIAL_UE_MESSAGE,                          "InitialUEMessage" },
     { MTYPE_LOCATION_REPORT,                             "LocationReport" },
     { MTYPE_LOCATION_REPORTING_CONTROL,                  "LocationReportingControl" },
@@ -4059,6 +4061,7 @@ static const value_string ngap_ProtocolIE_ID_vals[] = {
   { id_HFCNode_ID_new, "id-HFCNode-ID-new" },
   { id_GlobalCable_ID_new, "id-GlobalCable-ID-new" },
   { id_TargetHomeENB_ID, "id-TargetHomeENB-ID" },
+  { id_HashedUEIdentityIndexValue, "id-HashedUEIdentityIndexValue" },
   { 0, NULL }
 };
 
@@ -9302,6 +9305,7 @@ dissect_ngap_EUTRAintegrityProtectionAlgorithms(tvbuff_t *tvb _U_, int offset _U
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia1,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia2,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia3,
+      &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved,
       NULL
     };
@@ -10619,6 +10623,16 @@ dissect_ngap_HandoverType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
                                      3, &ngap_data->handover_type_value, TRUE, 1, NULL);
 
 
+
+  return offset;
+}
+
+
+
+static int
+dissect_ngap_HashedUEIdentityIndexValue(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
+                                     13, 13, TRUE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -17713,7 +17727,7 @@ dissect_ngap_SliceSupportListQMC(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 static const per_sequence_t UEAppLayerMeasConfigInfo_sequence[] = {
   { &hf_ngap_qoEReference   , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_QoEReference },
   { &hf_ngap_serviceType    , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_ServiceType },
-  { &hf_ngap_areaScopeOfQMC , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_AreaScopeOfQMC },
+  { &hf_ngap_areaScopeOfQMC , ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_AreaScopeOfQMC },
   { &hf_ngap_measCollEntityIPAddress, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_TransportLayerAddress },
   { &hf_ngap_qoEMeasurementStatus, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_T_qoEMeasurementStatus },
   { &hf_ngap_containerForAppLayerMeasConfig, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_OCTET_STRING_SIZE_1_8000 },
@@ -23592,6 +23606,14 @@ static int dissect_HandoverType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, p
   offset += 7; offset >>= 3;
   return offset;
 }
+static int dissect_HashedUEIdentityIndexValue_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ngap_HashedUEIdentityIndexValue(tvb, offset, &asn1_ctx, tree, hf_ngap_HashedUEIdentityIndexValue_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
 static int dissect_HFCNode_ID_new_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
@@ -27494,6 +27516,7 @@ proto_reg_handoff_ngap(void)
   dissector_add_uint("ngap.extension", id_BeamMeasurementsReportConfiguration, create_dissector_handle(dissect_BeamMeasurementsReportConfiguration_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_TAI, create_dissector_handle(dissect_TAI_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_NR_CGI, create_dissector_handle(dissect_NR_CGI_PDU, proto_ngap));
+  dissector_add_uint("ngap.extension", id_HashedUEIdentityIndexValue, create_dissector_handle(dissect_HashedUEIdentityIndexValue_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.imsg", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdate_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.sout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateAcknowledge_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.uout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateFailure_PDU, proto_ngap));
@@ -27863,9 +27886,13 @@ void proto_register_ngap(void) {
       { "128-EIA3", "ngap.EUTRAintegrityProtectionAlgorithms.eia3",
         FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x2000,
         NULL, HFILL }},
+    { &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7,
+      { "EIA7", "ngap.EUTRAintegrityProtectionAlgorithms.eia7",
+        FT_BOOLEAN, 16, TFS(&tfs_supported_not_supported), 0x0200,
+        NULL, HFILL }},
     { &hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved,
       { "Reserved", "ngap.EUTRAintegrityProtectionAlgorithms.reserved",
-        FT_UINT16, BASE_HEX, NULL, 0x1fff,
+        FT_UINT16, BASE_HEX, NULL, 0x1dff,
         NULL, HFILL }},
     { &hf_ngap_MeasurementsToActivate_M1,
       { "M1", "ngap.MeasurementsToActivate.M1",
@@ -28029,7 +28056,7 @@ void proto_register_ngap(void) {
         NULL, HFILL }},
     { &hf_ngap_CommonNetworkInstance_PDU,
       { "CommonNetworkInstance", "ngap.CommonNetworkInstance",
-        FT_BYTES, BASE_NONE, NULL, 0,
+        FT_BYTES, BASE_SHOW_UTF_8_PRINTABLE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_ConcurrentWarningMessageInd_PDU,
       { "ConcurrentWarningMessageInd", "ngap.ConcurrentWarningMessageInd",
@@ -28234,6 +28261,10 @@ void proto_register_ngap(void) {
     { &hf_ngap_HandoverType_PDU,
       { "HandoverType", "ngap.HandoverType",
         FT_UINT32, BASE_DEC, VALS(ngap_HandoverType_vals), 0,
+        NULL, HFILL }},
+    { &hf_ngap_HashedUEIdentityIndexValue_PDU,
+      { "HashedUEIdentityIndexValue", "ngap.HashedUEIdentityIndexValue",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_HFCNode_ID_new_PDU,
       { "HFCNode-ID-new", "ngap.HFCNode_ID_new_element",

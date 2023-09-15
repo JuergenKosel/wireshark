@@ -39,14 +39,8 @@
         <Component Id="cmpREADME_windows_txt" Guid="*">
           <File Id="filREADME_windows_txt" KeyPath="yes" Source="$(var.Staging.Dir)\README.windows.txt" />
         </Component>
-        <Component Id="cmpManuf" Guid="*">
-          <File Id="filManuf" KeyPath="yes" Source="$(var.Staging.Dir)\manuf" />
-        </Component>
         <Component Id="cmpWka" Guid="*">
           <File Id="filWka" KeyPath="yes" Source="$(var.Staging.Dir)\wka" />
-        </Component>
-        <Component Id="cmpServices" Guid="*">
-          <File Id="filServices" KeyPath="yes" Source="$(var.Staging.Dir)\services" />
         </Component>
         <Component Id="cmpPdml2html_xsl" Guid="*">
           <File Id="filPdml2html_xsl" KeyPath="yes" Source="$(var.Staging.Dir)\pdml2html.xsl" />
@@ -83,9 +77,7 @@
         <ComponentRef Id="cmpNEWS_txt" />
         <ComponentRef Id="cmpREADME_txt" />
         <ComponentRef Id="cmpREADME_windows_txt" />
-        <ComponentRef Id="cmpManuf" />
         <ComponentRef Id="cmpWka" />
-        <ComponentRef Id="cmpServices" />
         <ComponentRef Id="cmpPdml2html_xsl" />
         <ComponentRef Id="cmpWs_css" />
         <ComponentRef Id="cmpWireshark_html" />
@@ -109,9 +101,6 @@
         <Component Id="cmpDfilters" Guid="*">
           <File Id="filDfilters" KeyPath="yes" Source="$(var.Staging.Dir)\dfilters" />
         </Component>
-        <Component Id="cmpEnterprisesTsv" Guid="*">
-          <File Id="filEnterprisesTsv" KeyPath="yes" Source="$(var.Staging.Dir)\enterprises.tsv" />
-        </Component>
         <Component Id="cmpSmi_modules" Guid="*">
           <File Id="filSmi_modules" KeyPath="yes" Source="$(var.Staging.Dir)\smi_modules" />
         </Component>
@@ -122,7 +111,6 @@
         <ComponentRef Id="cmpCfilters" />
         <ComponentRef Id="cmpColorfilters" />
         <ComponentRef Id="cmpDfilters" />
-        <ComponentRef Id="cmpEnterprisesTsv" />
         <ComponentRef Id="cmpSmi_modules" />
       </ComponentGroup>
     </Fragment>

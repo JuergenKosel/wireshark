@@ -28,6 +28,17 @@
 
 void register_tap_listener_follow(void);
 
+/* Show Type */
+typedef enum {
+    SHOW_ASCII,
+    SHOW_CARRAY,
+    SHOW_EBCDIC,
+    SHOW_HEXDUMP,
+    SHOW_RAW,
+    SHOW_CODEC, // Ordered to match UTF-8 combobox index
+    SHOW_YAML
+} show_type_t;
+
 typedef struct _cli_follow_info {
   show_type_t     show_type;
   register_follow_t* follower;
@@ -560,7 +571,7 @@ static void follow_stream(const char *opt_argp, void *userdata)
   }
 }
 
-static gboolean
+static bool
 follow_register(const void *key _U_, void *value, void *userdata _U_)
 {
   register_follow_t *follower = (register_follow_t*)value;

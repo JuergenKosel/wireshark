@@ -203,20 +203,20 @@ are equivalent:
     frame.len > '\012'
 
 Boolean values are either true or false.  In a display filter expression
-testing the value of a Boolean field, true is expressed as the word "True"
-or "TRUE" (without quotes) or any non-zero number.  False is expressed as
-"False" or "FALSE" or the number zero. For example, a token-ring packet's
+testing the value of a Boolean field, true is expressed as the word `true`
+(case-insentive) or any non-zero number.  False is expressed as
+`false` (case-insentivie) or the number zero. For example, a token-ring packet's
 source route field is Boolean.  To find any source-routed packets, a display
 filter would be any of the following:
 
     tr.sr == 1
-    tr.sr == True
+    tr.sr == true
     tr.sr == TRUE
 
 Non source-routed packets can be found with:
 
     tr.sr == 0
-    tr.sr == False
+    tr.sr == false
     tr.sr == FALSE
 
 Ethernet addresses and byte arrays are represented by hex
@@ -315,18 +315,22 @@ month-year-time format:
     "2020-07-04T12:34:56"
     "Sep 26, 2004 23:18:04.954975"
 
-The 'T' separator in ISO 8601 can be omitted. ISO 8601 supports timezone
-designators as UTC or an offset from UTC. Legacy formats can append the
-value "UTC" at the end to specify time in Coordinated Universal Time.
-Otherwise date and time values are interpreted as local time.
+The 'T' separator in ISO 8601 can be omitted. The timezone can be given
+as "Z" or an offset from UTC.
+
+When not using ISO 8601 the timezone can be given as the strings "UTC", "GMT"
+or "UT" for UTC or also given as an offset from UTC, plus some North American and Nautical/Military
+designations (https://man.netbsd.org/strptime.3[see the specification for %z in strptime(3)]).
+Note that arbitrary timezone names are not supported however.
+
+If the timezone is omitted then date and time values are interpreted as local time.
 
 === The slice operator
 
-You can take a slice of a field if the field is a text string or a
-byte array.
-For example, you can filter on
-the vendor portion of an ethernet address (the first three bytes) like
-this:
+You can take a slice of a field if the field base type is a text string or a
+byte array (the base type of most network address fields is bytes).
+For example, you can filter on the vendor portion of an ethernet address
+(the first three bytes) like this:
 
     eth.src[0:3] == 00:00:83
 
@@ -350,6 +354,7 @@ The following syntax governs slices:
     [:j]     start_offset = 0, length = j
     [i:]     start_offset = i, end_offset = end_of_field
 
+Slice indexes are zero-based.
 Offsets can be negative, in which case they indicate the
 offset from the *end* of the field.  The last byte of the field is at offset
 -1, the last but one byte is at offset -2, and so on.
@@ -360,6 +365,21 @@ Here's how to check the last four bytes of a frame:
 or
 
     frame[-4:] == 0.1.2.3
+
+As mentioned above the slice operator can be used on string and byte fields
+and will respectively produce string or byte slices. String slices are
+indexed on UTF-8 codepoint boundaries (i.e: internationalized characters),
+so the following comparison is true:
+
+    "touché"[5] == "é"
+
+The example above generates an error because the compiler rejects constant
+expressions but is otherwise syntactically correct and exemplifies the
+behaviour of string slices.
+
+To obtain a byte slice of the same string the raw (@) operator can be used:
+
+    @"touché"[5-6] == c3:a9
 
 A slice can always be compared against either a string or a byte sequence.
 
@@ -510,10 +530,6 @@ will not work for this):
     tcp.dstport >= 4 * {tcp.srcport + 3}
 
 Do not confuse this usage of curly brackets with set membership.
-
-An unfortunate quirk in the filter syntax is that the subtraction operator
-must be preceded by a space character, so "A-B" must be written as "A -B"
-or "A - B".
 
 === Protocol field references
 

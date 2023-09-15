@@ -10038,9 +10038,9 @@ get_amqp_1_0_value_formatter(tvbuff_t *tvb,
             {
                 if (*(synonyms->hf_none) == hf_amqp_type)
                 {
-                    if (IS_FT_UINT(element_type->ftype) && synonyms->hf_uint != NULL)
+                    if (FT_IS_UINT(element_type->ftype) && synonyms->hf_uint != NULL)
                         hf_amqp_type = *(synonyms->hf_uint);
-                    else if (IS_FT_STRING(element_type->ftype) && synonyms->hf_str != NULL)
+                    else if (FT_IS_STRING(element_type->ftype) && synonyms->hf_str != NULL)
                         hf_amqp_type = *(synonyms->hf_str);
                     else if (element_type->ftype == FT_BYTES && synonyms->hf_bin != NULL)
                         hf_amqp_type = *(synonyms->hf_bin);
@@ -10064,6 +10064,7 @@ get_amqp_1_0_value_formatter(tvbuff_t *tvb,
             /* null value says that a particular field was optional and is omitted
              * the omitted fields of standard structures are not shown
              * however, we still display null values of custom lists, maps and arrays */
+            *length_size = 0;
             if(hf_amqp_type == hf_amqp_1_0_list)
             {
                 proto_tree_add_none_format(item, hf_amqp_type,
@@ -10306,7 +10307,7 @@ static gboolean find_data_dissector(tvbuff_t *msg_tvb, packet_info *pinfo, proto
     }
 
     field_info *fi = (field_info*)array->pdata[0];
-    if (fi == NULL || !IS_FT_STRING(fvalue_type_ftenum(fi->value))) {
+    if (fi == NULL || !FT_IS_STRING(fvalue_type_ftenum(fi->value))) {
         g_ptr_array_free(array, TRUE);
         return FALSE;
     }
@@ -10391,7 +10392,7 @@ dissect_amqp_1_0_variable(tvbuff_t *tvb, packet_info *pinfo,
 
     gboolean is_dissected = FALSE;
     if (hf_amqp_type == hf_amqp_1_0_data) {
-        tvbuff_t *msg_tvb = tvb_new_subset_length_caplen(tvb, offset, bin_length, bin_length);
+        tvbuff_t *msg_tvb = tvb_new_subset_length(tvb, offset, bin_length);
         is_dissected = find_data_dissector(msg_tvb, pinfo, item);
     }
 

@@ -489,6 +489,7 @@ static int hf_subdoc_doc_flags_add = -1;
 static int hf_subdoc_doc_flags_accessdeleted = -1;
 static int hf_subdoc_doc_flags_createasdeleted = -1;
 static int hf_subdoc_doc_flags_revivedocument = -1;
+static int hf_subdoc_doc_flags_replicaread = -1;
 static int hf_subdoc_doc_flags_reserved = -1;
 static int hf_subdoc_flags = -1;
 static int hf_subdoc_flags_mkdirp = -1;
@@ -1063,6 +1064,7 @@ static int * const subdoc_doc_flags[] = {
   &hf_subdoc_doc_flags_accessdeleted,
   &hf_subdoc_doc_flags_createasdeleted,
   &hf_subdoc_doc_flags_revivedocument,
+  &hf_subdoc_doc_flags_replicaread,
   &hf_subdoc_doc_flags_reserved,
   NULL
 };
@@ -2361,7 +2363,7 @@ dissect_multipath_lookup_response(tvbuff_t *tvb, packet_info *pinfo,
     proto_tree_add_item(multipath_tree, hf_value, tvb, offset, result_len,
                         ENC_ASCII | ENC_NA);
     if (result_len > 0) {
-        json_tvb = tvb_new_subset_length_caplen(tvb, offset, result_len, result_len);
+        json_tvb = tvb_new_subset_length(tvb, offset, result_len);
         call_dissector(json_handle, json_tvb, pinfo, multipath_tree);
     }
     offset += result_len;
@@ -2411,7 +2413,7 @@ dissect_multipath_mutation_response(tvbuff_t *tvb, packet_info *pinfo,
       proto_tree_add_item(multipath_tree, hf_value, tvb, offset, result_len,
                           ENC_ASCII | ENC_NA);
       if (result_len > 0) {
-        json_tvb = tvb_new_subset_length_caplen(tvb, offset, result_len, result_len);
+        json_tvb = tvb_new_subset_length(tvb, offset, result_len);
         call_dissector(json_handle, json_tvb, pinfo, multipath_tree);
       }
       offset += result_len;
@@ -2619,7 +2621,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     } else if (has_json_value(request, opcode)) {
       tvbuff_t *json_tvb;
       ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
-      json_tvb = tvb_new_subset_length_caplen(tvb, offset, value_len, value_len);
+      json_tvb = tvb_new_subset_length(tvb, offset, value_len);
       call_dissector(json_handle, json_tvb, pinfo, tree);
 
     } else if (opcode == CLIENT_OPCODE_SUBDOC_MULTI_LOOKUP ||
@@ -3170,7 +3172,7 @@ static void d_s_o_clustermap_change_notification_req(tvbuff_t *tvb,
   // The payload is the clustermap in JSON
   proto_tree_add_item(tree, hf_server_clustermap_value, tvb, offset, size,
                       ENC_ASCII | ENC_NA);
-  tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size, size);
+  tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
   call_dissector(json_handle, json_tvb, pinfo, tree);
 }
 
@@ -3188,7 +3190,7 @@ static void d_s_o_authenticate_req(tvbuff_t *tvb,
   // The payload is an JSON object with the authentication request
   proto_tree_add_item(tree, hf_server_authentication, tvb, offset, size,
                       ENC_ASCII | ENC_NA);
-  tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size, size);
+  tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
   call_dissector(json_handle, json_tvb, pinfo, tree);
 }
 
@@ -3206,7 +3208,7 @@ static void d_s_o_active_external_users_req(tvbuff_t *tvb,
   // The payload is an JSON array with the list of the users
   proto_tree_add_item(tree, hf_server_external_users, tvb, offset, size,
                       ENC_ASCII | ENC_NA);
-  tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size, size);
+  tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
   call_dissector(json_handle, json_tvb, pinfo, tree);
 }
 
@@ -3244,8 +3246,7 @@ static void d_s_o_server_ignored_response(tvbuff_t *tvb,
     expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_value,
                            "Success should not carry value");
   } else {
-    tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size,
-                                                      size);
+    tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
     call_dissector(json_handle, json_tvb, pinfo, tree);
   }
 }
@@ -3262,8 +3263,7 @@ static void d_s_o_authenticate_res(tvbuff_t *tvb ,
   // Payload is JSON (for success and if there is an error)
   proto_tree_add_item(tree, hf_server_authentication, tvb, offset, size,
                       ENC_ASCII | ENC_NA);
-  tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size,
-                                                    size);
+  tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
   call_dissector(json_handle, json_tvb, pinfo, tree);
 }
 
@@ -3279,8 +3279,7 @@ static void d_s_o_get_authorization_res(tvbuff_t *tvb,
   // Payload is JSON (for success and if there is an error)
   proto_tree_add_item(tree, hf_server_get_authorization, tvb, offset, size,
                       ENC_ASCII | ENC_NA);
-  tvbuff_t *json_tvb = tvb_new_subset_length_caplen(tvb, offset, size,
-                                                    size);
+  tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
   call_dissector(json_handle, json_tvb, pinfo, tree);
 
 }
@@ -3540,7 +3539,7 @@ static void dissect_client_value(tvbuff_t *tvb,
       proto_tree_add_item(tree, hf_value, tvb, offset, size, ENC_ASCII | ENC_NA);
       if (status == STATUS_NOT_MY_VBUCKET || is_xerror(datatype, status)) {
         tvbuff_t *json_tvb;
-        json_tvb = tvb_new_subset_length_caplen(tvb, offset, size, size);
+        json_tvb = tvb_new_subset_length(tvb, offset, size);
         call_dissector(json_handle, json_tvb, pinfo, tree);
       } else if (opcode == CLIENT_OPCODE_SUBDOC_MULTI_LOOKUP) {
         dissect_multipath_lookup_response(tvb, pinfo, tree, offset, size);
@@ -3838,7 +3837,8 @@ proto_register_couchbase(void)
     { &hf_subdoc_doc_flags_accessdeleted, { "ACCESS_DELETED", "couchbase.extras.subdoc.doc_flags.access_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x04, "Allow access to XATTRs for deleted documents", HFILL} },
     { &hf_subdoc_doc_flags_createasdeleted, { "CREATE_AS_DELETED", "couchbase.extras.subdoc.doc_flags.create_as_deleted", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x08, "If the document does not exist then create it in the Deleted state, instead of the normal Alive state", HFILL} },
     { &hf_subdoc_doc_flags_revivedocument, { "REVIVE_DOCUMENT", "couchbase.extras.subdoc.doc_flags.revive_document", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x10, "If the document exists in the Deleted state, revive it to the normal Alive state", HFILL} },
-    { &hf_subdoc_doc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.doc_flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xF0, "A reserved field", HFILL} },
+    { &hf_subdoc_doc_flags_replicaread, { "REPLICA_READ", "couchbase.extras.subdoc.doc_flags.replica_read", FT_BOOLEAN, 8, TFS(&tfs_set_notset), 0x20, "Operate on a replica vbucket instead of an active one", HFILL} },
+    { &hf_subdoc_doc_flags_reserved, {"Reserved fields", "couchbase.extras.subdoc.doc_flags.reserved", FT_UINT8, BASE_HEX, NULL, 0xC0, "A reserved field", HFILL} },
     { &hf_extras_pathlen, { "Path Length", "couchbase.extras.pathlen", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL } },
 
     /* DCP flags */

@@ -9,19 +9,18 @@
  */
 
 #include "config.h"
+#include "to_str.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <glib.h>
-
-#include "to_str.h"
 
 #include <wsutil/utf8_entities.h>
 #include <wsutil/wslog.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/pint.h>
 #include <wsutil/ws_return.h>
+#include <wsutil/time_util.h>
 
 /*
  * If a user _does_ pass in a too-small buffer, this is probably
@@ -617,13 +616,13 @@ char *ip6_to_str(wmem_allocator_t *scope, const ws_in6_addr *ad)
 gchar *
 ipxnet_to_str_punct(wmem_allocator_t *allocator, const guint32 ad, const char punct)
 {
-    gchar *buf = (gchar *)wmem_alloc(allocator, 12);
+	gchar *buf = (gchar *)wmem_alloc(allocator, 12);
 
-    *dword_to_hex_punct(buf, ad, punct) = '\0';
-    return buf;
+	*dword_to_hex_punct(buf, ad, punct) = '\0';
+	return buf;
 }
 
-#define WS_EUI64_STRLEN    24
+#define WS_EUI64_STRLEN	24
 
 gchar *
 eui64_to_str(wmem_allocator_t *scope, const guint64 ad) {
@@ -640,6 +639,341 @@ eui64_to_str(wmem_allocator_t *scope, const guint64 ad) {
 	*tmp = '\0'; /* NULL terminate */
 	wmem_free(NULL, p_eui64);
 	return buf;
+}
+
+/*
+ * Number of characters required by a 64-bit signed number.
+ */
+#define CHARS_64_BIT_SIGNED	20	/* sign plus 19 digits */
+
+/*
+ * Number of characters required by a fractional part, in nanoseconds,
+ * not counting the decimal point.
+ */
+#define CHARS_NANOSECONDS	9	/* 000000001 */
+
+/*
+ * Format the fractional part of a time, with the specified precision.
+ * Returns the number of bytes formatted.
+ */
+int
+format_fractional_part_nsecs(gchar *buf, size_t buflen, guint32 nsecs, const char *decimal_point, int precision)
+{
+	gchar *ptr;
+	size_t remaining;
+	int num_bytes;
+	gsize decimal_point_len;
+	guint32 frac_part;
+	gint8 num_buf[CHARS_NANOSECONDS];
+	gint8 *num_end = &num_buf[CHARS_NANOSECONDS];
+	gint8 *num_ptr;
+	size_t num_len;
+
+	ws_assert(precision != 0);
+
+	if (buflen == 0) {
+		/*
+		 * No room in the buffer for anything, including
+		 * a terminating '\0'.
+		 */
+		return 0;
+	}
+
+	/*
+	 * If the fractional part is >= 1, don't show it as a
+	 * fractional part.
+	 */
+	if (nsecs >= 1000000000U) {
+		num_bytes = snprintf(buf, buflen, "%s(%u nanoseconds)",
+		    decimal_point, nsecs);
+		if ((unsigned int)num_bytes >= buflen) {
+			/*
+			 * That filled up or would have overflowed
+			 * the buffer.  Nothing more to do; return
+			 * the remaining space in the buffer, minus
+			 * one byte for the terminating '\0',* as
+			 * that's the number of bytes we copied.
+			 */
+			return (int)(buflen - 1);
+		}
+		return num_bytes;
+	}
+
+	ptr = buf;
+	remaining = buflen;
+	num_bytes = 0;
+
+	/*
+	 * Copy the decimal point.
+	 * (We assume here that the locale's decimal point does
+	 * not contain so many characters that its size doesn't
+	 * fit in an int. :-))
+	 */
+	decimal_point_len = g_strlcpy(buf, decimal_point, buflen);
+	if (decimal_point_len >= buflen) {
+		/*
+		 * The decimal point didn't fit in the buffer
+		 * and was truncated.  Nothing more to do;
+		 * return the remaining space in the buffer,
+		 * minus one byte for the terminating '\0',
+		 * as that's the number of bytes we copied.
+		 */
+		return (int)(buflen - 1);
+	}
+	ptr += decimal_point_len;
+	remaining -= decimal_point_len;
+	num_bytes += (int)decimal_point_len;
+
+	/*
+	 * Fill in num_buf with the nanoseconds value, padded with
+	 * leading zeroes, to the specified precision.
+	 *
+	 * We scale the fractional part in advance, as that just
+	 * takes one division by a constant (which may be
+	 * optimized to a faster multiplication by a constant)
+	 * and gets rid of some divisions and remainders by 100
+	 * done to generate the digits.
+	 *
+	 * We pass preciions as the last argument to
+	 * uint_to_str_back_len(), as that might mean that
+	 * all of the cases end up using common code to
+	 * do part of the call to uint_to_str_back_len().
+	 */
+	switch (precision) {
+
+	case 1:
+		/*
+		 * Scale down to units of 1/10 second.
+		 */
+		frac_part = nsecs / 100000000U;
+		break;
+
+	case 2:
+		/*
+		 * Scale down to units of 1/100 second.
+		 */
+		frac_part = nsecs / 10000000U;
+		break;
+
+	case 3:
+		/*
+		 * Scale down to units of 1/1000 second.
+		 */
+		frac_part = nsecs / 1000000U;
+		break;
+
+	case 4:
+		/*
+		 * Scale down to units of 1/10000 second.
+		 */
+		frac_part = nsecs / 100000U;
+		break;
+
+	case 5:
+		/*
+		 * Scale down to units of 1/100000 second.
+		 */
+		frac_part = nsecs / 10000U;
+		break;
+
+	case 6:
+		/*
+		 * Scale down to units of 1/1000000 second.
+		 */
+		frac_part = nsecs / 1000U;
+		break;
+
+	case 7:
+		/*
+		 * Scale down to units of 1/10000000 second.
+		 */
+		frac_part = nsecs / 100U;
+		break;
+
+	case 8:
+		/*
+		 * Scale down to units of 1/100000000 second.
+		 */
+		frac_part = nsecs / 10U;
+		break;
+
+	case 9:
+		/*
+		 * We're already in units of 1/1000000000 second.
+		 */
+		frac_part = nsecs;
+		break;
+
+	default:
+		ws_assert_not_reached();
+		break;
+	}
+
+	num_ptr = uint_to_str_back_len(num_end, frac_part, precision);
+
+	/*
+	 * The length of the string that we want to copy to the buffer
+	 * is the minimum of:
+	 *
+	 *    the length of the digit string;
+	 *    the remaining space in the buffer, minus 1 for the
+	 *      terminating '\0'.
+	 */
+	num_len = MIN((size_t)(num_end - num_ptr), remaining - 1);
+	if (num_len == 0) {
+		/*
+		 * Not enough room to copy anything.
+		 * Return the number of bytes we've generated.
+		 */
+		return num_bytes;
+	}
+
+	/*
+	 * Copy over the fractional part.
+	 * (We assume here that the fractional part does not contain
+	 * so many characters that its size doesn't fit in an int. :-))
+	 */
+	memcpy(ptr, num_ptr, num_len);
+	ptr += num_len;
+	num_bytes += (int)num_len;
+
+	/*
+	 * '\0'-terminate it.
+	 */
+	*ptr = '\0';
+	return num_bytes;
+}
+
+void
+display_epoch_time(gchar *buf, size_t buflen, const nstime_t *ns, int precision)
+{
+	display_signed_time(buf, buflen, ns, precision);
+}
+
+void
+display_signed_time(gchar *buf, size_t buflen, const nstime_t *ns, int precision)
+{
+	int nsecs;
+	/* this buffer is not NUL terminated */
+	gint8 num_buf[CHARS_64_BIT_SIGNED];
+	gint8 *num_end = &num_buf[CHARS_64_BIT_SIGNED];
+	gint8 *num_ptr;
+	size_t num_len;
+
+	if (buflen < 1)
+		return;
+
+	/* If the fractional part of the time stamp is negative,
+	   print its absolute value and, if the seconds part isn't
+	   (the seconds part should be zero in that case), stick
+	   a "-" in front of the entire time stamp. */
+	nsecs = ns->nsecs;
+	if (nsecs < 0) {
+		nsecs = -nsecs;
+		if (ns->secs >= 0) {
+			buf[0] = '-';
+			buf++;
+			buflen--;
+		}
+	}
+
+	/*
+	 * Fill in num_buf with the seconds value.
+	 */
+	num_ptr = int64_to_str_back(num_end, ns->secs);
+
+	/*
+	 * The length of the string that we want to copy to the buffer
+	 * is the minimum of:
+	 *
+	 *    the length of the digit string;
+	 *    the size of the buffer, minus 1 for the terminating
+	 *      '\0'.
+	 */
+	num_len = MIN((size_t)(num_end - num_ptr), buflen - 1);
+	if (num_len == 0) {
+		/*
+		 * Not enough room to copy anything.
+		 */
+		return;
+	}
+
+	/*
+	 * Copy over the seconds value.
+	 */
+	memcpy(buf, num_ptr, num_len);
+	buf += num_len;
+	buflen -= num_len;
+
+	if (precision == 0) {
+		/*
+		 * Seconds precision, so no nanosecond.
+		 * Nothing more to do other than to
+		 * '\0'-terminate the string.
+		 */
+		*buf = '\0';
+		return;
+	}
+
+	/*
+	 * Append the fractional part.
+	 */
+	format_fractional_part_nsecs(buf, buflen, (guint32)nsecs, ".", precision);
+}
+
+void
+format_nstime_as_iso8601(gchar *buf, size_t buflen, const nstime_t *ns,
+    char *decimal_point, gboolean local, int precision)
+{
+	struct tm tm, *tmp;
+	gchar *ptr;
+	size_t remaining;
+	int num_bytes;
+
+	if (local)
+		tmp = ws_localtime_r(&ns->secs, &tm);
+	else
+		tmp = ws_gmtime_r(&ns->secs, &tm);
+	if (tmp == NULL) {
+		snprintf(buf, buflen, "Not representable");
+		return;
+	}
+	ptr = buf;
+	remaining = buflen;
+	num_bytes = snprintf(ptr, remaining,
+	    "%04d-%02d-%02d %02d:%02d:%02d",
+	    tmp->tm_year + 1900,
+	    tmp->tm_mon + 1,
+	    tmp->tm_mday,
+	    tmp->tm_hour,
+	    tmp->tm_min,
+	    tmp->tm_sec);
+	if (num_bytes < 0) {
+		/*
+		 * That got an error.
+		 * Not much else we can do.
+		 */
+		snprintf(buf, buflen, "snprintf() failed");
+		return;
+	}
+	if ((unsigned int)num_bytes >= remaining) {
+		/*
+		 * That filled up or would have overflowed the buffer.
+		 * Nothing more we can do.
+		 */
+		return;
+	}
+	ptr += num_bytes;
+	remaining -= num_bytes;
+
+	if (precision != 0) {
+		/*
+		 * Append the fractional part.
+		 * Get the nsecs as a 32-bit unsigned value, as it should
+		 * never be negative, so we treat it as unsigned.
+		 */
+		format_fractional_part_nsecs(ptr, remaining, (guint32)ns->nsecs, decimal_point, precision);
+	}
 }
 
 /*

@@ -63,19 +63,13 @@
 #include <epan/prefs.h>
 #include <epan/strutil.h>
 #include <epan/proto_data.h>
-#include <epan/dissectors/packet-http.h>
-#include <epan/dissectors/packet-http2.h>
-#include <epan/dissectors/packet-media-type.h>
+#include "packet-http.h"
+#include "packet-http2.h"
+#include "packet-media-type.h"
 
 #include "wsutil/pint.h"
 
 #define GRPC_MESSAGE_HEAD_LEN 5
-
-/* http2 standard headers */
-#define HTTP2_HEADER_PATH ":path"
-#define HTTP2_HEADER_CONTENT_TYPE "content-type"
-/* http2 for grpc */
-#define HTTP2_HEADER_GRPC_ENCODING "grpc-encoding"
 
 /* calculate the size of a bytes after decoding as base64 */
 #define BASE64_ENCODE_SIZE(len)  ((len) / 3 * 4 + ((len) % 3 == 0 ? 0 : 4))

@@ -35,7 +35,8 @@
 
 #include <epan/packet.h>
 #include <epan/conversation.h>
-#include <epan/dissectors/packet-gsm_rlcmac.h>
+#include "packet-gsm_rlcmac.h"
+#include <wiretap/wtap.h>
 
 #include "packet-gsmtap.h"
 #include "packet-lapdm.h"
@@ -43,6 +44,8 @@
 
 void proto_register_gsmtap(void);
 void proto_reg_handoff_gsmtap(void);
+
+static dissector_handle_t gsmtap_handle;
 
 static int proto_gsmtap = -1;
 
@@ -1210,13 +1213,13 @@ proto_register_gsmtap(void)
 
 	gsmtap_dissector_table = register_dissector_table("gsmtap.type",
 						"GSMTAP type", proto_gsmtap, FT_UINT8, BASE_HEX);
+
+	gsmtap_handle = register_dissector("gsmtap", dissect_gsmtap, proto_gsmtap);
 }
 
 void
 proto_reg_handoff_gsmtap(void)
 {
-	dissector_handle_t gsmtap_handle;
-
 	/* TODO: some dissectors may be NULL if not loaded */
 	sub_handles[GSMTAP_SUB_DATA] = find_dissector("data");
 	sub_handles[GSMTAP_SUB_UM] = find_dissector_add_dependency("gsm_a_ccch", proto_gsmtap);
@@ -1333,7 +1336,6 @@ proto_reg_handoff_gsmtap(void)
 	lte_nas_sub_handles[GSMTAP_LTE_NAS_PLAIN] = find_dissector_add_dependency("nas-eps_plain", proto_gsmtap);
 	lte_nas_sub_handles[GSMTAP_LTE_NAS_SEC_HEADER] = find_dissector_add_dependency("nas-eps", proto_gsmtap);
 
-	gsmtap_handle = create_dissector_handle(dissect_gsmtap, proto_gsmtap);
 	dissector_add_uint_with_preference("udp.port", GSMTAP_UDP_PORT, gsmtap_handle);
 }
 

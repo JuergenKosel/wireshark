@@ -16,6 +16,7 @@
 
 #include <glib.h>
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -463,7 +464,7 @@ color_filters_apply(GSList *tmp_cfl, GSList *edit_cfl, gchar** err_msg)
     color_filter_list = NULL;
 
     /* clone all list entries from tmp/edit to normal list */
-    color_filter_valid_list = NULL;
+    color_filter_list_delete(&color_filter_valid_list);
     color_filter_valid_list = color_filter_list_clone(tmp_cfl);
     color_filter_valid_list = g_slist_concat(color_filter_valid_list,
                                              color_filter_list_clone(edit_cfl) );

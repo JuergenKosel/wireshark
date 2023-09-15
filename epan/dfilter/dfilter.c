@@ -139,6 +139,7 @@ dfilter_new(GPtrArray *deprecated)
 	df = g_new0(dfilter_t, 1);
 	df->insns = NULL;
 	df->function_stack = NULL;
+	df->set_stack = NULL;
 	df->warnings = NULL;
 	if (deprecated)
 		df->deprecated = g_ptr_array_ref(deprecated);
@@ -183,12 +184,15 @@ dfilter_free(dfilter_t *df)
 		g_slist_free(df->function_stack);
 	}
 
+	if (df->set_stack != NULL) {
+		ws_critical("Set stack list should be NULL");
+		g_slist_free(df->set_stack);
+	}
+
 	if (df->warnings)
 		g_slist_free_full(df->warnings, g_free);
 
 	g_free(df->registers);
-	g_free(df->attempted_load);
-	g_free(df->free_registers);
 	g_free(df->expanded_text);
 	g_free(df->syntax_tree_str);
 	g_free(df);
@@ -307,6 +311,7 @@ const char *tokenstr(int token)
 	switch (token) {
 		case TOKEN_TEST_AND:	return "TEST_AND";
 		case TOKEN_TEST_OR: 	return "TEST_OR";
+		case TOKEN_TEST_XOR: 	return "TEST_XOR";
 		case TOKEN_TEST_ALL_EQ:	return "TEST_ALL_EQ";
 		case TOKEN_TEST_ANY_EQ:	return "TEST_ANY_EQ";
 		case TOKEN_TEST_ALL_NE:	return "TEST_ALL_NE";
@@ -506,9 +511,7 @@ dfwork_build(dfwork_t *dfw)
 
 	/* Initialize run-time space */
 	dfilter->num_registers = dfw->next_register;
-	dfilter->registers = g_new0(GSList *, dfilter->num_registers);
-	dfilter->attempted_load = g_new0(gboolean, dfilter->num_registers);
-	dfilter->free_registers = g_new0(GDestroyNotify, dfilter->num_registers);
+	dfilter->registers = g_new0(df_cell_t, dfilter->num_registers);
 
 	return dfilter;
 }
@@ -540,7 +543,7 @@ compile_filter(const char *expanded_text, unsigned flags, df_error_t **err_ptr)
 		return NULL;
 	}
 
-	dfw = dfwork_new(expanded_text, flags);
+	dfw = dfwork_new(expanded_text, dfs->flags);
 	dfw->st_root = dfs->st_root;
 	dfs->st_root = NULL;
 	if (dfs->deprecated)
@@ -705,6 +708,23 @@ dfilter_interested_in_proto(const dfilter_t *df, int proto_id)
 		}
 	}
 	return FALSE;
+}
+
+gboolean
+dfilter_requires_columns(const dfilter_t *df)
+{
+	if (df == NULL) {
+		return FALSE;
+	}
+
+	/* XXX: Could cache this like packet_cache_proto_handles */
+	static int proto_cols = -1;
+	if (proto_cols == -1) {
+		proto_cols = proto_get_id_by_filter_name("_ws.col");
+	}
+	ws_assert(proto_cols != -1);
+
+	return dfilter_interested_in_proto(df, proto_cols);
 }
 
 GPtrArray *
@@ -893,6 +913,86 @@ df_error_free(df_error_t **ep)
 	g_free((*ep)->msg);
 	g_free(*ep);
 	*ep = NULL;
+}
+
+void
+df_cell_append(df_cell_t *rp, fvalue_t *fv)
+{
+	/* Assert cell has been initialized. */
+	ws_assert(rp->array != NULL);
+	g_ptr_array_add(rp->array, fv);
+}
+
+GPtrArray *
+df_cell_ref(df_cell_t *rp)
+{
+	if (rp->array == NULL)
+		return NULL;
+	return g_ptr_array_ref(rp->array);
+}
+
+size_t
+df_cell_size(const df_cell_t *rp)
+{
+	if (rp->array == NULL)
+		return 0;
+	return rp->array->len;
+}
+
+fvalue_t **
+df_cell_array(const df_cell_t *rp)
+{
+	if (rp->array == NULL)
+		return NULL;
+	return (fvalue_t **)rp->array->pdata;
+}
+
+bool
+df_cell_is_empty(const df_cell_t *rp)
+{
+	if (rp->array == NULL)
+		return true;
+	return rp->array->len == 0;
+}
+
+bool
+df_cell_is_null(const df_cell_t *rp)
+{
+	return rp->array == NULL;
+}
+
+void
+df_cell_init(df_cell_t *rp, gboolean free_seg)
+{
+	df_cell_clear(rp);
+	if (free_seg)
+		rp->array = g_ptr_array_new_with_free_func((GDestroyNotify)fvalue_free);
+	else
+		rp->array = g_ptr_array_new();
+}
+
+void
+df_cell_clear(df_cell_t *rp)
+{
+	if (rp->array)
+		g_ptr_array_unref(rp->array);
+	rp->array = NULL;
+}
+
+void
+df_cell_iter_init(df_cell_t *rp, df_cell_iter_t *iter)
+{
+	iter->ptr = rp->array;
+	iter->idx = 0;
+}
+
+fvalue_t *
+df_cell_iter_next(df_cell_iter_t *iter)
+{
+	if (iter->idx < iter->ptr->len) {
+		return iter->ptr->pdata[iter->idx++];
+	}
+	return NULL;
 }
 
 /*

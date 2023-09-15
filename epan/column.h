@@ -26,14 +26,16 @@ typedef struct _fmt_data {
   int fmt;                 /* format of column */
   gchar *custom_fields;    /* fields names for COL_CUSTOM */
   gint custom_occurrence;  /* optional ordinal of occurrence of that field */
-  gboolean visible;        /* if FALSE, hide this column */
-  gboolean resolved;       /* if TRUE, show a more human-readable name */
+  bool visible;            /* if FALSE, hide this column */
+  bool resolved;           /* if TRUE, show a more human-readable name */
 } fmt_data;
 
 WS_DLL_PUBLIC
 const gchar         *col_format_to_string(const gint);
 WS_DLL_PUBLIC
 const gchar         *col_format_desc(const gint);
+WS_DLL_PUBLIC
+const gchar         *col_format_abbrev(const gint);
 WS_DLL_PUBLIC
 gint                 get_column_format(const gint);
 WS_DLL_PUBLIC
@@ -117,6 +119,19 @@ gboolean parse_column_format(fmt_data *cfmt, const char *fmt);
  */
 WS_DLL_PUBLIC
 void try_convert_to_custom_column(char **fmt);
+
+/** Checks a column field string to see if it is a name of a filter
+ * field created using a default column title (as used in tshark -e),
+ * and alias it to the new column type based field.
+ *
+ * @param[in] field The old title based field, e.g. "_ws.col.Info"
+ * @return The new field, e.g. "_ws.col.info", or NULL
+ */
+WS_DLL_PUBLIC
+const char* try_convert_to_column_field(const char *field);
+
+WS_DLL_PUBLIC
+void column_register_fields(void);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

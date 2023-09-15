@@ -9,7 +9,6 @@
 #include <config.h>
 
 #include <string.h>
-#include <errno.h>
 
 #include <sys/types.h>
 
@@ -202,71 +201,72 @@ wtap_get_next_interface_description(wtap *wth)
 }
 
 void
+wtap_file_add_decryption_secrets(wtap *wth, const wtap_block_t dsb)
+{
+	if (!wth->dsbs) {
+		wth->dsbs = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
+	}
+	g_array_append_val(wth->dsbs, dsb);
+}
+
+gboolean
+wtap_file_discard_decryption_secrets(wtap *wth)
+{
+	if (!wth->dsbs || wth->dsbs->len == 0)
+		return FALSE;
+
+	wtap_block_array_free(wth->dsbs);
+	wth->dsbs = NULL;
+	return TRUE;
+}
+
+void
 wtap_add_idb(wtap *wth, wtap_block_t idb)
 {
 	g_array_append_val(wth->interface_data, idb);
 }
 
-void
-wtap_add_generated_idb(wtap *wth)
+static wtap_block_t
+wtap_generate_idb(int encap, int tsprec, int snaplen)
 {
 	wtap_block_t idb;
 	wtapng_if_descr_mandatory_t *if_descr_mand;
-	int snaplen;
 
-	ws_assert(wth->file_encap != WTAP_ENCAP_UNKNOWN &&
-	    wth->file_encap != WTAP_ENCAP_PER_PACKET &&
-	    wth->file_encap != WTAP_ENCAP_NONE);
-	ws_assert(wth->file_tsprec != WTAP_TSPREC_UNKNOWN &&
-	    wth->file_tsprec != WTAP_TSPREC_PER_PACKET);
+	ws_assert(encap != WTAP_ENCAP_UNKNOWN &&
+	    encap != WTAP_ENCAP_PER_PACKET &&
+	    encap != WTAP_ENCAP_NONE);
 
 	idb = wtap_block_create(WTAP_BLOCK_IF_ID_AND_INFO);
 
 	if_descr_mand = (wtapng_if_descr_mandatory_t*)wtap_block_get_mandatory_data(idb);
-	if_descr_mand->wtap_encap = wth->file_encap;
-	if_descr_mand->tsprecision = wth->file_tsprec;
-	switch (wth->file_tsprec) {
-
-	case WTAP_TSPREC_SEC:
-		if_descr_mand->time_units_per_second = 1;
-		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, 0);
-		break;
-
-	case WTAP_TSPREC_DSEC:
-		if_descr_mand->time_units_per_second = 10;
-		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, 1);
-		break;
-
-	case WTAP_TSPREC_CSEC:
-		if_descr_mand->time_units_per_second = 100;
-		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, 2);
-		break;
-
-	case WTAP_TSPREC_MSEC:
-		if_descr_mand->time_units_per_second = 1000;
-		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, 3);
-		break;
-
-	case WTAP_TSPREC_USEC:
-		if_descr_mand->time_units_per_second = 1000000;
-		/* This is the default, so no need to add an option */
-		break;
-
-	case WTAP_TSPREC_NSEC:
-		if_descr_mand->time_units_per_second = 1000000000;
-		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, 9);
-		break;
-
-	case WTAP_TSPREC_PER_PACKET:
-	case WTAP_TSPREC_UNKNOWN:
-	default:
+	if_descr_mand->wtap_encap = encap;
+	if_descr_mand->tsprecision = tsprec;
+	if (tsprec < 0 || tsprec > WS_TSPREC_MAX) {
 		/*
-		 * Don't do this.
+		 * Either WTAP_TSPREC_PER_PACKET, WTAP_TSPREC_UNKNOWN,
+		 * or not a valid WTAP_TSPREC_ value.
+		 *
+		 * Unknown timestamp precision; use the default of
+		 * microsecond resolution.
 		 */
-		ws_assert_not_reached();
-		break;
+		tsprec = 6;	/* microsecond resolution */
 	}
-	snaplen = wth->snapshot_length;
+
+	/*
+	 * Compute 10^{params->tsprec}.
+	 */
+	if_descr_mand->time_units_per_second = 1;
+	for (int i = 0; i < tsprec; i++)
+		if_descr_mand->time_units_per_second *= 10;
+
+	if (tsprec != WTAP_TSPREC_USEC) {
+		/*
+		 * Microsecond precision is the default, so we only
+		 * add an option if the precision isn't microsecond
+		 * precision.
+		 */
+		wtap_block_add_uint8_option(idb, OPT_IDB_TSRESOL, tsprec);
+	}
 	if (snaplen == 0) {
 		/*
 		 * No snapshot length was specified.  Pick an
@@ -282,9 +282,9 @@ wtap_add_generated_idb(wtap *wth)
 		 * to allocate an unnecessarily huge chunk of
 		 * memory for a packet buffer.
 		 */
-		if (wth->file_encap == WTAP_ENCAP_DBUS)
+		if (encap == WTAP_ENCAP_DBUS)
 			snaplen = 128*1024*1024;
-		else if (wth->file_encap == WTAP_ENCAP_EBHSCR)
+		else if (encap == WTAP_ENCAP_EBHSCR)
 			snaplen = 8*1024*1024;
 		else
 			snaplen = WTAP_MAX_PACKET_SIZE_STANDARD;
@@ -293,6 +293,15 @@ wtap_add_generated_idb(wtap *wth)
 	if_descr_mand->num_stat_entries = 0;          /* Number of ISBs */
 	if_descr_mand->interface_statistics = NULL;
 
+	return idb;
+}
+
+void
+wtap_add_generated_idb(wtap *wth)
+{
+	wtap_block_t idb;
+
+	idb = wtap_generate_idb(wth->file_encap, wth->file_tsprec, wth->snapshot_length);
 	/*
 	 * Add this IDB.
 	 */
@@ -535,6 +544,12 @@ wtap_dump_params_cleanup(wtap_dump_params *params)
 	/* params->idb_inf is currently expected to be freed by the caller. */
 
 	memset(params, 0, sizeof(*params));
+}
+
+wtap_block_t
+wtap_dump_params_generate_idb(const wtap_dump_params *params)
+{
+	return wtap_generate_idb(params->encap, params->tsprec, params->snaplen);
 }
 
 /* Table of the encapsulation types we know about. */
@@ -1212,6 +1227,9 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_SILABS_DEBUG_CHANNEL */
 	{ "silabs-dch", "Silabs Debug Channel"},
+
+	/* WTAP_ENCAP_MDB */
+	{ "mdb", "MDB (Multi-Drop Bus)"},
 };
 
 WS_DLL_LOCAL
@@ -1297,37 +1315,34 @@ wtap_name_to_encap(const char *name)
 	return -1;	/* no such encapsulation type */
 }
 
+/*
+ * For precision values that correspond to a specific precision.
+ */
+static const char *precnames[NUM_WS_TSPREC_VALS] = {
+	"seconds",
+	"100 millisconds (deciseconds)",
+	"10 milliseconds (centiseconds)",
+	"milliseconds",
+	"100 microseconds",
+	"10 microseconds",
+	"microseconds",
+	"100 nanoseconds",
+	"10 nanoseconds",
+	"nanoseconds",
+};
+
 const char*
 wtap_tsprec_string(int tsprec)
 {
 	const char* s;
-	switch (tsprec) {
-		case WTAP_TSPREC_PER_PACKET:
-			s = "per-packet";
-			break;
-		case WTAP_TSPREC_SEC:
-			s = "seconds";
-			break;
-		case WTAP_TSPREC_DSEC:
-			s = "deciseconds";
-			break;
-		case WTAP_TSPREC_CSEC:
-			s = "centiseconds";
-			break;
-		case WTAP_TSPREC_MSEC:
-			s = "milliseconds";
-			break;
-		case WTAP_TSPREC_USEC:
-			s = "microseconds";
-			break;
-		case WTAP_TSPREC_NSEC:
-			s = "nanoseconds";
-			break;
-		case WTAP_TSPREC_UNKNOWN:
-		default:
-			s = "UNKNOWN";
-			break;
-	}
+	if (tsprec == WTAP_TSPREC_PER_PACKET)
+		s = "per-packet";
+	else if (tsprec >= 0 && tsprec < NUM_WS_TSPREC_VALS)
+		s = precnames[tsprec];
+	else if (tsprec == WTAP_TSPREC_UNKNOWN)
+		s = "UNKNOWN";
+	else
+		s = "INVALID";
 	return s;
 }
 
@@ -1809,6 +1824,20 @@ wtap_rec_cleanup(wtap_rec *rec)
 	ws_buffer_free(&rec->options_buf);
 }
 
+wtap_block_t
+wtap_rec_generate_idb(const wtap_rec *rec)
+{
+	int tsprec;
+	ws_assert(rec->rec_type == REC_TYPE_PACKET);
+	if (rec->presence_flags & WTAP_HAS_TS) {
+		tsprec = rec->tsprec;
+	} else {
+		tsprec = WTAP_TSPREC_USEC;
+		/* The default */
+	}
+	return wtap_generate_idb(rec->rec_header.packet_header.pkt_encap, tsprec, 0);
+}
+
 gboolean
 wtap_seek_read(wtap *wth, gint64 seek_off, wtap_rec *rec, Buffer *buf,
     int *err, gchar **err_info)
@@ -1984,6 +2013,23 @@ wtap_buffer_append_epdu_uint(Buffer *buf, guint16 epdu_tag, guint32 val)
 	phton16(buf_data + 2, 4);
 	phton32(buf_data + 4, val);
 	ws_buffer_increase_length(buf, space_needed);
+}
+
+void
+wtap_buffer_append_epdu_string(Buffer *buf, guint16 epdu_tag, const char *val)
+{
+	size_t string_len;
+
+	string_len = strlen(val);
+	/*
+	 * Cut off string length at G_MAXUINT16.
+	 *
+	 * XXX - make sure we don't leave an incomplete UTF-8
+	 * sequence at the end.
+	 */
+	if (string_len > G_MAXUINT16)
+		string_len = G_MAXUINT16;
+	wtap_buffer_append_epdu_tag(buf, epdu_tag, val, (guint16) string_len);
 }
 
 gint

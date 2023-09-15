@@ -7,10 +7,11 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#define _GNU_SOURCE /* For strptime(). */
 #include "config.h"
 #define WS_LOG_DOMAIN LOG_DOMAIN_WSUTIL
 #include "time_util.h"
+
+#include <errno.h>
 
 #include <wsutil/epochs.h>
 
@@ -21,23 +22,24 @@
 #include <windows.h>
 #endif
 
-#ifndef HAVE_STRPTIME
-#include "strptime.h"
-#endif
-
 /* Test if the given year is a leap year */
 #define isleap(y) (((y) % 4) == 0 && (((y) % 100) != 0 || ((y) % 400) == 0))
 
 /* converts a broken down date representation, relative to UTC,
  * to a timestamp; it uses timegm() if it's available.
- * Copied from Glib source gtimer.c
+ *
+ * Returns -1 and sets errno to EINVAL on error; returns the timestamp
+ * and sets errno to 0 on success.
  */
 time_t
 mktime_utc(struct tm *tm)
 {
-#ifndef HAVE_TIMEGM
 	time_t retval;
-
+#ifndef HAVE_TIMEGM
+	/*
+	 * We don't have timegm(), so use code copied from Glib source
+	 * gtimer.c.
+	 */
 	static const int days_before[] =
 		{
 			0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334
@@ -45,8 +47,10 @@ mktime_utc(struct tm *tm)
 
 	int yr;
 
-	if (tm->tm_mon < 0 || tm->tm_mon > 11)
+	if (tm->tm_mon < 0 || tm->tm_mon > 11) {
+		errno = EINVAL;
 		return (time_t) -1;
+	}
 
 	retval = (tm->tm_year - 70) * 365;
 
@@ -60,9 +64,50 @@ mktime_utc(struct tm *tm)
 
 	retval = ((((retval * 24) + tm->tm_hour) * 60) + tm->tm_min) * 60 + tm->tm_sec;
 
+	/*
+	 * Just in case somebody asked for 1969-12-31 23:59:59 UTC,
+	 * which is one second before the Unix epoch.
+	 */
+	errno = 0;
 	return retval;
 #else
-	return timegm(tm);
+	retval = timegm(tm);
+	/*
+	 * If passed a struct tm for 2013-03-01 00:00:00, both
+	 * macOS and FreeBSD timegm() return the epoch time
+	 * value for 2013-03-01 00:00:00 UTC, but also set
+	 * errno to EOVERFLOW.  This may be true of other
+	 * implementations based on the tzcode reference
+	 * impelementation of timegm().
+	 *
+	 * The macOS and FreeBSD documentation for timegm() neither
+	 * commit to leaving errno alone nor commit to setting it
+	 * to a particular value.
+	 *
+	 * Force errno to 0, and check for an error and set it to
+	 * EINVAL iff we got an error.
+	 */
+	errno = 0;
+	if (retval == (time_t)-1) {
+		/*
+		 * Did somebody ask for 1969-12-31 23:59:59 UTC,
+		 * which is one second before the Unix epoch?
+		 *
+		 * If so, timegm() happened to return the correct
+		 * timestamp (whether because it calculated it or
+		 * because it failed in some fashion).
+		 *
+		 * If not, set errno to EINVAL.
+		 */
+		if (tm->tm_year != (1969 - 1900) ||
+		    tm->tm_mon != (12 - 1) ||
+		    tm->tm_mday != 31 ||
+		    tm->tm_hour != 23 ||
+		    tm->tm_min != 59 ||
+		    tm->tm_sec != 59)
+			errno = EINVAL;
+	}
+	return retval;
 #endif /* !HAVE_TIMEGM */
 }
 
@@ -212,11 +257,6 @@ create_timestamp(void) {
 struct timespec *
 ws_clock_get_realtime(struct timespec *ts)
 {
-	/*
-	 * This function is used in the wslog log handler context.
-	 * We must not call anything, even indirectly, that might log a message
-	 * using wslog (including GLib).
-	 */
 #if defined(HAVE_CLOCK_GETTIME)
 	if (clock_gettime(CLOCK_REALTIME, ts) == 0)
 		return ts;
@@ -240,13 +280,47 @@ ws_clock_get_realtime(struct timespec *ts)
 #endif
 }
 
-char *ws_strptime(const char *restrict s, const char *restrict format,
-			struct tm *restrict tm)
+struct tm *
+ws_localtime_r(const time_t *timep, struct tm *result)
 {
-#ifdef HAVE_STRPTIME
-	return strptime(s, format, tm);
+#if defined(HAVE_LOCALTIME_R)
+#ifdef HAVE_TZSET
+	tzset();
+#endif
+	return localtime_r(timep, result);
+#elif defined(_MSC_VER)
+	errno_t err = localtime_s(result, timep);
+	if (err == 0)
+		return result;
+	return NULL;
 #else
-	return strptime_gnulib(s, format, tm);
+	struct tm *aux = localtime(timep);
+	if (aux == NULL)
+		return NULL;
+	*result = *aux;
+	return result;
+#endif
+}
+
+struct tm *
+ws_gmtime_r(const time_t *timep, struct tm *result)
+{
+#if defined(HAVE_GMTIME_R)
+#ifdef HAVE_TZSET
+	tzset();
+#endif
+	return gmtime_r(timep, result);
+#elif defined(_MSC_VER)
+	errno_t err = gmtime_s(result, timep);
+	if (err == 0)
+		return result;
+	return NULL;
+#else
+	struct tm *aux = gmtime(timep);
+	if (aux == NULL)
+		return NULL;
+	*result = *aux;
+	return result;
 #endif
 }
 

@@ -494,6 +494,9 @@ EPS-TAC TYPE = FT_UINT16 DISPLAY = BASE_DEC_HEX
   }
 
 #.TYPE_ATTR
+CommonNetworkInstance TYPE=FT_BYTES DISPLAY = BASE_SHOW_UTF_8_PRINTABLE
+
+#.TYPE_ATTR
 SurvivalTime DISPLAY=BASE_DEC|BASE_UNIT_STRING STRINGS=&units_microseconds
 
 #.TYPE_ATTR
@@ -888,6 +891,7 @@ TimeSyncAssistanceInfo/uUTimeSyncErrorBudget DISPLAY=BASE_DEC|BASE_UNIT_STRING S
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia1,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia2,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia3,
+      &hf_ngap_EUTRAintegrityProtectionAlgorithms_eia7,
       &hf_ngap_EUTRAintegrityProtectionAlgorithms_reserved,
       NULL
     };
@@ -1680,6 +1684,7 @@ id-BeamMeasurementsReportConfiguration             ProtocolIE-ID
 id-HFCNode-ID-new                                  ProtocolIE-ID
 id-GlobalCable-ID-new                              ProtocolIE-ID
 id-TargetHomeENB-ID                                ProtocolIE-ID
+id-HashedUEIdentityIndexValue                      ProtocolIE-ID
 
 #.END
 
@@ -2058,6 +2063,7 @@ EarlyMeasurement                                       N ngap.extension id-Early
 BeamMeasurementsReportConfiguration                    N ngap.extension id-BeamMeasurementsReportConfiguration
 TAI                                                    N ngap.extension id-TAI
 NR-CGI                                                 N ngap.extension id-NR-CGI
+HashedUEIdentityIndexValue                             N ngap.extension id-HashedUEIdentityIndexValue
 
 #NGAP-ELEMENTARY-PROCEDURE
 

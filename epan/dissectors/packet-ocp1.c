@@ -274,7 +274,7 @@ static const value_string OcaTaskState[] = {
     { 0,    NULL }
 };
 
-static const value_string OaFixedONo[] = {
+static const value_string OcaFixedONo[] = {
     { 0x01, "OcaDeviceManager" },
     { 0x02, "OcaSecurityManager" },
     { 0x03, "OcaFirmwareManager" },
@@ -546,19 +546,19 @@ format_occ(gchar *s, guint64 value) {
                     method = val_to_str_const(idx, OcaDiagnosticManagerMethods, unknown_method);
                     break;
                 default:
-                    snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OaFixedONo, unknown_class), unknown_method);
+                    snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OcaFixedONo, unknown_class), unknown_method);
                     return;
             }
             break;
 
         default:
             /* Only level 1 (OcaRoot) and 3 (Managers) are valid */
-            snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OaFixedONo, unknown_class), unknown_method);
+            snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OcaFixedONo, unknown_class), unknown_method);
             return;
     }
 
 
-    snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OaFixedONo, unknown_class), method);
+    snprintf(s, ITEM_LABEL_LENGTH, "%s.%s", val_to_str_const(ono, OcaFixedONo, unknown_class), method);
 
 }
 
@@ -1832,7 +1832,7 @@ decode_params_OcaLibraryManager(tvbuff_t *tvb, gint offset, gint length, guint16
 }
 
 static int
-decode_params_ocaAudioProcessing(tvbuff_t *tvb, gint offset, gint length, proto_tree *tree)
+decode_params_OcaAudioProcessing(tvbuff_t *tvb, gint offset, gint length, proto_tree *tree)
 {
     guint offset_m = offset;
 
@@ -2257,7 +2257,7 @@ decode_params(tvbuff_t *tvb, gint offset, gint length, guint32 ono, guint16 tree
                     decode_params_OcaLibraryManager(tvb, offset, length, m_idx, pcount, request, params_tree);
                     break;
                 case 0x09:
-                    decode_params_ocaAudioProcessing(tvb, offset, length, params_tree);
+                    decode_params_OcaAudioProcessing(tvb, offset, length, params_tree);
                     break;
                 case 0x0A:
                     decode_params_OcaDeviceTimeManager(tvb, offset, length, m_idx, pcount, request, params_tree);
@@ -2474,10 +2474,7 @@ dissect_ocp1_msg_response(tvbuff_t *tvb, gint offset, gint length, packet_info *
 
     /* build an empty oca_request_val
      * if wmem lookup fails, reference this one to force the parameter dissectors to fail */
-    request_val_empty.method_index = 0;
-    request_val_empty.ono = 0;
-    request_val_empty.tree_level = 0;
-    request_val_empty.pnum = 0;
+    request_val_empty = (struct oca_request_hash_val) {0};
 
     request_val = (struct oca_request_hash_val *) wmem_map_lookup(oca_request_hash_map, &request_key);
     if(!request_val) {
@@ -2493,8 +2490,8 @@ dissect_ocp1_msg_response(tvbuff_t *tvb, gint offset, gint length, packet_info *
             false, message_tree);
     }
 
-    /* Add generated/expert info for packet lookup */
-    if(request_val) {
+    /* Add generated/expert info for packet lookup (request_val is available either way) */
+    if(request_val->pnum > 0) {
         r_pkt = proto_tree_add_uint(message_tree , hf_ocp1_response_to, tvb, 0, 0, request_val->pnum);
         request_val->pnum_resp = pinfo->num;
         proto_item_set_generated(r_pkt);
@@ -3324,18 +3321,16 @@ proto_register_ocp1(void)
 
     expert_ocp1 = expert_register_protocol(proto_ocp1);
     expert_register_field_array(expert_ocp1, ei, array_length(ei));
+
+    ocp1_tcp_handle = register_dissector("ocp1.tcp", dissect_ocp1_tcp, proto_ocp1);
+    ocp1_udp_handle = register_dissector("ocp1.udp", dissect_ocp1, proto_ocp1);
 }
 
 void
 proto_reg_handoff_ocp1(void)
 {
-
-    ocp1_tcp_handle = create_dissector_handle(dissect_ocp1_tcp, proto_ocp1);
-    ocp1_udp_handle = create_dissector_handle(dissect_ocp1, proto_ocp1);
-
     heur_dissector_add("tcp", dissect_ocp1_heur_tcp, "OCP.1 over TCP", "ocp1_tcp", proto_ocp1, HEURISTIC_ENABLE);
     heur_dissector_add("udp", dissect_ocp1_heur_udp, "OCP.1 over UDP", "ocp1_udp", proto_ocp1, HEURISTIC_ENABLE);
-
 }
 
 /*

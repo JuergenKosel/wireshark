@@ -21,19 +21,21 @@ extern "C" {
 #include <pcap.h>
 #endif
 
-extern gboolean has_wpcap;
+extern bool has_wpcap;
 
 extern void load_wpcap(void);
 
 /**
  * Check to see if npf.sys is running.
- * @return TRUE if npf.sys is running, FALSE if it's not or if there was
+ * @return true if npf.sys is running, false if it's not or if there was
  * an error checking its status.
  */
-gboolean npf_sys_is_running(void);
+bool npf_sys_is_running(void);
 
+#ifdef HAVE_LIBPCAP
 int
 ws_pcap_findalldevs_ex(const char *a, struct pcap_rmtauth *b, pcap_if_t **c, char *errbuf);
+#endif
 
 #ifdef __cplusplus
 }

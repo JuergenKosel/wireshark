@@ -34,7 +34,7 @@ typedef struct {
 	dfvm_value_type_t	type;
 
 	union {
-		fvalue_t		*fvalue;
+		GPtrArray		*fvalue_p; /* Always has length == 1 */
 		guint32			numeric;
 		drange_t		*drange;
 		header_field_info	*hfinfo;
@@ -45,6 +45,7 @@ typedef struct {
 	int ref_count;
 } dfvm_value_t;
 
+#define dfvm_value_get_fvalue(val) ((val)->value.fvalue_p->pdata[0])
 
 typedef enum {
 
@@ -75,8 +76,13 @@ typedef enum {
 	DFVM_ANY_CONTAINS,
 	DFVM_ALL_MATCHES,
 	DFVM_ANY_MATCHES,
-	DFVM_ALL_IN_RANGE,
-	DFVM_ANY_IN_RANGE,
+	DFVM_SET_ALL_IN,
+	DFVM_SET_ANY_IN,
+	DFVM_SET_ALL_NOT_IN,
+	DFVM_SET_ANY_NOT_IN,
+	DFVM_SET_ADD,
+	DFVM_SET_ADD_RANGE,
+	DFVM_SET_CLEAR,
 	DFVM_SLICE,
 	DFVM_LENGTH,
 	DFVM_BITWISE_AND,

@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+#define _GNU_SOURCE
 #include "config.h"
 #include "ftypes-int.h"
 
@@ -15,6 +16,8 @@
 
 #include <epan/to_str.h>
 #include <wsutil/time_util.h>
+#include <wsutil/ws_strptime.h>
+#include <wsutil/safe-math.h>
 
 
 static enum ft_result
@@ -92,7 +95,7 @@ get_nsecs(const char *startp, int *nsecs, const char **endptr)
 }
 
 static gboolean
-relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+val_from_unix_time(fvalue_t *fv, const char *s)
 {
 	const char    *curptr;
 	char *endptr;
@@ -115,7 +118,7 @@ relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_va
 		 */
 		fv->value.time.secs = strtoul(curptr, &endptr, 10);
 		if (endptr == curptr || (*endptr != '\0' && *endptr != '.'))
-			goto fail;
+			return FALSE;
 		curptr = endptr;
 		if (*curptr == '.')
 			curptr++;	/* skip the decimal point */
@@ -136,7 +139,7 @@ relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_va
 		 * Get the nanoseconds value.
 		 */
 		if (!get_nsecs(curptr, &fv->value.time.nsecs, NULL))
-			goto fail;
+			return FALSE;
 	} else {
 		/*
 		 * No nanoseconds value - it's 0.
@@ -149,28 +152,16 @@ relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_va
 		fv->value.time.nsecs = -fv->value.time.nsecs;
 	}
 	return TRUE;
-
-fail:
-	if (err_msg != NULL)
-		*err_msg = ws_strdup_printf("\"%s\" is not a valid time.", s);
-	return FALSE;
 }
 
-
-/* Returns TRUE if 's' starts with an abbreviated month name. */
 static gboolean
-parse_month_name(const char *s, int *tm_mon)
+relative_val_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
 {
-	const char *months[] = {
-		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-	};
-	for (int i = 0; i < 12; i++) {
-		if (g_ascii_strncasecmp(s, months[i], 3) == 0) {
-			*tm_mon = i;
-			return TRUE;
-		}
-	}
+	if (val_from_unix_time(fv, s))
+		return TRUE;
+
+	if (err_msg != NULL)
+		*err_msg = ws_strdup_printf("\"%s\" is not a valid time.", s);
 	return FALSE;
 }
 
@@ -184,42 +175,106 @@ parse_month_name(const char *s, int *tm_mon)
  * (https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/mktime-mktime32-mktime64)
  */
 
+/*
+ * Timezone support:
+ *
+     %z    an ISO 8601, RFC-2822, or RFC-3339 time zone specification.  (A
+           NetBSD extension.)  This is one of the following:
+                 -   The offset from Coordinated Universal Time (`UTC') speci-
+                     fied as:
+                           ·   [+-]hhmm
+                           ·   [+-]hh:mm
+                           ·   [+-]hh
+                 -   `UTC' specified as:
+                           ·   UTC (`Coordinated Universal Time')
+                           ·   GMT (`Greenwich Mean Time')
+                           ·   UT (`Universal Time')
+                           ·   Z (`Zulu Time')
+                 -   A three character US time zone specified as:
+                           ·   EDT
+                           ·   EST
+                           ·   CDT
+                           ·   CST
+                           ·   MDT
+                           ·   MST
+                           ·   PDT
+                           ·   PST
+                     with the first letter standing for `Eastern' (``E''),
+                     `Central' (``C''), `Mountain' (``M'') or `Pacific'
+                     (``P''), and the second letter standing for `Daylight'
+                     (``D'' or summer) time or `Standard' (``S'') time
+                 -   a single letter military or nautical time zone specified
+                     as:
+                           ·   ``A'' through ``I''
+                           ·   ``K'' through ``Y''
+                           ·   ``J'' (non-nautical local time zone)
+
+     %Z    time zone name or no characters when time zone information is
+           unavailable.  (A NetBSD extension.)
+*/
+
+/*
+ * POSIX and C11 calendar time APIs are limited, poorly documented and have
+ * loads of bagage and surprising behavior and quirks (most stemming from
+ * the fact that the struct tm argument is sometimes both input and output).
+ * See the following reference for a reliable method of handling arbitrary timezones:
+ *    C: Converting struct tm times with timezone to time_t
+ *    http://kbyanc.blogspot.com/2007/06/c-converting-struct-tm-times-with.html
+ * Relevant excerpt:
+ *    "However, if your libc implements both tm_gmtoff and timegm(3) you are
+ *    in luck. You just need to use timegm(3) to get the time_t representing
+ *    the time in GMT and then subtract the offset stored in tm_gmtoff.
+ *    The tricky part is that calling timegm(3) will modify the struct tm,
+ *    clearing the tm_gmtoff field to zero."
+ */
+
 #define EXAMPLE "Example: \"Nov 12, 1999 08:55:44.123\" or \"2011-07-04 12:34:56\""
 
 static gboolean
 absolute_val_from_string(fvalue_t *fv, const char *s, size_t len _U_, char **err_msg_ptr)
 {
 	struct tm tm;
-	const char *curptr = NULL;
+	const char *bufptr, *curptr = NULL;
 	const char *endptr;
 	gboolean has_seconds = TRUE;
+	gboolean has_timezone = TRUE;
 	char *err_msg = NULL;
+	struct ws_timezone zoneinfo = { 0, NULL };
 
-	/* Try ISO 8601 format first. */
-	if (iso8601_to_nstime(&fv->value.time, s, ISO8601_DATETIME) == strlen(s))
+	/* Try Unix time first. */
+	if (val_from_unix_time(fv, s))
 		return TRUE;
 
-	/* Try other legacy formats. */
-	memset(&tm, 0, sizeof(tm));
+	/* Try ISO 8601 format. */
+	endptr = iso8601_to_nstime(&fv->value.time, s, ISO8601_DATETIME);
+	/* Check whether it parsed all of the string */
+	if (endptr != NULL && *endptr == '\0')
+		return TRUE;
 
-	if (strlen(s) < sizeof("2000-1-1") - 1)
+	/* No - try other legacy formats. */
+	memset(&tm, 0, sizeof(tm));
+	/* Let the computer figure out if it's DST. */
+	tm.tm_isdst = -1;
+
+	/* Parse the date. ws_strptime() always uses the "C" locale. */
+	bufptr = s;
+	curptr = ws_strptime(bufptr, "%b %d, %Y", &tm, &zoneinfo);
+	if (curptr == NULL)
+		curptr = ws_strptime(bufptr,"%Y-%m-%d", &tm, &zoneinfo);
+	if (curptr == NULL)
 		goto fail;
 
-	/* Do not use '%b' to parse the month name, it is locale-specific. */
-	if (s[3] == ' ' && parse_month_name(s, &tm.tm_mon))
-		curptr = ws_strptime(s + 4, "%d, %Y %H:%M:%S", &tm);
-
+	/* Parse the time, it is optional. */
+	bufptr = curptr;
+	curptr = ws_strptime(bufptr, " %H:%M:%S", &tm, &zoneinfo);
 	if (curptr == NULL) {
 		has_seconds = FALSE;
-		curptr = ws_strptime(s,"%Y-%m-%d %H:%M", &tm);
+		/* Seconds can be omitted but minutes (and hours) are required
+		 * for a valid time value. */
+		curptr = ws_strptime(bufptr," %H:%M", &tm, &zoneinfo);
 	}
 	if (curptr == NULL)
-		curptr = ws_strptime(s,"%Y-%m-%d %H", &tm);
-	if (curptr == NULL)
-		curptr = ws_strptime(s,"%Y-%m-%d", &tm);
-	if (curptr == NULL)
-		goto fail;
-	tm.tm_isdst = -1;	/* let the computer figure out if it's DST */
+		curptr = bufptr;
 
 	if (*curptr == '.') {
 		/* Nanoseconds */
@@ -246,35 +301,34 @@ absolute_val_from_string(fvalue_t *fv, const char *s, size_t len _U_, char **err
 		fv->value.time.nsecs = 0;
 	}
 
+	/* Timezone */
+	bufptr = curptr;
+	curptr = ws_strptime(bufptr, "%n%z", &tm, &zoneinfo);
+	if (curptr == NULL) {
+		/* No timezone, assume localtime. */
+		has_timezone = FALSE;
+		curptr = bufptr;
+	}
+
 	/* Skip whitespace */
 	while (g_ascii_isspace(*curptr)) {
 		curptr++;
 	}
 
-	/* Do we have a Timezone? */
-	if (strcmp(curptr, "UTC") == 0) {
-		curptr += strlen("UTC");
-		if (*curptr == '\0') {
-			/* It's UTC */
-			fv->value.time.secs = mktime_utc(&tm);
-			goto done;
-		}
-		else {
-			err_msg = ws_strdup("Unexpected data after time value.");
-			goto fail;
-		}
-	}
-	if (*curptr == '\0') {
-		/* Local time */
-		fv->value.time.secs = mktime(&tm);
-		goto done;
-	}
-	else {
+	if (*curptr != '\0') {
 		err_msg = ws_strdup("Unexpected data after time value.");
 		goto fail;
 	}
 
-done:
+	if (has_timezone) {
+		/* Convert our calendar time (presumed in UTC, possibly with
+		 * an extra timezone offset correction datum) to epoch time. */
+		fv->value.time.secs = mktime_utc(&tm);
+	}
+	else {
+		/* Convert our calendar time (in the local timezone) to epoch time. */
+		fv->value.time.secs = mktime(&tm);
+	}
 	if (fv->value.time.secs == (time_t)-1) {
 		/*
 		 * XXX - should we supply an error message that mentions
@@ -288,6 +342,11 @@ done:
 		 */
 		err_msg = ws_strdup_printf("\"%s\" cannot be converted to a valid calendar time.", s);
 		goto fail;
+	}
+
+	if (has_timezone) {
+		/* Normalize to UTC with the offset we have saved. */
+		fv->value.time.secs -= zoneinfo.tm_gmtoff;
 	}
 
 	return TRUE;
@@ -345,7 +404,6 @@ abs_time_to_ftrepr_dfilter(wmem_allocator_t *scope,
 {
 	struct tm *tm;
 	char datetime_format[128];
-	int nsecs;
 	char nsecs_buf[32];
 
 	if (use_utc) {
@@ -367,11 +425,7 @@ abs_time_to_ftrepr_dfilter(wmem_allocator_t *scope,
 	if (nstime->nsecs == 0)
 		return wmem_strdup_printf(scope, datetime_format, "");
 
-	nsecs = nstime->nsecs;
-	while (nsecs > 0 && (nsecs % 10) == 0) {
-		nsecs /= 10;
-	}
-	snprintf(nsecs_buf, sizeof(nsecs_buf), ".%d", nsecs);
+	snprintf(nsecs_buf, sizeof(nsecs_buf), ".%09d", nstime->nsecs);
 
 	return wmem_strdup_printf(scope, datetime_format, nsecs_buf);
 }
@@ -391,11 +445,16 @@ absolute_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype
 			break;
 
 		case FTREPR_DFILTER:
-			/* Only ABSOLUTE_TIME_LOCAL and ABSOLUTE_TIME_UTC
-			 * are supported. Normalize the field_display value. */
-			if (field_display != ABSOLUTE_TIME_LOCAL)
-				field_display = ABSOLUTE_TIME_UTC;
-			rep = abs_time_to_ftrepr_dfilter(scope, &fv->value.time, field_display != ABSOLUTE_TIME_LOCAL);
+			if (field_display == ABSOLUTE_TIME_UNIX) {
+				rep = abs_time_to_unix_str(scope, &fv->value.time);
+			}
+			else {
+				/* Only ABSOLUTE_TIME_LOCAL and ABSOLUTE_TIME_UTC
+				 * are supported. Normalize the field_display value. */
+				if (field_display != ABSOLUTE_TIME_LOCAL)
+					field_display = ABSOLUTE_TIME_UTC;
+				rep = abs_time_to_ftrepr_dfilter(scope, &fv->value.time, field_display != ABSOLUTE_TIME_LOCAL);
+			}
 			break;
 
 		default:
@@ -438,17 +497,58 @@ time_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
 	return FT_OK;
 }
 
-static enum ft_result
-time_add(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
+#define NS_PER_S 1000000000
+
+static void
+check_ns_wraparound(nstime_t *ns, jmp_buf env)
 {
-	nstime_sum(&dst->value.time, &a->value.time, &b->value.time);
+	if (ns->nsecs >= NS_PER_S || (ns->nsecs > 0 && ns->secs < 0)) {
+		ws_safe_sub_jmp(&ns->nsecs, ns->nsecs, NS_PER_S, env);
+		ws_safe_add_jmp(&ns->secs, ns->secs, 1, env);
+	}
+	else if(ns->nsecs <= -NS_PER_S || (ns->nsecs < 0 && ns->secs > 0)) {
+		ws_safe_add_jmp(&ns->nsecs, ns->nsecs, NS_PER_S, env);
+		ws_safe_sub_jmp(&ns->secs, ns->secs, 1, env);
+	}
+}
+
+static void
+_nstime_add(nstime_t *res, nstime_t a, const nstime_t b, jmp_buf env)
+{
+	ws_safe_add_jmp(&res->secs, a.secs, b.secs, env);
+	ws_safe_add_jmp(&res->nsecs, a.nsecs, b.nsecs, env);
+	check_ns_wraparound(res, env);
+}
+
+static void
+_nstime_sub(nstime_t *res, nstime_t a, const nstime_t b, jmp_buf env)
+{
+	ws_safe_sub_jmp(&res->secs, a.secs, b.secs, env);
+	ws_safe_sub_jmp(&res->nsecs, a.nsecs, b.nsecs, env);
+	check_ns_wraparound(res, env);
+}
+
+static enum ft_result
+time_add(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
+{
+	jmp_buf env;
+	if (setjmp(env) != 0) {
+		*err_ptr = ws_strdup_printf("time_add: overflow");
+		return FT_ERROR;
+	}
+	_nstime_add(&dst->value.time, a->value.time, b->value.time, env);
 	return FT_OK;
 }
 
 static enum ft_result
-time_subtract(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
+time_subtract(fvalue_t * dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
-	nstime_delta(&dst->value.time, &a->value.time, &b->value.time);
+	jmp_buf env;
+	if (setjmp(env) != 0) {
+		*err_ptr = ws_strdup_printf("time_subtract: overflow");
+		return FT_ERROR;
+	}
+	_nstime_sub(&dst->value.time, a->value.time, b->value.time, env);
 	return FT_OK;
 }
 
@@ -481,13 +581,13 @@ ftype_register_time(void)
 
 		time_hash,			/* hash */
 		time_is_zero,			/* is_zero */
-		NULL,				/* is_negative */
+		time_is_negative,		/* is_negative */
 		NULL,
 		NULL,
 		NULL,				/* bitwise_and */
-		NULL,				/* unary_minus */
-		NULL,				/* add */
-		NULL,				/* subtract */
+		time_unary_minus,		/* unary_minus */
+		time_add,			/* add */
+		time_subtract,			/* subtract */
 		NULL,				/* multiply */
 		NULL,				/* divide */
 		NULL,				/* modulo */

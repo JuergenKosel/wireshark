@@ -15,7 +15,6 @@
 #include "randpkt_core.h"
 
 #include <time.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wsutil/file_util.h>
@@ -659,11 +658,10 @@ gboolean randpkt_example_close(randpkt_example* example)
 	return ok;
 }
 
-int randpkt_example_init(randpkt_example* example, char* produce_filename, int produce_max_bytes)
+int randpkt_example_init(randpkt_example* example, char* produce_filename, int produce_max_bytes, int file_type_subtype)
 {
 	int err;
 	gchar *err_info;
-	int file_type_subtype;
 
 	if (pkt_rand == NULL) {
 		pkt_rand = g_rand_new();
@@ -673,7 +671,6 @@ int randpkt_example_init(randpkt_example* example, char* produce_filename, int p
 		.encap = example->sample_wtap_encap,
 		.snaplen = produce_max_bytes,
 	};
-	file_type_subtype = wtap_pcap_file_type_subtype();
 	if (strcmp(produce_filename, "-") == 0) {
 		/* Write to the standard output. */
 		example->dump = wtap_dump_open_stdout(file_type_subtype,

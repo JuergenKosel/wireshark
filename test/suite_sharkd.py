@@ -10,57 +10,49 @@
 
 import json
 import subprocess
-import unittest
-import subprocesstest
-import fixtures
+import pytest
 from matchers import *
 
 
-@fixtures.fixture(scope='session')
+@pytest.fixture(scope='session')
 def cmd_sharkd(program):
     return program('sharkd')
 
 
-@fixtures.fixture
-def run_sharkd_session(cmd_sharkd, request):
-    self = request.instance
-
+@pytest.fixture
+def run_sharkd_session(cmd_sharkd, base_env):
     def run_sharkd_session_real(sharkd_commands):
-        sharkd_proc = self.startProcess(
-            (cmd_sharkd, '-'), stdin=subprocess.PIPE)
-        sharkd_proc.stdin.write('\n'.join(sharkd_commands).encode('utf8'))
-        self.waitProcess(sharkd_proc)
+        sharkd_proc = subprocess.Popen(
+            (cmd_sharkd, '-'), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8', env=base_env)
+        sharkd_proc.stdin.write('\n'.join(sharkd_commands))
+        stdout, stderr = sharkd_proc.communicate()
 
-        self.assertIn('Hello in child.', sharkd_proc.stderr_str)
+        assert 'Hello in child.' in stderr
 
         outputs = []
-        for line in sharkd_proc.stdout_str.splitlines():
+        for line in stdout.splitlines():
             line = line.strip()
             if not line:
                 continue
             try:
                 jdata = json.loads(line)
             except json.JSONDecodeError:
-                self.fail('Invalid JSON: %r' % line)
+                pytest.fail('Invalid JSON: %r' % line)
             outputs.append(jdata)
         return tuple(outputs)
     return run_sharkd_session_real
 
 
-@fixtures.fixture
-def check_sharkd_session(run_sharkd_session, request):
-    self = request.instance
-
+@pytest.fixture
+def check_sharkd_session(run_sharkd_session):
     def check_sharkd_session_real(sharkd_commands, expected_outputs):
         sharkd_commands = [json.dumps(x) for x in sharkd_commands]
         actual_outputs = run_sharkd_session(sharkd_commands)
-        self.assertEqual(expected_outputs, actual_outputs)
+        assert expected_outputs == actual_outputs
     return check_sharkd_session_real
 
 
-@fixtures.mark_usefixtures('base_env')
-@fixtures.uses_fixtures
-class case_sharkd(subprocesstest.SubprocessTestCase):
+class TestSharkd:
     def test_sharkd_req_load_bad_pcap(self, check_sharkd_session, capture_file):
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"load",
@@ -114,6 +106,8 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
     def test_sharkd_req_info(self, check_sharkd_session):
         matchTapNameList = MatchList(
             {"tap": MatchAny(str), "name": MatchAny(str)})
+        matchNameDescriptionList = MatchList(
+            {"name": MatchAny(str), "description": MatchAny(str)})
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"info"},
         ), (
@@ -129,6 +123,8 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
                 "taps": matchTapNameList,
                 "follow": matchTapNameList,
                 "ftypes": MatchList(MatchAny(str)),
+                "capture_types": matchNameDescriptionList,
+                "encap_types": matchNameDescriptionList,
                 "nstat": matchTapNameList,
             }},
         ))
@@ -202,10 +198,12 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
             },
             {"jsonrpc":"2.0", "id":2, "method":"tap"},
             {"jsonrpc":"2.0", "id":3, "method":"tap", "params":{"tap0": "garbage tap"}},
+            {"jsonrpc":"2.0", "id":4, "method":"tap", "params":{"tap0": "conv:Ethernet", "filter": "garbage filter"}},
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Mandatory parameter tap0 is missing"}},
             {"jsonrpc":"2.0","id":3,"error":{"code":-11012,"message":"sharkd_session_process_tap() garbage tap not recognized"}},
+            {"jsonrpc":"2.0","id":4,"error":{"code":-11013,"message":"sharkd_session_process_tap() name=conv:Ethernet error=Filter \"garbage filter\" is invalid - \"filter\" was unexpected in this context."}},
         ))
 
     def test_sharkd_req_tap(self, check_sharkd_session, capture_file):
@@ -281,8 +279,15 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
                         "sport":8000,
                         "daddr":"200.57.7.196",
                         "dport":40376,
+                        "start_time":8.479371,
+                        "duration": 24.124055,
                         "pkts":548,
+                        "lost":0,
+                        "lost_percent":0.0,
                         "max_delta":5843.742000,
+                        "min_delta":0.159,
+                        "mean_delta":44.102477,
+                        "min_jitter":0.388213,
                         "max_jitter":7.406751,
                         "mean_jitter":2.517173,
                         "expectednr":548,
@@ -308,6 +313,680 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
                     "items": MatchAny()
                 }]
             }},
+        ))
+
+    def test_sharkd_req_tap_phs(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('protohier-with-comments.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "phs"}},
+            {"jsonrpc":"2.0", "id":3, "method":"load",
+             "params":{"file": capture_file('protohier-without-comments.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":4, "method":"tap", "params":{"tap0": "phs"}},
+            {"jsonrpc":"2.0", "id":5, "method":"tap", "params":{"tap0": "phs", "filter": "ipv6"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "taps":[{
+                    "tap":"phs",
+                    "type":"phs",
+                    "filter":"",
+                    "protos":[{
+                        "proto":"eth",
+                        "frames":115,
+                        "bytes":22186,
+                        "protos":[{
+                            "proto":"ipv6",
+                            "frames":39,
+                            "bytes":7566,
+                            "protos":[{
+                                "proto":"icmpv6",
+                                "frames":36,
+                                "bytes":3684
+                            },{
+                                "proto":"udp",
+                                "frames":3,
+                                "bytes":3882,
+                                "protos":[{
+                                    "proto":"data",
+                                    "frames":3,
+                                    "bytes":3882
+                                }]
+                            }]
+                        },{
+                            "proto":"ip",
+                            "frames":70,
+                            "bytes":14260,
+                            "protos":[{
+                                "proto":"udp",
+                                "frames":60,
+                                "bytes":13658,
+                                "protos":[{
+                                    "proto":"mdns",
+                                    "frames":1,
+                                    "bytes":138
+                                },{
+                                    "proto":"ssdp",
+                                    "frames":30,
+                                    "bytes":8828
+                                },{
+                                    "proto":"nbns",
+                                    "frames":20,
+                                    "bytes":2200
+                                },{
+                                    "proto":"nbdgm",
+                                    "frames":1,
+                                    "bytes":248,
+                                    "protos":[{
+                                        "proto":"smb",
+                                        "frames":1,
+                                        "bytes":248,
+                                        "protos":[{
+                                            "proto":"mailslot",
+                                            "frames":1,
+                                            "bytes":248,
+                                            "protos":[{
+                                                "proto":"browser",
+                                                "frames":1,
+                                                "bytes":248
+                                            }]
+                                        }]
+                                    }]
+                                },{"proto":"dhcp",
+                                   "frames":4,
+                                   "bytes":1864
+                                   },{
+                                    "proto":"dns",
+                                    "frames":4,
+                                    "bytes":380
+                                }]
+                            },{
+                                "proto":"igmp",
+                                "frames":10,
+                                "bytes":602
+                            }]
+                        },{
+                            "proto":"arp",
+                            "frames":6,
+                            "bytes":360
+                        }]
+                    }]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":3,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":4,"result":{
+                "taps":[{
+                    "tap":"phs",
+                    "type":"phs",
+                    "filter":"",
+                    "protos":[{
+                        "proto":"eth",
+                        "frames":115,
+                        "bytes":22186,
+                        "protos":[{
+                            "proto":"ipv6",
+                            "frames":39,
+                            "bytes":7566,
+                            "protos":[{
+                                "proto":"icmpv6",
+                                "frames":36,
+                                "bytes":3684
+                            },{
+                                "proto":"udp",
+                                "frames":3,
+                                "bytes":3882,
+                                "protos":[{
+                                    "proto":"data",
+                                    "frames":3,
+                                    "bytes":3882
+                                }]
+                            }]
+                        },{
+                            "proto":"ip",
+                            "frames":70,
+                            "bytes":14260,
+                            "protos":[{
+                                "proto":"udp",
+                                "frames":60,
+                                "bytes":13658,
+                                "protos":[{
+                                    "proto":"mdns",
+                                    "frames":1,
+                                    "bytes":138
+                                },{
+                                    "proto":"ssdp",
+                                    "frames":30,
+                                    "bytes":8828
+                                },{
+                                    "proto":"nbns",
+                                    "frames":20,
+                                    "bytes":2200
+                                },{
+                                    "proto":"nbdgm",
+                                    "frames":1,
+                                    "bytes":248,
+                                    "protos":[{
+                                        "proto":"smb",
+                                        "frames":1,
+                                        "bytes":248,
+                                        "protos":[{
+                                            "proto":"mailslot",
+                                            "frames":1,
+                                            "bytes":248,
+                                            "protos":[{
+                                                "proto":"browser",
+                                                "frames":1,
+                                                "bytes":248
+                                            }]
+                                        }]
+                                    }]
+                                },{"proto":"dhcp",
+                                   "frames":4,
+                                   "bytes":1864
+                                   },{
+                                    "proto":"dns",
+                                    "frames":4,
+                                    "bytes":380
+                                }]
+                            },{
+                                "proto":"igmp",
+                                "frames":10,
+                                "bytes":602
+                            }]
+                        },{
+                            "proto":"arp",
+                            "frames":6,
+                            "bytes":360
+                        }]
+                    }]
+                }]
+            }},
+            {"jsonrpc": "2.0", "id": 5, "result": {
+                "taps": [{
+                    "tap": "phs",
+                    "type": "phs",
+                    "filter": "ipv6",
+                    "protos": [{
+                        "bytes": 7566,
+                        "frames": 39,
+                        "proto": "eth",
+                        "protos": [{
+                            "bytes": 7566,
+                            "frames": 39,
+                            "proto": "ipv6",
+                            "protos": [{
+                                "bytes": 3684,
+                                "frames": 36,
+                                "proto": "icmpv6"
+                            },{
+                                "bytes": 3882,
+                                "frames": 3,
+                                "proto": "udp",
+                                "protos": [{
+                                    "bytes": 3882,
+                                    "frames": 3,
+                                    "proto": "data"
+                                }]
+                            }]
+                        }]
+                    }]
+                }]
+            }},
+        ))
+
+    def test_sharkd_req_tap_voip_calls(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('sip-rtp.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "voip-calls"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "taps":[{
+                    "tap":"voip-calls",
+                    "type":"voip-calls",
+                    "calls":[{
+                        "call":0,
+                        "start_time":0.000000,
+                        "stop_time":8.524137,
+                        "initial_speaker":"200.57.7.195",
+                        "from":"<sip:200.57.7.195:55061;user=phone>",
+                        "to":"\"francisco@bestel.com\" <sip:francisco@bestel.com:55060>",
+                        "protocol":"SIP",
+                        "packets":5,
+                        "state":"IN CALL",
+                        "comment":"INVITE 200"
+                    },{
+                        "call":1,
+                        "start_time":24.665953,
+                        "stop_time":24.692752,
+                        "initial_speaker":"200.57.7.195",
+                        "from":"\"Ivan Alizade\" <sip:5514540002@200.57.7.195:55061;user=phone>",
+                        "to":"\"francisco@bestel.com\" <sip:francisco@bestel.com:55060>",
+                        "protocol":"SIP",
+                        "packets":3,
+                        "state":"CALL SETUP",
+                        "comment":"INVITE"
+                    }]
+                }]
+            }},
+        ))
+
+    def test_sharkd_req_tap_voip_convs(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('sip-rtp.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "voip-convs:"}},
+            {"jsonrpc":"2.0", "id":3, "method":"tap", "params":{"tap0": "voip-convs:0"}},
+            {"jsonrpc":"2.0", "id":4, "method":"tap", "params":{"tap0": "voip-convs:0-1"}},
+            {"jsonrpc":"2.0", "id":5, "method":"tap", "params":{"tap0": "voip-convs:garbage"}},
+            {"jsonrpc":"2.0", "id":6, "method":"tap", "params":{"tap0": "voip-convs:999"}},
+            {"jsonrpc":"2.0", "id":7, "method":"tap", "params":{"tap0": "voip-convs:0,999,0-1,999-999,1,1"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "taps":[{
+                    "tap":"voip-convs:",
+                    "type":"voip-convs",
+                    "convs":[{
+                        "frame":1,
+                        "call":0,
+                        "time":"0.000000",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723 g711U)",
+                        "comment":"SIP INVITE From: <sip:200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12013223@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":2,
+                        "call":0,
+                        "time":"0.007889",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":3,
+                        "call":0,
+                        "time":"0.047524",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    },{
+                        "frame":6,
+                        "call":0,
+                        "time":"8.477925",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"200 Ok SDP (g711A g711U GSM iLBC speex telephone-event)",
+                        "comment":"SIP Status 200 Ok"
+                    },{
+                        "frame":7,
+                        "call":0,
+                        "time":"8.479371",
+                        "dst_addr":"200.57.7.196",
+                        "dst_port":40376,
+                        "src_addr":"200.57.7.204",
+                        "src_port":8000,
+                        "label":"RTP (g711A) ",
+                        "comment":"RTP, 548 packets. Duration: 24.12s SSRC: 0xD2BD4E3E"
+                    },{
+                        "frame":10,
+                        "call":0,
+                        "time":"8.524137",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"ACK",
+                        "comment":"SIP Request INVITE ACK 200 CSeq:1"
+                    },{
+                        "frame":352,
+                        "call":1,
+                        "time":"24.665953",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723)",
+                        "comment":"SIP INVITE From: \"Ivan Alizade\" <sip:5514540002@200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12015624@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":353,
+                        "call":1,
+                        "time":"24.674680",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":354,
+                        "call":1,
+                        "time":"24.692752",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    }]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":3,"result":{
+                "taps":[{
+                    "tap":"voip-convs:0",
+                    "type":"voip-convs",
+                    "convs":[{
+                        "frame":1,
+                        "call":0,
+                        "time":"0.000000",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723 g711U)",
+                        "comment":"SIP INVITE From: <sip:200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12013223@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":2,
+                        "call":0,
+                        "time":"0.007889",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":3,
+                        "call":0,
+                        "time":"0.047524",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    },{
+                        "frame":6,
+                        "call":0,
+                        "time":"8.477925",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"200 Ok SDP (g711A g711U GSM iLBC speex telephone-event)",
+                        "comment":"SIP Status 200 Ok"
+                    },{
+                        "frame":7,
+                        "call":0,
+                        "time":"8.479371",
+                        "dst_addr":"200.57.7.196",
+                        "dst_port":40376,
+                        "src_addr":"200.57.7.204",
+                        "src_port":8000,
+                        "label":"RTP (g711A) ",
+                        "comment":"RTP, 548 packets. Duration: 24.12s SSRC: 0xD2BD4E3E"
+                    },{
+                        "frame":10,
+                        "call":0,
+                        "time":"8.524137",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,"label":"ACK","comment":"SIP Request INVITE ACK 200 CSeq:1"
+                    }]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":4,"result":{
+                "taps":[{
+                    "tap":"voip-convs:0-1",
+                    "type":"voip-convs",
+                    "convs":[{
+                        "frame":1,
+                        "call":0,
+                        "time":"0.000000",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723 g711U)",
+                        "comment":"SIP INVITE From: <sip:200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12013223@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":2,
+                        "call":0,
+                        "time":"0.007889",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":3,
+                        "call":0,
+                        "time":"0.047524",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    },{
+                        "frame":6,
+                        "call":0,
+                        "time":"8.477925",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"200 Ok SDP (g711A g711U GSM iLBC speex telephone-event)",
+                        "comment":"SIP Status 200 Ok"
+                    },{
+                        "frame":7,
+                        "call":0,
+                        "time":"8.479371",
+                        "dst_addr":"200.57.7.196",
+                        "dst_port":40376,
+                        "src_addr":"200.57.7.204",
+                        "src_port":8000,
+                        "label":"RTP (g711A) ",
+                        "comment":"RTP, 548 packets. Duration: 24.12s SSRC: 0xD2BD4E3E"
+                    },{
+                        "frame":10,
+                        "call":0,
+                        "time":"8.524137",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"ACK",
+                        "comment":"SIP Request INVITE ACK 200 CSeq:1"
+                    },{
+                        "frame":352,
+                        "call":1,
+                        "time":"24.665953",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723)",
+                        "comment":"SIP INVITE From: \"Ivan Alizade\" <sip:5514540002@200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12015624@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":353,
+                        "call":1,
+                        "time":"24.674680",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":354,
+                        "call":1,
+                        "time":"24.692752",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    }]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":5,"error":{
+                "code":-11014,"message":"sharkd_session_process_tap() voip-convs=voip-convs:garbage invalid 'convs' parameter"
+            }},
+            {"jsonrpc":"2.0","id":6,"result":{
+                "taps":[{
+                    "tap":"voip-convs:999",
+                    "type":"voip-convs",
+                    "convs":[]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":7,"result":{
+                "taps":[{
+                    "tap":"voip-convs:0,999,0-1,999-999,1,1",
+                    "type":"voip-convs",
+                    "convs":[{
+                        "frame":1,
+                        "call":0,
+                        "time":"0.000000",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723 g711U)",
+                        "comment":"SIP INVITE From: <sip:200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12013223@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":2,
+                        "call":0,
+                        "time":"0.007889",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":3,
+                        "call":0,
+                        "time":"0.047524",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    },{
+                        "frame":6,
+                        "call":0,
+                        "time":"8.477925",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"200 Ok SDP (g711A g711U GSM iLBC speex telephone-event)",
+                        "comment":"SIP Status 200 Ok"
+                    },{
+                        "frame":7,
+                        "call":0,
+                        "time":"8.479371",
+                        "dst_addr":"200.57.7.196",
+                        "dst_port":40376,
+                        "src_addr":"200.57.7.204",
+                        "src_port":8000,
+                        "label":"RTP (g711A) ",
+                        "comment":"RTP, 548 packets. Duration: 24.12s SSRC: 0xD2BD4E3E"
+                    },{
+                        "frame":10,
+                        "call":0,
+                        "time":"8.524137",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"ACK",
+                        "comment":"SIP Request INVITE ACK 200 CSeq:1"
+                    },{
+                        "frame":352,
+                        "call":1,
+                        "time":"24.665953",
+                        "dst_addr":"200.57.7.204",
+                        "dst_port":5061,
+                        "src_addr":"200.57.7.195",
+                        "src_port":5060,
+                        "label":"INVITE SDP (g711A g729 g723)",
+                        "comment":"SIP INVITE From: \"Ivan Alizade\" <sip:5514540002@200.57.7.195:55061;user=phone> To:\"francisco@bestel.com\" <sip:francisco@bestel.com:55060> Call-ID:12015624@200.57.7.195 CSeq:1"
+                    },{
+                        "frame":353,
+                        "call":1,
+                        "time":"24.674680",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"100 Trying",
+                        "comment":"SIP Status 100 Trying"
+                    },{
+                        "frame":354,
+                        "call":1,
+                        "time":"24.692752",
+                        "dst_addr":"200.57.7.195",
+                        "dst_port":5060,
+                        "src_addr":"200.57.7.204",
+                        "src_port":5061,
+                        "label":"180 Ringing",
+                        "comment":"SIP Status 180 Ringing"
+                    }]
+                }]
+            }},
+        ))
+
+    def test_sharkd_req_tap_eo_http(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('http-ooo.pcap')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "eo:http"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "taps":[{
+                    "tap":"eo:http",
+                    "type":"eo",
+                    "proto":"HTTP",
+                    "objects":[{
+                        "pkt":11,
+                        "filename":"4",
+                        "_download":"eo:http_0",
+                        "len":5,
+                        "sha1":"4a4121ecd766ed16943a0c7b54c18f743e90c3f6"
+                    },{
+                        "pkt":13,
+                        "_download":"eo:http_1",
+                        "len":5,
+                        "sha1":"29a51e7382d06ff40467272f02e413ca7b51636e"
+                    },{
+                        "pkt":14,
+                        "_download":"eo:http_2",
+                        "len":5,
+                        "sha1":"f6d0c643351580307b2eaa6a7560e76965496bc7"}]
+                }]
+            }}
         ))
 
     def test_sharkd_req_follow_bad(self, check_sharkd_session, capture_file):
@@ -466,11 +1145,13 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
                     "l": "Dynamic Host Configuration Protocol (Offer)",
                     "t": "proto",
                     "f": "dhcp",
+                    "fn": "dhcp",
                     "e": MatchAny(int),
                     "n": MatchList({
                         "l": "Padding: 0000000000000000000000000000000000000000000000000000",
                         "h": [316, 26],
-                        "f": "dhcp.option.padding == 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+                        "f": "dhcp.option.padding == 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
+                        "fn": "dhcp.option.padding"
                     }, match_element=any),  # match one element from 'n'
                     "h": [42, 300],
                 }, match_element=any),  # match one element from 'tree'
@@ -545,9 +1226,8 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
             },
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            # TODO remove "RSA Session-ID:" support and support "CLIENT_RANDOM "... only
             {"jsonrpc":"2.0","id":2,"result":{"file": "keylog.txt", "mime": "text/plain",
-                "data": MatchRegExp(r'UlNBIFNlc3Npb24tSUQ6.+')}
+                "data": MatchRegExp(r'Q0xJRU5UX1JBTkRPTSBm.+')}
             },
         ))
 
@@ -587,6 +1267,76 @@ class case_sharkd(subprocesstest.SubprocessTestCase):
             {"jsonrpc":"2.0","id":3,"error":{"code":-10005,"message":"missing token"}},
         ))
 
+    def test_sharkd_req_download_eo_http_with_prior_tap_eo_http(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('http-ooo.pcap')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"tap", "params":{"tap0": "eo:http"}},
+            {"jsonrpc":"2.0", "id":3, "method":"download",
+             "params":{"token": "eo:http_0"}},
+            {"jsonrpc":"2.0", "id":4, "method":"download",
+             "params":{"token": "eo:http_1"}},
+            {"jsonrpc":"2.0", "id":5, "method":"download",
+             "params":{"token": "eo:http_2"}},
+            {"jsonrpc":"2.0", "id":6, "method":"download",
+             "params":{"token": "eo:http_999"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "taps":[{
+                    "tap":"eo:http",
+                    "type":"eo",
+                    "proto":"HTTP",
+                    "objects":[{
+                        "pkt":11,
+                        "filename":"4",
+                        "_download":"eo:http_0",
+                        "len":5,
+                        "sha1":"4a4121ecd766ed16943a0c7b54c18f743e90c3f6"
+                    },{
+                        "pkt":13,
+                        "_download":"eo:http_1",
+                        "len":5,
+                        "sha1":"29a51e7382d06ff40467272f02e413ca7b51636e"
+                    },{
+                        "pkt":14,
+                        "_download":"eo:http_2",
+                        "len":5,
+                        "sha1":"f6d0c643351580307b2eaa6a7560e76965496bc7"}]
+                }]
+            }},
+            {"jsonrpc":"2.0","id":3,"result":{
+                "file":"4","mime":"application/octet-stream","data":"Zm91cgo="}},
+            {"jsonrpc":"2.0","id":4,"result":{
+                "file":"eo:http_1","mime":"application/octet-stream","data":"QVRBDQo="}},
+            {"jsonrpc":"2.0","id":5,"result":{
+                "file":"eo:http_2","mime":"application/octet-stream","data":"MA0KDQo="}},
+            {"jsonrpc":"2.0","id":6,"result":{}},
+        ))
+    def test_sharkd_req_download_eo_http_without_prior_tap_eo_http(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('http-ooo.pcap')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"download",
+             "params":{"token": "eo:http_0"}},
+            {"jsonrpc":"2.0", "id":3, "method":"download",
+             "params":{"token": "eo:http_1"}},
+            {"jsonrpc":"2.0", "id":4, "method":"download",
+             "params":{"token": "eo:http_2"}},
+            {"jsonrpc":"2.0", "id":5, "method":"download",
+             "params":{"token": "eo:http_999"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "file":"4","mime":"application/octet-stream","data":"Zm91cgo="}},
+            {"jsonrpc":"2.0","id":3,"result":{
+                "file":"eo:http_1","mime":"application/octet-stream","data":"QVRBDQo="}},
+            {"jsonrpc":"2.0","id":4,"result":{
+                "file":"eo:http_2","mime":"application/octet-stream","data":"MA0KDQo="}},
+            {"jsonrpc":"2.0","id":5,"result":{}},
+        ))
     def test_sharkd_req_bye(self, check_sharkd_session):
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"bye"},

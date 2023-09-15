@@ -102,6 +102,10 @@
 #include <QStyleHints>
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && defined(Q_OS_WIN)
+#include <QStyleFactory>
+#endif
+
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -276,6 +280,16 @@ void MainApplication::refreshPacketData()
         emit columnDataChanged();
     }
 }
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && defined(Q_OS_WIN)
+void MainApplication::colorSchemeChanged() {
+    if (ColorUtils::themeIsDark()) {
+        setStyle(QStyleFactory::create("fusion"));
+    } else {
+        setStyle(QStyleFactory::create("windowsvista"));
+    }
+}
+#endif
 
 void MainApplication::updateTaps()
 {
@@ -487,6 +501,10 @@ void MainApplication::setConfigurationProfile(const gchar *profile_name, bool wr
 
     setMonospaceFont(prefs.gui_font_name);
 
+    // Freeze the packet list early to avoid updating column data before doing a
+    // full redissection. The packet list will be thawed when redissection is done.
+    emit freezePacketList(true);
+
     emit columnsChanged();
     emit preferencesChanged();
     emit recentPreferencesRead();
@@ -696,6 +714,11 @@ MainApplication::MainApplication(int &argc,  char **argv) :
     setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
 
+    // Throw various settings at the wall with the hope that one of them will
+    // enable context menu shortcuts QTBUG-69452, QTBUG-109590
+#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
+    setAttribute(Qt::AA_DontShowShortcutsInContextMenus, false);
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
     styleHints()->setShowShortcutsInContextMenus(true);
 #endif
@@ -804,11 +827,15 @@ MainApplication::MainApplication(int &argc,  char **argv) :
     qApp->setStyleSheet(app_style_sheet);
 
     // If our window text is lighter than the window background, assume the theme is dark.
-    QPalette gui_pal = qApp->palette();
-    prefs_set_gui_theme_is_dark(gui_pal.windowText().color().value() > gui_pal.window().color().value());
+    prefs_set_gui_theme_is_dark(ColorUtils::themeIsDark());
 
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     connect(this, SIGNAL(softwareUpdateQuit()), this, SLOT(quit()), Qt::QueuedConnection);
+#endif
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0) && defined(Q_OS_WIN)
+    colorSchemeChanged();
+    connect(styleHints(), &QStyleHints::colorSchemeChanged, this, &MainApplication::colorSchemeChanged);
 #endif
 
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(cleanup()));
@@ -864,6 +891,9 @@ void MainApplication::emitAppSignal(AppSignal signal)
         break;
     case FieldsChanged:
         emit fieldsChanged();
+        break;
+    case FreezePacketList:
+        emit freezePacketList(false);
         break;
     default:
         break;
@@ -1168,12 +1198,13 @@ void MainApplication::loadLanguage(const QString newLanguage)
     QString localeLanguage;
 
     if (newLanguage.isEmpty() || newLanguage == USE_SYSTEM_LANGUAGE) {
-        localeLanguage = QLocale::system().name();
+        locale = QLocale::system();
+        localeLanguage = locale.name();
     } else {
         localeLanguage = newLanguage;
+        locale = QLocale(localeLanguage);
     }
 
-    locale = QLocale(localeLanguage);
     QLocale::setDefault(locale);
     switchTranslator(mainApp->translator,
             QString("wireshark_%1.qm").arg(localeLanguage), QString(":/i18n/"));

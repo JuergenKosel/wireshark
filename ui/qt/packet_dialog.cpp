@@ -107,6 +107,10 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
 
     connect(byte_view_tab_, SIGNAL(fieldHighlight(FieldInformation *)),
             this, SLOT(setHintText(FieldInformation *)));
+    connect(byte_view_tab_, &ByteViewTab::fieldSelected,
+            this, &PacketDialog::setHintTextSelected);
+    connect(proto_tree_, &ProtoTree::fieldSelected,
+            this, &PacketDialog::setHintTextSelected);
 
     connect(proto_tree_, SIGNAL(showProtocolPreferences(QString)),
             this, SIGNAL(showProtocolPreferences(QString)));
@@ -130,6 +134,7 @@ void PacketDialog::captureFileClosing()
             .arg(cap_file_.fileName())
             .arg(col_info_);
     ui->hintLabel->setText(closed_title);
+    byte_view_tab_->captureFileClosing();
     WiresharkDialog::captureFileClosing();
 }
 
@@ -156,7 +161,45 @@ void PacketDialog::setHintText(FieldInformation * finfo)
                  .arg(finfo->headerInfo().name)
                  .arg(finfo->headerInfo().abbreviation);
      }
+     else {
+         hint = col_info_;
+     }
      ui->hintLabel->setText(hint);
+}
+
+void PacketDialog::setHintTextSelected(FieldInformation* finfo)
+{
+    QString hint;
+
+    if (finfo)
+    {
+        FieldInformation::HeaderInfo hInfo = finfo->headerInfo();
+
+        if (hInfo.isValid)
+        {
+            if (hInfo.description.length() > 0) {
+                hint.append(hInfo.description);
+            }
+            else {
+                hint.append(hInfo.name);
+            }
+        }
+
+        if (!hint.isEmpty()) {
+            int finfo_length;
+            if (hInfo.isValid)
+                hint.append(" (" + hInfo.abbreviation + ")");
+
+            finfo_length = finfo->position().length + finfo->appendix().length;
+            if (finfo_length > 0) {
+                hint.append(", " + tr("%Ln byte(s)", "", finfo_length));
+            }
+        }
+    }
+    else {
+        hint = col_info_;
+    }
+    ui->hintLabel->setText(hint);
 }
 
 void PacketDialog::viewVisibilityStateChanged(int state)

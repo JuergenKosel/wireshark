@@ -18,19 +18,23 @@
 void codec_register_opus(void);
 
 static void *
-codec_opus_init(void)
+codec_opus_init(codec_context_t *ctx _U_)
 {
     OpusDecoder *state;
     int err = OPUS_INTERNAL_ERROR;
-    /* always use maximum 48000 to cover all 8k/12k/16k/24k/48k */
+    /* Opus has in-band signaling and can convert what is sent to our
+     * desired output.
+     * always use maximum 48000 to cover all 8k/12k/16k/24k/48k
+     * always downmix to mono because RTP Player only supports mono now
+     */
     state = opus_decoder_create(48000, 1, &err);
     return state;
 }
 
 static void
-codec_opus_release(void *ctx)
+codec_opus_release(codec_context_t *ctx)
 {
-    OpusDecoder* state = (OpusDecoder*)ctx;
+    OpusDecoder* state = (OpusDecoder*)ctx->priv;
     if (!state) {
       return; /* out-of-memory; */
     }
@@ -38,36 +42,42 @@ codec_opus_release(void *ctx)
 }
 
 static unsigned
-codec_opus_get_channels(void *ctx _U_)
+codec_opus_get_channels(codec_context_t *ctx _U_)
 {
     return 1;
 }
 
 static unsigned
-codec_opus_get_frequency(void *ctx _U_)
+codec_opus_get_frequency(codec_context_t *ctx _U_)
 {
     /* although can set kinds of fs, but we set 48K now */
     return 48000;
 }
 
 static size_t
-codec_opus_decode(void *ctx , const void *input, size_t inputSizeBytes,
-                  void *output, size_t *outputSizeBytes  )
+codec_opus_decode(codec_context_t *ctx,
+                  const void *input, size_t inputSizeBytes,
+                  void *output, size_t *outputSizeBytes)
 {
-    OpusDecoder *state = (OpusDecoder *)ctx;
+    OpusDecoder *state = (OpusDecoder *)ctx->priv;
 
-    if (!ctx) {
+    if (!state) {
         return 0;  /* out-of-memory */
     }
+
+    const unsigned char *data = (const unsigned char *)input;
+    opus_int32 len = (opus_int32)inputSizeBytes;
+    int frame_samples = opus_decoder_get_nb_samples(state, data, len);
+    if (frame_samples < 0) { // OPUS_INVALID_PACKET
+        return 0;
+    }
+
     // reserve space for the first time
     if (!output || !outputSizeBytes) {
-        return 1920;
+        return frame_samples*2;
     }
-    const unsigned char *data = (const unsigned char *)input;
-    opus_int32 len= (opus_int32)inputSizeBytes;
     opus_int16 *pcm = (opus_int16*)(output);
-    int frame_size = 960;
-    int ret = opus_decode(state, data, len, pcm, frame_size, 0);
+    int ret = opus_decode(state, data, len, pcm, frame_samples, 0);
 
     if (ret < 0) {
         return 0;

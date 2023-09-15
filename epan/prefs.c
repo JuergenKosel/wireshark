@@ -827,7 +827,7 @@ typedef struct {
     gboolean skip_obsolete;
 } call_foreach_t;
 
-static gboolean
+static bool
 call_foreach_cb(const void *key _U_, void *value, void *data)
 {
     module_t *module = (module_t*)value;
@@ -904,7 +904,7 @@ prefs_modules_foreach_submodules(module_t *module, module_cb callback,
     return prefs_module_list_foreach((module)?module->submodules:prefs_top_level_modules, callback, user_data, TRUE);
 }
 
-static gboolean
+static bool
 call_apply_cb(const void *key _U_, void *value, void *data _U_)
 {
     module_t *module = (module_t *)value;
@@ -1073,7 +1073,7 @@ preference_match(gconstpointer a, gconstpointer b)
     return strcmp(name, pref->name);
 }
 
-static gboolean
+static bool
 module_find_pref_cb(const void *key _U_, void *value, void *data)
 {
     find_pref_arg_t* arg = (find_pref_arg_t*)data;
@@ -2611,6 +2611,8 @@ column_format_init_cb(pref_t* pref, GList** value)
         dest_cfmt->resolved = src_cfmt->resolved;
         pref->default_val.list = g_list_append(pref->default_val.list, dest_cfmt);
     }
+
+    column_register_fields();
 }
 
 static void
@@ -2717,6 +2719,7 @@ column_format_set_cb(pref_t* pref, const gchar* value, unsigned int* changed_fla
 
     prefs_clear_string_list(col_l);
     free_string_like_preference(hidden_pref);
+    column_register_fields();
     return PREFS_SET_OK;
 }
 
@@ -3240,6 +3243,10 @@ prefs_register_modules(void)
         "Directory to start in when opening File Open dialog.",
         &prefs.gui_fileopen_dir, PREF_DIRNAME, NULL, TRUE);
 
+    register_string_like_preference(gui_module, "browser_sslkeylog.path", "Path to browser executable",
+        "Path to browser executable to launch with SSLKEYLOG",
+        &prefs.gui_browser_sslkeylog_path, PREF_OPEN_FILENAME, NULL, TRUE);
+
     prefs_register_obsolete_preference(gui_module, "fileopen.remembered_dir");
 
     prefs_register_uint_preference(gui_module, "fileopen.preview",
@@ -3625,9 +3632,7 @@ prefs_register_modules(void)
     prefs_register_bool_preference(capture_module, "no_extcap", "Disable external capture interfaces",
         "Disable external capture modules (extcap)", &prefs.capture_no_extcap);
 
-    /* We might want to make this a "recent" setting. */
-    prefs_register_bool_preference(capture_module, "auto_scroll", "Scroll packet list during capture",
-        "Scroll packet list during capture?", &prefs.capture_auto_scroll);
+    prefs_register_obsolete_preference(capture_module, "auto_scroll");
 
     prefs_register_bool_preference(capture_module, "show_info", "Show capture information dialog while capturing",
         "Show capture information dialog while capturing?", &prefs.capture_show_info);
@@ -3767,6 +3772,17 @@ prefs_register_modules(void)
                                    "Protocols may use things like VLAN ID or interface ID to narrow the potential for duplicate conversations. "
                                    "Currently ICMP and ICMPv6 use this preference to add VLAN ID to conversation tracking, and IPv4 uses this preference to take VLAN ID into account during reassembly",
                                    &prefs.strict_conversation_tracking_heuristics);
+
+    prefs_register_bool_preference(protocols_module, "ignore_dup_frames",
+                                   "Ignore duplicate frames",
+                                   "Ignore frames that are exact duplicates of any previous frame.",
+                                   &prefs.ignore_dup_frames);
+
+    prefs_register_uint_preference(protocols_module, "ignore_dup_frames_cache_entries",
+            "The max number of hashes to keep in memory for determining duplicates frames",
+            "If \"Ignore duplicate frames\" is set, this setting sets the maximum number "
+            "of cache entries to maintain. A 0 means no limit.",
+            10, &prefs.ignore_dup_frames_cache_entries);
 
     /* Obsolete preferences
      * These "modules" were reorganized/renamed to correspond to their GUI
@@ -3971,8 +3987,6 @@ print.file: /a/very/long/path/
  *
  */
 
-#define DEF_NUM_COLS    7
-
 /* Initialize non-dissector preferences to wired-in default values Called
  * at program startup and any time the profile changes. (The dissector
  * preferences are assumed to be set to those values by the dissectors.)
@@ -4011,11 +4025,29 @@ pre_init_prefs(void)
     int         i;
     gchar       *col_name;
     fmt_data    *cfmt;
-    static const gchar *col_fmt[DEF_NUM_COLS*2] = {
+    static const char *col_fmt_packets[] = {
         "No.",      "%m", "Time",        "%t",
         "Source",   "%s", "Destination", "%d",
         "Protocol", "%p", "Length",      "%L",
-        "Info",     "%i"};
+        "Info",     "%i" };
+    static const char **col_fmt = col_fmt_packets;
+    int num_cols = 7;
+
+    if (!is_packet_configuration_namespace()) {
+        static const char *col_fmt_logs[] = {
+            "No.",             "%m", "Time",        "%t",
+            "Source",          "%s", "Destination", "%d",
+            "Length",          "%L",
+            "Service",         "%Cus:ct.shortsrc:0:R",
+            "Region",          "%Cus:ct.region:0:R",
+            "Bucket/Instance", "%Cus:s3.bucket || ec2.name:0:R",
+            "User Name",       "%Cus:ct.user:0:R",
+            "Event Name",      "%Cus:ct.name:0:R",
+            "User IP",         "%Cus:ct.srcip:0:R",
+            "Info",            "%i" };
+        col_fmt = col_fmt_logs;
+        num_cols = 12;
+    }
 
     prefs.restore_filter_after_following_stream = FALSE;
     prefs.gui_toolbar_main_style = TB_STYLE_ICONS;
@@ -4097,6 +4129,8 @@ pre_init_prefs(void)
     prefs.gui_recent_files_count_max = 10;
     g_free(prefs.gui_fileopen_dir);
     prefs.gui_fileopen_dir           = g_strdup(get_persdatafile_dir());
+    g_free(prefs.gui_browser_sslkeylog_path);
+    prefs.gui_browser_sslkeylog_path = g_strdup("");
     prefs.gui_fileopen_preview       = 3;
     prefs.gui_ask_unsaved            = TRUE;
     prefs.gui_autocomplete_filter    = TRUE;
@@ -4141,17 +4175,15 @@ pre_init_prefs(void)
         free_col_info(prefs.col_list);
         prefs.col_list = NULL;
     }
-    for (i = 0; i < DEF_NUM_COLS; i++) {
-        cfmt = g_new(fmt_data,1);
+    for (i = 0; i < num_cols; i++) {
+        cfmt = g_new0(fmt_data,1);
         cfmt->title = g_strdup(col_fmt[i * 2]);
+        cfmt->visible = true;
+        cfmt->resolved = true;
         parse_column_format(cfmt, col_fmt[(i * 2) + 1]);
-        cfmt->visible = TRUE;
-        cfmt->resolved = TRUE;
-        cfmt->custom_fields = NULL;
-        cfmt->custom_occurrence = 0;
         prefs.col_list = g_list_append(prefs.col_list, cfmt);
     }
-    prefs.num_cols  = DEF_NUM_COLS;
+    prefs.num_cols  = num_cols;
 
 /* set the default values for the capture dialog box */
     prefs.capture_prom_mode             = TRUE;
@@ -4159,7 +4191,6 @@ pre_init_prefs(void)
     prefs.capture_real_time             = TRUE;
     prefs.capture_update_interval       = DEFAULT_UPDATE_INTERVAL;
     prefs.capture_no_extcap             = FALSE;
-    prefs.capture_auto_scroll           = TRUE;
     prefs.capture_show_info             = FALSE;
 
     if (!prefs.capture_columns) {
@@ -4182,8 +4213,12 @@ pre_init_prefs(void)
     prefs.st_sort_defcolflag = ST_SORT_COL_COUNT;
     prefs.st_sort_defdescending = TRUE;
     prefs.st_sort_showfullname = FALSE;
+
+    /* protocols */
     prefs.display_hidden_proto_items = FALSE;
     prefs.display_byte_fields_with_spaces = FALSE;
+    prefs.ignore_dup_frames = FALSE;
+    prefs.ignore_dup_frames_cache_entries = 10000;
 
     /* set the default values for the io graph dialog */
     prefs.gui_io_graph_automatic_update = TRUE;
@@ -4293,7 +4328,7 @@ reset_pref_cb(gpointer data, gpointer user_data)
 /*
  * Reset all preferences for a module.
  */
-static gboolean
+static bool
 reset_module_prefs(const void *key _U_, void *value, void *data _U_)
 {
     module_t *module = (module_t *)value;

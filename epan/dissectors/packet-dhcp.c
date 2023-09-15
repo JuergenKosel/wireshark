@@ -87,6 +87,23 @@
  *     https://web.archive.org/web/20150307135117/http://www.broadband-forum.org/technical/download/TR-111.pdf
  * Boot Server Discovery Protocol (BSDP)
  *     https://opensource.apple.com/source/bootp/bootp-198.1/Documentation/BSDP.doc
+ * [MS-DHCPE] DHCPv4 Option Code 77 (0x4D) - User Class Option
+ *     https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dhcpe/fe8a2dd4-1e8c-4546-bacd-4ae10de02058
+ *
+ *  * Copyright 2023, Colin McInnes <colin.mcinnes [AT] vecima.com>
+ * Added additional CableLabs Vendor Class IDs (Option 60) to CableLabs heuristic from:
+ * Remote PHY Specification
+ *     https://www.cablelabs.com/specifications/CM-SP-R-PHY
+ * Flexible MAC Architecture System Specification
+ *     https://www.cablelabs.com/specifications/CM-SP-FMA-SYS
+ * Data-Over-Cable Service Interface Specifications, eDOCSIS Specification
+ *     https://www.cablelabs.com/specifications/CM-SP-eDOCSIS
+ * Data-Over-Cable Service Interface Specifications, IPv4 and IPv6 eRouter Specification
+ *     https://www.cablelabs.com/specifications/CM-SP-eRouter
+ * OpenCable Tuning Resolver Interface Specification
+ *     https://www.cablelabs.com/specifications/OC-SP-TRIF
+ * DPoE Demarcation Device Specification
+ *     https://www.cablelabs.com/specifications/DPoE-SP-DEMARCv1.0
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -174,6 +191,7 @@ static int hf_dhcp_client_identifier_duid_llt_hw_type = -1;
 static int hf_dhcp_client_identifier_duid_ll_hw_type = -1;
 static int hf_dhcp_client_identifier_time = -1;
 static int hf_dhcp_client_identifier_link_layer_address = -1;
+static int hf_dhcp_client_identifier_link_layer_address_ether = -1;
 static int hf_dhcp_client_identifier_enterprise_num = -1;
 static int hf_dhcp_client_identifier = -1;
 static int hf_dhcp_client_identifier_type = -1;
@@ -417,6 +435,13 @@ static int hf_dhcp_option77_user_class = -1;				/* 77 User Class instance */
 static int hf_dhcp_option77_user_class_length = -1;			/* 77 length of User Class instance */
 static int hf_dhcp_option77_user_class_data = -1;			/* 77 data of User Class instance */
 static int hf_dhcp_option77_user_class_text = -1;			/* 77 User class text */
+static int hf_dhcp_option77_user_class_binary_data_length = -1;	/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_binary_data = -1;		/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_padding = -1;			/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_name_length = -1;		/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_name = -1;				/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_description_length = -1;	/* 77, Microsoft */
+static int hf_dhcp_option77_user_class_description = -1;		/* 77, Microsoft */
 static int hf_dhcp_option_slp_directory_agent_value = -1;		/* 78 */
 static int hf_dhcp_option_slp_directory_agent_slpda_address = -1;	/* 78 */
 static int hf_dhcp_option_slp_service_scope_value = -1;			/* 79 */
@@ -561,7 +586,6 @@ static int hf_dhcp_option_cl_dss_id = -1;				/* 123 CL */
 static int hf_dhcp_option_vi_class_cl_address_mode = -1;		/* 124 */
 static int hf_dhcp_option_vi_class_enterprise = -1;			/* 124 */
 static int hf_dhcp_option_vi_class_data_length = -1;			/* 124 */
-static int hf_dhcp_option_vi_class_data = -1;				/* 124 */
 static int hf_dhcp_option_vi_class_data_item_length = -1;		/* 124 */
 static int hf_dhcp_option_vi_class_data_item_data = -1;			/* 124 */
 
@@ -726,6 +750,8 @@ typedef struct dhcp_option_data
 	const char *dhcp_type;
 	const guint8 *vendor_class_id;
 } dhcp_option_data_t;
+
+#define DHCP_HW_IS_ETHER(hwtype, length) ((hwtype == 1 || hwtype == 6) && length == 6)
 
 /* RFC2937 The Name Service Search Option for DHCP */
 #define RFC2937_LOCAL_NAMING_INFORMATION			   0
@@ -2334,6 +2360,10 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 			if (length > 8) {
 				proto_tree_add_string(tree, hf_dhcp_client_identifier_link_layer_address, tvb, offset + 8,
 					length - 13, tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+8, length-13, hwtype));
+				if(DHCP_HW_IS_ETHER(hwtype, length-13)) {
+					proto_tree_add_item(tree, hf_dhcp_client_identifier_link_layer_address_ether,
+						tvb, offset+8, length-13, ENC_NA);
+				}
 			}
 			break;
 		case DUID_EN:
@@ -2358,6 +2388,10 @@ dissect_dhcpopt_client_identifier(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 			if (length > 4) {
 				proto_tree_add_string(tree, hf_dhcp_client_identifier_link_layer_address, tvb, offset + 4,
 					length - 9, tvb_arphrdaddr_to_str(pinfo->pool, tvb, offset+4, length-9, hwtype));
+				if(DHCP_HW_IS_ETHER(hwtype, length-9)) {
+					proto_tree_add_item(tree, hf_dhcp_client_identifier_link_layer_address_ether,
+						tvb, offset+4, length-9, ENC_NA);
+				}
 			}
 			break;
 		}
@@ -2383,6 +2417,35 @@ dissect_dhcpopt_user_class_information(tvbuff_t *tvb, packet_info *pinfo, proto_
 	if (uci_len < 2) {
 		expert_add_info_format(pinfo, tree, &ei_dhcp_bad_length, "length isn't >= 2");
 		return 1;
+	}
+
+	/* First byte is the length of User Class data. If it is zero, then let's assume this
+	 * is a Microsoft variant that has the two-byte length field with most-significant byte
+	 * as zero.
+	 */
+	guint16 ms_data_length = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+	if (ms_data_length <= 0xff) {
+		/* MSB is zero, this is Microsoft */
+		proto_tree_add_uint(tree, hf_dhcp_option77_user_class_binary_data_length, tvb, offset, 2, ms_data_length);
+		offset += 2;
+		proto_tree_add_item(tree, hf_dhcp_option77_user_class_binary_data, tvb, offset, ms_data_length, ENC_STRING);
+		offset += ms_data_length;
+		/* User Class Binary Data is padded to 4-byte boundary */
+		guint16 padding_length = (4 - (ms_data_length % 4)) & 0x3;
+		if (padding_length > 0) {
+			proto_tree_add_item(tree, hf_dhcp_option77_user_class_padding, tvb, offset, padding_length, ENC_NA);
+			offset += padding_length;
+		}
+		guint32 len;
+		proto_tree_add_item_ret_uint(tree, hf_dhcp_option77_user_class_name_length, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
+		offset += 2;
+		proto_tree_add_item(tree, hf_dhcp_option77_user_class_name, tvb, offset, len, ENC_UTF_16);
+		offset += len;
+		proto_tree_add_item_ret_uint(tree, hf_dhcp_option77_user_class_description_length, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
+		offset += 2;
+		proto_tree_add_item(tree, hf_dhcp_option77_user_class_description, tvb, offset, len, ENC_UTF_16);
+
+		return tvb_captured_length(tvb);
 	}
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -3563,10 +3626,8 @@ dhcp_dhcp_decode_agent_info(packet_info *pinfo, proto_item *v_ti, proto_tree *v_
 			}
 		}
 		else {
-			if (dhcp_handle_basic_types(pinfo, o82_v_tree, vti, tvb, o82_opt[idx].info.ftype,
-						     suboptoff, subopt_len, o82_opt[idx].info.phf, &default_hfs) == 0) {
-				expert_add_info_format(pinfo, vti, &hf_dhcp_subopt_unknown_type, "ERROR, please report: Unknown subopt type handler %d", subopt);
-			}
+			dhcp_handle_basic_types(pinfo, o82_v_tree, vti, tvb, o82_opt[idx].info.ftype,
+						     suboptoff, subopt_len, o82_opt[idx].info.phf, &default_hfs);
 		}
 	}
 
@@ -4527,11 +4588,30 @@ dissect_cablelabs_vendor_info_heur( tvbuff_t *tvb, packet_info *pinfo, proto_tre
 	dhcp_option_data_t *option_data = (dhcp_option_data_t*)data;
 	proto_tree* vendor_tree;
 
+	/* Vendor Class IDs
+	 * DOCSIS - docsis
+	 * CableHome - CableHome
+	 * OpenCable2.0 - OpenCable2.0
+	 * PacketCable - pktc
+	 * DEMARC - DEMARC
+	 * sRouter - SROUTER
+	 * Remote PHY - RPD
+	 * eDOCSIS - PTA or ECM
+	 * OpenCable TRIF - TR
+	 */
+
 	if ((option_data->vendor_class_id != NULL) &&
 		((strncmp((const gchar*)option_data->vendor_class_id, "pktc", strlen("pktc")) == 0) ||
 		 (strncmp((const gchar*)option_data->vendor_class_id, "docsis", strlen("docsis")) == 0) ||
 		 (strncmp((const gchar*)option_data->vendor_class_id, "OpenCable2.0", strlen("OpenCable2.0")) == 0) ||
-		 (strncmp((const gchar*)option_data->vendor_class_id, "CableHome", strlen("CableHome")) == 0))) {
+		 (strncmp((const gchar*)option_data->vendor_class_id, "CableHome", strlen("CableHome")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "RPD", strlen("RPD")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "RMD", strlen("RMD")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "ECM", strlen("ECM")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "PTA", strlen("PTA")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "DEMARC", strlen("DEMARC")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "TR", strlen("TR")) == 0) ||
+		 (strncmp((const gchar*)option_data->vendor_class_id, "SROUTER", strlen("SROUTER")) == 0))) {
 		/* CableLabs standard - see www.cablelabs.com/projects */
 		proto_item_append_text(tree, " (CableLabs)");
 		vendor_tree = proto_item_add_subtree(tree, ett_dhcp_option);
@@ -7896,6 +7976,11 @@ proto_register_dhcp(void)
 		    FT_STRING, BASE_NONE, NULL, 0x0,
 		    NULL, HFILL }},
 
+		{ &hf_dhcp_client_identifier_link_layer_address_ether,
+		  { "Link layer address (Ethernet)", "dhcp.client_id.link_layer_address_ether",
+		    FT_ETHER, BASE_NONE, NULL, 0x0,
+		    NULL, HFILL }},
+
 		{ &hf_dhcp_client_identifier_enterprise_num,
 		  { "Enterprise-number", "dhcp.client_id.enterprise_num",
 		    FT_UINT32, BASE_ENTERPRISES, STRINGS_ENTERPRISES, 0x0,
@@ -8985,6 +9070,41 @@ proto_register_dhcp(void)
 		    FT_STRING, BASE_NONE, NULL, 0x0,
 		    "Text of User Class Instance", HFILL }},
 
+		{ &hf_dhcp_option77_user_class_binary_data_length,
+		  { "User Class Binary Data Length", "dhcp.option.user_class_binary_data_length",
+		    FT_UINT16, BASE_DEC, NULL, 0x0,
+		    "Length of User Class Binary Data (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_binary_data,
+		  { "User Class Binary Data", "dhcp.option.user_class_binary_data",
+		    FT_STRING, BASE_NONE, NULL, 0x0,
+		    "User Class Binary Data (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_padding,
+		  { "User Class padding", "dhcp.option.user_class_padding",
+		    FT_BYTES, BASE_NONE, NULL, 0x0,
+		    "User Class padding (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_name_length,
+		  { "User Class Name Length", "dhcp.option.user_class_name_length",
+		    FT_UINT16, BASE_DEC, NULL, 0x0,
+		    "Length of User Class Name (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_name,
+		  { "User Class Name", "dhcp.option.user_class_name",
+		    FT_STRINGZPAD, BASE_NONE, NULL, 0x0,
+		    "User Class Name (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_description_length,
+		  { "User Class Description Length", "dhcp.option.user_class_description_length",
+		    FT_UINT16, BASE_DEC, NULL, 0x0,
+		    "Length of User Class Description (Microsoft)", HFILL }},
+
+		{ &hf_dhcp_option77_user_class_description,
+		  { "User Class Description", "dhcp.option.user_class_description",
+		    FT_STRINGZPAD, BASE_NONE, NULL, 0x0,
+		    "User Class Description (Microsoft)", HFILL }},
+
 		{ &hf_dhcp_option_slp_directory_agent_value,
 		  { "Value", "dhcp.option.slp_directory_agent.value",
 		    FT_UINT8, BASE_DEC, VALS(slpda_vals), 0x0,
@@ -9647,11 +9767,6 @@ proto_register_dhcp(void)
 		  { "Length", "dhcp.option.vi_class.length",
 		    FT_UINT8, BASE_DEC, NULL, 0x0,
 		    "Option 124: Length", HFILL }},
-
-		{ &hf_dhcp_option_vi_class_data,
-		  { "Vendor Class Data", "dhcp.option.vi_class.data",
-		    FT_BYTES, BASE_NONE, NULL, 0x0,
-		    "Option 124: Data", HFILL }},
 
 		{ &hf_dhcp_option_vi_class_data_item_length,
 		  { "Length", "dhcp.option.vi_class.vendor_class_data.item.length",

@@ -102,6 +102,16 @@ static int hf_openflow_total_len = -1;
 static int hf_openflow_in_port = -1;
 static int hf_openflow_reason = -1;
 static int hf_openflow_pkt_in_pad = -1;
+static int hf_openflow_flow_removed_cookie = -1;
+static int hf_openflow_flow_removed_priority = -1;
+static int hf_openflow_flow_removed_reason = -1;
+static int hf_openflow_flow_removed_pad1 = -1;
+static int hf_openflow_flow_removed_duration_sec = -1;
+static int hf_openflow_flow_removed_duration_nsec = -1;
+static int hf_openflow_flow_removed_idle_timeout = -1;
+static int hf_openflow_flow_removed_pad2 = -1;
+static int hf_openflow_flow_removed_packet_count = -1;
+static int hf_openflow_flow_removed_byte_count = -1;
 static int hf_openflow_table_id = -1;
 static int hf_openflow_cookie = -1;
 /* static int hf_openflow_cookie_mask = -1; */
@@ -529,10 +539,10 @@ dissect_openflow_features_reply_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
     ti = proto_tree_add_item(tree, hf_openflow_datapath_id, tvb, offset, 8, ENC_BIG_ENDIAN);
     path_id_tree = proto_item_add_subtree(ti, ett_openflow_path_id);
-    proto_tree_add_item(path_id_tree, hf_openflow_datapath_mac, tvb, offset, 6, ENC_NA);
-    offset+=6;
     proto_tree_add_item(path_id_tree, hf_openflow_datapath_impl, tvb, offset, 2, ENC_BIG_ENDIAN);
     offset+=2;
+    proto_tree_add_item(path_id_tree, hf_openflow_datapath_mac, tvb, offset, 6, ENC_NA);
+    offset+=6;
 
     proto_tree_add_item(tree, hf_openflow_n_buffers, tvb, offset, 4, ENC_BIG_ENDIAN);
     offset+=4;
@@ -641,6 +651,63 @@ dissect_openflow_pkt_in(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 
     next_tvb = tvb_new_subset_length(tvb, offset, length-offset);
     call_dissector(eth_withoutfcs_handle, next_tvb, pinfo, tree);
+
+}
+
+#define OFPRR_IDLE_TIMEOUT  0
+#define OFPRR_HARD_TIMEOUT  1
+#define OFPRR_DELETE        2
+static const value_string openflow_flow_removed_reason_values[] = {
+    { OFPRR_IDLE_TIMEOUT, "OFPRR_IDLE_TIMEOUT" },
+    { OFPRR_HARD_TIMEOUT, "OFPRR_HARD_TIMEOUT" },
+    { OFPRR_DELETE,       "OFPRR_DELETE" },
+    { 0,                  NULL }
+};
+
+static void
+dissect_openflow_flow_removed(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, guint16 length _U_)
+{
+    /* struct match; */
+    offset = dissect_openflow_ofp_match_v1(tvb, pinfo, tree, offset);
+
+    /* uint64_t cookie; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_cookie, tvb, offset, 8, ENC_BIG_ENDIAN);
+    offset+=8;
+
+    /* uint16_t priority; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_priority, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset+=2;
+
+    /* uint8_t reason; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_reason, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset+=1;
+
+    /* uint8_t pad1; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_pad1, tvb, offset, 1, ENC_BIG_ENDIAN);
+    offset+=1;
+
+    /* uint32_t duration_sec; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_duration_sec, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset+=4;
+
+    /* uint32_t duration_nsec; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_duration_nsec, tvb, offset, 4, ENC_BIG_ENDIAN);
+    offset+=4;
+
+    /* uint16_t idle_timeout; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_idle_timeout, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset+=2;
+
+    /* uint8_t pad2; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_pad2, tvb, offset, 2, ENC_BIG_ENDIAN);
+    offset+=2;
+
+    /* uint64_t packet_count; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_packet_count, tvb, offset, 8, ENC_BIG_ENDIAN);
+    offset+=8;
+
+    /* uint64_t byte_count; */
+    proto_tree_add_item(tree, hf_openflow_flow_removed_byte_count, tvb, offset, 8, ENC_BIG_ENDIAN);
 
 }
 
@@ -878,6 +945,9 @@ dissect_openflow_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
         break;
     case OFPT_1_0_PACKET_IN: /* 10 */
         dissect_openflow_pkt_in(tvb, pinfo, openflow_tree, offset, length);
+        break;
+    case OFPT_1_0_FLOW_REMOVED: /* 11 */
+        dissect_openflow_flow_removed(tvb, pinfo, openflow_tree, offset, length);
         break;
     case OFPT_1_0_PACKET_OUT: /* 13 */
         dissect_openflow_pkt_out(tvb, pinfo, openflow_tree, offset, length);
@@ -1253,6 +1323,56 @@ proto_register_openflow_v1(void)
         { &hf_openflow_pkt_in_pad,
             { "Pad", "openflow.pkt_in.pad",
                FT_BYTES, BASE_NONE, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_cookie,
+            { "Cookie", "openflow.flow_removed.cookie",
+               FT_UINT64, BASE_HEX, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_priority,
+            { "Priority", "openflow.flow_removed.priority",
+               FT_UINT16, BASE_DEC, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_reason,
+            { "Reason", "openflow.flow_removed.reason",
+               FT_UINT8, BASE_DEC, VALS(openflow_flow_removed_reason_values), 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_pad1,
+            { "Pad1", "openflow.flow_removed.pad1",
+               FT_UINT8, BASE_HEX, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_duration_sec,
+            { "Duration sec", "openflow.flow_removed.duration_sec",
+               FT_UINT32, BASE_DEC, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_duration_nsec,
+            { "Duration nsec", "openflow.flow_removed.duration_nsec",
+               FT_UINT32, BASE_DEC, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_idle_timeout,
+            { "Idle timeout", "openflow.flow_removed.idle_timeout",
+               FT_UINT16, BASE_DEC, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_pad2,
+            { "Pad2", "openflow.flow_removed.pad2",
+               FT_UINT16, BASE_HEX, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_packet_count,
+            { "Packet count", "openflow.flow_removed.packet_count",
+               FT_UINT64, BASE_DEC, NULL, 0x0,
+               NULL, HFILL }
+        },
+        { &hf_openflow_flow_removed_byte_count,
+            { "Byte count", "openflow.flow_removed.byte_count",
+               FT_UINT64, BASE_DEC, NULL, 0x0,
                NULL, HFILL }
         },
         { &hf_openflow_table_id,

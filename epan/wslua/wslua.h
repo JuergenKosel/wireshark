@@ -18,7 +18,6 @@
 #define _PACKET_LUA_H
 
 #include <glib.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -57,9 +56,6 @@
 
 #define WSLUA_INIT_ROUTINES "init_routines"
 #define WSLUA_PREFS_CHANGED "prefs_changed"
-
-typedef void (*wslua_logger_t)(const gchar *, enum ws_log_level, const gchar *, gpointer);
-extern wslua_logger_t wslua_logger;
 
 /* type conversion macros - lua_Number is a double, so casting isn't kosher; and
    using Lua's already-available lua_tointeger() and luaL_checkinteger() might be different
@@ -819,6 +815,8 @@ extern int wslua_deregister_listeners(lua_State* L);
 extern int wslua_deregister_fields(lua_State* L);
 extern int wslua_deregister_filehandlers(lua_State* L);
 extern void wslua_deregister_menus(void);
+
+extern void wslua_init_wtap_filetypes(lua_State* L);
 
 #endif
 

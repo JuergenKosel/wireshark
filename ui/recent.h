@@ -85,6 +85,16 @@ typedef enum {
     SEARCH_TYPE_REGEX
 } search_type_type;
 
+typedef enum {
+    SHOW_ASCII,
+    SHOW_CARRAY,
+    SHOW_EBCDIC,
+    SHOW_HEXDUMP,
+    SHOW_RAW,
+    SHOW_CODEC, // Ordered to match UTF-8 combobox index
+    SHOW_YAML
+} follow_show_type;
+
 /** Recent settings. */
 typedef struct recent_settings_tag {
     gboolean    main_toolbar_show;
@@ -96,6 +106,7 @@ typedef struct recent_settings_tag {
     gboolean    packet_diagram_show;
     gboolean    statusbar_show;
     gboolean    packet_list_colorize;
+    gboolean    capture_auto_scroll;
     ts_type     gui_time_format;
     gint        gui_time_precision;
     ts_seconds_type gui_seconds_format;
@@ -109,6 +120,7 @@ typedef struct recent_settings_tag {
     search_char_set_type gui_search_char_set;
     gboolean    gui_search_case_sensitive;
     search_type_type gui_search_type;
+    follow_show_type gui_follow_show;
 
     gint        gui_geometry_main_x;
     gint        gui_geometry_main_y;
@@ -118,13 +130,8 @@ typedef struct recent_settings_tag {
     gboolean    gui_geometry_main_maximized;
     gboolean    gui_geometry_leftalign_actions;
 
-    gboolean    has_gui_geometry_main_upper_pane;   /* gui_geometry_main_upper_pane is valid */
     gint        gui_geometry_main_upper_pane;
-    gboolean    has_gui_geometry_main_lower_pane;   /* gui_geometry_main_lower_pane is valid */
     gint        gui_geometry_main_lower_pane;
-    gboolean    has_gui_geometry_status_pane;       /* gui_geometry_status_pane is valid */
-    gint        gui_geometry_status_pane_left;
-    gint        gui_geometry_status_pane_right;
     gint        gui_geometry_wlan_stats_pane;
     gboolean    privs_warn_if_elevated;
     gboolean    sys_warn_if_no_capture;

@@ -31,7 +31,6 @@
 #include "wtap-int.h"
 #include <wsutil/buffer.h>
 #include "file_wrappers.h"
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -221,7 +220,6 @@ mpeg_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
 	nstime_t ts = mpeg->now;
 
 	if (mpeg->is_audio) {
-		ts = mpeg->now;
 		/* mpeg_read_audio_packet calculates the duration of this
 		 * packet to determine an updated relative timestamp for the
 		 * next packet, if possible.
@@ -232,7 +230,6 @@ mpeg_read_packet(wtap *wth, FILE_T fh, wtap_rec *rec, Buffer *buf,
 		 * to produce a relative timestamp for this packet, if possible.
 		 */
 		packet_size = mpeg_read_pes_packet(wth, fh, is_random, err, err_info);
-		ts = mpeg->now;
 	}
 
 	if (packet_size == 0)
@@ -380,11 +377,10 @@ good_magic:
 
 static const struct supported_block_type mpeg_blocks_supported[] = {
 	/*
-	 * This is a file format that we dissect, so we provide
-	 * only one "packet" with the file's contents, and don't
-	 * support any options.
+	 * This file format divides the file up into a "packet" for
+	 * each frame, and doesn't support any options.
 	 */
-	{ WTAP_BLOCK_PACKET, ONE_BLOCK_SUPPORTED, NO_OPTIONS_SUPPORTED }
+	{ WTAP_BLOCK_PACKET, MULTIPLE_BLOCKS_SUPPORTED, NO_OPTIONS_SUPPORTED }
 };
 
 static const struct file_type_subtype_info mpeg_info = {
