@@ -920,6 +920,17 @@ dissect_ssl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     return ret;
 }
 
+
+/*
+ * Dissect ECHConfigList structure, for use by the DNS dissector.
+ */
+static int
+dissect_tls_echconfig(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    return ssl_dissect_ext_ech_echconfiglist(&dissect_ssl3_hf, tvb, pinfo,
+                                             tree, 0, tvb_reported_length(tvb));
+}
+
 /*
  * Dissect TLS 1.3 handshake messages (without the record layer).
  * For use by QUIC (draft -13).
@@ -4279,7 +4290,7 @@ UAT_CSTRING_CB_DEF(sslkeylist_uats,protocol,ssldecrypt_assoc_t)
 UAT_FILENAME_CB_DEF(sslkeylist_uats,keyfile,ssldecrypt_assoc_t)
 UAT_CSTRING_CB_DEF(sslkeylist_uats,password,ssldecrypt_assoc_t)
 
-static gboolean
+static bool
 ssldecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, const void* u1 _U_, const void* u2 _U_, char** err)
 {
     if (!p || strlen(p) == 0u) {
@@ -4809,6 +4820,7 @@ proto_register_tls(void)
 
     tls_handle = register_dissector("tls", dissect_ssl, proto_tls);
     register_dissector("tls13-handshake", dissect_tls13_handshake, proto_tls);
+    register_dissector("tls-echconfig", dissect_tls_echconfig, proto_tls);
 
     register_init_routine(ssl_init);
     register_cleanup_routine(ssl_cleanup);

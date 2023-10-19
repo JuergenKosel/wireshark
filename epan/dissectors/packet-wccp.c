@@ -20,6 +20,8 @@
 void proto_register_wccp(void);
 void proto_reg_handoff_wccp(void);
 
+static dissector_handle_t wccp_handle;
+
 static int proto_wccp = -1;
 static int hf_wccp_message_type = -1;   /* the message type */
 static int hf_wccp_version = -1;        /* protocol version */
@@ -3047,7 +3049,7 @@ proto_register_wccp(void)
         NULL, HFILL }
     },
     { &hf_mask_value_set_element_value_element_num,
-      { "Number of Value Elements", "wccp.mask_value_set_selement.value_element_num", FT_UINT32, BASE_DEC, 0x0, 0x0,
+      { "Number of Value Elements", "wccp.mask_value_set_element.value_element_num", FT_UINT32, BASE_DEC, 0x0, 0x0,
         NULL, HFILL }
     },
     { &hf_assignment_weight,
@@ -3555,14 +3557,12 @@ proto_register_wccp(void)
   proto_register_subtree_array(ett, array_length(ett));
   expert_wccp = expert_register_protocol(proto_wccp);
   expert_register_field_array(expert_wccp, ei, array_length(ei));
+  wccp_handle = register_dissector("wccp", dissect_wccp, proto_wccp);
 }
 
 void
 proto_reg_handoff_wccp(void)
 {
-  dissector_handle_t wccp_handle;
-
-  wccp_handle = create_dissector_handle(dissect_wccp, proto_wccp);
   dissector_add_uint_with_preference("udp.port", UDP_PORT_WCCP, wccp_handle);
 }
 

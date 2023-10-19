@@ -290,7 +290,7 @@ static const fragment_items etf_frag_items = {
 static gint dissect_etf_type(const gchar *label, packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree);
 static gint dissect_etf_pdu_data(packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree);
 
-static gint dissect_etf_dist_header(packet_info *pinfo _U_, tvbuff_t *tvb, gint offset, proto_tree *tree) {
+static gint dissect_etf_dist_header(packet_info *pinfo, tvbuff_t *tvb, gint offset, proto_tree *tree) {
   guint32 num, isi;
   guint8 flen, i, flg;
   gint flg_offset, acrs_offset, acr_offset;
@@ -344,7 +344,7 @@ static gint dissect_etf_dist_header(packet_info *pinfo _U_, tvbuff_t *tvb, gint 
       proto_tree_add_item_ret_uint(acr_tree, hf_erldp_atom_length, tvb, offset, 1, ENC_BIG_ENDIAN, &atom_txt_len);
       offset++;
     }
-    proto_tree_add_item_ret_string(acr_tree, hf_erldp_atom_text, tvb, offset, atom_txt_len, ENC_NA|ENC_ASCII, wmem_packet_scope(), &str);
+    proto_tree_add_item_ret_string(acr_tree, hf_erldp_atom_text, tvb, offset, atom_txt_len, ENC_NA|ENC_ASCII, pinfo->pool, &str);
     proto_item_append_text(ti_acr, " - '%s'", str);
     offset += atom_txt_len;
     proto_item_set_len(ti_acr, offset - acr_offset);
@@ -371,7 +371,7 @@ static gint dissect_etf_tuple_content(gboolean large, packet_info *pinfo, tvbuff
   return offset;
 }
 
-static gint dissect_etf_big_ext(tvbuff_t *tvb, gint offset, guint32 len, proto_tree *tree, const gchar **value_str) {
+static gint dissect_etf_big_ext(tvbuff_t *tvb, packet_info *pinfo, gint offset, guint32 len, proto_tree *tree, const gchar **value_str) {
       guint8 sign;
       gint32 i;
 
@@ -394,10 +394,10 @@ static gint dissect_etf_big_ext(tvbuff_t *tvb, gint offset, guint32 len, proto_t
         proto_tree_add_uint64_format_value(tree, hf_erldp_big_ext_int, tvb, offset, len,
                                            big_val, "%s%" PRIu64, sign ? "-"  : "", big_val);
         if (value_str)
-          *value_str = wmem_strdup_printf(wmem_packet_scope(), "%s%" PRIu64,
+          *value_str = wmem_strdup_printf(pinfo->pool, "%s%" PRIu64,
                                           sign ? "-"  : "", big_val);
       } if (len < 64) {
-        wmem_strbuf_t *strbuf = wmem_strbuf_new_sized(wmem_packet_scope(), len*1+3+1);
+        wmem_strbuf_t *strbuf = wmem_strbuf_new_sized(pinfo->pool, len*1+3+1);
 
         wmem_strbuf_append(strbuf, "0x");
         for (i = len - 1; i >= 0; i--) {
@@ -426,28 +426,28 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       proto_tree_add_item_ret_uint(tree, hf_erldp_atom_cache_ref, tvb, offset, 1, ENC_BIG_ENDIAN, &uint_val);
       offset += 1;
       if (value_str)
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", uint_val);
+        *value_str = wmem_strdup_printf(pinfo->pool, "%d", uint_val);
       break;
 
     case SMALL_INTEGER_EXT:
       proto_tree_add_item_ret_uint(tree, hf_erldp_small_int_ext, tvb, offset, 1, ENC_BIG_ENDIAN, &uint_val);
       offset += 1;
       if (value_str)
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%u", uint_val);
+        *value_str = wmem_strdup_printf(pinfo->pool, "%u", uint_val);
       break;
 
     case INTEGER_EXT:
       proto_tree_add_item_ret_int(tree, hf_erldp_int_ext, tvb, offset, 4, ENC_BIG_ENDIAN, &int_val);
       offset += 4;
       if (value_str)
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%d", int_val);
+        *value_str = wmem_strdup_printf(pinfo->pool, "%d", int_val);
       break;
 
     case SMALL_BIG_EXT: {
       proto_tree_add_item_ret_uint(tree, hf_erldp_small_big_ext_len, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
       offset += 1;
 
-      offset = dissect_etf_big_ext(tvb, offset, len, tree, value_str);
+      offset = dissect_etf_big_ext(tvb, pinfo, offset, len, tree, value_str);
       break;
     }
 
@@ -455,12 +455,12 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       proto_tree_add_item_ret_uint(tree, hf_erldp_large_big_ext_len, tvb, offset, 4, ENC_BIG_ENDIAN, &len);
       offset += 4;
 
-      offset = dissect_etf_big_ext(tvb, offset, len, tree, value_str);
+      offset = dissect_etf_big_ext(tvb, pinfo, offset, len, tree, value_str);
       break;
     }
 
     case FLOAT_EXT:
-      proto_tree_add_item_ret_string(tree, hf_erldp_float_ext, tvb, offset, 31, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
+      proto_tree_add_item_ret_string(tree, hf_erldp_float_ext, tvb, offset, 31, ENC_NA|ENC_UTF_8, pinfo->pool, &str_val);
       offset += 31;
       if (value_str)
         *value_str = (const gchar *)str_val;
@@ -470,7 +470,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
       proto_tree_add_item(tree, hf_erldp_new_float_ext, tvb, offset, 8, ENC_BIG_ENDIAN);
       if (value_str) {
         gdouble  new_float_val = tvb_get_ntohieee_double(tvb, offset);
-        *value_str = wmem_strdup_printf(wmem_packet_scope(), "%f", new_float_val);
+        *value_str = wmem_strdup_printf(pinfo->pool, "%f", new_float_val);
       }
       offset += 8;
       break;
@@ -478,7 +478,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
     case ATOM_UTF8_EXT:
       proto_tree_add_item_ret_uint(tree, hf_erldp_atom_length2, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
       offset += 2;
-      proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
+      proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, pinfo->pool, &str_val);
       offset += len;
       if (value_str)
         *value_str = (const gchar *)str_val;
@@ -487,7 +487,7 @@ static gint dissect_etf_type_content(guint8 tag, packet_info *pinfo, tvbuff_t *t
     case SMALL_ATOM_UTF8_EXT:
       proto_tree_add_item_ret_uint(tree, hf_erldp_atom_length, tvb, offset, 1, ENC_BIG_ENDIAN, &len);
       offset++;
-      proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, wmem_packet_scope(), &str_val);
+      proto_tree_add_item_ret_string(tree, hf_erldp_atom_text, tvb, offset, len, ENC_NA|ENC_UTF_8, pinfo->pool, &str_val);
       offset += len;
       if (value_str)
         *value_str = (const gchar *)str_val;
@@ -834,7 +834,7 @@ static void dissect_erldp_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tre
         offset += 4;
       }
       str_len = tvb_captured_length_remaining(tvb, offset);
-      proto_tree_add_item_ret_string(tree, hf_erldp_name, tvb, offset, str_len, ENC_ASCII|ENC_NA, wmem_packet_scope(), &str);
+      proto_tree_add_item_ret_string(tree, hf_erldp_name, tvb, offset, str_len, ENC_ASCII|ENC_NA, pinfo->pool, &str);
       col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s", (is_challenge) ? "SEND_CHALLENGE" : "SEND_NAME", str);
       break;
 
@@ -855,7 +855,7 @@ static void dissect_erldp_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tre
       offset += 4;
       proto_tree_add_item_ret_uint(tree, hf_erldp_nlen, tvb, offset, 2, ENC_BIG_ENDIAN, &str_len);
       offset += 2;
-      proto_tree_add_item_ret_string(tree, hf_erldp_name, tvb, offset, str_len, ENC_ASCII|ENC_NA, wmem_packet_scope(), &str);
+      proto_tree_add_item_ret_string(tree, hf_erldp_name, tvb, offset, str_len, ENC_ASCII|ENC_NA, pinfo->pool, &str);
       col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s", (is_challenge) ? "SEND_CHALLENGE" : "SEND_NAME", str);
       break;
 
@@ -875,7 +875,7 @@ static void dissect_erldp_handshake(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
     case 's' :
       str_len = tvb_captured_length_remaining(tvb, offset);
-      proto_tree_add_item_ret_string(tree, hf_erldp_status, tvb, offset, str_len, ENC_ASCII|ENC_NA, wmem_packet_scope(), &str);
+      proto_tree_add_item_ret_string(tree, hf_erldp_status, tvb, offset, str_len, ENC_ASCII|ENC_NA, pinfo->pool, &str);
       col_add_fstr(pinfo->cinfo, COL_INFO, "SEND_STATUS %s", str);
       break;
   }
@@ -986,97 +986,97 @@ void proto_register_erldp(void) {
                         FT_UINT64, BASE_HEX, NULL, 0x0,
                         NULL, HFILL}},
     { &hf_erldp_flags_published, { "Published", "erldp.flags.published",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x1,
+                        FT_BOOLEAN, 64, NULL, 0x1,
                         NULL, HFILL }},
     { &hf_erldp_flags_atom_cache, { "Atom Cache", "erldp.flags.atom_cache",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x2,
+                        FT_BOOLEAN, 64, NULL, 0x2,
                         NULL, HFILL }},
     { &hf_erldp_flags_extended_references, { "Extended References", "erldp.flags.extended_references",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x4,
+                        FT_BOOLEAN, 64, NULL, 0x4,
                         NULL, HFILL }},
     { &hf_erldp_flags_dist_monitor, { "Dist Monitor", "erldp.flags.dist_monitor",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x8,
+                        FT_BOOLEAN, 64, NULL, 0x8,
                         NULL, HFILL }},
     { &hf_erldp_flags_fun_tags, { "Fun Tags", "erldp.flags.fun_tags",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x10,
+                        FT_BOOLEAN, 64, NULL, 0x10,
                         NULL, HFILL }},
     { &hf_erldp_flags_dist_monitor_name, { "Dist Monitor Name", "erldp.flags.dist_monitor_name",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x20,
+                        FT_BOOLEAN, 64, NULL, 0x20,
                         NULL, HFILL }},
     { &hf_erldp_flags_hidden_atom_cache, { "Hidden Atom Cache", "erldp.flags.hidden_atom_cache",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x40,
+                        FT_BOOLEAN, 64, NULL, 0x40,
                         NULL, HFILL }},
     { &hf_erldp_flags_new_fun_tags, { "New Fun Tags", "erldp.flags.new_fun_tags",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x80,
+                        FT_BOOLEAN, 64, NULL, 0x80,
                         NULL, HFILL }},
     { &hf_erldp_flags_extended_pids_ports, { "Extended Pids Ports", "erldp.flags.extended_pids_ports",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x100,
+                        FT_BOOLEAN, 64, NULL, 0x100,
                         NULL, HFILL }},
     { &hf_erldp_flags_export_ptr_tag, { "Export PTR Tag", "erldp.flags.export_ptr_tag",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x200,
+                        FT_BOOLEAN, 64, NULL, 0x200,
                         NULL, HFILL }},
     { &hf_erldp_flags_bit_binaries, { "Bit Binaries", "erldp.flags.bit_binaries",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x400,
+                        FT_BOOLEAN, 64, NULL, 0x400,
                         NULL, HFILL }},
     { &hf_erldp_flags_new_floats, { "New Floats", "erldp.flags.new_floats",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x800,
+                        FT_BOOLEAN, 64, NULL, 0x800,
                         NULL, HFILL }},
     { &hf_erldp_flags_unicode_io, { "Unicode IO", "erldp.flags.unicode_io",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x1000,
+                        FT_BOOLEAN, 64, NULL, 0x1000,
                         NULL, HFILL }},
     { &hf_erldp_flags_dist_hdr_atom_cache, { "Dist HDR Atom Cache", "erldp.flags.dist_hdr_atom_cache",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x2000,
+                        FT_BOOLEAN, 64, NULL, 0x2000,
                         NULL, HFILL }},
     { &hf_erldp_flags_small_atom_tags, { "Small Atom Tags", "erldp.flags.small_atom_tags",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x4000,
+                        FT_BOOLEAN, 64, NULL, 0x4000,
                         NULL, HFILL }},
     { &hf_erldp_flags_ets_compressed, { "ETS Compressed", "erldp.flags.ets_compressed",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x8000,
+                        FT_BOOLEAN, 64, NULL, 0x8000,
                         NULL, HFILL }},
     { &hf_erldp_flags_utf8_atoms, { "UTF8 Atoms", "erldp.flags.utf8_atoms",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x10000,
+                        FT_BOOLEAN, 64, NULL, 0x10000,
                         NULL, HFILL }},
     { &hf_erldp_flags_map_tag, { "Map Tag", "erldp.flags.map_tag",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x20000,
+                        FT_BOOLEAN, 64, NULL, 0x20000,
                         NULL, HFILL }},
     { &hf_erldp_flags_big_creation, { "Big Creation", "erldp.flags.big_creation",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x40000,
+                        FT_BOOLEAN, 64, NULL, 0x40000,
                         NULL, HFILL }},
     { &hf_erldp_flags_send_sender, { "Send Sender", "erldp.flags.send_sender",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x80000,
+                        FT_BOOLEAN, 64, NULL, 0x80000,
                         NULL, HFILL }},
     { &hf_erldp_flags_big_seqtrace_labels, { "Big Seqtrace Labels", "erldp.flags.big_seqtrace_labels",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x100000,
+                        FT_BOOLEAN, 64, NULL, 0x100000,
                         NULL, HFILL }},
     { &hf_erldp_flags_pending_connect, { "Pending Connect", "erldp.flags.pending_connect",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x200000,
+                        FT_BOOLEAN, 64, NULL, 0x200000,
                         NULL, HFILL }},
     { &hf_erldp_flags_exit_payload, { "Exit Payload", "erldp.flags.exit_payload",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x400000,
+                        FT_BOOLEAN, 64, NULL, 0x400000,
                         NULL, HFILL }},
     { &hf_erldp_flags_fragments, { "Fragments", "erldp.flags.fragments",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x800000,
+                        FT_BOOLEAN, 64, NULL, 0x800000,
                         NULL, HFILL }},
     { &hf_erldp_flags_handshake_23, { "Handshake 23", "erldp.flags.handshake_23",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x1000000,
+                        FT_BOOLEAN, 64, NULL, 0x1000000,
                         NULL, HFILL }},
     { &hf_erldp_flags_unlink_id, { "Unlink Id", "erldp.flags.unlink_id",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 0x2000000,
+                        FT_BOOLEAN, 64, NULL, 0x2000000,
                         NULL, HFILL }},
     { &hf_erldp_flags_reserved, { "Reserved", "erldp.flags.reserved",
                         FT_UINT64, BASE_DEC, NULL, 0xfc000000,
                         NULL, HFILL }},
     { &hf_erldp_flags_spawn, { "Spawn", "erldp.flags.spawn",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 1ULL << 32,
+                        FT_BOOLEAN, 64, NULL, 1ULL << 32,
                         NULL, HFILL }},
     { &hf_erldp_flags_name_me, { "Name ME", "erldp.flags.name_me",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 1ULL << 33,
+                        FT_BOOLEAN, 64, NULL, 1ULL << 33,
                         NULL, HFILL }},
     { &hf_erldp_flags_v4_nc, { "V4 NC", "erldp.flags.v4_nc",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 1ULL << 34,
+                        FT_BOOLEAN, 64, NULL, 1ULL << 34,
                         NULL, HFILL }},
     { &hf_erldp_flags_alias, { "Alias", "erldp.flags.alias",
-                        FT_BOOLEAN, 64, TFS(&tfs_true_false), 1ULL << 35,
+                        FT_BOOLEAN, 64, NULL, 1ULL << 35,
                         NULL, HFILL }},
     { &hf_erldp_flags_spare, { "Spare", "erldp.flags.spare",
                         FT_UINT64, BASE_DEC, NULL,  ~(0ULL) << 36,

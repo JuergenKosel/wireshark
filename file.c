@@ -89,13 +89,12 @@ typedef match_result (*ws_match_function)(capture_file *, frame_data *,
 static match_result match_protocol_tree(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
 static void match_subtree_text(proto_node *node, gpointer data);
+static void match_subtree_text_reverse(proto_node *node, gpointer data);
 static match_result match_summary_line(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
 static match_result match_narrow_and_wide(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
 static match_result match_narrow_and_wide_case(capture_file *cf, frame_data *fdata,
-        wtap_rec *, Buffer *, void *criterion);
-static match_result match_narrow(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
 static match_result match_narrow_case(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
@@ -217,19 +216,16 @@ compute_elapsed(capture_file *cf, gint64 start_time)
 static const nstime_t *
 ws_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
 {
-    if (prov->prev_dis && prov->prev_dis->num == frame_num)
-        return &prov->prev_dis->abs_ts;
-
-    if (prov->prev_cap && prov->prev_cap->num == frame_num)
-        return &prov->prev_cap->abs_ts;
-
-    if (prov->frames) {
-        frame_data *fd = frame_data_sequence_find(prov->frames, frame_num);
-
-        return (fd) ? &fd->abs_ts : NULL;
+    const frame_data *fd = NULL;
+    if (prov->prev_dis && prov->prev_dis->num == frame_num) {
+        fd = prov->prev_dis;
+    } else if (prov->prev_cap && prov->prev_cap->num == frame_num) {
+        fd = prov->prev_cap;
+    } else if (prov->frames) {
+        fd = frame_data_sequence_find(prov->frames, frame_num);
     }
 
-    return NULL;
+    return (fd && fd->has_ts) ? &fd->abs_ts : NULL;
 }
 
 static epan_t *
@@ -555,7 +551,7 @@ cf_read(capture_file *cf, gboolean reloading)
        XXX - do we know this at open time? */
     cf->compression_type = wtap_get_compression_type(cf->provider.wth);
 
-    /* The packet list window will be empty until the file is completly loaded */
+    /* The packet list window will be empty until the file is completely loaded */
     packet_list_freeze();
 
     cf->stop_flag = FALSE;
@@ -1253,7 +1249,16 @@ add_packet_to_packet_list(frame_data *fdata, capture_file *cf,
     if (fdata->passed_dfilter || fdata->ref_time)
     {
         frame_data_set_after_dissect(fdata, &cf->cum_bytes);
-        cf->provider.prev_dis = fdata;
+        /* The only way we use prev_dis is to get the time stamp of
+         * the previous displayed frame, so ignore it if it doesn't
+         * have a time stamp, because we're presumably interested in
+         * the timestamp of the previously displayed frame with a
+         * time. XXX: What if in the future we want to use the previously
+         * displayed frame for something else, too?
+         */
+        if (fdata->has_ts) {
+            cf->provider.prev_dis = fdata;
+        }
 
         /* If we haven't yet seen the first frame, this is it. */
         if (cf->first_displayed == 0)
@@ -2091,7 +2096,7 @@ rescan_packets(capture_file *cf, const char *action, const char *action_item, gb
 /*
  * Scan through all frame data and recalculate the ref time
  * without rereading the file.
- * XXX - do we need a progres bar or is this fast enough?
+ * XXX - do we need a progress bar or is this fast enough?
  */
 void
 cf_reftime_packets(capture_file* cf)
@@ -2111,44 +2116,59 @@ cf_reftime_packets(capture_file* cf)
         fdata->cum_bytes = cf->cum_bytes + fdata->pkt_len;
 
         /*
-         *Timestamps
+         * Timestamps
          */
 
-        /* If we don't have the time stamp of the first packet in the
-           capture, it's because this is the first packet.  Save the time
-           stamp of this packet as the time stamp of the first packet. */
-        if (cf->provider.ref == NULL)
-            cf->provider.ref = fdata;
-        /* if this frames is marked as a reference time frame, reset
-           firstsec and firstusec to this frame */
-        if (fdata->ref_time)
-            cf->provider.ref = fdata;
+        if (fdata->has_ts) {
+            /* If we don't have the time stamp of the first packet in the
+               capture, it's because this is the first packet.  Save the time
+               stamp of this packet as the time stamp of the first packet. */
+            if (cf->provider.ref == NULL)
+                cf->provider.ref = fdata;
+            /* if this frames is marked as a reference time frame, reset
+               firstsec and firstusec to this frame */
+            if (fdata->ref_time)
+                cf->provider.ref = fdata;
 
-        /* Get the time elapsed between the first packet and this packet. */
-        fdata->frame_ref_num = (fdata != cf->provider.ref) ? cf->provider.ref->num : 0;
-        nstime_delta(&rel_ts, &fdata->abs_ts, &cf->provider.ref->abs_ts);
+            /* Get the time elapsed between the first packet and this one. */
+            fdata->frame_ref_num = (fdata != cf->provider.ref) ? cf->provider.ref->num : 0;
+            nstime_delta(&rel_ts, &fdata->abs_ts, &cf->provider.ref->abs_ts);
 
-        /* If it's greater than the current elapsed time, set the elapsed time
-           to it (we check for "greater than" so as not to be confused by
-           time moving backwards). */
-        if ((gint32)cf->elapsed_time.secs < rel_ts.secs
-                || ((gint32)cf->elapsed_time.secs == rel_ts.secs && (gint32)cf->elapsed_time.nsecs < rel_ts.nsecs)) {
-            cf->elapsed_time = rel_ts;
-        }
-
-        /* If this frame is displayed, get the time elapsed between the
-           previous displayed packet and this packet. */
-        if ( fdata->passed_dfilter ) {
-            /* If we don't have the time stamp of the previous displayed packet,
-               it's because this is the first displayed packet.  Save the time
-               stamp of this packet as the time stamp of the previous displayed
-               packet. */
-            if (cf->provider.prev_dis == NULL) {
-                cf->provider.prev_dis = fdata;
+            /* If it's greater than the current elapsed time, set the elapsed
+               time to it (we check for "greater than" so as not to be
+               confused by time moving backwards). */
+            if ((gint32)cf->elapsed_time.secs < rel_ts.secs
+                    || ((gint32)cf->elapsed_time.secs == rel_ts.secs && (gint32)cf->elapsed_time.nsecs < rel_ts.nsecs)) {
+                cf->elapsed_time = rel_ts;
             }
 
-            fdata->prev_dis_num = cf->provider.prev_dis->num;
-            cf->provider.prev_dis = fdata;
+            /* If this frame is displayed, get the time elapsed between the
+               previous displayed packet and this packet. */
+            /* XXX: What if in the future we want to use the previously
+             * displayed frame for something else, too? Then we'd want
+             * to store this frame as prev_dis even if it doesn't have a
+             * timestamp. */
+            if ( fdata->passed_dfilter ) {
+                /* If we don't have the time stamp of the previous displayed
+                   packet, it's because this is the first displayed packet.
+                   Save the time stamp of this packet as the time stamp of
+                   the previous displayed packet. */
+                if (cf->provider.prev_dis == NULL) {
+                    cf->provider.prev_dis = fdata;
+                }
+
+                fdata->prev_dis_num = cf->provider.prev_dis->num;
+                cf->provider.prev_dis = fdata;
+            }
+        } else {
+            /* If this frame doesn't have a timestamp, don't calculate
+               anything with relative times. */
+            /* However, if this frame is marked as a reference time frame,
+               clear the reference frame so that the next frame with a
+               timestamp becomes the reference frame. */
+            if (fdata->ref_time) {
+                cf->provider.ref = NULL;
+            }
         }
 
         /*
@@ -3149,12 +3169,27 @@ cf_write_json_packets(capture_file *cf, print_args_t *print_args)
 
 gboolean
 cf_find_packet_protocol_tree(capture_file *cf, const char *string,
-        search_direction dir)
+        search_direction dir, bool multiple)
 {
     match_data mdata;
 
+    mdata.frame_matched = FALSE;
+    mdata.halt = FALSE;
     mdata.string = string;
     mdata.string_len = strlen(string);
+    mdata.cf = cf;
+    mdata.prev_finfo = cf->finfo_selected;
+    if (multiple && cf->finfo_selected && cf->edt) {
+        if (dir == SD_FORWARD) {
+            proto_tree_children_foreach(cf->edt->tree, match_subtree_text, &mdata);
+        } else {
+            proto_tree_children_foreach(cf->edt->tree, match_subtree_text_reverse, &mdata);
+        }
+        if (mdata.frame_matched) {
+            packet_list_select_finfo(mdata.finfo);
+            return TRUE;
+        }
+    }
     return find_packet(cf, match_protocol_tree, &mdata, dir);
 }
 
@@ -3163,11 +3198,17 @@ cf_find_string_protocol_tree(capture_file *cf, proto_tree *tree)
 {
     match_data mdata;
     mdata.frame_matched = FALSE;
+    mdata.halt = FALSE;
     mdata.string = convert_string_case(cf->sfilter, cf->case_type);
     mdata.string_len = strlen(mdata.string);
     mdata.cf = cf;
+    mdata.prev_finfo = NULL;
     /* Iterate through all the nodes looking for matching text */
-    proto_tree_children_foreach(tree, match_subtree_text, &mdata);
+    if (cf->dir == SD_FORWARD) {
+        proto_tree_children_foreach(tree, match_subtree_text, &mdata);
+    } else {
+        proto_tree_children_foreach(tree, match_subtree_text_reverse, &mdata);
+    }
     g_free((char *)mdata.string);
     return mdata.frame_matched ? mdata.finfo : NULL;
 }
@@ -3195,6 +3236,12 @@ match_protocol_tree(capture_file *cf, frame_data *fdata,
     /* Iterate through all the nodes, seeing if they have text that matches. */
     mdata->cf = cf;
     mdata->frame_matched = FALSE;
+    mdata->halt = FALSE;
+    mdata->prev_finfo = NULL;
+    /* We don't care about the direction here, because we're just looking
+     * for one match and we'll destroy this tree anyway. (We find the actual
+     * field later in PacketList::selectionChanged().) Forwards is faster.
+     */
     proto_tree_children_foreach(edt.tree, match_subtree_text, mdata);
     epan_dissect_cleanup(&edt);
     return mdata->frame_matched ? MR_MATCHED : MR_NOTMATCHED;
@@ -3227,6 +3274,107 @@ match_subtree_text(proto_node *node, gpointer data)
     if (proto_item_is_hidden(node))
         return;
 
+    if (mdata->prev_finfo) {
+        /* Haven't found the old match, so don't match this node. */
+        if (fi == mdata->prev_finfo) {
+            /* Found the old match, look for the next one after this. */
+            mdata->prev_finfo = NULL;
+        }
+    } else {
+        /* was a free format label produced? */
+        if (fi->rep) {
+            label_ptr = fi->rep->representation;
+        } else {
+            /* no, make a generic label */
+            label_ptr = label_str;
+            proto_item_fill_label(fi, label_str);
+        }
+
+        if (cf->regex) {
+            if (ws_regex_matches(cf->regex, label_ptr)) {
+                mdata->frame_matched = TRUE;
+                mdata->finfo = fi;
+                return;
+            }
+        } else if (cf->case_type) {
+            /* Case insensitive match */
+            label_len = strlen(label_ptr);
+            i_restart = 0;
+            for (i = 0; i < label_len; i++) {
+                if (i_restart == 0 && c_match == 0 && (label_len - i < string_len))
+                    break;
+                c_char = label_ptr[i];
+                c_char = g_ascii_toupper(c_char);
+                /* If c_match is non-zero, save candidate for retrying full match. */
+                if (c_match > 0 && i_restart == 0 && c_char == string[0])
+                    i_restart = i;
+                if (c_char == string[c_match]) {
+                    c_match++;
+                    if (c_match == string_len) {
+                        mdata->frame_matched = TRUE;
+                        mdata->finfo = fi;
+                        /* No need to look further; we have a match */
+                        return;
+                    }
+                } else if (i_restart) {
+                    i = i_restart;
+                    c_match = 1;
+                    i_restart = 0;
+                } else
+                    c_match = 0;
+            }
+        } else if (strstr(label_ptr, string) != NULL) {
+            /* Case sensitive match */
+            mdata->frame_matched = TRUE;
+            mdata->finfo = fi;
+            return;
+        }
+    }
+
+    /* Recurse into the subtree, if it exists */
+    if (node->first_child != NULL)
+        proto_tree_children_foreach(node, match_subtree_text, mdata);
+}
+
+static void
+match_subtree_text_reverse(proto_node *node, gpointer data)
+{
+    match_data   *mdata      = (match_data *) data;
+    const gchar  *string     = mdata->string;
+    size_t        string_len = mdata->string_len;
+    capture_file *cf         = mdata->cf;
+    field_info   *fi         = PNODE_FINFO(node);
+    gchar         label_str[ITEM_LABEL_LENGTH];
+    gchar        *label_ptr;
+    size_t        label_len;
+    guint32       i, i_restart;
+    guint8        c_char;
+    size_t        c_match    = 0;
+
+    /* dissection with an invisible proto tree? */
+    ws_assert(fi);
+
+    /* We don't have an easy way to search backwards in the tree
+     * (see also, proto_find_field_from_offset()) because we don't
+     * have a previous node pointer, so we search backwards by
+     * searching forwards, only stopping if we see the old match
+     * (if we have one).
+     */
+
+    if (mdata->halt) {
+        return;
+    }
+
+    /* Don't match invisible entries. */
+    if (proto_item_is_hidden(node))
+        return;
+
+    if (mdata->prev_finfo && fi == mdata->prev_finfo) {
+        /* Found the old match, use the previous match. */
+        mdata->halt = TRUE;
+        return;
+    }
+
     /* was a free format label produced? */
     if (fi->rep) {
         label_ptr = fi->rep->representation;
@@ -3240,7 +3388,6 @@ match_subtree_text(proto_node *node, gpointer data)
         if (ws_regex_matches(cf->regex, label_ptr)) {
             mdata->frame_matched = TRUE;
             mdata->finfo = fi;
-            return;
         }
     } else if (cf->case_type) {
         /* Case insensitive match */
@@ -3257,10 +3404,9 @@ match_subtree_text(proto_node *node, gpointer data)
             if (c_char == string[c_match]) {
                 c_match++;
                 if (c_match == string_len) {
-                    /* No need to look further; we have a match */
                     mdata->frame_matched = TRUE;
                     mdata->finfo = fi;
-                    return;
+                    break;
                 }
             } else if (i_restart) {
                 i = i_restart;
@@ -3273,12 +3419,11 @@ match_subtree_text(proto_node *node, gpointer data)
         /* Case sensitive match */
         mdata->frame_matched = TRUE;
         mdata->finfo = fi;
-        return;
     }
 
     /* Recurse into the subtree, if it exists */
     if (node->first_child != NULL)
-        proto_tree_children_foreach(node, match_subtree_text, mdata);
+        proto_tree_children_foreach(node, match_subtree_text_reverse, mdata);
 }
 
 gboolean
@@ -3435,7 +3580,9 @@ cf_find_packet_data(capture_file *cf, const guint8 *string, size_t string_size,
                     return find_packet(cf, match_narrow_and_wide, &info, dir);
 
                 case SCS_NARROW:
-                    return find_packet(cf, match_narrow, &info, dir);
+                    /* Narrow, case-sensitive match is the same as looking
+                     * for a converted hexstring. */
+                    return find_packet(cf, match_binary, &info, dir);
 
                 case SCS_WIDE:
                     return find_packet(cf, match_wide, &info, dir);
@@ -3484,10 +3631,9 @@ match_narrow_and_wide(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
             } else {
@@ -3503,10 +3649,9 @@ match_narrow_and_wide(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
                 i++;
@@ -3560,10 +3705,9 @@ match_narrow_and_wide_case(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
             } else {
@@ -3579,64 +3723,13 @@ match_narrow_and_wide_case(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
                 i++;
                 if (pd + i >= buf_end || pd[i] != '\0') break;
-            } else {
-                break;
-            }
-        }
-    }
-
-done:
-    return result;
-}
-
-static match_result
-match_narrow(capture_file *cf, frame_data *fdata,
-        wtap_rec *rec, Buffer *buf, void *criterion)
-{
-    cbs_t        *info       = (cbs_t *)criterion;
-    const guint8 *ascii_text = info->data;
-    size_t        textlen    = info->data_len;
-    match_result  result;
-    guint32       buf_len;
-    guint8       *pd, *buf_start, *buf_end;
-    guint32       i;
-    guint8        c_char;
-    size_t        c_match    = 0;
-
-    /* Load the frame's data. */
-    if (!cf_read_record(cf, fdata, rec, buf)) {
-        /* Attempt to get the packet failed. */
-        return MR_ERROR;
-    }
-
-    result = MR_NOTMATCHED;
-    buf_len = fdata->cap_len;
-    buf_start = ws_buffer_start_ptr(buf);
-    buf_end = buf_start + buf_len;
-    for (pd = buf_start; pd < buf_end; pd++) {
-        pd = (guint8 *)memchr(pd, ascii_text[0], buf_end - pd);
-        if (pd == NULL) break;
-        c_match = 0;
-        for (i = 0; pd + i < buf_end; i++) {
-            c_char = pd[i];
-            if (c_char == ascii_text[c_match]) {
-                c_match++;
-                if (c_match == textlen) {
-                    result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
-                    goto done;
-                }
             } else {
                 break;
             }
@@ -3684,11 +3777,10 @@ match_narrow_case(capture_file *cf, frame_data *fdata,
             if (c_char == ascii_text[c_match]) {
                 c_match++;
                 if (c_match == textlen) {
+                    /* Save position and length for highlighting the field. */
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
             } else {
@@ -3735,10 +3827,9 @@ match_wide(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
                 i++;
@@ -3791,10 +3882,9 @@ match_wide_case(capture_file *cf, frame_data *fdata,
                 c_match++;
                 if (c_match == textlen) {
                     result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
+                    /* Save position and length for highlighting the field. */
+                    cf->search_pos = (guint32)(pd - buf_start);
+                    cf->search_len = (guint32)(textlen);
                     goto done;
                 }
                 i++;
@@ -3814,13 +3904,9 @@ match_binary(capture_file *cf, frame_data *fdata,
         wtap_rec *rec, Buffer *buf, void *criterion)
 {
     cbs_t        *info        = (cbs_t *)criterion;
-    const guint8 *binary_data = info->data;
     size_t        datalen     = info->data_len;
     match_result  result;
-    guint32       buf_len;
-    guint8       *pd, *buf_start, *buf_end;
-    guint32       i;
-    size_t        c_match     = 0;
+    const uint8_t *pd, *buf_start;
 
     /* Load the frame's data. */
     if (!cf_read_record(cf, fdata, rec, buf)) {
@@ -3829,34 +3915,15 @@ match_binary(capture_file *cf, frame_data *fdata,
     }
 
     result = MR_NOTMATCHED;
-    buf_len = fdata->cap_len;
     buf_start = ws_buffer_start_ptr(buf);
-    buf_end = buf_start + buf_len;
-    /* Not clear if using memcmp() is faster. memmem() on systems that
-     * have it should be faster, though.
-     */
-    for (pd = buf_start; pd < buf_end; pd++) {
-        pd = (guint8 *)memchr(pd, binary_data[0], buf_end - pd);
-        if (pd == NULL) break;
-        c_match = 0;
-        for (i = 0; pd + i < buf_end; i++) {
-            if (pd[i] == binary_data[c_match]) {
-                c_match++;
-                if (c_match == datalen) {
-                    result = MR_MATCHED;
-                    cf->search_pos = i + (guint32)(pd - buf_start);
-                    /* Save the position of the last character
-                       for highlighting the field. */
-                    cf->search_len = i + 1;
-                    goto done;
-                }
-            } else {
-                break;
-            }
-        }
+    pd = ws_memmem(buf_start, fdata->cap_len, info->data, datalen);
+    if (pd != NULL) {
+        result = MR_MATCHED;
+        /* Save position and length for highlighting the field. */
+        cf->search_pos = (uint32_t)(pd - buf_start);
+        cf->search_len = (uint32_t)datalen;
     }
 
-done:
     return result;
 }
 
@@ -3875,10 +3942,14 @@ match_regex(capture_file *cf, frame_data *fdata,
 
     if (ws_regex_matches_pos(cf->regex,
                                 (const gchar *)ws_buffer_start_ptr(buf),
-                                fdata->cap_len,
+                                fdata->cap_len, 0,
                                 result_pos)) {
+        //TODO: A chosen regex can match the empty string (zero length)
+        // which doesn't make a lot of sense for searching the packet bytes.
+        // Should we search with the PCRE2_NOTEMPTY option?
         //TODO: Fix cast.
-        cf->search_pos = (guint32)(result_pos[1] - 1); /* last byte = end position - 1 */
+        /* Save position and length for highlighting the field. */
+        cf->search_pos = (guint32)(result_pos[0]);
         cf->search_len = (guint32)(result_pos[1] - result_pos[0]);
         result = MR_MATCHED;
     }
@@ -4355,6 +4426,52 @@ cf_update_section_comment(capture_file *cf, gchar *comment)
     }
     /* Mark the file as having unsaved changes */
     cf->unsaved_changes = TRUE;
+}
+
+/*
+ * Modify the section comments for a given section.
+ */
+void
+cf_update_section_comments(capture_file *cf, unsigned shb_idx, char **comments)
+{
+    wtap_block_t shb_inf;
+    gchar *shb_comment;
+
+    shb_inf = wtap_file_get_shb(cf->provider.wth, shb_idx);
+    if (shb_inf == NULL) {
+        /* Shouldn't happen. XXX: Report it if it does? */
+        return;
+    }
+
+    unsigned n_comments = g_strv_length(comments);
+    unsigned i;
+    char* comment;
+
+    for (i = 0; i < n_comments; i++) {
+        comment = comments[i];
+        if (wtap_block_get_nth_string_option_value(shb_inf, OPT_COMMENT, i, &shb_comment) != WTAP_OPTTYPE_SUCCESS) {
+            /* There's no comment - add one. */
+            wtap_block_add_string_option_owned(shb_inf, OPT_COMMENT, comment);
+            cf->unsaved_changes = TRUE;
+        } else {
+            /* See if the comment has changed or not */
+            if (strcmp(shb_comment, comment) != 0) {
+                /* The comment has changed, let's update it */
+                wtap_block_set_nth_string_option_value(shb_inf, OPT_COMMENT, 0, comment, strlen(comment));
+                cf->unsaved_changes = TRUE;
+            }
+            g_free(comment);
+        }
+    }
+    /* We either transferred ownership of the comments or freed them
+     * above, so free the array of strings but not the strings themselves. */
+    g_free(comments);
+
+    /* If there are extra old comments, remove them. Start at the end. */
+    for (i = wtap_block_count_option(shb_inf, OPT_COMMENT); i > n_comments; i--) {
+        wtap_block_remove_nth_option_instance(shb_inf, OPT_COMMENT, i - 1);
+        cf->unsaved_changes = TRUE;
+    }
 }
 
 /*

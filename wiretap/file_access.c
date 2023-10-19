@@ -20,7 +20,6 @@
 #include <wsutil/plugins.h>
 #endif
 #include <wsutil/ws_assert.h>
-#include <wsutil/wslog.h>
 
 #include "wtap-int.h"
 #include "wtap_modules.h"
@@ -2377,6 +2376,8 @@ wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_t
 	/* Set Decryption Secrets Blocks */
 	wdh->dsbs_initial = params->dsbs_initial;
 	wdh->dsbs_growing = params->dsbs_growing;
+	/* Set Sysdig meta events */
+	wdh->mevs_growing = params->mevs_growing;
 	return wdh;
 }
 
@@ -2746,6 +2747,18 @@ wtap_dump_discard_decryption_secrets(wtap_dumper *wdh)
 		 * Pretend we've written all of them.
 		 */
 		wdh->dsbs_growing_written = wdh->dsbs_growing->len;
+	}
+}
+
+void
+wtap_dump_discard_sysdig_meta_events(wtap_dumper *wdh)
+{
+	/* As above for DSBs. */
+	if (wdh->mevs_growing) {
+		/*
+		 * Pretend we've written all of them.
+		 */
+		wdh->mevs_growing_written = wdh->mevs_growing->len;
 	}
 }
 

@@ -96,7 +96,7 @@ void ws_log_console_writer(const char *domain, enum ws_log_level level,
 /** Configure log levels "info" and below to use stdout.
  *
  * Normally all log messages are written to stderr. For backward compatibility
- * with GLib calling this function with TRUE configures log levels "info",
+ * with GLib calling this function with true configures log levels "info",
  * "debug" and "noisy" to be written to stdout.
  */
 WS_DLL_PUBLIC
@@ -111,7 +111,7 @@ const char *ws_log_level_to_string(enum ws_log_level level);
 
 /** Checks if a domain and level combination generate output.
  *
- * Returns TRUE if a message will be printed for the domain/level combo.
+ * Returns true if a message will be printed for the domain/level combo.
  */
 WS_DLL_PUBLIC
 bool ws_log_msg_is_active(const char *domain, enum ws_log_level level);
@@ -357,18 +357,19 @@ void ws_log_fatal_full(const char *domain, enum ws_log_level level,
 
 /** Logs with "message" level.
  *
- * Accepts a format string and *does not* include the file and function
- * name. This is the default log level.
+ * Accepts a format string and does not include the file and function
+ * name (use ws_log_full instead). This is the default log level.
  */
 #define ws_message(...) \
         _LOG_SIMPLE(true, LOG_LEVEL_MESSAGE, __VA_ARGS__)
 
 /** Logs with "info" level.
  *
- * Accepts a format string and includes the file and function name.
+ * Accepts a format string and does not include the file and function
+ * name (use ws_log_full instead).
  */
 #define ws_info(...) \
-        _LOG_FULL(true, LOG_LEVEL_INFO, __VA_ARGS__)
+        _LOG_SIMPLE(true, LOG_LEVEL_INFO, __VA_ARGS__)
 
 /** Logs with "debug" level.
  *
@@ -388,6 +389,8 @@ void ws_log_fatal_full(const char *domain, enum ws_log_level level,
 #define WS_DEBUG_HERE(...) \
         _LOG_FULL(true, LOG_LEVEL_ECHO, __VA_ARGS__)
 
+#define WS_NOT_IMPLEMENTED() \
+        ws_error("Not implemented yet")
 
 WS_DLL_PUBLIC
 void ws_log_utf8_full(const char *domain, enum ws_log_level level,

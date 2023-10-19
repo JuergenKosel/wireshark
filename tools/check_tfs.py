@@ -280,6 +280,8 @@ class Item:
 def removeComments(code_string):
     code_string = re.sub(re.compile(r"/\*.*?\*/",re.DOTALL ) ,"" ,code_string) # C-style comment
     code_string = re.sub(re.compile(r"//.*?\n" ) ,"" ,code_string)             # C++-style comment
+    code_string = re.sub(re.compile(r"#if 0.*?#endif",re.DOTALL ) ,"" , code_string) # Ignored region
+
     return code_string
 
 
@@ -289,7 +291,7 @@ def findTFS(filename):
 
     with open(filename, 'r', encoding="utf8") as f:
         contents = f.read()
-        # Example: const true_false_string tfs_true_false = { "True", "False" };
+        # Example: const true_false_string tfs_yes_no = { "Yes", "No" };
 
         # Remove comments so as not to trip up RE.
         contents = removeComments(contents)

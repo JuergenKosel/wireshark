@@ -821,7 +821,7 @@ dissect_dtls_record(tvbuff_t *tvb, packet_info *pinfo,
   sequence_number       = tvb_get_ntoh48(tvb, offset + 5);
 
   if (content_type == SSL_ID_TLS12_CID && cid_length > 0) {
-    cid = tvb_memdup(wmem_packet_scope(), tvb, offset + 11, cid_length);
+    cid = tvb_memdup(pinfo->pool, tvb, offset + 11, cid_length);
     record_length = tvb_get_ntohs(tvb, offset + cid_length + 11);
     dtls_record_length = 13 + cid_length + record_length;
   } else {
@@ -1886,7 +1886,7 @@ UAT_CSTRING_CB_DEF(sslkeylist_uats,protocol,ssldecrypt_assoc_t)
 UAT_FILENAME_CB_DEF(sslkeylist_uats,keyfile,ssldecrypt_assoc_t)
 UAT_CSTRING_CB_DEF(sslkeylist_uats,password,ssldecrypt_assoc_t)
 
-static gboolean
+static bool
 dtlsdecrypt_uat_fld_protocol_chk_cb(void* r _U_, const char* p, guint len _U_, const void* u1 _U_, const void* u2 _U_, char** err)
 {
     if (!p || strlen(p) == 0u) {

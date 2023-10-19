@@ -14,7 +14,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 38.413 v17.5.0 (2023-06)
+ * References: 3GPP TS 38.413 v17.6.0 (2023-09)
  */
 
 #include "config.h"
@@ -603,7 +603,8 @@ typedef enum _ProtocolIE_ID_enum {
   id_HFCNode_ID_new = 362,
   id_GlobalCable_ID_new = 363,
   id_TargetHomeENB_ID = 364,
-  id_HashedUEIdentityIndexValue = 365
+  id_HashedUEIdentityIndexValue = 365,
+  id_ExtendedMobilityInformation = 366
 } ProtocolIE_ID_enum;
 
 typedef enum _GlobalRANNodeID_enum {
@@ -814,6 +815,7 @@ static int hf_ngap_MBSSessionSetupRequestList_PDU = -1;  /* MBSSessionSetupReque
 static int hf_ngap_MBSSessionSetuporModifyRequestList_PDU = -1;  /* MBSSessionSetuporModifyRequestList */
 static int hf_ngap_MBSSessionToReleaseList_PDU = -1;  /* MBSSessionToReleaseList */
 static int hf_ngap_MicoAllPLMN_PDU = -1;          /* MicoAllPLMN */
+static int hf_ngap_ExtendedMobilityInformation_PDU = -1;  /* ExtendedMobilityInformation */
 static int hf_ngap_ngap_MobilityRestrictionList_PDU = -1;  /* MobilityRestrictionList */
 static int hf_ngap_MDTPLMNList_PDU = -1;          /* MDTPLMNList */
 static int hf_ngap_MDTPLMNModificationList_PDU = -1;  /* MDTPLMNModificationList */
@@ -1659,7 +1661,6 @@ static int hf_ngap_locationindependent_02 = -1;   /* UPTransportLayerInformation
 static int hf_ngap_locationdependent_02 = -1;     /* MBS_SessionTNLInfoNGRANList */
 static int hf_ngap_MBS_SessionTNLInfoNGRANList_item = -1;  /* MBS_SessionTNLInfoNGRANItem */
 static int hf_ngap_sharedNGU_UnicastTNLInformation = -1;  /* UPTransportLayerInformation */
-static int hf_ngap_sharedNGU_MulticastTNLInformation_01 = -1;  /* MBS_SessionTNLInfo5GCItem */
 static int hf_ngap_mBSSessionStatus = -1;         /* MBSSessionStatus */
 static int hf_ngap_MBSSessionSetupRequestList_item = -1;  /* MBSSessionSetupRequestItem */
 static int hf_ngap_associatedMBSQosFlowSetupRequestList = -1;  /* AssociatedMBSQosFlowSetupRequestList */
@@ -4062,6 +4063,7 @@ static const value_string ngap_ProtocolIE_ID_vals[] = {
   { id_GlobalCable_ID_new, "id-GlobalCable-ID-new" },
   { id_TargetHomeENB_ID, "id-TargetHomeENB-ID" },
   { id_HashedUEIdentityIndexValue, "id-HashedUEIdentityIndexValue" },
+  { id_ExtendedMobilityInformation, "id-ExtendedMobilityInformation" },
   { 0, NULL }
 };
 
@@ -7399,8 +7401,12 @@ static value_string_ext ngap_CauseRadioNetwork_vals_ext = VALUE_STRING_EXT_INIT(
 
 static int
 dissect_ngap_CauseRadioNetwork(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     45, NULL, TRUE, 12, NULL);
+                                     45, &value, TRUE, 12, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Cause: RadioNetwork=%s]", val_to_str_const(value, ngap_CauseRadioNetwork_vals, "Unknown"));
+
 
   return offset;
 }
@@ -7415,8 +7421,12 @@ static const value_string ngap_CauseTransport_vals[] = {
 
 static int
 dissect_ngap_CauseTransport(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     2, NULL, TRUE, 0, NULL);
+                                     2, &value, TRUE, 0, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Cause: Transport=%s]", val_to_str_const(value, ngap_CauseTransport_vals, "Unknown"));
+
 
   return offset;
 }
@@ -7434,8 +7444,12 @@ static const value_string ngap_CauseNas_vals[] = {
 
 static int
 dissect_ngap_CauseNas(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     4, NULL, TRUE, 1, NULL);
+                                     4, &value, TRUE, 1, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Cause: Nas=%s]", val_to_str_const(value, ngap_CauseNas_vals, "Unknown"));
+
 
   return offset;
 }
@@ -7455,8 +7469,12 @@ static const value_string ngap_CauseProtocol_vals[] = {
 
 static int
 dissect_ngap_CauseProtocol(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     7, NULL, TRUE, 0, NULL);
+                                     7, &value, TRUE, 0, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Cause: Protocol=%s]", val_to_str_const(value, ngap_CauseProtocol_vals, "Unknown"));
+
 
   return offset;
 }
@@ -7475,8 +7493,12 @@ static const value_string ngap_CauseMisc_vals[] = {
 
 static int
 dissect_ngap_CauseMisc(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     6, NULL, TRUE, 0, NULL);
+                                     6, &value, TRUE, 0, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [Cause: Misc=%s]", val_to_str_const(value, ngap_CauseMisc_vals, "Unknown"));
+
 
   return offset;
 }
@@ -10624,6 +10646,7 @@ dissect_ngap_HandoverType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 
+
   return offset;
 }
 
@@ -13643,7 +13666,7 @@ dissect_ngap_MBSSessionStatus(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static const per_sequence_t MBS_DistributionSetupResponseTransfer_sequence[] = {
   { &hf_ngap_mBS_SessionID  , ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_MBS_SessionID },
   { &hf_ngap_mBS_AreaSessionID, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_MBS_AreaSessionID },
-  { &hf_ngap_sharedNGU_MulticastTNLInformation_01, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_MBS_SessionTNLInfo5GCItem },
+  { &hf_ngap_sharedNGU_MulticastTNLInformation, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_SharedNGU_MulticastTNLInformation },
   { &hf_ngap_mBS_QoSFlowsToBeSetupList, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_MBS_QoSFlowsToBeSetupList },
   { &hf_ngap_mBSSessionStatus, ASN1_EXTENSION_ROOT    , ASN1_NOT_OPTIONAL, dissect_ngap_MBSSessionStatus },
   { &hf_ngap_mBS_ServiceArea, ASN1_EXTENSION_ROOT    , ASN1_OPTIONAL    , dissect_ngap_MBS_ServiceArea },
@@ -13781,6 +13804,16 @@ static int
 dissect_ngap_MicoAllPLMN(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, TRUE, 0, NULL);
+
+  return offset;
+}
+
+
+
+static int
+dissect_ngap_ExtendedMobilityInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
+                                     32, 32, FALSE, NULL, 0, NULL, NULL);
 
   return offset;
 }
@@ -15230,8 +15263,12 @@ static const value_string ngap_PagingCause_vals[] = {
 
 static int
 dissect_ngap_PagingCause(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     1, NULL, TRUE, 0, NULL);
+                                     1, &value, TRUE, 0, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [PagingCause=%s]", val_to_str_const(value, ngap_PagingCause_vals, "Unknown"));
+
 
   return offset;
 }
@@ -15245,8 +15282,12 @@ static const value_string ngap_PagingCauseIndicationForVoiceService_vals[] = {
 
 static int
 dissect_ngap_PagingCauseIndicationForVoiceService(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     1, NULL, TRUE, 0, NULL);
+                                     1, &value, TRUE, 0, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [PagingCauseIndicationForVoiceService=%s]", val_to_str_const(value, ngap_PagingCauseIndicationForVoiceService_vals, "Unknown"));
+
 
   return offset;
 }
@@ -18409,8 +18450,12 @@ static const value_string ngap_RRCEstablishmentCause_vals[] = {
 
 static int
 dissect_ngap_RRCEstablishmentCause(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  guint32 value;
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     10, NULL, TRUE, 2, NULL);
+                                     10, &value, TRUE, 2, NULL);
+
+  col_append_fstr(actx->pinfo->cinfo, COL_INFO, " [RRCEstablishmentCause=%s]", val_to_str_const(value, ngap_RRCEstablishmentCause_vals, "Unknown"));
+
 
   return offset;
 }
@@ -21573,7 +21618,6 @@ dissect_ngap_NGAP_Message(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
     return offset;
 
   subtree = proto_item_add_subtree(actx->created_item, ett_ngap_NGAP_Message);
-  col_set_fence(actx->pinfo->cinfo, COL_INFO);
   call_dissector(ngap_handle, parameter_tvb, actx->pinfo, subtree);
 
 
@@ -23915,6 +23959,14 @@ static int dissect_MicoAllPLMN_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, pr
   asn1_ctx_t asn1_ctx;
   asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
   offset = dissect_ngap_MicoAllPLMN(tvb, offset, &asn1_ctx, tree, hf_ngap_MicoAllPLMN_PDU);
+  offset += 7; offset >>= 3;
+  return offset;
+}
+static int dissect_ExtendedMobilityInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
+  int offset = 0;
+  asn1_ctx_t asn1_ctx;
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  offset = dissect_ngap_ExtendedMobilityInformation(tvb, offset, &asn1_ctx, tree, hf_ngap_ExtendedMobilityInformation_PDU);
   offset += 7; offset >>= 3;
   return offset;
 }
@@ -27517,6 +27569,7 @@ proto_reg_handoff_ngap(void)
   dissector_add_uint("ngap.extension", id_TAI, create_dissector_handle(dissect_TAI_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_NR_CGI, create_dissector_handle(dissect_NR_CGI_PDU, proto_ngap));
   dissector_add_uint("ngap.extension", id_HashedUEIdentityIndexValue, create_dissector_handle(dissect_HashedUEIdentityIndexValue_PDU, proto_ngap));
+  dissector_add_uint("ngap.extension", id_ExtendedMobilityInformation, create_dissector_handle(dissect_ExtendedMobilityInformation_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.imsg", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdate_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.sout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateAcknowledge_PDU, proto_ngap));
   dissector_add_uint("ngap.proc.uout", id_AMFConfigurationUpdate, create_dissector_handle(dissect_AMFConfigurationUpdateFailure_PDU, proto_ngap));
@@ -28417,6 +28470,10 @@ void proto_register_ngap(void) {
     { &hf_ngap_MicoAllPLMN_PDU,
       { "MicoAllPLMN", "ngap.MicoAllPLMN",
         FT_UINT32, BASE_DEC, VALS(ngap_MicoAllPLMN_vals), 0,
+        NULL, HFILL }},
+    { &hf_ngap_ExtendedMobilityInformation_PDU,
+      { "ExtendedMobilityInformation", "ngap.ExtendedMobilityInformation",
+        FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_ngap_MobilityRestrictionList_PDU,
       { "MobilityRestrictionList", "ngap.MobilityRestrictionList_element",
@@ -31798,10 +31855,6 @@ void proto_register_ngap(void) {
       { "sharedNGU-UnicastTNLInformation", "ngap.sharedNGU_UnicastTNLInformation",
         FT_UINT32, BASE_DEC, VALS(ngap_UPTransportLayerInformation_vals), 0,
         "UPTransportLayerInformation", HFILL }},
-    { &hf_ngap_sharedNGU_MulticastTNLInformation_01,
-      { "sharedNGU-MulticastTNLInformation", "ngap.sharedNGU_MulticastTNLInformation_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        "MBS_SessionTNLInfo5GCItem", HFILL }},
     { &hf_ngap_mBSSessionStatus,
       { "mBSSessionStatus", "ngap.mBSSessionStatus",
         FT_UINT32, BASE_DEC, VALS(ngap_MBSSessionStatus_vals), 0,

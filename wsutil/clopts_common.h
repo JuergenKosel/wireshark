@@ -34,16 +34,22 @@ extern "C" {
 // Base value for GUI specific long options
 #define LONGOPT_BASE_GUI            4000
 
+#define LONGOPT_READ_CAPTURE_COMMON \
+    {"read-file", ws_required_argument, NULL, 'r' }, \
+
+#define OPTSTRING_READ_CAPTURE_COMMON \
+    "r:"
+
 WS_DLL_PUBLIC int
 get_natural_int(const char *string, const char *name);
 
 WS_DLL_PUBLIC int
 get_positive_int(const char *string, const char *name);
 
-WS_DLL_PUBLIC guint32
+WS_DLL_PUBLIC uint32_t
 get_guint32(const char *string, const char *name);
 
-WS_DLL_PUBLIC guint32
+WS_DLL_PUBLIC uint32_t
 get_nonzero_guint32(const char *string, const char *name);
 
 WS_DLL_PUBLIC double

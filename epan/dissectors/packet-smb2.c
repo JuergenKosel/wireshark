@@ -1251,7 +1251,7 @@ UAT_BUFFER_CB_DEF(seskey_list, c2skey, smb2_seskey_field_t, c2skey, c2skey_len)
 
 #define SMB_SESSION_ID_SIZE 8
 
-static gboolean seskey_list_update_cb(void *r, char **err)
+static bool seskey_list_update_cb(void *r, char **err)
 {
 	smb2_seskey_field_t *rec = (smb2_seskey_field_t *)r;
 	gboolean has_seskey = rec->seskey_len != 0;
@@ -7808,7 +7808,6 @@ dissect_smb2_FSCTL_GET_NTFS_VOLUME_DATA(tvbuff_t *tvb, packet_info *pinfo _U_, p
 	offset += 8;
 
 	proto_tree_add_item(tree, hf_smb2_ioctl_get_ntfs_volume_data_mft_zone_end, tvb, offset, 8, ENC_LITTLE_ENDIAN);
-	offset += 8;
 }
 
 void

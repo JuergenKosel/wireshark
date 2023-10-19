@@ -4572,15 +4572,15 @@ static cip_service_info_t* cip_get_service(packet_info *pinfo, guint8 service_id
 }
 
 static const char *
-segment_name_format(const char *segment_name, const char *fmt)
+segment_name_format(wmem_allocator_t *scope, const char *segment_name, const char *fmt)
     G_GNUC_FORMAT(2);
 
 static const char *
-segment_name_format(const char *segment_name, const char *fmt)
+segment_name_format(wmem_allocator_t *scope, const char *segment_name, const char *fmt)
 {
    wmem_strbuf_t *strbuf;
 
-   strbuf = wmem_strbuf_new(wmem_packet_scope(), segment_name);
+   strbuf = wmem_strbuf_new(scope, segment_name);
    wmem_strbuf_append(strbuf, fmt);
    return wmem_strbuf_get_str(strbuf);
 }
@@ -4654,7 +4654,7 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
       }
       else
       {
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( segment_name, ": 0x%02X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%02X" ) ) );
       }
 
       if (value != NULL)
@@ -4710,10 +4710,10 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
       }
       else
       {
-         strbuf = wmem_strbuf_new(wmem_packet_scope(), segment_name);
+         strbuf = wmem_strbuf_new(pinfo->pool, segment_name);
          wmem_strbuf_append(strbuf, ": 0x%04X");
 
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( segment_name, ": 0x%04X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%04X" ) ) );
       }
 
       if (value != NULL)
@@ -4756,10 +4756,10 @@ dissect_cia(tvbuff_t *tvb, int offset, unsigned char segment_type,
       }
       else
       {
-         strbuf = wmem_strbuf_new(wmem_packet_scope(), segment_name);
+         strbuf = wmem_strbuf_new(pinfo->pool, segment_name);
          wmem_strbuf_append(strbuf, ": 0x%08X");
 
-         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( segment_name, ": 0x%08X" ) ) );
+         proto_item_append_text( epath_item, "%s", val_to_str( temp_data, vals, segment_name_format( pinfo->pool, segment_name, ": 0x%08X" ) ) );
       }
 
       if (value != NULL)
@@ -9537,7 +9537,7 @@ proto_register_cip(void)
 
       { &hf_cip_path_segment, { "Path Segment", "cip.path_segment", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
       { &hf_cip_path_segment_type, { "Path Segment Type", "cip.path_segment.type", FT_UINT8, BASE_DEC, VALS(cip_path_seg_vals), CI_SEGMENT_TYPE_MASK, NULL, HFILL }},
-      { &hf_cip_port_ex_link_addr, { "Extended Link Address", "cip.ex_linkaddress", FT_BOOLEAN, 8, TFS(&tfs_true_false), CI_PORT_SEG_EX_LINK_ADDRESS, NULL, HFILL }},
+      { &hf_cip_port_ex_link_addr, { "Extended Link Address", "cip.ex_linkaddress", FT_BOOLEAN, 8, NULL, CI_PORT_SEG_EX_LINK_ADDRESS, NULL, HFILL }},
       { &hf_cip_port, { "Port", "cip.port", FT_UINT8, BASE_DEC, VALS(cip_port_number_vals), CI_PORT_SEG_PORT_ID_MASK, "Port Identifier", HFILL } },
       { &hf_cip_port_extended,{ "Port Extended", "cip.port", FT_UINT16, BASE_HEX, NULL, 0, "Port Identifier Extended", HFILL } },
       { &hf_cip_link_address_byte, { "Link Address", "cip.linkaddress.byte", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
@@ -9699,7 +9699,7 @@ proto_register_cip(void)
       { &hf_file_filename, { "File Name", "cip.file.file_name", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL } },
 
       { &hf_time_sync_ptp_enable, { "PTP Enable", "cip.time_sync.ptp_enable", FT_BOOLEAN, 8, TFS(&tfs_enabled_disabled), 0, NULL, HFILL }},
-      { &hf_time_sync_is_synchronized, { "Is Synchronized", "cip.time_sync.is_synchronized", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0, NULL, HFILL }},
+      { &hf_time_sync_is_synchronized, { "Is Synchronized", "cip.time_sync.is_synchronized", FT_BOOLEAN, 8, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_sys_time_micro, { "System Time (Microseconds)", "cip.time_sync.sys_time_micro", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_sys_time_nano, { "System Time (Nanoseconds)", "cip.time_sync.sys_time_nano", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0, NULL, HFILL }},
       { &hf_time_sync_offset_from_master, { "Offset from Master", "cip.time_sync.offset_from_master", FT_INT64, BASE_DEC, NULL, 0, NULL, HFILL }},

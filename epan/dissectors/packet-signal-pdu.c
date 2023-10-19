@@ -497,7 +497,7 @@ copy_generic_one_id_string_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_generic_one_identifier_32bit(void *r, char **err) {
     generic_one_id_string_t *rec = (generic_one_id_string_t *)r;
 
@@ -646,7 +646,7 @@ copy_spdu_signal_list_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_signal_list(void *r, char **err) {
     gchar *tmp;
     guchar c;
@@ -1172,7 +1172,7 @@ copy_spdu_signal_value_name_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_signal_value_name(void *r, char **err) {
     spdu_signal_value_name_uat_t *rec = (spdu_signal_value_name_uat_t *)r;
 
@@ -1312,7 +1312,7 @@ copy_spdu_someip_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_someip_mapping(void *r, char **err) {
     spdu_someip_mapping_uat_t *rec = (spdu_someip_mapping_uat_t *)r;
 
@@ -1400,7 +1400,7 @@ copy_spdu_can_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_can_mapping(void *r, char **err) {
     spdu_can_mapping_uat_t *rec = (spdu_can_mapping_uat_t *)r;
 
@@ -1485,7 +1485,7 @@ copy_spdu_flexray_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_flexray_mapping(void *r, char **err) {
     spdu_flexray_mapping_uat_t *rec = (spdu_flexray_mapping_uat_t *)r;
 
@@ -1558,7 +1558,7 @@ copy_spdu_lin_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_lin_mapping(void *r, char **err) {
     spdu_lin_mapping_uat_t *rec = (spdu_lin_mapping_uat_t *)r;
 
@@ -1639,7 +1639,7 @@ copy_spdu_pdu_transport_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_pdu_transport_mapping(void *r, char **err) {
     spdu_pdu_transport_mapping_uat_t *rec = (spdu_pdu_transport_mapping_uat_t *)r;
 
@@ -1705,7 +1705,7 @@ copy_spdu_ipdum_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_ipdum_mapping(void *r, char **err) {
     spdu_ipdum_mapping_uat_t *rec = (spdu_ipdum_mapping_uat_t *)r;
 
@@ -1778,7 +1778,7 @@ copy_spdu_dlt_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_dlt_mapping(void *r, char **err) {
     spdu_dlt_mapping_uat_t *rec = (spdu_dlt_mapping_uat_t *)r;
 
@@ -1850,7 +1850,7 @@ copy_spdu_uds_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_spdu_uds_mapping(void *r, char **err) {
     spdu_uds_mapping_uat_t *rec = (spdu_uds_mapping_uat_t *)r;
 
@@ -2365,14 +2365,20 @@ dissect_spdu_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *root_tree, g
         return 0;
     }
 
-    if (paramlist == NULL || !spdu_deserializer_activated) {
-        /* we only receive subtvbs with nothing behind us */
+    if (!spdu_deserializer_activated) {
+        /* we only receive a tvb with nothing behind us */
         proto_tree_add_text_internal(tree, tvb, 0, tvb_captured_length(tvb), "Dissection of payload is disabled. It can be enabled via protocol preferences.");
         return tvb_captured_length(tvb);
     }
 
+    if (tvb_captured_length(tvb) > 0 && paramlist == NULL) {
+        /* we only receive a tvb with nothing behind us */
+        proto_tree_add_text_internal(tree, tvb, 0, tvb_captured_length(tvb), "Payload of PDU is not configured. See protocol preferences.");
+        return tvb_captured_length(tvb);
+    }
+
     if (root_tree == NULL && !proto_field_is_referenced(root_tree, proto_signal_pdu) && !paramlist->aggregation) {
-        /* we only receive subtvbs with nothing behind us */
+        /* we only receive a tvb with nothing behind us */
         return tvb_captured_length(tvb);
     }
 

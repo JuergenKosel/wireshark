@@ -472,6 +472,7 @@ static const true_false_string tfs_arbitrary_standard = { "Arbitrary", "Standard
 #define OSPF_V2_ROUTER_LSA_FLAG_V 0x04
 #define OSPF_V2_ROUTER_LSA_FLAG_W 0x08
 #define OSPF_V2_ROUTER_LSA_FLAG_N 0x10
+#define OSPF_V2_ROUTER_LSA_FLAG_S 0x20
 #define OSPF_V2_ROUTER_LSA_FLAG_H 0x80
 #define OSPF_V3_ROUTER_LSA_FLAG_B 0x01
 #define OSPF_V3_ROUTER_LSA_FLAG_E 0x02
@@ -888,6 +889,7 @@ static int hf_ospf_v2_router_lsa_flag_e = -1;
 static int hf_ospf_v2_router_lsa_flag_v = -1;
 static int hf_ospf_v2_router_lsa_flag_w = -1;
 static int hf_ospf_v2_router_lsa_flag_n = -1;
+static int hf_ospf_v2_router_lsa_flag_s = -1;
 static int hf_ospf_v2_router_lsa_flag_h = -1;
 static int hf_ospf_v3_router_lsa_flag = -1;
 static int hf_ospf_v3_router_lsa_flag_b = -1;
@@ -1138,6 +1140,7 @@ static int * const bf_v3_lls_relay_options[] = {
 };
 static int * const bf_v2_router_lsa_flags[] = {
     &hf_ospf_v2_router_lsa_flag_h,
+    &hf_ospf_v2_router_lsa_flag_s,
     &hf_ospf_v2_router_lsa_flag_n,
     &hf_ospf_v2_router_lsa_flag_w,
     &hf_ospf_v2_router_lsa_flag_v,
@@ -4658,7 +4661,7 @@ proto_register_ospf(void)
          { "(DC) Demand Circuits", "ospf.v2.options.dc", FT_BOOLEAN, 8,
            TFS(&tfs_supported_not_supported), OSPF_V2_OPTIONS_DC, NULL, HFILL }},
         {&hf_ospf_v2_options_o,
-         { "O", "ospf.v2.options.o", FT_BOOLEAN, 8,
+         { "(O) Opaque", "ospf.v2.options.o", FT_BOOLEAN, 8,
            TFS(&tfs_set_notset), OSPF_V2_OPTIONS_O, NULL, HFILL }},
         {&hf_ospf_v2_options_dn,
          { "DN", "ospf.v2.options.dn", FT_BOOLEAN, 8,
@@ -4763,10 +4766,13 @@ proto_register_ospf(void)
          { "(W) Wild-card multicast receiver", "ospf.v2.router.lsa.flags.w", FT_BOOLEAN, 8,
            TFS(&tfs_yes_no), OSPF_V2_ROUTER_LSA_FLAG_W, NULL, HFILL }},
         {&hf_ospf_v2_router_lsa_flag_n,
-         { "(N) flag", "ospf.v2.router.lsa.flags.n", FT_BOOLEAN, 8,
+         { "(N) NSSA translation", "ospf.v2.router.lsa.flags.n", FT_BOOLEAN, 8,
            TFS(&tfs_yes_no), OSPF_V2_ROUTER_LSA_FLAG_N, NULL, HFILL }},
+        {&hf_ospf_v2_router_lsa_flag_s,
+         { "(S) Shortcut-capable ABR", "ospf.v2.router.lsa.flags.s", FT_BOOLEAN, 8,
+           TFS(&tfs_yes_no), OSPF_V2_ROUTER_LSA_FLAG_S, NULL, HFILL }},
         {&hf_ospf_v2_router_lsa_flag_h,
-         { "(H) flag", "ospf.v2.router.lsa.flags.h", FT_BOOLEAN, 8,
+         { "(H) Host", "ospf.v2.router.lsa.flags.h", FT_BOOLEAN, 8,
            TFS(&tfs_yes_no), OSPF_V2_ROUTER_LSA_FLAG_H, NULL, HFILL }},
         {&hf_ospf_v3_router_lsa_flag,
          { "Flags", "ospf.v3.router.lsa.flags", FT_UINT8, BASE_HEX,
@@ -4867,7 +4873,7 @@ proto_register_ospf(void)
         {&hf_ospf_ls_epfx_stlv,
          { "TLV Type", "ospf.tlv.extpfx.subtlv_type", FT_UINT16, BASE_DEC, VALS(ext_pfx_stlv_type_vals), 0x0, NULL, HFILL }},
         {&hf_ospf_ls_epfx_route_type,
-         { "Route Type", "ospf.tlv.extpfx.rotuetype", FT_UINT16, BASE_DEC, VALS(ext_pfx_tlv_route_vals), 0x0, NULL, HFILL }},
+         { "Route Type", "ospf.tlv.extpfx.routetype", FT_UINT16, BASE_DEC, VALS(ext_pfx_tlv_route_vals), 0x0, NULL, HFILL }},
         {&hf_ospf_ls_epfx_af,
          { "Address Family", "ospf.tlv.extpfx.af", FT_UINT8, BASE_DEC, VALS(ext_pfx_tlv_af_vals), 0x0, NULL, HFILL }},
 
@@ -5134,7 +5140,7 @@ proto_register_ospf(void)
       { &hf_ospf_ls_id_te_lsa_reserved, { "Link State ID TE-LSA Reserved", "ospf.lsid_te_lsa.reserved", FT_UINT8, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_ls_id_opaque_id, { "Link State ID Opaque ID", "ospf.lsid.opaque_id", FT_UINT24, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_lsa_number_of_links, { "Number of Links", "ospf.lsa.number_of_links", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
-      { &hf_ospf_v3_lsa_do_not_age, { "Do Not Age", "ospf.v3.lsa.do_not_age", FT_BOOLEAN, 16, TFS(&tfs_true_false), OSPF_DNA_LSA, NULL, HFILL }},
+      { &hf_ospf_v3_lsa_do_not_age, { "Do Not Age", "ospf.v3.lsa.do_not_age", FT_BOOLEAN, 16, NULL, OSPF_DNA_LSA, NULL, HFILL }},
       { &hf_ospf_v3_lsa_interface_id, { "Interface ID", "ospf.v3.lsa.interface_id", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_v3_lsa_neighbor_interface_id, { "Neighbor Interface ID", "ospf.v3.lsa.neighbor_interface_id", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
       { &hf_ospf_v3_lsa_neighbor_router_id, { "Neighbor Router ID", "ospf.v3.lsa.neighbor_router_id", FT_IPv4, BASE_NONE, NULL, 0x0, NULL, HFILL }},

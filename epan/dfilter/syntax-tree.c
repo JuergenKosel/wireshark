@@ -22,9 +22,6 @@
 static sttype_t* type_list[STTYPE_NUM_TYPES];
 
 
-#define STNODE_MAGIC	0xe9b00b9e
-
-
 void
 sttype_init(void)
 {
@@ -79,7 +76,6 @@ sttype_lookup(sttype_id_t type_id)
 void
 stnode_clear(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
 	if (node->type) {
 		if (node->type->func_free && node->data) {
 			node->type->func_free(node->data);
@@ -103,11 +99,10 @@ stnode_clear(stnode_t *node)
 }
 
 void
-stnode_init(stnode_t *node, sttype_id_t type_id, gpointer data, char *token, df_loc_t loc)
+stnode_init(stnode_t *node, sttype_id_t type_id, void *data, char *token, df_loc_t loc)
 {
 	sttype_t	*type;
 
-	ws_assert_magic(node, STNODE_MAGIC);
 	ws_assert(!node->type);
 	ws_assert(!node->data);
 	node->repr_display = NULL;
@@ -136,7 +131,7 @@ stnode_init(stnode_t *node, sttype_id_t type_id, gpointer data, char *token, df_
 }
 
 void
-stnode_replace(stnode_t *node, sttype_id_t type_id, gpointer data)
+stnode_replace(stnode_t *node, sttype_id_t type_id, void *data)
 {
 	char *token = g_strdup(node->repr_token);
 	df_loc_t loc = node->location;
@@ -147,15 +142,10 @@ stnode_replace(stnode_t *node, sttype_id_t type_id, gpointer data)
 }
 
 stnode_t*
-stnode_new(sttype_id_t type_id, gpointer data, char *token, df_loc_t loc)
+stnode_new(sttype_id_t type_id, void *data, char *token, df_loc_t loc)
 {
-	stnode_t	*node;
-
-	node = g_new0(stnode_t, 1);
-	node->magic = STNODE_MAGIC;
-
+	stnode_t *node = g_new0(stnode_t, 1);
 	stnode_init(node, type_id, data, token, loc);
-
 	return node;
 }
 
@@ -171,9 +161,7 @@ stnode_dup(const stnode_t *node)
 {
 	stnode_t *new;
 
-	ws_assert_magic(node, STNODE_MAGIC);
 	new = g_new(stnode_t, 1);
-	new->magic = STNODE_MAGIC;
 	new->repr_display = NULL;
 	new->repr_debug = NULL;
 	new->repr_token = g_strdup(node->repr_token);
@@ -194,7 +182,6 @@ stnode_dup(const stnode_t *node)
 void
 stnode_free(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
 	stnode_clear(node);
 	g_free(node);
 }
@@ -202,7 +189,6 @@ stnode_free(stnode_t *node)
 const char*
 stnode_type_name(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
 	if (node->type)
 		return node->type->name;
 	else
@@ -212,17 +198,15 @@ stnode_type_name(stnode_t *node)
 sttype_id_t
 stnode_type_id(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
 	if (node->type)
 		return node->type->id;
 	else
 		return STTYPE_UNINITIALIZED;
 }
 
-gpointer
+void *
 stnode_data(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
 	return node->data;
 }
 
@@ -233,11 +217,10 @@ stnode_string(stnode_t *node)
 	return stnode_data(node);
 }
 
-gpointer
+void *
 stnode_steal_data(stnode_t *node)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
-	gpointer data = node->data;
+	void *data = node->data;
 	ws_assert(data);
 	node->data = NULL;
 	return data;
@@ -261,7 +244,7 @@ stnode_set_location(stnode_t *node, df_loc_t loc)
 	node->location = loc;
 }
 
-gboolean
+bool
 stnode_get_flags(stnode_t *node, uint16_t flags)
 {
 	return node->flags & flags;
@@ -295,7 +278,7 @@ stnode_merge_location(stnode_t *dst, stnode_t *n1, stnode_t *n2)
 		stnode_type_id(node) == STTYPE_ARITHMETIC)
 
 static char *
-_node_tostr(stnode_t *node, gboolean pretty)
+_node_tostr(stnode_t *node, bool pretty)
 {
 	char *s, *repr;
 
@@ -319,10 +302,8 @@ _node_tostr(stnode_t *node, gboolean pretty)
 }
 
 const char *
-stnode_tostr(stnode_t *node, gboolean pretty)
+stnode_tostr(stnode_t *node, bool pretty)
 {
-	ws_assert_magic(node, STNODE_MAGIC);
-
 	if (pretty && IS_OPERATOR(node) && node->repr_token != NULL) {
 		/* Some operators can have synonyms, like "or" and "||".
 		 * Show the user the same representation as he typed. */
@@ -351,7 +332,6 @@ sprint_node(stnode_t *node)
 	wmem_strbuf_t *buf = wmem_strbuf_new(NULL, NULL);
 
 	wmem_strbuf_append_printf(buf, "{ ");
-	wmem_strbuf_append_printf(buf, "magic = 0x%"PRIx32", ", node->magic);
 	wmem_strbuf_append_printf(buf, "type = %s, ", stnode_type_name(node));
 	wmem_strbuf_append_printf(buf, "data = %s, ", stnode_todebug(node));
 	wmem_strbuf_append_printf(buf, "location = %ld:%zu",
@@ -459,14 +439,14 @@ visit_tree(wmem_strbuf_t *buf, stnode_t *node, int level)
 		while (nodelist) {
 			indent(buf, level + 1);
 			lower = nodelist->data;
-			wmem_strbuf_append(buf, stnode_tostr(lower, FALSE));
+			wmem_strbuf_append(buf, stnode_tostr(lower, false));
 			/* Set elements are always in pairs; upper may be null. */
 			nodelist = g_slist_next(nodelist);
 			ws_assert(nodelist);
 			upper = nodelist->data;
 			if (upper != NULL) {
 				wmem_strbuf_append(buf, " .. ");
-				wmem_strbuf_append(buf, stnode_tostr(upper, FALSE));
+				wmem_strbuf_append(buf, stnode_tostr(upper, false));
 			}
 			nodelist = g_slist_next(nodelist);
 			if (nodelist != NULL) {

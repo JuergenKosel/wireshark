@@ -2040,6 +2040,18 @@ static int dissect_SecurityLevel_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
 }
 
 
+static const val64_string ciplus_scr_cap[] = {
+    { 0, "DES" },
+    { 1, "DES and AES" },
+    { 0, NULL }
+};
+
+static const val64_string ciplus_security_level[] = {
+    { 0, "Standard Security Level" },
+    { 1, "ECP Security Level" },
+    { 0, NULL }
+};
+
 /* CI+ (www.ci-plus.com) defines some X.509 certificate extensions
    that use OIDs which are not officially assigned
    dissection of these extensions can be enabled temporarily using the
@@ -2283,7 +2295,7 @@ void proto_register_x509ce(void) {
         NULL, HFILL }},
     { &hf_x509ce_SecurityLevel_PDU,
       { "SecurityLevel", "x509ce.SecurityLevel",
-        FT_UINT64, BASE_DEC, NULL, 0,
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(ciplus_security_level), 0,
         NULL, HFILL }},
     { &hf_x509ce_keyIdentifier,
       { "keyIdentifier", "x509ce.keyIdentifier",
@@ -2811,7 +2823,7 @@ void proto_register_x509ce(void) {
         NULL, HFILL }},
     { &hf_x509ce_capability,
       { "capability", "x509ce.capability",
-        FT_UINT64, BASE_DEC, NULL, 0,
+        FT_UINT64, BASE_DEC|BASE_VAL64_STRING, VALS64(ciplus_scr_cap), 0,
         "INTEGER_0_MAX", HFILL }},
     { &hf_x509ce_version,
       { "version", "x509ce.version",

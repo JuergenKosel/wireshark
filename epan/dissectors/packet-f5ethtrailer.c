@@ -2043,7 +2043,7 @@ dissect_low_trailer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint o
      * and "OUT", but rather can continue to use typical boolean values.  "IN"
      * and "OUT" are provided as convenience. */
     proto_tree_add_boolean_format_value(tree, hf_ingress, tvb, o, 1, ingress, "%s (%s)",
-            tfs_get_string(ingress, &tfs_true_false),
+            tfs_get_true_false(ingress),
             tfs_get_string(ingress, &f5tfs_ing));
     o++;
 
@@ -2446,7 +2446,7 @@ dissect_dpt_trailer_noise_low(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
      * and "OUT", but rather can continue to use typical boolean values.  "IN"
      * and "OUT" are provided as convenience. */
     pi = proto_tree_add_boolean_format_value(tree, hf_ingress, tvb, offset, 1, ingress,
-        "%s (%s)", tfs_get_string(ingress, &tfs_true_false),
+        "%s (%s)", tfs_get_true_false(ingress),
             tfs_get_string(ingress, &f5tfs_ing));
     if (ver > 2) {
         /* The old ingress field is now a flag field.  Leave the old ingress field
@@ -4019,8 +4019,7 @@ proto_register_f5ethtrailer(void)
                 "This version of Wireshark does not understand how to decode this value", EXPFILL } },
     };
 
-    proto_f5ethtrailer = proto_register_protocol(
-        "F5 Ethernet Trailer Protocol", "F5 Ethernet trailer", "f5ethtrailer");
+    proto_f5ethtrailer = proto_register_protocol("F5 Ethernet Trailer Protocol", "F5 Ethernet trailer", "f5ethtrailer");
 
     expert_f5ethtrailer = expert_register_protocol(proto_f5ethtrailer);
     expert_register_field_array(expert_f5ethtrailer, ei, array_length(ei));
@@ -4329,7 +4328,7 @@ dissect_f5fileinfo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     tap_data->magic = F5FILEINFO_TAP_MAGIC;
 
     while (tvb_captured_length_remaining(tvb, offset)) {
-        object = tvb_get_stringz_enc(wmem_packet_scope(), tvb, offset, &objlen, ENC_ASCII);
+        object = tvb_get_stringz_enc(pinfo->pool, tvb, offset, &objlen, ENC_ASCII);
 
         if (objlen <= 0 || object == NULL)
             break;

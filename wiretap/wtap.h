@@ -1334,6 +1334,7 @@ typedef struct {
 } wtap_ft_specific_header;
 
 typedef struct {
+    const char *pathname;       /* Path name of file. */
     guint     record_type;      /* XXX match ft_specific_record_phdr so that we chain off of packet-pcapng_block for now. */
     int       byte_order;
     /* guint32 sentinel; */
@@ -1495,6 +1496,9 @@ typedef struct wtap_dump_params {
                                                  be written before newer packets are written in wtap_dump. */
     GArray     *dsbs_initial;               /**< The initial Decryption Secrets Block(s) to be written, or NULL. */
     const GArray *dsbs_growing;             /**< DSBs that will be written while writing packets, or NULL.
+                                                 This array may grow since the dumper was opened and will subsequently
+                                                 be written before newer packets are written in wtap_dump. */
+    const GArray *mevs_growing;             /**< Meta events that will be written while writing packets, or NULL.
                                                  This array may grow since the dumper was opened and will subsequently
                                                  be written before newer packets are written in wtap_dump. */
     gboolean    dont_copy_idbs;             /**< XXX - don't copy IDBs; this should eventually always be the case. */

@@ -846,6 +846,7 @@ wmem_test_list(void)
     wmem_list_insert_sorted(list, GINT_TO_POINTER(1), wmem_compare_int);
     wmem_list_insert_sorted(list, GINT_TO_POINTER(2), wmem_compare_int);
     wmem_list_insert_sorted(list, GINT_TO_POINTER(9), wmem_compare_int);
+    g_assert_true(wmem_list_count(list) == 5);
     frame = wmem_list_head(list);
     int1 = GPOINTER_TO_INT(wmem_list_frame_data(frame));
     while ((frame = wmem_list_frame_next(frame))) {
@@ -862,6 +863,7 @@ wmem_test_list(void)
     wmem_list_insert_sorted(list, GINT_TO_POINTER(3), wmem_compare_int);
     wmem_list_insert_sorted(list, GINT_TO_POINTER(2), wmem_compare_int);
     wmem_list_insert_sorted(list, GINT_TO_POINTER(2), wmem_compare_int);
+    g_assert_true(wmem_list_count(list) == 6);
     frame = wmem_list_head(list);
     int1 = GPOINTER_TO_INT(wmem_list_frame_data(frame));
     while ((frame = wmem_list_frame_next(frame))) {
@@ -878,6 +880,7 @@ wmem_test_list(void)
     wmem_list_insert_sorted(list, "bbb", str_compare);
     wmem_list_insert_sorted(list, "zzz", str_compare);
     wmem_list_insert_sorted(list, "ggg", str_compare);
+    g_assert_true(wmem_list_count(list) == 6);
     frame = wmem_list_head(list);
     str1 = (char*)wmem_list_frame_data(frame);
     while ((frame = wmem_list_frame_next(frame))) {
@@ -1405,10 +1408,10 @@ wmem_test_itree(void)
 
     tree = wmem_itree_new(allocator);
 
-    /* even though keys are uint64_t, we use G_MAXINT32 as a max because of the type returned by
+    /* even though keys are uint64_t, we use INT32_MAX as a max because of the type returned by
       g_test_rand_int_range.
      */
-    max_rand = G_MAXINT32;
+    max_rand = INT32_MAX;
     r2.max_edge = range.max_edge = 0;
     range.low = g_test_rand_int_range(0, max_rand);
     range.high = g_test_rand_int_range( (int32_t)range.low, (int32_t)max_rand);

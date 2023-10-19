@@ -146,7 +146,8 @@ private:
         Default,
         Quit,
         Restart,
-        Reload
+        Reload,
+        Update
     };
 
     Ui::LograyMainWindow *main_ui_;
@@ -171,6 +172,7 @@ private:
 
     bool capture_stopping_;
     bool capture_filter_valid_;
+    bool use_capturing_title_;
 #ifdef HAVE_LIBPCAP
     capture_session cap_session_;
     CaptureOptionsDialog *capture_options_dialog_;
@@ -334,6 +336,7 @@ private slots:
     void addPluginIFStructures();
     QMenu * searchSubMenu(QString objectName);
     void activatePluginIFToolbar(bool);
+    void updateTitlebar();
 
     void startInterfaceCapture(bool valid, const QString capture_filter);
 

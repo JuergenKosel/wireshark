@@ -53,17 +53,10 @@ static const value_string r09_zv_vals[] = {
 
 static const value_string r09_ha_vals[] = {
     { 0x00, "Ohne Bedeutung" },
-    { 0x01, "Taste 'gerade' betätig" },
-    { 0x02, "Taste 'links' betätig" },
-    { 0x03, "Taste 'rechts' betätig" },
+    { 0x01, "Taste 'gerade' betätigt" },
+    { 0x02, "Taste 'links' betätigt" },
+    { 0x03, "Taste 'rechts' betätigt" },
     {0, NULL}
-};
-
-static dgt_set_t Dgt1_9_bcd = {
-    {
-        /*  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f */
-           '0','1','2','3','4','5','6','7','8','9','?','?','?','?','?','?'
-    }
 };
 
 static int
@@ -73,7 +66,7 @@ dissect_r09(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
     guint8 ib1, ib2;
     guint8 ty, tl;
     guint16 mp;
-    const gchar *r09x_str, *ln_str, *kn_str, *zn_str, *fn_str, *un_str;
+    const gchar *r09x_str;
 
     ib1 = tvb_get_guint8(tvb, 0);
     ty = ib1 & 0x0F;
@@ -119,20 +112,19 @@ dissect_r09(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 
     if (tl >= 3) {
         /* Zusatzbyte 2, 3 */
-        ln_str = tvb_get_bcd_string(pinfo->pool, tvb, 4, 2, &Dgt1_9_bcd, TRUE, FALSE, TRUE);
-        proto_tree_add_string(r09_tree, hf_r09_ln, tvb, 4, 2, ln_str);
+        proto_tree_add_item(r09_tree, hf_r09_ln, tvb, 4, 2,
+                ENC_BCD_DIGITS_0_9 | ENC_BIG_ENDIAN | ENC_BCD_SKIP_FIRST);
     }
 
     if (tl >= 4) {
         /* Zusatzbyte 4 */
-        kn_str = tvb_get_bcd_string(pinfo->pool, tvb, 6, 1, &Dgt1_9_bcd, FALSE, FALSE, TRUE);
-        proto_tree_add_string(r09_tree, hf_r09_kn, tvb, 6, 1, kn_str);
+        proto_tree_add_item(r09_tree, hf_r09_kn, tvb, 6, 1, ENC_BCD_DIGITS_0_9 | ENC_BIG_ENDIAN);
     }
 
     if (tl >= 6) {
         /* Zusatzbyte 5, 6 */
-        zn_str = tvb_get_bcd_string(pinfo->pool, tvb, 7, 2, &Dgt1_9_bcd, FALSE, TRUE, TRUE);
-        proto_tree_add_string(r09_tree, hf_r09_zn, tvb, 7, 2, zn_str);
+        proto_tree_add_item(r09_tree, hf_r09_zn, tvb, 7, 2,
+                ENC_BCD_DIGITS_0_9 | ENC_BIG_ENDIAN | ENC_BCD_ODD_NUM_DIG);
     }
 
     if (tl == 6) {
@@ -142,10 +134,9 @@ dissect_r09(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 
     if (tl == 8) {
         /* Zusatzbyte 6, 7, 8 */
-        fn_str = tvb_get_bcd_string(pinfo->pool, tvb, 8, 2, &Dgt1_9_bcd, TRUE, FALSE, TRUE);
-        proto_tree_add_string(r09_tree, hf_r09_fn, tvb, 8, 2, fn_str);
-        un_str = tvb_get_bcd_string(pinfo->pool, tvb, 10, 1, &Dgt1_9_bcd, FALSE, FALSE, TRUE);
-        proto_tree_add_string(r09_tree, hf_r09_un, tvb, 10, 1, un_str);
+        proto_tree_add_item(r09_tree, hf_r09_fn, tvb, 8, 2,
+                ENC_BCD_DIGITS_0_9 | ENC_BIG_ENDIAN | ENC_BCD_SKIP_FIRST);
+        proto_tree_add_item(r09_tree, hf_r09_un, tvb, 10, 1, ENC_BCD_DIGITS_0_9 | ENC_BIG_ENDIAN);
     }
 
     return tvb_captured_length(tvb);
@@ -187,7 +178,7 @@ proto_register_r09(void)
             FT_STRING, BASE_NONE, NULL, 0x00, "Liniennummer", HFILL}
         },
         { &hf_r09_kn, { "KN", "r09.kn",
-            FT_STRING, BASE_NONE, NULL, 0x00, "Kuzrsnummer", HFILL}
+            FT_STRING, BASE_NONE, NULL, 0x00, "Kursnummer", HFILL}
         },
         { &hf_r09_zn, { "ZN", "r09.zn",
             FT_STRING, BASE_NONE, NULL, 0x00, "Zielnummer", HFILL}

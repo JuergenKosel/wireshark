@@ -34,9 +34,11 @@
 
 void proto_reg_handoff_tacacs(void);
 void proto_register_tacacs(void);
+static dissector_handle_t tacacs_handle;
 
 void proto_reg_handoff_tacplus(void);
 void proto_register_tacplus(void);
+static dissector_handle_t tacplus_handle;
 
 static void md5_xor( guint8 *data, const char *key, int data_len, guint8 *session_id, guint8 version, guint8 seq_no );
 static int  dissect_tacplus_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
@@ -142,7 +144,7 @@ dissect_tacacs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 	col_add_str(pinfo->cinfo, COL_INFO,
 		    val_to_str(type, tacacs_type_vals, "Unknown (0x%02x)"));
 
-	if (tree)
+	/* if (tree) */
 	{
 		ti = proto_tree_add_protocol_format(tree, proto_tacacs,
 		 tvb, 0, -1, version==0?"TACACS":"XTACACS");
@@ -261,14 +263,12 @@ proto_register_tacacs(void)
 	proto_tacacs = proto_register_protocol("TACACS", "TACACS", "tacacs");
 	proto_register_field_array(proto_tacacs, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
+	tacacs_handle = register_dissector("tacacs", dissect_tacacs, proto_tacacs);
 }
 
 void
 proto_reg_handoff_tacacs(void)
 {
-	dissector_handle_t tacacs_handle;
-
-	tacacs_handle = create_dissector_handle(dissect_tacacs, proto_tacacs);
 	dissector_add_uint_with_preference("udp.port", UDP_PORT_TACACS, tacacs_handle);
 }
 
@@ -902,7 +902,7 @@ dissect_tacplus_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 				request ? "Q" : "R",
 				val_to_str(tvb_get_guint8(tvb,1), tacplus_type_vals, "Unknown (0x%02x)"));
 
-	if (tree)
+	/* if (tree) */
 	{
 		ti = proto_tree_add_item(tree, proto_tacplus, tvb, 0, -1, ENC_NA);
 
@@ -1259,6 +1259,7 @@ proto_register_tacplus(void)
 	proto_tacplus = proto_register_protocol("TACACS+", "TACACS+", "tacplus");
 	proto_register_field_array(proto_tacplus, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
+	tacplus_handle = register_dissector("tacplus", dissect_tacplus, proto_tacplus);
 	expert_tacplus = expert_register_protocol(proto_tacplus);
 	expert_register_field_array(expert_tacplus, ei, array_length(ei));
 	tacplus_module = prefs_register_protocol (proto_tacplus, tacplus_pref_cb );
@@ -1272,10 +1273,6 @@ proto_register_tacplus(void)
 void
 proto_reg_handoff_tacplus(void)
 {
-	dissector_handle_t tacplus_handle;
-
-	tacplus_handle = create_dissector_handle(dissect_tacplus,
-	    proto_tacplus);
 	dissector_add_uint_with_preference("tcp.port", TCP_PORT_TACACS, tacplus_handle);
 }
 

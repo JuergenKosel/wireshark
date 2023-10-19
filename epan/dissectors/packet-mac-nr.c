@@ -54,6 +54,10 @@ static int hf_mac_nr_subheader_length_2_bytes = -1;
 static int hf_mac_nr_lcid = -1;
 static int hf_mac_nr_ulsch_lcid = -1;
 static int hf_mac_nr_dlsch_lcid = -1;
+static int hf_mac_nr_dlsch_elcid_2oct = -1;
+static int hf_mac_nr_ulsch_elcid_2oct = -1;
+static int hf_mac_nr_dlsch_elcid_1oct = -1;
+static int hf_mac_nr_ulsch_elcid_1oct = -1;
 static int hf_mac_nr_dlsch_sdu = -1;
 static int hf_mac_nr_ulsch_sdu = -1;
 static int hf_mac_nr_bcch_pdu = -1;
@@ -288,6 +292,8 @@ static int hf_mac_nr_control_bsr_long_bs_lcg4 = -1;
 static int hf_mac_nr_control_bsr_long_bs_lcg5 = -1;
 static int hf_mac_nr_control_bsr_long_bs_lcg6 = -1;
 static int hf_mac_nr_control_bsr_long_bs_lcg7 = -1;
+static int hf_mac_nr_control_timing_advance_report_reserved = -1;
+static int hf_mac_nr_control_timing_advance_report_ta = -1;
 
 static int hf_mac_nr_rar = -1;
 static int hf_mac_nr_rar_subheader = -1;
@@ -311,6 +317,8 @@ static int hf_mac_nr_rar_temp_crnti = -1;
 
 static int hf_mac_nr_padding = -1;
 
+static int hf_mac_nr_differential_koffset = -1;
+static int hf_mac_nr_differential_koffset_reserved = -1;
 /* Subtrees. */
 static int ett_mac_nr = -1;
 static int ett_mac_nr_context = -1;
@@ -497,24 +505,26 @@ static const value_string bcch_transport_channel_vals[] =
     { 0, NULL }
 };
 
-#define CCCH_LCID                                   0x00
-#define RECOMMENDED_BIT_RATE_LCID                   0x2f
-#define SP_ZP_CSI_RS_RESOURCE_SET_ACT_DEACT_LCID    0x30
-#define PUCCH_SPATIAL_REL_ACT_DEACT_LCID            0x31
-#define SP_SRS_ACT_DEACT_LCID                       0x32
-#define SP_CSI_REPORT_ON_PUCCH_ACT_DEACT_LCID       0x33
-#define TCI_STATE_IND_FOR_UE_SPEC_PDCCH_LCID        0x34
-#define TCI_STATES_ACT_DEACT_FOR_UE_SPEC_PDSCH_LCID 0x35
-#define APER_CSI_TRIGGER_STATE_SUBSELECT_LCID       0x36
-#define SP_CSI_RS_CSI_IM_RES_SET_ACT_DEACT_LCID     0x37
-#define DUPLICATION_ACTIVATION_DEACTIVATION_LCID    0x38
-#define SCELL_ACTIVATION_DEACTIVATION_4_LCID        0x39
-#define SCELL_ACTIVATION_DEACTIVATION_1_LCID        0x3a
-#define LONG_DRX_COMMAND_LCID                       0x3b
-#define DRX_COMMAND_LCID                            0x3c
-#define TIMING_ADVANCE_COMMAND_LCID                 0x3d
-#define UE_CONTENTION_RESOLUTION_IDENTITY_LCID      0x3e
-#define PADDING_LCID                                0x3f
+#define CCCH_LCID                                   0
+#define TWO_OCTET_ELCID_FIELD                       33
+#define ONE_OCTET_ELCID_FIELD                       34
+#define RECOMMENDED_BIT_RATE_LCID                   47
+#define SP_ZP_CSI_RS_RESOURCE_SET_ACT_DEACT_LCID    48
+#define PUCCH_SPATIAL_REL_ACT_DEACT_LCID            49
+#define SP_SRS_ACT_DEACT_LCID                       50
+#define SP_CSI_REPORT_ON_PUCCH_ACT_DEACT_LCID       51
+#define TCI_STATE_IND_FOR_UE_SPEC_PDCCH_LCID        52
+#define TCI_STATES_ACT_DEACT_FOR_UE_SPEC_PDSCH_LCID 53
+#define APER_CSI_TRIGGER_STATE_SUBSELECT_LCID       54
+#define SP_CSI_RS_CSI_IM_RES_SET_ACT_DEACT_LCID     55
+#define DUPLICATION_ACTIVATION_DEACTIVATION_LCID    56
+#define SCELL_ACTIVATION_DEACTIVATION_4_LCID        57
+#define SCELL_ACTIVATION_DEACTIVATION_1_LCID        58
+#define LONG_DRX_COMMAND_LCID                       59
+#define DRX_COMMAND_LCID                            60
+#define TIMING_ADVANCE_COMMAND_LCID                 61
+#define UE_CONTENTION_RESOLUTION_IDENTITY_LCID      62
+#define PADDING_LCID                                63
 
 static const value_string dlsch_lcid_vals[] =
 {
@@ -551,6 +561,20 @@ static const value_string dlsch_lcid_vals[] =
     { 30,                                          "30"},
     { 31,                                          "31"},
     { 32,                                          "32"},
+    { 33,                                          "Extended logical channel ID field(two octet eLCID field)"},
+    { 34,                                          "Extended logical channel ID field(one octet eLCID field)"},
+    { 35,                                          "Reserved"},
+    { 36,                                          "Reserved"},
+    { 37,                                          "Reserved"},
+    { 38,                                          "Reserved"},
+    { 39,                                          "Reserved"},
+    { 40,                                          "Reserved"},
+    { 41,                                          "Reserved"},
+    { 42,                                          "Reserved"},
+    { 43,                                          "Reserved"},
+    { 44,                                          "Reserved"},
+    { 45,                                          "Reserved"},
+    { 46,                                          "Reserved"},
     { RECOMMENDED_BIT_RATE_LCID,                   "Recommended Bit Rate"},
     { SP_ZP_CSI_RS_RESOURCE_SET_ACT_DEACT_LCID,    "SP ZP CSI-RS Resource Set Activation/Deactivation"},
     { PUCCH_SPATIAL_REL_ACT_DEACT_LCID,            "PUCCH spatial relation Activation/Deactivation"},
@@ -572,18 +596,95 @@ static const value_string dlsch_lcid_vals[] =
 };
 static value_string_ext dlsch_lcid_vals_ext = VALUE_STRING_EXT_INIT(dlsch_lcid_vals);
 
-#define CCCH_48_BITS_LCID                    0x34
-#define RECOMMENDED_BIT_RATE_QUERY_LCID      0x35
-#define MULTIPLE_ENTRY_PHR_4_LCID            0x36
-#define CONFIGURED_GRANT_CONFIGURATION_LCID  0x37
-#define MULTIPLE_ENTRY_PHR_1_LCID            0x38
-#define SINGLE_ENTRY_PHR_LCID                0x39
-#define C_RNTI_LCID                          0x3a
-#define SHORT_TRUNCATED_BSR_LCID             0x3b
-#define LONG_TRUNCATED_BSR_LCID              0x3c
-#define SHORT_BSR_LCID                       0x3d
-#define LONG_BSR_LCID                        0x3e
-#define PADDING_LCID                         0x3f
+/* TODO: not all LCIDs handled yet */
+#define TRUNCATED_ENHANCED_BFR_LCID          43
+#define TIMING_ADVANCE_REPORT_LCID           44
+#define TRUNCATED_SIDELINK_BSR_LCID          45
+#define SIDELINK_BSR_LCID                    46
+#define RESERVED_47_LCID                     47
+#define LBT_FAILURE_4_OCTETS_LCID            48
+#define LBT_FAILURE_1_OCTET_LCID             49
+#define BFR_LCID                             50
+#define TRUNCATED_BFR_LCID                   51
+#define CCCH_48_BITS_LCID                    52
+#define RECOMMENDED_BIT_RATE_QUERY_LCID      53
+#define MULTIPLE_ENTRY_PHR_4_LCID            54
+#define CONFIGURED_GRANT_CONFIGURATION_LCID  55
+#define MULTIPLE_ENTRY_PHR_1_LCID            56
+#define SINGLE_ENTRY_PHR_LCID                57
+#define C_RNTI_LCID                          58
+#define SHORT_TRUNCATED_BSR_LCID             59
+#define LONG_TRUNCATED_BSR_LCID              60
+#define SHORT_BSR_LCID                       61
+#define LONG_BSR_LCID                        62
+
+/* Table 6.2.1-1b Values of one-octet eLCID for DL-SCH */
+
+#define SERVING_CELL_SET_BASED_SRS_TCI_STATE_INDICATIONS_ELCD                                       227
+#define SP_AP_SRS_TCI_STATE_INDICATION_ELCD                                                         228
+#define BFD_RS_INDICATION_ELCD                                                                      229
+#define DIFFERENTIAL_KOFFSET_ELCD                                                                   230
+#define ENHANCED_SCELL_ACTIVATION_DEACTIVATION_MAC_CE_WITH_ONE_OCTET_CI_FIELD_ELCD                  231
+#define ENHANCED_SCELL_ACTIVATION_DEACTIVATION_MAC_CE_WITH_FOUR_OCTET_CI_FIELD_ELCD                 232
+#define UNIFIED_TCI_STATES_ACTIVATION_DEACTIVATION_ELCD                                             233
+#define PUCCH_POWER_CONTROL_SET_UPDATE_FOR_MULTIPLE_TRP_PUCCH_REPETITION__ELCD                      234
+#define PUCCH_SPATIAL_RELATION_ACTIVATION_DEACTIVATION_FOR_MULTIPLE_TRP_PUCCH_REPETITION_ELCD       235
+#define ENHANCED_TCI_STATES_INDICATION_FOR_UE_SPECIFIC_PDCCH_ELCD                                   236
+#define POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_COMMAND_ELCD                            237
+#define PPW_ACTIVATION_DEACTIVATION_COMMAND_ELCD                                                    238
+#define DL_TX_POWER_ADJUSTMENT_ELCD                                                                 239
+#define TIMING_CASE_INDICATION_ELCD                                                                 240
+#define CHILD_IAB_DU_RESTRICTED_BEAM_INDICATION_ELCD                                                241
+#define CASE_7_TIMING_ADVANCE_OFFSET_ELCD                                                           242
+#define PROVIDED_GUARD_SYMBOLS_FOR_CASE_6_TIMING_ELCD                                               243
+#define PROVIDED_GUARD_SYMBOLS_FOR_CASE_7_TIMING_ELCD                                               244
+#define SERVING_CELL_SET_BASED_SRS_SPATIAL_RELATION_INDICATION_ELCD                                 245
+#define PUSCH_PATHLOSS_REFERENCE_RS_UPDATE_ELCD                                                     246
+#define SRS_PATHLOSS_REFERENCE_RS_UPDATE_ELCD                                                       247
+#define ENHANCED_SP_AP_SRS_SPATIAL_RELATION_INDICATION_ELCD                                         248
+#define ENHANCED_PUCCH_SPATIAL_RELATION_ACTIVATION_DEACTIVATION_ELCD                                249
+#define ENHANCED_TCI_STATES_ACTIVATION_DEACTIVATION_FOR_UE_SPECIFIC_PDSCH_ELCD                      250
+#define DUPLICATION_RLC_ACTIVATION_DEACTIVATION_ELCD                                                251
+#define ABSOLUTE_TIMING_ADVANCE_COMMAND_ELCD                                                        252
+#define SP_POSITIONING_SRS_ACTIVATION_DEACTIVATION_ELCD                                             253
+#define PROVIDED_GUARD_SYMBOLS_ELCD                                                                 254
+#define TIMING_DELTA_ELCD                                                                           255
+
+static const value_string dlsch_elcid_vals[] =
+{
+//0 to 226	64 to 290	Reserved
+    { 227,                                          "Serving Cell Set based SRS TCI State Indication"},
+    { 228,                                          "SP/AP SRS TCI State Indication"},
+    { 229,                                          "BFD-RS Indication"},
+    { 230,                                          "Differential Koffset"},
+    { 231,                                          "Enhanced SCell Activation/Deactivation with one octet Ci field"},
+    { 232,                                          "Enhanced SCell Activation/Deactivation with four octet Ci field"},
+    { 233,                                          "Unified TCI States Activation/Deactivation"},
+    { 234,                                          "PUCCH Power Control Set Update for multiple TRP PUCCH repetition"},
+    { 235,                                          "PUCCH spatial relation Activation/Deactivation for multiple TRP PUCCH repetition"},
+    { 236,                                          "Enhanced TCI States Indication for UE-specific PDCCH"},
+    { 237,                                          "Positioning Measurement Gap Activation/Deactivation Command"},
+    { 238,                                          "PPW Activation/Deactivation Command"},
+    { 239,                                          "DL Tx Power Adjustment"},
+    { 240,                                          "Timing Case Indication"},
+    { 241,                                          "Child IAB-DU Restricted Beam Indication"},
+    { 242,                                          "Case-7 Timing advance offset"},
+    { 243,                                          "Provided Guard Symbols for Case-6 timing"},
+    { 244,                                          "Provided Guard Symbols for Case-7 timing"},
+    { 245,                                          "Serving Cell Set based SRS Spatial Relation Indication"},
+    { 246,                                          "PUSCH Pathloss Reference RS Update"},
+    { 247,                                          "SRS Pathloss Reference RS Update"},
+    { 248,                                          "Enhanced SP/AP SRS Spatial Relation Indication"},
+    { 249,                                          "Enhanced PUCCH Spatial Relation Activation/Deactivation"},
+    { 250,                                          "Enhanced TCI States Activation/Deactivation for UE-specific PDSCH"},
+    { 251,                                          "Duplication RLC Activation/Deactivation"},
+    { 252,                                          "Absolute Timing Advance Command"},
+    { 253,                                          "SP Positioning SRS Activation/Deactivation"},
+    { 254,                                          "Provided Guard Symbols"},
+    { 255,                                          "Timing Delta"},
+    { 0, NULL }
+};
+static value_string_ext dlsch_elcid_vals_ext = VALUE_STRING_EXT_INIT(dlsch_elcid_vals);
 
 static const value_string ulsch_lcid_vals[] =
 {
@@ -620,21 +721,104 @@ static const value_string ulsch_lcid_vals[] =
     { 30,                                   "30"},
     { 31,                                   "31"},
     { 32,                                   "32"},
-    { CCCH_48_BITS_LCID,                    "CCCH (48 bits)"},
-    { RECOMMENDED_BIT_RATE_QUERY_LCID,      "Recommended Bit Rate Query"},
-    { MULTIPLE_ENTRY_PHR_4_LCID,            "Multiple Entry PHR (4 octet C)"},
-    { CONFIGURED_GRANT_CONFIGURATION_LCID,  "Configured Grant Confirmation"},
-    { MULTIPLE_ENTRY_PHR_1_LCID,            "Multiple Entry PHR (1 octet C)"},
-    { SINGLE_ENTRY_PHR_LCID,                "Single Entry PHR"},
-    { C_RNTI_LCID,                          "C-RNTI"},
-    { SHORT_TRUNCATED_BSR_LCID,             "Short Truncated BSR"},
-    { LONG_TRUNCATED_BSR_LCID,              "Long Truncated BSR"},
-    { SHORT_BSR_LCID,                       "Short BSR"},
-    { LONG_BSR_LCID,                        "Long BSR"},
-    { PADDING_LCID,                         "Padding"},
+    { 33,                                   "Extended logical channel ID field(two-octet eLCID field)"},
+    { 34,                                   "Extended logical channel ID field(one-octet eLCID field)"},
+    { 35,                                   "CCCH of size 48 bits(referred to as 'CCCH' in TS 38.331[5]) for a RedCap UE"},
+    { 36,                                   "CCCH of size 64 bits(referred to as 'CCCH1' in TS 38.331[5]) for a RedCap UE"},
+    { 37,                                   "Reserved"},
+    { 38,                                   "Reserved"},
+    { 39,                                   "Reserved"},
+    { 40,                                   "Reserved"},
+    { 41,                                   "Reserved"},
+    { 42,                                   "Reserved"},
+    { TRUNCATED_ENHANCED_BFR_LCID,          "Truncated Enhanced BFR"},              // 43
+    { TIMING_ADVANCE_REPORT_LCID,           "Timing Advance Report"},               // 44
+    { TRUNCATED_SIDELINK_BSR_LCID,          "Truncated Sidelink BSR"},              // 45
+    { SIDELINK_BSR_LCID,                    "Sidelink BSR"},                        // 46
+    { RESERVED_47_LCID,                     "Reserved"},                            // 47
+    { LBT_FAILURE_4_OCTETS_LCID,            "LBT Failure 4 octets"},                // 48
+    { LBT_FAILURE_1_OCTET_LCID,             "LBT Failure 1 octet"},                 // 49
+    { BFR_LCID,                             "BFR"},                                 // 50
+    { TRUNCATED_BFR_LCID,                   "Truncated BFR"},                       // 51
+    { CCCH_48_BITS_LCID,                    "CCCH (48 bits)"},                      // 52
+    { RECOMMENDED_BIT_RATE_QUERY_LCID,      "Recommended Bit Rate Query"},          // 53
+    { MULTIPLE_ENTRY_PHR_4_LCID,            "Multiple Entry PHR (4 octet C)"},      // 54
+    { CONFIGURED_GRANT_CONFIGURATION_LCID,  "Configured Grant Confirmation"},       // 55
+    { MULTIPLE_ENTRY_PHR_1_LCID,            "Multiple Entry PHR (1 octet C)"},      // 56
+    { SINGLE_ENTRY_PHR_LCID,                "Single Entry PHR"},                    // 57
+    { C_RNTI_LCID,                          "C-RNTI"},                              // 58
+    { SHORT_TRUNCATED_BSR_LCID,             "Short Truncated BSR"},                 // 59
+    { LONG_TRUNCATED_BSR_LCID,              "Long Truncated BSR"},                  // 60
+    { SHORT_BSR_LCID,                       "Short BSR"},                           // 61
+    { LONG_BSR_LCID,                        "Long BSR"},                            // 62
+    { PADDING_LCID,                         "Padding"},                             // 63
     { 0, NULL }
 };
 static value_string_ext ulsch_lcid_vals_ext = VALUE_STRING_EXT_INIT(ulsch_lcid_vals);
+
+#define ENHANCED_MULTIPLE_ENTRY_PHR_FOR_MULTIPLE_TRP_FOUR_OCTETS_CI      229
+#define ENHANCED_MULTIPLE_ENTRY_PHR_FOR_MULTIPLE_TRP_ONE_OCTETS_CI       230
+#define ENHANCED_SINGLE_ENTRY_PHR_FOR_MULTIPLE_TRP                       231
+#define ENHANCED_MULTIPLE_ENTRY_PHR_FOUR_OCTETS_CI                       232
+#define ENHANCED_MULTIPLE_ENTRY_PHR_ONE_OCTETS_CI                        233
+#define ENHANCED_SINGLE_ENTRY_PHR                                        234
+#define ENHANCED_BFR_ONE_OCTET_CI                                        235
+#define ENHANCED_BFR_FOUR_OCTET_CI                                       236
+#define TRUNCATED_ENHANCED_BFR_FOUR_OCTET_CI                             237
+#define POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_REQUEST      238
+#define IAB_MT_RECOMMENDED_BEAM_INDICATION                               239
+#define DESIRED_IAB_MT_PSD_RANGE                                         240
+#define DESIRED_DL_TX_POWER_ADJUSTMENT                                   241
+#define CASE_6_TIMING_REQUEST                                            242
+#define DESIRED_GUARD_SYMBOLS_FOR_CASE_6_TIMING                          243
+#define DESIRED_GUARD_SYMBOLS_FOR_CASE_7_TIMING                          244
+#define EXTENDED_SHORT_TRUNCATED_BSR                                     245
+#define EXTENDED_LONG_TRUNCATED_BSR                                      246
+#define EXTENDED_SHORT_BSR                                               247
+#define EXTENDED_LONG_BSR                                                248
+#define EXTENDED_PRE_EMPTIVE_BSR                                         249
+#define BFR_FOUR_OCTETS_CI                                               250
+#define TRUNCATED_BFR_FOUR_OCTETS_CI                                     251
+#define MULTIPLE_ENTRY_CONFIGURED_GRANT_CONFIRMATION                     252
+#define SIDELINK_CONFIGURED_GRANT_CONFIRMATION                           253
+#define DESIRED_GUARD_SYMBOLS                                            254
+#define PRE_EMPTIVE_BSR                                                  255
+
+static const value_string ulsch_elcid_vals[] =
+{
+//Table 6.2.1-2b Values of one-octet eLCID for UL-SCH
+//Codepoint	Index	LCID values
+//0 to 228	64 to 292	Reserved
+    { 229,                                   "Enhanced Multiple Entry PHR for multiple TRP(four octets Ci)"},
+    { 230,                                   "Enhanced Multiple Entry PHR for multiple TRP(one octets Ci)"},
+    { 231,                                   "Enhanced Single Entry PHR for multiple TRP"},
+    { 232,                                   "Enhanced Multiple Entry PHR(four octets Ci)"},
+    { 233,                                   "Enhanced Multiple Entry PHR(one octets Ci)"},
+    { 234,                                   "Enhanced Single Entry PHR"},
+    { 235,                                   "Enhanced BFR(one octet Ci)"},
+    { 236,                                   "Enhanced BFR(four octet Ci)"},
+    { 237,                                   "Truncated Enhanced BFR(four octet Ci)"},
+    { 238,                                   "Positioning Measurement Gap Activation/Deactivation Request"},
+    { 239,                                   "IAB-MT Recommended Beam Indication"},
+    { 240,                                   "Desired IAB-MT PSD range"},
+    { 241,                                   "Desired DL Tx Power Adjustment"},
+    { 242,                                   "Case-6 Timing Request"},
+    { 243,                                   "Desired Guard Symbols for Case 6 timing"},
+    { 244,                                   "Desired Guard Symbols for Case 7 timing"},
+    { 245,                                   "Extended Short Truncated BSR"},
+    { 246,                                   "Extended Long Truncated BSR"},
+    { 247,                                   "Extended Short BSR"},
+    { 248,                                   "Extended Long BSR"},
+    { 249,                                   "Extended Pre-emptive BSR"},
+    { 250,                                   "BFR(four octets Ci)"},
+    { 251,                                   "Truncated BFR(four octets Ci)"},
+    { 252,                                   "Multiple Entry Configured Grant Confirmation"},
+    { 253,                                   "Sidelink Configured Grant Confirmation"},
+    { 254,                                   "Desired Guard Symbols"},
+    { 255,                                   "Pre-emptive BSR"},
+    { 0, NULL }
+};
+static value_string_ext ulsch_elcid_vals_ext = VALUE_STRING_EXT_INIT(ulsch_elcid_vals);
 
 static const true_false_string rar_ext_vals =
 {
@@ -1330,7 +1514,10 @@ static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
     if (direction == DIRECTION_UPLINK) {
         switch (lcid) {
             case CCCH_LCID:
+            case 35:   /* RedCap CCCH (48 bits) */
+            case 36:   /* RedCap CCCH1 (64 bits) */
             case CCCH_48_BITS_LCID:
+            case TIMING_ADVANCE_REPORT_LCID:
             case RECOMMENDED_BIT_RATE_QUERY_LCID:
             case CONFIGURED_GRANT_CONFIGURATION_LCID:
             case SINGLE_ENTRY_PHR_LCID:
@@ -1345,6 +1532,8 @@ static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
     }
     else {
         switch (lcid) {
+            case TWO_OCTET_ELCID_FIELD:
+            case ONE_OCTET_ELCID_FIELD:
             case RECOMMENDED_BIT_RATE_LCID:
             case SP_ZP_CSI_RS_RESOURCE_SET_ACT_DEACT_LCID:
             case PUCCH_SPATIAL_REL_ACT_DEACT_LCID:
@@ -1365,6 +1554,97 @@ static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
     }
 }
 
+static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
+{
+    if (direction == DIRECTION_UPLINK) {
+        switch (elcid) {
+        case ENHANCED_SINGLE_ENTRY_PHR_FOR_MULTIPLE_TRP:
+            /* Enhanced Single Entry PHR for multiple TRP */
+        case POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_REQUEST:
+            /* Positioning Measurement Gap Activation/Deactivation Request */
+        case CASE_6_TIMING_REQUEST:
+            /* Case-6 Timing Request */
+        case DESIRED_GUARD_SYMBOLS_FOR_CASE_6_TIMING:
+            /* Desired Guard Symbols for Case 6 timing */
+        case DESIRED_GUARD_SYMBOLS_FOR_CASE_7_TIMING:
+            /* Desired Guard Symbols for Case 7 timing*/
+        case EXTENDED_SHORT_TRUNCATED_BSR:
+            /* Extended Short Truncated BSR */
+        case EXTENDED_SHORT_BSR:
+            /* Extended Short BSR */
+        case MULTIPLE_ENTRY_CONFIGURED_GRANT_CONFIRMATION:
+            /* Multiple Entry Configured Grant Confirmation 4 octets*/
+        case SIDELINK_CONFIGURED_GRANT_CONFIRMATION:
+            /* Sidelink Configured Grant Confirmation 1 oct*/
+        case DESIRED_GUARD_SYMBOLS:
+            /* Desired Guard Symbols 3 oct*/
+            return TRUE;
+        default:
+            /* Enhanced Multiple Entry PHR for multiple TRP (one octets Ci) */
+            /* 234 Enhanced Single Entry PHR*/
+            /* 235 Enhanced BFR (one octet Ci) */
+            /* 236 Enhanced BFR (four octet Ci) */
+            /* 237 Truncated Enhanced BFR(four octet Ci) */
+            /* 239 IAB-MT Recommended Beam Indication */
+            /* 240 Desired IAB-MT PSD range */
+            /* 241 Desired DL Tx Power Adjustment */
+            /* 246 Extended Long Truncated BSR */
+            /* 248 Extended Long BSR */
+            /* 249 Extended Pre-emptive BSR */
+            /* 250 BFR (four octets Ci) */
+            /* 251 Truncated BFR (four octets Ci)*/
+            /* 255 Pre-emptive BSR */
+            return FALSE;
+        }
+    }
+    else {
+        switch (elcid) {
+        case DIFFERENTIAL_KOFFSET_ELCD:
+            /* Differential Koffset, 6bits(1 oct)*/
+        case ENHANCED_TCI_STATES_INDICATION_FOR_UE_SPECIFIC_PDCCH_ELCD:
+            /* Enhanced TCI States Indication for UE-specific PDCCH 3 oct*/
+        case POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_COMMAND_ELCD:
+            /* Positioning Measurement Gap Activation/Deactivation Command 1 oct*/
+        case CASE_7_TIMING_ADVANCE_OFFSET_ELCD:
+            /* Case-7 Timing advance offset 2 oct*/
+        case PROVIDED_GUARD_SYMBOLS_FOR_CASE_6_TIMING_ELCD:
+            /* Provided Guard Symbols for Case-6 timing 3 oct*/
+        case PROVIDED_GUARD_SYMBOLS_FOR_CASE_7_TIMING_ELCD:
+            /* Provided Guard Symbols for Case-7 timing 3 oct*/
+        case SRS_PATHLOSS_REFERENCE_RS_UPDATE_ELCD:
+            /* SRS Pathloss Reference RS Update 3 oct*/
+        case DUPLICATION_RLC_ACTIVATION_DEACTIVATION_ELCD:
+            /* Duplication RLC Activation/Deactivation 1 oct*/
+        case ABSOLUTE_TIMING_ADVANCE_COMMAND_ELCD:
+            /* Absolute Timing Advance Command 2 oct*/
+        case PROVIDED_GUARD_SYMBOLS_ELCD:
+            /* Provided Guard Symbols 4 oct*/
+        case TIMING_DELTA_ELCD:
+            /* Timing Delta 2 oct*/
+            return TRUE;
+        default:
+            /* 227 Serving Cell Set based SRS TCI State Indication */
+            /* 228 SP/AP SRS TCI State Indication */
+            /* 229 BFD-RS Indication */
+            /* 231 Enhanced SCell Activation/Deactivation with one octet Ci field */
+            /* 232 Enhanced SCell Activation/Deactivation with four octet Ci field */
+            /* 233 Unified TCI States Activation/Deactivation */
+            /* 234 PUCCH Power Control Set Update for multiple TRP PUCCH repetition*/
+            /* 235 PUCCH spatial relation Activation/Deactivation for multiple TRP PUCCH repetition */
+            /* 238 PPW Activation/Deactivation Command */
+            /* 239 DL Tx Power Adjustment */
+            /* 240 Timing Case Indication*/
+            /* 241 Child IAB-DU Restricted Beam Indication*/
+            /* 245 Serving Cell Set based SRS Spatial Relation Indication */
+            /* 246 PUSCH Pathloss Reference RS Update */
+            /* 248 Enhanced SP/AP SRS Spatial Relation Indication */
+            /* 249 Enhanced PUCCH Spatial Relation Activation/Deactivation */
+            /* 250 Enhanced TCI States Activation/Deactivation for UE-specific PDSCH */
+            /* 253 SP Positioning SRS Activation/Deactivation */
+            return FALSE;
+        }
+    }
+}
 static true_false_string subheader_f_vals = {
     "16 bits",
     "8 bits"
@@ -1604,7 +1884,22 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         /* 1st bit is always reserved */
         /* 2nd bit depends upon LCID */
         guint8 lcid = tvb_get_guint8(tvb, offset) & 0x3f;
-        fixed_len = is_fixed_sized_lcid(lcid, p_mac_nr_info->direction);
+        gint32 elcid= -1;
+        switch (lcid) {
+        case TWO_OCTET_ELCID_FIELD:
+            elcid = tvb_get_guint16(tvb, offset+1, ENC_BIG_ENDIAN);
+            fixed_len = TRUE;
+            break;
+        case ONE_OCTET_ELCID_FIELD:
+            elcid = tvb_get_guint8(tvb, offset+1);
+            fixed_len = is_fixed_sized_elcid(elcid, p_mac_nr_info->direction);
+        default:
+            break;
+        }
+        if (elcid == -1) {
+            /* No elcid present */
+            fixed_len = is_fixed_sized_lcid(lcid, p_mac_nr_info->direction);
+        }
         if (fixed_len) {
             proto_tree_add_bits_item(subheader_tree, hf_mac_nr_subheader_reserved, tvb, offset<<3, 2, ENC_BIG_ENDIAN);
         }
@@ -1624,6 +1919,28 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         proto_item_set_hidden(bi_di_lcid);
         offset++;
 
+        switch (lcid) {
+        case TWO_OCTET_ELCID_FIELD:
+            elcid = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+            proto_tree_add_uint(subheader_tree,
+                (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
+                hf_mac_nr_ulsch_elcid_2oct : hf_mac_nr_dlsch_elcid_2oct,
+                tvb, offset, 2, elcid);
+            offset += 2;
+            break;
+        case ONE_OCTET_ELCID_FIELD:
+            elcid = tvb_get_guint8(tvb, offset);
+            proto_tree_add_uint(subheader_tree,
+                (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
+                hf_mac_nr_ulsch_elcid_1oct : hf_mac_nr_dlsch_elcid_1oct,
+                tvb, offset, 1, elcid);
+            offset += 1;
+            break;
+
+        default:
+            break;
+        }
+
         if (!fixed_len) {
             if (F) {
                 /* Long length */
@@ -1637,7 +1954,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             }
         }
 
-        if (lcid <= 32 || (p_mac_nr_info->direction == DIRECTION_UPLINK && lcid == CCCH_48_BITS_LCID)) {
+        if (lcid <= 32 || (p_mac_nr_info->direction == DIRECTION_UPLINK &&
+                           (lcid == 35 || lcid == 36 || lcid == CCCH_48_BITS_LCID))) {
             proto_item *sch_pdu_ti;
 
             /* Note whether this sub-pdu gets dissected by RLC/RRC */
@@ -1645,9 +1963,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
             /* Add SDU, for now just as hex data */
             if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
-                if (lcid == CCCH_LCID) {
+                if ((lcid == CCCH_LCID) || (lcid == 36)) {
                     SDU_length = 8;
-                } else if (lcid == CCCH_48_BITS_LCID) {
+                } else if ((lcid == CCCH_48_BITS_LCID) || (lcid == 35)) {
                     SDU_length = 6;
                 }
                 sch_pdu_ti = proto_tree_add_item(subheader_tree, hf_mac_nr_ulsch_sdu,
@@ -1715,10 +2033,12 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 }
             } else if (global_mac_nr_attempt_rrc_decode) {
                 dissector_handle_t protocol_handle;
-                tvbuff_t *rrc_tvb = tvb_new_subset_remaining(tvb, offset);
+                tvbuff_t *rrc_tvb = tvb_new_subset_length(tvb, offset, SDU_length);
 
                 if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
-                    protocol_handle = (lcid == CCCH_LCID) ? nr_rrc_ul_ccch1_handle : nr_rrc_ul_ccch_handle;
+                    protocol_handle = ((lcid == CCCH_LCID) || (lcid == 36)) ?
+                                            nr_rrc_ul_ccch1_handle :
+                                            nr_rrc_ul_ccch_handle;
                 } else {
                     protocol_handle = nr_rrc_dl_ccch_handle;
                 }
@@ -1744,7 +2064,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             data_seen = TRUE;
         }
         else {
-            /* Control Elements */
+            /* UL Control Elements */
 
             /* Add some space to info column between entries */
             if (data_seen || ces_seen) {
@@ -1760,305 +2080,426 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 gboolean dir;
 
                 switch (lcid) {
-                    case RECOMMENDED_BIT_RATE_QUERY_LCID:
-                        proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_lcid,
-                                            tvb, offset, 1, ENC_BIG_ENDIAN, &br_lcid);
-                        proto_tree_add_item_ret_boolean(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_dir,
-                                                        tvb, offset, 1, ENC_BIG_ENDIAN, &dir);
-                        proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_bit_rate,
-                                                     tvb, offset, 2, ENC_BIG_ENDIAN, &bit_rate);
-                        proto_tree_add_item(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_reserved,
-                                            tvb, offset+1, 1, ENC_BIG_ENDIAN);
-                        write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-                                                 "(Recommended BR Query LCID=%u Dir=%s BR=%s) ", br_lcid, dir ? "UL" : "DL",
-                                                 val_to_str_ext_const(bit_rate, &bit_rate_vals_ext, "Unknown"));
-                        offset += 2;
+                case TWO_OCTET_ELCID_FIELD:
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "(Identity of the logical channel %u) ", elcid);
+                    break;
+                case ONE_OCTET_ELCID_FIELD:
+                    switch (elcid) {
+                    case ENHANCED_MULTIPLE_ENTRY_PHR_FOR_MULTIPLE_TRP_FOUR_OCTETS_CI:
+                        /* It has a variable size, */
+                        offset += SDU_length;
                         break;
-                    case CONFIGURED_GRANT_CONFIGURATION_LCID:
-                        /* Fixed size of zero bits */
-                        write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
-                                                         "(Configured Grant Config) ");
+                    case ENHANCED_MULTIPLE_ENTRY_PHR_FOR_MULTIPLE_TRP_ONE_OCTETS_CI:
+                        /* It has a variable size, */
+                        offset += SDU_length;
                         break;
-                    case MULTIPLE_ENTRY_PHR_1_LCID:
-                    case MULTIPLE_ENTRY_PHR_4_LCID:
-                    {
-                        static int * const me_phr_byte1_flags[] = {
-                            &hf_mac_nr_control_me_phr_c7_flag,
-                            &hf_mac_nr_control_me_phr_c6_flag,
-                            &hf_mac_nr_control_me_phr_c5_flag,
-                            &hf_mac_nr_control_me_phr_c4_flag,
-                            &hf_mac_nr_control_me_phr_c3_flag,
-                            &hf_mac_nr_control_me_phr_c2_flag,
-                            &hf_mac_nr_control_me_phr_c1_flag,
-                            &hf_mac_nr_control_me_phr_reserved,
-                            NULL
-                        };
-                        static int * const me_phr_byte2_flags[] = {
-                            &hf_mac_nr_control_me_phr_c15_flag,
-                            &hf_mac_nr_control_me_phr_c14_flag,
-                            &hf_mac_nr_control_me_phr_c13_flag,
-                            &hf_mac_nr_control_me_phr_c12_flag,
-                            &hf_mac_nr_control_me_phr_c11_flag,
-                            &hf_mac_nr_control_me_phr_c10_flag,
-                            &hf_mac_nr_control_me_phr_c9_flag,
-                            &hf_mac_nr_control_me_phr_c8_flag,
-                            NULL
-                        };
-                        static int * const me_phr_byte3_flags[] = {
-                            &hf_mac_nr_control_me_phr_c23_flag,
-                            &hf_mac_nr_control_me_phr_c22_flag,
-                            &hf_mac_nr_control_me_phr_c21_flag,
-                            &hf_mac_nr_control_me_phr_c20_flag,
-                            &hf_mac_nr_control_me_phr_c19_flag,
-                            &hf_mac_nr_control_me_phr_c18_flag,
-                            &hf_mac_nr_control_me_phr_c17_flag,
-                            &hf_mac_nr_control_me_phr_c16_flag,
-                            NULL
-                        };
-                        static int * const me_phr_byte4_flags[] = {
-                            &hf_mac_nr_control_me_phr_c31_flag,
-                            &hf_mac_nr_control_me_phr_c30_flag,
-                            &hf_mac_nr_control_me_phr_c29_flag,
-                            &hf_mac_nr_control_me_phr_c28_flag,
-                            &hf_mac_nr_control_me_phr_c27_flag,
-                            &hf_mac_nr_control_me_phr_c26_flag,
-                            &hf_mac_nr_control_me_phr_c25_flag,
-                            &hf_mac_nr_control_me_phr_c24_flag,
-                            NULL
-                        };
-                        guint32 start_offset = offset;
-                        guint8 scell_bitmap1;
-                        guint32 scell_bitmap2_3_4 = 0;
-                        proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte1_flags, ENC_NA);
-                        scell_bitmap1 = tvb_get_guint8(tvb, offset);
-                        offset++;
-                        if (lcid == MULTIPLE_ENTRY_PHR_4_LCID) {
-                            proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte2_flags, ENC_NA);
-                            proto_tree_add_bitmask_list(subheader_tree, tvb, offset+1, 1, me_phr_byte3_flags, ENC_NA);
-                            proto_tree_add_bitmask_list(subheader_tree, tvb, offset+2, 1, me_phr_byte4_flags, ENC_NA);
-                            scell_bitmap2_3_4 = tvb_get_letoh24(tvb, offset); /* read them in little endian on purpose */
-                            offset += 3;
-                        }
-
-                        static int * const ph_fields1[] = {
-                            &hf_mac_nr_control_me_phr_ph_c1,
-                            &hf_mac_nr_control_me_phr_ph_c2,
-                            &hf_mac_nr_control_me_phr_ph_c3,
-                            &hf_mac_nr_control_me_phr_ph_c4,
-                            &hf_mac_nr_control_me_phr_ph_c5,
-                            &hf_mac_nr_control_me_phr_ph_c6,
-                            &hf_mac_nr_control_me_phr_ph_c7,
-                        };
-                        static int * const ph_fields2_3_4[] = {
-                            &hf_mac_nr_control_me_phr_ph_c8,
-                            &hf_mac_nr_control_me_phr_ph_c9,
-                            &hf_mac_nr_control_me_phr_ph_c10,
-                            &hf_mac_nr_control_me_phr_ph_c11,
-                            &hf_mac_nr_control_me_phr_ph_c12,
-                            &hf_mac_nr_control_me_phr_ph_c13,
-                            &hf_mac_nr_control_me_phr_ph_c14,
-                            &hf_mac_nr_control_me_phr_ph_c15,
-                            &hf_mac_nr_control_me_phr_ph_c16,
-                            &hf_mac_nr_control_me_phr_ph_c17,
-                            &hf_mac_nr_control_me_phr_ph_c18,
-                            &hf_mac_nr_control_me_phr_ph_c19,
-                            &hf_mac_nr_control_me_phr_ph_c20,
-                            &hf_mac_nr_control_me_phr_ph_c21,
-                            &hf_mac_nr_control_me_phr_ph_c22,
-                            &hf_mac_nr_control_me_phr_ph_c23,
-                            &hf_mac_nr_control_me_phr_ph_c24,
-                            &hf_mac_nr_control_me_phr_ph_c25,
-                            &hf_mac_nr_control_me_phr_ph_c26,
-                            &hf_mac_nr_control_me_phr_ph_c27,
-                            &hf_mac_nr_control_me_phr_ph_c28,
-                            &hf_mac_nr_control_me_phr_ph_c29,
-                            &hf_mac_nr_control_me_phr_ph_c30,
-                            &hf_mac_nr_control_me_phr_ph_c31,
-                        };
-
-                        /* PCell entries */
-                        guint32 PH;
-                        proto_item *entry_ti;
-                        if (p_mac_nr_info->phr_type2_othercell) {
-                            /* The PH and PCMAX,f,c fields can be either for a LTE or NR cell */
-                            entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, hf_mac_nr_control_me_phr_ph_type2_spcell,
-                                                         hf_mac_nr_control_me_phr_pcmax_f_c_type2_spcell, &PH, &offset);
-                            proto_item_append_text(entry_ti, " (Type2, SpCell PH=%u)", PH);
-                        }
-                        entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, hf_mac_nr_control_me_phr_ph_type1_pcell,
-                                                     hf_mac_nr_control_me_phr_pcmax_f_c_type1_pcell, &PH, &offset);
-                        proto_item_append_text(entry_ti, " (Type1, PCell PH=%u)", PH);
-
-
-                        /* SCell entries */
-                        /* The PH and PCMAX,f,c fields can be either for a LTE or NR cell */
-                        for (int n=1; n <= 7; n++) {
-                            if (scell_bitmap1 & (1 << n)) {
-                                entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, *ph_fields1[n-1],
-                                                             hf_mac_nr_control_me_phr_pcmax_f_c_typeX, &PH, &offset);
-                                proto_item_append_text(entry_ti, " (SCellIndex %d PH=%u)", n, PH);
-                            }
-                        }
-                        if (lcid == MULTIPLE_ENTRY_PHR_4_LCID) {
-                            for (int n=0; n <= 23; n++) {
-                                if (scell_bitmap2_3_4 & (1 << n)) {
-                                    entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, *ph_fields2_3_4[n],
-                                                                 hf_mac_nr_control_me_phr_pcmax_f_c_typeX, &PH, &offset);
-                                    proto_item_append_text(entry_ti, " (SCellIndex %d PH=%u)", n+8, PH);
-                                }
-                            }
-                        }
-
-                        write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
-                                                         "(Multi-entry PHR) ");
-
-                        /* Make sure dissected length matches signalled length */
-                        if (offset != start_offset + SDU_length) {
-                            proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
-                                                         tvb, start_offset, offset-start_offset,
-                                                         "A Multiple-Entry PHR subheader has a length field of %u bytes, but "
-                                                         "dissected %u bytes", SDU_length, offset-start_offset);
-                            /* Assume length was correct, so at least can dissect further subheaders */
-                            offset = start_offset + SDU_length;
-                        }
+                    case ENHANCED_SINGLE_ENTRY_PHR_FOR_MULTIPLE_TRP:
+                        /* It has a fixed size and consists of three octets */
+                        offset += 3;
+                        break;
+                    case ENHANCED_MULTIPLE_ENTRY_PHR_FOUR_OCTETS_CI:
+                        /* has a variable size */
+                        offset += SDU_length;
+                        break;
+                    case ENHANCED_MULTIPLE_ENTRY_PHR_ONE_OCTETS_CI:
+                        offset += SDU_length;
+                        break;
+                    case ENHANCED_SINGLE_ENTRY_PHR:
+                        /* has a variable size */
+                        offset += SDU_length;
+                        break;
+                    case ENHANCED_BFR_ONE_OCTET_CI:
+                        /* have a variable size */
+                        offset += SDU_length;
+                        break;
+                    case ENHANCED_BFR_FOUR_OCTET_CI:
+                        /* have a variable size*/
+                        offset += SDU_length;
+                        break;
+                    case TRUNCATED_ENHANCED_BFR_FOUR_OCTET_CI:
+                        /* have a variable size*/
+                        offset += SDU_length;
+                        break;
+                    case POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_REQUEST:
+                        /* It has a fixed size of zero bits */
+                        break;
+                    case IAB_MT_RECOMMENDED_BEAM_INDICATION:
+                        /* It has a variable size */
+                        offset += SDU_length;
+                        break;
+                    case DESIRED_IAB_MT_PSD_RANGE:
+                        break;
+                    case DESIRED_DL_TX_POWER_ADJUSTMENT:
+                        break;
+                    case CASE_6_TIMING_REQUEST:
+                        break;
+                    case DESIRED_GUARD_SYMBOLS_FOR_CASE_6_TIMING:
+                        break;
+                    case DESIRED_GUARD_SYMBOLS_FOR_CASE_7_TIMING:
+                        break;
+                    case EXTENDED_SHORT_TRUNCATED_BSR:
+                        break;
+                    case EXTENDED_LONG_TRUNCATED_BSR:
+                        break;
+                    case EXTENDED_SHORT_BSR:
+                        break;
+                    case EXTENDED_LONG_BSR:
+                        break;
+                    case EXTENDED_PRE_EMPTIVE_BSR:
+                        break;
+                    case BFR_FOUR_OCTETS_CI:
+                        break;
+                    case TRUNCATED_BFR_FOUR_OCTETS_CI:
+                        break;
+                    case MULTIPLE_ENTRY_CONFIGURED_GRANT_CONFIRMATION:
+                        break;
+                    case SIDELINK_CONFIGURED_GRANT_CONFIRMATION:
+                        break;
+                    case DESIRED_GUARD_SYMBOLS:
+                        break;
+                    case PRE_EMPTIVE_BSR:
+                        break;
+                    default:
                         break;
                     }
-                    case SINGLE_ENTRY_PHR_LCID:
-                        /* R R PH (6 bits) */
-                        proto_tree_add_item(subheader_tree, hf_mac_nr_control_se_phr_reserved,
-                                            tvb, offset, 1, ENC_NA);
-                        proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_se_phr_ph,
-                                                     tvb, offset, 1, ENC_BIG_ENDIAN, &phr_ph);
-                        offset++;
+                    break;
+                case TRUNCATED_ENHANCED_BFR_LCID:
+                    /* variable size */
+                    offset += SDU_length;
+                    break;
+                case TIMING_ADVANCE_REPORT_LCID:
+                {
+                    /* Reserved (2 bits) */
+                    proto_tree_add_item(subheader_tree, hf_mac_nr_control_timing_advance_report_reserved,
+                        tvb, offset, 1, ENC_BIG_ENDIAN);
+                    /* Timing  Advance */
+                    guint32 ta;
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_timing_advance_report_ta,
+                        tvb, offset, 2, ENC_BIG_ENDIAN, &ta);
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "(Timing Advance Report TA=%u) ", ta);
 
-                        /* R R PCMAX_f_c (6 bits) */
-                        proto_tree_add_item(subheader_tree, hf_mac_nr_control_se_phr_reserved,
-                                            tvb, offset, 1, ENC_NA);
-                        proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_se_phr_pcmax_f_c,
-                                                     tvb, offset, 1, ENC_NA, &phr_pcmax_f_c);
-                        offset++;
-                        write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-                                                 "(PHR PH=%u PCMAX_f_c=%u) ", phr_ph, phr_pcmax_f_c);
-                        break;
-                    case C_RNTI_LCID:
-                        proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_crnti,
-                                                     tvb, offset, 2, ENC_BIG_ENDIAN, &c_rnti);
-                        write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-                                                 "(C-RNTI=%u) ", c_rnti);
-                        offset += 2;
-                        break;
-                    case SHORT_TRUNCATED_BSR_LCID:
-                    case SHORT_BSR_LCID:
-                        {
-                            static int * const hf_mac_nr_control_bsr_short_bs_lcg[] = {
-                                &hf_mac_nr_control_bsr_short_bs_lcg0,
-                                &hf_mac_nr_control_bsr_short_bs_lcg1,
-                                &hf_mac_nr_control_bsr_short_bs_lcg2,
-                                &hf_mac_nr_control_bsr_short_bs_lcg3,
-                                &hf_mac_nr_control_bsr_short_bs_lcg4,
-                                &hf_mac_nr_control_bsr_short_bs_lcg5,
-                                &hf_mac_nr_control_bsr_short_bs_lcg6,
-                                &hf_mac_nr_control_bsr_short_bs_lcg7
-                            };
+                    offset += 2;
+                    break;
+                }
+                case TRUNCATED_SIDELINK_BSR_LCID:
+                    /* No description? */
+                    break;
+                case SIDELINK_BSR_LCID:
+                    /* No description? */
+                    break;
+                case LBT_FAILURE_4_OCTETS_LCID:
+                    offset += 4;
+                    break;
+                case LBT_FAILURE_1_OCTET_LCID:
+                    offset += 1;
+                    break;
+                case BFR_LCID:
+                    /* variable size */
+                    offset += SDU_length;
+                    break;
+                case TRUNCATED_BFR_LCID:
+                    offset += SDU_length;
+                    break;
+                    /* CCCH_48_BITS_LCID Handled above*/
+                case RECOMMENDED_BIT_RATE_QUERY_LCID:
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_lcid,
+                        tvb, offset, 1, ENC_BIG_ENDIAN, &br_lcid);
+                    proto_tree_add_item_ret_boolean(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_dir,
+                        tvb, offset, 1, ENC_BIG_ENDIAN, &dir);
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_bit_rate,
+                        tvb, offset, 2, ENC_BIG_ENDIAN, &bit_rate);
+                    proto_tree_add_item(subheader_tree, hf_mac_nr_control_recommended_bit_rate_query_reserved,
+                        tvb, offset + 1, 1, ENC_BIG_ENDIAN);
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                        "(Recommended BR Query LCID=%u Dir=%s BR=%s) ", br_lcid, dir ? "UL" : "DL",
+                        val_to_str_ext_const(bit_rate, &bit_rate_vals_ext, "Unknown"));
+                    offset += 2;
+                    break;
+                case CONFIGURED_GRANT_CONFIGURATION_LCID:
+                    /* Fixed size of zero bits */
+                    write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
+                        "(Configured Grant Config) ");
+                    break;
+                case MULTIPLE_ENTRY_PHR_1_LCID:
+                case MULTIPLE_ENTRY_PHR_4_LCID:
+                {
+                    static int* const me_phr_byte1_flags[] = {
+                        &hf_mac_nr_control_me_phr_c7_flag,
+                        &hf_mac_nr_control_me_phr_c6_flag,
+                        &hf_mac_nr_control_me_phr_c5_flag,
+                        &hf_mac_nr_control_me_phr_c4_flag,
+                        &hf_mac_nr_control_me_phr_c3_flag,
+                        &hf_mac_nr_control_me_phr_c2_flag,
+                        &hf_mac_nr_control_me_phr_c1_flag,
+                        &hf_mac_nr_control_me_phr_reserved,
+                        NULL
+                    };
+                    static int* const me_phr_byte2_flags[] = {
+                        &hf_mac_nr_control_me_phr_c15_flag,
+                        &hf_mac_nr_control_me_phr_c14_flag,
+                        &hf_mac_nr_control_me_phr_c13_flag,
+                        &hf_mac_nr_control_me_phr_c12_flag,
+                        &hf_mac_nr_control_me_phr_c11_flag,
+                        &hf_mac_nr_control_me_phr_c10_flag,
+                        &hf_mac_nr_control_me_phr_c9_flag,
+                        &hf_mac_nr_control_me_phr_c8_flag,
+                        NULL
+                    };
+                    static int* const me_phr_byte3_flags[] = {
+                        &hf_mac_nr_control_me_phr_c23_flag,
+                        &hf_mac_nr_control_me_phr_c22_flag,
+                        &hf_mac_nr_control_me_phr_c21_flag,
+                        &hf_mac_nr_control_me_phr_c20_flag,
+                        &hf_mac_nr_control_me_phr_c19_flag,
+                        &hf_mac_nr_control_me_phr_c18_flag,
+                        &hf_mac_nr_control_me_phr_c17_flag,
+                        &hf_mac_nr_control_me_phr_c16_flag,
+                        NULL
+                    };
+                    static int* const me_phr_byte4_flags[] = {
+                        &hf_mac_nr_control_me_phr_c31_flag,
+                        &hf_mac_nr_control_me_phr_c30_flag,
+                        &hf_mac_nr_control_me_phr_c29_flag,
+                        &hf_mac_nr_control_me_phr_c28_flag,
+                        &hf_mac_nr_control_me_phr_c27_flag,
+                        &hf_mac_nr_control_me_phr_c26_flag,
+                        &hf_mac_nr_control_me_phr_c25_flag,
+                        &hf_mac_nr_control_me_phr_c24_flag,
+                        NULL
+                    };
+                    guint32 start_offset = offset;
+                    guint8 scell_bitmap1;
+                    guint32 scell_bitmap2_3_4 = 0;
+                    proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte1_flags, ENC_NA);
+                    scell_bitmap1 = tvb_get_guint8(tvb, offset);
+                    offset++;
+                    if (lcid == MULTIPLE_ENTRY_PHR_4_LCID) {
+                        proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte2_flags, ENC_NA);
+                        proto_tree_add_bitmask_list(subheader_tree, tvb, offset + 1, 1, me_phr_byte3_flags, ENC_NA);
+                        proto_tree_add_bitmask_list(subheader_tree, tvb, offset + 2, 1, me_phr_byte4_flags, ENC_NA);
+                        scell_bitmap2_3_4 = tvb_get_letoh24(tvb, offset); /* read them in little endian on purpose */
+                        offset += 3;
+                    }
 
-                            proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_bsr_short_lcg,
-                                                         tvb, offset, 1, ENC_BIG_ENDIAN, &lcg_id);
-                            proto_tree_add_item_ret_uint(subheader_tree, *hf_mac_nr_control_bsr_short_bs_lcg[lcg_id],
-                                                         tvb, offset, 1, ENC_BIG_ENDIAN, &bs);
-                            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-                                                     "(Short %sBSR LCG ID=%u BS=%u) ",
-                                                     lcid == SHORT_BSR_LCID ? "" : "Truncated ", lcg_id, bs);
-                            offset++;
+                    static int* const ph_fields1[] = {
+                        &hf_mac_nr_control_me_phr_ph_c1,
+                        &hf_mac_nr_control_me_phr_ph_c2,
+                        &hf_mac_nr_control_me_phr_ph_c3,
+                        &hf_mac_nr_control_me_phr_ph_c4,
+                        &hf_mac_nr_control_me_phr_ph_c5,
+                        &hf_mac_nr_control_me_phr_ph_c6,
+                        &hf_mac_nr_control_me_phr_ph_c7,
+                    };
+                    static int* const ph_fields2_3_4[] = {
+                        &hf_mac_nr_control_me_phr_ph_c8,
+                        &hf_mac_nr_control_me_phr_ph_c9,
+                        &hf_mac_nr_control_me_phr_ph_c10,
+                        &hf_mac_nr_control_me_phr_ph_c11,
+                        &hf_mac_nr_control_me_phr_ph_c12,
+                        &hf_mac_nr_control_me_phr_ph_c13,
+                        &hf_mac_nr_control_me_phr_ph_c14,
+                        &hf_mac_nr_control_me_phr_ph_c15,
+                        &hf_mac_nr_control_me_phr_ph_c16,
+                        &hf_mac_nr_control_me_phr_ph_c17,
+                        &hf_mac_nr_control_me_phr_ph_c18,
+                        &hf_mac_nr_control_me_phr_ph_c19,
+                        &hf_mac_nr_control_me_phr_ph_c20,
+                        &hf_mac_nr_control_me_phr_ph_c21,
+                        &hf_mac_nr_control_me_phr_ph_c22,
+                        &hf_mac_nr_control_me_phr_ph_c23,
+                        &hf_mac_nr_control_me_phr_ph_c24,
+                        &hf_mac_nr_control_me_phr_ph_c25,
+                        &hf_mac_nr_control_me_phr_ph_c26,
+                        &hf_mac_nr_control_me_phr_ph_c27,
+                        &hf_mac_nr_control_me_phr_ph_c28,
+                        &hf_mac_nr_control_me_phr_ph_c29,
+                        &hf_mac_nr_control_me_phr_ph_c30,
+                        &hf_mac_nr_control_me_phr_ph_c31,
+                    };
+
+                    /* PCell entries */
+                    guint32 PH;
+                    proto_item* entry_ti;
+                    if (p_mac_nr_info->phr_type2_othercell) {
+                        /* The PH and PCMAX,f,c fields can be either for a LTE or NR cell */
+                        entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, hf_mac_nr_control_me_phr_ph_type2_spcell,
+                            hf_mac_nr_control_me_phr_pcmax_f_c_type2_spcell, &PH, &offset);
+                        proto_item_append_text(entry_ti, " (Type2, SpCell PH=%u)", PH);
+                    }
+                    entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, hf_mac_nr_control_me_phr_ph_type1_pcell,
+                        hf_mac_nr_control_me_phr_pcmax_f_c_type1_pcell, &PH, &offset);
+                    proto_item_append_text(entry_ti, " (Type1, PCell PH=%u)", PH);
+
+
+                    /* SCell entries */
+                    /* The PH and PCMAX,f,c fields can be either for a LTE or NR cell */
+                    for (int n = 1; n <= 7; n++) {
+                        if (scell_bitmap1 & (1 << n)) {
+                            entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, *ph_fields1[n - 1],
+                                hf_mac_nr_control_me_phr_pcmax_f_c_typeX, &PH, &offset);
+                            proto_item_append_text(entry_ti, " (SCellIndex %d PH=%u)", n, PH);
                         }
-                        break;
-                    case LONG_TRUNCATED_BSR_LCID:
-                        {
-                            static int * const long_bsr_flags[] = {
-                                &hf_mac_nr_control_bsr_long_lcg7,
-                                &hf_mac_nr_control_bsr_long_lcg6,
-                                &hf_mac_nr_control_bsr_long_lcg5,
-                                &hf_mac_nr_control_bsr_long_lcg4,
-                                &hf_mac_nr_control_bsr_long_lcg3,
-                                &hf_mac_nr_control_bsr_long_lcg2,
-                                &hf_mac_nr_control_bsr_long_lcg1,
-                                &hf_mac_nr_control_bsr_long_lcg0,
-                                NULL
-                            };
-
-                            proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
-                            guint CE_start = offset;
-                            offset++;
-
-                            while ((offset-CE_start) < SDU_length) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_trunc_long_bs, tvb, offset++, 1, ENC_NA);
-
-                            /* TODO: show in string here how many BSs were seen */
-                            write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
-                                                             "(Long Truncated BSR) ");
-
-                            if (SDU_length > 7) {
-                                proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
-                                                             tvb, CE_start, SDU_length,
-                                                             "A Long Truncated BSR subheader should have a length field up to 7 bytes, but "
-                                                             "is set to %u bytes", SDU_length);
+                    }
+                    if (lcid == MULTIPLE_ENTRY_PHR_4_LCID) {
+                        for (int n = 0; n <= 23; n++) {
+                            if (scell_bitmap2_3_4 & (1 << n)) {
+                                entry_ti = dissect_me_phr_ph(tvb, pinfo, subheader_ti, *ph_fields2_3_4[n],
+                                    hf_mac_nr_control_me_phr_pcmax_f_c_typeX, &PH, &offset);
+                                proto_item_append_text(entry_ti, " (SCellIndex %d PH=%u)", n + 8, PH);
                             }
                         }
-                        break;
-                    case LONG_BSR_LCID:
-                        {
-                            static int * const long_bsr_flags[] = {
-                                &hf_mac_nr_control_bsr_long_lcg7,
-                                &hf_mac_nr_control_bsr_long_lcg6,
-                                &hf_mac_nr_control_bsr_long_lcg5,
-                                &hf_mac_nr_control_bsr_long_lcg4,
-                                &hf_mac_nr_control_bsr_long_lcg3,
-                                &hf_mac_nr_control_bsr_long_lcg2,
-                                &hf_mac_nr_control_bsr_long_lcg1,
-                                &hf_mac_nr_control_bsr_long_lcg0,
-                                NULL
-                            };
+                    }
 
-                            guint8 flags = tvb_get_guint8(tvb, offset);
-                            proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
-                            guint CE_start = offset;
-                            offset++;
+                    write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
+                        "(Multi-entry PHR) ");
 
-                            /* Show BSR values. */
-                            if (flags & 0x01) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg0, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x02) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg1, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x04) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg2, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x08) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg3, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x10) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg4, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x20) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg5, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x40) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg6, tvb, offset++, 1, ENC_NA);
-                            if (flags & 0x80) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg7, tvb, offset++, 1, ENC_NA);
+                    /* Make sure dissected length matches signalled length */
+                    if (offset != start_offset + SDU_length) {
+                        proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
+                            tvb, start_offset, offset - start_offset,
+                            "A Multiple-Entry PHR subheader has a length field of %u bytes, but "
+                            "dissected %u bytes", SDU_length, offset - start_offset);
+                        /* Assume length was correct, so at least can dissect further subheaders */
+                        offset = start_offset + SDU_length;
+                    }
+                    break;
+                }
+                case SINGLE_ENTRY_PHR_LCID:
+                    /* R R PH (6 bits) */
+                    proto_tree_add_item(subheader_tree, hf_mac_nr_control_se_phr_reserved,
+                        tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_se_phr_ph,
+                        tvb, offset, 1, ENC_BIG_ENDIAN, &phr_ph);
+                    offset++;
 
-                            /* TODO: show in string here how many BSs were seen */
-                            write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
-                                                             "(Long BSR) ");
+                    /* R R PCMAX_f_c (6 bits) */
+                    proto_tree_add_item(subheader_tree, hf_mac_nr_control_se_phr_reserved,
+                        tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_se_phr_pcmax_f_c,
+                        tvb, offset, 1, ENC_NA, &phr_pcmax_f_c);
+                    offset++;
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                        "(PHR PH=%u PCMAX_f_c=%u) ", phr_ph, phr_pcmax_f_c);
+                    break;
+                case C_RNTI_LCID:
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_crnti,
+                        tvb, offset, 2, ENC_BIG_ENDIAN, &c_rnti);
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                        "(C-RNTI=%u) ", c_rnti);
+                    offset += 2;
+                    break;
+                case SHORT_TRUNCATED_BSR_LCID:
+                case SHORT_BSR_LCID:
+                {
+                    static int* const hf_mac_nr_control_bsr_short_bs_lcg[] = {
+                        &hf_mac_nr_control_bsr_short_bs_lcg0,
+                        &hf_mac_nr_control_bsr_short_bs_lcg1,
+                        &hf_mac_nr_control_bsr_short_bs_lcg2,
+                        &hf_mac_nr_control_bsr_short_bs_lcg3,
+                        &hf_mac_nr_control_bsr_short_bs_lcg4,
+                        &hf_mac_nr_control_bsr_short_bs_lcg5,
+                        &hf_mac_nr_control_bsr_short_bs_lcg6,
+                        &hf_mac_nr_control_bsr_short_bs_lcg7
+                    };
+
+                    proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_bsr_short_lcg,
+                        tvb, offset, 1, ENC_BIG_ENDIAN, &lcg_id);
+                    proto_tree_add_item_ret_uint(subheader_tree, *hf_mac_nr_control_bsr_short_bs_lcg[lcg_id],
+                        tvb, offset, 1, ENC_BIG_ENDIAN, &bs);
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                        "(Short %sBSR LCG ID=%u BS=%u) ",
+                        lcid == SHORT_BSR_LCID ? "" : "Truncated ", lcg_id, bs);
+                    offset++;
+                }
+                break;
+                case LONG_TRUNCATED_BSR_LCID:
+                {
+                    static int* const long_bsr_flags[] = {
+                        &hf_mac_nr_control_bsr_long_lcg7,
+                        &hf_mac_nr_control_bsr_long_lcg6,
+                        &hf_mac_nr_control_bsr_long_lcg5,
+                        &hf_mac_nr_control_bsr_long_lcg4,
+                        &hf_mac_nr_control_bsr_long_lcg3,
+                        &hf_mac_nr_control_bsr_long_lcg2,
+                        &hf_mac_nr_control_bsr_long_lcg1,
+                        &hf_mac_nr_control_bsr_long_lcg0,
+                        NULL
+                    };
+
+                    proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
+                    guint CE_start = offset;
+                    offset++;
+
+                    while ((offset - CE_start) < SDU_length) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_trunc_long_bs, tvb, offset++, 1, ENC_NA);
+
+                    /* TODO: show in string here how many BSs were seen */
+                    write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
+                        "(Long Truncated BSR) ");
+
+                    if (SDU_length > 7) {
+                        proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
+                            tvb, CE_start, SDU_length,
+                            "A Long Truncated BSR subheader should have a length field up to 7 bytes, but "
+                            "is set to %u bytes", SDU_length);
+                    }
+                }
+                break;
+                case LONG_BSR_LCID:
+                {
+                    static int* const long_bsr_flags[] = {
+                        &hf_mac_nr_control_bsr_long_lcg7,
+                        &hf_mac_nr_control_bsr_long_lcg6,
+                        &hf_mac_nr_control_bsr_long_lcg5,
+                        &hf_mac_nr_control_bsr_long_lcg4,
+                        &hf_mac_nr_control_bsr_long_lcg3,
+                        &hf_mac_nr_control_bsr_long_lcg2,
+                        &hf_mac_nr_control_bsr_long_lcg1,
+                        &hf_mac_nr_control_bsr_long_lcg0,
+                        NULL
+                    };
+
+                    guint8 flags = tvb_get_guint8(tvb, offset);
+                    proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
+                    guint CE_start = offset;
+                    offset++;
+
+                    /* Show BSR values. */
+                    if (flags & 0x01) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg0, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x02) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg1, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x04) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg2, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x08) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg3, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x10) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg4, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x20) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg5, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x40) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg6, tvb, offset++, 1, ENC_NA);
+                    if (flags & 0x80) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_long_bs_lcg7, tvb, offset++, 1, ENC_NA);
+
+                    /* TODO: show in string here how many BSs were seen */
+                    write_pdu_label_and_info_literal(pdu_ti, subheader_ti, pinfo,
+                        "(Long BSR) ");
 
 
-                            /* Make sure dissected length matches signalled length */
-                            if ((offset - CE_start) != SDU_length) {
-                                proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
-                                                             tvb, CE_start, offset-CE_start,
-                                                             "A Long BSR subheader has a length field of %u bytes, but "
-                                                             "dissected %u bytes", SDU_length, offset-CE_start);
-                                /* Assume length was correct, so at least can dissect further subheaders */
-                                offset = CE_start + SDU_length;
-                            }
-                        }
-                        break;
-                    case PADDING_LCID:
-                        {
-                            /* The rest of the PDU is padding */
-                            int pad_len = tvb_reported_length_remaining(tvb, offset);
-                            if (pad_len > 0)
-                                proto_tree_add_item(subheader_tree, hf_mac_nr_padding, tvb, offset, -1, ENC_NA);
-                            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "(Padding %u bytes) ", pad_len);
-                            /* Move to the end of the frame */
-                            offset = tvb_reported_length(tvb);
-                        }
-                        break;
+                    /* Make sure dissected length matches signalled length */
+                    if ((offset - CE_start) != SDU_length) {
+                        proto_tree_add_expert_format(subheader_tree, pinfo, &ei_mac_nr_sdu_length_different_from_dissected,
+                            tvb, CE_start, offset - CE_start,
+                            "A Long BSR subheader has a length field of %u bytes, but "
+                            "dissected %u bytes", SDU_length, offset - CE_start);
+                        /* Assume length was correct, so at least can dissect further subheaders */
+                        offset = CE_start + SDU_length;
+                    }
+                }
+                break;
+                case PADDING_LCID:
+                {
+                    /* The rest of the PDU is padding */
+                    int pad_len = tvb_reported_length_remaining(tvb, offset);
+                    if (pad_len > 0)
+                        proto_tree_add_item(subheader_tree, hf_mac_nr_padding, tvb, offset, -1, ENC_NA);
+                    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "(Padding %u bytes) ", pad_len);
+                    /* Move to the end of the frame */
+                    offset = tvb_reported_length(tvb);
+                }
+                break;
                 }
             }
             else {
@@ -2072,8 +2513,85 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                                "DL-SCH: should not have Control Elements after Data SDUs");
                     }
                 }
-
                 switch (lcid) {
+                    case TWO_OCTET_ELCID_FIELD:
+                        /* Error */
+                        break;
+                    case ONE_OCTET_ELCID_FIELD:
+                        switch (elcid) {
+                        case SERVING_CELL_SET_BASED_SRS_TCI_STATE_INDICATIONS_ELCD:
+                            break;
+                        case SP_AP_SRS_TCI_STATE_INDICATION_ELCD:
+                            break;
+                        case BFD_RS_INDICATION_ELCD:
+                            break;
+                        case DIFFERENTIAL_KOFFSET_ELCD:
+                        {
+                            guint32 koffset;
+                            proto_tree_add_item(subheader_tree, hf_mac_nr_differential_koffset_reserved,
+                                tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_differential_koffset,
+                                tvb, offset, 1, ENC_BIG_ENDIAN, &koffset);
+                            offset += 1;
+                            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                                "(Differential Koffset %u) ", koffset);
+                        }
+                            break;
+                        case ENHANCED_SCELL_ACTIVATION_DEACTIVATION_MAC_CE_WITH_ONE_OCTET_CI_FIELD_ELCD:
+                            break;
+                        case ENHANCED_SCELL_ACTIVATION_DEACTIVATION_MAC_CE_WITH_FOUR_OCTET_CI_FIELD_ELCD:
+                            break;
+                        case UNIFIED_TCI_STATES_ACTIVATION_DEACTIVATION_ELCD:
+                            break;
+                        case PUCCH_POWER_CONTROL_SET_UPDATE_FOR_MULTIPLE_TRP_PUCCH_REPETITION__ELCD:
+                            break;
+                        case PUCCH_SPATIAL_RELATION_ACTIVATION_DEACTIVATION_FOR_MULTIPLE_TRP_PUCCH_REPETITION_ELCD:
+                            break;
+                        case ENHANCED_TCI_STATES_INDICATION_FOR_UE_SPECIFIC_PDCCH_ELCD:
+                            break;
+                        case POSITIONING_MEASUREMENT_GAP_ACTIVATION_DEACTIVATION_COMMAND_ELCD:
+                            break;
+                        case PPW_ACTIVATION_DEACTIVATION_COMMAND_ELCD:
+                            break;
+                        case DL_TX_POWER_ADJUSTMENT_ELCD:
+                            break;
+                        case TIMING_CASE_INDICATION_ELCD:
+                            break;
+                        case CHILD_IAB_DU_RESTRICTED_BEAM_INDICATION_ELCD:
+                            break;
+                        case CASE_7_TIMING_ADVANCE_OFFSET_ELCD:
+                            break;
+                        case PROVIDED_GUARD_SYMBOLS_FOR_CASE_6_TIMING_ELCD:
+                            break;
+                        case PROVIDED_GUARD_SYMBOLS_FOR_CASE_7_TIMING_ELCD:
+                            break;
+                        case SERVING_CELL_SET_BASED_SRS_SPATIAL_RELATION_INDICATION_ELCD:
+                            break;
+                        case PUSCH_PATHLOSS_REFERENCE_RS_UPDATE_ELCD:
+                            break;
+                        case SRS_PATHLOSS_REFERENCE_RS_UPDATE_ELCD:
+                            break;
+                        case ENHANCED_SP_AP_SRS_SPATIAL_RELATION_INDICATION_ELCD:
+                            break;
+                        case ENHANCED_PUCCH_SPATIAL_RELATION_ACTIVATION_DEACTIVATION_ELCD:
+                            break;
+                        case ENHANCED_TCI_STATES_ACTIVATION_DEACTIVATION_FOR_UE_SPECIFIC_PDSCH_ELCD:
+                            break;
+                        case DUPLICATION_RLC_ACTIVATION_DEACTIVATION_ELCD:
+                            /* 251 */
+                            break;
+                        case ABSOLUTE_TIMING_ADVANCE_COMMAND_ELCD:
+                            break;
+                        case SP_POSITIONING_SRS_ACTIVATION_DEACTIVATION_ELCD:
+                            break;
+                        case PROVIDED_GUARD_SYMBOLS_ELCD:
+                            break;
+                        case TIMING_DELTA_ELCD:
+                            break;
+                        default:
+                            break;
+                        }
+                        break;
                     case RECOMMENDED_BIT_RATE_LCID:
                         proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_recommended_bit_rate_lcid,
                                             tvb, offset, 1, ENC_BIG_ENDIAN, &br_lcid);
@@ -2982,14 +3500,38 @@ void proto_register_mac_nr(void)
         },
         { &hf_mac_nr_ulsch_lcid,
             { "LCID",
-              "mac-nr.ulsch.lcid", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &ulsch_lcid_vals_ext, 0x3f,
+              "mac-nr.ulsch.lcid", FT_UINT8, BASE_DEC|BASE_EXT_STRING, &ulsch_lcid_vals_ext, 0x3f,
               "UL-SCH Logical Channel Identifier", HFILL
             }
         },
         { &hf_mac_nr_dlsch_lcid,
             { "LCID",
-              "mac-nr.dlsch.lcid", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &dlsch_lcid_vals_ext, 0x3f,
+              "mac-nr.dlsch.lcid", FT_UINT8, BASE_DEC|BASE_EXT_STRING, &dlsch_lcid_vals_ext, 0x3f,
               "DL-SCH Logical Channel Identifier", HFILL
+            }
+        },
+        { &hf_mac_nr_dlsch_elcid_2oct,
+            { "eLCID2oct",
+              "mac-nr.dlsch.elcid-2oct", FT_UINT16, BASE_DEC, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_ulsch_elcid_2oct,
+            { "eLCID2oct",
+              "mac-nr.dlsch.elcid-2oct", FT_UINT16, BASE_DEC, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_dlsch_elcid_1oct,
+            { "eLCID",
+              "mac-nr.dlsch.elcid-1oct", FT_UINT8,BASE_DEC|BASE_EXT_STRING,&dlsch_elcid_vals_ext, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_ulsch_elcid_1oct,
+            { "eLCID",
+              "mac-nr.dlsch.elcid-1oct", FT_UINT8,BASE_DEC|BASE_EXT_STRING,&ulsch_elcid_vals_ext, 0x0,
+              NULL, HFILL
             }
         },
         { &hf_mac_nr_ulsch_sdu,
@@ -4507,8 +5049,30 @@ void proto_register_mac_nr(void)
               NULL, HFILL
             }
         },
-
-    };
+        { &hf_mac_nr_control_timing_advance_report_reserved,
+            { "Reserved",
+              "mac-nr.control.ta-command.reserved", FT_UINT8, BASE_HEX, NULL, 0xc0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_control_timing_advance_report_ta,
+            { "Timing Advance",
+              "mac-nr.control.ta-command.ta", FT_UINT16, BASE_DEC, NULL, 0x3f,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_differential_koffset,
+            { "Differential Koffset",
+              "mac-nr.differential_koffset", FT_UINT8, BASE_DEC, NULL, 0x3f,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_differential_koffset_reserved,
+            { "Reserved",
+              "mac-nr.differential_koffset.reserved", FT_UINT8, BASE_DEC, NULL, 0xc0,
+              NULL, HFILL
+            }
+        }, };
 
     static gint *ett[] =
     {

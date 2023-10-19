@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include <glib.h>
+
 #include "wsutil/pint.h"
 #include "wsutil/sign_ext.h"
 #include "wsutil/strtoi.h"
@@ -1724,7 +1726,7 @@ validate_single_byte_ascii_encoding(const guint encoding)
 	    case ENC_KEYPAD_BC_TBCD:
 	    case ENC_ETSI_TS_102_221_ANNEX_A:
 	    case ENC_APN_STR:
-		case ENC_DECT_STANDARD_4BITS_TBCD:
+	    case ENC_DECT_STANDARD_4BITS_TBCD:
 	    REPORT_DISSECTOR_BUG("Invalid string encoding type passed to tvb_get_string_XXX");
 	    break;
 	    default:
@@ -3380,7 +3382,7 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 		 */
 		odd = (encoding & ENC_BCD_ODD_NUM_DIG) >> 16;
 		skip_first = (encoding & ENC_BCD_SKIP_FIRST) >> 17;
-		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt0_9_bcd, skip_first, odd, FALSE);
+		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt0_9_bcd, skip_first, odd, !(encoding & ENC_LITTLE_ENDIAN));
 		break;
 
 	case ENC_KEYPAD_ABC_TBCD:
@@ -3390,7 +3392,7 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 		 */
 		odd = (encoding & ENC_BCD_ODD_NUM_DIG) >> 16;
 		skip_first = (encoding & ENC_BCD_SKIP_FIRST) >> 17;
-		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt_keypad_abc_tbcd, skip_first, odd, FALSE);
+		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt_keypad_abc_tbcd, skip_first, odd, !(encoding & ENC_LITTLE_ENDIAN));
 		break;
 
 	case ENC_KEYPAD_BC_TBCD:
@@ -3400,7 +3402,7 @@ tvb_get_string_enc(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset,
 		 */
 		odd = (encoding & ENC_BCD_ODD_NUM_DIG) >> 16;
 		skip_first = (encoding & ENC_BCD_SKIP_FIRST) >> 17;
-		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt_ansi_tbcd, skip_first, odd, FALSE);
+		strptr = tvb_get_bcd_string(scope, tvb, offset, length, &Dgt_ansi_tbcd, skip_first, odd, !(encoding & ENC_LITTLE_ENDIAN));
 		break;
 
 	case ENC_3GPP_TS_23_038_7BITS_UNPACKED:

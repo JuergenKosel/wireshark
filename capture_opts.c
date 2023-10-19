@@ -373,7 +373,7 @@ static gboolean get_filter_arguments(capture_options* capture_opts, const char* 
     }
 
     if (filter_exp == NULL) {
-        /* No filter expression found yet; fallback to previous implemention
+        /* No filter expression found yet; fallback to previous implementation
            and assume the arg contains a filter expression */
         if (colonp) {
             *colonp = ':';      /* restore colon */
@@ -453,7 +453,9 @@ get_ring_arguments(capture_options *capture_opts, const char *arg)
         capture_opts->print_file_names = TRUE;
         capture_opts->print_name_to = g_strdup(p);
     }
-
+    else {
+        return FALSE;
+    }
     *colonp = ':';    /* put the colon back */
     return TRUE;
 }
@@ -1210,9 +1212,10 @@ capture_opts_trim_ring_num_files(capture_options *capture_opts)
         cmdarg_err("%u is a lot of ring buffer files.\n", capture_opts->ring_num_files);
     }
 #if RINGBUFFER_MIN_NUM_FILES > 0
-    else if (capture_opts->ring_num_files < RINGBUFFER_MIN_NUM_FILES)
+    else if (capture_opts->ring_num_files < RINGBUFFER_MIN_NUM_FILES) {
         cmdarg_err("Too few ring buffer files (%u). Increasing to %u.\n", capture_opts->ring_num_files, RINGBUFFER_MIN_NUM_FILES);
         capture_opts->ring_num_files = RINGBUFFER_MIN_NUM_FILES;
+    }
 #endif
 }
 

@@ -8,6 +8,8 @@
 
 #include <config.h>
 
+#define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
+
 #include <string.h>
 
 #include <sys/types.h>
@@ -19,7 +21,6 @@
 #include <wsutil/file_util.h>
 #include <wsutil/buffer.h>
 #include <wsutil/ws_assert.h>
-#include <wsutil/wslog.h>
 #include <wsutil/exported_pdu_tlvs.h>
 #ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
@@ -218,6 +219,26 @@ wtap_file_discard_decryption_secrets(wtap *wth)
 	wtap_block_array_free(wth->dsbs);
 	wth->dsbs = NULL;
 	return TRUE;
+}
+
+void
+wtap_file_add_meta_event(wtap *wth, const wtap_block_t mev)
+{
+	if (!wth->meta_events) {
+		wth->meta_events = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
+	}
+	g_array_append_val(wth->meta_events, mev);
+}
+
+gboolean
+wtap_file_discard_meta_events(wtap *wth)
+{
+	if (!wth->meta_events || wth->meta_events->len == 0)
+		return false;
+
+	wtap_block_array_free(wth->meta_events);
+	wth->meta_events = NULL;
+	return true;
 }
 
 void
@@ -497,6 +518,7 @@ wtap_dump_params_init(wtap_dump_params *params, wtap *wth)
 	 * as they become available. */
 	params->nrbs_growing = wth->nrbs;
 	params->dsbs_growing = wth->dsbs;
+	params->mevs_growing = wth->meta_events;
 	params->dont_copy_idbs = FALSE;
 }
 
@@ -535,6 +557,12 @@ wtap_dump_params_discard_decryption_secrets(wtap_dump_params *params)
 {
 	params->dsbs_initial = NULL;
 	params->dsbs_growing = NULL;
+}
+
+void
+wtap_dump_params_discard_meta_events(wtap_dump_params *params)
+{
+	params->mevs_growing = NULL;
 }
 
 void
@@ -1320,7 +1348,7 @@ wtap_name_to_encap(const char *name)
  */
 static const char *precnames[NUM_WS_TSPREC_VALS] = {
 	"seconds",
-	"100 millisconds (deciseconds)",
+	"100 milliseconds (deciseconds)",
 	"10 milliseconds (centiseconds)",
 	"milliseconds",
 	"100 microseconds",
@@ -1514,6 +1542,7 @@ wtap_close(wtap *wth)
 	wtap_block_array_free(wth->nrbs);
 	wtap_block_array_free(wth->interface_data);
 	wtap_block_array_free(wth->dsbs);
+	wtap_block_array_free(wth->meta_events);
 
 	g_free(wth);
 }

@@ -385,6 +385,10 @@ static dissector_handle_t media_handle;
 /* Handle for WBXML-encoded UAPROF dissector */
 static dissector_handle_t wbxml_uaprof_handle;
 
+/* Handle for Session Initiation Request dissector */
+static dissector_handle_t sir_handle;
+
+
 static const value_string wsp_vals_pdu_type[] = {
     { 0x00, "Reserved" },
     { 0x01, "Connect" },
@@ -6723,21 +6727,21 @@ proto_register_wsp(void)
         { &hf_hdr_push_flag_auth,
           { "Initiator URI is authenticated",
             "wsp.header.push_flag.authenticated",
-            FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x01,
+            FT_BOOLEAN, 8, NULL, 0x01,
             "The X-Wap-Initiator-URI has been authenticated.", HFILL
           }
         },
         { &hf_hdr_push_flag_trust,
           { "Content is trusted",
             "wsp.header.push_flag.trusted",
-            FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x02,
+            FT_BOOLEAN, 8, NULL, 0x02,
             "The push content is trusted.", HFILL
           }
         },
         { &hf_hdr_push_flag_last,
           { "Last push message",
             "wsp.header.push_flag.last",
-            FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x04,
+            FT_BOOLEAN, 8, NULL, 0x04,
             "Indicates whether this is the last push message.", HFILL
           }
         },
@@ -7189,7 +7193,7 @@ proto_register_wsp(void)
     register_dissector("wsp-cl", dissect_wsp_fromwap_cl, proto_wsp);
     heur_subdissector_list = register_heur_dissector_list("wsp", proto_wsp);
 
-    wsp_fromudp_handle = create_dissector_handle(dissect_wsp_fromudp,
+    wsp_fromudp_handle = register_dissector("wsp.udp", dissect_wsp_fromudp,
                                                  proto_wsp);
 }
 
@@ -7359,30 +7363,21 @@ proto_register_sir(void)
 
 
     /* Register the dissector */
-    proto_sir = proto_register_protocol(
-        "WAP Session Initiation Request",   /* protocol name for use by wireshark */
-        "WAP SIR",                          /* short version of name */
-        "wap-sir"                           /* Abbreviated protocol name,
-                                               should Match IANA:
-                                               < URL:http://www.iana.org/assignments/port-numbers/ >
-                                            */
-        );
+    /* Abbreviated protocol name should Match IANA: https://www.iana.org/assignments/port-numbers/ */
+    proto_sir = proto_register_protocol("WAP Session Initiation Request", "WAP SIR", "wap-sir");
 
     /* Register header fields and protocol subtrees */
     proto_register_field_array(proto_sir, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    register_stat_tap_table_ui(&wsp_stat_table);
+    sir_handle = register_dissector("wap-sir", dissect_sir, proto_sir);
 
+    register_stat_tap_table_ui(&wsp_stat_table);
 }
 
 void
 proto_reg_handoff_sir(void)
 {
-    dissector_handle_t sir_handle;
-
-    sir_handle = create_dissector_handle(dissect_sir, proto_sir);
-
     /* Add dissector bindings for SIR dissection */
     dissector_add_string("media_type", "application/vnd.wap.sia", sir_handle);
 }

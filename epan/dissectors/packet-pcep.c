@@ -67,6 +67,8 @@
 void proto_register_pcep(void);
 void proto_reg_handoff_pcep(void);
 
+static dissector_handle_t pcep_handle;
+
 /* Object-Class */
 #define PCEP_OPEN_OBJ                    1 /* RFC 5440 */
 #define PCEP_RP_OBJ                      2 /* RFC 5440 */
@@ -4942,42 +4944,42 @@ proto_register_pcep(void)
         },
         { &hf_pcep_no_path_tlvs_pce,
           { "PCE currently unavailable", "pcep.no_path_tlvs.pce",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000001,
+            FT_BOOLEAN, 32, NULL, 0x00000001,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_unk_dest,
           { "Unknown destination", "pcep.no_path_tlvs.unk_dest",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000002,
+            FT_BOOLEAN, 32, NULL, 0x00000002,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_unk_src,
           { "Unknown source", "pcep.no_path_tlvs.unk_src",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000004,
+            FT_BOOLEAN, 32, NULL, 0x00000004,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_brpc,
           { "BRPC Path computation chain unavailable", "pcep.no_path_tlvs.brpc",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000008,
+            FT_BOOLEAN, 32, NULL, 0x00000008,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_pks,
           { "PKS expansion failure", "pcep.no_path_tlvs.pks",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000010,
+            FT_BOOLEAN, 32, NULL, 0x00000010,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_no_gco_migr,
           { "No GCO migration path found", "pcep.no_path_tlvs.no_gco_migr",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000020,
+            FT_BOOLEAN, 32, NULL, 0x00000020,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_no_gco_soln,
           { "No GCO solution found", "pcep.no_path_tlvs.no_gco_soln",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000040,
+            FT_BOOLEAN, 32, NULL, 0x00000040,
             NULL, HFILL }
         },
         { &hf_pcep_no_path_tlvs_p2mp,
           { "P2MP Reachability Problem", "pcep.no_path_tlvs.p2mp",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), 0x00000080,
+            FT_BOOLEAN, 32, NULL, 0x00000080,
             NULL, HFILL }
         },
         { &hf_pcep_stateful_pce_capability_flags,
@@ -4988,32 +4990,32 @@ proto_register_pcep(void)
 
         { &hf_pcep_lsp_update_capability,
           { "LSP-UPDATE-CAPABILITY (U)", "pcep.stateful-pce-capability.lsp-update",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_U,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_U,
             NULL, HFILL }
         },
         { &hf_pcep_include_db_version,
           { "INCLUDE-DB-VERSION (S)", "pcep.sync-capability.include-db-version",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_S,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_S,
             NULL, HFILL }
         },
         { &hf_pcep_lsp_instantiation_capability,
           { "LSP-INSTANTIATION-CAPABILITY (I)", "pcep.stateful-pce-capability.lsp-instantiation",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_I,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_I,
             NULL, HFILL }
         },
         { &hf_pcep_triggered_resync,
           { "TRIGGERED-RESYNC (T)", "pcep.stateful-pce-capability.triggered-resync",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_T,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_T,
             NULL, HFILL }
         },
         { &hf_pcep_delta_lsp_sync_capability,
           { "DELTA-LSP-SYNC-CAPABILITY (D)", "pcep.stateful-pce-capability.delta-lsp-sync",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_D,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_D,
             NULL, HFILL }
         },
         { &hf_pcep_triggered_initial_sync,
           { "TRIGGERED-INITIAL-SYNC (F)", "pcep.stateful-pce-capability.triggered-initial-sync",
-            FT_BOOLEAN, 32, TFS(&tfs_true_false), PCEP_TLV_STATEFUL_PCE_CAPABILITY_F,
+            FT_BOOLEAN, 32, NULL, PCEP_TLV_STATEFUL_PCE_CAPABILITY_F,
             NULL, HFILL }
         },
         { &hf_pcep_sr_pce_capability_reserved,
@@ -6599,15 +6601,15 @@ proto_register_pcep(void)
     proto_register_subtree_array(ett, array_length(ett));
     expert_pcep = expert_register_protocol(proto_pcep);
     expert_register_field_array(expert_pcep, ei, array_length(ei));
+
+    /* Register the dissector handle */
+    pcep_handle = register_dissector("pcep", dissect_pcep, proto_pcep);
 }
 
 /*Dissector Handoff*/
 void
 proto_reg_handoff_pcep(void)
 {
-    dissector_handle_t pcep_handle;
-
-    pcep_handle = create_dissector_handle(dissect_pcep, proto_pcep);
     dissector_add_uint_with_preference("tcp.port", TCP_PORT_PCEP, pcep_handle);
 }
 

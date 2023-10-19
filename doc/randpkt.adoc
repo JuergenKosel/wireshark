@@ -20,6 +20,14 @@ randpkt - Random packet generator
 [ *-t* <type> ]
 <filename>
 
+[manarg]
+*randpkt*
+*-h|--help*
+
+[manarg]
+*randpkt*
+*-v|--version*
+
 == DESCRIPTION
 
 *randpkt* is a small utility that creates a trace file full of random packets.
@@ -72,6 +80,9 @@ available output formats.  Note that not all output formats support
 all packet types.
 --
 
+-h|--help::
+Print the version number and options and exit.
+
 -r::
 +
 --
@@ -111,6 +122,9 @@ Defines the type of packet to generate:
         usb             Universal Serial Bus
         usb-linux       Universal Serial Bus with Linux specific header
 --
+
+-v|--version::
+Print the full version information and exit.
 
 include::diagnostic-options.adoc[]
 

@@ -4078,7 +4078,7 @@ static void add_digits_string_info_col(tvbuff_t *tvb,
     const char ZERO_C = '0';
 
     tvb_ensure_bytes_exist(tvb, first_offset, num_digits);
-    ch_buff = (char *) wmem_alloc(wmem_packet_scope(), num_digits + 1); /*include space for terminating null*/
+    ch_buff = (char *) wmem_alloc(pinfo->pool, num_digits + 1); /*include space for terminating null*/
     for ( i = 0; i < num_digits; i++ )
     {
         guint curr_digit = tvb_get_guint8(tvb, i + first_offset);
@@ -4324,7 +4324,7 @@ static int dissect_c15ch_clli(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 
     gint clli_siz;
     guchar * clli_string;
-    clli_string = tvb_get_stringz_enc(wmem_packet_scope(), tvb, 0, &clli_siz, ENC_ASCII );
+    clli_string = tvb_get_stringz_enc(pinfo->pool, tvb, 0, &clli_siz, ENC_ASCII );
     if ( (clli_siz > 1) && (clli_siz <= 25 ) )
     {
         col_clear(pinfo->cinfo, COL_INFO);
@@ -4467,7 +4467,7 @@ static int dissect_c15ch_dest_digits(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 }
 
 
-static int dissect_c15ch_echo_cancel(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
+static int dissect_c15ch_echo_cancel(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     proto_item * ti = NULL;
     proto_tree * c15ch_echo_cancel_tree = NULL;
@@ -4579,7 +4579,7 @@ static int dissect_c15ch_echo_cancel(tvbuff_t *tvb, packet_info *pinfo _U_, prot
         pc_val = tvb_get_ntohl( tvb, 19 );
         loop_val = tvb_get_ntohl( tvb, 23 );
         slot_val = tvb_get_ntohl( tvb, 27 );
-        loc_string = wmem_strdup_printf(wmem_packet_scope(), "%d  %d  %d  %d", pm_val, pc_val, loop_val, slot_val );
+        loc_string = wmem_strdup_printf(pinfo->pool, "%d  %d  %d  %d", pm_val, pc_val, loop_val, slot_val );
         ti = proto_tree_add_string(c15ch_echo_cancel_tree, hf_c15ch_echo_cancel_location, tvb, 15, (27 + 4 - 15) + 1, loc_string);
         loc_tree = proto_item_add_subtree (ti, ett_c15ch_second_level_sub4);
 
@@ -4739,15 +4739,15 @@ static int dissect_c15ch_nitnxlate(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
     /* sitestring */
     str_start = 12;
-    site_string = tvb_get_stringz_enc(wmem_packet_scope(), tvb, str_start, &site_str_len, ENC_ASCII);
+    site_string = tvb_get_stringz_enc(pinfo->pool, tvb, str_start, &site_str_len, ENC_ASCII);
 
     /* subsitestring */
     str_start = 17;
-    subsite_string = tvb_get_stringz_enc(wmem_packet_scope(), tvb, str_start, &subsite_str_len, ENC_ASCII);
+    subsite_string = tvb_get_stringz_enc(pinfo->pool, tvb, str_start, &subsite_str_len, ENC_ASCII);
 
     /* equipname */
     str_start = 22;
-    equipname_string = (gchar * )tvb_get_stringz_enc(wmem_packet_scope(), tvb, str_start, &equipname_str_len, ENC_ASCII);
+    equipname_string = (gchar * )tvb_get_stringz_enc(pinfo->pool, tvb, str_start, &equipname_str_len, ENC_ASCII);
 
     frame_val = tvb_get_ntohl( tvb, 31 );
     shelf_val = tvb_get_ntohl( tvb, 35 );
@@ -4978,7 +4978,7 @@ static int dissect_c15ch_ntwk_conn(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         from_pc_val = tvb_get_guint8( tvb, 9 );
         from_loop_val = tvb_get_guint8( tvb, 10 );
         from_slot_val = tvb_get_guint8( tvb, 11 );
-        from_loc_string = wmem_strdup_printf(wmem_packet_scope(), "%d  %d  %d  %d", from_pm_val, from_pc_val, from_loop_val, from_slot_val );
+        from_loc_string = wmem_strdup_printf(pinfo->pool, "%d  %d  %d  %d", from_pm_val, from_pc_val, from_loop_val, from_slot_val );
         ti = proto_tree_add_string(c15ch_ntwk_conn_tree, hf_c15ch_ntwk_conn_fromlocation, tvb, 8, (11 - 8) + 1,
                                 from_loc_string);
         old_loc_tree = proto_item_add_subtree (ti, ett_c15ch_second_level_sub1);
@@ -5018,7 +5018,7 @@ static int dissect_c15ch_ntwk_conn(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         to_pc_val = tvb_get_guint8( tvb, 32 );
         to_loop_val = tvb_get_guint8( tvb, 33 );
         to_slot_val = tvb_get_guint8( tvb, 34 );
-        to_loc_string = wmem_strdup_printf(wmem_packet_scope(), "%d  %d  %d  %d", to_pm_val, to_pc_val, to_loop_val, to_slot_val );
+        to_loc_string = wmem_strdup_printf(pinfo->pool, "%d  %d  %d  %d", to_pm_val, to_pc_val, to_loop_val, to_slot_val );
         ti = proto_tree_add_string(c15ch_ntwk_conn_tree, hf_c15ch_ntwk_conn_tolocation, tvb, 31, (34 - 31) + 1,
                                 to_loc_string);
         new_loc_tree = proto_item_add_subtree (ti, ett_c15ch_second_level_sub3);
@@ -7347,11 +7347,7 @@ void proto_register_c15ch_hbeat(void)
         &ett_c15ch_hbeat
     };
 
-    proto_c15ch_hbeat = proto_register_protocol(
-        "C15 Call History Heartbeat Protocol", /* name */
-        "C15HBEAT",         /* short name */
-        "c15hbeat"            /* abbreviation */
-        );
+    proto_c15ch_hbeat = proto_register_protocol("C15 Call History Heartbeat Protocol", "C15HBEAT", "c15hbeat");
     proto_register_field_array(proto_c15ch_hbeat, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
@@ -11866,53 +11862,33 @@ void proto_register_c15ch(void)
     /* protocols */
 
     /* first level: Call History Common Header */
-    proto_c15ch = proto_register_protocol(
-        "C15 Call History Common Header Protocol",
-        "C15.ch",
-        "c15.ch"
-        );
+    proto_c15ch = proto_register_protocol("C15 Call History Common Header Protocol", "C15.ch", "c15.ch");
     proto_register_field_array(proto_c15ch, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
     c15ch_handle = register_dissector("c15.ch", dissect_c15ch, proto_c15ch);
 
     /* second level dissector */
-    proto_c15ch_second_level = proto_register_protocol(
-        "C15 Call History Protocol",
-        "C15",
-        "c15"
-        );
+    proto_c15ch_second_level = proto_register_protocol("C15 Call History Protocol", "C15", "c15");
     proto_register_field_array(proto_c15ch_second_level, hf_second_level, array_length(hf_second_level));
     proto_register_subtree_array(ett_second_level, array_length(ett_second_level));
     c15ch_dissector_table = register_dissector_table("c15", "C15", proto_c15ch, FT_UINT32, BASE_DEC);
 
     /* third level */
     /* tone */
-        proto_c15ch_third_level_tone = proto_register_protocol(
-        "C15 Tone",
-        "C15.TONE",
-        "c15.tone"
-        );
+        proto_c15ch_third_level_tone = proto_register_protocol("C15 Tone", "C15.TONE", "c15.tone");
     proto_register_field_array(proto_c15ch_third_level_tone, hf_third_level_tone, array_length(hf_third_level_tone));
     proto_register_subtree_array(ett_third_level_tone, array_length(ett_third_level_tone));
     c15ch_tone_dissector_table = register_dissector_table("c15.tone", "C15.TONE", proto_c15ch_third_level_tone, FT_UINT32, BASE_DEC);
 
     /* inc gwe */
-    proto_c15ch_third_level_inc_gwe = proto_register_protocol(
-        "C15 Incoming GWE",
-        "C15.INC_GWE",
-        "c15.inc_gwe"
-        );
+    proto_c15ch_third_level_inc_gwe = proto_register_protocol("C15 Incoming GWE", "C15.INC_GWE", "c15.inc_gwe");
     proto_register_field_array(proto_c15ch_third_level_inc_gwe, hf_third_level_inc_gwe, array_length(hf_third_level_inc_gwe));
     proto_register_subtree_array(ett_third_level_inc_gwe, array_length(ett_third_level_inc_gwe));
     c15ch_inc_gwe_dissector_table = register_dissector_table("c15.inc_gwe", "C15.INC_GWE", proto_c15ch_third_level_inc_gwe, FT_UINT32, BASE_DEC);
 
     /* out gwe */
-    proto_c15ch_third_level_out_gwe = proto_register_protocol(
-        "C15 Outgoing GWE",
-        "C15.out_gwe",
-        "c15.out_gwe"
-        );
+    proto_c15ch_third_level_out_gwe = proto_register_protocol("C15 Outgoing GWE", "C15.out_gwe", "c15.out_gwe");
     proto_register_field_array(proto_c15ch_third_level_out_gwe, hf_third_level_out_gwe, array_length(hf_third_level_out_gwe));
     proto_register_subtree_array(ett_third_level_out_gwe, array_length(ett_third_level_out_gwe));
     c15ch_out_gwe_dissector_table = register_dissector_table("c15.out_gwe", "C15.out_gwe", proto_c15ch_third_level_out_gwe, FT_UINT32, BASE_DEC);

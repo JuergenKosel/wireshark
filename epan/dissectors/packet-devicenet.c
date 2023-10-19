@@ -125,7 +125,7 @@ static uat_devicenet_record_t *uat_devicenet_records = NULL;
 static uat_t *devicenet_uat = NULL;
 static guint num_devicenet_records_uat = 0;
 
-static gboolean uat_devicenet_record_update_cb(void* r, char** err) {
+static bool uat_devicenet_record_update_cb(void* r, char** err) {
     uat_devicenet_record_t* rec = (uat_devicenet_record_t *)r;
 
     if (rec->mac_id > 63) {
@@ -250,9 +250,9 @@ static const value_string devicenet_group_select_vals[] = {
 
 static const value_string devicenet_fragmented_message_type_vals[] = {
     { 0,    "First Fragment" },
-    { 0x40, "Middle fragment" },
-    { 0x80, "Last fragment" },
-    { 0xC0, "Fragment Acknowledge" },
+    { 1,    "Middle fragment" },
+    { 2,    "Last fragment" },
+    { 3,    "Fragment Acknowledge" },
     { 0, NULL }
 };
 

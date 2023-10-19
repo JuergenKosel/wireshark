@@ -8,6 +8,8 @@
  */
 #include "config.h"
 
+#define WS_LOG_DOMAIN LOG_DOMAIN_WIRETAP
+
 #include <glib.h>
 #include <string.h>
 
@@ -1710,6 +1712,27 @@ static void dsb_copy_mand(wtap_block_t dest_block, wtap_block_t src_block)
     dst->secrets_data = (guint8 *)g_memdup2(src->secrets_data, src->secrets_len);
 }
 
+static void mev_create(wtap_block_t block)
+{
+    block->mandatory_data = g_new0(wtapng_meta_event_mandatory_t, 1);
+}
+
+static void mev_free_mand(wtap_block_t block)
+{
+    wtapng_meta_event_mandatory_t *mand = (wtapng_meta_event_mandatory_t *)block->mandatory_data;
+    g_free(mand->mev_data);
+}
+
+static void mev_copy_mand(wtap_block_t dest_block, wtap_block_t src_block)
+{
+    wtapng_meta_event_mandatory_t *src = (wtapng_meta_event_mandatory_t *)src_block->mandatory_data;
+    wtapng_meta_event_mandatory_t *dst = (wtapng_meta_event_mandatory_t *)dest_block->mandatory_data;
+    dst->mev_block_type = src->mev_block_type;
+    dst->mev_data_len = src->mev_data_len;
+    g_free(dst->mev_data);
+    dst->mev_data = (guint8 *)g_memdup2(src->mev_data, src->mev_data_len);
+}
+
 static void pkt_create(wtap_block_t block)
 {
     /* Commented out for now, there's no mandatory data that isn't handled by
@@ -1921,6 +1944,16 @@ void wtap_opttypes_initialize(void)
         0
     };
 
+    static wtap_blocktype_t mev_block = {
+        WTAP_BLOCK_META_EVENT,
+        "MEV",
+        "Meta Event Block",
+        mev_create,
+        mev_free_mand,
+        mev_copy_mand,
+        NULL
+    };
+
     static wtap_blocktype_t pkt_block = {
         WTAP_BLOCK_PACKET,            /* block_type */
         "EPB/SPB/PB",                 /* name */
@@ -2032,6 +2065,11 @@ void wtap_opttypes_initialize(void)
      * Register the DSB, currently no options are defined.
      */
     wtap_opttype_block_register(&dsb_block);
+
+    /*
+     * Register the Sysdig MEV, currently no options are defined.
+     */
+    wtap_opttype_block_register(&mev_block);
 
     /*
      * Register EPB/SPB/PB and the options that can appear in it/them.

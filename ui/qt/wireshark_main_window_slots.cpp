@@ -540,6 +540,7 @@ void WiresharkMainWindow::captureCaptureUpdateFinished(capture_session *session)
 
     /* Update the main window as appropriate */
     updateForUnsavedChanges();
+    setTitlebarForCaptureFile();
 
     /* Enable menu items that make sense if you're not currently running
      a capture. */
@@ -561,6 +562,7 @@ void WiresharkMainWindow::captureCaptureFixedFinished(capture_session *) {
 
     /* The capture isn't stopping any more - it's stopped. */
     capture_stopping_ = false;
+    setTitlebarForCaptureFile();
 
     /* Enable menu items that make sense if you're not currently running
      a capture. */
@@ -583,7 +585,7 @@ void WiresharkMainWindow::captureCaptureFixedFinished(capture_session *) {
 void WiresharkMainWindow::captureCaptureFailed(capture_session *) {
     /* Capture isn't stopping any more. */
     capture_stopping_ = false;
-
+    setTitlebarForCaptureFile();
     setForCaptureInProgress(false);
     showWelcome();
 
@@ -795,6 +797,7 @@ void WiresharkMainWindow::captureFileReadFinished() {
 
 void WiresharkMainWindow::captureFileClosing() {
     setMenusForCaptureFile(true);
+    setTitlebarForCaptureFile();
     setForCapturedPackets(false);
     setForCaptureInProgress(false);
 
@@ -1292,6 +1295,9 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
     /* Allow un-ignore of all frames even with no frames currently displayed */
     main_ui_->actionEditUnignoreAllDisplayed->setEnabled(have_ignored);
 
+    // XXX: Should we allow frames that don't have a time stamp to be
+    // set as time references? "Time" references are also used to reset
+    // the "Cumulative Bytes", so it's not entirely useless.
     main_ui_->actionEditSetTimeReference->setEnabled(frame_selected);
     main_ui_->actionEditUnsetAllTimeReferences->setEnabled(have_time_ref);
     main_ui_->actionEditNextTimeReference->setEnabled(another_is_time_ref);
@@ -1773,9 +1779,10 @@ void WiresharkMainWindow::openTapParameterDialog()
 
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
 void WiresharkMainWindow::softwareUpdateRequested() {
-    // We could call testCaptureFileClose here, but that would give us yet
-    // another dialog. Just try again later.
-    if (capture_file_.capFile() && capture_file_.capFile()->state != FILE_CLOSED) {
+    // testCaptureFileClose doesn't use this string because we aren't
+    // going to launch another dialog, but maybe we'll change that.
+    QString before_what(tr(" before updating"));
+    if (!testCaptureFileClose(before_what, Update)) {
         mainApp->rejectSoftwareUpdate();
     }
 }
@@ -3810,6 +3817,7 @@ void WiresharkMainWindow::connectHelpMenuActions()
     connect(main_ui_->actionHelpDownloads, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_DOWNLOAD); });
     connect(main_ui_->actionHelpWiki, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_WIKI); });
     connect(main_ui_->actionHelpSampleCaptures, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_SAMPLE_FILES); });
+    connect(main_ui_->actionHelpReleaseNotes, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_RELEASE_NOTES); });
 }
 
 #ifdef HAVE_SOFTWARE_UPDATE

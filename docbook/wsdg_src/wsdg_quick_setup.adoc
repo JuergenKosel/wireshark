@@ -28,32 +28,45 @@ To build the manual pages, Developer's Guide and User's Guide, Asciidoctor, Xslt
 Perl is required to generate some code and run some code analysis checks.
 
 Some features of Wireshark require additional libraries to be installed.
+The processes for doing so on various UN*X families is shown here.
+
 There are shell scripts in the `tools` directory to install the packages
 and libraries required to build Wireshark. Usage is available with the
 `--help` option. `root` permission is required to run the scripts.
-The available scripts and their options:
+The available scripts and their options for a given family of UN*Xes are
+shown in the section for that family.
 
-Alpine Linux `(tools/alpine-setup.sh)`
+[discrete]
+==== Alpine Linux
+
+The setup script is `tools/alpine-setup.sh`; its options are:
 
 * `--install-optional` install optional software as well
 * `--install-all` install everything
 * `[other]` other options are passed as-is to apk
 
-Arch Linux and pacman-based systems `(tools/arch-setup.sh)`
+[discrete]
+==== Arch Linux and pacman-based systems
+
+The setup script is `tools/arch-setup.sh`; its options are:
 
 * `--install-optional` install optional software as well
 * `--install-test-deps` install packages required to run all tests
 * `--install-all` install everything
 * `[other]` other options are passed as-is to pacman
 
-BSD systems such as FreeBSD, NetBSD, OpenBSD, and DragonFly BSD
-`(tools/bsd-setup.sh)`
+[discrete]
+==== BSD systems such as FreeBSD, NetBSD, OpenBSD, and DragonFly BSD
+
+The setup script is `tools/bsd-setup.sh`; its options are:
 
 * `--install-optional` install optional software as well
 * `[other]` other options are passed as-is to pkg manager
 
-Debian, and Linux distributions based on Debian, such as Ubuntu
-`(tools/debian-setup.sh)`
+[discrete]
+==== Debian, and Linux distributions based on Debian, such as Ubuntu
+
+The setup script is `tools/debian-setup.sh`; its options are:
 
 * `--install-optional` install optional software as well
 * `--install-deb-deps` install packages required to build the .deb file
@@ -63,9 +76,10 @@ Debian, and Linux distributions based on Debian, such as Ubuntu
 * `--install-all` install everything
 * `[other]` other options are passed as-is to apt
 
-RPM-based Linux distributions such as Red Hat, Centos, Fedora, and
-openSUSE +
-`(tools/rpm-setup.sh)`
+[discrete]
+==== RPM-based Linux distributions such as Red Hat, Centos, Fedora, and openSUSE +
+
+The setup script is `tools/rpm-setup.sh`; its options are:
 
 * `--install-optional` install optional software as well
 * `--install-rpm-deps` install packages required to build the .rpm file
@@ -74,13 +88,17 @@ openSUSE +
 * `--install-all` install everything
 * `[other]` other options are passed as-is to the packet manager
 
-For macOS, you must first install Xcode. After installing Xcode, the
-script `tools/macos-setup.sh` will install the rest of the tools and
-libraries required to build Wireshark, except for Qt 6, as well as the
-additional tools required to build the documentation and the libraries
-required for all Wireshark features. If you're using Homebrew, the
-script `tools/macos-setup-brew.sh` will install the same tools and
-libraries from Homebrew.
+[discrete]
+==== macOS
+
+You must first install Xcode.
+
+After installing Xcode, the setup script `tools/macos-setup.sh` will
+install the rest of the tools and libraries required to build Wireshark,
+except for Qt 6, as well as the additional tools required to build the
+documentation and the libraries required for all Wireshark features.  If
+you're using Homebrew, the script `tools/macos-setup-brew.sh` will
+install the same tools and libraries from Homebrew.
 
 If you will be building Wireshark with Qt 6, which is the default for
 Wireshark 4.0 and later, you will also have to install Qt; the
@@ -105,15 +123,29 @@ Qt 6 needs the "Qt 5 Compatibility Module" to be installed as well. Additionally
 "Qt Multimedia" may be installed, to support advanced controls for playing back streams in the
 RTP Player dialog.
 
-If an install package is not available or you have a
-reason not to use it (maybe because it’s simply too old), you
-can install that tool from source code. The following sections
-will provide you with the webpage addresses where you can get
-these sources.
-
 [#ChSetupUNIXBuild]
 
 ==== Building
+
+Before building:
+
+On macOS, you will need to set the Qt installation directory in the
+environment:
+
+[subs="attributes+"]
+----
+WIRESHARK_QT6_PREFIX_PATH=~/Qt/{qt6-lts-version}/macos
+export WIRESHARK_QT6_PREFIX_PATH
+----
+
+If you want to append a custom string to the package version, run the
+command
+
+[subs="attributes+"]
+----
+WIRESHARK_VERSION_EXTRA=-YourExtraVersionInfo
+export WIRESHARK_VERSION_EXTRA
+----
 
 The recommended (and fastest) way to build Wireshark is with CMake
 and Ninja. Building with make took nearly 2x time as Ninja in one
@@ -334,21 +366,22 @@ Visual Studio 2022 is also used to create official Wireshark builds, so it will 
 ==== Install Qt
 
 The main Wireshark application uses the Qt windowing toolkit. To install
-Qt, go to the https://www.qt.io/download[“Download Qt” page], select “Go
-open source”, download the *Qt Online Installer for Windows* from the Qt
-Project, select “Custom installation“ on the “Installation Folder“ of
-the installer screen (do _not_ select “Qt 6.4 for desktop development“)
-and, on the “Select Components“ screen of the installer, select, for
-the desired Qt version, a component that matches your target system and
-compiler. For example, at the time of this writing the Qt {qt6-lts-version}
-“msvc2019 64-bit” component is used to build the official 64-bit packages.
-The “Qt Debug Information Files” component contains PDB files which can
-be used for debugging. You can deselect all of the other the components
-such as “Qt Charts” or “Android xxxx” as they aren’t required.
+Qt, go to the https://www.qt.io/download[“Download Qt” page], select
+"Download open source", then "Download Qt Online Installer", and download
+"*Qt Online Installer for Windows*". When executing it, sign up or log in,
+and use Next button to proceed. When asked, select "*Custom installation*".
 
-Qt 6 needs the "Qt 5 Compatibility Module" to be installed as well. Additionally, the module
-"Qt Multimedia" may be installed, to support advanced controls for playing back streams in the
-RTP Player dialog.
+In the "Select Components" page, select your desired Qt version. We recommend
+the latest LTS version, and the stable Windows installers currently ship with Qt {qt6-lts-version}.
+Select the following components:
+
+* MSVC 2019 64-bit
+* Qt 5 Compatibility Module
+* Qt Debug Information Files (contains PDB files which can be used for debugging)
+* Under "Additional Libraries" select "Qt Multimedia" to support advanced
+controls for playing back streams in the RTP Player dialog
+* You can deselect all of the other the components
+such as “Qt Charts” or “Android xxxx” as they aren’t required.
 
 The CMake variable CMAKE_PREFIX_PATH (see `https://doc.qt.io/qt-6/cmake-get-started.html`) should be set as appropriate for your environment and should point to the Qt installation directory, e.g. _C:\Qt{backslash}{qt6-lts-version}\msvc2019_64_
 Alternatively you can also use the environment variable WIRESHARK_QT6_PREFIX_PATH.

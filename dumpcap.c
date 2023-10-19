@@ -784,7 +784,7 @@ get_pcap_failure_secondary_error_message(cap_device_open_status open_status,
                        PLATFORM_PERMISSIONS_SUGGESTION;
             } else {
                 /*
-                 * This is not a permissons error, so no need to suggest
+                 * This is not a permissions error, so no need to suggest
                  * checking permissions.
                  */
                 return
@@ -796,7 +796,7 @@ get_pcap_failure_secondary_error_message(cap_device_open_status open_status,
 
     default:
         /*
-         * This is not a permissons error, so no need to suggest
+         * This is not a permissions error, so no need to suggest
          * checking permissions.
          */
         return
@@ -1122,10 +1122,15 @@ print_statistics_loop(gboolean machine_readable)
 #endif
 
 #ifdef HAVE_PCAP_OPEN
-        pch = pcap_open(if_info->name, MIN_PACKET_SIZE, 0, 0, NULL, errbuf);
-#else
-        pch = pcap_open_live(if_info->name, MIN_PACKET_SIZE, 0, 0, errbuf);
+	/*
+	 * If we're opening a remote device, use pcap_open(); that's currently
+	 * the only open routine that supports remote devices.
+	 */
+        if (strncmp(if_info->name, "rpcap://", 8) == 0)
+            pch = pcap_open(if_info->name, MIN_PACKET_SIZE, 0, 0, NULL, errbuf);
+        else
 #endif
+        pch = pcap_open_live(if_info->name, MIN_PACKET_SIZE, 0, 0, errbuf);
 
         if (pch) {
             if_stat = g_new(if_stat_t, 1);
@@ -1420,7 +1425,7 @@ dlt_to_linktype(int dlt)
 	   That way, for example, "raw IP" packets will have
 	   LINKTYPE_RAW as the code in all savefiles for
 	   which the code that writes them maps to that
-	   value, regardless of the platform on whih they
+	   value, regardless of the platform on which they
 	   were written, so they should be readable on all
 	   platforms without having to determine on which
 	   platform they were written.
@@ -1966,7 +1971,7 @@ cap_pipe_open_live(char *pipename,
             if (g_strlcpy(sa.sun_path, pipename, sizeof sa.sun_path) > sizeof sa.sun_path) {
                 /* Path name too long */
                 snprintf(errmsg, errmsgl,
-                           "The capture session coud not be initiated "
+                           "The capture session could not be initiated "
                            "due to error on socket connect: Path name too long.");
                 pcap_src->cap_pipe_err = PIPERR;
                 ws_close(fd);
@@ -1975,7 +1980,7 @@ cap_pipe_open_live(char *pipename,
             b = connect(fd, (struct sockaddr *)&sa, sizeof sa);
             if (b == -1) {
                 snprintf(errmsg, errmsgl,
-                           "The capture session coud not be initiated "
+                           "The capture session could not be initiated "
                            "due to error on socket connect: %s.", g_strerror(errno));
                 pcap_src->cap_pipe_err = PIPERR;
                 ws_close(fd);
@@ -5976,14 +5981,14 @@ dumpcap_log_writer(const char *domain, enum ws_log_level level,
             sync_pipe_write_errmsgs_to_parent(2, msg, "");
             g_free(msg);
         } else {
-            ws_log_console_writer(domain, level, timestamp, file, line, func, user_format, user_ap);
+            ws_log_console_writer(domain, level, file, line, func, mft, user_format, user_ap);
         }
 #ifdef DEBUG_CHILD_DUMPCAP
-        ws_log_file_writer(debug_log, domain, level, timestamp, getpid(), file, line, func, user_format, user_ap_copy);
+        ws_log_file_writer(debug_log, domain, level, file, line, func, mft, user_format, user_ap_copy);
         va_end(user_ap_copy);
 #endif
 #elif defined(DEBUG_CHILD_DUMPCAP)
-        ws_log_file_writer(debug_log, domain, level, timestamp, getpid(), file, line, func, user_format, user_ap);
+        ws_log_file_writer(debug_log, domain, level, file, line, func, mft, user_format, user_ap);
 #endif
         return;
     }

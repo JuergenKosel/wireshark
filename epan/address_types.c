@@ -11,6 +11,9 @@
 
 #include <string.h>     /* for memcmp */
 #include <stdio.h>
+
+#include <glib.h>
+
 #include "packet.h"
 #include "address_types.h"
 #include "to_str.h"
@@ -19,7 +22,6 @@
 #include "wsutil/str_util.h"
 #include "wsutil/inet_addr.h"
 #include <wsutil/ws_assert.h>
-#include <wsutil/pint.h>
 
 struct _address_type_t {
     int                     addr_type; /* From address_type enumeration or registered value */
@@ -383,7 +385,7 @@ static const gchar* fcwwn_name_res_str(const address* addr)
     case FC_NH_NAA_IEEE_E:
 
         memcpy (oui, &addrp[2], 6);
-        return get_manuf_name(oui);
+        return get_manuf_name(oui, sizeof(oui));
 
     case FC_NH_NAA_IEEE_R:
         oui[0] = ((addrp[0] & 0x0F) << 4) | ((addrp[1] & 0xF0) >> 4);
@@ -393,7 +395,7 @@ static const gchar* fcwwn_name_res_str(const address* addr)
         oui[4] = ((addrp[4] & 0x0F) << 4) | ((addrp[5] & 0xF0) >> 4);
         oui[5] = ((addrp[5] & 0x0F) << 4) | ((addrp[6] & 0xF0) >> 4);
 
-        return get_manuf_name(oui);
+        return get_manuf_name(oui, sizeof(oui));
     }
 
     return "";

@@ -15,7 +15,7 @@
 #include <wsutil/ws_assert.h>
 
 static void
-debug_register(GSList *reg, guint32 num);
+debug_register(GSList *reg, uint32_t num);
 
 const char *
 dfvm_opcode_tostr(dfvm_opcode_t code)
@@ -57,6 +57,7 @@ dfvm_opcode_tostr(dfvm_opcode_t code)
 		case DFVM_SET_CLEAR:		return "SET_CLEAR";
 		case DFVM_SLICE:		return "SLICE";
 		case DFVM_LENGTH:		return "LENGTH";
+		case DFVM_VALUE_STRING:		return "VALUE_STRING";
 		case DFVM_BITWISE_AND:		return "BITWISE_AND";
 		case DFVM_UNARY_MINUS:		return "UNARY_MINUS";
 		case DFVM_ADD:			return "ADD";
@@ -166,7 +167,7 @@ dfvm_value_new_fvalue(fvalue_t *fv)
 }
 
 dfvm_value_t*
-dfvm_value_new_hfinfo(header_field_info *hfinfo, gboolean raw)
+dfvm_value_new_hfinfo(header_field_info *hfinfo, bool raw)
 {
 	dfvm_value_t *v;
 
@@ -211,7 +212,7 @@ dfvm_value_new_pcre(ws_regex_t *re)
 }
 
 dfvm_value_t*
-dfvm_value_new_guint(guint num)
+dfvm_value_new_guint(unsigned num)
 {
 	dfvm_value_t *v = dfvm_value_new(INTEGER);
 	v->value.numeric = num;
@@ -221,7 +222,7 @@ dfvm_value_new_guint(guint num)
 static char *
 dfvm_value_tostr(dfvm_value_t *v)
 {
-	char *s;
+	char *s = NULL;
 
 	if (!v)
 		return NULL;
@@ -251,14 +252,18 @@ dfvm_value_tostr(dfvm_value_t *v)
 		case INTEGER:
 			s = ws_strdup_printf("%"G_GUINT32_FORMAT, v->value.numeric);
 			break;
-		default:
-			s = ws_strdup("FIXME");
+		case EMPTY:
+			s = ws_strdup("EMPTY");
+			break;
+		case INSN_NUMBER:
+			s = ws_strdup_printf("INSN(%"PRIu32")", v->value.numeric);
+			break;
 	}
 	return s;
 }
 
 static char *
-value_type_tostr(dfvm_value_t *v, gboolean show_ftype)
+value_type_tostr(dfvm_value_t *v, bool show_ftype)
 {
 	const char *s;
 
@@ -289,7 +294,7 @@ dump_str_stack_push(GSList *stack, const char *str)
 }
 
 static GSList *
-dump_str_stack_pop(GSList *stack, guint32 count)
+dump_str_stack_pop(GSList *stack, uint32_t count)
 {
 	while (stack && count-- > 0) {
 		g_free(stack->data);
@@ -316,7 +321,7 @@ append_call_function(wmem_strbuf_t *buf, const char *func, uint32_t nargs,
 			sep = ", ";
 		}
 		wmem_strbuf_append(buf, gs->str);
-		g_string_free(gs, TRUE);
+		g_string_free(gs, true);
 	}
 	wmem_strbuf_append(buf, ")");
 }
@@ -433,6 +438,13 @@ append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
 						arg1_str, arg1_str_type);
 			indent2(buf, col_start);
 			append_to_register(buf, arg2_str);
+			break;
+
+		case DFVM_VALUE_STRING:
+			wmem_strbuf_append_printf(buf, "%s::VS(%s%s)",
+						arg1_str, arg2_str, arg2_str_type);
+			indent2(buf, col_start);
+			append_to_register(buf, arg3_str);
 			break;
 
 		case DFVM_ALL_EQ:
@@ -582,12 +594,12 @@ append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
 }
 
 static void
-append_references(wmem_strbuf_t *buf, GHashTable *references, gboolean raw)
+append_references(wmem_strbuf_t *buf, GHashTable *references, bool raw)
 {
 	GHashTableIter	ref_iter;
-	gpointer	key, value;
+	void		*key, *value;
 	char		*str;
-	guint		i;
+	unsigned	i;
 
 	g_hash_table_iter_init(&ref_iter, references);
 	while (g_hash_table_iter_next(&ref_iter, &key, &value)) {
@@ -626,7 +638,7 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, uint16_t flags)
 	if (flags & DF_DUMP_REFERENCES) {
 		if (g_hash_table_size(df->references) > 0) {
 			wmem_strbuf_append(buf, "References:\n");
-			append_references(buf, df->references, FALSE);
+			append_references(buf, df->references, false);
 		}
 		else {
 			wmem_strbuf_append(buf, "References: (none)\n");
@@ -637,7 +649,7 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, uint16_t flags)
 	if (flags & DF_DUMP_REFERENCES) {
 		if (g_hash_table_size(df->raw_references) > 0) {
 			wmem_strbuf_append(buf, "Raw references:\n");
-			append_references(buf, df->raw_references, TRUE);
+			append_references(buf, df->raw_references, true);
 		}
 		else {
 			wmem_strbuf_append(buf, "Raw references: (none)\n");
@@ -686,7 +698,7 @@ compare_finfo_layer(gconstpointer _a, gconstpointer _b)
 	return a->proto_layer_num - b->proto_layer_num;
 }
 
-static gboolean
+static bool
 drange_contains_layer(drange_t *dr, int num, int length)
 {
 	drange_node *rn;
@@ -713,12 +725,12 @@ drange_contains_layer(drange_t *dr, int num, int length)
 		}
 
 		if (num >= lower && num <= upper) {  /* inclusive */
-			return TRUE;
+			return true;
 		}
 
 		list = g_slist_next(list);
 	}
-	return FALSE;
+	return false;
 }
 
 fvalue_t *
@@ -753,13 +765,13 @@ dfvm_get_raw_fvalue(const field_info *fi)
 }
 
 static size_t
-filter_finfo_fvalues(df_cell_t *rp, GPtrArray *finfos, drange_t *range, gboolean raw)
+filter_finfo_fvalues(df_cell_t *rp, GPtrArray *finfos, drange_t *range, bool raw)
 {
 	int length; /* maximum proto layer number. The numbers are sequential. */
 	field_info *last_finfo, *finfo;
 	fvalue_t *fv;
 	int cookie = -1;
-	gboolean cookie_matches = false;
+	bool cookie_matches = false;
 	int layer;
 	size_t count = 0;
 
@@ -767,7 +779,7 @@ filter_finfo_fvalues(df_cell_t *rp, GPtrArray *finfos, drange_t *range, gboolean
 	last_finfo = finfos->pdata[finfos->len - 1];
 	length = last_finfo->proto_layer_num;
 
-	for (guint i = 0; i < finfos->len; i++) {
+	for (unsigned i = 0; i < finfos->len; i++) {
 		finfo = finfos->pdata[i];
 		layer = finfo->proto_layer_num;
 		if (cookie == layer) {
@@ -800,9 +812,9 @@ filter_finfo_fvalues(df_cell_t *rp, GPtrArray *finfos, drange_t *range, gboolean
 	return count;
 }
 
-static gboolean
+static bool
 read_tree_finfos(df_cell_t *rp, proto_tree *tree,
-			header_field_info *hfinfo, drange_t *range, gboolean raw)
+			header_field_info *hfinfo, drange_t *range, bool raw)
 {
 	GPtrArray	*finfos;
 	field_info	*finfo;
@@ -811,13 +823,13 @@ read_tree_finfos(df_cell_t *rp, proto_tree *tree,
 	/* The caller should NOT free the GPtrArray. */
 	finfos = proto_get_finfo_ptr_array(tree, hfinfo->id);
 	if (finfos == NULL || g_ptr_array_len(finfos) == 0) {
-		return FALSE;
+		return false;
 	}
 	if (range) {
 		return filter_finfo_fvalues(rp, finfos, range, raw) > 0;
 	}
 
-	for (guint i = 0; i < finfos->len; i++) {
+	for (unsigned i = 0; i < finfos->len; i++) {
 		finfo = g_ptr_array_index(finfos, i);
 		if (raw)
 			fv = dfvm_get_raw_fvalue(finfo);
@@ -825,18 +837,18 @@ read_tree_finfos(df_cell_t *rp, proto_tree *tree,
 			fv = finfo->value;
 		df_cell_append(rp, fv);
 	}
-	return TRUE;
+	return true;
 }
 
 /* Reads a field from the proto_tree and loads the fvalues into a register,
  * if that field has not already been read. */
-static gboolean
+static bool
 read_tree(dfilter_t *df, proto_tree *tree,
 				dfvm_value_t *arg1, dfvm_value_t *arg2,
 				dfvm_value_t *arg3)
 {
 	drange_t	*range = NULL;
-	gboolean	raw;
+	bool		raw;
 	df_cell_t	*rp;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
@@ -856,11 +868,11 @@ read_tree(dfilter_t *df, proto_tree *tree,
 	}
 
 	if (raw) {
-		df_cell_init(rp, TRUE);
+		df_cell_init(rp, true);
 	}
 	else {
 		// These values are referenced only, do not try to free it later.
-		df_cell_init(rp, FALSE);
+		df_cell_init(rp, false);
 	}
 
 	while (hfinfo) {
@@ -877,7 +889,7 @@ filter_refs_fvalues(df_cell_t *rp, GPtrArray *refs_array, drange_t *range)
 	int length; /* maximum proto layer number. The numbers are sequential. */
 	df_reference_t *last_ref = NULL;
 	int cookie = -1;
-	gboolean cookie_matches = false;
+	bool cookie_matches = false;
 
 	if (!refs_array || refs_array->len == 0) {
 		return;
@@ -887,7 +899,7 @@ filter_refs_fvalues(df_cell_t *rp, GPtrArray *refs_array, drange_t *range)
 	last_ref = refs_array->pdata[refs_array->len - 1];
 	length = last_ref->proto_layer_num;
 
-	for (guint i = 0; i < refs_array->len; i++) {
+	for (unsigned i = 0; i < refs_array->len; i++) {
 		df_reference_t *ref = refs_array->pdata[i];
 		int layer = ref->proto_layer_num;
 
@@ -911,14 +923,14 @@ filter_refs_fvalues(df_cell_t *rp, GPtrArray *refs_array, drange_t *range)
 	}
 }
 
-static gboolean
+static bool
 read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 				dfvm_value_t *arg3)
 {
 	df_cell_t *rp;
 	GPtrArray	*refs;
 	drange_t	*range = NULL;
-	gboolean	raw;
+	bool	raw;
 
 	header_field_info *hfinfo = arg1->value.hfinfo;
 	raw = arg1->type == RAW_HFINFO;
@@ -938,13 +950,13 @@ read_reference(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 
 	refs = g_hash_table_lookup(raw ? df->raw_references : df->references, hfinfo);
 	if (refs == NULL || refs->len == 0) {
-		return FALSE;
+		return false;
 	}
 
 	// These values are referenced only, do not try to free it later.
-	df_cell_init(rp, FALSE);
+	df_cell_init(rp, false);
 	filter_refs_fvalues(rp, refs, range);
-	return TRUE;
+	return true;
 }
 
 enum match_how {
@@ -955,22 +967,22 @@ enum match_how {
 typedef ft_bool_t (*DFVMCompareFunc)(const fvalue_t*, const fvalue_t*);
 typedef ft_bool_t (*DFVMTestFunc)(const fvalue_t*);
 
-static gboolean
+static bool
 cmp_test_internal(enum match_how how, DFVMCompareFunc match_func,
 			GPtrArray *fv1, GPtrArray *fv2)
 {
-	gboolean want_all = (how == MATCH_ALL);
-	gboolean want_any = (how == MATCH_ANY);
+	bool want_all = (how == MATCH_ALL);
+	bool want_any = (how == MATCH_ANY);
 	ft_bool_t have_match;
 
 	for (size_t idx1 = 0; idx1 < fv1->len; idx1++) {
 		for (size_t idx2 = 0; idx2 < fv2->len; idx2++) {
 			have_match = match_func(fv1->pdata[idx1], fv2->pdata[idx2]);
 			if (want_all && have_match == FT_FALSE) {
-				return FALSE;
+				return false;
 			}
 			else if (want_any && have_match == FT_TRUE) {
-				return TRUE;
+				return true;
 			}
 		}
 	}
@@ -978,28 +990,28 @@ cmp_test_internal(enum match_how how, DFVMCompareFunc match_func,
 	return want_all;
 }
 
-static gboolean
+static bool
 cmp_test_unary(enum match_how how, DFVMTestFunc test_func,
 			const fvalue_t **fv_ptr, size_t fv_count)
 {
-	gboolean want_all = (how == MATCH_ALL);
-	gboolean want_any = (how == MATCH_ANY);
+	bool want_all = (how == MATCH_ALL);
+	bool want_any = (how == MATCH_ANY);
 	ft_bool_t have_match;
 
 	for (size_t idx = 0; idx < fv_count; idx++) {
 		have_match = test_func(fv_ptr[idx]);
 		if (want_all && have_match == FT_FALSE) {
-			return FALSE;
+			return false;
 		}
 		else if (want_any && have_match == FT_TRUE) {
-			return TRUE;
+			return true;
 		}
 	}
 	/* want_all || !want_any */
 	return want_all;
 }
 
-static gboolean
+static bool
 all_test_unary(dfilter_t *df, DFVMTestFunc func, dfvm_value_t *arg1)
 {
 	ws_assert(arg1->type == REGISTER);
@@ -1008,7 +1020,7 @@ all_test_unary(dfilter_t *df, DFVMTestFunc func, dfvm_value_t *arg1)
 			(const fvalue_t **)df_cell_array(rp), df_cell_size(rp));
 }
 
-static gboolean
+static bool
 cmp_test(dfilter_t *df, DFVMCompareFunc cmp,
 			dfvm_value_t *arg1, dfvm_value_t *arg2,
 			enum match_how how)
@@ -1039,7 +1051,7 @@ cmp_test(dfilter_t *df, DFVMCompareFunc cmp,
 }
 
 /* cmp(A) <=> cmp(a1) OR cmp(a2) OR cmp(a3) OR ... */
-static inline gboolean
+static inline bool
 any_test(dfilter_t *df, DFVMCompareFunc cmp,
 				dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
@@ -1047,14 +1059,14 @@ any_test(dfilter_t *df, DFVMCompareFunc cmp,
 }
 
 /* cmp(A) <=> cmp(a1) AND cmp(a2) AND cmp(a3) AND ... */
-static gboolean
+static bool
 all_test(dfilter_t *df, DFVMCompareFunc cmp,
 				dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
 	return cmp_test(df, cmp, arg1, arg2, MATCH_ALL);
 }
 
-static gboolean
+static bool
 any_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
 	df_cell_t *rp = &df->registers[arg1->value.numeric];
@@ -1064,13 +1076,13 @@ any_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 
 	for (size_t idx = 0; idx < df_cell_size(rp); idx++) {
 		if (fvalue_matches(fv_ptr[idx], re) == FT_TRUE) {
-			return TRUE;
+			return true;
 		}
 	}
-	return FALSE;
+	return false;
 }
 
-static gboolean
+static bool
 all_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
 	df_cell_t *rp = &df->registers[arg1->value.numeric];
@@ -1080,43 +1092,43 @@ all_matches(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2)
 
 	for (size_t idx = 0; idx < df_cell_size(rp); idx++) {
 		if (fvalue_matches(fv_ptr[idx], re) == FT_FALSE) {
-			return FALSE;
+			return false;
 		}
 	}
-	return TRUE;
+	return true;
 }
 
-static gboolean
+static bool
 test_in_internal(fvalue_t *fv, GPtrArray *range[2])
 {
 	GPtrArray *low = range[0];
 	GPtrArray *high = range[1];
-	gboolean low_ok = FALSE, high_ok = FALSE;
+	bool low_ok = false, high_ok = false;
 
 	if (high) {
 		/* range */
-		for (guint i = 0; i < high->len; i++) {
+		for (unsigned i = 0; i < high->len; i++) {
 			if (fvalue_le(fv, high->pdata[i]) == FT_TRUE) {
-				high_ok = TRUE;
+				high_ok = true;
 				break;
 			}
 		}
 		if (!high_ok) {
-			return FALSE;
+			return false;
 		}
 		ws_assert(low);
-		for (guint i = 0; i < low->len; i++) {
+		for (unsigned i = 0; i < low->len; i++) {
 			if (fvalue_ge(fv, low->pdata[i]) == FT_TRUE) {
-				low_ok = TRUE;
+				low_ok = true;
 				break;
 			}
 		}
 	}
 	else {
 		/* single element */
-		for (guint i = 0; i < low->len; i++) {
+		for (unsigned i = 0; i < low->len; i++) {
 			if (fvalue_eq(fv, low->pdata[i]) == FT_TRUE) {
-				low_ok = TRUE;
+				low_ok = true;
 				break;
 			}
 		}
@@ -1125,13 +1137,13 @@ test_in_internal(fvalue_t *fv, GPtrArray *range[2])
 	return low_ok;
 }
 
-static gboolean
+static bool
 any_in(dfilter_t *df, dfvm_value_t *arg1)
 {
 	df_cell_t *rp = &df->registers[arg1->value.numeric];
 	GPtrArray *value;
 	GSList *stack;
-	gboolean ok;
+	bool ok;
 
 	/* If the read failed we jump over the membership test. */
 	ws_assert(!df_cell_is_empty(rp));
@@ -1139,28 +1151,28 @@ any_in(dfilter_t *df, dfvm_value_t *arg1)
 
 	for (size_t i = 0; i < value->len; i++) {
 		stack = df->set_stack;
-		ok = FALSE;
+		ok = false;
 		while (stack) {
 			if (test_in_internal(value->pdata[i], stack->data)) {
-				ok = TRUE;
+				ok = true;
 				break;
 			}
 			stack = stack->next;
 		}
 		if (ok) {
-			return TRUE;
+			return true;
 		}
 	}
-	return FALSE;
+	return false;
 }
 
-static gboolean
+static bool
 all_in(dfilter_t *df, dfvm_value_t *arg1)
 {
 	df_cell_t *rp = &df->registers[arg1->value.numeric];
 	GPtrArray *value;
 	GSList *stack;
-	gboolean ok;
+	bool ok;
 
 	/* If the read failed we jump over the membership test. */
 	ws_assert(!df_cell_is_empty(rp));
@@ -1168,19 +1180,19 @@ all_in(dfilter_t *df, dfvm_value_t *arg1)
 
 	for (size_t i = 0; i < value->len; i++) {
 		stack = df->set_stack;
-		ok = FALSE;
+		ok = false;
 		while (stack) {
 			if (test_in_internal(value->pdata[i], stack->data)) {
-				ok = TRUE;
+				ok = true;
 				break;
 			}
 			stack = stack->next;
 		}
 		if (!ok) {
-			return FALSE;
+			return false;
 		}
 	}
-	return TRUE;
+	return true;
 }
 
 /* Clear registers that were populated during evaluation.
@@ -1188,7 +1200,7 @@ all_in(dfilter_t *df, dfvm_value_t *arg1)
 static void
 free_register_overhead(dfilter_t* df)
 {
-	for (guint i = 0; i < df->num_registers; i++) {
+	for (unsigned i = 0; i < df->num_registers; i++) {
 		df_cell_clear(&df->registers[i]);
 	}
 }
@@ -1206,7 +1218,7 @@ mk_slice(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg,
 	fvalue_t *new_fv;
 
 	to_rp = &df->registers[to_arg->value.numeric];
-	df_cell_init(to_rp, TRUE);
+	df_cell_init(to_rp, true);
 	from_rp = &df->registers[from_arg->value.numeric];
 	drange_t *drange = drange_arg->value.drange;
 
@@ -1230,25 +1242,89 @@ mk_length(dfilter_t *df, dfvm_value_t *from_arg, dfvm_value_t *to_arg)
 	fvalue_t *new_fv;
 
 	to_rp = &df->registers[to_arg->value.numeric];
-	df_cell_init(to_rp, TRUE);
+	df_cell_init(to_rp, true);
 	from_rp = &df->registers[from_arg->value.numeric];
 
 	df_cell_iter_init(from_rp, &from_iter);
 	while ((old_fv = df_cell_iter_next(&from_iter)) != NULL) {
 		new_fv = fvalue_new(FT_UINT32);
-		fvalue_set_uinteger(new_fv, (guint32)fvalue_length2(old_fv));
+		fvalue_set_uinteger(new_fv, (uint32_t)fvalue_length2(old_fv));
 		df_cell_append(to_rp, new_fv);
 	}
 }
 
-static gboolean
+static const char *
+try_value_string(const header_field_info *hfinfo, fvalue_t *fv_num, char *buf)
+{
+	uint64_t val;
+
+	if (fvalue_to_uinteger64(fv_num, &val) != FT_OK)
+		return NULL;
+
+	/* XXX We should find or create instead a suitable function in proto.h
+	 * to perform this mapping. */
+
+	if (hfinfo->display & BASE_RANGE_STRING) {
+		return try_rval_to_str((uint32_t)val, hfinfo->strings);
+	}
+	else if (hfinfo->display & BASE_VAL64_STRING) {
+		return try_val64_to_str(val, hfinfo->strings);
+	}
+	else if (hfinfo->display == BASE_CUSTOM) {
+		if (FT_IS_INT32(hfinfo->type) || FT_IS_UINT32(hfinfo->type))
+			((custom_fmt_func_t)hfinfo->strings)(buf, (uint32_t)val);
+		else if (FT_IS_INT64(hfinfo->type) || FT_IS_UINT64(hfinfo->type))
+			((custom_fmt_func_64_t)hfinfo->strings)(buf, val);
+		else
+			ws_assert_not_reached();
+	}
+	else if (hfinfo->display & BASE_EXT_STRING) {
+		return try_val_to_str_ext((uint32_t)val, (value_string_ext *)hfinfo->strings);
+	}
+	else {
+		return try_val_to_str((uint32_t)val, hfinfo->strings);
+	}
+	ws_assert_not_reached();
+}
+
+static bool
+mk_value_string(dfilter_t *df, dfvm_value_t *vs_arg, dfvm_value_t *from_arg, dfvm_value_t *to_arg)
+{
+	df_cell_t *from_rp, *to_rp;
+	df_cell_iter_t from_iter;
+	const header_field_info *hfinfo;
+	const char *str;
+	fvalue_t *old_fv;
+	fvalue_t *new_fv;
+	char label_buf[ITEM_LABEL_LENGTH];
+
+	hfinfo = vs_arg->value.hfinfo;
+
+	to_rp = &df->registers[to_arg->value.numeric];
+	df_cell_init(to_rp, true);
+	from_rp = &df->registers[from_arg->value.numeric];
+
+	df_cell_iter_init(from_rp, &from_iter);
+	while ((old_fv = df_cell_iter_next(&from_iter)) != NULL) {
+		str = try_value_string(hfinfo, old_fv, label_buf);
+		if (str) {
+			new_fv = fvalue_new(FT_STRING);
+			fvalue_set_string(new_fv, str);
+			df_cell_append(to_rp, new_fv);
+		}
+	}
+
+	return !df_cell_is_empty(to_rp);
+}
+
+static bool
 call_function(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 							dfvm_value_t *arg3)
 {
 	df_func_def_t *funcdef;
-	gboolean accum;
+	bool accum;
 	df_cell_t *rp_return;
-	guint32 arg_count;
+	uint32_t arg_count;
 
 
 	funcdef = arg1->value.funcdef;
@@ -1256,7 +1332,7 @@ call_function(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *arg2,
 	arg_count = arg3->value.numeric;
 
 	// Functions create a new value, so own it.
-	df_cell_init(rp_return, TRUE);
+	df_cell_init(rp_return, true);
 
 	accum = funcdef->function(df->function_stack, arg_count, rp_return);
 	return accum;
@@ -1274,7 +1350,7 @@ static void debug_op_error(const fvalue_t *v1, const fvalue_t *v2, const char *o
 /* Used for temporary debugging only, don't leave in production code (at
  * a minimum WS_DEBUG_HERE must be replaced by another log level). */
 static void _U_
-debug_register(GSList *reg, guint32 num)
+debug_register(GSList *reg, uint32_t num)
 {
 	wmem_strbuf_t *buf;
 	GSList *l;
@@ -1348,7 +1424,7 @@ mk_binary(dfilter_t *df, DFVMBinaryFunc func,
 	}
 
 	to_rp = &df->registers[to_arg->value.numeric];
-	df_cell_init(to_rp, TRUE);
+	df_cell_init(to_rp, true);
 
 	mk_binary_internal(func, val1, val2, to_rp);
 	//debug_register(result, to_arg->value.numeric);
@@ -1390,7 +1466,7 @@ mk_minus(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *to_arg)
 	}
 
 	to_rp = &df->registers[to_arg->value.numeric];
-	df_cell_init(to_rp, TRUE);
+	df_cell_init(to_rp, true);
 
 	mk_minus_internal(val, to_rp);
 }
@@ -1400,7 +1476,7 @@ put_fvalue(dfilter_t *df, dfvm_value_t *arg1, dfvm_value_t *to_arg)
 {
 	df_cell_t *to_rp = &df->registers[to_arg->value.numeric];
 	/* Memory is owned by the dfvm_value_t. */
-	df_cell_init(to_rp, FALSE);
+	df_cell_init(to_rp, false);
 	df_cell_append(to_rp, dfvm_value_get_fvalue(arg1));
 }
 
@@ -1424,9 +1500,9 @@ stack_push(dfilter_t *df, dfvm_value_t *arg1)
 static void
 stack_pop(dfilter_t *df, dfvm_value_t *arg1)
 {
-	guint count = arg1->value.numeric;
+	unsigned count = arg1->value.numeric;
 
-	for (guint i = 0; i < count; i++) {
+	for (unsigned i = 0; i < count; i++) {
 		/* Free top of stack data. */
 		g_ptr_array_unref(df->function_stack->data);
 		/* Remove top of stack. */
@@ -1476,22 +1552,22 @@ set_clear(dfilter_t *df)
 	df->set_stack = NULL;
 }
 
-static gboolean
+static bool
 check_exists_finfos(proto_tree *tree, header_field_info *hfinfo, drange_t *range)
 {
 	GPtrArray *finfos;
 
 	finfos = proto_get_finfo_ptr_array(tree, hfinfo->id);
 	if (finfos == NULL || g_ptr_array_len(finfos) == 0) {
-		return FALSE;
+		return false;
 	}
 	if (range == NULL) {
-		return TRUE;
+		return true;
 	}
-	return filter_finfo_fvalues(NULL, finfos, range, FALSE) > 0;
+	return filter_finfo_fvalues(NULL, finfos, range, false) > 0;
 }
 
-static gboolean
+static bool
 check_exists(proto_tree *tree, dfvm_value_t *arg1, dfvm_value_t *arg2)
 {
 	header_field_info	*hfinfo;
@@ -1503,19 +1579,19 @@ check_exists(proto_tree *tree, dfvm_value_t *arg1, dfvm_value_t *arg2)
 
 	while (hfinfo) {
 		if (check_exists_finfos(tree, hfinfo, range)) {
-			return TRUE;
+			return true;
 		}
 		hfinfo = hfinfo->same_name_next;
 	}
 
-	return FALSE;
+	return false;
 }
 
-gboolean
+bool
 dfvm_apply(dfilter_t *df, proto_tree *tree)
 {
 	int		id, length;
-	gboolean	accum = TRUE;
+	bool	accum = true;
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*arg1;
 	dfvm_value_t	*arg2;
@@ -1580,6 +1656,10 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 
 			case DFVM_LENGTH:
 				mk_length(df, arg1, arg2);
+				break;
+
+			case DFVM_VALUE_STRING:
+				accum = mk_value_string(df, arg1, arg2, arg3);
 				break;
 
 			case DFVM_ALL_EQ:

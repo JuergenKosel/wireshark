@@ -268,6 +268,7 @@ main(int argc, char **argv)
                 break;
             case 'd':
                 opt_log_level = DFTEST_LOG_NOISY;
+                opt_show_types = 1;
                 break;
             case 'f':
                 opt_flex = 1;
@@ -303,7 +304,7 @@ main(int argc, char **argv)
                 opt_dump_refs = 1;
                 break;
             case 'v':
-                show_help_header(NULL);
+                show_version();
                 exit(EXIT_SUCCESS);
                 break;
             case 'h':

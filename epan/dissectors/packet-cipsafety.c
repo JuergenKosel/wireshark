@@ -1641,7 +1641,7 @@ static void dissect_base_format_1_or_2_byte_data(packet_info* pinfo, proto_tree*
       guint8 computed_crc_s2 = compute_crc_s2_data(compute_crc_s1_pid(connection_triad),
          ((mode_byte ^ 0xFF) & MODE_BYTE_CRC_S1_MASK),
          /* I/O data is duplicated because it will be complemented inline */
-         (guint8*)tvb_memdup(wmem_packet_scope(), tvb, 0, io_data_size), io_data_size);
+         (guint8*)tvb_memdup(pinfo->pool, tvb, 0, io_data_size), io_data_size);
 
       proto_tree_add_checksum(tree, tvb, io_data_size + 2,
          hf_cipsafety_crc_s2, hf_cipsafety_crc_s2_status, &ei_cipsafety_crc_s2, pinfo,
@@ -1786,7 +1786,7 @@ static void dissect_extended_format_3_to_250_byte_data(packet_info* pinfo, proto
          mode_byte & MODE_BYTE_CRC_S5_EXTENDED_MASK,
          timestamp,
          /* I/O data is duplicated because it will be complemented inline */
-         (guint8*)tvb_memdup(wmem_packet_scope(), tvb, 0, io_data_size),
+         (guint8*)tvb_memdup(pinfo->pool, tvb, 0, io_data_size),
          io_data_size);
    }
    validate_crc_s5(pinfo, tree, tvb, compute_crc, crc_s5_0, crc_s5_1, crc_s5_2, computed_crc_s5);
@@ -2538,35 +2538,35 @@ proto_register_cipsafety(void)
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_macid,
         { "Preserve MacID", "cipsafety.ssupervisor.reset.attr_bitmap.macid",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x01, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_baudrate,
         { "Preserve Baud Rate", "cipsafety.ssupervisor.reset.attr_bitmap.baudrate",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x02, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x02, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_tunid,
         { "Preserve TUNID", "cipsafety.ssupervisor.reset.attr_bitmap.tunid",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x04, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x04, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_password,
         { "Preserve Password", "cipsafety.ssupervisor.reset.attr_bitmap.password",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x08, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x08, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_cfunid,
         { "Preserve CFUNID", "cipsafety.ssupervisor.reset.attr_bitmap.cfunid",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x10, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x10, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_ocpunid,
         { "Preserve OPCUNID", "cipsafety.ssupervisor.reset.attr_bitmap.ocpunid",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x20, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x20, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_reserved,
         { "Reserved", "cipsafety.ssupervisor.reset.attr_bitmap.reserved",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x40, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x40, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_attr_bitmap_extended,
         { "Use Extended Map", "cipsafety.ssupervisor.reset.attr_bitmap.extended",
-          FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x80, NULL, HFILL }
+          FT_BOOLEAN, 8, NULL, 0x80, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_reset_password_data_size,
         { "Data Size", "cipsafety.ssupervisor.reset_password.data_size",
@@ -2686,11 +2686,11 @@ proto_register_cipsafety(void)
       },
       { &hf_cip_ssupervisor_alarm_enable,
         { "Exception Detail Alarm", "cipsafety.ssupervisor.alarm_enable",
-          FT_BOOLEAN, BASE_NONE, TFS(&tfs_true_false), 0, NULL, HFILL }
+          FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_warning_enable,
         { "Exception Detail Warning", "cipsafety.ssupervisor.warning_enable",
-          FT_BOOLEAN, BASE_NONE, TFS(&tfs_true_false), 0, NULL, HFILL }
+          FT_BOOLEAN, BASE_NONE, NULL, 0, NULL, HFILL }
       },
       { &hf_cip_ssupervisor_time,
         { "Time", "cipsafety.ssupervisor.time",

@@ -50,6 +50,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/arptypes.h>
+#include <epan/sminmpec.h>
 #include <epan/strutil.h>
 #include "packet-tcp.h"
 #include "packet-arp.h"
@@ -63,6 +64,8 @@ static gboolean cablelabs_interface_id = FALSE;
 
 static int proto_dhcpv6 = -1;
 static int proto_dhcpv6_bulk_leasequery = -1;
+static int proto_dhcpv6_cablelabs = -1;
+
 static int hf_dhcpv6_msgtype = -1;
 static int hf_clientfqdn_bad_msgtype = -1;
 static int hf_clientfqdn_flags = -1;
@@ -310,6 +313,9 @@ static expert_field ei_dhcpv6_bulk_leasequery_bad_query_type = EI_INIT;
 static expert_field ei_dhcpv6_bulk_leasequery_bad_msg_type = EI_INIT;
 
 static dissector_handle_t dhcpv6_handle;
+static dissector_handle_t dhcpv6_cablelabs_handle;
+
+static dissector_table_t dhcpv6_enterprise_opts_dissector_table;
 
 #define DHCPV6_HW_IS_ETHER(hwtype, length) ((hwtype == 1 || hwtype == 6) && length == 6)
 
@@ -1532,11 +1538,12 @@ dissect_packetcable_cccV6_option(proto_tree *v_tree, proto_item *v_item, packet_
 }
 
 /* ToDo: review latest CL docs for updates */
-static void
-dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_info *pinfo, tvbuff_t *tvb, int voff, int len)
+static int
+dissect_cablelabs_specific_opts(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     guint type,
           sub_value;
+    proto_item *v_item;
     proto_item *ti;
     proto_item *ti2;
     proto_tree *subtree;
@@ -1544,7 +1551,8 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
     int tlv5_cap_index,
         tlv5_counter,
         tlv5_cap_len;
-    int off = voff,
+    int off = 0,
+        len,
         sub_off, /** The offset for the sub-option */
         i,
         tlv_len, /* holds the number of elements in the tlv */
@@ -1553,12 +1561,19 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
         field_value;
     gchar *device_type = NULL;
 
+    len = tvb_reported_length(tvb);
+
+    /* Enterprise */
+    v_item = proto_tree_add_item(tree, hf_vendoropts_enterprise, tvb, off, 4, ENC_BIG_ENDIAN);
+    off += 4;
+    len -= 4;
+
     if (len > 4) {
-        while (off - voff < len) {
+        while (off < len) {
 
             /* Type */
             type = tvb_get_ntohs(tvb, off);
-            ti = proto_tree_add_item(v_tree, hf_cablelabs_opts, tvb, off, 2, ENC_BIG_ENDIAN);
+            ti = proto_tree_add_item(tree, hf_cablelabs_opts, tvb, off, 2, ENC_BIG_ENDIAN);
             /* Length */
             tlv_len = tvb_get_ntohs(tvb, off+2);
 
@@ -1805,6 +1820,7 @@ dissect_cablelabs_specific_opts(proto_tree *v_tree, proto_item *v_item, packet_i
     else {
         expert_add_info_format(pinfo, v_item, &ei_dhcpv6_bogus_length, "Bogus length: %d", len);
     }
+    return tvb_reported_length(tvb);
 }
 
 static void
@@ -2312,17 +2328,20 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
             proto_tree_add_item(subtree, hf_vendorclass_data, tvb, off+6, optlen-6, ENC_ASCII);
         break;
     case OPTION_VENDOR_OPTS:
+    {
         if (optlen < 4) {
             expert_add_info_format(pinfo, option_item, &ei_dhcpv6_malformed_option, "VENDOR_OPTS: malformed option");
             break;
         }
 
-        enterprise_no = tvb_get_ntohl(tvb, off);
-        ti = proto_tree_add_item(subtree, hf_vendoropts_enterprise, tvb, off, 4, ENC_BIG_ENDIAN);
+        tvbuff_t   *opt_tvb;
 
-        if (enterprise_no == 4491) {
-            dissect_cablelabs_specific_opts(subtree, ti, pinfo, tvb, off+4, optlen-4);
-        } else {
+        enterprise_no = tvb_get_ntohl(tvb, off);
+        opt_tvb = tvb_new_subset_length(tvb, off, optlen);
+
+        // Find a per-vendor dissector or fallback to the generic-enterprise-dissector.
+        if (!dissector_try_uint_new(dhcpv6_enterprise_opts_dissector_table, enterprise_no, opt_tvb, pinfo, subtree, FALSE, &msgtype)) {
+            proto_tree_add_item(subtree, hf_vendoropts_enterprise, tvb, off, 4, ENC_BIG_ENDIAN);
             int optoffset = 0;
 
             while ((optlen - 4 - optoffset) > 0) {
@@ -2336,6 +2355,7 @@ dhcpv6_option(tvbuff_t *tvb, packet_info *pinfo, proto_tree *bp_tree,
             }
         }
         break;
+    }
     case OPTION_INTERFACE_ID:
     {
         if (optlen == 0) {
@@ -3317,9 +3337,9 @@ proto_register_dhcpv6(void)
         { &hf_option_failover_connect_flags,
           { "Flags", "dhcpv6.failover.connect.flags", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
         { &hf_option_failover_connect_reserved_flag,
-          { "Reserved", "dhcpv6.failover.connect.flags.reserved", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0xfffe, NULL, HFILL }},
+          { "Reserved", "dhcpv6.failover.connect.flags.reserved", FT_BOOLEAN, 16, NULL, 0xfffe, NULL, HFILL }},
         { &hf_option_failover_connect_f_flag,
-          { "Fixed PD Length (F)", "dhcpv6.failover.connect.flags.f", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0x0001, NULL, HFILL }},
+          { "Fixed PD Length (F)", "dhcpv6.failover.connect.flags.f", FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL }},
         { &hf_option_failover_dns_hostname,
           { "DNS Hostname", "dhcpv6.failover.dns_hostname", FT_STRING, BASE_NONE, NULL, 0, NULL, HFILL }},
         { &hf_option_failover_dns_zonename,
@@ -3327,15 +3347,15 @@ proto_register_dhcpv6(void)
         { &hf_option_failover_dns_flags,
           { "Flags", "dhcpv6.failover.dns.flags", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL }},
         { &hf_option_failover_dns_reserved_flag,
-          { "Reserved", "dhcpv6.failover.dns.flags.reserved", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0xfff0, NULL, HFILL }},
+          { "Reserved", "dhcpv6.failover.dns.flags.reserved", FT_BOOLEAN, 16, NULL, 0xfff0, NULL, HFILL }},
         { &hf_option_failover_dns_u_flag,
-          { "Using Requested FQDN (U)", "dhcpv6.failover.dns.flags.u", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0x0008, NULL, HFILL }},
+          { "Using Requested FQDN (U)", "dhcpv6.failover.dns.flags.u", FT_BOOLEAN, 16, NULL, 0x0008, NULL, HFILL }},
         { &hf_option_failover_dns_s_flag,
-          { "Synthesized Name (S)", "dhcpv6.failover.dns.flags.s", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0x0004, NULL, HFILL }},
+          { "Synthesized Name (S)", "dhcpv6.failover.dns.flags.s", FT_BOOLEAN, 16, NULL, 0x0004, NULL, HFILL }},
         { &hf_option_failover_dns_r_flag,
-          { "Rev Uptodate (R)", "dhcpv6.failover.dns.flags.r", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0x0002, NULL, HFILL }},
+          { "Rev Uptodate (R)", "dhcpv6.failover.dns.flags.r", FT_BOOLEAN, 16, NULL, 0x0002, NULL, HFILL }},
         { &hf_option_failover_dns_f_flag,
-          { "Fwd Uptodate (F)", "dhcpv6.failover.dns.flags.f", FT_BOOLEAN, 16, TFS(&tfs_true_false), 0x0001, NULL, HFILL }},
+          { "Fwd Uptodate (F)", "dhcpv6.failover.dns.flags.f", FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL }},
         { &hf_option_failover_expiration_time,
           { "Expiration Time", "dhcpv6.failover.expiration_time", FT_UINT32, BASE_DEC, NULL, 0, NULL, HFILL }},
         { &hf_option_failover_max_unacked_bndupd,
@@ -3365,13 +3385,13 @@ proto_register_dhcpv6(void)
         { &hf_option_failover_server_flags,
           { "Flags", "dhcpv6.failover.server.flags", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
         { &hf_option_failover_server_reserved_flag,
-          { "Reserved", "dhcpv6.failover.server.flags.reserved", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0xf8, NULL, HFILL }},
+          { "Reserved", "dhcpv6.failover.server.flags.reserved", FT_BOOLEAN, 8, NULL, 0xf8, NULL, HFILL }},
         { &hf_option_failover_server_a_flag,
-          { "Ack Startup (A)", "dhcpv6.failover.server.flags.a", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x04, NULL, HFILL }},
+          { "Ack Startup (A)", "dhcpv6.failover.server.flags.a", FT_BOOLEAN, 8, NULL, 0x04, NULL, HFILL }},
         { &hf_option_failover_server_s_flag,
-          { "Startup (S)", "dhcpv6.failover.server.flags.s", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x02, NULL, HFILL }},
+          { "Startup (S)", "dhcpv6.failover.server.flags.s", FT_BOOLEAN, 8, NULL, 0x02, NULL, HFILL }},
         { &hf_option_failover_server_c_flag,
-          { "Communicated (C)", "dhcpv6.failover.server.flags.c", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x01, NULL, HFILL }},
+          { "Communicated (C)", "dhcpv6.failover.server.flags.c", FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL }},
         { &hf_option_failover_server_state,
           { "Server State", "dhcpv6.failover.server_state", FT_UINT8, BASE_DEC, VALS(failover_server_state_vals), 0, NULL, HFILL }},
         { &hf_option_failover_start_time_of_state,
@@ -3427,7 +3447,7 @@ proto_register_dhcpv6(void)
         { &hf_packetcable_cccV6_tgt_flag,
           { "TGT Flags", "dhcpv6.packetcable.cccV6.tgt_flag", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
         { &hf_packetcable_cccV6_tgt_flag_fetch,
-          { "Fetch TGT", "dhcpv6.packetcable.cccV6.tgt_flag.fetch", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x01, NULL, HFILL }},
+          { "Fetch TGT", "dhcpv6.packetcable.cccV6.tgt_flag.fetch", FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL }},
         { &hf_packetcable_cccV6_prov_timer,
           { "Provisioning timer", "dhcpv6.packetcable.cccV6.prov_timer", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
         { &hf_packetcable_cccV6_sec_tcm,
@@ -3451,9 +3471,9 @@ proto_register_dhcpv6(void)
         { &hf_option_s46_rule_flags,
           { "Flags", "dhcpv6.s46_rule.flags", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL }},
         { &hf_option_s46_rule_reserved_flag,
-          { "Reserved", "dhcpv6.s46_rule.flags.reserved", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0xfe, NULL, HFILL }},
+          { "Reserved", "dhcpv6.s46_rule.flags.reserved", FT_BOOLEAN, 8, NULL, 0xfe, NULL, HFILL }},
         { &hf_option_s46_rule_fmr_flag,
-          { "Forwarding Mapping Rule", "dhcpv6.s46_rule.flags.fmr", FT_BOOLEAN, 8, TFS(&tfs_true_false), 0x01, NULL, HFILL }},
+          { "Forwarding Mapping Rule", "dhcpv6.s46_rule.flags.fmr", FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL }},
         { &hf_option_s46_rule_ea_len,
           { "EA-bit length", "dhcpv6.s46_rule.ea_len", FT_UINT8, BASE_DEC, NULL, 0, NULL, HFILL }},
         { &hf_option_s46_rule_ipv4_pref_len,
@@ -3590,6 +3610,12 @@ proto_register_dhcpv6(void)
                                     "Desegment all Bulk Leasequery messages spanning multiple TCP segments",
                                     "Whether the Bulk Leasequery dissector should desegment all messages spanning multiple TCP segments",
                                     &dhcpv6_bulk_leasequery_desegment);
+
+    dhcpv6_enterprise_opts_dissector_table = register_dissector_table("dhcpv6.enterprise_opts", "DHCPv6 Enterprise OPTs", proto_dhcpv6, FT_UINT32, BASE_DEC);
+
+    proto_dhcpv6_cablelabs  = proto_register_protocol("DHCPv6 Cablelabs", "DHCPv6(cablelabs)", "dhcpv6_cablelabs");
+    dhcpv6_cablelabs_handle = register_dissector("dhcpv6_cablelabs", dissect_cablelabs_specific_opts, proto_dhcpv6_cablelabs);
+    dissector_add_uint("dhcpv6.enterprise_opts", VENDOR_CABLELABS, dhcpv6_cablelabs_handle);
 }
 
 void

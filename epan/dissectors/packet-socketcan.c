@@ -108,6 +108,8 @@ static dissector_table_t can_extended_id_dissector_table = NULL;
 static dissector_table_t subdissector_table = NULL;
 static dissector_handle_t socketcan_classic_handle;
 static dissector_handle_t socketcan_fd_handle;
+static dissector_handle_t socketcan_bigendian_handle;
+
 
 static const value_string can_err_prot_error_location_vals[] = {
     { 0x00, "unspecified" },
@@ -183,7 +185,7 @@ copy_interface_config_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_interface_config(void *r, char **err) {
     interface_config_t *rec = (interface_config_t *)r;
 
@@ -353,7 +355,7 @@ copy_sender_receiver_config_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_sender_receiver_config(void *r, char **err) {
     sender_receiver_config_t *rec = (sender_receiver_config_t *)r;
 
@@ -841,6 +843,7 @@ proto_register_socketcan(void) {
      * "can-hostendian" as the dissector name.
      */
     socketcan_classic_handle = register_dissector("can-hostendian", dissect_socketcan_classic, proto_can);
+    socketcan_bigendian_handle = register_dissector("can-bigendian", dissect_socketcan_bigendian, proto_can);
 
     proto_canfd = proto_register_protocol("Controller Area Network FD", "CANFD", "canfd");
     socketcan_fd_handle = register_dissector("canfd", dissect_socketcan_fd, proto_canfd);
@@ -926,9 +929,6 @@ proto_register_socketcan(void) {
 
 void
 proto_reg_handoff_socketcan(void) {
-    dissector_handle_t socketcan_bigendian_handle;
-
-    socketcan_bigendian_handle = create_dissector_handle(dissect_socketcan_bigendian, proto_can);
     dissector_add_uint("wtap_encap", WTAP_ENCAP_SOCKETCAN, socketcan_bigendian_handle);
 
     dissector_add_uint("sll.ltype", LINUX_SLL_P_CAN, socketcan_classic_handle);

@@ -44,6 +44,7 @@ struct wtap {
     guint                       next_interface_data;    /**< Next interface data that wtap_get_next_interface_description() will show */
     GArray                      *nrbs;                  /**< holds the Name Res Blocks, or NULL */
     GArray                      *dsbs;                  /**< An array of DSBs (of type wtap_block_t), or NULL if not supported. */
+    GArray                      *meta_events;           /**< An array of meta eventss (of type wtap_block_t), or NULL if not supported. */
 
     char                        *pathname;              /**< File pathname; might just be "-" */
 
@@ -123,8 +124,10 @@ struct wtap_dumper {
      */
     const GArray            *nrbs_growing;          /**< A reference to an array of NRBs (of type wtap_block_t) */
     const GArray            *dsbs_growing;          /**< A reference to an array of DSBs (of type wtap_block_t) */
+    const GArray            *mevs_growing;          /**< A reference to an array of Sysdig meta events (of type wtap_block_t) */
     guint                   nrbs_growing_written;   /**< Number of already processed NRBs in nrbs_growing. */
     guint                   dsbs_growing_written;   /**< Number of already processed DSBs in dsbs_growing. */
+    guint                   mevs_growing_written;   /**< Number of already processed meta events in mevs_growing. */
 };
 
 WS_DLL_PUBLIC gboolean wtap_dump_file_write(wtap_dumper *wdh, const void *buf,

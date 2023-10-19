@@ -1011,7 +1011,7 @@ static GHashTable *sip_custom_header_fields_hash;
 static hf_register_info *dynamic_hf;
 static guint dynamic_hf_size;
 
-static gboolean
+static bool
 header_fields_update_cb(void *r, char **err)
 {
     header_field_t *rec = (header_field_t *)r;
@@ -1141,7 +1141,7 @@ typedef struct _authorization_user_t {
 static authorization_user_t* sip_authorization_users = NULL;
 static guint sip_authorization_num_users = 0;
 
-static gboolean
+static bool
 authorization_users_update_cb(void *r, char **err)
 {
     authorization_user_t *rec = (authorization_user_t *)r;
@@ -3665,7 +3665,6 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
 
     th = proto_tree_add_item(sip_tree, hf_sip_msg_hdr, tvb, offset,
                                  body_offset - offset, ENC_UTF_8);
-    proto_item_set_text(th, "Message Header");
     hdr_tree = proto_item_add_subtree(th, ett_sip_hdr);
 
     if (have_tap_listener(sip_follow_tap))
@@ -4840,12 +4839,12 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
          * There's a message body starting at "offset".
          * Set the length of the header item.
          */
-        sdp_setup_info_t setup_info;
-
-        setup_info.hf_id = hf_sip_call_id_gen;
-        setup_info.add_hidden = sip_hide_generatd_call_ids;
-        setup_info.hf_type = SDP_TRACE_ID_HF_TYPE_STR;
-        setup_info.trace_id.str = wmem_strdup(wmem_file_scope(), call_id);
+        sdp_setup_info_t setup_info = {
+            .hf_id = hf_sip_call_id_gen,
+            .add_hidden = sip_hide_generatd_call_ids,
+            .hf_type = SDP_TRACE_ID_HF_TYPE_STR,
+            .trace_id.str = wmem_strdup(wmem_file_scope(), call_id),
+        };
         content_info.data = &setup_info;
 
         if(content_encoding_parameter_str != NULL &&
@@ -6190,7 +6189,7 @@ void proto_register_sip(void)
 
         { &hf_sip_msg_hdr,
           { "Message Header",           "sip.msg_hdr",
-            FT_STRING, BASE_NONE, NULL, 0,
+            FT_STRING, BASE_NONE|BASE_NO_DISPLAY_VALUE, NULL, 0,
             "Message Header in SIP message", HFILL }
         },
         { &hf_sip_Method,

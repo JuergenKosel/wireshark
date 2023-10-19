@@ -150,6 +150,7 @@ static int hf_someip_returncode                                         = -1;
 
 static int hf_someip_tp                                                 = -1;
 static int hf_someip_tp_offset                                          = -1;
+static int hf_someip_tp_offset_encoded                                  = -1;
 static int hf_someip_tp_flags                                           = -1;
 static int hf_someip_tp_reserved                                        = -1;
 static int hf_someip_tp_more_segments                                   = -1;
@@ -160,7 +161,6 @@ static int hf_someip_payload                                            = -1;
 static gint ett_someip                                                  = -1;
 static gint ett_someip_msgtype                                          = -1;
 static gint ett_someip_tp                                               = -1;
-static gint ett_someip_tp_flags                                         = -1;
 
 /* dissector handling */
 static dissector_table_t someip_dissector_table = NULL;
@@ -787,7 +787,7 @@ copy_generic_one_id_string_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_generic_one_identifier_16bit(void *r, char **err) {
     generic_one_id_string_t *rec = (generic_one_id_string_t *)r;
 
@@ -839,7 +839,7 @@ copy_generic_two_id_string_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_generic_two_identifier_16bit(void *r, char **err) {
     generic_two_id_string_t *rec = (generic_two_id_string_t *)r;
 
@@ -1157,7 +1157,7 @@ copy_someip_parameter_list_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_list(void *r, char **err) {
     someip_parameter_list_uat_t *rec = (someip_parameter_list_uat_t *)r;
     guchar c;
@@ -1344,7 +1344,7 @@ copy_someip_parameter_enum_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_enum(void *r, char **err) {
     someip_parameter_enum_uat_t *rec = (someip_parameter_enum_uat_t *)r;
 
@@ -1513,7 +1513,7 @@ copy_someip_parameter_array_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_array(void *r, char **err) {
     someip_parameter_array_uat_t *rec = (someip_parameter_array_uat_t *)r;
     char                         *tmp;
@@ -1692,7 +1692,7 @@ copy_someip_parameter_struct_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_struct(void *r, char **err) {
     someip_parameter_struct_uat_t *rec = (someip_parameter_struct_uat_t *)r;
     char                          *tmp = NULL;
@@ -1880,7 +1880,7 @@ copy_someip_parameter_union_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_union(void *r, char **err) {
     someip_parameter_union_uat_t *rec = (someip_parameter_union_uat_t *)r;
     gchar                        *tmp;
@@ -2048,7 +2048,7 @@ copy_someip_parameter_base_type_list_cb(void *n, const void *o, size_t size _U_)
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_base_type_list(void *r, char **err) {
     someip_parameter_base_type_list_uat_t *rec = (someip_parameter_base_type_list_uat_t *)r;
 
@@ -2161,7 +2161,7 @@ copy_someip_parameter_string_list_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_string_list(void *r, char **err) {
     someip_parameter_string_uat_t *rec = (someip_parameter_string_uat_t *)r;
 
@@ -2263,7 +2263,7 @@ copy_someip_parameter_typedef_list_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_someip_parameter_typedef_list(void *r, char **err) {
     someip_parameter_typedef_uat_t *rec = (someip_parameter_typedef_uat_t *)r;
 
@@ -3579,12 +3579,6 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
     gint            tvb_length = tvb_captured_length_remaining(tvb, offset);
 
-    static int * const someip_tp_flags[] = {
-        &hf_someip_tp_reserved,
-        &hf_someip_tp_more_segments,
-        NULL
-    };
-
     col_set_str(pinfo->cinfo, COL_PROTOCOL, SOMEIP_NAME);
     col_set_str(pinfo->cinfo, COL_INFO, SOMEIP_NAME_LONG);
     ti_someip = proto_tree_add_item(tree, proto_someip, tvb, offset, -1, ENC_NA);
@@ -3719,11 +3713,13 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         ti = proto_tree_add_item(someip_tree, hf_someip_tp, tvb, offset, someip_payload_length, ENC_NA);
         tp_tree = proto_item_add_subtree(ti, ett_someip_tp);
 
-        tp_offset = (tvb_get_ntohl(tvb, offset) & SOMEIP_TP_OFFSET_MASK);
-        tp_more_segments = ((tvb_get_ntohl(tvb, offset) & SOMEIP_TP_OFFSET_MASK_MORE_SEGMENTS) != 0);
-        /* Why can I not mask an FT_UINT32 without it being shifted. :( . */
-        proto_tree_add_uint(tp_tree, hf_someip_tp_offset, tvb, offset, 4, tp_offset);
-        proto_tree_add_bitmask_with_flags(tp_tree, tvb, offset+3, hf_someip_tp_flags, ett_someip_tp_flags, someip_tp_flags, ENC_BIG_ENDIAN, BMT_NO_TFS | BMT_NO_INT);
+        /* Unfortunately, with a bitmask set the value is always shifted and cannot be set directly. */
+        proto_tree_add_item_ret_uint(tp_tree, hf_someip_tp_offset_encoded, tvb, offset, 4, ENC_BIG_ENDIAN, &tp_offset);
+        tp_offset <<= 4;
+        proto_tree_add_item(tp_tree, hf_someip_tp_reserved, tvb, offset, 4, ENC_BIG_ENDIAN);
+        proto_tree_add_item_ret_boolean(tp_tree, hf_someip_tp_more_segments, tvb, offset, 4, ENC_BIG_ENDIAN, &tp_more_segments);
+        ti = proto_tree_add_uint(tp_tree, hf_someip_tp_offset, tvb, offset, 4, tp_offset);
+        PROTO_ITEM_SET_GENERATED(ti);
         offset += 4;
 
         proto_tree_add_item(tp_tree, hf_someip_payload, tvb, offset, someip_payload_length - SOMEIP_TP_HDR_LEN, ENC_NA);
@@ -3952,6 +3948,9 @@ proto_register_someip(void) {
         { &hf_someip_tp_offset,
             { "Offset", "someip.tp.offset",
             FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+        { &hf_someip_tp_offset_encoded,
+            { "Encoded Offset", "someip.tp.offset_encoded",
+            FT_UINT32, BASE_HEX, NULL, SOMEIP_TP_OFFSET_MASK, NULL, HFILL }},
         { &hf_someip_tp_flags,
             { "Flags", "someip.tp.flags",
             FT_UINT32, BASE_HEX, NULL, SOMEIP_TP_OFFSET_MASK_FLAGS, NULL, HFILL }},
@@ -4053,7 +4052,6 @@ proto_register_someip(void) {
         &ett_someip,
         &ett_someip_msgtype,
         &ett_someip_tp,
-        &ett_someip_tp_flags,
         &ett_someip_tp_fragment,
         &ett_someip_tp_fragments,
 

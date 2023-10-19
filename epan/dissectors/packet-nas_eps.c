@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 24.301 V17.9.0 (2022-12)
+ * References: 3GPP TS 24.301 V17.11.0 (2023-09)
  */
 
 #include "config.h"
@@ -1287,6 +1287,7 @@ const value_string nas_eps_emm_cause_values[] = {
     { 0x1a, "Non-EPS authentication unacceptable"},
     { 0x1f, "Redirection to 5GCN required"},
     { 0x23, "Requested service option not authorized in this PLMN"},
+    { 0x24, "IAB-node operation not authorized" },
     { 0x27, "CS service temporarily not available"},
     { 0x28, "No EPS bearer context activated"},
     { 0x2a, "Severe network failure"},
@@ -1398,7 +1399,7 @@ de_emm_eps_mid(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
             break;
         case 3:
             /* IMEI */
-            proto_tree_add_item(tree, hf_nas_eps_emm_imei, tvb, curr_offset, len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+            proto_tree_add_item(tree, hf_nas_eps_emm_imei, tvb, curr_offset, len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
             break;
         case 6:
             /* GUTI */
@@ -2455,7 +2456,7 @@ de_emm_ext_emerg_num_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo _U
                                      tvb, curr_offset, 1, ENC_NA, &length);
         curr_offset++;
         if (length > 0) {
-            proto_tree_add_item(sub_tree, hf_eps_emm_ext_emerg_num_list_emerg_num, tvb, curr_offset, length, ENC_BCD_DIGITS_0_9);
+            proto_tree_add_item(sub_tree, hf_eps_emm_ext_emerg_num_list_emerg_num, tvb, curr_offset, length, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN);
             curr_offset += length;
         }
         proto_tree_add_item_ret_uint(sub_tree, hf_eps_emm_ext_emerg_num_list_sub_serv_field_len,
@@ -3871,19 +3872,19 @@ de_esm_remote_ue_context_list(tvbuff_t *tvb, proto_tree *tree, packet_info *pinf
                     break;
                 case 3:
                     {
-                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_msisdn, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_msisdn, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;
                 case 4:
                     {
-                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imei, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imei, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;
                 case 5:
                     {
-                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imeisv, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+                        proto_tree_add_item(subtree, hf_nas_eps_esm_remote_ue_context_list_ue_context_imeisv, tvb, curr_offset, user_id_len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
                         curr_offset += user_id_len;
                     }
                     break;

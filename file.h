@@ -76,8 +76,10 @@ typedef struct {
     const char    *string;
     size_t         string_len;
     capture_file  *cf;
-    gboolean       frame_matched;
     field_info    *finfo;
+    field_info    *prev_finfo;
+    gboolean       frame_matched;
+    gboolean       halt;
 } match_data;
 
 /**
@@ -513,10 +515,12 @@ cf_print_status_t cf_write_json_packets(capture_file *cf, print_args_t *print_ar
  * @param cf the capture file
  * @param string the string to find
  * @param dir direction in which to search
+ * @param multiple whether to look for the next occurrence of the same string
+ * in the current packet, or to only match once per frame
  * @return TRUE if a packet was found, FALSE otherwise
  */
 gboolean cf_find_packet_protocol_tree(capture_file *cf, const char *string,
-                                      search_direction dir);
+                                      search_direction dir, bool multiple);
 
 /**
  * Find field with a label that contains the text string cfile->sfilter in
@@ -684,6 +688,16 @@ cf_merge_files_to_tempfile(gpointer pd_window, const char *temp_dir, char **out_
  * @param comment the string replacing the old comment
  */
 void cf_update_section_comment(capture_file *cf, gchar *comment);
+
+/**
+ * Update(replace) the comments on a capture from the SHB data block
+ *
+ * @param cf the capture file
+ * @param shb_idx the index of the SHB (0-indexed)
+ * @param comments a NULL-terminated string array of comments. The function
+ * takes ownership of the string array and frees it and the contents.
+ */
+void cf_update_section_comments(capture_file *cf, unsigned shb_idx, char **comments);
 
 /*
  * Get the packet block for a packet (record).

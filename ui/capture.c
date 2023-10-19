@@ -709,7 +709,7 @@ capture_input_closed(capture_session *cap_session, gchar *msg)
         }
         /*
          * ws_log prefixes log messages with a timestamp delimited by " -- " and possibly
-         * a function name delimted by "(): ". Log it to sterr, but omit it in the UI.
+         * a function name delimited by "(): ". Log it to sterr, but omit it in the UI.
          */
         char *plain_msg = strstr(msg, "(): ");
         if (plain_msg != NULL) {
@@ -892,7 +892,8 @@ capture_stat_start(capture_options *capture_opts)
             }
         }
     } else {
-        g_free(msg); /* XXX: should we display this to the user ? */
+        ws_warning("%s", msg);
+        g_free(msg); /* XXX: should we display this to the user via the GUI? */
     }
     return sc;
 }

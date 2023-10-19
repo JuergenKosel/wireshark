@@ -15,7 +15,7 @@
 /*
  * Rawshark does the following:
  * - Opens a specified file or named pipe
- * - Applies a specfied DLT or "decode as" encapsulation
+ * - Applies a specified DLT or "decode as" encapsulation
  * - Reads frames prepended with a libpcap packet header.
  * - Prints a status line, followed by fields from a specified list.
  */
@@ -169,7 +169,8 @@ print_usage(FILE *output)
     fprintf(output, "\n");
 
     fprintf(output, "Input file:\n");
-    fprintf(output, "  -r <infile>              set the pipe or file name to read from\n");
+    fprintf(output, "  -r <infile>, --read-file <infile>\n");
+    fprintf(output,"                            set the pipe or file name to read from\n");
 
     fprintf(output, "\n");
     fprintf(output, "Processing:\n");
@@ -184,8 +185,11 @@ print_usage(FILE *output)
     fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mnNtdv\"\n");
     fprintf(output, "  -p                       use the system's packet header format\n");
     fprintf(output, "                           (which may have 64-bit timestamps)\n");
-    fprintf(output, "  -R <read filter>         packet filter in Wireshark display filter syntax\n");
+    fprintf(output, "  -R <read filter>, --read-filter <read filter>\n");
+    fprintf(output, "                           packet filter in Wireshark display filter syntax\n");
     fprintf(output, "  -s                       skip PCAP header on input\n");
+    fprintf(output, "  -Y <display filter>, --display-filter <display filter>\n");
+    fprintf(output, "                           packet filter in Wireshark display filter syntax\n");
     fprintf(output, "  --enable-protocol <proto_name>\n");
     fprintf(output, "                           enable dissection of proto_name\n");
     fprintf(output, "  --disable-protocol <proto_name>\n");
@@ -432,10 +436,11 @@ main(int argc, char *argv[])
       {"help", ws_no_argument, NULL, 'h'},
       {"version", ws_no_argument, NULL, 'v'},
       LONGOPT_DISSECT_COMMON
+      LONGOPT_READ_CAPTURE_COMMON
       {0, 0, 0, 0 }
     };
 
-#define OPTSTRING_INIT OPTSTRING_DISSECT_COMMON "F:hlm:o:pr:R:sS:v"
+#define OPTSTRING_INIT OPTSTRING_DISSECT_COMMON OPTSTRING_READ_CAPTURE_COMMON "F:hlm:o:psS:v"
 
     static const char    optstring[] = OPTSTRING_INIT;
     static const struct report_message_routines rawshark_report_routines = {
@@ -640,6 +645,8 @@ main(int argc, char *argv[])
                 pipe_name = g_strdup(ws_optarg);
                 break;
             case 'R':        /* Read file filter */
+            case 'Y':        /* Read file filter */
+                /* Read and display filters are the same for rawshark */
                 if(n_rfilters < (int) sizeof(rfilters) / (int) sizeof(rfilters[0])) {
                     rfilters[n_rfilters++] = ws_optarg;
                 }
@@ -1132,7 +1139,6 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
     gint32             svalue;
     guint64            uvalue64;
     gint64             svalue64;
-    const true_false_string *tfstring = &tfs_true_false;
 
     hfinfo = finfo->hfinfo;
 
@@ -1175,8 +1181,7 @@ static gboolean print_field_value(field_info *finfo, int cmd_line_index)
                         switch(hfinfo->type) {
                             case FT_BOOLEAN:
                                 uvalue64 = fvalue_get_uinteger64(finfo->value);
-                                tfstring = (const true_false_string*) hfinfo->strings;
-                                g_string_append(label_s, tfs_get_string(!!uvalue64, tfstring));
+                                g_string_append(label_s, tfs_get_string(!!uvalue64, hfinfo->strings));
                                 break;
                             case FT_INT8:
                             case FT_INT16:
@@ -1423,16 +1428,16 @@ show_print_file_io_error(int err)
 static const nstime_t *
 raw_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
 {
-    if (prov->ref && prov->ref->num == frame_num)
-        return &prov->ref->abs_ts;
+    const frame_data *ts_fd = NULL;
+    if (prov->ref && prov->ref->num == frame_num) {
+        ts_fd = prov->ref;
+    } else if (prov->prev_dis && prov->prev_dis->num == frame_num) {
+        ts_fd = prov->prev_dis;
+    } else if (prov->prev_cap && prov->prev_cap->num == frame_num) {
+        ts_fd = prov->prev_cap;
+    }
 
-    if (prov->prev_dis && prov->prev_dis->num == frame_num)
-        return &prov->prev_dis->abs_ts;
-
-    if (prov->prev_cap && prov->prev_cap->num == frame_num)
-        return &prov->prev_cap->abs_ts;
-
-    return NULL;
+    return (ts_fd && ts_fd->has_ts) ? &ts_fd->abs_ts : NULL;
 }
 
 static epan_t *

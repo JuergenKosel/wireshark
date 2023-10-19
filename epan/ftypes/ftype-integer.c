@@ -18,11 +18,11 @@
 #include <wsutil/pint.h>
 #include <wsutil/safe-math.h>
 
-static gboolean
-binary_strtoll(const char *s, gint64 *ptr, char **err_msg);
+static bool
+binary_strtoll(const char *s, int64_t *ptr, char **err_msg);
 
-static gboolean
-binary_strtoull(const char *s, guint64 *ptr, char **err_msg);
+static bool
+binary_strtoull(const char *s, uint64_t *ptr, char **err_msg);
 
 static void
 int_fvalue_new(fvalue_t *fv)
@@ -31,195 +31,28 @@ int_fvalue_new(fvalue_t *fv)
 }
 
 static void
-set_uinteger(fvalue_t *fv, guint32 value)
+set_uinteger(fvalue_t *fv, uint32_t value)
 {
-	fv->value.uinteger = value;
+	fv->value.uinteger64 = value;
 }
 
 static void
-set_sinteger(fvalue_t *fv, gint32 value)
+set_sinteger(fvalue_t *fv, int32_t value)
 {
-	fv->value.sinteger = value;
+	fv->value.sinteger64 = value;
 }
 
 
-static guint32
+static uint32_t
 get_uinteger(fvalue_t *fv)
 {
-	return fv->value.uinteger;
+	return (uint32_t)fv->value.uinteger64;
 }
 
-static gint32
+static int32_t
 get_sinteger(fvalue_t *fv)
 {
-	return fv->value.sinteger;
-}
-
-static gboolean
-_uint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   guint64 max)
-{
-	guint64 value;
-
-	if (!binary_strtoull(s, &value, err_msg))
-		return FALSE;
-
-	if (value > max) {
-		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %"PRIu64".", s, max);
-		return FALSE;
-	}
-
-	fv->value.uinteger = (guint32)value;
-	return TRUE;
-}
-
-static gboolean
-uint32_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT32);
-}
-
-static gboolean
-uint24_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _uint_from_literal (fv, s, allow_partial_value, err_msg, 0xFFFFFF);
-}
-
-static gboolean
-uint16_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT16);
-}
-
-static gboolean
-uint8_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _uint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT8);
-}
-
-static gboolean
-uint_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
-{
-	fv->value.uinteger = (guint32)num;
-	return TRUE;
-}
-
-static gboolean
-_sint_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   gint64 max, gint64 min)
-{
-	gint64 value;
-
-	if (!binary_strtoll(s, &value, err_msg))
-		return FALSE;
-
-	if (value > max) {
-		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %"PRId64".",
-				s, max);
-		return FALSE;
-	}
-	else if (value < min) {
-		if (err_msg != NULL)
-			*err_msg = ws_strdup_printf("\"%s\" too small for this field, minimum %"PRId64".",
-				s, min);
-		return FALSE;
-	}
-
-	fv->value.sinteger = (gint32)value;
-	return TRUE;
-}
-
-static gboolean
-sint32_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT32, G_MININT32);
-}
-
-static gboolean
-sint24_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _sint_from_literal (fv, s, allow_partial_value, err_msg, 0x7FFFFF, -0x800000);
-}
-
-static gboolean
-sint16_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT16, G_MININT16);
-}
-
-static gboolean
-sint8_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
-{
-	return _sint_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT8, G_MININT8);
-}
-
-static gboolean
-sint_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
-{
-	fv->value.sinteger = (gint32)num;
-	return TRUE;
-}
-
-static char *
-integer_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
-{
-	guint32 val;
-
-	size_t size = 11 + 1; /* enough for 2^31-1, in decimal */
-	char *result = wmem_alloc(scope, size);
-	char *buf = result;
-
-	if (fv->value.sinteger < 0) {
-		*buf++ = '-';
-		val = -fv->value.sinteger;
-	} else {
-		val = fv->value.sinteger;
-	}
-	guint32_to_str_buf(val, buf, size);
-	return result;
-}
-
-static char *
-uinteger_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display)
-{
-	size_t size = 10 + 1; /* enough for 2^32-1, in decimal or 0xXXXXXXXX */
-	char *result = wmem_alloc(scope, size);
-	char *buf = result;
-
-	if ((field_display & 0xff) == BASE_HEX ||
-			(field_display & 0xff) == BASE_HEX_DEC) {
-		/* This format perfectly fits into 11 bytes. */
-		*buf++ = '0';
-		*buf++ = 'x';
-
-		switch (fv->ftype->ftype) {
-
-		case FT_UINT8:
-			buf = guint8_to_hex(buf, fv->value.uinteger);
-			break;
-
-		case FT_UINT16:
-			buf = word_to_hex(buf, fv->value.uinteger);
-			break;
-
-		case FT_UINT24:
-			buf = guint8_to_hex(buf, (fv->value.uinteger & 0x00ff0000) >> 16);
-			buf = word_to_hex(buf, (fv->value.uinteger & 0x0000ffff));
-			break;
-
-		default:
-			buf = dword_to_hex(buf, fv->value.uinteger);
-			break;
-		}
-
-		*buf++ = '\0';
-	}
-	else {
-		guint32_to_str_buf(fv->value.uinteger, buf, size);
-	}
-	return result;
+	return (int32_t)fv->value.sinteger64;
 }
 
 static char *
@@ -234,15 +67,15 @@ char_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, in
 	 * take 7 bytes, including the terminating '\0'.
 	 */
 	*buf++ = '\'';
-	if (g_ascii_isprint(fv->value.uinteger)) {
+	if (g_ascii_isprint(fv->value.uinteger64)) {
 		/* This perfectly fits into 4 or 5 bytes. */
-		if (fv->value.uinteger == '\\' || fv->value.uinteger == '\'')
+		if (fv->value.uinteger64 == '\\' || fv->value.uinteger64 == '\'')
 			*buf++ = '\\';
-		*buf++ = (char)fv->value.uinteger;
+		*buf++ = (char)fv->value.uinteger64;
 	}
 	else {
 		*buf++ = '\\';
-		switch (fv->value.uinteger) {
+		switch (fv->value.uinteger64) {
 
 		case '\0':
 			*buf++ = '0';
@@ -279,12 +112,12 @@ char_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, in
 		default:
 			if (field_display == BASE_HEX) {
 				*buf++ = 'x';
-				buf = guint8_to_hex(buf, fv->value.uinteger);
+				buf = guint8_to_hex(buf, fv->value.uinteger64);
 			}
 			else {
-				*buf++ = ((fv->value.uinteger >> 6) & 0x7) + '0';
-				*buf++ = ((fv->value.uinteger >> 3) & 0x7) + '0';
-				*buf++ = ((fv->value.uinteger >> 0) & 0x7) + '0';
+				*buf++ = ((fv->value.uinteger64 >> 6) & 0x7) + '0';
+				*buf++ = ((fv->value.uinteger64 >> 3) & 0x7) + '0';
+				*buf++ = ((fv->value.uinteger64 >> 0) & 0x7) + '0';
 			}
 			break;
 		}
@@ -294,35 +127,10 @@ char_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, in
 	return result;
 }
 
-static gboolean
-ipxnet_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
-{
-	/*
-	 * Don't request an error message if bytes_from_literal fails;
-	 * if it does, we'll report an error specific to this address
-	 * type.
-	 */
-	if (uint32_from_literal(fv, s, TRUE, NULL)) {
-		return TRUE;
-	}
-
-	/* XXX - Try resolving as an IPX host name and parse that? */
-
-	if (err_msg != NULL)
-		*err_msg = ws_strdup_printf("\"%s\" is not a valid IPX network address.", s);
-	return FALSE;
-}
-
-static char *
-ipxnet_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int field_display _U_)
-{
-	return uinteger_to_repr(scope, fv, rtype, BASE_HEX);
-}
-
 static enum ft_result
 uint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	guint64 val_a, val_b;
+	uint64_t val_a, val_b;
 	enum ft_result res;
 
 	res = fvalue_to_uinteger64(a, &val_a);
@@ -342,15 +150,9 @@ uint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 }
 
 static enum ft_result
-uint_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
-{
-	return uint64_cmp_order(a, b, cmp);
-}
-
-static enum ft_result
 sint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	gint64 val_a, val_b;
+	int64_t val_a, val_b;
 	enum ft_result res;
 
 	res = fvalue_to_sinteger64(a, &val_a);
@@ -369,12 +171,6 @@ sint64_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 	return FT_OK;
 }
 
-static enum ft_result
-sint_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
-{
-	return sint64_cmp_order(a, b, cmp);
-}
-
 static void
 int64_fvalue_new(fvalue_t *fv)
 {
@@ -382,31 +178,31 @@ int64_fvalue_new(fvalue_t *fv)
 }
 
 static void
-set_uinteger64(fvalue_t *fv, guint64 value)
+set_uinteger64(fvalue_t *fv, uint64_t value)
 {
 	fv->value.uinteger64 = value;
 }
 
 static void
-set_sinteger64(fvalue_t *fv, gint64 value)
+set_sinteger64(fvalue_t *fv, int64_t value)
 {
 	fv->value.sinteger64 = value;
 }
 
-static guint64
+static uint64_t
 get_uinteger64(fvalue_t *fv)
 {
 	return fv->value.uinteger64;
 }
 
-static gint64
+static int64_t
 get_sinteger64(fvalue_t *fv)
 {
 	return fv->value.sinteger64;
 }
 
-static gboolean
-binary_strtoull(const char *s, guint64 *ptr, char **err_msg)
+static bool
+binary_strtoull(const char *s, uint64_t *ptr, char **err_msg)
 {
 	char *endptr;
 
@@ -422,10 +218,10 @@ binary_strtoull(const char *s, guint64 *ptr, char **err_msg)
 		/* This isn't a valid number. */
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" is not a valid number.", s);
-		return FALSE;
+		return false;
 	}
 	if (errno == ERANGE) {
-		if (*ptr == G_MAXUINT64) {
+		if (*ptr == UINT64_MAX) {
 			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.", s);
 			}
@@ -437,64 +233,88 @@ binary_strtoull(const char *s, guint64 *ptr, char **err_msg)
 			 */
 			*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
 		}
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-static gboolean
-_uint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   guint64 max)
+static bool
+_uint64_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg,
+		   uint64_t max)
 {
-	guint64 value;
+	uint64_t value;
 
 	if (!binary_strtoull(s, &value, err_msg))
-		return FALSE;
+		return false;
 
 	if (value > max) {
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %" PRIu64".", s, max);
-		return FALSE;
+		return false;
 	}
 
 	fv->value.uinteger64 = value;
-	return TRUE;
+	return true;
 }
 
-static gboolean
-uint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+uint64_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _uint64_from_literal (fv, s, allow_partial_value, err_msg, G_MAXUINT64);
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT64_MAX);
 }
 
-static gboolean
-uint56_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+uint56_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _uint64_from_literal (fv, s, allow_partial_value, err_msg, G_GUINT64_CONSTANT(0xFFFFFFFFFFFFFF));
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT64_C(0xFFFFFFFFFFFFFF));
 }
 
-static gboolean
-uint48_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+uint48_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _uint64_from_literal (fv, s, allow_partial_value, err_msg, G_GUINT64_CONSTANT(0xFFFFFFFFFFFF));
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT64_C(0xFFFFFFFFFFFF));
 }
 
-static gboolean
-uint40_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+uint40_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _uint64_from_literal (fv, s, allow_partial_value, err_msg, G_GUINT64_CONSTANT(0xFFFFFFFFFF));
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT64_C(0xFFFFFFFFFF));
 }
 
-static gboolean
-uint64_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
+static bool
+uint32_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	fv->value.uinteger64 = (guint64)num;
-	return TRUE;
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT32_MAX);
 }
 
-static gboolean
-binary_strtoll(const char *s, gint64 *ptr, char **err_msg)
+static bool
+uint24_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, 0xFFFFFF);
+}
+
+static bool
+uint16_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT16_MAX);
+}
+
+static bool
+uint8_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _uint64_from_literal(fv, s, allow_partial_value, err_msg, UINT8_MAX);
+}
+
+static bool
+uint64_from_charconst(fvalue_t *fv, unsigned long num, char **err_msg _U_)
+{
+	fv->value.uinteger64 = (uint64_t)num;
+	return true;
+}
+
+static bool
+binary_strtoll(const char *s, int64_t *ptr, char **err_msg)
 {
 	char *endptr;
 
@@ -510,15 +330,15 @@ binary_strtoll(const char *s, gint64 *ptr, char **err_msg)
 		/* This isn't a valid number. */
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" is not a valid number.", s);
-		return FALSE;
+		return false;
 	}
 	if (errno == ERANGE) {
-		if (*ptr == G_MAXINT64) {
+		if (*ptr == INT64_MAX) {
 			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer overflow.", s);
 			}
 		}
-		else if (*ptr == G_MININT64) {
+		else if (*ptr == INT64_MIN) {
 			if (err_msg != NULL) {
 				*err_msg = ws_strdup_printf("\"%s\" causes an integer underflow.", s);
 			}
@@ -530,71 +350,95 @@ binary_strtoll(const char *s, gint64 *ptr, char **err_msg)
 			 */
 			*err_msg = ws_strdup_printf("\"%s\" is not an integer.", s);
 		}
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-static gboolean
-_sint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg,
-		   gint64 max, gint64 min)
+static bool
+_sint64_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg,
+		   int64_t max, int64_t min)
 {
-	gint64 value;
+	int64_t value;
 
 	if (!binary_strtoll(s, &value, err_msg))
-		return FALSE;
+		return false;
 
 	if (value > max) {
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" too big for this field, maximum %" PRId64".", s, max);
-		return FALSE;
+		return false;
 	}
 	else if (value < min) {
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" too small for this field, minimum %" PRId64 ".", s, min);
-		return FALSE;
+		return false;
 	}
 
 	fv->value.sinteger64 = value;
-	return TRUE;
+	return true;
 }
 
-static gboolean
-sint64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+sint64_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _sint64_from_literal (fv, s, allow_partial_value, err_msg, G_MAXINT64, G_MININT64);
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT64_MAX, INT64_MIN);
 }
 
-static gboolean
-sint56_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+sint56_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _sint64_from_literal (fv, s, allow_partial_value, err_msg, G_GINT64_CONSTANT(0x7FFFFFFFFFFFFF), G_GINT64_CONSTANT(-0x80000000000000));
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT64_C(0x7FFFFFFFFFFFFF), INT64_C(-0x80000000000000));
 }
 
-static gboolean
-sint48_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+sint48_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _sint64_from_literal (fv, s, allow_partial_value, err_msg, G_GINT64_CONSTANT(0x7FFFFFFFFFFF), G_GINT64_CONSTANT(-0x800000000000));
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT64_C(0x7FFFFFFFFFFF), INT64_C(-0x800000000000));
 }
 
-static gboolean
-sint40_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value, gchar **err_msg)
+static bool
+sint40_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	return _sint64_from_literal (fv, s, allow_partial_value, err_msg, G_GINT64_CONSTANT(0x7FFFFFFFFF), G_GINT64_CONSTANT(-0x8000000000));
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT64_C(0x7FFFFFFFFF), INT64_C(-0x8000000000));
 }
 
-static gboolean
-sint64_from_charconst(fvalue_t *fv, unsigned long num, gchar **err_msg _U_)
+static bool
+sint32_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
 {
-	fv->value.sinteger64 = (gint64)num;
-	return TRUE;
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT32_MAX, INT32_MIN);
+}
+
+static bool
+sint24_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, 0x7FFFFF, -0x800000);
+}
+
+static bool
+sint16_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT16_MAX, INT16_MIN);
+}
+
+static bool
+sint8_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value, char **err_msg)
+{
+	return _sint64_from_literal(fv, s, allow_partial_value, err_msg, INT8_MAX, INT8_MIN);
+}
+
+static bool
+sint64_from_charconst(fvalue_t *fv, unsigned long num, char **err_msg _U_)
+{
+	fv->value.sinteger64 = (int64_t)num;
+	return true;
 }
 
 static char *
 integer64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
 {
-	guint64 val;
+	uint64_t val;
 
 	size_t size = 20 + 1; /* enough for -2^63-1, in decimal */
 	char *result = wmem_alloc(scope, size);
@@ -612,18 +456,40 @@ integer64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U
 }
 
 static char *
-uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
+uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display)
 {
 	size_t size = 20 + 1; /* enough for 2^64-1, in decimal or 0xXXXXXXXXXXXXXXXX */
 	char *result = wmem_alloc(scope, size);
 	char *buf = result;
 
-	if (field_display == BASE_HEX || field_display == BASE_HEX_DEC) {
+	if (FIELD_DISPLAY(field_display) == BASE_HEX || FIELD_DISPLAY(field_display) == BASE_HEX_DEC) {
 		/* This format perfectly fits into 19 bytes. */
 		*buf++ = '0';
 		*buf++ = 'x';
 
-		buf = qword_to_hex(buf, fv->value.uinteger64);
+		switch (fv->ftype->ftype) {
+
+		case FT_UINT8:
+			buf = guint8_to_hex(buf, fv->value.uinteger64);
+			break;
+
+		case FT_UINT16:
+			buf = word_to_hex(buf, fv->value.uinteger64);
+			break;
+
+		case FT_UINT24:
+			buf = guint8_to_hex(buf, (fv->value.uinteger64 & 0x00ff0000) >> 16);
+			buf = word_to_hex(buf, (fv->value.uinteger64 & 0x0000ffff));
+			break;
+
+		case FT_UINT32:
+			buf = dword_to_hex(buf, (uint32_t)fv->value.uinteger64);
+			break;
+
+		default:
+			buf = qword_to_hex(buf, fv->value.uinteger64);
+		}
+
 		*buf++ = '\0';
 	}
 	else {
@@ -633,117 +499,43 @@ uinteger64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _
 }
 
 static enum ft_result
-uint_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
-{
-	dst->value.uinteger = a->value.uinteger & b->value.uinteger;
-	return FT_OK;
-}
-
-static guint
-uint_hash(const fvalue_t *fv)
-{
-	gint64 val = fv->value.uinteger;
-	return g_int64_hash(&val);
-}
-
-static gboolean
-uint_is_zero(const fvalue_t *fv)
-{
-	return fv->value.uinteger == 0;
-}
-
-static gboolean
-uint_is_negative(const fvalue_t *fv _U_)
-{
-	return FALSE;
-}
-
-static enum ft_result
-uint_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
-{
-	/* Unsigned integers are promoted to signed 32 bits. */
-	if (src->value.uinteger > G_MAXINT32) {
-		if (err_ptr)
-			*err_ptr = ws_strdup_printf("%"G_GUINT32_FORMAT" overflows gint32",
-							src->value.uinteger);
-		return FT_ERROR;
-	}
-	FTYPE_LOOKUP(FT_INT32, dst->ftype);
-	dst->value.sinteger = -(gint32)src->value.uinteger;
-	return FT_OK;
-}
-
-static enum ft_result
 uint64_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
 {
 	dst->value.uinteger64 = a->value.uinteger64 & b->value.uinteger64;
 	return FT_OK;
 }
 
-static guint
+static unsigned
 uint64_hash(const fvalue_t *fv)
 {
-	gint64 val = fv->value.uinteger64;
+	int64_t val = fv->value.uinteger64;
 	return g_int64_hash(&val);
 }
 
-static gboolean
+static bool
 uint64_is_zero(const fvalue_t *fv)
 {
 	return fv->value.uinteger64 == 0;
 }
 
-static gboolean
+static bool
 uint64_is_negative(const fvalue_t *fv _U_)
 {
-	return FALSE;
+	return false;
 }
 
 static enum ft_result
 uint64_unary_minus(fvalue_t *dst, const fvalue_t *src, char **err_ptr)
 {
 	/* Unsigned64 integers are promoted to signed 64 bits. */
-	if (src->value.uinteger64 > G_MAXINT64) {
+	if (src->value.uinteger64 > INT64_MAX) {
 		if (err_ptr)
-			*err_ptr = ws_strdup_printf("%"G_GUINT64_FORMAT" overflows gint64",
+			*err_ptr = ws_strdup_printf("%"PRIu64" overflows gint64",
 							src->value.uinteger64);
 		return FT_ERROR;
 	}
 	FTYPE_LOOKUP(FT_INT64, dst->ftype);
-	dst->value.sinteger64 = -(gint64)src->value.uinteger64;
-	return FT_OK;
-}
-
-static enum ft_result
-sint_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr _U_)
-{
-	dst->value.sinteger = a->value.sinteger & b->value.sinteger;
-	return FT_OK;
-}
-
-static guint
-sint_hash(const fvalue_t *fv)
-{
-	gint64 val = fv->value.sinteger;
-	return g_int64_hash(&val);
-}
-
-static gboolean
-sint_is_zero(const fvalue_t *fv)
-{
-	return fv->value.sinteger == 0;
-}
-
-static gboolean
-sint_is_negative(const fvalue_t *fv)
-{
-	return fv->value.sinteger < 0;
-}
-
-static enum ft_result
-sint_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
-{
-	dst->value.sinteger = -src->value.sinteger;
+	dst->value.sinteger64 = -(int64_t)src->value.uinteger64;
 	return FT_OK;
 }
 
@@ -754,20 +546,20 @@ sint64_bitwise_and(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **e
 	return FT_OK;
 }
 
-static guint
+static unsigned
 sint64_hash(const fvalue_t *fv)
 {
-	gint64 val = fv->value.sinteger64;
+	int64_t val = fv->value.sinteger64;
 	return g_int64_hash(&val);
 }
 
-static gboolean
+static bool
 sint64_is_zero(const fvalue_t *fv)
 {
 	return fv->value.sinteger64 == 0;
 }
 
-static gboolean
+static bool
 sint64_is_negative(const fvalue_t *fv)
 {
 	return fv->value.sinteger64 < 0;
@@ -777,143 +569,6 @@ static enum ft_result
 sint64_unary_minus(fvalue_t * dst, const fvalue_t *src, char **err_ptr _U_)
 {
 	dst->value.sinteger64 = -src->value.sinteger64;
-	return FT_OK;
-}
-
-static enum ft_result
-sint_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (!psnip_safe_int32_add(&dst->value.sinteger, a->value.sinteger, b->value.sinteger)) {
-		*err_ptr = ws_strdup_printf("sint_add: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-_sint_subtract(gint32 *sint_dst, gint32 sint_a, gint32 sint_b, char **err_ptr)
-{
-	if (!psnip_safe_int32_sub(sint_dst, sint_a, sint_b)) {
-		*err_ptr = ws_strdup_printf("sint_subtract: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-sint_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	return _sint_subtract(&dst->value.sinteger, a->value.sinteger, b->value.sinteger, err_ptr);
-}
-
-static enum ft_result
-sint_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (!psnip_safe_int32_mul(&dst->value.sinteger, a->value.sinteger, b->value.sinteger)) {
-		*err_ptr = ws_strdup_printf("sint_multiply: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-sint_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (b->value.sinteger == 0) {
-		*err_ptr = ws_strdup_printf("sint_divide: division by zero");
-		return FT_ERROR;
-	}
-
-	if (!psnip_safe_int32_div(&dst->value.sinteger, a->value.sinteger, b->value.sinteger)) {
-		*err_ptr = ws_strdup_printf("sint_divide: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-sint_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (b->value.sinteger == 0) {
-		*err_ptr = ws_strdup_printf("sint_modulo: division by zero");
-		return FT_ERROR;
-	}
-
-	if (!psnip_safe_int32_mod(&dst->value.sinteger, a->value.sinteger, b->value.sinteger)) {
-		*err_ptr = ws_strdup_printf("sint_modulo: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-uint_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (!psnip_safe_uint32_add(&dst->value.uinteger, a->value.uinteger, b->value.uinteger)) {
-		*err_ptr = ws_strdup_printf("uint_add: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-uint_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (b->value.uinteger > a->value.uinteger) {
-		/* Uses signed arithmetic. */
-		if (a->value.uinteger > G_MAXINT32 ||
-				b->value.uinteger > G_MAXINT32) {
-			*err_ptr = ws_strdup_printf("uint_subtract: signed overflow");
-			return FT_ERROR;
-		}
-		FTYPE_LOOKUP(FT_INT32, dst->ftype);
-		return _sint_subtract(&dst->value.sinteger, (gint32)a->value.uinteger, (gint32)b->value.uinteger, err_ptr);
-	}
-
-	if (!psnip_safe_uint32_sub(&dst->value.uinteger, a->value.uinteger, b->value.uinteger)) {
-		*err_ptr = ws_strdup_printf("uint_subtract: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-uint_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (!psnip_safe_uint32_mul(&dst->value.uinteger, a->value.uinteger, b->value.uinteger)) {
-		*err_ptr = ws_strdup_printf("uint_multiply: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-uint_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (b->value.uinteger == 0) {
-		*err_ptr = ws_strdup_printf("uint_divide: division by zero");
-		return FT_ERROR;
-	}
-
-	if (!psnip_safe_uint32_div(&dst->value.uinteger, a->value.uinteger, b->value.uinteger)) {
-		*err_ptr = ws_strdup_printf("uint_divide: overflow");
-		return FT_ERROR;
-	}
-	return FT_OK;
-}
-
-static enum ft_result
-uint_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
-{
-	if (b->value.uinteger == 0) {
-		*err_ptr = ws_strdup_printf("uint_modulo: division by zero");
-		return FT_ERROR;
-	}
-
-	if (!psnip_safe_uint32_mod(&dst->value.uinteger, a->value.uinteger, b->value.uinteger)) {
-		*err_ptr = ws_strdup_printf("uint_modulo: overflow");
-		return FT_ERROR;
-	}
 	return FT_OK;
 }
 
@@ -928,7 +583,7 @@ sint64_add(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 }
 
 static enum ft_result
-_sint64_subtract(gint64 *sint_dst, gint64 sint_a, gint64 sint_b, char **err_ptr)
+_sint64_subtract(int64_t *sint_dst, int64_t sint_a, int64_t sint_b, char **err_ptr)
 {
 	if (!psnip_safe_int64_sub(sint_dst, sint_a, sint_b)) {
 		*err_ptr = ws_strdup_printf("sint64_subtract: overflow");
@@ -998,13 +653,13 @@ uint64_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_
 {
 	if (b->value.uinteger64 > a->value.uinteger64) {
 		/* Uses signed arithmetic. */
-		if (a->value.uinteger64 > G_MAXINT64 ||
-				b->value.uinteger64 > G_MAXINT64) {
+		if (a->value.uinteger64 > INT64_MAX ||
+				b->value.uinteger64 > INT64_MAX) {
 			*err_ptr = ws_strdup_printf("uint64_subtract: signed overflow");
 			return FT_ERROR;
 		}
 		FTYPE_LOOKUP(FT_INT64, dst->ftype);
-		return _sint64_subtract(&dst->value.sinteger64, (gint64)a->value.uinteger64, (gint64)b->value.uinteger64, err_ptr);
+		return _sint64_subtract(&dst->value.sinteger64, (int64_t)a->value.uinteger64, (int64_t)b->value.uinteger64, err_ptr);
 	}
 
 	if (!psnip_safe_uint64_sub(&dst->value.uinteger64, a->value.uinteger64, b->value.uinteger64)) {
@@ -1054,58 +709,31 @@ uint64_modulo(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 	return FT_OK;
 }
 
-static enum ft_result uint_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
-{
-	*dst = src->value.uinteger;
-	return FT_OK;
-}
-
-static enum ft_result uint_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
-{
-	*dst = (gint64)src->value.uinteger;
-	return FT_OK;
-}
-
-static enum ft_result sint_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
-{
-	if (src->value.sinteger < 0)
-		return FT_OVERFLOW;
-
-	*dst = (guint64)src->value.sinteger;
-	return FT_OK;
-}
-
-static enum ft_result sint_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
-{
-	*dst = src->value.sinteger;
-	return FT_OK;
-}
-
-static enum ft_result uint64_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+static enum ft_result uint64_val_to_uinteger64(const fvalue_t *src, uint64_t *dst)
 {
 	*dst = src->value.uinteger64;
 	return FT_OK;
 }
 
-static enum ft_result uint64_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+static enum ft_result uint64_val_to_sinteger64(const fvalue_t *src, int64_t *dst)
 {
-	if (src->value.uinteger64 > G_MAXINT64)
+	if (src->value.uinteger64 > INT64_MAX)
 		return FT_OVERFLOW;
 
-	*dst = (gint64)src->value.uinteger64;
+	*dst = (int64_t)src->value.uinteger64;
 	return FT_OK;
 }
 
-static enum ft_result sint64_val_to_uinteger64(const fvalue_t *src, guint64 *dst)
+static enum ft_result sint64_val_to_uinteger64(const fvalue_t *src, uint64_t *dst)
 {
 	if (src->value.sinteger64 < 0)
 		return FT_OVERFLOW;
 
-	*dst = (guint64)src->value.sinteger64;
+	*dst = (uint64_t)src->value.sinteger64;
 	return FT_OK;
 }
 
-static enum ft_result sint64_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
+static enum ft_result sint64_val_to_sinteger64(const fvalue_t *src, int64_t *dst)
 {
 	*dst = src->value.sinteger64;
 	return FT_OK;
@@ -1113,37 +741,65 @@ static enum ft_result sint64_val_to_sinteger64(const fvalue_t *src, gint64 *dst)
 
 /* BOOLEAN-specific */
 
-static gboolean
-boolean_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+static bool
+boolean_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg)
 {
 	if (g_ascii_strcasecmp(s, "true") == 0) {
 		fv->value.uinteger64 = 1;
-		return TRUE;
+		return true;
 	}
 	if (g_ascii_strcasecmp(s, "false") == 0) {
 		fv->value.uinteger64 = 0;
-		return TRUE;
+		return true;
 	}
 
 	char *endptr;
 	errno = 0;
-	gint64 val = g_ascii_strtoll(s, &endptr, 0);
+	int64_t val = g_ascii_strtoll(s, &endptr, 0);
 	if (errno == 0 && *endptr == '\0') {
 		/* This is a valid number. */
 		fv->value.uinteger64 = (val != 0);
-		return TRUE;
+		return true;
 	}
 	if (err_msg)
 		*err_msg = ws_strdup_printf("\"%s\" is not a valid boolean", s);
-	return FALSE;
+	return false;
+}
+
+static bool
+boolean_from_string(fvalue_t *fv, const char *s, size_t len, char **err_msg _U_)
+{
+	if (g_ascii_strncasecmp(s, "true", len) == 0) {
+		fv->value.uinteger64 = 1;
+		return true;
+	}
+	if (g_ascii_strncasecmp(s, "false", len) == 0) {
+		fv->value.uinteger64 = 0;
+		return true;
+	}
+
+	if (err_msg)
+		*err_msg = ws_strdup_printf("expected \"True\" or \"False\", not \"%s\"", s);
+	return false;
 }
 
 static char *
-boolean_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
+boolean_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int field_display _U_)
 {
-	if (fv->value.uinteger64)
-		return wmem_strdup(scope, "1");
-	return wmem_strdup(scope, "0");
+	bool val = fv->value.uinteger64;
+	const char *str = NULL;
+
+	switch (rtype) {
+		case FTREPR_DFILTER:
+		case FTREPR_DISPLAY:
+			str = val ? "True" : "False";
+			break;
+		case FTREPR_JSON:
+			str = val ? "1" : "0";
+			break;
+	}
+
+	return wmem_strdup(scope, str);
 }
 
 /* False is less than True (arbitrary):
@@ -1156,7 +812,7 @@ boolean_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_,
 static enum ft_result
 boolean_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 {
-	guint64 val_a, val_b;
+	uint64_t val_a, val_b;
 	enum ft_result res;
 
 	val_a = a->value.uinteger64;
@@ -1182,7 +838,7 @@ boolean_cmp_order(const fvalue_t *a, const fvalue_t *b, int *cmp)
 	return FT_OK;
 }
 
-static guint
+static unsigned
 boolean_hash(const fvalue_t *fv)
 {
 	int val;
@@ -1194,15 +850,40 @@ boolean_hash(const fvalue_t *fv)
 	return g_int_hash(&val);
 }
 
+static bool
+ipxnet_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg)
+{
+	/*
+	 * Don't request an error message if bytes_from_literal fails;
+	 * if it does, we'll report an error specific to this address
+	 * type.
+	 */
+	if (uint32_from_literal(fv, s, true, NULL)) {
+		return true;
+	}
+
+	/* XXX - Try resolving as an IPX host name and parse that? */
+
+	if (err_msg != NULL)
+		*err_msg = ws_strdup_printf("\"%s\" is not a valid IPX network address.", s);
+	return false;
+}
+
+static char *
+ipxnet_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype, int field_display _U_)
+{
+	return uinteger64_to_repr(scope, fv, rtype, BASE_HEX);
+}
+
 /* EUI64-specific */
-static gboolean
-eui64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_, gchar **err_msg)
+static bool
+eui64_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg)
 {
 	GByteArray	*bytes;
-	gboolean	res;
+	bool	res;
 	union {
-		guint64 value;
-		guint8  bytes[8];
+		uint64_t value;
+		uint8_t bytes[8];
 	} eui64;
 
 	/*
@@ -1210,31 +891,31 @@ eui64_from_literal(fvalue_t *fv, const char *s, gboolean allow_partial_value _U_
 	 * if it does, we'll try parsing it as a sequence of bytes, and
 	 * report an error if *that* fails.
 	 */
-	if (uint64_from_literal(fv, s, TRUE, NULL)) {
-		return TRUE;
+	if (uint64_from_literal(fv, s, true, NULL)) {
+		return true;
 	}
 
 	bytes = g_byte_array_new();
-	res = hex_str_to_bytes(s, bytes, TRUE);
+	res = hex_str_to_bytes(s, bytes, true);
 	if (!res || bytes->len != 8) {
 		if (err_msg != NULL)
 			*err_msg = ws_strdup_printf("\"%s\" is not a valid EUI-64 address.", s);
-		g_byte_array_free(bytes, TRUE);
-		return FALSE;
+		g_byte_array_free(bytes, true);
+		return false;
 	}
 
 	memcpy(eui64.bytes, bytes->data, 8);
-	g_byte_array_free(bytes, TRUE);
+	g_byte_array_free(bytes, true);
 	fv->value.uinteger64 = GUINT64_FROM_BE(eui64.value);
-	return TRUE;
+	return true;
 }
 
 static char *
 eui64_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
 {
 	union {
-		guint64 value;
-		guint8  bytes[8];
+		uint64_t value;
+		uint8_t bytes[8];
 	} eui64;
 
 	/* Copy and convert the address from host to network byte order. */
@@ -1258,31 +939,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint8_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
+		uint64_from_charconst,		/* val_from_charconst */
 		char_to_repr,			/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 	static ftype_t uint8_type = {
 		FT_UINT8,			/* ftype */
@@ -1294,31 +975,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint8_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
-		uinteger_to_repr,		/* val_to_string_repr */
+		uint64_from_charconst,		/* val_from_charconst */
+		uinteger64_to_repr,		/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 	static ftype_t uint16_type = {
 		FT_UINT16,			/* ftype */
@@ -1330,31 +1011,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint16_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
-		uinteger_to_repr,		/* val_to_string_repr */
+		uint64_from_charconst,		/* val_from_charconst */
+		uinteger64_to_repr,		/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 	static ftype_t uint24_type = {
 		FT_UINT24,			/* ftype */
@@ -1366,31 +1047,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint24_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
-		uinteger_to_repr,		/* val_to_string_repr */
+		uint64_from_charconst,		/* val_from_charconst */
+		uinteger64_to_repr,		/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 	static ftype_t uint32_type = {
 		FT_UINT32,			/* ftype */
@@ -1402,31 +1083,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint32_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
-		uinteger_to_repr,		/* val_to_string_repr */
+		uint64_from_charconst,		/* val_from_charconst */
+		uinteger64_to_repr,		/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 	static ftype_t uint40_type = {
 		FT_UINT40,			/* ftype */
@@ -1582,31 +1263,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		sint8_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		sint_from_charconst,		/* val_from_charconst */
-		integer_to_repr,		/* val_to_string_repr */
+		sint64_from_charconst,		/* val_from_charconst */
+		integer64_to_repr,		/* val_to_string_repr */
 
-		sint_val_to_uinteger64,		/* val_to_uinteger64 */
-		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sint_cmp_order,			/* cmp_order */
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		sint_hash,			/* hash */
-		sint_is_zero,			/* is_zero */
-		sint_is_negative,		/* is_negative */
+		sint64_hash,			/* hash */
+		sint64_is_zero,			/* is_zero */
+		sint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		sint_bitwise_and,		/* bitwise_and */
-		sint_unary_minus,		/* unary_minus */
-		sint_add,			/* add */
-		sint_subtract,			/* subtract */
-		sint_multiply,			/* multiply */
-		sint_divide,			/* divide */
-		sint_modulo,			/* modulo */
+		sint64_bitwise_and,		/* bitwise_and */
+		sint64_unary_minus,		/* unary_minus */
+		sint64_add,			/* add */
+		sint64_subtract,		/* subtract */
+		sint64_multiply,		/* multiply */
+		sint64_divide,			/* divide */
+		sint64_modulo,			/* modulo */
 	};
 	static ftype_t int16_type = {
 		FT_INT16,			/* ftype */
@@ -1618,31 +1299,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		sint16_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		sint_from_charconst,		/* val_from_charconst */
-		integer_to_repr,		/* val_to_string_repr */
+		sint64_from_charconst,		/* val_from_charconst */
+		integer64_to_repr,		/* val_to_string_repr */
 
-		sint_val_to_uinteger64,		/* val_to_uinteger64 */
-		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sint_cmp_order,			/* cmp_order */
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		sint_hash,			/* hash */
-		sint_is_zero,			/* is_zero */
-		sint_is_negative,		/* is_negative */
+		sint64_hash,			/* hash */
+		sint64_is_zero,			/* is_zero */
+		sint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		sint_bitwise_and,		/* bitwise_and */
-		sint_unary_minus,		/* unary_minus */
-		sint_add,			/* add */
-		sint_subtract,			/* subtract */
-		sint_multiply,			/* multiply */
-		sint_divide,			/* divide */
-		sint_modulo,			/* modulo */
+		sint64_bitwise_and,		/* bitwise_and */
+		sint64_unary_minus,		/* unary_minus */
+		sint64_add,			/* add */
+		sint64_subtract,		/* subtract */
+		sint64_multiply,		/* multiply */
+		sint64_divide,			/* divide */
+		sint64_modulo,			/* modulo */
 	};
 	static ftype_t int24_type = {
 		FT_INT24,			/* ftype */
@@ -1654,31 +1335,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		sint24_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		sint_from_charconst,		/* val_from_charconst */
-		integer_to_repr,		/* val_to_string_repr */
+		sint64_from_charconst,		/* val_from_charconst */
+		integer64_to_repr,		/* val_to_string_repr */
 
-		sint_val_to_uinteger64,		/* val_to_uinteger64 */
-		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sint_cmp_order,			/* cmp_order */
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		sint_hash,			/* hash */
-		sint_is_zero,			/* is_zero */
-		sint_is_negative,		/* is_negative */
+		sint64_hash,			/* hash */
+		sint64_is_zero,			/* is_zero */
+		sint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		sint_bitwise_and,		/* bitwise_and */
-		sint_unary_minus,		/* unary_minus */
-		sint_add,			/* add */
-		sint_subtract,			/* subtract */
-		sint_multiply,			/* multiply */
-		sint_divide,			/* divide */
-		sint_modulo,			/* modulo */
+		sint64_bitwise_and,		/* bitwise_and */
+		sint64_unary_minus,		/* unary_minus */
+		sint64_add,			/* add */
+		sint64_subtract,		/* subtract */
+		sint64_multiply,		/* multiply */
+		sint64_divide,			/* divide */
+		sint64_modulo,			/* modulo */
 	};
 	static ftype_t int32_type = {
 		FT_INT32,			/* ftype */
@@ -1690,31 +1371,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		sint32_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		sint_from_charconst,		/* val_from_charconst */
-		integer_to_repr,		/* val_to_string_repr */
+		sint64_from_charconst,		/* val_from_charconst */
+		integer64_to_repr,		/* val_to_string_repr */
 
-		sint_val_to_uinteger64,		/* val_to_uinteger64 */
-		sint_val_to_sinteger64,		/* val_to_sinteger64 */
+		sint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		sint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_sinteger = set_sinteger },	/* union set_value */
 		{ .get_value_sinteger = get_sinteger },	/* union get_value */
 
-		sint_cmp_order,			/* cmp_order */
+		sint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		sint_hash,			/* hash */
-		sint_is_zero,			/* is_zero */
-		sint_is_negative,		/* is_negative */
+		sint64_hash,			/* hash */
+		sint64_is_zero,			/* is_zero */
+		sint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		sint_bitwise_and,		/* bitwise_and */
-		sint_unary_minus,		/* unary_minus */
-		sint_add,			/* add */
-		sint_subtract,			/* subtract */
-		sint_multiply,			/* multiply */
-		sint_divide,			/* divide */
-		sint_modulo,			/* modulo */
+		sint64_bitwise_and,		/* bitwise_and */
+		sint64_unary_minus,		/* unary_minus */
+		sint64_add,			/* add */
+		sint64_subtract,		/* subtract */
+		sint64_multiply,		/* multiply */
+		sint64_divide,			/* divide */
+		sint64_modulo,			/* modulo */
 	};
 	static ftype_t int40_type = {
 		FT_INT40,			/* ftype */
@@ -1869,7 +1550,7 @@ ftype_register_integers(void)
 		NULL,				/* copy_value */
 		NULL,				/* free_value */
 		boolean_from_literal,		/* val_from_literal */
-		NULL,				/* val_from_string */
+		boolean_from_string,		/* val_from_string */
 		uint64_from_charconst,		/* val_from_charconst */
 		boolean_to_repr,		/* val_to_string_repr */
 
@@ -1910,23 +1591,23 @@ ftype_register_integers(void)
 		NULL,				/* val_from_charconst */
 		ipxnet_to_repr,			/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
 		NULL,				/* add */
 		NULL,				/* subtract */
 		NULL,				/* multiply */
@@ -1944,31 +1625,31 @@ ftype_register_integers(void)
 		NULL,				/* free_value */
 		uint32_from_literal,		/* val_from_literal */
 		NULL,				/* val_from_string */
-		uint_from_charconst,		/* val_from_charconst */
-		uinteger_to_repr,		/* val_to_string_repr */
+		uint64_from_charconst,		/* val_from_charconst */
+		uinteger64_to_repr,		/* val_to_string_repr */
 
-		uint_val_to_uinteger64,		/* val_to_uinteger64 */
-		uint_val_to_sinteger64,		/* val_to_sinteger64 */
+		uint64_val_to_uinteger64,	/* val_to_uinteger64 */
+		uint64_val_to_sinteger64,	/* val_to_sinteger64 */
 
 		{ .set_value_uinteger = set_uinteger },	/* union set_value */
 		{ .get_value_uinteger = get_uinteger },	/* union get_value */
 
-		uint_cmp_order,			/* cmp_order */
+		uint64_cmp_order,		/* cmp_order */
 		NULL,				/* cmp_contains */
 		NULL,				/* cmp_matches */
 
-		uint_hash,			/* hash */
-		uint_is_zero,			/* is_zero */
-		uint_is_negative,		/* is_negative */
+		uint64_hash,			/* hash */
+		uint64_is_zero,			/* is_zero */
+		uint64_is_negative,		/* is_negative */
 		NULL,				/* len */
 		NULL,				/* slice */
-		uint_bitwise_and,		/* bitwise_and */
-		uint_unary_minus,		/* unary_minus */
-		uint_add,			/* add */
-		uint_subtract,			/* subtract */
-		uint_multiply,			/* multiply */
-		uint_divide,			/* divide */
-		uint_modulo,			/* modulo */
+		uint64_bitwise_and,		/* bitwise_and */
+		uint64_unary_minus,		/* unary_minus */
+		uint64_add,			/* add */
+		uint64_subtract,		/* subtract */
+		uint64_multiply,		/* multiply */
+		uint64_divide,			/* divide */
+		uint64_modulo,			/* modulo */
 	};
 
 	static ftype_t eui64_type = {

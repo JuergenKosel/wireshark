@@ -138,6 +138,28 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
     return FALSE;
 }
 
+/*
+ * Given a field_info, select the field (which will scroll to it in
+ * the main ProtoTree, etc.) This is kind of an odd place for it,
+ * but we call this when performing Find Packet in lieu of changing the
+ * selected frame (the function above), because we found a match in the
+ * same frame as the currently selected one.
+ */
+gboolean
+packet_list_select_finfo(field_info *fi)
+{
+    if (! gbl_cur_packet_list || ! gbl_cur_packet_list->model())
+        return FALSE;
+
+    if (fi) {
+        FieldInformation finfo(fi, gbl_cur_packet_list);
+        emit gbl_cur_packet_list->fieldSelected(&finfo);
+    } else {
+        emit gbl_cur_packet_list->fieldSelected(0);
+    }
+    return TRUE;
+}
+
 void
 packet_list_clear(void)
 {
@@ -564,9 +586,17 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
             // The tree where the target string matched one of the labels was discarded in
             // match_protocol_tree() so we have to search again in the latest tree.
             fi = cf_find_string_protocol_tree(cap_file_, cap_file_->edt->tree);
-        } else if (cap_file_->search_pos != 0) {
+        } else if (cap_file_->search_len != 0) {
             // Find the finfo that corresponds to our byte.
-            fi = proto_find_field_from_offset(cap_file_->edt->tree, cap_file_->search_pos,
+            // The match can span multiple fields (and a single byte can
+            // match more than one field.) Our behavior is to find the last
+            // field in the tree (so hopefully spanning fewer bytes) that
+            // matches the last byte in the search match.
+            // (regex search can find a zero length match not at the
+            // start of the frame if lookbehind is used, but
+            // proto_find_field_from_offset doesn't match such a field
+            // and it's not clear which field we would want to match.)
+            fi = proto_find_field_from_offset(cap_file_->edt->tree, cap_file_->search_pos + cap_file_->search_len - 1,
                                               cap_file_->edt->tvb);
         }
 
@@ -647,7 +677,9 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
 
     // Code for custom context menus from Lua's register_packet_menu()
     MainWindow * mainWindow = qobject_cast<MainWindow *>(mainApp->mainWindow());
-    if (cap_file_ && cap_file_->edt && cap_file_->edt->tree && mainWindow) {
+    // N.B., Only want to call for a single frame selection.
+    // Testing finfo_array as a proxy, because mainWindow->hasUniqueSelection() doesn't detect multiple selections...
+    if (cap_file_ && cap_file_->edt && cap_file_->edt->tree && mainWindow && finfo_array) {
         bool insertedPacketMenu = mainWindow->addPacketMenus(ctx_menu, finfo_array);
         if (insertedPacketMenu) {
             ctx_menu->addSeparator();

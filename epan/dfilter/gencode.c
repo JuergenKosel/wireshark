@@ -20,7 +20,7 @@
 #include <wsutil/ws_assert.h>
 
 static void
-fixup_jumps(gpointer data, gpointer user_data);
+fixup_jumps(void *data, void *user_data);
 
 static void
 gencode(dfwork_t *dfw, stnode_t *st_node);
@@ -82,7 +82,7 @@ dfw_append_stack_push(dfwork_t *dfw, dfvm_value_t *arg1)
 }
 
 static void
-dfw_append_stack_pop(dfwork_t *dfw, guint count)
+dfw_append_stack_pop(dfwork_t *dfw, unsigned count)
 {
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*val;
@@ -131,12 +131,12 @@ dfw_append_jump(dfwork_t *dfw)
 static dfvm_value_t *
 dfw_append_read_tree(dfwork_t *dfw, header_field_info *hfinfo,
 						drange_t *range,
-						gboolean raw)
+						bool raw)
 {
 	dfvm_insn_t	*insn;
 	int		reg = -1;
 	dfvm_value_t	*reg_val, *val1, *val3;
-	gboolean	added_new_hfinfo = FALSE;
+	bool	added_new_hfinfo = false;
 	GHashTable *loaded_fields;
 	void *loaded_key;
 
@@ -174,7 +174,7 @@ dfw_append_read_tree(dfwork_t *dfw, header_field_info *hfinfo,
 		g_hash_table_insert(loaded_fields,
 			hfinfo, GINT_TO_POINTER(reg + 1));
 
-		added_new_hfinfo = TRUE;
+		added_new_hfinfo = true;
 	}
 
 	val1 = dfvm_value_new_hfinfo(hfinfo, raw);
@@ -207,7 +207,7 @@ dfw_append_read_tree(dfwork_t *dfw, header_field_info *hfinfo,
 static dfvm_value_t *
 dfw_append_read_reference(dfwork_t *dfw, header_field_info *hfinfo,
 						drange_t *range,
-						gboolean raw)
+						bool raw)
 {
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*reg_val, *val1, *val3;
@@ -274,6 +274,25 @@ dfw_append_mk_slice(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	return reg_val;
 }
 
+/* Returns register number. This applies the value string in hfinfo to the
+ * contents of the src register. */
+static dfvm_value_t *
+dfw_append_mk_value_string(dfwork_t *dfw, stnode_t *node, dfvm_value_t *src)
+{
+	dfvm_insn_t		*insn;
+	dfvm_value_t		*reg_val, *val1;
+
+	insn = dfvm_insn_new(DFVM_VALUE_STRING);
+	val1 = dfvm_value_new_hfinfo(sttype_field_hfinfo(node), false);
+	insn->arg1 = dfvm_value_ref(val1);
+	insn->arg2 = dfvm_value_ref(src);
+	reg_val = dfvm_value_new_register(dfw->next_register++);
+	insn->arg3 = dfvm_value_ref(reg_val);
+	dfw_append_insn(dfw, insn);
+
+	return reg_val;
+}
+
 /* returns register number */
 _U_ static dfvm_value_t *
 dfw_append_put_fvalue(dfwork_t *dfw, fvalue_t *fv)
@@ -323,7 +342,7 @@ dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	dfvm_value_t *jmp;
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*reg_val, *val1, *val3, *val_arg;
-	guint		count;
+	unsigned		count;
 
 	if (strcmp(sttype_function_name(node), "len") == 0) {
 		/* Replace len() function call with DFVM_LENGTH instruction. */
@@ -406,7 +425,7 @@ gen_relation(dfwork_t *dfw, dfvm_opcode_t op, stmatch_t how,
 }
 
 static void
-fixup_jumps(gpointer data, gpointer user_data)
+fixup_jumps(void *data, void *user_data)
 {
 	dfvm_value_t *jmp = (dfvm_value_t*)data;
 	dfwork_t *dfw = (dfwork_t*)user_data;
@@ -533,7 +552,7 @@ gen_entity(dfwork_t *dfw, stnode_t *st_arg, GSList **jumps_ptr)
 	dfvm_value_t      *val;
 	header_field_info *hfinfo;
 	drange_t *range = NULL;
-	gboolean raw;
+	bool raw;
 	e_type = stnode_type_id(st_arg);
 
 	if (e_type == STTYPE_FIELD) {
@@ -544,6 +563,12 @@ gen_entity(dfwork_t *dfw, stnode_t *st_arg, GSList **jumps_ptr)
 		if (jumps_ptr != NULL) {
 			*jumps_ptr = g_slist_prepend(*jumps_ptr, dfw_append_jump(dfw));
 		}
+		if (sttype_field_value_string(st_arg)) {
+			val = dfw_append_mk_value_string(dfw, st_arg, val);
+			if (jumps_ptr != NULL) {
+				*jumps_ptr = g_slist_prepend(*jumps_ptr, dfw_append_jump(dfw));
+			}
+		}
 	}
 	else if (e_type == STTYPE_REFERENCE) {
 		hfinfo = sttype_field_hfinfo(st_arg);
@@ -552,6 +577,12 @@ gen_entity(dfwork_t *dfw, stnode_t *st_arg, GSList **jumps_ptr)
 		val = dfw_append_read_reference(dfw, hfinfo, range, raw);
 		if (jumps_ptr != NULL) {
 			*jumps_ptr = g_slist_prepend(*jumps_ptr, dfw_append_jump(dfw));
+		}
+		if (sttype_field_value_string(st_arg)) {
+			val = dfw_append_mk_value_string(dfw, st_arg, val);
+			if (jumps_ptr != NULL) {
+				*jumps_ptr = g_slist_prepend(*jumps_ptr, dfw_append_jump(dfw));
+			}
 		}
 	}
 	else if (e_type == STTYPE_FVALUE) {
@@ -592,7 +623,7 @@ gen_exists(dfwork_t *dfw, stnode_t *st_node)
 	}
 
 	/* Ignore "rawness" for existence tests. */
-	val1 = dfvm_value_new_hfinfo(hfinfo, FALSE);
+	val1 = dfvm_value_new_hfinfo(hfinfo, false);
 	if (range) {
 		val2 = dfvm_value_new_drange(range);
 	}
@@ -850,7 +881,7 @@ typedef struct {
 } hash_key_iterator;
 
 static void
-get_hash_key(gpointer key, gpointer value _U_, gpointer user_data)
+get_hash_key(void *key, void *value _U_, void *user_data)
 {
 	int field_id = *(int *)key;
 	hash_key_iterator *hki = (hash_key_iterator *)user_data;

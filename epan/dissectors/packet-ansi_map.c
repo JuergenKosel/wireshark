@@ -1389,7 +1389,7 @@ dissect_ansi_map_min_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
     subtree = proto_item_add_subtree(actx->created_item, ett_mintype);
 
-    proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, tvb_reported_length_remaining(tvb, offset), ENC_BCD_DIGITS_0_9, pinfo->pool, &digit_str);
+    proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, tvb_reported_length_remaining(tvb, offset), ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN, pinfo->pool, &digit_str);
     proto_item_append_text(actx->created_item, " - %s", digit_str);
 }
 
@@ -1433,7 +1433,7 @@ dissect_ansi_map_digits_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
             if(octet_len == 0)
                 return;
             offset++;
-            proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, ENC_KEYPAD_BC_TBCD, pinfo->pool, &digit_str);
+            proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, ENC_KEYPAD_BC_TBCD|ENC_LITTLE_ENDIAN, pinfo->pool, &digit_str);
             proto_item_append_text(actx->created_item, " - %s", digit_str);
             break;
         case 2:
@@ -1474,7 +1474,7 @@ dissect_ansi_map_digits_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         switch ((octet&0xf)){
         case 1:
             /* BCD Coding */
-            proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, ENC_KEYPAD_BC_TBCD, pinfo->pool, &digit_str);
+            proto_tree_add_item_ret_display_string(subtree, hf_ansi_map_bcd_digits, tvb, offset, -1, ENC_KEYPAD_BC_TBCD|ENC_LITTLE_ENDIAN, pinfo->pool, &digit_str);
             proto_item_append_text(actx->created_item, " - %s", digit_str);
             break;
         case 2:
@@ -1526,12 +1526,6 @@ dissect_ansi_map_digits_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 }
 /* 6.5.3.13. Subaddress */
 
-#if 0
-static const true_false_string ansi_map_Odd_Even_Ind_bool_val  = {
-  "Odd",
-  "Even"
-};
-#endif
 /* Type of Subaddress (octet 1, bits E-G) */
 static const value_string ansi_map_sub_addr_type_vals[]  = {
     {   0, "NSAP (CCITT Rec. X.213 or ISO 8348 AD2)"},
@@ -2248,10 +2242,6 @@ dissect_ansi_map_channeldata(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 /* Updated with N.S0008-0 v 1.0*/
 /* Voice Privacy (VP) Confidentiality Status (octet 1, bit A) */
 
-static const true_false_string ansi_map_ConfidentialityModes_bool_val  = {
-    "On",
-    "Off"
-};
 static void
 dissect_ansi_map_confidentialitymodes(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree _U_, asn1_ctx_t *actx _U_){
     int offset = 0;
@@ -16635,7 +16625,7 @@ void proto_register_ansi_map(void) {
             NULL, HFILL }},
         { &hf_ansi_map_ConfidentialityModes_vp,
           { "Voice Privacy (VP) Confidentiality Status", "ansi_map.confidentialitymodes.vp",
-            FT_BOOLEAN, 8, TFS(&ansi_map_ConfidentialityModes_bool_val),0x01,
+            FT_BOOLEAN, 8, TFS(&tfs_on_off),0x01,
             NULL, HFILL }},
         { &hf_ansi_map_controlchanneldata_dcc,
           { "Digital Color Code (DCC)", "ansi_map.controlchanneldata.dcc",
@@ -16659,11 +16649,11 @@ void proto_register_ansi_map(void) {
             NULL, HFILL }},
         { &hf_ansi_map_ConfidentialityModes_se,
           { "Signaling Message Encryption (SE) Confidentiality Status", "ansi_map.confidentialitymodes.se",
-            FT_BOOLEAN, 8, TFS(&ansi_map_ConfidentialityModes_bool_val),0x02,
+            FT_BOOLEAN, 8, TFS(&tfs_on_off),0x02,
             NULL, HFILL }},
         { &hf_ansi_map_ConfidentialityModes_dp,
           { "DataPrivacy (DP) Confidentiality Status", "ansi_map.confidentialitymodes.dp",
-            FT_BOOLEAN, 8, TFS(&ansi_map_ConfidentialityModes_bool_val),0x04,
+            FT_BOOLEAN, 8, TFS(&tfs_on_off),0x04,
             NULL, HFILL }},
 
         { &hf_ansi_map_deniedauthorizationperiod_period,

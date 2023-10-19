@@ -37,12 +37,9 @@
 #include <epan/strutil.h>
 
 #include <wiretap/wtap.h>
+#include <wiretap/pcapng_module.h>
 /* #include <epan/expert.h> */
 /* #include <epan/prefs.h> */
-
-#define BLOCK_TYPE_SYSDIG_EVENT 0x00000204
-#define BLOCK_TYPE_SYSDIG_EVENT_V2 0x00000216
-#define BLOCK_TYPE_SYSDIG_EVENT_V2_LARGE 0x00000221
 
 #define SYSDIG_PARAM_SIZE 2
 #define SYSDIG_PARAM_SIZE_V2 2
@@ -51,6 +48,8 @@
 /* Prototypes */
 void proto_reg_handoff_sysdig_event(void);
 void proto_register_sysdig_event(void);
+
+static dissector_handle_t sysdig_event_handle;
 
 /* Initialize the protocol and registered fields */
 static int proto_sysdig_event = -1;
@@ -295,7 +294,7 @@ static gint ett_sysdig_parm_lens = -1;
 static gint ett_sysdig_syscall = -1;
 
 /* Initialize the pointer to the child plugin dissector */
-static dissector_handle_t plugin_dissector_handle = NULL;
+static dissector_handle_t sinsp_dissector_handle = NULL;
 
 #define SYSDIG_EVENT_MIN_LENGTH 8 /* XXX Fix */
 
@@ -2832,17 +2831,6 @@ dissect_event_params(tvbuff_t *tvb, packet_info *pinfo, const char **event_name,
     return param_offset - offset;
 }
 
-
-static int
-dissect_plugin_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
-{
-    if (!plugin_dissector_handle) {
-        return 0;
-    }
-    return call_dissector_with_data(plugin_dissector_handle, tvb, pinfo, tree, data);
-}
-
-
 static int
 dissect_sysdig_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         void *data)
@@ -2865,8 +2853,8 @@ dissect_sysdig_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /*
      * If this is a plugin event, handle it appropriately and return
      */
-    if (event_type == EVT_PLUGINEVENT_E) {
-        return dissect_plugin_event(tvb, pinfo, tree, data);
+    if (event_type == EVT_PLUGINEVENT_E && sinsp_dissector_handle) {
+        return call_dissector_with_data(sinsp_dissector_handle, tvb, pinfo, tree, data);
     }
 
     const char *event_name = val_to_str(event_type, event_type_vals, "Unknown syscall %u");
@@ -2937,6 +2925,10 @@ dissect_sysdig_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
 
     proto_tree_add_string(se_tree, hf_se_event_name, tvb, 0, 0, event_name);
+
+    if (sinsp_dissector_handle) {
+        return call_dissector_with_data(sinsp_dissector_handle, tvb, pinfo, tree, data);
+    }
 
     /* XXX */
     /* return offset; */
@@ -3218,32 +3210,23 @@ proto_register_sysdig_event(void)
     };
 
     /* Register the protocol name and description */
-    proto_sysdig_event = proto_register_protocol("Sysdig Event",
-            "Sysdig Event", "sysdig");
+    proto_sysdig_event = proto_register_protocol("Sysdig Event", "Sysdig Event", "sysdig");
 
     /* Required function calls to register the header fields and subtrees */
     proto_register_field_array(proto_sysdig_event, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    register_dissector("sysdig", dissect_sysdig_event, proto_sysdig_event);
+    sysdig_event_handle = register_dissector("sysdig", dissect_sysdig_event, proto_sysdig_event);
 }
 
 void
 proto_reg_handoff_sysdig_event(void)
 {
-    dissector_handle_t sysdig_event_handle;
-
-    /* Use create_dissector_handle() to indicate that dissect_sysdig_event()
-     * returns the number of bytes it dissected (or 0 if it thinks the packet
-     * does not belong to PROTONAME).
-     */
-    sysdig_event_handle = create_dissector_handle(dissect_sysdig_event,
-            proto_sysdig_event);
     dissector_add_uint("pcapng.block_type", BLOCK_TYPE_SYSDIG_EVENT, sysdig_event_handle);
     dissector_add_uint("pcapng.block_type", BLOCK_TYPE_SYSDIG_EVENT_V2, sysdig_event_handle);
     dissector_add_uint("pcapng.block_type", BLOCK_TYPE_SYSDIG_EVENT_V2_LARGE, sysdig_event_handle);
 
-    plugin_dissector_handle = find_dissector("falcobridge");
+    sinsp_dissector_handle = find_dissector("falcobridge");
 }
 
 /*

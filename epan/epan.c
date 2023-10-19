@@ -282,6 +282,15 @@ epan_init(register_cb cb, gpointer client_data, gboolean load_plugins)
 	}
 
 	/* initialize libgcrypt (beware, it won't be thread-safe) */
+#if GCRYPT_VERSION_NUMBER >= 0x010a00
+	/* Ensure FIPS mode is disabled; it makes it impossible to decrypt
+	 * non-NIST approved algorithms. We're decrypting, not promising
+	 * security. This overrides any file or environment variables that
+	 * would normally turn on FIPS mode, and has to be done prior to
+	 * gcry_check_version().
+	 */
+	gcry_control (GCRYCTL_NO_FIPS_MODE);
+#endif
 	gcry_check_version(NULL);
 #if defined(_WIN32)
 	gcry_set_log_handler (quiet_gcrypt_logger, NULL);
@@ -290,6 +299,11 @@ epan_init(register_cb cb, gpointer client_data, gboolean load_plugins)
 	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
 #ifdef HAVE_LIBGNUTLS
 	gnutls_global_init();
+#if GNUTLS_VERSION_NUMBER >= 0x030602
+	if (gnutls_fips140_mode_enabled()) {
+		gnutls_fips140_set_mode(GNUTLS_FIPS140_LAX, 0);
+	}
+#endif
 #endif
 #ifdef HAVE_LIBXML2
 	xmlInitParser();
@@ -498,8 +512,10 @@ epan_get_frame_ts(const epan_t *session, guint32 frame_num)
 	if (session && session->funcs.get_frame_ts)
 		abs_ts = session->funcs.get_frame_ts(session->prov, frame_num);
 
-	if (!abs_ts)
-		ws_warning("!!! couldn't get frame ts for %u !!!\n", frame_num);
+	if (!abs_ts) {
+		/* This can happen if frame_num doesn't have a ts */
+		ws_debug("!!! couldn't get frame ts for %u !!!\n", frame_num);
+	}
 
 	return abs_ts;
 }
@@ -906,6 +922,12 @@ epan_gather_runtime_info(feature_list l)
 	nghttp2_info *nghttp2_ptr = nghttp2_version(0);
 	with_feature(l, "nghttp2 %s",  nghttp2_ptr->version_str);
 #endif /* NGHTTP2_VERSION_AGE */
+
+	/* nghttp3 */
+#if NGHTTP3_VERSION_AGE >= 1
+	const nghttp3_info *nghttp3_ptr = nghttp3_version(0);
+	with_feature(l, "nghttp3 %s", nghttp3_ptr->version_str);
+#endif /* NGHTTP3_VERSION_AGE */
 
 	/* brotli */
 #ifdef HAVE_BROTLI

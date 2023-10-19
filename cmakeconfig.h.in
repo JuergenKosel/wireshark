@@ -109,9 +109,6 @@
 /* Define to use kerberos */
 #cmakedefine HAVE_KERBEROS 1
 
-/* Define to use PCRE2 library */
-#define HAVE_PCRE2 1
-
 /* Define to use nghttp2 */
 #cmakedefine HAVE_NGHTTP2 1
 
@@ -283,9 +280,6 @@
 /* Define if you have the 'memmem' function. */
 #cmakedefine HAVE_MEMMEM 1
 
-/* Define if you have the 'strcasestr' function. */
-#cmakedefine HAVE_STRCASESTR 1
-
 /* Define if you have the 'strerrorname_np' function. */
 #cmakedefine HAVE_STRERRORNAME_NP 1
 
@@ -375,9 +369,7 @@
 #  endif
 #endif
 
-#ifdef HAVE_PCRE2
 #define PCRE2_CODE_UNIT_WIDTH  8
-#endif
 
 /*
  * If HAVE_PCAP_REMOTE is defined, it forces the WinPcap header files to

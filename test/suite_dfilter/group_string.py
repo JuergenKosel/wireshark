@@ -182,6 +182,14 @@ class TestDfilterString:
         dfilter = 'tcp.checksum.status == "Unverified" || tcp.checksum.status == "Good"'
         checkDFilterCount(dfilter, 1)
 
+    def test_value_string_2(self, checkDFilterCount):
+        dfilter = 'tcp.checksum.status matches "unverified|good"'
+        checkDFilterCount(dfilter, 1)
+
+    def test_value_string_3(self, checkDFilterSucceed):
+        dfilter = 'tcp.checksum.status == Unverified'
+        checkDFilterSucceed(dfilter, 'Writing value strings without double quotes is deprecated')
+
 class TestDfilterStringz:
     trace_file = "tftp.pcap"
 

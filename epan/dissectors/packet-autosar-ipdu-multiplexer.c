@@ -189,7 +189,7 @@ copy_ipdum_message_list_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_ipdum_message_list(void *r, char **err) {
     ipdum_message_list_uat_t *rec = (ipdum_message_list_uat_t *)r;
 
@@ -314,7 +314,7 @@ copy_ipdum_can_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_ipdum_can_mapping(void *r, char **err) {
     ipdum_can_mapping_uat_t *rec = (ipdum_can_mapping_uat_t *)r;
 
@@ -426,7 +426,7 @@ copy_ipdum_flexray_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_ipdum_flexray_mapping(void *r, char **err) {
     ipdum_flexray_mapping_uat_t *rec = (ipdum_flexray_mapping_uat_t *)r;
 
@@ -504,7 +504,7 @@ copy_ipdum_lin_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_ipdum_lin_mapping(void *r, char **err) {
     ipdum_lin_mapping_uat_t *rec = (ipdum_lin_mapping_uat_t *)r;
 
@@ -609,7 +609,7 @@ copy_ipdum_pdu_transport_mapping_cb(void *n, const void *o, size_t size _U_) {
     return new_rec;
 }
 
-static gboolean
+static bool
 update_ipdum_pdu_transport_mapping(void *r, char **err) {
     ipdum_pdu_transport_mapping_uat_t *rec = (ipdum_pdu_transport_mapping_uat_t *)r;
 
@@ -855,7 +855,7 @@ proto_register_autosar_ipdu_multiplexer(void) {
         UAT_FLD_HEX(ipdum_message_list, pdu_id,                     "PDU ID",                   "ID of the PDU (32bit hex without leading 0x)"),
         UAT_FLD_CSTRING(ipdum_message_list, name,                   "PDU Name",                 "Name of PDU (string)"),
         UAT_FLD_DEC(ipdum_message_list, start_pos,                  "PDU Start Pos (bits)",     "Start Position of PDU in bits (16bit dec, starting with 0)"),
-        UAT_FLD_DEC(ipdum_message_list, bit_length,                 "PDU Length (bits)",        "Lenght of PDU in bits (16bit dec, starting with 0)"),
+        UAT_FLD_DEC(ipdum_message_list, bit_length,                 "PDU Length (bits)",        "Length of PDU in bits (16bit dec, starting with 0)"),
         UAT_FLD_DEC(ipdum_message_list, update_bit_pos,             "PDU Update Bit",           "Position of Update bit (16bit dec, starting with 0, 65535 disabled)"),
         UAT_END_FIELDS
     };

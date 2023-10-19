@@ -4986,7 +4986,10 @@ static void
 proto_tree_set_ipv6(field_info *fi, const ws_in6_addr *value)
 {
 	DISSECTOR_ASSERT(value != NULL);
-	fvalue_set_ipv6(fi->value, value);
+	ipv6_addr_and_prefix ipv6;
+	ipv6.addr = *value;
+	ipv6.prefix = 128;
+	fvalue_set_ipv6(fi->value, &ipv6);
 }
 
 static void
@@ -6135,6 +6138,105 @@ proto_tree_set_eui64_tvb(field_info *fi, tvbuff_t *tvb, gint start, const guint 
 	}
 }
 
+proto_item *
+proto_tree_add_mac48_detail(const mac_hf_list_t *list_specific,
+			    const mac_hf_list_t *list_generic,
+			    gint idx, tvbuff_t *tvb,
+			    proto_tree *tree, gint offset)
+{
+	const guint8   addr[6];
+	const char    *addr_name  = NULL;
+	const gchar   *oui_name   = NULL;
+	proto_item    *addr_item  = NULL;
+	proto_tree    *addr_tree  = NULL;
+	proto_item    *ret_val    = NULL;
+
+	if (tree == NULL || list_specific == NULL) {
+		return NULL;
+	}
+
+	/* Resolve what we can of the address */
+	tvb_memcpy(tvb, (void *)addr, offset, 6);
+	if (list_specific->hf_addr_resolved || (list_generic && list_generic->hf_addr_resolved)) {
+		addr_name = get_ether_name(addr);
+	}
+	if (list_specific->hf_oui_resolved || (list_generic && list_generic->hf_oui_resolved)) {
+		oui_name = get_manuf_name_if_known(addr, sizeof(addr));
+	}
+
+	/* Add the item for the specific address type */
+	ret_val = proto_tree_add_item(tree, *list_specific->hf_addr, tvb, offset, 6, ENC_NA);
+	if (idx >= 0) {
+		addr_tree = proto_item_add_subtree(ret_val, idx);
+	}
+	else {
+		addr_tree = tree;
+	}
+
+	if (list_specific->hf_addr_resolved != NULL) {
+		addr_item = proto_tree_add_string(addr_tree, *list_specific->hf_addr_resolved,
+						  tvb, offset, 6, addr_name);
+		proto_item_set_generated(addr_item);
+		proto_item_set_hidden(addr_item);
+	}
+
+	if (list_specific->hf_oui != NULL) {
+		addr_item = proto_tree_add_item(addr_tree, *list_specific->hf_oui, tvb, offset, 3, ENC_NA);
+		proto_item_set_generated(addr_item);
+		proto_item_set_hidden(addr_item);
+
+		if (oui_name != NULL && list_specific->hf_oui_resolved != NULL) {
+			addr_item = proto_tree_add_string(addr_tree, *list_specific->hf_oui_resolved, tvb, offset, 6, oui_name);
+			proto_item_set_generated(addr_item);
+			proto_item_set_hidden(addr_item);
+		}
+	}
+
+	if (list_specific->hf_lg != NULL) {
+		proto_tree_add_item(addr_tree, *list_specific->hf_lg, tvb, offset, 3, ENC_BIG_ENDIAN);
+	}
+	if (list_specific->hf_ig != NULL) {
+		proto_tree_add_item(addr_tree, *list_specific->hf_ig, tvb, offset, 3, ENC_BIG_ENDIAN);
+	}
+
+	/* Were we given a list for generic address fields? If not, stop here */
+	if (list_generic == NULL) {
+		return ret_val;
+	}
+
+	addr_item = proto_tree_add_item(addr_tree, *list_generic->hf_addr, tvb, offset, 6, ENC_NA);
+	proto_item_set_hidden(addr_item);
+
+	if (list_generic->hf_addr_resolved != NULL) {
+		addr_item = proto_tree_add_string(addr_tree, *list_generic->hf_addr_resolved,
+						  tvb, offset, 6, addr_name);
+		proto_item_set_generated(addr_item);
+		proto_item_set_hidden(addr_item);
+	}
+
+	if (list_generic->hf_oui != NULL) {
+		addr_item = proto_tree_add_item(addr_tree, *list_generic->hf_oui, tvb, offset, 3, ENC_NA);
+		proto_item_set_generated(addr_item);
+		proto_item_set_hidden(addr_item);
+
+		if (oui_name != NULL && list_generic->hf_oui_resolved != NULL) {
+			addr_item = proto_tree_add_string(addr_tree, *list_generic->hf_oui_resolved, tvb, offset, 6, oui_name);
+			proto_item_set_generated(addr_item);
+			proto_item_set_hidden(addr_item);
+		}
+	}
+
+	if (list_generic->hf_lg != NULL) {
+		addr_item = proto_tree_add_item(addr_tree, *list_generic->hf_lg, tvb, offset, 3, ENC_BIG_ENDIAN);
+		proto_item_set_hidden(addr_item);
+	}
+	if (list_generic->hf_ig != NULL) {
+		addr_item = proto_tree_add_item(addr_tree, *list_generic->hf_ig, tvb, offset, 3, ENC_BIG_ENDIAN);
+		proto_item_set_hidden(addr_item);
+	}
+	return ret_val;
+}
+
 /* Add a field_info struct to the proto_tree, encapsulating it in a proto_node */
 static proto_item *
 proto_tree_add_node(proto_tree *tree, field_info *fi)
@@ -6687,13 +6789,12 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 	const guint8 *bytes;
 	guint32 number;
 	guint64 number64;
-	const true_false_string  *tfstring;
 	const char *hf_str_val;
 	char number_buf[48];
 	const char *number_out;
 	address addr;
 	ws_in4_addr ipv4;
-	const ws_in6_addr *ipv6;
+	const ipv6_addr_and_prefix *ipv6;
 
 	switch (hfinfo->type) {
 
@@ -6725,12 +6826,8 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 
 		case FT_BOOLEAN:
 			number64 = fvalue_get_uinteger64(finfo->value);
-			tfstring = &tfs_true_false;
-			if (hfinfo->strings) {
-				tfstring = (const struct true_false_string*) hfinfo->strings;
-			}
 			label_len = protoo_strlcpy(display_label_str,
-					tfs_get_string(!!number64, tfstring), label_str_size);
+					tfs_get_string(!!number64, hfinfo->strings), label_str_size);
 			break;
 
 		case FT_CHAR:
@@ -6868,7 +6965,7 @@ proto_item_fill_display_label(field_info *finfo, gchar *display_label_str, const
 
 		case FT_IPv6:
 			ipv6 = fvalue_get_ipv6(finfo->value);
-			set_address (&addr, AT_IPv6, sizeof(ws_in6_addr), ipv6);
+			set_address (&addr, AT_IPv6, sizeof(ws_in6_addr), &ipv6->addr);
 			tmp_str = address_to_display(NULL, &addr);
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
@@ -8993,7 +9090,7 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 		case FT_UINT_STRING:
 		case FT_STRINGZPAD:
 		case FT_STRINGZTRUNC:
-			switch (hfinfo->display) {
+			switch (FIELD_DISPLAY(hfinfo->display)) {
 				case BASE_NONE:
 				case BASE_STR_WSP:
 					break;
@@ -9460,7 +9557,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 	guint32		    integer;
 	guint64		    integer64;
 	ws_in4_addr         ipv4;
-	const ws_in6_addr  *ipv6;
+	const ipv6_addr_and_prefix *ipv6;
 	const e_guid_t	   *guid;
 	gchar		   *name;
 	address		    addr;
@@ -9645,7 +9742,7 @@ proto_item_fill_label(field_info *fi, gchar *label_str)
 
 			addr.type = AT_IPv6;
 			addr.len  = 16;
-			addr.data = ipv6;
+			addr.data = &ipv6->addr;
 
 			addr_str = (char*)address_with_resolution_to_str(NULL, &addr);
 			snprintf(label_str, ITEM_LABEL_LENGTH,
@@ -9749,11 +9846,6 @@ fill_label_boolean(field_info *fi, gchar *label_str)
 	guint64  value;
 
 	header_field_info	*hfinfo   = fi->hfinfo;
-	const true_false_string	*tfstring = &tfs_true_false;
-
-	if (hfinfo->strings) {
-		tfstring = (const struct true_false_string*) hfinfo->strings;
-	}
 
 	value = fvalue_get_uinteger64(fi->value);
 	if (hfinfo->bitmask) {
@@ -9770,7 +9862,7 @@ fill_label_boolean(field_info *fi, gchar *label_str)
 	}
 
 	/* Fill in the textual info */
-	label_fill(label_str, bitfield_byte_length, hfinfo, tfs_get_string(!!value, tfstring));
+	label_fill(label_str, bitfield_byte_length, hfinfo, tfs_get_string(!!value, hfinfo->strings));
 }
 
 static const char *
@@ -12653,8 +12745,6 @@ _proto_tree_add_bits_ret_val(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 	proto_item        *pi;
 	header_field_info *hf_field;
 
-	const true_false_string *tfstring;
-
 	/* We can't fake it just yet. We have to fill in the 'return_value' parameter */
 	PROTO_REGISTRAR_GET_NTH(hfindex, hf_field);
 
@@ -12718,12 +12808,9 @@ _proto_tree_add_bits_ret_val(proto_tree *tree, const int hfindex, tvbuff_t *tvb,
 	switch (hf_field->type) {
 	case FT_BOOLEAN:
 		/* Boolean field */
-		tfstring = &tfs_true_false;
-		if (hf_field->strings)
-			tfstring = (const true_false_string *)hf_field->strings;
 		return proto_tree_add_boolean_format(tree, hfindex, tvb, offset, length, (guint32)value,
 			"%s = %s: %s",
-			bf_str, hf_field->name, tfs_get_string(!!value, tfstring));
+			bf_str, hf_field->name, tfs_get_string(!!value, hf_field->strings));
 		break;
 
 	case FT_CHAR:
@@ -12805,7 +12892,6 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 	guint64     composite_bitmap;
 
 	header_field_info       *hf_field;
-	const true_false_string *tfstring;
 
 	/* We can't fake it just yet. We have to fill in the 'return_value' parameter */
 	PROTO_REGISTRAR_GET_NTH(hfindex, hf_field);
@@ -12911,13 +12997,10 @@ proto_tree_add_split_bits_item_ret_val(proto_tree *tree, const int hfindex, tvbu
 	switch (hf_field->type) {
 	case FT_BOOLEAN: /* it is a bit odd to have a boolean encoded as split-bits, but possible, I suppose? */
 		/* Boolean field */
-		tfstring = &tfs_true_false;
-		if (hf_field->strings)
-			tfstring = (const true_false_string *) hf_field->strings;
 		return proto_tree_add_boolean_format(tree, hfindex,
 						     tvb, octet_offset, octet_length, (guint32)value,
 						     "%s = %s: %s",
-						     bf_str, hf_field->name, tfs_get_string(!!value, tfstring));
+						     bf_str, hf_field->name, tfs_get_string(!!value, hf_field->strings));
 		break;
 
 	case FT_CHAR:

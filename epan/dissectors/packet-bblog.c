@@ -13,11 +13,16 @@
 
 #include "config.h"
 
+#include <wiretap/wtap.h>
 #include <epan/packet.h>
 #include "packet-bblog.h"
 
+#define PEN_NFLX 10949
+
 void proto_register_bblog(void);
 void proto_reg_handoff_bblog(void);
+
+static dissector_handle_t bblog_handle;
 
 static int proto_bblog                      = -1;
 
@@ -277,7 +282,7 @@ static const value_string tcp_timer_event_values[] = {
  */
 
 static int
-dissect_bblog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+dissect_bblog_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     proto_item *bblog_item;
     proto_tree *bblog_tree;
@@ -288,7 +293,6 @@ dissect_bblog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     guint8 pru;
     guint8 timer_type, timer_event;
 
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "BBLog");
     event_identifier = tvb_get_guint8(tvb, 25);
     flex1 = tvb_get_letohl(tvb, 140);
     flex2 = tvb_get_letohl(tvb, 144);
@@ -376,6 +380,26 @@ dissect_bblog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     return tvb_captured_length(tvb);
 }
 
+static int
+dissect_bblog(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+{
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "BBLog");
+    switch (pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.type) {
+    case BBLOG_TYPE_SKIPPED_BLOCK:
+        col_add_fstr(pinfo->cinfo, COL_INFO, "Number of skipped events: %u",
+                     pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.skipped);
+        break;
+    case BBLOG_TYPE_EVENT_BLOCK:
+        dissect_bblog_event(tvb, pinfo, tree, data);
+        break;
+    default:
+        col_add_fstr(pinfo->cinfo, COL_INFO, "Unknown type: %u",
+                     pinfo->rec->rec_header.custom_block_header.custom_data_header.nflx_custom_data_header.type);
+        break;
+    }
+    return tvb_captured_length(tvb);
+}
+
 void
 proto_register_bblog(void)
 {
@@ -416,7 +440,7 @@ proto_register_bblog(void)
         { &hf_t_flags_no_push,                { "No push",                                              "bblog.t_flags_no_push",               FT_BOOLEAN, 32,        TFS(&tfs_enabled_disabled),        BBLOG_T_FLAGS_NOPUSH,                NULL, HFILL} },
         { &hf_t_flags_prev_valid,             { "Saved values for bad retransmission valid",            "bblog.t_flags_prev_valid",            FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_PREVVALID,             NULL, HFILL} },
         { &hf_t_flags_wake_socket_receive,    { "Wakeup receive socket",                                "bblog.t_flags_wake_socket_receive",   FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_WAKESOR,               NULL, HFILL} },
-        { &hf_t_flags_goodput_in_progress,    { "Goodput measurement in progress",                      "bblog.t_flags_goodput_in_progress",   FT_BOOLEAN, 32,        TFS(&tfs_true_false),              BBLOG_T_FLAGS_GPUTINPROG,            NULL, HFILL} },
+        { &hf_t_flags_goodput_in_progress,    { "Goodput measurement in progress",                      "bblog.t_flags_goodput_in_progress",   FT_BOOLEAN, 32,        NULL,              BBLOG_T_FLAGS_GPUTINPROG,            NULL, HFILL} },
         { &hf_t_flags_more_to_come,           { "More to come",                                         "bblog.t_flags_more_to_come",          FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_MORETOCOME,            NULL, HFILL} },
         { &hf_t_flags_listen_queue_overflow,  { "Listen queue overflow",                                "bblog.t_flags_listen_queue_overflow", FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_LQ_OVERFLOW,           NULL, HFILL} },
         { &hf_t_flags_last_idle,              { "Connection was previously idle",                       "bblog.t_flags_last_idle",             FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_LASTIDLE,              NULL, HFILL} },
@@ -427,8 +451,8 @@ proto_register_bblog(void)
         { &hf_t_flags_force_data,             { "Force data",                                           "bblog.t_flags_force_data",            FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_FORCEDATA,             NULL, HFILL} },
         { &hf_t_flags_tso,                    { "TSO",                                                  "bblog.t_flags_tso",                   FT_BOOLEAN, 32,        TFS(&tfs_enabled_disabled),        BBLOG_T_FLAGS_TSO,                   NULL, HFILL} },
         { &hf_t_flags_toe,                    { "TOE",                                                  "bblog.t_flags_toe",                   FT_BOOLEAN, 32,        TFS(&tfs_enabled_disabled),        BBLOG_T_FLAGS_TOE,                   NULL, HFILL} },
-        { &hf_t_flags_unused_1,               { "Unused 1",                                             "bblog.t_flags_unused_1",              FT_BOOLEAN, 32,        TFS(&tfs_true_false),              BBLOG_T_FLAGS_UNUSED0,               NULL, HFILL} },
-        { &hf_t_flags_unused_2,               { "Unused 2",                                             "bblog.t_flags_unused_2",              FT_BOOLEAN, 32,        TFS(&tfs_true_false),              BBLOG_T_FLAGS_UNUSED1,               NULL, HFILL} },
+        { &hf_t_flags_unused_1,               { "Unused 1",                                             "bblog.t_flags_unused_1",              FT_BOOLEAN, 32,        NULL,              BBLOG_T_FLAGS_UNUSED0,               NULL, HFILL} },
+        { &hf_t_flags_unused_2,               { "Unused 2",                                             "bblog.t_flags_unused_2",              FT_BOOLEAN, 32,        NULL,              BBLOG_T_FLAGS_UNUSED1,               NULL, HFILL} },
         { &hf_t_flags_lost_rtx_detection,     { "Lost retransmission detection",                        "bblog.t_flags_lost_rtx_detection",    FT_BOOLEAN, 32,        TFS(&tfs_enabled_disabled),        BBLOG_T_FLAGS_LRD,                   NULL, HFILL} },
         { &hf_t_flags_be_in_cong_recovery,    { "Currently in congestion avoidance",                    "bblog.t_flags_be_in_cong_recovery",   FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_CONGRECOVERY,          NULL, HFILL} },
         { &hf_t_flags_was_in_cong_recovery,   { "Was in congestion avoidance",                          "bblog.t_flags_was_in_cong_recovery",  FT_BOOLEAN, 32,        TFS(&tfs_yes_no),                  BBLOG_T_FLAGS_WASCRECOVERY,          NULL, HFILL} },
@@ -487,12 +511,13 @@ proto_register_bblog(void)
     proto_register_field_array(proto_bblog, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    register_dissector("bblog", dissect_bblog, proto_bblog);
+    bblog_handle = register_dissector("bblog", dissect_bblog, proto_bblog);
 }
 
 void
 proto_reg_handoff_bblog(void)
 {
+    dissector_add_uint("pcapng_custom_block", PEN_NFLX, bblog_handle);
 }
 
 /*

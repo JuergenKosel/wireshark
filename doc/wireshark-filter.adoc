@@ -204,8 +204,8 @@ are equivalent:
 
 Boolean values are either true or false.  In a display filter expression
 testing the value of a Boolean field, true is expressed as the word `true`
-(case-insentive) or any non-zero number.  False is expressed as
-`false` (case-insentivie) or the number zero. For example, a token-ring packet's
+(case-insensitive) or any non-zero number.  False is expressed as
+`false` (case-insensitive) or the number zero. For example, a token-ring packet's
 source route field is Boolean.  To find any source-routed packets, a display
 filter would be any of the following:
 
@@ -552,6 +552,7 @@ highest to lowest precedence:
 
     not, !    Logical NOT   (right-associative)
     and, &&   Logical AND   (left-associative)
+    xor, ^^   Logical XOR   (left-associative)
     or,  ||   Logical OR    (left-associative)
 
 The evaluation is always performed left to right. Expressions can be grouped
@@ -578,7 +579,7 @@ will match all packets that do not contain the llc protocol.
 The third filter expression includes the constraint that offset 199 in the
 frame exists, in other words the length of the frame is at least 200.
 
-Each comparison has an implicit exists test for any field value. Care must
+Because each comparison has an implicit exists test for field values care must
 be taken when using the display filter to remove noise from
 the packet trace. If, for example, you want to filter out all IP
 multicast packets to address 224.1.2.3, then using:
@@ -599,7 +600,7 @@ two expressions:
 
 The first filter uses "not ip.dst" to include all non-IP packets and then
 lets "ip.dst ne 224.1.2.3" filter out the unwanted IP packets. The
-second filter also negates the implicit existance test and so is
+second filter also negates the implicit existence test and so is
 a shorter way to write the first.
 
 == FILTER FIELD REFERENCE

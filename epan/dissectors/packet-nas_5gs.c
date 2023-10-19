@@ -9,7 +9,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * References: 3GPP TS 24.501 17.11.0
+ * References: 3GPP TS 24.501 17.12.0
  */
 
 #include "config.h"
@@ -1046,6 +1046,7 @@ static const value_string nas_5gs_mm_cause_vals[] = {
     { 0x1b, "N1 mode not allowed" },
     { 0x1c, "Restricted service area" },
     { 0x1f, "Redirection to EPC required" },
+    { 0x24, "IAB-node operation not authorized" },
     { 0x2b, "LADN not available" },
     { 0x3e, "No network slices available" },
     { 0x41, "Maximum number of PDU sessions reached" },
@@ -1249,7 +1250,7 @@ de_nas_5gs_mm_5gs_mobile_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
             /* Scheme output octet 12-x */
             if (scheme_id == 0) {
                 new_tvb = tvb_new_subset_length(tvb, offset, len - 8);
-                proto_tree_add_item(tree, hf_nas_5gs_mm_suci_msin, new_tvb, 0, -1, ENC_BCD_DIGITS_0_9);
+                proto_tree_add_item(tree, hf_nas_5gs_mm_suci_msin, new_tvb, 0, -1, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN);
             } else {
                 proto_item *pi = proto_tree_add_item(tree, hf_nas_5gs_mm_scheme_output, tvb, offset, len - 8, ENC_NA);
                 if ((scheme_id == 1 && len >= 49) || (scheme_id == 2 && len >= 50)) {
@@ -1299,7 +1300,7 @@ de_nas_5gs_mm_5gs_mobile_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
     case 3:
         /* IMEI */
         proto_tree_add_bitmask_list(tree, tvb, offset, 1, flags_odd_even_tid, ENC_BIG_ENDIAN);
-        proto_tree_add_item(tree, hf_nas_5gs_mm_imei, tvb, offset, len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+        proto_tree_add_item(tree, hf_nas_5gs_mm_imei, tvb, offset, len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
         break;
     case 4:
         /*5G-S-TMSI*/
@@ -1319,7 +1320,7 @@ de_nas_5gs_mm_5gs_mobile_id(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         /* IMEISV */
         proto_tree_add_bitmask_list(tree, tvb, offset, 1, flags_odd_even_tid, ENC_BIG_ENDIAN);
         /* XXXX Do we need the odd/even bit?*/
-        proto_tree_add_item(tree, hf_nas_5gs_mm_imeisv, tvb, offset, len, ENC_BCD_DIGITS_0_9 | ENC_BCD_SKIP_FIRST);
+        proto_tree_add_item(tree, hf_nas_5gs_mm_imeisv, tvb, offset, len, ENC_BCD_DIGITS_0_9 | ENC_LITTLE_ENDIAN | ENC_BCD_SKIP_FIRST);
         break;
     case 6:
         /* MAC address */
@@ -3904,7 +3905,7 @@ de_nas_5gs_mm_ue_radio_cap_id(tvbuff_t* tvb, proto_tree* tree, packet_info* pinf
 
     curr_offset = offset;
 
-    proto_tree_add_item(tree, hf_nas_5gs_mm_ue_radio_cap_id, tvb, curr_offset, len, ENC_BCD_DIGITS_0_9);
+    proto_tree_add_item(tree, hf_nas_5gs_mm_ue_radio_cap_id, tvb, curr_offset, len, ENC_BCD_DIGITS_0_9|ENC_LITTLE_ENDIAN);
 
     return len;
 }
@@ -6185,7 +6186,7 @@ de_nas_5gs_cmn_service_level_aa_cont(tvbuff_t *tvb, proto_tree *tree, packet_inf
                 proto_tree_add_bitmask_list(subtree, tvb, curr_offset-1, 1, flags, ENC_BIG_ENDIAN);
             }
             break;
-        case 0xb0:
+        case 0x50:
             {
                 static int * const flags[] = {
                     &hf_nas_5gs_spare_b3,

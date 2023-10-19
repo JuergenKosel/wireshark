@@ -337,7 +337,6 @@ typedef enum _http3_stream_dir {
  */
 typedef struct _http3_stream_info {
     guint64           id;                 /**< HTTP3 stream id */
-    quic_stream_info *quic_stream_info;   /**< Underlying QUIC stream info */
     guint64           uni_stream_type;    /**< Unidirectional stream type */
     guint64           broken_from_offset; /**< Unrecognized stream starting at offset (if non-zero). */
     http3_stream_dir  direction;
@@ -475,6 +474,12 @@ static http3_file_local_ctx *http3_get_file_local_ctx(void);
 #ifdef HAVE_NGHTTP3
 #define HTTP3_HEADER_CACHE http3_get_file_local_ctx()->hdr_cache_map
 #define HTTP3_HEADER_NAME_CACHE http3_get_file_local_ctx()->hdr_def_cache_map
+
+/* This global carries header name_length + name + value_length + value.
+ * It is allocated with file scoped memory, and then either placed in the
+ * cache map or, if it matches something already in the cache map, the
+ * memory is reallocated for the next header encountered. */
+static char *http3_header_pstr = NULL;
 #endif
 
 /**
@@ -565,6 +570,11 @@ static bool
 qpack_decoder_del_cb(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_, void *user_data)
 {
     nghttp3_qpack_decoder_del((nghttp3_qpack_decoder *)user_data);
+    /* If we have a decoder, then we might have set http3_header_pstr to
+     * point to file scoped memory. Make sure we set it to NULL when leaving
+     * wmem_file_scope.
+     */
+    http3_header_pstr = NULL;
     return FALSE;
 }
 
@@ -596,7 +606,6 @@ http3_nghttp3_realloc(void *ptr, size_t size, void *user_data _U_)
 }
 
 static nghttp3_mem g_qpack_mem_allocator = {
-    .user_data = NULL,
     .malloc    = http3_nghttp3_malloc,
     .free      = http3_nghttp3_free,
     .calloc    = http3_nghttp3_calloc,
@@ -686,14 +695,12 @@ http3_get_header_data(packet_info *pinfo, guint offset)
 }
 
 static inline http3_stream_dir
-http3_packet_get_direction(http3_stream_info_t *http3_stream)
+http3_packet_get_direction(quic_stream_info *stream_info)
 {
-    return http3_stream->quic_stream_info->from_server
+    return stream_info->from_server
         ? FROM_CLIENT_TO_SERVER
         : FROM_SERVER_TO_CLIENT;
 }
-
-char *http3_header_pstr = NULL;
 
 static void
 try_append_method_path_info(packet_info *pinfo, proto_tree *tree, const gchar *method_header_value,
@@ -751,7 +758,7 @@ try_add_named_header_field(proto_tree *tree, tvbuff_t *tvb, int offset, guint32 
 
 static int
 dissect_http3_headers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint tvb_offset, guint offset,
-                      http3_stream_info_t *http3_stream)
+                      quic_stream_info *stream_info, http3_stream_info_t *http3_stream)
 {
     const gchar  *authority_header_value = NULL;
     const gchar  *method_header_value    = NULL;
@@ -791,7 +798,7 @@ dissect_http3_headers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
         nghttp3_qpack_stream_context_new(&sctx, http3_stream->id, nghttp3_mem_default());
 
         length           = tvb_reported_length_remaining(tvb, tvb_offset);
-        packet_direction = http3_packet_get_direction(http3_stream);
+        packet_direction = http3_packet_get_direction(stream_info);
         decoder          = http3_session->qpack_decoder[packet_direction];
 
         DISSECTOR_ASSERT(decoder);
@@ -913,6 +920,18 @@ dissect_http3_headers(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint
                     def->name     = (const char *)def_name;
 
                     wmem_map_insert(HTTP3_HEADER_NAME_CACHE, http3_header_pstr, def);
+                    /* XXX: keys are not copied in wmem_maps, so once we use
+                     * http3_header_pstr, we should set it to NULL so that
+                     * the memory pointed to won't be realloc'ed. However,
+                     * we'll do that in the other map below, as we only insert
+                     * into these maps at the same time, we are guaranteed
+                     * that we will be setting it to NULL below. This is
+                     * fragile and should be replaced with a single map.
+                     * I also don't see the point of this map considering
+                     * that the name and name_len are contained within the
+                     * pstr value and can (and are) parsed from it; this
+                     * map doesn't seem to be used currently.
+                     */
                 }
 
                 /* Create an output field and add it to the headers array */
@@ -1126,11 +1145,11 @@ http3_session_lookup_or_create(packet_info *pinfo)
 
 
 static conversation_t *
-http3_find_inner_conversation(packet_info *pinfo, http3_stream_info_t *http3_stream, void **ctx)
+http3_find_inner_conversation(packet_info *pinfo, quic_stream_info *stream_info, http3_stream_info_t *http3_stream, void **ctx)
 {
     conversation_t *inner_conv = NULL;
 
-    if (http3_stream->quic_stream_info != NULL) {
+    if (stream_info != NULL) {
         if (ctx) {
             *ctx = pinfo->conv_elements;
         }
@@ -1182,7 +1201,7 @@ http3_reset_inner_conversation(packet_info *pinfo, void *ctx)
 
 static int
 dissect_http3_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *http3_tree, guint offset _U_,
-                   http3_stream_info_t *http3_stream)
+                   quic_stream_info *stream_info, http3_stream_info_t *http3_stream)
 {
     void                *saved_ctx = NULL;
     gint                remaining;
@@ -1190,7 +1209,7 @@ dissect_http3_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *http3_tree, gu
     proto_item          *ti_data _U_;
 
     remaining = tvb_reported_length(tvb);
-    inner_conv = http3_find_inner_conversation(pinfo, http3_stream, &saved_ctx);
+    inner_conv = http3_find_inner_conversation(pinfo, stream_info, http3_stream, &saved_ctx);
     ti_data    = proto_tree_add_item(http3_tree, hf_http3_data, tvb, offset, remaining, ENC_NA);
     http3_reset_inner_conversation(pinfo, saved_ctx);
 
@@ -1293,7 +1312,7 @@ dissect_http3_priority_update(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
 }
 
 static int
-dissect_http3_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, http3_stream_info_t *http3_stream)
+dissect_http3_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, quic_stream_info *stream_info, http3_stream_info_t *http3_stream)
 {
     guint64     frame_type, frame_length;
     int         lenvar;
@@ -1325,12 +1344,12 @@ dissect_http3_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int off
         switch (frame_type) {
         case HTTP3_DATA: { /* TODO: dissect Data Frame */
             tvbuff_t *next_tvb = tvb_new_subset_length(tvb, offset, (int)frame_length);
-            dissect_http3_data(next_tvb, pinfo, ft_tree, 0, http3_stream);
+            dissect_http3_data(next_tvb, pinfo, ft_tree, 0, stream_info, http3_stream);
         } break;
         case HTTP3_HEADERS: { /* TODO: dissect Headers Frame */
 #ifdef HAVE_NGHTTP3
             tvbuff_t *next_tvb = tvb_new_subset_length(tvb, offset, (int)frame_length);
-            dissect_http3_headers(next_tvb, pinfo, ft_tree, 0, offset, http3_stream);
+            dissect_http3_headers(next_tvb, pinfo, ft_tree, 0, offset, stream_info, http3_stream);
 #endif /* HAVE_NGHTTP3 */
         } break;
         case HTTP3_CANCEL_PUSH: /* TODO: dissect Cancel_Push Frame */
@@ -1658,7 +1677,7 @@ dissect_http3_qpack_encoder_stream(tvbuff_t *tvb, packet_info *pinfo _U_, proto_
 
 static gint
 dissect_http3_qpack_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
-                        http3_stream_info_t *http3_stream)
+                        quic_stream_info *stream_info, http3_stream_info_t *http3_stream)
 {
     gint                  remaining, remaining_captured, retval, decoded = 0;
     proto_item *          qpack_update;
@@ -1690,7 +1709,7 @@ dissect_http3_qpack_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
     if (qpack_buf && 0 < remaining) {
         gint                   qpack_buf_len = decoded - offset, nread;
         proto_item *           ti;
-        http3_stream_dir       packet_direction = http3_packet_get_direction(http3_stream);
+        http3_stream_dir       packet_direction = http3_packet_get_direction(stream_info);
         nghttp3_qpack_decoder *decoder          = http3_session->qpack_decoder[packet_direction];
         guint32                icnt_before, icnt_after;
 
@@ -1722,6 +1741,7 @@ dissect_http3_qpack_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
         proto_item_set_generated(ti);
     }
 #else
+    (void)stream_info;
     (void)qpack_buf;
     (void)qpack_update;
     (void)decoded;
@@ -1731,8 +1751,8 @@ dissect_http3_qpack_enc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int
 }
 
 static int
-dissect_http3_client_bidi_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, quic_stream_info *stream_info _U_,
-                         http3_stream_info_t *http3_stream)
+dissect_http3_client_bidi_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
+                                 quic_stream_info *stream_info, http3_stream_info_t *http3_stream)
 {
     proto_item *ti_stream;
     proto_tree *stream_tree;
@@ -1744,7 +1764,7 @@ dissect_http3_client_bidi_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         if (!http3_check_frame_size(tvb, pinfo, offset)) {
             return tvb_captured_length(tvb);
         }
-        offset = dissect_http3_frame(tvb, pinfo, stream_tree, offset, http3_stream);
+        offset = dissect_http3_frame(tvb, pinfo, stream_tree, offset, stream_info, http3_stream);
     }
 
     return offset;
@@ -1793,7 +1813,7 @@ dissect_http3_uni_stream(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, in
         }
         break;
     case HTTP3_STREAM_TYPE_QPACK_ENCODER:
-        offset = dissect_http3_qpack_enc(tvb, pinfo, stream_tree, offset, http3_stream);
+        offset = dissect_http3_qpack_enc(tvb, pinfo, stream_tree, offset, stream_info, http3_stream);
         break;
     case HTTP3_STREAM_TYPE_QPACK_DECODER:
         // TODO
@@ -1856,7 +1876,6 @@ dissect_http3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     if (!http3_stream) {
         http3_stream = wmem_new0(wmem_file_scope(), http3_stream_info_t);
         quic_stream_add_proto_data(pinfo, stream_info, http3_stream);
-        http3_stream->quic_stream_info = stream_info;
         http3_stream->id               = stream_info->stream_id;
     }
 

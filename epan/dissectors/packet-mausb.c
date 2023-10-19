@@ -644,6 +644,10 @@ static gboolean mausb_is_setup_response(struct mausb_header *header)
 
 /*** EP Handle parsing helper functions */
 
+guint8 mausb_ep_handle_ep_d(guint16 handle) {
+    return (handle & MAUSB_EP_HANDLE_D) >> MAUSB_EP_HANDLE_D_OFFSET;
+}
+
 guint8 mausb_ep_handle_ep_num(guint16 handle) {
     return (handle & MAUSB_EP_HANDLE_EP_NUM) >> MAUSB_EP_HANDLE_EP_NUM_OFFSET;
 }
@@ -2143,7 +2147,7 @@ proto_register_mausb(void)
         },
         { &hf_mausb_clear_transfers_partial,
             { "Partial Delivery", "mausb.clear_transfers.partial", FT_BOOLEAN, 6,
-              TFS(&tfs_true_false), MAUSB_CLEAR_TRANSFERS_PARTIAL_MASK,
+              NULL, MAUSB_CLEAR_TRANSFERS_PARTIAL_MASK,
               NULL, HFILL
             }
        },

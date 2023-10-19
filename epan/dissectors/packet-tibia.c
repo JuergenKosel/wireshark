@@ -109,6 +109,9 @@
 
 void proto_register_tibia(void);
 void proto_reg_handoff_tibia(void);
+static int dissect_tibia_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_);
+
+static dissector_handle_t tibia_handle;
 
 /* preferences */
 static gboolean try_otserv_key          = TRUE,
@@ -160,7 +163,7 @@ GHashTable *xteakeys;
 static void *xteakeys_copy_cb(void *, const void *, size_t);
 static void xteakeys_free_cb(void *);
 static void xtea_parse_uat(void);
-static gboolean xteakeys_uat_fld_key_chk_cb(void *, const char *, guint, const void *, const void *, char **);
+static bool xteakeys_uat_fld_key_chk_cb(void *, const char *, guint, const void *, const void *, char **);
 
 UAT_DEC_CB_DEF(xteakeylist_uats, framenum, struct xteakeys_assoc)
 UAT_CSTRING_CB_DEF(xteakeylist_uats, key, struct xteakeys_assoc)
@@ -1731,7 +1734,7 @@ rsakeys_copy_cb(void *dst_, const void *src_, size_t len _U_)
     return dst;
 }
 
-static gboolean
+static bool
 rsakeys_uat_fld_ip_chk_cb(void* r _U_, const char* ipaddr, guint len _U_, const void* u1 _U_, const void* u2 _U_, char** err)
 {
     /* There are no Tibia IPv6 servers, although Tibia 11.0+'s Protocol in theory supports it */
@@ -1744,7 +1747,7 @@ rsakeys_uat_fld_ip_chk_cb(void* r _U_, const char* ipaddr, guint len _U_, const 
     return FALSE;
 }
 
-static gboolean
+static bool
 rsakeys_uat_fld_port_chk_cb(void *_record _U_, const char *str, guint len _U_, const void *chk_data _U_, const void *fld_data _U_, char **err)
 {
     guint16 val;
@@ -1756,7 +1759,7 @@ rsakeys_uat_fld_port_chk_cb(void *_record _U_, const char *str, guint len _U_, c
     return TRUE;
 }
 
-static gboolean
+static bool
 rsakeys_uat_fld_fileopen_chk_cb(void* r _U_, const char* p, guint len _U_, const void* u1 _U_, const void* u2 _U_, char** err)
 {
     if (p && *p) {
@@ -1774,7 +1777,7 @@ rsakeys_uat_fld_fileopen_chk_cb(void* r _U_, const char* p, guint len _U_, const
     return TRUE;
 }
 
-static gboolean
+static bool
 rsakeys_uat_fld_password_chk_cb(void *r, const char *p, guint len _U_, const void *u1 _U_, const void *u2 _U_, char **err)
 {
     if (p && *p) {
@@ -1845,7 +1848,7 @@ xteakeys_copy_cb(void *dst_, const void *src_, size_t len _U_)
     return dst;
 }
 
-static gboolean
+static bool
 xteakeys_uat_fld_key_chk_cb(void *r _U_, const char *key, guint len, const void *u1 _U_, const void *u2 _U_, char **err)
 {
     if (len >= XTEA_KEY_LEN*2) {
@@ -2603,6 +2606,7 @@ proto_register_tibia(void)
             );
     proto_register_field_array(proto_tibia, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
+    tibia_handle = register_dissector("tibia", dissect_tibia_tcp, proto_tibia);
 
     expert_module_t *expert_tibia = expert_register_protocol(proto_tibia);
     expert_register_field_array (expert_tibia, ei, array_length (ei));
@@ -2731,8 +2735,6 @@ dissect_tibia_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 void
 proto_reg_handoff_tibia(void)
 {
-    dissector_handle_t tibia_handle = create_dissector_handle(dissect_tibia_tcp, proto_tibia);
-
     dissector_add_uint_range_with_preference("tcp.port", TIBIA_DEFAULT_TCP_PORT_RANGE, tibia_handle);
 }
 

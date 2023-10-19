@@ -185,6 +185,7 @@ typedef enum {
     WTAP_BLOCK_FT_SPECIFIC_REPORT,
     WTAP_BLOCK_FT_SPECIFIC_EVENT,
     WTAP_BLOCK_SYSDIG_EVENT,
+    WTAP_BLOCK_META_EVENT,
     WTAP_BLOCK_SYSTEMD_JOURNAL_EXPORT,
     WTAP_BLOCK_CUSTOM,
     MAX_WTAP_BLOCK_TYPE_VALUE
@@ -254,6 +255,15 @@ typedef struct wtapng_dsb_mandatory_s {
 } wtapng_dsb_mandatory_t;
 
 /**
+ * Holds the required data from a WTAP_BLOCK_META_EVENT.
+ */
+typedef struct wtapng_meta_event_mandatory_s {
+    uint32_t               mev_block_type;      /** pcapng block type of the event, e.g. BLOCK_TYPE_SYSDIG_MI */
+    unsigned               mev_data_len;        /** Length of the mev data in bytes */
+    uint8_t               *mev_data;            /** Buffer of mev data (not NUL-terminated) */
+} wtapng_meta_event_mandatory_t;
+
+/**
  * Holds the required data from a WTAP_BLOCK_PACKET.
  * This includes Enhanced Packet Block, Simple Packet Block, and the deprecated Packet Block.
  * NB. I'm not including the packet data here since Wireshark handles it in other ways.
@@ -279,7 +289,13 @@ typedef struct wtapng_ft_specific_mandatory_s {
     guint     record_type;      /* the type of record this is - file type-specific value */
 } wtapng_ft_specific_mandatory_t;
 
-/* Currently supported option types */
+/*
+ * Currently supported option types.  These are not option types
+ * in the sense that each one corresponds to a particular option,
+ * they are data types for the data of an option, so, for example,
+ * all options with a 32-bit unsigned integer value have the type
+ * WTAP_OPTTYPE_UINT32.
+ */
 typedef enum {
     WTAP_OPTTYPE_UINT8,
     WTAP_OPTTYPE_UINT32,
@@ -532,8 +548,6 @@ struct nflx_tcpinfo {
 
     guint32 tlb_len;
 };
-
-struct wtap_dumper;
 
 typedef void (*wtap_block_create_func)(wtap_block_t block);
 typedef void (*wtap_mand_free_func)(wtap_block_t block);

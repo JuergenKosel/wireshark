@@ -304,6 +304,7 @@ reserved_words = {
     'SET'         : 'SET',
     'SIZE'        : 'SIZE',
     'STRING'      : 'STRING',
+    'SUCCESSORS'  : 'SUCCESSORS',
     'SYNTAX'      : 'SYNTAX',
     'TAGS'        : 'TAGS',
     'TRUE'        : 'TRUE',
@@ -849,9 +850,9 @@ class EthCtx:
 
     #--- eth_import_type --------------------------------------------------------
     def eth_import_type(self, ident, mod, proto):
-        #print "eth_import_type(ident='%s', mod='%s', prot='%s')" % (ident, mod, proto)
+        #print ("eth_import_type(ident='%s', mod='%s', prot='%s')" % (ident, mod, proto))
         if ident in self.type:
-            #print "already defined '%s' import=%s, module=%s" % (ident, str(self.type[ident]['import']), self.type[ident].get('module', '-'))
+            #print ("already defined '%s' import=%s, module=%s" % (ident, str(self.type[ident]['import']), self.type[ident].get('module', '-')))
             if not self.type[ident]['import'] and (self.type[ident]['module'] == mod) :
                 return  # OK - already defined
             elif self.type[ident]['import'] and (self.type[ident]['import'] == mod) :
@@ -3960,7 +3961,7 @@ class TaggedType (Type):
                                     par=(('%(IMPLICIT_TAG)s', '%(ACTX)s', '%(TREE)s', '%(TVB)s', '%(OFFSET)s'),
                                          ('%(HF_INDEX)s', '%(TAG_CLS)s', '%(TAG_TAG)s', '%(TAG_IMPL)s', '%(TYPE_REF_FN)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode tagged_type %s' % (tname)
         return body
 
 #--- SqType -----------------------------------------------------------
@@ -4214,7 +4215,7 @@ class SequenceOfType (SeqOfType):
                                          ('%(ETT_INDEX)s', '%(TABLE)s',),
                                          ('%(MIN_VAL)s', '%(MAX_VAL)s','%(EXT)s'),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode SequenceOfType %s' % (tname)
         return body
 
 
@@ -4271,7 +4272,7 @@ class SetOfType (SeqOfType):
                                          ('%(ETT_INDEX)s', '%(TABLE)s',),
                                          ('%(MIN_VAL)s', '%(MAX_VAL)s','%(EXT)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode SetOfType %s' % (tname)
         return body
 
 def mk_tag_str (ctx, cls, typ, num):
@@ -4350,7 +4351,7 @@ class SequenceType (SeqType):
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s'),
                                          ('%(ETT_INDEX)s', '%(TABLE)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode SequenceType %s' % (tname)
         return body
 
 #--- ExtensionAdditionGroup ---------------------------------------------------
@@ -4384,7 +4385,7 @@ class ExtensionAdditionGroup (SeqType):
             body = ectx.eth_fn_call('dissect_%(ER)s_sequence_eag', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(TABLE)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode ExtensionAdditionGroup %s' % (tname)
         return body
 
 
@@ -4412,7 +4413,7 @@ class SetType (SeqType):
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s'),
                                          ('%(ETT_INDEX)s', '%(TABLE)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode SetType %s' % (tname)
         return body
 
 #--- ChoiceType ---------------------------------------------------------------
@@ -4678,7 +4679,7 @@ class ChoiceType (Type):
                                          ('%(ETT_INDEX)s', '%(TABLE)s',),
                                          ('%(VAL_PTR)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode ChoiceType %s' % (tname)
         return body
 
 #--- ChoiceValue ----------------------------------------------------
@@ -4813,7 +4814,7 @@ class EnumeratedType (Type):
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s'),
                                          ('%(ROOT_NUM)s', '%(VAL_PTR)s', '%(EXT)s', '%(EXT_NUM)s', '%(TABLE)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode EnumeratedType %s' % (tname)
         return body
 
 #--- EmbeddedPDVType -----------------------------------------------------------
@@ -4843,7 +4844,7 @@ class EmbeddedPDVType (Type):
             body = ectx.eth_fn_call('dissect_%(ER)s_embedded_pdv', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(TYPE_REF_FN)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode EmbeddedPDVType %s' % (tname)
         return body
 
 #--- ExternalType -----------------------------------------------------------
@@ -4873,7 +4874,7 @@ class ExternalType (Type):
             body = ectx.eth_fn_call('dissect_%(ER)s_external_type', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(TYPE_REF_FN)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode ExternalType %s' % (tname)
         return body
 
 #--- OpenType -----------------------------------------------------------
@@ -4920,11 +4921,11 @@ class OpenType (Type):
         return pars
 
     def eth_type_default_body(self, ectx, tname):
-        if (ectx.Per()):
+        if (ectx.Per() or ectx.Oer()):
             body = ectx.eth_fn_call('dissect_%(ER)s_open_type%(FN_VARIANT)s', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(TYPE_REF_FN)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode OpenType %s' % (tname)
         return body
 
 #--- InstanceOfType -----------------------------------------------------------
@@ -5333,6 +5334,9 @@ class ObjectIdentifierType (Type):
         elif (ectx.Per()):
             body = ectx.eth_fn_call('dissect_%(ER)s_object_identifier%(FN_VARIANT)s', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(VAL_PTR)s',),))
+        elif (ectx.Oer()):
+            body = ectx.eth_fn_call('dissect_%(ER)s_object_identifier%(FN_VARIANT)s', ret='offset',
+                                    par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(VAL_PTR)s',),))
         else:
             body = '#error Can not decode %s' % (tname)
         return body
@@ -5418,7 +5422,7 @@ class RelativeOIDType (Type):
             body = ectx.eth_fn_call('dissect_%(ER)s_relative_oid%(FN_VARIANT)s', ret='offset',
                                     par=(('%(TVB)s', '%(OFFSET)s', '%(ACTX)s', '%(TREE)s', '%(HF_INDEX)s', '%(VAL_PTR)s',),))
         else:
-            body = '#error Can not decode %s' % (tname)
+            body = '#error Can not decode relative_oid %s' % (tname)
         return body
 
 
@@ -5877,7 +5881,8 @@ def p_SymbolsFromModuleList_2 (t):
     t[0] = [t[1]]
 
 def p_SymbolsFromModule (t):
-    'SymbolsFromModule : SymbolList FROM GlobalModuleReference'
+    '''SymbolsFromModule : SymbolList FROM GlobalModuleReference
+                        | SymbolList FROM GlobalModuleReference WITH SUCCESSORS'''
     t[0] = Node ('SymbolList', symbol_list = t[1], module = t[3])
     for s in (t[0].symbol_list):
         if (isinstance(s, Value_Ref)): lcase_ident_assigned[s.val] = t[3]
@@ -7981,6 +7986,51 @@ def eth_usage():
                     o - list of output files
   """)
 
+
+## Used to preparse C style comments
+## https://github.com/eerimoq/asn1tools/blob/master/asn1tools/parser.py#L231
+##
+def ignore_comments(string):
+    """Ignore comments in given string by replacing them with spaces. This
+    reduces the parsing time by roughly a factor of two.
+
+    """
+
+    comments = [
+        (mo.start(), mo.group(0))
+        for mo in re.finditer(r'(/\*|\*/|\n)', string)
+    ]
+
+    comments.sort()
+
+    multi_line_comment_depth = 0
+    start_offset = 0
+    non_comment_offset = 0
+    chunks = []
+
+    for offset, kind in comments:
+        if multi_line_comment_depth > 0:
+            if kind == '/*':
+                multi_line_comment_depth += 1
+            elif kind == '*/':
+                multi_line_comment_depth -= 1
+
+                if multi_line_comment_depth == 0:
+                    offset += 2
+                    chunks.append(' ' * (offset - start_offset))
+                    non_comment_offset = offset
+            elif kind == '\n':
+                chunks.append('\n')
+                non_comment_offset = offset
+        elif kind == '/*':
+            multi_line_comment_depth = 1
+            start_offset = offset
+            chunks.append(string[non_comment_offset:start_offset])
+
+    chunks.append(string[non_comment_offset:])
+
+    return ''.join(chunks)
+
 def eth_main():
     global input_file
     global g_conform
@@ -8070,6 +8120,7 @@ def eth_main():
         # Py2 compat, name.translate in eth_output_hf_arr fails with unicode
         if not isinstance(data, str):
             data = data.encode('utf-8')
+        data = ignore_comments(data)
         ast.extend(yacc.parse(data, lexer=lexer, debug=pd))
     ectx.eth_clean()
     if (ectx.merge_modules):  # common output for all module
