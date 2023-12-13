@@ -270,6 +270,7 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
     case PREF_DECODE_AS_UINT:
     case PREF_DECODE_AS_RANGE:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
     {
         EditorPreferenceAction *epa = new EditorPreferenceAction(pref, this);
         addAction(epa);
@@ -293,10 +294,10 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
 
         /* ensure we have access to MainWindow, and indirectly to the selection */
         if (mainApp) {
-            QWidget * mainWin = mainApp->mainWindow();
+            MainWindow * mainWin = qobject_cast<MainWindow *>(mainApp->mainWindow());
 
-            if (qobject_cast<MainWindow *>(mainWin)) {
-                frame_data * fdata = qobject_cast<MainWindow *>(mainWin)->frameDataForRow((qobject_cast<MainWindow *>(mainWin)->selectedRows()).at(0));
+            if (mainWin != nullptr && !mainWin->selectedRows().isEmpty()) {
+                frame_data * fdata = mainWin->frameDataForRow(mainWin->selectedRows().at(0));
                 if(fdata) {
                     override_id = fdata->tcp_snd_manual_analysis;
                 }
@@ -406,18 +407,21 @@ void ProtocolPreferencesMenu::enumCustomTCPOverridePreferenceTriggered()
 
     /* ensure we have access to MainWindow, and indirectly to the selection */
     if (mainApp) {
-        QWidget * mainWin = mainApp->mainWindow();
-        if (qobject_cast<MainWindow *>(mainWin)) {
-            frame_data * fdata = qobject_cast<MainWindow *>(mainWin)->frameDataForRow((qobject_cast<MainWindow *>(mainWin)->selectedRows()).at(0));
+        MainWindow * mainWin = qobject_cast<MainWindow *>(mainApp->mainWindow());
+        if (mainWin != nullptr && !mainWin->selectedRows().isEmpty()) {
+            frame_data * fdata = mainWin->frameDataForRow(mainWin->selectedRows().at(0));
             if(!fdata)
                 return;
 
             if (fdata->tcp_snd_manual_analysis != epa->getEnumValue()) { // Changed
                 fdata->tcp_snd_manual_analysis = epa->getEnumValue();
 
+                unsigned int changed_flags = prefs_get_effect_flags(epa->getPref());
+                if (changed_flags & PREF_EFFECT_FIELDS) {
+                    mainApp->emitAppSignal(MainApplication::FieldsChanged);
+                }
                 /* Protocol preference changes almost always affect dissection,
                    so don't bother checking flags */
-                mainApp->emitAppSignal(MainApplication::FieldsChanged);
                 mainApp->emitAppSignal(MainApplication::PacketDissectionChanged);
             }
         }

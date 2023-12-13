@@ -58,7 +58,7 @@ select_opcode(dfvm_opcode_t op, stmatch_t how)
 		case DFVM_SET_ANY_NOT_IN:
 			return how == STNODE_MATCH_ANY ? op : op - 1;
 		default:
-			break;
+			ASSERT_DFVM_OP_NOT_REACHED(op);
 	}
 	ws_assert_not_reached();
 }
@@ -338,20 +338,24 @@ dfw_append_length(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 static dfvm_value_t *
 dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 {
-	GSList *params;
-	dfvm_value_t *jmp;
+	GSList		*params;
+	dfvm_value_t	*jmp;
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*reg_val, *val1, *val3, *val_arg;
-	unsigned		count;
+	unsigned	count;
+	df_func_def_t	*func;
+	GSList		*params_jumps = NULL;
 
-	if (strcmp(sttype_function_name(node), "len") == 0) {
+	func = sttype_function_funcdef(node);
+
+	if (strcmp(func->name, "len") == 0) {
 		/* Replace len() function call with DFVM_LENGTH instruction. */
 		return dfw_append_length(dfw, node, jumps_ptr);
 	}
 
 	/* Create the new DFVM instruction */
 	insn = dfvm_insn_new(DFVM_CALL_FUNCTION);
-	val1 = dfvm_value_new_funcdef(sttype_function_funcdef(node));
+	val1 = dfvm_value_new_funcdef(func);
 	insn->arg1 = dfvm_value_ref(val1);
 	reg_val = dfvm_value_new_register(dfw->next_register++);
 	insn->arg2 = dfvm_value_ref(reg_val);
@@ -361,9 +365,12 @@ dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	ws_assert(params);
 	count = 0;
 	while (params) {
-		/* If a parameter fails to generate do not jump anywhere.
-		   The function is responsible for handling NULL arguments. */
-		val_arg = gen_entity(dfw, params->data, NULL);
+		val_arg = gen_entity(dfw, params->data, &params_jumps);
+		/* If a parameter fails to generate jump here.
+		 * Note: stack_push NULL register is valid. */
+		g_slist_foreach(params_jumps, fixup_jumps, dfw);
+		g_slist_free(params_jumps);
+		params_jumps = NULL;
 		dfw_append_stack_push(dfw, val_arg);
 		count++;
 		params = params->next;
@@ -374,7 +381,7 @@ dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	dfw_append_stack_pop(dfw, count);
 
 	/* We need another instruction to jump to another exit
-	 * place, if the call() of our function failed for some reaosn */
+	 * place, if the call() of our function failed for some reason */
 	insn = dfvm_insn_new(DFVM_IF_FALSE_GOTO);
 	jmp = dfvm_value_new(INSN_NUMBER);
 	insn->arg1 = dfvm_value_ref(jmp);
@@ -498,33 +505,37 @@ gen_arithmetic(dfwork_t *dfw, stnode_t *st_arg, GSList **jumps_ptr)
 	stnode_t	*left, *right;
 	stnode_op_t	st_op;
 	dfvm_value_t	*reg_val, *val1, *val2 = NULL;
-	dfvm_opcode_t	op;
+	dfvm_opcode_t	op = DFVM_NULL;
 
 	sttype_oper_get(st_arg, &st_op, &left, &right);
 
-	if (st_op == STNODE_OP_UNARY_MINUS) {
-		op = DFVM_UNARY_MINUS;
-	}
-	else if (st_op == STNODE_OP_ADD) {
-		op = DFVM_ADD;
-	}
-	else if (st_op == STNODE_OP_SUBTRACT) {
-		op = DFVM_SUBTRACT;
-	}
-	else if (st_op == STNODE_OP_MULTIPLY) {
-		op = DFVM_MULTIPLY;
-	}
-	else if (st_op == STNODE_OP_DIVIDE) {
-		op = DFVM_DIVIDE;
-	}
-	else if (st_op == STNODE_OP_MODULO) {
-		op = DFVM_MODULO;
-	}
-	else if (st_op == STNODE_OP_BITWISE_AND) {
-		op = DFVM_BITWISE_AND;
-	}
-	else {
-		ws_assert_not_reached();
+	switch (st_op) {
+		case STNODE_OP_UNARY_MINUS:	op = DFVM_UNARY_MINUS; break;
+		case STNODE_OP_ADD:		op = DFVM_ADD; break;
+		case STNODE_OP_SUBTRACT:	op = DFVM_SUBTRACT; break;
+		case STNODE_OP_MULTIPLY:	op = DFVM_MULTIPLY; break;
+		case STNODE_OP_DIVIDE:		op = DFVM_DIVIDE; break;
+		case STNODE_OP_MODULO:		op = DFVM_MODULO; break;
+		case STNODE_OP_BITWISE_AND:	op = DFVM_BITWISE_AND; break;
+
+		/* fall-through */
+		case STNODE_OP_NOT:
+		case STNODE_OP_AND:
+		case STNODE_OP_OR:
+		case STNODE_OP_ALL_EQ:
+		case STNODE_OP_ANY_EQ:
+		case STNODE_OP_ALL_NE:
+		case STNODE_OP_ANY_NE:
+		case STNODE_OP_GT:
+		case STNODE_OP_GE:
+		case STNODE_OP_LT:
+		case STNODE_OP_LE:
+		case STNODE_OP_CONTAINS:
+		case STNODE_OP_MATCHES:
+		case STNODE_OP_IN:
+		case STNODE_OP_NOT_IN:
+		case STNODE_OP_UNINITIALIZED:
+			ASSERT_STNODE_OP_NOT_REACHED(st_op);
 	}
 
 	val1 = gen_entity(dfw, left, jumps_ptr);
@@ -653,7 +664,7 @@ gen_notzero(dfwork_t *dfw, stnode_t *st_node)
 	dfvm_value_t	*val1;
 	GSList		*jumps = NULL;
 
-	val1 = gen_arithmetic(dfw, st_node, &jumps);
+	val1 = gen_entity(dfw, st_node, &jumps);
 	insn = dfvm_insn_new(DFVM_NOT_ALL_ZERO);
 	insn->arg1 = dfvm_value_ref(val1);
 	dfw_append_insn(dfw, insn);
@@ -662,7 +673,7 @@ gen_notzero(dfwork_t *dfw, stnode_t *st_node)
 }
 
 static void
-gen_exists_slice(dfwork_t *dfw, stnode_t *st_node)
+gen_notzero_slice(dfwork_t *dfw, stnode_t *st_node)
 {
 	dfvm_insn_t	*insn;
 	dfvm_value_t	*val1, *reg_val;
@@ -698,10 +709,6 @@ gen_test(dfwork_t *dfw, stnode_t *st_node)
 	st_how = sttype_test_get_match(st_node);
 
 	switch (st_op) {
-		case STNODE_OP_UNINITIALIZED:
-			ws_assert_not_reached();
-			break;
-
 		case STNODE_OP_NOT:
 			gencode(dfw, st_arg1);
 			insn = dfvm_insn_new(DFVM_NOT);
@@ -780,6 +787,7 @@ gen_test(dfwork_t *dfw, stnode_t *st_node)
 			gen_relation_in(dfw, DFVM_SET_ANY_NOT_IN, st_how, st_arg1, st_arg2);
 			break;
 
+		case STNODE_OP_UNINITIALIZED:
 		case STNODE_OP_BITWISE_AND:
 		case STNODE_OP_UNARY_MINUS:
 		case STNODE_OP_ADD:
@@ -787,8 +795,7 @@ gen_test(dfwork_t *dfw, stnode_t *st_node)
 		case STNODE_OP_MULTIPLY:
 		case STNODE_OP_DIVIDE:
 		case STNODE_OP_MODULO:
-			ws_assert_not_reached();
-			break;
+			ASSERT_STNODE_OP_NOT_REACHED(st_op);
 	}
 }
 
@@ -803,13 +810,14 @@ gencode(dfwork_t *dfw, stnode_t *st_node)
 			gen_exists(dfw, st_node);
 			break;
 		case STTYPE_ARITHMETIC:
+		case STTYPE_FUNCTION:
 			gen_notzero(dfw, st_node);
 			break;
 		case STTYPE_SLICE:
-			gen_exists_slice(dfw, st_node);
+			gen_notzero_slice(dfw, st_node);
 			break;
 		default:
-			ws_assert_not_reached();
+			ASSERT_STTYPE_NOT_REACHED(stnode_type_id(st_node));
 	}
 }
 
@@ -827,9 +835,16 @@ optimize(dfwork_t *dfw)
 		insn = (dfvm_insn_t	*)g_ptr_array_index(dfw->insns, id);
 		arg1 = insn->arg1;
 		if (insn->op == DFVM_IF_TRUE_GOTO || insn->op == DFVM_IF_FALSE_GOTO) {
+			id1 = arg1->value.numeric;
+
+			/* If the branch jumps to the next instruction replace it with a no-op. */
+			if (id1 == id + 1) {
+				dfvm_insn_replace_no_op(insn);
+				continue;
+			}
+
 			/* Try to optimize branch jumps */
 			dfvm_opcode_t revert = (insn->op == DFVM_IF_FALSE_GOTO) ? DFVM_IF_TRUE_GOTO : DFVM_IF_FALSE_GOTO;
-			id1 = arg1->value.numeric;
 			for (;;) {
 				insn1 = (dfvm_insn_t*)g_ptr_array_index(dfw->insns, id1);
 				if (insn1->op == revert) {

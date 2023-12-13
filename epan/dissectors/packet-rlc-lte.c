@@ -17,8 +17,10 @@
 #include <epan/prefs.h>
 #include <epan/tap.h>
 #include <epan/proto_data.h>
+
 #include "packet-mac-lte.h"
 #include "packet-rlc-lte.h"
+#include "packet-rlc-3gpp-common.h"
 #include "packet-pdcp-lte.h"
 
 
@@ -86,7 +88,7 @@ static wmem_tree_t *ue_parameters_tree;
 
 /**************************************************/
 /* Initialize the protocol and registered fields. */
-int proto_rlc_lte = -1;
+int proto_rlc_lte;
 
 extern int proto_mac_lte;
 extern int proto_pdcp_lte;
@@ -106,135 +108,135 @@ static dissector_handle_t lte_rrc_bcch_dl_sch_nb;
 static dissector_handle_t lte_rrc_pcch_nb;
 
 
-static int rlc_lte_tap = -1;
+static int rlc_lte_tap;
 
 /* Decoding context */
-static int hf_rlc_lte_context = -1;
-static int hf_rlc_lte_context_mode = -1;
-static int hf_rlc_lte_context_direction = -1;
-static int hf_rlc_lte_context_priority = -1;
-static int hf_rlc_lte_context_ueid = -1;
-static int hf_rlc_lte_context_channel_type = -1;
-static int hf_rlc_lte_context_channel_id = -1;
-static int hf_rlc_lte_context_pdu_length = -1;
-static int hf_rlc_lte_context_um_sn_length = -1;
-static int hf_rlc_lte_context_am_sn_length = -1;
+static int hf_rlc_lte_context;
+static int hf_rlc_lte_context_mode;
+static int hf_rlc_lte_context_direction;
+static int hf_rlc_lte_context_priority;
+static int hf_rlc_lte_context_ueid;
+static int hf_rlc_lte_context_channel_type;
+static int hf_rlc_lte_context_channel_id;
+static int hf_rlc_lte_context_pdu_length;
+static int hf_rlc_lte_context_um_sn_length;
+static int hf_rlc_lte_context_am_sn_length;
 
 /* Transparent mode fields */
-static int hf_rlc_lte_tm = -1;
-static int hf_rlc_lte_tm_data = -1;
+static int hf_rlc_lte_tm;
+static int hf_rlc_lte_tm_data;
 
 /* Unacknowledged mode fields */
-static int hf_rlc_lte_um = -1;
-static int hf_rlc_lte_um_header = -1;
-static int hf_rlc_lte_um_fi = -1;
-static int hf_rlc_lte_um_fixed_e = -1;
-static int hf_rlc_lte_um_sn = -1;
-static int hf_rlc_lte_um_fixed_reserved = -1;
-static int hf_rlc_lte_um_data = -1;
-static int hf_rlc_lte_extension_part = -1;
+static int hf_rlc_lte_um;
+static int hf_rlc_lte_um_header;
+static int hf_rlc_lte_um_fi;
+static int hf_rlc_lte_um_fixed_e;
+static int hf_rlc_lte_um_sn;
+static int hf_rlc_lte_um_fixed_reserved;
+static int hf_rlc_lte_um_data;
+static int hf_rlc_lte_extension_part;
 
 /* Extended header (common to UM and AM) */
-static int hf_rlc_lte_extension_e = -1;
-static int hf_rlc_lte_extension_li = -1;
-static int hf_rlc_lte_extension_padding = -1;
+static int hf_rlc_lte_extension_e;
+static int hf_rlc_lte_extension_li;
+static int hf_rlc_lte_extension_padding;
 
 
 /* Acknowledged mode fields */
-static int hf_rlc_lte_am = -1;
-static int hf_rlc_lte_am_header = -1;
-static int hf_rlc_lte_am_data_control = -1;
-static int hf_rlc_lte_am_rf = -1;
-static int hf_rlc_lte_am_p = -1;
-static int hf_rlc_lte_am_fi = -1;
-static int hf_rlc_lte_am_fixed_e = -1;
-static int hf_rlc_lte_am_fixed_sn = -1;
-static int hf_rlc_lte_am_fixed_reserved = -1;
-static int hf_rlc_lte_am_segment_lsf16 = -1;
-static int hf_rlc_lte_am_fixed_reserved2 = -1;
-static int hf_rlc_lte_am_fixed_sn16 = -1;
-static int hf_rlc_lte_am_segment_lsf = -1;
-static int hf_rlc_lte_am_segment_so = -1;
-static int hf_rlc_lte_am_segment_so16 = -1;
-static int hf_rlc_lte_am_data = -1;
+static int hf_rlc_lte_am;
+static int hf_rlc_lte_am_header;
+static int hf_rlc_lte_am_data_control;
+static int hf_rlc_lte_am_rf;
+static int hf_rlc_lte_am_p;
+static int hf_rlc_lte_am_fi;
+static int hf_rlc_lte_am_fixed_e;
+static int hf_rlc_lte_am_fixed_sn;
+static int hf_rlc_lte_am_fixed_reserved;
+static int hf_rlc_lte_am_segment_lsf16;
+static int hf_rlc_lte_am_fixed_reserved2;
+static int hf_rlc_lte_am_fixed_sn16;
+static int hf_rlc_lte_am_segment_lsf;
+static int hf_rlc_lte_am_segment_so;
+static int hf_rlc_lte_am_segment_so16;
+static int hf_rlc_lte_am_data;
 
 /* Control fields */
-static int hf_rlc_lte_am_cpt = -1;
-static int hf_rlc_lte_am_ack_sn = -1;
-static int hf_rlc_lte_am_e1 = -1;
-static int hf_rlc_lte_am_e2 = -1;
-static int hf_rlc_lte_am_nack_sn = -1;
-static int hf_rlc_lte_am_nacks = -1;
-static int hf_rlc_lte_am_so_start = -1;
-static int hf_rlc_lte_am_so_end = -1;
+static int hf_rlc_lte_am_cpt;
+static int hf_rlc_lte_am_ack_sn;
+static int hf_rlc_lte_am_e1;
+static int hf_rlc_lte_am_e2;
+static int hf_rlc_lte_am_nack_sn;
+static int hf_rlc_lte_am_nacks;
+static int hf_rlc_lte_am_so_start;
+static int hf_rlc_lte_am_so_end;
 
-static int hf_rlc_lte_predefined_pdu = -1;
-static int hf_rlc_lte_header_only = -1;
+static int hf_rlc_lte_predefined_pdu;
+static int hf_rlc_lte_header_only;
 
 /* Sequence Analysis */
-static int hf_rlc_lte_sequence_analysis = -1;
-static int hf_rlc_lte_sequence_analysis_ok = -1;
-static int hf_rlc_lte_sequence_analysis_previous_frame = -1;
-static int hf_rlc_lte_sequence_analysis_next_frame = -1;
-static int hf_rlc_lte_sequence_analysis_expected_sn = -1;
-static int hf_rlc_lte_sequence_analysis_framing_info_correct = -1;
+static int hf_rlc_lte_sequence_analysis;
+static int hf_rlc_lte_sequence_analysis_ok;
+static int hf_rlc_lte_sequence_analysis_previous_frame;
+static int hf_rlc_lte_sequence_analysis_next_frame;
+static int hf_rlc_lte_sequence_analysis_expected_sn;
+static int hf_rlc_lte_sequence_analysis_framing_info_correct;
 
-static int hf_rlc_lte_sequence_analysis_mac_retx = -1;
-static int hf_rlc_lte_sequence_analysis_retx = -1;
-static int hf_rlc_lte_sequence_analysis_repeated = -1;
-static int hf_rlc_lte_sequence_analysis_skipped = -1;
+static int hf_rlc_lte_sequence_analysis_mac_retx;
+static int hf_rlc_lte_sequence_analysis_retx;
+static int hf_rlc_lte_sequence_analysis_repeated;
+static int hf_rlc_lte_sequence_analysis_skipped;
 
-static int hf_rlc_lte_sequence_analysis_repeated_nack = -1;
-static int hf_rlc_lte_sequence_analysis_repeated_nack_original_frame = -1;
+static int hf_rlc_lte_sequence_analysis_repeated_nack;
+static int hf_rlc_lte_sequence_analysis_repeated_nack_original_frame;
 
-static int hf_rlc_lte_sequence_analysis_ack_out_of_range = -1;
-static int hf_rlc_lte_sequence_analysis_ack_out_of_range_opposite_frame = -1;
+static int hf_rlc_lte_sequence_analysis_ack_out_of_range;
+static int hf_rlc_lte_sequence_analysis_ack_out_of_range_opposite_frame;
 
 /* Reassembly */
-static int hf_rlc_lte_reassembly_source = -1;
-static int hf_rlc_lte_reassembly_source_number_of_segments = -1;
-static int hf_rlc_lte_reassembly_source_total_length = -1;
-static int hf_rlc_lte_reassembly_source_segment = -1;
-static int hf_rlc_lte_reassembly_source_segment_sn = -1;
-static int hf_rlc_lte_reassembly_source_segment_framenum = -1;
-static int hf_rlc_lte_reassembly_source_segment_length = -1;
+static int hf_rlc_lte_reassembly_source;
+static int hf_rlc_lte_reassembly_source_number_of_segments;
+static int hf_rlc_lte_reassembly_source_total_length;
+static int hf_rlc_lte_reassembly_source_segment;
+static int hf_rlc_lte_reassembly_source_segment_sn;
+static int hf_rlc_lte_reassembly_source_segment_framenum;
+static int hf_rlc_lte_reassembly_source_segment_length;
 
 /* Subtrees. */
-static int ett_rlc_lte = -1;
-static int ett_rlc_lte_context = -1;
-static int ett_rlc_lte_um_header = -1;
-static int ett_rlc_lte_am_header = -1;
-static int ett_rlc_lte_extension_part = -1;
-static int ett_rlc_lte_sequence_analysis = -1;
-static int ett_rlc_lte_reassembly_source = -1;
-static int ett_rlc_lte_reassembly_source_segment = -1;
+static int ett_rlc_lte;
+static int ett_rlc_lte_context;
+static int ett_rlc_lte_um_header;
+static int ett_rlc_lte_am_header;
+static int ett_rlc_lte_extension_part;
+static int ett_rlc_lte_sequence_analysis;
+static int ett_rlc_lte_reassembly_source;
+static int ett_rlc_lte_reassembly_source_segment;
 
-static expert_field ei_rlc_lte_context_mode = EI_INIT;
-static expert_field ei_rlc_lte_am_nack_sn = EI_INIT;
-static expert_field ei_rlc_lte_am_nack_sn_ahead_ack = EI_INIT;
-static expert_field ei_rlc_lte_um_sn_repeated = EI_INIT;
-static expert_field ei_rlc_lte_am_nack_sn_ack_same = EI_INIT;
-static expert_field ei_rlc_lte_am_cpt = EI_INIT;
-static expert_field ei_rlc_lte_am_data_no_data = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_last_segment_complete = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_mac_retx = EI_INIT;
-static expert_field ei_rlc_lte_am_nack_sn_partial = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_repeated_nack = EI_INIT;
-static expert_field ei_rlc_lte_bytes_after_status_pdu_complete = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_repeated = EI_INIT;
-static expert_field ei_rlc_lte_wrong_sequence_number = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_retx = EI_INIT;
-static expert_field ei_rlc_lte_am_sn_missing = EI_INIT;
-static expert_field ei_rlc_lte_um_sn = EI_INIT;
-static expert_field ei_rlc_lte_header_only = EI_INIT;
-static expert_field ei_rlc_lte_am_data_no_data_beyond_extensions = EI_INIT;
-static expert_field ei_rlc_lte_um_sn_missing = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_ack_out_of_range_opposite_frame = EI_INIT;
-static expert_field ei_rlc_lte_sequence_analysis_last_segment_not_continued = EI_INIT;
-static expert_field ei_rlc_lte_reserved_bits_not_zero = EI_INIT;
-static expert_field ei_rlc_lte_no_per_frame_info = EI_INIT;
-static expert_field ei_rlc_lte_unknown_udp_framing_tag = EI_INIT;
-static expert_field ei_rlc_lte_missing_udp_framing_tag = EI_INIT;
+static expert_field ei_rlc_lte_context_mode;
+static expert_field ei_rlc_lte_am_nack_sn;
+static expert_field ei_rlc_lte_am_nack_sn_ahead_ack;
+static expert_field ei_rlc_lte_um_sn_repeated;
+static expert_field ei_rlc_lte_am_nack_sn_ack_same;
+static expert_field ei_rlc_lte_am_cpt;
+static expert_field ei_rlc_lte_am_data_no_data;
+static expert_field ei_rlc_lte_sequence_analysis_last_segment_complete;
+static expert_field ei_rlc_lte_sequence_analysis_mac_retx;
+static expert_field ei_rlc_lte_am_nack_sn_partial;
+static expert_field ei_rlc_lte_sequence_analysis_repeated_nack;
+static expert_field ei_rlc_lte_bytes_after_status_pdu_complete;
+static expert_field ei_rlc_lte_sequence_analysis_repeated;
+static expert_field ei_rlc_lte_wrong_sequence_number;
+static expert_field ei_rlc_lte_sequence_analysis_retx;
+static expert_field ei_rlc_lte_am_sn_missing;
+static expert_field ei_rlc_lte_um_sn;
+static expert_field ei_rlc_lte_header_only;
+static expert_field ei_rlc_lte_am_data_no_data_beyond_extensions;
+static expert_field ei_rlc_lte_um_sn_missing;
+static expert_field ei_rlc_lte_sequence_analysis_ack_out_of_range_opposite_frame;
+static expert_field ei_rlc_lte_sequence_analysis_last_segment_not_continued;
+static expert_field ei_rlc_lte_reserved_bits_not_zero;
+static expert_field ei_rlc_lte_no_per_frame_info;
+static expert_field ei_rlc_lte_unknown_udp_framing_tag;
+static expert_field ei_rlc_lte_missing_udp_framing_tag;
 
 /* Value-strings */
 static const value_string direction_vals[] =
@@ -1093,7 +1095,7 @@ static void addChannelSequenceInfo(sequence_analysis_report *p,
                                    rlc_lte_info *p_rlc_lte_info,
                                    guint16   sequenceNumber,
                                    gboolean  newSegmentStarted,
-                                   rlc_lte_tap_info *tap_info,
+                                   rlc_3gpp_tap_info *tap_info,
                                    packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb)
 {
     proto_tree *seqnum_tree;
@@ -1415,7 +1417,7 @@ static sequence_analysis_state checkChannelSequenceInfo(packet_info *pinfo, tvbu
                                                         guint16 sequenceNumber,
                                                         gboolean first_includes_start, gboolean last_includes_end,
                                                         gboolean is_resegmented _U_,
-                                                        rlc_lte_tap_info *tap_info,
+                                                        rlc_3gpp_tap_info *tap_info,
                                                         proto_tree *tree)
 {
     channel_hash_key   channel_key;
@@ -1830,7 +1832,7 @@ static void addChannelRepeatedNACKInfo(channel_repeated_nack_report *p,
 /* Update the channel repeated NACK status and set report for this frame */
 static void checkChannelRepeatedNACKInfo(packet_info *pinfo,
                                          rlc_lte_info *p_rlc_lte_info,
-                                         rlc_lte_tap_info *tap_info,
+                                         rlc_3gpp_tap_info *tap_info,
                                          proto_tree *tree,
                                          tvbuff_t *tvb)
 {
@@ -1938,7 +1940,7 @@ static void checkChannelRepeatedNACKInfo(packet_info *pinfo,
 static void checkChannelACKWindow(guint16 ack_sn,
                                   packet_info *pinfo,
                                   rlc_lte_info *p_rlc_lte_info,
-                                  rlc_lte_tap_info *tap_info,
+                                  rlc_3gpp_tap_info *tap_info,
                                   proto_tree *tree,
                                   tvbuff_t *tvb)
 {
@@ -2093,7 +2095,7 @@ static void dissect_rlc_lte_um(tvbuff_t *tvb, packet_info *pinfo,
                                int offset,
                                rlc_lte_info *p_rlc_lte_info,
                                proto_item *top_ti,
-                               rlc_lte_tap_info *tap_info)
+                               rlc_3gpp_tap_info *tap_info)
 {
     guint64 framing_info;
     gboolean first_includes_start;
@@ -2176,6 +2178,7 @@ static void dissect_rlc_lte_um(tvbuff_t *tvb, packet_info *pinfo,
         return;
     }
 
+    tap_info->sequenceNumberGiven = TRUE;
     tap_info->sequenceNumber = (guint16)sn;
 
     /* Show SN in info column */
@@ -2310,7 +2313,7 @@ static void dissect_rlc_lte_am_status_pdu(tvbuff_t *tvb,
                                           int offset,
                                           proto_item *top_ti,
                                           rlc_lte_info *p_rlc_lte_info,
-                                          rlc_lte_tap_info *tap_info)
+                                          rlc_3gpp_tap_info *tap_info)
 {
     guint32    cpt;
     guint8     sn_size, so_size;
@@ -2492,7 +2495,7 @@ static void dissect_rlc_lte_am(tvbuff_t *tvb, packet_info *pinfo,
                                int offset,
                                rlc_lte_info *p_rlc_lte_info,
                                proto_item *top_ti,
-                               rlc_lte_tap_info *tap_info)
+                               rlc_3gpp_tap_info *tap_info)
 {
     guint32 is_data;
     guint32 is_resegmented;
@@ -2594,6 +2597,7 @@ static void dissect_rlc_lte_am(tvbuff_t *tvb, packet_info *pinfo,
         proto_tree_add_item_ret_uint(am_header_tree, hf_rlc_lte_am_fixed_sn, tvb, offset, 2, ENC_BIG_ENDIAN, &sn);
         offset += 2;
     }
+    tap_info->sequenceNumberGiven = TRUE;
     tap_info->sequenceNumber = sn;
 
     write_pdu_label_and_info(top_ti, am_header_ti, pinfo, "sn=%-4u", sn);
@@ -2912,7 +2916,8 @@ static void dissect_rlc_lte_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     struct rlc_lte_info    *p_rlc_lte_info;
 
     /* Allocate and Zero tap struct */
-    rlc_lte_tap_info *tap_info = wmem_new0(pinfo->pool, rlc_lte_tap_info);
+    rlc_3gpp_tap_info *tap_info = wmem_new0(pinfo->pool, rlc_3gpp_tap_info);
+    tap_info->rat = RLC_RAT_LTE;
 
     /* Set protocol name */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "RLC-LTE");
@@ -3027,7 +3032,7 @@ static void dissect_rlc_lte_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     tap_info->sequenceNumberLength = p_rlc_lte_info->sequenceNumberLength;
     tap_info->loggedInMACFrame = (p_get_proto_data(wmem_file_scope(), pinfo, proto_mac_lte, 0) != NULL);
 
-    tap_info->rlc_lte_time = pinfo->abs_ts;
+    tap_info->rlc_time = pinfo->abs_ts;
 
     /* Reset this count */
     s_number_of_extensions = 0;
@@ -3640,7 +3645,7 @@ void proto_register_rlc_lte(void)
     register_dissector("rlc-lte", dissect_rlc_lte, proto_rlc_lte);
 
     /* Register the tap name */
-    rlc_lte_tap = register_tap("rlc-lte");
+    rlc_lte_tap = register_tap("rlc-3gpp");
 
     /* Preferences */
     rlc_lte_module = prefs_register_protocol(proto_rlc_lte, NULL);

@@ -32,7 +32,7 @@ struct HpfeedsTap {
     guint8 opcode;
 };
 
-static int hpfeeds_tap = -1;
+static int hpfeeds_tap;
 
 static const gchar* st_str_channels_payload = "Payload size per channel";
 static const gchar* st_str_opcodes = "Opcodes";
@@ -58,24 +58,24 @@ static heur_dissector_list_t heur_subdissector_list;
 static gboolean hpfeeds_desegment = TRUE;
 static gboolean try_heuristic = TRUE;
 
-static int proto_hpfeeds = -1;
+static int proto_hpfeeds;
 
-static int hf_hpfeeds_opcode = -1;
-static int hf_hpfeeds_msg_length = -1;
-static int hf_hpfeeds_nonce = -1;
-static int hf_hpfeeds_secret = -1;
-static int hf_hpfeeds_payload = -1;
-static int hf_hpfeeds_server_len = -1;
-static int hf_hpfeeds_server = -1;
-static int hf_hpfeeds_ident_len = -1;
-static int hf_hpfeeds_ident = -1;
-static int hf_hpfeeds_channel = -1;
-static int hf_hpfeeds_chan_len = -1;
-static int hf_hpfeeds_errmsg = -1;
+static int hf_hpfeeds_opcode;
+static int hf_hpfeeds_msg_length;
+static int hf_hpfeeds_nonce;
+static int hf_hpfeeds_secret;
+static int hf_hpfeeds_payload;
+static int hf_hpfeeds_server_len;
+static int hf_hpfeeds_server;
+static int hf_hpfeeds_ident_len;
+static int hf_hpfeeds_ident;
+static int hf_hpfeeds_channel;
+static int hf_hpfeeds_chan_len;
+static int hf_hpfeeds_errmsg;
 
-static gint ett_hpfeeds = -1;
+static gint ett_hpfeeds;
 
-static expert_field ei_hpfeeds_opcode_unknown = EI_INIT;
+static expert_field ei_hpfeeds_opcode_unknown;
 
 /* OPCODE */
 #define OP_ERROR       0         /* error message*/
@@ -103,7 +103,7 @@ dissect_hpfeeds_error_pdu(tvbuff_t *tvb, proto_tree *tree, guint offset)
 }
 
 static void
-dissect_hpfeeds_info_pdu(tvbuff_t *tvb, proto_tree *tree, guint offset)
+dissect_hpfeeds_info_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint offset)
 {
     guint8 len = 0;
     proto_tree *data_subtree;
@@ -111,7 +111,7 @@ dissect_hpfeeds_info_pdu(tvbuff_t *tvb, proto_tree *tree, guint offset)
 
     len = tvb_get_guint8(tvb, offset);
     /* don't move the offset yet as we need to get data after this operation */
-    strptr = tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1, len, ENC_ASCII);
+    strptr = tvb_get_string_enc(pinfo->pool, tvb, offset + 1, len, ENC_ASCII);
     data_subtree = proto_tree_add_subtree_format(tree, tvb, offset, -1, ett_hpfeeds, NULL, "Broker: %s", strptr);
 
     proto_tree_add_item(data_subtree, hf_hpfeeds_server_len, tvb, offset, 1,
@@ -183,7 +183,7 @@ dissect_hpfeeds_publish_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
     /* get the channel name as ephemeral string to pass it to the heuristic decoders */
     proto_tree_add_item_ret_string(tree, hf_hpfeeds_channel, tvb, offset, len, ENC_ASCII|ENC_NA,
-        wmem_packet_scope(), &channelname);
+        pinfo->pool, &channelname);
     offset += len;
 
     /* try the heuristic dissectors */
@@ -320,7 +320,7 @@ dissect_hpfeeds_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
                 dissect_hpfeeds_error_pdu(tvb, data_subtree, offset);
             break;
             case OP_INFO:
-                dissect_hpfeeds_info_pdu(tvb, data_subtree, offset);
+                dissect_hpfeeds_info_pdu(tvb, pinfo, data_subtree, offset);
             break;
             case OP_AUTH:
                 dissect_hpfeeds_auth_pdu(tvb, data_subtree, offset);

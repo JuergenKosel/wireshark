@@ -42,7 +42,7 @@
 void proto_register_pdu_transport(void);
 void proto_reg_handoff_pdu_transport(void);
 
-static int proto_pdu_transport = -1;
+static int proto_pdu_transport;
 static dissector_handle_t pdu_transport_handle_udp = NULL;
 static dissector_handle_t pdu_transport_handle_tcp = NULL;
 
@@ -52,15 +52,15 @@ static dissector_table_t subdissector_table = NULL;
 #define PDU_TRANSPORT_HDR_LEN 8
 
 /* header field */
-static int hf_pdu_transport_id = -1;
-static int hf_pdu_transport_length = -1;
-static int hf_pdu_transport_payload = -1;
+static int hf_pdu_transport_id;
+static int hf_pdu_transport_length;
+static int hf_pdu_transport_payload;
 
 /* protocol tree items */
-static gint ett_pdu_transport = -1;
+static gint ett_pdu_transport;
 
 /* expert info items */
-static expert_field ef_pdu_transport_message_truncated = EI_INIT;
+static expert_field ei_pdu_transport_message_truncated;
 
 /********* UATs *********/
 
@@ -188,7 +188,7 @@ dissect_pdu_transport(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     pdu_transport_tree = proto_item_add_subtree(ti_top, ett_pdu_transport);
 
     if (tvb_captured_length_remaining(tvb, offset) < 8) {
-        expert_add_info(pinfo, ti_top, &ef_pdu_transport_message_truncated);
+        expert_add_info(pinfo, ti_top, &ei_pdu_transport_message_truncated);
     }
 
     /* taken from packet-ip.c
@@ -230,7 +230,7 @@ dissect_pdu_transport(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     } else {
         proto_tree_add_item(pdu_transport_tree, hf_pdu_transport_payload, tvb, offset, tmp, ENC_NA);
         subtvb = tvb_new_subset_length_caplen(tvb, offset, tmp, length);
-        expert_add_info(pinfo, ti_top, &ef_pdu_transport_message_truncated);
+        expert_add_info(pinfo, ti_top, &ei_pdu_transport_message_truncated);
     }
     if (subtvb != NULL) {
         pdu_transport_info_t pdu_t_info;
@@ -293,7 +293,7 @@ proto_register_pdu_transport(void) {
     };
 
     static ei_register_info ei[] = {
-    { &ef_pdu_transport_message_truncated,{ "pdu_transport.message_truncated",
+    { &ei_pdu_transport_message_truncated,{ "pdu_transport.message_truncated",
       PI_MALFORMED, PI_ERROR, "PDU Transport Truncated message!", EXPFILL } },
     };
 

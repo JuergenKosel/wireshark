@@ -50,6 +50,9 @@ static char *
 string_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
 {
 	if (rtype == FTREPR_DISPLAY || rtype == FTREPR_JSON) {
+		/* XXX: This escapes NUL with "\0", but JSON (neither RFC 8259 nor
+		 * ECMA-404) does not allow that, it must be "\u0000".
+		 */
 		return ws_escape_null(scope, fv->value.strbuf->str, fv->value.strbuf->len, false);
 	}
 	if (rtype == FTREPR_DFILTER) {
@@ -199,8 +202,6 @@ ftype_register_string(void)
 
 	static ftype_t string_type = {
 		FT_STRING,			/* ftype */
-		"FT_STRING",			/* name */
-		"Character string",		/* pretty_name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
 		string_fvalue_copy,		/* copy_value */
@@ -208,10 +209,14 @@ ftype_register_string(void)
 		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
 		string_to_repr,			/* val_to_string_repr */
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -235,8 +240,6 @@ ftype_register_string(void)
 	};
 	static ftype_t stringz_type = {
 		FT_STRINGZ,			/* ftype */
-		"FT_STRINGZ",			/* name */
-		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
 		string_fvalue_copy,		/* copy_value */
@@ -244,10 +247,14 @@ ftype_register_string(void)
 		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
 		string_to_repr,			/* val_to_string_repr */
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -271,8 +278,6 @@ ftype_register_string(void)
 	};
 	static ftype_t uint_string_type = {
 		FT_UINT_STRING,		/* ftype */
-		"FT_UINT_STRING",		/* name */
-		"Character string",		/* pretty_name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
 		string_fvalue_copy,		/* copy_value */
@@ -280,10 +285,14 @@ ftype_register_string(void)
 		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
 		string_to_repr,			/* val_to_string_repr */
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -307,8 +316,6 @@ ftype_register_string(void)
 	};
 	static ftype_t stringzpad_type = {
 		FT_STRINGZPAD,			/* ftype */
-		"FT_STRINGZPAD",		/* name */
-		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
 		string_fvalue_copy,		/* copy_value */
@@ -316,10 +323,14 @@ ftype_register_string(void)
 		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
 		string_to_repr,			/* val_to_string_repr */
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */
@@ -343,8 +354,6 @@ ftype_register_string(void)
 	};
 	static ftype_t stringztrunc_type = {
 		FT_STRINGZTRUNC,		/* ftype */
-		"FT_STRINGZTRUNC",		/* name */
-		"Character string",		/* pretty name */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
 		string_fvalue_copy,		/* copy_value */
@@ -352,10 +361,14 @@ ftype_register_string(void)
 		val_from_literal,		/* val_from_literal */
 		val_from_string,		/* val_from_string */
 		val_from_charconst,		/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
 		string_to_repr,			/* val_to_string_repr */
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
 
 		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
 		{ .get_value_strbuf = value_get },	/* union get_value */

@@ -60,30 +60,30 @@ void proto_reg_handoff_avsp(void);
 void proto_register_avsp(void);
 
 static dissector_handle_t avsp_handle;
-static int proto_avsp = -1;
+static int proto_avsp;
 
 /* sub trees */
-static gint ett_avsp = -1;
-static gint ett_avsp_ts_48 = -1;
-static gint ett_avsp_ts_64 = -1;
-static gint ett_avsp_tgen_hdr = -1;
-static gint ett_avsp_tgen_hdr_ctrl = -1;
-static gint ett_avsp_tgen_payload = -1;
+static gint ett_avsp;
+static gint ett_avsp_ts_48;
+static gint ett_avsp_ts_64;
+static gint ett_avsp_tgen_hdr;
+static gint ett_avsp_tgen_hdr_ctrl;
+static gint ett_avsp_tgen_payload;
 
 /* AVSP Timestamp subtype header fields */
-static int hf_avsp_subtype = -1;
-static int hf_avsp_ts_version = -1;
-static int hf_avsp_ts_64_tai = -1;
-static int hf_avsp_ts_64_utc = -1;
-static int hf_avsp_ts_64_sec = -1;
-static int hf_avsp_ts_64_ns = -1;
-static int hf_avsp_ts_48_tai = -1;
-static int hf_avsp_ts_48_utc = -1;
-static int hf_avsp_ts_48_sec = -1;
-static int hf_avsp_ts_48_ns = -1;
+static int hf_avsp_subtype;
+static int hf_avsp_ts_version;
+static int hf_avsp_ts_64_tai;
+static int hf_avsp_ts_64_utc;
+static int hf_avsp_ts_64_sec;
+static int hf_avsp_ts_64_ns;
+static int hf_avsp_ts_48_tai;
+static int hf_avsp_ts_48_utc;
+static int hf_avsp_ts_48_sec;
+static int hf_avsp_ts_48_ns;
 
-static int hf_avsp_etype = -1;
-static int hf_avsp_trailer = -1;
+static int hf_avsp_etype;
+static int hf_avsp_trailer;
 
 /*
   TGen subtype format
@@ -104,16 +104,15 @@ static int hf_avsp_trailer = -1;
 */
 
 /* AVSP TGen subtype header fields */
-static int hf_avsp_tgen_version = -1;
-static int hf_avsp_tgen_hdr = -1;
-static int hf_avsp_tgen_hdr_ctrl = -1;
-static int hf_avsp_tgen_hdr_ctrl_fcs_inverted = -1;
-static int hf_avsp_tgen_hdr_ctrl_reserved = -1;
-static int hf_avsp_tgen_hdr_seq_num = -1;
-static int hf_avsp_tgen_hdr_payload_len = -1;
-static int hf_avsp_tgen_payload = -1;
-static int hf_avsp_tgen_payload_data = -1;
-static int hf_avsp_tgen_trailer = -1;
+static int hf_avsp_tgen_version;
+static int hf_avsp_tgen_hdr;
+static int hf_avsp_tgen_hdr_ctrl;
+static int hf_avsp_tgen_hdr_ctrl_fcs_inverted;
+static int hf_avsp_tgen_hdr_ctrl_reserved;
+static int hf_avsp_tgen_hdr_seq_num;
+static int hf_avsp_tgen_hdr_payload_len;
+static int hf_avsp_tgen_payload;
+static int hf_avsp_tgen_payload_data;
 
 static int* const avsp_tgen_ctrl[] = {
     &hf_avsp_tgen_hdr_ctrl_fcs_inverted,
@@ -142,9 +141,9 @@ static const value_string tgen_versions[] = {
     {0, NULL}
 };
 
-static expert_field ei_avsp_unknown_subtype = EI_INIT;
-static expert_field ei_avsp_ts_unknown_version = EI_INIT;
-static expert_field ei_avsp_tgen_unknown_version = EI_INIT;
+static expert_field ei_avsp_unknown_subtype;
+static expert_field ei_avsp_ts_unknown_version;
+static expert_field ei_avsp_tgen_unknown_version;
 
 static int
 dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
@@ -156,7 +155,6 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
     const char* str;
 
     tvbuff_t* volatile tgen_payload_tvb = NULL;
-    tvbuff_t* volatile trailer_tvb = NULL;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "AVSP");
     col_clear(pinfo->cinfo, COL_INFO);
@@ -304,26 +302,16 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
 
             TRY {
                 tgen_payload_tvb = tvb_new_subset_length(tvb, offset, tgen_payload_len);
-                trailer_tvb = tvb_new_subset_remaining(tvb, offset + tgen_payload_len);
             }
                 CATCH_BOUNDS_ERRORS {
-                /* Either:
-
+                /* So:
                     the packet doesn't have "tgen_payload_len" bytes worth of
                     captured data left in it so the "tvb_new_subset_length()"
                     creating "payload_tvb" threw an exception
 
-                    or
-
-                    the packet has exactly "tgen_payload_len" bytes worth of
-                    captured data left in it, so the "tvb_new_subset_remaining()"
-                    creating "trailer_tvb" threw an exception.
-
-                    In either case, this means that all the data in the frame
-                    is within the length value, so we give all the data to the
-                    payload and have no trailer. */
+                    This means that all the data in the frame is within the
+                    length value, so we give all the data to the payload. */
                 tgen_payload_tvb = tvb_new_subset_remaining(tvb, offset);
-                trailer_tvb = NULL;
             }
             ENDTRY;
 
@@ -332,8 +320,8 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
 
             /* Add the TGen payload to the tree, with a heading that displays
                the TGgen payload captured length. */
-            ti = proto_tree_add_bytes_format(avsp_tree, hf_avsp_tgen_payload_data,
-                tgen_payload_tvb, 0, -1, NULL, "TGen Payload (%u byte%s)",
+            ti = proto_tree_add_none_format(avsp_tree, hf_avsp_tgen_payload,
+                tgen_payload_tvb, 0, -1, "TGen Payload (%u byte%s)",
                 tgen_payload_captured_len,
                 plurality(tgen_payload_captured_len, "", "s"));
             avsp_tgen_payload = proto_item_add_subtree(ti, ett_avsp_tgen_payload);
@@ -345,8 +333,11 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
                been truncated) we can set the length of the entire AVSP protocol. */
             proto_item_set_len(avsp_ti, offset + tgen_payload_captured_len);
 
-            /* If there is a trailer, then add it to the tree. */
-            add_ethernet_trailer(pinfo, tree, avsp_tree, hf_avsp_tgen_trailer, tvb, trailer_tvb, -1);
+            /* We have a length field, so set it here so that the higher level
+             * (ethertype) dissector can add the trailer. That way the FCS
+             * will be calculated correctly.
+             */
+            set_actual_length(tvb, offset + tgen_payload_captured_len);
             break;
 
         default:
@@ -500,12 +491,6 @@ void proto_register_avsp(void)
                 FT_BYTES, BASE_NONE,
                 NULL, 0x0,
                 NULL, HFILL}
-        },
-        { &hf_avsp_tgen_trailer,
-            {"Trailer", "avsp.tgen.trailer",
-                FT_BYTES, BASE_NONE,
-                NULL, 0x0,
-                "Ethernet Trailer or Checksum", HFILL }
         },
     };
 

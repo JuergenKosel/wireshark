@@ -134,6 +134,17 @@ wtap_file_get_shb(wtap *wth, guint shb_num)
 	return g_array_index(wth->shb_hdrs, wtap_block_t, shb_num);
 }
 
+unsigned
+wtap_file_get_shb_global_interface_id(wtap *wth, guint shb_num, uint32_t interface_id)
+{
+	if ((wth == NULL) || (wth->shb_hdrs == NULL) || (shb_num >= wth->shb_hdrs->len)) {
+		ws_warning("unexpected SHB %u and interface id %u", shb_num, interface_id);
+		return interface_id;
+	}
+
+	return interface_id + g_array_index(wth->shb_iface_to_global, unsigned, shb_num);
+}
+
 GArray*
 wtap_file_get_shb_for_new_file(wtap *wth)
 {
@@ -199,6 +210,24 @@ wtap_get_next_interface_description(wtap *wth)
 	 * have.  (There may be more in the future, if we read more.)
 	 */
 	return NULL;
+}
+
+guint
+wtap_file_get_num_dsbs(wtap *wth)
+{
+	if (!wth->dsbs) {
+		return 0;
+	}
+	return wth->dsbs->len;
+}
+
+wtap_block_t
+wtap_file_get_dsb(wtap *wth, guint dsb_num)
+{
+	if ((wth == NULL) || (wth->dsbs == NULL) || (dsb_num >= wth->dsbs->len))
+		return NULL;
+
+	return g_array_index(wth->dsbs, wtap_block_t, dsb_num);
 }
 
 void
@@ -347,8 +376,8 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 	char* tmp_content;
 	wtapng_if_descr_mandatory_t* if_descr_mand;
 	GString *info = g_string_new("");
+	gint64 itmp64;
 	guint64 tmp64;
-	gint8 itmp8;
 	guint8 tmp8;
 	if_filter_opt_t if_filter;
 
@@ -395,10 +424,10 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 			if_descr_mand->snap_len,
 			line_end);
 
-	if (wtap_block_get_uint8_option_value(if_descr, OPT_IDB_FCSLEN, &itmp8) == WTAP_OPTTYPE_SUCCESS) {
+	if (wtap_block_get_uint8_option_value(if_descr, OPT_IDB_FCSLEN, &tmp8) == WTAP_OPTTYPE_SUCCESS) {
 		g_string_append_printf(info,
-				"%*cFCS length = %d%s", indent, ' ',
-				itmp8,
+				"%*cFCS length = %u%s", indent, ' ',
+				tmp8,
 				line_end);
 	}
 
@@ -417,6 +446,13 @@ wtap_get_debug_if_descr(const wtap_block_t if_descr,
 		g_string_append_printf(info,
 				"%*cTime resolution = 0x%.2x%s", indent, ' ',
 				tmp8,
+				line_end);
+	}
+
+	if (wtap_block_get_int64_option_value(if_descr, OPT_IDB_TSOFFSET, &itmp64) == WTAP_OPTTYPE_SUCCESS) {
+		g_string_append_printf(info,
+				"%*cTimestamp offset = %" G_GINT64_FORMAT "%s", indent, ' ',
+				itmp64,
 				line_end);
 	}
 
@@ -516,6 +552,7 @@ wtap_dump_params_init(wtap_dump_params *params, wtap *wth)
 	/* Assume that the input handle remains open until the dumper is closed.
 	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
 	 * as they become available. */
+	params->shb_iface_to_global = wth->shb_iface_to_global;
 	params->nrbs_growing = wth->nrbs;
 	params->dsbs_growing = wth->dsbs;
 	params->mevs_growing = wth->meta_events;
@@ -541,6 +578,7 @@ wtap_dump_params_init_no_idbs(wtap_dump_params *params, wtap *wth)
 	/* Assume that the input handle remains open until the dumper is closed.
 	 * Refer to the DSBs from the input file, wtap_dump will then copy DSBs
 	 * as they become available. */
+	params->shb_iface_to_global = wth->shb_iface_to_global;
 	params->nrbs_growing = wth->nrbs;
 	params->dsbs_growing = wth->dsbs;
 	params->dont_copy_idbs = TRUE;
@@ -1258,6 +1296,9 @@ static struct encap_type_info encap_table_base[] = {
 
 	/* WTAP_ENCAP_MDB */
 	{ "mdb", "MDB (Multi-Drop Bus)"},
+
+	/* WTAP_ENCAP_EMS */
+	{ "ems", "EMS (EGNOS Message Server) file"},
 };
 
 WS_DLL_LOCAL
@@ -1540,6 +1581,7 @@ wtap_close(wtap *wth)
 
 	wtap_block_array_free(wth->shb_hdrs);
 	wtap_block_array_free(wth->nrbs);
+	g_array_free(wth->shb_iface_to_global, TRUE);
 	wtap_block_array_free(wth->interface_data);
 	wtap_block_array_free(wth->dsbs);
 	wtap_block_array_free(wth->meta_events);

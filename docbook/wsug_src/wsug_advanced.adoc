@@ -12,8 +12,10 @@ This chapter will describe some of Wireshark’s advanced features.
 
 // We switched from FollowTCP to FollowStream in June 2018.
 // This is apparently how you assign multiple anchors.
+// https://docs.asciidoctor.org/asciidoc/latest/attributes/id/#add-additional-anchors-to-a-section
 
-=== [[ChAdvFollowTCPSection]]Following Protocol Streams [[ChAdvFollowStreamSection]]
+[#ChAdvFollowStreamSection]
+=== [[ChAdvFollowTCPSection]]Following Protocol Streams
 
 It can be very helpful to see a protocol in the way that the application
 layer sees it. Perhaps you are looking for passwords in a Telnet stream,
@@ -170,8 +172,9 @@ a|
 |===
 
 menu:Raw[]:: This allows you to load the unaltered stream data into a different
-  program for further examination. The display will look the same as the ASCII
-  setting, but “Save As” will result in a binary file.
+  program for further examination. The display will show the data as strings
+  of hex characters with each frame on a separate line, but “Save As”
+  will result in a binary file without any added line separators.
 
 You can switch between streams using the “Stream” selector.
 
@@ -257,7 +260,7 @@ menu:Image[]:: This will try to convert the bytes into an image.
 
 menu:ISO 8859-1[]:: In this view you see the bytes as ISO 8859-1.
 
-menu:Raw[]:: This allows you to load the unaltered stream data into a different
+menu:Raw[]:: This allows you to load the bytes into a different
   program for further examination. The display will show HEX data, but
   “Save As” will result in a binary file.
 

@@ -108,6 +108,15 @@ void InterfaceToolbarLineEdit::updateStyleSheet(bool is_valid)
             .arg(apsz.width() + frameWidth)
             .arg(is_valid || !isEnabled() ? QString("") : ColorUtils::fromColorT(prefs.gui_text_invalid).name());
 
+#ifdef Q_OS_MAC
+    style_sheet += QString(
+            "InterfaceToolbarLineEdit {"
+            "  border: 1px solid palette(%1);"
+            "  border-radius: 3px;"
+            "}"
+            ).arg(ColorUtils::themeIsDark() ? QString("light") : QString("dark"));
+#endif
+
     setStyleSheet(style_sheet);
 }
 

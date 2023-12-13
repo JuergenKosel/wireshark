@@ -92,6 +92,7 @@
 #include "eri_enb_log.h"
 #include "autosar_dlt.h"
 #include "rtpdump.h"
+#include "ems.h"
 
 
 /*
@@ -173,6 +174,7 @@ static const struct file_extension_info file_type_extensions_base[] = {
 	{ "JavaScript Object Notation file", FALSE, "json" },
 	{ "MP4 file", FALSE, "mp4" },
 	{ "RTPDump file", FALSE, "rtp;rtpdump" },
+	{ "EMS file", FALSE, "ems" },
 };
 
 #define	N_FILE_TYPE_EXTENSIONS	(sizeof file_type_extensions_base / sizeof file_type_extensions_base[0])
@@ -406,6 +408,7 @@ static const struct open_info open_info_base[] = {
 	/* ASCII trace files from Telnet sessions. */
 	{ "Lucent/Ascend access server trace",      OPEN_INFO_HEURISTIC, ascend_open,              "txt",      NULL, NULL },
 	{ "Toshiba Compact ISDN Router snoop",      OPEN_INFO_HEURISTIC, toshiba_open,             "txt",      NULL, NULL },
+	{ "EGNOS Messager Server (EMS) file",       OPEN_INFO_HEURISTIC, ems_open,                 "ems",      NULL, NULL },
 	/* Extremely weak heuristics - put them at the end. */
 	{ "Ixia IxVeriWave .vwr Raw Capture",       OPEN_INFO_HEURISTIC, vwr_open,                 "vwr",      NULL, NULL },
 	{ "CAM Inspector file",                     OPEN_INFO_HEURISTIC, camins_open,              "camins",   NULL, NULL },
@@ -908,6 +911,9 @@ wtap_open_offline(const char *filename, unsigned int type, int *err, char **err_
 	 * will return.
 	 */
 	wth->next_interface_data = 0;
+
+	wth->shb_iface_to_global = g_array_new(FALSE, FALSE, sizeof(unsigned));
+	g_array_append_val(wth->shb_iface_to_global, wth->interface_data->len);
 
 	if (wth->random_fh) {
 		wth->fast_seek = g_ptr_array_new();
@@ -2332,6 +2338,7 @@ wtap_dump_init_dumper(int file_type_subtype, wtap_compression_type compression_t
 	wdh->file_encap = params->encap;
 	wdh->compression_type = compression_type;
 	wdh->wslua_data = NULL;
+	wdh->shb_iface_to_global = params->shb_iface_to_global;
 	wdh->interface_data = g_array_new(FALSE, FALSE, sizeof(wtap_block_t));
 
 	/* Set Section Header Block data */

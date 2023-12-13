@@ -84,6 +84,11 @@ extern GList *capture_interface_list(int *err, char **err_str, void (*update_cb)
 void free_interface_list(GList *if_list);
 
 /**
+ * Deep copy an interface list
+ */
+GList * interface_list_copy(GList *if_list);
+
+/**
  * Get an if_info_t for a particular interface.
  * (May require privilege, so should only be used by dumpcap.)
  */
@@ -93,6 +98,16 @@ extern if_info_t *if_info_get(const char *name);
  * Free an if_info_t.
  */
 void if_info_free(if_info_t *if_info);
+
+/**
+ * Deep copy an if_info_t.
+ */
+if_info_t *if_info_copy(const if_info_t *if_info);
+
+/**
+ * Deep copy an if_addr_t.
+ */
+if_addr_t *if_addr_copy(const if_addr_t *if_addr);
 
 /*
  * "get_if_capabilities()" and "capture_if_capabilities()" return a pointer
@@ -104,6 +119,12 @@ typedef struct {
 	GList		*data_link_types;	/* GList of data_link_info_t's */
 	GList		*timestamp_types;   /* GList of timestamp_info_t's */
 } if_capabilities_t;
+
+typedef struct {
+        const char *name;
+        bool monitor_mode;
+        const char *auth;
+} if_cap_query_t;
 
 /*
  * Information about data link types.
@@ -128,6 +149,14 @@ typedef struct {
 extern if_capabilities_t *
 capture_get_if_capabilities(const char *devname, bool monitor_mode,
                             const char *auth_string,
+                            char **err_primary_msg, char **err_secondary_msg,
+                            void (*update_cb)(void));
+
+/**
+ * Fetch the linktype list for the specified interface from a child process.
+ */
+extern GHashTable *
+capture_get_if_list_capabilities(GList *if_cap_queries,
                             char **err_primary_msg, char **err_secondary_msg,
                             void (*update_cb)(void));
 

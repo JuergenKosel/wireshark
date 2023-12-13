@@ -31,6 +31,8 @@
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
 #include <epan/dissectors/packet-rlc-lte.h>
+#include <epan/dissectors/packet-rlc-3gpp-common.h>
+
 
 #include <ui/tap-rlc-graph.h>
 
@@ -111,10 +113,11 @@ LteRlcGraphDialog::~LteRlcGraphDialog()
 }
 
 // Set the channel information that this graph should show.
-void LteRlcGraphDialog::setChannelInfo(guint16 ueid, guint8 rlcMode,
+void LteRlcGraphDialog::setChannelInfo(uint8_t rat, guint16 ueid, guint8 rlcMode,
                                        guint16 channelType, guint16 channelId, guint8 direction,
                                        bool maybe_empty)
 {
+    graph_.rat = rat;
     graph_.ueid = ueid;
     graph_.rlcMode = rlcMode;
     graph_.channelType = channelType;
@@ -135,7 +138,8 @@ void LteRlcGraphDialog::completeGraph(bool may_be_empty)
 
     // Set window title here.
     if (graph_.channelSet) {
-        QString dlg_title = tr("LTE RLC Graph (UE=%1 chan=%2%3 %4 - %5)")
+        QString dlg_title = tr("%1 RLC Graph (UE=%2 chan=%3%4 %5 - %6)")
+                                 .arg((graph_.rat == RLC_RAT_LTE) ? "LTE" : "NR")
                                  .arg(graph_.ueid)
                                  .arg((graph_.channelType == CHANNEL_TYPE_SRB) ? "SRB" : "DRB")
                                  .arg(graph_.channelId)
@@ -177,7 +181,6 @@ void LteRlcGraphDialog::completeGraph(bool may_be_empty)
         connect(rp, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
         connect(rp, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(mouseReleased(QMouseEvent*)));
     }
-    disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
     this->setResult(QDialog::Accepted);
 
     // Extract the data that the graph can use.
@@ -269,6 +272,16 @@ void LteRlcGraphDialog::fillGraph()
                     reseg_seq_time, reseg_seq,
                     acks_time, acks,
                     nacks_time, nacks;
+
+    guint16 last_ackSN = 0;
+    guint32 maxSN = 0;
+
+    // Note the max possible SN
+    if (graph_.segments) {
+        maxSN = (1 << graph_.segments->sequenceNumberLength);
+    }
+
+    // Run through the segments to get data
     for (struct rlc_segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
         double ts = seg->rel_secs + (seg->rel_usecs / 1000000.0);
         if (compareHeaders(seg)) {
@@ -284,12 +297,22 @@ void LteRlcGraphDialog::fillGraph()
                 }
             }
             else {
-                // Status (ACKs/NACKs)
-                acks_time.append(ts);
-                acks.append(seg->ACKNo-1);
-                for (int n=0; n < seg->noOfNACKs; n++) {
-                    nacks_time.append(ts);
-                    nacks.append(seg->NACKs[n]);
+                // Status
+
+                // Filter out ACKS that are likely caused by MAC retx, so track last ACK
+                if ((seg->ACKNo != last_ackSN) &&
+                    (((maxSN +  last_ackSN-seg->ACKNo) % maxSN) > 2)) {
+
+                    // Status (ACKs/NACKs)
+                    acks_time.append(ts);
+                    acks.append((seg->ACKNo-1) % maxSN);
+                    last_ackSN = seg->ACKNo;
+
+                    // Any NACKs
+                    for (int n=0; n < seg->noOfNACKs; n++) {
+                        nacks_time.append(ts);
+                        nacks.append(seg->NACKs[n]);
+                    }
                 }
             }
         }
@@ -682,7 +705,11 @@ void LteRlcGraphDialog::resetAxes()
     double pixel_pad = 10.0; // per side
 
     rp->rescaleAxes(true);
+    // Make sure ranges of all sub-graphs are taken into account
     base_graph_->rescaleValueAxis(false, true);
+    reseg_graph_->rescaleValueAxis(true, true);
+    acks_graph_->rescaleValueAxis(true, true);
+    nacks_graph_->rescaleValueAxis(true, true);
 
     double axis_pixels = rp->xAxis->axisRect()->width();
     rp->xAxis->scaleRange((axis_pixels + (pixel_pad * 2)) / axis_pixels, x_range.center());
@@ -801,7 +828,8 @@ void LteRlcGraphDialog::on_actionSwitchDirection_triggered()
 {
     // Channel settings exactly the same, except change direction.
     // N.B. do not fail and close if there are no packets in opposite direction.
-    setChannelInfo(graph_.ueid,
+    setChannelInfo(graph_.rat,
+                   graph_.ueid,
                    graph_.rlcMode,
                    graph_.channelType,
                    graph_.channelId,
@@ -850,7 +878,7 @@ void LteRlcGraphDialog::on_otherDirectionButton_clicked()
 void LteRlcGraphDialog::on_buttonBox_accepted()
 {
     QString file_name, extension;
-    QDir path(mainApp->lastOpenDir());
+    QDir path(mainApp->openDialogInitialDir());
     QString pdf_filter = tr("Portable Document Format (*.pdf)");
     QString png_filter = tr("Portable Network Graphics (*.png)");
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");

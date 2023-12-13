@@ -21,6 +21,7 @@ const char *
 dfvm_opcode_tostr(dfvm_opcode_t code)
 {
 	switch (code) {
+		case DFVM_NULL:			return "(DFVM_NULL)";
 		case DFVM_IF_TRUE_GOTO:		return "IF_TRUE_GOTO";
 		case DFVM_IF_FALSE_GOTO:	return "IF_FALSE_GOTO";
 		case DFVM_CHECK_EXISTS:		return "CHECK_EXISTS";
@@ -69,21 +70,9 @@ dfvm_opcode_tostr(dfvm_opcode_t code)
 		case DFVM_STACK_PUSH:		return "STACK_PUSH";
 		case DFVM_STACK_POP:		return "STACK_POP";
 		case DFVM_NOT_ALL_ZERO:		return "NOT_ALL_ZERO";
+		case DFVM_NO_OP:		return "NO_OP";
 	}
 	return "(fix-opcode-string)";
-}
-
-dfvm_insn_t*
-dfvm_insn_new(dfvm_opcode_t op)
-{
-	dfvm_insn_t	*insn;
-
-	insn = g_new(dfvm_insn_t, 1);
-	insn->op = op;
-	insn->arg1 = NULL;
-	insn->arg2 = NULL;
-	insn->arg3 = NULL;
-	return insn;
 }
 
 static void
@@ -128,6 +117,37 @@ dfvm_value_unref(dfvm_value_t *v)
 	if (v->ref_count > 0)
 		return;
 	dfvm_value_free(v);
+}
+
+dfvm_insn_t*
+dfvm_insn_new(dfvm_opcode_t op)
+{
+	dfvm_insn_t	*insn;
+
+	insn = g_new(dfvm_insn_t, 1);
+	insn->op = op;
+	insn->arg1 = NULL;
+	insn->arg2 = NULL;
+	insn->arg3 = NULL;
+	return insn;
+}
+
+void
+dfvm_insn_replace_no_op(dfvm_insn_t *insn)
+{
+	if (insn->arg1) {
+		dfvm_value_unref(insn->arg1);
+		insn->arg1 = NULL;
+	}
+	if (insn->arg2) {
+		dfvm_value_unref(insn->arg2);
+		insn->arg2 = NULL;
+	}
+	if (insn->arg3) {
+		dfvm_value_unref(insn->arg3);
+		insn->arg3 = NULL;
+	}
+	insn->op = DFVM_NO_OP;
 }
 
 void
@@ -280,6 +300,12 @@ value_type_tostr(dfvm_value_t *v, bool show_ftype)
 		case FVALUE:
 			s = fvalue_type_name(dfvm_value_get_fvalue(v));
 			break;
+		case FUNCTION_DEF:
+			if (v->value.funcdef->return_ftype != FT_NONE)
+				s = ftype_name(v->value.funcdef->return_ftype);
+			else
+				s = "***";
+			break;
 		default:
 			return ws_strdup("");
 			break;
@@ -288,15 +314,22 @@ value_type_tostr(dfvm_value_t *v, bool show_ftype)
 }
 
 static GSList *
-dump_str_stack_push(GSList *stack, const char *str)
+dump_str_stack_push(GSList *stack, const char *arg, const char *arg_type)
 {
-	return g_slist_prepend(stack, g_strdup(str));
+	stack = g_slist_prepend(stack, g_strdup(arg));
+	stack = g_slist_prepend(stack, g_strdup(arg_type));
+	return stack;
 }
 
 static GSList *
 dump_str_stack_pop(GSList *stack, uint32_t count)
 {
 	while (stack && count-- > 0) {
+		/* For each argument count we need to pop two elements from the stack,
+		 * the argument string itself and the argument type string.
+		 * They always come in pairs. */
+		g_free(stack->data);
+		stack = g_slist_delete_link(stack, stack);
 		g_free(stack->data);
 		stack = g_slist_delete_link(stack, stack);
 	}
@@ -304,8 +337,8 @@ dump_str_stack_pop(GSList *stack, uint32_t count)
 }
 
 static void
-append_call_function(wmem_strbuf_t *buf, const char *func, uint32_t nargs,
-					GSList *stack_print)
+append_call_function(wmem_strbuf_t *buf, const char *func, const char *func_type,
+			uint32_t nargs, GSList *stack_print)
 {
 	uint32_t idx;
 	GString	*gs;
@@ -316,14 +349,18 @@ append_call_function(wmem_strbuf_t *buf, const char *func, uint32_t nargs,
 	if (nargs > 0) {
 		gs = g_string_new(NULL);
 		for (l = stack_print, idx = 0; l != NULL && idx < nargs; idx++, l = l->next) {
+			/* Argument strings always come in pairs, string + type string. Type comes first
+			 * (top to bottom). */
 			g_string_prepend(gs, sep);
+			g_string_prepend(gs, l->data);
+			l = l->next;
 			g_string_prepend(gs, l->data);
 			sep = ", ";
 		}
 		wmem_strbuf_append(buf, gs->str);
 		g_string_free(gs, true);
 	}
-	wmem_strbuf_append(buf, ")");
+	wmem_strbuf_append_printf(buf, ")%s", func_type);
 }
 
 static void
@@ -411,18 +448,19 @@ append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
 			break;
 
 		case DFVM_CALL_FUNCTION:
-			append_call_function(buf, arg1_str, arg3->value.numeric, *stack_print);
+			append_call_function(buf, arg1_str, arg1_str_type,
+						arg3->value.numeric, *stack_print);
 			indent2(buf, col_start);
 			append_to_register(buf, arg2_str);
 			break;
 
 		case DFVM_STACK_PUSH:
-			wmem_strbuf_append_printf(buf, "%s", arg1_str);
-			*stack_print = dump_str_stack_push(*stack_print, arg1_str);
+			wmem_strbuf_append_printf(buf, "%s%s", arg1_str, arg1_str_type);
+			*stack_print = dump_str_stack_push(*stack_print, arg1_str, arg1_str_type);
 			break;
 
 		case DFVM_STACK_POP:
-			wmem_strbuf_append_printf(buf, "%s", arg1_str);
+			wmem_strbuf_append_printf(buf, "[%s]", arg1_str);
 			*stack_print = dump_str_stack_pop(*stack_print, arg1->value.numeric);
 			break;
 
@@ -582,7 +620,9 @@ append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
 		case DFVM_NOT:
 		case DFVM_RETURN:
 		case DFVM_SET_CLEAR:
-			ws_assert_not_reached();
+		case DFVM_NULL:
+		case DFVM_NO_OP:
+			ASSERT_DFVM_OP_NOT_REACHED(insn->op);
 	}
 
 	g_free(arg1_str);
@@ -669,6 +709,7 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, uint16_t flags)
 			case DFVM_NOT:
 			case DFVM_RETURN:
 			case DFVM_SET_CLEAR:
+			case DFVM_NO_OP:
 				/* Nothing here */
 				break;
 			default:
@@ -1794,6 +1835,9 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				free_register_overhead(df);
 				return accum;
 
+			case DFVM_NO_OP:
+				break;
+
 			case DFVM_IF_TRUE_GOTO:
 				if (accum) {
 					id = arg1->value.numeric;
@@ -1807,6 +1851,9 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 					goto AGAIN;
 				}
 				break;
+
+			case DFVM_NULL:
+				ASSERT_DFVM_OP_NOT_REACHED(insn->op);
 		}
 	}
 

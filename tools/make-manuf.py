@@ -113,11 +113,14 @@ skip_start = [
     'wuhan',
     'hangzhou',
     'guangxi',
+    'guangdong',
+    'chengdu',
 ]
 
 # Special cases handled directly
 special_case = {
     "Advanced Micro Devices": "AMD",
+    "杭州德澜科技有限公司": "DelanTech" # 杭州德澜科技有限公司（HangZhou Delan Technology Co.,Ltd）
 }
 
 def shorten(manuf):
@@ -130,11 +133,16 @@ def shorten(manuf):
         manuf = manuf.title()
     # Remove the contents of parenthesis as ancillary data
     manuf = re.sub(r"\(.*\)", '', manuf)
+    # Remove the contents of fullwidth parenthesis (mostly in Asian names)
+    manuf = re.sub(r"（.*）", '', manuf)
     # Remove "a" before removing punctuation ("Aruba, a Hewlett [...]" etc.)
     manuf = manuf.replace(" a ", " ")
     # Remove any punctuation
     # XXX Use string.punctuation? Note that it includes '-' and '*'.
     manuf = re.sub(r"[\"',./:()+-]", ' ', manuf)
+    # XXX For some reason including the double angle brackets in the above
+    # regex makes it bomb
+    manuf = re.sub(r"[«»“”]", ' ', manuf)
     # & isn't needed when Standalone
     manuf = manuf.replace(" & ", " ")
     # Remove business types and other general terms ("the", "inc", "plc", etc.)
@@ -149,6 +157,9 @@ def shorten(manuf):
     if manuf in special_case.keys():
         manuf = special_case[manuf]
 
+    # XXX: Some of the entries have Chinese city or other location
+    # names written with spaces between each character, like
+    # Bei jing, Wu Han, Shen Zhen, etc. We should remove that too.
     split = manuf.split()
     if len(split) > 1 and split[0].lower() in skip_start:
         manuf = ' '.join(split[1:])
@@ -230,7 +241,7 @@ def main():
         'OUI36': { 'url': ["https://standards-oui.ieee.org/oui36/", "oui36.csv"], 'min_entries': 1000 },
     }
     oui_d = {
-        MA_L: {},
+        MA_L: { '00:00:00' : ['00:00:00', 'Officially Xerox, but 0:0:0:0:0:0 is more common'] },
         MA_M: {},
         MA_S: {},
     }

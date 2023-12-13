@@ -19,6 +19,13 @@
 
 #include <glib.h>
 
+struct InterfaceFilter {
+    InterfaceFilter(QString intf, QString filt) : interface(intf), filter(filt) {}
+
+    QString interface;
+    QString filter;
+};
+
 namespace Ui {
 class CompiledFilterOutput;
 }
@@ -28,10 +35,9 @@ class CompiledFilterOutput : public GeometryStateDialog
     Q_OBJECT
 
 private:
-    QStringList intList_;
-    QString &compile_filter_;
+    QList<InterfaceFilter> intList_;
     Ui::CompiledFilterOutput *ui;
-    GMutex *pcap_compile_mtx;
+    GMutex pcap_compile_mtx_;
     QHash<QString, QString> compile_results;
     QListWidget *interface_list_;
     QPushButton *copy_bt_;
@@ -40,7 +46,7 @@ private:
 #endif
 
 public:
-    explicit CompiledFilterOutput(QWidget *parent = 0, QStringList &intList = *new QStringList(), QString &filter = *new QString());
+    explicit CompiledFilterOutput(QWidget *parent = 0, QList<InterfaceFilter> &intList = *new QList<InterfaceFilter>());
 
     ~CompiledFilterOutput();
 

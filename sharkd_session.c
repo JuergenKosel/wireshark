@@ -1534,7 +1534,8 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
     const guint8 *filter_data = NULL;
 
-    guint32 next_ref_frame = G_MAXUINT32;
+    guint32 prev_dis_num = 0;
+    guint32 current_ref_frame = 0, next_ref_frame = G_MAXUINT32;
     guint32 skip;
     guint32 limit;
 
@@ -1602,6 +1603,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
     for (guint32 framenum = 1; framenum <= cfile.count; framenum++)
     {
         frame_data *fdata;
+        guint32 ref_frame = (framenum != 1) ? 1 : 0;
         enum dissect_request_status status;
         int err;
         gchar *err_info;
@@ -1612,6 +1614,7 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
         if (skip)
         {
             skip--;
+            prev_dis_num = framenum;
             continue;
         }
 
@@ -1619,11 +1622,15 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
         {
             if (framenum >= next_ref_frame)
             {
+                current_ref_frame = next_ref_frame;
+
                 if (*tok_refs != ',')
                     next_ref_frame = G_MAXUINT32;
 
                 while (*tok_refs == ',' && framenum >= next_ref_frame)
                 {
+                    current_ref_frame = next_ref_frame;
+
                     if (!ws_strtou32(tok_refs + 1, &tok_refs, &next_ref_frame))
                     {
                         fprintf(stderr, "sharkd_session_process_frames() wrong format for refs: %s\n", tok_refs);
@@ -1633,14 +1640,18 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
 
                 if (*tok_refs == '\0' && framenum >= next_ref_frame)
                 {
+                    current_ref_frame = next_ref_frame;
                     next_ref_frame = G_MAXUINT32;
                 }
             }
+
+            if (current_ref_frame)
+                ref_frame = current_ref_frame;
         }
 
         fdata = sharkd_get_frame(framenum);
         status = sharkd_dissect_request(framenum,
-                (framenum != 1) ? 1 : 0, framenum - 1,
+                ref_frame, prev_dis_num,
                 &rec, &rec_buf, cinfo,
                 (fdata->color_filter == NULL) ? SHARKD_DISSECT_FLAG_COLOR : SHARKD_DISSECT_FLAG_NULL,
                 &sharkd_session_process_frames_cb, NULL,
@@ -1662,6 +1673,8 @@ sharkd_session_process_frames(const char *buf, const jsmntok_t *tokens, int coun
                 g_free(err_info);
                 break;
         }
+
+        prev_dis_num = framenum;
 
         if (limit && --limit == 0)
             break;
@@ -5177,6 +5190,7 @@ sharkd_session_process_dumpconf_cb(pref_t *pref, gpointer d)
         case PREF_OPEN_FILENAME:
         case PREF_DIRNAME:
         case PREF_PASSWORD:
+        case PREF_DISSECTOR:
             sharkd_json_value_string("s", prefs_get_string_value(pref, pref_current));
             break;
 
@@ -5280,7 +5294,7 @@ sharkd_session_process_dumpconf_mod_cb(module_t *module, gpointer d)
  *                  (o) u - preference value (for PREF_UINT, PREF_DECODE_AS_UINT)
  *                  (o) ub - preference value suggested base for display (for PREF_UINT, PREF_DECODE_AS_UINT) and if different than 10
  *                  (o) b - preference value (only for PREF_BOOL) (1 true, 0 false)
- *                  (o) s - preference value (for PREF_STRING, PREF_SAVE_FILENAME, PREF_OPEN_FILENAME, PREF_DIRNAME, PREF_PASSWORD)
+ *                  (o) s - preference value (for PREF_STRING, PREF_SAVE_FILENAME, PREF_OPEN_FILENAME, PREF_DIRNAME, PREF_PASSWORD, PREF_DISSECTOR)
  *                  (o) e - preference possible values (only for PREF_ENUM)
  *                  (o) r - preference value (for PREF_RANGE, PREF_DECODE_AS_RANGE)
  *                  (o) t - preference value (only for PREF_UAT)

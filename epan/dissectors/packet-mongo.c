@@ -26,7 +26,6 @@
 #include <wsutil/crc32.h> // CRC32C_PRELOAD
 #include <epan/crc32-tvb.h> // crc32c_tvb_offset_calculate
 #include "packet-tcp.h"
-#include "packet-tls.h"
 #ifdef HAVE_SNAPPY
 #include <snappy-c.h>
 #endif
@@ -35,6 +34,7 @@ void proto_register_mongo(void);
 void proto_reg_handoff_mongo(void);
 
 static dissector_handle_t mongo_handle;
+static dissector_handle_t mongo_heur_handle;
 
 /* Forward declaration */
 static int
@@ -46,6 +46,9 @@ dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
 /* the code can reasonably attempt to decompress buffer up to 20MB */
 #define MAX_UNCOMPRESSED_SIZE (20 * 1024 * 1024)
 
+/* All opcodes other than OP_COMPRESSED and OP_MSG were removed
+ * in MongoDB 5.1 (December 2021)
+ */
 #define OP_REPLY           1
 #define OP_MESSAGE      1000
 #define OP_UPDATE       2001
@@ -177,120 +180,120 @@ static const value_string binary_type_vals[] = {
 };
 #endif
 
-static int proto_mongo = -1;
-static int hf_mongo_message_length = -1;
-static int hf_mongo_request_id = -1;
-static int hf_mongo_response_to = -1;
-static int hf_mongo_op_code = -1;
-static int hf_mongo_fullcollectionname = -1;
-static int hf_mongo_database_name = -1;
-static int hf_mongo_collection_name = -1;
-static int hf_mongo_reply_flags = -1;
-static int hf_mongo_reply_flags_cursornotfound = -1;
-static int hf_mongo_reply_flags_queryfailure = -1;
-static int hf_mongo_reply_flags_sharedconfigstale = -1;
-static int hf_mongo_reply_flags_awaitcapable = -1;
-static int hf_mongo_cursor_id = -1;
-static int hf_mongo_starting_from = -1;
-static int hf_mongo_number_returned = -1;
-static int hf_mongo_message = -1;
-static int hf_mongo_zero = -1;
-static int hf_mongo_update_flags = -1;
-static int hf_mongo_update_flags_upsert = -1;
-static int hf_mongo_update_flags_multiupdate = -1;
-static int hf_mongo_selector = -1;
-static int hf_mongo_update = -1;
-static int hf_mongo_insert_flags = -1;
-static int hf_mongo_insert_flags_continueonerror = -1;
-static int hf_mongo_query_flags = -1;
-static int hf_mongo_query_flags_tailablecursor = -1;
-static int hf_mongo_query_flags_slaveok = -1;
-static int hf_mongo_query_flags_oplogreplay = -1;
-static int hf_mongo_query_flags_nocursortimeout = -1;
-static int hf_mongo_query_flags_awaitdata = -1;
-static int hf_mongo_query_flags_exhaust = -1;
-static int hf_mongo_query_flags_partial = -1;
-static int hf_mongo_number_to_skip = -1;
-static int hf_mongo_number_to_return = -1;
-static int hf_mongo_query = -1;
-static int hf_mongo_return_field_selector = -1;
-static int hf_mongo_document = -1;
-static int hf_mongo_document_length = -1;
-static int hf_mongo_document_empty = -1;
-static int hf_mongo_delete_flags = -1;
-static int hf_mongo_delete_flags_singleremove = -1;
-static int hf_mongo_number_of_cursor_ids = -1;
-static int hf_mongo_elements = -1;
-static int hf_mongo_element_name = -1;
-static int hf_mongo_element_type = -1;
-static int hf_mongo_element_length = -1;
-static int hf_mongo_element_value_boolean = -1;
-static int hf_mongo_element_value_int32 = -1;
-static int hf_mongo_element_value_int64 = -1;
-static int hf_mongo_element_value_decimal128 = -1;
-static int hf_mongo_element_value_double = -1;
-static int hf_mongo_element_value_string = -1;
-static int hf_mongo_element_value_string_length = -1;
-static int hf_mongo_element_value_binary = -1;
-static int hf_mongo_element_value_binary_length = -1;
-static int hf_mongo_element_value_regex_pattern = -1;
-static int hf_mongo_element_value_regex_options = -1;
-static int hf_mongo_element_value_objectid = -1;
-static int hf_mongo_element_value_objectid_time = -1;
-static int hf_mongo_element_value_objectid_host = -1;
-static int hf_mongo_element_value_objectid_pid = -1;
-static int hf_mongo_element_value_objectid_machine_id = -1;
-static int hf_mongo_element_value_objectid_inc = -1;
-static int hf_mongo_element_value_db_ptr = -1;
-static int hf_mongo_element_value_js_code = -1;
-static int hf_mongo_element_value_js_scope = -1;
-static int hf_mongo_database = -1;
-static int hf_mongo_commandname = -1;
-static int hf_mongo_metadata = -1;
-static int hf_mongo_commandargs = -1;
-static int hf_mongo_commandreply = -1;
-static int hf_mongo_outputdocs = -1;
-static int hf_mongo_unknown = -1;
-static int hf_mongo_compression_info = -1;
-static int hf_mongo_original_op_code = -1;
-static int hf_mongo_uncompressed_size = -1;
-static int hf_mongo_compressor = -1;
-static int hf_mongo_compressed_data = -1;
-static int hf_mongo_unsupported_compressed = -1;
-static int hf_mongo_msg_flags = -1;
-static int hf_mongo_msg_flags_checksumpresent = -1;
-static int hf_mongo_msg_flags_moretocome = -1;
-static int hf_mongo_msg_flags_exhaustallowed = -1;
-static int hf_mongo_msg_sections_section = -1;
-static int hf_mongo_msg_sections_section_kind = -1;
-static int hf_mongo_msg_sections_section_body = -1;
-static int hf_mongo_msg_sections_section_doc_sequence = -1;
-static int hf_mongo_msg_sections_section_size = -1;
-static int hf_mongo_msg_sections_section_doc_sequence_id = -1;
-static int hf_mongo_msg_checksum = -1;
-static int hf_mongo_msg_checksum_status = -1;
+static int proto_mongo;
+static int hf_mongo_message_length;
+static int hf_mongo_request_id;
+static int hf_mongo_response_to;
+static int hf_mongo_op_code;
+static int hf_mongo_fullcollectionname;
+static int hf_mongo_database_name;
+static int hf_mongo_collection_name;
+static int hf_mongo_reply_flags;
+static int hf_mongo_reply_flags_cursornotfound;
+static int hf_mongo_reply_flags_queryfailure;
+static int hf_mongo_reply_flags_sharedconfigstale;
+static int hf_mongo_reply_flags_awaitcapable;
+static int hf_mongo_cursor_id;
+static int hf_mongo_starting_from;
+static int hf_mongo_number_returned;
+static int hf_mongo_message;
+static int hf_mongo_zero;
+static int hf_mongo_update_flags;
+static int hf_mongo_update_flags_upsert;
+static int hf_mongo_update_flags_multiupdate;
+static int hf_mongo_selector;
+static int hf_mongo_update;
+static int hf_mongo_insert_flags;
+static int hf_mongo_insert_flags_continueonerror;
+static int hf_mongo_query_flags;
+static int hf_mongo_query_flags_tailablecursor;
+static int hf_mongo_query_flags_slaveok;
+static int hf_mongo_query_flags_oplogreplay;
+static int hf_mongo_query_flags_nocursortimeout;
+static int hf_mongo_query_flags_awaitdata;
+static int hf_mongo_query_flags_exhaust;
+static int hf_mongo_query_flags_partial;
+static int hf_mongo_number_to_skip;
+static int hf_mongo_number_to_return;
+static int hf_mongo_query;
+static int hf_mongo_return_field_selector;
+static int hf_mongo_document;
+static int hf_mongo_document_length;
+static int hf_mongo_document_empty;
+static int hf_mongo_delete_flags;
+static int hf_mongo_delete_flags_singleremove;
+static int hf_mongo_number_of_cursor_ids;
+static int hf_mongo_elements;
+static int hf_mongo_element_name;
+static int hf_mongo_element_type;
+static int hf_mongo_element_length;
+static int hf_mongo_element_value_boolean;
+static int hf_mongo_element_value_int32;
+static int hf_mongo_element_value_int64;
+static int hf_mongo_element_value_decimal128;
+static int hf_mongo_element_value_double;
+static int hf_mongo_element_value_string;
+static int hf_mongo_element_value_string_length;
+static int hf_mongo_element_value_binary;
+static int hf_mongo_element_value_binary_length;
+static int hf_mongo_element_value_regex_pattern;
+static int hf_mongo_element_value_regex_options;
+static int hf_mongo_element_value_objectid;
+static int hf_mongo_element_value_objectid_time;
+static int hf_mongo_element_value_objectid_host;
+static int hf_mongo_element_value_objectid_pid;
+static int hf_mongo_element_value_objectid_machine_id;
+static int hf_mongo_element_value_objectid_inc;
+static int hf_mongo_element_value_db_ptr;
+static int hf_mongo_element_value_js_code;
+static int hf_mongo_element_value_js_scope;
+static int hf_mongo_database;
+static int hf_mongo_commandname;
+static int hf_mongo_metadata;
+static int hf_mongo_commandargs;
+static int hf_mongo_commandreply;
+static int hf_mongo_outputdocs;
+static int hf_mongo_unknown;
+static int hf_mongo_compression_info;
+static int hf_mongo_original_op_code;
+static int hf_mongo_uncompressed_size;
+static int hf_mongo_compressor;
+static int hf_mongo_compressed_data;
+static int hf_mongo_unsupported_compressed;
+static int hf_mongo_msg_flags;
+static int hf_mongo_msg_flags_checksumpresent;
+static int hf_mongo_msg_flags_moretocome;
+static int hf_mongo_msg_flags_exhaustallowed;
+static int hf_mongo_msg_sections_section;
+static int hf_mongo_msg_sections_section_kind;
+static int hf_mongo_msg_sections_section_body;
+static int hf_mongo_msg_sections_section_doc_sequence;
+static int hf_mongo_msg_sections_section_size;
+static int hf_mongo_msg_sections_section_doc_sequence_id;
+static int hf_mongo_msg_checksum;
+static int hf_mongo_msg_checksum_status;
 
-static gint ett_mongo = -1;
-static gint ett_mongo_doc = -1;
-static gint ett_mongo_elements = -1;
-static gint ett_mongo_element = -1;
-static gint ett_mongo_objectid = -1;
-static gint ett_mongo_machine_id = -1;
-static gint ett_mongo_code = -1;
-static gint ett_mongo_fcn = -1;
-static gint ett_mongo_flags = -1;
-static gint ett_mongo_compression_info = -1;
-static gint ett_mongo_sections = -1;
-static gint ett_mongo_section = -1;
-static gint ett_mongo_msg_flags = -1;
-static gint ett_mongo_doc_sequence= -1;
+static gint ett_mongo;
+static gint ett_mongo_doc;
+static gint ett_mongo_elements;
+static gint ett_mongo_element;
+static gint ett_mongo_objectid;
+static gint ett_mongo_machine_id;
+static gint ett_mongo_code;
+static gint ett_mongo_fcn;
+static gint ett_mongo_flags;
+static gint ett_mongo_compression_info;
+static gint ett_mongo_sections;
+static gint ett_mongo_section;
+static gint ett_mongo_msg_flags;
+static gint ett_mongo_doc_sequence;
 
-static expert_field ei_mongo_document_recursion_exceeded = EI_INIT;
-static expert_field ei_mongo_document_length_bad = EI_INIT;
-static expert_field ei_mongo_unknown = EI_INIT;
-static expert_field ei_mongo_unsupported_compression = EI_INIT;
-static expert_field ei_mongo_too_large_compressed = EI_INIT;
-static expert_field ei_mongo_msg_checksum = EI_INIT;
+static expert_field ei_mongo_document_recursion_exceeded;
+static expert_field ei_mongo_document_length_bad;
+static expert_field ei_mongo_unknown;
+static expert_field ei_mongo_unsupported_compression;
+static expert_field ei_mongo_too_large_compressed;
+static expert_field ei_mongo_msg_checksum;
 
 static int
 dissect_fullcollectionname(tvbuff_t *tvb, guint offset, proto_tree *tree)
@@ -951,6 +954,7 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     proto_item *ti;
     proto_tree *mongo_tree;
     guint offset = 0, opcode, effective_opcode = 0;
+    uint32_t response_to;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "MONGO");
 
@@ -964,7 +968,7 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     proto_tree_add_item(mongo_tree, hf_mongo_request_id, tvb, offset, 4, ENC_LITTLE_ENDIAN);
     offset += 4;
 
-    proto_tree_add_item(mongo_tree, hf_mongo_response_to, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+    proto_tree_add_item_ret_uint(mongo_tree, hf_mongo_response_to, tvb, offset, 4, ENC_LITTLE_ENDIAN, &response_to);
     offset += 4;
 
     proto_tree_add_item(mongo_tree, hf_mongo_op_code, tvb, offset, 4, ENC_LITTLE_ENDIAN);
@@ -973,7 +977,7 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
     offset = dissect_opcode_types(tvb, pinfo, offset, mongo_tree, opcode, &effective_opcode);
 
-    if(opcode == 1)
+    if (opcode == 1 || response_to != 0)
     {
       col_set_str(pinfo->cinfo, COL_INFO, "Response :");
     }
@@ -1014,6 +1018,35 @@ dissect_mongo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
 {
   tcp_dissect_pdus(tvb, pinfo, tree, 1, 4, get_mongo_pdu_len, dissect_mongo_pdu, data);
   return tvb_captured_length(tvb);
+}
+
+static gboolean
+test_mongo(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
+{
+  uint32_t opcode;
+
+  if (tvb_captured_length_remaining(tvb, offset) < 16) {
+    return FALSE;
+  }
+
+  opcode = tvb_get_letohl(tvb, offset + 12);
+  /* As 5.1 and later uses only 2 opcodes, we might be able to use that
+   * (plus some other information) to do heuristics on other ports.
+   */
+  return (try_val_to_str(opcode, opcode_vals) != NULL);
+}
+
+static int
+dissect_mongo_tcp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+  if (!test_mongo(pinfo, tvb, 0, data)) {
+    return 0;
+    /* The TLS heuristic dissector should catch this if over TLS. */
+  }
+  conversation_t *conversation = find_or_create_conversation(pinfo);
+  conversation_set_dissector(conversation, mongo_handle);
+
+  return dissect_mongo(tvb, pinfo, tree, data);
 }
 
 void
@@ -1517,7 +1550,8 @@ proto_register_mongo(void)
   proto_mongo = proto_register_protocol("Mongo Wire Protocol", "MONGO", "mongo");
 
   /* Allow dissector to find be found by name. */
-  mongo_handle = register_dissector("mongo", dissect_mongo, proto_mongo);
+  mongo_handle = register_dissector_with_description("mongo", "Mongo Wire Protocol", dissect_mongo, proto_mongo);
+  mongo_heur_handle = register_dissector_with_description("mongo_tcp", "Mongo Wire Protocol over TCP", dissect_mongo_tcp_heur, proto_mongo);
 
   proto_register_field_array(proto_mongo, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
@@ -1529,8 +1563,13 @@ proto_register_mongo(void)
 void
 proto_reg_handoff_mongo(void)
 {
-  dissector_add_uint_with_preference("tcp.port", TCP_PORT_MONGO, mongo_handle);
-  ssl_dissector_add(TCP_PORT_MONGO, mongo_handle);
+  dissector_add_uint_with_preference("tcp.port", TCP_PORT_MONGO, mongo_heur_handle);
+  /* ssl_dissector_add registers TLS as the dissector for TCP on the given
+   * port, but Mongo uses the same port by default with or without TLS,
+   * so we need to test for the non-TLS version as well.
+   * If the TLS heuristic dissector detects TLS on this port, assume Mongo.
+   */
+  dissector_add_uint_with_preference("tls.port", TCP_PORT_MONGO, mongo_handle);
 }
 /*
  * Editor modelines

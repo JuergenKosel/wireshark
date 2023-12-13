@@ -125,76 +125,76 @@
 #define SOMEIP_WTLV_MASK_DATA_ID                 0x0fff
 
 /* ID wireshark identifies the dissector by */
-static int proto_someip = -1;
+static int proto_someip;
 
 static dissector_handle_t someip_handle_udp = NULL;
 static dissector_handle_t someip_handle_tcp = NULL;
 static dissector_handle_t dtls_handle = NULL;
 
 /* header field */
-static int hf_someip_messageid                                          = -1;
-static int hf_someip_serviceid                                          = -1;
-static int hf_someip_servicename                                        = -1;
-static int hf_someip_methodid                                           = -1;
-static int hf_someip_methodname                                         = -1;
-static int hf_someip_length                                             = -1;
-static int hf_someip_clientid                                           = -1;
-static int hf_someip_clientname                                         = -1;
-static int hf_someip_sessionid                                          = -1;
-static int hf_someip_protover                                           = -1;
-static int hf_someip_interface_ver                                      = -1;
-static int hf_someip_messagetype                                        = -1;
-static int hf_someip_messagetype_ack_flag                               = -1;
-static int hf_someip_messagetype_tp_flag                                = -1;
-static int hf_someip_returncode                                         = -1;
+static int hf_someip_messageid;
+static int hf_someip_serviceid;
+static int hf_someip_servicename;
+static int hf_someip_methodid;
+static int hf_someip_methodname;
+static int hf_someip_length;
+static int hf_someip_clientid;
+static int hf_someip_clientname;
+static int hf_someip_sessionid;
+static int hf_someip_protover;
+static int hf_someip_interface_ver;
+static int hf_someip_messagetype;
+static int hf_someip_messagetype_ack_flag;
+static int hf_someip_messagetype_tp_flag;
+static int hf_someip_returncode;
 
-static int hf_someip_tp                                                 = -1;
-static int hf_someip_tp_offset                                          = -1;
-static int hf_someip_tp_offset_encoded                                  = -1;
-static int hf_someip_tp_flags                                           = -1;
-static int hf_someip_tp_reserved                                        = -1;
-static int hf_someip_tp_more_segments                                   = -1;
+static int hf_someip_tp;
+static int hf_someip_tp_offset;
+static int hf_someip_tp_offset_encoded;
+static int hf_someip_tp_flags;
+static int hf_someip_tp_reserved;
+static int hf_someip_tp_more_segments;
 
-static int hf_someip_payload                                            = -1;
+static int hf_someip_payload;
 
 /* protocol tree items */
-static gint ett_someip                                                  = -1;
-static gint ett_someip_msgtype                                          = -1;
-static gint ett_someip_tp                                               = -1;
+static gint ett_someip;
+static gint ett_someip_msgtype;
+static gint ett_someip_tp;
 
 /* dissector handling */
 static dissector_table_t someip_dissector_table = NULL;
 
 /* message reassembly for SOME/IP-TP */
-static int hf_someip_tp_fragments                                       = -1;
-static int hf_someip_tp_fragment                                        = -1;
-static int hf_someip_tp_fragment_overlap                                = -1;
-static int hf_someip_tp_fragment_overlap_conflicts                      = -1;
-static int hf_someip_tp_fragment_multiple_tails                         = -1;
-static int hf_someip_tp_fragment_too_long_fragment                      = -1;
-static int hf_someip_tp_fragment_error                                  = -1;
-static int hf_someip_tp_fragment_count                                  = -1;
-static int hf_someip_tp_reassembled_in                                  = -1;
-static int hf_someip_tp_reassembled_length                              = -1;
-static int hf_someip_tp_reassembled_data                                = -1;
+static int hf_someip_tp_fragments;
+static int hf_someip_tp_fragment;
+static int hf_someip_tp_fragment_overlap;
+static int hf_someip_tp_fragment_overlap_conflicts;
+static int hf_someip_tp_fragment_multiple_tails;
+static int hf_someip_tp_fragment_too_long_fragment;
+static int hf_someip_tp_fragment_error;
+static int hf_someip_tp_fragment_count;
+static int hf_someip_tp_reassembled_in;
+static int hf_someip_tp_reassembled_length;
+static int hf_someip_tp_reassembled_data;
 
-static int hf_payload_unparsed                                          = -1;
-static int hf_payload_length_field_8bit                                 = -1;
-static int hf_payload_length_field_16bit                                = -1;
-static int hf_payload_length_field_32bit                                = -1;
-static int hf_payload_type_field_8bit                                   = -1;
-static int hf_payload_type_field_16bit                                  = -1;
-static int hf_payload_type_field_32bit                                  = -1;
-static int hf_payload_str_base                                          = -1;
-static int hf_payload_str_string                                        = -1;
-static int hf_payload_str_struct                                        = -1;
-static int hf_payload_str_array                                         = -1;
-static int hf_payload_str_union                                         = -1;
+static int hf_payload_unparsed;
+static int hf_payload_length_field_8bit;
+static int hf_payload_length_field_16bit;
+static int hf_payload_length_field_32bit;
+static int hf_payload_type_field_8bit;
+static int hf_payload_type_field_16bit;
+static int hf_payload_type_field_32bit;
+static int hf_payload_str_base;
+static int hf_payload_str_string;
+static int hf_payload_str_struct;
+static int hf_payload_str_array;
+static int hf_payload_str_union;
 
-static int hf_payload_wtlv_tag                                          = -1;
-static int hf_payload_wtlv_tag_res                                      = -1;
-static int hf_payload_wtlv_tag_wire_type                                = -1;
-static int hf_payload_wtlv_tag_data_id                                  = -1;
+static int hf_payload_wtlv_tag;
+static int hf_payload_wtlv_tag_res;
+static int hf_payload_wtlv_tag_wire_type;
+static int hf_payload_wtlv_tag_data_id;
 
 static hf_register_info* dynamic_hf_param                               = NULL;
 static guint dynamic_hf_param_size                                      = 0;
@@ -205,16 +205,16 @@ static guint dynamic_hf_struct_size                                     = 0;
 static hf_register_info* dynamic_hf_union                               = NULL;
 static guint dynamic_hf_union_size                                      = 0;
 
-static gint ett_someip_tp_fragment                                      = -1;
-static gint ett_someip_tp_fragments                                     = -1;
-static gint ett_someip_payload                                          = -1;
-static gint ett_someip_string                                           = -1;
-static gint ett_someip_array                                            = -1;
-static gint ett_someip_array_dim                                        = -1;
-static gint ett_someip_struct                                           = -1;
-static gint ett_someip_union                                            = -1;
-static gint ett_someip_parameter                                        = -1;
-static gint ett_someip_wtlv_tag                                         = -1;
+static gint ett_someip_tp_fragment;
+static gint ett_someip_tp_fragments;
+static gint ett_someip_payload;
+static gint ett_someip_string;
+static gint ett_someip_array;
+static gint ett_someip_array_dim;
+static gint ett_someip_struct;
+static gint ett_someip_union;
+static gint ett_someip_parameter;
+static gint ett_someip_wtlv_tag;
 
 static const fragment_items someip_tp_frag_items = {
     &ett_someip_tp_fragment,
@@ -270,16 +270,16 @@ static const value_string someip_return_code[] = {
 };
 
 /*** expert info items ***/
-static expert_field ef_someip_unknown_version                           = EI_INIT;
-static expert_field ef_someip_message_truncated                         = EI_INIT;
-static expert_field ef_someip_incomplete_headers                        = EI_INIT;
+static expert_field ei_someip_unknown_version;
+static expert_field ei_someip_message_truncated;
+static expert_field ei_someip_incomplete_headers;
 
-static expert_field ef_someip_payload_truncated                         = EI_INIT;
-static expert_field ef_someip_payload_malformed                         = EI_INIT;
-static expert_field ef_someip_payload_config_error                      = EI_INIT;
-static expert_field ef_someip_payload_alignment_error                   = EI_INIT;
-static expert_field ef_someip_payload_static_array_min_not_max          = EI_INIT;
-static expert_field ef_someip_payload_dyn_array_not_within_limit        = EI_INIT;
+static expert_field ei_someip_payload_truncated;
+static expert_field ei_someip_payload_malformed;
+static expert_field ei_someip_payload_config_error;
+static expert_field ei_someip_payload_alignment_error;
+static expert_field ei_someip_payload_static_array_min_not_max;
+static expert_field ei_someip_payload_dyn_array_not_within_limit;
 
 /*** Data Structure for mapping IDs to Names (Services, Methods, ...) ***/
 static GHashTable *data_someip_services                                 = NULL;
@@ -2607,19 +2607,19 @@ update_dynamic_hf_entries_someip_parameter_unions(void) {
 
 static void
 expert_someip_payload_truncated(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
-    proto_tree_add_expert(tree, pinfo, &ef_someip_payload_truncated, tvb, offset, length);
+    proto_tree_add_expert(tree, pinfo, &ei_someip_payload_truncated, tvb, offset, length);
     col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Truncated payload!]");
 }
 
 static void
 expert_someip_payload_malformed(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
-    proto_tree_add_expert(tree, pinfo, &ef_someip_payload_malformed, tvb, offset, length);
+    proto_tree_add_expert(tree, pinfo, &ei_someip_payload_malformed, tvb, offset, length);
     col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Malformed payload!]");
 }
 
 static void
 expert_someip_payload_config_error(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length, const char *message) {
-    proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_config_error, tvb, offset, length, "SOME/IP Payload: %s", message);
+    proto_tree_add_expert_format(tree, pinfo, &ei_someip_payload_config_error, tvb, offset, length, "SOME/IP Payload: %s", message);
     col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Config Error]");
 }
 
@@ -2706,7 +2706,7 @@ dissect_someip_payload_length_field(tvbuff_t *tvb, packet_info *pinfo, proto_tre
         proto_item_set_hidden(ti);
         break;
     default:
-        proto_tree_add_expert_format(subtree, pinfo, &ef_someip_payload_config_error, tvb, offset, 0,
+        proto_tree_add_expert_format(subtree, pinfo, &ei_someip_payload_config_error, tvb, offset, 0,
             "SOME/IP: Payload: length of length field does not make sense: %d bits", length_of_length_field);
         col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP: Payload Config Error]");
         return -1;
@@ -2735,7 +2735,7 @@ dissect_someip_payload_type_field(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
         proto_item_set_hidden(ti);
         break;
     default:
-        proto_tree_add_expert_format(subtree, pinfo, &ef_someip_payload_config_error, tvb, offset, 0,
+        proto_tree_add_expert_format(subtree, pinfo, &ei_someip_payload_config_error, tvb, offset, 0,
             "SOME/IP: Payload: length of type field does not make sense: %d bits", length_of_type_field);
         col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP: Payload Config Error]");
         return -1;
@@ -2835,7 +2835,7 @@ dissect_someip_payload_base_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
         return 0;
     }
 
-    if (hf_id != -1) {
+    if (hf_id > 0) {
         if (strncmp(base_type->data_type, "uint", 4) == 0) {
             if (base_type->bitlength_base_type > 32) {
                 ti = proto_tree_add_item_ret_uint64(tree, hf_id, tvb, offset, param_length, big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN, &value);
@@ -3062,7 +3062,7 @@ dissect_someip_payload_array_dim_length(tvbuff_t *tvb, packet_info *pinfo, proto
     } else {
         /* without a length field, the number of elements needs be fixed */
         if (config->dims[current_dim].lower_limit != config->dims[current_dim].upper_limit) {
-            proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_static_array_min_not_max, tvb, offset_orig, 0,
+            proto_tree_add_expert_format(tree, pinfo, &ei_someip_payload_static_array_min_not_max, tvb, offset_orig, 0,
                 "Static array config with Min!=Max (%d, %d)", config->dims[current_dim].lower_limit, config->dims[current_dim].upper_limit);
             col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Static array config with Min!=Max!]");
 
@@ -3107,7 +3107,7 @@ dissect_someip_payload_array_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     }
 
     if (count<lower_limit && count>upper_limit) {
-        proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_dyn_array_not_within_limit, tvb, offset_orig, length,
+        proto_tree_add_expert_format(tree, pinfo, &ei_someip_payload_dyn_array_not_within_limit, tvb, offset_orig, length,
             "Number of items (%d) outside limit %d-%d", count, lower_limit, upper_limit);
         col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP Payload: Dynamic array does not stay between Min and Max values]");
     }
@@ -3325,7 +3325,7 @@ dissect_someip_payload_parameter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         bytes_parsed = dissect_someip_payload_union(tvb, pinfo, tree, offset, idref, name, wtlv_offset);
         break;
     default:
-        proto_tree_add_expert_format(tree, pinfo, &ef_someip_payload_config_error, tvb, offset, 0,
+        proto_tree_add_expert_format(tree, pinfo, &ei_someip_payload_config_error, tvb, offset, 0,
             "SOME/IP: Payload: item->data_type (0x%x) unknown/not implemented yet! name: %s, id_ref: 0x%x",
             data_type, name, idref);
         col_append_str(pinfo->cinfo, COL_INFO, " [SOME/IP: Payload Config Error]");
@@ -3624,7 +3624,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
     /* this checks if value of the header field */
     if (someip_length < 8) {
-        expert_add_info_format(pinfo, ti_someip, &ef_someip_incomplete_headers, "%s", "SOME/IP length too short (<8 Bytes)!");
+        expert_add_info_format(pinfo, ti_someip, &ei_someip_incomplete_headers, "%s", "SOME/IP length too short (<8 Bytes)!");
         return tvb_length;
     }
 
@@ -3643,7 +3643,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
 
     /* check if we have bytes for the rest of the header */
     if (tvb_length < 0 || offset + 8 > (guint32)tvb_length) {
-        expert_add_info_format(pinfo, ti_someip, &ef_someip_incomplete_headers, "%s", "SOME/IP not enough buffer bytes for header!");
+        expert_add_info_format(pinfo, ti_someip, &ei_someip_incomplete_headers, "%s", "SOME/IP not enough buffer bytes for header!");
         return tvb_length;
     }
 
@@ -3667,7 +3667,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
     /* Protocol Version*/
     ti = proto_tree_add_item_ret_uint(someip_tree, hf_someip_protover, tvb, offset, 1, ENC_BIG_ENDIAN, &protocol_version);
     if (protocol_version!=SOMEIP_PROTOCOL_VERSION) {
-        expert_add_info(pinfo, ti, &ef_someip_unknown_version);
+        expert_add_info(pinfo, ti, &ei_someip_unknown_version);
     }
     offset += 1;
 
@@ -3699,7 +3699,7 @@ dissect_someip_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
         someip_payload_length = someip_length - SOMEIP_HDR_PART1_LEN;
     } else {
         someip_payload_length = tvb_length - SOMEIP_HDR_LEN;
-        expert_add_info(pinfo, ti_someip, &ef_someip_message_truncated);
+        expert_add_info(pinfo, ti_someip, &ei_someip_message_truncated);
     }
 
     /* Is this a SOME/IP-TP segment? */
@@ -4204,24 +4204,24 @@ proto_register_someip(void) {
     };
 
     static ei_register_info ei[] = {
-        { &ef_someip_unknown_version,{ "someip.unknown_protocol_version",
+        { &ei_someip_unknown_version,{ "someip.unknown_protocol_version",
           PI_PROTOCOL, PI_WARN, "SOME/IP Unknown Protocol Version!", EXPFILL } },
-        { &ef_someip_message_truncated,{ "someip.message_truncated",
+        { &ei_someip_message_truncated,{ "someip.message_truncated",
           PI_MALFORMED, PI_ERROR, "SOME/IP Truncated message!", EXPFILL } },
-        { &ef_someip_incomplete_headers,{ "someip.incomplete_headers",
+        { &ei_someip_incomplete_headers,{ "someip.incomplete_headers",
           PI_MALFORMED, PI_ERROR, "SOME/IP Incomplete headers or some bytes left over!", EXPFILL } },
 
-        { &ef_someip_payload_truncated, {"someip.payload.expert_truncated",
+        { &ei_someip_payload_truncated, {"someip.payload.expert_truncated",
           PI_MALFORMED, PI_ERROR, "SOME/IP Payload: Truncated payload!", EXPFILL} },
-        { &ef_someip_payload_malformed, {"someip.payload.expert_malformed",
+        { &ei_someip_payload_malformed, {"someip.payload.expert_malformed",
           PI_MALFORMED, PI_ERROR, "SOME/IP Payload: Malformed payload!", EXPFILL} },
-        { &ef_someip_payload_config_error, {"someip.payload.expert_config_error",
+        { &ei_someip_payload_config_error, {"someip.payload.expert_config_error",
          PI_MALFORMED, PI_ERROR, "SOME/IP Payload: Config Error!", EXPFILL} },
-        { &ef_someip_payload_alignment_error, {"someip.payload.expert_alignment_error",
+        { &ei_someip_payload_alignment_error, {"someip.payload.expert_alignment_error",
           PI_MALFORMED, PI_ERROR, "SOME/IP Payload: SOME/IP datatype must be align to a byte!", EXPFILL} },
-        { &ef_someip_payload_static_array_min_not_max, {"someip.payload.expert_static_array_min_max",
+        { &ei_someip_payload_static_array_min_not_max, {"someip.payload.expert_static_array_min_max",
           PI_MALFORMED, PI_ERROR, "SOME/IP Payload: Static array with min!=max!", EXPFILL} },
-        { &ef_someip_payload_dyn_array_not_within_limit, {"someip.payload.expert_dyn_array_not_within_limit",
+        { &ei_someip_payload_dyn_array_not_within_limit, {"someip.payload.expert_dyn_array_not_within_limit",
           PI_MALFORMED, PI_WARN, "SOME/IP Payload: Dynamic array does not stay between Min and Max values!", EXPFILL} },
     };
 

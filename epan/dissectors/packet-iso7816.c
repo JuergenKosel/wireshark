@@ -27,8 +27,8 @@
 void proto_register_iso7816(void);
 void proto_reg_handoff_iso7816(void);
 
-static int proto_iso7816 = -1;
-static int proto_iso7816_atr = -1;
+static int proto_iso7816;
+static int proto_iso7816_atr;
 
 static dissector_handle_t iso7816_handle;
 static dissector_handle_t iso7816_atr_handle;
@@ -37,58 +37,58 @@ static wmem_tree_t *transactions = NULL;
 
 static dissector_table_t iso7816_apdu_pld_table;
 
-static int ett_iso7816 = -1;
-static int ett_iso7816_class = -1;
-static int ett_iso7816_param = -1;
-static int ett_iso7816_p1 = -1;
-static int ett_iso7816_p2 = -1;
-static int ett_iso7816_atr = -1;
-static int ett_iso7816_atr_ta = -1;
-static int ett_iso7816_atr_td = -1;
+static int ett_iso7816;
+static int ett_iso7816_class;
+static int ett_iso7816_param;
+static int ett_iso7816_p1;
+static int ett_iso7816_p2;
+static int ett_iso7816_atr;
+static int ett_iso7816_atr_ta;
+static int ett_iso7816_atr_td;
 
-static int hf_iso7816_atr_init_char = -1;
-static int hf_iso7816_atr_t0 = -1;
-static int hf_iso7816_atr_ta = -1;
+static int hf_iso7816_atr_init_char;
+static int hf_iso7816_atr_t0;
+static int hf_iso7816_atr_ta;
 /* these two fields hold the converted values Fi and Di,
    not the binary representations FI and DI */
-static int hf_iso7816_atr_ta1_fi = -1;
-static int hf_iso7816_atr_ta1_di = -1;
-static int hf_iso7816_atr_tb = -1;
-static int hf_iso7816_atr_tc = -1;
-static int hf_iso7816_atr_td = -1;
-static int hf_iso7816_atr_next_ta_present = -1;
-static int hf_iso7816_atr_next_tb_present = -1;
-static int hf_iso7816_atr_next_tc_present = -1;
-static int hf_iso7816_atr_next_td_present = -1;
-static int hf_iso7816_atr_k = -1;
-static int hf_iso7816_atr_t = -1;
-static int hf_iso7816_atr_hist_bytes = -1;
-static int hf_iso7816_atr_tck = -1;
+static int hf_iso7816_atr_ta1_fi;
+static int hf_iso7816_atr_ta1_di;
+static int hf_iso7816_atr_tb;
+static int hf_iso7816_atr_tc;
+static int hf_iso7816_atr_td;
+static int hf_iso7816_atr_next_ta_present;
+static int hf_iso7816_atr_next_tb_present;
+static int hf_iso7816_atr_next_tc_present;
+static int hf_iso7816_atr_next_td_present;
+static int hf_iso7816_atr_k;
+static int hf_iso7816_atr_t;
+static int hf_iso7816_atr_hist_bytes;
+static int hf_iso7816_atr_tck;
 
-static int hf_iso7816_resp_in = -1;
-static int hf_iso7816_resp_to = -1;
-static int hf_iso7816_cla = -1;
-static int hf_iso7816_cla_sm = -1;
-static int hf_iso7816_cla_channel = -1;
-static int hf_iso7816_ins = -1;
-static int hf_iso7816_p1 = -1;
-static int hf_iso7816_p2 = -1;
-static int hf_iso7816_lc = -1;
-static int hf_iso7816_le = -1;
-static int hf_iso7816_body = -1;
-static int hf_iso7816_sw1 = -1;
-static int hf_iso7816_sw2 = -1;
-static int hf_iso7816_sel_file_ctrl = -1;
-static int hf_iso7816_sel_file_fci_req = -1;
-static int hf_iso7816_sel_file_occ = -1;
-static int hf_iso7816_read_rec_ef = -1;
-static int hf_iso7816_read_rec_usage = -1;
-static int hf_iso7816_get_resp = -1;
-static int hf_iso7816_offset_first_byte = -1;
-static int hf_iso7816_rfu = -1;
-static int hf_iso7816_application_data = -1;
+static int hf_iso7816_resp_in;
+static int hf_iso7816_resp_to;
+static int hf_iso7816_cla;
+static int hf_iso7816_cla_sm;
+static int hf_iso7816_cla_channel;
+static int hf_iso7816_ins;
+static int hf_iso7816_p1;
+static int hf_iso7816_p2;
+static int hf_iso7816_lc;
+static int hf_iso7816_le;
+static int hf_iso7816_body;
+static int hf_iso7816_sw1;
+static int hf_iso7816_sw2;
+static int hf_iso7816_sel_file_ctrl;
+static int hf_iso7816_sel_file_fci_req;
+static int hf_iso7816_sel_file_occ;
+static int hf_iso7816_read_rec_ef;
+static int hf_iso7816_read_rec_usage;
+static int hf_iso7816_get_resp;
+static int hf_iso7816_offset_first_byte;
+static int hf_iso7816_rfu;
+static int hf_iso7816_application_data;
 
-static expert_field ie_iso7816_atr_tck_not1 = EI_INIT;
+static expert_field ei_iso7816_atr_tck_not1;
 
 #define ADDR_INTF "Interface"
 #define ADDR_CARD "Card"
@@ -421,7 +421,7 @@ dissect_iso7816_atr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
         offset++;
     }
     else if (tck_len>1) {
-        proto_tree_add_expert(proto_tr, pinfo, &ie_iso7816_atr_tck_not1,
+        proto_tree_add_expert(proto_tr, pinfo, &ei_iso7816_atr_tck_not1,
                 tvb, offset, tck_len);
     }
 
@@ -977,7 +977,7 @@ proto_register_iso7816(void)
     };
 
     static ei_register_info ei[] = {
-        { &ie_iso7816_atr_tck_not1, { "iso7816.atr.tck.not1", PI_PROTOCOL, PI_WARN, "TCK byte must either be absent or exactly one byte", EXPFILL }}
+        { &ei_iso7816_atr_tck_not1, { "iso7816.atr.tck.not1", PI_PROTOCOL, PI_WARN, "TCK byte must either be absent or exactly one byte", EXPFILL }}
     };
 
     expert_module_t* expert_iso7816;

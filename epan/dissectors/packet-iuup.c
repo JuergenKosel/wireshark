@@ -48,102 +48,81 @@ typedef struct {
     iuup_rfci_t* last_rfci;
 } iuup_circuit_t;
 
-static int proto_iuup = -1;
+static int proto_iuup;
 
-static int hf_iuup_direction = -1;
-static int hf_iuup_circuit_id = -1;
+static int hf_iuup_direction;
+static int hf_iuup_circuit_id;
 
-static int hf_iuup_pdu_type = -1;
-static int hf_iuup_frame_number = -1;
-static int hf_iuup_fqc = -1;
-static int hf_iuup_rfci = -1;
-static int hf_iuup_hdr_crc = -1;
-static int hf_iuup_payload_crc = -1;
+static int hf_iuup_pdu_type;
+static int hf_iuup_frame_number;
+static int hf_iuup_fqc;
+static int hf_iuup_rfci;
+static int hf_iuup_hdr_crc;
+static int hf_iuup_payload_crc;
 
-static int hf_iuup_ack_nack = -1;
-static int hf_iuup_frame_number_t14 = -1;
-static int hf_iuup_mode_version = -1;
-static int hf_iuup_procedure_indicator = -1;
-static int hf_iuup_error_cause_val = -1;
+static int hf_iuup_ack_nack;
+static int hf_iuup_frame_number_t14;
+static int hf_iuup_mode_version;
+static int hf_iuup_procedure_indicator;
+static int hf_iuup_error_cause_val;
 
-static int hf_iuup_init_ti = -1;
-static int hf_iuup_init_subflows_per_rfci = -1;
-static int hf_iuup_init_chain_ind = -1;
+static int hf_iuup_init_ti;
+static int hf_iuup_init_subflows_per_rfci;
+static int hf_iuup_init_chain_ind;
 
-static int hf_iuup_error_distance = -1;
-static int hf_iuup_errorevt_cause_val = -1;
+static int hf_iuup_error_distance;
+static int hf_iuup_errorevt_cause_val;
 
-static int hf_iuup_time_align = -1;
-static int hf_iuup_spare_bytes = -1;
-static int hf_iuup_spare_03 = -1;
-/* static int hf_iuup_spare_0f = -1; */
-/* static int hf_iuup_spare_c0 = -1; */
-static int hf_iuup_spare_e0 = -1;
-static int hf_iuup_spare_ff = -1;
+static int hf_iuup_time_align;
+static int hf_iuup_spare_bytes;
+static int hf_iuup_spare_03;
+/* static int hf_iuup_spare_0f; */
+/* static int hf_iuup_spare_c0; */
+static int hf_iuup_spare_e0;
+static int hf_iuup_spare_ff;
 
-static int hf_iuup_delay = -1;
-static int hf_iuup_advance = -1;
-static int hf_iuup_delta = -1;
+static int hf_iuup_delay;
+static int hf_iuup_advance;
+static int hf_iuup_delta;
 
-static int hf_iuup_mode_versions = -1;
-static int hf_iuup_mode_versions_a[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-
-
-static int hf_iuup_data_pdu_type = -1;
-
-static int hf_iuup_num_rfci_ind = -1;
-
-static int hf_iuup_payload = -1;
-
-static int hf_iuup_init_rfci_ind = -1;
-static int hf_iuup_init_rfci[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-
-static int hf_iuup_init_rfci_flow_len[64][8] = {
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1}
-};
-
-static int hf_iuup_init_rfci_li[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-static int hf_iuup_init_rfci_lri[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-static int hf_iuup_init_ipti[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-
-static int hf_iuup_rfci_subflow[64][8] = {
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},
-    {-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1},{-1,-1,-1,-1,-1,-1,-1,-1}
-};
-
-static int hf_iuup_rfci_ratectl[] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+static int hf_iuup_mode_versions;
+static int hf_iuup_mode_versions_a[16];
 
 
-static gint ett_iuup = -1;
-static gint ett_rfci = -1;
-static gint ett_ipti = -1;
-static gint ett_support = -1;
-static gint ett_time = -1;
-static gint ett_rfciinds = -1;
-static gint ett_payload = -1;
-static gint ett_payload_subflows = -1;
+static int hf_iuup_data_pdu_type;
 
-static expert_field ei_iuup_hdr_crc_bad = EI_INIT;
-static expert_field ei_iuup_payload_crc_bad = EI_INIT;
-static expert_field ei_iuup_payload_undecoded = EI_INIT;
-static expert_field ei_iuup_error_response = EI_INIT;
-static expert_field ei_iuup_ack_nack = EI_INIT;
-static expert_field ei_iuup_time_align = EI_INIT;
-static expert_field ei_iuup_procedure_indicator = EI_INIT;
-static expert_field ei_iuup_pdu_type = EI_INIT;
+static int hf_iuup_num_rfci_ind;
+
+static int hf_iuup_payload;
+
+static int hf_iuup_init_rfci_ind;
+static int hf_iuup_init_rfci[64];
+
+static int hf_iuup_init_rfci_flow_len[64][8];
+static int hf_iuup_init_rfci_li[64];
+static int hf_iuup_init_rfci_lri[64];
+static int hf_iuup_init_ipti[64];
+static int hf_iuup_rfci_subflow[64][8];
+static int hf_iuup_rfci_ratectl[64];
+
+
+static gint ett_iuup;
+static gint ett_rfci;
+static gint ett_ipti;
+static gint ett_support;
+static gint ett_time;
+static gint ett_rfciinds;
+static gint ett_payload;
+static gint ett_payload_subflows;
+
+static expert_field ei_iuup_hdr_crc_bad;
+static expert_field ei_iuup_payload_crc_bad;
+static expert_field ei_iuup_payload_undecoded;
+static expert_field ei_iuup_error_response;
+static expert_field ei_iuup_ack_nack;
+static expert_field ei_iuup_time_align;
+static expert_field ei_iuup_procedure_indicator;
+static expert_field ei_iuup_pdu_type;
 
 static wmem_map_t* circuits = NULL;
 
@@ -312,7 +291,7 @@ static const value_string iuup_fqcs[] = {
 
 
 static proto_item*
-iuup_proto_tree_add_bits(proto_tree* tree, int hf, tvbuff_t* tvb, int offset, int bit_offset, guint bits, guint8** buf) {
+iuup_proto_tree_add_bits(packet_info *pinfo, proto_tree* tree, int hf, tvbuff_t* tvb, int offset, int bit_offset, guint bits, guint8** buf) {
     static const guint8 masks[] = {0x00,0x80,0xc0,0xe0,0xf0,0xf8,0xfc,0xfe};
     int len = (bits + bit_offset)/8 + (((bits + bit_offset)%8) ? 0 : 1);
     guint8* shifted_buffer;
@@ -321,7 +300,7 @@ iuup_proto_tree_add_bits(proto_tree* tree, int hf, tvbuff_t* tvb, int offset, in
 
     DISSECTOR_ASSERT(bit_offset < 8);
 
-    shifted_buffer = (guint8 *)tvb_memdup(wmem_packet_scope(),tvb,offset,len+1);
+    shifted_buffer = (guint8 *)tvb_memdup(pinfo->pool,tvb,offset,len+1);
 
     for(i = 0; i < len; i++) {
         shifted_buffer[i] <<= bit_offset;
@@ -386,7 +365,7 @@ static void dissect_iuup_payload(tvbuff_t* tvb, packet_info* pinfo, proto_tree* 
             if (! rfci->subflow[i].len)
                 continue;
 
-            iuup_proto_tree_add_bits(flow_tree, hf_iuup_rfci_subflow[rfci->id][i], tvb,
+            iuup_proto_tree_add_bits(pinfo, flow_tree, hf_iuup_rfci_subflow[rfci->id][i], tvb,
                                 offset + (bit_offset/8),
                                 bit_offset % 8,
                                 rfci->subflow[i].len,
@@ -481,7 +460,7 @@ static void dissect_iuup_init(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tre
 
         iuup_circuit = wmem_new0(wmem_file_scope(), iuup_circuit_t);
     } else {
-        iuup_circuit = wmem_new0(wmem_packet_scope(), iuup_circuit_t);
+        iuup_circuit = wmem_new0(pinfo->pool, iuup_circuit_t);
     }
 
     iuup_circuit->id = circuit_id;

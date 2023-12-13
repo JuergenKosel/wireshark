@@ -887,6 +887,8 @@ void RtpPlayerDialog::setMarkers()
 
 void RtpPlayerDialog::showEvent(QShowEvent *)
 {
+    // We could use loadSplitterState(ui->splitter) instead of always
+    // resetting the plot size to 75%
     QList<int> split_sizes = ui->splitter->sizes();
     int tot_size = split_sizes[0] + split_sizes[1];
     int plot_size = tot_size * 3 / 4;
@@ -2448,7 +2450,7 @@ save_audio_t RtpPlayerDialog::selectFileAudioFormatAndName(QString *file_path)
 
     QString sel_filter;
     *file_path = WiresharkFileDialog::getSaveFileName(
-                this, tr("Save audio"), mainApp->lastOpenDir().absoluteFilePath(""),
+                this, tr("Save audio"), mainApp->openDialogInitialDir().absoluteFilePath(""),
                 ext_filter, &sel_filter);
 
     if (file_path->isEmpty()) return save_audio_none;
@@ -2471,7 +2473,7 @@ save_payload_t RtpPlayerDialog::selectFilePayloadFormatAndName(QString *file_pat
 
     QString sel_filter;
     *file_path = WiresharkFileDialog::getSaveFileName(
-                this, tr("Save payload"), mainApp->lastOpenDir().absoluteFilePath(""),
+                this, tr("Save payload"), mainApp->openDialogInitialDir().absoluteFilePath(""),
                 ext_filter, &sel_filter);
 
     if (file_path->isEmpty()) return save_payload_none;

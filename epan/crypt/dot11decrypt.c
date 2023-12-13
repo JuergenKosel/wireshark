@@ -10,6 +10,8 @@
 /*      File includes                                                       */
 
 #include "config.h"
+/* Keep this first after config.h so that WS_LOG_DOMAIN is set correctly. */
+#include "dot11decrypt_debug.h"
 
 #include <stdint.h>
 #include <glib.h>
@@ -26,8 +28,6 @@
 #include "dot11decrypt_util.h"
 #include "dot11decrypt_system.h"
 #include "dot11decrypt_int.h"
-
-#include "dot11decrypt_debug.h"
 
 #include "wep-wpadefs.h"
 
@@ -138,18 +138,16 @@ static int Dot11DecryptRsnaPwd2PskStep(
  * It calculates the passphrase-to-PSK mapping reccomanded for use with
  * RSNAs. This implementation uses the PBKDF2 method defined in the RFC
  * 2898.
- * @param passphrase [IN] pointer to a password (sequence of between 8 and
- * 63 ASCII encoded characters)
- * @param ssid [IN] pointer to the SSID string encoded in max 32 ASCII
- * encoded characters
+ * @param userPwd [IN] pointer to the struct containing a password
+ * (octet string between 8 and 63 octets) and optional SSID octet
+ * string of up to 32 octets (both are usually ASCII but in fact
+ * opaque and can be any encoding.)
  * @param output [OUT] calculated PSK (to use as PMK in WPA)
  * @note
  * Described in 802.11i-2004, page 165
  */
 static int Dot11DecryptRsnaPwd2Psk(
-    const char *passphrase,
-    const char *ssid,
-    const size_t ssidLength,
+    const struct DOT11DECRYPT_KEY_ITEMDATA_PWD *userPwd,
     unsigned char *output)
     ;
 
@@ -1080,7 +1078,7 @@ int Dot11DecryptSetKeys(
     for (i=0, success=0; i<(int)keys_nr; i++) {
         if (Dot11DecryptValidateKey(keys+i)==true) {
             if (keys[i].KeyType==DOT11DECRYPT_KEY_TYPE_WPA_PWD) {
-                Dot11DecryptRsnaPwd2Psk(keys[i].UserPwd.Passphrase, keys[i].UserPwd.Ssid, keys[i].UserPwd.SsidLen, keys[i].KeyData.Wpa.Psk);
+                Dot11DecryptRsnaPwd2Psk(&keys[i].UserPwd, keys[i].KeyData.Wpa.Psk);
                 keys[i].KeyData.Wpa.PskLen = DOT11DECRYPT_WPA_PWD_PSK_LEN;
             }
             memcpy(&ctx->keys[success], &keys[i], sizeof(keys[i]));
@@ -1686,8 +1684,7 @@ Dot11DecryptRsna4WHandshake(
                 memcpy(&pkt_key, tmp_key, sizeof(pkt_key));
                 memcpy(&pkt_key.UserPwd.Ssid, ctx->pkt_ssid, ctx->pkt_ssid_len);
                 pkt_key.UserPwd.SsidLen = ctx->pkt_ssid_len;
-                Dot11DecryptRsnaPwd2Psk(pkt_key.UserPwd.Passphrase, pkt_key.UserPwd.Ssid,
-                    pkt_key.UserPwd.SsidLen, pkt_key.KeyData.Wpa.Psk);
+                Dot11DecryptRsnaPwd2Psk(&pkt_key.UserPwd, pkt_key.KeyData.Wpa.Psk);
                 tmp_pkt_key = &pkt_key;
             } else {
                 tmp_pkt_key = tmp_key;
@@ -1896,8 +1893,7 @@ Dot11DecryptScanFtAssocForKeys(
             memcpy(&pkt_key, tmp_key, sizeof(pkt_key));
             memcpy(&pkt_key.UserPwd.Ssid, ctx->pkt_ssid, ctx->pkt_ssid_len);
             pkt_key.UserPwd.SsidLen = ctx->pkt_ssid_len;
-            Dot11DecryptRsnaPwd2Psk(pkt_key.UserPwd.Passphrase, pkt_key.UserPwd.Ssid,
-                pkt_key.UserPwd.SsidLen, pkt_key.KeyData.Wpa.Psk);
+            Dot11DecryptRsnaPwd2Psk(&pkt_key.UserPwd, pkt_key.KeyData.Wpa.Psk);
             tmp_pkt_key = &pkt_key;
         } else {
             tmp_pkt_key = tmp_key;
@@ -2696,21 +2692,16 @@ Dot11DecryptRsnaPwd2PskStep(
 
 static int
 Dot11DecryptRsnaPwd2Psk(
-    const char *passphrase,
-    const char *ssid,
-    const size_t ssidLength,
+    const struct DOT11DECRYPT_KEY_ITEMDATA_PWD *userPwd,
     unsigned char *output)
 {
     unsigned char m_output[40] = { 0 };
     GByteArray *pp_ba = g_byte_array_new();
 
-    if (!uri_str_to_bytes(passphrase, pp_ba)) {
-        g_byte_array_free(pp_ba, true);
-        return 0;
-    }
+    g_byte_array_append(pp_ba, userPwd->Passphrase, (unsigned)userPwd->PassphraseLen);
 
-    Dot11DecryptRsnaPwd2PskStep(pp_ba->data, pp_ba->len, ssid, ssidLength, 4096, 1, m_output);
-    Dot11DecryptRsnaPwd2PskStep(pp_ba->data, pp_ba->len, ssid, ssidLength, 4096, 2, &m_output[20]);
+    Dot11DecryptRsnaPwd2PskStep(pp_ba->data, pp_ba->len, userPwd->Ssid, userPwd->SsidLen, 4096, 1, m_output);
+    Dot11DecryptRsnaPwd2PskStep(pp_ba->data, pp_ba->len, userPwd->Ssid, userPwd->SsidLen, 4096, 2, &m_output[20]);
 
     memcpy(output, m_output, DOT11DECRYPT_WPA_PWD_PSK_LEN);
     g_byte_array_free(pp_ba, true);
@@ -2721,23 +2712,23 @@ Dot11DecryptRsnaPwd2Psk(
 /*
  * Returns the decryption_key_t struct given a string describing the key.
  * Returns NULL if the input_string cannot be parsed.
+ * XXX: Should return an error string explaining why parsing failed
  */
 decryption_key_t*
-parse_key_string(char* input_string, uint8_t key_type)
+parse_key_string(char* input_string, uint8_t key_type, char** error)
 {
-    char *key, *tmp_str;
-    char *ssid;
-
-    GString    *key_string = NULL;
     GByteArray *ssid_ba = NULL, *key_ba;
-    bool        res;
 
     char **tokens;
     unsigned n = 0;
     decryption_key_t *dk;
 
-    if(input_string == NULL)
+    if(input_string == NULL || (strcmp(input_string, "") == 0)) {
+        if (error) {
+            *error = g_strdup("Key cannot be empty");
+        }
         return NULL;
+    }
 
     /*
      * Parse the input_string. WEP and WPA will be just a string
@@ -2745,6 +2736,12 @@ parse_key_string(char* input_string, uint8_t key_type)
      * returned...).
      * WPA-PWD should be in the form
      * <key data>[:<ssid>]
+     * With WPA-PWD, we percent-decode the key data and ssid.
+     * The percent itself ("%25") and the colon ("%3a") must be
+     * percent-encoded, the latter so we can distinguish between the
+     * separator and a colon in the key or ssid. Percent-encoding
+     * for anything else is optional. (NUL is not allowed, either
+     * percent-encoded or not.)
      */
 
     switch(key_type)
@@ -2753,43 +2750,51 @@ parse_key_string(char* input_string, uint8_t key_type)
     case DOT11DECRYPT_KEY_TYPE_WEP_40:
     case DOT11DECRYPT_KEY_TYPE_WEP_104:
 
-       key_ba = g_byte_array_new();
-       res = hex_str_to_bytes(input_string, key_ba, false);
+        key_ba = g_byte_array_new();
 
-       if (res && key_ba->len > 0) {
-           /* Key is correct! It was probably an 'old style' WEP key */
-           /* Create the decryption_key_t structure, fill it and return it*/
-           dk = g_new(decryption_key_t, 1);
+        if (!hex_str_to_bytes(input_string, key_ba, false)) {
+            if (error) {
+                *error = g_strdup("WEP key must be a hexadecimal string");
+            }
+            g_byte_array_free(key_ba, true);
+            return NULL;
+        }
 
-           dk->type = DOT11DECRYPT_KEY_TYPE_WEP;
-           /* XXX - The current key handling code in the GUI requires
-            * no separators and lower case */
-           tmp_str = bytes_to_str(NULL, key_ba->data, key_ba->len);
-           dk->key  = g_string_new(tmp_str);
-           g_string_ascii_down(dk->key);
-           dk->bits = key_ba->len * 8;
-           dk->ssid = NULL;
+        if (key_ba->len > 0 && key_ba->len <= DOT11DECRYPT_WEP_KEY_MAXLEN) {
+            /* Key is correct! It was probably an 'old style' WEP key */
+            /* Create the decryption_key_t structure, fill it and return it*/
+            dk = g_new(decryption_key_t, 1);
 
-           wmem_free(NULL, tmp_str);
-           g_byte_array_free(key_ba, true);
-           return dk;
-       }
+            dk->type = DOT11DECRYPT_KEY_TYPE_WEP;
+            dk->key  = key_ba;
+            dk->bits = key_ba->len * 8;
+            dk->ssid = NULL;
 
-       /* Key doesn't work */
-       g_byte_array_free(key_ba, true);
-       return NULL;
+            return dk;
+        }
+
+        if (error) {
+            *error = ws_strdup_printf("WEP key entered is %u bytes, and must be no more than %u", key_ba->len, DOT11DECRYPT_WEP_KEY_MAXLEN);
+        }
+        /* Key doesn't work */
+        g_byte_array_free(key_ba, true);
+        return NULL;
 
     case DOT11DECRYPT_KEY_TYPE_WPA_PWD:
 
-        tokens = g_strsplit(input_string,":",0);
+        tokens = g_strsplit(input_string,":", 3);
+        n = g_strv_length(tokens);
 
-        /* Tokens is a null termiated array of strings ... */
-        while(tokens[n] != NULL)
-            n++;
-
-        if(n < 1)
+        if (n < 1 || n > 2)
         {
+            /* Require either one or two tokens; more, and the user
+             * may have meant a colon in the passphrase or SSID name
+             */
             /* Free the array of strings */
+            /* XXX: Return why parsing failed (":" must be escaped) */
+            if (error) {
+                *error = g_strdup("Only one ':' is allowed, as a separator between passphrase and SSID; others must be percent-encoded as \"%%3a\"");
+            }
             g_strfreev(tokens);
             return NULL;
         }
@@ -2797,40 +2802,48 @@ parse_key_string(char* input_string, uint8_t key_type)
         /*
          * The first token is the key
          */
-        key = g_strdup(tokens[0]);
-
-        ssid = NULL;
-        /* Maybe there is a second token (an ssid, if everything else is ok) */
-        if(n >= 2)
-        {
-           ssid = g_strdup(tokens[1]);
+        key_ba = g_byte_array_new();
+        if (! uri_str_to_bytes(tokens[0], key_ba)) {
+            /* Failed parsing as percent-encoded */
+            if (error) {
+                *error = g_strdup("WPA passphrase is treated as percent-encoded; use \"%%25\" for a literal \"%%\"");
+            }
+            g_byte_array_free(key_ba, true);
+            g_strfreev(tokens);
+            return NULL;
         }
 
-        /* Create a new string */
-        key_string = g_string_new(key);
-        ssid_ba = NULL;
-
-        /* Two (or more) tokens mean that the user entered a WPA-PWD key ... */
-        if( ((key_string->len) > WPA_KEY_MAX_CHAR_SIZE) || ((key_string->len) < WPA_KEY_MIN_CHAR_SIZE))
+        /* key length (after percent-decoding) should be between 8 and 63
+         * octets (63 to distinguish from a PSK as 64 hex characters.)
+         * XXX: 802.11-2016 Annex J assumes that each character in the
+         * pass-phrase is ASCII printable ("has an encoding in the range
+         * 32 to 126"), though this (and the entire algorithm for that
+         * matter) is only considered a suggestion.
+         * It is possible to apply PBKDF2 to any octet string, e.g. UTF-8.
+         * (wpa_passphrase from wpa_supplicant will do so, for example.)
+         */
+        if( ((key_ba->len) > WPA_KEY_MAX_CHAR_SIZE) || ((key_ba->len) < WPA_KEY_MIN_CHAR_SIZE))
         {
-            g_string_free(key_string, true);
-
-            g_free(key);
-            g_free(ssid);
+            if (error) {
+                *error = ws_strdup_printf("WPA passphrase entered is %u characters after percent-decoding and must be between %u and %u", key_ba->len, WPA_KEY_MIN_CHAR_SIZE, WPA_KEY_MAX_CHAR_SIZE);
+            }
+            g_byte_array_free(key_ba, true);
 
             /* Free the array of strings */
             g_strfreev(tokens);
             return NULL;
         }
 
-        if(ssid != NULL) /* more than two tokens found, means that the user specified the ssid */
+        ssid_ba = NULL;
+        if (n >= 2) /* more than two tokens found, means that the user specified the ssid */
         {
             ssid_ba = g_byte_array_new();
-            if (! uri_str_to_bytes(ssid, ssid_ba)) {
-                g_string_free(key_string, true);
+            if (! uri_str_to_bytes(tokens[1], ssid_ba)) {
+                if (error) {
+                    *error = g_strdup("WPA SSID is treated as percent-encoded; use \"%%25\" for a literal \"%%\".");
+                }
+                g_byte_array_free(key_ba, true);
                 g_byte_array_free(ssid_ba, true);
-                g_free(key);
-                g_free(ssid);
                 /* Free the array of strings */
                 g_strfreev(tokens);
                 return NULL;
@@ -2838,11 +2851,11 @@ parse_key_string(char* input_string, uint8_t key_type)
 
             if(ssid_ba->len > WPA_SSID_MAX_CHAR_SIZE)
             {
-                g_string_free(key_string, true);
+                if (error) {
+                    *error = ws_strdup_printf("WPA SSID entered is %u characters after percent-decoding and must be no more than %u", ssid_ba->len, WPA_SSID_MAX_CHAR_SIZE);
+                }
+                g_byte_array_free(key_ba, true);
                 g_byte_array_free(ssid_ba, true);
-
-                g_free(key);
-                g_free(ssid);
 
                 /* Free the array of strings */
                 g_strfreev(tokens);
@@ -2854,16 +2867,9 @@ parse_key_string(char* input_string, uint8_t key_type)
         dk = g_new(decryption_key_t, 1);
 
         dk->type = DOT11DECRYPT_KEY_TYPE_WPA_PWD;
-        dk->key  = g_string_new(key);
+        dk->key  = key_ba;
         dk->bits = 256; /* This is the length of the array pf bytes that will be generated using key+ssid ...*/
-        dk->ssid = byte_array_dup(ssid_ba); /* NULL if ssid_ba is NULL */
-
-        g_string_free(key_string, true);
-        if (ssid_ba != NULL)
-            g_byte_array_free(ssid_ba, true);
-
-        g_free(key);
-        g_free(ssid);
+        dk->ssid = ssid_ba; /* NULL if ssid_ba is NULL */
 
         /* Free the array of strings */
         g_strfreev(tokens);
@@ -2872,15 +2878,22 @@ parse_key_string(char* input_string, uint8_t key_type)
     case DOT11DECRYPT_KEY_TYPE_WPA_PSK:
 
         key_ba = g_byte_array_new();
-        res = hex_str_to_bytes(input_string, key_ba, false);
+        if (!hex_str_to_bytes(input_string, key_ba, false)) {
+            if (error) {
+                *error = g_strdup("WPA PSK/PMK must be a hexadecimal string");
+            }
+            g_byte_array_free(key_ba, true);
+            return NULL;
+        }
 
         /* Two tokens means that the user should have entered a WPA-BIN key ... */
-        if(!res || (key_ba->len != DOT11DECRYPT_WPA_PWD_PSK_LEN &&
+        if((key_ba->len != DOT11DECRYPT_WPA_PWD_PSK_LEN &&
                      key_ba->len != DOT11DECRYPT_WPA_PMK_MAX_LEN))
         {
+            if (error) {
+                *error = ws_strdup_printf("WPA Pre-Master Key/Pairwise Master Key entered is %u bytes and must be %u or %u", key_ba->len, DOT11DECRYPT_WPA_PWD_PSK_LEN, DOT11DECRYPT_WPA_PMK_MAX_LEN);
+            }
             g_byte_array_free(key_ba, true);
-
-            /* No ssid has been created ... */
             return NULL;
         }
 
@@ -2888,11 +2901,10 @@ parse_key_string(char* input_string, uint8_t key_type)
         dk = g_new(decryption_key_t, 1);
 
         dk->type = DOT11DECRYPT_KEY_TYPE_WPA_PSK;
-        dk->key  = g_string_new(input_string);
-        dk->bits = (unsigned) dk->key->len * 4;
+        dk->key  = key_ba;
+        dk->bits = (unsigned) dk->key->len * 8;
         dk->ssid = NULL;
 
-        g_byte_array_free(key_ba, true);
         return dk;
 
     case DOT11DECRYPT_KEY_TYPE_TK:
@@ -2901,13 +2913,19 @@ parse_key_string(char* input_string, uint8_t key_type)
             static const uint8_t allowed_key_lengths[] = {
 // TBD          40 / 8,  /* WEP-40 */
 // TBD          104 / 8, /* WEP-104 */
-                256 / 8, /* TKIP, GCMP-256, CCMP-256 */
                 128 / 8, /* CCMP-128, GCMP-128 */
+                256 / 8, /* TKIP, GCMP-256, CCMP-256 */
             };
             bool key_length_ok = false;
 
             key_ba = g_byte_array_new();
-            res = hex_str_to_bytes(input_string, key_ba, false);
+            if (!hex_str_to_bytes(input_string, key_ba, false)) {
+                if (error) {
+                    *error = g_strdup("Temporal Key must be a hexadecimal string");
+                }
+                g_byte_array_free(key_ba, true);
+                return NULL;
+            }
 
             for (size_t i = 0; i < sizeof(allowed_key_lengths); i++) {
                 if (key_ba->len == allowed_key_lengths[i]) {
@@ -2915,41 +2933,61 @@ parse_key_string(char* input_string, uint8_t key_type)
                     break;
                 }
             }
-            if (!res || !key_length_ok) {
+            if (!key_length_ok) {
+                if (error) {
+                    GString *err_string = g_string_new("Temporal Keys entered is ");
+                    g_string_append_printf(err_string, "%u bytes and must be ", key_ba->len);
+                    size_t i = 0;
+                    for (; i + 1 < sizeof(allowed_key_lengths); i++) {
+                        g_string_append_printf(err_string, "%u, ", allowed_key_lengths[i]);
+                    }
+                    g_string_append_printf(err_string, "or %u bytes.", allowed_key_lengths[i]);
+                    *error = g_string_free(err_string, false);
+                }
                 g_byte_array_free(key_ba, true);
                 return NULL;
             }
             dk = g_new(decryption_key_t, 1);
             dk->type = DOT11DECRYPT_KEY_TYPE_TK;
-            dk->key  = g_string_new(input_string);
-            dk->bits = (unsigned) dk->key->len * 4;
+            dk->key  = key_ba;
+            dk->bits = (unsigned) dk->key->len * 8;
             dk->ssid = NULL;
 
-            g_byte_array_free(key_ba, true);
             return dk;
         }
     case DOT11DECRYPT_KEY_TYPE_MSK:
         {
             key_ba = g_byte_array_new();
-            res = hex_str_to_bytes(input_string, key_ba, false);
+            if (!hex_str_to_bytes(input_string, key_ba, false)) {
+                if (error) {
+                    *error = g_strdup("Master Session Key must be a hexadecimal string");
+                }
+                g_byte_array_free(key_ba, true);
+                return NULL;
+            }
 
-            if (!res || key_ba->len < DOT11DECRYPT_MSK_MIN_LEN ||
+            if (key_ba->len < DOT11DECRYPT_MSK_MIN_LEN ||
                 key_ba->len > DOT11DECRYPT_MSK_MAX_LEN)
             {
+                if (error) {
+                    *error = ws_strdup_printf("Master Session Key entered is %u bytes and must be between %u and %u", key_ba->len, DOT11DECRYPT_MSK_MIN_LEN, DOT11DECRYPT_MSK_MAX_LEN);
+                }
                 g_byte_array_free(key_ba, true);
                 return NULL;
             }
             dk = g_new(decryption_key_t, 1);
             dk->type = DOT11DECRYPT_KEY_TYPE_MSK;
-            dk->key  = g_string_new(input_string);
-            dk->bits = (unsigned)dk->key->len * 4;
+            dk->key  = key_ba;
+            dk->bits = (unsigned)dk->key->len * 8;
             dk->ssid = NULL;
-            g_byte_array_free(key_ba, true);
             return dk;
         }
     }
 
     /* Type not supported */
+    if (error) {
+        *error = g_strdup("Unknown key type not supported");
+    }
     return NULL;
 }
 
@@ -2957,7 +2995,7 @@ void
 free_key_string(decryption_key_t *dk)
 {
     if (dk->key)
-        g_string_free(dk->key, true);
+        g_byte_array_free(dk->key, true);
     if (dk->ssid)
         g_byte_array_free(dk->ssid, true);
     g_free(dk);

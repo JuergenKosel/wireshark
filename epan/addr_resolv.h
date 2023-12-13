@@ -22,7 +22,7 @@
 
 #include <epan/address.h>
 #include <epan/tvbuff.h>
-#include <epan/ipv6.h>
+#include <wsutil/inet_cidr.h>
 #include <epan/to_str.h>
 #include <wiretap/wtap.h>
 #include "ws_symbol_export.h"
@@ -51,7 +51,6 @@ typedef struct _e_addr_resolve {
   gboolean transport_name;                    /**< Whether to resolve TCP/UDP/DCCP/SCTP ports into service names */
   gboolean dns_pkt_addr_resolution;           /**< Whether to resolve addresses using captured DNS packets */
   gboolean use_external_net_name_resolver;    /**< Whether to system's configured DNS server to resolve names */
-  gboolean load_hosts_file_from_profile_only; /**< Whether to only load the hosts in the current profile, not hosts files */
   gboolean vlan_name;                         /**< Whether to resolve VLAN IDs to names */
   gboolean ss7pc_name;                        /**< Whether to resolve SS7 Point Codes to names */
   gboolean maxmind_geoip;                     /**< Whether to lookup geolocation information with mmdbresolve */
@@ -66,15 +65,18 @@ typedef struct _e_addr_resolve {
 struct hashether;
 typedef struct hashether hashether_t;
 
+struct hashwka;
+typedef struct hashwka hashwka_t;
+
 struct hashmanuf;
 typedef struct hashmanuf hashmanuf_t;
 
 typedef struct serv_port {
-  gchar            *udp_name;
-  gchar            *tcp_name;
-  gchar            *sctp_name;
-  gchar            *dccp_name;
-  gchar            *numeric;
+  const char       *udp_name;
+  const char       *tcp_name;
+  const char       *sctp_name;
+  const char       *dccp_name;
+  const char       *numeric;
 } serv_port_t;
 
 typedef struct _resolved_name {
@@ -82,12 +84,13 @@ typedef struct _resolved_name {
 } resolved_name_t;
 
 /*
- * Flags for various IPv4/IPv6 hash table entries.
+ * Flags for various resolved name hash table entries.
  */
 #define TRIED_RESOLVE_ADDRESS    (1U<<0)  /* XXX - what does this bit *really* mean? */
 #define NAME_RESOLVED            (1U<<1)  /* the name field contains a host name, not a printable address */
 #define RESOLVED_ADDRESS_USED    (1U<<2)  /* a get_hostname* call returned the host name */
 #define STATIC_HOSTNAME          (1U<<3)  /* do not update entries from hosts file with DNS responses */
+#define NAME_RESOLVED_PREFIX     (1U<<4)  /* name was generated from a prefix (e.g., OUI) instead of the entire address */
 
 #define TRIED_OR_RESOLVED_MASK   (TRIED_RESOLVE_ADDRESS | NAME_RESOLVED)
 #define USED_AND_RESOLVED_MASK   (NAME_RESOLVED | RESOLVED_ADDRESS_USED)
@@ -218,43 +221,69 @@ void fill_unresolved_ss7pc(const gchar * pc_addr, const guint8 ni, const guint32
 /* Same as get_ether_name with tvb support */
 WS_DLL_PUBLIC const gchar *tvb_get_ether_name(tvbuff_t *tvb, gint offset);
 
-/* get_ether_name_if_known returns the logical name if found in ethers files else NULL */
+/* get_ether_name_if_known returns the logical name if an exact match is
+ * found (in ethers files or from ARP) else NULL.
+ * @note: It returns NULL for addresses if only a prefix can be resolved
+ * into a manufacturer name.
+ */
 const gchar *get_ether_name_if_known(const guint8 *addr);
 
 /*
  * Given a sequence of 3 octets containing an OID, get_manuf_name()
- * returns the vendor name, or "%02x:%02x:%02x" if not known.
+ * returns an abbreviated form of the vendor name, or "%02x:%02x:%02x"
+ * if not known. (The short form of the name is roughly similar in length
+ * to the hexstring, so that they may be used in similar places.)
+ * @note: This only looks up entries in the 24-bit OUI table (and the
+ * CID table), not the MA-M and MA-S tables. The hex byte string is
+ * returned for sequences registered to the IEEE Registration Authority
+ * for the purposes of being subdivided into MA-M and MA-S.
  */
 extern const gchar *get_manuf_name(const guint8 *addr, size_t size);
 
 /*
- * Given a sequence of 3 octets containing an OID, get_manuf_name_if_known()
- * returns the vendor name, or NULL if not known.
+ * Given a sequence of 3 or more octets containing an OUI,
+ * get_manuf_name_if_known() returns the vendor name, or NULL if not known.
+ * @note Unlike get_manuf_name() above, this returns the full vendor name.
+ * @note If size is 6 or larger, vendor names will be looked up in the MA-M
+ * and MA-S tables as well (but note that the length of the sequence is
+ * not returned.) If size is less than 6, only the 24 bit tables are searched,
+ * and NULL is returned for sequences registered to the IEEE Registration
+ * Authority for purposes of being subdivided into MA-M and MA-S.
  */
 WS_DLL_PUBLIC const gchar *get_manuf_name_if_known(const guint8 *addr, size_t size);
 
 /*
- * Given an integer containing a 24-bit OID, uint_get_manuf_name_if_known()
- * returns the vendor name, or NULL if not known.
+ * Given an integer containing a 24-bit OUI (or CID),
+ * uint_get_manuf_name_if_known() returns the vendor name, or NULL if not known.
+ * @note NULL is returned for sequences registered to the IEEE Registration
+ * Authority for purposes of being subdivided into MA-M and MA-S.
  */
 extern const gchar *uint_get_manuf_name_if_known(const guint32 oid);
 
 /*
  * Given a tvbuff and an offset in that tvbuff for a 3-octet OID,
- * tvb_get_manuf_name() returns the vendor name, or "%02x:%02x:%02x"
+ * tvb_get_manuf_name() returns an abbreviated vendor name, or "%02x:%02x:%02x"
  * if not known.
+ * @note: This only looks up entries in the 24-bit OUI table (and the
+ * CID table), not the MA-M and MA-S tables. The hex byte string is
+ * returned for sequences registered to the IEEE Registration Authority
+ * for the purposes of being subdivided into MA-M and MA-S.
  */
 WS_DLL_PUBLIC const gchar *tvb_get_manuf_name(tvbuff_t *tvb, gint offset);
 
 /*
  * Given a tvbuff and an offset in that tvbuff for a 3-octet OID,
- * tvb_get_manuf_name_if_known() returns the vendor name, or NULL
+ * tvb_get_manuf_name_if_known() returns the full vendor name, or NULL
  * if not known.
+ * @note NULL is returned for sequences registered to the IEEE Registration
+ * Authority for purposes of being subdivided into MA-M and MA-S.
  */
 WS_DLL_PUBLIC const gchar *tvb_get_manuf_name_if_known(tvbuff_t *tvb, gint offset);
 
-/* eui64_to_display returns "<vendor>_%02x:%02x:%02x:%02x:%02x:%02x" if the vendor code is known
-   "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x" */
+/* eui64_to_display returns "<vendor>_%02x:%02x:%02x:%02x:%02x:%02x" if the
+ * vendor code is known (or as appropriate for MA-M and MA-S), and if not,
+ * "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
+*/
 extern gchar *eui64_to_display(wmem_allocator_t *allocator, const guint64 addr);
 
 /* get_ipxnet_name returns the logical name if found in an ipxnets file,
@@ -266,11 +295,15 @@ extern gchar *get_ipxnet_name(wmem_allocator_t *allocator, const guint32 addr);
 extern gchar *get_vlan_name(wmem_allocator_t *allocator, const guint16 id);
 
 WS_DLL_PUBLIC guint get_hash_ether_status(hashether_t* ether);
+WS_DLL_PUBLIC bool get_hash_ether_used(hashether_t* ether);
 WS_DLL_PUBLIC char* get_hash_ether_hexaddr(hashether_t* ether);
 WS_DLL_PUBLIC char* get_hash_ether_resolved_name(hashether_t* ether);
 
+WS_DLL_PUBLIC bool get_hash_manuf_used(hashmanuf_t* manuf);
 WS_DLL_PUBLIC char* get_hash_manuf_resolved_name(hashmanuf_t* manuf);
 
+WS_DLL_PUBLIC bool get_hash_wka_used(hashwka_t* wka);
+WS_DLL_PUBLIC char* get_hash_wka_resolved_name(hashwka_t* wka);
 
 /* adds a hostname/IPv4 in the hash table */
 WS_DLL_PUBLIC void add_ipv4_name(const guint addr, const gchar *name, const gboolean static_entry);

@@ -74,226 +74,226 @@ static dissector_handle_t sip_via_be_route_handle;
 static dissector_handle_t sip_reason_code_handle;
 
 /* Initialize the protocol and registered fields */
-static gint proto_sip                     = -1;
-static gint proto_raw_sip                 = -1;
-static gint hf_sip_raw_line               = -1;
-static gint hf_sip_msg_hdr                = -1;
-static gint hf_sip_Method                 = -1;
-static gint hf_Request_Line               = -1;
-static gint hf_sip_ruri_display           = -1;
-static gint hf_sip_ruri                   = -1;
-static gint hf_sip_ruri_user              = -1;
-static gint hf_sip_ruri_host              = -1;
-static gint hf_sip_ruri_port              = -1;
-static gint hf_sip_ruri_param             = -1;
-static gint hf_sip_Status_Code            = -1;
-static gint hf_sip_Status_Line            = -1;
-static gint hf_sip_display                = -1;
-static gint hf_sip_to_display             = -1;
-static gint hf_sip_to_addr                = -1;
-static gint hf_sip_to_user                = -1;
-static gint hf_sip_to_host                = -1;
-static gint hf_sip_to_port                = -1;
-static gint hf_sip_to_param               = -1;
-static gint hf_sip_to_tag                 = -1;
-static gint hf_sip_from_display           = -1;
-static gint hf_sip_from_addr              = -1;
-static gint hf_sip_from_user              = -1;
-static gint hf_sip_from_host              = -1;
-static gint hf_sip_from_port              = -1;
-static gint hf_sip_from_param             = -1;
-static gint hf_sip_from_tag               = -1;
-static gint hf_sip_tag                    = -1;
-static gint hf_sip_pai_display            = -1;
-static gint hf_sip_pai_addr               = -1;
-static gint hf_sip_pai_user               = -1;
-static gint hf_sip_pai_host               = -1;
-static gint hf_sip_pai_port               = -1;
-static gint hf_sip_pai_param              = -1;
-static gint hf_sip_pmiss_display          = -1;
-static gint hf_sip_pmiss_addr             = -1;
-static gint hf_sip_pmiss_user             = -1;
-static gint hf_sip_pmiss_host             = -1;
-static gint hf_sip_pmiss_port             = -1;
-static gint hf_sip_pmiss_param            = -1;
-static gint hf_sip_ppi_display            = -1;
-static gint hf_sip_ppi_addr               = -1;
-static gint hf_sip_ppi_user               = -1;
-static gint hf_sip_ppi_host               = -1;
-static gint hf_sip_ppi_port               = -1;
-static gint hf_sip_ppi_param              = -1;
-static gint hf_sip_tc_display             = -1;
-static gint hf_sip_tc_addr                = -1;
-static gint hf_sip_tc_user                = -1;
-static gint hf_sip_tc_host                = -1;
-static gint hf_sip_tc_port                = -1;
-static gint hf_sip_tc_param               = -1;
-static gint hf_sip_tc_turi                = -1;
-static gint hf_sip_contact_param          = -1;
-static gint hf_sip_resend                 = -1;
-static gint hf_sip_original_frame         = -1;
-static gint hf_sip_matching_request_frame = -1;
-static gint hf_sip_response_time          = -1;
-static gint hf_sip_release_time           = -1;
-static gint hf_sip_curi_display           = -1;
-static gint hf_sip_curi                   = -1;
-static gint hf_sip_curi_user              = -1;
-static gint hf_sip_curi_host              = -1;
-static gint hf_sip_curi_port              = -1;
-static gint hf_sip_curi_param             = -1;
-static gint hf_sip_route_display          = -1;
-static gint hf_sip_route                  = -1;
-static gint hf_sip_route_user             = -1;
-static gint hf_sip_route_host             = -1;
-static gint hf_sip_route_port             = -1;
-static gint hf_sip_route_param            = -1;
-static gint hf_sip_record_route_display   = -1;
-static gint hf_sip_record_route           = -1;
-static gint hf_sip_record_route_user      = -1;
-static gint hf_sip_record_route_host      = -1;
-static gint hf_sip_record_route_port      = -1;
-static gint hf_sip_record_route_param     = -1;
-static gint hf_sip_service_route_display  = -1;
-static gint hf_sip_service_route          = -1;
-static gint hf_sip_service_route_user     = -1;
-static gint hf_sip_service_route_host     = -1;
-static gint hf_sip_service_route_port     = -1;
-static gint hf_sip_service_route_param    = -1;
-static gint hf_sip_path_display           = -1;
-static gint hf_sip_path                   = -1;
-static gint hf_sip_path_user              = -1;
-static gint hf_sip_path_host              = -1;
-static gint hf_sip_path_port              = -1;
-static gint hf_sip_path_param             = -1;
+static gint proto_sip;
+static gint proto_raw_sip;
+static gint hf_sip_raw_line;
+static gint hf_sip_msg_hdr;
+static gint hf_sip_Method;
+static gint hf_Request_Line;
+static gint hf_sip_ruri_display;
+static gint hf_sip_ruri;
+static gint hf_sip_ruri_user;
+static gint hf_sip_ruri_host;
+static gint hf_sip_ruri_port;
+static gint hf_sip_ruri_param;
+static gint hf_sip_Status_Code;
+static gint hf_sip_Status_Line;
+static gint hf_sip_display;
+static gint hf_sip_to_display;
+static gint hf_sip_to_addr;
+static gint hf_sip_to_user;
+static gint hf_sip_to_host;
+static gint hf_sip_to_port;
+static gint hf_sip_to_param;
+static gint hf_sip_to_tag;
+static gint hf_sip_from_display;
+static gint hf_sip_from_addr;
+static gint hf_sip_from_user;
+static gint hf_sip_from_host;
+static gint hf_sip_from_port;
+static gint hf_sip_from_param;
+static gint hf_sip_from_tag;
+static gint hf_sip_tag;
+static gint hf_sip_pai_display;
+static gint hf_sip_pai_addr;
+static gint hf_sip_pai_user;
+static gint hf_sip_pai_host;
+static gint hf_sip_pai_port;
+static gint hf_sip_pai_param;
+static gint hf_sip_pmiss_display;
+static gint hf_sip_pmiss_addr;
+static gint hf_sip_pmiss_user;
+static gint hf_sip_pmiss_host;
+static gint hf_sip_pmiss_port;
+static gint hf_sip_pmiss_param;
+static gint hf_sip_ppi_display;
+static gint hf_sip_ppi_addr;
+static gint hf_sip_ppi_user;
+static gint hf_sip_ppi_host;
+static gint hf_sip_ppi_port;
+static gint hf_sip_ppi_param;
+static gint hf_sip_tc_display;
+static gint hf_sip_tc_addr;
+static gint hf_sip_tc_user;
+static gint hf_sip_tc_host;
+static gint hf_sip_tc_port;
+static gint hf_sip_tc_param;
+static gint hf_sip_tc_turi;
+static gint hf_sip_contact_param;
+static gint hf_sip_resend;
+static gint hf_sip_original_frame;
+static gint hf_sip_matching_request_frame;
+static gint hf_sip_response_time;
+static gint hf_sip_release_time;
+static gint hf_sip_curi_display;
+static gint hf_sip_curi;
+static gint hf_sip_curi_user;
+static gint hf_sip_curi_host;
+static gint hf_sip_curi_port;
+static gint hf_sip_curi_param;
+static gint hf_sip_route_display;
+static gint hf_sip_route;
+static gint hf_sip_route_user;
+static gint hf_sip_route_host;
+static gint hf_sip_route_port;
+static gint hf_sip_route_param;
+static gint hf_sip_record_route_display;
+static gint hf_sip_record_route;
+static gint hf_sip_record_route_user;
+static gint hf_sip_record_route_host;
+static gint hf_sip_record_route_port;
+static gint hf_sip_record_route_param;
+static gint hf_sip_service_route_display;
+static gint hf_sip_service_route;
+static gint hf_sip_service_route_user;
+static gint hf_sip_service_route_host;
+static gint hf_sip_service_route_port;
+static gint hf_sip_service_route_param;
+static gint hf_sip_path_display;
+static gint hf_sip_path;
+static gint hf_sip_path_user;
+static gint hf_sip_path_host;
+static gint hf_sip_path_port;
+static gint hf_sip_path_param;
 
-static gint hf_sip_auth                   = -1;
-static gint hf_sip_auth_scheme            = -1;
-static gint hf_sip_auth_digest_response   = -1;
-static gint hf_sip_auth_nc                = -1;
-static gint hf_sip_auth_username          = -1;
-static gint hf_sip_auth_realm             = -1;
-static gint hf_sip_auth_nonce             = -1;
-static gint hf_sip_auth_algorithm         = -1;
-static gint hf_sip_auth_opaque            = -1;
-static gint hf_sip_auth_qop               = -1;
-static gint hf_sip_auth_cnonce            = -1;
-static gint hf_sip_auth_uri               = -1;
-static gint hf_sip_auth_domain            = -1;
-static gint hf_sip_auth_stale             = -1;
-static gint hf_sip_auth_auts              = -1;
-static gint hf_sip_auth_rspauth           = -1;
-static gint hf_sip_auth_nextnonce         = -1;
-static gint hf_sip_auth_ik                = -1;
-static gint hf_sip_auth_ck                = -1;
+static gint hf_sip_auth;
+static gint hf_sip_auth_scheme;
+static gint hf_sip_auth_digest_response;
+static gint hf_sip_auth_nc;
+static gint hf_sip_auth_username;
+static gint hf_sip_auth_realm;
+static gint hf_sip_auth_nonce;
+static gint hf_sip_auth_algorithm;
+static gint hf_sip_auth_opaque;
+static gint hf_sip_auth_qop;
+static gint hf_sip_auth_cnonce;
+static gint hf_sip_auth_uri;
+static gint hf_sip_auth_domain;
+static gint hf_sip_auth_stale;
+static gint hf_sip_auth_auts;
+static gint hf_sip_auth_rspauth;
+static gint hf_sip_auth_nextnonce;
+static gint hf_sip_auth_ik;
+static gint hf_sip_auth_ck;
 
-static gint hf_sip_cseq_seq_no            = -1;
-static gint hf_sip_cseq_method            = -1;
+static gint hf_sip_cseq_seq_no;
+static gint hf_sip_cseq_method;
 
-static gint hf_sip_via_transport          = -1;
-static gint hf_sip_via_sent_by_address    = -1;
-static gint hf_sip_via_sent_by_port       = -1;
-static gint hf_sip_via_branch             = -1;
-static gint hf_sip_via_maddr              = -1;
-static gint hf_sip_via_rport              = -1;
-static gint hf_sip_via_received           = -1;
-static gint hf_sip_via_ttl                = -1;
-static gint hf_sip_via_comp               = -1;
-static gint hf_sip_via_sigcomp_id         = -1;
-static gint hf_sip_via_oc                 = -1;
-static gint hf_sip_via_oc_val             = -1;
-static gint hf_sip_via_oc_algo            = -1;
-static gint hf_sip_via_oc_validity        = -1;
-static gint hf_sip_via_oc_seq             = -1;
-static gint hf_sip_oc_seq_timestamp       = -1;
-static gint hf_sip_via_be_route           = -1;
+static gint hf_sip_via_transport;
+static gint hf_sip_via_sent_by_address;
+static gint hf_sip_via_sent_by_port;
+static gint hf_sip_via_branch;
+static gint hf_sip_via_maddr;
+static gint hf_sip_via_rport;
+static gint hf_sip_via_received;
+static gint hf_sip_via_ttl;
+static gint hf_sip_via_comp;
+static gint hf_sip_via_sigcomp_id;
+static gint hf_sip_via_oc;
+static gint hf_sip_via_oc_val;
+static gint hf_sip_via_oc_algo;
+static gint hf_sip_via_oc_validity;
+static gint hf_sip_via_oc_seq;
+static gint hf_sip_oc_seq_timestamp;
+static gint hf_sip_via_be_route;
 
-static gint hf_sip_rack_rseq_no           = -1;
-static gint hf_sip_rack_cseq_no           = -1;
-static gint hf_sip_rack_cseq_method       = -1;
+static gint hf_sip_rack_rseq_no;
+static gint hf_sip_rack_cseq_no;
+static gint hf_sip_rack_cseq_method;
 
-static gint hf_sip_reason_protocols       = -1;
-static gint hf_sip_reason_cause_q850      = -1;
-static gint hf_sip_reason_cause_sip       = -1;
-static gint hf_sip_reason_cause_other     = -1;
-static gint hf_sip_reason_text            = -1;
+static gint hf_sip_reason_protocols;
+static gint hf_sip_reason_cause_q850;
+static gint hf_sip_reason_cause_sip;
+static gint hf_sip_reason_cause_other;
+static gint hf_sip_reason_text;
 
-static gint hf_sip_msg_body               = -1;
-static gint hf_sip_sec_mechanism          = -1;
-static gint hf_sip_sec_mechanism_alg      = -1;
-static gint hf_sip_sec_mechanism_ealg     = -1;
-static gint hf_sip_sec_mechanism_prot     = -1;
-static gint hf_sip_sec_mechanism_spi_c    = -1;
-static gint hf_sip_sec_mechanism_spi_s    = -1;
-static gint hf_sip_sec_mechanism_port1    = -1;
-static gint hf_sip_sec_mechanism_port_c   = -1;
-static gint hf_sip_sec_mechanism_port2    = -1;
-static gint hf_sip_sec_mechanism_port_s   = -1;
-static gint hf_sip_session_id_sess_id     = -1;
-static gint hf_sip_session_id_param       = -1;
-static gint hf_sip_session_id_local_uuid  = -1;
-static gint hf_sip_session_id_remote_uuid = -1;
-static gint hf_sip_session_id_logme       = -1;
-static gint hf_sip_continuation           = -1;
-static gint hf_sip_feature_cap            = -1;
+static gint hf_sip_msg_body;
+static gint hf_sip_sec_mechanism;
+static gint hf_sip_sec_mechanism_alg;
+static gint hf_sip_sec_mechanism_ealg;
+static gint hf_sip_sec_mechanism_prot;
+static gint hf_sip_sec_mechanism_spi_c;
+static gint hf_sip_sec_mechanism_spi_s;
+static gint hf_sip_sec_mechanism_port1;
+static gint hf_sip_sec_mechanism_port_c;
+static gint hf_sip_sec_mechanism_port2;
+static gint hf_sip_sec_mechanism_port_s;
+static gint hf_sip_session_id_sess_id;
+static gint hf_sip_session_id_param;
+static gint hf_sip_session_id_local_uuid;
+static gint hf_sip_session_id_remote_uuid;
+static gint hf_sip_session_id_logme;
+static gint hf_sip_continuation;
+static gint hf_sip_feature_cap;
 
-static gint hf_sip_p_acc_net_i_acc_type   = -1;
-static gint hf_sip_p_acc_net_i_ucid_3gpp  = -1;
+static gint hf_sip_p_acc_net_i_acc_type;
+static gint hf_sip_p_acc_net_i_ucid_3gpp;
 
-static gint hf_sip_service_priority = -1;
-static gint hf_sip_icid_value = -1;
-static gint hf_sip_icid_gen_addr = -1;
-static gint hf_sip_call_id_gen = -1;
+static gint hf_sip_service_priority;
+static gint hf_sip_icid_value;
+static gint hf_sip_icid_gen_addr;
+static gint hf_sip_call_id_gen;
 
 /* Initialize the subtree pointers */
-static gint ett_sip                       = -1;
-static gint ett_sip_reqresp               = -1;
-static gint ett_sip_hdr                   = -1;
-static gint ett_sip_ext_hdr               = -1;
-static gint ett_raw_text                  = -1;
-static gint ett_sip_element               = -1;
-static gint ett_sip_hist                  = -1;
-static gint ett_sip_uri                   = -1;
-static gint ett_sip_contact_item          = -1;
-static gint ett_sip_message_body          = -1;
-static gint ett_sip_cseq                  = -1;
-static gint ett_sip_via                   = -1;
-static gint ett_sip_reason                = -1;
-static gint ett_sip_security_client       = -1;
-static gint ett_sip_security_server       = -1;
-static gint ett_sip_security_verify       = -1;
-static gint ett_sip_rack                  = -1;
-static gint ett_sip_route                 = -1;
-static gint ett_sip_record_route          = -1;
-static gint ett_sip_service_route         = -1;
-static gint ett_sip_path                  = -1;
-static gint ett_sip_ruri                  = -1;
-static gint ett_sip_to_uri                = -1;
-static gint ett_sip_curi                  = -1;
-static gint ett_sip_from_uri              = -1;
-static gint ett_sip_pai_uri               = -1;
-static gint ett_sip_pmiss_uri             = -1;
-static gint ett_sip_ppi_uri               = -1;
-static gint ett_sip_tc_uri                = -1;
-static gint ett_sip_session_id            = -1;
-static gint ett_sip_p_access_net_info     = -1;
-static gint ett_sip_p_charging_vector     = -1;
-static gint ett_sip_feature_caps          = -1;
-static gint ett_sip_via_be_route          = -1;
+static gint ett_sip;
+static gint ett_sip_reqresp;
+static gint ett_sip_hdr;
+static gint ett_sip_ext_hdr;
+static gint ett_raw_text;
+static gint ett_sip_element;
+static gint ett_sip_hist;
+static gint ett_sip_uri;
+static gint ett_sip_contact_item;
+static gint ett_sip_message_body;
+static gint ett_sip_cseq;
+static gint ett_sip_via;
+static gint ett_sip_reason;
+static gint ett_sip_security_client;
+static gint ett_sip_security_server;
+static gint ett_sip_security_verify;
+static gint ett_sip_rack;
+static gint ett_sip_route;
+static gint ett_sip_record_route;
+static gint ett_sip_service_route;
+static gint ett_sip_path;
+static gint ett_sip_ruri;
+static gint ett_sip_to_uri;
+static gint ett_sip_curi;
+static gint ett_sip_from_uri;
+static gint ett_sip_pai_uri;
+static gint ett_sip_pmiss_uri;
+static gint ett_sip_ppi_uri;
+static gint ett_sip_tc_uri;
+static gint ett_sip_session_id;
+static gint ett_sip_p_access_net_info;
+static gint ett_sip_p_charging_vector;
+static gint ett_sip_feature_caps;
+static gint ett_sip_via_be_route;
 
-static expert_field ei_sip_unrecognized_header = EI_INIT;
-static expert_field ei_sip_header_no_colon = EI_INIT;
-static expert_field ei_sip_header_not_terminated = EI_INIT;
+static expert_field ei_sip_unrecognized_header;
+static expert_field ei_sip_header_no_colon;
+static expert_field ei_sip_header_not_terminated;
 #if 0
-static expert_field ei_sip_odd_register_response = EI_INIT;
+static expert_field ei_sip_odd_register_response;
 #endif
-static expert_field ei_sip_call_id_invalid = EI_INIT;
-static expert_field ei_sip_sipsec_malformed = EI_INIT;
-static expert_field ei_sip_via_sent_by_port = EI_INIT;
-static expert_field ei_sip_content_length_invalid = EI_INIT;
-static expert_field ei_sip_retry_after_invalid = EI_INIT;
-static expert_field ei_sip_Status_Code_invalid = EI_INIT;
-static expert_field ei_sip_authorization_invalid = EI_INIT;
-static expert_field ei_sip_session_id_sess_id = EI_INIT;
+static expert_field ei_sip_call_id_invalid;
+static expert_field ei_sip_sipsec_malformed;
+static expert_field ei_sip_via_sent_by_port;
+static expert_field ei_sip_content_length_invalid;
+static expert_field ei_sip_retry_after_invalid;
+static expert_field ei_sip_Status_Code_invalid;
+static expert_field ei_sip_authorization_invalid;
+static expert_field ei_sip_session_id_sess_id;
 
 /* patterns used for tvb_ws_mempbrk_pattern_guint8 */
 static ws_mempbrk_pattern pbrk_comma_semi;
@@ -617,137 +617,7 @@ static const sip_header_t sip_headers[] = {
 };
 
 
-
-
-static gint hf_header_array[] = {
-    -1, /* 0"Unknown-header" - Pad so that the real headers start at index 1 */
-    -1, /* 1"Accept"                                    */
-    -1, /* 2"Accept-Contact"                    RFC3841 */
-    -1, /* 3"Accept-Encoding"                           */
-    -1, /* 4"Accept-Language"                           */
-    -1, /* 5"Accept-Resource-Priority"          RFC4412 */
-    -1, /* 6"Additional-Identity		[3GPP TS 24.229 v16.7.0]  */
-    -1, /* 7"Alert-Info",                               */
-    -1, /* 8"Allow",                                    */
-    -1, /* 9"Allow-Events",                     RFC3265 */
-    -1, /* 10"Answer-Mode"                      RFC5373 */
-    -1, /* 11"Attestation-Info		[3GPP TS 24.229 v15.11.0] */
-    -1, /* 12"Authentication-Info"                      */
-    -1, /* 13"Authorization",                           */
-    -1, /* 14"Call-ID",                                 */
-    -1, /* 15"Call-Info"                                */
-    -1, /* 16"Cellular-Network-Info		[3GPP TS 24.229 v13.9.0] */
-    -1, /* 17"Contact",                                 */
-    -1, /* 18"Content-Disposition",                     */
-    -1, /* 19"Content-Encoding",                        */
-    -1, /* 20"Content-Language",                        */
-    -1, /* 21"Content-Length",                          */
-    -1, /* 22"Content-Type",                            */
-    -1, /* 23"CSeq",                                    */
-    -1, /* 24"Date",                                    */
-    -1, /* 25"Error-Info",                              */
-    -1, /* 26"Event",                                   */
-    -1, /* 27"Expires",                                 */
-    -1, /* 28"Feature-Caps",                            */
-    -1, /* 29"Flow-Timer",                      RFC5626 */
-    -1, /* 30"From",                                    */
-    -1, /* 31"Geolocation",                             */
-    -1, /* 32"Geolocation-Error",                       */
-    -1, /* 33"Geolocation-Routing",                     */
-    -1, /* 34"History-Info",                    RFC4244 */
-    -1, /* 35"Identity",                                */
-    -1, /* 36"Identity-Info",                   RFC4474 */
-    -1, /* 37"Info-Package", RFC-ietf-sipcore-info-events-10.txt */
-    -1, /* 38"In-Reply-To",                     RFC3261 */
-    -1, /* 39"Join",                            RFC3911 */
-    -1, /* 40"Max-Breadth"                      RFC5393 */
-    -1, /* 41"Max-Forwards",                            */
-    -1, /* 42"MIME-Version",                            */
-    -1, /* 43"Min-Expires",                             */
-    -1, /* 44"Min-SE",                          RFC4028 */
-    -1, /* 45"Organization",                            */
-    -1, /* 46"Origination-Id		[3GPP TS 24.229 v15.11.0] */
-    -1, /* 47"P-Access-Network-Info",           RFC3455 */
-    -1, /* 48"P-Answer-State",                  RFC4964 */
-    -1, /* 49"P-Asserted-Identity",             RFC3325 */
-    -1, /* 50"P-Asserted-Service",  RFC-drage-sipping-service-identification-05.txt */
-    -1, /* 51"P-Associated-URI",                RFC3455 */
-    -1, /* 52"P-Charge-Info",                   RFC8496 */
-    -1, /* 53"P-Called-Party-ID",               RFC3455 */
-    -1, /* 54"P-Charging-Function-Addresses",   RFC3455 */
-    -1, /* 55"P-Charging-Vector",               RFC3455 */
-    -1, /* 56"P-DCS-Trace-Party-ID",            RFC3603 */
-    -1, /* 57"P-DCS-OSPS",                      RFC3603 */
-    -1, /* 58"P-DCS-Billing-Info",              RFC3603 */
-    -1, /* 59"P-DCS-LAES",                      RFC3603 */
-    -1, /* 60"P-DCS-Redirect",                  RFC3603 */
-    -1, /* 61"P-Early-Media",                           */
-    -1, /* 62"P-Media-Authorization",           RFC3313 */
-    -1, /* 63"P-Preferred-Identity",            RFC3325 */
-    -1, /* 64"P-Preferred-Service",  RFC-drage-sipping-service-identification-05.txt */
-    -1, /* 65"P-Profile-Key",                           */
-    -1, /* 66"P-Refused-URI-List",              RFC5318 */
-    -1, /* 67"P-Served-User",                   RFC5502 */
-    -1, /* 68"P-User-Database                   RFC4457 */
-    -1, /* 69"P-Visited-Network-ID",            RFC3455 */
-    -1, /* 70"Path",                            RFC3327 */
-    -1, /* 71"Permission-Missing"               RFC5360 */
-    -1, /* 72"Policy-Contact"                   RFC5360 */
-    -1, /* 73"Policy-ID"                        RFC5360 */
-    -1, /* 74"Priority"                                 */
-    -1, /* 75"Priority-Share		[3GPP TS 24.229 v13.16.0] */
-    -1, /* 76"Priv-Answer-mode"                 RFC5373 */
-    -1, /* 77"Privacy",                         RFC3323 */
-    -1, /* 78"Proxy-Authenticate",                      */
-    -1, /* 79"Proxy-Authorization",                     */
-    -1, /* 80"Proxy-Require",                           */
-    -1, /* 81"RAck",                            RFC3262 */
-    -1, /* 82"Reason",                          RFC3326 */
-    -1, /* 83"Reason-Phrase",                   RFC3326 */
-    -1, /* 84"Record-Route",                            */
-    -1, /* 85"Recv-Info",                       RFC6086 */
-    -1, /* 86"Refer-Sub",",                     RFC4488 */
-    -1, /* 87"Refer-To",                        RFC3515 */
-    -1, /* 88"Referred-By",                             */
-    -1, /* 89"Reject-Contact",                  RFC3841 */
-    -1, /* 90"Relayed-Charge		[3GPP TS 24.229 v12.14.0] */
-    -1, /* 91"Replaces",                        RFC3891 */
-    -1, /* 92"Reply-To",                        RFC3261 */
-    -1, /* 93"Request-Disposition",             RFC3841 */
-    -1, /* 94"Require",                         RFC3261 */
-    -1, /* 95"Resource-Priority",               RFC4412 */
-    -1, /* 96"Resource-Share		[3GPP TS 24.229 v13.7.0] */
-    -1, /* 97"Response-Source		[3GPP TS 24.229 v15.11.0] */
-    -1, /* 98"Restoration-Info		[3GPP TS 24.229 v12.14.0] */
-    -1, /* 99"Retry-After",                     RFC3261 */
-    -1, /* 100"Route",                          RFC3261 */
-    -1, /* 101"RSeq",                           RFC3262 */
-    -1, /* 102"Security-Client",                RFC3329 */
-    -1, /* 103"Security-Server",                RFC3329 */
-    -1, /* 104"Security-Verify",                RFC3329 */
-    -1, /* 105"Server",                         RFC3261 */
-    -1, /* 106"Service-Interact-Info		[3GPP TS 24.229 v13.18.0] */
-    -1, /* 107"Service-Route",                  RFC3608 */
-    -1, /* 108"Session-Expires",                RFC4028 */
-    -1, /* 109"Session-ID",                     RFC7329 */
-    -1, /* 110"SIP-ETag",                       RFC3903 */
-    -1, /* 111"SIP-If-Match",                   RFC3903 */
-    -1, /* 112"Subject",                        RFC3261 */
-    -1, /* 113"Subscription-State",             RFC3265 */
-    -1, /* 114"Supported",                      RFC3261 */
-    -1, /* 115"Suppress-If-Match",              RFC4538 */
-    -1, /* 116"Target-Dialog",                  RFC4538 */
-    -1, /* 117"Timestamp",                      RFC3261 */
-    -1, /* 118"To",                             RFC3261 */
-    -1, /* 119"Trigger-Consent"                 RFC5380 */
-    -1, /* 120"Unsupported",                    RFC3261 */
-    -1, /* 121"User-Agent",                     RFC3261 */
-    -1, /* 122"Via",                            RFC3261 */
-    -1, /* 123"Warning",                        RFC3261 */
-    -1, /* 124"WWW-Authenticate",               RFC3261 */
-    -1, /* 125"Diversion",                      RFC5806 */
-    -1, /* 126"User-to-User",  draft-johnston-sipping-cc-uui-09 */
-};
+static gint hf_header_array[array_length(sip_headers)];
 
 /* Track associations between parameter name and hf item */
 typedef struct {

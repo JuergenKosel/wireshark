@@ -83,492 +83,501 @@ void proto_reg_handoff_icmpv6(void);
  * RFC 8335: PROBE: A Utility for Probing Interfaces
  * RFC 8781: Discovering PREF64 in Router Advertisements
  * RFC 8505: Registration Extensions for IPv6 over Low-Power Wireless Personal Area Network (6LoWPAN) Neighbor Discovery
+ * RFC 8801: Discovering Provisioning Domain Names and Data
  * http://www.iana.org/assignments/icmpv6-parameters (last updated 2016-02-24)
  */
 
-static int proto_icmpv6 = -1;
-static int hf_icmpv6_type = -1;
-static int hf_icmpv6_code = -1;
-static int hf_icmpv6_checksum = -1;
-static int hf_icmpv6_checksum_status = -1;
-static int hf_icmpv6_reserved = -1;
-static int hf_icmpv6_data = -1;
-static int hf_icmpv6_unknown_data = -1;
-static int hf_icmpv6_mtu = -1;
-static int hf_icmpv6_pointer = -1;
-static int hf_icmpv6_echo_identifier = -1;
-static int hf_icmpv6_echo_sequence_number = -1;
-static int hf_icmpv6_nonce = -1;
-static int hf_icmpv6_data_time = -1;
-static int hf_icmpv6_data_time_relative = -1;
+static int proto_icmpv6;
+static int hf_icmpv6_type;
+static int hf_icmpv6_code;
+static int hf_icmpv6_checksum;
+static int hf_icmpv6_checksum_status;
+static int hf_icmpv6_reserved;
+static int hf_icmpv6_data;
+static int hf_icmpv6_unknown_data;
+static int hf_icmpv6_mtu;
+static int hf_icmpv6_pointer;
+static int hf_icmpv6_echo_identifier;
+static int hf_icmpv6_echo_sequence_number;
+static int hf_icmpv6_nonce;
+static int hf_icmpv6_data_time;
+static int hf_icmpv6_data_time_relative;
 
 /* RFC 2461/4861 : Neighbor Discovery for IP version 6 (IPv6) */
-static int hf_icmpv6_nd_ra_cur_hop_limit = -1;
-static int hf_icmpv6_nd_ra_flag = -1;
-static int hf_icmpv6_nd_ra_flag_m = -1;
-static int hf_icmpv6_nd_ra_flag_o = -1;
-static int hf_icmpv6_nd_ra_flag_h = -1;
-static int hf_icmpv6_nd_ra_flag_prf = -1;
-static int hf_icmpv6_nd_ra_flag_p = -1;
-static int hf_icmpv6_nd_ra_flag_rsv = -1;
-static int hf_icmpv6_nd_ra_router_lifetime = -1;
-static int hf_icmpv6_nd_ra_reachable_time = -1;
-static int hf_icmpv6_nd_ra_retrans_timer = -1;
-static int hf_icmpv6_nd_ns_target_address = -1;
-static int hf_icmpv6_nd_na_flag = -1;
-static int hf_icmpv6_nd_na_flag_r = -1;
-static int hf_icmpv6_nd_na_flag_s = -1;
-static int hf_icmpv6_nd_na_flag_o = -1;
-static int hf_icmpv6_nd_na_flag_rsv = -1;
-static int hf_icmpv6_nd_na_target_address = -1;
-static int hf_icmpv6_nd_rd_target_address = -1;
-static int hf_icmpv6_nd_rd_destination_address = -1;
+static int hf_icmpv6_nd_ra_cur_hop_limit;
+static int hf_icmpv6_nd_ra_flag;
+static int hf_icmpv6_nd_ra_flag_m;
+static int hf_icmpv6_nd_ra_flag_o;
+static int hf_icmpv6_nd_ra_flag_h;
+static int hf_icmpv6_nd_ra_flag_prf;
+static int hf_icmpv6_nd_ra_flag_p;
+static int hf_icmpv6_nd_ra_flag_rsv;
+static int hf_icmpv6_nd_ra_router_lifetime;
+static int hf_icmpv6_nd_ra_reachable_time;
+static int hf_icmpv6_nd_ra_retrans_timer;
+static int hf_icmpv6_nd_ns_target_address;
+static int hf_icmpv6_nd_na_flag;
+static int hf_icmpv6_nd_na_flag_r;
+static int hf_icmpv6_nd_na_flag_s;
+static int hf_icmpv6_nd_na_flag_o;
+static int hf_icmpv6_nd_na_flag_rsv;
+static int hf_icmpv6_nd_na_target_address;
+static int hf_icmpv6_nd_rd_target_address;
+static int hf_icmpv6_nd_rd_destination_address;
 
 /* ND Options */
-static int hf_icmpv6_opt = -1;
-static int hf_icmpv6_opt_type = -1;
-static int hf_icmpv6_opt_length = -1;
-static int hf_icmpv6_opt_linkaddr_mac = -1;
-static int hf_icmpv6_opt_src_linkaddr_mac = -1;
-static int hf_icmpv6_opt_target_linkaddr_mac = -1;
-static int hf_icmpv6_opt_linkaddr = -1;
-static int hf_icmpv6_opt_src_linkaddr = -1;
-static int hf_icmpv6_opt_target_linkaddr = -1;
-static int hf_icmpv6_opt_linkaddr_eui64 = -1;
-static int hf_icmpv6_opt_src_linkaddr_eui64 = -1;
-static int hf_icmpv6_opt_target_linkaddr_eui64 = -1;
-static int hf_icmpv6_opt_prefix_len = -1;
-static int hf_icmpv6_opt_prefix_flag = -1;
-static int hf_icmpv6_opt_prefix_flag_l = -1;
-static int hf_icmpv6_opt_prefix_flag_a = -1;
-static int hf_icmpv6_opt_prefix_flag_r = -1;
-static int hf_icmpv6_opt_prefix_flag_reserved = -1;
-static int hf_icmpv6_opt_prefix_valid_lifetime = -1;
-static int hf_icmpv6_opt_prefix_preferred_lifetime = -1;
-static int hf_icmpv6_opt_prefix = -1;
-static int hf_icmpv6_opt_naack_option_code = -1;
-static int hf_icmpv6_opt_naack_status = -1;
-static int hf_icmpv6_opt_naack_supplied_ncoa = -1;
-static int hf_icmpv6_opt_cga_pad_len = -1;
-static int hf_icmpv6_opt_cga = -1;
-static int hf_icmpv6_opt_cga_modifier = -1;
-static int hf_icmpv6_opt_cga_subnet_prefix = -1;
-static int hf_icmpv6_opt_cga_count = -1;
-static int hf_icmpv6_opt_cga_subject_public_key_info = -1;
-static int hf_icmpv6_opt_cga_ext_type = -1;
-static int hf_icmpv6_opt_cga_ext_length = -1;
-static int hf_icmpv6_opt_cga_ext_data = -1;
-static int hf_icmpv6_opt_rsa_key_hash = -1;
-static int hf_icmpv6_opt_digital_signature_padding = -1;
-static int hf_icmpv6_opt_ps_key_hash = -1;
-static int hf_icmpv6_opt_timestamp = -1;
-static int hf_icmpv6_opt_nonce = -1;
-static int hf_icmpv6_opt_certificate_padding = -1;
-static int hf_icmpv6_opt_ipa_option_code = -1;
-static int hf_icmpv6_opt_ipa_prefix_len = -1;
-static int hf_icmpv6_opt_ipa_ipv6_address = -1;
-static int hf_icmpv6_opt_nrpi_option_code = -1;
-static int hf_icmpv6_opt_nrpi_prefix_len = -1;
-static int hf_icmpv6_opt_nrpi_prefix = -1;
-static int hf_icmpv6_opt_lla_option_code = -1;
-static int hf_icmpv6_opt_lla_bytes = -1;
-static int hf_icmpv6_opt_map_dist = -1;
-static int hf_icmpv6_opt_map_pref = -1;
-static int hf_icmpv6_opt_map_flag = -1;
-static int hf_icmpv6_opt_map_flag_r = -1;
-static int hf_icmpv6_opt_map_flag_reserved = -1;
-static int hf_icmpv6_opt_map_valid_lifetime = -1;
-static int hf_icmpv6_opt_map_global_address = -1;
-static int hf_icmpv6_opt_route_info_flag = -1;
-static int hf_icmpv6_opt_route_info_flag_route_preference = -1;
-static int hf_icmpv6_opt_route_info_flag_reserved = -1;
-static int hf_icmpv6_opt_route_lifetime = -1;
-static int hf_icmpv6_opt_name_type = -1;
-static int hf_icmpv6_opt_name_x501 = -1;
-static int hf_icmpv6_opt_name_fqdn = -1;
-static int hf_icmpv6_opt_cert_type = -1;
-static int hf_icmpv6_x509if_Name = -1;
-static int hf_icmpv6_x509af_Certificate = -1;
-static int hf_icmpv6_opt_redirected_packet = -1;
-static int hf_icmpv6_opt_mtu = -1;
-static int hf_icmpv6_opt_nbma_shortcut_limit = -1;
-static int hf_icmpv6_opt_advertisement_interval = -1;
-static int hf_icmpv6_opt_home_agent_preference = -1;
-static int hf_icmpv6_opt_home_agent_lifetime = -1;
-static int hf_icmpv6_opt_ipv6_address = -1;
-static int hf_icmpv6_opt_reserved = -1;
-static int hf_icmpv6_opt_padding = -1;
-static int hf_icmpv6_opt_rdnss_lifetime = -1;
-static int hf_icmpv6_opt_rdnss = -1;
-static int hf_icmpv6_opt_efo = -1;
-static int hf_icmpv6_opt_efo_m = -1;
-static int hf_icmpv6_opt_efo_o = -1;
-static int hf_icmpv6_opt_efo_h = -1;
-static int hf_icmpv6_opt_efo_prf = -1;
-static int hf_icmpv6_opt_efo_p = -1;
-static int hf_icmpv6_opt_efo_rsv = -1;
-static int hf_icmpv6_opt_hkr_pad_length = -1;
-static int hf_icmpv6_opt_hkr_at = -1;
-static int hf_icmpv6_opt_hkr_reserved = -1;
-static int hf_icmpv6_opt_hkr_encryption_public_key = -1;
-static int hf_icmpv6_opt_hkr_padding = -1;
-static int hf_icmpv6_opt_hkr_lifetime = -1;
-static int hf_icmpv6_opt_hkr_encrypted_handover_key = -1;
-static int hf_icmpv6_opt_hai_option_code = -1;
-static int hf_icmpv6_opt_hai_length = -1;
-static int hf_icmpv6_opt_hai_value = -1;
-static int hf_icmpv6_opt_mn_option_code = -1;
-static int hf_icmpv6_opt_mn_length = -1;
-static int hf_icmpv6_opt_mn_value = -1;
-static int hf_icmpv6_opt_dnssl_lifetime = -1;
-static int hf_icmpv6_opt_dnssl = -1;
+static int hf_icmpv6_opt;
+static int hf_icmpv6_opt_type;
+static int hf_icmpv6_opt_length;
+static int hf_icmpv6_opt_linkaddr_mac;
+static int hf_icmpv6_opt_src_linkaddr_mac;
+static int hf_icmpv6_opt_target_linkaddr_mac;
+static int hf_icmpv6_opt_linkaddr;
+static int hf_icmpv6_opt_src_linkaddr;
+static int hf_icmpv6_opt_target_linkaddr;
+static int hf_icmpv6_opt_linkaddr_eui64;
+static int hf_icmpv6_opt_src_linkaddr_eui64;
+static int hf_icmpv6_opt_target_linkaddr_eui64;
+static int hf_icmpv6_opt_prefix_len;
+static int hf_icmpv6_opt_prefix_flag;
+static int hf_icmpv6_opt_prefix_flag_l;
+static int hf_icmpv6_opt_prefix_flag_a;
+static int hf_icmpv6_opt_prefix_flag_r;
+static int hf_icmpv6_opt_prefix_flag_reserved;
+static int hf_icmpv6_opt_prefix_valid_lifetime;
+static int hf_icmpv6_opt_prefix_preferred_lifetime;
+static int hf_icmpv6_opt_prefix;
+static int hf_icmpv6_opt_naack_option_code;
+static int hf_icmpv6_opt_naack_status;
+static int hf_icmpv6_opt_naack_supplied_ncoa;
+static int hf_icmpv6_opt_cga_pad_len;
+static int hf_icmpv6_opt_cga;
+static int hf_icmpv6_opt_cga_modifier;
+static int hf_icmpv6_opt_cga_subnet_prefix;
+static int hf_icmpv6_opt_cga_count;
+static int hf_icmpv6_opt_cga_subject_public_key_info;
+static int hf_icmpv6_opt_cga_ext_type;
+static int hf_icmpv6_opt_cga_ext_length;
+static int hf_icmpv6_opt_cga_ext_data;
+static int hf_icmpv6_opt_rsa_key_hash;
+static int hf_icmpv6_opt_digital_signature_padding;
+static int hf_icmpv6_opt_ps_key_hash;
+static int hf_icmpv6_opt_timestamp;
+static int hf_icmpv6_opt_nonce;
+static int hf_icmpv6_opt_certificate_padding;
+static int hf_icmpv6_opt_ipa_option_code;
+static int hf_icmpv6_opt_ipa_prefix_len;
+static int hf_icmpv6_opt_ipa_ipv6_address;
+static int hf_icmpv6_opt_nrpi_option_code;
+static int hf_icmpv6_opt_nrpi_prefix_len;
+static int hf_icmpv6_opt_nrpi_prefix;
+static int hf_icmpv6_opt_lla_option_code;
+static int hf_icmpv6_opt_lla_bytes;
+static int hf_icmpv6_opt_pvd_id_flags;
+static int hf_icmpv6_opt_pvd_id_flags_h;
+static int hf_icmpv6_opt_pvd_id_flags_l;
+static int hf_icmpv6_opt_pvd_id_flags_r;
+static int hf_icmpv6_opt_pvd_id_flags_reserved;
+static int hf_icmpv6_opt_pvd_id_delay;
+static int hf_icmpv6_opt_pvd_id_sequence_number;
+static int hf_icmpv6_opt_pvd_id_fqdn;
+static int hf_icmpv6_opt_map_dist;
+static int hf_icmpv6_opt_map_pref;
+static int hf_icmpv6_opt_map_flag;
+static int hf_icmpv6_opt_map_flag_r;
+static int hf_icmpv6_opt_map_flag_reserved;
+static int hf_icmpv6_opt_map_valid_lifetime;
+static int hf_icmpv6_opt_map_global_address;
+static int hf_icmpv6_opt_route_info_flag;
+static int hf_icmpv6_opt_route_info_flag_route_preference;
+static int hf_icmpv6_opt_route_info_flag_reserved;
+static int hf_icmpv6_opt_route_lifetime;
+static int hf_icmpv6_opt_name_type;
+static int hf_icmpv6_opt_name_x501;
+static int hf_icmpv6_opt_name_fqdn;
+static int hf_icmpv6_opt_cert_type;
+static int hf_icmpv6_x509if_Name;
+static int hf_icmpv6_x509af_Certificate;
+static int hf_icmpv6_opt_redirected_packet;
+static int hf_icmpv6_opt_mtu;
+static int hf_icmpv6_opt_nbma_shortcut_limit;
+static int hf_icmpv6_opt_advertisement_interval;
+static int hf_icmpv6_opt_home_agent_preference;
+static int hf_icmpv6_opt_home_agent_lifetime;
+static int hf_icmpv6_opt_ipv6_address;
+static int hf_icmpv6_opt_reserved;
+static int hf_icmpv6_opt_padding;
+static int hf_icmpv6_opt_rdnss_lifetime;
+static int hf_icmpv6_opt_rdnss;
+static int hf_icmpv6_opt_efo;
+static int hf_icmpv6_opt_efo_m;
+static int hf_icmpv6_opt_efo_o;
+static int hf_icmpv6_opt_efo_h;
+static int hf_icmpv6_opt_efo_prf;
+static int hf_icmpv6_opt_efo_p;
+static int hf_icmpv6_opt_efo_rsv;
+static int hf_icmpv6_opt_hkr_pad_length;
+static int hf_icmpv6_opt_hkr_at;
+static int hf_icmpv6_opt_hkr_reserved;
+static int hf_icmpv6_opt_hkr_encryption_public_key;
+static int hf_icmpv6_opt_hkr_padding;
+static int hf_icmpv6_opt_hkr_lifetime;
+static int hf_icmpv6_opt_hkr_encrypted_handover_key;
+static int hf_icmpv6_opt_hai_option_code;
+static int hf_icmpv6_opt_hai_length;
+static int hf_icmpv6_opt_hai_value;
+static int hf_icmpv6_opt_mn_option_code;
+static int hf_icmpv6_opt_mn_length;
+static int hf_icmpv6_opt_mn_value;
+static int hf_icmpv6_opt_dnssl_lifetime;
+static int hf_icmpv6_opt_dnssl;
 
-static int hf_icmpv6_opt_aro_status = -1;
-static int hf_icmpv6_opt_earo_opaque = -1;
-static int hf_icmpv6_opt_earo_flag = -1;
-static int hf_icmpv6_opt_earo_flag_i = -1;
-static int hf_icmpv6_opt_earo_flag_t = -1;
-static int hf_icmpv6_opt_earo_flag_r = -1;
-static int hf_icmpv6_opt_earo_tid = -1;
-static int hf_icmpv6_opt_aro_registration_lifetime = -1;
-static int hf_icmpv6_opt_aro_eui64 = -1;
-static int hf_icmpv6_opt_6co_context_length = -1;
-static int hf_icmpv6_opt_6co_flag = -1;
-static int hf_icmpv6_opt_6co_flag_c = -1;
-static int hf_icmpv6_opt_6co_flag_cid = -1;
-static int hf_icmpv6_opt_6co_flag_reserved = -1;
-static int hf_icmpv6_opt_6co_valid_lifetime = -1;
-static int hf_icmpv6_opt_6co_context_prefix  = -1;
-static int hf_icmpv6_opt_abro_version_low = -1;
-static int hf_icmpv6_opt_abro_version_high = -1;
-static int hf_icmpv6_opt_abro_valid_lifetime = -1;
-static int hf_icmpv6_opt_abro_6lbr_address = -1;
-static int hf_icmpv6_opt_6cio_unassigned1 = -1;
-static int hf_icmpv6_opt_6cio_flag_g = -1;
-static int hf_icmpv6_opt_6cio_unassigned2 = -1;
+static int hf_icmpv6_opt_aro_status;
+static int hf_icmpv6_opt_earo_opaque;
+static int hf_icmpv6_opt_earo_flag;
+static int hf_icmpv6_opt_earo_flag_i;
+static int hf_icmpv6_opt_earo_flag_t;
+static int hf_icmpv6_opt_earo_flag_r;
+static int hf_icmpv6_opt_earo_tid;
+static int hf_icmpv6_opt_aro_registration_lifetime;
+static int hf_icmpv6_opt_aro_eui64;
+static int hf_icmpv6_opt_6co_context_length;
+static int hf_icmpv6_opt_6co_flag;
+static int hf_icmpv6_opt_6co_flag_c;
+static int hf_icmpv6_opt_6co_flag_cid;
+static int hf_icmpv6_opt_6co_flag_reserved;
+static int hf_icmpv6_opt_6co_valid_lifetime;
+static int hf_icmpv6_opt_6co_context_prefix;
+static int hf_icmpv6_opt_abro_version_low;
+static int hf_icmpv6_opt_abro_version_high;
+static int hf_icmpv6_opt_abro_valid_lifetime;
+static int hf_icmpv6_opt_abro_6lbr_address;
+static int hf_icmpv6_opt_6cio_unassigned1;
+static int hf_icmpv6_opt_6cio_flag_g;
+static int hf_icmpv6_opt_6cio_unassigned2;
 
-static int hf_icmpv6_opt_captive_portal = -1;
+static int hf_icmpv6_opt_captive_portal;
 
-static int hf_icmpv6_opt_pref64_scaled_lifetime = -1;
-static int hf_icmpv6_opt_pref64_plc = -1;
-static int hf_icmpv6_opt_pref64_prefix = -1;
+static int hf_icmpv6_opt_pref64_scaled_lifetime;
+static int hf_icmpv6_opt_pref64_plc;
+static int hf_icmpv6_opt_pref64_prefix;
 /* RFC 2710: Multicast Listener Discovery for IPv6 */
-static int hf_icmpv6_mld_mrd = -1;
-static int hf_icmpv6_mld_multicast_address = -1;
+static int hf_icmpv6_mld_mrd;
+static int hf_icmpv6_mld_multicast_address;
 
 /* RFC 2894: Router Renumbering for IPv6 */
-static int hf_icmpv6_rr_sequencenumber = -1;
-static int hf_icmpv6_rr_segmentnumber = -1;
-static int hf_icmpv6_rr_flag = -1;
-static int hf_icmpv6_rr_flag_t = -1;
-static int hf_icmpv6_rr_flag_r = -1;
-static int hf_icmpv6_rr_flag_a = -1;
-static int hf_icmpv6_rr_flag_s = -1;
-static int hf_icmpv6_rr_flag_p = -1;
-static int hf_icmpv6_rr_flag_rsv = -1;
-static int hf_icmpv6_rr_maxdelay = -1;
-static int hf_icmpv6_rr_pco_mp_part = -1;
-static int hf_icmpv6_rr_pco_mp_opcode = -1;
-static int hf_icmpv6_rr_pco_mp_oplength = -1;
-static int hf_icmpv6_rr_pco_mp_ordinal = -1;
-static int hf_icmpv6_rr_pco_mp_matchlen = -1;
-static int hf_icmpv6_rr_pco_mp_minlen = -1;
-static int hf_icmpv6_rr_pco_mp_maxlen = -1;
-static int hf_icmpv6_rr_pco_mp_matchprefix = -1;
-static int hf_icmpv6_rr_pco_up_part = -1;
-static int hf_icmpv6_rr_pco_up_uselen = -1;
-static int hf_icmpv6_rr_pco_up_keeplen = -1;
-static int hf_icmpv6_rr_pco_up_flagmask = -1;
-static int hf_icmpv6_rr_pco_up_flagmask_l = -1;
-static int hf_icmpv6_rr_pco_up_flagmask_a = -1;
-static int hf_icmpv6_rr_pco_up_flagmask_reserved = -1;
-static int hf_icmpv6_rr_pco_up_raflags = -1;
-static int hf_icmpv6_rr_pco_up_raflags_l = -1;
-static int hf_icmpv6_rr_pco_up_raflags_a = -1;
-static int hf_icmpv6_rr_pco_up_raflags_reserved = -1;
-static int hf_icmpv6_rr_pco_up_validlifetime = -1;
-static int hf_icmpv6_rr_pco_up_preferredlifetime = -1;
-static int hf_icmpv6_rr_pco_up_flag = -1;
-static int hf_icmpv6_rr_pco_up_flag_v = -1;
-static int hf_icmpv6_rr_pco_up_flag_p = -1;
-static int hf_icmpv6_rr_pco_up_flag_reserved = -1;
-static int hf_icmpv6_rr_pco_up_useprefix = -1;
-static int hf_icmpv6_rr_rm = -1;
-static int hf_icmpv6_rr_rm_flag = -1;
-static int hf_icmpv6_rr_rm_flag_b = -1;
-static int hf_icmpv6_rr_rm_flag_f = -1;
-static int hf_icmpv6_rr_rm_flag_reserved = -1;
-static int hf_icmpv6_rr_rm_ordinal = -1;
-static int hf_icmpv6_rr_rm_matchedlen = -1;
-static int hf_icmpv6_rr_rm_interfaceindex = -1;
-static int hf_icmpv6_rr_rm_matchedprefix = -1;
+static int hf_icmpv6_rr_sequencenumber;
+static int hf_icmpv6_rr_segmentnumber;
+static int hf_icmpv6_rr_flag;
+static int hf_icmpv6_rr_flag_t;
+static int hf_icmpv6_rr_flag_r;
+static int hf_icmpv6_rr_flag_a;
+static int hf_icmpv6_rr_flag_s;
+static int hf_icmpv6_rr_flag_p;
+static int hf_icmpv6_rr_flag_rsv;
+static int hf_icmpv6_rr_maxdelay;
+static int hf_icmpv6_rr_pco_mp_part;
+static int hf_icmpv6_rr_pco_mp_opcode;
+static int hf_icmpv6_rr_pco_mp_oplength;
+static int hf_icmpv6_rr_pco_mp_ordinal;
+static int hf_icmpv6_rr_pco_mp_matchlen;
+static int hf_icmpv6_rr_pco_mp_minlen;
+static int hf_icmpv6_rr_pco_mp_maxlen;
+static int hf_icmpv6_rr_pco_mp_matchprefix;
+static int hf_icmpv6_rr_pco_up_part;
+static int hf_icmpv6_rr_pco_up_uselen;
+static int hf_icmpv6_rr_pco_up_keeplen;
+static int hf_icmpv6_rr_pco_up_flagmask;
+static int hf_icmpv6_rr_pco_up_flagmask_l;
+static int hf_icmpv6_rr_pco_up_flagmask_a;
+static int hf_icmpv6_rr_pco_up_flagmask_reserved;
+static int hf_icmpv6_rr_pco_up_raflags;
+static int hf_icmpv6_rr_pco_up_raflags_l;
+static int hf_icmpv6_rr_pco_up_raflags_a;
+static int hf_icmpv6_rr_pco_up_raflags_reserved;
+static int hf_icmpv6_rr_pco_up_validlifetime;
+static int hf_icmpv6_rr_pco_up_preferredlifetime;
+static int hf_icmpv6_rr_pco_up_flag;
+static int hf_icmpv6_rr_pco_up_flag_v;
+static int hf_icmpv6_rr_pco_up_flag_p;
+static int hf_icmpv6_rr_pco_up_flag_reserved;
+static int hf_icmpv6_rr_pco_up_useprefix;
+static int hf_icmpv6_rr_rm;
+static int hf_icmpv6_rr_rm_flag;
+static int hf_icmpv6_rr_rm_flag_b;
+static int hf_icmpv6_rr_rm_flag_f;
+static int hf_icmpv6_rr_rm_flag_reserved;
+static int hf_icmpv6_rr_rm_ordinal;
+static int hf_icmpv6_rr_rm_matchedlen;
+static int hf_icmpv6_rr_rm_interfaceindex;
+static int hf_icmpv6_rr_rm_matchedprefix;
 
 /* RFC 3810: Multicast Listener Discovery Version 2 (MLDv2) for IPv6 */
-static int hf_icmpv6_mld_mrc = -1;
-static int hf_icmpv6_mld_flag = -1;
-static int hf_icmpv6_mld_flag_s = -1;
-static int hf_icmpv6_mld_flag_qrv = -1;
-static int hf_icmpv6_mld_flag_rsv = -1;
-static int hf_icmpv6_mld_qqi = -1;
-static int hf_icmpv6_mld_nb_sources = -1;
-static int hf_icmpv6_mld_source_address = -1;
-static int hf_icmpv6_mldr_nb_mcast_records = -1;
-static int hf_icmpv6_mldr_mar = -1;
-static int hf_icmpv6_mldr_mar_record_type = -1;
-static int hf_icmpv6_mldr_mar_aux_data_len = -1;
-static int hf_icmpv6_mldr_mar_nb_sources = -1;
-static int hf_icmpv6_mldr_mar_multicast_address = -1;
-static int hf_icmpv6_mldr_mar_source_address = -1;
-static int hf_icmpv6_mldr_mar_auxiliary_data = -1;
+static int hf_icmpv6_mld_mrc;
+static int hf_icmpv6_mld_flag;
+static int hf_icmpv6_mld_flag_s;
+static int hf_icmpv6_mld_flag_qrv;
+static int hf_icmpv6_mld_flag_rsv;
+static int hf_icmpv6_mld_qqi;
+static int hf_icmpv6_mld_nb_sources;
+static int hf_icmpv6_mld_source_address;
+static int hf_icmpv6_mldr_nb_mcast_records;
+static int hf_icmpv6_mldr_mar;
+static int hf_icmpv6_mldr_mar_record_type;
+static int hf_icmpv6_mldr_mar_aux_data_len;
+static int hf_icmpv6_mldr_mar_nb_sources;
+static int hf_icmpv6_mldr_mar_multicast_address;
+static int hf_icmpv6_mldr_mar_source_address;
+static int hf_icmpv6_mldr_mar_auxiliary_data;
 
 /* RFC3775/6275: Mobility Support in IPv6 */
-static int hf_icmpv6_mip6_identifier = -1;
-static int hf_icmpv6_mip6_home_agent_address = -1;
-static int hf_icmpv6_mip6_flag = -1;
-static int hf_icmpv6_mip6_flag_m = -1;
-static int hf_icmpv6_mip6_flag_o = -1;
-static int hf_icmpv6_mip6_flag_rsv = -1;
+static int hf_icmpv6_mip6_identifier;
+static int hf_icmpv6_mip6_home_agent_address;
+static int hf_icmpv6_mip6_flag;
+static int hf_icmpv6_mip6_flag_m;
+static int hf_icmpv6_mip6_flag_o;
+static int hf_icmpv6_mip6_flag_rsv;
 
 /* RFC3971: SEcure Neighbor Discovery (SEND) */
-static int hf_icmpv6_send_identifier = -1;
-static int hf_icmpv6_send_all_components = -1;
-static int hf_icmpv6_send_component = -1;
+static int hf_icmpv6_send_identifier;
+static int hf_icmpv6_send_all_components;
+static int hf_icmpv6_send_component;
 
 /* RFC 4068/5268/5568: Fast Handovers for Mobile IPv6 ( Mobile IPv6 Fast Handovers ) */
-static int hf_icmpv6_fmip6_subtype = -1;
-static int hf_icmpv6_fmip6_hi_flag = -1;
-static int hf_icmpv6_fmip6_hi_flag_s = -1;
-static int hf_icmpv6_fmip6_hi_flag_u = -1;
-static int hf_icmpv6_fmip6_hi_flag_reserved = -1;
-static int hf_icmpv6_fmip6_identifier = -1;
+static int hf_icmpv6_fmip6_subtype;
+static int hf_icmpv6_fmip6_hi_flag;
+static int hf_icmpv6_fmip6_hi_flag_s;
+static int hf_icmpv6_fmip6_hi_flag_u;
+static int hf_icmpv6_fmip6_hi_flag_reserved;
+static int hf_icmpv6_fmip6_identifier;
 
 /* RFC 4286: Multicast Router Discovery */
-static int hf_icmpv6_mcast_ra_query_interval = -1;
-static int hf_icmpv6_mcast_ra_robustness_variable = -1;
+static int hf_icmpv6_mcast_ra_query_interval;
+static int hf_icmpv6_mcast_ra_robustness_variable;
 
 /* RFC 4620: IPv6 Node Information Queries */
-static int hf_icmpv6_ni_qtype = -1;
-static int hf_icmpv6_ni_flag = -1;
-static int hf_icmpv6_ni_flag_g = -1;
-static int hf_icmpv6_ni_flag_s = -1;
-static int hf_icmpv6_ni_flag_l = -1;
-static int hf_icmpv6_ni_flag_c = -1;
-static int hf_icmpv6_ni_flag_a = -1;
-static int hf_icmpv6_ni_flag_t = -1;
-static int hf_icmpv6_ni_flag_rsv = -1;
-static int hf_icmpv6_ni_nonce = -1;
-static int hf_icmpv6_ni_query_subject_ipv6 = -1;
-static int hf_icmpv6_ni_query_subject_fqdn = -1;
-static int hf_icmpv6_ni_query_subject_ipv4 = -1;
-static int hf_icmpv6_ni_reply_node_ttl = -1;
-static int hf_icmpv6_ni_reply_node_name = -1;
-static int hf_icmpv6_ni_reply_node_address = -1;
-static int hf_icmpv6_ni_reply_ipv4_address = -1;
+static int hf_icmpv6_ni_qtype;
+static int hf_icmpv6_ni_flag;
+static int hf_icmpv6_ni_flag_g;
+static int hf_icmpv6_ni_flag_s;
+static int hf_icmpv6_ni_flag_l;
+static int hf_icmpv6_ni_flag_c;
+static int hf_icmpv6_ni_flag_a;
+static int hf_icmpv6_ni_flag_t;
+static int hf_icmpv6_ni_flag_rsv;
+static int hf_icmpv6_ni_nonce;
+static int hf_icmpv6_ni_query_subject_ipv6;
+static int hf_icmpv6_ni_query_subject_fqdn;
+static int hf_icmpv6_ni_query_subject_ipv4;
+static int hf_icmpv6_ni_reply_node_ttl;
+static int hf_icmpv6_ni_reply_node_name;
+static int hf_icmpv6_ni_reply_node_address;
+static int hf_icmpv6_ni_reply_ipv4_address;
 
 /* RFC 4884: Extended ICMP */
-static int hf_icmpv6_length = -1;
+static int hf_icmpv6_length;
 
 /* RPL: RFC 6550/6997 : Routing and Discovery of P2P Routes in Low-Power and Lossy Networks. */
-static int hf_icmpv6_rpl_dis_flag = -1;
-static int hf_icmpv6_rpl_dio_instance = -1;
-static int hf_icmpv6_rpl_dio_version = -1;
-static int hf_icmpv6_rpl_dio_rank = -1;
-static int hf_icmpv6_rpl_dio_flag = -1;
-static int hf_icmpv6_rpl_dio_flag_g = -1;
-static int hf_icmpv6_rpl_dio_flag_0 = -1;
-static int hf_icmpv6_rpl_dio_flag_mop = -1;
-static int hf_icmpv6_rpl_dio_flag_prf = -1;
-static int hf_icmpv6_rpl_dio_dtsn = -1;
-static int hf_icmpv6_rpl_dio_dagid = -1;
-static int hf_icmpv6_rpl_dao_instance = -1;
-static int hf_icmpv6_rpl_dao_flag = -1;
-static int hf_icmpv6_rpl_dao_flag_k = -1;
-static int hf_icmpv6_rpl_dao_flag_d = -1;
-static int hf_icmpv6_rpl_dao_flag_rsv = -1;
-static int hf_icmpv6_rpl_dao_sequence = -1;
-static int hf_icmpv6_rpl_dao_dodagid = -1;
-static int hf_icmpv6_rpl_daoack_instance = -1;
-static int hf_icmpv6_rpl_daoack_flag = -1;
-static int hf_icmpv6_rpl_daoack_flag_d = -1;
-static int hf_icmpv6_rpl_daoack_flag_rsv = -1;
-static int hf_icmpv6_rpl_daoack_sequence = -1;
-static int hf_icmpv6_rpl_daoack_status = -1;
-static int hf_icmpv6_rpl_daoack_dodagid = -1;
-static int hf_icmpv6_rpl_cc_instance = -1;
-static int hf_icmpv6_rpl_cc_flag = -1;
-static int hf_icmpv6_rpl_cc_flag_r = -1;
-static int hf_icmpv6_rpl_cc_flag_rsv = -1;
-static int hf_icmpv6_rpl_cc_nonce = -1;
-static int hf_icmpv6_rpl_cc_dodagid = -1;
-static int hf_icmpv6_rpl_cc_destination_counter = -1;
-static int hf_icmpv6_rpl_secure_flag = -1;
-static int hf_icmpv6_rpl_secure_flag_t = -1;
-static int hf_icmpv6_rpl_secure_flag_rsv = -1;
-static int hf_icmpv6_rpl_secure_algorithm = -1;
-static int hf_icmpv6_rpl_secure_kim = -1;
-static int hf_icmpv6_rpl_secure_lvl = -1;
-static int hf_icmpv6_rpl_secure_rsv = -1;
-static int hf_icmpv6_rpl_secure_counter = -1;
-static int hf_icmpv6_rpl_secure_key_source = -1;
-static int hf_icmpv6_rpl_secure_key_index = -1;
-static int hf_icmpv6_rpl_opt = -1;
-static int hf_icmpv6_rpl_opt_type = -1;
-static int hf_icmpv6_rpl_opt_length = -1;
-static int hf_icmpv6_rpl_opt_reserved = -1;
-static int hf_icmpv6_rpl_opt_padn = -1;
-static int hf_icmpv6_rpl_opt_metric_type = -1;
-static int hf_icmpv6_rpl_opt_metric_flags = -1;
-static int hf_icmpv6_rpl_opt_metric_reserved = -1;
-static int hf_icmpv6_rpl_opt_metric_flag_p = -1;
-static int hf_icmpv6_rpl_opt_metric_flag_c = -1;
-static int hf_icmpv6_rpl_opt_metric_flag_o = -1;
-static int hf_icmpv6_rpl_opt_metric_flag_r = -1;
-static int hf_icmpv6_rpl_opt_metric_a = -1;
-static int hf_icmpv6_rpl_opt_metric_prec = -1;
-static int hf_icmpv6_rpl_opt_metric_len = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_reserved = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_flags = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_flag_a = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_flag_o = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_type = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_length = -1;
-static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_data = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object_flags = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object_flag_i = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object_type = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object_flag_e = -1;
-static int hf_icmpv6_rpl_opt_metric_ne_object_energy = -1;
-static int hf_icmpv6_rpl_opt_metric_hp_object = -1;
-static int hf_icmpv6_rpl_opt_metric_hp_object_reserved = -1;
-static int hf_icmpv6_rpl_opt_metric_hp_object_flags = -1;
-static int hf_icmpv6_rpl_opt_metric_hp_object_hp = -1;
-static int hf_icmpv6_rpl_opt_metric_lt_object_lt = -1;
-static int hf_icmpv6_rpl_opt_metric_ll_object_ll = -1;
-static int hf_icmpv6_rpl_opt_metric_lql_object = -1;
-static int hf_icmpv6_rpl_opt_metric_lql_object_res = -1;
-static int hf_icmpv6_rpl_opt_metric_lql_object_val = -1;
-static int hf_icmpv6_rpl_opt_metric_lql_object_counter = -1;
-static int hf_icmpv6_rpl_opt_metric_etx_object_etx = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object_res = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object_lc = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object_counter = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object_reserved = -1;
-static int hf_icmpv6_rpl_opt_metric_lc_object_flag_i = -1;
-static int hf_icmpv6_rpl_opt_route_prefix_length = -1;
-static int hf_icmpv6_rpl_opt_route_flag = -1;
-static int hf_icmpv6_rpl_opt_route_pref = -1;
-static int hf_icmpv6_rpl_opt_route_reserved = -1;
-static int hf_icmpv6_rpl_opt_route_lifetime = -1;
-static int hf_icmpv6_rpl_opt_route_prefix = -1;
-static int hf_icmpv6_rpl_opt_config_flag = -1;
-static int hf_icmpv6_rpl_opt_config_reserved = -1;
-static int hf_icmpv6_rpl_opt_config_auth = -1;
-static int hf_icmpv6_rpl_opt_config_pcs = -1;
-static int hf_icmpv6_rpl_opt_config_doublings = -1;
-static int hf_icmpv6_rpl_opt_config_min_interval = -1;
-static int hf_icmpv6_rpl_opt_config_redundancy = -1;
-static int hf_icmpv6_rpl_opt_config_rank_incr = -1;
-static int hf_icmpv6_rpl_opt_config_hop_rank_inc = -1;
-static int hf_icmpv6_rpl_opt_config_ocp = -1;
-static int hf_icmpv6_rpl_opt_config_rsv = -1;
-static int hf_icmpv6_rpl_opt_config_def_lifetime = -1;
-static int hf_icmpv6_rpl_opt_config_lifetime_unit = -1;
-static int hf_icmpv6_rpl_opt_target_flag = -1;
-static int hf_icmpv6_rpl_opt_target_prefix_length = -1;
-static int hf_icmpv6_rpl_opt_target_prefix = -1;
-static int hf_icmpv6_rpl_opt_transit_flag = -1;
-static int hf_icmpv6_rpl_opt_transit_flag_e = -1;
-static int hf_icmpv6_rpl_opt_transit_flag_rsv = -1;
-static int hf_icmpv6_rpl_opt_transit_pathseq = -1;
-static int hf_icmpv6_rpl_opt_transit_pathctl = -1;
-static int hf_icmpv6_rpl_opt_transit_pathctl_pc1 = -1;
-static int hf_icmpv6_rpl_opt_transit_pathctl_pc2 = -1;
-static int hf_icmpv6_rpl_opt_transit_pathctl_pc3 = -1;
-static int hf_icmpv6_rpl_opt_transit_pathctl_pc4 = -1;
-static int hf_icmpv6_rpl_opt_transit_pathlifetime = -1;
-static int hf_icmpv6_rpl_opt_transit_parent = -1;
-static int hf_icmpv6_rpl_opt_solicited_instance = -1;
-static int hf_icmpv6_rpl_opt_solicited_flag = -1;
-static int hf_icmpv6_rpl_opt_solicited_flag_v = -1;
-static int hf_icmpv6_rpl_opt_solicited_flag_i = -1;
-static int hf_icmpv6_rpl_opt_solicited_flag_d = -1;
-static int hf_icmpv6_rpl_opt_solicited_flag_rsv = -1;
-static int hf_icmpv6_rpl_opt_solicited_dodagid = -1;
-static int hf_icmpv6_rpl_opt_solicited_version = -1;
-static int hf_icmpv6_rpl_opt_prefix = -1;
-static int hf_icmpv6_rpl_opt_prefix_flag = -1;
-static int hf_icmpv6_rpl_opt_prefix_flag_l = -1;
-static int hf_icmpv6_rpl_opt_prefix_flag_a = -1;
-static int hf_icmpv6_rpl_opt_prefix_flag_r = -1;
-static int hf_icmpv6_rpl_opt_prefix_flag_rsv = -1;
-static int hf_icmpv6_rpl_opt_prefix_vlifetime = -1;
-static int hf_icmpv6_rpl_opt_prefix_plifetime = -1;
-static int hf_icmpv6_rpl_opt_prefix_length = -1;
-static int hf_icmpv6_rpl_opt_targetdesc = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_flag = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_reply = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_hop_by_hop = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_num_of_routes = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_compr = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_lifetime = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_nh = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_maxrank = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_target_addr = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_addr_vec = -1;
-static int hf_icmpv6_rpl_opt_route_discovery_addr_vec_addr = -1;
-static int hf_icmpv6_rpl_p2p_dro_instance = -1;
-static int hf_icmpv6_rpl_p2p_dro_version = -1;
-static int hf_icmpv6_rpl_p2p_dro_flag = -1;
-static int hf_icmpv6_rpl_p2p_dro_flag_stop = -1;
-static int hf_icmpv6_rpl_p2p_dro_flag_ack = -1;
-static int hf_icmpv6_rpl_p2p_dro_flag_seq = -1;
-static int hf_icmpv6_rpl_p2p_dro_flag_reserved = -1;
-static int hf_icmpv6_rpl_p2p_dro_dagid = -1;
-static int hf_icmpv6_rpl_p2p_droack_flag = -1;
-static int hf_icmpv6_rpl_p2p_droack_flag_seq = -1;
-static int hf_icmpv6_rpl_p2p_droack_flag_reserved = -1;
+static int hf_icmpv6_rpl_dis_flag;
+static int hf_icmpv6_rpl_dio_instance;
+static int hf_icmpv6_rpl_dio_version;
+static int hf_icmpv6_rpl_dio_rank;
+static int hf_icmpv6_rpl_dio_flag;
+static int hf_icmpv6_rpl_dio_flag_g;
+static int hf_icmpv6_rpl_dio_flag_0;
+static int hf_icmpv6_rpl_dio_flag_mop;
+static int hf_icmpv6_rpl_dio_flag_prf;
+static int hf_icmpv6_rpl_dio_dtsn;
+static int hf_icmpv6_rpl_dio_dagid;
+static int hf_icmpv6_rpl_dao_instance;
+static int hf_icmpv6_rpl_dao_flag;
+static int hf_icmpv6_rpl_dao_flag_k;
+static int hf_icmpv6_rpl_dao_flag_d;
+static int hf_icmpv6_rpl_dao_flag_rsv;
+static int hf_icmpv6_rpl_dao_sequence;
+static int hf_icmpv6_rpl_dao_dodagid;
+static int hf_icmpv6_rpl_daoack_instance;
+static int hf_icmpv6_rpl_daoack_flag;
+static int hf_icmpv6_rpl_daoack_flag_d;
+static int hf_icmpv6_rpl_daoack_flag_rsv;
+static int hf_icmpv6_rpl_daoack_sequence;
+static int hf_icmpv6_rpl_daoack_status;
+static int hf_icmpv6_rpl_daoack_dodagid;
+static int hf_icmpv6_rpl_cc_instance;
+static int hf_icmpv6_rpl_cc_flag;
+static int hf_icmpv6_rpl_cc_flag_r;
+static int hf_icmpv6_rpl_cc_flag_rsv;
+static int hf_icmpv6_rpl_cc_nonce;
+static int hf_icmpv6_rpl_cc_dodagid;
+static int hf_icmpv6_rpl_cc_destination_counter;
+static int hf_icmpv6_rpl_secure_flag;
+static int hf_icmpv6_rpl_secure_flag_t;
+static int hf_icmpv6_rpl_secure_flag_rsv;
+static int hf_icmpv6_rpl_secure_algorithm;
+static int hf_icmpv6_rpl_secure_kim;
+static int hf_icmpv6_rpl_secure_lvl;
+static int hf_icmpv6_rpl_secure_rsv;
+static int hf_icmpv6_rpl_secure_counter;
+static int hf_icmpv6_rpl_secure_key_source;
+static int hf_icmpv6_rpl_secure_key_index;
+static int hf_icmpv6_rpl_opt;
+static int hf_icmpv6_rpl_opt_type;
+static int hf_icmpv6_rpl_opt_length;
+static int hf_icmpv6_rpl_opt_reserved;
+static int hf_icmpv6_rpl_opt_padn;
+static int hf_icmpv6_rpl_opt_metric_type;
+static int hf_icmpv6_rpl_opt_metric_flags;
+static int hf_icmpv6_rpl_opt_metric_reserved;
+static int hf_icmpv6_rpl_opt_metric_flag_p;
+static int hf_icmpv6_rpl_opt_metric_flag_c;
+static int hf_icmpv6_rpl_opt_metric_flag_o;
+static int hf_icmpv6_rpl_opt_metric_flag_r;
+static int hf_icmpv6_rpl_opt_metric_a;
+static int hf_icmpv6_rpl_opt_metric_prec;
+static int hf_icmpv6_rpl_opt_metric_len;
+static int hf_icmpv6_rpl_opt_metric_nsa_object;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_reserved;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_flags;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_flag_a;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_flag_o;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_type;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_length;
+static int hf_icmpv6_rpl_opt_metric_nsa_object_opttlv_object_data;
+static int hf_icmpv6_rpl_opt_metric_ne_object;
+static int hf_icmpv6_rpl_opt_metric_ne_object_flags;
+static int hf_icmpv6_rpl_opt_metric_ne_object_flag_i;
+static int hf_icmpv6_rpl_opt_metric_ne_object_type;
+static int hf_icmpv6_rpl_opt_metric_ne_object_flag_e;
+static int hf_icmpv6_rpl_opt_metric_ne_object_energy;
+static int hf_icmpv6_rpl_opt_metric_hp_object;
+static int hf_icmpv6_rpl_opt_metric_hp_object_reserved;
+static int hf_icmpv6_rpl_opt_metric_hp_object_flags;
+static int hf_icmpv6_rpl_opt_metric_hp_object_hp;
+static int hf_icmpv6_rpl_opt_metric_lt_object_lt;
+static int hf_icmpv6_rpl_opt_metric_ll_object_ll;
+static int hf_icmpv6_rpl_opt_metric_lql_object;
+static int hf_icmpv6_rpl_opt_metric_lql_object_res;
+static int hf_icmpv6_rpl_opt_metric_lql_object_val;
+static int hf_icmpv6_rpl_opt_metric_lql_object_counter;
+static int hf_icmpv6_rpl_opt_metric_etx_object_etx;
+static int hf_icmpv6_rpl_opt_metric_lc_object;
+static int hf_icmpv6_rpl_opt_metric_lc_object_res;
+static int hf_icmpv6_rpl_opt_metric_lc_object_lc;
+static int hf_icmpv6_rpl_opt_metric_lc_object_counter;
+static int hf_icmpv6_rpl_opt_metric_lc_object_reserved;
+static int hf_icmpv6_rpl_opt_metric_lc_object_flag_i;
+static int hf_icmpv6_rpl_opt_route_prefix_length;
+static int hf_icmpv6_rpl_opt_route_flag;
+static int hf_icmpv6_rpl_opt_route_pref;
+static int hf_icmpv6_rpl_opt_route_reserved;
+static int hf_icmpv6_rpl_opt_route_lifetime;
+static int hf_icmpv6_rpl_opt_route_prefix;
+static int hf_icmpv6_rpl_opt_config_flag;
+static int hf_icmpv6_rpl_opt_config_reserved;
+static int hf_icmpv6_rpl_opt_config_auth;
+static int hf_icmpv6_rpl_opt_config_pcs;
+static int hf_icmpv6_rpl_opt_config_doublings;
+static int hf_icmpv6_rpl_opt_config_min_interval;
+static int hf_icmpv6_rpl_opt_config_redundancy;
+static int hf_icmpv6_rpl_opt_config_rank_incr;
+static int hf_icmpv6_rpl_opt_config_hop_rank_inc;
+static int hf_icmpv6_rpl_opt_config_ocp;
+static int hf_icmpv6_rpl_opt_config_rsv;
+static int hf_icmpv6_rpl_opt_config_def_lifetime;
+static int hf_icmpv6_rpl_opt_config_lifetime_unit;
+static int hf_icmpv6_rpl_opt_target_flag;
+static int hf_icmpv6_rpl_opt_target_prefix_length;
+static int hf_icmpv6_rpl_opt_target_prefix;
+static int hf_icmpv6_rpl_opt_transit_flag;
+static int hf_icmpv6_rpl_opt_transit_flag_e;
+static int hf_icmpv6_rpl_opt_transit_flag_rsv;
+static int hf_icmpv6_rpl_opt_transit_pathseq;
+static int hf_icmpv6_rpl_opt_transit_pathctl;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc1;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc2;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc3;
+static int hf_icmpv6_rpl_opt_transit_pathctl_pc4;
+static int hf_icmpv6_rpl_opt_transit_pathlifetime;
+static int hf_icmpv6_rpl_opt_transit_parent;
+static int hf_icmpv6_rpl_opt_solicited_instance;
+static int hf_icmpv6_rpl_opt_solicited_flag;
+static int hf_icmpv6_rpl_opt_solicited_flag_v;
+static int hf_icmpv6_rpl_opt_solicited_flag_i;
+static int hf_icmpv6_rpl_opt_solicited_flag_d;
+static int hf_icmpv6_rpl_opt_solicited_flag_rsv;
+static int hf_icmpv6_rpl_opt_solicited_dodagid;
+static int hf_icmpv6_rpl_opt_solicited_version;
+static int hf_icmpv6_rpl_opt_prefix;
+static int hf_icmpv6_rpl_opt_prefix_flag;
+static int hf_icmpv6_rpl_opt_prefix_flag_l;
+static int hf_icmpv6_rpl_opt_prefix_flag_a;
+static int hf_icmpv6_rpl_opt_prefix_flag_r;
+static int hf_icmpv6_rpl_opt_prefix_flag_rsv;
+static int hf_icmpv6_rpl_opt_prefix_vlifetime;
+static int hf_icmpv6_rpl_opt_prefix_plifetime;
+static int hf_icmpv6_rpl_opt_prefix_length;
+static int hf_icmpv6_rpl_opt_targetdesc;
+static int hf_icmpv6_rpl_opt_route_discovery_flag;
+static int hf_icmpv6_rpl_opt_route_discovery_reply;
+static int hf_icmpv6_rpl_opt_route_discovery_hop_by_hop;
+static int hf_icmpv6_rpl_opt_route_discovery_num_of_routes;
+static int hf_icmpv6_rpl_opt_route_discovery_compr;
+static int hf_icmpv6_rpl_opt_route_discovery_lifetime;
+static int hf_icmpv6_rpl_opt_route_discovery_nh;
+static int hf_icmpv6_rpl_opt_route_discovery_maxrank;
+static int hf_icmpv6_rpl_opt_route_discovery_target_addr;
+static int hf_icmpv6_rpl_opt_route_discovery_addr_vec;
+static int hf_icmpv6_rpl_opt_route_discovery_addr_vec_addr;
+static int hf_icmpv6_rpl_p2p_dro_instance;
+static int hf_icmpv6_rpl_p2p_dro_version;
+static int hf_icmpv6_rpl_p2p_dro_flag;
+static int hf_icmpv6_rpl_p2p_dro_flag_stop;
+static int hf_icmpv6_rpl_p2p_dro_flag_ack;
+static int hf_icmpv6_rpl_p2p_dro_flag_seq;
+static int hf_icmpv6_rpl_p2p_dro_flag_reserved;
+static int hf_icmpv6_rpl_p2p_dro_dagid;
+static int hf_icmpv6_rpl_p2p_droack_flag;
+static int hf_icmpv6_rpl_p2p_droack_flag_seq;
+static int hf_icmpv6_rpl_p2p_droack_flag_reserved;
 
 /* RFC6743 Locator Update (156) */
-static int hf_icmpv6_ilnp_nb_locs = -1;
-static int hf_icmpv6_ilnp_locator = -1;
-static int hf_icmpv6_ilnp_preference = -1;
-static int hf_icmpv6_ilnp_lifetime = -1;
+static int hf_icmpv6_ilnp_nb_locs;
+static int hf_icmpv6_ilnp_locator;
+static int hf_icmpv6_ilnp_preference;
+static int hf_icmpv6_ilnp_lifetime;
 
-static int hf_icmpv6_da_status = -1;
-static int hf_icmpv6_da_rsv = -1;
-static int hf_icmpv6_da_lifetime = -1;
-static int hf_icmpv6_da_eui64 = -1;
-static int hf_icmpv6_da_raddr = -1;
+static int hf_icmpv6_da_status;
+static int hf_icmpv6_da_rsv;
+static int hf_icmpv6_da_lifetime;
+static int hf_icmpv6_da_eui64;
+static int hf_icmpv6_da_raddr;
 
 static heur_dissector_list_t icmpv6_heur_subdissector_list;
-static int icmpv6_tap = -1;
+static int icmpv6_tap;
 
 /* RFC 7731 MPL (159) */
-static int hf_icmpv6_mpl_seed_info_min_sequence = -1;
-static int hf_icmpv6_mpl_seed_info_bm_len = -1;
-static int hf_icmpv6_mpl_seed_info_s = -1;
-static int hf_icmpv6_mpl_seed_info_seed_id = -1;
-static int hf_icmpv6_mpl_seed_info_sequence = -1;
+static int hf_icmpv6_mpl_seed_info_min_sequence;
+static int hf_icmpv6_mpl_seed_info_bm_len;
+static int hf_icmpv6_mpl_seed_info_s;
+static int hf_icmpv6_mpl_seed_info_seed_id;
+static int hf_icmpv6_mpl_seed_info_sequence;
 
 /* Extended Echo - Probe  (RFC8335)*/
-static int hf_icmpv6_ext_echo_seq_num = -1;
-static int hf_icmpv6_ext_echo_req_reserved = -1;
-static int hf_icmpv6_ext_echo_req_local = -1;
-static int hf_icmpv6_ext_echo_rsp_state = -1;
-static int hf_icmpv6_ext_echo_rsp_reserved = -1;
-static int hf_icmpv6_ext_echo_rsp_active = -1;
-static int hf_icmpv6_ext_echo_rsp_ipv4 = -1;
-static int hf_icmpv6_ext_echo_rsp_ipv6 = -1;
+static int hf_icmpv6_ext_echo_seq_num;
+static int hf_icmpv6_ext_echo_req_reserved;
+static int hf_icmpv6_ext_echo_req_local;
+static int hf_icmpv6_ext_echo_rsp_state;
+static int hf_icmpv6_ext_echo_rsp_reserved;
+static int hf_icmpv6_ext_echo_rsp_active;
+static int hf_icmpv6_ext_echo_rsp_ipv4;
+static int hf_icmpv6_ext_echo_rsp_ipv6;
 
 /* Conversation related data */
-static int hf_icmpv6_resp_in = -1;
-static int hf_icmpv6_resp_to = -1;
-static int hf_icmpv6_no_resp = -1;
-static int hf_icmpv6_resptime = -1;
+static int hf_icmpv6_resp_in;
+static int hf_icmpv6_resp_to;
+static int hf_icmpv6_no_resp;
+static int hf_icmpv6_resptime;
 
 typedef struct _icmpv6_conv_info_t {
     wmem_tree_t *unmatched_pdus;
@@ -578,72 +587,73 @@ typedef struct _icmpv6_conv_info_t {
 static icmp_transaction_t *transaction_start(packet_info *pinfo, proto_tree *tree, guint32 *key);
 static icmp_transaction_t *transaction_end(packet_info *pinfo, proto_tree *tree, guint32 *key);
 
-static gint ett_icmpv6 = -1;
-static gint ett_icmpv6_opt = -1;
-static gint ett_icmpv6_mar = -1;
-static gint ett_icmpv6_flag_prefix = -1;
-static gint ett_icmpv6_flag_map = -1;
-static gint ett_icmpv6_flag_route_info = -1;
-static gint ett_icmpv6_flag_6lowpan = -1;
-static gint ett_icmpv6_flag_efo = -1;
-static gint ett_icmpv6_flag_earo = -1;
-static gint ett_icmpv6_rpl_opt = -1;
-static gint ett_icmpv6_rpl_metric_type = -1;
-static gint ett_icmpv6_rpl_metric_flags = -1;
-static gint ett_icmpv6_rpl_metric_nsa_object = -1;
-static gint ett_icmpv6_rpl_metric_nsa_object_tlv_type = -1;
-static gint ett_icmpv6_rpl_metric_ne_object = -1;
-static gint ett_icmpv6_rpl_metric_hp_object = -1;
-static gint ett_icmpv6_rpl_metric_lql_object = -1;
-static gint ett_icmpv6_rpl_metric_lc_object = -1;
-static gint ett_icmpv6_rpl_flag_routing = -1;
-static gint ett_icmpv6_rpl_flag_config = -1;
-static gint ett_icmpv6_rpl_flag_transit = -1;
-static gint ett_icmpv6_rpl_flag_solicited = -1;
-static gint ett_icmpv6_rpl_flag_prefix = -1;
-static gint ett_icmpv6_rpl_route_discovery_flag = -1;
-static gint ett_icmpv6_rpl_route_discovery_addr_vec = -1;
-static gint ett_icmpv6_rpl_transit_pathctl = -1;
-static gint ett_icmpv6_rpl_p2p_dro_flag = -1;
-static gint ett_icmpv6_rpl_p2p_droack_flag = -1;
-static gint ett_icmpv6_flag_ni = -1;
-static gint ett_icmpv6_flag_rr = -1;
-static gint ett_icmpv6_rr_mp = -1;
-static gint ett_icmpv6_rr_up = -1;
-static gint ett_icmpv6_rr_up_flag_mask = -1;
-static gint ett_icmpv6_rr_up_flag_ra = -1;
-static gint ett_icmpv6_rr_up_flag = -1;
-static gint ett_icmpv6_rr_rm = -1;
-static gint ett_icmpv6_rr_rm_flag = -1;
-static gint ett_icmpv6_flag_mld = -1;
-static gint ett_icmpv6_flag_ra = -1;
-static gint ett_icmpv6_flag_na = -1;
-static gint ett_icmpv6_flag_mip6 = -1;
-static gint ett_icmpv6_flag_fmip6 = -1;
-static gint ett_icmpv6_flag_secure = -1;
-static gint ett_icmpv6_flag_rpl_dio = -1;
-static gint ett_icmpv6_flag_rpl_dao = -1;
-static gint ett_icmpv6_flag_rpl_daoack = -1;
-static gint ett_icmpv6_flag_rpl_cc = -1;
-static gint ett_icmpv6_opt_name = -1;
-static gint ett_icmpv6_cga_param_name = -1;
-static gint ett_icmpv6_mpl_seed_info = -1;
-static gint ett_icmpv6_mpl_seed_info_bm = -1;
+static gint ett_icmpv6;
+static gint ett_icmpv6_opt;
+static gint ett_icmpv6_mar;
+static gint ett_icmpv6_flag_prefix;
+static gint ett_icmpv6_flag_map;
+static gint ett_icmpv6_flag_pvd_id;
+static gint ett_icmpv6_flag_route_info;
+static gint ett_icmpv6_flag_6lowpan;
+static gint ett_icmpv6_flag_efo;
+static gint ett_icmpv6_flag_earo;
+static gint ett_icmpv6_rpl_opt;
+static gint ett_icmpv6_rpl_metric_type;
+static gint ett_icmpv6_rpl_metric_flags;
+static gint ett_icmpv6_rpl_metric_nsa_object;
+static gint ett_icmpv6_rpl_metric_nsa_object_tlv_type;
+static gint ett_icmpv6_rpl_metric_ne_object;
+static gint ett_icmpv6_rpl_metric_hp_object;
+static gint ett_icmpv6_rpl_metric_lql_object;
+static gint ett_icmpv6_rpl_metric_lc_object;
+static gint ett_icmpv6_rpl_flag_routing;
+static gint ett_icmpv6_rpl_flag_config;
+static gint ett_icmpv6_rpl_flag_transit;
+static gint ett_icmpv6_rpl_flag_solicited;
+static gint ett_icmpv6_rpl_flag_prefix;
+static gint ett_icmpv6_rpl_route_discovery_flag;
+static gint ett_icmpv6_rpl_route_discovery_addr_vec;
+static gint ett_icmpv6_rpl_transit_pathctl;
+static gint ett_icmpv6_rpl_p2p_dro_flag;
+static gint ett_icmpv6_rpl_p2p_droack_flag;
+static gint ett_icmpv6_flag_ni;
+static gint ett_icmpv6_flag_rr;
+static gint ett_icmpv6_rr_mp;
+static gint ett_icmpv6_rr_up;
+static gint ett_icmpv6_rr_up_flag_mask;
+static gint ett_icmpv6_rr_up_flag_ra;
+static gint ett_icmpv6_rr_up_flag;
+static gint ett_icmpv6_rr_rm;
+static gint ett_icmpv6_rr_rm_flag;
+static gint ett_icmpv6_flag_mld;
+static gint ett_icmpv6_flag_ra;
+static gint ett_icmpv6_flag_na;
+static gint ett_icmpv6_flag_mip6;
+static gint ett_icmpv6_flag_fmip6;
+static gint ett_icmpv6_flag_secure;
+static gint ett_icmpv6_flag_rpl_dio;
+static gint ett_icmpv6_flag_rpl_dao;
+static gint ett_icmpv6_flag_rpl_daoack;
+static gint ett_icmpv6_flag_rpl_cc;
+static gint ett_icmpv6_opt_name;
+static gint ett_icmpv6_cga_param_name;
+static gint ett_icmpv6_mpl_seed_info;
+static gint ett_icmpv6_mpl_seed_info_bm;
 
-static expert_field ei_icmpv6_invalid_option_length = EI_INIT;
-static expert_field ei_icmpv6_undecoded_option = EI_INIT;
-static expert_field ei_icmpv6_unknown_data = EI_INIT;
-static expert_field ei_icmpv6_undecoded_rpl_option = EI_INIT;
-static expert_field ei_icmpv6_undecoded_type = EI_INIT;
-static expert_field ei_icmpv6_rr_pco_mp_matchlen = EI_INIT;
-static expert_field ei_icmpv6_rr_pco_mp_matchedlen = EI_INIT;
-static expert_field ei_icmpv6_checksum = EI_INIT;
-static expert_field ei_icmpv6_resp_not_found = EI_INIT;
-static expert_field ei_icmpv6_rpl_unknown_metric = EI_INIT;
-static expert_field ei_icmpv6_rpl_p2p_hop_by_hop = EI_INIT;
-static expert_field ei_icmpv6_rpl_p2p_num_of_routes = EI_INIT;
-static expert_field ei_icmpv6_rpl_p2p_dro_rdo_zero = EI_INIT;
-static expert_field ei_icmpv6_rpl_p2p_dro_zero = EI_INIT;
+static expert_field ei_icmpv6_invalid_option_length;
+static expert_field ei_icmpv6_undecoded_option;
+static expert_field ei_icmpv6_unknown_data;
+static expert_field ei_icmpv6_undecoded_rpl_option;
+static expert_field ei_icmpv6_undecoded_type;
+static expert_field ei_icmpv6_rr_pco_mp_matchlen;
+static expert_field ei_icmpv6_rr_pco_mp_matchedlen;
+static expert_field ei_icmpv6_checksum;
+static expert_field ei_icmpv6_resp_not_found;
+static expert_field ei_icmpv6_rpl_unknown_metric;
+static expert_field ei_icmpv6_rpl_p2p_hop_by_hop;
+static expert_field ei_icmpv6_rpl_p2p_num_of_routes;
+static expert_field ei_icmpv6_rpl_p2p_dro_rdo_zero;
+static expert_field ei_icmpv6_rpl_p2p_dro_zero;
 
 static dissector_handle_t icmpv6_handle;
 
@@ -946,6 +956,7 @@ static const true_false_string tfs_ni_flag_a = {
 #define ND_OPT_NEW_ROUTER_PREFIX_INFO   18
 #define ND_OPT_LINK_LAYER_ADDRESS       19
 #define ND_OPT_NEIGHBOR_ADV_ACK         20
+#define ND_OPT_PVD_ID                   21
 #define ND_OPT_MAP                      23
 #define ND_OPT_ROUTE_INFO               24
 #define ND_OPT_RECURSIVE_DNS_SERVER     25
@@ -984,7 +995,8 @@ static const value_string option_vals[] = {
 /* 18 */   { ND_OPT_NEW_ROUTER_PREFIX_INFO,    "New Router Prefix Information" },          /* [RFC4068] OBSO */
 /* 19 */   { ND_OPT_LINK_LAYER_ADDRESS,        "Link-layer Address" },                     /* [RFC5568] */
 /* 20 */   { ND_OPT_NEIGHBOR_ADV_ACK,          "Neighbor Advertisement Acknowledgment" },  /* [RFC5568] */
-/* 21-22   Unassigned */
+/* 21 */   { ND_OPT_PVD_ID,                    "PvD ID" },                                 /* [RFC8801] */
+/* 22   Unassigned */
 /* 23 */   { ND_OPT_MAP,                       "MAP" },                                    /* [RFC4140] */
 /* 24 */   { ND_OPT_ROUTE_INFO,                "Route Information" },                      /* [RFC4191] */
 /* 25 */   { ND_OPT_RECURSIVE_DNS_SERVER,      "Recursive DNS Server" },                   /* [RFC6106] */
@@ -1015,7 +1027,7 @@ static const value_string option_vals[] = {
 #define ND_RA_FLAG_H    0x20
 #define ND_RA_FLAG_PRF  0x18
 #define ND_RA_FLAG_P    0x04
-#define ND_RA_FLAG_RSV  0x02
+#define ND_RA_FLAG_RSV  0x03
 
 #define ND_NA_FLAG_R    0x80000000
 #define ND_NA_FLAG_S    0x40000000
@@ -1819,12 +1831,12 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* Prefix Valid Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_prefix_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 /* Prefix Preferred Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_prefix_preferred_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_reserved, tvb, opt_offset, 4, ENC_NA);
@@ -2167,6 +2179,64 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
                 }
                 break;
             }
+            case ND_OPT_PVD_ID: /* PvD ID (21) */
+            {
+                int dns_len;
+                const gchar *dns_name, *name_out;
+                guint64 flags;
+
+                static int * const pvd_id_flags[] = {
+                    &hf_icmpv6_opt_pvd_id_flags_h,
+                    &hf_icmpv6_opt_pvd_id_flags_l,
+                    &hf_icmpv6_opt_pvd_id_flags_r,
+                    &hf_icmpv6_opt_pvd_id_flags_reserved,
+                    NULL
+                };
+
+                /* Flags */
+                proto_tree_add_bitmask_with_flags_ret_uint64(icmp6opt_tree, tvb, opt_offset, hf_icmpv6_opt_pvd_id_flags,
+                  ett_icmpv6_flag_pvd_id, pvd_id_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE | BMT_NO_INT, &flags);
+
+                /* Delay */
+                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_pvd_id_delay, tvb, opt_offset, 2, ENC_BIG_ENDIAN);
+                opt_offset += 2;
+
+                /* Sequence Number */
+                proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_pvd_id_sequence_number, tvb, opt_offset, 2, ENC_BIG_ENDIAN);
+                opt_offset += 2;
+
+                /* PvD ID FQDN */
+                used_bytes = get_dns_name(tvb, opt_offset, 0, opt_offset, &dns_name, &dns_len);
+                name_out = format_text(pinfo->pool, dns_name, dns_len);
+                proto_tree_add_string(icmp6opt_tree, hf_icmpv6_opt_pvd_id_fqdn, tvb, opt_offset, used_bytes, name_out);
+                proto_item_append_text(ti, " : %s", name_out);
+                opt_offset += used_bytes;
+
+                /* Padding */
+                if (opt_offset & 0x07) {
+                    proto_tree_add_item(icmp6opt_tree, hf_icmpv6_opt_padding, tvb, opt_offset, 8 - (opt_offset & 0x07), ENC_NA);
+                    opt_offset += 8 - (opt_offset & 0x07);
+                }
+
+                /*
+                 * When the R-flag is set, a full Router Advertisement message header as specified in [RFC4861].
+                 * The sender MUST set the Type field to 134 (the value for "Router Advertisement") and set the Code field to 0.
+                 * Receivers MUST ignore both of these fields. The Checksum field MUST be set to 0 by the sender;
+                 * non-zero checksums MUST be ignored by the receiver without causing the processing of the message to fail.
+                 * All other fields are to be set and parsed as specified in [RFC4861] or any updating documents.
+                 */
+                if(flags & 0x200) {
+                    tvbuff_t *ra_tvb;
+                    ra_tvb = tvb_new_subset_length(tvb, opt_offset, 16);
+                    call_dissector(icmpv6_handle, ra_tvb, pinfo, icmp6opt_tree);
+                    opt_offset += 16;
+                }
+
+                /* Options */
+                opt_offset = dissect_icmpv6_nd_opt(tvb, opt_offset, pinfo, icmp6opt_tree);
+
+                break;
+            }
             case ND_OPT_MAP: /* MAP Option (23) */
             {
                 static int * const map_flags[] = {
@@ -2190,7 +2260,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* Valid Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_map_valid_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 /* Global Address */
@@ -2227,7 +2297,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* Route Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_route_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 /* Prefix */
@@ -2266,7 +2336,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* RDNSS Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_rdnss_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 while(opt_offset < (offset + opt_len) ) {
@@ -2414,7 +2484,7 @@ dissect_icmpv6_nd_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree 
 
                 /* DNSSL Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_opt_dnssl_lifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
                 while(opt_offset < (offset + opt_len) ) {
 
@@ -3127,12 +3197,12 @@ dissect_icmpv6_rpl_opt(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree
 
                 /* Valid Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_vlifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 /* Preferred Lifetime */
                 ti_opt = proto_tree_add_item_ret_uint(icmp6opt_tree, hf_icmpv6_rpl_opt_prefix_plifetime, tvb, opt_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+                proto_item_append_text(ti_opt, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
                 opt_offset += 4;
 
                 /* 4 reserved bytes. */
@@ -3716,7 +3786,7 @@ dissect_nodeinfo(tvbuff_t *tvb, int ni_offset, packet_info *pinfo _U_, proto_tre
 /* RFC 2894 - Router Renumbering for IPv6 */
 
 static int
-dissect_rrenum(tvbuff_t *tvb, int rr_offset, packet_info *pinfo _U_, proto_tree *tree, guint8 icmp6_type _U_, guint8 icmp6_code)
+dissect_rrenum(tvbuff_t *tvb, int rr_offset, packet_info *pinfo, proto_tree *tree, guint8 icmp6_type _U_, guint8 icmp6_code)
 {
     proto_tree *mp_tree, *up_tree, *rm_tree;
     proto_item *ti,        *ti_mp,   *ti_up,   *ti_rm;
@@ -3851,12 +3921,12 @@ dissect_rrenum(tvbuff_t *tvb, int rr_offset, packet_info *pinfo _U_, proto_tree 
 
             /* Valid Lifetime */
             ti = proto_tree_add_item_ret_uint(up_tree, hf_icmpv6_rr_pco_up_validlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
             rr_offset += 4;
 
             /* Preferred Lifetime */
             ti = proto_tree_add_item_ret_uint(up_tree, hf_icmpv6_rr_pco_up_preferredlifetime, tvb, rr_offset, 4, ENC_BIG_ENDIAN, &lifetime);
-            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(wmem_packet_scope(), lifetime));
+            proto_item_append_text(ti, " (%s)", unsigned_time_secs_to_str(pinfo->pool, lifetime));
             rr_offset += 4;
 
             /* Flags */
@@ -5124,6 +5194,33 @@ proto_register_icmpv6(void)
         { &hf_icmpv6_opt_naack_supplied_ncoa,
           { "Supplied NCoA", "icmpv6.opt.naack.supplied_ncoa", FT_IPv6, BASE_NONE, NULL, 0x00,
             NULL, HFILL }},
+
+        { &hf_icmpv6_opt_pvd_id_flags,
+          { "Flags", "icmpv6.opt.pvd_id.flags", FT_UINT16, BASE_HEX, NULL, 0xFFF0,
+            NULL, HFILL }},
+        { &hf_icmpv6_opt_pvd_id_flags_h,
+          { "H Flag", "icmpv6.opt.pvd_id.flags.h", FT_BOOLEAN, 16, NULL, 0x8000,
+            "'HTTP' flag stating whether some PvD Additional Information is made available through HTTP over TLS", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_flags_l,
+          { "L Flag", "icmpv6.opt.pvd_id.flags.l", FT_BOOLEAN, 16, NULL, 0x4000,
+            "'Legacy' flag stating whether the PvD is associated with IPv4 information assigned using DHCPv4", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_flags_r,
+          { "R Flag", "icmpv6.opt.pvd_id.flags.r", FT_BOOLEAN, 16, NULL, 0x2000,
+            "'Router Advertisement' flag stating whether the PvD Option header is followed (right after padding to the next 64-bit boundary) by a Router Advertisement message header", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_flags_reserved,
+          { "Reserved", "icmpv6.opt.pvd_id.flags.reserved", FT_UINT16, BASE_HEX, NULL, 0x1FF0,
+            "Must be 0", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_delay,
+          { "Delay", "icmpv6.opt.pvd_id.delay", FT_UINT16, BASE_DEC, NULL, 0x000F,
+            "Unsigned integer used to delay HTTP GET queries from hosts by a randomized backoff", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_sequence_number,
+          { "Sequence Number", "icmpv6.opt.pvd_id.sequence_number", FT_UINT16, BASE_DEC, NULL, 0x0,
+            "Sequence number for the PvD Additional Information", HFILL }},
+        { &hf_icmpv6_opt_pvd_id_fqdn,
+          { "PvD ID FQDN", "icmpv6.opt.pvd_id.fqdn", FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL, HFILL }},
+
+
         { &hf_icmpv6_opt_map_dist,
           { "Distance", "icmpv6.opt.map.distance", FT_UINT8, BASE_DEC, NULL, 0xF0,
             "Identifying the distance between MAP and the receiver of the advertisement (in the number of hops)", HFILL }},
@@ -5167,7 +5264,7 @@ proto_register_icmpv6(void)
           { "FQDN", "icmpv6.opt.name_type.fqdn", FT_STRING, BASE_NONE, NULL, 0x0,
             NULL, HFILL }},
         { &hf_icmpv6_opt_cert_type,
-          { "Cert Type", "icmpv6.opt.name_type", FT_UINT8, BASE_DEC, VALS(icmpv6_option_cert_type_vals), 0x0,
+          { "Cert Type", "icmpv6.opt.cert_type", FT_UINT8, BASE_DEC, VALS(icmpv6_option_cert_type_vals), 0x0,
             NULL, HFILL }},
         /* RFC3971:  SEcure Neighbor Discovery (SEND) */
         { &hf_icmpv6_send_identifier,
@@ -6251,6 +6348,7 @@ proto_register_icmpv6(void)
         &ett_icmpv6_mar,
         &ett_icmpv6_flag_prefix,
         &ett_icmpv6_flag_map,
+        &ett_icmpv6_flag_pvd_id,
         &ett_icmpv6_flag_route_info,
         &ett_icmpv6_flag_earo,
         &ett_icmpv6_flag_6lowpan,

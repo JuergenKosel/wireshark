@@ -23,7 +23,6 @@
 #include "wsutil/pint.h"
 #include "addr_resolv.h"
 #include "address_types.h"
-#include "ipv6.h"
 #include "osi-utils.h"
 #include "value_string.h"
 #include "column-info.h"
@@ -34,6 +33,7 @@
 #include <epan/epan.h>
 #include <epan/dfilter/dfilter.h>
 
+#include <wsutil/inet_cidr.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/ws_assert.h>
 #include <wsutil/unicode-utils.h>
@@ -52,8 +52,8 @@ static char *col_decimal_point;
 /* Used to indicate updated column information, e.g. a new request/response. */
 static gboolean col_data_changed_;
 
-static int proto_cols = -1;
-static gint ett_cols = -1;
+static int proto_cols;
+static gint ett_cols;
 
 /* Allocate all the data structures for constructing column data, given
    the number of columns. */
@@ -2041,10 +2041,10 @@ col_register_protocol(void)
   /* This gets called by proto_init() before column_register_fields()
    * gets called by the preference modules actually getting registered.
    */
-  if (proto_cols == -1) {
+  if (proto_cols <= 0) {
     proto_cols = proto_get_id_by_filter_name("_ws.col");
   }
-  if (proto_cols == -1) {
+  if (proto_cols <= 0) {
     proto_cols = proto_register_protocol("Wireshark Columns", "Columns", "_ws.col");
   }
   static gint *ett[] = {

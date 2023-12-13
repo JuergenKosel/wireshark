@@ -30,19 +30,19 @@
 /* proto_expert cannot be static because it's referenced in the
  * print routines
  */
-int proto_expert              = -1;
+int proto_expert;
 
-static int proto_malformed    = -1;
+static int proto_malformed;
 
-static int expert_tap         = -1;
+static int expert_tap;
 static int highest_severity   =  0;
 
-static int ett_expert         = -1;
-static int ett_subexpert      = -1;
+static int ett_expert;
+static int ett_subexpert;
 
-static int hf_expert_msg      = -1;
-static int hf_expert_group    = -1;
-static int hf_expert_severity = -1;
+static int hf_expert_msg;
+static int hf_expert_group;
+static int hf_expert_severity;
 
 struct expert_module
 {
@@ -211,11 +211,11 @@ expert_packet_init(void)
 		UAT_END_FIELDS
 	};
 
-	if (expert_tap == -1) {
+	if (expert_tap == 0) {
 		expert_tap = register_tap("expert");
 	}
 
-	if (proto_expert == -1) {
+	if (proto_expert <= 0) {
 		proto_expert = proto_register_protocol("Expert Info", "Expert", "_ws.expert");
 		proto_register_field_array(proto_expert, hf, array_length(hf));
 		proto_register_subtree_array(ett, array_length(ett));
@@ -580,7 +580,7 @@ expert_set_info_vformat(packet_info *pinfo, proto_item *pi, int group, int sever
 
 	tree = expert_create_tree(pi, group, severity, formatted);
 
-	if (hf_index == -1) {
+	if (hf_index <= 0) {
 		/* If no filterable expert info, just add the message */
 		ti = proto_tree_add_string(tree, hf_expert_msg, NULL, 0, 0, formatted);
 		proto_item_set_generated(ti);

@@ -134,6 +134,12 @@ static const enum_val_t gui_layout_content[] = {
     {NULL, NULL, -1}
 };
 
+static const enum_val_t gui_packet_dialog_layout[] = {
+    {"vertical", "Vertical (Stacked)", layout_vertical},
+    {"horizontal", "Horizontal (Side-by-side)", layout_horizontal},
+    {NULL, NULL, -1}
+};
+
 static const enum_val_t gui_update_channel[] = {
     {"DEVELOPMENT", "DEVELOPMENT", UPDATE_CHANNEL_DEVELOPMENT},
     {"STABLE", "STABLE", UPDATE_CHANNEL_STABLE},
@@ -333,6 +339,7 @@ free_pref(gpointer data, gpointer user_data _U_)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         free_string_like_preference(pref);
         break;
     case PREF_RANGE:
@@ -1648,6 +1655,45 @@ prefs_set_stashed_range_value(pref_t *pref, const gchar *value)
 
 }
 
+gboolean prefs_add_list_value(pref_t *pref, void* value, pref_source_t source)
+{
+    switch (source)
+    {
+    case pref_default:
+        pref->default_val.list = g_list_prepend(pref->default_val.list, value);
+        break;
+    case pref_stashed:
+        pref->stashed_val.list = g_list_prepend(pref->stashed_val.list, value);
+        break;
+    case pref_current:
+        *pref->varp.list = g_list_prepend(*pref->varp.list, value);
+        break;
+    default:
+        ws_assert_not_reached();
+        break;
+    }
+
+    return TRUE;
+}
+
+GList* prefs_get_list_value(pref_t *pref, pref_source_t source)
+{
+    switch (source)
+    {
+    case pref_default:
+        return pref->default_val.list;
+    case pref_stashed:
+        return pref->stashed_val.list;
+    case pref_current:
+        return *pref->varp.list;
+    default:
+        ws_assert_not_reached();
+        break;
+    }
+
+    return NULL;
+}
+
 gboolean prefs_set_range_value(pref_t *pref, range_t *value, pref_source_t source)
 {
     gboolean changed = FALSE;
@@ -1879,9 +1925,14 @@ prefs_register_custom_preference(module_t *module, const char *name,
 
 /*
  * Register a dedicated TCP preference for SEQ analysis overriding.
- * We are reusing the data structure from enum preference, as they are
- * similar in practice.
-
+ * This is similar to the data structure from enum preference, except
+ * that when a preference dialog is used, the stashed value is the list
+ * of frame data pointers whose sequence analysis override will be set
+ * to the current value if the dialog is accepted.
+ *
+ * We don't need to read or write the value from the preferences file
+ * (or command line), because the override is reset to the default (0)
+ * for each frame when a new capture file is loaded.
  */
 void
 prefs_register_custom_preference_TCP_Analysis(module_t *module, const char *name,
@@ -1895,6 +1946,7 @@ prefs_register_custom_preference_TCP_Analysis(module_t *module, const char *name
                                      PREF_PROTO_TCP_SNDAMB_ENUM);
     preference->varp.enump = var;
     preference->default_val.enumval = *var;
+    preference->stashed_val.list = NULL;
     preference->info.enum_info.enumvals = enumvals;
     preference->info.enum_info.radio_buttons = radio_buttons;
 }
@@ -1924,6 +1976,19 @@ DIAG_OFF(cast-qual)
 DIAG_ON(cast-qual)
 }
 
+/*
+ * Register a preference with a dissector name.
+ */
+void
+prefs_register_dissector_preference(module_t *module, const char *name,
+                                    const char *title, const char *description,
+                                    const char **var)
+{
+DIAG_OFF(cast-qual)
+    register_string_like_preference(module, name, title, description,
+                                    (char **)var, PREF_DISSECTOR, NULL, FALSE);
+DIAG_ON(cast-qual)
+}
 
 gboolean prefs_add_decode_as_value(pref_t *pref, guint value, gboolean replace)
 {
@@ -2038,7 +2103,6 @@ pref_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_ENUM:
-    case PREF_PROTO_TCP_SNDAMB_ENUM:
         pref->stashed_val.enumval = *pref->varp.enump;
         break;
 
@@ -2047,6 +2111,7 @@ pref_stash(pref_t *pref, gpointer unused _U_)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         g_free(pref->stashed_val.string);
         pref->stashed_val.string = g_strdup(*pref->varp.string);
         break;
@@ -2064,6 +2129,7 @@ pref_stash(pref_t *pref, gpointer unused _U_)
     case PREF_STATIC_TEXT:
     case PREF_UAT:
     case PREF_CUSTOM:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         break;
 
     case PREF_OBSOLETE:
@@ -2129,19 +2195,27 @@ pref_unstash(pref_t *pref, gpointer unstash_data_p)
         break;
 
     case PREF_PROTO_TCP_SNDAMB_ENUM:
-        /*if (*pref->varp.enump != pref->stashed_val.enumval) {
-            unstash_data->module->prefs_changed_flags |= prefs_get_effect_flags(pref);
-            //unstash_data->module->prefs_changed_flags = 1;
-            *pref->varp.enump = pref->stashed_val.enumval;
-        }*/
-        unstash_data->module->prefs_changed_flags = 1;
+    {
+        /* The preference dialogs are modal so the frame_data pointers should
+         * still be valid; otherwise we could store the frame numbers to
+         * change.
+         */
+        frame_data *fdata;
+        for (GList* elem = pref->stashed_val.list; elem != NULL; elem = elem->next) {
+            fdata = (frame_data*)elem->data;
+            if (fdata->tcp_snd_manual_analysis != *pref->varp.enump) {
+                unstash_data->module->prefs_changed_flags |= prefs_get_effect_flags(pref);
+                fdata->tcp_snd_manual_analysis = *pref->varp.enump;
+            }
+        }
         break;
-
+    }
     case PREF_STRING:
     case PREF_SAVE_FILENAME:
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         if (strcmp(*pref->varp.string, pref->stashed_val.string) != 0) {
             unstash_data->module->prefs_changed_flags |= prefs_get_effect_flags(pref);
             g_free(*pref->varp.string);
@@ -2241,7 +2315,6 @@ reset_stashed_pref(pref_t *pref) {
         break;
 
     case PREF_ENUM:
-    case PREF_PROTO_TCP_SNDAMB_ENUM:
         pref->stashed_val.enumval = pref->default_val.enumval;
         break;
 
@@ -2250,6 +2323,7 @@ reset_stashed_pref(pref_t *pref) {
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         g_free(pref->stashed_val.string);
         pref->stashed_val.string = g_strdup(pref->default_val.string);
         break;
@@ -2258,6 +2332,13 @@ reset_stashed_pref(pref_t *pref) {
     case PREF_RANGE:
         wmem_free(wmem_epan_scope(), pref->stashed_val.range);
         pref->stashed_val.range = range_copy(wmem_epan_scope(), pref->default_val.range);
+        break;
+
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
+        if (pref->stashed_val.list != NULL) {
+            g_list_free(pref->stashed_val.list);
+            pref->stashed_val.list = NULL;
+        }
         break;
 
     case PREF_COLOR:
@@ -2288,7 +2369,6 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
         break;
 
     case PREF_ENUM:
-    case PREF_PROTO_TCP_SNDAMB_ENUM:
         break;
 
     case PREF_STRING:
@@ -2296,6 +2376,7 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         if (pref->stashed_val.string != NULL) {
             g_free(pref->stashed_val.string);
             pref->stashed_val.string = NULL;
@@ -2314,6 +2395,13 @@ pref_clean_stash(pref_t *pref, gpointer unused _U_)
     case PREF_UAT:
     case PREF_COLOR:
     case PREF_CUSTOM:
+        break;
+
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
+        if (pref->stashed_val.list != NULL) {
+            g_list_free(pref->stashed_val.list);
+            pref->stashed_val.list = NULL;
+        }
         break;
 
     case PREF_OBSOLETE:
@@ -3064,6 +3152,18 @@ prefs_register_modules(void)
      */
     gui_module = prefs_register_module(NULL, "gui", "User Interface",
         "User Interface", &gui_callback, FALSE);
+    /*
+     * The GUI preferences don't affect dissection in general.
+     * Any changes are signaled in other ways, so PREF_EFFECT_GUI doesn't
+     * explicitly do anything, but wslua_set_preference expects *some*
+     * effect flag to be set if the preference was changed.
+     * We have to do this again for all the submodules (except for the
+     * layout submodule, which has its own effect flag).
+     */
+    unsigned gui_effect_flags = prefs_get_module_effect_flags(gui_module);
+    gui_effect_flags |= PREF_EFFECT_GUI;
+    gui_effect_flags &= (~PREF_EFFECT_DISSECTION);
+    prefs_set_module_effect_flags(gui_module, gui_effect_flags);
 
     /*
      * gui.console_open is stored in the registry in addition to the
@@ -3096,6 +3196,7 @@ prefs_register_modules(void)
     prefs_register_obsolete_preference(gui_module, "packet_editor.enabled");
 
     gui_column_module = prefs_register_subtree(gui_module, "Columns", "Columns", NULL);
+    prefs_set_module_effect_flags(gui_column_module, gui_effect_flags);
     /* For reading older preference files with "column." preferences */
     prefs_register_module_alias("column", gui_column_module);
 
@@ -3137,6 +3238,7 @@ prefs_register_modules(void)
 
     /* User Interface : Font */
     gui_font_module = prefs_register_subtree(gui_module, "Font", "Font", NULL);
+    prefs_set_module_effect_flags(gui_font_module, gui_effect_flags);
 
     prefs_register_obsolete_preference(gui_font_module, "font_name");
 
@@ -3148,6 +3250,7 @@ prefs_register_modules(void)
 
     /* User Interface : Colors */
     gui_color_module = prefs_register_subtree(gui_module, "Colors", "Colors", NULL);
+    prefs_set_module_effect_flags(gui_color_module, gui_effect_flags);
 
     prefs_register_color_preference(gui_color_module, "active_frame.fg", "Foreground color for an active selected item",
         "Foreground color for an active selected item", &prefs.gui_active_fg);
@@ -3243,10 +3346,6 @@ prefs_register_modules(void)
         "Directory to start in when opening File Open dialog.",
         &prefs.gui_fileopen_dir, PREF_DIRNAME, NULL, TRUE);
 
-    register_string_like_preference(gui_module, "browser_sslkeylog.path", "Path to browser executable",
-        "Path to browser executable to launch with SSLKEYLOG",
-        &prefs.gui_browser_sslkeylog_path, PREF_OPEN_FILENAME, NULL, TRUE);
-
     prefs_register_obsolete_preference(gui_module, "fileopen.remembered_dir");
 
     prefs_register_uint_preference(gui_module, "fileopen.preview",
@@ -3254,6 +3353,10 @@ prefs_register_modules(void)
                                    "The preview timeout in the File Open dialog",
                                    10,
                                    &prefs.gui_fileopen_preview);
+
+    register_string_like_preference(gui_module, "tlskeylog_command", "Program to launch with TLS Keylog",
+        "Program path or command line to launch with SSLKEYLOGFILE",
+        &prefs.gui_tlskeylog_command, PREF_STRING, NULL, TRUE);
 
     prefs_register_bool_preference(gui_module, "ask_unsaved",
                                    "Ask to save unsaved capture files",
@@ -3433,6 +3536,11 @@ prefs_register_modules(void)
                                    "Show file load time in the Status Bar",
                                    &prefs.gui_show_file_load_time);
 
+    prefs_register_enum_preference(gui_layout_module, "packet_dialog_layout",
+                                   "Packet Dialog layout",
+                                   "Packet Dialog layout",
+                                   (guint*)(void*)(&prefs.gui_packet_dialog_layout), gui_packet_dialog_layout, FALSE);
+
     prefs_register_enum_preference(gui_module, "packet_list_elide_mode",
                        "Elide mode",
                        "The position of \"...\" in packet list text.",
@@ -3609,6 +3717,9 @@ prefs_register_modules(void)
 
     prefs_register_bool_preference(capture_module, "prom_mode", "Capture in promiscuous mode",
         "Capture in promiscuous mode?", &prefs.capture_prom_mode);
+
+    prefs_register_bool_preference(capture_module, "monitor_mode", "Capture in monitor mode on 802.11 devices",
+        "Capture in monitor mode on all 802.11 devices that support it?", &prefs.capture_monitor_mode);
 
     register_string_like_preference(capture_module, "devices_filter", "Interface capture filter",
         "Interface capture filter (Ex: en0(tcp),en1(udp),...)",
@@ -4129,9 +4240,9 @@ pre_init_prefs(void)
     prefs.gui_recent_files_count_max = 10;
     g_free(prefs.gui_fileopen_dir);
     prefs.gui_fileopen_dir           = g_strdup(get_persdatafile_dir());
-    g_free(prefs.gui_browser_sslkeylog_path);
-    prefs.gui_browser_sslkeylog_path = g_strdup("");
     prefs.gui_fileopen_preview       = 3;
+    g_free(prefs.gui_tlskeylog_command);
+    prefs.gui_tlskeylog_command      = g_strdup("");
     prefs.gui_ask_unsaved            = TRUE;
     prefs.gui_autocomplete_filter    = TRUE;
     prefs.gui_find_wrap              = TRUE;
@@ -4187,6 +4298,7 @@ pre_init_prefs(void)
 
 /* set the default values for the capture dialog box */
     prefs.capture_prom_mode             = TRUE;
+    prefs.capture_monitor_mode          = FALSE;
     prefs.capture_pcap_ng               = TRUE;
     prefs.capture_real_time             = TRUE;
     prefs.capture_update_interval       = DEFAULT_UPDATE_INTERVAL;
@@ -4225,6 +4337,7 @@ pre_init_prefs(void)
     prefs.gui_io_graph_enable_legend = TRUE;
 
     /* set the default values for the packet dialog */
+    prefs.gui_packet_dialog_layout   = layout_vertical;
     prefs.gui_packet_details_show_byteview = TRUE;
 }
 
@@ -4278,6 +4391,7 @@ reset_pref(pref_t *pref)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         reset_string_like_preference(pref);
         break;
 
@@ -6044,7 +6158,6 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
             break;
 
         case PREF_ENUM:
-        case PREF_PROTO_TCP_SNDAMB_ENUM:
             /* XXX - give an error if it doesn't match? */
             enum_val = find_val_for_string(value, pref->info.enum_info.enumvals,
                                            *pref->varp.enump);
@@ -6058,6 +6171,7 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
         case PREF_SAVE_FILENAME:
         case PREF_OPEN_FILENAME:
         case PREF_DIRNAME:
+        case PREF_DISSECTOR:
             containing_module->prefs_changed_flags |= prefs_set_string_value(pref, value, pref_current);
             break;
 
@@ -6149,7 +6263,13 @@ set_pref(gchar *pref_name, const gchar *value, void *private_data _U_,
 
         case PREF_STATIC_TEXT:
         case PREF_UAT:
+        case PREF_PROTO_TCP_SNDAMB_ENUM:
         {
+            /* There's no point in setting the TCP sequence override
+             * value from the command line, because the pref is different
+             * for each frame and reset to the default (0) for each new
+             * file.
+             */
             break;
         }
         }
@@ -6254,6 +6374,10 @@ prefs_pref_type_name(pref_t *pref)
 
     case PREF_PASSWORD:
         type_name = "Password";
+        break;
+
+    case PREF_DISSECTOR:
+        type_name = "Dissector";
         break;
     }
     return type_name;
@@ -6406,6 +6530,10 @@ prefs_pref_type_description(pref_t *pref)
         type_desc = "Password (never stored on disk)";
         break;
 
+    case PREF_DISSECTOR:
+        type_desc = "A dissector name";
+        break;
+
     default:
         break;
     }
@@ -6453,6 +6581,7 @@ prefs_pref_is_default(pref_t *pref)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         if (!(g_strcmp0(pref->default_val.string, *pref->varp.string)))
             return TRUE;
         break;
@@ -6572,6 +6701,8 @@ prefs_pref_to_str(pref_t *pref, pref_source_t source) {
     case PREF_SAVE_FILENAME:
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
+    case PREF_PASSWORD:
+    case PREF_DISSECTOR:
         return g_strdup(*(const char **) valp);
 
     case PREF_DECODE_AS_RANGE:
@@ -6607,9 +6738,6 @@ prefs_pref_to_str(pref_t *pref, pref_source_t source) {
             pref_text = "[Managed in an unknown file]";
         break;
     }
-
-    case PREF_PASSWORD:
-        return g_strdup(*(const char **) valp);
 
     default:
         break;
@@ -6652,6 +6780,12 @@ write_pref(gpointer data, gpointer user_data)
     case PREF_DECODE_AS_UINT:
     case PREF_DECODE_AS_RANGE:
         /* Data is saved through Decode As mechanism and not part of preferences file */
+        return;
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
+        /* Not written to the preference file because the override is only
+         * for the lifetime of the capture file and there is no single
+         * value to write.
+         */
         return;
     default:
         break;
@@ -6724,6 +6858,7 @@ count_non_uat_pref(gpointer data, gpointer user_data)
     case PREF_OBSOLETE:
     case PREF_DECODE_AS_UINT:
     case PREF_DECODE_AS_RANGE:
+    case PREF_PROTO_TCP_SNDAMB_ENUM:
         //These types are not written in preference file
         break;
     default:

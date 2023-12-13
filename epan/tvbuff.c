@@ -2062,6 +2062,51 @@ tvb_get_ipv6(tvbuff_t *tvb, const gint offset, ws_in6_addr *addr)
 	memcpy(addr, ptr, sizeof *addr);
 }
 
+/*
+ * These routines return the length of the address in bytes on success
+ * and -1 if the prefix length is too long.
+ */
+int
+tvb_get_ipv4_addr_with_prefix_len(tvbuff_t *tvb, int offset, ws_in4_addr *addr,
+    guint32 prefix_len)
+{
+	guint8 addr_len;
+
+	if (prefix_len > 32)
+		return -1;
+
+	addr_len = (prefix_len + 7) / 8;
+	*addr = 0;
+	tvb_memcpy(tvb, addr, offset, addr_len);
+	if (prefix_len % 8)
+		((guint8*)addr)[addr_len - 1] &= ((0xff00 >> (prefix_len % 8)) & 0xff);
+	return addr_len;
+}
+
+/*
+ * These routines return the length of the address in bytes on success
+ * and -1 if the prefix length is too long.
+ */
+int
+tvb_get_ipv6_addr_with_prefix_len(tvbuff_t *tvb, int offset, ws_in6_addr *addr,
+    guint32 prefix_len)
+{
+	guint32 addr_len;
+
+	if (prefix_len > 128)
+		return -1;
+
+	addr_len = (prefix_len + 7) / 8;
+	memset(addr->bytes, 0, 16);
+	tvb_memcpy(tvb, addr->bytes, offset, addr_len);
+	if (prefix_len % 8) {
+		addr->bytes[addr_len - 1] &=
+		    ((0xff00 >> (prefix_len % 8)) & 0xff);
+	}
+
+	return addr_len;
+}
+
 /* Fetch a GUID. */
 void
 tvb_get_ntohguid(tvbuff_t *tvb, const gint offset, e_guid_t *guid)
@@ -2673,8 +2718,7 @@ tvb_memeql(tvbuff_t *tvb, const gint offset, const guint8 *str, size_t size)
 }
 
 /**
- * Format the data in the tvb from offset for size.  Returned string is
- * wmem packet_scoped so call must be in that scope.
+ * Format the data in the tvb from offset for size.
  */
 gchar *
 tvb_format_text(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint size)
@@ -2705,8 +2749,7 @@ tvb_format_text_wsp(wmem_allocator_t* allocator, tvbuff_t *tvb, const gint offse
 
 /**
  * Like "tvb_format_text()", but for null-padded strings; don't show
- * the null padding characters as "\000".  Returned string is wmem packet_scoped
- * so call must be in that scope.
+ * the null padding characters as "\000".
  */
 gchar *
 tvb_format_stringzpad(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset, const gint size)

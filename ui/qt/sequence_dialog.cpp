@@ -201,8 +201,6 @@ SequenceDialog::SequenceDialog(QWidget &parent, CaptureFile &cf, SequenceInfo *i
     connect(sp, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
     connect(sp, SIGNAL(mouseWheel(QWheelEvent*)), this, SLOT(mouseWheeled(QWheelEvent*)));
 
-    disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
-
     // Button must be enabled by VoIP dialogs
     player_button_->setVisible(false);
     player_button_->setEnabled(false);
@@ -434,7 +432,7 @@ void SequenceDialog::on_buttonBox_clicked(QAbstractButton *button)
 void SequenceDialog::exportDiagram()
 {
     QString file_name, extension;
-    QDir path(mainApp->lastOpenDir());
+    QDir path(mainApp->openDialogInitialDir());
     QString pdf_filter = tr("Portable Document Format (*.pdf)");
     QString png_filter = tr("Portable Network Graphics (*.png)");
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");

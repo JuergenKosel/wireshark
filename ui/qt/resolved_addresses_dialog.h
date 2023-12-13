@@ -12,6 +12,8 @@
 
 #include "geometry_state_dialog.h"
 
+#include <QMenu>
+
 #include <wiretap/wtap.h>
 
 class CaptureFile;
@@ -41,6 +43,8 @@ private:
     Ui::ResolvedAddressesDialog *ui;
     QString file_name_;
     QString comment_;
+    QPushButton *copy_bt_;
+    QPushButton *save_bt_;
 
     AStringListListSortFilterProxyModel * ethSortModel;
     AStringListListSortFilterProxyModel * ethTypeModel;
@@ -48,6 +52,10 @@ private:
     AStringListListSortFilterProxyModel * portTypeModel;
 
     void fillBlocks();
+
+private slots:
+    void tabChanged(int index);
+    void saveAs();
 };
 
 #endif // RESOLVED_ADDRESSES_DIALOG_H

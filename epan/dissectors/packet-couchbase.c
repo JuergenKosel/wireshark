@@ -433,232 +433,232 @@ static bool is_request_magic(guint8 magic) {
 void proto_register_couchbase(void);
 void proto_reg_handoff_couchbase(void);
 
-static int proto_couchbase = -1;
+static int proto_couchbase;
 
-static int hf_magic = -1;
-static int hf_opcode = -1;
-static int hf_server_opcode = -1;
-static int hf_extlength = -1;
-static int hf_keylength = -1;
-static int hf_value_length = -1;
-static int hf_datatype = -1;
-static int hf_datatype_json = -1;
-static int hf_datatype_snappy = -1;
-static int hf_datatype_xattr = -1;
-static int hf_vbucket = -1;
-static int hf_status = -1;
-static int hf_total_bodylength = -1;
-static int hf_opaque = -1;
-static int hf_cas = -1;
-static int hf_ttp = -1;
-static int hf_ttr = -1;
-static int hf_collection_key_id = -1;
-static int hf_collection_key_logical = -1;
-static int hf_collection_manifest_id = -1;
+static int hf_magic;
+static int hf_opcode;
+static int hf_server_opcode;
+static int hf_extlength;
+static int hf_keylength;
+static int hf_value_length;
+static int hf_datatype;
+static int hf_datatype_json;
+static int hf_datatype_snappy;
+static int hf_datatype_xattr;
+static int hf_vbucket;
+static int hf_status;
+static int hf_total_bodylength;
+static int hf_opaque;
+static int hf_cas;
+static int hf_ttp;
+static int hf_ttr;
+static int hf_collection_key_id;
+static int hf_collection_key_logical;
+static int hf_collection_manifest_id;
 
-static int hf_flex_extras_length = -1;
-static int hf_flex_keylength = -1;
-static int hf_extras = -1;
-static int hf_extras_flags = -1;
-static int hf_extras_flags_backfill = -1;
-static int hf_extras_flags_dump = -1;
-static int hf_extras_flags_list_vbuckets = -1;
-static int hf_extras_flags_takeover_vbuckets = -1;
-static int hf_extras_flags_support_ack = -1;
-static int hf_extras_flags_request_keys_only = -1;
-static int hf_extras_flags_checkpoint = -1;
-static int hf_extras_flags_dcp_connection_type = -1;
-static int hf_extras_flags_dcp_add_stream_takeover = -1;
-static int hf_extras_flags_dcp_add_stream_diskonly = -1;
-static int hf_extras_flags_dcp_add_stream_latest = -1;
-static int hf_extras_flags_dcp_snapshot_marker_memory = -1;
-static int hf_extras_flags_dcp_snapshot_marker_disk = -1;
-static int hf_extras_flags_dcp_snapshot_marker_chk = -1;
-static int hf_extras_flags_dcp_snapshot_marker_ack = -1;
-static int hf_extras_flags_dcp_snapshot_marker_history = -1;
-static int hf_extras_flags_dcp_snapshot_marker_may_contain_dups = -1;
-static int hf_extras_flags_dcp_include_xattrs = -1;
-static int hf_extras_flags_dcp_no_value = -1;
-static int hf_extras_flags_dcp_include_delete_times = -1;
-static int hf_extras_flags_dcp_collections = -1;
-static int hf_extras_flags_dcp_oso_snapshot_begin = -1;
-static int hf_extras_flags_dcp_oso_snapshot_end = -1;
-static int hf_subdoc_doc_flags = -1;
-static int hf_subdoc_doc_flags_mkdoc = -1;
-static int hf_subdoc_doc_flags_add = -1;
-static int hf_subdoc_doc_flags_accessdeleted = -1;
-static int hf_subdoc_doc_flags_createasdeleted = -1;
-static int hf_subdoc_doc_flags_revivedocument = -1;
-static int hf_subdoc_doc_flags_replicaread = -1;
-static int hf_subdoc_doc_flags_reserved = -1;
-static int hf_subdoc_flags = -1;
-static int hf_subdoc_flags_mkdirp = -1;
-static int hf_subdoc_flags_xattrpath = -1;
-static int hf_subdoc_flags_expandmacros = -1;
-static int hf_subdoc_flags_reserved = -1;
-static int hf_extras_seqno = -1;
-static int hf_extras_mutation_seqno = -1;
-static int hf_extras_opaque = -1;
-static int hf_extras_reserved = -1;
-static int hf_extras_start_seqno = -1;
-static int hf_extras_end_seqno = -1;
-static int hf_extras_high_completed_seqno = -1;
-static int hf_extras_max_visible_seqno = -1;
-static int hf_extras_timestamp = -1;
-static int hf_extras_marker_version = -1;
-static int hf_extras_vbucket_uuid = -1;
-static int hf_extras_snap_start_seqno = -1;
-static int hf_extras_snap_end_seqno = -1;
-static int hf_extras_expiration = -1;
-static int hf_extras_delta = -1;
-static int hf_extras_initial = -1;
-static int hf_extras_unknown = -1;
-static int hf_extras_by_seqno = -1;
-static int hf_extras_rev_seqno = -1;
-static int hf_extras_prepared_seqno = -1;
-static int hf_extras_commit_seqno = -1;
-static int hf_extras_abort_seqno = -1;
-static int hf_extras_deleted = -1;
-static int hf_extras_lock_time = -1;
-static int hf_extras_nmeta = -1;
-static int hf_extras_nru = -1;
-static int hf_extras_bytes_to_ack = -1;
-static int hf_extras_delete_time = -1;
-static int hf_extras_delete_unused = -1;
-static int hf_extras_system_event_id = -1;
-static int hf_extras_system_event_version = -1;
-static int hf_extras_pathlen = -1;
-static int hf_extras_dcp_oso_snapshot_flags = -1;
-static int hf_server_extras_cccp_epoch = -1;
-static int hf_server_extras_cccp_revno = -1;
-static int hf_server_clustermap_value = -1;
-static int hf_server_authentication = -1;
-static int hf_server_external_users = -1;
-static int hf_server_get_authorization = -1;
+static int hf_flex_extras_length;
+static int hf_flex_keylength;
+static int hf_extras;
+static int hf_extras_flags;
+static int hf_extras_flags_backfill;
+static int hf_extras_flags_dump;
+static int hf_extras_flags_list_vbuckets;
+static int hf_extras_flags_takeover_vbuckets;
+static int hf_extras_flags_support_ack;
+static int hf_extras_flags_request_keys_only;
+static int hf_extras_flags_checkpoint;
+static int hf_extras_flags_dcp_connection_type;
+static int hf_extras_flags_dcp_add_stream_takeover;
+static int hf_extras_flags_dcp_add_stream_diskonly;
+static int hf_extras_flags_dcp_add_stream_latest;
+static int hf_extras_flags_dcp_snapshot_marker_memory;
+static int hf_extras_flags_dcp_snapshot_marker_disk;
+static int hf_extras_flags_dcp_snapshot_marker_chk;
+static int hf_extras_flags_dcp_snapshot_marker_ack;
+static int hf_extras_flags_dcp_snapshot_marker_history;
+static int hf_extras_flags_dcp_snapshot_marker_may_contain_dups;
+static int hf_extras_flags_dcp_include_xattrs;
+static int hf_extras_flags_dcp_no_value;
+static int hf_extras_flags_dcp_include_delete_times;
+static int hf_extras_flags_dcp_collections;
+static int hf_extras_flags_dcp_oso_snapshot_begin;
+static int hf_extras_flags_dcp_oso_snapshot_end;
+static int hf_subdoc_doc_flags;
+static int hf_subdoc_doc_flags_mkdoc;
+static int hf_subdoc_doc_flags_add;
+static int hf_subdoc_doc_flags_accessdeleted;
+static int hf_subdoc_doc_flags_createasdeleted;
+static int hf_subdoc_doc_flags_revivedocument;
+static int hf_subdoc_doc_flags_replicaread;
+static int hf_subdoc_doc_flags_reserved;
+static int hf_subdoc_flags;
+static int hf_subdoc_flags_mkdirp;
+static int hf_subdoc_flags_xattrpath;
+static int hf_subdoc_flags_expandmacros;
+static int hf_subdoc_flags_reserved;
+static int hf_extras_seqno;
+static int hf_extras_mutation_seqno;
+static int hf_extras_opaque;
+static int hf_extras_reserved;
+static int hf_extras_start_seqno;
+static int hf_extras_end_seqno;
+static int hf_extras_high_completed_seqno;
+static int hf_extras_max_visible_seqno;
+static int hf_extras_timestamp;
+static int hf_extras_marker_version;
+static int hf_extras_vbucket_uuid;
+static int hf_extras_snap_start_seqno;
+static int hf_extras_snap_end_seqno;
+static int hf_extras_expiration;
+static int hf_extras_delta;
+static int hf_extras_initial;
+static int hf_extras_unknown;
+static int hf_extras_by_seqno;
+static int hf_extras_rev_seqno;
+static int hf_extras_prepared_seqno;
+static int hf_extras_commit_seqno;
+static int hf_extras_abort_seqno;
+static int hf_extras_deleted;
+static int hf_extras_lock_time;
+static int hf_extras_nmeta;
+static int hf_extras_nru;
+static int hf_extras_bytes_to_ack;
+static int hf_extras_delete_time;
+static int hf_extras_delete_unused;
+static int hf_extras_system_event_id;
+static int hf_extras_system_event_version;
+static int hf_extras_pathlen;
+static int hf_extras_dcp_oso_snapshot_flags;
+static int hf_server_extras_cccp_epoch;
+static int hf_server_extras_cccp_revno;
+static int hf_server_clustermap_value;
+static int hf_server_authentication;
+static int hf_server_external_users;
+static int hf_server_get_authorization;
 
-static int hf_key = -1;
-static int hf_path = -1;
-static int hf_value = -1;
-static int hf_uint64_response = -1;
-static int hf_observe = -1;
-static int hf_observe_vbucket = -1;
-static int hf_observe_keylength = -1;
-static int hf_observe_key = -1;
-static int hf_observe_status = -1;
-static int hf_observe_cas = -1;
-static int hf_observe_vbucket_uuid = -1;
-static int hf_observe_failed_over = -1;
-static int hf_observe_last_persisted_seqno = -1;
-static int hf_observe_current_seqno = -1;
-static int hf_observe_old_vbucket_uuid = -1;
-static int hf_observe_last_received_seqno = -1;
+static int hf_key;
+static int hf_path;
+static int hf_value;
+static int hf_uint64_response;
+static int hf_observe;
+static int hf_observe_vbucket;
+static int hf_observe_keylength;
+static int hf_observe_key;
+static int hf_observe_status;
+static int hf_observe_cas;
+static int hf_observe_vbucket_uuid;
+static int hf_observe_failed_over;
+static int hf_observe_last_persisted_seqno;
+static int hf_observe_current_seqno;
+static int hf_observe_old_vbucket_uuid;
+static int hf_observe_last_received_seqno;
 
-static int hf_get_errmap_version = -1;
+static int hf_get_errmap_version;
 
-static int hf_failover_log = -1;
-static int hf_failover_log_size = -1;
-static int hf_failover_log_vbucket_uuid = -1;
-static int hf_failover_log_vbucket_seqno = -1;
+static int hf_failover_log;
+static int hf_failover_log_size;
+static int hf_failover_log_vbucket_uuid;
+static int hf_failover_log_vbucket_seqno;
 
-static int hf_vbucket_states = -1;
-static int hf_vbucket_states_state = -1;
-static int hf_vbucket_states_size = -1;
-static int hf_vbucket_states_id = -1;
-static int hf_vbucket_states_seqno = -1;
+static int hf_vbucket_states;
+static int hf_vbucket_states_state;
+static int hf_vbucket_states_size;
+static int hf_vbucket_states_id;
+static int hf_vbucket_states_seqno;
 
-static int hf_bucket_type = -1;
-static int hf_bucket_config = -1;
-static int hf_config_key = -1;
-static int hf_config_value = -1;
+static int hf_bucket_type;
+static int hf_bucket_config;
+static int hf_config_key;
+static int hf_config_value;
 
-static int hf_multipath_opcode = -1;
-static int hf_multipath_index = -1;
-static int hf_multipath_pathlen = -1;
-static int hf_multipath_path = -1;
-static int hf_multipath_valuelen = -1;
-static int hf_multipath_value = -1;
+static int hf_multipath_opcode;
+static int hf_multipath_index;
+static int hf_multipath_pathlen;
+static int hf_multipath_path;
+static int hf_multipath_valuelen;
+static int hf_multipath_value;
 
-static int hf_meta_flags = -1;
-static int hf_meta_expiration = -1;
-static int hf_meta_revseqno = -1;
-static int hf_meta_cas = -1;
-static int hf_skip_conflict = -1;
-static int hf_force_accept = -1;
-static int hf_regenerate_cas = -1;
-static int hf_force_meta = -1;
-static int hf_is_expiration = -1;
-static int hf_meta_options = -1;
-static int hf_metalen = -1;
-static int hf_meta_reqextmeta = -1;
-static int hf_meta_deleted = -1;
-static int hf_exptime = -1;
-static int hf_extras_meta_seqno = -1;
-static int hf_confres = -1;
-static int hf_hello_features = -1;
-static int hf_hello_features_feature = -1;
+static int hf_meta_flags;
+static int hf_meta_expiration;
+static int hf_meta_revseqno;
+static int hf_meta_cas;
+static int hf_skip_conflict;
+static int hf_force_accept;
+static int hf_regenerate_cas;
+static int hf_force_meta;
+static int hf_is_expiration;
+static int hf_meta_options;
+static int hf_metalen;
+static int hf_meta_reqextmeta;
+static int hf_meta_deleted;
+static int hf_exptime;
+static int hf_extras_meta_seqno;
+static int hf_confres;
+static int hf_hello_features;
+static int hf_hello_features_feature;
 
-static int hf_xattr_length = -1;
-static int hf_xattr_pair_length = -1;
-static int hf_xattr_key = -1;
-static int hf_xattr_value = -1;
-static int hf_xattrs = -1;
+static int hf_xattr_length;
+static int hf_xattr_pair_length;
+static int hf_xattr_key;
+static int hf_xattr_value;
+static int hf_xattrs;
 
-static int hf_flex_extras = -1;
-static int hf_flex_extras_n = -1;
-static int hf_flex_frame_id_byte0 = -1;
-static int hf_flex_frame_id_req = -1;
-static int hf_flex_frame_id_res = -1;
-static int hf_flex_frame_id_req_esc = -1;
-static int hf_flex_frame_id_res_esc = -1;
-static int hf_flex_frame_len = -1;
-static int hf_flex_frame_len_esc = -1;
-static int hf_flex_frame_tracing_duration = -1;
-static int hf_flex_frame_ru_count = -1;
-static int hf_flex_frame_wu_count = -1;
-static int hf_flex_frame_durability_req = -1;
-static int hf_flex_frame_dcp_stream_id = -1;
-static int hf_flex_frame_impersonated_user = -1;
+static int hf_flex_extras;
+static int hf_flex_extras_n;
+static int hf_flex_frame_id_byte0;
+static int hf_flex_frame_id_req;
+static int hf_flex_frame_id_res;
+static int hf_flex_frame_id_req_esc;
+static int hf_flex_frame_id_res_esc;
+static int hf_flex_frame_len;
+static int hf_flex_frame_len_esc;
+static int hf_flex_frame_tracing_duration;
+static int hf_flex_frame_ru_count;
+static int hf_flex_frame_wu_count;
+static int hf_flex_frame_durability_req;
+static int hf_flex_frame_dcp_stream_id;
+static int hf_flex_frame_impersonated_user;
 
-static int hf_range_scan_uuid  = -1;
-static int hf_range_scan_item_limit = -1;
-static int hf_range_scan_time_limit = -1;
-static int hf_range_scan_byte_limit = -1;
+static int hf_range_scan_uuid;
+static int hf_range_scan_item_limit;
+static int hf_range_scan_time_limit;
+static int hf_range_scan_byte_limit;
 
-static expert_field ef_warn_shall_not_have_value = EI_INIT;
-static expert_field ef_warn_shall_not_have_extras = EI_INIT;
-static expert_field ef_warn_shall_not_have_key = EI_INIT;
-static expert_field ef_compression_error = EI_INIT;
-static expert_field ef_warn_unknown_flex_unsupported = EI_INIT;
-static expert_field ef_warn_unknown_flex_id = EI_INIT;
-static expert_field ef_warn_unknown_flex_len = EI_INIT;
+static expert_field ei_warn_shall_not_have_value;
+static expert_field ei_warn_shall_not_have_extras;
+static expert_field ei_warn_shall_not_have_key;
+static expert_field ei_compression_error;
+static expert_field ei_warn_unknown_flex_unsupported;
+static expert_field ei_warn_unknown_flex_id;
+static expert_field ei_warn_unknown_flex_len;
 
-static expert_field ei_value_missing = EI_INIT;
-static expert_field ef_warn_must_have_extras = EI_INIT;
-static expert_field ef_warn_must_have_key = EI_INIT;
-static expert_field ef_warn_illegal_extras_length = EI_INIT;
-static expert_field ef_warn_illegal_value_length = EI_INIT;
-static expert_field ef_warn_unknown_magic_byte = EI_INIT;
-static expert_field ef_warn_unknown_opcode = EI_INIT;
-static expert_field ef_warn_unknown_extras = EI_INIT;
-static expert_field ef_note_status_code = EI_INIT;
-static expert_field ef_separator_not_found = EI_INIT;
-static expert_field ef_illegal_value = EI_INIT;
+static expert_field ei_value_missing;
+static expert_field ei_warn_must_have_extras;
+static expert_field ei_warn_must_have_key;
+static expert_field ei_warn_illegal_extras_length;
+static expert_field ei_warn_illegal_value_length;
+static expert_field ei_warn_unknown_magic_byte;
+static expert_field ei_warn_unknown_opcode;
+static expert_field ei_warn_unknown_extras;
+static expert_field ei_note_status_code;
+static expert_field ei_separator_not_found;
+static expert_field ei_illegal_value;
 
-static gint ett_couchbase = -1;
-static gint ett_extras = -1;
-static gint ett_extras_flags = -1;
-static gint ett_observe = -1;
-static gint ett_failover_log = -1;
-static gint ett_vbucket_states = -1;
-static gint ett_multipath = -1;
-static gint ett_config = -1;
-static gint ett_config_key = -1;
-static gint ett_hello_features = -1;
-static gint ett_datatype = -1;
-static gint ett_xattrs = -1;
-static gint ett_xattr_pair = -1;
-static gint ett_flex_frame_extras = -1;
-static gint ett_collection_key = -1;
+static gint ett_couchbase;
+static gint ett_extras;
+static gint ett_extras_flags;
+static gint ett_observe;
+static gint ett_failover_log;
+static gint ett_vbucket_states;
+static gint ett_multipath;
+static gint ett_config;
+static gint ett_config_key;
+static gint ett_hello_features;
+static gint ett_datatype;
+static gint ett_xattrs;
+static gint ett_xattr_pair;
+static gint ett_flex_frame_extras;
+static gint ett_collection_key;
 
 static const value_string magic_vals[] = {
   { MAGIC_CLIENT_REQUEST, "Request" },
@@ -1241,7 +1241,7 @@ static void dissect_dcp_xattrs(tvbuff_t *tvb, proto_tree *tree,
 
     mark = tvb_find_guint8(tvb, offset, pair_len, 0x00);
     if (mark == -1) {
-      expert_add_info_format(pinfo, ti, &ef_separator_not_found, "Null byte not found");
+      expert_add_info_format(pinfo, ti, &ei_separator_not_found, "Null byte not found");
       return;
     }
 
@@ -1252,7 +1252,7 @@ static void dissect_dcp_xattrs(tvbuff_t *tvb, proto_tree *tree,
 
     mark = tvb_find_guint8(tvb, offset, pair_len, 0x00);
     if (mark == -1) {
-      expert_add_info_format(pinfo, ti, &ef_separator_not_found, "Null byte not found");
+      expert_add_info_format(pinfo, ti, &ei_separator_not_found, "Null byte not found");
       return;
     }
 
@@ -1292,7 +1292,7 @@ static void dissect_server_request_extras(tvbuff_t *tvb _U_, packet_info *pinfo 
   if (extlen == 0) {
     switch (opcode) {
       case SERVER_OPCODE_CLUSTERMAP_CHANGE_NOTIFICATION:
-        proto_tree_add_expert_format(tree, pinfo, &ef_warn_must_have_extras, tvb, offset, 0,
+        proto_tree_add_expert_format(tree, pinfo, &ei_warn_must_have_extras, tvb, offset, 0,
                                      "ClustermapChangeNotification request must have extras");
         return;
 
@@ -1315,7 +1315,7 @@ static void dissect_server_request_extras(tvbuff_t *tvb _U_, packet_info *pinfo 
     // Expected 16 bytes of extras!
     if (extlen < 16) {
       proto_tree_add_expert_format(extras_tree, pinfo,
-                                   &ef_warn_illegal_extras_length, tvb,
+                                   &ei_warn_illegal_extras_length, tvb,
                                    offset, extlen,
                                    "ClustermapChangeNotification should have 16 bytes of extras");
       return;
@@ -1327,7 +1327,7 @@ static void dissect_server_request_extras(tvbuff_t *tvb _U_, packet_info *pinfo 
 
     if (extlen > 16) {
       proto_tree_add_expert_format(extras_tree, pinfo,
-                                   &ef_warn_illegal_extras_length, tvb,
+                                   &ei_warn_illegal_extras_length, tvb,
                                    offset + 16, extlen - 16,
                                    "Unexpected amount of extras");
     }
@@ -1351,7 +1351,7 @@ dissect_server_response_extras(tvbuff_t *tvb, packet_info *pinfo,
                                                 extlen, ENC_NA);
   proto_tree *extras_tree = proto_item_add_subtree(extras_item, ett_extras);
   proto_tree_add_expert_format(extras_tree, pinfo,
-                               &ef_warn_illegal_extras_length, tvb,
+                               &ei_warn_illegal_extras_length, tvb,
                                offset, extlen,
                                "Unexpected amount of extras");
 }
@@ -2079,21 +2079,21 @@ dissect_client_extras(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     break;
   }
   if (illegal) {
-    proto_tree_add_expert_format(extras_tree, pinfo, &ef_warn_shall_not_have_extras, tvb, offset, 0,
+    proto_tree_add_expert_format(extras_tree, pinfo, &ei_warn_shall_not_have_extras, tvb, offset, 0,
                            "%s %s should not have extras",
                            val_to_str_ext(opcode, &client_opcode_vals_ext, "Opcode 0x%x"),
                            request ? "Request" : "Response");
     offset += extlen;
   } else if (missing) {
 
-    proto_tree_add_expert_format(tree, pinfo, &ef_warn_must_have_extras, tvb, offset, 0,
+    proto_tree_add_expert_format(tree, pinfo, &ei_warn_must_have_extras, tvb, offset, 0,
                            "%s %s must have Extras",
                            val_to_str_ext(opcode, &client_opcode_vals_ext, "Opcode Ox%x"),
                            request ? "Request" : "Response");
 }
 
   if ((offset - save_offset) != extlen) {
-    expert_add_info_format(pinfo, extras_item, &ef_warn_illegal_extras_length,
+    expert_add_info_format(pinfo, extras_item, &ei_warn_illegal_extras_length,
                            "Illegal Extras length, should be %d", offset - save_offset);
   }
 }
@@ -2136,14 +2136,14 @@ static void dissect_server_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     switch (opcode) {
       case SERVER_OPCODE_GET_AUTHORIZATION:
         if (request) {
-          proto_tree_add_expert_format(tree, pinfo, &ef_warn_must_have_key,
+          proto_tree_add_expert_format(tree, pinfo, &ei_warn_must_have_key,
                                        tvb, offset, 0,
                                        "GetAuthorization request must have key");
         }
         return;
       case SERVER_OPCODE_CLUSTERMAP_CHANGE_NOTIFICATION:
         if (request) {
-          proto_tree_add_expert_format(tree, pinfo, &ef_warn_must_have_key,
+          proto_tree_add_expert_format(tree, pinfo, &ei_warn_must_have_key,
                                        tvb, offset, 0,
                                        "ClustermapChangeNotification request must have key");
         }
@@ -2161,14 +2161,14 @@ static void dissect_server_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
   switch (opcode) {
     case SERVER_OPCODE_CLUSTERMAP_CHANGE_NOTIFICATION:
       if (!request) {
-        expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_key,
+        expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_key,
                                "ClustermapChangeNotification response shall not have key");
       }
       break;
 
     case SERVER_OPCODE_AUTHENTICATE:
     case SERVER_OPCODE_ACTIVE_EXTERNAL_USERS:
-        expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_key,
+        expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_key,
                                "%s %s shall not have Key",
                                val_to_str_ext(opcode,
                                               &server_opcode_vals_ext,
@@ -2178,7 +2178,7 @@ static void dissect_server_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
     case SERVER_OPCODE_GET_AUTHORIZATION:
       if (!request) {
-          expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_key,
+          expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_key,
                                  "GetAuthorization response shall not have key");
       }
       break;
@@ -2324,11 +2324,11 @@ dissect_client_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   }
 
   if (illegal) {
-    expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_key, "%s %s shall not have Key",
+    expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_key, "%s %s shall not have Key",
                            val_to_str_ext(opcode, &client_opcode_vals_ext, "Opcode 0x%x"),
                            request ? "Request" : "Response");
   } else if (missing) {
-    proto_tree_add_expert_format(tree, pinfo, &ef_warn_must_have_key, tvb, offset, 0,
+    proto_tree_add_expert_format(tree, pinfo, &ei_warn_must_have_key, tvb, offset, 0,
                            "%s %s must have Key",
                            val_to_str_ext(opcode, &client_opcode_vals_ext, "Opcode Ox%x"),
                            request ? "Request" : "Response");
@@ -2529,7 +2529,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       if (request) {
         ti = proto_tree_add_item(tree, hf_observe_vbucket_uuid, tvb, offset, 8, ENC_BIG_ENDIAN);
         if (value_len != 8) {
-          expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be 8");
+          expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be 8");
         }
       } else {
         /*
@@ -2581,7 +2581,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       }
     } else if (!request && (opcode == CLIENT_OPCODE_DCP_STREAM_REQUEST || opcode == CLIENT_OPCODE_DCP_FAILOVER_LOG_REQUEST)) {
       if (value_len % 16 != 0) {
-        expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Response with bad failover log length");
+        expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Response with bad failover log length");
       } else {
         proto_tree *failover_log_tree;
         gint cur = offset, end = offset + value_len;
@@ -2598,7 +2598,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       }
     } else if (!request && opcode == CLIENT_OPCODE_GET_ALL_VB_SEQNOS) {
       if (value_len % 10 != 0) {
-        expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Response with bad body length");
+        expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Response with bad body length");
       } else {
         proto_tree *vbucket_states_tree;
         gint cur = offset, end = offset + value_len;
@@ -2616,7 +2616,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     } else if (!request && (opcode == CLIENT_OPCODE_INCREMENT || opcode == CLIENT_OPCODE_DECREMENT)) {
       ti = proto_tree_add_item(tree, hf_uint64_response, tvb, offset, 8, ENC_BIG_ENDIAN);
       if (value_len != 8) {
-        expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be 8");
+        expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be 8");
       }
     } else if (has_json_value(request, opcode)) {
       tvbuff_t *json_tvb;
@@ -2658,12 +2658,12 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       sep = tvb_find_guint8(tvb, offset, value_len, 0x00);
       if (sep == -1) {
         ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII);
-        expert_add_info_format(pinfo, ti, &ef_separator_not_found, "Null byte not found");
+        expert_add_info_format(pinfo, ti, &ei_separator_not_found, "Null byte not found");
       } else {
         proto_tree_add_item(tree, hf_bucket_type, tvb, offset, sep - offset, ENC_ASCII | ENC_NA);
         config_len = value_len - (sep - offset) - 1; //Don't include NULL byte in length
         if(config_len <= 0) {
-          expert_add_info_format(pinfo, ti, &ef_separator_not_found, "Separator not found in expected location");
+          expert_add_info_format(pinfo, ti, &ei_separator_not_found, "Separator not found in expected location");
         } else {
           offset = sep + 1;// Ignore NULL byte
 
@@ -2676,7 +2676,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
           // Get the key
           equals_pos = tvb_find_guint8(tvb, offset, config_len, 0x3d);
           if (equals_pos == -1) {
-            expert_add_info_format(pinfo, ti, &ef_illegal_value, "Each key needs a value");
+            expert_add_info_format(pinfo, ti, &ei_illegal_value, "Each key needs a value");
             break; // Break out the while loop
           }
           ti = proto_tree_add_item(config_tree, hf_config_key, tvb, offset, equals_pos - offset, ENC_ASCII | ENC_NA);
@@ -2684,14 +2684,14 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
           config_len -= (equals_pos - offset + 1);
           offset = equals_pos + 1;
           if (config_len <= 0) {
-            expert_add_info_format(pinfo, ti, &ef_illegal_value, "Corresponding value missing");
+            expert_add_info_format(pinfo, ti, &ei_illegal_value, "Corresponding value missing");
             break;//Break out of while loop
           }
 
           // Get the value
           sep_pos = tvb_find_guint8(tvb, offset, config_len, 0x3b);
           if (sep_pos == -1) {
-            expert_add_info_format(pinfo, ti, &ef_separator_not_found, "Each key-value pair must be terminated by semi-colon");
+            expert_add_info_format(pinfo, ti, &ei_separator_not_found, "Each key-value pair must be terminated by semi-colon");
             break; // Break out the while loop
           }
           proto_tree_add_item(key_tree, hf_config_value, tvb, offset, sep_pos - offset, ENC_ASCII | ENC_NA);
@@ -2709,14 +2709,14 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
       dissect_dcp_xattrs(tvb, tree, value_len, offset, pinfo);
     } else if (request && opcode == CLIENT_OPCODE_GET_ERROR_MAP) {
       if (value_len != 2) {
-        expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be 2");
+        expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be 2");
         ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
       } else {
         ti = proto_tree_add_item(tree, hf_get_errmap_version, tvb, offset, value_len, ENC_BIG_ENDIAN);
       }
     } else if (request && opcode == CLIENT_OPCODE_DCP_SNAPSHOT_MARKER) {
         if (value_len < 20) {
-            expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be at least 20");
+            expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be at least 20");
             ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
         }
 
@@ -2729,7 +2729,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
         if (value_len > 20) {
             if (value_len < 36) {
-                expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be at least 36");
+                expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be at least 36");
                 ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
             }
 
@@ -2740,7 +2740,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
             if (value_len > 36) {
                 if (value_len != 44) {
-                    expert_add_info_format(pinfo, ti, &ef_warn_illegal_value_length, "Illegal Value length, should be 44");
+                    expert_add_info_format(pinfo, ti, &ei_warn_illegal_value_length, "Illegal Value length, should be 44");
                     ti = proto_tree_add_item(tree, hf_value, tvb, offset, value_len, ENC_ASCII | ENC_NA);
                 }
 
@@ -2772,10 +2772,10 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
               call_dissector(json_handle, compressed_tvb, pinfo, tree);
             }
           } else {
-            expert_add_info_format(pinfo, ti, &ef_compression_error, "Error uncompressing snappy data");
+            expert_add_info_format(pinfo, ti, &ei_compression_error, "Error uncompressing snappy data");
           }
         } else {
-            expert_add_info_format(pinfo, ti, &ef_compression_error, "Error uncompressing snappy data");
+            expert_add_info_format(pinfo, ti, &ei_compression_error, "Error uncompressing snappy data");
         }
       }
 #endif
@@ -2846,7 +2846,7 @@ dissect_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
   }
 
   if (illegal) {
-    expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_value, "%s %s shall not have Value",
+    expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_value, "%s %s shall not have Value",
                            val_to_str_ext(opcode, &client_opcode_vals_ext, "Opcode 0x%x"),
                            request ? "Request" : "Response");
   } else if (missing) {
@@ -2864,7 +2864,7 @@ static void flex_frame_duration_dissect(tvbuff_t* tvb,
   if (length != 2) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2888,7 +2888,7 @@ static void flex_frame_ru_usage_dissect(tvbuff_t* tvb,
   if (length != 2) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2907,7 +2907,7 @@ static void flex_frame_wu_usage_dissect(tvbuff_t* tvb,
   if (length != 2) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2926,7 +2926,7 @@ static void flex_frame_reorder_dissect(tvbuff_t* tvb,
   if (length != 0) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2941,7 +2941,7 @@ static void flex_frame_durability_dissect(tvbuff_t* tvb,
   if (!(length == 1 || length == 3)) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2958,7 +2958,7 @@ static void flex_frame_dcp_stream_id_dissect(tvbuff_t* tvb,
   if (length != 2) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -2989,7 +2989,7 @@ static void flex_frame_preserve_ttl(tvbuff_t* tvb,
   if (length != 0) {
     proto_tree_add_expert_format(frame_tree,
                                  NULL,
-                                 &ef_warn_unknown_flex_len,
+                                 &ei_warn_unknown_flex_len,
                                  tvb,
                                  offset,
                                  length,
@@ -3067,7 +3067,7 @@ static void dissect_flexible_framing_extras(tvbuff_t* tvb,
     if (tag_byte == 0xFF) {
       proto_tree_add_expert_format(tree,
                                    pinfo,
-                                   &ef_warn_unknown_flex_unsupported,
+                                   &ei_warn_unknown_flex_unsupported,
                                    tvb,
                                    offset,
                                    1,
@@ -3131,7 +3131,7 @@ static void dissect_flexible_framing_extras(tvbuff_t* tvb,
     if (!found)  {
       proto_tree_add_expert_format(frame_tree,
                                    pinfo,
-                                   &ef_warn_unknown_flex_id,
+                                   &ei_warn_unknown_flex_id,
                                    tvb,
                                    offset,
                                    len,
@@ -3165,7 +3165,7 @@ static void d_s_o_clustermap_change_notification_req(tvbuff_t *tvb,
                                                      gint size) {
   if (size == 0) {
     // this is an error!
-    expert_add_info_format(pinfo, tree, &ef_warn_illegal_value_length,
+    expert_add_info_format(pinfo, tree, &ei_warn_illegal_value_length,
                            "Clustermap not present");
     return;
   }
@@ -3183,7 +3183,7 @@ static void d_s_o_authenticate_req(tvbuff_t *tvb,
                                    gint size) {
   if (size == 0) {
     // this is an error!
-    expert_add_info_format(pinfo, tree, &ef_warn_illegal_value_length,
+    expert_add_info_format(pinfo, tree, &ei_warn_illegal_value_length,
                            "Authentication payload not present");
     return;
   }
@@ -3201,7 +3201,7 @@ static void d_s_o_active_external_users_req(tvbuff_t *tvb,
                                             gint size) {
   if (size == 0) {
     // this is an error!
-    expert_add_info_format(pinfo, tree, &ef_warn_illegal_value_length,
+    expert_add_info_format(pinfo, tree, &ei_warn_illegal_value_length,
                            "ActiveExternalUsers payload not present");
     return;
   }
@@ -3221,7 +3221,7 @@ static void d_s_o_get_authorization_req(tvbuff_t *tvb,
     // this is an error!
     proto_item *ti = proto_tree_add_item(tree, hf_value, tvb, offset, size,
                                          ENC_ASCII | ENC_NA);
-    expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_value,
+    expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_value,
                            "GetAuthorization shall not have a value");
   }
 }
@@ -3243,7 +3243,7 @@ static void d_s_o_server_ignored_response(tvbuff_t *tvb,
   proto_item *ti = proto_tree_add_item(tree, hf_value, tvb, offset, size,
                                        ENC_ASCII | ENC_NA);
   if (get_status(tvb) == STATUS_SUCCESS) {
-    expert_add_info_format(pinfo, ti, &ef_warn_shall_not_have_value,
+    expert_add_info_format(pinfo, ti, &ei_warn_shall_not_have_value,
                            "Success should not carry value");
   } else {
     tvbuff_t *json_tvb = tvb_new_subset_length(tvb, offset, size);
@@ -3331,7 +3331,7 @@ static void dissect_frame_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
   guint8 magic = get_magic(tvb);
   proto_item *ti = proto_tree_add_item(couchbase_tree, hf_magic, tvb, 0, 1, ENC_BIG_ENDIAN);
   if (try_val_to_str(magic, magic_vals) == NULL) {
-    expert_add_info_format(pinfo, ti, &ef_warn_unknown_magic_byte, "Unknown magic byte: 0x%x", magic);
+    expert_add_info_format(pinfo, ti, &ei_warn_unknown_magic_byte, "Unknown magic byte: 0x%x", magic);
   }
 
   guint8 opcode = get_opcode(tvb);
@@ -3346,7 +3346,7 @@ static void dissect_frame_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
   }
 
   if (opcode_name == NULL) {
-    expert_add_info_format(pinfo, ti, &ef_warn_unknown_opcode, "Unknown opcode: 0x%x", opcode);
+    expert_add_info_format(pinfo, ti, &ei_warn_unknown_opcode, "Unknown opcode: 0x%x", opcode);
     opcode_name = "Unknown opcode";
   }
   proto_item_append_text(couchbase_item, ", %s %s, Opcode: 0x%x",
@@ -3388,7 +3388,7 @@ static void dissect_frame_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
     guint16 status = get_status(tvb);
     ti = proto_tree_add_item(couchbase_tree, hf_status, tvb, 6, 2, ENC_BIG_ENDIAN);
     if (status != 0) {
-      expert_add_info_format(pinfo, ti, &ef_warn_unknown_opcode, "%s: %s",
+      expert_add_info_format(pinfo, ti, &ei_warn_unknown_opcode, "%s: %s",
                              val_to_str_ext(opcode, &client_opcode_vals_ext, "Unknown opcode (0x%x)"),
                              val_to_str_ext(status, &status_vals_ext, "Status: 0x%x"));
     }
@@ -3436,7 +3436,7 @@ static void dissect_frame_flex_info_section(tvbuff_t *tvb,
       proto_tree_add_item(tree, hf_flex_extras, tvb, offset, size, ENC_UTF_8|ENC_STR_HEX);
       proto_tree_add_expert_format(tree,
                                    pinfo,
-                                   &ef_warn_unknown_flex_unsupported,
+                                   &ei_warn_unknown_flex_unsupported,
                                    tvb,
                                    offset,
                                    size,
@@ -3456,7 +3456,7 @@ static void dissect_frame_flex_info_section(tvbuff_t *tvb,
       proto_tree_add_item(tree, hf_flex_extras, tvb, offset, size, ENC_UTF_8|ENC_STR_HEX);
       proto_tree_add_expert_format(tree,
                                    pinfo,
-                                   &ef_warn_unknown_flex_unsupported,
+                                   &ei_warn_unknown_flex_unsupported,
                                    tvb,
                                    offset,
                                    size,
@@ -3493,7 +3493,7 @@ static void dissect_frame_extras(tvbuff_t *tvb,
       proto_tree_add_item(tree, hf_extras, tvb, offset, size, ENC_UTF_8|ENC_STR_HEX);
       proto_tree_add_expert_format(tree,
                                    pinfo,
-                                   &ef_warn_unknown_extras,
+                                   &ei_warn_unknown_extras,
                                    tvb,
                                    offset,
                                    size,
@@ -3975,23 +3975,23 @@ proto_register_couchbase(void)
 
   static ei_register_info ei[] = {
     { &ei_value_missing, { "couchbase.value_missing", PI_PROTOCOL, PI_WARN, "Value is mandatory for this command", EXPFILL }},
-    { &ef_warn_shall_not_have_value, { "couchbase.warn.shall_not_have_value", PI_UNDECODED, PI_WARN, "Packet shall not have value", EXPFILL }},
-    { &ef_warn_shall_not_have_extras, { "couchbase.warn.shall_not_have_extras", PI_UNDECODED, PI_WARN, "Packet shall not have extras", EXPFILL }},
-    { &ef_warn_shall_not_have_key, { "couchbase.warn.shall_not_have_key", PI_UNDECODED, PI_WARN, "Packet shall not have key", EXPFILL }},
-    { &ef_warn_must_have_extras, { "couchbase.warn.must_have_extras", PI_UNDECODED, PI_WARN, "Packet must have extras", EXPFILL }},
-    { &ef_warn_must_have_key, { "couchbase.warn.must_have_key", PI_UNDECODED, PI_WARN, "%s %s must have Key", EXPFILL }},
-    { &ef_warn_illegal_extras_length, { "couchbase.warn.illegal_extras_length", PI_UNDECODED, PI_WARN, "Illegal Extras length", EXPFILL }},
-    { &ef_warn_illegal_value_length, { "couchbase.warn.illegal_value_length", PI_UNDECODED, PI_WARN, "Illegal Value length", EXPFILL }},
-    { &ef_warn_unknown_magic_byte, { "couchbase.warn.unknown_magic_byte", PI_UNDECODED, PI_WARN, "Unknown magic byte", EXPFILL }},
-    { &ef_warn_unknown_opcode, { "couchbase.warn.unknown_opcode", PI_UNDECODED, PI_WARN, "Unknown opcode", EXPFILL }},
-    { &ef_warn_unknown_extras, { "couchbase.warn.unknown_extras", PI_UNDECODED, PI_WARN, "Unknown extras", EXPFILL }},
-    { &ef_note_status_code, { "couchbase.note.status_code", PI_RESPONSE_CODE, PI_NOTE, "Status", EXPFILL }},
-    { &ef_separator_not_found, { "couchbase.warn.separator_not_found", PI_UNDECODED, PI_WARN, "Separator not found", EXPFILL }},
-    { &ef_illegal_value, { "couchbase.warn.illegal_value", PI_UNDECODED, PI_WARN, "Illegal value for command", EXPFILL }},
-    { &ef_compression_error, { "couchbase.error.compression", PI_UNDECODED, PI_WARN, "Compression error", EXPFILL }},
-    { &ef_warn_unknown_flex_unsupported, { "couchbase.warn.unsupported_flexible_frame", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }},
-    { &ef_warn_unknown_flex_id, { "couchbase.warn.unknown_flexible_frame_id", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }},
-    { &ef_warn_unknown_flex_len, { "couchbase.warn.unknown_flexible_frame_len", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }}
+    { &ei_warn_shall_not_have_value, { "couchbase.warn.shall_not_have_value", PI_UNDECODED, PI_WARN, "Packet shall not have value", EXPFILL }},
+    { &ei_warn_shall_not_have_extras, { "couchbase.warn.shall_not_have_extras", PI_UNDECODED, PI_WARN, "Packet shall not have extras", EXPFILL }},
+    { &ei_warn_shall_not_have_key, { "couchbase.warn.shall_not_have_key", PI_UNDECODED, PI_WARN, "Packet shall not have key", EXPFILL }},
+    { &ei_warn_must_have_extras, { "couchbase.warn.must_have_extras", PI_UNDECODED, PI_WARN, "Packet must have extras", EXPFILL }},
+    { &ei_warn_must_have_key, { "couchbase.warn.must_have_key", PI_UNDECODED, PI_WARN, "%s %s must have Key", EXPFILL }},
+    { &ei_warn_illegal_extras_length, { "couchbase.warn.illegal_extras_length", PI_UNDECODED, PI_WARN, "Illegal Extras length", EXPFILL }},
+    { &ei_warn_illegal_value_length, { "couchbase.warn.illegal_value_length", PI_UNDECODED, PI_WARN, "Illegal Value length", EXPFILL }},
+    { &ei_warn_unknown_magic_byte, { "couchbase.warn.unknown_magic_byte", PI_UNDECODED, PI_WARN, "Unknown magic byte", EXPFILL }},
+    { &ei_warn_unknown_opcode, { "couchbase.warn.unknown_opcode", PI_UNDECODED, PI_WARN, "Unknown opcode", EXPFILL }},
+    { &ei_warn_unknown_extras, { "couchbase.warn.unknown_extras", PI_UNDECODED, PI_WARN, "Unknown extras", EXPFILL }},
+    { &ei_note_status_code, { "couchbase.note.status_code", PI_RESPONSE_CODE, PI_NOTE, "Status", EXPFILL }},
+    { &ei_separator_not_found, { "couchbase.warn.separator_not_found", PI_UNDECODED, PI_WARN, "Separator not found", EXPFILL }},
+    { &ei_illegal_value, { "couchbase.warn.illegal_value", PI_UNDECODED, PI_WARN, "Illegal value for command", EXPFILL }},
+    { &ei_compression_error, { "couchbase.error.compression", PI_UNDECODED, PI_WARN, "Compression error", EXPFILL }},
+    { &ei_warn_unknown_flex_unsupported, { "couchbase.warn.unsupported_flexible_frame", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }},
+    { &ei_warn_unknown_flex_id, { "couchbase.warn.unknown_flexible_frame_id", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }},
+    { &ei_warn_unknown_flex_len, { "couchbase.warn.unknown_flexible_frame_len", PI_UNDECODED, PI_WARN, "Flexible Response ID warning", EXPFILL }}
   };
 
   static gint *ett[] = {

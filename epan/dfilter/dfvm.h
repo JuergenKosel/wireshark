@@ -17,6 +17,9 @@
 #include "drange.h"
 #include "dfunctions.h"
 
+#define ASSERT_DFVM_OP_NOT_REACHED(op) \
+	ws_error("Invalid dfvm opcode '%s'.", dfvm_opcode_tostr(op))
+
 typedef enum {
 	EMPTY,
 	FVALUE,
@@ -48,7 +51,7 @@ typedef struct {
 #define dfvm_value_get_fvalue(val) ((val)->value.fvalue_p->pdata[0])
 
 typedef enum {
-
+	DFVM_NULL,	/* Null/invalid opcode */
 	DFVM_IF_TRUE_GOTO,
 	DFVM_IF_FALSE_GOTO,
 	DFVM_CHECK_EXISTS,
@@ -97,6 +100,7 @@ typedef enum {
 	DFVM_STACK_PUSH,
 	DFVM_STACK_POP,
 	DFVM_NOT_ALL_ZERO,
+	DFVM_NO_OP,
 } dfvm_opcode_t;
 
 const char *
@@ -112,6 +116,9 @@ typedef struct {
 
 dfvm_insn_t*
 dfvm_insn_new(dfvm_opcode_t op);
+
+void
+dfvm_insn_replace_no_op(dfvm_insn_t *insn);
 
 void
 dfvm_insn_free(dfvm_insn_t *insn);

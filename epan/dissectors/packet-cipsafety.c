@@ -36,281 +36,282 @@ void proto_reg_handoff_cipsafety(void);
 /* The entry point to the actual dissection is: dissect_cipsafety */
 
 /* Protocol handle for CIP Safety */
-static int proto_cipsafety                = -1;
-static int proto_cipsafety_base_data      = -1;
-static int proto_cipsafety_extended_data  = -1;
-static int proto_cipsafety_base_time_coord      = -1;
-static int proto_cipsafety_extended_time_coord  = -1;
-static int proto_cip_class_s_supervisor   = -1;
-static int proto_cip_class_s_validator    = -1;
-static int proto_cip                      = -1;
+static int proto_cipsafety;
+static int proto_cipsafety_base_data;
+static int proto_cipsafety_extended_data;
+static int proto_cipsafety_base_time_coord;
+static int proto_cipsafety_extended_time_coord;
+static int proto_cip_class_s_supervisor;
+static int proto_cip_class_s_validator;
+static int proto_cip;
 
 static dissector_table_t subdissector_class_table;
 static dissector_handle_t cip_class_s_supervisor_handle;
 static dissector_handle_t cip_class_s_validator_handle;
 
 /* CIP Safety field identifiers */
-static int hf_cipsafety_data                      = -1;
-static int hf_cipsafety_mode_byte                 = -1;
-static int hf_cipsafety_mode_byte_run_idle        = -1;
-static int hf_cipsafety_mode_byte_not_run_idle    = -1;
-static int hf_cipsafety_mode_byte_tbd_2_bit       = -1;
-static int hf_cipsafety_mode_byte_tbd_2_copy      = -1;
-static int hf_cipsafety_mode_byte_ping_count      = -1;
-static int hf_cipsafety_mode_byte_tbd             = -1;
-static int hf_cipsafety_mode_byte_not_tbd         = -1;
-static int hf_cipsafety_crc_s1                    = -1;
-static int hf_cipsafety_crc_s1_status             = -1;
-static int hf_cipsafety_crc_s2                    = -1;
-static int hf_cipsafety_crc_s2_status             = -1;
-static int hf_cipsafety_crc_s3                    = -1;
-static int hf_cipsafety_crc_s3_status             = -1;
-static int hf_cipsafety_complement_crc_s3         = -1;
-static int hf_cipsafety_complement_crc_s3_status  = -1;
-static int hf_cipsafety_timestamp                 = -1;
-static int hf_cipsafety_ack_byte                  = -1;
-static int hf_cipsafety_ack_byte_ping_count_reply = -1;
-static int hf_cipsafety_ack_byte_reserved1        = -1;
-static int hf_cipsafety_ack_byte_ping_response    = -1;
-static int hf_cipsafety_ack_byte_reserved2        = -1;
-static int hf_cipsafety_ack_byte_parity_even      = -1;
-static int hf_cipsafety_ack_byte2                 = -1;
-static int hf_cipsafety_consumer_time_value       = -1;
-static int hf_cipsafety_mcast_byte                = -1;
-static int hf_cipsafety_mcast_byte_consumer_num   = -1;
-static int hf_cipsafety_mcast_byte_reserved1      = -1;
-static int hf_cipsafety_mcast_byte_mai            = -1;
-static int hf_cipsafety_mcast_byte_reserved2      = -1;
-static int hf_cipsafety_mcast_byte_parity_even    = -1;
-static int hf_cipsafety_mcast_byte2               = -1;
-static int hf_cipsafety_time_correction           = -1;
-static int hf_cipsafety_crc_s5_0                  = -1;
-static int hf_cipsafety_crc_s5_1                  = -1;
-static int hf_cipsafety_crc_s5_2                  = -1;
-static int hf_cipsafety_crc_s5_status             = -1;
-static int hf_cipsafety_complement_data           = -1;
+static int hf_cipsafety_data;
+static int hf_cipsafety_mode_byte;
+static int hf_cipsafety_mode_byte_run_idle;
+static int hf_cipsafety_mode_byte_not_run_idle;
+static int hf_cipsafety_mode_byte_tbd_2_bit;
+static int hf_cipsafety_mode_byte_tbd_2_copy;
+static int hf_cipsafety_mode_byte_ping_count;
+static int hf_cipsafety_mode_byte_tbd;
+static int hf_cipsafety_mode_byte_not_tbd;
+static int hf_cipsafety_crc_s1;
+static int hf_cipsafety_crc_s1_status;
+static int hf_cipsafety_crc_s2;
+static int hf_cipsafety_crc_s2_status;
+static int hf_cipsafety_crc_s3;
+static int hf_cipsafety_crc_s3_status;
+static int hf_cipsafety_complement_crc_s3;
+static int hf_cipsafety_complement_crc_s3_status;
+static int hf_cipsafety_timestamp;
+static int hf_cipsafety_ack_byte;
+static int hf_cipsafety_ack_byte_ping_count_reply;
+static int hf_cipsafety_ack_byte_reserved1;
+static int hf_cipsafety_ack_byte_ping_response;
+static int hf_cipsafety_ack_byte_reserved2;
+static int hf_cipsafety_ack_byte_parity_even;
+static int hf_cipsafety_ack_byte2;
+static int hf_cipsafety_consumer_time_value;
+static int hf_cipsafety_mcast_byte;
+static int hf_cipsafety_mcast_byte_consumer_num;
+static int hf_cipsafety_mcast_byte_reserved1;
+static int hf_cipsafety_mcast_byte_mai;
+static int hf_cipsafety_mcast_byte_reserved2;
+static int hf_cipsafety_mcast_byte_parity_even;
+static int hf_cipsafety_mcast_byte2;
+static int hf_cipsafety_time_correction;
+static int hf_cipsafety_crc_s5_0;
+static int hf_cipsafety_crc_s5_1;
+static int hf_cipsafety_crc_s5_2;
+static int hf_cipsafety_crc_s5_status;
+static int hf_cipsafety_complement_data;
+static int hf_cip_safety_message_encoding;
 
 /* CIP Safety header field identifiers */
-static int hf_cip_reqrsp            = -1;
-static int hf_cip_data              = -1;
+static int hf_cip_reqrsp;
+static int hf_cip_data;
 
 /* Safety Supervisor header field identifiers */
-static int hf_cip_ssupervisor_sc = -1;
-static int hf_cip_ssupervisor_recover_data = -1;
-static int hf_cip_ssupervisor_perform_diag_data = -1;
-static int hf_cip_ssupervisor_configure_request_password = -1;
-static int hf_cip_ssupervisor_configure_request_tunid = -1;
-static int hf_cip_ssupervisor_configure_request_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_configure_request_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_configure_request_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_configure_request_tunid_nodeid = -1;
-static int hf_cip_ssupervisor_configure_request_ounid = -1;
-static int hf_cip_ssupervisor_configure_request_ounid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_configure_request_ounid_snn_date = -1;
-static int hf_cip_ssupervisor_configure_request_ounid_snn_time = -1;
-static int hf_cip_ssupervisor_configure_request_ounid_nodeid = -1;
-static int hf_cip_ssupervisor_validate_configuration_sccrc = -1;
-static int hf_cip_ssupervisor_validate_configuration_scts_timestamp = -1;
-static int hf_cip_ssupervisor_validate_configuration_scts_date = -1;
-static int hf_cip_ssupervisor_validate_configuration_scts_time = -1;
-static int hf_cip_ssupervisor_validate_configuration_ext_error = -1;
-static int hf_cip_ssupervisor_set_password_current_password = -1;
-static int hf_cip_ssupervisor_set_password_new_password = -1;
-static int hf_cip_ssupervisor_configure_lock_value = -1;
-static int hf_cip_ssupervisor_configure_lock_password = -1;
-static int hf_cip_ssupervisor_configure_lock_tunid = -1;
-static int hf_cip_ssupervisor_configure_lock_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_configure_lock_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_configure_lock_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_configure_lock_tunid_nodeid = -1;
-static int hf_cip_ssupervisor_mode_change_value = -1;
-static int hf_cip_ssupervisor_mode_change_password = -1;
-static int hf_cip_ssupervisor_reset_type = -1;
-static int hf_cip_ssupervisor_reset_password = -1;
-static int hf_cip_ssupervisor_reset_tunid = -1;
-static int hf_cip_ssupervisor_reset_tunid_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_reset_tunid_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_reset_tunid_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_reset_tunid_nodeid = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_macid = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_baudrate = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_tunid = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_password = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_cfunid = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_ocpunid = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_reserved = -1;
-static int hf_cip_ssupervisor_reset_attr_bitmap_extended = -1;
-static int hf_cip_ssupervisor_reset_password_data_size = -1;
-static int hf_cip_ssupervisor_reset_password_data = -1;
-static int hf_cip_ssupervisor_propose_tunid_tunid = -1;
-static int hf_cip_ssupervisor_propose_tunid_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_propose_tunid_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_propose_tunid_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_propose_tunid_tunid_nodeid = -1;
-static int hf_cip_ssupervisor_apply_tunid_tunid = -1;
-static int hf_cip_ssupervisor_apply_tunid_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_apply_tunid_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_apply_tunid_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_apply_tunid_tunid_nodeid = -1;
+static int hf_cip_ssupervisor_sc;
+static int hf_cip_ssupervisor_recover_data;
+static int hf_cip_ssupervisor_perform_diag_data;
+static int hf_cip_ssupervisor_configure_request_password;
+static int hf_cip_ssupervisor_configure_request_tunid;
+static int hf_cip_ssupervisor_configure_request_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_configure_request_tunid_snn_date;
+static int hf_cip_ssupervisor_configure_request_tunid_snn_time;
+static int hf_cip_ssupervisor_configure_request_tunid_nodeid;
+static int hf_cip_ssupervisor_configure_request_ounid;
+static int hf_cip_ssupervisor_configure_request_ounid_snn_timestamp;
+static int hf_cip_ssupervisor_configure_request_ounid_snn_date;
+static int hf_cip_ssupervisor_configure_request_ounid_snn_time;
+static int hf_cip_ssupervisor_configure_request_ounid_nodeid;
+static int hf_cip_ssupervisor_validate_configuration_sccrc;
+static int hf_cip_ssupervisor_validate_configuration_scts_timestamp;
+static int hf_cip_ssupervisor_validate_configuration_scts_date;
+static int hf_cip_ssupervisor_validate_configuration_scts_time;
+static int hf_cip_ssupervisor_validate_configuration_ext_error;
+static int hf_cip_ssupervisor_set_password_current_password;
+static int hf_cip_ssupervisor_set_password_new_password;
+static int hf_cip_ssupervisor_configure_lock_value;
+static int hf_cip_ssupervisor_configure_lock_password;
+static int hf_cip_ssupervisor_configure_lock_tunid;
+static int hf_cip_ssupervisor_configure_lock_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_configure_lock_tunid_snn_date;
+static int hf_cip_ssupervisor_configure_lock_tunid_snn_time;
+static int hf_cip_ssupervisor_configure_lock_tunid_nodeid;
+static int hf_cip_ssupervisor_mode_change_value;
+static int hf_cip_ssupervisor_mode_change_password;
+static int hf_cip_ssupervisor_reset_type;
+static int hf_cip_ssupervisor_reset_password;
+static int hf_cip_ssupervisor_reset_tunid;
+static int hf_cip_ssupervisor_reset_tunid_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_reset_tunid_tunid_snn_date;
+static int hf_cip_ssupervisor_reset_tunid_tunid_snn_time;
+static int hf_cip_ssupervisor_reset_tunid_nodeid;
+static int hf_cip_ssupervisor_reset_attr_bitmap;
+static int hf_cip_ssupervisor_reset_attr_bitmap_macid;
+static int hf_cip_ssupervisor_reset_attr_bitmap_baudrate;
+static int hf_cip_ssupervisor_reset_attr_bitmap_tunid;
+static int hf_cip_ssupervisor_reset_attr_bitmap_password;
+static int hf_cip_ssupervisor_reset_attr_bitmap_cfunid;
+static int hf_cip_ssupervisor_reset_attr_bitmap_ocpunid;
+static int hf_cip_ssupervisor_reset_attr_bitmap_reserved;
+static int hf_cip_ssupervisor_reset_attr_bitmap_extended;
+static int hf_cip_ssupervisor_reset_password_data_size;
+static int hf_cip_ssupervisor_reset_password_data;
+static int hf_cip_ssupervisor_propose_tunid_tunid;
+static int hf_cip_ssupervisor_propose_tunid_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_propose_tunid_tunid_snn_date;
+static int hf_cip_ssupervisor_propose_tunid_tunid_snn_time;
+static int hf_cip_ssupervisor_propose_tunid_tunid_nodeid;
+static int hf_cip_ssupervisor_apply_tunid_tunid;
+static int hf_cip_ssupervisor_apply_tunid_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_apply_tunid_tunid_snn_date;
+static int hf_cip_ssupervisor_apply_tunid_tunid_snn_time;
+static int hf_cip_ssupervisor_apply_tunid_tunid_nodeid;
 
-static int hf_cip_ssupervisor_class_subclass = -1;
-static int hf_cip_ssupervisor_num_attr = -1;
-static int hf_cip_ssupervisor_attr_list = -1;
-static int hf_cip_ssupervisor_manufacture_name = -1;
-static int hf_cip_ssupervisor_manufacture_model_number = -1;
-static int hf_cip_ssupervisor_sw_rev_level = -1;
-static int hf_cip_ssupervisor_hw_rev_level = -1;
-static int hf_cip_ssupervisor_manufacture_serial_number = -1;
-static int hf_cip_ssupervisor_device_config = -1;
-static int hf_cip_ssupervisor_device_status = -1;
-static int hf_cip_ssupervisor_exception_status = -1;
-static int hf_cip_ssupervisor_exception_detail_ced_size = -1;
-static int hf_cip_ssupervisor_exception_detail_ced_detail = -1;
-static int hf_cip_ssupervisor_exception_detail_ded_size = -1;
-static int hf_cip_ssupervisor_exception_detail_ded_detail = -1;
-static int hf_cip_ssupervisor_exception_detail_med_size = -1;
-static int hf_cip_ssupervisor_exception_detail_med_detail = -1;
-static int hf_cip_ssupervisor_alarm_enable = -1;
-static int hf_cip_ssupervisor_warning_enable = -1;
-static int hf_cip_ssupervisor_time = -1;
-static int hf_cip_ssupervisor_clock_power_cycle_behavior = -1;
-static int hf_cip_ssupervisor_last_maintenance_date = -1;
-static int hf_cip_ssupervisor_next_scheduled_maintenance_date = -1;
-static int hf_cip_ssupervisor_scheduled_maintenance_expiration_timer = -1;
-static int hf_cip_ssupervisor_scheduled_maintenance_expiration_warning_enable = -1;
-static int hf_cip_ssupervisor_run_hours = -1;
-static int hf_cip_ssupervisor_configuration_lock = -1;
-static int hf_cip_ssupervisor_configuration_unid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_configuration_unid_snn_date = -1;
-static int hf_cip_ssupervisor_configuration_unid_snn_time = -1;
-static int hf_cip_ssupervisor_configuration_unid_nodeid = -1;
-static int hf_cip_ssupervisor_safety_configuration_id_snn_timestamp = -1;
-static int hf_cip_ssupervisor_safety_configuration_id_snn_date = -1;
-static int hf_cip_ssupervisor_safety_configuration_id_snn_time = -1;
-static int hf_cip_ssupervisor_safety_configuration_id_sccrc = -1;
-static int hf_cip_ssupervisor_target_unid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_target_unid_snn_date = -1;
-static int hf_cip_ssupervisor_target_unid_snn_time = -1;
-static int hf_cip_ssupervisor_target_unid_nodeid = -1;
-static int hf_cip_ssupervisor_cp_owners_num_entries = -1;
-static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_date = -1;
-static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_time = -1;
-static int hf_cip_ssupervisor_output_cp_owners_ocpunid_nodeid = -1;
-static int hf_cip_ssupervisor_cp_owners_app_path_size = -1;
-static int hf_cip_ssupervisor_proposed_tunid_snn_timestamp = -1;
-static int hf_cip_ssupervisor_proposed_tunid_snn_date = -1;
-static int hf_cip_ssupervisor_proposed_tunid_snn_time = -1;
-static int hf_cip_ssupervisor_proposed_tunid_nodeid = -1;
-static int hf_cip_ssupervisor_instance_subclass = -1;
+static int hf_cip_ssupervisor_class_subclass;
+static int hf_cip_ssupervisor_num_attr;
+static int hf_cip_ssupervisor_attr_list;
+static int hf_cip_ssupervisor_manufacture_name;
+static int hf_cip_ssupervisor_manufacture_model_number;
+static int hf_cip_ssupervisor_sw_rev_level;
+static int hf_cip_ssupervisor_hw_rev_level;
+static int hf_cip_ssupervisor_manufacture_serial_number;
+static int hf_cip_ssupervisor_device_config;
+static int hf_cip_ssupervisor_device_status;
+static int hf_cip_ssupervisor_exception_status;
+static int hf_cip_ssupervisor_exception_detail_ced_size;
+static int hf_cip_ssupervisor_exception_detail_ced_detail;
+static int hf_cip_ssupervisor_exception_detail_ded_size;
+static int hf_cip_ssupervisor_exception_detail_ded_detail;
+static int hf_cip_ssupervisor_exception_detail_med_size;
+static int hf_cip_ssupervisor_exception_detail_med_detail;
+static int hf_cip_ssupervisor_alarm_enable;
+static int hf_cip_ssupervisor_warning_enable;
+static int hf_cip_ssupervisor_time;
+static int hf_cip_ssupervisor_clock_power_cycle_behavior;
+static int hf_cip_ssupervisor_last_maintenance_date;
+static int hf_cip_ssupervisor_next_scheduled_maintenance_date;
+static int hf_cip_ssupervisor_scheduled_maintenance_expiration_timer;
+static int hf_cip_ssupervisor_scheduled_maintenance_expiration_warning_enable;
+static int hf_cip_ssupervisor_run_hours;
+static int hf_cip_ssupervisor_configuration_lock;
+static int hf_cip_ssupervisor_configuration_unid_snn_timestamp;
+static int hf_cip_ssupervisor_configuration_unid_snn_date;
+static int hf_cip_ssupervisor_configuration_unid_snn_time;
+static int hf_cip_ssupervisor_configuration_unid_nodeid;
+static int hf_cip_ssupervisor_safety_configuration_id_snn_timestamp;
+static int hf_cip_ssupervisor_safety_configuration_id_snn_date;
+static int hf_cip_ssupervisor_safety_configuration_id_snn_time;
+static int hf_cip_ssupervisor_safety_configuration_id_sccrc;
+static int hf_cip_ssupervisor_target_unid_snn_timestamp;
+static int hf_cip_ssupervisor_target_unid_snn_date;
+static int hf_cip_ssupervisor_target_unid_snn_time;
+static int hf_cip_ssupervisor_target_unid_nodeid;
+static int hf_cip_ssupervisor_cp_owners_num_entries;
+static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_timestamp;
+static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_date;
+static int hf_cip_ssupervisor_output_cp_owners_ocpunid_snn_time;
+static int hf_cip_ssupervisor_output_cp_owners_ocpunid_nodeid;
+static int hf_cip_ssupervisor_cp_owners_app_path_size;
+static int hf_cip_ssupervisor_proposed_tunid_snn_timestamp;
+static int hf_cip_ssupervisor_proposed_tunid_snn_date;
+static int hf_cip_ssupervisor_proposed_tunid_snn_time;
+static int hf_cip_ssupervisor_proposed_tunid_nodeid;
+static int hf_cip_ssupervisor_instance_subclass;
 
 
 /* Safety Validator header field identifiers */
-static int hf_cip_svalidator_sc = -1;
+static int hf_cip_svalidator_sc;
 
-static int hf_cip_svalidator_sconn_fault_count = -1;
-static int hf_cip_svalidator_state = -1;
-static int hf_cip_svalidator_type = -1;
-static int hf_cip_svalidator_type_pc = -1;
-static int hf_cip_svalidator_type_conn_type = -1;
-static int hf_cip_svalidator_ping_epi = -1;
-static int hf_cip_svalidator_time_coord_msg_min_mult_size = -1;
-static int hf_cip_svalidator_time_coord_msg_min_mult_item = -1;
-static int hf_cip_svalidator_network_time_multiplier_size = -1;
-static int hf_cip_svalidator_network_time_multiplier_item = -1;
-static int hf_cip_svalidator_timeout_multiplier_size = -1;
-static int hf_cip_svalidator_timeout_multiplier_item = -1;
-static int hf_cip_svalidator_max_consumer_num = -1;
-static int hf_cip_svalidator_data_conn_inst = -1;
-static int hf_cip_svalidator_coordination_conn_inst_size = -1;
-static int hf_cip_svalidator_coordination_conn_inst_item = -1;
-static int hf_cip_svalidator_correction_conn_inst = -1;
-static int hf_cip_svalidator_cco_binding = -1;
-static int hf_cip_svalidator_max_data_age = -1;
-static int hf_cip_svalidator_error_code = -1;
-static int hf_cip_svalidator_prod_cons_fault_count_size = -1;
-static int hf_cip_svalidator_prod_cons_fault_count_item = -1;
+static int hf_cip_svalidator_sconn_fault_count;
+static int hf_cip_svalidator_state;
+static int hf_cip_svalidator_type;
+static int hf_cip_svalidator_type_pc;
+static int hf_cip_svalidator_type_conn_type;
+static int hf_cip_svalidator_ping_epi;
+static int hf_cip_svalidator_time_coord_msg_min_mult_size;
+static int hf_cip_svalidator_time_coord_msg_min_mult_item;
+static int hf_cip_svalidator_network_time_multiplier_size;
+static int hf_cip_svalidator_network_time_multiplier_item;
+static int hf_cip_svalidator_timeout_multiplier_size;
+static int hf_cip_svalidator_timeout_multiplier_item;
+static int hf_cip_svalidator_max_consumer_num;
+static int hf_cip_svalidator_data_conn_inst;
+static int hf_cip_svalidator_coordination_conn_inst_size;
+static int hf_cip_svalidator_coordination_conn_inst_item;
+static int hf_cip_svalidator_correction_conn_inst;
+static int hf_cip_svalidator_cco_binding;
+static int hf_cip_svalidator_max_data_age;
+static int hf_cip_svalidator_error_code;
+static int hf_cip_svalidator_prod_cons_fault_count_size;
+static int hf_cip_svalidator_prod_cons_fault_count_item;
 
-static int hf_cip_sercosiii_link_snn = -1;
-static int hf_cip_sercosiii_link_communication_cycle_time = -1;
-static int hf_cip_sercosiii_link_interface_status = -1;
-static int hf_cip_sercosiii_link_error_count_mstps = -1;
-static int hf_cip_sercosiii_link_sercos_address = -1;
-static int hf_cip_sercosiii_link_error_count_p1 = -1;
-static int hf_cip_sercosiii_link_error_count_p2 = -1;
+static int hf_cip_sercosiii_link_snn;
+static int hf_cip_sercosiii_link_communication_cycle_time;
+static int hf_cip_sercosiii_link_interface_status;
+static int hf_cip_sercosiii_link_error_count_mstps;
+static int hf_cip_sercosiii_link_sercos_address;
+static int hf_cip_sercosiii_link_error_count_p1;
+static int hf_cip_sercosiii_link_error_count_p2;
 
 /* Initialize the subtree pointers */
-static gint ett_cip_safety                = -1;
-static gint ett_path                      = -1;
-static gint ett_cipsafety_mode_byte       = -1;
-static gint ett_cipsafety_ack_byte        = -1;
-static gint ett_cipsafety_mcast_byte      = -1;
+static gint ett_cip_safety;
+static gint ett_path;
+static gint ett_cipsafety_mode_byte;
+static gint ett_cipsafety_ack_byte;
+static gint ett_cipsafety_mcast_byte;
 
-static gint ett_cip_class_s_supervisor    = -1;
-static gint ett_ssupervisor_rrsc          = -1;
-static gint ett_ssupervisor_cmd_data      = -1;
-static gint ett_ssupervisor_propose_tunid = -1;
-static gint ett_ssupervisor_propose_tunid_snn = -1;
-static gint ett_ssupervisor_configure_request_tunid = -1;
-static gint ett_ssupervisor_configure_request_tunid_snn = -1;
-static gint ett_ssupervisor_configure_request_ounid = -1;
-static gint ett_ssupervisor_configure_request_ounid_snn = -1;
-static gint ett_ssupervisor_configure_lock_tunid = -1;
-static gint ett_ssupervisor_configure_lock_tunid_snn = -1;
-static gint ett_ssupervisor_reset_tunid = -1;
-static gint ett_ssupervisor_reset_tunid_snn = -1;
-static gint ett_ssupervisor_apply_tunid = -1;
-static gint ett_ssupervisor_apply_tunid_snn = -1;
-static gint ett_exception_detail_common = -1;
-static gint ett_exception_detail_device = -1;
-static gint ett_exception_detail_manufacturer = -1;
-static gint ett_ssupervisor_configuration_unid = -1;
-static gint ett_ssupervisor_configuration_unid_snn = -1;
-static gint ett_ssupervisor_target_unid = -1;
-static gint ett_ssupervisor_target_unid_snn = -1;
-static gint ett_ssupervisor_output_cp_owners = -1;
-static gint ett_ssupervisor_output_cp_owners_ocpunid = -1;
-static gint ett_ssupervisor_output_cp_owners_ocpunid_snn = -1;
-static gint ett_ssupervisor_proposed_tunid = -1;
-static gint ett_ssupervisor_proposed_tunid_snn = -1;
-static gint ett_cip_ssupervisor_reset_attr_bitmap = -1;
+static gint ett_cip_class_s_supervisor;
+static gint ett_ssupervisor_rrsc;
+static gint ett_ssupervisor_cmd_data;
+static gint ett_ssupervisor_propose_tunid;
+static gint ett_ssupervisor_propose_tunid_snn;
+static gint ett_ssupervisor_configure_request_tunid;
+static gint ett_ssupervisor_configure_request_tunid_snn;
+static gint ett_ssupervisor_configure_request_ounid;
+static gint ett_ssupervisor_configure_request_ounid_snn;
+static gint ett_ssupervisor_configure_lock_tunid;
+static gint ett_ssupervisor_configure_lock_tunid_snn;
+static gint ett_ssupervisor_reset_tunid;
+static gint ett_ssupervisor_reset_tunid_snn;
+static gint ett_ssupervisor_apply_tunid;
+static gint ett_ssupervisor_apply_tunid_snn;
+static gint ett_exception_detail_common;
+static gint ett_exception_detail_device;
+static gint ett_exception_detail_manufacturer;
+static gint ett_ssupervisor_configuration_unid;
+static gint ett_ssupervisor_configuration_unid_snn;
+static gint ett_ssupervisor_target_unid;
+static gint ett_ssupervisor_target_unid_snn;
+static gint ett_ssupervisor_output_cp_owners;
+static gint ett_ssupervisor_output_cp_owners_ocpunid;
+static gint ett_ssupervisor_output_cp_owners_ocpunid_snn;
+static gint ett_ssupervisor_proposed_tunid;
+static gint ett_ssupervisor_proposed_tunid_snn;
+static gint ett_cip_ssupervisor_reset_attr_bitmap;
 
-static gint ett_cip_class_s_validator     = -1;
-static gint ett_svalidator_rrsc           = -1;
-static gint ett_svalidator_cmd_data       = -1;
-static gint ett_svalidator_type           = -1;
+static gint ett_cip_class_s_validator;
+static gint ett_svalidator_rrsc;
+static gint ett_svalidator_cmd_data;
+static gint ett_svalidator_type;
 
-static expert_field ei_cipsafety_tbd_not_complemented = EI_INIT;
-static expert_field ei_cipsafety_tbd2_not_copied = EI_INIT;
-static expert_field ei_cipsafety_run_idle_not_complemented = EI_INIT;
-static expert_field ei_mal_io = EI_INIT;
-static expert_field ei_mal_sercosiii_link_error_count_p1p2 = EI_INIT;
-static expert_field ei_cipsafety_not_complement_data = EI_INIT;
-static expert_field ei_cipsafety_crc_s1 = EI_INIT;
-static expert_field ei_cipsafety_crc_s2 = EI_INIT;
-static expert_field ei_cipsafety_crc_s3 = EI_INIT;
-static expert_field ei_cipsafety_complement_crc_s3 = EI_INIT;
-static expert_field ei_cipsafety_crc_s5 = EI_INIT;
+static expert_field ei_cipsafety_tbd_not_complemented;
+static expert_field ei_cipsafety_tbd2_not_copied;
+static expert_field ei_cipsafety_run_idle_not_complemented;
+static expert_field ei_mal_io;
+static expert_field ei_mal_sercosiii_link_error_count_p1p2;
+static expert_field ei_cipsafety_not_complement_data;
+static expert_field ei_cipsafety_crc_s1;
+static expert_field ei_cipsafety_crc_s2;
+static expert_field ei_cipsafety_crc_s3;
+static expert_field ei_cipsafety_complement_crc_s3;
+static expert_field ei_cipsafety_crc_s5;
 
-static expert_field ei_mal_ssupervisor_exception_detail_ced = EI_INIT;
-static expert_field ei_mal_ssupervisor_exception_detail_ded = EI_INIT;
-static expert_field ei_mal_ssupervisor_exception_detail_med = EI_INIT;
-static expert_field ei_mal_ssupervisor_configuration_unid = EI_INIT;
-static expert_field ei_mal_ssupervisor_safety_configuration_id = EI_INIT;
-static expert_field ei_mal_ssupervisor_target_unid = EI_INIT;
-static expert_field ei_mal_ssupervisor_cp_owners = EI_INIT;
-static expert_field ei_mal_ssupervisor_cp_owners_entry = EI_INIT;
-static expert_field ei_mal_ssupervisor_cp_owners_app_path_size = EI_INIT;
-static expert_field ei_mal_ssupervisor_proposed_tunid = EI_INIT;
-static expert_field ei_info_ssupervisor_tunid_cancel = EI_INIT;
+static expert_field ei_mal_ssupervisor_exception_detail_ced;
+static expert_field ei_mal_ssupervisor_exception_detail_ded;
+static expert_field ei_mal_ssupervisor_exception_detail_med;
+static expert_field ei_mal_ssupervisor_configuration_unid;
+static expert_field ei_mal_ssupervisor_safety_configuration_id;
+static expert_field ei_mal_ssupervisor_target_unid;
+static expert_field ei_mal_ssupervisor_cp_owners;
+static expert_field ei_mal_ssupervisor_cp_owners_entry;
+static expert_field ei_mal_ssupervisor_cp_owners_app_path_size;
+static expert_field ei_mal_ssupervisor_proposed_tunid;
+static expert_field ei_info_ssupervisor_tunid_cancel;
 
-static expert_field ei_mal_svalidator_type = EI_INIT;
-static expert_field ei_mal_svalidator_time_coord_msg_min_mult = EI_INIT;
-static expert_field ei_mal_svalidator_network_time_multiplier = EI_INIT;
-static expert_field ei_mal_svalidator_timeout_multiplier = EI_INIT;
-static expert_field ei_mal_svalidator_coordination_conn_inst = EI_INIT;
-static expert_field ei_mal_svalidator_prod_cons_fault_count = EI_INIT;
+static expert_field ei_mal_svalidator_type;
+static expert_field ei_mal_svalidator_time_coord_msg_min_mult;
+static expert_field ei_mal_svalidator_network_time_multiplier;
+static expert_field ei_mal_svalidator_timeout_multiplier;
+static expert_field ei_mal_svalidator_coordination_conn_inst;
+static expert_field ei_mal_svalidator_prod_cons_fault_count;
 
 static dissector_handle_t cipsafety_handle;
 static dissector_handle_t cipsafety_base_data_handle;
@@ -455,6 +456,32 @@ const range_string safety_max_consumer_numbers[] = {
    { 2, 15, "Multicast" },
 
    { 0, 0, NULL }
+};
+
+enum message_encoding_type {
+   MSG_ENCODING_BASE_1_2_BYTE_DATA,
+   MSG_ENCODING_EXTENDED_1_2_BYTE_DATA,
+   MSG_ENCODING_BASE_3_250_BYTE_DATA,
+   MSG_ENCODING_EXTENDED_3_250_BYTE_DATA,
+   MSG_ENCODING_BASE_TIME_STAMP,
+   MSG_ENCODING_BASE_TIME_COORDINATION,
+   MSG_ENCODING_EXTENDED_TIME_COORDINATION,
+   MSG_ENCODING_BASE_TIME_CORRECTION,
+   MSG_ENCODING_EXTENDED_TIME_CORRECTION,
+};
+
+static const value_string safety_message_encoding_vals[] = {
+   { MSG_ENCODING_BASE_1_2_BYTE_DATA, "Base Format, 1 or 2 Byte Data Section" },
+   { MSG_ENCODING_EXTENDED_1_2_BYTE_DATA, "Extended Format, 1 or 2 Byte Data Section" },
+   { MSG_ENCODING_BASE_3_250_BYTE_DATA, "Base Format, 3 to 250 Byte Data Section" },
+   { MSG_ENCODING_EXTENDED_3_250_BYTE_DATA, "Extended Format, 3 to 250 Byte Data Section" },
+   { MSG_ENCODING_BASE_TIME_STAMP, "Base Format, Time Stamp Section" },
+   { MSG_ENCODING_BASE_TIME_COORDINATION, "Base Format, Time Coordination Section" },
+   { MSG_ENCODING_EXTENDED_TIME_COORDINATION, "Extended Format, Time Coordination Section" },
+   { MSG_ENCODING_BASE_TIME_CORRECTION, "Base Format, Time Correction Section" },
+   { MSG_ENCODING_EXTENDED_TIME_CORRECTION, "Extended Format, Time Correction Section" },
+
+   { 0, NULL }
 };
 
 void cip_safety_128us_fmt(gchar *s, guint32 value)
@@ -1527,6 +1554,9 @@ dissect_mcast_byte( proto_tree *tree, tvbuff_t *tvb, int offset)
 // Base Format Time Correction Message
 static void dissect_base_format_time_correction_message(proto_tree* tree, tvbuff_t* tvb, int offset)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_BASE_TIME_CORRECTION);
+   proto_item_set_generated(it);
+
    dissect_mcast_byte(tree, tvb, offset);
    proto_tree_add_item(tree, hf_cipsafety_time_correction, tvb, offset + 1, 2, ENC_LITTLE_ENDIAN);
    proto_tree_add_item(tree, hf_cipsafety_mcast_byte2, tvb, offset + 3, 1, ENC_LITTLE_ENDIAN);
@@ -1536,6 +1566,9 @@ static void dissect_base_format_time_correction_message(proto_tree* tree, tvbuff
 // Extended Format Time Correction Message
 static void dissect_extended_format_time_correction_message(proto_tree* tree, tvbuff_t* tvb, int offset)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_EXTENDED_TIME_CORRECTION);
+   proto_item_set_generated(it);
+
    dissect_mcast_byte(tree, tvb, offset);
    proto_tree_add_item(tree, hf_cipsafety_time_correction, tvb, offset + 1, 2, ENC_LITTLE_ENDIAN);
    proto_tree_add_item(tree, hf_cipsafety_crc_s5_0, tvb, offset + 3, 1, ENC_LITTLE_ENDIAN);
@@ -1549,6 +1582,9 @@ static void dissect_extended_format_time_correction_message(proto_tree* tree, tv
 static void dissect_base_format_time_stamp_section(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb, int offset,
    gboolean compute_crc, guint8 mode_byte, const cip_connection_triad_t* connection_triad)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_BASE_TIME_STAMP);
+   proto_item_set_generated(it);
+
    proto_tree_add_item(tree, hf_cipsafety_timestamp, tvb, offset, 2, ENC_LITTLE_ENDIAN);
    guint16 timestamp = tvb_get_letohs(tvb, offset);
 
@@ -1574,6 +1610,9 @@ static void dissect_base_format_time_stamp_section(packet_info* pinfo, proto_tre
 static void dissect_base_format_time_coordination_message(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_BASE_TIME_COORDINATION);
+   proto_item_set_generated(it);
+
    dissect_ack_byte(tree, tvb, 0);
    guint8 ack_byte = tvb_get_guint8(tvb, 0);
 
@@ -1602,6 +1641,9 @@ static void dissect_base_format_time_coordination_message(packet_info* pinfo, pr
 static void dissect_extended_format_time_coordination_message(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_EXTENDED_TIME_COORDINATION);
+   proto_item_set_generated(it);
+
    dissect_ack_byte(tree, tvb, 0);
    guint8 ack_byte = tvb_get_guint8(tvb, 0);
 
@@ -1624,6 +1666,9 @@ static void dissect_extended_format_time_coordination_message(packet_info* pinfo
 static void dissect_base_format_1_or_2_byte_data(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb, int io_data_size,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_BASE_1_2_BYTE_DATA);
+   proto_item_set_generated(it);
+
    proto_tree_add_item(tree, hf_cipsafety_data, tvb, 0, io_data_size, ENC_NA);
    dissect_mode_byte(tree, tvb, io_data_size, pinfo);
    guint8 mode_byte = tvb_get_guint8(tvb, io_data_size);
@@ -1663,6 +1708,9 @@ static void dissect_base_format_1_or_2_byte_data(packet_info* pinfo, proto_tree*
 static void dissect_base_format_3_to_250_byte_data(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb, int io_data_size,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_BASE_3_250_BYTE_DATA);
+   proto_item_set_generated(it);
+
    proto_tree_add_item(tree, hf_cipsafety_data, tvb, 0, io_data_size, ENC_NA);
    dissect_mode_byte(tree, tvb, io_data_size, pinfo);
    guint mode_byte = tvb_get_guint8(tvb, io_data_size);
@@ -1710,6 +1758,9 @@ static void dissect_base_format_3_to_250_byte_data(packet_info* pinfo, proto_tre
 static void dissect_extended_format_1_or_2_byte_data(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb, int io_data_size,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad, const cip_safety_packet_data_t* packet_data)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_EXTENDED_1_2_BYTE_DATA);
+   proto_item_set_generated(it);
+
    proto_tree_add_item(tree, hf_cipsafety_data, tvb, 0, io_data_size, ENC_NA);
    dissect_mode_byte(tree, tvb, io_data_size, pinfo);
    guint mode_byte = tvb_get_guint8(tvb, io_data_size);
@@ -1741,6 +1792,9 @@ static void dissect_extended_format_1_or_2_byte_data(packet_info* pinfo, proto_t
 static void dissect_extended_format_3_to_250_byte_data(packet_info* pinfo, proto_tree* tree, tvbuff_t* tvb, int io_data_size,
    gboolean compute_crc, const cip_connection_triad_t* connection_triad, const cip_safety_packet_data_t* packet_data)
 {
+   proto_item* it = proto_tree_add_uint(tree, hf_cip_safety_message_encoding, tvb, 0, 0, MSG_ENCODING_EXTENDED_3_250_BYTE_DATA);
+   proto_item_set_generated(it);
+
    proto_tree_add_item(tree, hf_cipsafety_data, tvb, 0, io_data_size, ENC_NA);
    dissect_mode_byte(tree, tvb, io_data_size, pinfo);
    guint mode_byte = tvb_get_guint8(tvb, io_data_size);
@@ -1832,6 +1886,45 @@ static cip_safety_packet_data_t* get_timestamp_packet_data(packet_info* pinfo, c
    return packet_data;
 }
 
+enum cip_safety_data_type {CIP_SAFETY_DATA_TYPE_UNKNOWN, CIP_SAFETY_PRODUCE, CIP_SAFETY_CONSUME};
+static enum cip_safety_data_type get_cip_safety_data_type(enum enip_connid_type conn_type, const cip_safety_epath_info_t* safety)
+{
+   if (conn_type == ECIDT_O2T && safety->originator_type == CIP_SAFETY_ORIGINATOR_PRODUCER)
+   {
+      return CIP_SAFETY_PRODUCE;
+   }
+   else if (conn_type == ECIDT_O2T && safety->originator_type == CIP_SAFETY_ORIGINATOR_CONSUMER)
+   {
+      return CIP_SAFETY_CONSUME;
+   }
+   else if (conn_type == ECIDT_T2O && safety->originator_type == CIP_SAFETY_ORIGINATOR_PRODUCER)
+   {
+      return CIP_SAFETY_CONSUME;
+   }
+   else if (conn_type == ECIDT_T2O && safety->originator_type == CIP_SAFETY_ORIGINATOR_CONSUMER)
+   {
+      return CIP_SAFETY_PRODUCE;
+   }
+   else
+   {
+      return CIP_SAFETY_DATA_TYPE_UNKNOWN;
+   }
+}
+
+void add_safety_data_type_to_info_column(packet_info *pinfo, enum enip_connid_type conn_type, const cip_safety_epath_info_t* safety)
+{
+   enum cip_safety_data_type data_type = get_cip_safety_data_type(conn_type, safety);
+
+   if (data_type == CIP_SAFETY_CONSUME)
+   {
+      col_append_str(pinfo->cinfo, COL_INFO, " [C->P]");
+   }
+   else  // CIP_SAFETY_PRODUCE
+   {
+      col_append_str(pinfo->cinfo, COL_INFO, " [P->C]");
+   }
+}
+
 static void
 dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int item_length, packet_info *pinfo, cip_safety_info_t* safety_info)
 {
@@ -1881,6 +1974,8 @@ dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int 
       }
 
       /* consumer data */
+      proto_item_append_text(item, " [Consume]");
+      col_append_str(pinfo->cinfo, COL_INFO, " [C->P]");
 
       switch (format)
       {
@@ -1911,6 +2006,9 @@ dissect_cip_safety_data( proto_tree *tree, proto_item *item, tvbuff_t *tvb, int 
          short_format = FALSE;
 
       /* producer data */
+      proto_item_append_text(item, " [Produce]");
+      col_append_str(pinfo->cinfo, COL_INFO, " [P->C]");
+
       switch (format)
       {
       case CIP_SAFETY_BASE_FORMAT:
@@ -2266,7 +2364,7 @@ proto_register_cipsafety(void)
       },
       { &hf_cipsafety_timestamp,
         { "Timestamp", "cipsafety.timestamp",
-          FT_UINT16, BASE_DEC, NULL, 0, NULL, HFILL }
+          FT_UINT16, BASE_CUSTOM, CF_FUNC(cip_safety_128us_fmt), 0, NULL, HFILL }
       },
       { &hf_cipsafety_ack_byte,
         { "ACK Byte", "cipsafety.ack_byte",
@@ -2351,6 +2449,11 @@ proto_register_cipsafety(void)
       { &hf_cipsafety_complement_data,
         { "Complement Data", "cipsafety.complement_data",
           FT_BYTES, BASE_NONE, NULL, 0, NULL, HFILL }
+      },
+
+      { &hf_cip_safety_message_encoding,
+        { "Safety Message Encoding", "cipsafety.message_encoding",
+          FT_UINT32, BASE_DEC, VALS(safety_message_encoding_vals), 0, NULL, HFILL }
       },
 
       { &hf_cip_sercosiii_link_snn,

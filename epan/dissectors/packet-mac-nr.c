@@ -15,9 +15,11 @@
 #include <epan/exceptions.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
+#include <epan/tap.h>
 #include <epan/uat.h>
 
 #include "packet-mac-nr.h"
+#include "packet-mac-3gpp-common.h"
 #include "packet-rlc-nr.h"
 
 void proto_register_mac_nr(void);
@@ -28,310 +30,312 @@ void proto_reg_handoff_mac_nr(void);
  */
 
 /* Initialize the protocol and registered fields. */
-int proto_mac_nr = -1;
+int proto_mac_nr;
+
+static int mac_nr_tap = -1;
 
 static dissector_handle_t rlc_nr_handle;
 
 /* Decoding context */
-static int hf_mac_nr_context = -1;
-static int hf_mac_nr_context_radio_type = -1;
-static int hf_mac_nr_context_direction = -1;
-static int hf_mac_nr_context_rnti = -1;
-static int hf_mac_nr_context_rnti_type = -1;
-static int hf_mac_nr_context_ueid = -1;
-static int hf_mac_nr_context_sysframe_number = -1;
-static int hf_mac_nr_context_slot_number = -1;
-static int hf_mac_nr_context_harqid = -1;
-static int hf_mac_nr_context_bcch_transport_channel = -1;
-static int hf_mac_nr_context_phr_type2_othercell = -1;
+static int hf_mac_nr_context;
+static int hf_mac_nr_context_radio_type;
+static int hf_mac_nr_context_direction;
+static int hf_mac_nr_context_rnti;
+static int hf_mac_nr_context_rnti_type;
+static int hf_mac_nr_context_ueid;
+static int hf_mac_nr_context_sysframe_number;
+static int hf_mac_nr_context_slot_number;
+static int hf_mac_nr_context_harqid;
+static int hf_mac_nr_context_bcch_transport_channel;
+static int hf_mac_nr_context_phr_type2_othercell;
 
 
-static int hf_mac_nr_subheader = -1;
-static int hf_mac_nr_subheader_reserved = -1;
-static int hf_mac_nr_subheader_f = -1;
-static int hf_mac_nr_subheader_length_1_byte = -1;
-static int hf_mac_nr_subheader_length_2_bytes = -1;
-static int hf_mac_nr_lcid = -1;
-static int hf_mac_nr_ulsch_lcid = -1;
-static int hf_mac_nr_dlsch_lcid = -1;
-static int hf_mac_nr_dlsch_elcid_2oct = -1;
-static int hf_mac_nr_ulsch_elcid_2oct = -1;
-static int hf_mac_nr_dlsch_elcid_1oct = -1;
-static int hf_mac_nr_ulsch_elcid_1oct = -1;
-static int hf_mac_nr_dlsch_sdu = -1;
-static int hf_mac_nr_ulsch_sdu = -1;
-static int hf_mac_nr_bcch_pdu = -1;
-static int hf_mac_nr_pcch_pdu = -1;
+static int hf_mac_nr_subheader;
+static int hf_mac_nr_subheader_reserved;
+static int hf_mac_nr_subheader_f;
+static int hf_mac_nr_subheader_length_1_byte;
+static int hf_mac_nr_subheader_length_2_bytes;
+static int hf_mac_nr_lcid;
+static int hf_mac_nr_ulsch_lcid;
+static int hf_mac_nr_dlsch_lcid;
+static int hf_mac_nr_dlsch_elcid_2oct;
+static int hf_mac_nr_ulsch_elcid_2oct;
+static int hf_mac_nr_dlsch_elcid_1oct;
+static int hf_mac_nr_ulsch_elcid_1oct;
+static int hf_mac_nr_dlsch_sdu;
+static int hf_mac_nr_ulsch_sdu;
+static int hf_mac_nr_bcch_pdu;
+static int hf_mac_nr_pcch_pdu;
 
-static int hf_mac_nr_control_crnti = -1;
-static int hf_mac_nr_control_ue_contention_resolution_identity = -1;
-static int hf_mac_nr_control_timing_advance_tagid = -1;
-static int hf_mac_nr_control_timing_advance_command = -1;
-static int hf_mac_nr_control_se_phr_reserved = -1;
-static int hf_mac_nr_control_se_phr_ph = -1;
-static int hf_mac_nr_control_se_phr_pcmax_f_c = -1;
-static int hf_mac_nr_control_recommended_bit_rate_query_lcid = -1;
-static int hf_mac_nr_control_recommended_bit_rate_query_dir = -1;
-static int hf_mac_nr_control_recommended_bit_rate_query_bit_rate = -1;
-static int hf_mac_nr_control_recommended_bit_rate_query_reserved = -1;
-static int hf_mac_nr_control_me_phr_c7_flag = -1;
-static int hf_mac_nr_control_me_phr_c6_flag = -1;
-static int hf_mac_nr_control_me_phr_c5_flag = -1;
-static int hf_mac_nr_control_me_phr_c4_flag = -1;
-static int hf_mac_nr_control_me_phr_c3_flag = -1;
-static int hf_mac_nr_control_me_phr_c2_flag = -1;
-static int hf_mac_nr_control_me_phr_c1_flag = -1;
-static int hf_mac_nr_control_me_phr_c15_flag = -1;
-static int hf_mac_nr_control_me_phr_c14_flag = -1;
-static int hf_mac_nr_control_me_phr_c13_flag = -1;
-static int hf_mac_nr_control_me_phr_c12_flag = -1;
-static int hf_mac_nr_control_me_phr_c11_flag = -1;
-static int hf_mac_nr_control_me_phr_c10_flag = -1;
-static int hf_mac_nr_control_me_phr_c9_flag = -1;
-static int hf_mac_nr_control_me_phr_c8_flag = -1;
-static int hf_mac_nr_control_me_phr_c23_flag = -1;
-static int hf_mac_nr_control_me_phr_c22_flag = -1;
-static int hf_mac_nr_control_me_phr_c21_flag = -1;
-static int hf_mac_nr_control_me_phr_c20_flag = -1;
-static int hf_mac_nr_control_me_phr_c19_flag = -1;
-static int hf_mac_nr_control_me_phr_c18_flag = -1;
-static int hf_mac_nr_control_me_phr_c17_flag = -1;
-static int hf_mac_nr_control_me_phr_c16_flag = -1;
-static int hf_mac_nr_control_me_phr_c31_flag = -1;
-static int hf_mac_nr_control_me_phr_c30_flag = -1;
-static int hf_mac_nr_control_me_phr_c29_flag = -1;
-static int hf_mac_nr_control_me_phr_c28_flag = -1;
-static int hf_mac_nr_control_me_phr_c27_flag = -1;
-static int hf_mac_nr_control_me_phr_c26_flag = -1;
-static int hf_mac_nr_control_me_phr_c25_flag = -1;
-static int hf_mac_nr_control_me_phr_c24_flag = -1;
-static int hf_mac_nr_control_me_phr_entry = -1;
-static int hf_mac_nr_control_me_phr_p = -1;
-static int hf_mac_nr_control_me_phr_v = -1;
-static int hf_mac_nr_control_me_phr_reserved_2 = -1;
-static int hf_mac_nr_control_me_phr_ph_type2_spcell = -1;
-static int hf_mac_nr_control_me_phr_ph_type1_pcell = -1;
-static int hf_mac_nr_control_me_phr_ph_c31 = -1;
-static int hf_mac_nr_control_me_phr_ph_c30 = -1;
-static int hf_mac_nr_control_me_phr_ph_c29 = -1;
-static int hf_mac_nr_control_me_phr_ph_c28 = -1;
-static int hf_mac_nr_control_me_phr_ph_c27 = -1;
-static int hf_mac_nr_control_me_phr_ph_c26 = -1;
-static int hf_mac_nr_control_me_phr_ph_c25 = -1;
-static int hf_mac_nr_control_me_phr_ph_c24 = -1;
-static int hf_mac_nr_control_me_phr_ph_c23 = -1;
-static int hf_mac_nr_control_me_phr_ph_c22 = -1;
-static int hf_mac_nr_control_me_phr_ph_c21 = -1;
-static int hf_mac_nr_control_me_phr_ph_c20 = -1;
-static int hf_mac_nr_control_me_phr_ph_c19 = -1;
-static int hf_mac_nr_control_me_phr_ph_c18 = -1;
-static int hf_mac_nr_control_me_phr_ph_c17 = -1;
-static int hf_mac_nr_control_me_phr_ph_c16 = -1;
-static int hf_mac_nr_control_me_phr_ph_c15 = -1;
-static int hf_mac_nr_control_me_phr_ph_c14 = -1;
-static int hf_mac_nr_control_me_phr_ph_c13 = -1;
-static int hf_mac_nr_control_me_phr_ph_c12 = -1;
-static int hf_mac_nr_control_me_phr_ph_c11 = -1;
-static int hf_mac_nr_control_me_phr_ph_c10 = -1;
-static int hf_mac_nr_control_me_phr_ph_c9 = -1;
-static int hf_mac_nr_control_me_phr_ph_c8 = -1;
-static int hf_mac_nr_control_me_phr_ph_c7 = -1;
-static int hf_mac_nr_control_me_phr_ph_c6 = -1;
-static int hf_mac_nr_control_me_phr_ph_c5 = -1;
-static int hf_mac_nr_control_me_phr_ph_c4 = -1;
-static int hf_mac_nr_control_me_phr_ph_c3 = -1;
-static int hf_mac_nr_control_me_phr_ph_c2 = -1;
-static int hf_mac_nr_control_me_phr_ph_c1 = -1;
-static int hf_mac_nr_control_me_phr_reserved = -1;
-static int hf_mac_nr_control_me_phr_pcmax_f_c_type2_spcell = -1;
-static int hf_mac_nr_control_me_phr_pcmax_f_c_type1_pcell = -1;
+static int hf_mac_nr_control_crnti;
+static int hf_mac_nr_control_ue_contention_resolution_identity;
+static int hf_mac_nr_control_timing_advance_tagid;
+static int hf_mac_nr_control_timing_advance_command;
+static int hf_mac_nr_control_se_phr_reserved;
+static int hf_mac_nr_control_se_phr_ph;
+static int hf_mac_nr_control_se_phr_pcmax_f_c;
+static int hf_mac_nr_control_recommended_bit_rate_query_lcid;
+static int hf_mac_nr_control_recommended_bit_rate_query_dir;
+static int hf_mac_nr_control_recommended_bit_rate_query_bit_rate;
+static int hf_mac_nr_control_recommended_bit_rate_query_reserved;
+static int hf_mac_nr_control_me_phr_c7_flag;
+static int hf_mac_nr_control_me_phr_c6_flag;
+static int hf_mac_nr_control_me_phr_c5_flag;
+static int hf_mac_nr_control_me_phr_c4_flag;
+static int hf_mac_nr_control_me_phr_c3_flag;
+static int hf_mac_nr_control_me_phr_c2_flag;
+static int hf_mac_nr_control_me_phr_c1_flag;
+static int hf_mac_nr_control_me_phr_c15_flag;
+static int hf_mac_nr_control_me_phr_c14_flag;
+static int hf_mac_nr_control_me_phr_c13_flag;
+static int hf_mac_nr_control_me_phr_c12_flag;
+static int hf_mac_nr_control_me_phr_c11_flag;
+static int hf_mac_nr_control_me_phr_c10_flag;
+static int hf_mac_nr_control_me_phr_c9_flag;
+static int hf_mac_nr_control_me_phr_c8_flag;
+static int hf_mac_nr_control_me_phr_c23_flag;
+static int hf_mac_nr_control_me_phr_c22_flag;
+static int hf_mac_nr_control_me_phr_c21_flag;
+static int hf_mac_nr_control_me_phr_c20_flag;
+static int hf_mac_nr_control_me_phr_c19_flag;
+static int hf_mac_nr_control_me_phr_c18_flag;
+static int hf_mac_nr_control_me_phr_c17_flag;
+static int hf_mac_nr_control_me_phr_c16_flag;
+static int hf_mac_nr_control_me_phr_c31_flag;
+static int hf_mac_nr_control_me_phr_c30_flag;
+static int hf_mac_nr_control_me_phr_c29_flag;
+static int hf_mac_nr_control_me_phr_c28_flag;
+static int hf_mac_nr_control_me_phr_c27_flag;
+static int hf_mac_nr_control_me_phr_c26_flag;
+static int hf_mac_nr_control_me_phr_c25_flag;
+static int hf_mac_nr_control_me_phr_c24_flag;
+static int hf_mac_nr_control_me_phr_entry;
+static int hf_mac_nr_control_me_phr_p;
+static int hf_mac_nr_control_me_phr_v;
+static int hf_mac_nr_control_me_phr_reserved_2;
+static int hf_mac_nr_control_me_phr_ph_type2_spcell;
+static int hf_mac_nr_control_me_phr_ph_type1_pcell;
+static int hf_mac_nr_control_me_phr_ph_c31;
+static int hf_mac_nr_control_me_phr_ph_c30;
+static int hf_mac_nr_control_me_phr_ph_c29;
+static int hf_mac_nr_control_me_phr_ph_c28;
+static int hf_mac_nr_control_me_phr_ph_c27;
+static int hf_mac_nr_control_me_phr_ph_c26;
+static int hf_mac_nr_control_me_phr_ph_c25;
+static int hf_mac_nr_control_me_phr_ph_c24;
+static int hf_mac_nr_control_me_phr_ph_c23;
+static int hf_mac_nr_control_me_phr_ph_c22;
+static int hf_mac_nr_control_me_phr_ph_c21;
+static int hf_mac_nr_control_me_phr_ph_c20;
+static int hf_mac_nr_control_me_phr_ph_c19;
+static int hf_mac_nr_control_me_phr_ph_c18;
+static int hf_mac_nr_control_me_phr_ph_c17;
+static int hf_mac_nr_control_me_phr_ph_c16;
+static int hf_mac_nr_control_me_phr_ph_c15;
+static int hf_mac_nr_control_me_phr_ph_c14;
+static int hf_mac_nr_control_me_phr_ph_c13;
+static int hf_mac_nr_control_me_phr_ph_c12;
+static int hf_mac_nr_control_me_phr_ph_c11;
+static int hf_mac_nr_control_me_phr_ph_c10;
+static int hf_mac_nr_control_me_phr_ph_c9;
+static int hf_mac_nr_control_me_phr_ph_c8;
+static int hf_mac_nr_control_me_phr_ph_c7;
+static int hf_mac_nr_control_me_phr_ph_c6;
+static int hf_mac_nr_control_me_phr_ph_c5;
+static int hf_mac_nr_control_me_phr_ph_c4;
+static int hf_mac_nr_control_me_phr_ph_c3;
+static int hf_mac_nr_control_me_phr_ph_c2;
+static int hf_mac_nr_control_me_phr_ph_c1;
+static int hf_mac_nr_control_me_phr_reserved;
+static int hf_mac_nr_control_me_phr_pcmax_f_c_type2_spcell;
+static int hf_mac_nr_control_me_phr_pcmax_f_c_type1_pcell;
 /* TODO: is it worth having separate fields for each SCellIndex for this field too? */
-static int hf_mac_nr_control_me_phr_pcmax_f_c_typeX = -1;
-static int hf_mac_nr_control_recommended_bit_rate_lcid = -1;
-static int hf_mac_nr_control_recommended_bit_rate_dir = -1;
-static int hf_mac_nr_control_recommended_bit_rate_bit_rate = -1;
-static int hf_mac_nr_control_recommended_bit_rate_reserved = -1;
-static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_ad = -1;
-static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_serving_cell_id = -1;
-static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_bwp_id = -1;
-static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_reserved_2 = -1;
-static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_sp_zp_rs_resource_set_id = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_reserved = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_serving_cell_id = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_bwp_id = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_pucch_resource_id = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s8 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s7 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s6 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s5 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s4 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s3 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s2 = -1;
-static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s1 = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_ad = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_srs_resource_set_cell_id = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_srs_resource_set_bwp_id = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_reserved = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_c = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_sul = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_sp_srs_resource_set_id = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_f = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_resource_id = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_resource_id_ssb = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_resource_serving_cell_id = -1;
-static int hf_mac_nr_control_sp_srs_act_deact_resource_bwp_id = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_reserved = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_serving_cell_id = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_bwp_id = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s7 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s6 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s5 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s4 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s3 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s2 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s1 = -1;
-static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s0 = -1;
-static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_serving_cell_id = -1;
-static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_coreset_id = -1;
-static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_tci_state_id = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_reserved = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_serving_cell_id = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_bwp_id = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t7 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t6 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t5 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t4 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t3 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t2 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t1 = -1;
-static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t0 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_reserved = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_serving_cell_id = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_bwp_id = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t7 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t6 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t5 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t4 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t3 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t2 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t1 = -1;
-static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t0 = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_ad = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_serving_cell_id = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_bwp_id = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_im = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_sp_csi_rs_res_set_id = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved2 = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_sp_csi_im_res_set_id = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved3 = -1;
-static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_tci_state_id = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb7 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb6 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb5 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb4 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb3 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb2 = -1;
-static int hf_mac_nr_control_dupl_act_deact_drb1 = -1;
-static int hf_mac_nr_control_dupl_act_deact_reserved = -1;
-static int hf_mac_nr_control_scell_act_deact_cell7 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell6 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell5 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell4 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell3 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell2 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell1 = -1;
-static int hf_mac_nr_control_scell_act_deact_reserved = -1;
-static int hf_mac_nr_control_scell_act_deact_cell15 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell14 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell13 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell12 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell11 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell10 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell9 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell8 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell23 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell22 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell21 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell20 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell19 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell18 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell17 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell16 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell31 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell30 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell29 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell28 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell27 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell26 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell25 = -1;
-static int hf_mac_nr_control_scell_act_deact_cell24 = -1;
-static int hf_mac_nr_control_bsr_short_lcg = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg0 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg1 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg2 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg3 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg4 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg5 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg6 = -1;
-static int hf_mac_nr_control_bsr_short_bs_lcg7 = -1;
-static int hf_mac_nr_control_bsr_long_lcg7 = -1;
-static int hf_mac_nr_control_bsr_long_lcg6 = -1;
-static int hf_mac_nr_control_bsr_long_lcg5 = -1;
-static int hf_mac_nr_control_bsr_long_lcg4 = -1;
-static int hf_mac_nr_control_bsr_long_lcg3 = -1;
-static int hf_mac_nr_control_bsr_long_lcg2 = -1;
-static int hf_mac_nr_control_bsr_long_lcg1 = -1;
-static int hf_mac_nr_control_bsr_long_lcg0 = -1;
-static int hf_mac_nr_control_bsr_trunc_long_bs = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg0 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg1 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg2 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg3 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg4 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg5 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg6 = -1;
-static int hf_mac_nr_control_bsr_long_bs_lcg7 = -1;
-static int hf_mac_nr_control_timing_advance_report_reserved = -1;
-static int hf_mac_nr_control_timing_advance_report_ta = -1;
+static int hf_mac_nr_control_me_phr_pcmax_f_c_typeX;
+static int hf_mac_nr_control_recommended_bit_rate_lcid;
+static int hf_mac_nr_control_recommended_bit_rate_dir;
+static int hf_mac_nr_control_recommended_bit_rate_bit_rate;
+static int hf_mac_nr_control_recommended_bit_rate_reserved;
+static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_ad;
+static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_serving_cell_id;
+static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_bwp_id;
+static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_reserved_2;
+static int hf_mac_control_sp_zp_csi_rs_resource_set_act_deact_sp_zp_rs_resource_set_id;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_reserved;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_serving_cell_id;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_bwp_id;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_pucch_resource_id;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s8;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s7;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s6;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s5;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s4;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s3;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s2;
+static int hf_mac_nr_control_pucch_spatial_rel_act_deact_s1;
+static int hf_mac_nr_control_sp_srs_act_deact_ad;
+static int hf_mac_nr_control_sp_srs_act_deact_srs_resource_set_cell_id;
+static int hf_mac_nr_control_sp_srs_act_deact_srs_resource_set_bwp_id;
+static int hf_mac_nr_control_sp_srs_act_deact_reserved;
+static int hf_mac_nr_control_sp_srs_act_deact_c;
+static int hf_mac_nr_control_sp_srs_act_deact_sul;
+static int hf_mac_nr_control_sp_srs_act_deact_sp_srs_resource_set_id;
+static int hf_mac_nr_control_sp_srs_act_deact_f;
+static int hf_mac_nr_control_sp_srs_act_deact_resource_id;
+static int hf_mac_nr_control_sp_srs_act_deact_resource_id_ssb;
+static int hf_mac_nr_control_sp_srs_act_deact_resource_serving_cell_id;
+static int hf_mac_nr_control_sp_srs_act_deact_resource_bwp_id;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_reserved;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_serving_cell_id;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_bwp_id;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s7;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s6;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s5;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s4;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s3;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s2;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s1;
+static int hf_mac_nr_control_sp_csi_report_on_pucch_act_deact_s0;
+static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_serving_cell_id;
+static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_coreset_id;
+static int hf_mac_nr_control_tci_state_ind_for_ue_spec_pdcch_tci_state_id;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_reserved;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_serving_cell_id;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_bwp_id;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t7;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t6;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t5;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t4;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t3;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t2;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t1;
+static int hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t0;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_reserved;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_serving_cell_id;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_bwp_id;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t7;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t6;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t5;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t4;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t3;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t2;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t1;
+static int hf_mac_nr_control_aper_csi_trigger_state_subselect_t0;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_ad;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_serving_cell_id;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_bwp_id;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_im;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_sp_csi_rs_res_set_id;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved2;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_sp_csi_im_res_set_id;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved3;
+static int hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_tci_state_id;
+static int hf_mac_nr_control_dupl_act_deact_drb7;
+static int hf_mac_nr_control_dupl_act_deact_drb6;
+static int hf_mac_nr_control_dupl_act_deact_drb5;
+static int hf_mac_nr_control_dupl_act_deact_drb4;
+static int hf_mac_nr_control_dupl_act_deact_drb3;
+static int hf_mac_nr_control_dupl_act_deact_drb2;
+static int hf_mac_nr_control_dupl_act_deact_drb1;
+static int hf_mac_nr_control_dupl_act_deact_reserved;
+static int hf_mac_nr_control_scell_act_deact_cell7;
+static int hf_mac_nr_control_scell_act_deact_cell6;
+static int hf_mac_nr_control_scell_act_deact_cell5;
+static int hf_mac_nr_control_scell_act_deact_cell4;
+static int hf_mac_nr_control_scell_act_deact_cell3;
+static int hf_mac_nr_control_scell_act_deact_cell2;
+static int hf_mac_nr_control_scell_act_deact_cell1;
+static int hf_mac_nr_control_scell_act_deact_reserved;
+static int hf_mac_nr_control_scell_act_deact_cell15;
+static int hf_mac_nr_control_scell_act_deact_cell14;
+static int hf_mac_nr_control_scell_act_deact_cell13;
+static int hf_mac_nr_control_scell_act_deact_cell12;
+static int hf_mac_nr_control_scell_act_deact_cell11;
+static int hf_mac_nr_control_scell_act_deact_cell10;
+static int hf_mac_nr_control_scell_act_deact_cell9;
+static int hf_mac_nr_control_scell_act_deact_cell8;
+static int hf_mac_nr_control_scell_act_deact_cell23;
+static int hf_mac_nr_control_scell_act_deact_cell22;
+static int hf_mac_nr_control_scell_act_deact_cell21;
+static int hf_mac_nr_control_scell_act_deact_cell20;
+static int hf_mac_nr_control_scell_act_deact_cell19;
+static int hf_mac_nr_control_scell_act_deact_cell18;
+static int hf_mac_nr_control_scell_act_deact_cell17;
+static int hf_mac_nr_control_scell_act_deact_cell16;
+static int hf_mac_nr_control_scell_act_deact_cell31;
+static int hf_mac_nr_control_scell_act_deact_cell30;
+static int hf_mac_nr_control_scell_act_deact_cell29;
+static int hf_mac_nr_control_scell_act_deact_cell28;
+static int hf_mac_nr_control_scell_act_deact_cell27;
+static int hf_mac_nr_control_scell_act_deact_cell26;
+static int hf_mac_nr_control_scell_act_deact_cell25;
+static int hf_mac_nr_control_scell_act_deact_cell24;
+static int hf_mac_nr_control_bsr_short_lcg;
+static int hf_mac_nr_control_bsr_short_bs_lcg0;
+static int hf_mac_nr_control_bsr_short_bs_lcg1;
+static int hf_mac_nr_control_bsr_short_bs_lcg2;
+static int hf_mac_nr_control_bsr_short_bs_lcg3;
+static int hf_mac_nr_control_bsr_short_bs_lcg4;
+static int hf_mac_nr_control_bsr_short_bs_lcg5;
+static int hf_mac_nr_control_bsr_short_bs_lcg6;
+static int hf_mac_nr_control_bsr_short_bs_lcg7;
+static int hf_mac_nr_control_bsr_long_lcg7;
+static int hf_mac_nr_control_bsr_long_lcg6;
+static int hf_mac_nr_control_bsr_long_lcg5;
+static int hf_mac_nr_control_bsr_long_lcg4;
+static int hf_mac_nr_control_bsr_long_lcg3;
+static int hf_mac_nr_control_bsr_long_lcg2;
+static int hf_mac_nr_control_bsr_long_lcg1;
+static int hf_mac_nr_control_bsr_long_lcg0;
+static int hf_mac_nr_control_bsr_trunc_long_bs;
+static int hf_mac_nr_control_bsr_long_bs_lcg0;
+static int hf_mac_nr_control_bsr_long_bs_lcg1;
+static int hf_mac_nr_control_bsr_long_bs_lcg2;
+static int hf_mac_nr_control_bsr_long_bs_lcg3;
+static int hf_mac_nr_control_bsr_long_bs_lcg4;
+static int hf_mac_nr_control_bsr_long_bs_lcg5;
+static int hf_mac_nr_control_bsr_long_bs_lcg6;
+static int hf_mac_nr_control_bsr_long_bs_lcg7;
+static int hf_mac_nr_control_timing_advance_report_reserved;
+static int hf_mac_nr_control_timing_advance_report_ta;
 
-static int hf_mac_nr_rar = -1;
-static int hf_mac_nr_rar_subheader = -1;
-static int hf_mac_nr_rar_e = -1;
-static int hf_mac_nr_rar_t = -1;
-static int hf_mac_nr_rar_reserved = -1;
-static int hf_mac_nr_rar_reserved1 = -1;
+static int hf_mac_nr_rar;
+static int hf_mac_nr_rar_subheader;
+static int hf_mac_nr_rar_e;
+static int hf_mac_nr_rar_t;
+static int hf_mac_nr_rar_reserved;
+static int hf_mac_nr_rar_reserved1;
 
-static int hf_mac_nr_rar_bi = -1;
-static int hf_mac_nr_rar_rapid = -1;
-static int hf_mac_nr_rar_ta = -1;
-static int hf_mac_nr_rar_grant = -1;
-static int hf_mac_nr_rar_grant_hopping = -1;
-static int hf_mac_nr_rar_grant_fra = -1;
-static int hf_mac_nr_rar_grant_tsa = -1;
-static int hf_mac_nr_rar_grant_mcs = -1;
-static int hf_mac_nr_rar_grant_tcsp = -1;
-static int hf_mac_nr_rar_grant_csi = -1;
+static int hf_mac_nr_rar_bi;
+static int hf_mac_nr_rar_rapid;
+static int hf_mac_nr_rar_ta;
+static int hf_mac_nr_rar_grant;
+static int hf_mac_nr_rar_grant_hopping;
+static int hf_mac_nr_rar_grant_fra;
+static int hf_mac_nr_rar_grant_tsa;
+static int hf_mac_nr_rar_grant_mcs;
+static int hf_mac_nr_rar_grant_tcsp;
+static int hf_mac_nr_rar_grant_csi;
 
-static int hf_mac_nr_rar_temp_crnti = -1;
+static int hf_mac_nr_rar_temp_crnti;
 
-static int hf_mac_nr_padding = -1;
+static int hf_mac_nr_padding;
 
-static int hf_mac_nr_differential_koffset = -1;
-static int hf_mac_nr_differential_koffset_reserved = -1;
+static int hf_mac_nr_differential_koffset;
+static int hf_mac_nr_differential_koffset_reserved;
 /* Subtrees. */
-static int ett_mac_nr = -1;
-static int ett_mac_nr_context = -1;
-static int ett_mac_nr_subheader = -1;
-static int ett_mac_nr_rar_subheader = -1;
-static int ett_mac_nr_rar_grant = -1;
-static int ett_mac_nr_me_phr_entry = -1;
+static int ett_mac_nr;
+static int ett_mac_nr_context;
+static int ett_mac_nr_subheader;
+static int ett_mac_nr_rar_subheader;
+static int ett_mac_nr_rar_grant;
+static int ett_mac_nr_me_phr_entry;
 
-static expert_field ei_mac_nr_no_per_frame_data = EI_INIT;
-static expert_field ei_mac_nr_sdu_length_different_from_dissected = EI_INIT;
-static expert_field ei_mac_nr_unknown_udp_framing_tag = EI_INIT;
-static expert_field ei_mac_nr_dl_sch_control_subheader_after_data_subheader = EI_INIT;
-static expert_field ei_mac_nr_ul_sch_control_subheader_before_data_subheader = EI_INIT;
+static expert_field ei_mac_nr_no_per_frame_data;
+static expert_field ei_mac_nr_sdu_length_different_from_dissected;
+static expert_field ei_mac_nr_unknown_udp_framing_tag;
+static expert_field ei_mac_nr_dl_sch_control_subheader_after_data_subheader;
+static expert_field ei_mac_nr_ul_sch_control_subheader_before_data_subheader;
 
 
 static dissector_handle_t nr_rrc_bcch_bch_handle;
@@ -1343,7 +1347,9 @@ call_with_catch_all(dissector_handle_t handle, tvbuff_t* tvb, packet_info *pinfo
 /* Dissect BCCH PDU */
 static void dissect_bcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                          proto_item *pdu_ti,
-                         int offset, mac_nr_info *p_mac_nr_info)
+                         int offset,
+                         mac_nr_info *p_mac_nr_info,
+                         mac_3gpp_tap_info *tap_info _U_)
 {
     proto_item *ti;
 
@@ -1386,7 +1392,9 @@ static void dissect_bcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 /* Dissect PCCH PDU */
 static void dissect_pcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
-                         proto_item *pdu_ti, int offset, mac_nr_info *p_mac_nr_info _U_)
+                         proto_item *pdu_ti, int offset,
+                         mac_nr_info *p_mac_nr_info _U_,
+                         mac_3gpp_tap_info *tap_info _U_)
 {
     proto_item *ti;
 
@@ -1400,6 +1408,8 @@ static void dissect_pcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* Always show as raw data */
     ti = proto_tree_add_item(tree, hf_mac_nr_pcch_pdu,
                              tvb, offset, -1, ENC_NA);
+
+    // TODO: add to tap_info->number_of_paging_ids.  See LTE.
 
     if (global_mac_nr_attempt_rrc_decode) {
 
@@ -1416,7 +1426,7 @@ static void dissect_pcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                         proto_item *pdu_ti _U_, guint32 offset,
-                        mac_nr_info *p_mac_nr_info _U_)
+                        mac_nr_info *p_mac_nr_info, mac_3gpp_tap_info *tap_info)
 {
     write_pdu_label_and_info(pdu_ti, NULL, pinfo,
                              "RAR (RA-RNTI=%u) ",
@@ -1480,7 +1490,6 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                     &hf_mac_nr_rar_grant_csi,
                     NULL
                 };
-
                 proto_tree_add_bitmask(rar_subheader_tree, tvb, offset, hf_mac_nr_rar_grant,
                                        ett_mac_nr_rar_grant, rar_grant_fields, ENC_BIG_ENDIAN);
                 offset += 4;
@@ -1493,10 +1502,7 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                 write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
                                          "(RAPID=%u TA=%u Temp C-RNTI=%u) ", rapid, ta, c_rnti);
             }
-            //else {
-            //    write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-            //                             "(RAPID=%u) ", rapid);
-            //}
+            tap_info->number_of_rars++;
         }
         /* Set subheader (+subpdu..) length */
         proto_item_set_end(subheader_ti, tvb, offset);
@@ -1507,6 +1513,10 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     if (tvb_reported_length_remaining(tvb, offset)) {
         proto_tree_add_item(tree, hf_mac_nr_padding, tvb, offset, -1, ENC_NA);
     }
+
+    /* Update padding bytes in stats */
+    tap_info->padding_bytes += (p_mac_nr_info->length - offset);
+
 }
 
 static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
@@ -1859,7 +1869,8 @@ mac_nr_pcmax_f_c_fmt(gchar *s, guint32 v)
 static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                    proto_item *pdu_ti, guint32 offset,
                                    mac_nr_info *p_mac_nr_info,
-                                   proto_tree *context_tree _U_)
+                                   proto_tree *context_tree _U_,
+                                   mac_3gpp_tap_info *tap_info)
 {
     gboolean ces_seen = FALSE;
     gboolean data_seen = FALSE;
@@ -1867,6 +1878,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
     write_pdu_label_and_info(pdu_ti, NULL, pinfo,
                              "%s ",
                              (p_mac_nr_info->direction == DIRECTION_UPLINK) ? "UL-SCH" : "DL-SCH");
+
+    tap_info->raw_length = p_mac_nr_info->length;
 
     /************************************************************************/
     /* Dissect each sub-pdu.                                             */
@@ -1983,6 +1996,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 guint8 seqnum_length;
                 gint drb_id;
 
+                tap_info->sdus_for_lcid[lcid]++;
+                tap_info->bytes_for_lcid[lcid] += SDU_length;
+
                 // TODO: priority not set.
                 guint8 priority = 0;
                 lookup_rlc_bearer_from_lcid(p_mac_nr_info->ueid,
@@ -2022,6 +2038,10 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         break;
                 }
             } else if (lcid >= 1 && lcid <= 3) {
+
+                tap_info->sdus_for_lcid[lcid]++;
+                tap_info->bytes_for_lcid[lcid] += SDU_length;
+
                 if (global_mac_nr_attempt_srb_decode) {
                     /* SRB, call RLC dissector */
                     /* These are defaults (38.331, 9.2.1) - only priority may be overridden, but not passing in yet. */
@@ -3022,6 +3042,10 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
     gint                 offset = 0;
     struct mac_nr_info *p_mac_nr_info;
 
+    /* Allocate and zero tap struct */
+    mac_3gpp_tap_info *tap_info = wmem_new0(wmem_file_scope(), mac_3gpp_tap_info);
+    tap_info->rat = MAC_RAT_NR;
+
     /* Set protocol name */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "MAC-NR");
 
@@ -3107,18 +3131,29 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
         }
     }
 
+    /* Set context-info parts of tap struct */
+    tap_info->rnti = p_mac_nr_info->rnti;
+    tap_info->ueid = p_mac_nr_info->ueid;
+    tap_info->rntiType = p_mac_nr_info->rntiType;
+    tap_info->isPredefinedData = FALSE;
+    tap_info->isPHYRetx =      FALSE;  /* don't really know */
+    tap_info->crcStatusValid = FALSE;  /* don't really know */
+    tap_info->direction = p_mac_nr_info->direction;
+
+    tap_info->mac_time = pinfo->abs_ts;
+    tap_info->single_number_of_bytes = tvb_reported_length_remaining(tvb, offset);
 
     /* Dissect the MAC PDU itself. Format depends upon RNTI type. */
     switch (p_mac_nr_info->rntiType) {
 
         case P_RNTI:
             /* PCCH PDU */
-            dissect_pcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info);
+            dissect_pcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info, tap_info);
             break;
 
         case RA_RNTI:
             /* RAR PDU */
-            dissect_rar(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info);
+            dissect_rar(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info, tap_info);
             break;
 
         case C_RNTI:
@@ -3126,23 +3161,27 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
             /* Can be UL-SCH or DL-SCH */
             dissect_ulsch_or_dlsch(tvb, pinfo, mac_nr_tree, pdu_ti, offset,
                                    p_mac_nr_info,
-                                   context_tree);
+                                   context_tree,
+                                   tap_info);
             break;
 
         case SI_RNTI:
             /* BCCH over DL-SCH */
-            dissect_bcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info);
+            dissect_bcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset,
+                         p_mac_nr_info, tap_info);
             break;
 
         case NO_RNTI:
             /* Must be BCCH over BCH... */
-            dissect_bcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info);
+            dissect_bcch(tvb, pinfo, mac_nr_tree, pdu_ti, offset,
+                         p_mac_nr_info, tap_info);
             break;
-
 
         default:
             break;
     }
+
+    tap_queue_packet(mac_nr_tap, pinfo, tap_info);
 
     return -1;
 }
@@ -3154,7 +3193,6 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
     gint        offset = 0;
     mac_nr_info *p_mac_nr_info;
     tvbuff_t    *mac_tvb;
-    guint8      tag;
 
     /* Needs to be at least as long as:
        - the signature string
@@ -3176,66 +3214,11 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
     if (p_mac_nr_info == NULL) {
         /* Allocate new info struct for this frame */
         p_mac_nr_info = wmem_new0(wmem_file_scope(), mac_nr_info);
-
-        /* Read fixed fields */
-        p_mac_nr_info->radioType = tvb_get_guint8(tvb, offset++);
-        p_mac_nr_info->direction = tvb_get_guint8(tvb, offset++);
-        p_mac_nr_info->rntiType = tvb_get_guint8(tvb, offset++);
-
-        /* Read optional fields */
-        do {
-            /* Process next tag */
-            tag = tvb_get_guint8(tvb, offset++);
-            switch (tag) {
-                case MAC_NR_RNTI_TAG:
-                    p_mac_nr_info->rnti = tvb_get_ntohs(tvb, offset);
-                    offset += 2;
-                    break;
-                case MAC_NR_UEID_TAG:
-                    p_mac_nr_info->ueid = tvb_get_ntohs(tvb, offset);
-                    offset += 2;
-                    break;
-                case MAC_NR_HARQID:
-                    p_mac_nr_info->harqid = tvb_get_guint8(tvb, offset);
-                    offset++;
-                    break;
-                case MAC_NR_FRAME_SUBFRAME_TAG:
-                    /* deprecated */
-                    offset += 2;
-                    break;
-                case MAC_NR_PHR_TYPE2_OTHERCELL_TAG:
-                    p_mac_nr_info->phr_type2_othercell = tvb_get_guint8(tvb, offset);
-                    offset++;
-                    break;
-                case MAC_NR_FRAME_SLOT_TAG:
-                    p_mac_nr_info->sfnSlotInfoPresent = TRUE;
-                    p_mac_nr_info->sysframeNumber = tvb_get_ntohs(tvb, offset);
-                    p_mac_nr_info->slotNumber = tvb_get_ntohs(tvb, offset+2);
-                    offset += 4;
-                    break;
-                case MAC_NR_PAYLOAD_TAG:
-                    /* Have reached data, so set payload length and get out of loop */
-                    /* TODO: this is not correct if there is padding which isn't in frame */
-                    p_mac_nr_info->length = tvb_reported_length_remaining(tvb, offset);
-                    continue;
-                default:
-                    /* It must be a recognised tag */
-                    {
-                        proto_item *ti;
-                        proto_tree *subtree;
-
-                        col_set_str(pinfo->cinfo, COL_PROTOCOL, "MAC-NR");
-                        col_clear(pinfo->cinfo, COL_INFO);
-                        ti = proto_tree_add_item(tree, proto_mac_nr, tvb, offset, tvb_reported_length(tvb), ENC_NA);
-                        subtree = proto_item_add_subtree(ti, ett_mac_nr);
-                        proto_tree_add_expert(subtree, pinfo, &ei_mac_nr_unknown_udp_framing_tag,
-                                              tvb, offset-1, 1);
-                    }
-                    wmem_free(wmem_file_scope(), p_mac_nr_info);
-                    return TRUE;
-            }
-        } while (tag != MAC_NR_PAYLOAD_TAG);
-
+        /* Dissect the fields to populate p_mac_nr */
+        if(!dissect_mac_nr_context_fields(p_mac_nr_info, tvb, pinfo, tree, &offset)){
+            return TRUE;
+        }
+        /* Store info in packet */
         p_add_proto_data(wmem_file_scope(), pinfo, proto_mac_nr, 0, p_mac_nr_info);
     }
     else {
@@ -3252,6 +3235,78 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
     return TRUE;
 }
 
+/* Dissect context fields in the format described in packet-mac-nr.h.
+   Return TRUE if the necessary information was successfully found */
+gboolean dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuff_t *tvb,
+                                       packet_info *pinfo, proto_tree *tree, gint *p_offset)
+{
+    gint    offset = *p_offset;
+    guint8  tag = 0;
+
+    /* Read fixed fields */
+    p_mac_nr_info->radioType = tvb_get_guint8(tvb, offset++);
+    p_mac_nr_info->direction = tvb_get_guint8(tvb, offset++);
+    p_mac_nr_info->rntiType = tvb_get_guint8(tvb, offset++);
+
+    /* Read optional fields */
+    do {
+        /* Process next tag */
+        tag = tvb_get_guint8(tvb, offset++);
+        switch (tag) {
+            case MAC_NR_RNTI_TAG:
+                p_mac_nr_info->rnti = tvb_get_ntohs(tvb, offset);
+                offset += 2;
+                break;
+            case MAC_NR_UEID_TAG:
+                p_mac_nr_info->ueid = tvb_get_ntohs(tvb, offset);
+                offset += 2;
+                break;
+            case MAC_NR_HARQID:
+                p_mac_nr_info->harqid = tvb_get_guint8(tvb, offset);
+                offset++;
+                break;
+            case MAC_NR_FRAME_SUBFRAME_TAG:
+                /* deprecated */
+                offset += 2;
+                break;
+            case MAC_NR_PHR_TYPE2_OTHERCELL_TAG:
+                p_mac_nr_info->phr_type2_othercell = tvb_get_guint8(tvb, offset);
+                offset++;
+                break;
+            case MAC_NR_FRAME_SLOT_TAG:
+                p_mac_nr_info->sfnSlotInfoPresent = TRUE;
+                p_mac_nr_info->sysframeNumber = tvb_get_ntohs(tvb, offset);
+                p_mac_nr_info->slotNumber = tvb_get_ntohs(tvb, offset+2);
+                offset += 4;
+                break;
+            case MAC_NR_PAYLOAD_TAG:
+                /* Have reached data, so set payload length and get out of loop */
+                /* TODO: this is not correct if there is padding which isn't in frame */
+                p_mac_nr_info->length = tvb_reported_length_remaining(tvb, offset);
+                continue;
+            default:
+                /* It must be a recognised tag */
+                {
+                    proto_item *ti;
+                    proto_tree *subtree;
+
+                    col_set_str(pinfo->cinfo, COL_PROTOCOL, "MAC-NR");
+                    col_clear(pinfo->cinfo, COL_INFO);
+                    ti = proto_tree_add_item(tree, proto_mac_nr, tvb, offset, tvb_reported_length(tvb), ENC_NA);
+                    subtree = proto_item_add_subtree(ti, ett_mac_nr);
+                    proto_tree_add_expert(subtree, pinfo, &ei_mac_nr_unknown_udp_framing_tag,
+                                          tvb, offset-1, 1);
+                }
+                wmem_free(wmem_file_scope(), p_mac_nr_info);
+                return TRUE;
+        }
+    } while (tag != MAC_NR_PAYLOAD_TAG);
+
+    /* Pass out where offset is now */
+    *p_offset = offset;
+
+    return TRUE;
+}
 
 /* Callback used as part of configuring a channel mapping using UAT */
 static void* lcid_drb_mapping_copy_cb(void* dest, const void* orig, size_t len _U_)
@@ -5118,6 +5173,9 @@ void proto_register_mac_nr(void)
 
     /* Allow other dissectors to find this one by name. */
     register_dissector("mac-nr", dissect_mac_nr, proto_mac_nr);
+
+    /* Register the tap name. */
+    mac_nr_tap = register_tap("mac-3gpp");
 
     /* Preferences */
     mac_nr_module = prefs_register_protocol(proto_mac_nr, NULL);

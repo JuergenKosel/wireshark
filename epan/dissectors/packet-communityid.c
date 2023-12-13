@@ -405,13 +405,13 @@ static gboolean communityid_calc(communityid_cfg_t *cfg, guint8 proto,
 
 void proto_register_communityid(void);
 
-static int proto_communityid = -1;
-static int proto_ip = -1;
-static int proto_ipv6 = -1;
-static int proto_icmp = -1;
-static int proto_icmpv6 = -1;
+static int proto_communityid;
+static int proto_ip;
+static int proto_ipv6;
+static int proto_icmp;
+static int proto_icmpv6;
 
-static int hf_communityid_hash = -1;
+static int hf_communityid_hash;
 
 static dissector_handle_t communityid_handle;
 
@@ -472,7 +472,7 @@ static int communityid_dissector(tvbuff_t *tvb, packet_info *pinfo,
     cid_cfg.cfg_seed = (guint16) pref_cid_seed;
 
     /* If not yet done, establish global handles for required protocols. */
-    if (proto_ip < 0) {
+    if (proto_ip <= 0) {
         proto_ip = proto_get_id_by_filter_name("ip");
         proto_ipv6 = proto_get_id_by_filter_name("ipv6");
         proto_icmp = proto_get_id_by_filter_name("icmp");
@@ -485,7 +485,7 @@ static int communityid_dissector(tvbuff_t *tvb, packet_info *pinfo,
         proto_ip_found = proto_ipv6;
 
     /* If this frame isn't IP at all, we're done. */
-    if (proto_ip_found < 0)
+    if (proto_ip_found <= 0)
         return 0;
 
     /* Next, look specifically for ICMP state stored by dissectors: */

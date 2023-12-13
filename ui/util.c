@@ -25,7 +25,10 @@
 
 #include "epan/address.h"
 #include "epan/addr_resolv.h"
+#include "epan/prefs.h"
 #include "epan/strutil.h"
+
+#include <wsutil/filesystem.h>
 
 #include "ui/util.h"
 
@@ -337,4 +340,75 @@ gboolean display_is_remote(void)
         is_remote = (strlen(get_conn_cfilter()) > 0);
     }
     return is_remote;
+}
+
+// MUST be UTF-8
+static char *last_open_dir = NULL;
+
+const char *
+get_last_open_dir(void)
+{
+    return last_open_dir;
+}
+
+void
+set_last_open_dir(const char *dirname)
+{
+    size_t len;
+    gchar *new_last_open_dir;
+
+    if (dirname && dirname[0]) {
+        len = strlen(dirname);
+        if (dirname[len-1] == G_DIR_SEPARATOR) {
+            new_last_open_dir = g_strconcat(dirname, (char *)NULL);
+        }
+        else {
+            new_last_open_dir = g_strconcat(dirname,
+                                            G_DIR_SEPARATOR_S, (char *)NULL);
+        }
+    } else {
+        new_last_open_dir = NULL;
+    }
+
+    g_free(last_open_dir);
+    last_open_dir = new_last_open_dir;
+}
+
+const char *
+get_open_dialog_initial_dir(void)
+{
+    const char *initial_dir;
+
+    switch (prefs.gui_fileopen_style) {
+
+    case FO_STYLE_LAST_OPENED:
+        /* The user has specified that we should start out in the last directory
+           we looked in.
+
+           If we have a "last directory in which a file was opened", use that.
+
+           If not, use the user's personal data file directory. */
+        /* This is now the default behaviour in file_selection_new() */
+        initial_dir = get_last_open_dir();
+        if (initial_dir == NULL)
+            initial_dir = get_persdatafile_dir();
+        break;
+
+    case FO_STYLE_SPECIFIED:
+        /* The user has specified that we should always start out in a
+           specified directory; if they've specified that directory,
+           start out by showing the files in that dir, otherwise use
+           the user's personal data file directory. */
+        if (prefs.gui_fileopen_dir[0] != '\0')
+            initial_dir = prefs.gui_fileopen_dir;
+        else
+            initial_dir = get_persdatafile_dir();
+        break;
+
+    default:
+        ws_assert_not_reached();
+        initial_dir = NULL;
+        break;
+    }
+    return initial_dir;
 }

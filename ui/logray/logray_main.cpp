@@ -402,18 +402,22 @@ macos_enable_layer_backing(void)
 
 #ifdef HAVE_LIBPCAP
 static GList *
-capture_opts_get_interface_list(int *err, char **err_str)
+capture_opts_get_interface_list(int *err _U_, char **err_str _U_)
 {
-    /*
-     * XXX - should this pass an update callback?
-     * We already have a window up by the time we start parsing
-     * the majority of the command-line arguments, because
-     * we need to do a bunch of initialization work before
-     * parsing those arguments, and we want to let the user
-     * know that we're doing that initialization, given that
-     * it can take a while.
-     */
-    return capture_interface_list(err, err_str, NULL);
+    // logray only wants the IF_EXTCAP interfaces, so there's no point
+    // in spawning dumpcap to retrieve the other types of interfaces.
+#if 0
+    if (mainApp) {
+        GList *if_list = mainApp->getInterfaceList();
+        if (if_list == NULL) {
+            if_list = capture_interface_list(err, err_str, main_window_update);
+            mainApp->setInterfaceList(if_list);
+        }
+        return if_list;
+    }
+    return capture_interface_list(err, err_str, main_window_update);
+#endif
+    return append_extcap_interface_list(NULL);
 }
 #endif
 
@@ -716,13 +720,15 @@ int main(int argc, char *qt_argv[])
     main_w->connect(&ls_app, &LograyApplication::openCaptureOptions,
             main_w, &LograyMainWindow::showCaptureOptionsDialog);
 
-    /* Init the "Open file" dialog directory */
-    /* (do this after the path settings are processed) */
+    /*
+     * If we have a saved "last directory in which a file was opened"
+     * in the recent file, set it as the one for the app.
+     *
+     * (do this after the path settings are processed)
+     */
     if (recent.gui_fileopen_remembered_dir &&
         test_for_directory(recent.gui_fileopen_remembered_dir) == EISDIR) {
-      lwApp->setLastOpenDir(recent.gui_fileopen_remembered_dir);
-    } else {
-      lwApp->setLastOpenDir(get_persdatafile_dir());
+      set_last_open_dir(recent.gui_fileopen_remembered_dir);
     }
 
 #ifdef DEBUG_STARTUP_TIME
@@ -804,9 +810,24 @@ int main(int argc, char *qt_argv[])
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
 
+    /* Read the preferences, but don't apply them yet. */
     global_commandline_info.prefs_p = ls_app.readConfigurationFiles(false);
 
-    /* Now get our args */
+    /* Now let's see if any of preferences were overridden at the command
+     * line, and store them. We have to do this before applying the
+     * preferences to the capture options.
+     */
+    commandline_override_prefs(argc, argv, TRUE);
+
+    /* Some of the preferences affect the capture options. Apply those
+     * before getting the other command line arguments, which can also
+     * affect the capture options. The command line arguments should be
+     * applied last to take precedence (at least until the user saves
+     * preferences, or switches profiles.)
+     */
+    prefs_to_capture_opts();
+
+    /* Now get our remaining args */
     commandline_other_options(argc, argv, TRUE);
 
     /* Convert some command-line parameters to QStrings */
@@ -822,19 +843,6 @@ int main(int argc, char *qt_argv[])
     timestamp_set_seconds_type (recent.gui_seconds_format);
 
 #ifdef HAVE_LIBPCAP
-#ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
-#endif
-    splash_update(RA_INTERFACES, NULL, NULL);
-
-    if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load) {
-        /* Allow only extcap interfaces to be found */
-        GList * filter_list = NULL;
-        filter_list = g_list_append(filter_list, GUINT_TO_POINTER((guint) IF_EXTCAP));
-        fill_in_local_interfaces_filtered(filter_list, main_window_update);
-        g_list_free(filter_list);
-    }
-
     if  (global_commandline_info.list_link_layer_types)
         caps_queries |= CAPS_QUERY_LINK_TYPES;
      if (global_commandline_info.list_timestamp_types)
@@ -897,6 +905,19 @@ int main(int argc, char *qt_argv[])
         goto clean_exit;
     }
 
+#ifdef DEBUG_STARTUP_TIME
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
+#endif
+    splash_update(RA_INTERFACES, NULL, NULL);
+
+    if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load) {
+        /* Allow only extcap interfaces to be found */
+        GList * filter_list = NULL;
+        filter_list = g_list_append(filter_list, GUINT_TO_POINTER((guint) IF_EXTCAP));
+        fill_in_local_interfaces_filtered(filter_list, main_window_update);
+        g_list_free(filter_list);
+    }
+
     capture_opts_trim_snaplen(&global_capture_opts, MIN_PACKET_SIZE);
     capture_opts_trim_ring_num_files(&global_capture_opts);
 #endif /* HAVE_LIBPCAP */
@@ -908,7 +929,6 @@ int main(int argc, char *qt_argv[])
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling prefs_apply_all, elapsed time %" G_GUINT64_FORMAT " us \n", g_get_monotonic_time() - start_time);
 #endif
     prefs_apply_all();
-    prefs_to_capture_opts();
     lwApp->emitAppSignal(LograyApplication::PreferencesChanged);
 
 #ifdef HAVE_LIBPCAP
@@ -1035,6 +1055,7 @@ int main(int argc, char *qt_argv[])
     // loaded when the dialog is shown.  Register them here.
     profile_register_persconffile("io_graphs");
     profile_register_persconffile("import_hexdump.json");
+    profile_register_persconffile("remote_hosts.json");
 
     profile_store_persconffiles(FALSE);
 

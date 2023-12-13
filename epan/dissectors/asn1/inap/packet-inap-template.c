@@ -38,7 +38,7 @@ void proto_reg_handoff_inap(void);
 
 
 /* Initialize the protocol and registered fields */
-static int proto_inap = -1;
+static int proto_inap;
 
 /* include constants */
 #include "packet-inap-val.h"
@@ -54,6 +54,7 @@ static dissector_handle_t	inap_handle;
 static guint32 opcode=0;
 static guint32 errorCode=0;
 static const char *obj_id = NULL;
+static gboolean is_ExtensionField =FALSE;
 
 static int inap_opcode_type;
 #define INAP_OPCODE_INVOKE        1
@@ -61,36 +62,36 @@ static int inap_opcode_type;
 #define INAP_OPCODE_RETURN_ERROR  3
 #define INAP_OPCODE_REJECT        4
 
-static int hf_inap_cause_indicator = -1;
+static int hf_inap_cause_indicator;
 
 /* Initialize the subtree pointers */
-static gint ett_inap = -1;
-static gint ett_inapisup_parameter = -1;
-static gint ett_inap_RedirectionInformation = -1;
-static gint ett_inap_HighLayerCompatibility = -1;
-static gint ett_inap_extension_data = -1;
-static gint ett_inap_cause = -1;
-static gint ett_inap_calledAddressValue = -1;
-static gint ett_inap_callingAddressValue = -1;
-static gint ett_inap_additionalCallingPartyNumber = -1;
-static gint ett_inap_assistingSSPIPRoutingAddress = -1;
-static gint ett_inap_correlationID = -1;
-static gint ett_inap_number = -1;
-static gint ett_inap_dialledNumber = -1;
-static gint ett_inap_callingLineID = -1;
-static gint ett_inap_iNServiceControlCode = -1;
-static gint ett_inap_iNServiceControlCodeLow = -1;
-static gint ett_inap_iNServiceControlCodeHigh = -1;
-static gint ett_inap_lineID = -1;
-static gint ett_inap_prefix = -1;
-static gint ett_inap_iPAddressValue = -1;
-static gint ett_inap_digitsResponse = -1;
+static gint ett_inap;
+static gint ett_inapisup_parameter;
+static gint ett_inap_RedirectionInformation;
+static gint ett_inap_HighLayerCompatibility;
+static gint ett_inap_extension_data;
+static gint ett_inap_cause;
+static gint ett_inap_calledAddressValue;
+static gint ett_inap_callingAddressValue;
+static gint ett_inap_additionalCallingPartyNumber;
+static gint ett_inap_assistingSSPIPRoutingAddress;
+static gint ett_inap_correlationID;
+static gint ett_inap_number;
+static gint ett_inap_dialledNumber;
+static gint ett_inap_callingLineID;
+static gint ett_inap_iNServiceControlCode;
+static gint ett_inap_iNServiceControlCodeLow;
+static gint ett_inap_iNServiceControlCodeHigh;
+static gint ett_inap_lineID;
+static gint ett_inap_prefix;
+static gint ett_inap_iPAddressValue;
+static gint ett_inap_digitsResponse;
 
 #include "packet-inap-ett.c"
 
-static expert_field ei_inap_unknown_invokeData = EI_INIT;
-static expert_field ei_inap_unknown_returnResultData = EI_INIT;
-static expert_field ei_inap_unknown_returnErrorData = EI_INIT;
+static expert_field ei_inap_unknown_invokeData;
+static expert_field ei_inap_unknown_returnResultData;
+static expert_field ei_inap_unknown_returnErrorData;
 
 #include "packet-inap-table.c"
 
@@ -154,6 +155,7 @@ dissect_inap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *d
   /* Get the length and add 2 */
   inap_pdu_size = tvb_get_guint8(tvb, offset+1)+2;
   opcode = 0;
+  is_ExtensionField =FALSE;
   dissect_inap_ROS(TRUE, tvb, offset, &asn1_ctx, tree, -1);
 
   return inap_pdu_size;

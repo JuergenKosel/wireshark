@@ -460,6 +460,7 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFi
 
     ui->splitter->setStretchFactor(0, 95);
     ui->splitter->setStretchFactor(1, 5);
+    loadSplitterState(ui->splitter);
 
     //XXX - resize columns?
 
@@ -468,7 +469,6 @@ IOGraphDialog::IOGraphDialog(QWidget &parent, CaptureFile &cf, QString displayFi
     connect(iop, SIGNAL(mousePress(QMouseEvent*)), this, SLOT(graphClicked(QMouseEvent*)));
     connect(iop, SIGNAL(mouseMove(QMouseEvent*)), this, SLOT(mouseMoved(QMouseEvent*)));
     connect(iop, SIGNAL(mouseRelease(QMouseEvent*)), this, SLOT(mouseReleased(QMouseEvent*)));
-    disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
 }
 
 IOGraphDialog::~IOGraphDialog()
@@ -1598,7 +1598,7 @@ void IOGraphDialog::on_buttonBox_helpRequested()
 void IOGraphDialog::on_buttonBox_accepted()
 {
     QString file_name, extension;
-    QDir path(mainApp->lastOpenDir());
+    QDir path(mainApp->openDialogInitialDir());
     QString pdf_filter = tr("Portable Document Format (*.pdf)");
     QString png_filter = tr("Portable Network Graphics (*.png)");
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");

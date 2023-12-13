@@ -34,7 +34,11 @@
 typedef struct _wslua_plugin {
     gchar       *name;            /**< plugin name */
     gchar       *version;         /**< plugin version */
+    gchar       *spdx_id;         /**< plugin SPDX ID */
+    gchar       *home_url;        /**< plugin homepage */
+    gchar       *blurb;           /**< plugin description */
     gchar       *filename;        /**< plugin filename */
+    plugin_scope_e scope;         /**< plugin scope */
     struct _wslua_plugin *next;
 } wslua_plugin;
 
@@ -54,98 +58,98 @@ tvbuff_t* lua_tvb;
 int lua_dissectors_table_ref = LUA_NOREF;
 int lua_heur_dissectors_table_ref = LUA_NOREF;
 
-static int proto_lua = -1;
+static int proto_lua;
 
-static int hf_wslua_fake = -1;
-static int hf_wslua_text = -1;
+static int hf_wslua_fake;
+static int hf_wslua_text;
 
-static expert_field ei_lua_error = EI_INIT;
+static expert_field ei_lua_error;
 
-static expert_field ei_lua_proto_checksum_comment = EI_INIT;
-static expert_field ei_lua_proto_checksum_chat    = EI_INIT;
-static expert_field ei_lua_proto_checksum_note    = EI_INIT;
-static expert_field ei_lua_proto_checksum_warn    = EI_INIT;
-static expert_field ei_lua_proto_checksum_error   = EI_INIT;
+static expert_field ei_lua_proto_checksum_comment;
+static expert_field ei_lua_proto_checksum_chat;
+static expert_field ei_lua_proto_checksum_note;
+static expert_field ei_lua_proto_checksum_warn;
+static expert_field ei_lua_proto_checksum_error;
 
-static expert_field ei_lua_proto_sequence_comment = EI_INIT;
-static expert_field ei_lua_proto_sequence_chat    = EI_INIT;
-static expert_field ei_lua_proto_sequence_note    = EI_INIT;
-static expert_field ei_lua_proto_sequence_warn    = EI_INIT;
-static expert_field ei_lua_proto_sequence_error   = EI_INIT;
+static expert_field ei_lua_proto_sequence_comment;
+static expert_field ei_lua_proto_sequence_chat;
+static expert_field ei_lua_proto_sequence_note;
+static expert_field ei_lua_proto_sequence_warn;
+static expert_field ei_lua_proto_sequence_error;
 
-static expert_field ei_lua_proto_response_comment = EI_INIT;
-static expert_field ei_lua_proto_response_chat    = EI_INIT;
-static expert_field ei_lua_proto_response_note    = EI_INIT;
-static expert_field ei_lua_proto_response_warn    = EI_INIT;
-static expert_field ei_lua_proto_response_error   = EI_INIT;
+static expert_field ei_lua_proto_response_comment;
+static expert_field ei_lua_proto_response_chat;
+static expert_field ei_lua_proto_response_note;
+static expert_field ei_lua_proto_response_warn;
+static expert_field ei_lua_proto_response_error;
 
-static expert_field ei_lua_proto_request_comment = EI_INIT;
-static expert_field ei_lua_proto_request_chat    = EI_INIT;
-static expert_field ei_lua_proto_request_note    = EI_INIT;
-static expert_field ei_lua_proto_request_warn    = EI_INIT;
-static expert_field ei_lua_proto_request_error   = EI_INIT;
+static expert_field ei_lua_proto_request_comment;
+static expert_field ei_lua_proto_request_chat;
+static expert_field ei_lua_proto_request_note;
+static expert_field ei_lua_proto_request_warn;
+static expert_field ei_lua_proto_request_error;
 
-static expert_field ei_lua_proto_undecoded_comment = EI_INIT;
-static expert_field ei_lua_proto_undecoded_chat    = EI_INIT;
-static expert_field ei_lua_proto_undecoded_note    = EI_INIT;
-static expert_field ei_lua_proto_undecoded_warn    = EI_INIT;
-static expert_field ei_lua_proto_undecoded_error   = EI_INIT;
+static expert_field ei_lua_proto_undecoded_comment;
+static expert_field ei_lua_proto_undecoded_chat;
+static expert_field ei_lua_proto_undecoded_note;
+static expert_field ei_lua_proto_undecoded_warn;
+static expert_field ei_lua_proto_undecoded_error;
 
-static expert_field ei_lua_proto_reassemble_comment = EI_INIT;
-static expert_field ei_lua_proto_reassemble_chat    = EI_INIT;
-static expert_field ei_lua_proto_reassemble_note    = EI_INIT;
-static expert_field ei_lua_proto_reassemble_warn    = EI_INIT;
-static expert_field ei_lua_proto_reassemble_error   = EI_INIT;
+static expert_field ei_lua_proto_reassemble_comment;
+static expert_field ei_lua_proto_reassemble_chat;
+static expert_field ei_lua_proto_reassemble_note;
+static expert_field ei_lua_proto_reassemble_warn;
+static expert_field ei_lua_proto_reassemble_error;
 
-static expert_field ei_lua_proto_malformed_comment = EI_INIT;
-static expert_field ei_lua_proto_malformed_chat    = EI_INIT;
-static expert_field ei_lua_proto_malformed_note    = EI_INIT;
-static expert_field ei_lua_proto_malformed_warn    = EI_INIT;
-static expert_field ei_lua_proto_malformed_error   = EI_INIT;
+static expert_field ei_lua_proto_malformed_comment;
+static expert_field ei_lua_proto_malformed_chat;
+static expert_field ei_lua_proto_malformed_note;
+static expert_field ei_lua_proto_malformed_warn;
+static expert_field ei_lua_proto_malformed_error;
 
-static expert_field ei_lua_proto_debug_comment = EI_INIT;
-static expert_field ei_lua_proto_debug_chat    = EI_INIT;
-static expert_field ei_lua_proto_debug_note    = EI_INIT;
-static expert_field ei_lua_proto_debug_warn    = EI_INIT;
-static expert_field ei_lua_proto_debug_error   = EI_INIT;
+static expert_field ei_lua_proto_debug_comment;
+static expert_field ei_lua_proto_debug_chat;
+static expert_field ei_lua_proto_debug_note;
+static expert_field ei_lua_proto_debug_warn;
+static expert_field ei_lua_proto_debug_error;
 
-static expert_field ei_lua_proto_protocol_comment = EI_INIT;
-static expert_field ei_lua_proto_protocol_chat    = EI_INIT;
-static expert_field ei_lua_proto_protocol_note    = EI_INIT;
-static expert_field ei_lua_proto_protocol_warn    = EI_INIT;
-static expert_field ei_lua_proto_protocol_error   = EI_INIT;
+static expert_field ei_lua_proto_protocol_comment;
+static expert_field ei_lua_proto_protocol_chat;
+static expert_field ei_lua_proto_protocol_note;
+static expert_field ei_lua_proto_protocol_warn;
+static expert_field ei_lua_proto_protocol_error;
 
-static expert_field ei_lua_proto_security_comment = EI_INIT;
-static expert_field ei_lua_proto_security_chat    = EI_INIT;
-static expert_field ei_lua_proto_security_note    = EI_INIT;
-static expert_field ei_lua_proto_security_warn    = EI_INIT;
-static expert_field ei_lua_proto_security_error   = EI_INIT;
+static expert_field ei_lua_proto_security_comment;
+static expert_field ei_lua_proto_security_chat;
+static expert_field ei_lua_proto_security_note;
+static expert_field ei_lua_proto_security_warn;
+static expert_field ei_lua_proto_security_error;
 
-static expert_field ei_lua_proto_comments_comment = EI_INIT;
-static expert_field ei_lua_proto_comments_chat    = EI_INIT;
-static expert_field ei_lua_proto_comments_note    = EI_INIT;
-static expert_field ei_lua_proto_comments_warn    = EI_INIT;
-static expert_field ei_lua_proto_comments_error   = EI_INIT;
+static expert_field ei_lua_proto_comments_comment;
+static expert_field ei_lua_proto_comments_chat;
+static expert_field ei_lua_proto_comments_note;
+static expert_field ei_lua_proto_comments_warn;
+static expert_field ei_lua_proto_comments_error;
 
-static expert_field ei_lua_proto_decryption_comment = EI_INIT;
-static expert_field ei_lua_proto_decryption_chat    = EI_INIT;
-static expert_field ei_lua_proto_decryption_note    = EI_INIT;
-static expert_field ei_lua_proto_decryption_warn    = EI_INIT;
-static expert_field ei_lua_proto_decryption_error   = EI_INIT;
+static expert_field ei_lua_proto_decryption_comment;
+static expert_field ei_lua_proto_decryption_chat;
+static expert_field ei_lua_proto_decryption_note;
+static expert_field ei_lua_proto_decryption_warn;
+static expert_field ei_lua_proto_decryption_error;
 
-static expert_field ei_lua_proto_assumption_comment = EI_INIT;
-static expert_field ei_lua_proto_assumption_chat    = EI_INIT;
-static expert_field ei_lua_proto_assumption_note    = EI_INIT;
-static expert_field ei_lua_proto_assumption_warn    = EI_INIT;
-static expert_field ei_lua_proto_assumption_error   = EI_INIT;
+static expert_field ei_lua_proto_assumption_comment;
+static expert_field ei_lua_proto_assumption_chat;
+static expert_field ei_lua_proto_assumption_note;
+static expert_field ei_lua_proto_assumption_warn;
+static expert_field ei_lua_proto_assumption_error;
 
-static expert_field ei_lua_proto_deprecated_comment = EI_INIT;
-static expert_field ei_lua_proto_deprecated_chat    = EI_INIT;
-static expert_field ei_lua_proto_deprecated_note    = EI_INIT;
-static expert_field ei_lua_proto_deprecated_warn    = EI_INIT;
-static expert_field ei_lua_proto_deprecated_error   = EI_INIT;
+static expert_field ei_lua_proto_deprecated_comment;
+static expert_field ei_lua_proto_deprecated_chat;
+static expert_field ei_lua_proto_deprecated_note;
+static expert_field ei_lua_proto_deprecated_warn;
+static expert_field ei_lua_proto_deprecated_error;
 
-static gint ett_wslua_traceback = -1;
+static gint ett_wslua_traceback;
 
 static bool
 lua_pinfo_end(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_,
@@ -549,7 +553,8 @@ static int error_handler_with_callback(lua_State *LS) {
     return 1;
 }
 
-static void wslua_add_plugin(const gchar *name, const gchar *version, const gchar *filename)
+static void wslua_add_plugin(const gchar *name,
+                                const gchar *filename, plugin_scope_e scope)
 {
     wslua_plugin *new_plug, *lua_plug;
 
@@ -566,9 +571,16 @@ static void wslua_add_plugin(const gchar *name, const gchar *version, const gcha
     }
 
     new_plug->name = g_strdup(name);
-    new_plug->version = g_strdup(version);
+    new_plug->version = g_strdup(get_current_plugin_version());
+    new_plug->spdx_id = g_strdup(get_current_plugin_spdx_id());
+    new_plug->home_url = g_strdup(get_current_plugin_repository());
+    new_plug->blurb = g_strdup(get_current_plugin_description());
     new_plug->filename = g_strdup(filename);
+    new_plug->scope = scope;
     new_plug->next = NULL;
+
+    ws_debug("Lua plugin '%s' meta data: version = %s, flags = 0x0, spdx = %s, blurb = %s",
+                    name, new_plug->version, new_plug->spdx_id, new_plug->blurb);
 }
 
 static void wslua_clear_plugin_list(void)
@@ -731,12 +743,13 @@ static gboolean lua_load_internal_script(const gchar* filename) {
 static gboolean lua_load_plugin_script(const gchar* name,
                                        const gchar* filename,
                                        const gchar* dirname,
+                                       plugin_scope_e scope,
                                        const int file_count)
 {
     ws_debug("Loading lua script: %s", filename);
     if (lua_load_script(filename, dirname, file_count)) {
-        wslua_add_plugin(name, get_current_plugin_version(), filename);
-        clear_current_plugin_version();
+        wslua_add_plugin(name, filename, scope);
+        clear_current_plugin_info();
         return TRUE;
     }
     return FALSE;
@@ -753,7 +766,8 @@ static gint string_compare(gconstpointer a, gconstpointer b) {
 }
 
 static int lua_load_plugins(const char *dirname, register_cb cb, gpointer client_data,
-                            gboolean count_only, const gboolean is_user, GHashTable *loaded_files)
+                            gboolean count_only, const gboolean is_user, GHashTable *loaded_files,
+                            int depth)
 {
     WS_DIR        *dir;             /* scanned directory */
     WS_DIRENT     *file;            /* current file */
@@ -768,10 +782,15 @@ static int lua_load_plugins(const char *dirname, register_cb cb, gpointer client
         while ((file = ws_dir_read_name(dir)) != NULL) {
             name = ws_dir_get_name(file);
 
-            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0 ||
-                                            strcmp(name, "init.lua") == 0) {
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
                 /* skip "." and ".." */
-                /* init.lua was already loaded if it exists, skip */
+                continue;
+            }
+            if (depth == 0 && strcmp(name, "init.lua") == 0) {
+                /* If we are in the root directory skip the special "init.lua"
+                 * file that was already loaded before every other user script.
+                 * (If we are below the root script directory we just treat it like any other
+                 * lua script.) */
                 continue;
             }
 
@@ -808,7 +827,7 @@ static int lua_load_plugins(const char *dirname, register_cb cb, gpointer client
     if (sorted_dirnames != NULL) {
         sorted_dirnames = g_list_sort(sorted_dirnames, string_compare);
         for (l = sorted_dirnames; l != NULL; l = l->next) {
-            plugins_counter += lua_load_plugins((const char *)l->data, cb, client_data, count_only, is_user, loaded_files);
+            plugins_counter += lua_load_plugins((const char *)l->data, cb, client_data, count_only, is_user, loaded_files, depth + 1);
         }
         g_list_free_full(sorted_dirnames, g_free);
     }
@@ -828,7 +847,8 @@ static int lua_load_plugins(const char *dirname, register_cb cb, gpointer client
             if (!count_only) {
                 if (cb)
                     (*cb)(RA_LUA_PLUGINS, name, client_data);
-                lua_load_plugin_script(name, filename, is_user ? dirname : NULL, 0);
+                lua_load_plugin_script(name, filename, is_user ? dirname : NULL,
+                                        is_user ? WS_PLUGIN_SCOPE_USER : WS_PLUGIN_SCOPE_GLOBAL, 0);
 
                 if (loaded_files) {
                     g_hash_table_insert(loaded_files, g_strdup(name), NULL);
@@ -845,7 +865,7 @@ static int lua_load_plugins(const char *dirname, register_cb cb, gpointer client
 static int lua_load_global_plugins(register_cb cb, gpointer client_data,
                                     gboolean count_only)
 {
-    return lua_load_plugins(get_plugins_dir(), cb, client_data, count_only, FALSE, NULL);
+    return lua_load_plugins(get_plugins_dir(), cb, client_data, count_only, FALSE, NULL, 0);
 }
 
 static int lua_load_pers_plugins(register_cb cb, gpointer client_data,
@@ -857,12 +877,12 @@ static int lua_load_pers_plugins(register_cb cb, gpointer client_data,
     GHashTable *loaded_user_scripts = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
     /* load user scripts */
-    plugins_counter += lua_load_plugins(get_plugins_pers_dir(), cb, client_data, count_only, TRUE, loaded_user_scripts);
+    plugins_counter += lua_load_plugins(get_plugins_pers_dir(), cb, client_data, count_only, TRUE, loaded_user_scripts, 0);
 
     /* for backward compatibility check old plugin directory */
     char *old_path = get_persconffile_path("plugins", FALSE);
     if (strcmp(get_plugins_pers_dir(), old_path) != 0) {
-        plugins_counter += lua_load_plugins(old_path, cb, client_data, count_only, TRUE, loaded_user_scripts);
+        plugins_counter += lua_load_plugins(old_path, cb, client_data, count_only, TRUE, loaded_user_scripts, 0);
     }
     g_free(old_path);
 
@@ -886,32 +906,31 @@ int wslua_count_plugins(void) {
     return plugins_counter;
 }
 
-void wslua_plugins_get_descriptions(wslua_plugin_description_callback callback, void *user_data) {
+void wslua_plugins_get_descriptions(plugin_description_callback callback, void *user_data) {
     wslua_plugin  *lua_plug;
 
     for (lua_plug = wslua_plugin_list; lua_plug != NULL; lua_plug = lua_plug->next)
     {
-        callback(lua_plug->name, lua_plug->version, wslua_plugin_type_name(),
-                 lua_plug->filename, user_data);
+        callback(lua_plug->name, lua_plug->version,
+                 0 /* flags */, lua_plug->spdx_id, lua_plug->blurb, lua_plug->home_url,
+                 lua_plug->filename, lua_plug->scope, user_data);
     }
 }
 
 static void
 print_wslua_plugin_description(const char *name, const char *version,
-                               const char *description, const char *filename,
-                               void *user_data _U_)
+                                uint32_t flags _U_, const char *spdx_id _U_,
+                                const char *blurb _U_, const char *home_url _U_,
+                                const char *filename, plugin_scope_e scope _U_,
+                                void *user_data _U_)
 {
-    printf("%s\t%s\t%s\t%s\n", name, version, description, filename);
+    printf("%s\t%s\t%s\t%s\n", name, version, "lua script", filename);
 }
 
 void
 wslua_plugins_dump_all(void)
 {
     wslua_plugins_get_descriptions(print_wslua_plugin_description, NULL);
-}
-
-const char *wslua_plugin_type_name(void) {
-    return "lua script";
 }
 
 static ei_register_info* ws_lua_ei = NULL;
@@ -1674,6 +1693,7 @@ void wslua_init(register_cb cb, gpointer client_data) {
             lua_load_plugin_script(ws_dir_get_name(script_filename),
                                    script_filename,
                                    dname ? dname : "",
+                                   WS_PLUGIN_SCOPE_CLI,
                                    file_count);
             file_count++;
             g_free(dirname);

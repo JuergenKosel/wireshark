@@ -39,7 +39,7 @@ def isGeneratedFile(filename):
         return False
 
     # Open file
-    f_read = open(os.path.join(filename), 'r')
+    f_read = open(os.path.join(filename), 'r', encoding="utf8", errors="ignore")
     lines_tested = 0
     for line in f_read:
         # The comment to say that its generated is near the top, so give up once
@@ -289,7 +289,7 @@ def removeComments(code_string):
 def findTFS(filename):
     tfs_found = {}
 
-    with open(filename, 'r', encoding="utf8") as f:
+    with open(filename, 'r', encoding="utf8", errors="ignore") as f:
         contents = f.read()
         # Example: const true_false_string tfs_yes_no = { "Yes", "No" };
 
@@ -317,7 +317,7 @@ def findValueStrings(filename):
     #    { 0, NULL }
     #};
 
-    with open(filename, 'r', encoding="utf8") as f:
+    with open(filename, 'r', encoding="utf8", errors="ignore") as f:
         contents = f.read()
 
         # Remove comments so as not to trip up RE.
@@ -335,7 +335,7 @@ def findValueStrings(filename):
 def find_items(filename, macros, check_mask=False, mask_exact_width=False, check_label=False, check_consecutive=False):
     is_generated = isGeneratedFile(filename)
     items = {}
-    with open(filename, 'r', encoding="utf8") as f:
+    with open(filename, 'r', encoding="utf8", errors="ignore") as f:
         contents = f.read()
         # Remove comments so as not to trip up RE.
         contents = removeComments(contents)
@@ -354,7 +354,7 @@ def find_items(filename, macros, check_mask=False, mask_exact_width=False, check
 
 def find_macros(filename):
     macros = {}
-    with open(filename, 'r', encoding="utf8") as f:
+    with open(filename, 'r', encoding="utf8", errors="ignore") as f:
         contents = f.read()
         # Remove comments so as not to trip up RE.
         contents = removeComments(contents)
@@ -372,15 +372,15 @@ def is_dissector_file(filename):
     return p.match(filename)
 
 def findDissectorFilesInFolder(folder):
-    # Look at files in sorted order, to give some idea of how far through is.
-    files = []
+    files = set()
 
-    for f in sorted(os.listdir(folder)):
-        if should_exit:
-            return
-        if is_dissector_file(f):
-            filename = os.path.join(folder, f)
-            files.append(filename)
+    for path, tmp_unused, names in os.walk(folder):
+        for f in names:
+            if should_exit:
+                return
+            if is_dissector_file(f):
+                files.add(os.path.join(path, f))
+
     return files
 
 
@@ -429,7 +429,8 @@ def checkFile(filename, common_tfs, look_for_common=False, check_value_strings=F
                     found = True
 
                 if found:
-                    print("Error:" if exact_case else "Warn: ", filename, f, "- could have used", c, 'from tfs.c instead: ', common_tfs[c],
+                    print("Error:" if exact_case else "Warn: ", filename, f,
+                          "- could have used", c, 'from tfs.c instead: ', common_tfs[c],
                           '' if exact_case else '  (capitalisation differs)')
                     if exact_case:
                         errors_found += 1
@@ -488,8 +489,9 @@ def checkFile(filename, common_tfs, look_for_common=False, check_value_strings=F
                                 if re.match(r'VALS\(\s*'+v+r'\s*\)', items[i].strings):
                                     if items[i].bits_set == 1:
                                         print("Warn:" if exact_case else "Note:", filename, 'value_string', "'"+v+"'",
-                                              "- could have used", c, 'from tfs.c instead: ', common_tfs[c], 'for', i,
-                                            '' if exact_case else '  (capitalisation differs)')
+                                              '- could have used tfs.c entry instead: for', i,
+                                              ' - "FT_BOOLEAN,', str(items[i].get_field_width_in_bits()) + ', TFS(&' + c + '),"',
+                                              '' if exact_case else '  (capitalisation differs)')
                                         if exact_case:
                                             warnings_found += 1
 
@@ -518,7 +520,7 @@ args = parser.parse_args()
 
 
 # Get files from wherever command-line args indicate.
-files = []
+files = set()
 if args.file:
     # Add specified file(s)
     for f in args.file:
@@ -528,30 +530,29 @@ if args.file:
             print('Chosen file', f, 'does not exist.')
             exit(1)
         else:
-            files.append(f)
+            files.add(f)
 elif args.commits:
     # Get files affected by specified number of commits.
     command = ['git', 'diff', '--name-only', 'HEAD~' + args.commits]
-    files = [f.decode('utf-8')
-             for f in subprocess.check_output(command).splitlines()]
+    files = {f.decode('utf-8')
+             for f in subprocess.check_output(command).splitlines()}
     # Will examine dissector files only
-    files = list(filter(lambda f : is_dissector_file(f), files))
+    files = set(filter(is_dissector_file, files))
 elif args.open:
     # Unstaged changes.
     command = ['git', 'diff', '--name-only']
-    files = [f.decode('utf-8')
-             for f in subprocess.check_output(command).splitlines()]
+    files = {f.decode('utf-8')
+             for f in subprocess.check_output(command).splitlines()}
     # Only interested in dissector files.
-    files = list(filter(lambda f : is_dissector_file(f), files))
+    files = list(filter(is_dissector_file, files))
     # Staged changes.
     command = ['git', 'diff', '--staged', '--name-only']
-    files_staged = [f.decode('utf-8')
-                    for f in subprocess.check_output(command).splitlines()]
+    files_staged = {f.decode('utf-8')
+                    for f in subprocess.check_output(command).splitlines()}
     # Only interested in dissector files.
-    files_staged = list(filter(lambda f : is_dissector_file(f), files_staged))
+    files = set(filter(is_dissector_file, files_staged))
     for f in files_staged:
-        if not f in files:
-            files.append(f)
+        files.add(f)
 else:
     # Find all dissector files from folder.
     files = findDissectorFilesInFolder(os.path.join('epan', 'dissectors'))
@@ -561,7 +562,7 @@ else:
 print('Examining:')
 if args.file or args.commits or args.open:
     if files:
-        print(' '.join(files), '\n')
+        print(' '.join(sorted(files)), '\n')
     else:
         print('No files to check.\n')
 else:
@@ -572,7 +573,8 @@ else:
 tfs_entries = findTFS(os.path.join('epan', 'tfs.c'))
 
 # Now check the files to see if they could have used shared ones instead.
-for f in files:
+# Look at files in sorted order, to give some idea of how far through we are.
+for f in sorted(files):
     if should_exit:
         exit(1)
     if not isGeneratedFile(f):

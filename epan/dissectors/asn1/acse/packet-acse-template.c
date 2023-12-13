@@ -47,21 +47,21 @@ void proto_register_acse(void);
 void proto_reg_handoff_acse(void);
 
 /* Initialize the protocol and registered fields */
-int proto_acse = -1;
-int proto_clacse = -1;
+int proto_acse;
+int proto_clacse;
 
 
 
 #include "packet-acse-hf.c"
-static gint hf_acse_user_data = -1;
+static gint hf_acse_user_data;
 
 /* Initialize the subtree pointers */
-static gint ett_acse = -1;
+static gint ett_acse;
 #include "packet-acse-ett.c"
 
-static expert_field ei_acse_dissector_not_available = EI_INIT;
-static expert_field ei_acse_malformed = EI_INIT;
-static expert_field ei_acse_invalid_oid = EI_INIT;
+static expert_field ei_acse_dissector_not_available;
+static expert_field ei_acse_malformed;
+static expert_field ei_acse_invalid_oid;
 
 static dissector_handle_t acse_handle = NULL;
 

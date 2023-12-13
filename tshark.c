@@ -873,7 +873,7 @@ must_do_dissection(dfilter_t *rfcode, dfilter_t *dfcode,
 
        we're using any taps that need dissection. */
     return print_packet_info || rfcode || dfcode || pdu_export_arg ||
-        tap_listeners_require_dissection() || dissect_color;
+        tap_listeners_require_dissection();
 }
 
 #ifdef HAVE_LIBPCAP
@@ -905,13 +905,22 @@ warn_about_capture_filter(const char *rfilter)
 #endif
 
 #ifdef HAVE_LIBPCAP
+static GList *cached_if_list = NULL;
+
 static GList *
 capture_opts_get_interface_list(int *err, char **err_str)
 {
+    if (cached_if_list == NULL) {
+        /*
+         * This isn't a GUI tool, so no need for a callback.
+         */
+        cached_if_list = capture_interface_list(err, err_str, NULL);
+    }
     /*
-     * This isn't a GUI tool, so no need for a callback.
+     * Routines expect to free the returned interface list, so return
+     * a deep copy.
      */
-    return capture_interface_list(err, err_str, NULL);
+    return interface_list_copy(cached_if_list);
 }
 #endif
 
@@ -1302,6 +1311,7 @@ main(int argc, char *argv[])
                 wslua_plugins_dump_all();
 #endif
                 extcap_dump_all();
+                epan_plugins_dump_all();
             }
             else if (strcmp(argv[2], "protocols") == 0)
                 proto_registrar_dump_protocols();
@@ -1332,8 +1342,6 @@ main(int argc, char *argv[])
     /* Load libwireshark settings from the current profile. */
     prefs_p = epan_load_settings();
     prefs_loaded = TRUE;
-
-    read_filter_list(CFILTER_LIST);
 
     cap_file_init(&cfile);
 
@@ -1791,6 +1799,9 @@ main(int argc, char *argv[])
                 break;
             case LONGOPT_COLOR: /* print in color where appropriate */
                 dissect_color = TRUE;
+                /* This has no effect if we don't print packet info or filter
+                   (we can filter on the coloring rules). Should we warn or
+                   error later if so, instead of silently ignoring it? */
                 break;
             case LONGOPT_NO_DUPLICATE_KEYS:
                 no_duplicate_keys = TRUE;
@@ -2718,9 +2729,11 @@ clean_exit:
     g_free(output_file_name);
 #ifdef HAVE_LIBPCAP
     capture_opts_cleanup(&global_capture_opts);
+    if (cached_if_list) {
+        free_interface_list(cached_if_list);
+    }
 #endif
     col_cleanup(&cfile.cinfo);
-    free_filter_lists();
     wtap_cleanup();
     free_progdirs();
     dfilter_free(dfcode);
@@ -2766,7 +2779,6 @@ static gboolean
 capture(void)
 {
     volatile gboolean ret = TRUE;
-    guint             i;
     GString          *str;
     GMainContext     *ctx;
 #ifndef _WIN32
@@ -2816,13 +2828,6 @@ capture(void)
     global_capture_session.state = CAPTURE_PREPARING;
 
     /* Let the user know which interfaces were chosen. */
-    for (i = 0; i < global_capture_opts.ifaces->len; i++) {
-        interface_options *interface_opts;
-
-        interface_opts = &g_array_index(global_capture_opts.ifaces, interface_options, i);
-        g_free(interface_opts->descr);
-        interface_opts->descr = get_interface_descriptive_name(interface_opts->name);
-    }
     str = get_iface_list_string(&global_capture_opts, IFLIST_QUOTE_IF_DESCRIPTION);
     if (really_quiet == FALSE)
         fprintf(stderr, "Capturing on %s\n", str->str);

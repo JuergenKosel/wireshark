@@ -18,6 +18,7 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <epan/to_str.h>
 
 #include "packet-zbee.h"
 #include "packet-zbee-nwk.h"
@@ -59,86 +60,98 @@ static void dissect_zcl_discover_cmd_attr_extended_resp(tvbuff_t* tvb, packet_in
  * Global Variables *
  ********************
  */
+
+#define ZBEE_ZCL_INVALID_STR_LENGTH         0xff
+#define ZBEE_ZCL_INVALID_LONG_STR_LENGTH    0xffff
+
 /* Header Field Indices. */
-static int proto_zbee_zcl = -1;
-static int hf_zbee_zcl_fcf_frame_type = -1;
-static int hf_zbee_zcl_fcf_mfr_spec = -1;
-static int hf_zbee_zcl_fcf_dir = -1;
-static int hf_zbee_zcl_fcf_disable_default_resp = -1;
-static int hf_zbee_zcl_mfr_code = -1;
-static int hf_zbee_zcl_tran_seqno = -1;
-static int hf_zbee_zcl_cmd_id = -1;
-static int hf_zbee_zcl_cs_cmd_id = -1;
-static int hf_zbee_zcl_cmd_id_rsp = -1;
-static int hf_zbee_zcl_attr_id = -1;
-static int hf_zbee_zcl_attr_data_type = -1;
-static int hf_zbee_zcl_attr_access_ctrl = -1;
-static int hf_zbee_zcl_indicator = -1;
-static int hf_zbee_zcl_index = -1;
-static int hf_zbee_zcl_cmd_start = -1;
-static int hf_zbee_zcl_cmd_maxnum = -1;
-static int hf_zbee_zcl_attr_boolean = -1;
-static int hf_zbee_zcl_attr_bitmap8 = -1;
-static int hf_zbee_zcl_attr_bitmap16 = -1;
-static int hf_zbee_zcl_attr_bitmap24 = -1;
-static int hf_zbee_zcl_attr_bitmap32 = -1;
-static int hf_zbee_zcl_attr_bitmap40 = -1;
-static int hf_zbee_zcl_attr_bitmap48 = -1;
-static int hf_zbee_zcl_attr_bitmap56 = -1;
-static int hf_zbee_zcl_attr_bitmap64 = -1;
-static int hf_zbee_zcl_attr_uint8 = -1;
-static int hf_zbee_zcl_attr_uint16 = -1;
-static int hf_zbee_zcl_attr_uint24 = -1;
-static int hf_zbee_zcl_attr_uint32 = -1;
-static int hf_zbee_zcl_attr_uint40 = -1;
-static int hf_zbee_zcl_attr_uint48 = -1;
-static int hf_zbee_zcl_attr_uint56 = -1;
-static int hf_zbee_zcl_attr_uint64 = -1;
-static int hf_zbee_zcl_attr_int8 = -1;
-static int hf_zbee_zcl_attr_int16 = -1;
-static int hf_zbee_zcl_attr_int24 = -1;
-static int hf_zbee_zcl_attr_int32 = -1;
-static int hf_zbee_zcl_attr_int64 = -1;
-/* static int hf_zbee_zcl_attr_semi = -1; */
-static int hf_zbee_zcl_attr_float = -1;
-static int hf_zbee_zcl_attr_double = -1;
-static int hf_zbee_zcl_attr_bytes = -1;
-static int hf_zbee_zcl_attr_minint = -1;
-static int hf_zbee_zcl_attr_maxint = -1;
-static int hf_zbee_zcl_attr_timeout = -1;
-static int hf_zbee_zcl_attr_cid = -1;
-static int hf_zbee_zcl_attr_hours = -1;
-static int hf_zbee_zcl_attr_mins = -1;
-static int hf_zbee_zcl_attr_secs = -1;
-static int hf_zbee_zcl_attr_csecs = -1;
-static int hf_zbee_zcl_attr_yy = -1;
-static int hf_zbee_zcl_attr_mm = -1;
-static int hf_zbee_zcl_attr_md = -1;
-static int hf_zbee_zcl_attr_wd = -1;
-static int hf_zbee_zcl_attr_utc = -1;
-static int hf_zbee_zcl_attr_status = -1;
-static int hf_zbee_zcl_attr_dir = -1;
-static int hf_zbee_zcl_attr_dis = -1;
-static int hf_zbee_zcl_attr_start = -1;
-static int hf_zbee_zcl_attr_maxnum = -1;
-static int hf_zbee_zcl_attr_str = -1;
-static int hf_zbee_zcl_attr_ostr = -1;
-static int hf_zbee_zcl_attr_array_elements_type = -1;
-static int hf_zbee_zcl_attr_array_elements_num = -1;
-static int hf_zbee_zcl_attr_set_elements_type = -1;
-static int hf_zbee_zcl_attr_set_elements_num = -1;
-static int hf_zbee_zcl_attr_bag_elements_type = -1;
-static int hf_zbee_zcl_attr_bag_elements_num = -1;
+static int proto_zbee_zcl;
+static int hf_zbee_zcl_fcf_frame_type;
+static int hf_zbee_zcl_fcf_mfr_spec;
+static int hf_zbee_zcl_fcf_dir;
+static int hf_zbee_zcl_fcf_disable_default_resp;
+static int hf_zbee_zcl_mfr_code;
+static int hf_zbee_zcl_tran_seqno;
+static int hf_zbee_zcl_cmd_id;
+static int hf_zbee_zcl_cs_cmd_id;
+static int hf_zbee_zcl_cmd_id_rsp;
+static int hf_zbee_zcl_attr_id;
+static int hf_zbee_zcl_attr_data_type;
+static int hf_zbee_zcl_attr_access_ctrl;
+static int hf_zbee_zcl_indicator;
+static int hf_zbee_zcl_index;
+static int hf_zbee_zcl_cmd_start;
+static int hf_zbee_zcl_cmd_maxnum;
+static int hf_zbee_zcl_attr_boolean;
+static int hf_zbee_zcl_attr_bitmap8;
+static int hf_zbee_zcl_attr_bitmap16;
+static int hf_zbee_zcl_attr_bitmap24;
+static int hf_zbee_zcl_attr_bitmap32;
+static int hf_zbee_zcl_attr_bitmap40;
+static int hf_zbee_zcl_attr_bitmap48;
+static int hf_zbee_zcl_attr_bitmap56;
+static int hf_zbee_zcl_attr_bitmap64;
+static int hf_zbee_zcl_attr_uint8;
+static int hf_zbee_zcl_attr_uint16;
+static int hf_zbee_zcl_attr_uint24;
+static int hf_zbee_zcl_attr_uint32;
+static int hf_zbee_zcl_attr_uint40;
+static int hf_zbee_zcl_attr_uint48;
+static int hf_zbee_zcl_attr_uint56;
+static int hf_zbee_zcl_attr_uint64;
+static int hf_zbee_zcl_attr_int8;
+static int hf_zbee_zcl_attr_int16;
+static int hf_zbee_zcl_attr_int24;
+static int hf_zbee_zcl_attr_int32;
+static int hf_zbee_zcl_attr_int64;
+/* static int hf_zbee_zcl_attr_semi; */
+static int hf_zbee_zcl_attr_float;
+static int hf_zbee_zcl_attr_double;
+static int hf_zbee_zcl_attr_bytes;
+static int hf_zbee_zcl_attr_minint;
+static int hf_zbee_zcl_attr_maxint;
+static int hf_zbee_zcl_attr_timeout;
+static int hf_zbee_zcl_attr_cid;
+static int hf_zbee_zcl_attr_hours;
+static int hf_zbee_zcl_attr_mins;
+static int hf_zbee_zcl_attr_secs;
+static int hf_zbee_zcl_attr_csecs;
+static int hf_zbee_zcl_attr_yy;
+static int hf_zbee_zcl_attr_mm;
+static int hf_zbee_zcl_attr_md;
+static int hf_zbee_zcl_attr_wd;
+static int hf_zbee_zcl_attr_utc;
+static int hf_zbee_zcl_attr_utc_raw;
+static int hf_zbee_zcl_attr_status;
+static int hf_zbee_zcl_attr_dir;
+static int hf_zbee_zcl_attr_dis;
+static int hf_zbee_zcl_attr_start;
+static int hf_zbee_zcl_attr_maxnum;
+static int hf_zbee_zcl_attr_str;
+static int hf_zbee_zcl_attr_ostr;
+static int hf_zbee_zcl_attr_array_elements_type;
+static int hf_zbee_zcl_attr_array_elements_num;
+static int hf_zbee_zcl_attr_set_elements_type;
+static int hf_zbee_zcl_attr_set_elements_num;
+static int hf_zbee_zcl_attr_bag_elements_type;
+static int hf_zbee_zcl_attr_bag_elements_num;
 
 /* Subtree indices. */
-static gint ett_zbee_zcl = -1;
-static gint ett_zbee_zcl_fcf = -1;
-static gint ett_zbee_zcl_attr[ZBEE_ZCL_NUM_ATTR_ETT];
-static gint ett_zbee_zcl_sel[ZBEE_ZCL_NUM_IND_FIELD];
-static gint ett_zbee_zcl_array_elements[ZBEE_ZCL_NUM_ARRAY_ELEM_ETT];
 
-static expert_field ei_cfg_rpt_rsp_short_non_success = EI_INIT;
-static expert_field ei_zbee_zero_length_element = EI_INIT;
+#define ZBEE_ZCL_NUM_INDIVIDUAL_ETT  2
+#define ZBEE_ZCL_NUM_ATTR_ETT       64
+#define ZBEE_ZCL_NUM_SEL_ETT        16
+#define ZBEE_ZCL_NUM_ARRAY_ELEM_ETT 16
+#define ZBEE_ZCL_NUM_TOTAL_ETT      (ZBEE_ZCL_NUM_INDIVIDUAL_ETT + ZBEE_ZCL_NUM_ATTR_ETT + ZBEE_ZCL_NUM_SEL_ETT + ZBEE_ZCL_NUM_ARRAY_ELEM_ETT)
+
+static int ett_zbee_zcl;
+static int ett_zbee_zcl_fcf;
+static int ett_zbee_zcl_attr[ZBEE_ZCL_NUM_ATTR_ETT];
+static int ett_zbee_zcl_sel[ZBEE_ZCL_NUM_SEL_ETT];
+static int ett_zbee_zcl_array_elements[ZBEE_ZCL_NUM_ARRAY_ELEM_ETT];
+
+static expert_field ei_cfg_rpt_rsp_short_non_success;
+static expert_field ei_zbee_zero_length_element;
 
 /* Dissector List. */
 static dissector_table_t    zbee_zcl_dissector_table;
@@ -1743,7 +1756,7 @@ static void dissect_zcl_read_attr_struct(tvbuff_t* tvb, packet_info* pinfo _U_, 
     guint8 indicator;
     gboolean client_attr = direction == ZBEE_ZCL_FCF_TO_CLIENT;
     tvb_len = tvb_captured_length(tvb);
-    while (*offset < tvb_len && i < ZBEE_ZCL_NUM_ATTR_ETT) {
+    while (*offset < tvb_len && i < ZBEE_ZCL_NUM_SEL_ETT) {
         /* Create subtree for aelector field */
         sub_tree = proto_tree_add_subtree(tree, tvb, *offset, 0, ett_zbee_zcl_sel[i], NULL, "Selector");
         i++;
@@ -1902,12 +1915,12 @@ void dissect_zcl_attr_id(tvbuff_t *tvb, proto_tree *tree, guint *offset, guint16
 
     if (desc) {
         if (client_attr) {
-            if (desc->hf_attr_client_id >= 0) {
+            if (desc->hf_attr_client_id > 0) {
                 hf_attr_id = desc->hf_attr_client_id;
             }
         }
         else {
-            if (desc->hf_attr_server_id >= 0) {
+            if (desc->hf_attr_server_id > 0) {
                 hf_attr_id = desc->hf_attr_server_id;
             }
         }
@@ -1991,6 +2004,8 @@ void dissect_zcl_attr_data(tvbuff_t *tvb, proto_tree *tree, guint *offset, guint
     gfloat    attr_float;
     gdouble   attr_double;
     nstime_t  attr_time;
+    guint32   utc_time;
+    proto_item *attr_utc_item = NULL;
 
     /* Dissect attribute data type and data */
     switch ( data_type ) {
@@ -2335,12 +2350,19 @@ void dissect_zcl_attr_data(tvbuff_t *tvb, proto_tree *tree, guint *offset, guint
 
         case ZBEE_ZCL_UTC:
             /* Display UTC */
-            attr_time.secs = tvb_get_letohl(tvb, *offset);
+            utc_time = tvb_get_letohl(tvb, *offset);
+            attr_time.secs = utc_time;
             attr_time.secs += ZBEE_ZCL_NSTIME_UTC_OFFSET;
             attr_time.nsecs = 0;
             proto_item_append_text(tree, ", %s",
                 val_to_str_ext_const(data_type, &zbee_zcl_short_data_type_names_ext, "Reserved") );
-            proto_tree_add_time(tree, hf_zbee_zcl_attr_utc, tvb, *offset, 4, &attr_time);
+            attr_string = (const guint8 *)abs_time_to_str(wmem_packet_scope(), &attr_time, ABSOLUTE_TIME_UTC, TRUE);
+            proto_tree_add_time_format(tree, hf_zbee_zcl_attr_utc, tvb, *offset, 4, &attr_time,
+                "UTC Time: %s (%u)", attr_string, utc_time);
+
+            /* The raw integer value is sometimes needed independant of the formatted time */
+            attr_utc_item = proto_tree_add_item(tree, hf_zbee_zcl_attr_utc_raw, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+            proto_item_set_hidden(attr_utc_item);
             *offset += 4;
             break;
 
@@ -2497,6 +2519,24 @@ static void zcl_dump_data(tvbuff_t *tvb, guint offset, packet_info *pinfo, proto
 
     return;
 } /* zcl_dump_data */
+
+/**
+ * This function decodes ZCL UTCTime into a string representation of the time
+ * with the integer UTCTime value in brackets afterwards as the value is
+ * sometimes also useful.
+ *
+ * @param s string to display
+ * @param value value to decode as ZCL 32 bit UTCTime
+*/
+void
+decode_zcl_utc_time(gchar *s, guint32 value)
+{
+    gchar *start_time;
+    time_t epoch_time = (time_t)value + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    start_time = abs_time_secs_to_str (NULL, epoch_time, ABSOLUTE_TIME_UTC, TRUE);
+    snprintf(s, ITEM_LABEL_LENGTH, "%s (%d)", start_time, value);
+    wmem_free(NULL, start_time);
+} /* decode_zcl_utc_time */
 
 /**
  *This function decodes tenth of second time type variable
@@ -2737,6 +2777,9 @@ void proto_register_zbee_zcl(void)
         { &hf_zbee_zcl_attr_utc,
             { "UTC", "zbee_zcl.attr.utc", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_LOCAL, NULL, 0x0, NULL, HFILL }},
 
+        { &hf_zbee_zcl_attr_utc_raw,
+            { "UTC (raw value)", "zbee_zcl.attr.utc_raw", FT_UINT32, BASE_DEC, NULL, 0x0, NULL, HFILL }},
+
         { &hf_zbee_zcl_attr_status,
             { "Status", "zbee_zcl.attr.status", FT_UINT8, BASE_HEX|BASE_EXT_STRING, &zbee_zcl_status_names_ext,
                 0x0, NULL, HFILL }},
@@ -2823,17 +2866,14 @@ void proto_register_zbee_zcl(void)
 
     /* initialize attribute subtree types */
     for ( i = 0; i < ZBEE_ZCL_NUM_ATTR_ETT; i++, j++) {
-        ett_zbee_zcl_attr[i] = -1;
         ett[j] = &ett_zbee_zcl_attr[i];
     }
 
-
-    for(i=0; i<ZBEE_ZCL_NUM_IND_FIELD; i++){
-        ett_zbee_zcl_sel[i] = -1;
+    for( i = 0; i < ZBEE_ZCL_NUM_SEL_ETT; i++, j++) {
+        ett[j] = &ett_zbee_zcl_sel[i];
     }
 
     for ( i = 0; i < ZBEE_ZCL_NUM_ARRAY_ELEM_ETT; i++, j++ ) {
-        ett_zbee_zcl_array_elements[i] = -1;
         ett[j] = &ett_zbee_zcl_array_elements[i];
     }
 

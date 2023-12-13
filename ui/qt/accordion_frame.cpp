@@ -13,6 +13,7 @@
 #include "accordion_frame.h"
 
 #include "ui/util.h"
+#include <ui/qt/utils/color_utils.h>
 
 #include <QLayout>
 #include <QPropertyAnimation>
@@ -23,18 +24,8 @@ AccordionFrame::AccordionFrame(QWidget *parent) :
     QFrame(parent),
     frame_height_(0)
 {
-    QString subframe_style(
-//                ".QFrame {"
-//                "  background: palette(window);"
-//                "  padding-top: 0.1em;"
-//                "  padding-bottom: 0.1em;"
-//                "  border-bottom: 1px solid palette(shadow);"
-//                "}"
-                "QLineEdit#goToLineEdit {"
-                "  max-width: 5em;"
-                "}"
-                );
-    setStyleSheet(subframe_style);
+    updateStyleSheet();
+
     animation_ = new QPropertyAnimation(this, "maximumHeight", this);
     animation_->setDuration(duration_);
     animation_->setEasingCurve(QEasingCurve::InOutQuad);
@@ -92,4 +83,25 @@ void AccordionFrame::animationFinished()
         hide();
         setMaximumHeight(frame_height_);
     }
+}
+
+void AccordionFrame::updateStyleSheet()
+{
+    QString style_sheet(
+        "QLineEdit#goToLineEdit {"
+        "  max-width: 5em;"
+        "}"
+    );
+
+#ifdef Q_OS_MAC
+    style_sheet += QString(
+        "QLineEdit {"
+        "  border: 1px solid palette(%1);"
+        "  border-radius: 3px;"
+        "  padding: 1px;"
+        "}"
+    ).arg(ColorUtils::themeIsDark() ? QString("light") : QString("dark"));
+#endif
+
+    setStyleSheet(style_sheet);
 }

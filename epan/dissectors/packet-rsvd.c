@@ -26,87 +26,87 @@
 
 void proto_register_rsvd(void);
 
-static int proto_rsvd = -1;
-static int hf_svhdx_protocol_id = -1;
-static int hf_svhdx_protocol_version = -1;
-static int hf_svhdx_operation_code = -1;
-static int hf_svhdx_status = -1;
-static int hf_svhdx_request_id = -1;
-static int hf_svhdx_tunnel_scsi_length = -1;
-static int hf_svhdx_tunnel_scsi_reserved1 = -1;
-static int hf_svhdx_tunnel_scsi_cdb_length = -1;
-static int hf_svhdx_tunnel_scsi_sense_info_ex_length = -1;
-static int hf_svhdx_tunnel_scsi_data_in = -1;
-static int hf_svhdx_tunnel_scsi_reserved2 =  -1;
-static int hf_svhdx_tunnel_scsi_srb_flags = -1;
-static int hf_svhdx_tunnel_scsi_data_transfer_length = -1;
-static int hf_svhdx_tunnel_scsi_reserved3 = -1;
-static int hf_svhdx_tunnel_scsi_cdb = -1;
-static int hf_svhdx_tunnel_scsi_cdb_padding = -1;
-static int hf_svhdx_tunnel_scsi_data = -1;
-static int hf_svhdx_tunnel_scsi_auto_generated_sense = -1;
-static int hf_svhdx_tunnel_scsi_srb_status = -1;
-static int hf_svhdx_tunnel_scsi_sense_data_ex = -1;
-static int hf_svhdx_tunnel_scsi_status = -1;
-static int hf_svhdx_tunnel_file_info_server_version = -1;
-static int hf_svhdx_tunnel_file_info_sector_size = -1;
-static int hf_svhdx_tunnel_file_info_physical_sector_size = -1;
-static int hf_svhdx_tunnel_file_info_reserved = -1;
-static int hf_svhdx_tunnel_file_info_virtual_size = -1;
-static int hf_svhdx_tunnel_disk_info_reserved1 = -1;
-static int hf_svhdx_tunnel_disk_info_blocksize = -1;
-static int hf_svhdx_tunnel_disk_info_linkage_id = -1;
-static int hf_svhdx_tunnel_disk_info_disk_type = -1;
-static int hf_svhdx_tunnel_disk_info_disk_format = -1;
-static int hf_svhdx_tunnel_disk_info_is_mounted = -1;
-static int hf_svhdx_tunnel_disk_info_is_4k_aligned = -1;
-static int hf_svhdx_tunnel_disk_info_reserved = -1;
-static int hf_svhdx_tunnel_disk_info_file_size = -1;
-static int hf_svhdx_tunnel_disk_info_virtual_disk_id = -1;
-static int hf_svhdx_tunnel_validate_disk_reserved = -1;
-static int hf_svhdx_tunnel_validate_disk_is_valid_disk = -1;
-static int hf_svhdx_tunnel_srb_status_status_key = -1;
-static int hf_svhdx_tunnel_srb_status_reserved = -1;
-static int hf_svhdx_tunnel_srb_status_sense_info_auto_generated = -1;
-static int hf_svhdx_tunnel_srb_status_srb_status = -1;
-static int hf_svhdx_tunnel_srb_status_scsi_status = -1;
-static int hf_svhdx_tunnel_srb_status_sense_info_ex_length = -1;
-static int hf_svhdx_tunnel_srb_status_sense_data_ex = -1;
-static int hf_svhdx_tunnel_safe_virtual_size = -1;
-static int hf_svhdx_tunnel_transaction_id = -1;
-static int hf_svhdx_tunnel_meta_operation_type = -1;
-static int hf_svhdx_tunnel_padding = -1;
-static int hf_svhdx_tunnel_resize_new_size = -1;
-static int hf_svhdx_tunnel_resize_expand_only_flag = -1;
-static int hf_svhdx_tunnel_resize_allow_unsafe_virt_size_flag = -1;
-static int hf_svhdx_tunnel_resize_shrink_to_minimum_safe_size_flag = -1;
-static int hf_svhdx_tunnel_meta_operation_start_reserved = -1;
-static int hf_svhdx_tunnel_snapshot_type = -1;
-static int hf_svhdx_tunnel_snapshot_id = -1;
-static int hf_svhdx_tunnel_create_snapshot_flags = -1;
-static int hf_svhdx_tunnel_create_snapshot_flag_enable_change_tracking = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage1 = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage2 = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage3 = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage4 = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage5 = -1;
-static int hf_svhdx_tunnel_create_snapshot_stage6 = -1;
-static int hf_svhdx_tunnel_create_snapshot_parameters_payload_size = -1;
-static int hf_svhdx_tunnel_convert_dst_vhdset_name_len = -1;
-static int hf_svhdx_tunnel_convert_dst_vhdset_name = -1;
-static int hf_svhdx_tunnel_delete_snapshot_persist_reference = -1;
-static int hf_svhdx_tunnel_meta_op_query_progress_current_progress = -1;
-static int hf_svhdx_tunnel_meta_op_query_progress_complete_value = -1;
-static int hf_svhdx_tunnel_vhdset_information_type = -1;
-static int hf_svhdx_tunnel_vhdset_snapshot_creation_time = -1;
-static int hf_svhdx_tunnel_vhdset_is_valid_snapshot = -1;
-static int hf_svhdx_tunnel_vhdset_parent_snapshot_id = -1;
-static int hf_svhdx_tunnel_vhdset_log_file_id = -1;
+static int proto_rsvd;
+static int hf_svhdx_protocol_id;
+static int hf_svhdx_protocol_version;
+static int hf_svhdx_operation_code;
+static int hf_svhdx_status;
+static int hf_svhdx_request_id;
+static int hf_svhdx_tunnel_scsi_length;
+static int hf_svhdx_tunnel_scsi_reserved1;
+static int hf_svhdx_tunnel_scsi_cdb_length;
+static int hf_svhdx_tunnel_scsi_sense_info_ex_length;
+static int hf_svhdx_tunnel_scsi_data_in;
+static int hf_svhdx_tunnel_scsi_reserved2;
+static int hf_svhdx_tunnel_scsi_srb_flags;
+static int hf_svhdx_tunnel_scsi_data_transfer_length;
+static int hf_svhdx_tunnel_scsi_reserved3;
+static int hf_svhdx_tunnel_scsi_cdb;
+static int hf_svhdx_tunnel_scsi_cdb_padding;
+static int hf_svhdx_tunnel_scsi_data;
+static int hf_svhdx_tunnel_scsi_auto_generated_sense;
+static int hf_svhdx_tunnel_scsi_srb_status;
+static int hf_svhdx_tunnel_scsi_sense_data_ex;
+static int hf_svhdx_tunnel_scsi_status;
+static int hf_svhdx_tunnel_file_info_server_version;
+static int hf_svhdx_tunnel_file_info_sector_size;
+static int hf_svhdx_tunnel_file_info_physical_sector_size;
+static int hf_svhdx_tunnel_file_info_reserved;
+static int hf_svhdx_tunnel_file_info_virtual_size;
+static int hf_svhdx_tunnel_disk_info_reserved1;
+static int hf_svhdx_tunnel_disk_info_blocksize;
+static int hf_svhdx_tunnel_disk_info_linkage_id;
+static int hf_svhdx_tunnel_disk_info_disk_type;
+static int hf_svhdx_tunnel_disk_info_disk_format;
+static int hf_svhdx_tunnel_disk_info_is_mounted;
+static int hf_svhdx_tunnel_disk_info_is_4k_aligned;
+static int hf_svhdx_tunnel_disk_info_reserved;
+static int hf_svhdx_tunnel_disk_info_file_size;
+static int hf_svhdx_tunnel_disk_info_virtual_disk_id;
+static int hf_svhdx_tunnel_validate_disk_reserved;
+static int hf_svhdx_tunnel_validate_disk_is_valid_disk;
+static int hf_svhdx_tunnel_srb_status_status_key;
+static int hf_svhdx_tunnel_srb_status_reserved;
+static int hf_svhdx_tunnel_srb_status_sense_info_auto_generated;
+static int hf_svhdx_tunnel_srb_status_srb_status;
+static int hf_svhdx_tunnel_srb_status_scsi_status;
+static int hf_svhdx_tunnel_srb_status_sense_info_ex_length;
+static int hf_svhdx_tunnel_srb_status_sense_data_ex;
+static int hf_svhdx_tunnel_safe_virtual_size;
+static int hf_svhdx_tunnel_transaction_id;
+static int hf_svhdx_tunnel_meta_operation_type;
+static int hf_svhdx_tunnel_padding;
+static int hf_svhdx_tunnel_resize_new_size;
+static int hf_svhdx_tunnel_resize_expand_only_flag;
+static int hf_svhdx_tunnel_resize_allow_unsafe_virt_size_flag;
+static int hf_svhdx_tunnel_resize_shrink_to_minimum_safe_size_flag;
+static int hf_svhdx_tunnel_meta_operation_start_reserved;
+static int hf_svhdx_tunnel_snapshot_type;
+static int hf_svhdx_tunnel_snapshot_id;
+static int hf_svhdx_tunnel_create_snapshot_flags;
+static int hf_svhdx_tunnel_create_snapshot_flag_enable_change_tracking;
+static int hf_svhdx_tunnel_create_snapshot_stage1;
+static int hf_svhdx_tunnel_create_snapshot_stage2;
+static int hf_svhdx_tunnel_create_snapshot_stage3;
+static int hf_svhdx_tunnel_create_snapshot_stage4;
+static int hf_svhdx_tunnel_create_snapshot_stage5;
+static int hf_svhdx_tunnel_create_snapshot_stage6;
+static int hf_svhdx_tunnel_create_snapshot_parameters_payload_size;
+static int hf_svhdx_tunnel_convert_dst_vhdset_name_len;
+static int hf_svhdx_tunnel_convert_dst_vhdset_name;
+static int hf_svhdx_tunnel_delete_snapshot_persist_reference;
+static int hf_svhdx_tunnel_meta_op_query_progress_current_progress;
+static int hf_svhdx_tunnel_meta_op_query_progress_complete_value;
+static int hf_svhdx_tunnel_vhdset_information_type;
+static int hf_svhdx_tunnel_vhdset_snapshot_creation_time;
+static int hf_svhdx_tunnel_vhdset_is_valid_snapshot;
+static int hf_svhdx_tunnel_vhdset_parent_snapshot_id;
+static int hf_svhdx_tunnel_vhdset_log_file_id;
 
-static gint ett_rsvd = -1;
-static gint ett_svhdx_tunnel_op_header = -1;
-static gint ett_svhdx_tunnel_scsi_request = -1;
-static gint ett_rsvd_create_snapshot_flags = -1;
+static gint ett_rsvd;
+static gint ett_svhdx_tunnel_op_header;
+static gint ett_svhdx_tunnel_scsi_request;
+static gint ett_rsvd_create_snapshot_flags;
 
 static const value_string rsvd_operation_code_vals[] = {
         { 0x02001001, "RSVD_TUNNEL_GET_INITIAL_INFO" },
@@ -251,6 +251,7 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
 {
     proto_tree *sub_tree;
     proto_item *sub_item;
+    guint32 length;
     guint32 cdb_length;
     guint8 data_in;
     guint32 data_transfer_length;
@@ -271,18 +272,28 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
     }
 
     rsvd_conv_data->task = NULL;
+    rsvd_conv_data->task = (rsvd_task_data_t *)wmem_map_lookup(rsvd_conv_data->tasks, (const void *)&request_id);
     if (!pinfo->fd->visited) {
-        guint64 *key_copy = wmem_new(wmem_file_scope(), guint64);
+        if (rsvd_conv_data->task == NULL) {
+            guint64 *key_copy = wmem_new(wmem_file_scope(), guint64);
 
-        *key_copy = request_id;
-        rsvd_conv_data->task = wmem_new(wmem_file_scope(), rsvd_task_data_t);
-        rsvd_conv_data->task->request_frame=pinfo->num;
-        rsvd_conv_data->task->response_frame=0;
-        rsvd_conv_data->task->itlq = NULL;
-        wmem_map_insert(rsvd_conv_data->tasks, (const void *)key_copy,
-                        rsvd_conv_data->task);
-    } else {
-        rsvd_conv_data->task = (rsvd_task_data_t *)wmem_map_lookup(rsvd_conv_data->tasks, (const void *)&request_id);
+            *key_copy = request_id;
+            rsvd_conv_data->task = wmem_new0(wmem_file_scope(), rsvd_task_data_t);
+            rsvd_conv_data->task->itlq = wmem_new0(wmem_file_scope(),
+                                                  itlq_nexus_t);
+            rsvd_conv_data->task->itlq->lun = 0xffff;
+            rsvd_conv_data->task->itlq->scsi_opcode = 0xffff;
+            rsvd_conv_data->task->itlq->fc_time = pinfo->abs_ts;
+            wmem_map_insert(rsvd_conv_data->tasks, (const void *)key_copy,
+                            rsvd_conv_data->task);
+        }
+        if (request) {
+            rsvd_conv_data->task->request_frame = pinfo->num;
+            rsvd_conv_data->task->itlq->first_exchange_frame = pinfo->num;
+        } else {
+            rsvd_conv_data->task->response_frame = pinfo->num;
+            rsvd_conv_data->task->itlq->last_exchange_frame = pinfo->num;
+        }
     }
 
     sub_tree = proto_tree_add_subtree_format(parent_tree, tvb, offset, len, ett_svhdx_tunnel_scsi_request, &sub_item, "SVHDX_TUNNEL_SCSI_%s", (request ? "REQUEST" : "RESPONSE"));
@@ -304,6 +315,11 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
         offset++;
 
         /* SensInfoExLength */
+        /* You'll notice that there is no SenseDataEx field in the request.
+         * This field is pointless and ignored. In some versions Microsoft
+         * said that this field MUST be set to zero; recent versions say
+         * that it SHOULD be set to 20 (which is the size of the CDBBuffer
+         * plus Reserved3.) */
         proto_tree_add_item(sub_tree, hf_svhdx_tunnel_scsi_sense_info_ex_length, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
 
@@ -358,22 +374,6 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
         /*
          * Now the SCSI Request
          */
-        if (rsvd_conv_data->task && !rsvd_conv_data->task->itlq) {
-            rsvd_conv_data->task->itlq = wmem_new(wmem_file_scope(),
-                                                  itlq_nexus_t);
-            rsvd_conv_data->task->itlq->first_exchange_frame = pinfo->num;
-            rsvd_conv_data->task->itlq->last_exchange_frame = 0;
-            rsvd_conv_data->task->itlq->lun = 0xffff;
-            rsvd_conv_data->task->itlq->scsi_opcode = 0xffff;
-            rsvd_conv_data->task->itlq->task_flags = 0;
-            rsvd_conv_data->task->itlq->data_length = 0;
-            rsvd_conv_data->task->itlq->bidir_data_length = 0;
-            rsvd_conv_data->task->itlq->flags = 0;
-            rsvd_conv_data->task->itlq->alloc_len = 0;
-            rsvd_conv_data->task->itlq->fc_time = pinfo->abs_ts;
-            rsvd_conv_data->task->itlq->extra_data = NULL;
-        }
-
         if (rsvd_conv_data->task && rsvd_conv_data->task->itlq) {
             dissect_scsi_cdb(scsi_cdb, pinfo, top_tree, SCSI_DEV_SMC, rsvd_conv_data->task->itlq, get_itl_nexus(pinfo));
             if (data_in == 0) { /* Only OUT operations have meaningful SCSI payload in request packet */
@@ -387,7 +387,7 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
         guint8 scsi_status = 0;
 
         /* Length */
-        proto_tree_add_item(sub_tree, hf_svhdx_tunnel_scsi_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+        proto_tree_add_item_ret_uint(sub_tree, hf_svhdx_tunnel_scsi_length, tvb, offset, 2, ENC_LITTLE_ENDIAN, &length);
         offset += 2;
 
         /* A */
@@ -430,6 +430,24 @@ dissect_RSVD_TUNNEL_SCSI(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_t
         offset += 4;
 
         /* SenseDataEx */
+        /* Microsoft kept going back and forth with this field. Up through
+         * version 6.0 of the MS-RSVD specification, SenseInfoExLength had
+         * the length of SenseDataEx, a variable length fields. In 7.0,
+         * it was changed so that SenseDataEx was a fixed length 20 byte
+         * field, and SenseInfoExLength had the number of bytes, of the
+         * data actually contained in the field, which had to be 20 or fewer.
+         * Then in 11.0 it was changed back.
+         * In the 7.0-10.0 case, the 20 byte field seemed to actually
+         * contain the CDB + padding + Reserved3 from the Request copied back.
+         * Luckily there's also a Length field that measures the size of
+         * the structure excluding the DataBuffer. In the versions with the
+         * 20 byte fixed SenseDataEx field, the protocol notes that it MUST
+         * MUST be set to the appropriate value of 36. (DataBuffer is the
+         * only other possibly variable length field.)
+         */
+        if (length == 36 && sense_info_ex_length < 20) {
+            sense_info_ex_length = 20;
+        }
         proto_tree_add_item(sub_tree, hf_svhdx_tunnel_scsi_sense_data_ex, tvb, offset, sense_info_ex_length, ENC_NA);
         offset += sense_info_ex_length;
 
@@ -495,6 +513,11 @@ dissect_RSVD_SRB_STATUS(tvbuff_t *tvb, proto_tree *parent_tree, int offset, gint
         offset += 1;
 
         /* SenseDataEx */
+        /* For the same reasons as discussed in RSVD_TUNNEL_SCSI, in some
+         * versions this field is a fixed 20 octets, and the length just
+         * indicates the number of bytes of real sense data in it.
+         * At least it's at the end; we'll just ignore the padding.
+         */
         proto_tree_add_item(gfi_sub_tree, hf_svhdx_tunnel_srb_status_sense_data_ex, tvb, offset, sense_info_length, ENC_NA);
         offset += sense_info_length;
     }

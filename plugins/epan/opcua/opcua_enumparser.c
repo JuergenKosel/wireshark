@@ -22,34 +22,34 @@
 
 #include "opcua_enumparser.h"
 
-gint ett_opcua_array_NodeIdType = -1;
-gint ett_opcua_array_NamingRuleType = -1;
-gint ett_opcua_array_OpenFileMode = -1;
-gint ett_opcua_array_TrustListMasks = -1;
-gint ett_opcua_array_IdType = -1;
-gint ett_opcua_array_NodeClass = -1;
-gint ett_opcua_array_ApplicationType = -1;
-gint ett_opcua_array_MessageSecurityMode = -1;
-gint ett_opcua_array_UserTokenType = -1;
-gint ett_opcua_array_SecurityTokenRequestType = -1;
-gint ett_opcua_array_NodeAttributesMask = -1;
-gint ett_opcua_array_AttributeWriteMask = -1;
-gint ett_opcua_array_BrowseDirection = -1;
-gint ett_opcua_array_BrowseResultMask = -1;
-gint ett_opcua_array_ComplianceLevel = -1;
-gint ett_opcua_array_FilterOperator = -1;
-gint ett_opcua_array_TimestampsToReturn = -1;
-gint ett_opcua_array_HistoryUpdateType = -1;
-gint ett_opcua_array_PerformUpdateType = -1;
-gint ett_opcua_array_MonitoringMode = -1;
-gint ett_opcua_array_DataChangeTrigger = -1;
-gint ett_opcua_array_DeadbandType = -1;
-gint ett_opcua_array_EnumeratedTestType = -1;
-gint ett_opcua_array_RedundancySupport = -1;
-gint ett_opcua_array_ServerState = -1;
-gint ett_opcua_array_ModelChangeStructureVerbMask = -1;
-gint ett_opcua_array_AxisScaleEnumeration = -1;
-gint ett_opcua_array_ExceptionDeviationFormat = -1;
+gint ett_opcua_array_NodeIdType;
+gint ett_opcua_array_NamingRuleType;
+gint ett_opcua_array_OpenFileMode;
+gint ett_opcua_array_TrustListMasks;
+gint ett_opcua_array_IdType;
+gint ett_opcua_array_NodeClass;
+gint ett_opcua_array_ApplicationType;
+gint ett_opcua_array_MessageSecurityMode;
+gint ett_opcua_array_UserTokenType;
+gint ett_opcua_array_SecurityTokenRequestType;
+gint ett_opcua_array_NodeAttributesMask;
+gint ett_opcua_array_AttributeWriteMask;
+gint ett_opcua_array_BrowseDirection;
+gint ett_opcua_array_BrowseResultMask;
+gint ett_opcua_array_ComplianceLevel;
+gint ett_opcua_array_FilterOperator;
+gint ett_opcua_array_TimestampsToReturn;
+gint ett_opcua_array_HistoryUpdateType;
+gint ett_opcua_array_PerformUpdateType;
+gint ett_opcua_array_MonitoringMode;
+gint ett_opcua_array_DataChangeTrigger;
+gint ett_opcua_array_DeadbandType;
+gint ett_opcua_array_EnumeratedTestType;
+gint ett_opcua_array_RedundancySupport;
+gint ett_opcua_array_ServerState;
+gint ett_opcua_array_ModelChangeStructureVerbMask;
+gint ett_opcua_array_AxisScaleEnumeration;
+gint ett_opcua_array_ExceptionDeviationFormat;
 
 /** NodeIdType enum table */
 static const value_string g_NodeIdTypeTable[] = {
@@ -61,7 +61,7 @@ static const value_string g_NodeIdTypeTable[] = {
   { 5, "ByteString" },
   { 0, NULL }
 };
-static int hf_opcua_NodeIdType = -1;
+static int hf_opcua_NodeIdType;
 
 void parseNodeIdType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -74,7 +74,7 @@ static const value_string g_NamingRuleTypeTable[] = {
   { 3, "Constraint" },
   { 0, NULL }
 };
-static int hf_opcua_NamingRuleType = -1;
+static int hf_opcua_NamingRuleType;
 
 void parseNamingRuleType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -88,7 +88,7 @@ static const value_string g_OpenFileModeTable[] = {
   { 8, "Append" },
   { 0, NULL }
 };
-static int hf_opcua_OpenFileMode = -1;
+static int hf_opcua_OpenFileMode;
 
 void parseOpenFileMode(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -104,7 +104,7 @@ static const value_string g_TrustListMasksTable[] = {
   { 15, "All" },
   { 0, NULL }
 };
-static int hf_opcua_TrustListMasks = -1;
+static int hf_opcua_TrustListMasks;
 
 void parseTrustListMasks(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -118,7 +118,7 @@ static const value_string g_IdTypeTable[] = {
   { 3, "Opaque" },
   { 0, NULL }
 };
-static int hf_opcua_IdType = -1;
+static int hf_opcua_IdType;
 
 void parseIdType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -137,7 +137,7 @@ static const value_string g_NodeClassTable[] = {
   { 128, "View" },
   { 0, NULL }
 };
-static int hf_opcua_NodeClass = -1;
+static int hf_opcua_NodeClass;
 
 void parseNodeClass(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -151,7 +151,7 @@ static const value_string g_ApplicationTypeTable[] = {
   { 3, "DiscoveryServer" },
   { 0, NULL }
 };
-static int hf_opcua_ApplicationType = -1;
+static int hf_opcua_ApplicationType;
 
 void parseApplicationType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -165,7 +165,7 @@ static const value_string g_MessageSecurityModeTable[] = {
   { 3, "SignAndEncrypt" },
   { 0, NULL }
 };
-static int hf_opcua_MessageSecurityMode = -1;
+static int hf_opcua_MessageSecurityMode;
 
 void parseMessageSecurityMode(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -180,7 +180,7 @@ static const value_string g_UserTokenTypeTable[] = {
   { 4, "Kerberos" },
   { 0, NULL }
 };
-static int hf_opcua_UserTokenType = -1;
+static int hf_opcua_UserTokenType;
 
 void parseUserTokenType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -192,7 +192,7 @@ static const value_string g_SecurityTokenRequestTypeTable[] = {
   { 1, "Renew" },
   { 0, NULL }
 };
-static int hf_opcua_SecurityTokenRequestType = -1;
+static int hf_opcua_SecurityTokenRequestType;
 
 void parseSecurityTokenRequestType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -234,7 +234,7 @@ static const value_string g_NodeAttributesMaskTable[] = {
   { 1335532, "View" },
   { 0, NULL }
 };
-static int hf_opcua_NodeAttributesMask = -1;
+static int hf_opcua_NodeAttributesMask;
 
 void parseNodeAttributesMask(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -271,7 +271,7 @@ static const value_string g_AttributeWriteMaskTable[] = {
   { 33554432, "AccessLevelEx" },
   { 0, NULL }
 };
-static int hf_opcua_AttributeWriteMask = -1;
+static int hf_opcua_AttributeWriteMask;
 
 void parseAttributeWriteMask(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -285,7 +285,7 @@ static const value_string g_BrowseDirectionTable[] = {
   { 3, "Invalid" },
   { 0, NULL }
 };
-static int hf_opcua_BrowseDirection = -1;
+static int hf_opcua_BrowseDirection;
 
 void parseBrowseDirection(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -300,7 +300,7 @@ static const value_string g_ComplianceLevelTable[] = {
   { 3, "Certified" },
   { 0, NULL }
 };
-static int hf_opcua_ComplianceLevel = -1;
+static int hf_opcua_ComplianceLevel;
 
 void parseComplianceLevel(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -328,7 +328,7 @@ static const value_string g_FilterOperatorTable[] = {
   { 17, "BitwiseOr" },
   { 0, NULL }
 };
-static int hf_opcua_FilterOperator = -1;
+static int hf_opcua_FilterOperator;
 
 void parseFilterOperator(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -343,7 +343,7 @@ static const value_string g_TimestampsToReturnTable[] = {
   { 4, "Invalid" },
   { 0, NULL }
 };
-static int hf_opcua_TimestampsToReturn = -1;
+static int hf_opcua_TimestampsToReturn;
 
 void parseTimestampsToReturn(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -357,7 +357,7 @@ static const value_string g_HistoryUpdateTypeTable[] = {
   { 4, "Delete" },
   { 0, NULL }
 };
-static int hf_opcua_HistoryUpdateType = -1;
+static int hf_opcua_HistoryUpdateType;
 
 void parseHistoryUpdateType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -371,7 +371,7 @@ static const value_string g_PerformUpdateTypeTable[] = {
   { 4, "Remove" },
   { 0, NULL }
 };
-static int hf_opcua_PerformUpdateType = -1;
+static int hf_opcua_PerformUpdateType;
 
 void parsePerformUpdateType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -384,7 +384,7 @@ static const value_string g_MonitoringModeTable[] = {
   { 2, "Reporting" },
   { 0, NULL }
 };
-static int hf_opcua_MonitoringMode = -1;
+static int hf_opcua_MonitoringMode;
 
 void parseMonitoringMode(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -397,7 +397,7 @@ static const value_string g_DataChangeTriggerTable[] = {
   { 2, "StatusValueTimestamp" },
   { 0, NULL }
 };
-static int hf_opcua_DataChangeTrigger = -1;
+static int hf_opcua_DataChangeTrigger;
 
 void parseDataChangeTrigger(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -410,7 +410,7 @@ static const value_string g_DeadbandTypeTable[] = {
   { 2, "Percent" },
   { 0, NULL }
 };
-static int hf_opcua_DeadbandType = -1;
+static int hf_opcua_DeadbandType;
 
 void parseDeadbandType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -423,7 +423,7 @@ static const value_string g_EnumeratedTestTypeTable[] = {
   { 5, "Green" },
   { 0, NULL }
 };
-static int hf_opcua_EnumeratedTestType = -1;
+static int hf_opcua_EnumeratedTestType;
 
 void parseEnumeratedTestType(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -439,7 +439,7 @@ static const value_string g_RedundancySupportTable[] = {
   { 5, "HotAndMirrored" },
   { 0, NULL }
 };
-static int hf_opcua_RedundancySupport = -1;
+static int hf_opcua_RedundancySupport;
 
 void parseRedundancySupport(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -457,7 +457,7 @@ static const value_string g_ServerStateTable[] = {
   { 7, "Unknown" },
   { 0, NULL }
 };
-static int hf_opcua_ServerState = -1;
+static int hf_opcua_ServerState;
 
 void parseServerState(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -472,7 +472,7 @@ static const value_string g_ModelChangeStructureVerbMaskTable[] = {
   { 16, "DataTypeChanged" },
   { 0, NULL }
 };
-static int hf_opcua_ModelChangeStructureVerbMask = -1;
+static int hf_opcua_ModelChangeStructureVerbMask;
 
 void parseModelChangeStructureVerbMask(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -485,7 +485,7 @@ static const value_string g_AxisScaleEnumerationTable[] = {
   { 2, "Ln" },
   { 0, NULL }
 };
-static int hf_opcua_AxisScaleEnumeration = -1;
+static int hf_opcua_AxisScaleEnumeration;
 
 void parseAxisScaleEnumeration(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -500,7 +500,7 @@ static const value_string g_ExceptionDeviationFormatTable[] = {
   { 4, "Unknown" },
   { 0, NULL }
 };
-static int hf_opcua_ExceptionDeviationFormat = -1;
+static int hf_opcua_ExceptionDeviationFormat;
 
 void parseExceptionDeviationFormat(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {
@@ -537,7 +537,7 @@ static const value_string g_AttributeIdTable[] = {
     {27, "AccessLevelEx"},
     {0, NULL}
 };
-static int hf_opcua_AttributeId = -1;
+static int hf_opcua_AttributeId;
 
 void parseAttributeId(proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo _U_, gint *pOffset)
 {

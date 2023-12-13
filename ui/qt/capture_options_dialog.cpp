@@ -31,7 +31,7 @@
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
 #include "ui/iface_lists.h"
-#include "ui/last_open_dir.h"
+#include "ui/file_dialog.h"
 
 #include "ui/ws_ui_util.h"
 #include "ui/util.h"
@@ -58,6 +58,11 @@
 // - Fix InterfaceTreeDelegate method names.
 // - You can edit filters via the main CaptureFilterCombo and via each
 //   individual interface row. We should probably do one or the other.
+// - There might be a point in having the separate combo boxes in the
+//   individual interface row, if their CaptureFilterCombos actually
+//   called recent_get_cfilter_list with the interface name to get the
+//   separate list of recent capture filters for that interface, but
+//   they don't.
 
 const int stat_update_interval_ = 1000; // ms
 
@@ -112,6 +117,9 @@ public:
     {
         if (!device) return;
 
+        // Prevent infinite recursive signal loop
+        // itemChanged->interfaceItemChanged->updateInterfaceColumns
+        treeWidget()->blockSignals(true);
         QString default_str = QObject::tr("default");
 
         // XXX - this is duplicated in InterfaceTreeModel::data;
@@ -159,6 +167,7 @@ public:
             setApplicable(col_monitor_, false);
         }
 #endif
+        treeWidget()->blockSignals(false);
     }
 
     void setApplicable(int column, bool applicable = false) {
@@ -205,6 +214,7 @@ CaptureOptionsDialog::CaptureOptionsDialog(QWidget *parent) :
 #endif
 #ifndef SHOW_MONITOR_COLUMN
     ui->interfaceTree->setColumnHidden(col_monitor_, true);
+    ui->captureMonitorModeCheckBox->setVisible(false);
 #endif
     ui->interfaceTree->setItemDelegateForColumn(col_filter_, &interface_item_delegate_);
 
@@ -364,22 +374,27 @@ void CaptureOptionsDialog::on_capturePromModeCheckBox_toggled(bool checked)
     }
 }
 
+void CaptureOptionsDialog::on_captureMonitorModeCheckBox_toggled(bool checked)
+{
+    interface_t *device;
+    prefs.capture_monitor_mode = checked;
+    for (int row = 0; row < ui->interfaceTree->topLevelItemCount(); row++) {
+        InterfaceTreeWidgetItem *ti = dynamic_cast<InterfaceTreeWidgetItem *>(ui->interfaceTree->topLevelItem(row));
+        if (!ti) continue;
+
+        QString device_name = ti->data(col_interface_, Qt::UserRole).toString();
+        device = getDeviceByName(device_name);
+        if (!device) continue;
+        if (device->monitor_mode_supported) {
+            device->monitor_mode_enabled = checked;
+            ti->updateInterfaceColumns(device);
+        }
+    }
+}
+
 void CaptureOptionsDialog::browseButtonClicked()
 {
-    char *open_dir = NULL;
-
-    switch (prefs.gui_fileopen_style) {
-
-    case FO_STYLE_LAST_OPENED:
-        open_dir = get_last_open_dir();
-        break;
-
-    case FO_STYLE_SPECIFIED:
-        if (prefs.gui_fileopen_dir[0] != '\0')
-            open_dir = prefs.gui_fileopen_dir;
-        break;
-    }
-    QString file_name = WiresharkFileDialog::getSaveFileName(this, tr("Specify a Capture File"), open_dir);
+    QString file_name = WiresharkFileDialog::getSaveFileName(this, tr("Specify a Capture File"), get_open_dialog_initial_dir());
     ui->filenameLineEdit->setText(file_name);
 }
 
@@ -656,6 +671,8 @@ void CaptureOptionsDialog::updateInterfaces()
         ui->rbPcap->setChecked(true);
     }
     ui->capturePromModeCheckBox->setChecked(prefs.capture_prom_mode);
+    ui->captureMonitorModeCheckBox->setChecked(prefs.capture_monitor_mode);
+    ui->captureMonitorModeCheckBox->setEnabled(false);
 
     if (global_capture_opts.saving_to_file) {
         ui->filenameLineEdit->setText(QString(global_capture_opts.orig_save_file));
@@ -841,6 +858,11 @@ void CaptureOptionsDialog::updateInterfaces()
                 device->buffer = DEFAULT_CAPTURE_BUFFER_SIZE;
             }
 #endif
+#ifdef SHOW_MONITOR_COLUMN
+            if (device->monitor_mode_supported) {
+                ui->captureMonitorModeCheckBox->setEnabled(true);
+            }
+#endif
             ti->updateInterfaceColumns(device);
 
             if (device->selected) {
@@ -933,13 +955,17 @@ void CaptureOptionsDialog::updateStatistics(void)
 
 void CaptureOptionsDialog::on_compileBPF_clicked()
 {
-    QStringList interfaces;
+    QList<InterfaceFilter> interfaces;
     foreach (QTreeWidgetItem *ti, ui->interfaceTree->selectedItems()) {
-        interfaces.append(ti->text(col_interface_));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        interfaces.emplaceBack(ti->text(col_interface_), ti->text(col_filter_));
+#else
+        interfaces.append(InterfaceFilter(ti->text(col_interface_), ti->text(col_filter_)));
+#endif
     }
 
     QString filter = ui->captureFilterComboBox->currentText();
-    CompiledFilterOutput *cfo = new CompiledFilterOutput(this, interfaces, filter);
+    CompiledFilterOutput *cfo = new CompiledFilterOutput(this, interfaces);
 
     cfo->show();
 }
@@ -1431,6 +1457,8 @@ QWidget* InterfaceTreeDelegate::createEditor(QWidget *parent, const QStyleOption
 #endif
         case col_filter_:
         {
+            // XXX: Should this take the interface name, so that the history
+            // list is taken from the interface-specific recent cfilter list?
             CaptureFilterCombo *cf = new CaptureFilterCombo(parent, true);
             connect(cf->lineEdit(), SIGNAL(textEdited(QString)), this, SIGNAL(filterChanged(QString)));
             w = (QWidget*) cf;

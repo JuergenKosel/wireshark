@@ -15,7 +15,7 @@
 
 #include <epan/epan.h>
 #include <epan/packet.h>
-#include <epan/ipv6.h>
+#include <wsutil/inet_cidr.h>
 #include <epan/tap.h>
 #include <epan/wmem_scopes.h>
 #include "ws_symbol_export.h"
@@ -193,7 +193,11 @@ WS_DLL_PUBLIC void follow_iterate_followers(wmem_foreach_func func, gpointer use
  */
 WS_DLL_PUBLIC gchar* follow_get_stat_tap_string(register_follow_t* follower);
 
-/** Clear counters, addresses and ports of follow_info_t
+/** Clear payload, fragments, counters, addresses, and ports of follow_info_t
+ * for retapping. (Does not clear substream_id, which is used for selecting
+ * which tvbs are tapped.)
+ * Free everything except the GUI element and the follow_info_t structure
+ * itself
  *
  * @param info [in] follower info
  */

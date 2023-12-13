@@ -124,13 +124,6 @@ typedef struct{
 #define ZBEE_ZCL_UNKNOWN            0xff
 
 /* ZCL Miscellaneous */
-#define ZBEE_ZCL_INVALID_STR_LENGTH             0xff
-#define ZBEE_ZCL_INVALID_LONG_STR_LENGTH        0xffff
-#define ZBEE_ZCL_NUM_INDIVIDUAL_ETT             2
-#define ZBEE_ZCL_NUM_ATTR_ETT                   64
-#define ZBEE_ZCL_NUM_IND_FIELD                  16
-#define ZBEE_ZCL_NUM_ARRAY_ELEM_ETT             16
-#define ZBEE_ZCL_NUM_TOTAL_ETT                  (ZBEE_ZCL_NUM_INDIVIDUAL_ETT + ZBEE_ZCL_NUM_ATTR_ETT + ZBEE_ZCL_NUM_ARRAY_ELEM_ETT)
 #define ZBEE_ZCL_DIR_REPORTED                   0
 #define ZBEE_ZCL_DIR_RECEIVED                   1
 /* seconds elapsed from year 1970 to 2000 */
@@ -216,6 +209,7 @@ extern guint dissect_zcl_attr_uint8 (tvbuff_t *tvb, proto_tree *tree, guint *off
 /* Helper functions */
 
 /* Exported DLL functions */
+void decode_zcl_utc_time (gchar *s, guint32 value);
 WS_DLL_PUBLIC void decode_zcl_time_in_100ms (gchar *s, guint16 value);
 WS_DLL_PUBLIC void decode_zcl_time_in_seconds (gchar *s, guint16 value);
 WS_DLL_PUBLIC void decode_zcl_time_in_minutes (gchar *s, guint16 value);

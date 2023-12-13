@@ -38,6 +38,7 @@ AddressEditorFrame::AddressEditorFrame(QWidget *parent) :
     cap_file_(NULL)
 {
     ui->setupUi(this);
+    ui->addressComboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
 
 #ifdef Q_OS_MAC
     foreach (QWidget *w, findChildren<QWidget *>()) {
@@ -54,7 +55,8 @@ AddressEditorFrame::~AddressEditorFrame()
 QString AddressEditorFrame::addressToString(const FieldInformation& finfo)
 {
     address addr;
-    ws_in4_addr ipv4;
+    QString addr_str;
+    const ipv4_addr_and_mask *ipv4;
     const ipv6_addr_and_prefix *ipv6;
 
     if (!finfo.isValid()) {
@@ -68,16 +70,21 @@ QString AddressEditorFrame::addressToString(const FieldInformation& finfo)
         // proto_item_fill_display_label, but that gives us
         // the currently resolved version, if resolution is
         // available and enabled. We want the unresolved string.
-        ipv4 = fvalue_get_uinteger(finfo.fieldInfo()->value);
-        set_address(&addr, AT_IPv4, 4, &ipv4);
-        return gchar_free_to_qstring(address_to_str(NULL, &addr));
+        ipv4 = fvalue_get_ipv4(finfo.fieldInfo()->value);
+        set_address_ipv4(&addr, ipv4);
+        addr_str = gchar_free_to_qstring(address_to_str(NULL, &addr));
+        free_address(&addr);
+        break;
     case FT_IPv6:
         ipv6 = fvalue_get_ipv6(finfo.fieldInfo()->value);
-        set_address(&addr, AT_IPv6, sizeof(ws_in6_addr), &ipv6->addr);
-        return gchar_free_to_qstring(address_to_str(NULL, &addr));
+        set_address_ipv6(&addr, ipv6);
+        addr_str = gchar_free_to_qstring(address_to_str(NULL, &addr));
+        free_address(&addr);
+        break;
     default:
-        return QString();
+        addr_str = QString();
     }
+    return addr_str;
 }
 
 void AddressEditorFrame::addAddresses(const ProtoNode& node, QStringList& addresses)

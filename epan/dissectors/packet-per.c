@@ -29,59 +29,59 @@ proper helper routines
 
 void proto_register_per(void);
 
-static int proto_per = -1;
-static int hf_per_GeneralString_length = -1;
-static int hf_per_extension_bit = -1;
-static int hf_per_extension_present_bit = -1;
-static int hf_per_choice_index = -1;
-static int hf_per_choice_extension_index = -1;
-static int hf_per_enum_index = -1;
-static int hf_per_enum_extension_index = -1;
-static int hf_per_num_sequence_extensions = -1;
-static int hf_per_small_number_bit = -1;
-static int hf_per_optional_field_bit = -1;
-static int hf_per_sequence_of_length = -1;
-static int hf_per_object_identifier_length = -1;
-static int hf_per_open_type_length = -1;
-static int hf_per_real_length = -1;
-static int hf_per_octet_string_length = -1;
-static int hf_per_bit_string_length = -1;
-static int hf_per_normally_small_nonnegative_whole_number_length = -1;
-static int hf_per_const_int_len = -1;
-static int hf_per_direct_reference = -1; /* T_direct_reference */
-static int hf_per_indirect_reference = -1; /* T_indirect_reference */
-static int hf_per_data_value_descriptor = -1; /* T_data_value_descriptor */
-static int hf_per_encoding = -1; /* External_encoding */
-static int hf_per_single_ASN1_type = -1; /* T_single_ASN1_type */
-static int hf_per_octet_aligned = -1; /* T_octet_aligned */
-static int hf_per_arbitrary = -1; /* T_arbitrary */
-static int hf_per_integer_length = -1; /* Show integer length if "show internal per fields" */
-/* static int hf_per_debug_pos = -1; */
-static int hf_per_internal_range = -1;
-static int hf_per_internal_num_bits = -1;
-static int hf_per_internal_min = -1;
-static int hf_per_internal_value = -1;
-static int hf_per_encoding_boiler_plate = -1;
+static int proto_per;
+static int hf_per_GeneralString_length;
+static int hf_per_extension_bit;
+static int hf_per_extension_present_bit;
+static int hf_per_choice_index;
+static int hf_per_choice_extension_index;
+static int hf_per_enum_index;
+static int hf_per_enum_extension_index;
+static int hf_per_num_sequence_extensions;
+static int hf_per_small_number_bit;
+static int hf_per_optional_field_bit;
+static int hf_per_sequence_of_length;
+static int hf_per_object_identifier_length;
+static int hf_per_open_type_length;
+static int hf_per_real_length;
+static int hf_per_octet_string_length;
+static int hf_per_bit_string_length;
+static int hf_per_normally_small_nonnegative_whole_number_length;
+static int hf_per_const_int_len;
+static int hf_per_direct_reference; /* T_direct_reference */
+static int hf_per_indirect_reference; /* T_indirect_reference */
+static int hf_per_data_value_descriptor; /* T_data_value_descriptor */
+static int hf_per_encoding; /* External_encoding */
+static int hf_per_single_ASN1_type; /* T_single_ASN1_type */
+static int hf_per_octet_aligned; /* T_octet_aligned */
+static int hf_per_arbitrary; /* T_arbitrary */
+static int hf_per_integer_length; /* Show integer length if "show internal per fields" */
+/* static int hf_per_debug_pos; */
+static int hf_per_internal_range;
+static int hf_per_internal_num_bits;
+static int hf_per_internal_min;
+static int hf_per_internal_value;
+static int hf_per_encoding_boiler_plate;
 
-static gint ett_per_open_type = -1;
-static gint ett_per_containing = -1;
-static gint ett_per_sequence_of_item = -1;
-static gint ett_per_External = -1;
-static gint ett_per_External_encoding = -1;
-static gint ett_per_named_bits = -1;
+static gint ett_per_open_type;
+static gint ett_per_containing;
+static gint ett_per_sequence_of_item;
+static gint ett_per_External;
+static gint ett_per_External_encoding;
+static gint ett_per_named_bits;
 
-static expert_field ei_per_size_constraint_value = EI_INIT;
-static expert_field ei_per_size_constraint_too_few = EI_INIT;
-static expert_field ei_per_size_constraint_too_many = EI_INIT;
-static expert_field ei_per_choice_extension_unknown = EI_INIT;
-static expert_field ei_per_sequence_extension_unknown = EI_INIT;
-static expert_field ei_per_encoding_error = EI_INIT;
-static expert_field ei_per_oid_not_implemented = EI_INIT;
-static expert_field ei_per_undecoded = EI_INIT;
-static expert_field ei_per_field_not_integer = EI_INIT;
-static expert_field ei_per_external_type = EI_INIT;
-static expert_field ei_per_open_type = EI_INIT;
-static expert_field ei_per_open_type_len = EI_INIT;
+static expert_field ei_per_size_constraint_value;
+static expert_field ei_per_size_constraint_too_few;
+static expert_field ei_per_size_constraint_too_many;
+static expert_field ei_per_choice_extension_unknown;
+static expert_field ei_per_sequence_extension_unknown;
+static expert_field ei_per_encoding_error;
+static expert_field ei_per_oid_not_implemented;
+static expert_field ei_per_undecoded;
+static expert_field ei_per_field_not_integer;
+static expert_field ei_per_external_type;
+static expert_field ei_per_open_type;
+static expert_field ei_per_open_type_len;
 
 static dissector_table_t per_oid_dissector_table = NULL;
 
@@ -172,7 +172,7 @@ dissect_per_open_type_internal(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, 
 	gboolean is_fragmented;
 	int captured_pdu_length;
 
-	hfi = (hf_index == -1) ? NULL : proto_registrar_get_nth(hf_index);
+	hfi = (hf_index <= 0) ? NULL : proto_registrar_get_nth(hf_index);
 
 	start_offset = offset;
 	do {
@@ -379,7 +379,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 				return offset;
 			}
 			*length *= 0x4000;
-			if(hf_index!=-1){
+			if(hf_index > 0){
 				pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-1, 1, *length);
 				if (display_internal_per_fields)
 					proto_item_append_text(pi," %s", str);
@@ -391,7 +391,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 		}
 		else if((val&0x80)==0 && num_bits==8){
 			*length = val;
-			if(hf_index!=-1){
+			if(hf_index > 0){
 				pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-1, 1, *length);
 				if (display_internal_per_fields)
 					proto_item_append_text(pi," %s", str);
@@ -403,7 +403,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 		}
 		else if (num_bits==16) {
 			*length = val&0x3fff;
-			if(hf_index!=-1){
+			if(hf_index > 0){
 				pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-2, 2, *length);
 				if (display_internal_per_fields)
 					proto_item_append_text(pi," %s", str);
@@ -422,7 +422,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 	/* 10.9.3.6 */
 	if((byte&0x80)==0){
 		*length=byte;
-		if(hf_index!=-1){
+		if(hf_index > 0){
 			pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-1, 1, *length);
 			if (!display_internal_per_fields) proto_item_set_hidden(pi);
 		}
@@ -434,7 +434,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 		*length=(byte&0x3f);
 		*length=((*length)<<8)+tvb_get_guint8(tvb, offset>>3);
 		offset+=8;
-		if(hf_index!=-1){
+		if(hf_index > 0){
 			pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-2, 2, *length);
 			if (!display_internal_per_fields) proto_item_set_hidden(pi);
 		}
@@ -450,7 +450,7 @@ dissect_per_length_determinant(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx _
 		}
 		*length *= 0x4000;
 		*is_fragmented = TRUE;
-		if(hf_index!=-1){
+		if(hf_index > 0){
 			pi = proto_tree_add_uint(tree, hf_index, tvb, (offset>>3)-1, 1, *length);
 			if (!display_internal_per_fields) proto_item_set_hidden(pi);
 		}
@@ -487,7 +487,7 @@ DEBUG_ENTRY("dissect_per_normally_small_nonnegative_whole_number");
 				*length|=1;
 			}
 		}
-		if(hf_index!=-1){
+		if(hf_index > 0){
 			pi = proto_tree_add_uint(tree, hf_index, tvb, (offset-6)>>3, (offset%8<6)?2:1, *length);
 			if (!display_internal_per_fields) proto_item_set_hidden(pi);
 		}
@@ -522,7 +522,7 @@ DEBUG_ENTRY("dissect_per_normally_small_nonnegative_whole_number");
 			*length = 0;
 			return offset;
 	}
-	if(hf_index!=-1){
+	if(hf_index > 0){
 		pi = proto_tree_add_uint(tree, hf_index, tvb, (offset-(8*length_determinant))>>3, length_determinant, *length);
 		if (!display_internal_per_fields) proto_item_set_hidden(pi);
 	}
@@ -1163,7 +1163,7 @@ DEBUG_ENTRY("dissect_per_boolean");
 	} else {
 		value=0;
 	}
-	if(hf_index!=-1){
+	if(hf_index > 0){
 		char bits[10];
 		bits[0] = mask&0x80?'0'+value:'.';
 		bits[1] = mask&0x40?'0'+value:'.';
@@ -1889,7 +1889,7 @@ index_get_extension_name(const per_sequence_t *sequence, int idx)
 	for(i=0;sequence[i].p_id;i++){
 		if(sequence[i].extension==ASN1_NOT_EXTENSION_ROOT){
 			if (idx == 0) {
-				if (*sequence[i].p_id == -1) return "extension addition group";
+				if (*sequence[i].p_id == -1 || *sequence[i].p_id == 0) return "extension addition group";
 				hfi = proto_registrar_get_nth(*sequence[i].p_id);
 				return (hfi) ? hfi->name : "<unknown filed>";
 			}
@@ -2262,7 +2262,7 @@ dissect_per_bit_string(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_tr
 	gboolean is_fragmented = FALSE;
 	tvbuff_t *fragmented_tvb = NULL, *out_tvb = NULL, *fragment_tvb = NULL;
 
-	hfi = (hf_index==-1) ? NULL : proto_registrar_get_nth(hf_index);
+	hfi = (hf_index <= 0) ? NULL : proto_registrar_get_nth(hf_index);
 
 DEBUG_ENTRY("dissect_per_bit_string");
 	/* 15.8 if the length is 0 bytes there will be no encoding */
@@ -2447,7 +2447,7 @@ dissect_per_octet_string(tvbuff_t *tvb, guint32 offset, asn1_ctx_t *actx, proto_
 	gboolean is_fragmented = FALSE;
 	tvbuff_t *out_tvb = NULL, *fragment_tvb = NULL;
 
-	hfi = (hf_index==-1) ? NULL : proto_registrar_get_nth(hf_index);
+	hfi = (hf_index <= 0) ? NULL : proto_registrar_get_nth(hf_index);
 
 DEBUG_ENTRY("dissect_per_octet_string");
 

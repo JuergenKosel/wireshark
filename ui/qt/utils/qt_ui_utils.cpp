@@ -17,15 +17,12 @@
 #include <epan/range.h>
 #include <epan/to_str.h>
 #include <epan/value_string.h>
-#include <epan/prefs.h>
 
 #include <ui/recent.h>
-#include <ui/last_open_dir.h>
+#include <ui/util.h>
 #include "ui/ws_ui_util.h"
 
 #include <wsutil/str_util.h>
-
-#include <ui/qt/main_application.h>
 
 #include <QAction>
 #include <QApplication>
@@ -46,7 +43,7 @@
  */
 
 gchar *qstring_strdup(QString q_string) {
-    return g_strdup(q_string.toUtf8().constData());
+    return g_strdup(qUtf8Printable(q_string));
 }
 
 QString gchar_free_to_qstring(gchar *glib_string) {
@@ -251,7 +248,7 @@ bool rect_on_screen(const QRect &rect)
 
 void set_action_shortcuts_visible_in_context_menu(QList<QAction *> actions)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0) && QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
+#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
     // For QT_VERSION >= 5.13.0 we call styleHints()->setShowShortcutsInContextMenus(true)
     // in WiresharkApplication.
     // QTBUG-71471
@@ -306,31 +303,11 @@ QString make_filter_based_on_rtpstream_id(QVector<rtpstream_id_t *> stream_ids)
     return filter;
 }
 
-QString lastOpenDir()
+QString openDialogInitialDir()
 {
     QString result;
 
-    switch (prefs.gui_fileopen_style) {
-
-    case FO_STYLE_LAST_OPENED:
-        /* The user has specified that we should start out in the last directory
-           we looked in.  If we've already opened a file, use its containing
-           directory, if we could determine it, as the directory, otherwise
-           use the "last opened" directory saved in the preferences file if
-           there was one. */
-        /* This is now the default behaviour in file_selection_new() */
-        result = QString(get_last_open_dir());
-        break;
-
-    case FO_STYLE_SPECIFIED:
-        /* The user has specified that we should always start out in a
-           specified directory; if they've specified that directory,
-           start out by showing the files in that dir. */
-        if (prefs.gui_fileopen_dir[0] != '\0')
-            result = QString(prefs.gui_fileopen_dir);
-        break;
-    }
-
+    result = QString(get_open_dialog_initial_dir());
     QDir ld(result);
     if (ld.exists())
         return result;
@@ -340,7 +317,8 @@ QString lastOpenDir()
 
 void storeLastDir(QString dir)
 {
-    if (mainApp && dir.length() > 0)
-        mainApp->setLastOpenDir(qUtf8Printable(dir));
+    /* XXX - printable? */
+    if (dir.length() > 0)
+        set_last_open_dir(qUtf8Printable(dir));
 }
 

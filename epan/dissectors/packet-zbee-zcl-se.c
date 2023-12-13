@@ -38,6 +38,8 @@ static const value_string zbee_zcl_se_reporting_status_names[] = {
     { 0, NULL }
 };
 
+static void decode_zcl_se_utc_time(gchar *s, guint32 value);
+
 /**
  *Dissect a ZigBee Date
  *
@@ -110,15 +112,15 @@ static void dissect_zcl_keep_alive_attr_data(proto_tree *tree, tvbuff_t *tvb, gu
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_keep_alive = -1;
+static int proto_zbee_zcl_keep_alive;
 
-static int hf_zbee_zcl_keep_alive_attr_id = -1;
-static int hf_zbee_zcl_keep_alive_attr_reporting_status = -1;
-static int hf_zbee_zcl_keep_alive_base = -1;
-static int hf_zbee_zcl_keep_alive_jitter = -1;
+static int hf_zbee_zcl_keep_alive_attr_id;
+static int hf_zbee_zcl_keep_alive_attr_reporting_status;
+static int hf_zbee_zcl_keep_alive_base;
+static int hf_zbee_zcl_keep_alive_jitter;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_keep_alive = -1;
+static gint ett_zbee_zcl_keep_alive;
 
 /*************************/
 /* Function Bodies       */
@@ -1486,138 +1488,138 @@ static void dissect_zcl_price_publish_cancel_tariff          (tvbuff_t *tvb, pro
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_price = -1;
+static int proto_zbee_zcl_price;
 
-static int hf_zbee_zcl_price_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_price_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_price_attr_server_id = -1;
-static int hf_zbee_zcl_price_attr_client_id = -1;
-static int hf_zbee_zcl_price_attr_reporting_status = -1;
-static int hf_zbee_zcl_price_provider_id = -1;
-static int hf_zbee_zcl_price_issuer_event_id = -1;
-static int hf_zbee_zcl_price_min_issuer_event_id = -1;
-static int hf_zbee_zcl_price_issuer_tariff_id = -1;
-static int hf_zbee_zcl_price_command_index = -1;
-static int hf_zbee_zcl_price_total_number_of_commands = -1;
-static int hf_zbee_zcl_price_number_of_commands = -1;
-static int hf_zbee_zcl_price_number_of_events = -1;
-static int hf_zbee_zcl_price_number_of_records = -1;
-static int hf_zbee_zcl_price_number_of_block_thresholds = -1;
-static int hf_zbee_zcl_price_number_of_generation_tiers = -1;
-static int hf_zbee_zcl_price_extended_number_of_price_tiers = -1;
-static int hf_zbee_zcl_price_command_options = -1;
-static int hf_zbee_zcl_price_control = -1;
-static int hf_zbee_zcl_price_tier = -1;
-static int hf_zbee_zcl_price_tariff_type_mask = -1;
-static int hf_zbee_zcl_price_tariff_type = -1;
-static int hf_zbee_zcl_price_tariff_resolution_period = -1;
-static int hf_zbee_zcl_price_cpp_auth = -1;
-static int hf_zbee_zcl_price_cpp_price_tier= -1;
-static int hf_zbee_zcl_price_rate_label = -1;
-static int hf_zbee_zcl_price_unit_of_measure = -1;
-static int hf_zbee_zcl_price_currency = -1;
-static int hf_zbee_zcl_price_trailing_digit_and_price_tier = -1;
-static int hf_zbee_zcl_price_trailing_digit = -1;
-static int hf_zbee_zcl_price_extended_price_tier = -1;
-static int hf_zbee_zcl_price_number_of_price_tiers_and_register_tier = -1;
-static int hf_zbee_zcl_price_register_tier = -1;
-static int hf_zbee_zcl_price_number_of_price_tiers = -1;
-static int hf_zbee_zcl_price_extended_register_tier = -1;
-static int hf_zbee_zcl_price_duration_in_minutes = -1;
-static int hf_zbee_zcl_price = -1;
-static int hf_zbee_zcl_price_ratio = -1;
-static int hf_zbee_zcl_price_generation_price = -1;
-static int hf_zbee_zcl_price_generation_price_ratio = -1;
-static int hf_zbee_zcl_price_generation_tier = -1;
-static int hf_zbee_zcl_price_alternate_cost_delivered = -1;
-static int hf_zbee_zcl_price_alternate_cost_unit = -1;
-static int hf_zbee_zcl_price_alternate_cost_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_alternate_cost_trailing_digit = -1;
-static int hf_zbee_zcl_price_start_time = -1;
-static int hf_zbee_zcl_price_earliest_start_time = -1;
-static int hf_zbee_zcl_price_latest_end_time = -1;
-static int hf_zbee_zcl_price_current_time = -1;
-static int hf_zbee_zcl_price_price_ack_time = -1;
-static int hf_zbee_zcl_price_block_period_start_time = -1;
-static int hf_zbee_zcl_price_block_period_duration = -1;
-static int hf_zbee_zcl_price_block_period_duration_type = -1;
-static int hf_zbee_zcl_price_block_period_duration_timebase = -1;
-static int hf_zbee_zcl_price_block_period_duration_control = -1;
-static int hf_zbee_zcl_price_block_period_control = -1;
-static int hf_zbee_zcl_price_block_period_control_price_acknowledgement = -1;
-static int hf_zbee_zcl_price_block_period_control_repeating_block = -1;
-static int hf_zbee_zcl_price_conversion_factor = -1;
-static int hf_zbee_zcl_price_conversion_factor_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_conversion_factor_trailing_digit = -1;
-static int hf_zbee_zcl_price_calorific_value = -1;
-static int hf_zbee_zcl_price_calorific_value_unit = -1;
-static int hf_zbee_zcl_price_calorific_value_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_calorific_value_trailing_digit = -1;
-static int hf_zbee_zcl_price_tariff_information_type_and_charging_scheme = -1;
-static int hf_zbee_zcl_price_tariff_information_type = -1;
-static int hf_zbee_zcl_price_tariff_information_charging_scheme = -1;
-static int hf_zbee_zcl_price_tariff_information_tariff_label = -1;
-static int hf_zbee_zcl_price_tariff_information_number_of_price_tiers_in_use = -1;
-static int hf_zbee_zcl_price_tariff_information_number_of_block_thresholds_in_use = -1;
-static int hf_zbee_zcl_price_tariff_information_price_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_tariff_information_price_trailing_digit = -1;
-static int hf_zbee_zcl_price_tariff_information_standing_charge = -1;
-static int hf_zbee_zcl_price_tariff_information_tier_block_mode = -1;
-static int hf_zbee_zcl_price_tariff_information_block_threshold_multiplier = -1;
-static int hf_zbee_zcl_price_tariff_information_block_threshold_divisor = -1;
-static int hf_zbee_zcl_price_price_matrix_sub_payload_control = -1;
-static int hf_zbee_zcl_price_price_matrix_tier_block_id = -1;
-static int hf_zbee_zcl_price_price_matrix_tier_block_id_block = -1;
-static int hf_zbee_zcl_price_price_matrix_tier_block_id_tier = -1;
-static int hf_zbee_zcl_price_price_matrix_tier_block_id_tou_tier = -1;
-static int hf_zbee_zcl_price_price_matrix_price = -1;
-static int hf_zbee_zcl_price_block_thresholds_sub_payload_control = -1;
-static int hf_zbee_zcl_price_block_thresholds_tier_number_of_block_thresholds = -1;
-static int hf_zbee_zcl_price_block_thresholds_tier = -1;
-static int hf_zbee_zcl_price_block_thresholds_number_of_block_thresholds = -1;
-static int hf_zbee_zcl_price_block_thresholds_block_threshold = -1;
-static int hf_zbee_zcl_price_co2_value = -1;
-static int hf_zbee_zcl_price_co2_unit = -1;
-static int hf_zbee_zcl_price_co2_value_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_co2_value_trailing_digit = -1;
-static int hf_zbee_zcl_price_tier_labels_number_of_labels = -1;
-static int hf_zbee_zcl_price_tier_labels_tier_id = -1;
-static int hf_zbee_zcl_price_tier_labels_tier_label = -1;
-static int hf_zbee_zcl_price_billing_period_start_time = -1;
-static int hf_zbee_zcl_price_billing_period_duration = -1;
-static int hf_zbee_zcl_price_billing_period_duration_type = -1;
-static int hf_zbee_zcl_price_billing_period_duration_timebase = -1;
-static int hf_zbee_zcl_price_billing_period_duration_control = -1;
-static int hf_zbee_zcl_price_consolidated_bill = -1;
-static int hf_zbee_zcl_price_consolidated_bill_trailing_digit_mask = -1;
-static int hf_zbee_zcl_price_consolidated_bill_trailing_digit = -1;
-static int hf_zbee_zcl_price_credit_payment_due_date = -1;
-static int hf_zbee_zcl_price_credit_payment_overdue_amount = -1;
-static int hf_zbee_zcl_price_credit_payment_status = -1;
-static int hf_zbee_zcl_price_credit_payment = -1;
-static int hf_zbee_zcl_price_credit_payment_date = -1;
-static int hf_zbee_zcl_price_credit_payment_ref = -1;
-static int hf_zbee_zcl_price_old_currency = -1;
-static int hf_zbee_zcl_price_new_currency = -1;
-static int hf_zbee_zcl_price_currency_change_control_flags = -1;
+static int hf_zbee_zcl_price_srv_tx_cmd_id;
+static int hf_zbee_zcl_price_srv_rx_cmd_id;
+static int hf_zbee_zcl_price_attr_server_id;
+static int hf_zbee_zcl_price_attr_client_id;
+static int hf_zbee_zcl_price_attr_reporting_status;
+static int hf_zbee_zcl_price_provider_id;
+static int hf_zbee_zcl_price_issuer_event_id;
+static int hf_zbee_zcl_price_min_issuer_event_id;
+static int hf_zbee_zcl_price_issuer_tariff_id;
+static int hf_zbee_zcl_price_command_index;
+static int hf_zbee_zcl_price_total_number_of_commands;
+static int hf_zbee_zcl_price_number_of_commands;
+static int hf_zbee_zcl_price_number_of_events;
+static int hf_zbee_zcl_price_number_of_records;
+static int hf_zbee_zcl_price_number_of_block_thresholds;
+static int hf_zbee_zcl_price_number_of_generation_tiers;
+static int hf_zbee_zcl_price_extended_number_of_price_tiers;
+static int hf_zbee_zcl_price_command_options;
+static int hf_zbee_zcl_price_control;
+static int hf_zbee_zcl_price_tier;
+static int hf_zbee_zcl_price_tariff_type_mask;
+static int hf_zbee_zcl_price_tariff_type;
+static int hf_zbee_zcl_price_tariff_resolution_period;
+static int hf_zbee_zcl_price_cpp_auth;
+static int hf_zbee_zcl_price_cpp_price_tier;
+static int hf_zbee_zcl_price_rate_label;
+static int hf_zbee_zcl_price_unit_of_measure;
+static int hf_zbee_zcl_price_currency;
+static int hf_zbee_zcl_price_trailing_digit_and_price_tier;
+static int hf_zbee_zcl_price_trailing_digit;
+static int hf_zbee_zcl_price_extended_price_tier;
+static int hf_zbee_zcl_price_number_of_price_tiers_and_register_tier;
+static int hf_zbee_zcl_price_register_tier;
+static int hf_zbee_zcl_price_number_of_price_tiers;
+static int hf_zbee_zcl_price_extended_register_tier;
+static int hf_zbee_zcl_price_duration_in_minutes;
+static int hf_zbee_zcl_price;
+static int hf_zbee_zcl_price_ratio;
+static int hf_zbee_zcl_price_generation_price;
+static int hf_zbee_zcl_price_generation_price_ratio;
+static int hf_zbee_zcl_price_generation_tier;
+static int hf_zbee_zcl_price_alternate_cost_delivered;
+static int hf_zbee_zcl_price_alternate_cost_unit;
+static int hf_zbee_zcl_price_alternate_cost_trailing_digit_mask;
+static int hf_zbee_zcl_price_alternate_cost_trailing_digit;
+static int hf_zbee_zcl_price_start_time;
+static int hf_zbee_zcl_price_earliest_start_time;
+static int hf_zbee_zcl_price_latest_end_time;
+static int hf_zbee_zcl_price_current_time;
+static int hf_zbee_zcl_price_price_ack_time;
+static int hf_zbee_zcl_price_block_period_start_time;
+static int hf_zbee_zcl_price_block_period_duration;
+static int hf_zbee_zcl_price_block_period_duration_type;
+static int hf_zbee_zcl_price_block_period_duration_timebase;
+static int hf_zbee_zcl_price_block_period_duration_control;
+static int hf_zbee_zcl_price_block_period_control;
+static int hf_zbee_zcl_price_block_period_control_price_acknowledgement;
+static int hf_zbee_zcl_price_block_period_control_repeating_block;
+static int hf_zbee_zcl_price_conversion_factor;
+static int hf_zbee_zcl_price_conversion_factor_trailing_digit_mask;
+static int hf_zbee_zcl_price_conversion_factor_trailing_digit;
+static int hf_zbee_zcl_price_calorific_value;
+static int hf_zbee_zcl_price_calorific_value_unit;
+static int hf_zbee_zcl_price_calorific_value_trailing_digit_mask;
+static int hf_zbee_zcl_price_calorific_value_trailing_digit;
+static int hf_zbee_zcl_price_tariff_information_type_and_charging_scheme;
+static int hf_zbee_zcl_price_tariff_information_type;
+static int hf_zbee_zcl_price_tariff_information_charging_scheme;
+static int hf_zbee_zcl_price_tariff_information_tariff_label;
+static int hf_zbee_zcl_price_tariff_information_number_of_price_tiers_in_use;
+static int hf_zbee_zcl_price_tariff_information_number_of_block_thresholds_in_use;
+static int hf_zbee_zcl_price_tariff_information_price_trailing_digit_mask;
+static int hf_zbee_zcl_price_tariff_information_price_trailing_digit;
+static int hf_zbee_zcl_price_tariff_information_standing_charge;
+static int hf_zbee_zcl_price_tariff_information_tier_block_mode;
+static int hf_zbee_zcl_price_tariff_information_block_threshold_multiplier;
+static int hf_zbee_zcl_price_tariff_information_block_threshold_divisor;
+static int hf_zbee_zcl_price_price_matrix_sub_payload_control;
+static int hf_zbee_zcl_price_price_matrix_tier_block_id;
+static int hf_zbee_zcl_price_price_matrix_tier_block_id_block;
+static int hf_zbee_zcl_price_price_matrix_tier_block_id_tier;
+static int hf_zbee_zcl_price_price_matrix_tier_block_id_tou_tier;
+static int hf_zbee_zcl_price_price_matrix_price;
+static int hf_zbee_zcl_price_block_thresholds_sub_payload_control;
+static int hf_zbee_zcl_price_block_thresholds_tier_number_of_block_thresholds;
+static int hf_zbee_zcl_price_block_thresholds_tier;
+static int hf_zbee_zcl_price_block_thresholds_number_of_block_thresholds;
+static int hf_zbee_zcl_price_block_thresholds_block_threshold;
+static int hf_zbee_zcl_price_co2_value;
+static int hf_zbee_zcl_price_co2_unit;
+static int hf_zbee_zcl_price_co2_value_trailing_digit_mask;
+static int hf_zbee_zcl_price_co2_value_trailing_digit;
+static int hf_zbee_zcl_price_tier_labels_number_of_labels;
+static int hf_zbee_zcl_price_tier_labels_tier_id;
+static int hf_zbee_zcl_price_tier_labels_tier_label;
+static int hf_zbee_zcl_price_billing_period_start_time;
+static int hf_zbee_zcl_price_billing_period_duration;
+static int hf_zbee_zcl_price_billing_period_duration_type;
+static int hf_zbee_zcl_price_billing_period_duration_timebase;
+static int hf_zbee_zcl_price_billing_period_duration_control;
+static int hf_zbee_zcl_price_consolidated_bill;
+static int hf_zbee_zcl_price_consolidated_bill_trailing_digit_mask;
+static int hf_zbee_zcl_price_consolidated_bill_trailing_digit;
+static int hf_zbee_zcl_price_credit_payment_due_date;
+static int hf_zbee_zcl_price_credit_payment_overdue_amount;
+static int hf_zbee_zcl_price_credit_payment_status;
+static int hf_zbee_zcl_price_credit_payment;
+static int hf_zbee_zcl_price_credit_payment_date;
+static int hf_zbee_zcl_price_credit_payment_ref;
+static int hf_zbee_zcl_price_old_currency;
+static int hf_zbee_zcl_price_new_currency;
+static int hf_zbee_zcl_price_currency_change_control_flags;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_price = -1;
-static gint ett_zbee_zcl_price_tariff_type = -1;
-static gint ett_zbee_zcl_price_trailing_digit_and_price_tier = -1;
-static gint ett_zbee_zcl_price_number_of_price_tiers_and_register_tier = -1;
-static gint ett_zbee_zcl_price_alternate_cost_trailing_digit = -1;
-static gint ett_zbee_zcl_price_block_period_control = -1;
-static gint ett_zbee_zcl_price_block_period_duration_type = -1;
-static gint ett_zbee_zcl_price_conversion_factor_trailing_digit = -1;
-static gint ett_zbee_zcl_price_calorific_value_trailing_digit = -1;
-static gint ett_zbee_zcl_price_tariff_information_tariff_type_and_charging_scheme = -1;
-static gint ett_zbee_zcl_price_tariff_information_price_trailing_digit = -1;
-static gint ett_zbee_zcl_price_price_matrix_tier_block_id = -1;
-static gint ett_zbee_zcl_price_block_thresholds_tier_number_of_block_thresholds = -1;
-static gint ett_zbee_zcl_price_co2_value_trailing_digit = -1;
-static gint ett_zbee_zcl_price_billing_period_duration_type = -1;
-static gint ett_zbee_zcl_price_consolidated_bill_trailing_digit = -1;
+static gint ett_zbee_zcl_price;
+static gint ett_zbee_zcl_price_tariff_type;
+static gint ett_zbee_zcl_price_trailing_digit_and_price_tier;
+static gint ett_zbee_zcl_price_number_of_price_tiers_and_register_tier;
+static gint ett_zbee_zcl_price_alternate_cost_trailing_digit;
+static gint ett_zbee_zcl_price_block_period_control;
+static gint ett_zbee_zcl_price_block_period_duration_type;
+static gint ett_zbee_zcl_price_conversion_factor_trailing_digit;
+static gint ett_zbee_zcl_price_calorific_value_trailing_digit;
+static gint ett_zbee_zcl_price_tariff_information_tariff_type_and_charging_scheme;
+static gint ett_zbee_zcl_price_tariff_information_price_trailing_digit;
+static gint ett_zbee_zcl_price_price_matrix_tier_block_id;
+static gint ett_zbee_zcl_price_block_thresholds_tier_number_of_block_thresholds;
+static gint ett_zbee_zcl_price_co2_value_trailing_digit;
+static gint ett_zbee_zcl_price_billing_period_duration_type;
+static gint ett_zbee_zcl_price_consolidated_bill_trailing_digit;
 
 static int * const zbee_zcl_price_billing_period_duration_type[] = {
     &hf_zbee_zcl_price_billing_period_duration_timebase,
@@ -1896,12 +1898,8 @@ dissect_zcl_price_get_current_price(tvbuff_t *tvb, proto_tree *tree, guint *offs
 static void
 dissect_zcl_price_get_scheduled_prices(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Number of Events */
@@ -1919,8 +1917,6 @@ dissect_zcl_price_get_scheduled_prices(tvbuff_t *tvb, proto_tree *tree, guint *o
 static void
 dissect_zcl_price_get_price_acknowledgement(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t price_ack_time;
-
     /* Provider ID */
     proto_tree_add_item(tree, hf_zbee_zcl_price_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
@@ -1930,9 +1926,7 @@ dissect_zcl_price_get_price_acknowledgement(tvbuff_t *tvb, proto_tree *tree, gui
     *offset += 4;
 
     /* Price Ack Time */
-    price_ack_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    price_ack_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_price_ack_time, tvb, *offset, 4, &price_ack_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_price_ack_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Price Control */
@@ -1950,12 +1944,8 @@ dissect_zcl_price_get_price_acknowledgement(tvbuff_t *tvb, proto_tree *tree, gui
 static void
 dissect_zcl_price_get_block_period(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Number of Events */
@@ -1979,12 +1969,8 @@ dissect_zcl_price_get_block_period(tvbuff_t *tvb, proto_tree *tree, guint *offse
 static void
 dissect_zcl_price_get_conversion_factor(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
-
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2006,12 +1992,9 @@ dissect_zcl_price_get_conversion_factor(tvbuff_t *tvb, proto_tree *tree, guint *
 static void
 dissect_zcl_price_get_calorific_value(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
 
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2033,12 +2016,8 @@ dissect_zcl_price_get_calorific_value(tvbuff_t *tvb, proto_tree *tree, guint *of
 static void
 dissect_zcl_price_get_tariff_information(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
-
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2095,12 +2074,8 @@ dissect_zcl_price_get_block_thresholds(tvbuff_t *tvb, proto_tree *tree, guint *o
 static void
 dissect_zcl_price_get_co2_value(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
-
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2143,12 +2118,8 @@ dissect_zcl_price_get_tier_labels(tvbuff_t *tvb, proto_tree *tree, guint *offset
 static void
 dissect_zcl_price_get_billing_period(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
-
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2177,12 +2148,9 @@ dissect_zcl_price_get_billing_period(tvbuff_t *tvb, proto_tree *tree, guint *off
 static void
 dissect_zcl_price_get_consolidated_bill(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t earliest_start_time;
 
     /* Earliest Start Time */
-    earliest_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    earliest_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, &earliest_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_earliest_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Min Issuer Event ID */
@@ -2230,12 +2198,9 @@ dissect_zcl_price_get_cpp_event(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 static void
 dissect_zcl_price_get_credit_payment(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t latest_end_time;
 
     /* Latest End Time */
-    latest_end_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    latest_end_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_latest_end_time, tvb, *offset, 4, &latest_end_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_latest_end_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Number of Records */
@@ -2253,8 +2218,6 @@ dissect_zcl_price_get_credit_payment(tvbuff_t *tvb, proto_tree *tree, guint *off
 static void
 dissect_zcl_price_publish_price(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-    nstime_t current_time;
     int length;
 
     static int * const trailing_digit[] = {
@@ -2287,9 +2250,7 @@ dissect_zcl_price_publish_price(tvbuff_t *tvb, proto_tree *tree, guint *offset)
     *offset += 4;
 
     /* Current Time */
-    current_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    current_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_current_time, tvb, *offset, 4, &current_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_current_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Unit of Measure */
@@ -2309,9 +2270,7 @@ dissect_zcl_price_publish_price(tvbuff_t *tvb, proto_tree *tree, guint *offset)
     *offset += 1;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Duration in Minutes */
@@ -2398,8 +2357,6 @@ dissect_zcl_price_publish_price(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 static void
 dissect_zcl_price_publish_block_period(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t block_period_start_time;
-
     /* Provider ID */
     proto_tree_add_item(tree, hf_zbee_zcl_price_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
@@ -2409,9 +2366,7 @@ dissect_zcl_price_publish_block_period(tvbuff_t *tvb, proto_tree *tree, guint *o
     *offset += 4;
 
     /* Block Period Start Time */
-    block_period_start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    block_period_start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_block_period_start_time, tvb, *offset, 4, &block_period_start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_block_period_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Block Period Duration */
@@ -2445,8 +2400,6 @@ dissect_zcl_price_publish_block_period(tvbuff_t *tvb, proto_tree *tree, guint *o
 static void
 dissect_zcl_price_publish_conversion_factor(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     static int * const conversion_factor_trailing_digit[] = {
         &hf_zbee_zcl_price_conversion_factor_trailing_digit,
         NULL
@@ -2457,9 +2410,7 @@ dissect_zcl_price_publish_conversion_factor(tvbuff_t *tvb, proto_tree *tree, gui
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Conversion Factor */
@@ -2481,8 +2432,6 @@ dissect_zcl_price_publish_conversion_factor(tvbuff_t *tvb, proto_tree *tree, gui
 static void
 dissect_zcl_price_publish_calorific_value(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     static int * const calorific_value_trailing_digit[] = {
         &hf_zbee_zcl_price_calorific_value_trailing_digit,
         NULL
@@ -2493,9 +2442,7 @@ dissect_zcl_price_publish_calorific_value(tvbuff_t *tvb, proto_tree *tree, guint
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Calorific Value */
@@ -2522,7 +2469,6 @@ static void
 dissect_zcl_price_publish_tariff_information(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
     int length;
-    nstime_t start_time;
 
     static int * const price_trailing_digit[] = {
         &hf_zbee_zcl_price_tariff_information_price_trailing_digit,
@@ -2548,9 +2494,7 @@ dissect_zcl_price_publish_tariff_information(tvbuff_t *tvb, proto_tree *tree, gu
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Tariff Type / Charging Scheme */
@@ -2609,7 +2553,6 @@ static void
 dissect_zcl_price_publish_price_matrix(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
     guint8 sub_payload_control;
-    nstime_t start_time;
 
     static int * const tier_block_id[] = {
         &hf_zbee_zcl_price_price_matrix_tier_block_id_block,
@@ -2626,9 +2569,7 @@ dissect_zcl_price_publish_price_matrix(tvbuff_t *tvb, proto_tree *tree, guint *o
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Issuer Tariff ID */
@@ -2673,7 +2614,6 @@ static void
 dissect_zcl_price_publish_block_thresholds(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
     guint8 sub_payload_control;
-    nstime_t start_time;
 
     static int * const tier_number_of_block_thresholds[] = {
         &hf_zbee_zcl_price_block_thresholds_number_of_block_thresholds,
@@ -2695,9 +2635,7 @@ dissect_zcl_price_publish_block_thresholds(tvbuff_t *tvb, proto_tree *tree, guin
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Issuer Tariff ID */
@@ -2746,8 +2684,6 @@ dissect_zcl_price_publish_block_thresholds(tvbuff_t *tvb, proto_tree *tree, guin
 static void
 dissect_zcl_price_publish_co2_value(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     static int * const co2_value_trailing_digit[] = {
         &hf_zbee_zcl_price_co2_value_trailing_digit,
         NULL
@@ -2762,9 +2698,7 @@ dissect_zcl_price_publish_co2_value(tvbuff_t *tvb, proto_tree *tree, guint *offs
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Tariff Type */
@@ -2843,8 +2777,6 @@ dissect_zcl_price_publish_tier_labels(tvbuff_t *tvb, proto_tree *tree, guint *of
 static void
 dissect_zcl_price_publish_billing_period(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     /* Provider ID */
     proto_tree_add_item(tree, hf_zbee_zcl_price_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
@@ -2854,9 +2786,7 @@ dissect_zcl_price_publish_billing_period(tvbuff_t *tvb, proto_tree *tree, guint 
     *offset += 4;
 
     /* Billing Period Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_billing_period_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_billing_period_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Billing Period Duration */
@@ -2882,8 +2812,6 @@ dissect_zcl_price_publish_billing_period(tvbuff_t *tvb, proto_tree *tree, guint 
 static void
 dissect_zcl_price_publish_consolidated_bill(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     static int * const bill_trailing_digit[] = {
         &hf_zbee_zcl_price_consolidated_bill_trailing_digit,
         NULL
@@ -2898,9 +2826,7 @@ dissect_zcl_price_publish_consolidated_bill(tvbuff_t *tvb, proto_tree *tree, gui
     *offset += 4;
 
     /* Billing Period Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Billing Period Duration */
@@ -2937,8 +2863,6 @@ dissect_zcl_price_publish_consolidated_bill(tvbuff_t *tvb, proto_tree *tree, gui
 static void
 dissect_zcl_price_publish_cpp_event(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
-
     /* Provider ID */
     proto_tree_add_item(tree, hf_zbee_zcl_price_provider_id, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
@@ -2948,9 +2872,7 @@ dissect_zcl_price_publish_cpp_event(tvbuff_t *tvb, proto_tree *tree, guint *offs
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Duration in Minutes */
@@ -3032,7 +2954,6 @@ dissect_zcl_price_publish_credit_payment(tvbuff_t *tvb, proto_tree *tree, guint 
 static void
 dissect_zcl_price_publish_currency_conversion(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
 
     static int * const conversion_factor_trailing_digit[] = {
         &hf_zbee_zcl_price_conversion_factor_trailing_digit,
@@ -3048,9 +2969,7 @@ dissect_zcl_price_publish_currency_conversion(tvbuff_t *tvb, proto_tree *tree, g
     *offset += 4;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_price_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Old Currency */
@@ -3295,28 +3214,28 @@ proto_register_zbee_zcl_price(void)
         /* end Alternate Cost Trailing Digit */
 
         { &hf_zbee_zcl_price_start_time,
-            { "Start Time", "zbee_zcl_se.price.start_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Start Time", "zbee_zcl_se.price.start_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_earliest_start_time,
-            { "Earliest Start Time", "zbee_zcl_se.price.earliest_start_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Earliest Start Time", "zbee_zcl_se.price.earliest_start_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_latest_end_time,
-            { "Latest End Time", "zbee_zcl_se.price.latest_end_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Latest End Time", "zbee_zcl_se.price.latest_end_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_current_time,
-            { "Current Time", "zbee_zcl_se.price.current_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Current Time", "zbee_zcl_se.price.current_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_price_ack_time,
-            { "Price Ack Time", "zbee_zcl_se.price.price_ack_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Price Ack Time", "zbee_zcl_se.price.price_ack_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_block_period_start_time,
-            { "Block Period Start Time", "zbee_zcl_se.price.block_period.start_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Block Period Start Time", "zbee_zcl_se.price.block_period.start_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_block_period_duration,
             { "Block Period Duration", "zbee_zcl_se.price.block_period.duration", FT_UINT24, BASE_DEC, NULL,
@@ -3513,8 +3432,8 @@ proto_register_zbee_zcl_price(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_billing_period_start_time,
-            { "Billing Period Start Time", "zbee_zcl_se.price.billing_period.start_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "Billing Period Start Time", "zbee_zcl_se.price.billing_period.start_time", FT_UINT32, BASE_CUSTOM,
+                CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_price_billing_period_duration,
             { "Billing Period Duration", "zbee_zcl_se.price.billing_period.duration", FT_UINT24, BASE_DEC, NULL,
@@ -3737,7 +3656,6 @@ static const true_false_string zbee_zcl_drlc_randomize_duration_tfs = {
 void proto_register_zbee_zcl_drlc(void);
 void proto_reg_handoff_zbee_zcl_drlc(void);
 
-static void decode_zcl_msg_start_time                                   (gchar *s, guint32 value);
 static void decode_zcl_drlc_temp_offset                                 (gchar *s, guint8 value);
 static void decode_zcl_drlc_temp_set_point                              (gchar *s, gint16 value);
 static void decode_zcl_drlc_average_load_adjustment_percentage          (gchar *s, gint8 value);
@@ -3755,59 +3673,59 @@ static void dissect_zcl_drlc_attr_data                                  (proto_t
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_drlc = -1;
+static int proto_zbee_zcl_drlc;
 
-static int hf_zbee_zcl_drlc_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_drlc_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_drlc_attr_client_id = -1;
-static int hf_zbee_zcl_drlc_attr_reporting_status = -1;
-static int hf_zbee_zcl_drlc_issuer_event_id = -1;
-static int hf_zbee_zcl_drlc_device_class = -1;
-static int hf_zbee_zcl_drlc_device_class_hvac_compressor_or_furnace = -1;
-static int hf_zbee_zcl_drlc_device_class_strip_heaters_baseboard_heaters = -1;
-static int hf_zbee_zcl_drlc_device_class_water_heater = -1;
-static int hf_zbee_zcl_drlc_device_class_pool_pump_spa_jacuzzi = -1;
-static int hf_zbee_zcl_drlc_device_class_smart_appliances = -1;
-static int hf_zbee_zcl_drlc_device_class_irrigation_pump = -1;
-static int hf_zbee_zcl_drlc_device_class_managed_c_i_loads= -1;
-static int hf_zbee_zcl_drlc_device_class_simple_misc_loads = -1;
-static int hf_zbee_zcl_drlc_device_class_exterior_lighting = -1;
-static int hf_zbee_zcl_drlc_device_class_interior_lighting = -1;
-static int hf_zbee_zcl_drlc_device_class_electric_vehicle = -1;
-static int hf_zbee_zcl_drlc_device_class_generation_systems = -1;
-static int hf_zbee_zcl_drlc_device_class_reserved = -1;
-static int hf_zbee_zcl_drlc_utility_enrollment_group = -1;
-static int hf_zbee_zcl_drlc_start_time = -1;
-static int hf_zbee_zcl_drlc_duration_in_minutes = -1;
-static int hf_zbee_zcl_drlc_criticality_level = -1;
-static int hf_zbee_zcl_drlc_cooling_temp_offset = -1;
-static int hf_zbee_zcl_drlc_heating_temp_offset = -1;
-static int hf_zbee_zcl_drlc_cooling_temp_set_point = -1;
-static int hf_zbee_zcl_drlc_heating_temp_set_point = -1;
-static int hf_zbee_zcl_drlc_average_load_adjustment_percentage = -1;
-static int hf_zbee_zcl_drlc_duty_cycle = -1;
-static int hf_zbee_zcl_drlc_event_control = -1;
-static int hf_zbee_zcl_drlc_event_control_randomize_start_time = -1;
-static int hf_zbee_zcl_drlc_event_control_randomize_duration_time = -1;
-static int hf_zbee_zcl_drlc_event_control_reserved = -1;
-static int hf_zbee_zcl_drlc_cancel_control = -1;
-static int hf_zbee_zcl_drlc_cancel_control_event_in_process = -1;
-static int hf_zbee_zcl_drlc_cancel_control_reserved = -1;
-static int hf_zbee_zcl_drlc_effective_time = -1;
-static int hf_zbee_zcl_drlc_report_event_issuer_event_id = -1;
-static int hf_zbee_zcl_drlc_report_event_event_status = -1;
-static int hf_zbee_zcl_drlc_report_event_event_status_time = -1;
-static int hf_zbee_zcl_drlc_report_event_criticality_level_applied = -1;
-static int hf_zbee_zcl_drlc_report_event_cooling_temp_set_point_applied = -1;
-static int hf_zbee_zcl_drlc_report_event_heating_temp_set_point_applied = -1;
-static int hf_zbee_zcl_drlc_report_event_average_load_adjustment_percentage = -1;
-static int hf_zbee_zcl_drlc_report_event_duty_cycle = -1;
-static int hf_zbee_zcl_drlc_report_event_event_control = -1;
-static int hf_zbee_zcl_drlc_report_event_signature_type = -1;
-static int hf_zbee_zcl_drlc_report_event_signature = -1;
-static int hf_zbee_zcl_drlc_get_scheduled_events_start_time = -1;
-static int hf_zbee_zcl_drlc_get_scheduled_events_number_of_events = -1;
-static int hf_zbee_zcl_drlc_get_scheduled_events_issuer_event_id = -1;
+static int hf_zbee_zcl_drlc_srv_tx_cmd_id;
+static int hf_zbee_zcl_drlc_srv_rx_cmd_id;
+static int hf_zbee_zcl_drlc_attr_client_id;
+static int hf_zbee_zcl_drlc_attr_reporting_status;
+static int hf_zbee_zcl_drlc_issuer_event_id;
+static int hf_zbee_zcl_drlc_device_class;
+static int hf_zbee_zcl_drlc_device_class_hvac_compressor_or_furnace;
+static int hf_zbee_zcl_drlc_device_class_strip_heaters_baseboard_heaters;
+static int hf_zbee_zcl_drlc_device_class_water_heater;
+static int hf_zbee_zcl_drlc_device_class_pool_pump_spa_jacuzzi;
+static int hf_zbee_zcl_drlc_device_class_smart_appliances;
+static int hf_zbee_zcl_drlc_device_class_irrigation_pump;
+static int hf_zbee_zcl_drlc_device_class_managed_c_i_loads;
+static int hf_zbee_zcl_drlc_device_class_simple_misc_loads;
+static int hf_zbee_zcl_drlc_device_class_exterior_lighting;
+static int hf_zbee_zcl_drlc_device_class_interior_lighting;
+static int hf_zbee_zcl_drlc_device_class_electric_vehicle;
+static int hf_zbee_zcl_drlc_device_class_generation_systems;
+static int hf_zbee_zcl_drlc_device_class_reserved;
+static int hf_zbee_zcl_drlc_utility_enrollment_group;
+static int hf_zbee_zcl_drlc_start_time;
+static int hf_zbee_zcl_drlc_duration_in_minutes;
+static int hf_zbee_zcl_drlc_criticality_level;
+static int hf_zbee_zcl_drlc_cooling_temp_offset;
+static int hf_zbee_zcl_drlc_heating_temp_offset;
+static int hf_zbee_zcl_drlc_cooling_temp_set_point;
+static int hf_zbee_zcl_drlc_heating_temp_set_point;
+static int hf_zbee_zcl_drlc_average_load_adjustment_percentage;
+static int hf_zbee_zcl_drlc_duty_cycle;
+static int hf_zbee_zcl_drlc_event_control;
+static int hf_zbee_zcl_drlc_event_control_randomize_start_time;
+static int hf_zbee_zcl_drlc_event_control_randomize_duration_time;
+static int hf_zbee_zcl_drlc_event_control_reserved;
+static int hf_zbee_zcl_drlc_cancel_control;
+static int hf_zbee_zcl_drlc_cancel_control_event_in_process;
+static int hf_zbee_zcl_drlc_cancel_control_reserved;
+static int hf_zbee_zcl_drlc_effective_time;
+static int hf_zbee_zcl_drlc_report_event_issuer_event_id;
+static int hf_zbee_zcl_drlc_report_event_event_status;
+static int hf_zbee_zcl_drlc_report_event_event_status_time;
+static int hf_zbee_zcl_drlc_report_event_criticality_level_applied;
+static int hf_zbee_zcl_drlc_report_event_cooling_temp_set_point_applied;
+static int hf_zbee_zcl_drlc_report_event_heating_temp_set_point_applied;
+static int hf_zbee_zcl_drlc_report_event_average_load_adjustment_percentage;
+static int hf_zbee_zcl_drlc_report_event_duty_cycle;
+static int hf_zbee_zcl_drlc_report_event_event_control;
+static int hf_zbee_zcl_drlc_report_event_signature_type;
+static int hf_zbee_zcl_drlc_report_event_signature;
+static int hf_zbee_zcl_drlc_get_scheduled_events_start_time;
+static int hf_zbee_zcl_drlc_get_scheduled_events_number_of_events;
+static int hf_zbee_zcl_drlc_get_scheduled_events_issuer_event_id;
 
 static int* const zbee_zcl_drlc_control_event_device_classes[] = {
     &hf_zbee_zcl_drlc_device_class_hvac_compressor_or_furnace,
@@ -3839,10 +3757,10 @@ static int* const hf_zbee_zcl_drlc_cancel_control_flags[] = {
     NULL
 };
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_drlc = -1;
-static gint ett_zbee_zcl_drlc_device_class = -1;
-static gint ett_zbee_zcl_drlc_event_control = -1;
-static gint ett_zbee_zcl_drlc_cancel_control = -1;
+static gint ett_zbee_zcl_drlc;
+static gint ett_zbee_zcl_drlc_device_class;
+static gint ett_zbee_zcl_drlc_event_control;
+static gint ett_zbee_zcl_drlc_cancel_control;
 
 /*************************/
 /* Function Bodies       */
@@ -3863,7 +3781,7 @@ decode_zcl_drlc_temp_offset(gchar *s, guint8 value)
         temp_delta = value / ZBEE_ZCL_DRLC_TEMP_OFFSET_DIVIDER;
         snprintf(s, ITEM_LABEL_LENGTH, "%+.2f%s", temp_delta, units_degree_celsius.singular);
     }
-} /*decode_zcl_msg_start_time*/
+} /*decode_zcl_drlc_temp_offset*/
 
 /**
  * This function decodes Temperature Set Point.
@@ -4138,13 +4056,10 @@ dissect_zcl_drlc_report_event_status(tvbuff_t *tvb, proto_tree *tree, guint *off
 static void
 dissect_zcl_drlc_get_scheduled_events(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t start_time;
     gint     rem_len;
 
     /* Start Time */
-    start_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    start_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_drlc_get_scheduled_events_start_time, tvb, *offset, 4, &start_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_drlc_get_scheduled_events_start_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Number of Events */
@@ -4343,7 +4258,7 @@ proto_register_zbee_zcl_drlc(void)
 
         { &hf_zbee_zcl_drlc_start_time,
             { "Start Time", "zbee_zcl_se.drlc.start_time",
-            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_msg_start_time), 0x0, NULL, HFILL } },
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_se_utc_time), 0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_drlc_duration_in_minutes,
             { "Duration In Minutes", "zbee_zcl_se.drlc.duration_in_minutes",
@@ -4407,7 +4322,7 @@ proto_register_zbee_zcl_drlc(void)
 
         { &hf_zbee_zcl_drlc_effective_time,
             { "Reserved", "zbee_zcl_se.drlc.effective_time",
-            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_msg_start_time), 0xFE, NULL, HFILL } },
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_se_utc_time), 0xFE, NULL, HFILL } },
 
         { &hf_zbee_zcl_drlc_report_event_issuer_event_id,
             { "Issuer Event ID", "zbee_zcl_se.drlc.report_event.issuer_id",
@@ -4455,14 +4370,14 @@ proto_register_zbee_zcl_drlc(void)
 
         { &hf_zbee_zcl_drlc_get_scheduled_events_start_time,
             { "Start Time", "zbee_zcl_se.drlc.get_scheduled_events.start_time",
-            FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x0, NULL, HFILL } },
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_se_utc_time), 0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_drlc_get_scheduled_events_number_of_events,
             { "Number of Events", "zbee_zcl_se.drlc.get_scheduled_events.numbers_of_events",
             FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_drlc_get_scheduled_events_issuer_event_id,
-            { "Issuer Event ID", "zbee_zcl_se.drlc.get_scheduled_events.issuer_event_id",
+            { "Minimum Issuer Event ID", "zbee_zcl_se.drlc.get_scheduled_events.issuer_event_id",
             FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
     };
 
@@ -5631,210 +5546,210 @@ static void dissect_zcl_met_notification_flags              (tvbuff_t *tvb, prot
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_met = -1;
+static int proto_zbee_zcl_met;
 
-static int hf_zbee_zcl_met_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_met_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_met_attr_server_id = -1;
-static int hf_zbee_zcl_met_attr_client_id = -1;
-static int hf_zbee_zcl_met_attr_reporting_status = -1;
-static int hf_zbee_zcl_met_func_noti_flags = -1;
-static int hf_zbee_zcl_met_func_noti_flag_new_ota_firmware = -1;
-static int hf_zbee_zcl_met_func_noti_flag_cbke_update_request = -1;
-static int hf_zbee_zcl_met_func_noti_flag_time_sync = -1;
-static int hf_zbee_zcl_met_func_noti_flag_stay_awake_request_han = -1;
-static int hf_zbee_zcl_met_func_noti_flag_stay_awake_request_wan = -1;
-static int hf_zbee_zcl_met_func_noti_flag_push_historical_metering_data_attribute_set = -1;
-static int hf_zbee_zcl_met_func_noti_flag_push_historical_prepayment_data_attribute_set = -1;
-static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_basic_cluster = -1;
-static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_metering_cluster = -1;
-static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_prepayment_cluster = -1;
-static int hf_zbee_zcl_met_func_noti_flag_network_key_active = -1;
-static int hf_zbee_zcl_met_func_noti_flag_display_message = -1;
-static int hf_zbee_zcl_met_func_noti_flag_cancel_all_messages = -1;
-static int hf_zbee_zcl_met_func_noti_flag_change_supply = -1;
-static int hf_zbee_zcl_met_func_noti_flag_local_change_supply = -1;
-static int hf_zbee_zcl_met_func_noti_flag_set_uncontrolled_flow_threshold = -1;
-static int hf_zbee_zcl_met_func_noti_flag_tunnel_message_pending = -1;
-static int hf_zbee_zcl_met_func_noti_flag_get_snapshot = -1;
-static int hf_zbee_zcl_met_func_noti_flag_get_sampled_data = -1;
-static int hf_zbee_zcl_met_func_noti_flag_new_sub_ghz_channel_masks_available = -1;
-static int hf_zbee_zcl_met_func_noti_flag_energy_scan_pending = -1;
-static int hf_zbee_zcl_met_func_noti_flag_channel_change_pending = -1;
-static int hf_zbee_zcl_met_func_noti_flag_reserved = -1;
-static int hf_zbee_zcl_met_noti_flags_2 = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_price = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_block_period = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_tariff_info = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_conversion_factor = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_calorific_value = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_co2_value = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_billing_period = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_consolidated_bill = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_price_matrix = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_block_thresholds = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_currency_conversion = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_credit_payment_info = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_cpp_event = -1;
-static int hf_zbee_zcl_met_noti_flag_2_publish_tier_labels = -1;
-static int hf_zbee_zcl_met_noti_flag_2_cancel_tariff = -1;
-static int hf_zbee_zcl_met_noti_flag_2_reserved = -1;
-static int hf_zbee_zcl_met_noti_flags_3 = -1;
-static int hf_zbee_zcl_met_noti_flag_3_publish_calendar = -1;
-static int hf_zbee_zcl_met_noti_flag_3_publish_special_days = -1;
-static int hf_zbee_zcl_met_noti_flag_3_publish_seasons = -1;
-static int hf_zbee_zcl_met_noti_flag_3_publish_week = -1;
-static int hf_zbee_zcl_met_noti_flag_3_publish_day = -1;
-static int hf_zbee_zcl_met_noti_flag_3_cancel_calendar = -1;
-static int hf_zbee_zcl_met_noti_flag_3_reserved = -1;
-static int hf_zbee_zcl_met_noti_flags_4 = -1;
-static int hf_zbee_zcl_met_noti_flag_4_select_available_emergency_credit = -1;
-static int hf_zbee_zcl_met_noti_flag_4_change_debt = -1;
-static int hf_zbee_zcl_met_noti_flag_4_emergency_credit_setup = -1;
-static int hf_zbee_zcl_met_noti_flag_4_consumer_top_up = -1;
-static int hf_zbee_zcl_met_noti_flag_4_credit_adjustment = -1;
-static int hf_zbee_zcl_met_noti_flag_4_change_payment_mode = -1;
-static int hf_zbee_zcl_met_noti_flag_4_get_prepay_snapshot = -1;
-static int hf_zbee_zcl_met_noti_flag_4_get_top_up_log = -1;
-static int hf_zbee_zcl_met_noti_flag_4_set_low_credit_warning_level = -1;
-static int hf_zbee_zcl_met_noti_flag_4_get_debt_repayment_log = -1;
-static int hf_zbee_zcl_met_noti_flag_4_set_maximum_credit_limit = -1;
-static int hf_zbee_zcl_met_noti_flag_4_set_overall_debt_cap = -1;
-static int hf_zbee_zcl_met_noti_flag_4_reserved = -1;
-static int hf_zbee_zcl_met_noti_flags_5 = -1;
-static int hf_zbee_zcl_met_noti_flag_5_publish_change_of_tenancy = -1;
-static int hf_zbee_zcl_met_noti_flag_5_publish_change_of_supplier = -1;
-static int hf_zbee_zcl_met_noti_flag_5_request_new_password_1_response = -1;
-static int hf_zbee_zcl_met_noti_flag_5_request_new_password_2_response = -1;
-static int hf_zbee_zcl_met_noti_flag_5_request_new_password_3_response = -1;
-static int hf_zbee_zcl_met_noti_flag_5_request_new_password_4_response = -1;
-static int hf_zbee_zcl_met_noti_flag_5_update_site_id = -1;
-static int hf_zbee_zcl_met_noti_flag_5_reset_battery_counter = -1;
-static int hf_zbee_zcl_met_noti_flag_5_update_cin = -1;
-static int hf_zbee_zcl_met_noti_flag_5_reserved = -1;
-static int hf_zbee_zcl_met_get_profile_interval_channel = -1;
-static int hf_zbee_zcl_met_get_profile_end_time = -1;
-static int hf_zbee_zcl_met_get_profile_number_of_periods = -1;
-static int hf_zbee_zcl_met_request_mirror_rsp_endpoint_id = -1;
-static int hf_zbee_zcl_met_mirror_removed_removed_endpoint_id = -1;
-static int hf_zbee_zcl_met_request_fast_poll_mode_fast_poll_update_period = -1;
-static int hf_zbee_zcl_met_request_fast_poll_mode_duration = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_issuer_event_id = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_command_index = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_schedule_id = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_start_time = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_schedule = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_shapshot_payload_type = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_cause = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_total_number_of_commands = -1;
-static int hf_zbee_zcl_met_take_snapshot_snapshot_cause = -1;
-static int hf_zbee_zcl_met_get_snapshot_start_time = -1;
-static int hf_zbee_zcl_met_get_snapshot_end_time = -1;
-static int hf_zbee_zcl_met_get_snapshot_snapshot_offset = -1;
-static int hf_zbee_zcl_met_get_snapshot_snapshot_cause = -1;
-static int hf_zbee_zcl_met_start_sampling_issuer_event_id = -1;
-static int hf_zbee_zcl_met_start_sampling_start_sampling_time = -1;
-static int hf_zbee_zcl_met_start_sampling_sample_type = -1;
-static int hf_zbee_zcl_met_start_sampling_sample_request_interval = -1;
-static int hf_zbee_zcl_met_start_sampling_max_number_of_samples = -1;
-static int hf_zbee_zcl_met_get_sampled_data_sample_id = -1;
-static int hf_zbee_zcl_met_get_sampled_data_sample_start_time = -1;
-static int hf_zbee_zcl_met_get_sampled_data_sample_type = -1;
-static int hf_zbee_zcl_met_get_sampled_data_number_of_samples = -1;
-static int hf_zbee_zcl_met_start_sampling_response_sample_id = -1;
-static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_scheme = -1;
-static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_flags_n = -1;
-static int hf_zbee_zcl_met_reset_load_limit_counter_provider_id = -1;
-static int hf_zbee_zcl_met_reset_load_limit_counter_issuer_event_id = -1;
-static int hf_zbee_zcl_met_change_supply_provider_id = -1;
-static int hf_zbee_zcl_met_change_supply_issuer_event_id = -1;
-static int hf_zbee_zcl_met_change_supply_request_date_time = -1;
-static int hf_zbee_zcl_met_change_supply_implementation_date_time = -1;
-static int hf_zbee_zcl_met_change_supply_proposed_supply_status = -1;
-static int hf_zbee_zcl_met_change_supply_supply_control_bits = -1;
-static int hf_zbee_zcl_met_local_change_supply_proposed_supply_status = -1;
-static int hf_zbee_zcl_met_set_supply_status_issuer_event_id = -1;
-static int hf_zbee_zcl_met_set_supply_status_supply_tamper_state = -1;
-static int hf_zbee_zcl_met_set_supply_status_supply_depletion_state = -1;
-static int hf_zbee_zcl_met_set_supply_status_supply_uncontrolled_flow_state = -1;
-static int hf_zbee_zcl_met_set_supply_status_load_limit_supply_state = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_provider_id = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_issuer_event_id = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_uncontrolled_flow_threshold = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_unit_of_measure = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_multiplier = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_divisor = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_stabilisation_period = -1;
-static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_measurement_period = -1;
-static int hf_zbee_zcl_met_get_profile_response_end_time = -1;
-static int hf_zbee_zcl_met_get_profile_response_status = -1;
-static int hf_zbee_zcl_met_get_profile_response_profile_interval_period = -1;
-static int hf_zbee_zcl_met_get_profile_response_number_of_periods_delivered = -1;
-static int hf_zbee_zcl_met_get_profile_response_intervals = -1;
-static int hf_zbee_zcl_met_request_fast_poll_mode_response_applied_update_period = -1;
-static int hf_zbee_zcl_met_request_fast_poll_mode_response_fast_poll_mode_end_time = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_response_issuer_event_id = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_response_snapshot_schedule_id = -1;
-static int hf_zbee_zcl_met_schedule_snapshot_response_snapshot_schedule_confirmation = -1;
-static int hf_zbee_zcl_met_take_snapshot_response_snapshot_id = -1;
-static int hf_zbee_zcl_met_take_snapshot_response_snapshot_confirmation = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshot_id = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshot_time = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshots_found = -1;
-static int hf_zbee_zcl_met_publish_snapshot_cmd_index = -1;
-static int hf_zbee_zcl_met_publish_snapshot_total_commands = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshot_cause = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshot_payload_type = -1;
-static int hf_zbee_zcl_met_publish_snapshot_snapshot_sub_payload = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_id = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_start_time = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_type = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_request_interval = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_number_of_samples = -1;
-static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_samples = -1;
-static int hf_zbee_zcl_met_configure_mirror_issuer_event_id = -1;
-static int hf_zbee_zcl_met_configure_mirror_reporting_interval = -1;
-static int hf_zbee_zcl_met_configure_mirror_mirror_notification_reporting = -1;
-static int hf_zbee_zcl_met_configure_mirror_notification_scheme = -1;
-static int hf_zbee_zcl_met_configure_notification_scheme_issuer_event_id = -1;
-static int hf_zbee_zcl_met_configure_notification_scheme_notification_scheme = -1;
-static int hf_zbee_zcl_met_configure_notification_scheme_notification_flag_order = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_issuer_event_id = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_notification_scheme = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_notification_flag_attribute_id = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_cluster_id = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_manufacturer_code = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_no_of_commands = -1;
-static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_command_identifier = -1;
-static int hf_zbee_zcl_met_get_notified_msg_notification_scheme = -1;
-static int hf_zbee_zcl_met_get_notified_msg_notification_flag_attribute_id = -1;
-static int hf_zbee_zcl_met_get_notified_msg_notification_flags = -1;
-static int hf_zbee_zcl_met_supply_status_response_provider_id = -1;
-static int hf_zbee_zcl_met_supply_status_response_issuer_event_id = -1;
-static int hf_zbee_zcl_met_supply_status_response_implementation_date_time = -1;
-static int hf_zbee_zcl_met_supply_status_response_supply_status_after_implementation = -1;
-static int hf_zbee_zcl_met_snapshot_cause_general = -1;
-static int hf_zbee_zcl_met_snapshot_cause_end_of_billing_period = -1;
-static int hf_zbee_zcl_met_snapshot_cause_end_of_block_period = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_tariff_information = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_price_matrix = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_block_thresholds = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_cv = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_cf = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_calendar = -1;
-static int hf_zbee_zcl_met_snapshot_cause_critical_peak_pricing = -1;
-static int hf_zbee_zcl_met_snapshot_cause_manually_triggered_from_client = -1;
-static int hf_zbee_zcl_met_snapshot_cause_end_of_resolve_period = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_tenancy = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_supplier = -1;
-static int hf_zbee_zcl_met_snapshot_cause_change_of_meter_mode = -1;
-static int hf_zbee_zcl_met_snapshot_cause_debt_payment = -1;
-static int hf_zbee_zcl_met_snapshot_cause_scheduled_snapshot = -1;
-static int hf_zbee_zcl_met_snapshot_cause_ota_firmware_download = -1;
-static int hf_zbee_zcl_met_snapshot_cause_reserved = -1;
-static int hf_zbee_zcl_met_snapshot_schedule_frequency = -1;
-static int hf_zbee_zcl_met_snapshot_schedule_frequency_type = -1;
-static int hf_zbee_zcl_met_snapshot_schedule_frequency_wild_card = -1;
+static int hf_zbee_zcl_met_srv_tx_cmd_id;
+static int hf_zbee_zcl_met_srv_rx_cmd_id;
+static int hf_zbee_zcl_met_attr_server_id;
+static int hf_zbee_zcl_met_attr_client_id;
+static int hf_zbee_zcl_met_attr_reporting_status;
+static int hf_zbee_zcl_met_func_noti_flags;
+static int hf_zbee_zcl_met_func_noti_flag_new_ota_firmware;
+static int hf_zbee_zcl_met_func_noti_flag_cbke_update_request;
+static int hf_zbee_zcl_met_func_noti_flag_time_sync;
+static int hf_zbee_zcl_met_func_noti_flag_stay_awake_request_han;
+static int hf_zbee_zcl_met_func_noti_flag_stay_awake_request_wan;
+static int hf_zbee_zcl_met_func_noti_flag_push_historical_metering_data_attribute_set;
+static int hf_zbee_zcl_met_func_noti_flag_push_historical_prepayment_data_attribute_set;
+static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_basic_cluster;
+static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_metering_cluster;
+static int hf_zbee_zcl_met_func_noti_flag_push_all_static_data_prepayment_cluster;
+static int hf_zbee_zcl_met_func_noti_flag_network_key_active;
+static int hf_zbee_zcl_met_func_noti_flag_display_message;
+static int hf_zbee_zcl_met_func_noti_flag_cancel_all_messages;
+static int hf_zbee_zcl_met_func_noti_flag_change_supply;
+static int hf_zbee_zcl_met_func_noti_flag_local_change_supply;
+static int hf_zbee_zcl_met_func_noti_flag_set_uncontrolled_flow_threshold;
+static int hf_zbee_zcl_met_func_noti_flag_tunnel_message_pending;
+static int hf_zbee_zcl_met_func_noti_flag_get_snapshot;
+static int hf_zbee_zcl_met_func_noti_flag_get_sampled_data;
+static int hf_zbee_zcl_met_func_noti_flag_new_sub_ghz_channel_masks_available;
+static int hf_zbee_zcl_met_func_noti_flag_energy_scan_pending;
+static int hf_zbee_zcl_met_func_noti_flag_channel_change_pending;
+static int hf_zbee_zcl_met_func_noti_flag_reserved;
+static int hf_zbee_zcl_met_noti_flags_2;
+static int hf_zbee_zcl_met_noti_flag_2_publish_price;
+static int hf_zbee_zcl_met_noti_flag_2_publish_block_period;
+static int hf_zbee_zcl_met_noti_flag_2_publish_tariff_info;
+static int hf_zbee_zcl_met_noti_flag_2_publish_conversion_factor;
+static int hf_zbee_zcl_met_noti_flag_2_publish_calorific_value;
+static int hf_zbee_zcl_met_noti_flag_2_publish_co2_value;
+static int hf_zbee_zcl_met_noti_flag_2_publish_billing_period;
+static int hf_zbee_zcl_met_noti_flag_2_publish_consolidated_bill;
+static int hf_zbee_zcl_met_noti_flag_2_publish_price_matrix;
+static int hf_zbee_zcl_met_noti_flag_2_publish_block_thresholds;
+static int hf_zbee_zcl_met_noti_flag_2_publish_currency_conversion;
+static int hf_zbee_zcl_met_noti_flag_2_publish_credit_payment_info;
+static int hf_zbee_zcl_met_noti_flag_2_publish_cpp_event;
+static int hf_zbee_zcl_met_noti_flag_2_publish_tier_labels;
+static int hf_zbee_zcl_met_noti_flag_2_cancel_tariff;
+static int hf_zbee_zcl_met_noti_flag_2_reserved;
+static int hf_zbee_zcl_met_noti_flags_3;
+static int hf_zbee_zcl_met_noti_flag_3_publish_calendar;
+static int hf_zbee_zcl_met_noti_flag_3_publish_special_days;
+static int hf_zbee_zcl_met_noti_flag_3_publish_seasons;
+static int hf_zbee_zcl_met_noti_flag_3_publish_week;
+static int hf_zbee_zcl_met_noti_flag_3_publish_day;
+static int hf_zbee_zcl_met_noti_flag_3_cancel_calendar;
+static int hf_zbee_zcl_met_noti_flag_3_reserved;
+static int hf_zbee_zcl_met_noti_flags_4;
+static int hf_zbee_zcl_met_noti_flag_4_select_available_emergency_credit;
+static int hf_zbee_zcl_met_noti_flag_4_change_debt;
+static int hf_zbee_zcl_met_noti_flag_4_emergency_credit_setup;
+static int hf_zbee_zcl_met_noti_flag_4_consumer_top_up;
+static int hf_zbee_zcl_met_noti_flag_4_credit_adjustment;
+static int hf_zbee_zcl_met_noti_flag_4_change_payment_mode;
+static int hf_zbee_zcl_met_noti_flag_4_get_prepay_snapshot;
+static int hf_zbee_zcl_met_noti_flag_4_get_top_up_log;
+static int hf_zbee_zcl_met_noti_flag_4_set_low_credit_warning_level;
+static int hf_zbee_zcl_met_noti_flag_4_get_debt_repayment_log;
+static int hf_zbee_zcl_met_noti_flag_4_set_maximum_credit_limit;
+static int hf_zbee_zcl_met_noti_flag_4_set_overall_debt_cap;
+static int hf_zbee_zcl_met_noti_flag_4_reserved;
+static int hf_zbee_zcl_met_noti_flags_5;
+static int hf_zbee_zcl_met_noti_flag_5_publish_change_of_tenancy;
+static int hf_zbee_zcl_met_noti_flag_5_publish_change_of_supplier;
+static int hf_zbee_zcl_met_noti_flag_5_request_new_password_1_response;
+static int hf_zbee_zcl_met_noti_flag_5_request_new_password_2_response;
+static int hf_zbee_zcl_met_noti_flag_5_request_new_password_3_response;
+static int hf_zbee_zcl_met_noti_flag_5_request_new_password_4_response;
+static int hf_zbee_zcl_met_noti_flag_5_update_site_id;
+static int hf_zbee_zcl_met_noti_flag_5_reset_battery_counter;
+static int hf_zbee_zcl_met_noti_flag_5_update_cin;
+static int hf_zbee_zcl_met_noti_flag_5_reserved;
+static int hf_zbee_zcl_met_get_profile_interval_channel;
+static int hf_zbee_zcl_met_get_profile_end_time;
+static int hf_zbee_zcl_met_get_profile_number_of_periods;
+static int hf_zbee_zcl_met_request_mirror_rsp_endpoint_id;
+static int hf_zbee_zcl_met_mirror_removed_removed_endpoint_id;
+static int hf_zbee_zcl_met_request_fast_poll_mode_fast_poll_update_period;
+static int hf_zbee_zcl_met_request_fast_poll_mode_duration;
+static int hf_zbee_zcl_met_schedule_snapshot_issuer_event_id;
+static int hf_zbee_zcl_met_schedule_snapshot_command_index;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_schedule_id;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_start_time;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_schedule;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_shapshot_payload_type;
+static int hf_zbee_zcl_met_schedule_snapshot_snapshot_schedule_payload_snapshot_cause;
+static int hf_zbee_zcl_met_schedule_snapshot_total_number_of_commands;
+static int hf_zbee_zcl_met_take_snapshot_snapshot_cause;
+static int hf_zbee_zcl_met_get_snapshot_start_time;
+static int hf_zbee_zcl_met_get_snapshot_end_time;
+static int hf_zbee_zcl_met_get_snapshot_snapshot_offset;
+static int hf_zbee_zcl_met_get_snapshot_snapshot_cause;
+static int hf_zbee_zcl_met_start_sampling_issuer_event_id;
+static int hf_zbee_zcl_met_start_sampling_start_sampling_time;
+static int hf_zbee_zcl_met_start_sampling_sample_type;
+static int hf_zbee_zcl_met_start_sampling_sample_request_interval;
+static int hf_zbee_zcl_met_start_sampling_max_number_of_samples;
+static int hf_zbee_zcl_met_get_sampled_data_sample_id;
+static int hf_zbee_zcl_met_get_sampled_data_sample_start_time;
+static int hf_zbee_zcl_met_get_sampled_data_sample_type;
+static int hf_zbee_zcl_met_get_sampled_data_number_of_samples;
+static int hf_zbee_zcl_met_start_sampling_response_sample_id;
+static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_scheme;
+static int hf_zbee_zcl_met_mirror_report_attribute_response_notification_flags_n;
+static int hf_zbee_zcl_met_reset_load_limit_counter_provider_id;
+static int hf_zbee_zcl_met_reset_load_limit_counter_issuer_event_id;
+static int hf_zbee_zcl_met_change_supply_provider_id;
+static int hf_zbee_zcl_met_change_supply_issuer_event_id;
+static int hf_zbee_zcl_met_change_supply_request_date_time;
+static int hf_zbee_zcl_met_change_supply_implementation_date_time;
+static int hf_zbee_zcl_met_change_supply_proposed_supply_status;
+static int hf_zbee_zcl_met_change_supply_supply_control_bits;
+static int hf_zbee_zcl_met_local_change_supply_proposed_supply_status;
+static int hf_zbee_zcl_met_set_supply_status_issuer_event_id;
+static int hf_zbee_zcl_met_set_supply_status_supply_tamper_state;
+static int hf_zbee_zcl_met_set_supply_status_supply_depletion_state;
+static int hf_zbee_zcl_met_set_supply_status_supply_uncontrolled_flow_state;
+static int hf_zbee_zcl_met_set_supply_status_load_limit_supply_state;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_provider_id;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_issuer_event_id;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_uncontrolled_flow_threshold;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_unit_of_measure;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_multiplier;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_divisor;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_stabilisation_period;
+static int hf_zbee_zcl_met_set_uncontrolled_flow_threshold_measurement_period;
+static int hf_zbee_zcl_met_get_profile_response_end_time;
+static int hf_zbee_zcl_met_get_profile_response_status;
+static int hf_zbee_zcl_met_get_profile_response_profile_interval_period;
+static int hf_zbee_zcl_met_get_profile_response_number_of_periods_delivered;
+static int hf_zbee_zcl_met_get_profile_response_intervals;
+static int hf_zbee_zcl_met_request_fast_poll_mode_response_applied_update_period;
+static int hf_zbee_zcl_met_request_fast_poll_mode_response_fast_poll_mode_end_time;
+static int hf_zbee_zcl_met_schedule_snapshot_response_issuer_event_id;
+static int hf_zbee_zcl_met_schedule_snapshot_response_snapshot_schedule_id;
+static int hf_zbee_zcl_met_schedule_snapshot_response_snapshot_schedule_confirmation;
+static int hf_zbee_zcl_met_take_snapshot_response_snapshot_id;
+static int hf_zbee_zcl_met_take_snapshot_response_snapshot_confirmation;
+static int hf_zbee_zcl_met_publish_snapshot_snapshot_id;
+static int hf_zbee_zcl_met_publish_snapshot_snapshot_time;
+static int hf_zbee_zcl_met_publish_snapshot_snapshots_found;
+static int hf_zbee_zcl_met_publish_snapshot_cmd_index;
+static int hf_zbee_zcl_met_publish_snapshot_total_commands;
+static int hf_zbee_zcl_met_publish_snapshot_snapshot_cause;
+static int hf_zbee_zcl_met_publish_snapshot_snapshot_payload_type;
+static int hf_zbee_zcl_met_publish_snapshot_snapshot_sub_payload;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_id;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_start_time;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_type;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_request_interval;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_number_of_samples;
+static int hf_zbee_zcl_met_get_sampled_data_rsp_sample_samples;
+static int hf_zbee_zcl_met_configure_mirror_issuer_event_id;
+static int hf_zbee_zcl_met_configure_mirror_reporting_interval;
+static int hf_zbee_zcl_met_configure_mirror_mirror_notification_reporting;
+static int hf_zbee_zcl_met_configure_mirror_notification_scheme;
+static int hf_zbee_zcl_met_configure_notification_scheme_issuer_event_id;
+static int hf_zbee_zcl_met_configure_notification_scheme_notification_scheme;
+static int hf_zbee_zcl_met_configure_notification_scheme_notification_flag_order;
+static int hf_zbee_zcl_met_configure_notification_flags_issuer_event_id;
+static int hf_zbee_zcl_met_configure_notification_flags_notification_scheme;
+static int hf_zbee_zcl_met_configure_notification_flags_notification_flag_attribute_id;
+static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_cluster_id;
+static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_manufacturer_code;
+static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_no_of_commands;
+static int hf_zbee_zcl_met_configure_notification_flags_bit_field_allocation_command_identifier;
+static int hf_zbee_zcl_met_get_notified_msg_notification_scheme;
+static int hf_zbee_zcl_met_get_notified_msg_notification_flag_attribute_id;
+static int hf_zbee_zcl_met_get_notified_msg_notification_flags;
+static int hf_zbee_zcl_met_supply_status_response_provider_id;
+static int hf_zbee_zcl_met_supply_status_response_issuer_event_id;
+static int hf_zbee_zcl_met_supply_status_response_implementation_date_time;
+static int hf_zbee_zcl_met_supply_status_response_supply_status_after_implementation;
+static int hf_zbee_zcl_met_snapshot_cause_general;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_billing_period;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_block_period;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_tariff_information;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_price_matrix;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_block_thresholds;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_cv;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_cf;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_calendar;
+static int hf_zbee_zcl_met_snapshot_cause_critical_peak_pricing;
+static int hf_zbee_zcl_met_snapshot_cause_manually_triggered_from_client;
+static int hf_zbee_zcl_met_snapshot_cause_end_of_resolve_period;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_tenancy;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_supplier;
+static int hf_zbee_zcl_met_snapshot_cause_change_of_meter_mode;
+static int hf_zbee_zcl_met_snapshot_cause_debt_payment;
+static int hf_zbee_zcl_met_snapshot_cause_scheduled_snapshot;
+static int hf_zbee_zcl_met_snapshot_cause_ota_firmware_download;
+static int hf_zbee_zcl_met_snapshot_cause_reserved;
+static int hf_zbee_zcl_met_snapshot_schedule_frequency;
+static int hf_zbee_zcl_met_snapshot_schedule_frequency_type;
+static int hf_zbee_zcl_met_snapshot_schedule_frequency_wild_card;
 
 static int* const zbee_zcl_met_snapshot_schedule_bits[] = {
     &hf_zbee_zcl_met_snapshot_schedule_frequency,
@@ -5956,18 +5871,18 @@ static int* const zbee_zcl_met_snapshot_cause_flags[] = {
 };
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_met = -1;
-static gint ett_zbee_zcl_met_func_noti_flags = -1;
-static gint ett_zbee_zcl_met_noti_flags_2 = -1;
-static gint ett_zbee_zcl_met_noti_flags_3 = -1;
-static gint ett_zbee_zcl_met_noti_flags_4 = -1;
-static gint ett_zbee_zcl_met_noti_flags_5 = -1;
-static gint ett_zbee_zcl_met_snapshot_cause_flags = -1;
-static gint ett_zbee_zcl_met_snapshot_schedule = -1;
-static gint ett_zbee_zcl_met_schedule_snapshot_response_payload = -1;
-static gint ett_zbee_zcl_met_schedule_snapshot_payload = -1;
-static gint ett_zbee_zcl_met_mirror_noti_flag = -1;
-static gint ett_zbee_zcl_met_bit_field_allocation = -1;
+static gint ett_zbee_zcl_met;
+static gint ett_zbee_zcl_met_func_noti_flags;
+static gint ett_zbee_zcl_met_noti_flags_2;
+static gint ett_zbee_zcl_met_noti_flags_3;
+static gint ett_zbee_zcl_met_noti_flags_4;
+static gint ett_zbee_zcl_met_noti_flags_5;
+static gint ett_zbee_zcl_met_snapshot_cause_flags;
+static gint ett_zbee_zcl_met_snapshot_schedule;
+static gint ett_zbee_zcl_met_schedule_snapshot_response_payload;
+static gint ett_zbee_zcl_met_schedule_snapshot_payload;
+static gint ett_zbee_zcl_met_mirror_noti_flag;
+static gint ett_zbee_zcl_met_bit_field_allocation;
 
 /*************************/
 /* Function Bodies       */
@@ -6703,12 +6618,9 @@ dissect_zcl_met_set_uncontrolled_flow_threshold(tvbuff_t *tvb, proto_tree *tree,
 static void
 dissect_zcl_met_get_profile_response(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
-    nstime_t end_time;
 
     /* End Time */
-    end_time.secs = (time_t)tvb_get_letohl(tvb, *offset) + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-    end_time.nsecs = 0;
-    proto_tree_add_time(tree, hf_zbee_zcl_met_get_profile_response_end_time, tvb, *offset, 4, &end_time);
+    proto_tree_add_item(tree, hf_zbee_zcl_met_get_profile_response_end_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
     *offset += 4;
 
     /* Status */
@@ -6740,12 +6652,21 @@ dissect_zcl_met_get_profile_response(tvbuff_t *tvb, proto_tree *tree, guint *off
 static void
 dissect_zcl_met_request_fast_poll_mode_response(tvbuff_t *tvb, proto_tree *tree, guint *offset)
 {
+    guint32         end_time_utc;
+    nstime_t        end_time;
+    const guint8   *end_time_string;
+
     /* Applied Update Period */
     proto_tree_add_item(tree, hf_zbee_zcl_met_request_fast_poll_mode_response_applied_update_period, tvb, *offset, 1, ENC_NA);
     *offset += 1;
 
     /* Fast Poll End Time */
-    proto_tree_add_item(tree, hf_zbee_zcl_met_request_fast_poll_mode_response_fast_poll_mode_end_time, tvb, *offset, 4, ENC_LITTLE_ENDIAN);
+    end_time_utc = (guint32)tvb_get_letohl(tvb, *offset);
+    end_time.secs =  end_time_utc + ZBEE_ZCL_NSTIME_UTC_OFFSET;
+    end_time.nsecs = 0;
+    end_time_string = (const guint8 *)abs_time_to_str(wmem_packet_scope(), &end_time, ABSOLUTE_TIME_UTC, TRUE);
+    proto_tree_add_time_format(tree, hf_zbee_zcl_met_request_fast_poll_mode_response_fast_poll_mode_end_time, tvb, *offset, 4, &end_time,
+        "Fast Poll Mode End Time: %s (%u)", end_time_string, end_time_utc);
     *offset += 4;
 } /*dissect_zcl_met_request_fast_poll_mode_response*/
 
@@ -7637,8 +7558,8 @@ proto_register_zbee_zcl_met(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_met_get_profile_response_end_time,
-            { "End Time", "zbee_zcl_se.met.get_profile_response.end_time", FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL,
-            0x00, NULL, HFILL } },
+            { "End Time", "zbee_zcl_se.met.get_profile_response.end_time",
+            FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_se_utc_time), 0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_met_get_profile_response_status,
             { "Status", "zbee_zcl_se.met.get_profile_response.status", FT_UINT8, BASE_HEX, NULL,
@@ -7996,34 +7917,34 @@ static void decode_zcl_msg_duration             (gchar *s, guint16 value);
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_msg = -1;
+static int proto_zbee_zcl_msg;
 
-static int hf_zbee_zcl_msg_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_msg_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_msg_message_id = -1;
-static int hf_zbee_zcl_msg_ctrl = -1;
-static int hf_zbee_zcl_msg_ctrl_tx = -1;
-static int hf_zbee_zcl_msg_ctrl_importance = -1;
-static int hf_zbee_zcl_msg_ctrl_enh_confirm = -1;
-static int hf_zbee_zcl_msg_ctrl_reserved = -1;
-static int hf_zbee_zcl_msg_ctrl_confirm = -1;
-static int hf_zbee_zcl_msg_ext_ctrl = -1;
-static int hf_zbee_zcl_msg_ext_ctrl_status = -1;
-static int hf_zbee_zcl_msg_start_time = -1;
-static int hf_zbee_zcl_msg_duration = -1;
-static int hf_zbee_zcl_msg_message = -1;
-static int hf_zbee_zcl_msg_confirm_time = -1;
-static int hf_zbee_zcl_msg_confirm_ctrl = -1;
-static int hf_zbee_zcl_msg_confirm_response = -1;
-static int hf_zbee_zcl_msg_implementation_time = -1;
-static int hf_zbee_zcl_msg_earliest_time = -1;
+static int hf_zbee_zcl_msg_srv_tx_cmd_id;
+static int hf_zbee_zcl_msg_srv_rx_cmd_id;
+static int hf_zbee_zcl_msg_message_id;
+static int hf_zbee_zcl_msg_ctrl;
+static int hf_zbee_zcl_msg_ctrl_tx;
+static int hf_zbee_zcl_msg_ctrl_importance;
+static int hf_zbee_zcl_msg_ctrl_enh_confirm;
+static int hf_zbee_zcl_msg_ctrl_reserved;
+static int hf_zbee_zcl_msg_ctrl_confirm;
+static int hf_zbee_zcl_msg_ext_ctrl;
+static int hf_zbee_zcl_msg_ext_ctrl_status;
+static int hf_zbee_zcl_msg_start_time;
+static int hf_zbee_zcl_msg_duration;
+static int hf_zbee_zcl_msg_message;
+static int hf_zbee_zcl_msg_confirm_time;
+static int hf_zbee_zcl_msg_confirm_ctrl;
+static int hf_zbee_zcl_msg_confirm_response;
+static int hf_zbee_zcl_msg_implementation_time;
+static int hf_zbee_zcl_msg_earliest_time;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_msg = -1;
-static gint ett_zbee_zcl_msg_message_control = -1;
-static gint ett_zbee_zcl_msg_ext_message_control = -1;
+static gint ett_zbee_zcl_msg;
+static gint ett_zbee_zcl_msg_message_control;
+static gint ett_zbee_zcl_msg_ext_message_control;
 
-static expert_field ei_zbee_zcl_msg_msg_ctrl_deprecated = EI_INIT;
+static expert_field ei_zbee_zcl_msg_msg_ctrl_deprecated;
 
 /* Message Control Transmission */
 static const value_string zbee_zcl_msg_ctrl_tx_names[] = {
@@ -8315,25 +8236,22 @@ decode_zcl_msg_duration(gchar *s, guint16 value)
 } /*decode_zcl_msg_duration*/
 
 /**
- * This function decodes start time, with a special case for
- * ZBEE_ZCL_MSG_START_TIME_NOW.
+ * This function decodes UTC time, with a special case for
+ * ZBEE_ZCL_MSG_START_TIME_NOW which has special meaning when
+ * used in a Smart Energy context
  *
  * @param s string to display
  * @param value value to decode
 */
 static void
-decode_zcl_msg_start_time(gchar *s, guint32 value)
+decode_zcl_se_utc_time(gchar *s, guint32 value)
 {
     if (value == ZBEE_ZCL_MSG_START_TIME_NOW)
-        snprintf(s, ITEM_LABEL_LENGTH, "Now");
+        snprintf(s, ITEM_LABEL_LENGTH, "Now (0)");
     else {
-        gchar *start_time;
-        time_t epoch_time = (time_t)value + ZBEE_ZCL_NSTIME_UTC_OFFSET;
-        start_time = abs_time_secs_to_str (NULL, epoch_time, ABSOLUTE_TIME_UTC, TRUE);
-        snprintf(s, ITEM_LABEL_LENGTH, "%s", start_time);
-        wmem_free(NULL, start_time);
+        decode_zcl_utc_time(s,value);
     }
-} /* decode_zcl_msg_start_time */
+} /* decode_zcl_se_utc_time */
 
 /**
  *This function registers the ZCL Messaging dissector
@@ -8393,7 +8311,7 @@ proto_register_zbee_zcl_msg(void)
 /* End of 'Extended Message Control' fields */
 
         { &hf_zbee_zcl_msg_start_time,
-            { "Start Time", "zbee_zcl_se.msg.message.start_time", FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_msg_start_time),
+            { "Start Time", "zbee_zcl_se.msg.message.start_time", FT_UINT32, BASE_CUSTOM, CF_FUNC(decode_zcl_utc_time),
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_msg_duration,
@@ -8409,11 +8327,11 @@ proto_register_zbee_zcl_msg(void)
             0x0, NULL, HFILL } },
 
         { &hf_zbee_zcl_msg_confirm_ctrl,
-            { "Confirmation Control", "zbee_zcl_se.msg.message.confirm.ctrl", FT_BOOLEAN, 8, TFS(&tfs_no_yes),
+            { "Confirmation Control", "zbee_zcl_se.msg.message.confirm_ctrl", FT_BOOLEAN, 8, TFS(&tfs_no_yes),
             ZBEE_ZCL_MSG_CONFIRM_CTRL_MASK, NULL, HFILL } },
 
         { &hf_zbee_zcl_msg_confirm_response,
-            { "Response", "zbee_zcl_se.msg.message", FT_UINT_STRING, BASE_NONE, NULL,
+            { "Response", "zbee_zcl_se.msg.message.confirm_response", FT_UINT_STRING, BASE_NONE, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_msg_implementation_time,
@@ -8525,29 +8443,29 @@ static void dissect_zcl_tun_attr_data  (proto_tree *tree, tvbuff_t *tvb, guint *
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_tun = -1;
+static int proto_zbee_zcl_tun;
 
-static int hf_zbee_zcl_tun_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_tun_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_tun_attr_id = -1;
-static int hf_zbee_zcl_tun_attr_reporting_status = -1;
-static int hf_zbee_zcl_tun_attr_close_timeout = -1;
-static int hf_zbee_zcl_tun_protocol_id = -1;
-static int hf_zbee_zcl_tun_manufacturer_code = -1;
-static int hf_zbee_zcl_tun_flow_control_support = -1;
-static int hf_zbee_zcl_tun_max_in_size = -1;
-static int hf_zbee_zcl_tun_tunnel_id = -1;
-static int hf_zbee_zcl_tun_num_octets_left = -1;
-static int hf_zbee_zcl_tun_protocol_offset = -1;
-static int hf_zbee_zcl_tun_protocol_list_complete = -1;
-static int hf_zbee_zcl_tun_protocol_count = -1;
-static int hf_zbee_zcl_tun_transfer_status = -1;
-static int hf_zbee_zcl_tun_transfer_data_status = -1;
+static int hf_zbee_zcl_tun_srv_tx_cmd_id;
+static int hf_zbee_zcl_tun_srv_rx_cmd_id;
+static int hf_zbee_zcl_tun_attr_id;
+static int hf_zbee_zcl_tun_attr_reporting_status;
+static int hf_zbee_zcl_tun_attr_close_timeout;
+static int hf_zbee_zcl_tun_protocol_id;
+static int hf_zbee_zcl_tun_manufacturer_code;
+static int hf_zbee_zcl_tun_flow_control_support;
+static int hf_zbee_zcl_tun_max_in_size;
+static int hf_zbee_zcl_tun_tunnel_id;
+static int hf_zbee_zcl_tun_num_octets_left;
+static int hf_zbee_zcl_tun_protocol_offset;
+static int hf_zbee_zcl_tun_protocol_list_complete;
+static int hf_zbee_zcl_tun_protocol_count;
+static int hf_zbee_zcl_tun_transfer_status;
+static int hf_zbee_zcl_tun_transfer_data_status;
 
 static heur_dissector_list_t zbee_zcl_tun_heur_subdissector_list;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_tun = -1;
+static gint ett_zbee_zcl_tun;
 
 #define zbee_zcl_tun_protocol_names_VALUE_STRING_LIST(XXX) \
     XXX(ZBEE_ZCL_TUN_PROTO_DLMS,                                0x00, "DLMS/COSEM (IEC 62056)" ) \
@@ -8605,7 +8523,7 @@ dissect_zcl_tun_attr_data(proto_tree *tree, tvbuff_t *tvb, guint *offset, guint1
     switch (attr_id) {
         /* cluster specific attributes */
         case ZBEE_ZCL_ATTR_ID_TUN_CLOSE_TIMEOUT:
-            proto_tree_add_item(tree, hf_zbee_zcl_tun_attr_close_timeout, tvb, *offset, 2, ENC_NA);
+            proto_tree_add_item(tree, hf_zbee_zcl_tun_attr_close_timeout, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
             *offset += 2;
             break;
 
@@ -9272,108 +9190,108 @@ static void dissect_zcl_pp_publish_debt_log                     (tvbuff_t *tvb, 
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_pp = -1;
+static int proto_zbee_zcl_pp;
 
-static int hf_zbee_zcl_pp_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_pp_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_pp_attr_id = -1;
-static int hf_zbee_zcl_pp_attr_reporting_status = -1;
-static int hf_zbee_zcl_pp_select_available_emc_cmd_issue_date_time = -1;
-static int hf_zbee_zcl_pp_select_available_emc_originating_device = -1;
-static int hf_zbee_zcl_pp_change_debt_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_change_debt_label = -1;
-static int hf_zbee_zcl_pp_change_debt_amount = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_method = -1;
-static int hf_zbee_zcl_pp_change_debt_amount_type = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_start_time = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_collection_time = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_frequency = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_amount = -1;
-static int hf_zbee_zcl_pp_change_debt_recovery_balance_percentage = -1;
-static int hf_zbee_zcl_pp_emergency_credit_setup_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_emergency_credit_setup_start_time = -1;
-static int hf_zbee_zcl_pp_emergency_credit_setup_emergency_credit_limit = -1;
-static int hf_zbee_zcl_pp_emergency_credit_setup_emergency_credit_threshold = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_originating_device = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_top_up_code = -1;
-static int hf_zbee_zcl_pp_credit_adjustment_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_credit_adjustment_start_time = -1;
-static int hf_zbee_zcl_pp_credit_adjustment_credit_adjustment_type = -1;
-static int hf_zbee_zcl_pp_credit_adjustment_credit_adjustment_value = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_provider_id = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_implementation_date_time = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_proposed_payment_control_configuration = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_cut_off_value = -1;
-static int hf_zbee_zcl_pp_get_prepay_snapshot_earliest_start_time = -1;
-static int hf_zbee_zcl_pp_get_prepay_snapshot_latest_end_time = -1;
-static int hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_offset = -1;
-static int hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_cause = -1;
-static int hf_zbee_zcl_pp_get_top_up_log_latest_end_time = -1;
-static int hf_zbee_zcl_pp_get_top_up_log_number_of_records = -1;
-static int hf_zbee_zcl_pp_set_low_credit_warning_level_low_credit_warning_level = -1;
-static int hf_zbee_zcl_pp_get_debt_repayment_log_latest_end_time = -1;
-static int hf_zbee_zcl_pp_get_debt_repayment_log_number_of_debts = -1;
-static int hf_zbee_zcl_pp_get_debt_repayment_log_debt_type = -1;
-static int hf_zbee_zcl_pp_set_maximum_credit_limit_provider_id = -1;
-static int hf_zbee_zcl_pp_set_maximum_credit_limit_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_set_maximum_credit_limit_implementation_date_time = -1;
-static int hf_zbee_zcl_pp_set_maximum_credit_limit_maximum_credit_level = -1;
-static int hf_zbee_zcl_pp_set_maximum_credit_limit_maximum_credit_per_top_up = -1;
-static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_provider_id = -1;
-static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_issuer_event_id = -1;
-static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_implementation_date_time = -1;
-static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_overall_debt_cap = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_id = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_time = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_total_snapshots_found = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_command_index = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_total_number_of_commands = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_cause = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_payload_type = -1;
-static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_payload = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_response_friendly_credit = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_response_friendly_credit_calendar_id = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_response_emergency_credit_limit = -1;
-static int hf_zbee_zcl_pp_change_payment_mode_response_emergency_credit_threshold = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_response_result_type = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_response_top_up_value = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_response_source_of_top_up = -1;
-static int hf_zbee_zcl_pp_consumer_top_up_response_credit_remaining = -1;
-static int hf_zbee_zcl_pp_publish_top_up_log_command_index = -1;
-static int hf_zbee_zcl_pp_publish_top_up_log_total_number_of_commands = -1;
-static int hf_zbee_zcl_pp_publish_top_up_log_top_up_code = -1;
-static int hf_zbee_zcl_pp_publish_top_up_log_top_up_amount = -1;
-static int hf_zbee_zcl_pp_publish_top_up_log_top_up_time = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_command_index = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_total_number_of_commands = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_collection_time = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_amount_collected = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_debt_type = -1;
-static int hf_zbee_zcl_pp_publish_debt_log_outstanding_debt = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_prepayment_enabled = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_credit_management_enabled = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_credit_display_enabled = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_account_base = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_contactor_fitted = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_standing_charge_configuration = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_emergency_standing_charge_configuration = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_debt_configuration = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_emergency_debt_configuration = -1;
-static int hf_zbee_zcl_pp_payment_control_configuration_reserved = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_general = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_end_of_billing_period = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tariff_information = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_price_matrix = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_manually_triggered_from_client = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tenancy = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_supplier = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_meter_mode = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_top_up_addition = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_debt_credit_addition = -1;
-static int hf_zbee_zcl_pp_snapshot_payload_cause_reserved = -1;
+static int hf_zbee_zcl_pp_srv_tx_cmd_id;
+static int hf_zbee_zcl_pp_srv_rx_cmd_id;
+static int hf_zbee_zcl_pp_attr_id;
+static int hf_zbee_zcl_pp_attr_reporting_status;
+static int hf_zbee_zcl_pp_select_available_emc_cmd_issue_date_time;
+static int hf_zbee_zcl_pp_select_available_emc_originating_device;
+static int hf_zbee_zcl_pp_change_debt_issuer_event_id;
+static int hf_zbee_zcl_pp_change_debt_label;
+static int hf_zbee_zcl_pp_change_debt_amount;
+static int hf_zbee_zcl_pp_change_debt_recovery_method;
+static int hf_zbee_zcl_pp_change_debt_amount_type;
+static int hf_zbee_zcl_pp_change_debt_recovery_start_time;
+static int hf_zbee_zcl_pp_change_debt_recovery_collection_time;
+static int hf_zbee_zcl_pp_change_debt_recovery_frequency;
+static int hf_zbee_zcl_pp_change_debt_recovery_amount;
+static int hf_zbee_zcl_pp_change_debt_recovery_balance_percentage;
+static int hf_zbee_zcl_pp_emergency_credit_setup_issuer_event_id;
+static int hf_zbee_zcl_pp_emergency_credit_setup_start_time;
+static int hf_zbee_zcl_pp_emergency_credit_setup_emergency_credit_limit;
+static int hf_zbee_zcl_pp_emergency_credit_setup_emergency_credit_threshold;
+static int hf_zbee_zcl_pp_consumer_top_up_originating_device;
+static int hf_zbee_zcl_pp_consumer_top_up_top_up_code;
+static int hf_zbee_zcl_pp_credit_adjustment_issuer_event_id;
+static int hf_zbee_zcl_pp_credit_adjustment_start_time;
+static int hf_zbee_zcl_pp_credit_adjustment_credit_adjustment_type;
+static int hf_zbee_zcl_pp_credit_adjustment_credit_adjustment_value;
+static int hf_zbee_zcl_pp_change_payment_mode_provider_id;
+static int hf_zbee_zcl_pp_change_payment_mode_issuer_event_id;
+static int hf_zbee_zcl_pp_change_payment_mode_implementation_date_time;
+static int hf_zbee_zcl_pp_change_payment_mode_proposed_payment_control_configuration;
+static int hf_zbee_zcl_pp_change_payment_mode_cut_off_value;
+static int hf_zbee_zcl_pp_get_prepay_snapshot_earliest_start_time;
+static int hf_zbee_zcl_pp_get_prepay_snapshot_latest_end_time;
+static int hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_offset;
+static int hf_zbee_zcl_pp_get_prepay_snapshot_snapshot_cause;
+static int hf_zbee_zcl_pp_get_top_up_log_latest_end_time;
+static int hf_zbee_zcl_pp_get_top_up_log_number_of_records;
+static int hf_zbee_zcl_pp_set_low_credit_warning_level_low_credit_warning_level;
+static int hf_zbee_zcl_pp_get_debt_repayment_log_latest_end_time;
+static int hf_zbee_zcl_pp_get_debt_repayment_log_number_of_debts;
+static int hf_zbee_zcl_pp_get_debt_repayment_log_debt_type;
+static int hf_zbee_zcl_pp_set_maximum_credit_limit_provider_id;
+static int hf_zbee_zcl_pp_set_maximum_credit_limit_issuer_event_id;
+static int hf_zbee_zcl_pp_set_maximum_credit_limit_implementation_date_time;
+static int hf_zbee_zcl_pp_set_maximum_credit_limit_maximum_credit_level;
+static int hf_zbee_zcl_pp_set_maximum_credit_limit_maximum_credit_per_top_up;
+static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_provider_id;
+static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_issuer_event_id;
+static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_implementation_date_time;
+static int hf_zbee_zcl_pp_set_overall_debt_cap_limit_overall_debt_cap;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_id;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_time;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_total_snapshots_found;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_command_index;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_total_number_of_commands;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_cause;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_payload_type;
+static int hf_zbee_zcl_pp_publish_prepay_snapshot_snapshot_payload;
+static int hf_zbee_zcl_pp_change_payment_mode_response_friendly_credit;
+static int hf_zbee_zcl_pp_change_payment_mode_response_friendly_credit_calendar_id;
+static int hf_zbee_zcl_pp_change_payment_mode_response_emergency_credit_limit;
+static int hf_zbee_zcl_pp_change_payment_mode_response_emergency_credit_threshold;
+static int hf_zbee_zcl_pp_consumer_top_up_response_result_type;
+static int hf_zbee_zcl_pp_consumer_top_up_response_top_up_value;
+static int hf_zbee_zcl_pp_consumer_top_up_response_source_of_top_up;
+static int hf_zbee_zcl_pp_consumer_top_up_response_credit_remaining;
+static int hf_zbee_zcl_pp_publish_top_up_log_command_index;
+static int hf_zbee_zcl_pp_publish_top_up_log_total_number_of_commands;
+static int hf_zbee_zcl_pp_publish_top_up_log_top_up_code;
+static int hf_zbee_zcl_pp_publish_top_up_log_top_up_amount;
+static int hf_zbee_zcl_pp_publish_top_up_log_top_up_time;
+static int hf_zbee_zcl_pp_publish_debt_log_command_index;
+static int hf_zbee_zcl_pp_publish_debt_log_total_number_of_commands;
+static int hf_zbee_zcl_pp_publish_debt_log_collection_time;
+static int hf_zbee_zcl_pp_publish_debt_log_amount_collected;
+static int hf_zbee_zcl_pp_publish_debt_log_debt_type;
+static int hf_zbee_zcl_pp_publish_debt_log_outstanding_debt;
+static int hf_zbee_zcl_pp_payment_control_configuration;
+static int hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled;
+static int hf_zbee_zcl_pp_payment_control_configuration_prepayment_enabled;
+static int hf_zbee_zcl_pp_payment_control_configuration_credit_management_enabled;
+static int hf_zbee_zcl_pp_payment_control_configuration_credit_display_enabled;
+static int hf_zbee_zcl_pp_payment_control_configuration_account_base;
+static int hf_zbee_zcl_pp_payment_control_configuration_contactor_fitted;
+static int hf_zbee_zcl_pp_payment_control_configuration_standing_charge_configuration;
+static int hf_zbee_zcl_pp_payment_control_configuration_emergency_standing_charge_configuration;
+static int hf_zbee_zcl_pp_payment_control_configuration_debt_configuration;
+static int hf_zbee_zcl_pp_payment_control_configuration_emergency_debt_configuration;
+static int hf_zbee_zcl_pp_payment_control_configuration_reserved;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_general;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_end_of_billing_period;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tariff_information;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_price_matrix;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_manually_triggered_from_client;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_tenancy;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_supplier;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_change_of_meter_mode;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_top_up_addition;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_debt_credit_addition;
+static int hf_zbee_zcl_pp_snapshot_payload_cause_reserved;
 
 static int* const zbee_zcl_pp_payment_control_configuration_flags[] = {
         &hf_zbee_zcl_pp_payment_control_configuration_disconnection_enabled,
@@ -9413,9 +9331,9 @@ static int* const zbee_zcl_pp_snapshot_payload_cause_flags[] = {
                                                        ZBEE_ZCL_SE_PP_NUM_PUBLISH_TOP_UP_LOG_ETT + \
                                                        ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT)
 
-static gint ett_zbee_zcl_pp = -1;
-static gint ett_zbee_zcl_pp_payment_control_configuration = -1;
-static gint ett_zbee_zcl_pp_snapshot_payload_cause = -1;
+static gint ett_zbee_zcl_pp;
+static gint ett_zbee_zcl_pp_payment_control_configuration;
+static gint ett_zbee_zcl_pp_snapshot_payload_cause;
 static gint ett_zbee_zcl_pp_publish_top_up_entry[ZBEE_ZCL_SE_PP_NUM_PUBLISH_TOP_UP_LOG_ETT];
 static gint ett_zbee_zcl_pp_publish_debt_log_entry[ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT];
 
@@ -10557,13 +10475,11 @@ proto_register_zbee_zcl_pp(void)
 
     /* Initialize Publish Top Up Log subtrees */
     for (guint i = 0; i < ZBEE_ZCL_SE_PP_NUM_PUBLISH_TOP_UP_LOG_ETT; i++, j++) {
-        ett_zbee_zcl_pp_publish_top_up_entry[i] = -1;
         ett[j] = &ett_zbee_zcl_pp_publish_top_up_entry[i];
     }
 
     /* Initialize Publish Debt Log subtrees */
     for (guint i = 0; i < ZBEE_ZCL_SE_PP_NUM_PUBLISH_DEBT_LOG_ETT; i++, j++ ) {
-        ett_zbee_zcl_pp_publish_debt_log_entry[i] = -1;
         ett[j] = &ett_zbee_zcl_pp_publish_debt_log_entry[i];
     }
 
@@ -10647,47 +10563,47 @@ static void dissect_zcl_energy_management_attr_data                     (proto_t
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_energy_management = -1;
+static int proto_zbee_zcl_energy_management;
 
-static int hf_zbee_zcl_energy_management_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_energy_management_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_energy_management_attr_id = -1;
-static int hf_zbee_zcl_energy_management_attr_reporting_status = -1;
-static int hf_zbee_zcl_energy_management_issuer_event_id = -1;
-static int hf_zbee_zcl_energy_management_device_class = -1;
-static int hf_zbee_zcl_energy_management_device_class_hvac_compressor_or_furnace = -1;
-static int hf_zbee_zcl_energy_management_device_class_strip_heaters_baseboard_heaters = -1;
-static int hf_zbee_zcl_energy_management_device_class_water_heater = -1;
-static int hf_zbee_zcl_energy_management_device_class_pool_pump_spa_jacuzzi = -1;
-static int hf_zbee_zcl_energy_management_device_class_smart_appliances = -1;
-static int hf_zbee_zcl_energy_management_device_class_irrigation_pump = -1;
-static int hf_zbee_zcl_energy_management_device_class_managed_c_i_loads= -1;
-static int hf_zbee_zcl_energy_management_device_class_simple_misc_loads = -1;
-static int hf_zbee_zcl_energy_management_device_class_exterior_lighting = -1;
-static int hf_zbee_zcl_energy_management_device_class_interior_lighting = -1;
-static int hf_zbee_zcl_energy_management_device_class_electric_vehicle = -1;
-static int hf_zbee_zcl_energy_management_device_class_generation_systems = -1;
-static int hf_zbee_zcl_energy_management_device_class_reserved = -1;
-static int hf_zbee_zcl_energy_management_utility_enrollment_group = -1;
-static int hf_zbee_zcl_energy_management_action_required = -1;
-static int hf_zbee_zcl_energy_management_action_required_opt_out_of_event = -1;
-static int hf_zbee_zcl_energy_management_action_required_opt_into_event = -1;
-static int hf_zbee_zcl_energy_management_action_required_disable_duty_cycling = -1;
-static int hf_zbee_zcl_energy_management_action_required_enable_duty_cycling = -1;
-static int hf_zbee_zcl_energy_management_action_required_reserved = -1;
+static int hf_zbee_zcl_energy_management_srv_tx_cmd_id;
+static int hf_zbee_zcl_energy_management_srv_rx_cmd_id;
+static int hf_zbee_zcl_energy_management_attr_id;
+static int hf_zbee_zcl_energy_management_attr_reporting_status;
+static int hf_zbee_zcl_energy_management_issuer_event_id;
+static int hf_zbee_zcl_energy_management_device_class;
+static int hf_zbee_zcl_energy_management_device_class_hvac_compressor_or_furnace;
+static int hf_zbee_zcl_energy_management_device_class_strip_heaters_baseboard_heaters;
+static int hf_zbee_zcl_energy_management_device_class_water_heater;
+static int hf_zbee_zcl_energy_management_device_class_pool_pump_spa_jacuzzi;
+static int hf_zbee_zcl_energy_management_device_class_smart_appliances;
+static int hf_zbee_zcl_energy_management_device_class_irrigation_pump;
+static int hf_zbee_zcl_energy_management_device_class_managed_c_i_loads;
+static int hf_zbee_zcl_energy_management_device_class_simple_misc_loads;
+static int hf_zbee_zcl_energy_management_device_class_exterior_lighting;
+static int hf_zbee_zcl_energy_management_device_class_interior_lighting;
+static int hf_zbee_zcl_energy_management_device_class_electric_vehicle;
+static int hf_zbee_zcl_energy_management_device_class_generation_systems;
+static int hf_zbee_zcl_energy_management_device_class_reserved;
+static int hf_zbee_zcl_energy_management_utility_enrollment_group;
+static int hf_zbee_zcl_energy_management_action_required;
+static int hf_zbee_zcl_energy_management_action_required_opt_out_of_event;
+static int hf_zbee_zcl_energy_management_action_required_opt_into_event;
+static int hf_zbee_zcl_energy_management_action_required_disable_duty_cycling;
+static int hf_zbee_zcl_energy_management_action_required_enable_duty_cycling;
+static int hf_zbee_zcl_energy_management_action_required_reserved;
 
-static int hf_zbee_zcl_energy_management_report_event_issuer_event_id = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_status = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_status_time = -1;
-static int hf_zbee_zcl_energy_management_report_event_criticality_level_applied = -1;
-static int hf_zbee_zcl_energy_management_report_event_cooling_temp_set_point_applied = -1;
-static int hf_zbee_zcl_energy_management_report_event_heating_temp_set_point_applied = -1;
-static int hf_zbee_zcl_energy_management_report_event_average_load_adjustment_percentage = -1;
-static int hf_zbee_zcl_energy_management_report_event_duty_cycle = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_control = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_control_randomize_start_time = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_control_randomize_duration_time = -1;
-static int hf_zbee_zcl_energy_management_report_event_event_control_reserved = -1;
+static int hf_zbee_zcl_energy_management_report_event_issuer_event_id;
+static int hf_zbee_zcl_energy_management_report_event_event_status;
+static int hf_zbee_zcl_energy_management_report_event_event_status_time;
+static int hf_zbee_zcl_energy_management_report_event_criticality_level_applied;
+static int hf_zbee_zcl_energy_management_report_event_cooling_temp_set_point_applied;
+static int hf_zbee_zcl_energy_management_report_event_heating_temp_set_point_applied;
+static int hf_zbee_zcl_energy_management_report_event_average_load_adjustment_percentage;
+static int hf_zbee_zcl_energy_management_report_event_duty_cycle;
+static int hf_zbee_zcl_energy_management_report_event_event_control;
+static int hf_zbee_zcl_energy_management_report_event_event_control_randomize_start_time;
+static int hf_zbee_zcl_energy_management_report_event_event_control_randomize_duration_time;
+static int hf_zbee_zcl_energy_management_report_event_event_control_reserved;
 
 
 static int* const zbee_zcl_energy_management_device_classes[] = {
@@ -10724,10 +10640,10 @@ static int* const hf_zbee_zcl_energy_management_event_control_flags[] = {
 };
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_energy_management = -1;
-static gint ett_zbee_zcl_energy_management_device_class = -1;
-static gint ett_zbee_zcl_energy_management_actions_required = -1;
-static gint ett_zbee_zcl_energy_management_report_event_event_control = -1;
+static gint ett_zbee_zcl_energy_management;
+static gint ett_zbee_zcl_energy_management_device_class;
+static gint ett_zbee_zcl_energy_management_actions_required;
+static gint ett_zbee_zcl_energy_management_report_event_event_control;
 
 static const range_string zbee_zcl_energy_management_load_control_event_criticality_level[] = {
     { 0x0, 0x0,   "Reserved" },
@@ -11216,58 +11132,58 @@ static void dissect_zcl_calendar_cancel(tvbuff_t *tvb, proto_tree *tree, guint *
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_calendar = -1;
+static int proto_zbee_zcl_calendar;
 
-static int hf_zbee_zcl_calendar_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_calendar_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_calendar_attr_id = -1;
-static int hf_zbee_zcl_calendar_attr_reporting_status = -1;
-static int hf_zbee_zcl_calendar_type = -1;
-static int hf_zbee_zcl_calendar_start_time = -1;
-static int hf_zbee_zcl_calendar_earliest_start_time = -1;
-static int hf_zbee_zcl_calendar_time_reference = -1;
-static int hf_zbee_zcl_calendar_name = -1;
-static int hf_zbee_zcl_calendar_command_index = -1;
-static int hf_zbee_zcl_calendar_date_year = -1;
-static int hf_zbee_zcl_calendar_date_month = -1;
-static int hf_zbee_zcl_calendar_date_month_day = -1;
-static int hf_zbee_zcl_calendar_date_week_day = -1;
-static int hf_zbee_zcl_calendar_provider_id = -1;
-static int hf_zbee_zcl_calendar_issuer_event_id = -1;
-static int hf_zbee_zcl_calendar_min_issuer_event_id = -1;
-static int hf_zbee_zcl_calendar_issuer_calendar_id = -1;
-static int hf_zbee_zcl_calendar_day_id = -1;
-static int hf_zbee_zcl_calendar_day_id_ref = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_monday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_tuesday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_wednesday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_thursday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_friday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_saturday = -1;
-static int hf_zbee_zcl_calendar_day_id_ref_sunday = -1;
-static int hf_zbee_zcl_calendar_week_id = -1;
-static int hf_zbee_zcl_calendar_week_id_ref = -1;
-static int hf_zbee_zcl_calendar_start_day_id = -1;
-static int hf_zbee_zcl_calendar_start_week_id = -1;
-static int hf_zbee_zcl_calendar_number_of_calendars = -1;
-static int hf_zbee_zcl_calendar_number_of_events = -1;
-static int hf_zbee_zcl_calendar_number_of_days = -1;
-static int hf_zbee_zcl_calendar_number_of_weeks = -1;
-static int hf_zbee_zcl_calendar_number_of_seasons = -1;
-static int hf_zbee_zcl_calendar_number_of_day_profiles = -1;
-static int hf_zbee_zcl_calendar_number_of_week_profiles = -1;
-static int hf_zbee_zcl_calendar_total_number_of_schedule_entries = -1;
-static int hf_zbee_zcl_calendar_total_number_of_special_days = -1;
-static int hf_zbee_zcl_calendar_total_number_of_commands = -1;
-static int hf_zbee_zcl_calendar_schedule_entry_start_time = -1;
-static int hf_zbee_zcl_calendar_schedule_entry_price_tier = -1;
-static int hf_zbee_zcl_calendar_schedule_entry_friendly_credit_enable = -1;
-static int hf_zbee_zcl_calendar_schedule_entry_auxiliary_load_switch_state = -1;
+static int hf_zbee_zcl_calendar_srv_tx_cmd_id;
+static int hf_zbee_zcl_calendar_srv_rx_cmd_id;
+static int hf_zbee_zcl_calendar_attr_id;
+static int hf_zbee_zcl_calendar_attr_reporting_status;
+static int hf_zbee_zcl_calendar_type;
+static int hf_zbee_zcl_calendar_start_time;
+static int hf_zbee_zcl_calendar_earliest_start_time;
+static int hf_zbee_zcl_calendar_time_reference;
+static int hf_zbee_zcl_calendar_name;
+static int hf_zbee_zcl_calendar_command_index;
+static int hf_zbee_zcl_calendar_date_year;
+static int hf_zbee_zcl_calendar_date_month;
+static int hf_zbee_zcl_calendar_date_month_day;
+static int hf_zbee_zcl_calendar_date_week_day;
+static int hf_zbee_zcl_calendar_provider_id;
+static int hf_zbee_zcl_calendar_issuer_event_id;
+static int hf_zbee_zcl_calendar_min_issuer_event_id;
+static int hf_zbee_zcl_calendar_issuer_calendar_id;
+static int hf_zbee_zcl_calendar_day_id;
+static int hf_zbee_zcl_calendar_day_id_ref;
+static int hf_zbee_zcl_calendar_day_id_ref_monday;
+static int hf_zbee_zcl_calendar_day_id_ref_tuesday;
+static int hf_zbee_zcl_calendar_day_id_ref_wednesday;
+static int hf_zbee_zcl_calendar_day_id_ref_thursday;
+static int hf_zbee_zcl_calendar_day_id_ref_friday;
+static int hf_zbee_zcl_calendar_day_id_ref_saturday;
+static int hf_zbee_zcl_calendar_day_id_ref_sunday;
+static int hf_zbee_zcl_calendar_week_id;
+static int hf_zbee_zcl_calendar_week_id_ref;
+static int hf_zbee_zcl_calendar_start_day_id;
+static int hf_zbee_zcl_calendar_start_week_id;
+static int hf_zbee_zcl_calendar_number_of_calendars;
+static int hf_zbee_zcl_calendar_number_of_events;
+static int hf_zbee_zcl_calendar_number_of_days;
+static int hf_zbee_zcl_calendar_number_of_weeks;
+static int hf_zbee_zcl_calendar_number_of_seasons;
+static int hf_zbee_zcl_calendar_number_of_day_profiles;
+static int hf_zbee_zcl_calendar_number_of_week_profiles;
+static int hf_zbee_zcl_calendar_total_number_of_schedule_entries;
+static int hf_zbee_zcl_calendar_total_number_of_special_days;
+static int hf_zbee_zcl_calendar_total_number_of_commands;
+static int hf_zbee_zcl_calendar_schedule_entry_start_time;
+static int hf_zbee_zcl_calendar_schedule_entry_price_tier;
+static int hf_zbee_zcl_calendar_schedule_entry_friendly_credit_enable;
+static int hf_zbee_zcl_calendar_schedule_entry_auxiliary_load_switch_state;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_calendar = -1;
-static gint ett_zbee_zcl_calendar_special_day_date = -1;
-static gint ett_zbee_zcl_calendar_season_start_date = -1;
+static gint ett_zbee_zcl_calendar;
+static gint ett_zbee_zcl_calendar_special_day_date;
+static gint ett_zbee_zcl_calendar_season_start_date;
 
 #define zbee_zcl_calendar_type_names_VALUE_STRING_LIST(XXX) \
     XXX(ZBEE_ZCL_CALENDAR_TYPE_DELIVERED,                                0x00, "Delivered Calendar" ) \
@@ -12179,30 +12095,30 @@ static void dissect_zcl_daily_schedule_cancel_schedule(tvbuff_t *tvb, proto_tree
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_daily_schedule = -1;
+static int proto_zbee_zcl_daily_schedule;
 
-static int hf_zbee_zcl_daily_schedule_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_daily_schedule_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_daily_schedule_attr_server_id = -1;
+static int hf_zbee_zcl_daily_schedule_srv_tx_cmd_id;
+static int hf_zbee_zcl_daily_schedule_srv_rx_cmd_id;
+static int hf_zbee_zcl_daily_schedule_attr_server_id;
 /* Get Schedule cmd */
-static int hf_zbee_zcl_daily_schedule_type = -1;
-static int hf_zbee_zcl_daily_schedule_name = -1;
-static int hf_zbee_zcl_daily_schedule_start_time = -1;
-static int hf_zbee_zcl_daily_schedule_earliest_start_time = -1;
-static int hf_zbee_zcl_daily_schedule_command_index = -1;
-static int hf_zbee_zcl_daily_schedule_id = -1;
-static int hf_zbee_zcl_daily_schedule_time_reference = -1;
-static int hf_zbee_zcl_daily_schedule_provider_id = -1;
-static int hf_zbee_zcl_daily_schedule_issuer_event_id = -1;
-static int hf_zbee_zcl_daily_schedule_min_issuer_event_id = -1;
-static int hf_zbee_zcl_daily_schedule_number_of_schedules = -1;
-static int hf_zbee_zcl_daily_schedule_total_number_of_schedule_entries = -1;
-static int hf_zbee_zcl_daily_schedule_schedule_entry_start_time = -1;
-static int hf_zbee_zcl_daily_schedule_schedule_entry_price_tier = -1;
-static int hf_zbee_zcl_daily_schedule_schedule_entry_auxiliary_load_switch_state = -1;
+static int hf_zbee_zcl_daily_schedule_type;
+static int hf_zbee_zcl_daily_schedule_name;
+static int hf_zbee_zcl_daily_schedule_start_time;
+static int hf_zbee_zcl_daily_schedule_earliest_start_time;
+static int hf_zbee_zcl_daily_schedule_command_index;
+static int hf_zbee_zcl_daily_schedule_id;
+static int hf_zbee_zcl_daily_schedule_time_reference;
+static int hf_zbee_zcl_daily_schedule_provider_id;
+static int hf_zbee_zcl_daily_schedule_issuer_event_id;
+static int hf_zbee_zcl_daily_schedule_min_issuer_event_id;
+static int hf_zbee_zcl_daily_schedule_number_of_schedules;
+static int hf_zbee_zcl_daily_schedule_total_number_of_schedule_entries;
+static int hf_zbee_zcl_daily_schedule_schedule_entry_start_time;
+static int hf_zbee_zcl_daily_schedule_schedule_entry_price_tier;
+static int hf_zbee_zcl_daily_schedule_schedule_entry_auxiliary_load_switch_state;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_daily_schedule = -1;
+static gint ett_zbee_zcl_daily_schedule;
 
 #define zbee_zcl_daily_schedule_type_names_VALUE_STRING_LIST(XXX) \
     XXX(ZBEE_ZCL_SCHEDULE_TYPE_LINKY_SCHEDULE,                           0x00, "Linky Schedule" ) \
@@ -13202,79 +13118,79 @@ static void dissect_zcl_device_management_attr_data(proto_tree *tree, tvbuff_t *
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_device_management = -1;
+static int proto_zbee_zcl_device_management;
 
-static int hf_zbee_zcl_device_management_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_device_management_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_device_management_attr_server_id = -1;
-static int hf_zbee_zcl_device_management_attr_client_id = -1;
-static int hf_zbee_zcl_device_management_attr_reporting_status = -1;
-static int hf_zbee_zcl_device_management_password_type = -1;
-static int hf_zbee_zcl_device_management_command_index = -1;
-static int hf_zbee_zcl_device_management_total_commands = -1;
-static int hf_zbee_zcl_device_management_event_id= -1;
-static int hf_zbee_zcl_device_management_event_configuration = -1;
-static int hf_zbee_zcl_device_management_event_configuration_logging = -1;
-static int hf_zbee_zcl_device_management_event_configuration_push_event_to_wan = -1;
-static int hf_zbee_zcl_device_management_event_configuration_push_event_to_han = -1;
-static int hf_zbee_zcl_device_management_event_configuration_raise_alarm_zigbee = -1;
-static int hf_zbee_zcl_device_management_event_configuration_raise_alarm_physical = -1;
-static int hf_zbee_zcl_device_management_event_configuration_reserved = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_provider_id = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_tariff_type = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_implementation_date = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_pre_snapshot = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_post_snapshot = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_credit_register = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_debit_register = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_billing_period = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_tariff_plan = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_standing_charge = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_block_historical_load_profile_information = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_historical_load_profile_information = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_ihd_data_consumer = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_ihd_data_supplier = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_meter_contactor_state = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_transaction_log = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_prepayment_data = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reserved = -1;
+static int hf_zbee_zcl_device_management_srv_tx_cmd_id;
+static int hf_zbee_zcl_device_management_srv_rx_cmd_id;
+static int hf_zbee_zcl_device_management_attr_server_id;
+static int hf_zbee_zcl_device_management_attr_client_id;
+static int hf_zbee_zcl_device_management_attr_reporting_status;
+static int hf_zbee_zcl_device_management_password_type;
+static int hf_zbee_zcl_device_management_command_index;
+static int hf_zbee_zcl_device_management_total_commands;
+static int hf_zbee_zcl_device_management_event_id;
+static int hf_zbee_zcl_device_management_event_configuration;
+static int hf_zbee_zcl_device_management_event_configuration_logging;
+static int hf_zbee_zcl_device_management_event_configuration_push_event_to_wan;
+static int hf_zbee_zcl_device_management_event_configuration_push_event_to_han;
+static int hf_zbee_zcl_device_management_event_configuration_raise_alarm_zigbee;
+static int hf_zbee_zcl_device_management_event_configuration_raise_alarm_physical;
+static int hf_zbee_zcl_device_management_event_configuration_reserved;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_provider_id;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_issuer_event_id;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_tariff_type;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_implementation_date;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_pre_snapshot;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_post_snapshot;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_credit_register;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_debit_register;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reset_billing_period;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_tariff_plan;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_standing_charge;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_block_historical_load_profile_information;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_historical_load_profile_information;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_ihd_data_consumer;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_ihd_data_supplier;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_meter_contactor_state;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_transaction_log;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_clear_prepayment_data;
+static int hf_zbee_zcl_device_management_publish_change_of_tenancy_proposed_tenancy_change_control_reserved;
 
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_current_provider_id = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_tariff_type = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_proposed_provider_id = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_change_implementation_time = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_change_control = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_proposed_provider_name = -1;
-static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_proposed_provider_contact_details = -1;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_current_provider_id;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_issuer_event_id;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_tariff_type;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_proposed_provider_id;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_change_implementation_time;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_change_control;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_proposed_provider_name;
+static int hf_zbee_zcl_device_management_publish_change_of_supplier_provider_proposed_provider_contact_details;
 
-static int hf_zbee_zcl_device_management_request_new_password_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_request_new_password_implementation_date = -1;
-static int hf_zbee_zcl_device_management_request_new_password_password = -1;
-static int hf_zbee_zcl_device_management_request_new_password_duration_in_minutes = -1;
+static int hf_zbee_zcl_device_management_request_new_password_issuer_event_id;
+static int hf_zbee_zcl_device_management_request_new_password_implementation_date;
+static int hf_zbee_zcl_device_management_request_new_password_password;
+static int hf_zbee_zcl_device_management_request_new_password_duration_in_minutes;
 
-static int hf_zbee_zcl_device_management_update_site_id_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_update_site_id_site_id_time = -1;
-static int hf_zbee_zcl_device_management_update_site_id_provider_id = -1;
-static int hf_zbee_zcl_device_management_update_site_id_site_id = -1;
+static int hf_zbee_zcl_device_management_update_site_id_issuer_event_id;
+static int hf_zbee_zcl_device_management_update_site_id_site_id_time;
+static int hf_zbee_zcl_device_management_update_site_id_provider_id;
+static int hf_zbee_zcl_device_management_update_site_id_site_id;
 
-static int hf_zbee_zcl_device_management_set_event_configuration_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_start_time = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_configuration_control = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_number_of_events = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_id = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_group_id = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_log_id = -1;
-static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_configuration_value_match = -1;
+static int hf_zbee_zcl_device_management_set_event_configuration_issuer_event_id;
+static int hf_zbee_zcl_device_management_set_event_configuration_start_time;
+static int hf_zbee_zcl_device_management_set_event_configuration_configuration_control;
+static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_number_of_events;
+static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_id;
+static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_group_id;
+static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_log_id;
+static int hf_zbee_zcl_device_management_set_event_configuration_event_configuration_event_configuration_value_match;
 
-static int hf_zbee_zcl_device_management_get_event_configuration_event_id = -1;
+static int hf_zbee_zcl_device_management_get_event_configuration_event_id;
 
-static int hf_zbee_zcl_device_management_update_cin_issuer_event_id = -1;
-static int hf_zbee_zcl_device_management_update_cin_cin_implementation_time = -1;
-static int hf_zbee_zcl_device_management_update_cin_provider_id = -1;
-static int hf_zbee_zcl_device_management_update_cin_customerid_number = -1;
+static int hf_zbee_zcl_device_management_update_cin_issuer_event_id;
+static int hf_zbee_zcl_device_management_update_cin_cin_implementation_time;
+static int hf_zbee_zcl_device_management_update_cin_provider_id;
+static int hf_zbee_zcl_device_management_update_cin_customerid_number;
 
 static int* const hf_zbee_zcl_device_management_event_configuration_flags[] = {
     &hf_zbee_zcl_device_management_event_configuration_logging,
@@ -13306,10 +13222,10 @@ static int* const hf_zbee_zcl_device_management_publish_change_of_tenancy_propos
 };
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_device_management = -1;
-static gint ett_zbee_zcl_device_management_event_configuration_payload = -1;
-static gint ett_zbee_zcl_device_management_event_configuration = -1;
-static gint ett_zbee_zcl_device_management_proposed_tenancy_change_control = -1;
+static gint ett_zbee_zcl_device_management;
+static gint ett_zbee_zcl_device_management_event_configuration_payload;
+static gint ett_zbee_zcl_device_management_event_configuration;
+static gint ett_zbee_zcl_device_management_proposed_tenancy_change_control;
 
 /*************************/
 /* Function Bodies       */
@@ -14131,38 +14047,38 @@ static void dissect_zcl_events_clear_event_log_response         (tvbuff_t *tvb, 
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_events = -1;
+static int proto_zbee_zcl_events;
 
-static int hf_zbee_zcl_events_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_events_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_events_get_event_log_event_control_log_id = -1;
-static int hf_zbee_zcl_events_get_event_log_event_id = -1;
-static int hf_zbee_zcl_events_get_event_log_start_time = -1;
-static int hf_zbee_zcl_events_get_event_log_end_time = -1;
-static int hf_zbee_zcl_events_get_event_log_number_of_events = -1;
-static int hf_zbee_zcl_events_get_event_log_event_offset = -1;
-static int hf_zbee_zcl_events_clear_event_log_request_log_id = -1;
-static int hf_zbee_zcl_events_publish_event_log_id = -1;
-static int hf_zbee_zcl_events_publish_event_event_id = -1;
-static int hf_zbee_zcl_events_publish_event_event_time = -1;
-static int hf_zbee_zcl_events_publish_event_event_control = -1;
-static int hf_zbee_zcl_events_publish_event_event_data = -1;
-static int hf_zbee_zcl_events_publish_event_log_total_number_of_matching_events = -1;
-static int hf_zbee_zcl_events_publish_event_log_command_index = -1;
-static int hf_zbee_zcl_events_publish_event_log_total_commands = -1;
-static int hf_zbee_zcl_events_publish_event_log_number_of_events_log_payload_control = -1;
-static int hf_zbee_zcl_events_publish_event_log_log_id = -1;
-static int hf_zbee_zcl_events_publish_event_log_event_id = -1;
-static int hf_zbee_zcl_events_publish_event_log_event_time = -1;
-static int hf_zbee_zcl_events_publish_event_log_event_data = -1;
-static int hf_zbee_zcl_events_clear_event_log_response_cleared_event_logs = -1;
+static int hf_zbee_zcl_events_srv_tx_cmd_id;
+static int hf_zbee_zcl_events_srv_rx_cmd_id;
+static int hf_zbee_zcl_events_get_event_log_event_control_log_id;
+static int hf_zbee_zcl_events_get_event_log_event_id;
+static int hf_zbee_zcl_events_get_event_log_start_time;
+static int hf_zbee_zcl_events_get_event_log_end_time;
+static int hf_zbee_zcl_events_get_event_log_number_of_events;
+static int hf_zbee_zcl_events_get_event_log_event_offset;
+static int hf_zbee_zcl_events_clear_event_log_request_log_id;
+static int hf_zbee_zcl_events_publish_event_log_id;
+static int hf_zbee_zcl_events_publish_event_event_id;
+static int hf_zbee_zcl_events_publish_event_event_time;
+static int hf_zbee_zcl_events_publish_event_event_control;
+static int hf_zbee_zcl_events_publish_event_event_data;
+static int hf_zbee_zcl_events_publish_event_log_total_number_of_matching_events;
+static int hf_zbee_zcl_events_publish_event_log_command_index;
+static int hf_zbee_zcl_events_publish_event_log_total_commands;
+static int hf_zbee_zcl_events_publish_event_log_number_of_events_log_payload_control;
+static int hf_zbee_zcl_events_publish_event_log_log_id;
+static int hf_zbee_zcl_events_publish_event_log_event_id;
+static int hf_zbee_zcl_events_publish_event_log_event_time;
+static int hf_zbee_zcl_events_publish_event_log_event_data;
+static int hf_zbee_zcl_events_clear_event_log_response_cleared_event_logs;
 
 /* Initialize the subtree pointers */
 #define ZBEE_ZCL_SE_EVENTS_NUM_INDIVIDUAL_ETT             1
 #define ZBEE_ZCL_SE_EVENTS_NUM_PUBLISH_EVENT_LOG_ETT      100 // The Great Britain Companion Specification (GBCS) allows up to 100 even though ZigBee only allows 15
 #define ZBEE_ZCL_SE_EVENTS_NUM_TOTAL_ETT                  (ZBEE_ZCL_SE_EVENTS_NUM_INDIVIDUAL_ETT + ZBEE_ZCL_SE_EVENTS_NUM_PUBLISH_EVENT_LOG_ETT)
 
-static gint ett_zbee_zcl_events = -1;
+static gint ett_zbee_zcl_events;
 static gint ett_zbee_zcl_events_publish_event_log_entry[ZBEE_ZCL_SE_EVENTS_NUM_PUBLISH_EVENT_LOG_ETT];
 
 /*************************/
@@ -14496,7 +14412,7 @@ proto_register_zbee_zcl_events(void)
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_events_publish_event_log_total_number_of_matching_events,
-            { "Total Number of Matching Events", "zbee_zcl_se.events.publish_event_log.event_id", FT_UINT16, BASE_DEC, NULL,
+            { "Total Number of Matching Events", "zbee_zcl_se.events.publish_event_log.matching_events", FT_UINT16, BASE_DEC, NULL,
             0x00, NULL, HFILL } },
 
         { &hf_zbee_zcl_events_publish_event_log_command_index,
@@ -14541,7 +14457,6 @@ proto_register_zbee_zcl_events(void)
 
     /* Initialize Publish Event Log subtrees */
     for (guint i = 0; i < ZBEE_ZCL_SE_EVENTS_NUM_PUBLISH_EVENT_LOG_ETT; i++, j++) {
-        ett_zbee_zcl_events_publish_event_log_entry[i] = -1;
         ett[j] = &ett_zbee_zcl_events_publish_event_log_entry[i];
     }
 
@@ -14608,20 +14523,20 @@ static void dissect_zcl_mdu_pairing_response(tvbuff_t *tvb, proto_tree *tree, gu
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_mdu_pairing = -1;
+static int proto_zbee_zcl_mdu_pairing;
 
-static int hf_zbee_zcl_mdu_pairing_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_mdu_pairing_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_mdu_pairing_info_version = -1;
-static int hf_zbee_zcl_mdu_pairing_total_devices_number = -1;
-static int hf_zbee_zcl_mdu_pairing_cmd_id = -1;
-static int hf_zbee_zcl_mdu_pairing_total_commands_number = -1;
-static int hf_zbee_zcl_mdu_pairing_device_eui64 = -1;
-static int hf_zbee_zcl_mdu_pairing_local_info_version = -1;
-static int hf_zbee_zcl_mdu_pairing_requesting_device_eui64 = -1;
+static int hf_zbee_zcl_mdu_pairing_srv_tx_cmd_id;
+static int hf_zbee_zcl_mdu_pairing_srv_rx_cmd_id;
+static int hf_zbee_zcl_mdu_pairing_info_version;
+static int hf_zbee_zcl_mdu_pairing_total_devices_number;
+static int hf_zbee_zcl_mdu_pairing_cmd_id;
+static int hf_zbee_zcl_mdu_pairing_total_commands_number;
+static int hf_zbee_zcl_mdu_pairing_device_eui64;
+static int hf_zbee_zcl_mdu_pairing_local_info_version;
+static int hf_zbee_zcl_mdu_pairing_requesting_device_eui64;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_mdu_pairing = -1;
+static gint ett_zbee_zcl_mdu_pairing;
 
 /*************************/
 /* Function Bodies       */
@@ -14888,16 +14803,16 @@ static void dissect_zcl_sub_ghz_suspend_zcl_messages(tvbuff_t *tvb, proto_tree *
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_sub_ghz = -1;
+static int proto_zbee_zcl_sub_ghz;
 
-static int hf_zbee_zcl_sub_ghz_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_sub_ghz_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_sub_ghz_attr_id = -1;
-static int hf_zbee_zcl_sub_ghz_attr_reporting_status = -1;
-static int hf_zbee_zcl_sub_ghz_zcl_messages_suspension_period = -1;
+static int hf_zbee_zcl_sub_ghz_srv_tx_cmd_id;
+static int hf_zbee_zcl_sub_ghz_srv_rx_cmd_id;
+static int hf_zbee_zcl_sub_ghz_attr_id;
+static int hf_zbee_zcl_sub_ghz_attr_reporting_status;
+static int hf_zbee_zcl_sub_ghz_zcl_messages_suspension_period;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_sub_ghz = -1;
+static gint ett_zbee_zcl_sub_ghz;
 
 /*************************/
 /* Function Bodies       */
@@ -15184,37 +15099,37 @@ void proto_reg_handoff_zbee_zcl_ke(void);
 /*************************/
 
 /* Initialize the protocol and registered fields */
-static int proto_zbee_zcl_ke = -1;
-static int hf_zbee_zcl_ke_srv_tx_cmd_id = -1;
-static int hf_zbee_zcl_ke_srv_rx_cmd_id = -1;
-static int hf_zbee_zcl_ke_attr_id = -1;
-static int hf_zbee_zcl_ke_attr_client_id = -1;
-static int hf_zbee_zcl_ke_suite = -1;
-static int hf_zbee_zcl_ke_ephemeral_time = -1;
-static int hf_zbee_zcl_ke_confirm_time = -1;
-static int hf_zbee_zcl_ke_status = -1;
-static int hf_zbee_zcl_ke_wait_time = -1;
-static int hf_zbee_zcl_ke_cert_reconstr = -1;
-static int hf_zbee_zcl_ke_cert_subject = -1;
-static int hf_zbee_zcl_ke_cert_issuer = -1;
-static int hf_zbee_zcl_ke_cert_profile_attr = -1;
-static int hf_zbee_zcl_ke_cert_type = -1;
-static int hf_zbee_zcl_ke_cert_serialno = -1;
-static int hf_zbee_zcl_ke_cert_curve = -1;
-static int hf_zbee_zcl_ke_cert_hash = -1;
-static int hf_zbee_zcl_ke_cert_valid_from = -1;
-static int hf_zbee_zcl_ke_cert_valid_to = -1;
-static int hf_zbee_zcl_ke_cert_key_usage_agreement = -1;
-static int hf_zbee_zcl_ke_cert_key_usage_signature = -1;
-static int hf_zbee_zcl_ke_ephemeral_qeu = -1;
-static int hf_zbee_zcl_ke_ephemeral_qev = -1;
-static int hf_zbee_zcl_ke_macu = -1;
-static int hf_zbee_zcl_ke_macv = -1;
+static int proto_zbee_zcl_ke;
+static int hf_zbee_zcl_ke_srv_tx_cmd_id;
+static int hf_zbee_zcl_ke_srv_rx_cmd_id;
+static int hf_zbee_zcl_ke_attr_id;
+static int hf_zbee_zcl_ke_attr_client_id;
+static int hf_zbee_zcl_ke_suite;
+static int hf_zbee_zcl_ke_ephemeral_time;
+static int hf_zbee_zcl_ke_confirm_time;
+static int hf_zbee_zcl_ke_status;
+static int hf_zbee_zcl_ke_wait_time;
+static int hf_zbee_zcl_ke_cert_reconstr;
+static int hf_zbee_zcl_ke_cert_subject;
+static int hf_zbee_zcl_ke_cert_issuer;
+static int hf_zbee_zcl_ke_cert_profile_attr;
+static int hf_zbee_zcl_ke_cert_type;
+static int hf_zbee_zcl_ke_cert_serialno;
+static int hf_zbee_zcl_ke_cert_curve;
+static int hf_zbee_zcl_ke_cert_hash;
+static int hf_zbee_zcl_ke_cert_valid_from;
+static int hf_zbee_zcl_ke_cert_valid_to;
+static int hf_zbee_zcl_ke_cert_key_usage_agreement;
+static int hf_zbee_zcl_ke_cert_key_usage_signature;
+static int hf_zbee_zcl_ke_ephemeral_qeu;
+static int hf_zbee_zcl_ke_ephemeral_qev;
+static int hf_zbee_zcl_ke_macu;
+static int hf_zbee_zcl_ke_macv;
 
 /* Initialize the subtree pointers */
-static gint ett_zbee_zcl_ke = -1;
-static gint ett_zbee_zcl_ke_cert = -1;
-static gint ett_zbee_zcl_ke_key_usage = -1;
+static gint ett_zbee_zcl_ke;
+static gint ett_zbee_zcl_ke_cert;
+static gint ett_zbee_zcl_ke_key_usage;
 
 /*************************/
 /* Function Bodies       */

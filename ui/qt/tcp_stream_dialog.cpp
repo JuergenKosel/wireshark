@@ -353,7 +353,6 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     connect(sp, SIGNAL(axisClick(QCPAxis*,QCPAxis::SelectablePart,QMouseEvent*)),
             this, SLOT(axisClicked(QCPAxis*,QCPAxis::SelectablePart,QMouseEvent*)));
     connect(sp->yAxis, SIGNAL(rangeChanged(QCPRange)), this, SLOT(transformYRange(QCPRange)));
-    disconnect(ui->buttonBox, SIGNAL(accepted()), this, SLOT(accept()));
     this->setResult(QDialog::Accepted);
 }
 
@@ -1845,7 +1844,7 @@ void TCPStreamDialog::transformYRange(const QCPRange &y_range1)
 void TCPStreamDialog::on_buttonBox_accepted()
 {
     QString file_name, extension;
-    QDir path(mainApp->lastOpenDir());
+    QDir path(mainApp->openDialogInitialDir());
     QString pdf_filter = tr("Portable Document Format (*.pdf)");
     QString png_filter = tr("Portable Network Graphics (*.png)");
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");

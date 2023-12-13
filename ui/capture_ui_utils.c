@@ -119,7 +119,17 @@ capture_dev_get_if_int_property(const gchar *pref, const gchar *if_name)
 char *
 capture_dev_user_descr_find(const gchar *if_name)
 {
-    return capture_dev_get_if_property(prefs.capture_devices_descr, if_name);
+    char *descr = capture_dev_get_if_property(prefs.capture_devices_descr, if_name);
+    if (descr == NULL && g_strcmp0(if_name, "-") == 0) {
+        /*
+         * Strictly speaking, -X (extension) options are for modules, e.g. Lua
+         * and using one here stretches that definition. However, this doesn't
+         * waste a single-letter option on something that might be rarely used
+         * and is backward-compatible to 1.0.
+         */
+        descr = g_strdup(ex_opt_get_nth("stdin_descr", 0));
+    }
+    return descr;
 }
 
 gint
@@ -239,18 +249,18 @@ capture_dev_user_cfilter_find(const gchar *if_name)
 /*
  * Return as descriptive a name for an interface as we can get.
  * If the user has specified a comment, use that.  Otherwise,
- * if capture_interface_list() supplies a description, use that,
- * otherwise use the interface name.
+ * if the get_iface_list() method of capture_opts supplies a
+ * description, use that, otherwise use the interface name.
  *
  * The result must be g_free()'d when you're done with it.
  *
- * Note: given that this calls capture_interface_list(), which attempts to
- * open all adapters it finds in order to check whether they can be
- * captured on, this is an expensive routine to call, so don't call it
- * frequently.
+ * Note: given that this likely calls capture_interface_list(), which
+ * attempts to open all adapters it finds in order to check whether
+ * they can be captured on, this is an expensive routine to call, so
+ * don't call it frequently.
  */
 char *
-get_interface_descriptive_name(const char *if_name)
+get_interface_descriptive_name(const capture_options *capture_opts, const char *if_name)
 {
     char *descr;
     GList *if_list;
@@ -263,20 +273,12 @@ get_interface_descriptive_name(const char *if_name)
     if (descr == NULL) {
         /* No; try to construct a descriptive name. */
         if (strcmp(if_name, "-") == 0) {
-            /*
-             * Strictly speaking, -X (extension) options are for modules, e.g. Lua
-             * and using one here stretches that definition. However, this doesn't
-             * waste a single-letter option on something that might be rarely used
-             * and is backward-compatible to 1.0.
-             */
-            descr = g_strdup(ex_opt_get_nth("stdin_descr", 0));
-            if (!descr) {
-                descr = g_strdup("Standard input");
-            }
+            descr = g_strdup("Standard input");
         } else {
             /* No, we don't have a user-supplied description; did we get
                one from the OS or libpcap? */
-            if_list = capture_interface_list(&err, NULL, NULL);
+            /* XXX: Search in capture_opts->ifaces (or all_ifaces) first? */
+            if_list = capture_opts->get_iface_list(&err, NULL);
             if (if_list != NULL) {
                 if_entry = if_list;
                 do {
@@ -546,13 +548,31 @@ get_iface_list_string(capture_options *capture_opts, guint32 style)
 
             if (style & IFLIST_QUOTE_IF_DESCRIPTION)
                 g_string_append_printf(iface_list_string, "'");
+            /* If we have a special user-supplied description (via the prefs
+             * or the documented "-X stdin_descr" option for stdin), make sure
+             * we're using it.
+             */
+            char *user_descr = capture_dev_user_descr_find(interface_opts->name);
+            if (user_descr != NULL) {
+                if (g_strcmp0(interface_opts->descr, user_descr) != 0) {
+                    g_free(interface_opts->descr);
+                    interface_opts->descr = user_descr;
+                    g_free(interface_opts->display_name);
+                    interface_opts->display_name = g_strdup(interface_opts->descr);
+                } else {
+                    g_free(user_descr);
+                }
+            }
             if (interface_opts->display_name == NULL) {
                 /*
                  * We don't have a display name; generate one.
+                 * fill_in_interface_opts_from_finfo and
+                 * capture_opts_add_iface_opt always fill in
+                 * the display name, so this shouldn't be necessary.
                  */
                 if (interface_opts->descr == NULL) {
                     if (interface_opts->name != NULL)
-                        interface_opts->descr = get_interface_descriptive_name(interface_opts->name);
+                        interface_opts->descr = get_interface_descriptive_name(capture_opts, interface_opts->name);
                     else
                         interface_opts->descr = g_strdup("(Unknown)");
                 }

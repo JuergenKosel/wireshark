@@ -256,7 +256,7 @@ source_group(dissectors-ncp2222 FILES ${NCP2222_DISSECTOR_SRC})
 # So at most only a small part of dissector header content belongs in any
 # sort of public API but historically there has been no separation and everything is balled
 # up as a DISSECTOR_PUBLIC_HEADER more or less automatically and indiscriminately (because of a lack
-# of clear guidelines). In the future this unsatistactory situation should be fixed somehow.
+# of clear guidelines). In the future this unsatisfactory situation should be fixed somehow.
 #
 set(DISSECTOR_PUBLIC_HEADERS
 	cond_ace_token_enum.h
@@ -445,6 +445,8 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-isl.h
 	packet-iso10681.h
 	packet-iso15765.h
+	packet-isobus.h
+	packet-isobus-parameters.h
 	packet-isup.h
 	packet-its.h
 	packet-iwarp-ddp-rdmap.h
@@ -671,6 +673,7 @@ set(DISSECTOR_PUBLIC_HEADERS
 	packet-zbee-security.h
 	packet-zbee-zcl.h
 	packet-zbee-zdp.h
+	packet-rf4ce-secur.h
 	packet-ziop.h
 )
 
@@ -850,6 +853,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btsap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btsdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-btsmp.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-busmirroring.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bvlc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-bzr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-c15ch.c
@@ -1071,6 +1075,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-edonkey.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-egd.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-eero.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-egnos-ems.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ehdlc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-ehs.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-eigrp.c
@@ -1469,6 +1474,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-lte-framed.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-lte.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-nr.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-mac-nr-framed.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-maccontrol.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-macsec.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mactelnet.c
@@ -1508,6 +1514,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mojito.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-moldudp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-moldudp64.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-monero.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mongo.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mount.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mp2t.c
@@ -1691,6 +1698,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pktap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pktc.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pktgen.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-pldm.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pmproxy.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pnrp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-pop.c
@@ -1744,6 +1752,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_egfx.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_rail.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_snd.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdp_ear.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdpudp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-rdt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-realtek.c
@@ -2128,6 +2137,9 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-zdp-discovery.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-zdp-management.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbee-tlv.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rf4ce-secur.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rf4ce-profile.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-rf4ce-nwk.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zbncp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zebra.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-zep.c

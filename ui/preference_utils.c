@@ -38,6 +38,7 @@ prefs_to_capture_opts(void)
     /* Set promiscuous mode from the preferences setting. */
     /* the same applies to other preferences settings as well. */
     global_capture_opts.default_options.promisc_mode = prefs.capture_prom_mode;
+    global_capture_opts.default_options.monitor_mode = prefs.capture_monitor_mode;
     global_capture_opts.use_pcapng                   = prefs.capture_pcap_ng;
     global_capture_opts.show_info                    = prefs.capture_show_info;
     global_capture_opts.real_time_mode               = prefs.capture_real_time;
@@ -93,7 +94,7 @@ prefs_store_ext_helper(const char * module_name, const char *pref_name, const ch
     if (!pref)
         return 0;
 
-    if (prefs_get_type(pref) == PREF_STRING )
+    if (prefs_get_type(pref) == PREF_STRING || prefs_get_type(pref) == PREF_DISSECTOR)
     {
         pref_changed |= prefs_set_string_value(pref, pref_value, pref_stashed);
         if ( !pref_changed || prefs_get_string_value(pref, pref_stashed) != 0 )

@@ -41,22 +41,26 @@ struct _attr_reg_data {
 };
 
 
-static gint ett_dtd = -1;
-static gint ett_xmpli = -1;
+static gint ett_dtd;
+static gint ett_xmpli;
 
-static int hf_unknowwn_attrib = -1;
-static int hf_comment = -1;
-static int hf_xmlpi = -1;
-static int hf_dtd_tag = -1;
-static int hf_doctype = -1;
-static int hf_cdatasection = -1;
+static int hf_unknowwn_attrib;
+static int hf_comment;
+static int hf_xmlpi;
+static int hf_dtd_tag;
+static int hf_doctype;
+static int hf_cdatasection;
 
-static expert_field ei_xml_closing_unopened_tag = EI_INIT;
-static expert_field ei_xml_closing_unopened_xmpli_tag = EI_INIT;
-static expert_field ei_xml_unrecognized_text = EI_INIT;
+static expert_field ei_xml_closing_unopened_tag;
+static expert_field ei_xml_closing_unopened_xmpli_tag;
+static expert_field ei_xml_unrecognized_text;
 
 /* dissector handles */
 static dissector_handle_t xml_handle;
+
+/* Port 3702 is IANA-registered for Web Service Discovery, which uses
+ * SOAP-over-UDP to send XML */
+#define XML_UDP_PORT_RANGE "3702"
 
 /* parser definitions */
 static tvbparse_wanted_t *want;
@@ -1514,7 +1518,7 @@ xml_init_protocol(void)
 {
     // The longest encoding at https://www.iana.org/assignments/character-sets/character-sets.xml
     // is 45 characters (Extended_UNIX_Code_Packed_Format_for_Japanese).
-    encoding_pattern = g_regex_new("^<[?]xml\\s+version\\s*=\\s*[\"']\\s*.+\\s*[\"']\\s+encoding\\s*=\\s*[\"']\\s*(.{,50})\\s*[\"']", G_REGEX_CASELESS, 0, 0);
+    encoding_pattern = g_regex_new("^\\s*<[?]xml\\s+version\\s*=\\s*[\"']\\s*(?U:.+)\\s*[\"']\\s+encoding\\s*=\\s*[\"']\\s*((?U).{1,50})\\s*[\"']", G_REGEX_CASELESS, 0, 0);
 }
 
 static void
@@ -1639,6 +1643,7 @@ proto_reg_handoff_xml(void)
 {
     wmem_map_foreach(media_types, add_dissector_media, NULL);
     dissector_add_uint_range_with_preference("tcp.port", "", xml_handle);
+    dissector_add_uint_range_with_preference("udp.port", XML_UDP_PORT_RANGE, xml_handle);
 
     heur_dissector_add("http",  dissect_xml_heur, "XML in HTTP", "xml_http", xml_ns.hf_tag, HEURISTIC_DISABLE);
     heur_dissector_add("sip",   dissect_xml_heur, "XML in SIP", "xml_sip", xml_ns.hf_tag, HEURISTIC_DISABLE);

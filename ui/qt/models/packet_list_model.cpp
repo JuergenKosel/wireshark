@@ -180,6 +180,7 @@ void PacketListModel::clear() {
     endResetModel();
     max_row_height_ = 0;
     max_line_count_ = 1;
+    idle_dissection_timer_->invalidate();
     idle_dissection_row_ = 0;
 }
 
@@ -340,7 +341,7 @@ void PacketListModel::addFrameComment(const QModelIndexList &indices, const QByt
     frame_data *fdata;
     if (!cap_file_) return;
 
-    for (const auto &index : qAsConst(indices)) {
+    for (const auto &index : indices) {
         if (!index.isValid()) continue;
 
         PacketListRecord *record = static_cast<PacketListRecord*>(index.internalPointer());
@@ -414,7 +415,7 @@ void PacketListModel::deleteFrameComments(const QModelIndexList &indices)
     frame_data *fdata;
     if (!cap_file_) return;
 
-    for (const auto &index : qAsConst(indices)) {
+    for (const auto &index : indices) {
         if (!index.isValid()) continue;
 
         PacketListRecord *record = static_cast<PacketListRecord*>(index.internalPointer());

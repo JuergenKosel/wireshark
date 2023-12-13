@@ -29,6 +29,19 @@ wmem_strjoin(wmem_allocator_t *allocator,
              const char *separator, const char *first, ...)
 G_GNUC_MALLOC G_GNUC_NULL_TERMINATED;
 
+/**
+ * As g_strjoinv, with the returned string wmem allocated.
+ * Joins a number of strings together to form one long string,
+ * with the optional separator inserted between each of them.
+ *
+ * @param allocator  The wmem scope to use to allocate the returned string
+ * @param separator A string to insert between each of the strings, or NULL.
+ * @param str_array A NULL-terminated array of strings to join
+ *
+ * @note If str_array has no items, the return value is an empty string.
+ * str_array should not be NULL (NULL is returned with an warning.)
+ * NULL as a separator is equivalent to the empty string.
+ */
 WS_DLL_PUBLIC
 char *
 wmem_strjoinv(wmem_allocator_t *allocator,
@@ -169,6 +182,17 @@ bool isdigit_string(const unsigned char *str);
 WS_DLL_PUBLIC
 const char *ws_ascii_strcasestr(const char *haystack, const char *needle);
 
+/** Like the memchr() function, except it scans backwards from the end.
+ *
+ * @param haystack Pointer to the bytes of memory to search
+ * @param ch The character to search
+ * @param n The length of bytes to search from the end
+ * @return A pointer to the last occurrence of "ch" in "haystack".
+ * If "ch" isn't found or "n" is 0, returns NULL.
+ */
+WS_DLL_PUBLIC
+const uint8_t *ws_memrchr(const void *haystack, int ch, size_t n);
+
 WS_DLL_PUBLIC
 char *ws_escape_string(wmem_allocator_t *alloc, const char *string, bool add_quotes);
 
@@ -178,6 +202,28 @@ char *ws_escape_string_len(wmem_allocator_t *alloc, const char *string, ssize_t 
 /* Replace null bytes with "\0". */
 WS_DLL_PUBLIC
 char *ws_escape_null(wmem_allocator_t *alloc, const char *string, size_t len, bool add_quotes);
+
+/* Escape as in a number of CSV dialects.
+ *
+ * @param allocator  The wmem scope to use to allocate the returned string
+ * @param string  The input string to escape
+ * @param add_quotes  Whether to surround the string with quote_char
+ * @param quote_char  The quote character, always escaped in some way.
+ * @param double_quote  Whether to escape the quote character by doubling it
+ * @param escape_whitespace  Whether to escape whitespace with a backslash
+ * @return  The escaped string
+ *
+ * @note If double_quote is false, then quote_or_delim is escaped with a
+ * backslash ('\'). The quote character can be '\0', in which case it is
+ * ignored. If any character is being escaped with a backslash (i.e.,
+ * quote_char is not '\0' and double_quote is false, or escape_whitespace
+ * is true), then backslash is also escaped.  If add_quotes is false, then
+ * quote_char can either be a quote character (if the string will be quoted
+ * later after further manipulation) or the delimiter (to escape it, since
+ * the string is not being quoted.).
+ */
+WS_DLL_PUBLIC
+char *ws_escape_csv(wmem_allocator_t *alloc, const char *string, bool add_quotes, char quote_char, bool double_quote, bool escape_whitespace);
 
 WS_DLL_PUBLIC
 int ws_xton(char ch);

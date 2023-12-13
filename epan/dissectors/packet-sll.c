@@ -85,22 +85,22 @@ static dissector_handle_t ethertype_handle;
 static dissector_handle_t netlink_handle;
 
 static int proto_sll;
-static int sll_tap = -1;
+static int sll_tap;
 
-static int hf_sll_etype = -1;
-static int hf_sll_gretype = -1;
-static int hf_sll_halen = -1;
-static int hf_sll_hatype = -1;
-static int hf_sll_ifindex = -1;
-static int hf_sll_ltype = -1;
-static int hf_sll_pkttype = -1;
-static int hf_sll_src_eth = -1;
-static int hf_sll_src_ipv4 = -1;
-static int hf_sll_src_other = -1;
-static int hf_sll_trailer = -1;
-static int hf_sll_unused = -1;
+static int hf_sll_etype;
+static int hf_sll_gretype;
+static int hf_sll_halen;
+static int hf_sll_hatype;
+static int hf_sll_ifindex;
+static int hf_sll_ltype;
+static int hf_sll_pkttype;
+static int hf_sll_src_eth;
+static int hf_sll_src_ipv4;
+static int hf_sll_src_other;
+static int hf_sll_trailer;
+static int hf_sll_unused;
 
-static gint ett_sll = -1;
+static gint ett_sll;
 
 static dissector_table_t sll_hatype_dissector_table;
 static dissector_table_t sll_ltype_dissector_table;
@@ -135,7 +135,7 @@ static const char* sll_conv_get_filter_type(conv_item_t* conv, conv_filter_type_
 }
 
 static ct_dissector_info_t sll_ct_dissector_info = {&sll_conv_get_filter_type};
-static address no_dst = {AT_NONE, 0, NULL, NULL};
+static address no_dst = ADDRESS_INIT_NONE;
 
 static tap_packet_status
 sll_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip, tap_flags_t flags)

@@ -464,6 +464,25 @@ class TestDissectHttp2:
         # Stream ID 1 bytes, decrypted and uncompressed, human readable
         assert grep_output(stdout, '00000000  3a 6d 65 74 68 6f 64 3a')
 
+class TestDissectHttp2:
+    def test_http3_qpack_reassembly(self, cmd_tshark, features, dirs, capture_file, test_env):
+        '''HTTP/3 QPACK encoder stream reassembly'''
+        if not features.have_nghttp3:
+            pytest.skip('Requires nghttp3.')
+        stdout = subprocess.check_output((cmd_tshark,
+                '-r', capture_file('http3-qpack-reassembly-anon.pcapng'),
+                '-Y', 'http3.frame_type == "HEADERS"',
+                '-T', 'fields', '-e', 'http3.headers.method',
+                '-e', 'http3.headers.authority',
+                '-e', 'http3.headers.referer', '-e', 'http3.headers.user_agent',
+                '-e', 'http3.qpack.encoder.icnt'
+            ), encoding='utf-8', env=test_env)
+        assert grep_output(stdout, 'POST')
+        assert grep_output(stdout, 'googlevideo.com')
+        assert grep_output(stdout, 'https://www.youtube.com')
+        assert grep_output(stdout, 'Mozilla/5.0')
+        assert grep_output(stdout, '21') # Total number of QPACK insertions
+
 class TestDissectProtobuf:
     def test_protobuf_udp_message_mapping(self, cmd_tshark, features, dirs, capture_file, test_env):
         '''Test Protobuf UDP Message Mapping and parsing google.protobuf.Timestamp features'''
@@ -646,23 +665,28 @@ class TestDissectTcp:
         lines = stdout.split('\n')
         # 2 - start of OoO MSP
         assert '2\t6\t[TCP Previous segment not captured]' in lines[1]
-        assert '[TCP segment of a reassembled PDU]' in lines[1]
+        assert '[TCP segment of a reassembled PDU]' in lines[1] or '[TCP PDU reassembled in' in lines[1]
+
         # H - first time that the start of the MSP is delivered
         assert '3\t6\t[TCP Out-Of-Order]' in lines[2]
-        assert '[TCP segment of a reassembled PDU]' in lines[2]
+        assert '[TCP segment of a reassembled PDU]' in lines[2] or '[TCP PDU reassembled in' in lines[2]
+
         # H - first retransmission. Because this is before the reassembly
         # completes we can add it to the reassembly
         assert '4\t6\t[TCP Retransmission]' in lines[3]
-        assert '[TCP segment of a reassembled PDU]' in lines[3]
+        assert '[TCP segment of a reassembled PDU]' in lines[3] or '[TCP PDU reassembled in' in lines[3]
+
         # 1 - continue reassembly
         assert '5\t6\t[TCP Out-Of-Order]' in lines[4]
-        assert '[TCP segment of a reassembled PDU]' in lines[4]
+        assert '[TCP segment of a reassembled PDU]' in lines[4] or '[TCP PDU reassembled in' in lines[4]
+
         # 3 - finish reassembly
         assert '6\t\tPUT /0 HTTP/1.1' in lines[5]
+
         # H - second retransmission. This is after the reassembly completes
-        # so we do not add it to the ressembly (but throw a ReassemblyError.)
+        # so we do not add it to the reassembly (but throw a ReassemblyError.)
         assert '7\t\t' in lines[6]
-        assert '[TCP segment of a reassembled PDU]' not in lines[6]
+        assert '[TCP segment of a reassembled PDU]' not in lines[6] and '[TCP PDU reassembled in' not in lines[6]
 
     def test_tcp_reassembly_more_data_1(self, cmd_tshark, capture_file, test_env):
         '''

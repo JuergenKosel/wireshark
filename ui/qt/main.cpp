@@ -31,9 +31,7 @@
 #include <wsutil/privileges.h>
 #include <wsutil/socket.h>
 #include <wsutil/wslog.h>
-#ifdef HAVE_PLUGINS
 #include <wsutil/plugins.h>
-#endif
 #include <wsutil/report_message.h>
 #include <wsutil/please_report_bug.h>
 #include <wsutil/unicode-utils.h>
@@ -447,16 +445,15 @@ macos_enable_layer_backing(void)
 static GList *
 capture_opts_get_interface_list(int *err, char **err_str)
 {
-    /*
-     * XXX - should this pass an update callback?
-     * We already have a window up by the time we start parsing
-     * the majority of the command-line arguments, because
-     * we need to do a bunch of initialization work before
-     * parsing those arguments, and we want to let the user
-     * know that we're doing that initialization, given that
-     * it can take a while.
-     */
-    return capture_interface_list(err, err_str, NULL);
+    if (mainApp) {
+        GList *if_list = mainApp->getInterfaceList();
+        if (if_list == NULL) {
+            if_list = capture_interface_list(err, err_str, main_window_update);
+            mainApp->setInterfaceList(if_list);
+        }
+        return if_list;
+    }
+    return capture_interface_list(err, err_str, main_window_update);
 }
 #endif
 
@@ -767,13 +764,15 @@ int main(int argc, char *qt_argv[])
     main_w->connect(&ws_app, &WiresharkApplication::openCaptureOptions,
             main_w, &WiresharkMainWindow::showCaptureOptionsDialog);
 
-    /* Init the "Open file" dialog directory */
-    /* (do this after the path settings are processed) */
+    /*
+     * If we have a saved "last directory in which a file was opened"
+     * in the recent file, set it as the one for the app.
+     *
+     * (do this after the path settings are processed)
+     */
     if (recent.gui_fileopen_remembered_dir &&
         test_for_directory(recent.gui_fileopen_remembered_dir) == EISDIR) {
-      wsApp->setLastOpenDir(recent.gui_fileopen_remembered_dir);
-    } else {
-      wsApp->setLastOpenDir(get_persdatafile_dir());
+      set_last_open_dir(recent.gui_fileopen_remembered_dir);
     }
 
 #ifdef DEBUG_STARTUP_TIME
@@ -855,9 +854,24 @@ int main(int argc, char *qt_argv[])
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling module preferences, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
 
+    /* Read the preferences, but don't apply them yet. */
     global_commandline_info.prefs_p = ws_app.readConfigurationFiles(false);
 
-    /* Now get our args */
+    /* Now let's see if any of preferences were overridden at the command
+     * line, and store them. We have to do this before applying the
+     * preferences to the capture options.
+     */
+    commandline_override_prefs(argc, argv, TRUE);
+
+    /* Some of the preferences affect the capture options. Apply those
+     * before getting the other command line arguments, which can also
+     * affect the capture options. The command line arguments should be
+     * applied last to take precedence (at least until the user saves
+     * preferences, or switches profiles.)
+     */
+    prefs_to_capture_opts();
+
+    /* Now get our remaining args */
     commandline_other_options(argc, argv, TRUE);
 
     /* Convert some command-line parameters to QStrings */
@@ -873,17 +887,9 @@ int main(int argc, char *qt_argv[])
     timestamp_set_seconds_type (recent.gui_seconds_format);
 
 #ifdef HAVE_LIBPCAP
-#ifdef DEBUG_STARTUP_TIME
-    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
-#endif
-    splash_update(RA_INTERFACES, NULL, NULL);
-
-    if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load)
-        fill_in_local_interfaces(main_window_update);
-
-    if  (global_commandline_info.list_link_layer_types)
+    if (global_commandline_info.list_link_layer_types)
         caps_queries |= CAPS_QUERY_LINK_TYPES;
-     if (global_commandline_info.list_timestamp_types)
+    if (global_commandline_info.list_timestamp_types)
         caps_queries |= CAPS_QUERY_TIMESTAMP_TYPES;
 
     if (global_commandline_info.start_capture || caps_queries) {
@@ -943,6 +949,14 @@ int main(int argc, char *qt_argv[])
         goto clean_exit;
     }
 
+#ifdef DEBUG_STARTUP_TIME
+    ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "Calling fill_in_local_interfaces, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
+#endif
+    splash_update(RA_INTERFACES, NULL, NULL);
+
+    if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load)
+        fill_in_local_interfaces(main_window_update);
+
     capture_opts_trim_snaplen(&global_capture_opts, MIN_PACKET_SIZE);
     capture_opts_trim_ring_num_files(&global_capture_opts);
 #endif /* HAVE_LIBPCAP */
@@ -955,7 +969,6 @@ int main(int argc, char *qt_argv[])
 #endif
     splash_update(RA_PREFERENCES_APPLY, NULL, NULL);
     prefs_apply_all();
-    prefs_to_capture_opts();
     wsApp->emitAppSignal(WiresharkApplication::PreferencesChanged);
 
 #ifdef HAVE_LIBPCAP
@@ -1090,6 +1103,7 @@ int main(int argc, char *qt_argv[])
     // loaded when the dialog is shown.  Register them here.
     profile_register_persconffile("io_graphs");
     profile_register_persconffile("import_hexdump.json");
+    profile_register_persconffile("remote_hosts.json");
 
     profile_store_persconffiles(FALSE);
 

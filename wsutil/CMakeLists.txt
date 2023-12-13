@@ -102,8 +102,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	filesystem.h
 	g711.h
 	inet_addr.h
-	inet_ipv4.h
-	inet_ipv6.h
+	inet_cidr.h
 	interface.h
 	introspection.h
 	jsmn.h
@@ -113,6 +112,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	os_version_info.h
 	pint.h
 	please_report_bug.h
+	plugins.h
 	pow2.h
 	privileges.h
 	processes.h
@@ -173,6 +173,7 @@ set(WSUTIL_COMMON_FILES
 	filter_files.c
 	g711.c
 	inet_addr.c
+	inet_cidr.c
 	interface.c
 	introspection.c
 	jsmn.c
@@ -182,6 +183,7 @@ set(WSUTIL_COMMON_FILES
 	cpu_info.c
 	os_version_info.c
 	please_report_bug.c
+	plugins.c
 	privileges.c
 	regex.c
 	rsa.c
@@ -210,12 +212,6 @@ set(WSUTIL_COMMON_FILES
 if(WIN32)
 	list(APPEND WSUTIL_COMMON_FILES
 		console_win32.c
-	)
-endif()
-
-if(ENABLE_PLUGINS)
-	list(APPEND WSUTIL_COMMON_FILES
-		plugins.c
 	)
 endif()
 
@@ -372,7 +368,7 @@ target_link_libraries(wsutil
 		${GCRYPT_LIBRARIES}
 		${GNUTLS_LIBRARIES}
 		${ZLIB_LIBRARIES}
-		${PCRE2_LIBRARIES}
+		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
 )
@@ -426,7 +422,7 @@ target_link_libraries(wsutil_static
 		${GCRYPT_LIBRARIES}
 		${GNUTLS_LIBRARIES}
 		${ZLIB_LIBRARIES}
-		${PCRE2_LIBRARIES}
+		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
 )

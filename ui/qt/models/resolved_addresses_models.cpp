@@ -66,7 +66,7 @@ ipv4_hash_table_resolved_to_list(gpointer, gpointer value, gpointer sl_ptr)
     QList<QStringList> *hosts = (QList<QStringList> *) sl_ptr;
     hashipv4_t *ipv4_hash_table_entry = (hashipv4_t *) value;
 
-    if ((ipv4_hash_table_entry->flags & NAME_RESOLVED)) {
+    if ((ipv4_hash_table_entry->flags & (USED_AND_RESOLVED_MASK)) == USED_AND_RESOLVED_MASK) {
         *hosts << (QStringList() << QString(ipv4_hash_table_entry->ip) << QString(ipv4_hash_table_entry->name));
     }
 }
@@ -77,7 +77,7 @@ ipv6_hash_table_resolved_to_list(gpointer, gpointer value, gpointer sl_ptr)
     QList<QStringList> *hosts = (QList<QStringList> *) sl_ptr;
     hashipv6_t *ipv6_hash_table_entry = (hashipv6_t *) value;
 
-    if ((ipv6_hash_table_entry->flags & NAME_RESOLVED)) {
+    if ((ipv6_hash_table_entry->flags & USED_AND_RESOLVED_MASK) == USED_AND_RESOLVED_MASK) {
         *hosts << (QStringList() << QString(ipv6_hash_table_entry->ip6) << QString(ipv6_hash_table_entry->name));
     }
 }
@@ -85,47 +85,49 @@ ipv6_hash_table_resolved_to_list(gpointer, gpointer value, gpointer sl_ptr)
 static void
 eth_hash_to_qstringlist(gpointer, gpointer value, gpointer sl_ptr)
 {
-    QStringList *string_list = (QStringList *) sl_ptr;
+    QList<QStringList> *values = (QList<QStringList> *) sl_ptr;
     hashether_t* tp = (hashether_t*)value;
 
-    QString entry = QString(get_hash_ether_hexaddr(tp)) + QString(" ") + get_hash_ether_resolved_name(tp);
-
-   *string_list << entry;
+    if (get_hash_ether_used(tp)) {
+        *values << (QStringList() << QString(get_hash_ether_hexaddr(tp)) << QString(get_hash_ether_resolved_name(tp)));
+    }
 }
 
 static void
 manuf_hash_to_qstringlist(gpointer key, gpointer value, gpointer sl_ptr)
 {
-    QStringList *string_list = (QStringList *) sl_ptr;
+    QList<QStringList> *values = (QList<QStringList> *) sl_ptr;
     hashmanuf_t *manuf = (hashmanuf_t*)value;
     guint eth_as_guint = GPOINTER_TO_UINT(key);
 
-    QString entry = QString("%1:%2:%3 %4")
-            .arg((eth_as_guint >> 16 & 0xff), 2, 16, QChar('0'))
-            .arg((eth_as_guint >>  8 & 0xff), 2, 16, QChar('0'))
-            .arg((eth_as_guint & 0xff), 2, 16, QChar('0'))
-            .arg(get_hash_manuf_resolved_name(manuf));
+    if (get_hash_manuf_used(manuf)) {
+        QString entry = QString("%1:%2:%3")
+                .arg((eth_as_guint >> 16 & 0xff), 2, 16, QChar('0'))
+                .arg((eth_as_guint >>  8 & 0xff), 2, 16, QChar('0'))
+                .arg((eth_as_guint & 0xff), 2, 16, QChar('0'));
 
-   *string_list << entry;
+        *values << (QStringList() << entry << QString(get_hash_manuf_resolved_name(manuf)));
+    }
 }
 
 static void
 wka_hash_to_qstringlist(gpointer key, gpointer value, gpointer sl_ptr)
 {
-    QStringList *string_list = (QStringList *) sl_ptr;
-    gchar *name = (gchar *)value;
+    QList<QStringList> *values = (QList<QStringList> *) sl_ptr;
+    hashwka_t *wkahash = (hashwka_t *)value;
     guint8 *eth_addr = (guint8*)key;
 
-    QString entry = QString("%1:%2:%3:%4:%5:%6 %7")
-            .arg(eth_addr[0], 2, 16, QChar('0'))
-            .arg(eth_addr[1], 2, 16, QChar('0'))
-            .arg(eth_addr[2], 2, 16, QChar('0'))
-            .arg(eth_addr[3], 2, 16, QChar('0'))
-            .arg(eth_addr[4], 2, 16, QChar('0'))
-            .arg(eth_addr[5], 2, 16, QChar('0'))
-            .arg(name);
+    if (get_hash_wka_used(wkahash)) {
+        QString entry = QString("%1:%2:%3:%4:%5:%6")
+                .arg(eth_addr[0], 2, 16, QChar('0'))
+                .arg(eth_addr[1], 2, 16, QChar('0'))
+                .arg(eth_addr[2], 2, 16, QChar('0'))
+                .arg(eth_addr[3], 2, 16, QChar('0'))
+                .arg(eth_addr[4], 2, 16, QChar('0'))
+                .arg(eth_addr[5], 2, 16, QChar('0'));
 
-    *string_list << entry;
+        *values << (QStringList() << entry << QString(get_hash_wka_resolved_name(wkahash)));
+    }
 }
 
 }
@@ -163,27 +165,27 @@ void EthernetAddressModel::populate()
     foreach (const QStringList &addr_name, hosts)
         appendRow(QStringList() << hosts_label << addr_name);
 
-    QStringList values;
+    QList<QStringList> values;
     if (wmem_map_t *eth_hashtable = get_eth_hashtable()) {
         wmem_map_foreach(eth_hashtable, eth_hash_to_qstringlist, &values);
     }
     const QString &eth_label = tr("Ethernet Addresses");
-    foreach (const QString &line, values)
-        appendRow(QStringList() << eth_label << line.split(" "));
+    foreach (const QStringList &line, values)
+        appendRow(QStringList() << eth_label << line);
     values.clear();
     if (wmem_map_t *eth_hashtable = get_manuf_hashtable()) {
         wmem_map_foreach(eth_hashtable, manuf_hash_to_qstringlist, &values);
     }
     const QString &manuf_label = tr("Ethernet Manufacturers");
-    foreach (const QString &line, values)
-        appendRow(QStringList() << manuf_label << line.split(" "));
+    foreach (const QStringList &line, values)
+        appendRow(QStringList() << manuf_label << line);
     values.clear();
     if (wmem_map_t *eth_hashtable = get_wka_hashtable()) {
         wmem_map_foreach(eth_hashtable, wka_hash_to_qstringlist, &values);
     }
     const QString &wka_label = tr("Ethernet Well-Known Addresses");
-    foreach (const QString &line, values)
-        appendRow(QStringList() << wka_label << line.split(" "));
+    foreach (const QStringList &line, values)
+        appendRow(QStringList() << wka_label << line);
 }
 
 PortsModel::PortsModel(QObject * parent):

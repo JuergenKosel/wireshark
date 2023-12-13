@@ -226,7 +226,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_all(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         # http2-data-reassembly.pcap has Errors, Warnings, Notes, and Chats
         # when TCP checksum are verified.
         assert grep_output(proc.stdout, 'Errors')
@@ -237,7 +237,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_error(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,error',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         assert grep_output(proc.stdout, 'Errors')
         assert not grep_output(proc.stdout, 'Warns')
         assert not grep_output(proc.stdout, 'Notes')
@@ -246,7 +246,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_warn(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,warn',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         assert grep_output(proc.stdout, 'Errors')
         assert grep_output(proc.stdout, 'Warns')
         assert not grep_output(proc.stdout, 'Notes')
@@ -255,7 +255,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_note(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,note',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         assert grep_output(proc.stdout, 'Errors')
         assert grep_output(proc.stdout, 'Warns')
         assert grep_output(proc.stdout, 'Notes')
@@ -264,7 +264,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_chat(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,chat',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         assert grep_output(proc.stdout, 'Errors')
         assert grep_output(proc.stdout, 'Warns')
         assert grep_output(proc.stdout, 'Notes')
@@ -293,7 +293,7 @@ class TestTsharkZExpert:
     def test_tshark_z_expert_filter(self, cmd_tshark, capture_file, test_env):
         proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,udp',
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
         # Filtering for UDP should produce no expert infos.
         assert not grep_output(proc.stdout, 'Errors')
         assert not grep_output(proc.stdout, 'Warns')
@@ -301,14 +301,15 @@ class TestTsharkZExpert:
         assert not grep_output(proc.stdout, 'Chats')
 
     def test_tshark_z_expert_error_filter(self, cmd_tshark, capture_file, test_env):
-        proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,warn,tls',  # tls is a filter
+        proc = subprocesstest.run((cmd_tshark, '-q', '-z', 'expert,note,http',  # tls is a filter
             '-o', 'tcp.check_checksum:TRUE',
-            '-r', capture_file('http2-data-reassembly.pcap')), capture_output=True, env=test_env)
-        # Filtering for TLS should produce only Error level expert infos
-        # with checksumming turned on, because the lower level expert infos
-        # are on the packets with TCP but not TLS.
+            '-r', capture_file('http-ooo-fuzzed.pcapng')), capture_output=True, env=test_env)
+        # Filtering for HTTP and Note level expert info should produce only
+        # Error and Warning level expert infos with checksumming turned on.
+        # The Note warnings on are packets with TCP but not HTTP, and we're
+        # filtering out the Chat level.
         assert grep_output(proc.stdout, 'Errors')
-        assert not grep_output(proc.stdout, 'Warns')
+        assert grep_output(proc.stdout, 'Warns')
         assert not grep_output(proc.stdout, 'Notes')
         assert not grep_output(proc.stdout, 'Chats')
 
@@ -325,7 +326,19 @@ class TestTsharkExtcap:
         os.makedirs(extcap_dir_path)
         test_env['WIRESHARK_EXTCAP_DIR'] = extcap_dir_path
         source_file = os.path.join(os.path.dirname(__file__), 'sampleif.py')
-        shutil.copy2(source_file, extcap_dir_path)
+        # We run our tests in a bare, reproducible home environment. This can result in an
+        # invalid or missing Python interpreter if our main environment has a wonky Python
+        # path, as is the case in the GitLab SaaS macOS runners which use `asdf`. Force
+        # sampleif.py to use our current Python executable.
+        with open(source_file, 'r') as sf:
+            sampleif_py = sf.read()
+            sampleif_py = sampleif_py.replace('/usr/bin/env python3', sys.executable)
+            sys.stderr.write(sampleif_py)
+            extcap_file = os.path.join(extcap_dir_path, 'sampleif.py')
+            with open(extcap_file, 'w') as ef:
+                ef.write(sampleif_py)
+                os.fchmod(ef.fileno(), os.fstat(sf.fileno()).st_mode)
+
         # Ensure the test extcap_tool is properly loaded
         proc = subprocesstest.run((cmd_tshark, '-D'), capture_output=True, env=test_env)
         assert count_output(proc.stdout, 'sampleif') == 1

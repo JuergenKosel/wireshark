@@ -36,35 +36,35 @@ void proto_reg_handoff_msrp(void);
 #define MSRP_HDR_LEN (strlen (MSRP_HDR))
 
 /* Initialize the protocol and registered fields */
-static int proto_msrp       = -1;
+static int proto_msrp;
 
 /* Initialize the subtree pointers */
-static int ett_msrp                 = -1;
-static int ett_raw_text             = -1;
-static int ett_msrp_reqresp         = -1;
-static int ett_msrp_hdr             = -1;
-static int ett_msrp_data            = -1;
-static int ett_msrp_end_line        = -1;
-static int ett_msrp_setup           = -1;
+static int ett_msrp;
+static int ett_raw_text;
+static int ett_msrp_reqresp;
+static int ett_msrp_hdr;
+static int ett_msrp_data;
+static int ett_msrp_end_line;
+static int ett_msrp_setup;
 
-static int hf_msrp_response_line    = -1;
-static int hf_msrp_request_line     = -1;
-static int hf_msrp_transactionID    = -1;
-static int hf_msrp_method           = -1;
-static int hf_msrp_status_code      = -1;
-static int hf_msrp_hdr              = -1;
-static int hf_msrp_msg_hdr          = -1;
-static int hf_msrp_end_line         = -1;
-static int hf_msrp_cnt_flg          = -1;
+static int hf_msrp_response_line;
+static int hf_msrp_request_line;
+static int hf_msrp_transactionID;
+static int hf_msrp_method;
+static int hf_msrp_status_code;
+static int hf_msrp_hdr;
+static int hf_msrp_msg_hdr;
+static int hf_msrp_end_line;
+static int hf_msrp_cnt_flg;
 
-static int hf_msrp_data             = -1;
+static int hf_msrp_data;
 
-static expert_field ei_msrp_status_code_invalid = EI_INIT;
+static expert_field ei_msrp_status_code_invalid;
 
 /* MSRP setup fields */
-static int hf_msrp_setup        = -1;
-static int hf_msrp_setup_frame  = -1;
-static int hf_msrp_setup_method = -1;
+static int hf_msrp_setup;
+static int hf_msrp_setup_frame;
+static int hf_msrp_setup_method;
 
 typedef struct {
         const char *name;
@@ -89,24 +89,7 @@ static const msrp_header_t msrp_headers[] = {
     { "Authentication-Info"},   /*  15 */
 };
 
-static gint hf_header_array[] = {
-    -1, /* 0"Unknown-header" - Pad so that the real headers start at index 1 */
-    -1, /* 1"From-Path                                                       */
-    -1, /* 2"To-Path                                                         */
-    -1, /* 3"Message-ID"                                                     */
-    -1, /* 4"Success-Report"                                                 */
-    -1, /* 5"Failure-Report"                                                 */
-    -1, /* 6"Byte-Range"                                                     */
-    -1, /* 7"Status"                                                         */
-    -1, /* 8"Content-Type"                                                   */
-    -1, /* 9"Content-ID"                                                     */
-    -1, /* 10"Content-Description"                                           */
-    -1, /* 11"Content-Disposition"                                           */
-    -1, /* 12"Use-Path"                                                      */
-    -1, /* 13"WWW-Authenticate"                                              */
-    -1, /* 14"Authorization"                                                 */
-    -1, /* 15"Authentication-Info"                                           */
-};
+static gint hf_header_array[array_length(msrp_headers)];
 
 #define MSRP_FROM_PATH                          1
 #define MSRP_TO_PATH                            2

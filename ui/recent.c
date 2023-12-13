@@ -25,7 +25,7 @@
 #include <epan/column.h>
 #include <epan/value_string.h>
 
-#include "ui/last_open_dir.h"
+#include "ui/util.h"
 #include "ui/recent.h"
 #include "ui/recent_utils.h"
 #include "ui/packet_list_utils.h"
@@ -57,10 +57,12 @@
 #define RECENT_GUI_GEOMETRY_MAIN_WIDTH          "gui.geometry_main_width"
 #define RECENT_GUI_GEOMETRY_MAIN_HEIGHT         "gui.geometry_main_height"
 #define RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED      "gui.geometry_main_maximized"
+#define RECENT_GUI_GEOMETRY_MAIN                "gui.geometry_main"
 #define RECENT_GUI_GEOMETRY_LEFTALIGN_ACTIONS   "gui.geometry_leftalign_actions"
 #define RECENT_GUI_GEOMETRY_MAIN_UPPER_PANE     "gui.geometry_main_upper_pane"
 #define RECENT_GUI_GEOMETRY_MAIN_LOWER_PANE     "gui.geometry_main_lower_pane"
-#define RECENT_GUI_GEOMETRY_WLAN_STATS_PANE     "gui.geometry_status_wlan_stats_pane"
+#define RECENT_GUI_GEOMETRY_MAIN_MASTER_SPLIT   "gui.geometry_main_master_split"
+#define RECENT_GUI_GEOMETRY_MAIN_EXTRA_SPLIT    "gui.geometry_main_extra_split"
 #define RECENT_LAST_USED_PROFILE                "gui.last_used_profile"
 #define RECENT_GUI_FILEOPEN_REMEMBERED_DIR      "gui.fileopen_remembered_dir"
 #define RECENT_GUI_CONVERSATION_TABS            "gui.conversation_tabs"
@@ -238,11 +240,25 @@ write_recent_geom(gpointer key _U_, gpointer value, gpointer rfh)
     fprintf(rf, RECENT_GUI_GEOMETRY "%s.maximized: %s\n", geom->key,
             geom->maximized == TRUE ? "TRUE" : "FALSE");
 
+    fprintf(rf, "# Qt Geometry State (hex byte string).\n");
+    fprintf(rf, RECENT_GUI_GEOMETRY "%s.qt_geometry: %s\n", geom->key,
+            geom->qt_geom);
 }
 
 /* the geometry hashtable for all known window classes,
  * the window name is the key, and the geometry struct is the value */
 static GHashTable *window_geom_hash = NULL;
+
+static GHashTable *window_splitter_hash = NULL;
+
+void
+window_geom_free(void *data)
+{
+    window_geometry_t *geom = (window_geometry_t*)data;
+    g_free(geom->key);
+    g_free(geom->qt_geom);
+    g_free(geom);
+}
 
 /* save the window and its current geometry into the geometry hashtable */
 void
@@ -253,14 +269,7 @@ window_geom_save(const gchar *name, window_geometry_t *geom)
 
     /* init hashtable, if not already done */
     if (!window_geom_hash) {
-        window_geom_hash = g_hash_table_new(g_str_hash, g_str_equal);
-    }
-    /* if we have an old one, remove and free it first */
-    work = (window_geometry_t *)g_hash_table_lookup(window_geom_hash, name);
-    if (work) {
-        g_hash_table_remove(window_geom_hash, name);
-        g_free(work->key);
-        g_free(work);
+        window_geom_hash = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, window_geom_free);
     }
 
     /* g_malloc and insert the new one */
@@ -268,7 +277,7 @@ window_geom_save(const gchar *name, window_geometry_t *geom)
     *work = *geom;
     key = g_strdup(name);
     work->key = key;
-    g_hash_table_insert(window_geom_hash, key, work);
+    g_hash_table_replace(window_geom_hash, key, work);
 }
 
 /* load the desired geometry for this window from the geometry hashtable */
@@ -280,7 +289,7 @@ window_geom_load(const gchar       *name,
 
     /* init hashtable, if not already done */
     if (!window_geom_hash) {
-        window_geom_hash = g_hash_table_new(g_str_hash, g_str_equal);
+        window_geom_hash = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, window_geom_free);
     }
 
     p = (window_geometry_t *)g_hash_table_lookup(window_geom_hash, name);
@@ -291,6 +300,31 @@ window_geom_load(const gchar       *name,
         return FALSE;
     }
 }
+
+/* save the window and its splitter state into the splitter hashtable */
+void
+window_splitter_save(const char *name, const char *splitter_state)
+{
+    /* init hashtable, if not already done */
+    if (!window_splitter_hash) {
+        window_splitter_hash = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+    }
+
+    g_hash_table_replace(window_splitter_hash, g_strdup(name), g_strdup(splitter_state));
+}
+
+/* save the window and its splitter state into the geometry hashtable */
+const char*
+window_splitter_load(const gchar *name)
+{
+    /* init hashtable, if not already done */
+    if (!window_splitter_hash) {
+        return NULL;
+    }
+
+    return g_hash_table_lookup(window_splitter_hash, name);
+}
+
 
 /* parse values of particular types */
 static void
@@ -317,6 +351,11 @@ window_geom_recent_read_pair(const char *name,
 {
     window_geometry_t geom;
 
+    if (strcmp(key, "splitter") == 0) {
+        window_splitter_save(name, value);
+        return;
+    }
+
     /* find window geometry maybe already in hashtable */
     if (!window_geom_load(name, &geom)) {
         /* not in table, init geom with "basic" values */
@@ -327,6 +366,7 @@ window_geom_recent_read_pair(const char *name,
         geom.set_size   = FALSE;
         geom.width      = -1;
         geom.height     = -1;
+        geom.qt_geom    = NULL;
     }
 
     if (strcmp(key, "x") == 0) {
@@ -344,6 +384,8 @@ window_geom_recent_read_pair(const char *name,
     } else if (strcmp(key, "maximized") == 0) {
         parse_recent_boolean(value, &geom.maximized);
         geom.set_maximized = TRUE;
+    } else if (strcmp(key, "qt_geometry") == 0) {
+        geom.qt_geom = g_strdup(value);
     } else {
         /*
          * Silently ignore the bogus key.  We shouldn't abort here,
@@ -368,10 +410,33 @@ window_geom_recent_write_all(FILE *rf)
 {
     /* init hashtable, if not already done */
     if (!window_geom_hash) {
-        window_geom_hash = g_hash_table_new(g_str_hash, g_str_equal);
+        window_geom_hash = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, window_geom_free);
     }
 
     g_hash_table_foreach(window_geom_hash, write_recent_geom, rf);
+}
+
+/** Write all known window splitter states to the recent file.
+ *
+ * @param rf recent file handle from caller
+ */
+static void
+window_splitter_recent_write_all(FILE *rf)
+{
+    /* init hashtable, if not already done */
+    if (!window_splitter_hash) {
+        return;
+    }
+
+    GHashTableIter iter;
+    gpointer key, value;
+    g_hash_table_iter_init(&iter, window_splitter_hash);
+    while (g_hash_table_iter_next(&iter, &key, &value)) {
+        fprintf(rf, "\n# Splitter state of %s window.\n", (char*)key);
+        fprintf(rf, "# Qt Splitter state (hex byte string).\n");
+        fprintf(rf, RECENT_GUI_GEOMETRY "%s.splitter: %s\n", (char*)key,
+                (char*)value);
+    }
 }
 
 /* Global list of recent capture filters. */
@@ -384,6 +449,10 @@ static GList *recent_cfilter_list;
 static GHashTable *per_interface_cfilter_lists_hash;
 
 /* XXX: use a preference for this setting! */
+/* N.B.: If we use a pref, we will read the recent_common file
+ * before the pref, so don't truncate the list when reading
+ * (see the similar #16782 for the recent files.)
+ */
 static guint cfilter_combo_max_recent = 20;
 
 /**
@@ -449,7 +518,7 @@ recent_add_cfilter(const gchar *ifname, const gchar *s)
         /* The filter wasn't already in the list; make a copy to add. */
         newfilter = g_strdup(s);
     }
-    cfilter_list = g_list_append(cfilter_list, newfilter);
+    cfilter_list = g_list_prepend(cfilter_list, newfilter);
 
     if (ifname == NULL)
         recent_cfilter_list = cfilter_list;
@@ -458,7 +527,13 @@ recent_add_cfilter(const gchar *ifname, const gchar *s)
 }
 
 #ifdef HAVE_PCAP_REMOTE
-static GHashTable *remote_host_list=NULL;
+/* XXX: use a preference for this setting! */
+/* N.B.: If we use a pref, we will read the recent_common file
+ * before the pref, so don't truncate the list when reading
+ * (see the similar #16782 for the recent files.)
+ */
+static guint remote_host_max_recent = 20;
+static GList *remote_host_list = NULL;
 
 int recent_get_remote_host_list_size(void)
 {
@@ -466,40 +541,62 @@ int recent_get_remote_host_list_size(void)
         /* No entries exist. */
         return 0;
     }
-    return g_hash_table_size (remote_host_list);
+    return g_list_length(remote_host_list);
 }
 
-void recent_add_remote_host(gchar *host, struct remote_host *rh)
+static void
+free_remote_host(gpointer value)
 {
-    if (remote_host_list == NULL) {
-        remote_host_list = g_hash_table_new (g_str_hash, g_str_equal);
+    struct remote_host* rh = (struct remote_host*)value;
+
+    g_free(rh->r_host);
+    g_free(rh->remote_port);
+    g_free(rh->auth_username);
+    g_free(rh->auth_password);
+
+}
+
+static int
+remote_host_compare(gconstpointer a, gconstpointer b)
+{
+    const struct remote_host* rh_a = (const struct remote_host*)a;
+    const struct remote_host* rh_b = (const struct remote_host*)b;
+
+    /* We assume only one entry per host (the GUI assumes that too.) */
+    return g_strcmp0(rh_a->r_host, rh_b->r_host);
+}
+
+static void
+remote_host_reverse(void)
+{
+    if (remote_host_list) {
+        remote_host_list = g_list_reverse(remote_host_list);
     }
-    g_hash_table_insert (remote_host_list, g_strdup(host), rh);
 }
 
-static gboolean
-free_remote_host (gpointer key _U_, gpointer value, gpointer user _U_)
+void recent_add_remote_host(gchar *host _U_, struct remote_host *rh)
 {
-    struct remote_host *rh = (struct remote_host *) value;
-
-    g_free (rh->r_host);
-    g_free (rh->remote_port);
-    g_free (rh->auth_username);
-    g_free (rh->auth_password);
-
-    return TRUE;
+    GList* li = NULL;
+    if (remote_host_list) {
+        li = g_list_find_custom(remote_host_list, rh, remote_host_compare);
+        if (li != NULL) {
+            free_remote_host(li->data);
+            remote_host_list = g_list_delete_link(remote_host_list, li);
+        }
+    }
+    remote_host_list = g_list_prepend(remote_host_list, rh);
 }
 
 void
-recent_remote_host_list_foreach(GHFunc func, gpointer user_data)
+recent_remote_host_list_foreach(GFunc func, gpointer user_data)
 {
     if (remote_host_list != NULL) {
-        g_hash_table_foreach(remote_host_list, func, user_data);
+        g_list_foreach(remote_host_list, func, user_data);
     }
 }
 
 static void
-recent_print_remote_host (gpointer key _U_, gpointer value, gpointer user)
+recent_print_remote_host(gpointer value, gpointer user)
 {
     FILE *rf = (FILE *)user;
     struct remote_host_info *ri = (struct remote_host_info *)value;
@@ -515,16 +612,21 @@ recent_print_remote_host (gpointer key _U_, gpointer value, gpointer user)
 static void
 capture_remote_combo_recent_write_all(FILE *rf)
 {
-    if (remote_host_list && g_hash_table_size (remote_host_list) > 0) {
-        /* Write all remote interfaces to the recent file */
-        g_hash_table_foreach (remote_host_list, recent_print_remote_host, rf);
+    unsigned max_count = 0;
+    GList   *li = g_list_first(remote_host_list);
+
+    /* write all non empty remote capture hosts to the recent file (until max count) */
+    while (li && (max_count++ <= remote_host_max_recent)) {
+        recent_print_remote_host(li->data, rf);
+        li = li->next;
     }
 }
 
 
 void recent_free_remote_host_list(void)
 {
-    g_hash_table_foreach_remove(remote_host_list, free_remote_host, NULL);
+    g_list_free_full(remote_host_list, free_remote_host);
+    remote_host_list = NULL;
 }
 
 struct remote_host *
@@ -532,11 +634,13 @@ recent_get_remote_host(const gchar *host)
 {
     if (host == NULL)
         return NULL;
-    if (remote_host_list == NULL) {
-        /* No such host exist. */
-        return NULL;
+    for (GList* li = g_list_first(remote_host_list); li != NULL; li = li->next) {
+        struct remote_host *rh = (struct remote_host*)li->data;
+        if (g_strcmp0(host, rh->r_host) == 0) {
+            return rh;
+        }
     }
-    return (struct remote_host *)g_hash_table_lookup(remote_host_list, host);
+    return NULL;
 }
 
 /**
@@ -557,11 +661,12 @@ capture_remote_combo_add_recent(const gchar *s)
     if (valp == NULL)
         return FALSE;
 
-    if (remote_host_list == NULL) {
-        remote_host_list = g_hash_table_new (g_str_hash, g_str_equal);
+    /* First value is the host */
+    if (recent_get_remote_host(valp->data)) {
+        /* Don't add it, it's already in the list (shouldn't happen). */
+        return FALSE; // Should this be TRUE or FALSE?
     }
-
-    rh =(struct remote_host *) g_malloc (sizeof (*rh));
+    rh = (struct remote_host *) g_malloc (sizeof (*rh));
 
     /* First value is the host */
     rh->r_host = (gchar *)g_strdup ((const gchar *)valp->data);
@@ -602,8 +707,7 @@ capture_remote_combo_add_recent(const gchar *s)
 
     prefs_clear_string_list(vals);
 
-    g_hash_table_insert (remote_host_list, g_strdup(rh->r_host), rh);
-
+    remote_host_list = g_list_prepend(remote_host_list, rh);
     return TRUE;
 }
 #endif
@@ -646,6 +750,33 @@ cfilter_recent_write_all(FILE *rf)
     /* Write out all the per-interface lists. */
     if (per_interface_cfilter_lists_hash != NULL) {
         g_hash_table_foreach(per_interface_cfilter_lists_hash, cfilter_recent_write_all_hash_callback, (gpointer)rf);
+    }
+}
+
+/** Reverse the order of all the capture filter lists after
+ *  reading recent_common (we want the latest first).
+ *  Note this is O(N), whereas appendng N items to a GList is O(N^2),
+ *  since it doesn't have a pointer to the end like a GQueue.
+ */
+static void
+cfilter_recent_reverse_all(void)
+{
+    recent_cfilter_list = g_list_reverse(recent_cfilter_list);
+
+    /* Reverse all the per-interface lists. */
+    if (per_interface_cfilter_lists_hash != NULL) {
+        GHashTableIter iter;
+        gpointer key, value;
+        g_hash_table_iter_init(&iter, per_interface_cfilter_lists_hash);
+        GList *li;
+        while (g_hash_table_iter_next(&iter, &key, &value)) {
+            li = (GList *)value;
+            li = g_list_reverse(li);
+            /* per_interface_cfilter_lists_hash was created without a
+             * value_destroy_func, so this is fine.
+             */
+            g_hash_table_iter_replace(&iter, li);
+        }
     }
 }
 
@@ -737,7 +868,7 @@ write_recent(void)
     menu_recent_file_write_all(rf);
 
     fputs("\n"
-            "######## Recent capture filters (latest last), cannot be altered through command line ########\n"
+            "######## Recent capture filters (latest first), cannot be altered through command line ########\n"
             "\n", rf);
 
     cfilter_recent_write_all(rf);
@@ -750,7 +881,7 @@ write_recent(void)
 
 #ifdef HAVE_PCAP_REMOTE
     fputs("\n"
-            "######## Recent remote hosts, cannot be altered through command line ########\n"
+            "######## Recent remote hosts (latest first), cannot be altered through command line ########\n"
             "\n", rf);
 
     capture_remote_combo_recent_write_all(rf);
@@ -769,17 +900,19 @@ write_recent(void)
             RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED,
             recent.gui_geometry_main_maximized);
 
+    if (recent.gui_geometry_main != NULL) {
+        fprintf(rf, "\n# Main window geometry state.\n");
+        fprintf(rf, "# Hex byte string.\n");
+        fprintf(rf, RECENT_GUI_GEOMETRY_MAIN ": %s\n",
+                recent.gui_geometry_main);
+    }
+
     write_recent_boolean(rf, "Leftalign Action Buttons",
             RECENT_GUI_GEOMETRY_LEFTALIGN_ACTIONS,
             recent.gui_geometry_leftalign_actions);
 
     fprintf(rf, "\n# Last used Configuration Profile.\n");
     fprintf(rf, RECENT_LAST_USED_PROFILE ": %s\n", get_profile_name());
-
-    fprintf(rf, "\n# WLAN statistics upper pane size.\n");
-    fprintf(rf, "# Decimal number.\n");
-    fprintf(rf, RECENT_GUI_GEOMETRY_WLAN_STATS_PANE ": %d\n",
-            recent.gui_geometry_wlan_stats_pane);
 
     write_recent_boolean(rf, "Warn if running with elevated permissions (e.g. as root)",
             RECENT_KEY_PRIVS_WARN_IF_ELEVATED,
@@ -1006,6 +1139,22 @@ write_profile_recent(void)
                 recent.gui_geometry_main_lower_pane);
     }
 
+    if (recent.gui_geometry_main_master_split != NULL) {
+        fprintf(rf, "\n# Main window master splitter state.\n");
+        fprintf(rf, "# Hex byte string.\n");
+        fprintf(rf, RECENT_GUI_GEOMETRY_MAIN_MASTER_SPLIT ": %s\n",
+                recent.gui_geometry_main_master_split);
+    }
+
+    if (recent.gui_geometry_main_extra_split != NULL) {
+        fprintf(rf, "\n# Main window extra splitter state.\n");
+        fprintf(rf, "# Hex byte string.\n");
+        fprintf(rf, RECENT_GUI_GEOMETRY_MAIN_EXTRA_SPLIT ": %s\n",
+                recent.gui_geometry_main_extra_split);
+    }
+
+    window_splitter_recent_write_all(rf);
+
     fprintf(rf, "\n# Packet list column pixel widths.\n");
     fprintf(rf, "# Each pair of strings consists of a column format and its pixel width.\n");
     packet_list_recent_write_all(rf);
@@ -1101,17 +1250,13 @@ read_set_recent_common_pair_static(gchar *key, const gchar *value,
         if (num <= 0)
             return PREFS_SET_SYNTAX_ERR;      /* number must be positive */
         recent.gui_geometry_main_height = (gint)num;
+    } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN) == 0) {
+        g_free(recent.gui_geometry_main);
+        recent.gui_geometry_main = g_strdup(value);
     } else if (strcmp(key, RECENT_LAST_USED_PROFILE) == 0) {
         if ((strcmp(value, DEFAULT_PROFILE) != 0) && profile_exists (value, FALSE)) {
             set_profile_name (value);
         }
-    } else if (strcmp(key, RECENT_GUI_GEOMETRY_WLAN_STATS_PANE) == 0) {
-        num = strtol(value, &p, 0);
-        if (p == value || *p != '\0')
-            return PREFS_SET_SYNTAX_ERR;      /* number was bad */
-        if (num <= 0)
-            return PREFS_SET_SYNTAX_ERR;      /* number must be positive */
-        recent.gui_geometry_wlan_stats_pane = (gint)num;
     } else if (strncmp(key, RECENT_GUI_GEOMETRY, sizeof(RECENT_GUI_GEOMETRY)-1) == 0) {
         /* now have something like "gui.geom.main.x", split it into win and sub_key */
         char *win = &key[sizeof(RECENT_GUI_GEOMETRY)-1];
@@ -1229,8 +1374,6 @@ read_set_recent_pair_static(gchar *key, const gchar *value,
         recent.gui_show_bytes_decode = (bytes_decode_type)str_to_val(value, show_bytes_decode_values, DecodeAsNone);
     } else if (strcmp(key, RECENT_GUI_SHOW_BYTES_SHOW) == 0) {
         recent.gui_show_bytes_show = (bytes_show_type)str_to_val(value, bytes_show_values, SHOW_ASCII);
-    } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_MAXIMIZED) == 0) {
-        parse_recent_boolean(value, &recent.gui_geometry_main_maximized);
     } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_UPPER_PANE) == 0) {
         num = strtol(value, &p, 0);
         if (p == value || *p != '\0')
@@ -1245,13 +1388,32 @@ read_set_recent_pair_static(gchar *key, const gchar *value,
         if (num <= 0)
             return PREFS_SET_SYNTAX_ERR;      /* number must be positive */
         recent.gui_geometry_main_lower_pane = (gint)num;
+    } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_MASTER_SPLIT) == 0) {
+        g_free(recent.gui_geometry_main_master_split);
+        recent.gui_geometry_main_master_split = g_strdup(value);
+    } else if (strcmp(key, RECENT_GUI_GEOMETRY_MAIN_EXTRA_SPLIT) == 0) {
+        g_free(recent.gui_geometry_main_extra_split);
+        recent.gui_geometry_main_extra_split = g_strdup(value);
+    } else if (strncmp(key, RECENT_GUI_GEOMETRY, sizeof(RECENT_GUI_GEOMETRY)-1) == 0) {
+        /* now have something like "gui.geom.win.sub_key", split it into win and sub_key */
+        char *win = &key[sizeof(RECENT_GUI_GEOMETRY)-1];
+        char *sub_key = strchr(win, '.');
+        if (sub_key) {
+            *sub_key = '\0';
+            sub_key++;
+            window_geom_recent_read_pair(win, sub_key, value);
+        }
     } else if (strcmp(key, RECENT_GUI_CONVERSATION_TABS) == 0) {
+        g_list_free_full(recent.conversation_tabs, g_free);
         recent.conversation_tabs = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_CONVERSATION_TABS_COLUMNS) == 0) {
+        g_list_free_full(recent.conversation_tabs_columns, g_free);
         recent.conversation_tabs_columns = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_ENDPOINT_TABS) == 0) {
+        g_list_free_full(recent.endpoint_tabs, g_free);
         recent.endpoint_tabs = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_ENDPOINT_TABS_COLUMNS) == 0) {
+        g_list_free_full(recent.endpoint_tabs_columns, g_free);
         recent.endpoint_tabs_columns = prefs_get_string_list(value);
     } else if (strcmp(key, RECENT_GUI_RLC_PDUS_FROM_MAC_FRAMES) == 0) {
         parse_recent_boolean(value, &recent.gui_rlc_use_pdus_from_mac);
@@ -1358,7 +1520,7 @@ read_set_recent_pair_dynamic(gchar *key, const gchar *value,
         return PREFS_SET_SYNTAX_ERR;
     }
     if (strcmp(key, RECENT_KEY_CAPTURE_FILE) == 0) {
-        add_menu_recent_capture_file(value);
+        add_menu_recent_capture_file(value, true);
     } else if (strcmp(key, RECENT_KEY_DISPLAY_FILTER) == 0) {
         dfilter_combo_add_recent(value);
     } else if (strcmp(key, RECENT_KEY_CAPTURE_FILTER) == 0) {
@@ -1434,12 +1596,13 @@ recent_read_static(char **rf_path_return, int *rf_errno_return)
 
     recent.gui_geometry_leftalign_actions = FALSE;
 
-    recent.gui_geometry_wlan_stats_pane   = 200;
-
     recent.privs_warn_if_elevated = TRUE;
     recent.sys_warn_if_no_capture = TRUE;
 
     recent.col_width_list = NULL;
+    recent.gui_geometry_main = NULL;
+    recent.gui_geometry_main_master_split = NULL;
+    recent.gui_geometry_main_extra_split = NULL;
     recent.gui_fileopen_remembered_dir = NULL;
 
     /* Construct the pathname of the user's recent common file. */
@@ -1500,6 +1663,20 @@ recent_read_profile_static(char **rf_path_return, int *rf_errno_return)
     /* pane size of zero will autodetect */
     recent.gui_geometry_main_upper_pane   = 0;
     recent.gui_geometry_main_lower_pane   = 0;
+
+    if (recent.gui_geometry_main) {
+        g_free(recent.gui_geometry_main);
+        recent.gui_geometry_main = NULL;
+    }
+
+    if (recent.gui_geometry_main_master_split) {
+        g_free(recent.gui_geometry_main_master_split);
+        recent.gui_geometry_main_master_split = NULL;
+    }
+    if (recent.gui_geometry_main_extra_split) {
+        g_free(recent.gui_geometry_main_extra_split);
+        recent.gui_geometry_main_extra_split = NULL;
+    }
 
     if (recent.col_width_list) {
         free_col_width_info(&recent);
@@ -1584,6 +1761,13 @@ recent_read_dynamic(char **rf_path_return, int *rf_errno_return)
 #if 0
         /* set dfilter combobox to have an empty line */
         dfilter_combo_add_empty();
+#endif
+        /* We prepend new capture filters, so reverse them after adding
+         * all to keep the latest first.
+         */
+        cfilter_recent_reverse_all();
+#ifdef HAVE_PCAP_REMOTE
+        remote_host_reverse();
 #endif
         fclose(rf);
     } else {
@@ -1742,6 +1926,9 @@ void
 recent_cleanup(void)
 {
     free_col_width_info(&recent);
+    g_free(recent.gui_geometry_main);
+    g_free(recent.gui_geometry_main_master_split);
+    g_free(recent.gui_geometry_main_extra_split);
     g_free(recent.gui_fileopen_remembered_dir);
     g_list_free_full(recent.gui_additional_toolbars, g_free);
     g_list_free_full(recent.interface_toolbars, g_free);

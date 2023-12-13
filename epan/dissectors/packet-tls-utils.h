@@ -184,7 +184,7 @@ typedef enum {
 #define SSL_HND_QUIC_TP_MAX_DATAGRAM_FRAME_SIZE             0x20 /* https://datatracker.ietf.org/doc/html/draft-ietf-quic-datagram-06 */
 #define SSL_HND_QUIC_TP_CIBIR_ENCODING                      0x1000 /* https://datatracker.ietf.org/doc/html/draft-banks-quic-cibir-01 */
 #define SSL_HND_QUIC_TP_LOSS_BITS                           0x1057 /* https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03 */
-#define SSL_HND_QUIC_TP_GREASE_QUIC_BIT                     0x2ab2 /* https://tools.ietf.org/html/draft-thomson-quic-bit-grease-00 */
+#define SSL_HND_QUIC_TP_GREASE_QUIC_BIT                     0x2ab2 /* RFC 9287 */
 #define SSL_HND_QUIC_TP_ENABLE_TIME_STAMP                   0x7157 /* https://tools.ietf.org/html/draft-huitema-quic-ts-02 */
 #define SSL_HND_QUIC_TP_ENABLE_TIME_STAMP_V2                0x7158 /* https://tools.ietf.org/html/draft-huitema-quic-ts-03 */
 #define SSL_HND_QUIC_TP_MIN_ACK_DELAY_OLD                   0xde1a /* https://tools.ietf.org/html/draft-iyengar-quic-delayed-ack-00 */
@@ -199,9 +199,11 @@ typedef enum {
 /* https://github.com/facebookincubator/mvfst/blob/master/quic/QuicConstants.h */
 #define SSL_HND_QUIC_TP_FACEBOOK_PARTIAL_RELIABILITY        0xFF00
 #define SSL_HND_QUIC_TP_MIN_ACK_DELAY_DRAFT_V1              0xFF03DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-01 */
-#define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xFF04DE1A /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-04 */
-#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH_DRAFT04            0x0F739BBC1B666D04 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-04 */
-#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH                    0x0F739BBC1B666D05 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-05 */
+#define SSL_HND_QUIC_TP_MIN_ACK_DELAY_DRAFT05               0xff04de1a /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-04 / draft-05 */
+#define SSL_HND_QUIC_TP_MIN_ACK_DELAY                       0xff04de1b /* https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-07 */
+#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH_DRAFT04            0x0f739bbc1b666d04 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-04 */
+#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH_DRAFT05            0x0f739bbc1b666d05 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-05 */
+#define SSL_HND_QUIC_TP_ENABLE_MULTIPATH                    0x0f739bbc1b666d06 /* https://tools.ietf.org/html/draft-ietf-quic-multipath-06 */
 /*
  * Lookup tables
  */
@@ -246,6 +248,7 @@ extern const value_string tls_hello_ext_ech_clienthello_types[];
 extern const value_string kem_id_type_vals[];
 extern const value_string kdf_id_type_vals[];
 extern const value_string aead_id_type_vals[];
+extern const value_string token_binding_key_parameter_vals[];
 
 /* XXX Should we use GByteArray instead? */
 typedef struct _StringInfo {
@@ -352,15 +355,6 @@ typedef struct _SslDecoder {
     SslFlow *flow;
     StringInfo app_traffic_secret;  /**< TLS 1.3 application traffic secret (if applicable), wmem file scope. */
 } SslDecoder;
-
-/*
- * TLS 1.3 Cipher context. Simpler than SslDecoder since no compression is
- * required and all keys are calculated internally.
- */
-typedef struct {
-    gcry_cipher_hd_t    hd;
-    guint8              iv[TLS13_AEAD_NONCE_LENGTH];
-} tls13_cipher;
 
 #define KEX_DHE_DSS     0x10
 #define KEX_DHE_PSK     0x11
@@ -697,7 +691,7 @@ ssl_get_cipher_blocksize(const SslCipherSuite *cipher_suite);
 gboolean
 ssl_generate_pre_master_secret(SslDecryptSession *ssl_session,
                                guint32 length, tvbuff_t *tvb, guint32 offset,
-                               const gchar *ssl_psk,
+                               const gchar *ssl_psk, packet_info *pinfo,
 #ifdef HAVE_LIBGNUTLS
                                GHashTable *key_hash,
 #endif
@@ -732,14 +726,6 @@ ssl_decrypt_record(SslDecryptSession *ssl, SslDecoder *decoder, guint8 ct, guint
         gboolean ignore_mac_failed,
         const guchar *in, guint16 inl, const guchar *cid, guint8 cidl,
         StringInfo *comp_str, StringInfo *out_str, guint *outl);
-
-/**
- * Given a cipher algorithm and its mode, a hash algorithm and the secret (with
- * the same length as the hash algorithm), try to build a cipher. The algorithms
- * and mode are Libgcrypt identifiers.
- */
-tls13_cipher *
-tls13_cipher_create(const char *label_prefix, int cipher_algo, int cipher_mode, int hash_algo, const StringInfo *secret, const gchar **error);
 
 
 /* Common part between TLS and DTLS dissectors */
@@ -1023,6 +1009,13 @@ typedef struct ssl_common_dissect {
         gint hs_ext_compress_certificate_compressed_certificate_message_length;
         gint hs_ext_compress_certificate_compressed_certificate_message;
 
+        /* Token Binding Negotiation */
+        gint hs_ext_token_binding_version_major;
+        gint hs_ext_token_binding_version_minor;
+        gint hs_ext_token_binding_key_parameters;
+        gint hs_ext_token_binding_key_parameters_length;
+        gint hs_ext_token_binding_key_parameter;
+
         gint hs_ext_record_size_limit;
 
         /* QUIC Transport Parameters */
@@ -1118,7 +1111,7 @@ typedef struct ssl_common_dissect {
         gint hs_ext_alps_alpn_str_len;
         gint hs_ext_alps_settings;
 
-        /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_HF_LIST! */
+        /* do not forget to update SSL_COMMON_HF_LIST! */
     } hf;
     struct {
         gint hs_ext;
@@ -1157,8 +1150,9 @@ typedef struct ssl_common_dissect {
         gint ech_hpke_keyconfig;
         gint ech_hpke_cipher_suites;
         gint ech_hpke_cipher_suite;
+        gint hs_ext_token_binding_key_parameters;
 
-        /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_ETT_LIST! */
+        /* do not forget to update SSL_COMMON_ETT_LIST! */
     } ett;
     struct {
         /* Generic expert info for malformed packets. */
@@ -1174,7 +1168,7 @@ typedef struct ssl_common_dissect {
 
         expert_field ech_echconfig_invalid_version;
 
-        /* do not forget to update SSL_COMMON_LIST_T and SSL_COMMON_EI_LIST! */
+        /* do not forget to update SSL_COMMON_EI_LIST! */
     } ei;
 } ssl_common_dissect_t;
 
@@ -1348,36 +1342,7 @@ ssl_dissect_hnd_compress_certificate(ssl_common_dissect_t *hf, tvbuff_t *tvb, pr
                                      gboolean is_from_server _U_, gboolean is_dtls _U_);
 /* {{{ */
 #define SSL_COMMON_LIST_T(name) \
-ssl_common_dissect_t name = {   \
-    /* hf */ {                  \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1                              \
-    },                                                                  \
-    /* ett */ {                                                         \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, \
-        -1, -1, -1, -1                                                  \
-    },                                                                  \
-    /* ei */ {                                                          \
-        EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT, EI_INIT,  \
-        EI_INIT, EI_INIT                                                \
-    },                                                                  \
-}
+ssl_common_dissect_t name;
 /* }}} */
 
 /* {{{ */
@@ -2254,6 +2219,31 @@ ssl_common_dissect_t name = {   \
         FT_BYTES, BASE_NONE, NULL, 0x00,                                \
         NULL, HFILL }                                                   \
     },                                                                  \
+    { & name .hf.hs_ext_token_binding_version_major,                    \
+      { "Protocol Major Version", prefix ".token_binding.version_major", \
+        FT_UINT8, BASE_HEX, NULL, 0x00,                                 \
+        "Major version of the Token Binding protocol", HFILL }          \
+    },                                                                  \
+    { & name .hf.hs_ext_token_binding_version_minor,                    \
+      { "Protocol Minor Version", prefix ".token_binding.version_minor", \
+        FT_UINT8, BASE_HEX, NULL, 0x00,                                 \
+        "Minor version of the Token Binding protocol", HFILL }          \
+    },                                                                  \
+    { & name .hf.hs_ext_token_binding_key_parameters,                   \
+      { "Key Parameters", prefix ".token_binding.key_parameters",       \
+        FT_NONE, BASE_NONE, NULL, 0x0,                                  \
+        NULL, HFILL }                                                   \
+    },                                                                  \
+    { & name .hf.hs_ext_token_binding_key_parameters_length,            \
+      { "Key Parameters Length", prefix ".token_binding.key_parameters_length", \
+        FT_UINT8, BASE_DEC, NULL, 0x00,                                 \
+        "Length of the key parameters list", HFILL }                    \
+    },                                                                  \
+    { & name .hf.hs_ext_token_binding_key_parameter,                    \
+      { "Key Parameter", prefix ".token_binding.key_parameter",         \
+        FT_UINT8, BASE_DEC, VALS(token_binding_key_parameter_vals), 0x00, \
+        "Identifier of the Token Binding key parameter", HFILL }         \
+    },                                                                  \
     { & name .hf.hs_ext_record_size_limit,                              \
       { "Record Size Limit", prefix ".record_size_limit",               \
         FT_UINT16, BASE_DEC, NULL, 0x00,                                \
@@ -2749,6 +2739,7 @@ ssl_common_dissect_t name = {   \
         & name .ett.ech_hpke_keyconfig,             \
         & name .ett.ech_hpke_cipher_suites,         \
         & name .ett.ech_hpke_cipher_suite,          \
+        & name .ett.hs_ext_token_binding_key_parameters, \
 
 /* }}} */
 

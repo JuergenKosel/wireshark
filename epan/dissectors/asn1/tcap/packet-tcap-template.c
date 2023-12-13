@@ -32,28 +32,28 @@
 #define PFNAME "tcap"
 
 /* Initialize the protocol and registered fields */
-static int proto_tcap = -1;
-static int hf_tcap_tag = -1;
-static int hf_tcap_length = -1;
-static int hf_tcap_data = -1;
-static int hf_tcap_tid = -1;
-static int hf_tcap_constructor_eoc=-1;
+static int proto_tcap;
+static int hf_tcap_tag;
+static int hf_tcap_length;
+static int hf_tcap_data;
+static int hf_tcap_tid;
+static int hf_tcap_constructor_eoc;
 
-int hf_tcapsrt_SessionId=-1;
-int hf_tcapsrt_Duplicate=-1;
-int hf_tcapsrt_BeginSession=-1;
-int hf_tcapsrt_EndSession=-1;
-int hf_tcapsrt_SessionTime=-1;
+int hf_tcapsrt_SessionId;
+int hf_tcapsrt_Duplicate;
+int hf_tcapsrt_BeginSession;
+int hf_tcapsrt_EndSession;
+int hf_tcapsrt_SessionTime;
 
 #include "packet-tcap-hf.c"
 
 /* Initialize the subtree pointers */
-static gint ett_tcap = -1;
-static gint ett_param = -1;
+static gint ett_tcap;
+static gint ett_param;
 
-static gint ett_otid = -1;
-static gint ett_dtid = -1;
-gint ett_tcap_stat = -1;
+static gint ett_otid;
+static gint ett_dtid;
+gint ett_tcap_stat;
 
 static struct tcapsrt_info_t * gp_tcapsrt_info;
 static gboolean tcap_subdissector_used=FALSE;

@@ -56,6 +56,9 @@ static dissector_handle_t sip_handle;
 static gint  pref_text_type             = WEBSOCKET_NONE;
 static gboolean pref_decompress         = TRUE;
 
+#define DEFAULT_MAX_UNMASKED_LEN        (1024 * 256)
+static guint pref_max_unmasked_len      = DEFAULT_MAX_UNMASKED_LEN;
+
 typedef struct {
   const char   *subprotocol;
   guint16       server_port;
@@ -80,50 +83,51 @@ typedef struct {
 } websocket_packet_t;
 #endif
 
-static int websocket_follow_tap = -1;
+static int websocket_follow_tap;
 
 /* Initialize the protocol and registered fields */
-static int proto_websocket = -1;
-static int proto_http = -1;
+static int proto_websocket;
+static int proto_http;
 
-static int hf_ws_fin = -1;
-static int hf_ws_reserved = -1;
-static int hf_ws_pmc = -1;
-static int hf_ws_opcode = -1;
-static int hf_ws_mask = -1;
-static int hf_ws_payload_length = -1;
-static int hf_ws_payload_length_ext_16 = -1;
-static int hf_ws_payload_length_ext_64 = -1;
-static int hf_ws_masking_key = -1;
-static int hf_ws_payload = -1;
-static int hf_ws_masked_payload = -1;
-static int hf_ws_payload_continue = -1;
-static int hf_ws_payload_text = -1;
-static int hf_ws_payload_close = -1;
-static int hf_ws_payload_close_status_code = -1;
-static int hf_ws_payload_close_reason = -1;
-static int hf_ws_payload_ping = -1;
-static int hf_ws_payload_pong = -1;
-static int hf_ws_payload_unknown = -1;
-static int hf_ws_fragments = -1;
-static int hf_ws_fragment = -1;
-static int hf_ws_fragment_overlap = -1;
-static int hf_ws_fragment_overlap_conflict = -1;
-static int hf_ws_fragment_multiple_tails = -1;
-static int hf_ws_fragment_too_long_fragment = -1;
-static int hf_ws_fragment_error = -1;
-static int hf_ws_fragment_count = -1;
-static int hf_ws_reassembled_length = -1;
+static int hf_ws_fin;
+static int hf_ws_reserved;
+static int hf_ws_pmc;
+static int hf_ws_opcode;
+static int hf_ws_mask;
+static int hf_ws_payload_length;
+static int hf_ws_payload_length_ext_16;
+static int hf_ws_payload_length_ext_64;
+static int hf_ws_masking_key;
+static int hf_ws_payload;
+static int hf_ws_masked_payload;
+static int hf_ws_payload_continue;
+static int hf_ws_payload_text;
+static int hf_ws_payload_close;
+static int hf_ws_payload_close_status_code;
+static int hf_ws_payload_close_reason;
+static int hf_ws_payload_ping;
+static int hf_ws_payload_pong;
+static int hf_ws_payload_unknown;
+static int hf_ws_fragments;
+static int hf_ws_fragment;
+static int hf_ws_fragment_overlap;
+static int hf_ws_fragment_overlap_conflict;
+static int hf_ws_fragment_multiple_tails;
+static int hf_ws_fragment_too_long_fragment;
+static int hf_ws_fragment_error;
+static int hf_ws_fragment_count;
+static int hf_ws_reassembled_length;
 
-static gint ett_ws = -1;
-static gint ett_ws_pl = -1;
-static gint ett_ws_mask = -1;
-static gint ett_ws_control_close = -1;
-static gint ett_ws_fragments = -1;
-static gint ett_ws_fragment = -1;
+static gint ett_ws;
+static gint ett_ws_pl;
+static gint ett_ws_mask;
+static gint ett_ws_control_close;
+static gint ett_ws_fragments;
+static gint ett_ws_fragment;
 
-static expert_field ei_ws_payload_unknown = EI_INIT;
-static expert_field ei_ws_decompression_failed = EI_INIT;
+static expert_field ei_ws_payload_unknown;
+static expert_field ei_ws_decompression_failed;
+static expert_field ei_ws_not_fully_unmasked;
 
 #define WS_CONTINUE 0x0
 #define WS_TEXT     0x1
@@ -191,7 +195,6 @@ static heur_dissector_list_t heur_subdissector_list;
 
 static reassembly_table ws_reassembly_table;
 
-#define MAX_UNMASKED_LEN (1024 * 256)
 static tvbuff_t *
 tvb_unmasked(tvbuff_t *tvb, packet_info *pinfo, const guint offset, guint payload_length, const guint8 *masking_key)
 {
@@ -199,7 +202,7 @@ tvb_unmasked(tvbuff_t *tvb, packet_info *pinfo, const guint offset, guint payloa
   gchar        *data_unmask;
   guint         i;
   const guint8 *data_mask;
-  guint         unmasked_length = payload_length > MAX_UNMASKED_LEN ? MAX_UNMASKED_LEN : payload_length;
+  guint         unmasked_length = payload_length > pref_max_unmasked_len ? pref_max_unmasked_len : payload_length;
 
   data_unmask = (gchar *)wmem_alloc(pinfo->pool, unmasked_length);
   data_mask   = tvb_get_ptr(tvb, offset, unmasked_length);
@@ -520,9 +523,10 @@ websocket_parse_extensions(websocket_conv_t *websocket_conv, const char *str)
 }
 
 static void
-dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *ws_tree, guint8 fin, guint8 opcode, websocket_conv_t *websocket_conv, gint raw_offset)
+dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_tree *ws_tree, guint8 fin, guint8 opcode, websocket_conv_t *websocket_conv, gint raw_offset, guint masked_payload_length)
 {
   const guint         offset = 0, length = tvb_reported_length(tvb);
+  const guint         capture_length = tvb_captured_length(tvb);
   proto_item         *ti;
   proto_tree         *pl_tree;
   tvbuff_t           *tvb_appdata;
@@ -531,6 +535,12 @@ dissect_websocket_payload(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, p
   /* Payload */
   ti = proto_tree_add_item(ws_tree, hf_ws_payload, tvb, offset, length, ENC_NA);
   pl_tree = proto_item_add_subtree(ti, ett_ws_pl);
+
+  if (masked_payload_length > capture_length) {
+    expert_add_info_format(pinfo, ti, &ei_ws_not_fully_unmasked, "Payload not fully unmasked. "
+      "%u bytes not yet unmasked due to the preference of max unmasked length limit (%u bytes).",
+      masked_payload_length - capture_length, pref_max_unmasked_len);
+  }
 
   /* Extension Data */
   /* TODO: Add dissector of Extension (not extension available for the moment...) */
@@ -726,7 +736,7 @@ dissect_websocket_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     } else {
       tvb_payload = tvb_new_subset_length(tvb, payload_offset, payload_length);
     }
-    dissect_websocket_payload(tvb_payload, pinfo, tree, ws_tree, fin, opcode, websocket_conv, tvb_raw_offset(tvb));
+    dissect_websocket_payload(tvb_payload, pinfo, tree, ws_tree, fin, opcode, websocket_conv, tvb_raw_offset(tvb), (mask ? payload_length : 0));
   }
 
   return tvb_captured_length(tvb);
@@ -988,6 +998,7 @@ proto_register_websocket(void)
   static ei_register_info ei[] = {
     { &ei_ws_payload_unknown, { "websocket.payload.unknown.expert", PI_UNDECODED, PI_NOTE, "Dissector for Websocket Opcode", EXPFILL }},
     { &ei_ws_decompression_failed, { "websocket.decompression.failed.expert", PI_PROTOCOL, PI_WARN, "Decompression failed", EXPFILL }},
+    { &ei_ws_not_fully_unmasked, { "websocket.payload.not.fully.unmasked", PI_UNDECODED, PI_NOTE, "Payload not fully unmasked", EXPFILL }},
   };
 
   static const enum_val_t text_types[] = {
@@ -1039,6 +1050,10 @@ proto_register_websocket(void)
 
   prefs_register_bool_preference(websocket_module, "decompress",
         "Try to decompress permessage-deflate payload", NULL, &pref_decompress);
+
+  prefs_register_uint_preference(websocket_module, "max_unmasked_len", "Max unmasked payload length",
+    "The default value is 256KB (1024x256) bytes. If the preference is too large, it may affect the parsing speed.",
+    10, &pref_max_unmasked_len);
 }
 
 void

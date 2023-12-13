@@ -728,9 +728,10 @@ You can combine filter expressions in Wireshark using the logical operators show
 |===
 
 ==== Slice Operator
-Wireshark allows you to select a subsequence of a sequence in rather elaborate
-ways. After a label you can place a pair of brackets [] containing a comma
-separated list of range specifiers.
+Wireshark allows you to select a subsequence of byte arrays (including
+protocols) or text strings in rather elaborate ways. After a label you can
+place a pair of brackets [] containing a comma separated list of range
+specifiers.
 ----
 eth.src[0:3] == 00:00:83
 ----
@@ -763,6 +764,32 @@ eth.src[0:3,1-2,:4,4:,2] ==
 Wireshark allows you to string together single ranges in a comma separated list
 to form compound ranges as shown above.
 
+You can use the slice operator on a protocol name, too, to slice the
+bytes associated with that protocol. The `+frame+` protocol can be useful,
+encompassing all the captured data (not including secondary data sources
+like decrypted data.)
+
+Offsets can be negative, indicating an offset from the end of a field.
+----
+frame[-4:4] == 0.1.2.3
+frame[-4] == 0.1.2.3
+----
+The two examples above both check the last four bytes of a frame.
+
+Slices of string fields yield strings, and are indexed on codepoint
+boundaries after conversation of the string to UTF-8, not bytes.
+----
+http.content_type[0:4] == "text"
+smpp.message_text[:10] == "Абвгдеёжзи"
+----
+The second example above will match regardless of whether the original
+string was in Windows-1251, UTF-8, or UTF-16, so long as the converted
+string starts with those ten characters.
+
+Byte slices can be directly compared to strings; this converts the
+string to the corresponding UTF-8 byte sequence. To compare string
+slices with byte sequences, use the @ operator, below.
+
 ==== The Layer Operator
 
 A field can be restricted to a certain layer in the protocol stack using the
@@ -780,6 +807,67 @@ For more complicated ranges the same syntax used with slices is valid:
 
 means layers number 2, 3 or 4 inclusive. The hash symbol is required to
 distinguish a layer range from a slice.
+
+==== The At Operator
+By prefixing the field name with an at sign (@) the comparison is done against
+the raw packet data for the field.
+
+A character string must be decoded from a source encoding during dissection.
+If there are decoding errors the resulting string will usually contain
+replacement characters:
+
+[subs="replacements"]
+----
+browser.comment == "string is &#xFFFD;&#xFFFD;&#xFFFD;&#xFFFD;"
+----
+
+The at operator allows testing the raw undecoded data:
+----
+@browser.comment == 73:74:72:69:6e:67:20:69:73:20:aa:aa:aa:aa
+----
+
+The syntactical rules for a bytes field type apply to the second example.
+
+[NOTE]
+====
+When a bytes field is compared with a literal string, it is compared
+with the UTF-8 representation of that string. The at operator compares
+a string field with the actual byte representation in the original encoding,
+which may not be UTF-8.
+
+As an example, SMPP has a bytes field, `+smpp.message+`, and a string
+field, `+smpp.message_text+`, that refer to the same data. If the
+first four characters of the message is the string "Text" in the UTF-16
+encoding, the following filters all match.
+
+----
+smpp.message[:8] == 00:54:00:65:00:73:00:74
+smpp.message[:8] == "\x00T\x00e\x00s\x00t"
+smpp.message_text[:4] == "Test"
+smpp.message_text[:4] == "\x54\x65\x73\x74"
+@smpp.message_text[:8] == 00:54:00:65:00:73:00:74
+@smpp.message_text[:8] == "\x00T\x00e\x00s\x00t"
+----
+
+The following filters do *NOT* match.
+
+----
+@smpp.message_text[:4] == "\x00T\x00e\x00s\x00t"
+smpp.message[:4] == "Test"
+smpp.message[:8] == "Test"
+@smpp.message_text[:4] == "Test"
+@smpp.message_text[:8] == "Test"
+----
+
+The first filter above does not match because of operator precedence
+left-to-right; `+@smpp.message_text` is converted to bytes before the
+slice operator is applied, so the length of the necessary slice is 8.
+The other filters do not match because the literal string "Test" is
+always converted to its 4 octet UTF-8 representation when comparing
+against bytes, and it does not match the UTF-16 representation of
+the field bytes.
+
+====
 
 ==== Membership Operator
 Wireshark allows you to test a field for membership in a set of values or
@@ -830,17 +918,21 @@ You can perform the arithmetic operations on numeric fields shown in <<Arithmeti
 [#ArithmeticOps]
 
 .Display Filter Arithmetic Operations
-[options="header",cols="1,1,4"]
+[options="header",cols="1,1,1,4"]
 |===
-|Name            |Syntax    | Description
-|Unary minus     |-A        | Negation of A
-|Addition        |A + B     | Add B to A
-|Subtraction     |A - B     | Subtract B from A
-|Multiplication  |A * B     | Multiply A times B
-|Division        |A / B     | Divide A by B
-|Modulo          |A % B     | Remainder of A divided by B
-|Bitwise AND     |A & B     | Bitwise AND of A and B
+|Name            |Syntax    | Alternative | Description
+|Unary minus     |-A        |             | Negation of A
+|Addition        |A + B     |             | Add B to A
+|Subtraction     |A - B     |             | Subtract B from A
+|Multiplication  |A * B     |             | Multiply A times B
+|Division        |A / B     |             | Divide A by B
+|Modulo          |A % B     |             | Remainder of A divided by B
+|Bitwise AND     |A & B     | A bitand B  | Bitwise AND of A and B
 |===
+
+An unfortunate quirk in the filter syntax is that the subtraction
+operator must be preceded by a space character, so "A-B" must be
+written as "A -B" or "A - B".
 
 Arithmetic expressions can be grouped using curly braces.
 
@@ -901,6 +993,31 @@ and returns the largest/smallest respectively of the set.
 ----
 max(tcp.srcport, tcp.dstport) <= 1024
 ----
+
+==== Field References
+
+An expression of the form ${some.proto.field} is called a field reference.
+Its value is read from the corresponding field in the currently selected
+field in the GUI. This is a powerful way to build dynamic filters, such
+as frames since the last five minutes to the selected frame:
+
+----
+frame.time_relative >= ${frame.time_relative} - 300
+----
+
+or all HTTP packets whose `+ip.dst` value equals the "A" record of
+the DNS response in the current frame:
+
+----
+http && ip.dst eq ${dns.a}
+----
+
+The notation of field references is similar to that of
+<<ChDisplayFilterMacrosSection,macros>> but they are syntactically
+distinct. Field references, like other complex filters, make excellent
+use cases for <<ChWorkDefineFilterMacrosSection,macros>>,
+<<ChWorkDefineFilterSection,saved filters>>, and
+<<ChCustFilterButtons,filter buttons>>
 
 [#ChWorkBuildDisplayFilterTransitional]
 
@@ -1085,7 +1202,7 @@ image::images/ws-filter-macros.png[{screenshot-attrs}]
 
 . To add a new filter macro, click the btn:[{plus}] button in the bottom-left corner. A new row will appear in the Display Filter Macros table above.
 
-. Enter the name of your macro in the `Name` column. Enter your filter macro in the `Text` column.
+. Enter the name of your macro in the `Macro Name` column. Enter your filter macro in the `Macro Expression` column.
 
 . To save your modifications, click the btn:[OK] button in the bottom-right corner of the <<FilterMacrosDialog>>.
 
@@ -1323,5 +1440,67 @@ image::images/ws-time-reference.png[{screenshot-attrs}]
 A time referenced packet will be marked with the string $$*REF*$$ in the Time
 column (see packet number 10). All subsequent packets will show the time since
 the last time reference.
+
+[#ChWorkShiftTimePacketSection]
+
+=== Time Shifting Packets
+
+Sometimes you will want to adjust the timestamps in a capture file.
+This may be because a machine performing the capture had an inaccurate
+clock, or because the capture was originally saved with timestamps in
+<<ChAdvTabTimezones,local time>> (perhaps even to a capture file format
+that only writes times in local time, or only writes the time of day
+but not the date). One common use is to synchronize timestamps between
+captures made on different machines with relative clock skew or clock
+drift before <<ChIOMergeSection,merging>> them. Selecting
+menu:Edit[Time Shift...] from the main menu opens the "Time Shift" dialog.
+
+.The “Time Shift” dialog
+image::images/ws-time-shift.png[{medium-screenshot-attrs}]
+
+Shift all packets by...::
+
+Apply a fixed offset, entered as a relative time in hours, minutes,
+and seconds, to the timestamps for all packets. This is useful for
+correcting small known errors or timezones.
+
+Set the time for packet...::
+
+Apply offsets based on one or, if the box is checked, two given packets
+to the timestamps for all packets. Enter the packet number and absolute
+date and time for the packet(s). When one packet is used, a fixed offset
+is applied that can be used to correct for clock skew. When two packets
+are used, the correction for all other packets is computed linearly,
+which can be used to correct for clock drift. This is useful when the
+precise date and time for particular packets are known, e.g. packets
+containing the NTP or PTP protocols.
+
+Undo all shifts::
+
+This removes all unsaved time shifts from packets.
+
+[NOTE]
+.Time shifts are applied to all packets
+====
+Time shifts are applied to all packets in the capture, including
+ignored packets and packets that are not displayed due to the current
+filter.
+Wireshark does not have a method to adjust the timestamps of individual
+or selected packets.
+====
+
+The offset currently applied to time shifted packets is in the
+`frame.offset_shift` field, which can be viewed in the packet details.
+
+.A Time Shifted Packet
+image::images/ws-time-shift-details.png[{medium-screenshot-attrs}]
+
+After time shifts are applied, the file will have unsaved changes,
+which are indicated with an {asterisk} beside its name in the title bar.
+Beginning with Wireshark 4.2.0, <<ChIOSaveSection,saving>> the file
+will write the corrected timestamps to the capture file.
+If you attempt to close the capture file without saving it, a dialog
+will prompt you to save in order to prevent losing your changes
+(unless that warning has been disabled in the <<ChCustGUIPrefPage,preferences>>.)
 
 // End of WSUG Chapter Work

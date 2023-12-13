@@ -16,8 +16,13 @@
 #include "packet-tcp.h"
 
 #include <epan/prefs.h>
+#include <epan/expert.h>
+#include <epan/conversation.h>
+#include <epan/proto_data.h>
 
 void proto_register_tns(void);
+
+#define TNS_HDR_LEN 8
 
 /* Packet Types */
 #define TNS_TYPE_CONNECT        1
@@ -32,6 +37,7 @@ void proto_register_tns(void);
 #define TNS_TYPE_MARKER         12
 #define TNS_TYPE_ATTENTION      13
 #define TNS_TYPE_CONTROL        14
+#define TNS_TYPE_DD             15
 #define TNS_TYPE_MAX            19
 
 /* Data Packet Functions */
@@ -68,146 +74,153 @@ static gboolean tns_desegment = TRUE;
 
 static dissector_handle_t tns_handle;
 
-static int proto_tns = -1;
-static int hf_tns_request = -1;
-static int hf_tns_response = -1;
-static int hf_tns_length = -1;
-static int hf_tns_packet_checksum = -1;
-static int hf_tns_header_checksum = -1;
-static int hf_tns_packet_type = -1;
-static int hf_tns_reserved_byte = -1;
-static int hf_tns_version = -1;
-static int hf_tns_compat_version = -1;
+static int proto_tns;
+static int hf_tns_request;
+static int hf_tns_response;
+static int hf_tns_length;
+static int hf_tns_packet_checksum;
+static int hf_tns_header_checksum;
+static int hf_tns_packet_type;
+static int hf_tns_reserved_byte;
+static int hf_tns_version;
+static int hf_tns_compat_version;
 
-static int hf_tns_service_options = -1;
-static int hf_tns_sopt_flag_bconn = -1;
-static int hf_tns_sopt_flag_pc = -1;
-static int hf_tns_sopt_flag_hc = -1;
-static int hf_tns_sopt_flag_fd = -1;
-static int hf_tns_sopt_flag_hd = -1;
-static int hf_tns_sopt_flag_dc1 = -1;
-static int hf_tns_sopt_flag_dc2 = -1;
-static int hf_tns_sopt_flag_dio = -1;
-static int hf_tns_sopt_flag_ap = -1;
-static int hf_tns_sopt_flag_ra = -1;
-static int hf_tns_sopt_flag_sa = -1;
+static int hf_tns_service_options;
+static int hf_tns_sopt_flag_bconn;
+static int hf_tns_sopt_flag_pc;
+static int hf_tns_sopt_flag_hc;
+static int hf_tns_sopt_flag_fd;
+static int hf_tns_sopt_flag_hd;
+static int hf_tns_sopt_flag_dc1;
+static int hf_tns_sopt_flag_dc2;
+static int hf_tns_sopt_flag_dio;
+static int hf_tns_sopt_flag_ap;
+static int hf_tns_sopt_flag_ra;
+static int hf_tns_sopt_flag_sa;
 
-static int hf_tns_sdu_size = -1;
-static int hf_tns_max_tdu_size = -1;
+static int hf_tns_sdu_size;
+static int hf_tns_max_tdu_size;
 
-static int hf_tns_nt_proto_characteristics = -1;
-static int hf_tns_ntp_flag_hangon = -1;
-static int hf_tns_ntp_flag_crel = -1;
-static int hf_tns_ntp_flag_tduio = -1;
-static int hf_tns_ntp_flag_srun = -1;
-static int hf_tns_ntp_flag_dtest = -1;
-static int hf_tns_ntp_flag_cbio = -1;
-static int hf_tns_ntp_flag_asio = -1;
-static int hf_tns_ntp_flag_pio = -1;
-static int hf_tns_ntp_flag_grant = -1;
-static int hf_tns_ntp_flag_handoff = -1;
-static int hf_tns_ntp_flag_sigio = -1;
-static int hf_tns_ntp_flag_sigpipe = -1;
-static int hf_tns_ntp_flag_sigurg = -1;
-static int hf_tns_ntp_flag_urgentio = -1;
-static int hf_tns_ntp_flag_fdio = -1;
-static int hf_tns_ntp_flag_testop = -1;
+static int hf_tns_nt_proto_characteristics;
+static int hf_tns_ntp_flag_hangon;
+static int hf_tns_ntp_flag_crel;
+static int hf_tns_ntp_flag_tduio;
+static int hf_tns_ntp_flag_srun;
+static int hf_tns_ntp_flag_dtest;
+static int hf_tns_ntp_flag_cbio;
+static int hf_tns_ntp_flag_asio;
+static int hf_tns_ntp_flag_pio;
+static int hf_tns_ntp_flag_grant;
+static int hf_tns_ntp_flag_handoff;
+static int hf_tns_ntp_flag_sigio;
+static int hf_tns_ntp_flag_sigpipe;
+static int hf_tns_ntp_flag_sigurg;
+static int hf_tns_ntp_flag_urgentio;
+static int hf_tns_ntp_flag_fdio;
+static int hf_tns_ntp_flag_testop;
 
-static int hf_tns_line_turnaround = -1;
-static int hf_tns_value_of_one = -1;
-static int hf_tns_connect_data_length = -1;
-static int hf_tns_connect_data_offset = -1;
-static int hf_tns_connect_data_max = -1;
+static int hf_tns_line_turnaround;
+static int hf_tns_value_of_one;
+static int hf_tns_connect_data_length;
+static int hf_tns_connect_data_offset;
+static int hf_tns_connect_data_max;
 
-static int hf_tns_connect_flags0 = -1;
-static int hf_tns_connect_flags1 = -1;
-static int hf_tns_conn_flag_nareq = -1;
-static int hf_tns_conn_flag_nalink = -1;
-static int hf_tns_conn_flag_enablena = -1;
-static int hf_tns_conn_flag_ichg = -1;
-static int hf_tns_conn_flag_wantna = -1;
+static int hf_tns_connect_flags0;
+static int hf_tns_connect_flags1;
+static int hf_tns_conn_flag_nareq;
+static int hf_tns_conn_flag_nalink;
+static int hf_tns_conn_flag_enablena;
+static int hf_tns_conn_flag_ichg;
+static int hf_tns_conn_flag_wantna;
 
-static int hf_tns_connect_data = -1;
-static int hf_tns_trace_cf1 = -1;
-static int hf_tns_trace_cf2 = -1;
-static int hf_tns_trace_cid = -1;
+static int hf_tns_connect_data;
+static int hf_tns_trace_cf1;
+static int hf_tns_trace_cf2;
+static int hf_tns_trace_cid;
 
-static int hf_tns_accept_data_length = -1;
-static int hf_tns_accept_data_offset = -1;
-static int hf_tns_accept_data = -1;
+static int hf_tns_accept_data_length;
+static int hf_tns_accept_data_offset;
+static int hf_tns_accept_data;
 
-static int hf_tns_refuse_reason_user = -1;
-static int hf_tns_refuse_reason_system = -1;
-static int hf_tns_refuse_data_length = -1;
-static int hf_tns_refuse_data = -1;
+static int hf_tns_refuse_reason_user;
+static int hf_tns_refuse_reason_system;
+static int hf_tns_refuse_data_length;
+static int hf_tns_refuse_data;
 
-static int hf_tns_abort_reason_user = -1;
-static int hf_tns_abort_reason_system = -1;
-static int hf_tns_abort_data = -1;
+static int hf_tns_abort_reason_user;
+static int hf_tns_abort_reason_system;
+static int hf_tns_abort_data;
 
-static int hf_tns_marker_type = -1;
-static int hf_tns_marker_data_byte = -1;
-/* static int hf_tns_marker_data = -1; */
+static int hf_tns_marker_type;
+static int hf_tns_marker_data_byte;
+/* static int hf_tns_marker_data; */
 
-static int hf_tns_redirect_data_length = -1;
-static int hf_tns_redirect_data = -1;
+static int hf_tns_redirect_data_length;
+static int hf_tns_redirect_data;
 
-static int hf_tns_control_cmd = -1;
-static int hf_tns_control_data = -1;
+static int hf_tns_control_cmd;
+static int hf_tns_control_data;
 
-static int hf_tns_data_flag = -1;
-static int hf_tns_data_flag_send = -1;
-static int hf_tns_data_flag_rc = -1;
-static int hf_tns_data_flag_c = -1;
-static int hf_tns_data_flag_reserved = -1;
-static int hf_tns_data_flag_more = -1;
-static int hf_tns_data_flag_eof = -1;
-static int hf_tns_data_flag_dic = -1;
-static int hf_tns_data_flag_rts = -1;
-static int hf_tns_data_flag_sntt = -1;
+static int hf_tns_data_flag;
+static int hf_tns_data_flag_send;
+static int hf_tns_data_flag_rc;
+static int hf_tns_data_flag_c;
+static int hf_tns_data_flag_reserved;
+static int hf_tns_data_flag_more;
+static int hf_tns_data_flag_eof;
+static int hf_tns_data_flag_dic;
+static int hf_tns_data_flag_rts;
+static int hf_tns_data_flag_sntt;
 
-static int hf_tns_data_id = -1;
-static int hf_tns_data_length = -1;
-static int hf_tns_data_oci_id = -1;
-static int hf_tns_data_piggyback_id = -1;
-static int hf_tns_data_unused = -1;
+static int hf_tns_data_id;
+static int hf_tns_data_length;
+static int hf_tns_data_oci_id;
+static int hf_tns_data_piggyback_id;
+static int hf_tns_data_unused;
 
-static int hf_tns_data_opi_version2_banner_len = -1;
-static int hf_tns_data_opi_version2_banner = -1;
-static int hf_tns_data_opi_version2_vsnum = -1;
+static int hf_tns_data_opi_version2_banner_len;
+static int hf_tns_data_opi_version2_banner;
+static int hf_tns_data_opi_version2_vsnum;
 
-static int hf_tns_data_opi_num_of_params = -1;
-static int hf_tns_data_opi_param_length = -1;
-static int hf_tns_data_opi_param_name = -1;
-static int hf_tns_data_opi_param_value = -1;
+static int hf_tns_data_opi_num_of_params;
+static int hf_tns_data_opi_param_length;
+static int hf_tns_data_opi_param_name;
+static int hf_tns_data_opi_param_value;
 
-static int hf_tns_data_setp_acc_version = -1;
-static int hf_tns_data_setp_cli_plat = -1;
-static int hf_tns_data_setp_version = -1;
-static int hf_tns_data_setp_banner = -1;
+static int hf_tns_data_setp_acc_version;
+static int hf_tns_data_setp_cli_plat;
+static int hf_tns_data_setp_version;
+static int hf_tns_data_setp_banner;
 
-static int hf_tns_data_sns_cli_vers = -1;
-static int hf_tns_data_sns_srv_vers = -1;
-static int hf_tns_data_sns_srvcnt = -1;
+static int hf_tns_data_sns_cli_vers;
+static int hf_tns_data_sns_srv_vers;
+static int hf_tns_data_sns_srvcnt;
 
-static gint ett_tns = -1;
-static gint ett_tns_connect = -1;
-static gint ett_tns_accept = -1;
-static gint ett_tns_refuse = -1;
-static gint ett_tns_abort = -1;
-static gint ett_tns_redirect = -1;
-static gint ett_tns_marker = -1;
-static gint ett_tns_attention = -1;
-static gint ett_tns_control = -1;
-static gint ett_tns_data = -1;
-static gint ett_tns_data_flag = -1;
-static gint ett_tns_acc_versions = -1;
-static gint ett_tns_opi_params = -1;
-static gint ett_tns_opi_par = -1;
-static gint ett_tns_sopt_flag = -1;
-static gint ett_tns_ntp_flag = -1;
-static gint ett_tns_conn_flag = -1;
-static gint ett_sql = -1;
+static int hf_tns_data_descriptor_row_count;
+static int hf_tns_data_descriptor_row_size;
+
+static gint ett_tns;
+static gint ett_tns_connect;
+static gint ett_tns_accept;
+static gint ett_tns_refuse;
+static gint ett_tns_abort;
+static gint ett_tns_redirect;
+static gint ett_tns_marker;
+static gint ett_tns_attention;
+static gint ett_tns_control;
+static gint ett_tns_data;
+static gint ett_tns_data_flag;
+static gint ett_tns_acc_versions;
+static gint ett_tns_opi_params;
+static gint ett_tns_opi_par;
+static gint ett_tns_sopt_flag;
+static gint ett_tns_ntp_flag;
+static gint ett_tns_conn_flag;
+static gint ett_tns_rows;
+static gint ett_sql;
+
+static expert_field ei_tns_connect_data_next_packet;
+static expert_field ei_tns_data_descriptor_size_mismatch;
 
 #define TCP_PORT_TNS			1521 /* Not IANA registered */
 
@@ -248,6 +261,7 @@ static const value_string tns_type_vals[] = {
 	{TNS_TYPE_MARKER,    "Marker"},
 	{TNS_TYPE_ATTENTION, "Attention"},
 	{TNS_TYPE_CONTROL,   "Control"},
+	{TNS_TYPE_DD,        "Data Descriptor"},
 	{0, NULL}
 };
 
@@ -455,8 +469,25 @@ static const value_string tns_control_cmds[] = {
 	{0, NULL}
 };
 
+typedef struct _tns_conv_info_t {
+	uint32_t pending_connect_data;
+} tns_conv_info_t;
+
 void proto_reg_handoff_tns(void);
 static int dissect_tns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_);
+
+static tns_conv_info_t*
+tns_get_conv_info(packet_info *pinfo)
+{
+	conversation_t *conversation = find_or_create_conversation(pinfo);
+
+	tns_conv_info_t *tns_info = (tns_conv_info_t *)conversation_get_proto_data(conversation, proto_tns);
+	if (!tns_info) {
+		tns_info = wmem_new0(wmem_file_scope(), tns_conv_info_t);
+		conversation_add_proto_data(conversation, proto_tns, tns_info);
+	}
+	return tns_info;
+}
 
 static guint get_data_func_id(tvbuff_t *tvb, int offset)
 {
@@ -491,6 +522,53 @@ static void vsnum_to_vstext_basecustom(gchar *result, guint32 vsnum)
 		 vsnum & 0xff);
 }
 
+static void dissect_tns_data_descriptor(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tns_tree, uint32_t length)
+{
+	/* This is used by Oracle 12c for at least sending LOB/FILE data. */
+	proto_tree *dd_tree, *row_tree;
+	proto_item *ti;
+	uint32_t data_len, row_count, row_size, total_row_size = 0;
+	int orig_offset = offset;
+
+	/* We only get here after tcp_dissect_pdus(), length is guaranteed. */
+	DISSECTOR_ASSERT_CMPINT(length, >=, TNS_HDR_LEN);
+
+	dd_tree = proto_tree_add_subtree(tns_tree, tvb, offset, -1, ett_tns_data, NULL, "Data Descriptor");
+
+	/* No idea what this is. Usually 0x0003. */
+	offset += 4;
+	proto_tree_add_item_ret_uint(dd_tree, hf_tns_data_length, tvb,
+			offset, 4, ENC_BIG_ENDIAN, &data_len);
+	offset += 4;
+
+	/* This next parameter looks like: number of big endian shorts that follow,
+	 * the sum of the shorts equals the file length above - each short maxes
+	 * out at 0x1f7c = 8060, presumably related to the page size / max table
+	 * row size in Microsoft SQL Server? Something about how many rows it
+	 * would take to store this in-table?
+	 */
+	proto_tree_add_item_ret_uint(dd_tree, hf_tns_data_descriptor_row_count, tvb,
+			offset, 4, ENC_BIG_ENDIAN, &row_count);
+	offset += 4;
+	row_tree = proto_tree_add_subtree(dd_tree, tvb, offset, row_count * 2,
+		ett_tns_rows, &ti, "Rows");
+	for (uint32_t i = 0; i < row_count; i++) {
+		proto_tree_add_item_ret_uint(row_tree, hf_tns_data_descriptor_row_size, tvb,
+				offset, 2, ENC_BIG_ENDIAN, &row_size);
+		total_row_size += row_size;
+		offset += 2;
+	}
+	proto_item_append_text(ti, " (%u bytes)", total_row_size);
+	if (total_row_size != data_len) {
+		expert_add_info(pinfo, ti, &ei_tns_data_descriptor_size_mismatch);
+	}
+
+	offset = orig_offset + (length - TNS_HDR_LEN);
+
+	call_data_dissector(tvb_new_subset_length(tvb, offset, data_len), pinfo,
+	    dd_tree);
+}
+
 static void dissect_tns_data(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tns_tree)
 {
 	proto_tree *data_tree;
@@ -517,8 +595,30 @@ static void dissect_tns_data(tvbuff_t *tvb, int offset, packet_info *pinfo, prot
 	data_func_id = get_data_func_id(tvb, offset);
 
 	/* Do this only if the Data message have a body. Otherwise, there are only Data flags. */
-	if ( tvb_reported_length_remaining(tvb, offset) > 0 )
+	int remaining = tvb_reported_length_remaining(tvb, offset);
+	if ( remaining > 0 )
 	{
+		if (is_request) {
+			if (!PINFO_FD_VISITED(pinfo)) {
+				tns_conv_info_t *tns_info = tns_get_conv_info(pinfo);
+				if ((uint32_t)remaining == tns_info->pending_connect_data) {
+					col_append_fstr(pinfo->cinfo, COL_INFO, ", Connect Data");
+					proto_tree_add_item(data_tree, hf_tns_connect_data, tvb,
+						offset, -1, ENC_ASCII);
+					p_add_proto_data(wmem_file_scope(), pinfo, proto_tns, 0,
+						GUINT_TO_POINTER(tns_info->pending_connect_data));
+					tns_info->pending_connect_data = 0;
+					return;
+				}
+			} else {
+				if (p_get_proto_data(wmem_file_scope(), pinfo, proto_tns, 0) != NULL) {
+					col_append_fstr(pinfo->cinfo, COL_INFO, ", Connect Data");
+					proto_tree_add_item(data_tree, hf_tns_connect_data, tvb,
+						offset, -1, ENC_ASCII);
+					return;
+				}
+			}
+		}
 		col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", val_to_str_const(data_func_id, tns_data_funcs, "unknown"));
 
 		if ( (data_func_id != SQLNET_SNS) && (try_val_to_str(data_func_id, tns_data_funcs) != NULL) )
@@ -942,8 +1042,19 @@ static void dissect_tns_connect(tvbuff_t *tvb, int offset, packet_info *pinfo _U
 
 	if ( cd_len > 0)
 	{
-		proto_tree_add_item(connect_tree, hf_tns_connect_data, tvb,
-			tns_offset+cd_offset, -1, ENC_ASCII);
+		/* Long Connect Data (> 221 bytes?) is not in the Connect PDU
+		 * but sent in an immediately following Data PDU.
+		 */
+		if (tvb_reported_length_remaining(tvb, tns_offset + cd_offset)) {
+			proto_tree_add_item(connect_tree, hf_tns_connect_data, tvb,
+				tns_offset+cd_offset, -1, ENC_ASCII);
+		} else {
+			proto_tree_add_expert(connect_tree, pinfo, &ei_tns_connect_data_next_packet, tvb, 0, 0);
+			if (!PINFO_FD_VISITED(pinfo)) {
+				tns_conv_info_t *tns_info = tns_get_conv_info(pinfo);
+				tns_info->pending_connect_data = cd_len;
+			}
+		}
 	}
 }
 
@@ -1111,7 +1222,25 @@ get_tns_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U
 	/*
 	 * Get the 16-bit length of the TNS message, including header
 	 */
-	return tvb_get_ntohs(tvb, offset);
+	unsigned length = tvb_get_ntohs(tvb, offset);
+	offset += 4;
+	uint8_t type = tvb_get_guint8(tvb, offset);
+	/* Type 0xf (data descriptor, LOB/FILE data) has data which follows
+	 * immediately (no new PDU header) but is not counted in the PDU
+	 * length field either.
+	 */
+	if (type == TNS_TYPE_DD) {
+		offset += 8;
+		if (!tvb_bytes_exist(tvb, offset, 4)) {
+			/* return 0 makes tcp_dissect_pdus() report
+			 * DESEGMENT_ONE_MORE_SEGMENT to the TCP dissector.
+			 */
+			return 0;
+		}
+		unsigned dd_len = tvb_get_ntohl(tvb, offset);
+		return length + dd_len;
+	}
+	return length;
 }
 
 static guint
@@ -1120,7 +1249,26 @@ get_tns_pdu_len_nochksum(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void
 	/*
 	 * Get the 32-bit length of the TNS message, including header
 	 */
-	return tvb_get_ntohl(tvb, offset);
+	unsigned length = tvb_get_ntohl(tvb, offset);
+	offset += 4;
+	uint8_t type = tvb_get_guint8(tvb, offset);
+	/* Type 0xf (data descriptor, LOB/FILE data) has data which follows
+	 * immediately (no new PDU header) but is not counted in the PDU
+	 * length field either.
+	 */
+	if (type == TNS_TYPE_DD) {
+		offset += 8;
+		if (!tvb_bytes_exist(tvb, offset, 4)) {
+			/* return 0 makes tcp_dissect_pdus() report
+			 * DESEGMENT_ONE_MORE_SEGMENT to the TCP dissector.
+			 */
+			return 0;
+		}
+		unsigned dd_len = tvb_get_ntohl(tvb, offset);
+		return length + dd_len;
+	}
+
+	return length;
 }
 
 static int
@@ -1159,7 +1307,7 @@ dissect_tns(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 
 	length = (chksum == 0 || chksum == 4) ? 2 : 4;
 
-	tcp_dissect_pdus(tvb, pinfo, tree, tns_desegment, length,
+	tcp_dissect_pdus(tvb, pinfo, tree, tns_desegment, TNS_HDR_LEN,
 			(length == 2 ? get_tns_pdu_len : get_tns_pdu_len_nochksum),
 			dissect_tns_pdu, data);
 
@@ -1257,6 +1405,9 @@ dissect_tns_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
 			break;
 		case TNS_TYPE_DATA:
 			dissect_tns_data(tvb,offset,pinfo,tns_tree);
+			break;
+		case TNS_TYPE_DD:
+			dissect_tns_data_descriptor(tvb,offset,pinfo,tns_tree, length);
 			break;
 		default:
 			call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo,
@@ -1402,8 +1553,8 @@ void proto_register_tns(void)
 			NULL, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_connect_data_length, {
-			"Length of Connect Data", "tns.connect_data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, NULL, HFILL }},
+			"Length of Connect Data", "tns.connect_data_length", FT_UINT16,
+			BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
 		{ &hf_tns_connect_data_offset, {
 			"Offset to Connect Data", "tns.connect_data_offset", FT_UINT16, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }},
@@ -1449,8 +1600,8 @@ void proto_register_tns(void)
 			NULL, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_accept_data_length, {
-			"Accept Data Length", "tns.accept_data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, "Length of Accept Data", HFILL }},
+			"Accept Data Length", "tns.accept_data_length", FT_UINT16,
+			BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
 		{ &hf_tns_accept_data, {
 			"Accept Data", "tns.accept_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
@@ -1465,8 +1616,8 @@ void proto_register_tns(void)
 			"Refuse Reason (System)", "tns.refuse_reason_system", FT_UINT8, BASE_HEX,
 			NULL, 0x0, "Refuse Reason from System", HFILL }},
 		{ &hf_tns_refuse_data_length, {
-			"Refuse Data Length", "tns.refuse_data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, "Length of Refuse Data", HFILL }},
+			"Refuse Data Length", "tns.refuse_data_length", FT_UINT16,
+			BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
 		{ &hf_tns_refuse_data, {
 			"Refuse Data", "tns.refuse_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
@@ -1501,8 +1652,8 @@ void proto_register_tns(void)
 			NULL, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_redirect_data_length, {
-			"Redirect Data Length", "tns.redirect_data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, "Length of Redirect Data", HFILL }},
+			"Redirect Data Length", "tns.redirect_data_length", FT_UINT16,
+			BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
 		{ &hf_tns_redirect_data, {
 			"Redirect Data", "tns.redirect_data", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
@@ -1542,8 +1693,8 @@ void proto_register_tns(void)
 			"Data ID", "tns.data_id", FT_UINT32, BASE_HEX,
 			VALS(tns_data_funcs), 0x0, NULL, HFILL }},
 		{ &hf_tns_data_length, {
-			"Data Length", "tns.data_length", FT_UINT16, BASE_DEC,
-			NULL, 0x0, NULL, HFILL }},
+			"Data Length", "tns.data_length", FT_UINT32,
+			BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
 
 		{ &hf_tns_data_oci_id, {
 			"Call ID", "tns.data_oci.id", FT_UINT8, BASE_HEX|BASE_EXT_STRING,
@@ -1606,6 +1757,13 @@ void proto_register_tns(void)
 			"Value", "tns.data_opi.param_value", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
 
+		{ &hf_tns_data_descriptor_row_count, {
+			"Row Count", "tns.data_descriptor.row_count", FT_UINT32, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_descriptor_row_size, {
+			"Row Size", "tns.data_descriptor.row_size", FT_UINT32, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+
 		{ &hf_tns_reserved_byte, {
 			"Reserved Byte", "tns.reserved_byte", FT_BYTES, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
@@ -1633,13 +1791,23 @@ void proto_register_tns(void)
 		&ett_tns_sopt_flag,
 		&ett_tns_ntp_flag,
 		&ett_tns_conn_flag,
+		&ett_tns_rows,
 		&ett_sql
 	};
+
+	static ei_register_info ei[] = {
+		{ &ei_tns_connect_data_next_packet, { "tns.connect_data.next_packet", PI_REQUEST_CODE, PI_CHAT, "Long Connect Data (> 221 bytes) carried in subsequent Data packet", EXPFILL }},
+		{ &ei_tns_data_descriptor_size_mismatch, { "tns.data_descriptor.size_mismatch", PI_PROTOCOL, PI_WARN, "Data size from summing row sizes differs from size in descriptor", EXPFILL }},
+	};
+
 	module_t *tns_module;
+	expert_module_t* expert_tns;
 
 	proto_tns = proto_register_protocol("Transparent Network Substrate Protocol", "TNS", "tns");
 	proto_register_field_array(proto_tns, hf, array_length(hf));
 	proto_register_subtree_array(ett, array_length(ett));
+	expert_tns = expert_register_protocol(proto_tns);
+	expert_register_field_array(expert_tns, ei, array_length(ei));
 	tns_handle = register_dissector("tns", dissect_tns, proto_tns);
 
 	tns_module = prefs_register_protocol(proto_tns, NULL);

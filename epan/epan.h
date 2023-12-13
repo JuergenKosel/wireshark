@@ -18,6 +18,7 @@
 #include <epan/frame_data.h>
 #include <epan/register.h>
 #include <wiretap/wtap_opttypes.h>
+#include <wsutil/plugins.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,8 +49,8 @@ struct packet_provider_data;
  */
 struct packet_provider_funcs {
 	const nstime_t *(*get_frame_ts)(struct packet_provider_data *prov, guint32 frame_num);
-	const char *(*get_interface_name)(struct packet_provider_data *prov, guint32 interface_id);
-	const char *(*get_interface_description)(struct packet_provider_data *prov, guint32 interface_id);
+	const char *(*get_interface_name)(struct packet_provider_data *prov, guint32 interface_id, unsigned section_number);
+	const char *(*get_interface_description)(struct packet_provider_data *prov, guint32 interface_id, unsigned section_number);
 	wtap_block_t (*get_modified_block)(struct packet_provider_data *prov, const frame_data *fd);
 };
 
@@ -123,10 +124,14 @@ typedef struct {
 	void (*cleanup)(void);
 	void (*register_all_protocols)(register_cb, gpointer);
 	void (*register_all_handoffs)(register_cb, gpointer);
-	void (*register_all_tap_listeners)(void);
+	void (*get_descriptions)(plugin_description_callback callback, void *user_data);
 } epan_plugin;
 
 WS_DLL_PUBLIC void epan_register_plugin(const epan_plugin *plugin);
+
+WS_DLL_PUBLIC void epan_plugins_get_descriptions(plugin_description_callback callback, void *user_data);
+
+WS_DLL_PUBLIC void epan_plugins_dump_all(void);
 
 /** Returns_
  *     0 if plugins can be loaded for all of libwireshark (tap, dissector, epan).
@@ -157,9 +162,9 @@ WS_DLL_PUBLIC epan_t *epan_new(struct packet_provider_data *prov,
 
 WS_DLL_PUBLIC wtap_block_t epan_get_modified_block(const epan_t *session, const frame_data *fd);
 
-WS_DLL_PUBLIC const char *epan_get_interface_name(const epan_t *session, guint32 interface_id);
+WS_DLL_PUBLIC const char *epan_get_interface_name(const epan_t *session, guint32 interface_id, unsigned section_number);
 
-WS_DLL_PUBLIC const char *epan_get_interface_description(const epan_t *session, guint32 interface_id);
+WS_DLL_PUBLIC const char *epan_get_interface_description(const epan_t *session, guint32 interface_id, unsigned section_number);
 
 const nstime_t *epan_get_frame_ts(const epan_t *session, guint32 frame_num);
 

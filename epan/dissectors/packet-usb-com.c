@@ -16,116 +16,116 @@
 #include <epan/follow.h>
 #include "packet-usb.h"
 
-static int cdc_data_follow_tap = -1;
-static int proto_usb = -1;
+static int cdc_data_follow_tap;
+static int proto_usb;
 
 /* protocols and header fields */
-static int proto_usb_com = -1;
-static int hf_usb_com_descriptor_subtype = -1;
-static int hf_usb_com_descriptor_cdc = -1;
-static int hf_usb_com_descriptor_payload = -1;
-static int hf_usb_com_control_subclass = -1;
-static int hf_usb_com_control_request_code = -1;
-static int hf_usb_com_control_value = -1;
-static int hf_usb_com_control_index = -1;
-static int hf_usb_com_control_length = -1;
-static int hf_usb_com_control_response_code = -1;
-static int hf_usb_com_control_payload = -1;
-static int hf_usb_com_get_ntb_params_length = -1;
-static int hf_usb_com_get_ntb_params_ntb_formats_supported = -1;
-static int hf_usb_com_get_ntb_params_ntb_formats_supported_16bit = -1;
-static int hf_usb_com_get_ntb_params_ntb_formats_supported_32bit = -1;
-static int hf_usb_com_get_ntb_params_ntb_in_max_size = -1;
-static int hf_usb_com_get_ntb_params_ndp_in_divisor = -1;
-static int hf_usb_com_get_ntb_params_ndp_in_payload_remainder = -1;
-static int hf_usb_com_get_ntb_params_ndp_in_alignment = -1;
-static int hf_usb_com_get_ntb_params_reserved = -1;
-static int hf_usb_com_get_ntb_params_ntb_out_max_size = -1;
-static int hf_usb_com_get_ntb_params_ndp_out_divisor = -1;
-static int hf_usb_com_get_ntb_params_ndp_out_payload_remainder = -1;
-static int hf_usb_com_get_ntb_params_ndp_out_alignment = -1;
-static int hf_usb_com_get_ntb_params_ntb_out_max_datagrams = -1;
-static int hf_usb_com_get_net_address_eui48 = -1;
-static int hf_usb_com_set_net_address_eui48 = -1;
-static int hf_usb_com_get_ntb_format_ntb_format = -1;
-static int hf_usb_com_set_ntb_format_ntb_format = -1;
-static int hf_usb_com_get_ntb_input_size_ntb_in_max_size = -1;
-static int hf_usb_com_get_ntb_input_size_ntb_in_max_datagrams = -1;
-static int hf_usb_com_get_ntb_input_size_reserved = -1;
-static int hf_usb_com_set_ntb_input_size_ntb_in_max_size = -1;
-static int hf_usb_com_set_ntb_input_size_ntb_in_max_datagrams = -1;
-static int hf_usb_com_set_ntb_input_size_reserved = -1;
-static int hf_usb_com_get_max_datagram_size_size = -1;
-static int hf_usb_com_set_max_datagram_size_size = -1;
-static int hf_usb_com_get_crc_mode_crc_mode = -1;
-static int hf_usb_com_set_crc_mode_crc_mode = -1;
-static int hf_usb_com_capabilities = -1;
-static int hf_usb_com_descriptor_acm_capabilities_reserved = -1;
-static int hf_usb_com_descriptor_acm_capabilities_network_connection = -1;
-static int hf_usb_com_descriptor_acm_capabilities_send_break = -1;
-static int hf_usb_com_descriptor_acm_capabilities_line_and_state = -1;
-static int hf_usb_com_descriptor_acm_capabilities_comm_features = -1;
-static int hf_usb_com_descriptor_control_interface = -1;
-static int hf_usb_com_descriptor_subordinate_interface = -1;
-static int hf_usb_com_descriptor_cm_capabilities_reserved = -1;
-static int hf_usb_com_descriptor_cm_capabilities_call_management_over_data_class_interface = -1;
-static int hf_usb_com_descriptor_cm_capabilities_call_management = -1;
-static int hf_usb_com_descriptor_cm_data_interface = -1;
-static int hf_usb_com_descriptor_ecm_mac_address = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_reserved = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_late_collisions = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_times_crs_lost = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_heartbeat_failure = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_underrun = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rcv_overrun = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_max_collisions = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_deferred = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_more_collisions = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_one_collision = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rcv_error_alignment = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_transmit_queue_length = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rcv_crc_error = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_frames_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_bytes_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_multicast_frames_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_multicast_bytes_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_directed_frames_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_directed_bytes_rcv = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_frames_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_bytes_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_multicast_frames_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_multicast_bytes_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_directed_frames_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_directed_bytes_xmit = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rcv_no_buffer = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rcv_error = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_error = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_rvc_ok = -1;
-static int hf_usb_com_descriptor_ecm_eth_stats_xmit_ok = -1;
-static int hf_usb_com_descriptor_ecm_max_segment_size = -1;
-static int hf_usb_com_descriptor_ecm_nb_mc_filters = -1;
-static int hf_usb_com_descriptor_ecm_nb_mc_filters_mc_address_filtering = -1;
-static int hf_usb_com_descriptor_ecm_nb_mc_filters_nb_filters_supported = -1;
-static int hf_usb_com_descriptor_ecm_nb_power_filters = -1;
-static int hf_usb_com_interrupt_request_type = -1;
-static int hf_usb_com_interrupt_notif_code = -1;
-static int hf_usb_com_interrupt_value = -1;
-static int hf_usb_com_interrupt_value_nw_conn = -1;
-static int hf_usb_com_interrupt_index = -1;
-static int hf_usb_com_interrupt_length = -1;
-static int hf_usb_com_interrupt_dl_bitrate = -1;
-static int hf_usb_com_interrupt_ul_bitrate = -1;
-static int hf_usb_com_interrupt_payload = -1;
-static int hf_usb_com_data_stream = -1;
-static int hf_usb_com_data_in_payload = -1;
-static int hf_usb_com_data_out_payload = -1;
+static int proto_usb_com;
+static int hf_usb_com_descriptor_subtype;
+static int hf_usb_com_descriptor_cdc;
+static int hf_usb_com_descriptor_payload;
+static int hf_usb_com_control_subclass;
+static int hf_usb_com_control_request_code;
+static int hf_usb_com_control_value;
+static int hf_usb_com_control_index;
+static int hf_usb_com_control_length;
+static int hf_usb_com_control_response_code;
+static int hf_usb_com_control_payload;
+static int hf_usb_com_get_ntb_params_length;
+static int hf_usb_com_get_ntb_params_ntb_formats_supported;
+static int hf_usb_com_get_ntb_params_ntb_formats_supported_16bit;
+static int hf_usb_com_get_ntb_params_ntb_formats_supported_32bit;
+static int hf_usb_com_get_ntb_params_ntb_in_max_size;
+static int hf_usb_com_get_ntb_params_ndp_in_divisor;
+static int hf_usb_com_get_ntb_params_ndp_in_payload_remainder;
+static int hf_usb_com_get_ntb_params_ndp_in_alignment;
+static int hf_usb_com_get_ntb_params_reserved;
+static int hf_usb_com_get_ntb_params_ntb_out_max_size;
+static int hf_usb_com_get_ntb_params_ndp_out_divisor;
+static int hf_usb_com_get_ntb_params_ndp_out_payload_remainder;
+static int hf_usb_com_get_ntb_params_ndp_out_alignment;
+static int hf_usb_com_get_ntb_params_ntb_out_max_datagrams;
+static int hf_usb_com_get_net_address_eui48;
+static int hf_usb_com_set_net_address_eui48;
+static int hf_usb_com_get_ntb_format_ntb_format;
+static int hf_usb_com_set_ntb_format_ntb_format;
+static int hf_usb_com_get_ntb_input_size_ntb_in_max_size;
+static int hf_usb_com_get_ntb_input_size_ntb_in_max_datagrams;
+static int hf_usb_com_get_ntb_input_size_reserved;
+static int hf_usb_com_set_ntb_input_size_ntb_in_max_size;
+static int hf_usb_com_set_ntb_input_size_ntb_in_max_datagrams;
+static int hf_usb_com_set_ntb_input_size_reserved;
+static int hf_usb_com_get_max_datagram_size_size;
+static int hf_usb_com_set_max_datagram_size_size;
+static int hf_usb_com_get_crc_mode_crc_mode;
+static int hf_usb_com_set_crc_mode_crc_mode;
+static int hf_usb_com_capabilities;
+static int hf_usb_com_descriptor_acm_capabilities_reserved;
+static int hf_usb_com_descriptor_acm_capabilities_network_connection;
+static int hf_usb_com_descriptor_acm_capabilities_send_break;
+static int hf_usb_com_descriptor_acm_capabilities_line_and_state;
+static int hf_usb_com_descriptor_acm_capabilities_comm_features;
+static int hf_usb_com_descriptor_control_interface;
+static int hf_usb_com_descriptor_subordinate_interface;
+static int hf_usb_com_descriptor_cm_capabilities_reserved;
+static int hf_usb_com_descriptor_cm_capabilities_call_management_over_data_class_interface;
+static int hf_usb_com_descriptor_cm_capabilities_call_management;
+static int hf_usb_com_descriptor_cm_data_interface;
+static int hf_usb_com_descriptor_ecm_mac_address;
+static int hf_usb_com_descriptor_ecm_eth_stats;
+static int hf_usb_com_descriptor_ecm_eth_stats_reserved;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_late_collisions;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_times_crs_lost;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_heartbeat_failure;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_underrun;
+static int hf_usb_com_descriptor_ecm_eth_stats_rcv_overrun;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_max_collisions;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_deferred;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_more_collisions;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_one_collision;
+static int hf_usb_com_descriptor_ecm_eth_stats_rcv_error_alignment;
+static int hf_usb_com_descriptor_ecm_eth_stats_transmit_queue_length;
+static int hf_usb_com_descriptor_ecm_eth_stats_rcv_crc_error;
+static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_frames_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_bytes_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_multicast_frames_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_multicast_bytes_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_directed_frames_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_directed_bytes_rcv;
+static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_frames_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_broadcast_bytes_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_multicast_frames_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_multicast_bytes_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_directed_frames_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_directed_bytes_xmit;
+static int hf_usb_com_descriptor_ecm_eth_stats_rcv_no_buffer;
+static int hf_usb_com_descriptor_ecm_eth_stats_rcv_error;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_error;
+static int hf_usb_com_descriptor_ecm_eth_stats_rvc_ok;
+static int hf_usb_com_descriptor_ecm_eth_stats_xmit_ok;
+static int hf_usb_com_descriptor_ecm_max_segment_size;
+static int hf_usb_com_descriptor_ecm_nb_mc_filters;
+static int hf_usb_com_descriptor_ecm_nb_mc_filters_mc_address_filtering;
+static int hf_usb_com_descriptor_ecm_nb_mc_filters_nb_filters_supported;
+static int hf_usb_com_descriptor_ecm_nb_power_filters;
+static int hf_usb_com_interrupt_request_type;
+static int hf_usb_com_interrupt_notif_code;
+static int hf_usb_com_interrupt_value;
+static int hf_usb_com_interrupt_value_nw_conn;
+static int hf_usb_com_interrupt_index;
+static int hf_usb_com_interrupt_length;
+static int hf_usb_com_interrupt_dl_bitrate;
+static int hf_usb_com_interrupt_ul_bitrate;
+static int hf_usb_com_interrupt_payload;
+static int hf_usb_com_data_stream;
+static int hf_usb_com_data_in_payload;
+static int hf_usb_com_data_out_payload;
 
-static gint ett_usb_com = -1;
-static gint ett_usb_com_capabilities = -1;
-static gint ett_usb_com_bitmap = -1;
-static gint ett_usb_com_descriptor_ecm_eth_stats = -1;
-static gint ett_usb_com_descriptor_ecm_nb_mc_filters = -1;
+static gint ett_usb_com;
+static gint ett_usb_com_capabilities;
+static gint ett_usb_com_bitmap;
+static gint ett_usb_com_descriptor_ecm_eth_stats;
+static gint ett_usb_com_descriptor_ecm_nb_mc_filters;
 
 static dissector_handle_t usb_com_descriptor_handle;
 static dissector_handle_t usb_com_control_handle;
@@ -137,7 +137,7 @@ static dissector_handle_t mbim_descriptor_handle;
 static dissector_handle_t mbim_bulk_handle;
 static dissector_handle_t eth_withoutfcs_handle;
 
-static expert_field ei_unexpected_controlling_iface = EI_INIT;
+static expert_field ei_unexpected_controlling_iface;
 
 static wmem_tree_t* controlling_ifaces = NULL;
 
@@ -914,7 +914,7 @@ static cdc_data_conv_t *get_cdc_data_conv(packet_info *pinfo)
     return (cdc_data_conv_t *)usb_conv_info->class_data;
 }
 
-gchar *cdc_data_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, guint *stream, guint *sub_stream _U_)
+static gchar *cdc_data_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, guint *stream, guint *sub_stream _U_)
 {
     cdc_data_conv_t *cdc_data_info;
 
@@ -927,18 +927,18 @@ gchar *cdc_data_follow_conv_filter(epan_dissect_t *edt _U_, packet_info *pinfo, 
     return NULL;
 }
 
-gchar *cdc_data_follow_index_filter(guint stream, guint sub_stream _U_)
+static gchar *cdc_data_follow_index_filter(guint stream, guint sub_stream _U_)
 {
     return ws_strdup_printf("usbcom.data.stream eq %u", stream);
 }
 
-gchar *cdc_data_follow_address_filter(address *src_addr _U_, address *dst_addr _U_, int src_port _U_, int dst_port _U_)
+static gchar *cdc_data_follow_address_filter(address *src_addr _U_, address *dst_addr _U_, int src_port _U_, int dst_port _U_)
 {
     /* We always just filter stream based on an arbitrarily generated index. */
     return NULL;
 }
 
-gchar *cdc_data_port_to_display(wmem_allocator_t *allocator, guint port)
+static gchar *cdc_data_port_to_display(wmem_allocator_t *allocator, guint port)
 {
     return wmem_strdup(allocator, port == NO_ENDPOINT ? "host" : "device");
 }

@@ -26,93 +26,93 @@ void proto_reg_handoff_icq(void);
 
 static dissector_handle_t icq_handle;
 
-static int proto_icq = -1;
-static int hf_icq_version = -1;
-static int hf_icq_uin = -1;
-static int hf_icq_client_cmd = -1;
-static int hf_icq_server_cmd = -1;
-static int hf_icq_sessionid = -1;
-static int hf_icq_checkcode = -1;
-static int hf_icq_type = -1;
-static int hf_icq_msg_type = -1;
-static int hf_icq_seqnum1 = -1;
-static int hf_icq_seqnum2 = -1;
-static int hf_icq_checkcode_key = -1;
-static int hf_icq_group = -1;
-static int hf_icq_ack_random = -1;
-static int hf_icq_keep_alive_random = -1;
-static int hf_icq_status = -1;
-static int hf_icq_meta_user_subcmd = -1;
+static int proto_icq;
+static int hf_icq_version;
+static int hf_icq_uin;
+static int hf_icq_client_cmd;
+static int hf_icq_server_cmd;
+static int hf_icq_sessionid;
+static int hf_icq_checkcode;
+static int hf_icq_type;
+static int hf_icq_msg_type;
+static int hf_icq_seqnum1;
+static int hf_icq_seqnum2;
+static int hf_icq_checkcode_key;
+static int hf_icq_group;
+static int hf_icq_ack_random;
+static int hf_icq_keep_alive_random;
+static int hf_icq_status;
+static int hf_icq_meta_user_subcmd;
 /* Generated from convert_proto_tree_add_text.pl */
-static int hf_icq_rand_user_tcpversion = -1;
-static int hf_icq_meta_user_x3 = -1;
-static int hf_icq_user_online_realip = -1;
-static int hf_icq_rand_user_realip = -1;
-static int hf_icq_meta_user_hideip = -1;
-static int hf_icq_user_online_port = -1;
-static int hf_icq_user_online_ip = -1;
-static int hf_icq_num_uin_pairs = -1;
-static int hf_icq_x1 = -1;
-static int hf_icq_meta_user_timezone = -1;
-static int hf_icq_user_online_version = -1;
-static int hf_icq_receiver_uin = -1;
-static int hf_icq_text_code = -1;
-static int hf_icq_login_reply_ip = -1;
-static int hf_icq_rand_user_ip = -1;
-static int hf_icq_multi_num_packets = -1;
-static int hf_icq_number_of_uins = -1;
-static int hf_icq_meta_user_length = -1;
-static int hf_icq_text_code_length = -1;
-static int hf_icq_login_password = -1;
-static int hf_icq_meta_user_x2 = -1;
-static int hf_icq_login_time = -1;
-static int hf_icq_meta_user_countrycode = -1;
-static int hf_icq_msg_length = -1;
-static int hf_icq_meta_user_about = -1;
-static int hf_icq_meta_user_webaware = -1;
-static int hf_icq_rand_user_class = -1;
-static int hf_icq_rand_user_port = -1;
-static int hf_icq_meta_user_found_authorization = -1;
-static int hf_icq_meta_user_info_authorization = -1;
-static int hf_icq_no_parameters = -1;
-static int hf_icq_login_port = -1;
-static int hf_icq_meta_user_result = -1;
-static int hf_icq_login_ip = -1;
-static int hf_icq_msg_authorization = -1;
-static int hf_icq_msg = -1;
-static int hf_icq_nickname = -1;
-static int hf_icq_first_name = -1;
-static int hf_icq_last_name = -1;
-static int hf_icq_email = -1;
-static int hf_icq_nickname_uint_string = -1;
-static int hf_icq_first_name_uint_string = -1;
-static int hf_icq_last_name_uint_string = -1;
-static int hf_icq_email_uint_string = -1;
-static int hf_icq_primary_email = -1;
-static int hf_icq_secondary_email = -1;
-static int hf_icq_old_email = -1;
-static int hf_icq_city = -1;
-static int hf_icq_state = -1;
-static int hf_icq_phone = -1;
-static int hf_icq_fax = -1;
-static int hf_icq_street = -1;
-static int hf_icq_cellphone = -1;
-static int hf_icq_zip = -1;
-static int hf_icq_description = -1;
-static int hf_icq_url = -1;
-static int hf_icq_text = -1;
-static int hf_icq_unknown = -1;
-static int hf_icq_reason = -1;
-static int hf_icq_msg_contact = -1;
-static int hf_icq_recv_time = -1;
+static int hf_icq_rand_user_tcpversion;
+static int hf_icq_meta_user_x3;
+static int hf_icq_user_online_realip;
+static int hf_icq_rand_user_realip;
+static int hf_icq_meta_user_hideip;
+static int hf_icq_user_online_port;
+static int hf_icq_user_online_ip;
+static int hf_icq_num_uin_pairs;
+static int hf_icq_x1;
+static int hf_icq_meta_user_timezone;
+static int hf_icq_user_online_version;
+static int hf_icq_receiver_uin;
+static int hf_icq_text_code;
+static int hf_icq_login_reply_ip;
+static int hf_icq_rand_user_ip;
+static int hf_icq_multi_num_packets;
+static int hf_icq_number_of_uins;
+static int hf_icq_meta_user_length;
+static int hf_icq_text_code_length;
+static int hf_icq_login_password;
+static int hf_icq_meta_user_x2;
+static int hf_icq_login_time;
+static int hf_icq_meta_user_countrycode;
+static int hf_icq_msg_length;
+static int hf_icq_meta_user_about;
+static int hf_icq_meta_user_webaware;
+static int hf_icq_rand_user_class;
+static int hf_icq_rand_user_port;
+static int hf_icq_meta_user_found_authorization;
+static int hf_icq_meta_user_info_authorization;
+static int hf_icq_no_parameters;
+static int hf_icq_login_port;
+static int hf_icq_meta_user_result;
+static int hf_icq_login_ip;
+static int hf_icq_msg_authorization;
+static int hf_icq_msg;
+static int hf_icq_nickname;
+static int hf_icq_first_name;
+static int hf_icq_last_name;
+static int hf_icq_email;
+static int hf_icq_nickname_uint_string;
+static int hf_icq_first_name_uint_string;
+static int hf_icq_last_name_uint_string;
+static int hf_icq_email_uint_string;
+static int hf_icq_primary_email;
+static int hf_icq_secondary_email;
+static int hf_icq_old_email;
+static int hf_icq_city;
+static int hf_icq_state;
+static int hf_icq_phone;
+static int hf_icq_fax;
+static int hf_icq_street;
+static int hf_icq_cellphone;
+static int hf_icq_zip;
+static int hf_icq_description;
+static int hf_icq_url;
+static int hf_icq_text;
+static int hf_icq_unknown;
+static int hf_icq_reason;
+static int hf_icq_msg_contact;
+static int hf_icq_recv_time;
 
-static gint ett_icq = -1;
-static gint ett_icq_header = -1;
-static gint ett_icq_body = -1;
-static gint ett_icq_body_parts = -1;
+static gint ett_icq;
+static gint ett_icq_header;
+static gint ett_icq_body;
+static gint ett_icq_body_parts;
 
-static expert_field ei_icq_unknown_meta_subcmd = EI_INIT;
-static expert_field ei_icq_unknown_command = EI_INIT;
+static expert_field ei_icq_unknown_meta_subcmd;
+static expert_field ei_icq_unknown_command;
 
 /* This is not IANA registered */
 #define UDP_PORT_ICQ    4000
@@ -663,10 +663,10 @@ icqv5_decode_msgType(proto_tree *tree, tvbuff_t *tvb, int offset, int size,
                     sz_local = left;
                     last = TRUE;
                 }
-                contact = tvb_get_string_enc(wmem_packet_scope(), tvb, sep_offset_prev + 1, sz_local, ENC_ASCII);
+                contact = tvb_get_string_enc(pinfo->pool, tvb, sep_offset_prev + 1, sz_local, ENC_ASCII);
                 proto_tree_add_string_format(subtree, hf_icq_msg_contact, tvb, offset, sz_local + svsz,
                             contact, "%s: %s",
-                            tvb_get_string_enc(wmem_packet_scope(), tvb, offset, svsz, ENC_ASCII),
+                            tvb_get_string_enc(pinfo->pool, tvb, offset, svsz, ENC_ASCII),
                             contact);
                 n_local += 2;
             }
@@ -714,7 +714,7 @@ icqv5_cmd_send_msg(proto_tree *tree, tvbuff_t *tvb, int offset, int size,
 }
 
 static void
-icqv5_cmd_login(proto_tree *tree, tvbuff_t *tvb, int offset)
+icqv5_cmd_login(proto_tree *tree, tvbuff_t *tvb, int offset, packet_info *pinfo)
 {
     proto_tree *subtree = tree;
     time_t theTime;
@@ -723,7 +723,7 @@ icqv5_cmd_login(proto_tree *tree, tvbuff_t *tvb, int offset)
 
     if (tree) {
         theTime = tvb_get_letohl(tvb, offset + CMD_LOGIN_TIME);
-        aTime = abs_time_secs_to_str(wmem_packet_scope(), theTime, ABSOLUTE_TIME_LOCAL, TRUE);
+        aTime = abs_time_secs_to_str(pinfo->pool, theTime, ABSOLUTE_TIME_LOCAL, TRUE);
         proto_tree_add_uint_format_value(subtree, hf_icq_login_time, tvb, offset + CMD_LOGIN_TIME, 4,
                     (guint32)theTime, "%u = %s", (guint32)theTime, aTime);
         proto_tree_add_item(subtree, hf_icq_login_port, tvb, offset + CMD_LOGIN_PORT, 4, ENC_LITTLE_ENDIAN);
@@ -1090,7 +1090,7 @@ dissect_icqv5Client(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
         proto_tree_add_item(icq_body_tree, hf_icq_group, decr_tvb, ICQ5_CL_HDRSIZE + CMD_RAND_SEARCH_GROUP, 4, ENC_LITTLE_ENDIAN);
         break;
     case CMD_LOGIN:
-        icqv5_cmd_login(icq_body_tree, decr_tvb, ICQ5_CL_HDRSIZE);
+        icqv5_cmd_login(icq_body_tree, decr_tvb, ICQ5_CL_HDRSIZE, pinfo);
         break;
     case CMD_SEND_TEXT_CODE:
         icqv5_cmd_send_text_code(icq_body_tree, decr_tvb, ICQ5_CL_HDRSIZE);

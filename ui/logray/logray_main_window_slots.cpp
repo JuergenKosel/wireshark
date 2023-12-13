@@ -737,7 +737,7 @@ void LograyMainWindow::captureFileReadStarted(const QString &action) {
 void LograyMainWindow::captureFileReadFinished() {
     if (!capture_file_.capFile()->is_tempfile && capture_file_.capFile()->filename) {
         /* Add this filename to the list of recent files in the "Recent Files" submenu */
-        add_menu_recent_capture_file(capture_file_.capFile()->filename);
+        add_menu_recent_capture_file(capture_file_.capFile()->filename, false);
 
         /* Remember folder for next Open dialog and save it in recent */
         mainApp->setLastOpenDirFromFilename(capture_file_.capFile()->filename);
@@ -1024,6 +1024,13 @@ void LograyMainWindow::updateRecentCaptures() {
         dock_menu_->insertAction(NULL, rda);
         connect(rda, SIGNAL(triggered()), ra, SLOT(trigger()));
 #endif
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        if (recentMenu->actions().count() == static_cast<int>(prefs.gui_recent_files_count_max)) {
+#else
+        if (recentMenu->actions().count() == static_cast<qsizetype>(prefs.gui_recent_files_count_max)) {
+#endif
+            break;
+        }
     }
 
     if (recentMenu->actions().count() > 0) {
@@ -1252,6 +1259,22 @@ void LograyMainWindow::setMenusForSelectedTreeRow(FieldInformation *finfo) {
 
         if (fi && fi->ds_tvb && (fi->length > 0)) {
             have_packet_bytes = true;
+        }
+
+        if (!(capture_file_.capFile()->search_in_progress && (capture_file_.capFile()->hex || (capture_file_.capFile()->string && capture_file_.capFile()->packet_data)))) {
+            // If we're not in the middle of a packet bytes search, then set
+            // search_pos and search_len so that we can start a new search
+            // from this point. (If we are, then we already set it.)
+            if (fi && capture_file_.capFile()->edt && (fi->ds_tvb == capture_file_.capFile()->edt->tvb)) {
+                // We can only do a Packet Bytes search in the main bytes from
+                // the frame, not from any secondary data sources. (XXX: This
+                // might be surprising to users, though.)
+                capture_file_.capFile()->search_pos = (uint32_t)(finfo->position().start + finfo->position().length - 1);
+                capture_file_.capFile()->search_len = (uint32_t)finfo->position().length;
+            } else {
+                capture_file_.capFile()->search_pos = 0;
+                capture_file_.capFile()->search_len = 0;
+            }
         }
     }
 
@@ -1505,8 +1528,7 @@ void LograyMainWindow::showAccordionFrame(AccordionFrame *show_frame, bool toggl
 
 void LograyMainWindow::showColumnEditor(int column)
 {
-    previous_focus_ = mainApp->focusWidget();
-    connect(previous_focus_, SIGNAL(destroyed()), this, SLOT(resetPreviousFocus()));
+    setPreviousFocus();
     main_ui_->columnEditorFrame->editColumn(column);
     showAccordionFrame(main_ui_->columnEditorFrame);
 }
@@ -1762,7 +1784,7 @@ void LograyMainWindow::exportPacketBytes()
 
     file_name = WiresharkFileDialog::getSaveFileName(this,
                                             mainApp->windowTitleString(tr("Export Selected Packet Bytes")),
-                                            mainApp->lastOpenDir().canonicalPath(),
+                                            mainApp->openDialogInitialDir().canonicalPath(),
                                             tr("Raw data (*.bin *.dat *.raw);;All Files (" ALL_FILES_WILDCARD ")")
                                             );
 
@@ -2045,8 +2067,7 @@ void LograyMainWindow::findPacket()
     if (! packet_list_->model() || packet_list_->model()->rowCount() < 1) {
         return;
     }
-    previous_focus_ = mainApp->focusWidget();
-    connect(previous_focus_, SIGNAL(destroyed()), this, SLOT(resetPreviousFocus()));
+    setPreviousFocus();
     if (!main_ui_->searchFrame->isVisible()) {
         showAccordionFrame(main_ui_->searchFrame, true);
     } else {
@@ -2270,6 +2291,10 @@ void LograyMainWindow::connectViewMenuActions()
     connect(main_ui_->actionViewResetLayout, &QAction::triggered, this, [this]() {
         recent.gui_geometry_main_upper_pane = 0;
         recent.gui_geometry_main_lower_pane = 0;
+        g_free(recent.gui_geometry_main_master_split);
+        g_free(recent.gui_geometry_main_extra_split);
+        recent.gui_geometry_main_master_split = NULL;
+        recent.gui_geometry_main_extra_split = NULL;
         applyRecentPaneGeometry();
     });
 
@@ -2627,8 +2652,7 @@ void LograyMainWindow::connectGoMenuActions()
         if (! packet_list_->model() || packet_list_->model()->rowCount() < 1) {
             return;
         }
-        previous_focus_ = mainApp->focusWidget();
-        connect(previous_focus_, SIGNAL(destroyed()), this, SLOT(resetPreviousFocus()));
+        setPreviousFocus();
 
         showAccordionFrame(main_ui_->goToFrame, true);
         if (main_ui_->goToFrame->isVisible()) {
@@ -2865,14 +2889,10 @@ void LograyMainWindow::connectAnalyzeMenuActions()
     });
 
     connect(main_ui_->actionAnalyzeDisplayFilterMacros, &QAction::triggered, this, [=]() {
-        struct epan_uat* dfm_uat;
-        dfilter_macro_get_uat(&dfm_uat);
-        UatDialog *uat_dlg = new UatDialog(parentWidget(), dfm_uat);
-        connect(uat_dlg, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
-
-        uat_dlg->setWindowModality(Qt::ApplicationModal);
-        uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
-        uat_dlg->show();
+        FilterDialog *display_filter_dlg = new FilterDialog(window(), FilterDialog::DisplayMacro);
+        display_filter_dlg->setWindowModality(Qt::ApplicationModal);
+        display_filter_dlg->setAttribute(Qt::WA_DeleteOnClose);
+        display_filter_dlg->show();
     });
 
     connect(main_ui_->actionDisplayFilterExpression, &QAction::triggered, this, [=]() {
@@ -3139,8 +3159,15 @@ void LograyMainWindow::checkForUpdates()
 }
 #endif
 
+void LograyMainWindow::setPreviousFocus() {
+    previous_focus_ = mainApp->focusWidget();
+    if (previous_focus_ != nullptr) {
+        connect(previous_focus_, SIGNAL(destroyed()), this, SLOT(resetPreviousFocus()));
+    }
+}
+
 void LograyMainWindow::resetPreviousFocus() {
-    previous_focus_ = NULL;
+    previous_focus_ = nullptr;
 }
 
 void LograyMainWindow::goToCancelClicked()

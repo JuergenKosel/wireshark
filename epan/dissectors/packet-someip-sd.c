@@ -1,7 +1,7 @@
 /* packet-someip-sd.c
  * SOME/IP-SD dissector.
  * By Dr. Lars Voelker <lars.voelker@technica-engineering.de> / <lars.voelker@bmw.de>
- * Copyright 2012-2022 Dr. Lars Voelker
+ * Copyright 2012-2023 Dr. Lars Voelker
  * Copyright 2020      Ayoub Kaanich
  * Copyright 2019      Ana Pantar
  * Copyright 2019      Guenter Ebermann
@@ -87,70 +87,70 @@
 #define SD_MAX_NUM_OPTIONS                      271
 
 /* ID wireshark identifies the dissector by */
-static int proto_someip_sd = -1;
+static int proto_someip_sd;
 
 /* header field */
-static int hf_someip_sd_flags = -1;
-static int hf_someip_sd_rebootflag = -1;
-static int hf_someip_sd_unicastflag = -1;
-static int hf_someip_sd_explicitiniteventflag = -1;
-static int hf_someip_sd_reserved = -1;
+static int hf_someip_sd_flags;
+static int hf_someip_sd_rebootflag;
+static int hf_someip_sd_unicastflag;
+static int hf_someip_sd_explicitiniteventflag;
+static int hf_someip_sd_reserved;
 
-static int hf_someip_sd_length_entriesarray = -1;
-static int hf_someip_sd_entries = -1;
+static int hf_someip_sd_length_entriesarray;
+static int hf_someip_sd_entries;
 
-static int hf_someip_sd_entry = -1;
-static int hf_someip_sd_entry_type = -1;
-static int hf_someip_sd_entry_type_offerservice = -1;
-static int hf_someip_sd_entry_type_stopofferservice = -1;
-static int hf_someip_sd_entry_type_findservice = -1;
-static int hf_someip_sd_entry_type_subscribeeventgroup = -1;
-static int hf_someip_sd_entry_type_stopsubscribeeventgroup = -1;
-static int hf_someip_sd_entry_type_subscribeeventgroupack = -1;
-static int hf_someip_sd_entry_type_subscribeeventgroupnack = -1;
-static int hf_someip_sd_entry_index1 = -1;
-static int hf_someip_sd_entry_index2 = -1;
-static int hf_someip_sd_entry_numopt1 = -1;
-static int hf_someip_sd_entry_numopt2 = -1;
-static int hf_someip_sd_entry_opts_referenced = -1;
-static int hf_someip_sd_entry_serviceid = -1;
-static int hf_someip_sd_entry_servicename = -1;
-static int hf_someip_sd_entry_instanceid = -1;
-static int hf_someip_sd_entry_majorver = -1;
-static int hf_someip_sd_entry_ttl = -1;
-static int hf_someip_sd_entry_minorver = -1;
-static int hf_someip_sd_entry_eventgroupid = -1;
-static int hf_someip_sd_entry_eventgroupname = -1;
-static int hf_someip_sd_entry_reserved = -1;
-static int hf_someip_sd_entry_counter = -1;
-static int hf_someip_sd_entry_intial_event_flag = -1;
-static int hf_someip_sd_entry_reserved2 = -1;
+static int hf_someip_sd_entry;
+static int hf_someip_sd_entry_type;
+static int hf_someip_sd_entry_type_offerservice;
+static int hf_someip_sd_entry_type_stopofferservice;
+static int hf_someip_sd_entry_type_findservice;
+static int hf_someip_sd_entry_type_subscribeeventgroup;
+static int hf_someip_sd_entry_type_stopsubscribeeventgroup;
+static int hf_someip_sd_entry_type_subscribeeventgroupack;
+static int hf_someip_sd_entry_type_subscribeeventgroupnack;
+static int hf_someip_sd_entry_index1;
+static int hf_someip_sd_entry_index2;
+static int hf_someip_sd_entry_numopt1;
+static int hf_someip_sd_entry_numopt2;
+static int hf_someip_sd_entry_opts_referenced;
+static int hf_someip_sd_entry_serviceid;
+static int hf_someip_sd_entry_servicename;
+static int hf_someip_sd_entry_instanceid;
+static int hf_someip_sd_entry_majorver;
+static int hf_someip_sd_entry_ttl;
+static int hf_someip_sd_entry_minorver;
+static int hf_someip_sd_entry_eventgroupid;
+static int hf_someip_sd_entry_eventgroupname;
+static int hf_someip_sd_entry_reserved;
+static int hf_someip_sd_entry_counter;
+static int hf_someip_sd_entry_intial_event_flag;
+static int hf_someip_sd_entry_reserved2;
 
-static int hf_someip_sd_length_optionsarray = -1;
-static int hf_someip_sd_options = -1;
+static int hf_someip_sd_length_optionsarray;
+static int hf_someip_sd_options;
 
-static int hf_someip_sd_option_type = -1;
-static int hf_someip_sd_option_length = -1;
-static int hf_someip_sd_option_reserved = -1;
-static int hf_someip_sd_option_ipv4 = -1;
-static int hf_someip_sd_option_ipv6 = -1;
-static int hf_someip_sd_option_port = -1;
-static int hf_someip_sd_option_proto = -1;
-static int hf_someip_sd_option_reserved2 = -1;
-static int hf_someip_sd_option_data = -1;
-static int hf_someip_sd_option_config_string = -1;
-static int hf_someip_sd_option_config_string_element = -1;
-static int hf_someip_sd_option_lb_priority = -1;
-static int hf_someip_sd_option_lb_weight = -1;
+static int hf_someip_sd_option_type;
+static int hf_someip_sd_option_length;
+static int hf_someip_sd_option_reserved;
+static int hf_someip_sd_option_ipv4;
+static int hf_someip_sd_option_ipv6;
+static int hf_someip_sd_option_port;
+static int hf_someip_sd_option_proto;
+static int hf_someip_sd_option_reserved2;
+static int hf_someip_sd_option_data;
+static int hf_someip_sd_option_config_string;
+static int hf_someip_sd_option_config_string_element;
+static int hf_someip_sd_option_lb_priority;
+static int hf_someip_sd_option_lb_weight;
 
 /* protocol tree items */
-static gint ett_someip_sd = -1;
-static gint ett_someip_sd_flags = -1;
-static gint ett_someip_sd_entries = -1;
-static gint ett_someip_sd_entry = -1;
-static gint ett_someip_sd_options = -1;
-static gint ett_someip_sd_option = -1;
-static gint ett_someip_sd_config_string = -1;
+static gint ett_someip_sd;
+static gint ett_someip_sd_flags;
+static gint ett_someip_sd_entries;
+static gint ett_someip_sd_entry;
+static gint ett_someip_sd_options;
+static gint ett_someip_sd_option;
+static gint ett_someip_sd_config_string;
 
 
 /*** Taps ***/
@@ -232,16 +232,18 @@ static const true_false_string sd_eiec_flag = {
 };
 
 /*** expert info items ***/
-static expert_field ef_someipsd_message_truncated = EI_INIT;
-static expert_field ef_someipsd_entry_array_malformed = EI_INIT;
-static expert_field ef_someipsd_entry_array_empty = EI_INIT;
-static expert_field ef_someipsd_entry_unknown = EI_INIT;
-static expert_field ef_someipsd_option_array_truncated = EI_INIT;
-static expert_field ef_someipsd_option_array_bytes_left = EI_INIT;
-static expert_field ef_someipsd_option_unknown = EI_INIT;
-static expert_field ef_someipsd_option_wrong_length = EI_INIT;
-static expert_field ef_someipsd_L4_protocol_unsupported = EI_INIT;
-static expert_field ef_someipsd_config_string_malformed = EI_INIT;
+static expert_field ei_someipsd_message_truncated;
+static expert_field ei_someipsd_entry_array_malformed;
+static expert_field ei_someipsd_entry_array_empty;
+static expert_field ei_someipsd_entry_unknown;
+static expert_field ei_someipsd_offer_without_endpoint;
+static expert_field ei_someipsd_entry_stopsubsub;
+static expert_field ei_someipsd_option_array_truncated;
+static expert_field ei_someipsd_option_array_bytes_left;
+static expert_field ei_someipsd_option_unknown;
+static expert_field ei_someipsd_option_wrong_length;
+static expert_field ei_someipsd_L4_protocol_unsupported;
+static expert_field ei_someipsd_config_string_malformed;
 
 /*** prototypes ***/
 void proto_register_someip_sd(void);
@@ -307,7 +309,7 @@ dissect_someip_sd_pdu_option_configuration(tvbuff_t *tvb, packet_info *pinfo, pr
         }
 
         if (element_length > config_string_length - pos) {
-            expert_add_info(pinfo, ti, &ef_someipsd_config_string_malformed);
+            expert_add_info(pinfo, ti, &ei_someipsd_config_string_malformed);
             break;
         }
 
@@ -353,7 +355,7 @@ dissect_someip_sd_pdu_option_ipv4(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     tree = proto_tree_add_subtree_format(tree, tvb, offset, length, ett_someip_sd_option, &ti_top, "%d: %s Option", optionnum, description);
 
     if (length != SD_OPTION_IPV4_LENGTH) {
-        expert_add_info(pinfo, ti_top, &ef_someipsd_option_wrong_length);
+        expert_add_info(pinfo, ti_top, &ei_someipsd_option_wrong_length);
         return;
     }
 
@@ -379,7 +381,7 @@ dissect_someip_sd_pdu_option_ipv4(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     proto_item_append_text(ti, " (%s)", l4protoname);
 
     if (type != SD_OPTION_IPV4_ENDPOINT && l4proto == SD_OPTION_L4PROTO_TCP) {
-        expert_add_info(pinfo, ti_top, &ef_someipsd_L4_protocol_unsupported);
+        expert_add_info(pinfo, ti_top, &ei_someipsd_L4_protocol_unsupported);
     }
     offset += 1;
 
@@ -407,7 +409,7 @@ dissect_someip_sd_pdu_option_ipv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     tree = proto_tree_add_subtree_format(tree, tvb, offset, length, ett_someip_sd_option, &ti_top, "%d: %s Option", optionnum, description);
 
     if (length != SD_OPTION_IPV6_LENGTH) {
-        expert_add_info(pinfo, ti_top, &ef_someipsd_option_wrong_length);
+        expert_add_info(pinfo, ti_top, &ei_someipsd_option_wrong_length);
         return;
     }
 
@@ -432,7 +434,7 @@ dissect_someip_sd_pdu_option_ipv6(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     proto_item_append_text(ti, " (%s)", l4protoname);
 
     if (type != SD_OPTION_IPV6_ENDPOINT && l4proto == SD_OPTION_L4PROTO_TCP) {
-        expert_add_info(pinfo, ti_top, &ef_someipsd_L4_protocol_unsupported);
+        expert_add_info(pinfo, ti_top, &ei_someipsd_L4_protocol_unsupported);
     }
     offset += 1;
 
@@ -451,7 +453,7 @@ dissect_someip_sd_pdu_option_unknown(tvbuff_t *tvb, packet_info *pinfo, proto_tr
     tree = proto_tree_add_subtree_format(tree, tvb, offset, length, ett_someip_sd_option, &ti, "%d: %s Option", optionnum,
         val_to_str_const(tvb_get_guint8(tvb, offset + 2), sd_option_type, "Unknown"));
 
-    expert_add_info(pinfo, ti, &ef_someipsd_option_unknown);
+    expert_add_info(pinfo, ti, &ei_someipsd_option_unknown);
 
     proto_tree_add_item_ret_uint(tree, hf_someip_sd_option_length, tvb, offset, 2, ENC_BIG_ENDIAN, &len);
     offset += 2;
@@ -479,7 +481,7 @@ dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     guint32             offset = offset_orig;
 
     if (!tvb_bytes_exist(tvb, offset, SD_OPTION_MINLENGTH) || !tvb_bytes_exist(tvb, offset, length)) {
-        expert_add_info(pinfo, ti, &ef_someipsd_option_array_truncated);
+        expert_add_info(pinfo, ti, &ei_someipsd_option_array_truncated);
         return offset;
     }
 
@@ -491,7 +493,7 @@ dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
         option_type = tvb_get_guint8(tvb, offset + 2);
 
         if (!tvb_bytes_exist(tvb, offset, (gint)real_length) || offset - offset_orig + real_length > length) {
-            expert_add_info(pinfo, ti, &ef_someipsd_option_array_truncated);
+            expert_add_info(pinfo, ti, &ei_someipsd_option_array_truncated);
             return offset;
         }
 
@@ -530,58 +532,58 @@ dissect_someip_sd_pdu_options(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 }
 
 static void
-dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset_orig, guint32 length, guint32 *entry_flags, guint32 *stop_entry_flags, guint32 option_ports[], guint option_count) {
-    guint8              type = 255;
+dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint32 offset_orig, guint32 length, guint8 *type, guint32 *ttl, guint64 *uniqueid, guint32 option_ports[], guint option_count, proto_item **ti_entry) {
     guint32             serviceid = 0;
     guint32             instanceid = 0;
     guint32             eventgroupid = 0;
     guint32             majorver = 0;
     guint32             minorver = 0;
-    guint32             ttl = 0;
     guint32             opt_index1;
     guint32             opt_index2;
     guint32             opt_num1;
     guint32             opt_num2;
 
-    guint64             uniqueid = 0;
     guint8              category = SD_ENTRY_UNKNOWN;
 
     const gchar        *description = NULL;
     static gchar        buf_opt_ref[32];
 
     proto_item         *ti;
-    proto_item         *ti_top;
 
     guint32             offset = offset_orig;
+
+    *uniqueid = 0;
+    *type = 255;
+    *ttl = 0;
 
     if (length < SD_ENTRY_LENGTH || !tvb_bytes_exist(tvb, offset, length)) {
         return;
     }
 
     /* lets look ahead and find out the type and ttl */
-    type = tvb_get_guint8(tvb, offset);
-    ttl = tvb_get_ntoh24(tvb, offset + 9);
+    *type = tvb_get_guint8(tvb, offset);
+    *ttl = tvb_get_ntoh24(tvb, offset + 9);
 
-    if (type < 4) {
+    if (*type < 4) {
         category = SD_ENTRY_SERVICE;
-    } else if (type >= 4 && type < 8) {
+    } else if (*type >= 4 && *type < 8) {
         category = SD_ENTRY_EVENTGROUP;
     } else {
-        ti_top = proto_tree_add_none_format(tree, hf_someip_sd_entry, tvb, offset, SD_ENTRY_LENGTH, "Unknown Entry (Type: %d)", type);
-        expert_add_info(pinfo, ti_top, &ef_someipsd_entry_unknown);
+        *ti_entry = proto_tree_add_none_format(tree, hf_someip_sd_entry, tvb, offset, SD_ENTRY_LENGTH, "Unknown Entry (Type: %d)", *type);
+        expert_add_info(pinfo, *ti_entry, &ei_someipsd_entry_unknown);
         return;
     }
 
-    if (ttl == 0) {
-        description = val_to_str(type, sd_entry_type_negative, "(Unknown Entry: %d)");
+    if (*ttl == 0) {
+        description = val_to_str(*type, sd_entry_type_negative, "(Unknown Entry: %d)");
     } else {
-        description = val_to_str(type, sd_entry_type_positive, "(Unknown Entry: %d)");
+        description = val_to_str(*type, sd_entry_type_positive, "(Unknown Entry: %d)");
     }
 
-    ti_top = proto_tree_add_none_format(tree, hf_someip_sd_entry, tvb, offset, SD_ENTRY_LENGTH, "%s Entry", description);
-    tree = proto_item_add_subtree(ti_top, ett_someip_sd_entry);
+    *ti_entry = proto_tree_add_none_format(tree, hf_someip_sd_entry, tvb, offset, SD_ENTRY_LENGTH, "%s Entry", description);
+    tree = proto_item_add_subtree(*ti_entry, ett_someip_sd_entry);
 
-    proto_tree_add_uint_format_value(tree, hf_someip_sd_entry_type, tvb, offset, 1, type, "0x%02x (%s)", type, description);
+    proto_tree_add_uint_format_value(tree, hf_someip_sd_entry_type, tvb, offset, 1, *type, "0x%02x (%s)", *type, description);
     offset += 1;
 
     proto_tree_add_item_ret_uint(tree, hf_someip_sd_entry_index1, tvb, offset, 1, ENC_BIG_ENDIAN, &opt_index1);
@@ -628,7 +630,7 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* Add specific fields - i.e. the last line */
     if (category == SD_ENTRY_SERVICE) {
         proto_tree_add_item_ret_uint(tree, hf_someip_sd_entry_minorver, tvb, offset, 4, ENC_BIG_ENDIAN, &minorver);
-        proto_item_append_text(ti_top, " (Service ID 0x%04x, Instance ID 0x%04x, Version %u.%u, Options: %s)", serviceid, instanceid, majorver, minorver, buf_opt_ref);
+        proto_item_append_text(*ti_entry, " (Service ID 0x%04x, Instance ID 0x%04x, Version %u.%u, Options: %s)", serviceid, instanceid, majorver, minorver, buf_opt_ref);
     } else if (category == SD_ENTRY_EVENTGROUP) {
         proto_tree_add_item(tree, hf_someip_sd_entry_reserved, tvb, offset, 1, ENC_NA);
         offset += 1;
@@ -647,52 +649,48 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_item_set_hidden(ti);
         }
 
-        proto_item_append_text(ti_top, " (Service ID 0x%04x, Instance ID 0x%04x, Eventgroup ID 0x%04x, Version %u, Options: %s)", serviceid, instanceid, eventgroupid, majorver, buf_opt_ref);
-    }
-
-    /* mark for attaching to info column */
-    if (type < 32) {
-        if (ttl == 0) {
-            *stop_entry_flags = *stop_entry_flags | (1 << type);
-        } else {
-            *entry_flags = *entry_flags | (1 << type);
-        }
+        proto_item_append_text(*ti_entry, " (Service ID 0x%04x, Instance ID 0x%04x, Eventgroup ID 0x%04x, Version %u, Options: %s)", serviceid, instanceid, eventgroupid, majorver, buf_opt_ref);
     }
 
     /* lets add some combined filtering term */
-    uniqueid = (((guint64)serviceid) << 32) | (guint64)instanceid << 16 | (guint64)eventgroupid;
+    *uniqueid = (((guint64)serviceid) << 32) | (guint64)instanceid << 16 | (guint64)eventgroupid;
 
     ti = NULL;
-    if (ttl > 0) {
-        switch (type) {
+    if (*ttl > 0) {
+        switch (*type) {
         case SD_ENTRY_FIND_SERVICE:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_findservice, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_findservice, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         case SD_ENTRY_OFFER_SERVICE:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_offerservice, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_offerservice, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         case SD_ENTRY_SUBSCRIBE_EVENTGROUP:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroup, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroup, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         case SD_ENTRY_SUBSCRIBE_EVENTGROUP_ACK:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroupack, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroupack, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         }
     } else {
-        switch (type) {
+        switch (*type) {
         case SD_ENTRY_STOP_OFFER_SERVICE:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_stopofferservice, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_stopofferservice, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         case SD_ENTRY_STOP_SUBSCRIBE_EVENTGROUP:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_stopsubscribeeventgroup, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_stopsubscribeeventgroup, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         case SD_ENTRY_SUBSCRIBE_EVENTGROUP_NACK:
-            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroupnack, tvb, offset_orig, SD_ENTRY_LENGTH, uniqueid, "on 0x%012" PRIx64, uniqueid);
+            ti = proto_tree_add_uint64_format_value(tree, hf_someip_sd_entry_type_subscribeeventgroupnack, tvb, offset_orig, SD_ENTRY_LENGTH, *uniqueid, "on 0x%012" PRIx64, *uniqueid);
             break;
         }
     }
 
     proto_item_set_hidden(ti);
+
+    /* check for Offer Entry without referenced Endpoints */
+    if (opt_num1 == 0 && opt_num2 == 0 && *type == SD_ENTRY_OFFER_SERVICE && *ttl > 0) {
+        expert_add_info(pinfo, *ti_entry, &ei_someipsd_offer_without_endpoint);
+    }
 
     /* register ports but we skip 0xfffe because of other-serv */
     if (serviceid != SOMEIP_SD_SERVICE_ID_OTHER_SERVICE && !PINFO_FD_VISITED(pinfo)) {
@@ -703,13 +701,13 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     /* TAP */
     if (have_tap_listener(tap_someip_sd_entries)) {
         someip_sd_entries_tap_t *data = wmem_alloc(pinfo->pool, sizeof(someip_sd_entries_tap_t));
-        data->entry_type = type;
+        data->entry_type = *type;
         data->service_id = (guint16)serviceid;
         data->major_version = (guint8)majorver;
         data->minor_version = minorver;
         data->instance_id = (guint16)instanceid;
         data->eventgroup_id = (guint16)eventgroupid;
-        data->ttl = ttl;
+        data->ttl = *ttl;
 
         tap_queue_packet(tap_someip_sd_entries, pinfo, data);
     }
@@ -717,13 +715,40 @@ dissect_someip_sd_pdu_entry(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
 static int
 dissect_someip_sd_pdu_entries(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *ti, guint32 offset, guint32 length, guint32 option_ports[], guint option_count) {
+    proto_item *ti_entry;
+
+    guint8      type;
+    guint32     ttl;
     guint32     entry_flags = 0;
     guint32     stop_entry_flags = 0;
 
+    guint64     uniqueid;
+    guint64     last_uniqueid = 0xffffffffffffffff;
+
+
     while (length >= SD_ENTRY_LENGTH) {
-        dissect_someip_sd_pdu_entry(tvb, pinfo, tree, offset, SD_ENTRY_LENGTH, &entry_flags, &stop_entry_flags, option_ports, option_count);
+        dissect_someip_sd_pdu_entry(tvb, pinfo, tree, offset, SD_ENTRY_LENGTH, &type, &ttl, &uniqueid, option_ports, option_count, &ti_entry);
         offset += SD_ENTRY_LENGTH;
         length -= SD_ENTRY_LENGTH;
+
+        /* mark for attaching to info column */
+        if (type < 32) {
+            if (ttl == 0) {
+                stop_entry_flags = stop_entry_flags | (1 << type);
+            } else {
+                entry_flags = entry_flags | (1 << type);
+            }
+        }
+
+        if (type == SD_ENTRY_SUBSCRIBE_EVENTGROUP && ttl == 0) {
+            last_uniqueid = uniqueid;
+        } else {
+            if ( (type == SD_ENTRY_SUBSCRIBE_EVENTGROUP && ttl > 0) && last_uniqueid == uniqueid ) {
+                expert_add_info(pinfo, ti_entry, &ei_someipsd_entry_stopsubsub);
+            }
+
+            last_uniqueid = 0xffffffffffffffff;
+        }
     }
 
     /* Add entry flags */
@@ -760,7 +785,7 @@ dissect_someip_sd_pdu_entries(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
     }
 
     if (length != 0) {
-        expert_add_info(pinfo, ti, &ef_someipsd_entry_array_malformed);
+        expert_add_info(pinfo, ti, &ei_someipsd_entry_array_malformed);
     }
 
     return length;
@@ -798,7 +823,7 @@ dissect_someip_sd_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     tree = proto_item_add_subtree(ti, ett_someip_sd);
 
     if (!tvb_bytes_exist(tvb, offset, SOMEIP_SD_MIN_LENGTH)) {
-        expert_add_info(pinfo, ti, &ef_someipsd_message_truncated);
+        expert_add_info(pinfo, ti, &ei_someipsd_message_truncated);
         return tvb_reported_length(tvb);
     }
 
@@ -815,14 +840,14 @@ dissect_someip_sd_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     offset += 4;
 
     if (!tvb_bytes_exist(tvb, offset, length_entriesarray)) {
-        expert_add_info(pinfo, ti   , &ef_someipsd_message_truncated);
+        expert_add_info(pinfo, ti   , &ei_someipsd_message_truncated);
         return tvb_reported_length(tvb);
     }
 
     if (!tvb_bytes_exist(tvb, offset, length_entriesarray)) {
         /* truncated SD message - need to shorten buffer */
         length_entriesarray = tvb_captured_length_remaining(tvb, offset);
-        expert_add_info(pinfo, ti, &ef_someipsd_message_truncated);
+        expert_add_info(pinfo, ti, &ei_someipsd_message_truncated);
         stop_parsing_after_entries = TRUE;
     }
 
@@ -849,7 +874,7 @@ dissect_someip_sd_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
                     /* check, if enough bytes are left for optionsarray */
                     if (!tvb_bytes_exist(tvb, offset, length_optionsarray)) {
                         length_optionsarray = tvb_captured_length_remaining(tvb, offset);
-                        expert_add_info(pinfo, ti, &ef_someipsd_message_truncated);
+                        expert_add_info(pinfo, ti, &ei_someipsd_message_truncated);
                         proto_item_append_text(ti, " (truncated!)");
                     }
 
@@ -861,7 +886,7 @@ dissect_someip_sd_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
                     dissect_someip_sd_pdu_options(tvb, pinfo, someip_sd_options_tree, ti, offset, length_optionsarray, option_ports, &option_count);
                     offset += length_optionsarray;
                 } else {
-                    expert_add_info(pinfo, ti, &ef_someipsd_message_truncated);
+                    expert_add_info(pinfo, ti, &ei_someipsd_message_truncated);
                 }
             }
         }
@@ -870,7 +895,7 @@ dissect_someip_sd_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void 
     if (length_entriesarray >= SD_ENTRY_LENGTH) {
         offset += dissect_someip_sd_pdu_entries(tvb, pinfo, someip_sd_entries_tree, ti_sd_entries, offset_entriesarray, length_entriesarray, option_ports, option_count);
     } else {
-        expert_add_info(pinfo, ti_sd_entries, &ef_someipsd_entry_array_empty);
+        expert_add_info(pinfo, ti_sd_entries, &ei_someipsd_entry_array_empty);
     }
     return offset;
 }
@@ -1185,16 +1210,18 @@ proto_register_someip_sd(void) {
     };
 
     static ei_register_info ei_sd[] = {
-        { &ef_someipsd_message_truncated,{ "someipsd.message_truncated", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Truncated message!", EXPFILL } },
-        { &ef_someipsd_entry_array_malformed,{ "someipsd.entry_array_malformed", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Entry Array length not multiple of 16 bytes!", EXPFILL } },
-        { &ef_someipsd_entry_array_empty,{ "someipsd.entry_array_empty", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Empty Entry Array!", EXPFILL } },
-        { &ef_someipsd_entry_unknown,{ "someipsd.entry_unknown", PI_MALFORMED, PI_WARN, "SOME/IP-SD Unknown Entry!", EXPFILL } },
-        { &ef_someipsd_option_array_truncated,{ "someipsd.option_array_truncated", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Option Array truncated!", EXPFILL } },
-        { &ef_someipsd_option_array_bytes_left,{ "someipsd.option_array_bytes_left", PI_MALFORMED, PI_WARN, "SOME/IP-SD Option Array bytes left after parsing options!", EXPFILL } },
-        { &ef_someipsd_option_unknown,{ "someipsd.option_unknown", PI_MALFORMED, PI_WARN, "SOME/IP-SD Unknown Option!", EXPFILL } },
-        { &ef_someipsd_option_wrong_length,{ "someipsd.option_wrong_length", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Option length is incorrect!", EXPFILL } },
-        { &ef_someipsd_L4_protocol_unsupported,{ "someipsd.L4_protocol_unsupported", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Unsupported Layer 4 Protocol!", EXPFILL } },
-        { &ef_someipsd_config_string_malformed,{ "someipsd.config_string_malformed", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Configuration String malformed!", EXPFILL } },
+        { &ei_someipsd_message_truncated,{ "someipsd.message_truncated", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Truncated message!", EXPFILL } },
+        { &ei_someipsd_entry_array_malformed,{ "someipsd.entry_array_malformed", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Entry Array length not multiple of 16 bytes!", EXPFILL } },
+        { &ei_someipsd_entry_array_empty,{ "someipsd.entry_array_empty", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Empty Entry Array!", EXPFILL } },
+        { &ei_someipsd_entry_unknown,{ "someipsd.entry_unknown", PI_MALFORMED, PI_WARN, "SOME/IP-SD Unknown Entry!", EXPFILL } },
+        { &ei_someipsd_offer_without_endpoint,{ "someipsd.offer_no_endpoints", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Offer Service references no endpoints!", EXPFILL } },
+        { &ei_someipsd_entry_stopsubsub,{ "someipsd.stopsub_sub", PI_PROTOCOL, PI_WARN, "SOME/IP-SD Subscribe after Stop Subscribe!", EXPFILL } },
+        { &ei_someipsd_option_array_truncated,{ "someipsd.option_array_truncated", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Option Array truncated!", EXPFILL } },
+        { &ei_someipsd_option_array_bytes_left,{ "someipsd.option_array_bytes_left", PI_MALFORMED, PI_WARN, "SOME/IP-SD Option Array bytes left after parsing options!", EXPFILL } },
+        { &ei_someipsd_option_unknown,{ "someipsd.option_unknown", PI_MALFORMED, PI_WARN, "SOME/IP-SD Unknown Option!", EXPFILL } },
+        { &ei_someipsd_option_wrong_length,{ "someipsd.option_wrong_length", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Option length is incorrect!", EXPFILL } },
+        { &ei_someipsd_L4_protocol_unsupported,{ "someipsd.L4_protocol_unsupported", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Unsupported Layer 4 Protocol!", EXPFILL } },
+        { &ei_someipsd_config_string_malformed,{ "someipsd.config_string_malformed", PI_MALFORMED, PI_ERROR, "SOME/IP-SD Configuration String malformed!", EXPFILL } },
     };
 
     /* Register Protocol, Fields, ETTs, Expert Info, Taps, Dissector */

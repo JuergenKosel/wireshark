@@ -25,6 +25,7 @@ DIAG_ON(frame-larger-than=)
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
 #include <wsutil/version_info.h>
+#include <wsutil/plugins.h>
 #include <epan/prefs.h>
 #include <epan/stats_tree_priv.h>
 #include <epan/plugin_if.h>
@@ -374,7 +375,7 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
             << REGISTER_STAT_GROUP_TELEPHONY
             << REGISTER_STAT_GROUP_TELEPHONY_ANSI
             << REGISTER_STAT_GROUP_TELEPHONY_GSM
-            << REGISTER_STAT_GROUP_TELEPHONY_LTE
+            << REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU
             << REGISTER_STAT_GROUP_TELEPHONY_MTP3
             << REGISTER_STAT_GROUP_TELEPHONY_SCTP
             << REGISTER_TOOLS_GROUP_UNSORTED;
@@ -419,6 +420,7 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
     connect(mainApp, SIGNAL(preferencesChanged()), this, SLOT(updateTitlebar()));
 
     connect(mainApp, SIGNAL(updateRecentCaptureStatus(const QString &, qint64, bool)), this, SLOT(updateRecentCaptures()));
+    connect(mainApp, SIGNAL(preferencesChanged()), this, SLOT(updateRecentCaptures()));
     updateRecentCaptures();
 
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
@@ -477,6 +479,11 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
 
 #ifndef HAVE_LIBPCAP
     main_ui_->menuCapture->setEnabled(false);
+    main_ui_->actionCaptureStart->setEnabled(false);
+    main_ui_->actionCaptureStop->setEnabled(false);
+    main_ui_->actionCaptureRestart->setEnabled(false);
+    main_ui_->actionCaptureOptions->setEnabled(false);
+    main_ui_->actionCaptureRefreshInterfaces->setEnabled(false);
 #endif
 
     // Set OS specific shortcuts for fullscreen mode
@@ -493,12 +500,12 @@ WiresharkMainWindow::WiresharkMainWindow(QWidget *parent) :
     main_ui_->goToGo->setAttribute(Qt::WA_MacSmallSize, true);
     main_ui_->goToCancel->setAttribute(Qt::WA_MacSmallSize, true);
 
-    connect(main_ui_->goToGo, &QPushButton::pressed, this, &WiresharkMainWindow::goToGoClicked);
-    connect(main_ui_->goToCancel, &QPushButton::pressed, this, &WiresharkMainWindow::goToCancelClicked);
-
     main_ui_->actionEditPreferences->setMenuRole(QAction::PreferencesRole);
 
 #endif // Q_OS_MAC
+
+    connect(main_ui_->goToGo, &QPushButton::pressed, this, &WiresharkMainWindow::goToGoClicked);
+    connect(main_ui_->goToCancel, &QPushButton::pressed, this, &WiresharkMainWindow::goToCancelClicked);
 
 // A billion-1 is equivalent to the inputMask 900000000 previously used
 // Avoid QValidator::Intermediate values by using a top value of all 9's
@@ -863,6 +870,23 @@ void WiresharkMainWindow::removeInterfaceToolbar(const gchar *menu_title)
     menu->menuAction()->setVisible(!menu->actions().isEmpty());
 }
 
+void WiresharkMainWindow::updateStyleSheet()
+{
+#ifdef Q_OS_MAC
+    // TODO: The event type QEvent::ApplicationPaletteChange is not sent to all child widgets.
+    // Workaround this by doing it manually for all AccordionFrame.
+    main_ui_->addressEditorFrame->updateStyleSheet();
+    main_ui_->columnEditorFrame->updateStyleSheet();
+    main_ui_->filterExpressionFrame->updateStyleSheet();
+    main_ui_->goToFrame->updateStyleSheet();
+    main_ui_->preferenceEditorFrame->updateStyleSheet();
+    main_ui_->searchFrame->updateStyleSheet();
+
+    df_combo_box_->updateStyleSheet();
+    welcome_page_->updateStyleSheets();
+#endif
+}
+
 bool WiresharkMainWindow::eventFilter(QObject *obj, QEvent *event) {
 
     // The user typed some text. Start filling in a filter.
@@ -886,6 +910,7 @@ bool WiresharkMainWindow::event(QEvent *event)
     switch (event->type()) {
     case QEvent::ApplicationPaletteChange:
         initMainToolbarIcons();
+        updateStyleSheet();
         break;
     default:
         break;
@@ -1071,7 +1096,23 @@ void WiresharkMainWindow::loadWindowGeometry()
 
 #ifndef Q_OS_MAC
     if (recent.gui_geometry_main_maximized) {
-        setWindowState(Qt::WindowMaximized);
+        // [save|restore]Geometry does a better job (on Linux and Windows)
+        // of restoring to the original monitor because it saves
+        // QGuiApplication::screens().indexOf(screen())
+        // (it also saves Qt::WindowFullScreen, restores the non-maximized
+        // size even when starting out maximized, etc.)
+        // Monitors of different DPI might still be tricky:
+        // https://bugreports.qt.io/browse/QTBUG-70721
+        // https://bugreports.qt.io/browse/QTBUG-77385
+        //
+        // We might eventually want to always use restoreGeometry, but
+        // for now at least use it just for maximized because it's better
+        // then what we've been doing.
+        if (recent.gui_geometry_main == nullptr ||
+            !restoreGeometry(QByteArray::fromHex(recent.gui_geometry_main))) {
+
+            setWindowState(Qt::WindowMaximized);
+        }
     } else
 #endif
     {
@@ -1102,6 +1143,13 @@ void WiresharkMainWindow::loadWindowGeometry()
 
 void WiresharkMainWindow::saveWindowGeometry()
 {
+    if (prefs.gui_geometry_save_position ||
+        prefs.gui_geometry_save_size ||
+        prefs.gui_geometry_save_maximized) {
+        g_free(recent.gui_geometry_main);
+        recent.gui_geometry_main = g_strdup(saveGeometry().toHex().constData());
+    }
+
     if (prefs.gui_geometry_save_position) {
         recent.gui_geometry_main_x = pos().x();
         recent.gui_geometry_main_y = pos().y();
@@ -1114,6 +1162,9 @@ void WiresharkMainWindow::saveWindowGeometry()
 
     if (prefs.gui_geometry_save_maximized) {
         // On macOS this is false when it shouldn't be
+        // XXX: Does save/restoreGeometry work any better on macOS
+        // for maximized windows? Apparently not:
+        // https://bugreports.qt.io/browse/QTBUG-100272
         recent.gui_geometry_main_maximized = isMaximized();
     }
 
@@ -1121,6 +1172,14 @@ void WiresharkMainWindow::saveWindowGeometry()
         recent.gui_geometry_main_upper_pane = master_split_.sizes()[0];
     }
 
+    g_free(recent.gui_geometry_main_master_split);
+    g_free(recent.gui_geometry_main_extra_split);
+    recent.gui_geometry_main_master_split = g_strdup(master_split_.saveState().toHex().constData());
+    recent.gui_geometry_main_extra_split = g_strdup(extra_split_.saveState().toHex().constData());
+
+    // Saving the QSplitter state is more accurate (#19361), but save
+    // the old GTK-style pane information for backwards compatibility
+    // for switching back and forth with older versions.
     if (master_split_.sizes().length() > 2) {
         recent.gui_geometry_main_lower_pane = master_split_.sizes()[1];
     } else if (extra_split_.sizes().length() > 0) {
@@ -1544,7 +1603,7 @@ bool WiresharkMainWindow::saveAsCaptureFile(capture_file *cf, bool must_support_
             cf->unsaved_changes = false; //we just saved so we signal that we have no unsaved changes
             updateForUnsavedChanges(); // we update the title bar to remove the *
             /* Add this filename to the list of recent files in the "Recent Files" submenu */
-            add_menu_recent_capture_file(qUtf8Printable(file_name));
+            add_menu_recent_capture_file(qUtf8Printable(file_name), false);
             return true;
 
         case CF_WRITE_ERROR:
@@ -1686,7 +1745,7 @@ void WiresharkMainWindow::exportSelectedPackets() {
             if (discard_comments)
                 packet_list_->redrawVisiblePackets();
             /* Add this filename to the list of recent files in the "Recent Files" submenu */
-            add_menu_recent_capture_file(qUtf8Printable(file_name));
+            add_menu_recent_capture_file(qUtf8Printable(file_name), false);
             goto cleanup;
 
         case CF_WRITE_ERROR:
@@ -2778,7 +2837,7 @@ void WiresharkMainWindow::addMenuActions(QList<QAction *> &actions, int menu_gro
         case REGISTER_STAT_GROUP_TELEPHONY_GSM:
             main_ui_->menuGSM->addAction(action);
             break;
-        case REGISTER_STAT_GROUP_TELEPHONY_LTE:
+        case REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU:
             main_ui_->menuLTE->addAction(action);
             break;
         case REGISTER_STAT_GROUP_TELEPHONY_MTP3:
@@ -2844,7 +2903,7 @@ void WiresharkMainWindow::removeMenuActions(QList<QAction *> &actions, int menu_
         case REGISTER_STAT_GROUP_TELEPHONY_GSM:
             main_ui_->menuGSM->removeAction(action);
             break;
-        case REGISTER_STAT_GROUP_TELEPHONY_LTE:
+        case REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU:
             main_ui_->menuLTE->removeAction(action);
             break;
         case REGISTER_STAT_GROUP_TELEPHONY_MTP3:
@@ -2881,9 +2940,9 @@ void WiresharkMainWindow::addDynamicMenus()
 {
     // Manual additions
     mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_GSM, main_ui_->actionTelephonyGsmMapSummary);
-    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_LTE, main_ui_->actionTelephonyLteMacStatistics);
-    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_LTE, main_ui_->actionTelephonyLteRlcStatistics);
-    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_LTE, main_ui_->actionTelephonyLteRlcGraph);
+    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU, main_ui_->actionTelephonyLteMacStatistics);
+    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU, main_ui_->actionTelephonyLteRlcStatistics);
+    mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU, main_ui_->actionTelephonyLteRlcGraph);
     mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY_MTP3, main_ui_->actionTelephonyMtp3Summary);
     mainApp->addDynamicMenuGroupItem(REGISTER_STAT_GROUP_TELEPHONY, main_ui_->actionTelephonySipFlows);
 
@@ -2902,7 +2961,7 @@ void WiresharkMainWindow::addDynamicMenus()
     if (mainApp->dynamicMenuGroupItems(REGISTER_STAT_GROUP_TELEPHONY_GSM).length() > 0) {
         main_ui_->actionTelephonyGSMPlaceholder->setVisible(false);
     }
-    if (mainApp->dynamicMenuGroupItems(REGISTER_STAT_GROUP_TELEPHONY_LTE).length() > 0) {
+    if (mainApp->dynamicMenuGroupItems(REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU).length() > 0) {
         main_ui_->actionTelephonyLTEPlaceholder->setVisible(false);
     }
     if (mainApp->dynamicMenuGroupItems(REGISTER_STAT_GROUP_TELEPHONY_MTP3).length() > 0) {
@@ -3217,20 +3276,99 @@ QString WiresharkMainWindow::findRtpStreams(QVector<rtpstream_id_t *> *stream_id
     return NULL;
 }
 
-void WiresharkMainWindow::openBrowserKeylogDialog()
+void WiresharkMainWindow::openTLSKeylogDialog()
 {
     // Have a single instance of the dialog at any one time.
-    if (!sslkeylog_dialog_) {
-        sslkeylog_dialog_ = new SSLKeylogDialog(*this);
-        sslkeylog_dialog_->setAttribute(Qt::WA_DeleteOnClose);
+    if (!tlskeylog_dialog_) {
+        tlskeylog_dialog_ = new TLSKeylogDialog(*this);
+        tlskeylog_dialog_->setAttribute(Qt::WA_DeleteOnClose);
     }
 
-    if (sslkeylog_dialog_->isMinimized()) {
-        sslkeylog_dialog_->showNormal();
+    if (tlskeylog_dialog_->isMinimized()) {
+        tlskeylog_dialog_->showNormal();
     }
     else {
-        sslkeylog_dialog_->show();
+        tlskeylog_dialog_->show();
     }
-    sslkeylog_dialog_->raise();
-    sslkeylog_dialog_->activateWindow();
+    tlskeylog_dialog_->raise();
+    tlskeylog_dialog_->activateWindow();
+}
+
+void WiresharkMainWindow::installPersonalBinaryPlugin()
+{
+    QMessageBox::StandardButton reply;
+
+    QString caption = mainApp->windowTitleString(tr("Install plugin"));
+
+    // Get the plugin file path to install
+    QString plugin_filter = tr("Binary plugin (*%1)").arg(WS_PLUGIN_MODULE_SUFFIX);
+    QString src_path = WiresharkFileDialog::getOpenFileName(this, caption, "", plugin_filter);
+    if (src_path.isEmpty()) {
+        return;
+    }
+
+    // Plugins from untrusted sources can be dangerous.
+    // Inform the user and ask for confirmation.
+    // We need to do this before checking the plugin compatibility.
+    reply = QMessageBox::question(this, caption,
+                        tr("Plugins can execute arbitrary code as the current user. "
+                           "Make sure you trust it before installing.\n\n"
+                           "Continue installing the file \"%1\" to the personal plugin folder?")
+                                .arg(src_path));
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    // Check if this is a valid plugin file and get the plugin binary type.
+    // The function will report any errors.
+    plugin_type_e have_type = plugins_check_file(qUtf8Printable(src_path));
+    if (have_type == WS_PLUGIN_NONE)
+        return;
+
+    // Create the destination folder if necessary
+    QString type_path = gchar_free_to_qstring(plugins_pers_type_folder(have_type));
+    QDir type_dir(type_path);
+    if (!type_dir.exists(type_path)) {
+        if (!type_dir.mkpath(type_path)) {
+            QMessageBox::warning(this, caption,
+                        tr("Failed to create the directory: %1").arg(type_path));
+            return;
+        }
+    }
+
+    // Check if the file exists in the destination folder, in case we need to overwrite it
+    // XXX Overwriting will probably fail on Windows because the plugin is loaded. We need
+    // a way to load and unload plugins without having to restart the program.
+    QFileInfo file_info(src_path);
+    QString file_name = file_info.fileName();
+    if (type_dir.exists(file_name)) {
+        reply = QMessageBox::question(this, caption,
+                        tr("The file already exists. Do you want to overwrite it?"));
+        if (reply == QMessageBox::Yes) {
+            if (!type_dir.remove(file_name)) {
+                QMessageBox::warning(this, caption,
+                        tr("Error removing the old plugin from the personal plugin folder. "
+                           "You may need to close Wireshark first and then manually remove the file \"%1\".").arg(type_dir.filePath(file_name)));
+                return;
+            }
+        }
+        else {
+            // Overwrite refused, we are done
+            return;
+        }
+    }
+
+    // File does not exist in the destination or the user chose to overwrite it
+    // Do the copy to install it.
+    QString dst_path = type_dir.filePath(file_name);
+    if (!QFile::copy(src_path, dst_path)) {
+        QMessageBox::warning(this, caption,
+                        tr("Failed to copy the file to the destination: %1").arg(dst_path));
+        return;
+    }
+
+    // Success
+    QMessageBox::information(this, caption,
+                    tr("Plugin '%1' installed successfully. "
+                       "You must restart the program to be able to use it.").arg(file_name));
 }

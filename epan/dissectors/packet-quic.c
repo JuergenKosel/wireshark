@@ -22,7 +22,7 @@
  * Extension:
  * https://tools.ietf.org/html/draft-ferrieuxhamchaoui-quic-lossbits-03
  * https://tools.ietf.org/html/draft-huitema-quic-ts-02
- * https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-04
+ * https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-07 (and also draft-04/05)
  * https://tools.ietf.org/html/draft-deconinck-quic-multipath-06
  * https://tools.ietf.org/html/draft-banks-quic-cibir-01
  * https://tools.ietf.org/html/draft-ietf-quic-multipath-05 (and also draft-04)
@@ -69,171 +69,171 @@
 void proto_reg_handoff_quic(void);
 void proto_register_quic(void);
 
-static int quic_follow_tap = -1;
+static int quic_follow_tap;
 
 /* Initialize the protocol and registered fields */
-static int proto_quic = -1;
-static int hf_quic_connection_number = -1;
-static int hf_quic_packet_length = -1;
-static int hf_quic_header_form = -1;
-static int hf_quic_long_packet_type = -1;
-static int hf_quic_long_packet_type_v2 = -1;
-static int hf_quic_long_reserved = -1;
-static int hf_quic_packet_number_length = -1;
-static int hf_quic_dcid = -1;
-static int hf_quic_scid = -1;
-static int hf_quic_dcil = -1;
-static int hf_quic_scil = -1;
-static int hf_quic_token_length = -1;
-static int hf_quic_token = -1;
-static int hf_quic_length = -1;
-static int hf_quic_packet_number = -1;
-static int hf_quic_version = -1;
-static int hf_quic_supported_version = -1;
-static int hf_quic_vn_unused = -1;
-static int hf_quic_short = -1;
-static int hf_quic_fixed_bit = -1;
-static int hf_quic_spin_bit = -1;
-static int hf_quic_short_reserved = -1;
-static int hf_quic_q_bit = -1;
-static int hf_quic_l_bit = -1;
-static int hf_quic_key_phase = -1;
-static int hf_quic_payload = -1;
-static int hf_quic_protected_payload = -1;
-static int hf_quic_remaining_payload = -1;
-static int hf_quic_odcil = -1;
-static int hf_quic_odcid = -1;
-static int hf_quic_retry_token = -1;
-static int hf_quic_retry_integrity_tag = -1;
+static int proto_quic;
+static int hf_quic_connection_number;
+static int hf_quic_packet_length;
+static int hf_quic_header_form;
+static int hf_quic_long_packet_type;
+static int hf_quic_long_packet_type_v2;
+static int hf_quic_long_reserved;
+static int hf_quic_packet_number_length;
+static int hf_quic_dcid;
+static int hf_quic_scid;
+static int hf_quic_dcil;
+static int hf_quic_scil;
+static int hf_quic_token_length;
+static int hf_quic_token;
+static int hf_quic_length;
+static int hf_quic_packet_number;
+static int hf_quic_version;
+static int hf_quic_supported_version;
+static int hf_quic_vn_unused;
+static int hf_quic_short;
+static int hf_quic_fixed_bit;
+static int hf_quic_spin_bit;
+static int hf_quic_short_reserved;
+static int hf_quic_q_bit;
+static int hf_quic_l_bit;
+static int hf_quic_key_phase;
+static int hf_quic_payload;
+static int hf_quic_protected_payload;
+static int hf_quic_remaining_payload;
+static int hf_quic_odcil;
+static int hf_quic_odcid;
+static int hf_quic_retry_token;
+static int hf_quic_retry_integrity_tag;
 
-static int hf_quic_frame = -1;
-static int hf_quic_frame_type = -1;
+static int hf_quic_frame;
+static int hf_quic_frame_type;
 
-static int hf_quic_padding_length = -1;
-static int hf_quic_ack_largest_acknowledged = -1;
-static int hf_quic_ack_ack_delay = -1;
-static int hf_quic_ack_ack_range_count = -1;
-static int hf_quic_ack_first_ack_range = -1;
-static int hf_quic_ack_gap = -1;
-static int hf_quic_ack_ack_range = -1;
-static int hf_quic_ack_ect0_count = -1;
-static int hf_quic_ack_ect1_count = -1;
-static int hf_quic_ack_ecn_ce_count = -1;
-static int hf_quic_rsts_stream_id = -1;
-static int hf_quic_rsts_application_error_code = -1;
-static int hf_quic_rsts_final_size = -1;
-static int hf_quic_ss_stream_id = -1;
-static int hf_quic_ss_application_error_code = -1;
-static int hf_quic_crypto_offset = -1;
-static int hf_quic_crypto_length = -1;
-static int hf_quic_crypto_crypto_data = -1;
-static int hf_quic_nt_length = -1;
-static int hf_quic_nt_token = -1;
-static int hf_quic_stream_fin = -1;
-static int hf_quic_stream_len = -1;
-static int hf_quic_stream_off = -1;
-static int hf_quic_stream_stream_id = -1;
-static int hf_quic_stream_initiator = -1;
-static int hf_quic_stream_direction = -1;
-static int hf_quic_stream_offset = -1;
-static int hf_quic_stream_length = -1;
-static int hf_quic_stream_data = -1;
-static int hf_quic_md_maximum_data = -1;
-static int hf_quic_msd_stream_id = -1;
-static int hf_quic_msd_maximum_stream_data = -1;
-static int hf_quic_ms_max_streams = -1;
-static int hf_quic_db_stream_data_limit = -1;
-static int hf_quic_sdb_stream_id = -1;
-static int hf_quic_sdb_stream_data_limit = -1;
-static int hf_quic_sb_stream_limit = -1;
-static int hf_quic_nci_retire_prior_to = -1;
-static int hf_quic_nci_sequence = -1;
-static int hf_quic_nci_connection_id_length = -1;
-static int hf_quic_nci_connection_id = -1;
-static int hf_quic_nci_stateless_reset_token = -1;
-static int hf_quic_rci_sequence = -1;
-static int hf_quic_path_challenge_data = -1;
-static int hf_quic_path_response_data = -1;
-static int hf_quic_cc_error_code = -1;
-static int hf_quic_cc_error_code_app = -1;
-static int hf_quic_cc_error_code_tls_alert = -1;
-static int hf_quic_cc_frame_type = -1;
-static int hf_quic_cc_reason_phrase_length = -1;
-static int hf_quic_cc_reason_phrase = -1;
-static int hf_quic_dg_length = -1;
-static int hf_quic_dg = -1;
-static int hf_quic_af_sequence_number = -1;
-static int hf_quic_af_ack_eliciting_threshold = -1;
-static int hf_quic_af_request_max_ack_delay = -1;
-static int hf_quic_af_reordering_threshold = -1;
-//static int hf_quic_af_ignore_order = -1;
-//static int hf_quic_af_ignore_ce = -1;
-static int hf_quic_ts = -1;
-static int hf_quic_unpredictable_bits = -1;
-static int hf_quic_stateless_reset_token = -1;
-static int hf_quic_reassembled_in = -1;
-static int hf_quic_reassembled_length = -1;
-static int hf_quic_reassembled_data = -1;
-static int hf_quic_fragments = -1;
-static int hf_quic_fragment = -1;
-static int hf_quic_fragment_overlap = -1;
-static int hf_quic_fragment_overlap_conflict = -1;
-static int hf_quic_fragment_multiple_tails = -1;
-static int hf_quic_fragment_too_long_fragment = -1;
-static int hf_quic_fragment_error = -1;
-static int hf_quic_fragment_count = -1;
+static int hf_quic_padding_length;
+static int hf_quic_ack_largest_acknowledged;
+static int hf_quic_ack_ack_delay;
+static int hf_quic_ack_ack_range_count;
+static int hf_quic_ack_first_ack_range;
+static int hf_quic_ack_gap;
+static int hf_quic_ack_ack_range;
+static int hf_quic_ack_ect0_count;
+static int hf_quic_ack_ect1_count;
+static int hf_quic_ack_ecn_ce_count;
+static int hf_quic_rsts_stream_id;
+static int hf_quic_rsts_application_error_code;
+static int hf_quic_rsts_final_size;
+static int hf_quic_ss_stream_id;
+static int hf_quic_ss_application_error_code;
+static int hf_quic_crypto_offset;
+static int hf_quic_crypto_length;
+static int hf_quic_crypto_crypto_data;
+static int hf_quic_nt_length;
+static int hf_quic_nt_token;
+static int hf_quic_stream_fin;
+static int hf_quic_stream_len;
+static int hf_quic_stream_off;
+static int hf_quic_stream_stream_id;
+static int hf_quic_stream_initiator;
+static int hf_quic_stream_direction;
+static int hf_quic_stream_offset;
+static int hf_quic_stream_length;
+static int hf_quic_stream_data;
+static int hf_quic_md_maximum_data;
+static int hf_quic_msd_stream_id;
+static int hf_quic_msd_maximum_stream_data;
+static int hf_quic_ms_max_streams;
+static int hf_quic_db_stream_data_limit;
+static int hf_quic_sdb_stream_id;
+static int hf_quic_sdb_stream_data_limit;
+static int hf_quic_sb_stream_limit;
+static int hf_quic_nci_retire_prior_to;
+static int hf_quic_nci_sequence;
+static int hf_quic_nci_connection_id_length;
+static int hf_quic_nci_connection_id;
+static int hf_quic_nci_stateless_reset_token;
+static int hf_quic_rci_sequence;
+static int hf_quic_path_challenge_data;
+static int hf_quic_path_response_data;
+static int hf_quic_cc_error_code;
+static int hf_quic_cc_error_code_app;
+static int hf_quic_cc_error_code_tls_alert;
+static int hf_quic_cc_frame_type;
+static int hf_quic_cc_reason_phrase_length;
+static int hf_quic_cc_reason_phrase;
+static int hf_quic_dg_length;
+static int hf_quic_dg;
+static int hf_quic_af_sequence_number;
+static int hf_quic_af_ack_eliciting_threshold;
+static int hf_quic_af_request_max_ack_delay;
+static int hf_quic_af_reordering_threshold;
+//static int hf_quic_af_ignore_order;
+//static int hf_quic_af_ignore_ce;
+static int hf_quic_ts;
+static int hf_quic_unpredictable_bits;
+static int hf_quic_stateless_reset_token;
+static int hf_quic_reassembled_in;
+static int hf_quic_reassembled_length;
+static int hf_quic_reassembled_data;
+static int hf_quic_fragments;
+static int hf_quic_fragment;
+static int hf_quic_fragment_overlap;
+static int hf_quic_fragment_overlap_conflict;
+static int hf_quic_fragment_multiple_tails;
+static int hf_quic_fragment_too_long_fragment;
+static int hf_quic_fragment_error;
+static int hf_quic_fragment_count;
 
-static int hf_quic_crypto_reassembled_in = -1;
-static int hf_quic_crypto_fragments = -1;
-static int hf_quic_crypto_fragment = -1;
-static int hf_quic_crypto_fragment_count = -1;
+static int hf_quic_crypto_reassembled_in;
+static int hf_quic_crypto_fragments;
+static int hf_quic_crypto_fragment;
+static int hf_quic_crypto_fragment_count;
 
-static int hf_quic_mp_add_address_first_byte	= -1;
-static int hf_quic_mp_add_address_reserved = -1;
-static int hf_quic_mp_add_address_port_present = -1;
-static int hf_quic_mp_add_address_ip_version = -1;
-static int hf_quic_mp_add_address_id = -1;
-static int hf_quic_mp_add_address_sq_number = -1;
-static int hf_quic_mp_add_address_interface_type = -1;
-static int hf_quic_mp_add_address_ip_address = -1;
-static int hf_quic_mp_add_address_ip_address_v6 = -1;
-static int hf_quic_mp_add_address_port = -1;
-static int hf_quic_mp_uniflow_id = -1;
-static int hf_quic_mp_receiving_uniflows = -1;
-static int hf_quic_mp_active_sending_uniflows = -1;
-static int hf_quic_mp_add_local_address_id = -1;
-static int hf_quic_mp_uniflow_info_section = -1;
-static int hf_quic_mp_receiving_uniflow_info_section = -1;
-static int hf_quic_mp_active_sending_uniflows_info_section = -1;
+static int hf_quic_mp_add_address_first_byte;
+static int hf_quic_mp_add_address_reserved;
+static int hf_quic_mp_add_address_port_present;
+static int hf_quic_mp_add_address_ip_version;
+static int hf_quic_mp_add_address_id;
+static int hf_quic_mp_add_address_sq_number;
+static int hf_quic_mp_add_address_interface_type;
+static int hf_quic_mp_add_address_ip_address;
+static int hf_quic_mp_add_address_ip_address_v6;
+static int hf_quic_mp_add_address_port;
+static int hf_quic_mp_uniflow_id;
+static int hf_quic_mp_receiving_uniflows;
+static int hf_quic_mp_active_sending_uniflows;
+static int hf_quic_mp_add_local_address_id;
+static int hf_quic_mp_uniflow_info_section;
+static int hf_quic_mp_receiving_uniflow_info_section;
+static int hf_quic_mp_active_sending_uniflows_info_section;
 
 /* multipath*/
-static int hf_quic_mp_ack_dcid_sequence_number = -1;
-static int hf_quic_mp_pa_dcid_sequence_number = -1;
-static int hf_quic_mp_ps_dcid_sequence_number = -1;
-static int hf_quic_mp_ps_path_status_sequence_number = -1;
-static int hf_quic_mp_ps_path_status = -1;
+static int hf_quic_mp_ack_dcid_sequence_number;
+static int hf_quic_mp_pa_dcid_sequence_number;
+static int hf_quic_mp_ps_dcid_sequence_number;
+static int hf_quic_mp_ps_path_status_sequence_number;
+static int hf_quic_mp_ps_path_status;
 
-static expert_field ei_quic_connection_unknown = EI_INIT;
-static expert_field ei_quic_ft_unknown = EI_INIT;
-static expert_field ei_quic_decryption_failed = EI_INIT;
-static expert_field ei_quic_protocol_violation = EI_INIT;
-static expert_field ei_quic_bad_retry = EI_INIT;
-static expert_field ei_quic_coalesced_padding_data = EI_INIT;
-static expert_field ei_quic_retransmission = EI_INIT;
-static expert_field ei_quic_overlap = EI_INIT;
-static expert_field ei_quic_data_after_forcing_vn = EI_INIT;
+static expert_field ei_quic_connection_unknown;
+static expert_field ei_quic_ft_unknown;
+static expert_field ei_quic_decryption_failed;
+static expert_field ei_quic_protocol_violation;
+static expert_field ei_quic_bad_retry;
+static expert_field ei_quic_coalesced_padding_data;
+static expert_field ei_quic_retransmission;
+static expert_field ei_quic_overlap;
+static expert_field ei_quic_data_after_forcing_vn;
 
-static gint ett_quic = -1;
-static gint ett_quic_af = -1;
-static gint ett_quic_short_header = -1;
-static gint ett_quic_connection_info = -1;
-static gint ett_quic_ft = -1;
-static gint ett_quic_ftflags = -1;
-static gint ett_quic_ftid = -1;
-static gint ett_quic_fragments = -1;
-static gint ett_quic_fragment = -1;
-static gint ett_quic_crypto_fragments = -1;
-static gint ett_quic_crypto_fragment = -1;
+static gint ett_quic;
+static gint ett_quic_af;
+static gint ett_quic_short_header;
+static gint ett_quic_connection_info;
+static gint ett_quic_ft;
+static gint ett_quic_ftflags;
+static gint ett_quic_ftid;
+static gint ett_quic_fragments;
+static gint ett_quic_fragment;
+static gint ett_quic_crypto_fragments;
+static gint ett_quic_crypto_fragment;
 
 static dissector_handle_t quic_handle;
 static dissector_handle_t tls13_handshake_handle;
@@ -425,6 +425,8 @@ struct quic_info_data {
     bool            server_loss_bits_send : 1; /**< The server wants to send loss bits info */
     bool            client_multipath : 1; /**< The client supports multipath */
     bool            server_multipath : 1; /**< The server supports multipath */
+    bool            client_grease_quic_bit : 1; /**< The client supports greasing the Fixed (QUIC) bit */
+    bool            server_grease_quic_bit : 1; /**< The server supports greasing the Fixed (QUIC) bit */
     int             hash_algo;      /**< Libgcrypt hash algorithm for key derivation. */
     int             cipher_algo;    /**< Cipher algorithm for packet number and packet encryption. */
     int             cipher_mode;    /**< Cipher mode for packet encryption. */
@@ -681,6 +683,7 @@ static const value_string quic_v2_long_packet_type_vals[] = {
 #define FT_RETIRE_CONNECTION_ID     0x19
 #define FT_PATH_CHALLENGE           0x1a
 #define FT_PATH_RESPONSE            0x1b
+#define FT_IMMEDIATE_ACK            0x1f
 #define FT_CONNECTION_CLOSE_TPT     0x1c
 #define FT_CONNECTION_CLOSE_APP     0x1d
 #define FT_HANDSHAKE_DONE           0x1e
@@ -693,8 +696,8 @@ static const value_string quic_v2_long_packet_type_vals[] = {
 #define FT_REMOVE_ADDRESS           0x45
 #define FT_UNIFLOWS                 0x46
 #define FT_DATAGRAM_LENGTH          0x31
-#define FT_IMMEDIATE_ACK            0xAC
-#define FT_ACK_FREQUENCY            0xAF
+#define FT_IMMEDIATE_ACK_DRAFT05    0xac /* ack-frequency-draft-05 */
+#define FT_ACK_FREQUENCY            0xaf
 #define FT_ACK_MP_DRAFT04           0xbaba00 /* multipath-draft-04 */
 #define FT_ACK_MP_ECN_DRAFT04       0xbaba01 /* multipath-draft-04 */
 #define FT_PATH_ABANDON_DRAFT04     0xbaba05 /* multipath-draft-04 */
@@ -702,7 +705,9 @@ static const value_string quic_v2_long_packet_type_vals[] = {
 #define FT_ACK_MP                   0x15228c00
 #define FT_ACK_MP_ECN               0x15228c01
 #define FT_PATH_ABANDON             0x15228c05
-#define FT_PATH_STATUS              0x15228c06
+#define FT_PATH_STATUS              0x15228c06 /* multipath-draft-05 */
+#define FT_PATH_STANDBY             0x15228c07 /* multipath-draft-06 */
+#define FT_PATH_AVAILABLE           0x15228c08 /* multipath-draft-06 */
 #define FT_TIME_STAMP               0x02F5
 
 static const range_string quic_frame_type_vals[] = {
@@ -729,6 +734,7 @@ static const range_string quic_frame_type_vals[] = {
     { 0x1c, 0x1c,   "CONNECTION_CLOSE (Transport)" },
     { 0x1d, 0x1d,   "CONNECTION_CLOSE (Application)" },
     { 0x1e, 0x1e,   "HANDSHAKE_DONE" },
+    { 0x1f, 0x1f,   "IMMEDIATE_ACK" },
     { 0x30, 0x31,   "DATAGRAM" },
     { 0x40, 0x40,   "MP_NEW_CONNECTION_ID" },
     { 0x41, 0x41,   "MP_RETIRE_CONNECTION_ID" },
@@ -736,7 +742,7 @@ static const range_string quic_frame_type_vals[] = {
     { 0x44, 0x44,   "ADD_ADDRESS" },
     { 0x45, 0x45,   "REMOVE_ADDRESS" },
     { 0x46, 0x46,   "UNIFLOWS" },
-    { 0xAC, 0xAC,   "IMMEDIATE_ACK" },
+    { 0xac, 0xac,   "IMMEDIATE_ACK (draft05)" }, /* ack-frequency-draft-05 */
     { 0xaf, 0xaf,   "ACK_FREQUENCY" },
     { 0x02f5, 0x02f5, "TIME_STAMP" },
     { 0xbaba00, 0xbaba01, "ACK_MP" }, /* multipath-draft-04 */
@@ -744,7 +750,9 @@ static const range_string quic_frame_type_vals[] = {
     { 0xbaba06, 0xbaba06, "PATH_STATUS" }, /* multipath-draft-04 */
     { 0x15228c00, 0x15228c01, "ACK_MP" }, /* >= multipath-draft-05 */
     { 0x15228c05, 0x15228c05, "PATH_ABANDON" }, /* >= multipath-draft-05 */
-    { 0x15228c06, 0x15228c06, "PATH_STATUS" }, /* >= multipath-draft-05 */
+    { 0x15228c06, 0x15228c06, "PATH_STATUS" }, /* = multipath-draft-05 */
+    { 0x15228c07, 0x15228c07, "PATH_STANDBY" }, /* >= multipath-draft-06 */
+    { 0x15228c08, 0x15228c08, "PATH_AVAILABLE" }, /* >= multipath-draft-06 */
     { 0,    0,        NULL },
 };
 
@@ -1618,13 +1626,11 @@ again:
 
         /* Did the subdissector ask us to desegment some more data
          * before it could handle the packet?
-         * If so we have to create some structures in our table but
-         * this is something we only do the first time we see this
-         * packet.
+         * If so we'll have to handle that later.
          */
         if (pinfo->desegment_len) {
+            must_desegment = TRUE;
             if (!PINFO_FD_VISITED(pinfo)) {
-                must_desegment = TRUE;
                 if (msp)
                     msp->flags &= ~MSP_FLAGS_GOT_ALL_SEGMENTS;
             }
@@ -1745,33 +1751,42 @@ again:
         }
     }
 
-    if (must_desegment && !PINFO_FD_VISITED(pinfo)) {
-        // TODO handle DESEGMENT_UNTIL_FIN if needed, maybe use the FIN bit?
+    if (must_desegment) {
 
         guint32 deseg_seq = seq + (deseg_offset - offset);
 
-        if (((nxtseq - deseg_seq) <= 1024*1024)
-            && (!PINFO_FD_VISITED(pinfo))) {
-            if(pinfo->desegment_len == DESEGMENT_ONE_MORE_SEGMENT) {
-                /* The subdissector asked to reassemble using the
-                 * entire next segment.
-                 * Just ask reassembly for one more byte
-                 * but set this msp flag so we can pick it up
-                 * above.
-                 */
-                msp = pdu_store_sequencenumber_of_next_pdu(pinfo, deseg_seq,
-                    nxtseq+1, stream->multisegment_pdus);
-                msp->flags |= MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT;
-            } else {
-                msp = pdu_store_sequencenumber_of_next_pdu(pinfo,
-                    deseg_seq, nxtseq+pinfo->desegment_len, stream->multisegment_pdus);
-            }
+        if (!PINFO_FD_VISITED(pinfo)) {
+            // TODO handle DESEGMENT_UNTIL_FIN if needed, maybe use the FIN bit?
+            if ((nxtseq - deseg_seq) <= 1024*1024) {
+                if(pinfo->desegment_len == DESEGMENT_ONE_MORE_SEGMENT) {
+                    /* The subdissector asked to reassemble using the
+                     * entire next segment.
+                     * Just ask reassembly for one more byte
+                     * but set this msp flag so we can pick it up
+                     * above.
+                     */
+                    msp = pdu_store_sequencenumber_of_next_pdu(pinfo, deseg_seq,
+                        nxtseq+1, stream->multisegment_pdus);
+                    msp->flags |= MSP_FLAGS_REASSEMBLE_ENTIRE_SEGMENT;
+                } else {
+                    msp = pdu_store_sequencenumber_of_next_pdu(pinfo,
+                        deseg_seq, nxtseq+pinfo->desegment_len, stream->multisegment_pdus);
+                }
 
-            /* add this segment as the first one for this new pdu */
-            fragment_add(&quic_reassembly_table, tvb, deseg_offset,
-                         pinfo, reassembly_id, NULL,
-                         0, nxtseq - deseg_seq,
-                         nxtseq < msp->nxtpdu);
+                /* add this segment as the first one for this new pdu */
+                fragment_add(&quic_reassembly_table, tvb, deseg_offset,
+                             pinfo, reassembly_id, NULL,
+                             0, nxtseq - deseg_seq,
+                             nxtseq < msp->nxtpdu);
+            }
+        } else {
+            /* If this is not the first time we have seen the packet, then
+             * the MSP should already be created. Retrieve it to see if we
+             * know what later frame the PDU is reassembled in.
+             */
+            if ((msp = (struct tcp_multisegment_pdu *)wmem_tree_lookup32(stream->multisegment_pdus, deseg_seq))) {
+                fh = fragment_get(&quic_reassembly_table, pinfo, reassembly_id, NULL);
+            }
         }
     }
 
@@ -1786,6 +1801,10 @@ again:
                                                    0, fh->reassembled_in);
             proto_item_set_generated(item);
         }
+
+        /* TODO: Show what's left in the packet as a raw QUIC "segment", like
+         * packet-tcp.c does here.
+         */
     }
     pinfo->can_desegment = 0;
     pinfo->desegment_offset = 0;
@@ -1811,8 +1830,16 @@ dissect_quic_stream_payload(tvbuff_t *tvb, int offset, int length, packet_info *
      * preference to disable reassembly.
      */
 
-    pinfo->can_desegment = 2;
-    desegment_quic_stream(tvb, offset, length, pinfo, tree, quic_info, stream_info, stream);
+    if (length > 0) {
+        /* Don't call a subdissector for a zero length segment. It won't
+         * work for dissection (see #12368), and our methods of determing
+         * if desegmentation is needed won't work either (#19497). If there
+         * ever is an app_handle on top of QUIC that needs to be called with
+         * a zero length segment, revisit this. (Cf. #15159)
+         */
+        pinfo->can_desegment = 2;
+        desegment_quic_stream(tvb, offset, length, pinfo, tree, quic_info, stream_info, stream);
+    }
 }
 /* QUIC Streams tracking and reassembly. }}} */
 
@@ -2704,6 +2731,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             offset += (guint32)length;
         }
         break;
+        case FT_IMMEDIATE_ACK_DRAFT05:
         case FT_IMMEDIATE_ACK:
             col_append_fstr(pinfo->cinfo, COL_INFO, ", IA");
         break;
@@ -2853,7 +2881,9 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_PATH_STATUS_DRAFT04:
-        case FT_PATH_STATUS:{
+        case FT_PATH_STATUS:
+        case FT_PATH_STANDBY:
+        case FT_PATH_AVAILABLE:{
             gint32 length;
 
             col_append_fstr(pinfo->cinfo, COL_INFO, ", PS");
@@ -2863,8 +2893,10 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_ps_path_status_sequence_number, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
             offset += (guint32)length;
 
-            proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_ps_path_status, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
-            offset += (guint32)length;
+            if (frame_type == FT_PATH_STATUS || frame_type == FT_PATH_STATUS_DRAFT04) {
+                proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_ps_path_status, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
+                offset += (guint32)length;
+            }
         }
         break;
         default:
@@ -3364,6 +3396,13 @@ quic_get_1rtt_hp_cipher(packet_info *pinfo, quic_info_data_t *quic_info, gboolea
             return NULL;
         }
 
+        /* XXX: What if this is padding (or anything else) that is falsely
+         * detected as a SH packet after the TLS handshake in Initial frames
+         * but before the TLS handshake in the Handshake frames? Then the check
+         * above won't fail and we will retrieve the wrong TLS information,
+         * including ALPN.
+         */
+
         /* Retrieve secrets for both the client and server. */
         if (!quic_get_traffic_secret(pinfo, quic_info->hash_algo, client_pp, TRUE) ||
             !quic_get_traffic_secret(pinfo, quic_info->hash_algo, server_pp, FALSE)) {
@@ -3650,6 +3689,23 @@ quic_add_multipath(packet_info *pinfo)
             conn->server_multipath = TRUE;
         } else {
             conn->client_multipath = TRUE;
+        }
+    }
+}
+
+void
+quic_add_grease_quic_bit(packet_info *pinfo)
+{
+    quic_datagram *dgram_info;
+    quic_info_data_t *conn;
+
+    dgram_info = (quic_datagram *)p_get_proto_data(wmem_file_scope(), pinfo, proto_quic, 0);
+    if (dgram_info && dgram_info->conn) {
+        conn = dgram_info->conn;
+        if (dgram_info->from_server) {
+            conn->server_grease_quic_bit = TRUE;
+        } else {
+            conn->client_grease_quic_bit = TRUE;
         }
     }
 }
@@ -3995,11 +4051,31 @@ dissect_quic_long_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tre
     offset = dissect_quic_long_header_common(tvb, pinfo, quic_tree, offset, quic_packet, &dcid, &scid);
 
     if (long_packet_type == QUIC_LPT_INITIAL) {
-        proto_tree_add_item_ret_varint(quic_tree, hf_quic_token_length, tvb, offset, -1, ENC_VARINT_QUIC, &token_length, &len_token_length);
+        ti = proto_tree_add_item_ret_varint(quic_tree, hf_quic_token_length, tvb, offset, -1, ENC_VARINT_QUIC, &token_length, &len_token_length);
         offset += len_token_length;
 
         if (token_length) {
             proto_tree_add_item(quic_tree, hf_quic_token, tvb, offset, (guint32)token_length, ENC_NA);
+            /* RFC 9287: "A client MAY also set the QUIC Bit to 0 in Initial,
+             * Handshake, or 0-RTT packets that are sent prior to receiving
+             * transport parameters from the server. However, a client MUST
+             * NOT set the QUIC Bit to 0 unless the Initial packets it sends
+             * include a token provided by the server in a NEW_TOKEN frame,
+             * received less than 604800 seconds (7 days) prior on a
+             * connection where the server also included the grease_quic_bit
+             * transport parameter."
+             */
+            if (from_server) {
+                expert_add_info_format(pinfo, ti, &ei_quic_protocol_violation,
+                            "Initial packets sent by the server must set the Token Length field to 0");
+            } else if (conn) {
+                /* The client [may] know that the server supports greasing the
+                 * QUIC bit, and perhaps will do so. (We can't really test if
+                 * this token came less than 7 days ago from a server that
+                 * supports it, so we'll assume it might be to be safe.)
+                 */
+                conn->server_grease_quic_bit = true;
+            }
             offset += (guint)token_length;
         }
     }
@@ -4210,8 +4286,10 @@ dissect_quic_forcing_version_negotiation(tvbuff_t *tvb, packet_info *pinfo, prot
     return offset;
 }
 
+static unsigned quic_gso_heur_dcid_len = 8;
+
 static tvbuff_t *
-quic_get_message_tvb(tvbuff_t *tvb, const guint offset)
+quic_get_message_tvb(tvbuff_t *tvb, const guint offset, const quic_cid_t *dcid)
 {
     guint64 token_length;
     guint64 payload_length;
@@ -4237,6 +4315,15 @@ quic_get_message_tvb(tvbuff_t *tvb, const guint offset)
                 if (payload_length <= G_MAXINT32 && length < (guint)tvb_reported_length_remaining(tvb, offset)) {
                     return tvb_new_subset_length(tvb, offset, length);
                 }
+            }
+        }
+    } else {
+        if (quic_gso_heur_dcid_len && (dcid->len >= quic_gso_heur_dcid_len)) {
+            unsigned dcid_offset = offset + 1;
+            tvbuff_t *needle_tvb = tvb_new_subset_length(tvb, dcid_offset, dcid->len);
+            int needle_pos = tvb_find_tvb(tvb, needle_tvb, dcid_offset + dcid->len);
+            if (needle_pos != -1) {
+                return(tvb_new_subset_length(tvb, offset, needle_pos - offset - 1));
             }
         }
     }
@@ -4347,11 +4434,14 @@ quic_extract_header(tvbuff_t *tvb, guint8 *long_packet_type, guint32 *version,
  */
 static gboolean
 check_dcid_on_coalesced_packet(tvbuff_t *tvb, const quic_datagram *dgram_info,
-                               gboolean is_first_packet, quic_cid_t *first_packet_dcid)
+                               guint offset, quic_cid_t *first_packet_dcid)
 {
-    guint offset = 0;
+    gboolean is_first_packet = (offset == 0);
     guint8 first_byte, dcid_len;
     quic_cid_t dcid = {.len=0};
+    quic_info_data_t *conn = dgram_info->conn;
+    gboolean from_server = dgram_info->from_server;
+    bool grease_quic_bit;
 
     first_byte = tvb_get_guint8(tvb, offset);
     offset++;
@@ -4364,8 +4454,6 @@ check_dcid_on_coalesced_packet(tvbuff_t *tvb, const quic_datagram *dgram_info,
             tvb_memcpy(tvb, dcid.cid, offset, dcid.len);
         }
     } else {
-        quic_info_data_t *conn = dgram_info->conn;
-        gboolean from_server = dgram_info->from_server;
         if (conn) {
             dcid.len = from_server ? conn->client_cids.data.len : conn->server_cids.data.len;
             if (dcid.len) {
@@ -4378,9 +4466,34 @@ check_dcid_on_coalesced_packet(tvbuff_t *tvb, const quic_datagram *dgram_info,
         }
     }
 
+    if (conn) {
+        grease_quic_bit = from_server ? conn->client_grease_quic_bit : conn->server_grease_quic_bit;
+    } else {
+        /* Assume we're allowed to grease the Fixed bit if no connection. */
+        grease_quic_bit = true;
+    }
+
     if (is_first_packet) {
         *first_packet_dcid = dcid;
         return TRUE; /* Nothing to check */
+    }
+
+    if (!grease_quic_bit && (first_byte & 0x40) == 0) {
+        return false;
+    }
+
+    /* If the first QUIC packet in the frame is an Initial or 0-RTT packet,
+     * then subsequent packets cannot be Short Header packets because the
+     * 1-RTT keys have not been negotiated yet on this connection.
+     * (Initial packets can be coalesced with with 0-RTT or Handshake
+     * long header packets, and it might be possible for Handshake long
+     * header packets to be coalesced with 1-RTT packets.)
+     */
+    if (dgram_info->first_packet.packet_type == QUIC_LPT_INITIAL ||
+        dgram_info->first_packet.packet_type == QUIC_LPT_0RTT) {
+        if ((first_byte & 0x80) == 0) {
+            return false;
+        }
     }
 
     return quic_connection_equal(&dcid, first_packet_dcid);
@@ -4467,15 +4580,15 @@ dissect_quic(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             quic_tree = proto_item_add_subtree(quic_ti, ett_quic);
         }
 
-        tvbuff_t *next_tvb = quic_get_message_tvb(tvb, offset);
-
-        if (!check_dcid_on_coalesced_packet(next_tvb, dgram_info, offset == 0, &first_packet_dcid)) {
+        if (!check_dcid_on_coalesced_packet(tvb, dgram_info, offset, &first_packet_dcid)) {
             /* Coalesced packet with unexpected CID; it probably is some kind
                of unencrypted padding data added after the valid QUIC payload */
             expert_add_info_format(pinfo, quic_tree, &ei_quic_coalesced_padding_data,
                                    "(Random) padding data appended to the datagram");
             break;
         }
+
+        tvbuff_t *next_tvb = quic_get_message_tvb(tvb, offset, &first_packet_dcid);
 
         proto_item_set_len(quic_ti, tvb_reported_length(next_tvb));
         ti = proto_tree_add_uint(quic_tree, hf_quic_packet_length, next_tvb, 0, 0, tvb_reported_length(next_tvb));
@@ -5625,6 +5738,13 @@ proto_register_quic(void)
         "Whether out-of-order CRYPTO frames should be buffered and reordered before "
         "passing them to the TLS handshake dissector.",
         &quic_crypto_out_of_order);
+
+    prefs_register_uint_preference(quic_module, "gso_heur_min_dcid_len",
+        "Search for coalesced short header packets at DCID length",
+        "Heuristically search for coalesced QUIC packets with a short header "
+        "(e.g., when Generic Segmentation Offload (GSO) or similar is used), "
+        "if the DCID is at least this many bytes long (0 to disable). ",
+        10, &quic_gso_heur_dcid_len);
 
     quic_handle = register_dissector("quic", dissect_quic, proto_quic);
 

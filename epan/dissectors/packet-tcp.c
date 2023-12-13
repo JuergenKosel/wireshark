@@ -43,10 +43,10 @@ void proto_register_tcp(void);
 void proto_reg_handoff_tcp(void);
 static void conversation_completeness_fill(gchar*, guint32);
 
-static int tcp_tap = -1;
-static int tcp_follow_tap = -1;
-static int mptcp_tap = -1;
-static int exported_pdu_tap = -1;
+static int tcp_tap;
+static int tcp_follow_tap;
+static int mptcp_tap;
+static int exported_pdu_tap;
 
 /* Place TCP summary in proto tree */
 static gboolean tcp_summary_in_tree = TRUE;
@@ -136,357 +136,358 @@ static gint tcp_default_window_scaling = (gint)WindowScaling_NotKnown;
 
 static gint tcp_default_override_analysis = (gint)OverrideAnalysis_0;
 
-static int proto_tcp = -1;
-static int proto_ip = -1;
-static int proto_icmp = -1;
+static int proto_tcp;
+static int proto_ip;
+static int proto_icmp;
 
-static int proto_tcp_option_nop = -1;
-static int proto_tcp_option_eol = -1;
-static int proto_tcp_option_timestamp = -1;
-static int proto_tcp_option_mss = -1;
-static int proto_tcp_option_wscale = -1;
-static int proto_tcp_option_sack_perm = -1;
-static int proto_tcp_option_sack = -1;
-static int proto_tcp_option_echo = -1;
-static int proto_tcp_option_echoreply = -1;
-static int proto_tcp_option_cc = -1;
-static int proto_tcp_option_cc_new = -1;
-static int proto_tcp_option_cc_echo = -1;
-static int proto_tcp_option_md5 = -1;
-static int proto_tcp_option_ao = -1;
-static int proto_tcp_option_scps = -1;
-static int proto_tcp_option_snack = -1;
-static int proto_tcp_option_scpsrec = -1;
-static int proto_tcp_option_scpscor = -1;
-static int proto_tcp_option_qs = -1;
-static int proto_tcp_option_user_to = -1;
-static int proto_tcp_option_tfo = -1;
-static int proto_tcp_option_acc_ecn = -1;
-static int proto_tcp_option_rvbd_probe = -1;
-static int proto_tcp_option_rvbd_trpy = -1;
-static int proto_tcp_option_exp = -1;
-static int proto_tcp_option_unknown = -1;
-static int proto_mptcp = -1;
+static int proto_tcp_option_nop;
+static int proto_tcp_option_eol;
+static int proto_tcp_option_timestamp;
+static int proto_tcp_option_mss;
+static int proto_tcp_option_wscale;
+static int proto_tcp_option_sack_perm;
+static int proto_tcp_option_sack;
+static int proto_tcp_option_echo;
+static int proto_tcp_option_echoreply;
+static int proto_tcp_option_cc;
+static int proto_tcp_option_cc_new;
+static int proto_tcp_option_cc_echo;
+static int proto_tcp_option_md5;
+static int proto_tcp_option_ao;
+static int proto_tcp_option_scps;
+static int proto_tcp_option_snack;
+static int proto_tcp_option_scpsrec;
+static int proto_tcp_option_scpscor;
+static int proto_tcp_option_qs;
+static int proto_tcp_option_user_to;
+static int proto_tcp_option_tfo;
+static int proto_tcp_option_acc_ecn;
+static int proto_tcp_option_rvbd_probe;
+static int proto_tcp_option_rvbd_trpy;
+static int proto_tcp_option_exp;
+static int proto_tcp_option_unknown;
+static int proto_mptcp;
 
-static int hf_tcp_srcport = -1;
-static int hf_tcp_dstport = -1;
-static int hf_tcp_port = -1;
-static int hf_tcp_stream = -1;
-static int hf_tcp_completeness = -1;
-static int hf_tcp_completeness_syn = -1;
-static int hf_tcp_completeness_syn_ack = -1;
-static int hf_tcp_completeness_ack = -1;
-static int hf_tcp_completeness_data = -1;
-static int hf_tcp_completeness_fin = -1;
-static int hf_tcp_completeness_rst = -1;
-static int hf_tcp_completeness_str = -1;
-static int hf_tcp_seq = -1;
-static int hf_tcp_seq_abs = -1;
-static int hf_tcp_nxtseq = -1;
-static int hf_tcp_ack = -1;
-static int hf_tcp_ack_abs = -1;
-static int hf_tcp_hdr_len = -1;
-static int hf_tcp_flags = -1;
-static int hf_tcp_flags_res = -1;
-static int hf_tcp_flags_ae = -1;
-static int hf_tcp_flags_cwr = -1;
-static int hf_tcp_flags_ece = -1;
-static int hf_tcp_flags_ace = -1;
-static int hf_tcp_flags_urg = -1;
-static int hf_tcp_flags_ack = -1;
-static int hf_tcp_flags_push = -1;
-static int hf_tcp_flags_reset = -1;
-static int hf_tcp_flags_syn = -1;
-static int hf_tcp_flags_fin = -1;
-static int hf_tcp_flags_str = -1;
-static int hf_tcp_window_size_value = -1;
-static int hf_tcp_window_size = -1;
-static int hf_tcp_window_size_scalefactor = -1;
-static int hf_tcp_checksum = -1;
-static int hf_tcp_checksum_status = -1;
-static int hf_tcp_checksum_calculated = -1;
-static int hf_tcp_len = -1;
-static int hf_tcp_urgent_pointer = -1;
-static int hf_tcp_analysis = -1;
-static int hf_tcp_analysis_flags = -1;
-static int hf_tcp_analysis_bytes_in_flight = -1;
-static int hf_tcp_analysis_push_bytes_sent = -1;
-static int hf_tcp_analysis_acks_frame = -1;
-static int hf_tcp_analysis_ack_rtt = -1;
-static int hf_tcp_analysis_first_rtt = -1;
-static int hf_tcp_analysis_rto = -1;
-static int hf_tcp_analysis_rto_frame = -1;
-static int hf_tcp_analysis_duplicate_ack = -1;
-static int hf_tcp_analysis_duplicate_ack_num = -1;
-static int hf_tcp_analysis_duplicate_ack_frame = -1;
-static int hf_tcp_continuation_to = -1;
-static int hf_tcp_pdu_time = -1;
-static int hf_tcp_pdu_size = -1;
-static int hf_tcp_pdu_last_frame = -1;
-static int hf_tcp_reassembled_in = -1;
-static int hf_tcp_reassembled_length = -1;
-static int hf_tcp_reassembled_data = -1;
-static int hf_tcp_segments = -1;
-static int hf_tcp_segment = -1;
-static int hf_tcp_segment_overlap = -1;
-static int hf_tcp_segment_overlap_conflict = -1;
-static int hf_tcp_segment_multiple_tails = -1;
-static int hf_tcp_segment_too_long_fragment = -1;
-static int hf_tcp_segment_error = -1;
-static int hf_tcp_segment_count = -1;
-static int hf_tcp_options = -1;
-static int hf_tcp_option_kind = -1;
-static int hf_tcp_option_len = -1;
-static int hf_tcp_option_mss_val = -1;
-static int hf_tcp_option_wscale_shift = -1;
-static int hf_tcp_option_wscale_multiplier = -1;
-static int hf_tcp_option_sack_sle = -1;
-static int hf_tcp_option_sack_sre = -1;
-static int hf_tcp_option_sack_range_count = -1;
-static int hf_tcp_option_sack_dsack_le = -1;
-static int hf_tcp_option_sack_dsack_re = -1;
-static int hf_tcp_option_echo = -1;
-static int hf_tcp_option_timestamp_tsval = -1;
-static int hf_tcp_option_timestamp_tsecr = -1;
-static int hf_tcp_option_cc = -1;
-static int hf_tcp_option_md5_digest = -1;
-static int hf_tcp_option_ao_keyid = -1;
-static int hf_tcp_option_ao_rnextkeyid = -1;
-static int hf_tcp_option_ao_mac = -1;
-static int hf_tcp_option_qs_rate = -1;
-static int hf_tcp_option_qs_ttl_diff = -1;
-static int hf_tcp_option_tarr_rate = -1;
-static int hf_tcp_option_tarr_reserved = -1;
-static int hf_tcp_option_acc_ecn_ee0b = -1;
-static int hf_tcp_option_acc_ecn_eceb = -1;
-static int hf_tcp_option_acc_ecn_ee1b = -1;
-static int hf_tcp_option_exp_data = -1;
-static int hf_tcp_option_exp_exid = -1;
-static int hf_tcp_option_unknown_payload = -1;
+static int hf_tcp_srcport;
+static int hf_tcp_dstport;
+static int hf_tcp_port;
+static int hf_tcp_stream;
+static int hf_tcp_completeness;
+static int hf_tcp_completeness_syn;
+static int hf_tcp_completeness_syn_ack;
+static int hf_tcp_completeness_ack;
+static int hf_tcp_completeness_data;
+static int hf_tcp_completeness_fin;
+static int hf_tcp_completeness_rst;
+static int hf_tcp_completeness_str;
+static int hf_tcp_seq;
+static int hf_tcp_seq_abs;
+static int hf_tcp_nxtseq;
+static int hf_tcp_ack;
+static int hf_tcp_ack_abs;
+static int hf_tcp_hdr_len;
+static int hf_tcp_flags;
+static int hf_tcp_flags_res;
+static int hf_tcp_flags_ae;
+static int hf_tcp_flags_cwr;
+static int hf_tcp_flags_ece;
+static int hf_tcp_flags_ace;
+static int hf_tcp_flags_urg;
+static int hf_tcp_flags_ack;
+static int hf_tcp_flags_push;
+static int hf_tcp_flags_reset;
+static int hf_tcp_flags_syn;
+static int hf_tcp_flags_fin;
+static int hf_tcp_flags_str;
+static int hf_tcp_window_size_value;
+static int hf_tcp_window_size;
+static int hf_tcp_window_size_scalefactor;
+static int hf_tcp_checksum;
+static int hf_tcp_checksum_status;
+static int hf_tcp_checksum_calculated;
+static int hf_tcp_len;
+static int hf_tcp_urgent_pointer;
+static int hf_tcp_analysis;
+static int hf_tcp_analysis_flags;
+static int hf_tcp_analysis_bytes_in_flight;
+static int hf_tcp_analysis_push_bytes_sent;
+static int hf_tcp_analysis_acks_frame;
+static int hf_tcp_analysis_ack_rtt;
+static int hf_tcp_analysis_first_rtt;
+static int hf_tcp_analysis_rto;
+static int hf_tcp_analysis_rto_frame;
+static int hf_tcp_analysis_duplicate_ack;
+static int hf_tcp_analysis_duplicate_ack_num;
+static int hf_tcp_analysis_duplicate_ack_frame;
+static int hf_tcp_continuation_to;
+static int hf_tcp_pdu_time;
+static int hf_tcp_pdu_size;
+static int hf_tcp_pdu_last_frame;
+static int hf_tcp_reassembled_in;
+static int hf_tcp_reassembled_length;
+static int hf_tcp_reassembled_data;
+static int hf_tcp_segments;
+static int hf_tcp_segment;
+static int hf_tcp_segment_overlap;
+static int hf_tcp_segment_overlap_conflict;
+static int hf_tcp_segment_multiple_tails;
+static int hf_tcp_segment_too_long_fragment;
+static int hf_tcp_segment_error;
+static int hf_tcp_segment_count;
+static int hf_tcp_options;
+static int hf_tcp_option_kind;
+static int hf_tcp_option_len;
+static int hf_tcp_option_mss_val;
+static int hf_tcp_option_wscale_shift;
+static int hf_tcp_option_wscale_multiplier;
+static int hf_tcp_option_sack_sle;
+static int hf_tcp_option_sack_sre;
+static int hf_tcp_option_sack_range_count;
+static int hf_tcp_option_sack_dsack_le;
+static int hf_tcp_option_sack_dsack_re;
+static int hf_tcp_option_echo;
+static int hf_tcp_option_timestamp_tsval;
+static int hf_tcp_option_timestamp_tsecr;
+static int hf_tcp_option_cc;
+static int hf_tcp_option_md5_digest;
+static int hf_tcp_option_ao_keyid;
+static int hf_tcp_option_ao_rnextkeyid;
+static int hf_tcp_option_ao_mac;
+static int hf_tcp_option_qs_rate;
+static int hf_tcp_option_qs_ttl_diff;
+static int hf_tcp_option_tarr_rate;
+static int hf_tcp_option_tarr_reserved;
+static int hf_tcp_option_acc_ecn_ee0b;
+static int hf_tcp_option_acc_ecn_eceb;
+static int hf_tcp_option_acc_ecn_ee1b;
+static int hf_tcp_option_exp_data;
+static int hf_tcp_option_exp_exid;
+static int hf_tcp_option_unknown_payload;
 
-static int hf_tcp_option_rvbd_probe_version1 = -1;
-static int hf_tcp_option_rvbd_probe_version2 = -1;
-static int hf_tcp_option_rvbd_probe_type1 = -1;
-static int hf_tcp_option_rvbd_probe_type2 = -1;
-static int hf_tcp_option_rvbd_probe_prober = -1;
-static int hf_tcp_option_rvbd_probe_proxy = -1;
-static int hf_tcp_option_rvbd_probe_client = -1;
-static int hf_tcp_option_rvbd_probe_proxy_port = -1;
-static int hf_tcp_option_rvbd_probe_appli_ver = -1;
-static int hf_tcp_option_rvbd_probe_storeid = -1;
-static int hf_tcp_option_rvbd_probe_flags = -1;
-static int hf_tcp_option_rvbd_probe_flag_last_notify = -1;
-static int hf_tcp_option_rvbd_probe_flag_server_connected = -1;
-static int hf_tcp_option_rvbd_probe_flag_not_cfe = -1;
-static int hf_tcp_option_rvbd_probe_flag_sslcert = -1;
-static int hf_tcp_option_rvbd_probe_flag_probe_cache = -1;
+static int hf_tcp_option_rvbd_probe_version1;
+static int hf_tcp_option_rvbd_probe_version2;
+static int hf_tcp_option_rvbd_probe_type1;
+static int hf_tcp_option_rvbd_probe_type2;
+static int hf_tcp_option_rvbd_probe_prober;
+static int hf_tcp_option_rvbd_probe_proxy;
+static int hf_tcp_option_rvbd_probe_client;
+static int hf_tcp_option_rvbd_probe_proxy_port;
+static int hf_tcp_option_rvbd_probe_appli_ver;
+static int hf_tcp_option_rvbd_probe_storeid;
+static int hf_tcp_option_rvbd_probe_flags;
+static int hf_tcp_option_rvbd_probe_flag_last_notify;
+static int hf_tcp_option_rvbd_probe_flag_server_connected;
+static int hf_tcp_option_rvbd_probe_flag_not_cfe;
+static int hf_tcp_option_rvbd_probe_flag_sslcert;
+static int hf_tcp_option_rvbd_probe_flag_probe_cache;
 
-static int hf_tcp_option_rvbd_trpy_flags = -1;
-static int hf_tcp_option_rvbd_trpy_flag_mode = -1;
-static int hf_tcp_option_rvbd_trpy_flag_oob = -1;
-static int hf_tcp_option_rvbd_trpy_flag_chksum = -1;
-static int hf_tcp_option_rvbd_trpy_flag_fw_rst = -1;
-static int hf_tcp_option_rvbd_trpy_flag_fw_rst_inner = -1;
-static int hf_tcp_option_rvbd_trpy_flag_fw_rst_probe = -1;
-static int hf_tcp_option_rvbd_trpy_src = -1;
-static int hf_tcp_option_rvbd_trpy_dst = -1;
-static int hf_tcp_option_rvbd_trpy_src_port = -1;
-static int hf_tcp_option_rvbd_trpy_dst_port = -1;
-static int hf_tcp_option_rvbd_trpy_client_port = -1;
+static int hf_tcp_option_rvbd_trpy_flags;
+static int hf_tcp_option_rvbd_trpy_flag_mode;
+static int hf_tcp_option_rvbd_trpy_flag_oob;
+static int hf_tcp_option_rvbd_trpy_flag_chksum;
+static int hf_tcp_option_rvbd_trpy_flag_fw_rst;
+static int hf_tcp_option_rvbd_trpy_flag_fw_rst_inner;
+static int hf_tcp_option_rvbd_trpy_flag_fw_rst_probe;
+static int hf_tcp_option_rvbd_trpy_src;
+static int hf_tcp_option_rvbd_trpy_dst;
+static int hf_tcp_option_rvbd_trpy_src_port;
+static int hf_tcp_option_rvbd_trpy_dst_port;
+static int hf_tcp_option_rvbd_trpy_client_port;
 
-static int hf_tcp_option_mptcp_flags = -1;
-static int hf_tcp_option_mptcp_backup_flag = -1;
-static int hf_tcp_option_mptcp_checksum_flag = -1;
-static int hf_tcp_option_mptcp_B_flag = -1;
-static int hf_tcp_option_mptcp_C_flag = -1;
-static int hf_tcp_option_mptcp_H_v0_flag = -1;
-static int hf_tcp_option_mptcp_H_v1_flag = -1;
-static int hf_tcp_option_mptcp_F_flag = -1;
-static int hf_tcp_option_mptcp_m_flag = -1;
-static int hf_tcp_option_mptcp_M_flag = -1;
-static int hf_tcp_option_mptcp_a_flag = -1;
-static int hf_tcp_option_mptcp_A_flag = -1;
-static int hf_tcp_option_mptcp_U_flag = -1;
-static int hf_tcp_option_mptcp_V_flag = -1;
-static int hf_tcp_option_mptcp_W_flag = -1;
-static int hf_tcp_option_mptcp_T_flag = -1;
-static int hf_tcp_option_mptcp_tcprst_reason = -1;
-static int hf_tcp_option_mptcp_reserved_v0_flag = -1;
-static int hf_tcp_option_mptcp_reserved_v1_flag = -1;
-static int hf_tcp_option_mptcp_subtype = -1;
-static int hf_tcp_option_mptcp_version = -1;
-static int hf_tcp_option_mptcp_reserved = -1;
-static int hf_tcp_option_mptcp_address_id = -1;
-static int hf_tcp_option_mptcp_recv_token = -1;
-static int hf_tcp_option_mptcp_sender_key = -1;
-static int hf_tcp_option_mptcp_recv_key = -1;
-static int hf_tcp_option_mptcp_sender_rand = -1;
-static int hf_tcp_option_mptcp_sender_trunc_hmac = -1;
-static int hf_tcp_option_mptcp_sender_hmac = -1;
-static int hf_tcp_option_mptcp_addaddr_trunc_hmac = -1;
-static int hf_tcp_option_mptcp_data_ack_raw = -1;
-static int hf_tcp_option_mptcp_data_seq_no_raw = -1;
-static int hf_tcp_option_mptcp_subflow_seq_no = -1;
-static int hf_tcp_option_mptcp_data_lvl_len = -1;
-static int hf_tcp_option_mptcp_checksum = -1;
-static int hf_tcp_option_mptcp_ipver = -1;
-static int hf_tcp_option_mptcp_echo = -1;
-static int hf_tcp_option_mptcp_ipv4 = -1;
-static int hf_tcp_option_mptcp_ipv6 = -1;
-static int hf_tcp_option_mptcp_port = -1;
-static int hf_mptcp_expected_idsn = -1;
+static int hf_tcp_option_mptcp_flags;
+static int hf_tcp_option_mptcp_backup_flag;
+static int hf_tcp_option_mptcp_checksum_flag;
+static int hf_tcp_option_mptcp_B_flag;
+static int hf_tcp_option_mptcp_C_flag;
+static int hf_tcp_option_mptcp_H_v0_flag;
+static int hf_tcp_option_mptcp_H_v1_flag;
+static int hf_tcp_option_mptcp_F_flag;
+static int hf_tcp_option_mptcp_m_flag;
+static int hf_tcp_option_mptcp_M_flag;
+static int hf_tcp_option_mptcp_a_flag;
+static int hf_tcp_option_mptcp_A_flag;
+static int hf_tcp_option_mptcp_U_flag;
+static int hf_tcp_option_mptcp_V_flag;
+static int hf_tcp_option_mptcp_W_flag;
+static int hf_tcp_option_mptcp_T_flag;
+static int hf_tcp_option_mptcp_tcprst_reason;
+static int hf_tcp_option_mptcp_reserved_v0_flag;
+static int hf_tcp_option_mptcp_reserved_v1_flag;
+static int hf_tcp_option_mptcp_subtype;
+static int hf_tcp_option_mptcp_version;
+static int hf_tcp_option_mptcp_reserved;
+static int hf_tcp_option_mptcp_address_id;
+static int hf_tcp_option_mptcp_recv_token;
+static int hf_tcp_option_mptcp_sender_key;
+static int hf_tcp_option_mptcp_recv_key;
+static int hf_tcp_option_mptcp_sender_rand;
+static int hf_tcp_option_mptcp_sender_trunc_hmac;
+static int hf_tcp_option_mptcp_sender_hmac;
+static int hf_tcp_option_mptcp_addaddr_trunc_hmac;
+static int hf_tcp_option_mptcp_data_ack_raw;
+static int hf_tcp_option_mptcp_data_seq_no_raw;
+static int hf_tcp_option_mptcp_subflow_seq_no;
+static int hf_tcp_option_mptcp_data_lvl_len;
+static int hf_tcp_option_mptcp_checksum;
+static int hf_tcp_option_mptcp_ipver;
+static int hf_tcp_option_mptcp_echo;
+static int hf_tcp_option_mptcp_ipv4;
+static int hf_tcp_option_mptcp_ipv6;
+static int hf_tcp_option_mptcp_port;
+static int hf_mptcp_expected_idsn;
 
-static int hf_mptcp_dsn = -1;
-static int hf_mptcp_rawdsn64 = -1;
-static int hf_mptcp_dss_dsn = -1;
-static int hf_mptcp_ack = -1;
-static int hf_mptcp_stream = -1;
-static int hf_mptcp_expected_token = -1;
-static int hf_mptcp_analysis = -1;
-static int hf_mptcp_analysis_master = -1;
-static int hf_mptcp_analysis_subflows = -1;
-static int hf_mptcp_number_of_removed_addresses = -1;
-static int hf_mptcp_related_mapping = -1;
-static int hf_mptcp_reinjection_of = -1;
-static int hf_mptcp_reinjected_in = -1;
+static int hf_mptcp_dsn;
+static int hf_mptcp_rawdsn64;
+static int hf_mptcp_dss_dsn;
+static int hf_mptcp_ack;
+static int hf_mptcp_stream;
+static int hf_mptcp_expected_token;
+static int hf_mptcp_analysis;
+static int hf_mptcp_analysis_master;
+static int hf_mptcp_analysis_subflows;
+static int hf_mptcp_number_of_removed_addresses;
+static int hf_mptcp_related_mapping;
+static int hf_mptcp_reinjection_of;
+static int hf_mptcp_reinjected_in;
 
 
-static int hf_tcp_option_fast_open_cookie_request = -1;
-static int hf_tcp_option_fast_open_cookie = -1;
+static int hf_tcp_option_fast_open_cookie_request;
+static int hf_tcp_option_fast_open_cookie;
 
-static int hf_tcp_ts_relative = -1;
-static int hf_tcp_ts_delta = -1;
-static int hf_tcp_option_scps_vector = -1;
-static int hf_tcp_option_scps_binding = -1;
-static int hf_tcp_option_scps_binding_len = -1;
-static int hf_tcp_scpsoption_flags_bets = -1;
-static int hf_tcp_scpsoption_flags_snack1 = -1;
-static int hf_tcp_scpsoption_flags_snack2 = -1;
-static int hf_tcp_scpsoption_flags_compress = -1;
-static int hf_tcp_scpsoption_flags_nlts = -1;
-static int hf_tcp_scpsoption_flags_reserved = -1;
-static int hf_tcp_scpsoption_connection_id = -1;
-static int hf_tcp_option_snack_offset = -1;
-static int hf_tcp_option_snack_size = -1;
-static int hf_tcp_option_snack_le = -1;
-static int hf_tcp_option_snack_re = -1;
-static int hf_tcp_option_user_to_granularity = -1;
-static int hf_tcp_option_user_to_val = -1;
-static int hf_tcp_proc_src_uid = -1;
-static int hf_tcp_proc_src_pid = -1;
-static int hf_tcp_proc_src_uname = -1;
-static int hf_tcp_proc_src_cmd = -1;
-static int hf_tcp_proc_dst_uid = -1;
-static int hf_tcp_proc_dst_pid = -1;
-static int hf_tcp_proc_dst_uname = -1;
-static int hf_tcp_proc_dst_cmd = -1;
-static int hf_tcp_segment_data = -1;
-static int hf_tcp_payload = -1;
-static int hf_tcp_reset_cause = -1;
-static int hf_tcp_fin_retransmission = -1;
-static int hf_tcp_option_rvbd_probe_reserved = -1;
-static int hf_tcp_option_scps_binding_data = -1;
-static int hf_tcp_syncookie_time = -1;
-static int hf_tcp_syncookie_mss = -1;
-static int hf_tcp_syncookie_hash = -1;
-static int hf_tcp_syncookie_option_timestamp = -1;
-static int hf_tcp_syncookie_option_ecn = -1;
-static int hf_tcp_syncookie_option_sack = -1;
-static int hf_tcp_syncookie_option_wscale = -1;
+static int hf_tcp_ts_relative;
+static int hf_tcp_ts_delta;
+static int hf_tcp_option_scps_vector;
+static int hf_tcp_option_scps_binding;
+static int hf_tcp_option_scps_binding_len;
+static int hf_tcp_scpsoption_flags_bets;
+static int hf_tcp_scpsoption_flags_snack1;
+static int hf_tcp_scpsoption_flags_snack2;
+static int hf_tcp_scpsoption_flags_compress;
+static int hf_tcp_scpsoption_flags_nlts;
+static int hf_tcp_scpsoption_flags_reserved;
+static int hf_tcp_scpsoption_connection_id;
+static int hf_tcp_option_snack_offset;
+static int hf_tcp_option_snack_size;
+static int hf_tcp_option_snack_le;
+static int hf_tcp_option_snack_re;
+static int hf_tcp_option_user_to_granularity;
+static int hf_tcp_option_user_to_val;
+static int hf_tcp_proc_src_uid;
+static int hf_tcp_proc_src_pid;
+static int hf_tcp_proc_src_uname;
+static int hf_tcp_proc_src_cmd;
+static int hf_tcp_proc_dst_uid;
+static int hf_tcp_proc_dst_pid;
+static int hf_tcp_proc_dst_uname;
+static int hf_tcp_proc_dst_cmd;
+static int hf_tcp_segment_data;
+static int hf_tcp_payload;
+static int hf_tcp_reset_cause;
+static int hf_tcp_fin_retransmission;
+static int hf_tcp_option_rvbd_probe_reserved;
+static int hf_tcp_option_scps_binding_data;
+static int hf_tcp_syncookie_time;
+static int hf_tcp_syncookie_mss;
+static int hf_tcp_syncookie_hash;
+static int hf_tcp_syncookie_option_timestamp;
+static int hf_tcp_syncookie_option_ecn;
+static int hf_tcp_syncookie_option_sack;
+static int hf_tcp_syncookie_option_wscale;
 
-static gint ett_tcp = -1;
-static gint ett_tcp_completeness = -1;
-static gint ett_tcp_flags = -1;
-static gint ett_tcp_options = -1;
-static gint ett_tcp_option_timestamp = -1;
-static gint ett_tcp_option_mss = -1;
-static gint ett_tcp_option_wscale = -1;
-static gint ett_tcp_option_sack = -1;
-static gint ett_tcp_option_snack = -1;
-static gint ett_tcp_option_scps = -1;
-static gint ett_tcp_scpsoption_flags = -1;
-static gint ett_tcp_option_scps_extended = -1;
-static gint ett_tcp_option_user_to = -1;
-static gint ett_tcp_option_exp = -1;
-static gint ett_tcp_option_acc_ecn = -1;
-static gint ett_tcp_option_sack_perm = -1;
-static gint ett_tcp_analysis = -1;
-static gint ett_tcp_analysis_faults = -1;
-static gint ett_tcp_timestamps = -1;
-static gint ett_tcp_segments = -1;
-static gint ett_tcp_segment  = -1;
-static gint ett_tcp_checksum = -1;
-static gint ett_tcp_process_info = -1;
-static gint ett_tcp_option_mptcp = -1;
-static gint ett_tcp_opt_rvbd_probe = -1;
-static gint ett_tcp_opt_rvbd_probe_flags = -1;
-static gint ett_tcp_opt_rvbd_trpy = -1;
-static gint ett_tcp_opt_rvbd_trpy_flags = -1;
-static gint ett_tcp_opt_echo = -1;
-static gint ett_tcp_opt_cc = -1;
-static gint ett_tcp_opt_md5 = -1;
-static gint ett_tcp_opt_ao = -1;
-static gint ett_tcp_opt_qs = -1;
-static gint ett_tcp_opt_recbound = -1;
-static gint ett_tcp_opt_scpscor = -1;
-static gint ett_tcp_unknown_opt = -1;
-static gint ett_tcp_option_other = -1;
-static gint ett_tcp_syncookie = -1;
-static gint ett_tcp_syncookie_option = -1;
-static gint ett_mptcp_analysis = -1;
-static gint ett_mptcp_analysis_subflows = -1;
+static gint ett_tcp;
+static gint ett_tcp_completeness;
+static gint ett_tcp_flags;
+static gint ett_tcp_options;
+static gint ett_tcp_option_timestamp;
+static gint ett_tcp_option_mss;
+static gint ett_tcp_option_wscale;
+static gint ett_tcp_option_sack;
+static gint ett_tcp_option_snack;
+static gint ett_tcp_option_scps;
+static gint ett_tcp_scpsoption_flags;
+static gint ett_tcp_option_scps_extended;
+static gint ett_tcp_option_user_to;
+static gint ett_tcp_option_exp;
+static gint ett_tcp_option_acc_ecn;
+static gint ett_tcp_option_sack_perm;
+static gint ett_tcp_analysis;
+static gint ett_tcp_analysis_faults;
+static gint ett_tcp_timestamps;
+static gint ett_tcp_segments;
+static gint ett_tcp_segment;
+static gint ett_tcp_checksum;
+static gint ett_tcp_process_info;
+static gint ett_tcp_option_mptcp;
+static gint ett_tcp_opt_rvbd_probe;
+static gint ett_tcp_opt_rvbd_probe_flags;
+static gint ett_tcp_opt_rvbd_trpy;
+static gint ett_tcp_opt_rvbd_trpy_flags;
+static gint ett_tcp_opt_echo;
+static gint ett_tcp_opt_cc;
+static gint ett_tcp_opt_md5;
+static gint ett_tcp_opt_ao;
+static gint ett_tcp_opt_qs;
+static gint ett_tcp_opt_recbound;
+static gint ett_tcp_opt_scpscor;
+static gint ett_tcp_unknown_opt;
+static gint ett_tcp_option_other;
+static gint ett_tcp_syncookie;
+static gint ett_tcp_syncookie_option;
+static gint ett_mptcp_analysis;
+static gint ett_mptcp_analysis_subflows;
 
-static expert_field ei_tcp_opt_len_invalid = EI_INIT;
-static expert_field ei_tcp_analysis_retransmission = EI_INIT;
-static expert_field ei_tcp_analysis_fast_retransmission = EI_INIT;
-static expert_field ei_tcp_analysis_spurious_retransmission = EI_INIT;
-static expert_field ei_tcp_analysis_out_of_order = EI_INIT;
-static expert_field ei_tcp_analysis_reused_ports = EI_INIT;
-static expert_field ei_tcp_analysis_lost_packet = EI_INIT;
-static expert_field ei_tcp_analysis_ack_lost_packet = EI_INIT;
-static expert_field ei_tcp_analysis_window_update = EI_INIT;
-static expert_field ei_tcp_analysis_window_full = EI_INIT;
-static expert_field ei_tcp_analysis_keep_alive = EI_INIT;
-static expert_field ei_tcp_analysis_keep_alive_ack = EI_INIT;
-static expert_field ei_tcp_analysis_duplicate_ack = EI_INIT;
-static expert_field ei_tcp_analysis_zero_window_probe = EI_INIT;
-static expert_field ei_tcp_analysis_zero_window = EI_INIT;
-static expert_field ei_tcp_analysis_zero_window_probe_ack = EI_INIT;
-static expert_field ei_tcp_analysis_tfo_syn = EI_INIT;
-static expert_field ei_tcp_analysis_tfo_ack = EI_INIT;
-static expert_field ei_tcp_analysis_tfo_ignored = EI_INIT;
-static expert_field ei_tcp_scps_capable = EI_INIT;
-static expert_field ei_tcp_option_sack_dsack = EI_INIT;
-static expert_field ei_tcp_option_snack_sequence = EI_INIT;
-static expert_field ei_tcp_option_wscale_shift_invalid = EI_INIT;
-static expert_field ei_tcp_option_mss_absent = EI_INIT;
-static expert_field ei_tcp_option_mss_present = EI_INIT;
-static expert_field ei_tcp_option_sack_perm_absent = EI_INIT;
-static expert_field ei_tcp_option_sack_perm_present = EI_INIT;
-static expert_field ei_tcp_short_segment = EI_INIT;
-static expert_field ei_tcp_ack_nonzero = EI_INIT;
-static expert_field ei_tcp_connection_synack = EI_INIT;
-static expert_field ei_tcp_connection_syn = EI_INIT;
-static expert_field ei_tcp_connection_fin = EI_INIT;
-static expert_field ei_tcp_connection_rst = EI_INIT;
-static expert_field ei_tcp_connection_fin_active = EI_INIT;
-static expert_field ei_tcp_connection_fin_passive = EI_INIT;
-static expert_field ei_tcp_checksum_ffff = EI_INIT;
-static expert_field ei_tcp_checksum_bad = EI_INIT;
-static expert_field ei_tcp_urgent_pointer_non_zero = EI_INIT;
-static expert_field ei_tcp_suboption_malformed = EI_INIT;
-static expert_field ei_tcp_nop = EI_INIT;
-static expert_field ei_tcp_non_zero_bytes_after_eol = EI_INIT;
-static expert_field ei_tcp_bogus_header_length = EI_INIT;
+static expert_field ei_tcp_opt_len_invalid;
+static expert_field ei_tcp_analysis_retransmission;
+static expert_field ei_tcp_analysis_fast_retransmission;
+static expert_field ei_tcp_analysis_spurious_retransmission;
+static expert_field ei_tcp_analysis_out_of_order;
+static expert_field ei_tcp_analysis_reused_ports;
+static expert_field ei_tcp_analysis_lost_packet;
+static expert_field ei_tcp_analysis_ack_lost_packet;
+static expert_field ei_tcp_analysis_window_update;
+static expert_field ei_tcp_analysis_window_full;
+static expert_field ei_tcp_analysis_keep_alive;
+static expert_field ei_tcp_analysis_keep_alive_ack;
+static expert_field ei_tcp_analysis_duplicate_ack;
+static expert_field ei_tcp_analysis_zero_window_probe;
+static expert_field ei_tcp_analysis_zero_window;
+static expert_field ei_tcp_analysis_zero_window_probe_ack;
+static expert_field ei_tcp_analysis_tfo_syn;
+static expert_field ei_tcp_analysis_tfo_ack;
+static expert_field ei_tcp_analysis_tfo_ignored;
+static expert_field ei_tcp_scps_capable;
+static expert_field ei_tcp_option_sack_dsack;
+static expert_field ei_tcp_option_snack_sequence;
+static expert_field ei_tcp_option_wscale_shift_invalid;
+static expert_field ei_tcp_option_mss_absent;
+static expert_field ei_tcp_option_mss_present;
+static expert_field ei_tcp_option_sack_perm_absent;
+static expert_field ei_tcp_option_sack_perm_present;
+static expert_field ei_tcp_short_segment;
+static expert_field ei_tcp_ack_nonzero;
+static expert_field ei_tcp_connection_synack;
+static expert_field ei_tcp_connection_syn;
+static expert_field ei_tcp_connection_fin;
+static expert_field ei_tcp_connection_rst;
+static expert_field ei_tcp_connection_fin_active;
+static expert_field ei_tcp_connection_fin_passive;
+static expert_field ei_tcp_checksum_ffff;
+static expert_field ei_tcp_checksum_partial;
+static expert_field ei_tcp_checksum_bad;
+static expert_field ei_tcp_urgent_pointer_non_zero;
+static expert_field ei_tcp_suboption_malformed;
+static expert_field ei_tcp_nop;
+static expert_field ei_tcp_non_zero_bytes_after_eol;
+static expert_field ei_tcp_bogus_header_length;
 
-/* static expert_field ei_mptcp_analysis_unexpected_idsn = EI_INIT; */
-static expert_field ei_mptcp_analysis_echoed_key_mismatch = EI_INIT;
-static expert_field ei_mptcp_analysis_missing_algorithm = EI_INIT;
-static expert_field ei_mptcp_analysis_unsupported_algorithm = EI_INIT;
-static expert_field ei_mptcp_infinite_mapping= EI_INIT;
-static expert_field ei_mptcp_mapping_missing = EI_INIT;
-/* static expert_field ei_mptcp_stream_incomplete = EI_INIT; */
-/* static expert_field ei_mptcp_analysis_dsn_out_of_order = EI_INIT; */
+/* static expert_field ei_mptcp_analysis_unexpected_idsn; */
+static expert_field ei_mptcp_analysis_echoed_key_mismatch;
+static expert_field ei_mptcp_analysis_missing_algorithm;
+static expert_field ei_mptcp_analysis_unsupported_algorithm;
+static expert_field ei_mptcp_infinite_mapping;
+static expert_field ei_mptcp_mapping_missing;
+/* static expert_field ei_mptcp_stream_incomplete; */
+/* static expert_field ei_mptcp_analysis_dsn_out_of_order; */
 
 /* Some protocols such as encrypted DCE/RPCoverHTTP have dependencies
  * from one PDU to the next PDU and require that they are called in sequence.
@@ -1456,10 +1457,34 @@ static int exp_pdu_tcp_dissector_data_populate_data(packet_info *pinfo _U_, void
     return exp_pdu_tcp_dissector_data_size(pinfo, data);
 }
 
+static tvbuff_t*
+handle_export_pdu_check_desegmentation(packet_info *pinfo, tvbuff_t *tvb)
+{
+    /* Check to see if the tvb we're planning on exporting PDUs from was
+     * dissected fully, or whether it requested further desegmentation.
+     * This should only matter on the first pass (so in one-pass tshark.)
+     */
+    if (pinfo->can_desegment > 0 && pinfo->desegment_len != 0) {
+        /* Desegmentation was requested. How much did we desegment here?
+         * The rest, presumably, will be handled in another frame.
+         */
+        if (pinfo->desegment_offset == 0) {
+            /* We couldn't, in fact, dissect any of it. */
+            return NULL;
+        }
+        tvb = tvb_new_subset_length(tvb, 0, pinfo->desegment_offset);
+    }
+    return tvb;
+}
+
 static void
 handle_export_pdu_dissection_table(packet_info *pinfo, tvbuff_t *tvb, guint32 port, struct tcpinfo *tcpinfo)
 {
     if (have_tap_listener(exported_pdu_tap)) {
+        tvb = handle_export_pdu_check_desegmentation(pinfo, tvb);
+        if (tvb == NULL) {
+            return;
+        }
         exp_pdu_data_item_t exp_pdu_data_table_value = {exp_pdu_data_dissector_table_num_value_size, exp_pdu_data_dissector_table_num_value_populate_data, NULL};
         exp_pdu_data_item_t exp_pdu_data_dissector_data = {exp_pdu_tcp_dissector_data_size, exp_pdu_tcp_dissector_data_populate_data, NULL};
         const exp_pdu_data_item_t *tcp_exp_pdu_items[] = {
@@ -1494,6 +1519,10 @@ handle_export_pdu_heuristic(packet_info *pinfo, tvbuff_t *tvb, heur_dtbl_entry_t
     exp_pdu_data_t *exp_pdu_data = NULL;
 
     if (have_tap_listener(exported_pdu_tap)) {
+        tvb = handle_export_pdu_check_desegmentation(pinfo, tvb);
+        if (tvb == NULL) {
+            return;
+        }
         if ((!hdtbl_entry->enabled) ||
             (hdtbl_entry->protocol != NULL && !proto_is_protocol_enabled(hdtbl_entry->protocol))) {
             exp_pdu_data = export_pdu_create_common_tags(pinfo, "data", EXP_PDU_TAG_DISSECTOR_NAME);
@@ -1529,6 +1558,10 @@ static void
 handle_export_pdu_conversation(packet_info *pinfo, tvbuff_t *tvb, int src_port, int dst_port, struct tcpinfo *tcpinfo)
 {
     if (have_tap_listener(exported_pdu_tap)) {
+        tvb = handle_export_pdu_check_desegmentation(pinfo, tvb);
+        if (tvb == NULL) {
+            return;
+        }
         conversation_t *conversation = find_conversation(pinfo->num, &pinfo->src, &pinfo->dst, CONVERSATION_TCP, src_port, dst_port, 0);
         if (conversation != NULL)
         {
@@ -4203,9 +4236,6 @@ again:
 
                 if (msp->first_frame == pinfo->num || msp->first_frame_with_seq == pinfo->num) {
                     str = "";
-                    if (first_pdu) {
-                        col_append_sep_str(pinfo->cinfo, COL_INFO, " ", "[TCP segment of a reassembled PDU]");
-                    }
                 } else {
                     str = "Retransmitted ";
                     is_retransmission = TRUE;
@@ -4221,6 +4251,11 @@ again:
                             item = proto_tree_add_uint(tcp_tree, hf_tcp_reassembled_in, tvb, 0,
                                                0, ipfd_head->reassembled_in);
                             proto_item_set_generated(item);
+
+                            if (first_pdu) {
+                                col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "[TCP PDU reassembled in %u]",
+                                    ipfd_head->reassembled_in);
+                            }
                         }
                     }
                 }
@@ -4820,9 +4855,9 @@ again:
              * of the payload, and that's 0).
              * Just mark this as TCP.
              */
-            col_set_str(pinfo->cinfo, COL_PROTOCOL, "TCP");
-            if (first_pdu) {
-                col_append_sep_str(pinfo->cinfo, COL_INFO, " ", "[TCP segment of a reassembled PDU]");
+            if (first_pdu && ipfd_head != NULL && ipfd_head->reassembled_in != 0) {
+                col_append_sep_fstr(pinfo->cinfo, COL_INFO, " ", "[TCP PDU reassembled in %u]",
+                    ipfd_head->reassembled_in);
             }
         }
 
@@ -7922,7 +7957,7 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             tcph->th_seglen = reported_len - tcph->th_hlen;
             tcph->th_have_seglen = TRUE;
 
-            pi = proto_tree_add_uint(ti, hf_tcp_len, tvb, offset+12, 1, tcph->th_seglen);
+            pi = proto_tree_add_uint(ti, hf_tcp_len, tvb, 0, 0, tcph->th_seglen);
             proto_item_set_generated(pi);
 
             /* initialize base_seq numbers */
@@ -8360,8 +8395,12 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 DISSECTOR_ASSERT_NOT_REACHED();
                 break;
             }
+            /* See discussion in packet-udp.c of partial checksums used in
+             * checksum offloading in Linux and Windows (and possibly others.)
+             */
+            uint16_t partial_cksum;
             SET_CKSUM_VEC_TVB(cksum_vec[3], tvb, offset, reported_len);
-            computed_cksum = in_cksum(cksum_vec, 4);
+            computed_cksum = in_cksum_ret_partial(cksum_vec, 4, &partial_cksum);
             if (computed_cksum == 0 && th_sum == 0xffff) {
                 item = proto_tree_add_uint_format_value(tcp_tree, hf_tcp_checksum, tvb,
                                                   offset + 16, 2, th_sum,
@@ -8383,11 +8422,23 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 desegment_ok = TRUE;
             } else {
                 proto_item* calc_item;
-                item = proto_tree_add_checksum(tcp_tree, tvb, offset+16, hf_tcp_checksum, hf_tcp_checksum_status, &ei_tcp_checksum_bad, pinfo, computed_cksum,
-                                               ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
-
-                calc_item = proto_tree_add_uint(tcp_tree, hf_tcp_checksum_calculated, tvb,
-                                              offset + 16, 2, in_cksum_shouldbe(th_sum, computed_cksum));
+                uint16_t shouldbe_cksum = in_cksum_shouldbe(th_sum, computed_cksum);
+                if (th_sum == g_htons(partial_cksum)) {
+                    /* Don't use PROTO_CHECKSUM_IN_CKSUM because we expect the value
+                     * to match what we pass in. */
+                    item = proto_tree_add_checksum(tcp_tree, tvb, offset+16, hf_tcp_checksum, hf_tcp_checksum_status, &ei_tcp_checksum_bad, pinfo, g_htons(partial_cksum),
+                                                   ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
+                    proto_item_append_text(item, " (matches partial checksum, not 0x%04x, likely caused by \"TCP checksum offload\")", shouldbe_cksum);
+                    expert_add_info(pinfo, item, &ei_tcp_checksum_partial);
+                    computed_cksum = 0;
+                    /* XXX Add a new status, e.g. PROTO_CHECKSUM_E_PARTIAL? */
+                } else {
+                    item = proto_tree_add_checksum(tcp_tree, tvb, offset+16, hf_tcp_checksum, hf_tcp_checksum_status, &ei_tcp_checksum_bad, pinfo, computed_cksum,
+                                                   ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY|PROTO_CHECKSUM_IN_CKSUM);
+                }
+                checksum_tree = proto_item_add_subtree(item, ett_tcp_checksum);
+                calc_item = proto_tree_add_uint(checksum_tree, hf_tcp_checksum_calculated, tvb,
+                                              offset + 16, 2, shouldbe_cksum);
                 proto_item_set_generated(calc_item);
 
                 /* Checksum is valid, so we're willing to desegment it. */
@@ -9519,7 +9570,7 @@ proto_register_tcp(void)
 
         { &hf_tcp_segment_data,
           { "TCP segment data", "tcp.segment_data", FT_BYTES, BASE_NONE, NULL, 0x0,
-            "A data segment used in reassembly of a lower-level protocol", HFILL}},
+            "A data segment used in reassembly of an upper-layer protocol (ULP)", HFILL}},
 
         { &hf_tcp_payload,
           { "TCP payload", "tcp.payload", FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -9686,6 +9737,7 @@ proto_register_tcp(void)
          */
         { &ei_tcp_connection_rst, { "tcp.connection.rst", PI_SEQUENCE, PI_WARN, "Connection reset (RST)", EXPFILL }},
         { &ei_tcp_checksum_ffff, { "tcp.checksum.ffff", PI_CHECKSUM, PI_WARN, "TCP Checksum 0xffff instead of 0x0000 (see RFC 1624)", EXPFILL }},
+        { &ei_tcp_checksum_partial, { "tcp.checksum.partial", PI_CHECKSUM, PI_NOTE, "Partial (pseudo header) checksum (likely caused by \"TCP checksum offload\")", EXPFILL }},
         { &ei_tcp_checksum_bad, { "tcp.checksum_bad.expert", PI_CHECKSUM, PI_ERROR, "Bad checksum", EXPFILL }},
         { &ei_tcp_urgent_pointer_non_zero, { "tcp.urgent_pointer.non_zero", PI_PROTOCOL, PI_NOTE, "The urgent pointer field is nonzero while the URG flag is not set", EXPFILL }},
         { &ei_tcp_suboption_malformed, { "tcp.suboption_malformed", PI_MALFORMED, PI_ERROR, "suboption would go past end of option", EXPFILL }},

@@ -112,6 +112,13 @@ PreferencesDialog::PreferencesDialog(QWidget *parent) :
 
     pd_ui_->splitter->setStretchFactor(0, 1);
     pd_ui_->splitter->setStretchFactor(1, 5);
+
+    // The calculations done in showEvent to set the minimum size of the
+    // protocol column mean that if we load the splitter state it will become
+    // impossible to shrink the splitter below the width of the widest protocol
+    // that initially fits, so don't do this unless we change showEvent.
+    //loadSplitterState(pd_ui_->splitter);
+
     pd_ui_->prefsView->sortByColumn(ModulePrefsModel::colName, Qt::AscendingOrder);
 
     //Set the Appearance leaf to expanded
@@ -229,6 +236,14 @@ void PreferencesDialog::on_advancedSearchLineEdit_textEdited(const QString &text
     searchLineEditTimer->start(gui_debounce_timer);
 }
 
+void PreferencesDialog::on_showChangedValuesCheckBox_toggled(bool checked)
+{
+    advancedPrefsModel_.setShowChangedValues(checked);
+    /* If items are filtered out, then filtered back in, the tree remains collapsed
+       Force an expansion */
+    pd_ui_->advancedView->expandAll();
+}
+
 void PreferencesDialog::on_buttonBox_accepted()
 {
     gchar* err = NULL;
@@ -242,6 +257,10 @@ void PreferencesDialog::on_buttonBox_accepted()
         // Layout type changed, reset sizes
         recent.gui_geometry_main_upper_pane = 0;
         recent.gui_geometry_main_lower_pane = 0;
+        g_free(recent.gui_geometry_main_master_split);
+        g_free(recent.gui_geometry_main_extra_split);
+        recent.gui_geometry_main_master_split = NULL;
+        recent.gui_geometry_main_extra_split = NULL;
     }
 
     pd_ui_->columnFrame->unstash();

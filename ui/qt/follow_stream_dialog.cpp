@@ -45,7 +45,6 @@
 #include <QMutex>
 #include <QPrintDialog>
 #include <QPrinter>
-#include <QScrollBar>
 #include <QTextCodec>
 
 // To do:
@@ -53,8 +52,6 @@
 // - Instead of calling QMessageBox, display the error message in the text
 //   box and disable the appropriate controls.
 // - Add a progress bar and connect captureCaptureUpdateContinue to it
-// - User's Guide documents the "Raw" type as "same as ASCII, but saving binary
-//   data". However it currently displays hex-encoded data.
 
 // Matches SplashOverlay.
 static int info_update_freq_ = 100;
@@ -72,7 +69,6 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, int pro
     ui(new Ui::FollowStreamDialog),
     b_find_(NULL),
     follower_(NULL),
-    truncated_(false),
     client_buffer_count_(0),
     server_buffer_count_(0),
     client_packet_count_(0),
@@ -89,6 +85,8 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, int pro
 
     ui->streamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
     ui->subStreamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
+    ui->streamNumberSpinBox->setKeyboardTracking(false);
+    ui->subStreamNumberSpinBox->setKeyboardTracking(false);
 
     follower_ = get_follow_by_proto_id(proto_id);
     if (follower_ == NULL) {
@@ -131,12 +129,12 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, int pro
     ProgressFrame::addToButtonBox(ui->buttonBox, &parent);
 
     connect(ui->buttonBox, SIGNAL(helpRequested()), this, SLOT(helpButton()));
-    connect(ui->teStreamContent, SIGNAL(mouseMovedToTextCursorPosition(int)),
-            this, SLOT(fillHintLabel(int)));
-    connect(ui->teStreamContent, SIGNAL(mouseClickedOnTextCursorPosition(int)),
-            this, SLOT(goToPacketForTextPos(int)));
+    connect(ui->teStreamContent, &FollowStreamText::mouseMovedToPacket,
+            this, &FollowStreamDialog::fillHintLabel);
+    connect(ui->teStreamContent, &FollowStreamText::mouseClickedOnPacket,
+            this, &FollowStreamDialog::goToPacketForTextPos);
 
-    fillHintLabel(-1);
+    fillHintLabel();
 }
 
 FollowStreamDialog::~FollowStreamDialog()
@@ -150,7 +148,7 @@ void FollowStreamDialog::addCodecs(const QMap<QString, QTextCodec *> &codecMap)
     // Make the combobox respect max visible items?
     //ui->cbCharset->setStyleSheet("QComboBox { combobox-popup: 0;}");
     ui->cbCharset->insertSeparator(ui->cbCharset->count());
-    for (const auto &codec : qAsConst(codecMap)) {
+    for (const auto &codec : codecMap) {
         // This is already in the menu and handled separately
         if (codec->name() != "US-ASCII" && codec->name() != "UTF-8")
             ui->cbCharset->addItem(tr(codec->name()), SHOW_CODEC);
@@ -167,17 +165,9 @@ void FollowStreamDialog::printStream()
 #endif
 }
 
-void FollowStreamDialog::fillHintLabel(int text_pos)
+void FollowStreamDialog::fillHintLabel(int pkt)
 {
     QString hint;
-    int pkt = -1;
-
-    if (text_pos >= 0) {
-        QMap<int, guint32>::iterator it = text_pos_to_packet_.upperBound(text_pos);
-        if (it != text_pos_to_packet_.end()) {
-            pkt = it.value();
-        }
-    }
 
     if (pkt > 0) {
         hint = QString(tr("Packet %1. ")).arg(pkt);
@@ -200,18 +190,10 @@ void FollowStreamDialog::fillHintLabel(int text_pos)
     ui->hintLabel->setText(hint);
 }
 
-void FollowStreamDialog::goToPacketForTextPos(int text_pos)
+void FollowStreamDialog::goToPacketForTextPos(int pkt)
 {
-    int pkt = -1;
     if (file_closed_) {
         return;
-    }
-
-    if (text_pos >= 0) {
-        QMap<int, guint32>::iterator it = text_pos_to_packet_.upperBound(text_pos);
-        if (it != text_pos_to_packet_.end()) {
-            pkt = it.value();
-        }
     }
 
     if (pkt > 0) {
@@ -221,6 +203,8 @@ void FollowStreamDialog::goToPacketForTextPos(int text_pos)
 
 void FollowStreamDialog::updateWidgets(bool follow_in_progress)
 {
+    // XXX: If follow_in_progress set cursor to Qt::BusyCursor or WaitCursor,
+    // otherwise unset cursor?
     bool enable = !follow_in_progress;
     if (file_closed_) {
         ui->teStreamContent->setEnabled(true);
@@ -229,9 +213,9 @@ void FollowStreamDialog::updateWidgets(bool follow_in_progress)
 
     ui->cbDirections->setEnabled(enable);
     ui->cbCharset->setEnabled(enable);
-    ui->streamNumberSpinBox->setEnabled(enable);
+    ui->streamNumberSpinBox->setReadOnly(!enable);
     if (get_follow_sub_stream_id_func(follower_) != NULL) {
-        ui->subStreamNumberSpinBox->setEnabled(enable);
+        ui->subStreamNumberSpinBox->setReadOnly(!enable);
     }
     ui->leFind->setEnabled(enable);
     ui->bFind->setEnabled(enable);
@@ -288,11 +272,13 @@ void FollowStreamDialog::saveAs()
         return;
     }
 
+    // XXX: What if truncated_ is true? We should save the entire stream.
     // Unconditionally save data as UTF-8 (even if data is decoded otherwise).
     QByteArray bytes = ui->teStreamContent->toPlainText().toUtf8();
     if (recent.gui_follow_show == SHOW_RAW) {
         // The "Raw" format is currently displayed as hex data and needs to be
-        // converted to binary data.
+        // converted to binary data. fromHex() skips over non hex characters
+        // including line breaks, which is what we want.
         bytes = QByteArray::fromHex(bytes);
     }
 
@@ -486,47 +472,17 @@ void FollowStreamDialog::removeStreamControls()
     ui->subStreamNumberSpinBox->setVisible(false);
 }
 
+void FollowStreamDialog::resetStream(void *tap_data)
+{
+    follow_info_t *follow_info = static_cast<follow_info_t*>(tap_data);
+    follow_reset_stream(follow_info);
+    // If we ever draw the text while tapping (instead of only after
+    // the tap finishes), reset the GUI here too.
+}
+
 void FollowStreamDialog::resetStream()
 {
-    GList *cur;
-    follow_record_t *follow_record;
-
-    filter_out_filter_.clear();
-    text_pos_to_packet_.clear();
-    if (!data_out_filename_.isEmpty()) {
-        ws_unlink(data_out_filename_.toUtf8().constData());
-    }
-    for (cur = follow_info_.payload; cur; cur = gxx_list_next(cur)) {
-        follow_record = gxx_list_data(follow_record_t *, cur);
-        if (follow_record->data) {
-            g_byte_array_free(follow_record->data, TRUE);
-        }
-        g_free(follow_record);
-    }
-    g_list_free(follow_info_.payload);
-
-    //Only TCP stream uses fragments
-    for (cur = follow_info_.fragments[0]; cur; cur = gxx_list_next(cur)) {
-        follow_record = gxx_list_data(follow_record_t *, cur);
-        if (follow_record->data) {
-            g_byte_array_free(follow_record->data, TRUE);
-        }
-        g_free(follow_record);
-    }
-    follow_info_.fragments[0] = Q_NULLPTR;
-    for (cur = follow_info_.fragments[1]; cur; cur = gxx_list_next(cur)) {
-        follow_record = gxx_list_data(follow_record_t *, cur);
-        if (follow_record->data) {
-            g_byte_array_free(follow_record->data, TRUE);
-        }
-        g_free(follow_record);
-    }
-    follow_info_.fragments[1] = Q_NULLPTR;
-
-    free_address(&follow_info_.client_ip);
-    free_address(&follow_info_.server_ip);
-    follow_info_.payload = Q_NULLPTR;
-    follow_info_.client_port = 0;
+    FollowStreamDialog::resetStream(&follow_info_);
 }
 
 frs_return_t
@@ -539,7 +495,6 @@ FollowStreamDialog::readStream()
     loop_break_mutex.unlock();
 
     ui->teStreamContent->clear();
-    text_pos_to_packet_.clear();
     switch (recent.gui_follow_show) {
 
     case SHOW_CARRAY:
@@ -557,7 +512,6 @@ FollowStreamDialog::readStream()
         ui->teStreamContent->setWordWrapMode(QTextOption::WrapAnywhere);
     }
 
-    truncated_ = false;
     frs_return_t ret;
 
     client_buffer_count_ = 0;
@@ -585,49 +539,9 @@ FollowStreamDialog::followStream()
     readStream();
 }
 
-const int FollowStreamDialog::max_document_length_ = 500 * 1000 * 1000; // Just a guess
 void FollowStreamDialog::addText(QString text, gboolean is_from_server, guint32 packet_num, gboolean colorize)
 {
-    if (truncated_) {
-        return;
-    }
-
-    int char_count = ui->teStreamContent->document()->characterCount();
-    if (char_count + text.length() > max_document_length_) {
-        text.truncate(max_document_length_ - char_count);
-        truncated_ = true;
-    }
-
-    setUpdatesEnabled(false);
-    int cur_pos = ui->teStreamContent->verticalScrollBar()->value();
-    ui->teStreamContent->moveCursor(QTextCursor::End);
-
-    QTextCharFormat tcf = ui->teStreamContent->currentCharFormat();
-    if (!colorize) {
-        tcf.setBackground(palette().window().color());
-        tcf.setForeground(palette().windowText().color());
-    } else if (is_from_server) {
-        tcf.setForeground(ColorUtils::fromColorT(prefs.st_server_fg));
-        tcf.setBackground(ColorUtils::fromColorT(prefs.st_server_bg));
-    } else {
-        tcf.setForeground(ColorUtils::fromColorT(prefs.st_client_fg));
-        tcf.setBackground(ColorUtils::fromColorT(prefs.st_client_bg));
-    }
-    ui->teStreamContent->setCurrentCharFormat(tcf);
-
-    ui->teStreamContent->insertPlainText(text);
-    text_pos_to_packet_[ui->teStreamContent->textCursor().anchor()] = packet_num;
-
-    if (truncated_) {
-        tcf = ui->teStreamContent->currentCharFormat();
-        tcf.setBackground(palette().window().color());
-        tcf.setForeground(palette().windowText().color());
-        ui->teStreamContent->insertPlainText("\n" + tr("[Stream output truncated]"));
-        ui->teStreamContent->moveCursor(QTextCursor::End);
-    } else {
-        ui->teStreamContent->verticalScrollBar()->setValue(cur_pos);
-    }
-    setUpdatesEnabled(true);
+    ui->teStreamContent->addText(std::move(text), is_from_server, packet_num, colorize);
 }
 
 // The following keyboard shortcuts should work (although
@@ -678,18 +592,25 @@ void FollowStreamDialog::keyPressEvent(QKeyEvent *event)
     QDialog::keyPressEvent(event);
 }
 
-static inline void sanitize_buffer(char *buffer, size_t nchars) {
-    for (size_t i = 0; i < nchars; i++) {
-        if (buffer[i] == '\n' || buffer[i] == '\r' || buffer[i] == '\t')
+// Replaces non printable ASCII characters in the QByteArray with .
+// Causes buffer to detach/deep copy *only* if a character has to be
+// replaced.
+static inline void sanitize_buffer(QByteArray &buffer, size_t nchars) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    for (int i = 0; i < (int)nchars; i++) {
+#else
+    for (qsizetype i = 0; i < (qsizetype)nchars; i++) {
+#endif
+        if (buffer.at(i) == '\n' || buffer.at(i) == '\r' || buffer.at(i) == '\t')
             continue;
-        if (! g_ascii_isprint((guchar)buffer[i])) {
+        if (! g_ascii_isprint((guchar)buffer.at(i))) {
             buffer[i] = '.';
         }
     }
 }
 
 frs_return_t
-FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_server, guint32 packet_num,
+FollowStreamDialog::showBuffer(QByteArray &buffer, size_t nchars, gboolean is_from_server, guint32 packet_num,
                                 nstime_t abs_ts, guint32 *global_pos)
 {
     gchar initbuf[256];
@@ -701,10 +622,9 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
     case SHOW_EBCDIC:
     {
         /* If our native arch is ASCII, call: */
-        EBCDIC_to_ASCII((guint8*)buffer, (guint) nchars);
+        EBCDIC_to_ASCII((uint8_t*)buffer.data(), (guint) nchars);
         sanitize_buffer(buffer, nchars);
-        QByteArray ba = QByteArray(buffer, (int)nchars);
-        addText(ba, is_from_server, packet_num);
+        addText(buffer, is_from_server, packet_num);
         break;
     }
 
@@ -714,8 +634,7 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
          * ASCII_TO_EBCDIC(buffer, nchars);
          */
         sanitize_buffer(buffer, nchars);
-        QByteArray ba = QByteArray(buffer, (int)nchars);
-        addText(ba, is_from_server, packet_num);
+        addText(buffer, is_from_server, packet_num);
         break;
     }
 
@@ -727,9 +646,7 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
         // two stateful QTextDecoders, one for each direction, presumably in
         // on_cbCharset_currentIndexChanged()
         QTextCodec *codec = QTextCodec::codecForName(ui->cbCharset->currentText().toUtf8());
-        QByteArray ba = QByteArray(buffer, (int)nchars);
-        QString decoded = codec->toUnicode(ba);
-        addText(decoded, is_from_server, packet_num);
+        addText(codec->toUnicode(buffer), is_from_server, packet_num);
         break;
     }
 
@@ -752,9 +669,9 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
             ascii_start = cur + 49 + 2;
             for (i = 0; i < 16 && current_pos + i < nchars; i++) {
                 *cur++ =
-                        hexchars[(buffer[current_pos + i] & 0xf0) >> 4];
+                        hexchars[(buffer.at(current_pos + i) & 0xf0) >> 4];
                 *cur++ =
-                        hexchars[buffer[current_pos + i] & 0x0f];
+                        hexchars[buffer.at(current_pos + i) & 0x0f];
                 *cur++ = ' ';
                 if (i == 7)
                     *cur++ = ' ';
@@ -766,8 +683,8 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
             /* Now dump bytes as text */
             for (i = 0; i < 16 && current_pos + i < nchars; i++) {
                 *cur++ =
-                        (g_ascii_isprint((guchar)buffer[current_pos + i]) ?
-                            buffer[current_pos + i] : '.');
+                        (g_ascii_isprint((guchar)buffer.at(current_pos + i)) ?
+                            buffer.at(current_pos + i) : '.');
                 if (i == 7) {
                     *cur++ = ' ';
                 }
@@ -799,9 +716,9 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
                 hexbuf[cur++] = '0';
                 hexbuf[cur++] = 'x';
                 hexbuf[cur++] =
-                        hexchars[(buffer[current_pos + i] & 0xf0) >> 4];
+                        hexchars[(buffer.at(current_pos + i) & 0xf0) >> 4];
                 hexbuf[cur++] =
-                        hexchars[buffer[current_pos + i] & 0x0f];
+                        hexchars[buffer.at(current_pos + i) & 0x0f];
 
                 /* Delimit array entries with a comma */
                 if (current_pos + i + 1 < nchars)
@@ -875,7 +792,7 @@ FollowStreamDialog::showBuffer(char *buffer, size_t nchars, gboolean is_from_ser
         }
         while (current_pos < nchars) {
             int len = current_pos + base64_raw_len < nchars ? base64_raw_len : (int) nchars - current_pos;
-            QByteArray base64_data(&buffer[current_pos], len);
+            QByteArray base64_data(&buffer.constData()[current_pos], len);
 
             /* XXX: GCC 12.1 has a bogus stringop-overread warning using the Qt
              * conversions from QByteArray to QString at -O2 and higher due to
@@ -892,15 +809,13 @@ DIAG_ON(stringop-overread)
             current_pos += len;
             (*global_pos) += len;
         }
-        addText(yaml_text, is_from_server, packet_num);
+        addText(std::move(yaml_text), is_from_server, packet_num);
         break;
     }
 
     case SHOW_RAW:
     {
-        QByteArray ba = QByteArray(buffer, (int)nchars).toHex();
-        ba += '\n';
-        addText(ba, is_from_server, packet_num);
+        addText(buffer.toHex() + '\n', is_from_server, packet_num);
         break;
     }
 
@@ -943,8 +858,6 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     int                 stream_count;
     follow_stream_count_func stream_count_func = NULL;
 
-    resetStream();
-
     if (file_closed_)
     {
         QMessageBox::warning(this, tr("No capture file."), tr("Please make sure you have a capture file opened."));
@@ -964,8 +877,6 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
             return false;
         }
     }
-
-    follow_reset_stream(&follow_info_);
 
     /* Create a new filter that matches all packets in the TCP stream,
         and set the display filter entry accordingly */
@@ -1001,7 +912,8 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     /* data will be passed via tap callback*/
     if (!registerTapListener(get_follow_tap_string(follower_), &follow_info_,
                                 follow_filter.toUtf8().constData(),
-                                0, NULL, get_follow_tap_handler(follower_), NULL)) {
+                                0, FollowStreamDialog::resetStream,
+                                get_follow_tap_handler(follower_), NULL)) {
         return false;
     }
 
@@ -1050,6 +962,24 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
 
     /* Run the display filter so it goes in effect - even if it's the
        same as the previous display filter. */
+    /* XXX: This forces a cf_filter_packets() - but if a rescan (or something else
+     * that sets cf->read_lock) is in progress, this will queue the filter
+     * and return immediately. It will also cause a rescan in progress to
+     * stop and restart with the new filter. That also applies to this rescan;
+     * changing the main display filter (from the main window, or from, e.g.
+     * another FollowStreamDialog) will cause this to restart and reset the
+     * tap.
+     *
+     * Other tapping dialogs call cf_retap_packets (which retaps but doesn't
+     * set the main display filter, freeze the packet list, etc.), which
+     * has somewhat different behavior when another dialog tries to retap,
+     * but also results in the taps being reset mid tap.
+     *
+     * Either way, we should be event driven and listening for CaptureEvents
+     * instead of drawing after this returns. (Or like other taps, draw
+     * periodically in a callback, provided that can be done without causing
+     * issues with changing the Decode As type.)
+     */
     emit updateFilter(follow_filter, TRUE);
 
     removeTapListeners();
@@ -1096,7 +1026,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     ui->cbDirections->blockSignals(false);
 
     followStream();
-    fillHintLabel(-1);
+    fillHintLabel();
 
     updateWidgets(false);
     endRetapPackets();
@@ -1116,23 +1046,6 @@ void FollowStreamDialog::captureFileClosed()
     WiresharkDialog::captureFileClosed();
 }
 
-/*
- * XXX - the routine pointed to by "print_line_fcn_p" doesn't get handed lines,
- * it gets handed bufferfuls.  That's fine for "follow_write_raw()"
- * and "follow_add_to_gtk_text()", but, as "follow_print_text()" calls
- * the "print_line()" routine from "print.c", and as that routine might
- * genuinely expect to be handed a line (if, for example, it's using
- * some OS or desktop environment's printing API, and that API expects
- * to be handed lines), "follow_print_text()" should probably accumulate
- * lines in a buffer and hand them "print_line()".  (If there's a
- * complete line in a buffer - i.e., there's nothing of the line in
- * the previous buffer or the next buffer - it can just hand that to
- * "print_line()" after filtering out non-printables, as an
- * optimization.)
- *
- * This might or might not be the reason why C arrays display
- * correctly but get extra blank lines very other line when printed.
- */
 frs_return_t
 FollowStreamDialog::readFollowStream()
 {
@@ -1143,6 +1056,7 @@ FollowStreamDialog::readFollowStream()
     frs_return_t frs_return;
     follow_record_t *follow_record;
     QElapsedTimer elapsed_timer;
+    QByteArray buffer;
 
     elapsed_timer.start();
 
@@ -1167,14 +1081,13 @@ FollowStreamDialog::readFollowStream()
             }
         }
 
-        QByteArray buffer;
         if (!skip) {
-            // We want a deep copy.
-            buffer.clear();
-            buffer.append((const char *) follow_record->data->data,
-                                     follow_record->data->len);
+            // This will only detach / deep copy if the buffer data is
+            // modified. Try to avoid doing that as much as possible
+            // (and avoid new memory allocations that have to be freed).
+            buffer.setRawData((char*)follow_record->data->data, follow_record->data->len);
             frs_return = showBuffer(
-                        buffer.data(),
+                        buffer,
                         follow_record->data->len,
                         follow_record->is_server,
                         follow_record->packet_num,
@@ -1183,7 +1096,7 @@ FollowStreamDialog::readFollowStream()
             if (frs_return == FRS_PRINT_ERROR)
                 return frs_return;
             if (elapsed_timer.elapsed() > info_update_freq_) {
-                fillHintLabel(ui->teStreamContent->textCursor().position());
+                fillHintLabel(ui->teStreamContent->currentPacket());
                 mainApp->processEvents();
                 elapsed_timer.start();
             }

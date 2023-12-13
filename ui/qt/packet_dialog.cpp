@@ -15,6 +15,7 @@
 #include "epan/column.h"
 #include "epan/ftypes/ftypes.h"
 #include "epan/prefs.h"
+#include "epan/prefs-int.h"
 #include "ui/preference_utils.h"
 
 #include "frame_tvbuff.h"
@@ -27,6 +28,8 @@
 
 #include <ui/qt/utils/field_information.h>
 #include <QTreeWidgetItemIterator>
+
+Q_DECLARE_METATYPE(splitter_layout_e)
 
 // To do:
 // - Copy over experimental packet editing code.
@@ -41,6 +44,8 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
     ui->setupUi(this);
     loadGeometry(parent.width() * 4 / 5, parent.height() * 4 / 5);
     ui->hintLabel->setSmallText();
+    ui->prefsLayout->insertSpacing(1, 20);
+    ui->prefsLayout->addStretch();
 
     wtap_rec_init(&rec_);
     ws_buffer_init(&buf_, 1514);
@@ -76,7 +81,40 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
     byte_view_tab_->setCaptureFile(cap_file_.capFile());
     byte_view_tab_->selectedFrameChanged(QList<int>() << 0);
 
-    ui->packetSplitter->setStretchFactor(1, 0);
+    // We have to load the splitter state after adding the proto tree
+    // and byte view.
+    loadSplitterState(ui->packetSplitter);
+
+    module_t *gui_module = prefs_find_module("gui");
+    if (gui_module != nullptr) {
+        pref_packet_dialog_layout_ = prefs_find_preference(gui_module, "packet_dialog_layout");
+        if (pref_packet_dialog_layout_ != nullptr) {
+            for (const enum_val_t *ev = prefs_get_enumvals(pref_packet_dialog_layout_); ev && ev->description; ev++) {
+                ui->layoutComboBox->addItem(ev->description, QVariant(ev->value));
+            }
+        }
+    }
+    ui->layoutComboBox->setCurrentIndex(ui->layoutComboBox->findData(QVariant(prefs.gui_packet_dialog_layout)));
+    Qt::Orientation pref_orientation = Qt::Vertical;
+    switch(prefs.gui_packet_dialog_layout) {
+    case(layout_vertical):
+        pref_orientation = Qt::Vertical;
+        break;
+    case(layout_horizontal):
+        pref_orientation = Qt::Horizontal;
+        break;
+    }
+
+    if (ui->packetSplitter->orientation() != pref_orientation) {
+        ui->packetSplitter->setOrientation(pref_orientation);
+        // If the orientation is different than the restore one,
+        // reset the sizes to 50-50.
+        QList<int> sizes = ui->packetSplitter->sizes();
+        int totalsize = sizes.at(0) + sizes.at(1);
+        sizes[0] = totalsize / 2;
+        sizes[1] = totalsize / 2;
+        ui->packetSplitter->setSizes(sizes);
+    }
 
     QStringList col_parts;
     for (int i = 0; i < cap_file_.capFile()->cinfo.num_cols; ++i) {
@@ -96,6 +134,7 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
         byte_view_tab_->setVisible(false);
     }
     ui->chkShowByteView->setCheckState(state);
+    ui->layoutComboBox->setEnabled(state);
 
     connect(mainApp, SIGNAL(zoomMonospaceFont(QFont)),
             proto_tree_, SLOT(setMonospaceFont(QFont)));
@@ -117,6 +156,11 @@ PacketDialog::PacketDialog(QWidget &parent, CaptureFile &cf, frame_data *fdata) 
     connect(proto_tree_, SIGNAL(editProtocolPreference(preference*,pref_module*)),
             this, SIGNAL(editProtocolPreference(preference*,pref_module*)));
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    connect(ui->layoutComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &PacketDialog::layoutChanged);
+#else
+    connect(ui->layoutComboBox, &QComboBox::currentIndexChanged, this, &PacketDialog::layoutChanged, Qt::AutoConnection);
+#endif
     connect(ui->chkShowByteView, &QCheckBox::stateChanged, this, &PacketDialog::viewVisibilityStateChanged);
 }
 
@@ -205,7 +249,22 @@ void PacketDialog::setHintTextSelected(FieldInformation* finfo)
 void PacketDialog::viewVisibilityStateChanged(int state)
 {
     byte_view_tab_->setVisible(state == Qt::Checked);
+    ui->layoutComboBox->setEnabled(state == Qt::Checked);
 
     prefs.gui_packet_details_show_byteview = (state == Qt::Checked ? TRUE : FALSE);
     prefs_main_write();
+}
+
+void PacketDialog::layoutChanged(int index _U_)
+{
+    splitter_layout_e layout = ui->layoutComboBox->currentData().value<splitter_layout_e>();
+    switch(layout) {
+    case(layout_vertical):
+        ui->packetSplitter->setOrientation(Qt::Vertical);
+        break;
+    case(layout_horizontal):
+        ui->packetSplitter->setOrientation(Qt::Horizontal);
+        break;
+    }
+    prefs_set_enum_value(pref_packet_dialog_layout_, layout, pref_current);
 }

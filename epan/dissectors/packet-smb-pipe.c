@@ -34,34 +34,34 @@ XXX  Fixme : shouldn't show [malformed frame] for long packets
 void proto_register_pipe_lanman(void);
 void proto_register_smb_pipe(void);
 
-static int proto_smb_pipe = -1;
-static int hf_smb_pipe_function = -1;
-static int hf_smb_pipe_priority = -1;
-static int hf_smb_pipe_peek_available = -1;
-static int hf_smb_pipe_peek_remaining = -1;
-static int hf_smb_pipe_peek_status = -1;
-static int hf_smb_pipe_getinfo_info_level = -1;
-static int hf_smb_pipe_getinfo_output_buffer_size = -1;
-static int hf_smb_pipe_getinfo_input_buffer_size = -1;
-static int hf_smb_pipe_getinfo_maximum_instances = -1;
-static int hf_smb_pipe_getinfo_current_instances = -1;
-static int hf_smb_pipe_getinfo_pipe_name_length = -1;
-static int hf_smb_pipe_getinfo_pipe_name = -1;
-static int hf_smb_pipe_write_raw_bytes_written = -1;
-static int hf_smb_pipe_fragments = -1;
-static int hf_smb_pipe_fragment = -1;
-static int hf_smb_pipe_fragment_overlap = -1;
-static int hf_smb_pipe_fragment_overlap_conflict = -1;
-static int hf_smb_pipe_fragment_multiple_tails = -1;
-static int hf_smb_pipe_fragment_too_long_fragment = -1;
-static int hf_smb_pipe_fragment_error = -1;
-static int hf_smb_pipe_fragment_count = -1;
-static int hf_smb_pipe_reassembled_in = -1;
-static int hf_smb_pipe_reassembled_length = -1;
+static int proto_smb_pipe;
+static int hf_smb_pipe_function;
+static int hf_smb_pipe_priority;
+static int hf_smb_pipe_peek_available;
+static int hf_smb_pipe_peek_remaining;
+static int hf_smb_pipe_peek_status;
+static int hf_smb_pipe_getinfo_info_level;
+static int hf_smb_pipe_getinfo_output_buffer_size;
+static int hf_smb_pipe_getinfo_input_buffer_size;
+static int hf_smb_pipe_getinfo_maximum_instances;
+static int hf_smb_pipe_getinfo_current_instances;
+static int hf_smb_pipe_getinfo_pipe_name_length;
+static int hf_smb_pipe_getinfo_pipe_name;
+static int hf_smb_pipe_write_raw_bytes_written;
+static int hf_smb_pipe_fragments;
+static int hf_smb_pipe_fragment;
+static int hf_smb_pipe_fragment_overlap;
+static int hf_smb_pipe_fragment_overlap_conflict;
+static int hf_smb_pipe_fragment_multiple_tails;
+static int hf_smb_pipe_fragment_too_long_fragment;
+static int hf_smb_pipe_fragment_error;
+static int hf_smb_pipe_fragment_count;
+static int hf_smb_pipe_reassembled_in;
+static int hf_smb_pipe_reassembled_length;
 
-static gint ett_smb_pipe = -1;
-static gint ett_smb_pipe_fragment = -1;
-static gint ett_smb_pipe_fragments = -1;
+static gint ett_smb_pipe;
+static gint ett_smb_pipe_fragment;
+static gint ett_smb_pipe_fragments;
 
 static const fragment_items smb_pipe_frag_items = {
 	&ett_smb_pipe_fragment,
@@ -81,114 +81,114 @@ static const fragment_items smb_pipe_frag_items = {
 	"fragments"
 };
 
-static int proto_smb_lanman = -1;
-static int hf_function_code = -1;
-static int hf_param_desc = -1;
-static int hf_return_desc = -1;
-static int hf_aux_data_desc = -1;
-static int hf_detail_level = -1;
-static int hf_padding = -1;
-static int hf_recv_buf_len = -1;
-static int hf_send_buf_len = -1;
-/* static int hf_continuation_from = -1; */
-static int hf_status = -1;
-static int hf_convert = -1;
-static int hf_param_no_descriptor = -1;
-static int hf_data_no_descriptor = -1;
-static int hf_data_no_recv_buffer = -1;
-static int hf_ecount = -1;
-static int hf_acount = -1;
-static int hf_share = -1;
-static int hf_share_name = -1;
-static int hf_share_type = -1;
-static int hf_share_comment = -1;
-static int hf_share_permissions = -1;
-static int hf_share_max_uses = -1;
-static int hf_share_current_uses = -1;
-static int hf_share_path = -1;
-static int hf_share_password = -1;
-static int hf_server = -1;
-static int hf_server_name = -1;
-static int hf_server_major = -1;
-static int hf_server_minor = -1;
-static int hf_server_comment = -1;
-static int hf_abytes = -1;
-static int hf_current_time = -1;
-static int hf_msecs = -1;
-static int hf_hour = -1;
-static int hf_minute = -1;
-static int hf_second = -1;
-static int hf_hundredths = -1;
-static int hf_tzoffset = -1;
-static int hf_timeinterval = -1;
-static int hf_day = -1;
-static int hf_month = -1;
-static int hf_year = -1;
-static int hf_weekday = -1;
-static int hf_enumeration_domain = -1;
-static int hf_last_entry = -1;
-static int hf_computer_name = -1;
-static int hf_user_name = -1;
-static int hf_group_name = -1;
-static int hf_workstation_domain = -1;
-static int hf_workstation_major = -1;
-static int hf_workstation_minor = -1;
-static int hf_logon_domain = -1;
-static int hf_other_domains = -1;
-static int hf_password = -1;
-static int hf_workstation_name = -1;
-static int hf_ustruct_size = -1;
-static int hf_logon_code = -1;
-static int hf_privilege_level = -1;
-static int hf_operator_privileges = -1;
-static int hf_num_logons = -1;
-static int hf_bad_pw_count = -1;
-static int hf_last_logon = -1;
-static int hf_last_logoff = -1;
-static int hf_logoff_time = -1;
-static int hf_kickoff_time = -1;
-static int hf_password_age = -1;
-static int hf_password_can_change = -1;
-static int hf_password_must_change = -1;
-static int hf_script_path = -1;
-static int hf_logoff_code = -1;
-static int hf_duration = -1;
-static int hf_comment = -1;
-static int hf_user_comment = -1;
-static int hf_full_name = -1;
-static int hf_homedir = -1;
-static int hf_parameters = -1;
-static int hf_logon_server = -1;
-static int hf_country_code = -1;
-static int hf_workstations = -1;
-static int hf_max_storage = -1;
-static int hf_units_per_week = -1;
-static int hf_logon_hours = -1;
-static int hf_code_page = -1;
-static int hf_new_password = -1;
-static int hf_old_password = -1;
-static int hf_reserved = -1;
-static int hf_aux_data_struct_count  = -1;
+static int proto_smb_lanman;
+static int hf_function_code;
+static int hf_param_desc;
+static int hf_return_desc;
+static int hf_aux_data_desc;
+static int hf_detail_level;
+static int hf_padding;
+static int hf_recv_buf_len;
+static int hf_send_buf_len;
+/* static int hf_continuation_from; */
+static int hf_status;
+static int hf_convert;
+static int hf_param_no_descriptor;
+static int hf_data_no_descriptor;
+static int hf_data_no_recv_buffer;
+static int hf_ecount;
+static int hf_acount;
+static int hf_share;
+static int hf_share_name;
+static int hf_share_type;
+static int hf_share_comment;
+static int hf_share_permissions;
+static int hf_share_max_uses;
+static int hf_share_current_uses;
+static int hf_share_path;
+static int hf_share_password;
+static int hf_server;
+static int hf_server_name;
+static int hf_server_major;
+static int hf_server_minor;
+static int hf_server_comment;
+static int hf_abytes;
+static int hf_current_time;
+static int hf_msecs;
+static int hf_hour;
+static int hf_minute;
+static int hf_second;
+static int hf_hundredths;
+static int hf_tzoffset;
+static int hf_timeinterval;
+static int hf_day;
+static int hf_month;
+static int hf_year;
+static int hf_weekday;
+static int hf_enumeration_domain;
+static int hf_last_entry;
+static int hf_computer_name;
+static int hf_user_name;
+static int hf_group_name;
+static int hf_workstation_domain;
+static int hf_workstation_major;
+static int hf_workstation_minor;
+static int hf_logon_domain;
+static int hf_other_domains;
+static int hf_password;
+static int hf_workstation_name;
+static int hf_ustruct_size;
+static int hf_logon_code;
+static int hf_privilege_level;
+static int hf_operator_privileges;
+static int hf_num_logons;
+static int hf_bad_pw_count;
+static int hf_last_logon;
+static int hf_last_logoff;
+static int hf_logoff_time;
+static int hf_kickoff_time;
+static int hf_password_age;
+static int hf_password_can_change;
+static int hf_password_must_change;
+static int hf_script_path;
+static int hf_logoff_code;
+static int hf_duration;
+static int hf_comment;
+static int hf_user_comment;
+static int hf_full_name;
+static int hf_homedir;
+static int hf_parameters;
+static int hf_logon_server;
+static int hf_country_code;
+static int hf_workstations;
+static int hf_max_storage;
+static int hf_units_per_week;
+static int hf_logon_hours;
+static int hf_code_page;
+static int hf_new_password;
+static int hf_old_password;
+static int hf_reserved;
+static int hf_aux_data_struct_count;
 
 /* Generated from convert_proto_tree_add_text.pl */
-static int hf_smb_pipe_stringz_param = -1;
-static int hf_smb_pipe_string_param = -1;
-static int hf_smb_pipe_bytes_param = -1;
-static int hf_smb_pipe_byte_param = -1;
-static int hf_smb_pipe_doubleword_param = -1;
-static int hf_smb_pipe_word_param = -1;
+static int hf_smb_pipe_stringz_param;
+static int hf_smb_pipe_string_param;
+static int hf_smb_pipe_bytes_param;
+static int hf_smb_pipe_byte_param;
+static int hf_smb_pipe_doubleword_param;
+static int hf_smb_pipe_word_param;
 
-static gint ett_lanman = -1;
-static gint ett_lanman_unknown_entries = -1;
-static gint ett_lanman_unknown_entry = -1;
-static gint ett_lanman_shares = -1;
-static gint ett_lanman_share = -1;
-static gint ett_lanman_groups = -1;
-static gint ett_lanman_servers = -1;
-static gint ett_lanman_server = -1;
+static gint ett_lanman;
+static gint ett_lanman_unknown_entries;
+static gint ett_lanman_unknown_entry;
+static gint ett_lanman_shares;
+static gint ett_lanman_share;
+static gint ett_lanman_groups;
+static gint ett_lanman_servers;
+static gint ett_lanman_server;
 
-static expert_field ei_smb_pipe_bogus_netwkstauserlogon = EI_INIT;
-static expert_field ei_smb_pipe_bad_type = EI_INIT;
+static expert_field ei_smb_pipe_bogus_netwkstauserlogon;
+static expert_field ei_smb_pipe_bad_type;
 
 /*
  * See
@@ -270,7 +270,7 @@ add_bytes_param(tvbuff_t *tvb, int offset, int count, packet_info *pinfo _U_,
 {
 	header_field_info *hfinfo;
 
-	if (hf_index != -1) {
+	if (hf_index > 0) {
 		hfinfo = proto_registrar_get_nth(hf_index);
 		if ((hfinfo == NULL) ||
 				((hfinfo->type == FT_INT8 || hfinfo->type == FT_UINT8)
@@ -313,7 +313,7 @@ add_string_param_update_parent(tvbuff_t *tvb, int offset, int count, packet_info
 	proto_item *ti, *parent_ti;
 	const guint8 *str;
 
-	DISSECTOR_ASSERT(hf_index != -1);
+	DISSECTOR_ASSERT(hf_index > 0);
 	ti = proto_tree_add_item_ret_string(tree, hf_index, tvb, offset,
 	    count, ENC_ASCII|ENC_NA, pinfo->pool, &str);
 	    /* XXX - code page? */
@@ -340,7 +340,7 @@ static void
 add_null_pointer_param(tvbuff_t *tvb, int offset, int count _U_,
     packet_info *pinfo _U_, proto_tree *tree, int convert _U_, int hf_index, smb_info_t *smb_info _U_)
 {
-	if (hf_index != -1) {
+	if (hf_index > 0) {
 		proto_tree_add_string_format_value(tree, hf_index, tvb, offset, 0, "", "(Null pointer)");
 	} else {
 		proto_tree_add_string_format_value(tree, hf_smb_pipe_string_param, tvb, offset, 0, "", "(Null pointer)");
@@ -354,7 +354,7 @@ add_string_param(tvbuff_t *tvb, int offset, int count _U_,
 	guint string_len;
 
 	string_len = tvb_strsize(tvb, offset);
-	if (hf_index != -1) {
+	if (hf_index > 0) {
 		proto_tree_add_item(tree, hf_index, tvb, offset, string_len,
 		    ENC_ASCII|ENC_NA);	/* XXX - code page? */
 	} else {
@@ -399,14 +399,14 @@ add_stringz_pointer_param(tvbuff_t *tvb, int offset, int count _U_,
 
 	/* string */
 	if (string != NULL) {
-		if (hf_index != -1) {
+		if (hf_index > 0) {
 			proto_tree_add_item(tree, hf_index, tvb, cptr,
 			    string_len, ENC_ASCII|ENC_NA);	/* XXX - code page? */
 		} else {
 			proto_tree_add_item(tree, hf_smb_pipe_stringz_param, tvb, cptr, string_len, ENC_NA|ENC_ASCII);
 		}
 	} else {
-		if (hf_index != -1) {
+		if (hf_index > 0) {
 			proto_tree_add_string(tree, hf_index, tvb, 0, 0,
 			    "<String goes past end of frame>");
 		} else {
@@ -430,14 +430,14 @@ add_bytes_pointer_param(tvbuff_t *tvb, int offset, int count,
 
 	/* bytes */
 	if (tvb_bytes_exist(tvb, cptr, count)) {
-		if (hf_index != -1) {
+		if (hf_index > 0) {
 			proto_tree_add_item(tree, hf_index, tvb, cptr,
 			    count, ENC_NA);
 		} else {
 			proto_tree_add_item(tree, hf_smb_pipe_bytes_param, tvb, cptr, count, ENC_NA);
 		}
 	} else {
-		if (hf_index != -1) {
+		if (hf_index > 0) {
 			proto_tree_add_bytes_format_value(tree, hf_index, tvb, 0, 0,
 			    NULL, "<Bytes go past end of frame>");
 		} else {
@@ -1647,7 +1647,7 @@ dissect_request_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				WParam = tvb_get_letohs(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%04X), type is wrong (W)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_word_param : *items->hf_index),
 				    WParam, WParam);
 				offset += 2;
@@ -1678,7 +1678,7 @@ dissect_request_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				LParam = tvb_get_letohl(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%08X), type is wrong (D)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_doubleword_param : *items->hf_index),
 				    LParam, LParam);
 				offset += 4;
@@ -1709,7 +1709,7 @@ dissect_request_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				 */
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, count,
 				    "%s: Value is %s, type is wrong (b)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_bytes_param : *items->hf_index),
 				    tvb_bytes_to_str(pinfo->pool, tvb, offset, count));
 				offset += count;
@@ -1739,7 +1739,7 @@ dissect_request_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				 * clutter the protocol tree by putting
 				 * it in.
 				 */
-				if (*items->hf_index != -1) {
+				if (*items->hf_index > 0) {
 					add_null_pointer_param(tvb,
 					    offset, 0, pinfo, tree, 0,
 					    *items->hf_index, smb_info);
@@ -1767,7 +1767,7 @@ dissect_request_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				string_len = tvb_strsize(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, string_len,
 				    "%s: Value is %s, type is wrong (z)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_string_param : *items->hf_index),
 				    tvb_format_text(pinfo->pool, tvb, offset, string_len));
 				offset += string_len;
@@ -1862,7 +1862,7 @@ dissect_response_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				 */
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, count,
 				    "%s: Value is %s, type is wrong (g)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_bytes_param : *items->hf_index),
 				    tvb_bytes_to_str(pinfo->pool, tvb, offset, count));
 				offset += count;
@@ -1893,7 +1893,7 @@ dissect_response_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				WParam = tvb_get_letohs(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%04X), type is wrong (W)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_word_param : *items->hf_index),
 				    WParam, WParam);
 				offset += 2;
@@ -1924,7 +1924,7 @@ dissect_response_parameters(tvbuff_t *tvb, int offset, packet_info *pinfo,
 				LParam = tvb_get_letohl(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%08X), type is wrong (i)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_doubleword_param : *items->hf_index),
 				    LParam, LParam);
 				offset += 4;
@@ -1995,7 +1995,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				WParam = tvb_get_letohs(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%04X), type is wrong (W)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_word_param : *items->hf_index),
 				    WParam, WParam);
 				offset += 2;
@@ -2028,7 +2028,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				LParam = tvb_get_letohl(tvb, offset);
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, 2,
 				    "%s: Value is %u (0x%08X), type is wrong (D)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_doubleword_param : *items->hf_index),
 				    LParam, LParam);
 				offset += 4;
@@ -2059,7 +2059,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				 */
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, count,
 				    "%s: Value is %s, type is wrong (B)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_bytes_param : *items->hf_index),
 				    tvb_bytes_to_str(pinfo->pool, tvb, offset, count));
 				offset += count;
@@ -2089,7 +2089,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				 * clutter the protocol tree by putting
 				 * it in.
 				 */
-				if (*items->hf_index != -1) {
+				if (*items->hf_index > 0) {
 					add_null_pointer_param(tvb,
 					    offset, 0, pinfo, tree, convert,
 					    *items->hf_index, smb_info);
@@ -2119,7 +2119,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				offset += 4;
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, cptr, string_len,
 				    "%s: Value is %s, type is wrong (z)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_string_param : *items->hf_index),
 				    string ? string : "(null)");
 				items++;
@@ -2151,7 +2151,7 @@ dissect_transact_data(tvbuff_t *tvb, int offset, int convert,
 				offset += 4;
 				proto_tree_add_expert_format(tree, pinfo, &ei_smb_pipe_bad_type, tvb, offset, count,
 				    "%s: Value is %s, type is wrong (b)",
-				    proto_registrar_get_name((*items->hf_index == -1) ?
+				    proto_registrar_get_name((*items->hf_index <= 0) ?
 				      hf_smb_pipe_bytes_param : *items->hf_index),
 				    tvb_bytes_to_str(pinfo->pool, tvb, cptr, count));
 				items++;

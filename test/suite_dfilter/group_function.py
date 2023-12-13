@@ -77,3 +77,33 @@ class TestFunctionAbs:
     def test_function_abs_1(self, checkDFilterCount):
         dfilter = 'udp.dstport == abs(-67)'
         checkDFilterCount(dfilter, 2)
+
+class TestFunctionLen:
+    trace_file = "http.pcap"
+
+    def test_function_len_1(self, checkDFilterCount):
+        dfilter = 'len(http.host) == 27'
+        checkDFilterCount(dfilter, 1)
+
+    def test_function_len_2(self, checkDFilterCount):
+        dfilter = 'len(http.host) != 0'
+        checkDFilterCount(dfilter, 1)
+
+    def test_function_len_3(self, checkDFilterCount):
+        dfilter = 'len(http.host) == 0'
+        checkDFilterCount(dfilter, 0)
+
+    def test_function_len_4(self, checkDFilterCount):
+        dfilter = 'len(http.host)'
+        checkDFilterCount(dfilter, 1)
+
+    def test_function_len_5(self, checkDFilterCount):
+        dfilter = '!len(http.host)'
+        checkDFilterCount(dfilter, 0)
+
+class TestFunctionNested:
+    trace_file = 'http.pcap'
+
+    def test_function_nested_1(self, checkDFilterCount):
+        dfilter = 'abs(min(tcp.srcport, tcp.dstport)) == 80'
+        checkDFilterCount(dfilter, 1)

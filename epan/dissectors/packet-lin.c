@@ -35,32 +35,32 @@
 static heur_dissector_list_t                 heur_subdissector_list;
 static heur_dtbl_entry_t                    *heur_dtbl_entry;
 
-static int proto_lin = -1;
+static int proto_lin;
 
 static dissector_handle_t lin_handle;
 
 /* header field */
-static int hf_lin_msg_format_rev = -1;
-static int hf_lin_reserved1 = -1;
-static int hf_lin_payload_length = -1;
-static int hf_lin_message_type = -1;
-static int hf_lin_checksum_type = -1;
-static int hf_lin_pid = -1;
-static int hf_lin_id = -1;
-static int hf_lin_parity = -1;
-static int hf_lin_checksum = -1;
-static int hf_lin_err_errors = -1;
-static int hf_lin_err_no_slave_response = -1;
-static int hf_lin_err_framing = -1;
-static int hf_lin_err_parity = -1;
-static int hf_lin_err_checksum = -1;
-static int hf_lin_err_invalidid = -1;
-static int hf_lin_err_overflow = -1;
-static int hf_lin_event_id = -1;
+static int hf_lin_msg_format_rev;
+static int hf_lin_reserved1;
+static int hf_lin_payload_length;
+static int hf_lin_message_type;
+static int hf_lin_checksum_type;
+static int hf_lin_pid;
+static int hf_lin_id;
+static int hf_lin_parity;
+static int hf_lin_checksum;
+static int hf_lin_err_errors;
+static int hf_lin_err_no_slave_response;
+static int hf_lin_err_framing;
+static int hf_lin_err_parity;
+static int hf_lin_err_checksum;
+static int hf_lin_err_invalidid;
+static int hf_lin_err_overflow;
+static int hf_lin_event_id;
 
-static gint ett_lin = -1;
-static gint ett_lin_pid = -1;
-static gint ett_errors = -1;
+static gint ett_lin;
+static gint ett_lin_pid;
+static gint ett_errors;
 
 static int * const error_fields[] = {
     &hf_lin_err_overflow,
@@ -252,13 +252,14 @@ post_update_lin_interfaces_cb(void) {
 
 static guint
 get_bus_id(packet_info *pinfo) {
-    guint32             interface_id = pinfo->rec->rec_header.packet_header.interface_id;
-    const char         *interface_name = epan_get_interface_name(pinfo->epan, interface_id);
-    interface_config_t *tmp = NULL;
-
     if (!(pinfo->rec->presence_flags & WTAP_HAS_INTERFACE_ID)) {
         return 0;
     }
+
+    guint32             interface_id = pinfo->rec->rec_header.packet_header.interface_id;
+    unsigned            section_number = pinfo->rec->presence_flags & WTAP_HAS_SECTION_NUMBER ? pinfo->rec->section_number : 0;
+    const char         *interface_name = epan_get_interface_name(pinfo->epan, interface_id, section_number);
+    interface_config_t *tmp = NULL;
 
     if (interface_name != NULL && interface_name[0] != 0) {
         tmp = ht_lookup_interface_config_by_name(interface_name);

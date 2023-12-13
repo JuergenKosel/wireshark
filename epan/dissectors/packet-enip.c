@@ -90,347 +90,351 @@ void proto_reg_handoff_enip(void);
 #define CPF_ITEM_UNCONNECTED_MSG_DTLS 0x8003
 
 /* Initialize the protocol and registered fields */
-static int proto_enip = -1;
-static int proto_cipio = -1;
-static int proto_cip_class1 = -1;
+static int proto_enip;
+static int proto_cipio;
+static int proto_cip_class1;
 
-static int hf_enip_command = -1;
-static int hf_enip_length = -1;
-static int hf_enip_options = -1;
-static int hf_enip_sendercontex = -1;
-static int hf_enip_listid_delay = -1;
-static int hf_enip_status = -1;
-static int hf_enip_session = -1;
-static int hf_enip_encapver = -1;
-static int hf_enip_sinfamily = -1;
-static int hf_enip_sinport = -1;
-static int hf_enip_sinaddr = -1;
-static int hf_enip_sinzero = -1;
-static int hf_enip_timeout = -1;
-static int hf_enip_encap_data = -1;
+static int hf_enip_command;
+static int hf_enip_length;
+static int hf_enip_options;
+static int hf_enip_sendercontex;
+static int hf_enip_listid_delay;
+static int hf_enip_status;
+static int hf_enip_session;
+static int hf_enip_encapver;
+static int hf_enip_sinfamily;
+static int hf_enip_sinport;
+static int hf_enip_sinaddr;
+static int hf_enip_sinzero;
+static int hf_enip_timeout;
+static int hf_enip_encap_data;
 
-static int hf_enip_lir_vendor = -1;
-static int hf_enip_lir_devtype = -1;
-static int hf_enip_lir_prodcode = -1;
-static int hf_enip_lir_revision = -1;
-static int hf_enip_lir_status = -1;
-static int hf_enip_lir_serial = -1;
-static int hf_enip_lir_namelen = -1;
-static int hf_enip_lir_name = -1;
-static int hf_enip_lir_state = -1;
+static int hf_enip_lir_vendor;
+static int hf_enip_lir_devtype;
+static int hf_enip_lir_prodcode;
+static int hf_enip_lir_revision;
+static int hf_enip_lir_status;
+static int hf_enip_lir_serial;
+static int hf_enip_lir_namelen;
+static int hf_enip_lir_name;
+static int hf_enip_lir_state;
 
-static int hf_enip_lsr_capaflags = -1;
-static int hf_enip_lsr_tcp = -1;
-static int hf_enip_lsr_udp = -1;
-static int hf_enip_lsr_servicename = -1;
+static int hf_enip_lsr_capaflags;
+static int hf_enip_lsr_tcp;
+static int hf_enip_lsr_udp;
+static int hf_enip_lsr_servicename;
 
-static int hf_enip_rs_version = -1;
-static int hf_enip_rs_optionflags = -1;
+static int hf_enip_rs_version;
+static int hf_enip_rs_optionflags;
 
-static int hf_enip_security_profiles = -1;
-static int hf_enip_security_profiles_eip_integrity = -1;
-static int hf_enip_security_profiles_eip_confidentiality = -1;
-static int hf_enip_security_profiles_cip_authorization = -1;
-static int hf_enip_security_profiles_cip_user_authentication = -1;
-static int hf_enip_security_profiles_resource_constrained = -1;
-static int hf_enip_security_profiles_reserved = -1;
-static int hf_enip_cip_security_state = -1;
-static int hf_enip_eip_security_state = -1;
-static int hf_enip_iana_port_state_flags = -1;
-static int hf_enip_iana_port_state_flags_tcp_44818 = -1;
-static int hf_enip_iana_port_state_flags_udp_44818 = -1;
-static int hf_enip_iana_port_state_flags_udp_2222 = -1;
-static int hf_enip_iana_port_state_flags_tcp_2221 = -1;
-static int hf_enip_iana_port_state_flags_udp_2221 = -1;
-static int hf_enip_iana_port_state_flags_reserved = -1;
+static int hf_enip_security_profiles;
+static int hf_enip_security_profiles_eip_integrity;
+static int hf_enip_security_profiles_eip_confidentiality;
+static int hf_enip_security_profiles_cip_authorization;
+static int hf_enip_security_profiles_cip_user_authentication;
+static int hf_enip_security_profiles_resource_constrained;
+static int hf_enip_security_profiles_reserved;
+static int hf_enip_cip_security_state;
+static int hf_enip_eip_security_state;
+static int hf_enip_iana_port_state_flags;
+static int hf_enip_iana_port_state_flags_tcp_44818;
+static int hf_enip_iana_port_state_flags_udp_44818;
+static int hf_enip_iana_port_state_flags_udp_2222;
+static int hf_enip_iana_port_state_flags_tcp_2221;
+static int hf_enip_iana_port_state_flags_udp_2221;
+static int hf_enip_iana_port_state_flags_reserved;
 
-static int hf_enip_srrd_ifacehnd = -1;
+static int hf_enip_srrd_ifacehnd;
 
-static int hf_enip_sud_ifacehnd = -1;
+static int hf_enip_sud_ifacehnd;
 
-static int hf_enip_cpf_itemcount = -1;
-static int hf_enip_cpf_typeid = -1;
-static int hf_enip_cpf_length = -1;
-static int hf_cip_sequence_count = -1;
-static int hf_cip_cm_ot_api = -1;
-static int hf_cip_cm_to_api = -1;
-static int hf_enip_cpf_cai_connid = -1;
-static int hf_enip_cpf_sai_connid = -1;
-static int hf_cip_connid = -1;
-static int hf_enip_cpf_sai_seqnum = -1;
-static int hf_enip_cpf_ucmm_request = -1;
-static int hf_enip_cpf_ucmm_msg_type = -1;
-static int hf_enip_cpf_ucmm_trans_id = -1;
-static int hf_enip_cpf_ucmm_status = -1;
+static int hf_enip_cpf_itemcount;
+static int hf_enip_cpf_typeid;
+static int hf_enip_cpf_length;
+static int hf_cip_sequence_count;
+static int hf_cip_cm_ot_api;
+static int hf_cip_cm_to_api;
+static int hf_enip_cpf_cai_connid;
+static int hf_enip_cpf_sai_connid;
+static int hf_cip_connid;
+static int hf_enip_cpf_sai_seqnum;
+static int hf_enip_cpf_ucmm_request;
+static int hf_enip_cpf_ucmm_msg_type;
+static int hf_enip_cpf_ucmm_trans_id;
+static int hf_enip_cpf_ucmm_status;
 
-static int hf_enip_cpf_data = -1;
+static int hf_enip_cpf_data;
 
-static int hf_enip_response_in = -1;
-static int hf_enip_response_to = -1;
-static int hf_enip_time = -1;
-static int hf_enip_fwd_open_in = -1;
-static int hf_cip_connection = -1;
-static int hf_cip_io_data = -1;
+static int hf_enip_response_in;
+static int hf_enip_response_to;
+static int hf_enip_time;
+static int hf_enip_fwd_open_in;
+static int hf_cip_connection;
+static int hf_cip_io_data;
 
 /* Parsed Attributes */
-static int hf_tcpip_status = -1;
-static int hf_tcpip_status_interface_config = -1;
-static int hf_tcpip_status_mcast_pending = -1;
-static int hf_tcpip_status_interface_config_pending = -1;
-static int hf_tcpip_status_acd = -1;
-static int hf_tcpip_acd_fault = -1;
-static int hf_tcpip_status_iana_port_admin_change = -1;
-static int hf_tcpip_status_iana_protocol_admin_change = -1;
-static int hf_tcpip_status_reserved = -1;
-static int hf_tcpip_config_cap = -1;
-static int hf_tcpip_config_cap_bootp = -1;
-static int hf_tcpip_config_cap_dns = -1;
-static int hf_tcpip_config_cap_dhcp = -1;
-static int hf_tcpip_config_cap_dhcp_dns_update = -1;
-static int hf_tcpip_config_cap_config_settable = -1;
-static int hf_tcpip_config_cap_hardware_config = -1;
-static int hf_tcpip_config_cap_interface_reset = -1;
-static int hf_tcpip_config_cap_acd = -1;
-static int hf_tcpip_config_cap_reserved = -1;
-static int hf_tcpip_config_control = -1;
-static int hf_tcpip_config_control_config = -1;
-static int hf_tcpip_config_control_dns = -1;
-static int hf_tcpip_config_control_reserved = -1;
-static int hf_tcpip_ic_ip_addr = -1;
-static int hf_tcpip_ic_subnet_mask = -1;
-static int hf_tcpip_ic_gateway = -1;
-static int hf_tcpip_ic_name_server = -1;
-static int hf_tcpip_ic_name_server2 = -1;
-static int hf_tcpip_ic_domain_name = -1;
-static int hf_tcpip_hostname = -1;
-static int hf_tcpip_snn_timestamp = -1;
-static int hf_tcpip_snn_date = -1;
-static int hf_tcpip_snn_time = -1;
-static int hf_tcpip_ttl_value = -1;
-static int hf_tcpip_mcast_alloc = -1;
-static int hf_tcpip_mcast_reserved = -1;
-static int hf_tcpip_mcast_num_mcast = -1;
-static int hf_tcpip_mcast_addr_start = -1;
-static int hf_tcpip_lcd_acd_activity = -1;
-static int hf_tcpip_lcd_remote_mac = -1;
-static int hf_tcpip_lcd_arp_pdu = -1;
-static int hf_tcpip_select_acd = -1;
-static int hf_tcpip_quick_connect = -1;
-static int hf_tcpip_encap_inactivity = -1;
+static int hf_tcpip_status;
+static int hf_tcpip_status_interface_config;
+static int hf_tcpip_status_mcast_pending;
+static int hf_tcpip_status_interface_config_pending;
+static int hf_tcpip_status_acd;
+static int hf_tcpip_acd_fault;
+static int hf_tcpip_status_iana_port_admin_change;
+static int hf_tcpip_status_iana_protocol_admin_change;
+static int hf_tcpip_status_reserved;
+static int hf_tcpip_config_cap;
+static int hf_tcpip_config_cap_bootp;
+static int hf_tcpip_config_cap_dns;
+static int hf_tcpip_config_cap_dhcp;
+static int hf_tcpip_config_cap_dhcp_dns_update;
+static int hf_tcpip_config_cap_config_settable;
+static int hf_tcpip_config_cap_hardware_config;
+static int hf_tcpip_config_cap_interface_reset;
+static int hf_tcpip_config_cap_acd;
+static int hf_tcpip_config_cap_reserved;
+static int hf_tcpip_config_control;
+static int hf_tcpip_config_control_config;
+static int hf_tcpip_config_control_dns;
+static int hf_tcpip_config_control_reserved;
+static int hf_tcpip_ic_ip_addr;
+static int hf_tcpip_ic_subnet_mask;
+static int hf_tcpip_ic_gateway;
+static int hf_tcpip_ic_name_server;
+static int hf_tcpip_ic_name_server2;
+static int hf_tcpip_ic_domain_name;
+static int hf_tcpip_hostname;
+static int hf_tcpip_snn_timestamp;
+static int hf_tcpip_snn_date;
+static int hf_tcpip_snn_time;
+static int hf_tcpip_ttl_value;
+static int hf_tcpip_mcast_alloc;
+static int hf_tcpip_mcast_reserved;
+static int hf_tcpip_mcast_num_mcast;
+static int hf_tcpip_mcast_addr_start;
+static int hf_tcpip_lcd_acd_activity;
+static int hf_tcpip_lcd_remote_mac;
+static int hf_tcpip_lcd_arp_pdu;
+static int hf_tcpip_select_acd;
+static int hf_tcpip_quick_connect;
+static int hf_tcpip_encap_inactivity;
 
-static int hf_tcpip_port_count = -1;
-static int hf_tcpip_port_name = -1;
-static int hf_tcpip_port_number = -1;
-static int hf_tcpip_port_protocol = -1;
-static int hf_tcpip_port_admin_state = -1;
-static int hf_tcpip_port_admin_capability = -1;
-static int hf_tcpip_admin_capability_configurable = -1;
-static int hf_tcpip_admin_capability_reset_required = -1;
-static int hf_tcpip_admin_capability_reserved = -1;
+static int hf_tcpip_port_count;
+static int hf_tcpip_port_name;
+static int hf_tcpip_port_number;
+static int hf_tcpip_port_protocol;
+static int hf_tcpip_port_admin_state;
+static int hf_tcpip_port_admin_capability;
+static int hf_tcpip_admin_capability_configurable;
+static int hf_tcpip_admin_capability_reset_required;
+static int hf_tcpip_admin_capability_reserved;
 
-static int hf_elink_interface_flags = -1;
-static int hf_elink_iflags_link_status = -1;
-static int hf_elink_iflags_duplex = -1;
-static int hf_elink_iflags_neg_status = -1;
-static int hf_elink_iflags_manual_reset = -1;
-static int hf_elink_iflags_local_hw_fault = -1;
-static int hf_elink_iflags_reserved = -1;
-static int hf_elink_interface_speed = -1;
-static int hf_elink_physical_address = -1;
-static int hf_elink_icount_in_octets = -1;
-static int hf_elink_icount_in_ucast = -1;
-static int hf_elink_icount_in_nucast = -1;
-static int hf_elink_icount_in_discards = -1;
-static int hf_elink_icount_in_errors = -1;
-static int hf_elink_icount_in_unknown_protos = -1;
-static int hf_elink_icount_out_octets = -1;
-static int hf_elink_icount_out_ucast = -1;
-static int hf_elink_icount_out_nucast = -1;
-static int hf_elink_icount_out_discards = -1;
-static int hf_elink_icount_out_errors = -1;
-static int hf_elink_mcount_alignment_errors = -1;
-static int hf_elink_mcount_fcs_errors = -1;
-static int hf_elink_mcount_single_collisions = -1;
-static int hf_elink_mcount_multiple_collisions = -1;
-static int hf_elink_mcount_sqe_test_errors = -1;
-static int hf_elink_mcount_deferred_transmission = -1;
-static int hf_elink_mcount_late_collisions = -1;
-static int hf_elink_mcount_excessive_collisions = -1;
-static int hf_elink_mcount_mac_transmit_errors = -1;
-static int hf_elink_mcount_carrier_sense_errors = -1;
-static int hf_elink_mcount_frame_too_long = -1;
-static int hf_elink_mcount_mac_receive_errors = -1;
-static int hf_elink_icontrol_control_bits = -1;
-static int hf_elink_icontrol_control_bits_auto_neg = -1;
-static int hf_elink_icontrol_control_bits_forced_duplex = -1;
-static int hf_elink_icontrol_control_bits_reserved = -1;
-static int hf_elink_icontrol_forced_speed = -1;
-static int hf_elink_icapability_capability_bits = -1;
-static int hf_elink_icapability_capability_bits_manual = -1;
-static int hf_elink_icapability_capability_bits_auto_neg = -1;
-static int hf_elink_icapability_capability_bits_auto_mdix = -1;
-static int hf_elink_icapability_capability_bits_manual_speed = -1;
-static int hf_elink_icapability_capability_speed_duplex_array_count = -1;
-static int hf_elink_icapability_capability_speed = -1;
-static int hf_elink_icapability_capability_duplex = -1;
-static int hf_elink_interface_type = -1;
-static int hf_elink_interface_state = -1;
-static int hf_elink_admin_state = -1;
-static int hf_elink_interface_label = -1;
-static int hf_elink_hc_icount_in_octets = -1;
-static int hf_elink_hc_icount_in_ucast = -1;
-static int hf_elink_hc_icount_in_mcast = -1;
-static int hf_elink_hc_icount_in_broadcast = -1;
-static int hf_elink_hc_icount_out_octets = -1;
-static int hf_elink_hc_icount_out_ucast = -1;
-static int hf_elink_hc_icount_out_mcast = -1;
-static int hf_elink_hc_icount_out_broadcast = -1;
+static int hf_elink_interface_flags;
+static int hf_elink_iflags_link_status;
+static int hf_elink_iflags_duplex;
+static int hf_elink_iflags_neg_status;
+static int hf_elink_iflags_manual_reset;
+static int hf_elink_iflags_local_hw_fault;
+static int hf_elink_iflags_reserved;
+static int hf_elink_interface_speed;
+static int hf_elink_physical_address;
+static int hf_elink_icount_in_octets;
+static int hf_elink_icount_in_ucast;
+static int hf_elink_icount_in_nucast;
+static int hf_elink_icount_in_discards;
+static int hf_elink_icount_in_errors;
+static int hf_elink_icount_in_unknown_protos;
+static int hf_elink_icount_out_octets;
+static int hf_elink_icount_out_ucast;
+static int hf_elink_icount_out_nucast;
+static int hf_elink_icount_out_discards;
+static int hf_elink_icount_out_errors;
+static int hf_elink_mcount_alignment_errors;
+static int hf_elink_mcount_fcs_errors;
+static int hf_elink_mcount_single_collisions;
+static int hf_elink_mcount_multiple_collisions;
+static int hf_elink_mcount_sqe_test_errors;
+static int hf_elink_mcount_deferred_transmission;
+static int hf_elink_mcount_late_collisions;
+static int hf_elink_mcount_excessive_collisions;
+static int hf_elink_mcount_mac_transmit_errors;
+static int hf_elink_mcount_carrier_sense_errors;
+static int hf_elink_mcount_frame_too_long;
+static int hf_elink_mcount_mac_receive_errors;
+static int hf_elink_icontrol_control_bits;
+static int hf_elink_icontrol_control_bits_auto_neg;
+static int hf_elink_icontrol_control_bits_forced_duplex;
+static int hf_elink_icontrol_control_bits_reserved;
+static int hf_elink_icontrol_forced_speed;
+static int hf_elink_icapability_capability_bits;
+static int hf_elink_icapability_capability_bits_manual;
+static int hf_elink_icapability_capability_bits_auto_neg;
+static int hf_elink_icapability_capability_bits_auto_mdix;
+static int hf_elink_icapability_capability_bits_manual_speed;
+static int hf_elink_icapability_capability_speed_duplex_array_count;
+static int hf_elink_icapability_capability_speed;
+static int hf_elink_icapability_capability_duplex;
+static int hf_elink_interface_type;
+static int hf_elink_interface_state;
+static int hf_elink_admin_state;
+static int hf_elink_interface_label;
+static int hf_elink_hc_icount_in_octets;
+static int hf_elink_hc_icount_in_ucast;
+static int hf_elink_hc_icount_in_mcast;
+static int hf_elink_hc_icount_in_broadcast;
+static int hf_elink_hc_icount_out_octets;
+static int hf_elink_hc_icount_out_ucast;
+static int hf_elink_hc_icount_out_mcast;
+static int hf_elink_hc_icount_out_broadcast;
 
-static int hf_elink_hc_mcount_stats_align_errors = -1;
-static int hf_elink_hc_mcount_stats_fcs_errors = -1;
-static int hf_elink_hc_mcount_stats_internal_mac_transmit_errors = -1;
-static int hf_elink_hc_mcount_stats_frame_too_long = -1;
-static int hf_elink_hc_mcount_stats_internal_mac_receive_errors = -1;
-static int hf_elink_hc_mcount_stats_symbol_errors = -1;
+static int hf_elink_hc_mcount_stats_align_errors;
+static int hf_elink_hc_mcount_stats_fcs_errors;
+static int hf_elink_hc_mcount_stats_internal_mac_transmit_errors;
+static int hf_elink_hc_mcount_stats_frame_too_long;
+static int hf_elink_hc_mcount_stats_internal_mac_receive_errors;
+static int hf_elink_hc_mcount_stats_symbol_errors;
 
-static int hf_qos_8021q_enable = -1;
-static int hf_qos_dscp_ptp_event = -1;
-static int hf_qos_dscp_ptp_general = -1;
-static int hf_qos_dscp_urgent = -1;
-static int hf_qos_dscp_scheduled = -1;
-static int hf_qos_dscp_high = -1;
-static int hf_qos_dscp_low = -1;
-static int hf_qos_dscp_explicit = -1;
+static int hf_qos_8021q_enable;
+static int hf_qos_dscp_ptp_event;
+static int hf_qos_dscp_ptp_general;
+static int hf_qos_dscp_urgent;
+static int hf_qos_dscp_scheduled;
+static int hf_qos_dscp_high;
+static int hf_qos_dscp_low;
+static int hf_qos_dscp_explicit;
 
-static int hf_dlr_network_topology = -1;
-static int hf_dlr_network_status = -1;
-static int hf_dlr_ring_supervisor_status = -1;
-static int hf_dlr_rsc_ring_supervisor_enable = -1;
-static int hf_dlr_rsc_ring_supervisor_precedence = -1;
-static int hf_dlr_rsc_beacon_interval = -1;
-static int hf_dlr_rsc_beacon_timeout = -1;
-static int hf_dlr_rsc_dlr_vlan_id = -1;
-static int hf_dlr_ring_faults_count = -1;
-static int hf_dlr_lanp1_dev_ip_addr = -1;
-static int hf_dlr_lanp1_dev_physical_address = -1;
-static int hf_dlr_lanp2_dev_ip_addr = -1;
-static int hf_dlr_lanp2_dev_physical_address = -1;
-static int hf_dlr_ring_protocol_participants_count = -1;
-static int hf_dlr_rppl_dev_ip_addr = -1;
-static int hf_dlr_rppl_dev_physical_address = -1;
-static int hf_dlr_asa_supervisor_ip_addr = -1;
-static int hf_dlr_asa_supervisor_physical_address = -1;
-static int hf_dlr_active_supervisor_precedence = -1;
-static int hf_dlr_capability_flags = -1;
-static int hf_dlr_capflags_announce_base_node = -1;
-static int hf_dlr_capflags_beacon_base_node = -1;
-static int hf_dlr_capflags_reserved1 = -1;
-static int hf_dlr_capflags_supervisor_capable = -1;
-static int hf_dlr_capflags_reserved2 = -1;
-static int hf_dlr_capflags_redundant_gateway_capable = -1;
-static int hf_dlr_capflags_flush_frame_capable = -1;
-static int hf_dlr_rgc_red_gateway_enable = -1;
-static int hf_dlr_rgc_gateway_precedence = -1;
-static int hf_dlr_rgc_advertise_interval = -1;
-static int hf_dlr_rgc_advertise_timeout = -1;
-static int hf_dlr_rgc_learning_update_enable = -1;
-static int hf_dlr_redundant_gateway_status = -1;
-static int hf_dlr_aga_ip_addr = -1;
-static int hf_dlr_aga_physical_address = -1;
-static int hf_dlr_active_gateway_precedence = -1;
+static int hf_dlr_network_topology;
+static int hf_dlr_network_status;
+static int hf_dlr_ring_supervisor_status;
+static int hf_dlr_rsc_ring_supervisor_enable;
+static int hf_dlr_rsc_ring_supervisor_precedence;
+static int hf_dlr_rsc_beacon_interval;
+static int hf_dlr_rsc_beacon_timeout;
+static int hf_dlr_rsc_dlr_vlan_id;
+static int hf_dlr_ring_faults_count;
+static int hf_dlr_lanp1_dev_ip_addr;
+static int hf_dlr_lanp1_dev_physical_address;
+static int hf_dlr_lanp2_dev_ip_addr;
+static int hf_dlr_lanp2_dev_physical_address;
+static int hf_dlr_ring_protocol_participants_count;
+static int hf_dlr_rppl_dev_ip_addr;
+static int hf_dlr_rppl_dev_physical_address;
+static int hf_dlr_asa_supervisor_ip_addr;
+static int hf_dlr_asa_supervisor_physical_address;
+static int hf_dlr_active_supervisor_precedence;
+static int hf_dlr_capability_flags;
+static int hf_dlr_capflags_announce_base_node;
+static int hf_dlr_capflags_beacon_base_node;
+static int hf_dlr_capflags_reserved1;
+static int hf_dlr_capflags_supervisor_capable;
+static int hf_dlr_capflags_reserved2;
+static int hf_dlr_capflags_redundant_gateway_capable;
+static int hf_dlr_capflags_flush_frame_capable;
+static int hf_dlr_rgc_red_gateway_enable;
+static int hf_dlr_rgc_gateway_precedence;
+static int hf_dlr_rgc_advertise_interval;
+static int hf_dlr_rgc_advertise_timeout;
+static int hf_dlr_rgc_learning_update_enable;
+static int hf_dlr_redundant_gateway_status;
+static int hf_dlr_aga_ip_addr;
+static int hf_dlr_aga_physical_address;
+static int hf_dlr_active_gateway_precedence;
 
-static int hf_cip_security_state = -1;
-static int hf_eip_security_state = -1;
-static int hf_eip_security_verify_client_cert = -1;
-static int hf_eip_security_send_cert_chain = -1;
-static int hf_eip_security_check_expiration = -1;
-static int hf_eip_security_capability_flags = -1;
-static int hf_eip_security_capflags_secure_renegotiation = -1;
-static int hf_eip_security_capflags_reserved = -1;
-static int hf_eip_security_num_avail_cipher_suites = -1;
-static int hf_eip_security_avail_cipher_suite = -1;
-static int hf_eip_security_num_allow_cipher_suites = -1;
-static int hf_eip_security_allow_cipher_suite = -1;
-static int hf_eip_security_num_psk = -1;
-static int hf_eip_security_psk_identity_size = -1;
-static int hf_eip_security_psk_identity = -1;
-static int hf_eip_security_psk_size = -1;
-static int hf_eip_security_psk = -1;
-static int hf_eip_security_num_active_certs = -1;
-static int hf_eip_security_num_trusted_auths = -1;
-static int hf_eip_cert_name = -1;
-static int hf_eip_cert_state = -1;
-static int hf_eip_cert_encoding = -1;
-static int hf_eip_cert_device_cert_status = -1;
-static int hf_eip_cert_ca_cert_status = -1;
-static int hf_eip_cert_capflags_push = -1;
-static int hf_eip_cert_capflags_reserved = -1;
-static int hf_eip_cert_capability_flags = -1;
-static int hf_eip_cert_num_certs = -1;
-static int hf_eip_cert_cert_name = -1;
-static int hf_eip_cert_verify_certificate = -1;
-static int hf_lldp_subtype = -1;
-static int hf_lldp_mac_address = -1;
+static int hf_cip_security_state;
+static int hf_eip_security_state;
+static int hf_eip_security_verify_client_cert;
+static int hf_eip_security_send_cert_chain;
+static int hf_eip_security_check_expiration;
+static int hf_eip_security_capability_flags;
+static int hf_eip_security_capflags_secure_renegotiation;
+static int hf_eip_security_capflags_reserved;
+static int hf_eip_security_num_avail_cipher_suites;
+static int hf_eip_security_avail_cipher_suite;
+static int hf_eip_security_num_allow_cipher_suites;
+static int hf_eip_security_allow_cipher_suite;
+static int hf_eip_security_num_psk;
+static int hf_eip_security_psk_identity_size;
+static int hf_eip_security_psk_identity;
+static int hf_eip_security_psk_size;
+static int hf_eip_security_psk;
+static int hf_eip_security_num_active_certs;
+static int hf_eip_security_num_trusted_auths;
+static int hf_eip_cert_name;
+static int hf_eip_cert_state;
+static int hf_eip_cert_encoding;
+static int hf_eip_cert_device_cert_status;
+static int hf_eip_cert_ca_cert_status;
+static int hf_eip_cert_capflags_push;
+static int hf_eip_cert_capflags_reserved;
+static int hf_eip_cert_capability_flags;
+static int hf_eip_cert_num_certs;
+static int hf_eip_cert_cert_name;
+static int hf_eip_cert_verify_certificate;
+static int hf_lldp_subtype;
+static int hf_lldp_mac_address;
 
 /* Initialize the subtree pointers */
-static gint ett_enip = -1;
-static gint ett_cip_io_generic = -1;
-static gint ett_path = -1;
-static gint ett_count_tree = -1;
-static gint ett_type_tree = -1;
-static gint ett_command_tree = -1;
-static gint ett_sockadd = -1;
-static gint ett_lsrcf = -1;
-static gint ett_tcpip_status = -1;
-static gint ett_tcpip_admin_capability = -1;
-static gint ett_tcpip_config_cap = -1;
-static gint ett_tcpip_config_control = -1;
-static gint ett_elink_interface_flags = -1;
-static gint ett_elink_icontrol_bits = -1;
-static gint ett_elink_icapability_bits = -1;
-static gint ett_dlr_capability_flags = -1;
-static gint ett_dlr_lnknbrstatus_flags = -1;
-static gint ett_eip_security_capability_flags = -1;
-static gint ett_eip_security_psk = -1;
-static gint ett_eip_security_active_certs = -1;
-static gint ett_eip_security_trusted_auths = -1;
-static gint ett_eip_cert_capability_flags = -1;
-static gint ett_eip_cert_num_certs = -1;
-static gint ett_security_profiles = -1;
-static gint ett_iana_port_state_flags = -1;
-static gint ett_connection_info = -1;
-static gint ett_connection_path_info = -1;
-static gint ett_cmd_data = -1;
+static gint ett_enip;
+static gint ett_cip_io_generic;
+static gint ett_path;
+static gint ett_count_tree;
+static gint ett_type_tree;
+static gint ett_command_tree;
+static gint ett_sockadd;
+static gint ett_lsrcf;
+static gint ett_tcpip_status;
+static gint ett_tcpip_admin_capability;
+static gint ett_tcpip_config_cap;
+static gint ett_tcpip_config_control;
+static gint ett_elink_interface_flags;
+static gint ett_elink_icontrol_bits;
+static gint ett_elink_icapability_bits;
+static gint ett_dlr_capability_flags;
+static gint ett_dlr_lnknbrstatus_flags;
+static gint ett_eip_security_capability_flags;
+static gint ett_eip_security_psk;
+static gint ett_eip_security_active_certs;
+static gint ett_eip_security_trusted_auths;
+static gint ett_eip_cert_capability_flags;
+static gint ett_eip_cert_num_certs;
+static gint ett_security_profiles;
+static gint ett_iana_port_state_flags;
+static gint ett_connection_info;
+static gint ett_connection_path_info;
+static gint ett_cmd_data;
 
-static expert_field ei_mal_tcpip_status = EI_INIT;
-static expert_field ei_mal_tcpip_config_cap = EI_INIT;
-static expert_field ei_mal_tcpip_config_control = EI_INIT;
-static expert_field ei_mal_tcpip_interface_config = EI_INIT;
-static expert_field ei_mal_tcpip_mcast_config = EI_INIT;
-static expert_field ei_mal_tcpip_last_conflict = EI_INIT;
-static expert_field ei_mal_tcpip_snn = EI_INIT;
-static expert_field ei_mal_elink_interface_flags = EI_INIT;
-static expert_field ei_mal_elink_physical_address = EI_INIT;
-static expert_field ei_mal_elink_interface_counters = EI_INIT;
-static expert_field ei_mal_elink_media_counters = EI_INIT;
-static expert_field ei_mal_elink_interface_control = EI_INIT;
-static expert_field ei_mal_dlr_ring_supervisor_config = EI_INIT;
-static expert_field ei_mal_dlr_last_active_node_on_port_1 = EI_INIT;
-static expert_field ei_mal_dlr_last_active_node_on_port_2 = EI_INIT;
-static expert_field ei_mal_dlr_ring_protocol_participants_list = EI_INIT;
-static expert_field ei_mal_dlr_active_supervisor_address = EI_INIT;
-static expert_field ei_mal_dlr_capability_flags = EI_INIT;
-static expert_field ei_mal_dlr_redundant_gateway_config = EI_INIT;
-static expert_field ei_mal_dlr_active_gateway_address = EI_INIT;
-static expert_field ei_mal_eip_security_capability_flags = EI_INIT;
-static expert_field ei_mal_eip_security_avail_cipher_suites = EI_INIT;
-static expert_field ei_mal_eip_security_allow_cipher_suites = EI_INIT;
-static expert_field ei_mal_eip_security_preshared_keys = EI_INIT;
-static expert_field ei_mal_eip_security_active_certs = EI_INIT;
-static expert_field ei_mal_eip_security_trusted_auths = EI_INIT;
-static expert_field ei_mal_eip_cert_capability_flags = EI_INIT;
-static expert_field ei_mal_cpf_item_length_mismatch = EI_INIT;
-static expert_field ei_mal_cpf_item_minimum_size = EI_INIT;
+static expert_field ei_mal_tcpip_status;
+static expert_field ei_mal_tcpip_config_cap;
+static expert_field ei_mal_tcpip_config_control;
+static expert_field ei_mal_tcpip_interface_config;
+static expert_field ei_mal_tcpip_mcast_config;
+static expert_field ei_mal_tcpip_last_conflict;
+static expert_field ei_mal_tcpip_snn;
+static expert_field ei_mal_elink_interface_flags;
+static expert_field ei_mal_elink_physical_address;
+static expert_field ei_mal_elink_interface_counters;
+static expert_field ei_mal_elink_media_counters;
+static expert_field ei_mal_elink_interface_control;
+static expert_field ei_mal_dlr_ring_supervisor_config;
+static expert_field ei_mal_dlr_last_active_node_on_port_1;
+static expert_field ei_mal_dlr_last_active_node_on_port_2;
+static expert_field ei_mal_dlr_ring_protocol_participants_list;
+static expert_field ei_mal_dlr_active_supervisor_address;
+static expert_field ei_mal_dlr_capability_flags;
+static expert_field ei_mal_dlr_redundant_gateway_config;
+static expert_field ei_mal_dlr_active_gateway_address;
+static expert_field ei_mal_eip_security_capability_flags;
+static expert_field ei_mal_eip_security_avail_cipher_suites;
+static expert_field ei_mal_eip_security_allow_cipher_suites;
+static expert_field ei_mal_eip_security_preshared_keys;
+static expert_field ei_mal_eip_security_active_certs;
+static expert_field ei_mal_eip_security_trusted_auths;
+static expert_field ei_mal_eip_cert_capability_flags;
+static expert_field ei_mal_cpf_item_length_mismatch;
+static expert_field ei_mal_cpf_item_minimum_size;
+
+static expert_field ei_cip_request_no_response;
+static expert_field ei_cip_io_heartbeat;
+
 
 static dissector_table_t   subdissector_srrd_table;
 static dissector_table_t   subdissector_io_table;
@@ -455,55 +459,55 @@ static gboolean enip_desegment  = TRUE;
 static gboolean enip_OTrun_idle = TRUE;
 static gboolean enip_TOrun_idle = FALSE;
 
-static int proto_dlr = -1;
+static int proto_dlr;
 
-static int hf_dlr_ringsubtype = -1;
-static int hf_dlr_ringprotoversion = -1;
-static int hf_dlr_frametype = -1;
-static int hf_dlr_sourceport = -1;
-static int hf_dlr_sourceip = -1;
-static int hf_dlr_sequenceid = -1;
+static int hf_dlr_ringsubtype;
+static int hf_dlr_ringprotoversion;
+static int hf_dlr_frametype;
+static int hf_dlr_sourceport;
+static int hf_dlr_sourceip;
+static int hf_dlr_sequenceid;
 
-static int hf_dlr_ringstate = -1;
-static int hf_dlr_supervisorprecedence = -1;
-static int hf_dlr_beaconinterval = -1;
-static int hf_dlr_beacontimeout = -1;
-static int hf_dlr_beaconreserved = -1;
+static int hf_dlr_ringstate;
+static int hf_dlr_supervisorprecedence;
+static int hf_dlr_beaconinterval;
+static int hf_dlr_beacontimeout;
+static int hf_dlr_beaconreserved;
 
-static int hf_dlr_nreqreserved = -1;
+static int hf_dlr_nreqreserved;
 
-static int hf_dlr_nressourceport = -1;
-static int hf_dlr_nresreserved = -1;
+static int hf_dlr_nressourceport;
+static int hf_dlr_nresreserved;
 
-static int hf_dlr_lnknbrstatus = -1;
-static int hf_dlr_lnknbrstatus_port1 = -1;
-static int hf_dlr_lnknbrstatus_port2 = -1;
-static int hf_dlr_lnknbrstatus_reserved = -1;
-static int hf_dlr_lnknbrstatus_frame_type = -1;
-static int hf_dlr_lnknbrreserved = -1;
+static int hf_dlr_lnknbrstatus;
+static int hf_dlr_lnknbrstatus_port1;
+static int hf_dlr_lnknbrstatus_port2;
+static int hf_dlr_lnknbrstatus_reserved;
+static int hf_dlr_lnknbrstatus_frame_type;
+static int hf_dlr_lnknbrreserved;
 
-static int hf_dlr_lfreserved = -1;
+static int hf_dlr_lfreserved;
 
-static int hf_dlr_anreserved = -1;
+static int hf_dlr_anreserved;
 
-static int hf_dlr_sonumnodes = -1;
-static int hf_dlr_somac = -1;
-static int hf_dlr_soip = -1;
-static int hf_dlr_soreserved = -1;
+static int hf_dlr_sonumnodes;
+static int hf_dlr_somac;
+static int hf_dlr_soip;
+static int hf_dlr_soreserved;
 
-static int hf_dlr_advgatewaystate = -1;
-static int hf_dlr_advgatewayprecedence = -1;
-static int hf_dlr_advadvertiseinterval = -1;
-static int hf_dlr_advadvertisetimeout = -1;
-static int hf_dlr_advlearningupdateenable = -1;
-static int hf_dlr_advreserved = -1;
+static int hf_dlr_advgatewaystate;
+static int hf_dlr_advgatewayprecedence;
+static int hf_dlr_advadvertiseinterval;
+static int hf_dlr_advadvertisetimeout;
+static int hf_dlr_advlearningupdateenable;
+static int hf_dlr_advreserved;
 
-static int hf_dlr_flushlearningupdateenable = -1;
-static int hf_dlr_flushreserved = -1;
+static int hf_dlr_flushlearningupdateenable;
+static int hf_dlr_flushreserved;
 
-static int hf_dlr_learnreserved  = -1;
+static int hf_dlr_learnreserved;
 
-static gint ett_dlr = -1;
+static gint ett_dlr;
 
 /* Translate function to string - Encapsulation commands */
 static const value_string encap_cmd_vals[] = {
@@ -942,6 +946,10 @@ enip_match_request( packet_info *pinfo, proto_tree *tree, enip_request_key_t *pr
                   NULL, 0, 0, request_info->rep_num);
             proto_item_set_generated(it);
          }
+         else
+         {
+            expert_add_info(pinfo, tree, &ei_cip_request_no_response);
+         }
       }
       else
       {
@@ -1198,7 +1206,7 @@ static void enip_open_cip_connection( packet_info *pinfo, cip_conn_info_t* connI
       return;
 
    // Don't create connections for Null Forward Opens.
-   if (connInfo->T2O.type == CONN_TYPE_NULL && connInfo->O2T.type == CONN_TYPE_NULL)
+   if (connInfo->IsNullFwdOpen)
    {
       return;
    }
@@ -2206,8 +2214,9 @@ static int dissect_certificate_management_object_verify_certificate(packet_info 
    }
 }
 
+// Most of the information for the IANA Port Admin attribute and Set_Port_Admin_State service is the same.
 static int dissect_tcpip_port_information(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
-   int offset)
+   int offset, gboolean attribute_version)
 {
    int start_offset = offset;
 
@@ -2220,7 +2229,15 @@ static int dissect_tcpip_port_information(packet_info *pinfo, proto_tree *tree, 
       proto_item *port_item;
       proto_tree *port_tree = proto_tree_add_subtree(tree, tvb, offset, 0, ett_cmd_data, &port_item, "Port: ");
 
-      offset += dissect_cip_string_type(pinfo, port_tree, item, tvb, offset, hf_tcpip_port_name, CIP_SHORT_STRING_TYPE);
+      if (attribute_version == TRUE)
+      {
+         guint8 length = tvb_get_guint8(tvb, offset);
+         const char* port_name = tvb_get_string_enc(wmem_packet_scope(), tvb, offset + 1, length, ENC_ASCII);
+
+         offset += dissect_cip_string_type(pinfo, port_tree, item, tvb, offset, hf_tcpip_port_name, CIP_SHORT_STRING_TYPE);
+
+         proto_item_append_text(port_item, "Name: %s: ", port_name);
+      }
 
       guint32 port_number;
       proto_tree_add_item_ret_uint(port_tree, hf_tcpip_port_number, tvb, offset, 2, ENC_LITTLE_ENDIAN, &port_number);
@@ -2233,15 +2250,18 @@ static int dissect_tcpip_port_information(packet_info *pinfo, proto_tree *tree, 
       proto_tree_add_item(port_tree, hf_tcpip_port_admin_state, tvb, offset, 1, ENC_LITTLE_ENDIAN);
       offset++;
 
-      static int* const capability[] = {
-         &hf_tcpip_admin_capability_configurable,
-         &hf_tcpip_admin_capability_reset_required,
-         &hf_tcpip_admin_capability_reserved,
-         NULL
-      };
+      if (attribute_version == TRUE)
+      {
+         static int* const capability[] = {
+            &hf_tcpip_admin_capability_configurable,
+            &hf_tcpip_admin_capability_reset_required,
+            &hf_tcpip_admin_capability_reserved,
+            NULL
+         };
 
-      proto_tree_add_bitmask(port_tree, tvb, offset, hf_tcpip_port_admin_capability, ett_tcpip_admin_capability, capability, ENC_LITTLE_ENDIAN);
-      offset++;
+         proto_tree_add_bitmask(port_tree, tvb, offset, hf_tcpip_port_admin_capability, ett_tcpip_admin_capability, capability, ENC_LITTLE_ENDIAN);
+         offset++;
+      }
    }
 
    return offset - start_offset;
@@ -2250,7 +2270,19 @@ static int dissect_tcpip_port_information(packet_info *pinfo, proto_tree *tree, 
 static int dissect_tcpip_port_admin(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb,
    int offset, int total_len _U_)
 {
-   return dissect_tcpip_port_information(pinfo, tree, item, tvb, offset);
+   return dissect_tcpip_port_information(pinfo, tree, item, tvb, offset, TRUE);
+}
+
+static int dissect_tcpip_set_port_admin_state(packet_info *pinfo, proto_tree *tree, proto_item *item, tvbuff_t *tvb, int offset, gboolean request)
+{
+   if (request)
+   {
+      return dissect_tcpip_port_information(pinfo, tree, item, tvb, offset, FALSE);
+   }
+   else
+   {
+      return 0;
+   }
 }
 
 attribute_info_t enip_attribute_vals[] = {
@@ -2391,6 +2423,9 @@ attribute_info_t enip_attribute_vals[] = {
 static cip_service_info_t enip_obj_spec_service_table[] = {
     // Certificate Management
     { 0x5F, 0x4C, "Verify_Certificate", dissect_certificate_management_object_verify_certificate },
+
+    // TCP/IP Interface
+    { 0xF5, 0x4C, "Set_Port_Admin_State", dissect_tcpip_set_port_admin_state },
 };
 
 // Look up a given CIP service from this dissector.
@@ -2526,7 +2561,39 @@ void display_fwd_open_connection_path(cip_conn_info_t* conn_info, proto_tree* tr
    }
 }
 
-static void display_connection_information(packet_info* pinfo, tvbuff_t* tvb, proto_tree* tree, cip_conn_info_t* conn_info, enum enip_connid_type connid_type)
+// returns TRUE if this is a likely Heartbeat message
+// Note: item_length include the CIP Sequence Count, if applicable.
+static gboolean cip_io_is_likely_heartbeat(const cip_conn_info_t* conn_info, enum enip_connid_type connid_type, guint32 item_length)
+{
+   // Heartbeat messages only occur in the O->T direction.
+   if (connid_type != ECIDT_O2T)
+   {
+      return FALSE;
+   }
+
+   // Class 0 heartbeat messages have 0 length.
+   if (item_length == 0)
+   {
+      return TRUE;
+   }
+
+   // The only other possibility for a heartbeat is for Class 1 (the 2 bytes is the Sequence Count)
+   if (item_length != 2)
+   {
+      return FALSE;
+   }
+
+   // The only possibility for a heartbeat is: Class 1 with 2 bytes of data only, and it must be a "Fixed" size.
+   guint8 transport_class = conn_info->TransportClass_trigger & CI_TRANSPORT_CLASS_MASK;
+   if (transport_class == 1 && conn_info->O2T.connection_size_type == CIP_CONNECTION_SIZE_TYPE_FIXED)
+   {
+      return TRUE;
+   }
+   return FALSE;
+}
+
+static void display_connection_information(packet_info* pinfo, tvbuff_t* tvb, proto_tree* tree, cip_conn_info_t* conn_info,
+   enum enip_connid_type connid_type, guint32 item_length)
 {
    proto_item* conn_info_item = NULL;
    proto_tree* conn_info_tree = proto_tree_add_subtree(tree, tvb, 0, 0, ett_connection_info, &conn_info_item, "Connection Information");
@@ -2554,6 +2621,11 @@ static void display_connection_information(packet_info* pinfo, tvbuff_t* tvb, pr
 
    pi = proto_tree_add_uint(conn_info_tree, hf_enip_fwd_open_in, tvb, 0, 0, conn_info->open_req_frame);
    proto_item_set_generated(pi);
+
+   if (cip_io_is_likely_heartbeat(conn_info, connid_type, item_length))
+   {
+      expert_add_info(pinfo, conn_info_item, &ei_cip_io_heartbeat);
+   }
 }
 
 // This dissects Class 0 or Class 1 I/O.
@@ -2996,7 +3068,7 @@ dissect_cpf(enip_request_key_t *request_key, int command, tvbuff_t *tvb,
 
                if (conn_info)
                {
-                  display_connection_information(pinfo, tvb, enip_layer_tree, conn_info, connid_type);
+                  display_connection_information(pinfo, tvb, enip_layer_tree, conn_info, connid_type, item_length);
                }
 
                break;
@@ -3100,7 +3172,7 @@ dissect_enip_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
 {
    enum enip_packet_type packet_type;
    guint16             encap_cmd, encap_data_length;
-   const char         *pkt_type_str = "";
+   const char         *pkt_type_str;
    guint32             ifacehndl;
    conversation_t     *conversation;
 
@@ -3297,7 +3369,7 @@ dissect_cipio(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
    col_set_str(pinfo->cinfo, COL_PROTOCOL, "CIP I/O");
 
    /* create display subtree for the protocol */
-   ti = proto_tree_add_item(tree, proto_enip, tvb, 0, -1, ENC_NA );
+   ti = proto_tree_add_item(tree, proto_cipio, tvb, 0, -1, ENC_NA );
 
    enip_tree = proto_item_add_subtree(ti, ett_enip);
 
@@ -4042,7 +4114,7 @@ proto_register_enip(void)
       { &hf_tcpip_port_admin_capability, { "Admin Capability", "cip.tcpip.admin_capability", FT_UINT8, BASE_HEX, NULL, 0, NULL, HFILL } },
       { &hf_tcpip_admin_capability_configurable, { "Configurable", "cip.tcpip.admin_capability.configurable", FT_BOOLEAN, 8, NULL, 0x01, NULL, HFILL } },
       { &hf_tcpip_admin_capability_reset_required, { "Reset Required", "cip.tcpip.admin_capability.reset_required", FT_BOOLEAN, 8, NULL, 0x02, NULL, HFILL } },
-      { &hf_tcpip_admin_capability_reserved, { "Reserved", "cip.tcpip.admin_capability", FT_UINT8, BASE_HEX, NULL, 0xFC, NULL, HFILL } },
+      { &hf_tcpip_admin_capability_reserved, { "Reserved", "cip.tcpip.admin_capability_reserved", FT_UINT8, BASE_HEX, NULL, 0xFC, NULL, HFILL } },
 
       { &hf_elink_interface_speed,
         { "Interface Speed", "cip.elink.interface_speed",
@@ -4799,6 +4871,10 @@ proto_register_enip(void)
       { &ei_mal_eip_cert_capability_flags, { "cip.malformed.eip_cert.capability_flags", PI_MALFORMED, PI_ERROR, "Malformed EIP Certificate Management Capability Flags", EXPFILL }},
       { &ei_mal_cpf_item_length_mismatch, { "enip.malformed.cpf_item_length_mismatch", PI_MALFORMED, PI_ERROR, "CPF Item Length Mismatch", EXPFILL } },
       { &ei_mal_cpf_item_minimum_size, { "enip.malformed.cpf_item_minimum_size", PI_MALFORMED, PI_ERROR, "CPF Item Minimum Size is 4", EXPFILL } },
+
+      // Analysis Checks
+      { &ei_cip_request_no_response, { "cip.analysis.request_no_response", PI_PROTOCOL, PI_NOTE, "CIP request without a response", EXPFILL } },
+      { &ei_cip_io_heartbeat, { "cip.analysis.cip_io_heartbeat", PI_PROTOCOL, PI_NOTE, "[Likely] CIP I/O Heartbeat [Listen/Input Only Connection]", EXPFILL } },
    };
 
    /* Setup list of header fields for DLR  See Section 1.6.1 for details*/

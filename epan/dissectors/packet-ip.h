@@ -13,6 +13,8 @@
 #define __PACKET_IP_H__
 
 #include "ws_symbol_export.h"
+#include "packet-ipv6.h"
+#include <epan/conversation.h>
 
 /*
  * IP Version numbers, from
@@ -41,6 +43,7 @@ typedef struct _ws_ip4
     guint16 ip_sum;     /* checksum */
     address ip_src;     /* source address */
     address ip_dst;     /* destination address */
+    guint32 ip_stream;  /* track conversations */
 } ws_ip4;
 
 #define WS_IP4_PTR(p)         ((ws_ip4 *)(((p) && *(guint8 *)(p) == 4) ? (p) : NULL))
@@ -77,7 +80,7 @@ typedef struct _ws_ip6
 #define WS_IP6_PTR(p)         ((ws_ip6 *)(((p) && *(guint8 *)(p) == 6) ? (p) : NULL))
 
 struct ws_rthdr {
-    struct ip6_rthdr hdr;
+    struct ws_ip6_rthdr hdr;
     proto_item *ti_len;
     proto_item *ti_type;
     proto_item *ti_segleft;
@@ -128,6 +131,18 @@ ws_ip_protocol(void *iph)
     }
     return -1;
 }
+
+struct ip_analysis {
+
+    /* Initial frame starting this conversation
+     */
+    guint32 initial_frame;
+
+    guint32 stream;
+};
+
+WS_DLL_PUBLIC struct ip_analysis *get_ip_conversation_data(conversation_t *conv,
+                                packet_info *pinfo);
 
 #endif /* __PACKET_IP_H__ */
 

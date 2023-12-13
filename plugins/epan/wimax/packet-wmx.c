@@ -28,7 +28,7 @@ void proto_register_wimax(void);
 void proto_reg_handoff_wimax(void);
 
 /* Global variables */
-gint	proto_wimax = -1;
+gint	proto_wimax;
 gint8	arq_enabled = 0;
 gint	scheduling_service_type = 0;
 gint	mac_sdu_length = 49; /* default SDU size is 49 bytes (11.13.16) */
@@ -38,9 +38,9 @@ extern	gboolean include_cor2_changes;
 address bs_address = ADDRESS_INIT_NONE;
 
 
-static int hf_tlv_type = -1;
-static int hf_tlv_length = -1;
-static int hf_tlv_length_size = -1;
+static int hf_tlv_type;
+static int hf_tlv_length;
+static int hf_tlv_length_size;
 
 #define MAX_NUM_TLVS	256
 /* Global TLV array to retrieve unique subtree identifiers */
@@ -291,7 +291,6 @@ void proto_register_wimax(void)
 	/* Register the ett TLV array to retrieve unique subtree identifiers */
 	for (i = 0; i < MAX_NUM_TLVS; i++)
 	{
-		ett_tlv[i] = -1;
 		ett_reg[i] = &ett_tlv[i];
 	}
 

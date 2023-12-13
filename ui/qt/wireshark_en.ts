@@ -755,6 +755,28 @@
     </message>
 </context>
 <context>
+    <name>CaptureCommentDialog</name>
+    <message>
+        <source>Edit Capture Comments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Section %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CaptureCommentTabWidget</name>
+    <message>
+        <source>Comment %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CaptureFile</name>
     <message>
         <source> [closing]</source>
@@ -948,7 +970,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Capture file comments</source>
+        <source>Edit Comments</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -957,10 +979,6 @@
     </message>
     <message>
         <source>Copy To Clipboard</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save Comments</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1077,6 +1095,18 @@
     </message>
     <message>
         <source>Comment %1: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Decryption Secrets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1367,6 +1397,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Usually a wireless network card will only capture the traffic sent to and from its own network address, and only captures &lt;em&gt;user data&lt;/em&gt; traffic with &amp;quot;fake&amp;quot; Ethernet headers. If you want to capture all traffic that wireless network cards can &amp;quot;see&amp;quot;, or are interested in 802.11 management or control packets, or radio-layer information, mark this option. Monitor mode availability depends on the wireless card and driver. See the Wiki for some more details of capturing packets on WLAN networks.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable monitor mode on all 802.11 interfaces</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>compression</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1555,6 +1593,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Capture packets in promiscuous mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Usually a wireless network card will only capture the traffic sent to and from its own network address, and only captures &lt;em&gt;user data&lt;/em&gt; traffic with &amp;quot;fake&amp;quot; Ethernet headers. If you want to capture all traffic that wireless network cards can &amp;quot;see&amp;quot;, or are interested in 802.11 management or control packets, or radio-layer information, mark this option. Monitor mode availability depends on the wireless card and driver. See the Wiki for more details of capturing packets on WLAN networks.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture packets in monitor mode on 802.11 devices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2021,6 +2067,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Copy packet bytes as printable ASCII characters and escape sequences.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>…as Go literal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy packet bytes as Go literal.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3005,6 +3059,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Display Filter Macros</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New macro</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Open </source>
         <translation type="unfinished"></translation>
     </message>
@@ -3088,7 +3150,15 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>FilterListModel</name>
     <message>
+        <source>Macro Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Filter Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Macro Expression</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3438,10 +3508,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Save Stream Content As…</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <source>[Stream output truncated]</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message numerus="yes">
         <source>%Ln total stream(s).</source>
         <translation type="unfinished">
@@ -3487,6 +3553,13 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Find &amp;Next</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FollowStreamText</name>
+    <message>
+        <source>[Stream output truncated]</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -5923,7 +5996,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>LteMacStatisticsDialog</name>
     <message>
-        <source>LTE Mac Statistics</source>
+        <source>LTE/NR Mac Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6203,7 +6276,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>LTE RLC Graph (UE=%1 chan=%2%3 %4 - %5)</source>
+        <source>%1 RLC Graph (UE=%2 chan=%3%4 %5 - %6)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6262,7 +6335,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>LteRlcStatisticsDialog</name>
     <message>
-        <source>LTE RLC Statistics</source>
+        <source>LTE/NR RLC Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6997,6 +7070,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Layout:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Packet %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7281,6 +7358,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Path</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Scope</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Homepage</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>PortsModel</name>
@@ -7348,6 +7437,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <name>PreferencesDialog</name>
     <message>
         <source>Search:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Checking this will show only changed preferences.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show changed values</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8173,6 +8270,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>LTE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NR</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>C-RNTI</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8190,6 +8295,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>UEId</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RAT</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8418,7 +8527,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
-    <name>QObject::QObject</name>
+    <name>QObject::QObject::QObject</name>
     <message>
         <source>CCCH</source>
         <translation type="unfinished"></translation>
@@ -8634,6 +8743,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save as…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source># Resolved addresses found in %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8641,6 +8758,61 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source># Comments
 #
 # </source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ResolvedAddressesView</name>
+    <message>
+        <source>as Plain Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy selected rows</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy table</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>as CSV</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>as JSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save selected rows as…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save table as…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Resolved Addresses As…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Plain text (*.txt)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CSV Document (*.csv)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JSON Document (*.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to save %1: %2</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10278,53 +10450,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
 </context>
 <context>
-    <name>SSLKeylogDialog</name>
-    <message>
-        <source>Dialog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Browse...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Browser file path</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Run your web browser with the SSLKEYLOG environment variable set to the file specified by the key log filename preference.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:small;&quot;&gt;Firefox and Chrome are known to work. If your desired browser is currently running, close it first before launching it below.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;(Pre)-Master-Secret log file path&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:small;&quot;&gt;TLS keys will be logged to this file.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Launch</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Save</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>TLS Keylog</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Web Browser</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>ScsiServiceResponseTimeDialog</name>
     <message>
         <source>&lt;small&gt;&lt;i&gt;Select a command and enter a filter if desired, then press Apply.&lt;/i&gt;&lt;/small&gt;</source>
@@ -11663,6 +11788,57 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Save Graph As…</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TLSKeylogDialog</name>
+    <message>
+        <source>Dialog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Command line</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Run an application with the SSLKEYLOGFILE environment variable set to the file specified by the TLS key log filename preference. This enables TLS decryption in Wireshark. Set the key log file and start the capture before launching the application to ensure that the initial TLS handshakes are captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;span style=&quot; font-size:small;&quot;&gt;Firefox and Chrome are known to work. If your desired browser is currently running, close it first before launching it below. Command line options are supported.&lt;/span&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TLS (Pre)-Master-Secret log file path (tls.keylog_file)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;span style=&quot; font-size:small;&quot;&gt;TLS session secrets will be logged to this file. If you change this field, hit the Save button to update the TLS protocol preferences.&lt;/span&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Launch application with SSLKEYLOGFILE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Launch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TLS Keylog file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program to start with SSLKEYLOGFILE</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13642,11 +13818,11 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Browser (SSL Keylog)</source>
+        <source>&amp;Options…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&amp;Options…</source>
+        <source>&amp;3GPP Uu</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14068,6 +14244,10 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>TLS Keylog Launcher</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Release Notes</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14101,10 +14281,6 @@ a:hover {
     </message>
     <message>
         <source>&amp;GSM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>&amp;LTE</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14392,6 +14568,10 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>USB CDC Data</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>There is no &quot;rtp.ssrc&quot; field in this version of Wireshark.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14401,6 +14581,44 @@ a:hover {
     </message>
     <message>
         <source>SSRC value not found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install plugin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Binary plugin (*%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Plugins can execute arbitrary code as the current user. Make sure you trust it before installing.
+
+Continue installing the file &quot;%1&quot; to the personal plugin folder?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to create the directory: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The plugin already exists in the personal plugin folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file already exists. Do you want to overwrite it?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error removing the old plugin file from the personal plugin folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to copy the file to the destination: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Plugin &apos;%1&apos; installed successfully. You must restart the program to be able to use it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14608,6 +14826,10 @@ a:hover {
     </message>
     <message>
         <source> before restarting the capture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install Plugin</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

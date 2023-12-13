@@ -39,7 +39,6 @@ add_custom_command(
 )
 
 set(LIBWIRESHARK_PUBLIC_HEADERS
-	addr_and_mask.h
 	addr_resolv.h
 	address.h
 	address_types.h
@@ -100,10 +99,9 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	iax2_codec_type.h
 	in_cksum.h
 	introspection.h
+	iana-ip.h
 	ip_opts.h
 	ipproto.h
-	ipv4.h
-	ipv6.h
 	lapd_sapi.h
 	llcsaps.h
 	maxmind_db.h
@@ -171,7 +169,6 @@ set(LIBWIRESHARK_HEADER_FILES
 )
 
 set(LIBWIRESHARK_NONGENERATED_FILES
-	addr_and_mask.c
 	addr_resolv.c
 	address_types.c
 	afn.c
@@ -211,6 +208,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	golay.c
 	guid-utils.c
 	iana_charsets.c
+	iana-ip.c
 	in_cksum.c
 	introspection.c
 	ipproto.c

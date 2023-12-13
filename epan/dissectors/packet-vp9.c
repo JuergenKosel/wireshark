@@ -41,37 +41,37 @@
 #define VP9_16_BITS_MASK 0xFFFF
 #define VP9_EXTENDED_PID 0x7FFF
 
-static int proto_vp9 = -1;
+static int proto_vp9;
 
-static int hf_vp9_pld_i_bit = -1;
-static int hf_vp9_pld_p_bit = -1;
-static int hf_vp9_pld_l_bit = -1;
-static int hf_vp9_pld_f_bit = -1;
-static int hf_vp9_pld_b_bit = -1;
-static int hf_vp9_pld_e_bit = -1;
-static int hf_vp9_pld_v_bit = -1;
-static int hf_vp9_pld_z_bit = -1;
-static int hf_vp9_pld_u_bit = -1;
-static int hf_vp9_pld_m_bit = -1;
-static int hf_vp9_pld_d_bit = -1;
-static int hf_vp9_pld_n_bit = -1;
-static int hf_vp9_pld_y_bit = -1;
-static int hf_vp9_pld_g_bit = -1;
-static int hf_vp9_pld_pg_bits = -1;
-static int hf_vp9_pld_n_s_bits = -1;
-static int hf_vp9_pld_n_g_bits = -1;
-static int hf_vp9_pld_sid_bits = -1;
-static int hf_vp9_pld_pid_bits = -1;
-static int hf_vp9_pld_tid_bits = -1;
-static int hf_vp9_pld_width_bits = -1;
-static int hf_vp9_pld_height_bits = -1;
-static int hf_vp9_pld_p_diff_bits = -1;
-static int hf_vp9_pld_tl0picidx_bits = -1;
-static int hf_vp9_pld_pg_extended_bits = -1;
-static int hf_vp9_pld_pid_extended_bits = -1;
+static int hf_vp9_pld_i_bit;
+static int hf_vp9_pld_p_bit;
+static int hf_vp9_pld_l_bit;
+static int hf_vp9_pld_f_bit;
+static int hf_vp9_pld_b_bit;
+static int hf_vp9_pld_e_bit;
+static int hf_vp9_pld_v_bit;
+static int hf_vp9_pld_z_bit;
+static int hf_vp9_pld_u_bit;
+static int hf_vp9_pld_m_bit;
+static int hf_vp9_pld_d_bit;
+static int hf_vp9_pld_n_bit;
+static int hf_vp9_pld_y_bit;
+static int hf_vp9_pld_g_bit;
+static int hf_vp9_pld_pg_bits;
+static int hf_vp9_pld_n_s_bits;
+static int hf_vp9_pld_n_g_bits;
+static int hf_vp9_pld_sid_bits;
+static int hf_vp9_pld_pid_bits;
+static int hf_vp9_pld_tid_bits;
+static int hf_vp9_pld_width_bits;
+static int hf_vp9_pld_height_bits;
+static int hf_vp9_pld_p_diff_bits;
+static int hf_vp9_pld_tl0picidx_bits;
+static int hf_vp9_pld_pg_extended_bits;
+static int hf_vp9_pld_pid_extended_bits;
 
-static int ett_vp9 = -1;
-static int ett_vp9_descriptor = -1;
+static int ett_vp9;
+static int ett_vp9_descriptor;
 
 static int *ett[] = {
     &ett_vp9,
@@ -235,7 +235,7 @@ dissect_vp9(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data 
         V:   | N_S |Y|G|-|-|-|
              +-+-+-+-+-+-+-+-+
         */
-        guint8 n_s = tvb_get_guint8(tvb, offset) & (VP9_3_BITS_MASK);
+        guint8 n_s = (tvb_get_guint8(tvb, offset) & (VP9_3_BITS_MASK)) >> 5;
         guint8 y = tvb_get_guint8(tvb, offset) & (VP9_1_BIT_MASK >> 3);
         guint8 g = tvb_get_guint8(tvb, offset) & (VP9_1_BIT_MASK >> 4);
         proto_tree_add_item(vp9_descriptor_tree, hf_vp9_pld_n_s_bits, tvb, offset, 1, ENC_BIG_ENDIAN);

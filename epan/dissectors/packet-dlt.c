@@ -161,8 +161,8 @@ void proto_reg_handoff_dlt_storage_header(void);
 #define DLT_SERVICE_OPTIONS_WITH_LOG_TRACE              6
 #define DLT_SERVICE_OPTIONS_WITH_LOG_TRACE_TEXT         7
 
-static int proto_dlt = -1;
-static int proto_dlt_storage_header = -1;
+static int proto_dlt;
+static int proto_dlt_storage_header;
 
 static dissector_handle_t dlt_handle_udp = NULL;
 static dissector_handle_t dlt_handle_tcp = NULL;
@@ -173,82 +173,82 @@ static heur_dissector_list_t heur_subdissector_list;
 static heur_dtbl_entry_t *heur_dtbl_entry;
 
 /* header fields */
-static int hf_dlt_header_type                           = -1;
-static int hf_dlt_ht_ext_header                         = -1;
-static int hf_dlt_ht_msb_first                          = -1;
-static int hf_dlt_ht_with_ecuid                         = -1;
-static int hf_dlt_ht_with_sessionid                     = -1;
-static int hf_dlt_ht_with_timestamp                     = -1;
-static int hf_dlt_ht_version                            = -1;
+static int hf_dlt_header_type;
+static int hf_dlt_ht_ext_header;
+static int hf_dlt_ht_msb_first;
+static int hf_dlt_ht_with_ecuid;
+static int hf_dlt_ht_with_sessionid;
+static int hf_dlt_ht_with_timestamp;
+static int hf_dlt_ht_version;
 
-static int hf_dlt_msg_ctr                               = -1;
-static int hf_dlt_length                                = -1;
+static int hf_dlt_msg_ctr;
+static int hf_dlt_length;
 
-static int hf_dlt_ecu_id                                = -1;
-static int hf_dlt_session_id                            = -1;
-static int hf_dlt_timestamp                             = -1;
+static int hf_dlt_ecu_id;
+static int hf_dlt_session_id;
+static int hf_dlt_timestamp;
 
-static int hf_dlt_ext_hdr                               = -1;
-static int hf_dlt_msg_info                              = -1;
-static int hf_dlt_mi_verbose                            = -1;
-static int hf_dlt_mi_msg_type                           = -1;
-static int hf_dlt_mi_msg_type_info                      = -1;
-static int hf_dlt_num_of_args                           = -1;
-static int hf_dlt_app_id                                = -1;
-static int hf_dlt_ctx_id                                = -1;
+static int hf_dlt_ext_hdr;
+static int hf_dlt_msg_info;
+static int hf_dlt_mi_verbose;
+static int hf_dlt_mi_msg_type;
+static int hf_dlt_mi_msg_type_info;
+static int hf_dlt_num_of_args;
+static int hf_dlt_app_id;
+static int hf_dlt_ctx_id;
 
-static int hf_dlt_payload                               = -1;
-static int hf_dlt_message_id                            = -1;
-static int hf_dlt_payload_data                          = -1;
+static int hf_dlt_payload;
+static int hf_dlt_message_id;
+static int hf_dlt_payload_data;
 
-static int hf_dlt_data_bool                             = -1;
-static int hf_dlt_uint8                                 = -1;
-static int hf_dlt_uint16                                = -1;
-static int hf_dlt_uint32                                = -1;
-static int hf_dlt_uint64                                = -1;
-static int hf_dlt_int8                                  = -1;
-static int hf_dlt_int16                                 = -1;
-static int hf_dlt_int32                                 = -1;
-static int hf_dlt_int64                                 = -1;
-static int hf_dlt_float                                 = -1;
-static int hf_dlt_double                                = -1;
-static int hf_dlt_rawd                                  = -1;
-static int hf_dlt_string                                = -1;
+static int hf_dlt_data_bool;
+static int hf_dlt_uint8;
+static int hf_dlt_uint16;
+static int hf_dlt_uint32;
+static int hf_dlt_uint64;
+static int hf_dlt_int8;
+static int hf_dlt_int16;
+static int hf_dlt_int32;
+static int hf_dlt_int64;
+static int hf_dlt_float;
+static int hf_dlt_double;
+static int hf_dlt_rawd;
+static int hf_dlt_string;
 
-static int hf_dlt_service_options                       = -1;
-static int hf_dlt_service_application_id                = -1;
-static int hf_dlt_service_context_id                    = -1;
-static int hf_dlt_service_log_level                     = -1;
-static int hf_dlt_service_new_log_level                 = -1;
-static int hf_dlt_service_trace_status                  = -1;
-static int hf_dlt_service_new_trace_status              = -1;
-static int hf_dlt_service_new_status                    = -1;
-static int hf_dlt_service_reserved                      = -1;
-static int hf_dlt_service_status                        = -1;
-static int hf_dlt_service_length                        = -1;
-static int hf_dlt_service_swVersion                     = -1;
-static int hf_dlt_service_status_log_info               = -1;
-static int hf_dlt_service_log_levels                    = -1;
-static int hf_dlt_service_count                         = -1;
-static int hf_dlt_service_app_desc                      = -1;
-static int hf_dlt_service_ctx_desc                      = -1;
+static int hf_dlt_service_options;
+static int hf_dlt_service_application_id;
+static int hf_dlt_service_context_id;
+static int hf_dlt_service_log_level;
+static int hf_dlt_service_new_log_level;
+static int hf_dlt_service_trace_status;
+static int hf_dlt_service_new_trace_status;
+static int hf_dlt_service_new_status;
+static int hf_dlt_service_reserved;
+static int hf_dlt_service_status;
+static int hf_dlt_service_length;
+static int hf_dlt_service_swVersion;
+static int hf_dlt_service_status_log_info;
+static int hf_dlt_service_log_levels;
+static int hf_dlt_service_count;
+static int hf_dlt_service_app_desc;
+static int hf_dlt_service_ctx_desc;
 
-static int hf_dlt_storage_tstamp_s                      = -1;
-static int hf_dlt_storage_tstamp_us                     = -1;
-static int hf_dlt_storage_ecu_name                      = -1;
-static int hf_dlt_storage_reserved                      = -1;
+static int hf_dlt_storage_tstamp_s;
+static int hf_dlt_storage_tstamp_us;
+static int hf_dlt_storage_ecu_name;
+static int hf_dlt_storage_reserved;
 
 /* subtrees */
-static gint ett_dlt                                     = -1;
-static gint ett_dlt_hdr_type                            = -1;
-static gint ett_dlt_ext_hdr                             = -1;
-static gint ett_dlt_msg_info                            = -1;
-static gint ett_dlt_payload                             = -1;
-static gint ett_dlt_service_app_ids                     = -1;
-static gint ett_dlt_service_app_id                      = -1;
-static gint ett_dlt_service_ctx_id                      = -1;
+static gint ett_dlt;
+static gint ett_dlt_hdr_type;
+static gint ett_dlt_ext_hdr;
+static gint ett_dlt_msg_info;
+static gint ett_dlt_payload;
+static gint ett_dlt_service_app_ids;
+static gint ett_dlt_service_app_id;
+static gint ett_dlt_service_ctx_id;
 
-static gint ett_dlt_storage                             = -1;
+static gint ett_dlt_storage;
 
 /***************************
  ****** String Tables ******
@@ -380,17 +380,17 @@ static const value_string dlt_service_options[] = {
  ****** Expert Info ******
  *************************/
 
-static expert_field ef_dlt_unsupported_datatype = EI_INIT;
-static expert_field ef_dlt_unsupported_length_datatype = EI_INIT;
-static expert_field ef_dlt_unsupported_string_coding = EI_INIT;
-static expert_field ef_dlt_unsupported_non_verbose_msg_type = EI_INIT;
-static expert_field ef_dlt_buffer_too_short = EI_INIT;
-static expert_field ef_dlt_parsing_error = EI_INIT;
+static expert_field ei_dlt_unsupported_datatype;
+static expert_field ei_dlt_unsupported_length_datatype;
+static expert_field ei_dlt_unsupported_string_coding;
+static expert_field ei_dlt_unsupported_non_verbose_msg_type;
+static expert_field ei_dlt_buffer_too_short;
+static expert_field ei_dlt_parsing_error;
 
 static void
 expert_dlt_unsupported_parameter(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb!=NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_unsupported_datatype, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_unsupported_datatype, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Unsupported Data Type!]");
 }
@@ -398,7 +398,7 @@ expert_dlt_unsupported_parameter(proto_tree *tree, packet_info *pinfo, tvbuff_t 
 static void
 expert_dlt_unsupported_length_datatype(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb != NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_unsupported_length_datatype, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_unsupported_length_datatype, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Unsupported Length of Datatype!]");
 }
@@ -406,7 +406,7 @@ expert_dlt_unsupported_length_datatype(proto_tree *tree, packet_info *pinfo, tvb
 static void
 expert_dlt_unsupported_string_coding(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb != NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_unsupported_string_coding, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_unsupported_string_coding, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Unsupported String Coding!]");
 }
@@ -414,7 +414,7 @@ expert_dlt_unsupported_string_coding(proto_tree *tree, packet_info *pinfo, tvbuf
 static void
 expert_dlt_unsupported_non_verbose_msg_type(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb != NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_unsupported_non_verbose_msg_type, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_unsupported_non_verbose_msg_type, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Unsupported Non-Verbose Message Type!]");
 }
@@ -422,7 +422,7 @@ expert_dlt_unsupported_non_verbose_msg_type(proto_tree *tree, packet_info *pinfo
 static void
 expert_dlt_buffer_too_short(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb != NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_buffer_too_short, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_buffer_too_short, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Buffer too short!]");
 }
@@ -430,7 +430,7 @@ expert_dlt_buffer_too_short(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb,
 static void
 expert_dlt_parsing_error(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, gint offset, gint length) {
     if (tvb != NULL) {
-        proto_tree_add_expert(tree, pinfo, &ef_dlt_parsing_error, tvb, offset, length);
+        proto_tree_add_expert(tree, pinfo, &ei_dlt_parsing_error, tvb, offset, length);
     }
     col_append_str(pinfo->cinfo, COL_INFO, " [DLT: Parsing Error!]");
 }
@@ -1403,22 +1403,22 @@ void proto_register_dlt(void) {
     };
 
     static ei_register_info ei[] = {
-        { &ef_dlt_unsupported_datatype, {
+        { &ei_dlt_unsupported_datatype, {
             "dlt.unsupported_datatype", PI_MALFORMED, PI_ERROR,
             "DLT: Unsupported Data Type!", EXPFILL } },
-        { &ef_dlt_unsupported_length_datatype, {
+        { &ei_dlt_unsupported_length_datatype, {
             "dlt.unsupported_length_datatype", PI_MALFORMED, PI_ERROR,
             "DLT: Unsupported Length of Datatype!", EXPFILL } },
-        { &ef_dlt_unsupported_string_coding, {
+        { &ei_dlt_unsupported_string_coding, {
             "dlt.unsupported_string_coding", PI_MALFORMED, PI_ERROR,
             "DLT: Unsupported String Coding!", EXPFILL } },
-        { &ef_dlt_unsupported_non_verbose_msg_type, {
+        { &ei_dlt_unsupported_non_verbose_msg_type, {
             "dlt.unsupported_non_verbose_message_type", PI_MALFORMED, PI_ERROR,
             "DLT: Unsupported Non-Verbose Message Type!", EXPFILL } },
-        { &ef_dlt_buffer_too_short, {
+        { &ei_dlt_buffer_too_short, {
             "dlt.buffer_too_short", PI_MALFORMED, PI_ERROR,
             "DLT: Buffer too short!", EXPFILL } },
-        { &ef_dlt_parsing_error, {
+        { &ei_dlt_parsing_error, {
             "dlt.parsing_error", PI_MALFORMED, PI_ERROR,
             "DLT: Parsing Error!", EXPFILL } },
     };

@@ -299,7 +299,7 @@ void proto_reg_handoff_uds(void);
  */
 
 /* Services */
-static const value_string uds_services[]= {
+static const value_string _uds_services[]= {
     {OBD_SERVICES_0x01,  "OBD - Request Current Powertrain Diagnostic Data"},
     {OBD_SERVICES_0x02,  "OBD - Request Powertrain Freeze Frame Data"},
     {OBD_SERVICES_0x03,  "OBD - Request Emission-Related Diagnostic Trouble Codes"},
@@ -345,8 +345,10 @@ static const value_string uds_services[]= {
     {UDS_SERVICES_LC,    "Link Control"},
     {0, NULL}
 };
+static value_string_ext uds_services_ext = VALUE_STRING_EXT_INIT(_uds_services);
+
 /* Response code */
-static const value_string uds_response_codes[]= {
+static const value_string _uds_response_codes[]= {
     {UDS_RESPONSE_CODES_GR,      "General reject"},
     {UDS_RESPONSE_CODES_SNS,     "Service not supported"},
     {UDS_RESPONSE_CODES_SFNS,    "SubFunction Not Supported"},
@@ -408,6 +410,7 @@ static const value_string uds_response_codes[]= {
     {UDS_RESPONSE_CODES_RTNA,    "Resource Temporarily Not Available"},
     {0, NULL}
 };
+static value_string_ext uds_response_codes_ext = VALUE_STRING_EXT_INIT(_uds_response_codes);
 
 /* DSC */
 static const value_string uds_dsc_types[] = {
@@ -440,7 +443,7 @@ static const value_string uds_cdtci_group_of_dtc[] = {
 };
 
 /* RDTCI */
-static const value_string uds_rdtci_types[] = {
+static const value_string _uds_rdtci_types[] = {
     {UDS_RDTCI_TYPES_NUMBER_BY_STATUS_MASK,     "Report Number of DTC by Status Mask"},
     {UDS_RDTCI_TYPES_BY_STATUS_MASK,            "Report DTC by Status Mask"},
     {UDS_RDTCI_TYPES_SNAPSHOT_IDENTIFICATION,   "Report DTC Snapshot Identification"},
@@ -472,6 +475,7 @@ static const value_string uds_rdtci_types[] = {
     {UDS_RDTCI_TYPES_WWH_OBD_BY_GROUP_READY,    "Report WWH-OBD DTC By Readiness Group Identifier"},
     {0, NULL}
 };
+static value_string_ext uds_rdtci_types_ext = VALUE_STRING_EXT_INIT(_uds_rdtci_types);
 
 static const value_string uds_rdtci_format_id_types[] = {
     {0x00, "SAE J2012-DA DTC Format 00"},
@@ -513,7 +517,7 @@ static const value_string uds_rsdbi_formulas[] = {
     {0, NULL}
 };
 
-static const value_string uds_rsdbi_units[] = {
+static const value_string _uds_rsdbi_units[] = {
     {0x00, "No unit, no prefix"},
     {0x01, "Metre [m]"},
     {0x02, "Foot [ft]"},
@@ -611,6 +615,7 @@ static const value_string uds_rsdbi_units[] = {
     {0x59, "DateAndTime4 (Second/Minute/Hour/Month/Day/Year/Local minute offset/Local hour offset)"},
     {0, NULL}
 };
+static value_string_ext uds_rsdbi_units_ext = VALUE_STRING_EXT_INIT(_uds_rsdbi_units);
 
 /* CC */
 static const value_string uds_cc_types[] = {
@@ -746,7 +751,7 @@ static const value_string uds_lc_lcmi_types[] = {
 };
 
 /* DIDS */
-static const value_string uds_standard_did_types[] = {
+static const value_string _uds_standard_did_types[] = {
     {UDS_DID_BSIDID,        "BootSoftwareIdentificationDataIdentifier"},
     {UDS_DID_ASIDID,        "applicationSoftwareIdentificationDataIdentifier"},
     {UDS_DID_ADIDID,        "applicationDataIdentificationDataIdentifier"},
@@ -802,6 +807,7 @@ static const value_string uds_standard_did_types[] = {
     {UDS_DID_RESRVDCPADLC,  "ReservedForISO15765-5 (CAN, CAN-FD, CAN+CAN-FD, ...)"},
     {0, NULL}
 };
+static value_string_ext uds_standard_did_types_ext = VALUE_STRING_EXT_INIT(_uds_standard_did_types);
 
 /* ReservedForISO15765 */
 static const value_string uds_did_resrvdcpadlc_types[] = {
@@ -832,240 +838,241 @@ static const value_string uds_standard_dtc_types[] = {
  * Fields
  */
 
-static int hf_uds_diag_addr = -1;
-static int hf_uds_diag_addr_name = -1;
-static int hf_uds_diag_source_addr = -1;
-static int hf_uds_diag_source_addr_name = -1;
-static int hf_uds_diag_target_addr = -1;
-static int hf_uds_diag_target_addr_name = -1;
+static int hf_uds_diag_addr;
+static int hf_uds_diag_addr_name;
+static int hf_uds_diag_source_addr;
+static int hf_uds_diag_source_addr_name;
+static int hf_uds_diag_target_addr;
+static int hf_uds_diag_target_addr_name;
 
-static int hf_uds_service = -1;
-static int hf_uds_reply = -1;
+static int hf_uds_service;
+static int hf_uds_reply;
 
-static int hf_uds_subfunction = -1;
-static int hf_uds_suppress_pos_rsp_msg_ind = -1;
-static int hf_uds_data_record = -1;
+static int hf_uds_subfunction;
+static int hf_uds_suppress_pos_rsp_msg_ind;
+static int hf_uds_data_record;
 
-static int hf_uds_compression_method = -1;
-static int hf_uds_encrypting_method = -1;
-static int hf_uds_memory_size_length = -1;
-static int hf_uds_memory_address_length = -1;
-static int hf_uds_memory_address = -1;
-static int hf_uds_memory_size = -1;
-static int hf_uds_max_block_len_len = -1;
-static int hf_uds_max_block_len = -1;
+static int hf_uds_compression_method;
+static int hf_uds_encrypting_method;
+static int hf_uds_memory_size_length;
+static int hf_uds_memory_address_length;
+static int hf_uds_memory_address;
+static int hf_uds_memory_size;
+static int hf_uds_max_block_len_len;
+static int hf_uds_max_block_len;
 
-static int hf_uds_dsc_subfunction = -1;
-static int hf_uds_dsc_parameter_record = -1;
-static int hf_uds_dsc_default_p2_server_timer = -1;
-static int hf_uds_dsc_enhanced_p2_server_timer = -1;
+static int hf_uds_dsc_subfunction;
+static int hf_uds_dsc_suppress_pos_rsp_msg_ind;
+static int hf_uds_dsc_parameter_record;
+static int hf_uds_dsc_default_p2_server_timer;
+static int hf_uds_dsc_enhanced_p2_server_timer;
 
-static int hf_uds_er_subfunction = -1;
-static int hf_uds_er_power_down_time = -1;
+static int hf_uds_er_subfunction;
+static int hf_uds_er_power_down_time;
 
-static int hf_uds_cdtci_group_of_dtc = -1;
-static int hf_uds_cdtci_memory_selection = -1;
+static int hf_uds_cdtci_group_of_dtc;
+static int hf_uds_cdtci_memory_selection;
 
-static int hf_uds_rdtci_subfunction = -1;
-static int hf_uds_rdtci_dtc_status_mask = -1;
-static int hf_uds_rdtci_dtc_status_mask_tf = -1;
-static int hf_uds_rdtci_dtc_status_mask_tftoc = -1;
-static int hf_uds_rdtci_dtc_status_mask_pdtc = -1;
-static int hf_uds_rdtci_dtc_status_mask_cdtc = -1;
-static int hf_uds_rdtci_dtc_status_mask_tncslc = -1;
-static int hf_uds_rdtci_dtc_status_mask_tfslc = -1;
-static int hf_uds_rdtci_dtc_status_mask_tnctoc = -1;
-static int hf_uds_rdtci_dtc_status_mask_wir = -1;
-static int hf_uds_rdtci_dtc_mask_record = -1;
-static int hf_uds_rdtci_dtc_snapshot_rec_no = -1;
-static int hf_uds_rdtci_dtc_stored_data_rec_no = -1;
-static int hf_uds_rdtci_dtc_ext_data_rec_no = -1;
-static int hf_uds_rdtci_memory_selection = -1;
-static int hf_uds_rdtci_user_def_dtc_snapshot_rec_no = -1;
-static int hf_uds_rdtci_dtc_severity_mask = -1;
-static int hf_uds_rdtci_functional_group_id = -1;
-static int hf_uds_rdtci_dtc_readiness_group_id = -1;
-static int hf_uds_rdtci_dtc_status_avail = -1;
-static int hf_uds_rdtci_dtc_status_avail_tf = -1;
-static int hf_uds_rdtci_dtc_status_avail_tftoc = -1;
-static int hf_uds_rdtci_dtc_status_avail_pdtc = -1;
-static int hf_uds_rdtci_dtc_status_avail_cdtc = -1;
-static int hf_uds_rdtci_dtc_status_avail_tncslc = -1;
-static int hf_uds_rdtci_dtc_status_avail_tfslc = -1;
-static int hf_uds_rdtci_dtc_status_avail_tnctoc = -1;
-static int hf_uds_rdtci_dtc_status_avail_wir = -1;
-static int hf_uds_rdtci_dtc_id = -1;
-static int hf_uds_rdtci_dtc_status = -1;
-static int hf_uds_rdtci_dtc_status_tf = -1;
-static int hf_uds_rdtci_dtc_status_tftoc = -1;
-static int hf_uds_rdtci_dtc_status_pdtc = -1;
-static int hf_uds_rdtci_dtc_status_cdtc = -1;
-static int hf_uds_rdtci_dtc_status_tncslc = -1;
-static int hf_uds_rdtci_dtc_status_tfslc = -1;
-static int hf_uds_rdtci_dtc_status_tnctoc = -1;
-static int hf_uds_rdtci_dtc_status_wir = -1;
-static int hf_uds_rdtci_dtc_format_id = -1;
-static int hf_uds_rdtci_dtc_count = -1;
-static int hf_uds_rdtci_dtc_snapshot_record_number_of_ids = -1;
-static int hf_uds_rdtci_dtc_stored_data_record_number_of_ids = -1;
-static int hf_uds_rdtci_dtc_severity = -1;
-static int hf_uds_rdtci_dtc_functional_unit = -1;
-static int hf_uds_rdtci_dtc_fault_detect_counter = -1;
-static int hf_uds_rdtci_dtc_severity_avail = -1;
-static int hf_uds_rdtci_record = -1;
-static int hf_uds_rdtci_record_unparsed = -1;
+static int hf_uds_rdtci_subfunction;
+static int hf_uds_rdtci_dtc_status_mask;
+static int hf_uds_rdtci_dtc_status_mask_tf;
+static int hf_uds_rdtci_dtc_status_mask_tftoc;
+static int hf_uds_rdtci_dtc_status_mask_pdtc;
+static int hf_uds_rdtci_dtc_status_mask_cdtc;
+static int hf_uds_rdtci_dtc_status_mask_tncslc;
+static int hf_uds_rdtci_dtc_status_mask_tfslc;
+static int hf_uds_rdtci_dtc_status_mask_tnctoc;
+static int hf_uds_rdtci_dtc_status_mask_wir;
+static int hf_uds_rdtci_dtc_mask_record;
+static int hf_uds_rdtci_dtc_snapshot_rec_no;
+static int hf_uds_rdtci_dtc_stored_data_rec_no;
+static int hf_uds_rdtci_dtc_ext_data_rec_no;
+static int hf_uds_rdtci_memory_selection;
+static int hf_uds_rdtci_user_def_dtc_snapshot_rec_no;
+static int hf_uds_rdtci_dtc_severity_mask;
+static int hf_uds_rdtci_functional_group_id;
+static int hf_uds_rdtci_dtc_readiness_group_id;
+static int hf_uds_rdtci_dtc_status_avail;
+static int hf_uds_rdtci_dtc_status_avail_tf;
+static int hf_uds_rdtci_dtc_status_avail_tftoc;
+static int hf_uds_rdtci_dtc_status_avail_pdtc;
+static int hf_uds_rdtci_dtc_status_avail_cdtc;
+static int hf_uds_rdtci_dtc_status_avail_tncslc;
+static int hf_uds_rdtci_dtc_status_avail_tfslc;
+static int hf_uds_rdtci_dtc_status_avail_tnctoc;
+static int hf_uds_rdtci_dtc_status_avail_wir;
+static int hf_uds_rdtci_dtc_id;
+static int hf_uds_rdtci_dtc_status;
+static int hf_uds_rdtci_dtc_status_tf;
+static int hf_uds_rdtci_dtc_status_tftoc;
+static int hf_uds_rdtci_dtc_status_pdtc;
+static int hf_uds_rdtci_dtc_status_cdtc;
+static int hf_uds_rdtci_dtc_status_tncslc;
+static int hf_uds_rdtci_dtc_status_tfslc;
+static int hf_uds_rdtci_dtc_status_tnctoc;
+static int hf_uds_rdtci_dtc_status_wir;
+static int hf_uds_rdtci_dtc_format_id;
+static int hf_uds_rdtci_dtc_count;
+static int hf_uds_rdtci_dtc_snapshot_record_number_of_ids;
+static int hf_uds_rdtci_dtc_stored_data_record_number_of_ids;
+static int hf_uds_rdtci_dtc_severity;
+static int hf_uds_rdtci_dtc_functional_unit;
+static int hf_uds_rdtci_dtc_fault_detect_counter;
+static int hf_uds_rdtci_dtc_severity_avail;
+static int hf_uds_rdtci_record;
+static int hf_uds_rdtci_record_unparsed;
 
-static int hf_uds_rdbi_data_identifier = -1;
+static int hf_uds_rdbi_data_identifier;
 
-static int hf_uds_rsdbi_data_identifier = -1;
-static int hf_uds_rsdbi_scaling_byte = -1;
-static int hf_uds_rsdbi_scaling_byte_data_type = -1;
-static int hf_uds_rsdbi_scaling_byte_num_of_bytes = -1;
-static int hf_uds_rsdbi_validity_mask = -1;
-static int hf_uds_rsdbi_formula_identifier = -1;
-static int hf_uds_rsdbi_formula_constant = -1;
-static int hf_uds_rsdbi_formula_constant_exp = -1;
-static int hf_uds_rsdbi_formula_constant_mantissa = -1;
-static int hf_uds_rsdbi_unit = -1;
+static int hf_uds_rsdbi_data_identifier;
+static int hf_uds_rsdbi_scaling_byte;
+static int hf_uds_rsdbi_scaling_byte_data_type;
+static int hf_uds_rsdbi_scaling_byte_num_of_bytes;
+static int hf_uds_rsdbi_validity_mask;
+static int hf_uds_rsdbi_formula_identifier;
+static int hf_uds_rsdbi_formula_constant;
+static int hf_uds_rsdbi_formula_constant_exp;
+static int hf_uds_rsdbi_formula_constant_mantissa;
+static int hf_uds_rsdbi_unit;
 
-static int hf_uds_sa_subfunction = -1;
-static int hf_uds_sa_key = -1;
-static int hf_uds_sa_seed = -1;
+static int hf_uds_sa_subfunction;
+static int hf_uds_sa_key;
+static int hf_uds_sa_seed;
 
-static int hf_uds_cc_subfunction_no_suppress = -1;
-static int hf_uds_cc_comm_type_and_subnet_number = -1;
-static int hf_uds_cc_communication_type = -1;
-static int hf_uds_cc_subnet_number = -1;
-static int hf_uds_cc_node_identifier_number = -1;
+static int hf_uds_cc_subfunction_no_suppress;
+static int hf_uds_cc_comm_type_and_subnet_number;
+static int hf_uds_cc_communication_type;
+static int hf_uds_cc_subnet_number;
+static int hf_uds_cc_node_identifier_number;
 
-static int hf_uds_ars_subfunction_no_suppress = -1;
-static int hf_uds_ars_comm_config = -1;
-static int hf_uds_ars_length_of_cert_client = -1;
-static int hf_uds_ars_cert_client = -1;
-static int hf_uds_ars_length_of_cert_server = -1;
-static int hf_uds_ars_cert_server = -1;
-static int hf_uds_ars_length_of_challenge_client = -1;
-static int hf_uds_ars_challenge_client = -1;
-static int hf_uds_ars_length_of_challenge_server = -1;
-static int hf_uds_ars_challenge_server = -1;
-static int hf_uds_ars_length_of_proof_of_ownership_client = -1;
-static int hf_uds_ars_proof_of_ownership_client = -1;
-static int hf_uds_ars_length_of_proof_of_ownership_server = -1;
-static int hf_uds_ars_proof_of_ownership_server = -1;
-static int hf_uds_ars_length_of_ephemeral_public_key_client = -1;
-static int hf_uds_ars_ephemeral_public_key_client = -1;
-static int hf_uds_ars_length_of_ephemeral_public_key_server = -1;
-static int hf_uds_ars_ephemeral_public_key_server = -1;
-static int hf_uds_ars_cert_eval_id = -1;
-static int hf_uds_ars_length_of_cert_data = -1;
-static int hf_uds_ars_cert_data = -1;
-static int hf_uds_ars_algo_indicator = -1;
-static int hf_uds_ars_length_of_additional_parameter = -1;
-static int hf_uds_ars_additional_parameter = -1;
-static int hf_uds_ars_length_of_needed_additional_parameter = -1;
-static int hf_uds_ars_needed_additional_parameter = -1;
-static int hf_uds_ars_auth_ret_param = -1;
-static int hf_uds_ars_length_of_session_key_info = -1;
-static int hf_uds_ars_session_key_info = -1;
+static int hf_uds_ars_subfunction_no_suppress;
+static int hf_uds_ars_comm_config;
+static int hf_uds_ars_length_of_cert_client;
+static int hf_uds_ars_cert_client;
+static int hf_uds_ars_length_of_cert_server;
+static int hf_uds_ars_cert_server;
+static int hf_uds_ars_length_of_challenge_client;
+static int hf_uds_ars_challenge_client;
+static int hf_uds_ars_length_of_challenge_server;
+static int hf_uds_ars_challenge_server;
+static int hf_uds_ars_length_of_proof_of_ownership_client;
+static int hf_uds_ars_proof_of_ownership_client;
+static int hf_uds_ars_length_of_proof_of_ownership_server;
+static int hf_uds_ars_proof_of_ownership_server;
+static int hf_uds_ars_length_of_ephemeral_public_key_client;
+static int hf_uds_ars_ephemeral_public_key_client;
+static int hf_uds_ars_length_of_ephemeral_public_key_server;
+static int hf_uds_ars_ephemeral_public_key_server;
+static int hf_uds_ars_cert_eval_id;
+static int hf_uds_ars_length_of_cert_data;
+static int hf_uds_ars_cert_data;
+static int hf_uds_ars_algo_indicator;
+static int hf_uds_ars_length_of_additional_parameter;
+static int hf_uds_ars_additional_parameter;
+static int hf_uds_ars_length_of_needed_additional_parameter;
+static int hf_uds_ars_needed_additional_parameter;
+static int hf_uds_ars_auth_ret_param;
+static int hf_uds_ars_length_of_session_key_info;
+static int hf_uds_ars_session_key_info;
 
-static int hf_uds_signedCertificate = -1;
+static int hf_uds_signedCertificate;
 
-static int hf_uds_rdbpi_transmission_mode = -1;
-static int hf_uds_rdbpi_periodic_data_identifier = -1;
+static int hf_uds_rdbpi_transmission_mode;
+static int hf_uds_rdbpi_periodic_data_identifier;
 
-static int hf_uds_dddi_subfunction_no_suppress = -1;
-static int hf_uds_dddi_dyn_defined_data_identifier = -1;
-static int hf_uds_dddi_source_data_identifier = -1;
-static int hf_uds_dddi_position_in_source_data_record = -1;
-static int hf_uds_dddi_memory_size = -1;
+static int hf_uds_dddi_subfunction_no_suppress;
+static int hf_uds_dddi_dyn_defined_data_identifier;
+static int hf_uds_dddi_source_data_identifier;
+static int hf_uds_dddi_position_in_source_data_record;
+static int hf_uds_dddi_memory_size;
 
-static int hf_uds_wdbi_data_identifier = -1;
+static int hf_uds_wdbi_data_identifier;
 
-static int hf_uds_iocbi_data_identifier = -1;
-static int hf_uds_iocbi_parameter = -1;
-static int hf_uds_iocbi_state = -1;
+static int hf_uds_iocbi_data_identifier;
+static int hf_uds_iocbi_parameter;
+static int hf_uds_iocbi_state;
 
-static int hf_uds_rc_subfunction = -1;
-static int hf_uds_rc_identifier = -1;
-static int hf_uds_rc_option_record = -1;
-static int hf_uds_rc_info = -1;
-static int hf_uds_rc_status_record = -1;
+static int hf_uds_rc_subfunction;
+static int hf_uds_rc_identifier;
+static int hf_uds_rc_option_record;
+static int hf_uds_rc_info;
+static int hf_uds_rc_status_record;
 
-static int hf_uds_td_sequence_counter = -1;
-static int hf_uds_td_record_data = -1;
+static int hf_uds_td_sequence_counter;
+static int hf_uds_td_record_data;
 
-static int hf_uds_rte_record_data = -1;
+static int hf_uds_rte_record_data;
 
-static int hf_uds_rft_mode_of_operation = -1;
-static int hf_uds_rft_length_of_file_path_and_name = -1;
-static int hf_uds_rft_file_path_and_name = -1;
-static int hf_uds_rft_file_size_param_length = -1;
-static int hf_uds_rft_file_size_uncompressed = -1;
-static int hf_uds_rft_file_size_compressed = -1;
-static int hf_uds_rft_length_format_identifier = -1;
-static int hf_uds_rft_max_num_of_block_length = -1;
-static int hf_uds_rft_file_size_or_dir_info_param_length = -1;
-static int hf_uds_rft_file_size_uncompressed_or_dir_info_length = -1;
-static int hf_uds_rft_file_position = -1;
+static int hf_uds_rft_mode_of_operation;
+static int hf_uds_rft_length_of_file_path_and_name;
+static int hf_uds_rft_file_path_and_name;
+static int hf_uds_rft_file_size_param_length;
+static int hf_uds_rft_file_size_uncompressed;
+static int hf_uds_rft_file_size_compressed;
+static int hf_uds_rft_length_format_identifier;
+static int hf_uds_rft_max_num_of_block_length;
+static int hf_uds_rft_file_size_or_dir_info_param_length;
+static int hf_uds_rft_file_size_uncompressed_or_dir_info_length;
+static int hf_uds_rft_file_position;
 
-static int hf_uds_tp_subfunction_no_suppress = -1;
+static int hf_uds_tp_subfunction_no_suppress;
 
-static int hf_uds_err_sid = -1;
-static int hf_uds_err_code = -1;
+static int hf_uds_err_sid;
+static int hf_uds_err_code;
 
-static int hf_uds_sdt_administrative_param = -1;
-static int hf_uds_sdt_administrative_param_req = -1;
-static int hf_uds_sdt_administrative_param_pre_estab_key = -1;
-static int hf_uds_sdt_administrative_param_encrypted = -1;
-static int hf_uds_sdt_administrative_param_signed = -1;
-static int hf_uds_sdt_administrative_param_resp_sign_req = -1;
-static int hf_uds_sdt_signature_encryption_calculation = -1;
-static int hf_uds_sdt_signature_length = -1;
-static int hf_uds_sdt_anti_replay_counter = -1;
-static int hf_uds_sdt_encapsulated_message = -1;
-static int hf_uds_sdt_encapsulated_message_sid = -1;
-static int hf_uds_sdt_encapsulated_message_sid_reply = -1;
-static int hf_uds_sdt_signature_mac = -1;
+static int hf_uds_sdt_administrative_param;
+static int hf_uds_sdt_administrative_param_req;
+static int hf_uds_sdt_administrative_param_pre_estab_key;
+static int hf_uds_sdt_administrative_param_encrypted;
+static int hf_uds_sdt_administrative_param_signed;
+static int hf_uds_sdt_administrative_param_resp_sign_req;
+static int hf_uds_sdt_signature_encryption_calculation;
+static int hf_uds_sdt_signature_length;
+static int hf_uds_sdt_anti_replay_counter;
+static int hf_uds_sdt_encapsulated_message;
+static int hf_uds_sdt_encapsulated_message_sid;
+static int hf_uds_sdt_encapsulated_message_sid_reply;
+static int hf_uds_sdt_signature_mac;
 
-static int hf_uds_cdtcs_subfunction = -1;
-static int hf_uds_cdtcs_subfunction_no_suppress = -1;
-static int hf_uds_cdtcs_subfunction_pos_rsp_msg_ind = -1;
-static int hf_uds_cdtcs_option_record = -1;
-static int hf_uds_cdtcs_type = -1;
+static int hf_uds_cdtcs_subfunction;
+static int hf_uds_cdtcs_subfunction_no_suppress;
+static int hf_uds_cdtcs_subfunction_pos_rsp_msg_ind;
+static int hf_uds_cdtcs_option_record;
+static int hf_uds_cdtcs_type;
 
-static int hf_uds_lc_subfunction = -1;
-static int hf_uds_lc_subfunction_no_suppress = -1;
-static int hf_uds_lc_subfunction_pos_rsp_msg_ind = -1;
-static int hf_uds_lc_control_mode_id = -1;
-static int hf_uds_lc_link_record = -1;
+static int hf_uds_lc_subfunction;
+static int hf_uds_lc_subfunction_no_suppress;
+static int hf_uds_lc_subfunction_pos_rsp_msg_ind;
+static int hf_uds_lc_control_mode_id;
+static int hf_uds_lc_link_record;
 
-static int hf_uds_did_reply_f186_diag_session = -1;
-static int hf_uds_did_reply_f190_vin = -1;
-static int hf_uds_did_reply_ff00_version = -1;
-static int hf_uds_did_reply_ff01_dlc_support = -1;
+static int hf_uds_did_reply_f186_diag_session;
+static int hf_uds_did_reply_f190_vin;
+static int hf_uds_did_reply_ff00_version;
+static int hf_uds_did_reply_ff01_dlc_support;
 
-static int hf_uds_unparsed_bytes = -1;
+static int hf_uds_unparsed_bytes;
 
 /*
  * Trees
  */
-static gint ett_uds = -1;
-static gint ett_uds_subfunction = -1;
-static gint ett_uds_dtc_status_entry = -1;
-static gint ett_uds_dtc_status_bits = -1;
-static gint ett_uds_dtc_snapshot_entry = -1;
-static gint ett_uds_dtc_counter_entry = -1;
-static gint ett_uds_dsc_parameter_record = -1;
-static gint ett_uds_rsdbi_scaling_byte = -1;
-static gint ett_uds_rsdbi_formula_constant = -1;
-static gint ett_uds_cc_communication_type = -1;
-static gint ett_uds_ars_certificate = -1;
-static gint ett_uds_ars_algo_indicator = -1;
-static gint ett_uds_dddi_entry = -1;
-static gint ett_uds_sdt_admin_param = -1;
-static gint ett_uds_sdt_encap_message = -1;
+static gint ett_uds;
+static gint ett_uds_subfunction;
+static gint ett_uds_dtc_status_entry;
+static gint ett_uds_dtc_status_bits;
+static gint ett_uds_dtc_snapshot_entry;
+static gint ett_uds_dtc_counter_entry;
+static gint ett_uds_dsc_parameter_record;
+static gint ett_uds_rsdbi_scaling_byte;
+static gint ett_uds_rsdbi_formula_constant;
+static gint ett_uds_cc_communication_type;
+static gint ett_uds_ars_certificate;
+static gint ett_uds_ars_algo_indicator;
+static gint ett_uds_dddi_entry;
+static gint ett_uds_sdt_admin_param;
+static gint ett_uds_sdt_encap_message;
 
-static int proto_uds = -1;
+static int proto_uds;
 
 static dissector_handle_t uds_handle;
 static dissector_handle_t uds_handle_doip;
@@ -1337,7 +1344,7 @@ uds_lookup_data_name(guint32 addr, guint16 id) {
     const char *tmp = generic_lookup_addr_id(addr, id, uds_ht_data_ids);
 
     if (tmp == NULL) {
-        tmp = try_val_to_str(id, uds_standard_did_types);
+        tmp = try_val_to_str_ext(id, &uds_standard_did_types_ext);
     }
 
     return tmp;
@@ -1706,7 +1713,7 @@ dissect_uds_rdtci(tvbuff_t *tvb, packet_info *pinfo, proto_tree *uds_tree, guint
     guint32     enum_val;
 
     proto_tree_add_item_ret_uint(uds_tree, hf_uds_rdtci_subfunction, tvb, offset, 1, ENC_NA, &enum_val);
-    col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", val_to_str(enum_val, uds_rdtci_types, "Unknown (0x%02x)"));
+    col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", val_to_str_ext(enum_val, &uds_rdtci_types_ext, "Unknown (0x%02x)"));
     offset += 1;
 
     if (sid & UDS_REPLY_MASK) {
@@ -2237,7 +2244,7 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
         return call_dissector(obd_ii_handle, tvb_new_subset_length_caplen(tvb, offset, -1, -1), pinfo, tree);
     }
 
-    service_name = val_to_str(service, uds_services, "Unknown (0x%02x)");
+    service_name = val_to_str_ext(service, &uds_services_ext, "Unknown (0x%02x)");
 
     col_add_fstr(pinfo->cinfo, COL_INFO, "%-7s   %-36s", (sid & UDS_REPLY_MASK)? "Reply": "Request", service_name);
 
@@ -2287,8 +2294,15 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 
     switch (service) {
         case UDS_SERVICES_DSC:
+        {
+            gboolean suppress;
+            proto_tree_add_item_ret_boolean(uds_tree, hf_uds_dsc_suppress_pos_rsp_msg_ind, tvb, offset, 1, ENC_NA, &suppress);
             proto_tree_add_item_ret_uint(uds_tree, hf_uds_dsc_subfunction, tvb, offset, 1, ENC_NA, &enum_val);
             col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", val_to_str(enum_val, uds_dsc_types, "Unknown (0x%02x)"));
+            if (suppress) {
+                col_append_str(pinfo->cinfo, COL_INFO, "   (Reply suppressed)");
+            }
+        }
             offset += 1;
 
             if (sid & UDS_REPLY_MASK) {
@@ -3069,11 +3083,11 @@ dissect_uds_internal(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, guint3
 
         case UDS_SERVICES_ERR:
             proto_tree_add_item_ret_uint(uds_tree, hf_uds_err_sid, tvb, offset, 1, ENC_NA, &enum_val);
-            col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", val_to_str(enum_val, uds_services, "Unknown (0x%02x)"));
+            col_append_fstr(pinfo->cinfo, COL_INFO, "   %s", val_to_str_ext(enum_val, &uds_services_ext, "Unknown (0x%02x)"));
             offset += 1;
 
             proto_tree_add_item_ret_uint(uds_tree, hf_uds_err_code, tvb, offset, 1, ENC_NA, &enum_val);
-            col_append_fstr(pinfo->cinfo, COL_INFO, " (NRC: %s)", val_to_str(enum_val, uds_response_codes, "Unknown (0x%02x)"));
+            col_append_fstr(pinfo->cinfo, COL_INFO, " (NRC: %s)", val_to_str_ext(enum_val, &uds_response_codes_ext, "Unknown (0x%02x)"));
             offset += 1;
             break;
 
@@ -3261,7 +3275,7 @@ proto_register_uds(void) {
         { &hf_uds_diag_target_addr_name, {
             "Diagnostic Target Address Name", "uds.diag_addr_target_name", FT_STRING, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_service, {
-            "Service Identifier", "uds.sid", FT_UINT8,  BASE_HEX, VALS(uds_services), UDS_SID_MASK, NULL, HFILL } },
+            "Service Identifier", "uds.sid", FT_UINT8,  BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), UDS_SID_MASK, NULL, HFILL } },
         { &hf_uds_reply, {
             "Reply Flag", "uds.reply", FT_UINT8, BASE_HEX, NULL, UDS_REPLY_MASK, NULL, HFILL } },
 
@@ -3290,7 +3304,9 @@ proto_register_uds(void) {
             "Max Block Length", "uds.max_block_length", FT_UINT64, BASE_HEX, NULL, 0x0, NULL, HFILL } },
 
         { &hf_uds_dsc_subfunction, {
-            "SubFunction", "uds.dsc.subfunction", FT_UINT8, BASE_HEX, VALS(uds_dsc_types), 0x0, NULL, HFILL } },
+            "SubFunction", "uds.dsc.subfunction", FT_UINT8, BASE_HEX, VALS(uds_dsc_types), UDS_SUBFUNCTION_MASK, NULL, HFILL } },
+        { &hf_uds_dsc_suppress_pos_rsp_msg_ind, {
+            "Suppress reply", "uds.dsc.suppress_reply.indication", FT_BOOLEAN, 8, NULL, UDS_SUPPRESS_POS_RSP_MSG_IND_MASK, NULL, HFILL } },
         { &hf_uds_dsc_parameter_record, {
             "Parameter Record", "uds.dsc.parameter_record", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_dsc_default_p2_server_timer, {
@@ -3310,7 +3326,7 @@ proto_register_uds(void) {
             "Memory Selection", "uds.cdtci.memory_selection", FT_UINT8, BASE_HEX_DEC, NULL, 0x0, NULL, HFILL } },
 
         { &hf_uds_rdtci_subfunction, {
-            "SubFunction", "uds.rdtci.subfunction", FT_UINT8, BASE_HEX, VALS(uds_rdtci_types), 0x0, NULL, HFILL } },
+            "SubFunction", "uds.rdtci.subfunction", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_rdtci_types_ext), 0x0, NULL, HFILL } },
         { &hf_uds_rdtci_dtc_status_mask, {
             "DTC Status Mask", "uds.rdtci.dtc_status_mask", FT_UINT8, BASE_HEX, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_rdtci_dtc_status_mask_tf, {
@@ -3428,7 +3444,7 @@ proto_register_uds(void) {
         { &hf_uds_rsdbi_formula_constant_mantissa, {
             "Constant", "uds.rsdbi.scaling_byte_ext.formulat_constant", FT_UINT16, BASE_HEX, NULL, 0x0FFF, NULL, HFILL } },
         { &hf_uds_rsdbi_unit, {
-            "Unit Identifier", "uds.rsdbi.scaling_byte_ext.unit", FT_UINT8, BASE_HEX, VALS(uds_rsdbi_units), 0x0, NULL, HFILL } },
+            "Unit Identifier", "uds.rsdbi.scaling_byte_ext.unit", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_rsdbi_units_ext), 0x0, NULL, HFILL } },
 
         { &hf_uds_sa_subfunction, {
             "SubFunction", "uds.sa.subfunction", FT_UINT8, BASE_CUSTOM, CF_FUNC(uds_sa_subfunction_format), 0x0, NULL, HFILL } },
@@ -3582,9 +3598,9 @@ proto_register_uds(void) {
             "SubFunction (without Suppress)", "uds.tp.subfunction_without_suppress", FT_UINT8, BASE_HEX, NULL, UDS_SUBFUNCTION_MASK, NULL, HFILL } },
 
         { &hf_uds_err_sid,  {
-            "Service Identifier", "uds.err.sid", FT_UINT8, BASE_HEX, VALS(uds_services), 0x0, NULL, HFILL } },
+            "Service Identifier", "uds.err.sid", FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), 0x0, NULL, HFILL } },
         { &hf_uds_err_code, {
-            "Code", "uds.err.code",  FT_UINT8, BASE_HEX, VALS(uds_response_codes), 0x0, NULL, HFILL }  },
+            "Code", "uds.err.code",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_response_codes_ext), 0x0, NULL, HFILL }  },
 
         { &hf_uds_sdt_administrative_param, {
             "Administrative Parameter", "uds.sdt.admin_param",  FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL } },
@@ -3607,7 +3623,7 @@ proto_register_uds(void) {
         { &hf_uds_sdt_encapsulated_message, {
             "Encapsulated Message", "uds.sdt.encapsulated_message",  FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } },
         { &hf_uds_sdt_encapsulated_message_sid, {
-            "Service Identifier", "uds.sdt.encapsulated_message.sid",  FT_UINT8, BASE_HEX, VALS(uds_services), UDS_SID_MASK, NULL, HFILL } },
+            "Service Identifier", "uds.sdt.encapsulated_message.sid",  FT_UINT8, BASE_HEX | BASE_EXT_STRING, VALS_EXT_PTR(&uds_services_ext), UDS_SID_MASK, NULL, HFILL } },
         { &hf_uds_sdt_encapsulated_message_sid_reply, {
             "Reply Flag", "uds.sdt.encapsulated_message.reply", FT_UINT8, BASE_HEX, NULL, UDS_REPLY_MASK, NULL, HFILL } },
         { &hf_uds_sdt_signature_mac, {

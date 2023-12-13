@@ -25,6 +25,7 @@
 
 // Whole-UE headings.
 enum {
+    col_rat_,
     col_rnti_,
     col_type_,
     col_ueid_,
@@ -83,13 +84,14 @@ static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time
 class MacULDLTreeWidgetItem : public QTreeWidgetItem
 {
 public:
-    MacULDLTreeWidgetItem(QTreeWidgetItem *parent, unsigned ueid, unsigned rnti, int row_type) :
+    MacULDLTreeWidgetItem(QTreeWidgetItem *parent, unsigned ueid, unsigned rnti, unsigned rat, int row_type) :
         QTreeWidgetItem (parent, row_type),
         ueid_(ueid),
-        rnti_(rnti)
+        rnti_(rnti),
+        rat_(rat)
     {
         // Init values held for all lcids to 0.
-        for (int n=0; n < MAC_LTE_DATA_LCID_COUNT_MAX; n++) {
+        for (int n=0; n < MAC_3GPP_DATA_LCID_COUNT_MAX; n++) {
             lcids[n] = 0;
         }
 
@@ -124,7 +126,7 @@ public:
         // Show current value of counter for each LCID.
         // N.B. fields that are set as % using percent_bar_delegate.h
         // for UE headings don't display here...
-        for (int n=0; n < MAC_LTE_DATA_LCID_COUNT_MAX; n++) {
+        for (int n=0; n < MAC_3GPP_DATA_LCID_COUNT_MAX; n++) {
             setText(col_type_+n, QString::number((uint)lcids[n]));
         }
     }
@@ -136,31 +138,50 @@ public:
     }
 
     // Generate expression for this UE and direction, also filter for SRs and RACH if indicated.
-    const QString filterExpression(bool showSR, bool showRACH) {
+    const QString filterExpression(bool showSR, bool showRACH)
+    {
         int direction = (type() == mac_dlsch_packet_count_row_type) ||
                         (type() == mac_dlsch_byte_count_row_type);
 
         QString filter_expr;
 
         if (showSR) {
-            filter_expr = QString("(mac-lte.sr-req and mac-lte.ueid == %1) or (").arg(ueid_);
+            // Only applies to LTE.
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr = QString("(mac-lte.sr-req and mac-lte.ueid == %1) or (").arg(ueid_);
+            }
         }
 
         if (showRACH) {
-            filter_expr += QString("(mac-lte.rar or (mac-lte.preamble-sent and mac-lte.ueid == %1)) or (").arg(ueid_);
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString("(mac-lte.rar or (mac-lte.preamble-sent and mac-lte.ueid == %1)) or (").arg(ueid_);
+            }
+            else {
+                filter_expr += QString("mac-nr.rar or ");
+            }
         }
 
         // Main expression matching this UE and direction
-        filter_expr += QString("mac-lte.ueid==%1 && mac-lte.rnti==%2 && mac-lte.direction==%3").
-                              arg(ueid_).arg(rnti_).arg(direction);
+        if (rat_ == MAC_RAT_LTE) {
+            filter_expr += QString("mac-lte.ueid==%1 && mac-lte.rnti==%2 && mac-lte.direction==%3").
+                                  arg(ueid_).arg(rnti_).arg(direction);
+        }
+        else {
+            filter_expr += QString("mac-nr.ueid==%1 && mac-nr.rnti==%2 && mac-nr.direction==%3").
+                                  arg(ueid_).arg(rnti_).arg(direction);
+        }
 
         // Close () if open because of SR
         if (showSR) {
-            filter_expr += QString(")");
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString(")");
+            }
         }
         // Close () if open because of RACH
         if (showRACH) {
-            filter_expr += QString(")");
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString(")");
+            }
         }
 
         return filter_expr;
@@ -176,7 +197,8 @@ public:
 private:
     unsigned ueid_;
     unsigned rnti_;
-    int lcids[MAC_LTE_DATA_LCID_COUNT_MAX]; /* 0 to 10 and 32 to 38 */
+    unsigned rat_;
+    int lcids[MAC_3GPP_DATA_LCID_COUNT_MAX]; /* For LTE, mapped to 0 to 10 and 32 to 38 */
 };
 
 
@@ -185,7 +207,7 @@ private:
 class MacUETreeWidgetItem : public QTreeWidgetItem
 {
 public:
-    MacUETreeWidgetItem(QTreeWidget *parent, const mac_lte_tap_info *mlt_info) :
+    MacUETreeWidgetItem(QTreeWidget *parent, const mac_3gpp_tap_info *mlt_info) :
         QTreeWidgetItem (parent, mac_whole_ue_row_type_),
         rnti_(0),
         type_(0),
@@ -203,9 +225,13 @@ public:
         dl_retx_(0)
     {
         // Set fixed fields.
-        rnti_ = mlt_info->rnti;
-        type_ = mlt_info->rntiType;
-        ueid_ = mlt_info->ueid;
+        rnti_ =    mlt_info->rnti;
+        type_ =    mlt_info->rntiType;
+        ueid_ =    mlt_info->ueid;
+        rat_  =    mlt_info->rat;
+        setText(col_rat_, (mlt_info->rat == MAC_RAT_LTE) ?
+                              QObject::tr("LTE") :
+                              QObject::tr("NR"));
         setText(col_rnti_, QString::number(rnti_));
         setText(col_type_, type_ == C_RNTI ? QObject::tr("C-RNTI") : QObject::tr("SPS-RNTI"));
         setText(col_ueid_, QString::number(ueid_));
@@ -215,14 +241,15 @@ public:
     }
 
     // Does this tap-info match this existing UE item?
-    bool isMatch(const mac_lte_tap_info *mlt_info) {
+    bool isMatch(const mac_3gpp_tap_info *mlt_info) {
         return ((rnti_ == mlt_info->rnti) &&
                 (type_ == mlt_info->rntiType) &&
-                (ueid_ == mlt_info->ueid));
+                (ueid_ == mlt_info->ueid) &&
+                (rat_  == mlt_info->rat));
     }
 
     // Update this UE according to the tap info
-    void update(const mac_lte_tap_info *mlt_info) {
+    void update(const mac_3gpp_tap_info *mlt_info) {
 
         // Uplink.
         if (mlt_info->direction == DIRECTION_UPLINK) {
@@ -239,9 +266,9 @@ public:
 
             // Update time range
             if (ul_frames_ == 0) {
-                ul_time_start_ = mlt_info->mac_lte_time;
+                ul_time_start_ = mlt_info->mac_time;
             }
-            ul_time_stop_ = mlt_info->mac_lte_time;
+            ul_time_stop_ = mlt_info->mac_time;
 
             ul_frames_++;
 
@@ -251,7 +278,7 @@ public:
 
             // N.B. Not going to support predefined data in Qt version..
             if (!mlt_info->isPredefinedData) {
-                for (int n=0; n < MAC_LTE_DATA_LCID_COUNT_MAX; n++) {
+                for (int n=0; n < MAC_3GPP_DATA_LCID_COUNT_MAX; n++) {
                     // Update UL child items
                     ul_frames_item_->updateLCID(n, mlt_info->sdus_for_lcid[n]);
                     ul_bytes_item_->updateLCID(n, mlt_info->bytes_for_lcid[n]);
@@ -283,9 +310,9 @@ public:
 
             // Update time range
             if (dl_frames_ == 0) {
-                dl_time_start_ = mlt_info->mac_lte_time;
+                dl_time_start_ = mlt_info->mac_time;
             }
-            dl_time_stop_ = mlt_info->mac_lte_time;
+            dl_time_stop_ = mlt_info->mac_time;
 
             dl_frames_++;
 
@@ -295,7 +322,7 @@ public:
 
             // N.B. Not going to support predefined data in Qt version..
             if (!mlt_info->isPredefinedData) {
-                for (int n=0; n < MAC_LTE_DATA_LCID_COUNT_MAX; n++) {
+                for (int n=0; n < MAC_3GPP_DATA_LCID_COUNT_MAX; n++) {
                     // Update DL child items
                     dl_frames_item_->updateLCID(n, mlt_info->sdus_for_lcid[n]);
                     dl_bytes_item_->updateLCID(n, mlt_info->bytes_for_lcid[n]);
@@ -308,10 +335,10 @@ public:
 
     void addDetails() {
         // Add UL/DL packet and byte counts.
-        ul_frames_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, mac_ulsch_packet_count_row_type);
-        ul_bytes_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, mac_ulsch_byte_count_row_type);
-        dl_frames_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, mac_dlsch_packet_count_row_type);
-        dl_bytes_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, mac_dlsch_byte_count_row_type);
+        ul_frames_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, rat_, mac_ulsch_packet_count_row_type);
+        ul_bytes_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, rat_, mac_ulsch_byte_count_row_type);
+        dl_frames_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, rat_, mac_dlsch_packet_count_row_type);
+        dl_bytes_item_ = new MacULDLTreeWidgetItem(this,  ueid_, rnti_, rat_, mac_dlsch_byte_count_row_type);
 
         setExpanded(false);
     }
@@ -382,23 +409,39 @@ public:
         QString filter_expr;
 
         if (showSR) {
-            filter_expr = QString("(mac-lte.sr-req and mac-lte.ueid == %1) or (").arg(ueid_);
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr = QString("(mac-lte.sr-req and mac-lte.ueid == %1) or (").arg(ueid_);
+            }
         }
 
         if (showRACH) {
-            filter_expr += QString("(mac-lte.rar or (mac-lte.preamble-sent and mac-lte.ueid == %1)) or (").arg(ueid_);
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString("(mac-lte.rar or (mac-lte.preamble-sent and mac-lte.ueid == %1)) or (").arg(ueid_);
+            }
+            else {
+                filter_expr += QString("mac-nr.rar or ");
+            }
         }
 
         // Main expression matching this UE
-        filter_expr += QString("mac-lte.ueid==%1 && mac-lte.rnti==%2").arg(ueid_).arg(rnti_);
+        if (rat_ == MAC_RAT_LTE) {
+            filter_expr += QString("mac-lte.ueid==%1 && mac-lte.rnti==%2").arg(ueid_).arg(rnti_);
+        }
+        else {
+            filter_expr += QString("mac-nr.ueid==%1 && mac-nr.rnti==%2").arg(ueid_).arg(rnti_);
+        }
 
         // Close () if open because of SR
         if (showSR) {
-            filter_expr += QString(")");
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString(")");
+            }
         }
         // Close () if open because of RACH
         if (showRACH) {
-            filter_expr += QString(")");
+            if (rat_ == MAC_RAT_LTE) {
+                filter_expr += QString(")");
+            }
         }
 
         return filter_expr;
@@ -432,6 +475,7 @@ public:
 
 private:
     // Unchanging (key) fields.
+    uint8_t  rat_;
     unsigned rnti_;
     unsigned type_;
     unsigned ueid_;
@@ -467,7 +511,7 @@ private:
 
 // Label headings. Show according to which type of tree item is currently selected.
 static const QStringList mac_whole_ue_row_labels = QStringList()
-        << QObject::tr("RNTI") << QObject::tr("Type") << QObject::tr("UEId")
+        << QObject::tr("RAT") << QObject::tr("RNTI") << QObject::tr("Type") << QObject::tr("UEId")
         << QObject::tr("UL Frames") << QObject::tr("UL Bytes") << QObject::tr("UL MB/s")
         << QObject::tr("UL Padding %") << QObject::tr("UL Re TX")
         << QObject::tr("DL Frames") << QObject::tr("DL Bytes") << QObject::tr("DL MB/s")
@@ -477,7 +521,7 @@ static const QStringList mac_whole_ue_row_labels = QStringList()
         << QObject::tr("") << QObject::tr("") << QObject::tr("") << QObject::tr("") << QObject::tr("");
 
 static const QStringList mac_channel_counts_labels = QStringList()
-        << QObject::tr("") << QObject::tr("CCCH")
+        << QObject::tr("") << QObject::tr("") << QObject::tr("CCCH")
         << QObject::tr("LCID 1") << QObject::tr("LCID 2") << QObject::tr("LCID 3")
         << QObject::tr("LCID 4") << QObject::tr("LCID 5") << QObject::tr("LCID 6")
         << QObject::tr("LCID 7") << QObject::tr("LCID 8") << QObject::tr("LCID 9")
@@ -495,7 +539,7 @@ LteMacStatisticsDialog::LteMacStatisticsDialog(QWidget &parent, CaptureFile &cf,
     TapParameterDialog(parent, cf, HELP_STATS_LTE_MAC_TRAFFIC_DIALOG),
     commonStatsCurrent_(false)
 {
-    setWindowSubtitle(tr("LTE Mac Statistics"));
+    setWindowSubtitle(tr("LTE/NR Mac Statistics"));
     loadGeometry(parent.width() * 1, parent.height() * 3 / 4, "LTEMacStatisticsDialog");
 
     clearCommonStats();
@@ -617,7 +661,7 @@ LteMacStatisticsDialog::~LteMacStatisticsDialog()
 }
 
 // Update system/common counters, and redraw if changed.
-void LteMacStatisticsDialog::updateCommonStats(const mac_lte_tap_info *tap_info)
+void LteMacStatisticsDialog::updateCommonStats(const mac_3gpp_tap_info *tap_info)
 {
     commonStats_.all_frames++;
 
@@ -719,11 +763,11 @@ void LteMacStatisticsDialog::tapReset(void *ws_dlg_ptr)
 //---------------------------------------------------------------------------------------
 // Process tap info from a new packet.
 // Returns TAP_PACKET_REDRAW if a redraw is needed, TAP_PACKET_DONT_REDRAW otherwise.
-tap_packet_status LteMacStatisticsDialog::tapPacket(void *ws_dlg_ptr, struct _packet_info *, epan_dissect *, const void *mac_lte_tap_info_ptr, tap_flags_t)
+tap_packet_status LteMacStatisticsDialog::tapPacket(void *ws_dlg_ptr, struct _packet_info *, epan_dissect *, const void *mac_3gpp_tap_info_ptr, tap_flags_t)
 {
     // Look up dialog and tap info.
     LteMacStatisticsDialog *ws_dlg = static_cast<LteMacStatisticsDialog *>(ws_dlg_ptr);
-    const mac_lte_tap_info *mlt_info  = (const mac_lte_tap_info *) mac_lte_tap_info_ptr;
+    const mac_3gpp_tap_info *mlt_info  = (const mac_3gpp_tap_info *)mac_3gpp_tap_info_ptr;
     if (!ws_dlg || !mlt_info) {
         return TAP_PACKET_DONT_REDRAW;
     }
@@ -825,7 +869,7 @@ const QString LteMacStatisticsDialog::filterExpression()
 
 void LteMacStatisticsDialog::fillTree()
 {
-    if (!registerTapListener("mac-lte",
+    if (!registerTapListener("mac-3gpp",
                              this,
                              displayFilter_.toLatin1().data(),
                              TL_REQUIRES_NOTHING,
@@ -910,9 +954,9 @@ lte_mac_statistics_init(const char *args, void*) {
 }
 
 static stat_tap_ui lte_mac_statistics_ui = {
-    REGISTER_STAT_GROUP_TELEPHONY_LTE,
+    REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU,
     QT_TRANSLATE_NOOP("LteMacStatisticsDialog", "MAC Statistics"),
-    "mac-lte,stat",
+    "mac-3gpp,stat",
     lte_mac_statistics_init,
     0,
     NULL

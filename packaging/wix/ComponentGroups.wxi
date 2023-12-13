@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Include>
 
   <!-- Wireshark -->
@@ -35,9 +35,6 @@
         </Component>
         <Component Id="cmpREADME_txt" Guid="*">
           <File Id="filREADME_txt" KeyPath="yes" Source="$(var.Staging.Dir)\README.txt" />
-        </Component>
-        <Component Id="cmpREADME_windows_txt" Guid="*">
-          <File Id="filREADME_windows_txt" KeyPath="yes" Source="$(var.Staging.Dir)\README.windows.txt" />
         </Component>
         <Component Id="cmpWka" Guid="*">
           <File Id="filWka" KeyPath="yes" Source="$(var.Staging.Dir)\wka" />
@@ -79,7 +76,6 @@
         <ComponentRef Id="cmpCOPYING_txt" />
         <ComponentRef Id="cmpNEWS_txt" />
         <ComponentRef Id="cmpREADME_txt" />
-        <ComponentRef Id="cmpREADME_windows_txt" />
         <ComponentRef Id="cmpWka" />
         <ComponentRef Id="cmpPdml2html_xsl" />
         <ComponentRef Id="cmpWs_css" />
@@ -577,13 +573,13 @@
     </ComponentGroup>
   </Fragment>
 
-  <?ifdef DOCBOOK_DIR?>
+  <?ifdef DOC_DIR?>
     <!-- User Guide is created by heat -->
     <!-- FAQ -->
     <Fragment>
       <DirectoryRef Id="INSTALLFOLDER">
         <Component Id="cmpFAQ_html" Guid="*">
-          <File Id="filFAQ_html" KeyPath="yes" Source="$(var.DOCBOOK_DIR)\faq.html" />
+          <File Id="filFAQ_html" KeyPath="yes" Source="$(var.DOC_DIR)\faq.html" />
         </Component>
       </DirectoryRef>
     </Fragment>
@@ -678,6 +674,15 @@
           </Extension>
         </ProgId>
         <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="cap" Type="integer" Value="1" KeyPath="yes"/>
+        <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
+      </Component>
+      <Component Id="cmpFAems">
+        <ProgId Id="$(var.WiresharkFileAssociation)" Description="ems">
+          <Extension Id="ems">
+            <Verb Id="open" Command="open" TargetFile="filWireshark_exe" Argument="&quot;%1&quot;"/>
+          </Extension>
+        </ProgId>
+        <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="ems" Type="integer" Value="1" KeyPath="yes"/>
         <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
       </Component>
       <Component Id="cmpFAenc">

@@ -220,6 +220,18 @@ void ByteViewText::markAppendix(int start, int length)
     viewport()->update();
 }
 
+void ByteViewText::unmarkField()
+{
+    proto_start_ = 0;
+    proto_len_ = 0;
+    field_start_ = 0;
+    field_len_ = 0;
+    marked_byte_offset_ = -1;
+    field_a_start_ = 0;
+    field_a_len_ = 0;
+    viewport()->update();
+}
+
 void ByteViewText::setMonospaceFont(const QFont &mono_font)
 {
     QFont int_font(mono_font);
@@ -395,11 +407,7 @@ void ByteViewText::updateLayoutMetrics()
 
 int ByteViewText::stringWidth(const QString &line)
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
     return viewport()->fontMetrics().horizontalAdvance(line);
-#else
-    return viewport()->fontMetrics().boundingRect(line).width();
-#endif
 }
 
 // Draw a line of byte view text for a given offset.

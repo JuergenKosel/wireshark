@@ -19,7 +19,7 @@ shopt -s extglob
 DARWIN_MAJOR_VERSION=`uname -r | sed 's/\([0-9]*\).*/\1/'`
 
 #
-# The minimum supported version of Qt is 5.10, so the minimum supported version
+# The minimum supported version of Qt is 5.11, so the minimum supported version
 # of macOS is OS X 10.11 (El Capitan), aka Darwin 15.0.
 #
 if [[ $DARWIN_MAJOR_VERSION -lt 15 ]]; then
@@ -92,7 +92,7 @@ NINJA_VERSION=${NINJA_VERSION-1.10.2}
 # The following libraries and tools are required even to build only TShark.
 #
 GETTEXT_VERSION=0.21
-GLIB_VERSION=2.68.4
+GLIB_VERSION=2.76.6
 if [ "$GLIB_VERSION" ]; then
     GLIB_MAJOR_VERSION="`expr $GLIB_VERSION : '\([0-9][0-9]*\).*'`"
     GLIB_MINOR_VERSION="`expr $GLIB_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
@@ -104,11 +104,11 @@ PKG_CONFIG_VERSION=0.29.2
 #
 # libgpg-error is required for libgcrypt.
 #
-LIBGPG_ERROR_VERSION=1.39
+LIBGPG_ERROR_VERSION=1.47
 #
 # libgcrypt is required.
 #
-LIBGCRYPT_VERSION=1.8.7
+LIBGCRYPT_VERSION=1.10.2
 #
 # libpcre2 is required.
 #
@@ -169,7 +169,7 @@ fi
 # features present in all three versions)
 LUA_VERSION=5.2.4
 SNAPPY_VERSION=1.1.10
-ZSTD_VERSION=1.4.5
+ZSTD_VERSION=1.5.5
 LIBXML2_VERSION=2.11.5
 LZ4_VERSION=1.9.4
 SBC_VERSION=2.0
@@ -1120,7 +1120,11 @@ EOF
                 # supports it, and I'm too lazy to add a dot-dot
                 # version check.
                 #
-                CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" $MESON _build || exit 1
+                # Disable tests to work around
+                #
+                #    https://gitlab.gnome.org/GNOME/glib/-/issues/2902
+                #
+                CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" $MESON -Dtests=false _build || exit 1
                 ninja $MAKE_BUILD_OPTS -C _build || exit 1
                 $DO_NINJA_INSTALL || exit 1
                 ;;
@@ -1238,11 +1242,11 @@ install_qt() {
         5)
             case $QT_MINOR_VERSION in
 
-            0|1|2|3|4|5|6|7|8|9)
+            0|1|2|3|4|5|6|7|8|9|10)
                 echo "Qt $QT_VERSION" is too old 1>&2
                 ;;
 
-            10|11|12|13|14)
+            11|12|13|14)
                 QT_VOLUME=qt-opensource-mac-x64-$QT_VERSION
                 ;;
             *)
@@ -1297,12 +1301,8 @@ uninstall_qt() {
             5*)
                 case $installed_qt_minor_version in
 
-                0|1|2|3|4|5)
+                0|1|2|3|4|5|6|7|8)
                     echo "Qt $installed_qt_version" is too old 1>&2
-                    ;;
-
-                6|7|8)
-                    installed_qt_volume=qt-opensource-mac-x64-clang-$installed_qt_version.dmg
                     ;;
 
                 9|10|11|12|13|14)
@@ -1419,7 +1419,12 @@ install_libgcrypt() {
         #
         #    https://lists.freebsd.org/pipermail/freebsd-ports-bugs/2010-October/198809.html
         #
-        CFLAGS="$CFLAGS -std=gnu89 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-asm || exit 1
+        # We specify "unix" as the random number generator so that we
+        # don't try to use getentropy, because random/rndgetentropy.c
+        # *REQUIRES* Linux getrandom(), which we don't have.  (This should
+        # not matter, as we only use this for decryption, as far as I know.)
+        #
+        CFLAGS="$CFLAGS -std=gnu89 $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --disable-asm --enable-random=unix || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
@@ -1455,8 +1460,30 @@ install_gmp() {
         $no_build && echo "Skipping installation" && return
         lzip -c -d gmp-$GMP_VERSION.tar.lz | tar xf - || exit 1
         cd gmp-$GMP_VERSION
+        #
         # Create a fat binary: https://gmplib.org/manual/Notes-for-Package-Builds.html
-        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" ./configure --enable-fat || exit 1
+        #
+        # According to
+        #
+        #   https://www.mail-archive.com/gmp-bugs@gmplib.org/msg01492.html
+        # 
+        # and other pages, the Shiny New Linker in Xcode 15 causes this
+        # build to fail with "ld: branch8 out of range 384833 in
+        # ___gmpn_add_nc_x86_64"; linking with -ld64 is a workaround.
+        #
+        # For now, link with -ld64 on Xcode 15 and later.
+        #
+        XCODE_VERSION=`xcodebuild -version | sed -n 's;Xcode \(.*\);\1;p'`
+        XCODE_MAJOR_VERSION="`expr $XCODE_VERSION : '\([0-9][0-9]*\).*'`"
+        XCODE_MINOR_VERSION="`expr $XCODE_VERSION : '[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        XCODE_DOTDOT_VERSION="`expr $XCODE_VERSION : '[0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\).*'`"
+        if [ "$XCODE_MAJOR_VERSION" -ge 15 ]
+        then
+            LD64_FLAG="-ld64"
+        else
+            LD64_FLAG=""
+        fi
+        CFLAGS="$CFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" CXXFLAGS="$CXXFLAGS $VERSION_MIN_FLAGS $SDKFLAGS" LDFLAGS="$LDFLAGS $VERSION_MIN_FLAGS $SDKFLAGS $LD64_FLAG" ./configure --enable-fat || exit 1
         make $MAKE_BUILD_OPTS || exit 1
         $DO_MAKE_INSTALL || exit 1
         cd ..
