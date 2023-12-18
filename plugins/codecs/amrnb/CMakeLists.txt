@@ -27,13 +27,12 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-register_plugin_files(plugin.c
-	plugin_codec
+register_codec_files(plugin.c 1
 	"OpenCORE Adaptive Multi Rate (AMR)"
 	${CODEC_SRC}
 )
 
-add_wireshark_plugin_library(amrnb codecs)
+add_wireshark_codec_plugin_library(amrnb)
 
 target_include_directories(amrnb PRIVATE ${CMAKE_SOURCE_DIR}/codecs)
 

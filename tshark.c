@@ -125,7 +125,7 @@
 #include "extcap.h"
 
 #ifdef HAVE_PLUGINS
-#include <wsutil/codecs.h>
+#include <wsutil/codecs_priv.h>
 #include <wsutil/plugins.h>
 #endif
 
@@ -797,13 +797,13 @@ about_folders(void)
     constpath = get_progfile_dir();
     printf("%-21s\t%s\n", "Program:", constpath);
 
-#ifdef HAVE_PLUGINS
-    /* pers plugins */
-    printf("%-21s\t%s\n", "Personal Plugins:", get_plugins_pers_dir_with_version());
+    if (plugins_supported()) {
+        /* pers plugins */
+        printf("%-21s\t%s\n", "Personal Plugins:", get_plugins_pers_dir());
 
-    /* global plugins */
-    printf("%-21s\t%s\n", "Global Plugins:", get_plugins_dir_with_version());
-#endif
+        /* global plugins */
+        printf("%-21s\t%s\n", "Global Plugins:", get_plugins_dir());
+    }
 
 #ifdef HAVE_LUA
     /* pers lua plugins */
@@ -2744,28 +2744,11 @@ clean_exit:
 gboolean loop_running = FALSE;
 guint32 packet_count = 0;
 
-static const nstime_t *
-tshark_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
-{
-    const frame_data *fd = NULL;
-    if (prov->ref && prov->ref->num == frame_num) {
-        fd = prov->ref;
-    } else if (prov->prev_dis && prov->prev_dis->num == frame_num) {
-        fd = prov->prev_dis;
-    } else if (prov->prev_cap && prov->prev_cap->num == frame_num) {
-        fd = prov->prev_cap;
-    } else if (prov->frames) {
-        fd = frame_data_sequence_find(prov->frames, frame_num);
-    }
-
-    return (fd && fd->has_ts) ? &fd->abs_ts : NULL;
-}
-
 static epan_t *
 tshark_epan_new(capture_file *cf)
 {
     static const struct packet_provider_funcs funcs = {
-        tshark_get_frame_ts,
+        cap_file_provider_get_frame_ts,
         cap_file_provider_get_interface_name,
         cap_file_provider_get_interface_description,
         NULL,

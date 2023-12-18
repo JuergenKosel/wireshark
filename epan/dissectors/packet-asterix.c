@@ -9,7 +9,7 @@ See tools/asterix/README.md for details.
 
 Data source:
 https://zoranbosnjak.github.io/asterix-specs
-git revision: 6c6a8186e2c1f12a57976cf15f23522d8b20cfb0
+git revision: 6cce367663ecf3331cb7c7eb43bcd38d0cd2a40d
 
 
 */
@@ -862,7 +862,7 @@ static const FieldPart *I001_V1_2_170_PARTS[] = {
 static const AsterixField I001_V1_2_170 = { FX, 1, 0, 0, &hf_001_V1_2_170, I001_V1_2_170_PARTS, { NULL } };
 static int hf_001_V1_2_200;
 static int hf_001_V1_2_200_GSP;
-static const FieldPart I001_V1_2_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_001_V1_2_200_GSP, NULL };
+static const FieldPart I001_V1_2_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_001_V1_2_200_GSP, NULL };
 static int hf_001_V1_2_200_HDG;
 static const FieldPart I001_V1_2_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_001_V1_2_200_HDG, NULL };
 static const FieldPart *I001_V1_2_200_PARTS[] = {
@@ -1647,7 +1647,7 @@ static const FieldPart *I001_V1_3_170_PARTS[] = {
 static const AsterixField I001_V1_3_170 = { FX, 1, 0, 0, &hf_001_V1_3_170, I001_V1_3_170_PARTS, { NULL } };
 static int hf_001_V1_3_200;
 static int hf_001_V1_3_200_GSP;
-static const FieldPart I001_V1_3_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_001_V1_3_200_GSP, NULL };
+static const FieldPart I001_V1_3_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_001_V1_3_200_GSP, NULL };
 static int hf_001_V1_3_200_HDG;
 static const FieldPart I001_V1_3_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_001_V1_3_200_HDG, NULL };
 static const FieldPart *I001_V1_3_200_PARTS[] = {
@@ -2432,7 +2432,7 @@ static const FieldPart *I001_V1_4_170_PARTS[] = {
 static const AsterixField I001_V1_4_170 = { FX, 1, 0, 0, &hf_001_V1_4_170, I001_V1_4_170_PARTS, { NULL } };
 static int hf_001_V1_4_200;
 static int hf_001_V1_4_200_GSP;
-static const FieldPart I001_V1_4_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_001_V1_4_200_GSP, NULL };
+static const FieldPart I001_V1_4_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_001_V1_4_200_GSP, NULL };
 static int hf_001_V1_4_200_HDG;
 static const FieldPart I001_V1_4_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_001_V1_4_200_HDG, NULL };
 static const FieldPart *I001_V1_4_200_PARTS[] = {
@@ -3161,7 +3161,7 @@ static const FieldPart *I001_170_PARTS[] = {
 static const AsterixField I001_170 = { FX, 1, 0, 0, &hf_001_170, I001_170_PARTS, { NULL } };
 static int hf_001_200;
 static int hf_001_200_GSP;
-static const FieldPart I001_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_001_200_GSP, NULL };
+static const FieldPart I001_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_001_200_GSP, NULL };
 static int hf_001_200_HDG;
 static const FieldPart I001_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_001_200_HDG, NULL };
 static const FieldPart *I001_200_PARTS[] = {
@@ -4656,9 +4656,9 @@ static const FieldPart *I004_V1_12_170_M31_PARTS[] = {
 static const AsterixField I004_V1_12_170_M31 = { FIXED, 2, 0, 0, &hf_004_V1_12_170_M31, I004_V1_12_170_M31_PARTS, { NULL } };
 static int hf_004_V1_12_170_CPW;
 static int hf_004_V1_12_170_CPW_LAT;
-static const FieldPart I004_V1_12_170_CPW_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_V1_12_170_CPW_LAT, NULL };
+static const FieldPart I004_V1_12_170_CPW_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_V1_12_170_CPW_LAT, NULL };
 static int hf_004_V1_12_170_CPW_LON;
-static const FieldPart I004_V1_12_170_CPW_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_V1_12_170_CPW_LON, NULL };
+static const FieldPart I004_V1_12_170_CPW_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_V1_12_170_CPW_LON, NULL };
 static int hf_004_V1_12_170_CPW_ALT;
 static const FieldPart I004_V1_12_170_CPW_ALT = { 16, 25.0, FIELD_PART_FLOAT, &hf_004_V1_12_170_CPW_ALT, NULL };
 static const FieldPart *I004_V1_12_170_CPW_PARTS[] = {
@@ -4816,9 +4816,9 @@ static const FieldPart *I004_V1_12_171_M32_PARTS[] = {
 static const AsterixField I004_V1_12_171_M32 = { FIXED, 2, 0, 0, &hf_004_V1_12_171_M32, I004_V1_12_171_M32_PARTS, { NULL } };
 static int hf_004_V1_12_171_CPW;
 static int hf_004_V1_12_171_CPW_LAT;
-static const FieldPart I004_V1_12_171_CPW_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_V1_12_171_CPW_LAT, NULL };
+static const FieldPart I004_V1_12_171_CPW_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_V1_12_171_CPW_LAT, NULL };
 static int hf_004_V1_12_171_CPW_LON;
-static const FieldPart I004_V1_12_171_CPW_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_V1_12_171_CPW_LON, NULL };
+static const FieldPart I004_V1_12_171_CPW_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_V1_12_171_CPW_LON, NULL };
 static int hf_004_V1_12_171_CPW_ALT;
 static const FieldPart I004_V1_12_171_CPW_ALT = { 16, 25.0, FIELD_PART_FLOAT, &hf_004_V1_12_171_CPW_ALT, NULL };
 static const FieldPart *I004_V1_12_171_CPW_PARTS[] = {
@@ -5849,9 +5849,9 @@ static const FieldPart *I004_170_M31_PARTS[] = {
 static const AsterixField I004_170_M31 = { FIXED, 2, 0, 0, &hf_004_170_M31, I004_170_M31_PARTS, { NULL } };
 static int hf_004_170_CPW;
 static int hf_004_170_CPW_LAT;
-static const FieldPart I004_170_CPW_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_170_CPW_LAT, NULL };
+static const FieldPart I004_170_CPW_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_170_CPW_LAT, NULL };
 static int hf_004_170_CPW_LON;
-static const FieldPart I004_170_CPW_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_170_CPW_LON, NULL };
+static const FieldPart I004_170_CPW_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_170_CPW_LON, NULL };
 static int hf_004_170_CPW_ALT;
 static const FieldPart I004_170_CPW_ALT = { 16, 25.0, FIELD_PART_FLOAT, &hf_004_170_CPW_ALT, NULL };
 static const FieldPart *I004_170_CPW_PARTS[] = {
@@ -6009,9 +6009,9 @@ static const FieldPart *I004_171_M32_PARTS[] = {
 static const AsterixField I004_171_M32 = { FIXED, 2, 0, 0, &hf_004_171_M32, I004_171_M32_PARTS, { NULL } };
 static int hf_004_171_CPW;
 static int hf_004_171_CPW_LAT;
-static const FieldPart I004_171_CPW_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_171_CPW_LAT, NULL };
+static const FieldPart I004_171_CPW_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_171_CPW_LAT, NULL };
 static int hf_004_171_CPW_LON;
-static const FieldPart I004_171_CPW_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_004_171_CPW_LON, NULL };
+static const FieldPart I004_171_CPW_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_004_171_CPW_LON, NULL };
 static int hf_004_171_CPW_ALT;
 static const FieldPart I004_171_CPW_ALT = { 16, 25.0, FIELD_PART_FLOAT, &hf_004_171_CPW_ALT, NULL };
 static const FieldPart *I004_171_CPW_PARTS[] = {
@@ -7360,9 +7360,9 @@ static const FieldPart *I010_V1_1_040_PARTS[] = {
 static const AsterixField I010_V1_1_040 = { FIXED, 4, 0, 0, &hf_010_V1_1_040, I010_V1_1_040_PARTS, { NULL } };
 static int hf_010_V1_1_041;
 static int hf_010_V1_1_041_LAT;
-static const FieldPart I010_V1_1_041_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_010_V1_1_041_LAT, NULL };
+static const FieldPart I010_V1_1_041_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_010_V1_1_041_LAT, NULL };
 static int hf_010_V1_1_041_LON;
-static const FieldPart I010_V1_1_041_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_010_V1_1_041_LON, NULL };
+static const FieldPart I010_V1_1_041_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_010_V1_1_041_LON, NULL };
 static const FieldPart *I010_V1_1_041_PARTS[] = {
     &I010_V1_1_041_LAT,
     &I010_V1_1_041_LON,
@@ -7572,7 +7572,7 @@ static const FieldPart *I010_V1_1_170_PARTS[] = {
 static const AsterixField I010_V1_1_170 = { FX, 1, 0, 0, &hf_010_V1_1_170, I010_V1_1_170_PARTS, { NULL } };
 static int hf_010_V1_1_200;
 static int hf_010_V1_1_200_GSP;
-static const FieldPart I010_V1_1_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_010_V1_1_200_GSP, NULL };
+static const FieldPart I010_V1_1_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_010_V1_1_200_GSP, NULL };
 static int hf_010_V1_1_200_TRA;
 static const FieldPart I010_V1_1_200_TRA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_010_V1_1_200_TRA, NULL };
 static const FieldPart *I010_V1_1_200_PARTS[] = {
@@ -7935,9 +7935,9 @@ static const FieldPart *I010_040_PARTS[] = {
 static const AsterixField I010_040 = { FIXED, 4, 0, 0, &hf_010_040, I010_040_PARTS, { NULL } };
 static int hf_010_041;
 static int hf_010_041_LAT;
-static const FieldPart I010_041_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_010_041_LAT, NULL };
+static const FieldPart I010_041_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_010_041_LAT, NULL };
 static int hf_010_041_LON;
-static const FieldPart I010_041_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_010_041_LON, NULL };
+static const FieldPart I010_041_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_010_041_LON, NULL };
 static const FieldPart *I010_041_PARTS[] = {
     &I010_041_LAT,
     &I010_041_LON,
@@ -8147,7 +8147,7 @@ static const FieldPart *I010_170_PARTS[] = {
 static const AsterixField I010_170 = { FX, 1, 0, 0, &hf_010_170, I010_170_PARTS, { NULL } };
 static int hf_010_200;
 static int hf_010_200_GSP;
-static const FieldPart I010_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_010_200_GSP, NULL };
+static const FieldPart I010_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_010_200_GSP, NULL };
 static int hf_010_200_TRA;
 static const FieldPart I010_200_TRA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_010_200_TRA, NULL };
 static const FieldPart *I010_200_PARTS[] = {
@@ -8480,9 +8480,9 @@ static const FieldPart *I011_V1_2_015_PARTS[] = {
 static const AsterixField I011_V1_2_015 = { FIXED, 1, 0, 0, &hf_011_V1_2_015, I011_V1_2_015_PARTS, { NULL } };
 static int hf_011_V1_2_041;
 static int hf_011_V1_2_041_LAT;
-static const FieldPart I011_V1_2_041_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_2_041_LAT, NULL };
+static const FieldPart I011_V1_2_041_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_2_041_LAT, NULL };
 static int hf_011_V1_2_041_LON;
-static const FieldPart I011_V1_2_041_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_2_041_LON, NULL };
+static const FieldPart I011_V1_2_041_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_2_041_LON, NULL };
 static const FieldPart *I011_V1_2_041_PARTS[] = {
     &I011_V1_2_041_LAT,
     &I011_V1_2_041_LON,
@@ -9372,9 +9372,9 @@ static const FieldPart *I011_V1_2_500_APC_PARTS[] = {
 static const AsterixField I011_V1_2_500_APC = { FIXED, 2, 0, 0, &hf_011_V1_2_500_APC, I011_V1_2_500_APC_PARTS, { NULL } };
 static int hf_011_V1_2_500_APW;
 static int hf_011_V1_2_500_APW_LAT;
-static const FieldPart I011_V1_2_500_APW_LAT = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_2_500_APW_LAT, NULL };
+static const FieldPart I011_V1_2_500_APW_LAT = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_2_500_APW_LAT, NULL };
 static int hf_011_V1_2_500_APW_LON;
-static const FieldPart I011_V1_2_500_APW_LON = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_2_500_APW_LON, NULL };
+static const FieldPart I011_V1_2_500_APW_LON = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_2_500_APW_LON, NULL };
 static const FieldPart *I011_V1_2_500_APW_PARTS[] = {
     &I011_V1_2_500_APW_LAT,
     &I011_V1_2_500_APW_LON,
@@ -9646,9 +9646,9 @@ static const FieldPart *I011_V1_3_015_PARTS[] = {
 static const AsterixField I011_V1_3_015 = { FIXED, 1, 0, 0, &hf_011_V1_3_015, I011_V1_3_015_PARTS, { NULL } };
 static int hf_011_V1_3_041;
 static int hf_011_V1_3_041_LAT;
-static const FieldPart I011_V1_3_041_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_3_041_LAT, NULL };
+static const FieldPart I011_V1_3_041_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_3_041_LAT, NULL };
 static int hf_011_V1_3_041_LON;
-static const FieldPart I011_V1_3_041_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_3_041_LON, NULL };
+static const FieldPart I011_V1_3_041_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_3_041_LON, NULL };
 static const FieldPart *I011_V1_3_041_PARTS[] = {
     &I011_V1_3_041_LAT,
     &I011_V1_3_041_LON,
@@ -10588,9 +10588,9 @@ static const FieldPart *I011_V1_3_500_APC_PARTS[] = {
 static const AsterixField I011_V1_3_500_APC = { FIXED, 2, 0, 0, &hf_011_V1_3_500_APC, I011_V1_3_500_APC_PARTS, { NULL } };
 static int hf_011_V1_3_500_APW;
 static int hf_011_V1_3_500_APW_LAT;
-static const FieldPart I011_V1_3_500_APW_LAT = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_3_500_APW_LAT, NULL };
+static const FieldPart I011_V1_3_500_APW_LAT = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_3_500_APW_LAT, NULL };
 static int hf_011_V1_3_500_APW_LON;
-static const FieldPart I011_V1_3_500_APW_LON = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_V1_3_500_APW_LON, NULL };
+static const FieldPart I011_V1_3_500_APW_LON = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_V1_3_500_APW_LON, NULL };
 static const FieldPart *I011_V1_3_500_APW_PARTS[] = {
     &I011_V1_3_500_APW_LAT,
     &I011_V1_3_500_APW_LON,
@@ -10823,9 +10823,9 @@ static const FieldPart *I011_015_PARTS[] = {
 static const AsterixField I011_015 = { FIXED, 1, 0, 0, &hf_011_015, I011_015_PARTS, { NULL } };
 static int hf_011_041;
 static int hf_011_041_LAT;
-static const FieldPart I011_041_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_041_LAT, NULL };
+static const FieldPart I011_041_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_041_LAT, NULL };
 static int hf_011_041_LON;
-static const FieldPart I011_041_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_041_LON, NULL };
+static const FieldPart I011_041_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_041_LON, NULL };
 static const FieldPart *I011_041_PARTS[] = {
     &I011_041_LAT,
     &I011_041_LON,
@@ -11765,9 +11765,9 @@ static const FieldPart *I011_500_APC_PARTS[] = {
 static const AsterixField I011_500_APC = { FIXED, 2, 0, 0, &hf_011_500_APC, I011_500_APC_PARTS, { NULL } };
 static int hf_011_500_APW;
 static int hf_011_500_APW_LAT;
-static const FieldPart I011_500_APW_LAT = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_500_APW_LAT, NULL };
+static const FieldPart I011_500_APW_LAT = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_500_APW_LAT, NULL };
 static int hf_011_500_APW_LON;
-static const FieldPart I011_500_APW_LON = { 16, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_011_500_APW_LON, NULL };
+static const FieldPart I011_500_APW_LON = { 16, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_011_500_APW_LON, NULL };
 static const FieldPart *I011_500_APW_PARTS[] = {
     &I011_500_APW_LAT,
     &I011_500_APW_LON,
@@ -12275,9 +12275,9 @@ static const AsterixField I015_V1_0_480 = { REPETITIVE, 5, 1, 0, &hf_015_V1_0_48
 static int hf_015_V1_0_600;
 static int hf_015_V1_0_600_P84;
 static int hf_015_V1_0_600_P84_LATITUDE;
-static const FieldPart I015_V1_0_600_P84_LATITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_V1_0_600_P84_LATITUDE, NULL };
+static const FieldPart I015_V1_0_600_P84_LATITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_V1_0_600_P84_LATITUDE, NULL };
 static int hf_015_V1_0_600_P84_LONGITUDE;
-static const FieldPart I015_V1_0_600_P84_LONGITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_V1_0_600_P84_LONGITUDE, NULL };
+static const FieldPart I015_V1_0_600_P84_LONGITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_V1_0_600_P84_LONGITUDE, NULL };
 static const FieldPart *I015_V1_0_600_P84_PARTS[] = {
     &I015_V1_0_600_P84_LATITUDE,
     &I015_V1_0_600_P84_LONGITUDE,
@@ -13232,9 +13232,9 @@ static const AsterixField I015_V1_1_480 = { REPETITIVE, 5, 1, 0, &hf_015_V1_1_48
 static int hf_015_V1_1_600;
 static int hf_015_V1_1_600_P84;
 static int hf_015_V1_1_600_P84_LATITUDE;
-static const FieldPart I015_V1_1_600_P84_LATITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_V1_1_600_P84_LATITUDE, NULL };
+static const FieldPart I015_V1_1_600_P84_LATITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_V1_1_600_P84_LATITUDE, NULL };
 static int hf_015_V1_1_600_P84_LONGITUDE;
-static const FieldPart I015_V1_1_600_P84_LONGITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_V1_1_600_P84_LONGITUDE, NULL };
+static const FieldPart I015_V1_1_600_P84_LONGITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_V1_1_600_P84_LONGITUDE, NULL };
 static const FieldPart *I015_V1_1_600_P84_PARTS[] = {
     &I015_V1_1_600_P84_LATITUDE,
     &I015_V1_1_600_P84_LONGITUDE,
@@ -14153,9 +14153,9 @@ static const AsterixField I015_480 = { REPETITIVE, 5, 1, 0, &hf_015_480, I015_48
 static int hf_015_600;
 static int hf_015_600_P84;
 static int hf_015_600_P84_LATITUDE;
-static const FieldPart I015_600_P84_LATITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_600_P84_LATITUDE, NULL };
+static const FieldPart I015_600_P84_LATITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_600_P84_LATITUDE, NULL };
 static int hf_015_600_P84_LONGITUDE;
-static const FieldPart I015_600_P84_LONGITUDE = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_015_600_P84_LONGITUDE, NULL };
+static const FieldPart I015_600_P84_LONGITUDE = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_015_600_P84_LONGITUDE, NULL };
 static const FieldPart *I015_600_P84_PARTS[] = {
     &I015_600_P84_LATITUDE,
     &I015_600_P84_LONGITUDE,
@@ -14974,9 +14974,9 @@ static const FieldPart *I016_V1_0_300_PARTS[] = {
 static const AsterixField I016_V1_0_300 = { REPETITIVE, 6, 1, 0, &hf_016_V1_0_300, I016_V1_0_300_PARTS, { NULL } };
 static int hf_016_V1_0_400;
 static int hf_016_V1_0_400_LAT;
-static const FieldPart I016_V1_0_400_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_400_LAT, NULL };
+static const FieldPart I016_V1_0_400_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_400_LAT, NULL };
 static int hf_016_V1_0_400_LON;
-static const FieldPart I016_V1_0_400_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_400_LON, NULL };
+static const FieldPart I016_V1_0_400_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_400_LON, NULL };
 static const FieldPart *I016_V1_0_400_PARTS[] = {
     &I016_V1_0_400_LAT,
     &I016_V1_0_400_LON,
@@ -14995,9 +14995,9 @@ static int hf_016_V1_0_410;
 static int hf_016_V1_0_410_TID;
 static const FieldPart I016_V1_0_410_TID = { 16, 1.0, FIELD_PART_HEX, &hf_016_V1_0_410_TID, NULL };
 static int hf_016_V1_0_410_LAT;
-static const FieldPart I016_V1_0_410_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_410_LAT, NULL };
+static const FieldPart I016_V1_0_410_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_410_LAT, NULL };
 static int hf_016_V1_0_410_LON;
-static const FieldPart I016_V1_0_410_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_410_LON, NULL };
+static const FieldPart I016_V1_0_410_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_410_LON, NULL };
 static int hf_016_V1_0_410_ALT;
 static const FieldPart I016_V1_0_410_ALT = { 16, 0.25, FIELD_PART_FLOAT, &hf_016_V1_0_410_ALT, NULL };
 static int hf_016_V1_0_410_TTO;
@@ -15022,9 +15022,9 @@ static int hf_016_V1_0_420;
 static int hf_016_V1_0_420_RID;
 static const FieldPart I016_V1_0_420_RID = { 16, 1.0, FIELD_PART_HEX, &hf_016_V1_0_420_RID, NULL };
 static int hf_016_V1_0_420_LAT;
-static const FieldPart I016_V1_0_420_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_420_LAT, NULL };
+static const FieldPart I016_V1_0_420_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_420_LAT, NULL };
 static int hf_016_V1_0_420_LON;
-static const FieldPart I016_V1_0_420_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_V1_0_420_LON, NULL };
+static const FieldPart I016_V1_0_420_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_V1_0_420_LON, NULL };
 static int hf_016_V1_0_420_ALT;
 static const FieldPart I016_V1_0_420_ALT = { 16, 0.25, FIELD_PART_FLOAT, &hf_016_V1_0_420_ALT, NULL };
 static const FieldPart *I016_V1_0_420_PARTS[] = {
@@ -15103,9 +15103,9 @@ static const FieldPart *I016_300_PARTS[] = {
 static const AsterixField I016_300 = { REPETITIVE, 6, 1, 0, &hf_016_300, I016_300_PARTS, { NULL } };
 static int hf_016_400;
 static int hf_016_400_LAT;
-static const FieldPart I016_400_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_400_LAT, NULL };
+static const FieldPart I016_400_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_400_LAT, NULL };
 static int hf_016_400_LON;
-static const FieldPart I016_400_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_400_LON, NULL };
+static const FieldPart I016_400_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_400_LON, NULL };
 static const FieldPart *I016_400_PARTS[] = {
     &I016_400_LAT,
     &I016_400_LON,
@@ -15124,9 +15124,9 @@ static int hf_016_410;
 static int hf_016_410_TID;
 static const FieldPart I016_410_TID = { 16, 1.0, FIELD_PART_HEX, &hf_016_410_TID, NULL };
 static int hf_016_410_LAT;
-static const FieldPart I016_410_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_410_LAT, NULL };
+static const FieldPart I016_410_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_410_LAT, NULL };
 static int hf_016_410_LON;
-static const FieldPart I016_410_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_410_LON, NULL };
+static const FieldPart I016_410_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_410_LON, NULL };
 static int hf_016_410_ALT;
 static const FieldPart I016_410_ALT = { 16, 0.25, FIELD_PART_FLOAT, &hf_016_410_ALT, NULL };
 static int hf_016_410_TTO;
@@ -15151,9 +15151,9 @@ static int hf_016_420;
 static int hf_016_420_RID;
 static const FieldPart I016_420_RID = { 16, 1.0, FIELD_PART_HEX, &hf_016_420_RID, NULL };
 static int hf_016_420_LAT;
-static const FieldPart I016_420_LAT = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_420_LAT, NULL };
+static const FieldPart I016_420_LAT = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_420_LAT, NULL };
 static int hf_016_420_LON;
-static const FieldPart I016_420_LON = { 32, 0.00000008381903171539306640625, FIELD_PART_FLOAT, &hf_016_420_LON, NULL };
+static const FieldPart I016_420_LON = { 32, 8.381903171539307e-08, FIELD_PART_FLOAT, &hf_016_420_LON, NULL };
 static int hf_016_420_ALT;
 static const FieldPart I016_420_ALT = { 16, 0.25, FIELD_PART_FLOAT, &hf_016_420_ALT, NULL };
 static const FieldPart *I016_420_PARTS[] = {
@@ -15205,6 +15205,526 @@ static const AsterixField *I016_uap[] = {
 };
 static const AsterixField **I016[] = {
     I016_uap,
+    NULL
+};
+DIAG_ON_PEDANTIC
+
+/* Category 017, edition 1.3 */
+static int hf_017_V1_3_000;
+static int hf_017_V1_3_000_VALUE;
+static const value_string valstr_017_V1_3_000_VALUE[] = {
+    { 0, "Network information" },
+    { 10, "Track data" },
+    { 20, "Track data request" },
+    { 21, "Track data stop" },
+    { 22, "Cancel track data request" },
+    { 23, "Track data stop acknowledgement" },
+    { 30, "New Node / Change-over Initial or intermediate message segment" },
+    { 31, "New Node / Change-over Final or only message segment" },
+    { 32, "New Node / Change-over Initial or intermediate message segment reply" },
+    { 33, "New Node / Change-over Final or only message segment reply" },
+    { 110, "Move node to new cluster state;" },
+    { 111, "Move node to new cluster state acknowledgement" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_000_VALUE = { 8, 1.0, FIELD_PART_UINT, &hf_017_V1_3_000_VALUE, NULL };
+static const FieldPart *I017_V1_3_000_PARTS[] = {
+    &I017_V1_3_000_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_000 = { FIXED, 1, 0, 0, &hf_017_V1_3_000, I017_V1_3_000_PARTS, { NULL } };
+static int hf_017_V1_3_010;
+static int hf_017_V1_3_010_SAC;
+static const FieldPart I017_V1_3_010_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_010_SAC, NULL };
+static int hf_017_V1_3_010_SIC;
+static const FieldPart I017_V1_3_010_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_010_SIC, NULL };
+static const FieldPart *I017_V1_3_010_PARTS[] = {
+    &I017_V1_3_010_SAC,
+    &I017_V1_3_010_SIC,
+    NULL
+};
+static const AsterixField I017_V1_3_010 = { FIXED, 2, 0, 0, &hf_017_V1_3_010, I017_V1_3_010_PARTS, { NULL } };
+static int hf_017_V1_3_012;
+static int hf_017_V1_3_012_SAC;
+static const FieldPart I017_V1_3_012_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_012_SAC, NULL };
+static int hf_017_V1_3_012_SIC;
+static const FieldPart I017_V1_3_012_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_012_SIC, NULL };
+static const FieldPart *I017_V1_3_012_PARTS[] = {
+    &I017_V1_3_012_SAC,
+    &I017_V1_3_012_SIC,
+    NULL
+};
+static const AsterixField I017_V1_3_012 = { FIXED, 2, 0, 0, &hf_017_V1_3_012, I017_V1_3_012_PARTS, { NULL } };
+static int hf_017_V1_3_045;
+static int hf_017_V1_3_045_LAT;
+static const FieldPart I017_V1_3_045_LAT = { 24, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_017_V1_3_045_LAT, NULL };
+static int hf_017_V1_3_045_LON;
+static const FieldPart I017_V1_3_045_LON = { 24, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_017_V1_3_045_LON, NULL };
+static const FieldPart *I017_V1_3_045_PARTS[] = {
+    &I017_V1_3_045_LAT,
+    &I017_V1_3_045_LON,
+    NULL
+};
+static const AsterixField I017_V1_3_045 = { FIXED, 6, 0, 0, &hf_017_V1_3_045, I017_V1_3_045_PARTS, { NULL } };
+static int hf_017_V1_3_050;
+static int hf_017_V1_3_050_V;
+static const value_string valstr_017_V1_3_050_V[] = {
+    { 0, "Code validated" },
+    { 1, "Code not validated" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_050_V = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_050_V, NULL };
+static int hf_017_V1_3_050_G;
+static const value_string valstr_017_V1_3_050_G[] = {
+    { 0, "Default" },
+    { 1, "Garbled code / Error correction applied" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_050_G = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_050_G, NULL };
+static int hf_017_V1_3_050_ALT;
+static const FieldPart I017_V1_3_050_ALT = { 14, 0.25, FIELD_PART_UFLOAT, &hf_017_V1_3_050_ALT, NULL };
+static const FieldPart *I017_V1_3_050_PARTS[] = {
+    &I017_V1_3_050_V,
+    &I017_V1_3_050_G,
+    &I017_V1_3_050_ALT,
+    NULL
+};
+static const AsterixField I017_V1_3_050 = { FIXED, 2, 0, 0, &hf_017_V1_3_050, I017_V1_3_050_PARTS, { NULL } };
+static int hf_017_V1_3_070;
+static int hf_017_V1_3_070_V;
+static const value_string valstr_017_V1_3_070_V[] = {
+    { 0, "Code validated" },
+    { 1, "Code not validated" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_070_V = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_070_V, NULL };
+static int hf_017_V1_3_070_G;
+static const value_string valstr_017_V1_3_070_G[] = {
+    { 0, "Default" },
+    { 1, "Garbled code" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_070_G = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_070_G, NULL };
+static int hf_017_V1_3_070_L;
+static const value_string valstr_017_V1_3_070_L[] = {
+    { 0, "Mode-3/A code derived from the reply of the transponder" },
+    { 1, "Smoothed Mode-3/A code not extracted during the last scan" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_070_L = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_070_L, NULL };
+static int hf_017_V1_3_070_MODE3A;
+static const FieldPart I017_V1_3_070_MODE3A = { 12, 1.0, FIELD_PART_SQUAWK, &hf_017_V1_3_070_MODE3A, NULL };
+static const FieldPart *I017_V1_3_070_PARTS[] = {
+    &I017_V1_3_070_V,
+    &I017_V1_3_070_G,
+    &I017_V1_3_070_L,
+    &IXXX_1bit_spare,
+    &I017_V1_3_070_MODE3A,
+    NULL
+};
+static const AsterixField I017_V1_3_070 = { FIXED, 2, 0, 0, &hf_017_V1_3_070, I017_V1_3_070_PARTS, { NULL } };
+static int hf_017_V1_3_140;
+static int hf_017_V1_3_140_VALUE;
+static const FieldPart I017_V1_3_140_VALUE = { 24, 0.0078125, FIELD_PART_UFLOAT, &hf_017_V1_3_140_VALUE, NULL };
+static const FieldPart *I017_V1_3_140_PARTS[] = {
+    &I017_V1_3_140_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_140 = { FIXED, 3, 0, 0, &hf_017_V1_3_140, I017_V1_3_140_PARTS, { NULL } };
+static int hf_017_V1_3_200;
+static int hf_017_V1_3_200_GSP;
+static const FieldPart I017_V1_3_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_017_V1_3_200_GSP, NULL };
+static int hf_017_V1_3_200_HDG;
+static const FieldPart I017_V1_3_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_017_V1_3_200_HDG, NULL };
+static const FieldPart *I017_V1_3_200_PARTS[] = {
+    &I017_V1_3_200_GSP,
+    &I017_V1_3_200_HDG,
+    NULL
+};
+static const AsterixField I017_V1_3_200 = { FIXED, 4, 0, 0, &hf_017_V1_3_200, I017_V1_3_200_PARTS, { NULL } };
+static int hf_017_V1_3_210;
+static int hf_017_V1_3_210_VALUE;
+static const FieldPart I017_V1_3_210_VALUE = { 24, 1.0, FIELD_PART_HEX, &hf_017_V1_3_210_VALUE, NULL };
+static const FieldPart *I017_V1_3_210_PARTS[] = {
+    &I017_V1_3_210_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_210 = { REPETITIVE, 3, 1, 0, &hf_017_V1_3_210, I017_V1_3_210_PARTS, { NULL } };
+static int hf_017_V1_3_220;
+static int hf_017_V1_3_220_VALUE;
+static const FieldPart I017_V1_3_220_VALUE = { 24, 1.0, FIELD_PART_HEX, &hf_017_V1_3_220_VALUE, NULL };
+static const FieldPart *I017_V1_3_220_PARTS[] = {
+    &I017_V1_3_220_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_220 = { FIXED, 3, 0, 0, &hf_017_V1_3_220, I017_V1_3_220_PARTS, { NULL } };
+static int hf_017_V1_3_221;
+static int hf_017_V1_3_221_VALUE;
+static const FieldPart I017_V1_3_221_VALUE = { 16, 1.0, FIELD_PART_HEX, &hf_017_V1_3_221_VALUE, NULL };
+static const FieldPart *I017_V1_3_221_PARTS[] = {
+    &I017_V1_3_221_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_221 = { FIXED, 2, 0, 0, &hf_017_V1_3_221, I017_V1_3_221_PARTS, { NULL } };
+static int hf_017_V1_3_230;
+static int hf_017_V1_3_230_CA;
+static const value_string valstr_017_V1_3_230_CA[] = {
+    { 0, "No communications capability (surveillance only), no ability to set CA code 7 either airborne or on the ground" },
+    { 1, "Reserved" },
+    { 2, "Reserved" },
+    { 3, "Reserved" },
+    { 4, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and on the ground" },
+    { 5, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and airborne" },
+    { 6, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and either airborne or on the ground" },
+    { 7, "Signifies the DR field is not equal to 0 or the FS field equals 2, 3, 4 or 5 and either airborne or on the ground SI/II-capabilities of the Transponder" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_230_CA = { 3, 1.0, FIELD_PART_UINT, &hf_017_V1_3_230_CA, NULL };
+static int hf_017_V1_3_230_SI;
+static const value_string valstr_017_V1_3_230_SI[] = {
+    { 0, "Transponder SI capable" },
+    { 1, "Transponder not SI capable" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_230_SI = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_230_SI, NULL };
+static const FieldPart *I017_V1_3_230_PARTS[] = {
+    &I017_V1_3_230_CA,
+    &I017_V1_3_230_SI,
+    &IXXX_4bit_spare,
+    NULL
+};
+static const AsterixField I017_V1_3_230 = { FIXED, 1, 0, 0, &hf_017_V1_3_230, I017_V1_3_230_PARTS, { NULL } };
+static int hf_017_V1_3_240;
+static int hf_017_V1_3_240_CST;
+static const value_string valstr_017_V1_3_240_CST[] = {
+    { 0, "Measured position" },
+    { 1, "No measured position (coasted)" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_240_CST = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_240_CST, NULL };
+static int hf_017_V1_3_240_FLT;
+static const value_string valstr_017_V1_3_240_FLT[] = {
+    { 0, "Last Measured Flight Level" },
+    { 1, "Predicted Flight Level" },
+    { 0, NULL }
+};
+static const FieldPart I017_V1_3_240_FLT = { 1, 1.0, FIELD_PART_UINT, &hf_017_V1_3_240_FLT, NULL };
+static const FieldPart *I017_V1_3_240_PARTS[] = {
+    &I017_V1_3_240_CST,
+    &I017_V1_3_240_FLT,
+    &IXXX_6bit_spare,
+    NULL
+};
+static const AsterixField I017_V1_3_240 = { FIXED, 1, 0, 0, &hf_017_V1_3_240, I017_V1_3_240_PARTS, { NULL } };
+static int hf_017_V1_3_350;
+static int hf_017_V1_3_350_SAC;
+static const FieldPart I017_V1_3_350_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_350_SAC, NULL };
+static int hf_017_V1_3_350_SIC;
+static const FieldPart I017_V1_3_350_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_350_SIC, NULL };
+static const FieldPart *I017_V1_3_350_PARTS[] = {
+    &I017_V1_3_350_SAC,
+    &I017_V1_3_350_SIC,
+    NULL
+};
+static const AsterixField I017_V1_3_350 = { REPETITIVE, 2, 1, 0, &hf_017_V1_3_350, I017_V1_3_350_PARTS, { NULL } };
+static int hf_017_V1_3_360;
+static int hf_017_V1_3_360_VALUE;
+static const FieldPart I017_V1_3_360_VALUE = { 8, 1.0, FIELD_PART_HEX, &hf_017_V1_3_360_VALUE, NULL };
+static const FieldPart *I017_V1_3_360_PARTS[] = {
+    &I017_V1_3_360_VALUE,
+    NULL
+};
+static const AsterixField I017_V1_3_360 = { FIXED, 1, 0, 0, &hf_017_V1_3_360, I017_V1_3_360_PARTS, { NULL } };
+static int hf_017_V1_3_SP;
+static const AsterixField I017_V1_3_SP = { EXP, 0, 0, 1, &hf_017_V1_3_SP, NULL, { NULL } };
+
+/* Category 017, edition 1.3 (latest) */
+static int hf_017_000;
+static int hf_017_000_VALUE;
+static const value_string valstr_017_000_VALUE[] = {
+    { 0, "Network information" },
+    { 10, "Track data" },
+    { 20, "Track data request" },
+    { 21, "Track data stop" },
+    { 22, "Cancel track data request" },
+    { 23, "Track data stop acknowledgement" },
+    { 30, "New Node / Change-over Initial or intermediate message segment" },
+    { 31, "New Node / Change-over Final or only message segment" },
+    { 32, "New Node / Change-over Initial or intermediate message segment reply" },
+    { 33, "New Node / Change-over Final or only message segment reply" },
+    { 110, "Move node to new cluster state;" },
+    { 111, "Move node to new cluster state acknowledgement" },
+    { 0, NULL }
+};
+static const FieldPart I017_000_VALUE = { 8, 1.0, FIELD_PART_UINT, &hf_017_000_VALUE, NULL };
+static const FieldPart *I017_000_PARTS[] = {
+    &I017_000_VALUE,
+    NULL
+};
+static const AsterixField I017_000 = { FIXED, 1, 0, 0, &hf_017_000, I017_000_PARTS, { NULL } };
+static int hf_017_010;
+static int hf_017_010_SAC;
+static const FieldPart I017_010_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_010_SAC, NULL };
+static int hf_017_010_SIC;
+static const FieldPart I017_010_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_010_SIC, NULL };
+static const FieldPart *I017_010_PARTS[] = {
+    &I017_010_SAC,
+    &I017_010_SIC,
+    NULL
+};
+static const AsterixField I017_010 = { FIXED, 2, 0, 0, &hf_017_010, I017_010_PARTS, { NULL } };
+static int hf_017_012;
+static int hf_017_012_SAC;
+static const FieldPart I017_012_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_012_SAC, NULL };
+static int hf_017_012_SIC;
+static const FieldPart I017_012_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_012_SIC, NULL };
+static const FieldPart *I017_012_PARTS[] = {
+    &I017_012_SAC,
+    &I017_012_SIC,
+    NULL
+};
+static const AsterixField I017_012 = { FIXED, 2, 0, 0, &hf_017_012, I017_012_PARTS, { NULL } };
+static int hf_017_045;
+static int hf_017_045_LAT;
+static const FieldPart I017_045_LAT = { 24, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_017_045_LAT, NULL };
+static int hf_017_045_LON;
+static const FieldPart I017_045_LON = { 24, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_017_045_LON, NULL };
+static const FieldPart *I017_045_PARTS[] = {
+    &I017_045_LAT,
+    &I017_045_LON,
+    NULL
+};
+static const AsterixField I017_045 = { FIXED, 6, 0, 0, &hf_017_045, I017_045_PARTS, { NULL } };
+static int hf_017_050;
+static int hf_017_050_V;
+static const value_string valstr_017_050_V[] = {
+    { 0, "Code validated" },
+    { 1, "Code not validated" },
+    { 0, NULL }
+};
+static const FieldPart I017_050_V = { 1, 1.0, FIELD_PART_UINT, &hf_017_050_V, NULL };
+static int hf_017_050_G;
+static const value_string valstr_017_050_G[] = {
+    { 0, "Default" },
+    { 1, "Garbled code / Error correction applied" },
+    { 0, NULL }
+};
+static const FieldPart I017_050_G = { 1, 1.0, FIELD_PART_UINT, &hf_017_050_G, NULL };
+static int hf_017_050_ALT;
+static const FieldPart I017_050_ALT = { 14, 0.25, FIELD_PART_UFLOAT, &hf_017_050_ALT, NULL };
+static const FieldPart *I017_050_PARTS[] = {
+    &I017_050_V,
+    &I017_050_G,
+    &I017_050_ALT,
+    NULL
+};
+static const AsterixField I017_050 = { FIXED, 2, 0, 0, &hf_017_050, I017_050_PARTS, { NULL } };
+static int hf_017_070;
+static int hf_017_070_V;
+static const value_string valstr_017_070_V[] = {
+    { 0, "Code validated" },
+    { 1, "Code not validated" },
+    { 0, NULL }
+};
+static const FieldPart I017_070_V = { 1, 1.0, FIELD_PART_UINT, &hf_017_070_V, NULL };
+static int hf_017_070_G;
+static const value_string valstr_017_070_G[] = {
+    { 0, "Default" },
+    { 1, "Garbled code" },
+    { 0, NULL }
+};
+static const FieldPart I017_070_G = { 1, 1.0, FIELD_PART_UINT, &hf_017_070_G, NULL };
+static int hf_017_070_L;
+static const value_string valstr_017_070_L[] = {
+    { 0, "Mode-3/A code derived from the reply of the transponder" },
+    { 1, "Smoothed Mode-3/A code not extracted during the last scan" },
+    { 0, NULL }
+};
+static const FieldPart I017_070_L = { 1, 1.0, FIELD_PART_UINT, &hf_017_070_L, NULL };
+static int hf_017_070_MODE3A;
+static const FieldPart I017_070_MODE3A = { 12, 1.0, FIELD_PART_SQUAWK, &hf_017_070_MODE3A, NULL };
+static const FieldPart *I017_070_PARTS[] = {
+    &I017_070_V,
+    &I017_070_G,
+    &I017_070_L,
+    &IXXX_1bit_spare,
+    &I017_070_MODE3A,
+    NULL
+};
+static const AsterixField I017_070 = { FIXED, 2, 0, 0, &hf_017_070, I017_070_PARTS, { NULL } };
+static int hf_017_140;
+static int hf_017_140_VALUE;
+static const FieldPart I017_140_VALUE = { 24, 0.0078125, FIELD_PART_UFLOAT, &hf_017_140_VALUE, NULL };
+static const FieldPart *I017_140_PARTS[] = {
+    &I017_140_VALUE,
+    NULL
+};
+static const AsterixField I017_140 = { FIXED, 3, 0, 0, &hf_017_140, I017_140_PARTS, { NULL } };
+static int hf_017_200;
+static int hf_017_200_GSP;
+static const FieldPart I017_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_017_200_GSP, NULL };
+static int hf_017_200_HDG;
+static const FieldPart I017_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_017_200_HDG, NULL };
+static const FieldPart *I017_200_PARTS[] = {
+    &I017_200_GSP,
+    &I017_200_HDG,
+    NULL
+};
+static const AsterixField I017_200 = { FIXED, 4, 0, 0, &hf_017_200, I017_200_PARTS, { NULL } };
+static int hf_017_210;
+static int hf_017_210_VALUE;
+static const FieldPart I017_210_VALUE = { 24, 1.0, FIELD_PART_HEX, &hf_017_210_VALUE, NULL };
+static const FieldPart *I017_210_PARTS[] = {
+    &I017_210_VALUE,
+    NULL
+};
+static const AsterixField I017_210 = { REPETITIVE, 3, 1, 0, &hf_017_210, I017_210_PARTS, { NULL } };
+static int hf_017_220;
+static int hf_017_220_VALUE;
+static const FieldPart I017_220_VALUE = { 24, 1.0, FIELD_PART_HEX, &hf_017_220_VALUE, NULL };
+static const FieldPart *I017_220_PARTS[] = {
+    &I017_220_VALUE,
+    NULL
+};
+static const AsterixField I017_220 = { FIXED, 3, 0, 0, &hf_017_220, I017_220_PARTS, { NULL } };
+static int hf_017_221;
+static int hf_017_221_VALUE;
+static const FieldPart I017_221_VALUE = { 16, 1.0, FIELD_PART_HEX, &hf_017_221_VALUE, NULL };
+static const FieldPart *I017_221_PARTS[] = {
+    &I017_221_VALUE,
+    NULL
+};
+static const AsterixField I017_221 = { FIXED, 2, 0, 0, &hf_017_221, I017_221_PARTS, { NULL } };
+static int hf_017_230;
+static int hf_017_230_CA;
+static const value_string valstr_017_230_CA[] = {
+    { 0, "No communications capability (surveillance only), no ability to set CA code 7 either airborne or on the ground" },
+    { 1, "Reserved" },
+    { 2, "Reserved" },
+    { 3, "Reserved" },
+    { 4, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and on the ground" },
+    { 5, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and airborne" },
+    { 6, "At Least Comm. A and Comm. B capability and the ability to set CA code 7 and either airborne or on the ground" },
+    { 7, "Signifies the DR field is not equal to 0 or the FS field equals 2, 3, 4 or 5 and either airborne or on the ground SI/II-capabilities of the Transponder" },
+    { 0, NULL }
+};
+static const FieldPart I017_230_CA = { 3, 1.0, FIELD_PART_UINT, &hf_017_230_CA, NULL };
+static int hf_017_230_SI;
+static const value_string valstr_017_230_SI[] = {
+    { 0, "Transponder SI capable" },
+    { 1, "Transponder not SI capable" },
+    { 0, NULL }
+};
+static const FieldPart I017_230_SI = { 1, 1.0, FIELD_PART_UINT, &hf_017_230_SI, NULL };
+static const FieldPart *I017_230_PARTS[] = {
+    &I017_230_CA,
+    &I017_230_SI,
+    &IXXX_4bit_spare,
+    NULL
+};
+static const AsterixField I017_230 = { FIXED, 1, 0, 0, &hf_017_230, I017_230_PARTS, { NULL } };
+static int hf_017_240;
+static int hf_017_240_CST;
+static const value_string valstr_017_240_CST[] = {
+    { 0, "Measured position" },
+    { 1, "No measured position (coasted)" },
+    { 0, NULL }
+};
+static const FieldPart I017_240_CST = { 1, 1.0, FIELD_PART_UINT, &hf_017_240_CST, NULL };
+static int hf_017_240_FLT;
+static const value_string valstr_017_240_FLT[] = {
+    { 0, "Last Measured Flight Level" },
+    { 1, "Predicted Flight Level" },
+    { 0, NULL }
+};
+static const FieldPart I017_240_FLT = { 1, 1.0, FIELD_PART_UINT, &hf_017_240_FLT, NULL };
+static const FieldPart *I017_240_PARTS[] = {
+    &I017_240_CST,
+    &I017_240_FLT,
+    &IXXX_6bit_spare,
+    NULL
+};
+static const AsterixField I017_240 = { FIXED, 1, 0, 0, &hf_017_240, I017_240_PARTS, { NULL } };
+static int hf_017_350;
+static int hf_017_350_SAC;
+static const FieldPart I017_350_SAC = { 8, 1.0, FIELD_PART_HEX, &hf_017_350_SAC, NULL };
+static int hf_017_350_SIC;
+static const FieldPart I017_350_SIC = { 8, 1.0, FIELD_PART_HEX, &hf_017_350_SIC, NULL };
+static const FieldPart *I017_350_PARTS[] = {
+    &I017_350_SAC,
+    &I017_350_SIC,
+    NULL
+};
+static const AsterixField I017_350 = { REPETITIVE, 2, 1, 0, &hf_017_350, I017_350_PARTS, { NULL } };
+static int hf_017_360;
+static int hf_017_360_VALUE;
+static const FieldPart I017_360_VALUE = { 8, 1.0, FIELD_PART_HEX, &hf_017_360_VALUE, NULL };
+static const FieldPart *I017_360_PARTS[] = {
+    &I017_360_VALUE,
+    NULL
+};
+static const AsterixField I017_360 = { FIXED, 1, 0, 0, &hf_017_360, I017_360_PARTS, { NULL } };
+static int hf_017_SP;
+static const AsterixField I017_SP = { EXP, 0, 0, 1, &hf_017_SP, NULL, { NULL } };
+
+DIAG_OFF_PEDANTIC
+static const AsterixField *I017_V1_3_uap[] = {
+    &I017_V1_3_010,
+    &I017_V1_3_012,
+    &I017_V1_3_000,
+    &I017_V1_3_350,
+    &I017_V1_3_220,
+    &I017_V1_3_221,
+    &I017_V1_3_140,
+    &I017_V1_3_045,
+    &I017_V1_3_070,
+    &I017_V1_3_050,
+    &I017_V1_3_200,
+    &I017_V1_3_230,
+    &I017_V1_3_240,
+    &I017_V1_3_210,
+    &I017_V1_3_360,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &I017_V1_3_SP,
+    NULL
+};
+static const AsterixField **I017_V1_3[] = {
+    I017_V1_3_uap,
+    NULL
+};
+DIAG_ON_PEDANTIC
+
+DIAG_OFF_PEDANTIC
+static const AsterixField *I017_uap[] = {
+    &I017_010,
+    &I017_012,
+    &I017_000,
+    &I017_350,
+    &I017_220,
+    &I017_221,
+    &I017_140,
+    &I017_045,
+    &I017_070,
+    &I017_050,
+    &I017_200,
+    &I017_230,
+    &I017_240,
+    &I017_210,
+    &I017_360,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &IX_SPARE,
+    &I017_SP,
+    NULL
+};
+static const AsterixField **I017[] = {
+    I017_uap,
     NULL
 };
 DIAG_ON_PEDANTIC
@@ -15811,7 +16331,7 @@ static const FieldPart *I018_V1_7_033_PARTS[] = {
 static const AsterixField I018_V1_7_033 = { FIXED, 2, 0, 0, &hf_018_V1_7_033, I018_V1_7_033_PARTS, { NULL } };
 static int hf_018_V1_7_034;
 static int hf_018_V1_7_034_VALUE;
-static const FieldPart I018_V1_7_034_VALUE = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_018_V1_7_034_VALUE, NULL };
+static const FieldPart I018_V1_7_034_VALUE = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_018_V1_7_034_VALUE, NULL };
 static const FieldPart *I018_V1_7_034_PARTS[] = {
     &I018_V1_7_034_VALUE,
     NULL
@@ -16450,7 +16970,7 @@ static const FieldPart *I018_033_PARTS[] = {
 static const AsterixField I018_033 = { FIXED, 2, 0, 0, &hf_018_033, I018_033_PARTS, { NULL } };
 static int hf_018_034;
 static int hf_018_034_VALUE;
-static const FieldPart I018_034_VALUE = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_018_034_VALUE, NULL };
+static const FieldPart I018_034_VALUE = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_018_034_VALUE, NULL };
 static const FieldPart *I018_034_PARTS[] = {
     &I018_034_VALUE,
     NULL
@@ -16819,9 +17339,9 @@ static const FieldPart *I019_V1_3_553_PARTS[] = {
 static const AsterixField I019_V1_3_553 = { FX, 1, 0, 0, &hf_019_V1_3_553, I019_V1_3_553_PARTS, { NULL } };
 static int hf_019_V1_3_600;
 static int hf_019_V1_3_600_LAT;
-static const FieldPart I019_V1_3_600_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_019_V1_3_600_LAT, NULL };
+static const FieldPart I019_V1_3_600_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_019_V1_3_600_LAT, NULL };
 static int hf_019_V1_3_600_LON;
-static const FieldPart I019_V1_3_600_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_019_V1_3_600_LON, NULL };
+static const FieldPart I019_V1_3_600_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_019_V1_3_600_LON, NULL };
 static const FieldPart *I019_V1_3_600_PARTS[] = {
     &I019_V1_3_600_LAT,
     &I019_V1_3_600_LON,
@@ -17091,9 +17611,9 @@ static const FieldPart *I019_553_PARTS[] = {
 static const AsterixField I019_553 = { FX, 1, 0, 0, &hf_019_553, I019_553_PARTS, { NULL } };
 static int hf_019_600;
 static int hf_019_600_LAT;
-static const FieldPart I019_600_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_019_600_LAT, NULL };
+static const FieldPart I019_600_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_019_600_LAT, NULL };
 static int hf_019_600_LON;
-static const FieldPart I019_600_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_019_600_LON, NULL };
+static const FieldPart I019_600_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_019_600_LON, NULL };
 static const FieldPart *I019_600_PARTS[] = {
     &I019_600_LAT,
     &I019_600_LON,
@@ -17324,9 +17844,9 @@ static const FieldPart *I020_V1_9_030_PARTS[] = {
 static const AsterixField I020_V1_9_030 = { FX, 1, 0, 0, &hf_020_V1_9_030, I020_V1_9_030_PARTS, { NULL } };
 static int hf_020_V1_9_041;
 static int hf_020_V1_9_041_LAT;
-static const FieldPart I020_V1_9_041_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_V1_9_041_LAT, NULL };
+static const FieldPart I020_V1_9_041_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_V1_9_041_LAT, NULL };
 static int hf_020_V1_9_041_LON;
-static const FieldPart I020_V1_9_041_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_V1_9_041_LON, NULL };
+static const FieldPart I020_V1_9_041_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_V1_9_041_LON, NULL };
 static const FieldPart *I020_V1_9_041_PARTS[] = {
     &I020_V1_9_041_LAT,
     &I020_V1_9_041_LON,
@@ -18179,9 +18699,9 @@ static const FieldPart *I020_V1_10_030_PARTS[] = {
 static const AsterixField I020_V1_10_030 = { FX, 1, 0, 0, &hf_020_V1_10_030, I020_V1_10_030_PARTS, { NULL } };
 static int hf_020_V1_10_041;
 static int hf_020_V1_10_041_LAT;
-static const FieldPart I020_V1_10_041_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_V1_10_041_LAT, NULL };
+static const FieldPart I020_V1_10_041_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_V1_10_041_LAT, NULL };
 static int hf_020_V1_10_041_LON;
-static const FieldPart I020_V1_10_041_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_V1_10_041_LON, NULL };
+static const FieldPart I020_V1_10_041_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_V1_10_041_LON, NULL };
 static const FieldPart *I020_V1_10_041_PARTS[] = {
     &I020_V1_10_041_LAT,
     &I020_V1_10_041_LON,
@@ -18996,9 +19516,9 @@ static const FieldPart *I020_030_PARTS[] = {
 static const AsterixField I020_030 = { FX, 1, 0, 0, &hf_020_030, I020_030_PARTS, { NULL } };
 static int hf_020_041;
 static int hf_020_041_LAT;
-static const FieldPart I020_041_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_041_LAT, NULL };
+static const FieldPart I020_041_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_041_LAT, NULL };
 static int hf_020_041_LON;
-static const FieldPart I020_041_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_020_041_LON, NULL };
+static const FieldPart I020_041_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_020_041_LON, NULL };
 static const FieldPart *I020_041_PARTS[] = {
     &I020_041_LAT,
     &I020_041_LON,
@@ -19982,9 +20502,9 @@ static const FieldPart I021_V0_23_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_021_V0_23_110_TID_ALT;
 static const FieldPart I021_V0_23_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V0_23_110_TID_ALT, NULL };
 static int hf_021_V0_23_110_TID_LAT;
-static const FieldPart I021_V0_23_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_23_110_TID_LAT, NULL };
+static const FieldPart I021_V0_23_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_23_110_TID_LAT, NULL };
 static int hf_021_V0_23_110_TID_LON;
-static const FieldPart I021_V0_23_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_23_110_TID_LON, NULL };
+static const FieldPart I021_V0_23_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_23_110_TID_LON, NULL };
 static int hf_021_V0_23_110_TID_PT;
 static const value_string valstr_021_V0_23_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -20048,9 +20568,9 @@ static const AsterixField I021_V0_23_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V
 static const AsterixField I021_V0_23_110 = { COMPOUND, 0, 0, 0, &hf_021_V0_23_110, NULL, { &I021_V0_23_110_TIS, &I021_V0_23_110_TID, NULL } };
 static int hf_021_V0_23_130;
 static int hf_021_V0_23_130_LAT;
-static const FieldPart I021_V0_23_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_23_130_LAT, NULL };
+static const FieldPart I021_V0_23_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_23_130_LAT, NULL };
 static int hf_021_V0_23_130_LON;
-static const FieldPart I021_V0_23_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_23_130_LON, NULL };
+static const FieldPart I021_V0_23_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_23_130_LON, NULL };
 static const FieldPart *I021_V0_23_130_PARTS[] = {
     &I021_V0_23_130_LAT,
     &I021_V0_23_130_LON,
@@ -20181,7 +20701,7 @@ static const FieldPart *I021_V0_23_157_PARTS[] = {
 static const AsterixField I021_V0_23_157 = { FIXED, 2, 0, 0, &hf_021_V0_23_157, I021_V0_23_157_PARTS, { NULL } };
 static int hf_021_V0_23_160;
 static int hf_021_V0_23_160_GS;
-static const FieldPart I021_V0_23_160_GS = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_021_V0_23_160_GS, NULL };
+static const FieldPart I021_V0_23_160_GS = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_021_V0_23_160_GS, NULL };
 static int hf_021_V0_23_160_TA;
 static const FieldPart I021_V0_23_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V0_23_160_TA, NULL };
 static const FieldPart *I021_V0_23_160_PARTS[] = {
@@ -20622,9 +21142,9 @@ static const FieldPart I021_V0_24_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_021_V0_24_110_TID_ALT;
 static const FieldPart I021_V0_24_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V0_24_110_TID_ALT, NULL };
 static int hf_021_V0_24_110_TID_LAT;
-static const FieldPart I021_V0_24_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_24_110_TID_LAT, NULL };
+static const FieldPart I021_V0_24_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_24_110_TID_LAT, NULL };
 static int hf_021_V0_24_110_TID_LON;
-static const FieldPart I021_V0_24_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_24_110_TID_LON, NULL };
+static const FieldPart I021_V0_24_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_24_110_TID_LON, NULL };
 static int hf_021_V0_24_110_TID_PT;
 static const value_string valstr_021_V0_24_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -20688,9 +21208,9 @@ static const AsterixField I021_V0_24_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V
 static const AsterixField I021_V0_24_110 = { COMPOUND, 0, 0, 0, &hf_021_V0_24_110, NULL, { &I021_V0_24_110_TIS, &I021_V0_24_110_TID, NULL } };
 static int hf_021_V0_24_130;
 static int hf_021_V0_24_130_LAT;
-static const FieldPart I021_V0_24_130_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_24_130_LAT, NULL };
+static const FieldPart I021_V0_24_130_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_24_130_LAT, NULL };
 static int hf_021_V0_24_130_LON;
-static const FieldPart I021_V0_24_130_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_24_130_LON, NULL };
+static const FieldPart I021_V0_24_130_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_24_130_LON, NULL };
 static const FieldPart *I021_V0_24_130_PARTS[] = {
     &I021_V0_24_130_LAT,
     &I021_V0_24_130_LON,
@@ -20821,7 +21341,7 @@ static const FieldPart *I021_V0_24_157_PARTS[] = {
 static const AsterixField I021_V0_24_157 = { FIXED, 2, 0, 0, &hf_021_V0_24_157, I021_V0_24_157_PARTS, { NULL } };
 static int hf_021_V0_24_160;
 static int hf_021_V0_24_160_GS;
-static const FieldPart I021_V0_24_160_GS = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_021_V0_24_160_GS, NULL };
+static const FieldPart I021_V0_24_160_GS = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_021_V0_24_160_GS, NULL };
 static int hf_021_V0_24_160_TA;
 static const FieldPart I021_V0_24_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V0_24_160_TA, NULL };
 static const FieldPart *I021_V0_24_160_PARTS[] = {
@@ -21262,9 +21782,9 @@ static const FieldPart I021_V0_25_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_021_V0_25_110_TID_ALT;
 static const FieldPart I021_V0_25_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V0_25_110_TID_ALT, NULL };
 static int hf_021_V0_25_110_TID_LAT;
-static const FieldPart I021_V0_25_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_25_110_TID_LAT, NULL };
+static const FieldPart I021_V0_25_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_25_110_TID_LAT, NULL };
 static int hf_021_V0_25_110_TID_LON;
-static const FieldPart I021_V0_25_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_25_110_TID_LON, NULL };
+static const FieldPart I021_V0_25_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_25_110_TID_LON, NULL };
 static int hf_021_V0_25_110_TID_PT;
 static const value_string valstr_021_V0_25_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -21328,9 +21848,9 @@ static const AsterixField I021_V0_25_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V
 static const AsterixField I021_V0_25_110 = { COMPOUND, 0, 0, 0, &hf_021_V0_25_110, NULL, { &I021_V0_25_110_TIS, &I021_V0_25_110_TID, NULL } };
 static int hf_021_V0_25_130;
 static int hf_021_V0_25_130_LAT;
-static const FieldPart I021_V0_25_130_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_25_130_LAT, NULL };
+static const FieldPart I021_V0_25_130_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_25_130_LAT, NULL };
 static int hf_021_V0_25_130_LON;
-static const FieldPart I021_V0_25_130_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_25_130_LON, NULL };
+static const FieldPart I021_V0_25_130_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_25_130_LON, NULL };
 static const FieldPart *I021_V0_25_130_PARTS[] = {
     &I021_V0_25_130_LAT,
     &I021_V0_25_130_LON,
@@ -21461,7 +21981,7 @@ static const FieldPart *I021_V0_25_157_PARTS[] = {
 static const AsterixField I021_V0_25_157 = { FIXED, 2, 0, 0, &hf_021_V0_25_157, I021_V0_25_157_PARTS, { NULL } };
 static int hf_021_V0_25_160;
 static int hf_021_V0_25_160_GS;
-static const FieldPart I021_V0_25_160_GS = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_021_V0_25_160_GS, NULL };
+static const FieldPart I021_V0_25_160_GS = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_021_V0_25_160_GS, NULL };
 static int hf_021_V0_25_160_TA;
 static const FieldPart I021_V0_25_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V0_25_160_TA, NULL };
 static const FieldPart *I021_V0_25_160_PARTS[] = {
@@ -21935,9 +22455,9 @@ static const FieldPart I021_V0_26_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_021_V0_26_110_TID_ALT;
 static const FieldPart I021_V0_26_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V0_26_110_TID_ALT, NULL };
 static int hf_021_V0_26_110_TID_LAT;
-static const FieldPart I021_V0_26_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_26_110_TID_LAT, NULL };
+static const FieldPart I021_V0_26_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_26_110_TID_LAT, NULL };
 static int hf_021_V0_26_110_TID_LON;
-static const FieldPart I021_V0_26_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V0_26_110_TID_LON, NULL };
+static const FieldPart I021_V0_26_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V0_26_110_TID_LON, NULL };
 static int hf_021_V0_26_110_TID_PT;
 static const value_string valstr_021_V0_26_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -22001,9 +22521,9 @@ static const AsterixField I021_V0_26_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V
 static const AsterixField I021_V0_26_110 = { COMPOUND, 0, 0, 0, &hf_021_V0_26_110, NULL, { &I021_V0_26_110_TIS, &I021_V0_26_110_TID, NULL } };
 static int hf_021_V0_26_130;
 static int hf_021_V0_26_130_LAT;
-static const FieldPart I021_V0_26_130_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_26_130_LAT, NULL };
+static const FieldPart I021_V0_26_130_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_26_130_LAT, NULL };
 static int hf_021_V0_26_130_LON;
-static const FieldPart I021_V0_26_130_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_021_V0_26_130_LON, NULL };
+static const FieldPart I021_V0_26_130_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_021_V0_26_130_LON, NULL };
 static const FieldPart *I021_V0_26_130_PARTS[] = {
     &I021_V0_26_130_LAT,
     &I021_V0_26_130_LON,
@@ -22142,7 +22662,7 @@ static const FieldPart *I021_V0_26_157_PARTS[] = {
 static const AsterixField I021_V0_26_157 = { FIXED, 2, 0, 0, &hf_021_V0_26_157, I021_V0_26_157_PARTS, { NULL } };
 static int hf_021_V0_26_160;
 static int hf_021_V0_26_160_GS;
-static const FieldPart I021_V0_26_160_GS = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_021_V0_26_160_GS, NULL };
+static const FieldPart I021_V0_26_160_GS = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_021_V0_26_160_GS, NULL };
 static int hf_021_V0_26_160_TA;
 static const FieldPart I021_V0_26_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V0_26_160_TA, NULL };
 static const FieldPart *I021_V0_26_160_PARTS[] = {
@@ -22645,7 +23165,7 @@ static const value_string valstr_021_V2_2_074_FSI[] = {
 };
 static const FieldPart I021_V2_2_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_2_074_FSI, NULL };
 static int hf_021_V2_2_074_TOMRP;
-static const FieldPart I021_V2_2_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_2_074_TOMRP, NULL };
+static const FieldPart I021_V2_2_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_2_074_TOMRP, NULL };
 static const FieldPart *I021_V2_2_074_PARTS[] = {
     &I021_V2_2_074_FSI,
     &I021_V2_2_074_TOMRP,
@@ -22671,7 +23191,7 @@ static const value_string valstr_021_V2_2_076_FSI[] = {
 };
 static const FieldPart I021_V2_2_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_2_076_FSI, NULL };
 static int hf_021_V2_2_076_TOMRP;
-static const FieldPart I021_V2_2_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_2_076_TOMRP, NULL };
+static const FieldPart I021_V2_2_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_2_076_TOMRP, NULL };
 static const FieldPart *I021_V2_2_076_PARTS[] = {
     &I021_V2_2_076_FSI,
     &I021_V2_2_076_TOMRP,
@@ -22781,9 +23301,9 @@ static const FieldPart I021_V2_2_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_02
 static int hf_021_V2_2_110_TID_ALT;
 static const FieldPart I021_V2_2_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V2_2_110_TID_ALT, NULL };
 static int hf_021_V2_2_110_TID_LAT;
-static const FieldPart I021_V2_2_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_2_110_TID_LAT, NULL };
+static const FieldPart I021_V2_2_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_2_110_TID_LAT, NULL };
 static int hf_021_V2_2_110_TID_LON;
-static const FieldPart I021_V2_2_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_2_110_TID_LON, NULL };
+static const FieldPart I021_V2_2_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_2_110_TID_LON, NULL };
 static int hf_021_V2_2_110_TID_PT;
 static const value_string valstr_021_V2_2_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -22847,9 +23367,9 @@ static const AsterixField I021_V2_2_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V2
 static const AsterixField I021_V2_2_110 = { COMPOUND, 0, 0, 0, &hf_021_V2_2_110, NULL, { &I021_V2_2_110_TIS, &I021_V2_2_110_TID, NULL } };
 static int hf_021_V2_2_130;
 static int hf_021_V2_2_130_LAT;
-static const FieldPart I021_V2_2_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_2_130_LAT, NULL };
+static const FieldPart I021_V2_2_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_2_130_LAT, NULL };
 static int hf_021_V2_2_130_LON;
-static const FieldPart I021_V2_2_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_2_130_LON, NULL };
+static const FieldPart I021_V2_2_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_2_130_LON, NULL };
 static const FieldPart *I021_V2_2_130_PARTS[] = {
     &I021_V2_2_130_LAT,
     &I021_V2_2_130_LON,
@@ -22858,9 +23378,9 @@ static const FieldPart *I021_V2_2_130_PARTS[] = {
 static const AsterixField I021_V2_2_130 = { FIXED, 6, 0, 0, &hf_021_V2_2_130, I021_V2_2_130_PARTS, { NULL } };
 static int hf_021_V2_2_131;
 static int hf_021_V2_2_131_LAT;
-static const FieldPart I021_V2_2_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_2_131_LAT, NULL };
+static const FieldPart I021_V2_2_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_2_131_LAT, NULL };
 static int hf_021_V2_2_131_LON;
-static const FieldPart I021_V2_2_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_2_131_LON, NULL };
+static const FieldPart I021_V2_2_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_2_131_LON, NULL };
 static const FieldPart *I021_V2_2_131_PARTS[] = {
     &I021_V2_2_131_LAT,
     &I021_V2_2_131_LON,
@@ -23030,7 +23550,7 @@ static const value_string valstr_021_V2_2_160_RE[] = {
 };
 static const FieldPart I021_V2_2_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_V2_2_160_RE, NULL };
 static int hf_021_V2_2_160_GS;
-static const FieldPart I021_V2_2_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_V2_2_160_GS, NULL };
+static const FieldPart I021_V2_2_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_V2_2_160_GS, NULL };
 static int hf_021_V2_2_160_TA;
 static const FieldPart I021_V2_2_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V2_2_160_TA, NULL };
 static const FieldPart *I021_V2_2_160_PARTS[] = {
@@ -23862,7 +24382,7 @@ static const value_string valstr_021_V2_3_074_FSI[] = {
 };
 static const FieldPart I021_V2_3_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_3_074_FSI, NULL };
 static int hf_021_V2_3_074_TOMRP;
-static const FieldPart I021_V2_3_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_3_074_TOMRP, NULL };
+static const FieldPart I021_V2_3_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_3_074_TOMRP, NULL };
 static const FieldPart *I021_V2_3_074_PARTS[] = {
     &I021_V2_3_074_FSI,
     &I021_V2_3_074_TOMRP,
@@ -23888,7 +24408,7 @@ static const value_string valstr_021_V2_3_076_FSI[] = {
 };
 static const FieldPart I021_V2_3_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_3_076_FSI, NULL };
 static int hf_021_V2_3_076_TOMRP;
-static const FieldPart I021_V2_3_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_3_076_TOMRP, NULL };
+static const FieldPart I021_V2_3_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_3_076_TOMRP, NULL };
 static const FieldPart *I021_V2_3_076_PARTS[] = {
     &I021_V2_3_076_FSI,
     &I021_V2_3_076_TOMRP,
@@ -23998,9 +24518,9 @@ static const FieldPart I021_V2_3_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_02
 static int hf_021_V2_3_110_TID_ALT;
 static const FieldPart I021_V2_3_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V2_3_110_TID_ALT, NULL };
 static int hf_021_V2_3_110_TID_LAT;
-static const FieldPart I021_V2_3_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_3_110_TID_LAT, NULL };
+static const FieldPart I021_V2_3_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_3_110_TID_LAT, NULL };
 static int hf_021_V2_3_110_TID_LON;
-static const FieldPart I021_V2_3_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_3_110_TID_LON, NULL };
+static const FieldPart I021_V2_3_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_3_110_TID_LON, NULL };
 static int hf_021_V2_3_110_TID_PT;
 static const value_string valstr_021_V2_3_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -24064,9 +24584,9 @@ static const AsterixField I021_V2_3_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V2
 static const AsterixField I021_V2_3_110 = { COMPOUND, 0, 0, 0, &hf_021_V2_3_110, NULL, { &I021_V2_3_110_TIS, &I021_V2_3_110_TID, NULL } };
 static int hf_021_V2_3_130;
 static int hf_021_V2_3_130_LAT;
-static const FieldPart I021_V2_3_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_3_130_LAT, NULL };
+static const FieldPart I021_V2_3_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_3_130_LAT, NULL };
 static int hf_021_V2_3_130_LON;
-static const FieldPart I021_V2_3_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_3_130_LON, NULL };
+static const FieldPart I021_V2_3_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_3_130_LON, NULL };
 static const FieldPart *I021_V2_3_130_PARTS[] = {
     &I021_V2_3_130_LAT,
     &I021_V2_3_130_LON,
@@ -24075,9 +24595,9 @@ static const FieldPart *I021_V2_3_130_PARTS[] = {
 static const AsterixField I021_V2_3_130 = { FIXED, 6, 0, 0, &hf_021_V2_3_130, I021_V2_3_130_PARTS, { NULL } };
 static int hf_021_V2_3_131;
 static int hf_021_V2_3_131_LAT;
-static const FieldPart I021_V2_3_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_3_131_LAT, NULL };
+static const FieldPart I021_V2_3_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_3_131_LAT, NULL };
 static int hf_021_V2_3_131_LON;
-static const FieldPart I021_V2_3_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_3_131_LON, NULL };
+static const FieldPart I021_V2_3_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_3_131_LON, NULL };
 static const FieldPart *I021_V2_3_131_PARTS[] = {
     &I021_V2_3_131_LAT,
     &I021_V2_3_131_LON,
@@ -24247,7 +24767,7 @@ static const value_string valstr_021_V2_3_160_RE[] = {
 };
 static const FieldPart I021_V2_3_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_V2_3_160_RE, NULL };
 static int hf_021_V2_3_160_GS;
-static const FieldPart I021_V2_3_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_V2_3_160_GS, NULL };
+static const FieldPart I021_V2_3_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_V2_3_160_GS, NULL };
 static int hf_021_V2_3_160_TA;
 static const FieldPart I021_V2_3_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V2_3_160_TA, NULL };
 static const FieldPart *I021_V2_3_160_PARTS[] = {
@@ -25079,7 +25599,7 @@ static const value_string valstr_021_V2_4_074_FSI[] = {
 };
 static const FieldPart I021_V2_4_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_4_074_FSI, NULL };
 static int hf_021_V2_4_074_TOMRP;
-static const FieldPart I021_V2_4_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_4_074_TOMRP, NULL };
+static const FieldPart I021_V2_4_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_4_074_TOMRP, NULL };
 static const FieldPart *I021_V2_4_074_PARTS[] = {
     &I021_V2_4_074_FSI,
     &I021_V2_4_074_TOMRP,
@@ -25105,7 +25625,7 @@ static const value_string valstr_021_V2_4_076_FSI[] = {
 };
 static const FieldPart I021_V2_4_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_4_076_FSI, NULL };
 static int hf_021_V2_4_076_TOMRP;
-static const FieldPart I021_V2_4_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_4_076_TOMRP, NULL };
+static const FieldPart I021_V2_4_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_4_076_TOMRP, NULL };
 static const FieldPart *I021_V2_4_076_PARTS[] = {
     &I021_V2_4_076_FSI,
     &I021_V2_4_076_TOMRP,
@@ -25215,9 +25735,9 @@ static const FieldPart I021_V2_4_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_02
 static int hf_021_V2_4_110_TID_ALT;
 static const FieldPart I021_V2_4_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V2_4_110_TID_ALT, NULL };
 static int hf_021_V2_4_110_TID_LAT;
-static const FieldPart I021_V2_4_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_4_110_TID_LAT, NULL };
+static const FieldPart I021_V2_4_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_4_110_TID_LAT, NULL };
 static int hf_021_V2_4_110_TID_LON;
-static const FieldPart I021_V2_4_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_4_110_TID_LON, NULL };
+static const FieldPart I021_V2_4_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_4_110_TID_LON, NULL };
 static int hf_021_V2_4_110_TID_PT;
 static const value_string valstr_021_V2_4_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -25281,9 +25801,9 @@ static const AsterixField I021_V2_4_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V2
 static const AsterixField I021_V2_4_110 = { COMPOUND, 0, 0, 0, &hf_021_V2_4_110, NULL, { &I021_V2_4_110_TIS, &I021_V2_4_110_TID, NULL } };
 static int hf_021_V2_4_130;
 static int hf_021_V2_4_130_LAT;
-static const FieldPart I021_V2_4_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_4_130_LAT, NULL };
+static const FieldPart I021_V2_4_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_4_130_LAT, NULL };
 static int hf_021_V2_4_130_LON;
-static const FieldPart I021_V2_4_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_4_130_LON, NULL };
+static const FieldPart I021_V2_4_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_4_130_LON, NULL };
 static const FieldPart *I021_V2_4_130_PARTS[] = {
     &I021_V2_4_130_LAT,
     &I021_V2_4_130_LON,
@@ -25292,9 +25812,9 @@ static const FieldPart *I021_V2_4_130_PARTS[] = {
 static const AsterixField I021_V2_4_130 = { FIXED, 6, 0, 0, &hf_021_V2_4_130, I021_V2_4_130_PARTS, { NULL } };
 static int hf_021_V2_4_131;
 static int hf_021_V2_4_131_LAT;
-static const FieldPart I021_V2_4_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_4_131_LAT, NULL };
+static const FieldPart I021_V2_4_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_4_131_LAT, NULL };
 static int hf_021_V2_4_131_LON;
-static const FieldPart I021_V2_4_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_4_131_LON, NULL };
+static const FieldPart I021_V2_4_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_4_131_LON, NULL };
 static const FieldPart *I021_V2_4_131_PARTS[] = {
     &I021_V2_4_131_LAT,
     &I021_V2_4_131_LON,
@@ -25464,7 +25984,7 @@ static const value_string valstr_021_V2_4_160_RE[] = {
 };
 static const FieldPart I021_V2_4_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_V2_4_160_RE, NULL };
 static int hf_021_V2_4_160_GS;
-static const FieldPart I021_V2_4_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_V2_4_160_GS, NULL };
+static const FieldPart I021_V2_4_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_V2_4_160_GS, NULL };
 static int hf_021_V2_4_160_TA;
 static const FieldPart I021_V2_4_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V2_4_160_TA, NULL };
 static const FieldPart *I021_V2_4_160_PARTS[] = {
@@ -26296,7 +26816,7 @@ static const value_string valstr_021_V2_5_074_FSI[] = {
 };
 static const FieldPart I021_V2_5_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_5_074_FSI, NULL };
 static int hf_021_V2_5_074_TOMRP;
-static const FieldPart I021_V2_5_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_5_074_TOMRP, NULL };
+static const FieldPart I021_V2_5_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_5_074_TOMRP, NULL };
 static const FieldPart *I021_V2_5_074_PARTS[] = {
     &I021_V2_5_074_FSI,
     &I021_V2_5_074_TOMRP,
@@ -26322,7 +26842,7 @@ static const value_string valstr_021_V2_5_076_FSI[] = {
 };
 static const FieldPart I021_V2_5_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_5_076_FSI, NULL };
 static int hf_021_V2_5_076_TOMRP;
-static const FieldPart I021_V2_5_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_5_076_TOMRP, NULL };
+static const FieldPart I021_V2_5_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_5_076_TOMRP, NULL };
 static const FieldPart *I021_V2_5_076_PARTS[] = {
     &I021_V2_5_076_FSI,
     &I021_V2_5_076_TOMRP,
@@ -26432,9 +26952,9 @@ static const FieldPart I021_V2_5_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_02
 static int hf_021_V2_5_110_TID_ALT;
 static const FieldPart I021_V2_5_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V2_5_110_TID_ALT, NULL };
 static int hf_021_V2_5_110_TID_LAT;
-static const FieldPart I021_V2_5_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_5_110_TID_LAT, NULL };
+static const FieldPart I021_V2_5_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_5_110_TID_LAT, NULL };
 static int hf_021_V2_5_110_TID_LON;
-static const FieldPart I021_V2_5_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_5_110_TID_LON, NULL };
+static const FieldPart I021_V2_5_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_5_110_TID_LON, NULL };
 static int hf_021_V2_5_110_TID_PT;
 static const value_string valstr_021_V2_5_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -26498,9 +27018,9 @@ static const AsterixField I021_V2_5_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V2
 static const AsterixField I021_V2_5_110 = { COMPOUND, 0, 0, 0, &hf_021_V2_5_110, NULL, { &I021_V2_5_110_TIS, &I021_V2_5_110_TID, NULL } };
 static int hf_021_V2_5_130;
 static int hf_021_V2_5_130_LAT;
-static const FieldPart I021_V2_5_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_5_130_LAT, NULL };
+static const FieldPart I021_V2_5_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_5_130_LAT, NULL };
 static int hf_021_V2_5_130_LON;
-static const FieldPart I021_V2_5_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_5_130_LON, NULL };
+static const FieldPart I021_V2_5_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_5_130_LON, NULL };
 static const FieldPart *I021_V2_5_130_PARTS[] = {
     &I021_V2_5_130_LAT,
     &I021_V2_5_130_LON,
@@ -26509,9 +27029,9 @@ static const FieldPart *I021_V2_5_130_PARTS[] = {
 static const AsterixField I021_V2_5_130 = { FIXED, 6, 0, 0, &hf_021_V2_5_130, I021_V2_5_130_PARTS, { NULL } };
 static int hf_021_V2_5_131;
 static int hf_021_V2_5_131_LAT;
-static const FieldPart I021_V2_5_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_5_131_LAT, NULL };
+static const FieldPart I021_V2_5_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_5_131_LAT, NULL };
 static int hf_021_V2_5_131_LON;
-static const FieldPart I021_V2_5_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_5_131_LON, NULL };
+static const FieldPart I021_V2_5_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_5_131_LON, NULL };
 static const FieldPart *I021_V2_5_131_PARTS[] = {
     &I021_V2_5_131_LAT,
     &I021_V2_5_131_LON,
@@ -26681,7 +27201,7 @@ static const value_string valstr_021_V2_5_160_RE[] = {
 };
 static const FieldPart I021_V2_5_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_V2_5_160_RE, NULL };
 static int hf_021_V2_5_160_GS;
-static const FieldPart I021_V2_5_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_V2_5_160_GS, NULL };
+static const FieldPart I021_V2_5_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_V2_5_160_GS, NULL };
 static int hf_021_V2_5_160_TA;
 static const FieldPart I021_V2_5_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V2_5_160_TA, NULL };
 static const FieldPart *I021_V2_5_160_PARTS[] = {
@@ -27522,7 +28042,7 @@ static const value_string valstr_021_V2_6_074_FSI[] = {
 };
 static const FieldPart I021_V2_6_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_6_074_FSI, NULL };
 static int hf_021_V2_6_074_TOMRP;
-static const FieldPart I021_V2_6_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_6_074_TOMRP, NULL };
+static const FieldPart I021_V2_6_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_6_074_TOMRP, NULL };
 static const FieldPart *I021_V2_6_074_PARTS[] = {
     &I021_V2_6_074_FSI,
     &I021_V2_6_074_TOMRP,
@@ -27548,7 +28068,7 @@ static const value_string valstr_021_V2_6_076_FSI[] = {
 };
 static const FieldPart I021_V2_6_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_V2_6_076_FSI, NULL };
 static int hf_021_V2_6_076_TOMRP;
-static const FieldPart I021_V2_6_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_V2_6_076_TOMRP, NULL };
+static const FieldPart I021_V2_6_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_V2_6_076_TOMRP, NULL };
 static const FieldPart *I021_V2_6_076_PARTS[] = {
     &I021_V2_6_076_FSI,
     &I021_V2_6_076_TOMRP,
@@ -27658,9 +28178,9 @@ static const FieldPart I021_V2_6_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_02
 static int hf_021_V2_6_110_TID_ALT;
 static const FieldPart I021_V2_6_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_V2_6_110_TID_ALT, NULL };
 static int hf_021_V2_6_110_TID_LAT;
-static const FieldPart I021_V2_6_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_6_110_TID_LAT, NULL };
+static const FieldPart I021_V2_6_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_6_110_TID_LAT, NULL };
 static int hf_021_V2_6_110_TID_LON;
-static const FieldPart I021_V2_6_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_6_110_TID_LON, NULL };
+static const FieldPart I021_V2_6_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_6_110_TID_LON, NULL };
 static int hf_021_V2_6_110_TID_PT;
 static const value_string valstr_021_V2_6_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -27724,9 +28244,9 @@ static const AsterixField I021_V2_6_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_V2
 static const AsterixField I021_V2_6_110 = { COMPOUND, 0, 0, 0, &hf_021_V2_6_110, NULL, { &I021_V2_6_110_TIS, &I021_V2_6_110_TID, NULL } };
 static int hf_021_V2_6_130;
 static int hf_021_V2_6_130_LAT;
-static const FieldPart I021_V2_6_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_6_130_LAT, NULL };
+static const FieldPart I021_V2_6_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_6_130_LAT, NULL };
 static int hf_021_V2_6_130_LON;
-static const FieldPart I021_V2_6_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_V2_6_130_LON, NULL };
+static const FieldPart I021_V2_6_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_V2_6_130_LON, NULL };
 static const FieldPart *I021_V2_6_130_PARTS[] = {
     &I021_V2_6_130_LAT,
     &I021_V2_6_130_LON,
@@ -27735,9 +28255,9 @@ static const FieldPart *I021_V2_6_130_PARTS[] = {
 static const AsterixField I021_V2_6_130 = { FIXED, 6, 0, 0, &hf_021_V2_6_130, I021_V2_6_130_PARTS, { NULL } };
 static int hf_021_V2_6_131;
 static int hf_021_V2_6_131_LAT;
-static const FieldPart I021_V2_6_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_6_131_LAT, NULL };
+static const FieldPart I021_V2_6_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_6_131_LAT, NULL };
 static int hf_021_V2_6_131_LON;
-static const FieldPart I021_V2_6_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_V2_6_131_LON, NULL };
+static const FieldPart I021_V2_6_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_V2_6_131_LON, NULL };
 static const FieldPart *I021_V2_6_131_PARTS[] = {
     &I021_V2_6_131_LAT,
     &I021_V2_6_131_LON,
@@ -27907,7 +28427,7 @@ static const value_string valstr_021_V2_6_160_RE[] = {
 };
 static const FieldPart I021_V2_6_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_V2_6_160_RE, NULL };
 static int hf_021_V2_6_160_GS;
-static const FieldPart I021_V2_6_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_V2_6_160_GS, NULL };
+static const FieldPart I021_V2_6_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_V2_6_160_GS, NULL };
 static int hf_021_V2_6_160_TA;
 static const FieldPart I021_V2_6_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_V2_6_160_TA, NULL };
 static const FieldPart *I021_V2_6_160_PARTS[] = {
@@ -28689,7 +29209,7 @@ static const value_string valstr_021_074_FSI[] = {
 };
 static const FieldPart I021_074_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_074_FSI, NULL };
 static int hf_021_074_TOMRP;
-static const FieldPart I021_074_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_074_TOMRP, NULL };
+static const FieldPart I021_074_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_074_TOMRP, NULL };
 static const FieldPart *I021_074_PARTS[] = {
     &I021_074_FSI,
     &I021_074_TOMRP,
@@ -28715,7 +29235,7 @@ static const value_string valstr_021_076_FSI[] = {
 };
 static const FieldPart I021_076_FSI = { 2, 1.0, FIELD_PART_UINT, &hf_021_076_FSI, NULL };
 static int hf_021_076_TOMRP;
-static const FieldPart I021_076_TOMRP = { 30, 0.00000000093132257461547851562, FIELD_PART_UFLOAT, &hf_021_076_TOMRP, NULL };
+static const FieldPart I021_076_TOMRP = { 30, 9.313225746154785e-10, FIELD_PART_UFLOAT, &hf_021_076_TOMRP, NULL };
 static const FieldPart *I021_076_PARTS[] = {
     &I021_076_FSI,
     &I021_076_TOMRP,
@@ -28825,9 +29345,9 @@ static const FieldPart I021_110_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_021_110
 static int hf_021_110_TID_ALT;
 static const FieldPart I021_110_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_021_110_TID_ALT, NULL };
 static int hf_021_110_TID_LAT;
-static const FieldPart I021_110_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_110_TID_LAT, NULL };
+static const FieldPart I021_110_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_110_TID_LAT, NULL };
 static int hf_021_110_TID_LON;
-static const FieldPart I021_110_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_110_TID_LON, NULL };
+static const FieldPart I021_110_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_110_TID_LON, NULL };
 static int hf_021_110_TID_PT;
 static const value_string valstr_021_110_TID_PT[] = {
     { 0, "Unknown" },
@@ -28891,9 +29411,9 @@ static const AsterixField I021_110_TID = { REPETITIVE, 15, 1, 0, &hf_021_110_TID
 static const AsterixField I021_110 = { COMPOUND, 0, 0, 0, &hf_021_110, NULL, { &I021_110_TIS, &I021_110_TID, NULL } };
 static int hf_021_130;
 static int hf_021_130_LAT;
-static const FieldPart I021_130_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_130_LAT, NULL };
+static const FieldPart I021_130_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_130_LAT, NULL };
 static int hf_021_130_LON;
-static const FieldPart I021_130_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_021_130_LON, NULL };
+static const FieldPart I021_130_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_021_130_LON, NULL };
 static const FieldPart *I021_130_PARTS[] = {
     &I021_130_LAT,
     &I021_130_LON,
@@ -28902,9 +29422,9 @@ static const FieldPart *I021_130_PARTS[] = {
 static const AsterixField I021_130 = { FIXED, 6, 0, 0, &hf_021_130, I021_130_PARTS, { NULL } };
 static int hf_021_131;
 static int hf_021_131_LAT;
-static const FieldPart I021_131_LAT = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_131_LAT, NULL };
+static const FieldPart I021_131_LAT = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_131_LAT, NULL };
 static int hf_021_131_LON;
-static const FieldPart I021_131_LON = { 32, 0.0000001676380634307861328125, FIELD_PART_FLOAT, &hf_021_131_LON, NULL };
+static const FieldPart I021_131_LON = { 32, 1.6763806343078613e-07, FIELD_PART_FLOAT, &hf_021_131_LON, NULL };
 static const FieldPart *I021_131_PARTS[] = {
     &I021_131_LAT,
     &I021_131_LON,
@@ -29074,7 +29594,7 @@ static const value_string valstr_021_160_RE[] = {
 };
 static const FieldPart I021_160_RE = { 1, 1.0, FIELD_PART_UINT, &hf_021_160_RE, NULL };
 static int hf_021_160_GS;
-static const FieldPart I021_160_GS = { 15, 0.00006103515625, FIELD_PART_UFLOAT, &hf_021_160_GS, NULL };
+static const FieldPart I021_160_GS = { 15, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_021_160_GS, NULL };
 static int hf_021_160_TA;
 static const FieldPart I021_160_TA = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_021_160_TA, NULL };
 static const FieldPart *I021_160_PARTS[] = {
@@ -31164,9 +31684,9 @@ static const FieldPart *I025_V1_5_200_PARTS[] = {
 static const AsterixField I025_V1_5_200 = { FIXED, 3, 0, 0, &hf_025_V1_5_200, I025_V1_5_200_PARTS, { NULL } };
 static int hf_025_V1_5_600;
 static int hf_025_V1_5_600_LAT;
-static const FieldPart I025_V1_5_600_LAT = { 32, 0.00000004190951585769653320312, FIELD_PART_FLOAT, &hf_025_V1_5_600_LAT, NULL };
+static const FieldPart I025_V1_5_600_LAT = { 32, 4.190951585769653e-08, FIELD_PART_FLOAT, &hf_025_V1_5_600_LAT, NULL };
 static int hf_025_V1_5_600_LON;
-static const FieldPart I025_V1_5_600_LON = { 32, 0.00000004190951585769653320312, FIELD_PART_FLOAT, &hf_025_V1_5_600_LON, NULL };
+static const FieldPart I025_V1_5_600_LON = { 32, 4.190951585769653e-08, FIELD_PART_FLOAT, &hf_025_V1_5_600_LON, NULL };
 static const FieldPart *I025_V1_5_600_PARTS[] = {
     &I025_V1_5_600_LAT,
     &I025_V1_5_600_LON,
@@ -31956,9 +32476,9 @@ static const FieldPart *I025_200_PARTS[] = {
 static const AsterixField I025_200 = { FIXED, 3, 0, 0, &hf_025_200, I025_200_PARTS, { NULL } };
 static int hf_025_600;
 static int hf_025_600_LAT;
-static const FieldPart I025_600_LAT = { 32, 0.00000004190951585769653320312, FIELD_PART_FLOAT, &hf_025_600_LAT, NULL };
+static const FieldPart I025_600_LAT = { 32, 4.190951585769653e-08, FIELD_PART_FLOAT, &hf_025_600_LAT, NULL };
 static int hf_025_600_LON;
-static const FieldPart I025_600_LON = { 32, 0.00000004190951585769653320312, FIELD_PART_FLOAT, &hf_025_600_LON, NULL };
+static const FieldPart I025_600_LON = { 32, 4.190951585769653e-08, FIELD_PART_FLOAT, &hf_025_600_LON, NULL };
 static const FieldPart *I025_600_PARTS[] = {
     &I025_600_LAT,
     &I025_600_LON,
@@ -33328,9 +33848,9 @@ static int hf_034_V1_27_120;
 static int hf_034_V1_27_120_HGT;
 static const FieldPart I034_V1_27_120_HGT = { 16, 1.0, FIELD_PART_FLOAT, &hf_034_V1_27_120_HGT, NULL };
 static int hf_034_V1_27_120_LAT;
-static const FieldPart I034_V1_27_120_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_27_120_LAT, NULL };
+static const FieldPart I034_V1_27_120_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_27_120_LAT, NULL };
 static int hf_034_V1_27_120_LON;
-static const FieldPart I034_V1_27_120_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_27_120_LON, NULL };
+static const FieldPart I034_V1_27_120_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_27_120_LON, NULL };
 static const FieldPart *I034_V1_27_120_PARTS[] = {
     &I034_V1_27_120_HGT,
     &I034_V1_27_120_LAT,
@@ -33846,9 +34366,9 @@ static int hf_034_V1_28_120;
 static int hf_034_V1_28_120_HGT;
 static const FieldPart I034_V1_28_120_HGT = { 16, 1.0, FIELD_PART_FLOAT, &hf_034_V1_28_120_HGT, NULL };
 static int hf_034_V1_28_120_LAT;
-static const FieldPart I034_V1_28_120_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_28_120_LAT, NULL };
+static const FieldPart I034_V1_28_120_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_28_120_LAT, NULL };
 static int hf_034_V1_28_120_LON;
-static const FieldPart I034_V1_28_120_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_28_120_LON, NULL };
+static const FieldPart I034_V1_28_120_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_28_120_LON, NULL };
 static const FieldPart *I034_V1_28_120_PARTS[] = {
     &I034_V1_28_120_HGT,
     &I034_V1_28_120_LAT,
@@ -34366,9 +34886,9 @@ static int hf_034_V1_29_120;
 static int hf_034_V1_29_120_HGT;
 static const FieldPart I034_V1_29_120_HGT = { 16, 1.0, FIELD_PART_FLOAT, &hf_034_V1_29_120_HGT, NULL };
 static int hf_034_V1_29_120_LAT;
-static const FieldPart I034_V1_29_120_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_29_120_LAT, NULL };
+static const FieldPart I034_V1_29_120_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_29_120_LAT, NULL };
 static int hf_034_V1_29_120_LON;
-static const FieldPart I034_V1_29_120_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_V1_29_120_LON, NULL };
+static const FieldPart I034_V1_29_120_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_V1_29_120_LON, NULL };
 static const FieldPart *I034_V1_29_120_PARTS[] = {
     &I034_V1_29_120_HGT,
     &I034_V1_29_120_LAT,
@@ -34862,9 +35382,9 @@ static int hf_034_120;
 static int hf_034_120_HGT;
 static const FieldPart I034_120_HGT = { 16, 1.0, FIELD_PART_FLOAT, &hf_034_120_HGT, NULL };
 static int hf_034_120_LAT;
-static const FieldPart I034_120_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_120_LAT, NULL };
+static const FieldPart I034_120_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_120_LAT, NULL };
 static int hf_034_120_LON;
-static const FieldPart I034_120_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_034_120_LON, NULL };
+static const FieldPart I034_120_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_034_120_LON, NULL };
 static const FieldPart *I034_120_PARTS[] = {
     &I034_120_HGT,
     &I034_120_LAT,
@@ -35803,7 +36323,7 @@ static const FieldPart *I048_V1_27_170_PARTS[] = {
 static const AsterixField I048_V1_27_170 = { FX, 1, 0, 0, &hf_048_V1_27_170, I048_V1_27_170_PARTS, { NULL } };
 static int hf_048_V1_27_200;
 static int hf_048_V1_27_200_GSP;
-static const FieldPart I048_V1_27_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_27_200_GSP, NULL };
+static const FieldPart I048_V1_27_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_27_200_GSP, NULL };
 static int hf_048_V1_27_200_HDG;
 static const FieldPart I048_V1_27_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_V1_27_200_HDG, NULL };
 static const FieldPart *I048_V1_27_200_PARTS[] = {
@@ -35818,7 +36338,7 @@ static const FieldPart I048_V1_27_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, 
 static int hf_048_V1_27_210_SIGY;
 static const FieldPart I048_V1_27_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_V1_27_210_SIGY, NULL };
 static int hf_048_V1_27_210_SIGV;
-static const FieldPart I048_V1_27_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_27_210_SIGV, NULL };
+static const FieldPart I048_V1_27_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_27_210_SIGV, NULL };
 static int hf_048_V1_27_210_SIGH;
 static const FieldPart I048_V1_27_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_V1_27_210_SIGH, NULL };
 static const FieldPart *I048_V1_27_210_PARTS[] = {
@@ -36859,7 +37379,7 @@ static const FieldPart *I048_V1_28_170_PARTS[] = {
 static const AsterixField I048_V1_28_170 = { FX, 1, 0, 0, &hf_048_V1_28_170, I048_V1_28_170_PARTS, { NULL } };
 static int hf_048_V1_28_200;
 static int hf_048_V1_28_200_GSP;
-static const FieldPart I048_V1_28_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_28_200_GSP, NULL };
+static const FieldPart I048_V1_28_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_28_200_GSP, NULL };
 static int hf_048_V1_28_200_HDG;
 static const FieldPart I048_V1_28_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_V1_28_200_HDG, NULL };
 static const FieldPart *I048_V1_28_200_PARTS[] = {
@@ -36874,7 +37394,7 @@ static const FieldPart I048_V1_28_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, 
 static int hf_048_V1_28_210_SIGY;
 static const FieldPart I048_V1_28_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_V1_28_210_SIGY, NULL };
 static int hf_048_V1_28_210_SIGV;
-static const FieldPart I048_V1_28_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_28_210_SIGV, NULL };
+static const FieldPart I048_V1_28_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_28_210_SIGV, NULL };
 static int hf_048_V1_28_210_SIGH;
 static const FieldPart I048_V1_28_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_V1_28_210_SIGH, NULL };
 static const FieldPart *I048_V1_28_210_PARTS[] = {
@@ -37915,7 +38435,7 @@ static const FieldPart *I048_V1_29_170_PARTS[] = {
 static const AsterixField I048_V1_29_170 = { FX, 1, 0, 0, &hf_048_V1_29_170, I048_V1_29_170_PARTS, { NULL } };
 static int hf_048_V1_29_200;
 static int hf_048_V1_29_200_GSP;
-static const FieldPart I048_V1_29_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_29_200_GSP, NULL };
+static const FieldPart I048_V1_29_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_29_200_GSP, NULL };
 static int hf_048_V1_29_200_HDG;
 static const FieldPart I048_V1_29_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_V1_29_200_HDG, NULL };
 static const FieldPart *I048_V1_29_200_PARTS[] = {
@@ -37930,7 +38450,7 @@ static const FieldPart I048_V1_29_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, 
 static int hf_048_V1_29_210_SIGY;
 static const FieldPart I048_V1_29_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_V1_29_210_SIGY, NULL };
 static int hf_048_V1_29_210_SIGV;
-static const FieldPart I048_V1_29_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_29_210_SIGV, NULL };
+static const FieldPart I048_V1_29_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_29_210_SIGV, NULL };
 static int hf_048_V1_29_210_SIGH;
 static const FieldPart I048_V1_29_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_V1_29_210_SIGH, NULL };
 static const FieldPart *I048_V1_29_210_PARTS[] = {
@@ -38971,7 +39491,7 @@ static const FieldPart *I048_V1_30_170_PARTS[] = {
 static const AsterixField I048_V1_30_170 = { FX, 1, 0, 0, &hf_048_V1_30_170, I048_V1_30_170_PARTS, { NULL } };
 static int hf_048_V1_30_200;
 static int hf_048_V1_30_200_GSP;
-static const FieldPart I048_V1_30_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_30_200_GSP, NULL };
+static const FieldPart I048_V1_30_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_30_200_GSP, NULL };
 static int hf_048_V1_30_200_HDG;
 static const FieldPart I048_V1_30_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_V1_30_200_HDG, NULL };
 static const FieldPart *I048_V1_30_200_PARTS[] = {
@@ -38986,7 +39506,7 @@ static const FieldPart I048_V1_30_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, 
 static int hf_048_V1_30_210_SIGY;
 static const FieldPart I048_V1_30_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_V1_30_210_SIGY, NULL };
 static int hf_048_V1_30_210_SIGV;
-static const FieldPart I048_V1_30_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_30_210_SIGV, NULL };
+static const FieldPart I048_V1_30_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_30_210_SIGV, NULL };
 static int hf_048_V1_30_210_SIGH;
 static const FieldPart I048_V1_30_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_V1_30_210_SIGH, NULL };
 static const FieldPart *I048_V1_30_210_PARTS[] = {
@@ -40040,7 +40560,7 @@ static const FieldPart *I048_V1_31_170_PARTS[] = {
 static const AsterixField I048_V1_31_170 = { FX, 1, 0, 0, &hf_048_V1_31_170, I048_V1_31_170_PARTS, { NULL } };
 static int hf_048_V1_31_200;
 static int hf_048_V1_31_200_GSP;
-static const FieldPart I048_V1_31_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_31_200_GSP, NULL };
+static const FieldPart I048_V1_31_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_31_200_GSP, NULL };
 static int hf_048_V1_31_200_HDG;
 static const FieldPart I048_V1_31_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_V1_31_200_HDG, NULL };
 static const FieldPart *I048_V1_31_200_PARTS[] = {
@@ -40055,7 +40575,7 @@ static const FieldPart I048_V1_31_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, 
 static int hf_048_V1_31_210_SIGY;
 static const FieldPart I048_V1_31_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_V1_31_210_SIGY, NULL };
 static int hf_048_V1_31_210_SIGV;
-static const FieldPart I048_V1_31_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_V1_31_210_SIGV, NULL };
+static const FieldPart I048_V1_31_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_V1_31_210_SIGV, NULL };
 static int hf_048_V1_31_210_SIGH;
 static const FieldPart I048_V1_31_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_V1_31_210_SIGH, NULL };
 static const FieldPart *I048_V1_31_210_PARTS[] = {
@@ -41071,7 +41591,7 @@ static const FieldPart *I048_170_PARTS[] = {
 static const AsterixField I048_170 = { FX, 1, 0, 0, &hf_048_170, I048_170_PARTS, { NULL } };
 static int hf_048_200;
 static int hf_048_200_GSP;
-static const FieldPart I048_200_GSP = { 16, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_200_GSP, NULL };
+static const FieldPart I048_200_GSP = { 16, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_200_GSP, NULL };
 static int hf_048_200_HDG;
 static const FieldPart I048_200_HDG = { 16, 0.0054931640625, FIELD_PART_UFLOAT, &hf_048_200_HDG, NULL };
 static const FieldPart *I048_200_PARTS[] = {
@@ -41086,7 +41606,7 @@ static const FieldPart I048_210_SIGX = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_04
 static int hf_048_210_SIGY;
 static const FieldPart I048_210_SIGY = { 8, 0.0078125, FIELD_PART_UFLOAT, &hf_048_210_SIGY, NULL };
 static int hf_048_210_SIGV;
-static const FieldPart I048_210_SIGV = { 8, 0.00006103515625, FIELD_PART_UFLOAT, &hf_048_210_SIGV, NULL };
+static const FieldPart I048_210_SIGV = { 8, 6.103515625e-05, FIELD_PART_UFLOAT, &hf_048_210_SIGV, NULL };
 static int hf_048_210_SIGH;
 static const FieldPart I048_210_SIGH = { 8, 0.087890625, FIELD_PART_UFLOAT, &hf_048_210_SIGH, NULL };
 static const FieldPart *I048_210_PARTS[] = {
@@ -41644,9 +42164,9 @@ static const FieldPart *I062_V1_17_100_PARTS[] = {
 static const AsterixField I062_V1_17_100 = { FIXED, 6, 0, 0, &hf_062_V1_17_100, I062_V1_17_100_PARTS, { NULL } };
 static int hf_062_V1_17_105;
 static int hf_062_V1_17_105_LAT;
-static const FieldPart I062_V1_17_105_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_17_105_LAT, NULL };
+static const FieldPart I062_V1_17_105_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_17_105_LAT, NULL };
 static int hf_062_V1_17_105_LON;
-static const FieldPart I062_V1_17_105_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_17_105_LON, NULL };
+static const FieldPart I062_V1_17_105_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_17_105_LON, NULL };
 static const FieldPart *I062_V1_17_105_PARTS[] = {
     &I062_V1_17_105_LAT,
     &I062_V1_17_105_LON,
@@ -41742,9 +42262,9 @@ static const FieldPart *I062_V1_17_110_PMN_PARTS[] = {
 static const AsterixField I062_V1_17_110_PMN = { FIXED, 4, 0, 0, &hf_062_V1_17_110_PMN, I062_V1_17_110_PMN_PARTS, { NULL } };
 static int hf_062_V1_17_110_POS;
 static int hf_062_V1_17_110_POS_LAT;
-static const FieldPart I062_V1_17_110_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_110_POS_LAT, NULL };
+static const FieldPart I062_V1_17_110_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_110_POS_LAT, NULL };
 static int hf_062_V1_17_110_POS_LON;
-static const FieldPart I062_V1_17_110_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_110_POS_LON, NULL };
+static const FieldPart I062_V1_17_110_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_110_POS_LON, NULL };
 static const FieldPart *I062_V1_17_110_POS_PARTS[] = {
     &I062_V1_17_110_POS_LAT,
     &I062_V1_17_110_POS_LON,
@@ -42626,9 +43146,9 @@ static const FieldPart I062_V1_17_380_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_062_V1_17_380_TID_ALT;
 static const FieldPart I062_V1_17_380_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_062_V1_17_380_TID_ALT, NULL };
 static int hf_062_V1_17_380_TID_LAT;
-static const FieldPart I062_V1_17_380_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_380_TID_LAT, NULL };
+static const FieldPart I062_V1_17_380_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_380_TID_LAT, NULL };
 static int hf_062_V1_17_380_TID_LON;
-static const FieldPart I062_V1_17_380_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_380_TID_LON, NULL };
+static const FieldPart I062_V1_17_380_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_380_TID_LON, NULL };
 static int hf_062_V1_17_380_TID_PT;
 static const value_string valstr_062_V1_17_380_TID_PT[] = {
     { 0, "Unknown" },
@@ -42871,7 +43391,7 @@ static const FieldPart *I062_V1_17_380_TAN_PARTS[] = {
 static const AsterixField I062_V1_17_380_TAN = { FIXED, 2, 0, 0, &hf_062_V1_17_380_TAN, I062_V1_17_380_TAN_PARTS, { NULL } };
 static int hf_062_V1_17_380_GS;
 static int hf_062_V1_17_380_GS_VALUE;
-static const FieldPart I062_V1_17_380_GS_VALUE = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_062_V1_17_380_GS_VALUE, NULL };
+static const FieldPart I062_V1_17_380_GS_VALUE = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_380_GS_VALUE, NULL };
 static const FieldPart *I062_V1_17_380_GS_PARTS[] = {
     &I062_V1_17_380_GS_VALUE,
     NULL
@@ -42972,9 +43492,9 @@ static const FieldPart *I062_V1_17_380_EMC_PARTS[] = {
 static const AsterixField I062_V1_17_380_EMC = { FIXED, 1, 0, 0, &hf_062_V1_17_380_EMC, I062_V1_17_380_EMC_PARTS, { NULL } };
 static int hf_062_V1_17_380_POS;
 static int hf_062_V1_17_380_POS_LAT;
-static const FieldPart I062_V1_17_380_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_380_POS_LAT, NULL };
+static const FieldPart I062_V1_17_380_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_380_POS_LAT, NULL };
 static int hf_062_V1_17_380_POS_LON;
-static const FieldPart I062_V1_17_380_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_17_380_POS_LON, NULL };
+static const FieldPart I062_V1_17_380_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_17_380_POS_LON, NULL };
 static const FieldPart *I062_V1_17_380_POS_PARTS[] = {
     &I062_V1_17_380_POS_LAT,
     &I062_V1_17_380_POS_LON,
@@ -43333,9 +43853,9 @@ static const FieldPart *I062_V1_17_500_COV_PARTS[] = {
 static const AsterixField I062_V1_17_500_COV = { FIXED, 2, 0, 0, &hf_062_V1_17_500_COV, I062_V1_17_500_COV_PARTS, { NULL } };
 static int hf_062_V1_17_500_APW;
 static int hf_062_V1_17_500_APW_LAT;
-static const FieldPart I062_V1_17_500_APW_LAT = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_17_500_APW_LAT, NULL };
+static const FieldPart I062_V1_17_500_APW_LAT = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_17_500_APW_LAT, NULL };
 static int hf_062_V1_17_500_APW_LON;
-static const FieldPart I062_V1_17_500_APW_LON = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_17_500_APW_LON, NULL };
+static const FieldPart I062_V1_17_500_APW_LON = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_17_500_APW_LON, NULL };
 static const FieldPart *I062_V1_17_500_APW_PARTS[] = {
     &I062_V1_17_500_APW_LAT,
     &I062_V1_17_500_APW_LON,
@@ -43842,9 +44362,9 @@ static const FieldPart *I062_V1_18_100_PARTS[] = {
 static const AsterixField I062_V1_18_100 = { FIXED, 6, 0, 0, &hf_062_V1_18_100, I062_V1_18_100_PARTS, { NULL } };
 static int hf_062_V1_18_105;
 static int hf_062_V1_18_105_LAT;
-static const FieldPart I062_V1_18_105_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_18_105_LAT, NULL };
+static const FieldPart I062_V1_18_105_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_18_105_LAT, NULL };
 static int hf_062_V1_18_105_LON;
-static const FieldPart I062_V1_18_105_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_18_105_LON, NULL };
+static const FieldPart I062_V1_18_105_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_18_105_LON, NULL };
 static const FieldPart *I062_V1_18_105_PARTS[] = {
     &I062_V1_18_105_LAT,
     &I062_V1_18_105_LON,
@@ -43940,9 +44460,9 @@ static const FieldPart *I062_V1_18_110_PMN_PARTS[] = {
 static const AsterixField I062_V1_18_110_PMN = { FIXED, 4, 0, 0, &hf_062_V1_18_110_PMN, I062_V1_18_110_PMN_PARTS, { NULL } };
 static int hf_062_V1_18_110_POS;
 static int hf_062_V1_18_110_POS_LAT;
-static const FieldPart I062_V1_18_110_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_110_POS_LAT, NULL };
+static const FieldPart I062_V1_18_110_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_110_POS_LAT, NULL };
 static int hf_062_V1_18_110_POS_LON;
-static const FieldPart I062_V1_18_110_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_110_POS_LON, NULL };
+static const FieldPart I062_V1_18_110_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_110_POS_LON, NULL };
 static const FieldPart *I062_V1_18_110_POS_PARTS[] = {
     &I062_V1_18_110_POS_LAT,
     &I062_V1_18_110_POS_LON,
@@ -44824,9 +45344,9 @@ static const FieldPart I062_V1_18_380_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_062_V1_18_380_TID_ALT;
 static const FieldPart I062_V1_18_380_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_062_V1_18_380_TID_ALT, NULL };
 static int hf_062_V1_18_380_TID_LAT;
-static const FieldPart I062_V1_18_380_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_380_TID_LAT, NULL };
+static const FieldPart I062_V1_18_380_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_380_TID_LAT, NULL };
 static int hf_062_V1_18_380_TID_LON;
-static const FieldPart I062_V1_18_380_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_380_TID_LON, NULL };
+static const FieldPart I062_V1_18_380_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_380_TID_LON, NULL };
 static int hf_062_V1_18_380_TID_PT;
 static const value_string valstr_062_V1_18_380_TID_PT[] = {
     { 0, "Unknown" },
@@ -45071,7 +45591,7 @@ static const FieldPart *I062_V1_18_380_TAN_PARTS[] = {
 static const AsterixField I062_V1_18_380_TAN = { FIXED, 2, 0, 0, &hf_062_V1_18_380_TAN, I062_V1_18_380_TAN_PARTS, { NULL } };
 static int hf_062_V1_18_380_GS;
 static int hf_062_V1_18_380_GS_VALUE;
-static const FieldPart I062_V1_18_380_GS_VALUE = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_062_V1_18_380_GS_VALUE, NULL };
+static const FieldPart I062_V1_18_380_GS_VALUE = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_380_GS_VALUE, NULL };
 static const FieldPart *I062_V1_18_380_GS_PARTS[] = {
     &I062_V1_18_380_GS_VALUE,
     NULL
@@ -45172,9 +45692,9 @@ static const FieldPart *I062_V1_18_380_EMC_PARTS[] = {
 static const AsterixField I062_V1_18_380_EMC = { FIXED, 1, 0, 0, &hf_062_V1_18_380_EMC, I062_V1_18_380_EMC_PARTS, { NULL } };
 static int hf_062_V1_18_380_POS;
 static int hf_062_V1_18_380_POS_LAT;
-static const FieldPart I062_V1_18_380_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_380_POS_LAT, NULL };
+static const FieldPart I062_V1_18_380_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_380_POS_LAT, NULL };
 static int hf_062_V1_18_380_POS_LON;
-static const FieldPart I062_V1_18_380_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_18_380_POS_LON, NULL };
+static const FieldPart I062_V1_18_380_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_18_380_POS_LON, NULL };
 static const FieldPart *I062_V1_18_380_POS_PARTS[] = {
     &I062_V1_18_380_POS_LAT,
     &I062_V1_18_380_POS_LON,
@@ -45533,9 +46053,9 @@ static const FieldPart *I062_V1_18_500_COV_PARTS[] = {
 static const AsterixField I062_V1_18_500_COV = { FIXED, 2, 0, 0, &hf_062_V1_18_500_COV, I062_V1_18_500_COV_PARTS, { NULL } };
 static int hf_062_V1_18_500_APW;
 static int hf_062_V1_18_500_APW_LAT;
-static const FieldPart I062_V1_18_500_APW_LAT = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_18_500_APW_LAT, NULL };
+static const FieldPart I062_V1_18_500_APW_LAT = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_18_500_APW_LAT, NULL };
 static int hf_062_V1_18_500_APW_LON;
-static const FieldPart I062_V1_18_500_APW_LON = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_18_500_APW_LON, NULL };
+static const FieldPart I062_V1_18_500_APW_LON = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_18_500_APW_LON, NULL };
 static const FieldPart *I062_V1_18_500_APW_PARTS[] = {
     &I062_V1_18_500_APW_LAT,
     &I062_V1_18_500_APW_LON,
@@ -46042,9 +46562,9 @@ static const FieldPart *I062_V1_19_100_PARTS[] = {
 static const AsterixField I062_V1_19_100 = { FIXED, 6, 0, 0, &hf_062_V1_19_100, I062_V1_19_100_PARTS, { NULL } };
 static int hf_062_V1_19_105;
 static int hf_062_V1_19_105_LAT;
-static const FieldPart I062_V1_19_105_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_19_105_LAT, NULL };
+static const FieldPart I062_V1_19_105_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_19_105_LAT, NULL };
 static int hf_062_V1_19_105_LON;
-static const FieldPart I062_V1_19_105_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_19_105_LON, NULL };
+static const FieldPart I062_V1_19_105_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_19_105_LON, NULL };
 static const FieldPart *I062_V1_19_105_PARTS[] = {
     &I062_V1_19_105_LAT,
     &I062_V1_19_105_LON,
@@ -46140,9 +46660,9 @@ static const FieldPart *I062_V1_19_110_PMN_PARTS[] = {
 static const AsterixField I062_V1_19_110_PMN = { FIXED, 4, 0, 0, &hf_062_V1_19_110_PMN, I062_V1_19_110_PMN_PARTS, { NULL } };
 static int hf_062_V1_19_110_POS;
 static int hf_062_V1_19_110_POS_LAT;
-static const FieldPart I062_V1_19_110_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_110_POS_LAT, NULL };
+static const FieldPart I062_V1_19_110_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_110_POS_LAT, NULL };
 static int hf_062_V1_19_110_POS_LON;
-static const FieldPart I062_V1_19_110_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_110_POS_LON, NULL };
+static const FieldPart I062_V1_19_110_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_110_POS_LON, NULL };
 static const FieldPart *I062_V1_19_110_POS_PARTS[] = {
     &I062_V1_19_110_POS_LAT,
     &I062_V1_19_110_POS_LON,
@@ -47024,9 +47544,9 @@ static const FieldPart I062_V1_19_380_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_062_V1_19_380_TID_ALT;
 static const FieldPart I062_V1_19_380_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_062_V1_19_380_TID_ALT, NULL };
 static int hf_062_V1_19_380_TID_LAT;
-static const FieldPart I062_V1_19_380_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_380_TID_LAT, NULL };
+static const FieldPart I062_V1_19_380_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_380_TID_LAT, NULL };
 static int hf_062_V1_19_380_TID_LON;
-static const FieldPart I062_V1_19_380_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_380_TID_LON, NULL };
+static const FieldPart I062_V1_19_380_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_380_TID_LON, NULL };
 static int hf_062_V1_19_380_TID_PT;
 static const value_string valstr_062_V1_19_380_TID_PT[] = {
     { 0, "Unknown" },
@@ -47271,7 +47791,7 @@ static const FieldPart *I062_V1_19_380_TAN_PARTS[] = {
 static const AsterixField I062_V1_19_380_TAN = { FIXED, 2, 0, 0, &hf_062_V1_19_380_TAN, I062_V1_19_380_TAN_PARTS, { NULL } };
 static int hf_062_V1_19_380_GS;
 static int hf_062_V1_19_380_GS_VALUE;
-static const FieldPart I062_V1_19_380_GS_VALUE = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_062_V1_19_380_GS_VALUE, NULL };
+static const FieldPart I062_V1_19_380_GS_VALUE = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_380_GS_VALUE, NULL };
 static const FieldPart *I062_V1_19_380_GS_PARTS[] = {
     &I062_V1_19_380_GS_VALUE,
     NULL
@@ -47372,9 +47892,9 @@ static const FieldPart *I062_V1_19_380_EMC_PARTS[] = {
 static const AsterixField I062_V1_19_380_EMC = { FIXED, 1, 0, 0, &hf_062_V1_19_380_EMC, I062_V1_19_380_EMC_PARTS, { NULL } };
 static int hf_062_V1_19_380_POS;
 static int hf_062_V1_19_380_POS_LAT;
-static const FieldPart I062_V1_19_380_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_380_POS_LAT, NULL };
+static const FieldPart I062_V1_19_380_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_380_POS_LAT, NULL };
 static int hf_062_V1_19_380_POS_LON;
-static const FieldPart I062_V1_19_380_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_19_380_POS_LON, NULL };
+static const FieldPart I062_V1_19_380_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_19_380_POS_LON, NULL };
 static const FieldPart *I062_V1_19_380_POS_PARTS[] = {
     &I062_V1_19_380_POS_LAT,
     &I062_V1_19_380_POS_LON,
@@ -47733,9 +48253,9 @@ static const FieldPart *I062_V1_19_500_COV_PARTS[] = {
 static const AsterixField I062_V1_19_500_COV = { FIXED, 2, 0, 0, &hf_062_V1_19_500_COV, I062_V1_19_500_COV_PARTS, { NULL } };
 static int hf_062_V1_19_500_APW;
 static int hf_062_V1_19_500_APW_LAT;
-static const FieldPart I062_V1_19_500_APW_LAT = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_19_500_APW_LAT, NULL };
+static const FieldPart I062_V1_19_500_APW_LAT = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_19_500_APW_LAT, NULL };
 static int hf_062_V1_19_500_APW_LON;
-static const FieldPart I062_V1_19_500_APW_LON = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_19_500_APW_LON, NULL };
+static const FieldPart I062_V1_19_500_APW_LON = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_19_500_APW_LON, NULL };
 static const FieldPart *I062_V1_19_500_APW_PARTS[] = {
     &I062_V1_19_500_APW_LAT,
     &I062_V1_19_500_APW_LON,
@@ -48249,9 +48769,9 @@ static const FieldPart *I062_V1_20_100_PARTS[] = {
 static const AsterixField I062_V1_20_100 = { FIXED, 6, 0, 0, &hf_062_V1_20_100, I062_V1_20_100_PARTS, { NULL } };
 static int hf_062_V1_20_105;
 static int hf_062_V1_20_105_LAT;
-static const FieldPart I062_V1_20_105_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_20_105_LAT, NULL };
+static const FieldPart I062_V1_20_105_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_20_105_LAT, NULL };
 static int hf_062_V1_20_105_LON;
-static const FieldPart I062_V1_20_105_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_V1_20_105_LON, NULL };
+static const FieldPart I062_V1_20_105_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_V1_20_105_LON, NULL };
 static const FieldPart *I062_V1_20_105_PARTS[] = {
     &I062_V1_20_105_LAT,
     &I062_V1_20_105_LON,
@@ -48347,9 +48867,9 @@ static const FieldPart *I062_V1_20_110_PMN_PARTS[] = {
 static const AsterixField I062_V1_20_110_PMN = { FIXED, 4, 0, 0, &hf_062_V1_20_110_PMN, I062_V1_20_110_PMN_PARTS, { NULL } };
 static int hf_062_V1_20_110_POS;
 static int hf_062_V1_20_110_POS_LAT;
-static const FieldPart I062_V1_20_110_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_110_POS_LAT, NULL };
+static const FieldPart I062_V1_20_110_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_110_POS_LAT, NULL };
 static int hf_062_V1_20_110_POS_LON;
-static const FieldPart I062_V1_20_110_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_110_POS_LON, NULL };
+static const FieldPart I062_V1_20_110_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_110_POS_LON, NULL };
 static const FieldPart *I062_V1_20_110_POS_PARTS[] = {
     &I062_V1_20_110_POS_LAT,
     &I062_V1_20_110_POS_LON,
@@ -49231,9 +49751,9 @@ static const FieldPart I062_V1_20_380_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_0
 static int hf_062_V1_20_380_TID_ALT;
 static const FieldPart I062_V1_20_380_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_062_V1_20_380_TID_ALT, NULL };
 static int hf_062_V1_20_380_TID_LAT;
-static const FieldPart I062_V1_20_380_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_380_TID_LAT, NULL };
+static const FieldPart I062_V1_20_380_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_380_TID_LAT, NULL };
 static int hf_062_V1_20_380_TID_LON;
-static const FieldPart I062_V1_20_380_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_380_TID_LON, NULL };
+static const FieldPart I062_V1_20_380_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_380_TID_LON, NULL };
 static int hf_062_V1_20_380_TID_PT;
 static const value_string valstr_062_V1_20_380_TID_PT[] = {
     { 0, "Unknown" },
@@ -49478,7 +49998,7 @@ static const FieldPart *I062_V1_20_380_TAN_PARTS[] = {
 static const AsterixField I062_V1_20_380_TAN = { FIXED, 2, 0, 0, &hf_062_V1_20_380_TAN, I062_V1_20_380_TAN_PARTS, { NULL } };
 static int hf_062_V1_20_380_GS;
 static int hf_062_V1_20_380_GS_VALUE;
-static const FieldPart I062_V1_20_380_GS_VALUE = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_062_V1_20_380_GS_VALUE, NULL };
+static const FieldPart I062_V1_20_380_GS_VALUE = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_380_GS_VALUE, NULL };
 static const FieldPart *I062_V1_20_380_GS_PARTS[] = {
     &I062_V1_20_380_GS_VALUE,
     NULL
@@ -49579,9 +50099,9 @@ static const FieldPart *I062_V1_20_380_EMC_PARTS[] = {
 static const AsterixField I062_V1_20_380_EMC = { FIXED, 1, 0, 0, &hf_062_V1_20_380_EMC, I062_V1_20_380_EMC_PARTS, { NULL } };
 static int hf_062_V1_20_380_POS;
 static int hf_062_V1_20_380_POS_LAT;
-static const FieldPart I062_V1_20_380_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_380_POS_LAT, NULL };
+static const FieldPart I062_V1_20_380_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_380_POS_LAT, NULL };
 static int hf_062_V1_20_380_POS_LON;
-static const FieldPart I062_V1_20_380_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_V1_20_380_POS_LON, NULL };
+static const FieldPart I062_V1_20_380_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_V1_20_380_POS_LON, NULL };
 static const FieldPart *I062_V1_20_380_POS_PARTS[] = {
     &I062_V1_20_380_POS_LAT,
     &I062_V1_20_380_POS_LON,
@@ -49940,9 +50460,9 @@ static const FieldPart *I062_V1_20_500_COV_PARTS[] = {
 static const AsterixField I062_V1_20_500_COV = { FIXED, 2, 0, 0, &hf_062_V1_20_500_COV, I062_V1_20_500_COV_PARTS, { NULL } };
 static int hf_062_V1_20_500_APW;
 static int hf_062_V1_20_500_APW_LAT;
-static const FieldPart I062_V1_20_500_APW_LAT = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_20_500_APW_LAT, NULL };
+static const FieldPart I062_V1_20_500_APW_LAT = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_20_500_APW_LAT, NULL };
 static int hf_062_V1_20_500_APW_LON;
-static const FieldPart I062_V1_20_500_APW_LON = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_V1_20_500_APW_LON, NULL };
+static const FieldPart I062_V1_20_500_APW_LON = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_V1_20_500_APW_LON, NULL };
 static const FieldPart *I062_V1_20_500_APW_PARTS[] = {
     &I062_V1_20_500_APW_LAT,
     &I062_V1_20_500_APW_LON,
@@ -50411,9 +50931,9 @@ static const FieldPart *I062_100_PARTS[] = {
 static const AsterixField I062_100 = { FIXED, 6, 0, 0, &hf_062_100, I062_100_PARTS, { NULL } };
 static int hf_062_105;
 static int hf_062_105_LAT;
-static const FieldPart I062_105_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_105_LAT, NULL };
+static const FieldPart I062_105_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_105_LAT, NULL };
 static int hf_062_105_LON;
-static const FieldPart I062_105_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_062_105_LON, NULL };
+static const FieldPart I062_105_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_062_105_LON, NULL };
 static const FieldPart *I062_105_PARTS[] = {
     &I062_105_LAT,
     &I062_105_LON,
@@ -50509,9 +51029,9 @@ static const FieldPart *I062_110_PMN_PARTS[] = {
 static const AsterixField I062_110_PMN = { FIXED, 4, 0, 0, &hf_062_110_PMN, I062_110_PMN_PARTS, { NULL } };
 static int hf_062_110_POS;
 static int hf_062_110_POS_LAT;
-static const FieldPart I062_110_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_110_POS_LAT, NULL };
+static const FieldPart I062_110_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_110_POS_LAT, NULL };
 static int hf_062_110_POS_LON;
-static const FieldPart I062_110_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_110_POS_LON, NULL };
+static const FieldPart I062_110_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_110_POS_LON, NULL };
 static const FieldPart *I062_110_POS_PARTS[] = {
     &I062_110_POS_LAT,
     &I062_110_POS_LON,
@@ -51393,9 +51913,9 @@ static const FieldPart I062_380_TID_TCPN = { 6, 1.0, FIELD_PART_HEX, &hf_062_380
 static int hf_062_380_TID_ALT;
 static const FieldPart I062_380_TID_ALT = { 16, 10.0, FIELD_PART_FLOAT, &hf_062_380_TID_ALT, NULL };
 static int hf_062_380_TID_LAT;
-static const FieldPart I062_380_TID_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_380_TID_LAT, NULL };
+static const FieldPart I062_380_TID_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_380_TID_LAT, NULL };
 static int hf_062_380_TID_LON;
-static const FieldPart I062_380_TID_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_380_TID_LON, NULL };
+static const FieldPart I062_380_TID_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_380_TID_LON, NULL };
 static int hf_062_380_TID_PT;
 static const value_string valstr_062_380_TID_PT[] = {
     { 0, "Unknown" },
@@ -51640,7 +52160,7 @@ static const FieldPart *I062_380_TAN_PARTS[] = {
 static const AsterixField I062_380_TAN = { FIXED, 2, 0, 0, &hf_062_380_TAN, I062_380_TAN_PARTS, { NULL } };
 static int hf_062_380_GS;
 static int hf_062_380_GS_VALUE;
-static const FieldPart I062_380_GS_VALUE = { 16, 0.00006103515625, FIELD_PART_FLOAT, &hf_062_380_GS_VALUE, NULL };
+static const FieldPart I062_380_GS_VALUE = { 16, 6.103515625e-05, FIELD_PART_FLOAT, &hf_062_380_GS_VALUE, NULL };
 static const FieldPart *I062_380_GS_PARTS[] = {
     &I062_380_GS_VALUE,
     NULL
@@ -51741,9 +52261,9 @@ static const FieldPart *I062_380_EMC_PARTS[] = {
 static const AsterixField I062_380_EMC = { FIXED, 1, 0, 0, &hf_062_380_EMC, I062_380_EMC_PARTS, { NULL } };
 static int hf_062_380_POS;
 static int hf_062_380_POS_LAT;
-static const FieldPart I062_380_POS_LAT = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_380_POS_LAT, NULL };
+static const FieldPart I062_380_POS_LAT = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_380_POS_LAT, NULL };
 static int hf_062_380_POS_LON;
-static const FieldPart I062_380_POS_LON = { 24, 0.000021457672119140625, FIELD_PART_FLOAT, &hf_062_380_POS_LON, NULL };
+static const FieldPart I062_380_POS_LON = { 24, 2.1457672119140625e-05, FIELD_PART_FLOAT, &hf_062_380_POS_LON, NULL };
 static const FieldPart *I062_380_POS_PARTS[] = {
     &I062_380_POS_LAT,
     &I062_380_POS_LON,
@@ -52102,9 +52622,9 @@ static const FieldPart *I062_500_COV_PARTS[] = {
 static const AsterixField I062_500_COV = { FIXED, 2, 0, 0, &hf_062_500_COV, I062_500_COV_PARTS, { NULL } };
 static int hf_062_500_APW;
 static int hf_062_500_APW_LAT;
-static const FieldPart I062_500_APW_LAT = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_500_APW_LAT, NULL };
+static const FieldPart I062_500_APW_LAT = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_500_APW_LAT, NULL };
 static int hf_062_500_APW_LON;
-static const FieldPart I062_500_APW_LON = { 16, 0.00000536441802978515625, FIELD_PART_UFLOAT, &hf_062_500_APW_LON, NULL };
+static const FieldPart I062_500_APW_LON = { 16, 5.364418029785156e-06, FIELD_PART_UFLOAT, &hf_062_500_APW_LON, NULL };
 static const FieldPart *I062_500_APW_PARTS[] = {
     &I062_500_APW_LAT,
     &I062_500_APW_LON,
@@ -53386,9 +53906,9 @@ static const FieldPart *I205_V1_0_040_PARTS[] = {
 static const AsterixField I205_V1_0_040 = { FIXED, 1, 0, 0, &hf_205_V1_0_040, I205_V1_0_040_PARTS, { NULL } };
 static int hf_205_V1_0_050;
 static int hf_205_V1_0_050_LAT;
-static const FieldPart I205_V1_0_050_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_V1_0_050_LAT, NULL };
+static const FieldPart I205_V1_0_050_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_V1_0_050_LAT, NULL };
 static int hf_205_V1_0_050_LON;
-static const FieldPart I205_V1_0_050_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_V1_0_050_LON, NULL };
+static const FieldPart I205_V1_0_050_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_V1_0_050_LON, NULL };
 static const FieldPart *I205_V1_0_050_PARTS[] = {
     &I205_V1_0_050_LAT,
     &I205_V1_0_050_LON,
@@ -53456,9 +53976,9 @@ static const FieldPart *I205_V1_0_120_PARTS[] = {
 static const AsterixField I205_V1_0_120 = { REPETITIVE, 1, 1, 0, &hf_205_V1_0_120, I205_V1_0_120_PARTS, { NULL } };
 static int hf_205_V1_0_130;
 static int hf_205_V1_0_130_LAT;
-static const FieldPart I205_V1_0_130_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_V1_0_130_LAT, NULL };
+static const FieldPart I205_V1_0_130_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_V1_0_130_LAT, NULL };
 static int hf_205_V1_0_130_LON;
-static const FieldPart I205_V1_0_130_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_V1_0_130_LON, NULL };
+static const FieldPart I205_V1_0_130_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_V1_0_130_LON, NULL };
 static const FieldPart *I205_V1_0_130_PARTS[] = {
     &I205_V1_0_130_LAT,
     &I205_V1_0_130_LON,
@@ -53581,9 +54101,9 @@ static const FieldPart *I205_040_PARTS[] = {
 static const AsterixField I205_040 = { FIXED, 1, 0, 0, &hf_205_040, I205_040_PARTS, { NULL } };
 static int hf_205_050;
 static int hf_205_050_LAT;
-static const FieldPart I205_050_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_050_LAT, NULL };
+static const FieldPart I205_050_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_050_LAT, NULL };
 static int hf_205_050_LON;
-static const FieldPart I205_050_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_050_LON, NULL };
+static const FieldPart I205_050_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_050_LON, NULL };
 static const FieldPart *I205_050_PARTS[] = {
     &I205_050_LAT,
     &I205_050_LON,
@@ -53651,9 +54171,9 @@ static const FieldPart *I205_120_PARTS[] = {
 static const AsterixField I205_120 = { REPETITIVE, 1, 1, 0, &hf_205_120, I205_120_PARTS, { NULL } };
 static int hf_205_130;
 static int hf_205_130_LAT;
-static const FieldPart I205_130_LAT = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_130_LAT, NULL };
+static const FieldPart I205_130_LAT = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_130_LAT, NULL };
 static int hf_205_130_LON;
-static const FieldPart I205_130_LON = { 32, 0.00000536441802978515625, FIELD_PART_FLOAT, &hf_205_130_LON, NULL };
+static const FieldPart I205_130_LON = { 32, 5.364418029785156e-06, FIELD_PART_FLOAT, &hf_205_130_LON, NULL };
 static const FieldPart *I205_130_PARTS[] = {
     &I205_130_LAT,
     &I205_130_LON,
@@ -54421,6 +54941,16 @@ static const enum_val_t I016_versions[] = {
 };
 
 DIAG_OFF_PEDANTIC
+static const AsterixField ***I017all[] = { I017, I017_V1_3 };
+DIAG_ON_PEDANTIC
+
+static const enum_val_t I017_versions[] = {
+    { "I017", "Version 1.3 (latest)", 0 },
+    { "I017_v1_3", "Version 1.3", 1 },
+    { NULL, NULL, 0 }
+};
+
+DIAG_OFF_PEDANTIC
 static const AsterixField ***I018all[] = { I018, I018_V1_7 };
 DIAG_ON_PEDANTIC
 
@@ -54610,7 +55140,7 @@ static const AsterixField ****categories[] = {
     NULL, /* 014 */
     I015all, /* 015 */
     I016all, /* 016 */
-    NULL, /* 017 */
+    I017all, /* 017 */
     I018all, /* 018 */
     I019all, /* 019 */
     I020all, /* 020 */
@@ -58163,6 +58693,92 @@ void proto_register_asterix (void)
         { &hf_016_420_LON, { "LON, Longitude, [°]", "asterix.016_420_LON", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
         { &hf_016_420_ALT, { "ALT, Altitude, [m]", "asterix.016_420_ALT", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
         { &hf_016_SP, { "SP, Special Purpose Field", "asterix.016_SP", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_000, { "000, Message Type", "asterix.017_V1_3_000", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_000_VALUE, { "Message Type", "asterix.017_V1_3_000_VALUE", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_000_VALUE), 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_010, { "010, Data Source Identifier", "asterix.017_V1_3_010", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_010_SAC, { "SAC, System Area Code", "asterix.017_V1_3_010_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_010_SIC, { "SIC, System Identification Code", "asterix.017_V1_3_010_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_012, { "012, Data Destination Identifier", "asterix.017_V1_3_012", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_012_SAC, { "SAC, System Area Code", "asterix.017_V1_3_012_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_012_SIC, { "SIC, System Identification Code", "asterix.017_V1_3_012_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_045, { "045, Calculated Position in WGS-84 Coordinates", "asterix.017_V1_3_045", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_045_LAT, { "LAT, Latitude, [°]", "asterix.017_V1_3_045_LAT", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_045_LON, { "LON, Longitude, [°]", "asterix.017_V1_3_045_LON", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_050, { "050, Flight Level in Binary Representation", "asterix.017_V1_3_050", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_050_V, { "V", "asterix.017_V1_3_050_V", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_050_V), 0x80, NULL, HFILL } },
+        { &hf_017_V1_3_050_G, { "G", "asterix.017_V1_3_050_G", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_050_G), 0x40, NULL, HFILL } },
+        { &hf_017_V1_3_050_ALT, { "ALT, Altitude, [FL]", "asterix.017_V1_3_050_ALT", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_070, { "070, Mode 3/A Code in Octal Representation", "asterix.017_V1_3_070", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_070_V, { "V", "asterix.017_V1_3_070_V", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_070_V), 0x80, NULL, HFILL } },
+        { &hf_017_V1_3_070_G, { "G", "asterix.017_V1_3_070_G", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_070_G), 0x40, NULL, HFILL } },
+        { &hf_017_V1_3_070_L, { "L", "asterix.017_V1_3_070_L", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_070_L), 0x20, NULL, HFILL } },
+        { &hf_017_V1_3_070_MODE3A, { "MODE3A, Mode 3/A Reply in Octal Representation", "asterix.017_V1_3_070_MODE3A", FT_UINT16, BASE_OCT, NULL, 0x0fff, NULL, HFILL } },
+        { &hf_017_V1_3_140, { "140, Time of Day", "asterix.017_V1_3_140", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_140_VALUE, { "Time of Day, [s]", "asterix.017_V1_3_140_VALUE", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_200, { "200, Track Velocity in Polar Co-ordinates", "asterix.017_V1_3_200", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_200_GSP, { "GSP, Calculated Groundspeed, [NM/s]", "asterix.017_V1_3_200_GSP", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_200_HDG, { "HDG, Calculated Heading, [°]", "asterix.017_V1_3_200_HDG", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_210, { "210, Mode S Address List", "asterix.017_V1_3_210", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_210_VALUE, { "Mode S Address List", "asterix.017_V1_3_210_VALUE", FT_UINT24, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_220, { "220, Aircraft Address", "asterix.017_V1_3_220", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_220_VALUE, { "Aircraft Address", "asterix.017_V1_3_220_VALUE", FT_UINT24, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_221, { "221, Duplicate Address Reference Number (DRN)", "asterix.017_V1_3_221", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_221_VALUE, { "Duplicate Address Reference Number (DRN)", "asterix.017_V1_3_221_VALUE", FT_UINT16, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_230, { "230, Transponder Capability", "asterix.017_V1_3_230", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_230_CA, { "CA, Communications Capability of the Transponder", "asterix.017_V1_3_230_CA", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_230_CA), 0xe0, NULL, HFILL } },
+        { &hf_017_V1_3_230_SI, { "SI, SI/II-capabilities of the Transponder", "asterix.017_V1_3_230_SI", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_230_SI), 0x10, NULL, HFILL } },
+        { &hf_017_V1_3_240, { "240, Track Status", "asterix.017_V1_3_240", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_240_CST, { "CST, Track Coasted", "asterix.017_V1_3_240_CST", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_240_CST), 0x80, NULL, HFILL } },
+        { &hf_017_V1_3_240_FLT, { "FLT, Flight Level Tracking", "asterix.017_V1_3_240_FLT", FT_UINT8, BASE_DEC, VALS (valstr_017_V1_3_240_FLT), 0x40, NULL, HFILL } },
+        { &hf_017_V1_3_350, { "350, Cluster Station/Node List", "asterix.017_V1_3_350", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_350_SAC, { "SAC, System Area Code", "asterix.017_V1_3_350_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_350_SIC, { "SIC, System Identification Code", "asterix.017_V1_3_350_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_360, { "360, Cluster Controller Command State", "asterix.017_V1_3_360", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_360_VALUE, { "Cluster Controller Command State", "asterix.017_V1_3_360_VALUE", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_V1_3_SP, { "SP, Special Purpose Field", "asterix.017_V1_3_SP", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_000, { "000, Message Type", "asterix.017_000", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_000_VALUE, { "Message Type", "asterix.017_000_VALUE", FT_UINT8, BASE_DEC, VALS (valstr_017_000_VALUE), 0x00, NULL, HFILL } },
+        { &hf_017_010, { "010, Data Source Identifier", "asterix.017_010", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_010_SAC, { "SAC, System Area Code", "asterix.017_010_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_010_SIC, { "SIC, System Identification Code", "asterix.017_010_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_012, { "012, Data Destination Identifier", "asterix.017_012", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_012_SAC, { "SAC, System Area Code", "asterix.017_012_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_012_SIC, { "SIC, System Identification Code", "asterix.017_012_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_045, { "045, Calculated Position in WGS-84 Coordinates", "asterix.017_045", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_045_LAT, { "LAT, Latitude, [°]", "asterix.017_045_LAT", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_045_LON, { "LON, Longitude, [°]", "asterix.017_045_LON", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_050, { "050, Flight Level in Binary Representation", "asterix.017_050", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_050_V, { "V", "asterix.017_050_V", FT_UINT8, BASE_DEC, VALS (valstr_017_050_V), 0x80, NULL, HFILL } },
+        { &hf_017_050_G, { "G", "asterix.017_050_G", FT_UINT8, BASE_DEC, VALS (valstr_017_050_G), 0x40, NULL, HFILL } },
+        { &hf_017_050_ALT, { "ALT, Altitude, [FL]", "asterix.017_050_ALT", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_070, { "070, Mode 3/A Code in Octal Representation", "asterix.017_070", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_070_V, { "V", "asterix.017_070_V", FT_UINT8, BASE_DEC, VALS (valstr_017_070_V), 0x80, NULL, HFILL } },
+        { &hf_017_070_G, { "G", "asterix.017_070_G", FT_UINT8, BASE_DEC, VALS (valstr_017_070_G), 0x40, NULL, HFILL } },
+        { &hf_017_070_L, { "L", "asterix.017_070_L", FT_UINT8, BASE_DEC, VALS (valstr_017_070_L), 0x20, NULL, HFILL } },
+        { &hf_017_070_MODE3A, { "MODE3A, Mode 3/A Reply in Octal Representation", "asterix.017_070_MODE3A", FT_UINT16, BASE_OCT, NULL, 0x0fff, NULL, HFILL } },
+        { &hf_017_140, { "140, Time of Day", "asterix.017_140", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_140_VALUE, { "Time of Day, [s]", "asterix.017_140_VALUE", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_200, { "200, Track Velocity in Polar Co-ordinates", "asterix.017_200", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_200_GSP, { "GSP, Calculated Groundspeed, [NM/s]", "asterix.017_200_GSP", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_200_HDG, { "HDG, Calculated Heading, [°]", "asterix.017_200_HDG", FT_DOUBLE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_210, { "210, Mode S Address List", "asterix.017_210", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_210_VALUE, { "Mode S Address List", "asterix.017_210_VALUE", FT_UINT24, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_220, { "220, Aircraft Address", "asterix.017_220", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_220_VALUE, { "Aircraft Address", "asterix.017_220_VALUE", FT_UINT24, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_221, { "221, Duplicate Address Reference Number (DRN)", "asterix.017_221", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_221_VALUE, { "Duplicate Address Reference Number (DRN)", "asterix.017_221_VALUE", FT_UINT16, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_230, { "230, Transponder Capability", "asterix.017_230", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_230_CA, { "CA, Communications Capability of the Transponder", "asterix.017_230_CA", FT_UINT8, BASE_DEC, VALS (valstr_017_230_CA), 0xe0, NULL, HFILL } },
+        { &hf_017_230_SI, { "SI, SI/II-capabilities of the Transponder", "asterix.017_230_SI", FT_UINT8, BASE_DEC, VALS (valstr_017_230_SI), 0x10, NULL, HFILL } },
+        { &hf_017_240, { "240, Track Status", "asterix.017_240", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_240_CST, { "CST, Track Coasted", "asterix.017_240_CST", FT_UINT8, BASE_DEC, VALS (valstr_017_240_CST), 0x80, NULL, HFILL } },
+        { &hf_017_240_FLT, { "FLT, Flight Level Tracking", "asterix.017_240_FLT", FT_UINT8, BASE_DEC, VALS (valstr_017_240_FLT), 0x40, NULL, HFILL } },
+        { &hf_017_350, { "350, Cluster Station/Node List", "asterix.017_350", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_350_SAC, { "SAC, System Area Code", "asterix.017_350_SAC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_350_SIC, { "SIC, System Identification Code", "asterix.017_350_SIC", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_360, { "360, Cluster Controller Command State", "asterix.017_360", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_360_VALUE, { "Cluster Controller Command State", "asterix.017_360_VALUE", FT_UINT8, BASE_HEX_DEC, NULL, 0x00, NULL, HFILL } },
+        { &hf_017_SP, { "SP, Special Purpose Field", "asterix.017_SP", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
         { &hf_018_V1_7_000, { "000, Message Type", "asterix.018_V1_7_000", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
         { &hf_018_V1_7_000_VALUE, { "Message Type", "asterix.018_V1_7_000_VALUE", FT_UINT8, BASE_DEC, VALS (valstr_018_V1_7_000_VALUE), 0x00, NULL, HFILL } },
         { &hf_018_V1_7_001, { "001, Result", "asterix.018_V1_7_001", FT_NONE, BASE_NONE, NULL, 0x00, NULL, HFILL } },
@@ -64509,6 +65125,7 @@ void proto_register_asterix (void)
     prefs_register_enum_preference (asterix_prefs_module, "i011_version", "I011 version", "Select the CAT011 version", &global_categories_version[11], I011_versions, false);
     prefs_register_enum_preference (asterix_prefs_module, "i015_version", "I015 version", "Select the CAT015 version", &global_categories_version[15], I015_versions, false);
     prefs_register_enum_preference (asterix_prefs_module, "i016_version", "I016 version", "Select the CAT016 version", &global_categories_version[16], I016_versions, false);
+    prefs_register_enum_preference (asterix_prefs_module, "i017_version", "I017 version", "Select the CAT017 version", &global_categories_version[17], I017_versions, false);
     prefs_register_enum_preference (asterix_prefs_module, "i018_version", "I018 version", "Select the CAT018 version", &global_categories_version[18], I018_versions, false);
     prefs_register_enum_preference (asterix_prefs_module, "i019_version", "I019 version", "Select the CAT019 version", &global_categories_version[19], I019_versions, false);
     prefs_register_enum_preference (asterix_prefs_module, "i020_version", "I020 version", "Select the CAT020 version", &global_categories_version[20], I020_versions, false);

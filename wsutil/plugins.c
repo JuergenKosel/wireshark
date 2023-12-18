@@ -111,11 +111,19 @@ compare_plugins(gconstpointer a, gconstpointer b)
 
 static bool
 pass_plugin_compatibility(const char *name, plugin_type_e type,
-                            int abi_version)
+                            int abi_version, int min_api_level)
 {
     if (abi_version != plugins_abi_version(type)) {
         report_failure("The plugin '%s' has incompatible ABI, have version %d, expected %d",
                             name, abi_version, plugins_abi_version(type));
+        return false;
+    }
+
+    /* Check if the minimum requested API level is supported by this version
+        * of Wireshark (only used with codec plugins). */
+    if (min_api_level > 0 && min_api_level > plugins_api_max_level(type)) {
+        report_failure("The plugin '%s' requires API level %d, have %d",
+                            name, min_api_level, plugins_api_max_level(type));
         return false;
     }
 
@@ -130,12 +138,15 @@ scan_plugins_dir(GHashTable *plugins_module, const char *dirpath,
     const char    *name;            /* current file name */
     char          *plugin_folder;
     char          *plugin_file;     /* current file full path */
+    char          *plugin_ext;      /* plugin file extension */
     GModule       *handle;          /* handle returned by g_module_open */
     void          *symbol;
     plugin        *new_plug;
     plugin_type_e have_type;
     int            abi_version;
+    int            min_api_level;
     struct ws_module *module;
+    char          *s;
 
     plugin_folder = g_build_filename(dirpath, type_to_dir(type), (char *)NULL);
 
@@ -145,11 +156,13 @@ scan_plugins_dir(GHashTable *plugins_module, const char *dirpath,
         return;
     }
 
-    ws_debug("Scanning plugins folder \"%s\"", plugin_folder);
+    plugin_ext = plugins_file_suffix(type);
+
+    ws_debug("Scanning plugins folder \"%s\" for *%s", plugin_folder, plugin_ext);
 
     while ((name = g_dir_read_name(dir)) != NULL) {
         /* Skip anything but files with .dll or .so. */
-        if (!g_str_has_suffix(name, WS_PLUGIN_MODULE_SUFFIX))
+        if (!g_str_has_suffix(name, plugin_ext))
             continue;
 
         plugin_file = g_build_filename(plugin_folder, name, (char *)NULL);
@@ -192,7 +205,7 @@ scan_plugins_dir(GHashTable *plugins_module, const char *dirpath,
 
 DIAG_OFF_PEDANTIC
         /* Found it, load module. */
-        have_type = ((ws_load_module_func)symbol)(&abi_version, NULL, &module);
+        have_type = ((ws_load_module_func)symbol)(&abi_version, &min_api_level, &module);
 DIAG_ON_PEDANTIC
 
         if (have_type != type) {
@@ -204,7 +217,7 @@ DIAG_ON_PEDANTIC
             continue;
         }
 
-        if (!pass_plugin_compatibility(name, type, abi_version)) {
+        if (!pass_plugin_compatibility(name, type, abi_version, min_api_level)) {
             g_module_close(handle);
             g_free(plugin_file);
             continue;
@@ -219,14 +232,20 @@ DIAG_ON_PEDANTIC
         new_plug->module = module;
         new_plug->scope = scope;
 
+        // Strip version from plugin display name
+        s = strrchr(new_plug->name, '.');
+        if (s != NULL && g_ascii_isdigit(*(s+1)))
+            *s = '\0';
+
         /* Add it to the list of plugins. */
-        g_hash_table_replace(plugins_module, new_plug->name, new_plug);
+        g_hash_table_replace(plugins_module, g_strdup(name), new_plug);
         ws_info("Registered plugin: %s (%s)", new_plug->name, plugin_file);
         ws_debug("plugin '%s' meta data: version = %s, flags = 0x%"PRIu32", spdx = %s, blurb = %s",
                     name, module->version, module->flags, module->spdx_id, module->blurb);
         g_free(plugin_file);
     }
     ws_dir_close(dir);
+    wmem_free(NULL, plugin_ext);
     g_free(plugin_folder);
 }
 
@@ -239,7 +258,7 @@ plugins_init(plugin_type_e type)
     if (!plugins_supported())
         return NULL; /* nothing to do */
 
-    GHashTable *plugins_module = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, free_plugin);
+    GHashTable *plugins_module = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, free_plugin);
 
     /* Scan the users plugins directory first, giving it priority over the
      * global plugins folder. Only scan it if we weren't started with special
@@ -249,7 +268,7 @@ plugins_init(plugin_type_e type)
      * if we need privileges to start capturing, we'd need to
      * reclaim them before each time we start capturing.)
      */
-    const char *user_dir = get_plugins_pers_dir_with_version();
+    const char *user_dir = get_plugins_pers_dir();
     if (!started_with_special_privs()) {
         scan_plugins_dir(plugins_module, user_dir, type, WS_PLUGIN_SCOPE_USER);
     }
@@ -262,7 +281,7 @@ plugins_init(plugin_type_e type)
      * Scan the global plugin directory. Make sure we don't scan the same directory
      * twice (under some unusual install configurations).
      */
-    const char *global_dir = get_plugins_dir_with_version();
+    const char *global_dir = get_plugins_dir();
     if (strcmp(global_dir, user_dir) != 0) {
         scan_plugins_dir(plugins_module, global_dir, type, WS_PLUGIN_SCOPE_GLOBAL);
     }
@@ -357,6 +376,7 @@ plugins_check_file(const char *from_filename)
     void          *symbol;
     plugin_type_e  have_type;
     int            abi_version;
+    int            min_api_level;
 
     handle = g_module_open(from_filename, G_MODULE_BIND_LAZY);
     if (handle == NULL) {
@@ -373,12 +393,12 @@ plugins_check_file(const char *from_filename)
 
 DIAG_OFF_PEDANTIC
     /* Load module. */
-    have_type = ((ws_load_module_func)symbol)(&abi_version, NULL, NULL);
+    have_type = ((ws_load_module_func)symbol)(&abi_version, &min_api_level, NULL);
 DIAG_ON_PEDANTIC
 
     name = g_path_get_basename(from_filename);
 
-    if (!pass_plugin_compatibility(name, have_type, abi_version)) {
+    if (!pass_plugin_compatibility(name, have_type, abi_version, min_api_level)) {
         g_module_close(handle);
         g_free(name);
         return WS_PLUGIN_NONE;
@@ -392,8 +412,31 @@ DIAG_ON_PEDANTIC
 char *
 plugins_pers_type_folder(plugin_type_e type)
 {
-    return g_build_filename(get_plugins_pers_dir_with_version(),
+    return g_build_filename(get_plugins_pers_dir(),
                 type_to_dir(type), (const char *)NULL);
+}
+
+char *
+plugins_file_suffix(plugin_type_e type)
+{
+    return ws_strdup_printf("%s.%d", WS_PLUGIN_MODULE_SUFFIX, plugins_abi_version(type));
+}
+
+int
+plugins_api_max_level(plugin_type_e type)
+{
+    /*
+     * The API level is only defined for codecs because it is a small
+     * and easy to define API.
+     * Maybe we could do the same for wiretap (file type) plugins?
+     * For the various epan plugin types it seems pointless and futile.
+     */
+    switch (type) {
+        case WS_PLUGIN_CODEC:   return WIRESHARK_API_MAX_LEVEL_CODEC;
+        default: return 0;
+    }
+    ws_assert_not_reached();
+
 }
 
 int

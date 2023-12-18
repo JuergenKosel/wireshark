@@ -1013,76 +1013,101 @@ show_filter_code(capture_options *capture_opts)
     return TRUE;
 }
 
+static void
+print_machine_readable_if_capabilities(json_dumper *dumper, if_capabilities_t *caps, int queries);
+
 /*
  * Output a machine readable list of the interfaces
  * This list is retrieved by the sync_interface_list_open() function
  * The actual output of this function can be viewed with the command "dumpcap -D -Z none"
  */
-static void
-print_machine_readable_interfaces(GList *if_list)
+static int
+print_machine_readable_interfaces(GList *if_list, int caps_queries)
 {
-    int         i;
     GList       *if_entry;
     if_info_t   *if_info;
     GSList      *addr;
     if_addr_t   *if_addr;
     char        addr_str[WS_INET6_ADDRSTRLEN];
+    int         status;
 
-    if (capture_child) {
-        /* Let our parent know we succeeded. */
-        sync_pipe_write_string_msg(2, SP_SUCCESS, NULL);
-    }
+    json_dumper dumper = {
+        .output_file = stdout,
+        .flags = JSON_DUMPER_FLAGS_NO_DEBUG,
+        // Don't abort on failure
+    };
+    json_dumper_begin_array(&dumper);
 
-    i = 1;  /* Interface id number */
+    /*
+     * Print the contents of the if_entry struct in a parseable format (JSON)
+     */
     for (if_entry = g_list_first(if_list); if_entry != NULL;
          if_entry = g_list_next(if_entry)) {
         if_info = (if_info_t *)if_entry->data;
-        printf("%d. %s\t", i++, if_info->name);
 
-        /*
-         * Print the contents of the if_entry struct in a parseable format.
-         * Each if_entry element is tab-separated.  Addresses are comma-
-         * separated.
-         */
-        /* XXX - Make sure our description doesn't contain a tab */
-        if (if_info->vendor_description != NULL)
-            printf("%s\t", if_info->vendor_description);
-        else
-            printf("\t");
+        json_dumper_begin_object(&dumper);
+        json_dumper_set_member_name(&dumper, if_info->name);
 
-        /* XXX - Make sure our friendly name doesn't contain a tab */
-        if (if_info->friendly_name != NULL)
-            printf("%s\t", if_info->friendly_name);
-        else
-            printf("\t");
+        json_dumper_begin_object(&dumper);
 
-        printf("%i\t", if_info->type);
+        json_dumper_set_member_name(&dumper, "friendly_name");
+        json_dumper_value_string(&dumper, if_info->friendly_name);
 
+        json_dumper_set_member_name(&dumper, "vendor_description");
+        json_dumper_value_string(&dumper, if_info->vendor_description);
+
+        json_dumper_set_member_name(&dumper, "type");
+        json_dumper_value_anyf(&dumper, "%i", if_info->type);
+
+        json_dumper_set_member_name(&dumper, "addrs");
+
+        json_dumper_begin_array(&dumper);
         for (addr = g_slist_nth(if_info->addrs, 0); addr != NULL;
                     addr = g_slist_next(addr)) {
-            if (addr != g_slist_nth(if_info->addrs, 0))
-                printf(",");
 
             if_addr = (if_addr_t *)addr->data;
             switch(if_addr->ifat_type) {
             case IF_AT_IPv4:
-                printf("%s", ws_inet_ntop4(&if_addr->addr.ip4_addr, addr_str, sizeof(addr_str)));
+                json_dumper_value_string(&dumper, ws_inet_ntop4(&if_addr->addr.ip4_addr, addr_str, sizeof(addr_str)));
                 break;
             case IF_AT_IPv6:
-                printf("%s", ws_inet_ntop6(&if_addr->addr.ip6_addr, addr_str, sizeof(addr_str)));
+                json_dumper_value_string(&dumper, ws_inet_ntop6(&if_addr->addr.ip6_addr, addr_str, sizeof(addr_str)));
                 break;
             default:
-                printf("<type unknown %i>", if_addr->ifat_type);
+                json_dumper_value_anyf(&dumper, "<type unknown %i>", if_addr->ifat_type);
             }
         }
+        json_dumper_end_array(&dumper);
 
-        if (if_info->loopback)
-            printf("\tloopback");
-        else
-            printf("\tnetwork");
-        printf("\t%s", if_info->extcap);
-        printf("\n");
+        json_dumper_set_member_name(&dumper, "loopback");
+        json_dumper_value_anyf(&dumper, "%s", if_info->loopback ? "true" : "false");
+
+        json_dumper_set_member_name(&dumper, "extcap");
+        json_dumper_value_string(&dumper, if_info->extcap);
+
+        if (if_info->caps && caps_queries) {
+            json_dumper_set_member_name(&dumper, "caps");
+            json_dumper_begin_object(&dumper);
+            print_machine_readable_if_capabilities(&dumper, if_info->caps, caps_queries);
+            json_dumper_end_object(&dumper);
+        }
+        json_dumper_end_object(&dumper);
+        json_dumper_end_object(&dumper);
     }
+    json_dumper_end_array(&dumper);
+    if (json_dumper_finish(&dumper)) {
+        status = 0;
+        if (capture_child) {
+            /* Let our parent know we succeeded. */
+            sync_pipe_write_string_msg(2, SP_SUCCESS, NULL);
+        }
+    } else {
+        status = 2;
+        if (capture_child) {
+            sync_pipe_write_errmsgs_to_parent(2, "Unexpected JSON error", "");
+        }
+    }
+    return status;
 }
 
 /*
@@ -1095,13 +1120,41 @@ print_machine_readable_if_capabilities(json_dumper *dumper, if_capabilities_t *c
     GList *lt_entry, *ts_entry;
     const gchar *desc_str;
 
+    json_dumper_set_member_name(dumper, "status");
+    json_dumper_value_anyf(dumper, "%i", caps->status);
+    if (caps->primary_msg) {
+        json_dumper_set_member_name(dumper, "primary_msg");
+        json_dumper_value_string(dumper, caps->primary_msg);
+        json_dumper_set_member_name(dumper, "secondary_msg");
+        json_dumper_value_string(dumper, caps->secondary_msg);
+    }
+
     if (queries & CAPS_QUERY_LINK_TYPES) {
         json_dumper_set_member_name(dumper, "rfmon");
-        // XXX: wsjson.h doesn't have a function to read booleans
         json_dumper_value_anyf(dumper, "%s", caps->can_set_rfmon ? "true" : "false");
         json_dumper_set_member_name(dumper, "data_link_types");
         json_dumper_begin_array(dumper);
         for (lt_entry = caps->data_link_types; lt_entry != NULL;
+             lt_entry = g_list_next(lt_entry)) {
+          data_link_info_t *data_link_info = (data_link_info_t *)lt_entry->data;
+          if (data_link_info->description != NULL)
+            desc_str = data_link_info->description;
+          else
+            desc_str = "(not supported)";
+          json_dumper_begin_object(dumper);
+          json_dumper_set_member_name(dumper, "dlt");
+          json_dumper_value_anyf(dumper, "%d", data_link_info->dlt);
+          json_dumper_set_member_name(dumper, "name");
+          json_dumper_value_string(dumper, data_link_info->name);
+          json_dumper_set_member_name(dumper, "description");
+          json_dumper_value_string(dumper, desc_str);
+          json_dumper_end_object(dumper);
+        }
+        json_dumper_end_array(dumper);
+
+        json_dumper_set_member_name(dumper, "data_link_types_rfmon");
+        json_dumper_begin_array(dumper);
+        for (lt_entry = caps->data_link_types_rfmon; lt_entry != NULL;
              lt_entry = g_list_next(lt_entry)) {
           data_link_info_t *data_link_info = (data_link_info_t *)lt_entry->data;
           if (data_link_info->description != NULL)
@@ -5650,20 +5703,23 @@ main(int argc, char *argv[])
             break;
             /*** all non capture option specific ***/
         case 'D':        /* Print a list of capture devices and exit */
-            if (!list_interfaces) {
-                list_interfaces = TRUE;
+            if (!list_interfaces && !caps_queries) {
                 run_once_args++;
             }
+            list_interfaces = TRUE;
             break;
         case 'L':        /* Print list of link-layer types and exit */
-            if (!(caps_queries & CAPS_QUERY_LINK_TYPES)) {
-                caps_queries |= CAPS_QUERY_LINK_TYPES;
+            if (!list_interfaces && !caps_queries) {
                 run_once_args++;
             }
+            caps_queries |= CAPS_QUERY_LINK_TYPES;
             break;
         case LONGOPT_LIST_TSTAMP_TYPES:
-                caps_queries |= CAPS_QUERY_TIMESTAMP_TYPES;
-        break;
+            if (!list_interfaces && !caps_queries) {
+                run_once_args++;
+            }
+            caps_queries |= CAPS_QUERY_TIMESTAMP_TYPES;
+            break;
         case 'd':        /* Print BPF code for capture filter and exit */
             if (!print_bpf_code) {
                 print_bpf_code = TRUE;
@@ -5820,12 +5876,66 @@ main(int argc, char *argv[])
             }
         }
 
-        if (machine_readable)      /* tab-separated values to stdout */
-            print_machine_readable_interfaces(if_list);
-        else
+        if (!machine_readable) {
+            status = 0;
             capture_opts_print_interfaces(if_list);
+        }
+
+        if (caps_queries) {
+            if_info_t *if_info;
+            interface_options *interface_opts;
+            cap_device_open_status open_status;
+            gchar *open_status_str;
+            for (GList *if_entry = if_list; if_entry != NULL; if_entry = g_list_next(if_entry)) {
+                if_info = (if_info_t *)if_entry->data;
+
+                interface_opts = interface_opts_from_if_info(&global_capture_opts, if_info);
+
+                if_info->caps = get_if_capabilities(interface_opts, &open_status, &open_status_str);
+
+                if (!machine_readable) {
+                    if (if_info->caps == NULL) {
+                        cmdarg_err("The capabilities of the capture device "
+                                    "\"%s\" could not be obtained (%s).\n%s",
+                                    interface_opts->name, open_status_str,
+                                    get_pcap_failure_secondary_error_message(open_status, open_status_str));
+                        g_free(open_status_str);
+                        /* Break after one error, as when printing selected
+                         * interface capabilities. (XXX: We could print all
+                         * the primary status strings, and only the unique
+                         * set of secondary messages / suggestions; printing
+                         * the same long secondary error is a lot.)
+                         */
+                        interface_opts_free(interface_opts);
+                        g_free(interface_opts);
+                        break;
+                    } else {
+                        status = capture_opts_print_if_capabilities(if_info->caps, interface_opts, caps_queries);
+                        if (status != 0) {
+                            interface_opts_free(interface_opts);
+                            g_free(interface_opts);
+                            break;
+                        }
+                    }
+                } else {
+                    if (if_info->caps == NULL) {
+                        if_info->caps = g_new0(if_capabilities_t, 1);
+                        if_info->caps->primary_msg = open_status_str;
+                        if_info->caps->secondary_msg = g_strdup(get_pcap_failure_secondary_error_message(open_status, open_status_str));
+                    }
+                    if_info->caps->status = open_status;
+                }
+
+                interface_opts_free(interface_opts);
+                g_free(interface_opts);
+            }
+        }
+
+        if (machine_readable) {
+            status = print_machine_readable_interfaces(if_list, caps_queries);
+        }
         free_interface_list(if_list);
-        exit_main(0);
+        exit_main(status);
     }
 
     /*
@@ -5887,16 +5997,16 @@ main(int argc, char *argv[])
 
                 open_status = CAP_DEVICE_OPEN_NO_ERR;
                 caps = get_if_capabilities(interface_opts, &open_status, &open_status_str);
-                json_dumper_set_member_name(&dumper, "status");
-                json_dumper_value_anyf(&dumper, "%i", open_status);
                 if (caps == NULL) {
+                    json_dumper_set_member_name(&dumper, "status");
+                    json_dumper_value_anyf(&dumper, "%i", open_status);
                     json_dumper_set_member_name(&dumper, "primary_msg");
                     json_dumper_value_string(&dumper, open_status_str);
                     json_dumper_set_member_name(&dumper, "secondary_msg");
                     json_dumper_value_string(&dumper, get_pcap_failure_secondary_error_message(open_status, open_status_str));
                     g_free(open_status_str);
                 } else {
-                    /* XXX: We need to change the format and adapt consumers */
+                    caps->status = open_status;
                     print_machine_readable_if_capabilities(&dumper, caps, caps_queries);
                     free_if_capabilities(caps);
                 }

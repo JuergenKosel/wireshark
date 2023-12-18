@@ -543,7 +543,7 @@ static gboolean cb_dlt(extcap_callback_info_t cb_info)
     /*
      * Allocate the interface capabilities structure.
      */
-    caps = (if_capabilities_t *) g_malloc(sizeof * caps);
+    caps = (if_capabilities_t *) g_malloc0(sizeof * caps);
     caps->can_set_rfmon = FALSE;
     caps->timestamp_types = NULL;
 
@@ -566,19 +566,32 @@ static gboolean cb_dlt(extcap_callback_info_t cb_info)
     }
 
     /* Check to see if we built a list */
-    if (linktype_list != NULL && cb_info.data != NULL)
+    if (linktype_list != NULL)
     {
         caps->data_link_types = linktype_list;
-        *(if_capabilities_t **) cb_info.data = caps;
     }
     else
     {
+        caps->primary_msg = g_strdup("Extcap returned no DLTs");
         if (cb_info.err_str)
         {
             ws_debug("  returned no DLTs");
-            *(cb_info.err_str) = g_strdup("Extcap returned no DLTs");
+            *(cb_info.err_str) = g_strdup(caps->primary_msg);
         }
+    }
+    if (cb_info.data != NULL)
+    {
+        *(if_capabilities_t **) cb_info.data = caps;
+    } else
+    {
+#ifdef HAVE_LIBPCAP
+        free_if_capabilities(caps);
+#else
+        /* TODO: free_if_capabilities is in capture-pcap-util.c and doesn't
+         * get defined unless HAVE_LIBPCAP is set.
+         */
         g_free(caps);
+#endif
     }
 
     extcap_free_dlts(temp);

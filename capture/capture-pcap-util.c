@@ -440,7 +440,48 @@ if_info_free(if_info_t *if_info)
 	g_free(if_info->vendor_description);
 	g_free(if_info->extcap);
 	g_slist_free_full(if_info->addrs, g_free);
+	if (if_info->caps) {
+		free_if_capabilities(if_info->caps);
+	}
 	g_free(if_info);
+}
+
+static void*
+copy_linktype_cb(const void *data, void *user_data _U_)
+{
+	data_link_info_t *linktype_info = (data_link_info_t *)data;
+
+	data_link_info_t *ret = g_new(data_link_info_t, 1);
+	ret->name = g_strdup(linktype_info->name);
+	ret->description = g_strdup(linktype_info->description);
+	return ret;
+}
+
+static void*
+copy_timestamp_cb(const void *data, void *user_data _U_)
+{
+	timestamp_info_t *timestamp_info = (timestamp_info_t *)data;
+
+	timestamp_info_t *ret = g_new(timestamp_info_t, 1);
+	ret->name = g_strdup(timestamp_info->name);
+	ret->description = g_strdup(timestamp_info->description);
+	return ret;
+}
+
+static if_capabilities_t *
+if_capabilities_copy(const if_capabilities_t *caps)
+{
+	if (caps == NULL) return NULL;
+
+	if_capabilities_t *ret = g_new(if_capabilities_t, 1);
+	ret->can_set_rfmon = caps->can_set_rfmon;
+	ret->data_link_types = g_list_copy_deep(caps->data_link_types, copy_linktype_cb, NULL);
+	ret->timestamp_types = g_list_copy_deep(caps->timestamp_types, copy_timestamp_cb, NULL);
+	ret->data_link_types_rfmon = g_list_copy_deep(caps->data_link_types_rfmon, copy_linktype_cb, NULL);
+	ret->primary_msg = g_strdup(caps->primary_msg);
+	ret->secondary_msg = g_strdup(caps->secondary_msg);
+
+	return ret;
 }
 
 if_info_t *
@@ -456,6 +497,7 @@ if_info_copy(const if_info_t *if_info)
 	new_if_info->type = if_info->type;
 	new_if_info->loopback = if_info->loopback;
 	new_if_info->extcap = g_strdup(if_info->extcap);
+	new_if_info->caps = if_capabilities_copy(if_info->caps);
 
 	return new_if_info;
 }
@@ -597,6 +639,7 @@ if_info_new(const char *name, const char *description, bool loopback)
 #endif
 	if_info->loopback = loopback;
 	if_info->addrs = NULL;
+	if_info->caps = NULL;
 	return if_info;
 }
 
@@ -794,7 +837,7 @@ interface_list_copy(GList *if_list)
 }
 
 static void
-free_linktype_cb(void * data, void * user_data _U_)
+free_linktype_cb(void * data)
 {
 	data_link_info_t *linktype_info = (data_link_info_t *)data;
 
@@ -804,7 +847,7 @@ free_linktype_cb(void * data, void * user_data _U_)
 }
 
 static void
-free_timestamp_cb(void * data, void * user_data _U_)
+free_timestamp_cb(void * data)
 {
 	timestamp_info_t *timestamp_info = (timestamp_info_t *)data;
 
@@ -816,11 +859,13 @@ free_timestamp_cb(void * data, void * user_data _U_)
 void
 free_if_capabilities(if_capabilities_t *caps)
 {
-	g_list_foreach(caps->data_link_types, free_linktype_cb, NULL);
-	g_list_free(caps->data_link_types);
+	g_list_free_full(caps->data_link_types, free_linktype_cb);
+	g_list_free_full(caps->data_link_types_rfmon, free_linktype_cb);
 
-	g_list_foreach(caps->timestamp_types, free_timestamp_cb, NULL);
-	g_list_free(caps->timestamp_types);
+	g_list_free_full(caps->timestamp_types, free_timestamp_cb);
+
+	g_free(caps->primary_msg);
+	g_free(caps->secondary_msg);
 
 	g_free(caps);
 }
@@ -1328,25 +1373,11 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 		pcap_close(pch);
 		return NULL;
 	}
-	caps = (if_capabilities_t *)g_malloc(sizeof *caps);
+	caps = (if_capabilities_t *)g_malloc0(sizeof *caps);
 	if (status == 0)
 		caps->can_set_rfmon = false;
 	else if (status == 1) {
 		caps->can_set_rfmon = true;
-		if (interface_opts->monitor_mode) {
-			status = pcap_set_rfmon(pch, 1);
-			if (status < 0) {
-				/*
-				 * This "should not happen".
-				 */
-				*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
-				*open_status_str = ws_strdup_printf("pcap_set_rfmon() returned %d",
-				    status);
-				pcap_close(pch);
-				g_free(caps);
-				return NULL;
-			}
-		}
 	} else {
 		/*
 		 * This "should not happen".
@@ -1411,6 +1442,60 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 
 	pcap_close(pch);
 
+	if (caps->can_set_rfmon) {
+		/* This devices claims it can set rfmon. Get the capabilities
+		 * when in monitor mode. We just succeeded above, so if we
+		 * fail on anything here, just say that despite claims we
+		 * can't actually set monitor mode.
+		 */
+		pch = pcap_create(interface_opts->name, errbuf);
+		if (pch == NULL) {
+			/*
+			 * This "should not happen".
+			 * It just succeeded above, what can this mean?
+			 */
+			return caps;
+		}
+
+		status = pcap_set_rfmon(pch, 1);
+		if (status < 0) {
+			/*
+			 * This "should not happen".
+			 * It claims that monitor mode can be set, but
+			 * there's an error when we try to do so.
+			 */
+#if 0
+			*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
+			*open_status_str = ws_strdup_printf("pcap_set_rfmon() returned %d",
+			    status);
+#endif
+			caps->can_set_rfmon = false;
+			pcap_close(pch);
+			return caps;
+		}
+
+		status = pcap_activate(pch);
+		if (status < 0) {
+			/*
+			 * This "should not happen". (It just succeeded above.)
+			 * pcap_set_rfmon didn't return an error, but it
+			 * can't be activated after setting monitor mode?
+			 */
+			caps->can_set_rfmon = false;
+			pcap_close(pch);
+			return NULL;
+		}
+
+		caps->data_link_types_rfmon = get_data_link_types(pch,
+		    interface_opts, open_status, open_status_str);
+		if (caps->data_link_types == NULL) {
+			caps->can_set_rfmon = false;
+		}
+
+		pcap_close(pch);
+	}
+
+	*open_status = CAP_DEVICE_OPEN_NO_ERR;
 	if (open_status_str != NULL)
 		*open_status_str = NULL;
 	return caps;
@@ -1667,7 +1752,7 @@ get_if_capabilities_pcap_open_live(interface_options *interface_opts,
 		return NULL;
 	}
 
-	caps = (if_capabilities_t *)g_malloc(sizeof *caps);
+	caps = (if_capabilities_t *)g_malloc0(sizeof *caps);
 	caps->can_set_rfmon = false;
 	caps->data_link_types = get_data_link_types(pch, interface_opts,
 	    open_status, open_status_str);
@@ -1817,7 +1902,7 @@ get_if_capabilities(interface_options *interface_opts,
 		return NULL;
 	}
 
-        caps = (if_capabilities_t *)g_malloc(sizeof *caps);
+        caps = (if_capabilities_t *)g_malloc0(sizeof *caps);
         caps->can_set_rfmon = false;
         caps->data_link_types = NULL;
         deflt = get_pcap_datalink(pch, interface_opts->name);

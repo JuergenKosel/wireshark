@@ -27,13 +27,12 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-register_plugin_files(plugin.c
-	plugin_codec
+register_codec_files(plugin.c 1
 	"16-bit audio, mono"
 	${CODEC_SRC}
 )
 
-add_wireshark_plugin_library(l16mono codecs)
+add_wireshark_codec_plugin_library(l16mono)
 
 target_include_directories(l16mono PRIVATE ${CMAKE_SOURCE_DIR}/codecs)
 
