@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-gprscdr.c                                                           */
-/* asn2wrs.py -b -L -p gprscdr -c ./gprscdr.cnf -s ./packet-gprscdr-template -D . -O ../.. GenericChargingDataTypes.asn GPRSChargingDataTypesV641.asn GPRSChargingDataTypes.asn */
+/* asn2wrs.py -b -q -L -p gprscdr -c ./gprscdr.cnf -s ./packet-gprscdr-template -D . -O ../.. GenericChargingDataTypes.asn GPRSChargingDataTypesV641.asn GPRSChargingDataTypes.asn */
 
 /* packet-gprscdr-template.c
  * Copyright 2011 , Anders Broman <anders.broman [AT] ericsson.com>
@@ -22,6 +22,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-gsm_map.h"
@@ -533,112 +534,112 @@ static int ett_gprscdr_pdp_pdn_type;
 static int ett_gprscdr_eps_qos_arp;
 static int ett_gprscdr_managementextension_information;
 static int ett_gprscdr_userlocationinformation;
-static gint ett_gprscdr_Diagnostics;
-static gint ett_gprscdr_Ecgi;
-static gint ett_gprscdr_EnhancedDiagnostics;
-static gint ett_gprscdr_SEQUENCE_OF_RANNASCause;
-static gint ett_gprscdr_InvolvedParty;
-static gint ett_gprscdr_IPAddress;
-static gint ett_gprscdr_IPBinaryAddress;
-static gint ett_gprscdr_IPBinV6AddressWithOrWithoutPrefixLength;
-static gint ett_gprscdr_IPBinV6AddressWithPrefixLength;
-static gint ett_gprscdr_IPTextRepresentedAddress;
-static gint ett_gprscdr_LCSClientIdentity;
-static gint ett_gprscdr_LevelOfCAMELService;
-static gint ett_gprscdr_LocationAreaAndCell;
-static gint ett_gprscdr_ManagementExtensions;
-static gint ett_gprscdr_MBMSInformation;
-static gint ett_gprscdr_Ncgi;
-static gint ett_gprscdr_PDPAddress;
-static gint ett_gprscdr_PSCellInformation;
-static gint ett_gprscdr_SCSASAddress;
-static gint ett_gprscdr_ServiceSpecificInfo;
-static gint ett_gprscdr_SubscriptionID;
-static gint ett_gprscdr_ManagementExtension;
-static gint ett_gprscdr_GPRSCallEventRecord;
-static gint ett_gprscdr_GGSNPDPRecord;
-static gint ett_gprscdr_SEQUENCE_OF_GSNAddress;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfCharConditionV651;
-static gint ett_gprscdr_GGSNPDPRecordV750;
-static gint ett_gprscdr_EGSNPDPRecord;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfServiceConditionV651;
-static gint ett_gprscdr_EGSNPDPRecordV750;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfServiceConditionV750;
-static gint ett_gprscdr_SGSNPDPRecordV651;
-static gint ett_gprscdr_SGSNSMORecordV651;
-static gint ett_gprscdr_SGSNSMTRecordV651;
-static gint ett_gprscdr_ChangeOfCharConditionV651;
-static gint ett_gprscdr_ChangeOfServiceConditionV651;
-static gint ett_gprscdr_ChangeOfServiceConditionV750;
-static gint ett_gprscdr_SEQUENCE_OF_AFRecordInformation;
-static gint ett_gprscdr_ServiceConditionChangeV651;
-static gint ett_gprscdr_ServiceConditionChangeV750;
-static gint ett_gprscdr_GPRSRecord;
-static gint ett_gprscdr_SGWRecord;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfCharCondition;
-static gint ett_gprscdr_SEQUENCE_OF_ServingNodeType;
-static gint ett_gprscdr_SEQUENCE_OF_RANSecondaryRATUsageReport;
-static gint ett_gprscdr_PGWRecord;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfServiceCondition;
-static gint ett_gprscdr_TDFRecord;
-static gint ett_gprscdr_IPERecord;
-static gint ett_gprscdr_EPDGRecord;
-static gint ett_gprscdr_TWAGRecord;
-static gint ett_gprscdr_SGSNMMRecord;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeLocation;
-static gint ett_gprscdr_SGSNPDPRecord;
-static gint ett_gprscdr_SGSNSMORecord;
-static gint ett_gprscdr_SGSNSMTRecord;
-static gint ett_gprscdr_SGSNMTLCSRecord;
-static gint ett_gprscdr_SGSNMOLCSRecord;
-static gint ett_gprscdr_SGSNNILCSRecord;
-static gint ett_gprscdr_SGSNMBMSRecord;
-static gint ett_gprscdr_SEQUENCE_OF_RAIdentity;
-static gint ett_gprscdr_SEQUENCE_OF_ChangeOfMBMSCondition;
-static gint ett_gprscdr_GGSNMBMSRecord;
-static gint ett_gprscdr_GWMBMSRecord;
-static gint ett_gprscdr_AccessLineIdentifier;
-static gint ett_gprscdr_AFRecordInformation;
-static gint ett_gprscdr_APNRateControl;
-static gint ett_gprscdr_APNRateControlParameters;
-static gint ett_gprscdr_CalleePartyInformation;
-static gint ett_gprscdr_SEQUENCE_OF_InvolvedParty;
-static gint ett_gprscdr_CAMELInformationMM;
-static gint ett_gprscdr_CAMELInformationPDP;
-static gint ett_gprscdr_CAMELInformationSMS;
-static gint ett_gprscdr_ChangeOfCharCondition;
-static gint ett_gprscdr_SEQUENCE_OF_PresenceReportingAreaInfo;
-static gint ett_gprscdr_ChangeOfMBMSCondition;
-static gint ett_gprscdr_ChangeOfServiceCondition;
-static gint ett_gprscdr_SEQUENCE_OF_ServiceSpecificInfo;
-static gint ett_gprscdr_ChangeLocation;
-static gint ett_gprscdr_EPCQoSInformation;
-static gint ett_gprscdr_EventBasedChargingInformation;
-static gint ett_gprscdr_SEQUENCE_OF_TimeStamp;
-static gint ett_gprscdr_FixedUserLocationInformation;
-static gint ett_gprscdr_Flows;
-static gint ett_gprscdr_T_flowNumber;
-static gint ett_gprscdr_MOExceptionDataCounter;
-static gint ett_gprscdr_PresenceReportingAreaInfo;
-static gint ett_gprscdr_PresenceReportingAreaNode;
-static gint ett_gprscdr_PSFurnishChargingInformation;
-static gint ett_gprscdr_RANSecondaryRATUsageReport;
-static gint ett_gprscdr_RelatedChangeOfCharCondition;
-static gint ett_gprscdr_RelatedChangeOfServiceCondition;
-static gint ett_gprscdr_ServiceConditionChange;
-static gint ett_gprscdr_ServingPLMNRateControl;
-static gint ett_gprscdr_TimeQuotaMechanism;
-static gint ett_gprscdr_TWANUserLocationInfo;
-static gint ett_gprscdr_UserCSGInformation;
-static gint ett_gprscdr_UWANUserLocationInfo;
-static gint ett_gprscdr_VoLTEInformation;
-static gint ett_gprscdr_WLANOperatorId;
+static int ett_gprscdr_Diagnostics;
+static int ett_gprscdr_Ecgi;
+static int ett_gprscdr_EnhancedDiagnostics;
+static int ett_gprscdr_SEQUENCE_OF_RANNASCause;
+static int ett_gprscdr_InvolvedParty;
+static int ett_gprscdr_IPAddress;
+static int ett_gprscdr_IPBinaryAddress;
+static int ett_gprscdr_IPBinV6AddressWithOrWithoutPrefixLength;
+static int ett_gprscdr_IPBinV6AddressWithPrefixLength;
+static int ett_gprscdr_IPTextRepresentedAddress;
+static int ett_gprscdr_LCSClientIdentity;
+static int ett_gprscdr_LevelOfCAMELService;
+static int ett_gprscdr_LocationAreaAndCell;
+static int ett_gprscdr_ManagementExtensions;
+static int ett_gprscdr_MBMSInformation;
+static int ett_gprscdr_Ncgi;
+static int ett_gprscdr_PDPAddress;
+static int ett_gprscdr_PSCellInformation;
+static int ett_gprscdr_SCSASAddress;
+static int ett_gprscdr_ServiceSpecificInfo;
+static int ett_gprscdr_SubscriptionID;
+static int ett_gprscdr_ManagementExtension;
+static int ett_gprscdr_GPRSCallEventRecord;
+static int ett_gprscdr_GGSNPDPRecord;
+static int ett_gprscdr_SEQUENCE_OF_GSNAddress;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfCharConditionV651;
+static int ett_gprscdr_GGSNPDPRecordV750;
+static int ett_gprscdr_EGSNPDPRecord;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfServiceConditionV651;
+static int ett_gprscdr_EGSNPDPRecordV750;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfServiceConditionV750;
+static int ett_gprscdr_SGSNPDPRecordV651;
+static int ett_gprscdr_SGSNSMORecordV651;
+static int ett_gprscdr_SGSNSMTRecordV651;
+static int ett_gprscdr_ChangeOfCharConditionV651;
+static int ett_gprscdr_ChangeOfServiceConditionV651;
+static int ett_gprscdr_ChangeOfServiceConditionV750;
+static int ett_gprscdr_SEQUENCE_OF_AFRecordInformation;
+static int ett_gprscdr_ServiceConditionChangeV651;
+static int ett_gprscdr_ServiceConditionChangeV750;
+static int ett_gprscdr_GPRSRecord;
+static int ett_gprscdr_SGWRecord;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfCharCondition;
+static int ett_gprscdr_SEQUENCE_OF_ServingNodeType;
+static int ett_gprscdr_SEQUENCE_OF_RANSecondaryRATUsageReport;
+static int ett_gprscdr_PGWRecord;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfServiceCondition;
+static int ett_gprscdr_TDFRecord;
+static int ett_gprscdr_IPERecord;
+static int ett_gprscdr_EPDGRecord;
+static int ett_gprscdr_TWAGRecord;
+static int ett_gprscdr_SGSNMMRecord;
+static int ett_gprscdr_SEQUENCE_OF_ChangeLocation;
+static int ett_gprscdr_SGSNPDPRecord;
+static int ett_gprscdr_SGSNSMORecord;
+static int ett_gprscdr_SGSNSMTRecord;
+static int ett_gprscdr_SGSNMTLCSRecord;
+static int ett_gprscdr_SGSNMOLCSRecord;
+static int ett_gprscdr_SGSNNILCSRecord;
+static int ett_gprscdr_SGSNMBMSRecord;
+static int ett_gprscdr_SEQUENCE_OF_RAIdentity;
+static int ett_gprscdr_SEQUENCE_OF_ChangeOfMBMSCondition;
+static int ett_gprscdr_GGSNMBMSRecord;
+static int ett_gprscdr_GWMBMSRecord;
+static int ett_gprscdr_AccessLineIdentifier;
+static int ett_gprscdr_AFRecordInformation;
+static int ett_gprscdr_APNRateControl;
+static int ett_gprscdr_APNRateControlParameters;
+static int ett_gprscdr_CalleePartyInformation;
+static int ett_gprscdr_SEQUENCE_OF_InvolvedParty;
+static int ett_gprscdr_CAMELInformationMM;
+static int ett_gprscdr_CAMELInformationPDP;
+static int ett_gprscdr_CAMELInformationSMS;
+static int ett_gprscdr_ChangeOfCharCondition;
+static int ett_gprscdr_SEQUENCE_OF_PresenceReportingAreaInfo;
+static int ett_gprscdr_ChangeOfMBMSCondition;
+static int ett_gprscdr_ChangeOfServiceCondition;
+static int ett_gprscdr_SEQUENCE_OF_ServiceSpecificInfo;
+static int ett_gprscdr_ChangeLocation;
+static int ett_gprscdr_EPCQoSInformation;
+static int ett_gprscdr_EventBasedChargingInformation;
+static int ett_gprscdr_SEQUENCE_OF_TimeStamp;
+static int ett_gprscdr_FixedUserLocationInformation;
+static int ett_gprscdr_Flows;
+static int ett_gprscdr_T_flowNumber;
+static int ett_gprscdr_MOExceptionDataCounter;
+static int ett_gprscdr_PresenceReportingAreaInfo;
+static int ett_gprscdr_PresenceReportingAreaNode;
+static int ett_gprscdr_PSFurnishChargingInformation;
+static int ett_gprscdr_RANSecondaryRATUsageReport;
+static int ett_gprscdr_RelatedChangeOfCharCondition;
+static int ett_gprscdr_RelatedChangeOfServiceCondition;
+static int ett_gprscdr_ServiceConditionChange;
+static int ett_gprscdr_ServingPLMNRateControl;
+static int ett_gprscdr_TimeQuotaMechanism;
+static int ett_gprscdr_TWANUserLocationInfo;
+static int ett_gprscdr_UserCSGInformation;
+static int ett_gprscdr_UWANUserLocationInfo;
+static int ett_gprscdr_VoLTEInformation;
+static int ett_gprscdr_WLANOperatorId;
 
 static expert_field ei_gprscdr_not_dissected;
 static expert_field ei_gprscdr_choice_not_found;
 
 /* Global variables */
-static const char *obj_id = NULL;
+static const char *obj_id;
 
 static const value_string gprscdr_daylight_saving_time_vals[] = {
     {0, "No adjustment"},
@@ -674,7 +675,7 @@ static const value_string gprscdr_rat_type_vals[] = {
 static int
 dissect_gprscdr_uli(tvbuff_t *tvb _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int type) {
   proto_tree *ext_tree_uli;
-  guint       length;
+  unsigned    length;
 
   length = tvb_reported_length(tvb);
   ext_tree_uli = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_userlocationinformation, NULL, "UserLocationInformation");
@@ -1036,7 +1037,7 @@ dissect_gprscdr_PLMN_Id(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
     return offset;
 
   subtree = proto_item_add_subtree(actx->created_item, ett_gprscdr_plmn_id);
-  dissect_e212_mcc_mnc(parameter_tvb, actx->pinfo, subtree, 0, E212_NONE, TRUE);
+  dissect_e212_mcc_mnc(parameter_tvb, actx->pinfo, subtree, 0, E212_NONE, true);
 
 
   return offset;
@@ -1606,7 +1607,7 @@ dissect_gprscdr_MSTimeZone(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
  * 1.Octet: Time Zone and 2. Octet: Daylight saving time, see TS 29.060 [75]
  */
   tvbuff_t *parameter_tvb;
-  guint8 data, data2;
+  uint8_t data, data2;
   char sign;
 
   offset = dissect_ber_octet_string(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -1616,11 +1617,11 @@ dissect_gprscdr_MSTimeZone(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
   if (!parameter_tvb)
     return offset;
 
-  data = tvb_get_guint8(parameter_tvb, 0);
+  data = tvb_get_uint8(parameter_tvb, 0);
   sign = (data & 0x08) ? '-' : '+';
   data = (data >> 4) + (data & 0x07) * 10;
 
-  data2 = tvb_get_guint8(tvb, 1) & 0x3;
+  data2 = tvb_get_uint8(tvb, 1) & 0x3;
 
   proto_item_append_text(actx->created_item, " (GMT %c %d hours %d minutes %s)",
                          sign,
@@ -1991,15 +1992,15 @@ dissect_gprscdr_TimeStamp(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
     return offset;
 
   proto_item_append_text(actx->created_item, " (UTC %x-%x-%x %x:%x:%x %s%x:%x)",
-                         tvb_get_guint8(parameter_tvb,0),                        /* Year */
-                         tvb_get_guint8(parameter_tvb,1),                        /* Month */
-                         tvb_get_guint8(parameter_tvb,2),                        /* Day */
-                         tvb_get_guint8(parameter_tvb,3),                        /* Hour */
-                         tvb_get_guint8(parameter_tvb,4),                        /* Minute */
-                         tvb_get_guint8(parameter_tvb,5),                        /* Second */
+                         tvb_get_uint8(parameter_tvb,0),                        /* Year */
+                         tvb_get_uint8(parameter_tvb,1),                        /* Month */
+                         tvb_get_uint8(parameter_tvb,2),                        /* Day */
+                         tvb_get_uint8(parameter_tvb,3),                        /* Hour */
+                         tvb_get_uint8(parameter_tvb,4),                        /* Minute */
+                         tvb_get_uint8(parameter_tvb,5),                        /* Second */
                          tvb_get_string_enc(actx->pinfo->pool, parameter_tvb,6,1,ENC_ASCII|ENC_NA), /* Sign */
-                         tvb_get_guint8(parameter_tvb,7),                        /* Hour */
-                         tvb_get_guint8(parameter_tvb,8)                         /* Minute */
+                         tvb_get_uint8(parameter_tvb,7),                        /* Hour */
+                         tvb_get_uint8(parameter_tvb,8)                         /* Minute */
                         );
 
 
@@ -2041,7 +2042,7 @@ dissect_gprscdr_AccessPointNameNI(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 static int
 dissect_gprscdr_PDPType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   proto_tree *ext_tree_pdp_pdn_type;
-  guint length;
+  unsigned length;
 
   length = tvb_reported_length(tvb);
 
@@ -3293,7 +3294,7 @@ dissect_gprscdr_T_userLocationInformation_08(bool implicit_tag _U_, tvbuff_t *tv
 static int
 dissect_gprscdr_T_aRP(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   proto_tree *ext_tree_arp;
-  guint length;
+  unsigned length;
 
   /*
    * 8.86 Allocation/Retention Priority (ARP)
@@ -5049,8 +5050,8 @@ static const ber_choice_t GPRSRecord_choice[] = {
 int
 dissect_gprscdr_GPRSRecord(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 proto_item *item;
-gint branch_taken, t_offset = offset;
-gint32   tag;
+int branch_taken, t_offset = offset;
+int32_t  tag;
 
     offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  GPRSRecord_choice, hf_index, ett_gprscdr_GPRSRecord,
@@ -5073,22 +5074,22 @@ gint32   tag;
 int dissect_gprscdr_GPRSCallEventRecord_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_gprscdr_GPRSCallEventRecord(FALSE, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_GPRSCallEventRecord_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_gprscdr_GPRSCallEventRecord(false, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_GPRSCallEventRecord_PDU);
   return offset;
 }
 int dissect_gprscdr_GPRSRecord_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_gprscdr_GPRSRecord(FALSE, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_GPRSRecord_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_gprscdr_GPRSRecord(false, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_GPRSRecord_PDU);
   return offset;
 }
 int dissect_gprscdr_CAMELInformationPDP_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_gprscdr_CAMELInformationPDP(FALSE, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_CAMELInformationPDP_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_gprscdr_CAMELInformationPDP(false, tvb, offset, &asn1_ctx, tree, hf_gprscdr_gprscdr_CAMELInformationPDP_PDU);
   return offset;
 }
 
@@ -7040,7 +7041,7 @@ proto_register_gprscdr(void)
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_gprscdr,
     &ett_gprscdr_timestamp,
     &ett_gprscdr_plmn_id,

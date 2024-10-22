@@ -40,7 +40,7 @@ typedef struct _func_saver {
     int dissect_ref;
 } func_saver_t;
 
-static GPtrArray* outstanding_FuncSavers = NULL;
+static GPtrArray* outstanding_FuncSavers;
 
 void clear_outstanding_FuncSavers(void) {
     while (outstanding_FuncSavers->len) {
@@ -70,11 +70,11 @@ static int protocols_table_ref = LUA_NOREF;
 
 WSLUA_CONSTRUCTOR Proto_new(lua_State* L) { /* Creates a new <<lua_class_Proto,`Proto`>> object. */
 #define WSLUA_ARG_Proto_new_NAME 1 /* The name of the protocol. */
-#define WSLUA_ARG_Proto_new_DESC 2 /* A Long Text description of the protocol (usually lowercase). */
-    const gchar* name = luaL_checkstring(L,WSLUA_ARG_Proto_new_NAME);
-    const gchar* desc = luaL_checkstring(L,WSLUA_ARG_Proto_new_DESC);
+#define WSLUA_ARG_Proto_new_DESCRIPTION 2 /* A Long Text description of the protocol (usually lowercase). */
+    const char* name = luaL_checkstring(L,WSLUA_ARG_Proto_new_NAME);
+    const char* desc = luaL_checkstring(L,WSLUA_ARG_Proto_new_DESCRIPTION);
     Proto proto;
-    gchar *loname, *hiname;
+    char *loname, *hiname;
 
     /* TODO: should really make a common function for all of wslua that does checkstring and non-empty at same time */
     if (!name[0]) {
@@ -83,12 +83,12 @@ WSLUA_CONSTRUCTOR Proto_new(lua_State* L) { /* Creates a new <<lua_class_Proto,`
     }
 
     if (!desc[0]) {
-        WSLUA_ARG_ERROR(Proto_new,DESC,"must not be an empty string");
+        WSLUA_ARG_ERROR(Proto_new,DESCRIPTION,"must not be an empty string");
         return 0;
     }
 
     if (proto_name_already_registered(desc)) {
-        WSLUA_ARG_ERROR(Proto_new,DESC,"there cannot be two protocols with the same description");
+        WSLUA_ARG_ERROR(Proto_new,DESCRIPTION,"there cannot be two protocols with the same description");
         return 0;
     }
 
@@ -116,8 +116,8 @@ WSLUA_CONSTRUCTOR Proto_new(lua_State* L) { /* Creates a new <<lua_class_Proto,`
     proto->desc = g_strdup(desc);
     proto->hfid = proto_register_protocol(proto->desc,hiname,loname);
     proto->ett = -1;
-    proto->is_postdissector = FALSE;
-    proto->expired = FALSE;
+    proto->is_postdissector = false;
+    proto->expired = false;
 
     lua_newtable (L);
     proto->fields = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -150,7 +150,7 @@ WSLUA_CONSTRUCTOR Proto_new(lua_State* L) { /* Creates a new <<lua_class_Proto,`
 
 WSLUA_METAMETHOD Proto__call(lua_State* L) { /* Creates a <<lua_class_Proto,`Proto`>> object. */
 #define WSLUA_ARG_Proto__call_NAME 1 /* The name of the protocol. */
-#define WSLUA_ARG_Proto__call_DESC 2 /* A Long Text description of the protocol (usually lowercase). */
+#define WSLUA_ARG_Proto__call_DESCRIPTION 2 /* A Long Text description of the protocol (usually lowercase). */
     lua_remove(L,1); /* remove the table */
     WSLUA_RETURN(Proto_new(L)); /* The new <<lua_class_Proto,`Proto`>> object. */
 }
@@ -171,7 +171,7 @@ WSLUA_FUNCTION wslua_register_postdissector(lua_State* L) {
                                                            Note: This impacts performance (default=false). */
 
     Proto proto = checkProto(L,WSLUA_ARG_register_postdissector_PROTO);
-    const gboolean all_fields = wslua_optbool(L, WSLUA_OPTARG_register_postdissector_ALLFIELDS, FALSE);
+    const bool all_fields = wslua_optbool(L, WSLUA_OPTARG_register_postdissector_ALLFIELDS, false);
 
     if(!proto->is_postdissector) {
         if (! proto->handle) {
@@ -179,7 +179,7 @@ WSLUA_FUNCTION wslua_register_postdissector(lua_State* L) {
         }
 
         register_postdissector(proto->handle);
-        proto->is_postdissector = TRUE;
+        proto->is_postdissector = true;
     } else {
         luaL_argerror(L,1,"this protocol is already registered as postdissector");
     }
@@ -195,7 +195,7 @@ WSLUA_FUNCTION wslua_register_postdissector(lua_State* L) {
          *
          * If not, this is overkill.
          */
-        epan_set_always_visible(TRUE);
+        epan_set_always_visible(true);
     }
 
     return 0;
@@ -222,8 +222,6 @@ WSLUA_METHOD Proto_register_heuristic(lua_State* L) {
        it will be treated the same as a `false` return for the heuristic; if a positive or negative
        number is returned, then the it will be treated the same as a `true` return for the heuristic,
        meaning the packet is for this protocol and no other heuristic will be tried.
-
-       @since 1.11.3
      */
 #define WSLUA_ARG_Proto_register_heuristic_LISTNAME 2 /* The heuristic list name this function
                                                          is a heuristic for (e.g., "udp" or
@@ -231,11 +229,11 @@ WSLUA_METHOD Proto_register_heuristic(lua_State* L) {
 #define WSLUA_ARG_Proto_register_heuristic_FUNC 3 /* A Lua function that will be invoked for
                                                      heuristic dissection. */
     Proto proto = checkProto(L,1);
-    const gchar *listname = luaL_checkstring(L, WSLUA_ARG_Proto_register_heuristic_LISTNAME);
-    const gchar *proto_name = proto->name;
+    const char *listname = luaL_checkstring(L, WSLUA_ARG_Proto_register_heuristic_LISTNAME);
+    const char *proto_name = proto->name;
     const int top _U_ = lua_gettop(L);
 
-    gchar *short_name;
+    char *short_name;
 
     if (!proto_name || proto->hfid == -1) {
         /* this shouldn't happen - internal bug if it does */
@@ -432,11 +430,61 @@ static int Proto_get_fields(lua_State* L) {
     return 1;
 }
 
+static bool Proto_append_ProtoField(Proto proto, ProtoField f) {
+
+    if (f->hfid != -2) {
+        // Already registered
+        return false;
+    }
+    hf_register_info hfri = { NULL, { NULL, NULL, FT_NONE, 0, NULL, 0, NULL, HFILL } };
+    int*   ettp = NULL;
+    ettp = &(f->ett);
+
+    hfri.p_id = &(f->hfid);
+    hfri.hfinfo.name = f->name;
+    hfri.hfinfo.abbrev = f->abbrev;
+    hfri.hfinfo.type = f->type;
+    hfri.hfinfo.display = f->base;
+    hfri.hfinfo.strings = VALS(f->vs);
+    hfri.hfinfo.bitmask = f->mask;
+    hfri.hfinfo.blurb = f->blob;
+
+    f->hfid = -1;
+    g_array_append_val(proto->hfa,hfri);
+    g_array_append_val(proto->etta,ettp);
+
+    return true;
+}
+
 static int Proto_set_fields(lua_State* L) {
     Proto proto = checkProto(L,1);
 #define FIELDS_TABLE 2
 #define NEW_TABLE 3
 #define NEW_FIELD 3
+
+    /*
+     * XXX - This is a "setter", but it really appends any ProtoFields to
+     * the Lua Table without removing any existing ones.
+     */
+
+    if (proto->hfa) {
+        /* This Proto's ProtoFields were already registered in Proto_commit.
+         * Deregister the existing array with epan so we can add new ones.
+         * (Appending to the GArray and registering only the new ones would
+         * have a use-after-free, for reasons mentioned in proto.c )
+         * XXX - What is the reason for waiting and registering all
+         * at once in Proto_commit instead of doing it here every time?
+         */
+        if (proto->hfa->len) {
+            proto_add_deregistered_data(g_array_free(proto->hfa,false));
+        } else {
+            g_array_free(proto->hfa,true);
+        }
+        /* No need for deferred deletion of subtree indexes */
+        g_array_free(proto->etta,true);
+        proto->hfa  = g_array_new(true,true,sizeof(hf_register_info));
+        proto->etta = g_array_new(true,true,sizeof(int*));
+    }
 
     lua_rawgeti(L, LUA_REGISTRYINDEX, proto->fields);
     lua_insert(L,FIELDS_TABLE);
@@ -444,12 +492,58 @@ static int Proto_set_fields(lua_State* L) {
     if( lua_istable(L,NEW_TABLE)) {
         for (lua_pushnil(L); lua_next(L, NEW_TABLE); ) {
             if (isProtoField(L,5)) {
-                luaL_ref(L,FIELDS_TABLE);
+                if (proto->hfa) {
+                    ProtoField f = toProtoField(L,5);
+                    // XXX this will leak resources on error
+                    // If this continued and registered the field array, it
+                    // wouldn't leak. We could perhaps print a warning or even
+                    // err after registration.
+                    if (!Proto_append_ProtoField(proto, f)) {
+                        return luaL_error(L,"%s is already registered; fields can be registered only once", f->abbrev);
+                    }
+                }
+                /* luaL_ref returns a reference. lua_next will return not
+                 * just occupied entries in the table, but also references
+                 * used to store unused/deleted entries in the hash table
+                 * so that they can be reused without reallocation. Those
+                 * will have a lua_Number as their value. The values form
+                 * a linked list of available indicies, starting with the
+                 * head at index 3 (LUA_RIDX_LAST + 1) in Lua 5.4 and index
+                 * 0 in earlier versions. (Since arrays are 1-indexed, this
+                 * is mostly invisible in Lua 5.3 and earlier so long as
+                 * nothing has been deleted.)
+                 *
+                 * Perhaps the assumption is that no one wants to use a
+                 * hash table to store numbers anyway? This also means
+                 * that for any table with 2 or more real entries, the
+                 * length operator # *includes* the freelist and cannot
+                 * be trusted.
+                 *
+                 * If we wanted to only check entries we knew were valid,
+                 * we could save this reference.
+                 *
+                 * This also means that our checks below on registration
+                 * and deregistration that the table entries are ProtoFields
+                 * are less useful, because we do now expect some numbers
+                 * in the table. Hopefully the check on insert here obviates
+                 * needing to check there.
+                 */
+                /* int ref = */ luaL_ref(L,FIELDS_TABLE);
             } else if (! lua_isnil(L,5) ) {
                 return luaL_error(L,"only ProtoFields should be in the table");
             }
         }
     } else if (isProtoField(L,NEW_FIELD)){
+        if (proto->hfa) {
+            ProtoField f = toProtoField(L,NEW_FIELD);
+            // XXX this will leak resources on error
+            // If this continued and registered the field array, it wouldn't
+            // leak. We could perhaps print a warning or even err after
+            // registration.
+            if (!Proto_append_ProtoField(proto, f)) {
+                return luaL_error(L,"%s is already registered; fields can be registered only once", f->abbrev);
+            }
+        }
         lua_pushvalue(L, NEW_FIELD);
         luaL_ref(L,FIELDS_TABLE);
 
@@ -457,19 +551,41 @@ static int Proto_set_fields(lua_State* L) {
         return luaL_error(L,"either a ProtoField or an array of protofields");
     }
 
+    if (proto->hfa && proto->hfa->len) {
+        /* register the proto fields */
+        proto_register_field_array(proto->hfid,&g_array_index(proto->hfa, hf_register_info, 0),proto->hfa->len);
+        proto_register_subtree_array(&g_array_index(proto->etta, int*, 0),proto->etta->len);
+    }
+
     lua_pushvalue(L, 3);
 
     return 1;
 }
 
-/* WSLUA_ATTRIBUTE Proto_experts RW The expert info Lua table of this `Proto`.
-
-   @since 1.11.3
- */
+/* WSLUA_ATTRIBUTE Proto_experts RW The expert info Lua table of this `Proto`. */
 static int Proto_get_experts(lua_State* L) {
     Proto proto = checkProto(L,1);
     lua_rawgeti(L, LUA_REGISTRYINDEX, proto->expert_info_table_ref);
     return 1;
+}
+
+static bool Proto_append_ProtoExpert(Proto proto, ProtoExpert e) {
+
+    if (e->ids.ei != EI_INIT_EI || e->ids.hf != -2) {
+        return false;
+    }
+    ei_register_info eiri = { NULL, { NULL, 0, 0, NULL, EXPFILL } };
+
+    eiri.ids             = &(e->ids);
+    eiri.eiinfo.name     = e->abbrev;
+    eiri.eiinfo.group    = e->group;
+    eiri.eiinfo.severity = e->severity;
+    eiri.eiinfo.summary  = e->text;
+
+    e->ids.hf = -1;
+    g_array_append_val(proto->eia,eiri);
+
+    return true;
 }
 
 static int Proto_set_experts(lua_State* L) {
@@ -478,18 +594,51 @@ static int Proto_set_experts(lua_State* L) {
 #define NEW_TABLE 3
 #define NEW_FIELD 3
 
+    /*
+     * XXX - This is a "setter", but it really appends any ProtoExperts to
+     * the Lua Table without removing any existing ones.
+     */
+
+    if (proto->eia) {
+        /* This Proto's ProtoExperts were already registered in Proto_commit.
+         * Deregister the existing array with epan so we can add new ones.
+         * XXX - What is the reason for waiting and registering all at
+         * at once in Proto_commit instead of doing it here every time?
+         */
+        if (proto->eia && proto->eia->len) {
+            proto_add_deregistered_data(g_array_free(proto->eia,false));
+        } else {
+            g_array_free(proto->eia,true);
+        }
+        proto->eia  = g_array_new(true,true,sizeof(ei_register_info));
+    }
+
     lua_rawgeti(L, LUA_REGISTRYINDEX, proto->expert_info_table_ref);
     lua_insert(L,EI_TABLE);
 
     if( lua_istable(L,NEW_TABLE)) {
         for (lua_pushnil(L); lua_next(L, NEW_TABLE); ) {
             if (isProtoExpert(L,5)) {
+                if (proto->eia) {
+                    ProtoExpert e = toProtoExpert(L, NEW_FIELD);
+
+                    if (!Proto_append_ProtoExpert(proto, e)) {
+                        return luaL_error(L,"%s is already registered; expert fields can be registered only once", e->abbrev);
+                    }
+                }
                 luaL_ref(L,EI_TABLE);
             } else if (! lua_isnil(L,5) ) {
                 return luaL_error(L,"only ProtoExperts should be in the table");
             }
         }
     } else if (isProtoExpert(L,NEW_FIELD)){
+        if (proto->eia) {
+            ProtoExpert e = toProtoExpert(L, NEW_FIELD);
+
+            if (!Proto_append_ProtoExpert(proto, e)) {
+                return luaL_error(L,"%s is already registered; expert fields can be registered only once", e->abbrev);
+            }
+        }
         lua_pushvalue(L, NEW_FIELD);
         luaL_ref(L,EI_TABLE);
 
@@ -510,7 +659,7 @@ static int Proto__gc(lua_State* L) {
     Proto proto = toProto(L,1);
 
     if (!proto->expired) {
-        proto->expired = TRUE;
+        proto->expired = true;
     } else if (proto->hfid == -2) {
         /* Only free deregistered Proto */
         g_free(proto);
@@ -550,6 +699,9 @@ WSLUA_META Proto_meta[] = {
 int Proto_register(lua_State* L) {
     WSLUA_REGISTER_CLASS_WITH_ATTRS(Proto);
 
+    if (outstanding_FuncSavers != NULL) {
+        g_ptr_array_unref(outstanding_FuncSavers);
+    }
     outstanding_FuncSavers = g_ptr_array_new();
 
     lua_newtable(L);
@@ -573,6 +725,11 @@ ProtoField wslua_is_field_available(lua_State* L, const char* field_abbr) {
 
         lua_pushnil(L);
         while (lua_next(L, -2)) {
+            if (lua_type(L, -1) == LUA_TNUMBER) {
+                /* part of free reference linked list, ignore */
+                lua_pop(L, 1); /* table value */
+                continue;
+            }
             ProtoField f = checkProtoField(L, -1);
             if (strcmp(field_abbr, f->abbrev) == 0) {
                 /* found! */
@@ -592,9 +749,9 @@ int wslua_deregister_heur_dissectors(lua_State* L) {
     /* for each registered heur dissector do... */
     lua_rawgeti(L, LUA_REGISTRYINDEX, lua_heur_dissectors_table_ref);
     for (lua_pushnil(L); lua_next(L, -2); lua_pop(L, 1)) {
-        const gchar *listname = luaL_checkstring(L, -2);
+        const char *listname = luaL_checkstring(L, -2);
         for (lua_pushnil(L); lua_next(L, -2); lua_pop(L, 1)) {
-            const gchar *proto_name = luaL_checkstring(L, -2);
+            const char *proto_name = luaL_checkstring(L, -2);
             int proto_id = proto_get_id_by_short_name(proto_name);
             heur_dissector_delete(listname, heur_dissect_lua, proto_id);
         }
@@ -632,6 +789,10 @@ int wslua_deregister_protocols(lua_State* L) {
         /* for each registered ProtoField do... */
         lua_rawgeti(L, LUA_REGISTRYINDEX, proto->fields);
         for (lua_pushnil(L); lua_next(L, -2); lua_pop(L, 1)) {
+            if (lua_type(L, -1) == LUA_TNUMBER) {
+                /* part of free reference linked list, ignore */
+                continue;
+            }
             ProtoField f = checkProtoField(L, -1);
 
             /* Memory ownership was previously transferred to epan in Proto_commit */
@@ -647,6 +808,10 @@ int wslua_deregister_protocols(lua_State* L) {
         /* for each registered ProtoExpert do... */
         lua_rawgeti(L, LUA_REGISTRYINDEX, proto->expert_info_table_ref);
         for (lua_pushnil(L); lua_next(L, -2); lua_pop(L, 1)) {
+            if (lua_type(L, -1) == LUA_TNUMBER) {
+                /* part of free reference linked list, ignore */
+                continue;
+            }
             ProtoExpert pe = checkProtoExpert(L,-1);
 
             /* Memory ownership was previously transferred to epan in Proto_commit */
@@ -658,18 +823,18 @@ int wslua_deregister_protocols(lua_State* L) {
         lua_pop(L, 1);
 
         if (proto->hfa && proto->hfa->len) {
-            proto_add_deregistered_data(g_array_free(proto->hfa,FALSE));
+            proto_add_deregistered_data(g_array_free(proto->hfa,false));
         } else {
-            g_array_free(proto->hfa,TRUE);
+            g_array_free(proto->hfa,true);
         }
 
         /* No need for deferred deletion of subtree indexes */
-        g_array_free(proto->etta,TRUE);
+        g_array_free(proto->etta,true);
 
         if (proto->eia && proto->eia->len) {
-            proto_add_deregistered_data(g_array_free(proto->eia,FALSE));
+            proto_add_deregistered_data(g_array_free(proto->eia,false));
         } else {
-            g_array_free(proto->eia,TRUE);
+            g_array_free(proto->eia,true);
         }
 
         proto->hfid = -2; /* Deregister Proto, freed in Proto__gc */
@@ -686,19 +851,24 @@ int Proto_commit(lua_State* L) {
     lua_rawgeti(L, LUA_REGISTRYINDEX, protocols_table_ref);
 
     /* for each registered Proto protocol do... */
-    for (lua_pushnil(L); lua_next(L, 1); lua_pop(L, 2)) {
+    for (lua_pushnil(L); lua_next(L, 1); lua_pop(L, 1)) {
         /* lua_next() pop'ed the nil, pushed a table entry key at index=2, with value at index=3.
            In our case, the key is the Proto's name, and the value is the Proto object.
-           At next iteration, the value (Proto object) and ProtoExperts table will be pop'ed due
-           to lua_pop(L, 2), and when lua_next() returns 0 (no more table entries), it will have
+           At next iteration, the value (Proto object) will be pop'ed due
+           to lua_pop(L, 1), and when lua_next() returns 0 (no more table entries), it will have
            pop'ed the final key itself, leaving just the protocols_table_ref table on the stack.
          */
         Proto proto = checkProto(L,3);
-        gint*   ettp = NULL;
+        int*   ettp = NULL;
 
-        proto->hfa  = g_array_new(TRUE,TRUE,sizeof(hf_register_info));
-        proto->etta = g_array_new(TRUE,TRUE,sizeof(gint*));
-        proto->eia  = g_array_new(TRUE,TRUE,sizeof(ei_register_info));
+        if (proto->hfa) {
+            /* This proto's ProtoFields were already registered. */
+            continue;
+        }
+
+        proto->hfa  = g_array_new(true,true,sizeof(hf_register_info));
+        proto->etta = g_array_new(true,true,sizeof(int*));
+        proto->eia  = g_array_new(true,true,sizeof(ei_register_info));
 
         ettp = &(proto->ett);
         g_array_append_val(proto->etta,ettp);
@@ -708,32 +878,24 @@ int Proto_commit(lua_State* L) {
 
         /* for each ProtoField in the Lua table do... */
         for (lua_pushnil(L); lua_next(L, 4); lua_pop(L, 1)) {
-            ProtoField f = checkProtoField(L,6);
-            hf_register_info hfri = { NULL, { NULL, NULL, FT_NONE, 0, NULL, 0, NULL, HFILL } };
-            ettp = &(f->ett);
-
-            hfri.p_id = &(f->hfid);
-            hfri.hfinfo.name = f->name;
-            hfri.hfinfo.abbrev = f->abbrev;
-            hfri.hfinfo.type = f->type;
-            hfri.hfinfo.display = f->base;
-            hfri.hfinfo.strings = VALS(f->vs);
-            hfri.hfinfo.bitmask = f->mask;
-            hfri.hfinfo.blurb = f->blob;
-
-            // XXX this will leak resources.
-            if (f->hfid != -2) {
-                return luaL_error(L,"fields can be registered only once");
+            if (lua_type(L, -1) == LUA_TNUMBER) {
+                /* part of free reference linked list, ignore */
+                continue;
             }
+            ProtoField f = checkProtoField(L,6);
 
-            f->hfid = -1;
-            g_array_append_val(proto->hfa,hfri);
-            g_array_append_val(proto->etta,ettp);
+            // XXX this will leak resources on error
+            // If this continued and registered the field array, it wouldn't
+            // leak. We could perhaps print a warning or even err after
+            // registration.
+            if (!Proto_append_ProtoField(proto, f)) {
+                return luaL_error(L,"%s is already registered; fields can be registered only once", f->abbrev);
+            }
         }
 
         /* register the proto fields */
         proto_register_field_array(proto->hfid,(hf_register_info*)(void*)proto->hfa->data,proto->hfa->len);
-        proto_register_subtree_array((gint**)(void*)proto->etta->data,proto->etta->len);
+        proto_register_subtree_array((int**)(void*)proto->etta->data,proto->etta->len);
 
         lua_pop(L,1); /* pop the table of ProtoFields */
 
@@ -744,26 +906,21 @@ int Proto_commit(lua_State* L) {
 
         /* for each ProtoExpert in the Lua table do... */
         for (lua_pushnil(L); lua_next(L, 4); lua_pop(L, 1)) {
-            ProtoExpert e = checkProtoExpert(L,6);
-            ei_register_info eiri = { NULL, { NULL, 0, 0, NULL, EXPFILL } };
-
-            eiri.ids             = &(e->ids);
-            eiri.eiinfo.name     = e->abbrev;
-            eiri.eiinfo.group    = e->group;
-            eiri.eiinfo.severity = e->severity;
-            eiri.eiinfo.summary  = e->text;
-
-            if (e->ids.ei != EI_INIT_EI || e->ids.hf != -2) {
-                return luaL_error(L,"expert fields can be registered only once");
+            if (lua_type(L, -1) == LUA_TNUMBER) {
+                /* part of free reference linked list, ignore */
+                continue;
             }
-
-            e->ids.hf = -1;
-            g_array_append_val(proto->eia,eiri);
+            ProtoExpert e = checkProtoExpert(L,6);
+            if (!Proto_append_ProtoExpert(proto, e)) {
+                return luaL_error(L,"%s is already registered; expert fields can be registered only once", e->abbrev);
+            }
         }
 
         expert_register_field_array(proto->expert_module, (ei_register_info*)(void*)proto->eia->data, proto->eia->len);
 
-        /* Proto object and ProtoFields table will be pop'ed by lua_pop(L, 2) in for statement */
+        lua_pop(L,1); /* pop the table of ProtoExperts */
+
+        /* Proto object will be pop'ed by lua_pop(L, 1) in for statement */
     }
 
     lua_pop(L,1); /* pop the protocols_table_ref */
@@ -771,7 +928,7 @@ int Proto_commit(lua_State* L) {
     return 0;
 }
 
-static guint
+static unsigned
 wslua_dissect_tcp_get_pdu_len(packet_info *pinfo, tvbuff_t *tvb,
                               int offset, void *data)
 {
@@ -795,7 +952,7 @@ wslua_dissect_tcp_get_pdu_len(packet_info *pinfo, tvbuff_t *tvb,
             /* if the Lua dissector reported the consumed bytes, pass it to our caller */
             if (lua_isnumber(L, -1)) {
                 /* we got the pdu_len */
-                pdu_len = wslua_togint(L, -1);
+                pdu_len = wslua_toint(L, -1);
                 lua_pop(L, 1);
             } else {
                 THROW_LUA_ERROR("Lua Error dissect_tcp_pdus: get_len_func did not return a Lua number of the PDU length");
@@ -834,7 +991,7 @@ wslua_dissect_tcp_dissector(tvbuff_t *tvb, packet_info *pinfo,
             /* if the Lua dissector reported the consumed bytes, pass it to our caller */
             if (lua_isnumber(L, -1)) {
                 /* we got the consumed bytes or the missing bytes as a negative number */
-                consumed_bytes = wslua_togint(L, -1);
+                consumed_bytes = wslua_toint(L, -1);
                 lua_pop(L, 1);
             }
         }
@@ -860,11 +1017,9 @@ WSLUA_FUNCTION wslua_dissect_tcp_pdus(lua_State* L) {
        their protocol's messages (i.e., their protocol data unit (PDU)). This
        function shouild not be used for protocols whose PDU length cannot be
        determined from a fixed minimum portion, such as HTTP or Telnet.
-
-       @since 1.99.2
      */
 #define WSLUA_ARG_dissect_tcp_pdus_TVB 1 /* The Tvb buffer to dissect PDUs from. */
-#define WSLUA_ARG_dissect_tcp_pdus_TREE 2 /* The Tvb buffer to dissect PDUs from. */
+#define WSLUA_ARG_dissect_tcp_pdus_TREE 2 /* `TreeItem` object passed to the `dissect_func`. */
 #define WSLUA_ARG_dissect_tcp_pdus_MIN_HEADER_SIZE 3 /* The number of bytes
                         in the fixed-length part of the PDU. */
 #define WSLUA_ARG_dissect_tcp_pdus_GET_LEN_FUNC 4 /* A Lua function that will be
@@ -885,8 +1040,8 @@ WSLUA_FUNCTION wslua_dissect_tcp_pdus(lua_State* L) {
                         crossing TCP segment boundaries or not. (default=true) */
     Tvb tvb = checkTvb(L,WSLUA_ARG_dissect_tcp_pdus_TVB);
     TreeItem ti = checkTreeItem(L,WSLUA_ARG_dissect_tcp_pdus_TREE);
-    guint fixed_len = (guint)luaL_checkinteger(L,WSLUA_ARG_dissect_tcp_pdus_MIN_HEADER_SIZE);
-    gboolean proto_desegment = wslua_optbool(L, WSLUA_OPTARG_dissect_tcp_pdus_DESEGMENT, TRUE);
+    unsigned fixed_len = (unsigned)luaL_checkinteger(L,WSLUA_ARG_dissect_tcp_pdus_MIN_HEADER_SIZE);
+    bool proto_desegment = wslua_optbool(L, WSLUA_OPTARG_dissect_tcp_pdus_DESEGMENT, true);
 
     if (!lua_pinfo) {
         luaL_error(L,"dissect_tcp_pdus can only be invoked while in a dissect function");

@@ -17,6 +17,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-gsm_map.h"
@@ -50,7 +51,7 @@ static expert_field ei_gprscdr_not_dissected;
 static expert_field ei_gprscdr_choice_not_found;
 
 /* Global variables */
-static const char *obj_id = NULL;
+static const char *obj_id;
 
 static const value_string gprscdr_daylight_saving_time_vals[] = {
     {0, "No adjustment"},
@@ -86,7 +87,7 @@ static const value_string gprscdr_rat_type_vals[] = {
 static int
 dissect_gprscdr_uli(tvbuff_t *tvb _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int type) {
   proto_tree *ext_tree_uli;
-  guint       length;
+  unsigned    length;
 
   length = tvb_reported_length(tvb);
   ext_tree_uli = proto_tree_add_subtree(tree, tvb, 0, length, ett_gprscdr_userlocationinformation, NULL, "UserLocationInformation");
@@ -128,7 +129,7 @@ proto_register_gprscdr(void)
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_gprscdr,
     &ett_gprscdr_timestamp,
     &ett_gprscdr_plmn_id,

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-wlancertextn.c                                                      */
-/* asn2wrs.py -b -L -p wlancertextn -c ./wlancertextn.cnf -s ./packet-wlancertextn-template -D . -O ../.. WLANCERTEXTN.asn */
+/* asn2wrs.py -b -q -L -p wlancertextn -c ./wlancertextn.cnf -s ./packet-wlancertextn-template -D . -O ../.. WLANCERTEXTN.asn */
 
 /* packet-wlancertextn.c
  * Routines for Wireless Certificate Extension (RFC3770)
@@ -19,6 +19,8 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-wlancertextn.h"
@@ -39,7 +41,7 @@ static int hf_wlancertextn_SSIDList_PDU;          /* SSIDList */
 static int hf_wlancertextn_SSIDList_item;         /* SSID */
 
 /* Initialize the subtree pointers */
-static gint ett_wlancertextn_SSIDList;
+static int ett_wlancertextn_SSIDList;
 
 
 
@@ -69,8 +71,8 @@ dissect_wlancertextn_SSIDList(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int dissect_SSIDList_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_wlancertextn_SSIDList(FALSE, tvb, offset, &asn1_ctx, tree, hf_wlancertextn_SSIDList_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_wlancertextn_SSIDList(false, tvb, offset, &asn1_ctx, tree, hf_wlancertextn_SSIDList_PDU);
   return offset;
 }
 
@@ -92,7 +94,7 @@ void proto_register_wlancertextn(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_wlancertextn_SSIDList,
   };
 

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-ftam.c                                                              */
-/* asn2wrs.py -b -L -p ftam -c ./ftam.cnf -s ./packet-ftam-template -D . -O ../.. ISO8571-FTAM.asn */
+/* asn2wrs.py -b -q -L -p ftam -c ./ftam.cnf -s ./packet-ftam-template -D . -O ../.. ISO8571-FTAM.asn */
 
 /* packet-ftam_asn1.c
  * Routine to dissect OSI ISO 8571 FTAM Protocol packets
@@ -25,6 +25,7 @@
 #include <epan/expert.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -465,169 +466,169 @@ static int hf_ftam_Attribute_Names_spare_bit22;
 static int hf_ftam_Attribute_Names_read_Child_objects;
 
 /* Initialize the subtree pointers */
-static gint ett_ftam;
-static gint ett_ftam_PDU;
-static gint ett_ftam_FTAM_Regime_PDU;
-static gint ett_ftam_F_INITIALIZE_request;
-static gint ett_ftam_F_INITIALIZE_response;
-static gint ett_ftam_Protocol_Version_U;
-static gint ett_ftam_Service_Class_U;
-static gint ett_ftam_Functional_Units_U;
-static gint ett_ftam_Attribute_Groups_U;
-static gint ett_ftam_Contents_Type_List_U;
-static gint ett_ftam_Contents_Type_List_item;
-static gint ett_ftam_F_TERMINATE_request;
-static gint ett_ftam_F_TERMINATE_response;
-static gint ett_ftam_F_U_ABORT_request;
-static gint ett_ftam_F_P_ABORT_request;
-static gint ett_ftam_File_PDU;
-static gint ett_ftam_F_SELECT_request;
-static gint ett_ftam_F_SELECT_response;
-static gint ett_ftam_F_DESELECT_request;
-static gint ett_ftam_F_DESELECT_response;
-static gint ett_ftam_F_CREATE_request;
-static gint ett_ftam_F_CREATE_response;
-static gint ett_ftam_F_DELETE_request;
-static gint ett_ftam_F_DELETE_response;
-static gint ett_ftam_F_READ_ATTRIB_request;
-static gint ett_ftam_F_READ_ATTRIB_response;
-static gint ett_ftam_F_CHANGE_ATTRIB_request;
-static gint ett_ftam_F_CHANGE_ATTRIB_response;
-static gint ett_ftam_F_OPEN_request;
-static gint ett_ftam_T_processing_mode;
-static gint ett_ftam_T_open_contents_type;
-static gint ett_ftam_SET_OF_Abstract_Syntax_Name;
-static gint ett_ftam_F_OPEN_response;
-static gint ett_ftam_F_CLOSE_request;
-static gint ett_ftam_F_CLOSE_response;
-static gint ett_ftam_F_BEGIN_GROUP_request;
-static gint ett_ftam_F_BEGIN_GROUP_response;
-static gint ett_ftam_F_END_GROUP_request;
-static gint ett_ftam_F_END_GROUP_response;
-static gint ett_ftam_F_RECOVER_request;
-static gint ett_ftam_F_RECOVER_response;
-static gint ett_ftam_F_LOCATE_request;
-static gint ett_ftam_F_LOCATE_response;
-static gint ett_ftam_F_ERASE_request;
-static gint ett_ftam_F_ERASE_response;
-static gint ett_ftam_Bulk_Data_PDU;
-static gint ett_ftam_F_READ_request;
-static gint ett_ftam_F_WRITE_request;
-static gint ett_ftam_F_DATA_END_request;
-static gint ett_ftam_F_TRANSFER_END_request;
-static gint ett_ftam_F_TRANSFER_END_response;
-static gint ett_ftam_F_CANCEL_request;
-static gint ett_ftam_F_CANCEL_response;
-static gint ett_ftam_F_RESTART_request;
-static gint ett_ftam_F_RESTART_response;
-static gint ett_ftam_Access_Context_U;
-static gint ett_ftam_Access_Passwords_U;
-static gint ett_ftam_Access_Request_U;
-static gint ett_ftam_Change_Attributes_U;
-static gint ett_ftam_Charging_U;
-static gint ett_ftam_Charging_item;
-static gint ett_ftam_Concurrency_Control_U;
-static gint ett_ftam_Create_Attributes_U;
-static gint ett_ftam_Diagnostic_U;
-static gint ett_ftam_Diagnostic_item;
-static gint ett_ftam_FADU_Identity_U;
-static gint ett_ftam_SEQUENCE_OF_Node_Name;
-static gint ett_ftam_Password_U;
-static gint ett_ftam_Read_Attributes_U;
-static gint ett_ftam_Select_Attributes_U;
-static gint ett_ftam_Access_Control_Attribute;
-static gint ett_ftam_SET_OF_Access_Control_Element;
-static gint ett_ftam_Access_Control_Change_Attribute;
-static gint ett_ftam_T_actual_values1;
-static gint ett_ftam_Access_Control_Element;
-static gint ett_ftam_Concurrency_Access;
-static gint ett_ftam_Concurrency_Key;
-static gint ett_ftam_Account_Attribute;
-static gint ett_ftam_Contents_Type_Attribute;
-static gint ett_ftam_T_document_type;
-static gint ett_ftam_T_constraint_set_and_abstract_Syntax;
-static gint ett_ftam_Date_and_Time_Attribute;
-static gint ett_ftam_Object_Availability_Attribute;
-static gint ett_ftam_Pathname_Attribute;
-static gint ett_ftam_Object_Size_Attribute;
-static gint ett_ftam_Legal_Qualification_Attribute;
-static gint ett_ftam_Permitted_Actions_Attribute;
-static gint ett_ftam_Private_Use_Attribute;
-static gint ett_ftam_User_Identity_Attribute;
-static gint ett_ftam_Child_Objects_Attribute;
-static gint ett_ftam_FSM_PDU;
-static gint ett_ftam_F_CHANGE_PREFIX_request;
-static gint ett_ftam_F_CHANGE_PREFIX_response;
-static gint ett_ftam_F_LIST_request;
-static gint ett_ftam_F_LIST_response;
-static gint ett_ftam_F_GROUP_SELECT_request;
-static gint ett_ftam_F_GROUP_SELECT_response;
-static gint ett_ftam_F_GROUP_DELETE_request;
-static gint ett_ftam_F_GROUP_DELETE_response;
-static gint ett_ftam_F_GROUP_MOVE_request;
-static gint ett_ftam_F_GROUP_MOVE_response;
-static gint ett_ftam_F_GROUP_COPY_request;
-static gint ett_ftam_F_GROUP_COPY_response;
-static gint ett_ftam_F_GROUP_LIST_request;
-static gint ett_ftam_F_GROUP_LIST_response;
-static gint ett_ftam_F_GROUP_CHANGE_ATTRIB_request;
-static gint ett_ftam_F_GROUP_CHANGE_ATTRIB_response;
-static gint ett_ftam_F_SELECT_ANOTHER_request;
-static gint ett_ftam_F_SELECT_ANOTHER_response;
-static gint ett_ftam_F_CREATE_DIRECTORY_request;
-static gint ett_ftam_F_CREATE_DIRECTORY_response;
-static gint ett_ftam_F_LINK_request;
-static gint ett_ftam_F_LINK_response;
-static gint ett_ftam_F_UNLINK_request;
-static gint ett_ftam_F_UNLINK_response;
-static gint ett_ftam_F_READ_LINK_ATTRIB_request;
-static gint ett_ftam_F_READ_LINK_ATTRIB_response;
-static gint ett_ftam_F_CHANGE_LINK_ATTRIB_request;
-static gint ett_ftam_F_CHANGE_LINK_ATTRIB_response;
-static gint ett_ftam_F_MOVE_request;
-static gint ett_ftam_F_MOVE_response;
-static gint ett_ftam_F_COPY_request;
-static gint ett_ftam_F_COPY_response;
-static gint ett_ftam_Attribute_Extension_Names;
-static gint ett_ftam_Attribute_Extension_Set_Name;
-static gint ett_ftam_SEQUENCE_OF_Extension_Attribute_identifier;
-static gint ett_ftam_Attribute_Extensions;
-static gint ett_ftam_Attribute_Extension_Set;
-static gint ett_ftam_SEQUENCE_OF_Extension_Attribute;
-static gint ett_ftam_Extension_Attribute;
-static gint ett_ftam_Scope_U;
-static gint ett_ftam_T__untag_item;
-static gint ett_ftam_OR_Set;
-static gint ett_ftam_AND_Set;
-static gint ett_ftam_AND_Set_item;
-static gint ett_ftam_Equality_Comparision;
-static gint ett_ftam_Relational_Comparision;
-static gint ett_ftam_Pathname_Pattern;
-static gint ett_ftam_T_pathname_value;
-static gint ett_ftam_T_pathname_value_item;
-static gint ett_ftam_String_Pattern;
-static gint ett_ftam_T_string_value;
-static gint ett_ftam_T_string_value_item;
-static gint ett_ftam_Bitstring_Pattern;
-static gint ett_ftam_Date_and_Time_Pattern;
-static gint ett_ftam_Integer_Pattern;
-static gint ett_ftam_Object_Identifier_Pattern;
-static gint ett_ftam_Boolean_Pattern;
-static gint ett_ftam_Contents_Type_Pattern;
-static gint ett_ftam_T_constraint_set_abstract_Syntax_Pattern;
-static gint ett_ftam_Attribute_Extensions_Pattern;
-static gint ett_ftam_Attribute_Extensions_Pattern_item;
-static gint ett_ftam_T_extension_set_attribute_Patterns;
-static gint ett_ftam_T_extension_set_attribute_Patterns_item;
-static gint ett_ftam_SEQUENCE_OF_Read_Attributes;
-static gint ett_ftam_Operation_Result_U;
-static gint ett_ftam_SEQUENCE_OF_Pathname;
-static gint ett_ftam_Pathname;
-static gint ett_ftam_Pass_Passwords;
-static gint ett_ftam_Path_Access_Passwords_U;
-static gint ett_ftam_Path_Access_Passwords_item;
-static gint ett_ftam_Attribute_Names;
-static gint ett_ftam_AE_title;
+static int ett_ftam;
+static int ett_ftam_PDU;
+static int ett_ftam_FTAM_Regime_PDU;
+static int ett_ftam_F_INITIALIZE_request;
+static int ett_ftam_F_INITIALIZE_response;
+static int ett_ftam_Protocol_Version_U;
+static int ett_ftam_Service_Class_U;
+static int ett_ftam_Functional_Units_U;
+static int ett_ftam_Attribute_Groups_U;
+static int ett_ftam_Contents_Type_List_U;
+static int ett_ftam_Contents_Type_List_item;
+static int ett_ftam_F_TERMINATE_request;
+static int ett_ftam_F_TERMINATE_response;
+static int ett_ftam_F_U_ABORT_request;
+static int ett_ftam_F_P_ABORT_request;
+static int ett_ftam_File_PDU;
+static int ett_ftam_F_SELECT_request;
+static int ett_ftam_F_SELECT_response;
+static int ett_ftam_F_DESELECT_request;
+static int ett_ftam_F_DESELECT_response;
+static int ett_ftam_F_CREATE_request;
+static int ett_ftam_F_CREATE_response;
+static int ett_ftam_F_DELETE_request;
+static int ett_ftam_F_DELETE_response;
+static int ett_ftam_F_READ_ATTRIB_request;
+static int ett_ftam_F_READ_ATTRIB_response;
+static int ett_ftam_F_CHANGE_ATTRIB_request;
+static int ett_ftam_F_CHANGE_ATTRIB_response;
+static int ett_ftam_F_OPEN_request;
+static int ett_ftam_T_processing_mode;
+static int ett_ftam_T_open_contents_type;
+static int ett_ftam_SET_OF_Abstract_Syntax_Name;
+static int ett_ftam_F_OPEN_response;
+static int ett_ftam_F_CLOSE_request;
+static int ett_ftam_F_CLOSE_response;
+static int ett_ftam_F_BEGIN_GROUP_request;
+static int ett_ftam_F_BEGIN_GROUP_response;
+static int ett_ftam_F_END_GROUP_request;
+static int ett_ftam_F_END_GROUP_response;
+static int ett_ftam_F_RECOVER_request;
+static int ett_ftam_F_RECOVER_response;
+static int ett_ftam_F_LOCATE_request;
+static int ett_ftam_F_LOCATE_response;
+static int ett_ftam_F_ERASE_request;
+static int ett_ftam_F_ERASE_response;
+static int ett_ftam_Bulk_Data_PDU;
+static int ett_ftam_F_READ_request;
+static int ett_ftam_F_WRITE_request;
+static int ett_ftam_F_DATA_END_request;
+static int ett_ftam_F_TRANSFER_END_request;
+static int ett_ftam_F_TRANSFER_END_response;
+static int ett_ftam_F_CANCEL_request;
+static int ett_ftam_F_CANCEL_response;
+static int ett_ftam_F_RESTART_request;
+static int ett_ftam_F_RESTART_response;
+static int ett_ftam_Access_Context_U;
+static int ett_ftam_Access_Passwords_U;
+static int ett_ftam_Access_Request_U;
+static int ett_ftam_Change_Attributes_U;
+static int ett_ftam_Charging_U;
+static int ett_ftam_Charging_item;
+static int ett_ftam_Concurrency_Control_U;
+static int ett_ftam_Create_Attributes_U;
+static int ett_ftam_Diagnostic_U;
+static int ett_ftam_Diagnostic_item;
+static int ett_ftam_FADU_Identity_U;
+static int ett_ftam_SEQUENCE_OF_Node_Name;
+static int ett_ftam_Password_U;
+static int ett_ftam_Read_Attributes_U;
+static int ett_ftam_Select_Attributes_U;
+static int ett_ftam_Access_Control_Attribute;
+static int ett_ftam_SET_OF_Access_Control_Element;
+static int ett_ftam_Access_Control_Change_Attribute;
+static int ett_ftam_T_actual_values1;
+static int ett_ftam_Access_Control_Element;
+static int ett_ftam_Concurrency_Access;
+static int ett_ftam_Concurrency_Key;
+static int ett_ftam_Account_Attribute;
+static int ett_ftam_Contents_Type_Attribute;
+static int ett_ftam_T_document_type;
+static int ett_ftam_T_constraint_set_and_abstract_Syntax;
+static int ett_ftam_Date_and_Time_Attribute;
+static int ett_ftam_Object_Availability_Attribute;
+static int ett_ftam_Pathname_Attribute;
+static int ett_ftam_Object_Size_Attribute;
+static int ett_ftam_Legal_Qualification_Attribute;
+static int ett_ftam_Permitted_Actions_Attribute;
+static int ett_ftam_Private_Use_Attribute;
+static int ett_ftam_User_Identity_Attribute;
+static int ett_ftam_Child_Objects_Attribute;
+static int ett_ftam_FSM_PDU;
+static int ett_ftam_F_CHANGE_PREFIX_request;
+static int ett_ftam_F_CHANGE_PREFIX_response;
+static int ett_ftam_F_LIST_request;
+static int ett_ftam_F_LIST_response;
+static int ett_ftam_F_GROUP_SELECT_request;
+static int ett_ftam_F_GROUP_SELECT_response;
+static int ett_ftam_F_GROUP_DELETE_request;
+static int ett_ftam_F_GROUP_DELETE_response;
+static int ett_ftam_F_GROUP_MOVE_request;
+static int ett_ftam_F_GROUP_MOVE_response;
+static int ett_ftam_F_GROUP_COPY_request;
+static int ett_ftam_F_GROUP_COPY_response;
+static int ett_ftam_F_GROUP_LIST_request;
+static int ett_ftam_F_GROUP_LIST_response;
+static int ett_ftam_F_GROUP_CHANGE_ATTRIB_request;
+static int ett_ftam_F_GROUP_CHANGE_ATTRIB_response;
+static int ett_ftam_F_SELECT_ANOTHER_request;
+static int ett_ftam_F_SELECT_ANOTHER_response;
+static int ett_ftam_F_CREATE_DIRECTORY_request;
+static int ett_ftam_F_CREATE_DIRECTORY_response;
+static int ett_ftam_F_LINK_request;
+static int ett_ftam_F_LINK_response;
+static int ett_ftam_F_UNLINK_request;
+static int ett_ftam_F_UNLINK_response;
+static int ett_ftam_F_READ_LINK_ATTRIB_request;
+static int ett_ftam_F_READ_LINK_ATTRIB_response;
+static int ett_ftam_F_CHANGE_LINK_ATTRIB_request;
+static int ett_ftam_F_CHANGE_LINK_ATTRIB_response;
+static int ett_ftam_F_MOVE_request;
+static int ett_ftam_F_MOVE_response;
+static int ett_ftam_F_COPY_request;
+static int ett_ftam_F_COPY_response;
+static int ett_ftam_Attribute_Extension_Names;
+static int ett_ftam_Attribute_Extension_Set_Name;
+static int ett_ftam_SEQUENCE_OF_Extension_Attribute_identifier;
+static int ett_ftam_Attribute_Extensions;
+static int ett_ftam_Attribute_Extension_Set;
+static int ett_ftam_SEQUENCE_OF_Extension_Attribute;
+static int ett_ftam_Extension_Attribute;
+static int ett_ftam_Scope_U;
+static int ett_ftam_T__untag_item;
+static int ett_ftam_OR_Set;
+static int ett_ftam_AND_Set;
+static int ett_ftam_AND_Set_item;
+static int ett_ftam_Equality_Comparision;
+static int ett_ftam_Relational_Comparision;
+static int ett_ftam_Pathname_Pattern;
+static int ett_ftam_T_pathname_value;
+static int ett_ftam_T_pathname_value_item;
+static int ett_ftam_String_Pattern;
+static int ett_ftam_T_string_value;
+static int ett_ftam_T_string_value_item;
+static int ett_ftam_Bitstring_Pattern;
+static int ett_ftam_Date_and_Time_Pattern;
+static int ett_ftam_Integer_Pattern;
+static int ett_ftam_Object_Identifier_Pattern;
+static int ett_ftam_Boolean_Pattern;
+static int ett_ftam_Contents_Type_Pattern;
+static int ett_ftam_T_constraint_set_abstract_Syntax_Pattern;
+static int ett_ftam_Attribute_Extensions_Pattern;
+static int ett_ftam_Attribute_Extensions_Pattern_item;
+static int ett_ftam_T_extension_set_attribute_Patterns;
+static int ett_ftam_T_extension_set_attribute_Patterns_item;
+static int ett_ftam_SEQUENCE_OF_Read_Attributes;
+static int ett_ftam_Operation_Result_U;
+static int ett_ftam_SEQUENCE_OF_Pathname;
+static int ett_ftam_Pathname;
+static int ett_ftam_Pass_Passwords;
+static int ett_ftam_Path_Access_Passwords_U;
+static int ett_ftam_Path_Access_Passwords_item;
+static int ett_ftam_Attribute_Names;
+static int ett_ftam_AE_title;
 
 static expert_field ei_ftam_zero_pdu;
 
@@ -652,7 +653,7 @@ dissect_ftam_Protocol_Version_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Protocol_Version(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 0, TRUE, dissect_ftam_Protocol_Version_U);
+                                      hf_index, BER_CLASS_CON, 0, true, dissect_ftam_Protocol_Version_U);
 
   return offset;
 }
@@ -673,7 +674,7 @@ dissect_ftam_GraphicString(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 static int
 dissect_ftam_Implementation_Information(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 1, TRUE, dissect_ftam_GraphicString);
+                                      hf_index, BER_CLASS_CON, 1, true, dissect_ftam_GraphicString);
 
   return offset;
 }
@@ -711,7 +712,7 @@ dissect_ftam_Service_Class_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 static int
 dissect_ftam_Service_Class(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 3, TRUE, dissect_ftam_Service_Class_U);
+                                      hf_index, BER_CLASS_CON, 3, true, dissect_ftam_Service_Class_U);
 
   return offset;
 }
@@ -752,7 +753,7 @@ dissect_ftam_Functional_Units_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Functional_Units(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 4, TRUE, dissect_ftam_Functional_Units_U);
+                                      hf_index, BER_CLASS_CON, 4, true, dissect_ftam_Functional_Units_U);
 
   return offset;
 }
@@ -780,7 +781,7 @@ dissect_ftam_Attribute_Groups_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Attribute_Groups(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 5, TRUE, dissect_ftam_Attribute_Groups_U);
+                                      hf_index, BER_CLASS_CON, 5, true, dissect_ftam_Attribute_Groups_U);
 
   return offset;
 }
@@ -799,7 +800,7 @@ dissect_ftam_EXTERNAL(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 static int
 dissect_ftam_Shared_ASE_Information(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 20, TRUE, dissect_ftam_EXTERNAL);
+                                      hf_index, BER_CLASS_APP, 20, true, dissect_ftam_EXTERNAL);
 
   return offset;
 }
@@ -827,7 +828,7 @@ dissect_ftam_FTAM_Quality_of_Service_U(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 static int
 dissect_ftam_FTAM_Quality_of_Service(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 6, TRUE, dissect_ftam_FTAM_Quality_of_Service_U);
+                                      hf_index, BER_CLASS_CON, 6, true, dissect_ftam_FTAM_Quality_of_Service_U);
 
   return offset;
 }
@@ -846,7 +847,7 @@ dissect_ftam_OBJECT_IDENTIFIER(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int
 dissect_ftam_Document_Type_Name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 14, TRUE, dissect_ftam_OBJECT_IDENTIFIER);
+                                      hf_index, BER_CLASS_APP, 14, true, dissect_ftam_OBJECT_IDENTIFIER);
 
   return offset;
 }
@@ -856,7 +857,7 @@ dissect_ftam_Document_Type_Name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Abstract_Syntax_Name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 0, TRUE, dissect_ftam_OBJECT_IDENTIFIER);
+                                      hf_index, BER_CLASS_APP, 0, true, dissect_ftam_OBJECT_IDENTIFIER);
 
   return offset;
 }
@@ -901,7 +902,7 @@ dissect_ftam_Contents_Type_List_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 static int
 dissect_ftam_Contents_Type_List(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 7, TRUE, dissect_ftam_Contents_Type_List_U);
+                                      hf_index, BER_CLASS_CON, 7, true, dissect_ftam_Contents_Type_List_U);
 
   return offset;
 }
@@ -911,7 +912,7 @@ dissect_ftam_Contents_Type_List(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_User_Identity(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 22, TRUE, dissect_ftam_GraphicString);
+                                      hf_index, BER_CLASS_APP, 22, true, dissect_ftam_GraphicString);
 
   return offset;
 }
@@ -921,7 +922,7 @@ dissect_ftam_User_Identity(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 static int
 dissect_ftam_Account(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 4, TRUE, dissect_ftam_GraphicString);
+                                      hf_index, BER_CLASS_APP, 4, true, dissect_ftam_GraphicString);
 
   return offset;
 }
@@ -963,7 +964,7 @@ dissect_ftam_Password_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 static int
 dissect_ftam_Password(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 17, FALSE, dissect_ftam_Password_U);
+                                      hf_index, BER_CLASS_APP, 17, false, dissect_ftam_Password_U);
 
   return offset;
 }
@@ -1025,7 +1026,7 @@ dissect_ftam_State_Result_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int
 dissect_ftam_State_Result(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 21, TRUE, dissect_ftam_State_Result_U);
+                                      hf_index, BER_CLASS_APP, 21, true, dissect_ftam_State_Result_U);
 
   return offset;
 }
@@ -1052,7 +1053,7 @@ dissect_ftam_Action_Result_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 static int
 dissect_ftam_Action_Result(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 5, TRUE, dissect_ftam_Action_Result_U);
+                                      hf_index, BER_CLASS_APP, 5, true, dissect_ftam_Action_Result_U);
 
   return offset;
 }
@@ -1131,7 +1132,7 @@ dissect_ftam_Diagnostic_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 static int
 dissect_ftam_Diagnostic(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 13, TRUE, dissect_ftam_Diagnostic_U);
+                                      hf_index, BER_CLASS_APP, 13, true, dissect_ftam_Diagnostic_U);
 
   return offset;
 }
@@ -1210,7 +1211,7 @@ dissect_ftam_Charging_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 static int
 dissect_ftam_Charging(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 9, TRUE, dissect_ftam_Charging_U);
+                                      hf_index, BER_CLASS_APP, 9, true, dissect_ftam_Charging_U);
 
   return offset;
 }
@@ -1283,7 +1284,7 @@ static const ber_choice_t FTAM_Regime_PDU_choice[] = {
 
 static int
 dissect_ftam_FTAM_Regime_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint branch_taken;
+  int branch_taken;
 
     offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  FTAM_Regime_PDU_choice, hf_index, ett_ftam_FTAM_Regime_PDU,
@@ -1352,7 +1353,7 @@ dissect_ftam_Select_Attributes_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_ftam_Select_Attributes(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 19, TRUE, dissect_ftam_Select_Attributes_U);
+                                      hf_index, BER_CLASS_APP, 19, true, dissect_ftam_Select_Attributes_U);
 
   return offset;
 }
@@ -1384,7 +1385,7 @@ dissect_ftam_Access_Request_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int
 dissect_ftam_Access_Request(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 3, TRUE, dissect_ftam_Access_Request_U);
+                                      hf_index, BER_CLASS_APP, 3, true, dissect_ftam_Access_Request_U);
 
   return offset;
 }
@@ -1430,7 +1431,7 @@ dissect_ftam_Access_Passwords_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Access_Passwords(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 2, TRUE, dissect_ftam_Access_Passwords_U);
+                                      hf_index, BER_CLASS_APP, 2, true, dissect_ftam_Access_Passwords_U);
 
   return offset;
 }
@@ -1476,7 +1477,7 @@ dissect_ftam_Path_Access_Passwords_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 static int
 dissect_ftam_Path_Access_Passwords(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 27, TRUE, dissect_ftam_Path_Access_Passwords_U);
+                                      hf_index, BER_CLASS_APP, 27, true, dissect_ftam_Path_Access_Passwords_U);
 
   return offset;
 }
@@ -1525,7 +1526,7 @@ dissect_ftam_Concurrency_Control_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 static int
 dissect_ftam_Concurrency_Control(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 10, TRUE, dissect_ftam_Concurrency_Control_U);
+                                      hf_index, BER_CLASS_APP, 10, true, dissect_ftam_Concurrency_Control_U);
 
   return offset;
 }
@@ -1555,7 +1556,7 @@ dissect_ftam_F_SELECT_request(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int
 dissect_ftam_Referent_Indicator(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 29, TRUE, dissect_ftam_BOOLEAN);
+                                      hf_index, BER_CLASS_APP, 29, true, dissect_ftam_BOOLEAN);
 
   return offset;
 }
@@ -1704,7 +1705,7 @@ dissect_ftam_T_document_type(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 static int
 dissect_ftam_Constraint_Set_Name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 11, TRUE, dissect_ftam_OBJECT_IDENTIFIER);
+                                      hf_index, BER_CLASS_APP, 11, true, dissect_ftam_OBJECT_IDENTIFIER);
 
   return offset;
 }
@@ -1915,7 +1916,7 @@ dissect_ftam_AE_title(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 static int
 dissect_ftam_Application_Entity_Title(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 7, FALSE, dissect_ftam_AE_title);
+                                      hf_index, BER_CLASS_APP, 7, false, dissect_ftam_AE_title);
 
   return offset;
 }
@@ -2135,7 +2136,7 @@ dissect_ftam_Create_Attributes_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_ftam_Create_Attributes(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 12, TRUE, dissect_ftam_Create_Attributes_U);
+                                      hf_index, BER_CLASS_APP, 12, true, dissect_ftam_Create_Attributes_U);
 
   return offset;
 }
@@ -2422,7 +2423,7 @@ dissect_ftam_Read_Attributes_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int
 dissect_ftam_Read_Attributes(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 18, TRUE, dissect_ftam_Read_Attributes_U);
+                                      hf_index, BER_CLASS_APP, 18, true, dissect_ftam_Read_Attributes_U);
 
   return offset;
 }
@@ -2507,7 +2508,7 @@ dissect_ftam_Change_Attributes_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_ftam_Change_Attributes(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 8, TRUE, dissect_ftam_Change_Attributes_U);
+                                      hf_index, BER_CLASS_APP, 8, true, dissect_ftam_Change_Attributes_U);
 
   return offset;
 }
@@ -2588,7 +2589,7 @@ dissect_ftam_T_open_contents_type(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 static int
 dissect_ftam_Activity_Identifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 6, TRUE, dissect_ftam_INTEGER);
+                                      hf_index, BER_CLASS_APP, 6, true, dissect_ftam_INTEGER);
 
   return offset;
 }
@@ -2645,7 +2646,7 @@ dissect_ftam_Degree_Of_Overlap_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_ftam_Degree_Of_Overlap(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 30, TRUE, dissect_ftam_Degree_Of_Overlap_U);
+                                      hf_index, BER_CLASS_APP, 30, true, dissect_ftam_Degree_Of_Overlap_U);
 
   return offset;
 }
@@ -2951,7 +2952,7 @@ dissect_ftam_FADU_Identity_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 static int
 dissect_ftam_FADU_Identity(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 15, FALSE, dissect_ftam_FADU_Identity_U);
+                                      hf_index, BER_CLASS_APP, 15, false, dissect_ftam_FADU_Identity_U);
 
   return offset;
 }
@@ -2977,7 +2978,7 @@ dissect_ftam_FADU_Lock_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int
 dissect_ftam_FADU_Lock(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 16, TRUE, dissect_ftam_FADU_Lock_U);
+                                      hf_index, BER_CLASS_APP, 16, true, dissect_ftam_FADU_Lock_U);
 
   return offset;
 }
@@ -3105,7 +3106,7 @@ static const ber_choice_t File_PDU_choice[] = {
 
 static int
 dissect_ftam_File_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint branch_taken;
+  int branch_taken;
 
     offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  File_PDU_choice, hf_index, ett_ftam_File_PDU,
@@ -3161,7 +3162,7 @@ dissect_ftam_Access_Context_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int
 dissect_ftam_Access_Context(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 1, TRUE, dissect_ftam_Access_Context_U);
+                                      hf_index, BER_CLASS_APP, 1, true, dissect_ftam_Access_Context_U);
 
   return offset;
 }
@@ -3253,7 +3254,7 @@ dissect_ftam_Request_Type_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int
 dissect_ftam_Request_Type(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 31, TRUE, dissect_ftam_Request_Type_U);
+                                      hf_index, BER_CLASS_APP, 31, true, dissect_ftam_Request_Type_U);
 
   return offset;
 }
@@ -3407,7 +3408,7 @@ static const ber_choice_t Bulk_Data_PDU_choice[] = {
 
 static int
 dissect_ftam_Bulk_Data_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint branch_taken;
+  int branch_taken;
 
     offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  Bulk_Data_PDU_choice, hf_index, ett_ftam_Bulk_Data_PDU,
@@ -3427,7 +3428,7 @@ dissect_ftam_Bulk_Data_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 static int
 dissect_ftam_Destination_File_Directory(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 24, FALSE, dissect_ftam_Pathname_Attribute);
+                                      hf_index, BER_CLASS_APP, 24, false, dissect_ftam_Pathname_Attribute);
 
   return offset;
 }
@@ -3902,7 +3903,7 @@ dissect_ftam_OR_Set(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 static int
 dissect_ftam_Attribute_Value_Assertions(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 26, TRUE, dissect_ftam_OR_Set);
+                                      hf_index, BER_CLASS_APP, 26, true, dissect_ftam_OR_Set);
 
   return offset;
 }
@@ -3956,7 +3957,7 @@ dissect_ftam_Scope_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 static int
 dissect_ftam_Scope(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 28, TRUE, dissect_ftam_Scope_U);
+                                      hf_index, BER_CLASS_APP, 28, true, dissect_ftam_Scope_U);
 
   return offset;
 }
@@ -3998,7 +3999,7 @@ dissect_ftam_SEQUENCE_OF_Read_Attributes(bool implicit_tag _U_, tvbuff_t *tvb _U
 static int
 dissect_ftam_Objects_Attributes_List(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 25, TRUE, dissect_ftam_SEQUENCE_OF_Read_Attributes);
+                                      hf_index, BER_CLASS_APP, 25, true, dissect_ftam_SEQUENCE_OF_Read_Attributes);
 
   return offset;
 }
@@ -4078,7 +4079,7 @@ dissect_ftam_Request_Operation_Result_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 static int
 dissect_ftam_Request_Operation_Result(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 31, TRUE, dissect_ftam_Request_Operation_Result_U);
+                                      hf_index, BER_CLASS_APP, 31, true, dissect_ftam_Request_Operation_Result_U);
 
   return offset;
 }
@@ -4138,7 +4139,7 @@ dissect_ftam_Operation_Result_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_ftam_Operation_Result(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 30, FALSE, dissect_ftam_Operation_Result_U);
+                                      hf_index, BER_CLASS_APP, 30, false, dissect_ftam_Operation_Result_U);
 
   return offset;
 }
@@ -4667,7 +4668,7 @@ static const ber_choice_t FSM_PDU_choice[] = {
 
 static int
 dissect_ftam_FSM_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint branch_taken;
+  int branch_taken;
 
     offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  FSM_PDU_choice, hf_index, ett_ftam_FSM_PDU,
@@ -4734,7 +4735,7 @@ dissect_ftam(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
 
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	if(parent_tree){
 		item = proto_tree_add_item(parent_tree, proto_ftam, tvb, 0, -1, ENC_NA);
@@ -4745,7 +4746,7 @@ dissect_ftam(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0){
 		old_offset=offset;
-		offset=dissect_ftam_PDU(FALSE, tvb, offset, &asn1_ctx, tree, -1);
+		offset=dissect_ftam_PDU(false, tvb, offset, &asn1_ctx, tree, -1);
 		if(offset == old_offset){
 			proto_tree_add_expert(tree, pinfo, &ei_ftam_zero_pdu, tvb, offset, -1);
 			break;
@@ -6438,7 +6439,7 @@ void proto_register_ftam(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_ftam,
     &ett_ftam_PDU,
     &ett_ftam_FTAM_Regime_PDU,

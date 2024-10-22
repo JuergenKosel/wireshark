@@ -20,8 +20,9 @@
 #include "config.h"
 
 #include <epan/packet.h>
-#include <epan/conversation.h>
-#include <wsutil/str_util.h>
+#include <epan/unit_strings.h>
+
+#include <wsutil/array.h>
 #include "packet-scsi.h"
 #include "packet-scsi-ssc.h"
 #include "packet-scsi-smc.h"
@@ -99,20 +100,20 @@ static int hf_scsi_ssc_readposition_first_block_location;
 static int hf_scsi_ssc_space16_parameter_len;
 static int hf_scsi_ssc_readposition_partition_number;
 
-static gint ett_scsi_erase;
-static gint ett_scsi_formatmedium;
-static gint ett_scsi_loadunload_immed;
-static gint ett_scsi_loadunload;
-static gint ett_scsi_locate;
-static gint ett_scsi_bam;
-static gint ett_scsi_read6;
-static gint ett_scsi_ssc_readposition_flags;
+static int ett_scsi_erase;
+static int ett_scsi_formatmedium;
+static int ett_scsi_loadunload_immed;
+static int ett_scsi_loadunload;
+static int ett_scsi_locate;
+static int ett_scsi_bam;
+static int ett_scsi_read6;
+static int ett_scsi_ssc_readposition_flags;
 
 
 static void
 dissect_ssc_read6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const read6_fields[] = {
         &hf_scsi_ssc_sili,
@@ -136,8 +137,8 @@ dissect_ssc_read6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_recoverbuffereddata (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const recover_fields[] = {
         &hf_scsi_ssc_sili,
@@ -161,8 +162,8 @@ dissect_ssc_recoverbuffereddata (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tr
 
 static void
 dissect_ssc_reportdensitysupport (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const rd_fields[] = {
         &hf_scsi_ssc_medium_type,
@@ -191,8 +192,8 @@ dissect_ssc_reportdensitysupport (tvbuff_t *tvb, packet_info *pinfo _U_, proto_t
 
 static void
 dissect_ssc_readreverse6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const rr6_fields[] = {
         &hf_scsi_ssc_bytord,
@@ -217,8 +218,8 @@ dissect_ssc_readreverse6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
 static void
 dissect_ssc_read16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const read6_fields[] = {
         &hf_scsi_ssc_sili,
@@ -244,8 +245,8 @@ dissect_ssc_read16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_write16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const write16_fields[] = {
         &hf_scsi_ssc_fcs,
@@ -272,8 +273,8 @@ dissect_ssc_write16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_writefilemarks16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const wf16_fields[] = {
         &hf_scsi_ssc_fcs,
@@ -300,8 +301,8 @@ dissect_ssc_writefilemarks16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree 
 
 static void
 dissect_ssc_verify16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const verify16_fields[] = {
         &hf_scsi_ssc_verify16_immed,
@@ -328,8 +329,8 @@ dissect_ssc_verify16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_verify6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const verify6_fields[] = {
         &hf_scsi_ssc_verify16_immed,
@@ -354,8 +355,8 @@ dissect_ssc_verify6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_readreverse16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const rr16_fields[] = {
         &hf_scsi_ssc_bytord,
@@ -382,8 +383,8 @@ dissect_ssc_readreverse16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
 
 static void
 dissect_ssc_write6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const write6_fields[] = {
         &hf_scsi_ssc_immed,
@@ -406,8 +407,8 @@ dissect_ssc_write6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_writefilemarks6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const wf6_fields[] = {
         &hf_scsi_ssc_immed,
@@ -430,8 +431,8 @@ dissect_ssc_writefilemarks6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 
 static void
 dissect_ssc_loadunload (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const loadunload_immed_fields[] = {
         &hf_scsi_ssc_immed,
@@ -447,7 +448,7 @@ dissect_ssc_loadunload (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
     if (isreq && iscdb) {
         col_append_fstr (pinfo->cinfo, COL_INFO, "(Immed: %u)",
-                            tvb_get_guint8 (tvb, offset) & 0x01);
+                            tvb_get_uint8 (tvb, offset) & 0x01);
     }
 
     if (!tree)
@@ -467,10 +468,10 @@ dissect_ssc_loadunload (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_readblocklimits (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
-    guint8 granularity;
+    uint8_t granularity;
 
     if (!tree)
         return;
@@ -480,7 +481,7 @@ dissect_ssc_readblocklimits (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
             ett_scsi_control, cdb_control_fields, ENC_BIG_ENDIAN);
     }
     else if (!iscdb) {
-        granularity = tvb_get_guint8 (tvb, offset);
+        granularity = tvb_get_uint8 (tvb, offset);
         proto_tree_add_uint(tree, hf_scsi_ssc_readblocklimits_granularity, tvb, offset, 1, 1 << granularity);
         proto_tree_add_item(tree, hf_scsi_ssc_readblocklimits_max_block_length_limit, tvb, offset+1, 3, ENC_BIG_ENDIAN);
         proto_tree_add_item(tree, hf_scsi_ssc_readblocklimits_min_block_length_limit, tvb, offset+4, 2, ENC_BIG_ENDIAN);
@@ -489,8 +490,8 @@ dissect_ssc_readblocklimits (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *
 
 static void
 dissect_ssc_rewind (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const rewind_fields[] = {
         &hf_scsi_ssc_immed,
@@ -502,7 +503,7 @@ dissect_ssc_rewind (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
     if (isreq && iscdb) {
         col_append_fstr (pinfo->cinfo, COL_INFO, "(Immed: %u)",
-                            tvb_get_guint8 (tvb, offset) & 0x01);
+                            tvb_get_uint8 (tvb, offset) & 0x01);
 
         proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_ssc_read6_flags, ett_scsi_read6, rewind_fields, ENC_BIG_ENDIAN);
         proto_tree_add_bitmask(tree, tvb, offset+4, hf_scsi_control,
@@ -512,8 +513,8 @@ dissect_ssc_rewind (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_setcapacity (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const sc_fields[] = {
         &hf_scsi_ssc_immed,
@@ -535,8 +536,8 @@ dissect_ssc_setcapacity (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
 
 static void
 dissect_ssc_locate10 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const locate_fields[] = {
         &hf_scsi_ssc_bt,
@@ -561,8 +562,8 @@ dissect_ssc_locate10 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_locate16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const locate_fields[] = {
         &hf_scsi_ssc_dest_type,
@@ -593,8 +594,8 @@ dissect_ssc_locate16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_erase6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     if (isreq && iscdb) {
         if (!tree)
@@ -611,8 +612,8 @@ dissect_ssc_erase6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_erase16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const erase16_fields[] = {
         &hf_scsi_ssc_fcs,
@@ -637,8 +638,8 @@ dissect_ssc_erase16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_space6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     if (!tree)
         return;
@@ -653,8 +654,8 @@ dissect_ssc_space6 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
 static void
 dissect_ssc_space16 (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     if (!tree)
         return;
@@ -691,8 +692,8 @@ static const value_string dest_type_vals[] = {
 
 static void
 dissect_ssc_formatmedium (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata _U_)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata _U_)
 {
     static int * const formatmedium_fields[] = {
         &hf_scsi_ssc_verify,
@@ -721,17 +722,17 @@ dissect_ssc_formatmedium (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
 
 static void
 dissect_ssc_readposition (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                    guint offset, gboolean isreq, gboolean iscdb,
-                    guint payload_len _U_, scsi_task_data_t *cdata)
+                    unsigned offset, bool isreq, bool iscdb,
+                    unsigned payload_len _U_, scsi_task_data_t *cdata)
 {
-    gint service_action;
-    guint8 flags;
+    int service_action;
+    uint8_t flags;
 
     if (!tree)
         return;
 
     if (isreq && iscdb) {
-        service_action = tvb_get_guint8 (tvb, offset) & 0x1F;
+        service_action = tvb_get_uint8 (tvb, offset) & 0x1F;
         proto_tree_add_item(tree, hf_scsi_ssc_readposition_service_action, tvb, offset, 1, ENC_BIG_ENDIAN);
         /* Remember the service action so we can decode the reply */
         if (cdata != NULL) {
@@ -760,7 +761,7 @@ dissect_ssc_readposition (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
                 NULL
             };
 
-            flags = tvb_get_guint8 (tvb, offset);
+            flags = tvb_get_uint8 (tvb, offset);
             proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_ssc_readposition_flags,
                    ett_scsi_ssc_readposition_flags, block_id_flags, ENC_NA);
             offset += 1;
@@ -803,7 +804,7 @@ dissect_ssc_readposition (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
                 NULL
             };
 
-            flags = tvb_get_guint8 (tvb, offset);
+            flags = tvb_get_uint8 (tvb, offset);
             proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_ssc_readposition_flags,
                    ett_scsi_ssc_readposition_flags, long_form_flags, ENC_NA);
             offset += 1;
@@ -844,7 +845,7 @@ dissect_ssc_readposition (tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
                 NULL
             };
 
-            flags = tvb_get_guint8 (tvb, offset);
+            flags = tvb_get_uint8 (tvb, offset);
             proto_tree_add_bitmask(tree, tvb, offset, hf_scsi_ssc_readposition_flags,
                    ett_scsi_ssc_readposition_flags, extended_form_flags, ENC_NA);
             offset += 1;
@@ -941,7 +942,7 @@ static const value_string scsi_ssc_vals[] = {
 value_string_ext scsi_ssc_vals_ext = VALUE_STRING_EXT_INIT(scsi_ssc_vals);
 
 
-scsi_cdb_table_t scsi_ssc_table[256] = {
+const scsi_cdb_table_t scsi_ssc_table[256] = {
 /*SPC 0x00*/{dissect_spc_testunitready},
 /*SSC 0x01*/{dissect_ssc_rewind},
 /*SSC 0x02*/{NULL},
@@ -1331,9 +1332,9 @@ proto_register_scsi_ssc(void)
           {"Capacity Proportion Value", "scsi_ssc.cpv", FT_UINT16, BASE_DEC,
            NULL, 0, NULL, HFILL}},
       /* Generated from convert_proto_tree_add_text.pl */
-      { &hf_scsi_ssc_readblocklimits_granularity, { "Granularity", "scsi_ssc.readblocklimits.granularity", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
-      { &hf_scsi_ssc_readblocklimits_max_block_length_limit, { "Maximum Block Length Limit", "scsi_ssc.readblocklimits.max_block_length_limit", FT_UINT24, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
-      { &hf_scsi_ssc_readblocklimits_min_block_length_limit, { "Minimum Block Length Limit", "scsi_ssc.readblocklimits.min_block_length_limit", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes, 0x0, NULL, HFILL }},
+      { &hf_scsi_ssc_readblocklimits_granularity, { "Granularity", "scsi_ssc.readblocklimits.granularity", FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0x0, NULL, HFILL }},
+      { &hf_scsi_ssc_readblocklimits_max_block_length_limit, { "Maximum Block Length Limit", "scsi_ssc.readblocklimits.max_block_length_limit", FT_UINT24, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0x0, NULL, HFILL }},
+      { &hf_scsi_ssc_readblocklimits_min_block_length_limit, { "Minimum Block Length Limit", "scsi_ssc.readblocklimits.min_block_length_limit", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes), 0x0, NULL, HFILL }},
       { &hf_scsi_ssc_erase6_immed, { "IMMED", "scsi_ssc.erase6.immed", FT_UINT8, BASE_DEC, NULL, 0x02, NULL, HFILL }},
       { &hf_scsi_ssc_erase6_long, { "LONG", "scsi_ssc.erase6.long", FT_UINT8, BASE_DEC, NULL, 0x01, NULL, HFILL }},
       { &hf_scsi_ssc_space16_parameter_len, { "Parameter Len", "scsi_ssc.space16.parameter_len", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
@@ -1360,7 +1361,7 @@ proto_register_scsi_ssc(void)
 
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_scsi_erase,
         &ett_scsi_formatmedium,
         &ett_scsi_loadunload_immed,

@@ -91,6 +91,17 @@ report_write_failure(const char *filename, int err)
 }
 
 /*
+ * Report an error when trying to rename a file.
+ * "err" is assumed to be a UNIX-style errno.
+ */
+void
+report_rename_failure(const char *old_filename, const char *new_filename,
+    int err)
+{
+	(*routines->report_rename_failure)(old_filename, new_filename, err);
+}
+
+/*
  * Report an error from opening a capture file for reading.
  */
 void
@@ -124,7 +135,7 @@ report_cfile_read_failure(const char *filename, int err, char *err_info)
  */
 void
 report_cfile_write_failure(const char *in_filename, const char *out_filename,
-    int err, char *err_info, uint32_t framenum, int file_type_subtype)
+    int err, char *err_info, uint64_t framenum, int file_type_subtype)
 {
 	(*routines->report_cfile_write_failure)(in_filename, out_filename,
 	    err, err_info, framenum, file_type_subtype);

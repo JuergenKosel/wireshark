@@ -72,7 +72,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="TabnavTreeView" name="graphUat">
+     <widget class="RowMoveTreeView" name="graphUat">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
         <horstretch>0</horstretch>
@@ -97,17 +97,37 @@
      <item>
       <widget class="StockIconToolButton" name="deleteToolButton">
        <property name="toolTip">
-        <string>Remove this graph.</string>
+        <string>Remove the selected graph(s).</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="StockIconToolButton" name="copyToolButton">
        <property name="toolTip">
-        <string>Duplicate this graph.</string>
+        <string>Duplicate the selected graph(s).</string>
        </property>
        <property name="text">
         <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="StockIconToolButton" name="moveUpwardsToolButton">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>Move the selected graph(s) upwards.</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="StockIconToolButton" name="moveDownwardsToolButton">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="toolTip">
+        <string>Move the selected graph(s) downwards.</string>
        </property>
       </widget>
      </item>
@@ -118,26 +138,6 @@
        </property>
        <property name="toolTip">
         <string>Clear all graphs.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="StockIconToolButton" name="moveUpwardsToolButton">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="toolTip">
-        <string>Move this graph upwards.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="StockIconToolButton" name="moveDownwardsToolButton">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="toolTip">
-        <string>Move this graph downwards.</string>
        </property>
       </widget>
      </item>
@@ -290,26 +290,6 @@
        </property>
       </widget>
      </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="resetButton">
-       <property name="text">
-        <string>Reset</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
    <item>
@@ -318,7 +298,7 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Close|QDialogButtonBox::Help|QDialogButtonBox::Save</set>
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Help|QDialogButtonBox::Save|QDialogButtonBox::Reset</set>
      </property>
     </widget>
    </item>
@@ -540,9 +520,14 @@
    <header>widgets/elided_label.h</header>
   </customwidget>
   <customwidget>
-   <class>TabnavTreeView</class>
+   <class>RowMoveTreeView</class>
    <extends>QTreeView</extends>
-   <header>widgets/tabnav_tree_view.h</header>
+   <header>widgets/rowmove_tree_view.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ResizeHeaderView</class>
+   <extends>QHeaderView</extends>
+   <header>widgets/resize_header_view.h</header>
   </customwidget>
   <customwidget>
    <class>StockIconToolButton</class>
@@ -554,6 +539,11 @@
    <extends>QWidget</extends>
    <header>widgets/qcustomplot.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QCPStringLegendItem</class>
+   <extends>QCPAbstractLegendItem</extends>
+   <header>widgets/qcp_string_legend_item.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -15,6 +15,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
 #include <epan/conversation.h>
 void proto_register_classicstun(void);
 void proto_reg_handoff_classicstun(void);
@@ -61,8 +62,8 @@ static int hf_classicstun_att_connection_request_binding;
 
 /* Structure containing transaction specific information */
 typedef struct _classicstun_transaction_t {
-    guint32  req_frame;
-    guint32  rep_frame;
+    uint32_t req_frame;
+    uint32_t rep_frame;
     nstime_t req_time;
 } classicstun_transaction_t;
 
@@ -129,16 +130,16 @@ typedef struct _classicstun_conv_info_t {
 
 
 /* Initialize the subtree pointers */
-static gint ett_classicstun;
-static gint ett_classicstun_att_type;
-static gint ett_classicstun_att;
+static int ett_classicstun;
+static int ett_classicstun_att_type;
+static int ett_classicstun_att;
 
 
 #define UDP_PORT_STUN   3478
 #define TCP_PORT_STUN   3478
 
 
-#define CLASSICSTUN_HDR_LEN ((guint)20) /* CLASSIC-STUN message header length */
+#define CLASSICSTUN_HDR_LEN ((unsigned)20) /* CLASSIC-STUN message header length */
 #define ATTR_HDR_LEN                 4  /* CLASSIC-STUN attribute header length */
 
 
@@ -206,20 +207,20 @@ dissect_classicstun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     proto_tree                *classicstun_tree;
     proto_tree                *att_type_tree;
     proto_tree                *att_tree;
-    guint16                    msg_type;
-    guint16                    msg_length;
+    uint16_t                   msg_type;
+    uint16_t                   msg_length;
     const char                *msg_type_str;
-    guint16                    att_type;
-    guint16                    att_length, clear_port;
-    guint32                    clear_ip;
-    guint16                    offset;
-    guint                      len;
-    guint                      i;
+    uint16_t                   att_type;
+    uint16_t                   att_length, clear_port;
+    uint32_t                   clear_ip;
+    uint16_t                   offset;
+    unsigned                   len;
+    unsigned                   i;
     conversation_t            *conversation;
     classicstun_conv_info_t   *classicstun_info;
     classicstun_transaction_t *classicstun_trans;
     wmem_tree_key_t            transaction_id_key[2];
-    guint32                    transaction_id[4];
+    uint32_t                   transaction_id[4];
 
 
     /*
@@ -313,7 +314,7 @@ dissect_classicstun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     col_add_fstr(pinfo->cinfo, COL_INFO, "Message: %s",
              msg_type_str);
 
-    guint transaction_id_first_word;
+    unsigned transaction_id_first_word;
 
     ti = proto_tree_add_item(tree, proto_classicstun, tvb, 0, -1, ENC_NA);
 
@@ -396,7 +397,7 @@ dissect_classicstun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
                     if (att_length < 4)
                         break;
                     proto_tree_add_item(att_tree, hf_classicstun_att_port, tvb, offset+2, 2, ENC_BIG_ENDIAN);
-                    switch( tvb_get_guint8(tvb, offset+1) ){
+                    switch( tvb_get_uint8(tvb, offset+1) ){
                         case 1:
                             if (att_length < 8)
                                 break;
@@ -497,7 +498,7 @@ dissect_classicstun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
                     ti = proto_tree_add_uint(att_tree, hf_classicstun_att_port, tvb, offset+2, 2, clear_port);
                     proto_item_set_generated(ti);
 
-                    switch( tvb_get_guint8(tvb, offset+1) ){
+                    switch( tvb_get_uint8(tvb, offset+1) ){
                         case 1:
                             if (att_length < 8)
                                 break;
@@ -539,16 +540,11 @@ dissect_classicstun(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     return tvb_reported_length(tvb);
 }
 
-
-static gboolean
-dissect_classicstun_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+static bool
+dissect_classicstun_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    if (dissect_classicstun(tvb, pinfo, tree, NULL) == 0)
-        return FALSE;
-
-    return TRUE;
+    return dissect_classicstun(tvb, pinfo, tree, data) > 0;
 }
-
 
 
 
@@ -574,11 +570,11 @@ proto_register_classicstun(void)
         },
         { &hf_classicstun_response_in,
             { "Response In", "classicstun.response_in",
-            FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_RESPONSE), 0x0,
             "The response to this CLASSICSTUN query is in this frame", HFILL }},
         { &hf_classicstun_response_to,
             { "Request In", "classicstun.response_to",
-            FT_FRAMENUM, BASE_NONE, NULL, 0x0,
+            FT_FRAMENUM, BASE_NONE, FRAMENUM_TYPE(FT_FRAMENUM_REQUEST), 0x0,
             "This is a response to the CLASSICSTUN Request in this frame", HFILL }},
         { &hf_classicstun_time,
             { "Time", "classicstun.time",
@@ -677,7 +673,7 @@ proto_register_classicstun(void)
     };
 
 /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_classicstun,
         &ett_classicstun_att_type,
         &ett_classicstun_att,
@@ -692,10 +688,9 @@ proto_register_classicstun(void)
     proto_register_subtree_array(ett, array_length(ett));
 
     /* heuristic subdissectors (used for the DATA field) */
-    heur_subdissector_list = register_heur_dissector_list("classicstun", proto_classicstun);
+    heur_subdissector_list = register_heur_dissector_list_with_description("classicstun", "CLASSICSTUN DATA payload", proto_classicstun);
 
     register_dissector("classicstun", dissect_classicstun, proto_classicstun);
-    register_dissector("classicstun-heur", dissect_classicstun_heur, proto_classicstun);
 }
 
 

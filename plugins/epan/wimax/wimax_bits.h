@@ -39,14 +39,14 @@
 /* extract the nibble at the given nibble address 'n' of tvbuff_t 't' */
 #define TVB_NIB_NIBBLE(n,t) \
     (((n) & 1) \
-    ?  tvb_get_guint8((t), (n)/2) & NIBBLE_MASK \
-    : (tvb_get_guint8((t), (n)/2) >> 4) & NIBBLE_MASK)
+    ?  tvb_get_uint8((t), (n)/2) & NIBBLE_MASK \
+    : (tvb_get_uint8((t), (n)/2) >> 4) & NIBBLE_MASK)
 
 /* extract the byte at the given nibble address 'n' of tvbuff_t 't' */
 #define TVB_NIB_BYTE(n,t) \
     (n) & 1 \
     ? (tvb_get_ntohs((t), (n)/2) >> 4) & BYTE_MASK \
-    : tvb_get_guint8((t), (n)/2)
+    : tvb_get_uint8((t), (n)/2)
 
 /* extract 12 bits at the given nibble address */
 #define TVB_NIB_BITS12(n,t) \
@@ -55,13 +55,13 @@
 /* extract the word at the given nibble address 'n' of tvbuff_t 't' */
 #define TVB_NIB_WORD(n,t) \
     (n) & 1 \
-    ? (gint)((tvb_get_ntohl((t), (n)/2) >> 12) & 0x0000FFFF) \
+    ? (int)((tvb_get_ntohl((t), (n)/2) >> 12) & 0x0000FFFF) \
     : tvb_get_ntohs((t), (n)/2)
 
 /* extract the word at the given nibble address 'n' of tvbuff_t 't' */
 #define TVB_NIB_LONG(n,t) \
     (n) & 1 \
-    ? (tvb_get_ntohl((t), (n)/2) << 4) | ((tvb_get_guint8((t), (n)/2 + 4) >> 4) & NIBBLE_MASK) \
+    ? (tvb_get_ntohl((t), (n)/2) << 4) | ((tvb_get_uint8((t), (n)/2 + 4) >> 4) & NIBBLE_MASK) \
     : tvb_get_ntohl((t), (n)/2)
 
 /* Only currently used with nib == 1 or 2 */
@@ -122,7 +122,7 @@
  * tvb ... tvbuff_t
  */
 #define TVB_BIT_BIT(bit, tvb) \
-    (( tvb_get_guint8(tvb, ADDR(bit)) >> SHIFT(bit,1) ) & 0x1)
+    (( tvb_get_uint8(tvb, ADDR(bit)) >> SHIFT(bit,1) ) & 0x1)
 
 /* extract bitfield up to 9 bits
  * bit ... bit address
@@ -155,11 +155,11 @@
       | TVB_BIT_BITS64b(bit,tvb,num) )
 
 #define TVB_BIT_BITS(bit, tvb, num) \
-    ((num) ==  1 ? (gint)TVB_BIT_BIT(bit,tvb) : \
-    ((num) <=  9 ? (gint)TVB_BIT_BITS16(bit,tvb,num) : \
-    ((num) <= 24 ? (gint)TVB_BIT_BITS32(bit,tvb,num) : \
-    ((num) <= 32 ? (gint)TVB_BIT_BITS64(bit,tvb,num) : \
-                   (gint)0 ))))
+    ((num) ==  1 ? (int)TVB_BIT_BIT(bit,tvb) : \
+    ((num) <=  9 ? (int)TVB_BIT_BITS16(bit,tvb,num) : \
+    ((num) <= 24 ? (int)TVB_BIT_BITS32(bit,tvb,num) : \
+    ((num) <= 32 ? (int)TVB_BIT_BITS64(bit,tvb,num) : \
+                   (int)0 ))))
 
 /* to highlight bitfields correctly in wireshark
  * AddItem(..., WSADDR(buf,bit), WSLEN(bit), ...) */

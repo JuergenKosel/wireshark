@@ -9,14 +9,19 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include "ui/preference_utils.h"
 
 #include "main_window.h"
 
+#include "epan/dfilter/dfilter-translator.h"
+
+#include <QClipboard>
+
 #include "funnel_statistics.h"
+#include "main_application.h"
 #include "packet_list.h"
+#include "utils/profile_switcher.h"
+#include "utils/qt_ui_utils.h"
 #include "widgets/display_filter_combo.h"
 
 // Packet Menu actions
@@ -32,7 +37,8 @@ MainWindow::MainWindow(QWidget *parent) :
     byte_view_tab_(nullptr),
     packet_diagram_(nullptr),
     df_combo_box_(nullptr),
-    main_status_bar_(nullptr)
+    main_status_bar_(nullptr),
+    profile_switcher_(new ProfileSwitcher())
 {
 
 }
@@ -51,7 +57,7 @@ bool MainWindow::hasSelection()
 
 /*
  * As hasSelection() is not looking for one single packet
- * selection, but at least 2, this method returns TRUE in
+ * selection, but at least 2, this method returns true in
  * this specific case.
  */
 bool MainWindow::hasUniqueSelection()
@@ -76,9 +82,9 @@ frame_data* MainWindow::frameDataForRow(int row) const
     return Q_NULLPTR;
 }
 
-void MainWindow::insertColumn(QString name, QString abbrev, gint pos)
+void MainWindow::insertColumn(QString name, QString abbrev, int pos)
 {
-    gint colnr = 0;
+    int colnr = 0;
     if (name.length() > 0 && abbrev.length() > 0)
     {
         colnr = column_prefs_add_custom(COL_CUSTOM, name.toStdString().c_str(), abbrev.toStdString().c_str(), pos);
@@ -115,10 +121,10 @@ void MainWindow::setDisplayFilter(QString filter, FilterAction::Action action, F
  *
  * @param funnel_action a custom packet menu action
  */
-void MainWindow::appendPacketMenu(QAction* funnel_action)
+void MainWindow::appendPacketMenu(FunnelAction* funnel_action)
 {
     dynamic_packet_menu_actions.append(funnel_action);
-    connect(funnel_action, SIGNAL(triggered(bool)), funnel_action, SLOT(triggerPacketCallback()));
+    connect(funnel_action, &FunnelAction::triggered, funnel_action, &FunnelAction::triggerPacketCallback);
 }
 
 /*
@@ -177,7 +183,7 @@ bool MainWindow::addPacketMenus(QMenu * ctx_menu, GPtrArray *finfo_array)
 
     // Build a set of fields present for efficient lookups
     QSet<QString> fieldsPresent = QSet<QString>();
-    for (guint fieldInfoIndex = 0; fieldInfoIndex < finfo_array->len; fieldInfoIndex++) {
+    for (unsigned fieldInfoIndex = 0; fieldInfoIndex < finfo_array->len; fieldInfoIndex++) {
         field_info *fi = (field_info *)g_ptr_array_index (finfo_array, fieldInfoIndex);
         fieldsPresent.insert(QString(fi->hfinfo->abbrev));
     }
@@ -203,3 +209,68 @@ bool MainWindow::addPacketMenus(QMenu * ctx_menu, GPtrArray *finfo_array)
     }
     return insertedPacketMenu;
 }
+
+const char *MainWindow::translator_ = "translator";
+const char *MainWindow::translated_filter_ = "translated filter";
+
+void MainWindow::addDisplayFilterTranslationActions(QMenu *copy_menu) {
+    if (!copy_menu) {
+        return;
+    }
+
+    char **df_translators = get_dfilter_translator_list();
+
+    if (df_translators == NULL || df_translators[0] == NULL) {
+        g_free(df_translators);
+        return;
+    }
+
+    copy_menu->addSeparator();
+
+    for (size_t idx = 0; df_translators[idx]; idx++) {
+        QString translator = df_translators[idx];
+        QString action_text;
+        if (idx == 0) {
+            action_text = tr("Display filter as %1").arg(translator);
+        } else {
+            action_text = tr(UTF8_HORIZONTAL_ELLIPSIS "as %1").arg(translator);
+        }
+        QAction *xlate_action = copy_menu->addAction(action_text);
+        xlate_action->setProperty(translator_, QVariant::fromValue(translator));
+        xlate_action->setEnabled(false);
+        connect(xlate_action, &QAction::triggered, this, &MainWindow::copyDisplayFilterTranslation);
+        df_translate_actions_ += xlate_action;
+    }
+
+    g_free(df_translators);
+}
+
+void MainWindow::updateDisplayFilterTranslationActions(const QString &df_text)
+{
+    for (QAction *xlate_action : df_translate_actions_) {
+        bool enable = false;
+        QString translated_filter;
+        if (!df_text.isEmpty()) {
+            QString translator = xlate_action->property(translator_).toString();
+            translated_filter = gchar_free_to_qstring((char *)translate_dfilter(qUtf8Printable(translator),
+                                                                                 qUtf8Printable(df_text)));
+            if (!translated_filter.isEmpty()) {
+                enable = true;
+            }
+        }
+        xlate_action->setEnabled(enable);
+        xlate_action->setProperty(translated_filter_, QVariant::fromValue(translated_filter));
+    }
+}
+
+void MainWindow::copyDisplayFilterTranslation()
+{
+    QAction *xlate_action = qobject_cast<QAction *>(sender());
+    if (!xlate_action) {
+        return;
+    }
+
+    QString translated_filter = xlate_action->property(translated_filter_).toString();
+    mainApp->clipboard()->setText(translated_filter);
+}
+

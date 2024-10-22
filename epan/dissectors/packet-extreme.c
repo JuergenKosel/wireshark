@@ -133,6 +133,7 @@ These are the structures you will see most often in EDP frames.
 #include <epan/to_str.h>
 #include <epan/strutil.h>
 #include <epan/in_cksum.h>
+#include <epan/tfs.h>
 #include "packet-llc.h"
 #include <epan/oui.h>
 
@@ -254,22 +255,22 @@ static int hf_edp_null;
 static expert_field ei_edp_short_tlv;
 static expert_field ei_edp_checksum;
 
-static gint ett_edp;
-static gint ett_edp_tlv_header;
-static gint ett_edp_display;
-static gint ett_edp_info;
-static gint ett_edp_info_version;
-static gint ett_edp_vlan;
-static gint ett_edp_vlan_flags;
-static gint ett_edp_esrp;
-static gint ett_edp_eaps;
-static gint ett_edp_esl;
-static gint ett_edp_elsm;
-static gint ett_edp_elrp;
-static gint ett_edp_link;
-static gint ett_edp_link_flags;
-static gint ett_edp_unknown;
-static gint ett_edp_null;
+static int ett_edp;
+static int ett_edp_tlv_header;
+static int ett_edp_display;
+static int ett_edp_info;
+static int ett_edp_info_version;
+static int ett_edp_vlan;
+static int ett_edp_vlan_flags;
+static int ett_edp_esrp;
+static int ett_edp_eaps;
+static int ett_edp_esl;
+static int ett_edp_elsm;
+static int ett_edp_elrp;
+static int ett_edp_link;
+static int ett_edp_link_flags;
+static int ett_edp_unknown;
+static int ett_edp_null;
 
 #define PROTO_SHORT_NAME "EDP"
 #define PROTO_LONG_NAME "Extreme Discovery Protocol"
@@ -396,12 +397,12 @@ static int
 dissect_tlv_header(tvbuff_t *tvb, packet_info *pinfo _U_, int offset, int length _U_, proto_tree *tree)
 {
 	proto_tree	*tlv_tree;
-	guint8		tlv_marker;
-	guint8		tlv_type;
-	guint16		tlv_length;
+	uint8_t		tlv_marker;
+	uint8_t		tlv_type;
+	uint16_t		tlv_length;
 
-	tlv_marker = tvb_get_guint8(tvb, offset);
-	tlv_type = tvb_get_guint8(tvb, offset + 1);
+	tlv_marker = tvb_get_uint8(tvb, offset);
+	tlv_type = tvb_get_uint8(tvb, offset + 1);
 	tlv_length = tvb_get_ntohs(tvb, offset + 2);
 
 	tlv_tree = proto_tree_add_subtree_format(tree, tvb, offset, 4,
@@ -429,7 +430,7 @@ dissect_display_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, p
 {
 	proto_item	*display_item;
 	proto_tree	*display_tree;
-	const guint8	*display_name;
+	const uint8_t	*display_name;
 
 	display_item = proto_tree_add_item(tree, hf_edp_display,
 		tvb, offset, length, ENC_BIG_ENDIAN);
@@ -467,8 +468,8 @@ static int
 dissect_info_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto_tree *tree)
 {
 	proto_tree *ver_tree;
-	guint8 major1, major2, sustaining, internal;
-	guint16 port, slot;
+	uint8_t major1, major2, sustaining, internal;
+	uint16_t port, slot;
 	proto_item	*info_item;
 	proto_tree	*info_tree;
 
@@ -478,10 +479,10 @@ dissect_info_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, prot
 	port = tvb_get_ntohs(tvb, offset + 2 + 4) + 1;
 
 	/* version */
-	major1 = tvb_get_guint8(tvb, offset + 12 + 4);
-	major2 = tvb_get_guint8(tvb, offset + 13 + 4);
-	sustaining = tvb_get_guint8(tvb, offset + 14 + 4);
-	internal = tvb_get_guint8(tvb, offset + 15 + 4);
+	major1 = tvb_get_uint8(tvb, offset + 12 + 4);
+	major2 = tvb_get_uint8(tvb, offset + 13 + 4);
+	sustaining = tvb_get_uint8(tvb, offset + 14 + 4);
+	internal = tvb_get_uint8(tvb, offset + 15 + 4);
 
 	info_item = proto_tree_add_protocol_format(tree, hf_edp_info,
 		tvb, offset, length,
@@ -548,8 +549,8 @@ dissect_vlan_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, prot
 	proto_tree	*flags_tree;
 	proto_item	*vlan_item;
 	proto_tree	*vlan_tree;
-	guint16		vlan_id;
-	const guint8	*vlan_name;
+	uint16_t		vlan_id;
+	const uint8_t	*vlan_name;
 
 	vlan_item = proto_tree_add_item(tree, hf_edp_vlan, tvb,
 		offset, length, ENC_BIG_ENDIAN);
@@ -634,9 +635,9 @@ dissect_esrp_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, prot
 {
 	proto_item	*esrp_item;
 	proto_tree	*esrp_tree;
-	guint16		group;
+	uint16_t		group;
 
-	group = tvb_get_guint8(tvb, offset + 1 + 4);
+	group = tvb_get_uint8(tvb, offset + 1 + 4);
 	esrp_item = proto_tree_add_protocol_format(tree, hf_edp_esrp,
 		tvb, offset, length, "ESRP: Group %d", group);
 
@@ -691,8 +692,8 @@ dissect_eaps_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, prot
 {
 	proto_item	*eaps_item;
 	proto_tree	*eaps_tree;
-	guint16		ctrlvlanid;
-	const gchar	*sysmac_str;
+	uint16_t		ctrlvlanid;
+	const char	*sysmac_str;
 
 	ctrlvlanid = tvb_get_ntohs(tvb, offset + 1 + 1 + 4);
 	sysmac_str = tvb_ether_to_str(pinfo->pool, tvb, offset + 12);
@@ -762,9 +763,9 @@ dissect_esl_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto
 {
 	proto_item	*esl_item;
 	proto_tree	*esl_tree;
-	guint16		ctrlvlanid;
-	guint16		numlinks;
-	const gchar	*sysmac_str;
+	uint16_t		ctrlvlanid;
+	uint16_t		numlinks;
+	const char	*sysmac_str;
 
 	ctrlvlanid = tvb_get_ntohs(tvb, offset + 2 + 4);
 	sysmac_str = tvb_ether_to_str(pinfo->pool, tvb, offset + 12);
@@ -875,14 +876,14 @@ dissect_esl_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, proto
 
 static int
 dissect_elsm_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length,
-	proto_tree *tree, guint16 seqno)
+	proto_tree *tree, uint16_t seqno)
 {
 	proto_item	*elsm_item;
 	proto_tree	*elsm_tree;
-	guint8		type, subtype;
+	uint8_t		type, subtype;
 
-	type = tvb_get_guint8(tvb, offset + 4);
-	subtype = tvb_get_guint8(tvb, offset + 4 + 1);
+	type = tvb_get_uint8(tvb, offset + 4);
+	subtype = tvb_get_uint8(tvb, offset + 4 + 1);
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, " %s%s (#%d)",
 			val_to_str(type, elsm_type_vals, "Unknown (0x%02x)"),
@@ -960,7 +961,7 @@ dissect_link_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, prot
 		/* 0x08: Flow Control:    1: Symmetric/on, 0: None/off */
 		flags_item = proto_tree_add_item(link_tree, hf_edp_link_flags, tvb, offset, 1, ENC_NA);
 		flags_tree = proto_item_add_subtree(flags_item, ett_edp_link_flags);
-		tree_expanded_set(ett_edp_link_flags, TRUE);
+		tree_expanded_set(ett_edp_link_flags, true);
 		proto_tree_add_item(flags_tree, hf_edp_link_flags_autoneg, tvb, offset, 1, ENC_NA);
 		proto_tree_add_item(flags_tree, hf_edp_link_flags_flowcontrol, tvb, offset, 1, ENC_NA);
 		proto_tree_add_item(flags_tree, hf_edp_link_flags_unknown, tvb, offset, 1, ENC_NA);
@@ -978,9 +979,9 @@ dissect_unknown_tlv(tvbuff_t *tvb, packet_info *pinfo, int offset, int length, p
 {
 	proto_item	*unknown_item;
 	proto_tree	*unknown_tree;
-	guint8		tlv_type;
+	uint8_t		tlv_type;
 
-	tlv_type = tvb_get_guint8(tvb, offset + 1);
+	tlv_type = tvb_get_uint8(tvb, offset + 1);
 
 	unknown_item = proto_tree_add_protocol_format(tree, hf_edp_unknown,
 		tvb, offset, length, "Unknown element [0x%02x]", tlv_type);
@@ -1000,12 +1001,12 @@ dissect_edp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 	proto_item *ti;
 	proto_tree *edp_tree;
-	guint32 offset = 0;
-	gboolean last = FALSE;
-	guint8 tlv_type;
-	guint16 tlv_length;
-	guint16 data_length;
-	guint16 seqno;
+	uint32_t offset = 0;
+	bool last = false;
+	uint8_t tlv_type;
+	uint16_t tlv_length;
+	uint16_t data_length;
+	uint16_t seqno;
 	vec_t cksum_vec[1];
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, PROTO_SHORT_NAME);
@@ -1065,7 +1066,7 @@ dissect_edp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 						     data_length - offset);
 			break;
 		}
-		tlv_type = tvb_get_guint8(tvb, offset + 1);
+		tlv_type = tvb_get_uint8(tvb, offset + 1);
 		tlv_length = tvb_get_ntohs(tvb, offset + 2);
 
 		if ((tlv_length < 4) || (tlv_length > (data_length - offset))) {
@@ -1080,7 +1081,7 @@ dissect_edp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 		switch (tlv_type) {
 		case EDP_TYPE_NULL: /* Last TLV */
 			dissect_null_tlv(tvb, pinfo, offset, tlv_length, edp_tree);
-			last = TRUE;
+			last = true;
 			break;
 		case EDP_TYPE_DISPLAY: /* MIB II display string */
 			dissect_display_tlv(tvb, pinfo, offset, tlv_length, edp_tree);
@@ -1513,7 +1514,7 @@ proto_register_edp(void)
 		}
 	};
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_edp,
 		&ett_edp_tlv_header,
 		&ett_edp_vlan_flags,

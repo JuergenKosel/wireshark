@@ -19,7 +19,7 @@
 
 #include <epan/packet.h>
 #include <epan/etypes.h>
-
+#include <epan/tfs.h>
 
 static int proto_elmi;
 
@@ -28,9 +28,9 @@ void proto_reg_handoff_elmi(void);
 
 static dissector_handle_t elmi_handle;
 
-static gint ett_elmi;
-static gint ett_elmi_info_elem;
-static gint ett_elmi_sub_info_elem;
+static int ett_elmi;
+static int ett_elmi_info_elem;
+static int ett_elmi_sub_info_elem;
 
 static int hf_elmi_ver;
 static int hf_elmi_msg_type;
@@ -143,19 +143,19 @@ static const value_string elmi_evc_type[] = {
     { 0, NULL }
 };
 
-static gint
+static int
 dissect_elmi_sub_info_elem(
-        tvbuff_t *tvb, gint offset, proto_tree *tree)
+        tvbuff_t *tvb, int offset, proto_tree *tree)
 {
-    gint        offset_start;
-    guint8      sub_tag, len;
+    int         offset_start;
+    uint8_t     sub_tag, len;
     proto_item *tree_pi;
     proto_tree *sub_info_elem_tree = tree;
 
     offset_start = offset;
 
-    sub_tag = tvb_get_guint8(tvb, offset);
-    len = tvb_get_guint8(tvb, offset + 1);
+    sub_tag = tvb_get_uint8(tvb, offset);
+    len = tvb_get_uint8(tvb, offset + 1);
 
     sub_info_elem_tree = proto_tree_add_subtree_format(
             tree, tvb, offset, len + 2, ett_elmi_sub_info_elem, &tree_pi,
@@ -233,18 +233,18 @@ dissect_elmi_sub_info_elem(
 
 }
 
-static gint
+static int
 dissect_elmi_info_elem(
-        tvbuff_t *tvb, gint offset, packet_info *pinfo _U_, proto_tree *tree)
+        tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tree)
 {
-    gint        offset_start;
-    guint8      tag, len, ret;
+    int         offset_start;
+    uint8_t     tag, len, ret;
     proto_item *tree_pi;
     proto_tree *info_elem_tree;
 
     offset_start = offset;
 
-    tag = tvb_get_guint8(tvb, offset);
+    tag = tvb_get_uint8(tvb, offset);
     if (tag==0)
         return -1;
 
@@ -256,7 +256,7 @@ dissect_elmi_info_elem(
             tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
 
-    len = tvb_get_guint8(tvb, offset);
+    len = tvb_get_uint8(tvb, offset);
     proto_tree_add_item(info_elem_tree, hf_elmi_info_elem_len,
             tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
@@ -338,9 +338,9 @@ dissect_elmi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 {
     proto_item *pi;
     proto_tree *elmi_tree;
-    gint        offset=0;
-    guint8      msg_type;
-    gint        ret;
+    int         offset=0;
+    uint8_t     msg_type;
+    int         ret;
 
     col_clear(pinfo->cinfo, COL_INFO);
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "E-LMI");
@@ -353,7 +353,7 @@ dissect_elmi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     proto_tree_add_item(elmi_tree, hf_elmi_ver, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
 
-    msg_type = tvb_get_guint8(tvb, offset);
+    msg_type = tvb_get_uint8(tvb, offset);
     proto_tree_add_item(elmi_tree, hf_elmi_msg_type,
             tvb, offset, 1, ENC_BIG_ENDIAN);
     col_append_str(pinfo->cinfo, COL_INFO,
@@ -426,7 +426,7 @@ proto_register_elmi(void)
             { "Default EVC", "elmi.map.evc", FT_BOOLEAN, 8,
                 TFS(&tfs_set_notset), 0x1, NULL, HFILL } },
         { &hf_elmi_sub_info_elem,
-            { "Sub-Info Element :", "elmi.sub_info.tag", FT_UINT8, BASE_HEX,
+            { "Sub-Info Element", "elmi.sub_info.tag", FT_UINT8, BASE_HEX,
                 VALS(elmi_sub_info_elem_tag), 0, NULL, HFILL } },
         { &hf_elmi_sub_info_elem_len,
             { "Sub-Info Length", "elmi.sub_info.len", FT_UINT8, BASE_DEC,
@@ -502,7 +502,7 @@ proto_register_elmi(void)
                 TFS(&tfs_applicable_not_applicable), 0x80, NULL, HFILL } },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_elmi,
         &ett_elmi_info_elem,
         &ett_elmi_sub_info_elem

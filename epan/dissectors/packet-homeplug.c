@@ -15,6 +15,7 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <epan/tfs.h>
 
 #include <epan/etypes.h>
 
@@ -196,35 +197,35 @@ static int hf_homeplug_stc_dees;
 static int hf_homeplug_stc_txeks;
 static int hf_homeplug_data;
 
-static gint ett_homeplug;
-static gint ett_homeplug_mctrl;
-static gint ett_homeplug_mehdr;
-static gint ett_homeplug_vs_mid;
-static gint ett_homeplug_rce;
-static gint ett_homeplug_cer;
-static gint ett_homeplug_vs;
-static gint ett_homeplug_snk;
-static gint ett_homeplug_rps;
-static gint ett_homeplug_psr;
-static gint ett_homeplug_slp;
-static gint ett_homeplug_loader;
-static gint ett_homeplug_hreq;
-static gint ett_homeplug_hrsp;
-static gint ett_homeplug_ns;
-static gint ett_homeplug_tone;
-static gint ett_homeplug_tx_bfr_state;
-static gint ett_homeplug_bridge;
-static gint ett_homeplug_bcn;
-static gint ett_homeplug_bcl;
-static gint ett_homeplug_stc;
+static int ett_homeplug;
+static int ett_homeplug_mctrl;
+static int ett_homeplug_mehdr;
+static int ett_homeplug_vs_mid;
+static int ett_homeplug_rce;
+static int ett_homeplug_cer;
+static int ett_homeplug_vs;
+static int ett_homeplug_snk;
+static int ett_homeplug_rps;
+static int ett_homeplug_psr;
+static int ett_homeplug_slp;
+static int ett_homeplug_loader;
+static int ett_homeplug_hreq;
+static int ett_homeplug_hrsp;
+static int ett_homeplug_ns;
+static int ett_homeplug_tone;
+static int ett_homeplug_tx_bfr_state;
+static int ett_homeplug_bridge;
+static int ett_homeplug_bcn;
+static int ett_homeplug_bcl;
+static int ett_homeplug_stc;
 
 static expert_field ei_homeplug_tone_map_not_exist;
 
-static guint8  homeplug_ne     = 0;
-static guint8  homeplug_melen  = 0;
-static guint8  homeplug_metype = 0;
+static uint8_t homeplug_ne;
+static uint8_t homeplug_melen;
+static uint8_t homeplug_metype;
 
-static guint32 homeplug_offset = 0;
+static uint32_t homeplug_offset;
 
 
 /* METYPE Values */
@@ -441,7 +442,7 @@ static const value_string homeplug_cer_mod_vals[] = {
 
 /* Constants used by various MMEs */
 
-#define HOMEPLUG_ADDR_INEXISTANT G_GUINT64_CONSTANT(010000000000)
+#define HOMEPLUG_ADDR_INEXISTANT UINT64_C(010000000000)
 
 /* string values in function of TXPRIO */
 static const value_string homeplug_txprio_vals[] = {
@@ -467,7 +468,7 @@ static void dissect_homeplug_mctrl(ptvcursor_t * cursor)
 
   it = ptvcursor_add_no_advance(cursor, hf_homeplug_mctrl, 1, ENC_NA);
   /* Extract Number Of MAC Data Entries */
-  homeplug_ne = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+  homeplug_ne = tvb_get_uint8(ptvcursor_tvbuff(cursor),
       ptvcursor_current_offset(cursor)) & HOMEPLUG_MCTRL_NE;
 
   ptvcursor_push_subtree(cursor, it, ett_homeplug_mctrl);
@@ -487,7 +488,7 @@ static void dissect_homeplug_mehdr(ptvcursor_t * cursor)
     return;
 
   it = ptvcursor_add_no_advance(cursor, hf_homeplug_mehdr, 1, ENC_NA);
-  homeplug_metype = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+  homeplug_metype = tvb_get_uint8(ptvcursor_tvbuff(cursor),
       ptvcursor_current_offset(cursor)) & HOMEPLUG_MEHDR_METYPE;
 
   ptvcursor_push_subtree(cursor, it, ett_homeplug_mehdr);
@@ -504,7 +505,7 @@ static void dissect_homeplug_melen(ptvcursor_t * cursor)
   if (!ptvcursor_tree(cursor))
     return;
 
-  homeplug_melen = tvb_get_guint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
+  homeplug_melen = tvb_get_uint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
   ptvcursor_add(cursor, hf_homeplug_melen, 1, ENC_BIG_ENDIAN);
 
 }
@@ -531,9 +532,9 @@ static void dissect_homeplug_rce(ptvcursor_t * cursor)
 static void dissect_homeplug_cer(ptvcursor_t * cursor)
 {
   proto_item * it = NULL;
-  guint8 iTone = 0;
-  guint8 BP = 0;
-  guint8 iNBDA = 0;
+  uint8_t iTone = 0;
+  uint8_t BP = 0;
+  uint8_t iNBDA = 0;
 
   if (!ptvcursor_tree(cursor))
     return;
@@ -552,14 +553,14 @@ static void dissect_homeplug_cer(ptvcursor_t * cursor)
 
     ptvcursor_add_no_advance(cursor, hf_homeplug_cer_rate, 1, ENC_BIG_ENDIAN);
     ptvcursor_add_no_advance(cursor, hf_homeplug_cer_bp, 1, ENC_BIG_ENDIAN);
-    BP = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+    BP = tvb_get_uint8(ptvcursor_tvbuff(cursor),
         ptvcursor_current_offset(cursor)) & HOMEPLUG_CER_BP;
     ptvcursor_add_no_advance(cursor, hf_homeplug_cer_mod, 1, ENC_BIG_ENDIAN);
     ptvcursor_add(cursor, hf_homeplug_cer_vt11, 1, ENC_BIG_ENDIAN);
     ptvcursor_add_no_advance(cursor, hf_homeplug_cer_rsvd2, 1, ENC_BIG_ENDIAN);
 
     if (BP) {
-      iNBDA = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+      iNBDA = tvb_get_uint8(ptvcursor_tvbuff(cursor),
           ptvcursor_current_offset(cursor)) & HOMEPLUG_CER_NBDAS;
       ptvcursor_add(cursor, hf_homeplug_cer_nbdas, 1, ENC_BIG_ENDIAN);
       /* TODO : Check on iNBDA! INT51X1 up to 16 dba. But up to 32 for INT51X1 (Host/DTE) */
@@ -712,7 +713,7 @@ static void dissect_homeplug_loader(ptvcursor_t * cursor, packet_info * pinfo)
 
   ptvcursor_push_subtree(cursor, it, ett_homeplug_loader);
   {
-    mid = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+    mid = tvb_get_uint8(ptvcursor_tvbuff(cursor),
                          ptvcursor_current_offset(cursor));
 
     length = tvb_get_ntohs(ptvcursor_tvbuff(cursor),
@@ -891,7 +892,7 @@ static void dissect_homeplug_hreq(ptvcursor_t * cursor, packet_info * pinfo)
 
   ptvcursor_push_subtree(cursor, it, ett_homeplug_hreq);
   {
-    mid = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+    mid = tvb_get_uint8(ptvcursor_tvbuff(cursor),
                          ptvcursor_current_offset(cursor));
     length = tvb_get_ntohs(ptvcursor_tvbuff(cursor),
                            ptvcursor_current_offset(cursor) + 1);
@@ -961,7 +962,7 @@ static void dissect_homeplug_hrsp(ptvcursor_t * cursor, packet_info * pinfo)
 
   ptvcursor_push_subtree(cursor, it, ett_homeplug_hrsp);
   {
-    mid = tvb_get_guint8(ptvcursor_tvbuff(cursor),
+    mid = tvb_get_uint8(ptvcursor_tvbuff(cursor),
                          ptvcursor_current_offset(cursor));
     switch(mid) {
     case HOMEPLUG_MID_GDVR:
@@ -1004,11 +1005,11 @@ static void dissect_homeplug_htag(ptvcursor_t * cursor)
 /* Dissection of the Network Statistics MME */
 static void dissect_homeplug_ns(ptvcursor_t * cursor, packet_info * pinfo)
 {
-  guint8 iTone = 0;
-  guint8 i_buffer = 0;
+  uint8_t iTone = 0;
+  uint8_t i_buffer = 0;
 
-  guint64 newt_da = 0;
-  gboolean extended = (homeplug_melen >= HOMEPLUG_NS_EXT_LEN);
+  uint64_t newt_da = 0;
+  bool extended = (homeplug_melen >= HOMEPLUG_NS_EXT_LEN);
   proto_item * ti;
 
   /* Append Basic/Extender specifier to info column */
@@ -1034,7 +1035,7 @@ static void dissect_homeplug_ns(ptvcursor_t * cursor, packet_info * pinfo)
     ptvcursor_add(cursor, hf_homeplug_ns_drops_robo, 2, ENC_LITTLE_ENDIAN);
 
     while (iTone < 15) {
-      newt_da = ((gint64)tvb_get_ntoh24(ptvcursor_tvbuff(cursor),
+      newt_da = ((int64_t)tvb_get_ntoh24(ptvcursor_tvbuff(cursor),
       ptvcursor_current_offset(cursor))) << 24;
       newt_da |= tvb_get_ntoh24(ptvcursor_tvbuff(cursor),
       ptvcursor_current_offset(cursor)+3);
@@ -1082,10 +1083,10 @@ static void dissect_homeplug_ns(ptvcursor_t * cursor, packet_info * pinfo)
 static void dissect_homeplug_bcn(ptvcursor_t * cursor)
 {
   proto_item * it = NULL;
-  guint8 i_bridge = 0;
-  guint8 num_das;
-  guint8 i_da;
-  guint8 fbn;
+  uint8_t i_bridge = 0;
+  uint8_t num_das;
+  uint8_t i_da;
+  uint8_t fbn;
 
   it = ptvcursor_add_no_advance(cursor, hf_homeplug_bcn, homeplug_melen, ENC_NA);
 
@@ -1094,7 +1095,7 @@ static void dissect_homeplug_bcn(ptvcursor_t * cursor)
     ptvcursor_add_no_advance(cursor, hf_homeplug_bcn_network, 1, ENC_BIG_ENDIAN);
     ptvcursor_add_no_advance(cursor, hf_homeplug_bcn_return, 1, ENC_BIG_ENDIAN);
     ptvcursor_add_no_advance(cursor, hf_homeplug_bcn_rsvd, 1, ENC_BIG_ENDIAN);
-    fbn = tvb_get_guint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor))
+    fbn = tvb_get_uint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor))
         & HOMEPLUG_BCN_FBN;
     ptvcursor_add(cursor, hf_homeplug_bcn_fbn, 1, ENC_BIG_ENDIAN);
     while (i_bridge < 2) {
@@ -1102,7 +1103,7 @@ static void dissect_homeplug_bcn(ptvcursor_t * cursor)
           ett_homeplug_bridge, "Bridge #%d", fbn + i_bridge);
       {
         ptvcursor_add(cursor, hf_homeplug_bcn_brda, 6, ENC_NA);
-        num_das = tvb_get_guint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
+        num_das = tvb_get_uint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
         ptvcursor_add(cursor, hf_homeplug_bcn_bp_das, 1, ENC_BIG_ENDIAN);
         for (i_da = 0; i_da < num_das; i_da++) {
           ptvcursor_add(cursor, hf_homeplug_bcn_bp_da, 6, ENC_NA);
@@ -1119,8 +1120,8 @@ static void dissect_homeplug_bcn(ptvcursor_t * cursor)
 static void dissect_homeplug_bcl(ptvcursor_t * cursor)
 {
   proto_item * it = NULL;
-  guint8 num_das;
-  guint8 i_da = 0;
+  uint8_t num_das;
+  uint8_t i_da = 0;
 
   it = ptvcursor_add_no_advance(cursor, hf_homeplug_bcl, homeplug_melen, ENC_NA);
 
@@ -1130,7 +1131,7 @@ static void dissect_homeplug_bcl(ptvcursor_t * cursor)
     ptvcursor_add_no_advance(cursor, hf_homeplug_bcl_return, 1, ENC_BIG_ENDIAN);
     ptvcursor_add(cursor, hf_homeplug_bcl_rsvd, 1, ENC_BIG_ENDIAN);
 
-    num_das = tvb_get_guint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
+    num_das = tvb_get_uint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor));
     ptvcursor_add(cursor, hf_homeplug_bcl_hprox_das, 1, ENC_BIG_ENDIAN);
 
     while (i_da < num_das) {
@@ -1144,12 +1145,12 @@ static void dissect_homeplug_bcl(ptvcursor_t * cursor)
 /* Dissection of the Bridging Characteristics MME */
 static void dissect_homeplug_bc(ptvcursor_t * cursor, packet_info * pinfo)
 {
-  gboolean network;
+  bool network;
 
   if (!ptvcursor_tree(cursor))
     return;
 
-  network = tvb_get_guint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor))
+  network = tvb_get_uint8(ptvcursor_tvbuff(cursor), ptvcursor_current_offset(cursor))
           & HOMEPLUG_BC_NETWORK;
 
   /* Append Network/Local specifier to info column */
@@ -1275,7 +1276,7 @@ static void dissect_homeplug_mme(ptvcursor_t * cursor, packet_info * pinfo)
 #define TVB_LEN_GREATEST  1
 #define TVB_LEN_UNDEF     0
 #define TVB_LEN_SHORTEST -1
-static int check_tvb_length(ptvcursor_t *cursor, const gint length)
+static int check_tvb_length(ptvcursor_t *cursor, const int length)
 {
   if (!cursor)
     return TVB_LEN_UNDEF;
@@ -1337,7 +1338,7 @@ dissect_homeplug(tvbuff_t * tvb, packet_info * pinfo, proto_tree * tree, void* d
 }
 
 static void
-homeplug_fmt_mhz( gchar *result, guint32 ns_bytes40 )
+homeplug_fmt_mhz( char *result, uint32_t ns_bytes40 )
 {
    snprintf( result, ITEM_LABEL_LENGTH, "%.3f", (float)(ns_bytes40)/42);
 }
@@ -2140,7 +2141,7 @@ proto_register_homeplug(void)
   };
 
   /* Setup protocol subtree array */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_homeplug,
     &ett_homeplug_mctrl,
     &ett_homeplug_mehdr,

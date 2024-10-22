@@ -103,15 +103,16 @@ enum {
 	OPT_SSHKEY,
 	OPT_SSHKEY_PASSPHRASE,
 	OPT_PROXYCOMMAND,
+	OPT_SSH_SHA1,
 	OPT_REMOTE_COUNT
 };
 
 static char prompt_str[SSH_READ_BLOCK_SIZE + 1];
 static int32_t prompt_len = -1;
 CISCO_SW_TYPE global_sw_type = CISCO_UNKNOWN;
-static bool send_output_quit = false;	/* IOS XE 17: send quit during output */
+static bool send_output_quit;	/* IOS XE 17: send quit during output */
 
-static struct ws_option longopts[] = {
+static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	{ "help", ws_no_argument, NULL, OPT_HELP},
 	{ "version", ws_no_argument, NULL, OPT_VERSION},
@@ -161,7 +162,7 @@ static char* interfaces_list_to_filter(GSList* interfaces, unsigned int remote_p
 		g_string_append_printf(filter, ", permit ip any any");
 	}
 
-	return g_string_free(filter, false);
+	return g_string_free(filter, FALSE);
 }
 
 static char* local_interfaces_to_filter(const unsigned int remote_port)
@@ -181,7 +182,7 @@ static int read_output_bytes_any(ssh_channel channel, int bytes, char* outbuf)
 	int total;
 	int bytes_read;
 
-	total = (bytes > 0 ? bytes : G_MAXINT);
+	total = (bytes > 0 ? bytes : INT_MAX);
 	bytes_read = 0;
 
 	while(ssh_channel_read_timeout(channel, &chr, 1, 0, CISCODUMP_READ_TIMEOUT_MSEC) > 0 && bytes_read < total) {
@@ -204,7 +205,7 @@ static int read_output_bytes(ssh_channel channel, int bytes, char* outbuf)
 	int total;
 	int bytes_read;
 
-	total = (bytes > 0 ? bytes : G_MAXINT);
+	total = (bytes > 0 ? bytes : INT_MAX);
 	bytes_read = 0;
 
 	while(ssh_channel_read_timeout(channel, &chr, 1, 0, CISCODUMP_READ_TIMEOUT_MSEC) > 0 && bytes_read < total) {
@@ -221,7 +222,7 @@ static int read_output_bytes(ssh_channel channel, int bytes, char* outbuf)
 /* Reads input to buffer and parses EOL
  *   If line is NULL, just received count of characters in len is calculated
  * It returns:
- *   READ_LINE_ERROR - any ssh error occured
+ *   READ_LINE_ERROR - any ssh error occurred
  *   READ_LINE_EOLN - EOLN found, line/len contains \0 terminated string
  *   READ_LINE_TIMEOUT - reading ended with timeout, line/len contains \0 terminate prompt
  *   READ_LINE_TOO_LONG - buffer is full with no EOLN nor PROMPT found, line is filled with NOT \0 terminated data
@@ -263,7 +264,7 @@ static int ssh_channel_read_line_timeout(ssh_channel channel, char *line, int *l
 
 /* Reads input to buffer and parses EOL or prompt_str PROMPT
  * It returns:
- *   READ_PROMPT_ERROR - any ssh error occured
+ *   READ_PROMPT_ERROR - any ssh error occurred
  *   READ_PROMPT_EOLN - EOLN found, line/len contains \0 terminated string
  *   READ_PROMPT_PROMPT - reading ended and it ends with PROMPT, line/len contains \0 terminate prompt
  *   READ_PROMPT_TOO_LONG - buffer is full with no EOLN nor PROMPT found, line is filled with NOT \0 terminated data
@@ -2259,6 +2260,9 @@ static int list_config(char *interface, unsigned int remote_port)
 	printf("arg {number=%u}{call--sshkey-passphrase}{display=SSH key passphrase}"
 		"{type=password}{tooltip=Passphrase to unlock the SSH private key}"
 		"{group=Authentication\n", inc++);
+	printf("arg {number=%u}{call=--ssh-sha1}{display=Support SHA-1 keys (deprecated)}"
+	       "{type=boolflag}{tooltip=Support keys and key exchange algorithms using SHA-1 (deprecated)}{group=Authentication}"
+	       "\n", inc++);
 	printf("arg {number=%u}{call=--remote-interface}{display=Remote interface}"
 		"{type=string}{required=true}{tooltip=The remote network interface used for capture"
 		"}{group=Capture}\n", inc++);
@@ -2343,6 +2347,7 @@ int main(int argc, char *argv[])
 	extcap_help_add_option(extcap_conf, "--sshkey <public key path>", "the path of the ssh key");
 	extcap_help_add_option(extcap_conf, "--sshkey-passphrase <public key passphrase>", "the passphrase to unlock public ssh");
 	extcap_help_add_option(extcap_conf, "--proxycommand <proxy command>", "the command to use as proxy for the ssh connection");
+	extcap_help_add_option(extcap_conf, "--ssh-sha1", "support keys and key exchange using SHA-1 (deprecated)");
 	extcap_help_add_option(extcap_conf, "--remote-interface <iface>", "the remote capture interface");
 	extcap_help_add_option(extcap_conf, "--remote-filter <filter>", "a filter for remote capture "
 		"(default: don't capture data for all interfaces IPs)");
@@ -2405,6 +2410,10 @@ int main(int argc, char *argv[])
 		case OPT_PROXYCOMMAND:
 			g_free(ssh_params->proxycommand);
 			ssh_params->proxycommand = g_strdup(ws_optarg);
+			break;
+
+		case OPT_SSH_SHA1:
+			ssh_params->ssh_sha1 = true;
 			break;
 
 		case OPT_REMOTE_INTERFACE:
@@ -2482,7 +2491,7 @@ int main(int argc, char *argv[])
 			ws_warning("ERROR: count of packets must be specified (--remote-count)");
 			goto end;
 		}
-		ssh_params->debug = extcap_conf->debug;
+		ssh_params_set_log_level(ssh_params, extcap_conf->debug);
 		ret = ssh_open_remote_connection(ssh_params, remote_interface,
 			remote_filter, count, extcap_conf->fifo);
 	} else {

@@ -15,10 +15,7 @@
 #include <ftypes-int.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <math.h>
-#include <float.h>
-
-#include "strutil.h"
+#include <wsutil/array.h>
 
 #define DOUBLE_REPR_LENGTH  27
 
@@ -229,7 +226,7 @@ sfloat_ieee_11073_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrep
     char    *mantissa_str;
     uint8_t  mantissa_digits;
 
-    /* Predefinied: +INFINITY, -INFINITY, RFU, NRes, NaN */
+    /* Predefined: +INFINITY, -INFINITY, RFU, NRes, NaN */
     if (fv->value.sfloat_ieee_11073 >= 0x07FE && fv->value.sfloat_ieee_11073 <= 0x0802) {
         char *s = NULL;
 
@@ -682,7 +679,7 @@ float_ieee_11073_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr
     char    *mantissa_str;
     uint8_t  mantissa_digits;
 
-    /* Predefinied: +INFINITY, -INFINITY, RFU, NRes, NaN */
+    /* Predefined: +INFINITY, -INFINITY, RFU, NRes, NaN */
     if (fv->value.float_ieee_11073 >= 0x007FFFFE && fv->value.float_ieee_11073 <= 0x00800002) {
         char *s = NULL;
         switch (fv->value.float_ieee_11073) {
@@ -952,7 +949,7 @@ be carefour when comparing: 1e == 10e-1 == 10e-2 == ... (solution: compare only 
 Example: 114 is 0x0072
 
 */
-    static ftype_t sfloat_type = {
+    static const ftype_t sfloat_type = {
         FT_IEEE_11073_SFLOAT,                 /* ftype */
         2,                                    /* wire_size */
 
@@ -1018,7 +1015,7 @@ Example: 36.4 is 0xFF00016C
 
 */
 
-    static ftype_t float_type = {
+    static const ftype_t float_type = {
         FT_IEEE_11073_FLOAT,                  /* ftype */
         4,                                    /* wire_size */
 

@@ -54,7 +54,7 @@ commandline_param_info_t global_commandline_info;
 capture_options global_capture_opts;
 
 void
-commandline_print_usage(gboolean for_help_option) {
+commandline_print_usage(bool for_help_option) {
     FILE *output;
 
 #ifdef _WIN32
@@ -135,7 +135,8 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "  -R <read filter>, --read-filter <read filter>\n");
     fprintf(output, "                           packet filter in Wireshark display filter syntax\n");
     fprintf(output, "  -n                       disable all name resolutions (def: all enabled)\n");
-    fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mnNtdv\"\n");
+    // Note: the order of the flags here matches the options in the settings dialog e.g. "dsN" only have an effect if "n" is set
+    fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mtndsNvg\"\n");
     fprintf(output, "  -d %s ...\n", DECODE_AS_ARG_TEMPLATE);
     fprintf(output, "                           \"Decode As\", see the man page for details\n");
     fprintf(output, "                           Example: tcp.port==8888,http\n");
@@ -173,6 +174,8 @@ commandline_print_usage(gboolean for_help_option) {
     fprintf(output, "Output:\n");
     fprintf(output, "  -w <outfile|->           set the output filename (or '-' for stdout)\n");
 #ifdef HAVE_LIBPCAP
+    fprintf(output, "  -F <capture type>        set the output file type; default is pcapng.\n");
+    fprintf(output, "                           an empty \"-F\" option will list the file types.\n");
     fprintf(output, "  --capture-comment <comment>\n");
     fprintf(output, "                           add a capture file comment, if supported\n");
 #endif
@@ -229,10 +232,10 @@ void commandline_early_options(int argc, char *argv[])
 #ifdef HAVE_LIBPCAP
     int err;
     GList *if_list;
-    gchar *err_str;
+    char *err_str;
     int exit_status;
 #else
-    gboolean capture_option_specified;
+    bool capture_option_specified;
 #endif
 
     /*
@@ -267,14 +270,14 @@ void commandline_early_options(int argc, char *argv[])
     ws_opterr = 0;
 
 #ifndef HAVE_LIBPCAP
-    capture_option_specified = FALSE;
+    capture_option_specified = false;
 #endif
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
             case 'C':        /* Configuration Profile */
-                if (profile_exists (ws_optarg, FALSE)) {
+                if (profile_exists (ws_optarg, false)) {
                     set_profile_name (ws_optarg);
-                } else if (profile_exists (ws_optarg, TRUE)) {
+                } else if (profile_exists (ws_optarg, true)) {
                     char  *pf_dir_path, *pf_dir_path2, *pf_filename;
                     /* Copy from global profile */
                     if (create_persconffile_profile(ws_optarg, &pf_dir_path) == -1) {
@@ -284,7 +287,7 @@ void commandline_early_options(int argc, char *argv[])
                         g_free(pf_dir_path);
                         exit(WS_EXIT_INVALID_FILE);
                     }
-                    if (copy_persconffile_profile(ws_optarg, ws_optarg, TRUE, &pf_filename,
+                    if (copy_persconffile_profile(ws_optarg, ws_optarg, true, &pf_filename,
                             &pf_dir_path, &pf_dir_path2) == -1) {
                         cmdarg_err("Can't copy file \"%s\" in directory\n\"%s\" to\n\"%s\":\n%s.",
                             pf_filename, pf_dir_path2, pf_dir_path, g_strerror(errno));
@@ -338,17 +341,17 @@ void commandline_early_options(int argc, char *argv[])
 #endif /* _WIN32 */
                 exit(exit_status);
 #else /* HAVE_LIBPCAP */
-                capture_option_specified = TRUE;
+                capture_option_specified = true;
 #endif /* HAVE_LIBPCAP */
                 break;
             case 'h':        /* Print help and exit */
-                commandline_print_usage(TRUE);
+                commandline_print_usage(true);
                 exit(EXIT_SUCCESS);
                 break;
 #ifdef _WIN32
             case 'i':
                 if (strcmp(ws_optarg, "-") == 0)
-                    set_stdin_capture(TRUE);
+                    set_stdin_capture(true);
                 break;
 #endif
             case 'P':        /* Personal file directory path settings - change these before the Preferences and alike are processed */
@@ -390,13 +393,13 @@ void commandline_early_options(int argc, char *argv[])
 #ifndef HAVE_LIBPCAP
     if (capture_option_specified) {
         print_no_capture_support_error();
-        commandline_print_usage(FALSE);
+        commandline_print_usage(false);
         exit(EXIT_SUCCESS);
     }
 #endif
 }
 
-void commandline_override_prefs(int argc, char *argv[], gboolean opt_reset)
+void commandline_override_prefs(int argc, char *argv[], bool opt_reset)
 {
     int opt;
 
@@ -454,9 +457,12 @@ void commandline_override_prefs(int argc, char *argv[], gboolean opt_reset)
                         }
                         break;
                     case PREFS_SET_OBSOLETE:
-                        cmdarg_err("-o flag \"%s\" specifies obsolete preference",
-                                   ws_optarg);
-                        exit_application(1);
+                    /* obsolete preference, might be a recent setting */
+                        if (recent_set_arg(ws_optarg) != PREFS_SET_OK) {
+                            cmdarg_err("-o flag \"%s\" specifies obsolete preference",
+                                       ws_optarg);
+                            exit_application(1);
+                        }
                         break;
                     default:
                         ws_assert_not_reached();
@@ -476,15 +482,15 @@ void commandline_override_prefs(int argc, char *argv[], gboolean opt_reset)
 
 }
 
-void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
+void commandline_other_options(int argc, char *argv[], bool opt_reset)
 {
     int opt;
-    gboolean arg_error = FALSE;
+    bool arg_error = false;
 #ifdef HAVE_LIBPCAP
     const char *list_option_supplied = NULL;
     int status;
 #else
-    gboolean capture_option_specified;
+    bool capture_option_specified;
 #endif
 
     /*
@@ -519,13 +525,13 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
     global_commandline_info.rfilter = NULL;
     global_commandline_info.dfilter = NULL;
 #ifdef HAVE_LIBPCAP
-    global_commandline_info.start_capture = FALSE;
-    global_commandline_info.list_link_layer_types = FALSE;
-    global_commandline_info.list_timestamp_types = FALSE;
-    global_commandline_info.quit_after_cap = getenv("WIRESHARK_QUIT_AFTER_CAPTURE") ? TRUE : FALSE;
+    global_commandline_info.start_capture = false;
+    global_commandline_info.list_link_layer_types = false;
+    global_commandline_info.list_timestamp_types = false;
+    global_commandline_info.quit_after_cap = getenv("WIRESHARK_QUIT_AFTER_CAPTURE") ? true : false;
     global_commandline_info.capture_comments = NULL;
 #endif
-    global_commandline_info.full_screen = FALSE;
+    global_commandline_info.full_screen = false;
 
     while ((opt = ws_getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
         switch (opt) {
@@ -534,6 +540,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
             case 'b':        /* Ringbuffer option */
             case 'c':        /* Capture xxx packets */
             case 'f':        /* capture filter */
+            case 'F':        /* capture file type */
             case 'H':        /* Hide capture info dialog box */
             case 'p':        /* Don't capture in promiscuous mode */
             case 'i':        /* Use interface x */
@@ -559,8 +566,8 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                     exit_application(status);
                 }
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
 
@@ -572,43 +579,43 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                 global_commandline_info.jump_backwards = SD_BACKWARD;
                 break;
             case 'g':        /* Go to packet with the given packet number */
-                global_commandline_info.go_to_packet = get_nonzero_guint32(ws_optarg, "go to packet");
+                global_commandline_info.go_to_packet = get_nonzero_uint32(ws_optarg, "go to packet");
                 break;
             case 'J':        /* Jump to the first packet which matches the filter criteria */
                 global_commandline_info.jfilter = ws_optarg;
                 break;
             case 'k':        /* Start capture immediately */
 #ifdef HAVE_LIBPCAP
-                global_commandline_info.start_capture = TRUE;
+                global_commandline_info.start_capture = true;
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
             case 'l':        /* Automatic scrolling in live capture mode */
 #ifdef HAVE_LIBPCAP
-                recent.capture_auto_scroll = TRUE;
+                recent.capture_auto_scroll = true;
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
             case 'L':        /* Print list of link-layer types and exit */
 #ifdef HAVE_LIBPCAP
-                global_commandline_info.list_link_layer_types = TRUE;
+                global_commandline_info.list_link_layer_types = true;
                 list_option_supplied = "-L";
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
             case LONGOPT_LIST_TSTAMP_TYPES:
 #ifdef HAVE_LIBPCAP
-                global_commandline_info.list_timestamp_types = TRUE;
+                global_commandline_info.list_timestamp_types = true;
                 list_option_supplied = "--list-time-stamp-types";
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
             case 'o':        /* Override preference from command line */
@@ -666,7 +673,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                    exit_application(1);
                 break;
             case LONGOPT_FULL_SCREEN:
-                global_commandline_info.full_screen = TRUE;
+                global_commandline_info.full_screen = true;
                 break;
 #ifdef HAVE_LIBPCAP
             case LONGOPT_CAPTURE_COMMENT:  /* capture comment */
@@ -675,13 +682,13 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                 }
                 g_ptr_array_add(global_commandline_info.capture_comments, g_strdup(ws_optarg));
 #else
-                capture_option_specified = TRUE;
-                arg_error = TRUE;
+                capture_option_specified = true;
+                arg_error = true;
 #endif
                 break;
             default:
             case '?':        /* Bad flag - print usage message */
-                arg_error = TRUE;
+                arg_error = true;
                 break;
             }
     }
@@ -696,7 +703,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
                  * command-line argument.
                  */
                 cmdarg_err("File name specified both with -r and regular argument");
-                arg_error = TRUE;
+                arg_error = true;
             } else {
                 /*
                  * Input file name not specified with "-r", and a command-line argument
@@ -719,17 +726,22 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
              * Extra command line arguments were specified; complain.
              */
             cmdarg_err("Invalid argument: %s", argv[0]);
-            arg_error = TRUE;
+            arg_error = true;
         }
     }
 
     if (arg_error) {
-#ifndef HAVE_LIBPCAP
+#ifdef HAVE_LIBPCAP
+        if (ws_optopt == 'F') {
+            capture_opts_list_file_types();
+            exit_application(1);
+        }
+#else
         if (capture_option_specified) {
             print_no_capture_support_error();
         }
 #endif
-        commandline_print_usage(FALSE);
+        commandline_print_usage(false);
         exit_application(1);
     }
 
@@ -773,7 +785,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
              file size is set to "infinite". */
             if (global_capture_opts.save_file == NULL) {
                 cmdarg_err("Ring buffer requested, but capture isn't being saved to a permanent file.");
-                global_capture_opts.multi_files_on = FALSE;
+                global_capture_opts.multi_files_on = false;
             }
             if (!global_capture_opts.has_autostop_filesize &&
                 !global_capture_opts.has_file_duration &&
@@ -788,7 +800,7 @@ void commandline_other_options(int argc, char *argv[], gboolean opt_reset)
 }
 
 /* Local function used by commandline_options_drop */
-static int cl_find_custom(gconstpointer elem_data, gconstpointer search_data) {
+static int cl_find_custom(const void *elem_data, const void *search_data) {
     return memcmp(elem_data, search_data, strlen((char *)search_data));
 }
 
@@ -804,7 +816,7 @@ void commandline_options_drop(const char *module_name, const char *pref_name) {
     opt_prefix = ws_strdup_printf("%s.%s:", module_name, pref_name);
 
     while (NULL != (elem = g_slist_find_custom(global_commandline_info.user_opts,
-                        (gconstpointer)opt_prefix, cl_find_custom))) {
+                        (const void *)opt_prefix, cl_find_custom))) {
         global_commandline_info.user_opts =
                 g_slist_remove_link(global_commandline_info.user_opts, elem);
         g_free(elem->data);
@@ -837,7 +849,44 @@ void commandline_options_reapply(void) {
     }
 }
 
+void commandline_options_apply_extcap(void) {
+    char *errmsg = NULL;
+    GSList *entry = NULL;
+    char *pref_arg;
+
+    if (prefs.capture_no_extcap)
+        return;
+
+    for (entry = global_commandline_info.user_opts; entry != NULL; entry = g_slist_next(entry)) {
+        pref_arg = (char *)entry->data;
+        if (g_str_has_prefix(pref_arg, "extcap.")) {
+            switch (prefs_set_pref(pref_arg, &errmsg)) {
+                case PREFS_SET_OK:
+                    break;
+                case PREFS_SET_SYNTAX_ERR:
+                    cmdarg_err("Invalid -o flag \"%s\"%s%s", pref_arg,
+                            errmsg ? ": " : "", errmsg ? errmsg : "");
+                    g_free(errmsg);
+                    exit_application(1);
+                    break;
+                case PREFS_SET_NO_SUCH_PREF:
+                    cmdarg_err("-o flag \"%s\" specifies unknown preference/recent value",
+                               pref_arg);
+                    exit_application(1);
+                    break;
+                case PREFS_SET_OBSOLETE:
+                    cmdarg_err("-o flag \"%s\" specifies obsolete preference",
+                               pref_arg);
+                    exit_application(1);
+                    break;
+                default:
+                    ws_assert_not_reached();
+            }
+        }
+    }
+}
+
 /* Free memory used to hold user-specified command line options */
 void commandline_options_free(void) {
-    g_slist_free_full(global_commandline_info.user_opts, g_free);
+    g_slist_free_full(g_steal_pointer(&global_commandline_info.user_opts), g_free);
 }

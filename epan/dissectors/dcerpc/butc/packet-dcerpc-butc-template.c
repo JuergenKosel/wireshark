@@ -14,10 +14,9 @@
 
 #include "config.h"
 
-#include <glib.h>
-#include <string.h>
-
 #include <epan/packet.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include "packet-dcerpc.h"
 #include "packet-dcerpc-nt.h"
 #include "packet-windows-common.h"
@@ -32,9 +31,9 @@ ETH_HF
 ETH_ETT
 
 static int
-butc_dissect_NameString_t(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, dcerpc_info *di, guint8 *drep, int hf_index, guint32 param _U_)
+butc_dissect_NameString_t(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, dcerpc_info *di, uint8_t *drep, int hf_index, uint32_t param _U_)
 {
-    offset=dissect_ndr_vstring(tvb, offset, pinfo, tree, di, drep, 1, hf_index, FALSE, NULL);
+    offset=dissect_ndr_vstring(tvb, offset, pinfo, tree, di, drep, 1, hf_index, false, NULL);
     return offset;
 }
 
@@ -48,18 +47,16 @@ proto_register_butc(void)
 ETH_HFARR
 	};
 
-        static gint *ett[] = {
+        static int *ett[] = {
 ETH_ETTARR
         };
 
-        proto_butc = proto_register_protocol(
-                "DCE/RPC BUTC", 
-		"BUTC", "butc");
+        proto_butc = proto_register_protocol("DCE/RPC BUTC", "BUTC", "butc");
 	proto_register_field_array(proto_butc, hf, array_length(hf));
         proto_register_subtree_array(ett, array_length(ett));
 }
 
-static dcerpc_sub_dissector function_dissectors[] = {
+static const dcerpc_sub_dissector function_dissectors[] = {
 ETH_FT
 	{ 0, NULL, NULL, NULL },
 };

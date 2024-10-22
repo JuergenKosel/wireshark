@@ -21,14 +21,14 @@
 #include "wimax-int.h"
 #include "wimax_utils.h"
 
-extern gint proto_wimax;
+extern int proto_wimax;
 
 void proto_reg_handoff_wimax_pdu(void);
 
-static dissector_handle_t mac_generic_decoder_handle = NULL;
-static dissector_handle_t mac_header_type1_handle = NULL;
-static dissector_handle_t mac_header_type2_handle = NULL;
-static dissector_handle_t wimax_harq_map_handle = NULL;
+static dissector_handle_t mac_generic_decoder_handle;
+static dissector_handle_t mac_header_type1_handle;
+static dissector_handle_t mac_header_type2_handle;
+static dissector_handle_t wimax_harq_map_handle;
 
 #define WIMAX_PDU_PADDING_MASK           0xFF
 #define WIMAX_INVALID_PDU_MASK           0xF0
@@ -45,19 +45,19 @@ static dissector_handle_t wimax_harq_map_handle = NULL;
 
 #define WIMAX_HARQ_MAP_MSG_LENGTH_MASK1  0x07FC
 /* Global Variables. */
-gboolean first_gmh;
+bool first_gmh;
 
-static gint proto_wimax_pdu_decoder;
-static gint ett_wimax_pdu_decoder;
+static int proto_wimax_pdu_decoder;
+static int ett_wimax_pdu_decoder;
 
 static int hf_wimax_value_bytes;
 
 static int dissect_wimax_pdu_decoder(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	guint offset;
-	guint mac_ht, mac_ec;
-	guint first_byte, length;
-	guint mac_hcs, mac_hcs_calculated;
+	unsigned offset;
+	unsigned mac_ht, mac_ec;
+	unsigned first_byte, length;
+	unsigned mac_hcs, mac_hcs_calculated;
 	proto_item *pdu_item = NULL;
 	proto_tree *pdu_tree = NULL;
 
@@ -73,16 +73,16 @@ static int dissect_wimax_pdu_decoder(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 	{
 		if (offset == 0)
 		{
-			first_gmh = TRUE;
+			first_gmh = true;
 		}
 		else
 		{
-			first_gmh = FALSE;
+			first_gmh = false;
 		}
 		/* get the length of the remainder */
 		length = tvb_reported_length_remaining(tvb, offset);
 		/* get the first byte at offset */
-		first_byte = tvb_get_guint8(tvb, offset);
+		first_byte = tvb_get_uint8(tvb, offset);
 		/* check for padding */
 		if(first_byte == WIMAX_PDU_PADDING_MASK)
 		{	/* Padding */
@@ -137,7 +137,7 @@ static int dissect_wimax_pdu_decoder(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 		/* calculate the MAC header HCS */
 		mac_hcs_calculated = wimax_mac_calc_crc8(tvb_get_ptr(tvb, offset, WIMAX_MAC_HEADER_INFO_FIELDS), WIMAX_MAC_HEADER_INFO_FIELDS);
 		/* get the Header Check Sequence (HCS) in the header */
-		mac_hcs = tvb_get_guint8(tvb, offset + WIMAX_MAC_HEADER_SIZE - 1);
+		mac_hcs = tvb_get_uint8(tvb, offset + WIMAX_MAC_HEADER_SIZE - 1);
 		/* verify the HCS */
 		if(mac_hcs != mac_hcs_calculated)
 		{
@@ -159,8 +159,8 @@ static int dissect_wimax_pdu_decoder(tvbuff_t *tvb, packet_info *pinfo, proto_tr
 		if(!mac_ht)
 		{	/* Generic MAC Header with payload */
 			/* get the MAC length */
-			length = (tvb_get_guint8(tvb, offset+1) & WIMAX_MAC_HEADER_LENGTH_MSB_MASK);
-			length = ((length<<8) | tvb_get_guint8(tvb, offset+2));
+			length = (tvb_get_uint8(tvb, offset+1) & WIMAX_MAC_HEADER_LENGTH_MSB_MASK);
+			length = ((length<<8) | tvb_get_uint8(tvb, offset+2));
 		}
 		else	/* MAC signaling Headers or Bandwidth Request Headers */
 		{	/* set the mac length */
@@ -220,7 +220,7 @@ void wimax_proto_register_wimax_pdu(void)
 	};
 
 	/* Setup protocol subtree array */
-	static gint *ett[] =
+	static int *ett[] =
 		{
 			&ett_wimax_pdu_decoder,
 		};

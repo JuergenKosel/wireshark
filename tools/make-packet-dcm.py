@@ -123,6 +123,10 @@ vrs = {i+1: get_texts_in_row(x)[0].split(maxsplit=1) for i,x in enumerate(get_tr
 uid_trs = get_trs(part06, "table_A-1")
 uid_rows = [get_texts_in_row(x) for x in uid_trs]
 
+wkfr_trs = get_trs(part06, "table_A-2")
+wkfr_rows = [get_texts_in_row(x) for x in wkfr_trs]
+uid_rows += [x[:3] + ['Well-known frame of reference'] + x[3:] for x in wkfr_rows]
+
 def uid_define_name(uid):
     if uid[1] == "(Retired)":
         return f'"{uid[0]}"'
@@ -168,7 +172,7 @@ extern "C" {
 """ + "\n".join(f"#define DCM_VR_{vr[0]} {i:2d}  /* {vr[1]:25s} */" for i,vr in vrs.items()) + """
 
 /* Following must be in the same order as the definitions above */
-static const gchar* dcm_tag_vr_lookup[] = {
+static const char* dcm_tag_vr_lookup[] = {
     "  ",
     """ + ",\n    ".join(",".join(f'"{x[1][0]}"' for x in j[1]) for j in itertools.groupby(vrs.items(), lambda i: (i[0]-1)//8)) + """
 };
@@ -188,15 +192,15 @@ static const gchar* dcm_tag_vr_lookup[] = {
  */
 
 typedef struct dcm_tag {
-    const guint32 tag;
-    const gchar *description;
-    const gchar *vr;
-    const gchar *vm;
-    const gboolean is_retired;
-    const gboolean add_to_summary;          /* Add to parent's item description */
+    const uint32_t tag;
+    const char *description;
+    const char *vr;
+    const char *vm;
+    const bool is_retired;
+    const bool add_to_summary;          /* Add to parent's item description */
 } dcm_tag_t;
 
-static dcm_tag_t dcm_tag_data[] = {
+static dcm_tag_t const dcm_tag_data[] = {
 
     /* Command Tags */
 """ + text_for_rows(cmd_rows) + """
@@ -225,15 +229,15 @@ static dcm_tag_t dcm_tag_data[] = {
  */
 
 typedef struct dcm_uid {
-    const gchar *value;
-    const gchar *name;
-    const gchar *type;
+    const char *value;
+    const char *name;
+    const char *type;
 } dcm_uid_t;
 
 """ + "\n".join(f'#define {uid_define_name(uid)} "{uid[0]}"'
                 for uid in uid_rows if uid[1] != '(Retired)') + """
 
-static dcm_uid_t dcm_uid_data[] = {
+static dcm_uid_t const dcm_uid_data[] = {
 """ + "\n".join(f'    {{ {uid_define_name(uid)}, "{uid[1]}", "{uid[3]}"}},'
                             for uid in uid_rows)+ """
 };

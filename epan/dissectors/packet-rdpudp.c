@@ -157,29 +157,29 @@ enum {
 };
 
 enum {
-	RDPUDP_SYN = 0x0001,
-	RDPUDP_FIN = 0x0002,
-	RDPUDP_ACK = 0x0004,
-	RDPUDP_DATA = 0x0008,
-	RDPUDP_FEC = 0x0010,
-	RDPUDP_CN = 0x0020,
-	RDPUDP_CWR = 0x0040,
-	RDPUDP_AOA = 0x0100,
-	RDPUDP_SYNLOSSY = 0x0200,
-	RDPUDP_ACKDELAYED = 0x0400,
+	RDPUDP_SYN =           0x0001,
+	RDPUDP_FIN =           0x0002,
+	RDPUDP_ACK =           0x0004,
+	RDPUDP_DATA =          0x0008,
+	RDPUDP_FEC =           0x0010,
+	RDPUDP_CN =            0x0020,
+	RDPUDP_CWR =           0x0040,
+	RDPUDP_AOA =           0x0100,
+	RDPUDP_SYNLOSSY =      0x0200,
+	RDPUDP_ACKDELAYED =    0x0400,
 	RDPUDP_CORRELATIONID = 0x0800,
-	RDPUDP_SYNEX = 0x1000
+	RDPUDP_SYNEX =         0x1000
 };
 
 #define RDPUDP_VERSION_INFO_VALID 0x0001
 
 enum {
-	RDPUDP2_ACK = 0x0001,
-	RDPUDP2_DATA = 0x0004,
-	RDPUDP2_ACKVEC = 0x0008,
-	RDPUDP2_AOA = 0x0010,
+	RDPUDP2_ACK =      0x0001,
+	RDPUDP2_DATA =     0x0004,
+	RDPUDP2_ACKVEC =   0x0008,
+	RDPUDP2_AOA =      0x0010,
 	RDPUDP2_OVERHEAD = 0x0040,
-	RDPUDP2_DELAYACK = 0x00100
+	RDPUDP2_DELAYACK = 0x0100
 };
 
 static const value_string rdpudp_version_vals[] = {
@@ -215,7 +215,28 @@ static const value_string rdpudp2_ackvec_rlestates_vals[] = {
 	{ 0x0, NULL }
 };
 
-gboolean
+static bool
+rdpudp_chunk_free_cb(const void *key _U_, void *value, void *userdata _U_)
+{
+	tvbuff_t *tvb = (tvbuff_t*)value;
+
+	tvb_free(tvb);
+	return false;
+}
+
+static bool
+rdpudp_info_free_cb(wmem_allocator_t *allocator _U_, wmem_cb_event_t event _U_,
+		void *user_data)
+{
+	rdpudp_conv_info_t *rdpudp_info = (rdpudp_conv_info_t*)user_data;
+
+	wmem_tree_foreach(rdpudp_info->client_chunks, rdpudp_chunk_free_cb, NULL);
+	wmem_tree_foreach(rdpudp_info->server_chunks, rdpudp_chunk_free_cb, NULL);
+
+	return false;
+}
+
+bool
 rdp_isServerAddressTarget(packet_info *pinfo)
 {
 	conversation_t *conv;
@@ -224,7 +245,7 @@ rdp_isServerAddressTarget(packet_info *pinfo)
 
 	conv = find_conversation_pinfo(pinfo, 0);
 	if (!conv)
-		return FALSE;
+		return false;
 
 	rdp_info = (rdp_conv_info_t *)conversation_get_proto_data(conv, proto_rdp);
 	if (rdp_info) {
@@ -234,12 +255,12 @@ rdp_isServerAddressTarget(packet_info *pinfo)
 
 	rdpudp_info = (rdpudp_conv_info_t *)conversation_get_proto_data(conv, proto_rdpudp);
 	if (!rdpudp_info)
-		return FALSE;
+		return false;
 
 	return addresses_equal(&rdpudp_info->server_addr, &pinfo->dst) && (rdpudp_info->server_port == pinfo->destport);
 }
 
-gboolean
+bool
 rdpudp_is_reliable_transport(packet_info *pinfo)
 {
 	conversation_t *conv;
@@ -247,11 +268,11 @@ rdpudp_is_reliable_transport(packet_info *pinfo)
 
 	conv = find_conversation_pinfo(pinfo, 0);
 	if (!conv)
-		return FALSE;
+		return false;
 
 	rdpudp_info = (rdpudp_conv_info_t *)conversation_get_proto_data(conv, proto_rdpudp);
 	if (!rdpudp_info)
-		return FALSE;
+		return false;
 
 	return !rdpudp_info->is_lossy;
 }
@@ -259,8 +280,8 @@ rdpudp_is_reliable_transport(packet_info *pinfo)
 static int
 dissect_rdpudp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_conv_info_t *conv)
 {
-	gint offset = 0;
-	guint16 flags;
+	int offset = 0;
+	uint16_t flags;
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "RDPUDP");
 	col_clear(pinfo->cinfo, COL_INFO);
@@ -272,7 +293,7 @@ dissect_rdpudp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 	offset += 2;
 
 	proto_tree_add_bitmask(tree, tvb, offset, hf_rdpudp_flags, ett_rdpudp_flags, rdpudp_flags, ENC_BIG_ENDIAN);
-	flags = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+	flags = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
 	offset += 2;
 
 	if (flags & RDPUDP_SYN) {
@@ -301,18 +322,18 @@ dissect_rdpudp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 	}
 
 	if (flags & RDPUDP_SYNEX) {
-		guint16 synex_flags;
+		uint16_t synex_flags;
 		proto_tree *synex_tree;
-		guint synex_sz = 2;
-		guint16 version_val;
+		unsigned synex_sz = 2;
+		uint16_t version_val;
 
 		col_append_sep_str(pinfo->cinfo, COL_INFO, ",", "SYNEX");
 
-		synex_flags = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+		synex_flags = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
 		if (synex_flags & RDPUDP_VERSION_INFO_VALID) {
 			synex_sz += 2; /* version */
 
-			version_val = tvb_get_guint16(tvb, offset+2, ENC_BIG_ENDIAN);
+			version_val = tvb_get_uint16(tvb, offset+2, ENC_BIG_ENDIAN);
 
 			if (version_val == 0x101)
 				synex_sz += 32; /* cookie hash */
@@ -340,7 +361,7 @@ dissect_rdpudp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 	if ((flags & RDPUDP_ACK) && !(flags & RDPUDP_SYN)) {
 		proto_tree *ack_tree;
-		guint16 uAckVectorSize = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+		uint16_t uAckVectorSize = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
 
 		ack_tree = proto_tree_add_subtree(tree, tvb, offset, 2 + uAckVectorSize, ett_rdpudp_ack, NULL, "Ack");
 		offset += 2;
@@ -398,21 +419,21 @@ dissect_rdpudp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 static tvbuff_t *
 unwrap_udp_v2(tvbuff_t *tvb, packet_info *pinfo)
 {
-	gint len = tvb_captured_length_remaining(tvb, 0);
-	guchar *buffer = (guchar*)wmem_alloc(pinfo->pool, len);
+	int len = tvb_captured_length_remaining(tvb, 0);
+	unsigned char *buffer = (unsigned char*)wmem_alloc(pinfo->pool, len);
 
 	/* copy and do the swap of byte 0 and 7*/
 	tvb_memcpy(tvb, buffer, 0, len);
-	buffer[0] = tvb_get_guint8(tvb, 7);
-	buffer[7] = tvb_get_guint8(tvb, 0);
+	buffer[0] = tvb_get_uint8(tvb, 7);
+	buffer[7] = tvb_get_uint8(tvb, 0);
 
 	return tvb_new_child_real_data(tvb, buffer, len, len);
 }
 
-static guint64
-computeAndUpdateSeqContext(rdpudp_seq_context_t *context, guint16 seq)
+static uint64_t
+computeAndUpdateSeqContext(rdpudp_seq_context_t *context, uint16_t seq)
 {
-	guint16 diff = (context->last_received > seq) ? (context->last_received - seq) : (seq - context->last_received);
+	uint16_t diff = (context->last_received > seq) ? (context->last_received - seq) : (seq - context->last_received);
 
 
 	if (diff < 8000) {
@@ -459,10 +480,10 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 {
 	proto_item *item;
 	proto_tree *subtree, *data_tree = NULL;
-	guint16 flags;
-	guint8 packet_type;
+	uint16_t flags;
+	uint8_t packet_type;
 	tvbuff_t *subtvb;
-	gint offset = 0;
+	int offset = 0;
 	tvbuff_t *tvb2 = unwrap_udp_v2(tvb, pinfo);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "RDPUDP2");
@@ -470,7 +491,7 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 	add_new_data_source(pinfo, tvb2, "Unwrapped RDPUDP2 packet");
 
-	packet_type = (tvb_get_guint8(tvb2, 0) >> 1) & 0xf;
+	packet_type = (tvb_get_uint8(tvb2, 0) >> 1) & 0xf;
 	item = proto_tree_add_item(tree, hf_rdpudp2_PacketPrefixByte, tvb2, offset, 1, ENC_LITTLE_ENDIAN);
 	subtree = proto_item_add_subtree(item, ett_rdpudp2_packetType);
 	proto_tree_add_item(subtree, hf_rdpudp2_packetType, tvb2, offset, 1, ENC_LITTLE_ENDIAN);
@@ -479,11 +500,11 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 	proto_tree_add_bitmask(tree, tvb2, offset, hf_rdpudp2_flags, ett_rdpudp2_flags, rdpudp2_flags, ENC_LITTLE_ENDIAN);
 
-	flags = tvb_get_guint16(tvb2, offset, ENC_LITTLE_ENDIAN);
+	flags = tvb_get_uint16(tvb2, offset, ENC_LITTLE_ENDIAN);
 	offset += 2;
 
 	if (flags & RDPUDP2_ACK) {
-		guint8 nacks = tvb_get_guint8(tvb, offset + 6) & 0xf;
+		uint8_t nacks = tvb_get_uint8(tvb, offset + 6) & 0xf;
 		subtree = proto_tree_add_subtree(tree, tvb2, offset, 7 + nacks, ett_rdpudp2_ack, NULL, "Ack");
 		proto_tree_add_item(subtree, hf_rdpudp2_AckSeq, tvb2, offset, 2, ENC_LITTLE_ENDIAN); offset += 2;
 		proto_tree_add_item(subtree, hf_rdpudp2_AckTs, tvb2, offset, 3, ENC_LITTLE_ENDIAN); offset += 3;
@@ -523,12 +544,12 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 	}
 
 	if (flags & RDPUDP2_DATA) {
-		guint32 rawSeq;
-		guint64 *seqPtr;
-		gboolean is_server_target = rdp_isServerAddressTarget(pinfo);
+		uint32_t rawSeq;
+		uint64_t *seqPtr;
+		bool is_server_target = rdp_isServerAddressTarget(pinfo);
 		rdpudp_seq_context_t *target_seq_context = is_server_target ? &rdpudp->client_data_seq : &rdpudp->server_data_seq;
 
-		gboolean isDummy = !!(packet_type == 0x8);
+		bool isDummy = !!(packet_type == 0x8);
 		data_tree = proto_tree_add_subtree(tree, tvb2, offset, 1, ett_rdpudp2_data, NULL, isDummy ? "Dummy data" : "Data");
 		proto_tree_add_item_ret_uint(data_tree, hf_rdpudp2_DataSeqNumber, tvb2, offset, 2, ENC_LITTLE_ENDIAN, &rawSeq);
 
@@ -538,10 +559,10 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 			p_set_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_DATA_SEQ_KEY, seqPtr);
 		} else {
-			seqPtr = (guint64 *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_DATA_SEQ_KEY);
+			seqPtr = (uint64_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_DATA_SEQ_KEY);
 		}
 		proto_item_set_generated(
-				proto_tree_add_uint(data_tree, hf_rdpudp2_DataFullSeqNumber, tvb2, offset, 2, (guint32)*seqPtr)
+				proto_tree_add_uint(data_tree, hf_rdpudp2_DataFullSeqNumber, tvb2, offset, 2, (uint32_t)*seqPtr)
 		);
 
 		offset += 2;
@@ -551,12 +572,12 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 	if (flags & RDPUDP2_ACKVEC) {
 		proto_tree *acks_tree;
-		guint8 i;
-		guint32 base_seq;
-		gint ackvecSz = 3;
-		guint8 codedAckVecSizeA = tvb_get_guint8(tvb2, offset + 2);
-		guint8 codedAckVecSize = codedAckVecSizeA & 0x7f;
-		gboolean haveTs = !!(codedAckVecSizeA & 0x80);
+		uint8_t i;
+		uint32_t base_seq;
+		int ackvecSz = 3;
+		uint8_t codedAckVecSizeA = tvb_get_uint8(tvb2, offset + 2);
+		uint8_t codedAckVecSize = codedAckVecSizeA & 0x7f;
+		bool haveTs = !!(codedAckVecSizeA & 0x80);
 
 		ackvecSz += codedAckVecSize;
 		if (haveTs)
@@ -582,11 +603,11 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 		for (i = 0; i < codedAckVecSize; i++) {
 			proto_tree *ack_tree;
 
-			guint8 b = tvb_get_guint8(tvb2, offset + i);
+			uint8_t b = tvb_get_uint8(tvb2, offset + i);
 
 			if (b & 0x80) {
 				/* run length mode */
-				guint8 rle_len = (b & 0x3f);
+				uint8_t rle_len = (b & 0x3f);
 				ack_tree = proto_tree_add_subtree_format(acks_tree, tvb2, offset + i, 1, ett_rdpudp2_ackvec_vec, NULL,
 						"RLE %s %04x -> %04x", (b & 0x40) ? "received" : "lost",
 						base_seq, base_seq + rle_len);
@@ -621,9 +642,9 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 	if ((flags & RDPUDP2_DATA) && (packet_type != 0x8)) {
 		tvbuff_t *data_tvb;
 		tvbuff_t *chunk;
-		guint32 rawSeq;
-		guint64 *seqPtr;
-		gboolean is_server_target = rdp_isServerAddressTarget(pinfo);
+		uint32_t rawSeq;
+		uint64_t *seqPtr;
+		bool is_server_target = rdp_isServerAddressTarget(pinfo);
 		wmem_tree_t *targetTree = is_server_target ? rdpudp->client_chunks : rdpudp->server_chunks;
 		rdpudp_seq_context_t *target_seq_context = is_server_target ? &rdpudp->client_channel_seq : &rdpudp->server_channel_seq;
 
@@ -634,14 +655,14 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 
 			p_set_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_CHANNEL_SEQ_KEY, seqPtr);
 		} else {
-			seqPtr = (guint64 *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_CHANNEL_SEQ_KEY);
+			seqPtr = (uint64_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rdpudp, RDPUDP_FULL_CHANNEL_SEQ_KEY);
 		}
 		proto_item_set_generated(
-				proto_tree_add_uint(data_tree, hf_rdpudp2_DataChannelFullSeqNumber, tvb2, offset, 2, (guint32)*seqPtr)
+				proto_tree_add_uint(data_tree, hf_rdpudp2_DataChannelFullSeqNumber, tvb2, offset, 2, (uint32_t)*seqPtr)
 		);
 		offset += 2;
 
-		chunk = wmem_tree_lookup32(targetTree, (guint32)*seqPtr);
+		chunk = wmem_tree_lookup32(targetTree, (uint32_t)*seqPtr);
 		data_tvb = tvb_new_composite();
 
 		if (chunk)
@@ -657,9 +678,17 @@ dissect_rdpudp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rdpudp_co
 		call_dissector(tls_handle, data_tvb, pinfo, data_tree);
 
 		if (!PINFO_FD_VISITED(pinfo) && pinfo->desegment_len) {
-			gint remaining = tvb_captured_length_remaining(subtvb, pinfo->desegment_offset);
+			int remaining = tvb_captured_length_remaining(subtvb, pinfo->desegment_offset);
+			/* Something went wrong if seqPtr didn't advance.
+			 * XXX: Should we ignore this or free the old chunk and
+			 * use the new one?
+			 */
+			chunk = (tvbuff_t*)wmem_tree_lookup32(targetTree, (uint32_t)(*seqPtr + 1));
+			if (chunk) {
+				tvb_free(chunk);
+			}
 			chunk = tvb_clone_offset_len(data_tvb, pinfo->desegment_offset, remaining);
-			wmem_tree_insert32(targetTree, (guint32)(*seqPtr + 1), chunk);
+			wmem_tree_insert32(targetTree, (uint32_t)(*seqPtr + 1), chunk);
 		}
 
 		offset = tvb_captured_length(tvb2);
@@ -681,10 +710,11 @@ dissect_rdpudp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void 
 	rdpudp_info = (rdpudp_conv_info_t *)conversation_get_proto_data(conversation, proto_rdpudp);
 	if (rdpudp_info == NULL) {
 		rdpudp_info = wmem_new0(wmem_file_scope(), rdpudp_conv_info_t);
-		rdpudp_info->start_v2_at = G_MAXUINT32;
-		rdpudp_info->is_lossy = FALSE;
+		rdpudp_info->start_v2_at = UINT32_MAX;
+		rdpudp_info->is_lossy = false;
 		rdpudp_info->client_chunks = wmem_tree_new(wmem_file_scope());
 		rdpudp_info->server_chunks = wmem_tree_new(wmem_file_scope());
+		wmem_register_callback(wmem_file_scope(), rdpudp_info_free_cb, rdpudp_info);
 
 		conversation_add_proto_data(conversation, proto_rdpudp, rdpudp_info);
 	}
@@ -764,7 +794,7 @@ proto_register_rdpudp(void) {
 		{"Flags", "rdpudp.synex.flags", FT_UINT16, BASE_HEX, NULL, 0, NULL, HFILL}
 	  },
 	  { &hf_rdpudp_synex_flag_version,
-		{"Version info", "rdpudp.synex.flags.versioninfo", FT_BOOLEAN, 8, NULL, 0x0001, NULL, HFILL}
+		{"Version info", "rdpudp.synex.flags.versioninfo", FT_BOOLEAN, 16, NULL, 0x0001, NULL, HFILL}
 	  },
 	  { &hf_rdpudp_synex_version,
 		{"Version", "rdpudp.synex.version", FT_UINT16, BASE_HEX, VALS(rdpudp_version_vals), 0, NULL, HFILL}
@@ -820,7 +850,7 @@ proto_register_rdpudp(void) {
 		{"Short packet length", "rdpudp.shortpacketlen", FT_UINT8, BASE_DEC, NULL, 0x7, NULL, HFILL}
 	  },
 	  { &hf_rdpudp2_flags,
-		 {"Flags", "rdpudp.flags", FT_UINT16, BASE_HEX, NULL, 0xfff, NULL, HFILL}
+		 {"Flags", "rdpudp.flags", FT_UINT16, BASE_HEX, NULL, 0x0fff, NULL, HFILL}
 	  },
 	  { &hf_rdpudp2_flag_ack,
 		{"Ack", "rdpudp.flags.ack", FT_BOOLEAN, 16, NULL, RDPUDP2_ACK, NULL, HFILL}
@@ -921,7 +951,7 @@ proto_register_rdpudp(void) {
 	};
 
 	/* List of subtrees */
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_rdpudp,
 		&ett_rdpudp_flags,
 		&ett_rdpudp_synex,

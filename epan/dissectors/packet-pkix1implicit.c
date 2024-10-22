@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkix1implicit.c                                                     */
-/* asn2wrs.py -b -L -p pkix1implicit -c ./pkix1implicit.cnf -s ./packet-pkix1implicit-template -D . -O ../.. PKIX1IMPLICIT93.asn */
+/* asn2wrs.py -b -q -L -p pkix1implicit -c ./pkix1implicit.cnf -s ./packet-pkix1implicit-template -D . -O ../.. PKIX1IMPLICIT93.asn */
 
 /* packet-pkix1implicit.c
  * Routines for PKIX1Implitic packet dissection
@@ -16,6 +16,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <wsutil/array.h>
 
 #include <epan/asn1.h>
 #include "packet-ber.h"
@@ -49,12 +50,12 @@ static int hf_pkix1implicit_bmpString;            /* BMPString */
 static int hf_pkix1implicit_utf8String;           /* UTF8String */
 
 /* Initialize the subtree pointers */
-static gint ett_pkix1implicit_AuthorityInfoAccessSyntax;
-static gint ett_pkix1implicit_AccessDescription;
-static gint ett_pkix1implicit_UserNotice;
-static gint ett_pkix1implicit_NoticeReference;
-static gint ett_pkix1implicit_T_noticeNumbers;
-static gint ett_pkix1implicit_DisplayText;
+static int ett_pkix1implicit_AuthorityInfoAccessSyntax;
+static int ett_pkix1implicit_AccessDescription;
+static int ett_pkix1implicit_UserNotice;
+static int ett_pkix1implicit_NoticeReference;
+static int ett_pkix1implicit_T_noticeNumbers;
+static int ett_pkix1implicit_DisplayText;
 
 
 int
@@ -254,22 +255,22 @@ dissect_pkix1implicit_UserNotice(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int dissect_Dummy_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1implicit_Dummy(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_Dummy_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1implicit_Dummy(false, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_Dummy_PDU);
   return offset;
 }
 static int dissect_AuthorityInfoAccessSyntax_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1implicit_AuthorityInfoAccessSyntax(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_AuthorityInfoAccessSyntax_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1implicit_AuthorityInfoAccessSyntax(false, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_AuthorityInfoAccessSyntax_PDU);
   return offset;
 }
 static int dissect_UserNotice_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1implicit_UserNotice(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_UserNotice_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1implicit_UserNotice(false, tvb, offset, &asn1_ctx, tree, hf_pkix1implicit_UserNotice_PDU);
   return offset;
 }
 
@@ -343,7 +344,7 @@ void proto_register_pkix1implicit(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_pkix1implicit_AuthorityInfoAccessSyntax,
     &ett_pkix1implicit_AccessDescription,
     &ett_pkix1implicit_UserNotice,

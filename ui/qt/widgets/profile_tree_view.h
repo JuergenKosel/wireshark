@@ -15,16 +15,6 @@
 #include <QTreeView>
 #include <QItemDelegate>
 
-class ProfileUrlLinkDelegate : public UrlLinkDelegate
-{
-    Q_OBJECT
-
-public:
-    explicit ProfileUrlLinkDelegate(QObject *parent = Q_NULLPTR);
-
-    virtual void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
-};
-
 class ProfileTreeEditDelegate : public QItemDelegate
 {
     Q_OBJECT
@@ -32,6 +22,7 @@ public:
     ProfileTreeEditDelegate(QWidget *parent = Q_NULLPTR);
 
     // QAbstractItemDelegate interface
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
     virtual void setEditorData(QWidget *editor, const QModelIndex &index) const;
 
 private:
@@ -54,12 +45,12 @@ signals:
 
     // QWidget interface
 protected:
+    virtual void showEvent(QShowEvent *);
     virtual void mouseDoubleClickEvent(QMouseEvent *event);
 
     // QAbstractItemView interface
 protected slots:
     virtual void selectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
-    virtual void clicked(const QModelIndex &index);
 
 private:
     ProfileTreeEditDelegate *delegate_;

@@ -12,10 +12,9 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <ui/qt/models/atap_data_model.h>
 #include <ui/qt/filter_action.h>
+#include <ui/qt/widgets/traffic_tree.h>
 #include <ui/qt/widgets/detachable_tabwidget.h>
 #include <ui/qt/widgets/traffic_types_list.h>
 
@@ -94,7 +93,7 @@ public:
      *
      * @see ATapModelCallback
      */
-    void setProtocolInfo(QString tableName, TrafficTypesList * trafficList, GList ** recentColumnList, ATapModelCallback createModel);
+    void setProtocolInfo(QString tableName, TrafficTypesList * trafficList, GList ** recentList, GList ** recentColumnList, ATapModelCallback createModel);
 
     /**
      * @brief Set the Delegate object for the tab. It will apply for all
@@ -191,6 +190,7 @@ public:
      * @param useNSTime use nanosecond timestamps if required and requested
      */
     void useNanosecondTimestamps(bool useNSTime);
+    ATapDataModel * dataModelForTabIndex(int tabIdx = -1);
 
 public slots:
 
@@ -221,20 +221,22 @@ private:
     QMap<int, int> _tabs;
     ATapModelCallback _createModel;
     ATapCreateDelegate _createDelegate;
+    GList ** _recentList;
     GList ** _recentColumnList;
 
     bool _disableTaps;
     bool _nameResolution;
 
     QTreeView * createTree(int protoId);
-    ATapDataModel * modelForTabIndex(int tabIdx = -1);
-    ATapDataModel * modelForWidget(QWidget * widget);
+    TrafficDataFilterProxy * modelForTabIndex(int tabIdx = -1);
+    TrafficDataFilterProxy * modelForWidget(QWidget * widget);
+    ATapDataModel * dataModelForWidget(QWidget * widget);
 
     void insertProtoTab(int protoId, bool emitSignals = true);
     void removeProtoTab(int protoId, bool emitSignals = true);
 
 #ifdef HAVE_MAXMINDDB
-    bool writeGeoIPMapFile(QFile * fp, bool json_only, ATapDataModel * dataModel);
+    bool writeGeoIPMapFile(QFile * fp, bool json_only, TrafficDataFilterProxy * model);
 #endif
 
 private slots:

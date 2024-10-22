@@ -12,7 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
 #include <mutex>
 
 #include "epan/address.h"
@@ -118,6 +117,7 @@ private slots:
     void on_actionSaveGraph_triggered();
     void on_buttonBox_helpRequested();
     void showStreamMenu(QPoint pos);
+    void showGraphMenu(const QPoint &pos);
     void graphClicked(QMouseEvent *event);
     void closeTab(int index);
     void rowCheckboxChanged(int checked);
@@ -135,7 +135,7 @@ private:
     int tab_seq;
 
     QVector<tab_info_t *> tabs_;
-    QMultiHash<guint, tab_info_t *> tab_hash_;
+    QMultiHash<unsigned, tab_info_t *> tab_hash_;
 
     QToolButton *player_button_;
 

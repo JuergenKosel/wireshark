@@ -12,8 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include "file.h"
 
 #include <QDialog>
@@ -33,8 +31,8 @@ public:
     explicit PrintDialog(QWidget *parent = 0, capture_file *cf = NULL, QString selRange = QString());
     ~PrintDialog();
 
-    gboolean printHeader();
-    gboolean printLine(int indent, const char *line);
+    bool printHeader();
+    bool printLine(int indent, const char *line);
 
 protected:
     virtual void keyPressEvent(QKeyEvent *event) override;

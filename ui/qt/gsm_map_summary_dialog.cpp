@@ -16,8 +16,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include "ui/summary.h"
 
 #include <epan/packet.h>

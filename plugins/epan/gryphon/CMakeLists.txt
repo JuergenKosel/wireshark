@@ -29,11 +29,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"Gryphon automotive network tool protocol"
 	${DISSECTOR_SRC}
 )
 
-add_wireshark_epan_plugin_library(gryphon)
+add_wireshark_plugin_library(gryphon epan)
 
 target_link_libraries(gryphon epan)
 

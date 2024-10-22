@@ -16,8 +16,6 @@
 
 #include "cfile.h"
 
-#include "protocol_preferences_menu.h"
-
 #include <ui/qt/utils/field_information.h>
 #include <QTreeView>
 #include <QMenu>
@@ -59,7 +57,6 @@ private:
     ProtoTreeModel *proto_tree_model_;
     QMenu conv_menu_;
     QMenu colorize_menu_;
-    ProtocolPreferencesMenu proto_prefs_menu_;
     QList<QAction *> copy_actions_;
     int column_resize_timer_;
     QList<QPair<int,int> > selected_hfid_path_; // row, hfinfo
@@ -70,7 +67,7 @@ private:
     epan_dissect_t *edt_;
 
     void saveSelectedField(QModelIndex &index);
-    static void foreachTreeNode(proto_node *node, gpointer proto_tree_ptr);
+    static void foreachTreeNode(proto_node *node, void *proto_tree_ptr);
     void foreachExpand(const QModelIndex &index);
 
 signals:

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-charging_ase.c                                                      */
-/* asn2wrs.py -b -L -p charging_ase -c ./charging_ase.cnf -s ./packet-charging_ase-template -D . -O ../.. Tariffing-Data-Types.asn */
+/* asn2wrs.py -b -q -L -p charging_ase -c ./charging_ase.cnf -s ./packet-charging_ase-template -D . -O ../.. Tariffing-Data-Types.asn */
 
 /* packet-charging_ase-template.c
  * Copyright 2009 , Anders Broman <anders.broman [AT] ericsson.com>
@@ -19,7 +19,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/asn1.h>
-
+#include <wsutil/array.h>
 #include "packet-ber.h"
 #include "packet-charging_ase.h"
 
@@ -97,36 +97,36 @@ static int hf_charging_ase_T_tariffControlIndicators_non_cyclicTariff;
 static int hf_charging_ase_T_tariffControlIndicators_01_non_cyclicTariff;
 
 static int ett_charging_ase;
-static gint ett_charging_ase_ChargingMessageType;
-static gint ett_charging_ase_ChargingAcknowledgementInformation;
-static gint ett_charging_ase_T_acknowledgementIndicators;
-static gint ett_charging_ase_SEQUENCE_SIZE_1_numOfExtensions_OF_ExtensionField;
-static gint ett_charging_ase_ChargingControlIndicators;
-static gint ett_charging_ase_AddOnChargingInformation;
-static gint ett_charging_ase_T_addOncharge;
-static gint ett_charging_ase_ChargingTariffInformation;
-static gint ett_charging_ase_T_chargingTariff;
-static gint ett_charging_ase_Code;
-static gint ett_charging_ase_CommunicationChargeCurrency;
-static gint ett_charging_ase_CommunicationChargePulse;
-static gint ett_charging_ase_CurrencyFactorScale;
-static gint ett_charging_ase_ExtensionField;
-static gint ett_charging_ase_StartCharging;
-static gint ett_charging_ase_SEQUENCE_SIZE_1_maxNetworkOperators_OF_NetworkIdentification;
-static gint ett_charging_ase_StopCharging;
-static gint ett_charging_ase_T_stopIndicators;
-static gint ett_charging_ase_SubTariffControl;
-static gint ett_charging_ase_TariffCurrency;
-static gint ett_charging_ase_TariffSwitchCurrency;
-static gint ett_charging_ase_TariffCurrencyFormat;
-static gint ett_charging_ase_SEQUENCE_SIZE_minCommunicationTariffNum_maxCommunicationTariffNum_OF_CommunicationChargeCurrency;
-static gint ett_charging_ase_T_tariffControlIndicators;
-static gint ett_charging_ase_TariffPulse;
-static gint ett_charging_ase_TariffSwitchPulse;
-static gint ett_charging_ase_TariffPulseFormat;
-static gint ett_charging_ase_SEQUENCE_SIZE_minCommunicationTariffNum_maxCommunicationTariffNum_OF_CommunicationChargePulse;
-static gint ett_charging_ase_T_tariffControlIndicators_01;
-static gint ett_charging_ase_ChargingReferenceIdentification;
+static int ett_charging_ase_ChargingMessageType;
+static int ett_charging_ase_ChargingAcknowledgementInformation;
+static int ett_charging_ase_T_acknowledgementIndicators;
+static int ett_charging_ase_SEQUENCE_SIZE_1_numOfExtensions_OF_ExtensionField;
+static int ett_charging_ase_ChargingControlIndicators;
+static int ett_charging_ase_AddOnChargingInformation;
+static int ett_charging_ase_T_addOncharge;
+static int ett_charging_ase_ChargingTariffInformation;
+static int ett_charging_ase_T_chargingTariff;
+static int ett_charging_ase_Code;
+static int ett_charging_ase_CommunicationChargeCurrency;
+static int ett_charging_ase_CommunicationChargePulse;
+static int ett_charging_ase_CurrencyFactorScale;
+static int ett_charging_ase_ExtensionField;
+static int ett_charging_ase_StartCharging;
+static int ett_charging_ase_SEQUENCE_SIZE_1_maxNetworkOperators_OF_NetworkIdentification;
+static int ett_charging_ase_StopCharging;
+static int ett_charging_ase_T_stopIndicators;
+static int ett_charging_ase_SubTariffControl;
+static int ett_charging_ase_TariffCurrency;
+static int ett_charging_ase_TariffSwitchCurrency;
+static int ett_charging_ase_TariffCurrencyFormat;
+static int ett_charging_ase_SEQUENCE_SIZE_minCommunicationTariffNum_maxCommunicationTariffNum_OF_CommunicationChargeCurrency;
+static int ett_charging_ase_T_tariffControlIndicators;
+static int ett_charging_ase_TariffPulse;
+static int ett_charging_ase_TariffSwitchPulse;
+static int ett_charging_ase_TariffPulseFormat;
+static int ett_charging_ase_SEQUENCE_SIZE_minCommunicationTariffNum_maxCommunicationTariffNum_OF_CommunicationChargePulse;
+static int ett_charging_ase_T_tariffControlIndicators_01;
+static int ett_charging_ase_ChargingReferenceIdentification;
 
 static expert_field ei_charging_ase_extensions_not_dissected;
 
@@ -802,8 +802,8 @@ dissect_charging_ase_ChargingMessageType(bool implicit_tag _U_, tvbuff_t *tvb _U
 int dissect_charging_ase_ChargingMessageType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_charging_ase_ChargingMessageType(FALSE, tvb, offset, &asn1_ctx, tree, hf_charging_ase_charging_ase_ChargingMessageType_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_charging_ase_ChargingMessageType(false, tvb, offset, &asn1_ctx, tree, hf_charging_ase_charging_ase_ChargingMessageType_PDU);
   return offset;
 }
 
@@ -1077,7 +1077,7 @@ proto_register_charging_ase(void)
   };
 
   /* List of subtrees */
-    static gint *ett[] = {
+    static int *ett[] = {
     &ett_charging_ase,
     &ett_charging_ase_ChargingMessageType,
     &ett_charging_ase_ChargingAcknowledgementInformation,

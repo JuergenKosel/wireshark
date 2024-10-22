@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-tcg-cp-oids.c                                                       */
-/* asn2wrs.py -b -L -p tcg-cp-oids -c ./tcg-cp-oids.cnf -s ./packet-tcg-cp-oids-template -D . -O ../.. tcg-cp-oids.asn */
+/* asn2wrs.py -b -q -L -p tcg-cp-oids -c ./tcg-cp-oids.cnf -s ./packet-tcg-cp-oids-template -D . -O ../.. tcg-cp-oids.asn */
 
 /* packet-tcg-cp-oids.c
  *
@@ -17,6 +17,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-tcg-cp-oids.h"
 #include "packet-ber.h"
@@ -90,20 +91,20 @@ static int hf_tcg_cp_oids_backupServiceURI;       /* IA5String */
 static int hf_tcg_cp_oids_UTF8String_PDU;
 
 /* Initialize the subtree pointers */
-static gint ett_tcg_cp_oids_TPMSpecification;
-static gint ett_tcg_cp_oids_TCGSpecificationVersion;
-static gint ett_tcg_cp_oids_TCGPlatformSpecification;
-static gint ett_tcg_cp_oids_TCPASpecVersion;
-static gint ett_tcg_cp_oids_TPMSecurityAssertions;
-static gint ett_tcg_cp_oids_TBBSecurityAssertions;
-static gint ett_tcg_cp_oids_CommonCriteriaMeasures;
-static gint ett_tcg_cp_oids_URIReference;
-static gint ett_tcg_cp_oids_FIPSLevel;
-static gint ett_tcg_cp_oids_HashAlgAndValue;
-static gint ett_tcg_cp_oids_HashedSubjectInfoURI;
-static gint ett_tcg_cp_oids_TCGRelevantCredentials;
-static gint ett_tcg_cp_oids_TCGRelevantManifests;
-static gint ett_tcg_cp_oids_VirtualPlatformBackupServiceURI;
+static int ett_tcg_cp_oids_TPMSpecification;
+static int ett_tcg_cp_oids_TCGSpecificationVersion;
+static int ett_tcg_cp_oids_TCGPlatformSpecification;
+static int ett_tcg_cp_oids_TCPASpecVersion;
+static int ett_tcg_cp_oids_TPMSecurityAssertions;
+static int ett_tcg_cp_oids_TBBSecurityAssertions;
+static int ett_tcg_cp_oids_CommonCriteriaMeasures;
+static int ett_tcg_cp_oids_URIReference;
+static int ett_tcg_cp_oids_FIPSLevel;
+static int ett_tcg_cp_oids_HashAlgAndValue;
+static int ett_tcg_cp_oids_HashedSubjectInfoURI;
+static int ett_tcg_cp_oids_TCGRelevantCredentials;
+static int ett_tcg_cp_oids_TCGRelevantManifests;
+static int ett_tcg_cp_oids_VirtualPlatformBackupServiceURI;
 
 
 static int
@@ -615,92 +616,92 @@ dissect_tcg_cp_oids_VirtualPlatformBackupServiceURI(bool implicit_tag _U_, tvbuf
 static int dissect_TPMSpecification_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TPMSpecification(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TPMSpecification_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TPMSpecification(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TPMSpecification_PDU);
   return offset;
 }
 static int dissect_TCGPlatformSpecification_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TCGPlatformSpecification(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGPlatformSpecification_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TCGPlatformSpecification(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGPlatformSpecification_PDU);
   return offset;
 }
 static int dissect_TCPASpecVersion_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TCPASpecVersion(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCPASpecVersion_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TCPASpecVersion(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCPASpecVersion_PDU);
   return offset;
 }
 static int dissect_TPMSecurityAssertions_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TPMSecurityAssertions(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TPMSecurityAssertions_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TPMSecurityAssertions(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TPMSecurityAssertions_PDU);
   return offset;
 }
 static int dissect_TBBSecurityAssertions_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TBBSecurityAssertions(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TBBSecurityAssertions_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TBBSecurityAssertions(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TBBSecurityAssertions_PDU);
   return offset;
 }
 static int dissect_ProtectionProfile_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_ProtectionProfile(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_ProtectionProfile_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_ProtectionProfile(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_ProtectionProfile_PDU);
   return offset;
 }
 static int dissect_SecurityTarget_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_SecurityTarget(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_SecurityTarget_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_SecurityTarget(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_SecurityTarget_PDU);
   return offset;
 }
 static int dissect_TCGRelevantCredentials_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TCGRelevantCredentials(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGRelevantCredentials_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TCGRelevantCredentials(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGRelevantCredentials_PDU);
   return offset;
 }
 static int dissect_TCGRelevantManifests_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_TCGRelevantManifests(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGRelevantManifests_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_TCGRelevantManifests(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_TCGRelevantManifests_PDU);
   return offset;
 }
 static int dissect_VirtualPlatformAttestationServiceURI_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_VirtualPlatformAttestationServiceURI(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_VirtualPlatformAttestationServiceURI_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_VirtualPlatformAttestationServiceURI(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_VirtualPlatformAttestationServiceURI_PDU);
   return offset;
 }
 static int dissect_MigrationControllerAttestationServiceURI_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_MigrationControllerAttestationServiceURI(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_MigrationControllerAttestationServiceURI_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_MigrationControllerAttestationServiceURI(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_MigrationControllerAttestationServiceURI_PDU);
   return offset;
 }
 static int dissect_MigrationControllerRegistrationServiceURI_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_MigrationControllerRegistrationServiceURI(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_MigrationControllerRegistrationServiceURI_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_MigrationControllerRegistrationServiceURI(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_MigrationControllerRegistrationServiceURI_PDU);
   return offset;
 }
 static int dissect_VirtualPlatformBackupServiceURI_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_tcg_cp_oids_VirtualPlatformBackupServiceURI(FALSE, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_VirtualPlatformBackupServiceURI_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_tcg_cp_oids_VirtualPlatformBackupServiceURI(false, tvb, offset, &asn1_ctx, tree, hf_tcg_cp_oids_VirtualPlatformBackupServiceURI_PDU);
   return offset;
 }
 
@@ -938,7 +939,7 @@ void proto_register_tcg_cp_oids(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_tcg_cp_oids_TPMSpecification,
     &ett_tcg_cp_oids_TCGSpecificationVersion,
     &ett_tcg_cp_oids_TCGPlatformSpecification,
@@ -968,8 +969,8 @@ static int
 dissect_tcg_cp_oids_UTF8String_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
     int offset = 0;
     asn1_ctx_t actx;
-    asn1_ctx_init(&actx, ASN1_ENC_BER, TRUE, pinfo);
-    offset = dissect_ber_restricted_string(FALSE, BER_UNI_TAG_UTF8String, &actx, tree, tvb, offset, hf_tcg_cp_oids_UTF8String_PDU, NULL);
+    asn1_ctx_init(&actx, ASN1_ENC_BER, true, pinfo);
+    offset = dissect_ber_restricted_string(false, BER_UNI_TAG_UTF8String, &actx, tree, tvb, offset, hf_tcg_cp_oids_UTF8String_PDU, NULL);
     return offset;
 }
 

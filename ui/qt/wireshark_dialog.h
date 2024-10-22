@@ -39,6 +39,11 @@ public:
     // XXX Unlike the entire QWidget API, parent is mandatory here.
     explicit WiresharkDialog(QWidget &parent, CaptureFile &capture_file);
 
+    /**
+     * @brief true if the file has been closed, false otherwise.
+     */
+    bool fileClosed() const { return file_closed_; }
+
 protected:
     virtual void keyPressEvent(QKeyEvent *event) { QDialog::keyPressEvent(event); }
     virtual void accept();
@@ -93,7 +98,7 @@ protected:
      * @param tap_draw Draw callback.
      */
     bool registerTapListener(const char *tap_name, void *tap_data,
-                        const char *filter, guint flags,
+                        const char *filter, unsigned flags,
                         tap_reset_cb tap_reset,
                         tap_packet_cb tap_packet,
                         tap_draw_cb tap_draw);
@@ -103,17 +108,21 @@ protected:
      */
     virtual void removeTapListeners();
 
-    /**
-     * @brief true if the file has been closed, false otherwise.
-     */
-    // XXX Needs a getter?
+    // XXX - Move this to private, have subclasses use the getter?
     bool file_closed_;
 
     /**
      * @brief Check to see if the user has closed (and not minimized) the dialog.
      * @return true if the dialog has been closed, false otherwise.
      */
-    bool dialogClosed() { return dialog_closed_; }
+    bool dialogClosed() const { return dialog_closed_; }
+
+    /**
+     * @brief Check to see if we're currently retapping. If this is positive,
+     * tapping will fail in process_specified_records.
+     * @return The current retap depth. (In current implementation, 0 or 1.)
+     */
+    int retapDepth() const { return retap_depth_; }
 
     /**
      * @brief Called when the capture file is about to close. This can be

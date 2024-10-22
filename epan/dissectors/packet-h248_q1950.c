@@ -30,13 +30,13 @@ void proto_register_q1950(void);
 #define PFNAME "h248q1950"
 
 static int proto_q1950;
-static bool implicit = FALSE;
+static bool implicit;
 
 /* A.3 Bearer characteristics package */
 static int hf_h248_pkg_BCP;
 static int hf_h248_pkg_BCP_BNCChar;
 
-static gint ett_h248_pkg_BCP;
+static int ett_h248_pkg_BCP;
 
 static const value_string h248_pkg_BCP_parameters[] _U_ = {
     {   0x0001, "BNCChar (BNC Characteristics)" },
@@ -55,7 +55,7 @@ static h248_pkg_param_t h248_pkg_BCP_props[] = {
     { 0, NULL, NULL, NULL}
 };
 
-/* Packet defenitions */
+/* Packet definitions */
 static h248_package_t h248_pkg_BCP = {
     0x001e,
     &hf_h248_pkg_BCP,
@@ -75,7 +75,7 @@ static int hf_h248_pkg_BNCCT;
 
 static int hf_h248_pkg_BNCCT_prop;
 
-static gint ett_h248_pkg_BNCCT;
+static int ett_h248_pkg_BNCCT;
 
 #if 0
 static const value_string h248_pkg_BNCCT_parameters[] _U_ = {
@@ -102,7 +102,7 @@ static const h248_pkg_param_t h248_pkg_BNCCT_props[] = {
     { 0, NULL, NULL, NULL}
 };
 
-/* Packet defenitions */
+/* Packet definitions */
 static h248_package_t h248_pkg_BNCCT = {
     0x001f,
     &hf_h248_pkg_BNCCT,
@@ -122,7 +122,7 @@ static int hf_h248_pkg_RI;
 
 static int hf_h248_pkg_RII;
 
-static gint ett_h248_pkg_RI;
+static int ett_h248_pkg_RI;
 
 static const value_string h248_pkg_RI_parameters[] = {
     { 0x0000, "Reuse Idle Q.1950 Annex A" },
@@ -142,7 +142,7 @@ static h248_pkg_param_t h248_pkg_RI_props[] = {
     { 0, NULL, NULL, NULL}
 };
 
-/* Packet defenitions */
+/* Packet definitions */
 static h248_package_t h248_pkg_RI = {
     0x0020,
     &hf_h248_pkg_RI,
@@ -175,11 +175,11 @@ static int hf_h248_pkg_GB_RelBNC_Generalcause;
 static int hf_h248_pkg_GB_RelBNC_Failurecause;
 static int hf_h248_pkg_GB_RelBNC_Reset;
 
-static gint ett_h248_pkg_GB;
-static gint ett_h248_pkg_GB_EstBNC;
-static gint ett_h248_pkg_GB_ModBNC;
-static gint ett_h248_pkg_GB_RelBNC;
-static gint ett_h248_pkg_GB_BNCChange;
+static int ett_h248_pkg_GB;
+static int ett_h248_pkg_GB_EstBNC;
+static int ett_h248_pkg_GB_ModBNC;
+static int ett_h248_pkg_GB_RelBNC;
+static int ett_h248_pkg_GB_BNCChange;
 
 static const value_string h248_pkg_GB_events_vals[] = {
     { 0x0001, "BNCChange" },
@@ -269,31 +269,31 @@ static h248_package_t h248_pkg_GB = {
 
 
 /* A.7 Bearer control tunnelling package */
-static dissector_handle_t bctp_dissector = NULL;
+static dissector_handle_t bctp_dissector;
 
 static int hf_h248_pkg_bt;
 static int hf_h248_pkg_bt_tind;
 static int hf_h248_pkg_bt_tunopt;
 static int hf_h248_pkg_bt_bit;
 
-static gint ett_h248_pkg_bt;
-static gint ett_h248_pkg_bt_tind;
-static gint ett_h248_pkg_bt_bit;
+static int ett_h248_pkg_bt;
+static int ett_h248_pkg_bt_tind;
+static int ett_h248_pkg_bt_bit;
 
 static void dissect_bt_tunneled_proto(proto_tree* tree, tvbuff_t* tvb, packet_info* pinfo, int hfid, h248_curr_info_t* i _U_, void* d _U_) {
     tvbuff_t* bctp_tvb = NULL;
-    gint8 appclass;
+    int8_t appclass;
     bool pc;
-    gint32 tag;
+    int32_t tag;
     asn1_ctx_t asn1_ctx;
 
-    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
     get_ber_identifier(tvb, 0, &appclass, &pc, &tag);
 
     /* XXX: is this enough to guess it? */
     if (tag == BER_UNI_TAG_OCTETSTRING) {
-        dissect_ber_octet_string(FALSE, &asn1_ctx, tree, tvb, 0, hfid, &bctp_tvb);
+        dissect_ber_octet_string(false, &asn1_ctx, tree, tvb, 0, hfid, &bctp_tvb);
 
         if (bctp_tvb) {
             call_dissector(bctp_dissector,bctp_tvb,pinfo,tree);
@@ -355,7 +355,7 @@ static const h248_pkg_sig_t h248_pkg_bt_signals[] = {
     { 0, NULL, NULL, NULL, NULL}
 };
 
-/* Packet defenitions */
+/* Packet definitions */
 static h248_package_t h248_pkg_bct = {
     0x0022,
     &hf_h248_pkg_bt,
@@ -384,8 +384,8 @@ static int hf_h248_pkg_bcg_sig_bcw;
 static int hf_h248_pkg_bcg_sig_bcr;
 static int hf_h248_pkg_bcg_sig_bpy;
 
-static gint ett_h248_pkg_bcg;
-static gint ett_h248_pkg_bcg_sig_bdt;
+static int ett_h248_pkg_bcg;
+static int ett_h248_pkg_bcg_sig_bdt;
 
 static const value_string h248_pkg_bcg_sig_bdt_par_btd_vals[] = {
     {   0x0001, "ext (External)" },
@@ -433,7 +433,7 @@ static const value_string h248_pkg_bcg_props_vals[] = {
     { 0, NULL }
 };
 
-/* Packet defenitions */
+/* Packet definitions */
 static h248_package_t h248_pkg_bcg = {
     0x0023,
     &hf_h248_pkg_bcg,
@@ -594,7 +594,7 @@ void proto_register_q1950(void) {
         },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_h248_pkg_BCP,
         &ett_h248_pkg_bt,
         &ett_h248_pkg_bt_tind,

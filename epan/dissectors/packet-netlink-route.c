@@ -14,6 +14,8 @@
 #include <epan/packet.h>
 #include <epan/aftypes.h>
 #include <epan/to_str.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 
 #include "packet-arp.h"
 #include "packet-netlink.h"
@@ -65,7 +67,7 @@ void proto_reg_handoff_netlink_route(void);
  */
 struct netlink_route_info {
 	packet_info *pinfo;
-	gboolean legacy;
+	bool legacy;
 };
 
 enum {
@@ -466,15 +468,15 @@ static int hf_netlink_route_rta_attr_type;
 static int hf_netlink_route_rta_iif;
 static int hf_netlink_route_rta_oif;
 
-static gint ett_netlink_route;
-static gint ett_netlink_route_attr;
-static gint ett_netlink_route_if_flags;
-static gint ett_netlink_route_attr_linkstats;
-static gint ett_netlink_route_attr_linkstats_rxerrs;
-static gint ett_netlink_route_attr_linkstats_txerrs;
+static int ett_netlink_route;
+static int ett_netlink_route_attr;
+static int ett_netlink_route_if_flags;
+static int ett_netlink_route_attr_linkstats;
+static int ett_netlink_route_attr_linkstats_rxerrs;
+static int ett_netlink_route_attr_linkstats_txerrs;
 
 static void
-_fill_label_value_string_bitmask(char *label, guint32 value, const value_string *vals)
+_fill_label_value_string_bitmask(char *label, uint32_t value, const value_string *vals)
 {
 	char tmp[16];
 
@@ -513,7 +515,7 @@ dissect_netlink_route_attributes(tvbuff_t *tvb, int hf_type, struct netlink_rout
 }
 
 static void
-hf_netlink_route_ifi_flags_label(char *label, guint32 value)
+hf_netlink_route_ifi_flags_label(char *label, uint32_t value)
 {
 	static const value_string iff_vals[] = {
 		{ WS_IFF_UP,          "UP" },
@@ -703,23 +705,23 @@ static int
 dissect_netlink_route_ifla_linkstats(tvbuff_t *tvb, struct netlink_route_info *info _U_, struct packet_netlink_data *nl_data, proto_tree *tree, int offset, int byte_size)
 {
 	proto_tree* rxerr_subtree;
-	const gint rxerr_hfs_len = (sizeof(linkstat_rxerr_hfs) / sizeof(int *));
+	const int rxerr_hfs_len = array_length(linkstat_rxerr_hfs);
 	proto_tree* txerr_subtree;
-	const gint txerr_hfs_len = (sizeof(linkstat_txerr_hfs) / sizeof(int *));
+	const int txerr_hfs_len = array_length(linkstat_txerr_hfs);
 
-	for (size_t i = 0; i < (sizeof(linkstat_root_hfs) / sizeof(int *)); i++) {
+	for (size_t i = 0; i < array_length(linkstat_root_hfs); i++) {
 		proto_tree_add_item(tree, *linkstat_root_hfs[i], tvb, offset, byte_size, nl_data->encoding);
 		offset += byte_size;
 	}
 
 	rxerr_subtree = proto_tree_add_subtree(tree, tvb, offset, byte_size * rxerr_hfs_len, ett_netlink_route_attr_linkstats_rxerrs, NULL, "Rx errors");
-	for (gint i = 0; i < rxerr_hfs_len; i++) {
+	for (int i = 0; i < rxerr_hfs_len; i++) {
 		proto_tree_add_item(rxerr_subtree, *linkstat_rxerr_hfs[i], tvb, offset, byte_size, nl_data->encoding);
 		offset += byte_size;
 	}
 
 	txerr_subtree = proto_tree_add_subtree(tree, tvb, offset, byte_size * txerr_hfs_len, ett_netlink_route_attr_linkstats_txerrs, NULL, "Tx errors");
-	for (gint i = 0; i < txerr_hfs_len; i++) {
+	for (int i = 0; i < txerr_hfs_len; i++) {
 		proto_tree_add_item(txerr_subtree, *linkstat_txerr_hfs[i], tvb, offset, byte_size, nl_data->encoding);
 		offset += byte_size;
 	}
@@ -733,9 +735,9 @@ dissect_netlink_route_ifla_attrs(tvbuff_t *tvb, void *data, struct packet_netlin
 {
 	struct netlink_route_info *info = (struct netlink_route_info *)data;
 	enum ws_ifla_attr_type type = (enum ws_ifla_attr_type) rta_type;
-	const guint8* str;
-	guint32 value;
-	gboolean flag;
+	const uint8_t* str;
+	uint32_t value;
+	bool flag;
 	proto_tree* subtree;
 	switch (type) {
 		case WS_IFLA_IFNAME:
@@ -836,7 +838,7 @@ dissect_netlink_route_ifla_attrs(tvbuff_t *tvb, void *data, struct packet_netlin
 /* IP address */
 
 static void
-netlink_route_ifa_flags_label(char *label, guint32 value)
+netlink_route_ifa_flags_label(char *label, uint32_t value)
 {
 	static const value_string iff_vals[] = {
 		{ WS_IFA_F_SECONDARY,       "secondary/temporary" },
@@ -914,7 +916,7 @@ static int
 dissect_netlink_route_ifa_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data, proto_tree *tree, int rta_type, int offset, int len)
 {
 	enum ws_ifa_attr_type type = (enum ws_ifa_attr_type) rta_type;
-	const guint8* str;
+	const uint8_t* str;
 
 	switch (type) {
 		case WS_IFA_LABEL:
@@ -1079,7 +1081,7 @@ static int
 dissect_netlink_route_route_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_data *nl_data, proto_tree *tree, int rta_type, int offset, int len)
 {
 	enum ws_rta_attr_type type = (enum ws_rta_attr_type) rta_type;
-	guint32 value;
+	uint32_t value;
 
 	switch (type) {
 		case WS_RTA_IIF:
@@ -1104,7 +1106,7 @@ dissect_netlink_route_route_attrs(tvbuff_t *tvb, void *data _U_, struct packet_n
 }
 
 static void
-netlink_route_nd_states_label(char *label, guint32 value)
+netlink_route_nd_states_label(char *label, uint32_t value)
 {
 	static const value_string flags_vals[] = {
 		{ WS_NUD_NONE,       "NONE" },
@@ -1763,7 +1765,7 @@ proto_register_netlink_route(void)
 		},
 	};
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_netlink_route,
 		&ett_netlink_route_attr,
 		&ett_netlink_route_if_flags,

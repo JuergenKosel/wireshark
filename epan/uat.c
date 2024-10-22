@@ -38,7 +38,7 @@
  * instead.
  */
 
-static GPtrArray* all_uats = NULL;
+static GPtrArray* all_uats;
 
 uat_t* uat_new(const char* name,
                size_t size,
@@ -86,9 +86,9 @@ uat_t* uat_new(const char* name,
     uat->reset_cb = reset_cb;
     uat->fields = flds_array;
     uat->default_values = NULL;
-    uat->user_data = g_array_new(false,FALSE,(unsigned)uat->record_size);
-    uat->raw_data = g_array_new(false,FALSE,(unsigned)uat->record_size);
-    uat->valid_data = g_array_new(false,FALSE,sizeof(bool));
+    uat->user_data = g_array_new(false,false,(unsigned)uat->record_size);
+    uat->raw_data = g_array_new(false,false,(unsigned)uat->record_size);
+    uat->valid_data = g_array_new(false,false,sizeof(bool));
     uat->changed = false;
     uat->loaded = false;
     uat->rep = NULL;
@@ -214,6 +214,24 @@ void uat_remove_record_idx(uat_t* uat, unsigned idx) {
     g_array_remove_index(uat->valid_data, idx);
 }
 
+void uat_remove_record_range(uat_t* uat, unsigned idx, unsigned count) {
+
+    ws_assert( idx + count <= uat->raw_data->len );
+
+    if (count == 0) {
+        return;
+    }
+
+    if (uat->free_cb) {
+        for (unsigned i = 0; i < count; i++) {
+            uat->free_cb(UAT_INDEX_PTR(uat, idx + i));
+        }
+    }
+
+    g_array_remove_range(uat->raw_data, idx, count);
+    g_array_remove_range(uat->valid_data, idx, count);
+}
+
 void uat_move_index(uat_t * uat, unsigned old_idx, unsigned new_idx)
 {
     unsigned dir = 1;
@@ -276,14 +294,15 @@ char *uat_fld_tostr(void *rec, uat_field_t *f) {
 
     switch(f->mode) {
         case PT_TXTMOD_NONE:
-        case PT_TXTMOD_STRING:
         case PT_TXTMOD_ENUM:
         case PT_TXTMOD_BOOL:
         case PT_TXTMOD_FILENAME:
         case PT_TXTMOD_DIRECTORYNAME:
         case PT_TXTMOD_DISPLAY_FILTER:
-        case PT_TXTMOD_COLOR:
         case PT_TXTMOD_PROTO_FIELD:
+        case PT_TXTMOD_COLOR:
+        case PT_TXTMOD_STRING:
+        case PT_TXTMOD_DISSECTOR:
             out = g_strndup(ptr, len);
             break;
         case PT_TXTMOD_HEXBYTES: {
@@ -292,9 +311,7 @@ char *uat_fld_tostr(void *rec, uat_field_t *f) {
 
             for (i=0; i<len;i++) g_string_append_printf(s, "%.2X", ((const uint8_t*)ptr)[i]);
 
-            out = g_strdup(s->str);
-
-            g_string_free(s, true);
+            out = g_string_free(s, FALSE);
             break;
         }
         default:

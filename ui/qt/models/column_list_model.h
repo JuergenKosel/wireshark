@@ -35,6 +35,9 @@ class ColumnTypeDelegate : public QStyledItemDelegate
 public:
     ColumnTypeDelegate(QObject * parent = Q_NULLPTR);
 
+    static QString displayDesc(char display);
+    static QString alignDesc(char xalign);
+
     QWidget * createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                           const QModelIndex &index) const override;
 
@@ -59,13 +62,17 @@ public:
         COL_TYPE,
         COL_FIELDS,
         COL_OCCURRENCE,
-        COL_RESOLVED
+        COL_DISPLAY,
+        COL_WIDTH,
+        COL_XALIGN
     };
 
     enum {
         OriginalType = Qt::UserRole,
         DisplayedState
     };
+
+    static bool displayEnabled(const QModelIndex &index, bool &displayStrings, bool &displayDetails);
 
     void saveColumns();
 

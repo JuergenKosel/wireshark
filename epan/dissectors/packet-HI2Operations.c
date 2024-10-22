@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-HI2Operations.c                                                     */
-/* asn2wrs.py -b -L -p HI2Operations -c ./HI2Operations.cnf -s ./packet-HI2Operations-template -D . -O ../.. HI2Operations_ver18.asn HI3CCLinkData.asn EpsHI2Operations.asn UmtsHI2Operations.asn */
+/* asn2wrs.py -b -q -L -p HI2Operations -c ./HI2Operations.cnf -s ./packet-HI2Operations-template -D . -O ../.. HI2Operations_ver18.asn HI3CCLinkData.asn EpsHI2Operations.asn UmtsHI2Operations.asn */
 
 /* packet-HI2Operations.c
  * Routines for HI2 (ETSI TS 101 671 V3.15.1 (2018-06))
@@ -21,6 +21,8 @@
 #include <epan/conversation.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-isup.h"
@@ -541,119 +543,119 @@ static int hf_HI2Operations_additional_info;      /* PrintableString */
 static int hf_HI2Operations_lALS_rawMLPPosData;   /* UTF8String */
 
 /* Initialize the subtree pointers */
-static gint ett_HI2Operations_CommunicationIdentifier;
-static gint ett_HI2Operations_Network_Identifier;
-static gint ett_HI2Operations_Network_Element_Identifier;
-static gint ett_HI2Operations_TimeStamp;
-static gint ett_HI2Operations_LocalTimeStamp;
-static gint ett_HI2Operations_PartyInformation;
-static gint ett_HI2Operations_T_partyIdentity;
-static gint ett_HI2Operations_CallingPartyNumber;
-static gint ett_HI2Operations_CalledPartyNumber;
-static gint ett_HI2Operations_GSMLocation;
-static gint ett_HI2Operations_T_geoCoordinates;
-static gint ett_HI2Operations_T_utmCoordinates;
-static gint ett_HI2Operations_T_utmRefCoordinates;
-static gint ett_HI2Operations_UMTSLocation;
-static gint ett_HI2Operations_GeographicalCoordinates;
-static gint ett_HI2Operations_GA_Point;
-static gint ett_HI2Operations_GA_PointWithUnCertainty;
-static gint ett_HI2Operations_GA_Polygon;
-static gint ett_HI2Operations_GA_Polygon_item;
-static gint ett_HI2Operations_Services_Information;
-static gint ett_HI2Operations_ISUP_parameters;
-static gint ett_HI2Operations_DSS1_parameters_codeset_0;
-static gint ett_HI2Operations_MAP_parameters;
-static gint ett_HI2Operations_Supplementary_Services;
-static gint ett_HI2Operations_Standard_Supplementary_Services;
-static gint ett_HI2Operations_Non_Standard_Supplementary_Services;
-static gint ett_HI2Operations_Non_Standard_Supplementary_Services_item;
-static gint ett_HI2Operations_Other_Services;
-static gint ett_HI2Operations_ISUP_SS_parameters;
-static gint ett_HI2Operations_DSS1_SS_parameters_codeset_0;
-static gint ett_HI2Operations_DSS1_SS_parameters_codeset_4;
-static gint ett_HI2Operations_DSS1_SS_parameters_codeset_5;
-static gint ett_HI2Operations_DSS1_SS_parameters_codeset_6;
-static gint ett_HI2Operations_DSS1_SS_parameters_codeset_7;
-static gint ett_HI2Operations_DSS1_SS_Invoke_Components;
-static gint ett_HI2Operations_MAP_SS_Invoke_Components;
-static gint ett_HI2Operations_MAP_SS_Parameters;
-static gint ett_HI2Operations_SMS_report;
-static gint ett_HI2Operations_T_sMS_Contents;
-static gint ett_HI2Operations_T_enhancedContent;
-static gint ett_HI2Operations_National_Parameters;
-static gint ett_HI2Operations_Services_Data_Information;
-static gint ett_HI2Operations_DataNodeAddress;
-static gint ett_HI2Operations_IPAddress;
-static gint ett_HI2Operations_IP_value;
-static gint ett_HI2Operations_National_HI2_ASN1parameters;
-static gint ett_HI2Operations_UUS1_Content;
-static gint ett_HI2Operations_Service_Information;
-static gint ett_HI2Operations_EpsIRIsContent;
-static gint ett_HI2Operations_EpsIRISequence;
-static gint ett_HI2Operations_EpsIRIContent;
-static gint ett_HI2Operations_IRI_Parameters;
-static gint ett_HI2Operations_SET_SIZE_1_10_OF_PartyInformation;
-static gint ett_HI2Operations_SEQUENCE_OF_PANI_Header_Info;
-static gint ett_HI2Operations_SEQUENCE_OF_PartyInformation;
-static gint ett_HI2Operations_SEQUENCE_OF_AdditionalCellID;
-static gint ett_HI2Operations_DataNodeIdentifier;
-static gint ett_HI2Operations_PANI_Header_Info;
-static gint ett_HI2Operations_PANI_Location;
-static gint ett_HI2Operations_Location;
-static gint ett_HI2Operations_T_uELocationTimestamp;
-static gint ett_HI2Operations_AdditionalCellID;
-static gint ett_HI2Operations_PLMNID;
-static gint ett_HI2Operations_NCGI;
-static gint ett_HI2Operations_CorrelationValues;
-static gint ett_HI2Operations_T_both_IRI_CC;
-static gint ett_HI2Operations_IMS_VoIP_Correlation;
-static gint ett_HI2Operations_IMS_VoIP_Correlation_item;
-static gint ett_HI2Operations_IRI_to_CC_Correlation;
-static gint ett_HI2Operations_T_cc;
-static gint ett_HI2Operations_GPRS_parameters;
-static gint ett_HI2Operations_UmtsQos;
-static gint ett_HI2Operations_EPS_GTPV2_SpecificParameters;
-static gint ett_HI2Operations_EPSLocation;
-static gint ett_HI2Operations_T_uELocationTimestamp_01;
-static gint ett_HI2Operations_ProtConfigOptions;
-static gint ett_HI2Operations_RemoteUeContextConnected;
-static gint ett_HI2Operations_RemoteUEContext;
-static gint ett_HI2Operations_EPS_PMIP_SpecificParameters;
-static gint ett_HI2Operations_EPS_DSMIP_SpecificParameters;
-static gint ett_HI2Operations_EPS_MIP_SpecificParameters;
-static gint ett_HI2Operations_MediaDecryption_info;
-static gint ett_HI2Operations_CCKeyInfo;
-static gint ett_HI2Operations_PacketDataHeaderInformation;
-static gint ett_HI2Operations_PacketDataHeaderReport;
-static gint ett_HI2Operations_PacketDataHeaderMapped;
-static gint ett_HI2Operations_PacketDataHeaderCopy;
-static gint ett_HI2Operations_PacketDataSummaryReport;
-static gint ett_HI2Operations_PacketFlowSummary;
-static gint ett_HI2Operations_ReportInterval;
-static gint ett_HI2Operations_TunnelProtocol;
-static gint ett_HI2Operations_Change_Of_Target_Identity;
-static gint ett_HI2Operations_Current_Previous_Systems;
-static gint ett_HI2Operations_DeregistrationReason;
-static gint ett_HI2Operations_PTCEncryptionInfo;
-static gint ett_HI2Operations_PTC;
-static gint ett_HI2Operations_AccessPolicyType;
-static gint ett_HI2Operations_AssociatePresenceStatus;
-static gint ett_HI2Operations_EmergencyGroupState;
-static gint ett_HI2Operations_FloorActivity;
-static gint ett_HI2Operations_PTCAddress;
-static gint ett_HI2Operations_RTPSetting;
-static gint ett_HI2Operations_TalkburstControlSetting;
-static gint ett_HI2Operations_T_talk_Burst_parameters;
-static gint ett_HI2Operations_CivicAddress;
-static gint ett_HI2Operations_SET_OF_DetailedCivicAddress;
-static gint ett_HI2Operations_DetailedCivicAddress;
-static gint ett_HI2Operations_ExtendedLocParameters;
-static gint ett_HI2Operations_T_mapData;
-static gint ett_HI2Operations_T_altitude;
-static gint ett_HI2Operations_T_motionStateList;
-static gint ett_HI2Operations_T_secondaryMotionState;
-static gint ett_HI2Operations_T_floor;
+static int ett_HI2Operations_CommunicationIdentifier;
+static int ett_HI2Operations_Network_Identifier;
+static int ett_HI2Operations_Network_Element_Identifier;
+static int ett_HI2Operations_TimeStamp;
+static int ett_HI2Operations_LocalTimeStamp;
+static int ett_HI2Operations_PartyInformation;
+static int ett_HI2Operations_T_partyIdentity;
+static int ett_HI2Operations_CallingPartyNumber;
+static int ett_HI2Operations_CalledPartyNumber;
+static int ett_HI2Operations_GSMLocation;
+static int ett_HI2Operations_T_geoCoordinates;
+static int ett_HI2Operations_T_utmCoordinates;
+static int ett_HI2Operations_T_utmRefCoordinates;
+static int ett_HI2Operations_UMTSLocation;
+static int ett_HI2Operations_GeographicalCoordinates;
+static int ett_HI2Operations_GA_Point;
+static int ett_HI2Operations_GA_PointWithUnCertainty;
+static int ett_HI2Operations_GA_Polygon;
+static int ett_HI2Operations_GA_Polygon_item;
+static int ett_HI2Operations_Services_Information;
+static int ett_HI2Operations_ISUP_parameters;
+static int ett_HI2Operations_DSS1_parameters_codeset_0;
+static int ett_HI2Operations_MAP_parameters;
+static int ett_HI2Operations_Supplementary_Services;
+static int ett_HI2Operations_Standard_Supplementary_Services;
+static int ett_HI2Operations_Non_Standard_Supplementary_Services;
+static int ett_HI2Operations_Non_Standard_Supplementary_Services_item;
+static int ett_HI2Operations_Other_Services;
+static int ett_HI2Operations_ISUP_SS_parameters;
+static int ett_HI2Operations_DSS1_SS_parameters_codeset_0;
+static int ett_HI2Operations_DSS1_SS_parameters_codeset_4;
+static int ett_HI2Operations_DSS1_SS_parameters_codeset_5;
+static int ett_HI2Operations_DSS1_SS_parameters_codeset_6;
+static int ett_HI2Operations_DSS1_SS_parameters_codeset_7;
+static int ett_HI2Operations_DSS1_SS_Invoke_Components;
+static int ett_HI2Operations_MAP_SS_Invoke_Components;
+static int ett_HI2Operations_MAP_SS_Parameters;
+static int ett_HI2Operations_SMS_report;
+static int ett_HI2Operations_T_sMS_Contents;
+static int ett_HI2Operations_T_enhancedContent;
+static int ett_HI2Operations_National_Parameters;
+static int ett_HI2Operations_Services_Data_Information;
+static int ett_HI2Operations_DataNodeAddress;
+static int ett_HI2Operations_IPAddress;
+static int ett_HI2Operations_IP_value;
+static int ett_HI2Operations_National_HI2_ASN1parameters;
+static int ett_HI2Operations_UUS1_Content;
+static int ett_HI2Operations_Service_Information;
+static int ett_HI2Operations_EpsIRIsContent;
+static int ett_HI2Operations_EpsIRISequence;
+static int ett_HI2Operations_EpsIRIContent;
+static int ett_HI2Operations_IRI_Parameters;
+static int ett_HI2Operations_SET_SIZE_1_10_OF_PartyInformation;
+static int ett_HI2Operations_SEQUENCE_OF_PANI_Header_Info;
+static int ett_HI2Operations_SEQUENCE_OF_PartyInformation;
+static int ett_HI2Operations_SEQUENCE_OF_AdditionalCellID;
+static int ett_HI2Operations_DataNodeIdentifier;
+static int ett_HI2Operations_PANI_Header_Info;
+static int ett_HI2Operations_PANI_Location;
+static int ett_HI2Operations_Location;
+static int ett_HI2Operations_T_uELocationTimestamp;
+static int ett_HI2Operations_AdditionalCellID;
+static int ett_HI2Operations_PLMNID;
+static int ett_HI2Operations_NCGI;
+static int ett_HI2Operations_CorrelationValues;
+static int ett_HI2Operations_T_both_IRI_CC;
+static int ett_HI2Operations_IMS_VoIP_Correlation;
+static int ett_HI2Operations_IMS_VoIP_Correlation_item;
+static int ett_HI2Operations_IRI_to_CC_Correlation;
+static int ett_HI2Operations_T_cc;
+static int ett_HI2Operations_GPRS_parameters;
+static int ett_HI2Operations_UmtsQos;
+static int ett_HI2Operations_EPS_GTPV2_SpecificParameters;
+static int ett_HI2Operations_EPSLocation;
+static int ett_HI2Operations_T_uELocationTimestamp_01;
+static int ett_HI2Operations_ProtConfigOptions;
+static int ett_HI2Operations_RemoteUeContextConnected;
+static int ett_HI2Operations_RemoteUEContext;
+static int ett_HI2Operations_EPS_PMIP_SpecificParameters;
+static int ett_HI2Operations_EPS_DSMIP_SpecificParameters;
+static int ett_HI2Operations_EPS_MIP_SpecificParameters;
+static int ett_HI2Operations_MediaDecryption_info;
+static int ett_HI2Operations_CCKeyInfo;
+static int ett_HI2Operations_PacketDataHeaderInformation;
+static int ett_HI2Operations_PacketDataHeaderReport;
+static int ett_HI2Operations_PacketDataHeaderMapped;
+static int ett_HI2Operations_PacketDataHeaderCopy;
+static int ett_HI2Operations_PacketDataSummaryReport;
+static int ett_HI2Operations_PacketFlowSummary;
+static int ett_HI2Operations_ReportInterval;
+static int ett_HI2Operations_TunnelProtocol;
+static int ett_HI2Operations_Change_Of_Target_Identity;
+static int ett_HI2Operations_Current_Previous_Systems;
+static int ett_HI2Operations_DeregistrationReason;
+static int ett_HI2Operations_PTCEncryptionInfo;
+static int ett_HI2Operations_PTC;
+static int ett_HI2Operations_AccessPolicyType;
+static int ett_HI2Operations_AssociatePresenceStatus;
+static int ett_HI2Operations_EmergencyGroupState;
+static int ett_HI2Operations_FloorActivity;
+static int ett_HI2Operations_PTCAddress;
+static int ett_HI2Operations_RTPSetting;
+static int ett_HI2Operations_TalkburstControlSetting;
+static int ett_HI2Operations_T_talk_Burst_parameters;
+static int ett_HI2Operations_CivicAddress;
+static int ett_HI2Operations_SET_OF_DetailedCivicAddress;
+static int ett_HI2Operations_DetailedCivicAddress;
+static int ett_HI2Operations_ExtendedLocParameters;
+static int ett_HI2Operations_T_mapData;
+static int ett_HI2Operations_T_altitude;
+static int ett_HI2Operations_T_motionStateList;
+static int ett_HI2Operations_T_secondaryMotionState;
+static int ett_HI2Operations_T_floor;
 
 
 
@@ -4355,12 +4357,12 @@ static int
 dissect_HI2Operations_UUS1_Content(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 
 /* Heuristic test to see if it's our content */
-    gint8    tmp_class;
+    int8_t   tmp_class;
     bool tmp_pc;
-    gint32   tmp_tag;
+    int32_t  tmp_tag;
     int      tmp_offset;
-    guint    length = tvb_captured_length(tvb);
-    guint32  tmp_length;
+    unsigned length = tvb_captured_length(tvb);
+    uint32_t tmp_length;
     bool tmp_ind;
 
     /* Check for min length */
@@ -4407,19 +4409,23 @@ dissect_HI2Operations_UUS1_Content(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 static int dissect_IRIsContent_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_HI2Operations_IRIsContent(FALSE, tvb, offset, &asn1_ctx, tree, hf_HI2Operations_IRIsContent_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_HI2Operations_IRIsContent(false, tvb, offset, &asn1_ctx, tree, hf_HI2Operations_IRIsContent_PDU);
   return offset;
 }
 static int dissect_UUS1_Content_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_HI2Operations_UUS1_Content(FALSE, tvb, offset, &asn1_ctx, tree, hf_HI2Operations_UUS1_Content_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_HI2Operations_UUS1_Content(false, tvb, offset, &asn1_ctx, tree, hf_HI2Operations_UUS1_Content_PDU);
   return offset;
 }
 
 
+static bool
+dissect_UUS1_Content_PDU_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data) {
+  return dissect_UUS1_Content_PDU(tvb, pinfo, tree, data) > 0;
+}
 
 /*--- proto_register_HI2Operations ----------------------------------------------*/
 void proto_register_HI2Operations(void) {
@@ -6445,7 +6451,7 @@ void proto_register_HI2Operations(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_HI2Operations_CommunicationIdentifier,
     &ett_HI2Operations_Network_Identifier,
     &ett_HI2Operations_Network_Element_Identifier,
@@ -6577,7 +6583,7 @@ void proto_register_HI2Operations(void) {
 /*--- proto_reg_handoff_HI2Operations -------------------------------------------*/
 void proto_reg_handoff_HI2Operations(void) {
 
-    heur_dissector_add("q931_user", dissect_UUS1_Content_PDU, "HI3CCLinkData", "hi3cclinkdata",
+    heur_dissector_add("q931_user", dissect_UUS1_Content_PDU_heur, "HI3CCLinkData", "hi3cclinkdata",
         proto_HI2Operations, HEURISTIC_ENABLE);
 
 }

@@ -46,8 +46,8 @@ typedef struct {
 	GList		*data_link_types_rfmon; /* GList of data_link_info_t's */
 	GList		*timestamp_types;   /* GList of timestamp_info_t's */
 	int status;
-	char *primary_msg;   /* If non-NULL, the query failed, and a message explaing why */
-	char *secondary_msg; /* An optional supplementary message */
+	char *primary_msg;   /* If non-NULL, the query failed, and a message explaining why */
+	const char *secondary_msg; /* An optional supplementary message */
 } if_capabilities_t;
 
 /*
@@ -84,6 +84,8 @@ typedef struct {
 		uint8_t ip6_addr[16];/* 16 byte IP V6 address */
 	} addr;
 } if_addr_t;
+
+extern GList *deserialize_interface_list(char *data, int *err, char **err_str);
 
 /**
  * Return the list of interfaces.
@@ -128,7 +130,8 @@ if_addr_t *if_addr_copy(const if_addr_t *if_addr);
 typedef struct {
         const char *name;
         bool monitor_mode;
-        const char *auth;
+        const char *auth_username;
+        const char *auth_password;
 } if_cap_query_t;
 
 /*
@@ -167,7 +170,11 @@ capture_get_if_list_capabilities(GList *if_cap_queries,
 
 void free_if_capabilities(if_capabilities_t *caps);
 
+#ifdef HAVE_PCAP_REMOTE
 void add_interface_to_remote_list(if_info_t *if_info);
+
+GList* append_remote_list(GList *iflist);
+#endif
 
 #ifdef __cplusplus
 }

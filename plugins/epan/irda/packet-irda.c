@@ -23,22 +23,32 @@
 #include <epan/strutil.h>
 #include <epan/conversation.h>
 #include <epan/xdlc.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include <wiretap/wtap.h>
 
 #include <epan/dissectors/packet-sll.h>
 #include "irda-appl.h"
 
 /*
- * This plugin dissects infrared data transmissions as defined by the IrDA
- * specification (www.irda.org).  See
+ * This plugin dissects infrared data transmissions as defined by IrDA
+ * specifications.  See
  *
- *      http://www.irdajp.info/specifications.php
+ *    https://web.archive.org/web/20040405053146/http://www.irda.org/standards/specifications.asp
  *
  * or
  *
- *      https://web.archive.org/web/20040405053146/http://www.irda.org/standards/specifications.asp
+ *    https://archive.org/search?query=creator%3A%22Infrared+Data+Association%22
  *
- * for various IrDA specifications.
+ * for various IrDA specifications, including a zip archive of the IrPHY
+ * 1.4, IrLAP 1.1, IrLMP 1.1, IrDA Tiny TP 1.1, and IrDA Point and Shoot
+ * Profile 1.1 and Test Specification 1.0 at
+ *
+ *    https://web.archive.org/web/20040405053146/http://www.irda.org/standards/pubs/IrData.zip
+ *
+ * or the the IrLAP 1.1 specification at
+ *
+ *    https://archive.org/details/ir-lap-11
  *
  * The plugin operates both offline with libpcap files and online on supported
  * platforms. Live dissection is currently available for Linux-IrDA
@@ -214,23 +224,23 @@ static int hf_log_msg;
 static int hf_log_missed;
 
 /* Initialize the subtree pointers */
-static gint ett_irlap;
-static gint ett_lap_a;
-static gint ett_lap_c;
-static gint ett_lap_i;
-static gint ett_xid_flags;
-static gint ett_log;
-static gint ett_irlmp;
-static gint ett_lmp_dst;
-static gint ett_lmp_src;
-static gint ett_iap;
-static gint ett_iap_ctl;
-static gint ett_ttp;
+static int ett_irlap;
+static int ett_lap_a;
+static int ett_lap_c;
+static int ett_lap_i;
+static int ett_xid_flags;
+static int ett_log;
+static int ett_irlmp;
+static int ett_lmp_dst;
+static int ett_lmp_src;
+static int ett_iap;
+static int ett_iap_ctl;
+static int ett_ttp;
 
 #define MAX_PARAMETERS      32
-static gint ett_param[MAX_PARAMETERS];
+static int ett_param[MAX_PARAMETERS];
 
-static gint ett_iap_entry[MAX_IAP_ENTRIES];
+static int ett_iap_entry[MAX_IAP_ENTRIES];
 
 static int irda_address_type = -1;
 
@@ -251,15 +261,15 @@ static const xdlc_cf_items irlap_cf_items = {
 /* IAP conversation type */
 typedef struct iap_conversation {
     struct iap_conversation*    pnext;
-    guint32                     iap_query_frame;
+    uint32_t                    iap_query_frame;
     ias_attr_dissector_t* pattr_dissector;
 } iap_conversation_t;
 
 /* IrLMP conversation type */
 typedef struct lmp_conversation {
     struct lmp_conversation*    pnext;
-    guint32                     iap_result_frame;
-    gboolean                    ttp;
+    uint32_t                    iap_result_frame;
+    bool                        ttp;
     dissector_handle_t          dissector;
 } lmp_conversation_t;
 
@@ -452,9 +462,9 @@ static ias_class_dissector_t class_dissector[] = { CLASS_DISSECTORS };
 /*
  * Dissect parameter tuple
  */
-guint dissect_param_tuple(tvbuff_t* tvb, proto_tree* tree, guint offset)
+unsigned dissect_param_tuple(tvbuff_t* tvb, proto_tree* tree, unsigned offset)
 {
-    guint8  len = tvb_get_guint8(tvb, offset + 1);
+    uint8_t len = tvb_get_uint8(tvb, offset + 1);
 
     if (tree)
         proto_tree_add_item(tree, hf_param_pi, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -478,10 +488,10 @@ guint dissect_param_tuple(tvbuff_t* tvb, proto_tree* tree, guint offset)
 /*
  * Dissect TTP
  */
-static guint dissect_ttp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, gboolean data)
+static unsigned dissect_ttp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, bool data)
 {
-    guint  offset = 0;
-    guint8 head;
+    unsigned  offset = 0;
+    uint8_t head;
     char   buf[128];
 
     if (tvb_reported_length(tvb) == 0)
@@ -490,7 +500,7 @@ static guint dissect_ttp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, gb
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "TTP");
 
-    head = tvb_get_guint8(tvb, offset);
+    head = tvb_get_uint8(tvb, offset);
 
     snprintf(buf, 128, ", Credit=%d", head & ~TTP_PARAMETERS);
     col_append_str(pinfo->cinfo, COL_INFO, buf);
@@ -525,13 +535,13 @@ static guint dissect_ttp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, gb
 /*
  * Dissect IAP request
  */
-static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, guint8 circuit_id)
+static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, uint8_t circuit_id)
 {
-    guint               offset = 0;
-    guint8              op;
-    guint8              clen = 0;
-    guint8              alen = 0;
-    guint8              src;
+    unsigned            offset = 0;
+    uint8_t             op;
+    uint8_t             clen = 0;
+    uint8_t             alen = 0;
+    uint8_t             src;
     address             srcaddr;
     address             destaddr;
     conversation_t*     conv;
@@ -543,13 +553,13 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IAP");
 
-    op = tvb_get_guint8(tvb, offset) & IAP_OP;
+    op = tvb_get_uint8(tvb, offset) & IAP_OP;
 
     switch (op)
     {
         case GET_VALUE_BY_CLASS:
-            clen = MIN(tvb_get_guint8(tvb, offset + 1), 60);
-            alen = MIN(tvb_get_guint8(tvb, offset + 1 + 1 + clen), 60);
+            clen = MIN(tvb_get_uint8(tvb, offset + 1), 60);
+            alen = MIN(tvb_get_uint8(tvb, offset + 1 + 1 + clen), 60);
 
             /* create conversation entry */
             src = circuit_id ^ CMD_FRAME;
@@ -594,8 +604,8 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
             char   *attr_name = (char *) tvb_get_string_enc(pinfo->pool, tvb, offset + 1 + 1 + clen + 1, alen, ENC_ASCII|ENC_NA);
 
             col_add_fstr(pinfo->cinfo, COL_INFO, "GetValueByClass: \"%s\" \"%s\"",
-                format_text(pinfo->pool, (guchar *) class_name, strlen(class_name)),
-                format_text(pinfo->pool, (guchar *) attr_name, strlen(attr_name)));
+                format_text(pinfo->pool, (unsigned char *) class_name, strlen(class_name)),
+                format_text(pinfo->pool, (unsigned char *) attr_name, strlen(attr_name)));
 
             /* Dissect IAP query if it is new */
             if (iap_conv)
@@ -664,24 +674,24 @@ static void dissect_iap_request(tvbuff_t* tvb, packet_info* pinfo, proto_tree* r
 /*
  * Dissect IAP result
  */
-static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, guint8 circuit_id)
+static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, uint8_t circuit_id)
 {
-    guint               offset = 0;
-    guint               len    = tvb_reported_length(tvb);
-    guint               n      = 0;
-    guint               list_len;
-    guint8              op;
-    guint8              retcode;
-    guint8              type;
-    guint16             attr_len;
+    unsigned            offset = 0;
+    unsigned            len    = tvb_reported_length(tvb);
+    unsigned            n      = 0;
+    unsigned            list_len;
+    uint8_t             op;
+    uint8_t             retcode;
+    uint8_t             type;
+    uint16_t            attr_len;
     char                buf[300];
-    guint8              src;
+    uint8_t             src;
     address             srcaddr;
     address             destaddr;
     conversation_t*     conv;
     iap_conversation_t* cur_iap_conv;
     iap_conversation_t* iap_conv = NULL;
-    guint32             num;
+    uint32_t            num;
 
 
     if (len == 0)
@@ -690,8 +700,8 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IAP");
 
-    op      = tvb_get_guint8(tvb, offset) & IAP_OP;
-    retcode = tvb_get_guint8(tvb, offset + 1);
+    op      = tvb_get_uint8(tvb, offset) & IAP_OP;
+    retcode = tvb_get_uint8(tvb, offset + 1);
 
     src = circuit_id ^ CMD_FRAME;
     set_address(&srcaddr, irda_address_type, 1, &src);
@@ -732,7 +742,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
         case GET_VALUE_BY_CLASS:
             if (retcode == 0)
             {
-                switch (tvb_get_guint8(tvb, offset + 6))
+                switch (tvb_get_uint8(tvb, offset + 6))
                 {
                     case IAS_MISSING:
                         col_append_str(pinfo->cinfo, COL_INFO, ", Missing");
@@ -747,7 +757,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
                         break;
 
                     case IAS_STRING:
-                        n = tvb_get_guint8(tvb, offset + 8);
+                        n = tvb_get_uint8(tvb, offset + 8);
                         col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", tvb_get_string_enc(pinfo->pool, tvb, offset + 9, n, ENC_ASCII));
                         break;
                     default:
@@ -791,7 +801,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
 
                     while ((offset < len) && (n < list_len))
                     {
-                        type = tvb_get_guint8(tvb, offset + 2);
+                        type = tvb_get_uint8(tvb, offset + 2);
                         switch (type)
                         {
                             case IAS_INTEGER:
@@ -803,7 +813,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
                                 break;
 
                             case IAS_STRING:
-                                attr_len = tvb_get_guint8(tvb, offset + 2 + 1 + 1) + 2;
+                                attr_len = tvb_get_uint8(tvb, offset + 2 + 1 + 1) + 2;
                                 break;
 
                             default:
@@ -867,7 +877,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
                     while (offset < len)
                     {
                         offset += 2;
-                        type = tvb_get_guint8(tvb, offset);
+                        type = tvb_get_uint8(tvb, offset);
                         offset++;
 
                         switch (type)
@@ -887,7 +897,7 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
                                 break;
 
                             case IAS_STRING:
-                                attr_len = tvb_get_guint8(tvb, offset + 1) + 2;
+                                attr_len = tvb_get_uint8(tvb, offset + 1) + 2;
                                 if (iap_conv && iap_conv->pattr_dissector)
                                     iap_conv->pattr_dissector->value_dissector(tvb, offset, pinfo, 0,
                                                                                n, type, circuit_id);
@@ -914,8 +924,8 @@ static void dissect_iap_result(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
 /*
  * Check if IAP result is octet sequence
  */
-gboolean check_iap_octet_result(tvbuff_t* tvb, proto_tree* tree, guint offset,
-                                const char* attr_name, guint8 attr_type)
+bool check_iap_octet_result(tvbuff_t* tvb, proto_tree* tree, unsigned offset,
+                                const char* attr_name, uint8_t attr_type)
 {
     if (attr_type != IAS_OCT_SEQ)
     {
@@ -926,20 +936,20 @@ gboolean check_iap_octet_result(tvbuff_t* tvb, proto_tree* tree, guint offset,
             proto_item_append_text(ti, "\" attribute must be octet sequence!");
         }
 
-        return FALSE;
+        return false;
     }
     else
-        return TRUE;
+        return true;
 }
 
 
 /*
  * Check if IAP result is correct LsapSel
  */
-guint8 check_iap_lsap_result(tvbuff_t* tvb, proto_tree* tree, guint offset,
-                             const char* attr_name, guint8 attr_type)
+uint8_t check_iap_lsap_result(tvbuff_t* tvb, proto_tree* tree, unsigned offset,
+                             const char* attr_name, uint8_t attr_type)
 {
-    guint32 lsap;
+    uint32_t lsap;
 
 
     if ((attr_type != IAS_INTEGER) || ((lsap = tvb_get_ntohl(tvb, offset)) < 0x01) ||
@@ -962,16 +972,16 @@ guint8 check_iap_lsap_result(tvbuff_t* tvb, proto_tree* tree, guint offset,
 /*
  * Dissect IrDA application protocol
  */
-static void dissect_appl_proto(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pdu_type_t pdu_type, guint8 circuit_id)
+static void dissect_appl_proto(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pdu_type_t pdu_type, uint8_t circuit_id)
 {
-    guint               offset = 0;
-    guint8              src;
+    unsigned            offset = 0;
+    uint8_t             src;
     address             srcaddr;
     address             destaddr;
     conversation_t*     conv;
     lmp_conversation_t* cur_lmp_conv;
     lmp_conversation_t* lmp_conv = NULL;
-    guint32             num;
+    uint32_t            num;
 
 
     src = circuit_id ^ CMD_FRAME;
@@ -1026,23 +1036,23 @@ static void dissect_appl_proto(tvbuff_t* tvb, packet_info* pinfo, proto_tree* ro
 /*
  * Dissect LMP
  */
-static void dissect_irlmp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, guint8 circuit_id)
+static void dissect_irlmp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, uint8_t circuit_id)
 {
-    guint       offset = 0;
-    guint8      dlsap;
-    guint8      slsap;
-    guint8      cbit;
-    guint8      opcode = 0;
+    unsigned    offset = 0;
+    uint8_t     dlsap;
+    uint8_t     slsap;
+    uint8_t     cbit;
+    uint8_t     opcode = 0;
 
 
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IrLMP");
 
-    dlsap = tvb_get_guint8(tvb, offset);
+    dlsap = tvb_get_uint8(tvb, offset);
     cbit  = dlsap & CONTROL_BIT;
     dlsap &= ~CONTROL_BIT;
 
-    slsap = tvb_get_guint8(tvb, offset+1) & ~CONTROL_BIT;
+    slsap = tvb_get_uint8(tvb, offset+1) & ~CONTROL_BIT;
 
     /* save Lsaps in pinfo */
     pinfo->srcport  = slsap;
@@ -1050,7 +1060,7 @@ static void dissect_irlmp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, g
 
     if (cbit != 0)
     {
-        opcode = tvb_get_guint8(tvb, offset+2);
+        opcode = tvb_get_uint8(tvb, offset+2);
 
         col_add_fstr(pinfo->cinfo, COL_INFO, "%d > %d, ", slsap, dlsap);
         col_append_str(pinfo->cinfo, COL_INFO, val_to_str(opcode, lmp_opcode_vals, "0x%02X"));
@@ -1058,7 +1068,7 @@ static void dissect_irlmp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, g
         {
             col_append_str(pinfo->cinfo, COL_INFO, " (");
             col_append_str(pinfo->cinfo, COL_INFO,
-                           val_to_str(tvb_get_guint8(tvb, offset+4), lmp_mode_vals, "0x%02X"));
+                           val_to_str(tvb_get_uint8(tvb, offset+4), lmp_mode_vals, "0x%02X"));
             col_append_str(pinfo->cinfo, COL_INFO, ")");
         }
     }
@@ -1194,9 +1204,9 @@ static void dissect_irlmp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, g
 /*
  * Add LMP conversation
  */
-void add_lmp_conversation(packet_info* pinfo, guint8 dlsap, gboolean ttp, dissector_handle_t dissector, guint8 circuit_id)
+void add_lmp_conversation(packet_info* pinfo, uint8_t dlsap, bool ttp, dissector_handle_t dissector, uint8_t circuit_id)
 {
-    guint8              dest;
+    uint8_t             dest;
     address             srcaddr;
     address             destaddr;
     conversation_t*     conv;
@@ -1246,27 +1256,27 @@ void add_lmp_conversation(packet_info* pinfo, guint8 dlsap, gboolean ttp, dissec
 /*
  * Dissect Negotiation Parameters
  */
-static guint dissect_negotiation(tvbuff_t* tvb, proto_tree* tree, guint offset)
+static unsigned dissect_negotiation(tvbuff_t* tvb, proto_tree* tree, unsigned offset)
 {
-    guint       n   = 0;
+    unsigned    n   = 0;
     proto_item* ti;
     proto_tree* p_tree;
     char        buf[256];
-    guint8      pv;
+    uint8_t     pv;
 
     while (tvb_reported_length_remaining(tvb, offset) > 0)
     {
-        guint8  p_len = tvb_get_guint8(tvb, offset + 1);
+        uint8_t p_len = tvb_get_uint8(tvb, offset + 1);
 
         if (tree)
         {
             ti = proto_tree_add_item(tree, hf_negotiation_param, tvb, offset, p_len + 2, ENC_NA);
             p_tree = proto_item_add_subtree(ti, ett_param[n]);
 
-            pv = tvb_get_guint8(tvb, offset+2);
+            pv = tvb_get_uint8(tvb, offset+2);
             buf[0] = 0;
 
-            switch (tvb_get_guint8(tvb, offset))
+            switch (tvb_get_uint8(tvb, offset))
             {
                 case PI_BAUD_RATE:
                     proto_item_append_text(ti, ": Baud Rate (");
@@ -1287,7 +1297,7 @@ static guint dissect_negotiation(tvbuff_t* tvb, proto_tree* tree, guint offset)
                         (void) g_strlcat(buf, ", 576000", 256);
                     if (pv & 0x80)
                         (void) g_strlcat(buf, ", 1152000", 256);
-                    if ((p_len > 1) && (tvb_get_guint8(tvb, offset+3) & 0x01))
+                    if ((p_len > 1) && (tvb_get_uint8(tvb, offset+3) & 0x01))
                         (void) g_strlcat(buf, ", 4000000", 256);
 
                     (void) g_strlcat(buf, " bps)", 256);
@@ -1455,14 +1465,14 @@ static guint dissect_negotiation(tvbuff_t* tvb, proto_tree* tree, guint offset)
 /*
  * Dissect XID packet
  */
-static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, proto_tree* lap_tree, gboolean is_command)
+static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, proto_tree* lap_tree, bool is_command)
 {
     int         offset = 0;
     proto_item* ti = NULL;
     proto_tree* i_tree = NULL;
     proto_tree* flags_tree;
-    guint32     saddr, daddr;
-    guint8      s;
+    uint32_t    saddr, daddr;
+    uint8_t     s;
     proto_tree* lmp_tree = NULL;
 
     if (lap_tree)
@@ -1488,6 +1498,7 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
     if (lap_tree)
     {
+        /* Discovery flags */
         ti = proto_tree_add_item(i_tree, hf_xid_flags, tvb, offset, 1, ENC_BIG_ENDIAN);
         flags_tree = proto_item_add_subtree(ti, ett_xid_flags);
         proto_tree_add_item(flags_tree, hf_xid_s, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1497,7 +1508,7 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
     if (is_command)
     {
-        s = tvb_get_guint8(tvb, offset);
+        s = tvb_get_uint8(tvb, offset);
         if (s == 0xFF)
             col_append_str(pinfo->cinfo, COL_INFO, ", s=final");
         else
@@ -1509,6 +1520,7 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
                 proto_item_append_text(ti, " (final)");
         }
     }
+    /* Skip (empty?) byte even if no command.. Have seen non-zero values in a capture */
     offset++;
 
     if (lap_tree)
@@ -1523,9 +1535,9 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
     if (tvb_reported_length_remaining(tvb, offset) > 0)
     {
-        guint    hints_len;
-        guint8      hint1 = 0;
-        guint8      hint2 = 0;
+        unsigned hints_len;
+        uint8_t     hint1 = 0;
+        uint8_t     hint2 = 0;
 
         if (root)
         {
@@ -1535,7 +1547,7 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
         for (hints_len = 0;;)
         {
-            guint8 hint = tvb_get_guint8(tvb, offset + hints_len++);
+            uint8_t hint = tvb_get_uint8(tvb, offset + hints_len++);
 
             if (hints_len == 1)
                 hint1 = hint;
@@ -1589,13 +1601,13 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
         if (tvb_reported_length_remaining(tvb, offset) > 0)
         {
-            guint8 cset;
-            gint name_len;
-            gchar *name;
-            gboolean have_encoding;
-            guint  encoding;
+            uint8_t cset;
+            int name_len;
+            char *name;
+            bool have_encoding;
+            unsigned  encoding;
 
-            cset = tvb_get_guint8(tvb, offset);
+            cset = tvb_get_uint8(tvb, offset);
             if (root)
                 proto_tree_add_uint(lmp_tree, hf_lmp_xid_charset, tvb, offset, 1, cset);
             offset++;
@@ -1606,70 +1618,70 @@ static void dissect_xid(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, pro
 
                 case LMP_CHARSET_ASCII:
                     encoding = ENC_ASCII|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_1:
                     encoding = ENC_ISO_8859_1|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_2:
                     encoding = ENC_ISO_8859_2|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_3:
                     encoding = ENC_ISO_8859_3|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_4:
                     encoding = ENC_ISO_8859_4|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_5:
                     encoding = ENC_ISO_8859_5|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_6:
                     encoding = ENC_ISO_8859_6|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_7:
                     encoding = ENC_ISO_8859_7|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_8:
                     encoding = ENC_ISO_8859_8|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_ISO_8859_9:
                     encoding = ENC_ISO_8859_9|ENC_NA;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 case LMP_CHARSET_UNICODE:
                     /* Presumably big-endian; assume just UCS-2 for now */
                     encoding = ENC_UCS_2|ENC_BIG_ENDIAN;
-                    have_encoding = TRUE;
+                    have_encoding = true;
                     break;
 
                 default:
                     encoding = 0;
-                    have_encoding = FALSE;
+                    have_encoding = false;
                     break;
                 }
 
                 if (have_encoding)
                 {
-                    name = (gchar *) tvb_get_string_enc(pinfo->pool, tvb, offset, name_len, encoding);
-                    col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", format_text(pinfo->pool, (guchar *) name, strlen(name)));
+                    name = (char *) tvb_get_string_enc(pinfo->pool, tvb, offset, name_len, encoding);
+                    col_append_fstr(pinfo->cinfo, COL_INFO, ", \"%s\"", format_text(pinfo->pool, (unsigned char *) name, strlen(name)));
                     if (root)
                         proto_tree_add_item(lmp_tree, hf_lmp_xid_name, tvb, offset,
                                             -1, encoding);
@@ -1701,7 +1713,7 @@ static void dissect_log(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
     }
     else
     {
-        guint   length;
+        unsigned   length;
         char   *buf;
 
         length = tvb_captured_length(tvb);
@@ -1711,7 +1723,7 @@ static void dissect_log(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
         else if (length > 1 && buf[length-2] == '\n')
             buf[length-2] = 0;
 
-        col_add_str(pinfo->cinfo, COL_INFO, format_text(pinfo->pool, (guchar *) buf, strlen(buf)));
+        col_add_str(pinfo->cinfo, COL_INFO, format_text(pinfo->pool, (unsigned char *) buf, strlen(buf)));
     }
 
     if (root)
@@ -1733,14 +1745,14 @@ static void dissect_log(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
 static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
 {
     int      offset = 0;
-    guint8   circuit_id, c;
-    gboolean is_response;
+    uint8_t  circuit_id, c;
+    bool is_response;
     char     addr[9];
     proto_item* ti = NULL;
     proto_tree* tree = NULL;
     proto_tree* i_tree = NULL;
-    guint32  saddr, daddr;
-    guint8   ca;
+    uint32_t saddr, daddr;
+    uint8_t  ca;
 
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IrLAP");
@@ -1761,7 +1773,7 @@ static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
     }
 
     /* decode values used for demuxing */
-    circuit_id = tvb_get_guint8(tvb, 0);
+    circuit_id = tvb_get_uint8(tvb, 0);
 
     /* initially set address columns to connection address */
     snprintf(addr, sizeof(addr)-1, "0x%02X", circuit_id >> 1);
@@ -1796,9 +1808,9 @@ static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
     offset++;
 
     /* process the control field */
-    c = dissect_xdlc_control(tvb, 1, pinfo, tree, hf_lap_c,
+    c = dissect_xdlc_control(tvb, offset, pinfo, tree, hf_lap_c,
             ett_lap_c, &irlap_cf_items, NULL, lap_c_u_cmd_abbr_vals,
-            lap_c_u_rsp_abbr_vals, is_response, FALSE, FALSE);
+            lap_c_u_rsp_abbr_vals, is_response, false, false);
     offset++;
 
     if ((c & XDLC_I_MASK) == XDLC_I) {
@@ -1838,7 +1850,7 @@ static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
                     proto_tree_add_uint(i_tree, hf_snrm_daddr, tvb, offset, 4, daddr);
                 offset += 4;
 
-                ca = tvb_get_guint8(tvb, offset);
+                ca = tvb_get_uint8(tvb, offset);
                 if (!is_response)
                 {
                     col_append_fstr(pinfo->cinfo, COL_INFO, ", ca=0x%02X",
@@ -1855,7 +1867,7 @@ static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
 
             case IRDA_XID_CMD:
                 tvb = tvb_new_subset_remaining(tvb, offset);
-                dissect_xid(tvb, pinfo, root, tree, TRUE);
+                dissect_xid(tvb, pinfo, root, tree, true);
                 return;
 
             case XDLC_UA:
@@ -1887,7 +1899,7 @@ static void dissect_irlap(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root)
 
             case XDLC_XID:
                 tvb = tvb_new_subset_remaining(tvb, offset);
-                dissect_xid(tvb, pinfo, root, tree, FALSE);
+                dissect_xid(tvb, pinfo, root, tree, false);
                 return;
          }
     }
@@ -1918,11 +1930,11 @@ static int dissect_irda(tvbuff_t* tvb, packet_info* pinfo, proto_tree* root, voi
     return tvb_captured_length(tvb);
 }
 
-static int irda_addr_to_str(const address* addr, gchar *buf, int buf_len _U_)
+static int irda_addr_to_str(const address* addr, char *buf, int buf_len _U_)
 {
-    const guint8 *addrdata = (const guint8 *)addr->data;
+    const uint8_t *addrdata = (const uint8_t *)addr->data;
 
-    guint32_to_str_buf(*addrdata, buf, buf_len);
+    uint32_to_str_buf(*addrdata, buf, buf_len);
     return (int)strlen(buf);
 }
 
@@ -1931,7 +1943,7 @@ static int irda_addr_str_len(const address* addr _U_)
     return 11; /* Leaves required space (10 bytes) for uint_to_str_back() */
 }
 
-static const char* irda_col_filter_str(const address* addr _U_, gboolean is_src _U_)
+static const char* irda_col_filter_str(const address* addr _U_, bool is_src _U_)
 {
     return "irlap.a";
 }
@@ -1948,7 +1960,7 @@ static int irda_addr_len(void)
  */
 void proto_register_irda(void)
 {
-    guint i;
+    unsigned i;
 
     /* Setup list of header fields */
     static hf_register_info hf_lap[] = {
@@ -2247,7 +2259,7 @@ void proto_register_irda(void)
     };
 
     /* Setup protocol subtree arrays */
-    static gint* ett[] = {
+    static int* ett[] = {
         &ett_irlap,
         &ett_lap_a,
         &ett_lap_c,
@@ -2262,8 +2274,8 @@ void proto_register_irda(void)
         &ett_ttp
     };
 
-    gint* ett_p[MAX_PARAMETERS];
-    gint* ett_iap_e[MAX_IAP_ENTRIES];
+    int* ett_p[MAX_PARAMETERS];
+    int* ett_iap_e[MAX_IAP_ENTRIES];
 
 
     /* Register protocol names and descriptions */

@@ -22,9 +22,9 @@
 #include <config.h>
 
 #include <epan/packet.h>
-#include <epan/to_str.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include "packet-mctp.h"
-#include "packet-sll.h"
 
 #define MCTP_CTRL_MIN_LENGTH 3
 
@@ -40,8 +40,8 @@ static int hf_mctp_ctrl_instance;
 static int hf_mctp_ctrl_cc;
 static int hf_mctp_ctrl_data;
 
-static gint ett_mctp_ctrl;
-static gint ett_mctp_ctrl_hdr;
+static int ett_mctp_ctrl;
+static int ett_mctp_ctrl_hdr;
 
 static const value_string command_vals[] = {
     { 0x00, "Reserved" },
@@ -70,9 +70,9 @@ dissect_mctp_ctrl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         void *data _U_)
 {
     proto_tree *mctp_ctrl_tree, *mctp_ctrl_hdr_tree;
-    guint len, payload_start, cmd;
+    unsigned len, payload_start, cmd;
     proto_item *ti, *hti;
-    gboolean rq;
+    bool rq;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "MCTP Control");
     col_clear(pinfo->cinfo, COL_INFO);
@@ -170,7 +170,7 @@ proto_register_mctp_control(void)
     };
 
     /* protocol subtree */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_mctp_ctrl,
         &ett_mctp_ctrl_hdr,
     };

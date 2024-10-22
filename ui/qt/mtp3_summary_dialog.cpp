@@ -16,8 +16,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <epan/tap.h>
 
 #include <epan/dissectors/packet-mtp3.h>

@@ -122,6 +122,9 @@ files = []
 all_urls = set()
 
 def find_links_in_file(filename):
+    if os.path.isdir(filename):
+        return
+
     with open(filename, 'r', encoding="utf8") as f:
         for line_number, line in enumerate(f, start=1):
             # TODO: not matching
@@ -141,14 +144,21 @@ def find_links_in_file(filename):
                 all_urls.add(url)
 
 
-# Scan the given folder for links to test.
+# Scan the given folder for links to test. Recurses.
 def find_links_in_folder(folder):
-    # Look at files in sorted order, to give some idea of how far through it
-    # is.
-    for filename in sorted(os.listdir(folder)):
-        if filename.endswith('.c'):
-            global links
-            find_links_in_file(os.path.join(folder, filename))
+    files_to_check = []
+    for root,subfolders,files in os.walk(folder):
+        for f in files:
+            if should_exit:
+                return
+            file = os.path.join(root, f)
+            if file.endswith('.c') or file.endswith('.adoc'):
+                files_to_check.append(file)
+
+    # Deal with files in sorted order.
+    for file in sorted(files_to_check):
+        find_links_in_file(file)
+
 
 
 async def populate_cache(sem, session, url):
@@ -181,8 +191,8 @@ async def check_all_links(links):
         except (asyncio.CancelledError):
             await session.close()
 
-    for l in links:
-        l.validate()
+    for link in links:
+        link.validate()
 
 
 #################################################################
@@ -199,12 +209,15 @@ parser.add_argument('--open', action='store_true',
                     help='check open files')
 parser.add_argument('--verbose', action='store_true',
                     help='when enabled, show more output')
+parser.add_argument('--docs', action='store_true',
+                    help='when enabled, also check document folders')
+
 
 args = parser.parse_args()
 
 
 def is_dissector_file(filename):
-    p = re.compile(r'epan/dissectors/packet-.*\.c')
+    p = re.compile(r'.*(packet|file)-.*\.c')
     return p.match(filename)
 
 
@@ -212,7 +225,7 @@ def is_dissector_file(filename):
 if args.file:
     # Add specified file(s)
     for f in args.file:
-        if not f.startswith('epan'):
+        if not os.path.isfile(f) and not f.startswith('epan'):
             f = os.path.join('epan', 'dissectors', f)
         if not os.path.isfile(f):
             print('Chosen file', f, 'does not exist.')
@@ -246,10 +259,13 @@ elif args.open:
         if f not in files:
             find_links_in_file(f)
             files.append(f)
+elif args.docs:
+    # Find links from doc folder(s)
+    find_links_in_folder(os.path.join(os.path.dirname(__file__), '..', 'doc'))
+
 else:
     # Find links from dissector folder.
-    find_links_in_folder(os.path.join(os.path.dirname(
-        __file__), '..', 'epan', 'dissectors'))
+    find_links_in_folder(os.path.join(os.path.dirname(__file__), '..', 'epan', 'dissectors'))
 
 
 # If scanning a subset of files, list them here.
@@ -260,7 +276,10 @@ if args.file or args.commits or args.open:
     else:
         print('No files to check.\n')
 else:
-    print('All dissector modules\n')
+    if not args.docs:
+        print('All dissector modules\n')
+    else:
+        print('Document sources')
 
 asyncio.run(check_all_links(links))
 
@@ -268,21 +287,21 @@ asyncio.run(check_all_links(links))
 if os.path.exists('failures.txt'):
     shutil.copyfile('failures.txt', 'failures_last_run.txt')
 with open('failures.txt', 'w') as f_f:
-    for l in links:
-        if l.tested and not l.success:
-            f_f.write(str(l) + '\n')
+    for link in links:
+        if link.tested and not link.success:
+            f_f.write(str(link) + '\n')
 # And successes
 with open('successes.txt', 'w') as f_s:
-    for l in links:
-        if l.tested and l.success:
-            f_s.write(str(l) + '\n')
+    for link in links:
+        if link.tested and link.success:
+            f_s.write(str(link) + '\n')
 
 
 # Count and show overall stats.
 passed, failed = 0, 0
-for l in links:
-    if l.tested:
-        if l.success:
+for link in links:
+    if link.tested:
+        if link.success:
             passed += 1
         else:
             failed += 1

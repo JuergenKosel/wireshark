@@ -12,7 +12,6 @@
 
 #include "config.h"
 
-#include <glib.h>
 #include <mutex>
 
 #include "ui/rtp_stream.h"
@@ -146,6 +145,8 @@ private slots:
     void updateWidgets();
     void itemEntered(QTreeWidgetItem *item, int column);
     void mouseMovePlot(QMouseEvent *event);
+    void mouseMoveUpdate();
+    void showGraphContextMenu(const QPoint &pos);
     void graphClicked(QMouseEvent *event);
     void graphDoubleClicked(QMouseEvent *event);
     void plotClicked(QCPAbstractPlottable *plottable, int dataIndex, QMouseEvent *event);
@@ -245,11 +246,13 @@ private:
     QToolButton *analyze_btn_;
     QPushButton *prepare_btn_;
     QPushButton *export_btn_;
-    QMultiHash<guint, RtpAudioStream *> stream_hash_;
+    QMultiHash<unsigned, RtpAudioStream *> stream_hash_;
     bool block_redraw_;
     int lock_ui_;
     bool read_capture_enabled_;
     double silence_skipped_time_;
+    QTimer *mouse_update_timer_;
+    QPoint mouse_pos_;
 
 //    const QString streamKey(const rtpstream_info_t *rtpstream);
 //    const QString streamKey(const packet_info *pinfo, const struct _rtp_info *rtpinfo);

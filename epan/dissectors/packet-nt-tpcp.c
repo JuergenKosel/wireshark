@@ -14,6 +14,8 @@
 
 #include <epan/packet.h>
 #include <epan/addr_resolv.h> /* this is for get_hostname and udp_port_to_display */
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 
 void proto_register_tpcp(void);
 void proto_reg_handoff_tpcp(void);
@@ -24,21 +26,21 @@ static dissector_handle_t tpcp_handle;
 
 /* TPCP version1/2 PDU format */
 typedef struct _tpcppdu_t {
-	guint8	version;     /* PDU version 1 */
-	guint8	type;	     /* PDU type: 1=request, 2=reply, 3=add filter, 4=rem  filter */
+	uint8_t	version;     /* PDU version 1 */
+	uint8_t	type;	     /* PDU type: 1=request, 2=reply, 3=add filter, 4=rem  filter */
 	                     /* Version 2 adds 5=add session 6= remove session */
-	guint16	flags;	     /* 0x0001: 0=UDP, 1=TCP*/
+	uint16_t	flags;	     /* 0x0001: 0=UDP, 1=TCP*/
 	                     /* 0x0002: 0=NONE, 1=DONT_REDIRECT */
 	                     /* 0x0004: 0=NONE, 1=Xon */
 	                     /* 0x0008: 0=NONE, 1=Xoff */
-	guint16	id;	     /* request/response identification or TTL */
-	guint16	cport;	     /* client UDP or TCP port number */
-	guint32	caddr;	     /* client IPv4 address */
-	guint32	saddr;	     /* server IPV4 address */
+	uint16_t	id;	     /* request/response identification or TTL */
+	uint16_t	cport;	     /* client UDP or TCP port number */
+	uint32_t	caddr;	     /* client IPv4 address */
+	uint32_t	saddr;	     /* server IPV4 address */
 	/* tpcp version 2 only*/
-	guint32 vaddr;	     /* Virtual Server IPv4 address */
-	guint32 rasaddr;     /* RAS server IPv4 address */
-	guint32 signature;   /* 0x74706370 - tpcp */
+	uint32_t vaddr;	     /* Virtual Server IPv4 address */
+	uint32_t rasaddr;     /* RAS server IPv4 address */
+	uint32_t signature;   /* 0x74706370 - tpcp */
 } tpcpdu_t;
 
 
@@ -54,10 +56,10 @@ static const value_string type_vals[] = {
 };
 
 /* TPCP Flags */
-#define TF_TPCP_UDPTCP 0x0001
-#define TF_TPCP_DONTREDIRECT 0x0002
-#define TF_TPCP_XON 0x0004
-#define TF_TPCP_XOFF 0x0008
+#define TF_TPCP_UDPTCP       0x01
+#define TF_TPCP_DONTREDIRECT 0x02
+#define TF_TPCP_XON          0x04
+#define TF_TPCP_XOFF         0x08
 
 
 /* Version info */
@@ -85,8 +87,8 @@ static int hf_tpcp_signature;
 
 static int proto_tpcp;
 
-static gint ett_tpcp;
-static gint ett_tpcp_flags;
+static int ett_tpcp;
+static int ett_tpcp_flags;
 
 
 static int
@@ -94,8 +96,8 @@ dissect_tpcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 {
 	proto_tree *tpcp_tree = NULL;
 	proto_item *ti;
-	guint8	version, type;
-	guint16	id, cport;
+	uint8_t	version, type;
+	uint16_t	id, cport;
 
 	static int * const tpcp_flags[] = {
 		&hf_tpcp_flags_tcp,
@@ -109,7 +111,7 @@ dissect_tpcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	/* need to find out which version!! */
-	version = tvb_get_guint8(tvb, 0);
+	version = tvb_get_uint8(tvb, 0);
 	if ((version != TPCP_VER_1) && (version != TPCP_VER_2)) {
 		/* Not us */
 		return 0;
@@ -121,10 +123,12 @@ dissect_tpcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	tpcp_tree = proto_item_add_subtree(ti, ett_tpcp);
 
 	proto_tree_add_item(tpcp_tree, hf_tpcp_version, tvb, 0, 1, ENC_BIG_ENDIAN);
-	type = tvb_get_guint8(tvb, 1);
+	type = tvb_get_uint8(tvb, 1);
 	proto_tree_add_item(tpcp_tree, hf_tpcp_type, tvb, 1, 1, ENC_BIG_ENDIAN);
 
 	proto_tree_add_bitmask(tpcp_tree, tvb, 2, hf_tpcp_flags, ett_tpcp_flags, tpcp_flags, ENC_NA);
+
+	/* N.B., flags are 8 bits, so byte at offset 3 skipped.. */
 
 	id = tvb_get_ntohs(tvb, 4);
 	proto_tree_add_item(tpcp_tree, hf_tpcp_id, tvb, 4, 2, ENC_BIG_ENDIAN);
@@ -217,7 +221,7 @@ proto_register_tpcp(void)
 	};
 
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_tpcp,
 		&ett_tpcp_flags,
 	};

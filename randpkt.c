@@ -30,7 +30,6 @@
 #include <wsutil/plugins.h>
 #endif
 
-#include <wsutil/report_message.h>
 #include <wsutil/wslog.h>
 
 #include <wsutil/ws_getopt.h>
@@ -48,7 +47,7 @@ list_capture_types(void) {
 
     cmdarg_err("The available capture file types for the \"-F\" flag are:\n");
     writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
-    for (guint i = 0; i < writable_type_subtypes->len; i++) {
+    for (unsigned i = 0; i < writable_type_subtypes->len; i++) {
         int ft = g_array_index(writable_type_subtypes, int, i);
         fprintf(stderr, "    %s - %s\n", wtap_file_type_subtype_name(ft),
             wtap_file_type_subtype_description(ft));
@@ -79,7 +78,7 @@ randpkt_cmdarg_err_cont(const char *msg_format, va_list ap)
 
 /* Print usage statement and exit program */
 static void
-usage(gboolean is_error)
+usage(bool is_error)
 {
     FILE *output;
     char** abbrev_list;
@@ -124,18 +123,6 @@ int
 main(int argc, char *argv[])
 {
     char *configuration_init_error;
-    static const struct report_message_routines randpkt_report_routines = {
-        failure_message,
-        failure_message,
-        open_failure_message,
-        read_failure_message,
-        write_failure_message,
-        cfile_open_failure_message,
-        cfile_dump_open_failure_message,
-        cfile_read_failure_message,
-        cfile_write_failure_message,
-        cfile_close_failure_message
-    };
     int opt;
     int produce_type = -1;
     char *produce_filename = NULL;
@@ -143,8 +130,8 @@ main(int argc, char *argv[])
     int produce_count = 1000;
     int file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
     randpkt_example *example;
-    guint8* type = NULL;
-    int allrandom = FALSE;
+    uint8_t* type = NULL;
+    bool allrandom = false;
     wtap_dumper *savedump;
     int ret = EXIT_SUCCESS;
     static const struct ws_option long_options[] = {
@@ -180,9 +167,9 @@ main(int argc, char *argv[])
         g_free(configuration_init_error);
     }
 
-    init_report_message("randpkt", &randpkt_report_routines);
+    init_report_failure_message("randpkt");
 
-    wtap_init(TRUE);
+    wtap_init(true);
 
 #ifdef _WIN32
     create_app_running_mutex();
@@ -220,12 +207,12 @@ main(int argc, char *argv[])
 
             case 'h':
                 show_help_header(NULL);
-                usage(FALSE);
+                usage(false);
                 goto clean_exit;
                 break;
 
             case 'r':
-                allrandom = TRUE;
+                allrandom = true;
                 break;
 
             case 'v':
@@ -238,12 +225,11 @@ main(int argc, char *argv[])
                     case 'F':
                         list_capture_types();
                         return WS_EXIT_INVALID_OPTION;
-                        break;
                 }
                 /* FALLTHROUGH */
 
             default:
-                usage(TRUE);
+                usage(true);
                 ret = WS_EXIT_INVALID_OPTION;
                 goto clean_exit;
                 break;
@@ -254,7 +240,7 @@ main(int argc, char *argv[])
     if (argc > ws_optind) {
         produce_filename = argv[ws_optind];
     } else {
-        usage(TRUE);
+        usage(true);
         ret = WS_EXIT_INVALID_OPTION;
         goto clean_exit;
     }

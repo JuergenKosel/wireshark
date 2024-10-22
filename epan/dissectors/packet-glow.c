@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-glow.c                                                              */
-/* asn2wrs.py -b -L -p glow -c ./glow.cnf -s ./packet-glow-template -D . -O ../.. glow.asn */
+/* asn2wrs.py -b -q -L -p glow -c ./glow.cnf -s ./packet-glow-template -D . -O ../.. glow.asn */
 
 /* packet-glow.c
  * Routines for GLOW packet dissection
@@ -18,6 +18,8 @@
 # include "config.h"
 
 #include <epan/packet.h>
+#include <epan/proto_data.h>
+#include <wsutil/array.h>
 #include "packet-ber.h"
 
 #define PNAME  "Glow"
@@ -26,7 +28,7 @@
 
 void proto_register_glow(void);
 
-static dissector_handle_t glow_handle=NULL;
+static dissector_handle_t glow_handle;
 static int proto_glow;
 
 static int hf_glow_Root_PDU;                      /* Root */
@@ -127,48 +129,48 @@ static int hf_glow_qualifiedTemplate;             /* QualifiedTemplate */
 /* Initialize the subtree pointers */
 static int ett_glow;
 
-static gint ett_glow_Template_U;
-static gint ett_glow_QualifiedTemplate_U;
-static gint ett_glow_TemplateElement;
-static gint ett_glow_Parameter_U;
-static gint ett_glow_QualifiedParameter_U;
-static gint ett_glow_ParameterContents;
-static gint ett_glow_Value;
-static gint ett_glow_MinMax;
-static gint ett_glow_StringIntegerPair_U;
-static gint ett_glow_SEQUENCE_OF_StringIntegerPair;
-static gint ett_glow_StreamDescription_U;
-static gint ett_glow_Command_U;
-static gint ett_glow_T_options;
-static gint ett_glow_Node_U;
-static gint ett_glow_QualifiedNode_U;
-static gint ett_glow_NodeContents;
-static gint ett_glow_Matrix_U;
-static gint ett_glow_MatrixContents;
-static gint ett_glow_ParametersLocation;
-static gint ett_glow_LabelCollection;
-static gint ett_glow_Label_U;
-static gint ett_glow_TargetCollection;
-static gint ett_glow_Signal;
-static gint ett_glow_SourceCollection;
-static gint ett_glow_ConnectionCollection;
-static gint ett_glow_Connection_U;
-static gint ett_glow_QualifiedMatrix_U;
-static gint ett_glow_Function_U;
-static gint ett_glow_QualifiedFunction_U;
-static gint ett_glow_FunctionContents;
-static gint ett_glow_TupleDescription;
-static gint ett_glow_TupleItemDescription_U;
-static gint ett_glow_Invocation_U;
-static gint ett_glow_Tuple;
-static gint ett_glow_InvocationResult_U;
-static gint ett_glow_SEQUENCE_OF_Element;
-static gint ett_glow_Element;
-static gint ett_glow_StreamEntry_U;
-static gint ett_glow_SEQUENCE_OF_StreamEntry;
-static gint ett_glow_Root_U;
-static gint ett_glow_SEQUENCE_OF_RootElement;
-static gint ett_glow_RootElement;
+static int ett_glow_Template_U;
+static int ett_glow_QualifiedTemplate_U;
+static int ett_glow_TemplateElement;
+static int ett_glow_Parameter_U;
+static int ett_glow_QualifiedParameter_U;
+static int ett_glow_ParameterContents;
+static int ett_glow_Value;
+static int ett_glow_MinMax;
+static int ett_glow_StringIntegerPair_U;
+static int ett_glow_SEQUENCE_OF_StringIntegerPair;
+static int ett_glow_StreamDescription_U;
+static int ett_glow_Command_U;
+static int ett_glow_T_options;
+static int ett_glow_Node_U;
+static int ett_glow_QualifiedNode_U;
+static int ett_glow_NodeContents;
+static int ett_glow_Matrix_U;
+static int ett_glow_MatrixContents;
+static int ett_glow_ParametersLocation;
+static int ett_glow_LabelCollection;
+static int ett_glow_Label_U;
+static int ett_glow_TargetCollection;
+static int ett_glow_Signal;
+static int ett_glow_SourceCollection;
+static int ett_glow_ConnectionCollection;
+static int ett_glow_Connection_U;
+static int ett_glow_QualifiedMatrix_U;
+static int ett_glow_Function_U;
+static int ett_glow_QualifiedFunction_U;
+static int ett_glow_FunctionContents;
+static int ett_glow_TupleDescription;
+static int ett_glow_TupleItemDescription_U;
+static int ett_glow_Invocation_U;
+static int ett_glow_Tuple;
+static int ett_glow_InvocationResult_U;
+static int ett_glow_SEQUENCE_OF_Element;
+static int ett_glow_Element;
+static int ett_glow_StreamEntry_U;
+static int ett_glow_SEQUENCE_OF_StreamEntry;
+static int ett_glow_Root_U;
+static int ett_glow_SEQUENCE_OF_RootElement;
+static int ett_glow_RootElement;
 
 /*--- Cyclic dependencies ---*/
 
@@ -367,7 +369,7 @@ dissect_glow_StringIntegerPair_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_glow_StringIntegerPair(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 7, TRUE, dissect_glow_StringIntegerPair_U);
+                                      hf_index, BER_CLASS_APP, 7, true, dissect_glow_StringIntegerPair_U);
 
   return offset;
 }
@@ -390,7 +392,7 @@ dissect_glow_SEQUENCE_OF_StringIntegerPair(bool implicit_tag _U_, tvbuff_t *tvb 
 static int
 dissect_glow_StringIntegerCollection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 8, TRUE, dissect_glow_SEQUENCE_OF_StringIntegerPair);
+                                      hf_index, BER_CLASS_APP, 8, true, dissect_glow_SEQUENCE_OF_StringIntegerPair);
 
   return offset;
 }
@@ -447,7 +449,7 @@ dissect_glow_StreamDescription_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_glow_StreamDescription(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 12, TRUE, dissect_glow_StreamDescription_U);
+                                      hf_index, BER_CLASS_APP, 12, true, dissect_glow_StreamDescription_U);
 
   return offset;
 }
@@ -533,7 +535,7 @@ dissect_glow_Node_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 static int
 dissect_glow_Node(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 3, TRUE, dissect_glow_Node_U);
+                                      hf_index, BER_CLASS_APP, 3, true, dissect_glow_Node_U);
 
   return offset;
 }
@@ -611,7 +613,7 @@ dissect_glow_Invocation_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 static int
 dissect_glow_Invocation(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 22, TRUE, dissect_glow_Invocation_U);
+                                      hf_index, BER_CLASS_APP, 22, true, dissect_glow_Invocation_U);
 
   return offset;
 }
@@ -658,7 +660,7 @@ dissect_glow_Command_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 static int
 dissect_glow_Command(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 2, TRUE, dissect_glow_Command_U);
+                                      hf_index, BER_CLASS_APP, 2, true, dissect_glow_Command_U);
 
   return offset;
 }
@@ -738,7 +740,7 @@ dissect_glow_Label_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 static int
 dissect_glow_Label(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 18, TRUE, dissect_glow_Label_U);
+                                      hf_index, BER_CLASS_APP, 18, true, dissect_glow_Label_U);
 
   return offset;
 }
@@ -801,7 +803,7 @@ dissect_glow_Signal(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 static int
 dissect_glow_Target(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 14, TRUE, dissect_glow_Signal);
+                                      hf_index, BER_CLASS_APP, 14, true, dissect_glow_Signal);
 
   return offset;
 }
@@ -824,7 +826,7 @@ dissect_glow_TargetCollection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int
 dissect_glow_Source(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 15, TRUE, dissect_glow_Signal);
+                                      hf_index, BER_CLASS_APP, 15, true, dissect_glow_Signal);
 
   return offset;
 }
@@ -908,7 +910,7 @@ dissect_glow_Connection_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 static int
 dissect_glow_Connection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 16, TRUE, dissect_glow_Connection_U);
+                                      hf_index, BER_CLASS_APP, 16, true, dissect_glow_Connection_U);
 
   return offset;
 }
@@ -950,7 +952,7 @@ dissect_glow_Matrix_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 static int
 dissect_glow_Matrix(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 13, TRUE, dissect_glow_Matrix_U);
+                                      hf_index, BER_CLASS_APP, 13, true, dissect_glow_Matrix_U);
 
   return offset;
 }
@@ -975,7 +977,7 @@ dissect_glow_TupleItemDescription_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 static int
 dissect_glow_TupleItemDescription(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 21, TRUE, dissect_glow_TupleItemDescription_U);
+                                      hf_index, BER_CLASS_APP, 21, true, dissect_glow_TupleItemDescription_U);
 
   return offset;
 }
@@ -1032,7 +1034,7 @@ dissect_glow_Function_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 static int
 dissect_glow_Function(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 19, TRUE, dissect_glow_Function_U);
+                                      hf_index, BER_CLASS_APP, 19, true, dissect_glow_Function_U);
 
   return offset;
 }
@@ -1084,9 +1086,14 @@ dissect_glow_SEQUENCE_OF_Element(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 
 static int
 dissect_glow_ElementCollection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // ElementCollection -> ElementCollection/_untag -> Element -> Node -> Node/_untag -> ElementCollection
+  actx->pinfo->dissection_depth += 5;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 4, TRUE, dissect_glow_SEQUENCE_OF_Element);
+                                      hf_index, BER_CLASS_APP, 4, true, dissect_glow_SEQUENCE_OF_Element);
 
+  actx->pinfo->dissection_depth -= 5;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1110,9 +1117,14 @@ dissect_glow_Parameter_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 static int
 dissect_glow_Parameter(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // Parameter -> Parameter/_untag -> ElementCollection -> ElementCollection/_untag -> Element -> Parameter
+  actx->pinfo->dissection_depth += 5;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 1, TRUE, dissect_glow_Parameter_U);
+                                      hf_index, BER_CLASS_APP, 1, true, dissect_glow_Parameter_U);
 
+  actx->pinfo->dissection_depth -= 5;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1162,9 +1174,14 @@ dissect_glow_Template_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 
 static int
 dissect_glow_Template(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // Template -> Template/_untag -> TemplateElement -> Parameter -> Parameter/_untag -> ElementCollection -> ElementCollection/_untag -> Element -> Template
+  actx->pinfo->dissection_depth += 8;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 24, TRUE, dissect_glow_Template_U);
+                                      hf_index, BER_CLASS_APP, 24, true, dissect_glow_Template_U);
 
+  actx->pinfo->dissection_depth -= 8;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1189,7 +1206,7 @@ dissect_glow_QualifiedTemplate_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_glow_QualifiedTemplate(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 25, TRUE, dissect_glow_QualifiedTemplate_U);
+                                      hf_index, BER_CLASS_APP, 25, true, dissect_glow_QualifiedTemplate_U);
 
   return offset;
 }
@@ -1215,7 +1232,7 @@ dissect_glow_QualifiedParameter_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
 static int
 dissect_glow_QualifiedParameter(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 9, TRUE, dissect_glow_QualifiedParameter_U);
+                                      hf_index, BER_CLASS_APP, 9, true, dissect_glow_QualifiedParameter_U);
 
   return offset;
 }
@@ -1241,7 +1258,7 @@ dissect_glow_QualifiedNode_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 static int
 dissect_glow_QualifiedNode(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 10, TRUE, dissect_glow_QualifiedNode_U);
+                                      hf_index, BER_CLASS_APP, 10, true, dissect_glow_QualifiedNode_U);
 
   return offset;
 }
@@ -1270,7 +1287,7 @@ dissect_glow_QualifiedMatrix_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int
 dissect_glow_QualifiedMatrix(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 17, TRUE, dissect_glow_QualifiedMatrix_U);
+                                      hf_index, BER_CLASS_APP, 17, true, dissect_glow_QualifiedMatrix_U);
 
   return offset;
 }
@@ -1296,7 +1313,7 @@ dissect_glow_QualifiedFunction_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_glow_QualifiedFunction(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 20, TRUE, dissect_glow_QualifiedFunction_U);
+                                      hf_index, BER_CLASS_APP, 20, true, dissect_glow_QualifiedFunction_U);
 
   return offset;
 }
@@ -1322,7 +1339,7 @@ dissect_glow_InvocationResult_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_glow_InvocationResult(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 23, TRUE, dissect_glow_InvocationResult_U);
+                                      hf_index, BER_CLASS_APP, 23, true, dissect_glow_InvocationResult_U);
 
   return offset;
 }
@@ -1347,7 +1364,7 @@ dissect_glow_StreamEntry_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 static int
 dissect_glow_StreamEntry(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 5, TRUE, dissect_glow_StreamEntry_U);
+                                      hf_index, BER_CLASS_APP, 5, true, dissect_glow_StreamEntry_U);
 
   return offset;
 }
@@ -1370,7 +1387,7 @@ dissect_glow_SEQUENCE_OF_StreamEntry(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 static int
 dissect_glow_StreamCollection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 6, TRUE, dissect_glow_SEQUENCE_OF_StreamEntry);
+                                      hf_index, BER_CLASS_APP, 6, true, dissect_glow_SEQUENCE_OF_StreamEntry);
 
   return offset;
 }
@@ -1423,7 +1440,7 @@ dissect_glow_SEQUENCE_OF_RootElement(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 static int
 dissect_glow_RootElementCollection(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 11, TRUE, dissect_glow_SEQUENCE_OF_RootElement);
+                                      hf_index, BER_CLASS_APP, 11, true, dissect_glow_SEQUENCE_OF_RootElement);
 
   return offset;
 }
@@ -1457,7 +1474,7 @@ dissect_glow_Root_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 static int
 dissect_glow_Root(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 0, FALSE, dissect_glow_Root_U);
+                                      hf_index, BER_CLASS_APP, 0, false, dissect_glow_Root_U);
 
   return offset;
 }
@@ -1467,8 +1484,8 @@ dissect_glow_Root(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1
 static int dissect_Root_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_glow_Root(FALSE, tvb, offset, &asn1_ctx, tree, hf_glow_Root_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_glow_Root(false, tvb, offset, &asn1_ctx, tree, hf_glow_Root_PDU);
   return offset;
 }
 
@@ -1875,7 +1892,7 @@ void proto_register_glow(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
                   &ett_glow,
     &ett_glow_Template_U,
     &ett_glow_QualifiedTemplate_U,

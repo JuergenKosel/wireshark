@@ -22,16 +22,19 @@
 
 #include "capture/capture_session.h"
 #include "capture/capture_sync.h"
+#include "capture/iface_monitor.h"
 #include "extcap.h"
 
+#include <capture/capture-pcap-util.h>
+#include <capture/capture-pcap-util-int.h>
 #include <capture/capture_ifinfo.h>
 #include <wsutil/inet_addr.h>
 #include <wsutil/wsjson.h>
 
 #ifdef HAVE_PCAP_REMOTE
-static GList *remote_interface_list = NULL;
+static GList *remote_interface_list;
 
-static GList * append_remote_list(GList *iflist)
+GList * append_remote_list(GList *iflist)
 {
     GSList *list;
     GList *rlist;
@@ -96,12 +99,9 @@ deserialize_if_capability(char* data, jsmntok_t *inf_tok)
         caps->primary_msg = json_get_string(data, inf_tok, "primary_msg");
         if (caps->primary_msg) {
             caps->primary_msg = g_strdup(caps->primary_msg);
+            caps->secondary_msg = get_pcap_failure_secondary_error_message(err, caps->primary_msg);
         } else {
             caps->primary_msg = g_strdup("Failed with no message");
-        }
-        caps->secondary_msg = json_get_string(data, inf_tok, "secondary_msg");
-        if (caps->secondary_msg) {
-            caps->secondary_msg = g_strdup(caps->secondary_msg);
         }
         ws_info("Capture Interface Capabilities failed. Error %d, %s",
               err, caps->primary_msg ? caps->primary_msg : "no message");
@@ -204,7 +204,7 @@ deserialize_if_capability(char* data, jsmntok_t *inf_tok)
     return caps;
 }
 
-static GList *
+GList *
 deserialize_interface_list(char *data, int *err, char **err_str)
 {
     int        i, j;
@@ -217,6 +217,12 @@ deserialize_interface_list(char *data, int *err, char **err_str)
     if_addr_t *if_addr;
     jsmntok_t *tokens, *if_tok, *addrs_tok, *cur_tok;
     GList     *if_list = NULL;
+
+    if (data == NULL) {
+        ws_info("Passed NULL capture interface list");
+        *err = CANT_GET_INTERFACE_LIST;
+        return if_list;
+    }
 
     int num_tokens = json_parse(data, NULL, 0);
     if (num_tokens <= 0) {
@@ -394,8 +400,10 @@ capture_get_if_capabilities(const char *ifname, bool monitor_mode,
     }
 
     /* Try to get our interface list */
+    iface_mon_enable(false);
     err = sync_if_capabilities_open(ifname, monitor_mode, auth_string, &data,
                                     &primary_msg, &secondary_msg, update_cb);
+    iface_mon_enable(true);
     if (err != 0) {
         ws_info("Capture Interface Capabilities failed. Error %d, %s",
               err, primary_msg ? primary_msg : "no message");
@@ -444,8 +452,7 @@ capture_get_if_capabilities(const char *ifname, bool monitor_mode,
                     caps->primary_msg = NULL;
                 }
                 if (caps->secondary_msg && err_secondary_msg) {
-                    *err_secondary_msg = caps->secondary_msg;
-                    caps->secondary_msg = NULL;
+                    *err_secondary_msg = g_strdup(caps->secondary_msg);
                 }
                 free_if_capabilities(caps);
                 caps = NULL;
@@ -505,8 +512,10 @@ capture_get_if_list_capabilities(GList *if_cap_queries,
     local_queries = g_list_reverse(local_queries);
 
     /* Try to get our interface list */
+    iface_mon_enable(false);
     err = sync_if_list_capabilities_open(local_queries, &data,
                                     &primary_msg, &secondary_msg, update_cb);
+    iface_mon_enable(true);
     g_list_free(local_queries);
     if (err != 0) {
         ws_info("Capture Interface Capabilities failed. Error %d, %s",

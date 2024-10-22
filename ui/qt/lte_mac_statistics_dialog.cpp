@@ -57,7 +57,7 @@ enum {
 
 // Calculate and return a bandwidth figure, in Mbs
 static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time,
-                           guint32 bytes)
+                           uint32_t bytes)
 {
     // Can only calculate bandwidth if have time delta
     if (memcmp(start_time, stop_time, sizeof(nstime_t)) != 0) {
@@ -132,7 +132,7 @@ public:
     }
 
     // Increase value held for lcid by given value.
-    void updateLCID(guint8 lcid, guint value)
+    void updateLCID(uint8_t lcid, unsigned value)
     {
         lcids[lcid] += value;
     }
@@ -954,7 +954,7 @@ lte_mac_statistics_init(const char *args, void*) {
 }
 
 static stat_tap_ui lte_mac_statistics_ui = {
-    REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU,
+    REGISTER_TELEPHONY_GROUP_3GPP_UU,
     QT_TRANSLATE_NOOP("LteMacStatisticsDialog", "MAC Statistics"),
     "mac-3gpp,stat",             // cli_string
     lte_mac_statistics_init,

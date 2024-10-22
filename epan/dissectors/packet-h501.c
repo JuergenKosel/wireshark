@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-h501.c                                                              */
-/* asn2wrs.py -L -p h501 -c ./h501.cnf -s ./packet-h501-template -D . -O ../.. H501-MESSAGES.asn */
+/* asn2wrs.py -q -L -p h501 -c ./h501.cnf -s ./packet-h501-template -D . -O ../.. H501-MESSAGES.asn */
 
 /* packet-h501.c
  * Routines for H.501 packet dissection
@@ -20,6 +20,7 @@
 #include <epan/prefs.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-tpkt.h"
 #include "packet-per.h"
@@ -289,105 +290,105 @@ static int hf_h501_causeIE;                       /* INTEGER_1_65535 */
 
 /* Initialize the subtree pointers */
 static int ett_h501;
-static gint ett_h501_Message;
-static gint ett_h501_MessageBody;
-static gint ett_h501_MessageCommonInfo;
-static gint ett_h501_SEQUENCE_OF_TransportAddress;
-static gint ett_h501_SEQUENCE_OF_ClearToken;
-static gint ett_h501_SEQUENCE_OF_CryptoH323Token;
-static gint ett_h501_SEQUENCE_OF_NonStandardParameter;
-static gint ett_h501_SEQUENCE_OF_GenericData;
-static gint ett_h501_ServiceRequest;
-static gint ett_h501_SEQUENCE_OF_SecurityMode;
-static gint ett_h501_SecurityMode;
-static gint ett_h501_T_algorithmOIDs;
-static gint ett_h501_ServiceConfirmation;
-static gint ett_h501_ServiceRejection;
-static gint ett_h501_ServiceRejectionReason;
-static gint ett_h501_ServiceRelease;
-static gint ett_h501_ServiceReleaseReason;
-static gint ett_h501_DescriptorRequest;
-static gint ett_h501_SEQUENCE_OF_DescriptorID;
-static gint ett_h501_DescriptorConfirmation;
-static gint ett_h501_SEQUENCE_OF_Descriptor;
-static gint ett_h501_DescriptorRejection;
-static gint ett_h501_DescriptorRejectionReason;
-static gint ett_h501_DescriptorIDRequest;
-static gint ett_h501_DescriptorIDConfirmation;
-static gint ett_h501_SEQUENCE_OF_DescriptorInfo;
-static gint ett_h501_DescriptorIDRejection;
-static gint ett_h501_DescriptorIDRejectionReason;
-static gint ett_h501_DescriptorUpdate;
-static gint ett_h501_SEQUENCE_OF_UpdateInformation;
-static gint ett_h501_UpdateInformation;
-static gint ett_h501_T_descriptorInfo;
-static gint ett_h501_T_updateType;
-static gint ett_h501_DescriptorUpdateAck;
-static gint ett_h501_AccessRequest;
-static gint ett_h501_SEQUENCE_OF_SupportedProtocols;
-static gint ett_h501_AccessConfirmation;
-static gint ett_h501_SEQUENCE_OF_AddressTemplate;
-static gint ett_h501_SEQUENCE_OF_ServiceControlSession;
-static gint ett_h501_AccessRejection;
-static gint ett_h501_AccessRejectionReason;
-static gint ett_h501_UsageRequest;
-static gint ett_h501_UsageConfirmation;
-static gint ett_h501_UsageRejection;
-static gint ett_h501_UsageIndication;
-static gint ett_h501_SEQUENCE_OF_AccessToken;
-static gint ett_h501_SEQUENCE_OF_UsageField;
-static gint ett_h501_UsageField;
-static gint ett_h501_UsageRejectReason;
-static gint ett_h501_UsageIndicationConfirmation;
-static gint ett_h501_UsageIndicationRejection;
-static gint ett_h501_UsageIndicationRejectionReason;
-static gint ett_h501_ValidationRequest;
-static gint ett_h501_ValidationConfirmation;
-static gint ett_h501_ValidationRejection;
-static gint ett_h501_ValidationRejectionReason;
-static gint ett_h501_RequestInProgress;
-static gint ett_h501_NonStandardRequest;
-static gint ett_h501_NonStandardConfirmation;
-static gint ett_h501_NonStandardRejection;
-static gint ett_h501_NonStandardRejectionReason;
-static gint ett_h501_UnknownMessageResponse;
-static gint ett_h501_UnknownMessageReason;
-static gint ett_h501_AuthenticationRequest;
-static gint ett_h501_AuthenticationConfirmation;
-static gint ett_h501_AuthenticationRejection;
-static gint ett_h501_AuthenticationRejectionReason;
-static gint ett_h501_AddressTemplate;
-static gint ett_h501_SEQUENCE_OF_Pattern;
-static gint ett_h501_SEQUENCE_OF_RouteInformation;
-static gint ett_h501_Pattern;
-static gint ett_h501_T_range;
-static gint ett_h501_RouteInformation;
-static gint ett_h501_T_messageType;
-static gint ett_h501_SEQUENCE_OF_PriceInfoSpec;
-static gint ett_h501_SEQUENCE_OF_ContactInformation;
-static gint ett_h501_SEQUENCE_OF_CircuitIdentifier;
-static gint ett_h501_ContactInformation;
-static gint ett_h501_PriceInfoSpec;
-static gint ett_h501_SEQUENCE_OF_PriceElement;
-static gint ett_h501_PriceElement;
-static gint ett_h501_T_units;
-static gint ett_h501_Descriptor;
-static gint ett_h501_DescriptorInfo;
-static gint ett_h501_AlternatePEInfo;
-static gint ett_h501_SEQUENCE_OF_AlternatePE;
-static gint ett_h501_AlternatePE;
-static gint ett_h501_AccessToken;
-static gint ett_h501_CallInformation;
-static gint ett_h501_UsageCallStatus;
-static gint ett_h501_UserInformation;
-static gint ett_h501_UsageSpecification;
-static gint ett_h501_T_when;
-static gint ett_h501_T_required;
-static gint ett_h501_T_preferred;
-static gint ett_h501_PartyInformation;
-static gint ett_h501_SEQUENCE_OF_AliasAddress;
-static gint ett_h501_Role;
-static gint ett_h501_TerminationCause;
+static int ett_h501_Message;
+static int ett_h501_MessageBody;
+static int ett_h501_MessageCommonInfo;
+static int ett_h501_SEQUENCE_OF_TransportAddress;
+static int ett_h501_SEQUENCE_OF_ClearToken;
+static int ett_h501_SEQUENCE_OF_CryptoH323Token;
+static int ett_h501_SEQUENCE_OF_NonStandardParameter;
+static int ett_h501_SEQUENCE_OF_GenericData;
+static int ett_h501_ServiceRequest;
+static int ett_h501_SEQUENCE_OF_SecurityMode;
+static int ett_h501_SecurityMode;
+static int ett_h501_T_algorithmOIDs;
+static int ett_h501_ServiceConfirmation;
+static int ett_h501_ServiceRejection;
+static int ett_h501_ServiceRejectionReason;
+static int ett_h501_ServiceRelease;
+static int ett_h501_ServiceReleaseReason;
+static int ett_h501_DescriptorRequest;
+static int ett_h501_SEQUENCE_OF_DescriptorID;
+static int ett_h501_DescriptorConfirmation;
+static int ett_h501_SEQUENCE_OF_Descriptor;
+static int ett_h501_DescriptorRejection;
+static int ett_h501_DescriptorRejectionReason;
+static int ett_h501_DescriptorIDRequest;
+static int ett_h501_DescriptorIDConfirmation;
+static int ett_h501_SEQUENCE_OF_DescriptorInfo;
+static int ett_h501_DescriptorIDRejection;
+static int ett_h501_DescriptorIDRejectionReason;
+static int ett_h501_DescriptorUpdate;
+static int ett_h501_SEQUENCE_OF_UpdateInformation;
+static int ett_h501_UpdateInformation;
+static int ett_h501_T_descriptorInfo;
+static int ett_h501_T_updateType;
+static int ett_h501_DescriptorUpdateAck;
+static int ett_h501_AccessRequest;
+static int ett_h501_SEQUENCE_OF_SupportedProtocols;
+static int ett_h501_AccessConfirmation;
+static int ett_h501_SEQUENCE_OF_AddressTemplate;
+static int ett_h501_SEQUENCE_OF_ServiceControlSession;
+static int ett_h501_AccessRejection;
+static int ett_h501_AccessRejectionReason;
+static int ett_h501_UsageRequest;
+static int ett_h501_UsageConfirmation;
+static int ett_h501_UsageRejection;
+static int ett_h501_UsageIndication;
+static int ett_h501_SEQUENCE_OF_AccessToken;
+static int ett_h501_SEQUENCE_OF_UsageField;
+static int ett_h501_UsageField;
+static int ett_h501_UsageRejectReason;
+static int ett_h501_UsageIndicationConfirmation;
+static int ett_h501_UsageIndicationRejection;
+static int ett_h501_UsageIndicationRejectionReason;
+static int ett_h501_ValidationRequest;
+static int ett_h501_ValidationConfirmation;
+static int ett_h501_ValidationRejection;
+static int ett_h501_ValidationRejectionReason;
+static int ett_h501_RequestInProgress;
+static int ett_h501_NonStandardRequest;
+static int ett_h501_NonStandardConfirmation;
+static int ett_h501_NonStandardRejection;
+static int ett_h501_NonStandardRejectionReason;
+static int ett_h501_UnknownMessageResponse;
+static int ett_h501_UnknownMessageReason;
+static int ett_h501_AuthenticationRequest;
+static int ett_h501_AuthenticationConfirmation;
+static int ett_h501_AuthenticationRejection;
+static int ett_h501_AuthenticationRejectionReason;
+static int ett_h501_AddressTemplate;
+static int ett_h501_SEQUENCE_OF_Pattern;
+static int ett_h501_SEQUENCE_OF_RouteInformation;
+static int ett_h501_Pattern;
+static int ett_h501_T_range;
+static int ett_h501_RouteInformation;
+static int ett_h501_T_messageType;
+static int ett_h501_SEQUENCE_OF_PriceInfoSpec;
+static int ett_h501_SEQUENCE_OF_ContactInformation;
+static int ett_h501_SEQUENCE_OF_CircuitIdentifier;
+static int ett_h501_ContactInformation;
+static int ett_h501_PriceInfoSpec;
+static int ett_h501_SEQUENCE_OF_PriceElement;
+static int ett_h501_PriceElement;
+static int ett_h501_T_units;
+static int ett_h501_Descriptor;
+static int ett_h501_DescriptorInfo;
+static int ett_h501_AlternatePEInfo;
+static int ett_h501_SEQUENCE_OF_AlternatePE;
+static int ett_h501_AlternatePE;
+static int ett_h501_AccessToken;
+static int ett_h501_CallInformation;
+static int ett_h501_UsageCallStatus;
+static int ett_h501_UserInformation;
+static int ett_h501_UsageSpecification;
+static int ett_h501_T_when;
+static int ett_h501_T_required;
+static int ett_h501_T_preferred;
+static int ett_h501_PartyInformation;
+static int ett_h501_SEQUENCE_OF_AliasAddress;
+static int ett_h501_Role;
+static int ett_h501_TerminationCause;
 
 /* Dissectors */
 static dissector_handle_t h501_pdu_handle;
@@ -396,7 +397,7 @@ static dissector_handle_t h501_tcp_handle;
 
 /* Preferences */
 #define H501_PORT 2099
-static gboolean h501_desegment_tcp = TRUE;
+static bool h501_desegment_tcp = true;
 
 void proto_reg_handoff_h501(void);
 
@@ -405,7 +406,7 @@ void proto_reg_handoff_h501(void);
 static int
 dissect_h501_ElementIdentifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_BMPString(tvb, offset, actx, tree, hf_index,
-                                          1, 128, FALSE);
+                                          1, 128, false);
 
   return offset;
 }
@@ -466,7 +467,7 @@ dissect_h501_SEQUENCE_OF_SecurityMode(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 static int
 dissect_h501_INTEGER_1_4294967295(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 4294967295U, NULL, FALSE);
+                                                            1U, 4294967295U, NULL, false);
 
   return offset;
 }
@@ -485,7 +486,7 @@ dissect_h501_NULL(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto
 static int
 dissect_h501_INTEGER_1_65535(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 65535U, NULL, FALSE);
+                                                            1U, 65535U, NULL, false);
 
   return offset;
 }
@@ -575,7 +576,7 @@ dissect_h501_ServiceRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 static int
 dissect_h501_INTEGER_1_127(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 127U, NULL, FALSE);
+                                                            1U, 127U, NULL, false);
 
   return offset;
 }
@@ -789,7 +790,7 @@ dissect_h501_DescriptorRequest(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static int
 dissect_h501_GlobalTimeStamp(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          14, 14, FALSE,
+                                          14, 14, false,
                                           NULL);
 
   return offset;
@@ -891,7 +892,7 @@ dissect_h501_T_messageType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 static int
 dissect_h501_IA5String_SIZE_3(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          3, 3, FALSE,
+                                          3, 3, false,
                                           NULL);
 
   return offset;
@@ -902,7 +903,7 @@ dissect_h501_IA5String_SIZE_3(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_h501_INTEGER_M127_127(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            -127, 127U, NULL, FALSE);
+                                                            -127, 127U, NULL, false);
 
   return offset;
 }
@@ -912,7 +913,7 @@ dissect_h501_INTEGER_M127_127(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_h501_IA5String_SIZE_6(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          6, 6, FALSE,
+                                          6, 6, false,
                                           NULL);
 
   return offset;
@@ -923,7 +924,7 @@ dissect_h501_IA5String_SIZE_6(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_h501_INTEGER_0_4294967295(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 4294967295U, NULL, FALSE);
+                                                            0U, 4294967295U, NULL, false);
 
   return offset;
 }
@@ -992,7 +993,7 @@ dissect_h501_SEQUENCE_OF_PriceElement(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 static int
 dissect_h501_IA5String_SIZE_1_2048(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_IA5String(tvb, offset, actx, tree, hf_index,
-                                          1, 2048, FALSE,
+                                          1, 2048, false,
                                           NULL);
 
   return offset;
@@ -1037,7 +1038,7 @@ dissect_h501_SEQUENCE_OF_PriceInfoSpec(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 static int
 dissect_h501_INTEGER_0_127(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 127U, NULL, FALSE);
+                                                            0U, 127U, NULL, false);
 
   return offset;
 }
@@ -1536,7 +1537,7 @@ dissect_h501_UserInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 static int
 dissect_h501_TimeZone(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            -43200, 43200U, NULL, FALSE);
+                                                            -43200, 43200U, NULL, false);
 
   return offset;
 }
@@ -1781,7 +1782,7 @@ dissect_h501_NonStandardRejection(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_h501_OCTET_STRING(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, NULL);
+                                       NO_BOUND, NO_BOUND, false, NULL);
 
   return offset;
 }
@@ -2167,7 +2168,7 @@ dissect_h501_ValidationRejection(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 static int
 dissect_h501_ApplicationMessage(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, NULL);
+                                       NO_BOUND, NO_BOUND, false, NULL);
 
   return offset;
 }
@@ -2332,8 +2333,8 @@ static const per_choice_t MessageBody_choice[] = {
 
 static int
 dissect_h501_MessageBody(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint32 msg_type = -1;
-  const gchar *p = NULL;
+  int32_t msg_type = -1;
+  const char *p = NULL;
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_h501_MessageBody, MessageBody_choice,
                                  &msg_type);
@@ -2349,7 +2350,7 @@ dissect_h501_MessageBody(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
 static int
 dissect_h501_INTEGER_0_65535(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 65535U, NULL, FALSE);
+                                                            0U, 65535U, NULL, false);
 
   return offset;
 }
@@ -2368,7 +2369,7 @@ dissect_h501_ProtocolVersion(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 static int
 dissect_h501_INTEGER_1_255(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 255U, NULL, FALSE);
+                                                            1U, 255U, NULL, false);
 
   return offset;
 }
@@ -2479,7 +2480,7 @@ dissect_h501_Message(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 static int dissect_Message_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_h501_Message(tvb, offset, &asn1_ctx, tree, hf_h501_Message_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -2503,7 +2504,7 @@ dissect_h501_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 static int
 dissect_h501_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  dissect_tpkt_encap(tvb, pinfo, tree, FALSE, h501_pdu_handle);
+  dissect_tpkt_encap(tvb, pinfo, tree, false, h501_pdu_handle);
   return tvb_captured_length(tvb);
 }
 
@@ -3531,7 +3532,7 @@ void proto_register_h501(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_h501,
     &ett_h501_Message,
     &ett_h501_MessageBody,

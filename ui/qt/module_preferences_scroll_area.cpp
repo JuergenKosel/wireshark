@@ -47,7 +47,7 @@ static const QString title_to_shortcut(const char *title) {
     return shortcut_str;
 }
 
-typedef struct 
+typedef struct
 {
     QVBoxLayout *layout;
     QString moduleName;
@@ -57,8 +57,8 @@ extern "C" {
 // Callbacks prefs routines
 
 /* Add a single preference to the QVBoxLayout of a preference page */
-static guint
-pref_show(pref_t *pref, gpointer user_data)
+static unsigned
+pref_show(pref_t *pref, void *user_data)
 {
     prefSearchData * data = static_cast<prefSearchData *>(user_data);
 
@@ -74,13 +74,12 @@ pref_show(pref_t *pref, gpointer user_data)
 
     switch (prefs_get_type(pref)) {
     case PREF_UINT:
-    case PREF_DECODE_AS_UINT:
     {
         QHBoxLayout *hb = new QHBoxLayout();
         QLabel *label = new QLabel(prefs_get_title(pref));
         label->setToolTip(tooltip);
         hb->addWidget(label);
-        QLineEdit *uint_le = new QLineEdit();
+        SyntaxLineEdit *uint_le = new SyntaxLineEdit();
         uint_le->setToolTip(tooltip);
         uint_le->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
         uint_le->setMinimumWidth(uint_le->fontMetrics().height() * 8);
@@ -321,7 +320,7 @@ ModulePreferencesScrollArea::ModulePreferencesScrollArea(module_t *module, QWidg
 
     /* Show the preference's description at the top of the page */
     QFont font;
-    font.setBold(TRUE);
+    font.setBold(true);
     QLabel *label = new QLabel(module->description);
     label->setFont(font);
     ui->verticalLayout->addWidget(label);
@@ -338,9 +337,6 @@ ModulePreferencesScrollArea::ModulePreferencesScrollArea(module_t *module, QWidg
         if (!pref) continue;
 
         switch (prefs_get_type(pref)) {
-        case PREF_DECODE_AS_UINT:
-            connect(le, &QLineEdit::textEdited, this, &ModulePreferencesScrollArea::uintLineEditTextEdited);
-            break;
         case PREF_UINT:
             connect(le, &QLineEdit::textEdited, this, &ModulePreferencesScrollArea::uintLineEditTextEdited);
             break;
@@ -516,16 +512,34 @@ void ModulePreferencesScrollArea::updateWidgets()
 
 void ModulePreferencesScrollArea::uintLineEditTextEdited(const QString &new_str)
 {
-    QLineEdit *uint_le = qobject_cast<QLineEdit*>(sender());
+    SyntaxLineEdit *uint_le = qobject_cast<SyntaxLineEdit*>(sender());
     if (!uint_le) return;
 
     pref_t *pref = VariantPointer<pref_t>::asPtr(uint_le->property(pref_prop_));
     if (!pref) return;
 
+    if (new_str.isEmpty()) {
+        /* Reset to default value; that is better than "whatever the last
+         * valid edited input was", and probably better than "empty means 0."
+         */
+        uint_le->setSyntaxState(SyntaxLineEdit::Empty);
+        reset_stashed_pref(pref);
+        return;
+    }
+
     bool ok;
     uint new_uint = new_str.toUInt(&ok, 0);
     if (ok) {
+        uint_le->setSyntaxState(SyntaxLineEdit::Valid);
         prefs_set_uint_value(pref, new_uint, pref_stashed);
+    } else {
+        uint_le->setSyntaxState(SyntaxLineEdit::Invalid);
+        /* Reset stashed value to the current real value, i.e., whatever it
+         * was when the dialog was opened. That's better than "whatever the
+         * last valid edited number was."
+         * XXX - The OK/Apply buttons should be disabled when a pref is invalid.
+         */
+        pref_stash(pref, NULL);
     }
 }
 

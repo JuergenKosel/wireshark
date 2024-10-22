@@ -17,10 +17,11 @@
 #include "config.h"
 
 #include <epan/packet.h>
-#include "wimax-int.h"
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include "wimax_compact_dlmap_ie_decoder.h"
 
-extern gint proto_wimax;
+extern int proto_wimax;
 
 /* MASKs */
 #define MSB_NIBBLE_MASK      0xF0
@@ -32,33 +33,33 @@ extern gint proto_wimax;
 #define CID_TYPE_RCID3       3
 
 /* Global Variables */
-guint cid_type = 0;
-guint band_amc_subchannel_type = 0;
-guint max_logical_bands = 12;
-guint num_of_broadcast_symbols = 0;
-guint num_of_dl_band_amc_symbols = 0;
-guint num_of_ul_band_amc_symbols = 0;
+unsigned cid_type;
+unsigned band_amc_subchannel_type;
+unsigned max_logical_bands = 12;
+unsigned num_of_broadcast_symbols;
+unsigned num_of_dl_band_amc_symbols;
+unsigned num_of_ul_band_amc_symbols;
 /* from switch HARQ mode extension IE */
-guint harq_mode = 0;
+unsigned harq_mode;
 
 /* forward reference */
-static guint wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
-static guint wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
-static guint wimax_compact_dlmap_harq_control_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
-static guint wimax_compact_dlmap_cqich_control_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
-static guint wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
-guint wimax_extended_diuc_dependent_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset);
+static unsigned wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
+static unsigned wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
+static unsigned wimax_compact_dlmap_harq_control_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
+static unsigned wimax_compact_dlmap_cqich_control_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
+static unsigned wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
+unsigned wimax_extended_diuc_dependent_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset);
 
-static gint proto_wimax_compact_dlmap_ie_decoder;
+static int proto_wimax_compact_dlmap_ie_decoder;
 
 #if 0 /* not used ?? */
-static gint ett_wimax_compact_dlmap_ie_decoder;
-static gint ett_wimax_format_configuration_ie_decoder;
-static gint ett_wimax_rcid_ie_decoder;
-static gint ett_wimax_harq_control_ie_decoder;
-static gint ett_wimax_extended_diuc_dependent_ie_decoder;
-static gint ett_wimax_cqich_control_ie_decoder;
-static gint ett_wimax_extension_type_ie_decoder;
+static int ett_wimax_compact_dlmap_ie_decoder;
+static int ett_wimax_format_configuration_ie_decoder;
+static int ett_wimax_rcid_ie_decoder;
+static int ett_wimax_harq_control_ie_decoder;
+static int ett_wimax_extended_diuc_dependent_ie_decoder;
+static int ett_wimax_cqich_control_ie_decoder;
+static int ett_wimax_extension_type_ie_decoder;
 #endif
 
 /* New Format Indications */
@@ -142,79 +143,79 @@ static const value_string vals_allocation_modes[] =
 #define SHORTENED_DIUC_MASK_1 0x0E00
 #define COMPANDED_SC_MASK_1   0x01F0
 
+/* display indices */
+static int hf_cdlmap_dl_map_type;
+static int hf_cdlmap_ul_map_append;
+static int hf_cdlmap_reserved;
+static int hf_cdlmap_nep_code;
+static int hf_cdlmap_nsch_code;
+static int hf_cdlmap_num_bands;
+static int hf_cdlmap_band_index;
+static int hf_cdlmap_nb_bitmap;
+static int hf_cdlmap_dl_map_type_1;
+static int hf_cdlmap_ul_map_append_1;
+static int hf_cdlmap_reserved_1;
+static int hf_cdlmap_nep_code_1;
+static int hf_cdlmap_nsch_code_1;
+static int hf_cdlmap_num_bands_1;
+/*static int hf_cdlmap_band_index_1;*/
+static int hf_cdlmap_nb_bitmap_1;
+
+static int hf_cdlmap_shortened_diuc;
+static int hf_cdlmap_companded_sc;
+static int hf_cdlmap_shortened_uiuc;
+static int hf_cdlmap_shortened_diuc_1;
+static int hf_cdlmap_companded_sc_1;
+static int hf_cdlmap_shortened_uiuc_1;
+
+static int hf_cdlmap_bin_offset;
+static int hf_cdlmap_bin_offset_1;
+
+static int hf_cdlmap_diuc_num_of_subchannels;
+static int hf_cdlmap_diuc_num_of_subchannels_1;
+static int hf_cdlmap_diuc_repetition_coding_indication;
+static int hf_cdlmap_diuc_repetition_coding_indication_1;
+static int hf_cdlmap_diuc_reserved;
+static int hf_cdlmap_diuc_reserved_1;
+
+static int hf_cdlmap_bit_map_length;
+static int hf_cdlmap_bit_map_length_1;
+static int hf_cdlmap_bit_map;
+
+static int hf_cdlmap_diuc;
+static int hf_cdlmap_diuc_1;
+
+static int hf_cdlmap_allocation_mode;
+static int hf_cdlmap_allocation_mode_rsvd;
+static int hf_cdlmap_num_subchannels;
+static int hf_cdlmap_allocation_mode_1;
+static int hf_cdlmap_allocation_mode_rsvd_1;
+static int hf_cdlmap_num_subchannels_1;
+
+/* static int hf_cdlmap_reserved_type; */
+static int hf_cdlmap_reserved_type_1;
+
 /* display indexies */
-static gint hf_cdlmap_dl_map_type;
-static gint hf_cdlmap_ul_map_append;
-static gint hf_cdlmap_reserved;
-static gint hf_cdlmap_nep_code;
-static gint hf_cdlmap_nsch_code;
-static gint hf_cdlmap_num_bands;
-static gint hf_cdlmap_band_index;
-static gint hf_cdlmap_nb_bitmap;
-static gint hf_cdlmap_dl_map_type_1;
-static gint hf_cdlmap_ul_map_append_1;
-static gint hf_cdlmap_reserved_1;
-static gint hf_cdlmap_nep_code_1;
-static gint hf_cdlmap_nsch_code_1;
-static gint hf_cdlmap_num_bands_1;
-/*static gint hf_cdlmap_band_index_1;*/
-static gint hf_cdlmap_nb_bitmap_1;
-
-static gint hf_cdlmap_shortened_diuc;
-static gint hf_cdlmap_companded_sc;
-static gint hf_cdlmap_shortened_uiuc;
-static gint hf_cdlmap_shortened_diuc_1;
-static gint hf_cdlmap_companded_sc_1;
-static gint hf_cdlmap_shortened_uiuc_1;
-
-static gint hf_cdlmap_bin_offset;
-static gint hf_cdlmap_bin_offset_1;
-
-static gint hf_cdlmap_diuc_num_of_subchannels;
-static gint hf_cdlmap_diuc_num_of_subchannels_1;
-static gint hf_cdlmap_diuc_repetition_coding_indication;
-static gint hf_cdlmap_diuc_repetition_coding_indication_1;
-static gint hf_cdlmap_diuc_reserved;
-static gint hf_cdlmap_diuc_reserved_1;
-
-static gint hf_cdlmap_bit_map_length;
-static gint hf_cdlmap_bit_map_length_1;
-static gint hf_cdlmap_bit_map;
-
-static gint hf_cdlmap_diuc;
-static gint hf_cdlmap_diuc_1;
-
-static gint hf_cdlmap_allocation_mode;
-static gint hf_cdlmap_allocation_mode_rsvd;
-static gint hf_cdlmap_num_subchannels;
-static gint hf_cdlmap_allocation_mode_1;
-static gint hf_cdlmap_allocation_mode_rsvd_1;
-static gint hf_cdlmap_num_subchannels_1;
-
-/* static gint hf_cdlmap_reserved_type; */
-static gint hf_cdlmap_reserved_type_1;
-
-/* display indexies */
-static gint hf_format_config_ie_dl_map_type;
-static gint hf_format_config_ie_dl_map_type_1;
-static gint hf_format_config_ie_dl_map_type_32;
-static gint hf_format_config_ie_new_format_indication;
-static gint hf_format_config_ie_new_format_indication_1;
-static gint hf_format_config_ie_new_format_indication_32;
-static gint hf_format_config_ie_cid_type;
-static gint hf_format_config_ie_cid_type_1;
-static gint hf_format_config_ie_safety_pattern;
-static gint hf_format_config_ie_safety_pattern_1;
-static gint hf_format_config_ie_subchannel_type;
-static gint hf_format_config_ie_subchannel_type_1;
-static gint hf_format_config_ie_max_logical_bands;
-static gint hf_format_config_ie_max_logical_bands_1;
-static gint hf_format_config_ie_num_of_broadcast_symbol;
-static gint hf_format_config_ie_num_of_broadcast_symbol_1;
-static gint hf_format_config_ie_num_of_dl_band_amc_symbol;
-static gint hf_format_config_ie_num_of_dl_band_amc_symbol_1;
-static gint hf_format_config_ie_num_of_ul_band_amc_symbol;
-static gint hf_format_config_ie_num_of_ul_band_amc_symbol_1;
+static int hf_format_config_ie_dl_map_type;
+static int hf_format_config_ie_dl_map_type_1;
+static int hf_format_config_ie_dl_map_type_32;
+static int hf_format_config_ie_new_format_indication;
+static int hf_format_config_ie_new_format_indication_1;
+static int hf_format_config_ie_new_format_indication_32;
+static int hf_format_config_ie_cid_type;
+static int hf_format_config_ie_cid_type_1;
+static int hf_format_config_ie_safety_pattern;
+static int hf_format_config_ie_safety_pattern_1;
+static int hf_format_config_ie_subchannel_type;
+static int hf_format_config_ie_subchannel_type_1;
+static int hf_format_config_ie_max_logical_bands;
+static int hf_format_config_ie_max_logical_bands_1;
+static int hf_format_config_ie_num_of_broadcast_symbol;
+static int hf_format_config_ie_num_of_broadcast_symbol_1;
+static int hf_format_config_ie_num_of_dl_band_amc_symbol;
+static int hf_format_config_ie_num_of_dl_band_amc_symbol_1;
+static int hf_format_config_ie_num_of_ul_band_amc_symbol;
+static int hf_format_config_ie_num_of_ul_band_amc_symbol_1;
 
 /* Format Configuration IE Masks */
 #define FORMAT_CONFIG_IE_DL_MAP_TYPE_MASK    0xE0000000
@@ -235,18 +236,18 @@ static gint hf_format_config_ie_num_of_ul_band_amc_symbol_1;
 #define NUM_UL_AMC_SYMBOLS_MASK              0x000003F0
 
 /* display indexies */
-static gint hf_harq_rcid_ie_prefix;
-static gint hf_harq_rcid_ie_prefix_1;
-static gint hf_harq_rcid_ie_normal_cid;
-static gint hf_harq_rcid_ie_normal_cid_1;
-static gint hf_harq_rcid_ie_cid3;
-static gint hf_harq_rcid_ie_cid3_1;
-static gint hf_harq_rcid_ie_cid7;
-static gint hf_harq_rcid_ie_cid7_1;
-static gint hf_harq_rcid_ie_cid11;
-static gint hf_harq_rcid_ie_cid11_1;
-static gint hf_harq_rcid_ie_cid11_2;
-static gint hf_harq_rcid_ie_cid11_3;
+static int hf_harq_rcid_ie_prefix;
+static int hf_harq_rcid_ie_prefix_1;
+static int hf_harq_rcid_ie_normal_cid;
+static int hf_harq_rcid_ie_normal_cid_1;
+static int hf_harq_rcid_ie_cid3;
+static int hf_harq_rcid_ie_cid3_1;
+static int hf_harq_rcid_ie_cid7;
+static int hf_harq_rcid_ie_cid7_1;
+static int hf_harq_rcid_ie_cid11;
+static int hf_harq_rcid_ie_cid11_1;
+static int hf_harq_rcid_ie_cid11_2;
+static int hf_harq_rcid_ie_cid11_3;
 
 /* Masks */
 #define WIMAX_RCID_IE_NORMAL_CID_MASK_1      0x0FFFF0
@@ -260,16 +261,16 @@ static gint hf_harq_rcid_ie_cid11_3;
 #define WIMAX_RCID_IE_CID11_MASK_1           0x07FF
 
 /* HARQ MAP HARQ Control IE display indexies */
-static gint hf_harq_control_ie_prefix;
-static gint hf_harq_control_ie_ai_sn;
-static gint hf_harq_control_ie_spid;
-static gint hf_harq_control_ie_acid;
-static gint hf_harq_control_ie_reserved;
-static gint hf_harq_control_ie_prefix_1;
-static gint hf_harq_control_ie_ai_sn_1;
-static gint hf_harq_control_ie_spid_1;
-static gint hf_harq_control_ie_acid_1;
-static gint hf_harq_control_ie_reserved_1;
+static int hf_harq_control_ie_prefix;
+static int hf_harq_control_ie_ai_sn;
+static int hf_harq_control_ie_spid;
+static int hf_harq_control_ie_acid;
+static int hf_harq_control_ie_reserved;
+static int hf_harq_control_ie_prefix_1;
+static int hf_harq_control_ie_ai_sn_1;
+static int hf_harq_control_ie_spid_1;
+static int hf_harq_control_ie_acid_1;
+static int hf_harq_control_ie_reserved_1;
 
 /* Masks */
 #define WIMAX_HARQ_CONTROL_IE_PREFIX_MASK      0x80
@@ -284,18 +285,18 @@ static gint hf_harq_control_ie_reserved_1;
 #define WIMAX_HARQ_CONTROL_IE_RESERVED_MASK_1  0x0700
 
 /* HARQ MAP CQICH Control IE display indexies */
-static gint hf_cqich_control_ie_indicator;
-static gint hf_cqich_control_ie_alloc_id;
-static gint hf_cqich_control_ie_period;
-static gint hf_cqich_control_ie_frame_offset;
-static gint hf_cqich_control_ie_duration;
-static gint hf_cqich_control_ie_cqi_rep_threshold;
-static gint hf_cqich_control_ie_indicator_1;
-static gint hf_cqich_control_ie_alloc_id_1;
-static gint hf_cqich_control_ie_period_1;
-static gint hf_cqich_control_ie_frame_offset_1;
-static gint hf_cqich_control_ie_duration_1;
-static gint hf_cqich_control_ie_cqi_rep_threshold_1;
+static int hf_cqich_control_ie_indicator;
+static int hf_cqich_control_ie_alloc_id;
+static int hf_cqich_control_ie_period;
+static int hf_cqich_control_ie_frame_offset;
+static int hf_cqich_control_ie_duration;
+static int hf_cqich_control_ie_cqi_rep_threshold;
+static int hf_cqich_control_ie_indicator_1;
+static int hf_cqich_control_ie_alloc_id_1;
+static int hf_cqich_control_ie_period_1;
+static int hf_cqich_control_ie_frame_offset_1;
+static int hf_cqich_control_ie_duration_1;
+static int hf_cqich_control_ie_cqi_rep_threshold_1;
 
 /* Masks */
 #define WIMAX_CQICH_CONTROL_IE_INDICATOR_MASK           0x8000
@@ -319,37 +320,37 @@ static gint hf_cqich_control_ie_cqi_rep_threshold_1;
 #define EXTENSION_LENGTH_MASK       0x00F0
 #define EXTENSION_LENGTH_MASK_1     0x000F
 
-static gint hf_cdlmap_extension_type;
-static gint hf_cdlmap_extension_subtype;
-static gint hf_cdlmap_extension_length;
-static gint hf_cdlmap_extension_type_1;
-static gint hf_cdlmap_extension_subtype_1;
-static gint hf_cdlmap_extension_length_1;
+static int hf_cdlmap_extension_type;
+static int hf_cdlmap_extension_subtype;
+static int hf_cdlmap_extension_length;
+static int hf_cdlmap_extension_type_1;
+static int hf_cdlmap_extension_subtype_1;
+static int hf_cdlmap_extension_length_1;
 
-static gint hf_cdlmap_extension_time_diversity_mbs;
-static gint hf_cdlmap_extension_harq_mode;
-static gint hf_cdlmap_extension_unknown_sub_type;
-static gint hf_cdlmap_extension_time_diversity_mbs_1;
-static gint hf_cdlmap_extension_harq_mode_1;
-static gint hf_cdlmap_extension_unknown_sub_type_1;
+static int hf_cdlmap_extension_time_diversity_mbs;
+static int hf_cdlmap_extension_harq_mode;
+static int hf_cdlmap_extension_unknown_sub_type;
+static int hf_cdlmap_extension_time_diversity_mbs_1;
+static int hf_cdlmap_extension_harq_mode_1;
+static int hf_cdlmap_extension_unknown_sub_type_1;
 
 /* Extended DIUC dependent IE display indexies */
-static gint hf_extended_diuc_dependent_ie_diuc;
-static gint hf_extended_diuc_dependent_ie_diuc_1;
-static gint hf_extended_diuc_dependent_ie_length;
-static gint hf_extended_diuc_dependent_ie_length_1;
-static gint hf_extended_diuc_dependent_ie_channel_measurement;
-static gint hf_extended_diuc_dependent_ie_stc_zone;
-static gint hf_extended_diuc_dependent_ie_aas_dl;
-static gint hf_extended_diuc_dependent_ie_data_location;
-static gint hf_extended_diuc_dependent_ie_cid_switch;
-static gint hf_extended_diuc_dependent_ie_mimo_dl_basic;
-static gint hf_extended_diuc_dependent_ie_mimo_dl_enhanced;
-static gint hf_extended_diuc_dependent_ie_harq_map_pointer;
-static gint hf_extended_diuc_dependent_ie_phymod_dl;
-static gint hf_extended_diuc_dependent_ie_dl_pusc_burst_allocation;
-static gint hf_extended_diuc_dependent_ie_ul_interference_and_noise_level;
-static gint hf_extended_diuc_dependent_ie_unknown_diuc;
+static int hf_extended_diuc_dependent_ie_diuc;
+static int hf_extended_diuc_dependent_ie_diuc_1;
+static int hf_extended_diuc_dependent_ie_length;
+static int hf_extended_diuc_dependent_ie_length_1;
+static int hf_extended_diuc_dependent_ie_channel_measurement;
+static int hf_extended_diuc_dependent_ie_stc_zone;
+static int hf_extended_diuc_dependent_ie_aas_dl;
+static int hf_extended_diuc_dependent_ie_data_location;
+static int hf_extended_diuc_dependent_ie_cid_switch;
+static int hf_extended_diuc_dependent_ie_mimo_dl_basic;
+static int hf_extended_diuc_dependent_ie_mimo_dl_enhanced;
+static int hf_extended_diuc_dependent_ie_harq_map_pointer;
+static int hf_extended_diuc_dependent_ie_phymod_dl;
+static int hf_extended_diuc_dependent_ie_dl_pusc_burst_allocation;
+static int hf_extended_diuc_dependent_ie_ul_interference_and_noise_level;
+static int hf_extended_diuc_dependent_ie_unknown_diuc;
 
 
 /* Compact DL-MAP IE Types (table 89) */
@@ -363,12 +364,12 @@ static gint hf_extended_diuc_dependent_ie_unknown_diuc;
 #define COMPACT_DL_MAP_TYPE_EXTENSION		7
 
 /* Compact DL-MAP IE decoder */
-guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, guint offset, guint nibble_offset)
+unsigned wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint diuc, byte, length = 0;
-	guint dl_map_type, ul_map_append;
-	guint dl_map_offset, nibble_length, bit_map_length;
-	guint nband, band_count, i, allocation_mode;
+	unsigned diuc, byte, length = 0;
+	unsigned dl_map_type, ul_map_append;
+	unsigned dl_map_offset, nibble_length, bit_map_length;
+	unsigned nband, band_count, i, allocation_mode;
 
 #ifdef DEBUG
 	/* update the info column */
@@ -377,7 +378,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 	/* set the local offset */
 	dl_map_offset = offset;
 	/* Get the first byte */
-	byte = tvb_get_guint8(tvb, dl_map_offset);
+	byte = tvb_get_uint8(tvb, dl_map_offset);
 	if(nibble_offset & 1)
 	{
 		dl_map_type = ((byte & DL_MAP_TYPE_MASK_1) >> 1);
@@ -560,7 +561,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 			/* get the Nband */
 			if(max_logical_bands)
 			{	/* get and display the Nband */
-				nband = tvb_get_guint8(tvb, dl_map_offset);
+				nband = tvb_get_uint8(tvb, dl_map_offset);
 				if(nibble_offset & 1)
 				{
 					nband = (nband & LSB_NIBBLE_MASK);
@@ -630,7 +631,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 				length++;
 			}
 			/* Get the Allocation Mode */
-			byte = tvb_get_guint8(tvb, dl_map_offset);
+			byte = tvb_get_uint8(tvb, dl_map_offset);
 			if(nibble_offset & 1)
 			{
 				allocation_mode = ((byte & 0x0C) >> 2);
@@ -829,7 +830,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 				/* move to next byte */
 				dl_map_offset++;
 				/* get the new byte */
-				byte = tvb_get_guint8(tvb, dl_map_offset);
+				byte = tvb_get_uint8(tvb, dl_map_offset);
 				/* get the DIUC */
 				diuc = ((byte & MSB_NIBBLE_MASK) >> 4);
 				/* display the DIUC */
@@ -842,7 +843,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 				/* display the reserved */
 				proto_tree_add_item(tree, hf_cdlmap_reserved, tvb, dl_map_offset, 1, ENC_BIG_ENDIAN);
 				/* get the DIUC */
-				diuc = (tvb_get_guint8(tvb, dl_map_offset) & LSB_NIBBLE_MASK);
+				diuc = (tvb_get_uint8(tvb, dl_map_offset) & LSB_NIBBLE_MASK);
 				/* display the DIUC */
 				proto_tree_add_item(tree, hf_cdlmap_diuc_1, tvb, dl_map_offset, 1, ENC_BIG_ENDIAN);
 				/* move to next byte */
@@ -905,7 +906,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 				/* move to next byte */
 				dl_map_offset++;
 				/* get the bit map length */
-				byte = tvb_get_guint8(tvb, dl_map_offset);
+				byte = tvb_get_uint8(tvb, dl_map_offset);
 				bit_map_length = ((byte & MSB_NIBBLE_MASK) >> 4);
 				/* display BITMAP Length */
 				proto_tree_add_item(tree, hf_cdlmap_bit_map_length, tvb, dl_map_offset, 1, ENC_BIG_ENDIAN);
@@ -932,7 +933,7 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 			}
 		break;
 		case COMPACT_DL_MAP_TYPE_EXTENSION:/* 6.3.2.3.43.6.6 */
-			/* decode the Compact DL-MAP externsion IE */
+			/* decode the Compact DL-MAP extension IE */
 			nibble_length = wimax_cdlmap_extension_ie_decoder(tree, pinfo, tvb, dl_map_offset, nibble_offset);/*, cqich_indicator);*/
 			length = nibble_length;
 		break;
@@ -963,12 +964,12 @@ guint wimax_compact_dlmap_ie_decoder(proto_tree *tree, packet_info *pinfo, tvbuf
 /*#define NUM_UL_AMC_SYMBOLS_SHIFT_1    0*/
 
 /* Compact DL-MAP Format Configuration IE (6.3.2.3.43.2) decoder */
-static guint wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+static unsigned wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint length = 0;
-	guint dl_map_type, new_format_ind;
-	guint dl_map_offset;
-	guint32 tvb_value;
+	unsigned length = 0;
+	unsigned dl_map_type, new_format_ind;
+	unsigned dl_map_offset;
+	uint32_t tvb_value;
 
 #ifdef DEBUG
 	/* update the info column */
@@ -977,7 +978,7 @@ static guint wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tre
 	/* set the local offset */
 	dl_map_offset = offset;
 	/* Get the first byte */
-	tvb_value = tvb_get_guint8(tvb, dl_map_offset);
+	tvb_value = tvb_get_uint8(tvb, dl_map_offset);
 	if(nibble_offset & 1)
 	{	/* get the DL-MAP type */
 		dl_map_type = ((tvb_value & DL_MAP_TYPE_MASK_1) >> 1);
@@ -1083,10 +1084,10 @@ static guint wimax_compact_dlmap_format_configuration_ie_decoder(proto_tree *tre
 }
 
 /* Compact DL-MAP Reduced CID IE (6.3.2.3.43.3) decoder */
-static guint wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+static unsigned wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint length = 0;
-	guint prefix;
+	unsigned length = 0;
+	unsigned prefix;
 
 #ifdef DEBUG
 	/* update the info column */
@@ -1101,7 +1102,7 @@ static guint wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *
 		}
 		else
 		{	/* Get the prefix bit */
-			prefix = (tvb_get_guint8(tvb, offset) & 0x08);
+			prefix = (tvb_get_uint8(tvb, offset) & 0x08);
 			/* display the prefix */
 			proto_tree_add_item(tree, hf_harq_rcid_ie_prefix_1, tvb, offset, 2, ENC_BIG_ENDIAN);
 			if(prefix)
@@ -1138,7 +1139,7 @@ static guint wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *
 		}
 		else
 		{	/* Get the prefix bit */
-			prefix = (tvb_get_guint8(tvb, offset) & 0x08);
+			prefix = (tvb_get_uint8(tvb, offset) & 0x08);
 			/* display the prefix */
 			proto_tree_add_item(tree, hf_harq_rcid_ie_prefix, tvb, offset, 2, ENC_BIG_ENDIAN);
 			if(prefix || (cid_type == CID_TYPE_RCID11))
@@ -1171,16 +1172,16 @@ static guint wimax_compact_dlmap_rcid_ie_decoder(proto_tree *tree, packet_info *
 }
 
 /* Compact DL-MAP HARQ Control IE (6.3.2.3.43.4) decoder */
-static guint wimax_compact_dlmap_harq_control_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+static unsigned wimax_compact_dlmap_harq_control_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint byte, prefix, length = 0;
+	unsigned byte, prefix, length = 0;
 
 #ifdef DEBUG
 	/* update the info column */
 	col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "HARQ Control IE");
 #endif
 	/* Get the first byte */
-	byte = tvb_get_guint8(tvb, offset);
+	byte = tvb_get_uint8(tvb, offset);
 	if(nibble_offset & 1)
 	{	/* Get the prefix bit */
 		prefix = (byte & 0x08);
@@ -1226,16 +1227,16 @@ static guint wimax_compact_dlmap_harq_control_ie_decoder(proto_tree *tree, packe
 }
 
 /* Compact DL-MAP CQICH Control IE (6.3.2.3.43.5) decoder */
-static guint wimax_compact_dlmap_cqich_control_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+static unsigned wimax_compact_dlmap_cqich_control_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint byte, cqich_indicator, length = 0;
+	unsigned byte, cqich_indicator, length = 0;
 
 #ifdef DEBUG
 	/* update the info column */
 	col_append_sep_str(pinfo->cinfo, COL_INFO, NULL, "CQICH Control IE");
 #endif
 	/* Get the first byte */
-	byte = tvb_get_guint8(tvb, offset);
+	byte = tvb_get_uint8(tvb, offset);
 	if(nibble_offset & 1)
 	{	/* Get the CQICH indicator */
 		cqich_indicator = (byte & 0x08);
@@ -1293,9 +1294,9 @@ static guint wimax_compact_dlmap_cqich_control_ie_decoder(proto_tree *tree, pack
 #define HARQ_MODE_SWITCH    1
 
 /* Compact DL-MAP Extension IE (6.3.2.3.43.6.6) decoder */
-static guint wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+static unsigned wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint tvb_value, dl_map_type, sub_type, length;
+	unsigned tvb_value, dl_map_type, sub_type, length;
 
 #ifdef DEBUG
 	/* update the info column */
@@ -1329,7 +1330,7 @@ static guint wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pi
 			/* display the HARQ mode */
 			proto_tree_add_item(tree, hf_cdlmap_extension_harq_mode, tvb, offset, 1, ENC_BIG_ENDIAN);
 			/* Get the next byte */
-			tvb_value = tvb_get_guint8(tvb, offset);
+			tvb_value = tvb_get_uint8(tvb, offset);
 			/* get the HARQ mode */
 			harq_mode = ((tvb_value & MSB_NIBBLE_MASK) >> 4);
 			break;
@@ -1390,13 +1391,13 @@ static guint wimax_cdlmap_extension_ie_decoder(proto_tree *tree, packet_info *pi
 #define UL_INTERFERENCE_AND_NOISE_LEVEL_IE 15
 
 /* Extended DIUC IE (8.4.5.3.2) */
-guint wimax_extended_diuc_dependent_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, guint offset, guint nibble_offset)
+unsigned wimax_extended_diuc_dependent_ie_decoder(proto_tree *tree, packet_info *pinfo _U_, tvbuff_t *tvb, unsigned offset, unsigned nibble_offset)
 {
-	guint ext_diuc, length;
-	guint8 byte;
+	unsigned ext_diuc, length;
+	uint8_t byte;
 
 	/* get the first byte */
-	byte =  tvb_get_guint8(tvb, offset);
+	byte =  tvb_get_uint8(tvb, offset);
 	if(nibble_offset & 1)
 	{	/* get the extended DIUC */
 		ext_diuc = (byte & LSB_NIBBLE_MASK);
@@ -1405,7 +1406,7 @@ guint wimax_extended_diuc_dependent_ie_decoder(proto_tree *tree, packet_info *pi
 		/* move to next byte */
 		offset++;
 		/* get the 2nd byte */
-		byte =  tvb_get_guint8(tvb, offset);
+		byte =  tvb_get_uint8(tvb, offset);
 		/* get the length */
 		length = ((byte & MSB_NIBBLE_MASK) >> 4);
 		/* display extended DIUC length */
@@ -2073,7 +2074,7 @@ void wimax_proto_register_wimax_compact_dlmap_ie(void)
 
 #if 0 /* Not used ?? */
         /* Setup protocol subtree array */
-	static gint *ett[] =
+	static int *ett[] =
 		{
 			&ett_wimax_compact_dlmap_ie_decoder,
 			&ett_wimax_format_configuration_ie_decoder,

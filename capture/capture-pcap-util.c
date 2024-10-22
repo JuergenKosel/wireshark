@@ -435,6 +435,9 @@ if_addr_copy_cb(const void *data, void *user_data _U_)
 void
 if_info_free(if_info_t *if_info)
 {
+	if (if_info == NULL) {
+		return;
+	}
 	g_free(if_info->name);
 	g_free(if_info->friendly_name);
 	g_free(if_info->vendor_description);
@@ -452,6 +455,7 @@ copy_linktype_cb(const void *data, void *user_data _U_)
 	data_link_info_t *linktype_info = (data_link_info_t *)data;
 
 	data_link_info_t *ret = g_new(data_link_info_t, 1);
+	ret->dlt = linktype_info->dlt;
 	ret->name = g_strdup(linktype_info->name);
 	ret->description = g_strdup(linktype_info->description);
 	return ret;
@@ -479,7 +483,7 @@ if_capabilities_copy(const if_capabilities_t *caps)
 	ret->timestamp_types = g_list_copy_deep(caps->timestamp_types, copy_timestamp_cb, NULL);
 	ret->data_link_types_rfmon = g_list_copy_deep(caps->data_link_types_rfmon, copy_linktype_cb, NULL);
 	ret->primary_msg = g_strdup(caps->primary_msg);
-	ret->secondary_msg = g_strdup(caps->secondary_msg);
+	ret->secondary_msg = caps->secondary_msg;
 
 	return ret;
 }
@@ -865,7 +869,6 @@ free_if_capabilities(if_capabilities_t *caps)
 	g_list_free_full(caps->timestamp_types, free_timestamp_cb);
 
 	g_free(caps->primary_msg);
-	g_free(caps->secondary_msg);
 
 	g_free(caps);
 }
@@ -1378,6 +1381,20 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 		caps->can_set_rfmon = false;
 	else if (status == 1) {
 		caps->can_set_rfmon = true;
+		if (interface_opts->monitor_mode) {
+			status = pcap_set_rfmon(pch, 1);
+			if (status < 0) {
+				/*
+				 * This "should not happen".
+				 */
+				*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
+				*open_status_str = ws_strdup_printf("pcap_set_rfmon() returned %d",
+				    status);
+				pcap_close(pch);
+				g_free(caps);
+				return NULL;
+			}
+		}
 	} else {
 		/*
 		 * This "should not happen".
@@ -1437,63 +1454,14 @@ get_if_capabilities_pcap_create(interface_options *interface_opts,
 		g_free(caps);
 		return NULL;
 	}
+	if (interface_opts->monitor_mode) {
+		caps->data_link_types_rfmon = caps->data_link_types;
+		caps->data_link_types = NULL;
+	}
 
 	caps->timestamp_types = get_pcap_timestamp_types(pch, NULL);
 
 	pcap_close(pch);
-
-	if (caps->can_set_rfmon) {
-		/* This devices claims it can set rfmon. Get the capabilities
-		 * when in monitor mode. We just succeeded above, so if we
-		 * fail on anything here, just say that despite claims we
-		 * can't actually set monitor mode.
-		 */
-		pch = pcap_create(interface_opts->name, errbuf);
-		if (pch == NULL) {
-			/*
-			 * This "should not happen".
-			 * It just succeeded above, what can this mean?
-			 */
-			return caps;
-		}
-
-		status = pcap_set_rfmon(pch, 1);
-		if (status < 0) {
-			/*
-			 * This "should not happen".
-			 * It claims that monitor mode can be set, but
-			 * there's an error when we try to do so.
-			 */
-#if 0
-			*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
-			*open_status_str = ws_strdup_printf("pcap_set_rfmon() returned %d",
-			    status);
-#endif
-			caps->can_set_rfmon = false;
-			pcap_close(pch);
-			return caps;
-		}
-
-		status = pcap_activate(pch);
-		if (status < 0) {
-			/*
-			 * This "should not happen". (It just succeeded above.)
-			 * pcap_set_rfmon didn't return an error, but it
-			 * can't be activated after setting monitor mode?
-			 */
-			caps->can_set_rfmon = false;
-			pcap_close(pch);
-			return NULL;
-		}
-
-		caps->data_link_types_rfmon = get_data_link_types(pch,
-		    interface_opts, open_status, open_status_str);
-		if (caps->data_link_types == NULL) {
-			caps->can_set_rfmon = false;
-		}
-
-		pcap_close(pch);
-	}
 
 	*open_status = CAP_DEVICE_OPEN_NO_ERR;
 	if (open_status_str != NULL)
@@ -1521,11 +1489,7 @@ set_open_status_str(int status, pcap_t *pcap_h,
 
 pcap_t *
 open_capture_device_pcap_create(
-#if defined(HAVE_PCAP_SET_TSTAMP_PRECISION)
-    capture_options* capture_opts,
-#else
     capture_options* capture_opts _U_,
-#endif
     interface_options *interface_opts, int timeout,
     cap_device_open_status *open_status,
     char (*open_status_str)[PCAP_ERRBUF_SIZE])
@@ -1573,33 +1537,27 @@ open_capture_device_pcap_create(
 
 #ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
 	/*
-	 * If we're writing pcapng files, try to enable
-	 * nanosecond-resolution capture; any code that
-	 * can read pcapng files must be able to handle
-	 * nanosecond-resolution time stamps.  We don't
-	 * care whether it succeeds or fails - if it fails,
-	 * we just use the microsecond-precision time stamps
-	 * we get.
+	 * Try to enable nanosecond-resolution capture; any code
+	 * that can read pcapng files must be able to handle
+	 * nanosecond-resolution time stamps. We think at this
+	 * point that code that reads pcap files should recognize
+	 * the nanosecond-resolution pcap file magic number. If
+	 * it doesn't, we can downconvert via a program that
+	 * uses libwiretap.
 	 *
-	 * If we're writing pcap files, don't try to enable
-	 * nanosecond-resolution capture, as not all code
-	 * that reads pcap files recognizes the nanosecond-
-	 * resolution pcap file magic number.
 	 * We don't care whether this succeeds or fails; if it
 	 * fails (because we don't have pcap_set_tstamp_precision(),
 	 * or because we do but the OS or device doesn't support
-	 * nanosecond resolution timing), we just use microsecond-
-	 * resolution time stamps.
+	 * nanosecond resolution timing), we just use the microsecond-
+	 * resolution time stamps we get.
 	 */
-	if (capture_opts->use_pcapng) {
-		status = request_high_resolution_timestamp(pcap_h);
-		if (status < 0) {
-			/* Error. */
-			set_open_status_str(status, pcap_h, open_status_str);
-			*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
-			pcap_close(pcap_h);
-			return NULL;
-		}
+	status = request_high_resolution_timestamp(pcap_h);
+	if (status < 0) {
+		/* Error. */
+		set_open_status_str(status, pcap_h, open_status_str);
+		*open_status = CAP_DEVICE_OPEN_ERROR_OTHER;
+		pcap_close(pcap_h);
+		return NULL;
 	}
 #endif /* HAVE_PCAP_SET_TSTAMP_PRECISION */
 
@@ -2030,6 +1988,239 @@ open_capture_device(capture_options *capture_opts,
 	    timeout, open_status, open_status_str);
 	ws_debug("open_capture_device %s : %s", pcap_h ? "SUCCESS" : "FAILURE", interface_opts->name);
 	return pcap_h;
+}
+
+/*
+ * Platform-dependent suggestions for fixing permissions.
+ */
+
+#ifdef HAVE_LIBCAP
+  #define LIBCAP_PERMISSIONS_SUGGESTION \
+    "\n\n" \
+    "If you did not install Wireshark from a package, ensure that Dumpcap " \
+    "has the needed CAP_NET_RAW and CAP_NET_ADMIN capabilities by running " \
+    "\n\n" \
+    "    sudo setcap cap_net_raw,cap_net_admin=ep {path/to/}dumpcap" \
+    "\n\n" \
+    "and then restarting Wireshark."
+#else
+  #define LIBCAP_PERMISSIONS_SUGGESTION
+#endif
+
+#if defined(__linux__)
+  #define PLATFORM_PERMISSIONS_SUGGESTION \
+    "\n\n" \
+    "On Debian and Debian derivatives such as Ubuntu, if you have " \
+    "installed Wireshark from a package, try running" \
+    "\n\n" \
+    "    sudo dpkg-reconfigure wireshark-common" \
+    "\n\n" \
+    "selecting \"<Yes>\" in response to the question" \
+    "\n\n" \
+    "    Should non-superusers be able to capture packets?" \
+    "\n\n" \
+    "adding yourself to the \"wireshark\" group by running" \
+    "\n\n" \
+    "    sudo usermod -a -G wireshark {your username}" \
+    "\n\n" \
+    "and then logging out and logging back in again." \
+    LIBCAP_PERMISSIONS_SUGGESTION
+#elif defined(__APPLE__)
+  #define PLATFORM_PERMISSIONS_SUGGESTION \
+    "\n\n" \
+    "If you installed Wireshark using the package from wireshark.org, " \
+    "close this dialog and click on the \"installing ChmodBPF\" link in " \
+    "\"You can fix this by installing ChmodBPF.\" on the main screen, " \
+    "and then complete the installation procedure."
+#else
+  #define PLATFORM_PERMISSIONS_SUGGESTION
+#endif
+
+#if defined(_WIN32)
+static const char *
+get_platform_pcap_failure_secondary_error_message(const char *open_status_str)
+{
+    /*
+     * The error string begins with the error produced by WinPcap
+     * and Npcap if attempting to set promiscuous mode fails.
+     * (Note that this string could have a specific error message
+     * from an NDIS error after the initial part, so we do a prefix
+     * check rather than an exact match check.)
+     *
+     * If this is with Npcap 1.71 through 1.73, which have bugs that
+     * cause this error on Windows 11 with some drivers, suggest that
+     * the user upgrade to the current version of Npcap;
+     * otherwise, suggest that they turn off promiscuous mode
+     * on that device.
+     */
+    static const char promisc_failed[] =
+        "failed to set hardware filter to promiscuous mode";
+
+    if (strncmp(open_status_str, promisc_failed, sizeof promisc_failed - 1) == 0) {
+        unsigned int npcap_major, npcap_minor;
+
+        if (caplibs_get_npcap_version(&npcap_major, &npcap_minor)) {
+            if (npcap_major == 1 &&
+                (npcap_minor >= 71 && npcap_minor <= 73)) {
+                return
+"This is a bug in your version of Npcap.\n"
+"\n"
+"If you need to use promiscuous mode, you must upgrade to the current "
+"version of Npcap, which is available from https://npcap.com/\n"
+"\n"
+"Otherwise, turn off promiscuous mode for this device.";
+            }
+        }
+        return
+              "Please turn off promiscuous mode for this device.";
+    }
+    return NULL;
+}
+#elif defined(__linux__)
+static const char *
+get_platform_pcap_failure_secondary_error_message(const char *open_status_str)
+{
+    /*
+     * The error string is the message provided by libpcap on
+     * Linux if an attempt to open a PF_PACKET socket failed
+     * with EAFNOSUPPORT.  This probably means that either 1)
+     * the kernel doesn't have PF_PACKET support configured in
+     * or 2) this is a Flatpak version of Wireshark that's been
+     * sandboxed in a way that disallows opening PF_PACKET
+     * sockets.
+     *
+     * Suggest that the user find some other package of
+     * Wireshark if they want to capture traffic and are
+     * running a Flatpak of Wireshark or that they configure
+     * PF_PACKET support back in if it's configured out.
+     */
+    static const char af_notsup[] =
+        "socket: Address family not supported by protocol";
+
+    if (strcmp(open_status_str, af_notsup) == 0) {
+        return
+                   "If you are running Wireshark from a Flatpak package, "
+                   "it does not support packet capture; you will need "
+                   "to run a different version of Wireshark in order "
+                   "to capture traffic.\n"
+                   "\n"
+                   "Otherwise, if your machine is running a kernel that "
+                   "was not configured with CONFIG_PACKET, that kernel "
+                   "does not support packet capture; you will need to "
+                   "use a kernel configured with CONFIG_PACKET.";
+    }
+    return NULL;
+}
+#else
+static const char *
+get_platform_pcap_failure_secondary_error_message(const char *open_status_str _U_)
+{
+    /* No such message for platforms not handled above. */
+    return NULL;
+}
+#endif
+
+const char *
+get_pcap_failure_secondary_error_message(cap_device_open_status open_status,
+                                         const char *open_status_str)
+{
+    const char *platform_secondary_error_message;
+
+#ifdef _WIN32
+    /*
+     * On Windows, first make sure they *have* Npcap installed.
+     */
+    if (!has_wpcap) {
+        return
+            "In order to capture packets, Npcap or WinPcap must be installed. See\n"
+            "\n"
+            "        https://npcap.com/\n"
+            "\n"
+            "for a downloadable version of Npcap and for instructions on how to\n"
+            "install it.";
+    }
+#endif
+
+    /*
+     * OK, now just return a largely platform-independent error that might
+     * have platform-specific suggestions at the end (for example, suggestions
+     * for how to get permission to capture).
+     */
+    switch (open_status) {
+
+    case CAP_DEVICE_OPEN_NO_ERR:
+    case CAP_DEVICE_OPEN_WARNING_PROMISC_NOTSUP:
+    case CAP_DEVICE_OPEN_WARNING_TSTAMP_TYPE_NOTSUP:
+    case CAP_DEVICE_OPEN_WARNING_OTHER:
+        /* This should not happen, as those aren't errors. */
+        return "";
+
+    case CAP_DEVICE_OPEN_ERROR_NO_SUCH_DEVICE:
+    case CAP_DEVICE_OPEN_ERROR_RFMON_NOTSUP:
+    case CAP_DEVICE_OPEN_ERROR_IFACE_NOT_UP:
+        /*
+         * Not clear what suggestions to make for these cases.
+         */
+        return "";
+
+    case CAP_DEVICE_OPEN_ERROR_PERM_DENIED:
+    case CAP_DEVICE_OPEN_ERROR_PROMISC_PERM_DENIED:
+        /*
+         * This is a permissions error, so no need to specify any other
+         * warnings.
+         */
+        return
+               "Please check to make sure you have sufficient permissions."
+               PLATFORM_PERMISSIONS_SUGGESTION;
+        break;
+
+    case CAP_DEVICE_OPEN_ERROR_OTHER:
+    case CAP_DEVICE_OPEN_ERROR_GENERIC:
+        /*
+         * We don't know what kind of error it is.  See if there's a hint
+         * in the error string; if not, throw all generic suggestions at
+         * the user.
+         *
+         * First, check for some text that pops up in some errors.
+         * Do platform-specific checks first.
+         */
+        platform_secondary_error_message =
+            get_platform_pcap_failure_secondary_error_message(open_status_str);
+        if (platform_secondary_error_message != NULL) {
+            /* We got one, so return it. */
+            return platform_secondary_error_message;
+        }
+
+        /*
+         * Not one of those particular problems.  Was this a "generic"
+         * error from pcap_open_live() or pcap_open(), in which case
+         * it might be a permissions error?
+         */
+        if (open_status == CAP_DEVICE_OPEN_ERROR_GENERIC) {
+            /* Yes. */
+            return
+                   "Please check to make sure you have sufficient permissions, and that you have "
+                   "the proper interface or pipe specified."
+                   PLATFORM_PERMISSIONS_SUGGESTION;
+        } else {
+            /*
+             * This is not a permissions error, so no need to suggest
+             * checking permissions.
+             */
+            return
+                "Please check that you have the proper interface or pipe specified.";
+        }
+        break;
+
+    default:
+        /*
+         * This is not a permissions error, so no need to suggest
+         * checking permissions.
+         */
+        return
+            "Please check that you have the proper interface or pipe specified.";
+        break;
+    }
 }
 
 #endif /* HAVE_LIBPCAP */

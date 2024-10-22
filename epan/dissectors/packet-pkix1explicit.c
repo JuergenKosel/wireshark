@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkix1explicit.c                                                     */
-/* asn2wrs.py -b -L -p pkix1explicit -c ./pkix1explicit.cnf -s ./packet-pkix1explicit-template -D . -O ../.. PKIX1EXPLICIT93.asn IPAddrAndASCertExtn.asn */
+/* asn2wrs.py -b -q -L -p pkix1explicit -c ./pkix1explicit.cnf -s ./packet-pkix1explicit-template -D . -O ../.. PKIX1EXPLICIT93.asn IPAddrAndASCertExtn.asn */
 
 #define BER_UNI_TAG_TeletexString	    20  /* workaround bug in asn2wrs */
 
@@ -21,6 +21,7 @@
 #include <epan/asn1.h>
 #include <epan/oids.h>
 #include <epan/afn.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-pkix1explicit.h"
@@ -95,29 +96,29 @@ static int hf_pkix1explicit_min_01;               /* ASId */
 static int hf_pkix1explicit_max_01;               /* ASId */
 
 /* Initialize the subtree pointers */
-static gint ett_pkix1explicit_Time;
-static gint ett_pkix1explicit_Extensions;
-static gint ett_pkix1explicit_Extension;
-static gint ett_pkix1explicit_DomainParameters;
-static gint ett_pkix1explicit_ValidationParms;
-static gint ett_pkix1explicit_Attribute;
-static gint ett_pkix1explicit_T_values;
-static gint ett_pkix1explicit_AttributeTypeAndValue;
-static gint ett_pkix1explicit_RDNSequence;
-static gint ett_pkix1explicit_RelativeDistinguishedName;
-static gint ett_pkix1explicit_TeletexDomainDefinedAttribute;
-static gint ett_pkix1explicit_Features;
-static gint ett_pkix1explicit_IPAddrBlocks;
-static gint ett_pkix1explicit_IPAddressFamily;
-static gint ett_pkix1explicit_IPAddressChoice;
-static gint ett_pkix1explicit_SEQUENCE_OF_IPAddressOrRange;
-static gint ett_pkix1explicit_IPAddressOrRange;
-static gint ett_pkix1explicit_IPAddressRange;
-static gint ett_pkix1explicit_ASIdentifiers;
-static gint ett_pkix1explicit_ASIdentifierChoice;
-static gint ett_pkix1explicit_SEQUENCE_OF_ASIdOrRange;
-static gint ett_pkix1explicit_ASIdOrRange;
-static gint ett_pkix1explicit_ASRange;
+static int ett_pkix1explicit_Time;
+static int ett_pkix1explicit_Extensions;
+static int ett_pkix1explicit_Extension;
+static int ett_pkix1explicit_DomainParameters;
+static int ett_pkix1explicit_ValidationParms;
+static int ett_pkix1explicit_Attribute;
+static int ett_pkix1explicit_T_values;
+static int ett_pkix1explicit_AttributeTypeAndValue;
+static int ett_pkix1explicit_RDNSequence;
+static int ett_pkix1explicit_RelativeDistinguishedName;
+static int ett_pkix1explicit_TeletexDomainDefinedAttribute;
+static int ett_pkix1explicit_Features;
+static int ett_pkix1explicit_IPAddrBlocks;
+static int ett_pkix1explicit_IPAddressFamily;
+static int ett_pkix1explicit_IPAddressChoice;
+static int ett_pkix1explicit_SEQUENCE_OF_IPAddressOrRange;
+static int ett_pkix1explicit_IPAddressOrRange;
+static int ett_pkix1explicit_IPAddressRange;
+static int ett_pkix1explicit_ASIdentifiers;
+static int ett_pkix1explicit_ASIdentifierChoice;
+static int ett_pkix1explicit_SEQUENCE_OF_ASIdOrRange;
+static int ett_pkix1explicit_ASIdOrRange;
+static int ett_pkix1explicit_ASRange;
 
 int
 dissect_pkix1explicit_Certificate(bool implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx _U_, proto_tree *tree, int hf_index) {
@@ -242,7 +243,7 @@ static int
 dissect_pkix1explicit_T_extnId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier_str(implicit_tag, actx, tree, tvb, offset, hf_pkix1explicit_object_identifier_id, &actx->external.direct_reference);
 
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -261,10 +262,10 @@ dissect_pkix1explicit_BOOLEAN(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 static int
 dissect_pkix1explicit_T_extnValue(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint8 appclass;
+  int8_t appclass;
   bool pc, ind;
-  gint32 tag;
-  guint32 len;
+  int32_t tag;
+  uint32_t len;
   /* skip past the T and L  */
   offset = dissect_ber_identifier(actx->pinfo, tree, tvb, offset, &appclass, &pc, &tag);
   offset = dissect_ber_length(actx->pinfo, tree, tvb, offset, &len, &ind);
@@ -780,43 +781,43 @@ dissect_pkix1explicit_ASIdentifiers(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 static int dissect_Extensions_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_Extensions(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_Extensions_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_Extensions(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_Extensions_PDU);
   return offset;
 }
 static int dissect_DomainParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_DomainParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_DomainParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_DomainParameters(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_DomainParameters_PDU);
   return offset;
 }
 static int dissect_DirectoryString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_DirectoryString(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_DirectoryString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_DirectoryString(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_DirectoryString_PDU);
   return offset;
 }
 static int dissect_Features_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_Features(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_Features_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_Features(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_Features_PDU);
   return offset;
 }
 static int dissect_IPAddrBlocks_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_IPAddrBlocks(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_IPAddrBlocks_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_IPAddrBlocks(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_IPAddrBlocks_PDU);
   return offset;
 }
 static int dissect_ASIdentifiers_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkix1explicit_ASIdentifiers(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_ASIdentifiers_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkix1explicit_ASIdentifiers(false, tvb, offset, &asn1_ctx, tree, hf_pkix1explicit_ASIdentifiers_PDU);
   return offset;
 }
 
@@ -1029,7 +1030,7 @@ void proto_register_pkix1explicit(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	  &ett_pkix1explicit_addressFamily,
     &ett_pkix1explicit_Time,
     &ett_pkix1explicit_Extensions,

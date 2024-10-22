@@ -25,9 +25,12 @@
  * message length is 3 bytes.
  * XXX - this must be large enough to handle a Really Big Filter
  * Expression, as the error message for an incorrect filter expression
- * is a bit larger than the filter expression.
+ * is a bit larger than the filter expression, and large enough to
+ * handle a large interface list.
+ * 4096 is a typical PIPE_BUF size for atomic writes, but we should have
+ * only one writer and one reader so that shouldn't be an issue.
  */
-#define SP_MAX_MSG_LEN  4096
+#define SP_MAX_MSG_LEN  (512 * 1000)
 
 /*
  * Indications sent out on the sync pipe (from child to parent).
@@ -39,11 +42,13 @@
 #define SP_EXEC_FAILED  'X'     /* errno value for the exec failing */
 #define SP_FILE         'F'     /* the name of the recently opened file */
 #define SP_ERROR_MSG    'E'     /* error message */
+#define SP_LOG_MSG      'L'     /* log message */
 #define SP_BAD_FILTER   'B'     /* error message for bad capture filter */
 #define SP_PACKET_COUNT 'P'     /* count of packets captured since last message */
 #define SP_DROPS        'D'     /* count of packets dropped in capture */
 #define SP_SUCCESS      'S'     /* success indication, no extra data */
 #define SP_TOOLBAR_CTRL 'T'     /* interface toolbar control packet */
+#define SP_IFACE_LIST   'I'     /* interface list */
 /*
  * Win32 only: Indications sent out on the signal pipe (from parent to child)
  * (UNIX-like sends signals for this)

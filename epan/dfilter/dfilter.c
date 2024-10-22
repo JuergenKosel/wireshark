@@ -32,7 +32,7 @@
 #define DFILTER_TOKEN_ID_OFFSET	1
 
 /* Holds the singular instance of our Lemon parser object */
-static void*	ParserObj = NULL;
+static void*	ParserObj;
 
 df_loc_t loc_empty = {-1, 0};
 
@@ -235,7 +235,7 @@ dfsyntax_free(dfsyntax_t *dfs)
 		stnode_free(dfs->lval);
 
 	if (dfs->quoted_string)
-		g_string_free(dfs->quoted_string, true);
+		g_string_free(dfs->quoted_string, TRUE);
 
 
 
@@ -646,6 +646,43 @@ dfilter_compile_full(const char *text, dfilter_t **dfp,
 	return true;
 }
 
+struct stnode *dfilter_get_syntax_tree(const char *text)
+{
+	dfsyntax_t *dfs = NULL;
+	dfwork_t *dfw = NULL;
+
+	dfs = dfsyntax_new(DF_EXPAND_MACROS);
+
+	char *expanded_text = dfilter_macro_apply(text, NULL);
+	if (!expanded_text) {
+		dfsyntax_free(dfs);
+		return NULL;
+	}
+
+	bool ok = dfwork_parse(expanded_text, dfs);
+	if (!ok || !dfs->st_root) {
+		g_free(expanded_text);
+		dfsyntax_free(dfs);
+		return NULL;
+	}
+
+	dfw = dfwork_new(expanded_text, dfs->flags);
+	dfw->st_root = dfs->st_root;
+	dfs->st_root = NULL;
+	g_free(expanded_text);
+	dfsyntax_free(dfs);
+
+	if (!dfw_semcheck(dfw)) {
+		dfwork_free(dfw);
+		return NULL;
+	}
+
+	stnode_t *st_root = dfw->st_root;
+	dfw->st_root = NULL;
+	dfwork_free(dfw);
+
+	return st_root;
+}
 
 bool
 dfilter_apply(dfilter_t *df, proto_tree *tree)
@@ -659,6 +696,11 @@ dfilter_apply_edt(dfilter_t *df, epan_dissect_t* edt)
 	return dfvm_apply(df, edt->tree);
 }
 
+bool
+dfilter_apply_full(dfilter_t *df, proto_tree *tree, GPtrArray **fvals)
+{
+	return dfvm_apply_full(df, tree, fvals);
+}
 
 void
 dfilter_prime_proto_tree(const dfilter_t *df, proto_tree *tree)
@@ -667,6 +709,14 @@ dfilter_prime_proto_tree(const dfilter_t *df, proto_tree *tree)
 
 	for (i = 0; i < df->num_interesting_fields; i++) {
 		proto_tree_prime_with_hfid(tree, df->interesting_fields[i]);
+	}
+}
+
+void
+dfilter_prime_proto_tree_print(const dfilter_t *df, proto_tree *tree)
+{
+	for (int i = 0; i < df->num_interesting_fields; i++) {
+		proto_tree_prime_with_hfid_print(tree, df->interesting_fields[i]);
 	}
 }
 
@@ -785,7 +835,7 @@ dfilter_log_full(const char *domain, enum ws_log_level level,
 }
 
 static int
-compare_ref_layer(gconstpointer _a, gconstpointer _b)
+compare_ref_layer(const void *_a, const void *_b)
 {
 	const df_reference_t *a = *(const df_reference_t **)_a;
 	const df_reference_t *b = *(const df_reference_t **)_b;

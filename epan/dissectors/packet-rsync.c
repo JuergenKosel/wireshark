@@ -48,7 +48,7 @@ enum rsync_who {
     SERVER
 };
 
-static gboolean rsync_desegment = TRUE;
+static bool rsync_desegment = true;
 
 /* this is a guide to the current conversation state */
 struct rsync_conversation_data {
@@ -71,14 +71,14 @@ static int hf_rsync_motd_string;
 static int hf_rsync_query_string;
 static int hf_rsync_rsyncdok_string;
 
-static gint ett_rsync;
+static int ett_rsync;
 
 static dissector_handle_t rsync_handle;
 
 
 #define TCP_PORT_RSYNC  873
 
-static range_t *glb_rsync_tcp_range = NULL;
+static range_t *glb_rsync_tcp_range;
 
 #define VERSION_LEN     4           /* 2 digits for main version; '.'; 1 digit for sub version */
 
@@ -86,8 +86,8 @@ static void
 dissect_rsync_version_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *rsync_tree, enum rsync_who me)
 {
     int   offset = 0;
-    guint8 *version;
-    guint len;
+    uint8_t *version;
+    unsigned len;
 
     proto_tree_add_item(rsync_tree, hf_rsync_hdr_magic, tvb, offset, RSYNCD_MAGIC_HEADER_LEN, ENC_ASCII);
     offset += RSYNCD_MAGIC_HEADER_LEN;
@@ -106,7 +106,7 @@ dissect_rsync_version_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *rsyn
 /* Packet dissection routine called by tcp (& udp) when port 873 detected */
 static int
 dissect_rsync_encap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
-                    gboolean desegment _U_)
+                    bool desegment _U_)
 {
     conversation_t                 *conversation;
     struct rsync_conversation_data *conversation_data;
@@ -115,7 +115,7 @@ dissect_rsync_encap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     proto_tree                     *rsync_tree;
     enum rsync_who                  me;
     int                             offset = 0;
-    guint                           buff_length;
+    unsigned                        buff_length;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "RSYNC");
 
@@ -321,7 +321,7 @@ proto_register_rsync(void)
         },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_rsync,
     };
 

@@ -35,16 +35,16 @@ void register_tap_listener_rpcprogs(void);
 /* used to keep track of statistics for a specific program/version */
 typedef struct _rpc_program_t {
 	struct _rpc_program_t *next;
-	guint32 program;
-	guint32 version;
+	uint32_t program;
+	uint32_t version;
 	int num;
 	nstime_t min;
 	nstime_t max;
 	nstime_t tot;
 } rpc_program_t;
 
-static rpc_program_t *prog_list = NULL;
-static int already_enabled = 0;
+static rpc_program_t *prog_list;
+static int already_enabled;
 
 static tap_packet_status
 rpcprogs_packet(void *dummy1 _U_, packet_info *pinfo, epan_dissect_t *edt _U_, const void *pri, tap_flags_t flags _U_)
@@ -167,7 +167,7 @@ rpcprogs_packet(void *dummy1 _U_, packet_info *pinfo, epan_dissect_t *edt _U_, c
 static void
 rpcprogs_draw(void *dummy _U_)
 {
-	guint64 td;
+	uint64_t td;
 	rpc_program_t *rp;
 	char str[64];
 
@@ -181,7 +181,7 @@ rpcprogs_draw(void *dummy _U_)
 			continue;
 		}
 		/* Scale the average SRT in units of 1us and round to the nearest us. */
-		td = ((guint64)(rp->tot.secs)) * NANOSECS_PER_SEC + rp->tot.nsecs;
+		td = ((uint64_t)(rp->tot.secs)) * NANOSECS_PER_SEC + rp->tot.nsecs;
 		td = ((td / rp->num) + 500) / 1000;
 
 		snprintf(str, sizeof(str), "%s(%d)", rpc_prog_name(rp->program), rp->program);

@@ -9,8 +9,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <epan/prefs.h>
 #include <epan/prefs-int.h>
 #include <epan/proto.h>
@@ -118,7 +116,7 @@ public:
     }
 
     void showUatDialog() {
-        UatDialog *uat_dlg = new UatDialog(qobject_cast<QWidget*>(parent()), prefs_get_uat_value(pref_));
+        UatDialog *uat_dlg = new UatDialog(mainApp->mainWindow(), prefs_get_uat_value(pref_));
         connect(uat_dlg, SIGNAL(destroyed(QObject*)), mainApp, SLOT(flushAppSignals()));
         uat_dlg->setWindowModality(Qt::ApplicationModal);
         uat_dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -154,8 +152,8 @@ private:
 extern "C" {
 // Preference callback
 
-static guint
-add_prefs_menu_item(pref_t *pref, gpointer menu_ptr)
+static unsigned
+add_prefs_menu_item(pref_t *pref, void *menu_ptr)
 {
     ProtocolPreferencesMenu *pp_menu = static_cast<ProtocolPreferencesMenu *>(menu_ptr);
     if (!pp_menu) return 1;
@@ -167,7 +165,8 @@ add_prefs_menu_item(pref_t *pref, gpointer menu_ptr)
 }
 
 
-ProtocolPreferencesMenu::ProtocolPreferencesMenu()
+ProtocolPreferencesMenu::ProtocolPreferencesMenu(QWidget *parent) :
+    QMenu(parent)
 {
     setTitle(tr("Protocol Preferences"));
     setModule(NULL);
@@ -267,7 +266,6 @@ void ProtocolPreferencesMenu::addMenuItem(preference *pref)
     case PREF_OPEN_FILENAME:
     case PREF_DIRNAME:
     case PREF_RANGE:
-    case PREF_DECODE_AS_UINT:
     case PREF_DECODE_AS_RANGE:
     case PREF_PASSWORD:
     case PREF_DISSECTOR:

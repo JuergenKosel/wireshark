@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkcs1.c                                                             */
-/* asn2wrs.py -b -L -p pkcs1 -c ./pkcs1.cnf -s ./packet-pkcs1-template -D . -O ../.. PKIXAlgs-2009.asn */
+/* asn2wrs.py -b -q -L -p pkcs1 -c ./pkcs1.cnf -s ./packet-pkcs1-template -D . -O ../.. PKIXAlgs-2009.asn */
 
 /* packet-pkcs1.c
  * Routines for PKCS#1/RFC2313 packet dissection
@@ -19,6 +19,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-pkcs1.h"
@@ -71,18 +72,18 @@ static int hf_pkcs1_r;                            /* INTEGER */
 static int hf_pkcs1_s;                            /* INTEGER */
 
 /* Initialize the subtree pointers */
-static gint ett_pkcs1_RSAPublicKey;
-static gint ett_pkcs1_DigestInfo;
-static gint ett_pkcs1_DSA_Params;
-static gint ett_pkcs1_DomainParameters;
-static gint ett_pkcs1_ValidationParams;
-static gint ett_pkcs1_RSASSA_PSS_params;
-static gint ett_pkcs1_ECParameters;
-static gint ett_pkcs1_SpecifiedECDomain;
-static gint ett_pkcs1_FieldID;
-static gint ett_pkcs1_Curve;
-static gint ett_pkcs1_DSA_Sig_Value;
-static gint ett_pkcs1_ECDSA_Sig_Value;
+static int ett_pkcs1_RSAPublicKey;
+static int ett_pkcs1_DigestInfo;
+static int ett_pkcs1_DSA_Params;
+static int ett_pkcs1_DomainParameters;
+static int ett_pkcs1_ValidationParams;
+static int ett_pkcs1_RSASSA_PSS_params;
+static int ett_pkcs1_ECParameters;
+static int ett_pkcs1_SpecifiedECDomain;
+static int ett_pkcs1_FieldID;
+static int ett_pkcs1_Curve;
+static int ett_pkcs1_DSA_Sig_Value;
+static int ett_pkcs1_ECDSA_Sig_Value;
 
 
 
@@ -402,50 +403,50 @@ dissect_pkcs1_Prime_p(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, 
 static int dissect_DSA_Params_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_DSA_Params(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_DSA_Params_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_DSA_Params(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_DSA_Params_PDU);
   return offset;
 }
 static int dissect_DomainParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_DomainParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_DomainParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_DomainParameters(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_DomainParameters_PDU);
   return offset;
 }
 static int dissect_KEA_Params_Id_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_KEA_Params_Id(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_KEA_Params_Id_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_KEA_Params_Id(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_KEA_Params_Id_PDU);
   return offset;
 }
 static int dissect_HashAlgorithm_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_HashAlgorithm(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_HashAlgorithm_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_HashAlgorithm(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_HashAlgorithm_PDU);
   return offset;
 }
 static int dissect_RSASSA_PSS_params_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_RSASSA_PSS_params(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_RSASSA_PSS_params_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_RSASSA_PSS_params(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_RSASSA_PSS_params_PDU);
   return offset;
 }
 static int dissect_ECParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_ECParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_ECParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_ECParameters(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_ECParameters_PDU);
   return offset;
 }
 static int dissect_Prime_p_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs1_Prime_p(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs1_Prime_p_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs1_Prime_p(false, tvb, offset, &asn1_ctx, tree, hf_pkcs1_Prime_p_PDU);
   return offset;
 }
 
@@ -602,7 +603,7 @@ void proto_register_pkcs1(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_pkcs1_RSAPublicKey,
     &ett_pkcs1_DigestInfo,
     &ett_pkcs1_DSA_Params,

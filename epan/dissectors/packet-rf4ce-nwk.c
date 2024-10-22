@@ -12,8 +12,9 @@
 #include <stdbool.h>
 #include "config.h"
 #include <epan/packet.h>
-#include <epan/expert.h>
 #include <epan/uat.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include "packet-ieee802154.h"
 #include "packet-rf4ce-secur.h"
 
@@ -45,19 +46,19 @@ static const value_string sec_str_type_vals[] = {
 };
 
 UAT_CSTRING_CB_DEF(uat_security_records, sec_str, uat_security_record_t)
-UAT_VS_DEF(uat_security_records, type, uat_security_record_t, guint8, 0, "NWK Key")
+UAT_VS_DEF(uat_security_records, type, uat_security_record_t, uint8_t, 0, "NWK Key")
 UAT_CSTRING_CB_DEF(uat_security_records, label, uat_security_record_t)
 
-static uat_security_record_t *uat_security_records = NULL;
-static guint num_uat_security_records = 0;
+static uat_security_record_t *uat_security_records;
+static unsigned num_uat_security_records;
 
-static gint ett_rf4ce_nwk;
-static gint ett_rf4ce_nwk_payload;
-static gint ett_rf4ce_nwk_vendor_info;
-static gint ett_rf4ce_nwk_usr_str;
-static gint ett_rf4ce_nwk_usr_str_class_descriptor;
-static gint ett_rf4ce_nwk_dev_types_list;
-static gint ett_rf4ce_nwk_profiles_list;
+static int ett_rf4ce_nwk;
+static int ett_rf4ce_nwk_payload;
+static int ett_rf4ce_nwk_vendor_info;
+static int ett_rf4ce_nwk_usr_str;
+static int ett_rf4ce_nwk_usr_str_class_descriptor;
+static int ett_rf4ce_nwk_dev_types_list;
+static int ett_rf4ce_nwk_profiles_list;
 
 /* RF4CE NWK header */
 static int hf_rf4ce_nwk_fcf;
@@ -403,27 +404,27 @@ static const value_string rf4ce_nwk_disc_status_vals[] = {
     { 0, NULL }
 };
 
-static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
+static bool dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
 
 /* RF4CE NWK commands dissectors */
 static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_);
 
-static void dissect_rf4ce_nwk_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset);
+static void dissect_rf4ce_nwk_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset);
 
-static void dissect_rf4ce_nwk_common_node_capabilities(tvbuff_t *tvb, proto_tree *tree, gint *offset);
-static void dissect_rf4ce_nwk_common_vendor_info(tvbuff_t *tvb, proto_tree *tree, gint *offset);
-static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree *tree, gint *offset, guint8 parsing_mask);
-static void dissect_rf4ce_nwk_disc_resp_class_descriptor(tvbuff_t *tvb, proto_tree *tree, gint *offset, int hf);
+static void dissect_rf4ce_nwk_common_node_capabilities(tvbuff_t *tvb, proto_tree *tree, int *offset);
+static void dissect_rf4ce_nwk_common_vendor_info(tvbuff_t *tvb, proto_tree *tree, int *offset);
+static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree *tree, int *offset, uint8_t parsing_mask);
+static void dissect_rf4ce_nwk_disc_resp_class_descriptor(tvbuff_t *tvb, proto_tree *tree, int *offset, int hf);
 
-static void dissect_rf4ce_nwk_cmd_disc_req(tvbuff_t *tvb, proto_tree *tree, gint *offset);
-static void dissect_rf4ce_nwk_cmd_disc_rsp(tvbuff_t *tvb, proto_tree *tree, gint *offset);
+static void dissect_rf4ce_nwk_cmd_disc_req(tvbuff_t *tvb, proto_tree *tree, int *offset);
+static void dissect_rf4ce_nwk_cmd_disc_rsp(tvbuff_t *tvb, proto_tree *tree, int *offset);
 
-static void dissect_rf4ce_nwk_cmd_pair_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset);
-static void dissect_rf4ce_nwk_cmd_pair_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset);
+static void dissect_rf4ce_nwk_cmd_pair_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset);
+static void dissect_rf4ce_nwk_cmd_pair_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset);
 
-static void dissect_rf4ce_nwk_cmd_key_seed(tvbuff_t *tvb, proto_tree *tree, gint *offset);
+static void dissect_rf4ce_nwk_cmd_key_seed(tvbuff_t *tvb, proto_tree *tree, int *offset);
 
-static void dissect_rf4ce_nwk_cmd_ping(tvbuff_t *tvb, proto_tree *tree, gint *offset);
+static void dissect_rf4ce_nwk_cmd_ping(tvbuff_t *tvb, proto_tree *tree, int *offset);
 
 static void rf4ce_cleanup(void)
 {
@@ -442,15 +443,15 @@ static void *uat_sec_record_copy_cb(void *n, const void *o, size_t siz _U_)
     return new_sec_rec;
 }
 
-static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_buf)
+static bool rf4ce_security_parse_sec_str(const char *data_str, uint8_t *dst_buf)
 {
     int i, j;
-    gchar temp;
-    gboolean string_mode = FALSE;
+    char temp;
+    bool string_mode = false;
 
     if (data_str == NULL || dst_buf == NULL)
     {
-        return FALSE;
+        return false;
     }
 
     /* Clear the key. */
@@ -465,7 +466,7 @@ static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_
     temp = *data_str++;
     if (temp == '"')
     {
-        string_mode = TRUE;
+        string_mode = true;
         temp = *data_str++;
     }
 
@@ -481,7 +482,7 @@ static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_
             }
             else
             {
-                return FALSE;
+                return false;
             }
         }
         else
@@ -499,7 +500,7 @@ static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_
             }
             else
             {
-                return FALSE;
+                return false;
             }
 
             /* Get the next nibble. */
@@ -512,7 +513,7 @@ static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_
             }
             else
             {
-                return FALSE;
+                return false;
             }
 
             /* Get the next nibble. */
@@ -523,18 +524,18 @@ static gboolean rf4ce_security_parse_sec_str(const gchar *data_str, guint8 *dst_
     } /* for */
 
     /* If we get this far, then the key was good. */
-    return TRUE;
+    return true;
 }
 
 static bool uat_sec_record_update_cb(void *r, char **err)
 {
     uat_security_record_t *rec = (uat_security_record_t *)r;
-    guint8 sec_str[SEC_STR_LEN] = {0};
+    uint8_t sec_str[SEC_STR_LEN] = {0};
 
     if (rec->sec_str == NULL)
     {
         *err = g_strdup("Data field can't be blank");
-        return FALSE;
+        return false;
     }
 
     g_strstrip(rec->sec_str);
@@ -549,37 +550,37 @@ static bool uat_sec_record_update_cb(void *r, char **err)
                 sec_str,
                 NULL, /* controller addr */
                 NULL, /* target addr     */
-                TRUE, /* key from GUI    */
-                FALSE /* packet number   */);
+                true, /* key from GUI    */
+                false /* packet number   */);
 
             vendor_secret_storage_release_entry(sec_str);
         }
         else
         {
             vendor_secret_storage_add_entry(sec_str);
-            nwk_key_storage_release_entry(sec_str, TRUE /* key from GUI */);
+            nwk_key_storage_release_entry(sec_str, true /* key from GUI */);
         }
     }
     else
     {
         *err = ws_strdup_printf(
             "Expecting %d hexadecimal bytes or a %d character double-quoted string", SEC_STR_LEN, SEC_STR_LEN);
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 static void uat_sec_record_free_cb(void *r)
 {
     uat_security_record_t *sec_record = (uat_security_record_t *)r;
-    guint8 sec_str[SEC_STR_LEN];
+    uint8_t sec_str[SEC_STR_LEN];
 
     if (rf4ce_security_parse_sec_str(sec_record->sec_str, sec_str))
     {
         if (sec_record->type == RF4CE_SEC_STR_TYPE_NWK_KEY)
         {
-            nwk_key_storage_release_entry(sec_str, TRUE /* key from GUI */);
+            nwk_key_storage_release_entry(sec_str, true /* key from GUI */);
         }
         else
         {
@@ -593,12 +594,12 @@ static void uat_sec_record_free_cb(void *r)
 
 static void uat_sec_record_post_update(void)
 {
-    guint8 sec_str[SEC_STR_LEN];
+    uint8_t sec_str[SEC_STR_LEN];
 
     vendor_secret_storage_add_entry(DEFAULT_SECRET);
 
     /* Load the pre-configured slist from the UAT. */
-    for (guint i = 0; (uat_security_records) && (i < num_uat_security_records); i++)
+    for (unsigned i = 0; (uat_security_records) && (i < num_uat_security_records); i++)
     {
         if (rf4ce_security_parse_sec_str(uat_security_records[i].sec_str, sec_str))
         {
@@ -608,39 +609,41 @@ static void uat_sec_record_post_update(void)
                     sec_str,
                     NULL, /* controller addr */
                     NULL, /* target addr     */
-                    TRUE, /* key from GUI    */
-                    FALSE /* packet number   */);
+                    true, /* key from GUI    */
+                    false /* packet number   */);
 
                 vendor_secret_storage_release_entry(sec_str);
             }
             else
             {
                 vendor_secret_storage_add_entry(sec_str);
-                nwk_key_storage_release_entry(sec_str, TRUE /* key from GUI */);
+                nwk_key_storage_release_entry(sec_str, true /* key from GUI */);
             }
         }
     }
 }
 
-static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+static bool dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-    guint reported_length = tvb_reported_length(tvb);
-    guint length = tvb_captured_length(tvb);
-    guint8 fcf;
-    guint8 frame_type;
-    guint8 reserved;
-    guint8 profile_id;
-    guint16 vendor_id;
-    guint8 command_id;
+    unsigned reported_length = tvb_reported_length(tvb);
+    unsigned length = tvb_captured_length(tvb);
+    uint8_t fcf;
+    uint8_t frame_type;
+    uint8_t security_enabled;
+    uint8_t reserved;
+    uint8_t profile_id;
+    uint16_t vendor_id;
+    uint8_t command_id;
 
     if (reported_length >= RF4CE_MIN_NWK_LENGTH && reported_length <= RF4CE_MAX_NWK_LENGTH)
     {
         if (length < RF4CE_MIN_NWK_LENGTH)
         {
-            return FALSE;
+            return false;
         }
-        fcf = tvb_get_guint8(tvb, 0);
+        fcf = tvb_get_uint8(tvb, 0);
         frame_type = fcf & RF4CE_NWK_FCF_FRAME_TYPE_MASK;
+        security_enabled = fcf & RF4CE_NWK_FCF_SECURITY_MASK;
         reserved = (fcf & RF4CE_NWK_FCF_RESERVED_MASK) >> 5;
 
         switch (frame_type)
@@ -652,29 +655,29 @@ static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_
                 break;
 
             default:
-                return FALSE;
+                return false;
         }
         /* Reserved value must be 1 */
         if (reserved != 1)
         {
-            return FALSE;
+            return false;
         }
         if((frame_type == RF4CE_NWK_FCF_FRAME_TYPE_DATA) || (frame_type == RF4CE_NWK_FCF_FRAME_TYPE_VENDOR_SPECIFIC))
         {
             if (length < 6)
             {
-                return FALSE;
+                return false;
             }
-            profile_id = tvb_get_guint8(tvb, 5);
+            profile_id = tvb_get_uint8(tvb, 5);
             if ((profile_id >= 0x04) && (profile_id <= 0xbf))
             {
-                return FALSE;
+                return false;
             }
             if (frame_type == RF4CE_NWK_FCF_FRAME_TYPE_VENDOR_SPECIFIC)
             {
                 if (length < 8)
                 {
-                    return FALSE;
+                    return false;
                 }
                 vendor_id = tvb_get_letohs(tvb, 6);
                 switch (vendor_id)
@@ -693,7 +696,7 @@ static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_
                         break;
 
                     default:
-                        return FALSE;
+                        return false;
                 }
             }
         }
@@ -701,24 +704,28 @@ static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_
         {
             if (length < 6)
             {
-                return FALSE;
+                return false;
             }
-            command_id = tvb_get_guint8(tvb, 5);
-            switch (command_id)
+            /* If security is enabled, the command ID will be encrypted */
+            if (!security_enabled)
             {
-                case RF4CE_NWK_CMD_DISCOVERY_REQ:
-                case RF4CE_NWK_CMD_DISCOVERY_RSP:
-                case RF4CE_NWK_CMD_PAIR_REQ:
-                case RF4CE_NWK_CMD_PAIR_RSP:
-                case RF4CE_NWK_CMD_UNPAIR_REQ:
-                case RF4CE_NWK_CMD_KEY_SEED:
-                case RF4CE_NWK_CMD_PING_REQ:
-                case RF4CE_NWK_CMD_PING_RSP:
-                    /* Allowed command IDs */
-                    break;
+                command_id = tvb_get_uint8(tvb, 5);
+                switch (command_id)
+                {
+                    case RF4CE_NWK_CMD_DISCOVERY_REQ:
+                    case RF4CE_NWK_CMD_DISCOVERY_RSP:
+                    case RF4CE_NWK_CMD_PAIR_REQ:
+                    case RF4CE_NWK_CMD_PAIR_RSP:
+                    case RF4CE_NWK_CMD_UNPAIR_REQ:
+                    case RF4CE_NWK_CMD_KEY_SEED:
+                    case RF4CE_NWK_CMD_PING_REQ:
+                    case RF4CE_NWK_CMD_PING_RSP:
+                        /* Allowed command IDs */
+                        break;
 
-                default:
-                    return FALSE;
+                    default:
+                        return false;
+                }
             }
         }
         col_set_str(pinfo->cinfo, COL_PROTOCOL, "RF4CE NWK");
@@ -726,23 +733,23 @@ static gboolean dissect_rf4ce_nwk_heur(tvbuff_t *tvb, packet_info *pinfo, proto_
 
         dissect_rf4ce_nwk_common(tvb, pinfo, tree, data);
 
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-    guint offset = 0;
-    gboolean success;
-    guint8 *decrypted = (guint8 *)wmem_alloc(pinfo->pool, 512);
-    guint8 src_addr[RF4CE_IEEE_ADDR_LEN] = {0};
-    guint8 dst_addr[RF4CE_IEEE_ADDR_LEN] = {0};
+    unsigned offset = 0;
+    bool success;
+    uint8_t *decrypted = (uint8_t *)wmem_alloc(pinfo->pool, 512);
+    uint8_t src_addr[RF4CE_IEEE_ADDR_LEN] = {0};
+    uint8_t dst_addr[RF4CE_IEEE_ADDR_LEN] = {0};
 
-    guint8 fcf = 0xff;
-    guint8 frame_type = 0xff;
-    guint8 profile_id = 0xff;
-    guint16 size;
+    uint8_t fcf = 0xff;
+    uint8_t frame_type = 0xff;
+    uint8_t profile_id = 0xff;
+    uint16_t size;
 
     proto_item *ti = proto_tree_add_item(tree, proto_rf4ce_nwk, tvb, 0, -1, ENC_LITTLE_ENDIAN);
     proto_tree *rf4ce_nwk_tree = proto_item_add_subtree(ti, ett_rf4ce_nwk);
@@ -756,7 +763,7 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
         NULL};
 
     proto_tree_add_bitmask(rf4ce_nwk_tree, tvb, offset, hf_rf4ce_nwk_fcf, ett_rf4ce_nwk, nwk_fcf_bits, ENC_LITTLE_ENDIAN);
-    fcf = tvb_get_guint8(tvb, offset);
+    fcf = tvb_get_uint8(tvb, offset);
     offset += 1;
 
     proto_tree_add_item(rf4ce_nwk_tree, hf_rf4ce_nwk_seq_num, tvb, offset, 4, ENC_LITTLE_ENDIAN);
@@ -767,7 +774,7 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
     if (frame_type == RF4CE_NWK_FCF_FRAME_TYPE_DATA || frame_type == RF4CE_NWK_FCF_FRAME_TYPE_VENDOR_SPECIFIC)
     {
         proto_tree_add_item(rf4ce_nwk_tree, hf_rf4ce_nwk_profile_id, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        profile_id = tvb_get_guint8(tvb, offset);
+        profile_id = tvb_get_uint8(tvb, offset);
         offset += 1;
     }
 
@@ -777,8 +784,8 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
         offset += 2;
     }
 
-    rf4ce_addr_table_get_ieee_addr(src_addr, pinfo, TRUE);
-    rf4ce_addr_table_get_ieee_addr(dst_addr, pinfo, FALSE);
+    rf4ce_addr_table_get_ieee_addr(src_addr, pinfo, true);
+    rf4ce_addr_table_get_ieee_addr(dst_addr, pinfo, false);
 
     size = tvb_captured_length_remaining(tvb, 0);
 
@@ -796,16 +803,16 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
     {
         size -= offset;
         tvb_memcpy(tvb, decrypted, offset, size);
-        success = TRUE;
+        success = true;
     }
     else
     {
-        success = FALSE;
+        success = false;
     }
 
     if (success)
     {
-        guint decrypted_offset = 0;
+        unsigned decrypted_offset = 0;
 
         /* On decryption success: replace the tvb, make offset point to its beginning */
         tvb = tvb_new_child_real_data(tvb, decrypted, size, size);
@@ -842,7 +849,7 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
     if (offset < tvb_captured_length(tvb))
     {
-        guint unparsed_length = tvb_captured_length(tvb) - offset;
+        unsigned unparsed_length = tvb_captured_length(tvb) - offset;
         proto_tree_add_item(rf4ce_nwk_tree, hf_rf4ce_nwk_unparsed_payload, tvb, offset, unparsed_length, ENC_NA);
 #if 0
         /* enable this block if you need to add NWK MIC */
@@ -861,9 +868,9 @@ static int dissect_rf4ce_nwk_common(tvbuff_t *tvb, packet_info *pinfo, proto_tre
     return tvb_captured_length(tvb);
 }
 
-static void dissect_rf4ce_nwk_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset)
 {
-    gint cmd_id = tvb_get_guint8(tvb, *offset);
+    int cmd_id = tvb_get_uint8(tvb, *offset);
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_cmd_id, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
@@ -905,7 +912,7 @@ static void dissect_rf4ce_nwk_cmd(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
     }
 }
 
-static void dissect_rf4ce_nwk_common_node_capabilities(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_common_node_capabilities(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
     static int *const nwk_node_capabilities_bits[] = {
         &hf_rf4ce_nwk_node_capabilities_node_type,
@@ -919,19 +926,18 @@ static void dissect_rf4ce_nwk_common_node_capabilities(tvbuff_t *tvb, proto_tree
     *offset += 1;
 }
 
-static void dissect_rf4ce_nwk_common_vendor_info(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_common_vendor_info(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
-    const guint8 *prodname;
     proto_tree *vendor_info_tree = proto_tree_add_subtree(tree, tvb, *offset, tvb_captured_length(tvb) - *offset, ett_rf4ce_nwk_vendor_info, NULL, "Vendor Information Fields");
 
     proto_tree_add_item(vendor_info_tree, hf_rf4ce_nwk_disc_req_vendor_id, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
     *offset += 2;
 
-    proto_tree_add_item_ret_string(vendor_info_tree, hf_rf4ce_nwk_vendor_string, tvb, *offset, RF4CE_NWK_VENDOR_STRING_MAX_LENGTH, ENC_UTF_8, wmem_packet_scope(), &prodname);
+    proto_tree_add_item(vendor_info_tree, hf_rf4ce_nwk_vendor_string, tvb, *offset, RF4CE_NWK_VENDOR_STRING_MAX_LENGTH, ENC_UTF_8);
     *offset += RF4CE_NWK_VENDOR_STRING_MAX_LENGTH;
 }
 
-static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree *tree, gint *offset, guint8 parsing_mask)
+static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree *tree, int *offset, uint8_t parsing_mask)
 {
     int nwk_app_capabilities = 0;
     int supported_devices_num = 0;
@@ -946,7 +952,7 @@ static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree 
         NULL};
 
     proto_tree_add_bitmask(tree, tvb, *offset, hf_rf4ce_nwk_app_capabilities, ett_rf4ce_nwk, nwk_app_capabilities_bits, ENC_LITTLE_ENDIAN);
-    nwk_app_capabilities = tvb_get_guint8(tvb, *offset);
+    nwk_app_capabilities = tvb_get_uint8(tvb, *offset);
     *offset += 1;
 
     if (nwk_app_capabilities & RF4CE_NWK_USR_STR_SPECIFIED_MASK)
@@ -1004,7 +1010,7 @@ static void dissect_rf4ce_nwk_common_app_capabilities(tvbuff_t *tvb, proto_tree 
     }
 }
 
-static void dissect_rf4ce_nwk_disc_resp_class_descriptor(tvbuff_t *tvb, proto_tree *tree, gint *offset, int hf)
+static void dissect_rf4ce_nwk_disc_resp_class_descriptor(tvbuff_t *tvb, proto_tree *tree, int *offset, int hf)
 {
     static int *const class_num_bits[] = {
         &hf_rf4ce_nwk_usr_str_disc_rsp_class_desc_class_num,
@@ -1016,7 +1022,7 @@ static void dissect_rf4ce_nwk_disc_resp_class_descriptor(tvbuff_t *tvb, proto_tr
     *offset += 1;
 }
 
-static void dissect_rf4ce_nwk_cmd_disc_req(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_disc_req(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
     dissect_rf4ce_nwk_common_node_capabilities(tvb, tree, offset);
     dissect_rf4ce_nwk_common_vendor_info(tvb, tree, offset);
@@ -1026,7 +1032,7 @@ static void dissect_rf4ce_nwk_cmd_disc_req(tvbuff_t *tvb, proto_tree *tree, gint
     *offset += 1;
 }
 
-static void dissect_rf4ce_nwk_cmd_disc_rsp(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_disc_rsp(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
     proto_tree_add_item(tree, hf_rf4ce_nwk_disc_resp_status, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
@@ -1039,9 +1045,9 @@ static void dissect_rf4ce_nwk_cmd_disc_rsp(tvbuff_t *tvb, proto_tree *tree, gint
     *offset += 1;
 }
 
-static void dissect_rf4ce_nwk_cmd_pair_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_pair_req(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset)
 {
-    guint8 expected_transfer_count;
+    uint8_t expected_transfer_count;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_pair_req_nwk_addr, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
     *offset += 2;
@@ -1052,25 +1058,25 @@ static void dissect_rf4ce_nwk_cmd_pair_req(tvbuff_t *tvb, packet_info *pinfo, pr
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_pair_req_key_exch_num, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
 
-    expected_transfer_count = tvb_get_guint8(tvb, *offset) + 1;
-    keypair_context_init((const guint8 *)pinfo->dl_src.data, (const guint8 *)pinfo->dl_dst.data, expected_transfer_count);
+    expected_transfer_count = tvb_get_uint8(tvb, *offset) + 1;
+    keypair_context_init((const uint8_t *)pinfo->dl_src.data, (const uint8_t *)pinfo->dl_dst.data, expected_transfer_count);
     *offset += 1;
 }
 
-static void dissect_rf4ce_nwk_cmd_pair_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_pair_rsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int *offset)
 {
-    guint16 allocated_nwk_addr;
-    guint16 nwk_addr;
+    uint16_t allocated_nwk_addr;
+    uint16_t nwk_addr;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_pair_rsp_status, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_pair_rsp_allocated_nwk_addr, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
-    allocated_nwk_addr = tvb_get_guint16(tvb, *offset, ENC_LITTLE_ENDIAN);
+    allocated_nwk_addr = tvb_get_uint16(tvb, *offset, ENC_LITTLE_ENDIAN);
     *offset += 2;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_pair_rsp_nwk_addr, tvb, *offset, 2, ENC_LITTLE_ENDIAN);
-    nwk_addr = tvb_get_guint16(tvb, *offset, ENC_LITTLE_ENDIAN);
+    nwk_addr = tvb_get_uint16(tvb, *offset, ENC_LITTLE_ENDIAN);
     *offset += 2;
 
     dissect_rf4ce_nwk_common_node_capabilities(tvb, tree, offset);
@@ -1081,13 +1087,13 @@ static void dissect_rf4ce_nwk_cmd_pair_rsp(tvbuff_t *tvb, packet_info *pinfo, pr
     rf4ce_addr_table_add_addrs(pinfo->dl_src.data, nwk_addr);
 }
 
-static void dissect_rf4ce_nwk_cmd_key_seed(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_key_seed(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
-    guint8 seed_data[RF4CE_NWK_KEY_SEED_DATA_LENGTH] = {0};
-    guint8 seed_seq_num = 0;
+    uint8_t seed_data[RF4CE_NWK_KEY_SEED_DATA_LENGTH] = {0};
+    uint8_t seed_seq_num = 0;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_seed_seq_num, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
-    seed_seq_num = tvb_get_guint8(tvb, *offset);
+    seed_seq_num = tvb_get_uint8(tvb, *offset);
     *offset += 1;
 
     proto_tree_add_item(tree, hf_rf4ce_nwk_seed_data, tvb, *offset, RF4CE_NWK_KEY_SEED_DATA_LENGTH, ENC_NA);
@@ -1097,7 +1103,7 @@ static void dissect_rf4ce_nwk_cmd_key_seed(tvbuff_t *tvb, proto_tree *tree, gint
     keypair_context_update_seed(seed_data, seed_seq_num);
 }
 
-static void dissect_rf4ce_nwk_cmd_ping(tvbuff_t *tvb, proto_tree *tree, gint *offset)
+static void dissect_rf4ce_nwk_cmd_ping(tvbuff_t *tvb, proto_tree *tree, int *offset)
 {
     proto_tree_add_item(tree, hf_rf4ce_nwk_ping_options, tvb, *offset, 1, ENC_LITTLE_ENDIAN);
     *offset += 1;
@@ -1369,7 +1375,7 @@ void proto_register_rf4ce_nwk(void)
     };
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_rf4ce_nwk,
         &ett_rf4ce_nwk_payload,
         &ett_rf4ce_nwk_vendor_info,
@@ -1403,7 +1409,7 @@ void proto_register_rf4ce_nwk(void)
         uat_new("Pre-configured security table",
                 sizeof(uat_security_record_t),
                 "rf4ce_pc_sec",
-                TRUE,
+                true,
                 &uat_security_records,
                 &num_uat_security_records,
                 UAT_AFFECTS_DISSECTION, /* affects dissection of packets, but not set of named fields */

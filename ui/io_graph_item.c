@@ -15,10 +15,17 @@
 
 #include <epan/epan_dissect.h>
 
+#include <wsutil/filesystem.h>
+
 #include "ui/io_graph_item.h"
 
-int get_io_graph_index(packet_info *pinfo, int interval) {
+// XXX - constant defined elsewhere, any benefit to store it in a global .h ?
+#define MICROSECS_PER_SEC 1000000
+
+int64_t get_io_graph_index(packet_info *pinfo, int interval) {
     nstime_t time_delta;
+
+    ws_return_val_if(interval <= 0, -1);
 
     /*
      * Find in which interval this is supposed to go and store the interval index as idx
@@ -31,7 +38,7 @@ int get_io_graph_index(packet_info *pinfo, int interval) {
     if (time_delta.secs<0) {
         return -1;
     }
-    return (int) ((time_delta.secs*1000 + time_delta.nsecs/1000000) / interval);
+    return ((time_delta.secs*INT64_C(1000000) + time_delta.nsecs/1000) / interval);
 }
 
 GString *check_field_unit(const char *field_name, int *hf_index, io_graph_item_unit_t item_unit)
@@ -50,9 +57,14 @@ GString *check_field_unit(const char *field_name, int *hf_index, io_graph_item_u
             "MAX",
             "MIN",
             "AVG",
+            "THROUGHPUT",
             "LOAD",
             NULL
         };
+
+        if (!is_packet_configuration_namespace()) {
+            item_unit_names[0] = "Events";
+        }
 
         /* There was no field specified */
         if ((field_name == NULL) || (field_name[0] == 0)) {
@@ -102,6 +114,7 @@ GString *check_field_unit(const char *field_name, int *hf_index, io_graph_item_u
             case IOG_ITEM_UNIT_CALC_MAX:
             case IOG_ITEM_UNIT_CALC_MIN:
             case IOG_ITEM_UNIT_CALC_AVERAGE:
+            case IOG_ITEM_UNIT_CALC_THROUGHPUT:
             case IOG_ITEM_UNIT_CALC_LOAD:
                 break;
             default:
@@ -127,23 +140,26 @@ GString *check_field_unit(const char *field_name, int *hf_index, io_graph_item_u
 }
 
 // Adapted from get_it_value in gtk/io_stat.c.
-double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val_units_, int idx, int hf_index_, const capture_file *cap_file, int interval_, int cur_idx_)
+double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val_units_, int idx, int hf_index_, const capture_file *cap_file, int interval_, int cur_idx_, bool asAOT)
 {
     double     value = 0;          /* FIXME: loss of precision, visible on the graph for small values */
     int        adv_type;
     const io_graph_item_t *item;
-    guint32    interval;
+    uint32_t   interval;
 
     item = &items_[idx];
 
     // Basic units
+    // XXX - Should we divide these counted values by the interval
+    // so that they measure rates (as done with LOAD)? That might be
+    // more meaningful and consistent.
     switch (val_units_) {
     case IOG_ITEM_UNIT_PACKETS:
-        return item->frames;
+        return asAOT ? MICROSECS_PER_SEC*item->frames/interval_ : item->frames;
     case IOG_ITEM_UNIT_BYTES:
-        return (double) item->bytes;
+        return (double)(asAOT ? MICROSECS_PER_SEC*item->bytes/interval_ : item->bytes);
     case IOG_ITEM_UNIT_BITS:
-        return (double) (item->bytes * 8);
+        return (double)(asAOT ? MICROSECS_PER_SEC*item->bytes*8/interval_ : item->bytes*8);
     case IOG_ITEM_UNIT_CALC_FRAMES:
         return item->frames;
     case IOG_ITEM_UNIT_CALC_FIELDS:
@@ -170,24 +186,18 @@ double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val
     case FT_INT48:
     case FT_INT56:
     case FT_INT64:
-    case FT_UINT8:
-    case FT_UINT16:
-    case FT_UINT24:
-    case FT_UINT32:
-    case FT_UINT40:
-    case FT_UINT48:
-    case FT_UINT56:
-    case FT_UINT64:
-    case FT_DOUBLE:
         switch (val_units_) {
         case IOG_ITEM_UNIT_CALC_SUM:
             value = item->double_tot;
             break;
         case IOG_ITEM_UNIT_CALC_MAX:
-            value = item->double_max;
+            value = (double)item->int_max;
             break;
         case IOG_ITEM_UNIT_CALC_MIN:
-            value = item->double_min;
+            value = (double)item->int_min;
+            break;
+        case IOG_ITEM_UNIT_CALC_THROUGHPUT:
+            value = item->double_tot*MICROSECS_PER_SEC/interval_;
             break;
         case IOG_ITEM_UNIT_CALC_AVERAGE:
             if (item->fields) {
@@ -201,20 +211,54 @@ double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val
         }
         break;
 
-    case FT_FLOAT:
+    case FT_UINT8:
+    case FT_UINT16:
+    case FT_UINT24:
+    case FT_UINT32:
+    case FT_UINT40:
+    case FT_UINT48:
+    case FT_UINT56:
+    case FT_UINT64:
         switch (val_units_) {
         case IOG_ITEM_UNIT_CALC_SUM:
-            value = item->float_tot;
+            value = item->double_tot;
             break;
         case IOG_ITEM_UNIT_CALC_MAX:
-            value = item->float_max;
+            value = (double)item->uint_max;
             break;
         case IOG_ITEM_UNIT_CALC_MIN:
-            value = item->float_min;
+            value = (double)item->uint_min;
+            break;
+        case IOG_ITEM_UNIT_CALC_THROUGHPUT:
+            value = item->double_tot*MICROSECS_PER_SEC/interval_;
             break;
         case IOG_ITEM_UNIT_CALC_AVERAGE:
             if (item->fields) {
-                value = (double)item->float_tot / item->fields;
+                value = item->double_tot / item->fields;
+            } else {
+                value = 0;
+            }
+            break;
+        default:
+            break;
+        }
+        break;
+
+    case FT_DOUBLE:
+    case FT_FLOAT:
+        switch (val_units_) {
+        case IOG_ITEM_UNIT_CALC_SUM:
+            value = item->double_tot;
+            break;
+        case IOG_ITEM_UNIT_CALC_MAX:
+            value = item->double_max;
+            break;
+        case IOG_ITEM_UNIT_CALC_MIN:
+            value = item->double_min;
+            break;
+        case IOG_ITEM_UNIT_CALC_AVERAGE:
+            if (item->fields) {
+                value = item->double_tot / item->fields;
             } else {
                 value = 0;
             }
@@ -245,14 +289,17 @@ double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val
         case IOG_ITEM_UNIT_CALC_LOAD:
             // "LOAD graphs plot the QUEUE-depth of the connection over time"
             // (for response time fields such as smb.time, rpc.time, etc.)
-            // This interval is expressed in milliseconds.
+            // This interval is expressed in microseconds.
             if (idx == cur_idx_ && cap_file) {
-                interval = (guint32)(nstime_to_msec(&cap_file->elapsed_time) + 0.5);
-                interval -= (interval_ * idx);
+                // If this is the last interval, it may not be full width.
+                uint64_t start_us = (uint64_t)interval_ * idx;
+                nstime_t timediff = NSTIME_INIT_SECS_USECS(start_us / 1000000, start_us % 1000000);
+                nstime_delta(&timediff, &cap_file->elapsed_time, &timediff);
+                interval = (uint32_t)(1000*nstime_to_msec(&timediff) + 0.5);
             } else {
                 interval = interval_;
             }
-            value = nstime_to_msec(&item->time_tot) / interval;
+            value = (1000 * nstime_to_msec(&item->time_tot)) / interval;
             break;
         default:
             break;

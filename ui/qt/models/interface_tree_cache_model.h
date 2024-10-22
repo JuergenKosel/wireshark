@@ -20,6 +20,8 @@
 
 class InterfaceTreeCacheModel : public QIdentityProxyModel
 {
+    Q_OBJECT
+
 public:
     explicit InterfaceTreeCacheModel(QObject *parent);
     ~InterfaceTreeCacheModel();
@@ -42,6 +44,10 @@ public:
     void deleteDevice(const QModelIndex &index);
 #endif
 
+#ifdef HAVE_PCAP_REMOTE
+    bool isRemote(const QModelIndex &index) const;
+#endif
+
 private:
     InterfaceTreeModel * sourceModel;
 
@@ -50,7 +56,7 @@ private:
 
     void saveNewDevices();
 #endif
-    QMap<int, QMap<InterfaceTreeColumns, QVariant> *> * storage;
+    QMap<int, QSharedPointer<QMap<InterfaceTreeColumns, QVariant> > > * storage;
     QList<InterfaceTreeColumns> editableColumns;
     QList<InterfaceTreeColumns> checkableColumns;
 

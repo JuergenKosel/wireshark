@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-sv.c                                                                */
-/* asn2wrs.py -b -L -p sv -c ./sv.cnf -s ./packet-sv-template -D . -O ../.. sv.asn */
+/* asn2wrs.py -b -q -L -p sv -c ./sv.cnf -s ./packet-sv-template -D . -O ../.. sv.asn */
 
 /* packet-sv.c
  * Routines for IEC 61850 Sampled Values packet dissection
@@ -22,6 +22,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/addr_resolv.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -36,7 +37,8 @@
 
 /* see IEC61850-8-1 8.2 */
 #define Q_VALIDITY_GOOD			(0x0U << 0)
-#define Q_VALIDITY_INVALID		(0x1U << 0)
+#define Q_VALIDITY_INVALID_BW		(0x1U << 0)
+#define Q_VALIDITY_INVALID		(0x2U << 0)
 #define Q_VALIDITY_QUESTIONABLE		(0x3U << 0)
 #define Q_VALIDITY_MASK			(0x3U << 0)
 
@@ -118,22 +120,33 @@ static int ett_gmidentity;
 static int ett_reserve1;
 
 
-static gint ett_sv_SampledValues;
-static gint ett_sv_SavPdu;
-static gint ett_sv_SEQUENCE_OF_ASDU;
-static gint ett_sv_ASDU;
+static int ett_sv_SampledValues;
+static int ett_sv_SavPdu;
+static int ett_sv_SEQUENCE_OF_ASDU;
+static int ett_sv_ASDU;
 
 static expert_field ei_sv_mal_utctime;
 static expert_field ei_sv_zero_pdu;
 static expert_field ei_sv_mal_gmidentity;
 
-static gboolean sv_decode_data_as_phsmeas = FALSE;
+static bool sv_decode_data_as_phsmeas;
 
 static dissector_handle_t sv_handle;
 
+/*
+ * See
+ *   IEC 61850-9-2 Edition 2.1 2020-02,
+ *   Section 8.6 Definitions for basic data types – Presentation layer functionality,
+ *   Table 21
+ *
+ * Be aware that in the specification the bits are numbered in reverse (it
+ * specifies the least significant bit as bit 31 instead of as bit 0)!
+ */
+
 static const value_string sv_q_validity_vals[] = {
 	{ 0, "good" },
-	{ 1, "invalid" },
+	{ 1, "invalid (backwards compatible)" },
+	{ 2, "invalid" },
 	{ 3, "questionable" },
 	{ 0, NULL }
 };
@@ -147,14 +160,14 @@ static const value_string sv_q_source_vals[] = {
 static int
 dissect_PhsMeas1(bool implicit_tag, packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, int hf_id _U_)
 {
-	gint8 ber_class;
+	int8_t ber_class;
 	bool pc;
-	gint32 tag;
-	guint32 len;
+	int32_t tag;
+	uint32_t len;
 	proto_tree *subtree;
-	gint32 value;
-	guint32 qual;
-	guint32 i;
+	int32_t value;
+	uint32_t qual;
+	uint32_t i;
 
 	static int * const q_flags[] = {
 		&hf_sv_phsmeas_q_validity,
@@ -229,7 +242,7 @@ dissect_sv_VisibleString(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 static int
 dissect_sv_T_smpCnt(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32 value;
+	uint32_t value;
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &value);
 
@@ -252,12 +265,12 @@ dissect_sv_INTEGER_0_4294967295(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_sv_UtcTime(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32 len;
-	guint32 seconds;
-	guint32	fraction;
-	guint32 nanoseconds;
+	uint32_t len;
+	uint32_t seconds;
+	uint32_t	fraction;
+	uint32_t nanoseconds;
 	nstime_t ts;
-	gchar *	ptime;
+	char *	ptime;
 
 	len = tvb_reported_length_remaining(tvb, offset);
 
@@ -274,12 +287,12 @@ dissect_sv_UtcTime(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn
 
 	seconds = tvb_get_ntohl(tvb, offset);
 	fraction = tvb_get_ntoh24(tvb, offset+4) * 0x100; /* Only 3 bytes are recommended */
-	nanoseconds = (guint32)( ((guint64)fraction * G_GUINT64_CONSTANT(1000000000)) / G_GUINT64_CONSTANT(0x100000000) ) ;
+	nanoseconds = (uint32_t)( ((uint64_t)fraction * UINT64_C(1000000000)) / UINT64_C(0x100000000) ) ;
 
 	ts.secs = seconds;
 	ts.nsecs = nanoseconds;
 
-	ptime = abs_time_to_str(actx->pinfo->pool, &ts, ABSOLUTE_TIME_UTC, TRUE);
+	ptime = abs_time_to_str(actx->pinfo->pool, &ts, ABSOLUTE_TIME_UTC, true);
 
 	if(hf_index > 0)
 	{
@@ -301,7 +314,7 @@ static const value_string sv_T_smpSynch_vals[] = {
 
 static int
 dissect_sv_T_smpSynch(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32 value;
+	uint32_t value;
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &value);
 
@@ -334,7 +347,7 @@ static const value_string sv_T_smpMod_vals[] = {
 
 static int
 dissect_sv_T_smpMod(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32 value;
+	uint32_t value;
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &value);
 
@@ -347,10 +360,10 @@ dissect_sv_T_smpMod(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 
 static int
 dissect_sv_GmidData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32 len;
+	uint32_t len;
 	proto_item  *gmidentity_ti;
 	proto_tree  *gmidentity_tree;
-	const gchar *manuf_name;
+	const char *manuf_name;
 
 	len = tvb_reported_length_remaining(tvb, offset);
 
@@ -455,7 +468,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 {
 	int offset = 0;
 	int old_offset;
-	guint sv_length = 0;
+	unsigned sv_length = 0;
 	proto_item *item;
 	proto_tree *tree;
 
@@ -466,7 +479,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 
 	asn1_ctx_t asn1_ctx;
 
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	item = proto_tree_add_item(parent_tree, proto_sv, tvb, 0, -1, ENC_NA);
 	tree = proto_item_add_subtree(item, ett_sv);
@@ -492,7 +505,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 	set_actual_length(tvb, sv_length);
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		old_offset = offset;
-		offset = dissect_sv_SampledValues(FALSE, tvb, offset, &asn1_ctx , tree, -1);
+		offset = dissect_sv_SampledValues(false, tvb, offset, &asn1_ctx , tree, -1);
 		if (offset == old_offset) {
 			proto_tree_add_expert(tree, pinfo, &ei_sv_zero_pdu, tvb, offset, -1);
 			break;
@@ -636,7 +649,7 @@ void proto_register_sv(void) {
 	};
 
 	/* List of subtrees */
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_sv,
 		&ett_phsmeas,
 		&ett_phsmeas_q,

@@ -70,10 +70,6 @@ UatDialog::UatDialog(QWidget *parent, epan_uat *uat) :
     ui->uatTreeView->setEditTriggers(ui->uatTreeView->editTriggers() |
             QAbstractItemView::CurrentChanged | QAbstractItemView::AnyKeyPressed);
 
-    // Need to add uat_move or uat_insert to the UAT API.
-    ui->uatTreeView->setDragEnabled(false);
-//    qDebug() << "FIX Add drag reordering to UAT dialog";
-
     // Do NOT start editing the first column for the first item
     ui->uatTreeView->setCurrentIndex(QModelIndex());
 }
@@ -106,7 +102,7 @@ void UatDialog::setUat(epan_uat *uat)
             connect(copy_button, &CopyFromProfileButton::copyProfile, this, &UatDialog::copyFromProfile);
         }
 
-        QString abs_path = gchar_free_to_qstring(uat_get_actual_filename(uat_, FALSE));
+        QString abs_path = gchar_free_to_qstring(uat_get_actual_filename(uat_, false));
         if (abs_path.length() > 0) {
             ui->pathLabel->setText(abs_path);
             ui->pathLabel->setUrl(QUrl::fromLocalFile(abs_path).toString());
@@ -120,6 +116,7 @@ void UatDialog::setUat(epan_uat *uat)
         uat_delegate_ = new UatDelegate;
         ui->uatTreeView->setModel(uat_model_);
         ui->uatTreeView->setItemDelegate(uat_delegate_);
+        ui->uatTreeView->setSelectionMode(QAbstractItemView::ContiguousSelection);
         resizeColumns();
         ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
 
@@ -128,6 +125,9 @@ void UatDialog::setUat(epan_uat *uat)
         connect(uat_model_, SIGNAL(rowsRemoved(QModelIndex, int, int)),
                 this, SLOT(modelRowsRemoved()));
         connect(uat_model_, SIGNAL(modelReset()), this, SLOT(modelRowsReset()));
+
+        connect(ui->uatTreeView->selectionModel(), &QItemSelectionModel::selectionChanged,
+                this, &UatDialog::uatTreeViewSelectionChanged);
 
         ok_button_->setEnabled(!uat_model_->hasErrors());
 
@@ -144,9 +144,9 @@ void UatDialog::setUat(epan_uat *uat)
 
 void UatDialog::copyFromProfile(QString filename)
 {
-    gchar *err = NULL;
+    char *err = NULL;
     if (uat_load(uat_, filename.toUtf8().constData(), &err)) {
-        uat_->changed = TRUE;
+        uat_->changed = true;
         uat_model_->reloadUat();
     } else {
         report_failure("Error while loading %s: %s", uat_->name, err);
@@ -176,6 +176,7 @@ void UatDialog::modelRowsRemoved()
         ui->moveUpToolButton->setEnabled(false);
         ui->moveDownToolButton->setEnabled(false);
     }
+    ui->clearToolButton->setEnabled(uat_model_->rowCount() != 0);
 
     checkForErrorHint(current, QModelIndex());
     ok_button_->setEnabled(!uat_model_->hasErrors());
@@ -190,23 +191,32 @@ void UatDialog::modelRowsReset()
     ui->moveDownToolButton->setEnabled(false);
 }
 
+void UatDialog::uatTreeViewSelectionChanged(const QItemSelection&, const QItemSelection&)
+{
+    QModelIndexList selectedRows = ui->uatTreeView->selectionModel()->selectedRows();
+    qsizetype num_selected = selectedRows.size();
+    if (num_selected > 0) {
+        std::sort(selectedRows.begin(), selectedRows.end());
+        ui->deleteToolButton->setEnabled(true);
+        ui->copyToolButton->setEnabled(true);
+        ui->moveUpToolButton->setEnabled(selectedRows.first().row() > 0);
+        ui->moveDownToolButton->setEnabled(selectedRows.last().row() < uat_model_->rowCount() - 1);
+    } else {
+        ui->deleteToolButton->setEnabled(false);
+        ui->copyToolButton->setEnabled(false);
+        ui->moveUpToolButton->setEnabled(false);
+        ui->moveDownToolButton->setEnabled(false);
+    }
+}
 
 // Invoked when a different field is selected. Note: when selecting a different
 // field after editing, this event is triggered after modelDataChanged.
 void UatDialog::on_uatTreeView_currentItemChanged(const QModelIndex &current, const QModelIndex &previous)
 {
     if (current.isValid()) {
-        ui->deleteToolButton->setEnabled(true);
         ui->clearToolButton->setEnabled(true);
-        ui->copyToolButton->setEnabled(true);
-        ui->moveUpToolButton->setEnabled(current.row() != 0);
-        ui->moveDownToolButton->setEnabled(current.row() != (uat_model_->rowCount() - 1));
     } else {
-        ui->deleteToolButton->setEnabled(false);
         ui->clearToolButton->setEnabled(false);
-        ui->copyToolButton->setEnabled(false);
-        ui->moveUpToolButton->setEnabled(false);
-        ui->moveDownToolButton->setEnabled(false);
     }
 
     checkForErrorHint(current, previous);
@@ -289,46 +299,86 @@ void UatDialog::on_newToolButton_clicked()
 
 void UatDialog::on_deleteToolButton_clicked()
 {
-    const QModelIndex &current = ui->uatTreeView->currentIndex();
-    if (uat_model_ && current.isValid()) {
-        if (!uat_model_->removeRows(current.row(), 1)) {
-            qDebug() << "Failed to remove row";
+    if (uat_model_ == nullptr) {
+        return;
+    }
+
+    for (const auto &range : ui->uatTreeView->selectionModel()->selection()) {
+        // Each QItemSelectionRange is contiguous
+        if (!range.isEmpty()) {
+            if (!uat_model_->removeRows(range.top(), range.bottom() - range.top() + 1)) {
+                qDebug() << "Failed to remove rows" << range.top() << "to" << range.bottom();
+            }
         }
     }
 }
 
 void UatDialog::on_copyToolButton_clicked()
 {
-    addRecord(true);
+    if (uat_model_ == nullptr) {
+        return;
+    }
+
+    QModelIndexList selectedRows = ui->uatTreeView->selectionModel()->selectedRows();
+    if (selectedRows.size() > 0) {
+        std::sort(selectedRows.begin(), selectedRows.end());
+
+        QModelIndex copyIdx;
+
+        for (const auto &idx : selectedRows) {
+            copyIdx = uat_model_->copyRow(idx);
+            if (!copyIdx.isValid())
+            {
+                qDebug() << "Failed to copy row" << idx.row();
+            }
+            // trigger updating error messages and the OK button state.
+            modelDataChanged(copyIdx);
+        }
+        // due to an EditTrigger, this will also start editing.
+        ui->uatTreeView->setCurrentIndex(copyIdx);
+    }
+
 }
 
 void UatDialog::on_moveUpToolButton_clicked()
 {
-    const QModelIndex &current = ui->uatTreeView->currentIndex();
-    int current_row = current.row();
-    if (uat_model_ && current.isValid() && current_row > 0) {
-        if (!uat_model_->moveRow(current_row, current_row - 1)) {
-            qDebug() << "Failed to move row up";
-            return;
+    if (uat_model_ == nullptr) {
+        return;
+    }
+
+    for (const auto &range : ui->uatTreeView->selectionModel()->selection()) {
+        // Each QItemSelectionRange is contiguous
+        if (!range.isEmpty() && range.top() > 0) {
+            // Swap range of rows with the row above the top
+            if (! uat_model_->moveRows(QModelIndex(), range.top(), range.bottom() - range.top() + 1, QModelIndex(), range.top() - 1)) {
+                qDebug() << "Failed to move up rows" << range.top() << "to" << range.bottom();
+            }
+            // Our moveRows implementation calls begin/endMoveRows(), so
+            // range.top() already has the new row number.
+            ui->moveUpToolButton->setEnabled(range.top() > 0);
+            ui->moveDownToolButton->setEnabled(true);
         }
-        current_row--;
-        ui->moveUpToolButton->setEnabled(current_row > 0);
-        ui->moveDownToolButton->setEnabled(current_row < (uat_model_->rowCount() - 1));
     }
 }
 
 void UatDialog::on_moveDownToolButton_clicked()
 {
-    const QModelIndex &current = ui->uatTreeView->currentIndex();
-    int current_row = current.row();
-    if (uat_model_ && current.isValid() && current_row < (uat_model_->rowCount() - 1)) {
-        if (!uat_model_->moveRow(current_row, current_row + 1)) {
-            qDebug() << "Failed to move row down";
-            return;
+    if (uat_model_ == nullptr) {
+        return;
+    }
+
+    for (const auto &range : ui->uatTreeView->selectionModel()->selection()) {
+        // Each QItemSelectionRange is contiguous
+        if (!range.isEmpty() && range.bottom() + 1 < uat_model_->rowCount()) {
+            // Swap range of rows with the row below the top
+            if (! uat_model_->moveRows(QModelIndex(), range.top(), range.bottom() - range.top() + 1, QModelIndex(), range.bottom() + 1)) {
+                qDebug() << "Failed to move down rows" << range.top() << "to" << range.bottom();
+            }
+            // Our moveRows implementation calls begin/endMoveRows, so
+            // range.bottom() already has the new row number.
+            ui->moveUpToolButton->setEnabled(true);
+            ui->moveDownToolButton->setEnabled(range.bottom() < uat_model_->rowCount() - 1);
         }
-        current_row++;
-        ui->moveUpToolButton->setEnabled(current_row > 0);
-        ui->moveDownToolButton->setEnabled(current_row < (uat_model_->rowCount() - 1));
     }
 }
 

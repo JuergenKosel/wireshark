@@ -156,7 +156,7 @@ static int hf_skinny_response_time;
 
 /* [[[cog
 for key in sorted(xml2skinny.fieldsArray.keys()):
-    cog.out('static int hf_skinny_%s = -1;\n' %key)
+    cog.out('static int hf_skinny_%s;\n' %key)
 ]]]*/
 /*[[[end]]]*/
 
@@ -167,7 +167,7 @@ static int ett_skinny;
 static int ett_skinny_tree;
 
 /* preference globals */
-static gboolean global_skinny_desegment = true;
+static bool global_skinny_desegment = true;
 
 /* tap register id */
 static int skinny_tap;
@@ -175,7 +175,7 @@ static int skinny_tap;
 /* skinny protocol tap info */
 #define MAX_SKINNY_MESSAGES_IN_PACKET 10
 static skinny_info_t pi_arr[MAX_SKINNY_MESSAGES_IN_PACKET];
-static int pi_current = 0;
+static int pi_current;
 static skinny_info_t *si;
 
 dissector_handle_t skinny_handle;
@@ -445,7 +445,7 @@ static int dissect_skinny_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
   hdr_version     = tvb_get_letohl(tvb, 4);
   hdr_opcode      = tvb_get_letohl(tvb, 8);
 
-  for (i = 0; i < sizeof(skinny_opcode_map)/sizeof(skinny_opcode_map_t) ; i++) {
+  for (i = 0; i < array_length(skinny_opcode_map); i++) {
     if (skinny_opcode_map[i].opcode == hdr_opcode) {
       opcode_entry = &skinny_opcode_map[i];
     }

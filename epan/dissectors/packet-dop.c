@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-dop.c                                                               */
-/* asn2wrs.py -b -L -p dop -c ./dop.cnf -s ./packet-dop-template -D . -O ../.. dop.asn */
+/* asn2wrs.py -b -q -L -p dop -c ./dop.cnf -s ./packet-dop-template -D . -O ../.. dop.asn */
 
 /* packet-dop.c
  * Routines for X.501 (DSA Operational Attributes)  packet dissection
@@ -21,6 +21,7 @@
 #include <epan/oids.h>
 #include <epan/asn1.h>
 #include <epan/expert.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -46,7 +47,7 @@ void proto_reg_handoff_dop(void);
 /* Initialize the protocol and registered fields */
 static int proto_dop;
 
-static const char *binding_type = NULL; /* binding_type */
+static const char *binding_type; /* binding_type */
 
 static int call_dop_oid_callback(const char *base_string, tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree, const char *col_info, void* data);
 
@@ -244,75 +245,75 @@ static int hf_dop_GrantsAndDenials_grantInvoke;
 static int hf_dop_GrantsAndDenials_denyInvoke;
 
 /* Initialize the subtree pointers */
-static gint ett_dop;
-static gint ett_dop_unknown;
-static gint ett_dop_DSEType;
-static gint ett_dop_SupplierOrConsumer;
-static gint ett_dop_SET_OF_ProtocolInformation;
-static gint ett_dop_SupplierInformation;
-static gint ett_dop_SupplierAndConsumers;
-static gint ett_dop_SET_OF_AccessPoint;
-static gint ett_dop_EstablishOperationalBindingArgumentData;
-static gint ett_dop_EstablishArgumentInitiator;
-static gint ett_dop_EstablishOperationalBindingArgument;
-static gint ett_dop_T_signedEstablishOperationalBindingArgument;
-static gint ett_dop_OperationalBindingID;
-static gint ett_dop_Validity;
-static gint ett_dop_T_validFrom;
-static gint ett_dop_T_validUntil;
-static gint ett_dop_Time;
-static gint ett_dop_EstablishOperationalBindingResult;
-static gint ett_dop_T_initiator;
-static gint ett_dop_SEQUENCE_SIZE_1_MAX_OF_Attribute;
-static gint ett_dop_ModifyOperationalBindingArgumentData;
-static gint ett_dop_ModifyArgumentInitiator;
-static gint ett_dop_ModifyOperationalBindingArgument;
-static gint ett_dop_T_signedModifyOperationalBindingArgument;
-static gint ett_dop_ModifyOperationalBindingResult;
-static gint ett_dop_ProtectedModifyResult;
-static gint ett_dop_ModifyOperationalBindingResultData;
-static gint ett_dop_TerminateOperationalBindingArgumentData;
-static gint ett_dop_TerminateArgumentInitiator;
-static gint ett_dop_TerminateOperationalBindingArgument;
-static gint ett_dop_T_signedTerminateOperationalBindingArgument;
-static gint ett_dop_TerminateOperationalBindingResult;
-static gint ett_dop_ProtectedTerminateResult;
-static gint ett_dop_TerminateOperationalBindingResultData;
-static gint ett_dop_OpBindingErrorParam;
-static gint ett_dop_HierarchicalAgreement;
-static gint ett_dop_SuperiorToSubordinate;
-static gint ett_dop_SET_OF_Attribute;
-static gint ett_dop_DITcontext;
-static gint ett_dop_Vertex;
-static gint ett_dop_SET_OF_SubentryInfo;
-static gint ett_dop_SubentryInfo;
-static gint ett_dop_SubordinateToSuperior;
-static gint ett_dop_SuperiorToSubordinateModification;
-static gint ett_dop_NonSpecificHierarchicalAgreement;
-static gint ett_dop_NHOBSuperiorToSubordinate;
-static gint ett_dop_NHOBSubordinateToSuperior;
-static gint ett_dop_ACIItem;
-static gint ett_dop_T_itemOrUserFirst;
-static gint ett_dop_T_itemFirst;
-static gint ett_dop_SET_OF_ItemPermission;
-static gint ett_dop_T_userFirst;
-static gint ett_dop_SET_OF_UserPermission;
-static gint ett_dop_ProtectedItems;
-static gint ett_dop_SET_OF_AttributeType;
-static gint ett_dop_SET_OF_AttributeTypeAndValue;
-static gint ett_dop_SET_OF_MaxValueCount;
-static gint ett_dop_SET_OF_RestrictedValue;
-static gint ett_dop_SET_OF_ContextAssertion;
-static gint ett_dop_MaxValueCount;
-static gint ett_dop_RestrictedValue;
-static gint ett_dop_UserClasses;
-static gint ett_dop_SET_OF_NameAndOptionalUID;
-static gint ett_dop_SET_OF_SubtreeSpecification;
-static gint ett_dop_ItemPermission;
-static gint ett_dop_UserPermission;
-static gint ett_dop_AuthenticationLevel;
-static gint ett_dop_T_basicLevels;
-static gint ett_dop_GrantsAndDenials;
+static int ett_dop;
+static int ett_dop_unknown;
+static int ett_dop_DSEType;
+static int ett_dop_SupplierOrConsumer;
+static int ett_dop_SET_OF_ProtocolInformation;
+static int ett_dop_SupplierInformation;
+static int ett_dop_SupplierAndConsumers;
+static int ett_dop_SET_OF_AccessPoint;
+static int ett_dop_EstablishOperationalBindingArgumentData;
+static int ett_dop_EstablishArgumentInitiator;
+static int ett_dop_EstablishOperationalBindingArgument;
+static int ett_dop_T_signedEstablishOperationalBindingArgument;
+static int ett_dop_OperationalBindingID;
+static int ett_dop_Validity;
+static int ett_dop_T_validFrom;
+static int ett_dop_T_validUntil;
+static int ett_dop_Time;
+static int ett_dop_EstablishOperationalBindingResult;
+static int ett_dop_T_initiator;
+static int ett_dop_SEQUENCE_SIZE_1_MAX_OF_Attribute;
+static int ett_dop_ModifyOperationalBindingArgumentData;
+static int ett_dop_ModifyArgumentInitiator;
+static int ett_dop_ModifyOperationalBindingArgument;
+static int ett_dop_T_signedModifyOperationalBindingArgument;
+static int ett_dop_ModifyOperationalBindingResult;
+static int ett_dop_ProtectedModifyResult;
+static int ett_dop_ModifyOperationalBindingResultData;
+static int ett_dop_TerminateOperationalBindingArgumentData;
+static int ett_dop_TerminateArgumentInitiator;
+static int ett_dop_TerminateOperationalBindingArgument;
+static int ett_dop_T_signedTerminateOperationalBindingArgument;
+static int ett_dop_TerminateOperationalBindingResult;
+static int ett_dop_ProtectedTerminateResult;
+static int ett_dop_TerminateOperationalBindingResultData;
+static int ett_dop_OpBindingErrorParam;
+static int ett_dop_HierarchicalAgreement;
+static int ett_dop_SuperiorToSubordinate;
+static int ett_dop_SET_OF_Attribute;
+static int ett_dop_DITcontext;
+static int ett_dop_Vertex;
+static int ett_dop_SET_OF_SubentryInfo;
+static int ett_dop_SubentryInfo;
+static int ett_dop_SubordinateToSuperior;
+static int ett_dop_SuperiorToSubordinateModification;
+static int ett_dop_NonSpecificHierarchicalAgreement;
+static int ett_dop_NHOBSuperiorToSubordinate;
+static int ett_dop_NHOBSubordinateToSuperior;
+static int ett_dop_ACIItem;
+static int ett_dop_T_itemOrUserFirst;
+static int ett_dop_T_itemFirst;
+static int ett_dop_SET_OF_ItemPermission;
+static int ett_dop_T_userFirst;
+static int ett_dop_SET_OF_UserPermission;
+static int ett_dop_ProtectedItems;
+static int ett_dop_SET_OF_AttributeType;
+static int ett_dop_SET_OF_AttributeTypeAndValue;
+static int ett_dop_SET_OF_MaxValueCount;
+static int ett_dop_SET_OF_RestrictedValue;
+static int ett_dop_SET_OF_ContextAssertion;
+static int ett_dop_MaxValueCount;
+static int ett_dop_RestrictedValue;
+static int ett_dop_UserClasses;
+static int ett_dop_SET_OF_NameAndOptionalUID;
+static int ett_dop_SET_OF_SubtreeSpecification;
+static int ett_dop_ItemPermission;
+static int ett_dop_UserPermission;
+static int ett_dop_AuthenticationLevel;
+static int ett_dop_T_basicLevels;
+static int ett_dop_GrantsAndDenials;
 
 static expert_field ei_dop_unknown_binding_parameter;
 static expert_field ei_dop_unsupported_opcode;
@@ -320,7 +321,7 @@ static expert_field ei_dop_unsupported_errcode;
 static expert_field ei_dop_unsupported_pdu;
 static expert_field ei_dop_zero_pdu;
 
-static dissector_handle_t dop_handle = NULL;
+static dissector_handle_t dop_handle;
 
 /* Dissector table */
 static dissector_table_t dop_dissector_table;
@@ -384,7 +385,7 @@ dissect_dop_SET_OF_ProtocolInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 
 static int
 dissect_dop_T_identifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32	value;
+	uint32_t	value;
 
 	  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &value);
@@ -402,7 +403,7 @@ dissect_dop_T_identifier(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 
 static int
 dissect_dop_T_version(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	guint32	value;
+	uint32_t	value;
 
 	  offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &value);
@@ -1464,7 +1465,7 @@ dissect_dop_NHOBSubordinateToSuperior(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 
 static int
 dissect_dop_Precedence(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  guint32 precedence = 0;
+  uint32_t precedence = 0;
 
     offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &precedence);
@@ -1887,85 +1888,85 @@ dissect_dop_ACIItem(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, as
 static int dissect_DSEType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_DSEType(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_DSEType_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_DSEType(false, tvb, offset, &asn1_ctx, tree, hf_dop_DSEType_PDU);
   return offset;
 }
 static int dissect_SupplierInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_SupplierInformation(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_SupplierInformation_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_SupplierInformation(false, tvb, offset, &asn1_ctx, tree, hf_dop_SupplierInformation_PDU);
   return offset;
 }
 static int dissect_ConsumerInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_ConsumerInformation(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_ConsumerInformation_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_ConsumerInformation(false, tvb, offset, &asn1_ctx, tree, hf_dop_ConsumerInformation_PDU);
   return offset;
 }
 static int dissect_SupplierAndConsumers_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_SupplierAndConsumers(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_SupplierAndConsumers_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_SupplierAndConsumers(false, tvb, offset, &asn1_ctx, tree, hf_dop_SupplierAndConsumers_PDU);
   return offset;
 }
 static int dissect_HierarchicalAgreement_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_HierarchicalAgreement(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_HierarchicalAgreement_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_HierarchicalAgreement(false, tvb, offset, &asn1_ctx, tree, hf_dop_HierarchicalAgreement_PDU);
   return offset;
 }
 static int dissect_SuperiorToSubordinate_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_SuperiorToSubordinate(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_SuperiorToSubordinate_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_SuperiorToSubordinate(false, tvb, offset, &asn1_ctx, tree, hf_dop_SuperiorToSubordinate_PDU);
   return offset;
 }
 static int dissect_SubordinateToSuperior_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_SubordinateToSuperior(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_SubordinateToSuperior_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_SubordinateToSuperior(false, tvb, offset, &asn1_ctx, tree, hf_dop_SubordinateToSuperior_PDU);
   return offset;
 }
 static int dissect_SuperiorToSubordinateModification_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_SuperiorToSubordinateModification(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_SuperiorToSubordinateModification_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_SuperiorToSubordinateModification(false, tvb, offset, &asn1_ctx, tree, hf_dop_SuperiorToSubordinateModification_PDU);
   return offset;
 }
 static int dissect_NonSpecificHierarchicalAgreement_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_NonSpecificHierarchicalAgreement(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_NonSpecificHierarchicalAgreement_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_NonSpecificHierarchicalAgreement(false, tvb, offset, &asn1_ctx, tree, hf_dop_NonSpecificHierarchicalAgreement_PDU);
   return offset;
 }
 static int dissect_NHOBSuperiorToSubordinate_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_NHOBSuperiorToSubordinate(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_NHOBSuperiorToSubordinate_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_NHOBSuperiorToSubordinate(false, tvb, offset, &asn1_ctx, tree, hf_dop_NHOBSuperiorToSubordinate_PDU);
   return offset;
 }
 static int dissect_NHOBSubordinateToSuperior_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_NHOBSubordinateToSuperior(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_NHOBSubordinateToSuperior_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_NHOBSubordinateToSuperior(false, tvb, offset, &asn1_ctx, tree, hf_dop_NHOBSubordinateToSuperior_PDU);
   return offset;
 }
 static int dissect_ACIItem_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dop_ACIItem(FALSE, tvb, offset, &asn1_ctx, tree, hf_dop_ACIItem_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dop_ACIItem(false, tvb, offset, &asn1_ctx, tree, hf_dop_ACIItem_PDU);
   return offset;
 }
 
@@ -2016,7 +2017,7 @@ dissect_dop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 		return 0;
 	session = (struct SESSION_DATA_STRUCTURE*)data;
 
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	item = proto_tree_add_item(parent_tree, proto_dop, tvb, 0, -1, ENC_NA);
 	tree = proto_item_add_subtree(item, ett_dop);
@@ -2101,7 +2102,7 @@ dissect_dop(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 
 	  while (tvb_reported_length_remaining(tvb, offset) > 0){
 	    old_offset=offset;
-	    offset=(*dop_dissector)(FALSE, tvb, offset, &asn1_ctx, tree, -1);
+	    offset=(*dop_dissector)(false, tvb, offset, &asn1_ctx, tree, -1);
 	    if(offset == old_offset){
 	      proto_tree_add_expert(tree, pinfo, &ei_dop_zero_pdu, tvb, offset, -1);
 	      break;
@@ -2887,7 +2888,7 @@ void proto_register_dop(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_dop,
     &ett_dop_unknown,
     &ett_dop_DSEType,
@@ -3024,7 +3025,7 @@ void proto_reg_handoff_dop(void) {
   /* ABSTRACT SYNTAXES */
 
   /* Register DOP with ROS (with no use of RTSE) */
-  register_ros_oid_dissector_handle("2.5.9.4", dop_handle, 0, "id-as-directory-operational-binding-management", FALSE);
+  register_ros_oid_dissector_handle("2.5.9.4", dop_handle, 0, "id-as-directory-operational-binding-management", false);
 
   /* BINDING TYPES */
 

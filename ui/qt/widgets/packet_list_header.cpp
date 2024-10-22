@@ -182,8 +182,23 @@ void PacketListHeader::contextMenuEvent(QContextMenuEvent *event)
     contextMenu->setAttribute(Qt::WA_DeleteOnClose);
     contextMenu->setProperty("column", QVariant::fromValue(sectionIdx));
 
+    action = contextMenu->addAction(tr("Column Preferences…"));
+    connect(action, &QAction::triggered, this, &PacketListHeader::showColumnPrefs);
+    action = contextMenu->addAction(tr("Edit Column"));
+    connect(action, &QAction::triggered, this, &PacketListHeader::doEditColumn);
+    action = contextMenu->addAction(tr("Resize to Contents"));
+    connect(action, &QAction::triggered, this, &PacketListHeader::resizeToContent);
+    action = contextMenu->addAction(tr("Resize Column to Width…"));
+    connect(action, &QAction::triggered, this, &PacketListHeader::resizeToWidth);
+
+    contextMenu->addSeparator();
+
     QActionGroup * alignmentActions = new QActionGroup(contextMenu);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14 ,0)
+    alignmentActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
+#else
     alignmentActions->setExclusive(false);
+#endif
     alignmentActions->setProperty("column", QVariant::fromValue(sectionIdx));
     action = alignmentActions->addAction(tr("Align Left"));
     action->setCheckable(true);
@@ -202,22 +217,34 @@ void PacketListHeader::contextMenuEvent(QContextMenuEvent *event)
     contextMenu->addActions(alignmentActions->actions());
     contextMenu->addSeparator();
 
-    action = contextMenu->addAction(tr("Column Preferences…"));
-    connect(action, &QAction::triggered, this, &PacketListHeader::showColumnPrefs);
-    action = contextMenu->addAction(tr("Edit Column"));
-    connect(action, &QAction::triggered, this, &PacketListHeader::doEditColumn);
-    action = contextMenu->addAction(tr("Resize to Contents"));
-    connect(action, &QAction::triggered, this, &PacketListHeader::resizeToContent);
-    action = contextMenu->addAction(tr("Resize Column to Width…"));
-    connect(action, &QAction::triggered, this, &PacketListHeader::resizeToWidth);
+    bool canDisplayStrings = model()->headerData(sectionIdx, Qt::Horizontal, PacketListModel::HEADER_CAN_DISPLAY_STRINGS).toBool();
+    bool canDisplayDetails = model()->headerData(sectionIdx, Qt::Horizontal, PacketListModel::HEADER_CAN_DISPLAY_DETAILS).toBool();
+    QString displayToolTip = tr("<html>Values will show the raw values for fields.<p>Strings will show human-readable strings instead of raw values for fields. Only applicable to custom columns with fields that have value strings and custom columns which can be resolved to strings.<p>Details will show the values using the same format as in Packet Details. Only applicable to custom columns.</html>");
 
-    action = contextMenu->addAction(tr("Resolve Names"));
-    bool canResolve = model()->headerData(sectionIdx, Qt::Horizontal, PacketListModel::HEADER_CAN_RESOLVE).toBool();
-    action->setEnabled(canResolve);
+    QActionGroup * displayActions = new QActionGroup(contextMenu);
+    displayActions->setExclusive(true);
+    displayActions->setProperty("column", QVariant::fromValue(sectionIdx));
+    action = displayActions->addAction(tr("Display as Values"));
+    action->setEnabled(canDisplayStrings || canDisplayDetails);
     action->setCheckable(true);
-    action->setChecked(canResolve && get_column_resolved(sectionIdx));
-    connect(action, &QAction::triggered, this, &PacketListHeader::doResolveNames);
+    action->setChecked(!action->isEnabled() || get_column_display_format(sectionIdx) == COLUMN_DISPLAY_VALUES);
+    action->setData(QVariant::fromValue(COLUMN_DISPLAY_VALUES));
+    action->setToolTip(displayToolTip);
+    action = displayActions->addAction(tr("Display as Strings"));
+    action->setEnabled(canDisplayStrings);
+    action->setCheckable(true);
+    action->setChecked(action->isEnabled() && (get_column_display_format(sectionIdx) == COLUMN_DISPLAY_STRINGS));
+    action->setData(QVariant::fromValue(COLUMN_DISPLAY_STRINGS));
+    action->setToolTip(displayToolTip);
+    action = displayActions->addAction(tr("Display as packet Details"));
+    action->setEnabled(canDisplayDetails);
+    action->setCheckable(true);
+    action->setChecked(action->isEnabled() && (get_column_display_format(sectionIdx) == COLUMN_DISPLAY_DETAILS));
+    action->setData(QVariant::fromValue(COLUMN_DISPLAY_DETAILS));
+    action->setToolTip(displayToolTip);
+    connect(displayActions, &QActionGroup::triggered, this, &PacketListHeader::setDisplayFormat);
 
+    contextMenu->addActions(displayActions->actions());
     contextMenu->addSeparator();
 
     for (int cnt = 0; cnt < prefs.num_cols; cnt++) {
@@ -302,19 +329,19 @@ void PacketListHeader::doEditColumn()
     emit editColumn(section);
 }
 
-void PacketListHeader::doResolveNames()
+void PacketListHeader::setDisplayFormat(QAction *action)
 {
-    QAction * action = qobject_cast<QAction *>(sender());
     if (!action)
         return;
 
-    QMenu * menu = qobject_cast<QMenu *>(action->parent());
-    if (!menu)
+    QActionGroup * group = action->actionGroup();
+    if (!group)
         return;
 
-    int section = menu->property("column").toInt();
+    int section = group->property("column").toInt();
+    QChar data = action->data().toChar();
 
-    set_column_resolved(section, action->isChecked());
+    set_column_display_format(section, action->isChecked() ? data.toLatin1() : COLUMN_DISPLAY_VALUES);
     prefs_main_write();
     emit updatePackets(true);
 }

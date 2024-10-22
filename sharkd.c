@@ -28,7 +28,6 @@
 #include <wsutil/filesystem.h>
 #include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_message.h>
 #include <wsutil/wslog.h>
 #include <wsutil/version_info.h>
 #include <wiretap/wtap_opttypes.h>
@@ -54,7 +53,7 @@
 #include <epan/uat-int.h>
 #include <epan/secrets.h>
 
-#include <wsutil/codecs_priv.h>
+#include <wsutil/codecs.h>
 
 #include <wsutil/str_util.h>
 #include <wsutil/utf8_entities.h>
@@ -70,7 +69,7 @@
 
 capture_file cfile;
 
-static guint32 cum_bytes;
+static uint32_t cum_bytes;
 static frame_data ref_frame;
 
 static void sharkd_cmdarg_err(const char *msg_format, va_list ap);
@@ -79,7 +78,7 @@ static void sharkd_cmdarg_err_cont(const char *msg_format, va_list ap);
 static void
 print_current_user(void)
 {
-    gchar *cur_user, *cur_group;
+    char *cur_user, *cur_group;
 
     if (started_with_special_privs()) {
         cur_user = get_cur_username();
@@ -103,18 +102,6 @@ main(int argc, char *argv[])
     char                *err_msg = NULL;
     e_prefs             *prefs_p;
     int                  ret = EXIT_SUCCESS;
-    static const struct report_message_routines sharkd_report_routines = {
-        failure_message,
-        failure_message,
-        open_failure_message,
-        read_failure_message,
-        write_failure_message,
-        cfile_open_failure_message,
-        cfile_dump_open_failure_message,
-        cfile_read_failure_message,
-        cfile_write_failure_message,
-        cfile_close_failure_message
-    };
 
     cmdarg_err_init(sharkd_cmdarg_err, sharkd_cmdarg_err_cont);
 
@@ -156,7 +143,7 @@ main(int argc, char *argv[])
         goto clean_exit;
     }
 
-    init_report_message("sharkd", &sharkd_report_routines);
+    init_report_failure_message("sharkd");
 
     timestamp_set_type(TS_RELATIVE);
     timestamp_set_precision(TS_PREC_AUTO);
@@ -167,13 +154,13 @@ main(int argc, char *argv[])
      * dissection-time handlers for file-type-dependent blocks can
      * register using the file type/subtype value for the file type.
      */
-    wtap_init(TRUE);
+    wtap_init(true);
 
     /* Register all dissectors; we must do this before checking for the
        "-G" flag, as the "-G" flag dumps information registered by the
        dissectors, and we must do it before we read the preferences, in
        case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, TRUE)) {
+    if (!epan_init(NULL, NULL, true)) {
         ret = SHARKD_EPAN_INIT_FAIL;
         goto clean_exit;
     }
@@ -196,7 +183,7 @@ main(int argc, char *argv[])
     prefs_apply_all();
 
     /* Build the column format array */
-    build_column_format_array(&cfile.cinfo, prefs_p->num_cols, TRUE);
+    build_column_format_array(&cfile.cinfo, prefs_p->num_cols, true);
 
 #ifdef HAVE_MAXMINDDB
     /* mmdbresolve is started from mmdb_resolve_start(), which is called from epan_load_settings via: read_prefs -> (...) uat_load_all -> maxmind_db_post_update_cb.
@@ -226,17 +213,17 @@ sharkd_epan_new(capture_file *cf)
     return epan_new(&cf->provider, &funcs);
 }
 
-static gboolean
+static bool
 process_packet(capture_file *cf, epan_dissect_t *edt,
-        gint64 offset, wtap_rec *rec, Buffer *buf)
+        int64_t offset, wtap_rec *rec, Buffer *buf)
 {
     frame_data     fdlocal;
-    gboolean       passed;
+    bool           passed;
 
     /* If we're not running a display filter and we're not printing any
        packet information, we don't need to do a dissection. This means
        that all packets can be marked as 'passed'. */
-    passed = TRUE;
+    passed = true;
 
     /* The frame number of this packet, if we add it to the set of frames,
        would be one more than the count of frames in the file so far. */
@@ -310,11 +297,11 @@ process_packet(capture_file *cf, epan_dissect_t *edt,
 
 
 static int
-load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
+load_cap_file(capture_file *cf, int max_packet_count, int64_t max_byte_count)
 {
     int          err;
-    gchar       *err_info = NULL;
-    gint64       data_offset;
+    char        *err_info = NULL;
+    int64_t      data_offset;
     wtap_rec     rec;
     Buffer       buf;
     epan_dissect_t *edt = NULL;
@@ -324,7 +311,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
         cf->provider.frames = new_frame_data_sequence();
 
         {
-            gboolean create_proto_tree;
+            bool create_proto_tree;
 
             /*
              * Determine whether we need to create a protocol tree.
@@ -342,7 +329,7 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
 
             /* We're not going to display the protocol tree on this pass,
                so it's not going to be "visible". */
-            edt = epan_dissect_new(cf->epan, create_proto_tree, FALSE);
+            edt = epan_dissect_new(cf->epan, create_proto_tree, false);
         }
 
         wtap_rec_init(&rec);
@@ -390,12 +377,12 @@ load_cap_file(capture_file *cf, int max_packet_count, gint64 max_byte_count)
 }
 
 cf_status_t
-cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_tempfile, int *err)
+cf_open(capture_file *cf, const char *fname, unsigned int type, bool is_tempfile, int *err)
 {
     wtap  *wth;
-    gchar *err_info;
+    char *err_info;
 
-    wth = wtap_open_offline(fname, type, err, &err_info, TRUE);
+    wth = wtap_open_offline(fname, type, err, &err_info, true);
     if (wth == NULL)
         goto fail;
 
@@ -413,12 +400,12 @@ cf_open(capture_file *cf, const char *fname, unsigned int type, gboolean is_temp
     cf->is_tempfile = is_tempfile;
 
     /* No user changes yet. */
-    cf->unsaved_changes = FALSE;
+    cf->unsaved_changes = false;
 
     cf->cd_t      = wtap_file_type_subtype(cf->provider.wth);
     cf->open_type = type;
     cf->count     = 0;
-    cf->drops_known = FALSE;
+    cf->drops_known = false;
     cf->drops     = 0;
     cf->snap      = wtap_snapshot_length(cf->provider.wth);
     nstime_set_zero(&cf->elapsed_time);
@@ -465,7 +452,7 @@ sharkd_cmdarg_err_cont(const char *msg_format, va_list ap)
 }
 
 cf_status_t
-sharkd_cf_open(const char *fname, unsigned int type, gboolean is_tempfile, int *err)
+sharkd_cf_open(const char *fname, unsigned int type, bool is_tempfile, int *err)
 {
     return cf_open(&cfile, fname, type, is_tempfile, err);
 }
@@ -477,21 +464,21 @@ sharkd_load_cap_file(void)
 }
 
 frame_data *
-sharkd_get_frame(guint32 framenum)
+sharkd_get_frame(uint32_t framenum)
 {
     return frame_data_sequence_find(cfile.provider.frames, framenum);
 }
 
 enum dissect_request_status
-sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num,
-        guint32 prev_dis_num, wtap_rec *rec, Buffer *buf,
-        column_info *cinfo, guint32 dissect_flags,
+sharkd_dissect_request(uint32_t framenum, uint32_t frame_ref_num,
+        uint32_t prev_dis_num, wtap_rec *rec, Buffer *buf,
+        column_info *cinfo, uint32_t dissect_flags,
         sharkd_dissect_func_t cb, void *data,
-        int *err, gchar **err_info)
+        int *err, char **err_info)
 {
     frame_data *fdata;
     epan_dissect_t edt;
-    gboolean create_proto_tree;
+    bool create_proto_tree;
 
     fdata = sharkd_get_frame(framenum);
     if (fdata == NULL)
@@ -499,7 +486,7 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num,
 
     if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, rec, buf, err, err_info)) {
         if (cinfo != NULL)
-            col_fill_in_error(cinfo, fdata, FALSE, FALSE /* fill_fd_columns */);
+            col_fill_in_error(cinfo, fdata, false, false /* fill_fd_columns */);
         return DISSECT_REQUEST_READ_ERROR; /* error reading the record */
     }
 
@@ -529,7 +516,7 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num,
 
     if (cinfo) {
         /* "Stringify" non frame_data vals */
-        epan_dissect_fill_in_columns(&edt, FALSE, TRUE/* fill_fd_columns */);
+        epan_dissect_fill_in_columns(&edt, false, true/* fill_fd_columns */);
     }
 
     cb(&edt, (dissect_flags & SHARKD_DISSECT_FLAG_PROTO_TREE) ? edt.tree : NULL,
@@ -544,15 +531,15 @@ sharkd_dissect_request(guint32 framenum, guint32 frame_ref_num,
 int
 sharkd_retap(void)
 {
-    guint32          framenum;
+    uint32_t         framenum;
     frame_data      *fdata;
     Buffer           buf;
     wtap_rec         rec;
     int err;
     char *err_info = NULL;
 
-    guint         tap_flags;
-    gboolean      create_proto_tree;
+    unsigned      tap_flags;
+    bool          create_proto_tree;
     epan_dissect_t edt;
     column_info   *cinfo;
 
@@ -575,7 +562,7 @@ sharkd_retap(void)
 
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1514);
-    epan_dissect_init(&edt, cfile.epan, create_proto_tree, FALSE);
+    epan_dissect_init(&edt, cfile.epan, create_proto_tree, false);
 
     reset_tap_listeners();
 
@@ -585,7 +572,7 @@ sharkd_retap(void)
         if (!wtap_seek_read(cfile.provider.wth, fdata->file_off, &rec, &buf, &err, &err_info))
             break;
 
-        fdata->ref_time = FALSE;
+        fdata->ref_time = false;
         fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
         fdata->prev_dis_num = framenum - 1;
         epan_dissect_run_with_taps(&edt, cfile.cd_t, &rec,
@@ -599,25 +586,25 @@ sharkd_retap(void)
     ws_buffer_free(&buf);
     epan_dissect_cleanup(&edt);
 
-    draw_tap_listeners(TRUE);
+    draw_tap_listeners(true);
 
     return 0;
 }
 
 int
-sharkd_filter(const char *dftext, guint8 **result)
+sharkd_filter(const char *dftext, uint8_t **result)
 {
     dfilter_t  *dfcode = NULL;
 
-    guint32 framenum, prev_dis_num = 0;
-    guint32 frames_count;
+    uint32_t framenum, prev_dis_num = 0;
+    uint32_t frames_count;
     Buffer buf;
     wtap_rec rec;
     int err;
     char *err_info = NULL;
 
-    guint8 *result_bits;
-    guint8  passed_bits;
+    uint8_t *result_bits;
+    uint8_t passed_bits;
 
     epan_dissect_t edt;
 
@@ -635,10 +622,10 @@ sharkd_filter(const char *dftext, guint8 **result)
 
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1514);
-    epan_dissect_init(&edt, cfile.epan, TRUE, FALSE);
+    epan_dissect_init(&edt, cfile.epan, true, false);
 
     passed_bits = 0;
-    result_bits = (guint8 *) g_malloc(2 + (frames_count / 8));
+    result_bits = (uint8_t *) g_malloc(2 + (frames_count / 8));
 
     for (framenum = 1; framenum <= frames_count; framenum++) {
         frame_data *fdata = sharkd_get_frame(framenum);
@@ -654,7 +641,7 @@ sharkd_filter(const char *dftext, guint8 **result)
         /* frame_data_set_before_dissect */
         epan_dissect_prime_with_dfilter(&edt, dfcode);
 
-        fdata->ref_time = FALSE;
+        fdata->ref_time = false;
         fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
         fdata->prev_dis_num = prev_dis_num;
         epan_dissect_run(&edt, cfile.cd_t, &rec,
@@ -713,7 +700,7 @@ sharkd_get_packet_block(const frame_data *fd)
         Buffer buf;   /* Record data */
         wtap_block_t block;
         int err;
-        gchar *err_info;
+        char *err_info;
 
         wtap_rec_init(&rec);
         ws_buffer_init(&buf, 1514);

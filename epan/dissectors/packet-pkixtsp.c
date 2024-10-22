@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkixtsp.c                                                           */
-/* asn2wrs.py -b -L -p pkixtsp -c ./pkixtsp.cnf -s ./packet-pkixtsp-template -D . -O ../.. PKIXTSP.asn */
+/* asn2wrs.py -b -q -L -p pkixtsp -c ./pkixtsp.cnf -s ./packet-pkixtsp-template -D . -O ../.. PKIXTSP.asn */
 
 /* packet-pkixtsp.c
  * Routines for RFC2634 Extended Security Services packet dissection
@@ -19,6 +19,7 @@
 #include <epan/packet.h>
 
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 #include "packet-ber.h"
 #include "packet-pkixtsp.h"
 #include "packet-pkix1explicit.h"
@@ -92,14 +93,14 @@ static int hf_pkixtsp_PKIFailureInfo_spare_bit24;
 static int hf_pkixtsp_PKIFailureInfo_systemFailure;
 
 /* Initialize the subtree pointers */
-static gint ett_pkixtsp;
-static gint ett_pkixtsp_TimeStampReq;
-static gint ett_pkixtsp_MessageImprint;
-static gint ett_pkixtsp_TimeStampResp;
-static gint ett_pkixtsp_PKIStatusInfo;
-static gint ett_pkixtsp_PKIFailureInfo;
-static gint ett_pkixtsp_TSTInfo;
-static gint ett_pkixtsp_Accuracy;
+static int ett_pkixtsp;
+static int ett_pkixtsp_TimeStampReq;
+static int ett_pkixtsp_MessageImprint;
+static int ett_pkixtsp_TimeStampResp;
+static int ett_pkixtsp_PKIStatusInfo;
+static int ett_pkixtsp_PKIFailureInfo;
+static int ett_pkixtsp_TSTInfo;
+static int ett_pkixtsp_Accuracy;
 
 
 
@@ -375,29 +376,29 @@ dissect_pkixtsp_SignatureTimeStampToken(bool implicit_tag _U_, tvbuff_t *tvb _U_
 static int dissect_TimeStampReq_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixtsp_TimeStampReq(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TimeStampReq_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixtsp_TimeStampReq(false, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TimeStampReq_PDU);
   return offset;
 }
 static int dissect_TimeStampResp_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixtsp_TimeStampResp(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TimeStampResp_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixtsp_TimeStampResp(false, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TimeStampResp_PDU);
   return offset;
 }
 static int dissect_TSTInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixtsp_TSTInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TSTInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixtsp_TSTInfo(false, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_TSTInfo_PDU);
   return offset;
 }
 static int dissect_SignatureTimeStampToken_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixtsp_SignatureTimeStampToken(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_SignatureTimeStampToken_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixtsp_SignatureTimeStampToken(false, tvb, offset, &asn1_ctx, tree, hf_pkixtsp_SignatureTimeStampToken_PDU);
   return offset;
 }
 
@@ -409,7 +410,7 @@ dissect_timestamp_reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tr
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "PKIXTSP");
 
@@ -421,7 +422,7 @@ dissect_timestamp_reply(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tr
 		tree = proto_item_add_subtree(item, ett_pkixtsp);
 	}
 
-	return dissect_pkixtsp_TimeStampResp(FALSE, tvb, 0, &asn1_ctx, tree, -1);
+	return dissect_pkixtsp_TimeStampResp(false, tvb, 0, &asn1_ctx, tree, -1);
 }
 
 static int
@@ -430,7 +431,7 @@ dissect_timestamp_query(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tr
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "PKIXTSP");
 
@@ -442,7 +443,7 @@ dissect_timestamp_query(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tr
 		tree = proto_item_add_subtree(item, ett_pkixtsp);
 	}
 
-	return dissect_pkixtsp_TimeStampReq(FALSE, tvb, 0, &asn1_ctx, tree, -1);
+	return dissect_pkixtsp_TimeStampReq(false, tvb, 0, &asn1_ctx, tree, -1);
 }
 
 
@@ -662,7 +663,7 @@ void proto_register_pkixtsp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	&ett_pkixtsp,
     &ett_pkixtsp_TimeStampReq,
     &ett_pkixtsp_MessageImprint,

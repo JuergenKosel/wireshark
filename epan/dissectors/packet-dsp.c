@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-dsp.c                                                               */
-/* asn2wrs.py -b -L -p dsp -c ./dsp.cnf -s ./packet-dsp-template -D . -O ../.. dsp.asn */
+/* asn2wrs.py -b -q -L -p dsp -c ./dsp.cnf -s ./packet-dsp-template -D . -O ../.. dsp.asn */
 
 /* packet-dsp.c
  * Routines for X.518 (X.500 Distributed Operations)  packet dissection
@@ -21,6 +21,7 @@
 #include <epan/prefs.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -183,78 +184,78 @@ static int hf_dsp_signed;                         /* BOOLEAN */
 static int hf_dsp_other;                          /* EXTERNAL */
 
 /* Initialize the subtree pointers */
-static gint ett_dsp;
-static gint ett_dsp_ChainedReadArgumentData;
-static gint ett_dsp_ChainedReadArgument;
-static gint ett_dsp_T_signedChainedReadArgument;
-static gint ett_dsp_ChainedReadResultData;
-static gint ett_dsp_ChainedReadResult;
-static gint ett_dsp_T_signedChainedReadResult;
-static gint ett_dsp_ChainedCompareArgumentData;
-static gint ett_dsp_ChainedCompareArgument;
-static gint ett_dsp_T_signedChainedCompareArgument;
-static gint ett_dsp_ChainedCompareResultData;
-static gint ett_dsp_ChainedCompareResult;
-static gint ett_dsp_T_signedChainedCompareResult;
-static gint ett_dsp_ChainedListArgumentData;
-static gint ett_dsp_ChainedListArgument;
-static gint ett_dsp_T_signedChainedListArgument;
-static gint ett_dsp_ChainedListResultData;
-static gint ett_dsp_ChainedListResult;
-static gint ett_dsp_T_signedChainedListResult;
-static gint ett_dsp_ChainedSearchArgumentData;
-static gint ett_dsp_ChainedSearchArgument;
-static gint ett_dsp_T_signedChainedSearchArgument;
-static gint ett_dsp_ChainedSearchResultData;
-static gint ett_dsp_ChainedSearchResult;
-static gint ett_dsp_T_signedChainedSearchResult;
-static gint ett_dsp_ChainedAddEntryArgumentData;
-static gint ett_dsp_ChainedAddEntryArgument;
-static gint ett_dsp_T_signedChainedAddEntryArgument;
-static gint ett_dsp_ChainedAddEntryResultData;
-static gint ett_dsp_ChainedAddEntryResult;
-static gint ett_dsp_T_signedChainedAddEntryResult;
-static gint ett_dsp_ChainedRemoveEntryArgumentData;
-static gint ett_dsp_ChainedRemoveEntryArgument;
-static gint ett_dsp_T_signedChainedRemoveEntryArgument;
-static gint ett_dsp_ChainedRemoveEntryResultData;
-static gint ett_dsp_ChainedRemoveEntryResult;
-static gint ett_dsp_T_signedChainedRemoveEntryResult;
-static gint ett_dsp_ChainedModifyEntryArgumentData;
-static gint ett_dsp_ChainedModifyEntryArgument;
-static gint ett_dsp_T_signedChainedModifyEntryArgument;
-static gint ett_dsp_ChainedModifyEntryResultData;
-static gint ett_dsp_ChainedModifyEntryResult;
-static gint ett_dsp_T_signedChainedModifyEntryResult;
-static gint ett_dsp_ChainedModifyDNArgumentData;
-static gint ett_dsp_ChainedModifyDNArgument;
-static gint ett_dsp_T_signedChainedModifyDNArgument;
-static gint ett_dsp_ChainedModifyDNResultData;
-static gint ett_dsp_ChainedModifyDNResult;
-static gint ett_dsp_T_signedChainedModifyDNResult;
-static gint ett_dsp_DSAReferralData;
-static gint ett_dsp_SEQUENCE_OF_Attribute;
-static gint ett_dsp_DSAReferral;
-static gint ett_dsp_T_signedDSAReferral;
-static gint ett_dsp_ChainingArguments;
-static gint ett_dsp_Time;
-static gint ett_dsp_ChainingResults;
-static gint ett_dsp_SEQUENCE_OF_CrossReference;
-static gint ett_dsp_CrossReference;
-static gint ett_dsp_OperationProgress;
-static gint ett_dsp_TraceInformation;
-static gint ett_dsp_TraceItem;
-static gint ett_dsp_AccessPoint;
-static gint ett_dsp_SET_OF_ProtocolInformation;
-static gint ett_dsp_MasterOrShadowAccessPoint;
-static gint ett_dsp_MasterAndShadowAccessPoints;
-static gint ett_dsp_AccessPointInformation;
-static gint ett_dsp_DitBridgeKnowledge;
-static gint ett_dsp_Exclusions;
-static gint ett_dsp_ContinuationReference;
-static gint ett_dsp_SET_OF_AccessPointInformation;
-static gint ett_dsp_AuthenticationLevel;
-static gint ett_dsp_T_basicLevels;
+static int ett_dsp;
+static int ett_dsp_ChainedReadArgumentData;
+static int ett_dsp_ChainedReadArgument;
+static int ett_dsp_T_signedChainedReadArgument;
+static int ett_dsp_ChainedReadResultData;
+static int ett_dsp_ChainedReadResult;
+static int ett_dsp_T_signedChainedReadResult;
+static int ett_dsp_ChainedCompareArgumentData;
+static int ett_dsp_ChainedCompareArgument;
+static int ett_dsp_T_signedChainedCompareArgument;
+static int ett_dsp_ChainedCompareResultData;
+static int ett_dsp_ChainedCompareResult;
+static int ett_dsp_T_signedChainedCompareResult;
+static int ett_dsp_ChainedListArgumentData;
+static int ett_dsp_ChainedListArgument;
+static int ett_dsp_T_signedChainedListArgument;
+static int ett_dsp_ChainedListResultData;
+static int ett_dsp_ChainedListResult;
+static int ett_dsp_T_signedChainedListResult;
+static int ett_dsp_ChainedSearchArgumentData;
+static int ett_dsp_ChainedSearchArgument;
+static int ett_dsp_T_signedChainedSearchArgument;
+static int ett_dsp_ChainedSearchResultData;
+static int ett_dsp_ChainedSearchResult;
+static int ett_dsp_T_signedChainedSearchResult;
+static int ett_dsp_ChainedAddEntryArgumentData;
+static int ett_dsp_ChainedAddEntryArgument;
+static int ett_dsp_T_signedChainedAddEntryArgument;
+static int ett_dsp_ChainedAddEntryResultData;
+static int ett_dsp_ChainedAddEntryResult;
+static int ett_dsp_T_signedChainedAddEntryResult;
+static int ett_dsp_ChainedRemoveEntryArgumentData;
+static int ett_dsp_ChainedRemoveEntryArgument;
+static int ett_dsp_T_signedChainedRemoveEntryArgument;
+static int ett_dsp_ChainedRemoveEntryResultData;
+static int ett_dsp_ChainedRemoveEntryResult;
+static int ett_dsp_T_signedChainedRemoveEntryResult;
+static int ett_dsp_ChainedModifyEntryArgumentData;
+static int ett_dsp_ChainedModifyEntryArgument;
+static int ett_dsp_T_signedChainedModifyEntryArgument;
+static int ett_dsp_ChainedModifyEntryResultData;
+static int ett_dsp_ChainedModifyEntryResult;
+static int ett_dsp_T_signedChainedModifyEntryResult;
+static int ett_dsp_ChainedModifyDNArgumentData;
+static int ett_dsp_ChainedModifyDNArgument;
+static int ett_dsp_T_signedChainedModifyDNArgument;
+static int ett_dsp_ChainedModifyDNResultData;
+static int ett_dsp_ChainedModifyDNResult;
+static int ett_dsp_T_signedChainedModifyDNResult;
+static int ett_dsp_DSAReferralData;
+static int ett_dsp_SEQUENCE_OF_Attribute;
+static int ett_dsp_DSAReferral;
+static int ett_dsp_T_signedDSAReferral;
+static int ett_dsp_ChainingArguments;
+static int ett_dsp_Time;
+static int ett_dsp_ChainingResults;
+static int ett_dsp_SEQUENCE_OF_CrossReference;
+static int ett_dsp_CrossReference;
+static int ett_dsp_OperationProgress;
+static int ett_dsp_TraceInformation;
+static int ett_dsp_TraceItem;
+static int ett_dsp_AccessPoint;
+static int ett_dsp_SET_OF_ProtocolInformation;
+static int ett_dsp_MasterOrShadowAccessPoint;
+static int ett_dsp_MasterAndShadowAccessPoints;
+static int ett_dsp_AccessPointInformation;
+static int ett_dsp_DitBridgeKnowledge;
+static int ett_dsp_Exclusions;
+static int ett_dsp_ContinuationReference;
+static int ett_dsp_SET_OF_AccessPointInformation;
+static int ett_dsp_AuthenticationLevel;
+static int ett_dsp_T_basicLevels;
 
 static expert_field ei_dsp_unsupported_opcode;
 static expert_field ei_dsp_unsupported_errcode;
@@ -1637,22 +1638,22 @@ dissect_dsp_DitBridgeKnowledge(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int dissect_AccessPoint_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dsp_AccessPoint(FALSE, tvb, offset, &asn1_ctx, tree, hf_dsp_AccessPoint_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dsp_AccessPoint(false, tvb, offset, &asn1_ctx, tree, hf_dsp_AccessPoint_PDU);
   return offset;
 }
 static int dissect_MasterAndShadowAccessPoints_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dsp_MasterAndShadowAccessPoints(FALSE, tvb, offset, &asn1_ctx, tree, hf_dsp_MasterAndShadowAccessPoints_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dsp_MasterAndShadowAccessPoints(false, tvb, offset, &asn1_ctx, tree, hf_dsp_MasterAndShadowAccessPoints_PDU);
   return offset;
 }
 static int dissect_DitBridgeKnowledge_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_dsp_DitBridgeKnowledge(FALSE, tvb, offset, &asn1_ctx, tree, hf_dsp_DitBridgeKnowledge_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_dsp_DitBridgeKnowledge(false, tvb, offset, &asn1_ctx, tree, hf_dsp_DitBridgeKnowledge_PDU);
   return offset;
 }
 
@@ -1679,7 +1680,7 @@ dissect_dsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 		return 0;
 	session  = (struct SESSION_DATA_STRUCTURE*)data;
 
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	item = proto_tree_add_item(parent_tree, proto_dsp, tvb, 0, -1, ENC_NA);
 	tree = proto_item_add_subtree(item, ett_dsp);
@@ -1842,7 +1843,7 @@ dissect_dsp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 
 	  while (tvb_reported_length_remaining(tvb, offset) > 0){
 	    old_offset=offset;
-	    offset=(*dsp_dissector)(FALSE, tvb, offset, &asn1_ctx, tree, -1);
+	    offset=(*dsp_dissector)(false, tvb, offset, &asn1_ctx, tree, -1);
 	    if(offset == old_offset){
 	      proto_tree_add_expert(tree, pinfo, &ei_dsp_zero_pdu, tvb, offset, -1);
 	      break;
@@ -2411,7 +2412,7 @@ void proto_register_dsp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_dsp,
     &ett_dsp_ChainedReadArgumentData,
     &ett_dsp_ChainedReadArgument,
@@ -2535,6 +2536,6 @@ void proto_reg_handoff_dsp(void) {
   /* ABSTRACT SYNTAXES */
 
   /* Register DSP with ROS (with no use of RTSE) */
-  register_ros_oid_dissector_handle("2.5.9.2", dsp_handle, 0, "id-as-directory-system", FALSE);
+  register_ros_oid_dissector_handle("2.5.9.2", dsp_handle, 0, "id-as-directory-system", false);
 
 }

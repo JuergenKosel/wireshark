@@ -15,6 +15,7 @@
 
 #include <wiretap/wtap.h>
 #include <epan/packet.h>
+#include <epan/tfs.h>
 #include "packet-bblog.h"
 
 #define PEN_NFLX 10949
@@ -117,10 +118,10 @@ static int hf_pad_2;
 static int hf_pad_3;
 static int hf_payload_len;
 
-static gint ett_bblog;
-static gint ett_bblog_flags;
-static gint ett_bblog_t_flags;
-static gint ett_bblog_t_flags2;
+static int ett_bblog;
+static int ett_bblog_flags;
+static int ett_bblog_t_flags;
+static int ett_bblog_t_flags2;
 
 static int * const bblog_event_flags[] = {
   &hf_event_flags_rxbuf,
@@ -286,14 +287,14 @@ dissect_bblog_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
 {
     proto_item *bblog_item;
     proto_tree *bblog_tree;
-    const gchar *event_name;
-    guint32 flex1, flex2;
-    guint16 event_flags;
-    guint8 event_identifier;
-    guint8 pru;
-    guint8 timer_type, timer_event;
+    const char *event_name;
+    uint32_t flex1, flex2;
+    uint16_t event_flags;
+    uint8_t event_identifier;
+    uint8_t pru;
+    uint8_t timer_type, timer_event;
 
-    event_identifier = tvb_get_guint8(tvb, 25);
+    event_identifier = tvb_get_uint8(tvb, 25);
     flex1 = tvb_get_letohl(tvb, 140);
     flex2 = tvb_get_letohl(tvb, 144);
     switch (event_identifier) {
@@ -315,7 +316,7 @@ dissect_bblog_event(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     default:
         event_name = try_val_to_str(event_identifier, event_identifier_values);
         if (event_name != NULL) {
-            col_append_fstr(pinfo->cinfo, COL_INFO, "%s", event_name);
+            col_append_str(pinfo->cinfo, COL_INFO, event_name);
         } else {
             col_append_fstr(pinfo->cinfo, COL_INFO, "Unknown (flex1 0x%08x, flex2 0x%08x0)", flex1, flex2);
         }
@@ -497,7 +498,7 @@ proto_register_bblog(void)
     };
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_bblog,
         &ett_bblog_flags,
         &ett_bblog_t_flags,

@@ -10,8 +10,6 @@
 #ifndef PROGRESS_FRAME_H
 #define PROGRESS_FRAME_H
 
-#include <glib.h>
-
 #include <QFrame>
 
 namespace Ui {
@@ -50,13 +48,13 @@ public:
     void captureFileClosing();
 
 public slots:
-    struct progdlg *showProgress(const QString &title, bool animate, bool terminate_is_stop, gboolean *stop_flag, int value = 0);
-    struct progdlg *showBusy(bool animate, bool terminate_is_stop, gboolean *stop_flag);
+    struct progdlg *showProgress(const QString &title, bool animate, bool terminate_is_stop, bool *stop_flag, int value = 0);
+    struct progdlg *showBusy(bool animate, bool terminate_is_stop, bool *stop_flag);
     void setValue(int value);
     void hide();
 
 signals:
-    void showRequested(bool animate, bool terminate_is_stop, gboolean *stop_flag);
+    void showRequested(bool animate, bool terminate_is_stop, bool *stop_flag);
     void valueChanged(int value);
     void maximumValueChanged(int value);
     void setHidden();
@@ -72,7 +70,7 @@ private:
     QString message_;
     QString status_;
     bool terminate_is_stop_;
-    gboolean *stop_flag_;
+    bool *stop_flag_;
     int show_timer_;
     QGraphicsOpacityEffect *effect_;
     QPropertyAnimation *animation_;
@@ -84,7 +82,7 @@ private:
 private slots:
     void on_stopButton_clicked();
 
-    void show(bool animate, bool terminate_is_stop, gboolean *stop_flag);
+    void show(bool animate, bool terminate_is_stop, bool *stop_flag);
     void setMaximumValue(int value);
 };
 

@@ -39,8 +39,8 @@
  * Utilities for subdissectors of corosync_totemsrp.
  */
 struct corosync_totemsrp_info {
-  guint encoding;
-  guint nodeid;
+  unsigned encoding;
+  unsigned nodeid;
 };
 
 /* Forward declaration we need below */
@@ -123,20 +123,20 @@ static int hf_corosync_totemsrp_memb_commit_token_memb_entry_received_flg;
 static int hf_corosync_totemsrp_token_hold_cancel;
 
 /* Initialize the subtree pointers */
-static gint ett_corosync_totemsrp;
-static gint ett_corosync_totemsrp_orf_token;
-static gint ett_corosync_totemsrp_memb_ring_id;
-static gint ett_corosync_totemsrp_ip_address;
-static gint ett_corosync_totemsrp_mcast;
-static gint ett_corosync_totemsrp_memb_merge_detect;
-static gint ett_corosync_totemsrp_srp_addr;
-static gint ett_corosync_totemsrp_rtr_item;
-static gint ett_corosync_totemsrp_memb_join;
-static gint ett_corosync_totemsrp_memb_commit_token;
-static gint ett_corosync_totemsrp_memb_commit_token_memb_entry;
-static gint ett_corosync_totemsrp_token_hold_cancel;
-static gint ett_corosync_totemsrp_memb_join_proc_list;
-static gint ett_corosync_totemsrp_memb_join_failed_list;
+static int ett_corosync_totemsrp;
+static int ett_corosync_totemsrp_orf_token;
+static int ett_corosync_totemsrp_memb_ring_id;
+static int ett_corosync_totemsrp_ip_address;
+static int ett_corosync_totemsrp_mcast;
+static int ett_corosync_totemsrp_memb_merge_detect;
+static int ett_corosync_totemsrp_srp_addr;
+static int ett_corosync_totemsrp_rtr_item;
+static int ett_corosync_totemsrp_memb_join;
+static int ett_corosync_totemsrp_memb_commit_token;
+static int ett_corosync_totemsrp_memb_commit_token_memb_entry;
+static int ett_corosync_totemsrp_token_hold_cancel;
+static int ett_corosync_totemsrp_memb_join_proc_list;
+static int ett_corosync_totemsrp_memb_join_failed_list;
 
 
 /*
@@ -181,8 +181,8 @@ static const value_string corosync_totemsrp_ip_address_family[] = {
   { 0, NULL              }
 };
 
-static guint16
-corosync_totemsrp_get_guint16(tvbuff_t* tvb, gint offset, const guint encoding)
+static uint16_t
+corosync_totemsrp_get_uint16(tvbuff_t* tvb, int offset, const unsigned encoding)
 {
   if (encoding == ENC_LITTLE_ENDIAN)
     return tvb_get_letohs(tvb, offset);
@@ -191,8 +191,8 @@ corosync_totemsrp_get_guint16(tvbuff_t* tvb, gint offset, const guint encoding)
 }
 
 
-static guint32
-corosync_totemsrp_get_guint32(tvbuff_t* tvb, gint offset, const guint encoding)
+static uint32_t
+corosync_totemsrp_get_uint32(tvbuff_t* tvb, int offset, const unsigned encoding)
 {
   if (encoding == ENC_LITTLE_ENDIAN)
     return tvb_get_letohl(tvb, offset);
@@ -200,8 +200,8 @@ corosync_totemsrp_get_guint32(tvbuff_t* tvb, gint offset, const guint encoding)
   return tvb_get_ntohl(tvb, offset);
 }
 
-static guint64
-corosync_totemsrp_get_guint64(tvbuff_t* tvb, gint offset, const guint encoding)
+static uint64_t
+corosync_totemsrp_get_uint64(tvbuff_t* tvb, int offset, const unsigned encoding)
 {
   if (encoding == ENC_LITTLE_ENDIAN)
     return tvb_get_letoh64(tvb, offset);
@@ -213,30 +213,30 @@ corosync_totemsrp_get_guint64(tvbuff_t* tvb, gint offset, const guint encoding)
 #define COROSYNC_TOTEMSRP_SRP_ADDR_INTERFACE_MAX 2
 
 static int dissect_corosync_totemsrp0(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
-                                      gboolean encapsulated);
+                                      bool encapsulated);
 
 
 static int
 dissect_corosync_totemsrp_ip_address(tvbuff_t *tvb,
                                      packet_info *pinfo _U_,
                                      proto_tree *parent_tree,
-                                     guint length _U_, int offset,
-                                     const guint encoding,
-                                     gboolean print_interface,
-                                     guint    interface,
-                                     guint   *nodeid)
+                                     unsigned length _U_, int offset,
+                                     const unsigned encoding,
+                                     bool print_interface,
+                                     unsigned interface,
+                                     unsigned   *nodeid)
 {
-  guint16 family;
-  guint nid;
+  uint16_t family;
+  unsigned nid;
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
-  gint len;
+  int len;
 
-  nid = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  nid = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   if (nodeid)
     *nodeid = nid;
-  family = corosync_totemsrp_get_guint16(tvb, offset + 4, encoding);
+  family = corosync_totemsrp_get_uint16(tvb, offset + 4, encoding);
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_ip_address, tvb, offset,
                              -1, ENC_NA);
@@ -279,9 +279,9 @@ dissect_corosync_totemsrp_ip_address(tvbuff_t *tvb,
   offset += len;
 
   if (len != sizeof(ws_in6_addr)) {
-    gint padding_len;
+    int padding_len;
 
-    padding_len = (gint)(sizeof(ws_in6_addr) - len);
+    padding_len = (int)(sizeof(ws_in6_addr) - len);
     proto_tree_add_item (tree, hf_corosync_totemsrp_ip_address_addr4_padding,
                            tvb, offset, padding_len, ENC_NA);
     offset += padding_len;
@@ -294,16 +294,16 @@ dissect_corosync_totemsrp_ip_address(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_memb_ring_id(tvbuff_t *tvb,
                                        packet_info *pinfo, proto_tree *parent_tree,
-                                       guint length, int offset,
-                                       const guint encoding,
-                                       guint *node_id,
-                                       guint64 *ring_id)
+                                       unsigned length, int offset,
+                                       const unsigned encoding,
+                                       unsigned *node_id,
+                                       uint64_t *ring_id)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
-  guint64 rid;
-  guint nid;
+  uint64_t rid;
+  unsigned nid;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_memb_ring_id, tvb, offset,
                                -1, encoding);
@@ -312,12 +312,12 @@ dissect_corosync_totemsrp_memb_ring_id(tvbuff_t *tvb,
   offset += dissect_corosync_totemsrp_ip_address(tvb, pinfo, tree,
                                                     length, offset,
                                                     encoding,
-                                                    FALSE, -1,
+                                                    false, -1,
                                                     &nid);
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_memb_ring_id_seq,
                         tvb, offset, 8, encoding);
-  rid = corosync_totemsrp_get_guint64(tvb, offset, encoding);
+  rid = corosync_totemsrp_get_uint64(tvb, offset, encoding);
   offset += 8;
 
   proto_item_append_text(item, " (ring: %" PRIu64 ")", rid);
@@ -334,16 +334,16 @@ dissect_corosync_totemsrp_memb_ring_id(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_rtr_list(tvbuff_t *tvb,
                                    packet_info *pinfo, proto_tree *parent_tree,
-                                   guint length, int offset,
-                                   const guint encoding)
+                                   unsigned length, int offset,
+                                   const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
 
-  guint node_id;
-  guint64 ring_id;
-  guint32 seq;
+  unsigned node_id;
+  uint64_t ring_id;
+  uint32_t seq;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_rtr_item, tvb, offset,
                                -1, ENC_NA);
@@ -358,7 +358,7 @@ dissect_corosync_totemsrp_rtr_list(tvbuff_t *tvb,
   proto_tree_add_item(tree, hf_corosync_totemsrp_rtr_item_seq,
                         tvb, offset, 4, encoding);
 
-  seq = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  seq = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   proto_item_append_text(item, " (ring: %" PRIu64 " node: %u seq: %u)",
                            ring_id, node_id, seq);
   offset += 4;
@@ -370,15 +370,15 @@ dissect_corosync_totemsrp_rtr_list(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_orf_token(tvbuff_t *tvb,
                                     packet_info *pinfo, proto_tree *parent_tree,
-                                    guint length, int offset,
-                                    const guint encoding)
+                                    unsigned length, int offset,
+                                    const unsigned encoding)
 {
   int original_offset = offset;
-  guint32 rtr_list_entries = 0, seq, aru, i;
+  uint32_t rtr_list_entries = 0, seq, aru, i;
   proto_tree *tree;
   proto_item *item;
-  guint   node_id;
-  guint64 ring_id;
+  unsigned   node_id;
+  uint64_t ring_id;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_orf_token,
                              tvb, offset, -1, ENC_NA);
@@ -390,12 +390,12 @@ dissect_corosync_totemsrp_orf_token(tvbuff_t *tvb,
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_orf_token_token_seq,
                         tvb, offset, 4, encoding);
-  seq = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  seq = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_orf_token_aru,
                         tvb, offset, 4, encoding);
-  aru = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  aru = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_orf_token_aru_addr,
@@ -422,7 +422,7 @@ dissect_corosync_totemsrp_orf_token(tvbuff_t *tvb,
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_orf_token_rtr_list_entries,
                         tvb, offset, 4, encoding);
-  rtr_list_entries = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  rtr_list_entries = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   for (i = 0; i < rtr_list_entries; i++) {
@@ -442,14 +442,14 @@ dissect_corosync_totemsrp_orf_token(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_srp_addr(tvbuff_t *tvb,
                                    packet_info *pinfo, proto_tree *parent_tree,
-                                   guint length, int offset,
+                                   unsigned length, int offset,
                                    int   hf,
-                                   const guint encoding)
+                                   const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
-  guint nodeid;
+  unsigned nodeid;
 
   item = proto_tree_add_item(parent_tree, hf? hf: hf_corosync_totemsrp_srp_addr, tvb, offset,
                                -1, encoding);
@@ -458,14 +458,14 @@ dissect_corosync_totemsrp_srp_addr(tvbuff_t *tvb,
   offset += dissect_corosync_totemsrp_ip_address(tvb, pinfo, tree,
                                                       length, offset,
                                                       encoding,
-                                                      TRUE, 0,
+                                                      true, 0,
                                                       &nodeid);
   proto_item_append_text(item, " (node: %u)", nodeid);
 
   offset += dissect_corosync_totemsrp_ip_address(tvb, pinfo, tree,
                                                       length, offset,
                                                       encoding,
-                                                      TRUE, 1,
+                                                      true, 1,
                                                       NULL);
 
   proto_item_set_len(item, offset - original_offset);
@@ -473,19 +473,20 @@ dissect_corosync_totemsrp_srp_addr(tvbuff_t *tvb,
 }
 
 static int
+// NOLINTNEXTLINE(misc-no-recursion)
 dissect_corosync_totemsrp_mcast(tvbuff_t *tvb,
                                   packet_info *pinfo, proto_tree *tree,
-                                  guint length, int offset,
-                                  guint8 message_header__encapsulated,
-                                  const guint encoding, proto_tree *parent_tree,
+                                  unsigned length, int offset,
+                                  uint8_t message_header__encapsulated,
+                                  const unsigned encoding, proto_tree *parent_tree,
                                   struct corosync_totemsrp_info *totemsrp_info)
 {
   int original_offset = offset;
   proto_tree *mcast_tree;
 
   proto_item *item;
-  guint node_id;
-  guint64 ring_id;
+  unsigned node_id;
+  uint64_t ring_id;
   tvbuff_t *next_tvb;
 
   heur_dtbl_entry_t *hdtbl_entry = NULL;
@@ -528,7 +529,7 @@ dissect_corosync_totemsrp_mcast(tvbuff_t *tvb,
 
   if (message_header__encapsulated == COROSYNC_TOTEMSRP_MESSAGE_ENCAPSULATED)
   {
-    offset += dissect_corosync_totemsrp0(next_tvb, pinfo, tree, TRUE);
+    offset += dissect_corosync_totemsrp0(next_tvb, pinfo, tree, true);
   }
   else
   {
@@ -549,14 +550,14 @@ dissect_corosync_totemsrp_mcast(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_memb_merge_detect(tvbuff_t *tvb,
                                             packet_info *pinfo, proto_tree *parent_tree,
-                                            guint length, int offset,
-                                            const guint encoding)
+                                            unsigned length, int offset,
+                                            const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
-  guint node_id;
-  guint64 ring_id;
+  unsigned node_id;
+  uint64_t ring_id;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_memb_merge_detect, tvb, offset,
                                -1, ENC_NA);
@@ -583,21 +584,21 @@ dissect_corosync_totemsrp_memb_merge_detect(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_memb_join(tvbuff_t *tvb,
                                     packet_info *pinfo, proto_tree *parent_tree,
-                                    guint length, int offset,
-                                    const guint encoding)
+                                    unsigned length, int offset,
+                                    const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
 
-  guint32 proc_list_entries;
+  uint32_t proc_list_entries;
   proto_tree *proc_tree;
 
-  guint32 failed_list_entries;
+  uint32_t failed_list_entries;
   proto_tree *failed_tree;
   proto_item *failed_item;
 
-  guint i;
+  unsigned i;
 
   proto_item *proc_item;
 
@@ -613,12 +614,12 @@ dissect_corosync_totemsrp_memb_join(tvbuff_t *tvb,
 
   proc_item = proto_tree_add_item(tree, hf_corosync_totemsrp_memb_join_proc_list_entries,
                                     tvb, offset, 4, encoding);
-  proc_list_entries = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  proc_list_entries = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   failed_item = proto_tree_add_item(tree, hf_corosync_totemsrp_memb_join_failed_list_entries,
                                       tvb, offset, 4, encoding);
-  failed_list_entries = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  failed_list_entries = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_memb_join_ring_seq,
@@ -655,10 +656,10 @@ static int
 dissect_corosync_totemsrp_memb_commit_token_memb_entry(tvbuff_t *tvb,
                                                        packet_info *pinfo,
                                                        proto_tree *parent_tree,
-                                                       guint length, int offset,
-                                                       const guint encoding,
-                                                       guint *node_id,
-                                                       guint64 *ring_id)
+                                                       unsigned length, int offset,
+                                                       const unsigned encoding,
+                                                       unsigned *node_id,
+                                                       uint64_t *ring_id)
 {
   int original_offset = offset;
 
@@ -695,18 +696,18 @@ dissect_corosync_totemsrp_memb_commit_token_memb_entry(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_memb_commit_token(tvbuff_t *tvb,
                                             packet_info *pinfo, proto_tree *parent_tree,
-                                            guint length, int offset,
-                                            const guint encoding)
+                                            unsigned length, int offset,
+                                            const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
 
-  guint32 i, addr_entries;
+  uint32_t i, addr_entries;
 
-  guint32 seq;
-  guint node_id;
-  guint64 ring_id;
+  uint32_t seq;
+  unsigned node_id;
+  uint64_t ring_id;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_memb_commit_token,
                                tvb, offset, -1, ENC_NA);
@@ -714,7 +715,7 @@ dissect_corosync_totemsrp_memb_commit_token(tvbuff_t *tvb,
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_memb_commit_token_token_seq,
                         tvb, offset, 4, encoding);
-  seq = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  seq = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   offset += dissect_corosync_totemsrp_memb_ring_id(tvb, pinfo, tree,
@@ -733,7 +734,7 @@ dissect_corosync_totemsrp_memb_commit_token(tvbuff_t *tvb,
 
   proto_tree_add_item(tree, hf_corosync_totemsrp_memb_commit_token_addr_entries,
                         tvb, offset, 4, encoding);
-  addr_entries = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  addr_entries = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
   for (i = 0; i < addr_entries; i++) {
@@ -761,14 +762,14 @@ dissect_corosync_totemsrp_memb_commit_token(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp_token_hold_cancel(tvbuff_t *tvb,
                                             packet_info *pinfo, proto_tree *parent_tree,
-                                            guint length, int offset,
-                                            const guint encoding)
+                                            unsigned length, int offset,
+                                            const unsigned encoding)
 {
   int original_offset = offset;
   proto_tree *tree;
   proto_item *item;
-  guint node_id;
-  guint64 ring_id;
+  unsigned node_id;
+  uint64_t ring_id;
 
   item = proto_tree_add_item(parent_tree, hf_corosync_totemsrp_token_hold_cancel, tvb, offset,
                                -1, ENC_NA);
@@ -790,27 +791,28 @@ dissect_corosync_totemsrp_token_hold_cancel(tvbuff_t *tvb,
 static int
 dissect_corosync_totemsrp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data _U_)
 {
-  return dissect_corosync_totemsrp0(tvb, pinfo, parent_tree, FALSE);
+  return dissect_corosync_totemsrp0(tvb, pinfo, parent_tree, false);
 }
 
 #define COROSYNC_TOTEMSRP_TEST_LITTLE_ENDIAN    0x22FF
 #define COROSYNC_TOTEMSRP_TEST_BIG_ENDIAN       0xFF22
 
 static int
+// NOLINTNEXTLINE(misc-no-recursion)
 dissect_corosync_totemsrp0(tvbuff_t *tvb,
                            packet_info *pinfo, proto_tree *tree,
-                           gboolean encapsulated)
+                           bool encapsulated)
 {
   proto_item *item;
-  guint       length;
+  unsigned    length;
   int         offset = 0;
-  guint16     endian_test;
+  uint16_t    endian_test;
   proto_tree *corosync_tree;
 
-  guint8      message_header__type;
-  guint8      message_header__encapsulated;
+  uint8_t     message_header__type;
+  uint8_t     message_header__encapsulated;
 
-  guint encoding;
+  unsigned encoding;
   struct corosync_totemsrp_info info;
 
   /* Check that there's enough data */
@@ -819,11 +821,11 @@ dissect_corosync_totemsrp0(tvbuff_t *tvb,
     return 0;
 
   /* message header */
-  message_header__type = tvb_get_guint8(tvb, 0);
+  message_header__type = tvb_get_uint8(tvb, 0);
   if (message_header__type > 5)
     return 0;
 
-  message_header__encapsulated = tvb_get_guint8(tvb, 1);
+  message_header__encapsulated = tvb_get_uint8(tvb, 1);
 
   /* message_header -- byte order checking */
   endian_test = tvb_get_ntohs(tvb, 2);
@@ -834,7 +836,7 @@ dissect_corosync_totemsrp0(tvbuff_t *tvb,
   else
     return 0;
 
-  if (encapsulated == FALSE)
+  if (encapsulated == false)
   {
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "COROSYNC/TOTEMSRP");
     col_set_str(pinfo->cinfo, COL_INFO,
@@ -865,9 +867,10 @@ dissect_corosync_totemsrp0(tvbuff_t *tvb,
                         hf_corosync_totemsrp_message_header_nodeid,
                         tvb, offset, 4, encoding);
   info.encoding = encoding;
-  info.nodeid = corosync_totemsrp_get_guint32(tvb, offset, encoding);
+  info.nodeid = corosync_totemsrp_get_uint32(tvb, offset, encoding);
   offset += 4;
 
+  increment_dissection_depth(pinfo);
   switch (message_header__type) {
   case COROSYNC_TOTEMSRP_MESSAGE_TYPE_ORF_TOKEN:
     dissect_corosync_totemsrp_orf_token(tvb, pinfo, corosync_tree, length, offset, encoding);
@@ -896,6 +899,7 @@ dissect_corosync_totemsrp0(tvbuff_t *tvb,
   default:
     break;
   }
+  decrement_dissection_depth(pinfo);
 
   return length;
 }
@@ -1124,7 +1128,7 @@ proto_register_corosync_totemsrp(void)
        NULL, HFILL}},
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_corosync_totemsrp,
     &ett_corosync_totemsrp_orf_token,
     &ett_corosync_totemsrp_memb_ring_id,
@@ -1147,7 +1151,7 @@ proto_register_corosync_totemsrp(void)
   proto_register_field_array(proto_corosync_totemsrp, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
-  heur_subdissector_list = register_heur_dissector_list("corosync_totemsrp.mcast", proto_corosync_totemsrp);
+  heur_subdissector_list = register_heur_dissector_list_with_description("corosync_totemsrp.mcast", "COROSYNC/TOTEMSRP multicast data", proto_corosync_totemsrp);
 
   register_dissector( "corosync_totemsrp", dissect_corosync_totemsrp, proto_corosync_totemsrp);
 }

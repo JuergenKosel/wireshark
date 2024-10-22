@@ -89,6 +89,7 @@ if(NOT MSVC)
 	check_symbol_exists("timegm"         "time.h"   HAVE_TIMEGM)
 	check_symbol_exists("tzset"          "time.h"   HAVE_TZSET)
 	check_symbol_exists("tzname"         "time.h"   HAVE_TZNAME)
+	check_symbol_exists("getline"	     "stdio.h"  HAVE_GETLINE)
 endif()
 check_function_exists("getifaddrs"       HAVE_GETIFADDRS)
 check_function_exists("issetugid"        HAVE_ISSETUGID)
@@ -132,6 +133,9 @@ check_type_size("ssize_t"       SSIZE_T)
 if(NOT CMAKE_CROSSCOMPILING)
 	check_c_source_runs("
 		#include <stdio.h>
+
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored \"-Wall\"
 		int main(void)
 		{
 			/* Check that snprintf() and vsnprintf() don't return
@@ -140,7 +144,8 @@ if(NOT CMAKE_CROSSCOMPILING)
 			* the nul byte. */
 			char buf[3];
 			return snprintf(buf, sizeof(buf), \"%s\", \"ABCDEF\") > 0 ? 0 : 1;
-		}"
+		}
+		#pragma GCC diagnostic pop"
 		HAVE_C99_VSNPRINTF
 	)
 	if (NOT HAVE_C99_VSNPRINTF)

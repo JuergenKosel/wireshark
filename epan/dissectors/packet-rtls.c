@@ -96,11 +96,12 @@ static int * const rtls_nack_flags[] = {
 };
 
 static expert_field ei_rtls_undecoded;
-static gint ett_rtls;
-static gint ett_rtls_message;
-static gint ett_rtls_nack_flags;
+static int ett_rtls;
+static int ett_rtls_message;
+static int ett_rtls_nack_flags;
 
-#define RTLS_MIN_LENGTH 16
+#define RTLS_HDR_LENGTH 16
+#define RTLS_SIGN_LENGTH 20
 
 #define AR_AS_CONFIG_SET            0x0000
 #define AR_STATION_REQUEST          0x0001
@@ -173,7 +174,7 @@ static const value_string rtls_ex_classification_vals[] = {
 };
 
 static void
-rssi_base_custom(gchar *result, guint32 rssi)
+rssi_base_custom(char *result, uint32_t rssi)
 {
     /* Convert Hex to decimal and subtract 256 to get the signal value */
     snprintf(result, ITEM_LABEL_LENGTH, "%d", rssi - 256);
@@ -181,7 +182,7 @@ rssi_base_custom(gchar *result, guint32 rssi)
 }
 
 static int
-dissect_rtls_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *rtls_tree, guint offset, guint *data_length)
+dissect_rtls_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *rtls_tree, unsigned offset, unsigned *data_length)
 {
 
     proto_tree_add_item(rtls_tree, hf_rtls_message_type, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -212,7 +213,8 @@ dissect_rtls_header(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *rtls_tree
 }
 
 static int
-dissect_rtls_message_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *rtls_tree, guint offset, guint type)
+// NOLINTNEXTLINE(misc-no-recursion)
+dissect_rtls_message_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *rtls_tree, unsigned offset, unsigned type)
 {
     proto_item *ti_rssi;
 
@@ -347,7 +349,7 @@ hf_rtls_nack_flags, ett_rtls_nack_flags, rtls_nack_flags, ENC_BIG_ENDIAN, BMT_NO
             offset += 2;
         break;
        case AR_COMPOUND_MESSAGE_REPORT:{
-            guint32 cmr_messages;
+            uint32_t cmr_messages;
             proto_tree *sub_tree;
 
             proto_tree_add_item_ret_uint(rtls_tree, hf_rtls_cmr_messages, tvb, offset, 2, ENC_BIG_ENDIAN, &cmr_messages);
@@ -355,25 +357,26 @@ hf_rtls_nack_flags, ett_rtls_nack_flags, rtls_nack_flags, ENC_BIG_ENDIAN, BMT_NO
             proto_tree_add_item(rtls_tree, hf_rtls_reserved, tvb, offset, 2, ENC_NA);
             offset += 2;
             while(cmr_messages){
-                guint32 data_length;
+                uint32_t data_length;
                 type = tvb_get_ntohs(tvb, offset);
                 sub_tree = proto_tree_add_subtree_format(rtls_tree, tvb, offset, -1, ett_rtls_message, NULL, "%s", val_to_str(type, rtls_message_type_vals, "(unknown %d)"));
 
                 offset = dissect_rtls_header(tvb, pinfo, sub_tree, offset, &data_length);
 
+                // We recurse here, but we'll run out of packet before we run out of stack.
                 offset = dissect_rtls_message_type(tvb, pinfo, sub_tree, offset, type);
 
-                proto_item_set_len(sub_tree, data_length + 16);
+                proto_item_set_len(sub_tree, data_length + RTLS_HDR_LENGTH);
                 cmr_messages--;
             }
             }
         break;
         default:{
-            guint32 remaining;
-
-            remaining = tvb_reported_length_remaining(tvb, offset) - 20; /* Remove 20 of signature */
-            proto_tree_add_expert(rtls_tree, pinfo, &ei_rtls_undecoded, tvb, offset, remaining);
-            offset += remaining;
+            uint32_t remaining = tvb_reported_length_remaining(tvb, offset);
+            if(remaining > RTLS_SIGN_LENGTH){
+                proto_tree_add_expert(rtls_tree, pinfo, &ei_rtls_undecoded, tvb, offset, remaining - RTLS_SIGN_LENGTH);
+                offset += remaining - RTLS_SIGN_LENGTH;
+            }
             }
         break;
     }
@@ -386,10 +389,10 @@ dissect_rtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 {
     proto_item *ti;
     proto_tree *rtls_tree;
-    guint       offset = 0;
-    guint32     type;
+    unsigned    offset = 0;
+    uint32_t    type;
 
-    if (tvb_reported_length(tvb) < RTLS_MIN_LENGTH)
+    if (tvb_reported_length(tvb) < RTLS_HDR_LENGTH + RTLS_SIGN_LENGTH)
         return 0;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "RTLS");
@@ -408,7 +411,7 @@ dissect_rtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
     offset = dissect_rtls_message_type(tvb, pinfo, rtls_tree, offset, type);
 
     /* TODO: Check signature ? HMAC-SHA1 with shared key and RTLS packet data */
-    proto_tree_add_item(rtls_tree, hf_rtls_signature, tvb, offset, 20, ENC_NA);
+    proto_tree_add_item(rtls_tree, hf_rtls_signature, tvb, offset, RTLS_SIGN_LENGTH, ENC_NA);
     offset += 20;
 
     return offset;
@@ -745,7 +748,7 @@ proto_register_rtls(void)
 
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_rtls,
         &ett_rtls_message,
         &ett_rtls_nack_flags,
@@ -774,6 +777,7 @@ proto_register_rtls(void)
 void
 proto_reg_handoff_rtls(void)
 {
+    // If this is ever streamed (transported over TCP) we need to add recursion checks
     dissector_add_for_decode_as_with_preference("udp.port", rtls_handle);
 }
 

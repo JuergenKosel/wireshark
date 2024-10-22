@@ -8,17 +8,21 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: get-submodule
         run: git submodule update --init
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: 3.11
       - name: Install deps
         run: ./tools/macos-setup-brew.sh --install-optional --install-doc-deps --install-dmg-deps --install-test-deps
         env:
           HOMEBREW_NO_AUTO_UPDATE: 1
+      - name: Install pytest
+        run: pip3 install pytest pytest-xdist
+      - name: Install dmgbuild
+        run: pip3 install dmgbuild
       - name: Mkdir
         run: mkdir build
       - name: Cmake
@@ -39,7 +43,7 @@ jobs:
         run: ninja wireshark_dmg
         working-directory: build
       - name: Upload dmg packages
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: build/run/*dmg

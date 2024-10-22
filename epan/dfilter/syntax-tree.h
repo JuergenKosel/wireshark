@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-#include <glib.h>
 
 #include <wsutil/ws_assert.h>
 #include <wsutil/wslog.h>
@@ -20,6 +19,10 @@
 
 /** @file
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define ASSERT_STTYPE_NOT_REACHED(st) \
 	ws_error("Invalid syntax node type '%s'.", sttype_name(st))
@@ -47,9 +50,9 @@ typedef enum {
 } sttype_id_t;
 
 typedef void *          (*STTypeNewFunc)(void *);
-typedef void *          (*STTypeDupFunc)(gconstpointer);
+typedef void *          (*STTypeDupFunc)(const void *);
 typedef void            (*STTypeFreeFunc)(void *);
-typedef char*           (*STTypeToStrFunc)(gconstpointer, bool pretty);
+typedef char*           (*STTypeToStrFunc)(const void *, bool pretty);
 
 
 /* Type information */
@@ -72,7 +75,7 @@ typedef enum {
 #define STFLAG_UNPARSED		(1 << 0)
 
 /** Node (type instance) information */
-typedef struct {
+typedef struct stnode {
 	sttype_t	*type;
 	void 		*data;
 	char 		*repr_token;
@@ -273,5 +276,9 @@ log_syntax_tree(enum ws_log_level, stnode_t *root, const char *msg, char **cache
 #else
 #define ws_assert_magic(obj, mnum) (void)0
 #endif
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* SYNTAX_TREE_H */

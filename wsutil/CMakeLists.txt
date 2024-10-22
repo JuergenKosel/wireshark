@@ -7,6 +7,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
+# CMake says that these paths should be relative to the install prefix
+# https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+# Things generally work if they're not, but it becomes impossible
+# to relocate paths. Work around that, and just don't try to support
+# relocation.
 file(TO_NATIVE_PATH "${CMAKE_INSTALL_PREFIX}" PATH_INSTALL_PREFIX)
 string(REPLACE "\\" "\\\\" PATH_INSTALL_PREFIX "${PATH_INSTALL_PREFIX}")
 file(TO_NATIVE_PATH "${CMAKE_INSTALL_DATADIR}" PATH_DATA_DIR)
@@ -17,6 +22,8 @@ file(TO_NATIVE_PATH "${PLUGIN_INSTALL_LIBDIR}" PATH_PLUGIN_DIR)
 string(REPLACE "\\" "\\\\" PATH_PLUGIN_DIR "${PATH_PLUGIN_DIR}")
 file(TO_NATIVE_PATH "${EXTCAP_INSTALL_LIBDIR}" PATH_EXTCAP_DIR)
 string(REPLACE "\\" "\\\\" PATH_EXTCAP_DIR "${PATH_EXTCAP_DIR}")
+file(TO_NATIVE_PATH "${LOG_EXTCAP_INSTALL_LIBDIR}" PATH_LOG_EXTCAP_DIR)
+string(REPLACE "\\" "\\\\" PATH_LOG_EXTCAP_DIR "${PATH_LOG_EXTCAP_DIR}")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/path_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/path_config.h)
 
@@ -74,6 +81,7 @@ set(WMEM_FILES
 set(WSUTIL_PUBLIC_HEADERS
 	802_11-utils.h
 	adler32.h
+	array.h
 	base32.h
 	bits_count_ones.h
 	bits_ctz.h
@@ -183,7 +191,6 @@ set(WSUTIL_COMMON_FILES
 	cpu_info.c
 	os_version_info.c
 	please_report_bug.c
-	plugins.c
 	privileges.c
 	regex.c
 	rsa.c
@@ -212,6 +219,12 @@ set(WSUTIL_COMMON_FILES
 if(WIN32)
 	list(APPEND WSUTIL_COMMON_FILES
 		console_win32.c
+	)
+endif()
+
+if(ENABLE_PLUGINS)
+	list(APPEND WSUTIL_COMMON_FILES
+		plugins.c
 	)
 endif()
 
@@ -367,7 +380,9 @@ target_link_libraries(wsutil
 		${CMAKE_DL_LIBS}
 		${GCRYPT_LIBRARIES}
 		${GNUTLS_LIBRARIES}
+		${M_LIBRARIES}
 		${ZLIB_LIBRARIES}
+		${ZLIBNG_LIBRARIES}
 		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -381,6 +396,7 @@ target_include_directories(wsutil SYSTEM
 	PRIVATE
 		${GMODULE2_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
+		${ZLIBNG_INCLUDE_DIRS}
 		${PCRE2_INCLUDE_DIRS}
 )
 
@@ -422,6 +438,7 @@ target_link_libraries(wsutil_static
 		${GCRYPT_LIBRARIES}
 		${GNUTLS_LIBRARIES}
 		${ZLIB_LIBRARIES}
+		${ZLIBNG_LIBRARIES}
 		$<IF:$<CONFIG:Debug>,${PCRE2_DEBUG_LIBRARIES},${PCRE2_LIBRARIES}>
 		${WIN_IPHLPAPI_LIBRARY}
 		${WIN_WS2_32_LIBRARY}
@@ -435,6 +452,7 @@ target_include_directories(wsutil_static SYSTEM
 	PRIVATE
 		${GMODULE2_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
+		${ZLIBNG_INCLUDE_DIRS}
 		${PCRE2_INCLUDE_DIRS}
 )
 

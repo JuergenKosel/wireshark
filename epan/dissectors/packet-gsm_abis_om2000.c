@@ -632,14 +632,14 @@ static const value_string om2k_iwd_type_vals[] = {
 	{ 0, NULL }
 };
 
-static gint
-dissect_tss_mo_state(tvbuff_t *tvb, gint offset, proto_tree *tree)
+static int
+dissect_tss_mo_state(tvbuff_t *tvb, int offset, proto_tree *tree)
 {
-	guint8 tmp;
-	guint  i = 0;
+	uint8_t tmp;
+	unsigned  i = 0;
 
 	for (i = 0; i < 8; i+= 2) {
-		tmp = tvb_get_guint8(tvb, offset);
+		tmp = tvb_get_uint8(tvb, offset);
 		proto_tree_add_uint_format(tree, hf_om2k_tsn_state, tvb, offset, 1, tmp & 0xf,
 					   "Timeslot %u MO State: %s", i,
 					   val_to_str(tmp & 0xf, om2k_mo_state_vals, "unknown (%02d)"));
@@ -653,19 +653,19 @@ dissect_tss_mo_state(tvbuff_t *tvb, gint offset, proto_tree *tree)
 }
 
 
-static gint
-dissect_om2k_time(tvbuff_t *tvb, gint offset, proto_tree *tree)
+static int
+dissect_om2k_time(tvbuff_t *tvb, int offset, proto_tree *tree)
 {
 	nstime_t  tmptime;
 	time_t    tval;
 	struct tm _time;
 
-	_time.tm_year  = 100 + tvb_get_guint8(tvb, offset++);
-	_time.tm_mon   = tvb_get_guint8(tvb, offset++) - 1;
-	_time.tm_mday  = tvb_get_guint8(tvb, offset++);
-	_time.tm_hour  = tvb_get_guint8(tvb, offset++);
-	_time.tm_min   = tvb_get_guint8(tvb, offset++);
-	_time.tm_sec   = tvb_get_guint8(tvb, offset++);
+	_time.tm_year  = 100 + tvb_get_uint8(tvb, offset++);
+	_time.tm_mon   = tvb_get_uint8(tvb, offset++) - 1;
+	_time.tm_mday  = tvb_get_uint8(tvb, offset++);
+	_time.tm_hour  = tvb_get_uint8(tvb, offset++);
+	_time.tm_min   = tvb_get_uint8(tvb, offset++);
+	_time.tm_sec   = tvb_get_uint8(tvb, offset++);
 	_time.tm_isdst = -1;
 
 	tval           = mktime(&_time);
@@ -677,8 +677,8 @@ dissect_om2k_time(tvbuff_t *tvb, gint offset, proto_tree *tree)
 	return 6;
 }
 
-static gint
-dissect_om2k_attr_unkn(tvbuff_t *tvb, packet_info *pinfo, gint offset, gint len, gint iei, proto_tree *tree)
+static int
+dissect_om2k_attr_unkn(tvbuff_t *tvb, packet_info *pinfo, int offset, int len, int iei, proto_tree *tree)
 {
 	proto_tree_add_bytes_format(tree, hf_om2k_unknown_val, tvb,
 				    offset, len, NULL,
@@ -688,13 +688,13 @@ dissect_om2k_attr_unkn(tvbuff_t *tvb, packet_info *pinfo, gint offset, gint len,
 	return len;
 }
 
-static gint
-dissect_om2k_is_list(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
+static int
+dissect_om2k_is_list(tvbuff_t *tvb, int base_offset, proto_tree *tree)
 {
-	gint        offset = base_offset;
+	int         offset = base_offset;
 	proto_item *ti;
 	proto_tree *isl_tree;
-	guint8      len    = tvb_get_guint8(tvb, offset++);
+	uint8_t     len    = tvb_get_uint8(tvb, offset++);
 
 	ti       = proto_tree_add_item(tree, hf_om2k_isl, tvb, offset, len, ENC_NA);
 	isl_tree = proto_item_add_subtree(ti, ett_om2k_isl);
@@ -712,13 +712,13 @@ dissect_om2k_is_list(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
 	return offset - base_offset;
 }
 
-static gint
-dissect_om2k_con_list(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
+static int
+dissect_om2k_con_list(tvbuff_t *tvb, int base_offset, proto_tree *tree)
 {
-	gint        offset = base_offset;
+	int         offset = base_offset;
 	proto_item *ti;
 	proto_tree *conl_tree;
-	guint8      len    = tvb_get_guint8(tvb, offset++);
+	uint8_t     len    = tvb_get_uint8(tvb, offset++);
 
 	ti = proto_tree_add_item(tree, hf_om2k_conl, tvb, offset, len, ENC_NA);
 	conl_tree = proto_item_add_subtree(ti, ett_om2k_conl);
@@ -727,7 +727,7 @@ dissect_om2k_con_list(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
 			    offset++, 1, ENC_BIG_ENDIAN);
 
 	while (offset < base_offset + len) {
-		guint8 nr_cps_cg = tvb_get_guint8(tvb, offset);
+		uint8_t nr_cps_cg = tvb_get_uint8(tvb, offset);
 		proto_tree_add_item(conl_tree, hf_om2k_conl_nr_cps_cg, tvb,
 				    offset++, 1, ENC_BIG_ENDIAN);
 		while (nr_cps_cg--) {
@@ -745,18 +745,18 @@ dissect_om2k_con_list(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
 	return offset - base_offset;
 }
 
-static gint
-dissect_om2k_negotiation_record1(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
+static int
+dissect_om2k_negotiation_record1(tvbuff_t *tvb, int base_offset, proto_tree *tree)
 {
-	gint offset = base_offset;
-	guint8 i;
-	guint8 num_iwd = tvb_get_guint8(tvb, offset++);
+	int offset = base_offset;
+	uint8_t i;
+	uint8_t num_iwd = tvb_get_uint8(tvb, offset++);
 
 	for (i = 0; i < num_iwd; i++) {
-		guint8 j;
+		uint8_t j;
 		proto_item *ti;
 		proto_tree *iwd_tree;
-		guint8 num_vers = tvb_get_guint8(tvb, offset++);
+		uint8_t num_vers = tvb_get_uint8(tvb, offset++);
 
 		ti = proto_tree_add_item(tree, hf_om2k_iwd_type, tvb, offset++, 1, ENC_NA);
 		iwd_tree = proto_item_add_subtree(ti, ett_om2k_iwd);
@@ -770,32 +770,32 @@ dissect_om2k_negotiation_record1(tvbuff_t *tvb, gint base_offset, proto_tree *tr
 	return offset - base_offset;
 }
 
-static gint
-dissect_om2k_mo_record(tvbuff_t *tvb, packet_info *pinfo, gint base_offset, gint len, proto_tree *tree)
+static int
+dissect_om2k_mo_record(tvbuff_t *tvb, packet_info *pinfo, int base_offset, int len, proto_tree *tree)
 {
-	gint offset = base_offset;
+	int offset = base_offset;
 	proto_tree_add_item(tree, hf_om2k_mo_class, tvb, offset++, 1, ENC_NA);
 	proto_tree_add_item(tree, hf_om2k_mo_instance, tvb, offset++, 1, ENC_NA);
 
 	while (offset < len) {
-		guint16 attr_id;
-		guint8 attr_len;
+		uint16_t attr_id;
+		uint8_t attr_len;
 
-		attr_id = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+		attr_id = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
 		offset += 2;
-		attr_len = tvb_get_guint8(tvb, offset++);
+		attr_len = tvb_get_uint8(tvb, offset++);
 		offset += dissect_om2k_attr_unkn(tvb, pinfo, offset, attr_len, attr_id, tree);
 	}
 
 	return offset - base_offset;
 }
 
-static gint
-dissect_om2k_negotiation_record2(tvbuff_t *tvb, gint base_offset, proto_tree *tree)
+static int
+dissect_om2k_negotiation_record2(tvbuff_t *tvb, int base_offset, proto_tree *tree)
 {
-	gint offset = base_offset;
-	guint8 i;
-	guint8 num_iwd = tvb_get_guint8(tvb, offset++);
+	int offset = base_offset;
+	uint8_t i;
+	uint8_t num_iwd = tvb_get_uint8(tvb, offset++);
 
 	for (i = 0; i < num_iwd; i++) {
 		proto_item *ti;
@@ -813,17 +813,17 @@ dissect_om2k_negotiation_record2(tvbuff_t *tvb, gint base_offset, proto_tree *tr
 
 
 
-static gint
-dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *tree, guint16 msg_code)
+static int
+dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree, uint16_t msg_code)
 {
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
-		guint8 iei = tvb_get_guint8(tvb, offset++);
-		guint8 len, tmp;
+		uint8_t iei = tvb_get_uint8(tvb, offset++);
+		uint8_t len, tmp;
 		proto_item *ti;
 
 		switch (iei) {
 		case 0x00: /* Accordance Information */
-			tmp = tvb_get_guint8(tvb, offset);
+			tmp = tvb_get_uint8(tvb, offset);
 			ti = proto_tree_add_item(tree, hf_om2k_aip, tvb,
 						 offset++, 1, ENC_BIG_ENDIAN);
 			if (tmp != 0x00)
@@ -907,7 +907,7 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 			offset += 2;
 			break;
 		case 0x1e: /* Frequency List */
-			len = tvb_get_guint8(tvb, offset++);
+			len = tvb_get_uint8(tvb, offset++);
 			/* FIXME */
 			offset += dissect_om2k_attr_unkn(tvb, pinfo, offset, len, iei, tree);
 			break;
@@ -951,7 +951,7 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 					    offset++, 1, ENC_BIG_ENDIAN);
 			break;
 		case 0x2c: /* MO State */
-			tmp = tvb_get_guint8(tvb, offset);
+			tmp = tvb_get_uint8(tvb, offset);
 			ti = proto_tree_add_item(tree, hf_om2k_mo_state, tvb,
 						 offset++, 1, ENC_BIG_ENDIAN);
 			if (msg_code == 0x3a && tmp != 0x02)
@@ -1019,7 +1019,7 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 		case 0x44: /* OML Function Map 2 */
 		case 0x45: /* RSL Function Map 1 */
 		case 0x46: /* RSL Function Map 2 */
-			len = tvb_get_guint8(tvb, offset++);
+			len = tvb_get_uint8(tvb, offset++);
 			/* FIXME */
 			offset += dissect_om2k_attr_unkn(tvb, pinfo, offset, len, iei, tree);
 			break;
@@ -1141,22 +1141,22 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 			offset += 1;
 			break;
 		case 0xab: /* MCTR Feature Status Bitmap */
-			tmp = tvb_get_guint8(tvb, offset++);
+			tmp = tvb_get_uint8(tvb, offset++);
 			proto_tree_add_item(tree, hf_om2k_mctr_feat_sts_bitmap, tvb, offset, tmp, ENC_NA);
 			offset += tmp;
 			break;
 		case 0xae: /* Power Back-Off Channel Type Map */
-			tmp = tvb_get_guint8(tvb, offset++);
+			tmp = tvb_get_uint8(tvb, offset++);
 			proto_tree_add_item(tree, hf_om2k_power_bo_ctype_map, tvb, offset, tmp, ENC_NA);
 			offset += tmp;
 			break;
 		case 0xaf: /* Power Back-Off Priority */
-			tmp = tvb_get_guint8(tvb, offset++);
+			tmp = tvb_get_uint8(tvb, offset++);
 			proto_tree_add_item(tree, hf_om2k_power_bo_priority, tvb, offset, tmp, ENC_NA);
 			offset += tmp;
 			break;
 		case 0xb0: /* Power Back-Off Value */
-			tmp = tvb_get_guint8(tvb, offset++);
+			tmp = tvb_get_uint8(tvb, offset++);
 			proto_tree_add_item(tree, hf_om2k_power_bo_value, tvb, offset, tmp, ENC_NA);
 			offset += tmp;
 			break;
@@ -1166,7 +1166,7 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 			/* we don't know any of the above, but the
 			 * TLV structure is quite clear in the protocol
 			 * traces */
-			tmp = tvb_get_guint8(tvb, offset++);
+			tmp = tvb_get_uint8(tvb, offset++);
 			offset += dissect_om2k_attr_unkn(tvb, pinfo, offset, tmp, iei, tree);
 			break;
 		case 0xb5: /* unknown 2-bytes fixed length attribute of TX Config */
@@ -1179,7 +1179,7 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 			offset += dissect_om2k_attr_unkn(tvb, pinfo, offset, 58, iei, tree);
 			break;
 		default:
-			tmp = tvb_get_guint8(tvb, offset);
+			tmp = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint_format(tree, hf_om2k_unknown_tag, tvb,
 					    offset-1, 1, tmp, "Tag %s: 0x%02x",
 					    val_to_str_ext(iei, &om2k_attr_vals_ext, "0x%02x"), tmp);
@@ -1191,11 +1191,11 @@ dissect_om2k_attrs(tvbuff_t *tvb, packet_info *pinfo, gint offset, proto_tree *t
 	return offset;
 }
 
-static guint
-dissect_om2k_mo(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree)
+static unsigned
+dissect_om2k_mo(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *tree)
 {
-	guint8      mo_class = tvb_get_guint8(tvb, offset);
-	guint8      inst  = tvb_get_guint8(tvb, offset+3);
+	uint8_t     mo_class = tvb_get_uint8(tvb, offset);
+	uint8_t     inst  = tvb_get_uint8(tvb, offset+3);
 
 	col_append_fstr(pinfo->cinfo, COL_INFO, ", (%-4s %u)",
 				val_to_str(mo_class, om2k_mo_class_short_vals,
@@ -1203,8 +1203,8 @@ dissect_om2k_mo(tvbuff_t *tvb, gint offset, packet_info *pinfo, proto_tree *tree
 	if (tree) {
 		proto_item *ti;
 		proto_tree *mo_tree;
-		guint8      sub1  = tvb_get_guint8(tvb, offset+1);
-		guint8      sub2  = tvb_get_guint8(tvb, offset+2);
+		uint8_t     sub1  = tvb_get_uint8(tvb, offset+1);
+		uint8_t     sub2  = tvb_get_uint8(tvb, offset+2);
 
 		ti      = proto_tree_add_item(tree, hf_om2k_mo_if, tvb, offset,
 					      4, ENC_NA);
@@ -1229,9 +1229,9 @@ dissect_abis_om2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 {
 	proto_item *ti;
 	proto_tree *om2k_tree;
-	guint16     msg_code;
-	guint8      tmp;
-	const gchar *msgt_str;
+	uint16_t    msg_code;
+	uint8_t     tmp;
+	const char *msgt_str;
 
 	int offset;
 
@@ -1263,7 +1263,7 @@ dissect_abis_om2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 
 	switch (msg_code) {
 	case 0x74: /* Operational Info */
-		tmp = tvb_get_guint8(tvb, offset+1);
+		tmp = tvb_get_uint8(tvb, offset+1);
 		proto_item_append_text(ti, ": %s",
 				       val_to_str(tmp, om2k_oip_vals,
 						  "unknown 0x%02x"));
@@ -1276,7 +1276,7 @@ dissect_abis_om2000(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
 	case 0xB6: /* TX Configuration Result */
 	case 0xE2: /* DP Configuration Result */
 	case 0xF6: /* DP Configuration Result */
-		tmp = tvb_get_guint8(tvb, offset+1);
+		tmp = tvb_get_uint8(tvb, offset+1);
 		proto_item_append_text(ti, ": %s",
 				       val_to_str(tmp, om2k_aip_vals,
 						  "unknown 0x%02x"));
@@ -1375,12 +1375,12 @@ proto_register_abis_om2000(void)
 		},
 		{ &hf_om2k_ext_range,
 		  { "Extended Range", "gsm_abis_om2000.ext_range",
-		    FT_BOOLEAN, 1, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_irc,
 		  { "Interference Rejection Combining", "gsm_abis_om2000.irc",
-		    FT_BOOLEAN, 1, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_bs_pa_mfrms,
@@ -1400,12 +1400,12 @@ proto_register_abis_om2000(void)
 		},
 		{ &hf_om2k_cr,
 		  { "CCCH Repeat", "gsm_abis_om2000.ccch_repeat",
-		    FT_BOOLEAN, 1, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_ipt3,
 		  { "Inhibit Paging Request Type 3", "gsm_abis_om2000.ipt3",
-		    FT_BOOLEAN, 2, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x02,' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x02,' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_aop,
@@ -1425,7 +1425,7 @@ proto_register_abis_om2000(void)
 		},
 		{ &hf_om2k_cbi,
 		  { "CBCH Indicator", "gsm_abis_om2000.cbi",
-		    FT_BOOLEAN, 1, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_tsc,
@@ -1435,7 +1435,7 @@ proto_register_abis_om2000(void)
 		},
 		{ &hf_om2k_icm,
 		  { "Idle Channel Measurement", "gsm_abis_om2000.icm",
-		    FT_BOOLEAN, 1, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
+		    FT_BOOLEAN, BASE_NONE, NULL, 0,          /* XXX: bitmask needed? 'FT_BOOLEAN, 8, NULL, 0x01,' ? */
 		    NULL, HFILL }
 		},
 		{ &hf_om2k_tta,
@@ -1741,7 +1741,7 @@ proto_register_abis_om2000(void)
 		    NULL, HFILL }
 		},
 	};
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_om2000,
 		&ett_om2k_mo,
 		&ett_om2k_isl,

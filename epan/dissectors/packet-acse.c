@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-acse.c                                                              */
-/* asn2wrs.py -b -C -L -p acse -c ./acse.cnf -s ./packet-acse-template -D . -O ../.. acse.asn */
+/* asn2wrs.py -b -C -q -L -p acse -c ./acse.cnf -s ./packet-acse-template -D . -O ../.. acse.asn */
 
 /*XXX
   There is a bug in asn2wrs that it can not yet handle tagged assignments such
@@ -31,6 +31,7 @@
 #include <epan/expert.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -165,74 +166,74 @@ static int hf_acse_ACSE_requirements_authentication;
 static int hf_acse_ACSE_requirements_aSO_context_negotiation;
 static int hf_acse_ACSE_requirements_higher_level_association;
 static int hf_acse_ACSE_requirements_nested_association;
-static gint hf_acse_user_data;
+static int hf_acse_user_data;
 
 /* Initialize the subtree pointers */
-static gint ett_acse;
-static gint ett_acse_EXTERNALt_U;
-static gint ett_acse_T_encoding;
-static gint ett_acse_ACSE_apdu;
-static gint ett_acse_AARQ_apdu_U;
-static gint ett_acse_T_AARQ_protocol_version;
-static gint ett_acse_AARE_apdu_U;
-static gint ett_acse_T_AARE_protocol_version;
-static gint ett_acse_RLRQ_apdu_U;
-static gint ett_acse_RLRE_apdu_U;
-static gint ett_acse_ABRT_apdu_U;
-static gint ett_acse_A_DT_apdu_U;
-static gint ett_acse_ACRQ_apdu_U;
-static gint ett_acse_ACRP_apdu_U;
-static gint ett_acse_ACSE_requirements;
-static gint ett_acse_AP_title;
-static gint ett_acse_ASO_qualifier;
-static gint ett_acse_AE_title;
-static gint ett_acse_ASOI_tag;
-static gint ett_acse_ASOI_tag_item;
-static gint ett_acse_ASO_context_name_list;
-static gint ett_acse_Syntactic_context_list;
-static gint ett_acse_Context_list;
-static gint ett_acse_Context_list_item;
-static gint ett_acse_SEQUENCE_OF_TransferSyntaxName;
-static gint ett_acse_Default_Context_List;
-static gint ett_acse_Default_Context_List_item;
-static gint ett_acse_P_context_result_list;
-static gint ett_acse_P_context_result_list_item;
-static gint ett_acse_Associate_source_diagnostic;
-static gint ett_acse_Association_data;
-static gint ett_acse_User_Data;
-static gint ett_acse_PDV_list;
-static gint ett_acse_T_presentation_data_values;
-static gint ett_acse_Authentication_value_other;
-static gint ett_acse_Authentication_value;
+static int ett_acse;
+static int ett_acse_EXTERNALt_U;
+static int ett_acse_T_encoding;
+static int ett_acse_ACSE_apdu;
+static int ett_acse_AARQ_apdu_U;
+static int ett_acse_T_AARQ_protocol_version;
+static int ett_acse_AARE_apdu_U;
+static int ett_acse_T_AARE_protocol_version;
+static int ett_acse_RLRQ_apdu_U;
+static int ett_acse_RLRE_apdu_U;
+static int ett_acse_ABRT_apdu_U;
+static int ett_acse_A_DT_apdu_U;
+static int ett_acse_ACRQ_apdu_U;
+static int ett_acse_ACRP_apdu_U;
+static int ett_acse_ACSE_requirements;
+static int ett_acse_AP_title;
+static int ett_acse_ASO_qualifier;
+static int ett_acse_AE_title;
+static int ett_acse_ASOI_tag;
+static int ett_acse_ASOI_tag_item;
+static int ett_acse_ASO_context_name_list;
+static int ett_acse_Syntactic_context_list;
+static int ett_acse_Context_list;
+static int ett_acse_Context_list_item;
+static int ett_acse_SEQUENCE_OF_TransferSyntaxName;
+static int ett_acse_Default_Context_List;
+static int ett_acse_Default_Context_List_item;
+static int ett_acse_P_context_result_list;
+static int ett_acse_P_context_result_list_item;
+static int ett_acse_Associate_source_diagnostic;
+static int ett_acse_Association_data;
+static int ett_acse_User_Data;
+static int ett_acse_PDV_list;
+static int ett_acse_T_presentation_data_values;
+static int ett_acse_Authentication_value_other;
+static int ett_acse_Authentication_value;
 
 static expert_field ei_acse_dissector_not_available;
 static expert_field ei_acse_malformed;
 static expert_field ei_acse_invalid_oid;
 
-static dissector_handle_t acse_handle = NULL;
+static dissector_handle_t acse_handle;
 
 /* indirect_reference, used to pick up the signalling so we know what
    kind of data is transferred in SES_DATA_TRANSFER_PDUs */
-static guint32 indir_ref=0;
+static uint32_t indir_ref=0;
 
 #if NOT_NEEDED
 /* to keep track of presentation context identifiers and protocol-oids */
 typedef struct _acse_ctx_oid_t {
 	/* XXX here we should keep track of ADDRESS/PORT as well */
-	guint32 ctx_id;
+	uint32_t ctx_id;
 	char *oid;
 } acse_ctx_oid_t;
-static wmem_map_t *acse_ctx_oid_table = NULL;
+static wmem_map_t *acse_ctx_oid_table;
 
-static guint
-acse_ctx_oid_hash(gconstpointer k)
+static unsigned
+acse_ctx_oid_hash(const void *k)
 {
 	acse_ctx_oid_t *aco=(acse_ctx_oid_t *)k;
 	return aco->ctx_id;
 }
 /* XXX this one should be made ADDRESS/PORT aware */
-static gint
-acse_ctx_oid_equal(gconstpointer k1, gconstpointer k2)
+static int
+acse_ctx_oid_equal(const void *k1, const void *k2)
 {
 	acse_ctx_oid_t *aco1=(acse_ctx_oid_t *)k1;
 	acse_ctx_oid_t *aco2=(acse_ctx_oid_t *)k2;
@@ -240,7 +241,7 @@ acse_ctx_oid_equal(gconstpointer k1, gconstpointer k2)
 }
 
 static void
-register_ctx_id_and_oid(packet_info *pinfo _U_, guint32 idx, char *oid)
+register_ctx_id_and_oid(packet_info *pinfo _U_, uint32_t idx, char *oid)
 {
 	acse_ctx_oid_t *aco, *tmpaco;
 	aco=wmem_new(wmem_file_scope(), acse_ctx_oid_t);
@@ -255,7 +256,7 @@ register_ctx_id_and_oid(packet_info *pinfo _U_, guint32 idx, char *oid)
 	wmem_map_insert(acse_ctx_oid_table, aco, aco);
 }
 static char *
-find_oid_by_ctx_id(packet_info *pinfo _U_, guint32 idx)
+find_oid_by_ctx_id(packet_info *pinfo _U_, uint32_t idx)
 {
 	acse_ctx_oid_t aco, *tmpaco;
 	aco.ctx_id=idx;
@@ -274,7 +275,7 @@ static int
 dissect_acse_T_direct_reference(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier_str(implicit_tag, actx, tree, tvb, offset, hf_index, &actx->external.direct_reference);
 
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -287,14 +288,14 @@ dissect_acse_T_indirect_reference(bool implicit_tag _U_, tvbuff_t *tvb _U_, int 
   char *oid;
   struct SESSION_DATA_STRUCTURE* session = (struct SESSION_DATA_STRUCTURE*) actx->private_data;
 
-  offset = dissect_ber_integer(FALSE, actx, tree, tvb, offset,
+  offset = dissect_ber_integer(false, actx, tree, tvb, offset,
                 hf_acse_indirect_reference,
                 &indir_ref);
 
   /* look up the indirect reference */
   if((oid = find_oid_by_pres_ctx_id(actx->pinfo, indir_ref)) != NULL) {
     actx->external.direct_reference = wmem_strdup(actx->pinfo->pool, oid);
-    actx->external.direct_ref_present = TRUE;
+    actx->external.direct_ref_present = true;
   }
 
   if(session)
@@ -396,7 +397,7 @@ dissect_acse_EXTERNALt_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 int
 dissect_acse_EXTERNALt(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_UNI, 8, TRUE, dissect_acse_EXTERNALt_U);
+                                      hf_index, BER_CLASS_UNI, 8, true, dissect_acse_EXTERNALt_U);
 
   return offset;
 }
@@ -429,9 +430,9 @@ dissect_acse_ASO_context_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 static int
 dissect_acse_T_AARQ_aSO_context_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_object_identifier_str(FALSE, actx, tree, tvb, offset,
+  offset = dissect_ber_object_identifier_str(false, actx, tree, tvb, offset,
                                          hf_index, &actx->external.direct_reference);
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -629,7 +630,7 @@ static int
 dissect_acse_T_other_mechanism_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier_str(implicit_tag, actx, tree, tvb, offset, hf_index, &actx->external.direct_reference);
 
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -922,7 +923,7 @@ dissect_acse_AARQ_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   col_append_str(actx->pinfo->cinfo, COL_INFO, "A-Associate-Request");
 
     offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 0, TRUE, dissect_acse_AARQ_apdu_U);
+                                      hf_index, BER_CLASS_APP, 0, true, dissect_acse_AARQ_apdu_U);
 
 
 
@@ -948,9 +949,9 @@ dissect_acse_T_AARE_protocol_version(bool implicit_tag _U_, tvbuff_t *tvb _U_, i
 
 static int
 dissect_acse_T_AARE_aSO_context_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_object_identifier_str(FALSE, actx, tree, tvb, offset,
+  offset = dissect_ber_object_identifier_str(false, actx, tree, tvb, offset,
                                          hf_index, &actx->external.direct_reference);
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -1151,7 +1152,7 @@ dissect_acse_AARE_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   col_append_str(actx->pinfo->cinfo, COL_INFO, "A-Associate-Response");
 
     offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 1, TRUE, dissect_acse_AARE_apdu_U);
+                                      hf_index, BER_CLASS_APP, 1, true, dissect_acse_AARE_apdu_U);
 
 
 
@@ -1206,7 +1207,7 @@ dissect_acse_RLRQ_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   col_append_str(actx->pinfo->cinfo, COL_INFO, "Release-Request");
 
     offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 2, TRUE, dissect_acse_RLRQ_apdu_U);
+                                      hf_index, BER_CLASS_APP, 2, true, dissect_acse_RLRQ_apdu_U);
 
 
 
@@ -1261,7 +1262,7 @@ dissect_acse_RLRE_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   col_append_str(actx->pinfo->cinfo, COL_INFO, "Release-Response");
 
     offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 3, TRUE, dissect_acse_RLRE_apdu_U);
+                                      hf_index, BER_CLASS_APP, 3, true, dissect_acse_RLRE_apdu_U);
 
 
 
@@ -1336,7 +1337,7 @@ dissect_acse_ABRT_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
   col_append_str(actx->pinfo->cinfo, COL_INFO, "Abort");
 
     offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 4, TRUE, dissect_acse_ABRT_apdu_U);
+                                      hf_index, BER_CLASS_APP, 4, true, dissect_acse_ABRT_apdu_U);
 
 
 
@@ -1467,7 +1468,7 @@ dissect_acse_A_DT_apdu_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int
 dissect_acse_A_DT_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 5, TRUE, dissect_acse_A_DT_apdu_U);
+                                      hf_index, BER_CLASS_APP, 5, true, dissect_acse_A_DT_apdu_U);
 
   return offset;
 }
@@ -1476,9 +1477,9 @@ dissect_acse_A_DT_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_acse_T_ACRQ_aSO_context_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_object_identifier_str(FALSE, actx, tree, tvb, offset,
+  offset = dissect_ber_object_identifier_str(false, actx, tree, tvb, offset,
                                          hf_index, &actx->external.direct_reference);
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -1508,7 +1509,7 @@ dissect_acse_ACRQ_apdu_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int
 dissect_acse_ACRQ_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 6, TRUE, dissect_acse_ACRQ_apdu_U);
+                                      hf_index, BER_CLASS_APP, 6, true, dissect_acse_ACRQ_apdu_U);
 
   return offset;
 }
@@ -1517,9 +1518,9 @@ dissect_acse_ACRQ_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 
 static int
 dissect_acse_T_ACRP_aSO_context_name(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_ber_object_identifier_str(FALSE, actx, tree, tvb, offset,
+  offset = dissect_ber_object_identifier_str(false, actx, tree, tvb, offset,
                                          hf_index, &actx->external.direct_reference);
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -1548,7 +1549,7 @@ dissect_acse_ACRP_apdu_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int
 dissect_acse_ACRP_apdu(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_APP, 7, TRUE, dissect_acse_ACRP_apdu_U);
+                                      hf_index, BER_CLASS_APP, 7, true, dissect_acse_ACRP_apdu_U);
 
   return offset;
 }
@@ -1629,7 +1630,7 @@ dissect_acse(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	char *oid;
 	struct SESSION_DATA_STRUCTURE* session;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	/* do we have spdu type from the session dissector?  */
 	if (data == NULL) {
@@ -1707,7 +1708,7 @@ dissect_acse(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	/*  postpone it before dissector will have more information */
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		int old_offset=offset;
-		offset = dissect_acse_ACSE_apdu(FALSE, tvb, offset, &asn1_ctx, tree, -1);
+		offset = dissect_acse_ACSE_apdu(false, tvb, offset, &asn1_ctx, tree, -1);
 		if (offset == old_offset) {
 			proto_tree_add_expert(tree, pinfo, &ei_acse_malformed, tvb, offset, -1);
 			break;
@@ -2157,7 +2158,7 @@ void proto_register_acse(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_acse,
     &ett_acse_EXTERNALt_U,
     &ett_acse_T_encoding,

@@ -33,7 +33,7 @@ do and is done in four easy steps;
 1, We need tap.h so just add '#include <epan/tap.h>' (preceded by packet.h) to
 the includes.
 
-2, We need a tap handler so just add 'static int <protocol>_tap = -1;'
+2, We need a tap handler so just add 'static int <protocol>_tap;'
 
 3, Down in proto_register_<protocol>() you need to add
 '<protocol>_tap = register_tap("<protocol>");'
@@ -111,7 +111,15 @@ is a set of flags for the tap listener.  The flags that can be set are:
 	tree to be built.  It will require a protocol tree to be
 	built if either
 
-		1) it looks at the protocol tree in edt->tree
+		1) it looks at the protocol tree in edt->tree (N.B.: this
+		   flag does *NOT* guarantee that the tree contains all fields
+		   actually in the packet. Fields that are not referenced
+		   [by a filter, by custom columns, etc.] will be "faked" and
+		   not present. It is not necessary to include this flag if
+		   the tap has a filter string, though, as filtering implies
+		   needing the tree. So this case is rare. Actually making
+		   all fields present in the tree requires a visible tree,
+		   e.g. via epan_set_always_visible(), which hurts performance.)
 
 	or
 
@@ -126,7 +134,15 @@ is a set of flags for the tap listener.  The flags that can be set are:
     TL_REQUIRES_ERROR_PACKET
 
         set if your tap listener should be updated even when pinfo->flags.in_error_pkt is set
-        e.g. if it is inside an ICMP unreachable packet
+        e.g. if it is inside an ICMP unreachable packet.
+
+    TL_REQUIRES_PROTOCOLS
+
+        set if your tap listener requires that the protocol tree be built
+        and that all FT_PROTOCOL fields are actually present in the tree
+        and not faked. This is used by the protocol hierarchy statistics.
+        This implies needing a protocol tree, as the option doesn't make
+        sense otherwise.
 
     If no flags are needed, use TL_REQUIRES_NOTHING.
 

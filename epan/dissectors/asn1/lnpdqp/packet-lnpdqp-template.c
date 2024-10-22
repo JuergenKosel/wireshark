@@ -11,6 +11,7 @@
 #include <epan/packet.h>
 
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 #include "packet-ber.h"
 
 #define PNAME  "Local Number Portability Database Query"
@@ -28,7 +29,7 @@
  * Operation Family = ProvideInstruction, Reply Required (131) 0x83
  * Operation Specifier = Start (1)
  */
-/* Exluding H bit */
+/* Excluding H bit */
 #define LNPDQP_ANSI_TCAP_OPCODE_PI 0x0301
 
 void proto_reg_handoff_lnpdqp(void);
@@ -163,7 +164,7 @@ static const value_string lnpdqp_OriginatingStationType_vals[]  = {
 static void
 dissect_lnpdqp_digits_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree _U_, asn1_ctx_t *actx _U_){
 
-    guint8 octet , no_of_digits;
+    uint8_t octet , no_of_digits;
     int    offset = 0;
     char *digit_str;
 
@@ -179,7 +180,7 @@ dissect_lnpdqp_digits_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
     proto_tree_add_item(subtree, hf_lnpdqp_nature_of_number, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
     /* Octet 3 Numbering Plan |Encoding Scheme| */
-    octet = tvb_get_guint8(tvb,offset);
+    octet = tvb_get_uint8(tvb,offset);
     proto_tree_add_item(subtree, hf_lnpdqp_np, tvb, offset, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(subtree, hf_lnpdqp_digits_enc, tvb, offset, 1, ENC_BIG_ENDIAN);
     offset++;
@@ -187,7 +188,7 @@ dissect_lnpdqp_digits_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
     switch ((octet&0xf)){
     case 1:
         /* BCD Coding */
-        no_of_digits = tvb_get_guint8(tvb,offset);
+        no_of_digits = tvb_get_uint8(tvb,offset);
         proto_tree_add_item(subtree, hf_lnpdqp_nr_digits, tvb, offset, 1, ENC_BIG_ENDIAN);
         if(no_of_digits == 0)
             return;
@@ -197,7 +198,7 @@ dissect_lnpdqp_digits_type(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tr
         break;
     case 2:
         /* IA5 Coding */
-        no_of_digits = tvb_get_guint8(tvb,offset);
+        no_of_digits = tvb_get_uint8(tvb,offset);
         proto_tree_add_item(subtree, hf_lnpdqp_nr_digits, tvb, offset, 1, ENC_BIG_ENDIAN);
         if(no_of_digits == 0)
             return;
@@ -221,7 +222,7 @@ dissect_lnpdqp_cc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, vo
     proto_tree *tree=NULL;
     asn1_ctx_t asn1_ctx;
 
-    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
     col_set_str(pinfo->cinfo, COL_INFO, "ConnectionControl");
@@ -241,7 +242,7 @@ dissect_lnpdqp_pi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, vo
     proto_tree *tree=NULL;
     asn1_ctx_t asn1_ctx;
 
-    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, PSNAME);
     col_set_str(pinfo->cinfo, COL_INFO, "ProvideInstruction");
@@ -314,7 +315,7 @@ void proto_register_lnpdqp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_lnpdqp,
     &ett_lnpdqp_digitstype,
     &ett_lnpdqp_digits,

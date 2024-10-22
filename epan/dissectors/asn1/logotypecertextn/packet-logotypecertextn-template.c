@@ -12,6 +12,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-logotypecertextn.h"
@@ -44,7 +45,7 @@ void proto_register_logotypecertextn(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 #include "packet-logotypecertextn-ettarr.c"
   };
 

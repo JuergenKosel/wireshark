@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# update-tools-help.py - Update the command line help output in docbook/wsug_src.
+# update-tools-help.py - Update the command line help output in doc/wsug_src.
 #
 # Wireshark - Network traffic analyzer
 # By Gerald Combs <gerald@wireshark.org>
@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 '''Update tools help
 
-For each file that matches docbook/wsug_src/<command>-<flag>.txt, run
+For each file that matches doc/wsug_src/<command>-<flag>.txt, run
 that command and flag. Update the file if the output differs.
 '''
 
@@ -28,11 +28,11 @@ def main():
     args = parser.parse_args()
 
     this_dir = os.path.dirname(__file__)
-    wsug_src_dir = os.path.join(this_dir, '..', 'docbook', 'wsug_src')
+    wsug_src_dir = os.path.join(this_dir, '..', 'doc', 'wsug_src')
 
     tools_help_files = glob.glob(os.path.join(wsug_src_dir, '*-*.txt'))
     tools_help_files.sort()
-    tool_pat = re.compile('(\w+)(-\w).txt')
+    tool_pat = re.compile(r'(\w+)(-\w).txt')
 
     # If tshark is present, assume that our other executables are as well.
     program_path = args.program_path[0]
@@ -67,8 +67,8 @@ def main():
         cur_lines = cur_help.splitlines()
         new_lines = new_help.splitlines()
         # Assume we have an extended version. Strip it.
-        cur_lines[0] = re.split(' \(v\d+\.\d+\.\d+', cur_lines[0])[0]
-        new_lines[0] = re.split(' \(v\d+\.\d+\.\d+', new_lines[0])[0]
+        cur_lines[0] = re.split(r' \(v\d+\.\d+\.\d+', cur_lines[0])[0]
+        new_lines[0] = re.split(r' \(v\d+\.\d+\.\d+', new_lines[0])[0]
         diff = list(difflib.unified_diff(cur_lines, new_lines))
 
         if (len(diff) > 0):

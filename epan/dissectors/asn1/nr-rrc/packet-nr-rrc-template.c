@@ -1,8 +1,8 @@
 /* packet-nr-rrc-template.c
  * NR;
  * Radio Resource Control (RRC) protocol specification
- * (3GPP TS 38.331 V17.6.0 Release 17) packet dissection
- * Copyright 2018-2023, Pascal Quantin
+ * (3GPP TS 38.331 V18.3.0 Release 18) packet dissection
+ * Copyright 2018-2024, Pascal Quantin
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -23,6 +23,10 @@
 #include <epan/show_exception.h>
 #include <epan/proto_data.h>
 #include <epan/prefs.h>
+#include <epan/tfs.h>
+#include <epan/unit_strings.h>
+
+#include <wsutil/array.h>
 
 #include <wsutil/str_util.h>
 #include <wsutil/epochs.h>
@@ -46,18 +50,23 @@
 void proto_register_nr_rrc(void);
 void proto_reg_handoff_nr_rrc(void);
 
-static dissector_handle_t nas_5gs_handle = NULL;
-static dissector_handle_t lte_rrc_conn_reconf_handle = NULL;
-static dissector_handle_t lte_rrc_conn_reconf_compl_handle = NULL;
-static dissector_handle_t lte_rrc_ul_dcch_handle = NULL;
-static dissector_handle_t lte_rrc_dl_dcch_handle = NULL;
+static dissector_handle_t nas_5gs_handle;
+static dissector_handle_t lte_rrc_conn_reconf_handle;
+static dissector_handle_t lte_rrc_conn_reconf_compl_handle;
+static dissector_handle_t lte_rrc_ul_dcch_handle;
+static dissector_handle_t lte_rrc_dl_dcch_handle;
 
-static wmem_map_t *nr_rrc_etws_cmas_dcs_hash = NULL;
+static wmem_map_t *nr_rrc_etws_cmas_dcs_hash;
+
+static wmem_map_t *nr_rrc_dcch_segment_ueid_count_hash;
+static wmem_tree_t *nr_rrc_dcch_segment_id_tree;
 
 static reassembly_table nr_rrc_sib7_reassembly_table;
 static reassembly_table nr_rrc_sib8_reassembly_table;
+static reassembly_table nr_rrc_dcch_segment_reassembly_table;
 
-static gboolean nr_rrc_nas_in_root_tree;
+static bool nr_rrc_nas_in_root_tree;
+static bool nr_rrc_reassemble_dcch_segments;
 
 extern int proto_mac_nr;
 extern int proto_rlc_nr;
@@ -99,67 +108,81 @@ static int hf_nr_rrc_sib8_fragment_count;
 static int hf_nr_rrc_sib8_reassembled_in;
 static int hf_nr_rrc_sib8_reassembled_length;
 static int hf_nr_rrc_sib8_reassembled_data;
+static int hf_nr_rrc_dcch_segment_fragments;
+static int hf_nr_rrc_dcch_segment_fragment;
+static int hf_nr_rrc_dcch_segment_fragment_overlap;
+static int hf_nr_rrc_dcch_segment_fragment_overlap_conflict;
+static int hf_nr_rrc_dcch_segment_fragment_multiple_tails;
+static int hf_nr_rrc_dcch_segment_fragment_too_long_fragment;
+static int hf_nr_rrc_dcch_segment_fragment_error;
+static int hf_nr_rrc_dcch_segment_fragment_count;
+static int hf_nr_rrc_dcch_segment_reassembled_in;
+static int hf_nr_rrc_dcch_segment_reassembled_length;
+static int hf_nr_rrc_dcch_segment_reassembled_data;
 static int hf_nr_rrc_utc_time;
 static int hf_nr_rrc_local_time;
 static int hf_nr_rrc_absolute_time;
 
 /* Initialize the subtree pointers */
-static gint ett_nr_rrc;
+static int ett_nr_rrc;
 #include "packet-nr-rrc-ett.c"
-static gint ett_nr_rrc_DedicatedNAS_Message;
-static gint ett_nr_rrc_targetRAT_MessageContainer;
-static gint ett_nr_rrc_nas_Container;
-static gint ett_nr_rrc_serialNumber;
-static gint ett_nr_rrc_warningType;
-static gint ett_nr_rrc_dataCodingScheme;
-static gint ett_nr_rrc_sib7_fragment;
-static gint ett_nr_rrc_sib7_fragments;
-static gint ett_nr_rrc_sib8_fragment;
-static gint ett_nr_rrc_sib8_fragments;
-static gint ett_nr_rrc_warningMessageSegment;
-static gint ett_nr_rrc_timeInfo;
-static gint ett_nr_rrc_capabilityRequestFilter;
-static gint ett_nr_rrc_sourceSCG_EUTRA_Config;
-static gint ett_nr_rrc_scg_CellGroupConfigEUTRA;
-static gint ett_nr_rrc_candidateCellInfoListSN_EUTRA;
-static gint ett_nr_rrc_candidateCellInfoListMN_EUTRA;
-static gint ett_nr_rrc_sourceConfigSCG_EUTRA;
-static gint ett_nr_rrc_eutra_SCG;
-static gint ett_nr_rrc_nr_SCG_Response;
-static gint ett_nr_rrc_eutra_SCG_Response;
-static gint ett_nr_rrc_measResultSCG_FailureMRDC;
-static gint ett_nr_rrc_ul_DCCH_MessageNR;
-static gint ett_nr_rrc_ul_DCCH_MessageEUTRA;
-static gint ett_rr_rrc_nas_SecurityParamFromNR;
-static gint ett_nr_rrc_sidelinkUEInformationNR;
-static gint ett_nr_rrc_sidelinkUEInformationEUTRA;
-static gint ett_nr_rrc_ueAssistanceInformationEUTRA;
-static gint ett_nr_rrc_dl_DCCH_MessageNR;
-static gint ett_nr_rrc_dl_DCCH_MessageEUTRA;
-static gint ett_nr_rrc_sl_ConfigDedicatedEUTRA;
-static gint ett_nr_rrc_sl_CapabilityInformationSidelink;
-static gint ett_nr_rrc_measResult_RLF_Report_EUTRA;
-static gint ett_nr_rrc_measResult_RLF_Report_EUTRA_v1690;
-static gint ett_nr_rrc_locationTimestamp_r16;
-static gint ett_nr_rrc_locationCoordinate_r16;
-static gint ett_nr_rrc_locationError_r16;
-static gint ett_nr_rrc_locationSource_r16;
-static gint ett_nr_rrc_velocityEstimate_r16;
-static gint ett_nr_rrc_sensor_MeasurementInformation_r16;
-static gint ett_nr_rrc_sensor_MotionInformation_r16;
-static gint ett_nr_rrc_bandParametersSidelinkEUTRA1_r16;
-static gint ett_nr_rrc_bandParametersSidelinkEUTRA2_r16;
-static gint ett_nr_rrc_sl_ParametersEUTRA1_r16;
-static gint ett_nr_rrc_sl_ParametersEUTRA2_r16;
-static gint ett_nr_rrc_sl_ParametersEUTRA3_r16;
-static gint ett_nr_rrc_absTimeInfo;
-static gint ett_nr_rrc_assistanceDataSIB_Element_r16;
-static gint ett_nr_sl_V2X_ConfigCommon_r16;
-static gint ett_nr_tdd_Config_r16;
-static gint ett_nr_coarseLocationInfo_r17;
-static gint ett_nr_sl_MeasResultsCandRelay_r17;
-static gint ett_nr_sl_MeasResultServingRelay_r17;
-static gint ett_nr_ReferenceLocation_r17;
+static int ett_nr_rrc_DedicatedNAS_Message;
+static int ett_nr_rrc_targetRAT_MessageContainer;
+static int ett_nr_rrc_nas_Container;
+static int ett_nr_rrc_serialNumber;
+static int ett_nr_rrc_warningType;
+static int ett_nr_rrc_dataCodingScheme;
+static int ett_nr_rrc_sib7_fragment;
+static int ett_nr_rrc_sib7_fragments;
+static int ett_nr_rrc_sib8_fragment;
+static int ett_nr_rrc_sib8_fragments;
+static int ett_nr_rrc_dcch_segment_fragment;
+static int ett_nr_rrc_dcch_segment_fragments;
+static int ett_nr_rrc_warningMessageSegment;
+static int ett_nr_rrc_timeInfo;
+static int ett_nr_rrc_capabilityRequestFilter;
+static int ett_nr_rrc_sourceSCG_EUTRA_Config;
+static int ett_nr_rrc_scg_CellGroupConfigEUTRA;
+static int ett_nr_rrc_candidateCellInfoListSN_EUTRA;
+static int ett_nr_rrc_candidateCellInfoListMN_EUTRA;
+static int ett_nr_rrc_sourceConfigSCG_EUTRA;
+static int ett_nr_rrc_eutra_SCG;
+static int ett_nr_rrc_nr_SCG_Response;
+static int ett_nr_rrc_eutra_SCG_Response;
+static int ett_nr_rrc_measResultSCG_FailureMRDC;
+static int ett_nr_rrc_ul_DCCH_MessageNR;
+static int ett_nr_rrc_ul_DCCH_MessageEUTRA;
+static int ett_rr_rrc_nas_SecurityParamFromNR;
+static int ett_nr_rrc_sidelinkUEInformationNR;
+static int ett_nr_rrc_sidelinkUEInformationEUTRA;
+static int ett_nr_rrc_ueAssistanceInformationEUTRA;
+static int ett_nr_rrc_dl_DCCH_MessageNR;
+static int ett_nr_rrc_dl_DCCH_MessageEUTRA;
+static int ett_nr_rrc_sl_ConfigDedicatedEUTRA;
+static int ett_nr_rrc_sl_CapabilityInformationSidelink;
+static int ett_nr_rrc_measResult_RLF_Report_EUTRA;
+static int ett_nr_rrc_measResult_RLF_Report_EUTRA_v1690;
+static int ett_nr_rrc_locationTimestamp_r16;
+static int ett_nr_rrc_locationCoordinate_r16;
+static int ett_nr_rrc_locationError_r16;
+static int ett_nr_rrc_locationSource_r16;
+static int ett_nr_rrc_velocityEstimate_r16;
+static int ett_nr_rrc_sensor_MeasurementInformation_r16;
+static int ett_nr_rrc_sensor_MotionInformation_r16;
+static int ett_nr_rrc_bandParametersSidelinkEUTRA1_r16;
+static int ett_nr_rrc_bandParametersSidelinkEUTRA2_r16;
+static int ett_nr_rrc_sl_ParametersEUTRA1_r16;
+static int ett_nr_rrc_sl_ParametersEUTRA2_r16;
+static int ett_nr_rrc_sl_ParametersEUTRA3_r16;
+static int ett_nr_rrc_absTimeInfo;
+static int ett_nr_rrc_assistanceDataSIB_Element_r16;
+static int ett_nr_rrc_sl_V2X_ConfigCommon_r16;
+static int ett_nr_rrc_tdd_Config_r16;
+static int ett_nr_rrc_coarseLocationInfo_r17;
+static int ett_nr_rrc_sl_MeasResultsCandRelay_r17;
+static int ett_nr_rrc_sl_MeasResultServingRelay_r17;
+static int ett_nr_rrc_ReferenceLocation_r17;
+static int ett_nr_rrc_wayPointLocation_r18;
 
 static expert_field ei_nr_rrc_number_pages_le15;
 
@@ -177,19 +200,22 @@ static const unit_name_string units_prbs = { " PRB", " PRBs" };
 static const unit_name_string units_slots = { " slot", " slots" };
 
 typedef struct {
-  guint8 rat_type;
-  guint8 target_rat_type;
-  guint16 message_identifier;
-  guint8 warning_message_segment_type;
-  guint8 warning_message_segment_number;
+  uint8_t rat_type;
+  uint8_t target_rat_type;
+  uint16_t message_identifier;
+  uint8_t warning_message_segment_type;
+  uint8_t warning_message_segment_number;
   nr_drb_mac_rlc_mapping_t drb_rlc_mapping;
   nr_drb_rlc_pdcp_mapping_t drb_pdcp_mapping;
   lpp_pos_sib_type_t pos_sib_type;
   pdcp_nr_security_info_t pdcp_security;
+  uint8_t dcch_segment_number;
+  tvbuff_t *dcch_segment;
+  bool dcch_segment_last;
 } nr_rrc_private_data_t;
 
 /* Helper function to get UE identifier from lower layers (in order MAC, RLC, PDCP) */
-static guint16*
+static uint16_t*
 nr_rrc_get_ueid_from_lower_layers(wmem_allocator_t *scope, struct _packet_info* pinfo)
 {
   /* Try MAC first */
@@ -235,9 +261,9 @@ nr_rrc_call_dissector(dissector_handle_t handle, tvbuff_t *tvb, packet_info *pin
 }
 
 static void
-nr_rrc_q_RxLevMin_fmt(gchar *s, guint32 v)
+nr_rrc_q_RxLevMin_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "%d dB (%d)", 2*d, d);
 }
@@ -260,49 +286,66 @@ static const value_string nr_rrc_warningType_vals[] = {
 };
 
 static const fragment_items nr_rrc_sib7_frag_items = {
-    &ett_nr_rrc_sib7_fragment,
-    &ett_nr_rrc_sib7_fragments,
-    &hf_nr_rrc_sib7_fragments,
-    &hf_nr_rrc_sib7_fragment,
-    &hf_nr_rrc_sib7_fragment_overlap,
-    &hf_nr_rrc_sib7_fragment_overlap_conflict,
-    &hf_nr_rrc_sib7_fragment_multiple_tails,
-    &hf_nr_rrc_sib7_fragment_too_long_fragment,
-    &hf_nr_rrc_sib7_fragment_error,
-    &hf_nr_rrc_sib7_fragment_count,
-    &hf_nr_rrc_sib7_reassembled_in,
-    &hf_nr_rrc_sib7_reassembled_length,
-    &hf_nr_rrc_sib7_reassembled_data,
-    "SIB7 warning message segments"
+  &ett_nr_rrc_sib7_fragment,
+  &ett_nr_rrc_sib7_fragments,
+  &hf_nr_rrc_sib7_fragments,
+  &hf_nr_rrc_sib7_fragment,
+  &hf_nr_rrc_sib7_fragment_overlap,
+  &hf_nr_rrc_sib7_fragment_overlap_conflict,
+  &hf_nr_rrc_sib7_fragment_multiple_tails,
+  &hf_nr_rrc_sib7_fragment_too_long_fragment,
+  &hf_nr_rrc_sib7_fragment_error,
+  &hf_nr_rrc_sib7_fragment_count,
+  &hf_nr_rrc_sib7_reassembled_in,
+  &hf_nr_rrc_sib7_reassembled_length,
+  &hf_nr_rrc_sib7_reassembled_data,
+  "SIB7 warning message segments"
 };
 
 static const fragment_items nr_rrc_sib8_frag_items = {
-    &ett_nr_rrc_sib8_fragment,
-    &ett_nr_rrc_sib8_fragments,
-    &hf_nr_rrc_sib8_fragments,
-    &hf_nr_rrc_sib8_fragment,
-    &hf_nr_rrc_sib8_fragment_overlap,
-    &hf_nr_rrc_sib8_fragment_overlap_conflict,
-    &hf_nr_rrc_sib8_fragment_multiple_tails,
-    &hf_nr_rrc_sib8_fragment_too_long_fragment,
-    &hf_nr_rrc_sib8_fragment_error,
-    &hf_nr_rrc_sib8_fragment_count,
-    &hf_nr_rrc_sib8_reassembled_in,
-    &hf_nr_rrc_sib8_reassembled_length,
-    &hf_nr_rrc_sib8_reassembled_data,
-    "SIB8 warning message segments"
+  &ett_nr_rrc_sib8_fragment,
+  &ett_nr_rrc_sib8_fragments,
+  &hf_nr_rrc_sib8_fragments,
+  &hf_nr_rrc_sib8_fragment,
+  &hf_nr_rrc_sib8_fragment_overlap,
+  &hf_nr_rrc_sib8_fragment_overlap_conflict,
+  &hf_nr_rrc_sib8_fragment_multiple_tails,
+  &hf_nr_rrc_sib8_fragment_too_long_fragment,
+  &hf_nr_rrc_sib8_fragment_error,
+  &hf_nr_rrc_sib8_fragment_count,
+  &hf_nr_rrc_sib8_reassembled_in,
+  &hf_nr_rrc_sib8_reassembled_length,
+  &hf_nr_rrc_sib8_reassembled_data,
+  "SIB8 warning message segments"
+};
+
+static const fragment_items nr_rrc_dcch_segment_frag_items = {
+  &ett_nr_rrc_dcch_segment_fragment,
+  &ett_nr_rrc_dcch_segment_fragments,
+  &hf_nr_rrc_dcch_segment_fragments,
+  &hf_nr_rrc_dcch_segment_fragment,
+  &hf_nr_rrc_dcch_segment_fragment_overlap,
+  &hf_nr_rrc_dcch_segment_fragment_overlap_conflict,
+  &hf_nr_rrc_dcch_segment_fragment_multiple_tails,
+  &hf_nr_rrc_dcch_segment_fragment_too_long_fragment,
+  &hf_nr_rrc_dcch_segment_fragment_error,
+  &hf_nr_rrc_dcch_segment_fragment_count,
+  &hf_nr_rrc_dcch_segment_reassembled_in,
+  &hf_nr_rrc_dcch_segment_reassembled_length,
+  &hf_nr_rrc_dcch_segment_reassembled_data,
+  "DCCH message segments"
 };
 
 static void
-dissect_nr_rrc_warningMessageSegment(tvbuff_t *warning_msg_seg_tvb, proto_tree *tree, packet_info *pinfo, guint8 dataCodingScheme)
+dissect_nr_rrc_warningMessageSegment(tvbuff_t *warning_msg_seg_tvb, proto_tree *tree, packet_info *pinfo, uint8_t dataCodingScheme)
 {
-  guint32 offset;
-  guint8 nb_of_pages, length, *str;
+  uint32_t offset;
+  uint8_t nb_of_pages, length, *str;
   proto_item *ti;
   tvbuff_t *cb_data_page_tvb, *cb_data_tvb;
   int i;
 
-  nb_of_pages = tvb_get_guint8(warning_msg_seg_tvb, 0);
+  nb_of_pages = tvb_get_uint8(warning_msg_seg_tvb, 0);
   ti = proto_tree_add_uint(tree, hf_nr_rrc_warningMessageSegment_nb_pages, warning_msg_seg_tvb, 0, 1, nb_of_pages);
   if (nb_of_pages > 15) {
     expert_add_info_format(pinfo, ti, &ei_nr_rrc_number_pages_le15,
@@ -310,7 +353,7 @@ dissect_nr_rrc_warningMessageSegment(tvbuff_t *warning_msg_seg_tvb, proto_tree *
     nb_of_pages = 15;
   }
   for (i = 0, offset = 1; i < nb_of_pages; i++) {
-    length = tvb_get_guint8(warning_msg_seg_tvb, offset+82);
+    length = tvb_get_uint8(warning_msg_seg_tvb, offset+82);
     cb_data_page_tvb = tvb_new_subset_length(warning_msg_seg_tvb, offset, length);
     cb_data_tvb = dissect_cbs_data(dataCodingScheme, cb_data_page_tvb, tree, pinfo, 0);
     if (cb_data_tvb) {
@@ -331,9 +374,9 @@ static const value_string nr_rrc_daylightSavingTime_vals[] = {
 };
 
 static void
-nr_rrc_localTimeOffset_fmt(gchar *s, guint32 v)
+nr_rrc_localTimeOffset_fmt(char *s, uint32_t v)
 {
-  gint32 time_offset = (gint32) v;
+  int32_t time_offset = (int32_t) v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "UTC time %c %dhr %dmin (%d)",
              (time_offset < 0) ? '-':'+', abs(time_offset) >> 2,
@@ -341,35 +384,35 @@ nr_rrc_localTimeOffset_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_drx_SlotOffset_fmt(gchar *s, guint32 v)
+nr_rrc_drx_SlotOffset_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%g ms (%u)", 1./32 * v, v);
 }
 
 static void
-nr_rrc_Hysteresis_fmt(gchar *s, guint32 v)
+nr_rrc_Hysteresis_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%gdB (%u)", 0.5 * v, v);
 }
 
 static void
-nr_rrc_msg3_DeltaPreamble_fmt(gchar *s, guint32 v)
+nr_rrc_msg3_DeltaPreamble_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "%ddB (%d)", 2 * d, d);
 }
 
 static void
-nr_rrc_Q_RxLevMin_fmt(gchar *s, guint32 v)
+nr_rrc_Q_RxLevMin_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "%ddBm (%d)", 2 * d, d);
 }
 
 static void
-nr_rrc_RSRP_RangeEUTRA_fmt(gchar *s, guint32 v)
+nr_rrc_RSRP_RangeEUTRA_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "RSRP < -140dBm (0)");
@@ -381,7 +424,7 @@ nr_rrc_RSRP_RangeEUTRA_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_RSRQ_RangeEUTRA_fmt(gchar *s, guint32 v)
+nr_rrc_RSRQ_RangeEUTRA_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "RSRQ < -19.5dB (0)");
@@ -393,7 +436,7 @@ nr_rrc_RSRQ_RangeEUTRA_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_SINR_RangeEUTRA_fmt(gchar *s, guint32 v)
+nr_rrc_SINR_RangeEUTRA_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "SINR < -23dB (0)");
@@ -405,13 +448,13 @@ nr_rrc_SINR_RangeEUTRA_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_ReselectionThreshold_fmt(gchar *s, guint32 v)
+nr_rrc_ReselectionThreshold_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%udB (%u)", 2 * v, v);
 }
 
 static void
-nr_rrc_RSRP_Range_fmt(gchar *s, guint32 v)
+nr_rrc_RSRP_Range_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "SS-RSRP < -156dBm (0)");
@@ -425,7 +468,7 @@ nr_rrc_RSRP_Range_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_RSRQ_Range_fmt(gchar *s, guint32 v)
+nr_rrc_RSRQ_Range_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "SS-RSRQ < -43dB (0)");
@@ -437,7 +480,7 @@ nr_rrc_RSRQ_Range_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_SINR_Range_fmt(gchar *s, guint32 v)
+nr_rrc_SINR_Range_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "SS-SINR < -23dB (0)");
@@ -449,19 +492,19 @@ nr_rrc_SINR_Range_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_dl_1024QAM_TotalWeightedLayers_fmt(gchar *s, guint32 v)
+nr_rrc_dl_1024QAM_TotalWeightedLayers_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%u (%u)", 10+(2*v), v);
 }
 
 static void
-nr_rrc_timeConnFailure_r16_fmt(gchar *s, guint32 v)
+nr_rrc_timeConnFailure_r16_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%ums (%u)", 100*v, v);
 }
 
 static void
-nr_rrc_RSSI_Range_r16_fmt(gchar *s, guint32 v)
+nr_rrc_RSSI_Range_r16_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "RSSI < -100dBm (0)");
@@ -473,9 +516,9 @@ nr_rrc_RSSI_Range_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_RSRQ_RangeEUTRA_r16_fmt(gchar *s, guint32 v)
+nr_rrc_RSRQ_RangeEUTRA_r16_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   if (d == -34) {
     snprintf(s, ITEM_LABEL_LENGTH, "RSRQ < -36dB (-34)");
@@ -495,9 +538,9 @@ nr_rrc_RSRQ_RangeEUTRA_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_utra_FDD_RSCP_r16_fmt(gchar *s, guint32 v)
+nr_rrc_utra_FDD_RSCP_r16_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   if (d == -5) {
     snprintf(s, ITEM_LABEL_LENGTH, "RSCP < -120dBm (-5)");
@@ -509,7 +552,7 @@ nr_rrc_utra_FDD_RSCP_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_utra_FDD_EcN0_r16_fmt(gchar *s, guint32 v)
+nr_rrc_utra_FDD_EcN0_r16_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "Ec/No < -24dB (0)");
@@ -521,27 +564,27 @@ nr_rrc_utra_FDD_EcN0_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_averageDelay_r16_fmt(gchar *s, guint32 v)
+nr_rrc_averageDelay_r16_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%.1fms (%u)", (float)v/10, v);
 }
 
 static void
-nr_rrc_measTriggerQuantity_utra_FDD_RSCP_r16_fmt(gchar *s, guint32 v)
+nr_rrc_measTriggerQuantity_utra_FDD_RSCP_r16_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "%ddBm (%d)", d-115, d);
 }
 
 static void
-nr_rrc_measTriggerQuantity_utra_FDD_EcN0_r16_fmt(gchar *s, guint32 v)
+nr_rrc_measTriggerQuantity_utra_FDD_EcN0_r16_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%.1fdB (%u)", (float)v/2-24.5, v);
 }
 
 static void
-nr_rrc_SRS_RSRP_r16_fmt(gchar *s, guint32 v)
+nr_rrc_SRS_RSRP_r16_fmt(char *s, uint32_t v)
 {
   if (v == 0) {
     snprintf(s, ITEM_LABEL_LENGTH, "SRS-RSRP < -140dBm (0)");
@@ -555,17 +598,23 @@ nr_rrc_SRS_RSRP_r16_fmt(gchar *s, guint32 v)
 }
 
 static void
-nr_rrc_MeasTriggerQuantityOffset_fmt(gchar *s, guint32 v)
+nr_rrc_MeasTriggerQuantityOffset_fmt(char *s, uint32_t v)
 {
-  gint32 d = (gint32)v;
+  int32_t d = (int32_t)v;
 
   snprintf(s, ITEM_LABEL_LENGTH, "%.1fdB (%d)", (float)d/2, d);
 }
 
 static void
-nr_rrc_TimeSinceCHO_Reconfig_r17_fmt(gchar *s, guint32 v)
+nr_rrc_TimeSinceCHO_Reconfig_r17_fmt(char *s, uint32_t v)
 {
   snprintf(s, ITEM_LABEL_LENGTH, "%.1fs (%u)", (float)v/10, v);
+}
+
+static void
+nr_rrc_FlightPathUpdateDistanceThr_r18_fmt(char *s, uint32_t v)
+{
+  snprintf(s, ITEM_LABEL_LENGTH, "%um (%u)", v*5, v);
 }
 
 static int
@@ -820,7 +869,7 @@ dissect_nr_rrc_nr_RLF_Report_r16_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, 
   proto_item_set_hidden(prot_ti);
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, false, pinfo);
   offset = dissect_nr_rrc_T_nr_RLF_Report_r16(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_BCCH_DL_SCH_Message_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -832,7 +881,7 @@ dissect_nr_rrc_subCarrierSpacingCommon_PDU(tvbuff_t *tvb _U_, packet_info *pinfo
   proto_item_set_hidden(prot_ti);
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, false, pinfo);
   offset = dissect_nr_rrc_T_subCarrierSpacingCommon(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_BCCH_DL_SCH_Message_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -844,7 +893,7 @@ dissect_nr_rrc_rach_ConfigCommonIAB_r16_PDU(tvbuff_t *tvb _U_, packet_info *pinf
   proto_item_set_hidden(prot_ti);
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, FALSE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, false, pinfo);
   offset = dissect_nr_rrc_T_rach_ConfigCommonIAB_r16(tvb, offset, &asn1_ctx, tree, hf_nr_rrc_BCCH_DL_SCH_Message_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -978,6 +1027,50 @@ proto_register_nr_rrc(void) {
       { "Reassembled Data", "nr-rrc.warningMessageSegment.reassembled_data",
          FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragments,
+      { "Fragments", "nr-rrc.dedicatedMessageSegment_r16.fragments",
+         FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment,
+      { "Fragment", "nr-rrc.dedicatedMessageSegment_r16.fragment",
+         FT_FRAMENUM, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_overlap,
+      { "Fragment Overlap", "nr-rrc.dedicatedMessageSegment_r16.fragment_overlap",
+         FT_BOOLEAN, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_overlap_conflict,
+      { "Fragment Overlap Conflict", "nr-rrc.dedicatedMessageSegment_r16.fragment_overlap_conflict",
+         FT_BOOLEAN, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_multiple_tails,
+      { "Fragment Multiple Tails", "nr-rrc.dedicatedMessageSegment_r16.fragment_multiple_tails",
+         FT_BOOLEAN, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_too_long_fragment,
+      { "Too Long Fragment", "nr-rrc.dedicatedMessageSegment_r16.fragment_too_long_fragment",
+         FT_BOOLEAN, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_error,
+      { "Fragment Error", "nr-rrc.dedicatedMessageSegment_r16.fragment_error",
+         FT_FRAMENUM, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_fragment_count,
+      { "Fragment Count", "nr-rrc.dedicatedMessageSegment_r16.fragment_count",
+         FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_reassembled_in,
+      { "Reassembled In", "nr-rrc.dedicatedMessageSegment_r16.reassembled_in",
+         FT_FRAMENUM, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_reassembled_length,
+      { "Reassembled Length", "nr-rrc.dedicatedMessageSegment_r16.reassembled_length",
+         FT_UINT32, BASE_DEC, NULL, 0,
+        NULL, HFILL }},
+    { &hf_nr_rrc_dcch_segment_reassembled_data,
+      { "Reassembled Data", "nr-rrc.dedicatedMessageSegment_r16.reassembled_data",
+         FT_BYTES, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
     { &hf_nr_rrc_utc_time,
       { "UTC   time", "nr-rrc.utc_time",
         FT_ABSOLUTE_TIME, ABSOLUTE_TIME_UTC, NULL, 0x0,
@@ -992,7 +1085,7 @@ proto_register_nr_rrc(void) {
         NULL, HFILL }},
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_nr_rrc,
 #include "packet-nr-rrc-ettarr.c"
     &ett_nr_rrc_DedicatedNAS_Message,
@@ -1005,6 +1098,8 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_sib7_fragments,
     &ett_nr_rrc_sib8_fragment,
     &ett_nr_rrc_sib8_fragments,
+    &ett_nr_rrc_dcch_segment_fragment,
+    &ett_nr_rrc_dcch_segment_fragments,
     &ett_nr_rrc_warningMessageSegment,
     &ett_nr_rrc_timeInfo,
     &ett_nr_rrc_capabilityRequestFilter,
@@ -1043,12 +1138,13 @@ proto_register_nr_rrc(void) {
     &ett_nr_rrc_sl_ParametersEUTRA3_r16,
     &ett_nr_rrc_absTimeInfo,
     &ett_nr_rrc_assistanceDataSIB_Element_r16,
-    &ett_nr_sl_V2X_ConfigCommon_r16,
-    &ett_nr_tdd_Config_r16,
-    &ett_nr_coarseLocationInfo_r17,
-    &ett_nr_sl_MeasResultsCandRelay_r17,
-    &ett_nr_sl_MeasResultServingRelay_r17,
-    &ett_nr_ReferenceLocation_r17
+    &ett_nr_rrc_sl_V2X_ConfigCommon_r16,
+    &ett_nr_rrc_tdd_Config_r16,
+    &ett_nr_rrc_coarseLocationInfo_r17,
+    &ett_nr_rrc_sl_MeasResultsCandRelay_r17,
+    &ett_nr_rrc_sl_MeasResultServingRelay_r17,
+    &ett_nr_rrc_ReferenceLocation_r17,
+    &ett_nr_rrc_wayPointLocation_r18
   };
 
   static ei_register_info ei[] = {
@@ -1085,15 +1181,20 @@ proto_register_nr_rrc(void) {
   register_dissector("nr-rrc.measgapconfig_msg", dissect_nr_rrc_measgapconfig_msg, proto_nr_rrc);
   register_dissector("nr-rrc.handoverpreparationinformation_msg", dissect_nr_rrc_handoverpreparationinformation_msg, proto_nr_rrc);
   register_dissector("nr-rrc.handovercommand_msg", dissect_nr_rrc_handovercommand_msg, proto_nr_rrc);
-
+ /*#include "packet-nr-rrc-dis-reg.c" */
 #include "packet-nr-rrc-dis-reg.c"
 
   nr_rrc_etws_cmas_dcs_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(),
                                                      g_direct_hash, g_direct_equal);
+  nr_rrc_dcch_segment_ueid_count_hash = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(),
+                                                               g_direct_hash, g_direct_equal);
+  nr_rrc_dcch_segment_id_tree = wmem_tree_new_autoreset(wmem_epan_scope(), wmem_file_scope());
 
   reassembly_table_register(&nr_rrc_sib7_reassembly_table,
                             &addresses_reassembly_table_functions);
   reassembly_table_register(&nr_rrc_sib8_reassembly_table,
+                            &addresses_reassembly_table_functions);
+  reassembly_table_register(&nr_rrc_dcch_segment_reassembly_table,
                             &addresses_reassembly_table_functions);
 
   /* Register configuration preferences */
@@ -1102,6 +1203,10 @@ proto_register_nr_rrc(void) {
                                  "Show NAS PDU in root packet details",
                                  "Whether the NAS PDU should be shown in the root packet details tree",
                                  &nr_rrc_nas_in_root_tree);
+  prefs_register_bool_preference(nr_rrc_module, "reassemble_dcch_segments",
+                                 "Try to reassemble DCCH segmented messages",
+                                 "Whether the NR RRC dissector should attempt to reassemble DCCH segmented messages",
+                                 &nr_rrc_reassemble_dcch_segments);
 }
 
 void

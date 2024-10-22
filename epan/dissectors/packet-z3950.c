@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-z3950.c                                                             */
-/* asn2wrs.py -b -L -p z3950 -c ./z3950.cnf -s ./packet-z3950-template -D . -O ../.. z3950.asn z3950-oclc.asn z3950-externals.asn */
+/* asn2wrs.py -b -q -L -p z3950 -c ./z3950.cnf -s ./packet-z3950-template -D . -O ../.. z3950.asn z3950-oclc.asn z3950-externals.asn */
 
 /* packet-z3950.c
  * Routines for dissection of the NISO Z39.50 Information Retrieval protocol
@@ -41,19 +41,20 @@
 #include <epan/proto_data.h>
 #include <wsutil/str_util.h>
 
+
 #include <string.h>
 
 #include "packet-ber.h"
 #include "packet-tcp.h"
 
 typedef struct z3950_atinfo_t {
-    gint     atsetidx;
-    gint     attype;
+    int      atsetidx;
+    int      attype;
 } z3950_atinfo_t;
 
 typedef struct z3950_diaginfo_t {
-    gint     diagsetidx;
-    gint     diagcondition;
+    int      diagsetidx;
+    int      diagcondition;
 } z3950_diaginfo_t;
 
 #define PNAME  "Z39.50 Protocol"
@@ -99,12 +100,12 @@ typedef struct z3950_diaginfo_t {
 #define marc_char_to_int(x)        ((x) - '0')
 
 typedef struct marc_directory_entry {
-    guint32 tag;
-    guint32 length;
-    guint32 starting_character;
+    uint32_t tag;
+    uint32_t length;
+    uint32_t starting_character;
 } marc_directory_entry;
 
-static dissector_handle_t z3950_handle=NULL;
+static dissector_handle_t z3950_handle;
 
 void proto_reg_handoff_z3950(void);
 void proto_register_z3950(void);
@@ -112,7 +113,7 @@ void proto_register_z3950(void);
 /* Initialize the protocol and registered fields */
 static int proto_z3950;
 static int global_z3950_port = Z3950_PORT;
-static gboolean z3950_desegment = TRUE;
+static bool z3950_desegment = true;
 
 static const value_string z3950_bib1_att_types[] = {
     { Z3950_BIB1_AT_USE, "Use" },
@@ -1509,297 +1510,297 @@ static int hf_z3950_general_printable;
 /* Initialize the subtree pointers */
 static int ett_z3950;
 
-static gint ett_z3950_PDU;
-static gint ett_z3950_InitializeRequest;
-static gint ett_z3950_T_idAuthentication;
-static gint ett_z3950_T_idPass;
-static gint ett_z3950_InitializeResponse;
-static gint ett_z3950_ProtocolVersion_U;
-static gint ett_z3950_Options_U;
-static gint ett_z3950_SearchRequest;
-static gint ett_z3950_SEQUENCE_OF_DatabaseName;
-static gint ett_z3950_Query;
-static gint ett_z3950_RPNQuery;
-static gint ett_z3950_RPNStructure;
-static gint ett_z3950_T_rpnRpnOp;
-static gint ett_z3950_Operand;
-static gint ett_z3950_AttributesPlusTerm_U;
-static gint ett_z3950_ResultSetPlusAttributes_U;
-static gint ett_z3950_SEQUENCE_OF_AttributeElement;
-static gint ett_z3950_Term;
-static gint ett_z3950_Operator_U;
-static gint ett_z3950_AttributeElement;
-static gint ett_z3950_T_attributeValue;
-static gint ett_z3950_T_attributeValue_complex;
-static gint ett_z3950_SEQUENCE_OF_StringOrNumeric;
-static gint ett_z3950_T_semanticAction;
-static gint ett_z3950_ProximityOperator;
-static gint ett_z3950_T_proximityUnitCode;
-static gint ett_z3950_SearchResponse;
-static gint ett_z3950_PresentRequest;
-static gint ett_z3950_SEQUENCE_OF_Range;
-static gint ett_z3950_T_recordComposition;
-static gint ett_z3950_Segment;
-static gint ett_z3950_SEQUENCE_OF_NamePlusRecord;
-static gint ett_z3950_PresentResponse;
-static gint ett_z3950_Records;
-static gint ett_z3950_SEQUENCE_OF_DiagRec;
-static gint ett_z3950_NamePlusRecord;
-static gint ett_z3950_T_record;
-static gint ett_z3950_FragmentSyntax;
-static gint ett_z3950_DiagRec;
-static gint ett_z3950_DefaultDiagFormat;
-static gint ett_z3950_T_addinfo;
-static gint ett_z3950_Range;
-static gint ett_z3950_ElementSetNames;
-static gint ett_z3950_T_databaseSpecific;
-static gint ett_z3950_T_databaseSpecific_item;
-static gint ett_z3950_CompSpec;
-static gint ett_z3950_T_dbSpecific;
-static gint ett_z3950_T_dbSpecific_item;
-static gint ett_z3950_T_compSpec_recordSyntax;
-static gint ett_z3950_Specification;
-static gint ett_z3950_T_specification_elementSpec;
-static gint ett_z3950_DeleteResultSetRequest;
-static gint ett_z3950_SEQUENCE_OF_ResultSetId;
-static gint ett_z3950_DeleteResultSetResponse;
-static gint ett_z3950_ListStatuses;
-static gint ett_z3950_ListStatuses_item;
-static gint ett_z3950_AccessControlRequest;
-static gint ett_z3950_T_securityChallenge;
-static gint ett_z3950_AccessControlResponse;
-static gint ett_z3950_T_securityChallengeResponse;
-static gint ett_z3950_ResourceControlRequest;
-static gint ett_z3950_ResourceControlResponse;
-static gint ett_z3950_TriggerResourceControlRequest;
-static gint ett_z3950_ResourceReportRequest;
-static gint ett_z3950_ResourceReportResponse;
-static gint ett_z3950_ScanRequest;
-static gint ett_z3950_ScanResponse;
-static gint ett_z3950_ListEntries;
-static gint ett_z3950_SEQUENCE_OF_Entry;
-static gint ett_z3950_Entry;
-static gint ett_z3950_TermInfo;
-static gint ett_z3950_SEQUENCE_OF_AttributesPlusTerm;
-static gint ett_z3950_OccurrenceByAttributes;
-static gint ett_z3950_OccurrenceByAttributes_item;
-static gint ett_z3950_T_occurrences;
-static gint ett_z3950_T_byDatabase;
-static gint ett_z3950_T_byDatabase_item;
-static gint ett_z3950_SortRequest;
-static gint ett_z3950_SEQUENCE_OF_InternationalString;
-static gint ett_z3950_SEQUENCE_OF_SortKeySpec;
-static gint ett_z3950_SortResponse;
-static gint ett_z3950_SortKeySpec;
-static gint ett_z3950_T_missingValueAction;
-static gint ett_z3950_SortElement;
-static gint ett_z3950_T_datbaseSpecific;
-static gint ett_z3950_T_datbaseSpecific_item;
-static gint ett_z3950_SortKey;
-static gint ett_z3950_T_sortAttributes;
-static gint ett_z3950_ExtendedServicesRequest;
-static gint ett_z3950_ExtendedServicesResponse;
-static gint ett_z3950_Permissions;
-static gint ett_z3950_Permissions_item;
-static gint ett_z3950_T_allowableFunctions;
-static gint ett_z3950_Close;
-static gint ett_z3950_OtherInformation_U;
-static gint ett_z3950_T__untag_item;
-static gint ett_z3950_T_information;
-static gint ett_z3950_InfoCategory;
-static gint ett_z3950_IntUnit;
-static gint ett_z3950_Unit;
-static gint ett_z3950_StringOrNumeric;
-static gint ett_z3950_OCLC_UserInformation;
-static gint ett_z3950_SEQUENCE_OF_DBName;
-static gint ett_z3950_OPACRecord;
-static gint ett_z3950_SEQUENCE_OF_HoldingsRecord;
-static gint ett_z3950_HoldingsRecord;
-static gint ett_z3950_HoldingsAndCircData;
-static gint ett_z3950_SEQUENCE_OF_Volume;
-static gint ett_z3950_SEQUENCE_OF_CircRecord;
-static gint ett_z3950_Volume;
-static gint ett_z3950_CircRecord;
-static gint ett_z3950_DiagnosticFormat;
-static gint ett_z3950_DiagnosticFormat_item;
-static gint ett_z3950_T_diagnosticFormat_item_diagnostic;
-static gint ett_z3950_DiagFormat;
-static gint ett_z3950_T_tooMany;
-static gint ett_z3950_T_badSpec;
-static gint ett_z3950_SEQUENCE_OF_Specification;
-static gint ett_z3950_T_dbUnavail;
-static gint ett_z3950_T_why;
-static gint ett_z3950_T_attribute;
-static gint ett_z3950_T_attCombo;
-static gint ett_z3950_SEQUENCE_OF_AttributeList;
-static gint ett_z3950_T_diagFormat_term;
-static gint ett_z3950_T_diagFormat_proximity;
-static gint ett_z3950_T_scan;
-static gint ett_z3950_T_sort;
-static gint ett_z3950_T_segmentation;
-static gint ett_z3950_T_extServices;
-static gint ett_z3950_T_accessCtrl;
-static gint ett_z3950_T_diagFormat_accessCtrl_oid;
-static gint ett_z3950_T_alternative;
-static gint ett_z3950_T_diagFormat_recordSyntax;
-static gint ett_z3950_T_suggestedAlternatives;
-static gint ett_z3950_Explain_Record;
-static gint ett_z3950_TargetInfo;
-static gint ett_z3950_SEQUENCE_OF_DatabaseList;
-static gint ett_z3950_SEQUENCE_OF_NetworkAddress;
-static gint ett_z3950_DatabaseInfo;
-static gint ett_z3950_SEQUENCE_OF_HumanString;
-static gint ett_z3950_T_recordCount;
-static gint ett_z3950_SchemaInfo;
-static gint ett_z3950_T_tagTypeMapping;
-static gint ett_z3950_T_tagTypeMapping_item;
-static gint ett_z3950_SEQUENCE_OF_ElementInfo;
-static gint ett_z3950_ElementInfo;
-static gint ett_z3950_Path;
-static gint ett_z3950_Path_item;
-static gint ett_z3950_ElementDataType;
-static gint ett_z3950_TagSetInfo;
-static gint ett_z3950_T_tagSetInfo_elements;
-static gint ett_z3950_T_tagSetInfo_elements_item;
-static gint ett_z3950_RecordSyntaxInfo;
-static gint ett_z3950_T_transferSyntaxes;
-static gint ett_z3950_AttributeSetInfo;
-static gint ett_z3950_SEQUENCE_OF_AttributeType;
-static gint ett_z3950_AttributeType;
-static gint ett_z3950_SEQUENCE_OF_AttributeDescription;
-static gint ett_z3950_AttributeDescription;
-static gint ett_z3950_TermListInfo;
-static gint ett_z3950_T_termLists;
-static gint ett_z3950_T_termLists_item;
-static gint ett_z3950_ExtendedServicesInfo;
-static gint ett_z3950_AttributeDetails;
-static gint ett_z3950_SEQUENCE_OF_AttributeSetDetails;
-static gint ett_z3950_AttributeSetDetails;
-static gint ett_z3950_SEQUENCE_OF_AttributeTypeDetails;
-static gint ett_z3950_AttributeTypeDetails;
-static gint ett_z3950_SEQUENCE_OF_AttributeValue;
-static gint ett_z3950_OmittedAttributeInterpretation;
-static gint ett_z3950_AttributeValue;
-static gint ett_z3950_TermListDetails;
-static gint ett_z3950_T_scanInfo;
-static gint ett_z3950_SEQUENCE_OF_Term;
-static gint ett_z3950_ElementSetDetails;
-static gint ett_z3950_SEQUENCE_OF_PerElementDetails;
-static gint ett_z3950_RetrievalRecordDetails;
-static gint ett_z3950_PerElementDetails;
-static gint ett_z3950_SEQUENCE_OF_Path;
-static gint ett_z3950_RecordTag;
-static gint ett_z3950_SortDetails;
-static gint ett_z3950_SEQUENCE_OF_SortKeyDetails;
-static gint ett_z3950_SortKeyDetails;
-static gint ett_z3950_T_sortType;
-static gint ett_z3950_ProcessingInformation;
-static gint ett_z3950_VariantSetInfo;
-static gint ett_z3950_SEQUENCE_OF_VariantClass;
-static gint ett_z3950_VariantClass;
-static gint ett_z3950_SEQUENCE_OF_VariantType;
-static gint ett_z3950_VariantType;
-static gint ett_z3950_VariantValue;
-static gint ett_z3950_ValueSet;
-static gint ett_z3950_SEQUENCE_OF_ValueDescription;
-static gint ett_z3950_ValueRange;
-static gint ett_z3950_ValueDescription;
-static gint ett_z3950_UnitInfo;
-static gint ett_z3950_SEQUENCE_OF_UnitType;
-static gint ett_z3950_UnitType;
-static gint ett_z3950_SEQUENCE_OF_Units;
-static gint ett_z3950_Units;
-static gint ett_z3950_CategoryList;
-static gint ett_z3950_SEQUENCE_OF_CategoryInfo;
-static gint ett_z3950_CategoryInfo;
-static gint ett_z3950_CommonInfo;
-static gint ett_z3950_HumanString;
-static gint ett_z3950_HumanString_item;
-static gint ett_z3950_IconObject;
-static gint ett_z3950_IconObject_item;
-static gint ett_z3950_T_bodyType;
-static gint ett_z3950_ContactInfo;
-static gint ett_z3950_NetworkAddress;
-static gint ett_z3950_T_internetAddress;
-static gint ett_z3950_T_osiPresentationAddress;
-static gint ett_z3950_T_networkAddress_other;
-static gint ett_z3950_AccessInfo;
-static gint ett_z3950_SEQUENCE_OF_QueryTypeDetails;
-static gint ett_z3950_T_diagnosticsSets;
-static gint ett_z3950_SEQUENCE_OF_AttributeSetId;
-static gint ett_z3950_T_schemas;
-static gint ett_z3950_T_recordSyntaxes;
-static gint ett_z3950_T_resourceChallenges;
-static gint ett_z3950_T_variantSets;
-static gint ett_z3950_SEQUENCE_OF_ElementSetName;
-static gint ett_z3950_QueryTypeDetails;
-static gint ett_z3950_PrivateCapabilities;
-static gint ett_z3950_T_privateCapabilities_operators;
-static gint ett_z3950_T_privateCapabilities_operators_item;
-static gint ett_z3950_SEQUENCE_OF_SearchKey;
-static gint ett_z3950_RpnCapabilities;
-static gint ett_z3950_T_operators;
-static gint ett_z3950_Iso8777Capabilities;
-static gint ett_z3950_ProximitySupport;
-static gint ett_z3950_T_unitsSupported;
-static gint ett_z3950_T_unitsSupported_item;
-static gint ett_z3950_T_proximitySupport_unitsSupported_item_private;
-static gint ett_z3950_SearchKey;
-static gint ett_z3950_AccessRestrictions;
-static gint ett_z3950_AccessRestrictions_item;
-static gint ett_z3950_T_accessChallenges;
-static gint ett_z3950_Costs;
-static gint ett_z3950_T_otherCharges;
-static gint ett_z3950_T_otherCharges_item;
-static gint ett_z3950_Charge;
-static gint ett_z3950_DatabaseList;
-static gint ett_z3950_AttributeCombinations;
-static gint ett_z3950_SEQUENCE_OF_AttributeCombination;
-static gint ett_z3950_AttributeCombination;
-static gint ett_z3950_AttributeOccurrence;
-static gint ett_z3950_T_attributeOccurrence_attributeValues;
-static gint ett_z3950_BriefBib;
-static gint ett_z3950_SEQUENCE_OF_FormatSpec;
-static gint ett_z3950_FormatSpec;
-static gint ett_z3950_GenericRecord;
-static gint ett_z3950_TaggedElement;
-static gint ett_z3950_ElementData;
-static gint ett_z3950_SEQUENCE_OF_TaggedElement;
-static gint ett_z3950_ElementMetaData;
-static gint ett_z3950_SEQUENCE_OF_HitVector;
-static gint ett_z3950_SEQUENCE_OF_Variant;
-static gint ett_z3950_TagPath;
-static gint ett_z3950_TagPath_item;
-static gint ett_z3950_Order;
-static gint ett_z3950_Usage;
-static gint ett_z3950_HitVector;
-static gint ett_z3950_Variant;
-static gint ett_z3950_T_triples;
-static gint ett_z3950_T_triples_item;
-static gint ett_z3950_T_variant_triples_item_value;
-static gint ett_z3950_TaskPackage;
-static gint ett_z3950_PromptObject;
-static gint ett_z3950_Challenge;
-static gint ett_z3950_Challenge_item;
-static gint ett_z3950_T_promptInfo;
-static gint ett_z3950_Response;
-static gint ett_z3950_Response_item;
-static gint ett_z3950_T_promptResponse;
-static gint ett_z3950_PromptId;
-static gint ett_z3950_T_enummeratedPrompt;
-static gint ett_z3950_Encryption;
-static gint ett_z3950_DES_RN_Object;
-static gint ett_z3950_DRNType;
-static gint ett_z3950_KRBObject;
-static gint ett_z3950_KRBRequest;
-static gint ett_z3950_KRBResponse;
-static gint ett_z3950_SearchInfoReport;
-static gint ett_z3950_SearchInfoReport_item;
-static gint ett_z3950_ResultsByDB;
-static gint ett_z3950_ResultsByDB_item;
-static gint ett_z3950_T_databases;
-static gint ett_z3950_QueryExpression;
-static gint ett_z3950_T_queryExpression_term;
+static int ett_z3950_PDU;
+static int ett_z3950_InitializeRequest;
+static int ett_z3950_T_idAuthentication;
+static int ett_z3950_T_idPass;
+static int ett_z3950_InitializeResponse;
+static int ett_z3950_ProtocolVersion_U;
+static int ett_z3950_Options_U;
+static int ett_z3950_SearchRequest;
+static int ett_z3950_SEQUENCE_OF_DatabaseName;
+static int ett_z3950_Query;
+static int ett_z3950_RPNQuery;
+static int ett_z3950_RPNStructure;
+static int ett_z3950_T_rpnRpnOp;
+static int ett_z3950_Operand;
+static int ett_z3950_AttributesPlusTerm_U;
+static int ett_z3950_ResultSetPlusAttributes_U;
+static int ett_z3950_SEQUENCE_OF_AttributeElement;
+static int ett_z3950_Term;
+static int ett_z3950_Operator_U;
+static int ett_z3950_AttributeElement;
+static int ett_z3950_T_attributeValue;
+static int ett_z3950_T_attributeValue_complex;
+static int ett_z3950_SEQUENCE_OF_StringOrNumeric;
+static int ett_z3950_T_semanticAction;
+static int ett_z3950_ProximityOperator;
+static int ett_z3950_T_proximityUnitCode;
+static int ett_z3950_SearchResponse;
+static int ett_z3950_PresentRequest;
+static int ett_z3950_SEQUENCE_OF_Range;
+static int ett_z3950_T_recordComposition;
+static int ett_z3950_Segment;
+static int ett_z3950_SEQUENCE_OF_NamePlusRecord;
+static int ett_z3950_PresentResponse;
+static int ett_z3950_Records;
+static int ett_z3950_SEQUENCE_OF_DiagRec;
+static int ett_z3950_NamePlusRecord;
+static int ett_z3950_T_record;
+static int ett_z3950_FragmentSyntax;
+static int ett_z3950_DiagRec;
+static int ett_z3950_DefaultDiagFormat;
+static int ett_z3950_T_addinfo;
+static int ett_z3950_Range;
+static int ett_z3950_ElementSetNames;
+static int ett_z3950_T_databaseSpecific;
+static int ett_z3950_T_databaseSpecific_item;
+static int ett_z3950_CompSpec;
+static int ett_z3950_T_dbSpecific;
+static int ett_z3950_T_dbSpecific_item;
+static int ett_z3950_T_compSpec_recordSyntax;
+static int ett_z3950_Specification;
+static int ett_z3950_T_specification_elementSpec;
+static int ett_z3950_DeleteResultSetRequest;
+static int ett_z3950_SEQUENCE_OF_ResultSetId;
+static int ett_z3950_DeleteResultSetResponse;
+static int ett_z3950_ListStatuses;
+static int ett_z3950_ListStatuses_item;
+static int ett_z3950_AccessControlRequest;
+static int ett_z3950_T_securityChallenge;
+static int ett_z3950_AccessControlResponse;
+static int ett_z3950_T_securityChallengeResponse;
+static int ett_z3950_ResourceControlRequest;
+static int ett_z3950_ResourceControlResponse;
+static int ett_z3950_TriggerResourceControlRequest;
+static int ett_z3950_ResourceReportRequest;
+static int ett_z3950_ResourceReportResponse;
+static int ett_z3950_ScanRequest;
+static int ett_z3950_ScanResponse;
+static int ett_z3950_ListEntries;
+static int ett_z3950_SEQUENCE_OF_Entry;
+static int ett_z3950_Entry;
+static int ett_z3950_TermInfo;
+static int ett_z3950_SEQUENCE_OF_AttributesPlusTerm;
+static int ett_z3950_OccurrenceByAttributes;
+static int ett_z3950_OccurrenceByAttributes_item;
+static int ett_z3950_T_occurrences;
+static int ett_z3950_T_byDatabase;
+static int ett_z3950_T_byDatabase_item;
+static int ett_z3950_SortRequest;
+static int ett_z3950_SEQUENCE_OF_InternationalString;
+static int ett_z3950_SEQUENCE_OF_SortKeySpec;
+static int ett_z3950_SortResponse;
+static int ett_z3950_SortKeySpec;
+static int ett_z3950_T_missingValueAction;
+static int ett_z3950_SortElement;
+static int ett_z3950_T_datbaseSpecific;
+static int ett_z3950_T_datbaseSpecific_item;
+static int ett_z3950_SortKey;
+static int ett_z3950_T_sortAttributes;
+static int ett_z3950_ExtendedServicesRequest;
+static int ett_z3950_ExtendedServicesResponse;
+static int ett_z3950_Permissions;
+static int ett_z3950_Permissions_item;
+static int ett_z3950_T_allowableFunctions;
+static int ett_z3950_Close;
+static int ett_z3950_OtherInformation_U;
+static int ett_z3950_T__untag_item;
+static int ett_z3950_T_information;
+static int ett_z3950_InfoCategory;
+static int ett_z3950_IntUnit;
+static int ett_z3950_Unit;
+static int ett_z3950_StringOrNumeric;
+static int ett_z3950_OCLC_UserInformation;
+static int ett_z3950_SEQUENCE_OF_DBName;
+static int ett_z3950_OPACRecord;
+static int ett_z3950_SEQUENCE_OF_HoldingsRecord;
+static int ett_z3950_HoldingsRecord;
+static int ett_z3950_HoldingsAndCircData;
+static int ett_z3950_SEQUENCE_OF_Volume;
+static int ett_z3950_SEQUENCE_OF_CircRecord;
+static int ett_z3950_Volume;
+static int ett_z3950_CircRecord;
+static int ett_z3950_DiagnosticFormat;
+static int ett_z3950_DiagnosticFormat_item;
+static int ett_z3950_T_diagnosticFormat_item_diagnostic;
+static int ett_z3950_DiagFormat;
+static int ett_z3950_T_tooMany;
+static int ett_z3950_T_badSpec;
+static int ett_z3950_SEQUENCE_OF_Specification;
+static int ett_z3950_T_dbUnavail;
+static int ett_z3950_T_why;
+static int ett_z3950_T_attribute;
+static int ett_z3950_T_attCombo;
+static int ett_z3950_SEQUENCE_OF_AttributeList;
+static int ett_z3950_T_diagFormat_term;
+static int ett_z3950_T_diagFormat_proximity;
+static int ett_z3950_T_scan;
+static int ett_z3950_T_sort;
+static int ett_z3950_T_segmentation;
+static int ett_z3950_T_extServices;
+static int ett_z3950_T_accessCtrl;
+static int ett_z3950_T_diagFormat_accessCtrl_oid;
+static int ett_z3950_T_alternative;
+static int ett_z3950_T_diagFormat_recordSyntax;
+static int ett_z3950_T_suggestedAlternatives;
+static int ett_z3950_Explain_Record;
+static int ett_z3950_TargetInfo;
+static int ett_z3950_SEQUENCE_OF_DatabaseList;
+static int ett_z3950_SEQUENCE_OF_NetworkAddress;
+static int ett_z3950_DatabaseInfo;
+static int ett_z3950_SEQUENCE_OF_HumanString;
+static int ett_z3950_T_recordCount;
+static int ett_z3950_SchemaInfo;
+static int ett_z3950_T_tagTypeMapping;
+static int ett_z3950_T_tagTypeMapping_item;
+static int ett_z3950_SEQUENCE_OF_ElementInfo;
+static int ett_z3950_ElementInfo;
+static int ett_z3950_Path;
+static int ett_z3950_Path_item;
+static int ett_z3950_ElementDataType;
+static int ett_z3950_TagSetInfo;
+static int ett_z3950_T_tagSetInfo_elements;
+static int ett_z3950_T_tagSetInfo_elements_item;
+static int ett_z3950_RecordSyntaxInfo;
+static int ett_z3950_T_transferSyntaxes;
+static int ett_z3950_AttributeSetInfo;
+static int ett_z3950_SEQUENCE_OF_AttributeType;
+static int ett_z3950_AttributeType;
+static int ett_z3950_SEQUENCE_OF_AttributeDescription;
+static int ett_z3950_AttributeDescription;
+static int ett_z3950_TermListInfo;
+static int ett_z3950_T_termLists;
+static int ett_z3950_T_termLists_item;
+static int ett_z3950_ExtendedServicesInfo;
+static int ett_z3950_AttributeDetails;
+static int ett_z3950_SEQUENCE_OF_AttributeSetDetails;
+static int ett_z3950_AttributeSetDetails;
+static int ett_z3950_SEQUENCE_OF_AttributeTypeDetails;
+static int ett_z3950_AttributeTypeDetails;
+static int ett_z3950_SEQUENCE_OF_AttributeValue;
+static int ett_z3950_OmittedAttributeInterpretation;
+static int ett_z3950_AttributeValue;
+static int ett_z3950_TermListDetails;
+static int ett_z3950_T_scanInfo;
+static int ett_z3950_SEQUENCE_OF_Term;
+static int ett_z3950_ElementSetDetails;
+static int ett_z3950_SEQUENCE_OF_PerElementDetails;
+static int ett_z3950_RetrievalRecordDetails;
+static int ett_z3950_PerElementDetails;
+static int ett_z3950_SEQUENCE_OF_Path;
+static int ett_z3950_RecordTag;
+static int ett_z3950_SortDetails;
+static int ett_z3950_SEQUENCE_OF_SortKeyDetails;
+static int ett_z3950_SortKeyDetails;
+static int ett_z3950_T_sortType;
+static int ett_z3950_ProcessingInformation;
+static int ett_z3950_VariantSetInfo;
+static int ett_z3950_SEQUENCE_OF_VariantClass;
+static int ett_z3950_VariantClass;
+static int ett_z3950_SEQUENCE_OF_VariantType;
+static int ett_z3950_VariantType;
+static int ett_z3950_VariantValue;
+static int ett_z3950_ValueSet;
+static int ett_z3950_SEQUENCE_OF_ValueDescription;
+static int ett_z3950_ValueRange;
+static int ett_z3950_ValueDescription;
+static int ett_z3950_UnitInfo;
+static int ett_z3950_SEQUENCE_OF_UnitType;
+static int ett_z3950_UnitType;
+static int ett_z3950_SEQUENCE_OF_Units;
+static int ett_z3950_Units;
+static int ett_z3950_CategoryList;
+static int ett_z3950_SEQUENCE_OF_CategoryInfo;
+static int ett_z3950_CategoryInfo;
+static int ett_z3950_CommonInfo;
+static int ett_z3950_HumanString;
+static int ett_z3950_HumanString_item;
+static int ett_z3950_IconObject;
+static int ett_z3950_IconObject_item;
+static int ett_z3950_T_bodyType;
+static int ett_z3950_ContactInfo;
+static int ett_z3950_NetworkAddress;
+static int ett_z3950_T_internetAddress;
+static int ett_z3950_T_osiPresentationAddress;
+static int ett_z3950_T_networkAddress_other;
+static int ett_z3950_AccessInfo;
+static int ett_z3950_SEQUENCE_OF_QueryTypeDetails;
+static int ett_z3950_T_diagnosticsSets;
+static int ett_z3950_SEQUENCE_OF_AttributeSetId;
+static int ett_z3950_T_schemas;
+static int ett_z3950_T_recordSyntaxes;
+static int ett_z3950_T_resourceChallenges;
+static int ett_z3950_T_variantSets;
+static int ett_z3950_SEQUENCE_OF_ElementSetName;
+static int ett_z3950_QueryTypeDetails;
+static int ett_z3950_PrivateCapabilities;
+static int ett_z3950_T_privateCapabilities_operators;
+static int ett_z3950_T_privateCapabilities_operators_item;
+static int ett_z3950_SEQUENCE_OF_SearchKey;
+static int ett_z3950_RpnCapabilities;
+static int ett_z3950_T_operators;
+static int ett_z3950_Iso8777Capabilities;
+static int ett_z3950_ProximitySupport;
+static int ett_z3950_T_unitsSupported;
+static int ett_z3950_T_unitsSupported_item;
+static int ett_z3950_T_proximitySupport_unitsSupported_item_private;
+static int ett_z3950_SearchKey;
+static int ett_z3950_AccessRestrictions;
+static int ett_z3950_AccessRestrictions_item;
+static int ett_z3950_T_accessChallenges;
+static int ett_z3950_Costs;
+static int ett_z3950_T_otherCharges;
+static int ett_z3950_T_otherCharges_item;
+static int ett_z3950_Charge;
+static int ett_z3950_DatabaseList;
+static int ett_z3950_AttributeCombinations;
+static int ett_z3950_SEQUENCE_OF_AttributeCombination;
+static int ett_z3950_AttributeCombination;
+static int ett_z3950_AttributeOccurrence;
+static int ett_z3950_T_attributeOccurrence_attributeValues;
+static int ett_z3950_BriefBib;
+static int ett_z3950_SEQUENCE_OF_FormatSpec;
+static int ett_z3950_FormatSpec;
+static int ett_z3950_GenericRecord;
+static int ett_z3950_TaggedElement;
+static int ett_z3950_ElementData;
+static int ett_z3950_SEQUENCE_OF_TaggedElement;
+static int ett_z3950_ElementMetaData;
+static int ett_z3950_SEQUENCE_OF_HitVector;
+static int ett_z3950_SEQUENCE_OF_Variant;
+static int ett_z3950_TagPath;
+static int ett_z3950_TagPath_item;
+static int ett_z3950_Order;
+static int ett_z3950_Usage;
+static int ett_z3950_HitVector;
+static int ett_z3950_Variant;
+static int ett_z3950_T_triples;
+static int ett_z3950_T_triples_item;
+static int ett_z3950_T_variant_triples_item_value;
+static int ett_z3950_TaskPackage;
+static int ett_z3950_PromptObject;
+static int ett_z3950_Challenge;
+static int ett_z3950_Challenge_item;
+static int ett_z3950_T_promptInfo;
+static int ett_z3950_Response;
+static int ett_z3950_Response_item;
+static int ett_z3950_T_promptResponse;
+static int ett_z3950_PromptId;
+static int ett_z3950_T_enummeratedPrompt;
+static int ett_z3950_Encryption;
+static int ett_z3950_DES_RN_Object;
+static int ett_z3950_DRNType;
+static int ett_z3950_KRBObject;
+static int ett_z3950_KRBRequest;
+static int ett_z3950_KRBResponse;
+static int ett_z3950_SearchInfoReport;
+static int ett_z3950_SearchInfoReport_item;
+static int ett_z3950_ResultsByDB;
+static int ett_z3950_ResultsByDB_item;
+static int ett_z3950_T_databases;
+static int ett_z3950_QueryExpression;
+static int ett_z3950_T_queryExpression_term;
 
 /* MARC variables and forwards */
 
@@ -2024,8 +2025,8 @@ static const value_string marc_tag_names[] = {
 static int
 dissect_z3950_printable_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
     tvbuff_t *next_tvb = NULL;
-    int hf_alternate = -1;
-    guint old_offset = offset;
+    int hf_alternate = 0;
+    unsigned old_offset = offset;
 
     if (hf_index == hf_z3950_referenceId) {
         hf_alternate = hf_z3950_referenceId_printable;
@@ -2085,7 +2086,7 @@ dissect_z3950_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 static int
 dissect_z3950_ReferenceId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-              hf_index, BER_CLASS_CON, 2, TRUE,
+              hf_index, BER_CLASS_CON, 2, true,
               dissect_z3950_printable_OCTET_STRING);
 
 
@@ -2114,7 +2115,7 @@ dissect_z3950_ProtocolVersion_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_z3950_ProtocolVersion(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 3, TRUE, dissect_z3950_ProtocolVersion_U);
+                                      hf_index, BER_CLASS_CON, 3, true, dissect_z3950_ProtocolVersion_U);
 
   return offset;
 }
@@ -2153,7 +2154,7 @@ dissect_z3950_Options_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_
 static int
 dissect_z3950_Options(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 4, TRUE, dissect_z3950_Options_U);
+                                      hf_index, BER_CLASS_CON, 4, true, dissect_z3950_Options_U);
 
   return offset;
 }
@@ -2333,7 +2334,7 @@ dissect_z3950_OtherInformation_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_z3950_OtherInformation(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 201, TRUE, dissect_z3950_OtherInformation_U);
+                                      hf_index, BER_CLASS_CON, 201, true, dissect_z3950_OtherInformation_U);
 
   return offset;
 }
@@ -2400,7 +2401,7 @@ dissect_z3950_InitializeResponse(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_z3950_DatabaseName(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 105, TRUE, dissect_z3950_InternationalString);
+                                      hf_index, BER_CLASS_CON, 105, true, dissect_z3950_InternationalString);
 
   return offset;
 }
@@ -2423,7 +2424,7 @@ dissect_z3950_SEQUENCE_OF_DatabaseName(bool implicit_tag _U_, tvbuff_t *tvb _U_,
 static int
 dissect_z3950_ElementSetName(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 103, TRUE, dissect_z3950_InternationalString);
+                                      hf_index, BER_CLASS_CON, 103, true, dissect_z3950_InternationalString);
 
   return offset;
 }
@@ -2498,10 +2499,10 @@ dissect_z3950_AttributeSetId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
   if (oid_tvb) {
     packet_info *pinfo = actx->pinfo;
-    guint len = tvb_reported_length_remaining(oid_tvb, 0);
-    gchar *oid_str = oid_encoded2string(pinfo->pool,
+    unsigned len = tvb_reported_length_remaining(oid_tvb, 0);
+    char *oid_str = oid_encoded2string(pinfo->pool,
                                         tvb_get_ptr(oid_tvb, 0, len), len);
-    gint attribute_set_idx = Z3950_ATSET_UNKNOWN;
+    int attribute_set_idx = Z3950_ATSET_UNKNOWN;
     z3950_atinfo_t *atinfo_data;
 
     if (g_strcmp0(oid_str, Z3950_ATSET_BIB1_OID) == 0) {
@@ -2526,7 +2527,7 @@ dissect_z3950_AttributeSetId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_z3950_T_attributeElement_attributeType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint att_type=0;
+  int att_type=0;
   packet_info *pinfo = actx->pinfo;
   z3950_atinfo_t *atinfo_data;
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -2545,7 +2546,7 @@ dissect_z3950_T_attributeElement_attributeType(bool implicit_tag _U_, tvbuff_t *
 
 static int
 dissect_z3950_T_attributeValue_numeric(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint att_value=0;
+  int att_value=0;
   packet_info *pinfo = actx->pinfo;
   z3950_atinfo_t *atinfo_data;
   const value_string *att_value_string = NULL;
@@ -2703,7 +2704,7 @@ dissect_z3950_SEQUENCE_OF_AttributeElement(bool implicit_tag _U_, tvbuff_t *tvb 
 static int
 dissect_z3950_AttributeList(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 44, TRUE, dissect_z3950_SEQUENCE_OF_AttributeElement);
+                                      hf_index, BER_CLASS_CON, 44, true, dissect_z3950_SEQUENCE_OF_AttributeElement);
 
   return offset;
 }
@@ -2713,7 +2714,7 @@ dissect_z3950_AttributeList(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int
 dissect_z3950_T_general(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-              hf_index, BER_CLASS_CON, 2, TRUE,
+              hf_index, BER_CLASS_CON, 2, true,
               dissect_z3950_printable_OCTET_STRING);
 
 
@@ -2815,7 +2816,7 @@ dissect_z3950_AttributesPlusTerm_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 static int
 dissect_z3950_AttributesPlusTerm(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 102, TRUE, dissect_z3950_AttributesPlusTerm_U);
+                                      hf_index, BER_CLASS_CON, 102, true, dissect_z3950_AttributesPlusTerm_U);
 
   return offset;
 }
@@ -2825,7 +2826,7 @@ dissect_z3950_AttributesPlusTerm(bool implicit_tag _U_, tvbuff_t *tvb _U_, int o
 static int
 dissect_z3950_ResultSetId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 31, TRUE, dissect_z3950_InternationalString);
+                                      hf_index, BER_CLASS_CON, 31, true, dissect_z3950_InternationalString);
 
   return offset;
 }
@@ -2850,7 +2851,7 @@ dissect_z3950_ResultSetPlusAttributes_U(bool implicit_tag _U_, tvbuff_t *tvb _U_
 static int
 dissect_z3950_ResultSetPlusAttributes(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 214, TRUE, dissect_z3950_ResultSetPlusAttributes_U);
+                                      hf_index, BER_CLASS_CON, 214, true, dissect_z3950_ResultSetPlusAttributes_U);
 
   return offset;
 }
@@ -2995,7 +2996,7 @@ dissect_z3950_Operator_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int
 dissect_z3950_Operator(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 46, FALSE, dissect_z3950_Operator_U);
+                                      hf_index, BER_CLASS_CON, 46, false, dissect_z3950_Operator_U);
 
   return offset;
 }
@@ -3031,10 +3032,15 @@ static const ber_choice_t RPNStructure_choice[] = {
 
 static int
 dissect_z3950_RPNStructure(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // RPNStructure -> RPNStructure/rpnRpnOp -> RPNStructure
+  actx->pinfo->dissection_depth += 2;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  RPNStructure_choice, hf_index, ett_z3950_RPNStructure,
                                  NULL);
 
+  actx->pinfo->dissection_depth -= 2;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -3151,7 +3157,7 @@ dissect_z3950_PresentStatus_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 static int
 dissect_z3950_PresentStatus(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 27, TRUE, dissect_z3950_PresentStatus_U);
+                                      hf_index, BER_CLASS_CON, 27, true, dissect_z3950_PresentStatus_U);
 
   return offset;
 }
@@ -3166,10 +3172,10 @@ dissect_z3950_T_diagnosticSetId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
   if (oid_tvb) {
     packet_info *pinfo = actx->pinfo;
-    guint len = tvb_reported_length_remaining(oid_tvb, 0);
-    gchar *oid_str = oid_encoded2string(pinfo->pool,
+    unsigned len = tvb_reported_length_remaining(oid_tvb, 0);
+    char *oid_str = oid_encoded2string(pinfo->pool,
                                         tvb_get_ptr(oid_tvb, 0, len), len);
-    gint diagset_idx = Z3950_DIAGSET_UNKNOWN;
+    int diagset_idx = Z3950_DIAGSET_UNKNOWN;
     z3950_diaginfo_t *diaginfo_data;
 
     if (g_strcmp0(oid_str, Z3950_DIAGSET_BIB1_OID) == 0) {
@@ -3194,7 +3200,7 @@ dissect_z3950_T_diagnosticSetId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 
 static int
 dissect_z3950_T_condition(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint diag_condition=0;
+  int diag_condition=0;
   packet_info *pinfo = actx->pinfo;
   z3950_diaginfo_t *diaginfo_data;
   offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
@@ -3671,7 +3677,7 @@ dissect_z3950_DeleteSetStatus_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
 static int
 dissect_z3950_DeleteSetStatus(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 33, TRUE, dissect_z3950_DeleteSetStatus_U);
+                                      hf_index, BER_CLASS_CON, 33, true, dissect_z3950_DeleteSetStatus_U);
 
   return offset;
 }
@@ -4652,7 +4658,7 @@ dissect_z3950_CloseReason_U(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int
 dissect_z3950_CloseReason(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 211, TRUE, dissect_z3950_CloseReason_U);
+                                      hf_index, BER_CLASS_CON, 211, true, dissect_z3950_CloseReason_U);
 
   return offset;
 }
@@ -4733,14 +4739,14 @@ static const ber_choice_t PDU_choice[] = {
 
 static int
 dissect_z3950_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint choice;
+  int choice;
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  PDU_choice, hf_index, ett_z3950_PDU,
                                  &choice);
 
   if (choice >= 0) {
     packet_info *pinfo = actx->pinfo;
-    gint32 tag = PDU_choice[choice].tag;
+    int32_t tag = PDU_choice[choice].tag;
 
     col_set_str(pinfo->cinfo, COL_INFO,
       val_to_str_const(tag, z3950_PDU_vals, "Unknown Z39.50 PDU"));
@@ -4754,7 +4760,7 @@ dissect_z3950_PDU(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1
 static int
 dissect_z3950_DBName(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_tagged_type(implicit_tag, actx, tree, tvb, offset,
-                                      hf_index, BER_CLASS_CON, 2, TRUE, dissect_z3950_VisibleString);
+                                      hf_index, BER_CLASS_CON, 2, true, dissect_z3950_VisibleString);
 
   return offset;
 }
@@ -6536,9 +6542,14 @@ static const ber_sequence_t ElementInfo_sequence[] = {
 
 static int
 dissect_z3950_ElementInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // ElementInfo -> ElementDataType -> ElementDataType/structured -> ElementInfo
+  actx->pinfo->dissection_depth += 3;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    ElementInfo_sequence, hf_index, ett_z3950_ElementInfo);
 
+  actx->pinfo->dissection_depth -= 3;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -8011,9 +8022,14 @@ static const ber_sequence_t TaggedElement_sequence[] = {
 
 static int
 dissect_z3950_TaggedElement(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // TaggedElement -> ElementData -> ElementData/subtree -> TaggedElement
+  actx->pinfo->dissection_depth += 3;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
                                    TaggedElement_sequence, hf_index, ett_z3950_TaggedElement);
 
+  actx->pinfo->dissection_depth -= 3;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -8518,85 +8534,85 @@ dissect_z3950_SearchInfoReport(bool implicit_tag _U_, tvbuff_t *tvb _U_, int off
 static int dissect_OCLC_UserInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_OCLC_UserInformation(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_OCLC_UserInformation_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_OCLC_UserInformation(false, tvb, offset, &asn1_ctx, tree, hf_z3950_OCLC_UserInformation_PDU);
   return offset;
 }
 static int dissect_SutrsRecord_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_SutrsRecord(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_SutrsRecord_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_SutrsRecord(false, tvb, offset, &asn1_ctx, tree, hf_z3950_SutrsRecord_PDU);
   return offset;
 }
 static int dissect_OPACRecord_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_OPACRecord(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_OPACRecord_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_OPACRecord(false, tvb, offset, &asn1_ctx, tree, hf_z3950_OPACRecord_PDU);
   return offset;
 }
 static int dissect_DiagnosticFormat_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_DiagnosticFormat(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_DiagnosticFormat_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_DiagnosticFormat(false, tvb, offset, &asn1_ctx, tree, hf_z3950_DiagnosticFormat_PDU);
   return offset;
 }
 static int dissect_Explain_Record_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_Explain_Record(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_Explain_Record_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_Explain_Record(false, tvb, offset, &asn1_ctx, tree, hf_z3950_Explain_Record_PDU);
   return offset;
 }
 static int dissect_BriefBib_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_BriefBib(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_BriefBib_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_BriefBib(false, tvb, offset, &asn1_ctx, tree, hf_z3950_BriefBib_PDU);
   return offset;
 }
 static int dissect_GenericRecord_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_GenericRecord(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_GenericRecord_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_GenericRecord(false, tvb, offset, &asn1_ctx, tree, hf_z3950_GenericRecord_PDU);
   return offset;
 }
 static int dissect_TaskPackage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_TaskPackage(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_TaskPackage_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_TaskPackage(false, tvb, offset, &asn1_ctx, tree, hf_z3950_TaskPackage_PDU);
   return offset;
 }
 static int dissect_PromptObject_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_PromptObject(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_PromptObject_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_PromptObject(false, tvb, offset, &asn1_ctx, tree, hf_z3950_PromptObject_PDU);
   return offset;
 }
 static int dissect_DES_RN_Object_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_DES_RN_Object(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_DES_RN_Object_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_DES_RN_Object(false, tvb, offset, &asn1_ctx, tree, hf_z3950_DES_RN_Object_PDU);
   return offset;
 }
 static int dissect_KRBObject_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_KRBObject(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_KRBObject_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_KRBObject(false, tvb, offset, &asn1_ctx, tree, hf_z3950_KRBObject_PDU);
   return offset;
 }
 static int dissect_SearchInfoReport_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_z3950_SearchInfoReport(FALSE, tvb, offset, &asn1_ctx, tree, hf_z3950_SearchInfoReport_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_z3950_SearchInfoReport(false, tvb, offset, &asn1_ctx, tree, hf_z3950_SearchInfoReport_PDU);
   return offset;
 }
 
@@ -8608,7 +8624,7 @@ dissect_z3950(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     proto_tree      *z3950_tree = NULL;
     int                     offset = 0;
     asn1_ctx_t asn1_ctx;
-    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+    asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 
     /* make entry in the Protocol column on summary display */
@@ -8618,14 +8634,14 @@ dissect_z3950(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U
     z3950_item = proto_tree_add_item(tree, proto_z3950, tvb, 0, -1, ENC_NA);
     z3950_tree = proto_item_add_subtree(z3950_item, ett_z3950);
 
-    return dissect_z3950_PDU(FALSE, tvb, offset, &asn1_ctx, z3950_tree, -1);
+    return dissect_z3950_PDU(false, tvb, offset, &asn1_ctx, z3950_tree, -1);
 }
 
-static guint
+static unsigned
 get_z3950_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
-    guint plen;
-    guint ber_offset;
+    unsigned plen;
+    unsigned ber_offset;
     TRY {
         /* Skip past identifier */
         ber_offset = get_ber_identifier(tvb, offset, NULL, NULL, NULL);
@@ -8644,7 +8660,7 @@ static int
 dissect_z3950_segment(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * data _U_)
 {
 
-    /* Min length of 8 assumes 3 for identifer and 5 for length. */
+    /* Min length of 8 assumes 3 for identifier and 5 for length. */
     tcp_dissect_pdus(tvb, pinfo, tree, z3950_desegment, 8, get_z3950_pdu_len, dissect_z3950, data);
     return tvb_captured_length(tvb);
 }
@@ -12182,7 +12198,7 @@ void proto_register_z3950(void) {
     };
 
     /* List of subtrees */
-    static gint *ett[] = {
+    static int *ett[] = {
 		  &ett_z3950,
 /* MARC etts */
                   &ett_marc_record,
@@ -12639,9 +12655,9 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
                *directory_tree,
                *fields_tree;
     marc_directory_entry *marc_directory;
-    guint len = tvb_reported_length(tvb);
-    const guint8 *marc_value_str;
-    guint record_length = 0,
+    unsigned len = tvb_reported_length(tvb);
+    const uint8_t *marc_value_str;
+    unsigned record_length = 0,
           data_offset = 0,
           length_of_field_size,
           starting_character_position_size,
@@ -12649,7 +12665,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
           directory_entry_count,
           dir_index,
           offset = 0;
-    guint32 marc_value_char;
+    uint32_t marc_value_char;
 
     record_item = proto_tree_add_item(tree, hf_marc_record,
                            tvb, 0, len, ENC_NA);
@@ -12671,7 +12687,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
 
     if (marc_value_str) {
         if (isdigit_string(marc_value_str)) {
-            record_length = (guint)strtoul(marc_value_str, NULL, 10);
+            record_length = (unsigned)strtoul(marc_value_str, NULL, 10);
         }
         else {
             expert_add_info_format(pinfo, item,
@@ -12739,7 +12755,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
     offset += 5;
     if (marc_value_str) {
         if (isdigit_string(marc_value_str)) {
-            data_offset = (guint)strtoul(marc_value_str, NULL, 10);
+            data_offset = (unsigned)strtoul(marc_value_str, NULL, 10);
         }
         else {
             expert_add_info_format(pinfo, item,
@@ -12822,7 +12838,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
     dir_index = 0;
     /* Minus one for the terminator character */
     while (offset < (data_offset - 1)) {
-        guint32 tag_value = 0,
+        uint32_t tag_value = 0,
                 length_value = 0,
                 starting_char_value = 0;
         proto_item *length_item;
@@ -12840,7 +12856,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
         offset += 3;
         if (marc_value_str) {
             if (isdigit_string(marc_value_str)) {
-                tag_value = (guint)strtoul(marc_value_str, NULL, 10);
+                tag_value = (unsigned)strtoul(marc_value_str, NULL, 10);
             }
             else {
                 expert_add_info_format(pinfo, item,
@@ -12857,7 +12873,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
         offset += length_of_field_size;
         if (marc_value_str) {
             if (isdigit_string(marc_value_str)) {
-                length_value = (guint)strtoul(marc_value_str, NULL, 10);
+                length_value = (unsigned)strtoul(marc_value_str, NULL, 10);
             }
             else {
                 expert_add_info_format(pinfo, length_item,
@@ -12873,7 +12889,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
         offset += starting_character_position_size;
         if (marc_value_str) {
             if (isdigit_string(marc_value_str)) {
-                starting_char_value = (guint)strtoul(marc_value_str, NULL, 10);
+                starting_char_value = (unsigned)strtoul(marc_value_str, NULL, 10);
             }
             else {
                 expert_add_info_format(pinfo, item,
@@ -12909,7 +12925,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
     fields_tree = proto_item_add_subtree(fields_item, ett_marc_fields);
 
     for (dir_index = 0; dir_index < directory_entry_count; dir_index++) {
-        const gchar *tag_str;
+        const char *tag_str;
         proto_item *field_item;
         proto_tree *field_tree;
 
@@ -12936,7 +12952,7 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
             offset += 1;
         }
         else {
-            guint next_offset = offset + marc_directory[dir_index].length - 1;
+            unsigned next_offset = offset + marc_directory[dir_index].length - 1;
             proto_tree_add_item(field_tree, hf_marc_field_indicator1,
                     tvb, offset, 1, ENC_ASCII);
             offset += 1;
@@ -12944,14 +12960,14 @@ dissect_marc_record(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void * 
                     tvb, offset, 1, ENC_ASCII);
             offset += 1;
             do {
-                gint next_subfield;
+                int next_subfield;
                 proto_tree_add_item(field_tree, hf_marc_field_subfield_indicator,
                         tvb, offset, 1, ENC_ASCII);
                 offset += 1;
                 proto_tree_add_item(field_tree, hf_marc_field_subfield_tag,
                         tvb, offset, 1, ENC_ASCII);
                 offset += 1;
-                next_subfield = tvb_find_guint8(tvb, offset, next_offset - offset,
+                next_subfield = tvb_find_uint8(tvb, offset, next_offset - offset,
                                                 MARC_SUBFIELD_INDICATOR);
                 if (next_subfield >= 0) {
                     proto_tree_add_item(field_tree, hf_marc_field_subfield,

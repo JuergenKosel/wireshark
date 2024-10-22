@@ -9,8 +9,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <epan/dfilter/dfilter.h>
 #include <epan/dfilter/dfunctions.h>
 
@@ -59,8 +57,16 @@
 #define DEFAULT_MODIFIER "Ctrl-"
 #endif
 
-// proto.c:fld_abbrev_chars
-static const QString fld_abbrev_chars_ = "-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+// ':' is not a legal field character, but it appears inside literals and
+// having it as a token character will keep field completion from being
+// offered in a place where it is syntactically impossible.
+//
+// The other place ':' is used in the grammar is to separate display filter
+// macros from their argument lists in the ${macro:arg;arg} format. Adding
+// ':' here means that the first argument of the list won't have a completion
+// pop-up. (We don't do completion for the macro names, maybe we should?)
+// ${macro;arg;arg} is allowed now, though.
+static const QString fld_abbrev_chars_ = ":-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
 
 DisplayFilterEdit::DisplayFilterEdit(QWidget *parent, DisplayFilterEditType type) :
     SyntaxLineEdit(parent),
@@ -121,6 +127,8 @@ DisplayFilterEdit::DisplayFilterEdit(QWidget *parent, DisplayFilterEditType type
         connect(apply_button_, &StockIconToolButton::clicked, this, &DisplayFilterEdit::applyDisplayFilter);
         connect(this, &DisplayFilterEdit::returnPressed, this, &DisplayFilterEdit::applyDisplayFilter);
     }
+
+    setDefaultPlaceholderText();
 
     connect(this, &DisplayFilterEdit::textChanged, this,
             static_cast<void (DisplayFilterEdit::*)(const QString &)>(&DisplayFilterEdit::checkFilter));
@@ -579,12 +587,12 @@ void DisplayFilterEdit::buildCompletionList(const QString &field_word, const QSt
                 void *field_cookie;
                 const QByteArray fw_ba = field_word.toUtf8(); // or toLatin1 or toStdString?
                 const char *fw_utf8 = fw_ba.constData();
-                gsize fw_len = (gsize) strlen(fw_utf8);
+                size_t fw_len = (size_t) strlen(fw_utf8);
                 for (header_field_info *hfinfo = proto_get_first_protocol_field(proto_id, &field_cookie); hfinfo; hfinfo = proto_get_next_protocol_field(proto_id, &field_cookie)) {
                     if (hfinfo->same_name_prev_id != -1) continue; // Ignore duplicate names.
 
                     if (!g_ascii_strncasecmp(fw_utf8, hfinfo->abbrev, fw_len)) {
-                        if ((gsize) strlen(hfinfo->abbrev) != fw_len) field_list << hfinfo->abbrev;
+                        if ((size_t) strlen(hfinfo->abbrev) != fw_len) field_list << hfinfo->abbrev;
                     }
                 }
             }
@@ -592,7 +600,7 @@ void DisplayFilterEdit::buildCompletionList(const QString &field_word, const QSt
 
         // Add display filter functions to the completion list
         GPtrArray *func_list = df_func_name_list();
-        for (guint i = 0; i < func_list->len; i++) {
+        for (unsigned i = 0; i < func_list->len; i++) {
             field_list << QString::fromUtf8(static_cast<const char *>(func_list->pdata[i])).append("(");
         }
         g_ptr_array_unref(func_list);
@@ -658,8 +666,7 @@ void DisplayFilterEdit::applyDisplayFilter()
     if (syntaxState() == Invalid)
         return;
 
-    if (text().length() > 0)
-        last_applied_ = text();
+    last_applied_ = text();
 
     updateClearButton();
 
@@ -745,9 +752,7 @@ void DisplayFilterEdit::applyOrPrepareFilter()
     if (! pa || pa->property("display_filter").toString().isEmpty())
         return;
 
-    QString filterText = pa->property("display_filter").toString();
-    last_applied_ = filterText;
-    setText(filterText);
+    setText(pa->property("display_filter").toString());
 
     // Holding down the Shift key will only prepare filter.
     if (!(QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
@@ -835,7 +840,6 @@ void DisplayFilterEdit::dropEvent(QDropEvent *event)
                 return;
             }
 
-            last_applied_ = filterText;
             setText(filterText);
 
             // Holding down the Shift key will only prepare filter.
@@ -871,6 +875,13 @@ void DisplayFilterEdit::createFilterTextDropMenu(QDropEvent *event, bool prepare
 void DisplayFilterEdit::displayFilterExpression()
 {
     DisplayFilterExpressionDialog *dfe_dialog = new DisplayFilterExpressionDialog(this);
+    // Setting the modality also sets the parent of a GeometryStateDialog
+    // and is necessary if our current window is modal. Don't do it for the
+    // main window, where a user might want to change the current dissection
+    // tree while building an expression.
+    if (!mainApp->mainWindow()->isActiveWindow()) {
+        dfe_dialog->setWindowModality(Qt::WindowModal);
+    }
 
     connect(dfe_dialog, &DisplayFilterExpressionDialog::insertDisplayFilter,
             this, &DisplayFilterEdit::insertFilter);

@@ -18,7 +18,6 @@ set(DISSECTOR_SRC
 )
 
 set(DISSECTOR_HEADERS
-	conversation-macros.h
 	sinsp-span.h
 )
 
@@ -35,11 +34,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"Implements a bridge between Falco plugins and Wireshark"
 	${DISSECTOR_SRC}
 )
 
-add_logray_epan_plugin_library(falco-bridge)
+add_stratoshark_plugin_library(falco-bridge epan)
 
 # XXX Hacks; need to fix in falcosecurity-libs.
 target_compile_definitions(falco-bridge PRIVATE
@@ -50,6 +48,12 @@ target_compile_definitions(falco-bridge PRIVATE
 target_include_directories(falco-bridge SYSTEM PRIVATE
 	${SINSP_INCLUDE_DIRS}
 )
+
+if(WIN32)
+	# libsinsp/dumper.h includes libscap/scap_savefile_api.h, which includes
+	# libscap/scap_zlib.h.
+	target_include_directories(falco-bridge SYSTEM PRIVATE ${ZLIB_INCLUDE_DIR})
+endif()
 
 target_link_libraries(falco-bridge
 	epan

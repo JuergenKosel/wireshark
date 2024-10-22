@@ -97,18 +97,15 @@ void StatsTreeDialog::setupNode(stat_node* node)
     } else {
         st_dlg->statsTreeWidget()->addTopLevelItem(ti);
     }
-    st_dlg->statsTreeWidget()->resizeColumnToContents(item_col_);
 }
 
 void StatsTreeDialog::fillTree()
 {
     if (!st_cfg_ || file_closed_) return;
 
-    QString display_name = gchar_free_to_qstring(stats_tree_get_displayname(st_cfg_->name));
-
-    // The GTK+ UI appends "Stats Tree" to the window title. If we do the same
+    // The GTK+ UI appended "Stats Tree" to the window title. If we do the same
     // here we should expand the name completely, e.g. to "Statistics Tree".
-    setWindowSubtitle(display_name);
+    setWindowSubtitle(st_cfg_->title);
 
     st_cfg_->pr = &cfg_pr_;
     cfg_pr_.st_dlg = this;
@@ -122,7 +119,7 @@ void StatsTreeDialog::fillTree()
     // Add number of columns for this stats_tree
     QStringList header_labels;
     for (int count = 0; count<st_->num_columns; count++) {
-        header_labels.push_back(stats_tree_get_column_name(count));
+        header_labels.push_back(stats_tree_get_column_name(st_cfg_, count));
     }
     statsTreeWidget()->setColumnCount(static_cast<int>(header_labels.count()));
     statsTreeWidget()->setHeaderLabels(header_labels);
@@ -142,10 +139,11 @@ void StatsTreeDialog::fillTree()
     cap_file_.retapPackets();
     drawTreeItems(st_);
 
-    statsTreeWidget()->setSortingEnabled(true);
     removeTapListeners();
-
     st_cfg_->pr = NULL;
+
+    statsTreeWidget()->setSortingEnabled(true);
+    statsTreeWidget()->resizeColumnToContents(item_col_);
 }
 
 void StatsTreeDialog::resetTap(void *st_ptr)
@@ -167,7 +165,7 @@ void StatsTreeDialog::drawTreeItems(void *st_ptr)
     while (*iter) {
         stat_node *node = VariantPointer<stat_node>::asPtr((*iter)->data(item_col_, Qt::UserRole));
         if (node) {
-            gchar **valstrs = stats_tree_get_values_from_node(node);
+            char **valstrs = stats_tree_get_values_from_node(node);
             for (int count = 0; count<st->num_columns; count++) {
                 (*iter)->setText(count,valstrs[count]);
                 g_free(valstrs[count]);

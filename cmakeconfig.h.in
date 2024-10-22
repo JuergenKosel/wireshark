@@ -16,12 +16,11 @@
 #define VERSION_MINOR ${PROJECT_MINOR_VERSION}
 #define VERSION_MICRO ${PROJECT_PATCH_VERSION}
 
-/* Version number of Logray and associated utilities */
+/* Version number of Stratoshark and associated utilities */
 #define LOG_VERSION "${LOG_PROJECT_VERSION}${VERSION_EXTRA}"
 
+#define PLUGIN_PATH_ID "${PLUGIN_PATH_ID}"
 #define VERSION_FLAVOR "${VERSION_FLAVOR}"
-
-#define SHARED_MODULE_SUFFIX "${CMAKE_SHARED_MODULE_SUFFIX}"
 
 /* Build wsutil with SIMD optimization */
 #cmakedefine HAVE_SSE4_2 1
@@ -38,8 +37,8 @@
 /* Enable AddressSanitizer (and LeakSanitizer on clang/gcc) */
 #cmakedefine ENABLE_ASAN 1
 
-/* Enable AirPcap */
-#cmakedefine HAVE_AIRPCAP 1
+/* Enable LeakSanitizer standalone */
+#cmakedefine ENABLE_LSAN 1
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #cmakedefine HAVE_ARPA_INET_H 1
@@ -104,6 +103,9 @@
 /* Define to 1 if you have the `inflatePrime' function. */
 #cmakedefine HAVE_INFLATEPRIME 1
 
+/* Define to 1 if you have the `zng_gzopen' function. */
+#cmakedefine WITH_GZFILEOP 1
+
 /* Define to 1 if you have the `issetugid' function. */
 #cmakedefine HAVE_ISSETUGID 1
 
@@ -149,8 +151,17 @@
 /* Define to use zlib library */
 #cmakedefine HAVE_ZLIB 1
 
+/* Define to use zlib-ng library */
+#cmakedefine HAVE_ZLIBNG 1
+#define ZLIBNG_VERSION_STRING "${ZLIBNG_VERSION_STRING}"
+
 /* Define to use the minizip library */
 #cmakedefine HAVE_MINIZIP 1
+#define MINIZIP_VERSION "${MINIZIP_VERSION}"
+
+/* Define to use the minizip-ng library */
+#cmakedefine HAVE_MINIZIPNG 1
+#define MINIZIPNG_VERSION "${MINIZIPNG_VERSION}"
 
 /* Define if `dos_date' (with underscore) field exists in `zip_fileinfo'  */
 #cmakedefine HAVE_MZCOMPAT_DOS_DATE 1
@@ -181,6 +192,9 @@
 
 /* Define to 1 if we have Lua with Unicode for Windows patches. */
 #cmakedefine HAVE_LUA_UNICODE 1
+
+/* The size of the lua_Integer type, if we have Lua. */
+#cmakedefine LUA_INTEGER_SIZE ${LUA_INTEGER_SIZE}
 
 /* Define to use MIT kerberos */
 #cmakedefine HAVE_MIT_KERBEROS 1
@@ -326,6 +340,9 @@
 /* Define if we have QtMultimedia */
 #cmakedefine QT_MULTIMEDIA_LIB 1
 
+/* Define if we have QtDBus */
+#cmakedefine QT_DBUS_LIB 1
+
 /* Build androiddump with libpcap instead of wireshark stuff */
 #cmakedefine ANDROIDDUMP_USE_LIBPCAP 1
 
@@ -339,6 +356,15 @@
 
 /* Define to 1 if we are using the msys2 environment to build. */
 #cmakedefine HAVE_MSYSTEM 1
+
+/* Define if we have sinsp and scap */
+#cmakedefine HAVE_SINSP 1
+
+#ifdef HAVE_SINSP
+#define SINSP_VERSION_MAJOR ${SINSP_VERSION_MAJOR}
+#define SINSP_VERSION_MINOR ${SINSP_VERSION_MINOR}
+#define SINSP_VERSION_MICRO ${SINSP_VERSION_MICRO}
+#endif
 
 #if defined(_MSC_VER)
 #  define strncasecmp strnicmp
@@ -361,15 +387,15 @@
  * for our needs.
  * This should match the following:
  * - The <compatibility><application> section in resources\wireshark.exe.manifest.in
- * - The GetWindowsVersion parts of packaging\nsis\wireshark.nsi
+ * - The WinVer parts of packaging\nsis\wireshark.nsi
  * - The VersionNT parts of packaging\wix\Prerequisites.wxi
  */
 #  ifndef NTDDI_VERSION
-#  define NTDDI_VERSION   NTDDI_WIN7
+#  define NTDDI_VERSION   NTDDI_WIN10
 #  endif
 
 #  ifndef _WIN32_WINNT
-#  define _WIN32_WINNT    _WIN32_WINNT_WIN7
+#  define _WIN32_WINNT    _WIN32_WINNT_WIN10
 #  endif
 #endif
 

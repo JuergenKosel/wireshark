@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkixac.c                                                            */
-/* asn2wrs.py -b -L -p pkixac -c ./pkixac.cnf -s ./packet-pkixac-template -D . -O ../.. PKIXAttributeCertificate.asn */
+/* asn2wrs.py -b -q -L -p pkixac -c ./pkixac.cnf -s ./packet-pkixac-template -D . -O ../.. PKIXAttributeCertificate.asn */
 
 /* packet-pkixac.c
  *
@@ -19,6 +19,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <wsutil/array.h>
 
 #include <epan/asn1.h>
 #include "packet-ber.h"
@@ -89,25 +90,25 @@ static int hf_pkixac_ClassList_secret;
 static int hf_pkixac_ClassList_topSecret;
 
 /* Initialize the subtree pointers */
-static gint ett_pkixac;
-static gint ett_pkixac_ObjectDigestInfo;
-static gint ett_pkixac_IssuerSerial;
-static gint ett_pkixac_Targets;
-static gint ett_pkixac_Target;
-static gint ett_pkixac_TargetCert;
-static gint ett_pkixac_IetfAttrSyntax;
-static gint ett_pkixac_T_values;
-static gint ett_pkixac_T_values_item;
-static gint ett_pkixac_SvceAuthInfo;
-static gint ett_pkixac_RoleSyntax;
-static gint ett_pkixac_Clearance;
-static gint ett_pkixac_SET_OF_SecurityCategory;
-static gint ett_pkixac_RFC3281Clearance;
-static gint ett_pkixac_ClassList;
-static gint ett_pkixac_SecurityCategory;
-static gint ett_pkixac_AAControls;
-static gint ett_pkixac_AttrSpec;
-static gint ett_pkixac_ProxyInfo;
+static int ett_pkixac;
+static int ett_pkixac_ObjectDigestInfo;
+static int ett_pkixac_IssuerSerial;
+static int ett_pkixac_Targets;
+static int ett_pkixac_Target;
+static int ett_pkixac_TargetCert;
+static int ett_pkixac_IetfAttrSyntax;
+static int ett_pkixac_T_values;
+static int ett_pkixac_T_values_item;
+static int ett_pkixac_SvceAuthInfo;
+static int ett_pkixac_RoleSyntax;
+static int ett_pkixac_Clearance;
+static int ett_pkixac_SET_OF_SecurityCategory;
+static int ett_pkixac_RFC3281Clearance;
+static int ett_pkixac_ClassList;
+static int ett_pkixac_SecurityCategory;
+static int ett_pkixac_AAControls;
+static int ett_pkixac_AttrSpec;
+static int ett_pkixac_ProxyInfo;
 
 static const char *object_identifier_id;
 
@@ -508,57 +509,57 @@ dissect_pkixac_ProxyInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int dissect_Targets_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_Targets(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_Targets_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_Targets(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_Targets_PDU);
   return offset;
 }
 static int dissect_IetfAttrSyntax_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_IetfAttrSyntax(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_IetfAttrSyntax_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_IetfAttrSyntax(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_IetfAttrSyntax_PDU);
   return offset;
 }
 static int dissect_SvceAuthInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_SvceAuthInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_SvceAuthInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_SvceAuthInfo(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_SvceAuthInfo_PDU);
   return offset;
 }
 static int dissect_RoleSyntax_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_RoleSyntax(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_RoleSyntax_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_RoleSyntax(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_RoleSyntax_PDU);
   return offset;
 }
 static int dissect_Clearance_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_Clearance(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_Clearance_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_Clearance(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_Clearance_PDU);
   return offset;
 }
 static int dissect_RFC3281Clearance_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_RFC3281Clearance(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_RFC3281Clearance_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_RFC3281Clearance(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_RFC3281Clearance_PDU);
   return offset;
 }
 static int dissect_AAControls_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_AAControls(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_AAControls_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_AAControls(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_AAControls_PDU);
   return offset;
 }
 static int dissect_ProxyInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixac_ProxyInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixac_ProxyInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixac_ProxyInfo(false, tvb, offset, &asn1_ctx, tree, hf_pkixac_ProxyInfo_PDU);
   return offset;
 }
 
@@ -771,7 +772,7 @@ void proto_register_pkixac(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	&ett_pkixac,
     &ett_pkixac_ObjectDigestInfo,
     &ett_pkixac_IssuerSerial,

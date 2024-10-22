@@ -29,11 +29,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin_wtap
-	"Add support for reading FreeBSD usbdump(8) files"
 	${WIRETAP_SRC}
 )
 
-add_wireshark_wiretap_plugin_library(usbdump)
+add_wireshark_plugin_library(usbdump wiretap)
 
 target_include_directories(usbdump PRIVATE ${CMAKE_SOURCE_DIR}/wiretap)
 

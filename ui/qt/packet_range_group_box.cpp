@@ -113,12 +113,23 @@ void PacketRangeGroupBox::updateCounts() {
         pr_ui_->selectedDisplayedLabel->setEnabled(displayed_checked);
 
         if (range_->include_dependents) {
-            pr_ui_->selectedCapturedLabel->setText(QString::number(range_->selected_plus_depends_cnt));
-            pr_ui_->selectedDisplayedLabel->setText(QString::number(range_->displayed_selected_plus_depends_cnt));
+            label_count = range_->selected_plus_depends_cnt;
         } else {
-            pr_ui_->selectedCapturedLabel->setText(QString::number(range_->selection_range_cnt));
-            pr_ui_->selectedDisplayedLabel->setText(QString::number(range_->displayed_selection_range_cnt));
+            label_count = range_->selection_range_cnt;
         }
+        if (range_->remove_ignored) {
+            label_count -= range_->ignored_selection_range_cnt;
+        }
+        pr_ui_->selectedCapturedLabel->setText(QString::number(label_count));
+        if (range_->include_dependents) {
+            label_count = range_->displayed_selected_plus_depends_cnt;
+        } else {
+            label_count = range_->displayed_selection_range_cnt;
+        }
+        if (range_->remove_ignored) {
+            label_count -= range_->displayed_ignored_selection_range_cnt;
+        }
+        pr_ui_->selectedDisplayedLabel->setText(QString::number(label_count));
     } else {
         if (range_->process == range_process_selected) {
             pr_ui_->allButton->setChecked(true);
@@ -396,7 +407,7 @@ void PacketRangeGroupBox::on_rangeButton_toggled(bool checked)
 void PacketRangeGroupBox::on_capturedButton_toggled(bool checked)
 {
     if (checked) {
-        if (range_) range_->process_filtered = FALSE;
+        if (range_) range_->process_filtered = false;
         updateCounts();
     }
 }
@@ -404,21 +415,21 @@ void PacketRangeGroupBox::on_capturedButton_toggled(bool checked)
 void PacketRangeGroupBox::on_displayedButton_toggled(bool checked)
 {
     if (checked) {
-        if (range_) range_->process_filtered = TRUE;
+        if (range_) range_->process_filtered = true;
         updateCounts();
     }
 }
 
 void PacketRangeGroupBox::on_ignoredCheckBox_toggled(bool checked)
 {
-    if (range_) range_->remove_ignored = checked ? TRUE : FALSE;
+    if (range_) range_->remove_ignored = checked ? true : false;
     updateCounts();
 }
 
 void PacketRangeGroupBox::on_dependedCheckBox_toggled(bool checked)
 {
     if (range_) {
-        range_->include_dependents = checked ? TRUE : FALSE;
+        range_->include_dependents = checked ? true : false;
         updateCounts();
     }
 }

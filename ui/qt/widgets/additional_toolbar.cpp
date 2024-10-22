@@ -9,8 +9,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include <ui/qt/widgets/additional_toolbar.h>
 #include <ui/qt/widgets/apply_line_edit.h>
 #include <ui/qt/utils/qt_ui_utils.h>
@@ -159,7 +157,7 @@ QWidget * AdditionalToolbarWidgetAction::createWidget(QWidget * parent)
 }
 
 static void
-toolbar_button_cb(gpointer item, gpointer item_data, gpointer user_data)
+toolbar_button_cb(void *item, void *item_data, void *user_data)
 {
     if (! item || ! item_data || ! user_data)
         return;
@@ -170,7 +168,7 @@ toolbar_button_cb(gpointer item, gpointer item_data, gpointer user_data)
     if (widget)
     {
         if (update_entry->type == EXT_TOOLBAR_UPDATE_VALUE)
-            widget->setText((gchar *)update_entry->user_data);
+            widget->setText((char *)update_entry->user_data);
         else if (update_entry->type == EXT_TOOLBAR_SET_ACTIVE)
         {
             bool enableState = GPOINTER_TO_INT(update_entry->user_data) == 1;
@@ -195,7 +193,7 @@ QWidget * AdditionalToolbarWidgetAction::createButton(ext_toolbar_t * item, QWid
 }
 
 static void
-toolbar_boolean_cb(gpointer item, gpointer item_data, gpointer user_data)
+toolbar_boolean_cb(void *item, void *item_data, void *user_data)
 {
     if (! item || ! item_data || ! user_data)
         return;
@@ -233,7 +231,11 @@ QWidget * AdditionalToolbarWidgetAction::createBoolean(ext_toolbar_t * item, QWi
     checkbox->setText(item->name);
     setCheckable(true);
     checkbox->setCheckState(defValue.compare("true", Qt::CaseInsensitive) == 0 ? Qt::Checked : Qt::Unchecked);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    connect(checkbox, &QCheckBox::checkStateChanged, this, &AdditionalToolbarWidgetAction::onCheckBoxChecked);
+#else
     connect(checkbox, &QCheckBox::stateChanged, this, &AdditionalToolbarWidgetAction::onCheckBoxChecked);
+#endif
 
     ext_toolbar_register_update_cb(item, (ext_toolbar_action_cb)&toolbar_boolean_cb, (void *)checkbox);
 
@@ -267,7 +269,7 @@ QWidget * AdditionalToolbarWidgetAction::createLabelFrame(ext_toolbar_t * item, 
 }
 
 static void
-toolbar_string_cb(gpointer item, gpointer item_data, gpointer user_data)
+toolbar_string_cb(void *item, void *item_data, void *user_data)
 {
     if (! item || ! item_data || ! user_data)
         return;
@@ -282,7 +284,7 @@ toolbar_string_cb(gpointer item, gpointer item_data, gpointer user_data)
         if (update_entry->silent)
             oldState = edit->blockSignals(true);
 
-        edit->setText((gchar *)update_entry->user_data);
+        edit->setText((char *)update_entry->user_data);
 
         if (update_entry->silent)
             edit->blockSignals(oldState);
@@ -321,7 +323,7 @@ QWidget * AdditionalToolbarWidgetAction::createTextEditor(ext_toolbar_t * item, 
 }
 
 static void
-toolbar_selector_cb(gpointer item, gpointer item_data, gpointer user_data)
+toolbar_selector_cb(void *item, void *item_data, void *user_data)
 {
     if (! item || ! item_data || ! user_data)
         return;
@@ -346,7 +348,7 @@ toolbar_selector_cb(gpointer item, gpointer item_data, gpointer user_data)
 
     if (update_entry->type == EXT_TOOLBAR_UPDATE_VALUE)
     {
-        QString data = QString((gchar *)update_entry->user_data);
+        QString data = QString((char *)update_entry->user_data);
 
         for (int i = 0; i < sourceModel->rowCount(); i++)
         {
@@ -385,8 +387,8 @@ toolbar_selector_cb(gpointer item, gpointer item_data, gpointer user_data)
         if (! update_entry->data_index)
             return;
 
-        gchar * idx = (gchar *)update_entry->data_index;
-        gchar * display = (gchar *)update_entry->user_data;
+        char * idx = (char *)update_entry->data_index;
+        char * display = (char *)update_entry->user_data;
 
         if (update_entry->type == EXT_TOOLBAR_UPDATE_DATABYINDEX)
         {
@@ -516,13 +518,18 @@ void AdditionalToolbarWidgetAction::onButtonClicked()
     item->callback(item, 0, item->user_data);
 }
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+void AdditionalToolbarWidgetAction::onCheckBoxChecked(Qt::CheckState checkState)
+#else
 void AdditionalToolbarWidgetAction::onCheckBoxChecked(int checkState)
+#endif
 {
     ext_toolbar_t * item = extractToolbarItemFromObject(sender());
     if (! item)
         return;
 
-    gboolean value = checkState == Qt::Checked ? true : false;
+    // Qt::PartiallyChecked is not a possibility?
+    bool value = checkState == Qt::Checked ? true : false;
 
     item->callback(item, &value, item->user_data);
 }
@@ -539,7 +546,7 @@ void AdditionalToolbarWidgetAction::sendTextToCallback()
     ApplyLineEdit * editor = dynamic_cast<ApplyLineEdit *>(sender());
     if (! editor)
     {
-        /* Called from button, searching for acompanying line edit */
+        /* Called from button, searching for accompanying line edit */
         QWidget * parent = dynamic_cast<QWidget *>(sender()->parent());
         if (parent)
         {

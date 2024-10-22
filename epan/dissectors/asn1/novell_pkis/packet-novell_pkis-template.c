@@ -15,6 +15,7 @@
 #include <epan/oids.h>
 #include <epan/conversation.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-per.h"
 #include "packet-ber.h"
@@ -38,7 +39,7 @@ void proto_register_novell_pkis (void)
   static hf_register_info hf[] = {
 #include "packet-novell_pkis-hfarr.c"
   };
-  static gint *ett[] = {
+  static int *ett[] = {
 #include "packet-novell_pkis-ettarr.c"
   };
 

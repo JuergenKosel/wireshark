@@ -17,6 +17,7 @@
 
 #include "extcap-base.h"
 
+#include <wsutil/array.h>
 #include <wsutil/strtoi.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/privileges.h>
@@ -41,7 +42,7 @@
 #define DPAUXMON_VERSION_MINOR "1"
 #define DPAUXMON_VERSION_RELEASE "0"
 
-FILE* pcap_fp = NULL;
+FILE* pcap_fp;
 
 enum {
 	EXTCAP_BASE_OPTIONS_ENUM,
@@ -50,7 +51,7 @@ enum {
 	OPT_INTERFACE_ID,
 };
 
-static struct ws_option longopts[] = {
+static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	/* Generic application options */
 	{ "help", ws_no_argument, NULL, OPT_HELP},
@@ -387,12 +388,10 @@ static struct genl_cmd cmds[] = {
 	},
 };
 
-#define ARRAY_SIZE(X) (sizeof(X) / sizeof((X)[0]))
-
 static struct genl_ops ops = {
 	.o_name = "dpauxmon",
 	.o_cmds = cmds,
-	.o_ncmds = ARRAY_SIZE(cmds),
+	.o_ncmds = array_length(cmds),
 };
 
 struct nl_sock *sock;

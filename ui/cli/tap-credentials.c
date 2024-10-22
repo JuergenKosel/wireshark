@@ -26,7 +26,7 @@
 
 void register_tap_listener_credentials(void);
 
-wmem_array_t* credentials = NULL;
+wmem_array_t* credentials;
 
 static tap_credential_t* tap_credential_clone(tap_credential_t* auth)
 {
@@ -64,7 +64,7 @@ static void credentials_draw(void *p _U_)
     printf("===================================================================\n");
     printf("%-10s %-16s %-16s %-16s\n", "Packet", "Protocol", "Username", "Info");
     printf("------     --------         --------         --------\n");
-    for (guint i = 0; i < wmem_array_get_count(credentials); i++) {
+    for (unsigned i = 0; i < wmem_array_get_count(credentials); i++) {
         tap_credential_t* auth = (tap_credential_t*)wmem_array_index(credentials, i);
         printf("%-10u %-16s %-16s %-16s\n", auth->num, auth->proto, auth->username, auth->info ? auth->info : "");
     }

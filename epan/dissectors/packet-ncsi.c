@@ -23,7 +23,8 @@
 
 #include <epan/packet.h>
 #include <epan/etypes.h>
-#include <epan/expert.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include <epan/addr_resolv.h>
 #include <epan/pci-ids.h>
 #include <epan/charsets.h>
@@ -207,22 +208,33 @@ static int hf_ncsi_mlnx_v6gbl; /* MC IPv6 Global Address */
 static int hf_ncsi_mlnx_gama_st;  /*Get Allocated Management Address Status */
 static int hf_ncsi_mlnx_gama_mac; /*Allocated MC MAC address */
 
+/* Get Temperature (Command = 0x13, Parameter = 0x2) */
+static int hf_ncsi_mlnx_gtemp_index;  /*Sensor index */
+static int hf_ncsi_mlnx_gtemp_sp;     /*ST */
+static int hf_ncsi_mlnx_gtemp_sindex;  /*Sensor index */
+static int hf_ncsi_mlnx_gtemp_pad_mms;
+static int hf_ncsi_mlnx_gtemp_pad;
+static int hf_ncsi_mlnx_gtemp_mms;
+static int hf_ncsi_mlnx_temp1;
+static int hf_ncsi_mlnx_temp2;
+static int hf_ncsi_mlnx_temp3;
 
 
-static gint ett_ncsi;
-static gint ett_ncsi_type;
-static gint ett_ncsi_chan;
-static gint ett_ncsi_payload;
-static gint ett_ncsi_lstat;
-static gint ett_ncsi_cap_flag;
-static gint ett_ncsi_cap_bf;
-static gint ett_ncsi_cap_mf;
-static gint ett_ncsi_cap_aen;
-static gint ett_ncsi_cap_vmode;
-static gint ett_ncsi_ls;
-static gint ett_ncsi_mlnx;
-static gint ett_ncsi_mlnx_sms;
-static gint ett_ncsi_mlnx_ifm;
+static int ett_ncsi;
+static int ett_ncsi_type;
+static int ett_ncsi_chan;
+static int ett_ncsi_payload;
+static int ett_ncsi_lstat;
+static int ett_ncsi_cap_flag;
+static int ett_ncsi_cap_bf;
+static int ett_ncsi_cap_mf;
+static int ett_ncsi_cap_aen;
+static int ett_ncsi_cap_vmode;
+static int ett_ncsi_ls;
+static int ett_ncsi_mlnx;
+static int ett_ncsi_mlnx_sms;
+static int ett_ncsi_mlnx_ifm;
+static int ett_ncsi_mlnx_gtemp;
 
 #define NCSI_MIN_LENGTH 8
 
@@ -405,7 +417,7 @@ static const value_string ncsi_partner_flow_vals[] = {
     { 0x00, "Not pause capable" },
     { 0x01, "Symmetric pause" },
     { 0x02, "Asymmetric pause" },
-    { 0x03, "Symmetric & Assymetric pause" },
+    { 0x03, "Symmetric & Asymmetric pause" },
     { 0, NULL },
 };
 
@@ -427,6 +439,12 @@ static const value_string ncsi_sm_at_vals[] = {
 static const value_string ncsi_bf_filter_vals[] = {
     { 0x00, "drop" },
     { 0x01, "forward" },
+    { 0, NULL },
+};
+
+static const value_string ncsi_mlnx_gtemp_sp_vals[] = {
+    { 0x00, "Select system and on-chip sensor" },
+    { 0x01, "Select Port sensor" },
     { 0, NULL },
 };
 
@@ -462,7 +480,7 @@ ncsi_proto_tree_add_lstat(tvbuff_t *tvb, proto_tree *tree, int offset)
 static void
 dissect_ncsi_aen(tvbuff_t *tvb, proto_tree *tree)
 {
-    guint8 type = tvb_get_guint8(tvb, 19);
+    uint8_t type = tvb_get_uint8(tvb, 19);
 	proto_item *pi;
 
     pi = proto_tree_add_item(tree, hf_ncsi_aen_type, tvb, 19, 1, ENC_NA);
@@ -511,16 +529,16 @@ dissect_ncsi_aen(tvbuff_t *tvb, proto_tree *tree)
 
 #define HEXSTR(x) (((x) < 10)? '0' + (x): 'A' + ((x) - 10))
 
-static const gchar *
-ncsi_bcd_dig_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
+static const char *
+ncsi_bcd_dig_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const int offset)
 {
-    guint8  octet;
+    uint8_t octet;
     int     i;
     char    digit_str[16]; /* MM.mm.uu.aa.bb */
     int     str_offset = 0;
 
     for (i = 0 ; i < 3; i++) {
-        octet = tvb_get_guint8(tvb, offset + i);
+        octet = tvb_get_uint8(tvb, offset + i);
 
         if (octet == 0xff) {
             break;
@@ -535,12 +553,12 @@ ncsi_bcd_dig_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
 
     }
 
-    octet = tvb_get_guint8(tvb, offset + 3);
+    octet = tvb_get_uint8(tvb, offset + 3);
     if (octet) {
         digit_str[str_offset++] = '.';
         digit_str[str_offset++] = octet;
 
-        octet = tvb_get_guint8(tvb, offset + 7);
+        octet = tvb_get_uint8(tvb, offset + 7);
         if (octet) {
             digit_str[str_offset++] = '.';
             digit_str[str_offset++] = octet;
@@ -554,11 +572,11 @@ ncsi_bcd_dig_to_str(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
 }
 
 
-static const gchar *
-ncsi_fw_version(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
+static const char *
+ncsi_fw_version(wmem_allocator_t *scope, tvbuff_t *tvb, const int offset)
 {
     int     length = 16; /* hh.hh.hh.hh */
-    guint8  octet;
+    uint8_t octet;
     int     i;
     char   *ver_str;
     int     str_offset = 0;
@@ -567,7 +585,7 @@ ncsi_fw_version(wmem_allocator_t *scope, tvbuff_t *tvb, const gint offset)
     ver_str = (char *)wmem_alloc(scope, length);
 
     for (i = 0 ; i < 4; i++) {
-        octet = tvb_get_guint8(tvb, offset + i);
+        octet = tvb_get_uint8(tvb, offset + i);
 
         if (i != 0) {
             ver_str[str_offset++] = '.';
@@ -692,7 +710,8 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 {
     proto_tree *ncsi_tree, *ncsi_payload_tree;
     proto_item *ti, *pti;
-    guint8 type, plen, poffset;
+    uint8_t type, plen, poffset;
+    uint32_t resp_code, reason_code;
 
     static int * const type_masked_fields[] = {
         &hf_ncsi_type_code_masked,
@@ -713,20 +732,20 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "NCSI");
 
-    type = tvb_get_guint8(tvb, 4);
-    plen = tvb_get_guint8(tvb, 7);
+    type = tvb_get_uint8(tvb, 4);
+    plen = tvb_get_uint8(tvb, 7);
 
     col_clear(pinfo->cinfo, COL_INFO);
     if (type == 0xff) {
         col_add_fstr(pinfo->cinfo, COL_INFO,
                 "Async Event Notification, chan 0x%02x",
-                tvb_get_guint8(tvb, 5));
+                tvb_get_uint8(tvb, 5));
     } else {
         col_add_fstr(pinfo->cinfo, COL_INFO, "%s %s, id 0x%02x, chan 0x%02x",
                 val_to_str(type & 0x7f, ncsi_type_vals, "Unknown type 0x%02x"),
                 type & 0x80 ? "response" : "request ",
-                tvb_get_guint8(tvb, 3),
-                tvb_get_guint8(tvb, 5));
+                tvb_get_uint8(tvb, 3),
+                tvb_get_uint8(tvb, 5));
     }
 
 
@@ -754,11 +773,13 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             plen, ett_ncsi_payload, &pti, "Payload");
 
     /* All responses start with response code & reason data */
+    resp_code = 0;
+    reason_code = 0;
     if (type != 0xff && type & 0x80) {
-        proto_tree_add_item(ncsi_payload_tree, hf_ncsi_resp, tvb,
-                16, 2, ENC_NA);
-        proto_tree_add_item(ncsi_payload_tree, hf_ncsi_reason, tvb,
-                18, 2, ENC_NA);
+        proto_tree_add_item_ret_uint(ncsi_payload_tree, hf_ncsi_resp, tvb,
+                16, 2, ENC_NA, &resp_code);
+        proto_tree_add_item_ret_uint(ncsi_payload_tree, hf_ncsi_reason, tvb,
+                18, 2, ENC_NA, &reason_code);
     }
 
     if (type == NCSI_TYPE_AEN) {
@@ -818,29 +839,51 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         proto_tree_add_item(ncsi_payload_tree, hf_ncsi_oem_id, tvb,
                 16 + poffset, 4, ENC_NA);
 
-        if (tvb_get_guint32(tvb, 16 + poffset, ENC_BIG_ENDIAN) == NCSI_OEM_MLX) {
+        if (tvb_get_uint32(tvb, 16 + poffset, ENC_BIG_ENDIAN) == NCSI_OEM_MLX) {
             proto_item *opti;
             proto_tree *oem_payload_tree;
-            guint mlnx_cmd, mlnx_param;
+            unsigned mlnx_cmd, mlnx_param;
 
-            mlnx_cmd = tvb_get_guint8(tvb, 16 + poffset + 5);
-            mlnx_param = tvb_get_guint8(tvb, 16 + poffset + 6);
+            /* Mellanox OEM command */
+            static int * const mlx_gtemp_fields[] = {
+                &hf_ncsi_mlnx_gtemp_sp,
+                &hf_ncsi_mlnx_gtemp_sindex,
+                NULL,
+            };
+
+            mlnx_cmd = tvb_get_uint8(tvb, 16 + poffset + 5);
+            mlnx_param = tvb_get_uint8(tvb, 16 + poffset + 6);
             /* OEM payload tree */
             oem_payload_tree = proto_tree_add_subtree(ncsi_payload_tree, tvb, 16 + poffset + 4, plen - poffset - 4, ett_ncsi_mlnx, &opti, "Mellanox OEM");
 
             proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_cmd, tvb, 16 + poffset + 5, 1, ENC_NA);
             proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_parm, tvb, 16 + poffset + 6, 1, ENC_NA);
-            proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_host, tvb, 16 + poffset + 7, 1, ENC_NA);
 
 
             if (type == (NCSI_TYPE_OEM | 0x80)) { /* Reply */
 
+                static int * const mlx_gtemp_pad_fields[] = {
+                    &hf_ncsi_mlnx_gtemp_pad,
+                    &hf_ncsi_mlnx_gtemp_mms,
+                    NULL,
+                };
+
                 if (mlnx_cmd == 0x0 && mlnx_param == 0x1b) { /* Get Allocated Management Address (Command = 0x0, Parameter 0x1B) */
+                    proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_host, tvb, 16 + poffset + 7, 1, ENC_NA);
                     proto_item_set_text(opti, "Get Allocated Management Address reply");
                     proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_gama_st, tvb, 28, 1, ENC_NA);
                     proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_gama_mac, tvb, 32, 6, ENC_NA);
                 } else if (mlnx_cmd == 0x1 && mlnx_param == 0x7) { /* Set MC Affinity (Command = 0x1, parameter 0x7) */
                     proto_item_set_text(opti, "Set MC Affinity reply");
+                } else if (mlnx_cmd == 0x13 && mlnx_param == 0x2){ /* Get Temperature (Command = 0x13, parameter 0x2) */
+                    proto_item_set_text(opti, "Get Temperature reply");
+                    proto_tree_add_bitmask(oem_payload_tree, tvb, 16 + poffset + 7, hf_ncsi_mlnx_gtemp_index, ett_ncsi_mlnx, mlx_gtemp_fields, ENC_NA);
+                    proto_tree_add_bitmask(oem_payload_tree, tvb, 16 + poffset + 8, hf_ncsi_mlnx_gtemp_pad_mms, ett_ncsi_mlnx, mlx_gtemp_pad_fields, ENC_NA);
+                    if(resp_code ==0 && reason_code == 0) {
+                        proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_temp1, tvb, 16 + poffset + 9, 1, ENC_NA);
+                        proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_temp2, tvb, 16 + poffset + 10, 1, ENC_NA);
+                        proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_temp3, tvb, 16 + poffset + 11, 1, ENC_NA);
+                    }
                 } else {
                     proto_item_set_text(opti, "Unknown OEM reply");
                 }
@@ -887,7 +930,11 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                 proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_v4addr, tvb, 40, 4, ENC_NA);
                 proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_v6local, tvb, 44, 16, ENC_NA);
                 proto_tree_add_item(oem_payload_tree, hf_ncsi_mlnx_v6gbl, tvb, 60, 16, ENC_NA);
-            } else {
+            } else if (mlnx_cmd == 0x13 && mlnx_param == 0x2) { /* Get Temperature (Command = 0x13, parameter 0x2) */
+                    proto_item_set_text(opti, "Get Temperature");
+                    proto_tree_add_bitmask(oem_payload_tree, tvb, 16 + poffset + 7, hf_ncsi_mlnx_gtemp_index, ett_ncsi_mlnx, mlx_gtemp_fields, ENC_NA);
+            }
+            else {
                 proto_item_set_text(opti, "Unknown OEM request");
             }
 
@@ -902,10 +949,10 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         break;
     case NCSI_TYPE_VER | 0x80:
         if (plen >= 40) { /*  We got complete payload*/
-            const gchar *ver_str;
+            const char *ver_str;
             proto_tree  *ncsi_ver_tree;
-            gchar *fw_name;
-            guint16 vid, did, svid, ssid;
+            char *fw_name;
+            uint16_t vid, did, svid, ssid;
 
             ncsi_ver_tree = proto_tree_add_subtree(ncsi_payload_tree, tvb, 20,
                             plen - 4, ett_ncsi_payload, NULL, "Version ID");
@@ -916,10 +963,10 @@ dissect_ncsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
             proto_tree_add_string(ncsi_ver_tree, hf_ncsi_fw_name, tvb, 28, 12, fw_name);
             proto_tree_add_string(ncsi_ver_tree, hf_ncsi_fw_ver, tvb, 40, 4, ncsi_fw_version(pinfo->pool, tvb, 40));
 
-            vid = tvb_get_guint16(tvb, 46, ENC_BIG_ENDIAN);
-            did = tvb_get_guint16(tvb, 44, ENC_BIG_ENDIAN);
-            svid = tvb_get_guint16(tvb, 50, ENC_BIG_ENDIAN);
-            ssid = tvb_get_guint16(tvb, 48, ENC_BIG_ENDIAN);
+            vid = tvb_get_uint16(tvb, 46, ENC_BIG_ENDIAN);
+            did = tvb_get_uint16(tvb, 44, ENC_BIG_ENDIAN);
+            svid = tvb_get_uint16(tvb, 50, ENC_BIG_ENDIAN);
+            ssid = tvb_get_uint16(tvb, 48, ENC_BIG_ENDIAN);
 
             proto_tree_add_string(ncsi_ver_tree, hf_ncsi_pci_vid, tvb,  46, 2, pci_id_str(vid, 0xffff, 0xffff, 0xffff));
             proto_tree_add_string(ncsi_ver_tree, hf_ncsi_pci_did, tvb,  44, 2, pci_id_str(vid, did, 0xffff, 0xffff));
@@ -1284,7 +1331,7 @@ proto_register_ncsi(void)
             NULL, HFILL },
         },
 
-        /* Get Verison ID */
+        /* Get Version ID */
         { &hf_ncsi_ver,
           { "NC-SI version", "ncsi.ver",
             FT_STRING, BASE_NONE, NULL, 0,
@@ -1629,15 +1676,60 @@ proto_register_ncsi(void)
             FT_ETHER, BASE_NONE, NULL, 0x0,
             NULL, HFILL },
         },
+        /* Get Temperature (Command = 0x13, Parameter = 0x2) */
+        { &hf_ncsi_mlnx_gtemp_index,
+          { "Get sensor index", "ncsi.mlx.temp.index",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_gtemp_sp,
+          { "SP", "ncsi.mlx.temp.sp",
+            FT_UINT8, BASE_HEX, VALS(ncsi_mlnx_gtemp_sp_vals), 0x80, /* bits 7 */
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_gtemp_sindex,
+          { "Sensor index", "ncsi.mlx.temp.sindex",
+            FT_UINT8, BASE_HEX, NULL, 0x7f, /* bits 6..0 */
+            NULL, HFILL },
+        },
 
-
+        { &hf_ncsi_mlnx_gtemp_pad_mms,
+          { "PAD_MMS", "ncsi.mlx.temp.pad_mms",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            "PAD and MMS", HFILL },
+        },
+        { &hf_ncsi_mlnx_gtemp_pad,
+          { "PAD", "ncsi.mlx.temp.pad",
+            FT_UINT8, BASE_HEX, NULL, 0xfe, /* bits 7..1 */
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_gtemp_mms,
+          { "MMS", "ncsi.mlx.temp.mms",
+            FT_UINT8, BASE_HEX, NULL, 0x1, /* bits 0 */
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_temp1,
+          { "Max Meas Temperature", "ncsi.mlx.maxmeas_temp",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_temp2,
+          { "Max Op Temperature", "ncsi.mlx.maxop_temp",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL },
+        },
+        { &hf_ncsi_mlnx_temp3,
+          { "Current Temperature", "ncsi.mlx.current_temp",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL, HFILL },
+        },
 
     };
 
 	/* *INDENT-ON* */
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_ncsi,
         &ett_ncsi_type,
         &ett_ncsi_chan,
@@ -1651,7 +1743,8 @@ proto_register_ncsi(void)
         &ett_ncsi_ls,
         &ett_ncsi_mlnx,
         &ett_ncsi_mlnx_sms,
-        &ett_ncsi_mlnx_ifm
+        &ett_ncsi_mlnx_ifm,
+        &ett_ncsi_mlnx_gtemp,
     };
 
     /* Register the protocol name and description */

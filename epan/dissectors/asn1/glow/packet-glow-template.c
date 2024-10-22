@@ -13,6 +13,8 @@
 # include "config.h"
 
 #include <epan/packet.h>
+#include <epan/proto_data.h>
+#include <wsutil/array.h>
 #include "packet-ber.h"
 
 #define PNAME  "Glow"
@@ -21,7 +23,7 @@
 
 void proto_register_glow(void);
 
-static dissector_handle_t glow_handle=NULL;
+static dissector_handle_t glow_handle;
 static int proto_glow;
 
 #include "packet-glow-hf.c"
@@ -60,7 +62,7 @@ void proto_register_glow(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
                   &ett_glow,
 #include "packet-glow-ettarr.c"
   };

@@ -74,18 +74,28 @@ with open(args.outfile, 'w') as f:
         line = line.strip()
         if not line or line.startswith('#'):
             continue
+        if line.startswith('Adding in plugin'):
+            # https://bugreports.qt.io/browse/QTBUG-122257
+            # Affects 6.6.0 - 6.6.2
+            continue
         path, relative = line.split(" ")
         rel_path = os.path.split(relative)
         if len(rel_path) > 1:
             base_dir = rel_path[0].strip('"')
             if base_dir != current_dir:
-                set_out_path = 'SetOutPath "$INSTDIR\{}"'.format(base_dir)
+                set_out_path = r'SetOutPath "$INSTDIR\{}"'.format(base_dir)
                 print(set_out_path, file=f)
                 current_dir = base_dir
 
         path = path.strip('"')
         if args.sysroot:
             path = os.path.join(args.sysroot, path)
+            if args.mapping and not os.path.isfile(path):
+                # This hack is because Qt 6.7 renamed QWindowsVistaStylePlugin
+                # to QModernWindowsStylePlugin. (This explicit mapping because
+                # windeployqt6 doesn't work well with cross-compiling is
+                # brittle.)
+                continue
         file_path = 'File "{}"'.format(path)
         print(file_path, file=f)
 

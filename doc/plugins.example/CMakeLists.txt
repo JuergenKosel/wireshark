@@ -7,8 +7,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 
-cmake_minimum_required(VERSION 3.12)
-cmake_policy(SET CMP0048 NEW)
+cmake_minimum_required(VERSION 3.16)
 
 project(Hello VERSION 0.0.1 DESCRIPTION "Wireshark Hello Plugin" LANGUAGES C)
 
@@ -39,11 +38,7 @@ add_compile_definitions(
 )
 
 add_library(hello MODULE hello.c)
-set_target_properties(hello PROPERTIES
-	PREFIX ""
-	SUFFIX "${Wireshark_PLUGIN_SUFFIX_EPAN}"
-	DEFINE_SYMBOL ""
-)
+set_target_properties(hello PROPERTIES PREFIX "" DEFINE_SYMBOL "")
 target_link_libraries(hello epan)
 
 # This is the normal installation target to CMAKE_INSTALL_PREFIX. It is relocatable

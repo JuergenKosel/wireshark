@@ -14,6 +14,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/to_str.h>
+#include <epan/tfs.h>
 #include "packet-mpeg-sect.h"
 
 void proto_register_dvb_data_mpe(void);
@@ -30,7 +31,7 @@ static int hf_dvb_data_mpe_last_section_number;
 static int hf_dvb_data_mpe_dst_mac;
 static int hf_dvb_data_mpe_dst_mac_scrambled;
 
-static gint ett_dvb_data_mpe;
+static int ett_dvb_data_mpe;
 
 static expert_field ei_dvb_data_mpe_reserved_not_one;
 static expert_field ei_dvb_data_mpe_payload_scrambled;
@@ -65,13 +66,13 @@ static int
 dissect_dvb_data_mpe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
 
-    guint       offset = 0, tot_len = 0;
-    guint32     reserved, address_scrambling, payload_scrambling, llc_snap_flag;
+    unsigned    offset = 0, tot_len = 0;
+    uint32_t    reserved, address_scrambling, payload_scrambling, llc_snap_flag;
     int         i;
 
     proto_item *ti;
     proto_tree *dvb_data_mpe_tree;
-    guchar     *dst = (guchar*)wmem_alloc(pinfo->pool, 6);
+    unsigned char     *dst = (unsigned char*)wmem_alloc(pinfo->pool, 6);
     address     dst_addr;
     tvbuff_t   *data_tvb;
 
@@ -88,9 +89,9 @@ dissect_dvb_data_mpe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
 
     /* Parse the DMC-CC private section header */
 
-    dst[5] = tvb_get_guint8(tvb, offset);
+    dst[5] = tvb_get_uint8(tvb, offset);
     offset += 1;
-    dst[4] = tvb_get_guint8(tvb, offset);
+    dst[4] = tvb_get_uint8(tvb, offset);
     offset += 1;
 
     ti = proto_tree_add_item_ret_uint(dvb_data_mpe_tree, hf_dvb_data_mpe_reserved,     tvb, offset, 1, ENC_BIG_ENDIAN, &reserved);
@@ -113,7 +114,7 @@ dissect_dvb_data_mpe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* 
     offset += 1;
 
     for (i = 3; i >= 0; i--) {
-        dst[i] = tvb_get_guint8(tvb, offset);
+        dst[i] = tvb_get_uint8(tvb, offset);
         offset += 1;
     }
 
@@ -199,7 +200,7 @@ proto_register_dvb_data_mpe(void)
 
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_dvb_data_mpe,
     };
 

@@ -9,12 +9,6 @@
 
 #include "export_dissection_dialog.h"
 
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include "ui/packet_range.h"
-#include "ui/win32/file_dlg_win32.h"
-#else // Q_OS_WIN
-
 #include "ui/alert_box.h"
 #include "ui/help_url.h"
 #include "ui/util.h"
@@ -28,11 +22,9 @@
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QPushButton>
-#endif // Q_OS_WIN
 
 #include "main_application.h"
 
-#if !defined(Q_OS_WIN)
 static const QStringList export_extensions = QStringList()
     << ""
     << "txt"
@@ -43,25 +35,16 @@ static const QStringList export_extensions = QStringList()
     << "c"
     << "json";
 
-#endif
-
 ExportDissectionDialog::ExportDissectionDialog(QWidget *parent, capture_file *cap_file, export_type_e export_type, QString selRange):
     WiresharkFileDialog(parent),
     export_type_(export_type),
     cap_file_(cap_file)
-#if !defined(Q_OS_WIN)
     , save_bt_(NULL)
-#else
-    , sel_range_(selRange)
-#endif /* Q_OS_WIN */
 {
     setWindowTitle(mainApp->windowTitleString(tr("Export Packet Dissections")));
 
     setDirectory(mainApp->openDialogInitialDir());
 
-#if !defined(Q_OS_WIN)
-    // Add extra widgets
-    // https://wiki.qt.io/Qt_project_org_faq#How_can_I_add_widgets_to_my_QFileDialog_instance.3F
     setOption(QFileDialog::DontUseNativeDialog, true);
     QDialogButtonBox *button_box = findChild<QDialogButtonBox *>();
     QGridLayout *fd_grid = qobject_cast<QGridLayout*>(layout());
@@ -98,7 +81,7 @@ ExportDissectionDialog::ExportDissectionDialog(QWidget *parent, capture_file *ca
     /* Init the export range */
     packet_range_init(&print_args_.range, cap_file_);
     /* Default to displayed packets */
-    print_args_.range.process_filtered = TRUE;
+    print_args_.range.process_filtered = true;
 
     packet_range_group_box_.initRange(&print_args_.range, selRange);
     h_box->addWidget(&packet_range_group_box_);
@@ -107,64 +90,62 @@ ExportDissectionDialog::ExportDissectionDialog(QWidget *parent, capture_file *ca
 
     if (button_box) {
         button_box->addButton(QDialogButtonBox::Help);
-        connect(button_box, SIGNAL(helpRequested()), this, SLOT(on_buttonBox_helpRequested()));
+        connect(button_box, &QDialogButtonBox::helpRequested, this, &ExportDissectionDialog::on_buttonBox_helpRequested);
 
         save_bt_ = button_box->button(QDialogButtonBox::Save);
     }
 
     if (save_bt_) {
-        connect(&packet_range_group_box_, SIGNAL(validityChanged(bool)),
-                this, SLOT(checkValidity()));
-        connect(&packet_format_group_box_, SIGNAL(formatChanged()),
-                this, SLOT(checkValidity()));
+        connect(&packet_range_group_box_, &PacketRangeGroupBox::validityChanged,
+                this, &ExportDissectionDialog::checkValidity);
+        connect(&packet_format_group_box_, &PacketFormatGroupBox::formatChanged,
+                this, &ExportDissectionDialog::checkValidity);
+        save_bt_->installEventFilter(this);
     }
-    connect(this, SIGNAL(filterSelected(QString)), this, SLOT(exportTypeChanged(QString)));
+    connect(this, &ExportDissectionDialog::filterSelected, this, &ExportDissectionDialog::exportTypeChanged);
 
     // Grow the dialog to account for the extra widgets.
     resize(width(), height() + (packet_range_group_box_.height() * 2 / 3));
 
-    connect(this, SIGNAL(filesSelected(QStringList)), this, SLOT(dialogAccepted(QStringList)));
-#else // Q_OS_WIN
-#endif // Q_OS_WIN
+    connect(this, &ExportDissectionDialog::filesSelected, this, &ExportDissectionDialog::dialogAccepted);
 }
 
 ExportDissectionDialog::~ExportDissectionDialog()
 {
-#if !defined(Q_OS_WIN)
     g_free(print_args_.file);
     packet_range_cleanup(&print_args_.range);
-#endif
 }
 
 void ExportDissectionDialog::show()
 {
-#if !defined(Q_OS_WIN)
     if (cap_file_) {
         WiresharkFileDialog::show();
     }
-#else // Q_OS_WIN
-    win32_export_file((HWND)parentWidget()->effectiveWinId(), windowTitle().toStdWString().c_str(), cap_file_, export_type_, sel_range_.toStdString().c_str());
-#endif // Q_OS_WIN
 }
 
-#ifndef Q_OS_WIN
 void ExportDissectionDialog::dialogAccepted(const QStringList &selected)
 {
     if (selected.length() > 0) {
+        /* writing might take a while, so hide ourselves so the user
+         * can't click on anything here (this dialog will be closed
+         * and deleted once this function is done), but can access
+         * the ProgressDialog in the main window to cancel the export.
+         */
+        hide();
         cf_print_status_t status;
-        QString file_name = selected[0];
+        QString file_name = QDir::toNativeSeparators(selected[0]);
 
         /* Fill in our print (and export) args */
 
         print_args_.file                = qstring_strdup(file_name);
         print_args_.format              = PR_FMT_TEXT;
-        print_args_.to_file             = TRUE;
+        print_args_.to_file             = true;
         print_args_.cmd                 = NULL;
-        print_args_.print_summary       = TRUE;
-        print_args_.print_col_headings  = TRUE;
+        print_args_.print_summary       = true;
+        print_args_.print_col_headings  = true;
         print_args_.print_dissections   = print_dissections_as_displayed;
-        print_args_.print_hex           = FALSE;
-        print_args_.print_formfeed      = FALSE;
+        print_args_.print_hex           = false;
+        print_args_.print_formfeed      = false;
 
         switch (export_type_) {
         case export_type_text:      /* Text */
@@ -181,12 +162,12 @@ void ExportDissectionDialog::dialogAccepted(const QStringList &selected)
             }
             print_args_.print_hex = packet_format_group_box_.bytesEnabled();
             print_args_.hexdump_options = packet_format_group_box_.getHexdumpOptions();
-            print_args_.stream = print_stream_text_new(TRUE, print_args_.file);
+            print_args_.stream = print_stream_text_new(true, print_args_.file);
             if (print_args_.stream == NULL) {
-                open_failure_alert_box(print_args_.file, errno, TRUE);
+                open_failure_alert_box(print_args_.file, errno, true);
                 return;
             }
-            status = cf_print_packets(cap_file_, &print_args_, TRUE);
+            status = cf_print_packets(cap_file_, &print_args_, true);
             break;
         case export_type_csv:       /* CSV */
             status = cf_write_csv_packets(cap_file_, &print_args_);
@@ -211,14 +192,14 @@ void ExportDissectionDialog::dialogAccepted(const QStringList &selected)
             case CF_PRINT_OK:
                 break;
             case CF_PRINT_OPEN_ERROR:
-                open_failure_alert_box(print_args_.file, errno, TRUE);
+                open_failure_alert_box(print_args_.file, errno, true);
                 break;
             case CF_PRINT_WRITE_ERROR:
                 write_failure_alert_box(print_args_.file, errno);
                 break;
         }
 
-        gchar *dirname;
+        char *dirname;
         /* Save the directory name for future file dialogs. */
         dirname = get_dirname(print_args_.file);  /* Overwrites file_name data */
         set_last_open_dir(dirname);
@@ -239,28 +220,55 @@ void ExportDissectionDialog::exportTypeChanged(QString name_filter)
     setDefaultSuffix(export_extensions[export_type_]);
 }
 
-void ExportDissectionDialog::checkValidity()
+bool ExportDissectionDialog::isValid()
 {
-    bool enable = true;
+    bool valid = true;
 
-    if (!save_bt_) return;
-
-    if (!packet_range_group_box_.isValid()) enable = false;
+    if (!packet_range_group_box_.isValid()) valid = false;
 
     if (export_type_ == export_type_text) {
         if (! packet_format_group_box_.summaryEnabled() &&
             ! packet_format_group_box_.detailsEnabled() &&
             ! packet_format_group_box_.bytesEnabled())
         {
-            enable = false;
+            valid = false;
         }
     }
 
-    save_bt_->setEnabled(enable);
+    return valid;
+}
+
+void ExportDissectionDialog::checkValidity()
+{
+    if (!save_bt_) return;
+
+    save_bt_->setEnabled(isValid());
 }
 
 void ExportDissectionDialog::on_buttonBox_helpRequested()
 {
     mainApp->helpTopicAction(HELP_EXPORT_FILE_DIALOG);
 }
-#endif // Q_OS_WIN
+
+bool ExportDissectionDialog::eventFilter(QObject *obj, QEvent *event)
+{
+    // The QFileDialogPrivate will enable the Ok (Open/Save) button when
+    // anything is typed or selected. We can't catch that beforehand, so
+    // watch for the enable status change and re-disable it if the
+    // group boxes are invalid.
+    // We could do extra work (here and elsewhere) not to disable the button
+    // if what's selected in the dialog is a directory, but even with save_bt_
+    // disabled clicking on the directory still opens it.
+    if (event->type() == QEvent::EnabledChange) {
+        QPushButton *button = qobject_cast<QPushButton *>(obj);
+        if (button && button == save_bt_) {
+            // The button is already changed by the time we get this event.
+            if (button->isEnabled() && !isValid()) {
+                button->setEnabled(false);
+                return true;
+            }
+        }
+    }
+
+    return QObject::eventFilter(obj, event);
+}

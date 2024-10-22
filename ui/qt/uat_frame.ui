@@ -18,7 +18,7 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="TabnavTreeView" name="uatTreeView"/>
+    <widget class="RowMoveTreeView" name="uatTreeView"/>
    </item>
    <item>
     <widget class="QLabel" name="hintLabel">
@@ -54,7 +54,7 @@
         <bool>false</bool>
        </property>
        <property name="toolTip">
-        <string>Remove this entry.</string>
+        <string>Remove the selected entry(ies).</string>
        </property>
       </widget>
      </item>
@@ -64,7 +64,7 @@
         <bool>false</bool>
        </property>
        <property name="toolTip">
-        <string>Copy this entry.</string>
+        <string>Copy the selected entry(ies).</string>
        </property>
        <property name="text">
         <string/>
@@ -74,7 +74,7 @@
      <item>
       <widget class="StockIconToolButton" name="moveUpToolButton">
        <property name="toolTip">
-        <string>Move entry up.</string>
+        <string>Move the selected entry(ies) up.</string>
        </property>
        <property name="text">
         <string/>
@@ -84,7 +84,7 @@
      <item>
       <widget class="StockIconToolButton" name="moveDownToolButton">
        <property name="toolTip">
-        <string>Move entry down.</string>
+        <string>Move the selected entry(ies) down.</string>
        </property>
        <property name="text">
         <string/>
@@ -141,9 +141,9 @@
    <header>widgets/elided_label.h</header>
   </customwidget>
   <customwidget>
-   <class>TabnavTreeView</class>
+   <class>RowMoveTreeView</class>
    <extends>QTreeView</extends>
-   <header>widgets/tabnav_tree_view.h</header>
+   <header>widgets/rowmove_tree_view.h</header>
   </customwidget>
   <customwidget>
    <class>StockIconToolButton</class>

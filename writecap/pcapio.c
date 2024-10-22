@@ -294,7 +294,7 @@ pcapng_write_block(FILE* pfile,
      * getting the trailing block_total_length from the length argument gives
      * us an implicit check of correctness without needing to do an endian swap
      */
-    if (((length & 3) != 0) || (((gintptr)data & 3) != 0)) {
+    if (((length & 3) != 0) || (((intptr_t)data & 3) != 0)) {
         *err = EINVAL;
         return false;
     }
@@ -425,7 +425,7 @@ pcapng_write_interface_description_block(FILE* pfile,
         }
 
         /* 11 - IDB_FILTER */
-        if ((filter != NULL) && (strlen(filter) > 0) && (strlen(filter) < UINT16_MAX)) {
+        if ((filter != NULL) && (strlen(filter) > 0) && (strlen(filter) < UINT16_MAX - 1)) {
                 /* No, this isn't a string, it has an extra type byte */
                 options_length += (uint32_t)(sizeof(struct ws_option) +
                                             (uint16_t)(ADD_PADDING(strlen(filter)+ 1)));
@@ -496,7 +496,8 @@ pcapng_write_interface_description_block(FILE* pfile,
         }
 
         /* 11 - IDB_FILTER - write filter string if applicable
-         * We only write version 1 of the filter, pcapng string
+         * We write out the libpcap filter expression, not the
+         * generated BPF code.
          */
         if ((filter != NULL) && (strlen(filter) > 0) && (strlen(filter) < UINT16_MAX - 1)) {
                 option.type = IDB_FILTER;

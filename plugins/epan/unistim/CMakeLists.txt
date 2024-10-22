@@ -29,11 +29,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"Unified Networks IP Stimulus (UNIStim) dissection"
 	${DISSECTOR_SRC}
 )
 
-add_wireshark_epan_plugin_library(unistim)
+add_wireshark_plugin_library(unistim epan)
 
 target_link_libraries(unistim epan)
 

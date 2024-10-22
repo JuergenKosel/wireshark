@@ -12,6 +12,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 
@@ -41,7 +42,7 @@ void proto_register_ns_cert_exts(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 #include "packet-ns_cert_exts-ettarr.c"
   };
 

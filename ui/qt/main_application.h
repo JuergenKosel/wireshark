@@ -12,8 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include "wsutil/feature_list.h"
 
 #include "epan/register.h"
@@ -56,6 +54,7 @@ public:
 
     enum AppSignal {
         CaptureFilterListChanged,
+        ColorsChanged,
         ColumnsChanged,
         DisplayFilterListChanged,
         FieldsChanged,
@@ -89,6 +88,16 @@ public:
     // Emitting app signals (PacketDissectionChanged in particular) from
     // dialogs on macOS can be problematic. Dialogs should call queueAppSignal
     // instead.
+    // On macOS, nested event loops (e.g., calling a dialog with exec())
+    // that call processEvents (e.g., from PacketDissectionChanged, or
+    // anything with a ProgressFrame) caused issues off and on from 5.3.0
+    // until 5.7.1/5.8.0. It appears to be solved after some false starts:
+    // https://bugreports.qt.io/browse/QTBUG-53947
+    // https://bugreports.qt.io/browse/QTBUG-56746
+    // We also try to avoid exec / additional event loops as much as possible:
+    // e.g., commit f67eccedd9836e6ced1f57ae9889f57a5400a3d7
+    // (note it can show up in unexpected places, e.g. static functions like
+    // WiresharkFileDialog::getOpenFileName())
     void queueAppSignal(AppSignal signal) { app_signals_ << signal; }
     void emitStatCommandSignal(const QString &menu_path, const char *arg, void *userdata);
     void emitTapParameterSignal(const QString cfg_abbr, const QString arg, void *userdata);
@@ -123,7 +132,7 @@ public:
     const QFont monospaceFont(bool zoomed = false) const;
     void setMonospaceFont(const char *font_string);
     int monospaceTextSize(const char *str);
-    void setConfigurationProfile(const gchar *profile_name, bool write_recent_file = true);
+    void setConfigurationProfile(const char *profile_name, bool write_recent_file = true);
     void reloadLuaPluginsDelayed();
     bool isInitialized() { return initialized_; }
     void setReloadingLua(bool is_reloading) { is_reloading_lua_ = is_reloading; }
@@ -167,6 +176,7 @@ private:
     static QString window_title_separator_;
     QList<AppSignal> app_signals_;
     int active_captures_;
+    bool refresh_interfaces_pending_;
 
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     bool software_update_ok_;
@@ -188,6 +198,7 @@ protected:
 signals:
     void appInitialized();
     void localInterfaceEvent(const char *ifname, int added, int up);
+    void scanLocalInterfaces(GList *filter_list = nullptr);
     void localInterfaceListChanged();
     void openCaptureFile(QString cf_path, QString display_filter, unsigned int type);
     void openCaptureOptions();
@@ -195,7 +206,7 @@ signals:
     void updateRecentCaptureStatus(const QString &filename, qint64 size, bool accessible);
     void splashUpdate(register_action_e action, const char *message);
     void profileChanging();
-    void profileNameChanged(const gchar *profile_name);
+    void profileNameChanged(const char *profile_name);
 
     void freezePacketList(bool changing_profile);
     void columnsChanged(); // XXX This recreates the packet list. We might want to rename it accordingly.
@@ -203,6 +214,7 @@ signals:
     void displayFilterListChanged();
     void filterExpressionsChanged();
     void packetDissectionChanged();
+    void colorsChanged();
     void preferencesChanged();
     void addressResolutionChanged();
     void columnDataChanged();
@@ -212,7 +224,6 @@ signals:
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     // Each of these are called from a separate thread.
     void softwareUpdateRequested();
-    void softwareUpdateClose();
     void softwareUpdateQuit();
 #endif
 

@@ -17,6 +17,8 @@
 #include <epan/proto_data.h>
 #include <epan/tap.h>
 #include <epan/uat.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 
 #include "packet-mac-nr.h"
 #include "packet-mac-3gpp-common.h"
@@ -319,6 +321,21 @@ static int hf_mac_nr_rar_grant_csi;
 
 static int hf_mac_nr_rar_temp_crnti;
 
+static int hf_mac_nr_msgb;
+static int hf_mac_nr_msgb_subheader;
+static int hf_mac_nr_msgb_e;
+static int hf_mac_nr_msgb_t1;
+static int hf_mac_nr_msgb_t2;
+static int hf_mac_nr_msgb_s;
+static int hf_mac_nr_msgb_reserved;
+static int hf_mac_nr_msgb_reserved2;
+static int hf_mac_nr_msgb_reserved3;
+static int hf_mac_nr_msgb_ta_command;
+static int hf_mac_nr_msgb_channelaccess_cpext;
+static int hf_mac_nr_msgb_tpc;
+static int hf_mac_nr_msgb_harq_feedback_timing_indicator;
+static int hf_mac_nr_msgb_pucch_resource_indicator;
+
 static int hf_mac_nr_padding;
 
 static int hf_mac_nr_differential_koffset;
@@ -351,10 +368,10 @@ static dissector_handle_t nr_rrc_ul_ccch1_handle;
 /**************************************************************************/
 
 /* By default try to decode transparent data (BCCH, PCCH and CCCH) data using NR RRC dissector */
-static gboolean global_mac_nr_attempt_rrc_decode = TRUE;
+static bool global_mac_nr_attempt_rrc_decode = true;
 
 /* Whether should attempt to decode lcid 1-3 SDUs as srb1-3 (i.e. AM RLC) */
-static gboolean global_mac_nr_attempt_srb_decode = TRUE;
+static bool global_mac_nr_attempt_srb_decode = true;
 
 /* Which layer info to show in the info column */
 enum layer_to_show {
@@ -362,7 +379,7 @@ enum layer_to_show {
 };
 
 /* Which layer's details to show in Info column */
-static gint     global_mac_nr_layer_to_show = (gint)ShowRLCLayer;
+static int      global_mac_nr_layer_to_show = (int)ShowRLCLayer;
 
 
 /***********************************************************************/
@@ -372,10 +389,11 @@ static gint     global_mac_nr_layer_to_show = (gint)ShowRLCLayer;
 enum lcid_drb_source {
     FromStaticTable, FromConfigurationProtocol
 };
-static gint global_mac_nr_lcid_drb_source = (gint)FromStaticTable;
+static int global_mac_nr_lcid_drb_source = (int)FromStaticTable;
 
 
 static const value_string drb_lcid_vals[] = {
+    { 3,  "LCID 3"},
     { 4,  "LCID 4"},
     { 5,  "LCID 5"},
     { 6,  "LCID 6"},
@@ -430,17 +448,17 @@ static const value_string rlc_bearer_type_vals[] = {
 
 /* Mapping type */
 typedef struct lcid_drb_mapping_t {
-    guint32           lcid;
-    guint32           drbid;
+    uint32_t          lcid;
+    uint32_t          drbid;
     rlc_bearer_type_t bearer_type_ul;
     rlc_bearer_type_t bearer_type_dl;
 } lcid_drb_mapping_t;
 
 /* Mapping entity */
-static lcid_drb_mapping_t *lcid_drb_mappings = NULL;
-static guint num_lcid_drb_mappings = 0;
+static lcid_drb_mapping_t *lcid_drb_mappings;
+static unsigned num_lcid_drb_mappings;
 
-UAT_VS_DEF(lcid_drb_mappings, lcid, lcid_drb_mapping_t, guint8, 3, "LCID 3")
+UAT_VS_DEF(lcid_drb_mappings, lcid, lcid_drb_mapping_t, uint8_t, 3, "LCID 3")
 UAT_DEC_CB_DEF(lcid_drb_mappings, drbid, lcid_drb_mapping_t)
 UAT_VS_DEF(lcid_drb_mappings, bearer_type_ul, lcid_drb_mapping_t, rlc_bearer_type_t, rlcAM12, "AM")
 UAT_VS_DEF(lcid_drb_mappings, bearer_type_dl, lcid_drb_mapping_t, rlc_bearer_type_t, rlcAM12, "AM")
@@ -451,25 +469,28 @@ static uat_t* lcid_drb_mappings_uat;
 /* Dynamic mappings (set by configuration protocol)
    LCID is the index into the array of these */
 typedef struct dynamic_lcid_drb_mapping_t {
-    gboolean valid;
-    gint     drbid;
+    bool valid;
+    int      drbid;
     rlc_bearer_type_t bearer_type_ul;
     rlc_bearer_type_t bearer_type_dl;
-    guint8   ul_priority;  // N.B. not yet in rlc_nr_info
+    uint8_t  ul_priority;  // N.B. not yet in rlc_nr_info
 } dynamic_lcid_drb_mapping_t;
 
 typedef struct ue_dynamic_drb_mappings_t {
-    dynamic_lcid_drb_mapping_t mapping[33];  /* Index is LCID (2-32) */
-    guint8 drb_to_lcid_mappings[33];         /* Also map drbid (1-32) -> lcid */
+    bool srb3_set;
+    bool srb4_set;
+    dynamic_lcid_drb_mapping_t mapping[33];  /* Index is LCID (3-32) */
+    uint8_t drb_to_lcid_mappings[33];         /* Also map drbid -> lcid (1-32) */
 } ue_dynamic_drb_mappings_t;
 
-static GHashTable *mac_nr_ue_bearers_hash = NULL;
+/* ueId -> ue_dynamic_drb_mappings_t* */
+static GHashTable *mac_nr_ue_bearers_hash;
 
 
 
 
 /* When showing RLC info, count PDUs so can append info column properly */
-static guint8   s_number_of_rlc_pdus_shown = 0;
+static uint8_t  s_number_of_rlc_pdus_shown;
 
 
 extern int proto_rlc_nr;
@@ -499,6 +520,7 @@ static const value_string rnti_type_vals[] =
     { C_RNTI,      "C-RNTI"},
     { SI_RNTI,     "SI-RNTI"},
     { CS_RNTI,     "CS-RNTI"},
+    { MSGB_RNTI,   "MSGB-RNTI"},
     { 0, NULL }
 };
 
@@ -1278,8 +1300,31 @@ static const value_string bit_rate_vals[] =
 };
 static value_string_ext bit_rate_vals_ext = VALUE_STRING_EXT_INIT(bit_rate_vals);
 
+
+static const true_false_string msgb_t1_vals = {
+    "Random Access Preamble ID present",
+    "T2 is valid"
+};
+
+static const true_false_string msgb_t2_vals = {
+    "S is valid",
+    "Backoff Indicator",
+};
+
+static const true_false_string msgb_s_vals = {
+    "MAC subPDU(s) for MAC SDU present",
+    "MAC subPDU(s) for MAC SDU *NOT* present"
+};
+
+
 /* Forward declarations */
 static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void*);
+
+static int dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+                                  proto_item *pdu_ti, uint32_t offset,
+                                  mac_nr_info *p_mac_nr_info,
+                                  mac_3gpp_tap_info *tap_info);
+
 
 /* Write the given formatted text to:
    - the info column (if pinfo != NULL)
@@ -1424,8 +1469,46 @@ static void dissect_pcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
     }
 }
 
+/* Common to RAR and MSGB */
+static int dissect_fallbackrar(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, int offset,
+                               proto_item *ti, proto_item *pdu_ti, uint32_t rapid)
+{
+    /* 1 reserved bit */
+    proto_tree_add_item(tree, hf_mac_nr_rar_reserved1, tvb, offset, 1, ENC_BIG_ENDIAN);
+
+    /* TA (12 bits) */
+    uint32_t ta;
+    proto_tree_add_item_ret_uint(tree, hf_mac_nr_rar_ta, tvb, offset, 2, ENC_BIG_ENDIAN, &ta);
+    offset++;
+
+    /* Break down the 27-bits of the grant field, according to 38.213, section 8.2 */
+    static int * const rar_grant_fields[] = {
+        &hf_mac_nr_rar_grant_hopping,
+        &hf_mac_nr_rar_grant_fra,
+        &hf_mac_nr_rar_grant_tsa,
+        &hf_mac_nr_rar_grant_mcs,
+        &hf_mac_nr_rar_grant_tcsp,
+        &hf_mac_nr_rar_grant_csi,
+        NULL
+    };
+    proto_tree_add_bitmask(tree, tvb, offset, hf_mac_nr_rar_grant,
+                           ett_mac_nr_rar_grant, rar_grant_fields, ENC_BIG_ENDIAN);
+    offset += 4;
+
+    /* C-RNTI (2 bytes) */
+    uint32_t c_rnti;
+    proto_tree_add_item_ret_uint(tree, hf_mac_nr_rar_temp_crnti, tvb, offset, 2, ENC_BIG_ENDIAN, &c_rnti);
+    offset += 2;
+
+    write_pdu_label_and_info(pdu_ti, ti, pinfo,
+                             "(RAPID=%u TA=%u Temp C-RNTI=%u) ", rapid, ta, c_rnti);
+
+    return offset;
+}
+
+
 static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
-                        proto_item *pdu_ti _U_, guint32 offset,
+                        proto_item *pdu_ti _U_, uint32_t offset,
                         mac_nr_info *p_mac_nr_info, mac_3gpp_tap_info *tap_info)
 {
     write_pdu_label_and_info(pdu_ti, NULL, pinfo,
@@ -1436,7 +1519,7 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
     proto_item *ti = proto_tree_add_item(tree, hf_mac_nr_rar, tvb, offset, -1, ENC_NA);
     proto_item_set_hidden(ti);
 
-    gboolean E, T;
+    bool E, T;
 
     do {
         /* Subheader */
@@ -1456,7 +1539,7 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
             proto_tree_add_item(rar_subheader_tree, hf_mac_nr_rar_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
 
             /* BI (4 bits) */
-            guint32 BI;
+            uint32_t BI;
             proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_bi, tvb, offset, 1, ENC_BIG_ENDIAN, &BI);
             offset++;
 
@@ -1465,42 +1548,14 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
         }
         else {
             /* RAPID */
-            guint32 rapid;
+            uint32_t rapid;
             proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_rapid, tvb, offset, 1, ENC_BIG_ENDIAN, &rapid);
             offset++;
 
-            if (TRUE) {
+            if (true) {
                 /* SubPDU.  Not for SI request - TODO: define RAPID range for SI request in mac_nr_info */
 
-                /* 1 reserved bit */
-                proto_tree_add_item(rar_subheader_tree, hf_mac_nr_rar_reserved1, tvb, offset, 1, ENC_BIG_ENDIAN);
-
-                /* TA (12 bits) */
-                guint32 ta;
-                proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_ta, tvb, offset, 2, ENC_BIG_ENDIAN, &ta);
-                offset++;
-
-                /* Break down the 27-bits of the grant field, according to 38.213, section 8.2 */
-                static int * const rar_grant_fields[] = {
-                    &hf_mac_nr_rar_grant_hopping,
-                    &hf_mac_nr_rar_grant_fra,
-                    &hf_mac_nr_rar_grant_tsa,
-                    &hf_mac_nr_rar_grant_mcs,
-                    &hf_mac_nr_rar_grant_tcsp,
-                    &hf_mac_nr_rar_grant_csi,
-                    NULL
-                };
-                proto_tree_add_bitmask(rar_subheader_tree, tvb, offset, hf_mac_nr_rar_grant,
-                                       ett_mac_nr_rar_grant, rar_grant_fields, ENC_BIG_ENDIAN);
-                offset += 4;
-
-                /* C-RNTI (2 bytes) */
-                guint32 c_rnti;
-                proto_tree_add_item_ret_uint(rar_subheader_tree, hf_mac_nr_rar_temp_crnti, tvb, offset, 2, ENC_BIG_ENDIAN, &c_rnti);
-                offset += 2;
-
-                write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
-                                         "(RAPID=%u TA=%u Temp C-RNTI=%u) ", rapid, ta, c_rnti);
+                offset = dissect_fallbackrar(rar_subheader_tree, pinfo, tvb, offset, subheader_ti, pdu_ti, rapid);
             }
             tap_info->number_of_rars++;
         }
@@ -1516,10 +1571,129 @@ static void dissect_rar(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
 
     /* Update padding bytes in stats */
     tap_info->padding_bytes += (p_mac_nr_info->length - offset);
-
 }
 
-static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
+static void dissect_msgb(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
+                         proto_item *pdu_ti _U_, uint32_t offset,
+                         mac_nr_info *p_mac_nr_info, mac_3gpp_tap_info *tap_info)
+{
+    write_pdu_label_and_info(pdu_ti, NULL, pinfo,
+                             "MSGB (MSGB-RNTI=%u) ",
+                             p_mac_nr_info->rnti);
+
+    /* Create hidden 'virtual root' so can filter on mac-nr.msgb */
+    proto_item *ti = proto_tree_add_item(tree, hf_mac_nr_msgb, tvb, offset, -1, ENC_NA);
+    proto_item_set_hidden(ti);
+
+    bool E, T1, T2, S;
+
+    /* N.B. T2 only present if T1 is 0 */
+    /* N.B. T2 indicates BI (can only appear in first subheader */
+
+    do {
+        /* Subheader */
+        proto_item *subheader_ti = proto_tree_add_item(tree,
+                                                       hf_mac_nr_msgb_subheader,
+                                                       tvb, offset, 0, ENC_ASCII);
+        proto_tree *msgb_subheader_tree = proto_item_add_subtree(subheader_ti, ett_mac_nr_rar_subheader);
+
+        /* Note extension & T1, T2 bits */
+        proto_tree_add_item_ret_boolean(msgb_subheader_tree, hf_mac_nr_msgb_e, tvb, offset, 1, ENC_BIG_ENDIAN, &E);
+        proto_tree_add_item_ret_boolean(msgb_subheader_tree, hf_mac_nr_msgb_t1, tvb, offset, 1, ENC_BIG_ENDIAN, &T1);
+        if (!T1) {
+            /* T2 */
+            proto_tree_add_item_ret_boolean(msgb_subheader_tree, hf_mac_nr_msgb_t2, tvb, offset, 1, ENC_BIG_ENDIAN, &T2);
+        }
+
+        if (T1) {
+            /* RAPID (FallbackRAR MAC subheader) */
+            uint32_t rapid;
+            proto_tree_add_item_ret_uint(msgb_subheader_tree, hf_mac_nr_rar_rapid, tvb, offset, 1, ENC_BIG_ENDIAN, &rapid);
+            offset++;
+
+            /* FallbackRAR (see 6.2.3a) */
+            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "FallbackRAR ");
+            offset = dissect_fallbackrar(msgb_subheader_tree, pinfo, tvb, offset,
+                                         subheader_ti, pdu_ti, rapid);
+        }
+        else if (!T2) {
+            /* BI */
+            uint32_t BI;
+
+            /* 1 reserved bit */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* BI (4 bits) */
+            /* N.B., should define & use own BI field? */
+            proto_tree_add_item_ret_uint(msgb_subheader_tree, hf_mac_nr_rar_bi, tvb, offset, 1, ENC_BIG_ENDIAN, &BI);
+            offset++;
+
+            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                                     "(BI=%u) ", BI);
+        }
+        else {
+            /* Read S (MAC SDU Indicator) */
+            proto_tree_add_item_ret_boolean(msgb_subheader_tree, hf_mac_nr_msgb_s, tvb, offset, 1, ENC_BIG_ENDIAN, &S);
+
+            /* 4 reserved bits */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_reserved2, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset += 1;
+
+            /* successRAR is in 6.2.3a-2 */
+            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "SuccessRAR ");
+
+            /* UE Contention Resolution Identity */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_control_ue_contention_resolution_identity,
+                                tvb, offset, 6, ENC_NA);
+            offset += 6;
+
+            /* R (1 bit) */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_reserved3, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* ChannelAccess-CPext */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_channelaccess_cpext, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* TPC */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_tpc, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* HARQ Feedback Timing Indicator */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_harq_feedback_timing_indicator, tvb, offset, 1, ENC_BIG_ENDIAN);
+            offset += 1;
+
+            /* PUCCH Resource Indicator */
+            proto_tree_add_item(msgb_subheader_tree, hf_mac_nr_msgb_pucch_resource_indicator, tvb, offset, 1, ENC_BIG_ENDIAN);
+            /* Timing Advance Command */
+            uint32_t ta_command;
+            proto_tree_add_item_ret_uint(msgb_subheader_tree, hf_mac_nr_msgb_ta_command, tvb, offset, 2, ENC_BIG_ENDIAN, &ta_command);
+            offset += 2;
+
+            /* C-RNTI */
+            uint32_t c_rnti;
+            proto_tree_add_item_ret_uint(msgb_subheader_tree, hf_mac_nr_rar_temp_crnti, tvb, offset, 2, ENC_BIG_ENDIAN, &c_rnti);
+            offset += 2;
+
+            write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo,
+                                     "(C-RNTI=%u, TA=%u) ", c_rnti, ta_command);
+
+            if (S) {
+                /* subPDU(s) for MAC SDU present */
+                offset = dissect_ulsch_or_dlsch(tvb, pinfo, tree, pdu_ti, offset,
+                                                p_mac_nr_info,
+                                                tap_info);
+            }
+        }
+        /* Set subheader (+subpdu..) length */
+        proto_item_set_end(subheader_ti, tvb, offset);
+
+    } while (E);
+
+    /* Any remaining length is padding */
+    if (tvb_reported_length_remaining(tvb, offset)) {
+        proto_tree_add_item(tree, hf_mac_nr_padding, tvb, offset, -1, ENC_NA);
+    }
+
+    /* Update padding bytes in stats */
+    tap_info->padding_bytes += (p_mac_nr_info->length - offset);
+}
+
+
+static bool is_fixed_sized_lcid(uint8_t lcid, uint8_t direction)
 {
     if (direction == DIRECTION_UPLINK) {
         switch (lcid) {
@@ -1535,9 +1709,9 @@ static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
             case SHORT_TRUNCATED_BSR_LCID:
             case SHORT_BSR_LCID:
             case PADDING_LCID:
-                return TRUE;
+                return true;
             default:
-                return FALSE;
+                return false;
         }
     }
     else {
@@ -1557,14 +1731,14 @@ static gboolean is_fixed_sized_lcid(guint8 lcid, guint8 direction)
             case TIMING_ADVANCE_COMMAND_LCID:
             case UE_CONTENTION_RESOLUTION_IDENTITY_LCID:
             case PADDING_LCID:
-                return TRUE;
+                return true;
             default:
-                return FALSE;
+                return false;
         }
     }
 }
 
-static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
+static bool is_fixed_sized_elcid(uint8_t elcid, uint8_t direction)
 {
     if (direction == DIRECTION_UPLINK) {
         switch (elcid) {
@@ -1588,7 +1762,7 @@ static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
             /* Sidelink Configured Grant Confirmation 1 oct*/
         case DESIRED_GUARD_SYMBOLS:
             /* Desired Guard Symbols 3 oct*/
-            return TRUE;
+            return true;
         default:
             /* Enhanced Multiple Entry PHR for multiple TRP (one octets Ci) */
             /* 234 Enhanced Single Entry PHR*/
@@ -1604,7 +1778,7 @@ static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
             /* 250 BFR (four octets Ci) */
             /* 251 Truncated BFR (four octets Ci)*/
             /* 255 Pre-emptive BSR */
-            return FALSE;
+            return false;
         }
     }
     else {
@@ -1631,7 +1805,7 @@ static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
             /* Provided Guard Symbols 4 oct*/
         case TIMING_DELTA_ELCD:
             /* Timing Delta 2 oct*/
-            return TRUE;
+            return true;
         default:
             /* 227 Serving Cell Set based SRS TCI State Indication */
             /* 228 SP/AP SRS TCI State Indication */
@@ -1651,7 +1825,7 @@ static gboolean is_fixed_sized_elcid(guint8 elcid, guint8 direction)
             /* 249 Enhanced PUCCH Spatial Relation Activation/Deactivation */
             /* 250 Enhanced TCI States Activation/Deactivation for UE-specific PDSCH */
             /* 253 SP Positioning SRS Activation/Deactivation */
-            return FALSE;
+            return false;
         }
     }
 }
@@ -1664,7 +1838,7 @@ static true_false_string subheader_f_vals = {
 /* Returns new subtree that was added for this item */
 static proto_item* dissect_me_phr_ph(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree,
                                     int ph_item, int pcmax_f_c_item,
-                                    guint32 *PH, guint32 *offset)
+                                    uint32_t *PH, uint32_t *offset)
 {
     /* Subtree for this entry */
     proto_item *entry_ti = proto_tree_add_item(tree,
@@ -1675,7 +1849,7 @@ static proto_item* dissect_me_phr_ph(tvbuff_t *tvb, packet_info *pinfo _U_, prot
     /* P */
     proto_tree_add_item(entry_tree, hf_mac_nr_control_me_phr_p, tvb, *offset, 1, ENC_BIG_ENDIAN);
     /* V */
-    gboolean V;
+    bool V;
     proto_tree_add_item_ret_boolean(entry_tree, hf_mac_nr_control_me_phr_v, tvb, *offset, 1, ENC_BIG_ENDIAN, &V);
     /* PH. TODO: infer whether value relates to Type1 (PUSCH), Type2 (PUCCH) or Type3 (SRS).
        And decide whether:
@@ -1699,7 +1873,7 @@ static proto_item* dissect_me_phr_ph(tvbuff_t *tvb, packet_info *pinfo _U_, prot
 }
 
 
-static guint8 get_rlc_seqnum_length(rlc_bearer_type_t rlc_bearer_type)
+static uint8_t get_rlc_seqnum_length(rlc_bearer_type_t rlc_bearer_type)
 {
     switch (rlc_bearer_type) {
         case rlcUM6:
@@ -1720,22 +1894,25 @@ static guint8 get_rlc_seqnum_length(rlc_bearer_type_t rlc_bearer_type)
 
 
 /* Lookup bearer details for lcid */
-static gboolean lookup_rlc_bearer_from_lcid(guint16 ueid,
-                                            guint8 lcid,
-                                            guint8 direction,
+static bool lookup_rlc_bearer_from_lcid(uint16_t ueid,
+                                            uint8_t lcid,
+                                            uint8_t direction,
                                             rlc_bearer_type_t *rlc_bearer_type,  /* out */
-                                            guint8 *seqnum_length,               /* out */
-                                            gint *drb_id)                        /* out */
+                                            uint8_t *seqnum_length,               /* out */
+                                            int *drb_id,                        /* out */
+                                            bool *is_srb)                    /* out */
 {
     /* Zero params (in case no match is found) */
     *rlc_bearer_type = rlcRaw;
     *seqnum_length    = 0;
     *drb_id           = 0;
 
+    *is_srb = false;
+
     if (global_mac_nr_lcid_drb_source == (int)FromStaticTable) {
 
         /* Look up in static (UAT) table */
-        guint m;
+        unsigned m;
         for (m=0; m < num_lcid_drb_mappings; m++) {
             if (lcid == lcid_drb_mappings[m].lcid) {
 
@@ -1748,21 +1925,36 @@ static gboolean lookup_rlc_bearer_from_lcid(guint16 ueid,
                 }
                 *seqnum_length = get_rlc_seqnum_length(*rlc_bearer_type);
                 *drb_id = lcid_drb_mappings[m].drbid;
-                return TRUE;
+                return true;
             }
         }
-        return FALSE;
+        if (lcid==3 || lcid==4) {
+            /* Wasn't found as DRB, so lets assume SRB-3 (or SRB-4) */
+            *is_srb = true;
+        }
+        return false;
     }
     else {
         /* Look up the dynamic mappings for this UE */
-        ue_dynamic_drb_mappings_t *ue_mappings = (ue_dynamic_drb_mappings_t *)g_hash_table_lookup(mac_nr_ue_bearers_hash, GUINT_TO_POINTER((guint)ueid));
+        ue_dynamic_drb_mappings_t *ue_mappings = (ue_dynamic_drb_mappings_t *)g_hash_table_lookup(mac_nr_ue_bearers_hash, GUINT_TO_POINTER((unsigned)ueid));
         if (!ue_mappings) {
-            return FALSE;
+            /* No entry for this UE.. */
+            if (lcid==3 || lcid==4) {
+                *is_srb = true;
+            }
+            return false;
+        }
+
+        if (lcid==3) {
+            *is_srb = ue_mappings->srb3_set;
+        }
+        if (lcid==4) {
+            *is_srb = ue_mappings->srb4_set;
         }
 
         /* Look up setting gleaned from configuration protocol */
         if (!ue_mappings->mapping[lcid].valid) {
-            return FALSE;
+            return false;
         }
 
         /* Found, set out params */
@@ -1772,7 +1964,7 @@ static gboolean lookup_rlc_bearer_from_lcid(guint16 ueid,
         *seqnum_length = get_rlc_seqnum_length(*rlc_bearer_type);
         *drb_id = ue_mappings->mapping[lcid].drbid;
 
-        return TRUE;
+        return true;
     }
 }
 
@@ -1780,16 +1972,16 @@ static gboolean lookup_rlc_bearer_from_lcid(guint16 ueid,
 /* Helper function to call RLC dissector for SDUs (where channel params are known) */
 static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                                proto_item *pdu_ti,
-                               int offset, guint16 data_length,
-                               guint8 mode, guint8 direction, guint16 ueid,
-                               guint8 bearerType, guint8 bearerId,
-                               guint8 sequenceNumberLength,
-                               guint8 priority _U_)
+                               int offset, uint16_t data_length,
+                               uint8_t mode, uint8_t direction, uint16_t ueid,
+                               uint8_t bearerType, uint8_t bearerId,
+                               uint8_t sequenceNumberLength,
+                               uint8_t priority _U_)
 {
     tvbuff_t            *rb_tvb = tvb_new_subset_length(tvb, offset, data_length);
     struct rlc_nr_info *p_rlc_nr_info;
 
-    /* Resuse or create RLC info */
+    /* Reuse or create RLC info */
     p_rlc_nr_info = (rlc_nr_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_rlc_nr, 0);
     if (p_rlc_nr_info == NULL) {
         p_rlc_nr_info = wmem_new0(wmem_file_scope(), struct rlc_nr_info);
@@ -1810,7 +2002,7 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
 
     if (global_mac_nr_layer_to_show != ShowRLCLayer) {
         /* Don't want these columns replaced */
-        col_set_writable(pinfo->cinfo, -1, FALSE);
+        col_set_writable(pinfo->cinfo, -1, false);
     }
     else {
         /* Clear info column before first RLC PDU */
@@ -1829,14 +2021,14 @@ static void call_rlc_dissector(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
     call_with_catch_all(rlc_nr_handle, rb_tvb, pinfo, tree);
 
     /* Let columns be written to again */
-    col_set_writable(pinfo->cinfo, -1, TRUE);
+    col_set_writable(pinfo->cinfo, -1, true);
 }
 
 /* see 3GPP 38.133 Table 10.1.17.1-1 */
 static void
-mac_nr_phr_fmt(gchar *s, guint32 v)
+mac_nr_phr_fmt(char *s, uint32_t v)
 {
-    gint32 val = (gint32)v;
+    int32_t val = (int32_t)v;
 
     if (val == 0) {
         snprintf(s, ITEM_LABEL_LENGTH, "PH < -32 dB (0)");
@@ -1851,9 +2043,9 @@ mac_nr_phr_fmt(gchar *s, guint32 v)
 
 /* see 3GPP 38.133 Table 10.1.18.1-1 */
 static void
-mac_nr_pcmax_f_c_fmt(gchar *s, guint32 v)
+mac_nr_pcmax_f_c_fmt(char *s, uint32_t v)
 {
-    gint32 val = (gint32)v;
+    int32_t val = (int32_t)v;
 
     if (val == 0) {
         snprintf(s, ITEM_LABEL_LENGTH, "Pcmax,f,c < -29 dBm (0)");
@@ -1866,14 +2058,13 @@ mac_nr_pcmax_f_c_fmt(gchar *s, guint32 v)
 
 /* UL-SCH and DL-SCH formats have much in common, so handle them in a common
    function */
-static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
-                                   proto_item *pdu_ti, guint32 offset,
-                                   mac_nr_info *p_mac_nr_info,
-                                   proto_tree *context_tree _U_,
-                                   mac_3gpp_tap_info *tap_info)
+static int dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
+                                  proto_item *pdu_ti, uint32_t offset,
+                                  mac_nr_info *p_mac_nr_info,
+                                  mac_3gpp_tap_info *tap_info)
 {
-    gboolean ces_seen = FALSE;
-    gboolean data_seen = FALSE;
+    bool ces_seen = false;
+    bool data_seen = false;
 
     write_pdu_label_and_info(pdu_ti, NULL, pinfo,
                              "%s ",
@@ -1891,23 +2082,23 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
         proto_tree *subheader_tree = proto_item_add_subtree(subheader_ti, ett_mac_nr_subheader);
 
 
-        gboolean F, fixed_len;
-        guint32 SDU_length=0;
+        bool F, fixed_len;
+        uint32_t SDU_length=0;
 
         /* 1st bit is always reserved */
         /* 2nd bit depends upon LCID */
-        guint8 lcid = tvb_get_guint8(tvb, offset) & 0x3f;
-        gint32 elcid= -1;
+        uint8_t lcid = tvb_get_uint8(tvb, offset) & 0x3f;
+        int32_t elcid= -1;
         switch (lcid) {
-        case TWO_OCTET_ELCID_FIELD:
-            elcid = tvb_get_guint16(tvb, offset+1, ENC_BIG_ENDIAN);
-            fixed_len = TRUE;
-            break;
-        case ONE_OCTET_ELCID_FIELD:
-            elcid = tvb_get_guint8(tvb, offset+1);
-            fixed_len = is_fixed_sized_elcid(elcid, p_mac_nr_info->direction);
-        default:
-            break;
+            case TWO_OCTET_ELCID_FIELD:
+                elcid = tvb_get_uint16(tvb, offset+1, ENC_BIG_ENDIAN);
+                fixed_len = true;
+                break;
+            case ONE_OCTET_ELCID_FIELD:
+                elcid = tvb_get_uint8(tvb, offset+1);
+                fixed_len = is_fixed_sized_elcid(elcid, p_mac_nr_info->direction);
+            default:
+                break;
         }
         if (elcid == -1) {
             /* No elcid present */
@@ -1927,33 +2118,35 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                             (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
                                   hf_mac_nr_ulsch_lcid : hf_mac_nr_dlsch_lcid,
                             tvb, offset, 1, lcid);
-        /* Also add as a hidden, direction-less field */
+        /* Also add LCID as a hidden, direction-less field */
         proto_item *bi_di_lcid = proto_tree_add_uint(subheader_tree, hf_mac_nr_lcid, tvb, offset, 1, lcid);
         proto_item_set_hidden(bi_di_lcid);
         offset++;
 
+        /* Show eLCID, if present */
         switch (lcid) {
-        case TWO_OCTET_ELCID_FIELD:
-            elcid = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
-            proto_tree_add_uint(subheader_tree,
-                (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
-                hf_mac_nr_ulsch_elcid_2oct : hf_mac_nr_dlsch_elcid_2oct,
-                tvb, offset, 2, elcid);
-            offset += 2;
-            break;
-        case ONE_OCTET_ELCID_FIELD:
-            elcid = tvb_get_guint8(tvb, offset);
-            proto_tree_add_uint(subheader_tree,
-                (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
-                hf_mac_nr_ulsch_elcid_1oct : hf_mac_nr_dlsch_elcid_1oct,
-                tvb, offset, 1, elcid);
-            offset += 1;
-            break;
+            case TWO_OCTET_ELCID_FIELD:
+                elcid = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
+                proto_tree_add_uint(subheader_tree,
+                    (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
+                    hf_mac_nr_ulsch_elcid_2oct : hf_mac_nr_dlsch_elcid_2oct,
+                    tvb, offset, 2, elcid);
+                offset += 2;
+                break;
+            case ONE_OCTET_ELCID_FIELD:
+                elcid = tvb_get_uint8(tvb, offset);
+                proto_tree_add_uint(subheader_tree,
+                    (p_mac_nr_info->direction == DIRECTION_UPLINK) ?
+                    hf_mac_nr_ulsch_elcid_1oct : hf_mac_nr_dlsch_elcid_1oct,
+                    tvb, offset, 1, elcid);
+                offset += 1;
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
 
+        /* Show length */
         if (!fixed_len) {
             if (F) {
                 /* Long length */
@@ -1972,10 +2165,11 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             proto_item *sch_pdu_ti;
 
             /* Note whether this sub-pdu gets dissected by RLC/RRC */
-            gboolean dissected_by_upper_layer = FALSE;
+            bool dissected_by_upper_layer = false;
 
             /* Add SDU, for now just as hex data */
             if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
+                /* UL.  Check various CCCH LCIDs */
                 if ((lcid == CCCH_LCID) || (lcid == 36)) {
                     SDU_length = 8;
                 } else if ((lcid == CCCH_48_BITS_LCID) || (lcid == 35)) {
@@ -1985,28 +2179,46 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                                  tvb, offset, SDU_length, ENC_NA);
             }
             else {
+                /* DL */
                 sch_pdu_ti = proto_tree_add_item(subheader_tree, hf_mac_nr_dlsch_sdu,
                                                  tvb, offset, SDU_length, ENC_NA);
             }
 
-            /* Call RLC if configured to do so for this SDU */
-            if ((lcid >= 4) && (lcid <= 32)) {
-                /* Look for mapping for this LCID to drb channel set by UAT table */
+            bool is_srb = false;
+            if (lcid == 3 || lcid == 4) {
+                /* Work out whether we are to assume that we are dealing with SRB-3 or SRB-4 */
                 rlc_bearer_type_t rlc_bearer_type;
-                guint8 seqnum_length;
-                gint drb_id;
+                uint8_t seqnum_length;
+                int drb_id;
 
-                tap_info->sdus_for_lcid[lcid]++;
-                tap_info->bytes_for_lcid[lcid] += SDU_length;
-
-                // TODO: priority not set.
-                guint8 priority = 0;
                 lookup_rlc_bearer_from_lcid(p_mac_nr_info->ueid,
                                             lcid,
                                             p_mac_nr_info->direction,
                                             &rlc_bearer_type,
                                             &seqnum_length,
-                                            &drb_id);
+                                            &drb_id,
+                                            &is_srb);
+            }
+
+            /* Might also call RLC if configured to do so for this SDU */
+            if ((lcid >= 3) && (lcid <= 32) && !is_srb) {
+                /* Look for DRB mapping for this LCID to drb channel set by UAT table */
+                rlc_bearer_type_t rlc_bearer_type;
+                uint8_t seqnum_length;
+                int drb_id;
+
+                tap_info->sdus_for_lcid[lcid]++;
+                tap_info->bytes_for_lcid[lcid] += SDU_length;
+
+                // TODO: priority not set.
+                uint8_t priority = 0;
+                lookup_rlc_bearer_from_lcid(p_mac_nr_info->ueid,
+                                            lcid,
+                                            p_mac_nr_info->direction,
+                                            &rlc_bearer_type,
+                                            &seqnum_length,
+                                            &drb_id,
+                                            &is_srb);
 
                 /* Dissect according to channel type */
                 switch (rlc_bearer_type) {
@@ -2016,7 +2228,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                            RLC_UM_MODE, p_mac_nr_info->direction, p_mac_nr_info->ueid,
                                            BEARER_TYPE_DRB, drb_id, seqnum_length,
                                            priority);
-                        dissected_by_upper_layer = TRUE;
+                        dissected_by_upper_layer = true;
                         break;
                     case rlcAM12:
                     case rlcAM18:
@@ -2024,21 +2236,21 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                            RLC_AM_MODE, p_mac_nr_info->direction, p_mac_nr_info->ueid,
                                            BEARER_TYPE_DRB, drb_id, seqnum_length,
                                            priority);
-                        dissected_by_upper_layer = TRUE;
+                        dissected_by_upper_layer = true;
                         break;
                     case rlcTM:
                         call_rlc_dissector(tvb, pinfo, tree, pdu_ti, offset, SDU_length,
                                            RLC_TM_MODE, p_mac_nr_info->direction, p_mac_nr_info->ueid,
                                            BEARER_TYPE_DRB, drb_id, 0,
                                            priority);
-                        dissected_by_upper_layer = TRUE;
+                        dissected_by_upper_layer = true;
                         break;
                     case rlcRaw:
                         /* Nothing to do! */
                         break;
                 }
-            } else if (lcid >= 1 && lcid <= 3) {
-
+            } else if ((lcid >= 1 && lcid <= 2) || ((lcid==3 || lcid==4) && is_srb)) {
+                /* SRB */
                 tap_info->sdus_for_lcid[lcid]++;
                 tap_info->bytes_for_lcid[lcid] += SDU_length;
 
@@ -2049,7 +2261,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                        RLC_AM_MODE, p_mac_nr_info->direction, p_mac_nr_info->ueid,
                                        BEARER_TYPE_SRB, lcid, 12,
                                        (lcid == 2) ? 3 : 1);
-                    dissected_by_upper_layer = TRUE;
+                    dissected_by_upper_layer = true;
                 }
             } else if (global_mac_nr_attempt_rrc_decode) {
                 dissector_handle_t protocol_handle;
@@ -2065,7 +2277,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                 /* Hide raw view of bytes */
                 proto_item_set_hidden(sch_pdu_ti);
                 call_with_catch_all(protocol_handle, rrc_tvb, pinfo, tree);
-                dissected_by_upper_layer = TRUE;
+                dissected_by_upper_layer = true;
             }
 
             /* Only write summary to Info column if didn't send to upper_layer dissector */
@@ -2081,7 +2293,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                                            "UL-SCH: should not have Data SDUs after Control Elements");
                 }
             }
-            data_seen = TRUE;
+            data_seen = true;
         }
         else {
             /* UL Control Elements */
@@ -2092,12 +2304,12 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             }
 
             if (lcid != PADDING_LCID) {
-                ces_seen = TRUE;
+                ces_seen = true;
             }
 
             if (p_mac_nr_info->direction == DIRECTION_UPLINK) {
-                guint32 phr_ph, phr_pcmax_f_c, c_rnti, lcg_id, bs, br_lcid, bit_rate;
-                gboolean dir;
+                uint32_t phr_ph, phr_pcmax_f_c, c_rnti, lcg_id, bs, br_lcid, bit_rate;
+                bool dir;
 
                 switch (lcid) {
                 case TWO_OCTET_ELCID_FIELD:
@@ -2193,7 +2405,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     proto_tree_add_item(subheader_tree, hf_mac_nr_control_timing_advance_report_reserved,
                         tvb, offset, 1, ENC_BIG_ENDIAN);
                     /* Timing  Advance */
-                    guint32 ta;
+                    uint32_t ta;
                     proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_control_timing_advance_report_ta,
                         tvb, offset, 2, ENC_BIG_ENDIAN, &ta);
                     write_pdu_label_and_info(pdu_ti, subheader_ti, pinfo, "(Timing Advance Report TA=%u) ", ta);
@@ -2287,11 +2499,11 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         &hf_mac_nr_control_me_phr_c24_flag,
                         NULL
                     };
-                    guint32 start_offset = offset;
-                    guint8 scell_bitmap1;
-                    guint32 scell_bitmap2_3_4 = 0;
+                    uint32_t start_offset = offset;
+                    uint8_t scell_bitmap1;
+                    uint32_t scell_bitmap2_3_4 = 0;
                     proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte1_flags, ENC_NA);
-                    scell_bitmap1 = tvb_get_guint8(tvb, offset);
+                    scell_bitmap1 = tvb_get_uint8(tvb, offset);
                     offset++;
                     if (lcid == MULTIPLE_ENTRY_PHR_4_LCID) {
                         proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, me_phr_byte2_flags, ENC_NA);
@@ -2338,7 +2550,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     };
 
                     /* PCell entries */
-                    guint32 PH;
+                    uint32_t PH;
                     proto_item* entry_ti;
                     if (p_mac_nr_info->phr_type2_othercell) {
                         /* The PH and PCMAX,f,c fields can be either for a LTE or NR cell */
@@ -2447,7 +2659,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                     };
 
                     proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
-                    guint CE_start = offset;
+                    unsigned CE_start = offset;
                     offset++;
 
                     while ((offset - CE_start) < SDU_length) proto_tree_add_item(subheader_tree, hf_mac_nr_control_bsr_trunc_long_bs, tvb, offset++, 1, ENC_NA);
@@ -2478,9 +2690,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         NULL
                     };
 
-                    guint8 flags = tvb_get_guint8(tvb, offset);
+                    uint8_t flags = tvb_get_uint8(tvb, offset);
                     proto_tree_add_bitmask_list(subheader_tree, tvb, offset, 1, long_bsr_flags, ENC_NA);
-                    guint CE_start = offset;
+                    unsigned CE_start = offset;
                     offset++;
 
                     /* Show BSR values. */
@@ -2524,8 +2736,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
             }
             else {
                 /* Downlink control elements */
-                guint32 ta_tag_id, ta_ta, br_lcid, bit_rate;
-                gboolean dir;
+                uint32_t ta_tag_id, ta_ta, br_lcid, bit_rate;
+                bool dir;
 
                 if (lcid != PADDING_LCID) {
                     if (data_seen) {
@@ -2547,7 +2759,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                             break;
                         case DIFFERENTIAL_KOFFSET_ELCD:
                         {
-                            guint32 koffset;
+                            uint32_t koffset;
                             proto_tree_add_item(subheader_tree, hf_mac_nr_differential_koffset_reserved,
                                 tvb, offset, 1, ENC_BIG_ENDIAN);
                             proto_tree_add_item_ret_uint(subheader_tree, hf_mac_nr_differential_koffset,
@@ -2675,9 +2887,9 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         break;
                     case SP_SRS_ACT_DEACT_LCID:
                         {
-                            gboolean ad, c;
-                            guint32 start_offset = offset;
-                            guint resources = 0;
+                            bool ad, c;
+                            uint32_t start_offset = offset;
+                            unsigned resources = 0;
 
                             /* Header */
                             proto_tree_add_item_ret_boolean(subheader_tree, hf_mac_nr_control_sp_srs_act_deact_ad,
@@ -2700,12 +2912,12 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
                             if (ad) {
                                 /* Activating - show info for resources */
-                                guint length = c ? (SDU_length-2) / 2 + 2: SDU_length;
+                                unsigned length = c ? (SDU_length-2) / 2 + 2: SDU_length;
                                 while (offset - start_offset < length) {
-                                    gboolean f;
+                                    bool f;
                                     proto_tree_add_item_ret_boolean(subheader_tree, hf_mac_nr_control_sp_srs_act_deact_f,
                                                         tvb, offset, 1, ENC_NA, &f);
-                                    guint32 resource_id = tvb_get_guint8(tvb, offset) & 0x7f;
+                                    uint32_t resource_id = tvb_get_uint8(tvb, offset) & 0x7f;
                                     proto_item *resource_id_ti;
                                     if (!f && (resource_id & 0x40)) {
                                         /* SSB case - first bit just indicates type */
@@ -2790,7 +3002,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         break;
                     case TCI_STATES_ACT_DEACT_FOR_UE_SPEC_PDSCH_LCID:
                         {
-                            guint32 start_offset = offset;
+                            uint32_t start_offset = offset;
                             static int * const tci_states_act_deact_for_ue_spec_pdsc_flags[] = {
                                 &hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t7,
                                 &hf_mac_nr_control_tci_states_act_deact_for_ue_spec_pdsch_t6,
@@ -2819,7 +3031,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         break;
                     case APER_CSI_TRIGGER_STATE_SUBSELECT_LCID:
                         {
-                            guint32 start_offset = offset;
+                            uint32_t start_offset = offset;
                             static int * const aper_csi_trigger_state_subselect_flags[] = {
                                 &hf_mac_nr_control_aper_csi_trigger_state_subselect_t7,
                                 &hf_mac_nr_control_aper_csi_trigger_state_subselect_t6,
@@ -2848,8 +3060,8 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
                         break;
                     case SP_CSI_RS_CSI_IM_RES_SET_ACT_DEACT_LCID:
                         {
-                            gboolean ad;
-                            guint32 start_offset = offset;
+                            bool ad;
+                            uint32_t start_offset = offset;
                             static int * const sp_csi_rs_csi_im_res_set_act_deact_flags[] = {
                                 &hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_reserved3,
                                 &hf_mac_nr_control_sp_csi_rs_csi_im_res_set_act_deact_tci_state_id,
@@ -3027,6 +3239,7 @@ static void dissect_ulsch_or_dlsch(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 
     } while (tvb_reported_length_remaining(tvb, offset));
 
+    return offset;
 }
 
 
@@ -3039,7 +3252,7 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
     proto_item          *pdu_ti;
     proto_tree          *context_tree;
     proto_item          *context_ti, *ti;
-    gint                 offset = 0;
+    int                  offset = 0;
     struct mac_nr_info *p_mac_nr_info;
 
     /* Allocate and zero tap struct */
@@ -3135,9 +3348,9 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
     tap_info->rnti = p_mac_nr_info->rnti;
     tap_info->ueid = p_mac_nr_info->ueid;
     tap_info->rntiType = p_mac_nr_info->rntiType;
-    tap_info->isPredefinedData = FALSE;
-    tap_info->isPHYRetx =      FALSE;  /* don't really know */
-    tap_info->crcStatusValid = FALSE;  /* don't really know */
+    tap_info->isPredefinedData = false;
+    tap_info->isPHYRetx =      false;  /* don't really know */
+    tap_info->crcStatusValid = false;  /* don't really know */
     tap_info->direction = p_mac_nr_info->direction;
 
     tap_info->mac_time = pinfo->abs_ts;
@@ -3156,13 +3369,16 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
             dissect_rar(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info, tap_info);
             break;
 
+        case MSGB_RNTI:
+            /* MSGB PDU */
+            dissect_msgb(tvb, pinfo, mac_nr_tree, pdu_ti, offset, p_mac_nr_info, tap_info);
+            break;
+
         case C_RNTI:
         case CS_RNTI:
             /* Can be UL-SCH or DL-SCH */
             dissect_ulsch_or_dlsch(tvb, pinfo, mac_nr_tree, pdu_ti, offset,
-                                   p_mac_nr_info,
-                                   context_tree,
-                                   tap_info);
+                                   p_mac_nr_info, tap_info);
             break;
 
         case SI_RNTI:
@@ -3187,10 +3403,10 @@ static int dissect_mac_nr(tvbuff_t *tvb, packet_info *pinfo,
 }
 
 /* Heuristic dissector looks for supported framing protocol (see header file for details) */
-static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
+static bool dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
                                     proto_tree *tree, void *data _U_)
 {
-    gint        offset = 0;
+    int         offset = 0;
     mac_nr_info *p_mac_nr_info;
     tvbuff_t    *mac_tvb;
 
@@ -3199,15 +3415,15 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
        - fixed header bytes
        - tag for data
        - at least one byte of MAC PDU payload */
-    if (tvb_captured_length_remaining(tvb, offset) < (gint)(strlen(MAC_NR_START_STRING)+3+2)) {
-        return FALSE;
+    if (tvb_captured_length_remaining(tvb, offset) < (int)(strlen(MAC_NR_START_STRING)+3+2)) {
+        return false;
     }
 
     /* OK, compare with signature string */
     if (tvb_strneql(tvb, offset, MAC_NR_START_STRING, strlen(MAC_NR_START_STRING)) != 0) {
-        return FALSE;
+        return false;
     }
-    offset += (gint)strlen(MAC_NR_START_STRING);
+    offset += (int)strlen(MAC_NR_START_STRING);
 
     /* If redissecting, use previous info struct (if available) */
     p_mac_nr_info = (mac_nr_info *)p_get_proto_data(wmem_file_scope(), pinfo, proto_mac_nr, 0);
@@ -3216,7 +3432,7 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
         p_mac_nr_info = wmem_new0(wmem_file_scope(), mac_nr_info);
         /* Dissect the fields to populate p_mac_nr */
         if(!dissect_mac_nr_context_fields(p_mac_nr_info, tvb, pinfo, tree, &offset)){
-            return TRUE;
+            return true;
         }
         /* Store info in packet */
         p_add_proto_data(wmem_file_scope(), pinfo, proto_mac_nr, 0, p_mac_nr_info);
@@ -3232,26 +3448,26 @@ static gboolean dissect_mac_nr_heur(tvbuff_t *tvb, packet_info *pinfo,
     mac_tvb = tvb_new_subset_remaining(tvb, offset);
     dissect_mac_nr(mac_tvb, pinfo, tree, NULL);
 
-    return TRUE;
+    return true;
 }
 
 /* Dissect context fields in the format described in packet-mac-nr.h.
-   Return TRUE if the necessary information was successfully found */
-gboolean dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuff_t *tvb,
-                                       packet_info *pinfo, proto_tree *tree, gint *p_offset)
+   Return true if the necessary information was successfully found */
+bool dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuff_t *tvb,
+                                       packet_info *pinfo, proto_tree *tree, int *p_offset)
 {
-    gint    offset = *p_offset;
-    guint8  tag = 0;
+    int     offset = *p_offset;
+    uint8_t tag = 0;
 
     /* Read fixed fields */
-    p_mac_nr_info->radioType = tvb_get_guint8(tvb, offset++);
-    p_mac_nr_info->direction = tvb_get_guint8(tvb, offset++);
-    p_mac_nr_info->rntiType = tvb_get_guint8(tvb, offset++);
+    p_mac_nr_info->radioType = tvb_get_uint8(tvb, offset++);
+    p_mac_nr_info->direction = tvb_get_uint8(tvb, offset++);
+    p_mac_nr_info->rntiType = tvb_get_uint8(tvb, offset++);
 
     /* Read optional fields */
     do {
         /* Process next tag */
-        tag = tvb_get_guint8(tvb, offset++);
+        tag = tvb_get_uint8(tvb, offset++);
         switch (tag) {
             case MAC_NR_RNTI_TAG:
                 p_mac_nr_info->rnti = tvb_get_ntohs(tvb, offset);
@@ -3262,7 +3478,7 @@ gboolean dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuf
                 offset += 2;
                 break;
             case MAC_NR_HARQID:
-                p_mac_nr_info->harqid = tvb_get_guint8(tvb, offset);
+                p_mac_nr_info->harqid = tvb_get_uint8(tvb, offset);
                 offset++;
                 break;
             case MAC_NR_FRAME_SUBFRAME_TAG:
@@ -3270,11 +3486,11 @@ gboolean dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuf
                 offset += 2;
                 break;
             case MAC_NR_PHR_TYPE2_OTHERCELL_TAG:
-                p_mac_nr_info->phr_type2_othercell = tvb_get_guint8(tvb, offset);
+                p_mac_nr_info->phr_type2_othercell = tvb_get_uint8(tvb, offset);
                 offset++;
                 break;
             case MAC_NR_FRAME_SLOT_TAG:
-                p_mac_nr_info->sfnSlotInfoPresent = TRUE;
+                p_mac_nr_info->sfnSlotInfoPresent = true;
                 p_mac_nr_info->sysframeNumber = tvb_get_ntohs(tvb, offset);
                 p_mac_nr_info->slotNumber = tvb_get_ntohs(tvb, offset+2);
                 offset += 4;
@@ -3298,14 +3514,14 @@ gboolean dissect_mac_nr_context_fields(struct mac_nr_info  *p_mac_nr_info, tvbuf
                                           tvb, offset-1, 1);
                 }
                 wmem_free(wmem_file_scope(), p_mac_nr_info);
-                return TRUE;
+                return true;
         }
     } while (tag != MAC_NR_PAYLOAD_TAG);
 
     /* Pass out where offset is now */
     *p_offset = offset;
 
-    return TRUE;
+    return true;
 }
 
 /* Callback used as part of configuring a channel mapping using UAT */
@@ -3323,7 +3539,7 @@ static void* lcid_drb_mapping_copy_cb(void* dest, const void* orig, size_t len _
     return d;
 }
 
-static void set_bearer_type(dynamic_lcid_drb_mapping_t *mapping, guint8 rlcMode, guint8 rlcSnLength, guint8 direction)
+static void set_bearer_type(dynamic_lcid_drb_mapping_t *mapping, uint8_t rlcMode, uint8_t rlcSnLength, uint8_t direction)
 {
     /* Point to field for appropriate direction */
     rlc_bearer_type_t *type_var = (direction == DIRECTION_UPLINK) ?
@@ -3368,32 +3584,32 @@ static void set_bearer_type(dynamic_lcid_drb_mapping_t *mapping, guint8 rlcMode,
 void set_mac_nr_bearer_mapping(nr_drb_mac_rlc_mapping_t *drb_mapping)
 {
     ue_dynamic_drb_mappings_t *ue_mappings;
-    guint8 lcid = 0;
+    uint8_t lcid = 0;
 
     /* Check lcid range */
     if (drb_mapping->lcid_present) {
         lcid = drb_mapping->lcid;
 
-        /* Ignore if LCID is out of range */
-        if ((lcid < 4) || (lcid > 32)) {
+        /* Ignore if LCID is out of range.  */
+        if ((lcid < 3) || (lcid > 32)) {
             return;
         }
     }
 
     /* Look for existing UE entry */
     ue_mappings = (ue_dynamic_drb_mappings_t *)g_hash_table_lookup(mac_nr_ue_bearers_hash,
-                                                                   GUINT_TO_POINTER((guint)drb_mapping->ueid));
+                                                                   GUINT_TO_POINTER((unsigned)drb_mapping->ueid));
     if (!ue_mappings) {
         /* If not found, create & add to table */
         ue_mappings = wmem_new0(wmem_file_scope(), ue_dynamic_drb_mappings_t);
         g_hash_table_insert(mac_nr_ue_bearers_hash,
-                            GUINT_TO_POINTER((guint)drb_mapping->ueid),
+                            GUINT_TO_POINTER((unsigned)drb_mapping->ueid),
                             ue_mappings);
     }
 
     /* If lcid wasn't supplied, need to try to look up from drbid */
-    if ((lcid == 0) && (drb_mapping->drbid <= 32)) {
-        lcid = ue_mappings->drb_to_lcid_mappings[drb_mapping->drbid];
+    if ((lcid == 0) && (drb_mapping->rbid <= 32)) {
+        lcid = ue_mappings->drb_to_lcid_mappings[drb_mapping->rbid];
     }
     if (lcid == 0) {
         /* Still no lcid - give up */
@@ -3401,9 +3617,9 @@ void set_mac_nr_bearer_mapping(nr_drb_mac_rlc_mapping_t *drb_mapping)
     }
 
     /* Set array entry */
-    ue_mappings->mapping[lcid].valid = TRUE;
-    ue_mappings->mapping[lcid].drbid = drb_mapping->drbid;
-    ue_mappings->drb_to_lcid_mappings[drb_mapping->drbid] = lcid;
+    ue_mappings->mapping[lcid].valid = true;
+    ue_mappings->mapping[lcid].drbid = drb_mapping->rbid;
+    ue_mappings->drb_to_lcid_mappings[drb_mapping->rbid] = lcid;
 
     /* Fill in available RLC info */
     if (drb_mapping->rlcMode_present) {
@@ -3415,6 +3631,41 @@ void set_mac_nr_bearer_mapping(nr_drb_mac_rlc_mapping_t *drb_mapping)
         }
     }
 }
+
+void set_mac_nr_srb3_in_use(uint16_t ueid)
+{
+    ue_dynamic_drb_mappings_t *ue_mappings;
+
+    /* Look for existing UE entry */
+    ue_mappings = (ue_dynamic_drb_mappings_t *)g_hash_table_lookup(mac_nr_ue_bearers_hash,
+                                                                   GUINT_TO_POINTER(ueid));
+    if (!ue_mappings) {
+        /* If not found, create & add to table */
+        ue_mappings = wmem_new0(wmem_file_scope(), ue_dynamic_drb_mappings_t);
+        g_hash_table_insert(mac_nr_ue_bearers_hash,
+                            GUINT_TO_POINTER(ueid),
+                            ue_mappings);
+    }
+    ue_mappings->srb3_set = true;
+}
+
+void set_mac_nr_srb4_in_use(uint16_t ueid)
+{
+    ue_dynamic_drb_mappings_t *ue_mappings;
+
+    /* Look for existing UE entry */
+    ue_mappings = (ue_dynamic_drb_mappings_t *)g_hash_table_lookup(mac_nr_ue_bearers_hash,
+                                                                   GUINT_TO_POINTER(ueid));
+    if (!ue_mappings) {
+        /* If not found, create & add to table */
+        ue_mappings = wmem_new0(wmem_file_scope(), ue_dynamic_drb_mappings_t);
+        g_hash_table_insert(mac_nr_ue_bearers_hash,
+                            GUINT_TO_POINTER(ueid),
+                            ue_mappings);
+    }
+    ue_mappings->srb4_set = true;
+}
+
 
 
 /* Function to be called from outside this module (e.g. in a plugin) to get per-packet data */
@@ -3715,10 +3966,98 @@ void proto_register_mac_nr(void)
               NULL, HFILL
             }
         },
-
         { &hf_mac_nr_rar_temp_crnti,
             { "Temporary C-RNTI",
               "mac-nr.rar.temp_crnti", FT_UINT16, BASE_HEX_DEC, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+
+        /* MSGB */
+        { &hf_mac_nr_msgb,
+            { "MSGB",
+              "mac-nr.msgb", FT_NONE, BASE_NONE, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_subheader,
+            { "Subheader",
+              "mac-nr.msgb.subheader", FT_STRING, BASE_NONE, NULL, 0x0,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_e,
+            { "Extension",
+              "mac-nr.msgb.e", FT_BOOLEAN, 8, TFS(&rar_ext_vals), 0x80,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_t1,
+            { "t1",
+              "mac-nr.msgb.t1", FT_BOOLEAN, 8, TFS(&msgb_t1_vals), 0x40,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_t2,
+            { "t2",
+              "mac-nr.msgb.t2", FT_BOOLEAN, 8, TFS(&msgb_t2_vals), 0x20,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_s,
+            { "s",
+              "mac-nr.msgb.s", FT_BOOLEAN, 8, TFS(&msgb_s_vals), 0x10,
+              "MAC SDU indicator", HFILL
+            }
+        },
+
+        { &hf_mac_nr_msgb_reserved,
+            { "Reserved",
+              "mac-nr.msgb.reserved", FT_UINT8, BASE_DEC, NULL, 0x10,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_reserved2,
+            { "Reserved",
+              "mac-nr.msgb.reserved", FT_UINT8, BASE_DEC, NULL, 0x0f,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_reserved3,
+            { "Reserved",
+              "mac-nr.msgb.reserved", FT_UINT8, BASE_DEC, NULL, 0x80,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_ta_command,
+            { "Timing Advance Command",
+              "mac-nr.msgb.ta-command", FT_UINT16, BASE_DEC, NULL, 0x0fff,
+              NULL, HFILL
+            }
+        },
+        /* TODO: vals from 38.213 [6] */
+        { &hf_mac_nr_msgb_channelaccess_cpext,
+            { "ChannelAccess-CPext",
+              "mac-nr.msgb.channelaccess-cpext", FT_UINT8, BASE_DEC, NULL, 0x60,
+              NULL, HFILL
+            }
+        },
+        /* TODO: vals from 38.213 [6] */
+        { &hf_mac_nr_msgb_tpc,
+            { "TPC",
+              "mac-nr.msgb.tpc", FT_UINT8, BASE_DEC, NULL, 0x18,
+              "TPC command for the PUCCH resource containing HARQ feedback for MSGB", HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_harq_feedback_timing_indicator,
+            { "HARQ Feedback Timing Indicator",
+              "mac-nr.msgb.harq-feedback-timing-indicator", FT_UINT8, BASE_DEC, NULL, 0x07,
+              NULL, HFILL
+            }
+        },
+        { &hf_mac_nr_msgb_pucch_resource_indicator,
+            { "PUCCH Resource Indicator",
+              "mac-nr.msgb.pucch-resource-indicator", FT_UINT8, BASE_DEC, NULL, 0xf0,
               NULL, HFILL
             }
         },
@@ -5129,7 +5468,7 @@ void proto_register_mac_nr(void)
             }
         }, };
 
-    static gint *ett[] =
+    static int *ett[] =
     {
         &ett_mac_nr,
         &ett_mac_nr_context,
@@ -5157,7 +5496,9 @@ void proto_register_mac_nr(void)
     };
 
     static uat_field_t lcid_drb_mapping_flds[] = {
-        UAT_FLD_VS(lcid_drb_mappings, lcid, "LCID (4-32)", drb_lcid_vals, "The MAC LCID"),
+        UAT_FLD_VS(lcid_drb_mappings, lcid, "LCID (3-32)", drb_lcid_vals,
+                   "The MAC LCID.  Note that under NR-DC, LCID 3 may be SRB-3. "
+                   "LCID 4 may also be LCID4"),
         UAT_FLD_DEC(lcid_drb_mappings, drbid,"DRBID id (1-32)", "Identifier of logical data channel"),
         UAT_FLD_VS(lcid_drb_mappings, bearer_type_ul, "UL RLC Bearer Type", rlc_bearer_type_vals, "UL Bearer Mode"),
         UAT_FLD_VS(lcid_drb_mappings, bearer_type_dl, "DL RLC Bearer Type", rlc_bearer_type_vals, "DL Bearer Mode"),
@@ -5186,20 +5527,21 @@ void proto_register_mac_nr(void)
         &global_mac_nr_attempt_rrc_decode);
 
     prefs_register_bool_preference(mac_nr_module, "attempt_to_dissect_srb_sdus",
-        "Attempt to dissect LCID 1-3 as srb1-3",
-        "Will call NR RLC dissector with standard settings as per RRC spec",
+        "Attempt to dissect LCID 1-4 as srb1-4",
+        "Will call NR RLC dissector with standard settings as per RRC spec, unless "
+        "LCID 3,4 are being used for user-plane",
         &global_mac_nr_attempt_srb_decode);
 
     prefs_register_enum_preference(mac_nr_module, "lcid_to_drb_mapping_source",
         "Source of LCID -> drb channel settings",
         "Set whether LCID -> drb Table is taken from static table (below) or from "
         "info learned from control protocol (i.e. RRC)",
-        &global_mac_nr_lcid_drb_source, lcid_drb_source_vals, FALSE);
+        &global_mac_nr_lcid_drb_source, lcid_drb_source_vals, false);
 
     lcid_drb_mappings_uat = uat_new("Static LCID -> drb Table",
                                     sizeof(lcid_drb_mapping_t),
                                     "drb_bearerconfig",
-                                    TRUE,
+                                    true,
                                     &lcid_drb_mappings,
                                     &num_lcid_drb_mappings,
                                     UAT_AFFECTS_DISSECTION, /* affects dissection of packets, but not set of named fields */

@@ -27,7 +27,7 @@ class TestDumpcapOptions:
     # XXX Should we generate individual test functions instead of looping?
     def test_dumpcap_invalid_chars(self, cmd_dumpcap, base_env):
         '''Invalid dumpcap parameters'''
-        for char_arg in 'CEFGHJKNOQRTUVWXYejloxz':
+        for char_arg in 'CEFGHJKNORTUVWXYejloxz':
             process = subprocesstest.run((cmd_dumpcap, '-' + char_arg), env=base_env)
             assert process.returncode == ExitCodes.COMMAND_LINE
 
@@ -95,13 +95,14 @@ class TestTsharkOptions:
     # XXX Should we generate individual test functions instead of looping?
     def test_tshark_invalid_chars(self, cmd_tshark, test_env):
         '''Invalid tshark parameters'''
-        for char_arg in 'ABCEFHJKMNORTUWXYZabcdefijkmorstuwyz':
+        # Most of these are valid but require a mandatory parameter
+        for char_arg in 'ABCEFGHJKMNORTUWXYZabcdefijkmorstuwyz':
             process = subprocesstest.run((cmd_tshark, '-' + char_arg), env=test_env)
             assert process.returncode == ExitCodes.COMMAND_LINE
 
     # XXX Should we generate individual test functions instead of looping?
     def test_tshark_valid_chars(self, cmd_tshark, test_env):
-        for char_arg in 'Ghv':
+        for char_arg in 'hv':
             process = subprocesstest.run((cmd_tshark, '-' + char_arg), env=test_env)
             assert process.returncode == ExitCodes.OK
 
@@ -110,7 +111,7 @@ class TestTsharkOptions:
         '''Valid tshark parameters requiring capture permissions'''
         # These options require dumpcap, but may fail with a pacp error
         # if WinPcap or Npcap are not present
-        valid_returns = [ExitCodes.OK, ExitCodes.PCAP_ERROR, ExitCodes.INVALID_CAPABILITY]
+        valid_returns = [ExitCodes.OK, ExitCodes.PCAP_ERROR, ExitCodes.INVALID_CAPABILITY, ExitCodes.INVALID_INTERFACE]
         for char_arg in 'DL':
             process = subprocesstest.run((cmd_tshark, '-' + char_arg), env=test_env)
             assert process.returncode in valid_returns
@@ -322,6 +323,14 @@ class TestTsharkExtcap:
         # TODO: skip this test until it will get fixed.
         if sys.platform == 'win32':
             pytest.skip('FIXME extcap .py scripts needs special treatment on Windows')
+        # Various guides and vulnerability scanners recommend setting /tmp noexec.
+        # If our temp path is such, the extcap script won't work.
+        try:
+            if os.statvfs(home_path).f_flag & os.ST_NOEXEC:
+                pytest.skip('Test requires temp directory to allow execution')
+        except AttributeError:
+            # Most Linux and NetBSD have ST_NOEXEC; Darwin and other *BSDs don't.
+            pass
         extcap_dir_path = os.path.join(home_path, 'extcap')
         os.makedirs(extcap_dir_path)
         test_env['WIRESHARK_EXTCAP_DIR'] = extcap_dir_path

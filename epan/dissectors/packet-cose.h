@@ -1,7 +1,7 @@
 /* packet-cose.h
  * Definitions for CBOR Object Signing and Encryption (COSE) dissection
  * References:
- *     RFC 8152: https://tools.ietf.org/html/rfc8152
+ *     RFC 9052: https://tools.ietf.org/html/rfc9052
  *
  * Copyright 2019-2021, Brian Sipos <brian.sipos@gmail.com>
  *
@@ -20,12 +20,11 @@
  * COSE message dissectors are registered multiple ways:
  * 1. The unit-keyed dissector table "cose.msgtag" with keys being
  *    IANA-registered CBOR tag values (e.g., 18 is COSE_Sign1).
- * 2. The string-keyed dissector table "media_type" with keys being
- *    IANA-registered media type IDs
- *    (e.g., application/cose; cose-type="cose-sign1" is COSE_Sign1).
+ * 2. The string-keyed dissector table "media_type" with the IANA-registered
+ *    key "application/cose" and subtypes registered in dissector table
+ *    "cose.mediasub" (e.g., "cose-sign1" is COSE_Sign1).
  * 3. The registered dissectors for names "cose" and message names in
  *    all-lowercase form (e.g., "cose_sign1").
- * There is currently no CoAP dissector table to register with.
  *
  * COSE message dissectors use the tag (wscbor_tag_t *) value, if used to
  * discriminate the message type, as the user data pointer.
@@ -53,15 +52,15 @@ typedef struct {
 
 /** Compatible with GHashFunc signature.
  */
-guint cose_param_key_hash(gconstpointer ptr);
+unsigned cose_param_key_hash(const void *ptr);
 
 /** Compatible with GEqualFunc signature.
  */
-gboolean cose_param_key_equal(gconstpointer a, gconstpointer b);
+gboolean cose_param_key_equal(const void *a, const void *b);
 
 /** Compatible with GDestroyNotify signature.
  */
-void cose_param_key_free(gpointer ptr);
+void cose_param_key_free(void *ptr);
 
 /// User data for header/key-parameter dissectors
 typedef struct {

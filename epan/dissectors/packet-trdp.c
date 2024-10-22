@@ -19,6 +19,7 @@
 
 #include <config.h>
 #include <epan/packet.h>
+#include <packet-tcp.h>
 
 void proto_reg_handoff_trdp(void);
 void proto_register_trdp(void);
@@ -49,7 +50,7 @@ static int hf_trdp_dest_uri;
 #define TRDP_MD_HEADER_LEN 116
 
 /* Initialize the subtree pointers */
-static gint ett_trdp;
+static int ett_trdp;
 
 /* Initialize dissector table */
 static dissector_table_t trdp_dissector_table;
@@ -118,7 +119,7 @@ static const value_string reply_status_names[] = {
     { 0, NULL }
 };
 
-static inline int is_pd(guint16 msgtype)
+static inline int is_pd(uint16_t msgtype)
 {
     return (msgtype & 0xff00) == 0x5000; // 'P'
 }
@@ -127,8 +128,8 @@ static int dissect_trdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 {
     proto_item *ti;
     proto_tree *trdp_tree;
-    guint16 ver;
-    guint32 remaining, datalen, seq, comid, etb_topo, opr_topo, msgtype, header_len;
+    uint16_t ver;
+    uint32_t remaining, datalen, seq, comid, etb_topo, opr_topo, msgtype, header_len;
     tvbuff_t *next_tvb;
 
     if (tvb_reported_length(tvb) < TRDP_PD_HEADER_LEN)
@@ -137,7 +138,7 @@ static int dissect_trdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "TRDP");
     col_clear(pinfo->cinfo, COL_INFO);
 
-    header_len = is_pd(tvb_get_guint16(tvb, 6, ENC_BIG_ENDIAN)) ? TRDP_PD_HEADER_LEN : TRDP_MD_HEADER_LEN;
+    header_len = is_pd(tvb_get_uint16(tvb, 6, ENC_BIG_ENDIAN)) ? TRDP_PD_HEADER_LEN : TRDP_MD_HEADER_LEN;
 
     /* Create display subtree for the protocol */
     ti = proto_tree_add_item(tree, proto_trdp, tvb, 0, header_len, ENC_NA);
@@ -145,7 +146,7 @@ static int dissect_trdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
     /* Add items to the subtree */
     proto_tree_add_item_ret_uint(trdp_tree, hf_trdp_seq, tvb, 0, 4, ENC_BIG_ENDIAN, &seq);
-    ver = tvb_get_guint16(tvb, 4, ENC_BIG_ENDIAN);
+    ver = tvb_get_uint16(tvb, 4, ENC_BIG_ENDIAN);
     proto_tree_add_uint_format_value(trdp_tree, hf_trdp_ver, tvb, 4, 2, 0, "%d.%d", ver >> 8, ver & 0xff);
     proto_tree_add_item_ret_uint(trdp_tree, hf_trdp_msgtype, tvb, 6, 2, ENC_BIG_ENDIAN, &msgtype);
     proto_tree_add_item_ret_uint(trdp_tree, hf_trdp_comid, tvb, 8, 4, ENC_BIG_ENDIAN, &comid);
@@ -161,7 +162,7 @@ static int dissect_trdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     } else {
         proto_tree_add_item(trdp_tree, hf_trdp_reply_status, tvb, 24, 4, ENC_BIG_ENDIAN);
         proto_tree_add_item(trdp_tree, hf_trdp_session_id, tvb, 28, 16, ENC_BIG_ENDIAN);
-        guint32 reply_timeout = tvb_get_guint32(tvb, 44, ENC_BIG_ENDIAN);
+        uint32_t reply_timeout = tvb_get_uint32(tvb, 44, ENC_BIG_ENDIAN);
         proto_tree_add_uint_format_value(trdp_tree, hf_trdp_reply_timeout, tvb, 44, 4, 0, "%d usec", reply_timeout);
         proto_tree_add_item(trdp_tree, hf_trdp_source_uri, tvb, 48, 32, ENC_ASCII);
         proto_tree_add_item(trdp_tree, hf_trdp_dest_uri, tvb, 80, 32, ENC_ASCII);
@@ -191,6 +192,26 @@ static int dissect_trdp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     /* Return the amount of data this dissector was able to dissect (which may
      * or may not be the total captured packet as we return here). */
     return tvb_captured_length(tvb);
+}
+
+static unsigned get_trdp_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset _U_, void *data _U_)
+{
+    uint32_t plen;
+
+    plen = tvb_get_uint32(tvb, 20, ENC_BIG_ENDIAN);
+
+    return TRDP_MD_HEADER_LEN + plen;
+}
+
+static int dissect_trdp_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
+{
+    /* Only Message Data over TCP */
+    if (!tvb_bytes_exist(tvb, 0, TRDP_MD_HEADER_LEN))
+        return 0;
+
+    tcp_dissect_pdus(tvb, pinfo, tree, true, TRDP_MD_HEADER_LEN,
+                     get_trdp_pdu_len, dissect_trdp, data);
+    return tvb_reported_length(tvb);
 }
 
 void proto_register_trdp(void)
@@ -253,7 +274,7 @@ void proto_register_trdp(void)
     };
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_trdp
     };
 
@@ -270,11 +291,13 @@ void proto_register_trdp(void)
 
 void proto_reg_handoff_trdp(void)
 {
-    static dissector_handle_t trdp_handle;
+    static dissector_handle_t trdp_handle, trdp_tcp_handle;
 
     trdp_handle = create_dissector_handle(dissect_trdp, proto_trdp);
+    trdp_tcp_handle = create_dissector_handle(dissect_trdp_tcp, proto_trdp);
     dissector_add_uint("udp.port", TRDP_PD_UDP_PORT, trdp_handle);
     dissector_add_uint("udp.port", TRDP_MD_TCP_UDP_PORT, trdp_handle);
+    dissector_add_uint("tcp.port", TRDP_MD_TCP_UDP_PORT, trdp_tcp_handle);
 
     data_handle = find_dissector_add_dependency("data", proto_trdp);
 }

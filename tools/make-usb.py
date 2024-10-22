@@ -40,7 +40,7 @@ for i in range(256):
 for utf8line in lines:
     # Convert single backslashes to double (escaped) backslashes, escape quotes, etc.
     utf8line = utf8line.rstrip()
-    utf8line = re.sub("\?+", "?", utf8line)
+    utf8line = re.sub(r"\?+", "?", utf8line)
     line = ''.join(escapes[byte] for byte in utf8line.encode('utf8'))
 
     if line == "# Vendors, devices and interfaces. Please keep sorted.":
@@ -104,6 +104,7 @@ if (len(products) < MIN_PRODUCTS):
     sys.stderr.write("Not enough products: %d\n" % len(products))
     sys.exit(1)
 
+vendors = {k.lower(): v for k, v in vendors.items()}
 for v in sorted(vendors):
     vendors_str += "    { 0x%s, \"%s\" },\n"%(v,vendors[v])
 
@@ -111,6 +112,7 @@ vendors_str += """    { 0, NULL }\n};
 value_string_ext ext_usb_vendors_vals = VALUE_STRING_EXT_INIT(usb_vendors_vals);
 """
 
+products = {k.lower(): v for k, v in products.items()}
 for p in sorted(products):
     products_str += "    { 0x%s, \"%s\" },\n"%(p,products[p])
 

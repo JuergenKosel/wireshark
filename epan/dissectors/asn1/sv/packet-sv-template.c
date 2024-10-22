@@ -17,6 +17,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 #include <epan/addr_resolv.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-acse.h"
@@ -31,7 +32,8 @@
 
 /* see IEC61850-8-1 8.2 */
 #define Q_VALIDITY_GOOD			(0x0U << 0)
-#define Q_VALIDITY_INVALID		(0x1U << 0)
+#define Q_VALIDITY_INVALID_BW		(0x1U << 0)
+#define Q_VALIDITY_INVALID		(0x2U << 0)
 #define Q_VALIDITY_QUESTIONABLE		(0x3U << 0)
 #define Q_VALIDITY_MASK			(0x3U << 0)
 
@@ -106,13 +108,24 @@ static expert_field ei_sv_mal_utctime;
 static expert_field ei_sv_zero_pdu;
 static expert_field ei_sv_mal_gmidentity;
 
-static gboolean sv_decode_data_as_phsmeas = FALSE;
+static bool sv_decode_data_as_phsmeas;
 
 static dissector_handle_t sv_handle;
 
+/*
+ * See
+ *   IEC 61850-9-2 Edition 2.1 2020-02,
+ *   Section 8.6 Definitions for basic data types – Presentation layer functionality,
+ *   Table 21
+ *
+ * Be aware that in the specification the bits are numbered in reverse (it
+ * specifies the least significant bit as bit 31 instead of as bit 0)!
+ */
+
 static const value_string sv_q_validity_vals[] = {
 	{ 0, "good" },
-	{ 1, "invalid" },
+	{ 1, "invalid (backwards compatible)" },
+	{ 2, "invalid" },
 	{ 3, "questionable" },
 	{ 0, NULL }
 };
@@ -126,14 +139,14 @@ static const value_string sv_q_source_vals[] = {
 static int
 dissect_PhsMeas1(bool implicit_tag, packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, int hf_id _U_)
 {
-	gint8 ber_class;
+	int8_t ber_class;
 	bool pc;
-	gint32 tag;
-	guint32 len;
+	int32_t tag;
+	uint32_t len;
 	proto_tree *subtree;
-	gint32 value;
-	guint32 qual;
-	guint32 i;
+	int32_t value;
+	uint32_t qual;
+	uint32_t i;
 
 	static int * const q_flags[] = {
 		&hf_sv_phsmeas_q_validity,
@@ -193,7 +206,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 {
 	int offset = 0;
 	int old_offset;
-	guint sv_length = 0;
+	unsigned sv_length = 0;
 	proto_item *item;
 	proto_tree *tree;
 
@@ -204,7 +217,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 
 	asn1_ctx_t asn1_ctx;
 
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	item = proto_tree_add_item(parent_tree, proto_sv, tvb, 0, -1, ENC_NA);
 	tree = proto_item_add_subtree(item, ett_sv);
@@ -230,7 +243,7 @@ dissect_sv(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* dat
 	set_actual_length(tvb, sv_length);
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		old_offset = offset;
-		offset = dissect_sv_SampledValues(FALSE, tvb, offset, &asn1_ctx , tree, -1);
+		offset = dissect_sv_SampledValues(false, tvb, offset, &asn1_ctx , tree, -1);
 		if (offset == old_offset) {
 			proto_tree_add_expert(tree, pinfo, &ei_sv_zero_pdu, tvb, offset, -1);
 			break;
@@ -319,7 +332,7 @@ void proto_register_sv(void) {
 	};
 
 	/* List of subtrees */
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_sv,
 		&ett_phsmeas,
 		&ett_phsmeas_q,

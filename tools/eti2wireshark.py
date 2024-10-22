@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Generate Wireshark Dissectors for eletronic trading/market data
+# Generate Wireshark Dissectors for electronic trading/market data
 # protocols such as ETI/EOBI.
 #
 # Targets Wireshark 3.5 or later.
@@ -10,7 +10,6 @@
 
 
 import argparse
-import itertools
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -130,6 +129,10 @@ def gen_header(proto, desc, o=sys.stdout):
 /* (Required to prevent [-Wmissing-prototypes] warnings */
 void proto_reg_handoff_{proto}(void);
 void proto_register_{proto}(void);
+
+static dissector_handle_t {proto}_handle;
+
+static int proto_{proto};
 ''', file=o)
 
 
@@ -232,21 +235,20 @@ def get_fields(st, dt):
     return vs
 
 def gen_field_handles(st, dt, proto, o=sys.stdout):
-    print(f'''static expert_field ei_{proto}_counter_overflow = EI_INIT;
-static expert_field ei_{proto}_invalid_template = EI_INIT;
-static expert_field ei_{proto}_invalid_length = EI_INIT;''', file=o)
+    print(f'''static expert_field ei_{proto}_counter_overflow;
+static expert_field ei_{proto}_invalid_template;
+static expert_field ei_{proto}_invalid_length;''', file=o)
     if not proto.startswith('eobi'):
-        print(f'static expert_field ei_{proto}_unaligned = EI_INIT;', file=o)
-    print(f'''static expert_field ei_{proto}_missing = EI_INIT;
-static expert_field ei_{proto}_overused = EI_INIT;
+        print(f'static expert_field ei_{proto}_unaligned;', file=o)
+    print(f'''static expert_field ei_{proto}_missing;
+static expert_field ei_{proto}_overused;
 ''', file=o)
 
     vs = get_fields(st, dt)
-    s = ', '.join('-1' for i in range(len(vs)))
-    print(f'static int hf_{proto}[] = {{ {s} }};', file=o)
-    print(f'''static int hf_{proto}_dscp_exec_summary = -1;
-static int hf_{proto}_dscp_improved = -1;
-static int hf_{proto}_dscp_widened = -1;''', file=o)
+    print(f'static int hf_{proto}[{len(vs)}];', file=o)
+    print(f'''static int hf_{proto}_dscp_exec_summary;
+static int hf_{proto}_dscp_improved;
+static int hf_{proto}_dscp_widened;''', file=o)
     print('enum Field_Handle_Index {', file=o)
     for i, (name, _) in enumerate(vs):
         c = ' ' if i == 0 else ','
@@ -334,10 +336,9 @@ def gen_field_info(st, dt, n2enum, proto='eti', o=sys.stdout):
 def gen_subtree_handles(st, proto='eti', o=sys.stdout):
     ns = [ name for name, e in st.items() if e.get('type') != 'Message' ]
     ns.sort()
-    s = ', '.join('-1' for i in range(len(ns) + 1))
     h = dict( (n, i) for i, n in enumerate(ns, 1) )
-    print(f'static gint ett_{proto}[] = {{ {s} }};', file=o)
-    print(f'static gint ett_{proto}_dscp = -1;', file=o)
+    print(f'static int ett_{proto}[{len(ns) + 1}];', file=o)
+    print(f'static int ett_{proto}_dscp;', file=o)
     return h
 
 
@@ -345,7 +346,7 @@ def gen_subtree_array(st, proto='eti', o=sys.stdout):
     n = sum(1 for name, e in st.items() if e.get('type') != 'Message')
     n += 1
     s = ', '.join(f'&ett_{proto}[{i}]' for i in range(n))
-    print(f'    static gint * const ett[] = {{ {s}, &ett_{proto}_dscp }};', file=o)
+    print(f'    static int * const ett[] = {{ {s}, &ett_{proto}_dscp }};', file=o)
 
 
 def gen_fields_table(st, dt, sh, o=sys.stdout):
@@ -380,7 +381,6 @@ def gen_fields_table(st, dt, sh, o=sys.stdout):
             size = int(t.get('size')) if t is not None else 0
             rep = ''
             fh = f'{m.get("name").upper()}_FH_IDX'
-            sub = ''
             if is_padding(t):
                 print(f'        {c} {{ ETI_PADDING, 0, {size}, 0, 0 }}', file=o)
             elif is_fixed_point(t):
@@ -517,7 +517,7 @@ def gen_usage_table(min_templateid, n, ts, ams, o=sys.stdout):
     #     (cf. the uidx DISSECTOR_ASSER_CMPUINIT() before the switch statement)
     #     when the ETI_EOF of the message whose usage information comes last
     #     is reached
-    print(f'        , 0 // filler', file=o)
+    print('        , 0 // filler', file=o)
     print('    };', file=o)
     xs = [ '-1' ] * n
     t2n = dict(ts)
@@ -622,13 +622,13 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 {{
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "{proto.upper()}");
     col_clear(pinfo->cinfo, COL_INFO);
-    guint16 templateid = tvb_get_letohs(tvb, {template_off});
+    uint16_t templateid = tvb_get_letohs(tvb, {template_off});
     const char *template_str = val_to_str_ext(templateid, &template_id_vals_ext, "Unknown {proto.upper()} template: 0x%04x");
-    col_add_fstr(pinfo->cinfo, COL_INFO, "%s", template_str);
+    col_add_str(pinfo->cinfo, COL_INFO, template_str);
 
     /* create display subtree for the protocol */
     proto_item *ti = proto_tree_add_item(tree, proto_{proto}, tvb, 0, -1, ENC_NA);
-    guint32 bodylen= {bl_fn}(tvb, 0);
+    uint32_t bodylen= {bl_fn}(tvb, 0);
     proto_item_append_text(ti, ", %s (%" PRIu16 "), BodyLen: %u", template_str, templateid, bodylen);
     proto_tree *root = proto_item_add_subtree(ti, ett_{proto}[0]);
 ''', file=o)
@@ -676,7 +676,7 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 
     print(f'''    int uidx = tid2uidx[templateid - {min_templateid}];
     DISSECTOR_ASSERT_CMPINT(uidx, >=, 0);
-    DISSECTOR_ASSERT_CMPUINT(((size_t)uidx), <, (sizeof usages / sizeof usages[0]));
+    DISSECTOR_ASSERT_CMPUINT(((size_t)uidx), <, array_length(usages));
 ''', file=o)
 
     print(f'''    int old_fidx = 0;
@@ -689,9 +689,9 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
     proto_tree *t = root;
     while (top) {{
         DISSECTOR_ASSERT_CMPINT(fidx, >=, 0);
-        DISSECTOR_ASSERT_CMPUINT(((size_t)fidx), <, (sizeof fields / sizeof fields[0]));
+        DISSECTOR_ASSERT_CMPUINT(((size_t)fidx), <, array_length(fields));
         DISSECTOR_ASSERT_CMPINT(uidx, >=, 0);
-        DISSECTOR_ASSERT_CMPUINT(((size_t)uidx), <, (sizeof usages / sizeof usages[0]));
+        DISSECTOR_ASSERT_CMPUINT(((size_t)uidx), <, array_length(usages));
 
         switch (fields[fidx].type) {{
             case ETI_EOF:
@@ -713,7 +713,7 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
                 break;
             case ETI_VAR_STRUCT:
             case ETI_STRUCT:
-                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, sizeof counter / sizeof counter[0]);
+                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, array_length(counter));
                 repeats = fields[fidx].type == ETI_VAR_STRUCT ? counter[fields[fidx].counter_off] : 1;
                 if (repeats) {{
                     --repeats;
@@ -740,7 +740,7 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
                 break;
             case ETI_STRING:
                 {{
-                    guint8 c = tvb_get_guint8(tvb, off);
+                    uint8_t c = tvb_get_uint8(tvb, off);
                     if (c)
                         proto_tree_add_item(t, hf_{proto}[fields[fidx].field_handle_idx], tvb, off, fields[fidx].size, ENC_ASCII);
                     else {{
@@ -754,20 +754,20 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
                 ++uidx;
                 break;
             case ETI_VAR_STRING:
-                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, sizeof counter / sizeof counter[0]);
+                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, array_length(counter));
                 proto_tree_add_item(t, hf_{proto}[fields[fidx].field_handle_idx], tvb, off, counter[fields[fidx].counter_off], ENC_ASCII);
                 off += counter[fields[fidx].counter_off];
                 ++fidx;
                 ++uidx;
                 break;
             case ETI_COUNTER:
-                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, sizeof counter / sizeof counter[0]);
+                DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <, array_length(counter));
                 DISSECTOR_ASSERT_CMPUINT(fields[fidx].size, <=, 2);
                 {{
                     switch (fields[fidx].size) {{
                         case 1:
                             {{
-                                guint8 x = tvb_get_guint8(tvb, off);
+                                uint8_t x = tvb_get_uint8(tvb, off);
                                 if (x == UINT8_MAX) {{
                                     proto_tree_add_uint_format_value(t, hf_{proto}[fields[fidx].field_handle_idx], tvb, off, fields[fidx].size, x, "NO_VALUE (0xff)");
                                     counter[fields[fidx].counter_off] = 0;
@@ -784,7 +784,7 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
                             break;
                         case 2:
                             {{
-                                guint16 x = tvb_get_letohs(tvb, off);
+                                uint16_t x = tvb_get_letohs(tvb, off);
                                 if (x == UINT16_MAX) {{
                                     proto_tree_add_uint_format_value(t, hf_{proto}[fields[fidx].field_handle_idx], tvb, off, fields[fidx].size, x, "NO_VALUE (0xffff)");
                                     counter[fields[fidx].counter_off] = 0;
@@ -839,7 +839,7 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
                 DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, >, 0);
                 DISSECTOR_ASSERT_CMPUINT(fields[fidx].counter_off, <=, 16);
                 {{
-                    gint64 x = tvb_get_letohi64(tvb, off);
+                    int64_t x = tvb_get_letohi64(tvb, off);
                     if (x == INT64_MIN) {{
                         proto_item *e = proto_tree_add_int64_format_value(t, hf_{proto}[fields[fidx].field_handle_idx], tvb, off, fields[fidx].size, x, "NO_VALUE (0x8000000000000000)");
                         if (!usages[uidx])
@@ -882,10 +882,10 @@ dissect_{proto}_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, voi
 ''', file=o)
 
     print(f'''/* determine PDU length of protocol {proto.upper()} */
-static guint
+static unsigned
 get_{proto}_message_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {{
-    return (guint){bl_fn}(tvb, offset);
+    return (unsigned){bl_fn}(tvb, offset);
 }}
 ''', file=o)
 
@@ -903,7 +903,7 @@ dissect_{proto}(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 dissect_{proto}(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
         void *data)
 {{
-    tcp_dissect_pdus(tvb, pinfo, tree, TRUE, 4 /* bytes to read for bodylen */,
+    tcp_dissect_pdus(tvb, pinfo, tree, true, 4 /* bytes to read for bodylen */,
             get_{proto}_message_len, dissect_{proto}_message, data);
     return tvb_captured_length(tvb);
 }}
@@ -955,6 +955,8 @@ proto_register_{proto}(void)
     print('    proto_register_subtree_array(ett, array_length(ett));', file=o)
     if proto.startswith('eobi'):
         print(f'    proto_disable_by_default(proto_{proto});', file=o)
+
+    print(f'\n    {proto}_handle = register_dissector("{proto}", dissect_{proto}, proto_{proto});', file=o)
     print('}\n', file=o)
 
 
@@ -962,9 +964,6 @@ def gen_handoff_fn(proto, o=sys.stdout):
     print(f'''void
 proto_reg_handoff_{proto}(void)
 {{
-    dissector_handle_t {proto}_handle = create_dissector_handle(dissect_{proto},
-            proto_{proto});
-
     // cf. N7 Network Access Guide, e.g.
     // https://www.xetra.com/xetra-en/technology/t7/system-documentation/release10-0/Release-10.0-2692700?frag=2692724
     // https://www.xetra.com/resource/blob/2762078/388b727972b5122945eedf0e63c36920/data/N7-Network-Access-Guide-v2.0.59.pdf
@@ -1014,7 +1013,7 @@ proto_reg_handoff_{proto}(void)
         56500, // Snapshot    Boerse Frankfurt SIMU
         56501  // Incremental Boerse Frankfurt SIMU
     }};
-    for (unsigned i = 0; i < sizeof ports / sizeof ports[0]; ++i)
+    for (unsigned i = 0; i < array_length(ports); ++i)
         dissector_add_uint("udp.port", ports[i], {proto}_handle);''', file=o)
     print('}', file=o)
 
@@ -1120,7 +1119,7 @@ def group_members(e, dt):
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description='Generate Wireshark Dissector for ETI/EOBI style protocol specifictions')
+    p = argparse.ArgumentParser(description='Generate Wireshark Dissector for ETI/EOBI style protocol specifications')
     p.add_argument('filename', help='protocol description XML file')
     p.add_argument('--proto', default='eti',
             help='short protocol name (default: %(default)s)')
@@ -1152,7 +1151,6 @@ def main():
     ams = d.getroot().find('ApplicationMessages')
 
     gen_header(proto, desc, o)
-    print(f'static int proto_{proto} = -1;', file=o)
     gen_field_handles(st, dt, proto, o)
     n2enum = gen_enums(dt, ts, o)
     gen_dissect_structs(o)

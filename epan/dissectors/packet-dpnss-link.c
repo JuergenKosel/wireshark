@@ -88,10 +88,10 @@ dissect_dpnss_link(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 {
 	proto_item *item;
 	proto_tree *dpnss_link_tree;
-	guint8      octet;
+	uint8_t     octet;
 	tvbuff_t   *protocol_data_tvb;
-	guint16     protocol_data_length;
-	gboolean    uton;
+	uint16_t    protocol_data_length;
+	bool        uton;
 
 	uton = pinfo->pseudo_header->l1event.uton;
 	/* Make entries in src and dst column */
@@ -125,7 +125,7 @@ dissect_dpnss_link(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
 	 */
 	proto_tree_add_item(dpnss_link_tree, hf_dpnss_link_control_frameType,
 			    tvb, 2, 1, ENC_BIG_ENDIAN);
-	octet = tvb_get_guint8(tvb, 2);
+	octet = tvb_get_uint8(tvb, 2);
 	switch (octet){
 	case FRAME_TYPE_UI_EVEN:
 	case FRAME_TYPE_UI_ODD:
@@ -190,7 +190,7 @@ proto_register_dpnss_link(void)
 		}
 	};
 
-	static gint *ett[] = { &ett_dpnss_link };
+	static int *ett[] = { &ett_dpnss_link };
 
 
 	/* Register the protocol name and description */

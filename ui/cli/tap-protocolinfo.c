@@ -36,7 +36,7 @@ protocolinfo_packet(void *prs, packet_info *pinfo, epan_dissect_t *edt, const vo
 {
 	pci_t *rs = (pci_t *)prs;
 	GPtrArray *gp;
-	guint i;
+	unsigned i;
 	char *str;
 
 	/*

@@ -15,6 +15,7 @@
 #include <epan/packet.h>
 #include <epan/etypes.h>
 #include <epan/ppptypes.h>
+#include <epan/tfs.h>
 
 /* Offsets of fields within a BPDU */
 
@@ -65,8 +66,8 @@ static int hf_dec_bpdu_hello_time;
 static int hf_dec_bpdu_max_age;
 static int hf_dec_bpdu_forward_delay;
 
-static gint ett_dec_bpdu;
-static gint ett_dec_bpdu_flags;
+static int ett_dec_bpdu;
+static int ett_dec_bpdu_flags;
 
 static const value_string protocol_id_vals[] = {
     { 0xe1, "DEC Spanning Tree Protocol" },
@@ -85,7 +86,7 @@ static const value_string bpdu_type_vals[] = {
 static int
 dissect_dec_bpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    guint8  bpdu_type;
+    uint8_t bpdu_type;
     proto_tree *bpdu_tree;
     proto_item *ti;
     static int * const bpdu_flags[] = {
@@ -98,7 +99,7 @@ dissect_dec_bpdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "DEC_STP");
     col_clear(pinfo->cinfo, COL_INFO);
 
-    bpdu_type = tvb_get_guint8(tvb, BPDU_TYPE);
+    bpdu_type = tvb_get_uint8(tvb, BPDU_TYPE);
 
     col_add_str(pinfo->cinfo, COL_INFO,
                 val_to_str(bpdu_type, bpdu_type_vals,
@@ -220,7 +221,7 @@ proto_register_dec_bpdu(void)
             FT_UINT8,       BASE_DEC,       NULL,   0x0,
             NULL, HFILL }},
     };
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_dec_bpdu,
         &ett_dec_bpdu_flags,
     };

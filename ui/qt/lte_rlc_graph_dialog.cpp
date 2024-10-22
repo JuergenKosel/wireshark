@@ -97,6 +97,9 @@ LteRlcGraphDialog::LteRlcGraphDialog(QWidget &parent, CaptureFile &cf, bool chan
     ctx_menu_->addAction(ui->actionSwitchDirection);
     set_action_shortcuts_visible_in_context_menu(ctx_menu_->actions());
 
+    rp->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(rp, &QCustomPlot::customContextMenuRequested, this, &LteRlcGraphDialog::showContextMenu);
+
     // Zero out this struct.
     memset(&graph_, 0, sizeof(graph_));
 
@@ -113,8 +116,8 @@ LteRlcGraphDialog::~LteRlcGraphDialog()
 }
 
 // Set the channel information that this graph should show.
-void LteRlcGraphDialog::setChannelInfo(uint8_t rat, guint16 ueid, guint8 rlcMode,
-                                       guint16 channelType, guint16 channelId, guint8 direction,
+void LteRlcGraphDialog::setChannelInfo(uint8_t rat, uint16_t ueid, uint8_t rlcMode,
+                                       uint16_t channelType, uint16_t channelId, uint8_t direction,
                                        bool maybe_empty)
 {
     graph_.rat = rat;
@@ -122,7 +125,7 @@ void LteRlcGraphDialog::setChannelInfo(uint8_t rat, guint16 ueid, guint8 rlcMode
     graph_.rlcMode = rlcMode;
     graph_.channelType = channelType;
     graph_.channelId = channelId;
-    graph_.channelSet = TRUE;
+    graph_.channelSet = true;
     graph_.direction = direction;
 
     completeGraph(maybe_empty);
@@ -273,8 +276,8 @@ void LteRlcGraphDialog::fillGraph()
                     acks_time, acks,
                     nacks_time, nacks;
 
-    guint32 last_ackSN = guint32(-1);  // start with invalid value
-    guint32 maxSN = 0;
+    uint32_t last_ackSN = uint32_t(-1);  // start with invalid value
+    uint32_t maxSN = 0;
 
     // Note the max possible SN
     if (graph_.segments) {
@@ -557,19 +560,16 @@ QRectF LteRlcGraphDialog::getZoomRanges(QRect zoom_rect)
     return zoom_ranges;
 }
 
+void LteRlcGraphDialog::showContextMenu(const QPoint &pos)
+{
+    ctx_menu_->popup(ui->rlcPlot->mapToGlobal(pos));
+}
+
 void LteRlcGraphDialog::graphClicked(QMouseEvent *event)
 {
     QCustomPlot *rp = ui->rlcPlot;
 
-    if (event->button() == Qt::RightButton) {
-        // XXX We should find some way to get rlcPlot to handle a
-        // contextMenuEvent instead.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-        ctx_menu_->popup(event->globalPosition().toPoint());
-#else
-        ctx_menu_->popup(event->globalPos());
-#endif
-    } else  if (mouse_drags_) {
+    if (mouse_drags_) {
         if (rp->axisRect()->rect().contains(event->pos())) {
             rp->setCursor(QCursor(Qt::ClosedHandCursor));
         }

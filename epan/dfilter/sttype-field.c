@@ -45,7 +45,7 @@ field_new(void *hfinfo)
 }
 
 static void *
-field_dup(gconstpointer data)
+field_dup(const void *data)
 {
 	const field_t *org = data;
 	field_t       *field;
@@ -128,6 +128,7 @@ sttype_field_ftenum(stnode_t *node)
 		return FT_BYTES;
 	if (field->value_string)
 		return FT_STRING;
+	ws_assert(field->hfinfo->type < FT_NUM_TYPES);
 	return field->hfinfo->type;
 }
 

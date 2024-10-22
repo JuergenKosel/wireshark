@@ -14,8 +14,6 @@
 
 #include <stdio.h>
 
-#include <glib.h>
-
 #include "ui/simple_dialog.h"
 
 #include <QPair>
@@ -36,13 +34,14 @@ public:
 
     static void displayQueuedMessages(QWidget *parent = 0);
     static QString dontShowThisAgain();
+    void setInformativeText(QString text) { informative_text_ = text; }
     void setDetailedText(QString text) { detailed_text_ = text; }
     void setCheckBox(QCheckBox *cb) { check_box_ = cb; }
     int exec();
     void show();
 
 private:
-    const MessagePair splitMessage(QString &message) const;
+    QString informative_text_;
     QString detailed_text_;
     QCheckBox *check_box_;
     QMessageBox *message_box_;

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-p772.c                                                              */
-/* asn2wrs.py -b -C -L -p p772 -c ./p772.cnf -s ./packet-p772-template -D . -O ../.. MMSAbstractService.asn MMSInformationObjects.asn MMSOtherNotificationTypeExtensions.asn MMSObjectIdentifiers.asn MMSHeadingExtensions.asn MMSUpperBounds.asn MMSExtendedBodyPartTypes.asn MMSPerRecipientSpecifierExtensions.asn */
+/* asn2wrs.py -b -C -q -L -p p772 -c ./p772.cnf -s ./packet-p772-template -D . -O ../.. MMSAbstractService.asn MMSInformationObjects.asn MMSOtherNotificationTypeExtensions.asn MMSObjectIdentifiers.asn MMSHeadingExtensions.asn MMSUpperBounds.asn MMSExtendedBodyPartTypes.asn MMSPerRecipientSpecifierExtensions.asn */
 
 /* packet-p772.c
  * Routines for STANAG 4406 (X.400 Military Message Extensions)  packet dissection
@@ -18,6 +18,7 @@
 
 #include <epan/packet.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 
@@ -225,34 +226,34 @@ static int hf_p772_Acp127NotificationType_acp127_pn;
 static int hf_p772_Acp127NotificationType_acp127_tn;
 
 /* Initialize the subtree pointers */
-static gint ett_p772;
-static gint ett_p772_InformationObject;
-static gint ett_p772_Acp127NotificationResponse;
-static gint ett_p772_AddressListIndicator;
-static gint ett_p772_ExemptedAddressSeq;
-static gint ett_p772_DistributionCodes;
-static gint ett_p772_SEQUENCE_SIZE_1_ub_military_number_of_sics_OF_Sic;
-static gint ett_p772_SEQUENCE_OF_DistributionExtensionField;
-static gint ett_p772_DistributionExtensionField;
-static gint ett_p772_HandlingInstructions;
-static gint ett_p772_MessageInstructions;
-static gint ett_p772_MessageType;
-static gint ett_p772_AddressListDesignatorSeq;
-static gint ett_p772_AddressListDesignator;
-static gint ett_p772_OtherRecipientDesignatorSeq;
-static gint ett_p772_OtherRecipientDesignator;
-static gint ett_p772_PilotInformationSeq;
-static gint ett_p772_PilotInformation;
-static gint ett_p772_SEQUENCE_OF_ORDescriptor;
-static gint ett_p772_SEQUENCE_OF_MilitaryString;
-static gint ett_p772_SecurityInformationLabels;
-static gint ett_p772_SEQUENCE_OF_BodyPartSecurityLabel;
-static gint ett_p772_BodyPartSecurityLabel;
-static gint ett_p772_ADatP3Data;
-static gint ett_p772_T_setOriented;
-static gint ett_p772_ForwardedEncryptedParameters;
-static gint ett_p772_MMMessageParameters;
-static gint ett_p772_Acp127NotificationType;
+static int ett_p772;
+static int ett_p772_InformationObject;
+static int ett_p772_Acp127NotificationResponse;
+static int ett_p772_AddressListIndicator;
+static int ett_p772_ExemptedAddressSeq;
+static int ett_p772_DistributionCodes;
+static int ett_p772_SEQUENCE_SIZE_1_ub_military_number_of_sics_OF_Sic;
+static int ett_p772_SEQUENCE_OF_DistributionExtensionField;
+static int ett_p772_DistributionExtensionField;
+static int ett_p772_HandlingInstructions;
+static int ett_p772_MessageInstructions;
+static int ett_p772_MessageType;
+static int ett_p772_AddressListDesignatorSeq;
+static int ett_p772_AddressListDesignator;
+static int ett_p772_OtherRecipientDesignatorSeq;
+static int ett_p772_OtherRecipientDesignator;
+static int ett_p772_PilotInformationSeq;
+static int ett_p772_PilotInformation;
+static int ett_p772_SEQUENCE_OF_ORDescriptor;
+static int ett_p772_SEQUENCE_OF_MilitaryString;
+static int ett_p772_SecurityInformationLabels;
+static int ett_p772_SEQUENCE_OF_BodyPartSecurityLabel;
+static int ett_p772_BodyPartSecurityLabel;
+static int ett_p772_ADatP3Data;
+static int ett_p772_T_setOriented;
+static int ett_p772_ForwardedEncryptedParameters;
+static int ett_p772_MMMessageParameters;
+static int ett_p772_Acp127NotificationType;
 
 
 static const ber_choice_t InformationObject_choice[] = {
@@ -1038,211 +1039,211 @@ dissect_p772_ACP127DataData(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int dissect_InformationObject_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_InformationObject(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_InformationObject_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_InformationObject(false, tvb, offset, &asn1_ctx, tree, hf_p772_InformationObject_PDU);
   return offset;
 }
 static int dissect_Acp127NotificationResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_Acp127NotificationResponse(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127NotificationResponse_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_Acp127NotificationResponse(false, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127NotificationResponse_PDU);
   return offset;
 }
 static int dissect_ExemptedAddressSeq_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ExemptedAddressSeq(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ExemptedAddressSeq_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ExemptedAddressSeq(false, tvb, offset, &asn1_ctx, tree, hf_p772_ExemptedAddressSeq_PDU);
   return offset;
 }
 static int dissect_ExtendedAuthorisationInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ExtendedAuthorisationInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ExtendedAuthorisationInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ExtendedAuthorisationInfo(false, tvb, offset, &asn1_ctx, tree, hf_p772_ExtendedAuthorisationInfo_PDU);
   return offset;
 }
 static int dissect_DistributionCodes_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_DistributionCodes(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_DistributionCodes_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_DistributionCodes(false, tvb, offset, &asn1_ctx, tree, hf_p772_DistributionCodes_PDU);
   return offset;
 }
 static int dissect_HandlingInstructions_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_HandlingInstructions(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_HandlingInstructions_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_HandlingInstructions(false, tvb, offset, &asn1_ctx, tree, hf_p772_HandlingInstructions_PDU);
   return offset;
 }
 static int dissect_MessageInstructions_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_MessageInstructions(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_MessageInstructions_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_MessageInstructions(false, tvb, offset, &asn1_ctx, tree, hf_p772_MessageInstructions_PDU);
   return offset;
 }
 static int dissect_CodressMessage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_CodressMessage(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_CodressMessage_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_CodressMessage(false, tvb, offset, &asn1_ctx, tree, hf_p772_CodressMessage_PDU);
   return offset;
 }
 static int dissect_OriginatorReference_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_OriginatorReference(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_OriginatorReference_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_OriginatorReference(false, tvb, offset, &asn1_ctx, tree, hf_p772_OriginatorReference_PDU);
   return offset;
 }
 static int dissect_PrimaryPrecedence_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_PrimaryPrecedence(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_PrimaryPrecedence_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_PrimaryPrecedence(false, tvb, offset, &asn1_ctx, tree, hf_p772_PrimaryPrecedence_PDU);
   return offset;
 }
 static int dissect_CopyPrecedence_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_CopyPrecedence(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_CopyPrecedence_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_CopyPrecedence(false, tvb, offset, &asn1_ctx, tree, hf_p772_CopyPrecedence_PDU);
   return offset;
 }
 static int dissect_MessageType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_MessageType(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_MessageType_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_MessageType(false, tvb, offset, &asn1_ctx, tree, hf_p772_MessageType_PDU);
   return offset;
 }
 static int dissect_AddressListDesignatorSeq_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_AddressListDesignatorSeq(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_AddressListDesignatorSeq_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_AddressListDesignatorSeq(false, tvb, offset, &asn1_ctx, tree, hf_p772_AddressListDesignatorSeq_PDU);
   return offset;
 }
 static int dissect_OtherRecipientDesignatorSeq_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_OtherRecipientDesignatorSeq(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_OtherRecipientDesignatorSeq_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_OtherRecipientDesignatorSeq(false, tvb, offset, &asn1_ctx, tree, hf_p772_OtherRecipientDesignatorSeq_PDU);
   return offset;
 }
 static int dissect_PilotInformationSeq_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_PilotInformationSeq(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_PilotInformationSeq_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_PilotInformationSeq(false, tvb, offset, &asn1_ctx, tree, hf_p772_PilotInformationSeq_PDU);
   return offset;
 }
 static int dissect_Acp127MessageIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_Acp127MessageIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127MessageIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_Acp127MessageIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127MessageIdentifier_PDU);
   return offset;
 }
 static int dissect_OriginatorPlad_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_OriginatorPlad(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_OriginatorPlad_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_OriginatorPlad(false, tvb, offset, &asn1_ctx, tree, hf_p772_OriginatorPlad_PDU);
   return offset;
 }
 static int dissect_SecurityInformationLabels_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_SecurityInformationLabels(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_SecurityInformationLabels_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_SecurityInformationLabels(false, tvb, offset, &asn1_ctx, tree, hf_p772_SecurityInformationLabels_PDU);
   return offset;
 }
 static int dissect_PriorityLevelQualifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_PriorityLevelQualifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_PriorityLevelQualifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_PriorityLevelQualifier(false, tvb, offset, &asn1_ctx, tree, hf_p772_PriorityLevelQualifier_PDU);
   return offset;
 }
 static int dissect_ADatP3Parameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ADatP3Parameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ADatP3Parameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ADatP3Parameters(false, tvb, offset, &asn1_ctx, tree, hf_p772_ADatP3Parameters_PDU);
   return offset;
 }
 static int dissect_ADatP3Data_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ADatP3Data(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ADatP3Data_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ADatP3Data(false, tvb, offset, &asn1_ctx, tree, hf_p772_ADatP3Data_PDU);
   return offset;
 }
 static int dissect_CorrectionsParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_CorrectionsParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_CorrectionsParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_CorrectionsParameters(false, tvb, offset, &asn1_ctx, tree, hf_p772_CorrectionsParameters_PDU);
   return offset;
 }
 static int dissect_CorrectionsData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_CorrectionsData(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_CorrectionsData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_CorrectionsData(false, tvb, offset, &asn1_ctx, tree, hf_p772_CorrectionsData_PDU);
   return offset;
 }
 static int dissect_ForwardedEncryptedParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ForwardedEncryptedParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ForwardedEncryptedParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ForwardedEncryptedParameters(false, tvb, offset, &asn1_ctx, tree, hf_p772_ForwardedEncryptedParameters_PDU);
   return offset;
 }
 static int dissect_ForwardedEncryptedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ForwardedEncryptedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ForwardedEncryptedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ForwardedEncryptedData(false, tvb, offset, &asn1_ctx, tree, hf_p772_ForwardedEncryptedData_PDU);
   return offset;
 }
 static int dissect_MMMessageParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_MMMessageParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_MMMessageParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_MMMessageParameters(false, tvb, offset, &asn1_ctx, tree, hf_p772_MMMessageParameters_PDU);
   return offset;
 }
 static int dissect_MMMessageData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_MMMessageData(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_MMMessageData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_MMMessageData(false, tvb, offset, &asn1_ctx, tree, hf_p772_MMMessageData_PDU);
   return offset;
 }
 static int dissect_ACP127DataParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ACP127DataParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ACP127DataParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ACP127DataParameters(false, tvb, offset, &asn1_ctx, tree, hf_p772_ACP127DataParameters_PDU);
   return offset;
 }
 static int dissect_ACP127DataData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_ACP127DataData(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_ACP127DataData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_ACP127DataData(false, tvb, offset, &asn1_ctx, tree, hf_p772_ACP127DataData_PDU);
   return offset;
 }
 static int dissect_Acp127NotificationType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_p772_Acp127NotificationType(FALSE, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127NotificationType_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_p772_Acp127NotificationType(false, tvb, offset, &asn1_ctx, tree, hf_p772_Acp127NotificationType_PDU);
   return offset;
 }
 
@@ -1258,7 +1259,7 @@ dissect_p772(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	if (parent_tree) {
 		item = proto_tree_add_item(parent_tree, proto_p772, tvb, 0, -1, ENC_NA);
@@ -1268,7 +1269,7 @@ dissect_p772(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "P772");
 	col_set_str(pinfo->cinfo, COL_INFO, "Military");
 
-	dissect_p772_InformationObject(TRUE, tvb, offset, &asn1_ctx , tree, -1);
+	dissect_p772_InformationObject(true, tvb, offset, &asn1_ctx , tree, -1);
 	return tvb_captured_length(tvb);
 }
 
@@ -1595,7 +1596,7 @@ void proto_register_p772(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_p772,
     &ett_p772_InformationObject,
     &ett_p772_Acp127NotificationResponse,

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkixproxy.c                                                         */
-/* asn2wrs.py -b -L -p pkixproxy -c ./pkixproxy.cnf -s ./packet-pkixproxy-template -D . -O ../.. PKIXProxy.asn */
+/* asn2wrs.py -b -q -L -p pkixproxy -c ./pkixproxy.cnf -s ./packet-pkixproxy-template -D . -O ../.. PKIXProxy.asn */
 
 /* packet-pkixproxy.c
  * Routines for RFC3820 PKIXProxy packet dissection
@@ -19,6 +19,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-pkixproxy.h"
@@ -39,8 +40,8 @@ static int hf_pkixproxy_policyLanguage;           /* OBJECT_IDENTIFIER */
 static int hf_pkixproxy_policy;                   /* OCTET_STRING */
 
 /* Initialize the subtree pointers */
-static gint ett_pkixproxy_ProxyCertInfoExtension;
-static gint ett_pkixproxy_ProxyPolicy;
+static int ett_pkixproxy_ProxyCertInfoExtension;
+static int ett_pkixproxy_ProxyPolicy;
 
 
 
@@ -106,8 +107,8 @@ dissect_pkixproxy_ProxyCertInfoExtension(bool implicit_tag _U_, tvbuff_t *tvb _U
 static int dissect_ProxyCertInfoExtension_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkixproxy_ProxyCertInfoExtension(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkixproxy_ProxyCertInfoExtension_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkixproxy_ProxyCertInfoExtension(false, tvb, offset, &asn1_ctx, tree, hf_pkixproxy_ProxyCertInfoExtension_PDU);
   return offset;
 }
 
@@ -141,7 +142,7 @@ void proto_register_pkixproxy(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_pkixproxy_ProxyCertInfoExtension,
     &ett_pkixproxy_ProxyPolicy,
   };

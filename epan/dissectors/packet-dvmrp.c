@@ -42,6 +42,7 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/expert.h>
+#include <epan/tfs.h>
 #include "packet-igmp.h"
 
 void proto_register_dvmrp(void);
@@ -102,7 +103,7 @@ static int ett_route;
 
 static expert_field ei_checksum;
 
-static int strict_v3 = FALSE;
+static bool strict_v3;
 
 #define DVMRP_TYPE				0x13
 static const value_string dvmrp_type[] = {
@@ -227,10 +228,10 @@ static const true_false_string tfs_cap_netmask = {
 static int
 dissect_v3_report(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
 {
-	guint8 m0,m1,m2,m3;
-	guint8 s0,s1,s2,s3;
-	guint8 metric;
-	guint32 ip;
+	uint8_t m0,m1,m2,m3;
+	uint8_t s0,s1,s2,s3;
+	uint8_t metric;
+	uint32_t ip;
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		proto_tree *tree;
@@ -243,9 +244,9 @@ dissect_v3_report(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
 
 		m0 = 0xff;
 		/* read the mask */
-		m1 = tvb_get_guint8(tvb, offset);
-		m2 = tvb_get_guint8(tvb, offset+1);
-		m3 = tvb_get_guint8(tvb, offset+2);
+		m1 = tvb_get_uint8(tvb, offset);
+		m2 = tvb_get_uint8(tvb, offset+1);
+		m3 = tvb_get_uint8(tvb, offset+2);
 
 		ip = m3;
 		ip = (ip<<8)|m2;
@@ -264,18 +265,18 @@ dissect_v3_report(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
 			s2 = 0;
 			s3 = 0;
 
-			s0 = tvb_get_guint8(tvb, offset);
+			s0 = tvb_get_uint8(tvb, offset);
 			offset += 1;
 			if (m1) {
-				s1 = tvb_get_guint8(tvb, offset);
+				s1 = tvb_get_uint8(tvb, offset);
 				offset += 1;
 			}
 			if (m2) {
-				s2 = tvb_get_guint8(tvb, offset);
+				s2 = tvb_get_uint8(tvb, offset);
 				offset += 1;
 			}
 			if (m3) {
-				s3 = tvb_get_guint8(tvb, offset);
+				s3 = tvb_get_uint8(tvb, offset);
 				offset += 1;
 			}
 
@@ -294,7 +295,7 @@ dissect_v3_report(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
 				m0?"Source Network":"Default Route",
 				s0,s1,s2,s3,m0,m1,m2,m3);
 
-			metric = tvb_get_guint8(tvb, offset);
+			metric = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_metric, tvb,
 				offset, 1, metric&0x7f);
 			offset += 1;
@@ -311,7 +312,7 @@ dissect_v3_report(tvbuff_t *tvb, proto_tree *parent_tree, int offset)
 static int
 dissect_dvmrp_v3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int offset)
 {
-	guint8 code;
+	uint8_t code;
 
 	/* version */
 	proto_tree_add_uint(parent_tree, hf_version, tvb, 0, 0, 3);
@@ -321,7 +322,7 @@ dissect_dvmrp_v3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 	offset += 1;
 
 	/* code */
-	code = tvb_get_guint8(tvb, offset);
+	code = tvb_get_uint8(tvb, offset);
 	proto_tree_add_uint(parent_tree, hf_code_v3, tvb, offset, 1, code);
 	offset += 1;
 	col_add_fstr(pinfo->cinfo, COL_INFO,
@@ -438,7 +439,7 @@ dissect_dvmrp_v3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 		break;
 	case DVMRP_V3_NEIGHBORS_2:
 		while (tvb_reported_length_remaining(tvb, offset)>=12) {
-			guint8 neighbor_count;
+			uint8_t neighbor_count;
 
 			/* local address */
 			proto_tree_add_item(parent_tree, hf_local,
@@ -476,7 +477,7 @@ dissect_dvmrp_v3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			}
 			offset += 1;
 			/* Neighbor count */
-			neighbor_count = tvb_get_guint8(tvb, offset);
+			neighbor_count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_item(parent_tree, hf_ncount,
 				tvb, offset, 1, ENC_BIG_ENDIAN);
 			offset += 1;
@@ -499,8 +500,8 @@ dissect_dvmrp_v3(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 static int
 dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int offset)
 {
-	guint8 code;
-	guint8 af=2; /* default */
+	uint8_t code;
+	uint8_t af=2; /* default */
 
 	/* version */
 	proto_tree_add_uint(parent_tree, hf_version, tvb, 0, 0, 1);
@@ -510,7 +511,7 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 	offset += 1;
 
 	/* code */
-	code = tvb_get_guint8(tvb, offset);
+	code = tvb_get_uint8(tvb, offset);
 	proto_tree_add_uint(parent_tree, hf_code_v1, tvb, offset, 1, code);
 	offset += 1;
 	col_add_fstr(pinfo->cinfo, COL_INFO,
@@ -525,14 +526,14 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
 		proto_tree *tree;
 		proto_item *item;
-		guint8 cmd,count;
+		uint8_t cmd,count;
 		int old_offset = offset;
 
 		item = proto_tree_add_item(parent_tree, hf_commands,
 				tvb, offset, -1, ENC_NA);
 		tree = proto_item_add_subtree(item, ett_commands);
 
-		cmd = tvb_get_guint8(tvb, offset);
+		cmd = tvb_get_uint8(tvb, offset);
 		proto_tree_add_uint(tree, hf_command, tvb,
 			offset, 1, cmd);
 		offset += 1;
@@ -545,7 +546,7 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			}
 			break;
 		case V1_COMMAND_AFI:
-			af = tvb_get_guint8(tvb, offset);
+			af = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_afi, tvb,
 				offset, 1, af);
 			offset += 1;
@@ -557,7 +558,7 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			}
 			break;
 		case V1_COMMAND_SUBNETMASK:
-			count = tvb_get_guint8(tvb, offset);
+			count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_count, tvb,
 				offset, 1, count);
 			offset += 1;
@@ -567,10 +568,10 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 				if (item) {
 					proto_item_set_text(item, "%s: %d.%d.%d.%d",
 						val_to_str(cmd, command, "Unknown Command:0x%02x"),
-						tvb_get_guint8(tvb, offset),
-						tvb_get_guint8(tvb, offset+1),
-						tvb_get_guint8(tvb, offset+2),
-						tvb_get_guint8(tvb, offset+3));
+						tvb_get_uint8(tvb, offset),
+						tvb_get_uint8(tvb, offset+1),
+						tvb_get_uint8(tvb, offset+2),
+						tvb_get_uint8(tvb, offset+3));
 				}
 				offset += 4;
 			} else {
@@ -586,12 +587,12 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			if (item) {
 				proto_item_set_text(item, "%s: %d",
 					val_to_str(cmd, command, "Unknown Command:0x%02x"),
-					tvb_get_guint8(tvb, offset));
+					tvb_get_uint8(tvb, offset));
 			}
 			offset += 1;
 			break;
 		case V1_COMMAND_FLAGS0:
-			count = tvb_get_guint8(tvb, offset);
+			count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_boolean(tree, hf_dest_unr, tvb, offset, 1, count);
 			proto_tree_add_boolean(tree, hf_split_horiz, tvb, offset, 1, count);
 			if (item) {
@@ -605,13 +606,13 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 				offset, 1, ENC_BIG_ENDIAN);
 			if (item) {
 				proto_item_set_text(item, "%s: %d",
-					val_to_str(cmd, command, "Unknown Command:0x%02x"), tvb_get_guint8(tvb, offset));
+					val_to_str(cmd, command, "Unknown Command:0x%02x"), tvb_get_uint8(tvb, offset));
 			}
 			offset += 1;
 			break;
 		case V1_COMMAND_DA:
 		case V1_COMMAND_RDA: /* same as DA */
-			count = tvb_get_guint8(tvb, offset);
+			count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_count, tvb,
 				offset, 1, count);
 			offset += 1;
@@ -626,7 +627,7 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			}
 			break;
 		case V1_COMMAND_NMR:
-			count = tvb_get_guint8(tvb, offset);
+			count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_count, tvb,
 				offset, 1, count);
 			offset += 1;
@@ -644,7 +645,7 @@ dissect_dvmrp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, int
 			}
 			break;
 		case V1_COMMAND_NMR_CANCEL:
-			count = tvb_get_guint8(tvb, offset);
+			count = tvb_get_uint8(tvb, offset);
 			proto_tree_add_uint(tree, hf_count, tvb,
 				offset, 1, count);
 			offset += 1;
@@ -681,8 +682,8 @@ dissect_dvmrp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	tree = proto_item_add_subtree(item, ett_dvmrp);
 
 	if ((tvb_captured_length_remaining(tvb, offset)>=8)
-	 && (((tvb_get_guint8(tvb, 6)==0xff)
-	 && (tvb_get_guint8(tvb, 7)==0x03))
+	 && (((tvb_get_uint8(tvb, 6)==0xff)
+	 && (tvb_get_uint8(tvb, 7)==0x03))
 	     || !strict_v3)) {
 		offset = dissect_dvmrp_v3(tvb, pinfo, tree, offset);
 	} else {
@@ -869,7 +870,7 @@ proto_register_dvmrp(void)
 			{ "Neighbor Addr", "dvmrp.neighbor", FT_IPv4, BASE_NONE,
 			  NULL, 0, "DVMRP Neighbor Address", HFILL }}
 	};
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_dvmrp,
 		&ett_commands,
 		&ett_capabilities,

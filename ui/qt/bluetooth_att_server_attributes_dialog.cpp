@@ -52,6 +52,24 @@ btatt_handle_tap_reset(void *tapinfo_ptr)
         tapinfo->tap_reset(tapinfo);
 }
 
+static QTreeWidgetItem *
+item_with_handle_get(QTreeWidget *tableTree, uint16_t handle)
+{
+    QTreeWidgetItemIterator i_item(tableTree);
+
+    while (*i_item) {
+        QTreeWidgetItem *item = static_cast<QTreeWidgetItem*>(*i_item);
+
+        if (item->data(1, Qt::UserRole).value<uint32_t>() == handle) {
+            return item;
+        }
+
+        ++i_item;
+    }
+
+    return NULL;
+}
+
 BluetoothAttServerAttributesDialog::BluetoothAttServerAttributesDialog(QWidget &parent, CaptureFile &cf) :
     WiresharkDialog(parent, cf),
     ui(new Ui::BluetoothAttServerAttributesDialog)
@@ -62,7 +80,11 @@ BluetoothAttServerAttributesDialog::BluetoothAttServerAttributesDialog(QWidget &
     connect(ui->tableTreeWidget, &QTreeWidget::customContextMenuRequested, this, &BluetoothAttServerAttributesDialog::tableContextMenu);
     connect(ui->interfaceComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &BluetoothAttServerAttributesDialog::interfaceCurrentIndexChanged);
     connect(ui->deviceComboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, &BluetoothAttServerAttributesDialog::deviceCurrentIndexChanged);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    connect(ui->removeDuplicatesCheckBox, &QCheckBox::checkStateChanged, this, &BluetoothAttServerAttributesDialog::removeDuplicatesStateChanged);
+#else
     connect(ui->removeDuplicatesCheckBox, &QCheckBox::stateChanged, this, &BluetoothAttServerAttributesDialog::removeDuplicatesStateChanged);
+#endif
 
     ui->tableTreeWidget->sortByColumn(column_number_handle, Qt::AscendingOrder);
 
@@ -98,9 +120,9 @@ BluetoothAttServerAttributesDialog::~BluetoothAttServerAttributesDialog()
 
 void BluetoothAttServerAttributesDialog::captureFileClosed()
 {
-    ui->interfaceComboBox->setEnabled(FALSE);
-    ui->deviceComboBox->setEnabled(FALSE);
-    ui->removeDuplicatesCheckBox->setEnabled(FALSE);
+    ui->interfaceComboBox->setEnabled(false);
+    ui->deviceComboBox->setEnabled(false);
+    ui->removeDuplicatesCheckBox->setEnabled(false);
 
     WiresharkDialog::captureFileClosed();
 }
@@ -170,11 +192,11 @@ void BluetoothAttServerAttributesDialog::on_actionMark_Unmark_Row_triggered()
 
     QBrush fg;
     QBrush bg;
-    bool   is_marked = TRUE;
+    bool   is_marked = true;
 
     for (int i = 0; i < ui->tableTreeWidget->columnCount(); i += 1) {
         if (current_item->background(i) != QBrush(ColorUtils::fromColorT(&prefs.gui_marked_bg)))
-            is_marked = FALSE;
+            is_marked = false;
     }
 
     if (is_marked) {
@@ -245,7 +267,7 @@ tap_packet_status BluetoothAttServerAttributesDialog::tapPacket(void *tapinfo_pt
     QString                              handle;
     QString                              uuid;
     QString                              uuid_name;
-    gchar                               *addr = NULL;
+    char                                *addr = NULL;
 
     if (dialog->file_closed_)
         return TAP_PACKET_DONT_REDRAW;
@@ -254,7 +276,7 @@ tap_packet_status BluetoothAttServerAttributesDialog::tapPacket(void *tapinfo_pt
         return TAP_PACKET_DONT_REDRAW;
 
     if (pinfo->rec->presence_flags & WTAP_HAS_INTERFACE_ID) {
-        gchar       *interface;
+        char        *interface;
         const char  *interface_name;
 
         unsigned     section_number = pinfo->rec->presence_flags & WTAP_HAS_SECTION_NUMBER ? pinfo->rec->section_number : 0;
@@ -287,24 +309,48 @@ tap_packet_status BluetoothAttServerAttributesDialog::tapPacket(void *tapinfo_pt
     uuid_name = QString(print_bluetooth_uuid(pinfo->pool, &tap_handles->uuid));
 
     if (dialog->ui->removeDuplicatesCheckBox->checkState() == Qt::Checked) {
-        QTreeWidgetItemIterator i_item(dialog->ui->tableTreeWidget);
+        QTreeWidgetItem *item = item_with_handle_get(dialog->ui->tableTreeWidget,
+                                                     tap_handles->handle);
 
-        while (*i_item) {
-            QTreeWidgetItem *item = static_cast<QTreeWidgetItem*>(*i_item);
-
+        if (item) {
             if (item->text(column_number_handle) == handle &&
                     item->text(column_number_uuid) == uuid &&
                     item->text(column_number_uuid_name) == uuid_name)
                 return TAP_PACKET_REDRAW;
-            ++i_item;
         }
     }
 
-    QTreeWidgetItem *item = new QTreeWidgetItem(dialog->ui->tableTreeWidget);
-    item->setText(column_number_handle, handle);
-    item->setText(column_number_uuid, uuid);
-    item->setText(column_number_uuid_name,  uuid_name);
-    item->setData(0, Qt::UserRole, QVariant::fromValue(pinfo->num));
+    QTreeWidgetItem *parent = NULL;
+
+    if (tap_handles->attribute_type == ATTRIBUTE_TYPE_SERVICE) {
+        /* Service declarations are the top level items */
+        parent = dialog->ui->tableTreeWidget->invisibleRootItem();
+    } else if ((tap_handles->uuid.bt_uuid == UUID_GATT_INCLUDE_DECLARATION) ||
+               (tap_handles->uuid.bt_uuid == UUID_GATT_CHARACTERISTIC_DECLARATION)) {
+        /* Characteristic and include declarations are part of services. */
+        parent = item_with_handle_get(dialog->ui->tableTreeWidget,
+                                      tap_handles->service_handle);
+    } else {
+        /* Each characteristic may have several attributes. */
+        parent = item_with_handle_get(dialog->ui->tableTreeWidget,
+                                      tap_handles->char_decl_handle);
+    }
+
+    if (parent) {
+        QTreeWidgetItem *item = new QTreeWidgetItem(parent);
+
+        item->setText(column_number_handle, handle);
+        item->setText(column_number_uuid, uuid);
+        item->setText(column_number_uuid_name,  uuid_name);
+        item->setData(0, Qt::UserRole, QVariant::fromValue(pinfo->num));
+        item->setData(1, Qt::UserRole, QVariant::fromValue(tap_handles->handle));
+
+        parent->setExpanded(true);
+    } else {
+        /* Do not insert items without a known parent into the tree.
+         * The parent will likely be found later.
+         */
+    }
 
     for (int i = 0; i < dialog->ui->tableTreeWidget->columnCount(); i++) {
         dialog->ui->tableTreeWidget->resizeColumnToContents(i);
@@ -324,8 +370,11 @@ void BluetoothAttServerAttributesDialog::deviceCurrentIndexChanged(int)
     cap_file_.retapPackets();
 }
 
-
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+void BluetoothAttServerAttributesDialog::removeDuplicatesStateChanged(Qt::CheckState)
+#else
 void BluetoothAttServerAttributesDialog::removeDuplicatesStateChanged(int)
+#endif
 {
     cap_file_.retapPackets();
 }
@@ -337,7 +386,7 @@ void BluetoothAttServerAttributesDialog::on_tableTreeWidget_itemActivated(QTreeW
     if (file_closed_)
         return;
 
-    guint32 frame_number = item->data(0, Qt::UserRole).value<guint32>();
+    uint32_t frame_number = item->data(0, Qt::UserRole).value<uint32_t>();
 
     emit goToPacket(frame_number);
 }

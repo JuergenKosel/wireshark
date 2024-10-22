@@ -45,26 +45,26 @@ static int hf_lanforge_tx_time_ns;
 static int hf_lanforge_timestamp;
 
 /* Initialize the subtree pointer */
-static gint ett_lanforge;
+static int ett_lanforge;
 
 /* entry point */
-static gboolean dissect_lanforge(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+static bool dissect_lanforge(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     proto_item *ti;
     proto_tree *lanforge_tree;
-    guint32 offset = 0;
-    guint32 magic, pld_len, pld_len_h;
+    uint32_t offset = 0;
+    uint32_t magic, pld_len, pld_len_h;
 
     /* check for min size */
     if(tvb_captured_length(tvb) < 28) {  /* Not a LANforge packet. */
-        return FALSE;
+        return false;
     }
 
     /* check for magic number */
     magic = tvb_get_ntohl(tvb, 4);
     if(magic != LANFORGE_MAGIC){
         /* Not a LANforge packet. */
-        return FALSE;
+        return false;
     }
 
     /* Make entries in Protocol column and Info column on summary display */
@@ -119,7 +119,7 @@ static gboolean dissect_lanforge(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
         call_data_dissector(tvb_new_subset_remaining(tvb, offset), pinfo,
                 lanforge_tree);
 
-    return TRUE;
+    return true;
 }
 
 
@@ -229,7 +229,7 @@ void proto_register_lanforge(void)
 
     /* Setup protocol subtree array */
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_lanforge
     };
 

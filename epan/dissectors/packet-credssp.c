@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-credssp.c                                                           */
-/* asn2wrs.py -b -C -L -p credssp -c ./credssp.cnf -s ./packet-credssp-template -D . -O ../.. CredSSP.asn */
+/* asn2wrs.py -b -C -q -L -p credssp -c ./credssp.cnf -s ./packet-credssp-template -D . -O ../.. CredSSP.asn */
 
 /* packet-credssp.c
  * Routines for CredSSP (Credential Security Support Provider) packet dissection
@@ -20,6 +20,7 @@
 #include <epan/asn1.h>
 #include <epan/tap.h>
 #include <epan/exported_pdu.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-gssapi.h"
@@ -35,8 +36,8 @@
 #define TS_SMARTCARD_CREDS  2
 #define TS_REMOTEGUARD_CREDS  6
 
-static gint creds_type;
-static gint credssp_ver;
+static int creds_type;
+static int credssp_ver;
 
 static char kerberos_pname[] = "K\0e\0r\0b\0e\0r\0o\0s";
 static char ntlm_pname[] = "N\0T\0L\0M";
@@ -45,9 +46,9 @@ static char ntlm_pname[] = "N\0T\0L\0M";
 #define TS_RGC_KERBEROS	1
 #define TS_RGC_NTLM	2
 
-static gint credssp_TS_RGC_package;
+static int credssp_TS_RGC_package;
 
-static gint exported_pdu_tap = -1;
+static int exported_pdu_tap = -1;
 
 /* Initialize the protocol and registered fields */
 static int proto_credssp;
@@ -93,19 +94,19 @@ static int hf_credssp_errorCode;                  /* T_errorCode */
 static int hf_credssp_clientNonce;                /* T_clientNonce */
 
 /* Initialize the subtree pointers */
-static gint ett_credssp;
-static gint ett_credssp_RGC_CredBuffer;
+static int ett_credssp;
+static int ett_credssp_RGC_CredBuffer;
 
-static gint ett_credssp_NegoData;
-static gint ett_credssp_NegoData_item;
-static gint ett_credssp_TSPasswordCreds;
-static gint ett_credssp_TSCspDataDetail;
-static gint ett_credssp_TSSmartCardCreds;
-static gint ett_credssp_TSRemoteGuardPackageCred;
-static gint ett_credssp_TSRemoteGuardCreds;
-static gint ett_credssp_SEQUENCE_OF_TSRemoteGuardPackageCred;
-static gint ett_credssp_TSCredentials;
-static gint ett_credssp_TSRequest;
+static int ett_credssp_NegoData;
+static int ett_credssp_NegoData_item;
+static int ett_credssp_TSPasswordCreds;
+static int ett_credssp_TSCspDataDetail;
+static int ett_credssp_TSSmartCardCreds;
+static int ett_credssp_TSRemoteGuardPackageCred;
+static int ett_credssp_TSRemoteGuardCreds;
+static int ett_credssp_SEQUENCE_OF_TSRemoteGuardPackageCred;
+static int ett_credssp_TSCredentials;
+static int ett_credssp_TSRequest;
 
 
 
@@ -232,7 +233,7 @@ dissect_credssp_T_packageName(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 	offset = dissect_ber_octet_string(implicit_tag, actx, NULL, tvb, offset, hf_index, &pname);
 
 	if(pname != NULL) {
-		gint nlen = tvb_captured_length(pname);
+		int nlen = tvb_captured_length(pname);
 
 		if (nlen == sizeof(kerberos_pname) && memcmp(tvb_get_ptr(pname, 0, nlen), kerberos_pname, nlen) == 0) {
 			credssp_TS_RGC_package = TS_RGC_KERBEROS;
@@ -340,13 +341,13 @@ dissect_credssp_T_credentials(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offs
 
 	switch(creds_type) {
 	case TS_PASSWORD_CREDS:
-		dissect_credssp_TSPasswordCreds(FALSE, creds_tvb, 0, actx, tree, hf_credssp_TSPasswordCreds);
+		dissect_credssp_TSPasswordCreds(false, creds_tvb, 0, actx, tree, hf_credssp_TSPasswordCreds);
 		break;
 	case TS_SMARTCARD_CREDS:
-		dissect_credssp_TSSmartCardCreds(FALSE, creds_tvb, 0, actx, tree, hf_credssp_TSSmartCardCreds);
+		dissect_credssp_TSSmartCardCreds(false, creds_tvb, 0, actx, tree, hf_credssp_TSSmartCardCreds);
 		break;
 	case TS_REMOTEGUARD_CREDS:
-		dissect_credssp_TSRemoteGuardCreds(FALSE, creds_tvb, 0, actx, tree, hf_credssp_TSRemoteGuardCreds);
+		dissect_credssp_TSRemoteGuardCreds(false, creds_tvb, 0, actx, tree, hf_credssp_TSRemoteGuardCreds);
 		break;
 	}
 
@@ -398,7 +399,7 @@ dissect_credssp_T_authInfo(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset 
 	decr_tvb = gssapi_encrypt.gssapi_decrypted_tvb;
 
 	if(decr_tvb != NULL)
-		dissect_credssp_TSCredentials(FALSE, decr_tvb, 0, actx, tree, hf_credssp_TSCredentials);
+		dissect_credssp_TSCredentials(false, decr_tvb, 0, actx, tree, hf_credssp_TSCredentials);
 
 
   return offset;
@@ -488,8 +489,8 @@ dissect_credssp_TSRequest(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _
 static int dissect_TSRequest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_credssp_TSRequest(FALSE, tvb, offset, &asn1_ctx, tree, hf_credssp_TSRequest_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_credssp_TSRequest(false, tvb, offset, &asn1_ctx, tree, hf_credssp_TSRequest_PDU);
   return offset;
 }
 
@@ -516,23 +517,23 @@ dissect_credssp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void
 	return dissect_TSRequest_PDU(tvb, pinfo, tree, data);
 }
 
-static gboolean
-dissect_credssp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data _U_)
+static bool
+dissect_credssp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data)
 {
   asn1_ctx_t asn1_ctx;
   int offset = 0;
-  gint8 ber_class;
+  int8_t ber_class;
   bool pc;
-  gint32 tag;
-  guint32 length;
-  gint8 ver;
+  int32_t tag;
+  uint32_t length;
+  int8_t ver;
 
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
   /* Look for SEQUENCE, CONTEXT 0, and INTEGER 2 */
   if(tvb_captured_length(tvb) > 7) {
     offset = get_ber_identifier(tvb, offset, &ber_class, &pc, &tag);
-    if((ber_class == BER_CLASS_UNI) && (tag == BER_UNI_TAG_SEQUENCE) && (pc == TRUE)) {
+    if((ber_class == BER_CLASS_UNI) && (tag == BER_UNI_TAG_SEQUENCE) && (pc == true)) {
       offset = get_ber_length(tvb, offset, NULL, NULL);
       offset = get_ber_identifier(tvb, offset, &ber_class, &pc, &tag);
       if((ber_class == BER_CLASS_CON) && (tag == 0)) {
@@ -540,7 +541,7 @@ dissect_credssp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
         offset = get_ber_identifier(tvb, offset, &ber_class, &pc, &tag);
         if((ber_class == BER_CLASS_UNI) && (tag == BER_UNI_TAG_INTEGER)) {
           offset = get_ber_length(tvb, offset, &length, NULL);
-          ver = tvb_get_guint8(tvb, offset);
+          ver = tvb_get_uint8(tvb, offset);
           if((length == 1) && (ver > 1) && (ver < 99)) {
             if (have_tap_listener(exported_pdu_tap)) {
               exp_pdu_data_t *exp_pdu_data = export_pdu_create_common_tags(pinfo, "credssp", EXP_PDU_TAG_DISSECTOR_NAME);
@@ -551,14 +552,14 @@ dissect_credssp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 
               tap_queue_packet(exported_pdu_tap, pinfo, exp_pdu_data);
             }
-            dissect_credssp(tvb, pinfo, parent_tree, NULL);
-            return TRUE;
+            dissect_credssp(tvb, pinfo, parent_tree, data);
+            return true;
           }
         }
       }
     }
   }
-  return FALSE;
+  return false;
 }
 
 
@@ -703,7 +704,7 @@ void proto_register_credssp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_credssp,
     &ett_credssp_RGC_CredBuffer,
     &ett_credssp_NegoData,
@@ -727,8 +728,8 @@ void proto_register_credssp(void) {
   proto_register_field_array(proto_credssp, hf, array_length(hf));
   proto_register_subtree_array(ett, array_length(ett));
 
-  /* heuristic dissectors for any premable e.g. CredSSP before RDP */
-  credssp_heur_subdissector_list = register_heur_dissector_list("credssp", proto_credssp);
+  /* heuristic dissectors for any preamble e.g. CredSSP before RDP */
+  credssp_heur_subdissector_list = register_heur_dissector_list_with_description("credssp", "Unused", proto_credssp);
 
 }
 

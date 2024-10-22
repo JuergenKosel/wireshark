@@ -40,11 +40,11 @@
 #include <wsutil/plugins.h>
 #endif
 
-#include <wsutil/report_message.h>
-
 #include <wiretap/merge.h>
 
 #include "ui/failure_message.h"
+
+#define LONGOPT_COMPRESS                LONGOPT_BASE_APPLICATION+1
 
 /*
  * Show the usage
@@ -60,10 +60,12 @@ print_usage(FILE *output)
     fprintf(output, "                    default is to merge based on frame timestamps.\n");
     fprintf(output, "  -s <snaplen>      truncate packets to <snaplen> bytes of data.\n");
     fprintf(output, "  -w <outfile>|-    set the output filename to <outfile> or '-' for stdout.\n");
+    fprintf(output, "                    if the output filename has the .gz extension, it will be compressed to a gzip archive\n");
     fprintf(output, "  -F <capture type> set the output file type; default is pcapng.\n");
     fprintf(output, "                    an empty \"-F\" option will list the file types.\n");
     fprintf(output, "  -I <IDB merge mode> set the merge mode for Interface Description Blocks; default is 'all'.\n");
     fprintf(output, "                    an empty \"-I\" option will list the merge modes.\n");
+    fprintf(output, "  --compress <type> compress the output file using the type compression format.\n");
     fprintf(output, "\n");
     fprintf(output, "Miscellaneous:\n");
     fprintf(output, "  -h, --help        display this help and exit.\n");
@@ -98,7 +100,7 @@ list_capture_types(void) {
 
     fprintf(stderr, "mergecap: The available capture file types for the \"-F\" flag are:\n");
     writable_type_subtypes = wtap_get_writable_file_types_subtypes(FT_SORT_BY_NAME);
-    for (guint i = 0; i < writable_type_subtypes->len; i++) {
+    for (unsigned i = 0; i < writable_type_subtypes->len; i++) {
         int ft = g_array_index(writable_type_subtypes, int, i);
         fprintf(stderr, "    %s - %s\n", wtap_file_type_subtype_name(ft),
                 wtap_file_type_subtype_description(ft));
@@ -116,12 +118,27 @@ list_idb_merge_modes(void) {
     }
 }
 
-static gboolean
+static void
+list_output_compression_types(void) {
+    GSList *output_compression_types;
+
+    fprintf(stderr, "mergecap: The available output compress type(s) for the \"--compress\" flag are:\n");
+    output_compression_types = wtap_get_all_output_compression_type_names_list();
+    for (GSList *compression_type = output_compression_types;
+        compression_type != NULL;
+        compression_type = g_slist_next(compression_type)) {
+            fprintf(stderr, "   %s\n", (const char *)compression_type->data);
+        }
+
+    g_slist_free(output_compression_types);
+}
+
+static bool
 merge_callback(merge_event event, int num,
-        const merge_in_file_t in_files[], const guint in_file_count,
+        const merge_in_file_t in_files[], const unsigned in_file_count,
         void *data _U_)
 {
-    guint i;
+    unsigned i;
 
     switch (event) {
 
@@ -178,43 +195,29 @@ merge_callback(merge_event event, int num,
     }
 
     /* false = do not stop merging */
-    return FALSE;
+    return false;
 }
 
 int
 main(int argc, char *argv[])
 {
     char               *configuration_init_error;
-    static const struct report_message_routines mergecap_report_routines = {
-        failure_message,
-        failure_message,
-        open_failure_message,
-        read_failure_message,
-        write_failure_message,
-        cfile_open_failure_message,
-        cfile_dump_open_failure_message,
-        cfile_read_failure_message,
-        cfile_write_failure_message,
-        cfile_close_failure_message
-    };
     int                 opt;
     static const struct ws_option long_options[] = {
         {"help", ws_no_argument, NULL, 'h'},
         {"version", ws_no_argument, NULL, 'v'},
+        {"compress", ws_required_argument, NULL, LONGOPT_COMPRESS},
         {0, 0, 0, 0 }
     };
-    gboolean            do_append          = FALSE;
-    gboolean            verbose            = FALSE;
-    int                 in_file_count      = 0;
-    guint32             snaplen            = 0;
-    int                 file_type          = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
-    int                 err                = 0;
-    gchar              *err_info           = NULL;
-    int                 err_fileno;
-    guint32             err_framenum;
-    char               *out_filename       = NULL;
-    merge_result        status             = MERGE_OK;
-    idb_merge_mode      mode               = IDB_MERGE_MODE_MAX;
+    bool                  do_append        = false;
+    bool                  verbose          = false;
+    int                   in_file_count    = 0;
+    uint32_t              snaplen          = 0;
+    int                   file_type        = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;
+    char                  *out_filename    = NULL;
+    bool                  status           = true;
+    idb_merge_mode        mode             = IDB_MERGE_MODE_MAX;
+    wtap_compression_type compression_type = WTAP_UNKNOWN_COMPRESSION;
     merge_progress_callback_t cb;
 
     cmdarg_err_init(mergecap_cmdarg_err, mergecap_cmdarg_err_cont);
@@ -245,15 +248,15 @@ main(int argc, char *argv[])
      */
     configuration_init_error = configuration_init(argv[0], NULL);
     if (configuration_init_error != NULL) {
-        fprintf(stderr,
-                "mergecap: Can't get pathname of directory containing the mergecap program: %s.\n",
+        cmdarg_err(
+                "Can't get pathname of directory containing the mergecap program: %s.",
                 configuration_init_error);
         g_free(configuration_init_error);
     }
 
-    init_report_message("mergecap", &mergecap_report_routines);
+    init_report_failure_message("mergecap");
 
-    wtap_init(TRUE);
+    wtap_init(true);
 
     /* Process the options first */
     while ((opt = ws_getopt_long(argc, argv, "aF:hI:s:vVw:", long_options, NULL)) != -1) {
@@ -266,10 +269,10 @@ main(int argc, char *argv[])
             case 'F':
                 file_type = wtap_name_to_file_type_subtype(ws_optarg);
                 if (file_type < 0) {
-                    fprintf(stderr, "mergecap: \"%s\" isn't a valid capture file type\n",
-                            ws_optarg);
+                    cmdarg_err("\"%s\" isn't a valid capture file type",
+                               ws_optarg);
                     list_capture_types();
-                    status = MERGE_ERR_INVALID_OPTION;
+                    status = false;
                     goto clean_exit;
                 }
                 break;
@@ -283,20 +286,20 @@ main(int argc, char *argv[])
             case 'I':
                 mode = merge_string_to_idb_merge_mode(ws_optarg);
                 if (mode == IDB_MERGE_MODE_MAX) {
-                    fprintf(stderr, "mergecap: \"%s\" isn't a valid IDB merge mode\n",
-                            ws_optarg);
+                    cmdarg_err("\"%s\" isn't a valid IDB merge mode",
+                               ws_optarg);
                     list_idb_merge_modes();
-                    status = MERGE_ERR_INVALID_OPTION;
+                    status = false;
                     goto clean_exit;
                 }
                 break;
 
             case 's':
-                snaplen = get_nonzero_guint32(ws_optarg, "snapshot length");
+                snaplen = get_nonzero_uint32(ws_optarg, "snapshot length");
                 break;
 
             case 'V':
-                verbose = TRUE;
+                verbose = true;
                 break;
 
             case 'v':
@@ -308,6 +311,15 @@ main(int argc, char *argv[])
                 out_filename = ws_optarg;
                 break;
 
+            case LONGOPT_COMPRESS:
+                compression_type = wtap_name_to_compression_type(ws_optarg);
+                if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+                    cmdarg_err("\"%s\" isn't a valid output compression mode",
+                                ws_optarg);
+                    list_output_compression_types();
+                    goto clean_exit;
+                }
+                break;
             case '?':              /* Bad options if GNU getopt */
                 switch(ws_optopt) {
                     case'F':
@@ -316,10 +328,13 @@ main(int argc, char *argv[])
                     case'I':
                         list_idb_merge_modes();
                         break;
+                    case LONGOPT_COMPRESS:
+                        list_output_compression_types();
+                        break;
                     default:
                         print_usage(stderr);
                 }
-                status = MERGE_ERR_INVALID_OPTION;
+                status = false;
                 goto clean_exit;
                 break;
         }
@@ -337,14 +352,42 @@ main(int argc, char *argv[])
      */
     in_file_count = argc - ws_optind;
     if (!out_filename) {
-        fprintf(stderr, "mergecap: an output filename must be set with -w\n");
-        fprintf(stderr, "          run with -h for help\n");
-        status = MERGE_ERR_INVALID_OPTION;
+        cmdarg_err("an output filename must be set with -w");
+        cmdarg_err_cont("run with -h for help");
+        status = false;
         goto clean_exit;
     }
     if (in_file_count < 1) {
-        fprintf(stderr, "mergecap: No input files were specified\n");
+        cmdarg_err("No input files were specified");
         return 1;
+    }
+
+    if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+        /* An explicitly specified compression type overrides filename
+         * magic. (Should we allow specifying "no" compression with, e.g.
+         * a ".gz" extension?) */
+        const char *sfx = strrchr(out_filename, '.');
+        if (sfx) {
+            compression_type = wtap_extension_to_compression_type(sfx + 1);
+        }
+    }
+
+    if (compression_type == WTAP_UNKNOWN_COMPRESSION) {
+        compression_type = WTAP_UNCOMPRESSED;
+    }
+
+    if (!wtap_can_write_compression_type(compression_type)) {
+        cmdarg_err("Output files can't be written as %s",
+                wtap_compression_type_description(compression_type));
+        status = false;
+        goto clean_exit;
+    }
+
+    if (compression_type != WTAP_UNCOMPRESSED && !wtap_dump_can_compress(file_type)) {
+        cmdarg_err("The file format %s can't be written to output compressed format",
+            wtap_file_type_subtype_name(file_type));
+        status = false;
+        goto clean_exit;
     }
 
     /*
@@ -353,8 +396,8 @@ main(int argc, char *argv[])
      */
     if (mode != IDB_MERGE_MODE_MAX &&
             wtap_file_type_subtype_supports_block(file_type, WTAP_BLOCK_IF_ID_AND_INFO) == BLOCK_NOT_SUPPORTED) {
-        fprintf(stderr, "The IDB merge mode can only be used with an output format that identifies interfaces\n");
-        status = MERGE_ERR_INVALID_OPTION;
+        cmdarg_err("The IDB merge mode can only be used with an output format that identifies interfaces");
+        status = false;
         goto clean_exit;
     }
 
@@ -370,68 +413,17 @@ main(int argc, char *argv[])
                 (const char *const *) &argv[ws_optind],
                 in_file_count, do_append, mode, snaplen,
                 get_appname_and_version(),
-                verbose ? &cb : NULL,
-                &err, &err_info, &err_fileno, &err_framenum);
+                verbose ? &cb : NULL, compression_type);
     } else {
         /* merge the files to the outfile */
         status = merge_files(out_filename, file_type,
                 (const char *const *) &argv[ws_optind], in_file_count,
                 do_append, mode, snaplen, get_appname_and_version(),
-                verbose ? &cb : NULL,
-                &err, &err_info, &err_fileno, &err_framenum);
-    }
-
-    switch (status) {
-        case MERGE_OK:
-            break;
-
-        case MERGE_USER_ABORTED:
-            /* we don't catch SIGINT/SIGTERM (yet?), so we couldn't have aborted */
-            ws_assert_not_reached();
-            break;
-
-        case MERGE_ERR_CANT_OPEN_INFILE:
-            cfile_open_failure_message(argv[ws_optind + err_fileno], err, err_info);
-            break;
-
-        case MERGE_ERR_CANT_OPEN_OUTFILE:
-            cfile_dump_open_failure_message(out_filename, err, err_info, file_type);
-            break;
-
-        case MERGE_ERR_CANT_READ_INFILE:
-            cfile_read_failure_message(argv[ws_optind + err_fileno], err, err_info);
-            break;
-
-        case MERGE_ERR_BAD_PHDR_INTERFACE_ID:
-            cmdarg_err("Record %u of \"%s\" has an interface ID that does not match any IDB in its file.",
-                    err_framenum, argv[ws_optind + err_fileno]);
-            break;
-
-        case MERGE_ERR_CANT_WRITE_OUTFILE:
-            cfile_write_failure_message(argv[ws_optind + err_fileno], out_filename,
-                    err, err_info, err_framenum, file_type);
-            break;
-
-        case MERGE_ERR_CANT_CLOSE_OUTFILE:
-            cfile_close_failure_message(out_filename, err, err_info);
-            break;
-
-        case MERGE_ERR_INVALID_OPTION:
-            if (err_info) {
-                cmdarg_err("%s", err_info);
-            }
-            else {
-                cmdarg_err("Unspecified error with merge option");
-            }
-            break;
-
-        default:
-            cmdarg_err("Unknown merge_files error %d", status);
-            break;
+                verbose ? &cb : NULL, compression_type);
     }
 
 clean_exit:
     wtap_cleanup();
     free_progdirs();
-    return (status == MERGE_OK) ? 0 : 2;
+    return status ? 0 : 2;
 }

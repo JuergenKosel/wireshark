@@ -14,6 +14,11 @@
 #define __UTF8_ENTITIES_H__
 
 /*
+ * Common UTF-8 sequences.
+ * Although we've supported UTF-8 encoded source files since April 2019 /
+ * bd75f5af0a, it can be useful to explictly encode some code points in
+ * order to ensure that we use them consistently.
+ *
  * Sequences can be found at
  * http://www.fileformat.info/info/unicode/
  * http://www.utf8-chartable.de/
@@ -25,12 +30,6 @@
  * stray too far from code page 437 or WGL4:
  * https://en.wikipedia.org/wiki/Code_page_437
  * https://en.wikipedia.org/wiki/Windows_Glyph_List_4
- *
- * Hopefully we can dispense with the sequences below and simply encode our
- * files as UTF 8 at some point. For example gcc has supported UTF 8 since
- * at least 3.4. Visual C++ on the other hand is much more problematic.
- * 2015 and later support /source-charset:utf-8, but prior versions appear
- * to require a UTF 8 BOM.
  */
 
 #define UTF8_DEGREE_SIGN                    "\xc2\xb0"      /*   176 /   0xb0 */
@@ -39,13 +38,21 @@
 #define UTF8_MIDDLE_DOT                     "\xc2\xb7"      /*   183 /   0xb7 */
 #define UTF8_RIGHT_POINTING_DOUBLE_ANGLE_QUOTATION_MARK "\xc2\xbb" /* 187 / 0xbb */
 
+#define UTF8_CAPITAL_DELTA                  "\xce\x94"      /*   916 /  0x394 */
+#define UTF8_CAPITAL_OMEGA                  "\xce\xa9"      /*   937 /  0x3a9 */
+#define UTF8_OMEGA                          "\xcf\x89"      /*   969 /  0x3c9 */
+
 #define UTF8_BULLET                     "\xe2\x80\xa2"      /*  8226 / 0x2024 */
 #define UTF8_EM_DASH                    "\xe2\x80\x94"      /*  8212 / 0x2014 */
 #define UTF8_HORIZONTAL_ELLIPSIS        "\xe2\x80\xa6"      /*  8230 / 0x2026 */
 
+#define UTF8_SUBSCRIPT_ZERO             "\xe2\x82\x80"      /*  8320 / 0x2080 */
+
 #define UTF8_LEFTWARDS_ARROW            "\xe2\x86\x90"      /*  8592 / 0x2190 */
 #define UTF8_RIGHTWARDS_ARROW           "\xe2\x86\x92"      /*  8594 / 0x2192 */
 #define UTF8_LEFT_RIGHT_ARROW           "\xe2\x86\x94"      /*  8596 / 0x2194 */
+
+#define UTF8_SQUARE_ROOT                "\xe2\x88\x9a"      /*  8730 / 0x221a */
 
 /* macOS command key */
 #define UTF8_PLACE_OF_INTEREST_SIGN     "\xe2\x8c\x98"      /*  8984 / 0x2318 */

@@ -87,12 +87,12 @@ static const char* DOT11_PHY_TYPE_NAMES[] = {
     "802.11ax"        // dot11_phy_type_he = 10
 };
 
-unsigned long long NumFramesConverted = 0;
+unsigned long long NumFramesConverted;
 char AuxFragBuf[MAX_PACKET_SIZE] = {0};
-unsigned long AuxFragBufOffset = 0;
+unsigned long AuxFragBufOffset;
 
 DOT11_EXTSTA_RECV_CONTEXT PacketMetadata;
-BOOLEAN AddWlanMetadata = false;
+BOOLEAN AddWlanMetadata;
 
 typedef struct _NDIS_NET_BUFFER_LIST_8021Q_INFO {
     union {
@@ -135,7 +135,7 @@ typedef struct _VMSWITCH_PACKET_FRAGMENT {
     short VlanId;
 } VMSWITCH_PACKET_FRAGMENT, *PVMSWITCH_PACKET_FRAGMENT;
 
-BOOLEAN CurrentPacketIsVMSwitchPacketFragment = false;
+BOOLEAN CurrentPacketIsVMSwitchPacketFragment;
 VMSWITCH_PACKET_FRAGMENT VMSwitchPacketFragment;
 
 struct INTERFACE {
@@ -151,8 +151,8 @@ struct INTERFACE {
 };
 
 #define IFACE_HT_SIZE 100
-struct INTERFACE* InterfaceHashTable[IFACE_HT_SIZE] = {0};
-unsigned long NumInterfaces = 0;
+struct INTERFACE* InterfaceHashTable[IFACE_HT_SIZE];
+unsigned long NumInterfaces;
 
 void wtap_etl_rec_dump(char* etl_record, ULONG total_packet_length, ULONG original_packet_length, unsigned int interface_id, BOOLEAN is_inbound, ULARGE_INTEGER timestamp, int pkt_encap, char* comment, unsigned short comment_length);
 void wtap_etl_add_interface(int pkt_encap, char* interface_name, unsigned short interface_name_length, char* interface_desc, unsigned short interface_desc_length);
@@ -316,7 +316,7 @@ struct INTERFACE* AddInterface(PEVENT_RECORD ev, unsigned long LowerIfIndex, uns
     switch (NewIface->PktEncapType) {
     case WTAP_ENCAP_ETHERNET:
         if (NewIface->IsVMNic) {
-            printf("IF: medium=%s\tID=%u\tIfIndex=%u\tVlanID=%i",
+            printf("IF: medium=%s\tID=%lu\tIfIndex=%lu\tVlanID=%i",
                 NewIface->VMNic.SourceNicType,
                 NewIface->PcapNgIfIndex,
                 NewIface->VMNic.SourcePortId,
@@ -338,18 +338,18 @@ struct INTERFACE* AddInterface(PEVENT_RECORD ev, unsigned long LowerIfIndex, uns
         }
         break;
     case WTAP_ENCAP_IEEE_802_11:
-        printf("IF: medium=wifi ID=%u\tIfIndex=%u", NewIface->PcapNgIfIndex, NewIface->LowerIfIndex);
+        printf("IF: medium=wifi ID=%lu\tIfIndex=%lu", NewIface->PcapNgIfIndex, NewIface->LowerIfIndex);
         StringCchPrintfA(IfName, IF_STRING_MAX_SIZE, "wifi:%lu", NewIface->LowerIfIndex);
         break;
     case WTAP_ENCAP_RAW_IP:
-        printf("IF: medium=mbb  ID=%u\tIfIndex=%u", NewIface->PcapNgIfIndex, NewIface->LowerIfIndex);
+        printf("IF: medium=mbb  ID=%lu\tIfIndex=%lu", NewIface->PcapNgIfIndex, NewIface->LowerIfIndex);
         StringCchPrintfA(IfName, IF_STRING_MAX_SIZE, "mbb:%lu", NewIface->LowerIfIndex);
         break;
     }
     StringCchLengthA(IfName, IF_STRING_MAX_SIZE, &IfNameLength);
 
     if (NewIface->LowerIfIndex != NewIface->MiniportIfIndex) {
-        printf("\t(LWF over IfIndex %u)", NewIface->MiniportIfIndex);
+        printf("\t(LWF over IfIndex %lu)", NewIface->MiniportIfIndex);
         StringCchPrintfA(IfDesc, IF_STRING_MAX_SIZE, "LWF over IfIndex %lu", NewIface->MiniportIfIndex);
         StringCchLengthA(IfDesc, IF_STRING_MAX_SIZE, &IfDescLength);
     }
@@ -635,12 +635,12 @@ void etw_dump_write_ndiscap_event(PEVENT_RECORD ev, ULARGE_INTEGER timestamp)
         }
 
         if (Err != NO_ERROR) {
-            printf("Failed converting comment to string with error: %u\n", Err);
+            printf("Failed converting comment to string with error: %d\n", Err);
         } else {
             Err = StringCchLengthA(Comment, COMMENT_MAX_SIZE, &CommentLength);
 
             if (Err != NO_ERROR) {
-                printf("Failed getting length of comment string with error: %u\n", Err);
+                printf("Failed getting length of comment string with error: %d\n", Err);
                 CommentLength = 0;
                 memset(Comment, 0, COMMENT_MAX_SIZE);
             }

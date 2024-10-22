@@ -53,11 +53,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"Qt demonstration plugin"
 	${DISSECTOR_SRC}
 )
 
-add_wireshark_epan_plugin_library(pluginifdemo)
+add_wireshark_plugin_library(pluginifdemo epan)
 
 target_link_libraries(pluginifdemo epan Qt${qtver}::Core Qt${qtver}::Widgets Qt${qtver}::PrintSupport)
 

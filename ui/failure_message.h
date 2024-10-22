@@ -26,11 +26,11 @@ extern void failure_message(const char *msg_format, va_list ap);
  * Error message for a failed attempt to open or create a file
  * other than a capture file.
  * "filename" is the name of the file being opened; "err" is assumed
- * to be a UNIX-style errno; "for_writing" is TRUE if we're opening
- * the file for writing and FALSE if we're opening it for reading.
+ * to be a UNIX-style errno; "for_writing" is true if we're opening
+ * the file for writing and false if we're opening it for reading.
  */
 extern void open_failure_message(const char *filename, int err,
-                                 gboolean for_writing);
+                                 bool for_writing);
 
 /*
  * Error message for a failed attempt to read from a file other than
@@ -49,13 +49,23 @@ extern void read_failure_message(const char *filename, int err);
 extern void write_failure_message(const char *filename, int err);
 
 /*
+ * Error message for a failed attempt to rename a file other than
+ * a capture file.
+ * "old_filename" is the name of the file being renamed; "new_filename"
+ * is the name to which it's being renamed; "err" is assumed to be a
+ * UNIX-style errno.
+ */
+extern void rename_failure_message(const char *old_filename,
+                                   const char *new_filename, int err);
+
+/*
  * Error message for a failed attempt to open a capture file for input.
  * "filename" is the name of the file being opened; "err" is assumed
  * to be a UNIX-style errno or a WTAP_ERR_ value; "err_info" is assumed
  * to be a string giving further information for some WTAP_ERR_ values.
  */
 extern void cfile_open_failure_message(const char *filename, int err,
-                                       gchar *err_info);
+                                       char *err_info);
 
 /*
  * Error message for a failed attempt to open a capture file for output.
@@ -66,7 +76,7 @@ extern void cfile_open_failure_message(const char *filename, int err,
  * and subtype of file being opened.
  */
 extern void cfile_dump_open_failure_message(const char *filename, int err,
-                                            gchar *err_info,
+                                            char *err_info,
                                             int file_type_subtype);
 
 /*
@@ -76,7 +86,7 @@ extern void cfile_dump_open_failure_message(const char *filename, int err,
  * to be a string giving further information for some WTAP_ERR_ values.
  */
 extern void cfile_read_failure_message(const char *filename, int err,
-                                       gchar *err_info);
+                                       char *err_info);
 
 /*
  * Error message for a failed attempt to write to a capture file.
@@ -91,8 +101,8 @@ extern void cfile_read_failure_message(const char *filename, int err,
  */
 extern void cfile_write_failure_message(const char *in_filename,
                                         const char *out_filename,
-                                        int err, gchar *err_info,
-                                        guint32 framenum,
+                                        int err, char *err_info,
+                                        uint64_t framenum,
                                         int file_type_subtype);
 
 /*
@@ -120,7 +130,12 @@ extern void cfile_write_failure_message(const char *in_filename,
  * so we have to check for write errors here.
  */
 extern void cfile_close_failure_message(const char *filename, int err,
-                                        gchar *err_info);
+                                        char *err_info);
+
+/*
+ * Register these routines with the report_message mechanism.
+ */
+extern void init_report_failure_message(const char *friendly_program_name);
 
 #ifdef __cplusplus
 }

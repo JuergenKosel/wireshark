@@ -14,6 +14,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-per.h"
 
@@ -61,7 +62,7 @@ void proto_register_h282(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_h282,
 #include "packet-h282-ettarr.c"
   };

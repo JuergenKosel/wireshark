@@ -36,7 +36,7 @@ def exit_msg(msg=None, status=1):
 def open_url(url):
     '''Open a URL.
     Returns a tuple containing the body and response dict. The body is a
-    str in Python 3 and bytes in Python 2 in order to be compatibile with
+    str in Python 3 and bytes in Python 2 in order to be compatible with
     csv.reader.
     '''
 
@@ -52,7 +52,7 @@ def open_url(url):
         try:
             req = urllib.request.Request(url_path, headers=req_headers)
             response = urllib.request.urlopen(req)
-            body = response.read().decode('UTF-8', 'replace')
+            body = response.read().decode('UTF-8', 'replace').replace(u'\u200e', '')
         except Exception:
             exit_msg('Error opening ' + url_path)
 
@@ -230,8 +230,7 @@ def prefix_to_oui(prefix, prefix_map):
     return '{}/{:d}'.format(oui, int(pfx_len)), kind
 
 def main():
-    this_dir = os.path.dirname(__file__)
-    manuf_path = os.path.join('epan', 'manuf-data.c')
+    manuf_path = os.path.join(os.path.dirname(__file__), '..', 'epan', 'manuf-data.c')
 
     ieee_d = {
         'OUI':   { 'url': ["https://standards-oui.ieee.org/oui/", "oui.csv"], 'min_entries': 1000 },
@@ -246,7 +245,7 @@ def main():
         MA_S: {},
     }
 
-    min_total = 35000; # 35830 as of 2018-09-05
+    min_total = 35000 # 35830 as of 2018-09-05
     total_added = 0
 
     # Add IEEE entries from each of their databases
@@ -276,9 +275,10 @@ def main():
             # "Watts A\S"
             manuf = manuf.replace('\\', '/')
             if manuf == 'IEEE Registration Authority':
+                # These are held for subdivision into MA-M/MA-S
                 continue
-            if manuf == 'Private':
-                continue
+            #if manuf == 'Private':
+            #    continue
             if oui in oui_d[kind]:
                 action = 'Skipping'
                 print('{} - {} IEEE "{}" in favor of "{}"'.format(oui, action, manuf, oui_d[kind][oui]))

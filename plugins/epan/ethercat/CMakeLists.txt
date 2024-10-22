@@ -35,11 +35,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"EtherCAT (Ethernet for Control Automation Technology) dissection"
 	${DISSECTOR_SRC}
 )
 
-add_wireshark_epan_plugin_library(ethercat)
+add_wireshark_plugin_library(ethercat epan)
 
 target_link_libraries(ethercat epan)
 

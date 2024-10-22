@@ -33,7 +33,6 @@
 #include <wsutil/plugins.h>
 #endif
 
-#include <wsutil/report_message.h>
 #include <wsutil/wslog.h>
 
 #include "ui/failure_message.h"
@@ -56,8 +55,8 @@ print_usage(FILE *output)
 
 /* Remember where this frame was in the file */
 typedef struct FrameRecord_t {
-    gint64       offset;
-    guint        num;
+    int64_t      offset;
+    unsigned     num;
 
     nstime_t     frame_time;
 } FrameRecord_t;
@@ -83,7 +82,7 @@ frame_write(FrameRecord_t *frame, wtap *wth, wtap_dumper *pdh,
             const char *outfile)
 {
     int    err;
-    gchar  *err_info;
+    char   *err_info;
 
     DEBUG_PRINT("\nDumping frame (offset=%" PRIu64 ")\n",
                 frame->offset);
@@ -121,7 +120,7 @@ frame_write(FrameRecord_t *frame, wtap *wth, wtap_dumper *pdh,
    positive if (t1 > t2)
 */
 static int
-frames_compare(gconstpointer a, gconstpointer b)
+frames_compare(const void *a, const void *b)
 {
     const FrameRecord_t *frame1 = *(const FrameRecord_t *const *) a;
     const FrameRecord_t *frame2 = *(const FrameRecord_t *const *) b;
@@ -161,28 +160,16 @@ int
 main(int argc, char *argv[])
 {
     char *configuration_init_error;
-    static const struct report_message_routines reordercap_message_routines = {
-        failure_message,
-        failure_message,
-        open_failure_message,
-        read_failure_message,
-        write_failure_message,
-        cfile_open_failure_message,
-        cfile_dump_open_failure_message,
-        cfile_read_failure_message,
-        cfile_write_failure_message,
-        cfile_close_failure_message
-    };
     wtap *wth = NULL;
     wtap_dumper *pdh = NULL;
     wtap_rec rec;
     Buffer buf;
     int err;
-    gchar *err_info;
-    gint64 data_offset;
-    guint wrong_order_count = 0;
-    gboolean write_output_regardless = TRUE;
-    guint i;
+    char *err_info;
+    int64_t data_offset;
+    unsigned wrong_order_count = 0;
+    bool write_output_regardless = true;
+    unsigned i;
     wtap_dump_params params;
     int                          ret = EXIT_SUCCESS;
 
@@ -229,15 +216,15 @@ main(int argc, char *argv[])
         g_free(configuration_init_error);
     }
 
-    init_report_message("reordercap", &reordercap_message_routines);
+    init_report_failure_message("reordercap");
 
-    wtap_init(TRUE);
+    wtap_init(true);
 
     /* Process the options first */
     while ((opt = ws_getopt_long(argc, argv, "hnv", long_options, NULL)) != -1) {
         switch (opt) {
             case 'n':
-                write_output_regardless = FALSE;
+                write_output_regardless = false;
                 break;
             case 'h':
                 show_help_header("Reorder timestamps of input file frames into output file.");
@@ -268,34 +255,13 @@ main(int argc, char *argv[])
     /* Open infile */
     /* TODO: if reordercap is ever changed to give the user a choice of which
        open_routine reader to use, then the following needs to change. */
-    wth = wtap_open_offline(infile, WTAP_TYPE_AUTO, &err, &err_info, TRUE);
+    wth = wtap_open_offline(infile, WTAP_TYPE_AUTO, &err, &err_info, true);
     if (wth == NULL) {
         cfile_open_failure_message(infile, err, err_info);
         ret = WS_EXIT_OPEN_ERROR;
         goto clean_exit;
     }
     DEBUG_PRINT("file_type_subtype is %d\n", wtap_file_type_subtype(wth));
-
-    wtap_dump_params_init(&params, wth);
-
-    /* Open outfile (same filetype/encap as input file) */
-    if (strcmp(outfile, "-") == 0) {
-      pdh = wtap_dump_open_stdout(wtap_file_type_subtype(wth),
-                                  WTAP_UNCOMPRESSED, &params, &err, &err_info);
-    } else {
-      pdh = wtap_dump_open(outfile, wtap_file_type_subtype(wth),
-                           WTAP_UNCOMPRESSED, &params, &err, &err_info);
-    }
-    g_free(params.idb_inf);
-    params.idb_inf = NULL;
-
-    if (pdh == NULL) {
-        cfile_dump_open_failure_message(outfile, err, err_info,
-                                        wtap_file_type_subtype(wth));
-        wtap_dump_params_cleanup(&params);
-        ret = OUTPUT_FILE_ERROR;
-        goto clean_exit;
-    }
 
     /* Allocate the array of frame pointers. */
     frames = g_ptr_array_new();
@@ -332,40 +298,75 @@ main(int argc, char *argv[])
 
     printf("%u frames, %u out of order\n", frames->len, wrong_order_count);
 
+    wtap_dump_params_init(&params, wth);
+
     /* Sort the frames */
+    /* XXX - Does this handle multiple SHBs correctly? */
     if (wrong_order_count > 0) {
         g_ptr_array_sort(frames, frames_compare);
     }
 
-    /* Write out each sorted frame in turn */
-    wtap_rec_init(&rec);
-    ws_buffer_init(&buf, 1514);
-    for (i = 0; i < frames->len; i++) {
-        FrameRecord_t *frame = (FrameRecord_t *)frames->pdata[i];
 
-        /* Avoid writing if already sorted and configured to */
-        if (write_output_regardless || (wrong_order_count > 0)) {
-            frame_write(frame, wth, pdh, &rec, &buf, infile, outfile);
+    /* Avoid writing if already sorted and configured to */
+    if (write_output_regardless || (wrong_order_count > 0)) {
+        /* Open outfile (same filetype/encap as input file) */
+        if (strcmp(outfile, "-") == 0) {
+          pdh = wtap_dump_open_stdout(wtap_file_type_subtype(wth),
+                                      WTAP_UNCOMPRESSED, &params, &err, &err_info);
+        } else {
+          pdh = wtap_dump_open(outfile, wtap_file_type_subtype(wth),
+                               WTAP_UNCOMPRESSED, &params, &err, &err_info);
         }
-        g_slice_free(FrameRecord_t, frame);
-    }
-    wtap_rec_cleanup(&rec);
-    ws_buffer_free(&buf);
+        g_free(params.idb_inf);
+        params.idb_inf = NULL;
 
-    if (!write_output_regardless && (wrong_order_count == 0)) {
+        if (pdh == NULL) {
+            cfile_dump_open_failure_message(outfile, err, err_info,
+                                            wtap_file_type_subtype(wth));
+            wtap_dump_params_cleanup(&params);
+            ret = OUTPUT_FILE_ERROR;
+            goto clean_exit;
+        }
+
+
+        /* Write out each sorted frame in turn */
+        wtap_rec_init(&rec);
+        ws_buffer_init(&buf, 1514);
+        for (i = 0; i < frames->len; i++) {
+            FrameRecord_t *frame = (FrameRecord_t *)frames->pdata[i];
+
+            frame_write(frame, wth, pdh, &rec, &buf, infile, outfile);
+
+            g_slice_free(FrameRecord_t, frame);
+        }
+
+        wtap_rec_cleanup(&rec);
+        ws_buffer_free(&buf);
+
+
+
+        /* Close outfile */
+        if (!wtap_dump_close(pdh, NULL, &err, &err_info)) {
+            cfile_close_failure_message(outfile, err, err_info);
+            wtap_dump_params_cleanup(&params);
+            ret = OUTPUT_FILE_ERROR;
+            goto clean_exit;
+        }
+    } else {
         printf("Not writing output file because input file is already in order.\n");
+
+        /* Free frame memory */
+        for (i = 0; i < frames->len; i++) {
+            FrameRecord_t *frame = (FrameRecord_t *)frames->pdata[i];
+
+            g_slice_free(FrameRecord_t, frame);
+        }
     }
+
 
     /* Free the whole array */
     g_ptr_array_free(frames, TRUE);
 
-    /* Close outfile */
-    if (!wtap_dump_close(pdh, NULL, &err, &err_info)) {
-        cfile_close_failure_message(outfile, err, err_info);
-        wtap_dump_params_cleanup(&params);
-        ret = OUTPUT_FILE_ERROR;
-        goto clean_exit;
-    }
     wtap_dump_params_cleanup(&params);
 
     /* Finally, close infile and release resources. */

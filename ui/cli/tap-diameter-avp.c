@@ -45,54 +45,54 @@ void register_tap_listener_diameteravp(void);
 
 /* used to keep track of the statistics for an entire program interface */
 typedef struct _diameteravp_t {
-	guint32  frame;
-	guint32  diammsg_toprocess;
-	guint32  cmd_code;
-	guint32  req_count;
-	guint32  ans_count;
-	guint32  paired_ans_count;
-	gchar   *filter;
+	uint32_t frame;
+	uint32_t diammsg_toprocess;
+	uint32_t cmd_code;
+	uint32_t req_count;
+	uint32_t ans_count;
+	uint32_t paired_ans_count;
+	char    *filter;
 } diameteravp_t;
 
 /* Copied from proto.c */
-static gboolean
-tree_traverse_pre_order(proto_tree *tree, proto_tree_traverse_func func, gpointer data)
+static bool
+tree_traverse_pre_order(proto_tree *tree, proto_tree_traverse_func func, void *data)
 {
 	proto_node *pnode = tree;
 	proto_node *child;
 	proto_node *current;
 
 	if (func(pnode, data))
-		return TRUE;
+		return true;
 
 	child = pnode->first_child;
 	while (child != NULL) {
 		current = child;
 		child = current->next;
 		if (tree_traverse_pre_order((proto_tree *)current, func, data))
-			return TRUE;
+			return true;
 	}
-	return FALSE;
+	return false;
 }
 
-static gboolean
-diam_tree_to_csv(proto_node *node, gpointer data)
+static bool
+diam_tree_to_csv(proto_node *node, void * data)
 {
 	char		  *val_str = NULL;
 	char		  *val_tmp = NULL;
 	ftenum_t	   ftype;
 	field_info	  *fi;
-	header_field_info *hfi;
+	const header_field_info *hfi;
 
 	if (!node) {
 		fprintf(stderr, "traverse end: empty node. node='%p' data='%p'\n", (void *)node, (void *)data);
-		return FALSE;
+		return false;
 	}
 	fi = node->finfo;
 	hfi = fi ? fi->hfinfo : NULL;
 	if (!hfi) {
 		fprintf(stderr, "traverse end: hfi not found. node='%p'\n", (void *)node);
-		return FALSE;
+		return false;
 	}
 	ftype = fvalue_type_ftenum(fi->value);
 	if (ftype != FT_NONE && ftype != FT_PROTOCOL) {
@@ -109,7 +109,7 @@ diam_tree_to_csv(proto_node *node, gpointer data)
 		printf("%s='%s' ", hfi->name, val_str);
 		g_free(val_str);
 	}
-	return FALSE;
+	return false;
 }
 
 static tap_packet_status
@@ -117,19 +117,19 @@ diameteravp_packet(void *pds, packet_info *pinfo, epan_dissect_t *edt _U_, const
 {
 	tap_packet_status ret = TAP_PACKET_DONT_REDRAW;
 	double resp_time = 0.;
-	gboolean is_request = TRUE;
-	guint32 cmd_code = 0;
-	guint32 req_frame = 0;
-	guint32 ans_frame = 0;
-	guint32 diam_child_node = 0;
+	bool is_request = true;
+	uint32_t cmd_code = 0;
+	uint32_t req_frame = 0;
+	uint32_t ans_frame = 0;
+	uint32_t diam_child_node = 0;
 	proto_node *current = NULL;
 	proto_node *node = NULL;
-	header_field_info *hfi = NULL;
+	const header_field_info *hfi = NULL;
 	field_info *finfo = NULL;
 	const diameter_req_ans_pair_t *dp = (const diameter_req_ans_pair_t *)pdi;
 	diameteravp_t *ds = NULL;
 
-	/* Validate paramerers. */
+	/* Validate parameters */
 	if (!dp || !edt || !edt->tree)
 		return ret;
 
@@ -206,10 +206,10 @@ static void
 diameteravp_init(const char *opt_arg, void *userdata _U_)
 {
 	diameteravp_t  *ds;
-	gchar	       *field	     = NULL;
-	gchar	      **tokens;
-	guint		opt_count    = 0;
-	guint		opt_idx	     = 0;
+	char	       *field	     = NULL;
+	char	      **tokens;
+	unsigned		opt_count    = 0;
+	unsigned		opt_idx	     = 0;
 	GString	       *filter	     = NULL;
 	GString	       *error_string = NULL;
 
@@ -230,7 +230,7 @@ diameteravp_init(const char *opt_arg, void *userdata _U_)
 	while (tokens[opt_count])
 		opt_count++;
 	if (opt_count > 2) {
-		/* if the token is a not-null string and it's not *, the conversion must succeeed */
+		/* if the token is a not-null string and it's not *, the conversion must succeed */
 		if (strlen(tokens[2]) > 0 && tokens[2][0] != '*') {
 			if (!ws_strtou32(tokens[2], NULL, &ds->cmd_code)) {
 				fprintf(stderr, "Invalid integer token: %s\n", tokens[2]);

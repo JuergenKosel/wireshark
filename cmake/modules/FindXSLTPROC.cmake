@@ -93,7 +93,7 @@ MACRO(XML2HTML _target_dep _dir_pfx _mode _dbk_source _gfx_sources)
         SET(_modeparams --stringparam chunker.output.encoding UTF-8 --stringparam chunk.quietly 1)
     ELSE() # single-page
         SET(_basedir ${_dir_pfx}_html)
-        SET(_stylesheet ${CMAKE_SOURCE_DIR}/docbook/custom_layer_single_html.xsl)
+        SET(_stylesheet ${CMAKE_SOURCE_DIR}/doc/custom_layer_single_html.xsl)
         SET(_modeparams --output ${_basedir}/index.html)
     ENDIF()
 
@@ -114,7 +114,7 @@ MACRO(XML2HTML _target_dep _dir_pfx _mode _dbk_source _gfx_sources)
         COMMAND ${CMAKE_COMMAND}
            -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/${_gfx_src_dir} ${_out_dir}/images
         COMMAND ${CMAKE_COMMAND}
-            -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/ws.css ${_out_dir}
+            -E copy_if_different ${CMAKE_SOURCE_DIR}/doc/ws.css ${_out_dir}
         COMMAND ${XSLTPROC_EXECUTABLE}
             --path "${_xsltproc_path}"
             --stringparam base.dir ${_basedir}/

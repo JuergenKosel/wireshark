@@ -98,9 +98,9 @@ static int * const flag_list[] = {
 };
 
 
-static gint ett_roofnet;
-static gint ett_roofnet_flags;
-static gint ett_roofnet_link;
+static int ett_roofnet;
+static int ett_roofnet_flags;
+static int ett_roofnet_link;
 
 static expert_field ei_roofnet_too_many_links;
 static expert_field ei_roofnet_too_much_data;
@@ -108,10 +108,10 @@ static expert_field ei_roofnet_too_much_data;
 /*
  * dissect the header of roofnet
  */
-static guint16 dissect_roofnet_header(proto_tree *tree, tvbuff_t *tvb, guint *offset)
+static uint16_t dissect_roofnet_header(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned *offset)
 {
-  guint16 flags;
-  ptvcursor_t *cursor = ptvcursor_new(wmem_packet_scope(), tree, tvb, *offset);
+  uint16_t flags;
+  ptvcursor_t *cursor = ptvcursor_new(pinfo->pool, tree, tvb, *offset);
 
   ptvcursor_add(cursor, hf_roofnet_version, 1, ENC_BIG_ENDIAN);
   ptvcursor_add(cursor, hf_roofnet_type, 1, ENC_BIG_ENDIAN);
@@ -138,14 +138,14 @@ static guint16 dissect_roofnet_header(proto_tree *tree, tvbuff_t *tvb, guint *of
 /*
  * dissect the description of link in roofnet
  */
-static void dissect_roofnet_link(proto_tree *tree, tvbuff_t *tvb, guint *offset, guint link)
+static void dissect_roofnet_link(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb, unsigned *offset, unsigned link)
 {
   proto_tree *subtree = NULL;
 
   ptvcursor_t *cursor = NULL;
 
-  guint32 addr_src = 0;
-  guint32 addr_dst = 0;
+  uint32_t addr_src = 0;
+  uint32_t addr_dst = 0;
 
   addr_src = tvb_get_ipv4(tvb, *offset + ROOFNET_LINK_OFFSET_SRC);
   addr_dst = tvb_get_ipv4(tvb, *offset + ROOFNET_LINK_OFFSET_DST);
@@ -159,7 +159,7 @@ static void dissect_roofnet_link(proto_tree *tree, tvbuff_t *tvb, guint *offset,
   proto_tree_add_ipv4(subtree, hf_roofnet_link_src, tvb, *offset, 4, addr_src);
   *offset += 4;
 
-  cursor = ptvcursor_new(wmem_packet_scope(), subtree, tvb, *offset);
+  cursor = ptvcursor_new(pinfo->pool, subtree, tvb, *offset);
 
   ptvcursor_add(cursor, hf_roofnet_link_forward, 4, ENC_BIG_ENDIAN);
   ptvcursor_add(cursor, hf_roofnet_link_rev, 4, ENC_BIG_ENDIAN);
@@ -176,10 +176,10 @@ static void dissect_roofnet_link(proto_tree *tree, tvbuff_t *tvb, guint *offset,
 /*
  * dissect the data in roofnet
  */
-static void dissect_roofnet_data(proto_tree *tree, tvbuff_t *tvb, packet_info * pinfo, gint offset, guint16 flags)
+static void dissect_roofnet_data(proto_tree *tree, tvbuff_t *tvb, packet_info * pinfo, int offset, uint16_t flags)
 {
-  guint16 roofnet_datalen = 0;
-  guint16 remaining_datalen = 0;
+  uint16_t roofnet_datalen = 0;
+  uint16_t remaining_datalen = 0;
 
   roofnet_datalen = tvb_get_ntohs(tvb, ROOFNET_OFFSET_DATA_LENGTH);
   remaining_datalen = tvb_reported_length_remaining(tvb, offset);
@@ -211,16 +211,16 @@ static int dissect_roofnet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 {
   proto_item * it;
   proto_tree * roofnet_tree;
-  guint offset = 0;
+  unsigned offset = 0;
 
-  guint8 roofnet_msg_type = 0;
-  guint8 roofnet_nlinks = 0;
-  guint8 nlink = 1;
-  guint16 flags;
+  uint8_t roofnet_msg_type = 0;
+  uint8_t roofnet_nlinks = 0;
+  uint8_t nlink = 1;
+  uint16_t flags;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "Roofnet");
 
-  roofnet_msg_type = tvb_get_guint8(tvb, ROOFNET_OFFSET_TYPE);
+  roofnet_msg_type = tvb_get_uint8(tvb, ROOFNET_OFFSET_TYPE);
   /* Clear out stuff in the info column */
   col_add_fstr(pinfo->cinfo, COL_INFO, "Message Type: %s",
                val_to_str(roofnet_msg_type, roofnet_pt_vals, "Unknown (%d)"));
@@ -228,9 +228,9 @@ static int dissect_roofnet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
   it = proto_tree_add_item(tree, proto_roofnet, tvb, offset, -1, ENC_NA);
   roofnet_tree = proto_item_add_subtree(it, ett_roofnet);
 
-  flags = dissect_roofnet_header(roofnet_tree, tvb, &offset);
+  flags = dissect_roofnet_header(roofnet_tree, pinfo, tvb, &offset);
 
-  roofnet_nlinks = tvb_get_guint8(tvb, ROOFNET_OFFSET_NLINKS);
+  roofnet_nlinks = tvb_get_uint8(tvb, ROOFNET_OFFSET_NLINKS);
   /* Check that we do not have a malformed roofnet packet */
   if ((roofnet_nlinks*6*4)+ROOFNET_HEADER_LENGTH > ROOFNET_MAX_LENGTH) {
     expert_add_info_format(pinfo, it, &ei_roofnet_too_many_links, "Too many links (%u)", roofnet_nlinks);
@@ -241,7 +241,7 @@ static int dissect_roofnet(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     /* Do we have enough buffer to decode the next link ? */
     if (tvb_reported_length_remaining(tvb, offset) < ROOFNET_LINK_DESCRIPTION_LENGTH)
       return offset;
-    dissect_roofnet_link(roofnet_tree, tvb, &offset, nlink++);
+    dissect_roofnet_link(roofnet_tree, pinfo, tvb, &offset, nlink++);
   }
 
   dissect_roofnet_data(tree, tvb, pinfo, offset+4, flags);
@@ -361,7 +361,7 @@ void proto_register_roofnet(void)
   };
 
   /* setup protocol subtree array */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_roofnet,
     &ett_roofnet_flags,
     &ett_roofnet_link

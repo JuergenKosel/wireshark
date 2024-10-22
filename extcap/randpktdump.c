@@ -43,7 +43,7 @@ enum {
 	OPT_TYPE
 };
 
-static struct ws_option longopts[] = {
+static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	{ "help",					ws_no_argument,		NULL, OPT_HELP},
 	{ "version",				ws_no_argument,		NULL, OPT_VERSION},
@@ -140,8 +140,8 @@ int main(int argc, char *argv[])
 	uint16_t maxbytes = 5000;
 	uint64_t count = 1000;
 	uint64_t packet_delay_ms = 0;
-	int random_type = false;
-	int all_random = false;
+	bool random_type = false;
+	bool all_random = false;
 	char* type = NULL;
 	int produce_type = -1;
 	int file_type_subtype = WTAP_FILE_TYPE_SUBTYPE_UNKNOWN;

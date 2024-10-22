@@ -6,8 +6,6 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>Wireshark</string>
-	<key>CFBundleGetInfoString</key>
-	<string>@PROJECT_VERSION@, Copyright 1998-2023 Wireshark Development Team</string>
 	<key>CFBundleIconFile</key>
 	<string>Wireshark.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -126,9 +124,17 @@
 			<key>CFBundleTypeExtensions</key>
 			<array>
 				<string>pcapng</string>
+				<string>scap</string>
 				<string>ntar</string>
 				<string>pcapng.gz</string>
+				<string>scap.gz</string>
 				<string>ntar.gz</string>
+				<string>pcapng.lz4</string>
+				<string>scap.lz4</string>
+				<string>ntar.lz4</string>
+				<string>pcapng.zst</string>
+				<string>scap.zst</string>
+				<string>ntar.zst</string>
 			</array>
 			<key>CFBundleTypeIconFile</key>
 			<string>Wiresharkdoc.icns</string>
@@ -257,7 +263,7 @@
 	<key>CFBundleVersion</key>
 	<string>@PROJECT_VERSION@</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 1998-2023 Wireshark Developers, GNU General Public License.</string>
+	<string>Copyright 1998-2024 the Wireshark developer community</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSHighResolutionCapable</key>

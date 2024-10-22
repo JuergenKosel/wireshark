@@ -13,6 +13,8 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 
 void proto_register_interlink(void);
 void proto_reg_handoff_interlink(void);
@@ -34,10 +36,10 @@ static int hf_interlink_block_type;
 static int hf_interlink_block_version;
 static int hf_interlink_block_length;
 
-static gint ett_interlink;
-static gint ett_interlink_header;
-static gint ett_interlink_flags;
-static gint ett_interlink_block;
+static int ett_interlink;
+static int ett_interlink_header;
+static int ett_interlink_flags;
+static int ett_interlink_block;
 
 static dissector_handle_t data_handle;
 static dissector_table_t subdissector_table;
@@ -59,9 +61,9 @@ dissect_interlink(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 	proto_item	*il_item;
 	proto_tree	*ilh_tree = NULL;
 	proto_tree	*ilb_tree = NULL;
-	guint8		ilb_type;
-	guint8		ilb_version;
-	guint16		type_version = 0;
+	uint8_t		ilb_type;
+	uint8_t		ilb_version;
+	uint16_t		type_version = 0;
 	dissector_handle_t	handle;
 	tvbuff_t	*next_tvb;
 
@@ -101,8 +103,8 @@ dissect_interlink(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
 	ilb_tree = proto_tree_add_subtree(il_tree, tvb, offset, 4, ett_interlink_block, NULL, "Block Header");
 
-	ilb_type = tvb_get_guint8(tvb, offset);
-	ilb_version = tvb_get_guint8(tvb, offset + 1);
+	ilb_type = tvb_get_uint8(tvb, offset);
+	ilb_version = tvb_get_uint8(tvb, offset + 1);
 	type_version = ilb_type << 8 | ilb_version;
 	col_append_fstr(pinfo->cinfo, COL_INFO, "Type: %d, Version: %d",
 		ilb_type, ilb_version);
@@ -134,22 +136,22 @@ dissect_interlink(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 }
 
 
-static gboolean
-dissect_interlink_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+static bool
+dissect_interlink_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
 	if (!tvb_bytes_exist(tvb, 0, 4)) {
-		return FALSE;
+		return false;
 	}
 	if (
-		tvb_get_guint8(tvb,0) != 'I' ||
-		tvb_get_guint8(tvb,1) != 'L' ||
-		tvb_get_guint8(tvb,2) != 'N' ||
-		tvb_get_guint8(tvb,3) != 'K'
+		tvb_get_uint8(tvb,0) != 'I' ||
+		tvb_get_uint8(tvb,1) != 'L' ||
+		tvb_get_uint8(tvb,2) != 'N' ||
+		tvb_get_uint8(tvb,3) != 'K'
 	)
-		return FALSE;
+		return false;
 
 	dissect_interlink(tvb, pinfo, tree, data);
-	return TRUE;
+	return true;
 }
 
 
@@ -189,7 +191,7 @@ proto_register_interlink(void)
 			BASE_DEC, NULL, 0, NULL, HFILL }},
 	};
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_interlink,
 		&ett_interlink_header,
 		&ett_interlink_flags,

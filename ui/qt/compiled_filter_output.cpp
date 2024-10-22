@@ -71,7 +71,7 @@ void CompiledFilterOutput::compileFilter()
     struct bpf_program fcode;
 
     foreach (InterfaceFilter current, intList_) {
-        for (guint i = 0; i < global_capture_opts.all_ifaces->len; i++) {
+        for (unsigned i = 0; i < global_capture_opts.all_ifaces->len; i++) {
             interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
 
             if (current.interface.compare(device->display_name)) {

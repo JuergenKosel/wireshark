@@ -20,24 +20,22 @@
 #include <epan/epan.h>
 #include <epan/exceptions.h>
 #include <epan/show_exception.h>
-#include <epan/timestamp.h>
 #include <epan/prefs.h>
 #include <epan/to_str.h>
 #include <epan/sequence_analysis.h>
 #include <epan/tap.h>
 #include <epan/expert.h>
+#include <epan/tfs.h>
 #include <wsutil/wsgcrypt.h>
 #include <wsutil/str_util.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
-#include <epan/proto_data.h>
 #include <epan/addr_resolv.h>
 #include <epan/wmem_scopes.h>
 #include <epan/column-info.h>
 
 #include "packet-frame.h"
 #include "packet-bblog.h"
-#include "packet-icmp.h"
 
 #include <epan/color_filters.h>
 
@@ -192,16 +190,16 @@ static int hf_frame_bblog_pad_3;
 static int hf_frame_bblog_payload_len;
 static int hf_comments_text;
 
-static gint ett_frame;
-static gint ett_ifname;
-static gint ett_flags;
-static gint ett_comments;
-static gint ett_hash;
-static gint ett_verdict;
-static gint ett_bblog;
-static gint ett_bblog_event_flags;
-static gint ett_bblog_t_flags;
-static gint ett_bblog_t_flags2;
+static int ett_frame;
+static int ett_ifname;
+static int ett_flags;
+static int ett_comments;
+static int ett_hash;
+static int ett_verdict;
+static int ett_bblog;
+static int ett_bblog_event_flags;
+static int ett_bblog_t_flags;
+static int ett_bblog_t_flags2;
 
 static expert_field ei_comments_text;
 static expert_field ei_arrive_time_out_of_range;
@@ -215,12 +213,12 @@ static dissector_handle_t sysdig_handle;
 static dissector_handle_t systemd_journal_handle;
 
 /* Preferences */
-static gboolean show_file_off       = FALSE;
-static gboolean force_docsis_encap  = FALSE;
-static gboolean generate_md5_hash   = FALSE;
-static gboolean generate_bits_field = TRUE;
-static gboolean disable_packet_size_limited_in_summary = FALSE;
-static guint    max_comment_lines   = 30;
+static bool show_file_off;
+static bool force_docsis_encap;
+static bool generate_md5_hash;
+static bool generate_bits_field = true;
+static bool disable_packet_size_limited_in_summary;
+static unsigned max_comment_lines   = 30;
 
 static const value_string p2p_dirs[] = {
 	{ P2P_DIR_UNKNOWN, "Unknown" },
@@ -294,11 +292,11 @@ typedef struct fr_foreach_s {
 	proto_tree *tree;
 	tvbuff_t *tvb;
 	packet_info *pinfo;
-	guint n_changes;
+	unsigned n_changes;
 } fr_foreach_t;
 
 static const char *
-get_verdict_type_string(guint8 type)
+get_verdict_type_string(uint8_t type)
 {
 	switch(type) {
 	case OPT_VERDICT_TYPE_HW:
@@ -312,7 +310,7 @@ get_verdict_type_string(guint8 type)
 }
 
 static const char *
-get_hash_type_string(guint8 type)
+get_hash_type_string(uint8_t type)
 {
 	switch(type) {
 	case OPT_HASH_2COMP:
@@ -333,7 +331,7 @@ get_hash_type_string(guint8 type)
 }
 
 static void
-ensure_tree_item(proto_tree *tree, guint count)
+ensure_tree_item(proto_tree *tree, unsigned count)
 {
 	/*
 	 * Ensure that no exception is thrown in proto.c when adding the
@@ -367,7 +365,7 @@ frame_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U
 
 	sai->line_style = 1;
 	sai->conv_num = 0;
-	sai->display = TRUE;
+	sai->display = true;
 
 	g_queue_push_tail(sainfo->items, sai);
 
@@ -382,28 +380,28 @@ frame_seq_analysis_packet( void *ptr, packet_info *pinfo, epan_dissect_t *edt _U
 void
 register_frame_end_routine(packet_info *pinfo, void (*func)(void))
 {
-	pinfo->frame_end_routines = g_slist_append(pinfo->frame_end_routines, (gpointer)func);
+	pinfo->frame_end_routines = g_slist_append(pinfo->frame_end_routines, (void *)func);
 }
 
 typedef void (*void_func_t)(void);
 
 static void
-call_frame_end_routine(gpointer routine)
+call_frame_end_routine(void *routine)
 {
 	void_func_t func = (void_func_t)routine;
 	(*func)();
 }
 
-static gboolean
-frame_add_comment(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
+static bool
+frame_add_comment(wtap_block_t block _U_, unsigned option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
 {
 	fr_foreach_t *fr_user_data = (fr_foreach_t *)user_data;
 	proto_item *comment_item;
 	proto_item *hidden_item;
 	proto_tree *comments_tree;
-	gchar *newline;             /* location of next newline in comment */
-	gchar *ch;                  /* utility pointer */
-	guint i;                    /* track number of lines */
+	char *newline;             /* location of next newline in comment */
+	char *ch;                  /* utility pointer */
+	unsigned i;                    /* track number of lines */
 
 	if (option_id == OPT_COMMENT) {
 		ch = option->stringval;
@@ -487,18 +485,18 @@ frame_add_comment(wtap_block_t block _U_, guint option_id, wtap_opttype_e option
 		proto_item_set_hidden(hidden_item);
 	}
 	fr_user_data->n_changes++;
-	return TRUE;
+	return true;
 }
 
-static gboolean
-frame_add_hash(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
+static bool
+frame_add_hash(wtap_block_t block _U_, unsigned option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
 {
 	fr_foreach_t *fr_user_data = (fr_foreach_t *)user_data;
 
 	if (option_id == OPT_PKT_HASH) {
 		packet_hash_opt_t *hash = &option->packet_hash;
 		const char *format
-			= fr_user_data->n_changes ? "%s (%u)" : ", %s (%u)";
+			= fr_user_data->n_changes ? ", %s (%u)" : "%s (%u)";
 
 		proto_item_append_text(fr_user_data->item, format,
 				       get_hash_type_string(hash->type),
@@ -511,11 +509,11 @@ frame_add_hash(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_ty
 						 hash->hash_bytes->len);
 	}
 	fr_user_data->n_changes++;
-	return TRUE;
+	return true;
 }
 
-static gboolean
-frame_add_verdict(wtap_block_t block _U_, guint option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
+static bool
+frame_add_verdict(wtap_block_t block _U_, unsigned option_id, wtap_opttype_e option_type _U_, wtap_optval_t *option, void *user_data)
 {
 	fr_foreach_t *fr_user_data = (fr_foreach_t *)user_data;
 
@@ -557,29 +555,29 @@ frame_add_verdict(wtap_block_t block _U_, guint option_id, wtap_opttype_e option
 		}
 	}
 	fr_user_data->n_changes++;
-	return TRUE;
+	return true;
 }
 
 static int
 dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data)
 {
 	proto_item  *volatile ti = NULL;
-	guint	     cap_len = 0, frame_len = 0;
-	guint32      pack_flags;
-	guint32      interface_queue;
-	guint64      drop_count;
-	guint64      packetid;
+	unsigned	     cap_len = 0, frame_len = 0;
+	uint32_t     pack_flags;
+	uint32_t     interface_queue;
+	uint64_t     drop_count;
+	uint64_t     packetid;
 	proto_tree  *volatile tree;
 	proto_tree  *comments_tree;
 	proto_tree  *volatile fh_tree = NULL;
 	proto_item  *item;
-	const gchar *cap_plurality, *frame_plurality;
+	const char *cap_plurality, *frame_plurality;
 	frame_data_t *fr_data = (frame_data_t*)data;
 	const color_filter_t *color_filter;
 	dissector_handle_t dissector_handle;
 	fr_foreach_t fr_user_data;
 	struct nflx_tcpinfo tcpinfo;
-	gboolean tcpinfo_filled = false;
+	bool tcpinfo_filled = false;
 
 	tree=parent_tree;
 
@@ -860,7 +858,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			 * be preferred?
 			 */
 			ti = proto_tree_add_protocol_format(tree, proto_syscall, tvb, 0, tvb_captured_length(tvb),
-			    "Sysdig Event %u: %u byte%s",
+			    "System Event %u: %u byte%s",
 			    pinfo->num, frame_len, frame_plurality);
 			break;
 
@@ -1056,8 +1054,8 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		proto_tree_add_uint(fh_tree, hf_frame_number, tvb,
 				    0, 0, pinfo->num);
 
-		item = proto_tree_add_uint_format(fh_tree, hf_frame_len, tvb,
-						  0, 0, frame_len, "Frame Length: %u byte%s (%u bits)",
+		item = proto_tree_add_uint_format_value(fh_tree, hf_frame_len, tvb,
+						  0, 0, frame_len, "%u byte%s (%u bits)",
 						  frame_len, frame_plurality, frame_len * 8);
 		if (frame_len < cap_len) {
 			/*
@@ -1068,8 +1066,8 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			expert_add_info(pinfo, item, &ei_len_lt_caplen);
 		}
 
-		proto_tree_add_uint_format(fh_tree, hf_frame_capture_len, tvb,
-					   0, 0, cap_len, "Capture Length: %u byte%s (%u bits)",
+		proto_tree_add_uint_format_value(fh_tree, hf_frame_capture_len, tvb,
+					   0, 0, cap_len, "%u byte%s (%u bits)",
 					   cap_len, cap_plurality, cap_len * 8);
 
 		if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_uint64_option_value(fr_data->pkt_block, OPT_PKT_DROPCOUNT, &drop_count)) {
@@ -1077,9 +1075,9 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		}
 
 		if (generate_md5_hash) {
-			const guint8 *cp;
-			guint8        digest[HASH_MD5_LENGTH];
-			const gchar  *digest_string;
+			const uint8_t *cp;
+			uint8_t       digest[HASH_MD5_LENGTH];
+			const char   *digest_string;
 
 			cp = tvb_get_ptr(tvb, 0, cap_len);
 
@@ -1230,7 +1228,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	if (pinfo->fd->ignored) {
 		/* Ignored package, stop handling here */
 		col_set_str(pinfo->cinfo, COL_INFO, "<Ignored>");
-		proto_tree_add_boolean_format(tree, hf_frame_ignored, tvb, 0, 0, TRUE, "This frame is marked as ignored");
+		proto_tree_add_boolean_format(tree, hf_frame_ignored, tvb, 0, 0, true, "This frame is marked as ignored");
 		return tvb_captured_length(tvb);
 	}
 
@@ -1252,7 +1250,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 		/* Note: A Windows "exceptional exception" may leave the kazlib's (Portable Exception Handling)
 		   stack in an inconsistent state thus causing a crash at some point in the
 		   handling of the exception.
-		   See: https://www.wireshark.org/lists/wireshark-dev/200704/msg00243.html
+		   See: https://lists.wireshark.org/archives/wireshark-dev/200704/msg00243.html
 		*/
 		__try {
 #endif
@@ -1286,7 +1284,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					        pinfo->rec->rec_header.packet_header.pkt_encap);
 				}
 				if (dissector_handle != NULL) {
-					guint32 save_match_uint = pinfo->match_uint;
+					uint32_t save_match_uint = pinfo->match_uint;
 
 					pinfo->match_uint =
 					    pinfo->rec->rec_header.packet_header.pkt_encap;
@@ -1430,7 +1428,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 			/* Note: A Windows "exceptional exception" may leave the kazlib's (Portable Exception Handling)
 			   stack in an inconsistent state thus causing a crash at some point in the
 			   handling of the exception.
-			   See: https://www.wireshark.org/lists/wireshark-dev/200704/msg00243.html
+			   See: https://lists.wireshark.org/archives/wireshark-dev/200704/msg00243.html
 			*/
 			__try {
 #endif
@@ -1496,11 +1494,11 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 	}
 
 	if (prefs.enable_incomplete_dissectors_check && tree && tree->tree_data->visible) {
-		gchar* decoded;
-		guint length;
-		guint i;
-		guint byte;
-		guint bit;
+		char* decoded;
+		unsigned length;
+		unsigned i;
+		unsigned byte;
+		unsigned bit;
 
 		length = tvb_captured_length(tvb);
 		decoded = proto_find_undecoded_data(tree, length);
@@ -1582,14 +1580,14 @@ proto_register_frame(void)
 		    NULL, HFILL }},
 
 		{ &hf_frame_len,
-		  { "Frame length on the wire", "frame.len",
+		  { "Frame Length", "frame.len",
 		    FT_UINT32, BASE_DEC, NULL, 0x0,
-		    NULL, HFILL }},
+		    "Frame length on the wire", HFILL }},
 
 		{ &hf_frame_capture_len,
-		  { "Frame length stored into the capture file", "frame.cap_len",
+		  { "Capture Length", "frame.cap_len",
 		    FT_UINT32, BASE_DEC, NULL, 0x0,
-		    NULL, HFILL }},
+		    "Frame length stored into the capture file", HFILL }},
 
 		{ &hf_frame_md5_hash,
 		  { "Frame MD5 Hash", "frame.md5_hash",
@@ -1785,7 +1783,7 @@ proto_register_frame(void)
 
 		{ &hf_frame_cb_copy_allowed,
 		  { "Copying", "frame.cb_copy",
-		    FT_BOOLEAN, BASE_DEC, TFS(&tfs_allowed_not_allowed), 0x0,
+		    FT_BOOLEAN, BASE_NONE, TFS(&tfs_allowed_not_allowed), 0x0,
 		    "Whether the custom block will be written or not", HFILL }},
 
 		{ &hf_frame_bblog,
@@ -2246,7 +2244,7 @@ proto_register_frame(void)
 		    FT_INT16, BASE_DEC, NULL, 0x0,
 		    NULL, HFILL }};
 
- 	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_frame,
 		&ett_ifname,
 		&ett_flags,

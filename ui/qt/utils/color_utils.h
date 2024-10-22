@@ -12,8 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include <epan/color_filters.h>
 
 #include <QBrush>
@@ -51,6 +49,8 @@ public:
      * @return true if we're running in dark mode, false otherwise.
      */
     static bool themeIsDark();
+
+    static void setScheme(int scheme);
     /**
      * Returns an appropriate link color for the current mode.
      * @return A brush suitable for setting a text color.
@@ -82,11 +82,17 @@ public:
      */
     static const QColor warningBackground();
 
+    /**
+     * Returns an appropriate foreground color for disabled text.
+     * @return The foreground color.
+     */
+    static const QColor disabledForeground();
+
 private:
     static QList<QRgb> graph_colors_;
     static QList<QRgb> sequence_colors_;
 };
 
-void color_filter_qt_add_cb(color_filter_t *colorf, gpointer user_data);
+void color_filter_qt_add_cb(color_filter_t *colorf, void *user_data);
 
 #endif // COLOR_UTILS_H

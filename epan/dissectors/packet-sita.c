@@ -17,16 +17,18 @@
 
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include <wiretap/wtap.h>
 void proto_register_sita(void);
 void proto_reg_handoff_sita(void);
 
 static dissector_table_t    sita_dissector_table;
-static gint                 ett_sita;
-static gint                 ett_sita_flags;
-static gint                 ett_sita_signals;
-static gint                 ett_sita_errors1;
-static gint                 ett_sita_errors2;
+static int                  ett_sita;
+static int                  ett_sita_flags;
+static int                  ett_sita_signals;
+static int                  ett_sita_errors1;
+static int                  ett_sita_errors2;
 static int                  proto_sita;       /* Initialize the protocol and registered fields */
 static int                  hf_dir;
 static int                  hf_framing;
@@ -61,15 +63,15 @@ static dissector_handle_t  sita_handle;
 #define IOP                 "Local"
 #define REMOTE              "Remote"
 
-static const gchar *
-format_flags_string(guchar value, const gchar *array[])
+static const char *
+format_flags_string(wmem_allocator_t *scope, unsigned char value, const char *array[])
 {
     int         i;
-    guint       bpos;
+    unsigned    bpos;
     wmem_strbuf_t   *buf;
     const char  *sep = "";
 
-    buf = wmem_strbuf_new_sized(wmem_packet_scope(), MAX_FLAGS_LEN);
+    buf = wmem_strbuf_new_sized(scope, MAX_FLAGS_LEN);
     for (i = 0; i < 8; i++) {
         bpos = 1 << i;
         if (value & bpos) {
@@ -88,19 +90,19 @@ static int
 dissect_sita(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     proto_item  *ti;
-    guchar      flags, signals, errors1, errors2, proto;
-    const gchar *errors1_string, *errors2_string, *flags_string;
+    unsigned char      flags, signals, errors1, errors2, proto;
+    const char *errors1_string, *errors2_string, *flags_string;
     proto_tree  *sita_tree          = NULL;
     proto_tree  *sita_flags_tree    = NULL;
     proto_tree  *sita_errors1_tree  = NULL;
     proto_tree  *sita_errors2_tree  = NULL;
-    static const gchar *rx_errors1_str[]   = {"Framing",       "Parity",   "Collision",    "Long-frame",   "Short-frame",  "",         "",     ""              };
-    static const gchar *rx_errors2_str[]   = {"Non-Aligned",   "Abort",    "CD-lost",      "DPLL",         "Overrun",      "Length",   "CRC",  "Break"         };
+    static const char *rx_errors1_str[]   = {"Framing",       "Parity",   "Collision",    "Long-frame",   "Short-frame",  "",         "",     ""              };
+    static const char *rx_errors2_str[]   = {"Non-Aligned",   "Abort",    "CD-lost",      "DPLL",         "Overrun",      "Length",   "CRC",  "Break"         };
 #if 0
-    static const gchar   *tx_errors1_str[]   = {"",              "",         "",             "",             "",             "",         "",     ""              };
+    static const char    *tx_errors1_str[]   = {"",              "",         "",             "",             "",             "",         "",     ""              };
 #endif
-    static const gchar *tx_errors2_str[]   = {"Underrun",      "CTS-lost", "UART",         "ReTx-limit",   "",             "",         "",     ""              };
-    static const gchar *flags_str[]        = {"",              "",         "",             "",             "",             "",         "",     "No-buffers"    };
+    static const char *tx_errors2_str[]   = {"Underrun",      "CTS-lost", "UART",         "ReTx-limit",   "",             "",         "",     ""              };
+    static const char *flags_str[]        = {"",              "",         "",             "",             "",             "",         "",     "No-buffers"    };
 
 
     static int * const signal_flags[] = {
@@ -135,7 +137,7 @@ dissect_sita(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 
         proto_tree_add_uint(sita_tree, hf_proto, tvb, 0, 0, proto);
 
-        flags_string = format_flags_string(flags, flags_str);
+        flags_string = format_flags_string(pinfo->pool, flags, flags_str);
         sita_flags_tree = proto_tree_add_subtree_format(sita_tree, tvb, 0, 0,
                 ett_sita_flags, NULL, "Flags: 0x%02x (From %s)%s%s",
                 flags,
@@ -170,12 +172,12 @@ dissect_sita(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                 NULL
             };
 
-            errors1_string = format_flags_string(errors1, rx_errors1_str);
+            errors1_string = format_flags_string(pinfo->pool, errors1, rx_errors1_str);
             sita_errors1_tree = proto_tree_add_subtree_format(sita_tree, tvb, 0, 0,
                 ett_sita_errors1, NULL, "Receive Status: 0x%02x %s", errors1, errors1_string);
             proto_tree_add_bitmask_list_value(sita_errors1_tree, tvb, 0, 0, errors1_flags, errors1);
 
-            errors2_string = format_flags_string(errors2, rx_errors2_str);
+            errors2_string = format_flags_string(pinfo->pool, errors2, rx_errors2_str);
             sita_errors2_tree = proto_tree_add_subtree_format(sita_tree, tvb, 0, 0,
                 ett_sita_errors2, NULL, "Receive Status: 0x%02x %s", errors2, errors2_string);
             proto_tree_add_bitmask_list_value(sita_errors2_tree, tvb, 0, 0, errors2_flags, errors2);
@@ -188,7 +190,7 @@ dissect_sita(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
                 NULL
             };
 
-            errors2_string = format_flags_string(errors2, tx_errors2_str);
+            errors2_string = format_flags_string(pinfo->pool, errors2, tx_errors2_str);
             sita_errors1_tree = proto_tree_add_subtree_format(sita_tree, tvb, 0, 0,
                 ett_sita_errors1, NULL, "Transmit Status: 0x%02x %s", errors2, errors2_string);
             proto_tree_add_bitmask_list_value(sita_errors1_tree, tvb, 0, 0, errors2_flags, errors2);
@@ -243,125 +245,125 @@ proto_register_sita(void)
         { &hf_dir,
           { "Direction", "sita.flags.flags",
             FT_BOOLEAN, 8, TFS(&tfs_sita_flags), SITA_FRAME_DIR,
-            "TRUE 'from Remote', FALSE 'from Local'",   HFILL }
+            "true 'from Remote', false 'from Local'",   HFILL }
         },
         { &hf_droppedframe,
           { "No Buffers", "sita.flags.droppedframe",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_NO_BUFFER,
-            "TRUE if Buffer Failure", HFILL }
+            "true if Buffer Failure", HFILL }
         },
 
         { &hf_framing,
           { "Framing", "sita.errors.framing",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_FRAMING,
-            "TRUE if Framing Error", HFILL }
+            "true if Framing Error", HFILL }
         },
         { &hf_parity,
           { "Parity", "sita.errors.parity",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_PARITY,
-            "TRUE if Parity Error", HFILL }
+            "true if Parity Error", HFILL }
         },
         { &hf_collision,
           { "Collision", "sita.errors.collision",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_COLLISION,
-            "TRUE if Collision", HFILL }
+            "true if Collision", HFILL }
         },
         { &hf_longframe,
           { "Long Frame", "sita.errors.longframe",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_FRAME_LONG,
-            "TRUE if Long Frame Received", HFILL }
+            "true if Long Frame Received", HFILL }
         },
         { &hf_shortframe,
           { "Short Frame", "sita.errors.shortframe",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_FRAME_SHORT,
-            "TRUE if Short Frame", HFILL }
+            "true if Short Frame", HFILL }
         },
         { &hf_nonaligned,
           { "NonAligned", "sita.errors.nonaligned",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_NONOCTET_ALIGNED,
-            "TRUE if NonAligned Frame", HFILL }
+            "true if NonAligned Frame", HFILL }
         },
         { &hf_abort,
           { "Abort", "sita.errors.abort",
             FT_BOOLEAN, 8, TFS(&tfs_sita_received), SITA_ERROR_RX_ABORT,
-            "TRUE if Abort Received", HFILL }
+            "true if Abort Received", HFILL }
         },
         { &hf_lostcd,
           { "Carrier", "sita.errors.lostcd",
             FT_BOOLEAN, 8, TFS(&tfs_sita_lost), SITA_ERROR_RX_CD_LOST,
-            "TRUE if Carrier Lost", HFILL }
+            "true if Carrier Lost", HFILL }
         },
         { &hf_rxdpll,
           { "DPLL", "sita.errors.rxdpll",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_DPLL,
-            "TRUE if DPLL Error", HFILL }
+            "true if DPLL Error", HFILL }
         },
         { &hf_overrun,
           { "Overrun", "sita.errors.overrun",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_OVERRUN,
-            "TRUE if Overrun Error", HFILL }
+            "true if Overrun Error", HFILL }
         },
         { &hf_length,
           { "Length", "sita.errors.length",
             FT_BOOLEAN, 8, TFS(&tfs_sita_violation), SITA_ERROR_RX_FRAME_LEN_VIOL,
-            "TRUE if Length Violation", HFILL }
+            "true if Length Violation", HFILL }
         },
         { &hf_crc,
           { "CRC", "sita.errors.crc",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_RX_CRC,
-            "TRUE if CRC Error", HFILL }
+            "true if CRC Error", HFILL }
         },
         { &hf_break,
           { "Break", "sita.errors.break",
             FT_BOOLEAN, 8, TFS(&tfs_sita_received), SITA_ERROR_RX_BREAK,
-            "TRUE if Break Received", HFILL }
+            "true if Break Received", HFILL }
         },
 
         { &hf_underrun,
           { "Underrun", "sita.errors.underrun",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_TX_UNDERRUN,
-            "TRUE if Tx Underrun", HFILL }
+            "true if Tx Underrun", HFILL }
         },
         { &hf_lostcts,
           { "Clear To Send", "sita.errors.lostcts",
             FT_BOOLEAN, 8, TFS(&tfs_sita_lost), SITA_ERROR_TX_CTS_LOST,
-            "TRUE if Clear To Send Lost", HFILL }
+            "true if Clear To Send Lost", HFILL }
         },
         { &hf_uarterror,
           { "UART", "sita.errors.uarterror",
             FT_BOOLEAN, 8, TFS(&tfs_sita_error), SITA_ERROR_TX_UART_ERROR,
-            "TRUE if UART Error", HFILL }
+            "true if UART Error", HFILL }
         },
         { &hf_rtxlimit,
           { "Retx Limit", "sita.errors.rtxlimit",
             FT_BOOLEAN, 8, TFS(&tfs_sita_exceeded), SITA_ERROR_TX_RETX_LIMIT,
-            "TRUE if Retransmit Limit reached", HFILL }
+            "true if Retransmit Limit reached", HFILL }
         },
 
         { &hf_dsr,
           { "DSR", "sita.signals.dsr",
             FT_BOOLEAN, 8, TFS(&tfs_on_off), SITA_SIG_DSR,
-            "TRUE if Data Set Ready", HFILL }
+            "true if Data Set Ready", HFILL }
         },
         { &hf_dtr,
           { "DTR", "sita.signals.dtr",
             FT_BOOLEAN, 8, TFS(&tfs_on_off), SITA_SIG_DTR,
-            "TRUE if Data Terminal Ready", HFILL }
+            "true if Data Terminal Ready", HFILL }
         },
         { &hf_cts,
           { "CTS", "sita.signals.cts",
             FT_BOOLEAN, 8, TFS(&tfs_on_off), SITA_SIG_CTS,
-            "TRUE if Clear To Send", HFILL }
+            "true if Clear To Send", HFILL }
         },
         { &hf_rts,
           { "RTS", "sita.signals.rts",
             FT_BOOLEAN, 8, TFS(&tfs_on_off), SITA_SIG_RTS,
-            "TRUE if Request To Send", HFILL }
+            "true if Request To Send", HFILL }
         },
         { &hf_dcd,
           { "DCD", "sita.signals.dcd",
             FT_BOOLEAN, 8, TFS(&tfs_on_off), SITA_SIG_DCD,
-            "TRUE if Data Carrier Detect", HFILL }
+            "true if Data Carrier Detect", HFILL }
         },
         { &hf_signals,
           { "Signals", "sita.signals",
@@ -370,7 +372,7 @@ proto_register_sita(void)
         },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_sita,
         &ett_sita_flags,
         &ett_sita_signals,

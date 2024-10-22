@@ -22,21 +22,26 @@
 #include <ui/simple_dialog.h>
 #include <ui/recent.h>
 #include <main_window.h>
+#include <extcap.h>
 
 #include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/utils/color_utils.h>
 
 #include "main_application.h"
+
+#include <QDesktopServices>
+#include <QUrl>
 
 extern "C" {
 // Callbacks prefs routines
 
-static guint
-module_prefs_unstash(module_t *module, gpointer data)
+static unsigned
+module_prefs_unstash(module_t *module, void *data)
 {
-    gboolean *must_redissect_p = static_cast<gboolean *>(data);
+    unsigned int *must_redissect_p = static_cast<unsigned int *>(data);
     pref_unstash_data_t unstashed_data;
 
-    unstashed_data.handle_decode_as = TRUE;
+    unstashed_data.handle_decode_as = true;
 
     module->prefs_changed_flags = 0;        /* assume none of them changed */
     for (GList *pref_l = module->prefs; pref_l && pref_l->data; pref_l = gxx_list_next(pref_l)) {
@@ -60,8 +65,8 @@ module_prefs_unstash(module_t *module, gpointer data)
     return 0;     /* Keep unstashing. */
 }
 
-static guint
-module_prefs_clean_stash(module_t *module, gpointer)
+static unsigned
+module_prefs_clean_stash(module_t *module, void *)
 {
     for (GList *pref_l = module->prefs; pref_l && pref_l->data; pref_l = gxx_list_next(pref_l)) {
         pref_t *pref = gxx_list_data(pref_t *, pref_l);
@@ -232,7 +237,7 @@ void PreferencesDialog::on_advancedSearchLineEdit_textEdited(const QString &text
      * the countdown.
      */
     searchLineEditText = text;
-    guint gui_debounce_timer = prefs_get_uint_value("gui", "debounce.timer");
+    unsigned gui_debounce_timer = prefs_get_uint_value("gui", "debounce.timer");
     searchLineEditTimer->start(gui_debounce_timer);
 }
 
@@ -244,14 +249,20 @@ void PreferencesDialog::on_showChangedValuesCheckBox_toggled(bool checked)
     pd_ui_->advancedView->expandAll();
 }
 
-void PreferencesDialog::on_buttonBox_accepted()
+void PreferencesDialog::apply()
 {
-    gchar* err = NULL;
+    char* err = NULL;
     unsigned int redissect_flags = 0;
 
     // XXX - We should validate preferences as the user changes them, not here.
+    //       Some, but not all, of the preference controls validate the input,
+    //       but they don't disable the OK/Apply button, and, what's worse, the
+    //       "stashed" value is sometimes the last valid input, not, e.g., the
+    //       input when the dialog was opened.
     // XXX - We're also too enthusiastic about setting must_redissect.
-    prefs_modules_foreach_submodules(NULL, module_prefs_unstash, (gpointer)&redissect_flags);
+    prefs_modules_foreach_submodules(NULL, module_prefs_unstash, (void *)&redissect_flags);
+
+    extcap_register_preferences();
 
     if (redissect_flags & PREF_EFFECT_GUI_LAYOUT) {
         // Layout type changed, reset sizes
@@ -284,16 +295,6 @@ void PreferencesDialog::on_buttonBox_accepted()
 
     write_language_prefs();
     mainApp->loadLanguage(QString(language));
-
-#ifdef HAVE_AIRPCAP
-  /*
-   * Load the Wireshark decryption keys (just set) and save
-   * the changes to the adapters' registry
-   */
-  //airpcap_load_decryption_keys(airpcap_if_list);
-#endif
-
-    // gtk/prefs_dlg.c:prefs_main_apply_all
     /*
      * Apply the protocol preferences first - "gui_prefs_apply()" could
      * cause redissection, and we have to make sure the protocol
@@ -304,32 +305,42 @@ void PreferencesDialog::on_buttonBox_accepted()
     /* Fill in capture options with values from the preferences */
     prefs_to_capture_opts();
 
-#ifdef HAVE_AIRPCAP
-//    prefs_airpcap_update();
-#endif
-
     mainApp->setMonospaceFont(prefs.gui_font_name);
 
+    if (redissect_flags & (PREF_EFFECT_GUI_COLOR)) {
+        ColorUtils::setScheme(prefs.gui_color_scheme);
+        mainApp->emitAppSignal(MainApplication::ColorsChanged);
+    }
+
     if (redissect_flags & PREF_EFFECT_FIELDS) {
-        mainApp->queueAppSignal(MainApplication::FieldsChanged);
+        mainApp->emitAppSignal(MainApplication::FieldsChanged);
     }
 
     if (redissect_flags & PREF_EFFECT_DISSECTION) {
         // Freeze the packet list early to avoid updating column data before doing a
         // full redissection. The packet list will be thawed when redissection is done.
-        mainApp->queueAppSignal(MainApplication::FreezePacketList);
+        mainApp->emitAppSignal(MainApplication::FreezePacketList);
 
         /* Redissect all the packets, and re-evaluate the display filter. */
-        mainApp->queueAppSignal(MainApplication::PacketDissectionChanged);
+        mainApp->emitAppSignal(MainApplication::PacketDissectionChanged);
     }
-    mainApp->queueAppSignal(MainApplication::PreferencesChanged);
+
+    if (redissect_flags) {
+        mainApp->emitAppSignal(MainApplication::PreferencesChanged);
+    }
 
     if (redissect_flags & PREF_EFFECT_GUI_LAYOUT) {
-        mainApp->queueAppSignal(MainApplication::RecentPreferencesRead);
+        mainApp->emitAppSignal(MainApplication::RecentPreferencesRead);
     }
 
     if (prefs.capture_no_extcap != saved_capture_no_extcap_)
         mainApp->refreshLocalInterfaces();
+}
+
+void PreferencesDialog::on_buttonBox_accepted()
+{
+    apply();
+    accept();
 }
 
 void PreferencesDialog::on_buttonBox_rejected()
@@ -340,9 +351,24 @@ void PreferencesDialog::on_buttonBox_rejected()
 #ifdef HAVE_LIBGNUTLS
     pd_ui_->rsaKeysFrame->rejectChanges();
 #endif
+    reject();
+}
+
+void PreferencesDialog::on_buttonBox_clicked(QAbstractButton *button)
+{
+    if (pd_ui_->buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole) {
+        apply();
+    }
 }
 
 void PreferencesDialog::on_buttonBox_helpRequested()
 {
-    mainApp->helpTopicAction(HELP_PREFERENCES_DIALOG);
+    QString help_page = modulePrefsModel_.data(pd_ui_->prefsView->currentIndex(), ModulePrefsModel::ModuleHelp).toString();
+    if (!help_page.isEmpty()) {
+        QString url = gchar_free_to_qstring(user_guide_url(help_page.toUtf8().constData()));
+        QDesktopServices::openUrl(QUrl(url));
+    } else {
+        // Generic help
+        mainApp->helpTopicAction(HELP_PREFERENCES_DIALOG);
+    }
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 # Setup development environment on alpine systems
 #
 # Wireshark - Network traffic analyzer
@@ -13,7 +13,7 @@
 
 set -e -u -o pipefail
 
-function print_usage() {
+print_usage() {
 	printf "\\nUtility to setup a alpine system for Wireshark Development.\\n"
 	printf "The basic usage installs the needed software\\n\\n"
 	printf "Usage: %s [--install-optional] [...other options...]\\n" "$0"
@@ -50,6 +50,7 @@ then
 fi
 
 BASIC_LIST="
+	bash
 	cmake
 	ninja
 	gcc
@@ -60,10 +61,11 @@ BASIC_LIST="
 	tiff-dev
 	c-ares-dev
 	pcre2-dev
-	qt5-qtbase-dev
-	qt5-qttools-dev
-	qt5-qtmultimedia-dev
-	qt5-qtsvg-dev
+	qt6-qtbase-dev
+	qt6-qttools-dev
+	qt6-qtmultimedia-dev
+	qt6-qtsvg-dev
+	qt6-qt5compat-dev
 	speexdsp-dev
 	python3
 	"
@@ -74,6 +76,7 @@ ADDITIONAL_LIST="
 	libssh-dev
 	spandsp-dev
 	libcap-dev
+	libcap-setcap
 	libpcap-dev
 	libxml2-dev
 	libmaxminddb-dev
@@ -83,21 +86,22 @@ ADDITIONAL_LIST="
 	snappy-dev
 	nghttp2-dev
 	nghttp3-dev
-	lua5.2-dev
+	lua5.4-dev
 	libnl3-dev
 	sbc-dev
 	minizip-dev
 	brotli-dev
+	opencore-amr-dev
 	perl
 	py3-pytest
 	py3-pytest-xdist
 	"
 
 # Uncomment to add PNG compression utilities used by compress-pngs:
-# ADDITIONAL_LIST="$ADDITIONAL_LIST \
-#	advancecomp \
-#	optipng \
-#	oxipng \
+# ADDITIONAL_LIST="$ADDITIONAL_LIST
+#	advancecomp
+#	optipng
+#	oxipng
 #	pngcrush"
 
 # Adds package $2 to list variable $1 if the package is found.
@@ -106,7 +110,7 @@ add_package() {
 	local list="$1" pkgname="$2"
 
 	# fail if the package is not known
-	apk list $pkgname &> /dev/null || return 1
+	apk list "$pkgname" &> /dev/null || return 1
 
 	# package is found, append it to list
 	eval "${list}=\"\${${list}} \${pkgname}\""
@@ -121,6 +125,7 @@ then
 fi
 
 apk update || exit 2
+# shellcheck disable=SC2086
 apk add $ACTUAL_LIST $OPTIONS || exit 2
 
 if [ $ADDITIONAL -eq 0 ]

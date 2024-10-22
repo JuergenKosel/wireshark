@@ -44,12 +44,12 @@ typedef struct _extcap_option {
     char * optdesc;
 } extcap_option_t;
 
-static FILE *custom_log = NULL;
+static FILE *custom_log;
 
 /* used to inform to extcap application that end of application is requested */
-bool extcap_end_application = false;
+bool extcap_end_application;
 /* graceful shutdown callback, can be null */
-void (*extcap_graceful_shutdown_cb)(void) = NULL;
+void (*extcap_graceful_shutdown_cb)(void);
 
 static void extcap_init_log_file(const char *filename);
 
@@ -184,9 +184,7 @@ uint8_t extcap_base_parse_options(extcap_parameters * extcap, int result, char *
                 /* Invalid log level string. */
                 ret = 0;
             }
-            else if (level <= LOG_LEVEL_DEBUG) {
-                extcap->debug = true;
-            }
+            extcap->debug = level;
             break;
         case EXTCAP_OPT_LOG_FILE:
             extcap_init_log_file(optargument);
@@ -234,7 +232,7 @@ static void extcap_iface_print(void * data, void * userdata _U_)
         printf ("\n");
 }
 
-static int extcap_iface_compare(gconstpointer  a, gconstpointer  b)
+static int extcap_iface_compare(const void *   a, const void *   b)
 {
     const extcap_interface * iface_a = (const extcap_interface *)a;
 
@@ -278,7 +276,7 @@ static int extcap_iface_listall(extcap_parameters * extcap, uint8_t list_ifs)
 uint8_t extcap_base_handle_interface(extcap_parameters * extcap)
 {
     /* A fifo must be provided for capture */
-    if (extcap->capture && (extcap->fifo == NULL || strlen(extcap->fifo) <= 0)) {
+    if (extcap->capture && (extcap->fifo == NULL || strlen(extcap->fifo) == 0)) {
         extcap->capture = 0;
         ws_error("Extcap Error: No FIFO pipe provided");
         return 0;
@@ -410,7 +408,7 @@ void extcap_cmdline_debug(char** ar, const unsigned n)
     for (i = 0; i < n; i++)
         g_string_append_printf(cmdline, "%s ", ar[i]);
     ws_debug("%s", cmdline->str);
-    g_string_free(cmdline, true);
+    g_string_free(cmdline, TRUE);
 }
 
 /*

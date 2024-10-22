@@ -35,6 +35,9 @@ CODE_PREFIX = """\
 #include <config.h>
 
 #include <stddef.h>
+#include <stdlib.h>
+
+#include "wsutil/array.h"
 
 #include "pci-ids.h"
 
@@ -44,7 +47,7 @@ typedef struct
   uint16_t did;
   uint16_t svid;
   uint16_t ssid;
-  char *name;
+  const char *name;
 
 } pci_id_t;
 
@@ -52,55 +55,27 @@ typedef struct
 {
   uint16_t vid;
   uint16_t count;
-  pci_id_t *ids_ptr;
+  pci_id_t const *ids_ptr;
 
 } pci_vid_index_t;
 
 """
 
 CODE_POSTFIX = """
-static pci_vid_index_t *get_vid_index(uint16_t vid)
+static int vid_search(const void *key, const void *tbl_entry)
 {
-    uint32_t start_index = 0;
-    uint32_t end_index = 0;
-    uint32_t idx = 0;
-
-    end_index = sizeof(pci_vid_index)/sizeof(pci_vid_index[0]);
-
-    while(start_index != end_index)
-    {
-        if(end_index - start_index == 1)
-        {
-            if(pci_vid_index[start_index].vid == vid)
-                return &pci_vid_index[start_index];
-
-            break;
-        }
-
-        idx = (start_index + end_index)/2;
-
-        if(pci_vid_index[idx].vid < vid)
-            start_index = idx;
-        else
-        if(pci_vid_index[idx].vid > vid)
-            end_index = idx;
-        else
-            return &pci_vid_index[idx];
-
-    }
-
-    return NULL;
-
+    return (int)*(const uint16_t *)key -
+           (int)((const pci_vid_index_t *)tbl_entry)->vid;
 }
 
 const char *pci_id_str(uint16_t vid, uint16_t did, uint16_t svid, uint16_t ssid)
 {
     unsigned int i;
-    static char *not_found = \"Not found\";
-    pci_vid_index_t *index_ptr;
-    pci_id_t *ids_ptr;
+    static const char *not_found = \"Not found\";
+    pci_vid_index_t const *index_ptr;
+    pci_id_t const *ids_ptr;
 
-    index_ptr = get_vid_index(vid);
+    index_ptr = bsearch(&vid, pci_vid_index, array_length(pci_vid_index), sizeof pci_vid_index[0], vid_search);
 
     if(index_ptr == NULL)
         return not_found;
@@ -184,7 +159,7 @@ def main():
                 did = -1
                 svid = -1
                 ssid = -1
-                out_lines += "pci_id_t pci_vid_%04X[] = {\n" % (vid)
+                out_lines += "static pci_id_t const pci_vid_%04X[] = {\n" % (vid)
                 out_lines += "{0x%04X, 0xFFFF, 0xFFFF, 0xFFFF, \"%s(0x%04X)\"},\n" % (vid, words[1].strip(), vid)
                 id_list.append(vid)
                 continue
@@ -227,7 +202,7 @@ def main():
     out_lines += "}; /* pci_vid_%04X[] */\n" % (vid)
     count_list.append(entries)
 
-    out_lines += "\npci_vid_index_t pci_vid_index[] = {\n"
+    out_lines += "\nstatic pci_vid_index_t const pci_vid_index[] = {\n"
 
     vendor_count = len(id_list)
     device_count = 0
@@ -240,10 +215,10 @@ def main():
     out_lines += CODE_POSTFIX
 
     if vendor_count < MIN_VENDOR_COUNT:
-        exit_msg(f'Too view vendors. Wanted {MIN_VENDOR_COUNT}, got {vendor_count}.')
+        exit_msg(f'Too few vendors. Wanted {MIN_VENDOR_COUNT}, got {vendor_count}.')
 
     if device_count < MIN_DEVICE_COUNT:
-        exit_msg(f'Too view devices. Wanted {MIN_DEVICE_COUNT}, got {device_count}.')
+        exit_msg(f'Too few devices. Wanted {MIN_DEVICE_COUNT}, got {device_count}.')
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as pci_ids_f:
         pci_ids_f.write(out_lines)

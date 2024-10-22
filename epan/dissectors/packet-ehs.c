@@ -13,6 +13,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
 
 void proto_register_ehs(void);
 void proto_reg_handoff_ehs(void);
@@ -194,17 +195,17 @@ static dissector_handle_t ehs_handle;
 static dissector_handle_t ccsds_handle;
 
 /* Initialize the subtree pointers */
-static gint ett_ehs;
-static gint ett_ehs_primary_header;
-static gint ett_ehs_secondary_header;
-static gint ett_ehs_data_zone;
-static gint ett_ehs_cnt_time;
-static gint ett_ehs_obt_time;
-static gint ett_ehs_udsm_start_time;
-static gint ett_ehs_udsm_stop_time;
-static gint ett_ehs_ground_receipt_time;
-static gint ett_ehs_major_frame;
-static gint ett_ehs_minor_frame;
+static int ett_ehs;
+static int ett_ehs_primary_header;
+static int ett_ehs_secondary_header;
+static int ett_ehs_data_zone;
+static int ett_ehs_cnt_time;
+static int ett_ehs_obt_time;
+static int ett_ehs_udsm_start_time;
+static int ett_ehs_udsm_stop_time;
+static int ett_ehs_ground_receipt_time;
+static int ett_ehs_major_frame;
+static int ett_ehs_minor_frame;
 
 /* EHS protocol types */
 typedef enum EHS_Protocol_Type
@@ -634,13 +635,13 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
   proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_numpkts_per_major_frame, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  num_minor_frames = 1 + tvb_get_guint8 ( tvb, *offset );
+  num_minor_frames = 1 + tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_num_minor_frames_per_packet, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  cntmet_present = tvb_get_guint8 ( tvb, *offset ) & 0x80;
-  obt_present = tvb_get_guint8 ( tvb, *offset ) & 0x40;
-  mjfs_present = tvb_get_guint8 ( tvb, *offset ) & 0x20;
+  cntmet_present = tvb_get_uint8 ( tvb, *offset ) & 0x80;
+  obt_present = tvb_get_uint8 ( tvb, *offset ) & 0x40;
+  mjfs_present = tvb_get_uint8 ( tvb, *offset ) & 0x20;
   proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_cntmet_present, tvb, *offset, 1, ENC_BIG_ENDIAN );
   proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_obt_present, tvb, *offset, 1, ENC_BIG_ENDIAN );
   proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_major_frame_status_present, tvb, *offset, 1, ENC_BIG_ENDIAN );
@@ -651,7 +652,7 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
   {
     time_tree = proto_tree_add_subtree(ehs_secondary_header_tree, tvb, *offset, 7, ett_ehs_cnt_time, &time_item, "CNT/MET Time: ");
 
-    year = tvb_get_guint8 ( tvb, *offset );
+    year = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_year, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
@@ -659,19 +660,19 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_jday, tvb, *offset, 2, ENC_BIG_ENDIAN );
     *offset += 2;
 
-    hour = tvb_get_guint8 ( tvb, *offset );
+    hour = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_hour, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    minute = tvb_get_guint8 ( tvb, *offset );
+    minute = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_minute, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    second = tvb_get_guint8 ( tvb, *offset );
+    second = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_second, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    tenths = tvb_get_guint8 ( tvb, *offset ) >> 4;
+    tenths = tvb_get_uint8 ( tvb, *offset ) >> 4;
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_cnt_tenths, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
@@ -684,7 +685,7 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
   {
     time_tree = proto_tree_add_subtree(ehs_secondary_header_tree, tvb, *offset, 7, ett_ehs_obt_time, &time_item, "OBT Time: ");
 
-    year = tvb_get_guint8 ( tvb, *offset );
+    year = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_year, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
@@ -692,19 +693,19 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_jday, tvb, *offset, 2, ENC_BIG_ENDIAN );
     *offset += 2;
 
-    hour = tvb_get_guint8 ( tvb, *offset );
+    hour = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_hour, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    minute = tvb_get_guint8 ( tvb, *offset );
+    minute = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_minute, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    second = tvb_get_guint8 ( tvb, *offset );
+    second = tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_second, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
-    tenths = tvb_get_guint8 ( tvb, *offset ) >> 4;
+    tenths = tvb_get_uint8 ( tvb, *offset ) >> 4;
     proto_tree_add_item ( time_tree, hf_ehs_sh_tdm_obt_tenths, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
@@ -720,7 +721,7 @@ tdm_secondary_header_dissector ( proto_tree* ehs_secondary_header_tree, tvbuff_t
 
   if ( mjfs_present )
   {
-    num_major_frames = 1 + tvb_get_guint8 ( tvb, *offset );
+    num_major_frames = 1 + tvb_get_uint8 ( tvb, *offset );
     proto_tree_add_item ( ehs_secondary_header_tree, hf_ehs_sh_tdm_num_major_frame_status_words, tvb, *offset, 1, ENC_BIG_ENDIAN );
     ++(*offset);
 
@@ -925,7 +926,7 @@ udsm_data_zone_dissector ( proto_tree* ehs_tree, tvbuff_t* tvb, int* offset, pac
   *offset += 2;
 
   time_tree = proto_tree_add_subtree(ehs_data_zone_tree, tvb, *offset, 7, ett_ehs_udsm_start_time, &time_item, "UDSM Start Time: ");
-  year = tvb_get_guint8 ( tvb, *offset );
+  year = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_start_time_year, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
@@ -933,15 +934,15 @@ udsm_data_zone_dissector ( proto_tree* ehs_tree, tvbuff_t* tvb, int* offset, pac
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_start_time_jday, tvb, *offset, 2, ENC_BIG_ENDIAN );
   *offset += 2;
 
-  hour = tvb_get_guint8 ( tvb, *offset );
+  hour = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_start_time_hour, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  minute = tvb_get_guint8 ( tvb, *offset );
+  minute = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_start_time_minute, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  second = tvb_get_guint8 ( tvb, *offset );
+  second = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_start_time_second, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
@@ -949,7 +950,7 @@ udsm_data_zone_dissector ( proto_tree* ehs_tree, tvbuff_t* tvb, int* offset, pac
   proto_item_append_text( time_item, "%04d/%03d:%02d:%02d:%02d = UDSM Start Time", year + 1900, jday, hour, minute, second );
 
   time_tree = proto_tree_add_subtree(ehs_data_zone_tree, tvb, *offset, 7, ett_ehs_udsm_stop_time, &time_item, "UDSM Stop Time: ");
-  year = tvb_get_guint8 ( tvb, *offset );
+  year = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_stop_time_year, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
@@ -957,15 +958,15 @@ udsm_data_zone_dissector ( proto_tree* ehs_tree, tvbuff_t* tvb, int* offset, pac
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_stop_time_jday, tvb, *offset, 2, ENC_BIG_ENDIAN );
   *offset += 2;
 
-  hour = tvb_get_guint8 ( tvb, *offset );
+  hour = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_stop_time_hour, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  minute = tvb_get_guint8 ( tvb, *offset );
+  minute = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_stop_time_minute, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
-  second = tvb_get_guint8 ( tvb, *offset );
+  second = tvb_get_uint8 ( tvb, *offset );
   proto_tree_add_item ( time_tree, hf_ehs_dz_udsm_stop_time_second, tvb, *offset, 1, ENC_BIG_ENDIAN );
   ++(*offset);
 
@@ -1062,7 +1063,7 @@ static int
 dissect_ehs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
   int         offset = 0;
-  guint16     first_word;
+  uint16_t    first_word;
 
   tvbuff_t   *new_tvb;
 
@@ -1099,12 +1100,12 @@ dissect_ehs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   ++offset;
 
   /* save protocol for use later on */
-  protocol = tvb_get_guint8 ( tvb, offset );
+  protocol = tvb_get_uint8 ( tvb, offset );
   proto_tree_add_item ( ehs_primary_header_tree, hf_ehs_ph_protocol, tvb, offset, 1, ENC_BIG_ENDIAN );
   ++offset;
 
   time_tree = proto_tree_add_subtree(ehs_primary_header_tree, tvb, offset, 7, ett_ehs_ground_receipt_time, &time_item, "EHS Ground Receipt Time: ");
-  year = tvb_get_guint8 ( tvb, offset );
+  year = tvb_get_uint8 ( tvb, offset );
   proto_tree_add_item ( time_tree, hf_ehs_ph_year, tvb, offset, 1, ENC_BIG_ENDIAN );
   ++offset;
 
@@ -1112,19 +1113,19 @@ dissect_ehs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
   proto_tree_add_item ( time_tree, hf_ehs_ph_jday, tvb, offset, 2, ENC_BIG_ENDIAN );
   offset += 2;
 
-  hour = tvb_get_guint8 ( tvb, offset );
+  hour = tvb_get_uint8 ( tvb, offset );
   proto_tree_add_item ( time_tree, hf_ehs_ph_hour, tvb, offset, 1, ENC_BIG_ENDIAN );
   ++offset;
 
-  minute = tvb_get_guint8 ( tvb, offset );
+  minute = tvb_get_uint8 ( tvb, offset );
   proto_tree_add_item ( time_tree, hf_ehs_ph_minute, tvb, offset, 1, ENC_BIG_ENDIAN );
   ++offset;
 
-  second = tvb_get_guint8 ( tvb, offset );
+  second = tvb_get_uint8 ( tvb, offset );
   proto_tree_add_item ( time_tree, hf_ehs_ph_second, tvb, offset, 1, ENC_BIG_ENDIAN );
   ++offset;
 
-  tenths = tvb_get_guint8 ( tvb, offset ) >> 4;
+  tenths = tvb_get_uint8 ( tvb, offset ) >> 4;
   proto_tree_add_item ( time_tree, hf_ehs_ph_tenths, tvb, offset, 1, ENC_BIG_ENDIAN );
 
   /* format a more readable ground receipt time string */
@@ -1920,7 +1921,7 @@ proto_register_ehs(void)
     };
 
   /* Setup protocol subtree array */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_ehs,
     &ett_ehs_primary_header,
     &ett_ehs_secondary_header,

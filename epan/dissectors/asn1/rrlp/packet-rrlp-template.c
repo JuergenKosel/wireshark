@@ -16,6 +16,7 @@
 
 #include <epan/packet.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-per.h"
@@ -42,7 +43,7 @@ static int proto_rrlp;
 #include "packet-rrlp-hf.c"
 
 /* Initialize the subtree pointers */
-static gint ett_rrlp;
+static int ett_rrlp;
 #include "packet-rrlp-ett.c"
 
 /* Include constants */
@@ -62,7 +63,7 @@ void proto_register_rrlp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	  &ett_rrlp,
 #include "packet-rrlp-ettarr.c"
   };

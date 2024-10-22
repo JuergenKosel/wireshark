@@ -13,6 +13,10 @@
 #ifndef __SIMPLE_DIALOG_UI_H__
 #define __SIMPLE_DIALOG_UI_H__
 
+#include <glib.h>
+
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -75,40 +79,13 @@ typedef enum {
  * @param ... Printf like parameters
  * @return The newly created dialog
  */
-/*
- * XXX This is a bit clunky. We typically pass in:
- * - simple_dialog_primary_start
- * - The primary message
- * - simple_dialog_primary_end
- * - Optionally, the secondary message.
- *
- * In the Qt UI we use primary_start and _end to split the primary and
- * secondary messages. They are then added to a QMessageBox via setText and
- * setInformativeText respectively. No formatting is applied.
- *
- * Callers are responsible for wrapping the primary message and formatting
- * the message text.
- *
- * Explicitly passing in separate primary and secondary messages would let us
- * get rid of primary_start and primary_end and reduce the amount of
- * gymnastics we have to do in the Qt UI.
- */
-extern gpointer simple_dialog(ESD_TYPE_E type, gint btn_mask,
-    const gchar *msg_format, ...)
+extern void *simple_dialog(ESD_TYPE_E type, int btn_mask,
+    const char *msg_format, ...)
     G_GNUC_PRINTF(3, 4);
 
-extern gpointer simple_dialog_async(ESD_TYPE_E type, gint btn_mask,
-    const gchar *msg_format, ...)
+extern void *simple_dialog_async(ESD_TYPE_E type, int btn_mask,
+    const char *msg_format, ...)
     G_GNUC_PRINTF(3, 4);
-
-/** Surround the primary dialog message text by
- *  simple_dialog_primary_start() and simple_dialog_primary_end().
- */
-extern const char *simple_dialog_primary_start(void);
-/** Surround the primary dialog message text by
- *  simple_dialog_primary_start() and simple_dialog_primary_end().
- */
-extern const char *simple_dialog_primary_end(void);
 
 /** Escape the message text, if it probably contains Pango escape sequences.
  *  For example html like tags starting with a <.
@@ -122,7 +99,7 @@ extern char *simple_dialog_format_message(const char *msg);
  * Alert box, with optional "don't show this message again" variable
  * and checkbox, and optional secondary text.
  */
-extern void simple_message_box(ESD_TYPE_E type, gboolean *notagain,
+extern void simple_message_box(ESD_TYPE_E type, bool *notagain,
                                const char *secondary_msg,
                                const char *msg_format, ...) G_GNUC_PRINTF(4, 5);
 

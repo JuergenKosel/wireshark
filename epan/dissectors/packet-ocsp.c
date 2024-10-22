@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-ocsp.c                                                              */
-/* asn2wrs.py -b -L -p ocsp -c ./ocsp.cnf -s ./packet-ocsp-template -D . -O ../.. OCSP.asn */
+/* asn2wrs.py -b -q -L -p ocsp -c ./ocsp.cnf -s ./packet-ocsp-template -D . -O ../.. OCSP.asn */
 
 /* packet-ocsp.c
  * Routines for Online Certificate Status Protocol (RFC2560) packet dissection
@@ -17,6 +17,7 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <wsutil/array.h>
 
 #include <asn1.h>
 
@@ -94,26 +95,26 @@ static int hf_ocsp_crlNum;                        /* INTEGER */
 static int hf_ocsp_crlTime;                       /* GeneralizedTime */
 
 /* Initialize the subtree pointers */
-static gint ett_ocsp;
-static gint ett_ocsp_OCSPRequest;
-static gint ett_ocsp_TBSRequest;
-static gint ett_ocsp_SEQUENCE_OF_Request;
-static gint ett_ocsp_Signature;
-static gint ett_ocsp_SEQUENCE_OF_Certificate;
-static gint ett_ocsp_Request;
-static gint ett_ocsp_CertID;
-static gint ett_ocsp_OCSPResponse;
-static gint ett_ocsp_ResponseBytes;
-static gint ett_ocsp_BasicOCSPResponse;
-static gint ett_ocsp_ResponseData;
-static gint ett_ocsp_SEQUENCE_OF_SingleResponse;
-static gint ett_ocsp_ResponderID;
-static gint ett_ocsp_SingleResponse;
-static gint ett_ocsp_CertStatus;
-static gint ett_ocsp_RevokedInfo;
-static gint ett_ocsp_AcceptableResponses;
-static gint ett_ocsp_ServiceLocator;
-static gint ett_ocsp_CrlID;
+static int ett_ocsp;
+static int ett_ocsp_OCSPRequest;
+static int ett_ocsp_TBSRequest;
+static int ett_ocsp_SEQUENCE_OF_Request;
+static int ett_ocsp_Signature;
+static int ett_ocsp_SEQUENCE_OF_Certificate;
+static int ett_ocsp_Request;
+static int ett_ocsp_CertID;
+static int ett_ocsp_OCSPResponse;
+static int ett_ocsp_ResponseBytes;
+static int ett_ocsp_BasicOCSPResponse;
+static int ett_ocsp_ResponseData;
+static int ett_ocsp_SEQUENCE_OF_SingleResponse;
+static int ett_ocsp_ResponderID;
+static int ett_ocsp_SingleResponse;
+static int ett_ocsp_CertStatus;
+static int ett_ocsp_RevokedInfo;
+static int ett_ocsp_AcceptableResponses;
+static int ett_ocsp_ServiceLocator;
+static int ett_ocsp_CrlID;
 
 
 
@@ -278,7 +279,7 @@ static int
 dissect_ocsp_T_responseType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_ber_object_identifier_str(implicit_tag, actx, tree, tvb, offset, hf_ocsp_responseType_id, &actx->external.direct_reference);
 
-  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? TRUE : FALSE;
+  actx->external.direct_ref_present = (actx->external.direct_reference != NULL) ? true : false;
 
 
   return offset;
@@ -288,10 +289,10 @@ dissect_ocsp_T_responseType(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 
 static int
 dissect_ocsp_T_response(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint8 appclass;
+  int8_t appclass;
   bool pc, ind;
-  gint32 tag;
-  guint32 len;
+  int32_t tag;
+  uint32_t len;
   /* skip past the T and L  */
   offset = dissect_ber_identifier(actx->pinfo, tree, tvb, offset, &appclass, &pc, &tag);
   offset = dissect_ber_length(actx->pinfo, tree, tvb, offset, &len, &ind);
@@ -595,50 +596,50 @@ dissect_ocsp_ReOcspNonce(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U
 static int dissect_BasicOCSPResponse_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_BasicOCSPResponse(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_BasicOCSPResponse_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_BasicOCSPResponse(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_BasicOCSPResponse_PDU);
   return offset;
 }
 static int dissect_ArchiveCutoff_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_ArchiveCutoff(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_ArchiveCutoff_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_ArchiveCutoff(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_ArchiveCutoff_PDU);
   return offset;
 }
 static int dissect_AcceptableResponses_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_AcceptableResponses(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_AcceptableResponses_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_AcceptableResponses(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_AcceptableResponses_PDU);
   return offset;
 }
 static int dissect_ServiceLocator_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_ServiceLocator(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_ServiceLocator_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_ServiceLocator(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_ServiceLocator_PDU);
   return offset;
 }
 static int dissect_CrlID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_CrlID(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_CrlID_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_CrlID(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_CrlID_PDU);
   return offset;
 }
 static int dissect_ReOcspNonce_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_ReOcspNonce(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_ReOcspNonce_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_ReOcspNonce(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_ReOcspNonce_PDU);
   return offset;
 }
 static int dissect_NULL_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_ocsp_NULL(FALSE, tvb, offset, &asn1_ctx, tree, hf_ocsp_NULL_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_ocsp_NULL(false, tvb, offset, &asn1_ctx, tree, hf_ocsp_NULL_PDU);
   return offset;
 }
 
@@ -650,7 +651,7 @@ dissect_ocsp_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "OCSP");
 
@@ -662,7 +663,7 @@ dissect_ocsp_request(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree,
 		tree = proto_item_add_subtree(item, ett_ocsp);
 	}
 
-	return dissect_ocsp_OCSPRequest(FALSE, tvb, 0, &asn1_ctx, tree, -1);
+	return dissect_ocsp_OCSPRequest(false, tvb, 0, &asn1_ctx, tree, -1);
 }
 
 
@@ -672,7 +673,7 @@ dissect_ocsp_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "OCSP");
 
@@ -684,7 +685,7 @@ dissect_ocsp_response(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree
 		tree = proto_item_add_subtree(item, ett_ocsp);
 	}
 
-	return dissect_ocsp_OCSPResponse(FALSE, tvb, 0, &asn1_ctx, tree, -1);
+	return dissect_ocsp_OCSPResponse(false, tvb, 0, &asn1_ctx, tree, -1);
 }
 
 /*--- proto_register_ocsp ----------------------------------------------*/
@@ -907,7 +908,7 @@ void proto_register_ocsp(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_ocsp,
     &ett_ocsp_OCSPRequest,
     &ett_ocsp_TBSRequest,

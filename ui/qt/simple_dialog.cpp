@@ -45,8 +45,6 @@
 QList<MessagePair> message_queue_;
 ESD_TYPE_E max_severity_ = ESD_TYPE_INFO;
 
-const char *primary_delimiter_ = "__CB754A38-94A2-4E59-922D-DD87EDC80E22__";
-
 struct VisibleAsyncMessage
 {
     QMessageBox *box;
@@ -74,24 +72,14 @@ static void visible_message_finished(QMessageBox *box, int result _U_)
     visible_messages_mutex.unlock();
 }
 
-const char *
-simple_dialog_primary_start(void) {
-    return primary_delimiter_;
-}
-
-const char *
-simple_dialog_primary_end(void) {
-    return primary_delimiter_;
-}
-
 char *
 simple_dialog_format_message(const char *msg)
 {
     return g_strdup(msg);
 }
 
-gpointer
-simple_dialog(ESD_TYPE_E type, gint btn_mask, const gchar *msg_format, ...)
+void *
+simple_dialog(ESD_TYPE_E type, int btn_mask, const char *msg_format, ...)
 {
     va_list ap;
 
@@ -103,8 +91,8 @@ simple_dialog(ESD_TYPE_E type, gint btn_mask, const gchar *msg_format, ...)
     return NULL;
 }
 
-gpointer
-simple_dialog_async(ESD_TYPE_E type, gint btn_mask, const gchar *msg_format, ...)
+void *
+simple_dialog_async(ESD_TYPE_E type, int btn_mask, const char *msg_format, ...)
 {
     va_list ap;
 
@@ -121,7 +109,7 @@ simple_dialog_async(ESD_TYPE_E type, gint btn_mask, const gchar *msg_format, ...
  * and checkbox, and optional secondary text.
  */
 void
-simple_message_box(ESD_TYPE_E type, gboolean *notagain,
+simple_message_box(ESD_TYPE_E type, bool *notagain,
                    const char *secondary_msg, const char *msg_format, ...)
 {
     if (notagain && *notagain) {
@@ -134,7 +122,7 @@ simple_message_box(ESD_TYPE_E type, gboolean *notagain,
     SimpleDialog sd(mainApp->mainWindow(), type, ESD_BTN_OK, msg_format, ap);
     va_end(ap);
 
-    sd.setDetailedText(secondary_msg);
+    sd.setInformativeText(secondary_msg);
 
     QCheckBox *cb = NULL;
     if (notagain) {
@@ -202,7 +190,7 @@ SimpleDialog::SimpleDialog(QWidget *parent, ESD_TYPE_E type, int btn_mask, const
     check_box_(0),
     message_box_(0)
 {
-    gchar *vmessage;
+    char *vmessage;
     QString message;
 
     vmessage = ws_strdup_vprintf(msg_format, ap);
@@ -221,7 +209,7 @@ SimpleDialog::SimpleDialog(QWidget *parent, ESD_TYPE_E type, int btn_mask, const
 #endif
     g_free(vmessage);
 
-    MessagePair msg_pair = splitMessage(message);
+    MessagePair msg_pair(message, QString());
     // Remove leading and trailing whitespace along with excessive newline runs.
     QString primary = msg_pair.first.trimmed();
     QString secondary = msg_pair.second.trimmed();
@@ -356,12 +344,14 @@ int SimpleDialog::exec()
         return 0;
     }
 
+    message_box_->setInformativeText(informative_text_);
     message_box_->setDetailedText(detailed_text_);
     message_box_->setCheckBox(check_box_);
 
     int status = message_box_->exec();
     delete message_box_;
     message_box_ = 0;
+    informative_text_ = QString();
     detailed_text_ = QString();
 
     switch (status) {
@@ -387,6 +377,7 @@ void SimpleDialog::show()
         return;
     }
 
+    message_box_->setInformativeText(informative_text_);
     message_box_->setDetailedText(detailed_text_);
     message_box_->setCheckBox(check_box_);
 
@@ -426,25 +417,4 @@ void SimpleDialog::show()
 
     /* Message box was shown and will be deleted once user closes it */
     message_box_ = 0;
-}
-
-const MessagePair SimpleDialog::splitMessage(QString &message) const
-{
-    if (message.startsWith(primary_delimiter_)) {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-        QStringList parts = message.split(primary_delimiter_, Qt::SkipEmptyParts);
-#else
-        QStringList parts = message.split(primary_delimiter_, QString::SkipEmptyParts);
-#endif
-        switch (parts.length()) {
-        case 0:
-            return MessagePair(QString(), QString());
-        case 1:
-            return MessagePair(parts[0], QString());
-        default:
-            QString first = parts.takeFirst();
-            return MessagePair(first, parts.join(" "));
-        }
-    }
-    return MessagePair(message, QString());
 }

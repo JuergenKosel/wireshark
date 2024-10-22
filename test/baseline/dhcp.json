@@ -7,8 +7,8 @@
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "Dec  5, 2004 19:16:24.317453000 UTC",
-          "frame.time_utc": "Dec  5, 2004 19:16:24.317453000 UTC",
+          "frame.time": "2004-12-05T19:16:24.317453000+0000",
+          "frame.time_utc": "2004-12-05T19:16:24.317453000Z",
           "frame.time_epoch": "1102274184.317453000",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.000000000",
@@ -26,12 +26,12 @@
           "eth.dst_tree": {
             "eth.dst_resolved": "Broadcast",
             "eth.dst.oui": "16777215",
+            "eth.dst.lg": "1",
+            "eth.dst.ig": "1",
             "eth.addr": "ff:ff:ff:ff:ff:ff",
             "eth.addr_resolved": "Broadcast",
             "eth.addr.oui": "16777215",
-            "eth.dst.lg": "1",
             "eth.lg": "1",
-            "eth.dst.ig": "1",
             "eth.ig": "1"
           },
           "eth.src": "00:0b:82:01:fc:42",
@@ -39,16 +39,17 @@
             "eth.src_resolved": "GrandstreamN_01:fc:42",
             "eth.src.oui": "2946",
             "eth.src.oui_resolved": "Grandstream Networks, Inc.",
+            "eth.src.lg": "0",
+            "eth.src.ig": "0",
             "eth.addr": "00:0b:82:01:fc:42",
             "eth.addr_resolved": "GrandstreamN_01:fc:42",
             "eth.addr.oui": "2946",
             "eth.addr.oui_resolved": "Grandstream Networks, Inc.",
-            "eth.src.lg": "0",
             "eth.lg": "0",
-            "eth.src.ig": "0",
             "eth.ig": "0"
           },
-          "eth.type": "0x0800"
+          "eth.type": "0x0800",
+          "eth.stream": "0"
         },
         "ip": {
           "ip.version": "4",
@@ -90,6 +91,7 @@
           "udp.checksum": "0x591f",
           "udp.checksum.status": "2",
           "udp.stream": "0",
+          "udp.stream.pnum": "1",
           "Timestamps": {
             "udp.time_relative": "0.000000000",
             "udp.time_delta": "0.000000000"
@@ -162,8 +164,8 @@
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "Dec  5, 2004 19:16:24.317748000 UTC",
-          "frame.time_utc": "Dec  5, 2004 19:16:24.317748000 UTC",
+          "frame.time": "2004-12-05T19:16:24.317748000+0000",
+          "frame.time_utc": "2004-12-05T19:16:24.317748000Z",
           "frame.time_epoch": "1102274184.317748000",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.000295000",
@@ -182,13 +184,13 @@
             "eth.dst_resolved": "GrandstreamN_01:fc:42",
             "eth.dst.oui": "2946",
             "eth.dst.oui_resolved": "Grandstream Networks, Inc.",
+            "eth.dst.lg": "0",
+            "eth.dst.ig": "0",
             "eth.addr": "00:0b:82:01:fc:42",
             "eth.addr_resolved": "GrandstreamN_01:fc:42",
             "eth.addr.oui": "2946",
             "eth.addr.oui_resolved": "Grandstream Networks, Inc.",
-            "eth.dst.lg": "0",
             "eth.lg": "0",
-            "eth.dst.ig": "0",
             "eth.ig": "0"
           },
           "eth.src": "00:08:74:ad:f1:9b",
@@ -196,16 +198,17 @@
             "eth.src_resolved": "Dell_ad:f1:9b",
             "eth.src.oui": "2164",
             "eth.src.oui_resolved": "Dell Inc.",
+            "eth.src.lg": "0",
+            "eth.src.ig": "0",
             "eth.addr": "00:08:74:ad:f1:9b",
             "eth.addr_resolved": "Dell_ad:f1:9b",
             "eth.addr.oui": "2164",
             "eth.addr.oui_resolved": "Dell Inc.",
-            "eth.src.lg": "0",
             "eth.lg": "0",
-            "eth.src.ig": "0",
             "eth.ig": "0"
           },
-          "eth.type": "0x0800"
+          "eth.type": "0x0800",
+          "eth.stream": "1"
         },
         "ip": {
           "ip.version": "4",
@@ -247,6 +250,7 @@
           "udp.checksum": "0x2233",
           "udp.checksum.status": "2",
           "udp.stream": "1",
+          "udp.stream.pnum": "1",
           "Timestamps": {
             "udp.time_relative": "0.000000000",
             "udp.time_delta": "0.000000000"
@@ -327,8 +331,8 @@
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "Dec  5, 2004 19:16:24.387484000 UTC",
-          "frame.time_utc": "Dec  5, 2004 19:16:24.387484000 UTC",
+          "frame.time": "2004-12-05T19:16:24.387484000+0000",
+          "frame.time_utc": "2004-12-05T19:16:24.387484000Z",
           "frame.time_epoch": "1102274184.387484000",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.069736000",
@@ -346,12 +350,12 @@
           "eth.dst_tree": {
             "eth.dst_resolved": "Broadcast",
             "eth.dst.oui": "16777215",
+            "eth.dst.lg": "1",
+            "eth.dst.ig": "1",
             "eth.addr": "ff:ff:ff:ff:ff:ff",
             "eth.addr_resolved": "Broadcast",
             "eth.addr.oui": "16777215",
-            "eth.dst.lg": "1",
             "eth.lg": "1",
-            "eth.dst.ig": "1",
             "eth.ig": "1"
           },
           "eth.src": "00:0b:82:01:fc:42",
@@ -359,16 +363,17 @@
             "eth.src_resolved": "GrandstreamN_01:fc:42",
             "eth.src.oui": "2946",
             "eth.src.oui_resolved": "Grandstream Networks, Inc.",
+            "eth.src.lg": "0",
+            "eth.src.ig": "0",
             "eth.addr": "00:0b:82:01:fc:42",
             "eth.addr_resolved": "GrandstreamN_01:fc:42",
             "eth.addr.oui": "2946",
             "eth.addr.oui_resolved": "Grandstream Networks, Inc.",
-            "eth.src.lg": "0",
             "eth.lg": "0",
-            "eth.src.ig": "0",
             "eth.ig": "0"
           },
-          "eth.type": "0x0800"
+          "eth.type": "0x0800",
+          "eth.stream": "0"
         },
         "ip": {
           "ip.version": "4",
@@ -410,6 +415,7 @@
           "udp.checksum": "0x9fbd",
           "udp.checksum.status": "2",
           "udp.stream": "0",
+          "udp.stream.pnum": "2",
           "Timestamps": {
             "udp.time_relative": "0.070031000",
             "udp.time_delta": "0.070031000"
@@ -488,8 +494,8 @@
       "layers": {
         "frame": {
           "frame.encap_type": "1",
-          "frame.time": "Dec  5, 2004 19:16:24.387798000 UTC",
-          "frame.time_utc": "Dec  5, 2004 19:16:24.387798000 UTC",
+          "frame.time": "2004-12-05T19:16:24.387798000+0000",
+          "frame.time_utc": "2004-12-05T19:16:24.387798000Z",
           "frame.time_epoch": "1102274184.387798000",
           "frame.offset_shift": "0.000000000",
           "frame.time_delta": "0.000314000",
@@ -508,13 +514,13 @@
             "eth.dst_resolved": "GrandstreamN_01:fc:42",
             "eth.dst.oui": "2946",
             "eth.dst.oui_resolved": "Grandstream Networks, Inc.",
+            "eth.dst.lg": "0",
+            "eth.dst.ig": "0",
             "eth.addr": "00:0b:82:01:fc:42",
             "eth.addr_resolved": "GrandstreamN_01:fc:42",
             "eth.addr.oui": "2946",
             "eth.addr.oui_resolved": "Grandstream Networks, Inc.",
-            "eth.dst.lg": "0",
             "eth.lg": "0",
-            "eth.dst.ig": "0",
             "eth.ig": "0"
           },
           "eth.src": "00:08:74:ad:f1:9b",
@@ -522,16 +528,17 @@
             "eth.src_resolved": "Dell_ad:f1:9b",
             "eth.src.oui": "2164",
             "eth.src.oui_resolved": "Dell Inc.",
+            "eth.src.lg": "0",
+            "eth.src.ig": "0",
             "eth.addr": "00:08:74:ad:f1:9b",
             "eth.addr_resolved": "Dell_ad:f1:9b",
             "eth.addr.oui": "2164",
             "eth.addr.oui_resolved": "Dell Inc.",
-            "eth.src.lg": "0",
             "eth.lg": "0",
-            "eth.src.ig": "0",
             "eth.ig": "0"
           },
-          "eth.type": "0x0800"
+          "eth.type": "0x0800",
+          "eth.stream": "1"
         },
         "ip": {
           "ip.version": "4",
@@ -573,6 +580,7 @@
           "udp.checksum": "0xdfdb",
           "udp.checksum.status": "2",
           "udp.stream": "1",
+          "udp.stream.pnum": "2",
           "Timestamps": {
             "udp.time_relative": "0.070050000",
             "udp.time_delta": "0.070050000"

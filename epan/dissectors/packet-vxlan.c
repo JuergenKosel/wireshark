@@ -19,7 +19,7 @@
 #include <epan/tfs.h>
 #include "packet-vxlan.h"
 
-#define UDP_PORT_VXLAN  4789
+#define UDP_PORT_VXLAN  "4789,8472" /* The IANA assigned port is 4789, but Linux default is 8472 for compatibility with early adopters */
 #define UDP_PORT_VXLAN_GPE  4790
 
 void proto_register_vxlan(void);
@@ -89,7 +89,7 @@ dissect_vxlan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int is
     proto_item *ti;
     tvbuff_t *next_tvb;
     int offset = 0;
-    guint32 vxlan_next_proto;
+    uint32_t vxlan_next_proto;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "VxLAN");
     col_clear(pinfo->cinfo, COL_INFO);
@@ -137,14 +137,14 @@ dissect_vxlan_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int is
 static int
 dissect_vxlan_gpe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    return dissect_vxlan_common(tvb, pinfo, tree, TRUE);
+    return dissect_vxlan_common(tvb, pinfo, tree, true);
 }
 
 
 static int
 dissect_vxlan(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    return dissect_vxlan_common(tvb, pinfo, tree, FALSE);
+    return dissect_vxlan_common(tvb, pinfo, tree, false);
 }
 
 
@@ -260,7 +260,7 @@ proto_register_vxlan(void)
     };
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_vxlan,
         &ett_vxlan_flags,
     };
@@ -294,7 +294,7 @@ proto_reg_handoff_vxlan(void)
      */
     eth_handle = find_dissector_add_dependency("eth_withoutfcs", proto_vxlan);
 
-    dissector_add_uint_with_preference("udp.port", UDP_PORT_VXLAN, vxlan_handle);
+    dissector_add_uint_range_with_preference("udp.port", UDP_PORT_VXLAN, vxlan_handle);
     dissector_add_uint_with_preference("udp.port", UDP_PORT_VXLAN_GPE, vxlan_gpe_handle);
 }
 

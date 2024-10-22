@@ -29,7 +29,7 @@ static int hf_homepna_data;
 static int hf_homepna_etype;
 static int hf_homepna_trailer;
 
-static gint ett_homepna;
+static int ett_homepna;
 
 static dissector_handle_t ethertype_handle;
 
@@ -77,9 +77,9 @@ dissect_homepna(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     proto_tree *ti;
     proto_tree *homepna_tree;
     int offset = 0;
-    guint32 control_length;
+    uint32_t control_length;
     homepna_format_e homepna_format = HOMEPNA_FORMAT_SHORT;
-    guint16 protocol;
+    uint16_t protocol;
     ethertype_data_t ethertype_data;
 
     if (tvb_captured_length(tvb) < 4)
@@ -91,7 +91,7 @@ dissect_homepna(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data 
     ti = proto_tree_add_item(tree, proto_homepna, tvb, 0, -1, ENC_NA);
     homepna_tree = proto_item_add_subtree(ti, ett_homepna);
 
-    if (tvb_get_guint8(tvb, offset) > 127)
+    if (tvb_get_uint8(tvb, offset) > 127)
         homepna_format = HOMEPNA_FORMAT_LONG;
 
     if (homepna_format == HOMEPNA_FORMAT_SHORT)
@@ -163,7 +163,7 @@ proto_register_homepna(void)
 
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_homepna,
     };
 

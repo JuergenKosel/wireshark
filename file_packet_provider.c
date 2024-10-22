@@ -9,12 +9,12 @@
  */
 #include "config.h"
 
+#include <stdint.h>
 #include <glib.h>
-
 #include "cfile.h"
 
 const nstime_t *
-cap_file_provider_get_frame_ts(struct packet_provider_data *prov, guint32 frame_num)
+cap_file_provider_get_frame_ts(struct packet_provider_data *prov, uint32_t frame_num)
 {
     const frame_data *fd = NULL;
 
@@ -32,7 +32,7 @@ cap_file_provider_get_frame_ts(struct packet_provider_data *prov, guint32 frame_
 }
 
 static int
-frame_cmp(gconstpointer a, gconstpointer b, gpointer user_data _U_)
+frame_cmp(const void *a, const void *b, void *user_data _U_)
 {
   const frame_data *fdata1 = (const frame_data *) a;
   const frame_data *fdata2 = (const frame_data *) b;
@@ -43,7 +43,7 @@ frame_cmp(gconstpointer a, gconstpointer b, gpointer user_data _U_)
 }
 
 const char *
-cap_file_provider_get_interface_name(struct packet_provider_data *prov, guint32 interface_id, unsigned section_number)
+cap_file_provider_get_interface_name(struct packet_provider_data *prov, uint32_t interface_id, unsigned section_number)
 {
   wtapng_iface_descriptions_t *idb_info;
   wtap_block_t wtapng_if_descr = NULL;
@@ -70,7 +70,7 @@ cap_file_provider_get_interface_name(struct packet_provider_data *prov, guint32 
 }
 
 const char *
-cap_file_provider_get_interface_description(struct packet_provider_data *prov, guint32 interface_id, unsigned section_number)
+cap_file_provider_get_interface_description(struct packet_provider_data *prov, uint32_t interface_id, unsigned section_number)
 {
   wtapng_iface_descriptions_t *idb_info;
   wtap_block_t wtapng_if_descr = NULL;
@@ -109,7 +109,7 @@ cap_file_provider_set_modified_block(struct packet_provider_data *prov, frame_da
     prov->frames_modified_blocks = g_tree_new_full(frame_cmp, NULL, NULL, (GDestroyNotify)wtap_block_unref);
 
   /* insert new packet block */
-  g_tree_replace(prov->frames_modified_blocks, fd, (gpointer)new_block);
+  g_tree_replace(prov->frames_modified_blocks, fd, (void *)new_block);
 
-  fd->has_modified_block = TRUE;
+  fd->has_modified_block = 1;
 }

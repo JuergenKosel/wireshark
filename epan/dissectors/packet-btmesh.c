@@ -26,6 +26,8 @@
 #include <epan/uat.h>
 #include <epan/reassemble.h>
 #include <epan/to_str.h>
+#include <epan/tfs.h>
+#include <epan/unit_strings.h>
 
 #define BTMESH_NOT_USED 0
 #define BTMESH_KEY_ENTRY_VALID 4
@@ -611,76 +613,76 @@ static dissector_table_t btmesh_model_vendor_dissector_table;
  * UAT for BT Mesh
  *-------------------------------------
  */
-static uat_t *btmesh_uat = NULL;
-static guint num_btmesh_uat = 0;
+static uat_t *btmesh_uat;
+static unsigned num_btmesh_uat;
 
 /* UAT Network, Application and IVIndex entry structure. */
 typedef struct {
-    gchar *network_key_string;
-    guint8 *network_key;
-    gint network_key_length;
-    gchar *ivindex_string;
-    gint ivindex_string_length;
-    guint8 *ivindex;
-    guint8 *privacykey;
-    guint8 *encryptionkey;
-    guint8 nid;
-    gchar *application_key_string;
-    guint8 *application_key;
-    gint application_key_length;
-    guint8 aid;
-    guint8 valid; /* this counter must be equal to BTMESH_KEY_ENTRY_VALID make UAT entry valid */
-    guint32 net_key_iv_index_hash; /* Used to identify net key / IV index pair */
+    char *network_key_string;
+    uint8_t *network_key;
+    int network_key_length;
+    char *ivindex_string;
+    int ivindex_string_length;
+    uint8_t *ivindex;
+    uint8_t *privacykey;
+    uint8_t *encryptionkey;
+    uint8_t nid;
+    char *application_key_string;
+    uint8_t *application_key;
+    int application_key_length;
+    uint8_t aid;
+    uint8_t valid; /* this counter must be equal to BTMESH_KEY_ENTRY_VALID make UAT entry valid */
+    uint32_t net_key_iv_index_hash; /* Used to identify net key / IV index pair */
 } uat_btmesh_record_t;
 
-static uat_btmesh_record_t *uat_btmesh_records = NULL;
+static uat_btmesh_record_t *uat_btmesh_records;
 
-static uat_t *btmesh_dev_key_uat = NULL;
-static guint num_btmesh_dev_key_uat = 0;
+static uat_t *btmesh_dev_key_uat;
+static unsigned num_btmesh_dev_key_uat;
 
 /* UAT Device Key entry structure. */
 typedef struct {
-    gchar *device_key_string;
-    guint8 *device_key;
-    gint device_key_length;
-    gchar *src_string;
-    gint src_length;
-    guint8 *src;
-    guint8 valid; /* this counter must be equal to BTMESH_DEVICE_KEY_ENTRY_VALID make UAT entry valid */
+    char *device_key_string;
+    uint8_t *device_key;
+    int device_key_length;
+    char *src_string;
+    int src_length;
+    uint8_t *src;
+    uint8_t valid; /* this counter must be equal to BTMESH_DEVICE_KEY_ENTRY_VALID make UAT entry valid */
 } uat_btmesh_dev_key_record_t;
 
-static uat_btmesh_dev_key_record_t *uat_btmesh_dev_key_records = NULL;
+static uat_btmesh_dev_key_record_t *uat_btmesh_dev_key_records;
 
-static uat_t * btmesh_label_uuid_uat = NULL;
-static guint num_btmesh_label_uuid_uat = 0;
+static uat_t * btmesh_label_uuid_uat;
+static unsigned num_btmesh_label_uuid_uat;
 
 /* UAT Label UUID entry structure. */
 typedef struct {
-    gchar *label_uuid_string;
-    guint8 *label_uuid;
-    gint label_uuid_length;
-    guint16 hash;
-    guint8 valid; /* this counter must be equal to BTMESH_LABEL_UUID_ENTRY_VALID make UAT entry valid */
+    char *label_uuid_string;
+    uint8_t *label_uuid;
+    int label_uuid_length;
+    uint16_t hash;
+    uint8_t valid; /* this counter must be equal to BTMESH_LABEL_UUID_ENTRY_VALID make UAT entry valid */
 } uat_btmesh_label_uuid_record_t;
 
-static uat_btmesh_label_uuid_record_t *uat_btmesh_label_uuid_records = NULL;
+static uat_btmesh_label_uuid_record_t *uat_btmesh_label_uuid_records;
 
 typedef struct {
-    guint16 property_id;
-    guint16 characteristic_id;
+    uint16_t property_id;
+    uint16_t characteristic_id;
 } btmesh_property_t;
 
 typedef struct {
-    guint16 characteristic_id;
-    guint16 characteristic_value_length;
+    uint16_t characteristic_id;
+    uint16_t characteristic_value_length;
     int     *hfindex;
-    guint8  dissector_type;
+    uint8_t dissector_type;
 } bt_gatt_characteristic_t;
 
 typedef struct {
-    guint16 characteristic_id;
-    guint16 x_characteristic_id;
-    guint16 y_characteristic_id;
+    uint16_t characteristic_id;
+    uint16_t x_characteristic_id;
+    uint16_t y_characteristic_id;
 } btmesh_column_property_t;
 
 typedef struct {
@@ -2260,7 +2262,7 @@ static const value_string btmesh_publishperiod_resolution_vals[] = {
 };
 
 static const value_string btmesh_friendship_credentials_flag_vals[] = {
-    { 0x00, "Master security material is used" },
+    { 0x00, "Central security material is used" },
     { 0x01, "Friendship security material is used" },
     { 0, NULL }
 };
@@ -3071,46 +3073,46 @@ static const bt_gatt_characteristic_t bt_gatt_characteristics[] = {
 static reassembly_table upper_transport_reassembly_table;
 
 typedef struct _upper_transport_fragment_key {
-    guint16 src;
-    guint seq0;
-    guint ivindex;
-    guint32 net_key_iv_index_hash;
+    uint16_t src;
+    unsigned seq0;
+    unsigned ivindex;
+    uint32_t net_key_iv_index_hash;
 } upper_transport_fragment_key;
 
-static guint
-upper_transport_fragment_hash(gconstpointer k)
+static unsigned
+upper_transport_fragment_hash(const void *k)
 {
     const upper_transport_fragment_key* key = (const upper_transport_fragment_key*) k;
-    guint hash_val;
+    unsigned hash_val;
 
-    const guint8 hash_buf_len = sizeof(guint16) + 2 * sizeof(guint) + sizeof(guint32);
-    guint idx=0;
-    guint8* hash_buf = (guint8*)wmem_alloc(wmem_packet_scope(), hash_buf_len);
-    memcpy(hash_buf, &key->src, sizeof(guint16));
-    idx += sizeof(guint16);
-    memcpy(&hash_buf[idx], &key->seq0, sizeof(guint));
-    idx += sizeof(guint);
+    const uint8_t hash_buf_len = sizeof(uint16_t) + 2 * sizeof(unsigned) + sizeof(uint32_t);
+    unsigned idx=0;
+    uint8_t* hash_buf = (uint8_t*)wmem_alloc(wmem_packet_scope(), hash_buf_len);
+    memcpy(hash_buf, &key->src, sizeof(uint16_t));
+    idx += sizeof(uint16_t);
+    memcpy(&hash_buf[idx], &key->seq0, sizeof(unsigned));
+    idx += sizeof(unsigned);
     memcpy(&hash_buf[idx], &key->ivindex, sizeof(key->ivindex));
-    idx += sizeof(guint);
+    idx += sizeof(unsigned);
     memcpy(&hash_buf[idx], &key->net_key_iv_index_hash, sizeof(key->net_key_iv_index_hash));
     hash_val = wmem_strong_hash(hash_buf, hash_buf_len);
 
     return hash_val;
 }
 
-static gint
-upper_transport_fragment_equal(gconstpointer k1, gconstpointer k2)
+static int
+upper_transport_fragment_equal(const void *k1, const void *k2)
 {
     const upper_transport_fragment_key* key1 = (const upper_transport_fragment_key*) k1;
     const upper_transport_fragment_key* key2 = (const upper_transport_fragment_key*) k2;
 
     return ((key1->src == key2->src) && (key1->seq0 == key2->seq0) &&
             (key1->ivindex == key2->ivindex) && (key1->net_key_iv_index_hash == key2->net_key_iv_index_hash)
-            ? TRUE : FALSE);
+            ? true : false);
 }
 
 static void *
-upper_transport_fragment_temporary_key(const packet_info *pinfo _U_, const guint32 id _U_,
+upper_transport_fragment_temporary_key(const packet_info *pinfo _U_, const uint32_t id _U_,
                               const void *data)
 {
     upper_transport_fragment_key *key = g_slice_new(upper_transport_fragment_key);
@@ -3125,7 +3127,7 @@ upper_transport_fragment_temporary_key(const packet_info *pinfo _U_, const guint
 }
 
 static void
-upper_transport_fragment_free_temporary_key(gpointer ptr)
+upper_transport_fragment_free_temporary_key(void *ptr)
 {
     upper_transport_fragment_key *key = (upper_transport_fragment_key *)ptr;
 
@@ -3133,7 +3135,7 @@ upper_transport_fragment_free_temporary_key(gpointer ptr)
 }
 
 static void *
-upper_transport_fragment_persistent_key(const packet_info *pinfo _U_, const guint32 id _U_,
+upper_transport_fragment_persistent_key(const packet_info *pinfo _U_, const uint32_t id _U_,
                               const void *data)
 {
     upper_transport_fragment_key *key = g_slice_new(upper_transport_fragment_key);
@@ -3148,7 +3150,7 @@ upper_transport_fragment_persistent_key(const packet_info *pinfo _U_, const guin
 }
 
 static void
-upper_transport_fragment_free_persistent_key(gpointer ptr)
+upper_transport_fragment_free_persistent_key(void *ptr)
 {
     upper_transport_fragment_key *key = (upper_transport_fragment_key *)ptr;
     if (key) {
@@ -3165,53 +3167,47 @@ static const reassembly_table_functions upper_transport_reassembly_table_functio
     upper_transport_fragment_free_persistent_key
 };
 
-static void
-upper_transport_init_routine(void)
-{
-    reassembly_table_register(&upper_transport_reassembly_table, &upper_transport_reassembly_table_functions);
-}
-
-/* A BT Mesh dissector is not realy useful without decryption as all packets are encrypted. Just leave a stub dissector outside of */
+/* A BT Mesh dissector is not really useful without decryption as all packets are encrypted. Just leave a stub dissector outside of */
 
 /* BT Mesh s1 function */
-static gboolean
-s1(guint8 *m, size_t mlen, guint8 *salt)
+static bool
+s1(uint8_t *m, size_t mlen, uint8_t *salt)
 {
 
     gcry_mac_hd_t mac_hd;
     gcry_error_t gcrypt_err;
     size_t read_digest_length = 16;
-    guint8  zero[16] = { 0 };
+    uint8_t zero[16] = { 0 };
 
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &zero, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, m, mlen);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, salt, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Now close the mac handle */
     gcry_mac_close(mac_hd);
-    return TRUE;
+    return true;
 }
 
 /* BT Mesh Labebl UUID hash function
@@ -3220,58 +3216,58 @@ s1(guint8 *m, size_t mlen, guint8 *salt)
  * hash = AES-CMAC(SALT, Label UUID) mod 2(pow)14
  *
  */
-static gboolean
+static bool
 label_uuid_hash(uat_btmesh_label_uuid_record_t *label_uuid_record)
 {
     gcry_mac_hd_t mac_hd;
     gcry_error_t gcrypt_err;
-    guint8 vtad[4] = { 'v', 't', 'a', 'd' };
+    uint8_t vtad[4] = { 'v', 't', 'a', 'd' };
     size_t mlen = 4;
-    guint8 salt[16];
-    guint8 hash[16];
+    uint8_t salt[16];
+    uint8_t hash[16];
     size_t read_digest_length = 16;
 
     if (label_uuid_record->label_uuid_length != 16) {
-        return FALSE;
+        return false;
     }
 
     /* SALT = s1("vtad") */
-    if (s1(vtad, mlen, salt) == FALSE) {
-        return FALSE;
+    if (s1(vtad, mlen, salt) == false) {
+        return false;
     }
 
     /* hash = AES-CMAC(SALT, Label UUID) */
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &salt, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, label_uuid_record->label_uuid, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, hash, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
-    label_uuid_record->hash = hash[15] + ((guint16)(hash[14] & 0x3f) << 8) + 0x8000;
+    label_uuid_record->hash = hash[15] + ((uint16_t)(hash[14] & 0x3f) << 8) + 0x8000;
 
     /* Now close the mac handle */
     gcry_mac_close(mac_hd);
-    return TRUE;
+    return true;
 }
 
 /* BT Mesh K2 function
@@ -3288,60 +3284,60 @@ label_uuid_hash(uat_btmesh_label_uuid_record_t *label_uuid_record)
  * T3 = AES-CMACT (T2 || P || 0x03)
  * k2(N, P) = (T1 || T2 || T3) mod 2(pow)263
  */
-static gboolean
-k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
+static bool
+k2(uat_btmesh_record_t * net_key_set, uint8_t *p, size_t plen)
 {
     gcry_mac_hd_t mac_hd;
     gcry_error_t gcrypt_err;
-    guint8 smk2[4] = { 's', 'm', 'k', '2' };
+    uint8_t smk2[4] = { 's', 'm', 'k', '2' };
     size_t mlen = 4;
-    guint8 salt[16];
-    guint8 t[16];
-    guint8 t1[16];
-    guint8 p_t1[9 + 1];
-    guint8 p_t2[16 + 9 + 1];
-    guint8 p_t3[16 + 9 + 1];
+    uint8_t salt[16];
+    uint8_t t[16];
+    uint8_t t1[16];
+    uint8_t p_t1[9 + 1];
+    uint8_t p_t2[16 + 9 + 1];
+    uint8_t p_t3[16 + 9 + 1];
 
     size_t read_digest_length = 16;
 
     if (plen > 8) {
-        return FALSE;
+        return false;
     }
 
     if (net_key_set->network_key_length != 16) {
-        return FALSE;
+        return false;
     }
 
     /* SALT = s1("smk2") */
-    if (s1(smk2, mlen, salt) == FALSE) {
-        return FALSE;
+    if (s1(smk2, mlen, salt) == false) {
+        return false;
     }
 
     /* T = AES-CMAC_SALT(N) */
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &salt, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, net_key_set->network_key, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, t, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Now close the mac handle */
@@ -3357,27 +3353,27 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &t, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, &p_t1, plen + 1);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, t1, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
     net_key_set->nid = (t1[15] & 0x7f);
     /*
@@ -3395,27 +3391,27 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &t, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, &p_t2, 16 + plen + 1);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, net_key_set->encryptionkey, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Now close the mac handle */
@@ -3430,32 +3426,32 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, t, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, p_t3, 16 + plen + 1);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, net_key_set->privacykey, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Now close the mac handle */
     gcry_mac_close(mac_hd);
-    return TRUE;
+    return true;
 }
 
 /* BT Mesh K4 function
@@ -3473,54 +3469,54 @@ k2(uat_btmesh_record_t * net_key_set, guint8 *p, size_t plen)
    K4(N) = AES-CMAC (T, "id6" || 0x01 ) mod 2(pow)6
 */
 
-static gboolean
+static bool
 k4(uat_btmesh_record_t *key_set)
 {
     gcry_mac_hd_t mac_hd;
     gcry_error_t gcrypt_err;
 
-    guint8 smk4[4] = { 's', 'm', 'k', '4' };
+    uint8_t smk4[4] = { 's', 'm', 'k', '4' };
     size_t mlen = 4;
-    guint8 id6[4] = { 'i', 'd', '6', 0x01 };
+    uint8_t id6[4] = { 'i', 'd', '6', 0x01 };
     size_t id6len = 4;
-    guint8 salt[16];
-    guint8 t[16];
-    guint8 t1[16];
+    uint8_t salt[16];
+    uint8_t t[16];
+    uint8_t t1[16];
 
     size_t read_digest_length = 16;
 
     if (key_set->application_key_length != 16) {
-        return FALSE;
+        return false;
     }
 
     /* SALT = s1("smk4") */
-    if (s1(smk4, mlen, salt) == FALSE) {
-        return FALSE;
+    if (s1(smk4, mlen, salt) == false) {
+        return false;
     }
 
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &salt, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, key_set->application_key, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, t, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Now close the mac handle */
@@ -3529,40 +3525,40 @@ k4(uat_btmesh_record_t *key_set)
     /* Open gcrypt handle */
     gcrypt_err = gcry_mac_open(&mac_hd, GCRY_MAC_CMAC_AES, 0, NULL);
     if (gcrypt_err != 0) {
-        return FALSE;
+        return false;
     }
 
     /* Set the key */
     gcrypt_err = gcry_mac_setkey(mac_hd, &t, 16);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     gcrypt_err = gcry_mac_write(mac_hd, &id6, id6len);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     /* Read out the digest */
     gcrypt_err = gcry_mac_read(mac_hd, t1, &read_digest_length);
     if (gcrypt_err != 0) {
         gcry_mac_close(mac_hd);
-        return FALSE;
+        return false;
     }
 
     key_set->aid = (t1[15] & 0x3f);
 
     /* Now close the mac handle */
     gcry_mac_close(mac_hd);
-    return TRUE;
+    return true;
 }
 
-static gboolean
-create_master_security_keys(uat_btmesh_record_t * net_key_set)
+static bool
+create_central_security_keys(uat_btmesh_record_t * net_key_set)
 {
-    guint8 p[1] = { 0 };
+    uint8_t p[1] = { 0 };
     size_t plen = 1;
 
     return k2(net_key_set, p, plen);
@@ -3578,10 +3574,10 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
      * PECB = e ((PrivacyKey, 0x0000000000 || IV Index || Privacy Random)
      * (CTL || TTL || SEQ || SRC) = ObfuscatedData
      */
-    guint8 in[16]; /*  0x0000000000 || IV Index || Privacy Random */
+    uint8_t in[16]; /*  0x0000000000 || IV Index || Privacy Random */
     gcry_cipher_hd_t cipher_hd;
-    guint8 pecb[16];
-    guint8 *plaintextnetworkheader = (guint8 *)wmem_alloc(pinfo->pool, 6);
+    uint8_t pecb[16];
+    uint8_t *plaintextnetworkheader = (uint8_t *)wmem_alloc(pinfo->pool, 6);
     int i;
 
     /* at least 1 + 6 + 2 + 1 + 4 + 4 = 18 octets must be present in tvb to decrypt */
@@ -3590,10 +3586,10 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
     }
 
     memset(in, 0x00, 5);
-    memcpy((guint8 *)&in + 5, net_key_set->ivindex, 4);
+    memcpy((uint8_t *)&in + 5, net_key_set->ivindex, 4);
 
     /* Privacy random */
-    tvb_memcpy(tvb, (guint8 *)&in + 9, 7, 7);
+    tvb_memcpy(tvb, (uint8_t *)&in + 9, 7, 7);
 
     if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_ECB, 0)) {
         return NULL;
@@ -3614,27 +3610,27 @@ btmesh_deobfuscate(tvbuff_t *tvb, packet_info *pinfo, int offset _U_, uat_btmesh
     gcry_cipher_close(cipher_hd);
 
     for ( i = 0; i < 6; i++) {
-        plaintextnetworkheader[i] = tvb_get_guint8(tvb, i + 1) ^ pecb[i];
+        plaintextnetworkheader[i] = tvb_get_uint8(tvb, i + 1) ^ pecb[i];
     }
 
     de_obf_tvb = tvb_new_child_real_data(tvb, plaintextnetworkheader, 6, 6);
     return de_obf_tvb;
 }
 
-static const gchar *period_interval_unit[] = {"ms", "s", "s", "min"};
-static const guint32 period_interval_multiplier[] = {100, 1, 10, 10};
+static const char *period_interval_unit[] = {"ms", "s", "s", "min"};
+static const uint32_t period_interval_multiplier[] = {100, 1, 10, 10};
 
 static void
-format_publish_period(gchar *buf, guint32 value) {
-    guint32 idx = (value & 0xC0 ) >> 6;
-    guint32 val = (value & 0x3F ) * period_interval_multiplier[idx];
+format_publish_period(char *buf, uint32_t value) {
+    uint32_t idx = (value & 0xC0 ) >> 6;
+    uint32_t val = (value & 0x3F ) * period_interval_multiplier[idx];
     snprintf(buf, ITEM_LABEL_LENGTH, "%u %s", val, period_interval_unit[idx]);
 }
 
 static void
-format_transmit(gchar *buf, guint32 value) {
-    guint32 prd = (((value & 0xF8 ) >> 3 ) + 1 ) * 10;
-    guint32 ctr = (value & 0x07 );
+format_transmit(char *buf, uint32_t value) {
+    uint32_t prd = (((value & 0xF8 ) >> 3 ) + 1 ) * 10;
+    uint32_t ctr = (value & 0x07 );
     switch (ctr) {
     case 0:
         snprintf(buf, ITEM_LABEL_LENGTH, "One transmissions");
@@ -3646,9 +3642,9 @@ format_transmit(gchar *buf, guint32 value) {
 }
 
 static void
-format_retransmit(gchar *buf, guint32 value) {
-    guint32 prd = (((value & 0xF8 ) >> 3 ) + 1 ) * 10;
-    guint32 ctr = (value & 0x07 );
+format_retransmit(char *buf, uint32_t value) {
+    uint32_t prd = (((value & 0xF8 ) >> 3 ) + 1 ) * 10;
+    uint32_t ctr = (value & 0x07 );
     switch (ctr) {
     case 0:
         snprintf(buf, ITEM_LABEL_LENGTH, "No retransmissions");
@@ -3664,49 +3660,49 @@ format_retransmit(gchar *buf, guint32 value) {
 }
 
 static void
-format_interval_steps(gchar *buf, guint32 value) {
+format_interval_steps(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "%u ms (%u)", (value + 1) * 10, value);
 }
 
 static void
-format_key_index(gchar *buf, guint32 value) {
+format_key_index(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "%u (0x%03x)", value & 0xFFF, value & 0xFFF);
 }
 
 static void
-format_key_index_rfu(gchar *buf, guint32 value) {
+format_key_index_rfu(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "0x%1x", (value & 0xF000) >> 12);
 }
 
 static void
-format_dual_key_index(gchar *buf, guint32 value) {
+format_dual_key_index(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "%u (0x%03x), %u (0x%03x)", value & 0xFFF, value & 0xFFF, ( value & 0xFFF000 ) >> 12, ( value & 0xFFF000 ) >> 12);
 }
 
 static void
-format_vendor_model(gchar *buf, guint32 value) {
+format_vendor_model(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "0x%04x of %s", value >> 16, val_to_str_ext_const(value & 0xFFFF, &bluetooth_company_id_vals_ext, "Unknown"));
 }
 
 static void
-format_publish_appkeyindex_model(gchar *buf, guint32 value) {
-    snprintf(buf, ITEM_LABEL_LENGTH, "%u (0x%03x) using %s security material", value & 0x0FFF, value & 0x0FFF, ((value & 0x1000) ? "Friendship" : "Master"));
+format_publish_appkeyindex_model(char *buf, uint32_t value) {
+    snprintf(buf, ITEM_LABEL_LENGTH, "%u (0x%03x) using %s security material", value & 0x0FFF, value & 0x0FFF, ((value & 0x1000) ? "Friendship" : "Central"));
 }
 
 static void
-format_delay_ms(gchar *buf, guint32 value) {
+format_delay_ms(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "%u ms", value * 5);
 }
 
 static void
-format_power(gchar *buf, guint32 value) {
-    gdouble val;
-    val =  (gdouble)value / (gdouble)655.35;
+format_power(char *buf, uint32_t value) {
+    double val;
+    val =  (double)value / (double)655.35;
     snprintf(buf, ITEM_LABEL_LENGTH, "% 3.2f %%", val);
 }
 
 static void
-format_battery_level(gchar *buf, guint32 value) {
+format_battery_level(char *buf, uint32_t value) {
     if (value == 0xFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "The percentage of the charge level is unknown");
         return;
@@ -3719,7 +3715,7 @@ format_battery_level(gchar *buf, guint32 value) {
 }
 
 static void
-format_battery_time(gchar *buf, guint32 value) {
+format_battery_time(char *buf, uint32_t value) {
     if (value == 0xFFFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "The remaining time is not known");
         return;
@@ -3728,29 +3724,29 @@ format_battery_time(gchar *buf, guint32 value) {
 }
 
 static void
-format_global_latitude(gchar *buf, gint32 value) {
+format_global_latitude(char *buf, int32_t value) {
     if (value == INT_MIN) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Global Latitude is not configured.");
         return;
     }
-    gdouble val;
-    val =  (gdouble)90.0 / (gdouble) (0x7FFFFFFF) * (gdouble)value ;
+    double val;
+    val =  (double)90.0 / (double) (0x7FFFFFFF) * (double)value ;
     snprintf(buf, ITEM_LABEL_LENGTH, "% 2.6f°", val);
 }
 
 static void
-format_global_longitude(gchar *buf, gint32 value) {
+format_global_longitude(char *buf, int32_t value) {
     if (value == INT_MIN) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Global Longitude is not configured.");
         return;
     }
-    gdouble val;
-    val =  (gdouble)180.0 / (gdouble) (0x7FFFFFFF) * (gdouble)value;
+    double val;
+    val =  (double)180.0 / (double) (0x7FFFFFFF) * (double)value;
     snprintf(buf, ITEM_LABEL_LENGTH, "% 2.6f°", val);
 }
 
 static void
-format_global_altitude(gchar *buf, gint16 value) {
+format_global_altitude(char *buf, int16_t value) {
     if (value == 0x7FFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Global Altitude is not configured.");
         return;
@@ -3763,29 +3759,29 @@ format_global_altitude(gchar *buf, gint16 value) {
 }
 
 static void
-format_local_north(gchar *buf, gint16 value) {
+format_local_north(char *buf, int16_t value) {
     if (value == -32768) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Local North information is not configured.");
         return;
     }
-    gdouble val;
-    val =  (gdouble)value / (gdouble) 10.0;
+    double val;
+    val =  (double)value / (double) 10.0;
     snprintf(buf, ITEM_LABEL_LENGTH, "%.1f meters", val);
 }
 
 static void
-format_local_east(gchar *buf, gint16 value) {
+format_local_east(char *buf, int16_t value) {
     if (value == -32768) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Local East information is not configured.");
         return;
     }
-    gdouble val;
-    val =  (gdouble)value / (gdouble) 10.0;
+    double val;
+    val =  (double)value / (double) 10.0;
     snprintf(buf, ITEM_LABEL_LENGTH, "%.1f meters", val);
 }
 
 static void
-format_local_altitude(gchar *buf, gint16 value) {
+format_local_altitude(char *buf, int16_t value) {
     if (value == 0x7FFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Local Altitude is not configured.");
         return;
@@ -3794,13 +3790,13 @@ format_local_altitude(gchar *buf, gint16 value) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Local Altitude is greater than or equal to 3276.6 meters.");
         return;
     }
-    gdouble val;
-    val =  (gdouble)value / (gdouble) 10.0;
+    double val;
+    val =  (double)value / (double) 10.0;
     snprintf(buf, ITEM_LABEL_LENGTH, "%.1f meters", val);
 }
 
 static void
-format_floor_number(gchar *buf, guint8 value) {
+format_floor_number(char *buf, uint8_t value) {
     switch (value) {
         case 0x00:
             snprintf(buf, ITEM_LABEL_LENGTH, "Floor -20 or any floor below -20.");
@@ -3823,27 +3819,27 @@ format_floor_number(gchar *buf, guint8 value) {
         break;
 
         default:
-            snprintf(buf, ITEM_LABEL_LENGTH, "%d", (gint16)value - (gint16)20 );
+            snprintf(buf, ITEM_LABEL_LENGTH, "%d", (int16_t)value - (int16_t)20 );
         break;
     }
 }
 
 static void
-format_update_time(gchar *buf, guint16 value) {
-    gdouble val;
-    val =  pow((gdouble)2.0, (gdouble)(value - 3));
+format_update_time(char *buf, uint16_t value) {
+    double val;
+    val =  pow((double)2.0, (double)(value - 3));
     snprintf(buf, ITEM_LABEL_LENGTH, "%.*f seconds", (value<4?3-value:0), val);
 }
 
 static void
-format_precision(gchar *buf, guint16 value) {
-    gdouble val;
-    val =  pow((gdouble)2.0, (gdouble)(value - 3));
+format_precision(char *buf, uint16_t value) {
+    double val;
+    val =  pow((double)2.0, (double)(value - 3));
     snprintf(buf, ITEM_LABEL_LENGTH, "%.*f meters", (value<4?3-value:0),val);
 }
 
 static void
-format_scheduler_year(gchar *buf, gint32 value) {
+format_scheduler_year(char *buf, int32_t value) {
     if (value <= 0x63) {
         snprintf(buf, ITEM_LABEL_LENGTH, "%d", 2000+value);
     } else if (value == 0x64 ) {
@@ -3854,7 +3850,7 @@ format_scheduler_year(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_day(gchar *buf, gint32 value) {
+format_scheduler_day(char *buf, int32_t value) {
     if (value > 0x0) {
         snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
     } else {
@@ -3863,7 +3859,7 @@ format_scheduler_day(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_hour(gchar *buf, gint32 value) {
+format_scheduler_hour(char *buf, int32_t value) {
     if (value < 24 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "%d", value);
     } else if (value == 0x18 ) {
@@ -3876,7 +3872,7 @@ format_scheduler_hour(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_minute(gchar *buf, gint32 value) {
+format_scheduler_minute(char *buf, int32_t value) {
     switch (value) {
         case 0x3C:
             snprintf(buf, ITEM_LABEL_LENGTH, "Any minute of the hour");
@@ -3901,7 +3897,7 @@ format_scheduler_minute(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_second(gchar *buf, gint32 value) {
+format_scheduler_second(char *buf, int32_t value) {
     switch (value) {
         case 0x3C:
             snprintf(buf, ITEM_LABEL_LENGTH, "Any second of the minute");
@@ -3926,7 +3922,7 @@ format_scheduler_second(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_action(gchar *buf, gint32 value) {
+format_scheduler_action(char *buf, int32_t value) {
     switch (value) {
         case 0x0:
             snprintf(buf, ITEM_LABEL_LENGTH, "Turn Off");
@@ -3951,15 +3947,15 @@ format_scheduler_action(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_month(gchar *buf, gint32 value) {
+format_scheduler_month(char *buf, int32_t value) {
     static const char ab_month_name[][4] =
     {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     };
 
-    gint i;
-    gboolean is_first = true;
+    int i;
+    bool is_first = true;
 
     *buf = '\0';
     for (i = 0; i < 12; i++) {
@@ -3975,14 +3971,14 @@ format_scheduler_month(gchar *buf, gint32 value) {
 }
 
 static void
-format_scheduler_day_of_week(gchar *buf, gint32 value) {
+format_scheduler_day_of_week(char *buf, int32_t value) {
     static char const ab_weekday_name[][4] =
     {
         "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
     };
 
-    gint i;
-    gboolean is_first = true;
+    int i;
+    bool is_first = true;
 
     *buf = '\0';
     for (i = 0; i < 7; i++) {
@@ -3998,24 +3994,24 @@ format_scheduler_day_of_week(gchar *buf, gint32 value) {
 }
 
 static void
-format_subsecond_ms(gchar *buf, guint32 value) {
-    snprintf(buf, ITEM_LABEL_LENGTH, "%.1f ms", (gdouble)value / 0.256);
+format_subsecond_ms(char *buf, uint32_t value) {
+    snprintf(buf, ITEM_LABEL_LENGTH, "%.1f ms", (double)value / 0.256);
 }
 
 static void
-format_uncertainty_ms(gchar *buf, guint32 value) {
+format_uncertainty_ms(char *buf, uint32_t value) {
     snprintf(buf, ITEM_LABEL_LENGTH, "%u ms", value * 10);
 }
 
 static void
-format_tai_utc_delta_s(gchar *buf, guint32 value) {
-    gint32 val = (gint32)value - 255;
+format_tai_utc_delta_s(char *buf, uint32_t value) {
+    int32_t val = (int32_t)value - 255;
     snprintf(buf, ITEM_LABEL_LENGTH, "%d s", val);
 }
 
 static void
-format_time_zone_offset_h(gchar *buf, guint32 value) {
-    gint32 val = (gint32)value - 64;
+format_time_zone_offset_h(char *buf, uint32_t value) {
+    int32_t val = (int32_t)value - 64;
     if (val >= 0) {
         snprintf(buf, ITEM_LABEL_LENGTH, "%+d:%02d", val/4, (val%4)*15 );
     } else {
@@ -4025,18 +4021,18 @@ format_time_zone_offset_h(gchar *buf, guint32 value) {
 }
 
 static void
-format_tai_to_utc_date(gchar *buf, guint64 value) {
+format_tai_to_utc_date(char *buf, uint64_t value) {
 
     if (value == 0 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Unknown");
     } else {
-        gchar *time_str;
+        char *time_str;
         time_t val;
 
         // Leap seconds removal
-        guint64 delta = 0;
+        uint64_t delta = 0;
         // TAI epoch is 2000-01-01T00:00:00 TAI
-        guint64 leap_seconds[] = {
+        uint64_t leap_seconds[] = {
             189388800, // 1 January 2006, 00:00:00, seconds from TAI epoch
             284083200, // 1 January 2009, 00:00:00, seconds from TAI epoch
             394416000, // 1 July 2012, 00:00:00, seconds from TAI epoch
@@ -4053,13 +4049,13 @@ format_tai_to_utc_date(gchar *buf, guint64 value) {
         // 946684800 seconds between 1.1.1970 and 1.1.2000
         // 32 leap seconds difference between TAI and UTC on 1.1.2000
         val = (time_t)(value + 946684800ll - 32ll - delta);
-        time_str = abs_time_secs_to_str(NULL, val, ABSOLUTE_TIME_UTC, TRUE);
+        time_str = abs_time_secs_to_str(NULL, val, ABSOLUTE_TIME_UTC, true);
         snprintf(buf, ITEM_LABEL_LENGTH, "%s", time_str);
     }
 }
 
 static void
-format_temperature_kelvin(gchar *buf, guint32 value) {
+format_temperature_kelvin(char *buf, uint32_t value) {
     if (value < 0x0320 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited (%d)", value);
     } else if (value > 0x4E20 ) {
@@ -4070,7 +4066,7 @@ format_temperature_kelvin(gchar *buf, guint32 value) {
 }
 
 static void
-format_temperature_kelvin_unknown(gchar *buf, guint32 value) {
+format_temperature_kelvin_unknown(char *buf, uint32_t value) {
     if (value < 0x0320 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited (%d)", value);
     } else if (value > 0x4E20 && value != 0xFFFF) {
@@ -4083,7 +4079,7 @@ format_temperature_kelvin_unknown(gchar *buf, guint32 value) {
 }
 
 static void
-format_light_lightness_prohibited(gchar *buf, guint32 value) {
+format_light_lightness_prohibited(char *buf, uint32_t value) {
     if (value == 0x0 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited (%d)", value);
     } else {
@@ -4092,7 +4088,7 @@ format_light_lightness_prohibited(gchar *buf, guint32 value) {
 }
 
 static void
-format_light_lightness_default(gchar *buf, guint32 value) {
+format_light_lightness_default(char *buf, uint32_t value) {
     if (value == 0x0 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Use the Light Lightness Last value");
     } else {
@@ -4101,21 +4097,21 @@ format_light_lightness_default(gchar *buf, guint32 value) {
 }
 
 static void
-format_hsl_hue(gchar *buf, guint32 value) {
-    gdouble val;
-    val =  (gdouble)360.0 / (gdouble) (0x10000) * (gdouble)value;
+format_hsl_hue(char *buf, uint32_t value) {
+    double val;
+    val =  (double)360.0 / (double) (0x10000) * (double)value;
     snprintf(buf, ITEM_LABEL_LENGTH, "% 3.3f°", val);
 }
 
 static void
-format_xyl_coordinate(gchar *buf, guint32 value) {
-    gdouble val;
-    val =  (gdouble)value / (gdouble) (0xFFFF);
+format_xyl_coordinate(char *buf, uint32_t value) {
+    double val;
+    val =  (double)value / (double) (0xFFFF);
     snprintf(buf, ITEM_LABEL_LENGTH, "%1.5f", val);
 }
 
 static void
-format_sensor_setting_access(gchar *buf, guint32 value)
+format_sensor_setting_access(char *buf, uint32_t value)
 {
     if (value == 0x01 ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Can be read");
@@ -4127,29 +4123,29 @@ format_sensor_setting_access(gchar *buf, guint32 value)
 }
 
 static void
-format_fast_cadence_period_divisor(gchar *buf, guint32 value)
+format_fast_cadence_period_divisor(char *buf, uint32_t value)
 {
     if (value > 15) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
     } else {
-        guint32 v = (1 << value);
+        uint32_t v = (1 << value);
         snprintf(buf, ITEM_LABEL_LENGTH, "%d", v);
     }
 }
 
 static void
-format_status_min_interval(gchar *buf, guint32 value)
+format_status_min_interval(char *buf, uint32_t value)
 {
     if (value > 26) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
     } else {
-        guint32 v = (1 << value);
+        uint32_t v = (1 << value);
         snprintf(buf, ITEM_LABEL_LENGTH, "%d ms", v);
     }
 }
 
 static void
-format_admin_user_access(gchar *buf, guint32 value)
+format_admin_user_access(char *buf, uint32_t value)
 {
     switch (value) {
         case 0x0:
@@ -4175,7 +4171,7 @@ format_admin_user_access(gchar *buf, guint32 value)
 }
 
 static void
-format_manufacturer_user_access(gchar *buf, guint32 value)
+format_manufacturer_user_access(char *buf, uint32_t value)
 {
     if (value == 0x00) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Not a Generic User Property");
@@ -4187,7 +4183,7 @@ format_manufacturer_user_access(gchar *buf, guint32 value)
 }
 
 static void
-format_user_access(gchar *buf, guint32 value)
+format_user_access(char *buf, uint32_t value)
 {
     switch (value) {
         case 0x1:
@@ -4209,33 +4205,33 @@ format_user_access(gchar *buf, guint32 value)
 }
 
 static void
-format_sensor_descriptor_tolerance(gchar *buf, guint32 value)
+format_sensor_descriptor_tolerance(char *buf, uint32_t value)
 {
     if (value == 0x000) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Unspecified");
     } else {
-        gdouble val;
-        val =  (gdouble)value / (gdouble)40.95;
+        double val;
+        val =  (double)value / (double)40.95;
         snprintf(buf, ITEM_LABEL_LENGTH, "% 3.2f %%", val);
     }
 }
 
 static void
-format_sensor_period(gchar *buf, guint32 value)
+format_sensor_period(char *buf, uint32_t value)
 {
     if (value == 0) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Not Applicable");
     } else {
-        gdouble val;
+        double val;
 
-        val = pow((gdouble)1.1, (gdouble)value - (gdouble)64.0);
+        val = pow((double)1.1, (double)value - (double)64.0);
         if ( val < 1.0 ) { //Milliseconds
             snprintf(buf, ITEM_LABEL_LENGTH, "%.0f ms", val * 1000.0);
         } else {
             if ( val < 60.0 ) { //Seconds
                 snprintf(buf, ITEM_LABEL_LENGTH, "%.1f s", val);
             } else {
-                gulong v = (gulong)val;
+                unsigned long v = (unsigned long)val;
                     if ( val < 86400 ) { //Hours:Minutes:Seconds
                         snprintf(buf, ITEM_LABEL_LENGTH, "%02lu:%02lu:%02lu", v/3600, (v % 3600)/60, v % 60);
                     } else { //Days Hours:Minutes:Seconds
@@ -4247,15 +4243,15 @@ format_sensor_period(gchar *buf, guint32 value)
 }
 
 static void
-format_percentage_change_16(gchar *buf, guint32 value)
+format_percentage_change_16(char *buf, uint32_t value)
 {
-    gdouble val;
-    val =  (gdouble)value / (gdouble)(100);
+    double val;
+    val =  (double)value / (double)(100);
     snprintf(buf, ITEM_LABEL_LENGTH, "%.2f %%", val);
 }
 
 static void
-format_decihour_8(gchar *buf, guint32 value)
+format_decihour_8(char *buf, uint32_t value)
 {
     if (value == 0xFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
@@ -4263,55 +4259,55 @@ format_decihour_8(gchar *buf, guint32 value)
         if (value > 240) {
             snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
         } else {
-            gdouble val;
-            val =  (gdouble)value / (gdouble)(10);
+            double val;
+            val =  (double)value / (double)(10);
             snprintf(buf, ITEM_LABEL_LENGTH, "%.1f h", val);
         }
     }
 }
 
 static void
-format_temperature_8(gchar *buf, gint32 value)
+format_temperature_8(char *buf, int32_t value)
 {
     if (value == 0x7F) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
-        gdouble val;
-        val =  (gdouble)value * (gdouble)(0.5);
+        double val;
+        val =  (double)value * (double)(0.5);
         snprintf(buf, ITEM_LABEL_LENGTH, "%.1f C", val);
     }
 }
 
 static void
-format_temperature(gchar *buf, gint32 value)
+format_temperature(char *buf, int32_t value)
 {
     if (value == INT16_MIN ) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
-        if (value < (gint32)(-27315)) {
+        if (value < (int32_t)(-27315)) {
             snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited");
         } else {
-            gdouble val;
-            val =  (gdouble)value / (gdouble)(100);
+            double val;
+            val =  (double)value / (double)(100);
             snprintf(buf, ITEM_LABEL_LENGTH, "%.2f C", val);
         }
     }
 }
 
 static void
-format_electric_current(gchar *buf, guint32 value)
+format_electric_current(char *buf, uint32_t value)
 {
     if (value == 0xFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
-        gdouble val;
-        val =  (gdouble)value / (gdouble)(100);
+        double val;
+        val =  (double)value / (double)(100);
         snprintf(buf, ITEM_LABEL_LENGTH, "%.2f A", val);
     }
 }
 
 static void
-format_energy(gchar *buf, guint32 value)
+format_energy(char *buf, uint32_t value)
 {
     if (value == 0xFFFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
@@ -4321,42 +4317,42 @@ format_energy(gchar *buf, guint32 value)
 }
 
 static void
-format_illuminance(gchar *buf, guint32 value) {
+format_illuminance(char *buf, uint32_t value) {
     if (value == 0xFFFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
-        gdouble val;
-        val =  (gdouble)value / (gdouble)(100);
+        double val;
+        val =  (double)value / (double)(100);
         snprintf(buf, ITEM_LABEL_LENGTH, "%.2f lux", val);
     }
 }
 
 static void
-format_percentage_8(gchar *buf, guint32 value) {
+format_percentage_8(char *buf, uint32_t value) {
     if (value == 0xFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else if (value > 200) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Prohibited (%d)", value);
     } else {
-        gdouble val;
-        val =  (gdouble)value / (gdouble)(2);
+        double val;
+        val =  (double)value / (double)(2);
         snprintf(buf, ITEM_LABEL_LENGTH, "%.1f %%", val);
     }
 }
 
 static void
-format_time_millisecond_24(gchar *buf, guint32 value) {
+format_time_millisecond_24(char *buf, uint32_t value) {
     if (value == 0xFFFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
-        gdouble val;
-        val =  (gdouble)value / (gdouble)(1000);
+        double val;
+        val =  (double)value / (double)(1000);
         snprintf(buf, ITEM_LABEL_LENGTH, "%.2f s", val);
     }
 }
 
 static void
-format_count_16(gchar *buf, guint32 value) {
+format_count_16(char *buf, uint32_t value) {
     if (value == 0xFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
@@ -4365,7 +4361,7 @@ format_count_16(gchar *buf, guint32 value) {
 }
 
 static void
-format_boolean(gchar *buf, guint32 value) {
+format_boolean(char *buf, uint32_t value) {
     if (value == 0x00) {
         snprintf(buf, ITEM_LABEL_LENGTH, "False");
     } else if (value == 0x01) {
@@ -4376,7 +4372,7 @@ format_boolean(gchar *buf, guint32 value) {
 }
 
 static void
-format_time_second_16(gchar *buf, guint32 value) {
+format_time_second_16(char *buf, uint32_t value) {
     if (value == 0xFFFF) {
         snprintf(buf, ITEM_LABEL_LENGTH, "Value is not known");
     } else {
@@ -4384,11 +4380,11 @@ format_time_second_16(gchar *buf, guint32 value) {
     }
 }
 
-static guint16
-find_characteristic_id(guint16 property_id)
+static uint16_t
+find_characteristic_id(uint16_t property_id)
 {
     int i;
-    guint16 characteristic_id = NOT_SUPPORTED_PROPERTY;
+    uint16_t characteristic_id = NOT_SUPPORTED_PROPERTY;
 
     for (i=0; btmesh_properties[i].characteristic_id !=0; i++ ) {
         if (btmesh_properties[i].property_id == property_id) {
@@ -4400,7 +4396,7 @@ find_characteristic_id(guint16 property_id)
 }
 
 static int
-find_characteristic_idx(guint16 characteristic_id)
+find_characteristic_idx(uint16_t characteristic_id)
 {
     int i, idx = NOT_SUPPORTED_CHARACTERISTIC;
 
@@ -4426,10 +4422,10 @@ find_column_properties_idx(int idx)
     return idx_3;
 }
 
-static guint16
+static uint16_t
 dissect_btmesh_property_idx(tvbuff_t *tvb, proto_tree *tree, int offset, int characteristic_idx)
 {
-    guint16 characteristic_value_length = 0;
+    uint16_t characteristic_value_length = 0;
     int hfindex = -1;
     proto_item *pi;
 
@@ -4495,10 +4491,10 @@ dissect_btmesh_property_idx(tvbuff_t *tvb, proto_tree *tree, int offset, int cha
 }
 
 static int
-find_btmesh_property_characteristic_idx(guint16 property_id)
+find_btmesh_property_characteristic_idx(uint16_t property_id)
 {
     int characteristic_idx;
-    guint16 characteristic_id = 0;
+    uint16_t characteristic_id = 0;
 
     characteristic_id = find_characteristic_id(property_id);
     if (characteristic_id == NOT_SUPPORTED_PROPERTY) {
@@ -4512,10 +4508,10 @@ find_btmesh_property_characteristic_idx(guint16 property_id)
 }
 
 static int
-find_btmesh_property_length(guint16 property_id)
+find_btmesh_property_length(uint16_t property_id)
 {
     int characteristic_idx;
-    guint16 characteristic_id = 0;
+    uint16_t characteristic_id = 0;
 
     characteristic_id = find_characteristic_id(property_id);
     if (characteristic_id == NOT_SUPPORTED_PROPERTY) {
@@ -4528,13 +4524,13 @@ find_btmesh_property_length(guint16 property_id)
     return bt_gatt_characteristics[characteristic_idx].characteristic_value_length;
 }
 
-static guint16
-dissect_btmesh_property(proto_tree *tree, int p_id, tvbuff_t *tvb, int offset, guint16 property_id, int length_hint)
+static uint16_t
+dissect_btmesh_property(proto_tree *tree, int p_id, tvbuff_t *tvb, int offset, uint16_t property_id, int length_hint)
 {
     int characteristic_idx;
     int characteristic_length;
     int guessed_property_length;
-    guint16 delta = 0;
+    uint16_t delta = 0;
 
     if (length_hint == PROPERTY_LENGTH_NO_HINT) {
         guessed_property_length = tvb_reported_length_remaining(tvb, offset);
@@ -4561,7 +4557,7 @@ dissect_btmesh_property(proto_tree *tree, int p_id, tvbuff_t *tvb, int offset, g
 }
 
 static int
-dissect_sensor_cadence(proto_tree *tree, tvbuff_t *tvb, int offset, guint16 property_id, guint8 trigger_type, const bt_sensor_cadence_dissector_t *sensor_cadence_hfs)
+dissect_sensor_cadence(proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t property_id, uint8_t trigger_type, const bt_sensor_cadence_dissector_t *sensor_cadence_hfs)
 {
     int initial_offset = offset;
     int guessed_property_length;
@@ -4624,9 +4620,9 @@ dissect_sensor_cadence(proto_tree *tree, tvbuff_t *tvb, int offset, guint16 prop
 }
 
 static int
-dissect_property_raw_value_entry(proto_tree *tree, tvbuff_t *tvb, int offset, guint16 property_id, const bt_property_raw_value_entry_t *property_raw_value_entry_hfs)
+dissect_property_raw_value_entry(proto_tree *tree, tvbuff_t *tvb, int offset, uint16_t property_id, const bt_property_raw_value_entry_t *property_raw_value_entry_hfs)
 {
-    gboolean display_raw;
+    bool display_raw;
     int idx;
     int initial_offset = offset;
     int guessed_field_length;
@@ -4689,9 +4685,9 @@ dissect_property_raw_value_entry(proto_tree *tree, tvbuff_t *tvb, int offset, gu
 }
 
 static int
-dissect_columns_raw_value(proto_tree *sub_tree, tvbuff_t *tvb, int offset, guint16 property_id, const bt_property_columns_raw_value_t *columns_raw_value_hfs)
+dissect_columns_raw_value(proto_tree *sub_tree, tvbuff_t *tvb, int offset, uint16_t property_id, const bt_property_columns_raw_value_t *columns_raw_value_hfs)
 {
-    gboolean display_raw;
+    bool display_raw;
     int idx;
     int initial_offset = offset;
     int guessed_field_length;
@@ -4759,8 +4755,8 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
 {
     proto_tree *sub_tree;
     tvbuff_t *payload_tvb;
-    guint32 opcode;
-    guint16 vendor;
+    uint32_t opcode;
+    uint16_t vendor;
     proto_item *netapp_index_item, *app_index_item, *pub_app_index_item, *net_index_item;
     proto_item *relayretransmit_index, *transmit_index;
     proto_item *publishperiod_item, *publishretransmit_item;
@@ -4781,25 +4777,25 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     proto_tree *sensor_setting_property_ids_tree;
     proto_tree *root_tree = proto_tree_get_parent_tree(tree);
 
-    guint32 netkeyindexes, appkeyindexes;
-    guint32 nums, numv, element;
-    guint i;
-    guint16 property_id;
-    guint8 trigger_type;
-    guint32 mpid_format, mpid_property_id, mpid_length;
+    uint32_t netkeyindexes, appkeyindexes;
+    uint32_t nums, numv, element;
+    unsigned i;
+    uint16_t property_id;
+    uint8_t trigger_type;
+    uint32_t mpid_format, mpid_property_id, mpid_length;
 
     sub_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_btmesh_model_layer, NULL, "Model Layer");
 
-    opcode = tvb_get_guint8(tvb, offset);
+    opcode = tvb_get_uint8(tvb, offset);
     if (opcode & 0x80) {
         if (opcode & 0x40) {
             /* Vendor opcode */
             proto_tree_add_item(sub_tree, hf_btmesh_model_layer_vendor_opcode, tvb, offset, 1, ENC_NA);
-            vendor = tvb_get_guint16(tvb, offset + 1, ENC_LITTLE_ENDIAN);
+            vendor = tvb_get_uint16(tvb, offset + 1, ENC_LITTLE_ENDIAN);
             proto_tree_add_item(sub_tree, hf_btmesh_model_layer_vendor, tvb, offset + 1, 2, ENC_LITTLE_ENDIAN);
             payload_tvb = tvb_new_subset_remaining(tvb, offset);
             col_set_str(pinfo->cinfo, COL_INFO, "Access Message - Vendor Opcode");
-            dissector_try_uint_new(btmesh_model_vendor_dissector_table, vendor, payload_tvb, pinfo, root_tree, TRUE, GUINT_TO_POINTER(vendor));
+            dissector_try_uint_new(btmesh_model_vendor_dissector_table, vendor, payload_tvb, pinfo, root_tree, true, GUINT_TO_POINTER(vendor));
             offset+=3;
         } else {
             /* Two octet opcode */
@@ -4853,8 +4849,8 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         /* Elements */
         element = 1;
         while (tvb_reported_length_remaining(tvb, offset) > 2) {
-            nums = tvb_get_guint8(tvb, offset + 2 );
-            numv = tvb_get_guint8(tvb, offset + 2 + 1);
+            nums = tvb_get_uint8(tvb, offset + 2 );
+            numv = tvb_get_uint8(tvb, offset + 2 + 1);
             element_sub_tree = proto_tree_add_subtree_format(sub_tree, tvb, offset, 4 + nums * 2 + numv * 4, ett_btmesh_config_model_element, NULL, "Element #%u", element);
             proto_tree_add_item(element_sub_tree, hf_btmesh_config_composition_data_status_loc, tvb, offset, 2, ENC_LITTLE_ENDIAN);
             offset+=2;
@@ -4980,12 +4976,12 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         appkeylist_tree = proto_tree_add_subtree(sub_tree, tvb, offset, tvb_reported_length_remaining(tvb, offset), ett_btmesh_config_model_appkey_list, NULL, "AppKeyIndexes");
         while (tvb_reported_length_remaining(tvb, offset) >= 2) {
             if (tvb_reported_length_remaining(tvb, offset) >= 3) {
-                appkeyindexes = tvb_get_guint24(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint24(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_appkey_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x000FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_appkey_list_appkeyindex, tvb, offset + 1, 2, (appkeyindexes >> 12 ) & 0x000FFF);
                 offset+=3;
             } else {
-                appkeyindexes = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_appkey_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x0FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_appkey_list_appkeyindex_rfu, tvb, offset, 2, (appkeyindexes >> 12 ) & 0xF);
                 offset+=2;
@@ -5508,12 +5504,12 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         netkeylist_tree = proto_tree_add_subtree(sub_tree, tvb, offset, tvb_reported_length_remaining(tvb, offset), ett_btmesh_config_model_netkey_list, NULL, "NetKeyIndexes");
         while (tvb_reported_length_remaining(tvb, offset) >= 2) {
             if (tvb_reported_length_remaining(tvb, offset) >= 3) {
-                netkeyindexes = tvb_get_guint24(tvb, offset, ENC_LITTLE_ENDIAN);
+                netkeyindexes = tvb_get_uint24(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(netkeylist_tree, hf_btmesh_config_netkey_list_netkeyindex, tvb, offset, 2, netkeyindexes & 0x000FFF);
                 proto_tree_add_uint(netkeylist_tree, hf_btmesh_config_netkey_list_netkeyindex, tvb, offset + 1, 2, (netkeyindexes >> 12 ) & 0x000FFF);
                 offset+=3;
             } else {
-                netkeyindexes = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+                netkeyindexes = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(netkeylist_tree, hf_btmesh_config_netkey_list_netkeyindex, tvb, offset, 2, netkeyindexes & 0x0FFF);
                 proto_tree_add_uint(netkeylist_tree, hf_btmesh_config_netkey_list_netkeyindex_rfu, tvb, offset, 2, (netkeyindexes >> 12 ) & 0xF);
                 offset+=2;
@@ -5585,12 +5581,12 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         appkeylist_tree = proto_tree_add_subtree(sub_tree, tvb, offset, tvb_reported_length_remaining(tvb, offset), ett_btmesh_config_model_appkey_list, NULL, "AppKeyIndexes");
         while (tvb_reported_length_remaining(tvb, offset) >= 2) {
             if (tvb_reported_length_remaining(tvb, offset) >= 3) {
-                appkeyindexes = tvb_get_guint24(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint24(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_sig_model_app_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x000FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_sig_model_app_list_appkeyindex, tvb, offset + 1, 2, (appkeyindexes >> 12 ) & 0x000FFF);
                 offset+=3;
             } else {
-                appkeyindexes = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_sig_model_app_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x0FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_sig_model_app_list_appkeyindex_rfu, tvb, offset, 2, (appkeyindexes >> 12 ) & 0xF);
                 offset+=2;
@@ -5613,12 +5609,12 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         appkeylist_tree = proto_tree_add_subtree(sub_tree, tvb, offset, tvb_reported_length_remaining(tvb, offset), ett_btmesh_config_model_appkey_list, NULL, "AppKeyIndexes");
         while (tvb_reported_length_remaining(tvb, offset) >= 2) {
             if (tvb_reported_length_remaining(tvb, offset) >= 3) {
-                appkeyindexes = tvb_get_guint24(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint24(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_vendor_model_app_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x000FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_vendor_model_app_list_appkeyindex, tvb, offset + 1, 2, (appkeyindexes >> 12 ) & 0x000FFF);
                 offset+=3;
             } else {
-                appkeyindexes = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+                appkeyindexes = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_vendor_model_app_list_appkeyindex, tvb, offset, 2, appkeyindexes & 0x0FFF);
                 proto_tree_add_uint(appkeylist_tree, hf_btmesh_config_vendor_model_app_list_appkeyindex_rfu, tvb, offset, 2, (appkeyindexes >> 12 ) & 0xF);
                 offset+=2;
@@ -6311,19 +6307,19 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case LIGHT_LC_PROPERTY_SET:
         proto_tree_add_item(sub_tree, hf_btmesh_light_lc_property_set_light_lc_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_light_lc_property_set_light_lc_property_value, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
     case LIGHT_LC_PROPERTY_SET_UNACKNOWLEDGED:
         proto_tree_add_item(sub_tree, hf_btmesh_light_lc_property_set_unacknowledged_light_lc_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_light_lc_property_set_unacknowledged_light_lc_property_value, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
     case LIGHT_LC_PROPERTY_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_light_lc_property_status_light_lc_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_light_lc_property_status_light_lc_property_value, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
@@ -7104,7 +7100,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case GENERIC_MANUFACTURER_PROPERTY_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_manufacturer_property_status_manufacturer_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         // Optional
         if (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7128,7 +7124,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case GENERIC_ADMIN_PROPERTY_SET:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_admin_property_set_admin_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_generic_admin_property_set_admin_user_access, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
@@ -7136,7 +7132,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case GENERIC_ADMIN_PROPERTY_SET_UNACKNOWLEDGED:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_admin_property_set_unacknowledged_admin_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_generic_admin_property_set_unacknowledged_admin_user_access, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
@@ -7144,7 +7140,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case GENERIC_ADMIN_PROPERTY_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_admin_property_status_admin_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         // Optional
         if (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7168,19 +7164,19 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case GENERIC_USER_PROPERTY_SET:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_user_property_set_user_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_generic_user_property_set_user_property_value, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
     case GENERIC_USER_PROPERTY_SET_UNACKNOWLEDGED:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_user_property_set_unacknowledged_user_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_generic_user_property_set_unacknowledged_user_property_value, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
     case GENERIC_USER_PROPERTY_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_generic_user_property_status_user_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         // Optional
         if (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7233,32 +7229,32 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         break;
     case SENSOR_CADENCE_SET:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_fast_cadence_period_divisor, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_status_trigger_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        trigger_type = tvb_get_guint8(tvb, offset) >> 7;
+        trigger_type = tvb_get_uint8(tvb, offset) >> 7;
         offset++;
         offset+=dissect_sensor_cadence(sub_tree, tvb, offset, property_id, trigger_type, &sensor_cadence_set_hfs);
         break;
     case SENSOR_CADENCE_SET_UNACKNOWLEDGED:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_unacknowledged_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_unacknowledged_fast_cadence_period_divisor, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_set_unacknowledged_status_trigger_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        trigger_type = tvb_get_guint8(tvb, offset) >> 7;
+        trigger_type = tvb_get_uint8(tvb, offset) >> 7;
         offset++;
 
         offset+=dissect_sensor_cadence(sub_tree, tvb, offset, property_id, trigger_type, &sensor_cadence_set_unacknowledged_hfs);
         break;
     case SENSOR_CADENCE_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_status_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_status_fast_cadence_period_divisor, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_cadence_status_status_trigger_type, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-        trigger_type = tvb_get_guint8(tvb, offset) >> 7;
+        trigger_type = tvb_get_uint8(tvb, offset) >> 7;
         offset++;
         offset+=dissect_sensor_cadence(sub_tree, tvb, offset, property_id, trigger_type, &sensor_cadence_status_hfs);
         break;
@@ -7288,7 +7284,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_set_sensor_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_set_sensor_setting_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_sensor_setting_set_sensor_setting_raw, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
@@ -7296,7 +7292,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_set_unacknowledged_sensor_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_set_unacknowledged_sensor_setting_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_btmesh_property(sub_tree, hf_btmesh_sensor_setting_set_unacknowledged_sensor_setting_raw, tvb, offset, property_id, PROPERTY_LENGTH_NO_HINT);
         break;
@@ -7304,7 +7300,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_status_sensor_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
         offset+=2;
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_setting_status_sensor_setting_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         //Optional
         if (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7334,24 +7330,24 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
                 proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_sensor_status_mpid_format_b_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN, &mpid_property_id);
                 offset+=2;
             }
-            offset+=dissect_btmesh_property(sub_tree, hf_btmesh_sensor_status_raw_value, tvb, offset, (guint16)mpid_property_id, mpid_length);
+            offset+=dissect_btmesh_property(sub_tree, hf_btmesh_sensor_status_raw_value, tvb, offset, (uint16_t)mpid_property_id, mpid_length);
         }
         break;
     case SENSOR_COLUMN_GET:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_column_get_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_columns_raw_value(sub_tree, tvb, offset, property_id, &sensor_column_get_hfs);
         break;
     case SENSOR_COLUMN_STATUS:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_column_status_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         offset+=dissect_property_raw_value_entry(sub_tree, tvb, offset, property_id, &sensor_column_status_hfs);
         break;
     case SENSOR_SERIES_GET:
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_series_get_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         // Optional
         if (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7361,7 +7357,7 @@ dissect_btmesh_model_layer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     case SENSOR_SERIES_STATUS:
         //first property_id is manadatory
         proto_tree_add_item(sub_tree, hf_btmesh_sensor_series_status_property_id, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-        property_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+        property_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
         offset+=2;
         //Optional, dissect one or more values
         while (tvb_reported_length_remaining(tvb, offset) > 0) {
@@ -7395,11 +7391,11 @@ dissect_btmesh_access_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 }
 
 static void
-dissect_btmesh_transport_control_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, guint32 opcode)
+dissect_btmesh_transport_control_message(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset, uint32_t opcode)
 {
     proto_tree *sub_tree;
 
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s",
+    col_append_str(pinfo->cinfo, COL_INFO,
         val_to_str_const(opcode, btmesh_ctrl_opcode_vals, "Control Message Unknown"));
 
     sub_tree = proto_tree_add_subtree_format(tree, tvb, offset, -1, ett_btmesh_transp_ctrl_msg, NULL, "Transport Control Message %s",
@@ -7529,41 +7525,41 @@ dissect_btmesh_transport_control_message(tvbuff_t *tvb, packet_info *pinfo, prot
     }
 }
 
-static gboolean
-try_access_decrypt(tvbuff_t *tvb, int offset, guint8 *decrypted_data, int enc_data_len, guint8 *key, network_decryption_ctx_t *dec_ctx)
+static bool
+try_access_decrypt(tvbuff_t *tvb, int offset, uint8_t *decrypted_data, int enc_data_len, uint8_t *key, network_decryption_ctx_t *dec_ctx)
 {
-    guint8 accessnonce[13];
+    uint8_t accessnonce[13];
     gcry_cipher_hd_t cipher_hd;
     gcry_error_t gcrypt_err;
-    guint64 ccm_lengths[3];
-    guint8 *tag;
+    uint64_t ccm_lengths[3];
+    uint8_t *tag;
 
     accessnonce[0] = dec_ctx->app_nonce_type;
     accessnonce[1] = (dec_ctx->transmic_size == 4 ? 0x00 : 0x80 );
-    memcpy((guint8 *)&accessnonce + 2, dec_ctx->seq_src_buf, 5);
+    memcpy((uint8_t *)&accessnonce + 2, dec_ctx->seq_src_buf, 5);
     if (dec_ctx->seg) {
         accessnonce[2] = (dec_ctx->seqzero & 0xff0000 ) >> 16;
         accessnonce[3] = (dec_ctx->seqzero & 0x00ff00 ) >> 8;
         accessnonce[4] = (dec_ctx->seqzero & 0x0000ff );
     }
-    memcpy((guint8 *)&accessnonce + 7, dec_ctx->dst_buf, sizeof(dec_ctx->dst_buf));
-    memcpy((guint8 *)&accessnonce + 9, dec_ctx->ivindex_buf, sizeof(dec_ctx->ivindex_buf));
+    memcpy((uint8_t *)&accessnonce + 7, dec_ctx->dst_buf, sizeof(dec_ctx->dst_buf));
+    memcpy((uint8_t *)&accessnonce + 9, dec_ctx->ivindex_buf, sizeof(dec_ctx->ivindex_buf));
 
     /* Decrypt packet EXPERIMENTAL CODE */
     if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CCM, 0)) {
-        return FALSE;
+        return false;
     }
     /* Set key */
     gcrypt_err = gcry_cipher_setkey(cipher_hd, key, 16);
     if (gcrypt_err != 0) {
         gcry_cipher_close(cipher_hd);
-        return FALSE;
+        return false;
     }
    /* Load nonce */
     gcrypt_err = gcry_cipher_setiv(cipher_hd, &accessnonce, 13);
     if (gcrypt_err != 0) {
         gcry_cipher_close(cipher_hd);
-        return FALSE;
+        return false;
     }
     ccm_lengths[0] = enc_data_len;
     ccm_lengths[1] = (dec_ctx->label_uuid_idx == NO_LABEL_UUID_IDX_USED ? 0 : 16);
@@ -7572,14 +7568,14 @@ try_access_decrypt(tvbuff_t *tvb, int offset, guint8 *decrypted_data, int enc_da
     gcrypt_err = gcry_cipher_ctl(cipher_hd, GCRYCTL_SET_CCM_LENGTHS, ccm_lengths, sizeof(ccm_lengths));
     if (gcrypt_err != 0) {
         gcry_cipher_close(cipher_hd);
-        return FALSE;
+        return false;
     }
 
     if (dec_ctx->label_uuid_idx != NO_LABEL_UUID_IDX_USED) {
         gcrypt_err = gcry_cipher_authenticate(cipher_hd, uat_btmesh_label_uuid_records[dec_ctx->label_uuid_idx].label_uuid, 16);
         if (gcrypt_err != 0) {
             gcry_cipher_close(cipher_hd);
-            return FALSE;
+            return false;
         }
     }
 
@@ -7587,23 +7583,23 @@ try_access_decrypt(tvbuff_t *tvb, int offset, guint8 *decrypted_data, int enc_da
     gcrypt_err = gcry_cipher_decrypt(cipher_hd, decrypted_data, enc_data_len, tvb_get_ptr(tvb, offset, enc_data_len), enc_data_len);
     if (gcrypt_err != 0) {
         gcry_cipher_close(cipher_hd);
-        return FALSE;
+        return false;
     }
 
-    tag = (guint8 *)wmem_alloc(wmem_packet_scope(), dec_ctx->transmic_size);
+    tag = (uint8_t *)wmem_alloc(wmem_packet_scope(), dec_ctx->transmic_size);
     gcrypt_err = gcry_cipher_gettag(cipher_hd, tag, dec_ctx->transmic_size);
     gcry_cipher_close(cipher_hd);
 
     if (gcrypt_err != 0 || memcmp(tag, tvb_get_ptr(tvb, offset + enc_data_len, dec_ctx->transmic_size), dec_ctx->transmic_size)) {
         /* Tag mismatch or cipher error */
-        return FALSE;
+        return false;
     }
     /* Tag authenticated */
-    return TRUE;
+    return true;
 }
 
-static guint
-check_address_type(guint32 btmesh_address)
+static unsigned
+check_address_type(uint32_t btmesh_address)
 {
     if (btmesh_address & 0x8000 ) {
         if (btmesh_address & 0x4000) {
@@ -7621,15 +7617,15 @@ check_address_type(guint32 btmesh_address)
 static tvbuff_t *
 btmesh_access_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, int offset, network_decryption_ctx_t *dec_ctx)
 {
-    guint i, j, dst_address_type;
+    unsigned i, j, dst_address_type;
     uat_btmesh_record_t *record;
     uat_btmesh_dev_key_record_t *dev_record;
     uat_btmesh_label_uuid_record_t *label_record;
     int enc_data_len;
-    guint8 *decrypted_data;
+    uint8_t *decrypted_data;
 
     enc_data_len = tvb_reported_length_remaining(tvb, offset) - dec_ctx->transmic_size;
-    decrypted_data = (guint8 *)wmem_alloc(pinfo->pool, enc_data_len);
+    decrypted_data = (uint8_t *)wmem_alloc(pinfo->pool, enc_data_len);
     dec_ctx->label_uuid_idx = NO_LABEL_UUID_IDX_USED;
 
     if (enc_data_len <= 0) {
@@ -7725,13 +7721,13 @@ dissect_btmesh_transport_access_message(tvbuff_t *tvb, packet_info *pinfo, proto
 }
 
 static void
-dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean cntrl, network_decryption_ctx_t *dec_ctx)
+dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool cntrl, network_decryption_ctx_t *dec_ctx)
 {
     proto_tree *sub_tree;
     proto_item *ti;
     int offset = 0;
-    guint32 seg, opcode, rfu;
-    guint32 seqzero, sego, segn;
+    uint32_t seg, opcode, rfu;
+    uint32_t seqzero, sego, segn;
 
     /* We receive the full decrypted buffer including DST, skip to opcode */
     offset += 2;
@@ -7777,7 +7773,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                 frg_key.seq0 = dec_ctx->seqzero;
 
                 if (!pinfo->fd->visited) {
-                    guint32 total_length = 0;
+                    uint32_t total_length = 0;
                     if (segn == sego) {
                         total_length = segn * 8 + tvb_captured_length_remaining(tvb, offset);
                     }
@@ -7793,7 +7789,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                                 BTMESH_NOT_USED, &frg_key,
                                 8 * sego,
                                 tvb_captured_length_remaining(tvb, offset),
-                                ( segn == 0 ? FALSE : TRUE) );
+                                ( segn == 0 ? false : true) );
 
                     if ((!fd_head) && (total_length)) {
                         fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
@@ -7816,7 +7812,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         } else {
             if (opcode == 0) {
                 col_clear(pinfo->cinfo, COL_INFO);
-                col_append_fstr(pinfo->cinfo, COL_INFO, "%s",
+                col_append_str(pinfo->cinfo, COL_INFO,
                     val_to_str_const(opcode, btmesh_ctrl_opcode_vals, "Control Message Unknown"));
                 /* OBO 1 */
                 proto_tree_add_item(sub_tree, hf_btmesh_obo, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -7833,7 +7829,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
         }
     } else {
         /* Access message */
-        guint32 afk, aid, szmic;
+        uint32_t afk, aid, szmic;
         /* Access message */
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_acc_seg, tvb, offset, 1, ENC_BIG_ENDIAN, &seg);
         /* AKF 1 Application Key Flag */
@@ -7884,7 +7880,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                 frg_key.seq0 = dec_ctx->seqzero;
 
                 if (!pinfo->fd->visited) {
-                    guint32 total_length = 0;
+                    uint32_t total_length = 0;
                     if (segn == sego) {
                         total_length = segn * 12 + tvb_captured_length_remaining(tvb, offset);
                     }
@@ -7900,7 +7896,7 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
                                 BTMESH_NOT_USED, &frg_key,
                                 12 * sego,
                                 tvb_captured_length_remaining(tvb, offset),
-                                ( segn == 0 ? FALSE : TRUE) );
+                                ( segn == 0 ? false : true) );
 
                     if ((!fd_head) && (total_length)) {
                         fragment_set_tot_len(&upper_transport_reassembly_table, pinfo, BTMESH_NOT_USED, &frg_key, total_length);
@@ -7930,20 +7926,20 @@ dissect_btmesh_transport_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 }
 
 tvbuff_t *
-btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **decrypted_data, int *enc_data_len, network_decryption_ctx_t *dec_ctx) {
-    guint i;
-    guint8 nid;
+btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, uint8_t **decrypted_data, int *enc_data_len, network_decryption_ctx_t *dec_ctx) {
+    unsigned i;
+    uint8_t nid;
     int offset = 0;
     tvbuff_t *de_obf_tvb;
-    guint8 networknonce[13];
+    uint8_t networknonce[13];
     uat_btmesh_record_t *record;
     gcry_cipher_hd_t cipher_hd;
-    guint32 net_mic_size;
+    uint32_t net_mic_size;
     gcry_error_t gcrypt_err;
-    guint64 ccm_lengths[3];
+    uint64_t ccm_lengths[3];
     int enc_offset;
 
-    nid = tvb_get_guint8(tvb, offset) & 0x7f;
+    nid = tvb_get_uint8(tvb, offset) & 0x7f;
 
     /* Get the next record to try */
     for (i = 0; i < num_btmesh_uat; i++) {
@@ -7955,23 +7951,23 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
             if (de_obf_tvb == NULL) {
                 continue;
             }
-            net_mic_size = (((tvb_get_guint8(de_obf_tvb, 0) & 0x80) >> 7 ) + 1 ) * 4; /* CTL */
+            net_mic_size = (((tvb_get_uint8(de_obf_tvb, 0) & 0x80) >> 7 ) + 1 ) * 4; /* CTL */
             offset +=6;
 
             (*enc_data_len) = tvb_reported_length(tvb) - offset - net_mic_size;
             enc_offset = offset;
 
-            /* Start setting network nounce.*/
+            /* Start setting network nonce.*/
             networknonce[0] = dec_ctx->net_nonce_type; /* Nonce Type */
 
-            tvb_memcpy(de_obf_tvb, (guint8 *)&networknonce + 1, 0, 6);
+            tvb_memcpy(de_obf_tvb, (uint8_t *)&networknonce + 1, 0, 6);
             if (dec_ctx->net_nonce_type == BTMESH_NONCE_TYPE_PROXY) {
                 networknonce[1] = 0x00;    /*Pad*/
             }
             networknonce[7] = 0x00;    /*Pad*/
             networknonce[8] = 0x00;    /*Pad*/
 
-            memcpy((guint8 *)&networknonce + 9, record->ivindex, 4);
+            memcpy((uint8_t *)&networknonce + 9, record->ivindex, 4);
             /* Decrypt packet EXPERIMENTAL CODE */
             if (gcry_cipher_open(&cipher_hd, GCRY_CIPHER_AES128, GCRY_CIPHER_MODE_CCM, 0)) {
                 return NULL;
@@ -8000,7 +7996,7 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
                 continue;
             }
 
-            (*decrypted_data) = (guint8 *)wmem_alloc(pinfo->pool, *enc_data_len);
+            (*decrypted_data) = (uint8_t *)wmem_alloc(pinfo->pool, *enc_data_len);
             /* Decrypt */
             gcrypt_err = gcry_cipher_decrypt(cipher_hd, (*decrypted_data), *enc_data_len, tvb_get_ptr(tvb, enc_offset, *enc_data_len), *enc_data_len);
             if (gcrypt_err != 0) {
@@ -8008,8 +8004,8 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
                 continue;
             }
 
-            guint8 *tag;
-            tag = (guint8 *)wmem_alloc(pinfo->pool, net_mic_size);
+            uint8_t *tag;
+            tag = (uint8_t *)wmem_alloc(pinfo->pool, net_mic_size);
             gcrypt_err = gcry_cipher_gettag(cipher_hd, tag, net_mic_size);
 
             if (gcrypt_err == 0 && !memcmp(tag, tvb_get_ptr(tvb, enc_offset + (*enc_data_len), net_mic_size), net_mic_size)) {
@@ -8031,18 +8027,18 @@ btmesh_network_find_key_and_decrypt(tvbuff_t *tvb, packet_info *pinfo, guint8 **
     return NULL;
 }
 
-static gint
+static int
 dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     proto_item *item;
     proto_tree *netw_tree, *sub_tree;
     int offset = 0;
-    guint32 net_mic_size, seq, src, dst;
+    uint32_t net_mic_size, seq, src, dst;
     int enc_data_len = 0;
     tvbuff_t *de_obf_tvb;
     tvbuff_t *de_cry_tvb;
     int decry_off;
-    guint8 *decrypted_data = NULL;
+    uint8_t *decrypted_data = NULL;
     network_decryption_ctx_t *dec_ctx;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "BT Mesh");
@@ -8066,7 +8062,7 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     if (de_obf_tvb) {
         add_new_data_source(pinfo, de_obf_tvb, "Deobfuscated data");
 
-        gboolean cntrl;
+        bool cntrl;
 
         /* CTL 1 bit Network Control*/
         proto_tree_add_item_ret_uint(sub_tree, hf_btmesh_ctl, de_obf_tvb, 0, 1, ENC_BIG_ENDIAN, &net_mic_size);
@@ -8116,17 +8112,17 @@ dissect_btmesh_msg(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     return offset;
 }
 
-static gint
-compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, guint expected_octets, char **err)
+static int
+compute_ascii_key(unsigned char **ascii_key, const char *key, const char *key_name, unsigned expected_octets, char **err)
 {
-    guint key_len = 0, raw_key_len;
-    gint hex_digit;
-    guchar key_byte;
-    guint i, j;
+    unsigned key_len = 0, raw_key_len;
+    int hex_digit;
+    unsigned char key_byte;
+    unsigned i, j;
 
     if (key != NULL)
     {
-        raw_key_len = (guint)strlen(key);
+        raw_key_len = (unsigned)strlen(key);
         if (((raw_key_len == expected_octets * 2 + 2) || (raw_key_len == expected_octets * 2 + 1)) &&
             (key[0] == '0')
             && ((key[1] == 'x') || (key[1] == 'X')))
@@ -8145,7 +8141,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, g
                  * number of characters even.
                  */
                 key_len = (raw_key_len - 2) / 2 + 1;
-                *ascii_key = (guchar *)g_malloc((key_len + 1) * sizeof(gchar));
+                *ascii_key = (unsigned char *)g_malloc((key_len + 1) * sizeof(char));
                 hex_digit = g_ascii_xdigit_value(key[i]);
                 i++;
                 if (hex_digit == -1)
@@ -8155,7 +8151,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, g
                     *err = ws_strdup_printf("Key %s begins with an invalid hex char (%c)", key, key[i]);
                     return -1;    /* not a valid hex digit */
                 }
-                (*ascii_key)[j] = (guchar)hex_digit;
+                (*ascii_key)[j] = (unsigned char)hex_digit;
                 j++;
             }
             else
@@ -8165,7 +8161,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, g
                  * pair of hex digits as a single byte value.
                  */
                 key_len = (raw_key_len - 2) / 2;
-                *ascii_key = (guchar *)g_malloc((key_len + 1) * sizeof(gchar));
+                *ascii_key = (unsigned char *)g_malloc((key_len + 1) * sizeof(char));
             }
             while (i < (raw_key_len - 1))
             {
@@ -8178,7 +8174,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, g
                     *err = ws_strdup_printf("%s %s has an invalid hex char (%c)", key_name, key, key[i-1]);
                     return -1;    /* not a valid hex digit */
                 }
-                key_byte = ((guchar)hex_digit) << 4;
+                key_byte = ((unsigned char)hex_digit) << 4;
                 hex_digit = g_ascii_xdigit_value(key[i]);
                 i++;
                 if (hex_digit == -1)
@@ -8188,7 +8184,7 @@ compute_ascii_key(guchar **ascii_key, const gchar *key, const gchar *key_name, g
                     *err = ws_strdup_printf("%s %s has an invalid hex char (%c)", key_name, key, key[i-1]);
                     return -1;    /* not a valid hex digit */
                 }
-                key_byte |= (guchar)hex_digit;
+                key_byte |= (unsigned char)hex_digit;
                 (*ascii_key)[j] = key_byte;
                 j++;
             }
@@ -8214,11 +8210,11 @@ uat_btmesh_record_update_cb(void *r, char **err)
         g_free(rec->network_key);
         rec->network_key_length = compute_ascii_key(&rec->network_key, rec->network_key_string, "Network Key", 16, err);
         g_free(rec->encryptionkey);
-        rec->encryptionkey = g_new(guint8, 16);
-        memset(rec->encryptionkey, 0, 16 * sizeof(guint8));
+        rec->encryptionkey = g_new(uint8_t, 16);
+        memset(rec->encryptionkey, 0, 16 * sizeof(uint8_t));
         g_free(rec->privacykey);
-        rec->privacykey = g_new(guint8, 16);
-        if (*err == NULL && create_master_security_keys(rec)) {
+        rec->privacykey = g_new(uint8_t, 16);
+        if (*err == NULL && create_central_security_keys(rec)) {
             rec->valid++;
         }
     } else {
@@ -8245,9 +8241,9 @@ uat_btmesh_record_update_cb(void *r, char **err)
     }
     if (rec->valid == BTMESH_KEY_ENTRY_VALID - 1) {
         /* Compute net_key_index_hash */
-        const guint8 hash_buf_len = 16 + 4;
-        guint idx=0;
-        guint8* hash_buf = (guint8 *)g_malloc(hash_buf_len);
+        const uint8_t hash_buf_len = 16 + 4;
+        unsigned idx=0;
+        uint8_t* hash_buf = (uint8_t *)g_malloc(hash_buf_len);
         memcpy(hash_buf, rec->encryptionkey, 16);
         idx += 16;
         memcpy(&hash_buf[idx], rec->ivindex, 4);
@@ -8604,7 +8600,7 @@ proto_register_btmesh(void)
         },
         { &hf_btmesh_cntr_receivewindow,
             { "ReceiveWindow", "btmesh.cntr.receivewindow",
-                FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_milliseconds, 0x0,
+                FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_milliseconds), 0x0,
                 NULL, HFILL }
         },
         { &hf_btmesh_cntr_queuesize,
@@ -8721,7 +8717,7 @@ proto_register_btmesh(void)
         { &hf_btmesh_segmented_access_fragments,
             { "Reassembled Segmented Access Message Fragments", "btmesh.segmented.access.fragments",
                 FT_NONE, BASE_NONE, NULL, 0x0,
-                "Segmented Access Message Fragments", HFILL }
+                NULL, HFILL }
         },
         { &hf_btmesh_segmented_access_fragment,
             { "Segmented Access Message Fragment", "btmesh.segmented.access.fragment",
@@ -13542,7 +13538,7 @@ proto_register_btmesh(void)
         },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_btmesh,
         &ett_btmesh_net_pdu,
         &ett_btmesh_transp_pdu,
@@ -13630,7 +13626,7 @@ proto_register_btmesh(void)
     btmesh_uat = uat_new("BTMesh Network and Application keys",
         sizeof(uat_btmesh_record_t),    /* record size */
         "btmesh_nw_keys",               /* filename */
-        TRUE,                           /* from_profile */
+        true,                           /* from_profile */
         &uat_btmesh_records,            /* data_ptr */
         &num_btmesh_uat,                /* numitems_ptr */
         UAT_AFFECTS_DISSECTION,         /* affects dissection of packets, but not set of named fields */
@@ -13651,7 +13647,7 @@ proto_register_btmesh(void)
     btmesh_dev_key_uat = uat_new("BTMesh Device keys",
         sizeof(uat_btmesh_dev_key_record_t),  /* record size */
         "btmesh_dev_keys",                    /* filename */
-        TRUE,                                 /* from_profile */
+        true,                                 /* from_profile */
         &uat_btmesh_dev_key_records,          /* data_ptr */
         &num_btmesh_dev_key_uat,              /* numitems_ptr */
         UAT_AFFECTS_DISSECTION,               /* affects dissection of packets, but not set of named fields */
@@ -13672,7 +13668,7 @@ proto_register_btmesh(void)
     btmesh_label_uuid_uat = uat_new("BTMesh Label UUIDs",
         sizeof(uat_btmesh_label_uuid_record_t),  /* record size */
         "btmesh_label_uuids",                    /* filename */
-        TRUE,                                    /* from_profile */
+        true,                                    /* from_profile */
         &uat_btmesh_label_uuid_records,          /* data_ptr */
         &num_btmesh_label_uuid_uat,              /* numitems_ptr */
         UAT_AFFECTS_DISSECTION,                  /* affects dissection of packets, but not set of named fields */
@@ -13694,7 +13690,7 @@ proto_register_btmesh(void)
 
     register_dissector("btmesh.msg", dissect_btmesh_msg, proto_btmesh);
 
-    register_init_routine(&upper_transport_init_routine);
+    reassembly_table_register(&upper_transport_reassembly_table, &upper_transport_reassembly_table_functions);
 }
 
 /*

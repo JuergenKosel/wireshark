@@ -30,8 +30,11 @@ public:
         DP_HexDump,
         DP_HexOnly,
         DP_HexStream,
+        DP_UTF8Text,
+        DP_ASCIIText,
         DP_CString,
         DP_GoLiteral,
+        DP_CArray,
         DP_MimeData,
         DP_Base64
     };

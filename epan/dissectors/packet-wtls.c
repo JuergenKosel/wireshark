@@ -104,12 +104,12 @@ static int hf_wtls_alert_level;
 static int hf_wtls_alert_description;
 
 /* Initialize the subtree pointers */
-static gint ett_wtls;
-static gint ett_wtls_rec;
-static gint ett_wtls_msg_type;
-static gint ett_wtls_msg_type_item;
-static gint ett_wtls_msg_type_item_sub;
-static gint ett_wtls_msg_type_item_sub_sub;
+static int ett_wtls;
+static int ett_wtls_rec;
+static int ett_wtls_msg_type;
+static int ett_wtls_msg_type_item;
+static int ett_wtls_msg_type_item_sub;
+static int ett_wtls_msg_type_item_sub_sub;
 
 static const value_string wtls_vals_record_type[] = {
 	{ 1, "change_cipher_data" },
@@ -303,7 +303,7 @@ static value_string_ext wtls_vals_alert_description_ext = VALUE_STRING_EXT_INIT(
 #define PUBLIC_KEY_ECDH			 3
 #define PUBLIC_KEY_ECDSA		 4
 
-static void dissect_wtls_handshake (proto_tree *, tvbuff_t *, guint, guint);
+static void dissect_wtls_handshake (proto_tree *, tvbuff_t *, unsigned, unsigned);
 
 /* Code to actually dissect the packets */
 static int
@@ -312,8 +312,8 @@ dissect_wtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 	int offset = 0;
 
 	char pdut;
-	guint count = 0;
-	guint offset_wtls = 0;
+	unsigned count = 0;
+	unsigned offset_wtls = 0;
 
 /* Set up structures we will need to add the protocol subtree and manage it */
 	proto_item *ti;
@@ -343,7 +343,7 @@ dissect_wtls(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
 		wtls_tree = proto_item_add_subtree(ti, ett_wtls);
 
 		for (offset_wtls=0; offset_wtls < (tvb_reported_length(tvb)-1);) {
-			pdut = tvb_get_guint8 (tvb, offset_wtls);
+			pdut = tvb_get_uint8 (tvb, offset_wtls);
 
 			offset = offset_wtls+1;
 
@@ -420,12 +420,12 @@ static int
 add_text_identifier(tvbuff_t *tvb, int offset, int hf_charset,
 		    int hf_size, int hf_str, proto_tree *tree)
 {
-	guint8 size;
+	uint8_t size;
 	int client_size = 0;
 
 	proto_tree_add_item(tree, hf_charset, tvb, offset, 2, ENC_BIG_ENDIAN);
 	offset+=2;
-	size = tvb_get_guint8 (tvb, offset);
+	size = tvb_get_uint8 (tvb, offset);
 	proto_tree_add_item(tree, hf_size, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
 	proto_tree_add_item(tree, hf_str, tvb, offset, size, ENC_BIG_ENDIAN);
@@ -441,17 +441,17 @@ add_text_identifier(tvbuff_t *tvb, int offset, int hf_charset,
 static int
 add_session_id(proto_tree *tree, int hf, int hf_str, tvbuff_t *tvb, int offset)
 {
-	guint count;
-	guint i;
-	guint64 session_id;
+	unsigned count;
+	unsigned i;
+	uint64_t session_id;
 
-	count = tvb_get_guint8(tvb, offset);
+	count = tvb_get_uint8(tvb, offset);
 	if (count == 0)
 		proto_tree_add_string (tree, hf_str, tvb, offset, count+1, "NULL");
 	else if (count <= 8) {
 		session_id = 0;
 		for (i = 0; i < count; i++)
-			session_id = (session_id << 8) | tvb_get_guint8(tvb, offset + i);
+			session_id = (session_id << 8) | tvb_get_uint8(tvb, offset + i);
 		proto_tree_add_uint64 (tree, hf, tvb, offset, count+1, session_id);
 	} else {
 		proto_tree_add_item(tree, hf, tvb, offset, count+1, ENC_NA);
@@ -460,13 +460,13 @@ add_session_id(proto_tree *tree, int hf, int hf_str, tvbuff_t *tvb, int offset)
 }
 
 static void
-dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint count)
+dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, unsigned offset, unsigned count)
 {
 	char pdu_msg_type;
 	int client_size = 0;
-	guint value = 0;
+	unsigned value = 0;
 	int size = 0;
-	guint public_key = 0;
+	unsigned public_key = 0;
 	char valStr[1024];
 	const char *valBulk = NULL;
 	const char *valMac = NULL;
@@ -478,7 +478,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 	proto_tree *wtls_msg_type_item_sub_tree;
 	proto_tree *wtls_msg_type_item_sub_sub_tree;
 
-	pdu_msg_type = tvb_get_guint8 (tvb, offset);
+	pdu_msg_type = tvb_get_uint8 (tvb, offset);
 	ti = proto_tree_add_uint(tree, hf_wtls_hands, tvb, offset,count, pdu_msg_type);
 	wtls_msg_type_tree = proto_item_add_subtree(ti, ett_wtls_msg_type);
 
@@ -524,7 +524,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 			/* cycle through client_key_ids entries */
 			for (;count > 0;count-=client_size) {
 				/* get encryption suite id (one byte) */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				cli_key_item = proto_tree_add_uint(wtls_msg_type_item_sub_tree,
 						hf_wtls_hands_cli_hello_key_exchange, tvb, offset,1,
 						value);
@@ -540,7 +540,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 #endif /* DEBUG */
 
 				/* get parameter index (one byte) */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 					hf_wtls_hands_cli_hello_key_parameter_index,
 					tvb,offset,1,ENC_BIG_ENDIAN);
@@ -561,7 +561,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 				}
 
 				/* get identifier type */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 						hf_wtls_hands_cli_hello_key_identifier_type,
 						tvb,offset,1,ENC_BIG_ENDIAN);
@@ -588,7 +588,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 						break;
 					case IDENTIFIER_BIN :
 						/* binary identifier */
-						size = tvb_get_guint8 (tvb, offset);
+						size = tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 								hf_wtls_hands_cli_hello_key_identifier_size,
 								tvb,offset,1,ENC_BIG_ENDIAN);
@@ -618,7 +618,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 					case IDENTIFIER_X509 :
 						/* X.509 distinguished name */
 						/* not tested */
-						size = tvb_get_guint8 (tvb, offset);
+						size = tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 								hf_wtls_hands_cli_hello_key_identifier_size,
 								tvb,offset,1,ENC_BIG_ENDIAN);
@@ -653,7 +653,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 			offset+=2;
 			for (;count > 0;count-=client_size) {
 				/* get encryption suite id (one byte) */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				cli_key_item = proto_tree_add_uint(wtls_msg_type_item_sub_tree,
 						hf_wtls_hands_cli_hello_key_exchange, tvb, offset,1,
 						value);
@@ -669,7 +669,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 #endif /* DEBUG */
 
 				/* get parameter index (one byte) */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 					hf_wtls_hands_cli_hello_key_parameter_index,
 					tvb,offset,1,ENC_BIG_ENDIAN);
@@ -690,7 +690,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 				}
 
 				/* get identifier type */
-				value = tvb_get_guint8 (tvb, offset);
+				value = tvb_get_uint8 (tvb, offset);
 				proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 						hf_wtls_hands_cli_hello_key_identifier_type,
 						tvb,offset,1,ENC_BIG_ENDIAN);
@@ -717,7 +717,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 						break;
 					case IDENTIFIER_BIN :
 						/* binary identifier */
-						size = tvb_get_guint8 (tvb, offset);
+						size = tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 								hf_wtls_hands_cli_hello_key_identifier_size,
 								tvb,offset,1,ENC_BIG_ENDIAN);
@@ -747,7 +747,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 					case IDENTIFIER_X509 :
 					 	/* X.509 distinguished name */
 						/* not tested */
-						size = tvb_get_guint8 (tvb, offset);
+						size = tvb_get_uint8 (tvb, offset);
 						/* need to fetch identifier and display it */
 						proto_tree_add_item(wtls_msg_type_item_sub_sub_tree,
 								hf_wtls_hands_cli_hello_key_identifier_size,
@@ -768,18 +768,18 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 			}
 
 			/* process cipher_suites structure */
-			count = tvb_get_guint8 (tvb, offset);
+			count = tvb_get_uint8 (tvb, offset);
 			ti = proto_tree_add_item(wtls_msg_type_item_tree,
 					hf_wtls_hands_cli_hello_cipher_suite, tvb, offset,
 					 count+1, ENC_NA);
 			wtls_msg_type_item_sub_tree = proto_item_add_subtree(ti, ett_wtls_msg_type_item_sub);
 			offset+=1;
 			for (;count > 0;count-=client_size) {
-			       value = tvb_get_guint8 (tvb, offset);
+			       value = tvb_get_uint8 (tvb, offset);
 			       valBulk = try_val_to_str_ext(value, &wtls_vals_cipher_bulk_ext);
 			       offset++;
 			       client_size=1;
-			       valMac = try_val_to_str_ext(tvb_get_guint8 (tvb, offset), &wtls_vals_cipher_mac_ext);
+			       valMac = try_val_to_str_ext(tvb_get_uint8 (tvb, offset), &wtls_vals_cipher_mac_ext);
 			       if (valBulk != NULL)
 			       {
 				       if (valMac != NULL)
@@ -788,7 +788,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 				       }
 				       else
 				       {
-					       snprintf(valStr,1024,"%s, Unknown MAC (0x%02x)",valBulk,tvb_get_guint8 (tvb, offset));
+					       snprintf(valStr,1024,"%s, Unknown MAC (0x%02x)",valBulk,tvb_get_uint8 (tvb, offset));
 				       }
 			       }
 			       else
@@ -800,7 +800,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 				       else
 				       {
 					       snprintf(valStr,1024,"Unknown Bulk (0x%02x), Unknown MAC (0x%02x)",value,
-							       tvb_get_guint8 (tvb, offset));
+							       tvb_get_uint8 (tvb, offset));
 				       }
 				}
 				offset++;
@@ -809,7 +809,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 						      hf_wtls_hands_cli_hello_cipher_suite_item, tvb, offset-2,2,
 						      valStr);
 			}
-			count = tvb_get_guint8 (tvb, offset);
+			count = tvb_get_uint8 (tvb, offset);
 			ti = proto_tree_add_item(wtls_msg_type_item_tree,
 					hf_wtls_hands_cli_hello_compression_methods, tvb, offset,
 					 count+1, ENC_NA);
@@ -892,7 +892,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 				wtls_msg_type_item_sub_tree = proto_item_add_subtree(cli_key_item,
 								  ett_wtls_msg_type_item_sub);
 				proto_item_set_len(cli_key_item, client_size);
-				value =  tvb_get_guint8 (tvb, offset);
+				value =  tvb_get_uint8 (tvb, offset);
 				proto_tree_add_item(wtls_msg_type_item_sub_tree,
 						hf_wtls_hands_certificate_type, tvb, offset,1,
 						ENC_LITTLE_ENDIAN);
@@ -912,7 +912,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 							ENC_LITTLE_ENDIAN);
 						offset++;
 						client_size++;
-						value =  tvb_get_guint8 (tvb, offset);
+						value =  tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_tree,
 							hf_wtls_hands_certificate_wtls_issuer_type,
 							tvb, offset,1,
@@ -948,7 +948,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 								tvb, offset, 4, ENC_TIME_SECS|ENC_BIG_ENDIAN);
 						offset+=4;
 						client_size+=4;
-						value =  tvb_get_guint8 (tvb, offset);
+						value =  tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_tree,
 							hf_wtls_hands_certificate_wtls_subject_type,
 							tvb, offset,1,
@@ -974,14 +974,14 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 							case IDENTIFIER_X509 :
 								break;
 						}
-						public_key =  tvb_get_guint8 (tvb, offset);
+						public_key =  tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_tree,
 							hf_wtls_hands_certificate_wtls_public_key_type,
 							tvb, offset,1,
 							ENC_LITTLE_ENDIAN);
 						offset++;
 						client_size++;
-						value = tvb_get_guint8 (tvb, offset);
+						value = tvb_get_uint8 (tvb, offset);
 						proto_tree_add_item(wtls_msg_type_item_sub_tree,
 							hf_wtls_hands_certificate_wtls_key_parameter_index,
 							tvb,offset,1,ENC_BIG_ENDIAN);
@@ -1031,7 +1031,7 @@ dissect_wtls_handshake(proto_tree *tree, tvbuff_t *tvb, guint offset, guint coun
 						offset += value;
 						break;
 					case CERTIFICATE_URL:
-						value =  tvb_get_guint8 (tvb, offset);
+						value =  tvb_get_uint8 (tvb, offset);
 						offset++;
 						client_size++;
 						client_size += value;
@@ -1540,7 +1540,7 @@ proto_register_wtls(void)
 	};
 
 /* Setup protocol subtree array */
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_wtls,
 		&ett_wtls_rec,
 		&ett_wtls_msg_type,

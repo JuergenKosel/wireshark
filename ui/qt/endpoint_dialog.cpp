@@ -69,12 +69,18 @@ EndpointDialog::EndpointDialog(QWidget &parent, CaptureFile &cf) :
 {
     trafficList()->setProtocolInfo(table_name_, &(recent.endpoint_tabs));
 
-    trafficTab()->setProtocolInfo(table_name_, trafficList(), &(recent.endpoint_tabs_columns), &createModel);
+    trafficTab()->setProtocolInfo(table_name_, trafficList(), &(recent.endpoint_tabs), &(recent.endpoint_tabs_columns), &createModel);
     trafficTab()->setFilter(cf.displayFilter());
 
     connect(trafficTab(), &TrafficTab::filterAction, this, &EndpointDialog::filterAction);
     connect(trafficTab()->tabBar(), &QTabBar::currentChanged, this, &EndpointDialog::tabChanged);
     connect(trafficTab(), &TrafficTab::tabDataChanged, this, &EndpointDialog::tabChanged);
+
+    aggregated_ck_ = new QCheckBox(tr("Hide aggregated"));
+    aggregated_ck_->setToolTip(tr("Hide IPv4 aggregated endpoints (see subnets file & IPv4 preferences)"));
+
+    getVerticalLayout()->insertWidget(3, aggregated_ck_ , 0);
+    connect( aggregated_ck_ , &QCheckBox::toggled, this, &EndpointDialog::aggregationToggled);
 
 #ifdef HAVE_MAXMINDDB
     map_bt_ = buttonBox()->addButton(tr("Map"), QDialogButtonBox::ActionRole);
@@ -110,6 +116,46 @@ void EndpointDialog::tabChanged(int idx)
 #else
     Q_UNUSED(idx);
 #endif
+
+
+    // By default we'll open the last known opened tab from the Profile
+    GList *selected_tab = NULL;
+
+    if (!file_closed_) {
+        QVariant current_tab_var = trafficTab()->tabBar()->tabData(trafficTab()->currentIndex());
+        if (!current_tab_var.isNull()) {
+            TabData current_tab_data = qvariant_cast<TabData>(current_tab_var);
+
+            /* enable/disable the Hide Aggregation checkbox for IPv4 */
+            // XXX - Maybe we can find a better way not relying on the protoname
+            unsigned is_pref_set = 0;
+            module_t *ip_module = prefs_find_module("ip");
+            if (ip_module) {
+                is_pref_set = prefs_get_uint_value("ip", "conv_agg_flag");
+            }
+
+            QString protoname = proto_get_protocol_short_name(find_protocol_by_id(current_tab_data.protoId()));
+            if(is_pref_set && protoname.toUtf8().data()== QString("IPv4")) {
+                aggregated_ck_ ->setEnabled(true);
+            }
+            else {
+                aggregated_ck_ ->setEnabled(false);
+            }
+
+            for (GList * endTab = recent.endpoint_tabs; endTab; endTab = endTab->next) {
+                int protoId = proto_get_id_by_short_name((const char *)endTab->data);
+                if ((protoId > -1) && (protoId==current_tab_data.protoId())) {
+                    selected_tab = endTab;
+                }
+            }
+
+            // Move the selected tab to the head
+            if (selected_tab != nullptr) {
+                recent.endpoint_tabs = g_list_remove_link(recent.endpoint_tabs, selected_tab);
+                recent.endpoint_tabs = g_list_prepend(recent.endpoint_tabs, selected_tab->data);
+            }
+        }
+    }
 
     TrafficTableDialog::currentTabChanged();
 }
@@ -148,6 +194,20 @@ void EndpointDialog::saveMap()
 void EndpointDialog::on_buttonBox_helpRequested()
 {
     mainApp->helpTopicAction(HELP_STATS_ENDPOINTS_DIALOG);
+}
+
+void EndpointDialog::aggregationToggled(bool checked)
+{
+    if (!cap_file_.isValid()) {
+        return;
+    }
+
+    ATapDataModel * atdm = trafficTab()->dataModelForTabIndex(1);
+    if(atdm) {
+        atdm->updateFlags(checked);
+    }
+
+    cap_file_.retapPackets();
 }
 
 void init_endpoint_table(struct register_ct* ct, const char *filter)

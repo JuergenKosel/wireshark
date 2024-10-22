@@ -12,6 +12,7 @@
  * Copyright 2017, Adam Wujek <adam.wujek@cern.ch>
  * Copyright 2022, Dr. Lars Voelker <lars.voelker@technica-engineering.de>
  * Copyright 2023, Adam Wujek <dev_public@wujek.eu> for CERN
+ * Copyright 2024, Patrik Thunström <patrik.thunstroem@technica-engineering.de>
  *
  * Revisions:
  * - Markus Seehofer 09.08.2005 <mseehofe@nt.hirschmann.de>
@@ -26,7 +27,7 @@
  *   - Added support for 802.1AS D7.0
  * - Andreas Bachmann 08.07.2013 <bacr@zhaw.ch>
  *   - allow multiple TLVs
- *   - bugfix in logInterMessagePeriod guint8 -> gint8
+ *   - bugfix in logInterMessagePeriod uint8_t -> int8_t
  * - Uli Heilmeier 21.03.2016 <uh@heilmeier.eu>
  *   - Added support for SMPTE TLV
  * - Adam Wujek 17.10.2017 <adam.wujek@cern.ch>
@@ -37,6 +38,13 @@
  *   - Added analysis support
  * - Adam Wujek 28.08.2023 <dev_public@wujek.eu>
  *   - Added support for L1Sync
+ * - Patrik Thunström 27.01.2024 <patrik.thunstroem@technica-engineering.de>
+ *   - Improvements/corrections for cumulativeScaledRateOffset
+ * - Prashant Tripathi 31-07-2024 <prashant_tripathi@selinc.com>
+ *   - Corrections to timeOfNextJump field in ATOI TLV
+ * - Patrik Thunström 24.09.2024 <patrik.thunstroem@technica-engineering.de>
+ *   - Fix analysis association (Sync to Follow_Up etc.) in case of sequenceId resets
+
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
  * Copyright 1998 Gerald Combs
@@ -50,6 +58,8 @@
 #include <locale.h>
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
+#include <epan/unit_strings.h>
 #include <epan/etypes.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
@@ -682,10 +692,10 @@ static int hf_ptp_mm_set_time_localtimenanoseconds;
 /* END Initialize the protocol and registered fields */
 
 /* Initialize the subtree pointers */
-static gint ett_ptp;
-static gint ett_ptp_flags;
-static gint ett_ptp_time;
-static gint ett_ptp_time2;
+static int ett_ptp;
+static int ett_ptp_flags;
+static int ett_ptp_time;
+static int ett_ptp_time2;
 
 /* END Definitions and fields for PTPv1 dissection. */
 
@@ -1634,7 +1644,8 @@ static int hf_ptp_as_fu_tlv_tlvtype;
 static int hf_ptp_as_fu_tlv_lengthfield;
 static int hf_ptp_as_fu_tlv_organization_id;
 static int hf_ptp_as_fu_tlv_organization_subtype;
-static int hf_ptp_as_fu_tlv_cumulative_offset;
+static int hf_ptp_as_fu_tlv_cumulative_scaled_rate_offset;
+static int hf_ptp_as_fu_tlv_cumulative_rate_ratio; /* Remove scale and offset from above */
 static int hf_ptp_as_fu_tlv_gm_base_indicator;
 static int hf_ptp_as_fu_tlv_last_gm_phase_change;
 static int hf_ptp_as_fu_tlv_scaled_last_gm_freq_change;
@@ -1887,35 +1898,35 @@ static int hf_ptp_v2_analysis_pdelay_neighRateRatio;
 static int hf_ptp_v2_analysis_pdelay_neighRateRatio_ppm;
 
 /* Initialize the subtree pointers */
-static gint ett_ptp_v2;
-static gint ett_ptp_v2_flags;
-static gint ett_ptp_v2_clockidentity;
-static gint ett_ptp_v2_correction;
-static gint ett_ptp_v2_time;
-static gint ett_ptp_v2_time2;
-static gint ett_ptp_v2_managementData;
-static gint ett_ptp_v2_clockType;
-static gint ett_ptp_v2_physicalLayerProtocol;
-static gint ett_ptp_v2_protocolAddress;
-static gint ett_ptp_v2_faultRecord;
-static gint ett_ptp_v2_ptptext;
-static gint ett_ptp_v2_timeInterval;
-static gint ett_ptp_v2_tlv;
-static gint ett_ptp_v2_tlv_log_period;
-static gint ett_ptp_v2_sig_l1sync_flags;
-static gint ett_ptp_as_sig_tlv_flags;
-static gint ett_ptp_oe_wr_flags;
-static gint ett_ptp_oe_smpte_data;
-static gint ett_ptp_oe_smpte_framerate;
-static gint ett_ptp_oe_smpte_timeaddress;
-static gint ett_ptp_oe_smpte_daylightsaving;
-static gint ett_ptp_oe_smpte_leapsecondjump;
-static gint ett_ptp_analysis_timestamp;
-static gint ett_ptp_analysis_mean_propagation_delay;
+static int ett_ptp_v2;
+static int ett_ptp_v2_flags;
+static int ett_ptp_v2_clockidentity;
+static int ett_ptp_v2_correction;
+static int ett_ptp_v2_time;
+static int ett_ptp_v2_time2;
+static int ett_ptp_v2_managementData;
+static int ett_ptp_v2_clockType;
+static int ett_ptp_v2_physicalLayerProtocol;
+static int ett_ptp_v2_protocolAddress;
+static int ett_ptp_v2_faultRecord;
+static int ett_ptp_v2_ptptext;
+static int ett_ptp_v2_timeInterval;
+static int ett_ptp_v2_tlv;
+static int ett_ptp_v2_tlv_log_period;
+static int ett_ptp_v2_sig_l1sync_flags;
+static int ett_ptp_as_sig_tlv_flags;
+static int ett_ptp_oe_wr_flags;
+static int ett_ptp_oe_smpte_data;
+static int ett_ptp_oe_smpte_framerate;
+static int ett_ptp_oe_smpte_timeaddress;
+static int ett_ptp_oe_smpte_daylightsaving;
+static int ett_ptp_oe_smpte_leapsecondjump;
+static int ett_ptp_analysis_timestamp;
+static int ett_ptp_analysis_mean_propagation_delay;
 
-/* static gint ett_ptp_v2_timesource;
-static gint ett_ptp_v2_priority; */
-static gint ett_ptp_v2_majorsdoid;
+/* static int ett_ptp_v2_timesource;
+static int ett_ptp_v2_priority; */
+static int ett_ptp_v2_majorsdoid;
 
 static expert_field ei_ptp_v2_msg_len_too_large;
 static expert_field ei_ptp_v2_msg_len_too_small;
@@ -1940,63 +1951,70 @@ static expert_field ei_ptp_v2_period_invalid;
  */
 
 /* Config for Analysis features */
-static gboolean ptp_analyze_messages = TRUE;
+static bool ptp_analyze_messages = true;
+static unsigned ptp_analysis_max_consecutive_delta = 10;
 
 /* Definitions for Analysis features */
-#define PTP_ANALYSIS_MAX_ALLOWED_DELTA_SECS 60
+
+/* 1588 defines related messages (with matching seqIds) should be sent "as soon as possible".
+ * 802.1AS formalizes a requirement of max 10ms for the same in "Annex B - Performance requirements".
+ * A 1 second threshold gives good margin, while not causing analysis issues in case of resets.
+ * In case of rapid sequence number resets <1s apart, incorrect message associations can still happen.
+*/
+#define PTP_ANALYSIS_MAX_ALLOWED_DELTA_SECS 1.0
 
 typedef struct ptp_frame_info_sync {
-    guint32  sync_frame_num;
-    guint32  fup_frame_num;
-    gboolean sync_two_step;
+    uint32_t sync_frame_num;
+    uint32_t fup_frame_num;
+    bool sync_two_step;
 
     nstime_t sync_ts;
 
-    guint64  timestamp_s;
-    guint32  timestamp_ns;
-    gint64   correction_ns;
-    guint16  correction_subns;
+    uint64_t timestamp_s;
+    uint32_t timestamp_ns;
+    int64_t  correction_ns;
+    uint16_t correction_subns;
 
-    gboolean calculated_timestamp_valid;
+    bool calculated_timestamp_valid;
     nstime_t calculated_timestamp;
 
-    gboolean syncInterval_valid;
-    gdouble  syncInterval;
+    bool syncInterval_valid;
+    double   syncInterval;
 
-    gboolean syncRateRatio_valid;
-    gdouble  syncRateRatio;
-    gint32   syncRateRatio_ppm;
+    bool syncRateRatio_valid;
+    double   syncRateRatio;
+    int32_t  syncRateRatio_ppm;
 } ptp_frame_info_sync_t;
 
 typedef struct ptp_frame_info_pdelay {
-    guint32  pdelay_req_frame_num;
-    guint32  pdelay_res_frame_num;
-    guint32  pdelay_fup_frame_num;
-    gboolean pdelay_res_two_step;
+    uint32_t pdelay_req_frame_num;
+    uint32_t pdelay_res_frame_num;
+    uint32_t pdelay_fup_frame_num;
+    bool pdelay_res_two_step;
 
     nstime_t pdelay_req_ts;
 
-    guint64  pdelay_req_recv_ts_s;
-    guint32  pdelay_req_recv_ts_ns;
+    uint64_t pdelay_req_recv_ts_s;
+    uint32_t pdelay_req_recv_ts_ns;
 
-    guint64  pdelay_res_send_ts_s;
-    guint32  pdelay_res_send_ts_ns;
+    uint64_t pdelay_res_send_ts_s;
+    uint32_t pdelay_res_send_ts_ns;
 
     nstime_t pdelay_res_ts;
 
     nstime_t mean_propagation_delay_unscaled;
-    gdouble  mean_propagation_delay_scaled;
+    double   mean_propagation_delay_scaled;
 
-    gboolean pdelayInterval_valid;
-    gdouble  pdelayInterval;
+    bool pdelayInterval_valid;
+    double   pdelayInterval;
 
-    gboolean neighborRateRatio_valid;
-    gdouble  neighborRateRatio;
-    gint32   neighborRateRatio_ppm;
+    bool neighborRateRatio_valid;
+    double   neighborRateRatio;
+    int32_t  neighborRateRatio_ppm;
 } ptp_frame_info_pdelay_t;
 
 typedef struct ptp_frame_info {
-    guint8 messagetype;
+    uint8_t messagetype;
     union {
         ptp_frame_info_sync_t sync;
         ptp_frame_info_pdelay_t pdelay;
@@ -2015,7 +2033,7 @@ typedef struct ptp_clock_info {
     wmem_map_t *frames;
 } ptp_clock_info_t;
 
-static wmem_map_t *ptp_clocks = NULL;
+static wmem_map_t *ptp_clocks;
 
 /*
  * PTP major ver    4 bit
@@ -2027,21 +2045,21 @@ static wmem_map_t *ptp_clocks = NULL;
  * PortID           2 Byte
  * SeqID            2 Byte
  */
-static guint64
-calculate_frame_key(guint8 ptp_major, guint8 ptp_minor, guint8 majorsdoid, guint8 minorsdoid, guint8 messagetype, guint8 domain, guint16 portid, guint16 seqid)
+static uint64_t
+calculate_frame_key(uint8_t ptp_major, uint8_t ptp_minor, uint8_t majorsdoid, uint8_t minorsdoid, uint8_t messagetype, uint8_t domain, uint16_t portid, uint16_t seqid)
 {
     DISSECTOR_ASSERT(ptp_minor % 16 == 0);
     DISSECTOR_ASSERT(ptp_major <= 15);
     DISSECTOR_ASSERT(majorsdoid % 16 == 0);
     DISSECTOR_ASSERT(messagetype <= 15);
 
-    guint64 ret = (guint64)ptp_minor  << 56 | (guint64)ptp_major << 56 | (guint64)majorsdoid << 48 | (guint64)messagetype << 48 | (guint64)minorsdoid << 40 | (guint64)domain << 32 |
-                  (guint64)portid     << 16 | (guint64)seqid;
+    uint64_t ret = (uint64_t)ptp_minor  << 56 | (uint64_t)ptp_major << 56 | (uint64_t)majorsdoid << 48 | (uint64_t)messagetype << 48 | (uint64_t)minorsdoid << 40 | (uint64_t)domain << 32 |
+                  (uint64_t)portid     << 16 | (uint64_t)seqid;
     return ret;
 }
 
 static ptp_frame_info_t *
-get_frame_info_and_opt_create(packet_info *pinfo, guint8 ptp_major, guint8 ptp_minor, guint8 majorsdoid, guint8 minorsdoid, guint8 messagetype, guint8 domain, guint64 clockidentity, guint16 portid, guint16 seqid, gboolean create_missing)
+get_frame_info_and_opt_create(packet_info *pinfo, uint8_t ptp_major, uint8_t ptp_minor, uint8_t majorsdoid, uint8_t minorsdoid, uint8_t messagetype, uint8_t domain, uint64_t clockidentity, uint16_t portid, uint16_t seqid, bool create_missing, double delta_cutoff)
 {
     DISSECTOR_ASSERT(ptp_clocks != NULL);
 
@@ -2059,17 +2077,18 @@ get_frame_info_and_opt_create(packet_info *pinfo, guint8 ptp_major, guint8 ptp_m
         clock_info->frames = wmem_map_new(wmem_file_scope(), g_direct_hash, g_direct_equal);
     }
 
-    guint64 key2 = calculate_frame_key(ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, portid, seqid);
+    uint64_t key2 = calculate_frame_key(ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, portid, seqid);
     ptp_frame_info_t *tmp = (ptp_frame_info_t *)wmem_map_lookup(clock_info->frames, GUINT_TO_POINTER(key2));
 
     if (tmp != NULL)
     {
         /* Is this a real match or did have wrapped the ptp seqid? */
+        /* This check also handles sequenceIds resets due to restarts. */
         nstime_t delta_time;
         nstime_delta(&delta_time, &(pinfo->abs_ts), &(tmp->ref_time));
         double delta_secs = nstime_to_sec(&delta_time);
 
-        if (fabs(delta_secs) > PTP_ANALYSIS_MAX_ALLOWED_DELTA_SECS)
+        if (fabs(delta_secs) > delta_cutoff)
         {
             /* Not our match! */
             tmp = NULL;
@@ -2092,12 +2111,12 @@ get_frame_info_and_opt_create(packet_info *pinfo, guint8 ptp_major, guint8 ptp_m
 }
 
 static ptp_frame_info_t *
-create_frame_info(packet_info *pinfo, guint8 ptp_major, guint8 ptp_minor, guint8 majorsdoid, guint8 minorsdoid, guint8 messagetype, guint8 domain, guint64 clockidentity, guint16 portid, guint16 seqid)
+create_frame_info(packet_info *pinfo, uint8_t ptp_major, uint8_t ptp_minor, uint8_t majorsdoid, uint8_t minorsdoid, uint8_t messagetype, uint8_t domain, uint64_t clockidentity, uint16_t portid, uint16_t seqid)
 {
-    ptp_frame_info_t *ret = get_frame_info_and_opt_create(pinfo, ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, clockidentity, portid, seqid, true);
+    ptp_frame_info_t *ret = get_frame_info_and_opt_create(pinfo, ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, clockidentity, portid, seqid, true, PTP_ANALYSIS_MAX_ALLOWED_DELTA_SECS);
 
-    guint16 seqid_prev = seqid == 0 ? G_MAXUINT16 : seqid - 1;
-    ret->prev = get_frame_info_and_opt_create(pinfo, ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, clockidentity, portid, seqid_prev, false);
+    uint16_t seqid_prev = seqid == 0 ? UINT16_MAX : seqid - 1;
+    ret->prev = get_frame_info_and_opt_create(pinfo, ptp_major, ptp_minor, majorsdoid, minorsdoid, messagetype, domain, clockidentity, portid, seqid_prev, false, (double)ptp_analysis_max_consecutive_delta);
 
     return ret;
 }
@@ -2105,17 +2124,17 @@ create_frame_info(packet_info *pinfo, guint8 ptp_major, guint8 ptp_minor, guint8
 
 /* forward declaration of local functions for v1 and v2 */
 
-static int
+static bool
 is_ptp_v1(tvbuff_t *tvb);
 
 static void
 dissect_ptp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree);
 
-static gboolean
+static bool
 is_ptp_v2(tvbuff_t *tvb);
 
 static void
-dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptpv2_oE);
+dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_oE);
 
 /**********************************************************/
 /* Implementation of the functions                        */
@@ -2128,7 +2147,7 @@ static int
 dissect_ptp_oE(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     /* PTP over Ethernet only available with PTPv2 */
-    dissect_ptp_v2(tvb, pinfo, tree, TRUE);
+    dissect_ptp_v2(tvb, pinfo, tree, true);
     return tvb_captured_length(tvb);
 }
 
@@ -2138,7 +2157,7 @@ dissect_ptp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     if(is_ptp_v1(tvb))
         dissect_ptp_v1(tvb, pinfo, tree);
     else if(is_ptp_v2(tvb))
-        dissect_ptp_v2(tvb, pinfo, tree, FALSE);
+        dissect_ptp_v2(tvb, pinfo, tree, false);
 
     return tvb_captured_length(tvb);
 }
@@ -2146,29 +2165,29 @@ dissect_ptp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
 /* Code to check if packet is PTPv1 */
 
-static gboolean
+static bool
 is_ptp_v1(tvbuff_t *tvb)
 {
-    guint16 version_ptp;
+    uint16_t version_ptp;
 
     version_ptp = tvb_get_ntohs(tvb, PTP_VERSIONPTP_OFFSET);
 
-    if( version_ptp == 1) return TRUE;
-    else return FALSE;
+    if( version_ptp == 1) return true;
+    else return false;
 }
 
 
 /* Code to check if packet is PTPv2 */
 
-static gboolean
+static bool
 is_ptp_v2(tvbuff_t *tvb)
 {
-    guint8 version_ptp;
+    uint8_t version_ptp;
 
-    version_ptp = 0x0F & tvb_get_guint8(tvb, PTP_V2_VERSIONPTP_OFFSET);
+    version_ptp = 0x0F & tvb_get_uint8(tvb, PTP_V2_VERSIONPTP_OFFSET);
 
-    if( version_ptp == 2) return TRUE;
-    else return FALSE;
+    if( version_ptp == 2) return true;
+    else return false;
 }
 
 
@@ -2177,7 +2196,7 @@ is_ptp_v2(tvbuff_t *tvb)
 static void
 dissect_ptp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-    guint8   ptp_control_field, ptp_mm_messagekey = 0;
+    uint8_t  ptp_control_field, ptp_mm_messagekey = 0;
     nstime_t ts;                /* time structure with seconds and nanoseconds */
 
 /* Set up structures needed to add the protocol subtree and manage it */
@@ -2190,11 +2209,11 @@ dissect_ptp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
 /* Get control field (what kind of message is this? (Sync, DelayReq, ...) */
 
-    ptp_control_field = tvb_get_guint8 (tvb, PTP_CONTROLFIELD_OFFSET);
+    ptp_control_field = tvb_get_uint8 (tvb, PTP_CONTROLFIELD_OFFSET);
     /* MGMT packet? */
     if (ptp_control_field == PTP_MANAGEMENT_MESSAGE ){
         /* Get the managementMessageKey */
-        ptp_mm_messagekey = tvb_get_guint8(tvb, PTP_MM_MANAGEMENTMESSAGEKEY_OFFSET);
+        ptp_mm_messagekey = tvb_get_uint8(tvb, PTP_MM_MANAGEMENTMESSAGEKEY_OFFSET);
     }
 
 /* Create and set the string for "Info" column */
@@ -2835,13 +2854,13 @@ dissect_ptp_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 
 /* Code to dissect PTPText */
 static void
-dissect_ptp_v2_text(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree, int hf_ptp_v2_mm_ptptext, int hf_ptp_v2_mm_ptptext_length)
+dissect_ptp_v2_text(tvbuff_t *tvb, uint16_t *cur_offset, proto_tree *tree, int hf_ptp_v2_mm_ptptext, int hf_ptp_v2_mm_ptptext_length)
 {
-    guint8      length = 0;
+    uint8_t     length = 0;
     proto_item *ptptext_ti;
     proto_tree *ptptext_subtree;
 
-    length = tvb_get_guint8 (tvb, *cur_offset);
+    length = tvb_get_uint8 (tvb, *cur_offset);
 
     if (tree)
     {
@@ -2860,12 +2879,12 @@ dissect_ptp_v2_text(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree, int hf
 }
 
 static void
-dissect_ptp_v2_timeInterval(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree, const char* name, int hf_ptp_v2_timeInterval_ns, int hf_ptp_v2_timeInterval_subns)
+dissect_ptp_v2_timeInterval(tvbuff_t *tvb, uint16_t *cur_offset, proto_tree *tree, const char* name, int hf_ptp_v2_timeInterval_ns, int hf_ptp_v2_timeInterval_subns)
 {
 
     double      time_double;
-    gint64      time_ns;
-    guint16     time_subns;
+    int64_t     time_ns;
+    uint16_t    time_subns;
     proto_tree *ptptimeInterval_subtree;
 
     time_ns = tvb_get_ntoh64(tvb, *cur_offset);
@@ -2886,12 +2905,12 @@ dissect_ptp_v2_timeInterval(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree
 }
 
 static void
-dissect_ptp_v2_timetstamp(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree,
+dissect_ptp_v2_timetstamp(tvbuff_t *tvb, uint16_t *cur_offset, proto_tree *tree,
                           const char* name, int hf_ptp_v2_timestamp_s,
                           int hf_ptp_v2_timestamp_ns)
 {
-    gint64      time_s;
-    guint32     time_ns;
+    int64_t     time_s;
+    uint32_t    time_ns;
     proto_tree *ptptimestamp_subtree;
 
     time_s = tvb_get_ntoh48(tvb, *cur_offset);
@@ -2903,7 +2922,7 @@ dissect_ptp_v2_timetstamp(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree,
                                                          10,
                                                          ett_ptp_v2_timeInterval,
                                                          NULL,
-                                                         "%s: %" G_GINT64_MODIFIER "d%s%09" G_GINT32_MODIFIER "d nanoseconds",
+                                                         "%s: %" PRIu64 "%s%09" PRId32 " nanoseconds",
                                                          name, time_s, decimal_point, time_ns);
 
     proto_tree_add_uint64(ptptimestamp_subtree,
@@ -2928,8 +2947,10 @@ dissect_ptp_v2_timetstamp(tvbuff_t *tvb, guint16 *cur_offset, proto_tree *tree,
 static void
 dissect_follow_up_tlv(tvbuff_t *tvb, proto_tree *ptp_tree)
 {
+    proto_item  *ti = NULL;
+    int32_t scaled_rate = 0;
     /* There are TLV's to be processed */
-    guint16 tlv_length = tvb_get_ntohs(tvb, PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_LENGTHFIELD_OFFSET);
+    uint16_t tlv_length = tvb_get_ntohs(tvb, PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_LENGTHFIELD_OFFSET);
 
     proto_tree *ptp_tlv_tree = proto_tree_add_subtree(ptp_tree, tvb, PTP_AS_FU_TLV_INFORMATION_OFFSET,
                                                       tlv_length + PTP_AS_FU_TLV_ORGANIZATIONID_OFFSET,
@@ -2947,8 +2968,13 @@ dissect_follow_up_tlv(tvbuff_t *tvb, proto_tree *ptp_tree)
     proto_tree_add_item(ptp_tlv_tree, hf_ptp_as_fu_tlv_organization_subtype, tvb,
                         PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_ORGANIZATIONSUBTYPE_OFFSET, 3, ENC_BIG_ENDIAN);
 
-    proto_tree_add_item(ptp_tlv_tree, hf_ptp_as_fu_tlv_cumulative_offset, tvb,
-                        PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_CUMULATIVESCALEDRATEOFFSET_OFFSET, 4, ENC_BIG_ENDIAN);
+    proto_tree_add_item_ret_int(ptp_tlv_tree, hf_ptp_as_fu_tlv_cumulative_scaled_rate_offset, tvb,
+                        PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_CUMULATIVESCALEDRATEOFFSET_OFFSET, 4, ENC_BIG_ENDIAN, &scaled_rate);
+
+    // The cumulative scaled rate offset is (rateRatio - 1.0) * 2^41
+    ti = proto_tree_add_double(ptp_tlv_tree, hf_ptp_as_fu_tlv_cumulative_rate_ratio, tvb,
+                        PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_CUMULATIVESCALEDRATEOFFSET_OFFSET, 4, 1.0 + ((double) scaled_rate / (UINT64_C(1) << 41)));
+    proto_item_set_generated(ti);
 
     proto_tree_add_item(ptp_tlv_tree, hf_ptp_as_fu_tlv_gm_base_indicator, tvb,
                         PTP_AS_FU_TLV_INFORMATION_OFFSET + PTP_AS_FU_TLV_GMTIMEBASEINDICATOR_OFFSET, 2, ENC_BIG_ENDIAN);
@@ -2961,26 +2987,26 @@ dissect_follow_up_tlv(tvbuff_t *tvb, proto_tree *ptp_tree)
 }
 
 static void
-dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptpv2_oE)
+dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, bool ptpv2_oE)
 {
-    guint8  ptp_v2_majorsdoid;
-    guint8  ptp_v2_messageid;
-    guint8  ptp_v2_ver = 0;
-    guint8  ptp_v2_minorver = 0;
-    guint8  ptp_v2_domain = 0;
-    guint8  ptp_v2_minorsdoid = 0;
-    guint64 ptp_v2_correction = 0;
-    guint64 ptp_v2_clockid = 0;
-    guint16 ptp_v2_sourceportid = 0;
-    guint16 ptp_v2_seqid = 0;
-    guint64 ptp_v2_clockidref = 0;
-    guint16 ptp_v2_sourceportidref = 0;
+    uint8_t ptp_v2_majorsdoid;
+    uint8_t ptp_v2_messageid;
+    uint8_t ptp_v2_ver = 0;
+    uint8_t ptp_v2_minorver = 0;
+    uint8_t ptp_v2_domain = 0;
+    uint8_t ptp_v2_minorsdoid = 0;
+    uint64_t ptp_v2_correction = 0;
+    uint64_t ptp_v2_clockid = 0;
+    uint16_t ptp_v2_sourceportid = 0;
+    uint16_t ptp_v2_seqid = 0;
+    uint64_t ptp_v2_clockidref = 0;
+    uint16_t ptp_v2_sourceportidref = 0;
 
-    guint64 timeStamp;
-    guint16 msg_len;
-    guint16 ptp_v2_flags;
-    guint16 temp;
-    const gchar *manuf_name;
+    uint64_t timeStamp;
+    uint16_t msg_len;
+    uint16_t ptp_v2_flags;
+    uint16_t temp;
+    const char *manuf_name;
 
     /* Set up structures needed to add the protocol subtree and manage it */
     proto_item  *ti = NULL, *msg_len_item = NULL, *flags_ti, *clockidentity_ti,
@@ -2992,38 +3018,38 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "PTPv2");
 
     /* Get majorSdoId bit to determine whether this is an AS packet or not */
-    ptp_v2_majorsdoid = 0xF0 & tvb_get_guint8 (tvb, PTP_V2_MAJORSDOID_MESSAGE_TYPE_OFFSET);
+    ptp_v2_majorsdoid = 0xF0 & tvb_get_uint8 (tvb, PTP_V2_MAJORSDOID_MESSAGE_TYPE_OFFSET);
 
     // 802.1as is indicated by Ethernet and a certain transport specific bit.
-    gboolean is_802_1as = (ptp_v2_majorsdoid & PTP_V2_MAJORSDOID_ASPACKET_BITMASK) && (ptpv2_oE == TRUE);
+    bool is_802_1as = (ptp_v2_majorsdoid & PTP_V2_MAJORSDOID_ASPACKET_BITMASK) && (ptpv2_oE == true);
 
     /* Get control field (what kind of message is this? (Sync, DelayReq, ...) */
-    ptp_v2_messageid = 0x0F & tvb_get_guint8 (tvb, PTP_V2_MAJORSDOID_MESSAGE_TYPE_OFFSET);
+    ptp_v2_messageid = 0x0F & tvb_get_uint8 (tvb, PTP_V2_MAJORSDOID_MESSAGE_TYPE_OFFSET);
 
     msg_len = tvb_get_ntohs(tvb, PTP_V2_MESSAGE_LENGTH_OFFSET);
 
-    ptp_v2_flags = tvb_get_guint16(tvb, PTP_V2_FLAGS_OFFSET, ENC_BIG_ENDIAN);
+    ptp_v2_flags = tvb_get_uint16(tvb, PTP_V2_FLAGS_OFFSET, ENC_BIG_ENDIAN);
 
     if (ptp_analyze_messages)
     {
-        ptp_v2_ver = 0x0F & tvb_get_guint8(tvb, PTP_V2_VERSIONPTP_OFFSET);
-        ptp_v2_minorver = 0xF0 & tvb_get_guint8(tvb, PTP_V2_MINORVERSIONPTP_OFFSET);
-        ptp_v2_domain = tvb_get_guint8(tvb, PTP_V2_DOMAIN_NUMBER_OFFSET);
-        ptp_v2_minorsdoid = tvb_get_guint8(tvb, PTP_V2_MINORSDOID_OFFSET);
-        ptp_v2_clockid = tvb_get_guint64(tvb, PTP_V2_CLOCKIDENTITY_OFFSET, ENC_BIG_ENDIAN);
-        ptp_v2_sourceportid = tvb_get_guint16(tvb, PTP_V2_SOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
-        ptp_v2_seqid = tvb_get_guint16(tvb, PTP_V2_SEQUENCEID_OFFSET, ENC_BIG_ENDIAN);
-        ptp_v2_correction = tvb_get_guint64(tvb, PTP_V2_CORRECTION_OFFSET, ENC_BIG_ENDIAN);
+        ptp_v2_ver = 0x0F & tvb_get_uint8(tvb, PTP_V2_VERSIONPTP_OFFSET);
+        ptp_v2_minorver = 0xF0 & tvb_get_uint8(tvb, PTP_V2_MINORVERSIONPTP_OFFSET);
+        ptp_v2_domain = tvb_get_uint8(tvb, PTP_V2_DOMAIN_NUMBER_OFFSET);
+        ptp_v2_minorsdoid = tvb_get_uint8(tvb, PTP_V2_MINORSDOID_OFFSET);
+        ptp_v2_clockid = tvb_get_uint64(tvb, PTP_V2_CLOCKIDENTITY_OFFSET, ENC_BIG_ENDIAN);
+        ptp_v2_sourceportid = tvb_get_uint16(tvb, PTP_V2_SOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
+        ptp_v2_seqid = tvb_get_uint16(tvb, PTP_V2_SEQUENCEID_OFFSET, ENC_BIG_ENDIAN);
+        ptp_v2_correction = tvb_get_uint64(tvb, PTP_V2_CORRECTION_OFFSET, ENC_BIG_ENDIAN);
 
         switch (ptp_v2_messageid)
         {
         case PTP_V2_PEER_DELAY_RESP_MESSAGE:
-            ptp_v2_clockidref = tvb_get_guint64(tvb, PTP_V2_PDRS_REQUESTINGPORTIDENTITY_OFFSET, ENC_BIG_ENDIAN);
-            ptp_v2_sourceportidref = tvb_get_guint16(tvb, PTP_V2_PDRS_REQUESTINGSOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
+            ptp_v2_clockidref = tvb_get_uint64(tvb, PTP_V2_PDRS_REQUESTINGPORTIDENTITY_OFFSET, ENC_BIG_ENDIAN);
+            ptp_v2_sourceportidref = tvb_get_uint16(tvb, PTP_V2_PDRS_REQUESTINGSOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
             break;
         case PTP_V2_PEER_DELAY_FOLLOWUP_MESSAGE:
-            ptp_v2_clockidref = tvb_get_guint64(tvb, PTP_V2_PDFU_REQUESTINGPORTIDENTITY_OFFSET, ENC_BIG_ENDIAN);
-            ptp_v2_sourceportidref = tvb_get_guint16(tvb, PTP_V2_PDFU_REQUESTINGSOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
+            ptp_v2_clockidref = tvb_get_uint64(tvb, PTP_V2_PDFU_REQUESTINGPORTIDENTITY_OFFSET, ENC_BIG_ENDIAN);
+            ptp_v2_sourceportidref = tvb_get_uint16(tvb, PTP_V2_PDFU_REQUESTINGSOURCEPORTID_OFFSET, ENC_BIG_ENDIAN);
             break;
         }
 
@@ -3037,13 +3063,14 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 frame_info->messagetype = PTP_V2_SYNC_MESSAGE;
                 frame_info->sync.sync_two_step = (ptp_v2_flags & PTP_V2_FLAGS_TWO_STEP_BITMASK) == PTP_V2_FLAGS_TWO_STEP_BITMASK;
                 frame_info->sync.sync_ts = pinfo->abs_ts;
+                /* Rapid sequence number resets can be detected here checking for non-zero frame_info->sync.sync_frame_num */
                 frame_info->sync.sync_frame_num = pinfo->num;
 
                 if (!frame_info->sync.sync_two_step) {
                     /* In 1-step mode, the sync carries the followup information, so we set fup to sync */
                     frame_info->sync.fup_frame_num = pinfo->num;
-                    frame_info->sync.timestamp_s = tvb_get_guint48(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
-                    frame_info->sync.timestamp_ns = tvb_get_guint32(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                    frame_info->sync.timestamp_s = tvb_get_uint48(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                    frame_info->sync.timestamp_ns = tvb_get_uint32(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
                     frame_info->sync.correction_ns = ptp_v2_correction >> 16;
                     frame_info->sync.correction_subns = ptp_v2_correction % 16;
                 }
@@ -3052,8 +3079,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 frame_info = create_frame_info(pinfo, ptp_v2_ver, ptp_v2_minorver, ptp_v2_majorsdoid, ptp_v2_minorsdoid, PTP_V2_SYNC_MESSAGE, ptp_v2_domain, ptp_v2_clockid, ptp_v2_sourceportid, ptp_v2_seqid);
                 frame_info->messagetype = PTP_V2_SYNC_MESSAGE;
                 frame_info->sync.fup_frame_num = pinfo->num;
-                frame_info->sync.timestamp_s = tvb_get_guint48(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
-                frame_info->sync.timestamp_ns = tvb_get_guint32(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->sync.timestamp_s = tvb_get_uint48(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->sync.timestamp_ns = tvb_get_uint32(tvb, PTP_V2_FU_PRECISEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
                 frame_info->sync.correction_ns = ptp_v2_correction >> 16;
                 frame_info->sync.correction_subns = ptp_v2_correction % 16;
                 break;
@@ -3069,15 +3096,15 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 frame_info->pdelay.pdelay_res_frame_num = pinfo->num;
                 frame_info->pdelay.pdelay_res_two_step = (ptp_v2_flags & PTP_V2_FLAGS_TWO_STEP_BITMASK) == PTP_V2_FLAGS_TWO_STEP_BITMASK;
                 frame_info->pdelay.pdelay_res_ts = pinfo->abs_ts;
-                frame_info->pdelay.pdelay_req_recv_ts_s = tvb_get_guint48(tvb, PTP_V2_PDRS_REQUESTRECEIPTTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
-                frame_info->pdelay.pdelay_req_recv_ts_ns = tvb_get_guint32(tvb, PTP_V2_PDRS_REQUESTRECEIPTTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->pdelay.pdelay_req_recv_ts_s = tvb_get_uint48(tvb, PTP_V2_PDRS_REQUESTRECEIPTTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->pdelay.pdelay_req_recv_ts_ns = tvb_get_uint32(tvb, PTP_V2_PDRS_REQUESTRECEIPTTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
                 break;
             case PTP_V2_PEER_DELAY_FOLLOWUP_MESSAGE:
                 frame_info = create_frame_info(pinfo, ptp_v2_ver, ptp_v2_minorver, ptp_v2_majorsdoid, ptp_v2_minorsdoid, PTP_V2_PEER_DELAY_REQ_MESSAGE, ptp_v2_domain, ptp_v2_clockidref, ptp_v2_sourceportidref, ptp_v2_seqid);
                 frame_info->messagetype = PTP_V2_PEER_DELAY_REQ_MESSAGE;
                 frame_info->pdelay.pdelay_fup_frame_num = pinfo->num;
-                frame_info->pdelay.pdelay_res_send_ts_s = tvb_get_guint48(tvb, PTP_V2_PDFU_RESPONSEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
-                frame_info->pdelay.pdelay_res_send_ts_ns = tvb_get_guint32(tvb, PTP_V2_PDFU_RESPONSEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->pdelay.pdelay_res_send_ts_s = tvb_get_uint48(tvb, PTP_V2_PDFU_RESPONSEORIGINTIMESTAMPSECONDS_OFFSET, ENC_BIG_ENDIAN);
+                frame_info->pdelay.pdelay_res_send_ts_ns = tvb_get_uint32(tvb, PTP_V2_PDFU_RESPONSEORIGINTIMESTAMPNANOSECONDS_OFFSET, ENC_BIG_ENDIAN);
                 break;
             }
 
@@ -3093,8 +3120,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                     nstime_t ts = NSTIME_INIT_SECS_NSECS(frame_info->sync.timestamp_s, frame_info->sync.timestamp_ns);
 
                     /* we are ignoring subns */
-                    gint64 corr_s  = frame_info->sync.correction_ns / NS_PER_S;
-                    gint32 corr_ns = frame_info->sync.correction_ns % NS_PER_S;
+                    int64_t corr_s  = frame_info->sync.correction_ns / NS_PER_S;
+                    int32_t corr_ns = frame_info->sync.correction_ns % NS_PER_S;
                     nstime_t corr = NSTIME_INIT_SECS_NSECS(corr_s, corr_ns);
 
                     nstime_sum(&(frame_info->sync.calculated_timestamp), &(ts), &(corr));
@@ -3117,7 +3144,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                             frame_info->sync.syncRateRatio = nstime_to_sec(&delta_sync_ts) / nstime_to_sec(&delta_capture_ts);
                             frame_info->sync.syncRateRatio_valid = true;
                             frame_info->sync.syncRateRatio_ppm =
-                                (gint32)((1.0 - frame_info->sync.syncRateRatio) * 1000 * 1000);
+                                (int32_t)((1.0 - frame_info->sync.syncRateRatio) * 1000 * 1000);
                         }
                     }
                 }
@@ -3142,7 +3169,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                         frame_info->pdelay.neighborRateRatio = nstime_to_sec(&t3_delta) / nstime_to_sec(&t4_delta);
                         frame_info->pdelay.neighborRateRatio_valid = true;
                         frame_info->pdelay.neighborRateRatio_ppm =
-                            (gint32)((1.0 - frame_info->pdelay.neighborRateRatio) * 1000 * 1000);
+                            (int32_t)((1.0 - frame_info->pdelay.neighborRateRatio) * 1000 * 1000);
                     }
                 }
             }
@@ -3155,7 +3182,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 nstime_delta(&peer_delta_t3_t2, &t3, &t2);
 
                 nstime_delta(&frame_info->pdelay.mean_propagation_delay_unscaled, &(frame_info->pdelay.pdelay_res_ts), &(frame_info->pdelay.pdelay_req_ts));
-                gdouble delta_t4_t1 = nstime_to_sec(&(frame_info->pdelay.mean_propagation_delay_unscaled));
+                double delta_t4_t1 = nstime_to_sec(&(frame_info->pdelay.mean_propagation_delay_unscaled));
                 nstime_subtract(&frame_info->pdelay.mean_propagation_delay_unscaled, &peer_delta_t3_t2);
 
                 /* now take only 1/2 of it */
@@ -3168,7 +3195,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
                 /* lets scale by neighborRateRatio. converted to the capture timestamp timescale. */
                 if (frame_info->pdelay.neighborRateRatio_valid) {
-                    gdouble delta_t3_t2 = nstime_to_sec(&peer_delta_t3_t2);
+                    double delta_t3_t2 = nstime_to_sec(&peer_delta_t3_t2);
                     frame_info->pdelay.mean_propagation_delay_scaled = 0.5 * (delta_t4_t1 - frame_info->pdelay.neighborRateRatio * delta_t3_t2);
                 }
             }
@@ -3179,7 +3206,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
     /* Create and set the string for "Info" column */
     if ( ptp_v2_messageid == PTP_V2_MANAGEMENT_MESSAGE )
     {
-        guint16 tlv_type;
+        uint16_t tlv_type;
         /* Get TLV Type */
         tlv_type = tvb_get_ntohs (tvb, PTP_V2_MM_TLV_TYPE_OFFSET);
         /* For management there are PTP_V2_TLV_TYPE_MANAGEMENT and PTP_V2_TLV_TYPE_MANAGEMENT_ERROR_STATUS TLVs */
@@ -3187,11 +3214,11 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
         {
             case PTP_V2_TLV_TYPE_MANAGEMENT:
             {
-                guint16 ptp_v2_mm_managementId;
-                guint8  ptp_v2_management_action;
+                uint16_t ptp_v2_mm_managementId;
+                uint8_t ptp_v2_management_action;
                 /* Get the managementId */
                 ptp_v2_mm_managementId = tvb_get_ntohs(tvb, PTP_V2_MM_TLV_MANAGEMENTID_OFFSET);
-                ptp_v2_management_action = 0x0F & tvb_get_guint8(tvb, PTP_V2_MM_ACTION_OFFSET);
+                ptp_v2_management_action = 0x0F & tvb_get_uint8(tvb, PTP_V2_MM_ACTION_OFFSET);
                 col_add_fstr(pinfo->cinfo, COL_INFO, "Management (%s) %s",
                     val_to_str_ext(ptp_v2_mm_managementId, &ptp_v2_managementID_infocolumn_vals_ext, "Unknown management Id %u"),
                     val_to_str(ptp_v2_management_action, ptp_v2_mm_action_vals, "Unknown Action %u"));
@@ -3199,7 +3226,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
             }
             case PTP_V2_TLV_TYPE_MANAGEMENT_ERROR_STATUS:
             {
-                guint16 ptp_v2_mm_managementId;
+                uint16_t ptp_v2_mm_managementId;
                 /* Get the managementErrorId */
                 ptp_v2_mm_managementId = tvb_get_ntohs(tvb, PTP_V2_MM_TLV_MANAGEMENTERRORID_OFFSET);
                 col_add_fstr(pinfo->cinfo, COL_INFO, "Management Error Message (%s)",
@@ -3217,12 +3244,12 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
         col_add_str(pinfo->cinfo, COL_INFO, val_to_str_ext(ptp_v2_messageid, &ptp_v2_messagetype_vals_ext, "Unknown PTP Message (%u)"));
         if (ptp_v2_messageid == PTP_V2_SIGNALLING_MESSAGE)
         {
-            guint32 tlv_offset;
-            guint16 tlv_type;
-            guint32 org_id;
-            guint32 subtype;
-            guint16 tlv_length;
-            guint16 wr_messageId;
+            uint32_t tlv_offset;
+            uint16_t tlv_type;
+            uint32_t org_id;
+            uint32_t subtype;
+            uint16_t tlv_length;
+            uint16_t wr_messageId;
 
             tlv_offset = PTP_V2_SIG_TLV_START;
 
@@ -3250,7 +3277,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                         }
                 }
                 if (tlv_type == PTP_V2_TLV_TYPE_L1_SYNC) {
-                        guint16 l1sync_flags;
+                        uint16_t l1sync_flags;
 
                         col_append_str(pinfo->cinfo, COL_INFO, " PTP L1 SYNC");
                         l1sync_flags = tvb_get_ntohs(tvb, tlv_offset + PTP_V2_SIG_TLV_L1SYNC_FLAGS_OFFSET);
@@ -3396,21 +3423,21 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 hf_ptp_v2_controlfield, tvb, PTP_V2_CONTROLFIELD_OFFSET, 1, ENC_BIG_ENDIAN);
         }
 
-        gint logmsgperiod;
+        int logmsgperiod;
         ti = proto_tree_add_item_ret_int(ptp_tree,
             hf_ptp_v2_logmessageperiod, tvb, PTP_V2_LOGMESSAGEPERIOD_OFFSET, 1, ENC_BIG_ENDIAN, &logmsgperiod);
 
         /* 127 is special */
         if (ptp_analyze_messages && logmsgperiod != 127) {
-            proto_item_append_text(ti, " (%.6f s)", pow(2.0, (gdouble)logmsgperiod));
+            proto_item_append_text(ti, " (%.6f s)", pow(2.0, (double)logmsgperiod));
         }
 
         switch(ptp_v2_messageid){
             case PTP_V2_ANNOUNCE_MESSAGE:{
-                guint16     Offset;
-                guint16     tlv_type;
-                guint16     tlv_length;
-                guint16     tlv_total_length;
+                uint16_t    Offset;
+                uint16_t    tlv_type;
+                uint16_t    tlv_length;
+                uint16_t    tlv_total_length;
                 proto_tree *ptp_tlv_tree;
                 proto_tree *ptp_tlv_wr_flags_tree;
 
@@ -3489,8 +3516,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                         {
                             case PTP_V2_TLV_TYPE_ORGANIZATION_EXTENSION:
                             {
-                                guint32 org_id;
-                                guint32 subtype;
+                                uint32_t org_id;
+                                uint32_t subtype;
 
                                 proto_tree_add_item(ptp_tlv_tree,
                                                     hf_ptp_v2_oe_tlv_organizationid,
@@ -3725,12 +3752,12 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                             }
                             case PTP_V2_TLV_TYPE_PATH_TRACE:
                             {
-                                guint16 path_seq_total_length;
+                                uint16_t path_seq_total_length;
 
                                 for(path_seq_total_length = 0; path_seq_total_length < tlv_length; path_seq_total_length+=8)
                                 {
                                     proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_an_tlv_pathsequence, tvb,
-                                                        PTP_V2_AN_TLV_OFFSET + PTP_AS_AN_TLV_PATH_TRACE_OFFSET + path_seq_total_length,
+                                                        PTP_V2_AN_TLV_OFFSET + tlv_total_length + PTP_AS_AN_TLV_PATH_TRACE_OFFSET + path_seq_total_length,
                                                         8, ENC_BIG_ENDIAN);
                                 }
 
@@ -3827,8 +3854,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
             case PTP_V2_FOLLOWUP_MESSAGE:{
                 proto_item *ti_tstamp;
-                guint64     ts_sec;
-                guint32     ts_ns;
+                uint64_t    ts_sec;
+                uint32_t    ts_ns;
 
                 proto_tree_add_item_ret_uint64(ptp_tree, hf_ptp_v2_fu_preciseorigintimestamp_seconds, tvb,
                     PTP_V2_FU_PRECISEORIGINTIMESTAMPSECONDS_OFFSET, 6, ENC_BIG_ENDIAN, &ts_sec);
@@ -4023,8 +4050,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
             }
 
             case PTP_V2_SIGNALLING_MESSAGE:{
-                guint16 tlv_length;
-                guint16 tlv_type;
+                uint16_t tlv_length;
+                uint16_t tlv_type;
                 proto_item *tlv_ti, *sig_tlv_flags_ti;
                 proto_tree *ptp_tlv_tree, *sig_tlv_flags_tree;
 
@@ -4135,7 +4162,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
                         case PTP_AS_SIG_TLV_TYPE_GPTPCAPABLE:{
 
-                            guint16 organization_subtype;
+                            uint16_t organization_subtype;
 
                             organization_subtype = tvb_get_ntohs(tvb, PTP_AS_SIG_TLV_MESSAGEINTERVALREQUEST_OFFSET + PTP_AS_SIG_TLV_ORGANIZATIONSUBTYPE_OFFSET);
 
@@ -4205,11 +4232,11 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                     }
 
                 } else {
-                    guint   proto_len;
-                    guint32 tlv_offset;
-                    gint8   log_inter_message_period;
-                    gdouble period = 0.0f;
-                    gdouble rate   = 0.0f;
+                    unsigned   proto_len;
+                    uint32_t tlv_offset;
+                    int8_t  log_inter_message_period;
+                    double period = 0.0f;
+                    double rate   = 0.0f;
 
                     proto_item *ptp_tlv_period;
                     proto_tree *ptp_tlv_period_tree;
@@ -4241,7 +4268,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                     tlv_offset + PTP_V2_SIG_TLV_MESSAGE_TYPE_OFFSET, PTP_V2_SIG_TLV_MESSAGE_TYPE_LEN, ENC_BIG_ENDIAN);
 
                                 /* 16.1.4.1.4 logInterMessagePeriod */
-                                log_inter_message_period = tvb_get_guint8(tvb, tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET);
+                                log_inter_message_period = tvb_get_uint8(tvb, tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET);
                                 period = pow(2, log_inter_message_period);
 
                                 ptp_tlv_period = proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_sig_tlv_logInterMessagePeriod, tvb,
@@ -4277,7 +4304,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                     tlv_offset + PTP_V2_SIG_TLV_MESSAGE_TYPE_OFFSET, PTP_V2_SIG_TLV_MESSAGE_TYPE_LEN, ENC_BIG_ENDIAN);
 
                                 /* 16.1.4.2.4 logInterMessagePeriod */
-                                log_inter_message_period = tvb_get_guint8(tvb, tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET);
+                                log_inter_message_period = tvb_get_uint8(tvb, tlv_offset + PTP_V2_SIG_TLV_LOG_INTER_MESSAGE_PERIOD_OFFSET);
                                 period = pow(2, log_inter_message_period);
 
                                 ptp_tlv_period = proto_tree_add_item(ptp_tlv_tree, hf_ptp_v2_sig_tlv_logInterMessagePeriod, tvb,
@@ -4329,9 +4356,9 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
                             case PTP_V2_TLV_TYPE_ORGANIZATION_EXTENSION:
                             {
-                                guint32 org_id;
-                                guint32 subtype;
-                                guint16     tlv_total_length = tlv_offset;
+                                uint32_t org_id;
+                                uint32_t subtype;
+                                uint16_t    tlv_total_length = tlv_offset;
                                 proto_tree_add_item(ptp_tlv_tree,
                                                     hf_ptp_v2_oe_tlv_organizationid,
                                                     tvb,
@@ -4356,7 +4383,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                         {
                                             case PTP_V2_OE_ORG_CERN_SUBTYPE_WR_TLV:
                                             {
-                                                guint16 wr_messageId;
+                                                uint16_t wr_messageId;
                                                 proto_tree_add_item(ptp_tlv_tree,
                                                                     hf_ptp_v2_sig_oe_tlv_cern_wrMessageID,
                                                                     tvb,
@@ -4389,8 +4416,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                         break;
                                                     case PTP_V2_OE_ORG_CERN_WRMESSAGEID_CALIBRATED:
                                                     {
-                                                        guint64 deltaTx;
-                                                        guint64 deltaRx;
+                                                        uint64_t deltaTx;
+                                                        uint64_t deltaRx;
                                                         deltaTx = tvb_get_ntoh64(tvb, tlv_total_length + PTP_V2_SIG_TLV_WRTLV_DELTATX_OFFSET);
                                                         deltaRx = tvb_get_ntoh64(tvb, tlv_total_length + PTP_V2_SIG_TLV_WRTLV_DELTARX_OFFSET);
                                                         proto_tree_add_bytes_format_value(ptp_tlv_tree,
@@ -4489,11 +4516,11 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
                             case PTP_V2_TLV_TYPE_L1_SYNC:
                             {
-                                guint16 l1sync_flags;
+                                uint16_t l1sync_flags;
                                 proto_item *l1Flags_ti;
                                 proto_tree *ptp_tlv_l1sync_flags_tree;
                                 /* In the basic format of the L1_SYNC flags field is 2 bytes */
-                                guint8 flags_len = PTP_V2_SIG_TLV_L1SYNC_FLAGS_BASIC_FORMAT;
+                                uint8_t flags_len = PTP_V2_SIG_TLV_L1SYNC_FLAGS_BASIC_FORMAT;
 
                                 /* Version with 2 bytes flags field */
                                 static int * const data_mode_flags2[] = {
@@ -4550,7 +4577,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                                                                     data_mode_flags2,
                                                                     ENC_BIG_ENDIAN);
                                 } else {
-                                        guint16 value_offset;
+                                        uint16_t value_offset;
 
                                         proto_tree_add_bitmask_list(ptp_tlv_l1sync_flags_tree,
                                                                     tvb,
@@ -4611,7 +4638,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
 
             case PTP_V2_MANAGEMENT_MESSAGE:
             {
-                guint16 tlv_type, tlv_length;
+                uint16_t tlv_type, tlv_length;
 
                 proto_tree_add_item(ptp_tree, hf_ptp_v2_mm_targetportidentity, tvb,
                     PTP_V2_MM_TARGETPORTIDENTITY_OFFSET, 8, ENC_BIG_ENDIAN);
@@ -4642,8 +4669,8 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                 switch(tlv_type) {
                     case PTP_V2_TLV_TYPE_MANAGEMENT:
                     {
-                        guint16 ptp_v2_managementId;
-                        guint16 Offset = PTP_V2_MM_TLV_DATAFIELD_OFFSET;
+                        uint16_t ptp_v2_managementId;
+                        uint16_t Offset = PTP_V2_MM_TLV_DATAFIELD_OFFSET;
 
                         proto_tree_add_item(ptp_tree, hf_ptp_v2_mm_managementId, tvb,
                             PTP_V2_MM_TLV_MANAGEMENTID_OFFSET, 2, ENC_BIG_ENDIAN);
@@ -4669,7 +4696,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                             }
                             case PTP_V2_MM_ID_CLOCK_DESCRIPTION:
                             {
-                                guint16 N = 0, S = 0;
+                                uint16_t N = 0, S = 0;
                                 clockType_ti = proto_tree_add_item(ptp_managementData_tree, hf_ptp_v2_mm_clockType, tvb,
                                     Offset, 2, ENC_BIG_ENDIAN);
 
@@ -4785,7 +4812,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                             }
                             case PTP_V2_MM_ID_FAULT_LOG:
                             {
-                                guint16 ii, num = 0;
+                                uint16_t ii, num = 0;
                                 proto_tree  *ptpError_subtree;
 
                                 num = tvb_get_ntohs (tvb, Offset);
@@ -5159,7 +5186,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                             }
                             case PTP_V2_MM_ID_PATH_TRACE_LIST:
                             {
-                                guint16 i = 0;
+                                uint16_t i = 0;
                                 /* one or more ClockIdentity */
                                 for (i = 0; i < (tlv_length / 8); i++)
                                 {
@@ -5373,7 +5400,7 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                     case PTP_V2_TLV_TYPE_MANAGEMENT_ERROR_STATUS:
                     {
                         /* there is only one error TLV */
-                        guint16 Offset = PTP_V2_MM_TLV_MANAGEMENTERRORID_OFFSET;
+                        uint16_t Offset = PTP_V2_MM_TLV_MANAGEMENTERRORID_OFFSET;
 
                         proto_tree_add_item(ptp_tree, hf_ptp_v2_mm_managementErrorId, tvb,
                             Offset, 2, ENC_BIG_ENDIAN);
@@ -5404,11 +5431,11 @@ dissect_ptp_v2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, gboolean ptp
                     }
                     case PTP_V2_TLV_TYPE_ORGANIZATION_EXTENSION:
                     {
-                        guint32 org_id;
-                        guint32 subtype;
+                        uint32_t org_id;
+                        uint32_t subtype;
                         proto_item *smptedata_ti, *systemframerate_ti, *timeaddressflags_ti, *daylightsavingflags_ti, *leapsecondjumpflags_ti;
                         proto_tree *ptp_smptedata_tree, *ptp_framerate_tree, *ptp_timeaddress_tree, *ptp_daylightsaving_tree, *ptp_leapsecondjump_tree;
-                        guint16 Offset = PTP_V2_MM_TLV_LENGTHFIELD_OFFSET + 2;
+                        uint16_t Offset = PTP_V2_MM_TLV_LENGTHFIELD_OFFSET + 2;
 
                         proto_tree_add_item(ptp_tree, hf_ptp_v2_oe_tlv_organizationid,
                                             tvb, Offset, 3, ENC_BIG_ENDIAN);
@@ -6421,12 +6448,12 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_correction,
           { "correctionNs",              "ptp.v2.correction.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_correctionsubns,
           { "correctionSubNs",           "ptp.v2.correction.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_clockidentity,
@@ -6642,7 +6669,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_atoi_tlv_timeofnextjump,
           { "timeOfNextJump", "ptp.v2.an.atoi.timeOfNextJump",
-            FT_BYTES, BASE_NONE, NULL, 0x00,
+            FT_INT48, BASE_DEC, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_atoi_tlv_displayname,
@@ -6738,9 +6765,14 @@ proto_register_ptp(void)
             FT_INT24, BASE_DEC, NULL, 0x00,
             NULL, HFILL }
         },
-        { &hf_ptp_as_fu_tlv_cumulative_offset,
+        { &hf_ptp_as_fu_tlv_cumulative_scaled_rate_offset,
           { "cumulativeScaledRateOffset", "ptp.as.fu.cumulativeScaledRateOffset",
-            FT_UINT32, BASE_DEC, NULL, 0x00,
+            FT_INT32, BASE_DEC, NULL, 0x00,
+            NULL, HFILL }
+        },
+        { &hf_ptp_as_fu_tlv_cumulative_rate_ratio,
+          { "cumulativeRateRatio", "ptp.as.fu.cumulativeRateRatio",
+            FT_DOUBLE, BASE_NONE, NULL, 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_as_fu_tlv_gm_base_indicator,
@@ -6913,7 +6945,7 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_sig_tlv_durationField,
           { "durationField",                "ptp.v2.sig.tlv.durationField",
-            FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_second_seconds, 0x00,
+            FT_UINT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_second_seconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_renewalInvited,
@@ -7028,42 +7060,42 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_phaseOffsetTx_ns,
           { "Ns",           "ptp.v2.sig.tlv.l1sync.phaseOffsetTx.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_phaseOffsetTx_subns,
           { "SubNs",           "ptp.v2.sig.tlv.l1sync.phaseOffsetTx.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_phaseOffsetTxTimestamp_s,
           { "S",           "ptp.v2.sig.tlv.l1sync.phaseOffsetTxTimestamp.s",
-            FT_UINT64, BASE_DEC|BASE_UNIT_STRING, &units_second_seconds, 0x00,
+            FT_UINT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_second_seconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_phaseOffsetTxTimestamp_ns,
           { "Ns",           "ptp.v2.sig.tlv.l1sync.phaseOffsetTxTimestamp.ns",
-            FT_INT32, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_freqOffsetTx_ns,
           { "Ns",           "ptp.v2.sig.tlv.l1sync.freqOffsetTx.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_freqOffsetTx_subns,
           { "SubNs",           "ptp.v2.sig.tlv.l1sync.freqOffsetTx.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_freqOffsetTxTimestamp_s,
           { "S",           "ptp.v2.sig.tlv.l1sync.freqOffsetTxTimestamp.s",
-            FT_UINT64, BASE_DEC|BASE_UNIT_STRING, &units_second_seconds, 0x00,
+            FT_UINT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_second_seconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_tlv_l1syncext_freqOffsetTxTimestamp_ns,
           { "Ns",           "ptp.v2.sig.tlv.l1sync.freqOffsetTxTimestamp.ns",
-            FT_INT32, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_sig_oe_tlv_cern_subtype,
@@ -7598,22 +7630,22 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_mm_offset_ns,
           { "Ns",              "ptp.v2.mm.offset.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_offset_subns,
           { "SubNs",           "ptp.v2.mm.offset.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_pathDelay_ns,
           { "Ns",           "ptp.v2.mm.pathDelay.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_pathDelay_subns,
           { "SubNs",           "ptp.v2.mm.pathDelay.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_PortNumber,
@@ -7633,12 +7665,12 @@ proto_register_ptp(void)
         },
         { &hf_ptp_v2_mm_peerMeanPathDelay_ns,
           { "Ns",           "ptp.v2.mm.peerMeanPathDelay.ns",
-            FT_INT64, BASE_DEC|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_INT64, BASE_DEC|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_peerMeanPathDelay_subns,
           { "SubNs",           "ptp.v2.mm.peerMeanPathDelay.subns",
-            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, &units_nanosecond_nanoseconds, 0x00,
+            FT_DOUBLE, BASE_NONE|BASE_UNIT_STRING, UNS(&units_nanosecond_nanoseconds), 0x00,
             NULL, HFILL }
         },
         { &hf_ptp_v2_mm_logAnnounceInterval,
@@ -7966,7 +7998,7 @@ proto_register_ptp(void)
 
 
 /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_ptp,
         &ett_ptp_flags,
         &ett_ptp_time,
@@ -8034,6 +8066,11 @@ proto_register_ptp(void)
     prefs_register_bool_preference(ptp_module, "analyze_ptp_messages", "Analyze PTP messages",
                                    "Make the PTP dissector analyze PTP messages. Accurate Capture Timestamps required!",
                                    &ptp_analyze_messages);
+
+    prefs_register_uint_preference(ptp_module, "analyze_ptp_delta", "Analysis: Max message delta",
+                                   "Maximum allowed time between messages of same type when finding "
+                                   "consecutive messages for analysis calculations.",
+                                   10, &ptp_analysis_max_consecutive_delta);
 
 /* Setup analysis data structures */
     ptp_clocks = wmem_map_new_autoreset(wmem_epan_scope(), wmem_file_scope(), g_direct_hash, g_direct_equal);

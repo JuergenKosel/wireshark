@@ -22,7 +22,7 @@
 static void
 fixup_jumps(void *data, void *user_data);
 
-static void
+static dfvm_value_t *
 gencode(dfwork_t *dfw, stnode_t *st_node);
 
 static dfvm_value_t *
@@ -88,7 +88,7 @@ dfw_append_stack_pop(dfwork_t *dfw, unsigned count)
 	dfvm_value_t	*val;
 
 	insn = dfvm_insn_new(DFVM_STACK_POP);
-	val = dfvm_value_new_guint(count);
+	val = dfvm_value_new_uint(count);
 	insn->arg1 = dfvm_value_ref(val);
 	dfw_append_insn(dfw, insn);
 }
@@ -334,6 +334,18 @@ dfw_append_length(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	return reg_val;
 }
 
+/* returns register number that the value string result will be in. */
+static dfvm_value_t *
+dfw_append_value_string(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
+{
+	GSList *params;
+
+	params = sttype_function_params(node);
+	ws_assert(params);
+	ws_assert(g_slist_length(params) == 1);
+	return gen_entity(dfw, params->data, jumps_ptr);
+}
+
 /* returns register number that the functions's result will be in. */
 static dfvm_value_t *
 dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
@@ -351,6 +363,11 @@ dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 	if (strcmp(func->name, "len") == 0) {
 		/* Replace len() function call with DFVM_LENGTH instruction. */
 		return dfw_append_length(dfw, node, jumps_ptr);
+	}
+
+	if (strcmp(func->name, "vals") == 0) {
+		/* Replace vals() function call with DFVM_VALUE_STRING instruction. */
+		return dfw_append_value_string(dfw, node, jumps_ptr);
 	}
 
 	/* Create the new DFVM instruction */
@@ -375,7 +392,7 @@ dfw_append_function(dfwork_t *dfw, stnode_t *node, GSList **jumps_ptr)
 		count++;
 		params = params->next;
 	}
-	val3 = dfvm_value_new_guint(count);
+	val3 = dfvm_value_new_uint(count);
 	insn->arg3 = dfvm_value_ref(val3);
 	dfw_append_insn(dfw, insn);
 	dfw_append_stack_pop(dfw, count);
@@ -420,7 +437,7 @@ gen_relation(dfwork_t *dfw, dfvm_opcode_t op, stmatch_t how,
 	val1 = gen_entity(dfw, st_arg1, &jumps);
 	val2 = gen_entity(dfw, st_arg2, &jumps);
 
-	/* Then combine them in a DFVM insruction */
+	/* Then combine them in a DFVM instruction */
 	op = select_opcode(op, how);
 	gen_relation_insn(dfw, op, val1, val2, NULL);
 
@@ -657,7 +674,19 @@ gen_exists(dfwork_t *dfw, stnode_t *st_node)
 	}
 }
 
-static void
+static dfvm_value_t*
+gen_field(dfwork_t *dfw, stnode_t *st_node)
+{
+	dfvm_value_t	*val1;
+	GSList		*jumps = NULL;
+
+	val1 = gen_entity(dfw, st_node, &jumps);
+	g_slist_foreach(jumps, fixup_jumps, dfw);
+	g_slist_free(jumps);
+	return val1;
+}
+
+static dfvm_value_t*
 gen_notzero(dfwork_t *dfw, stnode_t *st_node)
 {
 	dfvm_insn_t	*insn;
@@ -670,9 +699,10 @@ gen_notzero(dfwork_t *dfw, stnode_t *st_node)
 	dfw_append_insn(dfw, insn);
 	g_slist_foreach(jumps, fixup_jumps, dfw);
 	g_slist_free(jumps);
+	return val1;
 }
 
-static void
+static dfvm_value_t*
 gen_notzero_slice(dfwork_t *dfw, stnode_t *st_node)
 {
 	dfvm_insn_t	*insn;
@@ -693,6 +723,7 @@ gen_notzero_slice(dfwork_t *dfw, stnode_t *st_node)
 	/* Fixup jumps. */
 	g_slist_foreach(jumps, fixup_jumps, dfw);
 	g_slist_free(jumps);
+	return val1;
 }
 
 static void
@@ -799,26 +830,38 @@ gen_test(dfwork_t *dfw, stnode_t *st_node)
 	}
 }
 
-static void
+static dfvm_value_t*
 gencode(dfwork_t *dfw, stnode_t *st_node)
 {
+	dfvm_value_t* val = NULL;
+	/* If the root of the tree is a field, load and return the
+	 * values if we were asked to do so. If not, or anywhere
+	 * other than the root, just test for existence.
+	 */
+	bool return_val = dfw->flags & DF_RETURN_VALUES;
+	dfw->flags &= ~DF_RETURN_VALUES;
 	switch (stnode_type_id(st_node)) {
 		case STTYPE_TEST:
 			gen_test(dfw, st_node);
 			break;
 		case STTYPE_FIELD:
-			gen_exists(dfw, st_node);
+			if (return_val) {
+				val = gen_field(dfw, st_node);
+			} else {
+				gen_exists(dfw, st_node);
+			}
 			break;
 		case STTYPE_ARITHMETIC:
 		case STTYPE_FUNCTION:
-			gen_notzero(dfw, st_node);
+			val = gen_notzero(dfw, st_node);
 			break;
 		case STTYPE_SLICE:
-			gen_notzero_slice(dfw, st_node);
+			val = gen_notzero_slice(dfw, st_node);
 			break;
 		default:
 			ASSERT_STTYPE_NOT_REACHED(stnode_type_id(st_node));
 	}
+	return val;
 }
 
 
@@ -882,8 +925,9 @@ dfw_gencode(dfwork_t *dfw)
 	dfw->loaded_fields = g_hash_table_new(g_direct_hash, g_direct_equal);
 	dfw->loaded_raw_fields = g_hash_table_new(g_direct_hash, g_direct_equal);
 	dfw->interesting_fields = g_hash_table_new(g_int_hash, g_int_equal);
-	gencode(dfw, dfw->st_root);
-	dfw_append_insn(dfw, dfvm_insn_new(DFVM_RETURN));
+	dfvm_insn_t *insn = dfvm_insn_new(DFVM_RETURN);
+	insn->arg1 = dfvm_value_ref(gencode(dfw, dfw->st_root));
+	dfw_append_insn(dfw, insn);
 	if (dfw->flags & DF_OPTIMIZE) {
 		optimize(dfw);
 	}

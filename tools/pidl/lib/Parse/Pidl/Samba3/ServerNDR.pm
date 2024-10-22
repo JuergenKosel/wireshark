@@ -11,6 +11,7 @@ use Exporter;
 @EXPORT_OK = qw(DeclLevel);
 
 use strict;
+use warnings;
 use Parse::Pidl qw(warning error fatal);
 use Parse::Pidl::Typelist qw(mapTypeName scalar_is_reference);
 use Parse::Pidl::Util qw(ParseExpr has_property is_constant);
@@ -62,11 +63,11 @@ sub AllocOutVar($$$$$$$)
 		$l = $nl if ($nl->{TYPE} eq "ARRAY");
 	} elsif
 
-	# we don't support multi-dimentional arrays yet
+	# we don't support multi-dimensional arrays yet
 	($l->{TYPE} eq "ARRAY") {
 		my $nl = GetNextLevel($e, $l);
 		if ($nl->{TYPE} eq "ARRAY") {
-			fatal($e->{ORIGINAL},"multi-dimentional [out] arrays are not supported!");
+			fatal($e->{ORIGINAL},"multi-dimensional [out] arrays are not supported!");
 		}
 	} else {
 		# neither pointer nor array, no need to alloc something.
@@ -103,7 +104,7 @@ sub CallWithStruct($$$$$$)
 		if (grep(/out/, @{$_->{DIRECTION}})) { $hasout = 1; }
 	}
 
-	pidl "ZERO_STRUCT(r->out);" if ($hasout);
+	pidl "NDR_ZERO_STRUCT(r->out);" if ($hasout);
 
 	foreach (@{$fn->{ELEMENTS}}) {
 		my @dir = @{$_->{DIRECTION}};

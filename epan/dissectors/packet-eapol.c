@@ -14,6 +14,7 @@
 #include <epan/etypes.h>
 #include <epan/eapol_keydes_types.h>
 #include <epan/proto_data.h>
+#include <epan/tfs.h>
 
 #include "packet-eapol.h"
 
@@ -36,9 +37,9 @@ static int hf_eapol_keydes_key_signature;
 static int hf_eapol_keydes_key;
 static int hf_eapol_keydes_key_generated_locally;
 
-static gint ett_eapol;
-static gint ett_eapol_key_index;
-static gint ett_keyinfo;
+static int ett_eapol;
+static int ett_eapol_key_index;
+static int ett_keyinfo;
 
 static dissector_table_t eapol_type_dissector_table;
 static dissector_table_t eapol_keydes_type_dissector_table;
@@ -87,9 +88,9 @@ static int
 dissect_eapol(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
   int         offset = 0;
-  guint8      eapol_type;
-  guint16     eapol_len;
-  guint       len;
+  uint8_t     eapol_type;
+  uint16_t    eapol_len;
+  unsigned    len;
   proto_tree *ti;
   proto_tree *eapol_tree;
   tvbuff_t   *next_tvb;
@@ -103,7 +104,7 @@ dissect_eapol(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
   proto_tree_add_item(eapol_tree, hf_eapol_version, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset++;
 
-  eapol_type = tvb_get_guint8(tvb, offset);
+  eapol_type = tvb_get_uint8(tvb, offset);
   proto_tree_add_item(eapol_tree, hf_eapol_type, tvb, offset, 1, ENC_BIG_ENDIAN);
   col_add_str(pinfo->cinfo, COL_INFO,
                 val_to_str(eapol_type, eapol_type_vals, "Unknown Type (0x%02X)"));
@@ -123,7 +124,7 @@ dissect_eapol(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
     proto_eapol_key_frame_t *key_frame = wmem_new(pinfo->pool, proto_eapol_key_frame_t);
     key_frame->type = 0;
     key_frame->len = len;
-    key_frame->data = (guint8 *)wmem_alloc(pinfo->pool, len);
+    key_frame->data = (uint8_t *)wmem_alloc(pinfo->pool, len);
     tvb_memcpy(tvb, key_frame->data, 0, len);
     p_add_proto_data(pinfo->pool, pinfo, proto_eapol, EAPOL_KEY_FRAME_KEY, key_frame);
   }
@@ -131,7 +132,7 @@ dissect_eapol(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
   next_tvb = tvb_new_subset_remaining(tvb, offset);
   if (!dissector_try_uint_new(eapol_type_dissector_table,
                             eapol_type, next_tvb, pinfo, tree,
-                            FALSE, eapol_tree)) {
+                            false, eapol_tree)) {
     call_data_dissector(next_tvb, pinfo, tree);
   }
   return tvb_captured_length(tvb);
@@ -140,12 +141,12 @@ dissect_eapol(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U
 static int
 dissect_eapol_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void* data)
 {
-  guint8 keydesc_type;
+  uint8_t keydesc_type;
   int offset = 0;
   tvbuff_t   *next_tvb;
   proto_tree* eapol_tree = (proto_tree*)data;
 
-  keydesc_type = tvb_get_guint8(tvb, offset);
+  keydesc_type = tvb_get_uint8(tvb, offset);
   proto_tree_add_item(eapol_tree, hf_eapol_keydes_type, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset += 1;
   next_tvb = tvb_new_subset_remaining(tvb, offset);
@@ -161,7 +162,7 @@ dissect_eapol_key(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void*
 
   if (!dissector_try_uint_new(eapol_keydes_type_dissector_table,
                               keydesc_type, next_tvb, pinfo, eapol_tree,
-                              FALSE, NULL)) {
+                              false, NULL)) {
     proto_tree_add_item(eapol_tree, hf_eapol_keydes_body, tvb, offset, -1, ENC_NA);
   }
 
@@ -172,11 +173,11 @@ static int
 dissect_eapol_rc4_key(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *data _U_)
 {
   int         offset = 0;
-  guint16     eapol_key_len;
-  gboolean    generated_locally;
+  uint16_t    eapol_key_len;
+  bool        generated_locally;
   proto_tree *ti;
   proto_tree *key_index_tree;
-  gint        eapol_len;
+  int         eapol_len;
 
   eapol_key_len = tvb_get_ntohs(tvb, offset);
   proto_tree_add_item(tree, hf_eapol_keydes_key_len, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -293,7 +294,7 @@ proto_register_eapol(void)
         NULL, HFILL }},
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_eapol,
     &ett_keyinfo,
     &ett_eapol_key_index

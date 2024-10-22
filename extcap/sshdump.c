@@ -57,6 +57,7 @@ enum {
 	OPT_SSHKEY,
 	OPT_SSHKEY_PASSPHRASE,
 	OPT_PROXYCOMMAND,
+	OPT_SSH_SHA1,
 	OPT_REMOTE_COUNT,
 	OPT_REMOTE_SUDO,	// Deprecated
 	OPT_REMOTE_PRIV,
@@ -64,7 +65,7 @@ enum {
 	OPT_REMOTE_NOPROM
 };
 
-static struct ws_option longopts[] = {
+static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	{ "help", ws_no_argument, NULL, OPT_HELP},
 	{ "version", ws_no_argument, NULL, OPT_VERSION},
@@ -195,7 +196,7 @@ static ssh_channel run_ssh_command(ssh_session sshs, const char* capture_command
 				g_string_append_printf(ifaces_string, "-i %s ", quoted_iface);
 				ifaces_array_num++;
 			}
-			ifaces = g_string_free(ifaces_string, false);
+			ifaces = g_string_free(ifaces_string, FALSE);
 		}
 		quoted_filter = g_shell_quote(cfilter ? cfilter : "");
 		if (count > 0)
@@ -305,7 +306,7 @@ static char* interfaces_list_to_filter(GSList* interfaces, unsigned int remote_p
 		}
 		g_string_append_printf(filter, ") and port %u)", remote_port);
 	}
-	return g_string_free(filter, false);
+	return g_string_free(filter, FALSE);
 }
 
 static int list_config(char *interface, unsigned int remote_port)
@@ -346,6 +347,9 @@ static int list_config(char *interface, unsigned int remote_port)
 	printf("arg {number=%u}{call=--proxycommand}{display=ProxyCommand}"
 		"{type=string}{tooltip=The command to use as proxy for the SSH connection}"
 		"{group=Authentication}\n", inc++);
+	printf("arg {number=%u}{call=--ssh-sha1}{display=Support SHA-1 keys (deprecated)}"
+		"{type=boolflag}{tooltip=Support keys and key exchange algorithms using SHA-1 (deprecated)}{group=Authentication}"
+		"\n", inc++);
 	printf("arg {number=%u}{call=--remote-interface}{display=Remote interface}"
 		"{type=string}{tooltip=The remote network interface used for capture"
 		"}{group=Capture}\n", inc++);
@@ -475,6 +479,7 @@ int main(int argc, char *argv[])
 	extcap_help_add_option(extcap_conf, "--sshkey <private key path>", "the path of the SSH key (OpenSSH format)");
 	extcap_help_add_option(extcap_conf, "--sshkey-passphrase <private key passphrase>", "the passphrase to unlock private SSH key");
 	extcap_help_add_option(extcap_conf, "--proxycommand <proxy command>", "the command to use as proxy for the SSH connection");
+	extcap_help_add_option(extcap_conf, "--ssh-sha1", "support keys and key exchange using SHA-1 (deprecated)");
 	extcap_help_add_option(extcap_conf, "--remote-interface <iface>", "the remote capture interface");
 	extcap_help_add_option(extcap_conf, "--remote-capture-command-select <selection>", "dumpcap, tcpdump or other remote capture command");
 	extcap_help_add_option(extcap_conf, "--remote-capture-command <capture command>", "the remote capture command");
@@ -544,6 +549,10 @@ int main(int argc, char *argv[])
 		case OPT_PROXYCOMMAND:
 			g_free(ssh_params->proxycommand);
 			ssh_params->proxycommand = g_strdup(ws_optarg);
+			break;
+
+		case OPT_SSH_SHA1:
+			ssh_params->ssh_sha1 = true;
 			break;
 
 		case OPT_REMOTE_INTERFACE:
@@ -650,13 +659,13 @@ int main(int argc, char *argv[])
 		// given is always using the default SSH port since there's no remote SSH port
 		// given on the command line to get the extcap arguments.
 		// However the remote SSH port used here is the one given on the command line
-		// when the capture us started, which is the indended one.
+		// when the capture us started, which is the intended one.
 		// And this is only happening when no remote filter is specified on the command
 		// line to start the capture.
 		if (remote_filter == NULL)
 			remote_filter = local_interfaces_to_filter(ssh_params->port);
 		filter = concat_filters(extcap_conf->capture_filter, remote_filter);
-		ssh_params->debug = extcap_conf->debug;
+		ssh_params_set_log_level(ssh_params, extcap_conf->debug);
 		ret = ssh_open_remote_connection(ssh_params, remote_interface,
 			filter, remote_capture_command_select, remote_capture_command,
 			privilege, noprom, count, extcap_conf->fifo);

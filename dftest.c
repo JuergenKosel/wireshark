@@ -31,8 +31,8 @@
 #include <wsutil/plugins.h>
 #endif
 #include <wsutil/filesystem.h>
+#include <wsutil/file_util.h>
 #include <wsutil/privileges.h>
-#include <wsutil/report_message.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_getopt.h>
 #include <wsutil/utf8_entities.h>
@@ -44,19 +44,20 @@
 #include "ui/failure_message.h"
 #include "wsutil/version_info.h"
 
-static int opt_verbose = 0;
-static int opt_debug_level = 0; /* currently up to 2 */
-static int opt_flex = 0;
-static int opt_lemon = 0;
-static int opt_syntax_tree = 0;
-static int opt_timer = 0;
+static int opt_verbose;
+static int opt_debug_level; /* currently up to 2 */
+static int opt_flex;
+static int opt_lemon;
+static int opt_syntax_tree;
+static int opt_return_vals;
+static int opt_timer;
 static long opt_optimize = 1;
-static int opt_show_types = 0;
-static int opt_dump_refs = 0;
-static int opt_dump_macros = 0;
+static int opt_show_types;
+static int opt_dump_refs;
+static int opt_dump_macros;
 
-static gint64 elapsed_expand = 0;
-static gint64 elapsed_compile = 0;
+static int64_t elapsed_expand;
+static int64_t elapsed_compile;
 
 /*
  * Report an error in command-line arguments.
@@ -78,6 +79,24 @@ dftest_cmdarg_err_cont(const char *fmt, va_list ap)
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
 }
+
+#ifndef HAVE_GETLINE
+/* Maximum supported line length of a filter. */
+#define MAX_LINELEN     4096
+
+/** Read a line without trailing (CR)LF. Returns -1 on failure.  */
+static int
+fgetline(char *buf, int size, FILE *fp)
+{
+    if (fgets(buf, size, fp)) {
+        int len = (int)strcspn(buf, "\r\n");
+        buf[len] = '\0';
+        return len;
+    }
+    return -1;
+
+} /* fgetline */
+#endif /* HAVE_GETLINE */
 
 static void
 putloc(FILE *fp, df_loc_t loc)
@@ -101,6 +120,7 @@ print_usage(int status)
     fprintf(fp, "Usage: dftest [OPTIONS] -- EXPRESSION\n");
     fprintf(fp, "Options:\n");
     fprintf(fp, "  -V, --verbose       enable verbose mode\n");
+    fprintf(fp, "  -C <config profile> run with specified configuration profile\n");
     fprintf(fp, "  -d, --debug[=N]     increase or set debug level\n");
     fprintf(fp, "  -D                  set maximum debug level\n");
     fprintf(fp, "  -f, --flex          enable Flex debug trace\n");
@@ -108,6 +128,7 @@ print_usage(int status)
     fprintf(fp, "  -s, --syntax        print syntax tree\n");
     fprintf(fp, "  -m  --macros        print saved macros\n");
     fprintf(fp, "  -t, --timer         print elapsed compilation time\n");
+    fprintf(fp, "  -r  --return-vals   return field values for the tree root\n");
     fprintf(fp, "  -0, --optimize=0    do not optimize (check syntax)\n");
     fprintf(fp, "      --types         show field value types\n");
     /* NOTE: References are loaded during runtime and dftest only does compilation.
@@ -115,6 +136,7 @@ print_usage(int status)
      * development the --refs option to dftest is useless because it will just
      * print empty reference vectors. */
     fprintf(fp, "      --refs          dump some runtime data structures\n");
+    fprintf(fp, "      --file <path>   read filters line-by-line from a file (use '-' for stdin)\n");
     fprintf(fp, "  -h, --help          display this help and exit\n");
     fprintf(fp, "  -v, --version       print version\n");
     fprintf(fp, "\n");
@@ -151,7 +173,7 @@ print_macros(void)
 static void
 print_warnings(dfilter_t *df)
 {
-    guint i;
+    unsigned i;
     GPtrArray *deprecated;
     int count = 0;
 
@@ -188,7 +210,7 @@ expand_filter(const char *text)
 {
     char *expanded = NULL;
     df_error_t *err = NULL;
-    gint64 start;
+    int64_t start;
 
     start = g_get_monotonic_time();
     expanded = dfilter_expand(text, &err);
@@ -200,13 +222,13 @@ expand_filter(const char *text)
     return expanded;
 }
 
-static gboolean
+static bool
 compile_filter(const char *text, dfilter_t **dfp)
 {
     unsigned df_flags = 0;
-    gboolean ok;
+    bool ok;
     df_error_t *df_err = NULL;
-    gint64 start;
+    int64_t start;
 
     if (opt_optimize > 0)
         df_flags |= DF_OPTIMIZE;
@@ -216,6 +238,8 @@ compile_filter(const char *text, dfilter_t **dfp)
         df_flags |= DF_DEBUG_FLEX;
     if (opt_lemon)
         df_flags |= DF_DEBUG_LEMON;
+    if (opt_return_vals)
+        df_flags |= DF_RETURN_VALUES;
 
     start = g_get_monotonic_time();
     ok = dfilter_compile_full(text, dfp, &df_err, df_flags, "dftest");
@@ -247,13 +271,71 @@ optarg_to_digit(const char *arg)
     return digit;
 }
 
+static int
+test_filter(const char *text)
+{
+    char        *expanded_text = NULL;
+    dfilter_t   *df = NULL;
+
+    printf("Filter:\n %s\n\n", text);
+
+    /* Expand macros. */
+    expanded_text = expand_filter(text);
+    if (expanded_text == NULL) {
+        goto fail;
+    }
+
+    if (strcmp(text, expanded_text) != 0)
+        printf("Filter (after expansion):\n %s\n\n", expanded_text);
+
+    /* Compile it */
+    if (!compile_filter(expanded_text, &df)) {
+        goto fail;
+    }
+
+    /* If logging is enabled add an empty line. */
+    if (opt_debug_level > 0) {
+        printf("\n");
+    }
+
+    if (df == NULL) {
+        printf("Filter is empty.\n");
+        goto fail;
+    }
+
+    if (opt_syntax_tree)
+        print_syntax_tree(df);
+
+    uint16_t dump_flags = 0;
+    if (opt_show_types)
+        dump_flags |= DF_DUMP_SHOW_FTYPE;
+    if (opt_dump_refs)
+        dump_flags |= DF_DUMP_REFERENCES;
+
+    dfilter_dump(stdout, df, dump_flags);
+
+    print_warnings(df);
+
+    if (opt_timer)
+        print_elapsed();
+
+    g_free(expanded_text);
+    dfilter_free(df);
+
+    return EXIT_SUCCESS;
+
+fail:
+    g_free(expanded_text);
+    dfilter_free(df);
+    return WS_EXIT_INVALID_FILTER;
+}
+
 int
 main(int argc, char **argv)
 {
     char		*configuration_init_error;
+    char        *path = NULL;
     char        *text = NULL;
-    char        *expanded_text = NULL;
-    dfilter_t   *df = NULL;
     int          exit_status = EXIT_FAILURE;
 
     /*
@@ -276,9 +358,26 @@ main(int argc, char **argv)
 
     ws_noisy("Finished log init and parsing command line log arguments");
 
+    /*
+     * Get credential information for later use.
+     */
+    init_process_policies();
+
+    /*
+     * Attempt to get the pathname of the directory containing the
+     * executable file.
+     */
+    configuration_init_error = configuration_init(argv[0], NULL);
+    if (configuration_init_error != NULL) {
+        fprintf(stderr, "Error: Can't get pathname of directory containing "
+                        "the dftest program: %s.\n",
+            configuration_init_error);
+        g_free(configuration_init_error);
+    }
+
     ws_init_version_info("DFTest", NULL, NULL);
 
-    const char *optstring = "hvdDflsmtV0";
+    const char *optstring = "hvC:dDflsmrtV0";
     static struct ws_option long_options[] = {
         { "help",     ws_no_argument,   0,  'h' },
         { "version",  ws_no_argument,   0,  'v' },
@@ -289,9 +388,11 @@ main(int argc, char **argv)
         { "macros",   ws_no_argument,   0,  'm' },
         { "timer",    ws_no_argument,   0,  't' },
         { "verbose",  ws_no_argument,   0,  'V' },
+        { "return-vals", ws_no_argument,   0,  'r' },
         { "optimize", ws_required_argument, 0, 1000 },
         { "types",    ws_no_argument,   0, 2000 },
         { "refs",     ws_no_argument,   0, 3000 },
+        { "file",     ws_required_argument, 0, 4000 },
         { NULL,       0,                0,  0   }
     };
     int opt;
@@ -314,6 +415,14 @@ main(int argc, char **argv)
                 }
                 opt_show_types = 1;
                 break;
+            case 'C':   /* Configuration Profile */
+                if (profile_exists (ws_optarg, false)) {
+                    set_profile_name (ws_optarg);
+                } else {
+                    cmdarg_err("Configuration Profile \"%s\" does not exist", ws_optarg);
+                    print_usage(WS_EXIT_INVALID_OPTION);
+                }
+                break;
             case 'D':
                 opt_debug_level = 9;
                 opt_lemon = 1;
@@ -335,6 +444,9 @@ main(int argc, char **argv)
             case 't':
                 opt_timer = 1;
                 break;
+            case 'r':
+                opt_return_vals = 1;
+                break;
             case '0':
                 opt_optimize = 0;
                 break;
@@ -346,6 +458,9 @@ main(int argc, char **argv)
                 break;
             case 3000:
                 opt_dump_refs = 1;
+                break;
+            case 4000:
+                path = ws_optarg;
                 break;
             case 'v':
                 show_version();
@@ -365,7 +480,7 @@ main(int argc, char **argv)
     /* Check for filter on command line. */
     if (argv[ws_optind] == NULL) {
         /* If not printing macros we need a filter expression to compile. */
-        if (!opt_dump_macros) {
+        if (!opt_dump_macros && !path) {
             printf("Error: Missing argument.\n");
             print_usage(EXIT_FAILURE);
         }
@@ -380,37 +495,7 @@ main(int argc, char **argv)
         ws_log_set_debug_filter(LOG_DOMAIN_DFILTER);
     }
 
-    /*
-     * Get credential information for later use.
-     */
-    init_process_policies();
-
-    /*
-     * Attempt to get the pathname of the directory containing the
-     * executable file.
-     */
-    configuration_init_error = configuration_init(argv[0], NULL);
-    if (configuration_init_error != NULL) {
-        fprintf(stderr, "Error: Can't get pathname of directory containing "
-                        "the dftest program: %s.\n",
-            configuration_init_error);
-        g_free(configuration_init_error);
-    }
-
-    static const struct report_message_routines dftest_report_routines = {
-        failure_message,
-        failure_message,
-        open_failure_message,
-        read_failure_message,
-        write_failure_message,
-        cfile_open_failure_message,
-        cfile_dump_open_failure_message,
-        cfile_read_failure_message,
-        cfile_write_failure_message,
-        cfile_close_failure_message
-    };
-
-    init_report_message("dftest", &dftest_report_routines);
+    init_report_failure_message("dftest");
 
     timestamp_set_type(TS_RELATIVE);
     timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
@@ -420,13 +505,13 @@ main(int argc, char **argv)
      * dissection-time handlers for file-type-dependent blocks can
      * register using the file type/subtype value for the file type.
      */
-    wtap_init(TRUE);
+    wtap_init(true);
 
     /* Register all dissectors; we must do this before checking for the
        "-g" flag, as the "-g" flag dumps a list of fields registered
        by the dissectors, and we must do it before we read the preferences,
        in case any dissectors register preferences. */
-    if (!epan_init(NULL, NULL, TRUE))
+    if (!epan_init(NULL, NULL, true))
         goto out;
 
     /* Load libwireshark settings from the current profile. */
@@ -445,12 +530,6 @@ main(int argc, char **argv)
         }
     }
 
-    /* Check again for filter on command line */
-    if (argv[ws_optind] == NULL) {
-        printf("Error: Missing argument.\n");
-        print_usage(EXIT_FAILURE);
-    }
-
     /* This is useful to prevent confusion with option parsing.
      * Skips printing options and argv[0]. */
     if (opt_verbose) {
@@ -460,60 +539,57 @@ main(int argc, char **argv)
         fprintf(stderr, "\n");
     }
 
-    /* Get filter text */
-    text = get_args_as_string(argc, argv, ws_optind);
+    if (path) {
+        FILE *filter_p;
+        if (strcmp(path, "-") == 0) {
+            filter_p = stdin;
+        } else {
+            filter_p = ws_fopen(path, "r");
+            if (filter_p == NULL) {
+                open_failure_message(path, errno, false);
+                exit_status = WS_EXIT_INVALID_FILE;
+                goto out;
+            }
+        }
+        bool first = true;
+#ifdef HAVE_GETLINE
+        char *line = NULL;
+        size_t len = 0;
+        while (getline(&line, &len, filter_p) >= 0) {
+#else
+        char line[MAX_LINELEN];
+        while (fgetline(line, sizeof(line), filter_p) >= 0) {
+#endif
+            if (first) {
+                first = false;
+            } else {
+                printf("\n");
+            }
+            exit_status = test_filter(line);
+            /* A keep going option could be added. */
+            if (exit_status != EXIT_SUCCESS)
+                break;
+        }
+#ifdef HAVE_GETLINE
+        g_free(line);
+#endif
+        fclose(filter_p);
+    } else {
 
-    printf("Filter:\n %s\n\n", text);
+        /* Check again for filter on command line */
+        if (argv[ws_optind] == NULL) {
+            printf("Error: Missing argument.\n");
+            print_usage(EXIT_FAILURE);
+        }
 
-    /* Expand macros. */
-    expanded_text = expand_filter(text);
-    if (expanded_text == NULL) {
-        exit_status = WS_EXIT_INVALID_FILTER;
-        goto out;
+        /* Get filter text */
+        text = get_args_as_string(argc, argv, ws_optind);
+
+        exit_status = test_filter(text);
     }
-
-    if (strcmp(text, expanded_text) != 0)
-        printf("Filter (after expansion):\n %s\n\n", expanded_text);
-
-    /* Compile it */
-    if (!compile_filter(expanded_text, &df)) {
-        exit_status = WS_EXIT_INVALID_FILTER;
-        goto out;
-    }
-
-    /* If logging is enabled add an empty line. */
-    if (opt_debug_level > 0) {
-        printf("\n");
-    }
-
-    if (df == NULL) {
-        printf("Filter is empty.\n");
-        exit_status = WS_EXIT_INVALID_FILTER;
-        goto out;
-    }
-
-    if (opt_syntax_tree)
-        print_syntax_tree(df);
-
-    uint16_t dump_flags = 0;
-    if (opt_show_types)
-        dump_flags |= DF_DUMP_SHOW_FTYPE;
-    if (opt_dump_refs)
-        dump_flags |= DF_DUMP_REFERENCES;
-
-    dfilter_dump(stdout, df, dump_flags);
-
-    print_warnings(df);
-
-    if (opt_timer)
-        print_elapsed();
-
-    exit_status = 0;
 
 out:
     epan_cleanup();
-    dfilter_free(df);
     g_free(text);
-    g_free(expanded_text);
     exit(exit_status);
 }

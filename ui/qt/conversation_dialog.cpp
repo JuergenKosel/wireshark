@@ -71,7 +71,7 @@ ConversationDialog::ConversationDialog(QWidget &parent, CaptureFile &cf) :
 {
     trafficList()->setProtocolInfo(table_name_, &(recent.conversation_tabs));
 
-    trafficTab()->setProtocolInfo(table_name_, trafficList(), &(recent.conversation_tabs_columns), &createModel);
+    trafficTab()->setProtocolInfo(table_name_, trafficList(), &(recent.conversation_tabs), &(recent.conversation_tabs_columns), &createModel);
     trafficTab()->setDelegate(&createDelegate);
     trafficTab()->setDelegate(&createDelegate);
     trafficTab()->setFilter(cf.displayFilter());
@@ -110,6 +110,8 @@ void ConversationDialog::followStream()
     if (file_closed_)
         return;
 
+    // This is null if there's no items for the current tab, but there's no
+    // stream to follow in that case.
     QVariant protoIdData = trafficTab()->currentItemData(ATapDataModel::PROTO_ID);
     if (protoIdData.isNull())
         return;
@@ -148,13 +150,30 @@ void ConversationDialog::graphTcp()
 
 void ConversationDialog::tabChanged(int)
 {
+    // By default we'll open the last known opened tab from the Profile
+    GList *selected_tab = NULL;
+
     bool follow = false;
     bool graph = false;
 
     if (!file_closed_) {
-        QVariant proto_id = trafficTab()->currentItemData(ATapDataModel::PROTO_ID);
-        if (!proto_id.isNull()) {
-            follow = (get_follow_by_proto_id(proto_id.toInt()) != nullptr);
+        QVariant current_tab_var = trafficTab()->tabBar()->tabData(trafficTab()->currentIndex());
+        if (!current_tab_var.isNull()) {
+            TabData current_tab_data = qvariant_cast<TabData>(current_tab_var);
+            follow = (get_follow_by_proto_id(current_tab_data.protoId()) != nullptr);
+
+            for (GList * endTab = recent.conversation_tabs; endTab; endTab = endTab->next) {
+                int protoId = proto_get_id_by_short_name((const char *)endTab->data);
+                if ((protoId > -1) && (protoId==current_tab_data.protoId())) {
+                    selected_tab = endTab;
+                }
+            }
+
+            // Move the selected tab to the head
+            if (selected_tab != nullptr) {
+                recent.conversation_tabs = g_list_remove_link(recent.conversation_tabs, selected_tab);
+                recent.conversation_tabs = g_list_prepend(recent.conversation_tabs, selected_tab->data);
+            }
         }
         int endpointType = trafficTab()->currentItemData(ATapDataModel::ENDPOINT_DATATYPE).toInt();
         switch(endpointType) {

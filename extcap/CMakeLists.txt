@@ -42,15 +42,15 @@ macro(set_extcap_executable_properties _executable)
 
 	if(CMAKE_CONFIGURATION_TYPES)
 		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap
-			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap/wireshark
 		)
 	else()
 		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/wireshark
 		)
 		if(ENABLE_APPLICATION_BUNDLE)
 			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
@@ -83,26 +83,47 @@ endmacro()
 
 macro(set_extlog_executable_properties _executable)
 	set_target_properties(${_executable} PROPERTIES
-		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap
+		LINK_FLAGS "${WS_LINK_FLAGS}"
+		FOLDER "Executables/Extcaps"
+		INSTALL_RPATH "${EXTCAP_INSTALL_RPATH}"
 	)
-	if(ENABLE_APPLICATION_BUNDLE)
-		if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
-			# Xcode
-			set_target_properties(${_executable} PROPERTIES
-				RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Logray.app/Contents/MacOS/extcap
-			)
-		else()
-			set_target_properties(${_executable} PROPERTIES
-				RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Logray.app/Contents/MacOS/extcap
-			)
-			# Create a convenience link from run/<name> to its respective
-			# target in the application bundle.
-			add_custom_target(${_executable}-symlink
-				COMMAND ln -s -f
-					Logray.app/Contents/MacOS/extcap/${_executable}
-					${CMAKE_BINARY_DIR}/run/${_executable}
-			)
-			add_dependencies(${_executable} ${_executable}-symlink)
+	if(MSVC)
+		set_target_properties(${_executable} PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
+	endif()
+
+	set(PROGLIST ${PROGLIST} ${_executable})
+
+	if(CMAKE_CONFIGURATION_TYPES)
+		set_target_properties(${_executable} PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/stratoshark
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap/stratoshark
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap/stratoshark
+			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap/stratoshark
+			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap/stratoshark
+		)
+	else()
+		set_target_properties(${_executable} PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/stratoshark
+		)
+		if(ENABLE_APPLICATION_BUNDLE)
+			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
+				# Xcode
+				set_target_properties(${_executable} PROPERTIES
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Stratoshark.app/Contents/MacOS/extcap
+				)
+			else()
+				set_target_properties(${_executable} PROPERTIES
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Stratoshark.app/Contents/MacOS/extcap
+				)
+				# Create a convenience link from run/<name> to its respective
+				# target in the application bundle.
+				add_custom_target(${_executable}-symlink
+					COMMAND ln -s -f
+						Stratoshark.app/Contents/MacOS/extcap/${_executable}
+						${CMAKE_BINARY_DIR}/run/${_executable}
+				)
+				add_dependencies(${_executable} ${_executable}-symlink)
+			endif()
 		endif()
 	endif()
 endmacro()
@@ -365,11 +386,13 @@ if(BUILD_falcodump AND SINSP_FOUND)
 	set_extlog_executable_properties(falcodump)
 	target_link_libraries(falcodump ${falcodump_LIBS})
 	target_include_directories(falcodump SYSTEM PRIVATE ${SINSP_INCLUDE_DIRS})
-	install(TARGETS falcodump RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
+	if(WIN32)
+		# libsinsp/dumper.h includes libscap/scap_savefile_api.h, which includes
+		# libscap/scap_zlib.h.
+		target_include_directories(falcodump SYSTEM PRIVATE ${ZLIB_INCLUDE_DIR})
+	endif()
+	install(TARGETS falcodump RUNTIME DESTINATION ${LOG_EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps falcodump)
-
-	# XXX Hack; We need to fix this in falcosecurity-libs.
-	target_compile_definitions(falcodump PRIVATE HAVE_STRLCPY=1)
 
 endif()
 

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-t124.c                                                              */
-/* asn2wrs.py -L -p t124 -c ./t124.cnf -s ./packet-t124-template -D . -O ../.. GCC-PROTOCOL.asn ../t125/MCS-PROTOCOL.asn */
+/* asn2wrs.py -q -L -p t124 -c ./t124.cnf -s ./packet-t124-template -D . -O ../.. GCC-PROTOCOL.asn ../t125/MCS-PROTOCOL.asn */
 
 /* packet-t124.c
  * Routines for t124 packet dissection
@@ -20,6 +20,7 @@
 #include <epan/packet.h>
 #include <epan/exceptions.h>
 #include <epan/conversation.h>
+#include <wsutil/array.h>
 
 #include <epan/asn1.h>
 #include "packet-per.h"
@@ -40,7 +41,7 @@ void proto_reg_handoff_t124(void);
 
 /* Initialize the protocol and registered fields */
 static int proto_t124;
-static proto_tree *top_tree = NULL;
+static proto_tree *top_tree;
 
 static int hf_t124_object;                        /* T_object */
 static int hf_t124_h221NonStandard;               /* H221NonStandardIdentifier */
@@ -274,119 +275,119 @@ static int hf_t124_ConnectData;
 static int hf_t124_connectGCCPDU;
 static int hf_t124_DomainMCSPDU_PDU;
 
-static guint32 channelId = -1;
+static uint32_t channelId = -1;
 
-static dissector_table_t t124_ns_dissector_table=NULL;
-static dissector_table_t t124_sd_dissector_table=NULL;
+static dissector_table_t t124_ns_dissector_table;
+static dissector_table_t t124_sd_dissector_table;
 
-static gint ett_t124_Key;
-static gint ett_t124_NonStandardParameter;
-static gint ett_t124_UserData;
-static gint ett_t124_UserData_item;
-static gint ett_t124_Password;
-static gint ett_t124_PasswordSelector;
-static gint ett_t124_ChallengeResponseItem;
-static gint ett_t124_ChallengeResponseAlgorithm;
-static gint ett_t124_ChallengeItem;
-static gint ett_t124_ChallengeRequest;
-static gint ett_t124_SET_OF_ChallengeItem;
-static gint ett_t124_ChallengeResponse;
-static gint ett_t124_PasswordChallengeRequestResponse;
-static gint ett_t124_T_challengeRequestResponse;
-static gint ett_t124_ConferenceName;
-static gint ett_t124_ConferenceNameSelector;
-static gint ett_t124_ConferencePriorityScheme;
-static gint ett_t124_ConferencePriority;
-static gint ett_t124_NodeCategory;
-static gint ett_t124_ConferenceMode;
-static gint ett_t124_NetworkAddress;
-static gint ett_t124_NetworkAddress_item;
-static gint ett_t124_T_aggregatedChannel;
-static gint ett_t124_T_transferModes;
-static gint ett_t124_T_highLayerCompatibility;
-static gint ett_t124_T_transportConnection;
-static gint ett_t124_AsymmetryIndicator;
-static gint ett_t124_ConferenceDescriptor;
-static gint ett_t124_ConferenceCreateRequest;
-static gint ett_t124_SET_OF_Privilege;
-static gint ett_t124_ConferenceCreateResponse;
-static gint ett_t124_ConferenceQueryRequest;
-static gint ett_t124_ConferenceQueryResponse;
-static gint ett_t124_SET_OF_ConferenceDescriptor;
-static gint ett_t124_ConferenceJoinRequest;
-static gint ett_t124_ConferenceJoinResponse;
-static gint ett_t124_ConferenceInviteRequest;
-static gint ett_t124_ConferenceInviteResponse;
-static gint ett_t124_ConnectData;
-static gint ett_t124_ConnectGCCPDU;
-static gint ett_t124_Segmentation;
-static gint ett_t124_PlumbDomainIndication;
-static gint ett_t124_ErectDomainRequest;
-static gint ett_t124_ChannelAttributes;
-static gint ett_t124_T_static;
-static gint ett_t124_T_userId;
-static gint ett_t124_T_private;
-static gint ett_t124_SET_OF_UserId;
-static gint ett_t124_T_assigned;
-static gint ett_t124_MergeChannelsRequest;
-static gint ett_t124_SET_OF_ChannelAttributes;
-static gint ett_t124_SET_OF_ChannelId;
-static gint ett_t124_MergeChannelsConfirm;
-static gint ett_t124_PurgeChannelsIndication;
-static gint ett_t124_TokenAttributes;
-static gint ett_t124_T_grabbed;
-static gint ett_t124_T_inhibited;
-static gint ett_t124_T_giving;
-static gint ett_t124_T_ungivable;
-static gint ett_t124_T_given;
-static gint ett_t124_MergeTokensRequest;
-static gint ett_t124_SET_OF_TokenAttributes;
-static gint ett_t124_SET_OF_TokenId;
-static gint ett_t124_MergeTokensConfirm;
-static gint ett_t124_PurgeTokensIndication;
-static gint ett_t124_DisconnectProviderUltimatum;
-static gint ett_t124_RejectMCSPDUUltimatum;
-static gint ett_t124_AttachUserRequest;
-static gint ett_t124_AttachUserConfirm;
-static gint ett_t124_DetachUserRequest;
-static gint ett_t124_DetachUserIndication;
-static gint ett_t124_ChannelJoinRequest;
-static gint ett_t124_ChannelJoinConfirm;
-static gint ett_t124_ChannelLeaveRequest;
-static gint ett_t124_ChannelConveneRequest;
-static gint ett_t124_ChannelConveneConfirm;
-static gint ett_t124_ChannelDisbandRequest;
-static gint ett_t124_ChannelDisbandIndication;
-static gint ett_t124_ChannelAdmitRequest;
-static gint ett_t124_ChannelAdmitIndication;
-static gint ett_t124_ChannelExpelRequest;
-static gint ett_t124_ChannelExpelIndication;
-static gint ett_t124_SendDataRequest;
-static gint ett_t124_SendDataIndication;
-static gint ett_t124_UniformSendDataRequest;
-static gint ett_t124_UniformSendDataIndication;
-static gint ett_t124_TokenGrabRequest;
-static gint ett_t124_TokenGrabConfirm;
-static gint ett_t124_TokenInhibitRequest;
-static gint ett_t124_TokenInhibitConfirm;
-static gint ett_t124_TokenGiveRequest;
-static gint ett_t124_TokenGiveIndication;
-static gint ett_t124_TokenGiveResponse;
-static gint ett_t124_TokenGiveConfirm;
-static gint ett_t124_TokenPleaseRequest;
-static gint ett_t124_TokenPleaseIndication;
-static gint ett_t124_TokenReleaseRequest;
-static gint ett_t124_TokenReleaseConfirm;
-static gint ett_t124_TokenTestRequest;
-static gint ett_t124_TokenTestConfirm;
-static gint ett_t124_DomainMCSPDU;
+static int ett_t124_Key;
+static int ett_t124_NonStandardParameter;
+static int ett_t124_UserData;
+static int ett_t124_UserData_item;
+static int ett_t124_Password;
+static int ett_t124_PasswordSelector;
+static int ett_t124_ChallengeResponseItem;
+static int ett_t124_ChallengeResponseAlgorithm;
+static int ett_t124_ChallengeItem;
+static int ett_t124_ChallengeRequest;
+static int ett_t124_SET_OF_ChallengeItem;
+static int ett_t124_ChallengeResponse;
+static int ett_t124_PasswordChallengeRequestResponse;
+static int ett_t124_T_challengeRequestResponse;
+static int ett_t124_ConferenceName;
+static int ett_t124_ConferenceNameSelector;
+static int ett_t124_ConferencePriorityScheme;
+static int ett_t124_ConferencePriority;
+static int ett_t124_NodeCategory;
+static int ett_t124_ConferenceMode;
+static int ett_t124_NetworkAddress;
+static int ett_t124_NetworkAddress_item;
+static int ett_t124_T_aggregatedChannel;
+static int ett_t124_T_transferModes;
+static int ett_t124_T_highLayerCompatibility;
+static int ett_t124_T_transportConnection;
+static int ett_t124_AsymmetryIndicator;
+static int ett_t124_ConferenceDescriptor;
+static int ett_t124_ConferenceCreateRequest;
+static int ett_t124_SET_OF_Privilege;
+static int ett_t124_ConferenceCreateResponse;
+static int ett_t124_ConferenceQueryRequest;
+static int ett_t124_ConferenceQueryResponse;
+static int ett_t124_SET_OF_ConferenceDescriptor;
+static int ett_t124_ConferenceJoinRequest;
+static int ett_t124_ConferenceJoinResponse;
+static int ett_t124_ConferenceInviteRequest;
+static int ett_t124_ConferenceInviteResponse;
+static int ett_t124_ConnectData;
+static int ett_t124_ConnectGCCPDU;
+static int ett_t124_Segmentation;
+static int ett_t124_PlumbDomainIndication;
+static int ett_t124_ErectDomainRequest;
+static int ett_t124_ChannelAttributes;
+static int ett_t124_T_static;
+static int ett_t124_T_userId;
+static int ett_t124_T_private;
+static int ett_t124_SET_OF_UserId;
+static int ett_t124_T_assigned;
+static int ett_t124_MergeChannelsRequest;
+static int ett_t124_SET_OF_ChannelAttributes;
+static int ett_t124_SET_OF_ChannelId;
+static int ett_t124_MergeChannelsConfirm;
+static int ett_t124_PurgeChannelsIndication;
+static int ett_t124_TokenAttributes;
+static int ett_t124_T_grabbed;
+static int ett_t124_T_inhibited;
+static int ett_t124_T_giving;
+static int ett_t124_T_ungivable;
+static int ett_t124_T_given;
+static int ett_t124_MergeTokensRequest;
+static int ett_t124_SET_OF_TokenAttributes;
+static int ett_t124_SET_OF_TokenId;
+static int ett_t124_MergeTokensConfirm;
+static int ett_t124_PurgeTokensIndication;
+static int ett_t124_DisconnectProviderUltimatum;
+static int ett_t124_RejectMCSPDUUltimatum;
+static int ett_t124_AttachUserRequest;
+static int ett_t124_AttachUserConfirm;
+static int ett_t124_DetachUserRequest;
+static int ett_t124_DetachUserIndication;
+static int ett_t124_ChannelJoinRequest;
+static int ett_t124_ChannelJoinConfirm;
+static int ett_t124_ChannelLeaveRequest;
+static int ett_t124_ChannelConveneRequest;
+static int ett_t124_ChannelConveneConfirm;
+static int ett_t124_ChannelDisbandRequest;
+static int ett_t124_ChannelDisbandIndication;
+static int ett_t124_ChannelAdmitRequest;
+static int ett_t124_ChannelAdmitIndication;
+static int ett_t124_ChannelExpelRequest;
+static int ett_t124_ChannelExpelIndication;
+static int ett_t124_SendDataRequest;
+static int ett_t124_SendDataIndication;
+static int ett_t124_UniformSendDataRequest;
+static int ett_t124_UniformSendDataIndication;
+static int ett_t124_TokenGrabRequest;
+static int ett_t124_TokenGrabConfirm;
+static int ett_t124_TokenInhibitRequest;
+static int ett_t124_TokenInhibitConfirm;
+static int ett_t124_TokenGiveRequest;
+static int ett_t124_TokenGiveIndication;
+static int ett_t124_TokenGiveResponse;
+static int ett_t124_TokenGiveConfirm;
+static int ett_t124_TokenPleaseRequest;
+static int ett_t124_TokenPleaseIndication;
+static int ett_t124_TokenReleaseRequest;
+static int ett_t124_TokenReleaseConfirm;
+static int ett_t124_TokenTestRequest;
+static int ett_t124_TokenTestConfirm;
+static int ett_t124_DomainMCSPDU;
 
 
 
 static int
 dissect_t124_DynamicChannelID(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1001U, 65535U, NULL, FALSE);
+                                                            1001U, 65535U, NULL, false);
 
   return offset;
 }
@@ -406,7 +407,7 @@ static int
 dissect_t124_H221NonStandardIdentifier(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 
       offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       4, 255, FALSE, (tvbuff_t**)&actx->private_data);
+                                       4, 255, false, (tvbuff_t**)&actx->private_data);
 
 
 
@@ -450,7 +451,7 @@ dissect_t124_Key(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_
 static int
 dissect_t124_OCTET_STRING(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, NULL);
+                                       NO_BOUND, NO_BOUND, false, NULL);
 
   return offset;
 }
@@ -475,7 +476,7 @@ dissect_t124_NonStandardParameter(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static int
 dissect_t124_TextString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_BMPString(tvb, offset, actx, tree, hf_index,
-                                          0, 255, FALSE);
+                                          0, 255, false);
 
   return offset;
 }
@@ -485,7 +486,7 @@ dissect_t124_TextString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
 static int
 dissect_t124_SimpleTextString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_BMPString(tvb, offset, actx, tree, hf_index,
-                                          0, 255, FALSE);
+                                          0, 255, false);
 
   return offset;
 }
@@ -495,7 +496,7 @@ dissect_t124_SimpleTextString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_t124_SimpleNumericString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_restricted_character_string(tvb, offset, actx, tree, hf_index,
-                                                      1, 255, FALSE, "0123456789", 10,
+                                                      1, 255, false, "0123456789", 10,
                                                       NULL);
 
   return offset;
@@ -506,7 +507,7 @@ dissect_t124_SimpleNumericString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 static int
 dissect_t124_DiallingString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_restricted_character_string(tvb, offset, actx, tree, hf_index,
-                                                      1, 16, FALSE, "0123456789", 10,
+                                                      1, 16, false, "0123456789", 10,
                                                       NULL);
 
   return offset;
@@ -517,7 +518,7 @@ dissect_t124_DiallingString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 static int
 dissect_t124_SubAddressString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_restricted_character_string(tvb, offset, actx, tree, hf_index,
-                                                      1, 40, FALSE, "0123456789", 10,
+                                                      1, 40, false, "0123456789", 10,
                                                       NULL);
 
   return offset;
@@ -528,7 +529,7 @@ dissect_t124_SubAddressString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 static int
 dissect_t124_ExtraDiallingString(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_size_constrained_type(tvb, offset, actx, tree, hf_index, dissect_t124_TextString,
-                                                "TextString", 1, 255, FALSE);
+                                                "TextString", 1, 255, false);
 
   return offset;
 }
@@ -539,17 +540,17 @@ static int
 dissect_t124_T_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
     tvbuff_t *next_tvb = NULL;
     tvbuff_t *t124NSIdentifier = (tvbuff_t*)actx->private_data;
-    guint8   *ns = NULL;
+    uint8_t  *ns = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, &next_tvb);
+                                       NO_BOUND, NO_BOUND, false, &next_tvb);
 
 
 	if(next_tvb && t124NSIdentifier) {
 
 	ns = tvb_get_string_enc(actx->pinfo->pool, t124NSIdentifier, 0, tvb_reported_length(t124NSIdentifier), ENC_ASCII|ENC_NA);
 	if(ns != NULL) {
-		dissector_try_string_new(t124_ns_dissector_table, ns, next_tvb, actx->pinfo, top_tree, FALSE, NULL);
+		dissector_try_string_new(t124_ns_dissector_table, ns, next_tvb, actx->pinfo, top_tree, false, NULL);
 	}
 	}
 
@@ -846,7 +847,7 @@ static const value_string t124_Privilege_vals[] = {
 static int
 dissect_t124_Privilege(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     5, NULL, TRUE, 0, NULL);
+                                     5, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -862,7 +863,7 @@ static const value_string t124_TerminationMethod_vals[] = {
 static int
 dissect_t124_TerminationMethod(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     2, NULL, TRUE, 0, NULL);
+                                     2, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -892,7 +893,7 @@ dissect_t124_ConferencePriorityScheme(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 static int
 dissect_t124_INTEGER_0_65535(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 65535U, NULL, FALSE);
+                                                            0U, 65535U, NULL, false);
 
   return offset;
 }
@@ -1051,7 +1052,7 @@ dissect_t124_T_aggregatedChannel(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 static int
 dissect_t124_OCTET_STRING_SIZE_1_20(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       1, 20, FALSE, NULL);
+                                       1, 20, false, NULL);
 
   return offset;
 }
@@ -1104,7 +1105,7 @@ static int
 dissect_t124_NetworkAddress(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_sequence_of(tvb, offset, actx, tree, hf_index,
                                                   ett_t124_NetworkAddress, NetworkAddress_sequence_of,
-                                                  1, 64, FALSE);
+                                                  1, 64, false);
 
   return offset;
 }
@@ -1121,7 +1122,7 @@ static const value_string t124_NodeType_vals[] = {
 static int
 dissect_t124_NodeType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     3, NULL, TRUE, 0, NULL);
+                                     3, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -1131,7 +1132,7 @@ dissect_t124_NodeType(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 static int
 dissect_t124_INTEGER_0_4294967295(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 4294967295U, NULL, FALSE);
+                                                            0U, 4294967295U, NULL, false);
 
   return offset;
 }
@@ -1236,7 +1237,7 @@ static const value_string t124_T_result_vals[] = {
 static int
 dissect_t124_T_result(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     5, NULL, TRUE, 0, NULL);
+                                     5, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -1298,7 +1299,7 @@ static const value_string t124_QueryResponseResult_vals[] = {
 static int
 dissect_t124_QueryResponseResult(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     2, NULL, TRUE, 0, NULL);
+                                     2, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -1360,7 +1361,7 @@ static const value_string t124_JoinResponseResult_vals[] = {
 static int
 dissect_t124_JoinResponseResult(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     7, NULL, TRUE, 0, NULL);
+                                     7, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -1438,7 +1439,7 @@ static const value_string t124_InviteResponseResult_vals[] = {
 static int
 dissect_t124_InviteResponseResult(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     2, NULL, TRUE, 0, NULL);
+                                     2, NULL, true, 0, NULL);
 
   return offset;
 }
@@ -1468,7 +1469,7 @@ dissect_t124_T_connectPDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
     old_offset = offset;
       offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, &next_tvb);
+                                       NO_BOUND, NO_BOUND, false, &next_tvb);
 
     if(next_tvb) {
       /* "2a -> ConnectData::connectPDU length = 42 bytes */
@@ -1546,7 +1547,7 @@ static int
 dissect_t124_ChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
 
       offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            0U, 65535U, &channelId, FALSE);
+                                                            0U, 65535U, &channelId, false);
 
 
     if(hf_index == hf_t124_channelId_03)
@@ -1561,7 +1562,8 @@ dissect_t124_ChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 static int
 dissect_t124_StaticChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_t124_ChannelId(tvb, offset, actx, tree, hf_index);
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            1U, 1000U, NULL, false);
 
   return offset;
 }
@@ -1570,7 +1572,8 @@ dissect_t124_StaticChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 static int
 dissect_t124_DynamicChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  offset = dissect_t124_ChannelId(tvb, offset, actx, tree, hf_index);
+  offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
+                                                            1001U, 65535U, NULL, false);
 
   return offset;
 }
@@ -1607,7 +1610,7 @@ dissect_t124_AssignedChannelId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static int
 dissect_t124_TokenId(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 65535U, NULL, FALSE);
+                                                            1U, 65535U, NULL, false);
 
   return offset;
 }
@@ -1629,7 +1632,7 @@ static const value_string t124_TokenStatus_vals[] = {
 static int
 dissect_t124_TokenStatus(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     8, NULL, FALSE, 0, NULL);
+                                     8, NULL, false, 0, NULL);
 
   return offset;
 }
@@ -1647,7 +1650,7 @@ static const value_string t124_DataPriority_vals[] = {
 static int
 dissect_t124_DataPriority(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     4, NULL, FALSE, 0, NULL);
+                                     4, NULL, false, 0, NULL);
 
   return offset;
 }
@@ -1662,7 +1665,7 @@ static int * const Segmentation_bits[] = {
 static int
 dissect_t124_Segmentation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     2, 2, FALSE, Segmentation_bits, 2, NULL, NULL);
+                                     2, 2, false, Segmentation_bits, 2, NULL, NULL);
 
   return offset;
 }
@@ -1672,7 +1675,7 @@ dissect_t124_Segmentation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 static int
 dissect_t124_INTEGER_0_MAX(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer_64b(tvb, offset, actx, tree, hf_index,
-                                                            0U, NO_BOUND, NULL, FALSE);
+                                                            0U, NO_BOUND, NULL, false);
 
   return offset;
 }
@@ -2064,7 +2067,7 @@ static const value_string t124_Reason_vals[] = {
 static int
 dissect_t124_Reason(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     5, NULL, FALSE, 0, NULL);
+                                     5, NULL, false, 0, NULL);
 
   return offset;
 }
@@ -2106,7 +2109,7 @@ static const value_string t124_Diagnostic_vals[] = {
 static int
 dissect_t124_Diagnostic(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     14, NULL, FALSE, 0, NULL);
+                                     14, NULL, false, 0, NULL);
 
   return offset;
 }
@@ -2164,7 +2167,7 @@ static const value_string t124_Result_vals[] = {
 static int
 dissect_t124_Result(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
-                                     16, NULL, FALSE, 0, NULL);
+                                     16, NULL, false, 0, NULL);
 
   return offset;
 }
@@ -2389,12 +2392,12 @@ dissect_t124_T_userData(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
     tvbuff_t	*next_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, &next_tvb);
+                                       NO_BOUND, NO_BOUND, false, &next_tvb);
 
 
 	if(next_tvb) {
 
-	     dissector_try_uint_new(t124_sd_dissector_table, channelId, next_tvb, actx->pinfo, top_tree, FALSE, NULL);
+	     dissector_try_uint_new(t124_sd_dissector_table, channelId, next_tvb, actx->pinfo, top_tree, false, NULL);
 
 	}
 
@@ -2427,7 +2430,7 @@ dissect_t124_T_userData_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
     tvbuff_t	*next_tvb = NULL;
 
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, &next_tvb);
+                                       NO_BOUND, NO_BOUND, false, &next_tvb);
 
 
 	if(next_tvb) {
@@ -2813,7 +2816,7 @@ static const per_choice_t DomainMCSPDU_choice[] = {
 
 static int
 dissect_t124_DomainMCSPDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  	gint domainmcs_value;
+	int domainmcs_value;
 
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
                                  ett_t124_DomainMCSPDU, DomainMCSPDU_choice,
@@ -2827,7 +2830,8 @@ dissect_t124_DomainMCSPDU(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 		/* Do nothing */
 		break;
 	default:
-		col_prepend_fstr(actx->pinfo->cinfo, COL_INFO, "%s ", val_to_str(domainmcs_value, t124_DomainMCSPDU_vals, "Unknown"));
+                col_prepend_fstr(actx->pinfo->cinfo, COL_INFO, "%s ",
+                                 val_to_str_const(domainmcs_value, t124_DomainMCSPDU_vals, "Unknown"));
 		break;
 	}
 
@@ -2850,7 +2854,7 @@ register_t124_ns_dissector(const char *nsKey, dissector_t dissector, int proto)
   dissector_add_string("t124.ns", nsKey, dissector_handle);
 }
 
-void register_t124_sd_dissector(packet_info *pinfo _U_, guint32 channelId_param, dissector_t dissector, int proto)
+void register_t124_sd_dissector(packet_info *pinfo _U_, uint32_t channelId_param, dissector_t dissector, int proto)
 {
   /* XXX: we should keep the sub-dissectors list per conversation
      as the same channels may be used.
@@ -2864,7 +2868,7 @@ void register_t124_sd_dissector(packet_info *pinfo _U_, guint32 channelId_param,
 
 }
 
-guint32 t124_get_last_channelId(void)
+uint32_t t124_get_last_channelId(void)
 {
   return channelId;
 }
@@ -2877,7 +2881,7 @@ void t124_set_top_tree(proto_tree *tree)
 int dissect_DomainMCSPDU_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
 
   offset = dissect_t124_DomainMCSPDU(tvb, offset, &asn1_ctx, tree, hf_t124_DomainMCSPDU_PDU);
   offset += 7; offset >>= 3;
@@ -2899,23 +2903,23 @@ dissect_t124(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *d
   item = proto_tree_add_item(parent_tree, proto_t124, tvb, 0, tvb_captured_length(tvb), ENC_NA);
   tree = proto_item_add_subtree(item, ett_t124);
 
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   dissect_t124_ConnectData(tvb, 0, &asn1_ctx, tree, hf_t124_ConnectData);
 
   return tvb_captured_length(tvb);
 }
 
-static gboolean
-dissect_t124_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data _U_)
+static bool
+dissect_t124_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void *data)
 {
   asn1_ctx_t asn1_ctx;
-  volatile gboolean failed = FALSE;
+  volatile bool failed = false;
 
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
 
   /*
    * We must catch all the "ran past the end of the packet" exceptions
-   * here and, if we catch one, just return FALSE.  It's too painful
+   * here and, if we catch one, just return false.  It's too painful
    * to have a version of dissect_per_sequence() that checks all
    * references to the tvbuff before making them and returning "no"
    * if they would fail.
@@ -2925,17 +2929,17 @@ dissect_t124_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, vo
   TRY {
     (void) dissect_per_sequence(tvb, 0, &asn1_ctx, NULL, hf_t124_connectGCCPDU, -1, t124Heur_sequence);
   } CATCH_BOUNDS_ERRORS {
-    failed = TRUE;
+    failed = true;
   } ENDTRY;
 
   if (!failed && ((asn1_ctx.external.direct_reference != NULL) &&
                   (strcmp(asn1_ctx.external.direct_reference, "0.0.20.124.0.1") == 0))) {
     dissect_t124(tvb, pinfo, parent_tree, data);
 
-    return TRUE;
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 /*--- proto_register_t124 -------------------------------------------*/
@@ -3846,7 +3850,7 @@ void proto_register_t124(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	  &ett_t124,
 	  &ett_t124_connectGCCPDU,
     &ett_t124_Key,

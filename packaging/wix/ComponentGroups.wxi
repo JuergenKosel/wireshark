@@ -30,9 +30,6 @@
         <Component Id="cmpCOPYING_txt" Guid="*">
           <File Id="filCOPYING_txt" KeyPath="yes" Source="$(var.Staging.Dir)\COPYING.txt" />
         </Component>
-        <Component Id="cmpNEWS_txt" Guid="*">
-          <File Id="filNEWS_txt" KeyPath="yes" Source="$(var.Staging.Dir)\NEWS.txt" />
-        </Component>
         <Component Id="cmpREADME_txt" Guid="*">
           <File Id="filREADME_txt" KeyPath="yes" Source="$(var.Staging.Dir)\README.txt" />
         </Component>
@@ -74,7 +71,6 @@
         <ComponentRef Id="cmpLibwireshark_dll" />
         <ComponentRef Id="cmpLibwsutil_dll" />
         <ComponentRef Id="cmpCOPYING_txt" />
-        <ComponentRef Id="cmpNEWS_txt" />
         <ComponentRef Id="cmpREADME_txt" />
         <ComponentRef Id="cmpWka" />
         <ComponentRef Id="cmpPdml2html_xsl" />
@@ -410,6 +406,28 @@
     <ComponentGroup Id="CG.Tools.Randpkt">
       <ComponentRef Id="cmpRandpkt_exe" />
       <ComponentRef Id="cmpRandpkt_html" />
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Sharkd -->
+  <Fragment>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="cmpSharkd_exe" Guid="*">
+        <File Id="filSharkd_exe" KeyPath="yes" Source="$(var.Staging.Dir)\sharkd.exe" />
+      </Component>
+      <!--
+      <Component Id="cmpSharkd_html" Guid="*">
+        <File Id="filSharkd_html" KeyPath="yes" Source="$(var.Staging.Dir)\sharkd.html" />
+      </Component>
+      -->
+    </DirectoryRef>
+  </Fragment>
+  <Fragment>
+    <ComponentGroup Id="CG.Tools.Sharkd">
+      <ComponentRef Id="cmpSharkd_exe" />
+      <!--
+      <ComponentRef Id="cmpSharkd_html" />
+      -->
     </ComponentGroup>
   </Fragment>
 
@@ -800,6 +818,15 @@
           </Extension>
         </ProgId>
         <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="rf5" Type="integer" Value="1" KeyPath="yes"/>
+        <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
+      </Component>
+      <Component Id="cmpFAscap">
+        <ProgId Id="$(var.WiresharkFileAssociation)" Description="scap">
+          <Extension Id="scap">
+            <Verb Id="open" Command="open" TargetFile="filWireshark_exe" Argument="&quot;%1&quot;"/>
+          </Extension>
+        </ProgId>
+        <RegistryValue Root="HKCU" Key="Software\$(var.WiresharkName)" Name="scap" Type="integer" Value="1" KeyPath="yes"/>
         <Condition>WIRESHARK_FILE_EXTENSIONS = "1"</Condition>
       </Component>
       <Component Id="cmpFAsnoop">

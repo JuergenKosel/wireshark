@@ -229,6 +229,7 @@
      </property>
      <addaction name="actionHelpMPWireshark"/>
      <addaction name="actionHelpMPWireshark_Filter"/>
+     <addaction name="actionHelpMPWireshark_FilterReference"/>
      <addaction name="separator"/>
      <addaction name="actionHelpMPCapinfos"/>
      <addaction name="actionHelpMPDumpcap"/>
@@ -471,6 +472,13 @@
      <addaction name="actionStatisticsBACappObjectId"/>
      <addaction name="actionStatisticsBACappService"/>
     </widget>
+    <widget class="QMenu" name="menuDNS">
+     <property name="title">
+      <string>DNS</string>
+     </property>
+     <addaction name="actionStatisticsDNS"/>
+     <addaction name="actionStatisticsDNS_QR"/>
+    </widget>
     <widget class="QMenu" name="menuHTTP">
      <property name="title">
       <string>HTTP</string>
@@ -554,7 +562,7 @@
     <addaction name="actionStatisticsANCP"/>
     <addaction name="menuBACnet"/>
     <addaction name="actionStatisticsCollectd"/>
-    <addaction name="actionStatisticsDNS"/>
+    <addaction name="menuDNS"/>
     <addaction name="actionStatisticsFlowGraph"/>
     <addaction name="actionStatisticsHART_IP"/>
     <addaction name="actionStatisticsHpfeeds"/>
@@ -639,6 +647,7 @@
     <addaction name="actionTelephonyUCPMessages"/>
     <addaction name="actionTelephonyF1APMessages"/>
     <addaction name="actionTelephonyNGAPMessages"/>
+    <addaction name="actionTelephonyE2APMessages"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -651,6 +660,7 @@
      <addaction name="actionCopyListAsText"/>
      <addaction name="actionCopyListAsCSV"/>
      <addaction name="actionCopyListAsYAML"/>
+     <addaction name="actionCopyListAsHTML"/>
      <addaction name="separator"/>
      <addaction name="actionCopyAllVisibleItems"/>
      <addaction name="actionCopyAllVisibleSelectedTreeItems"/>
@@ -670,13 +680,13 @@
     <addaction name="actionEditFindNext"/>
     <addaction name="actionEditFindPrevious"/>
     <addaction name="separator"/>
-    <addaction name="actionEditMarkPacket"/>
+    <addaction name="actionEditMarkSelected"/>
     <addaction name="actionEditMarkAllDisplayed"/>
     <addaction name="actionEditUnmarkAllDisplayed"/>
     <addaction name="actionEditNextMark"/>
     <addaction name="actionEditPreviousMark"/>
     <addaction name="separator"/>
-    <addaction name="actionEditIgnorePacket"/>
+    <addaction name="actionEditIgnoreSelected"/>
     <addaction name="actionEditIgnoreAllDisplayed"/>
     <addaction name="actionEditUnignoreAllDisplayed"/>
     <addaction name="separator"/>
@@ -779,6 +789,7 @@
    <addaction name="actionViewZoomOut"/>
    <addaction name="actionViewNormalSize"/>
    <addaction name="actionViewResizeColumns"/>
+   <addaction name="actionViewResetLayout"/>
   </widget>
   <widget class="MainStatusBar" name="statusBar"/>
   <widget class="QToolBar" name="displayFilterToolBar">
@@ -893,16 +904,14 @@
   </action>
   <action name="actionHelpContents">
    <property name="text">
-    <string>&amp;Contents</string>
+    <string>&amp;User's Guide</string>
    </property>
+   <!-- This tooltip is replaced with the URL -->
    <property name="toolTip">
-    <string>Help contents</string>
+    <string>Wireshark User's Guide</string>
    </property>
    <property name="shortcut">
     <string notr="true">F1</string>
-   </property>
-   <property name="iconVisibleInMenu">
-    <bool>true</bool>
    </property>
   </action>
   <action name="actionHelpMPWireshark">
@@ -912,7 +921,12 @@
   </action>
   <action name="actionHelpMPWireshark_Filter">
    <property name="text">
-    <string>Wireshark Filter</string>
+    <string>Display Filters</string>
+   </property>
+  </action>
+  <action name="actionHelpMPWireshark_FilterReference">
+   <property name="text">
+    <string>Display Filter Reference</string>
    </property>
   </action>
   <action name="actionHelpMPTShark">
@@ -1363,6 +1377,11 @@
     <string>As &amp;YAML</string>
    </property>
   </action>
+  <action name="actionCopyListAsHTML">
+   <property name="text">
+    <string>As &amp;HTML</string>
+   </property>
+  </action>
   <action name="actionCopyAllVisibleItems">
    <property name="text">
     <string>All Visible Items</string>
@@ -1463,9 +1482,9 @@
     <string notr="true">Ctrl+B</string>
    </property>
   </action>
-  <action name="actionEditMarkPacket">
+  <action name="actionEditMarkSelected">
    <property name="text">
-    <string>&amp;Mark/Unmark Packet(s)</string>
+    <string>&amp;Mark/Unmark Selected</string>
    </property>
    <property name="toolTip">
     <string>Mark or unmark each selected packet</string>
@@ -1518,9 +1537,9 @@
     <string notr="true">Ctrl+Shift+B</string>
    </property>
   </action>
-  <action name="actionEditIgnorePacket">
+  <action name="actionEditIgnoreSelected">
    <property name="text">
-    <string>&amp;Ignore/Unignore Packet(s)</string>
+    <string>&amp;Ignore/Unignore Selected</string>
    </property>
    <property name="toolTip">
     <string>Ignore or unignore each selected packet</string>
@@ -1812,10 +1831,18 @@
   </action>
   <action name="actionStatisticsDNS">
    <property name="text">
-    <string>DNS</string>
+    <string>General</string>
    </property>
    <property name="toolTip">
     <string>DNS statistics</string>
+   </property>
+  </action>
+  <action name="actionStatisticsDNS_QR">
+   <property name="text">
+    <string>Query-Response</string>
+   </property>
+   <property name="toolTip">
+    <string>DNS Query-Response Statistics</string>
    </property>
   </action>
   <action name="actionStatisticsHART_IP">
@@ -1968,6 +1995,14 @@
    </property>
    <property name="toolTip">
     <string>NGAP Messages</string>
+   </property>
+  </action>
+  <action name="actionTelephonyE2APMessages">
+   <property name="text">
+    <string>E2AP</string>
+   </property>
+   <property name="toolTip">
+    <string>E2AP Messages</string>
    </property>
   </action>
   <action name="actionAnalyzeDecodeAs">
@@ -2181,7 +2216,7 @@
     <string>Reset Layout</string>
    </property>
    <property name="toolTip">
-    <string>Reset appearance layout to default size</string>
+    <string>Reset layout to default size</string>
    </property>
    <property name="shortcut">
     <string notr="true">Ctrl+Shift+W</string>

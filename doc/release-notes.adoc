@@ -1,13 +1,13 @@
 include::attributes.adoc[]
 :stylesheet: ws.css
 :linkcss:
-:copycss: {stylesheet}
+:copycss: {css_dir}/{stylesheet}
 
 = Wireshark {wireshark-version} Release Notes
 // Asciidoctor Syntax Quick Reference:
 // https://asciidoctor.org/docs/asciidoc-syntax-quick-reference/
 
-This is an experimental release intended to test new features for Wireshark 4.4.
+This is an experimental release intended to test new features for Wireshark 5.0.
 
 == What is Wireshark?
 
@@ -18,14 +18,6 @@ It is used for troubleshooting, analysis, development and education.
 
 // Add a summary of **major** changes here.
 // Add other changes to "New and Updated Features" below.
-
-Improved display filter support for value strings (optional string
-representations for numeric fields).
-
-Display filter functions can be implemented as runtime-loadable C plugins.
-
-Plugin registration API was refactored. Plugin authors must update their
-plugins as described below.
 
 Many other improvements have been made.
 See the “New and Updated Features” section below for more details.
@@ -40,134 +32,96 @@ See the “New and Updated Features” section below for more details.
 
 === New and Updated Features
 
-The following features are new (or have been significantly updated) since version 4.2.0:
+The following features are either new or have been significantly updated since version 4.4.0:
+
+// * The Windows installers now ship with Npcap 1.79.
+//   They previously shipped with Npcap 1.78.
 
 //* The Windows installers now ship with Qt 6.5.2.
 //  They previously shipped with Qt 6.2.3.
 
-* Display filter syntax-related enhancements:
+* The default format for absolute times when output with -T fields, -T json,
+  and the "show" field of -T pdml, or when in custom columns (including CSV
+  output of columns) has been changed to ISO 8601. (This was already the case
+  for -T ek.) For backwards compatibility, a preference has been added,
+  protocols.display_abs_time_ascii. This can be set to continue to format
+  times in a manner similar to asctime. (E.g., Dec 18, 2017 05:28:39.071704055 EST.)
+  This preference can also be set to never use ascii time and to use ISO 8601 time
+  in the protocol tree (Packet Details) as well.
 
-  ** Better handling of comparisons with value strings. Now the display filter engine can
-     correctly handle cases where multiple different numeric values map to the same value
-     string, including but not limited to range-type value strings.
+* The TShark `-G` option for generating glossary reports does not need to be the
+  first option given on the command line anymore. In addition, the reports now
+  are affected by other command line options such as `-o`, `-d`, and
+  `--disable-protocol`, in addition to the `-C` option, which was already supported.
+  (The `defaultprefs` report remains unaffected by any other options.)
+  As a part of this change, `-G` with no argument, which was previously deprecated,
+  is no longer supported. Use `tshark -G fields` to produce the same report.
+  Also, the syntax for only listing fields with a certain prefix has changed to
+  `tshark -G fields,prefix`.
 
-  ** Fields with value strings now support regular expression matching.
+* Wireshark can now decrypt NTP packets using NTS (Network Time Security). To decrypt packets,
+  the NTS-KE (Network Time Security Key Establishment Protocol) packets need to be present,
+  alongside the TLS client and exporter secrets. Additionally, the parts of a NTP packet which
+  can be cryptographically authenticated (from NTP packet header until the end  of the last
+  extension field that precedes the NTS Authenticator and Encrypted Extension Fields
+  extension field) are checked for validity.
 
-  ** Date and time values now support arithmetic, with some restrictions:
-     the multiplier/divisor must be an integer or float and appear on the right-hand
-     side of the operator.
+* Custom columns have an option to show the values using the same format as
+  in Packet Details.
 
-  ** The keyword "bitand" can be used as an alternative syntax for the bitwise-and operator.
+* X.509 certificates, used in TLS and elsewhere, can be exported via the
+  File->Export Objects menu in Wireshark (under the name "X509AF") and
+  `--export-objects` in TShark (with the protocol name `x509af`.)
 
-  ** Functions alone can now be used as an entire logical expression.
-     The result of the expression is the truthiness of the function return
-     value (or of all values if more than one). This is useful for example to write
-     "len(something)" instead of "len(something) != 0". Even more so if a function
-     returns itself a boolean value, it is now possible to write
-     "bool_test(some.field)" instead of having to write "bool_test(some.field) == True"
-     (both forms are now valid).
+* The Windows installers now ship with Npcap 1.80.
+  They previously shipped with Npcap 1.79.
 
-  ** Display filter references can be written without curly braces. It
-     is now possible to write `$frame.number` instead of `${frame.number}` for example.
+// === Removed Features and Support
 
-  ** Added new display filter functions to test various IP address properties.
-     Check the wireshark-filter(5) manpage for more information.
-
-  ** Display filter macros can be written using a function-like notation.
-     The macro `${mymacro:arg1; ...; argN}` can be written
-     $mymacro(arg1, ..., argN)`.
-
-* Display filter functions can be implemented as libwireshark plugins. Plugins are loaded
-  during startup from the usual binary plugin configuration directories. See the
-  `ipaddr.c` source file in the distribution for an example of a display filter C plugin
-  and the doc/plugins.example folder for generic instructions how to build a plugin.
-
-* Display filter autocompletions now also include display filter functions.
-
-* The display filter macro configuration file has changed format. It now uses
-  the same format as the "dfilters" file and has been renamed accordingly to
-  "dmacros". Internally it no longer uses the UAT API and the display filter macro
-  GUI dialog has been updated. There is some basic migration logic implemented
-  but it is advisable to check that the "dfilter_macros" (old) and
-  "dmacros" (new) files in the profile directory are consistent.
-
-* When selecting "Manage Interfaces" from "Capture Options", Wireshark only
-  attempts to reconnect to rpcap (remote) hosts that were connected to in the
-  last session, instead of every remote host that the current profile has ever
-  connected to. wsbuglink:17484[]
-
-* Adding interfaces at startup is about twice as fast, and has many fewer
-  UAC pop-ups when npcap is installed with access restricted to Administrators
-  on Windows
-
-* The Resolved Addresses dialog only shows what addresses and ports are
-  present in the file (not including information from static files), and
-  selected rows or the entire table can be saved or copied to the clipboard
-  in several formats.
-
-* New menu:Tools[Install Plugin] option provides a convenient method to install
-  a binary plugin to the personal folder.
-
-* The personal binary plugins folder now has higher priority than the global
-  folder.
-
-* The binary plugins folder path no longer uses an X.Y version component. Plugins
-  are required to add the ABI version to the file name.
-
-//=== Removed Features and Support
 
 // === Removed Dissectors
+
 
 //=== New File Format Decoding Support
 
 //[commaize]
 //--
-//RTPDump
 //--
 
 === New Protocol Support
 
 // Add one protocol per line between the -- delimiters in the format
 // “Full protocol name (Abbreviation)”
-// git log --oneline --diff-filter=A --stat v4.1.0rc0.. epan/dissectors plugins
+// git log --oneline --diff-filter=A --stat v4.3.0rc0.. epan/dissectors plugins
 [commaize]
 --
-MAC NR Framed (mac-nr-framed)
-RF4CE Network Layer (RF4CE)
-RF4CE Profile (RF4CE Profile)
-EGNOS Message Server (EMS) file format
+Lenbrook Service Discovery Protocol (LSDP)
+Network Time Security Key Establishment Protocol (NTS-KE)
 --
 
 === Updated Protocol Support
 
-* IPv6: The "show address detail" preference is now enabled by default. The
-  address details provided have been extended to include more special purpose address
-  block properties (forwardable, globally-routable, etc).
-
-Too many other protocol updates have been made to list them all here.
+Too many protocol updates have been made to list them all here.
 
 //=== New and Updated Capture File Support
 
-// There is no new or updated capture file support in this release.
+There is no new or updated capture file support in this release.
 // Add one file type per line between the -- delimiters.
-[commaize]
---
-EGNOS Messager Server (EMS) files
---
+// [commaize]
+// --
+// --
 
 // === New and Updated Capture Interfaces support
+// [commaize]
+// --
+// --
 
 //=== New and Updated Codec support
 
 //_Non-empty section placeholder._
 
-=== Major API Changes
+// === Major API Changes
 
-* Plugin registration API was refactored. Plugin authors must do the following:
-  1 - Remove the existing boilerplate (version, want_major` and `want_minor` and
-  plugin API declarations. 2 - Add a struct ws_module to the plugin.
-  3 - Call one of the WIRESHARK_PLUGIN_REGISTER_* macros. See README.plugins
-  sections 5 and doc/plugins.example/hello.c for details and examples.
 
 == Getting Wireshark
 
@@ -196,8 +150,7 @@ https://www.wireshark.org/docs/
 Community support is available on
 https://ask.wireshark.org/[Wireshark’s Q&A site]
 and on the wireshark-users mailing list.
-Subscription information and archives for all of Wireshark’s mailing lists can be found on
-https://www.wireshark.org/lists/[the web site].
+Subscription information and archives for all of Wireshark’s mailing lists can be found on https://lists.wireshark.org/lists/[the mailing list site].
 
 Bugs and feature requests can be reported on
 https://gitlab.com/wireshark/wireshark/-/issues[the issue tracker].

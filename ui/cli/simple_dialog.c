@@ -21,11 +21,11 @@
 #include <ui/simple_dialog.h>
 #include "ws_attributes.h"
 
-gpointer
+void *
 simple_dialog(
   ESD_TYPE_E    type _U_,
-  gint          btn_mask _U_,
-  const gchar * msg_format,
+  int           btn_mask _U_,
+  const char * msg_format,
   ...
   )
 {
@@ -39,7 +39,7 @@ simple_dialog(
 }
 
 void
-simple_message_box(ESD_TYPE_E type _U_, gboolean *notagain _U_,
+simple_message_box(ESD_TYPE_E type _U_, bool *notagain _U_,
                    const char *secondary_msg, const char *msg_format, ...)
 {
   va_list ap;

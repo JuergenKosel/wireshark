@@ -14,7 +14,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/asn1.h>
-
+#include <wsutil/array.h>
 #include "packet-ber.h"
 #include "packet-charging_ase.h"
 
@@ -65,7 +65,7 @@ proto_register_charging_ase(void)
   };
 
   /* List of subtrees */
-    static gint *ett[] = {
+    static int *ett[] = {
     &ett_charging_ase,
 #include "packet-charging_ase-ettarr.c"
         };

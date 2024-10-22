@@ -23,10 +23,11 @@ class TestDfilterSyntax:
         dfilter = "9p or http"
         checkDFilterCount(dfilter, 1)
 
-    def test_exists_4(self, checkDFilterCount):
+    # The HTTP dissector no longer has a expert Chat
+        # def test_exists_4(self, checkDFilterCount):
         # Protocol with dot
-        dfilter = "_ws.expert"
-        checkDFilterCount(dfilter, 1)
+        # dfilter = "_ws.expert"
+        # checkDFilterCount(dfilter, 1)
 
     def test_exists_5(self, checkDFilterSucceed):
         # Protocol field name with leading digit and minus
@@ -320,6 +321,10 @@ class TestDfilterArithmetic:
         error = 'Constant expression is invalid'
         dfilter = "1 - 2"
         checkDFilterFail(dfilter, error)
+
+    def test_add_7(self, checkDFilterCount):
+        dfilter = r"udp.dstport == 66+'\x01'"
+        checkDFilterCount(dfilter, 2)
 
     def test_sub_1(self, checkDFilterCount):
         dfilter = "udp.srcport == udp.dstport - 1"

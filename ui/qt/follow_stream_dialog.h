@@ -12,8 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include <stdio.h>
 
 #ifdef HAVE_UNISTD_H
@@ -44,7 +42,7 @@ public:
     ~FollowStreamDialog();
 
     void addCodecs(const QMap<QString, QTextCodec *> &codecMap);
-    bool follow(QString previous_filter = QString(), bool use_stream_index = false, guint stream_num = 0, guint sub_stream_num = 0);
+    bool follow(QString previous_filter = QString(), bool use_stream_index = false, unsigned stream_num = 0, unsigned sub_stream_num = 0);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event);
@@ -52,10 +50,11 @@ protected:
     void captureFileClosed();
 
 private slots:
-    void on_cbCharset_currentIndexChanged(int idx);
-    void on_cbDirections_currentIndexChanged(int idx);
-    void on_bFind_clicked();
-    void on_leFind_returnPressed();
+    void cbCharsetCurrentIndexChanged(int idx);
+    void deltaComboBoxCurrentIndexChanged(int idx);
+    void cbDirectionsCurrentIndexChanged(int idx);
+    void bFindClicked();
+    void leFindReturnPressed();
 
     void helpButton();
     void backButton();
@@ -68,10 +67,10 @@ private slots:
     void fillHintLabel(int pkt = 0);
     void goToPacketForTextPos(int pkt = 0);
 
-    void on_streamNumberSpinBox_valueChanged(int stream_num);
-    void on_subStreamNumberSpinBox_valueChanged(int sub_stream_num);
+    void streamNumberSpinBoxValueChanged(int stream_num);
+    void subStreamNumberSpinBoxValueChanged(int sub_stream_num);
 
-    void on_buttonBox_rejected();
+    void buttonBoxRejected();
 
 signals:
     void updateFilter(QString filter, bool force);
@@ -85,16 +84,13 @@ private:
     void resetStream(void);
     void updateWidgets(bool follow_in_progress);
     void updateWidgets() { updateWidgets(false); } // Needed for WiresharkDialog?
-    frs_return_t
-    showBuffer(QByteArray &buffer, size_t nchars, gboolean is_from_server,
-                guint32 packet_num, nstime_t abs_ts, guint32 *global_pos);
-
-    frs_return_t readStream();
-    frs_return_t readFollowStream();
-    frs_return_t readSslStream();
+    void showBuffer(QByteArray &buffer, size_t nchars, bool is_from_server,
+                uint32_t packet_num, nstime_t abs_ts, uint32_t *global_pos);
+    void readStream();
+    void readFollowStream();
 
     void followStream();
-    void addText(QString text, gboolean is_from_server, guint32 packet_num, gboolean colorize = true);
+    void addText(QString text, bool is_from_server, uint32_t packet_num, bool colorize = true);
 
     Ui::FollowStreamDialog  *ui;
 
@@ -113,8 +109,9 @@ private:
     int                     server_buffer_count_;
     int                     client_packet_count_;
     int                     server_packet_count_;
-    guint32                 last_packet_;
-    gboolean                last_from_server_;
+    uint32_t                last_packet_;
+    bool                    last_from_server_;
+    nstime_t                last_ts_;
     int                     turns_;
 
     bool                    use_regex_find_;

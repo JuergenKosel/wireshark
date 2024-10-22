@@ -182,8 +182,12 @@ void ShowPacketBytesDialog::updateHintLabel()
 
     if (start_ > 0 || end_ < (finfo_->length - 1)) {
         hint.append(" <span style=\"color: red\">" +
-                    tr("Displaying %Ln byte(s).", "", end_ - start_ + 1) +
+                    tr("Using %Ln byte(s).", "", end_ - start_ + 1) +
                     "</span>");
+    }
+
+    if (!decode_as_name_.isEmpty()) {
+        hint.append(" " + tr("Decoded as %1.").arg(decode_as_name_));
     }
 
     ui->hintLabel->setText("<small><i>" + hint + "</i></small>");
@@ -194,7 +198,6 @@ void ShowPacketBytesDialog::on_sbStart_valueChanged(int value)
     start_ = value;
     ui->sbEnd->setMinimum(value);
 
-    updateHintLabel();
     updateFieldBytes();
 }
 
@@ -203,7 +206,6 @@ void ShowPacketBytesDialog::on_sbEnd_valueChanged(int value)
     end_ = value;
     ui->sbStart->setMaximum(value);
 
-    updateHintLabel();
     updateFieldBytes();
 }
 
@@ -242,20 +244,40 @@ void ShowPacketBytesDialog::useRegexFind(bool use_regex)
         ui->lFind->setText(tr("Find:"));
 }
 
+// This only calls itself with go_back false, so never recurses more than once.
+// NOLINTNEXTLINE(misc-no-recursion)
 void ShowPacketBytesDialog::findText(bool go_back)
 {
     if (ui->leFind->text().isEmpty()) return;
 
     bool found;
+
+    QTextDocument::FindFlags options;
+    if (ui->caseCheckBox->isChecked()) {
+        options |= QTextDocument::FindCaseSensitively;
+    }
     if (use_regex_find_) {
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 13, 0))
+        // https://bugreports.qt.io/browse/QTBUG-88721
+        // QPlainTextEdit::find() searches case-insensitively unless
+        // QTextDocument::FindCaseSensitively is explicitly given.
+        // This *does* apply to QRegularExpression (overriding
+        // CaseInsensitiveOption), but not QRegExp.
+        //
+        // QRegularExpression and QRegExp do not support Perl's /i, but
+        // the former at least does support the mode modifiers (?i) and
+        // (?-i), which can override QTextDocument::FindCaseSensitively.
+        //
+        // To make matters worse, while the QTextDocument::find() documentation
+        // is correct, QPlainTextEdit::find() claims that QRegularExpression
+        // works like QRegExp, which is incorrect.
         QRegularExpression regex(ui->leFind->text(), QRegularExpression::UseUnicodePropertiesOption);
 #else
-        QRegExp regex(ui->leFind->text());
+        QRegExp regex(ui->leFind->text(), (options & QTextDocument::FindCaseSensitively) ? Qt::CaseSensitive : Qt::CaseInsensitive);
 #endif
-        found = ui->tePacketBytes->find(regex);
+        found = ui->tePacketBytes->find(regex, std::move(options));
     } else {
-        found = ui->tePacketBytes->find(ui->leFind->text());
+        found = ui->tePacketBytes->find(ui->leFind->text(), std::move(options));
     }
 
     if (found) {
@@ -514,7 +536,7 @@ void ShowPacketBytesDialog::symbolizeBuffer(QByteArray &ba)
     ba.replace((char)0x7f, symbol); // DEL
 }
 
-QByteArray ShowPacketBytesDialog::decodeQuotedPrintable(const guint8 *bytes, int length)
+QByteArray ShowPacketBytesDialog::decodeQuotedPrintable(const uint8_t *bytes, int length)
 {
     QByteArray ba;
 
@@ -542,7 +564,7 @@ QByteArray ShowPacketBytesDialog::decodeQuotedPrintable(const guint8 *bytes, int
 void ShowPacketBytesDialog::rot13(QByteArray &ba)
 {
     for (int i = 0; i < ba.length(); i++) {
-        gchar upper = g_ascii_toupper(ba[i]);
+        char upper = g_ascii_toupper(ba[i]);
         if (upper >= 'A' && upper <= 'M') ba[i] = ba[i] + 13;
         else if (upper >= 'N' && upper <= 'Z') ba[i] = ba[i] - 13;
     }
@@ -552,11 +574,12 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
 {
     int start = finfo_->start + start_;
     int length = end_ - start_ + 1;
-    const guint8 *bytes;
-    gsize new_length = 0;
+    const uint8_t *bytes;
 
     if (!finfo_->ds_tvb)
         return;
+
+    decode_as_name_.clear();
 
     switch (recent.gui_show_bytes_decode) {
 
@@ -568,22 +591,40 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
     case DecodeAsBASE64:
     {
         bytes = tvb_get_ptr(finfo_->ds_tvb, start, -1);
-        field_bytes_ = QByteArray((const char *)bytes, length);
-        if (field_bytes_.size() > 1) {
-            g_base64_decode_inplace(field_bytes_.data(), &new_length);
+        QByteArray ba = QByteArray::fromRawData((const char *)bytes, length);
+        if (ba.contains('-') || ba.contains('_')) {
+            field_bytes_ = QByteArray::fromBase64(ba, QByteArray::Base64UrlEncoding);
+            decode_as_name_ = "base64url";
+        } else {
+            field_bytes_ = QByteArray::fromBase64(ba, QByteArray::Base64Encoding);
+            decode_as_name_ = "base64";
         }
-        field_bytes_.resize((int)new_length);
         break;
     }
 
     case DecodeAsCompressed:
     {
-        tvbuff *uncompr_tvb = tvb_uncompress(finfo_->ds_tvb, start, length);
-        if (uncompr_tvb) {
-            bytes = tvb_get_ptr(uncompr_tvb, 0, -1);
-            field_bytes_ = QByteArray((const char *)bytes, tvb_reported_length(uncompr_tvb));
-            tvb_free(uncompr_tvb);
-        } else {
+        static const QList<uncompress_list_t> tvb_uncompress_list = {
+            { "lz77", tvb_uncompress_lz77 },
+            { "lz77huff", tvb_uncompress_lz77huff },
+            { "lznt1", tvb_uncompress_lznt1 },
+            { "snappy", tvb_uncompress_snappy },
+            { "zlib", tvb_uncompress_zlib },
+            { "zstd", tvb_uncompress_zstd },
+        };
+        tvbuff_t *uncompr_tvb = NULL;
+
+        for (auto &tvb_uncompress : tvb_uncompress_list) {
+            uncompr_tvb = tvb_uncompress.function(finfo_->ds_tvb, start, length);
+            if (uncompr_tvb && tvb_reported_length(uncompr_tvb) > 0) {
+                bytes = tvb_get_ptr(uncompr_tvb, 0, -1);
+                field_bytes_ = QByteArray((const char *)bytes, tvb_reported_length(uncompr_tvb));
+                decode_as_name_ = tr("compressed %1").arg(tvb_uncompress.name);
+                tvb_free(uncompr_tvb);
+                break;
+            }
+        }
+        if (!uncompr_tvb) {
             field_bytes_.clear();
         }
         break;
@@ -600,7 +641,7 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
 #if GLIB_CHECK_VERSION(2, 66, 0)
         GBytes *ba = g_uri_unescape_bytes((const char*)bytes, length, NULL, NULL);
         if (ba != NULL) {
-            gsize size;
+            size_t size;
             const char* data = (const char *)g_bytes_unref_to_data(ba, &size);
             field_bytes_ = QByteArray(data, (int)size);
         }
@@ -609,7 +650,7 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
         if (uri_to_bytes((const char*)bytes, ba, length)) {
             field_bytes_ = QByteArray((const char *)ba->data, ba->len);
         }
-        g_byte_array_free(ba, TRUE);
+        g_byte_array_free(ba, true);
 #endif
         break;
     }
@@ -635,11 +676,12 @@ void ShowPacketBytesDialog::updateFieldBytes(bool initialization)
     }
 
     updatePacketBytes();
+    updateHintLabel();
 }
 
 void ShowPacketBytesDialog::updatePacketBytes(void)
 {
-    static const gchar hexchars[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+    static const char hexchars[16] = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 
     ui->tePacketBytes->clear();
     ui->tePacketBytes->setCurrentFont(mainApp->monospaceFont());
@@ -670,7 +712,7 @@ void ShowPacketBytesDialog::updatePacketBytes(void)
         QString text("char packet_bytes[] = {\n");
 
         while (pos < len) {
-            gchar hexbuf[256];
+            char hexbuf[256];
             char *cur = hexbuf;
             int i;
 
@@ -707,7 +749,7 @@ void ShowPacketBytesDialog::updatePacketBytes(void)
         QString text("let packet_bytes: [u8; _] = [\n");
 
         while (pos < len) {
-            gchar hexbuf[256];
+            char hexbuf[256];
             char *cur = hexbuf;
             int i;
 
@@ -755,7 +797,7 @@ void ShowPacketBytesDialog::updatePacketBytes(void)
     case SHOW_EBCDIC:
     {
         QByteArray ba(field_bytes_);
-        EBCDIC_to_ASCII((guint8*)ba.data(), static_cast<int>(ba.length()));
+        EBCDIC_to_ASCII((uint8_t*)ba.data(), static_cast<int>(ba.length()));
         sanitizeBuffer(ba, false);
         ui->tePacketBytes->setLineWrapMode(QTextEdit::WidgetWidth);
         ui->tePacketBytes->setPlainText(ba);

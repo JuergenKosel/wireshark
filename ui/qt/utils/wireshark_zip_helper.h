@@ -16,9 +16,13 @@
 
 #include <QDir>
 
-#ifdef HAVE_MINIZIP
+#if defined(HAVE_MINIZIP) || defined(HAVE_MINIZIPNG)
 
+#ifdef HAVE_MINIZIP
 #include "minizip/zip.h"
+#else
+#include "minizip-ng/mz_compat.h"
+#endif
 
 class WiresharkZipHelper
 {

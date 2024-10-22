@@ -176,7 +176,7 @@ void ExportObjectModel::saveAllEntries(QString path)
         if (entry == NULL)
             continue;
 
-        guint count = 0;
+        unsigned count = 0;
         QString filename;
 
         do {

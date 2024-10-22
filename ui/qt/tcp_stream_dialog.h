@@ -12,8 +12,6 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include <file.h>
 
 #include <epan/dissectors/packet-tcp.h>
@@ -71,7 +69,7 @@ private:
     double ts_offset_;
     bool ts_origin_conn_;
     QMap<double, struct segment *> sequence_num_map_;
-    double seq_offset_;
+    uint32_t seq_offset_;
     bool seq_origin_zero_;
     struct tcp_graph graph_;
     QCPTextElement *title_;
@@ -91,7 +89,7 @@ private:
     QCPGraph *zero_win_graph_;
     QCPItemTracer *tracer_;
     QRectF axis_bounds_;
-    guint32 packet_num_;
+    uint32_t packet_num_;
     QTransform y_axis_xfrm_;
     bool mouse_drags_;
     QRubberBand *rubber_band_;
@@ -141,6 +139,7 @@ private:
     QRectF getZoomRanges(QRect zoom_rect);
 
 private slots:
+    void showContextMenu(const QPoint &pos);
     void graphClicked(QMouseEvent *event);
     void axisClicked(QCPAxis *axis, QCPAxis::SelectablePart part, QMouseEvent *event);
     void mouseMoved(QMouseEvent *event);

@@ -19,7 +19,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import urllib.request
 import re
 
@@ -190,6 +189,14 @@ def verify_merge_request():
         print("This doesn't appear to be a merge request. CI_MERGE_REQUEST_PROJECT_ID={}, CI_MERGE_REQUEST_IID={}".format(project_id, m_r_iid))
         return True
 
+    m_r_sb_protected = os.getenv('CI_MERGE_REQUEST_SOURCE_BRANCH_PROTECTED')
+    if m_r_sb_protected == 'true':
+        print(f'''\
+You're pushing from a protected branch ({os.getenv('CI_MERGE_REQUEST_SOURCE_BRANCH_NAME')}). You will probably
+have to close this merge request and push from a different branch.\n
+''')
+        # Assume that the "Allow commits" test is about to fail.
+
     m_r_url = '{}/projects/{}/merge_requests/{}'.format(gitlab_api_pfx, project_id, m_r_iid)
     req = urllib.request.Request(m_r_url)
     # print('req', repr(req), m_r_url)
@@ -219,8 +226,8 @@ def main():
         try:
             with open(args.commitmsg) as f:
                 return 0 if verify_body(f.read()) else 1
-        except:
-            print("Couldn't verify body of message from file '", + args.commitmsg + "'");
+        except Exception:
+            print("Couldn't verify body of message from file '", + args.commitmsg + "'")
             return 1
 
 

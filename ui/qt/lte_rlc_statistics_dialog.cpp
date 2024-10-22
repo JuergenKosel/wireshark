@@ -48,7 +48,7 @@ enum {
 };
 
 /* Calculate and return a bandwidth figure, in Mbs */
-static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time, guint32 bytes)
+static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time, uint32_t bytes)
 {
     /* Can only calculate bandwidth if have time delta */
     if (memcmp(start_time, stop_time, sizeof(nstime_t)) != 0) {
@@ -73,31 +73,31 @@ static double calculate_bw(const nstime_t *start_time, const nstime_t *stop_time
 
 // Stats kept for one channel.
 typedef struct rlc_channel_stats {
-    guint8   rlcMode;
-    guint8   priority;
-    guint16  channelType;
-    guint16  channelId;
+    uint8_t  rlcMode;
+    uint8_t  priority;
+    uint16_t channelType;
+    uint16_t channelId;
 
-    guint32  UL_frames;
-    guint32  UL_bytes;
+    uint32_t UL_frames;
+    uint32_t UL_bytes;
     nstime_t UL_time_start;
     nstime_t UL_time_stop;
-    gboolean UL_has_data; // i.e. not just ACKs for DL.
+    bool UL_has_data; // i.e. not just ACKs for DL.
 
-    guint32  DL_frames;
-    guint32  DL_bytes;
+    uint32_t DL_frames;
+    uint32_t DL_bytes;
     nstime_t DL_time_start;
     nstime_t DL_time_stop;
-    gboolean DL_has_data;  // i.e. not just ACKs for UL.
+    bool DL_has_data;  // i.e. not just ACKs for UL.
 
-    guint32  UL_acks;
-    guint32  UL_nacks;
+    uint32_t UL_acks;
+    uint32_t UL_nacks;
 
-    guint32  DL_acks;
-    guint32  DL_nacks;
+    uint32_t DL_acks;
+    uint32_t DL_nacks;
 
-    guint32  UL_missing;
-    guint32  DL_missing;
+    uint32_t UL_missing;
+    uint32_t DL_missing;
 } rlc_channel_stats;
 
 //-------------------------------------------------------------------
@@ -196,7 +196,7 @@ public:
                 stats_.UL_acks++;
             }
             else {
-                stats_.UL_has_data = TRUE;
+                stats_.UL_has_data = true;
             }
         }
         else {
@@ -214,7 +214,7 @@ public:
                 stats_.DL_acks++;
             }
             else {
-                stats_.DL_has_data = TRUE;
+                stats_.DL_has_data = true;
             }
         }
     }
@@ -389,21 +389,21 @@ private:
 // Stats for one UE.  TODO: private to class?
 typedef struct rlc_ue_stats {
 
-    guint32  UL_frames;
-    guint32  UL_total_bytes;
+    uint32_t UL_frames;
+    uint32_t UL_total_bytes;
     nstime_t UL_time_start;
     nstime_t UL_time_stop;
-    guint32  UL_total_acks;
-    guint32  UL_total_nacks;
-    guint32  UL_total_missing;
+    uint32_t UL_total_acks;
+    uint32_t UL_total_nacks;
+    uint32_t UL_total_missing;
 
-    guint32  DL_frames;
-    guint32  DL_total_bytes;
+    uint32_t DL_frames;
+    uint32_t DL_total_bytes;
     nstime_t DL_time_start;
     nstime_t DL_time_stop;
-    guint32  DL_total_acks;
-    guint32  DL_total_nacks;
-    guint32  DL_total_missing;
+    uint32_t DL_total_acks;
+    uint32_t DL_total_nacks;
+    uint32_t DL_total_missing;
 
 } rlc_ue_stats;
 
@@ -440,20 +440,14 @@ public:
     }
 
     // Does UE match?
-    bool isMatch(const rlc_3gpp_tap_info *rlt_info) {
+    bool isMatch(const rlc_3gpp_tap_info *rlt_info)
+    {
         return (rat_ == rlt_info->rat) && (ueid_ == rlt_info->ueid);
     }
 
     // Update UE/channels from tap info.
-    void update(const rlc_3gpp_tap_info *tap_info) {
-
-        // Are we ignoring RLC frames that were found in MAC frames, or only those
-        // that were logged separately?
-        if ((!recent.gui_rlc_use_pdus_from_mac &&  tap_info->loggedInMACFrame) ||
-             (recent.gui_rlc_use_pdus_from_mac && !tap_info->loggedInMACFrame)) {
-            return;
-        }
-
+    void update(const rlc_3gpp_tap_info *tap_info)
+    {
         // TODO: update title with number of UEs and frames like MAC does?
 
         // N.B. not really expecting to see common stats - ignoring them.
@@ -547,7 +541,8 @@ public:
     }
 
     // Draw UE entry
-    void draw() {
+    void draw()
+    {
         // Fixed fields only drawn once from constructor so don't redraw here.
 
         /* Calculate bandwidths. */
@@ -608,7 +603,8 @@ public:
     }
 
     // Filter expression for UE.
-    const QString filterExpression(bool showSR, bool showRACH) {
+    const QString filterExpression(bool showSR, bool showRACH)
+    {
         // Create an expression to match with all traffic for this UE.
         QString filter_expr;
 
@@ -723,7 +719,7 @@ static const QString channel_col_3_title_ = QObject::tr("Priority");
 
 // Constructor.
 LteRlcStatisticsDialog::LteRlcStatisticsDialog(QWidget &parent, CaptureFile &cf, const char *filter) :
-    TapParameterDialog(parent, cf, HELP_STATS_LTE_MAC_TRAFFIC_DIALOG),
+    TapParameterDialog(parent, cf, HELP_STATS_LTE_RLC_TRAFFIC_DIALOG),
     cf_(cf),
     packet_count_(0)
 {
@@ -852,6 +848,13 @@ tap_packet_status LteRlcStatisticsDialog::tapPacket(void *ws_dlg_ptr, struct _pa
     LteRlcStatisticsDialog *ws_dlg = static_cast<LteRlcStatisticsDialog *>(ws_dlg_ptr);
     const rlc_3gpp_tap_info *rlt_info  = (const rlc_3gpp_tap_info *) rlc_3gpp_tap_info_ptr;
     if (!ws_dlg || !rlt_info) {
+        return TAP_PACKET_DONT_REDRAW;
+    }
+
+    // Are we ignoring RLC frames that were found in MAC frames, or only those
+    // that were logged separately?
+    if ((!recent.gui_rlc_use_pdus_from_mac &&  rlt_info->loggedInMACFrame) ||
+         (recent.gui_rlc_use_pdus_from_mac && !rlt_info->loggedInMACFrame)) {
         return TAP_PACKET_DONT_REDRAW;
     }
 
@@ -1068,7 +1071,8 @@ QList<QVariant> LteRlcStatisticsDialog::treeItemData(QTreeWidgetItem *item) cons
 // Stat command + args
 
 static void
-lte_rlc_statistics_init(const char *args, void*) {
+lte_rlc_statistics_init(const char *args, void*)
+{
     QStringList args_l = QString(args).split(',');
     QByteArray filter;
     if (args_l.length() > 2) {
@@ -1078,7 +1082,7 @@ lte_rlc_statistics_init(const char *args, void*) {
 }
 
 static stat_tap_ui lte_rlc_statistics_ui = {
-    REGISTER_STAT_GROUP_TELEPHONY_3GPP_UU,
+    REGISTER_TELEPHONY_GROUP_3GPP_UU,
     QT_TRANSLATE_NOOP("LteRlcStatisticsDialog", "RLC Statistics"),
     "rlc-3gpp,stat",            // cli_string
     lte_rlc_statistics_init,

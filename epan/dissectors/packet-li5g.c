@@ -11,6 +11,7 @@
 #include "config.h"
 #include <epan/packet.h>
 #include <epan/ipproto.h>
+#include <epan/unit_strings.h>
 #include "packet-tls.h"
 
 void proto_reg_handoff_li5g(void);
@@ -34,8 +35,8 @@ static int hf_li5g_pld;
 /* the min header length */
 #define LI_5G_HEADER_LEN_MIN 40
 
-static gint ett_li5g;
-static gint ett_attrContents[LI_5G_ATTR_TYPE_MAX];
+static int ett_li5g;
+static int ett_attrContents[LI_5G_ATTR_TYPE_MAX];
 static int hf_li5g_attrContents[LI_5G_ATTR_TYPE_MAX];
 static dissector_handle_t li5g_handle;
 
@@ -107,20 +108,21 @@ static const value_string attribute_type_vals[] = {
 };
 
 static int
+// NOLINTNEXTLINE(misc-no-recursion)
 dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     proto_tree  *li5g_tree, *attr_tree, *parent=NULL;
     proto_item  *ti, *attr_ti;
     tvbuff_t    *payload_tvb;
     int offset = LI_5G_HEADER_LEN_MIN, hf_attr = -1;
-    guint32 headerLen, payloadLen, pduType;
-    guint16 payloadFormat, attrType, attrLen;
+    uint32_t headerLen, payloadLen, pduType;
+    uint16_t payloadFormat, attrType, attrLen;
     const char* info;
 
     address src_addr;
     address dst_addr;
-    guint32 src_port;
-    guint32 dst_port;
+    uint32_t src_port;
+    uint32_t dst_port;
 
     headerLen = tvb_get_ntohl(tvb, 4);
     payloadLen = tvb_get_ntohl(tvb, 8);
@@ -181,11 +183,14 @@ dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
         li5g_tree->parent=parent;
 
     /* have another li5g in the same packet? */
-    if (tvb_captured_length(tvb)>offset+payloadLen)
+    if (tvb_captured_length(tvb)>offset+payloadLen) {
+        increment_dissection_depth(pinfo);
         dissect_li5g(tvb_new_subset_remaining(tvb, offset+payloadLen), pinfo, tree, NULL);
+        decrement_dissection_depth(pinfo);
+    }
 
     /* set these info at the end*/
-    col_set_str(pinfo->cinfo, COL_PROTOCOL, "5GLI");
+    col_set_str(pinfo->cinfo, COL_PROTOCOL, "LI5G");
     col_clear_fence(pinfo->cinfo, COL_INFO);
     col_clear(pinfo->cinfo, COL_INFO);
     info = try_val_to_str(pduType, pdu_type_vals);
@@ -202,24 +207,24 @@ dissect_li5g(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_
     return tvb_captured_length(tvb);
 }
 
-static gboolean
+static bool
 dissect_li5g_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
     struct tlsinfo* tlsinfo = (struct tlsinfo*)data;
     if (tvb_captured_length(tvb) < LI_5G_HEADER_LEN_MIN)
-        return FALSE;
+        return false;
     /* the version should be 1 */
     if (tvb_get_ntohs(tvb, 0) != 1)
-        return FALSE;
+        return false;
     /* only 4 types supported*/
     if(tvb_get_ntohs(tvb, 2) < 1 || tvb_get_ntohs(tvb, 2) > 4)
-        return (FALSE);
+        return false;
 
-    /* TLS can hold it, no need to find the disect every time */
+    /* TLS can hold it, no need to find the dissect every time */
     *(tlsinfo->app_handle) = li5g_handle;
     dissect_li5g(tvb, pinfo, tree, data);
 
-    return TRUE;
+    return true;
 }
 
 void
@@ -228,15 +233,15 @@ proto_register_li5g(void)
     static hf_register_info hf[] = {
         { &hf_li5g_version, { "Version", "li5g.ver", FT_UINT16, BASE_DEC, NULL, 0x0, NULL, HFILL }},
         { &hf_li5g_pduType, { "PDU Type", "li5g.type", FT_UINT16, BASE_DEC, VALS(pdu_type_vals), 0x0, NULL, HFILL }},
-        { &hf_li5g_headerLen, { "Header Length", "li5g.hl", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0x0, NULL, HFILL }},
-        { &hf_li5g_payloadLen, { "Payload Length", "li5g.pl", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0x0, NULL, HFILL }},
+        { &hf_li5g_headerLen, { "Header Length", "li5g.hl", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_octet_octets), 0x0, NULL, HFILL }},
+        { &hf_li5g_payloadLen, { "Payload Length", "li5g.pl", FT_UINT32, BASE_DEC|BASE_UNIT_STRING, UNS(&units_octet_octets), 0x0, NULL, HFILL }},
         { &hf_li5g_payloadFormat, { "Payload Format", "li5g.pf", FT_UINT16, BASE_DEC, VALS(payload_format_vals), 0x0, NULL, HFILL }},
         { &hf_li5g_payloadDirection, { "Payload Direction", "li5g.pd", FT_UINT16, BASE_DEC, VALS(payload_dir_vals), 0x0, NULL, HFILL }},
         { &hf_li5g_xid, { "XID", "li5g.xid", FT_GUID, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_li5g_cid, { "Correlation ID", "li5g.cid", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
 
         { &hf_li5g_attrType, { "Attribute Type", "li5g.attrType", FT_UINT16, BASE_DEC, VALS(attribute_type_vals), 0x0, NULL, HFILL }},
-        { &hf_li5g_attrLen, { "Attribute Length", "li5g.attrLen", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_octet_octets, 0x0, NULL, HFILL }},
+        { &hf_li5g_attrLen, { "Attribute Length", "li5g.attrLen", FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_octet_octets), 0x0, NULL, HFILL }},
         { &hf_li5g_attrContents[1], { "ETSI TS 102 232-1 Defined Attribute", "li5g.102_232_1_attr", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_li5g_attrContents[2], { "3GPP TS 33.128 Defined Attribute", "li5g.33_128_attr", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
         { &hf_li5g_attrContents[3], { "3GPP TS 33.108 Defined Attribute", "li5g.33_108_attr", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
@@ -263,7 +268,7 @@ proto_register_li5g(void)
         { &hf_li5g_pld, { "Payload", "li5g.pld", FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL }},
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_li5g,
         &ett_attrContents[1],
         &ett_attrContents[2],
@@ -289,7 +294,7 @@ proto_register_li5g(void)
         &ett_attrContents[22],
     };
 
-    proto_li5g = proto_register_protocol("5G Lawful Interception", "5GLI", "5gli");
+    proto_li5g = proto_register_protocol("Lawful Interception 5G", "LI5G", "li5g");
 
     li5g_handle = register_dissector("li5g", dissect_li5g, proto_li5g);
 

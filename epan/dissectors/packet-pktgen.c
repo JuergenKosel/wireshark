@@ -36,28 +36,28 @@ static int hf_pktgen_tvusec;
 static int hf_pktgen_timestamp;
 
 /* Initialize the subtree pointer */
-static gint ett_pktgen;
+static int ett_pktgen;
 
 /* entry point */
-static gboolean dissect_pktgen(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+static bool dissect_pktgen(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
     proto_item *ti          = NULL;
     proto_item *tmp         = NULL;
     proto_tree *pktgen_tree = NULL;
-    guint32     offset      = 0;
+    uint32_t    offset      = 0;
     nstime_t    tstamp;
-    guint32     magic;
+    uint32_t    magic;
 
     /* check for min size */
     if (tvb_reported_length(tvb) < 16) {  /* Not a PKTGEN packet. */
-        return FALSE;
+        return false;
     }
 
     /* check for magic number */
     magic = tvb_get_ntohl(tvb,0);
     if (magic != PKTGEN_MAGIC) {
         /* Not a PKTGEN packet. */
-        return FALSE;
+        return false;
     }
 
 
@@ -100,7 +100,7 @@ static gboolean dissect_pktgen(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             pktgen_tree);
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -154,7 +154,7 @@ void proto_register_pktgen(void)
 
     /* Setup protocol subtree array */
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_pktgen
     };
 

@@ -450,8 +450,8 @@ static const value_string mot_ps_auth_replies[] = {
 
 static void dissect_extrememesh_ps_arep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Authorization Reply");
 	proto_tree_add_item(tree, proto_extrememesh_ps_arep, tvb, offset, -1, ENC_NA);
@@ -504,9 +504,9 @@ Dissects the path selection bind request.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_breq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
-	guint8 option_len = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
+	uint8_t option_len = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Bind Request");
 	proto_tree_add_item(tree, proto_extrememesh_ps_breq, tvb, offset, -1, ENC_NA);
@@ -526,7 +526,7 @@ static void dissect_extrememesh_ps_breq(tvbuff_t *tvb, packet_info *pinfo, proto
 		offset++;
 		if (option == 0) continue;
 		proto_tree_add_item(tree, hf_extrememesh_ps_breq_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
-		option_len = tvb_get_guint8(tvb, offset);
+		option_len = tvb_get_uint8(tvb, offset);
 		offset++;
 		switch(option)
 		{
@@ -595,8 +595,8 @@ Dissects the path selection bind reply.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_brep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Bind Reply");
 	proto_tree_add_item(tree, proto_extrememesh_ps_brep, tvb, offset, -1, ENC_NA);
@@ -645,9 +645,9 @@ Dissects the path selection bind announcement (BANN) packet.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_bann(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
-	guint8 option_len = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
+	uint8_t option_len = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Bind Announcement");
 	proto_tree_add_item(tree, proto_extrememesh_ps_bann, tvb, offset, -1, ENC_NA);
@@ -666,7 +666,7 @@ static void dissect_extrememesh_ps_bann(tvbuff_t *tvb, packet_info *pinfo, proto
 		proto_tree_add_item_ret_uint(tree, hf_extrememesh_ps_bann_option, tvb, offset, 1, ENC_BIG_ENDIAN, &option);
 		offset++;
 		if(option == 0) continue; // Option 0 is a single padding byte, no length byte
-		option_len = tvb_get_guint8(tvb, offset);
+		option_len = tvb_get_uint8(tvb, offset);
 		proto_tree_add_item(tree, hf_extrememesh_ps_bann_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
 		offset++;
 		switch(option)
@@ -713,8 +713,8 @@ Dissects the path selection bind removed packet.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_bred(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Bind Removed");
 	proto_tree_add_item(tree, proto_extrememesh_ps_bred, tvb, offset, -1, ENC_NA);
@@ -763,8 +763,8 @@ Dissects the path selection status request.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_sreq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Status Request");
 	proto_tree_add_item(tree, proto_extrememesh_ps_sreq, tvb, offset, -1, ENC_NA);
@@ -815,8 +815,8 @@ Dissects the path selection status reply.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_srep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Status Reply");
 	proto_tree_add_item(tree, proto_extrememesh_ps_srep, tvb, offset, -1, ENC_NA);
@@ -873,9 +873,9 @@ Dissects the path selection path request.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_preq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
-	guint16 option_len = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
+	uint16_t option_len = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Path Request");
 	proto_tree_add_item(tree, proto_extrememesh_ps_preq, tvb, offset, -1, ENC_NA);
@@ -971,9 +971,9 @@ Dissects the path selection path reply.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_prep(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
-	guint16 option_len = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
+	uint16_t option_len = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Path Reply");
 	proto_tree_add_item(tree, proto_extrememesh_ps_prep, tvb, offset, -1, ENC_NA);
@@ -1063,11 +1063,11 @@ Dissects the path selection path error (PERR) packet.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_perr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint8 dst_cnt = 0;
+	uint32_t offset = 0;
+	uint8_t dst_cnt = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Path Error");
-	dst_cnt = tvb_get_guint8(tvb, 3);
+	dst_cnt = tvb_get_uint8(tvb, 3);
 	proto_tree_add_item(tree, proto_extrememesh_ps_perr, tvb, offset, -1, ENC_NA);
 	proto_tree_add_item(tree, hf_extrememesh_ps_perr_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
@@ -1102,7 +1102,7 @@ Dissects the path selection path reset (PRST).
 /*****************************************************************************/
 static void dissect_extrememesh_ps_prst(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	gint offset = 0;
+	int offset = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Path Reset");
 	proto_tree_add_item(tree, proto_extrememesh_ps_prst, tvb, offset, -1, ENC_NA);
@@ -1134,9 +1134,9 @@ Dissects the path selection proxy remove (PREM) packet.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_prem(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
-	guint8 option_len = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
+	uint8_t option_len = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Proxy Remove");
 	proto_tree_add_item(tree, proto_extrememesh_ps_prem, tvb, offset, -1, ENC_NA);
@@ -1155,7 +1155,7 @@ static void dissect_extrememesh_ps_prem(tvbuff_t *tvb, packet_info *pinfo, proto
 		proto_tree_add_item_ret_uint(tree, hf_extrememesh_ps_prem_option, tvb, offset, 1, ENC_BIG_ENDIAN, &option);
 		offset++;
 		if(option == 0) continue; // Option 0 is a single padding byte, no length byte
-		option_len = tvb_get_gint8(tvb, offset);
+		option_len = tvb_get_int8(tvb, offset);
 		proto_tree_add_item(tree, hf_extrememesh_ps_prem_option_len, tvb, offset, 1, ENC_BIG_ENDIAN);
 		offset++;
 		switch(option)
@@ -1199,11 +1199,11 @@ Dissects the path selection trace path (TRACE) packet.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_trace(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint8 hop_cnt = 0;
+	uint32_t offset = 0;
+	uint8_t hop_cnt = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Trace Path");
-	hop_cnt = tvb_get_guint8(tvb, 15);
+	hop_cnt = tvb_get_uint8(tvb, 15);
 	proto_tree_add_item(tree, proto_extrememesh_ps_trace, tvb, offset, -1, ENC_NA);
 	proto_tree_add_item(tree, hf_extrememesh_ps_trace_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
@@ -1240,8 +1240,8 @@ Dissects the path selection proxy error.
 /*****************************************************************************/
 static void dissect_extrememesh_ps_prer(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Proxy Error");
 	proto_tree_add_item(tree, proto_extrememesh_ps_prer, tvb, offset, -1, ENC_NA);
@@ -1284,8 +1284,8 @@ static void dissect_extrememesh_ps_prer(tvbuff_t *tvb, packet_info *pinfo, proto
 
 static void dissect_extrememesh_ps_areq(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	guint32 offset = 0;
-	guint32 option = 0;
+	uint32_t offset = 0;
+	uint32_t option = 0;
 
 	/*if((pinfo != NULL) && check_col(pinfo->cinfo,COL_INFO))*/
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Path Selection Authorization Request");
@@ -1323,12 +1323,12 @@ static void dissect_extrememesh_ps_areq(tvbuff_t *tvb, packet_info *pinfo, proto
 	}
 }
 
-static gint dissect_extrememesh_ps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+static int dissect_extrememesh_ps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	gint frame_type_offset = 1;
-	gint frame_type = MESH_PS_FRAME_INVALID;
+	int frame_type_offset = 1;
+	int frame_type = MESH_PS_FRAME_INVALID;
 
-	frame_type = tvb_get_guint8(tvb, frame_type_offset);
+	frame_type = tvb_get_uint8(tvb, frame_type_offset);
 	switch(frame_type)
 	{
 	case MESH_PS_FRAME_AREQ:
@@ -1384,22 +1384,22 @@ static gint dissect_extrememesh_ps(tvbuff_t *tvb, packet_info *pinfo, proto_tree
 	return MESH_NEXT_PROTOCOL_INVALID;
 }
 
-static gint dissect_extrememesh_eth_noaddr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+static int dissect_extrememesh_eth_noaddr(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	tvbuff_t *nextTvb;
-	guchar *ethBuffer;
-	gint bufferLen;
+	unsigned char *ethBuffer;
+	int bufferLen;
 	//These are encapsulated ethernet frames that have had their
 	//src and dest stripped off
 
 	//Copy in the src/dst
 	if (pinfo->src.data && pinfo->dst.data) {
 		//Get the length of the current buffer
-		guint tvbLen = tvb_captured_length(tvb);
+		unsigned tvbLen = tvb_captured_length(tvb);
 		//Add space for the src/dst
 		bufferLen = tvbLen + pinfo->src.len + pinfo->dst.len;
 		//Allocate a new ethernet buffer
-		ethBuffer = (guchar*)wmem_alloc(pinfo->pool, bufferLen);
+		ethBuffer = (unsigned char*)wmem_alloc(pinfo->pool, bufferLen);
 
 		memcpy(ethBuffer, pinfo->dst.data, pinfo->dst.len);
 		memcpy(ethBuffer + pinfo->dst.len, pinfo->src.data, pinfo->src.len);
@@ -1420,9 +1420,9 @@ static gint dissect_extrememesh_eth_noaddr(tvbuff_t *tvb, packet_info *pinfo, pr
 	return MESH_NEXT_PROTOCOL_INVALID;
 }
 
-static gint dissect_extrememesh_l2upd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+static int dissect_extrememesh_l2upd(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	gint offset = 0;
+	int offset = 0;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh L2 Update");
 	proto_tree_add_item(tree, proto_extrememesh_l2upd, tvb, offset, -1, ENC_NA);
@@ -1433,10 +1433,10 @@ static gint dissect_extrememesh_l2upd(tvbuff_t *tvb, packet_info *pinfo, proto_t
 	return MESH_NEXT_PROTOCOL_INVALID;
 }
 
-static gint dissect_extrememesh_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+static int dissect_extrememesh_probe(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-	gint offset = 0;
-	guint16 ballast_len;
+	int offset = 0;
+	uint16_t ballast_len;
 
 	col_set_str(pinfo->cinfo, COL_INFO, "Extreme Mesh Probe Message");
 	ballast_len = tvb_get_ntohs(tvb, 10);
@@ -1462,17 +1462,18 @@ static gint dissect_extrememesh_probe(tvbuff_t *tvb, packet_info *pinfo, proto_t
 	return MESH_NEXT_PROTOCOL_INVALID;
 }
 
-static gint dissect_extrememesh_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+// NOLINTNEXTLINE(misc-no-recursion)
+static int dissect_extrememesh_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 	proto_tree *meshTree = tree;
-	gint offset = 0;
-	gint next_proto;
+	int offset = 0;
+	int next_proto;
 	tvbuff_t *nextTvb;
 
 	proto_tree_add_item(meshTree, proto_extrememesh_mch, tvb, offset, -1, ENC_NA);
 	proto_tree_add_item(meshTree, hf_extrememesh_mch_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
-	next_proto = tvb_get_guint8(tvb, offset);
+	next_proto = tvb_get_uint8(tvb, offset);
 	proto_tree_add_item(meshTree, hf_extrememesh_mch_next_proto, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
 	proto_tree_add_item(meshTree, hf_extrememesh_mch_lq, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -1497,7 +1498,7 @@ static gint dissect_extrememesh_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
 	nextTvb = tvb_new_subset_length(tvb, offset, -1);
 
-	while(next_proto != (gint)MESH_NEXT_PROTOCOL_INVALID)
+	while(next_proto != (int)MESH_NEXT_PROTOCOL_INVALID)
 	{
 		switch(next_proto)
 		{
@@ -1514,6 +1515,7 @@ static gint dissect_extrememesh_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 			next_proto = MESH_NEXT_PROTOCOL_INVALID;
 			break;
 		case MESH_NEXT_PROTOCOL_MCH:
+			// We recurse here, but we'll run out of packet before we run out of stack.
 			next_proto = dissect_extrememesh_mch(nextTvb, pinfo, meshTree);
 			break;
 		case MESH_NEXT_PROTOCOL_ENCAPSULATED_ETH:
@@ -1552,26 +1554,26 @@ static gint dissect_extrememesh_mch(tvbuff_t *tvb, packet_info *pinfo, proto_tre
 
 static int dissect_extrememesh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-	gint offset = 0;
-	/*guint8 packet_type = 0;*/
+	int offset = 0;
+	/*uint8_t packet_type = 0;*/
 	tvbuff_t *next_tvb = NULL;
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "MCX");
 	proto_item *ti = NULL;
 	proto_tree *meshTree = NULL;
-	gint next_proto = MESH_NEXT_PROTOCOL_INVALID;
+	int next_proto = MESH_NEXT_PROTOCOL_INVALID;
 
 	ti = proto_tree_add_item(tree, proto_extrememesh, tvb, offset, -1, ENC_NA);
 	meshTree = proto_item_add_subtree(ti, ett_extrememesh);
 	proto_tree_add_item(meshTree, hf_extrememesh_version, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
-	next_proto = tvb_get_guint8(tvb, offset);
+	next_proto = tvb_get_uint8(tvb, offset);
 	proto_tree_add_item(meshTree, hf_extrememesh_nextproto, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
 
 	next_tvb = tvb_new_subset_length(tvb, offset, -1);
 
-	while(next_proto != (gint)MESH_NEXT_PROTOCOL_INVALID)
+	while(next_proto != (int)MESH_NEXT_PROTOCOL_INVALID)
 	{
 		switch(next_proto)
 		{
@@ -2427,7 +2429,7 @@ void proto_register_extrememesh(void)
 		NULL, 0x0, NULL, HFILL }}
 	};
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_extrememesh,
 		&ett_extrememesh_mch,
 		&ett_extrememesh_hello,

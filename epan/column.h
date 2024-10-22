@@ -21,55 +21,64 @@
 extern "C" {
 #endif /* __cplusplus */
 
+/** Defines used in fmt_data.display.
+ * The values are legacy from U Unresolved and R Resolved stored in the preferences.
+ */
+#define COLUMN_DISPLAY_VALUES  'U'
+#define COLUMN_DISPLAY_STRINGS 'R'
+#define COLUMN_DISPLAY_DETAILS 'D'
+
 typedef struct _fmt_data {
-  gchar *title;            /* title of the column */
+  char *title;            /* title of the column */
   int fmt;                 /* format of column */
-  gchar *custom_fields;    /* fields names for COL_CUSTOM */
-  gint custom_occurrence;  /* optional ordinal of occurrence of that field */
-  bool visible;            /* if FALSE, hide this column */
-  bool resolved;           /* if TRUE, show a more human-readable name */
+  char *custom_fields;    /* fields names for COL_CUSTOM */
+  int custom_occurrence;  /* optional ordinal of occurrence of that field */
+  bool visible;            /* if false, hide this column */
+  char display;            /* how to display a custom field value */
 } fmt_data;
 
 WS_DLL_PUBLIC
-const gchar         *col_format_to_string(const gint);
+const char          *col_format_to_string(const int);
 WS_DLL_PUBLIC
-const gchar         *col_format_desc(const gint);
+const char          *col_format_desc(const int);
 WS_DLL_PUBLIC
-const gchar         *col_format_abbrev(const gint);
+const char          *col_format_abbrev(const int);
 WS_DLL_PUBLIC
-gint                 get_column_format(const gint);
+int                  get_column_format(const int);
 WS_DLL_PUBLIC
-void                 set_column_format(const gint, const gint);
+void                 set_column_format(const int, const int);
 WS_DLL_PUBLIC
-void                 get_column_format_matches(gboolean *, const gint);
+void                 get_column_format_matches(bool *, const int);
 WS_DLL_PUBLIC
-gint                 get_column_format_from_str(const gchar *);
+int                  get_column_format_from_str(const char *);
 WS_DLL_PUBLIC
-gchar               *get_column_title(const gint);
+char                *get_column_title(const int);
 WS_DLL_PUBLIC
-void                 set_column_title(const gint, const gchar *);
+void                 set_column_title(const int, const char *);
 WS_DLL_PUBLIC
-gboolean             get_column_visible(const gint);
+bool                 get_column_visible(const int);
 WS_DLL_PUBLIC
-void                 set_column_visible(const gint, gboolean);
+void                 set_column_visible(const int, bool);
 WS_DLL_PUBLIC
-gboolean             get_column_resolved(const gint);
+char                 get_column_display_format(const int);
 WS_DLL_PUBLIC
-void                 set_column_resolved(const gint, gboolean);
+void                 set_column_display_format(const int, char);
 WS_DLL_PUBLIC
-const gchar         *get_column_custom_fields(const gint);
+const char          *get_column_custom_fields(const int);
 WS_DLL_PUBLIC
-void                 set_column_custom_fields(const gint, const char *);
+void                 set_column_custom_fields(const int, const char *);
 WS_DLL_PUBLIC
-gint                 get_column_custom_occurrence(const gint);
+int                  get_column_custom_occurrence(const int);
 WS_DLL_PUBLIC
-void                 set_column_custom_occurrence(const gint, const gint);
+void                 set_column_custom_occurrence(const int, const int);
 WS_DLL_PUBLIC
-const gchar         *get_column_width_string(const gint, const gint);
+const char          *get_column_longest_string(const int);
 WS_DLL_PUBLIC
-gint                 get_column_char_width(const gint format);
+const char          *get_column_width_string(const int, const int);
 WS_DLL_PUBLIC
-gchar               *get_column_tooltip(const gint col);
+int                  get_column_char_width(const int format);
+WS_DLL_PUBLIC
+char                *get_column_tooltip(const int col);
 
 /** Get the text of a column element. The string returned may
  * depend on whether the resolved member variable is set.
@@ -82,7 +91,7 @@ gchar               *get_column_tooltip(const gint col);
  * @return the text string
  */
 WS_DLL_PUBLIC
-const gchar         *get_column_text(column_info *cinfo, const gint col);
+const char          *get_column_text(column_info *cinfo, const int col);
 
 WS_DLL_PUBLIC
 void
@@ -90,7 +99,7 @@ col_finalize(column_info *cinfo);
 
 WS_DLL_PUBLIC
 void
-build_column_format_array(column_info *cinfo, const gint num_cols, const gboolean reset_fences);
+build_column_format_array(column_info *cinfo, const int num_cols, const bool reset_fences);
 
 WS_DLL_PUBLIC
 void                 column_dump_column_formats(void);
@@ -105,10 +114,23 @@ void                 column_dump_column_formats(void);
  * the custom_fields member as well.
  * @param[in] fmt The column format to parse.
  *
- * @return TRUE if conversion was successful, FALSE if unsuccessful
+ * @return true if conversion was successful, false if unsuccessful
  */
 WS_DLL_PUBLIC
-gboolean parse_column_format(fmt_data *cfmt, const char *fmt);
+bool parse_column_format(fmt_data *cfmt, const char *fmt);
+
+/** Given a fmt_data struct, returns the column format string that should
+ * be written to the preferences to generate the fmt_data struct.
+ * The inverse of parse_column_format() above.
+ *
+ * @param[in] cfmt The fmt_data struct.
+ *
+ * @return A column format string that corresponds to the fmt_data.
+ * This string is owned by the caller, and must be freed. Returns
+ * NULL if cfmt is NULL.
+ */
+extern
+char * column_fmt_data_to_str(const fmt_data *cfmt);
 
 /** Checks a column format string to see if it is a deprecated column
  * that has been migrated to a custom column, and converts the format

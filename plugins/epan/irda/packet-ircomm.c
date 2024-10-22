@@ -16,13 +16,20 @@
 /*
  * See
  *
- *    http://www.irdajp.info/specifications.php
+ *    https://web.archive.org/web/20040405053146/http://www.irda.org/standards/specifications.asp
  *
  * or
  *
- *    https://web.archive.org/web/20040405053146/http://www.irda.org/standards/specifications.asp
+ *    https://archive.org/search?query=creator%3A%22Infrared+Data+Association%22
  *
- * for various IrDA specifications.
+ * for various IrDA specifications, including the IrCOMM 1.0 specification
+ * at
+ *
+ *    https://web.archive.org/web/20040229015523/http://www.irda.org/standards/pubs/IrCOMM10.PDF
+ *
+ * or
+ *
+ *    https://archive.org/details/ir-comm-10
  */
 
 #include "irda-appl.h"
@@ -109,11 +116,11 @@
 void proto_reg_handoff_ircomm(void);
 
 /* Initialize the subtree pointers */
-static gint ett_ircomm;
-static gint ett_ircomm_ctrl;
+static int ett_ircomm;
+static int ett_ircomm_ctrl;
 
 #define MAX_PARAMETERS          32
-static gint ett_param[MAX_IAP_ENTRIES * MAX_PARAMETERS];
+static int ett_param[MAX_IAP_ENTRIES * MAX_PARAMETERS];
 
 static dissector_handle_t ircomm_raw_handle;
 static dissector_handle_t ircomm_cooked_handle;
@@ -126,12 +133,12 @@ static int hf_ircomm_param;
 static int hf_control;
 static int hf_control_len;
 
-static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_info* pinfo,
-                                          proto_tree* tree, guint list_index, guint8 attr_type, guint8 circuit_id);
-static gboolean dissect_ircomm_ttp_lsap(tvbuff_t* tvb, guint offset, packet_info* pinfo,
-                                        proto_tree* tree, guint list_index, guint8 attr_type, guint8 circuit_id);
-static gboolean dissect_ircomm_lmp_lsap(tvbuff_t* tvb, guint offset, packet_info* pinfo,
-                                        proto_tree* tree, guint list_index, guint8 attr_type, guint8 circuit_id);
+static bool dissect_ircomm_parameters(tvbuff_t* tvb, unsigned offset, packet_info* pinfo,
+                                      proto_tree* tree, unsigned list_index, uint8_t attr_type, uint8_t circuit_id);
+static bool dissect_ircomm_ttp_lsap(tvbuff_t* tvb, unsigned offset, packet_info* pinfo,
+                                    proto_tree* tree, unsigned list_index, uint8_t attr_type, uint8_t circuit_id);
+static bool dissect_ircomm_lmp_lsap(tvbuff_t* tvb, unsigned offset, packet_info* pinfo,
+                                    proto_tree* tree, unsigned list_index, uint8_t attr_type, uint8_t circuit_id);
 
 ias_attr_dissector_t ircomm_attr_dissector[] = {
 /* IrDA:IrCOMM attribute dissectors */
@@ -155,9 +162,9 @@ static int dissect_cooked_ircomm(tvbuff_t* tvb, packet_info* pinfo, proto_tree* 
 {
     proto_item *ti;
     proto_tree *ircomm_tree, *ctrl_tree;
-    guint offset = 0;
-    guint clen;
-    gint len = tvb_reported_length(tvb);
+    unsigned offset = 0;
+    unsigned clen;
+    int len = tvb_reported_length(tvb);
 
     if (len == 0)
         return len;
@@ -165,7 +172,7 @@ static int dissect_cooked_ircomm(tvbuff_t* tvb, packet_info* pinfo, proto_tree* 
     /* Make entries in Protocol column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "IrCOMM");
 
-    clen = tvb_get_guint8(tvb, offset);
+    clen = tvb_get_uint8(tvb, offset);
     len -= 1 + clen;
 
     if (len > 0)
@@ -196,7 +203,7 @@ static int dissect_cooked_ircomm(tvbuff_t* tvb, packet_info* pinfo, proto_tree* 
  */
 static int dissect_raw_ircomm(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
 {
-    guint len = tvb_reported_length(tvb);
+    unsigned len = tvb_reported_length(tvb);
     proto_item* ti;
     proto_tree* ircomm_tree;
 
@@ -221,19 +228,19 @@ static int dissect_raw_ircomm(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tre
 /*
  * Dissect IrCOMM IAS "Parameters" attribute
  */
-static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_info* pinfo _U_,
-                                          proto_tree* tree, guint list_index, guint8 attr_type, guint8 circuit_id _U_)
+static bool dissect_ircomm_parameters(tvbuff_t* tvb, unsigned offset, packet_info* pinfo _U_,
+                                      proto_tree* tree, unsigned list_index, uint8_t attr_type, uint8_t circuit_id _U_)
 {
-    guint    len;
-    guint    n = 0;
+    unsigned len;
+    unsigned n = 0;
     proto_item* ti;
     proto_tree* p_tree;
     char        buf[256];
-    guint8      pv;
+    uint8_t     pv;
 
 
     if (!check_iap_octet_result(tvb, tree, offset, "Parameters", attr_type))
-        return TRUE;
+        return true;
 
     if (tree)
     {
@@ -242,7 +249,7 @@ static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_in
 
         while (offset < len)
         {
-            guint8  p_len = tvb_get_guint8(tvb, offset + 1);
+            uint8_t p_len = tvb_get_uint8(tvb, offset + 1);
 
 
             ti = proto_tree_add_item(tree, hf_ircomm_param, tvb, offset, p_len + 2, ENC_NA);
@@ -250,12 +257,12 @@ static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_in
 
             buf[0] = 0;
 
-            switch (tvb_get_guint8(tvb, offset))
+            switch (tvb_get_uint8(tvb, offset))
             {
                 case IRCOMM_SERVICE_TYPE:
                     proto_item_append_text(ti, ": Service Type (");
 
-                    pv = tvb_get_guint8(tvb, offset+2);
+                    pv = tvb_get_uint8(tvb, offset+2);
                     if (pv & IRCOMM_3_WIRE_RAW)
                         (void) g_strlcat(buf, ", 3-Wire raw", 256);
                     if (pv & IRCOMM_3_WIRE)
@@ -277,7 +284,7 @@ static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_in
                 case IRCOMM_PORT_TYPE:
                     proto_item_append_text(ti, ": Port Type (");
 
-                    pv = tvb_get_guint8(tvb, offset+2);
+                    pv = tvb_get_uint8(tvb, offset+2);
                     if (pv & IRCOMM_SERIAL)
                         (void) g_strlcat(buf, ", serial", 256);
                     if (pv & IRCOMM_PARALLEL)
@@ -310,43 +317,43 @@ static gboolean dissect_ircomm_parameters(tvbuff_t* tvb, guint offset, packet_in
 
     }
 
-    return TRUE;
+    return true;
 }
 
 
 /*
  * Dissect IrCOMM IAS "IrDA:TinyTP:LsapSel" attribute
  */
-static gboolean dissect_ircomm_ttp_lsap(tvbuff_t* tvb, guint offset, packet_info* pinfo,
-                                        proto_tree* tree, guint list_index _U_, guint8 attr_type, guint8 circuit_id)
+static bool dissect_ircomm_ttp_lsap(tvbuff_t* tvb, unsigned offset, packet_info* pinfo,
+                                    proto_tree* tree, unsigned list_index _U_, uint8_t attr_type, uint8_t circuit_id)
 {
-    guint8 dlsap;
+    uint8_t dlsap;
 
 
     if ((dlsap = check_iap_lsap_result(tvb, tree, offset, "IrDA:TinyTP:LsapSel", attr_type)) == 0)
-        return FALSE;
+        return false;
 
-    add_lmp_conversation(pinfo, dlsap, TRUE, ircomm_cooked_handle, circuit_id);
+    add_lmp_conversation(pinfo, dlsap, true, ircomm_cooked_handle, circuit_id);
 
-    return FALSE;
+    return false;
 }
 
 
 /*
  * Dissect IrCOMM/IrLPT IAS "IrDA:IrLMP:LsapSel" attribute
  */
-static gboolean dissect_ircomm_lmp_lsap(tvbuff_t* tvb, guint offset, packet_info* pinfo,
-                                        proto_tree* tree, guint list_index _U_, guint8 attr_type, guint8 circuit_id)
+static bool dissect_ircomm_lmp_lsap(tvbuff_t* tvb, unsigned offset, packet_info* pinfo,
+                                    proto_tree* tree, unsigned list_index _U_, uint8_t attr_type, uint8_t circuit_id)
 {
-    guint8 dlsap;
+    uint8_t dlsap;
 
 
     if ((dlsap = check_iap_lsap_result(tvb, tree, offset, "IrDA:IrLMP:LsapSel", attr_type)) == 0)
-        return FALSE;
+        return false;
 
-    add_lmp_conversation(pinfo, dlsap, FALSE, ircomm_raw_handle, circuit_id);
+    add_lmp_conversation(pinfo, dlsap, false, ircomm_raw_handle, circuit_id);
 
-    return FALSE;
+    return false;
 }
 
 
@@ -355,7 +362,7 @@ static gboolean dissect_ircomm_lmp_lsap(tvbuff_t* tvb, guint offset, packet_info
  */
 void proto_register_ircomm(void)
 {
-    guint i;
+    unsigned i;
 
     /* Setup list of header fields */
     static hf_register_info hf_ircomm[] = {
@@ -388,12 +395,12 @@ void proto_register_ircomm(void)
     };
 
     /* Setup protocol subtree arrays */
-    static gint* ett[] = {
+    static int* ett[] = {
         &ett_ircomm,
         &ett_ircomm_ctrl
     };
 
-    gint* ett_p[MAX_IAP_ENTRIES * MAX_PARAMETERS];
+    int* ett_p[MAX_IAP_ENTRIES * MAX_PARAMETERS];
 
 
     /* Register protocol names and descriptions */

@@ -8,13 +8,12 @@
 
 #include "config.h"
 
-#include <string.h>
-
 #include <ftypes-int.h>
 #include <epan/addr_resolv.h>
 #include <epan/to_str.h>
 #include <wsutil/inet_cidr.h>
 #include <wsutil/strtoi.h>
+#include <wsutil/array.h>
 
 static bool
 ipv6_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg)
@@ -202,7 +201,7 @@ is_zero(const fvalue_t *fv_a)
 void
 ftype_register_ipv6(void)
 {
-	static ftype_t ipv6_type = {
+	static const ftype_t ipv6_type = {
 		FT_IPv6,			/* ftype */
 		FT_IPv6_LEN,			/* wire_size */
 		NULL,				/* new_value */

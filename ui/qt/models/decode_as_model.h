@@ -13,7 +13,6 @@
 #define DECODE_AS_MODEL_H
 
 #include <config.h>
-#include <glib.h>
 
 #include <QAbstractItemModel>
 #include <QList>
@@ -27,12 +26,12 @@
 class DecodeAsItem
 {
 public:
-    DecodeAsItem(const char *table_name = NULL, gconstpointer selector = NULL);
-    DecodeAsItem(const decode_as_t *entry, gconstpointer selector = NULL);
+    DecodeAsItem(const char *table_name = NULL, const void *selector = NULL);
+    DecodeAsItem(const decode_as_t *entry, const void *selector = NULL);
     virtual ~DecodeAsItem();
 
-    const gchar* tableName() const { return tableName_; }
-    const gchar* tableUIName() const { return tableUIName_; }
+    const char* tableName() const { return tableName_; }
+    const char* tableUIName() const { return tableUIName_; }
     uint selectorUint() const { return selectorUint_; }
     QString selectorString() const { return selectorString_; }
     decode_dcerpc_bind_values_t* selectorDCERPC() const { return selectorDCERPC_; }
@@ -46,10 +45,10 @@ public:
     void updateHandles();
 
 private:
-    void init(const char *table_name, gconstpointer selector = NULL);
+    void init(const char *table_name, const void *selector = NULL);
 
-    const gchar* tableName_;
-    const gchar* tableUIName_;
+    const char* tableName_;
+    const char* tableUIName_;
 
     //save our sanity and not have to worry about memory management
     //between (lack of) persistent data in GUI and underlying data
@@ -69,6 +68,15 @@ class DecodeAsModel : public QAbstractTableModel
 public:
     DecodeAsModel(QObject *parent, capture_file *cf = NULL);
     virtual ~DecodeAsModel();
+
+    struct UIntEntry {
+        QByteArray table;
+        uint32_t    key;
+        QByteArray pref_name;
+
+        UIntEntry(const char* t, uint32_t k, const char* pref_suffix) :
+            table(t), key(k), pref_name(t) { pref_name.append(pref_suffix); }
+    };
 
     enum DecodeAsColumn {
         colTable = 0, // aka "Field" (or dissector table like "TCP Port")
@@ -95,25 +103,25 @@ public:
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
     void clearAll();
     bool copyRow(int dst_row, int src_row);
-    bool copyFromProfile(QString filename, const gchar **err);
+    bool copyFromProfile(QString filename, const char **err);
 
-    static QString entryString(const gchar *table_name, gconstpointer value);
+    static QString entryString(const char *table_name, const void *value);
 
     void applyChanges();
 
 protected:
-    static void buildChangedList(const gchar *table_name, ftenum_t selector_type,
-                          gpointer key, gpointer value, gpointer user_data);
-    static void buildDceRpcChangedList(gpointer data, gpointer user_data);
-    static void gatherChangedEntries(const gchar *table_name, ftenum_t selector_type,
-                          gpointer key, gpointer value, gpointer user_data);
-    static prefs_set_pref_e readDecodeAsEntry(gchar *key, const gchar *value,
-                          void *user_data, gboolean return_range_errors);
+    static void buildChangedList(const char *table_name, ftenum_t selector_type,
+                          void *key, void *value, void *user_data);
+    static void buildDceRpcChangedList(void *data, void *user_data);
+    static void gatherChangedEntries(const char *table_name, ftenum_t selector_type,
+                          void *key, void *value, void *user_data);
+    static prefs_set_pref_e readDecodeAsEntry(char *key, const char *value,
+                          void *user_data, bool);
 
 private:
     capture_file *cap_file_;
     QList<DecodeAsItem *> decode_as_items_;
-    QList<QPair<const char *, guint32> > changed_uint_entries_;
+    QList<UIntEntry> changed_uint_entries_;
     QList<QPair<const char *, const char *> > changed_string_entries_;
 };
 

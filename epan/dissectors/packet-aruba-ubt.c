@@ -12,10 +12,10 @@
  /* header files */
 #include "config.h"
 #include <epan/packet.h>
-#include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/addr_resolv.h>
 #include "packet-ipv6.h"
+#include <epan/tfs.h>
 
 /* This is not IANA assigned nor registered */
 #define PORT_UBT 15560
@@ -124,9 +124,9 @@ static int hf_ubt_dt_maxmsgs;
 static expert_field ei_ubt_unknown;
 
 /* Initialize the subtree pointers */
-static gint ett_ubt;
-static gint ett_ubt_tlv;
-static gint ett_ubt_flags;
+static int ett_ubt;
+static int ett_ubt_tlv;
+static int ett_ubt_flags;
 
 /* Definition of different sizes and counts used throughout the program */
 #define PAPI_PACKET_SIZE 76
@@ -285,7 +285,7 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
     /* declaration of variables used */
     proto_item* ti, * ubt_msg_type;
     proto_tree* message_tree, * message_subtree, * message_subtree2, * message_subtree3, * message_subtree4;
-    guint offset_end = 0, msgtype = 0, offset = 0;
+    unsigned offset_end = 0, msgtype = 0, offset = 0;
     tvbuff_t* next_tvb;
 
     /* Setting protocol column to UBT */
@@ -306,7 +306,7 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
     ubt_msg_type = proto_tree_add_item_ret_uint(message_tree, hf_ubt_msg_type, tvb, offset, MESSAGE_TYPE_SIZE, ENC_BIG_ENDIAN, &msgtype);
 
     proto_item_append_text(ubt_msg_type, "(%s)", val_to_str(msgtype, ubt_msgtype_vals, "Unknown Type (%02d)"));
-    col_append_fstr(pinfo->cinfo, COL_INFO, "%s", val_to_str(msgtype, ubt_msgtype_vals, "Unknown Type (%02d)"));
+    col_append_str(pinfo->cinfo, COL_INFO, val_to_str(msgtype, ubt_msgtype_vals, "Unknown Type (%02d)"));
 
     offset += MESSAGE_TYPE_SIZE;
 
@@ -323,7 +323,7 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
     proto_tree_add_item(message_tree, hf_ubt_switch_seqno, tvb, offset, SEQ_NO_SIZE, ENC_NA);
 
     /* appending to info column */
-    col_append_fstr(pinfo->cinfo, COL_INFO, " seq:%d", tvb_get_guint32(tvb, offset, ENC_NA));
+    col_append_fstr(pinfo->cinfo, COL_INFO, " seq:%d", tvb_get_uint32(tvb, offset, ENC_NA));
     offset += SEQ_NO_SIZE;
 
     /* if Switch Keepalive Message type, terminate dissection */
@@ -342,12 +342,13 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
     while (offset < offset_end) {
 
         /* variable to store T, L, V of TLVs & other data */
-        guint optlen = 0, type = 0, val = 0;
+        unsigned optlen = 0, type = 0, val = 0;
+        bool bool_val = false;
         proto_item* tlv, * tlv_item, * tlv_item2;
 
         /* reading type & length of TLVS from stream */
-        type = tvb_get_guint8(tvb, offset);
-        optlen = tvb_get_guint16(tvb, offset + TYPE_SIZE, ENC_BIG_ENDIAN);
+        type = tvb_get_uint8(tvb, offset);
+        optlen = tvb_get_uint16(tvb, offset + TYPE_SIZE, ENC_BIG_ENDIAN);
 
         /* Adding TLV items to the tree */
         tlv = proto_tree_add_item(message_subtree, hf_ubt_tlv, tvb, offset, optlen + TYPE_SIZE + LENGTH_SIZE, ENC_NA);
@@ -500,7 +501,7 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
                 proto_tree_add_bitmask_with_flags(message_subtree2, tvb, offset, hf_ubt_dt_flags, ett_ubt_flags, ubt_user_flags, ENC_BIG_ENDIAN, BMT_NO_APPEND);
             }
 
-            val = tvb_get_guint8(tvb, offset);
+            val = tvb_get_uint8(tvb, offset);
 
             /* appending to info column */
             col_append_fstr(pinfo->cinfo, COL_INFO, " flags:%u", val);
@@ -626,20 +627,20 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
             /* adding activemaps of size 32 at a time */
             for (int i = 0; i < MAP_SIZE; i += MAP_SUBSET_SIZE) {
                 if ((i / MAP_SUBSET_SIZE) == 0) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 1 || (i / MAP_SUBSET_SIZE) == 2) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 3) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_int8(tvb, offset));
                 }
                 else {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_int8(tvb, offset));
                 }
                 offset += 1;
                 for (int j = 1; j < MAP_SUBSET_SIZE; j += 1) {
-                    proto_item_append_text(tlv_item2, " %02d", tvb_get_gint8(tvb, offset));
+                    proto_item_append_text(tlv_item2, " %02d", tvb_get_int8(tvb, offset));
                     offset += 1;
                 }
             }
@@ -650,20 +651,20 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
             /* adding standbymaps of size 32 at a time */
             for (int i = 0; i < MAP_SIZE; i += MAP_SUBSET_SIZE) {
                 if ((i / MAP_SUBSET_SIZE) == 0) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 1 || (i / MAP_SUBSET_SIZE) == 2) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 3) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_int8(tvb, offset));
                 }
                 else {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr2[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_int8(tvb, offset));
                 }
                 offset += 1;
                 for (int j = 1; j < MAP_SUBSET_SIZE; j += 1) {
-                    proto_item_append_text(tlv_item2, " %02d", tvb_get_gint8(tvb, offset));
+                    proto_item_append_text(tlv_item2, " %02d", tvb_get_int8(tvb, offset));
                     offset += 1;
                 }
             }
@@ -674,20 +675,20 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
             /* adding l2conn of size 32 at a time */
             for (int i = 0; i < MAP_SIZE; i += MAP_SUBSET_SIZE) {
                 if ((i / MAP_SUBSET_SIZE) == 0) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "    %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 1 || (i / MAP_SUBSET_SIZE) == 2) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "   %02d", tvb_get_int8(tvb, offset));
                 }
                 else if ((i / MAP_SUBSET_SIZE) == 3) {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, "  %02d", tvb_get_int8(tvb, offset));
                 }
                 else {
-                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_gint8(tvb, offset));
+                    tlv_item2 = proto_tree_add_bytes_format_value(message_subtree3, arr3[i / MAP_SUBSET_SIZE], tvb, offset, MAP_SUBSET_SIZE, NULL, " %02d", tvb_get_int8(tvb, offset));
                 }
                 offset += 1;
                 for (int j = 1; j < MAP_SUBSET_SIZE; j += 1) {
-                    proto_item_append_text(tlv_item2, " %02d", tvb_get_gint8(tvb, offset));
+                    proto_item_append_text(tlv_item2, " %02d", tvb_get_int8(tvb, offset));
                     offset += 1;
                 }
             }
@@ -739,9 +740,9 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
         case Status:/* Type 15: Status */
 
             /* adding Status as proto_item to the tree */
-            proto_tree_add_item_ret_boolean(message_subtree2, hf_ubt_dt_status, tvb, offset, optlen, ENC_BIG_ENDIAN, &val);
-            proto_item_append_text(tlv, ": %u(%s)", val, (val == 1) ? "Success" : "Failure");
-            col_append_fstr(pinfo->cinfo, COL_INFO, " status:%02d(%s)", val, (val == 1) ? "Success" : "Failure");
+            proto_tree_add_item_ret_boolean(message_subtree2, hf_ubt_dt_status, tvb, offset, optlen, ENC_BIG_ENDIAN, &bool_val);
+            proto_item_append_text(tlv, ": %u(%s)", bool_val, bool_val ? "Success" : "Failure");
+            col_append_fstr(pinfo->cinfo, COL_INFO, " status:%02d(%s)", bool_val, bool_val ? "Success" : "Failure");
             offset += optlen;
             break;
 
@@ -831,7 +832,7 @@ dissect_ubt(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_)
             /* adding Silent Client VLANs as proto_item to the tree */
             tlv_item = proto_tree_add_item(message_subtree2, hf_ubt_dt_silentclientvlans, tvb, offset, optlen, ENC_NA);
             message_subtree3 = proto_item_add_subtree(tlv_item, ett_ubt_tlv);
-            proto_item_append_text(tlv, ": %u", tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN));
+            proto_item_append_text(tlv, ": %u", tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN));
 
             /* adding each silent client VLAN assigned */
             for (int i = 0; i < 200; i++) {
@@ -1060,7 +1061,7 @@ proto_register_ubt(void)
 
         { &hf_ubt_dt_clusterenabled,/* if cluster enabled or not */
             { "Cluster Enabled", "ubt.node_list.cluster_enabled",
-            FT_BOOLEAN, 8, NULL, 0x0,
+            FT_BOOLEAN, BASE_NONE, NULL, 0x0,
             NULL, HFILL }
         },
 
@@ -1247,7 +1248,7 @@ proto_register_ubt(void)
 
         { &hf_ubt_dt_status,/* status of message */
             { "Status", "ubt.status",
-            FT_BOOLEAN, 8, TFS(&tfs_success_fail), 0x0,
+            FT_BOOLEAN, BASE_NONE, TFS(&tfs_success_fail), 0x0,
             NULL, HFILL }
         },
 
@@ -1314,7 +1315,7 @@ proto_register_ubt(void)
     };
 
     /* Setup protocol subtree array */
-    static gint* ett[] = {
+    static int* ett[] = {
         &ett_ubt,
         &ett_ubt_tlv,
         &ett_ubt_flags

@@ -13,6 +13,7 @@
 #include <ui/qt/utils/qt_ui_utils.h>
 
 #include <QDateTime>
+#include <QTimeZone>
 
 VoipCallsInfoModel::VoipCallsInfoModel(QObject *parent) :
     QAbstractTableModel(parent),
@@ -58,7 +59,7 @@ QVariant VoipCallsInfoModel::data(const QModelIndex &index, int role) const
             call_info->protocol_name : voip_protocol_name[call_info->protocol];
     case Duration:
     {
-        guint callDuration = nstime_to_sec(&(call_info->stop_fd->abs_ts)) - nstime_to_sec(&(call_info->start_fd->abs_ts));
+        unsigned callDuration = nstime_to_sec(&(call_info->stop_fd->abs_ts)) - nstime_to_sec(&(call_info->start_fd->abs_ts));
         return QString("%1:%2:%3").arg(callDuration / 3600, 2, 10, QChar('0')).arg((callDuration % 3600) / 60, 2, 10, QChar('0')).arg(callDuration % 60, 2, 10, QChar('0'));
     }
     case Packets:
@@ -82,14 +83,14 @@ QVariant VoipCallsInfoModel::data(const QModelIndex &index, int role) const
         case VOIP_H323:
         {
             h323_calls_info_t *h323_info = (h323_calls_info_t *)call_info->prot_info;
-            gboolean flag = FALSE;
+            bool flag = false;
             static const QString on_str = tr("On");
             static const QString off_str = tr("Off");
             if (call_info->call_state == VOIP_CALL_SETUP) {
                 flag = h323_info->is_faststart_Setup;
             } else {
                 if ((h323_info->is_faststart_Setup) && (h323_info->is_faststart_Proc)) {
-                    flag = TRUE;
+                    flag = true;
                 }
             }
             return tr("Tunneling: %1  Fast Start: %2")
@@ -161,7 +162,11 @@ int VoipCallsInfoModel::columnCount(const QModelIndex &parent) const
 QVariant VoipCallsInfoModel::timeData(nstime_t *abs_ts, nstime_t *rel_ts) const
 {
     if (mTimeOfDay_) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+        return QDateTime::fromMSecsSinceEpoch(nstime_to_msec(abs_ts), QTimeZone::LocalTime).toString("yyyy-MM-dd hh:mm:ss");
+#else
         return QDateTime::fromMSecsSinceEpoch(nstime_to_msec(abs_ts), Qt::LocalTime).toString("yyyy-MM-dd hh:mm:ss");
+#endif
     } else {
         // XXX Pull digit count from capture file precision
         return QString::number(nstime_to_sec(rel_ts), 'f', 6);
@@ -202,7 +207,7 @@ void VoipCallsInfoModel::updateCalls(GQueue *callsinfos)
 
         // Add new rows
         cur_call = g_queue_peek_nth_link(callsinfos, rowCount());
-        guint extra = g_list_length(cur_call);
+        unsigned extra = g_list_length(cur_call);
         if (extra > 0) {
             beginInsertRows(QModelIndex(), rowCount(), rowCount() + extra - 1);
             while (cur_call && cur_call->data) {

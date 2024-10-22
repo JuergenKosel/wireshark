@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: get-submodule
         run: git submodule update --init
       - name: Install deps
@@ -25,7 +25,7 @@ jobs:
         run: ninja test-programs
         working-directory: build
       - name: Set up Python 3.8
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Install pytest
@@ -50,7 +50,7 @@ jobs:
           mkdir deb
           mv ../*.deb deb
       - name: Upload deb packages
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages
           path: deb

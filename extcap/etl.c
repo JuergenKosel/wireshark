@@ -59,7 +59,7 @@ enum {
     OPT_LEVEL,
 };
 
-static struct ws_option longopts[] = {
+static const struct ws_option longopts[] = {
     { "p", ws_required_argument, NULL, OPT_PROVIDER},
     { "k", ws_required_argument, NULL, OPT_KEYWORD},
     { "l", ws_required_argument, NULL, OPT_LEVEL},
@@ -72,12 +72,12 @@ typedef struct _PROVIDER_FILTER {
     UCHAR Level;
 } PROVIDER_FILTER;
 
-char g_err_info[FILENAME_MAX] = { 0 };
+char g_err_info[FILENAME_MAX];
 int g_err = ERROR_SUCCESS;
-static wtap_dumper* g_pdh = NULL;
+static wtap_dumper* g_pdh;
 extern ULONGLONG g_num_events;
-static PROVIDER_FILTER g_provider_filters[32] = { 0 };
-static BOOL g_is_live_session = false;
+static PROVIDER_FILTER g_provider_filters[32];
+static BOOL g_is_live_session;
 
 static void WINAPI event_callback(PEVENT_RECORD ev);
 void etw_dump_write_opn_event(PEVENT_RECORD ev, ULARGE_INTEGER timestamp);

@@ -335,7 +335,7 @@ bool uat_load(uat_t* uat_in, const char *filename, char** err);
  *
  * @return true on success, false on failure.
  */
-bool uat_load_str(uat_t* uat_in, char* entry, char** err);
+bool uat_load_str(uat_t* uat_in, const char* entry, char** err);
 
 /** Given a UAT name or filename, find its pointer.
  *
@@ -648,11 +648,14 @@ static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, 
 /*
  * BOOL Macros,
  *   an boolean value contained in (((rec_t*)rec)->(field_name))
+ *
+ * Write "TRUE" or "FALSE" for backwards compatibility with pre-4.4
+ * versions that expect that capitalization.
  */
 #define UAT_BOOL_CB_DEF(basename,field_name,rec_t) \
 static void basename ## _ ## field_name ## _set_cb(void* rec, const char* buf, unsigned len, const void* UNUSED_PARAMETER(u1), const void* UNUSED_PARAMETER(u2)) {\
     char* tmp_str = g_strndup(buf,len); \
-    if (g_strcmp0(tmp_str, "TRUE") == 0) \
+    if (tmp_str && g_ascii_strcasecmp(tmp_str, "true") == 0) \
         ((rec_t*)rec)->field_name = 1; \
     else \
         ((rec_t*)rec)->field_name = 0; \
@@ -768,6 +771,9 @@ static void basename ## _ ## field_name ## _tostr_cb(void* rec, char** out_ptr, 
 
 #define UAT_FLD_DISSECTOR(basename,field_name,title,desc) \
     {#field_name, title, PT_TXTMOD_DISSECTOR,{uat_fld_chk_proto,basename ## _ ## field_name ## _set_cb,basename ## _ ## field_name ## _tostr_cb},{0,0,0},0,desc,FLDFILL}
+
+#define UAT_FLD_DISSECTOR_OTHER(basename,field_name,title,chk,desc) \
+    {#field_name, title, PT_TXTMOD_DISSECTOR,{chk,basename ## _ ## field_name ## _set_cb,basename ## _ ## field_name ## _tostr_cb},{0,0,0},0,desc,FLDFILL}
 
 /*
  * RANGE macros

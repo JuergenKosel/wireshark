@@ -11,8 +11,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include "file.h"
 
 #include <epan/epan.h>
@@ -36,6 +34,7 @@
 #include "ui/util.h"
 
 #include "wiretap/wtap_opttypes.h"
+#include "wsutil/filesystem.h"
 #include "wsutil/str_util.h"
 #include <wsutil/wslog.h>
 
@@ -49,6 +48,7 @@
 #include "main_application.h"
 #include <ui/qt/utils/data_printer.h>
 #include <ui/qt/utils/frame_information.h>
+#include <ui/qt/utils/profile_switcher.h>
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/models/pref_models.h>
 #include <ui/qt/widgets/packet_list_header.h>
@@ -93,7 +93,7 @@
 // If we ever add the ability to open multiple capture files we might be
 // able to use something like QMap<capture_file *, PacketList *> to match
 // capture files against packet lists and models.
-static PacketList *gbl_cur_packet_list = NULL;
+static PacketList *gbl_cur_packet_list;
 
 const int max_comments_to_fetch_ = 20000000; // Arbitrary
 const int overlay_update_interval_ = 100; // 250; // Milliseconds.
@@ -102,18 +102,18 @@ const int overlay_update_interval_ = 100; // 250; // Milliseconds.
 /*
  * Given a frame_data structure, scroll to and select the row in the
  * packet list corresponding to that frame.  If there is no such
- * row, return FALSE, otherwise return TRUE.
+ * row, return false, otherwise return true.
  */
-gboolean
+bool
 packet_list_select_row_from_data(frame_data *fdata_needle)
 {
     if (! gbl_cur_packet_list || ! gbl_cur_packet_list->model())
-        return FALSE;
+        return false;
 
     PacketListModel * model = qobject_cast<PacketListModel *>(gbl_cur_packet_list->model());
 
     if (! model)
-        return FALSE;
+        return false;
 
     model->flushVisibleRows();
     int row = -1;
@@ -132,10 +132,10 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
         gbl_cur_packet_list->selectionModel()->clearSelection();
         gbl_cur_packet_list->selectionModel()->setCurrentIndex(model->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
         gbl_cur_packet_list->scrollTo(gbl_cur_packet_list->currentIndex(), PacketList::PositionAtCenter);
-        return TRUE;
+        return true;
     }
 
-    return FALSE;
+    return false;
 }
 
 /*
@@ -145,11 +145,11 @@ packet_list_select_row_from_data(frame_data *fdata_needle)
  * selected frame (the function above), because we found a match in the
  * same frame as the currently selected one.
  */
-gboolean
+bool
 packet_list_select_finfo(field_info *fi)
 {
     if (! gbl_cur_packet_list || ! gbl_cur_packet_list->model())
-        return FALSE;
+        return false;
 
     if (fi) {
         FieldInformation finfo(fi, gbl_cur_packet_list);
@@ -157,7 +157,7 @@ packet_list_select_finfo(field_info *fi)
     } else {
         emit gbl_cur_packet_list->fieldSelected(0);
     }
-    return TRUE;
+    return true;
 }
 
 void
@@ -202,21 +202,21 @@ packet_list_recent_write_all(FILE *rf) {
     gbl_cur_packet_list->writeRecent(rf);
 }
 
-gboolean
+bool
 packet_list_multi_select_active(void)
 {
     if (gbl_cur_packet_list) {
         return gbl_cur_packet_list->multiSelectActive();
     }
-    return FALSE;
+    return false;
 }
 
 #define MIN_COL_WIDTH_STR "MMMMMM"
 
 PacketList::PacketList(QWidget *parent) :
     QTreeView(parent),
-    proto_tree_(NULL),
-    cap_file_(NULL),
+    proto_tree_(nullptr),
+    cap_file_(nullptr),
     ctx_column_(-1),
     overlay_timer_id_(0),
     create_near_overlay_(true),
@@ -226,19 +226,19 @@ PacketList::PacketList(QWidget *parent) :
     tail_at_end_(0),
     columns_changed_(false),
     set_column_visibility_(false),
+    set_style_sheet_(false),
     frozen_current_row_(QModelIndex()),
     frozen_selected_rows_(QModelIndexList()),
     cur_history_(-1),
     in_history_(false),
-    finfo_array(NULL)
+    finfo_array(nullptr),
+    profile_switcher_(nullptr)
 {
     setItemsExpandable(false);
     setRootIsDecorated(false);
     setSortingEnabled(prefs.gui_packet_list_sortable);
     setUniformRowHeights(true);
     setAccessibleName("Packet list");
-
-    proto_prefs_menus_.setTitle(tr("Protocol Preferences"));
 
     packet_list_header_ = new PacketListHeader(header()->orientation());
     connect(packet_list_header_, &PacketListHeader::resetColumnWidth, this, &PacketList::setRecentColumnWidth);
@@ -295,8 +295,21 @@ PacketList::~PacketList()
 {
     if (finfo_array)
     {
-        g_ptr_array_free(finfo_array, TRUE);
+        g_ptr_array_free(finfo_array, true);
     }
+}
+
+void PacketList::scrollTo(const QModelIndex &index, QAbstractItemView::ScrollHint hint)
+{
+    /* QAbstractItemView doesn't have a way to indicate "auto scroll, but
+     * only vertically." So just restore the horizontal scroll value whenever
+     * it scrolls.
+     */
+    setUpdatesEnabled(false);
+    int horizVal = horizontalScrollBar()->value();
+    QTreeView::scrollTo(index, hint);
+    horizontalScrollBar()->setValue(horizVal);
+    setUpdatesEnabled(true);
 }
 
 void PacketList::colorsChanged()
@@ -378,11 +391,27 @@ void PacketList::colorsChanged()
     }
 
     // Set the style sheet
+    set_style_sheet_ = true;
     if(prefs.gui_packet_list_hover_style) {
         setStyleSheet(active_style + inactive_style + hover_style);
     } else {
         setStyleSheet(active_style + inactive_style);
     }
+    set_style_sheet_ = false;
+#if \
+    ( \
+    (QT_VERSION >= QT_VERSION_CHECK(6, 5, 4) && QT_VERSION < QT_VERSION_CHECK(6, 6, 0)) \
+    || (QT_VERSION >= QT_VERSION_CHECK(6, 6, 1)) \
+    )
+    // https://bugreports.qt.io/browse/QTBUG-122109
+    // Affects Qt 6.5.4 and later, 6.6.1 and later.
+    // When setting the style sheet, all visible sections are set
+    // to the new minimum DefaultSectionSize (even if it hasn't
+    // changed.) So make sure the new widths aren't saved to recent
+    // and then restore from recent.
+    applyRecentColumnWidths();
+    setColumnVisibility();
+#endif
 }
 
 QString PacketList::joinSummaryRow(QStringList col_parts, int row, SummaryCopyType type)
@@ -553,7 +582,6 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
         selection_history_.resize(cur_history_);
         selection_history_.append(cap_file_->current_frame->num);
     }
-    in_history_ = false;
 
     related_packet_delegate_.clear();
 
@@ -570,7 +598,7 @@ void PacketList::selectionChanged (const QItemSelection & selected, const QItemS
     if (cap_file_->edt->tree) {
         packet_info *pi = &cap_file_->edt->pi;
         related_packet_delegate_.setCurrentFrame(pi->num);
-        conversation_t *conv = find_conversation_pinfo(pi, 0);
+        conversation_t *conv = find_conversation_pinfo_ro(pi, 0);
         if (conv) {
             related_packet_delegate_.setConversation(conv);
         }
@@ -613,43 +641,10 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
 {
     const char *module_name = NULL;
 
-    proto_prefs_menus_.clear();
-
     if (finfo_array)
     {
-        g_ptr_array_free(finfo_array, TRUE);
+        g_ptr_array_free(finfo_array, true);
         finfo_array = NULL;
-    }
-    if (cap_file_ && cap_file_->edt && cap_file_->edt->tree) {
-        finfo_array = proto_all_finfos(cap_file_->edt->tree);
-        QList<QString> added_proto_prefs;
-
-        for (guint i = 0; i < finfo_array->len; i++) {
-            field_info *fi = (field_info *)g_ptr_array_index (finfo_array, i);
-            header_field_info *hfinfo =  fi->hfinfo;
-
-            if (prefs_is_registered_protocol(hfinfo->abbrev)) {
-                if (hfinfo->parent == -1) {
-                    module_name = hfinfo->abbrev;
-                } else {
-                    module_name = proto_registrar_get_abbrev(hfinfo->parent);
-                }
-
-                if (added_proto_prefs.contains(module_name)) {
-                    continue;
-                }
-
-                ProtocolPreferencesMenu *proto_prefs_menu = new ProtocolPreferencesMenu(hfinfo->name, module_name, &proto_prefs_menus_);
-
-                connect(proto_prefs_menu, SIGNAL(showProtocolPreferences(QString)),
-                        this, SIGNAL(showProtocolPreferences(QString)));
-                connect(proto_prefs_menu, SIGNAL(editProtocolPreference(preference*,pref_module*)),
-                        this, SIGNAL(editProtocolPreference(preference*,pref_module*)));
-
-                proto_prefs_menus_.addMenu(proto_prefs_menu);
-                added_proto_prefs << module_name;
-            }
-        }
     }
 
     QModelIndex ctxIndex = indexAt(event->pos());
@@ -665,8 +660,8 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     ctx_menu->setAttribute(Qt::WA_DeleteOnClose);
     // XXX We might want to reimplement setParent() and fill in the context
     // menu there.
-    ctx_menu->addAction(window()->findChild<QAction *>("actionEditMarkPacket"));
-    ctx_menu->addAction(window()->findChild<QAction *>("actionEditIgnorePacket"));
+    ctx_menu->addAction(window()->findChild<QAction *>("actionEditMarkSelected"));
+    ctx_menu->addAction(window()->findChild<QAction *>("actionEditIgnoreSelected"));
     ctx_menu->addAction(window()->findChild<QAction *>("actionEditSetTimeReference"));
     ctx_menu->addAction(window()->findChild<QAction *>("actionEditTimeShift"));
     ctx_menu->addMenu(window()->findChild<QMenu *>("menuPacketComment"));
@@ -675,12 +670,14 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
 
     // Code for custom context menus from Lua's register_packet_menu()
     MainWindow * mainWindow = qobject_cast<MainWindow *>(mainApp->mainWindow());
-    // N.B., Only want to call for a single frame selection.
-    // Testing finfo_array as a proxy, because mainWindow->hasUniqueSelection() doesn't detect multiple selections...
-    if (cap_file_ && cap_file_->edt && cap_file_->edt->tree && mainWindow && finfo_array) {
-        bool insertedPacketMenu = mainWindow->addPacketMenus(ctx_menu, finfo_array);
-        if (insertedPacketMenu) {
-            ctx_menu->addSeparator();
+    // N.B., will only call for a single frame selection,
+    if (cap_file_ && cap_file_->edt && cap_file_->edt->tree) {
+        finfo_array = proto_all_finfos(cap_file_->edt->tree);
+        if (mainWindow) {
+            bool insertedPacketMenu = mainWindow->addPacketMenus(ctx_menu, finfo_array);
+            if (insertedPacketMenu) {
+                ctx_menu->addSeparator();
+            }
         }
     }
 
@@ -739,6 +736,7 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
 
     main_menu_item = window()->findChild<QMenu *>("menuEditCopy");
     submenu = new QMenu(main_menu_item->title(), ctx_menu);
+    submenu->setToolTipsVisible(true);
     ctx_menu->addMenu(submenu);
 
     QAction * action = submenu->addAction(tr("Summary as Text"));
@@ -750,6 +748,9 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     action = submenu->addAction(tr("…as YAML"));
     action->setData(CopyAsYAML);
     connect(action, SIGNAL(triggered()), this, SLOT(copySummary()));
+    action = submenu->addAction(tr("…as HTML"));
+    action->setData(CopyAsHTML);
+    connect(action, SIGNAL(triggered()), this, SLOT(copySummary()));
     submenu->addSeparator();
 
     submenu->addAction(window()->findChild<QAction *>("actionEditCopyAsFilter"));
@@ -760,15 +761,49 @@ void PacketList::contextMenuEvent(QContextMenuEvent *event)
     copyEntries->setParent(submenu);
     frameData->setParent(submenu);
 
-    ctx_menu->addSeparator();
-    ctx_menu->addMenu(&proto_prefs_menus_);
-    action = ctx_menu->addAction(tr("Decode As…"));
-    action->setProperty("create_new", QVariant(true));
-    connect(action, &QAction::triggered, this, &PacketList::ctxDecodeAsDialog);
-    // "Print" not ported intentionally
-    action = window()->findChild<QAction *>("actionViewShowPacketInNewWindow");
-    ctx_menu->addAction(action);
+    if (is_packet_configuration_namespace()) {
+        /* i.e., Wireshark only */
+        ctx_menu->addSeparator();
+        QMenu *proto_prefs_menus = new QMenu(ProtocolPreferencesMenu::tr("Protocol Preferences"), ctx_menu);
 
+        if (cap_file_ && cap_file_->edt && cap_file_->edt->tree) {
+            QList<QString> added_proto_prefs;
+            // N.B. finfo_array will be assigned above
+            for (unsigned i = 0; i < finfo_array->len; i++) {
+                field_info *fi = (field_info *)g_ptr_array_index (finfo_array, i);
+                const header_field_info *hfinfo =  fi->hfinfo;
+
+                if (prefs_is_registered_protocol(hfinfo->abbrev)) {
+                    if (hfinfo->parent == -1) {
+                        module_name = hfinfo->abbrev;
+                    } else {
+                        module_name = proto_registrar_get_abbrev(hfinfo->parent);
+                    }
+
+                    if (added_proto_prefs.contains(module_name)) {
+                        continue;
+                    }
+
+                    ProtocolPreferencesMenu *proto_prefs_menu = new ProtocolPreferencesMenu(hfinfo->name, module_name, proto_prefs_menus);
+
+                    connect(proto_prefs_menu, SIGNAL(showProtocolPreferences(QString)),
+                            this, SIGNAL(showProtocolPreferences(QString)));
+                    connect(proto_prefs_menu, SIGNAL(editProtocolPreference(preference*,pref_module*)),
+                            this, SIGNAL(editProtocolPreference(preference*,pref_module*)));
+
+                    proto_prefs_menus->addMenu(proto_prefs_menu);
+                    added_proto_prefs << module_name;
+                }
+            }
+        }
+        ctx_menu->addMenu(proto_prefs_menus);
+        action = ctx_menu->addAction(tr("Decode As…"));
+        action->setProperty("create_new", QVariant(true));
+        connect(action, &QAction::triggered, this, &PacketList::ctxDecodeAsDialog);
+        // "Print" not ported intentionally
+        action = window()->findChild<QAction *>("actionViewShowPacketInNewWindow");
+        ctx_menu->addAction(action);
+    }
 
     // Set menu sensitivity for the current column and set action data.
     if (frameData)
@@ -816,9 +851,7 @@ void PacketList::paintEvent(QPaintEvent *event)
 
 void PacketList::mousePressEvent (QMouseEvent *event)
 {
-    setAutoScroll(false);
     QTreeView::mousePressEvent(event);
-    setAutoScroll(true);
 
     QModelIndex curIndex = indexAt(event->pos());
     mouse_pressed_at_ = curIndex;
@@ -929,27 +962,11 @@ void PacketList::mouseMoveEvent (QMouseEvent *event)
 
 void PacketList::keyPressEvent(QKeyEvent *event)
 {
-    bool handled = false;
-    // If scrolling up/down, want to preserve horizontal scroll extent.
-    if (event->key() == Qt::Key_Down     || event->key() == Qt::Key_Up ||
-        event->key() == Qt::Key_PageDown || event->key() == Qt::Key_PageUp ||
-        event->key() == Qt::Key_End      || event->key() == Qt::Key_Home )
-    {
-        // XXX: Why allow jumping to the left if the first column is current?
-        if (currentIndex().isValid() && currentIndex().column() > 0) {
-            int pos = horizontalScrollBar()->value();
-            QTreeView::keyPressEvent(event);
-            horizontalScrollBar()->setValue(pos);
-            handled = true;
-        }
-    }
-
-    if (!handled)
-        QTreeView::keyPressEvent(event);
+    QTreeView::keyPressEvent(event);
 
     if (event->matches(QKeySequence::Copy))
     {
-        QStringList content;
+        QStringList content, htmlContent;
         if (model() && selectionModel() && selectionModel()->hasSelection())
         {
             QList<int> rows;
@@ -957,19 +974,75 @@ void PacketList::keyPressEvent(QKeyEvent *event)
             foreach(QModelIndex row, selRows)
                 rows.append(row.row());
 
+            QStringList hdr_parts;
+            QList<int> align_parts, size_parts;
+
+            switch (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut) {
+            case COPY_FORMAT_TEXT:
+            case COPY_FORMAT_HTML:
+                if (prefs.gui_packet_list_copy_text_with_aligned_columns) {
+                    hdr_parts = createHeaderPartsForAligned();
+                    align_parts = createAlignmentPartsForAligned();
+                    size_parts = createSizePartsForAligned(false, hdr_parts, rows);
+                }
+                if (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut == COPY_FORMAT_HTML) {
+                    htmlContent << createDefaultStyleForHtml();
+                    htmlContent << createOpeningTagForHtml();
+                }
+                break;
+            case COPY_FORMAT_CSV:
+            case COPY_FORMAT_YAML:
+                break;
+            }
+
+            QList<QStringList> entries;
             foreach(int row, rows)
             {
                 QModelIndex idx = model()->index(row, 0);
                 if (! idx.isValid())
                     continue;
 
-                QString entry = createSummaryText(idx, CopyAsText);
-                content << entry;
+                switch (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut) {
+                case COPY_FORMAT_TEXT:
+                case COPY_FORMAT_HTML:
+                    if (prefs.gui_packet_list_copy_text_with_aligned_columns)
+                        content << createSummaryForAligned(idx, align_parts, size_parts);
+                    else
+                        content << createSummaryText(idx, CopyAsText);
+                    if (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut == COPY_FORMAT_HTML)
+                        htmlContent << createSummaryForHtml(idx);
+                    break;
+                case COPY_FORMAT_CSV:
+                    content << createSummaryText(idx, CopyAsCSV);
+                    break;
+                case COPY_FORMAT_YAML:
+                    content << createSummaryText(idx, CopyAsYAML);
+                    break;
+                }
             }
         }
 
-        if (content.count() > 0)
-            mainApp->clipboard()->setText(content.join('\n'), QClipboard::Clipboard);
+        if (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut == COPY_FORMAT_HTML) {
+            // htmlContent will never be empty as they will always have style and table tags
+            QMimeData *mimeData = new QMimeData;
+            htmlContent << createClosingTagForHtml();
+            mimeData->setHtml(htmlContent.join('\n'));
+            mimeData->setText(content.join('\n').append("\n"));
+            mainApp->clipboard()->setMimeData(mimeData, QClipboard::Clipboard);
+        }
+        else {
+            if (content.count() > 0) {
+                QString copy_text;
+                if (prefs.gui_packet_list_copy_format_options_for_keyboard_shortcut == COPY_FORMAT_YAML) {
+                    copy_text = content.join("");
+                }
+                else {
+                    copy_text = content.join("\n");
+	                copy_text += "\n";
+                }
+                mainApp->clipboard()->setText(copy_text);
+            }
+        }
     }
 }
 
@@ -1041,6 +1114,8 @@ void PacketList::setRecentColumnWidth(int col)
 
 void PacketList::drawCurrentPacket()
 {
+    // XXX - Update for multi-select? If more than one packet is Selected,
+    // this changes it so that only the Current packet is Selected.
     QModelIndex current_index = currentIndex();
     if (selectionModel() && current_index.isValid()) {
         selectionModel()->clearSelection();
@@ -1103,6 +1178,14 @@ bool PacketList::havePreviousHistory(bool update_cur)
     return false;
 }
 
+void PacketList::setProfileSwitcher(ProfileSwitcher *profile_switcher)
+{
+    profile_switcher_ = profile_switcher;
+    if (profile_switcher) {
+        connect(packet_list_model_, &PacketListModel::packetAppended, profile_switcher_, &ProfileSwitcher::checkPacket);
+    }
+}
+
 frame_data *PacketList::getFDataForRow(int row) const
 {
     return packet_list_model_->getRowFdata(row);
@@ -1121,7 +1204,7 @@ void PacketList::columnsChanged()
 
     prefs.num_cols = g_list_length(prefs.col_list);
     col_cleanup(&cap_file_->cinfo);
-    build_column_format_array(&cap_file_->cinfo, prefs.num_cols, FALSE);
+    build_column_format_array(&cap_file_->cinfo, prefs.num_cols, false);
     create_far_overlay_ = true;
     resetColumns();
     applyRecentColumnWidths();
@@ -1134,7 +1217,7 @@ void PacketList::fieldsChanged(capture_file *cf)
 {
     prefs.num_cols = g_list_length(prefs.col_list);
     col_cleanup(&cf->cinfo);
-    build_column_format_array(&cf->cinfo, prefs.num_cols, FALSE);
+    build_column_format_array(&cf->cinfo, prefs.num_cols, false);
     resetColumns();
 }
 
@@ -1164,9 +1247,6 @@ void PacketList::applyRecentColumnWidths()
 
 void PacketList::preferencesChanged()
 {
-    // Update color style changes
-    colorsChanged();
-
     // Related packet delegate
     if (prefs.gui_packet_list_show_related) {
         setItemDelegateForColumn(0, &related_packet_delegate_);
@@ -1330,8 +1410,8 @@ void PacketList::clear() {
 }
 
 void PacketList::writeRecent(FILE *rf) {
-    gint col, width, col_fmt;
-    gchar xalign;
+    int col, width, col_fmt;
+    char xalign;
 
     fprintf (rf, "%s:\n", RECENT_KEY_COL_WIDTH);
     for (col = 0; col < prefs.num_cols; col++) {
@@ -1388,7 +1468,7 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
             return filter; /* error reading the record */
         }
         /* proto tree, visible. We need a proto tree if there's custom columns */
-        epan_dissect_init(&edt, cap_file_->epan, have_custom_cols(&cap_file_->cinfo), FALSE);
+        epan_dissect_init(&edt, cap_file_->epan, have_custom_cols(&cap_file_->cinfo), false);
         col_custom_prime_edt(&edt, &cap_file_->cinfo);
 
         epan_dissect_run(&edt, cap_file_->cd_t, &rec,
@@ -1401,14 +1481,14 @@ QString PacketList::getFilterFromRowAndColumn(QModelIndex idx)
             /* We don't need to fill in the custom columns, as we get their
              * filters above.
              */
-            col_fill_in(&edt.pi, TRUE, TRUE);
+            col_fill_in(&edt.pi, true, true);
             if (strlen(cap_file_->cinfo.col_expr.col_expr[column]) != 0 &&
                 strlen(cap_file_->cinfo.col_expr.col_expr_val[column]) != 0) {
-                gboolean is_string_value = FALSE;
+                bool is_string_value = false;
                 header_field_info *hfi = proto_registrar_get_byname(cap_file_->cinfo.col_expr.col_expr[column]);
-                if (hfi && hfi->type == FT_STRING) {
+                if (hfi && FT_IS_STRING(hfi->type)) {
                     /* Could be an address type such as usb.src which must be quoted. */
-                    is_string_value = TRUE;
+                    is_string_value = true;
                 }
 
                 if (filter.isEmpty()) {
@@ -1439,7 +1519,7 @@ void PacketList::resetColorized()
     update();
 }
 
-QString PacketList::getPacketComment(guint c_number)
+QString PacketList::getPacketComment(unsigned c_number)
 {
     int row = currentIndex().row();
     const frame_data *fdata;
@@ -1488,7 +1568,7 @@ void PacketList::addPacketComment(QString new_comment)
     }
 }
 
-void PacketList::setPacketComment(guint c_number, QString new_comment)
+void PacketList::setPacketComment(unsigned c_number, QString new_comment)
 {
     QModelIndex curIndex = currentIndex();
 
@@ -1514,7 +1594,7 @@ void PacketList::setPacketComment(guint c_number, QString new_comment)
 
 QString PacketList::allPacketComments()
 {
-    guint32 framenum;
+    uint32_t framenum;
     frame_data *fdata;
     QString buf_str;
 
@@ -1526,8 +1606,8 @@ QString PacketList::allPacketComments()
         wtap_block_t pkt_block = cf_get_packet_block(cap_file_, fdata);
 
         if (pkt_block) {
-            guint n_comments = wtap_block_count_option(pkt_block, OPT_COMMENT);
-            for (guint i = 0; i < n_comments; i++) {
+            unsigned n_comments = wtap_block_count_option(pkt_block, OPT_COMMENT);
+            for (unsigned i = 0; i < n_comments; i++) {
                 char *comment_text;
                 if (WTAP_OPTTYPE_SUCCESS == wtap_block_get_nth_string_option_value(pkt_block, OPT_COMMENT, i, &comment_text)) {
                     buf_str.append(QString(tr("Frame %1: %2\n\n")).arg(framenum).arg(comment_text));
@@ -1585,7 +1665,12 @@ void PacketList::setCaptureFile(capture_file *cf)
 void PacketList::setMonospaceFont(const QFont &mono_font)
 {
     setFont(mono_font);
-    header()->setFont(mainApp->font());
+}
+
+void PacketList::setRegularFont(const QFont &regular_font)
+{
+    header()->setFont(regular_font);
+    header()->viewport()->setFont(regular_font);
 }
 
 void PacketList::goNextPacket(void)
@@ -1645,16 +1730,14 @@ void PacketList::goLastPacket(void) {
     scrollViewChanged(false);
 }
 
-// XXX We can jump to the wrong packet if a display filter is applied
 void PacketList::goToPacket(int packet, int hf_id)
 {
-    if (!cf_goto_frame(cap_file_, packet))
+    if (!cf_goto_frame(cap_file_, packet, false))
         return;
 
-    int row = packet_list_model_->packetNumberToRow(packet);
-    if (row >= 0) {
-        selectionModel()->setCurrentIndex(packet_list_model_->index(row, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-        scrollTo(currentIndex(), PositionAtCenter);
+    // cf_goto_frame only returns true if packet_list_select_row_from_data
+    // succeeds, the latter has already selected and scrolled to the frame.
+    if (hf_id > 0) {
         proto_tree_->goToHfid(hf_id);
     }
 
@@ -1806,12 +1889,12 @@ void PacketList::columnVisibilityTriggered()
 
 void PacketList::sectionResized(int col, int, int new_width)
 {
-    if (isVisible() && !columns_changed_ && !set_column_visibility_ && new_width > 0) {
+    if (isVisible() && !columns_changed_ && !set_column_visibility_ && !set_style_sheet_ && new_width > 0) {
         // Column 1 gets an invalid value (32 on macOS) when we're not yet
         // visible.
         //
         // Don't set column width when columns changed or setting column
-        // visibility because we may get a sectionReized() from QTreeView
+        // visibility because we may get a sectionResized() from QTreeView
         // with values from a old columns layout.
         //
         // Don't set column width when hiding a column.
@@ -1826,6 +1909,7 @@ void PacketList::sectionResized(int col, int, int new_width)
 void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
 {
     GList *new_col_list = NULL;
+    GList *new_recent_col_list = NULL;
     QList<int> saved_sizes;
     int sort_idx;
 
@@ -1850,9 +1934,14 @@ void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisua
         saved_sizes << header()->sectionSize(log_idx);
 
         void *pref_data = g_list_nth_data(prefs.col_list, log_idx);
-        if (!pref_data) continue;
+        if (pref_data) {
+            new_col_list = g_list_append(new_col_list, pref_data);
+        }
 
-        new_col_list = g_list_append(new_col_list, pref_data);
+        pref_data = g_list_nth_data(recent.col_width_list, log_idx);
+        if (pref_data) {
+            new_recent_col_list = g_list_append(new_recent_col_list, pref_data);
+        }
     }
 
     // Undo move to ensure that the logical indices map to the visual indices,
@@ -1870,6 +1959,8 @@ void PacketList::sectionMoved(int logicalIndex, int oldVisualIndex, int newVisua
 
     g_list_free(prefs.col_list);
     prefs.col_list = new_col_list;
+    g_list_free(recent.col_width_list);
+    recent.col_width_list = new_recent_col_list;
 
     thaw(true);
 
@@ -1931,13 +2022,173 @@ QString PacketList::createSummaryText(QModelIndex idx, SummaryCopyType type)
 QString PacketList::createHeaderSummaryText(SummaryCopyType type)
 {
     QStringList col_parts;
-    for (int col = 0; col < packet_list_model_->columnCount(); ++col)
-    {
+    for (int col = 0; col < packet_list_model_->columnCount(); ++col) {
         if (get_column_visible(col)) {
             col_parts << packet_list_model_->headerData(col, Qt::Orientation::Horizontal, Qt::DisplayRole).toString();
         }
     }
     return joinSummaryRow(col_parts, 0, type);
+}
+
+QStringList PacketList::createHeaderPartsForAligned()
+{
+    QStringList hdr_parts;
+    for (int col = 0; col < packet_list_model_->columnCount(); ++col) {
+        if (get_column_visible(col)) {
+            hdr_parts << packet_list_model_->headerData(col, Qt::Orientation::Horizontal, Qt::DisplayRole).toString();
+        }
+    }
+    return hdr_parts;
+}
+
+QList<int> PacketList::createAlignmentPartsForAligned()
+{
+    QList<int> align_parts;
+    for (int col = 0; col < packet_list_model_->columnCount(); col++) {
+        if (get_column_visible(col)) {
+            align_parts << packet_list_model_->data(packet_list_model_->index(0, col), Qt::TextAlignmentRole).toInt();
+        }
+    }
+    return align_parts;
+}
+
+QList<int> PacketList::createSizePartsForAligned(bool useHeader, QStringList hdr_parts, QList<int> rows)
+{
+    QList<int> size_parts;
+
+    for (int i = 0; i < hdr_parts.size(); ++i) {
+        if (useHeader)
+            size_parts << static_cast<int>(hdr_parts.at(i).size());
+        else
+            size_parts << 0;
+    }
+
+    foreach(int row, rows)
+    {
+        QModelIndex idx = model()->index(row, 0);
+        if (! idx.isValid())
+            continue;
+
+        QStringList col_parts;
+        for (int col = 0; col < packet_list_model_->columnCount(); col++) {
+            if (get_column_visible(col)) {
+                col_parts << (packet_list_model_->data(packet_list_model_->index(row, col), Qt::DisplayRole).toString());
+            }
+        }
+
+        for (int i = 0; i < col_parts.size(); ++i) {
+            if (col_parts.at(i).size() > size_parts.at(i)) {
+                size_parts[i] = static_cast<int>(col_parts.at(i).size());
+            }
+        }
+        col_parts.clear();
+    }
+
+    return size_parts;
+}
+
+QString PacketList::createHeaderSummaryForAligned(QStringList hdr_parts, QList<int> align_parts, QList<int> size_parts)
+{
+    QString hdr_text;
+    for (int i = 0; i < hdr_parts.size(); ++i) {
+        if (align_parts.at(i) == Qt::AlignLeft) {
+            hdr_text += hdr_parts[i].leftJustified(size_parts.at(i), ' ') + "  ";
+        }
+        else if (align_parts.at(i) == Qt::AlignRight) {
+            hdr_text += hdr_parts[i].rightJustified(size_parts.at(i), ' ') + "  ";
+        }
+    }
+    return QString("-" + hdr_text).trimmed().mid(1);
+}
+
+QString PacketList::createSummaryForAligned(QModelIndex idx, QList<int> align_parts, QList<int> size_parts)
+{
+    if (! idx.isValid())
+        return "";
+
+    QStringList col_parts;
+    int row = idx.row();
+    for (int col = 0; col < packet_list_model_->columnCount(); col++) {
+        if (get_column_visible(col)) {
+            col_parts << packet_list_model_->data(packet_list_model_->index(row, col), Qt::DisplayRole).toString();
+        }
+    }
+
+    QString col_text;
+    for (int i = 0; i < col_parts.size(); ++i) {
+        if (align_parts.at(i) == Qt::AlignLeft) {
+            col_text += col_parts[i].leftJustified(size_parts.at(i), ' ') + "  ";
+        }
+        else if (align_parts.at(i) == Qt::AlignRight) {
+            col_text += col_parts[i].rightJustified(size_parts.at(i), ' ') + "  ";
+        }
+    }
+
+    return QString("-" + col_text).trimmed().mid(1);
+}
+
+QString PacketList::createDefaultStyleForHtml()
+{
+    QString style_text;
+    style_text = "<style>";
+    QString fontFamily = QString(prefs.gui_font_name).split(",")[0];
+    QString fontSize = QString(prefs.gui_font_name).split(",")[1];
+    style_text += "table{font-family:" + fontFamily + ";font-size:" + fontSize + "pt;}";
+    style_text += "th{background-color:#000000;color:#ffffff;text-align:left;}";
+    style_text += "th,td{padding:" + QString::number(fontSize.toInt() / 2) + "pt}";
+    style_text += "</style>";
+    return style_text;
+}
+
+QString PacketList::createOpeningTagForHtml()
+{
+    return "<table>";
+}
+
+QString PacketList::createHeaderSummaryForHtml()
+{
+    QString hdr_text;
+    hdr_text += "<tr>";
+    for (int col = 0; col < packet_list_model_->columnCount(); ++col) {
+        if (get_column_visible(col)) {
+            hdr_text += "<th>";
+            hdr_text += packet_list_model_->headerData(col, Qt::Orientation::Horizontal, Qt::DisplayRole).toString();
+            hdr_text += "</th>";
+        }
+    }
+    hdr_text += "</tr>";
+    return hdr_text;
+}
+
+QString PacketList::createSummaryForHtml(QModelIndex idx)
+{
+    if (! idx.isValid())
+        return "";
+
+    int row = idx.row();
+    QString col_text;
+
+    QString bg_color = packet_list_model_->data(packet_list_model_->index(row, 0), Qt::BackgroundRole).toString();
+    QString fg_color = packet_list_model_->data(packet_list_model_->index(row, 0), Qt::ForegroundRole).toString();
+    col_text += "<tr style=\"background-color:" + bg_color + ";color:" + fg_color + ";\">";
+
+    QString alignment[] = {"left", "right", "center", "justify"};
+
+    for (int col = 0; col < packet_list_model_->columnCount(); col++) {
+        if (get_column_visible(col)) {
+            col_text += "<td style=\"text-align:" + alignment[packet_list_model_->data(packet_list_model_->index(row, col), Qt::TextAlignmentRole).toInt() / 2] + ";\">";
+            col_text += packet_list_model_->data(packet_list_model_->index(row, col), Qt::DisplayRole).toString();
+            col_text += "</td>";
+        }
+    }
+
+    col_text += "</tr>";
+    return col_text;
+}
+
+QString PacketList::createClosingTagForHtml()
+{
+    return "</table>";
 }
 
 void PacketList::copySummary()
@@ -1952,9 +2203,45 @@ void PacketList::copySummary()
         return;
     SummaryCopyType copy_type = type.value<SummaryCopyType>();
 
-    QString copy_text = createSummaryText(currentIndex(), copy_type);
-
-    mainApp->clipboard()->setText(copy_text);
+    QString copy_text;
+    if (type == CopyAsText || type == CopyAsHTML) {
+        if (prefs.gui_packet_list_copy_text_with_aligned_columns) {
+            QList<int> rows;
+            rows << currentIndex().row();
+            QStringList hdr_parts;
+            QList<int> align_parts, size_parts;
+            hdr_parts = createHeaderPartsForAligned();
+            align_parts = createAlignmentPartsForAligned();
+            size_parts = createSizePartsForAligned(false, hdr_parts, rows);
+            copy_text = createSummaryForAligned(currentIndex(), align_parts, size_parts);
+        }
+        else {
+            copy_text = createSummaryText(currentIndex(), CopyAsText);
+        }
+        copy_text += "\n";
+        if (type == CopyAsHTML) {
+            QStringList htmlContent;
+            htmlContent << createDefaultStyleForHtml();
+            htmlContent << createOpeningTagForHtml();
+            htmlContent << createSummaryForHtml(currentIndex());
+            htmlContent << createClosingTagForHtml();
+            // htmlContent will never be empty as they will always have
+            // style and table tags
+            QMimeData *mimeData = new QMimeData;
+            mimeData->setHtml(htmlContent.join('\n'));
+            mimeData->setText(copy_text);
+            mainApp->clipboard()->setMimeData(mimeData, QClipboard::Clipboard);
+        }
+        else {
+            mainApp->clipboard()->setText(copy_text);
+        }
+    }
+    else {
+        copy_text = createSummaryText(currentIndex(), copy_type);
+        if (type != CopyAsYAML)
+            copy_text += "\n";
+        mainApp->clipboard()->setText(copy_text);
+    }
 }
 
 // We need to tell when the user has scrolled the packet list, either to
@@ -1989,7 +2276,7 @@ void PacketList::scrollViewChanged(bool at_end)
 // out colors.
 // Try 3: One packet per vertical scroll bar pixel. This seems to work best
 // but has the smallest window.
-// Try 4: Use a multiple of the scroll bar heigh and scale the image down
+// Try 4: Use a multiple of the scroll bar height and scale the image down
 // using Qt::SmoothTransformation. This gives us more packets per raster
 // line.
 

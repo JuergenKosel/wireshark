@@ -9,6 +9,7 @@
  */
 
 #include <config.h>
+#include <wsutil/array.h>
 
 #include "win32-utils.h"
 
@@ -43,7 +44,7 @@ protect_arg (const char *argv)
         else if (*p == '\\') {
             const char *pp = p;
 
-            while (*pp && *pp == '\\')
+            while (*pp == '\\')
                 pp++;
             if (*pp == '"')
                 len++;
@@ -52,7 +53,7 @@ protect_arg (const char *argv)
         p++;
     }
 
-    q = new_arg = g_malloc (len + need_dblquotes*2 + 1);
+    q = new_arg = g_malloc (len + (need_dblquotes ? 2 : 0) + 1);
     p = argv;
 
     if (need_dblquotes)
@@ -64,7 +65,7 @@ protect_arg (const char *argv)
         else if (*p == '\\') {
             const char *pp = p;
 
-            while (*pp && *pp == '\\')
+            while (*pp == '\\')
                 pp++;
             if (*pp == '"')
                 *q++ = '\\';
@@ -198,7 +199,7 @@ win32strexception(DWORD exception)
         { EXCEPTION_STACK_OVERFLOW, "Stack overflow" },
         { 0, NULL }
     };
-#define N_EXCEPTIONS    (sizeof exceptions / sizeof exceptions[0])
+#define N_EXCEPTIONS    array_length(exceptions)
 
     for (size_t i = 0; i < N_EXCEPTIONS; i++) {
         if (exceptions[i].code == exception)

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-x509sat.c                                                           */
-/* asn2wrs.py -b -r Syntax -L -p x509sat -c ./x509sat.cnf -s ./packet-x509sat-template -D . -O ../.. SelectedAttributeTypes.asn */
+/* asn2wrs.py -b -r Syntax -q -L -p x509sat -c ./x509sat.cnf -s ./packet-x509sat-template -D . -O ../.. SelectedAttributeTypes.asn */
 
 /* packet-x509sat.c
  * Routines for X.509 Selected Attribute Types packet dissection
@@ -19,7 +19,9 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <epan/proto_data.h>
 #include <epan/strutil.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-p1.h"
@@ -202,53 +204,53 @@ static int hf_x509sat_T_bitNamedDays_friday;
 static int hf_x509sat_T_bitNamedDays_saturday;
 
 /* Initialize the subtree pointers */
-static gint ett_x509sat_DirectoryString;
-static gint ett_x509sat_Guide;
-static gint ett_x509sat_Criteria;
-static gint ett_x509sat_SET_OF_Criteria;
-static gint ett_x509sat_CriteriaItem;
-static gint ett_x509sat_EnhancedGuide;
-static gint ett_x509sat_PostalAddress;
-static gint ett_x509sat_TelexNumber;
-static gint ett_x509sat_FacsimileTelephoneNumber;
-static gint ett_x509sat_PreferredDeliveryMethod;
-static gint ett_x509sat_PresentationAddress;
-static gint ett_x509sat_T_nAddresses;
-static gint ett_x509sat_ProtocolInformation;
-static gint ett_x509sat_T_profiles;
-static gint ett_x509sat_NameAndOptionalUID;
-static gint ett_x509sat_MultipleMatchingLocalities;
-static gint ett_x509sat_SEQUENCE_OF_AttributeValueAssertion;
-static gint ett_x509sat_SubstringAssertion;
-static gint ett_x509sat_SubstringAssertion_item;
-static gint ett_x509sat_CaseIgnoreListMatch;
-static gint ett_x509sat_OctetSubstringAssertion;
-static gint ett_x509sat_OctetSubstringAssertion_item;
-static gint ett_x509sat_ZonalSelect;
-static gint ett_x509sat_TimeSpecification;
-static gint ett_x509sat_T_time;
-static gint ett_x509sat_T_absolute;
-static gint ett_x509sat_SET_OF_Period;
-static gint ett_x509sat_Period;
-static gint ett_x509sat_SET_OF_DayTimeBand;
-static gint ett_x509sat_T_days;
-static gint ett_x509sat_T_intDay;
-static gint ett_x509sat_T_bitDay;
-static gint ett_x509sat_T_weeks;
-static gint ett_x509sat_T_intWeek;
-static gint ett_x509sat_T_bitWeek;
-static gint ett_x509sat_T_months;
-static gint ett_x509sat_T_intMonth;
-static gint ett_x509sat_T_bitMonth;
-static gint ett_x509sat_T_years;
-static gint ett_x509sat_XDayOf;
-static gint ett_x509sat_NamedDay;
-static gint ett_x509sat_T_bitNamedDays;
-static gint ett_x509sat_DayTimeBand;
-static gint ett_x509sat_DayTime;
-static gint ett_x509sat_TimeAssertion;
-static gint ett_x509sat_T_between;
-static gint ett_x509sat_LocaleContextSyntax;
+static int ett_x509sat_DirectoryString;
+static int ett_x509sat_Guide;
+static int ett_x509sat_Criteria;
+static int ett_x509sat_SET_OF_Criteria;
+static int ett_x509sat_CriteriaItem;
+static int ett_x509sat_EnhancedGuide;
+static int ett_x509sat_PostalAddress;
+static int ett_x509sat_TelexNumber;
+static int ett_x509sat_FacsimileTelephoneNumber;
+static int ett_x509sat_PreferredDeliveryMethod;
+static int ett_x509sat_PresentationAddress;
+static int ett_x509sat_T_nAddresses;
+static int ett_x509sat_ProtocolInformation;
+static int ett_x509sat_T_profiles;
+static int ett_x509sat_NameAndOptionalUID;
+static int ett_x509sat_MultipleMatchingLocalities;
+static int ett_x509sat_SEQUENCE_OF_AttributeValueAssertion;
+static int ett_x509sat_SubstringAssertion;
+static int ett_x509sat_SubstringAssertion_item;
+static int ett_x509sat_CaseIgnoreListMatch;
+static int ett_x509sat_OctetSubstringAssertion;
+static int ett_x509sat_OctetSubstringAssertion_item;
+static int ett_x509sat_ZonalSelect;
+static int ett_x509sat_TimeSpecification;
+static int ett_x509sat_T_time;
+static int ett_x509sat_T_absolute;
+static int ett_x509sat_SET_OF_Period;
+static int ett_x509sat_Period;
+static int ett_x509sat_SET_OF_DayTimeBand;
+static int ett_x509sat_T_days;
+static int ett_x509sat_T_intDay;
+static int ett_x509sat_T_bitDay;
+static int ett_x509sat_T_weeks;
+static int ett_x509sat_T_intWeek;
+static int ett_x509sat_T_bitWeek;
+static int ett_x509sat_T_months;
+static int ett_x509sat_T_intMonth;
+static int ett_x509sat_T_bitMonth;
+static int ett_x509sat_T_years;
+static int ett_x509sat_XDayOf;
+static int ett_x509sat_NamedDay;
+static int ett_x509sat_T_bitNamedDays;
+static int ett_x509sat_DayTimeBand;
+static int ett_x509sat_DayTime;
+static int ett_x509sat_TimeAssertion;
+static int ett_x509sat_T_between;
+static int ett_x509sat_LocaleContextSyntax;
 
 /*--- Cyclic dependencies ---*/
 
@@ -431,10 +433,15 @@ static const ber_choice_t Criteria_choice[] = {
 
 int
 dissect_x509sat_Criteria(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // Criteria -> Criteria/and -> Criteria
+  actx->pinfo->dissection_depth += 2;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  Criteria_choice, hf_index, ett_x509sat_Criteria,
                                  NULL);
 
+  actx->pinfo->dissection_depth -= 2;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1434,7 +1441,7 @@ dissect_x509sat_SyntaxGeneralizedTime(bool implicit_tag _U_, tvbuff_t *tvb _U_, 
 static int
 dissect_x509sat_SyntaxUTCTime(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   char *outstr, *newstr;
-  guint32 tvblen;
+  uint32_t tvblen;
 
   /* the 2-digit year can only be in the range 1950..2049 https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1 */
   offset = dissect_ber_UTCTime(implicit_tag, actx, tree, tvb, offset, hf_index, &outstr, &tvblen);
@@ -1594,17 +1601,17 @@ dissect_x509sat_SyntaxGeneralString(bool implicit_tag _U_, tvbuff_t *tvb _U_, in
 
 static int
 dissect_x509sat_GUID(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  gint8 ber_class;
+  int8_t ber_class;
   bool pc;
-  gint32 tag;
-  guint32 len;
+  int32_t tag;
+  uint32_t len;
   e_guid_t uuid;
 
   if(!implicit_tag){
     offset=dissect_ber_identifier(actx->pinfo, tree, tvb, offset, &ber_class, &pc, &tag);
     offset=dissect_ber_length(actx->pinfo, tree, tvb, offset, &len, NULL);
   } else {
-    gint32 remaining=tvb_reported_length_remaining(tvb, offset);
+    int32_t remaining=tvb_reported_length_remaining(tvb, offset);
     len=remaining>0 ? remaining : 0;
   }
 
@@ -1619,267 +1626,267 @@ dissect_x509sat_GUID(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 static int dissect_DirectoryString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_DirectoryString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_DirectoryString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_DirectoryString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_DirectoryString_PDU);
   return offset;
 }
 static int dissect_UniqueIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_UniqueIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_UniqueIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_UniqueIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_UniqueIdentifier_PDU);
   return offset;
 }
 static int dissect_CountryName_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_CountryName(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_CountryName_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_CountryName(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_CountryName_PDU);
   return offset;
 }
 static int dissect_Guide_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_Guide(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_Guide_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_Guide(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_Guide_PDU);
   return offset;
 }
 static int dissect_EnhancedGuide_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_EnhancedGuide(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_EnhancedGuide_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_EnhancedGuide(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_EnhancedGuide_PDU);
   return offset;
 }
 static int dissect_PostalAddress_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_PostalAddress(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_PostalAddress_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_PostalAddress(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_PostalAddress_PDU);
   return offset;
 }
 static int dissect_TelephoneNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_TelephoneNumber(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_TelephoneNumber_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_TelephoneNumber(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_TelephoneNumber_PDU);
   return offset;
 }
 static int dissect_TelexNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_TelexNumber(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_TelexNumber_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_TelexNumber(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_TelexNumber_PDU);
   return offset;
 }
 static int dissect_FacsimileTelephoneNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_FacsimileTelephoneNumber(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_FacsimileTelephoneNumber_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_FacsimileTelephoneNumber(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_FacsimileTelephoneNumber_PDU);
   return offset;
 }
 static int dissect_X121Address_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_X121Address(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_X121Address_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_X121Address(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_X121Address_PDU);
   return offset;
 }
 static int dissect_InternationalISDNNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_InternationalISDNNumber(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_InternationalISDNNumber_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_InternationalISDNNumber(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_InternationalISDNNumber_PDU);
   return offset;
 }
 static int dissect_DestinationIndicator_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_DestinationIndicator(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_DestinationIndicator_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_DestinationIndicator(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_DestinationIndicator_PDU);
   return offset;
 }
 static int dissect_PreferredDeliveryMethod_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_PreferredDeliveryMethod(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_PreferredDeliveryMethod_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_PreferredDeliveryMethod(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_PreferredDeliveryMethod_PDU);
   return offset;
 }
 static int dissect_PresentationAddress_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_PresentationAddress(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_PresentationAddress_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_PresentationAddress(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_PresentationAddress_PDU);
   return offset;
 }
 static int dissect_ProtocolInformation_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_ProtocolInformation(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_ProtocolInformation_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_ProtocolInformation(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_ProtocolInformation_PDU);
   return offset;
 }
 static int dissect_NameAndOptionalUID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_NameAndOptionalUID(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_NameAndOptionalUID_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_NameAndOptionalUID(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_NameAndOptionalUID_PDU);
   return offset;
 }
 static int dissect_CaseIgnoreListMatch_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_CaseIgnoreListMatch(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_CaseIgnoreListMatch_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_CaseIgnoreListMatch(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_CaseIgnoreListMatch_PDU);
   return offset;
 }
 static int dissect_ObjectIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_ObjectIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_ObjectIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_ObjectIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_ObjectIdentifier_PDU);
   return offset;
 }
 static int dissect_OctetString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_OctetString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_OctetString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_OctetString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_OctetString_PDU);
   return offset;
 }
 static int dissect_BitString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_BitString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_BitString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_BitString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_BitString_PDU);
   return offset;
 }
 static int dissect_Integer_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_Integer(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_Integer_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_Integer(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_Integer_PDU);
   return offset;
 }
 static int dissect_Boolean_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_Boolean(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_Boolean_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_Boolean(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_Boolean_PDU);
   return offset;
 }
 static int dissect_SyntaxGeneralizedTime_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxGeneralizedTime(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGeneralizedTime_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxGeneralizedTime(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGeneralizedTime_PDU);
   return offset;
 }
 static int dissect_SyntaxUTCTime_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxUTCTime(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUTCTime_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxUTCTime(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUTCTime_PDU);
   return offset;
 }
 static int dissect_SyntaxNumericString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxNumericString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxNumericString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxNumericString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxNumericString_PDU);
   return offset;
 }
 static int dissect_SyntaxPrintableString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxPrintableString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxPrintableString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxPrintableString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxPrintableString_PDU);
   return offset;
 }
 static int dissect_SyntaxIA5String_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxIA5String(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxIA5String_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxIA5String(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxIA5String_PDU);
   return offset;
 }
 static int dissect_SyntaxBMPString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxBMPString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxBMPString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxBMPString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxBMPString_PDU);
   return offset;
 }
 static int dissect_SyntaxUniversalString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxUniversalString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUniversalString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxUniversalString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUniversalString_PDU);
   return offset;
 }
 static int dissect_SyntaxUTF8String_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxUTF8String(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUTF8String_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxUTF8String(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxUTF8String_PDU);
   return offset;
 }
 static int dissect_SyntaxTeletexString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxTeletexString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxTeletexString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxTeletexString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxTeletexString_PDU);
   return offset;
 }
 static int dissect_SyntaxT61String_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxT61String(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxT61String_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxT61String(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxT61String_PDU);
   return offset;
 }
 static int dissect_SyntaxVideotexString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxVideotexString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxVideotexString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxVideotexString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxVideotexString_PDU);
   return offset;
 }
 static int dissect_SyntaxGraphicString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxGraphicString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGraphicString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxGraphicString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGraphicString_PDU);
   return offset;
 }
 static int dissect_SyntaxISO646String_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxISO646String(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxISO646String_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxISO646String(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxISO646String_PDU);
   return offset;
 }
 static int dissect_SyntaxVisibleString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxVisibleString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxVisibleString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxVisibleString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxVisibleString_PDU);
   return offset;
 }
 static int dissect_SyntaxGeneralString_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_SyntaxGeneralString(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGeneralString_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_SyntaxGeneralString(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_SyntaxGeneralString_PDU);
   return offset;
 }
 static int dissect_GUID_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509sat_GUID(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509sat_GUID_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509sat_GUID(false, tvb, offset, &asn1_ctx, tree, hf_x509sat_GUID_PDU);
   return offset;
 }
 
@@ -2549,7 +2556,7 @@ void proto_register_x509sat(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_x509sat_DirectoryString,
     &ett_x509sat_Guide,
     &ett_x509sat_Criteria,
@@ -2708,6 +2715,7 @@ void proto_reg_handoff_x509sat(void) {
   register_ber_oid_dissector("2.5.4.65", dissect_DirectoryString_PDU, proto_x509sat, "id-at-pseudonym");
   register_ber_oid_dissector("2.5.4.66", dissect_ObjectIdentifier_PDU, proto_x509sat, "id-at-communuicationsService");
   register_ber_oid_dissector("2.5.4.67", dissect_ObjectIdentifier_PDU, proto_x509sat, "id-at-communuicationsNetwork");
+  register_ber_oid_dissector("2.5.4.97", dissect_DirectoryString_PDU, proto_x509sat, "id-at-organizationIdentifier");
   register_ber_oid_dissector("2.5.13.8", dissect_SyntaxNumericString_PDU, proto_x509sat, "id-mr-numericStringMatch");
   register_ber_oid_dissector("2.5.13.11", dissect_CaseIgnoreListMatch_PDU, proto_x509sat, "id-mr-caseIgnoreListMatch");
   register_ber_oid_dissector("2.5.13.16", dissect_BitString_PDU, proto_x509sat, "id-mr-bitStringMatch");

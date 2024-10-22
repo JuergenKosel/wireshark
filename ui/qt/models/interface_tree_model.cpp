@@ -136,7 +136,7 @@ QVariant InterfaceTreeModel::data(const QModelIndex &index, int role) const
             }
             else if (col == IFTREE_COL_DESCRIPTION)
             {
-                return QString(device->friendly_name);
+                return QString(device->if_info.friendly_name);
             }
             else if (col == IFTREE_COL_DISPLAY_NAME)
             {
@@ -370,7 +370,7 @@ void InterfaceTreeModel::interfaceListChanged()
 QVariant InterfaceTreeModel::toolTipForInterface(int idx) const
 {
 #ifdef HAVE_LIBPCAP
-    if (! global_capture_opts.all_ifaces || global_capture_opts.all_ifaces->len <= (guint) idx)
+    if (! global_capture_opts.all_ifaces || global_capture_opts.all_ifaces->len <= (unsigned) idx)
         return QVariant();
 
     interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, idx);
@@ -415,6 +415,12 @@ QVariant InterfaceTreeModel::toolTipForInterface(int idx) const
 }
 
 #ifdef HAVE_LIBPCAP
+void InterfaceTreeModel::setCache(if_stat_cache_t *stat_cache)
+{
+    stopStatistic();
+    stat_cache_ = stat_cache;
+}
+
 void InterfaceTreeModel::stopStatistic()
 {
     if (stat_cache_)
@@ -428,7 +434,7 @@ void InterfaceTreeModel::stopStatistic()
 void InterfaceTreeModel::updateStatistic(unsigned int idx)
 {
 #ifdef HAVE_LIBPCAP
-    if (! global_capture_opts.all_ifaces || global_capture_opts.all_ifaces->len <= (guint) idx)
+    if (! global_capture_opts.all_ifaces || global_capture_opts.all_ifaces->len <= (unsigned) idx)
         return;
 
     interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, idx);
@@ -439,7 +445,11 @@ void InterfaceTreeModel::updateStatistic(unsigned int idx)
     if (!stat_cache_)
     {
         // Start gathering statistics using dumpcap
-        // We crash (on macOS at least) if we try to do this from ::showEvent.
+        //
+        // The stat cache will only properly configure if it has the list
+        // of interfaces in global_capture_opts->all_ifaces.
+        // We crash if we try to do this from InterfaceFrame::showEvent,
+        // because main.cpp calls mainw->show() before capture_opts_init().
         stat_cache_ = capture_stat_start(&global_capture_opts);
     }
 
@@ -464,9 +474,9 @@ void InterfaceTreeModel::updateStatistic(unsigned int idx)
 
     if (active[device->name] != isActive)
     {
-        beginResetModel();
+        emit layoutAboutToBeChanged();
         active[device->name] = isActive;
-        endResetModel();
+        emit layoutChanged();
     }
 
     emit dataChanged(index(idx, IFTREE_COL_STATS), index(idx, IFTREE_COL_STATS));
@@ -530,12 +540,12 @@ bool InterfaceTreeModel::updateSelectedDevices(QItemSelection sourceSelection)
         {
             if (! device->selected)
                 selectionHasChanged = true;
-            device->selected = TRUE;
+            device->selected = true;
             global_capture_opts.num_selected++;
         } else {
             if (device->selected)
                 selectionHasChanged = true;
-            device->selected = FALSE;
+            device->selected = false;
         }
     }
 #else

@@ -14,10 +14,18 @@
 #include <wsutil/plugins.h>
 #include <epan/dfilter/dfilter-plugin.h>
 #include <epan/iana-ip.h>
+#include <epan/exceptions.h>
 
 #ifndef PLUGIN_VERSION
 #define PLUGIN_VERSION "0.0.0"
 #endif
+
+WS_DLL_PUBLIC_DEF const char plugin_version[] = PLUGIN_VERSION;
+WS_DLL_PUBLIC_DEF const int plugin_want_major = WIRESHARK_VERSION_MAJOR;
+WS_DLL_PUBLIC_DEF const int plugin_want_minor = WIRESHARK_VERSION_MINOR;
+
+WS_DLL_PUBLIC void plugin_register(void);
+WS_DLL_PUBLIC uint32_t plugin_describe(void);
 
 typedef bool (*ip_is_func_t)(fvalue_t *);
 
@@ -227,20 +235,64 @@ print_which(int which)
 }
 
 static void
-check_ip_field(dfwork_t *dfw, const char *func_name, ftenum_t logical_ftype,
+check_ip_field(dfwork_t *dfw, const char *func_name, ftenum_t logical_ftype _U_,
                             GSList *param_list, df_loc_t func_loc, int which)
 {
     ws_assert(g_slist_length(param_list) == 1);
     stnode_t *param = param_list->data;
-    ftenum_t ftype;
+    volatile ftenum_t ftype;
+    volatile bool failed = false;
 
-    if (stnode_type_id(param) == STTYPE_FIELD) {
-        ftype = df_semcheck_param(dfw, func_name, logical_ftype, param, func_loc);
-        if (check_which(ftype, which)) {
-            return;
-        }
+    /* logical_ftype as passed in is the return_ftype of the function.
+     * We want to coerce the parameters to IP addresses, if necessary.
+     */
+    switch (which) {
+        case IPv4:
+            ftype = df_semcheck_param(dfw, func_name, FT_IPv4, param, func_loc);
+            break;
+        case IPv6:
+            ftype = df_semcheck_param(dfw, func_name, FT_IPv6, param, func_loc);
+            break;
+        case Both:
+            /* df_semcheck_param only coerces literals and strings to one
+             * type, and throws a TypeError on failure. We need to test both.
+             */
+            TRY {
+                ftype = df_semcheck_param(dfw, func_name, FT_IPv4, param, func_loc);
+            } CATCH(TypeError) {
+                failed = true;
+            }
+            ENDTRY;
+            /* We can't nest TRY blocks due to variable shadowing */
+            if (failed) {
+                df_error_free(&dfw->error);
+                TRY {
+                    ftype = df_semcheck_param(dfw, func_name, FT_IPv6, param, func_loc);
+                }
+                CATCH(TypeError) {
+                    /* Replace the error message with one that mentions that
+                     * both IPv4 and IPv6 are supported. We cannot THROW here,
+                     * only RETHROW, so do not use dfunc_fail.
+                     * XXX - The messages in ftype-ipv[46].c are cleverer in
+                     * that they check for CIDR/prefix and only add the part
+                     * up to but not including the first slash. We could do
+                     * that here.
+                     */
+                    df_error_free(&dfw->error);
+                    dfilter_fail(dfw, DF_ERROR_GENERIC, stnode_location(param), "\"%s\" is not a valid hostname or %s address.", stnode_todisplay(param), print_which(which));
+                    RETHROW;
+                }
+                ENDTRY;
+            }
+            break;
+        default:
+            ws_assert_not_reached();
+            break;
     }
-    dfunc_fail(dfw, param, "Only %s fields can be used as parameter for %s()",
+    if (check_which(ftype, which)) {
+        return;
+    }
+    dfunc_fail(dfw, param, "Only %s fields can be used as a parameter for %s()",
                                 print_which(which), func_name);
 }
 
@@ -265,6 +317,22 @@ semcheck_is_ip_field(dfwork_t *dfw, const char *func_name, ftenum_t logical_ftyp
                             GSList *param_list, df_loc_t func_loc)
 {
     check_ip_field(dfw, func_name, logical_ftype, param_list, func_loc, Both);
+    return FT_BOOLEAN;
+}
+
+static ftenum_t
+semcheck_is_ipv4_field(dfwork_t *dfw, const char *func_name, ftenum_t logical_ftype,
+                            GSList *param_list, df_loc_t func_loc)
+{
+    check_ip_field(dfw, func_name, logical_ftype, param_list, func_loc, IPv4);
+    return FT_BOOLEAN;
+}
+
+static ftenum_t
+semcheck_is_ipv6_field(dfwork_t *dfw, const char *func_name, ftenum_t logical_ftype,
+                            GSList *param_list, df_loc_t func_loc)
+{
+    check_ip_field(dfw, func_name, logical_ftype, param_list, func_loc, IPv6);
     return FT_BOOLEAN;
 }
 
@@ -305,7 +373,7 @@ static df_func_def_t func_ip_is_rfc1918 = {
     df_func_ip_is_rfc1918,
     1, 1,
     FT_BOOLEAN,
-    semcheck_is_ip_field,
+    semcheck_is_ipv4_field,
 };
 
 static df_func_def_t func_ip_is_ula = {
@@ -313,7 +381,7 @@ static df_func_def_t func_ip_is_ula = {
     df_func_ip_is_ula,
     1, 1,
     FT_BOOLEAN,
-    semcheck_is_ip_field,
+    semcheck_is_ipv6_field,
 };
 
 static void
@@ -338,7 +406,7 @@ cleanup(void)
     df_func_deregister(&func_ip_is_ula);
 }
 
-static void
+void
 plugin_register(void)
 {
     static dfilter_plugin plug;
@@ -348,13 +416,8 @@ plugin_register(void)
     dfilter_plugins_register(&plug);
 }
 
-static struct ws_module module = {
-    .flags = WS_PLUGIN_DESC_DFUNCTION,
-    .version = PLUGIN_VERSION,
-    .spdx_id = WS_PLUGIN_SPDX_GPLv2,
-    .home_url = WS_PLUGIN_GITLAB_URL,
-    .blurb = "Display filter functions to test IP addresses",
-    .register_cb = &plugin_register,
-};
-
-WIRESHARK_PLUGIN_REGISTER_EPAN(&module, 0)
+uint32_t
+plugin_describe(void)
+{
+    return WS_PLUGIN_DESC_DFILTER;
+}

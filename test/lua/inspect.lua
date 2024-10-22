@@ -416,7 +416,7 @@ function inspect.marshal(inString, options)
     inString = "return " .. inString
   end
 
-  local t = assert(loadstring(inString))()
+  local t = assert(load(inString))()
 
   removeIndex(t)
 

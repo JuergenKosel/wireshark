@@ -22,6 +22,7 @@
 
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <wsutil/array.h>
 
 #include "packet-gmr1_common.h"
 
@@ -34,9 +35,9 @@ static int proto_gmr1_rr;
 static int proto_gmr1_ccch;
 
 /* Fallback CCCH sub tree */
-static gint ett_msg_ccch;
+static int ett_msg_ccch;
 
-static gint ett_rr_pd;
+static int ett_rr_pd;
 
 static expert_field ei_gmr1_missing_mandatory_element;
 
@@ -150,7 +151,7 @@ static const value_string gmr1_ie_rr_strings[] = {
 };
 value_string_ext gmr1_ie_rr_strings_ext = VALUE_STRING_EXT_INIT(gmr1_ie_rr_strings);
 
-gint ett_gmr1_ie_rr[NUM_GMR1_IE_RR];
+int ett_gmr1_ie_rr[NUM_GMR1_IE_RR];
 
 
 /* Fields */
@@ -260,7 +261,7 @@ static const value_string rr_gen_ie_presence_vals[] = {
 };
 
 static void
-rr_gen_ie_seconds_fmt(gchar *s, guint32 v)
+rr_gen_ie_seconds_fmt(char *s, uint32_t v)
 {
 	snprintf(s, ITEM_LABEL_LENGTH, "%u seconds", v);
 }
@@ -284,7 +285,7 @@ static const value_string rr_chan_desc_chan_type_vals[] = {
 
 GMR1_IE_FUNC(gmr1_ie_rr_chan_desc)
 {
-	gint bit_offset;
+	int bit_offset;
 
 	bit_offset = offset << 3;
 
@@ -426,7 +427,7 @@ static const value_string rr_req_ref_est_cause_vals[] = {
 
 GMR1_IE_FUNC(gmr1_ie_rr_req_ref)
 {
-	/* Establishement Cause + RA */
+	/* Establishment Cause + RA */
 	proto_tree_add_item(tree, hf_rr_req_ref_est_cause, tvb, offset, 1, ENC_BIG_ENDIAN);
 	proto_tree_add_item(tree, hf_rr_req_ref_ra, tvb, offset, 1, ENC_BIG_ENDIAN);
 	offset++;
@@ -473,9 +474,9 @@ static const value_string rr_timing_ofs_ti_vals[] = {
 };
 
 static void
-rr_timing_ofs_value_fmt(gchar *s, guint32 v)
+rr_timing_ofs_value_fmt(char *s, uint32_t v)
 {
-	gint32 sv = (signed)v;
+	int32_t sv = (signed)v;
 
 	snprintf(s, ITEM_LABEL_LENGTH, "%.3f symbols ( ~ %.3f ms )",
 		sv / 40.0f, (sv / 40.0f) * (10.0f / 234.0f));
@@ -483,7 +484,7 @@ rr_timing_ofs_value_fmt(gchar *s, guint32 v)
 
 GMR1_IE_FUNC(gmr1_ie_rr_timing_ofs)
 {
-	gint bit_offset;
+	int bit_offset;
 
 	bit_offset = offset << 3;
 
@@ -573,16 +574,16 @@ static const value_string rr_freq_ofs_fi_vals[] = {
 };
 
 static void
-rr_freq_ofs_value_fmt(gchar *s, guint32 v)
+rr_freq_ofs_value_fmt(char *s, uint32_t v)
 {
-	gint32 sv = (signed)v;
+	int32_t sv = (signed)v;
 
 	snprintf(s, ITEM_LABEL_LENGTH, "%d Hz", sv);
 }
 
 GMR1_IE_FUNC(gmr1_ie_rr_freq_ofs)
 {
-	gint bit_offset;
+	int bit_offset;
 
 	bit_offset = offset << 3;
 
@@ -615,7 +616,7 @@ static const value_string rr_page_info_chan_needed_vals[] = {
 
 GMR1_IE_FUNC(gmr1_ie_rr_page_info)
 {
-	/* MSC ID & Channe needed */
+	/* MSC ID & Channel needed */
 	proto_tree_add_item(tree, hf_rr_page_info_msc_id,
 	                    tvb, offset, 1, ENC_BIG_ENDIAN);
 	proto_tree_add_item(tree, hf_rr_page_info_chan_needed,
@@ -635,7 +636,7 @@ static const value_string rr_pos_display_flag_vals[] = {
 GMR1_IE_FUNC(gmr1_ie_rr_pos_display)
 {
 	const unsigned char *txt_raw;
-	gchar *txt_packed, *txt_unpacked;
+	char *txt_packed, *txt_unpacked;
 	tvbuff_t *txt_packed_tvb;
 	int i;
 
@@ -647,7 +648,7 @@ GMR1_IE_FUNC(gmr1_ie_rr_pos_display)
 	/* Do not use tvb_new_octet_aligned(), GSM 7bit packing bit parsing
 	   goes from LSB to MSB so a trick is applied here for the last byte */
 	txt_raw = tvb_get_ptr(tvb, offset, 11);
-	txt_packed = (gchar*)wmem_alloc(pinfo->pool, 11);
+	txt_packed = (char*)wmem_alloc(pinfo->pool, 11);
 	for (i=0; i<10; i++)
 		txt_packed[i] = (txt_raw[i] << 4) | (txt_raw[i+1] >> 4);
 	txt_packed[10] = txt_raw[10];
@@ -672,20 +673,20 @@ static const value_string rr_pos_upd_info_v_vals[] = {
 };
 
 static void
-rr_pos_upd_info_dist_fmt(gchar *s, guint32 v)
+rr_pos_upd_info_dist_fmt(char *s, uint32_t v)
 {
 	snprintf(s, ITEM_LABEL_LENGTH, "%d km", v);
 }
 
 static void
-rr_pos_upd_info_time_fmt(gchar *s, guint32 v)
+rr_pos_upd_info_time_fmt(char *s, uint32_t v)
 {
 	snprintf(s, ITEM_LABEL_LENGTH, "%d minutes", v);
 }
 
 GMR1_IE_FUNC(gmr1_ie_rr_pos_upd_info)
 {
-	gint curr_offset = offset;
+	int curr_offset = offset;
 
 	/* Valid & GPS Update Distance */
 	proto_tree_add_item(tree, hf_rr_pos_upd_info_v,
@@ -717,7 +718,7 @@ static const value_string rr_bcch_carrier_ri_vals[] = {
 
 GMR1_IE_FUNC(gmr1_ie_rr_bcch_carrier)
 {
-	gint bit_offset;
+	int bit_offset;
 
 	bit_offset = offset << 3;
 
@@ -772,7 +773,7 @@ GMR1_IE_FUNC(gmr1_ie_rr_reject_cause)
 
 /* [1] 11.5.2.57 - GPS timestamp */
 static void
-rr_gps_timestamp_fmt(gchar *s, guint32 v)
+rr_gps_timestamp_fmt(char *s, uint32_t v)
 {
 	if (v == 0xffff)
 		snprintf(s, ITEM_LABEL_LENGTH, "> 65535 minutes or N/A");
@@ -814,7 +815,7 @@ GMR1_IE_FUNC(gmr1_ie_rr_tmsi_avail_msk)
 
 /* [1] 11.5.2.63 - GPS Almanac Data */
 static void
-rr_gps_almanac_pn_fmt(gchar *s, guint32 v)
+rr_gps_almanac_pn_fmt(char *s, uint32_t v)
 {
 	snprintf(s, ITEM_LABEL_LENGTH, "%d", v+1);
 }
@@ -828,7 +829,7 @@ static const value_string rr_gps_almanac_sfn_vals[] = {
 
 GMR1_IE_FUNC(gmr1_ie_rr_gps_almanac)
 {
-	gint curr_offset = offset;
+	int curr_offset = offset;
 
 	/* Page Number & Word Number */
 	proto_tree_add_item(tree, hf_rr_gps_almanac_pn,
@@ -900,7 +901,7 @@ GMR1_IE_FUNC(gmr1_ie_rr_pkt_imm_ass_3_prm)
 	proto_tree_add_item(tree, hf_rr_pkt_imm_ass_3_prm_spare,
 	                    tvb, offset, 1, ENC_BIG_ENDIAN);
 
-	/* Downlink Tempory Flow Identifier (TFI) */
+	/* Downlink Temporary Flow Identifier (TFI) */
 	proto_tree_add_split_bits_item_ret_val(
 		tree, hf_rr_pkt_imm_ass_3_prm_dl_tfi,
 		tvb, offset << 3,
@@ -938,7 +939,7 @@ static const crumb_spec_t rr_pkt_freq_prm_ul_freq_dist_crumbs[] = {
 };
 
 static void
-rr_pkt_freq_prm_xx_bw_fmt(gchar *s, guint32 v)
+rr_pkt_freq_prm_xx_bw_fmt(char *s, uint32_t v)
 {
 	snprintf(s, ITEM_LABEL_LENGTH, "%d * 31.25 kHz = %.2f kHz (%d)", v, 31.25f*v, v);
 }
@@ -1132,7 +1133,7 @@ GMR1_IE_FUNC(gmr1_ie_rr_tlli)
 
 /* [3] 10.1.18.3.3 & [5] 10.4.10a & [6] 5.3.3 - Packet Power Control Params */
 static void
-rr_pkt_pwr_ctrl_prm_par_fmt(gchar *s, guint32 v)
+rr_pkt_pwr_ctrl_prm_par_fmt(char *s, uint32_t v)
 {
 	if (v >= 61) {
 		snprintf(s, ITEM_LABEL_LENGTH, "Escape %d (%d)", v-60, v);
@@ -1211,12 +1212,12 @@ elem_fcn gmr1_ie_rr_func[NUM_GMR1_IE_RR] = {
 /* [1] 10.1.18 - Immediate Assignment */
 GMR1_MSG_FUNC(gmr1_rr_msg_imm_ass)
 {
-	guint8 mif;
+	uint8_t mif;
 
 	GMR1_MSG_FUNC_BEGIN
 
 	/* MES Information Flag			[1] 11.5.2.44	- M V 1 */
-	mif = tvb_get_guint8(tvb, curr_offset);
+	mif = tvb_get_uint8(tvb, curr_offset);
 
 	ELEM_MAND_V(GMR1_IE_RR, GMR1_IE_RR_MES_INFO_FLG, NULL, ei_gmr1_missing_mandatory_element);
 
@@ -1277,7 +1278,7 @@ GMR1_MSG_FUNC(gmr1_rr_msg_imm_ass)
 /* [1] 10.1.20.1 - Immediate Assignment Reject Type 1 */
 GMR1_MSG_FUNC(gmr1_rr_msg_imm_ass_rej_1)
 {
-	guint8 rej_cause;
+	uint8_t rej_cause;
 
 	GMR1_MSG_FUNC_BEGIN
 
@@ -1288,7 +1289,7 @@ GMR1_MSG_FUNC(gmr1_rr_msg_imm_ass_rej_1)
 	ELEM_MAND_V(GMR1_IE_RR, GMR1_IE_RR_GPS_DISCR, NULL, ei_gmr1_missing_mandatory_element);
 
 	/* Reject Cause				[1] 11.5.2.56	- M V 1 */
-	rej_cause = tvb_get_guint8(tvb, curr_offset);
+	rej_cause = tvb_get_uint8(tvb, curr_offset);
 
 	ELEM_MAND_V(GMR1_IE_RR, GMR1_IE_RR_REJECT_CAUSE, NULL, ei_gmr1_missing_mandatory_element);
 
@@ -1493,13 +1494,13 @@ GMR1_MSG_FUNC(gmr1_rr_msg_chan_release)
 /* [1] 10.1.24 - Paging Request Type 3 */
 GMR1_MSG_FUNC(gmr1_rr_msg_pag_req_3)
 {
-	guint8 tam;
+	uint8_t tam;
 
 	GMR1_MSG_FUNC_BEGIN
 
 	/* Page Mode				[1] 11.5.2.26	- M V 1/2 */
 	/* TMSI Availability Mask		[1] 11.5.2.62	- M V 1/2 */
-	tam = (tvb_get_guint8(tvb, curr_offset) & 0xf0) >> 4;
+	tam = (tvb_get_uint8(tvb, curr_offset) & 0xf0) >> 4;
 
 	ELEM_MAND_VV_SHORT(GMR1_IE_RR, GMR1_IE_RR_PAGE_MODE,
 	                   GMR1_IE_RR, GMR1_IE_RR_TMSI_AVAIL_MSK, ei_gmr1_missing_mandatory_element);
@@ -1740,8 +1741,8 @@ static const value_string gmr1_msg_rr_strings[] = {
 };
 
 
-#define NUM_GMR1_MSG_RR (sizeof(gmr1_msg_rr_strings) / sizeof(value_string))
-static gint ett_msg_rr[NUM_GMR1_MSG_RR];
+#define NUM_GMR1_MSG_RR array_length(gmr1_msg_rr_strings)
+static int ett_msg_rr[NUM_GMR1_MSG_RR];
 
 	/* same order as gmr1_msg_rr_strings */
 static const gmr1_msg_func_t gmr1_msg_rr_func[NUM_GMR1_MSG_RR] = {
@@ -1807,21 +1808,21 @@ static const gmr1_msg_func_t gmr1_msg_rr_func[NUM_GMR1_MSG_RR] = {
 
 
 void
-gmr1_get_msg_rr_params(guint8 oct, int dcch, const gchar **msg_str,
+gmr1_get_msg_rr_params(uint8_t oct, int dcch, const char **msg_str,
 		       int *ett_tree, int *hf_idx, gmr1_msg_func_t *msg_func_p)
 {
-	const gchar *m = NULL;
-	gint idx;
+	const char *m = NULL;
+	int idx;
 
 	/*
 	 * See the large comment in gmr1_msg_rr_strings[] for an
 	 * explanation of why we're doing this.
 	 */
 	if (dcch)
-		m = try_val_to_str_idx((guint32)oct | 0x100, gmr1_msg_rr_strings, &idx);
+		m = try_val_to_str_idx((uint32_t)oct | 0x100, gmr1_msg_rr_strings, &idx);
 
 	if (!m)
-		m = try_val_to_str_idx((guint32)oct, gmr1_msg_rr_strings, &idx);
+		m = try_val_to_str_idx((uint32_t)oct, gmr1_msg_rr_strings, &idx);
 
 	*msg_str = m;
 	*hf_idx = hf_rr_msg_type;
@@ -1842,16 +1843,16 @@ gmr1_get_msg_rr_params(guint8 oct, int dcch, const gchar **msg_str,
 static int
 dissect_gmr1_ccch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	guint32 len, offset;
+	uint32_t len, offset;
 	gmr1_msg_func_t msg_func;
-	const gchar *msg_str;
-	gint ett_tree;
+	const char *msg_str;
+	int ett_tree;
 	int hf_idx;
 	proto_item *ccch_item = NULL, *pd_item = NULL;
 	proto_tree *ccch_tree = NULL, *pd_tree = NULL;
-	guint32 oct[3];
-	guint8 pd;
-	gint ti = -1;
+	uint32_t oct[3];
+	uint8_t pd;
+	int ti = -1;
 
 	/* Scan init */
 	len = tvb_reported_length(tvb);
@@ -1865,11 +1866,11 @@ dissect_gmr1_ccch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
 	col_append_str(pinfo->cinfo, COL_INFO, "(CCCH) ");
 
-	/* First octed with pseudo len */
-	oct[0] = tvb_get_guint8(tvb, offset++);
+	/* First octet with pseudo len */
+	oct[0] = tvb_get_uint8(tvb, offset++);
 
 	/* Check protocol descriptor */
-	oct[1] = tvb_get_guint8(tvb, offset++);
+	oct[1] = tvb_get_uint8(tvb, offset++);
 
 	if ((oct[1] & GMR1_PD_EXT_MSK) == GMR1_PD_EXT_VAL)
 		pd = oct[1] & 0xff;
@@ -1883,7 +1884,7 @@ dissect_gmr1_ccch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 		goto err;	/* CCCH is only RR */
 
 	/* Get message parameters */
-	oct[2] = tvb_get_guint8(tvb, offset);
+	oct[2] = tvb_get_uint8(tvb, offset);
 
 	gmr1_get_msg_rr_params(oct[2], 0, &msg_str, &ett_tree, &hf_idx, &msg_func);
 
@@ -2482,7 +2483,7 @@ proto_register_gmr1_rr(void)
 	expert_module_t* expert_gmr1_rr;
 
 #define NUM_INDIVIDUAL_ELEMS 2
-	static gint *ett[NUM_INDIVIDUAL_ELEMS +
+	static int *ett[NUM_INDIVIDUAL_ELEMS +
 	                 NUM_GMR1_IE_RR +
 	                 NUM_GMR1_MSG_RR];
 

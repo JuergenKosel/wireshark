@@ -34,30 +34,29 @@
  */
 
 #include "config.h"
-#include <stdlib.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/conversation.h>
-#include <epan/addr_resolv.h>
 #include <epan/crc32-tvb.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include "packet-tcp.h"
 #include "packet-nvme.h"
 
 #include "packet-tls.h"
-#include "packet-tls-utils.h"
 
 static int proto_nvme_tcp;
 static dissector_handle_t nvmet_tcp_handle;
 static dissector_handle_t nvmet_tls_handle;
 
-#define NVME_TCP_PORT_RANGE    "4420" /* IANA registered */
+#define NVME_TCP_PORT_RANGE    "4420,8009" /* IANA registered */
 
 #define NVME_FABRICS_TCP "NVMe/TCP"
 #define NVME_TCP_HEADER_SIZE 8
 #define PDU_LEN_OFFSET_FROM_HEADER 4
 static range_t *gPORT_RANGE;
-static gboolean nvme_tcp_check_hdgst = FALSE;
-static gboolean nvme_tcp_check_ddgst = FALSE;
+static bool nvme_tcp_check_hdgst;
+static bool nvme_tcp_check_ddgst;
 #define NVME_TCP_DATA_PDU_SIZE 24
 
 enum nvme_tcp_pdu_type {
@@ -70,6 +69,9 @@ enum nvme_tcp_pdu_type {
     nvme_tcp_h2c_data = 0x6,
     nvme_tcp_c2h_data = 0x7,
     nvme_tcp_r2t = 0x9,
+    nvme_tcp_kdreq = 0xa,
+    nvme_tcp_kdresp = 0xb,
+    NVMET_MAX_PDU_TYPE = nvme_tcp_kdresp
 };
 
 static const value_string nvme_tcp_pdu_type_vals[] = {
@@ -82,6 +84,8 @@ static const value_string nvme_tcp_pdu_type_vals[] = {
     { nvme_tcp_h2c_data, "H2CData" },
     { nvme_tcp_c2h_data, "C2HData" },
     { nvme_tcp_r2t, "Ready To Transfer" },
+    { nvme_tcp_kdreq, "Kickstart Discovery Request" },
+    { nvme_tcp_kdresp, "Kickstart Discovery Response" },
     { 0, NULL }
 };
 
@@ -211,9 +215,9 @@ static int hf_nvme_tcp_data_pdu_data_offset;
 static int hf_nvme_tcp_data_pdu_data_length;
 static int hf_nvme_tcp_data_pdu_data_resvd;
 
-static gint ett_nvme_tcp;
+static int ett_nvme_tcp;
 
-static guint
+static unsigned
 get_nvme_tcp_pdu_len(packet_info *pinfo _U_,
                      tvbuff_t *tvb,
                      int offset,
@@ -271,7 +275,7 @@ dissect_nvme_tcp_icresp(tvbuff_t *tvb,
 static struct nvme_tcp_cmd_ctx*
 bind_cmd_to_qctx(packet_info *pinfo,
                  struct nvme_q_ctx *q_ctx,
-                 guint16 cmd_id)
+                 uint16_t cmd_id)
 {
     struct nvme_tcp_cmd_ctx *ctx;
 
@@ -303,26 +307,26 @@ dissect_nvme_tcp_command(tvbuff_t *tvb,
                          proto_tree *nvme_tcp_tree,
                          proto_item *nvme_tcp_ti,
                          struct nvme_tcp_q_ctx *queue, int offset,
-                         guint32 incapsuled_data_size,
-                         guint32 data_offset)
+                         uint32_t incapsuled_data_size,
+                         uint32_t data_offset)
 {
     struct nvme_tcp_cmd_ctx *cmd_ctx;
-    guint16 cmd_id;
-    guint8 opcode;
-    const gchar *cmd_string;
+    uint16_t cmd_id;
+    uint8_t opcode;
+    const char *cmd_string;
 
-    opcode = tvb_get_guint8(tvb, offset);
-    cmd_id = tvb_get_guint16(tvb, offset + 2, ENC_LITTLE_ENDIAN);
+    opcode = tvb_get_uint8(tvb, offset);
+    cmd_id = tvb_get_uint16(tvb, offset + 2, ENC_LITTLE_ENDIAN);
     cmd_ctx = bind_cmd_to_qctx(pinfo, &queue->n_q_ctx, cmd_id);
 
     /* if record did not contain connect command we wont know qid,
      * so lets guess if this is an admin queue */
-    if ((queue->n_q_ctx.qid == G_MAXUINT16) && !nvme_is_io_queue_opcode(opcode))
+    if ((queue->n_q_ctx.qid == UINT16_MAX) && !nvme_is_io_queue_opcode(opcode))
         queue->n_q_ctx.qid = 0;
 
     if (opcode == NVME_FABRIC_OPC) {
-        cmd_ctx->n_cmd_ctx.fabric = TRUE;
-        dissect_nvmeof_fabric_cmd(tvb, pinfo, nvme_tcp_tree, &queue->n_q_ctx, &cmd_ctx->n_cmd_ctx, offset, FALSE);
+        cmd_ctx->n_cmd_ctx.fabric = true;
+        dissect_nvmeof_fabric_cmd(tvb, pinfo, nvme_tcp_tree, &queue->n_q_ctx, &cmd_ctx->n_cmd_ctx, offset, false);
         if (cmd_ctx->n_cmd_ctx.cmd_ctx.fabric_cmd.fctype == NVME_FCTYPE_CONNECT)
             queue->n_q_ctx.qid = cmd_ctx->n_cmd_ctx.cmd_ctx.fabric_cmd.cnct.qid;
         cmd_string = get_nvmeof_cmd_string(cmd_ctx->n_cmd_ctx.cmd_ctx.fabric_cmd.fctype);
@@ -343,7 +347,7 @@ dissect_nvme_tcp_command(tvbuff_t *tvb,
     /* In case of incapsuled nvme command tcp length is only a header */
     proto_item_set_len(nvme_tcp_ti, NVME_TCP_HEADER_SIZE);
     tvbuff_t *nvme_tvbuff;
-    cmd_ctx->n_cmd_ctx.fabric = FALSE;
+    cmd_ctx->n_cmd_ctx.fabric = false;
     nvme_tvbuff = tvb_new_subset_remaining(tvb, NVME_TCP_HEADER_SIZE);
     cmd_string = nvme_get_opcode_string(opcode, queue->n_q_ctx.qid);
     dissect_nvme_cmd(nvme_tvbuff, pinfo, root_tree, &queue->n_q_ctx,
@@ -359,16 +363,16 @@ dissect_nvme_tcp_command(tvbuff_t *tvb,
         nvme_data = tvb_new_subset_remaining(tvb, offset +
                 NVME_CMD_SIZE + data_offset);
         dissect_nvme_data_response(nvme_data, pinfo, root_tree, &queue->n_q_ctx,
-                &cmd_ctx->n_cmd_ctx, incapsuled_data_size, TRUE);
+                &cmd_ctx->n_cmd_ctx, incapsuled_data_size, true);
     }
 }
 
-static guint32
+static uint32_t
 dissect_nvme_tcp_data_pdu(tvbuff_t *tvb,
                           packet_info *pinfo,
                           int offset,
                           proto_tree *tree) {
-    guint32 data_length;
+    uint32_t data_length;
     proto_item *tf;
     proto_item *data_tree;
 
@@ -387,7 +391,7 @@ dissect_nvme_tcp_data_pdu(tvbuff_t *tvb,
     proto_tree_add_item(data_tree, hf_nvme_tcp_data_pdu_data_offset, tvb,
             offset + 4, 4, ENC_LITTLE_ENDIAN);
 
-    data_length = tvb_get_guint32(tvb, offset + 8, ENC_LITTLE_ENDIAN);
+    data_length = tvb_get_uint32(tvb, offset + 8, ENC_LITTLE_ENDIAN);
     proto_tree_add_item(data_tree, hf_nvme_tcp_data_pdu_data_length, tvb,
             offset + 8, 4, ENC_LITTLE_ENDIAN);
 
@@ -405,15 +409,15 @@ dissect_nvme_tcp_c2h_data(tvbuff_t *tvb,
                           proto_item *nvme_tcp_ti,
                           struct nvme_tcp_q_ctx *queue,
                           int offset,
-                          guint32 data_offset)
+                          uint32_t data_offset)
 {
     struct nvme_tcp_cmd_ctx *cmd_ctx;
-    guint32 cmd_id;
-    guint32 data_length;
+    uint32_t cmd_id;
+    uint32_t data_length;
     tvbuff_t *nvme_data;
-    const gchar *cmd_string;
+    const char *cmd_string;
 
-    cmd_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+    cmd_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
     data_length = dissect_nvme_tcp_data_pdu(tvb, pinfo, offset, nvme_tcp_tree);
 
     /* This can identify our packet uniquely  */
@@ -459,11 +463,11 @@ dissect_nvme_tcp_c2h_data(tvbuff_t *tvb,
     nvme_data = tvb_new_subset_remaining(tvb, NVME_TCP_DATA_PDU_SIZE + data_offset);
 
     dissect_nvme_data_response(nvme_data, pinfo, root_tree, &queue->n_q_ctx,
-            &cmd_ctx->n_cmd_ctx, data_length, FALSE);
+            &cmd_ctx->n_cmd_ctx, data_length, false);
 
 }
 
-static void nvme_tcp_build_cmd_key(guint32 *frame_num, guint32 *cmd_id, wmem_tree_key_t *key)
+static void nvme_tcp_build_cmd_key(uint32_t *frame_num, uint32_t *cmd_id, wmem_tree_key_t *key)
 {
     key[0].key = frame_num;
     key[0].length = 1;
@@ -474,10 +478,10 @@ static void nvme_tcp_build_cmd_key(guint32 *frame_num, guint32 *cmd_id, wmem_tre
 }
 
 static void nvme_tcp_add_data_request(packet_info *pinfo, struct nvme_q_ctx *q_ctx,
-        struct nvme_tcp_cmd_ctx *cmd_ctx, guint16 cmd_id)
+        struct nvme_tcp_cmd_ctx *cmd_ctx, uint16_t cmd_id)
 {
     wmem_tree_key_t cmd_key[3];
-    guint32 cmd_id_key = cmd_id;
+    uint32_t cmd_id_key = cmd_id;
 
     nvme_tcp_build_cmd_key(&pinfo->num, &cmd_id_key, cmd_key);
     cmd_ctx->n_cmd_ctx.data_req_pkt_num = pinfo->num;
@@ -487,10 +491,10 @@ static void nvme_tcp_add_data_request(packet_info *pinfo, struct nvme_q_ctx *q_c
 
 static struct nvme_tcp_cmd_ctx* nvme_tcp_lookup_data_request(packet_info *pinfo,
         struct nvme_q_ctx *q_ctx,
-        guint16 cmd_id)
+        uint16_t cmd_id)
 {
     wmem_tree_key_t cmd_key[3];
-    guint32 cmd_id_key = cmd_id;
+    uint32_t cmd_id_key = cmd_id;
 
     nvme_tcp_build_cmd_key(&pinfo->num, &cmd_id_key, cmd_key);
     return (struct nvme_tcp_cmd_ctx*)wmem_tree_lookup32_array(q_ctx->data_requests, cmd_key);
@@ -504,15 +508,15 @@ dissect_nvme_tcp_h2c_data(tvbuff_t *tvb,
                           proto_item *nvme_tcp_ti,
                           struct nvme_tcp_q_ctx *queue,
                           int offset,
-                          guint32 data_offset)
+                          uint32_t data_offset)
 {
     struct nvme_tcp_cmd_ctx *cmd_ctx;
-    guint16 cmd_id;
-    guint32 data_length;
+    uint16_t cmd_id;
+    uint32_t data_length;
     tvbuff_t *nvme_data;
-    const gchar *cmd_string;
+    const char *cmd_string;
 
-    cmd_id = tvb_get_guint16(tvb, offset, ENC_LITTLE_ENDIAN);
+    cmd_id = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
     data_length = dissect_nvme_tcp_data_pdu(tvb, pinfo, offset, nvme_tcp_tree);
 
     if (!PINFO_FD_VISITED(pinfo)) {
@@ -558,16 +562,16 @@ dissect_nvme_tcp_h2c_data(tvbuff_t *tvb,
 
     nvme_data = tvb_new_subset_remaining(tvb, NVME_TCP_DATA_PDU_SIZE + data_offset);
     dissect_nvme_data_response(nvme_data, pinfo, root_tree, &queue->n_q_ctx,
-            &cmd_ctx->n_cmd_ctx, data_length, FALSE);
+            &cmd_ctx->n_cmd_ctx, data_length, false);
 }
 
 static void
 dissect_nvme_tcp_h2ctermreq(tvbuff_t *tvb, packet_info *pinfo,
-                            proto_tree *tree, guint32 packet_len, int offset)
+                            proto_tree *tree, uint32_t packet_len, int offset)
 {
     proto_item *tf;
     proto_item *h2ctermreq_tree;
-    guint16 fes;
+    uint16_t fes;
 
     col_set_str(pinfo->cinfo, COL_INFO,
                 "Host to Controller Termination Request");
@@ -577,7 +581,7 @@ dissect_nvme_tcp_h2ctermreq(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_tree_add_item(h2ctermreq_tree, hf_nvme_tcp_h2ctermreq_fes,
                         tvb, offset + 8, 2, ENC_LITTLE_ENDIAN);
-    fes = tvb_get_guint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
+    fes = tvb_get_uint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
     switch (fes) {
     case NVME_TCP_FES_INVALID_PDU_HDR:
         proto_tree_add_item(h2ctermreq_tree, hf_nvme_tcp_h2ctermreq_phfo,
@@ -602,11 +606,11 @@ dissect_nvme_tcp_h2ctermreq(tvbuff_t *tvb, packet_info *pinfo,
 
 static void
 dissect_nvme_tcp_c2htermreq(tvbuff_t *tvb, packet_info *pinfo,
-                            proto_tree *tree, guint32 packet_len, int offset)
+                            proto_tree *tree, uint32_t packet_len, int offset)
 {
     proto_item *tf;
     proto_item *c2htermreq_tree;
-    guint16 fes;
+    uint16_t fes;
 
     col_set_str(pinfo->cinfo, COL_INFO,
                 "Controller to Host Termination Request");
@@ -616,7 +620,7 @@ dissect_nvme_tcp_c2htermreq(tvbuff_t *tvb, packet_info *pinfo,
 
     proto_tree_add_item(tree, hf_nvme_tcp_c2htermreq_fes, tvb, offset + 8, 2,
                         ENC_LITTLE_ENDIAN);
-    fes = tvb_get_guint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
+    fes = tvb_get_uint16(tvb, offset + 8, ENC_LITTLE_ENDIAN);
     switch (fes) {
     case NVME_TCP_FES_INVALID_PDU_HDR:
         proto_tree_add_item(c2htermreq_tree, hf_nvme_tcp_c2htermreq_phfo,
@@ -649,10 +653,10 @@ dissect_nvme_tcp_cqe(tvbuff_t *tvb,
                      int offset)
 {
     struct nvme_tcp_cmd_ctx *cmd_ctx;
-    guint16 cmd_id;
-    const gchar *cmd_string;
+    uint16_t cmd_id;
+    const char *cmd_string;
 
-    cmd_id = tvb_get_guint16(tvb, offset + 12, ENC_LITTLE_ENDIAN);
+    cmd_id = tvb_get_uint16(tvb, offset + 12, ENC_LITTLE_ENDIAN);
 
     /* wireshark will dissect packet several times when display is refreshed
      * we need to track state changes only once */
@@ -741,12 +745,12 @@ dissect_nvme_tcp_pdu(tvbuff_t *tvb,
     int offset = 0;
     int nvme_tcp_pdu_offset;
     proto_tree *nvme_tcp_tree;
-    guint packet_type;
-    guint8 hlen, pdo;
-    guint8 pdu_flags;
-    guint32 plen;
-    guint32 incapsuled_data_size;
-    guint32 pdu_data_offset = 0;
+    unsigned packet_type;
+    uint8_t hlen, pdo;
+    uint8_t pdu_flags;
+    uint32_t plen;
+    uint32_t incapsuled_data_size;
+    uint32_t pdu_data_offset = 0;
 
     conversation = find_or_create_conversation(pinfo);
     q_ctx = (struct nvme_tcp_q_ctx *)
@@ -761,30 +765,30 @@ dissect_nvme_tcp_pdu(tvbuff_t *tvb,
         /* Initially set to non-0 so that by default queues are io queues
          * this is required to be able to dissect correctly even
          * if we miss connect command*/
-        q_ctx->n_q_ctx.qid = G_MAXUINT16;
+        q_ctx->n_q_ctx.qid = UINT16_MAX;
         conversation_add_proto_data(conversation, proto_nvme_tcp, q_ctx);
     }
 
     ti = proto_tree_add_item(tree, proto_nvme_tcp, tvb, 0, -1, ENC_NA);
     nvme_tcp_tree = proto_item_add_subtree(ti, ett_nvme_tcp);
 
-    if (q_ctx->n_q_ctx.qid != G_MAXUINT16)
+    if (q_ctx->n_q_ctx.qid != UINT16_MAX)
         nvme_publish_qid(nvme_tcp_tree, hf_nvme_fabrics_cmd_qid,
                 q_ctx->n_q_ctx.qid);
 
-    packet_type = tvb_get_guint8(tvb, offset);
+    packet_type = tvb_get_uint8(tvb, offset);
     proto_tree_add_item(nvme_tcp_tree, hf_nvme_tcp_type, tvb, offset, 1,
             ENC_NA);
 
-    pdu_flags = tvb_get_guint8(tvb, offset + 1);
-    proto_tree_add_bitmask_value(nvme_tcp_tree, tvb, 0, hf_nvme_tcp_flags,
-            ett_nvme_tcp, nvme_tcp_pdu_flags, (guint64)pdu_flags);
+    pdu_flags = tvb_get_uint8(tvb, offset + 1);
+    proto_tree_add_bitmask_value(nvme_tcp_tree, tvb, offset + 1, hf_nvme_tcp_flags,
+            ett_nvme_tcp, nvme_tcp_pdu_flags, (uint64_t)pdu_flags);
 
-    hlen = tvb_get_gint8(tvb, offset + 2);
+    hlen = tvb_get_int8(tvb, offset + 2);
     proto_tree_add_item(nvme_tcp_tree, hf_nvme_tcp_hlen, tvb, offset + 2, 1,
             ENC_NA);
 
-    pdo = tvb_get_gint8(tvb, offset + 3);
+    pdo = tvb_get_int8(tvb, offset + 3);
     proto_tree_add_uint(nvme_tcp_tree, hf_nvme_tcp_pdo, tvb, offset + 3, 1,
             pdo);
     plen = tvb_get_letohl(tvb, offset + 4);
@@ -793,8 +797,8 @@ dissect_nvme_tcp_pdu(tvbuff_t *tvb,
     col_set_str(pinfo->cinfo, COL_PROTOCOL, NVME_FABRICS_TCP);
 
     if (pdu_flags & NVME_TCP_F_HDGST) {
-        guint hdgst_flags = PROTO_CHECKSUM_NO_FLAGS;
-        guint32 crc = 0;
+        unsigned hdgst_flags = PROTO_CHECKSUM_NO_FLAGS;
+        uint32_t crc = 0;
 
         if (nvme_tcp_check_hdgst) {
             hdgst_flags = PROTO_CHECKSUM_VERIFY;
@@ -817,8 +821,8 @@ dissect_nvme_tcp_pdu(tvbuff_t *tvb,
     }
 
     if (pdu_flags & NVME_TCP_F_DDGST) {
-        guint ddgst_flags = PROTO_CHECKSUM_NO_FLAGS;
-        guint32 crc = 0;
+        unsigned ddgst_flags = PROTO_CHECKSUM_NO_FLAGS;
+        uint32_t crc = 0;
 
         /* Check that data has enough space (invalid packet) */
         if (incapsuled_data_size <= NVME_TCP_DIGEST_LENGTH) {
@@ -877,6 +881,7 @@ dissect_nvme_tcp_pdu(tvbuff_t *tvb,
         dissect_nvme_tcp_c2htermreq(tvb, pinfo, tree, plen, offset);
         break;
     default:
+        // TODO: nvme_tcp_kdreq, nvme_tcp_kdresp
         proto_tree_add_item(nvme_tcp_tree, hf_nvme_tcp_unknown_data, tvb,
                 offset, plen, ENC_NA);
         break;
@@ -893,10 +898,70 @@ dissect_nvme_tcp(tvbuff_t *tvb,
 {
     col_clear(pinfo->cinfo, COL_INFO);
     col_set_str(pinfo->cinfo, COL_PROTOCOL, NVME_FABRICS_TCP);
-    tcp_dissect_pdus(tvb, pinfo, tree, TRUE, NVME_TCP_HEADER_SIZE,
+    tcp_dissect_pdus(tvb, pinfo, tree, true, NVME_TCP_HEADER_SIZE,
             get_nvme_tcp_pdu_len, dissect_nvme_tcp_pdu, data);
 
     return tvb_reported_length(tvb);
+}
+
+static bool
+test_nvme(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
+{
+    /* This is not the strongest heuristic, but the port is IANA assigned,
+     * so this is not a normal heuristic dissector but simply to distinguish
+     * between NVMe/TCP and NVMe/TLS/TCP, and also to detect PDU starts.
+     */
+    if (tvb_captured_length_remaining(tvb, offset) < NVME_TCP_HEADER_SIZE) {
+        return false;
+    }
+
+    if (tvb_get_uint8(tvb, offset) > NVMET_MAX_PDU_TYPE) {
+        return false;
+    }
+
+    offset += 2;
+    if (tvb_get_uint8(tvb, offset) < NVME_TCP_HEADER_SIZE) {
+        // Header length - we could strengthen by using the PDU type.
+        return false;
+    }
+
+    // Next byte is PDU Data Offset. Reserved in most types. (Does that
+    // mean zero? That would strengthen the heuristic.)
+
+    offset += 2;
+    if (tvb_get_uint32(tvb, offset, ENC_LITTLE_ENDIAN) < NVME_TCP_HEADER_SIZE) {
+        // PDU Length (inc. header) - could strengthen by using the PDU type.
+        return false;
+    }
+
+    return true;
+}
+
+static int
+dissect_nvme_tcp_heur(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
+{
+    /* NVMe/TCP allows PDUs to span TCP segments (see Figure 5 of the NVMe/TCP
+     * Transport Specification.) Also, some connections are over TLS.
+     * Luckily, the PDU types for NVMe/TCP occupy the first byte, same as
+     * the Content Type for TLS Records, and while these PDU types go to 11,
+     * TLS Content Types start at 20 (and won't change, to enable multiplexing,
+     * see RFC 9443.)
+     *
+     * So if this doesn't look like the start of a NVMe/TCP PDU, reject it.
+     * It might be TLS, or it might be the middle of a PDU.
+     */
+    if (!test_nvme(pinfo, tvb, 0, data)) {
+        return 0;
+        /* The TLS heuristic dissector should catch the TLS version. */
+    }
+
+    /* The start of a PDU. Set the other handle for this connection.
+     * We can call tcp_dissect_pdus safely starting from here.
+     */
+    conversation_t *conversation = find_or_create_conversation(pinfo);
+    conversation_set_dissector_from_frame_number(conversation, pinfo->num, nvmet_tls_handle);
+
+    return dissect_nvme_tcp(tvb, pinfo, tree, data);
 }
 
 void proto_register_nvme_tcp(void) {
@@ -1078,7 +1143,7 @@ void proto_register_nvme_tcp(void) {
              FT_BYTES, BASE_NONE, NULL, 0x0, NULL, HFILL } }
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_nvme_tcp
     };
 
@@ -1088,7 +1153,12 @@ void proto_register_nvme_tcp(void) {
     proto_register_field_array(proto_nvme_tcp, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
 
-    nvmet_tcp_handle = register_dissector("nvme-tcp", dissect_nvme_tcp,
+    /* These names actually work for their purpose. Note if we're already
+     * over TLS we don't need to do heuristics (it can't be more TLS instead
+     * instead, and since we managed to decrypt the TLS we shouldn't have
+     * missing frames and thus aren't in the middle of a PDU.)
+     */
+    nvmet_tcp_handle = register_dissector("nvme-tcp", dissect_nvme_tcp_heur,
             proto_nvme_tcp);
     nvmet_tls_handle = register_dissector_with_description("nvme-tls",
             "NVMe-over-TCP with TLS", dissect_nvme_tcp, proto_nvme_tcp);

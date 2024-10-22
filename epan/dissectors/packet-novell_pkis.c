@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-novell_pkis.c                                                       */
-/* asn2wrs.py -b -u -L -p novell_pkis -c ./novell_pkis.cnf -s ./packet-novell_pkis-template -D . -O ../.. novell_pkis.asn */
+/* asn2wrs.py -b -u -q -L -p novell_pkis -c ./novell_pkis.cnf -s ./packet-novell_pkis-template -D . -O ../.. novell_pkis.asn */
 
 /* packet-novell_pkis.c
  *
@@ -20,6 +20,7 @@
 #include <epan/oids.h>
 #include <epan/conversation.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-per.h"
 #include "packet-ber.h"
@@ -69,22 +70,22 @@ static int hf_novell_pkis_perCertificateLimit;    /* MonetaryValue */
 static int hf_novell_pkis_currency;               /* Currency */
 static int hf_novell_pkis_amount;                 /* INTEGER */
 static int hf_novell_pkis_amtExp10;               /* INTEGER */
-static gint ett_novell_pkis_SecurityAttributes;
-static gint ett_novell_pkis_GLBExtensions;
-static gint ett_novell_pkis_Quality;
-static gint ett_novell_pkis_CompusecQuality;
-static gint ett_novell_pkis_CompusecQualityPair;
-static gint ett_novell_pkis_CryptoQuality;
-static gint ett_novell_pkis_CryptoQualityPair;
-static gint ett_novell_pkis_CertificateClass;
-static gint ett_novell_pkis_EnterpriseId;
-static gint ett_novell_pkis_SEQUENCE_SIZE_1_1_OF_SecurityLabelType1;
-static gint ett_novell_pkis_SecurityLabelType1;
-static gint ett_novell_pkis_Singletons;
-static gint ett_novell_pkis_SingletonChoice;
-static gint ett_novell_pkis_SingletonRange;
-static gint ett_novell_pkis_RelianceLimits;
-static gint ett_novell_pkis_MonetaryValue;
+static int ett_novell_pkis_SecurityAttributes;
+static int ett_novell_pkis_GLBExtensions;
+static int ett_novell_pkis_Quality;
+static int ett_novell_pkis_CompusecQuality;
+static int ett_novell_pkis_CompusecQualityPair;
+static int ett_novell_pkis_CryptoQuality;
+static int ett_novell_pkis_CryptoQualityPair;
+static int ett_novell_pkis_CertificateClass;
+static int ett_novell_pkis_EnterpriseId;
+static int ett_novell_pkis_SEQUENCE_SIZE_1_1_OF_SecurityLabelType1;
+static int ett_novell_pkis_SecurityLabelType1;
+static int ett_novell_pkis_Singletons;
+static int ett_novell_pkis_SingletonChoice;
+static int ett_novell_pkis_SingletonRange;
+static int ett_novell_pkis_RelianceLimits;
+static int ett_novell_pkis_MonetaryValue;
 
 
 static int
@@ -465,15 +466,15 @@ dissect_novell_pkis_RelianceLimits(bool implicit_tag _U_, tvbuff_t *tvb _U_, int
 static int dissect_SecurityAttributes_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_novell_pkis_SecurityAttributes(FALSE, tvb, offset, &asn1_ctx, tree, hf_novell_pkis_SecurityAttributes_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_novell_pkis_SecurityAttributes(false, tvb, offset, &asn1_ctx, tree, hf_novell_pkis_SecurityAttributes_PDU);
   return offset;
 }
 static int dissect_RelianceLimits_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_novell_pkis_RelianceLimits(FALSE, tvb, offset, &asn1_ctx, tree, hf_novell_pkis_RelianceLimits_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_novell_pkis_RelianceLimits(false, tvb, offset, &asn1_ctx, tree, hf_novell_pkis_RelianceLimits_PDU);
   return offset;
 }
 
@@ -674,7 +675,7 @@ void proto_register_novell_pkis (void)
         FT_INT32, BASE_DEC, NULL, 0,
         "INTEGER", HFILL }},
   };
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_novell_pkis_SecurityAttributes,
     &ett_novell_pkis_GLBExtensions,
     &ett_novell_pkis_Quality,

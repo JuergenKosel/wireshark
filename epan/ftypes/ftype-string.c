@@ -8,13 +8,13 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <ftypes-int.h>
 #include <string.h>
 
 #include <strutil.h>
 #include <wsutil/ws_assert.h>
-#include <wsutil/unicode-utils.h>
+#include <wsutil/array.h>
+#include <wsutil/strtoi.h>
 
 
 static void
@@ -49,7 +49,7 @@ string_fvalue_set_strbuf(fvalue_t *fv, wmem_strbuf_t *value)
 static char *
 string_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype _U_, int field_display _U_)
 {
-	if (rtype == FTREPR_DISPLAY || rtype == FTREPR_JSON) {
+	if (rtype == FTREPR_DISPLAY || rtype == FTREPR_JSON || rtype == FTREPR_RAW) {
 		/* XXX: This escapes NUL with "\0", but JSON (neither RFC 8259 nor
 		 * ECMA-404) does not allow that, it must be "\u0000".
 		 */
@@ -196,11 +196,69 @@ cmp_matches(const fvalue_t *fv, const ws_regex_t *regex, bool *matches)
 	return FT_OK;
 }
 
+static bool
+ax25_from_string(fvalue_t *fv, const char *s, size_t len, char **err_msg _U_)
+{
+	/* See section 3.12 "Address-Field Encoding" of the AX.25
+	 * spec and
+	 *
+	 *   http://www.itu.int/ITU-R/terrestrial/docs/fixedmobile/fxm-art19-sec3.pdf
+	 */
+
+	if (len == 0)
+		len = strlen(s);
+
+	const char *end = s + len;
+	const char *hyphen = strchr(s, '-');
+	if (hyphen == NULL) {
+		hyphen = end;
+	}
+
+	if (s == hyphen || (hyphen - s) > 6) {
+		if (err_msg != NULL)
+			*err_msg = ws_strdup_printf("\"%s\" is not a valid AX.25 address, the callsign must be 1-6 alphanumeric ASCII characters.", s);
+		return false;
+	}
+	const char *p;
+	for (p = s; p != hyphen; p++) {
+		if (!g_ascii_isalnum(*p)) {
+			if (err_msg != NULL)
+				*err_msg = ws_strdup_printf("\"%s\" is not a valid AX.25 address, the callsign must be alphanumeric ASCII characters.", s);
+			return false;
+		}
+	}
+	uint8_t ssid = 0;
+	if (hyphen != end) {
+		if (!ws_strtou8(hyphen + 1, NULL, &ssid)) {
+			if (err_msg != NULL)
+				*err_msg = ws_strdup_printf("\"%s\" is not a valid AX.25 SSID (must be a number between 0 and 15).", hyphen + 1);
+			return false;
+		}
+		if (ssid > 15) {
+			if (err_msg != NULL)
+				*err_msg = ws_strdup_printf("%u is too large to be an AX.25 SSID (must be between 0 and 15)", ssid);
+			return false;
+		}
+	}
+
+	/* OK, it looks valid. Allow the user to enter lower-case letters. */
+	char *str = g_ascii_strup(s, len);
+	bool ret = val_from_string(fv, str, len, err_msg);
+	g_free(str);
+	return ret;
+}
+
+static bool
+ax25_from_literal(fvalue_t *fv, const char *s, bool allow_partial_value _U_, char **err_msg)
+{
+	return ax25_from_string(fv, s, 0, err_msg);
+}
+
 void
 ftype_register_string(void)
 {
 
-	static ftype_t string_type = {
+	static const ftype_t string_type = {
 		FT_STRING,			/* ftype */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
@@ -238,7 +296,7 @@ ftype_register_string(void)
 		NULL,				/* divide */
 		NULL,				/* modulo */
 	};
-	static ftype_t stringz_type = {
+	static const ftype_t stringz_type = {
 		FT_STRINGZ,			/* ftype */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
@@ -276,7 +334,7 @@ ftype_register_string(void)
 		NULL,				/* divide */
 		NULL,				/* modulo */
 	};
-	static ftype_t uint_string_type = {
+	static const ftype_t uint_string_type = {
 		FT_UINT_STRING,		/* ftype */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
@@ -314,7 +372,7 @@ ftype_register_string(void)
 		NULL,				/* divide */
 		NULL,				/* modulo */
 	};
-	static ftype_t stringzpad_type = {
+	static const ftype_t stringzpad_type = {
 		FT_STRINGZPAD,			/* ftype */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
@@ -352,7 +410,7 @@ ftype_register_string(void)
 		NULL,				/* divide */
 		NULL,				/* modulo */
 	};
-	static ftype_t stringztrunc_type = {
+	static const ftype_t stringztrunc_type = {
 		FT_STRINGZTRUNC,		/* ftype */
 		0,				/* wire_size */
 		string_fvalue_new,		/* new_value */
@@ -390,12 +448,52 @@ ftype_register_string(void)
 		NULL,				/* divide */
 		NULL,				/* modulo */
 	};
+	static const ftype_t ax25_type = {
+		FT_AX25,			/* ftype */
+		FT_AX25_ADDR_LEN,		/* wire_size */
+		string_fvalue_new,		/* new_value */
+		string_fvalue_copy,		/* copy_value */
+		string_fvalue_free,		/* free_value */
+		ax25_from_literal,		/* val_from_literal */
+		ax25_from_string,		/* val_from_string */
+		NULL,				/* val_from_charconst */
+		NULL,				/* val_from_uinteger64 */
+		NULL,				/* val_from_sinteger64 */
+		NULL,				/* val_from_double */
+		string_to_repr,			/* val_to_string_repr */
+
+		NULL,				/* val_to_uinteger64 */
+		NULL,				/* val_to_sinteger64 */
+		NULL,				/* val_to_double */
+
+		{ .set_value_strbuf = string_fvalue_set_strbuf },	/* union set_value */
+		{ .get_value_strbuf = value_get },	/* union get_value */
+
+		cmp_order,
+		cmp_contains,
+		cmp_matches,
+
+		string_hash,			/* hash */
+		string_is_zero,			/* is_zero */
+		NULL,				/* is_negative */
+		len,
+		(FvalueSlice)slice,
+		NULL,				/* bitwise_and */
+		NULL,				/* unary_minus */
+		NULL,				/* add */
+		NULL,				/* subtract */
+		NULL,				/* multiply */
+		NULL,				/* divide */
+		NULL,				/* modulo */
+	};
+
 
 	ftype_register(FT_STRING, &string_type);
 	ftype_register(FT_STRINGZ, &stringz_type);
 	ftype_register(FT_UINT_STRING, &uint_string_type);
 	ftype_register(FT_STRINGZPAD, &stringzpad_type);
 	ftype_register(FT_STRINGZTRUNC, &stringztrunc_type);
+	ftype_register(FT_AX25, &ax25_type);
 }
 
 void
@@ -406,6 +504,7 @@ ftype_register_pseudofields_string(int proto)
 	static int hf_ft_uint_string;
 	static int hf_ft_stringzpad;
 	static int hf_ft_stringztrunc;
+	static int hf_ft_ax25;
 
 	static hf_register_info hf_ftypes[] = {
 		{ &hf_ft_string,
@@ -433,6 +532,11 @@ ftype_register_pseudofields_string(int proto)
 			FT_STRINGZTRUNC, BASE_NONE, NULL, 0x00,
 			NULL, HFILL }
 		},
+                { &hf_ft_ax25,
+                    { "FT_AX25", "_ws.ftypes.ax25",
+                        FT_AX25, BASE_NONE, NULL, 0x00,
+                        NULL, HFILL }
+                },
 	};
 
 	proto_register_field_array(proto, hf_ftypes, array_length(hf_ftypes));

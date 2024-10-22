@@ -14,8 +14,6 @@
 
 #include <stdio.h>
 
-#include <glib.h>
-
 #include <epan/packet.h>
 
 #include <QAbstractItemModel>
@@ -36,7 +34,8 @@ class PacketListModel : public QAbstractItemModel
 public:
 
     enum {
-        HEADER_CAN_RESOLVE = Qt::UserRole,
+        HEADER_CAN_DISPLAY_STRINGS = Qt::UserRole,
+        HEADER_CAN_DISPLAY_DETAILS,
     };
 
     explicit PacketListModel(QObject *parent = 0, capture_file *cf = NULL);
@@ -46,7 +45,7 @@ public:
                       const QModelIndex & = QModelIndex()) const;
     QModelIndex parent(const QModelIndex &) const;
     int packetNumberToRow(int packet_num) const;
-    guint recreateVisibleRows();
+    unsigned recreateVisibleRows();
     void clear();
 
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -54,9 +53,9 @@ public:
     QVariant data(const QModelIndex &d_index, int role) const;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
-    gint appendPacket(frame_data *fdata);
-    frame_data *getRowFdata(QModelIndex idx);
-    frame_data *getRowFdata(int row);
+    int appendPacket(frame_data *fdata);
+    frame_data *getRowFdata(QModelIndex idx) const;
+    frame_data *getRowFdata(int row) const;
     void ensureRowColorized(int row);
     int visibleIndexOf(frame_data *fdata) const;
     /**
@@ -69,19 +68,20 @@ public:
     void resetColumns();
     void resetColorized();
     void toggleFrameMark(const QModelIndexList &indeces);
-    void setDisplayedFrameMark(gboolean set);
+    void setDisplayedFrameMark(bool set);
     void toggleFrameIgnore(const QModelIndexList &indeces);
-    void setDisplayedFrameIgnore(gboolean set);
+    void setDisplayedFrameIgnore(bool set);
     void toggleFrameRefTime(const QModelIndex &rt_index);
     void unsetAllFrameRefTime();
     void addFrameComment(const QModelIndexList &indices, const QByteArray &comment);
-    void setFrameComment(const QModelIndex &index, const QByteArray &comment, guint c_number);
+    void setFrameComment(const QModelIndex &index, const QByteArray &comment, unsigned c_number);
     void deleteFrameComments(const QModelIndexList &indices);
     void deleteAllFrameComments();
 
     void setMaximumRowHeight(int height);
 
 signals:
+    void packetAppended(capture_file *cap_file, frame_data *fdata, qsizetype row);
     void goToPacket(int);
     void maxLineCountChanged(const QModelIndex &ih_index) const;
     void itemHeightChanged(const QModelIndex &ih_index);
@@ -113,7 +113,7 @@ private:
     static bool recordLessThan(PacketListRecord *r1, PacketListRecord *r2);
     static double parseNumericColumn(const QString &val, bool *ok);
 
-    static gboolean stop_flag_;
+    static bool stop_flag_;
     static ProgressFrame *progress_frame_;
     static double exp_comps_;
     static double comps_;

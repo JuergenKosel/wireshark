@@ -27,12 +27,12 @@ set_source_files_properties(
 	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
-register_codec_files(plugin.c 1
-	"Opus audio"
+register_plugin_files(plugin.c
+	plugin_codec
 	${CODEC_SRC}
 )
 
-add_wireshark_codec_plugin_library(opus_dec)
+add_wireshark_plugin_library(opus_dec codecs)
 
 target_include_directories(opus_dec PRIVATE ${CMAKE_SOURCE_DIR}/codecs)
 

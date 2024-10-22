@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-cms.c                                                               */
-/* asn2wrs.py -b -C -L -p cms -c ./cms.cnf -s ./packet-cms-template -D . -O ../.. CryptographicMessageSyntax.asn AttributeCertificateVersion1.asn CMSFirmwareWrapper.asn */
+/* asn2wrs.py -b -C -q -L -p cms -c ./cms.cnf -s ./packet-cms-template -D . -O ../.. CryptographicMessageSyntax.asn AttributeCertificateVersion1.asn CMSFirmwareWrapper.asn */
 
 /* packet-cms.c
  * Routines for RFC5652 Cryptographic Message Syntax packet dissection
@@ -23,6 +23,7 @@
 #include <epan/asn1.h>
 #include <epan/proto_data.h>
 #include <wsutil/wsgcrypt.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-cms.h"
@@ -228,88 +229,88 @@ static int hf_cms_config_item;                    /* CurrentFWConfig */
 static int hf_cms_msgDigest;                      /* OCTET_STRING */
 
 /* Initialize the subtree pointers */
-static gint ett_cms;
-static gint ett_cms_ContentInfo;
-static gint ett_cms_SignedData;
-static gint ett_cms_DigestAlgorithmIdentifiers;
-static gint ett_cms_SignerInfos;
-static gint ett_cms_EncapsulatedContentInfo;
-static gint ett_cms_SignerInfo;
-static gint ett_cms_SignerIdentifier;
-static gint ett_cms_SignedAttributes;
-static gint ett_cms_UnsignedAttributes;
-static gint ett_cms_Attribute;
-static gint ett_cms_SET_OF_AttributeValue;
-static gint ett_cms_EnvelopedData;
-static gint ett_cms_OriginatorInfo;
-static gint ett_cms_RecipientInfos;
-static gint ett_cms_EncryptedContentInfo;
-static gint ett_cms_UnprotectedAttributes;
-static gint ett_cms_RecipientInfo;
-static gint ett_cms_KeyTransRecipientInfo;
-static gint ett_cms_RecipientIdentifier;
-static gint ett_cms_KeyAgreeRecipientInfo;
-static gint ett_cms_OriginatorIdentifierOrKey;
-static gint ett_cms_OriginatorPublicKey;
-static gint ett_cms_RecipientEncryptedKeys;
-static gint ett_cms_RecipientEncryptedKey;
-static gint ett_cms_KeyAgreeRecipientIdentifier;
-static gint ett_cms_RecipientKeyIdentifier;
-static gint ett_cms_KEKRecipientInfo;
-static gint ett_cms_KEKIdentifier;
-static gint ett_cms_PasswordRecipientInfo;
-static gint ett_cms_OtherRecipientInfo;
-static gint ett_cms_DigestedData;
-static gint ett_cms_EncryptedData;
-static gint ett_cms_AuthenticatedData;
-static gint ett_cms_AuthAttributes;
-static gint ett_cms_UnauthAttributes;
-static gint ett_cms_RevocationInfoChoices;
-static gint ett_cms_RevocationInfoChoice;
-static gint ett_cms_OtherRevocationInfoFormat;
-static gint ett_cms_CertificateChoices;
-static gint ett_cms_CertificateSet;
-static gint ett_cms_IssuerAndSerialNumber;
-static gint ett_cms_OtherKeyAttribute;
-static gint ett_cms_Time;
-static gint ett_cms_RC2CBCParameter;
-static gint ett_cms_ExtendedCertificate;
-static gint ett_cms_ExtendedCertificateInfo;
-static gint ett_cms_DigestInfo;
-static gint ett_cms_SMIMECapabilities;
-static gint ett_cms_SMIMECapability;
-static gint ett_cms_SMIMEEncryptionKeyPreference;
-static gint ett_cms_RC2CBCParameters;
-static gint ett_cms_AuthEnvelopedData;
-static gint ett_cms_CCMParameters;
-static gint ett_cms_GCMParameters;
-static gint ett_cms_AttributeCertificateV1;
-static gint ett_cms_AttributeCertificateInfoV1;
-static gint ett_cms_T_subject;
-static gint ett_cms_SEQUENCE_OF_Attribute;
-static gint ett_cms_FirmwarePackageIdentifier;
-static gint ett_cms_PreferredOrLegacyPackageIdentifier;
-static gint ett_cms_PreferredPackageIdentifier;
-static gint ett_cms_PreferredOrLegacyStalePackageIdentifier;
-static gint ett_cms_TargetHardwareIdentifiers;
-static gint ett_cms_ImplementedCryptoAlgorithms;
-static gint ett_cms_ImplementedCompressAlgorithms;
-static gint ett_cms_CommunityIdentifiers;
-static gint ett_cms_CommunityIdentifier;
-static gint ett_cms_HardwareModules;
-static gint ett_cms_SEQUENCE_OF_HardwareSerialEntry;
-static gint ett_cms_HardwareSerialEntry;
-static gint ett_cms_T_block;
-static gint ett_cms_FirmwarePackageInfo;
-static gint ett_cms_SEQUENCE_OF_PreferredOrLegacyPackageIdentifier;
-static gint ett_cms_FirmwarePackageLoadReceipt;
-static gint ett_cms_FirmwarePackageLoadError;
-static gint ett_cms_SEQUENCE_OF_CurrentFWConfig;
-static gint ett_cms_CurrentFWConfig;
-static gint ett_cms_HardwareModuleName;
-static gint ett_cms_FirmwarePackageMessageDigest;
+static int ett_cms;
+static int ett_cms_ContentInfo;
+static int ett_cms_SignedData;
+static int ett_cms_DigestAlgorithmIdentifiers;
+static int ett_cms_SignerInfos;
+static int ett_cms_EncapsulatedContentInfo;
+static int ett_cms_SignerInfo;
+static int ett_cms_SignerIdentifier;
+static int ett_cms_SignedAttributes;
+static int ett_cms_UnsignedAttributes;
+static int ett_cms_Attribute;
+static int ett_cms_SET_OF_AttributeValue;
+static int ett_cms_EnvelopedData;
+static int ett_cms_OriginatorInfo;
+static int ett_cms_RecipientInfos;
+static int ett_cms_EncryptedContentInfo;
+static int ett_cms_UnprotectedAttributes;
+static int ett_cms_RecipientInfo;
+static int ett_cms_KeyTransRecipientInfo;
+static int ett_cms_RecipientIdentifier;
+static int ett_cms_KeyAgreeRecipientInfo;
+static int ett_cms_OriginatorIdentifierOrKey;
+static int ett_cms_OriginatorPublicKey;
+static int ett_cms_RecipientEncryptedKeys;
+static int ett_cms_RecipientEncryptedKey;
+static int ett_cms_KeyAgreeRecipientIdentifier;
+static int ett_cms_RecipientKeyIdentifier;
+static int ett_cms_KEKRecipientInfo;
+static int ett_cms_KEKIdentifier;
+static int ett_cms_PasswordRecipientInfo;
+static int ett_cms_OtherRecipientInfo;
+static int ett_cms_DigestedData;
+static int ett_cms_EncryptedData;
+static int ett_cms_AuthenticatedData;
+static int ett_cms_AuthAttributes;
+static int ett_cms_UnauthAttributes;
+static int ett_cms_RevocationInfoChoices;
+static int ett_cms_RevocationInfoChoice;
+static int ett_cms_OtherRevocationInfoFormat;
+static int ett_cms_CertificateChoices;
+static int ett_cms_CertificateSet;
+static int ett_cms_IssuerAndSerialNumber;
+static int ett_cms_OtherKeyAttribute;
+static int ett_cms_Time;
+static int ett_cms_RC2CBCParameter;
+static int ett_cms_ExtendedCertificate;
+static int ett_cms_ExtendedCertificateInfo;
+static int ett_cms_DigestInfo;
+static int ett_cms_SMIMECapabilities;
+static int ett_cms_SMIMECapability;
+static int ett_cms_SMIMEEncryptionKeyPreference;
+static int ett_cms_RC2CBCParameters;
+static int ett_cms_AuthEnvelopedData;
+static int ett_cms_CCMParameters;
+static int ett_cms_GCMParameters;
+static int ett_cms_AttributeCertificateV1;
+static int ett_cms_AttributeCertificateInfoV1;
+static int ett_cms_T_subject;
+static int ett_cms_SEQUENCE_OF_Attribute;
+static int ett_cms_FirmwarePackageIdentifier;
+static int ett_cms_PreferredOrLegacyPackageIdentifier;
+static int ett_cms_PreferredPackageIdentifier;
+static int ett_cms_PreferredOrLegacyStalePackageIdentifier;
+static int ett_cms_TargetHardwareIdentifiers;
+static int ett_cms_ImplementedCryptoAlgorithms;
+static int ett_cms_ImplementedCompressAlgorithms;
+static int ett_cms_CommunityIdentifiers;
+static int ett_cms_CommunityIdentifier;
+static int ett_cms_HardwareModules;
+static int ett_cms_SEQUENCE_OF_HardwareSerialEntry;
+static int ett_cms_HardwareSerialEntry;
+static int ett_cms_T_block;
+static int ett_cms_FirmwarePackageInfo;
+static int ett_cms_SEQUENCE_OF_PreferredOrLegacyPackageIdentifier;
+static int ett_cms_FirmwarePackageLoadReceipt;
+static int ett_cms_FirmwarePackageLoadError;
+static int ett_cms_SEQUENCE_OF_CurrentFWConfig;
+static int ett_cms_CurrentFWConfig;
+static int ett_cms_HardwareModuleName;
+static int ett_cms_FirmwarePackageMessageDigest;
 
-static dissector_handle_t cms_handle = NULL;
+static dissector_handle_t cms_handle;
 
 static int dissect_cms_OCTET_STRING(bool implicit_tag _U_, tvbuff_t *tvb, int offset, asn1_ctx_t *actx, proto_tree *tree, int hf_index _U_) ; /* XXX kill a compiler warning until asn2wrs stops generating these silly wrappers */
 
@@ -318,8 +319,8 @@ struct cms_private_data {
   tvbuff_t *content_tvb;
 };
 
-static proto_tree *top_tree=NULL;
-static proto_tree *cap_tree=NULL;
+static proto_tree *top_tree;
+static proto_tree *cap_tree;
 
 #define HASH_SHA1 "1.3.14.3.2.26"
 
@@ -344,7 +345,7 @@ dissect_cms(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 	proto_item *item=NULL;
 	proto_tree *tree=NULL;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	if(parent_tree){
 		item = proto_tree_add_item(parent_tree, proto_cms, tvb, 0, -1, ENC_NA);
@@ -354,7 +355,7 @@ dissect_cms(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* da
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0){
-		offset=dissect_cms_ContentInfo(FALSE, tvb, offset, &asn1_ctx , tree, -1);
+		offset=dissect_cms_ContentInfo(false, tvb, offset, &asn1_ctx , tree, -1);
 	}
 	return tvb_captured_length(tvb);
 }
@@ -505,7 +506,7 @@ static int
 dissect_cms_T_eContent(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   struct cms_private_data *cms_data = cms_get_private_data(actx->pinfo);
   cms_data->content_tvb = NULL;
-  offset = dissect_ber_octet_string(FALSE, actx, tree, tvb, offset, hf_index, &cms_data->content_tvb);
+  offset = dissect_ber_octet_string(false, actx, tree, tvb, offset, hf_index, &cms_data->content_tvb);
 
   if(cms_data->content_tvb) {
     proto_item_set_text(actx->created_item, "eContent (%u bytes)", tvb_reported_length(cms_data->content_tvb));
@@ -1671,7 +1672,7 @@ dissect_cms_KeyWrapAlgorithm(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
 
 static int
 dissect_cms_RC2ParameterVersion(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  guint32 length = 0;
+  uint32_t length = 0;
 
     offset = dissect_ber_integer(implicit_tag, actx, tree, tvb, offset, hf_index,
                                                 &length);
@@ -2423,246 +2424,246 @@ dissect_cms_FirmwarePackageMessageDigest(bool implicit_tag _U_, tvbuff_t *tvb _U
 static int dissect_ContentInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_ContentInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_ContentInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_ContentInfo(false, tvb, offset, &asn1_ctx, tree, hf_cms_ContentInfo_PDU);
   return offset;
 }
 static int dissect_ContentType_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_ContentType(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_ContentType_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_ContentType(false, tvb, offset, &asn1_ctx, tree, hf_cms_ContentType_PDU);
   return offset;
 }
 static int dissect_SignedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_SignedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_SignedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_SignedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_SignedData_PDU);
   return offset;
 }
 static int dissect_EnvelopedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_EnvelopedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_EnvelopedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_EnvelopedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_EnvelopedData_PDU);
   return offset;
 }
 static int dissect_EncryptedContentInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_EncryptedContentInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_EncryptedContentInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_EncryptedContentInfo(false, tvb, offset, &asn1_ctx, tree, hf_cms_EncryptedContentInfo_PDU);
   return offset;
 }
 static int dissect_DigestedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_DigestedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_DigestedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_DigestedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_DigestedData_PDU);
   return offset;
 }
 static int dissect_EncryptedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_EncryptedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_EncryptedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_EncryptedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_EncryptedData_PDU);
   return offset;
 }
 static int dissect_AuthenticatedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_AuthenticatedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_AuthenticatedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_AuthenticatedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_AuthenticatedData_PDU);
   return offset;
 }
 static int dissect_KeyEncryptionAlgorithmIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_KeyEncryptionAlgorithmIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_KeyEncryptionAlgorithmIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_KeyEncryptionAlgorithmIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_cms_KeyEncryptionAlgorithmIdentifier_PDU);
   return offset;
 }
 static int dissect_IssuerAndSerialNumber_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_IssuerAndSerialNumber(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_IssuerAndSerialNumber_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_IssuerAndSerialNumber(false, tvb, offset, &asn1_ctx, tree, hf_cms_IssuerAndSerialNumber_PDU);
   return offset;
 }
 static int dissect_MessageDigest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_MessageDigest(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_MessageDigest_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_MessageDigest(false, tvb, offset, &asn1_ctx, tree, hf_cms_MessageDigest_PDU);
   return offset;
 }
 static int dissect_SigningTime_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_SigningTime(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_SigningTime_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_SigningTime(false, tvb, offset, &asn1_ctx, tree, hf_cms_SigningTime_PDU);
   return offset;
 }
 static int dissect_Countersignature_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_Countersignature(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_Countersignature_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_Countersignature(false, tvb, offset, &asn1_ctx, tree, hf_cms_Countersignature_PDU);
   return offset;
 }
 static int dissect_KeyWrapAlgorithm_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_KeyWrapAlgorithm(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_KeyWrapAlgorithm_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_KeyWrapAlgorithm(false, tvb, offset, &asn1_ctx, tree, hf_cms_KeyWrapAlgorithm_PDU);
   return offset;
 }
 static int dissect_RC2WrapParameter_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_RC2WrapParameter(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_RC2WrapParameter_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_RC2WrapParameter(false, tvb, offset, &asn1_ctx, tree, hf_cms_RC2WrapParameter_PDU);
   return offset;
 }
 static int dissect_IV_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_IV(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_IV_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_IV(false, tvb, offset, &asn1_ctx, tree, hf_cms_IV_PDU);
   return offset;
 }
 static int dissect_SMIMECapabilities_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_SMIMECapabilities(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_SMIMECapabilities_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_SMIMECapabilities(false, tvb, offset, &asn1_ctx, tree, hf_cms_SMIMECapabilities_PDU);
   return offset;
 }
 static int dissect_SMIMEEncryptionKeyPreference_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_SMIMEEncryptionKeyPreference(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_SMIMEEncryptionKeyPreference_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_SMIMEEncryptionKeyPreference(false, tvb, offset, &asn1_ctx, tree, hf_cms_SMIMEEncryptionKeyPreference_PDU);
   return offset;
 }
 static int dissect_RC2CBCParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_RC2CBCParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_RC2CBCParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_RC2CBCParameters(false, tvb, offset, &asn1_ctx, tree, hf_cms_RC2CBCParameters_PDU);
   return offset;
 }
 static int dissect_AuthEnvelopedData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_AuthEnvelopedData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_AuthEnvelopedData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_AuthEnvelopedData(false, tvb, offset, &asn1_ctx, tree, hf_cms_AuthEnvelopedData_PDU);
   return offset;
 }
 static int dissect_CCMParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_CCMParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_CCMParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_CCMParameters(false, tvb, offset, &asn1_ctx, tree, hf_cms_CCMParameters_PDU);
   return offset;
 }
 static int dissect_GCMParameters_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_GCMParameters(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_GCMParameters_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_GCMParameters(false, tvb, offset, &asn1_ctx, tree, hf_cms_GCMParameters_PDU);
   return offset;
 }
 static int dissect_FirmwarePkgData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePkgData(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePkgData_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePkgData(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePkgData_PDU);
   return offset;
 }
 static int dissect_FirmwarePackageIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePackageIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePackageIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageIdentifier_PDU);
   return offset;
 }
 static int dissect_TargetHardwareIdentifiers_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_TargetHardwareIdentifiers(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_TargetHardwareIdentifiers_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_TargetHardwareIdentifiers(false, tvb, offset, &asn1_ctx, tree, hf_cms_TargetHardwareIdentifiers_PDU);
   return offset;
 }
 static int dissect_DecryptKeyIdentifier_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_DecryptKeyIdentifier(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_DecryptKeyIdentifier_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_DecryptKeyIdentifier(false, tvb, offset, &asn1_ctx, tree, hf_cms_DecryptKeyIdentifier_PDU);
   return offset;
 }
 static int dissect_ImplementedCryptoAlgorithms_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_ImplementedCryptoAlgorithms(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_ImplementedCryptoAlgorithms_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_ImplementedCryptoAlgorithms(false, tvb, offset, &asn1_ctx, tree, hf_cms_ImplementedCryptoAlgorithms_PDU);
   return offset;
 }
 static int dissect_ImplementedCompressAlgorithms_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_ImplementedCompressAlgorithms(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_ImplementedCompressAlgorithms_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_ImplementedCompressAlgorithms(false, tvb, offset, &asn1_ctx, tree, hf_cms_ImplementedCompressAlgorithms_PDU);
   return offset;
 }
 static int dissect_CommunityIdentifiers_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_CommunityIdentifiers(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_CommunityIdentifiers_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_CommunityIdentifiers(false, tvb, offset, &asn1_ctx, tree, hf_cms_CommunityIdentifiers_PDU);
   return offset;
 }
 static int dissect_FirmwarePackageInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePackageInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePackageInfo(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageInfo_PDU);
   return offset;
 }
 static int dissect_WrappedFirmwareKey_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_WrappedFirmwareKey(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_WrappedFirmwareKey_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_WrappedFirmwareKey(false, tvb, offset, &asn1_ctx, tree, hf_cms_WrappedFirmwareKey_PDU);
   return offset;
 }
 static int dissect_FirmwarePackageLoadReceipt_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePackageLoadReceipt(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageLoadReceipt_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePackageLoadReceipt(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageLoadReceipt_PDU);
   return offset;
 }
 static int dissect_FirmwarePackageLoadError_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePackageLoadError(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageLoadError_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePackageLoadError(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageLoadError_PDU);
   return offset;
 }
 static int dissect_HardwareModuleName_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_HardwareModuleName(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_HardwareModuleName_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_HardwareModuleName(false, tvb, offset, &asn1_ctx, tree, hf_cms_HardwareModuleName_PDU);
   return offset;
 }
 static int dissect_FirmwarePackageMessageDigest_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_cms_FirmwarePackageMessageDigest(FALSE, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageMessageDigest_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_cms_FirmwarePackageMessageDigest(false, tvb, offset, &asn1_ctx, tree, hf_cms_FirmwarePackageMessageDigest_PDU);
   return offset;
 }
 
@@ -3415,7 +3416,7 @@ void proto_register_cms(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	  &ett_cms,
     &ett_cms_ContentInfo,
     &ett_cms_SignedData,

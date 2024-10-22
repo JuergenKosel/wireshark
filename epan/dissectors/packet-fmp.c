@@ -12,6 +12,7 @@
 
 #include <epan/packet.h>
 #include <epan/prefs.h>
+#include <epan/tfs.h>
 #include "packet-fmp.h"
 #include "packet-rpc.h"
 
@@ -107,14 +108,14 @@ static int hf_fmp_ctime;
 static int hf_fmp_heartbeat_interval;
 static int hf_fmp_volindex;
 
-static gint ett_fmp;
-static gint ett_fmp_timeval;
-static gint ett_fmp_extList;
-static gint ett_fmp_ext;
-static gint ett_fmp_fileHandle;
-static gint ett_capabilities;
-static gint ett_HierVolumeDescription;
-static gint ett_attrs;
+static int ett_fmp;
+static int ett_fmp_timeval;
+static int ett_fmp_extList;
+static int ett_fmp_ext;
+static int ett_fmp_fileHandle;
+static int ett_capabilities;
+static int ett_HierVolumeDescription;
+static int ett_attrs;
 
 static const value_string fmp_encoding_mode_vals[] = {
     {FMP_ASCII, "ASCII"},
@@ -123,7 +124,7 @@ static const value_string fmp_encoding_mode_vals[] = {
     {0,NULL}
 };
 
-static gboolean fmp_fhandle_reqrep_matching = FALSE;
+static bool fmp_fhandle_reqrep_matching;
 
 static int
 dissect_fmp_genString(tvbuff_t *tvb, int offset, proto_tree *tree)
@@ -269,12 +270,12 @@ dissect_fmp_extentState(tvbuff_t *tvb, int offset, proto_tree *tree)
 }
 
 static int
-dissect_fmp_extent(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tree, guint32 ext_num)
+dissect_fmp_extent(tvbuff_t *tvb, int offset, packet_info *pinfo _U_, proto_tree *tree, uint32_t ext_num)
 {
     proto_tree *extTree;
 
     extTree = proto_tree_add_subtree_format(tree, tvb, offset, 20 ,
-                                  ett_fmp_ext, NULL, "Extent (%u)", (guint32) ext_num);
+                                  ett_fmp_ext, NULL, "Extent (%u)", (uint32_t) ext_num);
 
     offset = dissect_rpc_uint32(tvb,  extTree, hf_fmp_firstLogBlk,
                                 offset);
@@ -292,10 +293,10 @@ static int
 dissect_fmp_extentList(tvbuff_t *tvb, int offset, packet_info *pinfo,
                        proto_tree *tree)
 {
-    guint32     numExtents;
-    guint32     totalLength;
+    uint32_t    numExtents;
+    uint32_t    totalLength;
     proto_tree *extListTree;
-    guint32     i;
+    uint32_t    i;
 
     numExtents = tvb_get_ntohl(tvb, offset);
     totalLength = 4 + (20 * numExtents);
@@ -318,9 +319,9 @@ static int
 dissect_fmp_extentListEx(tvbuff_t *tvb, int offset, packet_info *pinfo _U_,
                          proto_tree *tree)
 {
-    guint32     numExtents;
+    uint32_t    numExtents;
     proto_tree *extListTree;
-    guint32     i;
+    uint32_t    i;
 
     numExtents = tvb_get_ntohl(tvb, offset);
 
@@ -362,9 +363,9 @@ dissect_plugInID(tvbuff_t *tvb, int offset, proto_tree *tree)
 static int
 dissect_fmp_flushCmd(tvbuff_t *tvb, int offset,  proto_tree *tree)
 {
-    guint32 cmd;
+    uint32_t cmd;
     char    msg[MAX_MSG_SIZE];
-    guint32 bitValue;
+    uint32_t bitValue;
     int     i;
 
     if (tree) {
@@ -477,7 +478,7 @@ dissect_fmp_timeval(tvbuff_t *tvb, int offset, packet_info *pinfo _U_,
         time_tree = proto_item_add_subtree(time_item, ett_fmp_timeval);
 
         proto_tree_add_uint(time_tree, hf_time_sec, tvb, offset, 4,
-                            (guint32) ts.secs);
+                            (uint32_t) ts.secs);
         proto_tree_add_uint(time_tree, hf_time_nsec, tvb, offset+4, 4,
                             ts.nsecs);
     }
@@ -677,7 +678,7 @@ dissect_fmp_Hiervolume(tvbuff_t *tvb, int offset, proto_tree * tree)
     offset = dissect_rpc_uint32(tvb, tree, hf_fmp_cookie, offset);
 
     /* hierarchical description of volume.  Each volume describes a
-       piece of the entire hierarchy and is guarenteed to only refer to
+       piece of the entire hierarchy and is guaranteed to only refer to
        volumes that have already been described by the data structure up
        to this point in time.  In some extreme cases, the number of
        volumes and their descriptions may be to large to fit in a single
@@ -713,7 +714,7 @@ dissect_fmp_vmInfo(tvbuff_t *tvb, int offset, packet_info *pinfo,
                    proto_tree *tree)
 {
     int     vmType;
-    guint32 phyVolList_len;
+    uint32_t phyVolList_len;
 
     vmType = tvb_get_ntohl(tvb, offset);
     proto_tree_add_item(tree, hf_fmp_volume_mgmt_type, tvb, offset, 4, ENC_BIG_ENDIAN);
@@ -2258,7 +2259,7 @@ proto_register_fmp(void)
       { &hf_fmp_volindex, { "volIndex", "fmp.volindex", FT_UINT32, BASE_HEX, NULL, 0x0, NULL, HFILL }},
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_fmp,
         &ett_fmp_timeval,
         &ett_fmp_extList,

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-pkcs12.c                                                            */
-/* asn2wrs.py -b -L -p pkcs12 -c ./pkcs12.cnf -s ./packet-pkcs12-template -D . -O ../.. pkcs12.asn */
+/* asn2wrs.py -b -q -L -p pkcs12 -c ./pkcs12.cnf -s ./packet-pkcs12-template -D . -O ../.. pkcs12.asn */
 
 /* packet-pkcs12.c
  * Routines for PKCS#12: Personal Information Exchange packet dissection
@@ -25,6 +25,7 @@
 #include <epan/oids.h>
 #include <epan/asn1.h>
 #include <epan/prefs.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-pkcs12.h"
@@ -50,16 +51,16 @@ static int proto_pkcs12;
 
 static int hf_pkcs12_X509Certificate_PDU;
 static int hf_pkcs12_AuthenticatedSafe_PDU;  /* AuthenticatedSafe */
-static gint ett_decrypted_pbe;
+static int ett_decrypted_pbe;
 
 static expert_field ei_pkcs12_octet_string_expected;
 
 
-static const char *object_identifier_id = NULL;
-static int iteration_count = 0;
-static tvbuff_t *salt = NULL;
-static const char *password = NULL;
-static gboolean try_null_password = FALSE;
+static const char *object_identifier_id;
+static int iteration_count;
+static tvbuff_t *salt;
+static const char *password;
+static bool try_null_password;
 
 static int dissect_AuthenticatedSafe_OCTETSTRING_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
 static int dissect_SafeContents_OCTETSTRING_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
@@ -118,25 +119,25 @@ static int hf_pkcs12_encryptionScheme;            /* AlgorithmIdentifier */
 static int hf_pkcs12_messageAuthScheme;           /* AlgorithmIdentifier */
 
 /* Initialize the subtree pointers */
-static gint ett_pkcs12_PFX;
-static gint ett_pkcs12_MacData;
-static gint ett_pkcs12_AuthenticatedSafe;
-static gint ett_pkcs12_SafeContents;
-static gint ett_pkcs12_SafeBag;
-static gint ett_pkcs12_SET_OF_PKCS12Attribute;
-static gint ett_pkcs12_CertBag;
-static gint ett_pkcs12_CRLBag;
-static gint ett_pkcs12_SecretBag;
-static gint ett_pkcs12_PKCS12Attribute;
-static gint ett_pkcs12_T_attrValues;
-static gint ett_pkcs12_PrivateKeyInfo;
-static gint ett_pkcs12_Attributes;
-static gint ett_pkcs12_EncryptedPrivateKeyInfo;
-static gint ett_pkcs12_PBEParameter;
-static gint ett_pkcs12_PBKDF2Params;
-static gint ett_pkcs12_T_saltChoice;
-static gint ett_pkcs12_PBES2Params;
-static gint ett_pkcs12_PBMAC1Params;
+static int ett_pkcs12_PFX;
+static int ett_pkcs12_MacData;
+static int ett_pkcs12_AuthenticatedSafe;
+static int ett_pkcs12_SafeContents;
+static int ett_pkcs12_SafeBag;
+static int ett_pkcs12_SET_OF_PKCS12Attribute;
+static int ett_pkcs12_CertBag;
+static int ett_pkcs12_CRLBag;
+static int ett_pkcs12_SecretBag;
+static int ett_pkcs12_PKCS12Attribute;
+static int ett_pkcs12_T_attrValues;
+static int ett_pkcs12_PrivateKeyInfo;
+static int ett_pkcs12_Attributes;
+static int ett_pkcs12_EncryptedPrivateKeyInfo;
+static int ett_pkcs12_PBEParameter;
+static int ett_pkcs12_PBKDF2Params;
+static int ett_pkcs12_T_saltChoice;
+static int ett_pkcs12_PBES2Params;
+static int ett_pkcs12_PBMAC1Params;
 
 static void append_oid(wmem_allocator_t *pool, proto_tree *tree, const char *oid)
 {
@@ -174,7 +175,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
 
   if (pwlen > 63 / 2)
     {
-      return FALSE;
+      return false;
     }
 
   /* Store salt and password in BUF_I */
@@ -198,7 +199,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
       err = gcry_md_open(&md, GCRY_MD_SHA1, 0);
       if (gcry_err_code(err))
         {
-          return FALSE;
+          return false;
         }
       for (i = 0; i < 64; i++)
         {
@@ -222,7 +223,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
       if (cur_keylen == req_keylen)
       {
         gcry_mpi_release (num_b1);
-        return TRUE;		/* ready */
+        return true;		/* ready */
       }
 
       /* need more bytes. */
@@ -235,7 +236,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
 
       if (rc != 0)
         {
-          return FALSE;
+          return false;
         }
 
       gcry_mpi_add_ui (num_b1, num_b1, 1);
@@ -249,7 +250,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
 
           if (rc != 0)
             {
-              return FALSE;
+              return false;
             }
 
           gcry_mpi_add (num_ij, num_ij, num_b1);
@@ -260,7 +261,7 @@ generate_key_or_iv(packet_info *pinfo, unsigned int id, tvbuff_t *salt_tvb, unsi
           rc = gcry_mpi_print (GCRYMPI_FMT_USG, buf_i + i, n, &n, num_ij);
           if (rc != 0)
             {
-              return FALSE;
+              return false;
             }
 
           gcry_mpi_release (num_ij);
@@ -288,15 +289,15 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 	char		*iv = NULL;
 	char		*clear_data = NULL;
 	tvbuff_t	*clear_tvb = NULL;
-	const gchar     *oidname;
+	const char      *oidname;
 	GString		*name;
 	proto_tree	*tree;
 	char		byte;
-	gboolean	decrypt_ok = TRUE;
+	bool	decrypt_ok = true;
 
-	if(((password == NULL) || (*password == '\0')) && (try_null_password == FALSE)) {
+	if(((password == NULL) || (*password == '\0')) && (try_null_password == false)) {
 		/* we are not configured to decrypt */
-		return FALSE;
+		return false;
 	}
 
 	encryption_algorithm = x509af_get_last_algorithm_id();
@@ -321,44 +322,44 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 		/* we don't know how to decrypt this */
 
 		proto_item_append_text(item, " [Unsupported encryption algorithm]");
-		return FALSE;
+		return false;
 	}
 
 	if((iteration_count == 0) || (salt == NULL)) {
 		proto_item_append_text(item, " [Insufficient parameters]");
-		return FALSE;
+		return false;
 	}
 
 	/* allocate buffers */
 	key = (char *)wmem_alloc(pinfo->pool, keylen);
 
 	if(!generate_key_or_iv(pinfo, 1 /*LEY */, salt, iteration_count, password, keylen, key))
-		return FALSE;
+		return false;
 
 	if(ivlen) {
 
 		iv = (char *)wmem_alloc(pinfo->pool, ivlen);
 
 		if(!generate_key_or_iv(pinfo, 2 /* IV */, salt, iteration_count, password, ivlen, iv))
-			return FALSE;
+			return false;
 	}
 
 	/* now try an internal function */
 	err = gcry_cipher_open(&cipher, algo, mode, 0);
 	if (gcry_err_code (err))
-			return FALSE;
+			return false;
 
 	err = gcry_cipher_setkey (cipher, key, keylen);
 	if (gcry_err_code (err)) {
 			gcry_cipher_close (cipher);
-			return FALSE;
+			return false;
 	}
 
 	if(ivlen) {
 		  err = gcry_cipher_setiv (cipher, iv, ivlen);
 		  if (gcry_err_code (err)) {
 			  gcry_cipher_close (cipher);
-			  return FALSE;
+			  return false;
 		  }
 	}
 
@@ -371,7 +372,7 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 		proto_item_append_text(item, " [Failed to decrypt with password preference]");
 
 		gcry_cipher_close (cipher);
-		return FALSE;
+		return false;
 	}
 
 	gcry_cipher_close (cipher);
@@ -388,7 +389,7 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 
 		for(i = (int)byte; i > 0 ; i--) {
 			if(clear_data[datalen - i] != byte) {
-				decrypt_ok = FALSE;
+				decrypt_ok = false;
 				break;
 			}
 		}
@@ -399,13 +400,13 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 	/* we assume the result is ASN.1 - check it is a SET or SEQUENCE */
 	byte = clear_data[0];
 	if((byte != 0x30) && (byte != 0x31)) { /* do we need more here? OCTET STRING? */
-		decrypt_ok = FALSE;
+		decrypt_ok = false;
 	}
 
 	if(!decrypt_ok) {
 		proto_item_append_text(item, " [Failed to decrypt with supplied password]");
 
-		return FALSE;
+		return false;
 	}
 
 	proto_item_append_text(item, " [Decrypted successfully]");
@@ -414,7 +415,7 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 
 	/* OK - so now clear_data contains the decrypted data */
 
-	clear_tvb = tvb_new_child_real_data(encrypted_tvb,(const guint8 *)clear_data, datalen, datalen);
+	clear_tvb = tvb_new_child_real_data(encrypted_tvb,(const uint8_t *)clear_data, datalen, datalen);
 
 	name = g_string_new("");
 	oidname = oid_resolved_from_string(pinfo->pool, object_identifier_id_param);
@@ -428,7 +429,7 @@ int PBE_decrypt_data(const char *object_identifier_id_param _U_, tvbuff_t *encry
 	/* now try and decode it */
 	call_ber_oid_callback(object_identifier_id_param, clear_tvb, 0, actx->pinfo, tree, NULL);
 
-	return TRUE;
+	return true;
 }
 
 
@@ -968,102 +969,102 @@ dissect_pkcs12_PBMAC1Params(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int dissect_PFX_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PFX(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PFX_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PFX(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PFX_PDU);
   return offset;
 }
 static int dissect_SafeContents_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_SafeContents(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SafeContents_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_SafeContents(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SafeContents_PDU);
   return offset;
 }
 static int dissect_KeyBag_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_KeyBag(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_KeyBag_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_KeyBag(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_KeyBag_PDU);
   return offset;
 }
 static int dissect_PKCS8ShroudedKeyBag_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PKCS8ShroudedKeyBag(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PKCS8ShroudedKeyBag_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PKCS8ShroudedKeyBag(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PKCS8ShroudedKeyBag_PDU);
   return offset;
 }
 static int dissect_CertBag_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_CertBag(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_CertBag_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_CertBag(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_CertBag_PDU);
   return offset;
 }
 static int dissect_CRLBag_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_CRLBag(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_CRLBag_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_CRLBag(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_CRLBag_PDU);
   return offset;
 }
 static int dissect_SecretBag_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_SecretBag(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SecretBag_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_SecretBag(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SecretBag_PDU);
   return offset;
 }
 static int dissect_PrivateKeyInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PrivateKeyInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PrivateKeyInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PrivateKeyInfo(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PrivateKeyInfo_PDU);
   return offset;
 }
 static int dissect_EncryptedPrivateKeyInfo_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_EncryptedPrivateKeyInfo(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_EncryptedPrivateKeyInfo_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_EncryptedPrivateKeyInfo(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_EncryptedPrivateKeyInfo_PDU);
   return offset;
 }
 static int dissect_PBEParameter_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PBEParameter(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBEParameter_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PBEParameter(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBEParameter_PDU);
   return offset;
 }
 static int dissect_PBKDF2Params_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PBKDF2Params(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBKDF2Params_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PBKDF2Params(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBKDF2Params_PDU);
   return offset;
 }
 static int dissect_PBES2Params_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PBES2Params(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBES2Params_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PBES2Params(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBES2Params_PDU);
   return offset;
 }
 static int dissect_PBMAC1Params_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_pkcs12_PBMAC1Params(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBMAC1Params_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_pkcs12_PBMAC1Params(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_PBMAC1Params_PDU);
   return offset;
 }
 
 
 static int strip_octet_string(tvbuff_t *tvb)
 {
-  gint8 ber_class;
+  int8_t ber_class;
   bool pc, ind;
-  gint32 tag;
-  guint32 len;
+  int32_t tag;
+  uint32_t len;
   int offset = 0;
 
   /* PKCS#7 encodes the content as OCTET STRING, whereas CMS is just any ANY */
@@ -1083,10 +1084,10 @@ static int strip_octet_string(tvbuff_t *tvb)
 static int dissect_AuthenticatedSafe_OCTETSTRING_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
   if((offset = strip_octet_string(tvb)) > 0)
-    dissect_pkcs12_AuthenticatedSafe(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_AuthenticatedSafe_PDU);
+    dissect_pkcs12_AuthenticatedSafe(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_AuthenticatedSafe_PDU);
   else
     proto_tree_add_expert(tree, pinfo, &ei_pkcs12_octet_string_expected, tvb, 0, 1);
   return tvb_captured_length(tvb);
@@ -1096,11 +1097,11 @@ static int dissect_SafeContents_OCTETSTRING_PDU(tvbuff_t *tvb, packet_info *pinf
 {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
   offset = strip_octet_string(tvb);
 
-  dissect_pkcs12_SafeContents(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SafeContents_PDU);
+  dissect_pkcs12_SafeContents(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_SafeContents_PDU);
   return tvb_captured_length(tvb);
 }
 
@@ -1108,10 +1109,10 @@ static int dissect_X509Certificate_OCTETSTRING_PDU(tvbuff_t *tvb, packet_info *p
 {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
   if((offset = strip_octet_string(tvb)) > 0)
-	dissect_x509af_Certificate(FALSE, tvb, offset, &asn1_ctx, tree, hf_pkcs12_X509Certificate_PDU);
+	dissect_x509af_Certificate(false, tvb, offset, &asn1_ctx, tree, hf_pkcs12_X509Certificate_PDU);
   else
 	proto_tree_add_expert(tree, pinfo, &ei_pkcs12_octet_string_expected, tvb, 0, 1);
 
@@ -1339,7 +1340,7 @@ void proto_register_pkcs12(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 	  &ett_decrypted_pbe,
     &ett_pkcs12_PFX,
     &ett_pkcs12_MacData,

@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-x509if.c                                                            */
-/* asn2wrs.py -b -L -p x509if -c ./x509if.cnf -s ./packet-x509if-template -D . -O ../.. InformationFramework.asn ServiceAdministration.asn */
+/* asn2wrs.py -b -q -L -p x509if -c ./x509if.cnf -s ./packet-x509if-template -D . -O ../.. InformationFramework.asn ServiceAdministration.asn */
 
 /* packet-x509if.c
  * Routines for X.509 Information Framework packet dissection
@@ -19,7 +19,9 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <epan/proto_data.h>
 #include <epan/strutil.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-dap.h"
@@ -195,95 +197,95 @@ static int hf_x509if_AllowedSubset_oneLevel;
 static int hf_x509if_AllowedSubset_wholeSubtree;
 
 /* Initialize the subtree pointers */
-static gint ett_x509if_Attribute;
-static gint ett_x509if_T_values;
-static gint ett_x509if_T_valuesWithContext;
-static gint ett_x509if_T_valuesWithContext_item;
-static gint ett_x509if_SET_SIZE_1_MAX_OF_Context;
-static gint ett_x509if_Context;
-static gint ett_x509if_T_contextValues;
-static gint ett_x509if_AttributeValueAssertion;
-static gint ett_x509if_T_assertedContexts;
-static gint ett_x509if_SET_SIZE_1_MAX_OF_ContextAssertion;
-static gint ett_x509if_ContextAssertion;
-static gint ett_x509if_T_ca_contextValues;
-static gint ett_x509if_AttributeTypeAssertion;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextAssertion;
-static gint ett_x509if_Name;
-static gint ett_x509if_RDNSequence;
-static gint ett_x509if_RelativeDistinguishedName;
-static gint ett_x509if_AttributeTypeAndDistinguishedValue;
-static gint ett_x509if_T_valWithContext;
-static gint ett_x509if_T_valWithContext_item;
-static gint ett_x509if_SubtreeSpecification;
-static gint ett_x509if_ChopSpecification;
-static gint ett_x509if_T_chopSpecificExclusions;
-static gint ett_x509if_T_chopSpecificExclusions_item;
-static gint ett_x509if_Refinement;
-static gint ett_x509if_SET_OF_Refinement;
-static gint ett_x509if_DITStructureRule;
-static gint ett_x509if_SET_SIZE_1_MAX_OF_RuleIdentifier;
-static gint ett_x509if_DITContentRule;
-static gint ett_x509if_T_auxiliaries;
-static gint ett_x509if_T_mandatory;
-static gint ett_x509if_T_optional;
-static gint ett_x509if_T_precluded;
-static gint ett_x509if_DITContextUse;
-static gint ett_x509if_T_mandatoryContexts;
-static gint ett_x509if_T_optionalContexts;
-static gint ett_x509if_SearchRuleDescription;
-static gint ett_x509if_SearchRule;
-static gint ett_x509if_SearchRuleId;
-static gint ett_x509if_AllowedSubset;
-static gint ett_x509if_RequestAttribute;
-static gint ett_x509if_T_ra_selectedValues;
-static gint ett_x509if_T_defaultValues;
-static gint ett_x509if_T_defaultValues_item;
-static gint ett_x509if_T_ra_values;
-static gint ett_x509if_SEQUENCE_SIZE_0_MAX_OF_ContextProfile;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MatchingUse;
-static gint ett_x509if_ContextProfile;
-static gint ett_x509if_T_contextValue;
-static gint ett_x509if_ContextCombination;
-static gint ett_x509if_SEQUENCE_OF_ContextCombination;
-static gint ett_x509if_MatchingUse;
-static gint ett_x509if_AttributeCombination;
-static gint ett_x509if_SEQUENCE_OF_AttributeCombination;
-static gint ett_x509if_ResultAttribute;
-static gint ett_x509if_T_outputValues;
-static gint ett_x509if_T_selectedValues;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextProfile;
-static gint ett_x509if_ControlOptions;
-static gint ett_x509if_EntryLimit;
-static gint ett_x509if_RelaxationPolicy;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRMapping;
-static gint ett_x509if_MRMapping;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_Mapping;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRSubstitution;
-static gint ett_x509if_Mapping;
-static gint ett_x509if_MRSubstitution;
-static gint ett_x509if_T_specificExclusions;
-static gint ett_x509if_T_specificExclusions_item;
-static gint ett_x509if_SEQUENCE_SIZE_0_MAX_OF_RequestAttribute;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ResultAttribute;
-static gint ett_x509if_SEQUENCE_SIZE_1_MAX_OF_AttributeType;
-static gint ett_x509if_SET_SIZE_1_MAX_OF_DirectoryString;
+static int ett_x509if_Attribute;
+static int ett_x509if_T_values;
+static int ett_x509if_T_valuesWithContext;
+static int ett_x509if_T_valuesWithContext_item;
+static int ett_x509if_SET_SIZE_1_MAX_OF_Context;
+static int ett_x509if_Context;
+static int ett_x509if_T_contextValues;
+static int ett_x509if_AttributeValueAssertion;
+static int ett_x509if_T_assertedContexts;
+static int ett_x509if_SET_SIZE_1_MAX_OF_ContextAssertion;
+static int ett_x509if_ContextAssertion;
+static int ett_x509if_T_ca_contextValues;
+static int ett_x509if_AttributeTypeAssertion;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextAssertion;
+static int ett_x509if_Name;
+static int ett_x509if_RDNSequence;
+static int ett_x509if_RelativeDistinguishedName;
+static int ett_x509if_AttributeTypeAndDistinguishedValue;
+static int ett_x509if_T_valWithContext;
+static int ett_x509if_T_valWithContext_item;
+static int ett_x509if_SubtreeSpecification;
+static int ett_x509if_ChopSpecification;
+static int ett_x509if_T_chopSpecificExclusions;
+static int ett_x509if_T_chopSpecificExclusions_item;
+static int ett_x509if_Refinement;
+static int ett_x509if_SET_OF_Refinement;
+static int ett_x509if_DITStructureRule;
+static int ett_x509if_SET_SIZE_1_MAX_OF_RuleIdentifier;
+static int ett_x509if_DITContentRule;
+static int ett_x509if_T_auxiliaries;
+static int ett_x509if_T_mandatory;
+static int ett_x509if_T_optional;
+static int ett_x509if_T_precluded;
+static int ett_x509if_DITContextUse;
+static int ett_x509if_T_mandatoryContexts;
+static int ett_x509if_T_optionalContexts;
+static int ett_x509if_SearchRuleDescription;
+static int ett_x509if_SearchRule;
+static int ett_x509if_SearchRuleId;
+static int ett_x509if_AllowedSubset;
+static int ett_x509if_RequestAttribute;
+static int ett_x509if_T_ra_selectedValues;
+static int ett_x509if_T_defaultValues;
+static int ett_x509if_T_defaultValues_item;
+static int ett_x509if_T_ra_values;
+static int ett_x509if_SEQUENCE_SIZE_0_MAX_OF_ContextProfile;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MatchingUse;
+static int ett_x509if_ContextProfile;
+static int ett_x509if_T_contextValue;
+static int ett_x509if_ContextCombination;
+static int ett_x509if_SEQUENCE_OF_ContextCombination;
+static int ett_x509if_MatchingUse;
+static int ett_x509if_AttributeCombination;
+static int ett_x509if_SEQUENCE_OF_AttributeCombination;
+static int ett_x509if_ResultAttribute;
+static int ett_x509if_T_outputValues;
+static int ett_x509if_T_selectedValues;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ContextProfile;
+static int ett_x509if_ControlOptions;
+static int ett_x509if_EntryLimit;
+static int ett_x509if_RelaxationPolicy;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRMapping;
+static int ett_x509if_MRMapping;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_Mapping;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_MRSubstitution;
+static int ett_x509if_Mapping;
+static int ett_x509if_MRSubstitution;
+static int ett_x509if_T_specificExclusions;
+static int ett_x509if_T_specificExclusions_item;
+static int ett_x509if_SEQUENCE_SIZE_0_MAX_OF_RequestAttribute;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_ResultAttribute;
+static int ett_x509if_SEQUENCE_SIZE_1_MAX_OF_AttributeType;
+static int ett_x509if_SET_SIZE_1_MAX_OF_DirectoryString;
 
-static proto_tree *top_of_dn = NULL;
-static proto_tree *top_of_rdn = NULL;
+static proto_tree *top_of_dn;
+static proto_tree *top_of_rdn;
 
-static gboolean rdn_one_value = FALSE; /* have we seen one value in an RDN yet */
-static gboolean dn_one_rdn = FALSE; /* have we seen one RDN in a DN yet */
-static gboolean doing_attr = FALSE;
+static bool rdn_one_value; /* have we seen one value in an RDN yet */
+static bool dn_one_rdn; /* have we seen one RDN in a DN yet */
+static bool doing_attr;
 
-static wmem_strbuf_t *last_dn_buf = NULL;
-static wmem_strbuf_t *last_rdn_buf = NULL;
+static wmem_strbuf_t *last_dn_buf;
+static wmem_strbuf_t *last_rdn_buf;
 
 static int ava_hf_index;
 #define MAX_FMT_VALS   32
 static value_string fmt_vals[MAX_FMT_VALS];
 #define MAX_AVA_STR_LEN   64
-static char *last_ava = NULL;
+static char *last_ava;
 
 static void
 x509if_frame_end(void)
@@ -291,9 +293,9 @@ x509if_frame_end(void)
   top_of_dn = NULL;
   top_of_rdn = NULL;
 
-  rdn_one_value = FALSE;
-  dn_one_rdn = FALSE;
-  doing_attr = FALSE;
+  rdn_one_value = false;
+  dn_one_rdn = false;
+  doing_attr = false;
 
   last_dn_buf = NULL;
   last_rdn_buf = NULL;
@@ -465,7 +467,7 @@ static const ber_sequence_t Attribute_sequence[] = {
 
 int
 dissect_x509if_Attribute(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-	doing_attr = TRUE;
+	doing_attr = true;
 	register_frame_end_routine (actx->pinfo, x509if_frame_end);
 
 	  offset = dissect_ber_sequence(implicit_tag, actx, tree, tvb, offset,
@@ -726,7 +728,7 @@ dissect_x509if_T_atadv_value(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offse
   actx->external.direct_reference = orig_oid;
 
   /* try and dissect as a string */
-  dissect_ber_octet_string(FALSE, actx, NULL, tvb, old_offset, hf_x509if_any_string, &out_tvb);
+  dissect_ber_octet_string(false, actx, NULL, tvb, old_offset, hf_x509if_any_string, &out_tvb);
 
   /* should also try and dissect as an OID and integer */
   /* of course, if I can look up the syntax .... */
@@ -834,7 +836,7 @@ dissect_x509if_RelativeDistinguishedName_item(bool implicit_tag _U_, tvbuff_t *t
     offset = dissect_x509if_AttributeTypeAndDistinguishedValue(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 
-  rdn_one_value = TRUE;
+  rdn_one_value = true;
 
 
   return offset;
@@ -847,7 +849,7 @@ static const ber_sequence_t RelativeDistinguishedName_set_of[1] = {
 
 int
 dissect_x509if_RelativeDistinguishedName(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
-  rdn_one_value = FALSE;
+  rdn_one_value = false;
   top_of_rdn = tree;
   last_rdn_buf = wmem_strbuf_new(actx->pinfo->pool, "");
   register_frame_end_routine (actx->pinfo, x509if_frame_end);
@@ -892,7 +894,7 @@ dissect_x509if_RDNSequence_item(bool implicit_tag _U_, tvbuff_t *tvb _U_, int of
     offset = dissect_x509if_RelativeDistinguishedName(implicit_tag, tvb, offset, actx, tree, hf_index);
 
 
-  dn_one_rdn = TRUE;
+  dn_one_rdn = true;
 
 
   return offset;
@@ -907,7 +909,7 @@ int
 dissect_x509if_RDNSequence(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   const char *fmt;
 
-  dn_one_rdn = FALSE; /* reset */
+  dn_one_rdn = false; /* reset */
   last_dn_buf = wmem_strbuf_new(actx->pinfo->pool, "");
   top_of_dn = NULL;
   register_frame_end_routine (actx->pinfo, x509if_frame_end);
@@ -1046,10 +1048,15 @@ static const ber_choice_t Refinement_choice[] = {
 
 int
 dissect_x509if_Refinement(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // Refinement -> Refinement/and -> Refinement
+  actx->pinfo->dissection_depth += 2;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  Refinement_choice, hf_index, ett_x509if_Refinement,
                                  NULL);
 
+  actx->pinfo->dissection_depth -= 2;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1485,10 +1492,15 @@ static const ber_choice_t ContextCombination_choice[] = {
 
 int
 dissect_x509if_ContextCombination(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // ContextCombination -> ContextCombination/and -> ContextCombination
+  actx->pinfo->dissection_depth += 2;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  ContextCombination_choice, hf_index, ett_x509if_ContextCombination,
                                  NULL);
 
+  actx->pinfo->dissection_depth -= 2;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -1604,10 +1616,15 @@ static const ber_choice_t AttributeCombination_choice[] = {
 
 int
 dissect_x509if_AttributeCombination(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+  // AttributeCombination -> AttributeCombination/and -> AttributeCombination
+  actx->pinfo->dissection_depth += 2;
+  increment_dissection_depth(actx->pinfo);
   offset = dissect_ber_choice(actx, tree, tvb, offset,
                                  AttributeCombination_choice, hf_index, ett_x509if_AttributeCombination,
                                  NULL);
 
+  actx->pinfo->dissection_depth -= 2;
+  decrement_dissection_depth(actx->pinfo);
   return offset;
 }
 
@@ -2002,29 +2019,29 @@ dissect_x509if_SearchRuleId(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset
 static int dissect_DistinguishedName_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509if_DistinguishedName(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509if_DistinguishedName_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509if_DistinguishedName(false, tvb, offset, &asn1_ctx, tree, hf_x509if_DistinguishedName_PDU);
   return offset;
 }
 static int dissect_SubtreeSpecification_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509if_SubtreeSpecification(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509if_SubtreeSpecification_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509if_SubtreeSpecification(false, tvb, offset, &asn1_ctx, tree, hf_x509if_SubtreeSpecification_PDU);
   return offset;
 }
 static int dissect_HierarchyLevel_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509if_HierarchyLevel(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509if_HierarchyLevel_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509if_HierarchyLevel(false, tvb, offset, &asn1_ctx, tree, hf_x509if_HierarchyLevel_PDU);
   return offset;
 }
 static int dissect_HierarchyBelow_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_x509if_HierarchyBelow(FALSE, tvb, offset, &asn1_ctx, tree, hf_x509if_HierarchyBelow_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_x509if_HierarchyBelow(false, tvb, offset, &asn1_ctx, tree, hf_x509if_HierarchyBelow_PDU);
   return offset;
 }
 
@@ -2034,7 +2051,7 @@ const char * x509if_get_last_dn(void)
   return last_dn_buf ? wmem_strbuf_get_str(last_dn_buf) : NULL;
 }
 
-gboolean x509if_register_fmt(int hf_index, const gchar *fmt)
+bool x509if_register_fmt(int hf_index, const char *fmt)
 {
   static int idx = 0;
 
@@ -2048,10 +2065,10 @@ gboolean x509if_register_fmt(int hf_index, const gchar *fmt)
     fmt_vals[idx].value = 0;
     fmt_vals[idx].strptr = NULL;
 
-    return TRUE;
+    return true;
 
   } else
-    return FALSE; /* couldn't register it */
+    return false; /* couldn't register it */
 
 }
 
@@ -2691,7 +2708,7 @@ void proto_register_x509if(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_x509if_Attribute,
     &ett_x509if_T_values,
     &ett_x509if_T_valuesWithContext,

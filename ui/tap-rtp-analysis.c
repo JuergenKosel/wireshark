@@ -32,8 +32,8 @@
 #include "tap-rtp-analysis.h"
 
 typedef struct _key_value {
-    guint32  key;
-    guint32  value;
+    uint32_t key;
+    uint32_t value;
 } key_value;
 
 
@@ -70,10 +70,10 @@ static const key_value clock_map[] = {
     {PT_H263,       90000},
 };
 
-#define NUM_CLOCK_VALUES (sizeof clock_map / sizeof clock_map[0])
+#define NUM_CLOCK_VALUES array_length(clock_map)
 
-static guint32
-get_clock_rate(guint32 key)
+static uint32_t
+get_clock_rate(uint32_t key)
 {
     size_t i;
 
@@ -85,8 +85,8 @@ get_clock_rate(guint32 key)
 }
 
 typedef struct _mimetype_and_clock {
-    const gchar   *pt_mime_name_str;
-    guint32 value;
+    const char    *pt_mime_name_str;
+    uint32_t value;
 } mimetype_and_clock;
 /* RTP sampling clock rates for
   "In addition to the RTP payload formats (encodings) listed in the RTP
@@ -129,6 +129,7 @@ static const mimetype_and_clock mimetype_and_clock_map[] = {
     {"MP2P",            90000}, /* [RFC2250],[RFC3555] */
     {"MP4V-ES",         90000}, /* [RFC3016] */
     {"mpa-robust",      90000}, /* [RFC3119] */
+    {"opus",            48000}, /* [RFC7587] */
     {"pointer",         90000}, /* [RFC2862] */
     {"raw",             90000}, /* [RFC4175] */
     {"red",              1000}, /* [RFC4102] */
@@ -138,10 +139,10 @@ static const mimetype_and_clock mimetype_and_clock_map[] = {
     {"telephone-event",  8000}, /* [RFC4733] */
 };
 
-#define NUM_DYN_CLOCK_VALUES (sizeof mimetype_and_clock_map / sizeof mimetype_and_clock_map[0])
+#define NUM_DYN_CLOCK_VALUES array_length(mimetype_and_clock_map)
 
-static guint32
-get_dyn_pt_clock_rate(const gchar *payload_type_str)
+static uint32_t
+get_dyn_pt_clock_rate(const char *payload_type_str)
 {
     int i;
 
@@ -155,7 +156,7 @@ get_dyn_pt_clock_rate(const gchar *payload_type_str)
     return 0;
 }
 
-#define TIMESTAMP_DIFFERENCE(v1,v2) ((gint64)v2-(gint64)v1)
+#define TIMESTAMP_DIFFERENCE(v1,v2) ((int64_t)v2-(int64_t)v1)
 
 /****************************************************************************/
 void
@@ -171,21 +172,20 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
     double arrivaltime;
     double expected_time;
     double absskew;
-    guint32 clock_rate;
-    gboolean in_time_sequence;
+    uint32_t clock_rate;
+    bool in_time_sequence;
 
     /* Store the current time */
     current_time = nstime_to_msec(&pinfo->rel_ts);
 
     /*  Is this the first packet we got in this direction? */
     if (statinfo->first_packet) {
-        statinfo->start_seq_nr = rtpinfo->info_seq_num;
-        statinfo->stop_seq_nr = rtpinfo->info_seq_num;
+        statinfo->start_seq_nr = rtpinfo->info_extended_seq_num;
+        statinfo->stop_seq_nr = rtpinfo->info_extended_seq_num;
         statinfo->seq_num = rtpinfo->info_seq_num;
         statinfo->start_time = current_time;
-        statinfo->timestamp = rtpinfo->info_timestamp;
-        statinfo->seq_timestamp = rtpinfo->info_timestamp;
-        statinfo->first_timestamp = rtpinfo->info_timestamp;
+        statinfo->timestamp = rtpinfo->info_extended_timestamp;
+        statinfo->seq_timestamp = rtpinfo->info_extended_timestamp;
         statinfo->time = current_time;
         statinfo->lastnominaltime = 0;
         statinfo->lastarrivaltime = 0;
@@ -220,74 +220,47 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
             statinfo->flags |= STAT_FLAG_MARKER;
         }
         statinfo->first_packet_num = pinfo->num;
-        statinfo->first_packet = FALSE;
+        statinfo->first_packet = false;
         return;
     }
 
     /* Reset flags */
     statinfo->flags = 0;
 
-    /* When calculating expected rtp packets the seq number can wrap around
-     * so we have to count the number of cycles
-     * Variable seq_cycles counts the wraps around in forwarding connection and
-     * under is flag that indicates where we are
+    /* When calculating expected rtp packets the seq number can wrap around.
+     * The RTP dissector does an extended sequence number calculation and
+     * passes it here so we use that for the number of cycles.
      *
      * XXX How to determine number of cycles with all possible lost, late
-     * and duplicated packets without any doubt? It seems to me, that
+     * and duplicated packets without any doubt? It seems to me that
      * because of all possible combination of late, duplicated or lost
-     * packets, this can only be more or less good approximation
+     * packets this can only be more or less a good approximation.
+     * The RTP dissector doesn't do exactly the algorithm in RFC 3550 A.1
+     * but could be modified.
      *
      * There are some combinations (rare but theoretically possible),
-     * where below code won't work correctly - statistic may be wrong then.
+     * where it won't work correctly - statistic may be wrong then.
      */
 
-    /* Check if time sequence of packets is in order. We check whether
-     * timestamp difference is below 1/2 of timestamp range (hours or days).
-     * Packets can be in pure sequence or sequence can be wrapped around
-     * 0xFFFFFFFF.
+    /* Check if time sequence of packets is in order. Use the extended
+     * timestamp that the RTP dissector has already calculated.
      */
-    if ((statinfo->first_timestamp <= rtpinfo->info_timestamp) &&
-        TIMESTAMP_DIFFERENCE(statinfo->first_timestamp, rtpinfo->info_timestamp) < 0x80000000) {
+    if (statinfo->seq_timestamp <= rtpinfo->info_extended_timestamp) {
         // Normal timestamp sequence
-        in_time_sequence = TRUE;
-    } else if ((statinfo->first_timestamp > rtpinfo->info_timestamp) &&
-        (TIMESTAMP_DIFFERENCE(statinfo->first_timestamp, 0xFFFFFFFF) + TIMESTAMP_DIFFERENCE(0x00000000, rtpinfo->info_timestamp)) < 0x80000000) {
-        // Normal timestamp sequence with wraparound
-        in_time_sequence = TRUE;
+        in_time_sequence = true;
     } else {
         // New packet is not in sequence (is in past)
-        in_time_sequence = FALSE;
+        in_time_sequence = false;
         statinfo->flags |= STAT_FLAG_WRONG_TIMESTAMP;
-    }
-
-    /* So if the current sequence number is less than the start one
-     * we assume, that there is another cycle running
-     */
-    if ((rtpinfo->info_seq_num < statinfo->start_seq_nr) &&
-        in_time_sequence &&
-        (statinfo->under == FALSE)) {
-        statinfo->seq_cycles++;
-        statinfo->under = TRUE;
-    }
-    /* what if the start seq nr was 0? Then the above condition will never
-     * be true, so we add another condition. XXX The problem would arise
-     * if one of the packets with seq nr 0 or 65535 would be lost or late
-     */
-    else if ((rtpinfo->info_seq_num == 0) && (statinfo->stop_seq_nr == 65535) &&
-             in_time_sequence &&
-             (statinfo->under == FALSE)) {
-        statinfo->seq_cycles++;
-        statinfo->under = TRUE;
-    }
-    /* the whole round is over, so reset the flag */
-    else if ((rtpinfo->info_seq_num > statinfo->start_seq_nr) &&
-             in_time_sequence &&
-             (statinfo->under != FALSE)) {
-        statinfo->under = FALSE;
     }
 
     /* Since it is difficult to count lost, duplicate or late packets separately,
      * we would like to know at least how many times the sequence number was not ok
+     *
+     * RFC 3550 Appendix A.1 recommends storing the bad sequence number after
+     * a jump so we can see if we get consecutive in-order sequence numbers
+     * that indicate the other side restarted, see #10665. Handling that would
+     * require additional changes in the number of packets expected.
      */
 
     /* If the current seq number equals the last one or if we are here for
@@ -368,12 +341,12 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
      * XXX: Do we really need to exclude those? The underlying problem in
      * #16330 was not allowing the time difference to be negative.
      */
-    if ( in_time_sequence || TRUE ) {
+    if ( in_time_sequence || true ) {
         /* XXX: We try to handle clock rate changes, but if the clock rate
          * changed during a dropped packet (or if we go backwards because
-         * a packet is reorderd), it won't be quite right.
+         * a packet is reordered), it won't be quite right.
          */
-        nominaltime_diff = (double)(TIMESTAMP_DIFFERENCE(statinfo->seq_timestamp, rtpinfo->info_timestamp));
+        nominaltime_diff = (double)(TIMESTAMP_DIFFERENCE(statinfo->seq_timestamp, rtpinfo->info_extended_timestamp));
 
         /* Can only analyze defined sampling rates */
         if (clock_rate != 0) {
@@ -516,6 +489,9 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
         }
     }
     /* Regular payload change? (CN ignored) */
+    /* XXX - We should ignore FEC payload type too, but that's determined
+     * out of band (e.g., SDP), see RFCs 5109, 8627, Issue #15403.
+     */
     if (!(statinfo->flags & STAT_FLAG_FIRST)
             && !(statinfo->flags & STAT_FLAG_PT_CN)) {
         if ((statinfo->pt != statinfo->reg_pt)
@@ -534,10 +510,15 @@ rtppacket_analyse(tap_rtp_stat_t *statinfo,
          * therefore diff calculations are correct for it
          */
         statinfo->time = current_time;
-        statinfo->seq_timestamp = rtpinfo->info_timestamp;
+        statinfo->seq_timestamp = rtpinfo->info_extended_timestamp;
     }
-    statinfo->timestamp = rtpinfo->info_timestamp;
-    statinfo->stop_seq_nr = rtpinfo->info_seq_num;
+    statinfo->timestamp = rtpinfo->info_extended_timestamp;
+    /* RFC 3550 Appendices A.1, A.3 say that we do *not* change base_seq,
+     * AKA start_seq_nr, when receiving a reordered packet later that has
+     * an earlier sequence number, but it's probably less surprising to do so.
+     */
+    statinfo->start_seq_nr = MIN(statinfo->start_seq_nr, rtpinfo->info_extended_seq_num);
+    statinfo->stop_seq_nr = MAX(statinfo->stop_seq_nr, rtpinfo->info_extended_seq_num);
     statinfo->total_nr++;
     statinfo->last_payload_len = rtpinfo->info_payload_len;
 

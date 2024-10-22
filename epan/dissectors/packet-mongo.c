@@ -20,7 +20,8 @@
 #include "config.h"
 
 #include <epan/packet.h>
-#include <epan/exceptions.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 #include <epan/expert.h>
 #include <epan/proto_data.h>
 #include <wsutil/crc32.h> // CRC32C_PRELOAD
@@ -38,7 +39,7 @@ static dissector_handle_t mongo_heur_handle;
 
 /* Forward declaration */
 static int
-dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *mongo_tree, guint opcode, guint *effective_opcode);
+dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *mongo_tree, unsigned opcode, unsigned *effective_opcode);
 
 /* This is not IANA assigned nor registered */
 #define TCP_PORT_MONGO 27017
@@ -273,20 +274,20 @@ static int hf_mongo_msg_sections_section_doc_sequence_id;
 static int hf_mongo_msg_checksum;
 static int hf_mongo_msg_checksum_status;
 
-static gint ett_mongo;
-static gint ett_mongo_doc;
-static gint ett_mongo_elements;
-static gint ett_mongo_element;
-static gint ett_mongo_objectid;
-static gint ett_mongo_machine_id;
-static gint ett_mongo_code;
-static gint ett_mongo_fcn;
-static gint ett_mongo_flags;
-static gint ett_mongo_compression_info;
-static gint ett_mongo_sections;
-static gint ett_mongo_section;
-static gint ett_mongo_msg_flags;
-static gint ett_mongo_doc_sequence;
+static int ett_mongo;
+static int ett_mongo_doc;
+static int ett_mongo_elements;
+static int ett_mongo_element;
+static int ett_mongo_objectid;
+static int ett_mongo_machine_id;
+static int ett_mongo_code;
+static int ett_mongo_fcn;
+static int ett_mongo_flags;
+static int ett_mongo_compression_info;
+static int ett_mongo_sections;
+static int ett_mongo_section;
+static int ett_mongo_msg_flags;
+static int ett_mongo_doc_sequence;
 
 static expert_field ei_mongo_document_recursion_exceeded;
 static expert_field ei_mongo_document_length_bad;
@@ -296,9 +297,9 @@ static expert_field ei_mongo_too_large_compressed;
 static expert_field ei_mongo_msg_checksum;
 
 static int
-dissect_fullcollectionname(tvbuff_t *tvb, guint offset, proto_tree *tree)
+dissect_fullcollectionname(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
-  gint32 fcn_length, dbn_length;
+  int32_t fcn_length, dbn_length;
   proto_item *ti;
   proto_tree *fcn_tree;
 
@@ -306,7 +307,7 @@ dissect_fullcollectionname(tvbuff_t *tvb, guint offset, proto_tree *tree)
   ti = proto_tree_add_item(tree, hf_mongo_fullcollectionname, tvb, offset, fcn_length, ENC_ASCII);
 
   /* If this doesn't find anything, we'll just throw an exception below */
-  dbn_length = tvb_find_guint8(tvb, offset, fcn_length, '.') - offset;
+  dbn_length = tvb_find_uint8(tvb, offset, fcn_length, '.') - offset;
 
   fcn_tree = proto_item_add_subtree(ti, ett_mongo_fcn);
 
@@ -322,10 +323,11 @@ dissect_fullcollectionname(tvbuff_t *tvb, guint offset, proto_tree *tree)
 #define BSON_MAX_NESTING 100
 #define BSON_MAX_DOC_SIZE (16 * 1000 * 1000)
 static int
-dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree, int hf_mongo_doc)
+// NOLINTNEXTLINE(misc-no-recursion)
+dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree, int hf_mongo_doc)
 {
-  gint32 document_length;
-  guint final_offset;
+  int32_t document_length;
+  unsigned final_offset;
   proto_item *ti, *elements, *element, *objectid, *js_code, *js_scope, *machine_id;
   proto_tree *doc_tree, *elements_tree, *element_sub_tree, *objectid_sub_tree, *js_code_sub_tree, *js_scope_sub_tree, *machine_id_sub_tree;
 
@@ -369,12 +371,12 @@ dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tre
 
   do {
     /* Read document elements */
-    guint8 e_type;  /* Element type */
-    gint str_len = -1;   /* String length */
-    gint e_len = -1;     /* Element length */
-    gint doc_len = -1;   /* Document length */
+    uint8_t e_type;  /* Element type */
+    int str_len = -1;   /* String length */
+    int e_len = -1;     /* Element length */
+    int doc_len = -1;   /* Document length */
 
-    e_type = tvb_get_guint8(tvb, offset);
+    e_type = tvb_get_uint8(tvb, offset);
     tvb_get_stringz_enc(pinfo->pool, tvb, offset+1, &str_len, ENC_ASCII);
 
     element = proto_tree_add_item(elements_tree, hf_mongo_element_name, tvb, offset+1, str_len-1, ENC_UTF_8);
@@ -496,11 +498,11 @@ dissect_bson_document(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tre
 }
 
 static int
-dissect_mongo_reply(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_reply(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *flags_tree;
-  gint i, number_returned;
+  int i, number_returned;
 
   ti = proto_tree_add_item(tree, hf_mongo_reply_flags, tvb, offset, 4, ENC_NA);
   flags_tree = proto_item_add_subtree(ti, ett_mongo_flags);
@@ -528,7 +530,7 @@ dissect_mongo_reply(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree 
 }
 
 static int
-dissect_mongo_msg(tvbuff_t *tvb, guint offset, proto_tree *tree)
+dissect_mongo_msg(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
   proto_tree_add_item(tree, hf_mongo_message, tvb, offset, -1, ENC_ASCII);
   offset += tvb_strsize(tvb, offset);
@@ -537,7 +539,7 @@ dissect_mongo_msg(tvbuff_t *tvb, guint offset, proto_tree *tree)
 }
 
 static int
-dissect_mongo_update(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_update(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *flags_tree;
@@ -561,7 +563,7 @@ dissect_mongo_update(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
 }
 
 static int
-dissect_mongo_insert(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_insert(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *flags_tree;
@@ -581,7 +583,7 @@ dissect_mongo_insert(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
 }
 
 static int
-dissect_mongo_query(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_query(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *flags_tree;
@@ -614,7 +616,7 @@ dissect_mongo_query(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree 
 }
 
 static int
-dissect_mongo_getmore(tvbuff_t *tvb, guint offset, proto_tree *tree)
+dissect_mongo_getmore(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
 
   proto_tree_add_item(tree, hf_mongo_zero, tvb, offset, 4, ENC_NA);
@@ -632,7 +634,7 @@ dissect_mongo_getmore(tvbuff_t *tvb, guint offset, proto_tree *tree)
 }
 
 static int
-dissect_mongo_delete(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_delete(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *flags_tree;
@@ -653,7 +655,7 @@ dissect_mongo_delete(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
 }
 
 static int
-dissect_mongo_kill_cursors(tvbuff_t *tvb, guint offset, proto_tree *tree)
+dissect_mongo_kill_cursors(tvbuff_t *tvb, unsigned offset, proto_tree *tree)
 {
 
   proto_tree_add_item(tree, hf_mongo_zero, tvb, offset, 4, ENC_NA);
@@ -670,9 +672,9 @@ dissect_mongo_kill_cursors(tvbuff_t *tvb, guint offset, proto_tree *tree)
 }
 
 static int
-dissect_mongo_op_command(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_op_command(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
-  gint32 db_length, cmd_length;
+  int32_t db_length, cmd_length;
 
   db_length = tvb_strsize(tvb, offset);
   proto_tree_add_item(tree, hf_mongo_database, tvb, offset, db_length, ENC_ASCII);
@@ -690,7 +692,7 @@ dissect_mongo_op_command(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_
 }
 
 static int
-dissect_mongo_op_commandreply(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_op_commandreply(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
 
   offset += dissect_bson_document(tvb, pinfo, offset, tree, hf_mongo_metadata);
@@ -705,10 +707,11 @@ dissect_mongo_op_commandreply(tvbuff_t *tvb, packet_info *pinfo, guint offset, p
 }
 
 static int
-dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree, guint *effective_opcode)
+// NOLINTNEXTLINE(misc-no-recursion)
+dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree, unsigned *effective_opcode)
 {
-  guint opcode = 0;
-  guint8 compressor;
+  unsigned opcode = 0;
+  uint8_t compressor;
   proto_item *ti;
   proto_tree *compression_info_tree;
 
@@ -721,7 +724,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
 
   opcode = tvb_get_letohl(tvb, offset);
   *effective_opcode = opcode;
-  compressor = tvb_get_guint8(tvb, offset + 8);
+  compressor = tvb_get_uint8(tvb, offset + 8);
   offset += 9;
 
   switch(compressor) {
@@ -731,7 +734,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
 
 #ifdef HAVE_SNAPPY
   case MONGO_COMPRESSOR_SNAPPY: {
-    guchar *decompressed_buffer = NULL;
+    unsigned char *decompressed_buffer = NULL;
     size_t orig_size = 0;
     snappy_status ret;
     tvbuff_t* compressed_tvb = NULL;
@@ -744,7 +747,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
      * proceed to try decompressing the data
      */
     if (ret == SNAPPY_OK && orig_size <= MAX_UNCOMPRESSED_SIZE) {
-      decompressed_buffer = (guchar*)wmem_alloc(pinfo->pool, orig_size);
+      decompressed_buffer = (unsigned char*)wmem_alloc(pinfo->pool, orig_size);
 
       ret = snappy_uncompress(tvb_get_ptr(tvb, offset, -1),
         tvb_captured_length_remaining(tvb, offset),
@@ -752,7 +755,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
         &orig_size);
 
       if (ret == SNAPPY_OK) {
-        compressed_tvb = tvb_new_child_real_data(tvb, decompressed_buffer, (guint32)orig_size, (guint32)orig_size);
+        compressed_tvb = tvb_new_child_real_data(tvb, decompressed_buffer, (uint32_t)orig_size, (uint32_t)orig_size);
         add_new_data_source(pinfo, compressed_tvb, "Decompressed Data");
 
         dissect_opcode_types(compressed_tvb, pinfo, 0, tree, opcode, effective_opcode);
@@ -790,7 +793,7 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
   case MONGO_COMPRESSOR_ZLIB: {
     tvbuff_t* compressed_tvb = NULL;
 
-    compressed_tvb = tvb_child_uncompress(tvb, tvb, offset, tvb_captured_length_remaining(tvb, offset));
+    compressed_tvb = tvb_child_uncompress_zlib(tvb, tvb, offset, tvb_captured_length_remaining(tvb, offset));
 
     if (compressed_tvb) {
       add_new_data_source(pinfo, compressed_tvb, "Decompressed Data");
@@ -815,14 +818,14 @@ dissect_mongo_op_compressed(tvbuff_t *tvb, packet_info *pinfo, guint offset, pro
 }
 
 static int
-dissect_op_msg_section(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_op_msg_section(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   proto_item *ti;
   proto_tree *section_tree;
-  guint8 e_type;
-  gint section_len = -1;   /* Section length */
+  uint8_t e_type;
+  int section_len = -1;   /* Section length */
 
-  e_type = tvb_get_guint8(tvb, offset);
+  e_type = tvb_get_uint8(tvb, offset);
   section_len = tvb_get_letohl(tvb, offset+1);
 
   ti = proto_tree_add_item(tree, hf_mongo_msg_sections_section, tvb, offset, 1 + section_len, ENC_NA);
@@ -832,15 +835,21 @@ dissect_op_msg_section(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tr
 
   switch (e_type) {
     case KIND_BODY:
-      dissect_bson_document(tvb, pinfo, offset, section_tree, hf_mongo_msg_sections_section_body);
+      section_len = dissect_bson_document(tvb, pinfo, offset, section_tree, hf_mongo_msg_sections_section_body);
+      /* If section_len is bogus (e.g., negative), dissect_bson_document sets
+       * an expert info and can return a different value than read above.
+       */
       break;
     case KIND_DOCUMENT_SEQUENCE: {
-      gint32 dsi_length;
-      gint32 to_read = section_len;
+      int32_t dsi_length;
+      int32_t to_read = section_len;
       proto_item *documents;
       proto_tree *documents_tree;
 
       proto_tree_add_item(section_tree, hf_mongo_msg_sections_section_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+      /* This is redundant with the lengths in the documents, we don't use this
+       * size at all. We could still report an expert info if it's bogus.
+       */
       offset += 4;
       to_read -= 4;
 
@@ -853,7 +862,7 @@ dissect_op_msg_section(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tr
       documents_tree = proto_item_add_subtree(documents, ett_mongo_doc_sequence);
 
       while (to_read > 0){
-        gint32 doc_size = dissect_bson_document(tvb, pinfo, offset, documents_tree, hf_mongo_document);
+        int32_t doc_size = dissect_bson_document(tvb, pinfo, offset, documents_tree, hf_mongo_document);
         to_read -= doc_size;
         offset += doc_size;
       }
@@ -867,7 +876,7 @@ dissect_op_msg_section(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tr
 }
 
 static int
-dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *tree)
+dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *tree)
 {
   static int * const mongo_msg_flags[] = {
     &hf_mongo_msg_flags_checksumpresent,
@@ -875,7 +884,7 @@ dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
     &hf_mongo_msg_flags_exhaustallowed,
     NULL
   };
-  gint64 op_msg_flags;
+  int64_t op_msg_flags;
   bool checksum_present = false;
 
   proto_tree_add_bitmask_ret_uint64 (tree, tvb, offset, hf_mongo_msg_flags, ett_mongo_msg_flags, mongo_msg_flags, ENC_LITTLE_ENDIAN, &op_msg_flags);
@@ -890,7 +899,7 @@ dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
   }
 
   if (checksum_present) {
-    guint32 calculated_checksum = ~crc32c_tvb_offset_calculate (tvb, 0, tvb_reported_length (tvb) - 4, CRC32C_PRELOAD);
+    uint32_t calculated_checksum = ~crc32c_tvb_offset_calculate (tvb, 0, tvb_reported_length (tvb) - 4, CRC32C_PRELOAD);
     proto_tree_add_checksum(tree, tvb, offset, hf_mongo_msg_checksum, hf_mongo_msg_checksum_status, &ei_mongo_msg_checksum, pinfo, calculated_checksum, ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
     offset += 4;
   }
@@ -899,9 +908,14 @@ dissect_mongo_op_msg(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
 }
 
 static int
-dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree *mongo_tree, guint opcode, guint *effective_opcode)
+// NOLINTNEXTLINE(misc-no-recursion)
+dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, unsigned offset, proto_tree *mongo_tree, unsigned opcode, unsigned *effective_opcode)
 {
     *effective_opcode = opcode;
+
+    unsigned recursion_depth = p_get_proto_depth(pinfo, proto_mongo);
+    DISSECTOR_ASSERT(recursion_depth <= BSON_MAX_NESTING);
+    p_set_proto_depth(pinfo, proto_mongo, recursion_depth + 1);
 
     switch(opcode){
     case OP_REPLY:
@@ -945,6 +959,8 @@ dissect_opcode_types(tvbuff_t *tvb, packet_info *pinfo, guint offset, proto_tree
       break;
     }
 
+    p_set_proto_depth(pinfo, proto_mongo, recursion_depth);
+
     return offset;
 }
 
@@ -953,7 +969,7 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 {
     proto_item *ti;
     proto_tree *mongo_tree;
-    guint offset = 0, opcode, effective_opcode = 0;
+    unsigned offset = 0, opcode, effective_opcode = 0;
     uint32_t response_to;
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "MONGO");
@@ -989,7 +1005,7 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
     col_append_fstr(pinfo->cinfo, COL_INFO, " %s", val_to_str_const(effective_opcode, opcode_vals, "Unknown"));
 
     if(opcode != effective_opcode) {
-      col_append_fstr(pinfo->cinfo, COL_INFO, " (Compressed)");
+      col_append_str(pinfo->cinfo, COL_INFO, " (Compressed)");
     }
 
     if(offset < tvb_reported_length(tvb))
@@ -1000,15 +1016,19 @@ dissect_mongo_pdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
 
     return tvb_captured_length(tvb);
 }
-static guint
+static unsigned
 get_mongo_pdu_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
-  guint32 plen;
+  uint32_t plen;
 
   /*
   * Get the length of the MONGO packet.
   */
   plen = tvb_get_letohl(tvb, offset);
+  /* XXX - This is signed, but we can only return an unsigned to
+   * tcp_dissect_pdus. If negative, should we return something like
+   * 1 (less than the fixed len 4) so that it causes a ReportedBoundsError?
+   */
 
   return plen;
 }
@@ -1020,13 +1040,20 @@ dissect_mongo(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data)
   return tvb_captured_length(tvb);
 }
 
-static gboolean
+static bool
 test_mongo(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
   uint32_t opcode;
 
   if (tvb_captured_length_remaining(tvb, offset) < 16) {
-    return FALSE;
+    return false;
+  }
+
+  if (tvb_get_letohil(tvb, offset) < 4) {
+    /* Message sizes are signed in the MongoDB Wire Protocol and
+     * include the header.
+     */
+    return false;
   }
 
   opcode = tvb_get_letohl(tvb, offset + 12);
@@ -1058,7 +1085,7 @@ proto_register_mongo(void)
     { &hf_mongo_message_length,
       { "Message Length", "mongo.message_length",
       FT_INT32, BASE_DEC, NULL, 0x0,
-      "Total message size (include this)", HFILL }
+      "Total message size (including header)", HFILL }
     },
     { &hf_mongo_request_id,
       { "Request ID", "mongo.request_id",
@@ -1521,7 +1548,7 @@ proto_register_mongo(void)
     },
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_mongo,
     &ett_mongo_doc,
     &ett_mongo_elements,

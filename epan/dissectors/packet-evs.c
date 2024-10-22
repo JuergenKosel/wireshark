@@ -17,6 +17,7 @@
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/proto_data.h>
+#include <epan/tfs.h>
 #include <wsutil/str_util.h>
 #include <wsutil/utf8_entities.h>
 #include "packet-rtp.h"
@@ -26,7 +27,7 @@ void proto_reg_handoff_evs(void);
 
 static dissector_handle_t evs_handle;
 
-static gboolean evs_hf_only = FALSE;
+static bool evs_hf_only;
 
 /* Initialize the protocol and registered fields */
 static int proto_evs;
@@ -470,13 +471,13 @@ static const value_string evs_640_bwct_idx_vals[] = {
 };
 
 static void
-dissect_evs_cmr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *evs_tree, int offset, guint8 cmr_oct)
+dissect_evs_cmr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *evs_tree, int offset, uint8_t cmr_oct)
 {
     proto_tree *tree;
     proto_item *item;
-    const gchar *str;
-    guint8 t_bits = (cmr_oct & 0x70) >> 4;
-    guint8 d_bits = (cmr_oct & 0x0f);
+    const char *str;
+    uint8_t t_bits = (cmr_oct & 0x70) >> 4;
+    uint8_t d_bits = (cmr_oct & 0x0f);
     /* CMR */
     tree = proto_tree_add_subtree(evs_tree, tvb, offset, 1, ett_evs_header, &item, "CMR");
 
@@ -610,47 +611,62 @@ dissect_evs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     proto_tree *evs_tree, *sub_tree, *vd_tree;
     int offset = 0 , bit_offset = 0;
     int packet_len, idx, speech_data_len;
-    guint32 num_bits;
-    const gchar *str;
-    guint8 oct, h_bit, toc_f_bit, evs_mode_b;
+    uint32_t num_bits;
+    const char *str;
+    uint8_t oct, h_bit, toc_f_bit, evs_mode_b;
     int num_toc, num_data;
-    guint64 value;
-    gboolean is_compact = FALSE;
+    uint64_t value;
+    bool is_compact = false;
     struct _rtp_pkt_info *rtp_pkt_info = p_get_proto_data(pinfo->pool, pinfo, proto_rtp, pinfo->curr_layer_num-1);
+    struct _rtp_info *rtp_info = NULL;
+    bool rtmp_enforce_hf_only = false;
 
     /* Make entries in Protocol column and Info column on summary display */
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "EVS");
 
-
-    /* Find out if we have one of the reserved packet sizes*/
-    packet_len = tvb_reported_length(tvb);
-    num_bits = packet_len * 8;
-    if (rtp_pkt_info)
-        num_bits += rtp_pkt_info->padding_len * 8; /* take into account RTP padding if any */
-    if (num_bits == 56) {
-        /* A.2.1.3 Special case for 56 bit payload size (EVS Primary or EVS AMR-WB IO SID) */
-        /* The resulting ambiguity between EVS Primary 2.8 kbps and EVS AMR-WB IO SID frames is resolved through the
-           most significant bit (MSB) of the first byte of the payload. By definition, the first data bit d(0) of the EVS Primary 2.8
-           kbps is always set to '0'.
-         */
-        oct = tvb_get_bits8(tvb, bit_offset, 1);
-        if (oct == 0) {
-            /* EVS Primary 2.8 kbps */
-            str = "EVS Primary 2.8 kbps";
-            col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", str);
-            is_compact = TRUE;
-        } else {
-            /* EVS AMR-WB IO SID */
-            str = "EVS AMR-WB IO SID";
-        }
-    } else if (!evs_hf_only) {
-        str = try_val_to_str_idx(num_bits, evs_protected_payload_sizes_value, &idx);
-        if (str) {
-            is_compact = TRUE;
-        }
-    }
     ti = proto_tree_add_item(tree, proto_evs, tvb, 0, -1, ENC_NA);
     evs_tree = proto_item_add_subtree(ti, ett_evs);
+    packet_len = tvb_reported_length(tvb);
+
+    /* A.2.3.2 ignore sizes if hf-only=1 */
+    if (data) {
+        rtp_info = (struct _rtp_info*)data;
+        if (rtp_info->info_payload_fmtp_map) {
+            char *tmp = wmem_map_lookup(rtp_info->info_payload_fmtp_map, "hf-only");
+            if (g_strcmp0(tmp, "1") == 0) {
+                rtmp_enforce_hf_only = true;
+            }
+        }
+    }
+
+    /* Find out if we have one of the reserved packet sizes*/
+    if (!(rtmp_enforce_hf_only || evs_hf_only)) {
+        num_bits = packet_len * 8;
+        if (rtp_pkt_info)
+            num_bits += rtp_pkt_info->padding_len * 8; /* take into account RTP padding if any */
+        if (num_bits == 56) {
+            /* A.2.1.3 Special case for 56 bit payload size (EVS Primary or EVS AMR-WB IO SID) */
+            /* The resulting ambiguity between EVS Primary 2.8 kbps and EVS AMR-WB IO SID frames is resolved through the
+            most significant bit (MSB) of the first byte of the payload. By definition, the first data bit d(0) of the EVS Primary 2.8
+            kbps is always set to '0'.
+            */
+            oct = tvb_get_bits8(tvb, bit_offset, 1);
+            if (oct == 0) {
+                /* EVS Primary 2.8 kbps */
+                str = "EVS Primary 2.8";
+                is_compact = true;
+            } else {
+                /* EVS AMR-WB IO SID */
+                str = "EVS AMR-WB IO SID";
+            }
+        } else {
+            str = try_val_to_str_idx(num_bits, evs_protected_payload_sizes_value, &idx);
+            if (str) {
+                is_compact = true;
+            }
+        }
+    }
+
     if (is_compact) {
         /* A.2.1 EVS codec Compact Format */
         proto_tree_add_subtree(evs_tree, tvb, offset, -1, ett_evs_header, &ti, "Framing Mode: Compact");
@@ -832,7 +848,7 @@ dissect_evs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     proto_item_set_generated(ti);
 
     /*proto_tree_add_int_format(evs_tree, hf_evs_packet_length, tvb, offset, 1, packet_len * 8, "packet_len %i bits", packet_len * 8);*/
-    oct = tvb_get_guint8(tvb, offset);
+    oct = tvb_get_uint8(tvb, offset);
     h_bit = oct >> 7;
 
     if (h_bit == 1) {
@@ -843,7 +859,7 @@ dissect_evs(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     /* ToC */
     num_toc = 0;
     do {
-        oct = tvb_get_guint8(tvb, offset);
+        oct = tvb_get_uint8(tvb, offset);
         toc_f_bit = (oct & 0x40) >> 6;
         evs_mode_b = (oct & 0x20) >> 5;
         num_toc++;
@@ -1075,7 +1091,7 @@ proto_register_evs(void)
 
 
     /* Setup protocol subtree array */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_evs,
         &ett_evs_header,
         &ett_evs_speech,

@@ -45,12 +45,11 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin
-	"OpcUa (OPC Unified Architecture) dissection"
 	${DISSECTOR_SRC}
 	${DISSECTOR_SUPPORT_SRC}
 )
 
-add_wireshark_epan_plugin_library(opcua)
+add_wireshark_plugin_library(opcua epan)
 
 target_link_libraries(opcua epan ${GCRYPT_LIBRARIES})
 

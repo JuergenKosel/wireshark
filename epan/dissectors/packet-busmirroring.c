@@ -22,6 +22,7 @@
 #include "config.h"
 #include <epan/packet.h>
 #include <epan/expert.h>
+#include <epan/tfs.h>
 
 #define BUSMIRRORING_UDP_PORT 30511
 
@@ -119,8 +120,8 @@ dissect_busmirroring(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
     proto_tree_add_item(busmirroring_tree, hf_protocol_version, tvb, 0, 1, ENC_BIG_ENDIAN);
     proto_tree_add_item(busmirroring_tree, hf_sequence_number, tvb, 1, 1, ENC_BIG_ENDIAN);
     nstime_t header_timestamp = {0, 0};
-    header_timestamp.secs = tvb_get_guint48(tvb, 2, ENC_BIG_ENDIAN);
-    header_timestamp.nsecs = tvb_get_guint32(tvb, 8, ENC_BIG_ENDIAN);
+    header_timestamp.secs = tvb_get_uint48(tvb, 2, ENC_BIG_ENDIAN);
+    header_timestamp.nsecs = tvb_get_uint32(tvb, 8, ENC_BIG_ENDIAN);
     proto_item *ht_item = proto_tree_add_time(busmirroring_tree, hf_header_timestamp, tvb, 2, 10, &header_timestamp);
     proto_tree *ht_tree = proto_item_add_subtree(ht_item, ett_header_timestamp);
     proto_tree_add_item(ht_tree, hf_seconds, tvb, 2, 6, ENC_BIG_ENDIAN);
@@ -141,7 +142,7 @@ dissect_busmirroring(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
         ++data_item_index;
         col_clear(pinfo->cinfo, COL_INFO);
         col_add_fstr(pinfo->cinfo, COL_INFO, "Busmirroring Seq=%u Len=%u DataItem=%u",
-            tvb_get_guint8(tvb, 1), tvb_get_guint16(tvb, 12, ENC_BIG_ENDIAN), data_item_index);
+            tvb_get_uint8(tvb, 1), tvb_get_uint16(tvb, 12, ENC_BIG_ENDIAN), data_item_index);
         if (offset + 2 > buffer_length) {
             expert_add_info(pinfo, data_item, &ei_data_item_incomplete);
             return buffer_length;
@@ -155,7 +156,7 @@ dissect_busmirroring(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
             expert_add_info(pinfo, data_item, &ei_data_item_incomplete);
             return buffer_length;
         }
-        uint8_t flags = tvb_get_guint8(tvb, offset);
+        uint8_t flags = tvb_get_uint8(tvb, offset);
         proto_tree_add_item(data_tree, hf_network_state_available, tvb, offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(data_tree, hf_frame_id_available, tvb, offset, 1, ENC_BIG_ENDIAN);
         proto_tree_add_item(data_tree, hf_payload_available, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -250,8 +251,8 @@ dissect_busmirroring(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
                 }
                 proto_item *frame_id_item = proto_tree_add_item(data_item, hf_frame_id, tvb, offset, 4, ENC_BIG_ENDIAN);
                 proto_tree *frame_id_tree = proto_item_add_subtree(frame_id_item, ett_frame_id);
-                uint8_t can_id_type = tvb_get_guint8(tvb, offset) & 0x80;
-                is_can_fd = tvb_get_guint8(tvb, offset) & 0x40;
+                uint8_t can_id_type = tvb_get_uint8(tvb, offset) & 0x80;
+                is_can_fd = tvb_get_uint8(tvb, offset) & 0x40;
                 proto_tree_add_item(frame_id_tree, hf_can_id_type, tvb, offset, 4, ENC_BIG_ENDIAN);
                 proto_tree_add_item(frame_id_tree, hf_can_frame_type, tvb, offset, 4, ENC_BIG_ENDIAN);
                 uint32_t can_id = 0;
@@ -272,7 +273,7 @@ dissect_busmirroring(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, vo
                 proto_item *frame_id_item = proto_tree_add_item(data_item, hf_frame_id, tvb, offset, 1, ENC_BIG_ENDIAN);
                 proto_tree *frame_id_tree = proto_item_add_subtree(frame_id_item, ett_frame_id);
                 proto_tree_add_item(frame_id_tree, hf_lin_pid, tvb, offset, 1, ENC_BIG_ENDIAN);
-                uint8_t pid = tvb_get_guint8(tvb, offset);
+                uint8_t pid = tvb_get_uint8(tvb, offset);
                 if (!is_lin_pid_valid(pid)) {
                     expert_add_info(pinfo, frame_id_item, &ei_lin_pid_invalid);
                 }
@@ -573,11 +574,7 @@ void proto_register_busmirroring(void)
         &ett_network_state,
         &ett_frame_id};
 
-    proto_busmirroring = proto_register_protocol(
-        "Bus Mirroring Protocol", /* name        */
-        "BusMirroring",           /* short_name  */
-        "busmirroring"            /* filter_name */
-    );
+    proto_busmirroring = proto_register_protocol("Bus Mirroring Protocol", "BusMirroring", "busmirroring");
 
     proto_register_field_array(proto_busmirroring, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));

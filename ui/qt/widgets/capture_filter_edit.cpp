@@ -9,8 +9,6 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <epan/proto.h>
 
 #include "capture_opts.h"
@@ -32,6 +30,7 @@
 #include <QPainter>
 #include <QStringListModel>
 #include <QStyleOptionFrame>
+#include <QTimer>
 
 #include <ui/qt/utils/qt_ui_utils.h>
 
@@ -209,6 +208,10 @@ CaptureFilterEdit::CaptureFilterEdit(QWidget *parent, bool plain) :
 #endif
     }
 
+    line_edit_timer_ = new QTimer(this);
+    line_edit_timer_->setSingleShot(true);
+    connect(line_edit_timer_, &QTimer::timeout, this, &CaptureFilterEdit::updateFilter);
+
     syntax_thread_ = new QThread;
     syntax_worker_ = new CaptureFilterSyntaxWorker;
     syntax_worker_->moveToThread(syntax_thread_);
@@ -308,7 +311,7 @@ QPair<const QString, bool> CaptureFilterEdit::getSelectedFilter()
 #ifdef HAVE_LIBPCAP
     int selected_devices = 0;
 
-    for (guint i = 0; i < global_capture_opts.all_ifaces->len; i++) {
+    for (unsigned i = 0; i < global_capture_opts.all_ifaces->len; i++) {
         interface_t *device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
         if (device->selected) {
             selected_devices++;
@@ -371,15 +374,21 @@ void CaptureFilterEdit::checkFilter(const QString& filter)
     }
 
     if (empty) {
+        line_edit_timer_->stop();
         setFilterSyntaxState(filter, Empty, QString());
     } else {
-        emit captureFilterChanged(filter);
+        line_edit_timer_->start(prefs.gui_debounce_timer);
     }
 }
 
 void CaptureFilterEdit::checkFilter()
 {
     checkFilter(text());
+}
+
+void CaptureFilterEdit::updateFilter()
+{
+    emit captureFilterChanged(text());
 }
 
 void CaptureFilterEdit::updateBookmarkMenu()

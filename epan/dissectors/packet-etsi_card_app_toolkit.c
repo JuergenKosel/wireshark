@@ -15,8 +15,8 @@
 #include "config.h"
 
 #include <epan/packet.h>
-#include <epan/charsets.h>
 #include <epan/conversation.h>
+#include <epan/tfs.h>
 
 #include "packet-e212.h"
 #include "packet-gsm_a_common.h"
@@ -933,14 +933,14 @@ static const string_string ims_status_code[] = {
 	{ "603", "Decline" },
 	{ "604", "Does Not Exist Anywhere" },
 	{ "606", "Not Acceptable" },
-	{ 0, NULL }
+	{ NULL, NULL }
 };
 
-#define AID_RID_ETSI   G_GINT64_CONSTANT(0xA000000009)
-#define AID_RID_3GPP   G_GINT64_CONSTANT(0xA000000087)
-#define AID_RID_3GPP2  G_GINT64_CONSTANT(0xA000000343)
-#define AID_RID_OMA    G_GINT64_CONSTANT(0xA000000412)
-#define AID_RID_WIMAX  G_GINT64_CONSTANT(0xA000000424)
+#define AID_RID_ETSI   INT64_C(0xA000000009)
+#define AID_RID_3GPP   INT64_C(0xA000000087)
+#define AID_RID_3GPP2  INT64_C(0xA000000343)
+#define AID_RID_OMA    INT64_C(0xA000000412)
+#define AID_RID_WIMAX  INT64_C(0xA000000424)
 
 static const val64_string aid_rid_vals[] = {
 	{ AID_RID_ETSI, "ETSI"},
@@ -992,8 +992,8 @@ typedef enum {
 } cat_nmr_type;
 
 typedef struct {
-	guint32 req_frame;
-	guint32 id;
+	uint32_t req_frame;
+	uint32_t id;
 	cat_nmr_type nmr_type;
 } cat_transaction_t;
 
@@ -1001,10 +1001,10 @@ typedef struct {
  * ETSI TS 102 221 Annex A.
  */
 static void
-dissect_cat_efadn_coding(tvbuff_t *tvb, proto_tree *tree, guint32 pos, guint32 len, int hf_entry)
+dissect_cat_efadn_coding(tvbuff_t *tvb, proto_tree *tree, uint32_t pos, uint32_t len, int hf_entry)
 {
 	if (len) {
-		guint8 first_byte = tvb_get_guint8(tvb, pos);
+		uint8_t first_byte = tvb_get_uint8(tvb, pos);
 
 		if ((first_byte & 0x80) == 0) {
 			/*
@@ -1027,8 +1027,8 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 	proto_tree *cat_tree, *elem_tree;
 	unsigned int pos = 0;
 	tvbuff_t *new_tvb;
-	gboolean ims_event = FALSE, dns_server = FALSE;
-	guint length = tvb_reported_length(tvb);
+	bool ims_event = false, dns_server = false;
+	unsigned length = tvb_reported_length(tvb);
 	gsm_sms_data_t sms_data = {0};
 	conversation_t *conversation;
 	cat_conv_info_t *cat_info;
@@ -1048,21 +1048,21 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 	cat_tree = proto_item_add_subtree(cat_ti, ett_cat);
 	while (pos < length) {
 		proto_item *ti;
-		guint32 g8, cmd_nr, cmd_qual;
-		gboolean cmd_qual_flag;
-		guint16 tag;
-		guint32 len, i;
-		guint8 *ptr = NULL;
+		uint32_t g8, cmd_nr, cmd_qual;
+		bool cmd_qual_flag;
+		uint16_t tag;
+		uint32_t len, i;
+		uint8_t *ptr = NULL;
 
-		tag = tvb_get_guint8(tvb, pos++) & 0x7f;
+		tag = tvb_get_uint8(tvb, pos++) & 0x7f;
 		if (tag == 0x7f) {
 			tag = tvb_get_ntohs(tvb, pos) & 0x7fff;
 			pos += 2;
 		}
-		len = tvb_get_guint8(tvb, pos++);
+		len = tvb_get_uint8(tvb, pos++);
 		switch (len) {
 		case 0x81:
-			len = tvb_get_guint8(tvb, pos++);
+			len = tvb_get_uint8(tvb, pos++);
 			break;
 		case 0x82:
 			len = tvb_get_ntohs(tvb, pos);
@@ -1094,8 +1094,8 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 				break;
 			proto_tree_add_item_ret_uint(elem_tree, hf_ctlv_cmd_nr, tvb, pos, 1, ENC_BIG_ENDIAN, &cmd_nr);
 			if (cmd_nr == 0x40) {
-				ims_event = TRUE;
-				dns_server = TRUE;
+				ims_event = true;
+				dns_server = true;
 			}
 			proto_tree_add_item_ret_uint(elem_tree, hf_ctlv_cmd_type, tvb, pos+1, 1, ENC_BIG_ENDIAN, &g8);
 			/* append command type to INFO column */
@@ -1108,7 +1108,7 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			case 0x13:
 				proto_tree_add_item_ret_boolean(elem_tree, hf_ctlv_cmd_qual_send_short_msg, tvb, pos+2, 1, ENC_BIG_ENDIAN, &cmd_qual_flag);
 				sms_data.stk_packing_required = cmd_qual_flag;
-				cmd_qual = cmd_qual_flag ? 1 : 0;
+				cmd_qual = cmd_qual_flag;
 				break;
 			case 0x26:
 				proto_tree_add_item_ret_uint(elem_tree, hf_ctlv_cmd_qual_loci, tvb, pos+2, 1, ENC_BIG_ENDIAN, &cmd_qual);
@@ -1118,14 +1118,14 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 				break;
 			case 0x43:
 				proto_tree_add_item_ret_boolean(elem_tree, hf_ctlv_cmd_qual_send_data, tvb, pos+2, 1, ENC_BIG_ENDIAN, &cmd_qual_flag);
-				cmd_qual = cmd_qual_flag ? 1 : 0;
+				cmd_qual = cmd_qual_flag;
 				break;
 			default:
 				proto_tree_add_item_ret_uint(elem_tree, hf_ctlv_cmd_qual, tvb, pos+2, 1, ENC_BIG_ENDIAN, &cmd_qual);
 				break;
 			}
 			if (data) {
-				guint32 id = (cmd_nr << 16) | (g8 << 8) | cmd_qual;
+				uint32_t id = (cmd_nr << 16) | (g8 << 8) | cmd_qual;
 				key[0].length = 1;
 				key[0].key = &id;
 				key[1].length = 1;
@@ -1257,7 +1257,7 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			if (len == 0)
 				break;
 			/* MCC/MNC / LAC / CellID */
-			dissect_e212_mcc_mnc(tvb, pinfo, elem_tree, pos, E212_NONE, TRUE);
+			dissect_e212_mcc_mnc(tvb, pinfo, elem_tree, pos, E212_NONE, true);
 			proto_tree_add_item(elem_tree, hf_ctlv_loci_lac, tvb, pos+3, 2, ENC_BIG_ENDIAN);
 			if (len == 5)
 				break;
@@ -1291,9 +1291,9 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			break;
 		case 0x19:	/* event list */
 			for (i = 0; i < len; i++) {
-				guint8 event = tvb_get_guint8(tvb, pos+i);
+				uint8_t event = tvb_get_uint8(tvb, pos+i);
 				if ((event == 0x17) || (event == 0x18)) {
-					ims_event = TRUE;
+					ims_event = true;
 				}
 				proto_tree_add_uint(elem_tree, hf_ctlv_event, tvb, pos+i, 1, event);
 				col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
@@ -1306,31 +1306,31 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			break;
 		case 0x25:	/* timer value */
 			{
-				guint8 oct;
-				oct = tvb_get_guint8(tvb, pos);
+				uint8_t oct;
+				oct = tvb_get_uint8(tvb, pos);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_timer_val_hr, tvb, pos, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+1);
+				oct = tvb_get_uint8(tvb, pos+1);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_timer_val_min, tvb, pos+1, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+2);
+				oct = tvb_get_uint8(tvb, pos+2);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_timer_val_sec, tvb, pos+2, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
 			}
 			break;
 		case 0x26:	/* date-time and time zone */
 			{
-				guint8 oct, tz;
-				oct = tvb_get_guint8(tvb, pos);
+				uint8_t oct, tz;
+				oct = tvb_get_uint8(tvb, pos);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_yr, tvb, pos, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+1);
+				oct = tvb_get_uint8(tvb, pos+1);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_mo, tvb, pos+1, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+2);
+				oct = tvb_get_uint8(tvb, pos+2);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_day, tvb, pos+2, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+3);
+				oct = tvb_get_uint8(tvb, pos+3);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_hr, tvb, pos+3, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+4);
+				oct = tvb_get_uint8(tvb, pos+4);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_min, tvb, pos+4, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+5);
+				oct = tvb_get_uint8(tvb, pos+5);
 				proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_sec, tvb, pos+5, 1, oct, "%u (0x%02x)", 10*(oct&0x0f)+(oct>>4), oct);
-				oct = tvb_get_guint8(tvb, pos+6);
+				oct = tvb_get_uint8(tvb, pos+6);
 				if (oct == 0xff) {
 					proto_tree_add_uint_format_value(elem_tree, hf_ctlv_date_time_tz, tvb, pos+6, 1, oct, "Unknown (0x%02x)", oct);
 				} else {
@@ -1358,7 +1358,7 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			break;
 		case 0x2f:	/* AID */
 			{
-				guint64 rid = tvb_get_ntoh40(tvb, pos);
+				uint64_t rid = tvb_get_ntoh40(tvb, pos);
 
 				proto_tree_add_uint64(elem_tree, hf_ctlv_aid_rid, tvb, pos, 5, rid);
 				if (rid == AID_RID_ETSI) {
@@ -1495,8 +1495,8 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			if (ims_event) {
 				i = 0;
 				while (i < len) {
-					if (tvb_get_guint8(tvb, pos+i) == 0x80) {
-						g8 = tvb_get_guint8(tvb, pos+i+1);
+					if (tvb_get_uint8(tvb, pos+i) == 0x80) {
+						g8 = tvb_get_uint8(tvb, pos+i+1);
 						proto_tree_add_item(elem_tree, hf_ctlv_impu, tvb, pos+i+2, g8, ENC_UTF_8 | ENC_NA);
 						i += 2+g8;
 					} else {
@@ -1507,14 +1507,14 @@ dissect_cat(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 			break;
 		case 0x78:	/* NMEA sentence / IMS Status-Code */
 			if (ims_event) {
-				guint8 *status_code = tvb_get_string_enc(pinfo->pool, tvb, pos, len, ENC_ASCII);
+				uint8_t *status_code = tvb_get_string_enc(pinfo->pool, tvb, pos, len, ENC_ASCII);
 				proto_tree_add_string_format_value(elem_tree, hf_ctlv_ims_status_code, tvb, pos, len,
 					status_code, "%s (%s)", status_code, str_to_str(status_code, ims_status_code, "Unknown"));
 			}
 			break;
 		case 0x79:	/* PLMN list */
 			for (i = 0; i < len; i+=3) {
-				dissect_e212_mcc_mnc(tvb, pinfo, elem_tree, pos+3*i, E212_NONE, TRUE);
+				dissect_e212_mcc_mnc(tvb, pinfo, elem_tree, pos+3*i, E212_NONE, true);
 			}
 			break;
 		case 0x7a:/* Broadcast Network Information */
@@ -2045,7 +2045,7 @@ proto_register_card_app_toolkit(void)
 			  NULL, HFILL },
 		}
 	};
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_cat,
 		&ett_elem,
 	};

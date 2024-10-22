@@ -125,7 +125,7 @@ gsm_a_stat_draw(
     void                *tapdata)
 {
     gsm_a_stat_t        *stat_p = (gsm_a_stat_t *)tapdata;
-    guint8              i;
+    uint8_t             i;
 
 
     printf("\n");

@@ -28,11 +28,11 @@
 #include <epan/packet.h>
 #include "wimax-int.h"
 
-extern gint proto_mac_header_generic_decoder;
+extern int proto_mac_header_generic_decoder;
 
-static gint proto_mac_header_type_2_decoder;
-static gint ett_mac_header_type_2_decoder;
-static gint hf_mac_header_type_2_value_bytes;
+static int proto_mac_header_type_2_decoder;
+static int ett_mac_header_type_2_decoder;
+static int hf_mac_header_type_2_value_bytes;
 
 #define WIMAX_MAC_HEADER_SIZE  6
 
@@ -368,8 +368,8 @@ static const value_string ai_msgs[] =
 
 static int dissect_mac_header_type_2_decoder(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	gint tvb_len, offset = 0;
-	guint cii_bit, first_byte, fb_type, mimo_type;
+	int tvb_len, offset = 0;
+	unsigned cii_bit, first_byte, fb_type, mimo_type;
 	proto_item *parent_item = NULL;
 	proto_item *ti = NULL;
 	proto_tree *ti_tree = NULL;
@@ -407,7 +407,7 @@ static int dissect_mac_header_type_2_decoder(tvbuff_t *tvb, packet_info *pinfo, 
 		/* feedback type */
 		proto_tree_add_item(ti_tree, hf_mac_header_type_2_fb_type, tvb, offset, 1, ENC_BIG_ENDIAN);
 		/* Get the first byte */
-		first_byte = tvb_get_guint8(tvb, offset);
+		first_byte = tvb_get_uint8(tvb, offset);
 		/* get the CII field */
 		cii_bit = ((first_byte & WIMAX_MAC_HEADER_TYPE_2_CII)?1:0);
 		/* check the Type field */
@@ -624,7 +624,7 @@ static int dissect_mac_header_type_2_decoder(tvbuff_t *tvb, packet_info *pinfo, 
 				/* Decode and display the Long-term precoding feedback */
 				/* Feedback of index */
 				proto_tree_add_item(ti_tree, hf_mac_header_type_2_lt_id_fb, tvb, offset, 2, ENC_BIG_ENDIAN);
-				/* rank of prrecoding codebook */
+				/* rank of precoding codebook */
 				proto_tree_add_item(ti_tree, hf_mac_header_type_2_lt_rank, tvb, offset, 2, ENC_BIG_ENDIAN);
 				/* EFC and QAM feedback */
 				proto_tree_add_item(ti_tree, hf_mac_header_type_2_lt_fec_qam, tvb, offset, 2, ENC_BIG_ENDIAN);
@@ -714,7 +714,7 @@ static int dissect_mac_header_type_2_decoder(tvbuff_t *tvb, packet_info *pinfo, 
 			break;
 			case CL_MIMO_FB:
 				/* Get the MIMO type */
-				mimo_type = ((tvb_get_guint8(tvb, offset) & 0xC0) >> 6);
+				mimo_type = ((tvb_get_uint8(tvb, offset) & 0xC0) >> 6);
 				/* Decode and display the MIMO type */
 				proto_tree_add_item(ti_tree, hf_mac_header_type_2_cl_mimo_type, tvb, offset, 2, ENC_BIG_ENDIAN);
 				if(mimo_type == 1)
@@ -1343,7 +1343,7 @@ void wimax_proto_register_mac_header_type_2(void)
 	};
 
 	/* Setup protocol subtree array */
-	static gint *ett[] =
+	static int *ett[] =
 		{
 			&ett_mac_header_type_2_decoder,
 		};

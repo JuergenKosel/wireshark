@@ -30,17 +30,15 @@ WSLUA_FUNCTION wslua_wtap_file_type_subtype_description(lua_State* LS) {
     /*
     Get a string describing a capture file type, given a filetype
     value for that file type.
-
-    @since 3.2.12, 3.4.4
     */
 #define WSLUA_ARG_wtap_file_type_subtype_description_FILETYPE 1 /* The type for which the description is to be fetched - a number returned by `wtap_name_to_file_type_subtype()`. */
-    lua_Number filetype = luaL_checknumber(LS,WSLUA_ARG_wtap_file_type_subtype_description_FILETYPE);
+    lua_Integer filetype = luaL_checkinteger(LS,WSLUA_ARG_wtap_file_type_subtype_description_FILETYPE);
     /* wtap_file_type_subtype_description()'s name isn't really descriptive. */
     if (filetype > INT_MAX) {
         /* Too big. */
         lua_pushnil(LS);
     } else {
-        const gchar* str = wtap_file_type_subtype_description((int)filetype);
+        const char* str = wtap_file_type_subtype_description((int)filetype);
         if (str == NULL)
             lua_pushnil(LS);
         else
@@ -53,17 +51,15 @@ WSLUA_FUNCTION wslua_wtap_file_type_subtype_name(lua_State* LS) {
     /*
     Get a string giving the name for a capture file type, given a filetype
     value for that file type.
-
-    @since 3.2.12, 3.4.4
     */
 #define WSLUA_ARG_wtap_file_type_subtype_name_FILETYPE 1 /* The type for which the name is to be fetched - a number returned by `wtap_name_to_file_type_subtype()`. */
-    lua_Number filetype = luaL_checknumber(LS,WSLUA_ARG_wtap_file_type_subtype_name_FILETYPE);
+    lua_Integer filetype = luaL_checkinteger(LS,WSLUA_ARG_wtap_file_type_subtype_name_FILETYPE);
     /* wtap_file_type_subtype_description()'s name isn't really descriptive. */
     if (filetype > INT_MAX) {
         /* Too big. */
         lua_pushnil(LS);
     } else {
-        const gchar* str = wtap_file_type_subtype_name((int)filetype);
+        const char* str = wtap_file_type_subtype_name((int)filetype);
         if (str == NULL)
             lua_pushnil(LS);
         else
@@ -76,49 +72,35 @@ WSLUA_FUNCTION wslua_wtap_name_to_file_type_subtype(lua_State* LS) {
     /*
     Get a filetype value for a file type, given the name for that
     file type.
-
-    @since 3.2.12, 3.4.4
     */
 #define WSLUA_ARG_wtap_name_to_file_type_subtype_NAME 1 /* The name of a file type. */
     const char* name = luaL_checkstring(LS,WSLUA_ARG_wtap_name_to_file_type_subtype_NAME);
-    lua_Number filetype = wtap_name_to_file_type_subtype(name);
+    lua_Integer filetype = wtap_name_to_file_type_subtype(name);
     if (filetype == -1)
         lua_pushnil(LS);
     else
-        lua_pushnumber(LS,filetype);
+        lua_pushinteger(LS,filetype);
     WSLUA_RETURN(1); /* The filetype value for the file type with that name, or nil if there is no such file type. */
 }
 
 WSLUA_FUNCTION wslua_wtap_pcap_file_type_subtype(lua_State* LS) {
-    /*
-    Get the filetype value for pcap files.
-
-    @since 3.2.12, 3.4.4
-    */
-    lua_Number filetype = wtap_pcap_file_type_subtype();
-    lua_pushnumber(LS,filetype);
+    /* Get the filetype value for pcap files. */
+    lua_Integer filetype = wtap_pcap_file_type_subtype();
+    lua_pushinteger(LS,filetype);
     WSLUA_RETURN(1); /* The filetype value for pcap files. */
 }
 
 WSLUA_FUNCTION wslua_wtap_pcap_nsec_file_type_subtype(lua_State* LS) {
-    /*
-    Get the filetype value for nanosecond-resolution pcap files.
-
-    @since 3.2.12, 3.4.4
-    */
-    lua_Number filetype = wtap_pcap_nsec_file_type_subtype();
-    lua_pushnumber(LS,filetype);
+    /* Get the filetype value for nanosecond-resolution pcap files. */
+    lua_Integer filetype = wtap_pcap_nsec_file_type_subtype();
+    lua_pushinteger(LS,filetype);
     WSLUA_RETURN(1); /* The filetype value for nanosecond-resolution pcap files. */
 }
 
 WSLUA_FUNCTION wslua_wtap_pcapng_file_type_subtype(lua_State* LS) {
-    /*
-    Get the filetype value for pcapng files.
-
-    @since 3.2.12, 3.4.4
-    */
-    lua_Number filetype = wtap_pcapng_file_type_subtype();
-    lua_pushnumber(LS,filetype);
+    /* Get the filetype value for pcapng files. */
+    lua_Integer filetype = wtap_pcapng_file_type_subtype();
+    lua_pushinteger(LS,filetype);
     WSLUA_RETURN(1); /* The filetype value for pcapng files. */
 }
 
@@ -135,7 +117,7 @@ extern void wslua_init_wtap_filetypes(lua_State* LS) {
      * so none of the entries will be in a sequence.
      */
     lua_createtable(LS,0,table->len);
-    for (guint i = 0; i < table->len; i++) {
+    for (unsigned i = 0; i < table->len; i++) {
         struct backwards_compatibiliity_lua_name *entry;
 
         entry = &g_array_index(table,
@@ -148,7 +130,7 @@ extern void wslua_init_wtap_filetypes(lua_State* LS) {
          * it.
          */
         lua_pushstring(LS, entry->name);
-        lua_pushnumber(LS, entry->ft);
+        lua_pushinteger(LS, entry->ft);
         /*
          * The -3 is the index, relative to the top of the stack, of
          * the table; the two elements on top of it are the ft and

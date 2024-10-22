@@ -25,14 +25,38 @@
 #include <ui/qt/utils/color_utils.h>
 #include "main_application.h"
 
-// If we ever add support for multiple windows this will need to be replaced.
-static DisplayFilterCombo *cur_display_filter_combo = NULL;
+static QStandardItemModel *cur_model;
+
+extern "C" void dfilter_recent_combo_write_all(FILE *rf) {
+    if (cur_model == nullptr)
+        return;
+
+    for (int i = 0; i < cur_model->rowCount(); i++ ) {
+        const QByteArray& filter = cur_model->item(i)->text().toUtf8();
+        if (!filter.isEmpty()) {
+            fprintf(rf, RECENT_KEY_DISPLAY_FILTER ": %s\n", filter.constData());
+        }
+    }
+}
+
+extern "C" bool dfilter_combo_add_recent(const char *filter) {
+    if (cur_model == nullptr) {
+        cur_model = new QStandardItemModel();
+        cur_model->setSortRole(Qt::UserRole);
+    }
+
+    QStandardItem *new_item = new QStandardItem(filter);
+    new_item->setData(QVariant(QDateTime::currentMSecsSinceEpoch()), Qt::UserRole);
+    cur_model->appendRow(new_item);
+    return true;
+}
 
 DisplayFilterCombo::DisplayFilterCombo(QWidget *parent) :
     QComboBox(parent)
 {
     setEditable(true);
-    setLineEdit(new DisplayFilterEdit(this, DisplayFilterToApply));
+    DisplayFilterEdit *dfe = new DisplayFilterEdit(this, DisplayFilterToApply);
+    setLineEdit(dfe);
     // setLineEdit will create a new QCompleter that performs inline completion,
     // be sure to disable that since our DisplayFilterEdit performs its own
     // popup completion. As QLineEdit's completer is designed for full line
@@ -46,44 +70,84 @@ DisplayFilterCombo::DisplayFilterCombo(QWidget *parent) :
     // Default is Preferred.
     setSizePolicy(QSizePolicy::MinimumExpanding, sizePolicy().verticalPolicy());
     setAccessibleName(tr("Display filter selector"));
-    cur_display_filter_combo = this;
     updateStyleSheet();
     setToolTip(tr("Select from previously used filters."));
 
-    QStandardItemModel *model = qobject_cast<QStandardItemModel*>(this->model());
-    model->setSortRole(Qt::UserRole);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    // Setting the placeholderText keeps newly added items from being the
+    // current item. It only works for the placeholderText of the QComboBox,
+    // not the lineEdit (even though the lineEdit's placeholderText is shown
+    // instead.) This only matters for any combobox created before the recent
+    // display filter list is read (i.e., the main window one.)
+    setPlaceholderText(dfe->placeholderText());
+#endif
+
+    if (cur_model == nullptr) {
+        cur_model = new QStandardItemModel();
+        cur_model->setSortRole(Qt::UserRole);
+    }
+    setModel(cur_model);
 
     connect(mainApp, &MainApplication::preferencesChanged, this, &DisplayFilterCombo::updateMaxCount);
-    // Ugly cast required (?)
-    // https://stackoverflow.com/questions/16794695/connecting-overloaded-signals-and-slots-in-qt-5
-    connect(this, static_cast<void (DisplayFilterCombo::*)(int)>(&DisplayFilterCombo::activated), this, &DisplayFilterCombo::onActivated);
+    connect(dfe, &DisplayFilterEdit::filterPackets, this, &DisplayFilterCombo::filterApplied);
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    connect(cur_model, &QAbstractItemModel::rowsAboutToBeInserted, this, &DisplayFilterCombo::rowsAboutToBeInserted);
+#endif
+    connect(cur_model, &QAbstractItemModel::rowsInserted, this, &DisplayFilterCombo::rowsInserted);
 }
 
-extern "C" void dfilter_recent_combo_write_all(FILE *rf) {
-    if (!cur_display_filter_combo)
-        return;
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+void DisplayFilterCombo::rowsAboutToBeInserted(const QModelIndex&, int, int)
+{
+    // If the current text is blank but we're inserting a row, that means
+    // it is being added programmatically from the model, and we want to
+    // clear it afterwards and show the placeholder text instead.
+    clear_state_ = (currentText() == QString());
+}
+#endif
 
-    cur_display_filter_combo->writeRecent(rf);
+void DisplayFilterCombo::rowsInserted(const QModelIndex&, int first, int last)
+{
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    if (clear_state_) {
+        clearEditText();
+    }
+#endif
+
+    // Set the last used times of newly inserted items to the current
+    // time, in order. We could subclass QStandardItemModel instead.
+    QStandardItemModel *m = qobject_cast<QStandardItemModel*>(this->model());
+    for (int row = first; row <= last; ++row) {
+        QModelIndex idx = m->index(row, 0);
+        m->setData(idx, QVariant(QDateTime::currentMSecsSinceEpoch()), Qt::UserRole);
+    }
+    m->sort(0, Qt::DescendingOrder);
 }
 
-void DisplayFilterCombo::writeRecent(FILE *rf) {
-    int i;
-
-    for (i = 0; i < count(); i++) {
-        const QByteArray& filter = itemText(i).toUtf8();
-        if (!filter.isEmpty()) {
-            fprintf(rf, RECENT_KEY_DISPLAY_FILTER ": %s\n", filter.constData());
+void DisplayFilterCombo::filterApplied(QString filter, bool)
+{
+    if (filter.isEmpty()) {
+        // The Clear Button was pressed. The Qt documentation suggests
+        // this would set the currentIndex to -1, but that doesn't seem
+        // to happen on Qt 5.15 or Qt 6
+        // XXX - Note in general manually editing the associated LineEdit
+        // doesn't change the currentIndex, even when the text matches.
+        // We could watch for currentTextChanged and update the index
+        // (it might be more natural for scrolling history.)
+        setCurrentIndex(-1);
+    } else {
+        int row = findText(filter);
+        if (row >= 0) {
+            /* Update the row timestamp and resort list, if the
+             * filter is already in the QComboBox. Newly inserted
+             * items are handled by rowsInserted above. */
+            QStandardItemModel *m = qobject_cast<QStandardItemModel*>(this->model());
+            QModelIndex idx = m->index(row, 0);
+            m->setData(idx, QVariant(QDateTime::currentMSecsSinceEpoch()), Qt::UserRole);
+            m->sort(0, Qt::DescendingOrder);
         }
     }
-}
-
-void DisplayFilterCombo::onActivated(int row)
-{
-    /* Update the row timestamp and resort list. */
-    QStandardItemModel *m = qobject_cast<QStandardItemModel*>(this->model());
-    QModelIndex idx = m->index(row, 0);
-    m->setData(idx, QVariant(QDateTime::currentMSecsSinceEpoch()), Qt::UserRole);
-    m->sort(0, Qt::DescendingOrder);
 }
 
 bool DisplayFilterCombo::event(QEvent *event)
@@ -171,19 +235,4 @@ void DisplayFilterCombo::setDisplayFilter(QString filter)
 void DisplayFilterCombo::updateMaxCount()
 {
     setMaxCount(prefs.gui_recent_df_entries_max);
-}
-
-extern "C" gboolean dfilter_combo_add_recent(const gchar *filter) {
-    if (!cur_display_filter_combo)
-        return FALSE;
-
-    // Adding an item to a QComboBox also sets its lineEdit. In our case
-    // that means we might trigger a temporary status message so we block
-    // the lineEdit's signals.
-    // Another approach would be to update QComboBox->model directly.
-    bool block_state = cur_display_filter_combo->lineEdit()->blockSignals(true);
-    cur_display_filter_combo->addItem(filter, QVariant(QDateTime::currentMSecsSinceEpoch()));
-    cur_display_filter_combo->clearEditText();
-    cur_display_filter_combo->lineEdit()->blockSignals(block_state);
-    return TRUE;
 }

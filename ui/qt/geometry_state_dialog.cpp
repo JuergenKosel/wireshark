@@ -55,6 +55,20 @@ void GeometryStateDialog::loadGeometry(int width, int height, const QString &dia
     }
 }
 
+#ifndef Q_OS_MAC
+void GeometryStateDialog::setWindowModality(Qt::WindowModality modality)
+{
+    if (modality != windowModality()) {
+        if (modality == Qt::NonModal) {
+            setParent(nullptr, windowFlags());
+        } else {
+            setParent(parent_, windowFlags());
+        }
+    }
+    QDialog::setWindowModality(modality);
+}
+#endif
+
 void GeometryStateDialog::loadSplitterState(QSplitter *splitter)
 {
     if (splitter == nullptr) {
@@ -76,13 +90,13 @@ void GeometryStateDialog::saveWindowGeometry()
     window_geometry_t geom;
 
     geom.key = NULL;
-    geom.set_pos = TRUE;
+    geom.set_pos = true;
     geom.x = pos().x();
     geom.y = pos().y();
-    geom.set_size  = TRUE;
+    geom.set_size  = true;
     geom.width = size().width();
     geom.height = size().height();
-    geom.set_maximized = TRUE;
+    geom.set_maximized = true;
     // XXX: maximized and fullScreen are different window states; we've been
     // using the maximized key for fullScreen ever since this was added.
     geom.maximized = isFullScreen();

@@ -12,6 +12,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-nist-csor.h"
 #include "packet-ber.h"
@@ -43,7 +44,7 @@ void proto_register_nist_csor(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
 #include "packet-nist-csor-ettarr.c"
   };
 

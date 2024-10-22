@@ -12,6 +12,8 @@
 #include "config.h"
 
 #include <epan/packet.h>
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 
 void proto_register_hyperscsi(void);
 void proto_reg_handoff_hyperscsi(void);
@@ -25,9 +27,9 @@ static int hf_hs_tagno;
 static int hf_hs_lastfrag;
 static int hf_hs_fragno;
 
-static gint ett_hyperscsi;
-static gint ett_hs_hdr;
-static gint ett_hs_pdu;
+static int ett_hyperscsi;
+static int ett_hs_hdr;
+static int ett_hs_pdu;
 
 static dissector_handle_t hs_handle;
 
@@ -68,15 +70,15 @@ static const value_string hscsi_opcodes[] = {
 static int
 dissect_hyperscsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-  guint      hs_hdr1, hs_hdr2, hs_hdr3;
-  guint8     hs_res;
-  guint16    hs_tagno;
-  guint16    hs_fragno;
-  gint       offset = 0;
+  unsigned   hs_hdr1, hs_hdr2, hs_hdr3;
+  uint8_t    hs_res;
+  uint16_t   hs_tagno;
+  uint16_t   hs_fragno;
+  int        offset = 0;
   proto_tree *hs_hdr_tree, *hs_pdu_tree;
   proto_tree *hs_tree;
   proto_item *ti;
-  guint8     hs_cmd, hs_ver;
+  uint8_t    hs_cmd, hs_ver;
 
   col_set_str(pinfo->cinfo, COL_PROTOCOL, "HyperSCSI");
   col_clear(pinfo->cinfo, COL_INFO);
@@ -84,11 +86,11 @@ dissect_hyperscsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
   ti = proto_tree_add_item(tree, proto_hyperscsi, tvb, offset, -1, ENC_NA);
   hs_tree = proto_item_add_subtree(ti, ett_hyperscsi);
 
-  hs_hdr1 = tvb_get_guint8(tvb, offset);
+  hs_hdr1 = tvb_get_uint8(tvb, offset);
   offset++;
-  hs_hdr2 = tvb_get_guint8(tvb, offset);
+  hs_hdr2 = tvb_get_uint8(tvb, offset);
   offset++;
-  hs_hdr3 = tvb_get_guint8(tvb, offset);
+  hs_hdr3 = tvb_get_uint8(tvb, offset);
   offset++;
 
   hs_res = hs_hdr1 >> 4;
@@ -117,9 +119,9 @@ dissect_hyperscsi(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* dat
    * Now, add the PDU
    */
 
-  hs_ver = tvb_get_guint8(tvb, offset++);
+  hs_ver = tvb_get_uint8(tvb, offset++);
 
-  hs_cmd = tvb_get_guint8(tvb, offset);
+  hs_cmd = tvb_get_uint8(tvb, offset);
 
   hs_cmd &= OPCODE_MASK;
 
@@ -166,7 +168,7 @@ proto_register_hyperscsi(void)
         NULL, HFILL}},
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_hyperscsi,
     &ett_hs_hdr,
     &ett_hs_pdu,

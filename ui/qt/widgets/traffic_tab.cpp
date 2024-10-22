@@ -78,7 +78,7 @@ TrafficTab::TrafficTab(QWidget * parent) :
 TrafficTab::~TrafficTab()
 {}
 
-void TrafficTab::setProtocolInfo(QString tableName, TrafficTypesList * trafficList, GList ** recentColumnList, ATapModelCallback createModel)
+void TrafficTab::setProtocolInfo(QString tableName, TrafficTypesList * trafficList, GList ** recentList, GList ** recentColumnList, ATapModelCallback createModel)
 {
     setTabBasename(tableName);
 
@@ -86,6 +86,7 @@ void TrafficTab::setProtocolInfo(QString tableName, TrafficTypesList * trafficLi
     if (createModel)
         _createModel = createModel;
 
+    _recentList = recentList;
     _recentColumnList = recentColumnList;
 
     setOpenTabs(trafficList->protocols(true));
@@ -159,7 +160,7 @@ void TrafficTab::useAbsoluteTime(bool absolute)
 {
     for(int idx = 0; idx < count(); idx++)
     {
-        ATapDataModel * atdm = modelForTabIndex(idx);
+        ATapDataModel * atdm = dataModelForTabIndex(idx);
         if (atdm)
             atdm->useAbsoluteTime(absolute);
     }
@@ -169,7 +170,7 @@ void TrafficTab::useNanosecondTimestamps(bool nanoseconds)
 {
     for(int idx = 0; idx < count(); idx++)
     {
-        ATapDataModel * atdm = modelForTabIndex(idx);
+        ATapDataModel * atdm = dataModelForTabIndex(idx);
         if (atdm)
             atdm->useNanosecondTimestamps(nanoseconds);
     }
@@ -179,7 +180,7 @@ void TrafficTab::disableTap()
 {
     for(int idx = 0; idx < count(); idx++)
     {
-        ATapDataModel * atdm = modelForTabIndex(idx);
+        ATapDataModel * atdm = dataModelForTabIndex(idx);
         if (atdm)
             atdm->disableTap();
     }
@@ -260,6 +261,12 @@ void TrafficTab::insertProtoTab(int protoId, bool emitSignals)
     if (tabId >= 0)
         tabBar()->setTabData(tabId, storage);
 
+    // Identify the last known opened tab
+    int lastOpened_protoId = -1;
+    GList *selected_tab = g_list_first(*_recentList);
+    if (selected_tab != nullptr) {
+        lastOpened_protoId = proto_get_id_by_short_name((const char *)selected_tab->data);
+    }
 
     /* We reset the correct tab idxs. That operations is costly, but it is only
      * called during this operation and ensures, that other operations do not
@@ -268,6 +275,11 @@ void TrafficTab::insertProtoTab(int protoId, bool emitSignals)
     for (int idx = 0; idx < count(); idx++) {
         TabData tabData = qvariant_cast<TabData>(tabBar()->tabData(idx));
         _tabs.insert(tabData.protoId(), idx);
+    }
+
+    // Restore the last known opened tab
+    if(lastOpened_protoId == protoId) {
+        setCurrentIndex(tabId);
     }
 
     if (emitSignals) {
@@ -329,7 +341,7 @@ QVariant TrafficTab::currentItemData(int role)
          * to ensure proper handling. Especially ConversationDialog depends on this
          * method always returning data */
         if (!idx.isValid()) {
-            ATapDataModel * model = modelForTabIndex(currentIndex());
+            TrafficDataFilterProxy * model = modelForTabIndex(currentIndex());
             idx = model->index(0, 0);
         }
         return idx.data(role);
@@ -365,7 +377,7 @@ void TrafficTab::modelReset()
     emit tabDataChanged(tabIdx);
 }
 
-ATapDataModel * TrafficTab::modelForTabIndex(int tabIdx)
+TrafficDataFilterProxy * TrafficTab::modelForTabIndex(int tabIdx)
 {
     if (tabIdx == -1)
         tabIdx = currentIndex();
@@ -373,18 +385,32 @@ ATapDataModel * TrafficTab::modelForTabIndex(int tabIdx)
     return modelForWidget(widget(tabIdx));
 }
 
-ATapDataModel * TrafficTab::modelForWidget(QWidget * searchWidget)
+TrafficDataFilterProxy * TrafficTab::modelForWidget(QWidget * searchWidget)
 {
     if (qobject_cast<QTreeView *>(searchWidget)) {
         QTreeView * tree = qobject_cast<QTreeView *>(searchWidget);
         if (qobject_cast<TrafficDataFilterProxy *>(tree->model())) {
-            TrafficDataFilterProxy * qsfpm = qobject_cast<TrafficDataFilterProxy *>(tree->model());
-            if (qsfpm && qobject_cast<ATapDataModel *>(qsfpm->sourceModel())) {
-                return qobject_cast<ATapDataModel *>(qsfpm->sourceModel());
-            }
+            return qobject_cast<TrafficDataFilterProxy *>(tree->model());
         }
     }
 
+    return nullptr;
+}
+
+ATapDataModel * TrafficTab::dataModelForTabIndex(int tabIdx)
+{
+    if (tabIdx == -1)
+        tabIdx = currentIndex();
+
+    return dataModelForWidget(widget(tabIdx));
+}
+
+ATapDataModel * TrafficTab::dataModelForWidget(QWidget * searchWidget)
+{
+    TrafficDataFilterProxy * qsfpm = modelForWidget(searchWidget);
+    if (qsfpm && qobject_cast<ATapDataModel *>(qsfpm->sourceModel())) {
+        return qobject_cast<ATapDataModel *>(qsfpm->sourceModel());
+    }
     return nullptr;
 }
 
@@ -392,7 +418,7 @@ void TrafficTab::setFilter(QString filter)
 {
     for (int idx = 0; idx < count(); idx++ )
     {
-        ATapDataModel * atdm = modelForTabIndex(idx);
+        ATapDataModel * atdm = dataModelForTabIndex(idx);
         if (! atdm)
             continue;
         atdm->setFilter(filter);
@@ -406,7 +432,7 @@ void TrafficTab::setNameResolution(bool checked)
 
     for (int idx = 0; idx < count(); idx++ )
     {
-        ATapDataModel * atdm = modelForTabIndex(idx);
+        ATapDataModel * atdm = dataModelForTabIndex(idx);
         if (! atdm)
             continue;
         atdm->setResolveNames(checked);
@@ -422,7 +448,7 @@ void TrafficTab::setNameResolution(bool checked)
 bool TrafficTab::hasNameResolution(int tabIdx)
 {
     int tab = tabIdx == -1 || tabIdx >= count() ? currentIndex() : tabIdx;
-    ATapDataModel * dataModel = modelForTabIndex(tab);
+    ATapDataModel * dataModel = dataModelForTabIndex(tab);
     if (! dataModel)
         return false;
 
@@ -443,12 +469,15 @@ bool TrafficTab::hasGeoIPData(int tabIdx)
 {
     int tab = tabIdx == -1 || tabIdx >= count() ? currentIndex() : tabIdx;
 
-    ATapDataModel * dataModel = modelForTabIndex(tab);
+    ATapDataModel * dataModel = dataModelForTabIndex(tab);
+    if (! dataModel)
+        return false;
+
     return dataModel->hasGeoIPData();
 }
 
 bool
-TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, ATapDataModel * dataModel)
+TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, TrafficDataFilterProxy * model)
 {
     QTextStream out(fp);
 
@@ -508,14 +537,15 @@ TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, ATapDataModel * dataMo
     QJsonArray features;
 
     /* Append map data. */
-    for(int row = 0; row < dataModel->rowCount(QModelIndex()); row++)
+    for(int row = 0; row < model->rowCount(QModelIndex()); row++)
     {
-        QModelIndex index = dataModel->index(row, 0);
+        QModelIndex index = model->mapToSource(model->index(row, 0));
+        ATapDataModel *dataModel = qobject_cast<ATapDataModel *>(model->sourceModel());
         const mmdb_lookup_t * result = VariantPointer<const mmdb_lookup_t>::asPtr(dataModel->data(index, ATapDataModel::GEODATA_LOOKUPTABLE));
 
         if (!maxmind_db_has_coords(result)) {
             // result could be NULL if the caller did not trigger a lookup
-            // before. result->found could be FALSE if no MMDB entry exists.
+            // before. result->found could be false if no MMDB entry exists.
             continue;
         }
 
@@ -545,8 +575,8 @@ TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, ATapDataModel * dataMo
 
         if (qobject_cast<EndpointDataModel *>(dataModel)) {
             EndpointDataModel * endpointModel = qobject_cast<EndpointDataModel *>(dataModel);
-            property["packets"] = endpointModel->data(endpointModel->index(row, EndpointDataModel::ENDP_COLUMN_PACKETS)).toString();
-            property["bytes"] = endpointModel->data(endpointModel->index(row, EndpointDataModel::ENDP_COLUMN_BYTES)).toString();
+            property["packets"] = endpointModel->data(index.siblingAtColumn(EndpointDataModel::ENDP_COLUMN_PACKETS)).toString();
+            property["bytes"] = endpointModel->data(index.siblingAtColumn(EndpointDataModel::ENDP_COLUMN_BYTES)).toString();
         }
         arrEntry["properties"] = property;
         features.append(arrEntry);
@@ -568,7 +598,7 @@ TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, ATapDataModel * dataMo
 QUrl TrafficTab::createGeoIPMap(bool json_only, int tabIdx)
 {
     int tab = tabIdx == -1 || tabIdx >= count() ? currentIndex() : tabIdx;
-    ATapDataModel * dataModel = modelForTabIndex(tab);
+    ATapDataModel * dataModel = dataModelForTabIndex(tab);
     if (! (dataModel && dataModel->hasGeoIPData())) {
         QMessageBox::warning(this, tr("Map file error"), tr("No endpoints available to map"));
         return QUrl();
@@ -581,7 +611,7 @@ QUrl TrafficTab::createGeoIPMap(bool json_only, int tabIdx)
         return QUrl();
     }
 
-    if (!writeGeoIPMapFile(&tf, json_only, dataModel)) {
+    if (!writeGeoIPMapFile(&tf, json_only, modelForTabIndex(tab))) {
         tf.close();
         return QUrl();
     }
@@ -592,7 +622,7 @@ QUrl TrafficTab::createGeoIPMap(bool json_only, int tabIdx)
 #endif
 
 void TrafficTab::detachTab(int tabIdx, QPoint pos) {
-    ATapDataModel * model = modelForTabIndex(tabIdx);
+    ATapDataModel * model = dataModelForTabIndex(tabIdx);
     if (!model)
         return;
 
@@ -608,7 +638,7 @@ void TrafficTab::detachTab(int tabIdx, QPoint pos) {
 
 void TrafficTab::attachTab(QWidget * content, QString name)
 {
-    ATapDataModel * model = modelForWidget(content);
+    ATapDataModel * model = dataModelForWidget(content);
     if (!model) {
         attachTab(content, name);
         return;

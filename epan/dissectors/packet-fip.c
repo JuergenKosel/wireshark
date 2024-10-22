@@ -265,7 +265,7 @@ static dissector_handle_t fc_handle;
  * Insert common descriptor type and length fields.
  */
 static proto_tree*
-fip_desc_type_len(proto_tree *tree, tvbuff_t *tvb, guint8 dtype, int ett, proto_item** item)
+fip_desc_type_len(proto_tree *tree, tvbuff_t *tvb, uint8_t dtype, int ett, proto_item** item)
 {
     proto_tree* ret_tree;
 
@@ -283,8 +283,8 @@ fip_desc_type_len(proto_tree *tree, tvbuff_t *tvb, guint8 dtype, int ett, proto_
 static void
 fip_desc_fc4f(tvbuff_t *tvb, proto_tree *tree, proto_item *item)
 {
-    guint mask;
-    guint offset;
+    unsigned mask;
+    unsigned offset;
 
     static int * const types_word0[] = { /* types 0 - 31 */
         &hf_fip_type_ip,
@@ -331,17 +331,17 @@ fip_desc_fc4f(tvbuff_t *tvb, proto_tree *tree, proto_item *item)
 static int
 dissect_fip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-    guint       op;
-    guint       sub;
-    guint       rlen;
+    unsigned    op;
+    unsigned    sub;
+    unsigned    rlen;
     proto_item *ti;
     proto_item *item;
     proto_tree *fip_tree;
     proto_tree *subtree;
-    guint       dtype;
-    guint       dlen;
-    guint       desc_offset;
-    guint       val;
+    unsigned    dtype;
+    unsigned    dlen;
+    unsigned    desc_offset;
+    unsigned    val;
     tvbuff_t   *desc_tvb;
     const char *info;
 
@@ -356,7 +356,7 @@ dissect_fip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     }
 
     op  = tvb_get_ntohs(tvb, 2);
-    sub = tvb_get_guint8(tvb, 5);
+    sub = tvb_get_uint8(tvb, 5);
 
     switch (op) {
     case FIP_OP_DISC:
@@ -421,7 +421,7 @@ dissect_fip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
     proto_tree_add_bytes_format(fip_tree, hf_fip_descriptors, tvb, desc_offset, rlen, NULL, "Descriptors");
 
     while ((rlen > 0) && tvb_bytes_exist(tvb, desc_offset, 2)) {
-        dlen = tvb_get_guint8(tvb, desc_offset + 1) * FIP_BPW;
+        dlen = tvb_get_uint8(tvb, desc_offset + 1) * FIP_BPW;
         if (!dlen) {
             proto_tree_add_expert(fip_tree, pinfo, &ei_fip_descriptors, tvb, desc_offset, -1);
             break;
@@ -430,7 +430,7 @@ dissect_fip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             break;
         }
         desc_tvb = tvb_new_subset_length_caplen(tvb, desc_offset, dlen, -1);
-        dtype = tvb_get_guint8(desc_tvb, 0);
+        dtype = tvb_get_uint8(desc_tvb, 0);
         desc_offset += dlen;
         rlen -= dlen;
 
@@ -439,7 +439,7 @@ dissect_fip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
             subtree = fip_desc_type_len(fip_tree, desc_tvb, dtype, ett_fip_dt_pri, &item);
             proto_tree_add_item(subtree, hf_fip_desc_pri, desc_tvb,
                     3, 1, ENC_BIG_ENDIAN);
-            proto_item_append_text(item, "%u", tvb_get_guint8(desc_tvb, 3));
+            proto_item_append_text(item, "%u", tvb_get_uint8(desc_tvb, 3));
             break;
         case FIP_DT_MAC:
             subtree = fip_desc_type_len(fip_tree, desc_tvb, dtype, ett_fip_dt_mac, &item);
@@ -767,7 +767,7 @@ proto_register_fip(void)
             NULL, HFILL}},
 
     };
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_fip,
         &ett_fip_flags,
         &ett_fip_dt_pri,

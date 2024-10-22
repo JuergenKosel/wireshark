@@ -12,6 +12,7 @@
 #include "dfvm.h"
 
 #include <ftypes/ftypes.h>
+#include <wsutil/array.h>
 #include <wsutil/ws_assert.h>
 
 static void
@@ -232,7 +233,7 @@ dfvm_value_new_pcre(ws_regex_t *re)
 }
 
 dfvm_value_t*
-dfvm_value_new_guint(unsigned num)
+dfvm_value_new_uint(unsigned num)
 {
 	dfvm_value_t *v = dfvm_value_new(INTEGER);
 	v->value.numeric = num;
@@ -264,13 +265,13 @@ dfvm_value_tostr(dfvm_value_t *v)
 			s = ws_strdup(ws_regex_pattern(v->value.pcre));
 			break;
 		case REGISTER:
-			s = ws_strdup_printf("R%"G_GUINT32_FORMAT, v->value.numeric);
+			s = ws_strdup_printf("R%"PRIu32, v->value.numeric);
 			break;
 		case FUNCTION_DEF:
 			s = ws_strdup(v->value.funcdef->name);
 			break;
 		case INTEGER:
-			s = ws_strdup_printf("%"G_GUINT32_FORMAT, v->value.numeric);
+			s = ws_strdup_printf("%"PRIu32, v->value.numeric);
 			break;
 		case EMPTY:
 			s = ws_strdup("EMPTY");
@@ -308,7 +309,6 @@ value_type_tostr(dfvm_value_t *v, bool show_ftype)
 			break;
 		default:
 			return ws_strdup("");
-			break;
 	}
 	return ws_strdup_printf(" <%s>", s);
 }
@@ -358,7 +358,7 @@ append_call_function(wmem_strbuf_t *buf, const char *func, const char *func_type
 			sep = ", ";
 		}
 		wmem_strbuf_append(buf, gs->str);
-		g_string_free(gs, true);
+		g_string_free(gs, TRUE);
 	}
 	wmem_strbuf_append_printf(buf, ")%s", func_type);
 }
@@ -617,8 +617,13 @@ append_op_args(wmem_strbuf_t *buf, dfvm_insn_t *insn, GSList **stack_print,
 			wmem_strbuf_append_printf(buf, "%u", arg1->value.numeric);
 			break;
 
-		case DFVM_NOT:
 		case DFVM_RETURN:
+			if (arg1_str) {
+				wmem_strbuf_append_printf(buf, "%s%s", arg1_str, arg1_str_type);
+			}
+			break;
+
+		case DFVM_NOT:
 		case DFVM_SET_CLEAR:
 		case DFVM_NULL:
 		case DFVM_NO_OP:
@@ -707,7 +712,6 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df, uint16_t flags)
 
 		switch (insn->op) {
 			case DFVM_NOT:
-			case DFVM_RETURN:
 			case DFVM_SET_CLEAR:
 			case DFVM_NO_OP:
 				/* Nothing here */
@@ -732,7 +736,7 @@ dfvm_dump(FILE *f, dfilter_t *df, uint16_t flags)
 }
 
 static int
-compare_finfo_layer(gconstpointer _a, gconstpointer _b)
+compare_finfo_layer(const void *_a, const void *_b)
 {
 	const field_info *a = *(const field_info **)_a;
 	const field_info *b = *(const field_info **)_b;
@@ -1299,14 +1303,27 @@ try_value_string(const header_field_info *hfinfo, fvalue_t *fv_num, char *buf)
 {
 	uint64_t val;
 
+	/* XXX - What about BASE_UNIT_STRING? Should we guarantee that we
+	 * don't get here for unit strings in semcheck.c (currently we
+	 * do for OP_MATCHES instead of disallowing it, which will result
+	 * in a legal filter that always compares false as this returns NULL.)
+	 */
 	if (fvalue_to_uinteger64(fv_num, &val) != FT_OK)
 		return NULL;
 
 	/* XXX We should find or create instead a suitable function in proto.h
-	 * to perform this mapping. */
+	 * to perform this mapping. hf_try_val[64]_to_str are similar, though
+	 * don't handle BASE_CUSTOM but do handle BASE_UNIT_STRING */
 
 	if (hfinfo->display & BASE_RANGE_STRING) {
 		return try_rval_to_str((uint32_t)val, hfinfo->strings);
+	}
+	else if (hfinfo->display & BASE_EXT_STRING) {
+		if (hfinfo->display & BASE_VAL64_STRING) {
+			return try_val64_to_str_ext(val, (val64_string_ext *)hfinfo->strings);
+		} else {
+			return try_val_to_str_ext((uint32_t)val, (value_string_ext *)hfinfo->strings);
+		}
 	}
 	else if (hfinfo->display & BASE_VAL64_STRING) {
 		return try_val64_to_str(val, hfinfo->strings);
@@ -1318,9 +1335,6 @@ try_value_string(const header_field_info *hfinfo, fvalue_t *fv_num, char *buf)
 			((custom_fmt_func_64_t)hfinfo->strings)(buf, val);
 		else
 			ws_assert_not_reached();
-	}
-	else if (hfinfo->display & BASE_EXT_STRING) {
-		return try_val_to_str_ext((uint32_t)val, (value_string_ext *)hfinfo->strings);
 	}
 	else {
 		return try_val_to_str((uint32_t)val, hfinfo->strings);
@@ -1353,6 +1367,11 @@ mk_value_string(dfilter_t *df, dfvm_value_t *vs_arg, dfvm_value_t *from_arg, dfv
 			fvalue_set_string(new_fv, str);
 			df_cell_append(to_rp, new_fv);
 		}
+		/* XXX - If there's no match we could have a NULL result
+		 * as now (and return false), or use a string like "Unknown"
+		 * the way columns do. We could fall back to a string
+		 * representation of the value if BASE_SPECIAL_VALS if set.
+		 */
 	}
 
 	return !df_cell_is_empty(to_rp);
@@ -1399,7 +1418,7 @@ debug_register(GSList *reg, uint32_t num)
 
 	buf = wmem_strbuf_new(NULL, NULL);
 
-	wmem_strbuf_append_printf(buf, "Reg#%"G_GUINT32_FORMAT" = { ", num);
+	wmem_strbuf_append_printf(buf, "Reg#%"PRIu32" = { ", num);
 	for (l = reg; l != NULL; l = l->next) {
 		s = fvalue_to_debug_repr(NULL, l->data);
 		wmem_strbuf_append_printf(buf, "%s <%s>", s, fvalue_type_name(l->data));
@@ -1545,7 +1564,9 @@ stack_pop(dfilter_t *df, dfvm_value_t *arg1)
 
 	for (unsigned i = 0; i < count; i++) {
 		/* Free top of stack data. */
-		g_ptr_array_unref(df->function_stack->data);
+		if (df->function_stack->data) {
+			g_ptr_array_unref(df->function_stack->data);
+		}
 		/* Remove top of stack. */
 		df->function_stack = g_slist_delete_link(df->function_stack, df->function_stack);
 	}
@@ -1629,7 +1650,7 @@ check_exists(proto_tree *tree, dfvm_value_t *arg1, dfvm_value_t *arg2)
 }
 
 bool
-dfvm_apply(dfilter_t *df, proto_tree *tree)
+dfvm_apply_full(dfilter_t *df, proto_tree *tree, GPtrArray **fvals)
 {
 	int		id, length;
 	bool	accum = true;
@@ -1832,6 +1853,12 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 				break;
 
 			case DFVM_RETURN:
+				if (fvals && arg1) {
+					*fvals = df_cell_ref(&df->registers[arg1->value.numeric]);
+					if (*fvals == NULL) {
+						*fvals = g_ptr_array_new();
+					}
+				}
 				free_register_overhead(df);
 				return accum;
 
@@ -1858,6 +1885,12 @@ dfvm_apply(dfilter_t *df, proto_tree *tree)
 	}
 
 	ws_assert_not_reached();
+}
+
+bool
+dfvm_apply(dfilter_t *df, proto_tree *tree)
+{
+	return dfvm_apply_full(df, tree, NULL);
 }
 
 /*

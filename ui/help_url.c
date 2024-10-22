@@ -27,8 +27,8 @@
 /*
  * Open the help dialog and show a specific HTML help page.
  */
-gchar *
-user_guide_url(const gchar *page) {
+char *
+user_guide_url(const char *page) {
     GString *url = g_string_new("");
 
 #if defined(_WIN32)
@@ -61,10 +61,10 @@ user_guide_url(const gchar *page) {
     return g_string_free(url, FALSE);
 }
 
-gchar *
+char *
 topic_action_url(topic_action_e action)
 {
-    gchar *url;
+    char *url;
 
     switch(action) {
     /* pages online at www.wireshark.org */
@@ -104,8 +104,8 @@ topic_action_url(topic_action_e action)
     case(ONLINEPAGE_SECURITY):
         url = g_strdup(WS_WIKI_URL("Security"));
         break;
-    case(ONLINEPAGE_CHIMNEY):
-        url = g_strdup(WS_WIKI_URL("CaptureSetup/Offloading#chimney"));
+    case(ONLINEPAGE_DFILTER_REF):
+        url = g_strdup(WS_DOCS_URL "dfref/");
         break;
 
     /* local manual pages */
@@ -257,6 +257,12 @@ topic_action_url(topic_action_e action)
         break;
     case(HELP_EXPORT_BYTES_DIALOG):
         url = user_guide_url("ChIOExportSection.html#ChIOExportSelectedDialog");
+        break;
+    case(HELP_EXPORT_PDUS_DIALOG):
+        url = user_guide_url("ChIOExportSection.html#ChIOExportPDUSDialog");
+        break;
+    case(HELP_STRIP_HEADERS_DIALOG):
+        url = user_guide_url("ChIOExportSection.html#ChIOStripHeadersDialog");
         break;
     case(HELP_EXPORT_OBJECT_LIST):
         url = user_guide_url("ChIOExportSection.html#ChIOExportObjectsDialog");

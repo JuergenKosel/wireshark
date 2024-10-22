@@ -16,9 +16,9 @@
 #include "config.h"
 
 #include <epan/packet.h>
-
+#include <epan/tfs.h>
+#include <epan/unit_strings.h>
 #include <epan/slow_protocol_subtypes.h>
-#include <epan/addr_resolv.h>
 #include <epan/expert.h>
 
 /* General declarations */
@@ -655,7 +655,7 @@ static const value_string dpoe_evt_code_vals[] = {
 #define DPOE_OBJ_CTX_MCAST_LOGICAL_LINK    0x0006
 #define DPOE_OBJ_CTX_RESERVED              0x0007
 
-/* As messages get implmented and verified, replace with defined codes from above. */
+/* As messages get implemented and verified, replace with defined codes from above. */
 static const value_string dpoe_variable_descriptor_vals[] = {
     { DPOE_LB_ONU_OBJ,                  "DPoE ONU Object" },
     { DPOE_LB_NETWORK_PORT_OBJ,         "Network Port Object" },
@@ -1163,34 +1163,34 @@ static int hf_oampdu_lpbk;
 static int hf_oampdu_lpbk_enable;
 static int hf_oampdu_lpbk_disable;
 
-static gint ett_oampdu_vendor_specific;
-static gint ett_dpoe_opcode;
-static gint ett_dpoe_opcode_response;
-static gint ett_oam_dpoe_s1_autoneg;
-static gint ett_oam_dpoe_qc_u;
-static gint ett_oam_dpoe_qc_d;
-static gint ett_oam_dpoe_qc_nq;
+static int ett_oampdu_vendor_specific;
+static int ett_dpoe_opcode;
+static int ett_dpoe_opcode_response;
+static int ett_oam_dpoe_s1_autoneg;
+static int ett_oam_dpoe_qc_u;
+static int ett_oam_dpoe_qc_d;
+static int ett_oam_dpoe_qc_nq;
 
 /* Initialise the subtree pointers */
 
-static gint ett_oampdu;
-static gint ett_oampdu_flags;
+static int ett_oampdu;
+static int ett_oampdu_flags;
 
-static gint ett_oampdu_local_info;
-static gint ett_oampdu_local_info_state;
-static gint ett_oampdu_local_info_config;
-static gint ett_oampdu_remote_info;
-static gint ett_oampdu_remote_info_state;
-static gint ett_oampdu_remote_info_config;
-static gint ett_oampdu_org_info;
+static int ett_oampdu_local_info;
+static int ett_oampdu_local_info_state;
+static int ett_oampdu_local_info_config;
+static int ett_oampdu_remote_info;
+static int ett_oampdu_remote_info_state;
+static int ett_oampdu_remote_info_config;
+static int ett_oampdu_org_info;
 
-static gint ett_oampdu_event_espe;
-static gint ett_oampdu_event_efe;
-static gint ett_oampdu_event_efpe;
-static gint ett_oampdu_event_efsse;
-static gint ett_oampdu_event_ose;
+static int ett_oampdu_event_espe;
+static int ett_oampdu_event_efe;
+static int ett_oampdu_event_efpe;
+static int ett_oampdu_event_efsse;
+static int ett_oampdu_event_ose;
 
-static gint ett_oampdu_lpbk_ctrl;
+static int ett_oampdu_lpbk_ctrl;
 
 static expert_field ei_oampdu_event_length_bad;
 static expert_field ei_oampdu_mvl_length_zero;
@@ -1214,7 +1214,7 @@ static void
 dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree);
 
 static void
-dissect_cablelabs_event_notification(tvbuff_t *tvb, proto_tree *tree, guint8 bytes, guint32 offset);
+dissect_cablelabs_event_notification(tvbuff_t *tvb, proto_tree *tree, uint8_t bytes, uint32_t offset);
 
 /*
  * Name: dissect_oampdu
@@ -1224,7 +1224,7 @@ dissect_cablelabs_event_notification(tvbuff_t *tvb, proto_tree *tree, guint8 byt
  *    Maintenance slow protocol defined in IEEE 802.3 clause 57 (The OAMPDUs
  *    common part is defined in section 57.4).
  *
- *    Only the 6 folowing codes are currently defined in the 2004 version of this
+ *    Only the 6 following codes are currently defined in the 2004 version of this
  *    protocol:
 
  *       OAMPDU_INFORMATION:        0x0
@@ -1249,7 +1249,7 @@ static int
 dissect_oampdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
     int       offset = 0;
-    guint8    oampdu_code;
+    uint8_t   oampdu_code;
 
     proto_tree *oampdu_tree;
     proto_item *oampdu_item;
@@ -1277,7 +1277,7 @@ dissect_oampdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
     offset += 2;
 
     /* OAMPDU code */
-    oampdu_code = tvb_get_guint8(tvb, offset);
+    oampdu_code = tvb_get_uint8(tvb, offset);
     proto_tree_add_uint(oampdu_tree, hf_oampdu_code, tvb,
           offset, 1, oampdu_code);
 
@@ -1329,10 +1329,10 @@ dissect_oampdu(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _
 static void
 dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
 {
-    guint8    raw_octet;
-    guint8    info_type;
-    guint32   offset;
-    guint16   bytes;
+    uint8_t   raw_octet;
+    uint8_t   info_type;
+    uint32_t  offset;
+    uint16_t  bytes;
 
     proto_tree *info_tree;
     proto_item *info_item;
@@ -1345,7 +1345,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
         bytes = tvb_captured_length_remaining(tvb, offset);
         if (bytes < 1) break;
 
-        info_type = tvb_get_guint8(tvb, offset);
+        info_type = tvb_get_uint8(tvb, offset);
 
         if (info_type == OAMPDU_INFO_TYPE_ENDMARKER) break;
 
@@ -1402,7 +1402,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
             offset += OAMPDU_INFO_REVISION_SZ;
 
             /* Build OAM State field field */
-            raw_octet = tvb_get_guint8(tvb, offset);
+            raw_octet = tvb_get_uint8(tvb, offset);
             if (raw_octet == OAMPDU_INFO_TYPE_LOCAL)
                 proto_tree_add_bitmask(info_tree, tvb, offset, hf_oampdu_info_state, ett_oampdu_local_info_state, info_states, ENC_NA);
             else
@@ -1411,7 +1411,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
             offset += OAMPDU_INFO_STATE_SZ;
 
             /* Build OAM configuration field */
-            raw_octet = tvb_get_guint8(tvb, offset);
+            raw_octet = tvb_get_uint8(tvb, offset);
             if (raw_octet == OAMPDU_INFO_TYPE_LOCAL)
                 proto_tree_add_bitmask(info_tree, tvb, offset, hf_oampdu_info_oamConfig, ett_oampdu_local_info_config, info_config, ENC_NA);
             else
@@ -1437,7 +1437,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
         else if (info_type == OAMPDU_INFO_TYPE_ORG)
         {
             /* see IEEE802.3, section 57.5.2.3 for more details */
-            raw_octet = tvb_get_guint8(tvb, offset);
+            raw_octet = tvb_get_uint8(tvb, offset);
             proto_tree_add_item(info_tree, hf_oampdu_info_len,
                     tvb, offset, 1, ENC_BIG_ENDIAN);
 
@@ -1455,7 +1455,7 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
         else
         {
             /* If it's a unknown type jump over */
-            raw_octet = tvb_get_guint8(tvb, offset);
+            raw_octet = tvb_get_uint8(tvb, offset);
             offset += raw_octet;
         }
     }
@@ -1482,11 +1482,11 @@ dissect_oampdu_information(tvbuff_t *tvb, proto_tree *tree)
 static void
 dissect_oampdu_event_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-    guint8    raw_octet;
+    uint8_t   raw_octet;
 
-    guint8    event_type;
-    guint32   offset;
-    guint16   bytes;
+    uint8_t   event_type;
+    uint32_t  offset;
+    uint16_t  bytes;
 
     proto_tree *event_tree;
     proto_item *event_item;
@@ -1503,7 +1503,7 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
         bytes = tvb_captured_length_remaining(tvb, offset);
         if (bytes < 1) break;
 
-        event_type = tvb_get_guint8(tvb, offset);
+        event_type = tvb_get_uint8(tvb, offset);
 
         if (event_type == OAMPDU_EVENT_TYPE_END) break;
 
@@ -1651,7 +1651,7 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
                     event_tree = proto_item_add_subtree(event_item,
                             ett_oampdu_event_ose);
 
-                    raw_octet = tvb_get_guint8(tvb, offset);
+                    raw_octet = tvb_get_uint8(tvb, offset);
                     event_item = proto_tree_add_uint(event_tree, hf_oampdu_event_length,
                             tvb, offset, 1, raw_octet);
 
@@ -1663,10 +1663,10 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
                     }
                     else
                     {
-                        guint32 event_oui;
-                        guint32 cable_labs_oui = (OUI_CL_0 << 16) + (OUI_CL_1 << 8) + OUI_CL_2;
+                        uint32_t event_oui;
+                        uint32_t cable_labs_oui = (OUI_CL_0 << 16) + (OUI_CL_1 << 8) + OUI_CL_2;
 
-                        event_oui = tvb_get_guint24(tvb, offset, ENC_BIG_ENDIAN);
+                        event_oui = tvb_get_uint24(tvb, offset, ENC_BIG_ENDIAN);
                         if (event_oui == cable_labs_oui)
                         {
                             dissect_cablelabs_event_notification(tvb, event_tree, raw_octet, offset);
@@ -1705,15 +1705,15 @@ dissect_oampdu_event_notification(tvbuff_t *tvb, packet_info *pinfo, proto_tree 
 static void
 dissect_oampdu_variable_request(tvbuff_t *tvb, proto_tree *tree)
 {
-    guint8    raw_octet;
-    guint32   offset;
+    uint8_t   raw_octet;
+    uint32_t  offset;
 
 
     offset = OAMPDU_HEADER_SIZE;
 
     while (1)
     {
-        raw_octet = tvb_get_guint8(tvb, offset);
+        raw_octet = tvb_get_uint8(tvb, offset);
 
         if (raw_octet == 0) break;
 
@@ -1769,14 +1769,14 @@ dissect_oampdu_variable_request(tvbuff_t *tvb, proto_tree *tree)
 static void
 dissect_oampdu_variable_response(tvbuff_t *tvb, proto_tree *tree)
 {
-    guint8    branch, raw_octet;
-    guint32   offset;
+    uint8_t   branch, raw_octet;
+    uint32_t  offset;
 
     offset = OAMPDU_HEADER_SIZE;
 
     while (1)
     {
-        branch = tvb_get_guint8(tvb, offset);
+        branch = tvb_get_uint8(tvb, offset);
 
         if (branch == 0) break;
 
@@ -1809,7 +1809,7 @@ dissect_oampdu_variable_response(tvbuff_t *tvb, proto_tree *tree)
         offset+=2;
 
         do {
-            raw_octet = tvb_get_guint8(tvb, offset);
+            raw_octet = tvb_get_uint8(tvb, offset);
 
             if (raw_octet >= 0x80) {
                 /* Variable Indication */
@@ -1861,8 +1861,8 @@ dissect_oampdu_variable_response(tvbuff_t *tvb, proto_tree *tree)
 static void
 dissect_oampdu_loopback_control(tvbuff_t *tvb, proto_tree *tree)
 {
-    guint32   offset;
-    guint16   bytes;
+    uint32_t  offset;
+    uint16_t  bytes;
 
     static int * const ctrl[] = {
         &hf_oampdu_lpbk_enable,
@@ -1929,16 +1929,16 @@ static void dissect_oampdu_add_queue_object(proto_tree *tree, tvbuff_t *tvb, int
 static void
 dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
-    guint32   offset;
-    guint16   bytes;
-    guint32   leaf_branch;
-    guint8    dpoe_opcode;
-    guint8    variable_length;
-    guint8    next_byte;
-    guint8    pir_subtype;
-    guint8    rr_byte;
+    uint32_t  offset;
+    uint16_t  bytes;
+    uint32_t  leaf_branch;
+    uint8_t   dpoe_opcode;
+    uint8_t   variable_length;
+    uint8_t   next_byte;
+    uint8_t   pir_subtype;
+    uint8_t   rr_byte;
 
-    const guint8 oui_cl[] = {OUI_CL_0, OUI_CL_1, OUI_CL_2};
+    static const uint8_t oui_cl[] = {OUI_CL_0, OUI_CL_1, OUI_CL_2};
 
     proto_item *oui_item;
     proto_item *event_item;
@@ -1963,48 +1963,42 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
             oampdu_vendor_specific_tree = proto_item_add_subtree(oui_item, ett_oampdu_vendor_specific);
             dpoe_opcode_item = proto_tree_add_item(oampdu_vendor_specific_tree, hf_oampdu_vendor_specific_dpoe_opcode, tvb, offset, 1, ENC_BIG_ENDIAN);
             dpoe_opcode_tree = proto_item_add_subtree(dpoe_opcode_item, ett_dpoe_opcode);
-            dpoe_opcode = tvb_get_guint8(tvb, offset);
+            dpoe_opcode = tvb_get_uint8(tvb, offset);
             offset +=1;
-            next_byte = tvb_get_guint8(tvb, offset);
+            next_byte = tvb_get_uint8(tvb, offset);
             switch (dpoe_opcode) {
                 case 0x00:
                     break;
                 case DPOE_OPCODE_GET_REQUEST:
-                    leaf_branch = tvb_get_ntoh24(tvb, offset);
-                    variable_length = 0;
-                    if (leaf_branch == DPOE_LB_ONU_OBJ || leaf_branch == DPOE_LB_LINK_OBJ || \
-                        leaf_branch == DPOE_LB_USER_PORT_OBJ || leaf_branch == DPOE_LB_NETWORK_PORT_OBJ ||
-                        leaf_branch == DPOE_LB_MC_LL_OBJ) {
-                        dpoe_opcode_request_item = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
-                        offset += 3;
-                        variable_length = tvb_get_guint8(tvb, offset);
-                        offset += 1;
-                        if (variable_length == 1) {
-                            /* Add User Port or Link instance */
-                            dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
-                            if (leaf_branch == DPOE_LB_USER_PORT_OBJ) {
-                                proto_tree_add_item(dpoe_opcode_request_tree, hf_oam_dpoe_user_port_object, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            } else {
-                                proto_tree_add_item(dpoe_opcode_request_tree, hf_oampdu_variable_value, tvb, offset, 1, ENC_NA);
-                            }
-                        }
-                    } else if (leaf_branch == DPOE_LB_QUEUE_OBJ) {
-                        dpoe_opcode_request_item = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
-                        offset += 3;
-                        variable_length = tvb_get_guint8(tvb, offset);
-                        offset += 1;
-                        if (variable_length == 4) {
-                            /* Add Queue object instance */
-                            dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
-                            dissect_oampdu_add_queue_object(dpoe_opcode_request_tree, tvb, offset);
-                        }
-                    }
-                    offset += variable_length;
-                    next_byte = tvb_get_guint8(tvb, offset);
                     while (next_byte != 0x00) {
-                        proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
-                        offset += 3;
-                        next_byte = tvb_get_guint8(tvb, offset);
+                        leaf_branch = tvb_get_ntoh24(tvb, offset);
+                        if (leaf_branch == DPOE_LB_ONU_OBJ || leaf_branch == DPOE_LB_LINK_OBJ || \
+                            leaf_branch == DPOE_LB_USER_PORT_OBJ || leaf_branch == DPOE_LB_NETWORK_PORT_OBJ ||
+                            leaf_branch == DPOE_LB_MC_LL_OBJ || leaf_branch == DPOE_LB_QUEUE_OBJ) {
+                            dpoe_opcode_request_item = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
+                            offset += 3;
+                            variable_length = tvb_get_uint8(tvb, offset);
+                            offset += 1;
+                            if (variable_length == 1) {
+                                /* Add User Port or Link instance */
+                                dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
+                                if (leaf_branch == DPOE_LB_USER_PORT_OBJ) {
+                                    proto_tree_add_item(dpoe_opcode_request_tree, hf_oam_dpoe_user_port_object, tvb, offset, 1, ENC_BIG_ENDIAN);
+                                } else {
+                                    proto_tree_add_item(dpoe_opcode_request_tree, hf_oampdu_variable_value, tvb, offset, 1, ENC_NA);
+                                }
+                            } else if (variable_length == 4 && leaf_branch == DPOE_LB_QUEUE_OBJ) {
+                                /* Add Queue object instance */
+                                dpoe_opcode_request_tree = proto_item_add_subtree(dpoe_opcode_request_item, ett_dpoe_opcode);
+                                dissect_oampdu_add_queue_object(dpoe_opcode_request_tree, tvb, offset);
+                            }
+                            offset += variable_length;
+                            next_byte = tvb_get_uint8(tvb, offset);
+                        } else {
+                            proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
+                            offset += 3;
+                            next_byte = tvb_get_uint8(tvb, offset);
+                        }
                     }
                     break;
                 case DPOE_OPCODE_GET_RESPONSE: /* Get-Response */
@@ -2014,7 +2008,7 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                         dpoe_opcode_response = proto_tree_add_item(dpoe_opcode_tree, hf_dpoe_variable_descriptor, tvb, offset, 3, ENC_BIG_ENDIAN);
                         leaf_branch = tvb_get_ntoh24(tvb, offset);
                         offset += 3;
-                        variable_length = tvb_get_guint8(tvb, offset);
+                        variable_length = tvb_get_uint8(tvb, offset);
                         dpoe_opcode_response_tree = proto_item_add_subtree(dpoe_opcode_response, ett_dpoe_opcode_response);
                         if (variable_length >= 0x80) {
                             proto_tree_add_item(dpoe_opcode_response_tree, hf_dpoe_variable_response_code, tvb, offset, 1, ENC_BIG_ENDIAN);
@@ -2039,25 +2033,25 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 proto_tree_add_string(dpoe_opcode_response_tree, hf_oam_dpoe_mfg_info_serial_number, tvb, offset, variable_length, serial_num);
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_mfg_info_vendor_specific, tvb, offset+32, variable_length-32, ENC_NA);
                             } else if (leaf_branch == DPOE_LB_DATE_OF_MANUFACTURE) {
-                                const gchar *bcd_date;
-                                guint16 year;
-                                guint8 yearh;
-                                guint8 yearl;
-                                guint8 month;
-                                guint8 day;
-                                gchar date[16];
+                                const char *bcd_date;
+                                uint16_t year;
+                                uint8_t yearh;
+                                uint8_t yearl;
+                                uint8_t month;
+                                uint8_t day;
+                                char date[16];
 
                                 /* ONU vendors do not all encode the year properly. Make a best guess as to how the year is encoded*/
-                                year = tvb_get_guint16(tvb, offset, ENC_BIG_ENDIAN);
+                                year = tvb_get_uint16(tvb, offset, ENC_BIG_ENDIAN);
                                 yearh = (year >> 8) & 0xff;
                                 yearl = year & 0xff;
-                                month = tvb_get_guint8(tvb, offset+2);
-                                day = tvb_get_guint8(tvb, offset+3);
+                                month = tvb_get_uint8(tvb, offset+2);
+                                day = tvb_get_uint8(tvb, offset+3);
                                 memset(date, 0, sizeof(date));
 
                                 /* Check for a BCD encoded year in the range 2000 - 2599 */
                                 if (year >= 0x2000 && year <= 0x2599) {
-                                    bcd_date = tvb_get_bcd_string(pinfo->pool, tvb, offset, 4, &Dgt0_9_bcd, FALSE, FALSE, TRUE);
+                                    bcd_date = tvb_get_bcd_string(pinfo->pool, tvb, offset, 4, &Dgt0_9_bcd, false, false, true);
                                     date[0] = bcd_date[0];
                                     date[1] = bcd_date[1];
                                     date[2] = bcd_date[2];
@@ -2131,15 +2125,15 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 sw_bundle = tvb_get_stringzpad(pinfo->pool, tvb, offset, variable_length, ENC_ASCII);
                                 proto_tree_add_string(dpoe_opcode_response_tree, hf_oam_dpoe_sw_bundle, tvb, offset, variable_length, sw_bundle);
                             } else if (leaf_branch == DPOE_LB_REP_THRESH) {
-                                guint8 nqs;
-                                guint8 rvpqs;
-                                guint8 nqs_i;
-                                guint8 rvpqs_i;
+                                uint8_t nqs;
+                                uint8_t rvpqs;
+                                uint8_t nqs_i;
+                                uint8_t rvpqs_i;
 
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_repthr_nqs, tvb, offset, 1, ENC_BIG_ENDIAN);
-                                nqs = tvb_get_guint8(tvb, offset);
+                                nqs = tvb_get_uint8(tvb, offset);
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_repthr_rvpqs, tvb, offset+1, 1, ENC_BIG_ENDIAN);
-                                rvpqs = tvb_get_guint8(tvb, offset+1);
+                                rvpqs = tvb_get_uint8(tvb, offset+1);
 
                                 for (nqs_i = 0; nqs_i < nqs; nqs_i++) {
                                     for (rvpqs_i = 0; rvpqs_i < rvpqs; rvpqs_i++) {
@@ -2157,8 +2151,8 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                             } else if (leaf_branch == DPOE_LB_QUEUE_OBJ) {
                                 dissect_oampdu_add_queue_object(dpoe_opcode_response_tree, tvb, offset);
                             } else if (leaf_branch == DPOE_LB_PORT_INGRESS_RULE) {
-                                guint8 pir_mvl;
-                                pir_subtype = tvb_get_guint8(tvb, offset);
+                                uint8_t pir_mvl;
+                                pir_subtype = tvb_get_uint8(tvb, offset);
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_subtype, tvb, offset, 1, ENC_BIG_ENDIAN);
                                 switch (pir_subtype) {
                                     /* Terminator */
@@ -2177,7 +2171,7 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                         proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_clause_lsbm, tvb, offset+4, 1, ENC_BIG_ENDIAN);
                                         proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_clause_operator, tvb, offset+5, 1, ENC_BIG_ENDIAN);
                                         event_item = proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_clause_mvl, tvb, offset+6, 1, ENC_BIG_ENDIAN);
-                                        pir_mvl = tvb_get_guint8(tvb, offset+6);
+                                        pir_mvl = tvb_get_uint8(tvb, offset+6);
 
                                         if (pir_mvl > 0) {
                                             proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_clause_mv, tvb, offset+7, pir_mvl, ENC_NA);
@@ -2187,7 +2181,7 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                         /* Result */
                                     case 3:
                                         dpoe_opcode_response = proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_user_port_object_result_rr, tvb, offset+1, 1, ENC_BIG_ENDIAN);
-                                        rr_byte = tvb_get_guint8(tvb, offset+1);
+                                        rr_byte = tvb_get_uint8(tvb, offset+1);
                                         switch (rr_byte) {
                                             case 0x00:
                                                 proto_item_append_text(dpoe_opcode_response, " No operation");
@@ -2240,14 +2234,14 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 }
                             } else if (leaf_branch == DPOE_LB_QUEUE_CONFIG) {
                                 /* "qc" is for Queue Configuration. Variable names come from CableLabs spec. */
-                                guint8 qc_n; /* number of upstream logical links */
-                                guint8 qc_m; /* number of upstream queues for link N */
-                                guint8 qc_p; /* number of downstream ports to configure */
-                                guint8 qc_j; /* number of downstream queues for port P */
-                                guint8 qc_n_i; /* iterator */
-                                guint8 qc_m_i; /* iterator */
-                                guint8 qc_p_i; /* iterator */
-                                guint8 qc_j_i; /* iterator */
+                                uint8_t qc_n; /* number of upstream logical links */
+                                uint8_t qc_m; /* number of upstream queues for link N */
+                                uint8_t qc_p; /* number of downstream ports to configure */
+                                uint8_t qc_j; /* number of downstream queues for port P */
+                                uint8_t qc_n_i; /* iterator */
+                                uint8_t qc_m_i; /* iterator */
+                                uint8_t qc_p_i; /* iterator */
+                                uint8_t qc_j_i; /* iterator */
 
                                 proto_tree *dpoe_oam_qc_upstream;
                                 proto_tree *dpoe_oam_qc_upstream_subtree;
@@ -2256,13 +2250,13 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 proto_tree *dpoe_oam_qc_nq;
                                 proto_tree *dpoe_oam_qc_nq_subtree;
 
-                                qc_n = tvb_get_guint8(tvb, offset);
+                                qc_n = tvb_get_uint8(tvb, offset);
                                 dpoe_oam_qc_upstream = proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_qc_ll_u, tvb, offset, 1, ENC_BIG_ENDIAN);
                                 dpoe_oam_qc_upstream_subtree = proto_item_add_subtree(dpoe_oam_qc_upstream, ett_oam_dpoe_qc_u);
                                 for (qc_n_i = 0; qc_n_i < qc_n; qc_n_i++) {
 
                                     offset++;
-                                    qc_m = tvb_get_guint8(tvb, offset);
+                                    qc_m = tvb_get_uint8(tvb, offset);
                                     dpoe_oam_qc_nq = proto_tree_add_item(dpoe_oam_qc_upstream_subtree, hf_oam_dpoe_qc_nq, tvb, offset, 1, ENC_BIG_ENDIAN);
                                     proto_item_append_text(dpoe_oam_qc_nq, " (Upstream link %i)", qc_n_i);
                                     dpoe_oam_qc_nq_subtree = proto_item_add_subtree(dpoe_oam_qc_nq, ett_oam_dpoe_qc_nq);
@@ -2273,12 +2267,12 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                     }
                                 }
                                 offset++;
-                                qc_p = tvb_get_guint8(tvb, offset);
+                                qc_p = tvb_get_uint8(tvb, offset);
                                 dpoe_oam_qc_downstream = proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_qc_ports_d, tvb, offset, 1, ENC_BIG_ENDIAN);
                                 dpoe_oam_qc_downstream_subtree = proto_item_add_subtree(dpoe_oam_qc_downstream, ett_oam_dpoe_qc_d);
                                 for (qc_p_i = 0; qc_p_i < qc_p; qc_p_i++) {
                                     offset++;
-                                    qc_j = tvb_get_guint8(tvb, offset);
+                                    qc_j = tvb_get_uint8(tvb, offset);
                                     dpoe_oam_qc_nq = proto_tree_add_item(dpoe_oam_qc_downstream_subtree, hf_oam_dpoe_qc_nq, tvb, offset, 1, ENC_BIG_ENDIAN);
                                     proto_item_append_text(dpoe_oam_qc_nq, " (Downstream port %i)", qc_p_i);
                                     dpoe_oam_qc_nq_subtree = proto_item_add_subtree(dpoe_oam_qc_nq, ett_oam_dpoe_qc_nq);
@@ -2300,12 +2294,12 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_onu_port_config_uni_count, tvb, offset, 1, ENC_BIG_ENDIAN);
                             } else if (leaf_branch == DPOE_LB_1904_1_QUEUE_CONFIG) {
                                 /* "qc" is for Queue Configuration. Variable names come from CableLabs spec. */
-                                guint8 qc_num; /* number of queues */
-                                guint8 qc_i; /* iterator */
+                                uint8_t qc_num; /* number of queues */
+                                uint8_t qc_i; /* iterator */
                                 proto_tree *dpoe_oam_qc_nq;
                                 proto_tree *dpoe_oam_qc_nq_subtree;
 
-                                qc_num = tvb_get_guint8(tvb, offset);
+                                qc_num = tvb_get_uint8(tvb, offset);
                                 dpoe_oam_qc_nq = proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_qc_nq, tvb, offset, 1, ENC_BIG_ENDIAN);
                                 offset += 1;
                                 dpoe_oam_qc_nq_subtree = proto_item_add_subtree(dpoe_oam_qc_nq, ett_oam_dpoe_qc_nq);
@@ -2326,9 +2320,9 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                             } else if (leaf_branch == DPOE_LB_1904_1_MAC_CTl_FUNCTIONS) {
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_1904_1_mac_control_functions_supported, tvb, offset, 2, ENC_BIG_ENDIAN);
                             } else if (leaf_branch == DPOE_LB_1904_1_CFG_MCAST_LLID) {
-                                guint8 action;
+                                uint8_t action;
                                 proto_tree_add_item(dpoe_opcode_response_tree, hf_oam_dpoe_1904_1_cfg_mcast_llid_action, tvb, offset, 1, ENC_BIG_ENDIAN);
-                                action = tvb_get_guint8(tvb, offset);
+                                action = tvb_get_uint8(tvb, offset);
                                 switch (action) {
                                     case 0x00:
                                     case 0x01:
@@ -2344,7 +2338,7 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
                             }
                         }
                         offset += variable_length;
-                        next_byte = tvb_get_guint8(tvb, offset);
+                        next_byte = tvb_get_uint8(tvb, offset);
                     }
                     break;
                 case 0x05:
@@ -2382,27 +2376,27 @@ dissect_oampdu_vendor_specific(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tr
  *
  */
 static void
-dissect_cablelabs_event_notification(tvbuff_t *tvb, proto_tree *tree, guint8 bytes, guint32 offset)
+dissect_cablelabs_event_notification(tvbuff_t *tvb, proto_tree *tree, uint8_t bytes, uint32_t offset)
 {
-    guint32 oui_cl = (OUI_CL_0 << 16) + (OUI_CL_1 << 8) + OUI_CL_2;
-    guint32 oui;
+    uint32_t oui_cl = (OUI_CL_0 << 16) + (OUI_CL_1 << 8) + OUI_CL_2;
+    uint32_t oui;
 
     proto_item *oui_item;
     proto_tree *oampdu_vendor_specific_tree;
 
     if (bytes >= 3) {
         oui_item = proto_tree_add_item(tree, hf_oampdu_info_oui, tvb, offset, 3, ENC_BIG_ENDIAN);
-        oui = tvb_get_guint24(tvb, offset, ENC_BIG_ENDIAN);
+        oui = tvb_get_uint24(tvb, offset, ENC_BIG_ENDIAN);
         offset += 3;
 
         if (oui == oui_cl) {
-            guint8 obj_type;
+            uint8_t obj_type;
             oampdu_vendor_specific_tree = proto_item_add_subtree(oui_item, ett_oampdu_vendor_specific);
             proto_tree_add_item(oampdu_vendor_specific_tree, hf_oampdu_vendor_specific_dpoe_evt_code, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset += 1;
             proto_tree_add_item(oampdu_vendor_specific_tree, hf_oampdu_vendor_specific_dpoe_evt_raised, tvb, offset, 1, ENC_BIG_ENDIAN);
             offset += 1;
-            obj_type = tvb_get_guint8(tvb, offset);
+            obj_type = tvb_get_uint8(tvb, offset);
             proto_tree_add_item(oampdu_vendor_specific_tree, hf_oampdu_vendor_specific_dpoe_evt_object_type, tvb, offset, 2, ENC_BIG_ENDIAN);
             offset += 2;
             if (obj_type == DPOE_OBJ_CTX_QUEUE) {
@@ -2533,7 +2527,7 @@ proto_register_oampdu(void)
 
         { &hf_oampdu_info_oampduConfig,
             { "Max OAMPDU Size",    "oampdu.info.oampduConfig",
-                FT_UINT16,    BASE_DEC|BASE_UNIT_STRING, &units_byte_bytes,    0x0,
+                FT_UINT16,    BASE_DEC|BASE_UNIT_STRING, UNS(&units_byte_bytes),    0x0,
                 "OAMPDU Configuration", HFILL }},
 
         { &hf_oampdu_info_oui,
@@ -2709,7 +2703,7 @@ proto_register_oampdu(void)
         { &hf_oampdu_variable_width,
             { "Variable Width",    "oampdu.variable.width",
                 FT_UINT8,    BASE_DEC,    NULL,    0x0,
-                "Width", HFILL }},
+                NULL, HFILL }},
 
         { &hf_oampdu_variable_indication,
             { "Variable indication",    "oampdu.variable.indication",
@@ -2719,7 +2713,7 @@ proto_register_oampdu(void)
         { &hf_oampdu_variable_value,
             { "Variable Value",    "oampdu.variable.value",
                 FT_BYTES,    BASE_NONE,    NULL,    0x0,
-                "Value", HFILL }},
+                NULL, HFILL }},
 
         /* Loopback Control definitions*/
         { &hf_oampdu_lpbk,
@@ -2750,7 +2744,7 @@ proto_register_oampdu(void)
 
         { &hf_oampdu_vendor_specific_dpoe_evt_raised,
             { "Raised", "oampdu.vendor.specific.dpoe.evt.raised",
-                FT_BOOLEAN, BASE_HEX, NULL,
+                FT_BOOLEAN, BASE_NONE, NULL,
                 0x0, NULL, HFILL }},
 
         { &hf_oampdu_vendor_specific_dpoe_evt_object_type,
@@ -2836,7 +2830,7 @@ proto_register_oampdu(void)
 
         { &hf_oam_dpoe_pkt_buffer_us_queue_inc,
             { "Upstream Queue Increment", "oampdu.pkt_buf.us_queue_increment",
-                FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_1k, 0x0,
+                FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_1k), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_pkt_buffer_ds_queues,
@@ -2851,32 +2845,32 @@ proto_register_oampdu(void)
 
         { &hf_oam_dpoe_pkt_buffer_ds_queue_inc,
             { "Downstream Queue Increment", "oampdu.pkt_buf.ds_queue_increment",
-                FT_UINT8, BASE_DEC|BASE_UNIT_STRING, &units_1k, 0x0,
+                FT_UINT8, BASE_DEC|BASE_UNIT_STRING, UNS(&units_1k), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_pkt_buffer_total_memory,
             { "Total Memory", "oampdu.pkt_buf.total_memory",
-                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_1k, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_1k), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_pkt_buffer_us_memory_max,
             { "Upstream Memory Max", "oampdu.pkt_buf.us_memory_max",
-                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_1k, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_1k), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_pkt_buffer_ds_memory_max,
             { "Downstream Memory Max", "oampdu.pkt_buf.ds_memory_max",
-                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_1k, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_1k), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_frame_rate_maximum,
             { "Maximum OAM Rate", "oampdu.frame.rate.min",
-                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_num_100ms, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_num_100ms), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_frame_rate_minimum,
             { "Minimum OAM Rate", "oampdu.frame.rate.max",
-                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, &units_pdus_100ms, 0x0,
+                FT_UINT16, BASE_DEC|BASE_UNIT_STRING, UNS(&units_pdus_100ms), 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_mfg_org_name,
@@ -2946,7 +2940,7 @@ proto_register_oampdu(void)
 
         { &hf_oam_dpoe_ll_fwd_state,
             { "Link State", "oampdu.link_state",
-                FT_BOOLEAN, BASE_DEC, NULL, 0x0,
+                FT_BOOLEAN, BASE_NONE, NULL, 0x0,
                 NULL, HFILL } },
 
         { &hf_oam_dpoe_s1_autoneg,
@@ -3193,7 +3187,7 @@ proto_register_oampdu(void)
 
     /* Setup protocol subtree array */
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_oampdu,
         &ett_oampdu_flags,
         &ett_oampdu_local_info,

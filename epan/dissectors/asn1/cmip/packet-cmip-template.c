@@ -15,7 +15,8 @@
 #include <epan/expert.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
-
+#include <epan/proto_data.h>
+#include <wsutil/array.h>
 #include "packet-ber.h"
 #include "packet-acse.h"
 #include "packet-x509if.h"
@@ -42,14 +43,14 @@ static int hf_cmip_errorId_OID;
 #include "packet-cmip-hf.c"
 
 /* Initialize the subtree pointers */
-static gint ett_cmip;
+static int ett_cmip;
 #include "packet-cmip-ett.c"
 
 static expert_field ei_wrong_spdu_type;
 
-static guint32 opcode;
+static uint32_t opcode;
 
-static dissector_handle_t cmip_handle = NULL;
+static dissector_handle_t cmip_handle;
 
 /* Dissector table */
 static dissector_table_t attribute_id_dissector_table;
@@ -78,7 +79,7 @@ dissect_cmip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 	proto_item *item;
 	proto_tree *tree;
 	asn1_ctx_t asn1_ctx;
-	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
+	asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
 
 	/* Reject the packet if data is NULL */
 	if (data == NULL)
@@ -104,13 +105,13 @@ dissect_cmip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* d
 		case SES_DISCONNECT:
 		case SES_FINISH:
 		case SES_REFUSE:
-			dissect_cmip_CMIPUserInfo(FALSE,tvb,0,&asn1_ctx,tree,-1);
+			dissect_cmip_CMIPUserInfo(false,tvb,0,&asn1_ctx,tree,-1);
 			break;
 		case SES_ABORT:
-			dissect_cmip_CMIPAbortInfo(FALSE,tvb,0,&asn1_ctx,tree,-1);
+			dissect_cmip_CMIPAbortInfo(false,tvb,0,&asn1_ctx,tree,-1);
 			break;
 		case SES_DATA_TRANSFER:
-			dissect_cmip_ROS(FALSE,tvb,0,&asn1_ctx,tree,-1);
+			dissect_cmip_ROS(false,tvb,0,&asn1_ctx,tree,-1);
 			break;
 		default:
 			;
@@ -145,7 +146,7 @@ void proto_register_cmip(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_cmip,
 #include "packet-cmip-ettarr.c"
   };

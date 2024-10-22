@@ -231,8 +231,8 @@ wmem_map_contains(wmem_map_t *map, const void *key)
 {
     wmem_map_item_t *item;
 
-    /* Make sure we have a table */
-    if (map->table == NULL) {
+    /* Make sure we have map and a table */
+    if (map == NULL || map->table == NULL) {
         return false;
     }
 
@@ -255,8 +255,8 @@ wmem_map_lookup(wmem_map_t *map, const void *key)
 {
     wmem_map_item_t *item;
 
-    /* Make sure we have a table */
-    if (map->table == NULL) {
+    /* Make sure we have map and a table */
+    if (map == NULL || map->table == NULL) {
         return NULL;
     }
 
@@ -279,8 +279,8 @@ wmem_map_lookup_extended(wmem_map_t *map, const void *key, const void **orig_key
 {
     wmem_map_item_t *item;
 
-    /* Make sure we have a table */
-    if (map->table == NULL) {
+    /* Make sure we have map and a table */
+    if (map == NULL || map->table == NULL) {
         return false;
     }
 
@@ -310,8 +310,8 @@ wmem_map_remove(wmem_map_t *map, const void *key)
     wmem_map_item_t **item, *tmp;
     void *value;
 
-    /* Make sure we have a table */
-    if (map->table == NULL) {
+    /* Make sure we have map and a table */
+    if (map == NULL || map->table == NULL) {
         return NULL;
     }
 
@@ -341,8 +341,8 @@ wmem_map_steal(wmem_map_t *map, const void *key)
 {
     wmem_map_item_t **item, *tmp;
 
-    /* Make sure we have a table */
-    if (map->table == NULL) {
+    /* Make sure we have map and a table */
+    if (map == NULL || map->table == NULL) {
         return false;
     }
 
@@ -395,7 +395,7 @@ wmem_map_foreach(wmem_map_t *map, GHFunc foreach_func, void * user_data)
     unsigned i;
 
     /* Make sure we have a table */
-    if (map->table == NULL) {
+    if (map == NULL || map->table == NULL) {
         return;
     }
 
@@ -415,7 +415,7 @@ wmem_map_foreach_remove(wmem_map_t *map, GHRFunc foreach_func, void * user_data)
     unsigned i, deleted = 0;
 
     /* Make sure we have a table */
-    if (map->table == NULL) {
+    if (map == NULL || map->table == NULL) {
         return 0;
     }
 
@@ -484,19 +484,19 @@ wmem_strong_hash(const uint8_t *buf, const size_t len)
 }
 
 unsigned
-wmem_str_hash(gconstpointer key)
+wmem_str_hash(const void *key)
 {
     return wmem_strong_hash((const uint8_t *)key, strlen((const char *)key));
 }
 
 unsigned
-wmem_int64_hash(gconstpointer key)
+wmem_int64_hash(const void *key)
 {
     return wmem_strong_hash((const uint8_t *)key, sizeof(uint64_t));
 }
 
 unsigned
-wmem_double_hash(gconstpointer key)
+wmem_double_hash(const void *key)
 {
     return wmem_strong_hash((const uint8_t *)key, sizeof(double));
 }

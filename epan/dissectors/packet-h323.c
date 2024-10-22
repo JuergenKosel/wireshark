@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-h323.c                                                              */
-/* asn2wrs.py -L -p h323 -c ./h323.cnf -s ./packet-h323-template -D . -O ../.. RAS-PROTOCOL-TUNNEL.asn ROBUSTNESS-DATA.asn */
+/* asn2wrs.py -q -L -p h323 -c ./h323.cnf -s ./packet-h323-template -D . -O ../.. RAS-PROTOCOL-TUNNEL.asn ROBUSTNESS-DATA.asn */
 
 /* packet-h323.c
  * Routines for H.323 packet dissection
@@ -19,6 +19,7 @@
 #include <epan/packet.h>
 #include <epan/oids.h>
 #include <epan/asn1.h>
+#include <wsutil/array.h>
 
 #include "packet-per.h"
 #include "packet-h225.h"
@@ -32,7 +33,7 @@ void proto_register_h323(void);
 void proto_reg_handoff_h323(void);
 
 /* Generic Extensible Framework */
-gef_ctx_t* gef_ctx_alloc(wmem_allocator_t *pool, gef_ctx_t *parent, const gchar *type) {
+gef_ctx_t* gef_ctx_alloc(wmem_allocator_t *pool, gef_ctx_t *parent, const char *type) {
   gef_ctx_t *gefx;
 
   gefx = wmem_new0(pool, gef_ctx_t);
@@ -42,7 +43,7 @@ gef_ctx_t* gef_ctx_alloc(wmem_allocator_t *pool, gef_ctx_t *parent, const gchar 
   return gefx;
 }
 
-gboolean gef_ctx_check_signature(gef_ctx_t *gefx) {
+bool gef_ctx_check_signature(gef_ctx_t *gefx) {
   return gefx && (gefx->signature == GEF_CTX_SIGNATURE);
 }
 
@@ -63,7 +64,7 @@ gef_ctx_t* gef_ctx_get(void *ptr) {
 }
 
 void gef_ctx_update_key(wmem_allocator_t *pool, gef_ctx_t *gefx) {
-  const gchar *parent_key;
+  const char *parent_key;
 
   if (!gefx) return;
   parent_key = (gefx->parent) ? gefx->parent->key : NULL;
@@ -109,26 +110,26 @@ static int hf_h323_timeToLive;                    /* TimeToLive */
 static int hf_h323_includeFastStart;              /* NULL */
 
 /* Initialize the subtree pointers */
-static gint ett_h323_RasTunnelledSignallingMessage;
-static gint ett_h323_T_messageContent;
-static gint ett_h323_RobustnessData;
-static gint ett_h323_T_robustnessData;
-static gint ett_h323_BackupCallSignalAddresses;
-static gint ett_h323_BackupCallSignalAddresses_item;
-static gint ett_h323_Rrq_RD;
-static gint ett_h323_Rcf_RD;
-static gint ett_h323_Setup_RD;
-static gint ett_h323_Connect_RD;
-static gint ett_h323_Status_RD;
-static gint ett_h323_T_fastStart;
-static gint ett_h323_StatusInquiry_RD;
+static int ett_h323_RasTunnelledSignallingMessage;
+static int ett_h323_T_messageContent;
+static int ett_h323_RobustnessData;
+static int ett_h323_T_robustnessData;
+static int ett_h323_BackupCallSignalAddresses;
+static int ett_h323_BackupCallSignalAddresses_item;
+static int ett_h323_Rrq_RD;
+static int ett_h323_Rcf_RD;
+static int ett_h323_Setup_RD;
+static int ett_h323_Connect_RD;
+static int ett_h323_Status_RD;
+static int ett_h323_T_fastStart;
+static int ett_h323_StatusInquiry_RD;
 
 
 
 static int
 dissect_h323_OCTET_STRING(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string(tvb, offset, actx, tree, hf_index,
-                                       NO_BOUND, NO_BOUND, FALSE, NULL);
+                                       NO_BOUND, NO_BOUND, false, NULL);
 
   return offset;
 }
@@ -177,7 +178,7 @@ dissect_h323_RasTunnelledSignallingMessage(tvbuff_t *tvb _U_, int offset _U_, as
 static int
 dissect_h323_INTEGER_1_256(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 256U, NULL, FALSE);
+                                                            1U, 256U, NULL, false);
 
   return offset;
 }
@@ -237,7 +238,7 @@ dissect_h323_Rrq_RD(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 static int
 dissect_h323_INTEGER_1_65535(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_constrained_integer(tvb, offset, actx, tree, hf_index,
-                                                            1U, 65535U, NULL, FALSE);
+                                                            1U, 65535U, NULL, false);
 
   return offset;
 }
@@ -393,7 +394,7 @@ dissect_h323_RobustnessData(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 static int dissect_RasTunnelledSignallingMessage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_h323_RasTunnelledSignallingMessage(tvb, offset, &asn1_ctx, tree, hf_h323_RasTunnelledSignallingMessage_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -401,7 +402,7 @@ static int dissect_RasTunnelledSignallingMessage_PDU(tvbuff_t *tvb _U_, packet_i
 static int dissect_RobustnessData_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, TRUE, pinfo);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_PER, true, pinfo);
   offset = dissect_h323_RobustnessData(tvb, offset, &asn1_ctx, tree, hf_h323_RobustnessData_PDU);
   offset += 7; offset >>= 3;
   return offset;
@@ -528,7 +529,7 @@ void proto_register_h323(void) {
   };
 
   /* List of subtrees */
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_h323_RasTunnelledSignallingMessage,
     &ett_h323_T_messageContent,
     &ett_h323_RobustnessData,

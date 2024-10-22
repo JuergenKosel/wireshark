@@ -45,6 +45,8 @@
 // - ACK & RWIN segment ticks in tcptrace graph
 // - Add missing elements (retrans, URG, SACK, etc) to tcptrace. It probably makes
 //   sense to subclass QCPGraph for this.
+// - Allow switching the tracer between graphs when there are two / selecting
+//   the other graph, at the very least if base_graph_ is disabled.
 
 // The GTK+ version computes a 20 (or 21!) segment moving average. Comment
 // out the line below to use that. By default we use a 1 second MA.
@@ -73,6 +75,7 @@ const QString segment_length_label_ = QObject::tr("Segment Length (B)");
 const QString sequence_number_label_ = QObject::tr("Sequence Number (B)");
 const QString time_s_label_ = QObject::tr("Time (s)");
 const QString window_size_label_ = QObject::tr("Window Size (B)");
+const QString cwnd_label_ = QObject::tr("Unacked (Outstanding) Bytes (B)");
 
 QCPErrorBarsNotSelectable::QCPErrorBarsNotSelectable(QCPAxis *keyAxis, QCPAxis *valueAxis) :
     QCPErrorBars(keyAxis, valueAxis)
@@ -133,8 +136,8 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
 
     ui->streamNumberSpinBox->setStyleSheet("QSpinBox { min-width: 2em; }");
 
-    guint32 th_stream = select_tcpip_session(cap_file_);
-    if (th_stream == G_MAXUINT32) {
+    uint32_t th_stream = select_tcpip_session(cap_file_);
+    if (th_stream == UINT32_MAX) {
         done(QDialog::Rejected);
         return;
     }
@@ -181,6 +184,7 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     ctx_menu_.addAction(ui->actionToggleSequenceNumbers);
     ctx_menu_.addAction(ui->actionToggleTimeOrigin);
     ctx_menu_.addAction(ui->actionCrosshairs);
+    connect(ui->actionCrosshairs, &QAction::triggered, this, &TCPStreamDialog::toggleTracerStyle);
     ctx_menu_.addSeparator();
     ctx_menu_.addAction(ui->actionRoundTripTime);
     ctx_menu_.addAction(ui->actionThroughput);
@@ -188,6 +192,11 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     ctx_menu_.addAction(ui->actionTcptrace);
     ctx_menu_.addAction(ui->actionWindowScaling);
     set_action_shortcuts_visible_in_context_menu(ctx_menu_.actions());
+
+    QCustomPlot *sp = ui->streamPlot;
+
+    sp->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(sp, &QCustomPlot::customContextMenuRequested, this, &TCPStreamDialog::showContextMenu);
 
     graph_.type = graph_type;
     graph_.stream = th_stream;
@@ -226,7 +235,6 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     ui->showBytesOutCheckBox->setChecked(true);
     ui->showBytesOutCheckBox->blockSignals(false);
 
-    QCustomPlot *sp = ui->streamPlot;
     QCPTextElement *file_title = new QCPTextElement(sp, gchar_free_to_qstring(cf_get_display_name(cap_file_)));
     file_title->setFont(sp->xAxis->labelFont());
     title_ = new QCPTextElement(sp);
@@ -551,6 +559,9 @@ void TCPStreamDialog::fillGraph(bool reset_axes, bool set_focus)
     sp->yAxis2->setVisible(false);
     sp->yAxis2->setLabel(QString());
 
+    /* For graphs other than receive window, the axes are not in sync. */
+    disconnect(sp->yAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), sp->yAxis2, QOverload<const QCPRange&>::of(&QCPAxis::setRange));
+
     if (!cap_file_) {
         QString dlg_title = QString(tr("No Capture Data"));
         setWindowTitle(dlg_title);
@@ -563,9 +574,13 @@ void TCPStreamDialog::fillGraph(bool reset_axes, bool set_focus)
 
     ts_offset_ = 0;
     seq_offset_ = 0;
-    bool first = true;
-    guint64 bytes_fwd = 0;
-    guint64 bytes_rev = 0;
+    bool ts_unset = ts_origin_conn_;
+    // seq_origin_zero_ defaults to true. It really means something like
+    // "use relative or absolute depending on the TCP dissector preferences".
+    // If it's false, then calculate the offset to convert to the other.
+    bool seq_unset = !seq_origin_zero_;
+    uint64_t bytes_fwd = 0;
+    uint64_t bytes_rev = 0;
     int pkts_fwd = 0;
     int pkts_rev = 0;
 
@@ -585,15 +600,37 @@ void TCPStreamDialog::fillGraph(bool reset_axes, bool set_focus)
             pkts_fwd++;
         }
         double ts = seg->rel_secs + seg->rel_usecs / 1000000.0;
-        if (first) {
-            if (ts_origin_conn_) ts_offset_ = ts;
-            if (seq_origin_zero_) {
-                if (compareHeaders(seg))
-                    seq_offset_ = seg->th_seq;
-                else
-                    seq_offset_ = seg->th_ack;
+        if (ts_unset) {
+            ts_offset_ = ts;
+            ts_unset = false;
+        }
+        if (seq_unset) {
+            if (compareHeaders(seg)) {
+                if (seg->th_seq != seg->th_rawseq) {
+                    seq_offset_ = seg->th_seq - seg->th_rawseq;
+                } else {
+                    // As with the TCP dissector, if this isn't the SYN or SYN-ACK,
+                    // start the relative sequence numbers at 1.
+                    if (seg->th_flags & TH_SYN) {
+                        seq_offset_ = seg->th_seq;
+                    } else {
+                        seq_offset_ = seg->th_seq - 1;
+                    }
+                }
+                seq_unset = false;
+            } else {
+                // A SYN in the reverse direction does not tell us the base
+                // sequence number, but for other segments (including SYN-ACK)
+                // start the offset at 1, like the TCP dissector.
+                if ((seg->th_flags & TH_SYN) != TH_SYN) {
+                    if (seg->th_seq != seg->th_rawseq) {
+                        seq_offset_ = seg->th_seq - seg->th_rawseq;
+                    } else {
+                        seq_offset_ -= seg->th_ack - 1;
+                    }
+                    seq_unset = false;
+                }
             }
-            first = false;
         }
         if (insert) {
             time_stamp_map_.insert(ts - ts_offset_, seg);
@@ -904,6 +941,7 @@ void TCPStreamDialog::fillTcptrace()
     sack_eb_->setData(sack_span);
     sack2_graph_->setData(sack2_time, sack2_center, true);
     sack2_eb_->setData(sack2_span);
+    rwin_graph_->setValueAxis(sp->yAxis);
     rwin_graph_->setData(ackrwin_time, rwin, true);
     dup_ack_graph_->setData(dup_ack_time, dup_ack, true);
     zero_win_graph_->setData(zero_win_time, zero_win, true);
@@ -920,7 +958,7 @@ void TCPStreamDialog::fillTcptrace()
 // I expect this to be _relatively_ small, so using vector to store
 //   them.  If this performs badly, it can be refactored with std::list
 //   or std::map.
-typedef std::pair<guint32, guint32> sack_t;
+typedef std::pair<uint32_t, uint32_t> sack_t;
 typedef std::vector<sack_t> sack_list_t;
 static inline bool compare_sack(const sack_t& s1, const sack_t& s2) {
     return tcp_seq_before(s1.first, s2.first);
@@ -930,8 +968,8 @@ static inline bool compare_sack(const sack_t& s1, const sack_t& s2) {
 //   - removes previously sacked ranges from seglen (and from old_sacks),
 //   - adds newly sacked ranges to seglen (and to old_sacks)
 static void
-goodput_adjust_for_sacks(guint32 *seglen, guint32 last_ack,
-                         sack_list_t& new_sacks, guint8 num_sack_ranges,
+goodput_adjust_for_sacks(uint32_t *seglen, uint32_t last_ack,
+                         sack_list_t& new_sacks, uint8_t num_sack_ranges,
                          sack_list_t& old_sacks) {
 
     // Step 1 - For any old_sacks acked by last_ack,
@@ -1200,8 +1238,8 @@ void TCPStreamDialog::fillThroughput()
     QVector<double> tput_times, gput_times;
     QVector<double> tputs, gputs;
     int oldest_seg = 0, oldest_ack = 0;
-    guint64 seg_sum = 0, ack_sum = 0;
-    guint32 seglen = 0;
+    uint64_t seg_sum = 0, ack_sum = 0;
+    uint32_t seglen = 0;
 
 #ifdef USE_SACKS_IN_GOODPUT_CALC
     // to incorporate SACKED segments into goodput calculation,
@@ -1219,7 +1257,7 @@ void TCPStreamDialog::fillThroughput()
 
     // need first acked sequence number to jump-start
     //    computation of acked bytes per packet
-    guint32 last_ack = 0;
+    uint32_t last_ack = 0;
     for (struct segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
         // first reverse packet with ACK flag tells us first acked sequence #
         if (!compareHeaders(seg) && (seg->th_flags & TH_ACK)) {
@@ -1248,7 +1286,7 @@ void TCPStreamDialog::fillThroughput()
         QVector<double>& r_Xput_times = is_forward_seg ? tput_times : gput_times;
         QVector<double>& r_Xputs = is_forward_seg ? tputs : gputs;
         int& r_oldest = is_forward_seg ? oldest_seg : oldest_ack;
-        guint64& r_sum = is_forward_seg ? seg_sum : ack_sum;
+        uint64_t& r_sum = is_forward_seg ? seg_sum : ack_sum;
 
         double ts = (seg->rel_secs + seg->rel_usecs / 1000000.0) - ts_offset_;
 
@@ -1458,9 +1496,15 @@ void TCPStreamDialog::fillRoundTripTime()
     base_graph_->setLineStyle(QCPGraph::lsLine);
 
     QVector<double> x_vals, rtt;
-    guint32 seq_base = 0;
+    uint32_t seq_base = 0;
     struct rtt_unack *unack_list = NULL, *u = NULL;
     for (struct segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
+        // XXX - Should this just use seq_offset_? Our comparisons are
+        // wraparound now and should be fine without computing a base
+        // (we're not doing anything to extend sequence numbers to handle
+        // connections longer than 4 GiB), and that would let the user swap.
+        // (We should make clicking the X axis swap seq_origin_zero_ if
+        // bySeqNumber is checked.)
         if (compareHeaders(seg)) {
             seq_base = seg->th_seq;
             break;
@@ -1468,7 +1512,7 @@ void TCPStreamDialog::fillRoundTripTime()
     }
     for (struct segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
         if (compareHeaders(seg)) {
-            guint32 seqno = seg->th_seq - seq_base;
+            uint32_t seqno = seg->th_seq - seq_base;
             if (seg->th_seglen && !rtt_is_retrans(unack_list, seqno)) {
                 double rt_val = seg->rel_secs + seg->rel_usecs / 1000000.0;
                 rt_val -= ts_offset_;
@@ -1481,7 +1525,7 @@ void TCPStreamDialog::fillRoundTripTime()
                 rtt_put_unack_on_list(&unack_list, u);
             }
         } else {
-            guint32 ack_no = seg->th_ack - seq_base;
+            uint32_t ack_no = seg->th_ack - seq_base;
             double rt_val = seg->rel_secs + seg->rel_usecs / 1000000.0;
             rt_val -= ts_offset_;
             struct rtt_unack *v;
@@ -1514,8 +1558,8 @@ void TCPStreamDialog::fillRoundTripTime()
                 //   If we link those back into the list between u and v,
                 //   then each subsequent SACK selectively ACKs that range.
                 for (int i = 0; i < seg->num_sack_ranges; ++i) {
-                    guint32 left = seg->sack_left_edge[i] - seq_base;
-                    guint32 right = seg->sack_right_edge[i] - seq_base;
+                    uint32_t left = seg->sack_left_edge[i] - seq_base;
+                    uint32_t right = seg->sack_right_edge[i] - seq_base;
                     u = rtt_selectively_ack_range(x_vals, bySeqNumber, rtt,
                                                   &unack_list, u, v,
                                                   left, right, rt_val);
@@ -1548,7 +1592,11 @@ void TCPStreamDialog::fillWindowScale()
 
     QVector<double> rel_time, win_size;
     QVector<double> cwnd_time, cwnd_size;
-    guint32 last_ack = 0;
+    uint32_t last_ack = 0;
+
+    /* highest expected SEQ seen so far */
+    uint32_t max_next_seq = 0;
+
     bool found_first_ack = false;
     for (struct segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
         double ts = seg->rel_secs + seg->rel_usecs / 1000000.0;
@@ -1556,16 +1604,21 @@ void TCPStreamDialog::fillWindowScale()
         // The receive window that applies to this flow comes
         //   from packets in the opposite direction
         if (compareHeaders(seg)) {
-            // compute bytes_in_flight for cwnd graph
-            guint32 end_seq = seg->th_seq + seg->th_seglen;
+            /* compute bytes_in_flight for cwnd graph,
+             * by comparing the highest next SEQ to the latest ACK
+             */
+            uint32_t end_seq = seg->th_seq + seg->th_seglen;
+            if(end_seq > max_next_seq) {
+                max_next_seq = end_seq;
+            }
             if (found_first_ack &&
                 tcp_seq_eq_or_after(end_seq, last_ack)) {
                 cwnd_time.append(ts - ts_offset_);
-                cwnd_size.append((double)(end_seq - last_ack));
+                cwnd_size.append((double)(max_next_seq - last_ack));
             }
         } else {
             // packet in opposite direction - has advertised rwin
-            guint16 flags = seg->th_flags;
+            uint16_t flags = seg->th_flags;
 
             if ((flags & (TH_SYN|TH_RST)) == 0) {
                 rel_time.append(ts - ts_offset_);
@@ -1581,9 +1634,27 @@ void TCPStreamDialog::fillWindowScale()
             }
         }
     }
+    /* base_graph_ is the one that the tracer is on and allows selecting
+     * segments. XXX - Is the congestion window more interesting to see
+     * the exact value and select?
+     *
+     * We'll put the graphs on the same axis so they'll use the same scale.
+     */
     base_graph_->setData(cwnd_time, cwnd_size);
+    rwin_graph_->setValueAxis(sp->yAxis);
     rwin_graph_->setData(rel_time, win_size);
-    sp->yAxis->setLabel(window_size_label_);
+
+    /* The left axis has the color and label for the unacked bytes,
+     * and the right axis will have the color and label for the window size.
+     */
+    sp->yAxis->setLabel(cwnd_label_);
+    sp->yAxis2->setLabel(window_size_label_);
+    sp->yAxis2->setLabelColor(QColor(graph_color_3));
+    sp->yAxis2->setTickLabelColor(QColor(graph_color_3));
+    sp->yAxis2->setVisible(true);
+
+    /* Keep the ticks on the two axes in sync. */
+    connect(sp->yAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), sp->yAxis2, QOverload<const QCPRange&>::of(&QCPAxis::setRange));
 }
 
 QString TCPStreamDialog::streamDescription()
@@ -1656,6 +1727,11 @@ QRectF TCPStreamDialog::getZoomRanges(QRect zoom_rect)
     return zoom_ranges;
 }
 
+void TCPStreamDialog::showContextMenu(const QPoint& pos)
+{
+    ctx_menu_.popup(ui->streamPlot->mapToGlobal(pos));
+}
+
 void TCPStreamDialog::graphClicked(QMouseEvent *event)
 {
     QCustomPlot *sp = ui->streamPlot;
@@ -1663,15 +1739,7 @@ void TCPStreamDialog::graphClicked(QMouseEvent *event)
     // mouse press on graph should reset focus to graph
     sp->setFocus();
 
-    if (event->button() == Qt::RightButton) {
-        // XXX We should find some way to get streamPlot to handle a
-        // contextMenuEvent instead.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-        ctx_menu_.popup(event->globalPosition().toPoint());
-#else
-        ctx_menu_.popup(event->globalPos());
-#endif
-    } else  if (mouse_drags_) {
+    if (mouse_drags_) {
         if (sp->axisRect()->rect().contains(event->pos())) {
             sp->setCursor(QCursor(Qt::ClosedHandCursor));
         }
@@ -1773,22 +1841,26 @@ void TCPStreamDialog::mouseMoved(QMouseEvent *event)
             tracer_->setVisible(false);
             hint += "Hover over the graph for details. " + stream_desc_ + "</i></small>";
             ui->hintLabel->setText(hint);
-            ui->streamPlot->replot();
+            ui->streamPlot->replot(QCustomPlot::rpQueuedReplot);
             return;
         }
 
         tracer_->setVisible(true);
         packet_num_ = packet_seg->num;
+        // XXX - We should probably change the sequence number displayed by
+        // seq_offset_ but in that case we should also store a base sequence
+        // number for the other direction so the th_ack can also be adjusted
+        // to a relative sequence number.
         hint += tr("%1 %2 (%3s len %4 seq %5 ack %6 win %7)")
                 .arg(cap_file_ ? tr("Click to select packet") : tr("Packet"))
                 .arg(packet_num_)
                 .arg(QString::number(packet_seg->rel_secs + packet_seg->rel_usecs / 1000000.0, 'g', 4))
                 .arg(packet_seg->th_seglen)
-                .arg(packet_seg->th_seq)
+                .arg(packet_seg->th_seq) // - seq_offset_)
                 .arg(packet_seg->th_ack)
                 .arg(packet_seg->th_win);
         tracer_->setGraphKey(ui->streamPlot->xAxis->pixelToCoord(event->pos().x()));
-        sp->replot();
+        sp->replot(QCustomPlot::rpQueuedReplot);
     } else {
         if (rubber_band_ && rubber_band_->isVisible() && event) {
             rubber_band_->setGeometry(QRect(rb_origin_, event->pos()).normalized());
@@ -2107,7 +2179,7 @@ void TCPStreamDialog::on_actionPreviousStream_triggered()
 void TCPStreamDialog::on_actionSwitchDirection_triggered()
 {
     address tmp_addr;
-    guint16 tmp_port;
+    uint16_t tmp_port;
 
     copy_address(&tmp_addr, &graph_.src_address);
     tmp_port = graph_.src_port;

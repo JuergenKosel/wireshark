@@ -32,14 +32,15 @@ extern "C" {
 struct report_message_routines {
 	void (*vreport_failure)(const char *, va_list);
 	void (*vreport_warning)(const char *, va_list);
-	void (*report_open_failure)(const char *, int, gboolean);
+	void (*report_open_failure)(const char *, int, bool);
 	void (*report_read_failure)(const char *, int);
 	void (*report_write_failure)(const char *, int);
+	void (*report_rename_failure)(const char *, const char *, int);
 	void (*report_cfile_open_failure)(const char *, int, char *);
 	void (*report_cfile_dump_open_failure)(const char *, int, char *, int);
 	void (*report_cfile_read_failure)(const char *, int, char *);
 	void (*report_cfile_write_failure)(const char *, const char *,
-	    int, char *, uint32_t, int);
+	    int, char *, uint64_t, int);
 	void (*report_cfile_close_failure)(const char *, int, char *);
 };
 
@@ -78,6 +79,13 @@ WS_DLL_PUBLIC void report_read_failure(const char *filename, int err);
 WS_DLL_PUBLIC void report_write_failure(const char *filename, int err);
 
 /*
+ * Report an error when trying to rename a file.
+ * "err" is assumed to be a UNIX-style errno.
+ */
+WS_DLL_PUBLIC void report_rename_failure(const char *old_filename,
+    const char *new_filename, int err);
+
+/*
  * Report an error from opening a capture file for reading.
  */
 WS_DLL_PUBLIC void report_cfile_open_failure(const char *filename,
@@ -99,7 +107,7 @@ WS_DLL_PUBLIC void report_cfile_read_failure(const char *filename,
  * Report an error from attempting to write to a capture file.
  */
 WS_DLL_PUBLIC void report_cfile_write_failure(const char *in_filename,
-    const char *out_filename, int err, char *err_info, uint32_t framenum,
+    const char *out_filename, int err, char *err_info, uint64_t framenum,
     int file_type_subtype);
 
 /*

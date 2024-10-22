@@ -1,7 +1,7 @@
 /* Do not modify this file. Changes will be overwritten.                      */
 /* Generated automatically by the ASN.1 to Wireshark dissector compiler       */
 /* packet-gdt.c                                                               */
-/* asn2wrs.py -b -L -p gdt -c ./gdt.cnf -s ./packet-gdt-template -D . -O ../.. gdt.asn */
+/* asn2wrs.py -b -q -L -p gdt -c ./gdt.cnf -s ./packet-gdt-template -D . -O ../.. gdt.asn */
 
 /* packet-gdt-template.c
  *
@@ -17,13 +17,9 @@
 
 # include "config.h"
 
-#include <glib.h>
 #include <epan/packet.h>
-#include <epan/conversation.h>
 #include <epan/sctpppids.h>
-
-#include <stdio.h>
-#include <string.h>
+#include <wsutil/array.h>
 
 #include "packet-ber.h"
 #include "packet-gdt.h"
@@ -34,7 +30,7 @@
 
 /* Initialize the protocol and registered fields */
 static int proto_gdt;
-static dissector_handle_t gdt_handle = NULL;
+static dissector_handle_t gdt_handle;
 
 static int hf_gdt_GDTMessage_PDU;                 /* GDTMessage */
 static int hf_gdt_version;                        /* INTEGER */
@@ -89,27 +85,27 @@ static int hf_gdt_enc_type;                       /* OCTET_STRING */
 
 /* Initialize the subtree pointers */
 static int ett_gdt;
-static gint ett_gdt_Header;
-static gint ett_gdt_EndPointDescriptor;
-static gint ett_gdt_Body;
-static gint ett_gdt_StateMessage;
-static gint ett_gdt_ServiceMessage;
-static gint ett_gdt_RoutingMessage;
-static gint ett_gdt_RegistrationMessage;
-static gint ett_gdt_StatsMessage;
-static gint ett_gdt_AuthMessage;
-static gint ett_gdt_DataRetentionMessage;
-static gint ett_gdt_FilterMessage;
-static gint ett_gdt_PacketFwdMessage;
-static gint ett_gdt_NotifyMessage;
-static gint ett_gdt_DataMessage;
-static gint ett_gdt_ConfigMessage;
-static gint ett_gdt_Parameter;
-static gint ett_gdt_T_value;
-static gint ett_gdt_Parameters;
-static gint ett_gdt_HopInfo;
-static gint ett_gdt_GDTMessage;
-static gint ett_gdt_EncryptionInfo;
+static int ett_gdt_Header;
+static int ett_gdt_EndPointDescriptor;
+static int ett_gdt_Body;
+static int ett_gdt_StateMessage;
+static int ett_gdt_ServiceMessage;
+static int ett_gdt_RoutingMessage;
+static int ett_gdt_RegistrationMessage;
+static int ett_gdt_StatsMessage;
+static int ett_gdt_AuthMessage;
+static int ett_gdt_DataRetentionMessage;
+static int ett_gdt_FilterMessage;
+static int ett_gdt_PacketFwdMessage;
+static int ett_gdt_NotifyMessage;
+static int ett_gdt_DataMessage;
+static int ett_gdt_ConfigMessage;
+static int ett_gdt_Parameter;
+static int ett_gdt_T_value;
+static int ett_gdt_Parameters;
+static int ett_gdt_HopInfo;
+static int ett_gdt_GDTMessage;
+static int ett_gdt_EncryptionInfo;
 
 
 
@@ -1005,8 +1001,8 @@ dissect_gdt_GDTMessage(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_,
 static int dissect_GDTMessage_PDU(tvbuff_t *tvb _U_, packet_info *pinfo _U_, proto_tree *tree _U_, void *data _U_) {
   int offset = 0;
   asn1_ctx_t asn1_ctx;
-  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, TRUE, pinfo);
-  offset = dissect_gdt_GDTMessage(FALSE, tvb, offset, &asn1_ctx, tree, hf_gdt_GDTMessage_PDU);
+  asn1_ctx_init(&asn1_ctx, ASN1_ENC_BER, true, pinfo);
+  offset = dissect_gdt_GDTMessage(false, tvb, offset, &asn1_ctx, tree, hf_gdt_GDTMessage_PDU);
   return offset;
 }
 
@@ -1237,7 +1233,7 @@ void proto_register_gdt(void) {
     };
 
     /* List of subtrees */
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_gdt,
     &ett_gdt_Header,
     &ett_gdt_EndPointDescriptor,
@@ -1275,11 +1271,11 @@ void proto_register_gdt(void) {
 
 /*--- proto_reg_handoff_gdt -------------------------------------------*/
 void proto_reg_handoff_gdt(void) {
-    static gboolean initialized = FALSE;
+    static bool initialized = false;
 
     if (!initialized) {
         dissector_add_for_decode_as("sctp.ppi", gdt_handle);
         dissector_add_uint("sctp.ppi", GDT_PROTOCOL_ID, gdt_handle);
-        initialized = TRUE;
+        initialized = true;
     }
 }

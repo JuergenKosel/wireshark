@@ -20,7 +20,8 @@
 #include <epan/prefs.h>
 #include <epan/ptvcursor.h>
 #include <epan/expert.h>
-
+#include <epan/tfs.h>
+#include <wsutil/array.h>
 /*
  * RFC 3208
  *
@@ -61,7 +62,7 @@ static dissector_handle_t pgm_handle;
 /*
  * Flag to control whether to check the PGM checksum.
  */
-static gboolean pgm_check_checksum = TRUE;
+static bool pgm_check_checksum = true;
 
 /* constants for hdr types */
 #define PGM_SPM_PCKT  0x00
@@ -269,14 +270,14 @@ static heur_dissector_list_t heur_subdissector_list;
 
 
 static const char *
-optsstr(wmem_allocator_t *pool, guint8 opts)
+optsstr(wmem_allocator_t *pool, uint8_t opts)
 {
 	char *msg;
-	gint  returned_length, idx = 0;
+	int   returned_length, idx = 0;
 	const int MAX_STR_LEN = 256;
 
 	if (opts == 0)
-		return("");
+		return "";
 
 	msg=(char *)wmem_alloc(pool, MAX_STR_LEN);
 	if (opts & PGM_OPT){
@@ -298,17 +299,17 @@ optsstr(wmem_allocator_t *pool, guint8 opts)
 	if (!idx) {
 		snprintf(&msg[idx], MAX_STR_LEN-idx, "0x%x", opts);
 	}
-	return(msg);
+	return msg;
 }
 static const char *
-paritystr(wmem_allocator_t *pool, guint8 parity)
+paritystr(wmem_allocator_t *pool, uint8_t parity)
 {
 	char *msg;
-	gint returned_length, idx = 0;
+	int returned_length, idx = 0;
 	const int MAX_STR_LEN = 256;
 
 	if (parity == 0)
-		return("");
+		return "";
 
 	msg=(char *)wmem_alloc(pool, MAX_STR_LEN);
 	if (parity & PGM_OPT_PARITY_PRM_PRO){
@@ -322,7 +323,7 @@ paritystr(wmem_allocator_t *pool, guint8 parity)
 	if (!idx) {
 		snprintf(&msg[idx], MAX_STR_LEN-idx, "0x%x", parity);
 	}
-	return(msg);
+	return msg;
 }
 
 static const value_string opt_vals[] = {
@@ -342,7 +343,6 @@ static const value_string opt_vals[] = {
 	{ PGM_OPT_PGMCC_FEEDBACK, "CcFeedBack" },
 	{ PGM_OPT_NAK_BO_IVL,	  "NakBackOffIvl" },
 	{ PGM_OPT_NAK_BO_RNG,	  "NakBackOffRng" },
-	{ PGM_OPT_FRAGMENT,	  "Fragment" },
 	{ 0,                   NULL }
 };
 
@@ -377,17 +377,17 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 	proto_tree *opt_tree  = NULL;
 	tvbuff_t   *tvb       = ptvcursor_tvbuff(cursor);
 
-	gboolean theend = FALSE;
+	bool theend = false;
 
-	guint16 opts_total_len;
-	guint8  genopts_type;
-	guint8  genopts_len;
-	guint8  opts_type;
+	uint16_t opts_total_len;
+	uint8_t genopts_type;
+	uint8_t genopts_len;
+	uint8_t opts_type;
 
 	opts_tree = proto_tree_add_subtree_format(ptvcursor_tree(cursor), tvb, ptvcursor_current_offset(cursor), -1,
 		ett_pgm_opts, &tf, "%s Options", pktname);
 	ptvcursor_set_tree(cursor, opts_tree);
-	opts_type = tvb_get_guint8(tvb, ptvcursor_current_offset(cursor));
+	opts_type = tvb_get_uint8(tvb, ptvcursor_current_offset(cursor));
 	ti = ptvcursor_add(cursor, hf_pgm_opt_type, 1, ENC_BIG_ENDIAN);
 	if (opts_type != PGM_OPT_LENGTH) {
 		expert_add_info_format(pinfo, ti, &ei_pgm_opt_type,
@@ -416,12 +416,12 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 
-		genopts_type = tvb_get_guint8(tvb, ptvcursor_current_offset(cursor));
-		genopts_len = tvb_get_guint8(tvb, ptvcursor_current_offset(cursor)+1);
+		genopts_type = tvb_get_uint8(tvb, ptvcursor_current_offset(cursor));
+		genopts_len = tvb_get_uint8(tvb, ptvcursor_current_offset(cursor)+1);
 
 		if (genopts_type & PGM_OPT_END)  {
 			genopts_type &= ~PGM_OPT_END;
-			theend = TRUE;
+			theend = true;
 		}
 
 		switch(genopts_type) {
@@ -447,7 +447,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 		case PGM_OPT_PARITY_PRM:{
-			guint8 optdata_po;
+			uint8_t optdata_po;
 
 			TLV_CHECK(ett_pgm_opts_parityprm);
 			ptvcursor_set_tree(cursor, opt_tree);
@@ -465,7 +465,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			}
 			ptvcursor_add(cursor, hf_pgm_genopt_len, 1, ENC_BIG_ENDIAN);
 			ptvcursor_add(cursor, hf_pgm_genopt_opx, 1, ENC_BIG_ENDIAN);
-			optdata_po = tvb_get_guint8(tvb, ptvcursor_current_offset(cursor));
+			optdata_po = tvb_get_uint8(tvb, ptvcursor_current_offset(cursor));
 			proto_tree_add_uint_format_value(opt_tree, hf_pgm_opt_parity_prm_po, tvb,
 				ptvcursor_current_offset(cursor), 1, optdata_po, "%s (0x%x)",
 				paritystr(pinfo->pool, optdata_po), optdata_po);
@@ -497,10 +497,10 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 		case PGM_OPT_NAK_LIST:{
-			guint8 optdata_len;
-			guint32 naklist[PGM_MAX_NAK_LIST_SZ+1];
+			uint8_t optdata_len;
+			uint32_t naklist[PGM_MAX_NAK_LIST_SZ+1];
 			unsigned char *nakbuf;
-			gboolean firsttime;
+			bool firsttime;
 			int i, j, naks, soffset;
 
 			TLV_CHECK(ett_pgm_opts_naklist);
@@ -509,16 +509,16 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			ptvcursor_add_no_advance(cursor, hf_pgm_genopt_end, 1, ENC_BIG_ENDIAN);
 			ptvcursor_add(cursor, hf_pgm_genopt_type, 1, ENC_BIG_ENDIAN);
 
-			optdata_len = tvb_get_guint8(tvb, ptvcursor_current_offset(cursor));
+			optdata_len = tvb_get_uint8(tvb, ptvcursor_current_offset(cursor));
 			ptvcursor_add(cursor, hf_pgm_genopt_len, 1, ENC_BIG_ENDIAN);
 			ptvcursor_add(cursor, hf_pgm_genopt_opx, 1, ENC_BIG_ENDIAN);
 			ptvcursor_add(cursor, hf_pgm_opt_nak_res, 1, ENC_BIG_ENDIAN);
 
 			optdata_len -= PGM_OPT_NAK_LIST_SIZE;
-			tvb_memcpy(tvb, (guint8 *)naklist, ptvcursor_current_offset(cursor), optdata_len);
-			firsttime = TRUE;
+			tvb_memcpy(tvb, (uint8_t *)naklist, ptvcursor_current_offset(cursor), optdata_len);
+			firsttime = true;
 			soffset = 0;
-			naks = (int)(optdata_len/sizeof(guint32));
+			naks = (int)(optdata_len/sizeof(uint32_t));
 			nakbuf = (unsigned char *)wmem_alloc(pinfo->pool, 8192);
 			j = 0;
 			/*
@@ -534,7 +534,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 							hf_pgm_opt_nak_list, tvb, ptvcursor_current_offset(cursor), j*4,
 							nakbuf, "List(%d): %s", naks, nakbuf);
 						soffset = 0;
-						firsttime = FALSE;
+						firsttime = false;
 					} else {
 						proto_tree_add_bytes_format_value(opt_tree,
 							hf_pgm_opt_nak_list, tvb, ptvcursor_current_offset(cursor), j*4,
@@ -560,7 +560,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 		case PGM_OPT_PGMCC_DATA:{
-			guint16 optdata_afi;
+			uint16_t optdata_afi;
 
 			TLV_CHECK(ett_pgm_opts_ccdata);
 			ptvcursor_set_tree(cursor, opt_tree);
@@ -601,7 +601,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 		case PGM_OPT_PGMCC_FEEDBACK:{
-			guint16 optdata_afi;
+			uint16_t optdata_afi;
 
 			TLV_CHECK(ett_pgm_opts_ccdata);
 			ptvcursor_set_tree(cursor, opt_tree);
@@ -686,7 +686,7 @@ dissect_pgmopts(ptvcursor_t* cursor, packet_info *pinfo, const char *pktname)
 			break;
 		}
 		case PGM_OPT_REDIRECT:{
-			guint16 optdata_afi;
+			uint16_t optdata_afi;
 
 			TLV_CHECK(ett_pgm_opts_redirect);
 			ptvcursor_set_tree(cursor, opt_tree);
@@ -786,7 +786,7 @@ static const value_string poll_subtype_vals[] = {
 
 static void
 decode_pgm_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
-		 proto_tree *tree, guint16 pgmhdr_sport, guint16 pgmhdr_dport)
+		 proto_tree *tree, uint16_t pgmhdr_sport, uint16_t pgmhdr_dport)
 {
 	tvbuff_t *next_tvb;
 	int       found = 0;
@@ -819,14 +819,14 @@ decode_pgm_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
 static int
 dissect_pgm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 {
-	guint32 pgmhdr_sport;
-	guint32 pgmhdr_dport;
-	guint32 pgmhdr_type;
-	guint8  pgmhdr_opts;
-	guint16 pgmhdr_cksum;
-	guint32 pgmhdr_tsdulen;
-	guint32 sqn;
-	guint16 afi;
+	uint32_t pgmhdr_sport;
+	uint32_t pgmhdr_dport;
+	uint32_t pgmhdr_type;
+	uint8_t pgmhdr_opts;
+	uint16_t pgmhdr_cksum;
+	uint32_t pgmhdr_tsdulen;
+	uint32_t sqn;
+	uint16_t afi;
 
 	proto_tree *pgm_tree = NULL;
 	proto_tree *opt_tree = NULL;
@@ -834,12 +834,12 @@ dissect_pgm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	proto_item *tf, *hidden_item;
 	ptvcursor_t* cursor;
 
-	guint       plen   = 0;
+	unsigned    plen   = 0;
 	proto_item *ti;
 	const char *pktname;
 	char       *gsi;
-	gboolean    isdata = FALSE;
-	guint       pgmlen, reportedlen;
+	bool        isdata = false;
+	unsigned    pgmlen, reportedlen;
 
 	if (tvb_reported_length_remaining(tvb, 0) < 18)
 		return 0;
@@ -867,7 +867,7 @@ dissect_pgm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	                       pktname, pgmhdr_sport, pgmhdr_dport);
 	col_append_fstr(pinfo->cinfo, COL_INFO, "%-5s", pktname);
 
-	pgmhdr_opts = tvb_get_guint8(tvb, 5);
+	pgmhdr_opts = tvb_get_uint8(tvb, 5);
 	tf = proto_tree_add_uint_format_value(pgm_tree, hf_pgm_main_opts, tvb,
 		ptvcursor_current_offset(cursor), 1, pgmhdr_opts, "%s (0x%x)",
 		optsstr(pinfo->pool, pgmhdr_opts), pgmhdr_opts);
@@ -941,7 +941,7 @@ dissect_pgm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 		break;
 	case PGM_RDATA_PCKT:
 	case PGM_ODATA_PCKT:
-		isdata = TRUE;
+		isdata = true;
 		type_tree = proto_tree_add_subtree_format(pgm_tree, tvb, ptvcursor_current_offset(cursor), plen,
 											ett_pgm_data, NULL, "%s Packet", pktname);
 		ptvcursor_set_tree(cursor, type_tree);
@@ -997,7 +997,7 @@ dissect_pgm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 		}
 		break;
 	case PGM_POLL_PCKT: {
-		guint32 poll_stype;
+		uint32_t poll_stype;
 
 		type_tree = proto_tree_add_subtree_format(pgm_tree, tvb, ptvcursor_current_offset(cursor), plen,
 											ett_pgm_poll, NULL, "%s Packet", pktname);
@@ -1340,7 +1340,7 @@ proto_register_pgm(void)
 		  { "Total Length", "pgm.opts.fragment.total_length", FT_UINT32, BASE_DEC,
 		    NULL, 0x0, NULL, HFILL }}
 	};
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_pgm,
 		&ett_pgm_optbits,
 		&ett_pgm_spm,
@@ -1382,7 +1382,7 @@ proto_register_pgm(void)
 	pgm_handle = register_dissector("pgm", dissect_pgm, proto_pgm);
 	subdissector_table = register_dissector_table("pgm.port",
 						      "PGM port", proto_pgm, FT_UINT16, BASE_DEC);
-	heur_subdissector_list = register_heur_dissector_list("pgm", proto_pgm);
+	heur_subdissector_list = register_heur_dissector_list_with_description("pgm", "PGM data fallback", proto_pgm);
 
 	/*
 	 * Register configuration preferences for UDP encapsulation

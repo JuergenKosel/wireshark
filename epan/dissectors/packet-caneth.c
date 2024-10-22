@@ -30,7 +30,7 @@
 #define CAN_EXT_FLAG_OFFSET 13
 #define CAN_RTR_FLAG_OFFSET 14
 
-static const gchar magic[] = "ISO11898";
+static const char magic[] = "ISO11898";
 
 void proto_reg_handoff_caneth(void);
 void proto_register_caneth(void);
@@ -52,9 +52,9 @@ static int hf_caneth_can_padding;
 
 #define CANETH_UDP_PORT 11898
 
-static gint ett_caneth;
-static gint ett_caneth_frames;
-static gint ett_caneth_can;
+static int ett_caneth;
+static int ett_caneth_frames;
+static int ett_caneth_can;
 
 static int proto_can;      // use CAN protocol for consistent filtering
 
@@ -63,28 +63,28 @@ static int proto_can;      // use CAN protocol for consistent filtering
  * the current dissector. */
 #define CANETH_MIN_LENGTH 10
 
-static gboolean
+static bool
 test_caneth(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
     /* Check that we have enough length for the Magic, Version, and Length */
     if (tvb_reported_length(tvb) < CANETH_MIN_LENGTH)
-        return FALSE;
+        return false;
     /* Check that the magic id matches */
     if (tvb_strneql(tvb, offset, magic, 8) != 0)
-        return FALSE;
+        return false;
     /* Check that the version is 1 as that is the only supported version */
-    if (tvb_get_guint8(tvb, offset+8) != 1)
-        return FALSE;
+    if (tvb_get_uint8(tvb, offset+8) != 1)
+        return false;
     /* Check that the version 1 limit of 16 can frames is respected */
-    if (tvb_get_guint8(tvb, offset+9) > 16)
-        return FALSE;
-    return TRUE;
+    if (tvb_get_uint8(tvb, offset+9) > 16)
+        return false;
+    return true;
 }
 
-static guint
+static unsigned
 get_caneth_len(packet_info *pinfo _U_, tvbuff_t *tvb, int offset, void *data _U_)
 {
-    return (guint) tvb_get_ntohs(tvb, offset+3);
+    return (unsigned) tvb_get_ntohs(tvb, offset+3);
 }
 
 static int
@@ -92,18 +92,17 @@ dissect_caneth_can(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 {
     proto_tree *can_tree;
     proto_item *ti;
-    guint32     data_len;
-    guint32     raw_can_id;
-    gint8       ext_flag;
-    gint8       rtr_flag;
+    uint32_t    raw_can_id;
+    int8_t      ext_flag;
+    int8_t      rtr_flag;
     tvbuff_t*   next_tvb;
     struct can_info can_info;
 
     ti = proto_tree_add_item(tree, proto_can, tvb, 0, -1, ENC_NA);
     can_tree = proto_item_add_subtree(ti, ett_caneth_can);
 
-    ext_flag = tvb_get_guint8(tvb, CAN_EXT_FLAG_OFFSET);
-    rtr_flag = tvb_get_guint8(tvb, CAN_RTR_FLAG_OFFSET);
+    ext_flag = tvb_get_uint8(tvb, CAN_EXT_FLAG_OFFSET);
+    rtr_flag = tvb_get_uint8(tvb, CAN_RTR_FLAG_OFFSET);
 
     if (ext_flag)
     {
@@ -117,20 +116,22 @@ dissect_caneth_can(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     }
 
     can_info.id |= (ext_flag ? CAN_EFF_FLAG : 0) | (rtr_flag ? CAN_RTR_FLAG : 0);
+    can_info.fd = CAN_TYPE_CAN_CLASSIC;
+    can_info.bus_id = 0; /* see get_bus_id in packet-socketcan.c? */
 
-    proto_tree_add_item_ret_uint(can_tree, hf_caneth_can_len, tvb, CAN_DLC_OFFSET, 1, ENC_NA, &data_len);
+    proto_tree_add_item_ret_uint(can_tree, hf_caneth_can_len, tvb, CAN_DLC_OFFSET, 1, ENC_NA, &can_info.len);
     proto_tree_add_item(can_tree, hf_caneth_can_extflag, tvb, CAN_EXT_FLAG_OFFSET, 1, ENC_NA);
     proto_tree_add_item(can_tree, hf_caneth_can_rtrflag, tvb, CAN_RTR_FLAG_OFFSET, 1, ENC_NA);
 
-    next_tvb = tvb_new_subset_length(tvb, CAN_DATA_OFFSET, data_len);
+    next_tvb = tvb_new_subset_length(tvb, CAN_DATA_OFFSET, can_info.len);
 
-    if (!socketcan_call_subdissectors(next_tvb, pinfo, tree, &can_info, FALSE)) {
+    if (!socketcan_call_subdissectors(next_tvb, pinfo, tree, &can_info, false)) {
         call_data_dissector(next_tvb, pinfo, tree);
     }
 
-    if (tvb_captured_length_remaining(tvb, CAN_DATA_OFFSET + data_len) > 0)
+    if (tvb_captured_length_remaining(tvb, CAN_DATA_OFFSET + can_info.len) > 0)
     {
-        proto_tree_add_item(can_tree, hf_caneth_can_padding, tvb, CAN_DATA_OFFSET + data_len, -1, ENC_NA);
+        proto_tree_add_item(can_tree, hf_caneth_can_padding, tvb, CAN_DATA_OFFSET + can_info.len, -1, ENC_NA);
     }
     return tvb_captured_length(tvb);
 }
@@ -140,7 +141,7 @@ dissect_caneth(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
     proto_tree *caneth_tree;
     proto_item *ti;
-    guint32     frame_count, offset;
+    uint32_t    frame_count, offset;
     tvbuff_t*   next_tvb;
 
     if (!test_caneth(pinfo, tvb, 0, data))
@@ -170,7 +171,7 @@ dissect_caneth(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     return tvb_captured_length(tvb);
 }
 
-static gboolean
+static bool
 dissect_caneth_heur_udp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
     return (udp_dissect_pdus(tvb, pinfo, tree, CANETH_MIN_LENGTH, test_caneth,
@@ -273,7 +274,7 @@ proto_register_caneth(void)
         },
     };
 
-    static gint *ett[] = {
+    static int *ett[] = {
         &ett_caneth,
         &ett_caneth_frames,
         &ett_caneth_can,

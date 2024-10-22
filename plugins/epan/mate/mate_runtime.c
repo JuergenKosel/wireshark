@@ -18,8 +18,9 @@
 typedef struct _mate_range mate_range;
 
 struct _mate_range {
-	guint start;
-	guint end;
+	tvbuff_t *ds_tvb;
+	unsigned start;
+	unsigned end;
 };
 
 
@@ -31,12 +32,12 @@ typedef struct _tmp_pdu_data {
 
 
 typedef struct _gogkey {
-	gchar* key;
+	char* key;
 	mate_cfg_gop* cfg;
 } gogkey;
 
 
-static mate_runtime_data* rd = NULL;
+static mate_runtime_data* rd;
 
 static int zero = 5;
 
@@ -44,19 +45,19 @@ static int* dbg = &zero;
 static int* dbg_pdu = &zero;
 static int* dbg_gop = &zero;
 static int* dbg_gog = &zero;
-static FILE* dbg_facility = NULL;
+static FILE* dbg_facility;
 
-static gboolean destroy_mate_pdus(gpointer k _U_, gpointer v, gpointer p _U_) {
+static gboolean destroy_mate_pdus(void *k _U_, void *v, void *p _U_) {
 	mate_pdu* pdu = (mate_pdu*) v;
-	if (pdu->avpl) delete_avpl(pdu->avpl,TRUE);
+	if (pdu->avpl) delete_avpl(pdu->avpl,true);
 	g_slice_free(mate_max_size, (mate_max_size *)pdu);
 	return TRUE;
 }
 
-static gboolean destroy_mate_gops(gpointer k _U_, gpointer v, gpointer p _U_) {
+static gboolean destroy_mate_gops(void *k _U_, void *v, void *p _U_) {
 	mate_gop* gop = (mate_gop*) v;
 
-	if (gop->avpl) delete_avpl(gop->avpl,TRUE);
+	if (gop->avpl) delete_avpl(gop->avpl,true);
 
 	if (gop->gop_key) {
 		if (g_hash_table_lookup(gop->cfg->gop_index,gop->gop_key) == gop) {
@@ -74,14 +75,14 @@ static gboolean destroy_mate_gops(gpointer k _U_, gpointer v, gpointer p _U_) {
 
 static void gog_remove_keys (mate_gog* gog);
 
-static gboolean destroy_mate_gogs(gpointer k _U_, gpointer v, gpointer p _U_) {
+static gboolean destroy_mate_gogs(void *k _U_, void *v, void *p _U_) {
 	mate_gog* gog = (mate_gog*) v;
 
-	if (gog->avpl) delete_avpl(gog->avpl,TRUE);
+	if (gog->avpl) delete_avpl(gog->avpl,true);
 
 	if (gog->gog_keys) {
 		gog_remove_keys(gog);
-		g_ptr_array_free(gog->gog_keys, TRUE);
+		g_ptr_array_free(gog->gog_keys, true);
 	}
 
 	g_slice_free(mate_max_size,(mate_max_size*)gog);
@@ -89,18 +90,18 @@ static gboolean destroy_mate_gogs(gpointer k _U_, gpointer v, gpointer p _U_) {
 	return TRUE;
 }
 
-static gboolean return_true(gpointer k _U_, gpointer v _U_, gpointer p _U_) {
+static gboolean return_true(void *k _U_, void *v _U_, void *p _U_) {
 	return TRUE;
 }
 
-static void destroy_pdus_in_cfg(gpointer k _U_, gpointer v, gpointer p _U_) {
+static void destroy_pdus_in_cfg(void *k _U_, void *v, void *p _U_) {
 	mate_cfg_pdu* c = (mate_cfg_pdu *)v;
 	g_hash_table_foreach_remove(c->items,destroy_mate_pdus,NULL);
 	c->last_id = 0;
 }
 
 
-static void destroy_gops_in_cfg(gpointer k _U_, gpointer v, gpointer p _U_) {
+static void destroy_gops_in_cfg(void *k _U_, void *v, void *p _U_) {
 	mate_cfg_gop* c = (mate_cfg_gop *)v;
 
 	g_hash_table_foreach_remove(c->gop_index,return_true,NULL);
@@ -115,7 +116,7 @@ static void destroy_gops_in_cfg(gpointer k _U_, gpointer v, gpointer p _U_) {
 	c->last_id = 0;
 }
 
-static void destroy_gogs_in_cfg(gpointer k _U_, gpointer v, gpointer p _U_) {
+static void destroy_gogs_in_cfg(void *k _U_, void *v, void *p _U_) {
 	mate_cfg_gog* c = (mate_cfg_gog *)v;
 	g_hash_table_foreach_remove(c->items,destroy_mate_gogs,NULL);
 	c->last_id = 0;
@@ -159,7 +160,7 @@ void initialize_mate_runtime(mate_config* mc) {
 }
 
 
-static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, gchar* key) {
+static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, char* key) {
 	mate_gop* gop = (mate_gop*)g_slice_new(mate_max_size);
 
 	gop->id = ++(cfg->last_id);
@@ -174,9 +175,9 @@ static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, gchar* key) {
 	gop->gog = NULL;
 	gop->next = NULL;
 
-	gop->expiration = cfg->expiration > 0.0 ? cfg->expiration + rd->now : (float) -1.0 ;
-	gop->idle_expiration = cfg->idle_timeout > 0.0 ? cfg->idle_timeout + rd->now : (float) -1.0 ;
-	gop->time_to_die = cfg->lifetime > 0.0 ? cfg->lifetime + rd->now : (float) -1.0 ;
+	gop->expiration = cfg->expiration > 0.0 ? cfg->expiration + rd->now : -1.0 ;
+	gop->idle_expiration = cfg->idle_timeout > 0.0 ? cfg->idle_timeout + rd->now : -1.0 ;
+	gop->time_to_die = cfg->lifetime > 0.0 ? cfg->lifetime + rd->now : -1.0 ;
 	gop->time_to_timeout = 0.0f;
 
 	gop->last_time = gop->start_time = rd->now;
@@ -188,11 +189,11 @@ static mate_gop* new_gop(mate_cfg_gop* cfg, mate_pdu* pdu, gchar* key) {
 	gop->pdus = pdu;
 	gop->last_pdu = pdu;
 
-	gop->released = FALSE;
+	gop->released = false;
 
 	pdu->gop = gop;
 	pdu->next = NULL;
-	pdu->is_start = TRUE;
+	pdu->is_start = true;
 	pdu->time_in_gop = 0.0f;
 
 	g_hash_table_insert(cfg->gop_index,gop->gop_key,gop);
@@ -256,7 +257,7 @@ static mate_gog* new_gog(mate_cfg_gog* cfg, mate_gop* gop) {
 
 static void apply_transforms(GPtrArray* transforms, AVPL* avpl) {
 	AVPL_Transf* transform = NULL;
-	guint i;
+	unsigned i;
 
 	for (i = 0; i < transforms->len; i++) {
 		transform = (AVPL_Transf *)g_ptr_array_index(transforms,i);
@@ -267,11 +268,11 @@ static void apply_transforms(GPtrArray* transforms, AVPL* avpl) {
 
 /* applies the extras for which type to what avpl */
 static void apply_extras(AVPL* from, AVPL* to,  AVPL* extras) {
-	AVPL* our_extras = new_avpl_loose_match("",from, extras, FALSE) ;
+	AVPL* our_extras = new_avpl_loose_match("",from, extras, false) ;
 
 	if (our_extras) {
-		merge_avpl(to,our_extras,TRUE);
-		delete_avpl(our_extras,FALSE);
+		merge_avpl(to,our_extras,true);
+		delete_avpl(our_extras,false);
 	}
 }
 
@@ -323,12 +324,12 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 		while (( curr_gogkey = get_next_avpl(gog_keys,&cookie) )) {
 			gop_cfg = (mate_cfg_gop *)g_hash_table_lookup(mc->gopcfgs,curr_gogkey->name);
 
-			if (( gogkey_match = new_avpl_pairs_match(gop_cfg->name, gog->avpl, curr_gogkey, TRUE, FALSE) )) {
+			if (( gogkey_match = new_avpl_pairs_match(gop_cfg->name, gog->avpl, curr_gogkey, true, false) )) {
 
 				gog_key = g_new(gogkey, 1);
 
 				gog_key->key = avpl_to_str(gogkey_match);
-				delete_avpl(gogkey_match,FALSE);
+				delete_avpl(gogkey_match,false);
 
 				gog_key->cfg = gop_cfg;
 
@@ -355,10 +356,10 @@ static void reanalyze_gop(mate_config* mc, mate_gop* gop) {
 	}
 
 	if (gog->num_of_released_gops == gog->num_of_counting_gops) {
-		gog->released =  TRUE;
+		gog->released =  true;
 		gog->expiration = gog->cfg->expiration + rd->now;
 	} else {
-		gog->released =  FALSE;
+		gog->released =  false;
 	}
 }
 
@@ -369,7 +370,7 @@ static void analyze_gop(mate_config* mc, mate_gop* gop) {
 	void* cookie = NULL;
 	AVPL* gogkey_match = NULL;
 	mate_gog* gog = NULL;
-	gchar* key = NULL;
+	char* key = NULL;
 
 	if ( ! gop->gog  ) {
 		/* no gog, let's either find one or create it if due */
@@ -387,14 +388,14 @@ static void analyze_gop(mate_config* mc, mate_gop* gop) {
 		dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got gog_keys: %s",gog_keys->name) ;
 
 		while (( curr_gogkey = get_next_avpl(gog_keys,&cookie) )) {
-			if (( gogkey_match = new_avpl_pairs_match(gop->cfg->name, gop->avpl, curr_gogkey, TRUE, TRUE) )) {
+			if (( gogkey_match = new_avpl_pairs_match(gop->cfg->name, gop->avpl, curr_gogkey, true, true) )) {
 
 				key = avpl_to_str(gogkey_match);
 
 				dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got gogkey_match: %s",key);
 
 				if (( gog = (mate_gog *)g_hash_table_lookup(gop->cfg->gog_index,key) )) {
-					dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got already a matching gog");
+					dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: got already a matching gog: %s:%d",gog->cfg->name,gog->id);
 
 					if (gog->num_of_counting_gops == gog->num_of_released_gops && gog->expiration < rd->now) {
 						dbg_print (dbg_gog,1,dbg_facility,"analyze_gop: this is a new gog, not the old one, let's create it");
@@ -439,7 +440,7 @@ static void analyze_gop(mate_config* mc, mate_gop* gop) {
 		g_free(key);
 		key = NULL;
 
-		if (gogkey_match) delete_avpl(gogkey_match,TRUE);
+		if (gogkey_match) delete_avpl(gogkey_match,true);
 
 		reanalyze_gop(mc, gop);
 	}
@@ -454,8 +455,8 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 	*/
 	mate_cfg_gop* cfg = NULL;
 	mate_gop* gop = NULL;
-	gchar* gop_key;
-	gchar* orig_gop_key = NULL;
+	char* gop_key;
+	char* orig_gop_key = NULL;
 	AVPL* candidate_start = NULL;
 	AVPL* candidate_stop = NULL;
 	AVPL* is_start = NULL;
@@ -465,17 +466,17 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 	AVPL* curr_gogkey = NULL;
 	void* cookie = NULL;
 	AVPL* gogkey_match = NULL;
-	gchar* gogkey_str = NULL;
+	char* gogkey_str = NULL;
 
 	dbg_print (dbg_gop,1,dbg_facility,"analyze_pdu: %s",pdu->cfg->name);
 
 	if (! (cfg = (mate_cfg_gop *)g_hash_table_lookup(mc->gops_by_pduname,pdu->cfg->name)) )
 		return;
 
-	if ((gopkey_match = new_avpl_pairs_match("gop_key_match", pdu->avpl, cfg->key, TRUE, TRUE))) {
+	if ((gopkey_match = new_avpl_pairs_match("gop_key_match", pdu->avpl, cfg->key, true, true))) {
 		gop_key = avpl_to_str(gopkey_match);
 
-		g_hash_table_lookup_extended(cfg->gop_index,(gconstpointer)gop_key,(gpointer *)&orig_gop_key,(gpointer *)&gop);
+		g_hash_table_lookup_extended(cfg->gop_index,(const void *)gop_key,(void * *)&orig_gop_key,(void * *)&gop);
 
 		if ( gop ) {
 			g_free(gop_key);
@@ -485,7 +486,7 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 				 ( ( gop->cfg->lifetime > 0.0 && gop->time_to_die >= rd->now) ||
 				   ( gop->cfg->idle_timeout > 0.0 && gop->time_to_timeout >= rd->now) ) ) {
 				dbg_print (dbg_gop,4,dbg_facility,"analyze_pdu: expiring released gop");
-				gop->released = TRUE;
+				gop->released = true;
 
 				if (gop->gog && gop->cfg->start) gop->gog->num_of_released_gops++;
 			}
@@ -500,8 +501,8 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 
 				dbg_print (dbg_gop,2,dbg_facility,"analyze_pdu: got candidate start");
 
-				if (( is_start = new_avpl_pairs_match("", pdu->avpl, candidate_start, TRUE, FALSE) )) {
-					delete_avpl(is_start,FALSE);
+				if (( is_start = new_avpl_pairs_match("", pdu->avpl, candidate_start, true, false) )) {
+					delete_avpl(is_start,false);
 					if ( gop->released ) {
 						dbg_print (dbg_gop,3,dbg_facility,"analyze_pdu: start on released gop, let's create a new gop");
 
@@ -522,7 +523,7 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 			pdu->next = NULL;
 			pdu->time_in_gop = rd->now - gop->start_time;
 
-			if (gop->released) pdu->after_release = TRUE;
+			if (gop->released) pdu->after_release = true;
 
 		} else {
 
@@ -539,17 +540,17 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 				if (gog_keys) {
 
 					while (( curr_gogkey = get_next_avpl(gog_keys,&cookie) )) {
-						if (( gogkey_match = new_avpl_pairs_match(cfg->name, gopkey_match, curr_gogkey, TRUE, FALSE) )) {
+						if (( gogkey_match = new_avpl_pairs_match(cfg->name, gopkey_match, curr_gogkey, true, false) )) {
 							gogkey_str = avpl_to_str(gogkey_match);
 
 							if (g_hash_table_lookup(cfg->gog_index,gogkey_str)) {
 								gop = new_gop(cfg,pdu,gop_key);
 								g_hash_table_insert(cfg->gop_index,gop_key,gop);
-								delete_avpl(gogkey_match,FALSE);
+								delete_avpl(gogkey_match,false);
 								g_free(gogkey_str);
 								break;
 							} else {
-								delete_avpl(gogkey_match,FALSE);
+								delete_avpl(gogkey_match,false);
 								g_free(gogkey_str);
 							}
 						}
@@ -557,21 +558,21 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 
 					if ( ! gop ) {
 						g_free(gop_key);
-						delete_avpl(gopkey_match,TRUE);
+						delete_avpl(gopkey_match,true);
 						return;
 					}
 
 				} else {
 					g_free(gop_key);
-					delete_avpl(gopkey_match,TRUE);
+					delete_avpl(gopkey_match,true);
 					return;
 				}
 
 			} else {
 				candidate_start = cfg->start;
 
-				if (( is_start = new_avpl_pairs_match("", pdu->avpl, candidate_start, TRUE, FALSE) )) {
-					delete_avpl(is_start,FALSE);
+				if (( is_start = new_avpl_pairs_match("", pdu->avpl, candidate_start, true, false) )) {
+					delete_avpl(is_start,false);
 					gop = new_gop(cfg,pdu,gop_key);
 				} else {
 					g_free(gop_key);
@@ -589,12 +590,12 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 		pdu->time_in_gop = rd->now - gop->start_time;
 
 		gop->num_of_pdus++;
-		gop->time_to_timeout = cfg->idle_timeout > 0.0 ? cfg->idle_timeout + rd->now : (float) -1.0 ;
+		gop->time_to_timeout = cfg->idle_timeout > 0.0 ? cfg->idle_timeout + rd->now : -1.0 ;
 
 		dbg_print (dbg_gop,4,dbg_facility,"analyze_pdu: merge with key");
 
-		merge_avpl(gop->avpl,gopkey_match,TRUE);
-		delete_avpl(gopkey_match,TRUE);
+		merge_avpl(gop->avpl,gopkey_match,true);
+		delete_avpl(gopkey_match,true);
 
 		dbg_print (dbg_gop,4,dbg_facility,"analyze_pdu: apply extras");
 
@@ -606,22 +607,22 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 			candidate_stop = cfg->stop;
 
 			if (candidate_stop) {
-				is_stop = new_avpl_pairs_match("", pdu->avpl, candidate_stop, TRUE, FALSE);
+				is_stop = new_avpl_pairs_match("", pdu->avpl, candidate_stop, true, false);
 			} else {
 				is_stop = new_avpl("");
 			}
 
 			if(is_stop) {
 				dbg_print (dbg_gop,1,dbg_facility,"analyze_pdu: is a `stop");
-				delete_avpl(is_stop,FALSE);
+				delete_avpl(is_stop,false);
 
 				if (! gop->released) {
-					gop->released = TRUE;
+					gop->released = true;
 					gop->release_time = pdu->rel_time;
 					if (gop->gog && gop->cfg->start) gop->gog->num_of_released_gops++;
 				}
 
-				pdu->is_stop = TRUE;
+				pdu->is_stop = true;
 
 			}
 		}
@@ -643,19 +644,86 @@ static void analyze_pdu(mate_config* mc, mate_pdu* pdu) {
 	}
 }
 
-static void get_pdu_fields(gpointer k, gpointer v, gpointer p) {
+static proto_node *
+// NOLINTNEXTLINE(misc-no-recursion)
+proto_tree_find_node_from_finfo(proto_tree *tree, field_info *finfo)
+{
+        proto_node *pnode = tree;
+        proto_node *child;
+        proto_node *current;
+
+	if (PNODE_FINFO(pnode) == finfo) {
+		return pnode;
+	}
+
+        child = pnode->first_child;
+        while (child != NULL) {
+                current = child;
+                child   = current->next;
+                // We recurse here, but we're limited by tree depth checks in epan
+                if ((pnode = proto_tree_find_node_from_finfo((proto_tree *)current, finfo))) {
+                        return pnode;
+		}
+        }
+
+        return NULL;
+}
+
+/* This returns true if there's no point in searching for the avp among the
+ * ancestor nodes in the tree. That includes if the field is within one
+ * of the ranges, or if the field and all the ranges share the same
+ * data source.
+ */
+static bool
+add_avp(const char *name, field_info *fi, const field_info *ancestor_fi, tmp_pdu_data *data)
+{
+	AVP* avp;
+	char* s;
+	mate_range* curr_range;
+	unsigned start, end;
+	tvbuff_t *ds_tvb;
+	bool all_same_ds = true;
+
+	start = ancestor_fi->start;
+	end = ancestor_fi->start + ancestor_fi->length;
+	ds_tvb = ancestor_fi->ds_tvb;
+
+	for (unsigned j = 0; j < data->ranges->len; j++) {
+
+		curr_range = (mate_range*) g_ptr_array_index(data->ranges,j);
+
+		if (curr_range->ds_tvb == ds_tvb) {
+			if (curr_range->end >= end && curr_range->start <= start) {
+				avp = new_avp_from_finfo(name, fi);
+				if (*dbg_pdu > 4) {
+					s = avp_to_str(avp);
+					dbg_print(dbg_pdu,0,dbg_facility,"add_avp: got %s",s);
+					g_free(s);
+				}
+
+				if (! insert_avp(data->pdu->avpl, avp) ) {
+					delete_avp(avp);
+				}
+				return true;
+			}
+		} else {
+			all_same_ds = false;
+		}
+	}
+
+	return all_same_ds;
+}
+
+static void get_pdu_fields(void *k, void *v, void *p) {
 	int hfid = *((int*) k);
-	gchar* name = (gchar*) v;
+	char* name = (char*) v;
 	tmp_pdu_data* data = (tmp_pdu_data*) p;
 	GPtrArray* fis;
 	field_info* fi;
-	guint i,j;
-	mate_range* curr_range;
-	guint start;
-	guint end;
-	AVP* avp;
-	gchar* s;
-
+	unsigned i;
+	unsigned start;
+	unsigned end;
+	tvbuff_t *ds_tvb;
 
 	fis = proto_get_finfo_ptr_array(data->tree, hfid);
 
@@ -666,50 +734,48 @@ static void get_pdu_fields(gpointer k, gpointer v, gpointer p) {
 
 			start = fi->start;
 			end = fi->start + fi->length;
+			ds_tvb = fi->ds_tvb;
 
 			dbg_print(dbg_pdu,5,dbg_facility,"get_pdu_fields: found field %s, %i-%i, length %i", fi->hfinfo->abbrev, start, end, fi->length);
 
-			for (j = 0; j < data->ranges->len; j++) {
-
-				curr_range = (mate_range*) g_ptr_array_index(data->ranges,j);
-
-				if (curr_range->end >= end && curr_range->start <= start) {
-					avp = new_avp_from_finfo(name, fi);
-
-					if (*dbg_pdu > 4) {
-						s = avp_to_str(avp);
-						dbg_print(dbg_pdu,0,dbg_facility,"get_pdu_fields: got %s",s);
-						g_free(s);
+			if (!add_avp(name, fi, fi, data)) {
+				/* The field came from a different data source than one of the
+				 * ranges (protocol, transport protocol, payload). Search for
+				 * the tree node with the field and look to see if one of its
+				 * parents is contained within one of the ranges.
+				 * (The field, and the hfis for the ranges, were marked as
+				 * interesting so this should always work, albeit slower than above.)
+				 */
+				for (proto_node *pnode = proto_tree_find_node_from_finfo(data->tree, fi);
+				     pnode; pnode = pnode->parent) {
+					field_info *ancestor_fi = PNODE_FINFO(pnode);
+					if (ancestor_fi && ancestor_fi->ds_tvb != ds_tvb) {
+						/* Only check anew when the data source changes. */
+						ds_tvb = ancestor_fi->ds_tvb;
+						if (add_avp(name, fi, ancestor_fi, data)) {
+							/* Go to next field in fis */
+							break;
+						}
 					}
-
-					if (! insert_avp(data->pdu->avpl,avp) ) {
-						delete_avp(avp);
-					}
-
 				}
 			}
 		}
 	}
 }
 
-static void ptr_array_free(gpointer data, gpointer user_data _U_)
-{
-	g_free(data);
-}
-
-static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto, proto_tree* tree) {
+static mate_pdu* new_pdu(mate_cfg_pdu* cfg, uint32_t framenum, field_info* proto, proto_tree* tree) {
 	mate_pdu* pdu = (mate_pdu*)g_slice_new(mate_max_size);
 	field_info* cfi;
 	GPtrArray* ptrs;
 	mate_range* range;
 	mate_range* proto_range;
 	tmp_pdu_data data;
-	guint i,j;
-	gint min_dist;
+	unsigned i,j;
+	int min_dist;
 	field_info* range_fi;
-	gint32 last_start;
-	gint32 first_end;
-	gint32 curr_end;
+	int32_t last_start;
+	int32_t first_end;
+	int32_t curr_end;
 	int hfid;
 
 	dbg_print (dbg_pdu,1,dbg_facility,"new_pdu: type=%s framenum=%i",cfg->name,framenum);
@@ -727,17 +793,18 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto,
 	pdu->next = NULL;
 	pdu->time_in_gop = -1.0f;
 
-	pdu->first = FALSE;
-	pdu->is_start = FALSE;
-	pdu->is_stop = FALSE;
-	pdu->after_release = FALSE;
+	pdu->first = false;
+	pdu->is_start = false;
+	pdu->is_stop = false;
+	pdu->after_release = false;
 
-	data.ranges = g_ptr_array_new();
+	data.ranges = g_ptr_array_new_with_free_func(g_free);
 	data.pdu  = pdu;
 	data.tree = tree;
 
 	/* first we create the proto range */
 	proto_range = g_new(mate_range, 1);
+	proto_range->ds_tvb = proto->ds_tvb;
 	proto_range->start = proto->start;
 	proto_range->end = proto->start + proto->length;
 	g_ptr_array_add(data.ranges,proto_range);
@@ -746,7 +813,7 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto,
 
 	last_start = proto_range->start;
 
-	/* we move forward in the tranport */
+	/* we move forward in the transport */
 	for (i = cfg->transport_ranges->len; i--; ) {
 		hfid = *((int*)g_ptr_array_index(cfg->transport_ranges,i));
 		ptrs = proto_get_finfo_ptr_array(tree, hfid);
@@ -764,6 +831,7 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto,
 
 			if ( range_fi ) {
 				range = (mate_range *)g_malloc(sizeof(*range));
+				range->ds_tvb = range_fi->ds_tvb;
 				range->start = range_fi->start;
 				range->end = range_fi->start + range_fi->length;
 				g_ptr_array_add(data.ranges,range);
@@ -801,6 +869,7 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto,
 
 				if ( range_fi ) {
 					range = (mate_range *)g_malloc(sizeof(*range));
+					range->ds_tvb = range_fi->ds_tvb;
 					range->start = range_fi->start;
 					range->end = range_fi->start + range_fi->length;
 					g_ptr_array_add(data.ranges,range);
@@ -819,8 +888,7 @@ static mate_pdu* new_pdu(mate_cfg_pdu* cfg, guint32 framenum, field_info* proto,
 
 	apply_transforms(pdu->cfg->transforms,pdu->avpl);
 
-	g_ptr_array_foreach(data.ranges, ptr_array_free, NULL);
-	g_ptr_array_free(data.ranges,TRUE);
+	g_ptr_array_free(data.ranges,true);
 
 	return pdu;
 }
@@ -830,18 +898,21 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 	mate_cfg_pdu* cfg;
 	GPtrArray* protos;
 	field_info* proto;
-	guint i,j;
+	unsigned i,j;
 	AVPL* criterium_match;
 
 	mate_pdu* pdu = NULL;
 	mate_pdu* last = NULL;
 
-	rd->now = (float) nstime_to_sec(&pinfo->rel_ts);
+	rd->now = nstime_to_sec(&pinfo->rel_ts);
 
 	if ( proto_tracking_interesting_fields(tree)
 		 && rd->highest_analyzed_frame < pinfo->num ) {
 		for ( i = 0; i < mc->pducfglist->len; i++ ) {
 
+			if (i == 0) {
+                dbg_print (dbg_pdu,4,dbg_facility,"\nmate_analyze_frame: frame: %i",pinfo->num);
+            }
 			cfg = (mate_cfg_pdu *)g_ptr_array_index(mc->pducfglist,i);
 
 			dbg_print (dbg_pdu,4,dbg_facility,"mate_analyze_frame: trying to extract: %s",cfg->name);
@@ -858,16 +929,16 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 					pdu = new_pdu(cfg, pinfo->num, proto, tree);
 
 					if (cfg->criterium) {
-						criterium_match = new_avpl_from_match(cfg->criterium_match_mode,"",pdu->avpl,cfg->criterium,FALSE);
+						criterium_match = new_avpl_from_match(cfg->criterium_match_mode,"",pdu->avpl,cfg->criterium,false);
 
 						if (criterium_match) {
-							delete_avpl(criterium_match,FALSE);
+							delete_avpl(criterium_match,false);
 						}
 
 						if ( (criterium_match && cfg->criterium_accept_mode == REJECT_MODE )
 							 || ( ! criterium_match && cfg->criterium_accept_mode == ACCEPT_MODE )) {
 
-							delete_avpl(pdu->avpl,TRUE);
+							delete_avpl(pdu->avpl,true);
 							g_slice_free(mate_max_size,(mate_max_size*)pdu);
 							pdu = NULL;
 
@@ -878,14 +949,14 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 					analyze_pdu(mc, pdu);
 
 					if ( ! pdu->gop && cfg->drop_unassigned) {
-						delete_avpl(pdu->avpl,TRUE);
+						delete_avpl(pdu->avpl,true);
 						g_slice_free(mate_max_size,(mate_max_size*)pdu);
 						pdu = NULL;
 						continue;
 					}
 
 					if ( cfg->discard ) {
-						delete_avpl(pdu->avpl,TRUE);
+						delete_avpl(pdu->avpl,true);
 						pdu->avpl = NULL;
 					}
 
@@ -907,7 +978,7 @@ extern void mate_analyze_frame(mate_config *mc, packet_info *pinfo, proto_tree* 
 	}
 }
 
-extern mate_pdu* mate_get_pdus(guint32 framenum) {
+extern mate_pdu* mate_get_pdus(uint32_t framenum) {
 
 	if (rd) {
 		return (mate_pdu*) g_hash_table_lookup(rd->frames,GUINT_TO_POINTER(framenum));

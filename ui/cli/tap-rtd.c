@@ -34,8 +34,8 @@ rtd_draw(void *arg)
 {
 	rtd_data_t* rtd_data = (rtd_data_t*)arg;
 	rtd_t* rtd = (rtd_t*)rtd_data->user_data;
-	gchar* tmp_str;
-	guint i, j;
+	char* tmp_str;
+	unsigned i, j;
 
 	/* printing results */
 	printf("\n");
@@ -135,7 +135,7 @@ register_rtd_tables(const void *key _U_, void *value, void *userdata _U_)
 {
 	register_rtd_t *rtd = (register_rtd_t*)value;
 	stat_tap_ui ui_info;
-	gchar *cli_string;
+	char *cli_string;
 
 	cli_string = rtd_table_get_tap_string(rtd);
 	ui_info.group = REGISTER_STAT_GROUP_RESPONSE_TIME;
@@ -146,7 +146,7 @@ register_rtd_tables(const void *key _U_, void *value, void *userdata _U_)
 	ui_info.params = NULL;
 	register_stat_tap_ui(&ui_info, rtd);
 	g_free(cli_string);
-	return FALSE;
+	return false;
 }
 
 /*

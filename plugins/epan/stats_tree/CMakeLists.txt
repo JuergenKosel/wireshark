@@ -29,11 +29,10 @@ set_source_files_properties(
 
 register_plugin_files(plugin.c
 	plugin_tap
-	"Statistics for ethernet frames"
 	${TAP_SRC}
 )
 
-add_wireshark_epan_plugin_library(stats_tree)
+add_wireshark_plugin_library(stats_tree epan)
 
 target_link_libraries(stats_tree epan)
 

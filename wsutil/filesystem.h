@@ -34,26 +34,26 @@ extern "C" {
  *
  * @param arg0 Executable name hint. Should be argv[0].
  * @param namespace_name The namespace to use. "Wireshark" or NULL uses
- *        the Wireshark namespace. "Logray" uses the Logray namespace.
+ *        the Wireshark namespace. "Stratoshark" uses the Stratoshark namespace.
  * @return NULL on success, and a g_mallocated string containing an error on failure.
  */
 WS_DLL_PUBLIC char *configuration_init(const char *arg0, const char *namespace_name);
 
 /**
  * Get the configuration namespace name.
- * @return The namespace name. One of "Wireshark" or "Logray".
+ * @return The namespace name. One of "Wireshark" or "Stratoshark".
  */
 WS_DLL_PUBLIC const char *get_configuration_namespace(void);
 
 /**
  * Check to see if the configuration namespace is for packet analysis
- * (Wireshark) or log analysis (Logray).
+ * (Wireshark) or log analysis (Stratoshark).
  * @return true if the configuration namespace is for packets.
  */
 WS_DLL_PUBLIC bool is_packet_configuration_namespace(void);
 
 /*
- * Get the directory in which the main (Wireshark, TShark, Logray, etc)
+ * Get the directory in which the main (Wireshark, TShark, Stratoshark, etc)
  * program resides.
  * Extcaps should use get_extcap_dir() to get their path.
  *
@@ -81,9 +81,19 @@ WS_DLL_PUBLIC char *get_executable_path(const char *filename);
 WS_DLL_PUBLIC const char *get_plugins_dir(void);
 
 /*
+ * Append VERSION_MAJOR.VERSION_MINOR to the plugin dir.
+ */
+WS_DLL_PUBLIC const char *get_plugins_dir_with_version(void);
+
+/*
  * Get the personal plugin dir.
  */
 WS_DLL_PUBLIC const char *get_plugins_pers_dir(void);
+
+/*
+ * Append VERSION_MAJOR.VERSION_MINOR to the plugin personal dir.
+ */
+WS_DLL_PUBLIC const char *get_plugins_pers_dir_with_version(void);
 
 /*
  * Get the directory in which extcap hooks are stored; this must not be called
@@ -292,6 +302,11 @@ WS_DLL_PUBLIC const char *get_persdatafile_dir(void);
 WS_DLL_PUBLIC void set_persdatafile_dir(const char *p);
 
 /*
+ * Get the current working directory.
+ */
+WS_DLL_PUBLIC WS_RETNONNULL const char *get_current_working_dir(void);
+
+/*
  * Return an error message for UNIX-style errno indications on open or
  * create operations.
  */
@@ -349,7 +364,14 @@ WS_DLL_PUBLIC int test_for_directory(const char *);
 WS_DLL_PUBLIC int test_for_fifo(const char *);
 
 /*
- * Check, if file is existing.
+ * Given a pathname, return true if the attempt to "stat()" the file
+ * succeeds, and it turns out to be a regular file. "stat()" follows
+ * links, so returns true if the pathname is a link to a regular file.
+ */
+WS_DLL_PUBLIC bool test_for_regular_file(const char *);
+
+/*
+ * Check if a file exists.
  */
 WS_DLL_PUBLIC bool file_exists(const char *fname);
 

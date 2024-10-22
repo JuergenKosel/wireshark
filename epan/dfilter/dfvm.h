@@ -11,7 +11,6 @@
 #define DFVM_H
 
 #include <wsutil/regex.h>
-#include <epan/proto.h>
 #include "dfilter-int.h"
 #include "syntax-tree.h"
 #include "drange.h"
@@ -151,7 +150,7 @@ dfvm_value_t*
 dfvm_value_new_pcre(ws_regex_t *re);
 
 dfvm_value_t*
-dfvm_value_new_guint(unsigned num);
+dfvm_value_new_uint(unsigned num);
 
 void
 dfvm_dump(FILE *f, dfilter_t *df, uint16_t flags);
@@ -161,6 +160,9 @@ dfvm_dump_str(wmem_allocator_t *alloc, dfilter_t *df,  uint16_t flags);
 
 bool
 dfvm_apply(dfilter_t *df, proto_tree *tree);
+
+bool
+dfvm_apply_full(dfilter_t *df, proto_tree *tree, GPtrArray **fvals);
 
 fvalue_t *
 dfvm_get_raw_fvalue(const field_info *fi);

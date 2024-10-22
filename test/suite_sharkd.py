@@ -75,7 +75,23 @@ class TestSharkd:
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"status"},
         ), (
-            {"jsonrpc":"2.0","id":1,"result":{"frames":0,"duration":0.000000000,"columns":["No.","Time","Source","Destination","Protocol","Length","Info"]}},
+            {"jsonrpc":"2.0","id":1,"result":{"frames":0,"duration":0.000000000,"columns":["No.","Time","Source","Destination","Protocol","Length","Info"],
+                "column_info":[{
+                    "title":"No.","format": "%m","visible":True, "display": "R"
+                },{
+                    "title": "Time", "format": "%t", "visible":True, "display": "R"
+                },{
+                    "title": "Source", "format": "%s", "visible":True, "display": "R"
+                },{
+                    "title": "Destination", "format": "%d", "visible":True, "display": "R"
+                },{
+                    "title": "Protocol", "format": "%p", "visible":True, "display": "R"
+                },{
+                    "title": "Length", "format": "%L", "visible":True, "display": "R"
+                },{
+                    "title": "Info", "format": "%i", "visible":True, "display": "R"
+                }]
+            }},
         ))
 
     def test_sharkd_req_status(self, check_sharkd_session, capture_file):
@@ -88,7 +104,23 @@ class TestSharkd:
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"result":{"frames": 4, "duration": 0.070345000,
                 "filename": "dhcp.pcap", "filesize": 1400,
-                "columns":["No.","Time","Source","Destination","Protocol","Length","Info"]}},
+                "columns":["No.","Time","Source","Destination","Protocol","Length","Info"],
+                "column_info":[{
+                    "title":"No.","format": "%m","visible":True, "display": "R"
+                },{
+                    "title": "Time", "format": "%t", "visible":True, "display": "R"
+                },{
+                    "title": "Source", "format": "%s", "visible":True, "display": "R"
+                },{
+                    "title": "Destination", "format": "%d", "visible":True, "display": "R"
+                },{
+                    "title": "Protocol", "format": "%p", "visible":True, "display": "R"
+                },{
+                    "title": "Length", "format": "%L", "visible":True, "display": "R"
+                },{
+                    "title": "Info", "format": "%i", "visible":True, "display": "R"
+                }]
+            }},
         ))
 
     def test_sharkd_req_analyse(self, check_sharkd_session, capture_file):
@@ -154,7 +186,7 @@ class TestSharkd:
         ), (
             {"jsonrpc":"2.0","id":1,"result":{}},
             {"jsonrpc":"2.0","id":2,"result":{"field": MatchList(
-                {"f": "frame.len", "t": 7, "n": "Frame length on the wire"}, match_element=any)}
+                {"f": "frame.len", "t": 7, "n": "Frame Length"}, match_element=any)}
             },
             {"jsonrpc":"2.0","id":3,"result":{"field": []}},
         ))
@@ -203,6 +235,23 @@ class TestSharkd:
                     {"c":["191.872111000","0.193716000","191.872111000"],"num":800,"bg":"feffd0","fg":"12272e"},
                 ],
             },
+        ))
+
+    def test_sharkd_req_frames_comments(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('comments.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"frames","params":{"filter":"frame.number==3||frame.number==4||frame.number==5"}},
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":
+                [
+                    {"c":["3","0.610021","::","ff02::1:ffdc:6277","ICMPv6","78","Neighbor Solicitation for fe80::c2c1:c0ff:fedc:6277"],"num":3,"ct":True,"comments":["hello hello"],"bg":"fce0ff","fg":"12272e"},
+                    {"c":["4","0.760023","::","ff02::1:ffdc:6277","ICMPv6","78","Neighbor Solicitation for fec0::c2c1:c0ff:fedc:6277"],"num":4,"ct":True,"comments":["goodbye goodbye"],"bg":"fce0ff","fg":"12272e"},
+                    {"c":["5","0.802338","10.0.0.1","224.0.0.251","MDNS","138","Standard query response 0x0000 A, cache flush 10.0.0.1 PTR, cache flush Cisco29401.local NSEC, cache flush Cisco29401.local"],"num":5,"bg":"daeeff","fg":"12272e"}
+                ],
+             },
         ))
 
     def test_sharkd_req_tap_invalid(self, check_sharkd_session, capture_file):
@@ -350,83 +399,88 @@ class TestSharkd:
                     "type":"phs",
                     "filter":"",
                     "protos":[{
-                        "proto":"eth",
+                        "proto":"frame",
                         "frames":115,
                         "bytes":22186,
                         "protos":[{
-                            "proto":"ipv6",
-                            "frames":39,
-                            "bytes":7566,
+                            "proto":"eth",
+                            "frames":115,
+                            "bytes":22186,
                             "protos":[{
-                                "proto":"icmpv6",
-                                "frames":36,
-                                "bytes":3684
-                            },{
-                                "proto":"udp",
-                                "frames":3,
-                                "bytes":3882,
+                                "proto":"ipv6",
+                                "frames":39,
+                                "bytes":7566,
                                 "protos":[{
-                                    "proto":"data",
+                                    "proto":"icmpv6",
+                                    "frames":36,
+                                    "bytes":3684
+                                },{
+                                    "proto":"udp",
                                     "frames":3,
-                                    "bytes":3882
-                                }]
-                            }]
-                        },{
-                            "proto":"ip",
-                            "frames":70,
-                            "bytes":14260,
-                            "protos":[{
-                                "proto":"udp",
-                                "frames":60,
-                                "bytes":13658,
-                                "protos":[{
-                                    "proto":"mdns",
-                                    "frames":1,
-                                    "bytes":138
-                                },{
-                                    "proto":"ssdp",
-                                    "frames":30,
-                                    "bytes":8828
-                                },{
-                                    "proto":"nbns",
-                                    "frames":20,
-                                    "bytes":2200
-                                },{
-                                    "proto":"nbdgm",
-                                    "frames":1,
-                                    "bytes":248,
+                                    "bytes":3882,
                                     "protos":[{
-                                        "proto":"smb",
+                                        "proto":"data",
+                                        "frames":3,
+                                        "bytes":3882
+                                    }]
+                                }]
+                            },{
+                                "proto":"ip",
+                                "frames":70,
+                                "bytes":14260,
+                                "protos":[{
+                                    "proto":"udp",
+                                    "frames":60,
+                                    "bytes":13658,
+                                    "protos":[{
+                                        "proto":"mdns",
+                                        "frames":1,
+                                        "bytes":138
+                                    },{
+                                        "proto":"ssdp",
+                                        "frames":30,
+                                        "bytes":8828
+                                    },{
+                                        "proto":"nbns",
+                                        "frames":20,
+                                        "bytes":2200
+                                    },{
+                                        "proto":"nbdgm",
                                         "frames":1,
                                         "bytes":248,
                                         "protos":[{
-                                            "proto":"mailslot",
+                                            "proto":"smb",
                                             "frames":1,
                                             "bytes":248,
                                             "protos":[{
-                                                "proto":"browser",
+                                                "proto":"mailslot",
                                                 "frames":1,
-                                                "bytes":248
+                                                "bytes":248,
+                                                "protos":[{
+                                                    "proto":"browser",
+                                                    "frames":1,
+                                                    "bytes":248
+                                                }]
                                             }]
                                         }]
+                                    },{"proto":"dhcp",
+                                       "frames":4,
+                                       "bytes":1864
+                                       },{
+                                        "proto":"dns",
+                                        "frames":4,
+                                        "bytes":380
                                     }]
-                                },{"proto":"dhcp",
-                                   "frames":4,
-                                   "bytes":1864
-                                   },{
-                                    "proto":"dns",
-                                    "frames":4,
-                                    "bytes":380
+                                },{
+                                    "proto":"igmp",
+                                    "frames":10,
+                                    "bytes":602
                                 }]
                             },{
-                                "proto":"igmp",
-                                "frames":10,
-                                "bytes":602
+                                "proto":"arp",
+                                "frames":6,
+                                "bytes":360
                             }]
-                        },{
-                            "proto":"arp",
-                            "frames":6,
-                            "bytes":360
                         }]
                     }]
                 }]
@@ -438,83 +492,88 @@ class TestSharkd:
                     "type":"phs",
                     "filter":"",
                     "protos":[{
-                        "proto":"eth",
+                        "proto":"frame",
                         "frames":115,
                         "bytes":22186,
                         "protos":[{
-                            "proto":"ipv6",
-                            "frames":39,
-                            "bytes":7566,
+                            "proto":"eth",
+                            "frames":115,
+                            "bytes":22186,
                             "protos":[{
-                                "proto":"icmpv6",
-                                "frames":36,
-                                "bytes":3684
-                            },{
-                                "proto":"udp",
-                                "frames":3,
-                                "bytes":3882,
+                                "proto":"ipv6",
+                                "frames":39,
+                                "bytes":7566,
                                 "protos":[{
-                                    "proto":"data",
+                                    "proto":"icmpv6",
+                                    "frames":36,
+                                    "bytes":3684
+                                },{
+                                    "proto":"udp",
                                     "frames":3,
-                                    "bytes":3882
-                                }]
-                            }]
-                        },{
-                            "proto":"ip",
-                            "frames":70,
-                            "bytes":14260,
-                            "protos":[{
-                                "proto":"udp",
-                                "frames":60,
-                                "bytes":13658,
-                                "protos":[{
-                                    "proto":"mdns",
-                                    "frames":1,
-                                    "bytes":138
-                                },{
-                                    "proto":"ssdp",
-                                    "frames":30,
-                                    "bytes":8828
-                                },{
-                                    "proto":"nbns",
-                                    "frames":20,
-                                    "bytes":2200
-                                },{
-                                    "proto":"nbdgm",
-                                    "frames":1,
-                                    "bytes":248,
+                                    "bytes":3882,
                                     "protos":[{
-                                        "proto":"smb",
+                                        "proto":"data",
+                                        "frames":3,
+                                        "bytes":3882
+                                    }]
+                                }]
+                            },{
+                                "proto":"ip",
+                                "frames":70,
+                                "bytes":14260,
+                                "protos":[{
+                                    "proto":"udp",
+                                    "frames":60,
+                                    "bytes":13658,
+                                    "protos":[{
+                                        "proto":"mdns",
+                                        "frames":1,
+                                        "bytes":138
+                                    },{
+                                        "proto":"ssdp",
+                                        "frames":30,
+                                        "bytes":8828
+                                    },{
+                                        "proto":"nbns",
+                                        "frames":20,
+                                        "bytes":2200
+                                    },{
+                                        "proto":"nbdgm",
                                         "frames":1,
                                         "bytes":248,
                                         "protos":[{
-                                            "proto":"mailslot",
+                                            "proto":"smb",
                                             "frames":1,
                                             "bytes":248,
                                             "protos":[{
-                                                "proto":"browser",
+                                                "proto":"mailslot",
                                                 "frames":1,
-                                                "bytes":248
+                                                "bytes":248,
+                                                "protos":[{
+                                                    "proto":"browser",
+                                                    "frames":1,
+                                                    "bytes":248
+                                                }]
                                             }]
                                         }]
+                                    },{"proto":"dhcp",
+                                       "frames":4,
+                                       "bytes":1864
+                                       },{
+                                        "proto":"dns",
+                                        "frames":4,
+                                        "bytes":380
                                     }]
-                                },{"proto":"dhcp",
-                                   "frames":4,
-                                   "bytes":1864
-                                   },{
-                                    "proto":"dns",
-                                    "frames":4,
-                                    "bytes":380
+                                },{
+                                    "proto":"igmp",
+                                    "frames":10,
+                                    "bytes":602
                                 }]
                             },{
-                                "proto":"igmp",
-                                "frames":10,
-                                "bytes":602
+                                "proto":"arp",
+                                "frames":6,
+                                "bytes":360
                             }]
-                        },{
-                            "proto":"arp",
-                            "frames":6,
-                            "bytes":360
                         }]
                     }]
                 }]
@@ -527,23 +586,28 @@ class TestSharkd:
                     "protos": [{
                         "bytes": 7566,
                         "frames": 39,
-                        "proto": "eth",
+                        "proto": "frame",
                         "protos": [{
                             "bytes": 7566,
                             "frames": 39,
-                            "proto": "ipv6",
+                            "proto": "eth",
                             "protos": [{
-                                "bytes": 3684,
-                                "frames": 36,
-                                "proto": "icmpv6"
-                            },{
-                                "bytes": 3882,
-                                "frames": 3,
-                                "proto": "udp",
+                                "bytes": 7566,
+                                "frames": 39,
+                                "proto": "ipv6",
                                 "protos": [{
+                                    "bytes": 3684,
+                                    "frames": 36,
+                                    "proto": "icmpv6"
+                                },{
                                     "bytes": 3882,
                                     "frames": 3,
-                                    "proto": "data"
+                                    "proto": "udp",
+                                    "protos": [{
+                                        "bytes": 3882,
+                                        "frames": 3,
+                                        "proto": "data"
+                                    }]
                                 }]
                             }]
                         }]
@@ -1075,6 +1139,9 @@ class TestSharkd:
             {"jsonrpc":"2.0", "id":4, "method":"follow",
             "params":{"follow": "HTTP", "filter": "garbage filter"}
             },
+            {"jsonrpc":"2.0", "id":5, "method":"follow",
+             "params":{"follow": "HTTP", "filter": "http", "sub_stream": "garbage sub_stream"}
+             },
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Mandatory parameter follow is missing"}},
@@ -1082,6 +1149,9 @@ class TestSharkd:
             {"jsonrpc":"2.0","id":4,
             "error":{"code":-12002,"message":"sharkd_session_process_follow() name=HTTP error=Filter \"garbage filter\" is invalid - \"filter\" was unexpected in this context."}
             },
+            {"jsonrpc":"2.0","id":5,
+             "error":{"code":-32600,"message":"The data type for member sub_stream is not valid"}
+             },
         ))
 
     def test_sharkd_req_follow_no_match(self, check_sharkd_session, capture_file):
@@ -1119,6 +1189,34 @@ class TestSharkd:
             },
         ))
 
+    def test_sharkd_req_follow_http2(self, check_sharkd_session, capture_file, features):
+        # If we don't have nghttp2, we output the compressed headers.
+        # We could test against the expected output in that case, but
+        # just skip for now.
+        if not features.have_nghttp2:
+            pytest.skip('Requires nghttp2.')
+
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('quic-with-secrets.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"follow",
+             "params":{"follow": "HTTP2", "filter": "tcp.stream eq 0 and http2.streamid eq 1", "sub_stream": 1}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,
+             "result":{
+                 "shost": "2606:4700:10::6816:826", "sport": "443", "sbytes": 656,
+                 "chost": "2001:db8:1::1", "cport": "57098", "cbytes": 109643,
+                 "payloads": [
+                     {"n": 12, "d": MatchRegExp(r'^.*VuLVVTLGVuO3E9MC45Cgo.*$')},
+                     {"n": 19, "s": 1, "d": MatchRegExp(r'^.*7IG1hPTg2NDAwCgo.*$')},
+                     {"n": 44, "s": 1, "d": MatchRegExp(r'^.*Pgo8L2h0bWw.*$')},
+                 ]}
+             },
+        ))
+
     def test_sharkd_req_iograph_bad(self, check_sharkd_session, capture_file):
         check_sharkd_session((
             {"jsonrpc":"2.0", "id":1, "method":"load",
@@ -1128,10 +1226,16 @@ class TestSharkd:
             {"jsonrpc":"2.0", "id":3, "method":"iograph",
             "params":{"graph0": "garbage graph name"}
             },
+            {"jsonrpc":"2.0", "id":4, "method":"iograph",
+             "params":{"graph0": "max:udp.length", "filter0": "udp.length", "interval": 0}},
+            {"jsonrpc":"2.0", "id":5, "method":"iograph",
+             "params":{"graph0": "max:udp.length", "filter0": "udp.length", "interval_units": "garbage units"}},
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Mandatory parameter graph0 is missing"}},
             {"jsonrpc":"2.0","id":3,"result":{"iograph": []}},
+            {"jsonrpc":"2.0","id":4,"error":{"code":-32600,"message":"The value for interval must be a positive integer"}},
+            {"jsonrpc":"2.0","id":5,"error":{"code":-7003,"message":"Invalid interval_units parameter: 'garbage units', must be 's', 'ms' or 'us'"}},
         ))
 
     def test_sharkd_req_iograph_basic(self, check_sharkd_session, capture_file):
@@ -1139,20 +1243,41 @@ class TestSharkd:
             {"jsonrpc":"2.0", "id":1, "method":"load",
             "params":{"file": capture_file('dhcp.pcap')}
             },
-            {"jsonrpc":"2.0", "id":1, "method":"iograph",
+            {"jsonrpc":"2.0", "id":2, "method":"iograph",
             "params":{"graph0": "max:udp.length", "filter0": "udp.length"}
             },
-            {"jsonrpc":"2.0", "id":2, "method":"iograph",
+            {"jsonrpc":"2.0", "id":3, "method":"iograph",
             "params":{"graph0": "packets", "graph1": "bytes"}
             },
-            {"jsonrpc":"2.0", "id":3, "method":"iograph",
+            {"jsonrpc":"2.0", "id":4, "method":"iograph",
             "params":{"graph0": "packets", "filter0": "garbage filter"}
             },
+            {"jsonrpc":"2.0", "id":5, "method":"iograph",
+             "params":{"graph0": "packets", "graph1": "bytes", "interval": 1, "interval_units": "us"}
+             },
+            {"jsonrpc":"2.0", "id":6, "method":"iograph",
+             "params":{"graph0": "packets", "graph1": "bytes", "interval": 1, "interval_units": "ms"}
+             },
+            {"jsonrpc":"2.0", "id":7, "method":"iograph",
+             "params":{"graph0": "packets", "graph1": "bytes", "interval": 1, "interval_units": "s"}
+             },
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":1,"result":{"iograph": [{"items": [308.000000]}]}},
-            {"jsonrpc":"2.0","id":2,"result":{"iograph": [{"items": [4.000000]}, {"items": [1312.000000]}]}},
-            {"jsonrpc":"2.0","id":3,"error":{"code":-6001,"message":"Filter \"garbage filter\" is invalid - \"filter\" was unexpected in this context."}},
+            {"jsonrpc":"2.0","id":2,"result":{"iograph": [{"items": [308.000000]}]}},
+            {"jsonrpc":"2.0","id":3,"result":{"iograph": [{"items": [4.000000]}, {"items": [1312.000000]}]}},
+            {"jsonrpc":"2.0","id":4,"error":{"code":-6001,"message":"Filter \"garbage filter\" is invalid - \"filter\" was unexpected in this context."}},
+            {"jsonrpc":"2.0","id":5,"result":{"iograph": [
+                {"items": [1.0, '127', 1.0, '1118f', 1.0, '112c9', 1.0]},
+                {"items": [314.0, '127', 342.0, '1118f', 314.0, '112c9', 342.0]},
+            ]}},
+            {"jsonrpc":"2.0","id":6,"result":{"iograph": [
+                {"items": [2.0, '46', 2.0]},
+                {"items": [656.0, '46', 656.0]},
+            ]}},
+            {"jsonrpc":"2.0","id":7,"result":{"iograph": [
+                {"items": [4.0]},
+                {"items": [1312.0]},
+            ]}},
         ))
 
     def test_sharkd_req_intervals_bad(self, check_sharkd_session, capture_file):
@@ -1198,7 +1323,30 @@ class TestSharkd:
             },
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":2,"result":{"fol": [["UDP", "udp.stream eq 1"]]}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "fol": [["UDP", "udp.stream eq 1"]],
+                "followers": [{"protocol": "UDP","filter": "udp.stream eq 1","stream": 1}]
+            }},
+        ))
+
+    def test_sharkd_req_frame_http2(self, check_sharkd_session, capture_file):
+        check_sharkd_session((
+            {"jsonrpc":"2.0", "id":1, "method":"load",
+             "params":{"file": capture_file('quic-with-secrets.pcapng')}
+             },
+            {"jsonrpc":"2.0", "id":2, "method":"frame",
+             "params":{"frame": 12}
+             },
+        ), (
+            {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            {"jsonrpc":"2.0","id":2,"result":{
+                "fol": [["HTTP2", "tcp.stream eq 0 and http2.streamid eq 1"],["TCP","tcp.stream eq 0"],["TLS","tcp.stream eq 0"]],
+                "followers": [
+                    {"protocol": "HTTP2","filter": "tcp.stream eq 0 and http2.streamid eq 1","stream": 0, "sub_stream": 1},
+                    {"protocol": "TCP","filter": "tcp.stream eq 0","stream": 0},
+                    {"protocol": "TLS","filter": "tcp.stream eq 0","stream": 0},
+                ]
+            }},
         ))
 
     def test_sharkd_req_frame_proto(self, check_sharkd_session, capture_file):
@@ -1251,7 +1399,7 @@ class TestSharkd:
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
             {"jsonrpc":"2.0","id":2,"error":{"code":-3002,"message":"Frame number is out of range"}},
             {"jsonrpc":"2.0","id":3,"result":{"status":"OK"}},
-            {"jsonrpc":"2.0","id":4,"result":{"comment":["foo\nbar"],"fol": MatchAny(list)}},
+            {"jsonrpc":"2.0","id":4,"result":{"comment":["foo\nbar"],"fol": MatchAny(list), "followers": MatchAny(list)}},
         ))
 
     def test_sharkd_req_setconf_bad(self, check_sharkd_session):
@@ -1299,8 +1447,13 @@ class TestSharkd:
             },
         ), (
             {"jsonrpc":"2.0","id":1,"result":{"status":"OK"}},
+            # There are two used CLIENT RANDOM secrets, we don't know
+            # the order they will appear when iterating a hash table,
+            # and it can be different on Big-Endian systems than L-E.
+            # Check the Base64 for both "CLIENT_RANDOM f67a" and
+            # "CLIENT_RANDOM 1e0d".
             {"jsonrpc":"2.0","id":2,"result":{"file": "keylog.txt", "mime": "text/plain",
-                "data": MatchRegExp(r'Q0xJRU5UX1JBTkRPTSBm.+')}
+                "data": MatchRegExp(r'Q0xJRU5UX1JBTkRP(TSBmNjdh|TSAxZTBk).+')}
             },
         ))
 

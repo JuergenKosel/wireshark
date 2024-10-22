@@ -43,6 +43,21 @@
 #define DOT11DECRYPT_SUBTYPE_ACTION			13
 #define DOT11DECRYPT_SUBTYPE_ACTION_NO_ACK		14
 
+/* IEEE 802.11 cipher suite selectors */
+#define DOT11DECRYPT_CIPHER_USE_GROUP		0
+#define DOT11DECRYPT_CIPHER_WEP40		1
+#define DOT11DECRYPT_CIPHER_TKIP		2
+#define DOT11DECRYPT_CIPHER_CCMP		4
+#define DOT11DECRYPT_CIPHER_WEP104		5
+#define DOT11DECRYPT_CIPHER_BIP_CMAC		6
+#define DOT11DECRYPT_CIPHER_GROUP_NA		7
+#define DOT11DECRYPT_CIPHER_GCMP		8
+#define DOT11DECRYPT_CIPHER_GCMP256		9
+#define DOT11DECRYPT_CIPHER_CCMP256		10
+#define DOT11DECRYPT_CIPHER_BIP_GMAC		11
+#define DOT11DECRYPT_CIPHER_BIP_GMAC256		12
+#define DOT11DECRYPT_CIPHER_BIP_CMAC256		13
+
 /*
  * Min length of encrypted data (TKIP=21bytes, CCMP=17bytes)
  * CCMP = 8 octets of CCMP header, 1 octet of data, 8 octets of MIC.
@@ -109,7 +124,7 @@
 
 /*
  * XXX - According to the thread at
- * https://www.wireshark.org/lists/wireshark-dev/200612/msg00384.html we
+ * https://lists.wireshark.org/archives/wireshark-dev/200612/msg00384.html we
  * shouldn't have to worry about packing our structs, since the largest
  * elements are 8 bits wide.
  */

@@ -79,6 +79,9 @@
       <Feature Id="Fe.Tools.Rawshark" Title="Rawshark" Level="1" AllowAdvertise="yes" Display="expand" Description="Raw packet filter.">
         <ComponentGroupRef Id="CG.Tools.Rawshark" />
       </Feature>
+      <Feature Id="Fe.Tools.Sharkd" Title="Sharkd" Level="1" AllowAdvertise="yes" Display="expand" Description="Packet dissection daemon.">
+        <ComponentGroupRef Id="CG.Tools.Sharkd" />
+      </Feature>
       <?ifdef MMDBRESOLVE_EXE?>
       <Feature Id="Fe.Tools.MMDBResolve" Title="MMDBResolve" Level="1" AllowAdvertise="yes" Display="expand" Description="IP geolocation database resolution.">
         <ComponentGroupRef Id="CG.Tools.MMDBResolve" />
@@ -106,7 +109,7 @@
         <ComponentGroupRef Id="CG.Tools.Wifidump" />
       </Feature>
     </Feature>
-    <?ifdef DOCBOOK_DIR?>
+    <?ifdef DOC_DIR?>
       <Feature Id="Fe.Documentation" Title="Documentation" Level="1" AllowAdvertise="yes" Display="expand" Description="Install an offline copy of the User's Guide and FAQ.">
         <ComponentGroupRef Id="CG.Documentation" />
       </Feature>

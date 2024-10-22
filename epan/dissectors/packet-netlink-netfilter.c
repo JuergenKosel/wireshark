@@ -19,7 +19,7 @@ void proto_reg_handoff_netlink_netfilter(void);
 
 typedef struct {
 	packet_info *pinfo;
-	guint16 hw_protocol; /* protocol for NFQUEUE packet payloads. */
+	uint16_t hw_protocol; /* protocol for NFQUEUE packet payloads. */
 } netlink_netfilter_info_t;
 
 
@@ -347,7 +347,7 @@ enum ws_ipset_cadt_attr {
 	WS_IPSET_ATTR_MEMSIZE           = 26,
 };
 
-/* ADT-specific attrivutes */
+/* ADT-specific attributes */
 enum ws_ipset_adt_attr {
 	WS_IPSET_ATTR_ETHER             = 17,
 	WS_IPSET_ATTR_NAME              = 18,
@@ -371,6 +371,43 @@ enum ws_ipset_ip_attr {
 	WS_IPSET_ATTR_IPADDR_IPV6       = 2,
 };
 
+/* Netfilter commands from <include/uapi/linux/netfilter/netfilter.h> */
+enum nf_tables_msg_types {
+	WS_NFT_MSG_NEWTABLE             = 0,
+	WS_NFT_MSG_GETTABLE             = 1,
+	WS_NFT_MSG_DELTABLE             = 2,
+	WS_NFT_MSG_NEWCHAIN             = 3,
+	WS_NFT_MSG_GETCHAIN             = 4,
+	WS_NFT_MSG_DELCHAIN             = 5,
+	WS_NFT_MSG_NEWRULE              = 6,
+	WS_NFT_MSG_GETRULE              = 7,
+	WS_NFT_MSG_DELRULE              = 8,
+	WS_NFT_MSG_NEWSET               = 9,
+	WS_NFT_MSG_GETSET               = 10,
+	WS_NFT_MSG_DELSET               = 11,
+	WS_NFT_MSG_NEWSETELEM           = 12,
+	WS_NFT_MSG_GETSETELEM           = 13,
+	WS_NFT_MSG_DELSETELEM           = 14,
+	WS_NFT_MSG_NEWGEN               = 15,
+	WS_NFT_MSG_GETGEN               = 16,
+	WS_NFT_MSG_TRACE                = 17,
+	WS_NFT_MSG_NEWOBJ               = 18,
+	WS_NFT_MSG_GETOBJ               = 19,
+	WS_NFT_MSG_DELOBJ               = 20,
+	WS_NFT_MSG_GETOBJ_RESET         = 21,
+	WS_NFT_MSG_NEWFLOWTABLE         = 22,
+	WS_NFT_MSG_GETFLOWTABLE         = 23,
+	WS_NFT_MSG_DELFLOWTABLE         = 24,
+	WS_NFT_MSG_GETRULE_RESET        = 25,
+	WS_NFT_MSG_DESTROYTABLE         = 26,
+	WS_NFT_MSG_DESTROYCHAIN         = 27,
+	WS_NFT_MSG_DESTROYRULE          = 28,
+	WS_NFT_MSG_DESTROYSET           = 29,
+	WS_NFT_MSG_DESTROYSETELEM       = 30,
+	WS_NFT_MSG_DESTROYOBJ           = 31,
+	WS_NFT_MSG_DESTROYFLOWTABLE     = 32,
+	WS_NFT_MSG_GETSETELEM_RESET     = 33,
+};
 
 static int proto_netlink_netfilter;
 
@@ -469,6 +506,8 @@ static int hf_nfq_type;
 static int hf_nfq_uid;
 static int hf_nfq_verdict_id;
 static int hf_nfq_verdict_verdict;
+static int hf_nftables_command;
+static int hf_padding;
 
 static int ett_netlink_netfilter;
 static int ett_nfct_attr;
@@ -948,7 +987,9 @@ dissect_nfq_config_attrs(tvbuff_t *tvb, void *data _U_, struct packet_netlink_da
 		case WS_NFQA_CFG_CMD:
 			if (len == 4) {
 				proto_tree_add_item(tree, hf_nfq_config_command_command, tvb, offset, 1, ENC_NA);
-				offset += 2; /* skip command and 1 byte padding. */
+				offset += 1;
+				proto_tree_add_item(tree, hf_padding, tvb, offset, 1, ENC_NA);
+				offset += 1;
 
 				proto_tree_add_item(tree, hf_nfq_config_command_pf, tvb, offset, 2, ENC_BIG_ENDIAN);
 				offset += 2;
@@ -1139,11 +1180,14 @@ dissect_nfq_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_data
 
 		case WS_NFQA_HWADDR:
 			if (len >= 4) {
-				guint16 addrlen;
+				uint16_t addrlen;
 
 				proto_tree_add_item(tree, hf_nfq_hwaddr_len, tvb, offset, 2, ENC_BIG_ENDIAN);
 				addrlen = tvb_get_ntohs(tvb, offset);
-				offset += 4; /* skip len and padding */
+				offset += 2;
+				proto_tree_add_item(tree, hf_padding, tvb, offset, 2, ENC_NA);
+				offset += 2;
+
 
 				/* XXX expert info if 4 + addrlen > len. */
 				addrlen = MIN(addrlen, len - 4);
@@ -1519,7 +1563,7 @@ dissect_ipset_attrs(tvbuff_t *tvb, void *data, struct packet_netlink_data *nl_da
 		case WS_IPSET_ATTR_DATA:
 			/* See ipset lib/PROTOCOL, CADT attributes only follow for some commands */
 			if (nla_type & NLA_F_NESTED) {
-				guint16 command = nl_data->type & 0xffff;
+				uint16_t command = nl_data->type & 0xffff;
 
 				if (command == WS_IPSET_CMD_CREATE ||
 				    command == WS_IPSET_CMD_LIST ||
@@ -1552,6 +1596,46 @@ dissect_netfilter_ipset(tvbuff_t *tvb, netlink_netfilter_info_t *info, struct pa
 	offset = dissect_netlink_netfilter_header(tvb, tree, offset);
 	return dissect_netlink_attributes_to_end(tvb, hf_ipset_attr, ett_ipset_attr, info, nl_data, tree, offset, dissect_ipset_attrs);
 }
+
+/* NFTABLES */
+
+static const value_string nftables_command_vals[] = {
+	{ WS_NFT_MSG_NEWTABLE,         "New table" },
+	{ WS_NFT_MSG_GETTABLE,         "Get table" },
+	{ WS_NFT_MSG_DELTABLE,         "Delete table" },
+	{ WS_NFT_MSG_NEWCHAIN,         "New chain" },
+	{ WS_NFT_MSG_GETCHAIN,         "Get chain" },
+	{ WS_NFT_MSG_DELCHAIN,         "Delete chain" },
+	{ WS_NFT_MSG_NEWRULE,          "New rule" },
+	{ WS_NFT_MSG_GETRULE,          "Get rule" },
+	{ WS_NFT_MSG_DELRULE,          "Delete rule" },
+	{ WS_NFT_MSG_NEWSET,           "New set" },
+	{ WS_NFT_MSG_GETSET,           "Get set" },
+	{ WS_NFT_MSG_DELSET,           "Delete set" },
+	{ WS_NFT_MSG_NEWSETELEM,       "New set element" },
+	{ WS_NFT_MSG_GETSETELEM,       "Get set element" },
+	{ WS_NFT_MSG_DELSETELEM,       "Delete set element" },
+	{ WS_NFT_MSG_NEWGEN,           "New rule-set generation" },
+	{ WS_NFT_MSG_GETGEN,           "Get rule-set generation" },
+	{ WS_NFT_MSG_TRACE,            "Trace" },
+	{ WS_NFT_MSG_NEWOBJ,           "New stateful object" },
+	{ WS_NFT_MSG_GETOBJ,           "Get stateful object" },
+	{ WS_NFT_MSG_DELOBJ,           "Delete stateful object" },
+	{ WS_NFT_MSG_GETOBJ_RESET,     "Get and reset stateful object" },
+	{ WS_NFT_MSG_NEWFLOWTABLE,     "New flow table" },
+	{ WS_NFT_MSG_GETFLOWTABLE,     "Get flow table" },
+	{ WS_NFT_MSG_DELFLOWTABLE,     "Delete flow table" },
+	{ WS_NFT_MSG_GETRULE_RESET,    "Get rules and reset stateful expressions" },
+	{ WS_NFT_MSG_DESTROYTABLE,     "Destroy table" },
+	{ WS_NFT_MSG_DESTROYCHAIN,     "Destroy chain" },
+	{ WS_NFT_MSG_DESTROYRULE,      "Destroy rule" },
+	{ WS_NFT_MSG_DESTROYSET,       "Destroy set" },
+	{ WS_NFT_MSG_DESTROYSETELEM,   "Destroy set element" },
+	{ WS_NFT_MSG_DESTROYOBJ,       "Destroy stateful object" },
+	{ WS_NFT_MSG_DESTROYFLOWTABLE, "Destroy flow table" },
+	{ WS_NFT_MSG_GETSETELEM_RESET, "Get set elements and reset stateful expressions" },
+	{ 0, NULL }
+};
 
 
 static const value_string netlink_netfilter_subsystem_vals[] = {
@@ -1607,6 +1691,10 @@ dissect_netlink_netfilter(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, v
 
 		case WS_NFNL_SUBSYS_IPSET:
 			proto_tree_add_item(nlmsg_tree, hf_ipset_command, tvb, 4, 2, nl_data->encoding);
+			break;
+
+		case WS_NFNL_SUBSYS_NFTABLES:
+			proto_tree_add_item(nlmsg_tree, hf_nftables_command, tvb, 4, 2, nl_data->encoding);
 			break;
 	}
 
@@ -2117,14 +2205,24 @@ proto_register_netlink_netfilter(void)
 			  FT_UINT16, BASE_DEC, VALS(ipset_command_vals), 0x00FF,
 			  NULL, HFILL }
 		},
+		{ &hf_nftables_command,
+			{ "Command", "netlink-netfilter.nftables_command",
+			  FT_UINT16, BASE_DEC, VALS(nftables_command_vals), 0x00FF,
+			  NULL, HFILL }
+		},
 		{ &hf_netlink_netfilter_subsys,
 			{ "Subsystem", "netlink-netfilter.subsys",
 			  FT_UINT16, BASE_DEC, VALS(netlink_netfilter_subsystem_vals), 0xFF00,
 			  NULL, HFILL }
 		},
+		{ &hf_padding,
+			{ "Padding", "netlink-netfilter.padding",
+			  FT_BYTES, BASE_NONE, NULL, 0x0,
+			  NULL, HFILL }
+		}
 	};
 
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_netlink_netfilter,
 		&ett_nfct_attr,
 		&ett_nfct_help_attr,

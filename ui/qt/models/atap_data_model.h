@@ -12,8 +12,6 @@
 
 #include "config.h"
 
-#include "glib.h"
-
 #include <epan/tap.h>
 #include <epan/conversation.h>
 #include <epan/conversation_table.h>
@@ -59,6 +57,8 @@ public:
         DATAMODEL_CONVERSATION,
         DATAMODEL_UNKNOWN
     } dataModelType;
+
+    conv_hash_t hash_;
 
     /**
      * @brief Construct a new ATapDataModel object
@@ -199,6 +199,13 @@ public:
      */
     dataModelType modelType() const;
 
+    conv_hash_t * hash();
+
+    /**
+     * @brief Update the flags
+     */
+    void updateFlags(unsigned flag);
+
 #ifdef HAVE_MAXMINDDB
     /**
      * @brief Does this model have geoip data available
@@ -219,8 +226,6 @@ protected:
 
     virtual tap_packet_cb conversationPacketHandler();
 
-    conv_hash_t * hash();
-
     void resetData();
     void updateData(GArray * data);
 
@@ -236,12 +241,13 @@ protected:
     double _minRelStartTime;
     double _maxRelStopTime;
 
+    unsigned _tapFlags;
+
     register_ct_t* registerTable() const;
 
 private:
     int _protoId;
 
-    conv_hash_t hash_;
 };
 
 class EndpointDataModel : public ATapDataModel
@@ -305,6 +311,12 @@ public:
         CONV_NUM_COLUMNS,
         CONV_INDEX_COLUMN = CONV_NUM_COLUMNS
     } conversation_column_type_e;
+
+    typedef enum {
+        CONV_TCP_EXT_COLUMN_A = CONV_INDEX_COLUMN,
+        CONV_TCP_EXT_NUM_COLUMNS,
+        CONV_TCP_EXT_INDEX_COLUMN = CONV_TCP_EXT_NUM_COLUMNS
+    } conversation_tcp_ext_column_type_e;
 
     explicit ConversationDataModel(int protoId, QString filter, QObject *parent = nullptr);
 

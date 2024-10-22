@@ -22,15 +22,16 @@
 #include <epan/prefs.h>
 #include <epan/expert.h>
 #include <epan/crc32-tvb.h>
+#include <epan/tfs.h>
 
 void proto_register_mim(void);
 void proto_reg_handoff_fabricpath(void);
 
-static gboolean fp_check_fcs = FALSE;
+static bool fp_check_fcs;
 
 static int proto_fp;
-static gint ett_mim;
-static gint ett_hmac;
+static int ett_mim;
+static int ett_hmac;
 
 /* Main protocol items */
 static int hf_s_hmac;
@@ -96,20 +97,20 @@ static dissector_handle_t eth_withoutfcs_dissector;
 #define FP_FTAG_MASK     0xFFC0
 #define FP_TTL_MASK      0x003F
 
-#define FP_HMAC_IG_MASK    G_GINT64_CONSTANT(0x010000000000)
-#define FP_HMAC_SWID_MASK  G_GINT64_CONSTANT(0x000FFF000000)
-#define FP_HMAC_SSWID_MASK G_GINT64_CONSTANT(0x000000FF0000)
-#define FP_HMAC_LID_MASK   G_GINT64_CONSTANT(0x00000000FFFF)
+#define FP_HMAC_IG_MASK    INT64_C(0x010000000000)
+#define FP_HMAC_SWID_MASK  INT64_C(0x000FFF000000)
+#define FP_HMAC_SSWID_MASK INT64_C(0x000000FF0000)
+#define FP_HMAC_LID_MASK   INT64_C(0x00000000FFFF)
 
 #define FP_HMAC_LEN 6
 #define FP_HEADER_SIZE (16)
 #define FP_HEADER_WITH_1AD_SIZE (20)
 
 /* 0100.0000.0000 */
-#define MAC_MC_BC          G_GINT64_CONSTANT(0x010000000000)
+#define MAC_MC_BC          INT64_C(0x010000000000)
 
 /* proto */
-static int dissect_fp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int header_size );
+static int dissect_fp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int header_size, int fcs_len );
 
 /*
  * These packets are a bit strange.
@@ -130,14 +131,24 @@ static int dissect_fp_common( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
  * So we register as a heuristic dissector, which gets called before
  * the regular code that checks Ethertypes.
  */
-static gboolean
-dissect_fp_heur (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
+static bool
+dissect_fp_heur (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
-  guint16 etype = 0;
+  struct eth_phdr *eth = (struct eth_phdr *)data;
+  uint16_t etype = 0;
   int header_size = 0;
+  int fcs_len = -1; // Unknown - we won't dissect it (see below)
+
+  /* Use the FCS length reported from Ethernet, which might be reported from
+   * wiretap if it was in the pcapng (if we're lucky), but likely has fallen
+   * back to the Ethernet "fcs" preference.
+   */
+  if (eth && eth->fcs_len != -1) {
+    fcs_len = eth->fcs_len;
+  }
 
   if ( ! tvb_bytes_exist( tvb, 12, 2 ) )
-     return FALSE;
+     return false;
 
   etype = tvb_get_ntohs( tvb, 12 );
 
@@ -153,32 +164,32 @@ dissect_fp_heur (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
       }
       /* fall through */
     default:
-      return FALSE;
+      return false;
   }
 
-  if ( dissect_fp_common( tvb, pinfo, tree, header_size ) > 0 ) {
-    return TRUE;
+  if ( dissect_fp_common( tvb, pinfo, tree, header_size, fcs_len ) > 0 ) {
+    return true;
   }
 
-  return FALSE;
+  return false;
 }
 
 static void
-fp_get_hmac_addr (guint64 hmac, guint16 *swid, guint16 *sswid, guint16 *lid) {
+fp_get_hmac_addr (uint64_t hmac, uint16_t *swid, uint16_t *sswid, uint16_t *lid) {
 
   if (!swid || !sswid || !lid) {
     return;
   }
 
-  *swid  = (guint16) ((hmac & FP_HMAC_SWID_MASK) >> 24);
-  *sswid = (guint16) ((hmac & FP_HMAC_SSWID_MASK) >> 16);
-  *lid   = (guint16)  (hmac & FP_HMAC_LID_MASK);
+  *swid  = (uint16_t) ((hmac & FP_HMAC_SWID_MASK) >> 24);
+  *sswid = (uint16_t) ((hmac & FP_HMAC_SSWID_MASK) >> 16);
+  *lid   = (uint16_t)  (hmac & FP_HMAC_LID_MASK);
 }
 
 static void
 fp_add_hmac (tvbuff_t *tvb, proto_tree *tree, int offset) {
 
-  guint16 eid;
+  uint16_t eid;
 
   if (!tree) {
     return;
@@ -205,7 +216,7 @@ fp_add_hmac (tvbuff_t *tvb, proto_tree *tree, int offset) {
 
 /* FabricPath MiM Dissector */
 static int
-dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int header_size)
+dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int header_size, int fcs_len)
 {
   proto_item   *ti;
   proto_tree   *fp_tree;
@@ -214,17 +225,17 @@ dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hea
   int           offset   = 0;
   int           next_tvb_len = 0;
   int           fcs_offset = 0;
-  guint64       hmac_src;
-  guint64       hmac_dst;
-  guint16       sswid    = 0;
-  guint16       ssswid   = 0;
-  guint16       slid     = 0;
-  guint16       dswid    = 0;
-  guint16       dsswid   = 0;
-  guint16       dlid     = 0;
-  guint16       etype    = 0;
-  const guint8 *dst_addr = NULL;
-  gboolean      dest_as_mac  = FALSE;
+  uint64_t      hmac_src;
+  uint64_t      hmac_dst;
+  uint16_t      sswid    = 0;
+  uint16_t      ssswid   = 0;
+  uint16_t      slid     = 0;
+  uint16_t      dswid    = 0;
+  uint16_t      dsswid   = 0;
+  uint16_t      dlid     = 0;
+  uint16_t      etype    = 0;
+  const uint8_t *dst_addr = NULL;
+  bool          dest_as_mac  = false;
 
 
   col_set_str( pinfo->cinfo, COL_PROTOCOL, FP_PROTO_COL_NAME );
@@ -250,7 +261,7 @@ dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hea
   hmac_src = tvb_get_ntoh48 (tvb, 6);
 
   if (hmac_dst & MAC_MC_BC) {
-    dest_as_mac = TRUE;
+    dest_as_mac = true;
   }
   if (!dest_as_mac) {
     fp_get_hmac_addr (hmac_dst, &dswid, &dsswid, &dlid);
@@ -259,7 +270,7 @@ dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hea
     /* Get pointer to most sig byte of destination address
        in network order
     */
-    dst_addr = ((const guint8 *) &hmac_dst) + 2;
+    dst_addr = ((const uint8_t *) &hmac_dst) + 2;
   }
   fp_get_hmac_addr (hmac_src, &sswid, &ssswid, &slid);
 
@@ -329,25 +340,42 @@ dissect_fp_common ( tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int hea
   proto_tree_add_item (fp_tree, hf_ttl, tvb, offset, FP_FTAG_LEN, ENC_BIG_ENDIAN);
 
   /* eval FCS */
-  fcs_offset = tvb_reported_length(tvb) - 4;
+  /*
+   * These packets don't have a length field, and the Ethernet dissector
+   * always returns the full captured length (because it will consume
+   * unused bytes as a trailer), so we don't have a good way to heuristically
+   * detect if there's an FCS. So if we don't know if there's an FCS,
+   * don't dissect it here and don't slice it off (so that if there isn't
+   * one, the Ethernet dissector and dissectors it calls don't have errors
+   * from slicing off too many bytes - #19989), but also tell the Ethernet
+   * dissector that there definitely isn't an FCS so that it treats it as a
+   * generic trailer, because if there _is_ an FCS the calculation includes
+   * this header, so any calculation in the Ethernet dissector will be
+   * wrong - #15769).
+   */
+  if (fcs_len > 0) {
+    fcs_offset = tvb_reported_length(tvb) - fcs_len;
 
-  if ( tvb_bytes_exist(tvb, fcs_offset, 4 ) ) {
-    if ( fp_check_fcs ) {
-      guint32 fcs = crc32_802_tvb(tvb, fcs_offset);
-      proto_tree_add_checksum(fp_tree, tvb, fcs_offset, hf_fp_fcs, hf_fp_fcs_status, &ei_fp_fcs_bad, pinfo, fcs, ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
-    } else {
-      proto_tree_add_checksum(fp_tree, tvb, fcs_offset, hf_fp_fcs, hf_fp_fcs_status, &ei_fp_fcs_bad, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
+    if ( tvb_bytes_exist(tvb, fcs_offset, fcs_len ) ) {
+      if ( fp_check_fcs ) {
+        uint32_t fcs = crc32_802_tvb(tvb, fcs_offset);
+        proto_tree_add_checksum(fp_tree, tvb, fcs_offset, hf_fp_fcs, hf_fp_fcs_status, &ei_fp_fcs_bad, pinfo, fcs, ENC_BIG_ENDIAN, PROTO_CHECKSUM_VERIFY);
+      } else {
+        proto_tree_add_checksum(fp_tree, tvb, fcs_offset, hf_fp_fcs, hf_fp_fcs_status, &ei_fp_fcs_bad, pinfo, 0, ENC_BIG_ENDIAN, PROTO_CHECKSUM_NO_FLAGS);
+      }
+      proto_tree_set_appendix(fp_tree, tvb, fcs_offset, fcs_len);
     }
-    proto_tree_set_appendix(fp_tree, tvb, fcs_offset, 4);
+  } else {
+    fcs_len = 0;
   }
 
   /* call the eth dissector w/o the FCS */
-  next_tvb_len = tvb_reported_length_remaining( tvb, header_size ) - 4;
+  next_tvb_len = tvb_reported_length_remaining( tvb, header_size ) - fcs_len;
   next_tvb = tvb_new_subset_length( tvb, header_size, next_tvb_len );
 
   /*
-   * We've already verified the replaced CFP checksum
-   * Therefore we call the Ethernet dissector without expecting a FCS
+   * We've already handled the replaced CFP checksum above.
+   * Therefore we call the Ethernet dissector without expecting a FCS.
    */
   call_dissector( eth_withoutfcs_dissector, next_tvb, pinfo, tree );
 
@@ -449,7 +477,7 @@ proto_register_mim(void)
 
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_mim,
     &ett_hmac
   };

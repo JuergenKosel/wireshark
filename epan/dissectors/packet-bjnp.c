@@ -47,7 +47,7 @@ static int hf_session_id;
 static int hf_payload_len;
 static int hf_payload;
 
-static gint ett_bjnp;
+static int ett_bjnp;
 
 static dissector_handle_t bjnp_handle;
 
@@ -74,13 +74,13 @@ static int dissect_bjnp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
 {
   proto_tree *bjnp_tree;
   proto_item *ti;
-  gint        offset = 0;
-  guint32     payload_len;
-  guint8      dev_type, cmd_code;
-  gchar      *info;
+  int         offset = 0;
+  uint32_t    payload_len;
+  uint8_t     dev_type, cmd_code;
+  char       *info;
 
   /* If it does not start with a printable character it's not BJNP */
-  if(!g_ascii_isprint(tvb_get_guint8(tvb, 0)))
+  if(!g_ascii_isprint(tvb_get_uint8(tvb, 0)))
     return 0;
 
   col_set_str (pinfo->cinfo, COL_PROTOCOL, PSNAME);
@@ -92,11 +92,11 @@ static int dissect_bjnp (tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, vo
   proto_tree_add_item (bjnp_tree, hf_bjnp_id, tvb, offset, 4, ENC_ASCII);
   offset += 4;
 
-  dev_type = tvb_get_guint8 (tvb, offset);
+  dev_type = tvb_get_uint8 (tvb, offset);
   proto_tree_add_item (bjnp_tree, hf_dev_type, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset++;
 
-  cmd_code = tvb_get_guint8 (tvb, offset);
+  cmd_code = tvb_get_uint8 (tvb, offset);
   proto_tree_add_item (bjnp_tree, hf_cmd_code, tvb, offset, 1, ENC_BIG_ENDIAN);
   offset++;
 
@@ -151,7 +151,7 @@ void proto_register_bjnp (void)
         NULL, 0x0, NULL, HFILL } },
   };
 
-  static gint *ett[] = {
+  static int *ett[] = {
     &ett_bjnp
   };
 

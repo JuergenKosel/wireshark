@@ -31,18 +31,18 @@ extern "C" {
 /* INTERFACE */
 /****************************************************************************/
 
-typedef gint16 SAMPLE;
-#define SAMPLE_MAX G_MAXINT16
-#define SAMPLE_MIN G_MININT16
+typedef int16_t SAMPLE;
+#define SAMPLE_MAX INT16_MAX
+#define SAMPLE_MIN INT16_MIN
 #define SAMPLE_NaN SAMPLE_MIN
 #define SAMPLE_BYTES (sizeof(SAMPLE) / sizeof(char))
 
 /* Defines an RTP packet */
 typedef struct _rtp_packet {
-    guint32 frame_num;      /* Qt only */
+    uint32_t frame_num;      /* Qt only */
     struct _rtp_info *info;	/* the RTP dissected info */
     double arrive_offset;	/* arrive offset time since the beginning of the stream as ms in GTK UI and s in Qt UI */
-    guint8* payload_data;
+    uint8_t* payload_data;
 } rtp_packet_t;
 
 /** Create a new hash table.
@@ -50,27 +50,6 @@ typedef struct _rtp_packet {
  * @return A new hash table suitable for passing to decode_rtp_packet.
  */
 GHashTable *rtp_decoder_hash_table_new(void);
-
-/** Decode payload from an RTP packet
- * For RTP packets with dynamic payload types, the payload name, clock rate,
- * and number of audio channels (e.g., from the SDP) can be provided.
- * Note that the output sample rate and number of channels might not be the
- * same as that of the input.
- *
- * @param payload_type Payload number
- * @param payload_type_str Payload name, can be NULL
- * @param payload_rate Sample rate, can be 0 for codec default
- * @param payload_channels Audio channels, can be 0 for codec default
- * @param payload_fmtp_map Map of format parameters for the media type
- * @param payload_data Payload
- * @param payload_len Length of payload
- * @param out_buff Output audio samples.
- * @param decoders_hash Hash table created with rtp_decoder_hash_table_new.
- * @param channels_ptr If non-NULL, receives the number of channels in the sample.
- * @param sample_rate_ptr If non-NULL, receives the sample rate.
- * @return The number of decoded bytes on success, 0 on failure.
- */
-size_t decode_rtp_packet_payload(guint8 payload_type, const gchar *payload_type_str, int payload_rate, int payload_channels, wmem_map_t *payload_fmtp_map, guint8 *payload_data, size_t payload_len, SAMPLE **out_buff, GHashTable *decoders_hash, guint *channels_ptr, guint *sample_rate_ptr);
 
 /** Decode an RTP packet
  *
@@ -81,7 +60,7 @@ size_t decode_rtp_packet_payload(guint8 payload_type, const gchar *payload_type_
  * @param sample_rate_ptr If non-NULL, receives the sample rate.
  * @return The number of decoded bytes on success, 0 on failure.
  */
-size_t decode_rtp_packet(rtp_packet_t *rp, SAMPLE **out_buff, GHashTable *decoders_hash, guint *channels_ptr, guint *sample_rate_ptr);
+size_t decode_rtp_packet(rtp_packet_t *rp, SAMPLE **out_buff, GHashTable *decoders_hash, unsigned *channels_ptr, unsigned *sample_rate_ptr);
 
 #ifdef __cplusplus
 }

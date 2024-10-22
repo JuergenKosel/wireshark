@@ -9,9 +9,8 @@
 
 #include "config.h"
 
-#include <glib.h>
-
 #include <epan/conversation_table.h>
+#include <epan/prefs.h>
 
 #include <ui/qt/widgets/traffic_types_list.h>
 
@@ -48,12 +47,12 @@ static bool iterateProtocols(const void *key, void *value, void *userdata)
     QList<TrafficTypesRowData> * protocols = (QList<TrafficTypesRowData> *)userdata;
 
     register_ct_t* ct = (register_ct_t*)value;
-    const QString title = (const gchar*)key;
+    const QString title = (const char*)key;
     int proto_id = get_conversation_proto_id(ct);
     TrafficTypesRowData entry(proto_id, title);
     protocols->append(entry);
 
-    return FALSE;
+    return false;
 }
 
 TrafficTypesModel::TrafficTypesModel(GList ** recentList, QObject *parent) :
@@ -76,8 +75,16 @@ TrafficTypesModel::TrafficTypesModel(GList ** recentList, QObject *parent) :
 
     if (_protocols.isEmpty()) {
         QStringList protoNames = QStringList() << "eth" << "ip" << "ipv6" << "tcp" << "udp";
-        foreach(QString name, protoNames)
-            _protocols << proto_get_id_by_filter_name(name.toStdString().c_str());
+        foreach(QString name, protoNames) {
+            int protoId = proto_get_id_by_filter_name(name.toStdString().c_str());
+            _protocols << protoId;
+
+            /* immediate saving in the recent list, then all next openings don't need to build
+             * this default list again.
+             */
+            char *title = g_strdup(proto_get_protocol_short_name(find_protocol_by_id(protoId)));
+            *_recentList = g_list_append(*_recentList, title);
+        }
     }
 
     for(int cnt = 0; cnt < _allTaps.count(); cnt++)
@@ -152,6 +159,26 @@ bool TrafficTypesModel::setData(const QModelIndex &idx, const QVariant &value, i
     if (_allTaps.count() <= idx.row())
         return false;
 
+    // When updating the tabs, save the current selection, it will be restored below
+    GList *selected_tab = g_list_first(*_recentList);
+    int rct_protoId = -1;
+    if (selected_tab != nullptr) {
+        rct_protoId = proto_get_id_by_short_name((const char *)selected_tab->data);
+
+        // Did the user just uncheck the current selection?
+        if (_allTaps[idx.row()].protocol() == rct_protoId && value.toInt() == Qt::Unchecked) {
+            // Yes. The code below will restore it. Rather than removing it,
+            // resetting the model, and then adding it back, just return.
+            // The user might want to uncheck the current selection, in which
+            // case the code needs to changed to handle that.
+            //
+            // Note that not allowing the current first tab to be unselected does
+            // have the advantage of preventing a crash from having no tabs
+            // selected in the Endpoint dialog (#18250).
+            return false;
+        }
+    }
+
     _allTaps[idx.row()].setChecked(value.toInt() == Qt::Checked);
 
     QList<int> selected;
@@ -161,10 +188,19 @@ bool TrafficTypesModel::setData(const QModelIndex &idx, const QVariant &value, i
     for (int cnt = 0; cnt < _allTaps.count(); cnt++) {
         if (_allTaps[cnt].checked()) {
             int protoId = _allTaps[cnt].protocol();
-            selected.append(protoId);
-            char *title = g_strdup(proto_get_protocol_short_name(find_protocol_by_id(protoId)));
-            *_recentList = g_list_append(*_recentList, title);
+            if(protoId != rct_protoId) {
+                selected.append(protoId);
+                char *title = g_strdup(proto_get_protocol_short_name(find_protocol_by_id(protoId)));
+                *_recentList = g_list_append(*_recentList, title);
+            }
         }
+    }
+
+    if (rct_protoId != -1) {
+        // restore the selection by prepending it to the recent list
+        char *rct_title = g_strdup(proto_get_protocol_short_name(find_protocol_by_id(rct_protoId)));
+        selected.prepend(rct_protoId);
+        *_recentList = g_list_prepend(*_recentList, rct_title);
     }
 
     emit protocolsChanged(selected);

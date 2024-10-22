@@ -167,21 +167,21 @@ class TestDissectGprpc:
                 '-d', 'tcp.port==44363,http2',
                 '-2', # make http2.body.reassembled.in available
                 '-Y', # Case1: In frame28, one http DATA contains 4 completed grpc messages (json data seq=1,2,3,4).
-                      '(frame.number == 28 && grpc && json.value.number == "1" && json.value.number == "2"'
-                      ' && json.value.number == "3" && json.value.number == "4" && http2.body.reassembled.in == 45) ||'
+                      '(frame.number == 28 && grpc && json.value.number == 1 && json.value.number == 2'
+                      ' && json.value.number == 3 && json.value.number == 4 && http2.body.reassembled.in == 45) ||'
                       # Case2: In frame28, last grpc message (the 5th) only has 4 bytes, which need one more byte
                       # to be a message head. a completed message is reassembled in frame45. (json data seq=5)
-                      '(frame.number == 45 && grpc && http2.body.fragment == 28 && json.value.number == "5"'
+                      '(frame.number == 45 && grpc && http2.body.fragment == 28 && json.value.number == 5'
                       ' && http2.body.reassembled.in == 61) ||'
                       # Case3: In frame45, one http DATA frame contains two partial fragment, one is part of grpc
                       # message of previous http DATA (frame28), another is first part of grpc message of next http
                       # DATA (which will be reassembled in next http DATA frame61). (json data seq=6)
-                      '(frame.number == 61 && grpc && http2.body.fragment == 45 && json.value.number == "6") ||'
+                      '(frame.number == 61 && grpc && http2.body.fragment == 45 && json.value.number == 6) ||'
                       # Case4: A big grpc message across frame100, frame113, frame126 and finally reassembled in frame139.
                       '(frame.number == 100 && grpc && http2.body.reassembled.in == 139) ||'
                       '(frame.number == 113 && !grpc && http2.body.reassembled.in == 139) ||'
                       '(frame.number == 126 && !grpc && http2.body.reassembled.in == 139) ||'
-                      '(frame.number == 139 && grpc && json.value.number == "9") ||'
+                      '(frame.number == 139 && grpc && json.value.number == 9) ||'
                       # Case5: An large grpc message of 200004 bytes.
                       '(frame.number == 164 && grpc && grpc.message_length == 200004)',
             ), encoding='utf-8', env=test_env)
@@ -197,12 +197,12 @@ class TestDissectGprpc:
                 '-r', capture_file('grpc_person_search_protobuf_with_image-missing_headers.pcapng.gz'),
                 '-o', 'uat:protobuf_search_paths: "{}","{}"'.format(well_know_types_dir, 'FALSE'),
                 '-o', 'uat:protobuf_search_paths: "{}","{}"'.format(user_defined_types_dir, 'TRUE'),
-                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}"'.format(
-                            '50051','3','IN',':path','/tutorial.PersonSearchService/Search','TRUE'),
-                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}"'.format(
-                            '50051','0','IN','content-type','application/grpc','TRUE'),
-                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}"'.format(
-                            '50051','0','OUT','content-type','application/grpc','TRUE'),
+                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}","{}"'.format(
+                            '50051','3','IN',':path','/tutorial.PersonSearchService/Search','FALSE', 'TRUE'),
+                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}","{}"'.format(
+                            '50051','0','IN','content-type','application/grpc','FALSE','TRUE'),
+                '-o', 'uat:http2_fake_headers: "{}","{}","{}","{}","{}","{}","{}"'.format(
+                            '50051','0','OUT','content-type','application/grpc','FALSE','TRUE'),
                 '-d', 'tcp.port==50051,http2',
                 '-2',
                 '-Y', 'protobuf.field.value.string == "Jason" || protobuf.field.value.string == "Lily"',
@@ -823,7 +823,7 @@ class TestDissectQuic:
         # multiple packets, fragmented in multiple out of order packets,
         # retried, retried with overlap from the original packets, and retried
         # with one of the original packets missing (but all data there.)
-        # Include -zexpert just to be sure that nothing Warn or higher occured.
+        # Include -zexpert just to be sure that nothing Warn or higher occurred.
         # Note level expert infos may be expected with the overlaps and
         # retransmissions.
         stdout = subprocess.check_output([cmd_tshark,
@@ -924,7 +924,9 @@ class TestDissectCommunityId:
         self.check_baseline(dirs, stdout, 'communityid-filtered.txt')
 
 class TestDecompressMongo:
-    def test_decompress_zstd(self, cmd_tshark, capture_file, test_env):
+    def test_decompress_zstd(self, cmd_tshark, features, capture_file, test_env):
+        if not features.have_zstd:
+            pytest.skip('Requires zstd.')
         stdout = subprocess.check_output((cmd_tshark,
                 '-d', 'tcp.port==27017,mongo',
                 '-r', capture_file('mongo-zstd.pcapng'),

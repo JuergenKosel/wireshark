@@ -12,18 +12,14 @@
 
 #include <config.h>
 
-#include <glib.h>
-
 #include "file.h"
 #include "epan/print.h"
 
 #include "ui/file_dialog.h"
 #include <ui/qt/widgets/wireshark_file_dialog.h>
 
-#ifndef Q_OS_WIN
 #include "packet_range_group_box.h"
 #include "packet_format_group_box.h"
-#endif // Q_OS_WIN
 
 #include <QMap>
 
@@ -38,18 +34,18 @@ public:
 public slots:
     void show();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private slots:
-#ifndef Q_OS_WIN
     void dialogAccepted(const QStringList &selected);
     void exportTypeChanged(QString name_filter);
     void checkValidity();
     void on_buttonBox_helpRequested();
-#endif // Q_OS_WIN
 
 private:
     export_type_e export_type_;
     capture_file *cap_file_;
-#ifndef Q_OS_WIN
     print_args_t print_args_;
 
     QMap<QString, export_type_e> export_type_map_;
@@ -58,9 +54,8 @@ private:
     PacketFormatGroupBox packet_format_group_box_;
 
     QPushButton *save_bt_;
-#else
-    QString sel_range_;
-#endif // Q_OS_WIN
+
+    bool isValid();
 };
 
 #endif // EXPORT_DISSECTION_DIALOG_H

@@ -17,6 +17,7 @@
 #include <epan/expert.h>
 #include <epan/lapd_sapi.h>
 #include <epan/prefs.h>
+#include <epan/unit_strings.h>
 
 #include "packet-gsm_a_common.h"
 
@@ -537,13 +538,13 @@ enum abis_nm_nack_cause {
 
 /* Section 9.4.1 */
 struct abis_nm_channel {
-	guint8	attrib;
-	guint8	bts_port;
-	guint8	timeslot;
-	guint8	subslot;
+	uint8_t	attrib;
+	uint8_t	bts_port;
+	uint8_t	timeslot;
+	uint8_t	subslot;
 };
 
-/* Siemens BS-11 specific objects in the SienemsHW (0xA5) object class */
+/* Siemens BS-11 specific objects in the SiemensHW (0xA5) object class */
 enum abis_bs11_objtype {
 	BS11_OBJ_ALCO		= 0x01,
 	BS11_OBJ_BBSIG		= 0x02,	/* obj_class: 0,1 */
@@ -599,7 +600,7 @@ enum tlv_type {
 
 struct tlv_def {
 	enum tlv_type type;
-	guint8 fixed_len;
+	uint8_t fixed_len;
 };
 
 struct tlv_definition {
@@ -761,8 +762,8 @@ enum {
 	OML_DIALECT_ERICSSON
 };
 
-/* which A-bis OML dialect to use (prefrence) */
-static gint global_oml_dialect = OML_DIALECT_ETSI;
+/* which A-bis OML dialect to use (preference) */
+static int global_oml_dialect = OML_DIALECT_ETSI;
 
 static proto_tree *top_tree;
 
@@ -1184,10 +1185,10 @@ static const enum_val_t oml_dialect_enumvals[] = {
 	{ NULL, NULL, 0 }
 };
 
-static void format_custom_msgtype(gchar *out, guint32 in)
+static void format_custom_msgtype(char *out, uint32_t in)
 {
-	const gchar *tmp = NULL;
-	gchar *tmp_str;
+	const char *tmp = NULL;
+	char *tmp_str;
 
 	switch (global_oml_dialect) {
 	case OML_DIALECT_SIEMENS:
@@ -1211,10 +1212,10 @@ static void format_custom_msgtype(gchar *out, guint32 in)
 	}
 }
 
-static void format_custom_attr(gchar *out, guint32 in)
+static void format_custom_attr(char *out, uint32_t in)
 {
-	const gchar *tmp = NULL;
-	gchar *tmp_str;
+	const char *tmp = NULL;
+	char *tmp_str;
 
 	switch (global_oml_dialect) {
 	case OML_DIALECT_SIEMENS:
@@ -1239,7 +1240,7 @@ static void format_custom_attr(gchar *out, guint32 in)
 }
 
 /* Interference level boundaries are coded as a binary presentation of -x dBm */
-static void format_interf_bound(gchar *buf, const guint32 in)
+static void format_interf_bound(char *buf, const uint32_t in)
 {
 	snprintf(buf, ITEM_LABEL_LENGTH, "-%u%s", in,
 		   unit_name_string_get_value(in, &units_dbm));
@@ -1407,7 +1408,7 @@ static struct tlv_definition nm_att_tlvdev_bs11;
 static struct tlv_definition nm_att_tlvdef_ipa;
 
 static const struct tlv_def *
-find_tlv_tag(guint8 tag)
+find_tlv_tag(uint8_t tag)
 {
 	const struct tlv_def *specific;
 
@@ -1432,11 +1433,11 @@ find_tlv_tag(guint8 tag)
 
 /* Parse the ip.access specific BCCH Information IE embedded into the Test
  * Report IE */
-static gint
+static int
 ipacc_tr_ie_bcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *att_tree,
 		 int offset)
 {
-	guint16 binfo_type;
+	uint16_t binfo_type;
 
 	binfo_type = tvb_get_ntohs(tvb, offset);
 	offset += 2;
@@ -1509,11 +1510,11 @@ ipacc_tr_ie_bcch(tvbuff_t *tvb, packet_info *pinfo, proto_tree *att_tree,
 
 /* Parse the ip.access specific Channel Usage IE embedded into the Test
  * Report IE */
-static gint
+static int
 ipacc_tr_ie_chan_usage(tvbuff_t *tvb, proto_tree *att_tree, int offset)
 {
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
-		guint16 result;
+		uint16_t result;
 
 		result = tvb_get_ntohs(tvb, offset);
 		proto_tree_add_uint(att_tree, hf_attr_ipa_tr_arfcn,
@@ -1526,21 +1527,21 @@ ipacc_tr_ie_chan_usage(tvbuff_t *tvb, proto_tree *att_tree, int offset)
 }
 
 /* Parse the ip.access specific format of the standard test report IE */
-static gint
+static int
 dissect_ipacc_test_rep(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb)
 {
-	gint offset = 0;
+	int offset = 0;
 
 	proto_tree_add_item(tree, hf_attr_ipa_test_res, tvb, offset++,
 			    1, ENC_BIG_ENDIAN);
 
 	while (tvb_reported_length_remaining(tvb, offset) > 0) {
-		guint8 ie;
-		guint16 len;
+		uint8_t ie;
+		uint16_t len;
 		proto_item *ti;
 		proto_tree *att_tree;
 
-		ie = tvb_get_guint8(tvb, offset);
+		ie = tvb_get_uint8(tvb, offset);
 		len = tvb_get_ntohs(tvb, offset+1);
 		ti = proto_tree_add_item(tree, hf_oml_ipa_tres_attr_tag, tvb,
 					 offset++, 1, ENC_BIG_ENDIAN);
@@ -1566,16 +1567,17 @@ dissect_ipacc_test_rep(proto_tree *tree, packet_info *pinfo, tvbuff_t *tvb)
 }
 
 /* Dissect OML FOM Attributes after OML + FOM header */
-static gint
+static int
+// NOLINTNEXTLINE(misc-no-recursion)
 dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		  packet_info *pinfo, proto_tree *tree)
 {
 	int offset = base_offs;
 
 	while (offset - base_offs < length) {
-		guint i;
-		guint16 val16;
-		guint8 tag, val8;
+		unsigned i;
+		uint16_t val16;
+		uint8_t tag, val8;
 		unsigned int len, len_len, hlen;
 		const struct tlv_def *tdef;
 		proto_item *ti;
@@ -1583,7 +1585,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		tvbuff_t *sub_tvb;
 		int ie_offset;
 
-		tag = tvb_get_guint8(tvb, offset);
+		tag = tvb_get_uint8(tvb, offset);
 		ti = proto_tree_add_item(tree, hf_oml_fom_attr_tag, tvb,
 					 offset, 1, ENC_BIG_ENDIAN);
 		att_tree = proto_item_add_subtree(ti, ett_oml_fom_att);
@@ -1609,18 +1611,18 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		case TLV_TYPE_TLV:
 			hlen = 2;
 			len_len = 1;
-			len = tvb_get_guint8(tvb, offset+1);
+			len = tvb_get_uint8(tvb, offset+1);
 			break;
 		case TLV_TYPE_TL16V:
 			hlen = 3;
 			len_len = 2;
-			len = tvb_get_guint8(tvb, offset+1) << 8 |
-						tvb_get_guint8(tvb, offset+2);
+			len = tvb_get_uint8(tvb, offset+1) << 8 |
+						tvb_get_uint8(tvb, offset+2);
 			break;
 		case TLV_TYPE_TLV16:
 			hlen = 2;
 			len_len = 1;
-			len = tvb_get_guint8(tvb, offset+1) * 2;
+			len = tvb_get_uint8(tvb, offset+1) * 2;
 			break;
 		case TLV_TYPE_UNKNOWN: /* fall through */
 		default:
@@ -1652,7 +1654,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		case NM_ATT_ADM_STATE:
 			proto_tree_add_item(att_tree, hf_attr_adm_state, tvb,
 					    offset, len, ENC_BIG_ENDIAN);
-			val8 = tvb_get_guint8(tvb, offset);
+			val8 = tvb_get_uint8(tvb, offset);
 			col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
 					val_to_str(val8, oml_adm_state_vals,
 						   "%02x"));
@@ -1665,14 +1667,14 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 			}
 			break;
 		case NM_ATT_RF_MAXPOWR_R:
-			val8 = tvb_get_guint8(tvb, offset); /* 2 dB steps */
+			val8 = tvb_get_uint8(tvb, offset); /* 2 dB steps */
 			proto_tree_add_uint(att_tree, hf_attr_rf_max_pwr_red,
 					    tvb, offset, 1, val8 * 2);
 			break;
 		case NM_ATT_AVAIL_STATUS:
 			/* Availability status can have length 0 */
 			if (len) {
-				val8 = tvb_get_guint8(tvb, offset);
+				val8 = tvb_get_uint8(tvb, offset);
 				proto_tree_add_item(att_tree,
 						    hf_attr_avail_state, tvb,
 					    	    offset, len, ENC_BIG_ENDIAN);
@@ -1705,7 +1707,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		case NM_ATT_OPER_STATE:
 			proto_tree_add_item(att_tree, hf_attr_oper_state, tvb,
 					    offset, len, ENC_BIG_ENDIAN);
-			val8 = tvb_get_guint8(tvb, offset);
+			val8 = tvb_get_uint8(tvb, offset);
 			col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
 					val_to_str(val8, oml_oper_state_vals,
 						   "%02x"));
@@ -1732,7 +1734,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 		case NM_ATT_TEST_NO:
 			proto_tree_add_item(att_tree, hf_attr_test_no, tvb,
 					    offset, len, ENC_LITTLE_ENDIAN);
-			val8 = tvb_get_guint8(tvb, offset);
+			val8 = tvb_get_uint8(tvb, offset);
 			col_append_fstr(pinfo->cinfo, COL_INFO, "%s ",
 					val_to_str(val8, oml_test_no_vals,
 						   "%02x"));
@@ -1754,13 +1756,13 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 			break;
 		case NM_ATT_GET_ARI:
 			{
-				guint not_counted, loffset;
+				unsigned not_counted, loffset;
 				if (!len)
 					break;
 
 				loffset = offset;
 
-				not_counted = tvb_get_guint8(tvb, offset);
+				not_counted = tvb_get_uint8(tvb, offset);
 				proto_tree_add_item(att_tree, hf_attr_ari_not_reported_cnt,
 						    tvb, loffset, 1,
 						    ENC_LITTLE_ENDIAN);
@@ -1770,7 +1772,9 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 							    tvb, loffset++, 1,
 							    ENC_LITTLE_ENDIAN);
 				}
+				increment_dissection_depth(pinfo);
 				dissect_oml_attrs(tvb, loffset, len - 1 - not_counted, pinfo, att_tree);
+				decrement_dissection_depth(pinfo);
 			}
 			break;
 		case NM_ATT_INTERF_BOUND:
@@ -1822,11 +1826,11 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 			break;
 		case NM_ATT_IPACC_NV_FLAGS:
 			{
-				guint flags, mask;
-				flags = tvb_get_guint8(tvb, offset);
-				mask = tvb_get_guint8(tvb, offset+1);
-				flags |= tvb_get_guint8(tvb, offset+2) << 8;
-				mask |= tvb_get_guint8(tvb, offset+3) << 8;
+				unsigned flags, mask;
+				flags = tvb_get_uint8(tvb, offset);
+				mask = tvb_get_uint8(tvb, offset+1);
+				flags |= tvb_get_uint8(tvb, offset+2) << 8;
+				mask |= tvb_get_uint8(tvb, offset+3) << 8;
 				proto_tree_add_uint(att_tree, hf_attr_ipa_nv_flags,
 						    tvb, offset, 3, flags);
 				proto_tree_add_uint(att_tree, hf_attr_ipa_nv_mask,
@@ -1877,7 +1881,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 					    tvb, ie_offset++, 1, ENC_NA);
 			break;
 		case NM_ATT_IPACC_GPRS_PAGING_CFG:
-			val8 = tvb_get_guint8(tvb, ie_offset); /* units: 50 ms */
+			val8 = tvb_get_uint8(tvb, ie_offset); /* units: 50 ms */
 			proto_tree_add_uint(att_tree, hf_attr_ipa_gprs_paging_rep_time,
 					    tvb, ie_offset++, 1, val8 * 50);
 			proto_tree_add_item(att_tree, hf_attr_ipa_gprs_paging_rep_count,
@@ -1890,7 +1894,7 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 					    tvb, ie_offset++, 1, ENC_NA);
 			proto_tree_add_item(att_tree, hf_attr_ipa_rlc_cfg_t3191,
 					    tvb, ie_offset++, 1, ENC_NA);
-			val8 = tvb_get_guint8(tvb, ie_offset); /* units: 10 ms */
+			val8 = tvb_get_uint8(tvb, ie_offset); /* units: 10 ms */
 			proto_tree_add_uint(att_tree, hf_attr_ipa_rlc_cfg_t3193,
 					    tvb, ie_offset++, 1, val8 * 10);
 			proto_tree_add_item(att_tree, hf_attr_ipa_rlc_cfg_t3195,
@@ -1905,11 +1909,11 @@ dissect_oml_attrs(tvbuff_t *tvb, int base_offs, int length,
 					    tvb, ie_offset++, 1, ENC_NA);
 			break;
 		case NM_ATT_IPACC_RLC_CFG_2:
-			val16 = tvb_get_guint16(tvb, ie_offset, ENC_BIG_ENDIAN); /* units: 10 ms */
+			val16 = tvb_get_uint16(tvb, ie_offset, ENC_BIG_ENDIAN); /* units: 10 ms */
 			proto_tree_add_uint(att_tree, hf_attr_ipa_rlc_cfg2_t_dl_tbf_ext,
 					    tvb, ie_offset, 2, val16 * 10);
 			ie_offset += 2;
-			val16 = tvb_get_guint16(tvb, ie_offset, ENC_BIG_ENDIAN); /* units: 10 ms */
+			val16 = tvb_get_uint16(tvb, ie_offset, ENC_BIG_ENDIAN); /* units: 10 ms */
 			proto_tree_add_uint(att_tree, hf_attr_ipa_rlc_cfg2_t_ul_tbf_ext,
 					    tvb, ie_offset, 2, val16 * 10);
 			ie_offset += 2;
@@ -1938,16 +1942,16 @@ static int
 dissect_oml_fom(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		int offset, proto_item *top_ti)
 {
-	guint8 msg_type, obj_class, bts_nr, trx_nr, ts_nr;
+	uint8_t msg_type, obj_class, bts_nr, trx_nr, ts_nr;
 	proto_item *ti;
 	proto_tree *fom_tree;
-	gchar formatted[ITEM_LABEL_LENGTH];
+	char formatted[ITEM_LABEL_LENGTH];
 
-	msg_type = tvb_get_guint8(tvb, offset);
-	obj_class = tvb_get_guint8(tvb, offset+1);
-	bts_nr = tvb_get_guint8(tvb, offset+2);
-	trx_nr = tvb_get_guint8(tvb, offset+3);
-	ts_nr = tvb_get_guint8(tvb, offset+4);
+	msg_type = tvb_get_uint8(tvb, offset);
+	obj_class = tvb_get_uint8(tvb, offset+1);
+	bts_nr = tvb_get_uint8(tvb, offset+2);
+	trx_nr = tvb_get_uint8(tvb, offset+3);
+	ts_nr = tvb_get_uint8(tvb, offset+4);
 	format_custom_msgtype(formatted, msg_type);
 	proto_item_append_text(top_ti, ", %s(%02x,%02x,%02x) %s ",
 			val_to_str(obj_class, oml_fom_objclass_vals, "%02x"),
@@ -1969,13 +1973,13 @@ dissect_oml_fom(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 	return offset;
 }
 
-static const guint8 ipaccess_magic[] = "com.ipaccess";
+static const uint8_t ipaccess_magic[] = "com.ipaccess";
 
 static int
 dissect_oml_manuf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		  int offset, proto_item *top_ti)
 {
-	guint32 len;
+	uint32_t len;
 
 	proto_tree_add_item_ret_uint(tree, hf_oml_manuf_id_len, tvb,
 				     offset, 1, ENC_NA, &len);
@@ -1998,11 +2002,11 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 {
 	proto_item *ti;
 	proto_tree *oml_tree;
-	guint32 remain_len;
+	uint32_t remain_len;
 	int offset = 0;
 
-	guint8	    msg_disc = tvb_get_guint8(tvb, offset);
-	guint8	    len	     = tvb_get_guint8(tvb, offset+3);
+	uint8_t	    msg_disc = tvb_get_uint8(tvb, offset);
+	uint8_t	    len	     = tvb_get_uint8(tvb, offset+3);
 
 
 	col_set_str(pinfo->cinfo, COL_PROTOCOL, "OML");
@@ -2023,7 +2027,7 @@ dissect_abis_oml(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data
 
 	/* Check whether the indicated length is correct */
 	if (msg_disc == ABIS_OM_MDISC_MANUF) /* TS 12.21 sec 8.1.4 NOTE 1 */
-		remain_len = tvb_reported_length_remaining(tvb, offset + 1 + tvb_get_guint8(tvb, offset));
+		remain_len = tvb_reported_length_remaining(tvb, offset + 1 + tvb_get_uint8(tvb, offset));
 	else
 		remain_len = tvb_reported_length_remaining(tvb, offset);
 	if (len != remain_len) {
@@ -2253,7 +2257,7 @@ proto_register_abis_oml(void)
 		},
 		{ &hf_attr_rf_max_pwr_red,
 			{ "Max RF Power Reduction", "gsm_abis_oml.fom.attr.ari.max_rf_pwr_red",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_decibels, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_decibels), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_interf_bound0,
@@ -2481,7 +2485,7 @@ proto_register_abis_oml(void)
 		{ &hf_attr_ipa_gprs_paging_rep_time,
 			{ "GPRS Paging Repeat Time",
 			  "gsm_abis_oml.fom.attr.ipa.gprs_paging_rep_time",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_milliseconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_milliseconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_gprs_paging_rep_count,
@@ -2492,67 +2496,67 @@ proto_register_abis_oml(void)
 		{ &hf_attr_ipa_rlc_cfg_t3142,
 			{ "T3142",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3142",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3169,
 			{ "T3169",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3169",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3191,
 			{ "T3191",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3191",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3193,
 			{ "3193",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3193",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_milliseconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_milliseconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3195,
 			{ "T3195",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3195",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3101,
 			{ "T3101",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3101",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3103,
 			{ "T3103",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3103",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_t3105,
 			{ "T3105",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_t3105",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg_countdown,
 			{ "Countdown",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg_countdown",
-			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, &units_seconds, 0,
+			  FT_UINT8, BASE_DEC | BASE_UNIT_STRING, UNS(&units_seconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg2_t_dl_tbf_ext,
 			{ "Downlink TBF Extension",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg2_t_dl_tbf_ext",
-			  FT_UINT16, BASE_DEC | BASE_UNIT_STRING, &units_milliseconds, 0,
+			  FT_UINT16, BASE_DEC | BASE_UNIT_STRING, UNS(&units_milliseconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg2_t_ul_tbf_ext,
 			{ "Uplink TBF Extension",
 			  "gsm_abis_oml.fom.attr.ipa.rlc_cfg2_t_ul_tbf_ext",
-			  FT_UINT16, BASE_DEC | BASE_UNIT_STRING, &units_milliseconds, 0,
+			  FT_UINT16, BASE_DEC | BASE_UNIT_STRING, UNS(&units_milliseconds), 0,
 			  NULL, HFILL }
 		},
 		{ &hf_attr_ipa_rlc_cfg2_init_cs,
@@ -2620,7 +2624,7 @@ proto_register_abis_oml(void)
 			  FT_UINT16, BASE_DEC, NULL, (1 << 7), NULL, HFILL }
 		},
 	};
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_oml,
 		&ett_oml_fom,
 		&ett_oml_fom_att,
@@ -2715,7 +2719,7 @@ proto_register_abis_oml(void)
 	nm_att_tlvdev_bs11.def[_attr].type = _type;		\
 	nm_att_tlvdev_bs11.def[_attr].fixed_len = _fixed_len;	\
 
-	/* different stndard IEs */
+	/* different standard IEs */
 	NM_ATT_TLVDEV_BS11(NM_ATT_OUTST_ALARM,		TLV_TYPE_TLV,	0);
 	NM_ATT_TLVDEV_BS11(NM_ATT_HW_DESC,		TLV_TYPE_TL16V,	0);
 	NM_ATT_TLVDEV_BS11(NM_ATT_ARFCN_LIST,		TLV_TYPE_TLV16,	0);
@@ -2804,8 +2808,7 @@ proto_register_abis_oml(void)
 	NM_ATT_TLVDEF_IPA(NM_ATT_IPACC_CGI,		TLV_TYPE_TL16V, 0);
 
 	/* assign our custom match functions */
-	proto_abis_oml = proto_register_protocol("GSM A-bis OML", "A-bis OML",
-						 "gsm_abis_oml");
+	proto_abis_oml = proto_register_protocol("GSM A-bis OML", "A-bis OML", "gsm_abis_oml");
 
 	proto_register_field_array(proto_abis_oml, hf, array_length(hf));
 
@@ -2820,7 +2823,7 @@ proto_register_abis_oml(void)
 	prefs_register_enum_preference(oml_module, "oml_dialect",
 		    "A-bis OML dialect to be used",
 		    "Use ipaccess nanoBTS specific definitions for OML",
-		    &global_oml_dialect, oml_dialect_enumvals, TRUE);
+		    &global_oml_dialect, oml_dialect_enumvals, true);
 }
 
 /* This function is called once at startup and every time the user hits

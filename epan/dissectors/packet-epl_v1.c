@@ -174,11 +174,11 @@ static int hf_epl_v1_asnd_device_variant;
 static int hf_epl_v1_asnd_poll_in_size;
 static int hf_epl_v1_asnd_poll_out_size;
 
-static gint ett_epl_v1;
+static int ett_epl_v1;
 
 
-static gint
-dissect_epl_v1_soc(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_soc(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_soc_ms, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_soc_ps, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -200,8 +200,8 @@ dissect_epl_v1_soc(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 }
 
 
-static gint
-dissect_epl_v1_eoc(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_eoc(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
 	offset += 1;
 
@@ -215,10 +215,10 @@ dissect_epl_v1_eoc(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 }
 
 
-static gint
-dissect_epl_v1_preq(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_preq(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
-	guint16 len;
+	uint16_t len;
 
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_preq_ms, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_preq_rd, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -239,10 +239,10 @@ dissect_epl_v1_preq(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 
 
 
-static gint
-dissect_epl_v1_pres(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_pres(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
-	guint16 len;
+	uint16_t len;
 
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_pres_ms, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_pres_ex, tvb, offset, 1, ENC_LITTLE_ENDIAN);
@@ -267,8 +267,8 @@ dissect_epl_v1_pres(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 
 
 
-static gint
-dissect_epl_v1_ainv(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_ainv(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_ainv_channel, tvb, offset, 1, ENC_LITTLE_ENDIAN);
 	offset += 1;
@@ -278,15 +278,15 @@ dissect_epl_v1_ainv(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 
 
 
-static gint
-dissect_epl_v1_asnd(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
+static int
+dissect_epl_v1_asnd(proto_tree *epl_v1_tree, tvbuff_t *tvb, int offset)
 {
-	guint8  epl_v1_asnd_channel;
-	guint16 len;
+	uint8_t epl_v1_asnd_channel;
+	uint16_t len;
 
 	/* get ASnd channel */
 	proto_tree_add_item(epl_v1_tree, hf_epl_v1_asnd_channel, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-	epl_v1_asnd_channel = tvb_get_guint8(tvb, offset);
+	epl_v1_asnd_channel = tvb_get_uint8(tvb, offset);
 	offset += 1;
 
 	/* get length of data */
@@ -327,15 +327,15 @@ dissect_epl_v1_asnd(proto_tree *epl_v1_tree, tvbuff_t *tvb, gint offset)
 static int
 dissect_epl_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-	guint8  epl_v1_service, epl_v1_dest, epl_v1_src, epl_v1_ainv_ch, epl_v1_asnd_ch;
-	gint    offset;
+	uint8_t epl_v1_service, epl_v1_dest, epl_v1_src, epl_v1_ainv_ch, epl_v1_asnd_ch;
+	int     offset;
 	proto_item *ti=NULL;
 	proto_tree *epl_v1_tree=NULL;
 
 
 	if(tvb_captured_length(tvb) < 3){
 		/* Not enough data for an EPL_V1 header; don't try to interpret it */
-		return FALSE;
+		return false;
 	}
 
 	offset = 0;
@@ -345,13 +345,13 @@ dissect_epl_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
 	col_clear(pinfo->cinfo, COL_INFO);
 
 	/* get service type */
-	epl_v1_service = tvb_get_guint8(tvb, EPL_V1_SERVICE_OFFSET) & 0x7F;
+	epl_v1_service = tvb_get_uint8(tvb, EPL_V1_SERVICE_OFFSET) & 0x7F;
 
 	/* get destination */
-	epl_v1_dest = tvb_get_guint8(tvb, EPL_V1_DEST_OFFSET);
+	epl_v1_dest = tvb_get_uint8(tvb, EPL_V1_DEST_OFFSET);
 
 	/* get source */
-	epl_v1_src = tvb_get_guint8(tvb, EPL_V1_SRC_OFFSET);
+	epl_v1_src = tvb_get_uint8(tvb, EPL_V1_SRC_OFFSET);
 
 	/* choose the right string for "Info" column */
 	switch(epl_v1_service){
@@ -373,20 +373,20 @@ dissect_epl_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
 
 	case EPL_V1_AINV:
 		/* get AInv channel */
-		epl_v1_ainv_ch = tvb_get_guint8(tvb, EPL_V1_AINV_CHANNEL_OFFSET);
+		epl_v1_ainv_ch = tvb_get_uint8(tvb, EPL_V1_AINV_CHANNEL_OFFSET);
 		col_add_fstr(pinfo->cinfo, COL_INFO, "AInv   dest = %3d   src = %3d   channel = %s   ",
 			epl_v1_dest, epl_v1_src, val_to_str(epl_v1_ainv_ch, ainv_channel_number_vals, "unknown Channel (%d)"));
 		break;
 
 	case EPL_V1_ASND:
 		/* get ASnd channel */
-		epl_v1_asnd_ch = tvb_get_guint8(tvb, EPL_V1_ASND_CHANNEL_OFFSET);
+		epl_v1_asnd_ch = tvb_get_uint8(tvb, EPL_V1_ASND_CHANNEL_OFFSET);
 		col_add_fstr(pinfo->cinfo, COL_INFO, "ASnd   dest = %3d   src = %3d   channel = %s   ",
 			epl_v1_dest, epl_v1_src, val_to_str(epl_v1_asnd_ch, asnd_channel_number_vals, "unknown Channel (%d)"));
 		break;
 
 	default:     /* no valid EPL packet */
-		return FALSE;
+		return false;
 	}
 
 	if(tree){
@@ -431,7 +431,7 @@ dissect_epl_v1(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _
 		break;
 
 	default: /* not a valid MessageType - can't dissect any further. */
-		return FALSE;
+		return false;
 	}
 	return offset;
 }
@@ -618,7 +618,7 @@ proto_register_epl_v1(void)
 	};
 
 	/* Setup protocol subtree array */
-	static gint *ett[] = {
+	static int *ett[] = {
 		&ett_epl_v1,
 	};
 
