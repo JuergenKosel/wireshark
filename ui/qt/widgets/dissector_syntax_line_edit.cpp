@@ -57,7 +57,7 @@ void DissectorSyntaxLineEdit::updateDissectorNames()
 
 void DissectorSyntaxLineEdit::setDefaultPlaceholderText()
 {
-    placeholder_text_ = QString(tr("Enter a dissector %1")).arg(UTF8_HORIZONTAL_ELLIPSIS);
+    placeholder_text_ = tr("Enter a dissector %1").arg(UTF8_HORIZONTAL_ELLIPSIS);
 
     setPlaceholderText(placeholder_text_);
 }
@@ -82,7 +82,7 @@ void DissectorSyntaxLineEdit::buildCompletionList(const QString &field_word, con
     if (syntaxState() == Valid) {
         dissector_handle_t handle = find_dissector(field_word.toUtf8().constData());
         if (handle) {
-            QString cursor_field_msg = QString("%1: %2")
+            QString cursor_field_msg = QStringLiteral("%1: %2")
                     .arg(dissector_handle_get_dissector_name(handle))
                     .arg(dissector_handle_get_description(handle));
         }

@@ -22,6 +22,7 @@
 
 #include <wsutil/version_info.h>
 
+#include <wsutil/application_flavor.h>
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <wsutil/filesystem.h>
@@ -37,13 +38,14 @@
 #include <epan/prefs-int.h>
 #include <epan/stat_tap_ui.h>
 
-#include "capture_opts.h"
 #include "persfilepath_opt.h"
 #include "preference_utils.h"
 #include "recent.h"
 #include "decode_as_utils.h"
 
 #include "../file.h"
+
+#include "ui/capture_opts.h"
 
 #include "ui/dissect_opts.h"
 
@@ -53,7 +55,7 @@ commandline_param_info_t global_commandline_info;
 
 capture_options global_capture_opts;
 
-void
+static void
 commandline_print_usage(bool for_help_option) {
     FILE *output;
 
@@ -68,7 +70,7 @@ commandline_print_usage(bool for_help_option) {
         output = stderr;
     }
     fprintf(output, "\n");
-    fprintf(output, "Usage: wireshark [options] ... [ <infile> ]\n");
+    fprintf(output, "Usage: %s [options] ... [ <infile> ]\n", g_get_prgname());
     fprintf(output, "\n");
 
 #ifdef HAVE_LIBPCAP
@@ -89,7 +91,7 @@ commandline_print_usage(bool for_help_option) {
 #endif
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     fprintf(output, "  -B <buffer size>, --buffer-size <buffer size>\n");
-    fprintf(output, "                           size of kernel buffer (def: %dMB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
+    fprintf(output, "                           size of kernel buffer in MiB (def: %dMiB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
 #endif
     fprintf(output, "  -y <link type>, --linktype <link type>\n");
     fprintf(output, "                           link layer type (def: first appropriate)\n");
@@ -102,8 +104,8 @@ commandline_print_usage(bool for_help_option) {
     fprintf(output, "Capture display:\n");
     fprintf(output, "  -k                       start capturing immediately (def: do nothing)\n");
     fprintf(output, "  -S                       update packet display when new packets are captured\n");
-    fprintf(output, "  --update-interval        interval between updates with new packets (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
     fprintf(output, "  -l                       turn on automatic scrolling while -S is in use\n");
+    fprintf(output, "  --update-interval        interval between updates with new packets, in milliseconds (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
     fprintf(output, "Capture stop conditions:\n");
     fprintf(output, "  -c <packet count>        stop after n packets (def: infinite)\n");
     fprintf(output, "  -a <autostop cond.> ..., --autostop <autostop cond.> ...\n");
@@ -133,7 +135,7 @@ commandline_print_usage(bool for_help_option) {
     fprintf(output, "\n");
     fprintf(output, "Processing:\n");
     fprintf(output, "  -R <read filter>, --read-filter <read filter>\n");
-    fprintf(output, "                           packet filter in Wireshark display filter syntax\n");
+    fprintf(output, "                           packet filter in display filter (wireshark-filter(4)) syntax\n");
     fprintf(output, "  -n                       disable all name resolutions (def: all enabled)\n");
     // Note: the order of the flags here matches the options in the settings dialog e.g. "dsN" only have an effect if "n" is set
     fprintf(output, "  -N <name resolve flags>  enable specific name resolution(s): \"mtndsNvg\"\n");
@@ -144,7 +146,7 @@ commandline_print_usage(bool for_help_option) {
     fprintf(output, "                           enable dissection of proto_name\n");
     fprintf(output, "  --disable-protocol <proto_name>\n");
     fprintf(output, "                           disable dissection of proto_name\n");
-    fprintf(output, "  --only-protocols <proto_name>\n");
+    fprintf(output, "  --only-protocols <protocols>\n");
     fprintf(output, "                           Only enable dissection of these protocols, comma\n");
     fprintf(output, "                           separated. Disable everything else\n");
     fprintf(output, "  --disable-all-protocols\n");
@@ -196,7 +198,7 @@ commandline_print_usage(bool for_help_option) {
 #ifndef _WIN32
     fprintf(output, "  --display <X display>    X display to use\n");
 #endif
-    fprintf(output, "  --fullscreen             start Wireshark in full screen\n");
+    fprintf(output, "  --fullscreen             start %s in full screen\n", application_flavor_name_proper());
 
 #ifdef _WIN32
     destroy_console();
@@ -222,7 +224,7 @@ static const char optstring[] = OPTSTRING;
 #ifndef HAVE_LIBPCAP
 static void print_no_capture_support_error(void)
 {
-    cmdarg_err("This version of Wireshark was not built with support for capturing packets.");
+    cmdarg_err("This version of %s was not built with support for capturing packets.", application_flavor_name_proper());
 }
 #endif
 
@@ -385,7 +387,7 @@ void commandline_early_options(int argc, char *argv[])
 
 #ifndef HAVE_LUA
     if (ex_opt_count("lua_script") > 0) {
-        cmdarg_err("This version of Wireshark was not built with support for Lua scripting.");
+        cmdarg_err("This version of %s was not built with support for Lua scripting.", application_flavor_name_proper());
         exit(1);
     }
 #endif
@@ -646,9 +648,9 @@ void commandline_other_options(int argc, char *argv[], bool opt_reset)
                  part of a tap filter.  Instead, we just add the argument
                  to a list of stat arguments. */
                 if (strcmp("help", ws_optarg) == 0) {
-                  fprintf(stderr, "wireshark: The available statistics for the \"-z\" option are:\n");
-                  list_stat_cmd_args();
-                  exit_application(0);
+                    fprintf(stderr, "%s: The available statistics for the \"-z\" option are:\n", g_get_prgname());
+                    list_stat_cmd_args();
+                    exit_application(0);
                 }
                 if (!process_stat_cmd_arg(ws_optarg)) {
                     cmdarg_err("Invalid -z argument.");

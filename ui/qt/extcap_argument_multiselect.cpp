@@ -12,8 +12,6 @@
 
 #include <wsutil/utf8_entities.h>
 
-#include <QObject>
-#include <QWidget>
 #include <QLabel>
 #include <QLineEdit>
 #include <QBoxLayout>
@@ -73,7 +71,6 @@ QList<QStandardItem *> ExtArgMultiSelect::valueWalker(ExtcapValueList list, QStr
 
 void ExtArgMultiSelect::checkItemsWalker(QStandardItem * item, QStringList defaults)
 {
-    QModelIndexList results;
     QModelIndex index;
 
     if (item->hasChildren())
@@ -115,18 +112,14 @@ QWidget * ExtArgMultiSelect::createEditor(QWidget * parent)
     /* Value can be empty if no items are checked */
     if (_argument->pref_valptr && (*_argument->pref_valptr))
     {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
         checked = QString(*_argument->pref_valptr).split(",", Qt::SkipEmptyParts);
-#else
-        checked = QString(*_argument->pref_valptr).split(",", QString::SkipEmptyParts);
-#endif
     }
 
     viewModel = new QStandardItemModel();
     QList<QStandardItem *>::const_iterator iter = items.constBegin();
     while (iter != items.constEnd())
     {
-        ((QStandardItemModel *)viewModel)->appendRow((*iter));
+        viewModel->appendRow((*iter));
         ++iter;
     }
 
@@ -142,9 +135,7 @@ QWidget * ExtArgMultiSelect::createEditor(QWidget * parent)
     for (int row = 0; row < viewModel->rowCount(); row++)
         checkItemsWalker(((QStandardItemModel*)viewModel)->item(row), checked);
 
-    connect (viewModel,
-            SIGNAL(itemChanged(QStandardItem *)),
-            SLOT(itemChanged(QStandardItem *)));
+    connect(viewModel, &QStandardItemModel::itemChanged, this, &ExtArgMultiSelect::valueChanged);
 
     return treeView;
 }
@@ -170,11 +161,6 @@ QString ExtArgMultiSelect::value()
     }
 
     return result.join(QString(','));
-}
-
-void ExtArgMultiSelect::itemChanged(QStandardItem *)
-{
-    emit valueChanged();
 }
 
 bool ExtArgMultiSelect::isValid()
@@ -219,11 +205,7 @@ void ExtArgMultiSelect::setDefaultValue()
 {
     QStringList checked;
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     checked = defaultValue().split(",", Qt::SkipEmptyParts);
-#else
-    checked = defaultValue().split(",", QString::SkipEmptyParts);
-#endif
     for (int row = 0; row < viewModel->rowCount(); row++)
         checkItemsWalker(((QStandardItemModel*)viewModel)->item(row), checked);
 }

@@ -626,44 +626,44 @@ print_stats(const char *filename, capture_info *cf_info)
                     show_option_string("Capture comment:     ", str);
                 }
             }
-
-            if (pkt_comments && cf_info->pkt_cmts != NULL) {
-              for (p = cf_info->pkt_cmts; p != NULL; prev = p, p = p->next, g_free(prev)) {
-                if (machine_readable){
-                  printf("Packet %d Comment:    %s\n", p->recno, g_strescape(p->cmt, NULL));
-                } else {
-                  printf("Packet %d Comment:    %s\n", p->recno, p->cmt);
-                }
-                g_free(p->cmt);
-              }
-            }
-
-            if (cap_file_idb && cf_info->num_interfaces != 0) {
-                unsigned int i;
-                ws_assert(cf_info->num_interfaces == cf_info->idb_info_strings->len);
-                printf     ("Number of interfaces in file: %u\n", cf_info->num_interfaces);
-                for (i = 0; i < cf_info->idb_info_strings->len; i++) {
-                    char *s = g_array_index(cf_info->idb_info_strings, char*, i);
-                    uint32_t packet_count = 0;
-                    if (i < cf_info->interface_packet_counts->len)
-                        packet_count = g_array_index(cf_info->interface_packet_counts, uint32_t, i);
-                    printf   ("Interface #%u info:\n", i);
-                    printf   ("%s", s);
-                    printf   ("                     Number of packets = %u\n", packet_count);
-                }
-            }
         }
+    }
 
-        if (cap_file_nrb) {
-            if (num_ipv4_addresses != 0)
-                printf   ("Number of resolved IPv4 addresses in file: %u\n", num_ipv4_addresses);
-            if (num_ipv6_addresses != 0)
-                printf   ("Number of resolved IPv6 addresses in file: %u\n", num_ipv6_addresses);
+    if (pkt_comments && cf_info->pkt_cmts != NULL) {
+      for (p = cf_info->pkt_cmts; p != NULL; prev = p, p = p->next, g_free(prev)) {
+        if (machine_readable){
+          printf("Packet %d Comment:    %s\n", p->recno, g_strescape(p->cmt, NULL));
+        } else {
+          printf("Packet %d Comment:    %s\n", p->recno, p->cmt);
         }
-        if (cap_file_dsb) {
-            if (num_decryption_secrets != 0)
-                printf   ("Number of decryption secrets in file: %u\n", num_decryption_secrets);
+        g_free(p->cmt);
+      }
+    }
+
+    if (cap_file_idb && cf_info->num_interfaces != 0) {
+        unsigned int i;
+        ws_assert(cf_info->num_interfaces == cf_info->idb_info_strings->len);
+        printf     ("Number of interfaces in file: %u\n", cf_info->num_interfaces);
+        for (i = 0; i < cf_info->idb_info_strings->len; i++) {
+            char *s = g_array_index(cf_info->idb_info_strings, char*, i);
+            uint32_t packet_count = 0;
+            if (i < cf_info->interface_packet_counts->len)
+                packet_count = g_array_index(cf_info->interface_packet_counts, uint32_t, i);
+            printf   ("Interface #%u info:\n", i);
+            printf   ("%s", s);
+            printf   ("                     Number of packets = %u\n", packet_count);
         }
+    }
+
+    if (cap_file_nrb) {
+        if (num_ipv4_addresses != 0)
+            printf   ("Number of resolved IPv4 addresses in file: %u\n", num_ipv4_addresses);
+        if (num_ipv6_addresses != 0)
+            printf   ("Number of resolved IPv6 addresses in file: %u\n", num_ipv6_addresses);
+    }
+    if (cap_file_dsb) {
+        if (num_decryption_secrets != 0)
+            printf   ("Number of decryption secrets in file: %u\n", num_decryption_secrets);
     }
 }
 
@@ -1029,7 +1029,7 @@ count_ipv4_address(const unsigned int addr _U_, const char *name _U_, const bool
 }
 
 static void
-count_ipv6_address(const void *addrp _U_, const char *name _U_, const bool static_entry _U_)
+count_ipv6_address(const ws_in6_addr *addrp _U_, const char *name _U_, const bool static_entry _U_)
 {
     num_ipv6_addresses++;
 }
@@ -1459,27 +1459,6 @@ print_usage(FILE *output)
     fprintf(output, "output format.\n");
 }
 
-/*
- * Report an error in command-line arguments.
- */
-static void
-capinfos_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "capinfos: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-capinfos_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -1495,6 +1474,9 @@ main(int argc, char *argv[])
 
     int status = 0;
 
+    /* Set the program name. */
+    g_set_prgname("capinfos");
+
     /*
      * Set the C-language locale to the native environment and set the
      * code page to UTF-8 on Windows.
@@ -1505,10 +1487,10 @@ main(int argc, char *argv[])
     setlocale(LC_ALL, "");
 #endif
 
-    cmdarg_err_init(capinfos_cmdarg_err, capinfos_cmdarg_err_cont);
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("capinfos", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -1517,9 +1499,6 @@ main(int argc, char *argv[])
 
     /* Get the decimal point. */
     decimal_point = g_strdup(localeconv()->decimal_point);
-
-    /* Initialize the version information. */
-    ws_init_version_info("Capinfos", NULL, NULL);
 
 #ifdef _WIN32
     create_app_running_mutex();
@@ -1534,13 +1513,16 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0], NULL);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         fprintf(stderr,
                 "capinfos: Can't get pathname of directory containing the capinfos program: %s.\n",
                 configuration_init_error);
         g_free(configuration_init_error);
     }
+
+    /* Initialize the version information. */
+    ws_init_version_info("Capinfos", NULL, NULL);
 
     init_report_failure_message("capinfos");
 

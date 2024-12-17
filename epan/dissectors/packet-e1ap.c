@@ -14957,7 +14957,7 @@ static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto
   e1ap_ctx.ProcedureCode       = e1ap_data->procedure_code;
   e1ap_ctx.ProtocolIE_ID       = e1ap_data->protocol_ie_id;
 
-  return (dissector_try_uint_new(e1ap_ies_dissector_table, e1ap_data->protocol_ie_id, tvb, pinfo, tree, false, &e1ap_ctx)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(e1ap_ies_dissector_table, e1ap_data->protocol_ie_id, tvb, pinfo, tree, false, &e1ap_ctx)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_ProtocolExtensionFieldExtensionValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
@@ -14969,28 +14969,28 @@ static int dissect_ProtocolExtensionFieldExtensionValue(tvbuff_t *tvb, packet_in
   e1ap_ctx.ProcedureCode       = e1ap_data->procedure_code;
   e1ap_ctx.ProtocolIE_ID       = e1ap_data->protocol_ie_id;
 
-  return (dissector_try_uint_new(e1ap_extension_dissector_table, e1ap_data->protocol_ie_id, tvb, pinfo, tree, false, &e1ap_ctx)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(e1ap_extension_dissector_table, e1ap_data->protocol_ie_id, tvb, pinfo, tree, false, &e1ap_ctx)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_InitiatingMessageValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   e1ap_private_data_t *e1ap_data = e1ap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(e1ap_proc_imsg_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(e1ap_proc_imsg_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_SuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   e1ap_private_data_t *e1ap_data = e1ap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(e1ap_proc_sout_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(e1ap_proc_sout_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_UnsuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   e1ap_private_data_t *e1ap_data = e1ap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(e1ap_proc_uout_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(e1ap_proc_uout_dissector_table, e1ap_data->procedure_code, tvb, pinfo, tree, false, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 
@@ -16256,7 +16256,7 @@ void proto_register_e1ap(void) {
         FT_UINT32, BASE_DEC, VALS(e1ap_Criticality_vals), 0,
         NULL, HFILL }},
     { &hf_e1ap_ie_field_value,
-      { "value", "e1ap.value_element",
+      { "value", "e1ap.ie_field_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_ie_field_value", HFILL }},
     { &hf_e1ap_ProtocolExtensionContainer_item,
@@ -16264,7 +16264,7 @@ void proto_register_e1ap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_e1ap_ext_id,
-      { "id", "e1ap.id",
+      { "id", "e1ap.ext_id",
         FT_UINT32, BASE_DEC|BASE_EXT_STRING, &e1ap_ProtocolIE_ID_vals_ext, 0,
         "ProtocolIE_ID", HFILL }},
     { &hf_e1ap_extensionValue,
@@ -16276,7 +16276,7 @@ void proto_register_e1ap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_e1ap_private_id,
-      { "id", "e1ap.id",
+      { "id", "e1ap.private_id",
         FT_UINT32, BASE_DEC, VALS(e1ap_PrivateIE_ID_vals), 0,
         "PrivateIE_ID", HFILL }},
     { &hf_e1ap_value,
@@ -18448,15 +18448,15 @@ void proto_register_e1ap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_e1ap_initiatingMessagevalue,
-      { "value", "e1ap.value_element",
+      { "value", "e1ap.initiatingMessagevalue_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "InitiatingMessage_value", HFILL }},
     { &hf_e1ap_successfulOutcome_value,
-      { "value", "e1ap.value_element",
+      { "value", "e1ap.successfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SuccessfulOutcome_value", HFILL }},
     { &hf_e1ap_unsuccessfulOutcome_value,
-      { "value", "e1ap.value_element",
+      { "value", "e1ap.unsuccessfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UnsuccessfulOutcome_value", HFILL }},
   };

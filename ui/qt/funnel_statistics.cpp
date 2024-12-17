@@ -100,7 +100,7 @@ FunnelAction::FunnelAction(QString title, funnel_packet_menu_callback callback, 
     // Use "&&" to get a real ampersand in the menu item.
     title.replace('&', "&&");
 
-    QStringList menuComponents = title.split(QString("/"));
+    QStringList menuComponents = title.split(QStringLiteral("/"));
     // Set the menu's text to the rightmost component, set the path to being everything to the left:
     setText("(empty)");
     packetSubmenu_ = "";
@@ -142,11 +142,7 @@ void FunnelAction::setPacketRequiredFields(const char *required_fields_str) {
     // Also remove leading and trailing spaces, in case someone writes
     // "http, dns" instead of "http,dns"
     QString requiredFieldsJoined = QString(required_fields_str);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     QStringList requiredFieldsSplit = requiredFieldsJoined.split(",", Qt::SkipEmptyParts);
-#else
-    QStringList requiredFieldsSplit = requiredFieldsJoined.split(",", QString::SkipEmptyParts);
-#endif
     foreach (QString requiredField, requiredFieldsSplit) {
         QString trimmedFieldName = requiredField.trimmed();
         if (! trimmedFieldName.isEmpty()) {
@@ -218,7 +214,7 @@ FunnelConsoleAction::FunnelConsoleAction(QString name,
         callback_data_(callback_data)
 {
     // Use "&&" to get a real ampersand in the menu item.
-    QString title = QString("%1 Console").arg(name).replace('&', "&&");
+    QString title = QStringLiteral("%1 Console").arg(name).replace('&', "&&");
 
     setText(title);
     setObjectName(FunnelStatistics::actionName());
@@ -523,7 +519,7 @@ static void register_packet_menu_cb(const char *name,
                              bool retap)
 {
     FunnelAction *funnel_action = new FunnelAction(name, callback, callback_data, retap, required_fields, mainApp);
-    MainWindow * mainwindow = qobject_cast<MainWindow *>(mainApp->mainWindow());
+    MainWindow * mainwindow = mainApp->mainWindow();
     if (mainwindow) {
         mainwindow->appendPacketMenu(funnel_action);
     }

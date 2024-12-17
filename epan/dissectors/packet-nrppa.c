@@ -13648,27 +13648,27 @@ static int dissect_SRSInformationReservationNotification_PDU(tvbuff_t *tvb _U_, 
 
 static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  return (dissector_try_uint_new(nrppa_ies_dissector_table, ProtocolIE_ID, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(nrppa_ies_dissector_table, ProtocolIE_ID, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_ProtocolExtensionFieldExtensionValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  return (dissector_try_uint_new(nrppa_extension_dissector_table, ProtocolIE_ID, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(nrppa_extension_dissector_table, ProtocolIE_ID, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_InitiatingMessageValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  return (dissector_try_uint_new(nrppa_proc_imsg_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(nrppa_proc_imsg_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_SuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  return (dissector_try_uint_new(nrppa_proc_sout_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(nrppa_proc_sout_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_UnsuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_)
 {
-  return (dissector_try_uint_new(nrppa_proc_uout_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(nrppa_proc_uout_dissector_table, ProcedureCode, tvb, pinfo, tree, false, NULL)) ? tvb_captured_length(tvb) : 0;
 }
 
 /*--- proto_register_nrppa -------------------------------------------*/
@@ -14413,7 +14413,7 @@ void proto_register_nrppa(void) {
         FT_UINT32, BASE_DEC, VALS(nrppa_Criticality_vals), 0,
         NULL, HFILL }},
     { &hf_nrppa_ie_field_value,
-      { "value", "nrppa.value_element",
+      { "value", "nrppa.ie_field_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_ie_field_value", HFILL }},
     { &hf_nrppa_ProtocolExtensionContainer_item,
@@ -14421,7 +14421,7 @@ void proto_register_nrppa(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_nrppa_ext_id,
-      { "id", "nrppa.id",
+      { "id", "nrppa.ext_id",
         FT_UINT32, BASE_DEC, VALS(nrppa_ProtocolIE_ID_vals), 0,
         "ProtocolIE_ID", HFILL }},
     { &hf_nrppa_extensionValue,
@@ -14461,15 +14461,15 @@ void proto_register_nrppa(void) {
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
     { &hf_nrppa_initiatingMessagevalue,
-      { "value", "nrppa.value_element",
+      { "value", "nrppa.initiatingMessagevalue_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "InitiatingMessage_value", HFILL }},
     { &hf_nrppa_successfulOutcome_value,
-      { "value", "nrppa.value_element",
+      { "value", "nrppa.successfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SuccessfulOutcome_value", HFILL }},
     { &hf_nrppa_unsuccessfulOutcome_value,
-      { "value", "nrppa.value_element",
+      { "value", "nrppa.unsuccessfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UnsuccessfulOutcome_value", HFILL }},
     { &hf_nrppa_deactivateSRSResourceSetID,

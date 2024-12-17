@@ -18,6 +18,7 @@
 
 #include "wsutil/str_util.h"
 
+#include <ui/qt/main_window.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/models/timeline_delegate.h>
 #include <ui/qt/models/atap_data_model.h>
@@ -82,14 +83,13 @@ ConversationDialog::ConversationDialog(QWidget &parent, CaptureFile &cf) :
 
     follow_bt_ = buttonBox()->addButton(tr("Follow Stream…"), QDialogButtonBox::ActionRole);
     follow_bt_->setToolTip(tr("Follow a TCP or UDP stream."));
-    connect(follow_bt_, SIGNAL(clicked()), this, SLOT(followStream()));
+    connect(follow_bt_, &QPushButton::clicked, this, &ConversationDialog::followStream);
 
     graph_bt_ = buttonBox()->addButton(tr("Graph…"), QDialogButtonBox::ActionRole);
     graph_bt_->setToolTip(tr("Graph a TCP conversation."));
-    connect(graph_bt_, SIGNAL(clicked()), this, SLOT(graphTcp()));
+    connect(graph_bt_, &QPushButton::clicked, this, &ConversationDialog::graphTcp);
 
-    connect(mainApp->mainWindow(), SIGNAL(displayFilterSuccess(bool)),
-            this, SLOT(displayFilterSuccess(bool)));
+    connect(mainApp->mainWindow(), &MainWindow::displayFilterSuccess, this, &ConversationDialog::displayFilterSuccess);
 
     absoluteTimeCheckBox()->show();
 
@@ -140,7 +140,7 @@ void ConversationDialog::graphTcp()
 
     // XXX The GTK+ code opens the TCP Stream dialog. We might want
     // to open the I/O Graphs dialog instead.
-    QString filter = QString("tcp.stream eq %1").arg(convId);
+    QString filter = QStringLiteral("tcp.stream eq %1").arg(convId);
 
     tcp_graph_requested_ = true;
     // Apply the filter for this conversation. When the filter is active, we

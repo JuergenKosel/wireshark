@@ -276,7 +276,7 @@ dissect_hci_mon(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
     else
         pinfo->p2p_dir = P2P_DIR_SENT;
 
-    hci_mon_item = proto_tree_add_item(tree, proto_hci_mon, tvb, offset, tvb_captured_length(tvb), ENC_NA);
+    hci_mon_item = proto_tree_add_item(tree, proto_hci_mon, tvb, offset, -1, ENC_NA);
     hci_mon_tree = proto_item_add_subtree(hci_mon_item, ett_hci_mon);
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "HCI_MON");
@@ -666,7 +666,7 @@ proto_reg_handoff_hci_mon(void)
     bthci_evt_handle = find_dissector_add_dependency("bthci_evt", proto_hci_mon);
     bthci_acl_handle = find_dissector_add_dependency("bthci_acl", proto_hci_mon);
     bthci_sco_handle = find_dissector_add_dependency("bthci_sco", proto_hci_mon);
-    bthci_iso_handle = find_dissector_add_dependency("bthci_iso_data", proto_hci_mon);
+    bthci_iso_handle = find_dissector_add_dependency("bthci_iso", proto_hci_mon);
 
     dissector_add_uint("bluetooth.encap", WTAP_ENCAP_BLUETOOTH_LINUX_MONITOR, hci_mon_handle);
 }

@@ -1876,7 +1876,7 @@ ip_try_dissect(bool heur_first, unsigned nxt, tvbuff_t *tvb, packet_info *pinfo,
     return true;
   }
 
-  if (dissector_try_uint_new(ip_dissector_table, nxt, tvb, pinfo,
+  if (dissector_try_uint_with_data(ip_dissector_table, nxt, tvb, pinfo,
                              tree, true, iph)) {
     return true;
   }
@@ -3086,8 +3086,8 @@ proto_register_ip(void)
   static ei_register_info ei[] = {
      { &ei_ip_opt_len_invalid, { "ip.opt.len.invalid", PI_PROTOCOL, PI_WARN, "Invalid length for option", EXPFILL }},
      { &ei_ip_opt_deprecated, { "ip.opt.deprecated", PI_DEPRECATED, PI_NOTE, "Option type is deprecated", EXPFILL }},
-     { &ei_ip_opt_sec_prot_auth_fti, { "ip.opt.len.invalid", PI_PROTOCOL, PI_WARN, "Field Termination Indicator set to 1 for last byte of option", EXPFILL }},
-     { &ei_ip_extraneous_data, { "ip.opt.len.invalid", PI_PROTOCOL, PI_WARN, "Extraneous data in option", EXPFILL }},
+     { &ei_ip_opt_sec_prot_auth_fti, { "ip.opt.fti_1_last_byte", PI_PROTOCOL, PI_WARN, "Field Termination Indicator set to 1 for last byte of option", EXPFILL }},
+     { &ei_ip_extraneous_data, { "ip.opt.len.extra_found", PI_PROTOCOL, PI_WARN, "Extraneous data in option", EXPFILL }},
      { &ei_ip_opt_ptr_before_address, { "ip.opt.ptr.before_address", PI_PROTOCOL, PI_WARN, "Pointer points before first address", EXPFILL }},
      { &ei_ip_opt_ptr_middle_address, { "ip.opt.ptr.middle_address", PI_PROTOCOL, PI_WARN, "Pointer points to middle of address", EXPFILL }},
      { &ei_ip_subopt_too_long, { "ip.subopt_too_long", PI_PROTOCOL, PI_WARN, "Suboption would go past end of option", EXPFILL }},
@@ -3246,6 +3246,7 @@ proto_reg_handoff_ip(void)
 
   heur_dissector_add("tipc", dissect_ip_heur, "IP over TIPC", "ip_tipc", proto_ip, HEURISTIC_ENABLE);
   heur_dissector_add("zbee_zcl_se.tun", dissect_ip_heur, "IP over ZigBee SE Tunneling", "ip_zbee_zcl_se.tun", proto_ip, HEURISTIC_ENABLE);
+  heur_dissector_add("gtp.tpdu", dissect_ip_heur, "IP over GTP", "ip_gtp.tpdu", proto_ip, HEURISTIC_ENABLE);
 
   capture_dissector_add_uint("ethertype", ETHERTYPE_IP, ip_cap_handle);
   capture_dissector_add_uint("ax25.pid", AX25_P_IP, ip_cap_handle);

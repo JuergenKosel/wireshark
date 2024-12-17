@@ -14,6 +14,7 @@
 #include <epan/expert.h>
 #include <epan/prefs.h>
 
+#include <wsutil/application_flavor.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/utf8_entities.h>
 
@@ -96,7 +97,7 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
 #if defined(Q_OS_WIN)
     // Handles are the same color as widgets, at least on Windows 7.
     splitter->setHandleWidth(3);
-    splitter->setStyleSheet(QString(
+    splitter->setStyleSheet(QStringLiteral(
                                 "QSplitter::handle {"
                                 "  border-left: 1px solid palette(mid);"
                                 "  border-right: 1px solid palette(mid);"
@@ -228,7 +229,7 @@ void MainStatusBar::setFileName(CaptureFile &cf)
 {
     if (cf.isValid()) {
         popGenericStatus(STATUS_CTX_FILE);
-        QString msgtip = QString("%1 (%2)")
+        QString msgtip = QStringLiteral("%1 (%2)")
                 .arg(cf.capFile()->filename, file_size_to_qstring(cf.capFile()->f_datalen));
         pushGenericStatus(STATUS_CTX_FILE, cf.fileName(), msgtip);
     }
@@ -256,7 +257,7 @@ void MainStatusBar::setStatusbarForCaptureFile()
 {
     if (cap_file_ && cap_file_->filename && (cap_file_->state != FILE_CLOSED)) {
         popGenericStatus(STATUS_CTX_FILE);
-        QString msgtip = QString("%1 (%2)")
+        QString msgtip = QStringLiteral("%1 (%2)")
                 .arg(cap_file_->filename, file_size_to_qstring(cap_file_->f_datalen));
         pushGenericStatus(STATUS_CTX_FILE,
                 gchar_free_to_qstring(cf_get_display_name(cap_file_)), msgtip);
@@ -315,7 +316,7 @@ void MainStatusBar::highlightedFieldChanged(FieldInformation * finfo)
         } else {
             hint = tr("Bytes %1-%2").arg(pos.start).arg(pos.start + pos.length - 1);
         }
-        hint += QString(": %1 (%2)")
+        hint += QStringLiteral(": %1 (%2)")
                 .arg(finfo->headerInfo().name, finfo->headerInfo().abbreviation);
     }
 
@@ -356,7 +357,7 @@ void MainStatusBar::setProfileName()
 void MainStatusBar::appInitialized()
 {
     setProfileName();
-    connect(qobject_cast<MainWindow *>(mainApp->mainWindow()), &MainWindow::framesSelected, this, &MainStatusBar::selectedFrameChanged);
+    connect(mainApp->mainWindow(), &MainWindow::framesSelected, this, &MainStatusBar::selectedFrameChanged);
 }
 
 void MainStatusBar::selectedFrameChanged(QList<int>)
@@ -369,9 +370,10 @@ void MainStatusBar::showCaptureStatistics()
     QString packets_str;
 
     QList<int> rows;
-    MainWindow * mw = qobject_cast<MainWindow *>(mainApp->mainWindow());
-    if (mw)
+    MainWindow * mw = mainApp->mainWindow();
+    if (mw) {
         rows = mw->selectedRows(true);
+    }
 
 #ifdef HAVE_LIBPCAP
     if (cap_file_) {
@@ -381,7 +383,7 @@ void MainStatusBar::showCaptureStatistics()
         }
         if (cs_count_ > 0) {
             if (prefs.gui_show_selected_packet && rows.count() == 1) {
-                if (is_packet_configuration_namespace()) {
+                if (application_flavor_is_wireshark()) {
                     packets_str.append(tr("Selected Packet: %1 %2 ")
                                        .arg(rows.at(0))
                                        .arg(UTF8_MIDDLE_DOT));
@@ -391,7 +393,7 @@ void MainStatusBar::showCaptureStatistics()
                                            .arg(UTF8_MIDDLE_DOT));
                 }
             }
-            if (is_packet_configuration_namespace()) {
+            if (application_flavor_is_wireshark()) {
                 packets_str.append(tr("Packets: %1")
                                        .arg(cs_count_));
             } else {
@@ -445,7 +447,7 @@ void MainStatusBar::showCaptureStatistics()
         }
     } else if (cs_fixed_ && cs_count_ > 0) {
         /* There shouldn't be any rows without a cap_file_ but this is benign */
-        if (is_packet_configuration_namespace()) {
+        if (application_flavor_is_wireshark()) {
             if (prefs.gui_show_selected_packet && rows.count() == 1) {
                 packets_str.append(tr("Selected Packet: %1 %2 ")
                     .arg(rows.at(0))
@@ -466,7 +468,7 @@ void MainStatusBar::showCaptureStatistics()
 #endif // HAVE_LIBPCAP
 
     if (packets_str.isEmpty()) {
-        if (is_packet_configuration_namespace()) {
+        if (application_flavor_is_wireshark()) {
             packets_str = tr("No Packets");
         } else {
             packets_str = tr("No Events");
@@ -476,6 +478,10 @@ void MainStatusBar::showCaptureStatistics()
     popGenericStatus(STATUS_CTX_MAIN);
     pushGenericStatus(STATUS_CTX_MAIN, packets_str);
 }
+
+// These two counts are different in multiple file mode. cap_session->count
+// is the total number in the session across all files; cap_file_->count is
+// count in the current file. Perhaps we could display both in both cases?
 
 void MainStatusBar::updateCaptureStatistics(capture_session *cap_session)
 {
@@ -635,7 +641,7 @@ void MainStatusBar::showProfileMenu(const QPoint &global_pos, Qt::MouseButton bu
 void MainStatusBar::toggleBackground(bool enabled)
 {
     if (enabled) {
-        setStyleSheet(QString(
+        setStyleSheet(QStringLiteral(
                           "QStatusBar {"
                           "  background-color: %2;"
                           "}"

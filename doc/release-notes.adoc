@@ -34,8 +34,10 @@ See the “New and Updated Features” section below for more details.
 
 The following features are either new or have been significantly updated since version 4.4.0:
 
-// * The Windows installers now ship with Npcap 1.79.
-//   They previously shipped with Npcap 1.78.
+* The Windows installers now ship with Npcap 1.80.
+  They previously shipped with Npcap 1.79.
+
+* Source packages are now compressed using zstd.
 
 //* The Windows installers now ship with Qt 6.5.2.
 //  They previously shipped with Qt 6.2.3.
@@ -59,6 +61,13 @@ The following features are either new or have been significantly updated since v
   Also, the syntax for only listing fields with a certain prefix has changed to
   `tshark -G fields,prefix`.
 
+* The underlying type of EUI-64 fields has been switched to bytes when packet
+  matching, similar to most other address formats. This means that EUI-64
+  addresses can be sliced and compared to other bytes types, e.g. the filter
+  `wpan.src64[:3] == eth.src[:3]`. Fields can still be specified using 64-bit
+  unsigned integer literals, though arithmetic with other integers is no longer
+  supported.
+
 * Wireshark can now decrypt NTP packets using NTS (Network Time Security). To decrypt packets,
   the NTS-KE (Network Time Security Key Establishment Protocol) packets need to be present,
   alongside the TLS client and exporter secrets. Additionally, the parts of a NTP packet which
@@ -66,15 +75,47 @@ The following features are either new or have been significantly updated since v
   extension field that precedes the NTS Authenticator and Encrypted Extension Fields
   extension field) are checked for validity.
 
+* The TCP Stream Graph axes now use units with SI prefixes. wsbuglink:20197[]
+
 * Custom columns have an option to show the values using the same format as
   in Packet Details.
+
+* Custom column complex expressions (e.g., with arithmetic, filter functions,
+  etc.) that return numeric results are sorted numerically instead of
+  lexicographically.
+
+* A display filter function `double` is added to allow explicitly converting
+  field types like integers and times to doubles. This can be used to perform
+  further arithmetic operations on fields of different types, including in
+  custom column definitions.
+
+* The minimum width of the I/O Graph dialog window is reduced, so it should
+  work better on small resolution desktops, especially in certain languages.
+  To enable this, some checkbox controls were moved to the graph right-click
+  context menu. wsbuglink:20147[]
 
 * X.509 certificates, used in TLS and elsewhere, can be exported via the
   File->Export Objects menu in Wireshark (under the name "X509AF") and
   `--export-objects` in TShark (with the protocol name `x509af`.)
 
-* The Windows installers now ship with Npcap 1.80.
-  They previously shipped with Npcap 1.79.
+* Zstandard Content-Encoding is supported in the HTTP and HTTP/2 dissectors.
+
+* Follow Stream is supported for MPEG 2 Transport Stream PIDs, and for
+  Packetized Elementary Streams contained within MPEG 2 TS. The latter
+  can be used to extract audio or video for playback with other tools.
+
+* DNP 3 (Distributed Network Protocol 3) is now supported in the Conversations
+  and Endpoints table dialogs.
+
+* The Lua supplied preloaded libraries `bit` and `rex_pcre2` are loaded in
+  a way that adds them to the `package.loaded` table, as though through
+  `require`, so that `require("bit")` and `require("rex_pcre2")` statements
+  in Lua dissectors, while usually superfluous, behave as expected. wsbuglink:20213[]
+
+* The packet list (Wireshark) and event list (Stratoshark) no longer support rows with multiple lines.
+  wsbuglink:14424[]
+
+* The `ethers` file can also contain EUI-64 to name mappings. wsbuglink:15487[]
 
 // === Removed Features and Support
 
@@ -97,6 +138,7 @@ The following features are either new or have been significantly updated since v
 --
 Lenbrook Service Discovery Protocol (LSDP)
 Network Time Security Key Establishment Protocol (NTS-KE)
+Universal Measurement and Calibration Protocol (XCP)
 --
 
 === Updated Protocol Support

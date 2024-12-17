@@ -81,15 +81,14 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Про Logray</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stratoshark</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1195,9 +1194,6 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1888,10 +1884,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished">Тип</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1905,6 +1897,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2359,6 +2355,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Apply a read filter %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3030,11 +3030,13 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>Відкрити Файл</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">Відкрити Файл</translation>
     </message>
     <message>
-        <source>Select File</source>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3073,7 +3075,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
+        <source>Field entry</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3081,7 +3083,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
+        <source>Invalid field: </source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4125,10 +4127,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>Скинути Зміни До Діаграми</translation>
     </message>
@@ -4262,6 +4260,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>Перехрестя</translation>
     </message>
@@ -4272,6 +4278,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Space</source>
         <translation>Прогалина</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6867,6 +6881,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Display filter as %1</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7775,6 +7801,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Preferences</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">Скопіювати</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation type="unfinished">
+            <numerusform>Скопіювати Рядок</numerusform>
+            <numerusform>Скопіювати Рядки</numerusform>
+            <numerusform>Скопіювати Рядки</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8236,7 +8274,7 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Copied </source>
+        <source>Copied %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8416,34 +8454,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>Час Обороту (мс)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>Час (с)</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>Розмір Вікна (Б)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation type="unfinished"></translation>
@@ -8834,10 +8844,11 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>Invalid Display Filter</source>
-        <translation type="unfinished">Некоректний Фільтр Відображення</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -8930,6 +8941,34 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>LOAD</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation type="unfinished">Час Обороту</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation type="unfinished">Час</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -12957,16 +12996,14 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>You are running Wireshark </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You are running Wireshark </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -14279,6 +14316,22 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>Фільтри &amp;Захоплення...</translation>
     </message>
@@ -14965,15 +15018,7 @@ a:hover {
         <translation>Перед об&apos;єднанням файлів зміни необхідно зберегти.</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>Некоректний Фільтр Відображення</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -15012,6 +15057,11 @@ a:hover {
     </message>
     <message>
         <source>Unable to drop files during capture.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -15080,14 +15130,6 @@ a:hover {
     <message>
         <source>Stop and Continue &amp;without Saving</source>
         <oldsource>Stop and Continue without Saving</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The Wireshark Network Analyzer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Capturing from %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

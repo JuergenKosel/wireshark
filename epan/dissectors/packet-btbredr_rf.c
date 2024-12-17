@@ -662,7 +662,7 @@ dissect_btbredr_rf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
     uint16_t              flags;
     uint32_t              lap;
     uint8_t               uap = 0;
-    uint32_t              ltaddr;
+    uint32_t              ltaddr = 0;
     uint8_t               payload_and_transport;
     int16_t               packet_type = PACKET_TYPE_UNKNOWN;
     const char           *packet_type_str = "Unknown";
@@ -1525,7 +1525,7 @@ dissect_btbredr_rf(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *da
 
                next_tvb = tvb_new_subset_remaining(tvb, offset);
                if (packet_type_table && packet_type > PACKET_TYPE_UNKNOWN &&
-                   dissector_try_uint_new(packet_type_table, packet_type, next_tvb, pinfo, tree, true, bluetooth_data)) {
+                   dissector_try_uint_with_data(packet_type_table, packet_type, next_tvb, pinfo, tree, true, bluetooth_data)) {
                    offset = tvb_reported_length(tvb);
                } else {
                    if (isochronous_length > 0 &&

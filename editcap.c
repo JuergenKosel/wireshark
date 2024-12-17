@@ -1063,27 +1063,6 @@ framenum_compare(const void *a, const void *b, void *user_data _U_)
     return 0;
 }
 
-/*
- * Report an error in command-line arguments.
- */
-static void
-editcap_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "editcap: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-editcap_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
 static wtap_dumper *
 editcap_dump_open(const char *filename, const wtap_dump_params *params,
                   GArray *idbs_seen, int *err, char **err_info,
@@ -1373,11 +1352,14 @@ main(int argc, char *argv[])
     bool                         edit_option_specified = false;
     wtap_compression_type compression_type   = WTAP_UNKNOWN_COMPRESSION;
 
-    cmdarg_err_init(editcap_cmdarg_err, editcap_cmdarg_err_cont);
+    /* Set the program name. */
+    g_set_prgname("editcap");
+
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
     memset(&read_rec, 0, sizeof *rec);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("editcap", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -1388,9 +1370,6 @@ main(int argc, char *argv[])
     create_app_running_mutex();
 #endif /* _WIN32 */
 
-    /* Initialize the version information. */
-    ws_init_version_info("Editcap", NULL, NULL);
-
     /*
      * Get credential information for later use.
      */
@@ -1400,12 +1379,15 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0], NULL);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         cmdarg_err("Can't get pathname of directory containing the editcap program: %s.",
                 configuration_init_error);
         g_free(configuration_init_error);
     }
+
+    /* Initialize the version information. */
+    ws_init_version_info("Editcap", NULL, NULL);
 
     init_report_failure_message("editcap");
 

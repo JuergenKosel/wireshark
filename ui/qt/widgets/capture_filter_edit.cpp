@@ -11,7 +11,7 @@
 
 #include <epan/proto.h>
 
-#include "capture_opts.h"
+#include "ui/capture_opts.h"
 
 #include <ui/capture_globals.h>
 #include <wsutil/filter_files.h>
@@ -131,7 +131,7 @@ CaptureFilterEdit::CaptureFilterEdit(QWidget *parent, bool plain) :
 
     setConflict(false);
 
-    QString buttonStyle = QString(
+    QString buttonStyle = QStringLiteral(
         "QToolButton {"
         "  border: none;"
         "  background: transparent;" // Disables platform style on Windows.
@@ -185,7 +185,7 @@ CaptureFilterEdit::CaptureFilterEdit(QWidget *parent, bool plain) :
     QSize apsz(0, 0);
     if (apply_button_) apsz = apply_button_->sizeHint();
 
-    setStyleSheet(QString(
+    setStyleSheet(QStringLiteral(
             "CaptureFilterEdit {"
             "  padding-left: %1px;"
             "  margin-left: %2px;"
@@ -199,13 +199,8 @@ CaptureFilterEdit::CaptureFilterEdit(QWidget *parent, bool plain) :
 
     QComboBox *cf_combo = qobject_cast<QComboBox *>(parent);
     if (cf_combo) {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
         connect(cf_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::textActivated),
                 this, &CaptureFilterEdit::textEdited);
-#else
-        connect(cf_combo, static_cast<void (QComboBox::*)(const QString &)>(&QComboBox::activated),
-                this, &CaptureFilterEdit::textEdited);
-#endif
     }
 
     line_edit_timer_ = new QTimer(this);
@@ -297,7 +292,7 @@ void CaptureFilterEdit::setConflict(bool conflict)
                       " Typing a filter here will override them. Doing nothing will"
                       " preserve them.</p>"));
     } else {
-        placeholder_text_ = QString(tr("Enter a capture filter %1")).arg(UTF8_HORIZONTAL_ELLIPSIS);
+        placeholder_text_ = tr("Enter a capture filter %1").arg(UTF8_HORIZONTAL_ELLIPSIS);
         setToolTip(QString());
     }
     setPlaceholderText(placeholder_text_);
@@ -420,7 +415,7 @@ void CaptureFilterEdit::updateBookmarkMenu()
         QModelIndex nameIdx = model.index(row, FilterListModel::ColumnName);
         QString name = nameIdx.data().toString();
         QString expr = model.index(row, FilterListModel::ColumnExpression).data().toString();
-        QString prep_text = QString("%1: %2").arg(name).arg(expr);
+        QString prep_text = QStringLiteral("%1: %2").arg(name).arg(expr);
 
         prep_text = bb_menu->fontMetrics().elidedText(prep_text, Qt::ElideRight, one_em * 40);
         QAction * prep_action = bb_menu->addAction(prep_text);

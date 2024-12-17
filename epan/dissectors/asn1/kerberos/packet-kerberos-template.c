@@ -213,6 +213,8 @@ static int dissect_kerberos_KRB5_SRP_PA_INIT(bool implicit_tag _U_, tvbuff_t *tv
 static int dissect_kerberos_KRB5_SRP_PA_SERVER_CHALLENGE(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_KRB5_SRP_PA_CLIENT_RESPONSE(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 static int dissect_kerberos_KRB5_SRP_PA_SERVER_VERIFIER(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static int dissect_kerberos_AD_CAMMAC(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
+static int dissect_kerberos_AD_AUTHENTICATION_INDICATOR(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_);
 
 /* Desegment Kerberos over TCP messages */
 static bool krb_desegment = true;
@@ -4295,7 +4297,7 @@ dissect_krb5_PW_SALT(bool implicit_tag _U_, tvbuff_t *tvb _U_, int offset _U_, a
 	reserved = tvb_get_letohl(tvb, offset + 4);
 	flags = tvb_get_letohl(tvb, offset + 8);
 
-	if (reserved != 0 || flags != 1 || !try_val_to_str_ext(nt_status, &NT_errors_ext)) {
+	if (reserved != 0 || (flags & 1) != 1 || !try_val_to_str_ext(nt_status, &NT_errors_ext)) {
 		goto no_error;
 	}
 

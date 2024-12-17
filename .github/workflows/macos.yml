@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: get-submodule
         run: git submodule update --init
       - name: Set up Python 3.11

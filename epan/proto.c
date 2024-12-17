@@ -27,9 +27,11 @@
 #include <wsutil/sign_ext.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/json_dumper.h>
+#include <wsutil/pint.h>
 #include <wsutil/wslog.h>
 #include <wsutil/ws_assert.h>
 #include <wsutil/unicode-utils.h>
+#include <wsutil/dtoa.h>
 
 #include <ftypes/ftypes.h>
 
@@ -125,14 +127,10 @@ struct ptvcursor {
 	   (think proto_item_add_subtree()) will still have somewhere	\
 	   to attach to or else filtering will not work (they would be	\
 	   ignored since tree would be NULL).				\
-	   DON'T try to fake a node where PTREE_FINFO(tree) is NULL	\
-	   since dissectors that want to do proto_item_set_len() or	\
-	   other operations that dereference this would crash.		\
 	   DON'T try to fake a node where PTREE_FINFO(tree) is visible	\
 	   because that means we can change its length or repr, and we	\
 	   don't want to do so with calls intended for this faked new	\
 	   item, so this item needs a new (hidden) child node.		\
-	   (PROTO_ITEM_IS_HIDDEN(tree) checks both conditions.)		\
 	   We fake FT_PROTOCOL unless some clients have requested us	\
 	   not to do so.						\
 	*/								\
@@ -157,8 +155,8 @@ struct ptvcursor {
 			    && (hfinfo->type != FT_PROTOCOL ||		\
 				PTREE_DATA(tree)->fake_protocols)) {	\
 				free_block;				\
-				/* just return tree back to the caller */\
-				return tree;				\
+				/* return fake node with no field info */\
+				return proto_tree_add_fake_node(tree, hfinfo);	\
 			}						\
 		}							\
 	}
@@ -176,6 +174,8 @@ struct ptvcursor {
  @param pi the created protocol item we're about to return */
 #define TRY_TO_FAKE_THIS_REPR(pi)	\
 	ws_assert(pi);			\
+	if (!PITEM_FINFO(pi))		\
+		return pi;		\
 	if (!(PTREE_DATA(pi)->visible) && \
 	      PROTO_ITEM_IS_HIDDEN(pi)) { \
 		/* If the tree (GUI) or item isn't visible it's pointless for \
@@ -184,7 +184,7 @@ struct ptvcursor {
 	}
 /* Same as above but returning void */
 #define TRY_TO_FAKE_THIS_REPR_VOID(pi)	\
-	if (!pi)			\
+	if (!pi || !PITEM_FINFO(pi))	\
 		return;			\
 	if (!(PTREE_DATA(pi)->visible) && \
 	      PROTO_ITEM_IS_HIDDEN(pi)) { \
@@ -194,7 +194,7 @@ struct ptvcursor {
 	}
 /* Similar to above, but allows a NULL tree */
 #define TRY_TO_FAKE_THIS_REPR_NESTED(pi)	\
-	if ((pi == NULL) || (!(PTREE_DATA(pi)->visible) && \
+	if ((pi == NULL) || (PITEM_FINFO(pi) == NULL) || (!(PTREE_DATA(pi)->visible) && \
 		PROTO_ITEM_IS_HIDDEN(pi))) { \
 		/* If the tree (GUI) or item isn't visible it's pointless for \
 		 * us to generate the protocol item's string representation */ \
@@ -275,6 +275,9 @@ static void proto_cleanup_base(void);
 
 static proto_item *
 proto_tree_add_node(proto_tree *tree, field_info *fi);
+
+static proto_item *
+proto_tree_add_fake_node(proto_tree *tree, const header_field_info *hfinfo);
 
 static void
 get_hfi_length(header_field_info *hfinfo, tvbuff_t *tvb, const int start, int *length,
@@ -521,6 +524,7 @@ static const char *reserved_filter_names[] = {
 	"false",
 	"nan",
 	"inf",
+	"infinity",
 	NULL
 };
 
@@ -838,8 +842,10 @@ proto_tree_free_node(proto_node *node, void *data _U_)
 
 	proto_tree_children_foreach(node, proto_tree_free_node, NULL);
 
-	fvalue_free(finfo->value);
-	finfo->value = NULL;
+	if (finfo) {
+		fvalue_free(finfo->value);
+		finfo->value = NULL;
+	}
 }
 
 void
@@ -861,6 +867,10 @@ proto_tree_reset(proto_tree *tree)
 
 	/* Reset track of the number of children */
 	tree_data->count = 0;
+
+	/* Reset our loop checks */
+	tree_data->max_start = 0;
+	tree_data->start_idle_count = 0;
 
 	PROTO_NODE_INIT(tree);
 }
@@ -1669,61 +1679,13 @@ static inline uint64_t
 get_uint64_value(proto_tree *tree, tvbuff_t *tvb, int offset, unsigned length, const unsigned encoding)
 {
 	uint64_t value;
-	bool length_error;
 
-	switch (length) {
+	value = tvb_get_uint64_with_length(tvb, offset, length, encoding);
 
-	case 1:
-		value = tvb_get_uint8(tvb, offset);
-		break;
-
-	case 2:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letohs(tvb, offset)
-						       : tvb_get_ntohs(tvb, offset);
-		break;
-
-	case 3:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh24(tvb, offset)
-						       : tvb_get_ntoh24(tvb, offset);
-		break;
-
-	case 4:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letohl(tvb, offset)
-						       : tvb_get_ntohl(tvb, offset);
-		break;
-
-	case 5:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh40(tvb, offset)
-						       : tvb_get_ntoh40(tvb, offset);
-		break;
-
-	case 6:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh48(tvb, offset)
-						       : tvb_get_ntoh48(tvb, offset);
-		break;
-
-	case 7:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh56(tvb, offset)
-						       : tvb_get_ntoh56(tvb, offset);
-		break;
-
-	case 8:
-		value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh64(tvb, offset)
-						       : tvb_get_ntoh64(tvb, offset);
-		break;
-
-	default:
-		if (length < 1) {
-			length_error = true;
-			value = 0;
-		} else {
-			length_error = false;
-			value = (encoding & ENC_LITTLE_ENDIAN) ? tvb_get_letoh64(tvb, offset)
-							       : tvb_get_ntoh64(tvb, offset);
-		}
-		report_type_length_mismatch(tree, "an unsigned integer", length, length_error);
-		break;
+	if (length < 1 || length > 8) {
+		report_type_length_mismatch(tree, "an unsigned integer", length, (length < 1));
 	}
+
 	return value;
 }
 
@@ -4513,6 +4475,17 @@ proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 			    "FT_UINT_BYTES type, but as ENC_STR_HEX");
 		}
 
+		unsigned hex_encoding = encoding;
+		if (!(encoding & ENC_SEP_MASK)) {
+			/* If none of the separator values are used,
+			 * assume no separator (the common case). */
+			hex_encoding |= ENC_SEP_NONE;
+#if 0
+			REPORT_DISSECTOR_BUG("proto_tree_add_bytes_item called "
+				"with ENC_STR_HEX but no ENC_SEP_XXX value");
+#endif
+		}
+
 		if (!bytes) {
 			/* caller doesn't care about return value, but we need it to
 			   call tvb_get_string_bytes() and set the tree later */
@@ -4524,7 +4497,7 @@ proto_tree_add_bytes_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 		 * error until later; if it's NULL, just note that
 		 * it failed.
 		 */
-		bytes = tvb_get_string_bytes(tvb, start, length, encoding, bytes, endoff);
+		bytes = tvb_get_string_bytes(tvb, start, length, hex_encoding, bytes, endoff);
 		if (bytes == NULL)
 			failed = true;
 	}
@@ -6281,8 +6254,11 @@ proto_tree_add_eui64_format(proto_tree *tree, int hfindex, tvbuff_t *tvb,
 static void
 proto_tree_set_eui64(field_info *fi, const uint64_t value)
 {
-	fvalue_set_uinteger64(fi->value, value);
+	uint8_t v[FT_EUI64_LEN];
+	phton64(v, value);
+	fvalue_set_bytes_data(fi->value, v, FT_EUI64_LEN);
 }
+
 static void
 proto_tree_set_eui64_tvb(field_info *fi, tvbuff_t *tvb, int start, const unsigned encoding)
 {
@@ -6393,6 +6369,74 @@ proto_tree_add_mac48_detail(const mac_hf_list_t *list_specific,
 	return ret_val;
 }
 
+static proto_item *
+proto_tree_add_fake_node(proto_tree *tree, const header_field_info *hfinfo)
+{
+	proto_node *pnode, *tnode, *sibling;
+	field_info *tfi;
+	unsigned depth = 1;
+
+	ws_assert(tree);
+
+	/*
+	 * Restrict our depth. proto_tree_traverse_pre_order and
+	 * proto_tree_traverse_post_order (and possibly others) are recursive
+	 * so we need to be mindful of our stack size.
+	 */
+	if (tree->first_child == NULL) {
+		for (tnode = tree; tnode != NULL; tnode = tnode->parent) {
+			depth++;
+			if (G_UNLIKELY(depth > prefs.gui_max_tree_depth)) {
+				THROW_MESSAGE(DissectorError, wmem_strdup_printf(PNODE_POOL(tree),
+						     "Maximum tree depth %d exceeded for \"%s\" - \"%s\" (%s:%u) (Maximum depth can be increased in advanced preferences)",
+						     prefs.gui_max_tree_depth,
+						     hfinfo->name, hfinfo->abbrev, G_STRFUNC, __LINE__));
+			}
+		}
+	}
+
+	/*
+	 * Make sure "tree" is ready to have subtrees under it, by
+	 * checking whether it's been given an ett_ value.
+	 *
+	 * "PNODE_FINFO(tnode)" may be null; that's the case for the root
+	 * node of the protocol tree.  That node is not displayed,
+	 * so it doesn't need an ett_ value to remember whether it
+	 * was expanded.
+	 */
+	tnode = tree;
+	tfi = PNODE_FINFO(tnode);
+	if (tfi != NULL && (tfi->tree_type < 0 || tfi->tree_type >= num_tree_types)) {
+		REPORT_DISSECTOR_BUG("\"%s\" - \"%s\" tfi->tree_type: %d invalid (%s:%u)",
+				     hfinfo->name, hfinfo->abbrev, tfi->tree_type, __FILE__, __LINE__);
+		/* XXX - is it safe to continue here? */
+	}
+
+	pnode = wmem_new(PNODE_POOL(tree), proto_node);
+	PROTO_NODE_INIT(pnode);
+	pnode->parent = tnode;
+	PNODE_HFINFO(pnode) = hfinfo;
+	PNODE_FINFO(pnode) = NULL; // Faked
+	pnode->tree_data = PTREE_DATA(tree);
+
+	if (tnode->last_child != NULL) {
+		sibling = tnode->last_child;
+		DISSECTOR_ASSERT(sibling->next == NULL);
+		sibling->next = pnode;
+	} else
+		tnode->first_child = pnode;
+	tnode->last_child = pnode;
+
+	/* We should not be adding a fake node for an interesting field */
+	ws_assert(hfinfo->ref_type != HF_REF_TYPE_DIRECT && hfinfo->ref_type != HF_REF_TYPE_PRINT);
+
+	/* XXX - Should the proto_item have a header_field_info member, at least
+	 * for faked items, to know what hfi was faked? (Some dissectors look at
+	 * the tree items directly.)
+	 */
+	return (proto_item *)pnode;
+}
+
 /* Add a field_info struct to the proto_tree, encapsulating it in a proto_node */
 static proto_item *
 proto_tree_add_node(proto_tree *tree, field_info *fi)
@@ -6400,6 +6444,8 @@ proto_tree_add_node(proto_tree *tree, field_info *fi)
 	proto_node *pnode, *tnode, *sibling;
 	field_info *tfi;
 	unsigned depth = 1;
+
+	ws_assert(tree);
 
 	/*
 	 * Restrict our depth. proto_tree_traverse_pre_order and
@@ -6445,6 +6491,7 @@ proto_tree_add_node(proto_tree *tree, field_info *fi)
 	pnode = wmem_new(PNODE_POOL(tree), proto_node);
 	PROTO_NODE_INIT(pnode);
 	pnode->parent = tnode;
+	PNODE_HFINFO(pnode) = fi->hfinfo;
 	PNODE_FINFO(pnode) = fi;
 	pnode->tree_data = PTREE_DATA(tree);
 
@@ -6772,6 +6819,12 @@ get_full_length(header_field_info *hfinfo, tvbuff_t *tvb, const int start,
 	return item_length;
 }
 
+// This was arbitrarily chosen, but if you're adding 50K items to the tree
+// without advancing the offset you should probably take a long, hard look
+// at what you're doing.
+// We *could* make this a configurable option, but I (Gerald) would like to
+// avoid adding yet another nerd knob.
+# define PROTO_TREE_MAX_IDLE 50000
 static field_info *
 new_field_info(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *tvb,
 	       const int start, const int item_length)
@@ -6783,6 +6836,17 @@ new_field_info(proto_tree *tree, header_field_info *hfinfo, tvbuff_t *tvb,
 	fi->hfinfo     = hfinfo;
 	fi->start      = start;
 	fi->start     += (tvb)?tvb_raw_offset(tvb):0;
+	// If our start offset hasn't advanced after adding many items it probably
+	// means we're in a large or infinite loop.
+	if (fi->start > 0) {
+		if (fi->start <= PTREE_DATA(tree)->max_start) {
+			PTREE_DATA(tree)->start_idle_count++;
+			DISSECTOR_ASSERT_HINT(PTREE_DATA(tree)->start_idle_count < PROTO_TREE_MAX_IDLE, fi->hfinfo->abbrev);
+		} else {
+			PTREE_DATA(tree)->max_start = fi->start;
+			PTREE_DATA(tree)->start_idle_count = 0;
+		}
+	}
 	fi->length     = item_length;
 	fi->tree_type  = -1;
 	fi->flags      = 0;
@@ -7145,7 +7209,8 @@ proto_item_fill_display_label(const field_info *finfo, char *display_label_str, 
 			break;
 
 		case FT_EUI64:
-			tmp_str = eui64_to_str(NULL, fvalue_get_uinteger64(finfo->value));
+			set_address (&addr, AT_EUI64, EUI64_ADDR_LEN, fvalue_get_bytes_data(finfo->value));
+			tmp_str = address_to_display(NULL, &addr);
 			label_len = protoo_strlcpy(display_label_str, tmp_str, label_str_size);
 			wmem_free(NULL, tmp_str);
 			break;
@@ -7244,13 +7309,6 @@ proto_item_fill_display_label(const field_info *finfo, char *display_label_str, 
 	return label_len;
 }
 
-/* -------------------------- */
-/* Sets the text for a custom column from proto fields.
- *
- * @param[out] result The "resolved" column text (human readable, uses strings)
- * @param[out] expr The "unresolved" column text (values, display repr)
- * @return The filter (abbrev) for the field (XXX: Only the first if multifield)
- */
 const char *
 proto_custom_set(proto_tree* tree, GSList *field_ids, int occurrence, bool display_details,
 		 char *result, char *expr, const int size)
@@ -7261,7 +7319,6 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, int occurrence, bool displ
 	header_field_info*  hfinfo;
 	const char         *abbrev        = NULL;
 
-	const char *hf_str_val;
 	char *str;
 	col_custom_t *field_idx;
 	int field_id;
@@ -7315,7 +7372,8 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, int occurrence, bool displ
 					if (offset_e && (offset_e < (size - 1)))
 						expr[offset_e++] = ',';
 					offset_r += protoo_strlcpy(result+offset_r, str, size-offset_r);
-					offset_e += protoo_strlcpy(expr+offset_e, str, size-offset_e);
+					// col_{add,append,set}_* calls ws_label_strcpy
+					offset_e = (int) ws_label_strcpy(expr, size, offset_e, str, 0);
 					g_free(str);
 				}
 				g_ptr_array_unref(fvals);
@@ -7432,6 +7490,7 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, int occurrence, bool displ
 					expr[offset_e++] = ',';
 
 				if (hfinfo->strings && hfinfo->type != FT_FRAMENUM && FIELD_DISPLAY(hfinfo->display) == BASE_NONE && (FT_IS_INT(hfinfo->type) || FT_IS_UINT(hfinfo->type))) {
+					const char *hf_str_val;
 					/* Integer types with BASE_NONE never get the numeric value. */
 					if (FT_IS_INT32(hfinfo->type)) {
 						hf_str_val = hf_try_val_to_str_const(fvalue_get_sinteger(finfo->value), hfinfo, "Unknown");
@@ -7453,7 +7512,8 @@ proto_custom_set(proto_tree* tree, GSList *field_ids, int occurrence, bool displ
 					}
 				} else {
 					str = fvalue_to_string_repr(NULL, finfo->value, FTREPR_RAW, finfo->hfinfo->display);
-					offset_e += protoo_strlcpy(expr+offset_e, str, size-offset_e);
+					// col_{add,append,set}_* calls ws_label_strcpy
+					offset_e = (int) ws_label_strcpy(expr, size, offset_e, str, 0);
 					wmem_free(NULL, str);
 				}
 				i++;
@@ -7782,7 +7842,7 @@ finfo_set_len(field_info *fi, const int length)
 
 	/* If we have an FT_PROTOCOL we need to set the length of the fvalue tvbuff as well. */
 	if (fvalue_type_ftenum(fi->value) == FT_PROTOCOL) {
-		fvalue_set_protocol(fi->value, NULL, NULL, fi->length);
+		fvalue_set_protocol_length(fi->value, fi->length);
 	}
 
 	/*
@@ -7806,11 +7866,8 @@ proto_item_set_len(proto_item *pi, const int length)
 {
 	field_info *fi;
 
-	/* If the item is not visible, we can't set the length because
-	 * we can't distinguish which proto item this is being called
-	 * on, since faked items share proto items. (#17877)
-	 */
-	TRY_TO_FAKE_THIS_REPR_VOID(pi);
+	if (pi == NULL)
+		return;
 
 	fi = PITEM_FINFO(pi);
 	if (fi == NULL)
@@ -7832,8 +7889,8 @@ proto_item_set_end(proto_item *pi, tvbuff_t *tvb, int end)
 	field_info *fi;
 	int length;
 
-	/* As with proto_item_set_len() above */
-	TRY_TO_FAKE_THIS_REPR_VOID(pi);
+	if (pi == NULL)
+		return;
 
 	fi = PITEM_FINFO(pi);
 	if (fi == NULL)
@@ -7872,8 +7929,10 @@ proto_item_get_display_repr(wmem_allocator_t *scope, proto_item *pi)
 	field_info *fi;
 
 	if (!pi)
-		return "";
+		return wmem_strdup(scope, "");
 	fi = PITEM_FINFO(pi);
+	if (!fi)
+		return wmem_strdup(scope, "");
 	DISSECTOR_ASSERT(fi->hfinfo != NULL);
 	return fvalue_to_string_repr(scope, fi->value, FTREPR_DISPLAY, fi->hfinfo->display);
 }
@@ -7907,6 +7966,10 @@ proto_tree_create_root(packet_info *pinfo)
 
 	/* Keep track of the number of children */
 	pnode->tree_data->count = 0;
+
+	/* Initialize our loop checks */
+	pnode->tree_data->max_start = 0;
+	pnode->tree_data->start_idle_count = 0;
 
 	return (proto_tree *)pnode;
 }
@@ -7997,28 +8060,13 @@ proto_item_get_subtree(proto_item *pi) {
 	if (!pi)
 		return NULL;
 	fi = PITEM_FINFO(pi);
-	if ( (!fi) || (fi->tree_type == -1) )
+	if ( (fi) && (fi->tree_type == -1) )
 		return NULL;
 	return (proto_tree *)pi;
 }
 
 proto_item *
 proto_item_get_parent(const proto_item *ti) {
-	/* XXX: If we're faking items, this will return the parent of the
-	 * faked item, which may not be the logical parent expected.
-	 * We have no way of knowing exactly which real item the fake
-	 * item refers to here (the original item or one of its children
-	 * using it as a fake), and thus whether the parent should be the
-	 * faked item itself or the faked item's parent.
-	 *
-	 * In that case, there's a good chance we end up returning the
-	 * root node of the protocol tree, which has "PNODE_FINFO()" null.
-	 *
-	 * If we later add items to _that_, they will not be faked even though
-	 * they _should_ be, hurting performance (#8069). Also protocol
-	 * hierarchy stats (which fakes everything but protocols) may
-	 * behave oddly if unexpected items are added under the root node.
-	 */
 	if (!ti)
 		return NULL;
 	return ti->parent;
@@ -8026,7 +8074,6 @@ proto_item_get_parent(const proto_item *ti) {
 
 proto_item *
 proto_item_get_parent_nth(proto_item *ti, int gen) {
-	/* XXX: Same issue as above, even more so. */
 	if (!ti)
 		return NULL;
 	while (gen--) {
@@ -8047,7 +8094,6 @@ proto_tree_get_parent(proto_tree *tree) {
 
 proto_tree *
 proto_tree_get_parent_tree(proto_tree *tree) {
-	/* XXX: Same issue as proto_item_get_parent */
 	if (!tree)
 		return NULL;
 
@@ -9560,55 +9606,6 @@ tmp_fld_check_assert(header_field_info *hfinfo)
 	}
 }
 
-#ifdef ENABLE_CHECK_FILTER
-static enum ftenum
-_ftype_common(enum ftenum type)
-{
-	switch (type) {
-		case FT_INT8:
-		case FT_INT16:
-		case FT_INT24:
-		case FT_INT32:
-			return FT_INT32;
-
-		case FT_CHAR:
-		case FT_UINT8:
-		case FT_UINT16:
-		case FT_UINT24:
-		case FT_UINT32:
-		case FT_IPXNET:
-		case FT_FRAMENUM:
-			return FT_UINT32;
-
-		case FT_UINT64:
-		case FT_EUI64:
-			return FT_UINT64;
-
-		case FT_STRING:
-		case FT_STRINGZ:
-		case FT_UINT_STRING:
-			return FT_STRING;
-
-		case FT_FLOAT:
-		case FT_DOUBLE:
-			return FT_DOUBLE;
-
-		case FT_BYTES:
-		case FT_UINT_BYTES:
-		case FT_ETHER:
-		case FT_OID:
-			return FT_BYTES;
-
-		case FT_ABSOLUTE_TIME:
-		case FT_RELATIVE_TIME:
-			return FT_ABSOLUTE_TIME;
-
-		default:
-			return type;
-	}
-}
-#endif
-
 static void
 register_type_length_mismatch(void)
 {
@@ -9787,7 +9784,7 @@ proto_register_field_init(header_field_info *hfinfo, const int parent)
 			hfinfo->same_name_prev_id = same_name_hfinfo->id;
 #ifdef ENABLE_CHECK_FILTER
 			while (same_name_hfinfo) {
-				if (_ftype_common(hfinfo->type) != _ftype_common(same_name_hfinfo->type))
+				if (!ftype_similar_types(hfinfo->type, same_name_hfinfo->type))
 					ws_warning("'%s' exists multiple times with incompatible types: %s and %s", hfinfo->abbrev, ftype_name(hfinfo->type), ftype_name(same_name_hfinfo->type));
 				same_name_hfinfo = same_name_hfinfo->same_name_next;
 			}
@@ -9955,7 +9952,6 @@ proto_item_fill_label(const field_info *fi, char *label_str, size_t *value_pos)
 	const char	   *str;
 	const uint8_t	   *bytes;
 	uint32_t		    integer;
-	uint64_t		    integer64;
 	const ipv4_addr_and_mask *ipv4;
 	const ipv6_addr_and_prefix *ipv6;
 	const e_guid_t	   *guid;
@@ -10190,11 +10186,13 @@ proto_item_fill_label(const field_info *fi, char *label_str, size_t *value_pos)
 			break;
 
 		case FT_EUI64:
-			integer64 = fvalue_get_uinteger64(fi->value);
-			addr_str = eui64_to_str(NULL, integer64);
-			tmp = (char*)eui64_to_display(NULL, integer64);
-			label_fill_descr(label_str, 0, hfinfo, tmp, addr_str, value_pos);
-			wmem_free(NULL, tmp);
+			bytes = fvalue_get_bytes_data(fi->value);
+			addr.type = AT_EUI64;
+			addr.len  = EUI64_ADDR_LEN;
+			addr.data = bytes;
+
+			addr_str = (char*)address_with_resolution_to_str(NULL, &addr);
+			label_fill(label_str, 0, hfinfo, addr_str, value_pos);
 			wmem_free(NULL, addr_str);
 			break;
 		case FT_STRING:
@@ -10692,7 +10690,6 @@ static size_t
 fill_display_label_float(const field_info *fi, char *label_str)
 {
 	int display;
-	int digits;
 	int n;
 	double value;
 
@@ -10708,12 +10705,11 @@ fill_display_label_float(const field_info *fi, char *label_str)
 
 	switch (display) {
 		case BASE_NONE:
-			if (fi->hfinfo->type == FT_FLOAT)
-				digits = FLT_DIG;
-			else
-				digits = DBL_DIG;
-
-			n = snprintf(label_str, ITEM_LABEL_LENGTH, "%.*g", digits, value);
+			if (fi->hfinfo->type == FT_FLOAT) {
+				n = snprintf(label_str, ITEM_LABEL_LENGTH, "%.*g", FLT_DIG, value);
+			} else {
+				n = (int)strlen(dtoa_g_fmt(label_str, value));
+			}
 			break;
 		case BASE_DEC:
 			n = snprintf(label_str, ITEM_LABEL_LENGTH, "%f", value);
@@ -13921,6 +13917,14 @@ proto_tree_add_checksum(proto_tree *tree, tvbuff_t *tvb, const unsigned offset,
 					incorrect_checksum = false;
 				} else if (flags & PROTO_CHECKSUM_IN_CKSUM) {
 					computed_checksum = in_cksum_shouldbe(checksum, computed_checksum);
+					/* XXX - This can't distinguish between "shouldbe"
+					 * 0x0000 and 0xFFFF unless we know whether there
+					 * were any nonzero bits (other than the checksum).
+					 * Protocols should not use this path if they might
+					 * have an all zero packet.
+					 * Some implementations put the wrong zero; maybe
+					 * we should have a special expert info for that?
+					 */
 				}
 			} else {
 				if (checksum == computed_checksum) {

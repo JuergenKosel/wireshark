@@ -2253,7 +2253,7 @@ dissect_sip_reason_header(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, i
     if (semi_colon_offset == -1){
         length = line_end_offset - current_offset;
     } else {
-        /* Text parmeter exist, set length accordingly */
+        /* Text parameter exist, set length accordingly */
         length = semi_colon_offset - current_offset;
     }
 
@@ -2760,7 +2760,7 @@ static void dissect_sip_via_header(tvbuff_t *tvb, proto_tree *tree, int start_of
                                     parameter_name_end + 1, current_offset - parameter_name_end - 1, &ts);
                                 proto_item_set_generated(ti);
                             }
-                        } else if (g_ascii_strcasecmp(param_name, "be-route") == 0) {
+                        } else if (sip_via_be_route_handle && g_ascii_strcasecmp(param_name, "be-route") == 0) {
                             tvbuff_t* next_tvb;
                             next_tvb = tvb_new_subset_length(tvb, parameter_name_end + 1, current_offset - parameter_name_end - 1);
                             call_dissector(sip_via_be_route_handle, next_tvb, pinfo, proto_item_add_subtree(via_parameter_item, ett_sip_via_be_route));
@@ -3639,7 +3639,7 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
                     if (ext_hdr_handle != NULL) {
                         tvbuff_t *next_tvb2;
                         next_tvb2 = tvb_new_subset_length(tvb, value_offset, value_len);
-                        dissector_try_string(ext_hdr_subdissector_table, header_name, next_tvb2, pinfo, ti_tree, NULL);
+                        dissector_try_string_with_data(ext_hdr_subdissector_table, header_name, next_tvb2, pinfo, ti_tree, true, NULL);
                     } else {
                         expert_add_info_format(pinfo, ti_c, &ei_sip_unrecognized_header,
                                                "Unrecognised SIP header (%s)",
@@ -4799,26 +4799,26 @@ dissect_sip_common(tvbuff_t *tvb, int offset, int remaining_length, packet_info 
 
             /* XXX: why is this called even if setup_sdp_transport() was called before? That will
                     parse the SDP a second time, for 'application/sdp' media MIME bodies */
-            DPRINT(("calling dissector_try_string()"));
+            DPRINT(("calling dissector_try_string_with_data()"));
             DINDENT();
-            found_match = dissector_try_string(media_type_dissector_table,
+            found_match = dissector_try_string_with_data(media_type_dissector_table,
                                                media_type_str_lower_case,
                                                next_tvb, pinfo,
-                                               message_body_tree, &content_info);
+                                               message_body_tree, true, &content_info);
             DENDENT();
-            DPRINT(("done calling dissector_try_string() with found_match=%u", found_match));
+            DPRINT(("done calling dissector_try_string_with_data() with found_match=%u", found_match));
 
             if (!found_match &&
                 !strncmp(media_type_str_lower_case, "multipart/", sizeof("multipart/")-1)) {
-                DPRINT(("calling dissector_try_string() for multipart"));
+                DPRINT(("calling dissector_try_string_with_data() for multipart"));
                 DINDENT();
                 /* Try to decode the unknown multipart subtype anyway */
-                found_match = dissector_try_string(media_type_dissector_table,
+                found_match = dissector_try_string_with_data(media_type_dissector_table,
                                                    "multipart/",
                                                    next_tvb, pinfo,
-                                                   message_body_tree, &content_info);
+                                                   message_body_tree, true, &content_info);
                 DENDENT();
-                DPRINT(("done calling dissector_try_string() with found_match=%u", found_match));
+                DPRINT(("done calling dissector_try_string_with_data() with found_match=%u", found_match));
             }
             /* If no match dump as text */
         }

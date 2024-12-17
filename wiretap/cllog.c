@@ -339,6 +339,12 @@ static bool parseFieldLength(cCLLog_logFileInfo_t *pInfo _U_, char *pField, cCLL
         *err_info = g_strdup_printf("cllog: length value is not valid");
         return false;
     }
+    if (length > array_length(pLogEntry->data)) {
+        *err = WTAP_ERR_BAD_FILE;
+        *err_info = g_strdup_printf("cllog: length value %u > maximum length %zu",
+            length, array_length(pLogEntry->data));
+        return false;
+    }
     pLogEntry->length = length;
     return true;
 }
@@ -351,12 +357,12 @@ static bool parseFieldData(cCLLog_logFileInfo_t *pInfo _U_, char *pField, cCLLog
     pLogEntry->length = 0;
 
     /* Loop all data bytes */
-    for (unsigned int dataByte = 0; dataByte < 8; dataByte++)
+    while (pLogEntry->length < array_length(pLogEntry->data))
     {
         int hexdigit;
         uint8_t data;
 
-        if (*pFieldStart == '\n' || *pFieldStart == '\r')
+        if (*pFieldStart == '\n' || *pFieldStart == '\r' || *pFieldStart == '\0')
         {
             break;
         }
@@ -364,7 +370,7 @@ static bool parseFieldData(cCLLog_logFileInfo_t *pInfo _U_, char *pField, cCLLog
         hexdigit = ws_xton(*pFieldStart);
         if (hexdigit < 0) {
             *err = WTAP_ERR_BAD_FILE;
-            *err_info = g_strdup_printf("cllog: packet byte value is not valid");
+            *err_info = g_strdup_printf("cllog: packet byte value 0x%02x is not valid", *pFieldStart);
             return false;
         }
         data = (uint8_t)hexdigit << 4U;
@@ -372,14 +378,12 @@ static bool parseFieldData(cCLLog_logFileInfo_t *pInfo _U_, char *pField, cCLLog
         hexdigit = ws_xton(*pFieldStart);
         if (hexdigit < 0) {
             *err = WTAP_ERR_BAD_FILE;
-            *err_info = g_strdup("cllog: packet byte value is not valid");
+            *err_info = g_strdup_printf("cllog: packet byte value 0x%02x is not valid", *pFieldStart);
             return false;
         }
         data = data | (uint8_t)hexdigit;
         pFieldStart++;
-        pLogEntry->data[dataByte] = data;
-
-        pLogEntry->length++;
+        pLogEntry->data[pLogEntry->length++] = data;
     }
     return true;
 }
@@ -572,15 +576,15 @@ static bool parseBoolean(const char *pFieldValue, bool *value, char *fieldName, 
 
 static bool parseLogFileHeaderLine_type(cCLLog_logFileInfo_t *pInfo, char *pFieldValue, int *err, char **err_info)
 {
-    if (strcmp(pFieldValue, "CANLogger1000") == 0 )
+    if (strcmp(pFieldValue, "CANLogger1000") == 0 || strcmp(pFieldValue, "CL1000") == 0)
     {
         pInfo->loggerType = type_CL1000_e;
     }
-    else if (strcmp(pFieldValue, "CANLogger2000") == 0)
+    else if (strcmp(pFieldValue, "CANLogger2000") == 0 || strcmp(pFieldValue, "CL2000") == 0)
     {
         pInfo->loggerType = type_CL2000_e;
     }
-    else if (strcmp(pFieldValue, "CANLogger3000") == 0 )
+    else if (strcmp(pFieldValue, "CANLogger3000") == 0 || strcmp(pFieldValue, "CL3000") == 0)
     {
         pInfo->loggerType = type_CL3000_e;
     }

@@ -12,6 +12,7 @@
 
 #include <QDrag>
 #include <QActionGroup>
+#include <QPointer>
 
 #include <ui/qt/widgets/syntax_line_edit.h>
 
@@ -21,7 +22,8 @@ class StockIconToolButton;
 typedef enum {
     DisplayFilterToApply,
     DisplayFilterToEnter,
-    ReadFilterToApply
+    ReadFilterToApply,
+    CustomColumnToEnter,
 } DisplayFilterEditType;
 
 class DisplayFilterEdit : public SyntaxLineEdit
@@ -29,6 +31,7 @@ class DisplayFilterEdit : public SyntaxLineEdit
     Q_OBJECT
 public:
     explicit DisplayFilterEdit(QWidget *parent = 0, DisplayFilterEditType type = DisplayFilterToEnter);
+    void setType(DisplayFilterEditType type);
 
 protected:
     void paintEvent(QPaintEvent *evt);
@@ -72,9 +75,9 @@ private:
     QAction *save_action_;
     QAction *remove_action_;
     QActionGroup * actions_;
-    StockIconToolButton *bookmark_button_;
-    StockIconToolButton *clear_button_;
-    StockIconToolButton *apply_button_;
+    QPointer<StockIconToolButton> bookmark_button_;
+    QPointer<StockIconToolButton> clear_button_;
+    QPointer<StockIconToolButton> apply_button_;
     bool leftAlignActions_;
     QString last_applied_;
     QString filter_word_preamble_;

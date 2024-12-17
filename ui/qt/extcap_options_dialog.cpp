@@ -330,7 +330,7 @@ void ExtcapOptionsDialog::updateWidgets()
                     QPushButton *button = new QPushButton(defaultValueIcon_,"");
                     button->setToolTip(tr("Restore default value of the item"));
                     layout->addWidget(button, counter, 2, Qt::AlignVCenter);
-                    connect(button, SIGNAL(clicked()), argument, SLOT(setDefaultValue()));
+                    connect(button, &QPushButton::clicked, argument, &ExtcapArgument::setDefaultValue);
                 }
             }
 
@@ -402,7 +402,7 @@ void ExtcapOptionsDialog::on_buttonBox_helpRequested()
         QFileInfo help_file(local_path);
         if (!help_file.exists()) {
             QMessageBox::warning(this, tr("Extcap Help cannot be found"),
-                QString(tr("The help for the extcap interface %1 cannot be found. Given file: %2"))
+                tr("The help for the extcap interface %1 cannot be found. Given file: %2")
                     .arg(device->name).arg(QDir::toNativeSeparators(local_path)),
                 QMessageBox::Ok);
             return;

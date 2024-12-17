@@ -154,6 +154,22 @@ const value_string gre_typevals[] = {
     { GRE_ARUBA_8360,      "ARUBA WLAN" },
     { GRE_ARUBA_8370,      "ARUBA WLAN" },
     { GRE_ARUBA_9000,      "ARUBA WLAN" },
+    { GRE_ARUBA_9100,      "ARUBA WLAN" },
+    { GRE_ARUBA_9110,      "ARUBA WLAN" },
+    { GRE_ARUBA_9120,      "ARUBA WLAN" },
+    { GRE_ARUBA_9130,      "ARUBA WLAN" },
+    { GRE_ARUBA_9140,      "ARUBA WLAN" },
+    { GRE_ARUBA_9150,      "ARUBA WLAN" },
+    { GRE_ARUBA_9160,      "ARUBA WLAN" },
+    { GRE_ARUBA_9170,      "ARUBA WLAN" },
+    { GRE_ARUBA_9180,      "ARUBA WLAN" },
+    { GRE_ARUBA_9190,      "ARUBA WLAN" },
+    { GRE_ARUBA_91A0,      "ARUBA WLAN" },
+    { GRE_ARUBA_91B0,      "ARUBA WLAN" },
+    { GRE_ARUBA_91C0,      "ARUBA WLAN" },
+    { GRE_ARUBA_91D0,      "ARUBA WLAN" },
+    { GRE_ARUBA_91E0,      "ARUBA WLAN" },
+    { GRE_ARUBA_91F0,      "ARUBA WLAN" },
     { 0,                   NULL }
 };
 
@@ -498,8 +514,8 @@ dissect_gre(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
         }
         next_tvb = tvb_new_subset_remaining(tvb, offset);
         pinfo->flags.in_gre_pkt = true;
-        if (!dissector_try_uint_new(gre_dissector_table, type, next_tvb, pinfo, tree, true, &gre_hdr_info))
-            if (!dissector_try_payload_new(gre_subdissector_table, next_tvb, pinfo, tree, true, &gre_hdr_info)) {
+        if (!dissector_try_uint_with_data(gre_dissector_table, type, next_tvb, pinfo, tree, true, &gre_hdr_info))
+            if (!dissector_try_payload_with_data(gre_subdissector_table, next_tvb, pinfo, tree, true, &gre_hdr_info)) {
               call_data_dissector(next_tvb, pinfo, gre_tree);
             }
     }

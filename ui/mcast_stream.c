@@ -31,6 +31,7 @@
 #include <epan/packet.h>
 #include <epan/tap.h>
 #include <epan/to_str.h>
+#include <epan/dissectors/packet-udp.h>
 
 #include "ui/mcast_stream.h"
 
@@ -43,8 +44,8 @@ int32_t mcast_stream_cumulemptyspeed = 100000; /* outgoing speed for all streams
 /* sliding window and buffer usage */
 static int32_t buffsize = (int)((double)MAX_SPEED * 100 / 1000) * 2;
 static uint16_t comparetimes(nstime_t *t1, nstime_t *t2, uint16_t burstint_lcl);
-static void    buffusagecalc(mcast_stream_info_t *strinfo, packet_info *pinfo, double emptyspeed_lcl);
-static void    slidingwindow(mcast_stream_info_t *strinfo, packet_info *pinfo);
+static void    buffusagecalc(mcast_stream_info_t *strinfo, uint32_t nbytes, double emptyspeed_lcl);
+static void    slidingwindow(mcast_stream_info_t *strinfo, packet_info *pinfo, uint32_t nbytes);
 
 /****************************************************************************/
 /* GCompareFunc style comparison function for _mcast_stream_info */
@@ -75,23 +76,27 @@ void
 mcaststream_reset(mcaststream_tapinfo_t *tapinfo)
 {
     GList* list;
+    mcast_stream_info_t *strinfo;
 
     /* free the data items first */
     list = g_list_first(tapinfo->strinfo_list);
     while (list)
     {
-        /* XYZ I don't know how to clean this */
-        /*g_free(list->element.buff); */
-        g_free(list->data);
+        strinfo = (mcast_stream_info_t*)list->data;
+        g_free(strinfo->element.buff);
+        free_address_wmem(NULL, &strinfo->src_addr);
+        free_address_wmem(NULL, &strinfo->dest_addr);
+        g_free(strinfo);
         list = g_list_next(list);
     }
     g_list_free(tapinfo->strinfo_list);
     tapinfo->strinfo_list = NULL;
 
-    /* XYZ and why does the line below causes a crash? */
-    /*g_free(tapinfo->allstreams->element.buff);*/
-    g_free(tapinfo->allstreams);
-    tapinfo->allstreams = NULL;
+    if (tapinfo->allstreams != NULL) {
+        g_free(tapinfo->allstreams->element.buff);
+        g_free(tapinfo->allstreams);
+        tapinfo->allstreams = NULL;
+    }
 
     tapinfo->npackets = 0;
 
@@ -133,11 +138,13 @@ tap_packet_status
 mcaststream_packet(void *arg, packet_info *pinfo, epan_dissect_t *edt _U_, const void *arg2 _U_, tap_flags_t flags _U_)
 {
     mcaststream_tapinfo_t *tapinfo = (mcaststream_tapinfo_t *)arg;
+    const e_udphdr *udphdr = (const e_udphdr *)arg2;
     mcast_stream_info_t tmp_strinfo;
     mcast_stream_info_t *strinfo = NULL;
     GList* list;
     nstime_t delta;
     double deltatime;
+    uint32_t nbytes;
 
     /*
      * Restrict statistics to standard multicast IPv4 and IPv6 addresses.
@@ -160,10 +167,17 @@ mcaststream_packet(void *arg, packet_info *pinfo, epan_dissect_t *edt _U_, const
             return TAP_PACKET_DONT_REDRAW;
     }
 
-    /* gather infos on the stream this packet is part of */
-    copy_address(&(tmp_strinfo.src_addr), &(pinfo->net_src));
+    /* New payload bytes - UDP datagram length (including UDP header but not
+     * IP header nor link-layer frame header). This is a uint32_t because
+     * of UDP jumbograms (RFC 2675) but overflow probably causes unexpected
+     * results if jumbograms over INT32_MAX are used. (They aren't.)
+     */
+    nbytes = udphdr->uh_ulen;
+
+    /* shallow copy information to temporary key for lookup */
+    copy_address_shallow(&(tmp_strinfo.src_addr), &(pinfo->net_src));
     tmp_strinfo.src_port = pinfo->srcport;
-    copy_address(&(tmp_strinfo.dest_addr), &(pinfo->net_dst));
+    copy_address_shallow(&(tmp_strinfo.dest_addr), &(pinfo->net_dst));
     tmp_strinfo.dest_port = pinfo->destport;
 
     /* check whether we already have a stream with these parameters in the list */
@@ -182,56 +196,38 @@ mcaststream_packet(void *arg, packet_info *pinfo, epan_dissect_t *edt _U_, const
     if (!strinfo) {
         /*printf("nov sip %s sp %d dip %s dp %d\n", address_to_display(NULL, &(pinfo->src)),
             pinfo->srcport, address_to_display(NULL, &(pinfo->dst)), pinfo->destport);*/
-        tmp_strinfo.npackets = 0;
-        tmp_strinfo.apackets = 0;
-        tmp_strinfo.first_frame_num = pinfo->num;
-        tmp_strinfo.start_abs = pinfo->abs_ts;
-        tmp_strinfo.start_rel = pinfo->rel_ts;
-        tmp_strinfo.vlan_id = 0;
 
-        /* reset Mcast stats */
-        tmp_strinfo.average_bw = 0;
-        tmp_strinfo.total_bytes = 0;
+        strinfo = g_new0(mcast_stream_info_t, 1);
 
-        /* reset slidingwindow and buffer parameters */
-        tmp_strinfo.element.buff = g_new(nstime_t, buffsize);
-        tmp_strinfo.element.first=0;
-        tmp_strinfo.element.last=0;
-        tmp_strinfo.element.burstsize=1;
-        tmp_strinfo.element.topburstsize=1;
-        tmp_strinfo.element.numbursts=0;
-        tmp_strinfo.element.burststatus=0;
-        tmp_strinfo.element.count=1;
-        tmp_strinfo.element.buffusage=pinfo->fd->pkt_len;
-        tmp_strinfo.element.topbuffusage=pinfo->fd->pkt_len;
-        tmp_strinfo.element.numbuffalarms=0;
-        tmp_strinfo.element.buffstatus=0;
-        tmp_strinfo.element.maxbw=0;
+        strinfo->src_port = pinfo->srcport;
+        strinfo->dest_port = pinfo->destport;
+        copy_address_wmem(NULL, &(strinfo->src_addr), &(pinfo->net_src));
+        copy_address_wmem(NULL, &(strinfo->dest_addr), &(pinfo->net_dst));
+        strinfo->first_frame_num = pinfo->num;
+        nstime_copy(&strinfo->start_abs, &pinfo->abs_ts);
+        nstime_copy(&strinfo->start_rel, &pinfo->rel_ts);
 
-        strinfo = g_new(mcast_stream_info_t, 1);
-        *strinfo = tmp_strinfo;  /* memberwise copy of struct */
-        tapinfo->strinfo_list = g_list_append(tapinfo->strinfo_list, strinfo);
+        /* slidingwindow and buffer parameters */
         strinfo->element.buff = g_new(nstime_t, buffsize);
+        strinfo->element.burstsize=1;
+        strinfo->element.topburstsize=1;
+        strinfo->element.count=1;
+        strinfo->element.buffusage=nbytes;
+        strinfo->element.topbuffusage=nbytes;
+
+        tapinfo->strinfo_list = g_list_append(tapinfo->strinfo_list, strinfo);
 
         /* set time with the first packet */
         if (tapinfo->npackets == 0) {
-            tapinfo->allstreams = g_new(mcast_stream_info_t, 1);
+            tapinfo->allstreams = g_new0(mcast_stream_info_t, 1);
             tapinfo->allstreams->element.buff =
                     g_new(nstime_t, buffsize);
-            tapinfo->allstreams->start_rel = pinfo->rel_ts;
-            tapinfo->allstreams->total_bytes = 0;
-            tapinfo->allstreams->element.first=0;
-            tapinfo->allstreams->element.last=0;
+            nstime_copy(&tapinfo->allstreams->start_rel, &pinfo->rel_ts);
             tapinfo->allstreams->element.burstsize=1;
             tapinfo->allstreams->element.topburstsize=1;
-            tapinfo->allstreams->element.numbursts=0;
-            tapinfo->allstreams->element.burststatus=0;
             tapinfo->allstreams->element.count=1;
-            tapinfo->allstreams->element.buffusage=pinfo->fd->pkt_len;
-            tapinfo->allstreams->element.topbuffusage=pinfo->fd->pkt_len;
-            tapinfo->allstreams->element.numbuffalarms=0;
-            tapinfo->allstreams->element.buffstatus=0;
-            tapinfo->allstreams->element.maxbw=0;
+            tapinfo->allstreams->element.buffusage=nbytes;
+            tapinfo->allstreams->element.topbuffusage=nbytes;
         }
     }
 
@@ -241,7 +237,7 @@ mcaststream_packet(void *arg, packet_info *pinfo, epan_dissect_t *edt _U_, const
     deltatime = nstime_to_sec(&delta);
 
     /* calculate average bandwidth for this stream */
-    strinfo->total_bytes = strinfo->total_bytes + pinfo->fd->pkt_len;
+    strinfo->total_bytes = strinfo->total_bytes + nbytes;
 
     /* increment the packets counter for this stream and calculate average pps */
     ++(strinfo->npackets);
@@ -262,16 +258,16 @@ mcaststream_packet(void *arg, packet_info *pinfo, epan_dissect_t *edt _U_, const
     ++(tapinfo->npackets);
 
     /* calculate average bandwidth for all streams */
-    tapinfo->allstreams->total_bytes = tapinfo->allstreams->total_bytes + pinfo->fd->pkt_len;
+    tapinfo->allstreams->total_bytes = tapinfo->allstreams->total_bytes + nbytes;
     if (deltatime > 0)
         tapinfo->allstreams->average_bw = ((double)(tapinfo->allstreams->total_bytes*8) / deltatime);
 
     /* sliding window and buffercalc for this group*/
-    slidingwindow(strinfo, pinfo);
-    buffusagecalc(strinfo, pinfo, mcast_stream_emptyspeed*1000);
+    slidingwindow(strinfo, pinfo, nbytes);
+    buffusagecalc(strinfo, nbytes, mcast_stream_emptyspeed*1000);
     /* sliding window and buffercalc for all groups */
-    slidingwindow(tapinfo->allstreams, pinfo);
-    buffusagecalc(tapinfo->allstreams, pinfo, mcast_stream_cumulemptyspeed*1000);
+    slidingwindow(tapinfo->allstreams, pinfo, nbytes);
+    buffusagecalc(tapinfo->allstreams, nbytes, mcast_stream_cumulemptyspeed*1000);
     /* end of sliding window */
 
     return TAP_PACKET_REDRAW;  /* refresh output */
@@ -332,7 +328,7 @@ comparetimes(nstime_t *t1, nstime_t *t2, uint16_t burstint_lcl)
 
 /* calculate buffer usage */
 static void
-buffusagecalc(mcast_stream_info_t *strinfo, packet_info *pinfo, double emptyspeed_lcl)
+buffusagecalc(mcast_stream_info_t *strinfo, uint32_t nbytes, double emptyspeed_lcl)
 {
     int32_t cur, prev;
     nstime_t *buffer;
@@ -356,7 +352,7 @@ buffusagecalc(mcast_stream_info_t *strinfo, packet_info *pinfo, double emptyspee
     timeelapsed = nstime_to_sec(&delta);
 
     /* bytes added to buffer */
-    strinfo->element.buffusage+=pinfo->fd->pkt_len;
+    strinfo->element.buffusage+=nbytes;
 
     /* bytes cleared from buffer */
     strinfo->element.buffusage-= (uint32_t) (timeelapsed * emptyspeed_lcl / 8);
@@ -377,7 +373,7 @@ buffusagecalc(mcast_stream_info_t *strinfo, packet_info *pinfo, double emptyspee
 
 /* sliding window calculation */
 static void
-slidingwindow(mcast_stream_info_t *strinfo, packet_info *pinfo)
+slidingwindow(mcast_stream_info_t *strinfo, packet_info *pinfo, uint32_t nbytes)
 {
     nstime_t *buffer;
     int32_t diff;
@@ -405,7 +401,7 @@ slidingwindow(mcast_stream_info_t *strinfo, packet_info *pinfo)
     strinfo->element.burstsize = diff;
     if(strinfo->element.burstsize > strinfo->element.topburstsize) {
         strinfo->element.topburstsize = strinfo->element.burstsize;
-        strinfo->element.maxbw = (double)(strinfo->element.topburstsize) * 1000 / mcast_stream_burstint * pinfo->fd->pkt_len * 8;
+        strinfo->element.maxbw = (double)(strinfo->element.topburstsize) * 1000 / mcast_stream_burstint * nbytes * 8;
     }
 
     strinfo->element.last++;

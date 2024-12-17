@@ -452,7 +452,7 @@ File "${STAGING_DIR}\README.txt"
 File "${STAGING_DIR}\wka"
 File "${STAGING_DIR}\pdml2html.xsl"
 File "${STAGING_DIR}\ws.css"
-;File "${STAGING_DIR}\stratoshark.html"
+File "${STAGING_DIR}\stratoshark.html"
 File "${STAGING_DIR}\wireshark-filter.html"
 File "${STAGING_DIR}\dumpcap.exe"
 File "${STAGING_DIR}\dumpcap.html"
@@ -918,6 +918,7 @@ SetOutPath '$INSTDIR\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan'
 File "${STAGING_DIR}\plugins\${MAJOR_VERSION}.${MINOR_VERSION}\epan\falco-bridge.dll"
 SetOutPath '$INSTDIR\plugins\falco'
 File "${STAGING_DIR}\plugins\falco\cloudtrail.dll"
+File "${STAGING_DIR}\plugins\falco\gcpaudit.dll"
 !include "custom_plugins.txt"
 
 ;-------------------------------------------
@@ -1003,6 +1004,13 @@ Section "Falcodump" SecFalcodump
   !insertmacro InstallExtcap "falcodump"
 SectionEnd
 !insertmacro CheckExtrasFlag "falcodump"
+
+!ifdef LIBSSH_FOUND
+Section "Sshdig" SecSshdig
+!insertmacro InstallExtcap "sshdig"
+SectionEnd
+!insertmacro CheckExtrasFlag "sshdig"
+!endif
 
 SectionGroupEnd ; "External Capture (extcap)"
 
@@ -1138,6 +1146,7 @@ Delete "$INSTDIR\audio\*.*"
 Delete "$INSTDIR\bearer\*.*"
 Delete "$INSTDIR\diameter\*.*"
 Delete "$INSTDIR\extcap\falcodump.*"
+Delete "$INSTDIR\extcap\sshdig.*"
 Delete "$INSTDIR\gpl-2.0-standalone.html"
 Delete "$INSTDIR\Acknowledgements.md"
 Delete "$INSTDIR\generic\*.*"
@@ -1280,6 +1289,9 @@ SectionEnd
 
   !insertmacro MUI_DESCRIPTION_TEXT ${SecExtcapGroup} "External Capture Interfaces"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecFalcodump} "Provide capture interfaces from Falco plugins."
+  !ifdef LIBSSH_FOUND
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecSshdig} "Provide remote capture through SSH. (sysdig)"
+  !endif
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 

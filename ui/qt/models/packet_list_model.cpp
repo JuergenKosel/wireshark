@@ -24,7 +24,6 @@
 #include "ui/recent.h"
 
 #include <epan/color_filters.h>
-#include "frame_tvbuff.h"
 
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
@@ -76,8 +75,6 @@ packet_list_recreate_visible_rows(void)
 PacketListModel::PacketListModel(QObject *parent, capture_file *cf) :
     QAbstractItemModel(parent),
     number_to_row_(QVector<int>()),
-    max_row_height_(0),
-    max_line_count_(1),
     idle_dissection_row_(0)
 {
     Q_ASSERT(glbl_plist_model == Q_NULLPTR);
@@ -89,9 +86,8 @@ PacketListModel::PacketListModel(QObject *parent, capture_file *cf) :
     new_visible_rows_.reserve(1000);
     number_to_row_.reserve(reserved_packets_);
 
-    if (qobject_cast<MainWindow *>(mainApp->mainWindow()))
+    if (MainWindow *mw = mainApp->mainWindow())
     {
-            MainWindow *mw = qobject_cast<MainWindow *>(mainApp->mainWindow());
             QWidget * wtWidget = mw->findChild<WirelessTimeline *>();
             if (wtWidget && qobject_cast<WirelessTimeline *>(wtWidget))
             {
@@ -102,9 +98,6 @@ PacketListModel::PacketListModel(QObject *parent, capture_file *cf) :
 
     }
 
-    connect(this, &PacketListModel::maxLineCountChanged,
-            this, &PacketListModel::emitItemHeightChanged,
-            Qt::QueuedConnection);
     idle_dissection_timer_ = new QElapsedTimer();
 }
 
@@ -177,8 +170,6 @@ void PacketListModel::clear() {
     new_visible_rows_.resize(0);
     number_to_row_.resize(0);
     endResetModel();
-    max_row_height_ = 0;
-    max_line_count_ = 1;
     idle_dissection_timer_->invalidate();
     idle_dissection_row_ = 0;
 }
@@ -542,15 +533,6 @@ void PacketListModel::deleteAllFrameComments()
     expert_update_comment_count(cap_file_->packet_comment_count);
 }
 
-void PacketListModel::setMaximumRowHeight(int height)
-{
-    max_row_height_ = height;
-    // As the QTreeView uniformRowHeights documentation says,
-    // "The height is obtained from the first item in the view. It is
-    //  updated when the data changes on that item."
-    emit dataChanged(index(0, 0), index(0, columnCount() - 1));
-}
-
 int PacketListModel::sort_column_;
 int PacketListModel::sort_column_is_numeric_;
 int PacketListModel::text_sort_column_;
@@ -631,8 +613,7 @@ void PacketListModel::sort(int column, Qt::SortOrder order)
      */
     exp_comps_ = log2(visible_rows_.count()) * visible_rows_.count();
     progress_frame_ = nullptr;
-    if (qobject_cast<MainWindow *>(mainApp->mainWindow())) {
-        MainWindow *mw = qobject_cast<MainWindow *>(mainApp->mainWindow());
+    if (MainWindow *mw = mainApp->mainWindow()) {
         progress_frame_ = mw->findChild<ProgressFrame *>();
         if (progress_frame_) {
             progress_frame_->showProgress(busy_msg, true, false, &stop_flag_, 0);
@@ -728,11 +709,10 @@ bool PacketListModel::isNumericColumn(int column)
     for (unsigned i = 0; i < num_fields; i++) {
         col_custom = (col_custom_t *) g_slist_nth_data(sort_cap_file_->cinfo.columns[column].col_custom_fields_ids, i);
         if (col_custom->field_id == 0) {
-            /* XXX - We need some way to check the compiled dfilter's expected
-             * return type. Best would be to use the actual field values return
-             * and sort on those (we could skip expensive string conversions
-             * in the numeric case, see below)
-             */
+            ftenum_t type = dfilter_get_return_type(col_custom->dfilter);
+            if (FT_IS_INTEGER(type) || FT_IS_FLOATING(type) || type == FT_BOOLEAN || type == FT_RELATIVE_TIME) {
+                return true;
+            }
             return false;
         }
         header_field_info *hfi = proto_registrar_get_nth(col_custom->field_id);
@@ -842,20 +822,6 @@ double PacketListModel::parseNumericColumn(const QString &val, bool *ok)
     return num;
 }
 
-// ::data is const so we have to make changes here.
-void PacketListModel::emitItemHeightChanged(const QModelIndex &ih_index)
-{
-    if (!ih_index.isValid()) return;
-
-    PacketListRecord *record = static_cast<PacketListRecord*>(ih_index.internalPointer());
-    if (!record) return;
-
-    if (record->lineCount() > max_line_count_) {
-        max_line_count_ = record->lineCount();
-        emit itemHeightChanged(ih_index);
-    }
-}
-
 int PacketListModel::rowCount(const QModelIndex &) const
 {
     return static_cast<int>(visible_rows_.count());
@@ -923,26 +889,7 @@ QVariant PacketListModel::data(const QModelIndex &d_index, int role) const
         return ColorUtils::fromColorT(color);
     case Qt::DisplayRole:
     {
-        int column = d_index.column();
-        QString column_string = record->columnString(cap_file_, column, true);
-        // We don't know an item's sizeHint until we fetch its text here.
-        // Assume each line count is 1. If the line count changes, emit
-        // itemHeightChanged which triggers another redraw (including a
-        // fetch of SizeHintRole and DisplayRole) in the next event loop.
-        if (column == 0 && record->lineCountChanged() && record->lineCount() > max_line_count_) {
-            emit maxLineCountChanged(d_index);
-        }
-        return column_string;
-    }
-    case Qt::SizeHintRole:
-    {
-        // If this is the first row and column, return the maximum row height...
-        if (d_index.row() < 1 && d_index.column() < 1 && max_row_height_ > 0) {
-            QSize size = QSize(-1, max_row_height_);
-            return size;
-        }
-        // ...otherwise punt so that the item delegate can correctly calculate the item width.
-        return QVariant();
+        return record->columnString(cap_file_, d_index.column(), true);
     }
     default:
         return QVariant();

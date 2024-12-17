@@ -14,8 +14,8 @@
 #include "ui/capture_globals.h"
 #include "ui/urls.h"
 
-#include "wsutil/filesystem.h"
-#include "wsutil/version_info.h"
+#include <wsutil/application_flavor.h>
+#include <wsutil/version_info.h>
 
 #include "welcome_page.h"
 #include <ui_welcome_page.h>
@@ -139,19 +139,19 @@ void WelcomePage::setReleaseLabel()
     QString full_release;
     QDate today = QDate::currentDate();
     if ((today.month() == 4 && today.day() == 1) || (today.month() == 7 && today.day() == 14)) {
-        if (is_packet_configuration_namespace()) {
+        if (application_flavor_is_wireshark()) {
             full_release = tr("You are sniffing the glue that holds the Internet together using Wireshark ");
         } else {
             full_release = tr("You are sniffing the glue that holds your system together using Stratoshark ");
         }
     } else {
-        if (is_packet_configuration_namespace()) {
+        if (application_flavor_is_wireshark()) {
             full_release = tr("You are running Wireshark ");
         } else {
             full_release = tr("You are running Stratoshark ");
         }
     }
-    full_release += is_packet_configuration_namespace() ? get_ws_vcs_version_info() : get_ss_vcs_version_info();
+    full_release += application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info();
     full_release += ".";
 #ifdef HAVE_SOFTWARE_UPDATE
     if (prefs.gui_update_enabled) {
@@ -302,13 +302,13 @@ void WelcomePage::updateRecentCaptures() {
             itemLabel.append(" (");
             if (ri->accessible) {
                 if (ri->size/1024/1024/1024 > 10) {
-                    itemLabel.append(QString("%1 GB").arg(ri->size/1024/1024/1024));
+                    itemLabel.append(QStringLiteral("%1 GB").arg(ri->size/1024/1024/1024));
                 } else if (ri->size/1024/1024 > 10) {
-                    itemLabel.append(QString("%1 MB").arg(ri->size/1024/1024));
+                    itemLabel.append(QStringLiteral("%1 MB").arg(ri->size/1024/1024));
                 } else if (ri->size/1024 > 10) {
-                    itemLabel.append(QString("%1 KB").arg(ri->size/1024));
+                    itemLabel.append(QStringLiteral("%1 KB").arg(ri->size/1024));
                 } else {
-                    itemLabel.append(QString("%1 Bytes").arg(ri->size));
+                    itemLabel.append(QStringLiteral("%1 Bytes").arg(ri->size));
                 }
             } else {
                 itemLabel.append(tr("not found"));
@@ -451,7 +451,7 @@ void WelcomePage::on_helpLabel_clicked()
 
 void WelcomePage::updateStyleSheets()
 {
-    QString welcome_ss = QString(
+    QString welcome_ss = QStringLiteral(
                 "WelcomePage {"
                 "  padding: 1em;"
                 " }"
@@ -464,7 +464,7 @@ void WelcomePage::updateStyleSheets()
                 "}"
                 );
 #if !defined(Q_OS_WIN)
-    welcome_ss += QString(
+    welcome_ss += QStringLiteral(
                 "QAbstractItemView:item:hover {"
                 "  background-color: %1;"
                 "  color: palette(text);"
@@ -474,7 +474,7 @@ void WelcomePage::updateStyleSheets()
 #endif
     setStyleSheet(welcome_ss);
 
-    QString banner_ss = QString(
+    QString banner_ss = QStringLiteral(
                 "QLabel {"
                 "  border-radius: 0.33em;"
                 "  color: %1;"
@@ -486,7 +486,7 @@ void WelcomePage::updateStyleSheets()
             .arg(QColor(tango_sky_blue_2).name());   // Background color
     welcome_ui_->mainWelcomeBanner->setStyleSheet(banner_ss);
 
-    QString title_button_ss = QString(
+    QString title_button_ss = QStringLiteral(
             "QLabel {"
             "  color: %1;"
             "}"
@@ -508,7 +508,7 @@ void WelcomePage::updateStyleSheets()
         // - Add one or more classes, e.g. "note" or "warning" similar to
         //   SyntaxLineEdit, which we can then expose vi #defines.
         // - Just expose direct color values via #defines.
-        QString flavor_ss = QString(
+        QString flavor_ss = QStringLiteral(
                     "QLabel {"
                     "  border-radius: 0.25em;"
                     "  color: %1;"

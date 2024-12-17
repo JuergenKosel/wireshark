@@ -116,7 +116,7 @@ static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	{ "help", ws_no_argument, NULL, OPT_HELP},
 	{ "version", ws_no_argument, NULL, OPT_VERSION},
-	SSH_BASE_OPTIONS,
+	SSH_BASE_PACKET_OPTIONS,
 	{ 0, 0, 0, 0}
 };
 
@@ -2296,8 +2296,11 @@ int main(int argc, char *argv[])
 	char* help_url;
 	char* help_header = NULL;
 
+	/* Set the program name. */
+	g_set_prgname("ciscodump");
+
 	/* Initialize log handler early so we can have proper logging during startup. */
-	extcap_log_init("ciscodump");
+	extcap_log_init();
 
 	/*
 	 * Get credential information for later use.
@@ -2308,7 +2311,7 @@ int main(int argc, char *argv[])
 	 * Attempt to get the pathname of the directory containing the
 	 * executable file.
 	 */
-	err_msg = configuration_init(argv[0], NULL);
+	err_msg = configuration_init(argv[0]);
 	if (err_msg != NULL) {
 		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);

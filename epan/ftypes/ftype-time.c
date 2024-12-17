@@ -495,6 +495,16 @@ relative_val_to_repr(wmem_allocator_t *scope, const fvalue_t *fv, ftrepr_t rtype
 	return rel_time_to_secs_str(scope, &fv->value.time);
 }
 
+static enum ft_result
+time_val_to_double(const fvalue_t *fv, double *repr)
+{
+	if (nstime_is_unset(&fv->value.time)) {
+		return FT_ERROR;
+	}
+	*repr = nstime_to_sec(&fv->value.time);
+	return FT_OK;
+}
+
 static unsigned
 time_hash(const fvalue_t *fv)
 {
@@ -579,16 +589,25 @@ time_subtract(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 static void
 _nstime_mul_int(nstime_t *res, nstime_t a, int64_t val, jmp_buf env)
 {
+	// XXX - To handle large (64-bit) val, use 128-bit integers
+	// to hold intermediate results
+	int64_t tmp_nsecs;
+	ws_safe_mul_jmp(&tmp_nsecs, a.nsecs, val, env);
+	res->nsecs = (int)(tmp_nsecs % NS_PER_S);
 	ws_safe_mul_jmp(&res->secs, a.secs, (time_t)val, env);
-	ws_safe_mul_jmp(&res->nsecs, a.nsecs, (int)val, env);
+	res->secs += (time_t)(tmp_nsecs / NS_PER_S);
 	check_ns_wraparound(res, env);
 }
 
 static void
 _nstime_mul_float(nstime_t *res, nstime_t a, double val, jmp_buf env)
 {
-	res->secs = (time_t)(a.secs * val);
-	res->nsecs = (int)(a.nsecs * val);
+	double tmp_secs, tmp_nsecs;
+	double tmp_time = nstime_to_sec(&a) * val;
+	tmp_nsecs = modf(tmp_time, &tmp_secs);
+
+	res->secs = (time_t)(tmp_secs);
+	res->nsecs = (int)(round(tmp_nsecs * NS_PER_S));
 	check_ns_wraparound(res, env);
 }
 
@@ -597,7 +616,7 @@ time_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 {
 	jmp_buf env;
 	if (setjmp(env) != 0) {
-		*err_ptr = ws_strdup_printf("time_subtract: overflow");
+		*err_ptr = ws_strdup_printf("time_multiply: overflow");
 		return FT_ERROR;
 	}
 
@@ -617,20 +636,6 @@ time_multiply(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_pt
 	return FT_OK;
 }
 
-static void
-_nstime_div_int(nstime_t *res, nstime_t a, int64_t val, jmp_buf env)
-{
-	ws_safe_div_jmp(&res->secs, a.secs, (time_t)val, env);
-	ws_safe_div_jmp(&res->nsecs, a.nsecs, (int)val, env);
-}
-
-static void
-_nstime_div_float(nstime_t *res, nstime_t a, double val)
-{
-	res->secs = (time_t)(a.secs / val);
-	res->nsecs = (int)(a.nsecs / val);
-}
-
 static enum ft_result
 time_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 {
@@ -647,7 +652,8 @@ time_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 			*err_ptr = ws_strdup_printf("time_divide: division by zero");
 			return FT_ERROR;
 		}
-		_nstime_div_int(&dst->value.time, a->value.time, val, env);
+		// Integer division is annoying, this is acceptable
+		_nstime_mul_float(&dst->value.time, a->value.time, 1 / (double)val, env);
 	}
 	else if (ft_b == FT_DOUBLE) {
 		double val = fvalue_get_floating((fvalue_t *)b);
@@ -655,7 +661,7 @@ time_divide(fvalue_t *dst, const fvalue_t *a, const fvalue_t *b, char **err_ptr)
 			*err_ptr = ws_strdup_printf("time_divide: division by zero");
 			return FT_ERROR;
 		}
-		_nstime_div_float(&dst->value.time, a->value.time, val);
+		_nstime_mul_float(&dst->value.time, a->value.time, 1 / val, env);
 	}
 	else {
 		ws_critical("Invalid RHS ftype: %s", ftype_pretty_name(ft_b));
@@ -684,7 +690,7 @@ ftype_register_time(void)
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
-		NULL,				/* val_from_double */
+		time_val_to_double,		/* val_to_double */
 
 		{ .set_value_time = time_fvalue_set },	/* union set_value */
 		{ .get_value_time = value_get },	/* union get_value */
@@ -722,7 +728,7 @@ ftype_register_time(void)
 
 		NULL,				/* val_to_uinteger64 */
 		NULL,				/* val_to_sinteger64 */
-		NULL,				/* val_from_double */
+		time_val_to_double,		/* val_to_double */
 
 		{ .set_value_time = time_fvalue_set },	/* union set_value */
 		{ .get_value_time = value_get },	/* union get_value */

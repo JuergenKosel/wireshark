@@ -175,9 +175,11 @@ QActionGroup * FilterAction::createFilterGroup(QString filter, bool prepare, boo
     bool filterEmpty = false;
     if (mainApp)
     {
-        QWidget * mainWin = mainApp->mainWindow();
-        if (qobject_cast<MainWindow *>(mainWin))
-            filterEmpty = qobject_cast<MainWindow *>(mainWin)->getFilter().isEmpty();
+        MainWindow *mainWin = mainApp->mainWindow();
+        if (mainWin)
+        {
+            filterEmpty = mainWin->getFilter().isEmpty();
+        }
     }
 
     FilterAction * filterAction = new FilterAction(parent, prepare ? FilterAction::ActionPrepare : FilterAction::ActionApply);
@@ -217,7 +219,7 @@ QMenu * FilterAction::createFilterMenu(FilterAction::Action act, QString filter,
     if (filter.length() > 0)
     {
         int one_em = submenu->fontMetrics().height();
-        QString prep_text = QString("%1: %2").arg(title).arg(filter);
+        QString prep_text = QStringLiteral("%1: %2").arg(title).arg(filter);
         prep_text = submenu->fontMetrics().elidedText(prep_text, Qt::ElideRight, one_em * 40);
         QAction * comment = submenu->addAction(prep_text);
         comment->setEnabled(false);
@@ -240,11 +242,10 @@ void FilterAction::groupTriggered(QAction * action)
             FilterAction::ActionType type = action->property("filterType").value<FilterAction::ActionType>();
             QString filter = sender()->property("filter").toString();
 
-            QWidget * mainWin = mainApp->mainWindow();
-            if (qobject_cast<MainWindow *>(mainWin))
+            MainWindow *mainWin = mainApp->mainWindow();
+            if (mainWin)
             {
-                MainWindow * mw = qobject_cast<MainWindow *>(mainWin);
-                mw->setDisplayFilter(filter, act, type);
+                mainWin->setDisplayFilter(filter, act, type);
             }
         }
     }

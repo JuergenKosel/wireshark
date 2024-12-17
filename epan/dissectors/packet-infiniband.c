@@ -1772,7 +1772,7 @@ dissect_infiniband_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, i
     /* The Headers Subtree */
     proto_tree *all_headers_tree;
 
-    /* BTH - Base Trasport Header */
+    /* BTH - Base Transport Header */
     bool dctBthHeader = false;
     int bthSize = 12;
 
@@ -2825,7 +2825,7 @@ static void parse_PAYLOAD(proto_tree *parentTree,
 
         if (dissector_found == false)
         {
-            if (dissector_try_payload_new(subdissector_table, next_tvb, pinfo, top_tree, true, info))
+            if (dissector_try_payload_with_data(subdissector_table, next_tvb, pinfo, top_tree, true, info))
             {
                 dissector_found = true;
             }

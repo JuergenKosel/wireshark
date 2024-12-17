@@ -237,7 +237,7 @@ call_ros_oid_callback(const char *oid, tvbuff_t *tvb, int offset, packet_info *p
 	next_tvb = tvb_new_subset_remaining(tvb, offset);
 
 	if(((len = ros_try_string(oid, next_tvb, pinfo, tree, session)) == 0) &&
-	   ((len = dissector_try_string(ros_oid_dissector_table, oid, next_tvb, pinfo, tree, session)) == 0)) {
+	   ((len = dissector_try_string_with_data(ros_oid_dissector_table, oid, next_tvb, pinfo, tree, true, session)) == 0)) {
 		proto_item *item;
 		proto_tree *next_tree;
 
@@ -1094,7 +1094,7 @@ void proto_register_ros(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ros_operationResult,
-      { "result", "ros.result_element",
+      { "result", "ros.operationResult_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "OperationResult", HFILL }},
     { &hf_ros_errcode,
@@ -1114,15 +1114,15 @@ void proto_register_ros(void) {
         FT_INT32, BASE_DEC, VALS(ros_GeneralProblem_vals), 0,
         "GeneralProblem", HFILL }},
     { &hf_ros_invokeProblem,
-      { "invoke", "ros.invoke",
+      { "invoke", "ros.invokeProblem",
         FT_INT32, BASE_DEC, VALS(ros_InvokeProblem_vals), 0,
         "InvokeProblem", HFILL }},
     { &hf_ros_rejectResult,
-      { "returnResult", "ros.returnResult",
+      { "returnResult", "ros.rejectResult",
         FT_INT32, BASE_DEC, VALS(ros_ReturnResultProblem_vals), 0,
         "ReturnResultProblem", HFILL }},
     { &hf_ros_rejectError,
-      { "returnError", "ros.returnError",
+      { "returnError", "ros.rejectError",
         FT_INT32, BASE_DEC, VALS(ros_ReturnErrorProblem_vals), 0,
         "ReturnErrorProblem", HFILL }},
     { &hf_ros_present,

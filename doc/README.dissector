@@ -1373,14 +1373,13 @@ representation of it in the specific protocol context. This is interesting
 for protocols with variable-width header fields.
 
 Note that the formats used must all belong to the same group as defined below:
-- FT_INT8, FT_INT16, FT_INT24 and FT_INT32
-- FT_CHAR, FT_UINT8, FT_UINT16, FT_UINT24, FT_UINT32, FT_IPXNET and FT_FRAMENUM
-- FT_INT40, FT_INT48, FT_INT56 and FT_INT64
-- FT_UINT40, FT_UINT48, FT_UINT56, FT_UINT64 and FT_EUI64
+- FT_INT8, FT_INT16, FT_INT24 and FT_INT32, FT_CHAR, FT_UINT8, FT_UINT16,
+  FT_UINT24, FT_UINT32, FT_IPXNET, FT_FRAMENUM, FT_INT40, FT_INT48, FT_INT56,
+  FT_INT64, FT_UINT40, FT_UINT48, FT_UINT56 and FT_UINT64
 - FT_ABSOLUTE_TIME and FT_RELATIVE_TIME
-- FT_STRING, FT_STRINGZ, FT_UINT_STRING, FT_STRINGZPAD, and FT_STRINGZTRUNC
+- FT_STRING, FT_STRINGZ, FT_UINT_STRING, FT_STRINGZPAD, FT_STRINGZTRUNC and FT_AX25
 - FT_FLOAT, FT_DOUBLE, FT_IEEE_11073_SFLOAT and FT_IEEE_11073_FLOAT
-- FT_BYTES, FT_UINT_BYTES, FT_ETHER, FT_AX25, FT_VINES and FT_FCWWN
+- FT_BYTES, FT_UINT_BYTES, FT_ETHER, FT_VINES, FT_FCWWN and FT_EUI64
 - FT_OID, FT_REL_OID and FT_SYSTEM_ID
 
 Any field not in a grouping above should *NOT* be used in duplicate field
@@ -1739,8 +1738,8 @@ For string-decoding, the passed-in encoding argument needs to specify the
 string encoding (e.g., ENC_ASCII, ENC_UTF_8) as well as the format. For
 some XXX types, the format is constrained - for example for the encoding format
 for proto_tree_add_time_item() can only be one of the ENC_ISO_8601_* ones
-or ENC_IMF_DATE_TIME. For proto_tree_add_bytes_item() it can only
-be ENC_STR_HEX bit-or'ed with one or more of the ENC_SEP_* separator types.
+or ENC_IMF_DATE_TIME. For proto_tree_add_bytes_item() if ENC_STR_HEX is used
+it must be bit-or'ed with one or more of the ENC_SEP_* separator types.
 
 proto_tree_add_protocol_format()
 --------------------------------
@@ -1856,8 +1855,8 @@ e_guid_t structure.
 For proto_tree_add_oid(), the 'value_ptr' argument is a pointer to an
 ASN.1 Object Identifier.
 
-For proto_tree_add_eui64(), the 'value' argument is a 64-bit integer
-value
+For proto_tree_add_eui64(), the 'value' argument is a 64-bit unsigned
+integer value, in host byte order.
 
 proto_tree_add_bytes_format()
 proto_tree_add_time_format()
@@ -2368,12 +2367,12 @@ following APIs to invoke the subdissector:
         const uint32_t uint_val, tvbuff_t *tvb, packet_info *pinfo,
         proto_tree *tree);
 
-    int dissector_try_uint_new(dissector_table_t sub_dissectors,
+    int dissector_try_uint_with_data(dissector_table_t sub_dissectors,
         const uint32_t uint_val, tvbuff_t *tvb, packet_info *pinfo,
         proto_tree *tree, const bool add_proto_name, void *data);
 
-    int dissector_try_string(dissector_table_t sub_dissectors, const char *string,
-        tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
+    int dissector_try_string_with_data(dissector_table_t sub_dissectors, const char *string,
+        tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, true, void *data);
 
 These pass a subset of the remaining packet (typically the rest of the
 packet) for the dissector table to determine which subdissector is called.

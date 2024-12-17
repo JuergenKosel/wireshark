@@ -2218,7 +2218,7 @@ static const value_string opcode_vals[] = {
     {0x20, "Read Multiple Variable Request"},
     {0x21, "Read Multiple Variable Response"},
     {0x52, "Write Command"},
-    {0xD2, "Signed Write Command"},
+    {0xd2, "Signed Write Command"},
     {0x0, NULL}
 };
 
@@ -3597,7 +3597,7 @@ static const value_string user_control_point_response_value_vals[] = {
 static const value_string cgm_feature_type_vals[] = {
     { 0x01,   "Capillary Whole Blood"},
     { 0x02,   "Capillary Plasma"},
-    { 0x03,   "Capillary Whole Blood"},
+    { 0x03,   "Venous Whole Blood"},
     { 0x04,   "Venous Plasma"},
     { 0x05,   "Arterial Whole Blood"},
     { 0x06,   "Arterial Plasma"},
@@ -3937,7 +3937,7 @@ static const value_string fitness_machine_status_opcode_vals[] = {
     { 0x0C, "Targeted Number of Strides Changed" },
     { 0x0D, "Targeted Distance Changed" },
     { 0x0E, "Targeted Training Time Changed" },
-    { 0x0F, "Targeted Time in Three Heart Rate Zones Changed" },
+    { 0x0F, "Targeted Time in Two Heart Rate Zones Changed" },
     { 0x10, "Targeted Time in Three Heart Rate Zones Changed" },
     { 0x11, "Targeted Time in Five Heart Rate Zones Changed" },
     { 0x12, "Indoor Bike Simulation Parameters Changed" },
@@ -4969,13 +4969,13 @@ dissect_attribute_value(proto_tree *tree, proto_item *patron_item, packet_info *
     }
 
     service_uuid = get_service_uuid_from_handle(pinfo, handle, att_data->opcode, bluetooth_data);
-    offset = dissector_try_uint_new(att_service_dissector_table, service_uuid.bt_uuid, tvb, pinfo, tree, true, att_data);
+    offset = dissector_try_uint_with_data(att_service_dissector_table, service_uuid.bt_uuid, tvb, pinfo, tree, true, att_data);
     if (offset == tvb_captured_length(tvb))
         return old_offset + offset;
 
     /* hier wird subdissector aufgerufen */
     /* dort wird auch von einem neuen PAket ausgegangen, was es natürlich nicht ist, darum fehelern und kein subdissector aufgerufen*/
-    if (dissector_try_string(bluetooth_uuid_table, print_numeric_bluetooth_uuid(pinfo->pool, &uuid), tvb, pinfo, tree, att_data))
+    if (dissector_try_string_with_data(bluetooth_uuid_table, print_numeric_bluetooth_uuid(pinfo->pool, &uuid), tvb, pinfo, tree, true, att_data))
         return old_offset + length;
     else if (!uuid.bt_uuid) {
         if (bluetooth_gatt_has_no_parameter(att_data->opcode))
@@ -10664,7 +10664,7 @@ btatt_dissect_attribute_handle(uint16_t handle, tvbuff_t *tvb, packet_info *pinf
      * from its protocol name and then calls dissect_attribute_value().
      */
 
-    return dissector_try_uint_new(att_handle_dissector_table, handle, tvb, pinfo, tree, true, att_data);
+    return dissector_try_uint_with_data(att_handle_dissector_table, handle, tvb, pinfo, tree, true, att_data);
 }
 
 static int

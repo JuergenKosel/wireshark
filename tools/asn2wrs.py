@@ -332,7 +332,7 @@ StringTypes = ['Numeric', 'Printable', 'IA5', 'BMP', 'Universal', 'UTF8',
 # for the known-multiplier character string types (X.691 27.1)
 #
 # XXX: This should include BMPString (UCS2) and UniversalString (UCS4),
-# but asn2wrs only suports the RestrictedCharacterStringValue
+# but asn2wrs only supports the RestrictedCharacterStringValue
 # notation of "cstring", but not that of "CharacterStringList",
 # "Quadruple", or "Tuple" (See X.680 41.8), and packet-per.c does
 # not support members of the permitted-alphabet being outside the
@@ -1034,16 +1034,20 @@ class EthCtx:
         if self.remove_prefix and name.startswith(self.remove_prefix):
             name = name[len(self.remove_prefix):]
 
+        # Use FIELD_RENAME to affect the ABBREV as well. (Should it be
+        # used for the displayed NAME too, instead of the last element?)
         if len(ident.split('/')) > 1 and name == ITEM_FIELD_NAME:  # Sequence/Set of type
             if len(self.field[ident]['type'].split('/')) > 1:
                 self.field[ident]['attr']['NAME'] = '"%s item"' % ident.split('/')[-2]
-                self.field[ident]['attr']['ABBREV'] = asn2c(ident.split('/')[-2] + name)
+                nm = self.conform.use_item('FIELD_RENAME', '/'.join(ident.split('/')[0:-1]), val_dflt=ident.split('/')[-2]) + name
+                self.field[ident]['attr']['ABBREV'] = asn2c(nm)
             else:
                 self.field[ident]['attr']['NAME'] = '"%s"' % self.field[ident]['type']
                 self.field[ident]['attr']['ABBREV'] = asn2c(self.field[ident]['type'])
         else:
             self.field[ident]['attr']['NAME'] = '"%s"' % name
-            self.field[ident]['attr']['ABBREV'] = asn2c(name)
+            nm = self.conform.use_item('FIELD_RENAME', ident, val_dflt=name)
+            self.field[ident]['attr']['ABBREV'] = asn2c(nm)
         if self.conform.check_item('FIELD_ATTR', ident):
             self.field[ident]['modified'] = '#' + str(id(self))
             self.field[ident]['attr'].update(self.conform.use_item('FIELD_ATTR', ident))
@@ -4612,6 +4616,9 @@ class ChoiceType (Type):
         return not self.HasOwnTag()
 
     def detect_tagval(self, ectx):
+        '''Returns True if the tag numbers are used as the tree values.
+           Returns False if we assign our own tree values for each choice.
+        '''
         tagval = False
         lst = self.elt_list[:]
         if hasattr(self, 'ext_list'):
@@ -4623,6 +4630,10 @@ class ChoiceType (Type):
             t = ''
             tagval = False
         if (t == 'BER_CLASS_UNI'):
+            # Don't use universal tags
+            tagval = False
+        if t == 'BER_CLASS_ANY/*choice*/':
+            # Don't use -1 tags that refer to another level of CHOICE
             tagval = False
         for e in (lst):
             if not (ectx.Per() or ectx.Oer()) or e.HasOwnTag():

@@ -60,7 +60,6 @@
 #ifdef HAVE_LUA
 #include <epan/wslua/init_wslua.h>
 #endif
-#include "frame_tvbuff.h"
 #include <epan/disabled_protos.h>
 #include <epan/prefs.h>
 #include <epan/column.h>
@@ -84,6 +83,7 @@
 #include "ui/dissect_opts.h"
 #include "ui/ssl_key_export.h"
 #include "ui/failure_message.h"
+#include "ui/capture_opts.h"
 #if defined(HAVE_LIBSMI)
 #include "epan/oids.h"
 #endif
@@ -97,8 +97,6 @@
 #include <epan/ex-opt.h>
 #include <epan/exported_pdu.h>
 #include <epan/secrets.h>
-
-#include "capture_opts.h"
 
 #include "capture/capture-pcap-util.h"
 
@@ -262,9 +260,6 @@ static void show_print_file_io_error(void);
 static bool write_preamble(capture_file *cf);
 static bool print_packet(capture_file *cf, epan_dissect_t *edt);
 static bool write_finale(void);
-
-static void tshark_cmdarg_err(const char *msg_format, va_list ap);
-static void tshark_cmdarg_err_cont(const char *msg_format, va_list ap);
 
 static GHashTable *output_only_tables;
 
@@ -451,7 +446,7 @@ print_usage(FILE *output)
 #endif
 #ifdef CAN_SET_CAPTURE_BUFFER_SIZE
     fprintf(output, "  -B <buffer size>, --buffer-size <buffer size>\n");
-    fprintf(output, "                           size of kernel buffer (def: %dMB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
+    fprintf(output, "                           size of kernel buffer in MiB (def: %dMiB)\n", DEFAULT_CAPTURE_BUFFER_SIZE);
 #endif
     fprintf(output, "  -y <link type>, --linktype <link type>\n");
     fprintf(output, "                           link layer type (def: first appropriate)\n");
@@ -460,8 +455,9 @@ print_usage(FILE *output)
     fprintf(output, "  -L, --list-data-link-types\n");
     fprintf(output, "                           print list of link-layer types of iface and exit\n");
     fprintf(output, "  --list-time-stamp-types  print list of timestamp types for iface and exit\n");
-    fprintf(output, "  --update-interval        interval between updates with new packets (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
     fprintf(output, "\n");
+    fprintf(output, "Capture display:\n");
+    fprintf(output, "  --update-interval        interval between updates with new packets, in milliseconds (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
     fprintf(output, "Capture stop conditions:\n");
     fprintf(output, "  -c <packet count>        stop after n packets (def: infinite)\n");
     fprintf(output, "  -a <autostop cond.> ..., --autostop <autostop cond.> ...\n");
@@ -1128,6 +1124,9 @@ main(int argc, char *argv[])
 
     static const char    optstring[] = OPTSTRING;
 
+    /* Set the program name. */
+    g_set_prgname("tshark");
+
     /*
      * Set the C-language locale to the native environment and set the
      * code page to UTF-8 on Windows.
@@ -1140,10 +1139,10 @@ main(int argc, char *argv[])
 
     ws_tzset();
 
-    cmdarg_err_init(tshark_cmdarg_err, tshark_cmdarg_err_cont);
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("tshark", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -1168,7 +1167,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    err_msg = configuration_init(argv[0], NULL);
+    err_msg = configuration_init(argv[0]);
     if (err_msg != NULL) {
         fprintf(stderr,
                 "tshark: Can't get pathname of directory containing the tshark program: %s.\n"
@@ -3442,7 +3441,7 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
 
         elapsed_start = g_get_monotonic_time();
         epan_dissect_run(edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, &fdlocal, buf),
+                ws_buffer_start_ptr(buf),
                 &fdlocal, cinfo);
         tshark_elapsed.first_pass.dissect += g_get_monotonic_time() - elapsed_start;
 
@@ -3699,7 +3698,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         block = wtap_block_ref(rec->block);
         elapsed_start = g_get_monotonic_time();
         epan_dissect_run_with_taps(edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+                ws_buffer_start_ptr(buf),
                 fdata, cinfo);
         tshark_elapsed.second_pass.dissect += g_get_monotonic_time() - elapsed_start;
 
@@ -4395,7 +4394,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
         block = wtap_block_ref(rec->block);
         elapsed_start = g_get_monotonic_time();
         epan_dissect_run_with_taps(edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, &fdata, buf),
+                ws_buffer_start_ptr(buf),
                 &fdata, cinfo);
         tshark_elapsed.first_pass.dissect += g_get_monotonic_time() - elapsed_start;
 
@@ -5043,27 +5042,6 @@ show_print_file_io_error(void)
 #endif
             break;
     }
-}
-
-/*
- * Report an error in command-line arguments.
- */
-static void
-tshark_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "tshark: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-tshark_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
 }
 
 static void

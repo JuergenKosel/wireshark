@@ -180,52 +180,42 @@ sender_receiver_key(uint16_t bus_id, uint8_t channel, uint8_t cycle, uint16_t fr
 
 static sender_receiver_config_t *
 ht_lookup_sender_receiver_config(flexray_info_t *flexray_info) {
-    sender_receiver_config_t *tmp = NULL;
-    uint64_t                  key = 0;
+    sender_receiver_config_t* tmp;
+    uint64_t                  key;
 
     if (sender_receiver_configs == NULL) {
         return NULL;
     }
 
     key = sender_receiver_key(flexray_info->bus_id, flexray_info->ch, flexray_info->cc, flexray_info->id);
-    tmp = (sender_receiver_config_t *)g_hash_table_lookup(data_sender_receiver, &key);
+    tmp = g_hash_table_lookup(data_sender_receiver, &key);
 
     if (tmp == NULL) {
         key = sender_receiver_key(0, flexray_info->ch, flexray_info->cc, flexray_info->id);
-        tmp = (sender_receiver_config_t *)g_hash_table_lookup(data_sender_receiver, &key);
+        tmp = g_hash_table_lookup(data_sender_receiver, &key);
     }
 
     return tmp;
 }
 
 static void
-sender_receiver_free_key(void *key) {
-    wmem_free(wmem_epan_scope(), key);
-}
-
-static void
 post_update_sender_receiver_cb(void) {
     unsigned i;
-    uint64_t *key_id = NULL;
+    uint64_t *key;
 
     /* destroy old hash table, if it exist */
     if (data_sender_receiver) {
         g_hash_table_destroy(data_sender_receiver);
-        data_sender_receiver = NULL;
     }
 
     /* create new hash table */
-    data_sender_receiver = g_hash_table_new_full(g_int64_hash, g_int64_equal, &sender_receiver_free_key, NULL);
-
-    if (data_sender_receiver == NULL || sender_receiver_configs == NULL || sender_receiver_config_num == 0) {
-        return;
-    }
+    data_sender_receiver = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, NULL);
 
     for (i = 0; i < sender_receiver_config_num; i++) {
-        key_id = wmem_new(wmem_epan_scope(), uint64_t);
-        *key_id = sender_receiver_key(sender_receiver_configs[i].bus_id, sender_receiver_configs[i].channel,
-                                      sender_receiver_configs[i].cycle, sender_receiver_configs[i].frame_id);
-        g_hash_table_insert(data_sender_receiver, key_id, &sender_receiver_configs[i]);
+        key = g_new(uint64_t, 1);
+        *key = sender_receiver_key(sender_receiver_configs[i].bus_id, sender_receiver_configs[i].channel,
+                                    sender_receiver_configs[i].cycle, sender_receiver_configs[i].frame_id);
+        g_hash_table_insert(data_sender_receiver, key, &sender_receiver_configs[i]);
     }
 }
 
@@ -269,34 +259,34 @@ flexray_call_subdissectors(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, 
     uint32_t flexray_id = flexray_flexrayinfo_to_flexrayid(flexray_info);
 
     /* lets try an exact match first */
-    if (dissector_try_uint_new(flexrayid_subdissector_table, flexray_id, tvb, pinfo, tree, true, flexray_info)) {
+    if (dissector_try_uint_with_data(flexrayid_subdissector_table, flexray_id, tvb, pinfo, tree, true, flexray_info)) {
         return true;
     }
 
     /* lets try with BUS-ID = 0 (any) */
-    if (dissector_try_uint_new(flexrayid_subdissector_table, flexray_id & ~FLEXRAY_ID_BUS_ID_MASK, tvb, pinfo, tree, true, flexray_info)) {
+    if (dissector_try_uint_with_data(flexrayid_subdissector_table, flexray_id & ~FLEXRAY_ID_BUS_ID_MASK, tvb, pinfo, tree, true, flexray_info)) {
         return true;
     }
 
     /* lets try with cycle = 0xff (any) */
-    if (dissector_try_uint_new(flexrayid_subdissector_table, flexray_id | FLEXRAY_ID_CYCLE_MASK, tvb, pinfo, tree, true, flexray_info)) {
+    if (dissector_try_uint_with_data(flexrayid_subdissector_table, flexray_id | FLEXRAY_ID_CYCLE_MASK, tvb, pinfo, tree, true, flexray_info)) {
         return true;
     }
 
     /* lets try with BUS-ID = 0 (any) and cycle = 0xff (any) */
-    if (dissector_try_uint_new(flexrayid_subdissector_table, (flexray_id & ~FLEXRAY_ID_BUS_ID_MASK) | FLEXRAY_ID_CYCLE_MASK, tvb, pinfo, tree, true, flexray_info)) {
+    if (dissector_try_uint_with_data(flexrayid_subdissector_table, (flexray_id & ~FLEXRAY_ID_BUS_ID_MASK) | FLEXRAY_ID_CYCLE_MASK, tvb, pinfo, tree, true, flexray_info)) {
         return true;
     }
 
     if (!use_heuristics_first) {
-        if (!dissector_try_payload_new(subdissector_table, tvb, pinfo, tree, false, flexray_info)) {
+        if (!dissector_try_payload_with_data(subdissector_table, tvb, pinfo, tree, false, flexray_info)) {
             if (!dissector_try_heuristic(heur_subdissector_list, tvb, pinfo, tree, &heur_dtbl_entry, flexray_info)) {
                 return false;
             }
         }
     } else {
         if (!dissector_try_heuristic(heur_subdissector_list, tvb, pinfo, tree, &heur_dtbl_entry, flexray_info)) {
-            if (!dissector_try_payload_new(subdissector_table, tvb, pinfo, tree, false, flexray_info)) {
+            if (!dissector_try_payload_with_data(subdissector_table, tvb, pinfo, tree, false, flexray_info)) {
                 return false;
             }
         }

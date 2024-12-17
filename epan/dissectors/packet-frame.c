@@ -562,7 +562,8 @@ static int
 dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* data)
 {
 	proto_item  *volatile ti = NULL;
-	unsigned	     cap_len = 0, frame_len = 0;
+	unsigned     cap_len = 0, frame_len = 0;
+	nstime_t     rel_ts;
 	uint32_t     pack_flags;
 	uint32_t     interface_queue;
 	uint64_t     drop_count;
@@ -1035,8 +1036,10 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 				proto_item_set_generated(item);
 			}
 
+			frame_delta_abs_time(pinfo->epan, pinfo->fd, pinfo->fd->frame_ref_num, &rel_ts);
+
 			item = proto_tree_add_time(fh_tree, hf_frame_time_relative, tvb,
-						   0, 0, &(pinfo->rel_ts));
+						   0, 0, &(rel_ts));
 			proto_item_set_generated(item);
 
 			if (pinfo->fd->ref_time) {
@@ -1261,7 +1264,7 @@ dissect_frame(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tree, void* 
 					dissector_handle = docsis_handle;
 				} else {
 					/*
-					 * XXX - we don't use dissector_try_uint_new()
+					 * XXX - we don't use dissector_try_uint_with_data()
 					 * because we don't want to have to
 					 * treat a zero return from the dissector
 					 * as meaning "packet not accepted,

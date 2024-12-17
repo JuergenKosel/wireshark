@@ -895,6 +895,8 @@ typedef struct {
     bool                 fake_protocols;
     unsigned             count;
     struct _packet_info *pinfo;
+    int                  max_start;
+    unsigned             start_idle_count;
 } tree_data_t;
 
 /** Each proto_tree, proto_item is one of these. */
@@ -903,6 +905,7 @@ typedef struct _proto_node {
     struct _proto_node *last_child;
     struct _proto_node *next;
     struct _proto_node *parent;
+    const header_field_info *hfinfo;
     field_info         *finfo;
     tree_data_t        *tree_data;
 } proto_node;
@@ -983,6 +986,15 @@ typedef proto_node proto_item;
 /** Retrieve the field_info from a proto_tree */
 #define PTREE_FINFO(proto_tree)  PNODE_FINFO(proto_tree)
 
+/** Retrieve the header_field_info from a proto_node */
+#define PNODE_HFINFO(proto_node)  ((proto_node)->hfinfo)
+
+/** Retrieve the header_field_info from a proto_item */
+#define PITEM_HFINFO(proto_item)  PNODE_HFINFO(proto_item)
+
+/** Retrieve the header_field_info from a proto_tree */
+#define PTREE_HFINFO(proto_tree)  PNODE_HFINFO(proto_tree)
+
 /** Retrieve the tree_data_t from a proto_tree */
 #define PTREE_DATA(proto_tree)   ((proto_tree)->tree_data)
 
@@ -995,10 +1007,11 @@ typedef proto_node proto_item;
  * @return true if the item is hidden, false otherwise.
  */
 static inline bool proto_item_is_hidden(proto_item *ti) {
-    if (ti) {
+    if (ti && PITEM_FINFO(ti)) {
         return FI_GET_FLAG(PITEM_FINFO(ti), FI_HIDDEN);
     }
-    return false;
+    /* XXX - Is a NULL item hidden? */
+    return true;
 }
 #define PROTO_ITEM_IS_HIDDEN(ti) proto_item_is_hidden((ti))
 
@@ -1188,6 +1201,12 @@ WS_DLL_PUBLIC void proto_item_set_bits_offset_len(proto_item *ti, int bits_offse
 /** Get the display representation of a proto_item.
  * Can be used, for example, to append that to the parent item of
  * that item.
+ @warning You probably don't want to use this. This returns an empty string
+ if the proto_item is "faked". That means the string won't show up in the
+ Info column, or in other places we don't have a visible tree, unless the
+ field is being filtered or in a custom column. In other words, this is only
+ really useful for adding to parent text-only fields.
+
  @param scope the wmem scope to use to allocate the string
  @param pi the item from which to get the display representation
  @return the display representation */

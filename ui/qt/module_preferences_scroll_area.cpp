@@ -68,9 +68,9 @@ pref_show(pref_t *pref, void *user_data)
 
     // Convert the pref description from plain text to rich text.
     QString description = html_escape(prefs_get_description(pref));
-    QString name = QString("%1.%2").arg(data->moduleName).arg(prefs_get_name(pref));
+    QString name = QStringLiteral("%1.%2").arg(data->moduleName).arg(prefs_get_name(pref));
     description.replace('\n', "<br/>");
-    QString tooltip = QString("<span>%1</span><br/><br/>%2").arg(description).arg(name);
+    QString tooltip = QStringLiteral("<span>%1</span><br/><br/>%2").arg(description).arg(name);
 
     switch (prefs_get_type(pref)) {
     case PREF_UINT:
@@ -113,7 +113,7 @@ pref_show(pref_t *pref, void *user_data)
                 enum_rb->setToolTip(tooltip);
                 QStyleOption style_opt;
                 enum_rb->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
-                enum_rb->setStyleSheet(QString(
+                enum_rb->setStyleSheet(QStringLiteral(
                                       "QRadioButton {"
                                       "  margin-left: %1px;"
                                       "}"
@@ -237,7 +237,7 @@ pref_show(pref_t *pref, void *user_data)
         QStyleOption style_opt;
         path_le->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
         path_le->setMinimumWidth(path_le->fontMetrics().height() * 20);
-        path_le->setStyleSheet(QString(
+        path_le->setStyleSheet(QStringLiteral(
                               "QLineEdit {"
                               "  margin-left: %1px;"
                               "}"
@@ -274,7 +274,7 @@ pref_show(pref_t *pref, void *user_data)
                 enum_rb->setToolTip(tooltip);
                 QStyleOption style_opt;
                 enum_rb->setProperty(pref_prop_, VariantPointer<pref_t>::asQVariant(pref));
-                enum_rb->setStyleSheet(QString(
+                enum_rb->setStyleSheet(QStringLiteral(
                                       "QRadioButton {"
                                       "  margin-left: %1px;"
                                       "}"
@@ -490,7 +490,7 @@ void ModulePreferencesScrollArea::updateWidgets()
                  * first selected frame has for its its TCP Sequence Analysis
                  * override.
                  */
-                MainWindow* topWidget = qobject_cast<MainWindow*>(mainApp->mainWindow());
+                MainWindow* topWidget = mainApp->mainWindow();
                 /* Ensure there is one unique or multiple selections. See issue 18642 */
                 if (topWidget->hasSelection() || topWidget->hasUniqueSelection()) {
                     frame_data * fdata = topWidget->frameDataForRow((topWidget->selectedRows()).at(0));

@@ -81,15 +81,14 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Om Logray</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stratoshark</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1214,12 +1213,7 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
-        <translation type="unfinished">Skapad av Logray %1
-
-</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1910,10 +1904,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Typ</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation>Fält</translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation>Fältförekomst</translation>
     </message>
@@ -1928,6 +1918,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Width</source>
         <translation>Bredd</translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -2382,6 +2376,10 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Apply a read filter %1</source>
         <translation>Använd ett läsningsfilter %1</translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -3054,12 +3052,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Alla filer (</translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>Öppna fil</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">Öppna fil</translation>
     </message>
     <message>
-        <source>Select File</source>
-        <translation>Välj fil</translation>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
+        <translation type="unfinished">Välj fil</translation>
     </message>
 </context>
 <context>
@@ -3097,16 +3097,16 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
-        <translation>Visningsfilterpost</translation>
+        <source>Field entry</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Enter a field %1</source>
         <translation>Skriv in ett fält %1</translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
-        <translation>Felaktigt filter: </translation>
+        <source>Invalid field: </source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -4168,10 +4168,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Automatisk uppdatering</translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation>Aktivera förklaring</translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>Återställ grafen</translation>
     </message>
@@ -4305,6 +4301,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>Hårkors</translation>
     </message>
@@ -4315,6 +4319,14 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>Space</source>
         <translation>Mellanslag</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6930,6 +6942,18 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <source>Display filter as %1</source>
         <translation>Visningsfilter som %1</translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished">Nätverksanalysatorn Wireshark</translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished">Fångst från %1</translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7838,6 +7862,17 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <source>Preferences</source>
         <translation>Inställningar</translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">Kopiera</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation type="unfinished">
+            <numerusform>Kopiera rad</numerusform>
+            <numerusform>Kopiera rader</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8308,8 +8343,12 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Filterfältreferens</translation>
     </message>
     <message>
+        <source>Copied %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copied </source>
-        <translation>Kopierade </translation>
+        <translation type="vanished">Kopierade </translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8488,34 +8527,6 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation>Genomsnittlig genomströmning (bitar/s)</translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>Rundturstid (ms)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation>Segmentlängd (B)</translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation>Sekvensnummer (B)</translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>Tid (s)</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>Fönsterstorlek (B)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation>Okvitterade (utestående) byte (B)</translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation>[ingen fångstfil]</translation>
@@ -8909,8 +8920,9 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
         <translation>Felaktigt visningsfilter</translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation>Filteruttrycket %1 är inte ett giltigt visningsfilter. (%2).</translation>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Error</source>
@@ -9003,6 +9015,34 @@ Till exempel, använd 1 timma för att en ny fil skall skapas varje timma vid he
     <message>
         <source>LOAD</source>
         <translation>LAST</translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation type="unfinished">Rundturstid</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation type="unfinished">Segmentlängd</translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation type="unfinished">Sekvensnummer</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation type="unfinished">Tid</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -13134,17 +13174,15 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
-        <translation type="unfinished">Du luktar på limmet som håller samman ditt system med Logray</translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You are running Stratoshark </source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
         <translation>Du kör Wireshark</translation>
-    </message>
-    <message>
-        <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
-        <translation type="unfinished">Du kör Logray</translation>
     </message>
     <message>
         <source> You receive automatic updates.</source>
@@ -13220,14 +13258,6 @@ a:hover {
     <message>
         <source>802.11 Preferences</source>
         <translation>802.11-inställningar</translation>
-    </message>
-    <message>
-        <source>AirPcap Control Panel</source>
-        <translation type="vanished">AirPcap-instrumentpanel</translation>
-    </message>
-    <message>
-        <source>Open the AirPcap Control Panel</source>
-        <translation type="vanished">Öppna AirPcap-instrumentpanelen</translation>
     </message>
     <message>
         <source>Unable to set channel or offset.</source>
@@ -14464,6 +14494,22 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>&amp;Fångstfilter …</translation>
     </message>
@@ -15150,16 +15196,8 @@ a:hover {
         <translation>Ändringar måste sparas före filerna kan slås samman.</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>Felaktigt visningsfilter</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
         <translation>Felaktigt läsningsfilter</translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
-        <translation>Filteruttrycket %1 är inte ett giltigt läsningsfilter. (%2).</translation>
     </message>
     <message>
         <source> before importing a capture</source>
@@ -15198,6 +15236,11 @@ a:hover {
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>Kan inte släppa filer under fångsten.</translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15269,11 +15312,11 @@ a:hover {
     </message>
     <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation>Nätverksanalysatorn Wireshark</translation>
+        <translation type="vanished">Nätverksanalysatorn Wireshark</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation>Fångst från %1</translation>
+        <translation type="vanished">Fångst från %1</translation>
     </message>
     <message>
         <source> before opening another file</source>

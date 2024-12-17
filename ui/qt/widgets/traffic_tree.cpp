@@ -725,20 +725,20 @@ QMenu * TrafficTree::createActionSubMenu(FilterAction::Action cur_action, QModel
                 QString filter;
                 switch (conv_item->ctype) {
                 case CONVERSATION_TCP:
-                    filter = QString("%1.stream eq %2").arg("tcp").arg(conv_item->conv_id);
+                    filter = QStringLiteral("%1.stream eq %2").arg("tcp").arg(conv_item->conv_id);
                     break;
                 case CONVERSATION_UDP:
-                    filter = QString("%1.stream eq %2").arg("udp").arg(conv_item->conv_id);
+                    filter = QStringLiteral("%1.stream eq %2").arg("udp").arg(conv_item->conv_id);
                     break;
                 case CONVERSATION_IP:
-                    filter = QString("%1.stream eq %2").arg("ip").arg(conv_item->conv_id);
+                    filter = QStringLiteral("%1.stream eq %2").arg("ip").arg(conv_item->conv_id);
                     break;
                 case CONVERSATION_IPV6:
-                    filter = QString("%1.stream eq %2").arg("ipv6").arg(conv_item->conv_id);
+                    filter = QStringLiteral("%1.stream eq %2").arg("ipv6").arg(conv_item->conv_id);
                     break;
                 case CONVERSATION_ETH:
                 default:
-                    filter = QString("%1.stream eq %2").arg("eth").arg(conv_item->conv_id);
+                    filter = QStringLiteral("%1.stream eq %2").arg("eth").arg(conv_item->conv_id);
                     break;
                 }
                 FilterAction * act = new FilterAction(subsubmenu, cur_action, at, tr("Filter on stream id"));
@@ -801,8 +801,10 @@ void TrafficTree::useFilterAction()
     QString filter = fa->property("filter").toString();
     if (filter.length() > 0)
     {
-        MainWindow * mainWin = (MainWindow *)(mainApp->mainWindow());
-        mainWin->setDisplayFilter(filter, fa->action(), fa->actionType());
+        MainWindow * mainWin = mainApp->mainWindow();
+        if (mainWin) {
+            mainWin->setDisplayFilter(filter, fa->action(), fa->actionType());
+        }
     }
 }
 
@@ -852,7 +854,7 @@ void TrafficTree::copyToClipboard(eTrafficTreeClipboard type)
                 if (!v.isValid()) {
                     rdsl << "\"\"";
                 } else if (v.userType() == QMetaType::QString) {
-                    rdsl << QString("\"%1\"").arg(v.toString());
+                    rdsl << QStringLiteral("\"%1\"").arg(v.toString());
                 } else {
                     rdsl << v.toString();
                 }

@@ -41,7 +41,7 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     pref_prepend_window_title_ = prefFromPrefPtr(&prefs.gui_prepend_window_title);
 
     QStyleOption style_opt;
-    QString indent_ss = QString(
+    QString indent_ss = QStringLiteral(
                 "QRadioButton, QLineEdit, QLabel {"
                 "  margin-left: %1px;"
                 "}"
@@ -62,11 +62,11 @@ MainWindowPreferencesFrame::MainWindowPreferencesFrame(QWidget *parent) :
     ui->maxFilterLineEdit->setMaximumWidth(num_entry_size.width());
     ui->maxRecentLineEdit->setMaximumWidth(num_entry_size.width());
 
-    QString li_path = QString(":/languages/language%1.svg").arg(ColorUtils::themeIsDark() ? ".dark" : "");
+    QString li_path = QStringLiteral(":/languages/language%1.svg").arg(ColorUtils::themeIsDark() ? ".dark" : "");
     QIcon language_icon = QIcon(li_path);
     ui->languageComboBox->setItemIcon(0, language_icon);
 
-    QString globalLanguagesPath(QString(get_datafile_dir()) + "/languages/");
+    QString globalLanguagesPath(QStringLiteral("%1/languages/").arg(get_datafile_dir()));
     QString userLanguagesPath(gchar_free_to_qstring(get_persconffile_path("languages/", false)));
 
     QStringList filenames = QDir(":/i18n/").entryList(QStringList("wireshark_*.qm"));
@@ -131,8 +131,8 @@ void MainWindowPreferencesFrame::updateWidgets()
 
     ui->foStyleSpecifiedLineEdit->setText(prefs_get_string_value(pref_fileopen_dir_, pref_stashed));
 
-    ui->maxFilterLineEdit->setText(QString::number(prefs_get_uint_value_real(pref_recent_df_entries_max_, pref_stashed)));
-    ui->maxRecentLineEdit->setText(QString::number(prefs_get_uint_value_real(pref_recent_files_count_max_, pref_stashed)));
+    ui->maxFilterLineEdit->setText(QString::number(prefs_get_uint_value(pref_recent_df_entries_max_, pref_stashed)));
+    ui->maxRecentLineEdit->setText(QString::number(prefs_get_uint_value(pref_recent_files_count_max_, pref_stashed)));
 
     ui->confirmUnsavedCheckBox->setChecked(prefs_get_bool_value(pref_ask_unsaved_, pref_stashed));
     ui->displayAutoCompleteCheckBox->setChecked(prefs_get_bool_value(pref_autocomplete_filter_, pref_stashed));

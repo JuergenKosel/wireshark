@@ -15,7 +15,7 @@
 
 #include <epan/epan_dissect.h>
 
-#include <wsutil/filesystem.h>
+#include <wsutil/application_flavor.h>
 
 #include "ui/io_graph_item.h"
 
@@ -62,7 +62,7 @@ GString *check_field_unit(const char *field_name, int *hf_index, io_graph_item_u
             NULL
         };
 
-        if (!is_packet_configuration_namespace()) {
+        if (application_flavor_is_stratoshark()) {
             item_unit_names[0] = "Events";
         }
 
@@ -146,6 +146,8 @@ double get_io_graph_item(const io_graph_item_t *items_, io_graph_item_unit_t val
     int        adv_type;
     const io_graph_item_t *item;
     uint32_t   interval;
+
+    ws_return_val_if(idx < 0, 0);
 
     item = &items_[idx];
 

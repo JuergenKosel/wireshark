@@ -39,13 +39,15 @@ def name_has_one_of(name, substring_list):
 # An individual call to an API we are interested in.
 # Used by APICheck below.
 class Call:
-    def __init__(self, hf_name, macros, line_number=None, length=None, fields=None):
+    def __init__(self, function_name, hf_name, macros, line_number=None, offset=None, length=None, fields=None):
         self.hf_name = hf_name
         self.line_number = line_number
         self.fields = fields
         self.length = None
         if length:
             try:
+                #if offset.find('*') != -1 and offset.find('*') != 0 and offset.find('8') != -1:
+                #    print(hf_name, function_name, offset)
                 self.length = int(length)
             except Exception:
                 if length.isupper():
@@ -148,7 +150,8 @@ class APICheck:
                                 length = m.group(3)
 
                         # Add call. We have length if re had 3 groups.
-                        self.calls.append(Call(m.group(2),
+                        self.calls.append(Call(self.fun_name,
+                                               m.group(2),
                                                macros,
                                                line_number=line_number,
                                                length=length,
@@ -242,7 +245,7 @@ class ProtoTreeAddItemCheck(APICheck):
             # proto_tree_add_item(proto_tree *tree, int hfindex, tvbuff_t *tvb,
             #                     const gint start, gint length, const unsigned encoding)
             self.fun_name = 'proto_tree_add_item'
-            self.p = re.compile('[^\n]*' + self.fun_name + r'\s*\(\s*[a-zA-Z0-9_]+?,\s*([a-zA-Z0-9_]+?),\s*[a-zA-Z0-9_\+\s]+?,\s*[^,.]+?,\s*(.+),\s*([^,.]+?)\);')
+            self.p = re.compile('[^\n]*' + self.fun_name + r'\s*\(\s*[a-zA-Z0-9_]+?,\s*([a-zA-Z0-9_]+?),\s*[a-zA-Z0-9_\+\s]+?,\s*([^,.]+?),\s*(.+),\s*([^,.]+?)\);')
         else:
             # proto_item *
             # ptvcursor_add(ptvcursor_t *ptvc, int hfindex, gint length,
@@ -279,9 +282,9 @@ class ProtoTreeAddItemCheck(APICheck):
                         if m.group(0).count('(') != m.group(0).count(')'):
                             continue
 
-                        enc = m.group(3)
+                        enc = m.group(4)
                         hf_name = m.group(1)
-                        if not enc.startswith('ENC_'):
+                        if not enc.startswith('ENC_') and enc.lower().find('endian') == -1:
                             if enc not in { 'encoding', 'enc', 'client_is_le', 'cigi_byte_order', 'endian', 'endianess', 'machine_encoding', 'byte_order', 'bLittleEndian',
                                             'p_mq_parm->mq_str_enc', 'p_mq_parm->mq_int_enc',
                                             'iEnc', 'strid_enc', 'iCod', 'nl_data->encoding',
@@ -296,18 +299,13 @@ class ProtoTreeAddItemCheck(APICheck):
                                             'packet->enc',
                                             'IS_EBCDIC(uCCS) ? ENC_EBCDIC : ENC_ASCII',
                                             'DREP_ENC_INTEGER(hdr->drep)',
-                                            'dhcp_uuid_endian',
                                             'payload_le',
                                             'local_encoding',
-                                            'big_endian',
                                             'hf_data_encoding',
                                             'IS_EBCDIC(eStr) ? ENC_EBCDIC : ENC_ASCII',
-                                            'big_endian ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN',
-                                            '(skip == 1) ? ENC_BIG_ENDIAN : ENC_LITTLE_ENDIAN',
                                             'pdu_info->sbc', 'pdu_info->mbc',
                                             'seq_info->txt_enc | ENC_NA',
                                             'BASE_SHOW_UTF_8_PRINTABLE',
-                                            'dhcp_secs_endian',
                                             'is_mdns ? ENC_UTF_8|ENC_NA : ENC_ASCII|ENC_NA',
                                             'xl_encoding',
                                             'my_frame_data->encoding_client', 'my_frame_data->encoding_results'
@@ -318,7 +316,7 @@ class ProtoTreeAddItemCheck(APICheck):
                                 print('Warning:', self.file + ':' + str(line_number),
                                       self.fun_name + ' called for "' + hf_name + '"',  'check last/enc param:', enc, '?')
                                 warnings_found += 1
-                        self.calls.append(Call(hf_name, macros, line_number=line_number, length=m.group(2)))
+                        self.calls.append(Call(self.fun_name, hf_name, macros, line_number=line_number, offset=m.group(2), length=m.group(3)))
 
     def check_against_items(self, items_defined, items_declared, items_declared_extern,
                             check_missing_items=False, field_arrays=None):
@@ -602,6 +600,7 @@ class ValueString:
                 print('Warning:', self.file, ': value_string', self.name, '- value ', value, 'repeated with same string - ', label)
                 warnings_found += 1
 
+            # Same value, different label
             if value in self.parsed_vals and label != self.parsed_vals[value]:
                 print('Warning:', self.file, ': value_string', self.name, '- value ', value, 'repeated with different values - was',
                     self.parsed_vals[value], 'now', label)
@@ -934,6 +933,87 @@ def findStringStrings(filename, macros, do_extra_checks=False):
 
 # Look for expert entries in a dissector file.  Return ExpertEntries object
 def findExpertItems(filename, macros):
+    with open(filename, 'r', encoding="utf8") as f:
+        contents = f.read()
+
+        # Remove comments so as not to trip up RE.
+        contents = removeComments(contents)
+
+        # Look for array of definitions. Looks something like this
+        #static ei_register_info ei[] = {
+        #    { &ei_oran_unsupported_bfw_compression_method, { "oran_fh_cus.unsupported_bfw_compression_method", PI_UNDECODED, PI_WARN, "Unsupported BFW Compression Method", EXPFILL }},
+        #    { &ei_oran_invalid_sample_bit_width, { "oran_fh_cus.invalid_sample_bit_width", PI_UNDECODED, PI_ERROR, "Unsupported sample bit width", EXPFILL }},
+        #};
+
+        expertEntries = ExpertEntries(filename)
+
+        definition_matches = re.finditer(r'static ei_register_info\s*([a-zA-Z0-9_]*)\s*\[\]\s*=\s*\{(.*?)\};', contents, re.MULTILINE|re.DOTALL)
+        for d in definition_matches:
+            entries = d.group(2)
+
+            # Now separate out each entry
+            matches = re.finditer(r'\{\s*&([a-zA-Z0-9_]*)\s*\,\s*\{\s*\"(.*?)\"\s*\,\s*([A-Z_]*)\,\s*([A-Z_]*)\,\s*\"(.*?)\"\s*\,\s*EXPFILL\s*\}\s*\}',
+                                    entries, re.MULTILINE|re.DOTALL)
+            for match in matches:
+                expertEntry = ExpertEntry(filename, name=match.group(1), filter=match.group(2), group=match.group(3),
+                                            severity=match.group(4), summary=match.group(5))
+                expertEntries.AddEntry(expertEntry)
+
+        return expertEntries
+
+def findDeclaredTrees(filename):
+    trees = []
+    with open(filename, 'r', encoding="utf8") as f:
+        contents = f.read()
+
+        # Remove comments so as not to trip up RE.
+        contents = removeComments(contents)
+
+        definition_matches = re.finditer(r'static int\s*\s*(ett_[a-zA-Z0-9_]*)\s*;', contents, re.MULTILINE|re.DOTALL)
+        for d in definition_matches:
+            trees.append(d.group(1))
+
+    return trees
+
+def findDefinedTrees(filename, declared):
+    with open(filename, 'r', encoding="utf8") as f:
+        contents = f.read()
+
+        # Remove comments so as not to trip up RE.
+        contents = removeComments(contents)
+
+        # Look for array of definitions. Looks something like this
+        # static int *ett[] = {
+        #    &ett_oran,
+        #    &ett_oran_ecpri_pcid,
+        #    &ett_oran_ecpri_rtcid,
+        #    &ett_oran_ecpri_seqid
+        # };
+
+        trees = set()
+
+        # Not insisting that this array is static..
+        definition_matches = re.finditer(r'int\s*\*\s*(?:const|)\s*[a-zA-Z0-9_]*?ett[a-zA-Z0-9_]*\s*\[\]\s*=\s*\{(.*?)\};', contents, re.MULTILINE|re.DOTALL)
+        for d in definition_matches:
+            entries = d.group(1)
+
+            # Now separate out each entry
+            matches = re.finditer(r'\&(ett_[a-zA-Z0-9_]+)',
+                                  entries, re.MULTILINE|re.DOTALL)
+            for match in matches:
+                ett = match.group(1)
+
+                if ett not in declared:
+                    # N.B., this check will avoid matches with arrays (which won't match 'declared' re)
+                    continue
+
+                # Don't think this can happen..
+                #if ett in trees:
+                #    print('Warning:', filename, ett, 'appears twice!!!')
+                trees.add(match.group(1))
+        return trees
+
+def checkExpertCalls(filename, expertEntries):
         with open(filename, 'r', encoding="utf8") as f:
             contents = f.read()
 
@@ -941,30 +1021,17 @@ def findExpertItems(filename, macros):
             contents = removeComments(contents)
 
             # Look for array of definitions. Looks something like this
-            #static ei_register_info ei[] = {
-            #    { &ei_oran_unsupported_bfw_compression_method, { "oran_fh_cus.unsupported_bfw_compression_method", PI_UNDECODED, PI_WARN, "Unsupported BFW Compression Method", EXPFILL }},
-            #    { &ei_oran_invalid_sample_bit_width, { "oran_fh_cus.invalid_sample_bit_width", PI_UNDECODED, PI_ERROR, "Unsupported sample bit width", EXPFILL }},
-            #};
-
-            expertEntries = ExpertEntries(filename)
-
-            m = re.search(r'static ei_register_info\s*([a-zA-Z_]*)\s*\[\]\s*=\s*\{(.*?)\};', contents, re.MULTILINE|re.DOTALL)
-            if m:
-                entries = m.group(2)
-
-                # Now separate out each entry
-                matches = re.finditer(r'\{\s*&([a-zA-Z0-9_]*)\s*\,\s*\{\s*\"(.*?)\"\s*\,\s*([A-Z_]*)\,\s*([A-Z_]*)\,\s*\"(.*?)\"\s*\,\s*EXPFILL\s*\}\s*\}',
-                                    entries, re.MULTILINE|re.DOTALL)
-                for match in matches:
-                    expertEntry = ExpertEntry(filename, match.group(1), match.group(2), match.group(3), match.group(4), match.group(5))
-                    expertEntries.AddEntry(expertEntry)
-
-            return expertEntries
+            # expert_add_info(NULL, tree, &ei_oran_invalid_eaxc_bit_width);
+            # OR
+            # expert_add_info_format(pinfo, ti_data_length, &ei_data_length, "Data Length %d is too small, should be %d", data_length, payload_size - ECPRI_MSG_TYPE_4_PAYLOAD_MIN_LENGTH);
+            matches = re.finditer(r'expert_add_info(?:_format|)\s*\(([a-zA-Z_0-9]*)\s*,\s*([a-zA-Z_0-9]*)\s*,\s*(&[a-zA-Z_0-9]*)', contents, re.MULTILINE|re.DOTALL)
+            for m in matches:
+                item = m.group(3)[1:]
+                expertEntries.VerifyCall(item)
 
 
 
-
-# These are the valid valies from expert.h
+# These are the valid values from expert.h
 valid_groups = set(['PI_GROUP_MASK', 'PI_CHECKSUM', 'PI_SEQUENCE',
                     'PI_RESPONSE_CODE', 'PI_REQUEST_CODE', 'PI_UNDECODED', 'PI_REASSEMBLE',
                     'PI_MALFORMED', 'PI_DEBUG', 'PI_PROTOCOL', 'PI_SECURITY', 'PI_COMMENTS_GROUP',
@@ -977,12 +1044,12 @@ valid_levels = set(['PI_COMMENT', 'PI_CHAT', 'PI_NOTE',
 
 # An individual entry
 class ExpertEntry:
-    def __init__(self, filename, name, filter, group, severity, label):
+    def __init__(self, filename, name, filter, group, severity, summary):
         self.name = name
         self.filter = filter
         self.group = group
         self.severity = severity
-        self.label = label
+        self.summary = summary
 
         global errors_found, warnings_found
 
@@ -995,12 +1062,19 @@ class ExpertEntry:
             print('Error:', filename, 'Expert severity', severity, 'is not in', valid_levels)
             errors_found += 1
 
-        if label.startswith(' '):
-            print('Warning:', filename, 'Expert info label', '"' + label + '"', 'for', name, 'starts with space')
+        # Checks on the summary field
+        if summary.startswith(' '):
+            print('Warning:', filename, 'Expert info summary', '"' + summary + '"', 'for', name, 'starts with space')
             warnings_found += 1
-        if label.endswith(' '):
-            print('Warning:', filename, 'Expert info label', '"' + label + '"', 'for', name, 'ends with space')
+        if summary.endswith(' '):
+            print('Warning:', filename, 'Expert info summary', '"' + summary + '"', 'for', name, 'ends with space')
             warnings_found += 1
+
+        # The summary field is shown in the expert window without substituting args..
+        if summary.find('%') != -1:
+            print('Warning:', filename, 'Expert info summary', '"' + summary + '"', 'for', name, 'has format specifiers in it?')
+            warnings_found += 1
+
 
 
 # Collection of entries for this dissector
@@ -1008,7 +1082,8 @@ class ExpertEntries:
     def __init__(self, filename):
         self.filename = filename
         self.entries = []
-        self.labels = set()  # key is (name, severity)
+        self.summaries = set()  # key is (name, severity)
+        self.reverselookup = {}  # summary -> previous-item
         self.filters = set()
 
     def AddEntry(self, entry):
@@ -1016,17 +1091,33 @@ class ExpertEntries:
 
         global errors_found, warnings_found
 
-        # If these are not unique, can't tell apart from expert window (need to look into frame to see details)
-        if (entry.label, entry.severity) in self.labels:
-            print('Warning:', self.filename, 'Expert label', '"' + entry.label + '"', 'has already been seen (now in', entry.name+')')
+        # If summaries are not unique, can't tell apart from expert window (need to look into frame to see details)
+        if (entry.summary, entry.severity) in self.summaries:
+            print('Warning:', self.filename, 'Expert summary', '"' + entry.summary + '"',
+                  'has already been seen (now in', entry.name, '- previously in', self.reverselookup[entry.summary], ')')
             warnings_found += 1
-        self.labels.add((entry.label, entry.severity))
+        self.summaries.add((entry.summary, entry.severity))
+        self.reverselookup[entry.summary] = entry.name
 
         # Not sure if anyone ever filters on these, but check if are unique
         if entry.filter in self.filters:
             print('Warning:', self.filename, 'Expert filter', '"' + entry.filter + '"', 'has already been seen (now in', entry.name+')')
             warnings_found += 1
         self.filters.add(entry.filter)
+
+    def VerifyCall(self, item):
+        # TODO: ignore if wasn't declared in self.filename?
+        for entry in self.entries:
+            if entry.name == item:
+                # Found,
+                return
+
+        # None matched...
+        if item not in [ 'hf', 'dissect_hf' ]:
+            global warnings_found
+            print('Warning:', self.filename, 'Expert info added with', '"' + item + '"', 'was it was not registered (in this file)')
+            warnings_found += 1
+
 
 
 # The relevant parts of an hf item.  Used as value in dict where hf variable name is key.
@@ -1291,7 +1382,7 @@ class Item:
         return (value & (0x1 << n)) != 0
 
     # Output a warning if non-contiguous bits are found in the mask (uint64_t).
-    # Note that this legimately happens in several dissectors where multiple reserved/unassigned
+    # Note that this legitimately happens in several dissectors where multiple reserved/unassigned
     # bits are conflated into one field.
     # - there is probably a cool/efficient way to check this (+1 => 1-bit set?)
     def check_contiguous_bits(self, mask):
@@ -1445,7 +1536,9 @@ class Item:
                         # These need to have a mask - don't judge for being 0
                         return
 
-                print('Note:', self.filename, self.hf, 'filter=', self.filter, " - mask is all set - if only want value (rather than bits), set 0 instead? :", '"' + mask + '"')
+                # No point in setting all bits if only want decimal number..
+                if self.display == "BASE_DEC":
+                    print('Note:', self.filename, self.hf, 'filter=', self.filter, " - mask is all set - if only want value (rather than bits), set 0 instead? :", '"' + mask + '"')
 
     # An item that appears in a bitmask set, needs to have a non-zero mask.
     def check_mask_if_in_field_array(self, mask, field_arrays):
@@ -1897,7 +1990,7 @@ def findDissectorFilesInFolder(folder, recursive=False):
 # Run checks on the given dissector file.
 def checkFile(filename, check_mask=False, mask_exact_width=False, check_label=False, check_consecutive=False,
               check_missing_items=False, check_bitmask_fields=False, label_vs_filter=False, extra_value_string_checks=False,
-              check_expert_items=False):
+              check_expert_items=False, check_subtrees=False):
     # Check file exists - e.g. may have been deleted in a recent commit.
     if not os.path.exists(filename):
         print(filename, 'does not exist!')
@@ -1924,14 +2017,26 @@ def checkFile(filename, check_mask=False, mask_exact_width=False, check_label=Fa
         for name in string_strings:
             string_strings[name].extraChecks()
 
+    # Find expert items
     if check_expert_items:
         expert_items = findExpertItems(filename, macros)
-
+        checkExpertCalls(filename, expert_items)
 
     # Find important parts of items.
     items_defined = find_items(filename, macros, value_strings, range_strings,
                                check_mask, mask_exact_width, check_label, check_consecutive)
     items_extern_declared = {}
+
+
+    # Check that ett_ variables are registered
+    if check_subtrees:
+        ett_declared = findDeclaredTrees(filename)
+        ett_defined =  findDefinedTrees(filename, ett_declared)
+        for d in ett_declared:
+            if d not in ett_defined:
+                global warnings_found
+                print('Warning:', filename, 'subtree identifier', d, 'is declared but not found in an array for registering')
+                warnings_found += 1
 
     items_declared = {}
     if check_missing_items:
@@ -2016,6 +2121,8 @@ parser.add_argument('--extra-value-string-checks', action='store_true',
                     help='when set, do extra checks on parsed value_strings')
 parser.add_argument('--check-expert-items', action='store_true',
                     help='when set, do extra checks on expert items')
+parser.add_argument('--check-subtrees', action='store_true',
+                    help='when set, do extra checks ett variables')
 parser.add_argument('--all-checks', action='store_true',
                     help='when set, apply all checks to selected files')
 
@@ -2031,7 +2138,8 @@ if args.all_checks:
     args.label = True
     args.label_vs_filter = True
     #args.extra_value_string_checks = True
-    #args.check_expert_items = True
+    args.check_expert_items = True
+    #args.check_subtrees = Truue
 
 if args.check_bitmask_fields:
     args.mask = True
@@ -2104,7 +2212,7 @@ for f in files:
               check_consecutive=args.consecutive, check_missing_items=args.missing_items,
               check_bitmask_fields=args.check_bitmask_fields, label_vs_filter=args.label_vs_filter,
               extra_value_string_checks=args.extra_value_string_checks,
-              check_expert_items=args.check_expert_items)
+              check_expert_items=args.check_expert_items, check_subtrees=args.check_subtrees)
 
     # Do checks against all calls.
     if args.consecutive:

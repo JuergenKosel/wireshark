@@ -97,7 +97,7 @@ void PacketListHeader::dropEvent(QDropEvent *event)
             event->setDropAction(Qt::CopyAction);
             event->accept();
 
-            MainWindow * mw = qobject_cast<MainWindow *>(mainApp->mainWindow());
+            MainWindow * mw = mainApp->mainWindow();
             if (mw)
             {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
@@ -129,9 +129,9 @@ void PacketListHeader::mousePressEvent(QMouseEvent *e)
 
         QString headerName = model()->headerData(sectIdx, orientation()).toString();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-        QToolTip::showText(e->globalPosition().toPoint(), QString("Width: %1").arg(sectionSize(sectIdx)));
+        QToolTip::showText(e->globalPosition().toPoint(), QStringLiteral("Width: %1").arg(sectionSize(sectIdx)));
 #else
-        QToolTip::showText(e->globalPos(), QString("Width: %1").arg(sectionSize(sectIdx)));
+        QToolTip::showText(e->globalPos(), QStringLiteral("Width: %1").arg(sectionSize(sectIdx)));
 #endif
     }
     QHeaderView::mousePressEvent(e);
@@ -160,9 +160,9 @@ void PacketListHeader::mouseMoveEvent(QMouseEvent *e)
             /* Only run for the current moving section after a change */
             QString headerName = model()->headerData(sectionIdx, orientation()).toString();
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0 ,0)
-            QToolTip::showText(e->globalPosition().toPoint(), QString("Width: %1").arg(sectionSize(sectionIdx)));
+            QToolTip::showText(e->globalPosition().toPoint(), QStringLiteral("Width: %1").arg(sectionSize(sectionIdx)));
 #else
-            QToolTip::showText(e->globalPos(), QString("Width: %1").arg(sectionSize(sectionIdx)));
+            QToolTip::showText(e->globalPos(), QStringLiteral("Width: %1").arg(sectionSize(sectionIdx)));
 #endif
         }
     }
@@ -194,11 +194,7 @@ void PacketListHeader::contextMenuEvent(QContextMenuEvent *event)
     contextMenu->addSeparator();
 
     QActionGroup * alignmentActions = new QActionGroup(contextMenu);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14 ,0)
     alignmentActions->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
-#else
-    alignmentActions->setExclusive(false);
-#endif
     alignmentActions->setProperty("column", QVariant::fromValue(sectionIdx));
     action = alignmentActions->addAction(tr("Align Left"));
     action->setCheckable(true);
@@ -257,7 +253,7 @@ void PacketListHeader::contextMenuEvent(QContextMenuEvent *event)
         }
 
         if (prefs.gui_packet_header_column_definition)
-            title.append(QString("\t%1").arg(detail));
+            title.append(QStringLiteral("\t%1").arg(detail));
 
         QAction *action = new QAction(title, this);
         action->setToolTip(detail);

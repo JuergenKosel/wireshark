@@ -224,7 +224,8 @@ gather_wireshark_qt_compiled_info(feature_list l)
 
     const char *update_info = software_update_info();
     if (update_info) {
-        with_feature(l, "automatic updates using %s", update_info);
+        with_feature(l, "automatic updates");
+        with_feature(l, "%s", update_info);
     } else {
         without_feature(l, "automatic updates");
     }
@@ -406,19 +407,14 @@ macos_enable_layer_backing(void)
 {
     // At the time of this writing, the QTBUG-87014 for layerEnabledByMacOS is...
     //
-    // ...in https://github.com/qt/qtbase/blob/5.12/src/plugins/platforms/cocoa/qnsview_drawing.mm
-    // ...not in https://github.com/qt/qtbase/blob/5.12.10/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...in https://github.com/qt/qtbase/blob/5.15/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/5.15.2/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/6.0/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/6.0.0/src/plugins/platforms/cocoa/qnsview_drawing.mm
     //
-    // We'll assume that it will be fixed in 5.12.11, 5.15.3, and 6.0.1.
-    // Note that we only ship LTS versions of Qt with our macOS packages.
-    // Feel free to add other versions if needed.
+    // We'll assume that it will be fixed in 5.15.3, 6.0.1, and >= 6.1.
 #if  \
-        (QT_VERSION >= QT_VERSION_CHECK(5, 12, 0) && QT_VERSION < QT_VERSION_CHECK(5, 12, 11) \
-        || (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0) &&  QT_VERSION < QT_VERSION_CHECK(5, 15, 3)) \
+        ((QT_VERSION >= QT_VERSION_CHECK(5, 15, 0) &&  QT_VERSION < QT_VERSION_CHECK(5, 15, 3)) \
         || (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0) &&  QT_VERSION < QT_VERSION_CHECK(6, 0, 1)) \
     )
     QOperatingSystemVersion os_ver = QOperatingSystemVersion::current();
@@ -476,6 +472,9 @@ int main(int argc, char *qt_argv[])
     /* Start time in microseconds */
     uint64_t start_time = g_get_monotonic_time();
 
+    /* Set the program name. */
+    g_set_prgname("wireshark");
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     /*
      * See:
@@ -511,7 +510,7 @@ int main(int argc, char *qt_argv[])
     cmdarg_err_init(wireshark_cmdarg_err, wireshark_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("wireshark", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
     /* For backward compatibility with GLib logging and Wireshark 3.4. */
     ws_log_console_writer_set_use_stdout(true);
 
@@ -580,7 +579,7 @@ int main(int argc, char *qt_argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    /* configuration_init_error = */ configuration_init(argv[0], NULL);
+    /* configuration_init_error = */ configuration_init(argv[0]);
     /* ws_log(NULL, LOG_LEVEL_DEBUG, "progfile_dir: %s", get_progfile_dir()); */
 
 #ifdef _WIN32
@@ -643,7 +642,7 @@ int main(int argc, char *qt_argv[])
     // This function must be called before creating the application object.
     // Qt::HighDpiScaleFactorRoundingPolicy::PassThrough is the default in Qt6,
     // so this doesn't have any effect (Round is the default in 5.14 & 5.15)
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && defined(Q_OS_WIN)
+#if defined(Q_OS_WIN)
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
 
@@ -985,7 +984,7 @@ int main(int argc, char *qt_argv[])
     wsApp->setMonospaceFont(prefs.gui_font_name);
 
     /* For update of WindowTitle (When use gui.window_title preference) */
-    main_w->setWSWindowTitle();
+    main_w->setMainWindowTitle();
 
     if (!color_filters_init(&err_msg, color_filter_add_cb)) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
@@ -1029,15 +1028,15 @@ int main(int argc, char *qt_argv[])
                 if (!dfilter_compile(global_commandline_info.jfilter, &jump_to_filter, &df_err)) {
                     // Similar code in MainWindow::mergeCaptureFile().
                     QMessageBox::warning(main_w, QObject::tr("Invalid Display Filter"),
-                                         QObject::tr("The filter expression %1 isn't a valid display filter. (%2).")
+                                         QObject::tr("The filter expression \"%1\" isn't a valid display filter.\n(%2).")
                                                  .arg(global_commandline_info.jfilter, df_err->msg),
                                          QMessageBox::Ok);
                     df_error_free(&df_err);
                 } else {
                     /* Filter ok, jump to the first packet matching the filter
                        conditions. Default search direction is forward, but if
-                       option d was given, search backwards */
-                    cf_find_packet_dfilter(CaptureFile::globalCapFile(), jump_to_filter, global_commandline_info.jump_backwards);
+                       option j was given, search backwards */
+                    cf_find_packet_dfilter(CaptureFile::globalCapFile(), jump_to_filter, global_commandline_info.jump_backwards, false);
                 }
             }
         }

@@ -17,12 +17,14 @@ jobs:
           install: base-devel
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install dependencies
         run: tools/msys2-setup.sh --install-all --noconfirm
       - name: Build
         run: |
           mkdir build && cd build
-          cmake -G Ninja -DFETCH_lua=Yes ..
+          cmake -G Ninja ..
           ninja
           ninja test
           ninja wireshark_nsis_prep
@@ -45,9 +47,32 @@ jobs:
       - name: Run installer
         working-directory: downloads
         run: |
-          Get-ChildItem -Path wireshark-*-x64.exe | ForEach-Object {
-            Start-Process $_.FullName -ArgumentList '/S /D=C:\Wireshark' -Wait
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem -Path . -Filter "wireshark-*-x64.exe" -File | Select-Object -First 1
+          if ($null -eq $installer) {
+            Write-Error "Installer not found in downloads directory."
+            exit 1
           }
+          Start-Process -FilePath $installer.FullName -ArgumentList '/S', '/D=C:\Wireshark' -Wait -NoNewWindow
+          if (!$?) {
+            Write-Error "Wireshark installation failed."
+            exit 1
+          }
+        shell: pwsh
       - name: Show version
-        run: C:\Wireshark\wireshark.exe --version
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path "C:\Wireshark\tshark.exe") {
+            $versionOutput = & "C:\Wireshark\tshark.exe" --version
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to retrieve TShark version."
+              exit $LASTEXITCODE
+            }
+            Write-Output $versionOutput
+          } else {
+            Write-Error "TShark executable not found at C:\Wireshark\tshark.exe."
+            exit 1
+          }
+        shell: pwsh
+
 

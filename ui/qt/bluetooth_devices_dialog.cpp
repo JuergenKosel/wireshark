@@ -72,10 +72,18 @@ BluetoothDevicesDialog::BluetoothDevicesDialog(QWidget &parent, CaptureFile &cf,
 
     packet_list_ = packet_list;
 
-    connect(ui->tableTreeWidget, SIGNAL(customContextMenuRequested(const QPoint &)), this, SLOT(tableContextMenu(const QPoint &)));
-    connect(ui->tableTreeWidget, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)), this, SLOT(tableItemDoubleClicked(QTreeWidgetItem *, int)));
-    connect(ui->interfaceComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(interfaceCurrentIndexChanged(int)));
-    connect(ui->showInformationStepsCheckBox, SIGNAL(stateChanged(int)), this, SLOT(showInformationStepsChanged(int)));
+    connect(ui->tableTreeWidget, &QTreeWidget::customContextMenuRequested, this, &BluetoothDevicesDialog::tableContextMenu);
+    connect(ui->tableTreeWidget, &QTreeWidget::itemDoubleClicked, this, &BluetoothDevicesDialog::tableItemDoubleClicked);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    connect(ui->interfaceComboBox, &QComboBox::currentIndexChanged, this, &BluetoothDevicesDialog::interfaceCurrentIndexChanged);
+#else
+    connect(ui->interfaceComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &BluetoothDevicesDialog::interfaceCurrentIndexChanged);
+#endif
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 7, 0))
+    connect(ui->showInformationStepsCheckBox, &QCheckBox::checkStateChanged, this, &BluetoothDevicesDialog::showInformationStepsChanged);
+#else
+    connect(ui->showInformationStepsCheckBox, &QCheckBox::stateChanged, this, &BluetoothDevicesDialog::showInformationStepsChanged);
+#endif
 
     ui->tableTreeWidget->sortByColumn(column_number_bd_addr, Qt::AscendingOrder);
 
@@ -159,8 +167,7 @@ void BluetoothDevicesDialog::tableItemDoubleClicked(QTreeWidgetItem *item, int)
 
     item_data = VariantPointer<bluetooth_item_data_t>::asPtr(item->data(0, Qt::UserRole));
     bluetooth_device_dialog = new BluetoothDeviceDialog(*this, cap_file_, item->text(column_number_bd_addr), item->text(column_number_name), item_data->interface_id, item_data->adapter_id, !item->text(column_number_is_local_adapter).isEmpty());
-    connect(bluetooth_device_dialog, SIGNAL(goToPacket(int)),
-            packet_list_, SLOT(goToPacket(int)));
+    connect(bluetooth_device_dialog, &BluetoothDeviceDialog::goToPacket, packet_list_, [=](int packet) { packet_list_->goToPacket(packet); });
     bluetooth_device_dialog->show();
 }
 
@@ -230,7 +237,7 @@ void BluetoothDevicesDialog::on_actionCopy_Rows_triggered()
     items =  ui->tableTreeWidget->selectedItems();
 
     for (i_item = items.begin(); i_item != items.end(); ++i_item) {
-        copy += QString("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
+        copy += QStringLiteral("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
                 .arg((*i_item)->text(column_number_bd_addr), -20)
                 .arg((*i_item)->text(column_number_bd_addr_oui), -20)
                 .arg((*i_item)->text(column_number_name), -30)
@@ -288,7 +295,7 @@ tap_packet_status BluetoothDevicesDialog::tapPacket(void *tapinfo_ptr, packet_in
 
     if (tap_device->has_bd_addr) {
         for (int i = 0; i < 6; ++i) {
-            bd_addr += QString("%1:").arg(tap_device->bd_addr[i], 2, 16, QChar('0'));
+            bd_addr += QStringLiteral("%1:").arg(tap_device->bd_addr[i], 2, 16, QChar('0'));
         }
         bd_addr.chop(1); // remove extra character ":" from the end of the string
         manuf = get_ether_name(tap_device->bd_addr);
@@ -371,7 +378,7 @@ tap_packet_status BluetoothDevicesDialog::tapPacket(void *tapinfo_ptr, packet_in
         dialog->ui->tableTreeWidget->resizeColumnToContents(i);
     }
 
-    dialog->ui->hintLabel->setText(QString(tr("%1 items; Right click for more option; Double click for device details")).arg(dialog->ui->tableTreeWidget->topLevelItemCount()));
+    dialog->ui->hintLabel->setText(tr("%1 items; Right click for more option; Double click for device details").arg(dialog->ui->tableTreeWidget->topLevelItemCount()));
 
     return TAP_PACKET_REDRAW;
 }
@@ -406,7 +413,7 @@ void BluetoothDevicesDialog::on_actionCopy_All_triggered()
 
     item = ui->tableTreeWidget->headerItem();
 
-    copy += QString("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
+    copy += QStringLiteral("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
             .arg(item->text(column_number_bd_addr), -20)
             .arg(item->text(column_number_bd_addr_oui), -20)
             .arg(item->text(column_number_name), -30)
@@ -419,7 +426,7 @@ void BluetoothDevicesDialog::on_actionCopy_All_triggered()
 
     while (*i_item) {
         item = static_cast<QTreeWidgetItem*>(*i_item);
-        copy += QString("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
+        copy += QStringLiteral("%1  %2  %3  %4  %5  %6  %7  %8  %9\n")
                 .arg(item->text(column_number_bd_addr), -20)
                 .arg(item->text(column_number_bd_addr_oui), -20)
                 .arg(item->text(column_number_name), -30)

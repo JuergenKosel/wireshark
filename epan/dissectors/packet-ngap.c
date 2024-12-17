@@ -793,6 +793,7 @@ static int hf_ngap_GlobalCable_ID_str;
 static int hf_ngap_UpdateFeedback_CN_PDB_DL;
 static int hf_ngap_UpdateFeedback_CN_PDB_UL;
 static int hf_ngap_UpdateFeedback_reserved;
+static int hf_ngap_extensionValue_data;
 static int hf_ngap_AdditionalDLUPTNLInformationForHOList_PDU;  /* AdditionalDLUPTNLInformationForHOList */
 static int hf_ngap_AerialUEsubscriptionInformation_PDU;  /* AerialUEsubscriptionInformation */
 static int hf_ngap_A2X_PC5_QoS_Parameters_PDU;    /* A2X_PC5_QoS_Parameters */
@@ -30897,7 +30898,7 @@ static int dissect_ProtocolIEFieldValue(tvbuff_t *tvb, packet_info *pinfo, proto
   ngap_ctx.ProtocolIE_ID       = ngap_data->protocol_ie_id;
   ngap_ctx.ProtocolExtensionID = ngap_data->protocol_extension_id;
 
-  return (dissector_try_uint_new(ngap_ies_dissector_table, ngap_data->protocol_ie_id, tvb, pinfo, tree, false, &ngap_ctx)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(ngap_ies_dissector_table, ngap_data->protocol_ie_id, tvb, pinfo, tree, false, &ngap_ctx)) ? tvb_captured_length(tvb) : 0;
 }
 /* Currently not used
 static int dissect_ProtocolIEFieldPairFirstValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
@@ -30925,28 +30926,30 @@ static int dissect_ProtocolExtensionFieldExtensionValue(tvbuff_t *tvb, packet_in
   ngap_ctx.ProtocolIE_ID       = ngap_data->protocol_ie_id;
   ngap_ctx.ProtocolExtensionID = ngap_data->protocol_extension_id;
 
-  return (dissector_try_uint_new(ngap_extension_dissector_table, ngap_data->protocol_extension_id, tvb, pinfo, tree, true, &ngap_ctx)) ? tvb_captured_length(tvb) : 0;
+  if (!dissector_try_uint_with_data(ngap_extension_dissector_table, ngap_data->protocol_extension_id, tvb, pinfo, tree, true, &ngap_ctx))
+    proto_tree_add_item(tree, hf_ngap_extensionValue_data, tvb, 0, -1, ENC_NA);
+  return tvb_captured_length(tvb);
 }
 
 static int dissect_InitiatingMessageValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   struct ngap_private_data *ngap_data = ngap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(ngap_proc_imsg_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(ngap_proc_imsg_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_SuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   struct ngap_private_data *ngap_data = ngap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(ngap_proc_sout_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(ngap_proc_sout_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_UnsuccessfulOutcomeValue(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
 {
   struct ngap_private_data *ngap_data = ngap_get_private_data(pinfo);
 
-  return (dissector_try_uint_new(ngap_proc_uout_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
+  return (dissector_try_uint_with_data(ngap_proc_uout_dissector_table, ngap_data->procedure_code, tvb, pinfo, tree, true, data)) ? tvb_captured_length(tvb) : 0;
 }
 
 static int dissect_QosFlowAdditionalInfoListRel_PDU(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
@@ -31956,7 +31959,7 @@ void proto_register_ngap(void) {
         FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x40,
         NULL, HFILL }},
     { &hf_ngap_primaryRATRestriction_e_UTRA_OTHERSAT,
-      { "e-UTRA-OTHERSAT", "ngap.primaryRATRestriction.e_UTRA_LEO",
+      { "e-UTRA-OTHERSAT", "ngap.primaryRATRestriction.e_UTRA_OTHERSAT",
         FT_BOOLEAN, 8, TFS(&tfs_restricted_not_restricted), 0x20,
         NULL, HFILL }},
     { &hf_ngap_primaryRATRestriction_reserved,
@@ -32106,6 +32109,10 @@ void proto_register_ngap(void) {
     { &hf_ngap_UpdateFeedback_reserved,
       { "Reserved", "ngap.UpdateFeedback.reserved",
         FT_UINT8, BASE_HEX, NULL, 0x3f,
+        NULL, HFILL }},
+    { &hf_ngap_extensionValue_data,
+      { "Data", "ngap.extensionValue.data",
+        FT_BYTES, BASE_NONE|BASE_ALLOW_ZERO, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_AdditionalDLUPTNLInformationForHOList_PDU,
       { "AdditionalDLUPTNLInformationForHOList", "ngap.AdditionalDLUPTNLInformationForHOList",
@@ -34384,7 +34391,7 @@ void proto_register_ngap(void) {
         FT_UINT32, BASE_DEC, VALS(ngap_Criticality_vals), 0,
         NULL, HFILL }},
     { &hf_ngap_ie_field_value,
-      { "value", "ngap.value_element",
+      { "value", "ngap.ie_field_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_ie_field_value", HFILL }},
     { &hf_ngap_ProtocolExtensionContainer_item,
@@ -34392,7 +34399,7 @@ void proto_register_ngap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_ext_id,
-      { "id", "ngap.id",
+      { "id", "ngap.ext_id",
         FT_UINT8, BASE_DEC|BASE_EXT_STRING, &ngap_ProtocolIE_ID_vals_ext, 0,
         "ProtocolExtensionID", HFILL }},
     { &hf_ngap_extensionValue,
@@ -34404,11 +34411,11 @@ void proto_register_ngap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_private_id,
-      { "id", "ngap.id",
+      { "id", "ngap.private_id",
         FT_UINT32, BASE_DEC, VALS(ngap_PrivateIE_ID_vals), 0,
         "PrivateIE_ID", HFILL }},
     { &hf_ngap_private_value,
-      { "value", "ngap.value_element",
+      { "value", "ngap.private_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_private_value", HFILL }},
     { &hf_ngap_AdditionalDLUPTNLInformationForHOList_item,
@@ -38556,15 +38563,15 @@ void proto_register_ngap(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_ngap_initiatingMessagevalue,
-      { "value", "ngap.value_element",
+      { "value", "ngap.initiatingMessagevalue_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "InitiatingMessage_value", HFILL }},
     { &hf_ngap_successfulOutcome_value,
-      { "value", "ngap.value_element",
+      { "value", "ngap.successfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SuccessfulOutcome_value", HFILL }},
     { &hf_ngap_unsuccessfulOutcome_value,
-      { "value", "ngap.value_element",
+      { "value", "ngap.unsuccessfulOutcome_value_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UnsuccessfulOutcome_value", HFILL }},
   };

@@ -81,16 +81,15 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Informazioni su Logray</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation>Informazioni su Stratoshark</translation>
     </message>
     <message>
         <source>Stratoshark</source>
-        <translation type="unfinished"></translation>
+        <translation>Stratoshark</translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
+        <translation>&lt;h3&gt;Analizzatore delle chiamate di sistema e del registro degli eventi&lt;/h3&gt;</translation>
     </message>
     <message>
         <source>The directory does not exist</source>
@@ -1214,10 +1213,7 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
-        <translation type="unfinished">Creato da Logray %1
+        <translation>Creato da Stratoshark %1
 
 </translation>
     </message>
@@ -1910,10 +1906,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Tipo</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation>Campi</translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation>Occorrenze del campo</translation>
     </message>
@@ -1928,6 +1920,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Width</source>
         <translation>Larghezza</translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
+        <translation>Espressione personalizzata</translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -2382,6 +2378,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Apply a read filter %1</source>
         <translation>Applica un filtro di lettura %1</translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
+        <translation>Inserisci un&apos;espressione di colonna personalizzata %1</translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -3054,12 +3054,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Tutti i file (</translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>Apri file</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">Apri file</translation>
     </message>
     <message>
-        <source>Select File</source>
-        <translation>Seleziona file</translation>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
+        <translation type="unfinished">Seleziona file</translation>
     </message>
 </context>
 <context>
@@ -3097,16 +3099,16 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
-        <translation>Voce del filtro di visualizzazione</translation>
+        <source>Field entry</source>
+        <translation>Nome campo</translation>
     </message>
     <message>
         <source>Enter a field %1</source>
         <translation>Digita un campo %1</translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
-        <translation>Filtro non valido: </translation>
+        <source>Invalid field: </source>
+        <translation>Campo non valido:</translation>
     </message>
 </context>
 <context>
@@ -4168,10 +4170,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Aggiornamento automatico</translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation>Abilita la legenda</translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>Ripristina il grafico</translation>
     </message>
@@ -4305,6 +4303,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation>Commuta l&apos;asse X tra tempo relativo e ora del giorno</translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation>Commuta l&apos;asse Y tra scala logaritmica e lineare</translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>Reticolo</translation>
     </message>
@@ -4315,6 +4321,14 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>Space</source>
         <translation>Spazio</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation>Legenda</translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation>Commuta la legenda</translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6930,6 +6944,18 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <source>Display filter as %1</source>
         <translation>Filtro di visualizzazione come %1</translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished">Wireshark l&apos;analizzatore di rete</translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished">Cattura da %1</translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7838,6 +7864,17 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <source>Preferences</source>
         <translation>Preferenze</translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copia</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation>
+            <numerusform>Copia riga</numerusform>
+            <numerusform>Copia righe</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8308,8 +8345,12 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Riferimento campo di filtro</translation>
     </message>
     <message>
+        <source>Copied %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copied </source>
-        <translation>Copiato</translation>
+        <translation type="vanished">Copiato</translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8488,34 +8529,6 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation>Capacità trasmissiva media (bit/s)</translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>Round Trip Time (ms)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation>Lunghezza del segmento (B)</translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation>Numero di sequenza (B)</translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>Tempo (s)</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>Dimensione della finestra (B)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation>Byte senza ack (eccezionali) (B)</translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation>[nessun file di cattura]</translation>
@@ -8909,8 +8922,10 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
         <translation>Filtro di visualizzazione non valido</translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation>L&apos;espressione %1 non è un filtro di visualizzazione valido. (%2).</translation>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
+        <translation>L&apos;espressione &quot;%1&quot; non è un filtro di visualizzazione valido.
+(%2).</translation>
     </message>
     <message>
         <source>Error</source>
@@ -9003,6 +9018,34 @@ Ad esempio, usa 1 ora per fare in modo che un nuovo file sia creato ogni ora.</t
     <message>
         <source>LOAD</source>
         <translation>CARICO</translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation>Throughput medio</translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation>Round Trip Time</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation>Lunghezza segmento</translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation>Numero sequenza</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>Tempo</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation>Dimensione finestra</translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
+        <translation>Byte senza ack (eccezionali)</translation>
     </message>
 </context>
 <context>
@@ -13129,17 +13172,15 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
-        <translation type="unfinished">Questo è il collante che tiene insieme il tuo sistema usando Logray</translation>
+        <translation>Questo è il collante che tiene insieme il tuo sistema usando Stratoshark</translation>
+    </message>
+    <message>
+        <source>You are running Stratoshark </source>
+        <translation>Stai eseguendo Stratoshark</translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
         <translation>Stai eseguendo Wireshark </translation>
-    </message>
-    <message>
-        <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
-        <translation type="unfinished">Stai eseguendo Logray</translation>
     </message>
     <message>
         <source> You receive automatic updates.</source>
@@ -13215,14 +13256,6 @@ a:hover {
     <message>
         <source>802.11 Preferences</source>
         <translation>Preferenze 802.11</translation>
-    </message>
-    <message>
-        <source>AirPcap Control Panel</source>
-        <translation type="vanished">Pannello di controllo AirPcap</translation>
-    </message>
-    <message>
-        <source>Open the AirPcap Control Panel</source>
-        <translation type="vanished">Apri il pannello di controllo AirPcap</translation>
     </message>
     <message>
         <source>Unable to set channel or offset.</source>
@@ -14459,6 +14492,22 @@ a:hover {
         <translation>Riferimento del filtro di visualizzazione</translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation>Primo pacchetto in conversazione</translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation>Vai al primo pacchetto in questa conversazione</translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation>Ultimo pacchetto in conversazione</translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation>Vai all&apos;ultimo pacchetto in questa conversazione</translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>&amp;Filtri di cattura...</translation>
     </message>
@@ -15145,16 +15194,8 @@ a:hover {
         <translation>Le modifiche devono essere salvate prima di unire.</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>Filtro di visualizzazione non valido</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
         <translation>Filtro di lettura non valido</translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
-        <translation>L&apos;espressione %1 non è un filtro di lettura valido. (%2).</translation>
     </message>
     <message>
         <source> before importing a capture</source>
@@ -15193,6 +15234,12 @@ a:hover {
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>Impossibile scartare file durante la cattura.</translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
+        <translation>L&apos;espressione &quot;%1&quot; non è un filtro di lettura valido.
+(%2).</translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15264,11 +15311,11 @@ a:hover {
     </message>
     <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation>Wireshark l&apos;analizzatore di rete</translation>
+        <translation type="vanished">Wireshark l&apos;analizzatore di rete</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation>Cattura da %1</translation>
+        <translation type="vanished">Cattura da %1</translation>
     </message>
     <message>
         <source> before opening another file</source>

@@ -639,14 +639,14 @@ epan_dissect_fake_protocols(epan_dissect_t *edt, const bool fake_protocols)
 
 void
 epan_dissect_run(epan_dissect_t *edt, int file_type_subtype,
-	wtap_rec *rec, tvbuff_t *tvb, frame_data *fd,
+	wtap_rec *rec, const uint8_t *data, frame_data *fd,
 	column_info *cinfo)
 {
 #ifdef HAVE_LUA
 	wslua_prime_dfilter(edt); /* done before entering wmem scope */
 #endif
 	wmem_enter_packet_scope();
-	dissect_record(edt, file_type_subtype, rec, tvb, fd, cinfo);
+	dissect_record(edt, file_type_subtype, rec, data, fd, cinfo);
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
@@ -656,12 +656,12 @@ epan_dissect_run(epan_dissect_t *edt, int file_type_subtype,
 
 void
 epan_dissect_run_with_taps(epan_dissect_t *edt, int file_type_subtype,
-	wtap_rec *rec, tvbuff_t *tvb, frame_data *fd,
+	wtap_rec *rec, const uint8_t *data, frame_data *fd,
 	column_info *cinfo)
 {
 	wmem_enter_packet_scope();
 	tap_queue_init(edt);
-	dissect_record(edt, file_type_subtype, rec, tvb, fd, cinfo);
+	dissect_record(edt, file_type_subtype, rec, data, fd, cinfo);
 	tap_push_tapped_queue(edt);
 
 	/* free all memory allocated */
@@ -672,13 +672,13 @@ epan_dissect_run_with_taps(epan_dissect_t *edt, int file_type_subtype,
 
 void
 epan_dissect_file_run(epan_dissect_t *edt, wtap_rec *rec,
-	tvbuff_t *tvb, frame_data *fd, column_info *cinfo)
+	const uint8_t *data, frame_data *fd, column_info *cinfo)
 {
 #ifdef HAVE_LUA
 	wslua_prime_dfilter(edt); /* done before entering wmem scope */
 #endif
 	wmem_enter_packet_scope();
-	dissect_file(edt, rec, tvb, fd, cinfo);
+	dissect_file(edt, rec, data, fd, cinfo);
 
 	/* free all memory allocated */
 	wmem_leave_packet_scope();
@@ -688,11 +688,11 @@ epan_dissect_file_run(epan_dissect_t *edt, wtap_rec *rec,
 
 void
 epan_dissect_file_run_with_taps(epan_dissect_t *edt, wtap_rec *rec,
-	tvbuff_t *tvb, frame_data *fd, column_info *cinfo)
+	const uint8_t *data, frame_data *fd, column_info *cinfo)
 {
 	wmem_enter_packet_scope();
 	tap_queue_init(edt);
-	dissect_file(edt, rec, tvb, fd, cinfo);
+	dissect_file(edt, rec, data, fd, cinfo);
 	tap_push_tapped_queue(edt);
 
 	/* free all memory allocated */
@@ -817,7 +817,7 @@ epan_gather_compile_info(feature_list l)
 	/* Lua */
 #ifdef HAVE_LUA
 #ifdef HAVE_LUA_UNICODE
-	with_feature(l, "%s", LUA_RELEASE" (with UfW patches)");
+	with_feature(l, "%s", LUA_RELEASE" (UfW patched)");
 #else /* HAVE_LUA_UNICODE */
 	with_feature(l, "%s", LUA_RELEASE);
 #endif /* HAVE_LUA_UNICODE */
@@ -828,7 +828,7 @@ epan_gather_compile_info(feature_list l)
 	/* GnuTLS */
 #ifdef HAVE_LIBGNUTLS
 #ifdef HAVE_GNUTLS_PKCS11
-	with_feature(l, "GnuTLS %s and PKCS #11 support", LIBGNUTLS_VERSION);
+	with_feature(l, "GnuTLS %s and PKCS#11", LIBGNUTLS_VERSION);
 #else
 	with_feature(l, "GnuTLS %s", LIBGNUTLS_VERSION);
 #endif /* HAVE_GNUTLS_PKCS11 */
@@ -850,7 +850,7 @@ epan_gather_compile_info(feature_list l)
 
 	/* MaxMindDB */
 #ifdef HAVE_MAXMINDDB
-	with_feature(l, "MaxMind");
+	with_feature(l, "MaxMind %s", MAXMINDDB_VERSION);
 #else
 	without_feature(l, "MaxMind");
 #endif /* HAVE_MAXMINDDB */
@@ -878,21 +878,25 @@ epan_gather_compile_info(feature_list l)
 
 	/* LZ4 */
 #ifdef HAVE_LZ4
-	with_feature(l, "LZ4");
+	with_feature(l, "LZ4 %s", LZ4_VERSION_STRING);
 #else
 	without_feature(l, "LZ4");
 #endif /* HAVE_LZ4 */
 
 	/* Zstandard */
 #ifdef HAVE_ZSTD
-	with_feature(l, "Zstandard");
+	with_feature(l, "Zstandard %s", ZSTD_VERSION_STRING);
 #else
 	without_feature(l, "Zstandard");
 #endif /* HAVE_ZSTD */
 
 	/* Snappy */
 #ifdef HAVE_SNAPPY
-	with_feature(l, "Snappy");
+	/*
+	 * snappy-stubs-public.h defines SNAPPY_MAJOR, SNAPPY_MINOR,
+	 * and SNAPPY_PATCHLEVEL, but it's a C++-only header.
+	 */
+	with_feature(l, "Snappy %s", SNAPPY_VERSION);
 #else
 	without_feature(l, "Snappy");
 #endif /* HAVE_SNAPPY */

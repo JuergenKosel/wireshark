@@ -514,7 +514,7 @@ final_registration_all_protocols(void)
 /* Creates the top-most tvbuff and calls dissect_frame() */
 void
 dissect_record(epan_dissect_t *edt, int file_type_subtype,
-    wtap_rec *rec, tvbuff_t *tvb, frame_data *fd, column_info *cinfo)
+    wtap_rec *rec, const uint8_t *data, frame_data *fd, column_info *cinfo)
 {
 	const char *volatile record_type;
 	frame_data_t frame_dissector_data;
@@ -631,9 +631,9 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 	edt->pi.src_win_scale = -1; /* unknown Rcv.Wind.Shift */
 	edt->pi.dst_win_scale = -1; /* unknown Rcv.Wind.Shift */
 	edt->pi.layers = wmem_list_new(edt->pi.pool);
-	edt->tvb = tvb;
+	edt->tvb = NULL;
 
-	frame_delta_abs_time(edt->session, fd, fd->frame_ref_num, &edt->pi.rel_ts);
+	frame_delta_abs_time(edt->session, fd, 1, &edt->pi.rel_ts);
 
 	if (rec->ts_rel_cap_valid) {
 		nstime_copy(&edt->pi.rel_cap_ts, &rec->ts_rel_cap);
@@ -654,6 +654,29 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 	frame_dissector_data.color_edt = edt; /* Used strictly for "coloring rules" */
 
 	TRY {
+		/*
+		 * XXX - currently, the length arguments in
+		 * tvbuff structure are signed, but the captured
+		 * and reported length values are unsigned; this means
+		 * that length values > 2^31 - 1 will appear as
+		 * negative lengths
+		 *
+		 * Captured length values that large will already
+		 * have been filtered out by the Wiretap modules
+		 * (the file will be reported as corrupted), to
+		 * avoid trying to allocate large chunks of data.
+		 *
+		 * Reported length values will not have been
+		 * filtered out, and should not be filtered out,
+		 * as those lengths are not necessarily invalid.
+		 *
+		 * For now, we clip the reported length at INT_MAX
+		 *
+		 * (XXX, is this still a problem?) There was an exception when we call
+		 * tvb_new_real_data() now there's not.
+		 */
+		edt->tvb = tvb_new_real_data(data, fd->cap_len,
+		    fd->pkt_len > INT_MAX ? INT_MAX : fd->pkt_len);
 		/* Add this tvbuffer into the data_src list */
 		add_new_data_source(&edt->pi, edt->tvb, record_type);
 
@@ -681,7 +704,7 @@ dissect_record(epan_dissect_t *edt, int file_type_subtype,
 /* Creates the top-most tvbuff and calls dissect_file() */
 void
 dissect_file(epan_dissect_t *edt, wtap_rec *rec,
-	       tvbuff_t *tvb, frame_data *fd, column_info *cinfo)
+	       const uint8_t *data, frame_data *fd, column_info *cinfo)
 {
 	file_data_t file_dissector_data;
 
@@ -708,11 +731,9 @@ dissect_file(epan_dissect_t *edt, wtap_rec *rec,
 	edt->pi.p2p_dir = P2P_DIR_UNKNOWN;
 	edt->pi.link_dir = LINK_DIR_UNKNOWN;
 	edt->pi.layers = wmem_list_new(edt->pi.pool);
-	edt->tvb = tvb;
+	edt->tvb = NULL;
 
-
-	frame_delta_abs_time(edt->session, fd, fd->frame_ref_num, &edt->pi.rel_ts);
-
+	frame_delta_abs_time(edt->session, fd, 1, &edt->pi.rel_ts);
 
 	TRY {
 		/*
@@ -727,7 +748,8 @@ dissect_file(epan_dissect_t *edt, wtap_rec *rec,
 		}
 		file_dissector_data.color_edt = edt; /* Used strictly for "coloring rules" */
 
-
+		edt->tvb = tvb_new_real_data(data, fd->cap_len,
+		    fd->pkt_len > INT_MAX ? INT_MAX : fd->pkt_len);
 		/* Add this tvbuffer into the data_src list */
 		add_new_data_source(&edt->pi, edt->tvb, "File");
 
@@ -1586,7 +1608,7 @@ dissector_is_uint_changed(dissector_table_t const sub_dissectors, const uint32_t
    of bytes consumed by the dissector, otherwise return 0. */
 
 int
-dissector_try_uint_new(dissector_table_t sub_dissectors, const uint32_t uint_val,
+dissector_try_uint_with_data(dissector_table_t sub_dissectors, const uint32_t uint_val,
 		       tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
 		       const bool add_proto_name, void *data)
 {
@@ -1647,7 +1669,7 @@ dissector_try_uint(dissector_table_t sub_dissectors, const uint32_t uint_val,
 		   tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
 {
 
-	return dissector_try_uint_new(sub_dissectors, uint_val, tvb, pinfo, tree, true, NULL);
+	return dissector_try_uint_with_data(sub_dissectors, uint_val, tvb, pinfo, tree, true, NULL);
 }
 
 /* Look for a given value in a given uint dissector table and, if found,
@@ -1917,7 +1939,7 @@ dissector_is_string_changed(dissector_table_t const sub_dissectors, const char *
    the dissector with the arguments supplied, and return length of dissected data,
    otherwise return 0. */
 int
-dissector_try_string_new(dissector_table_t sub_dissectors, const char *string,
+dissector_try_string_with_data(dissector_table_t sub_dissectors, const char *string,
 		     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, const bool add_proto_name, void *data)
 {
 	dtbl_entry_t            *dtbl_entry;
@@ -1968,13 +1990,6 @@ dissector_try_string_new(dissector_table_t sub_dissectors, const char *string,
 		return len;
 	}
 	return 0;
-}
-
-int
-dissector_try_string(dissector_table_t sub_dissectors, const char *string,
-		     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
-{
-	return dissector_try_string_new(sub_dissectors, string, tvb, pinfo, tree, true, data);
 }
 
 /* Look for a given value in a given string dissector table and, if found,
@@ -2116,7 +2131,7 @@ void dissector_add_guid(const char *name, guid_key* guid_val, dissector_handle_t
 /* Look for a given value in a given guid dissector table and, if found,
    call the dissector with the arguments supplied, and return true,
    otherwise return false. */
-int dissector_try_guid_new(dissector_table_t sub_dissectors,
+int dissector_try_guid_with_data(dissector_table_t sub_dissectors,
     guid_key* guid_val, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, const bool add_proto_name, void *data)
 {
 	dtbl_entry_t            *dtbl_entry;
@@ -2163,12 +2178,6 @@ int dissector_try_guid_new(dissector_table_t sub_dissectors,
 	return 0;
 }
 
-int dissector_try_guid(dissector_table_t sub_dissectors,
-    guid_key* guid_val, tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
-{
-	return dissector_try_guid_new(sub_dissectors, guid_val, tvb, pinfo, tree, true, NULL);
-}
-
 /** Look for a given value in a given guid dissector table and, if found,
  * return the current dissector handle for that value.
  *
@@ -2191,19 +2200,10 @@ dissector_handle_t dissector_get_guid_handle(
 /* Use the currently assigned payload dissector for the dissector table and,
    if any, call the dissector with the arguments supplied, and return the
    number of bytes consumed, otherwise return 0. */
-int dissector_try_payload(dissector_table_t sub_dissectors,
-    tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
-{
-	return dissector_try_uint(sub_dissectors, 0, tvb, pinfo, tree);
-}
-
-/* Use the currently assigned payload dissector for the dissector table and,
-   if any, call the dissector with the arguments supplied, and return the
-   number of bytes consumed, otherwise return 0. */
-int dissector_try_payload_new(dissector_table_t sub_dissectors,
+int dissector_try_payload_with_data(dissector_table_t sub_dissectors,
     tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, const bool add_proto_name, void *data)
 {
-	return dissector_try_uint_new(sub_dissectors, 0, tvb, pinfo, tree, add_proto_name, data);
+	return dissector_try_uint_with_data(sub_dissectors, 0, tvb, pinfo, tree, add_proto_name, data);
 }
 
 /* Change the entry for a dissector in a payload (FT_NONE) dissector table

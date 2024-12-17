@@ -107,11 +107,21 @@ class TestDfilterMembership:
         dfilter = 'tcp.checksum.status in {"Unverified", "Good"}'
         checkDFilterCount(dfilter, 1)
 
+    def test_membership_value_string_2(self, checkDFilterSucceed):
+        # These appear in different value strings registered to different
+        # versions of vlan.priority
+        dfilter = 'vlan.priority in {"Spare", "Critical Applications"}'
+        checkDFilterSucceed(dfilter)
+
     def test_membership_arithmetic_1(self, checkDFilterCountWithSelectedFrame):
         dfilter = 'frame.time_epoch in {${frame.time_epoch}-46..${frame.time_epoch}+43}'
         checkDFilterCountWithSelectedFrame(dfilter, 1, 1)
 
     def test_membership_bad_rhs_string_2(self, checkDFilterFail):
         dfilter = 'eth.src in {11:12:13:14:15:16, 22-33-}'
-        error = 'Error: "22-33-" is not a valid protocol or protocol field.'
+        error = 'Error: "22-33-" contains too few bytes to be a valid Ethernet address.'
         checkDFilterFail(dfilter, error)
+
+    def test_membership_rhs_field(self, checkDFilterCount):
+        dfilter = 'eth.src in { eth.addr }'
+        checkDFilterCount(dfilter, 1)

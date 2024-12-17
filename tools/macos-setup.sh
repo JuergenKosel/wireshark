@@ -21,11 +21,11 @@ shopt -s extglob
 DARWIN_MAJOR_VERSION=$(uname -r | sed 's/\([0-9]*\).*/\1/')
 
 #
-# The minimum supported version of Qt is 5.11, so the minimum supported version
-# of macOS is OS X 10.11 (El Capitan), aka Darwin 15.0.
+# The minimum supported version of Qt is 5.15, so the minimum supported version
+# of macOS is OS X 10.13 (High Sierra), aka Darwin 17.0.
 #
-if [[ $DARWIN_MAJOR_VERSION -lt 15 ]]; then
-    echo "This script does not support any versions of macOS before El Capitan" 1>&2
+if [[ $DARWIN_MAJOR_VERSION -lt 17 ]]; then
+    echo "This script does not support any versions of macOS before High Sierra" 1>&2
     exit 1
 fi
 
@@ -1144,13 +1144,10 @@ install_qt() {
         5)
             case $QT_MINOR_VERSION in
 
-            0|1|2|3|4|5|6|7|8|9|10)
+            0|1|2|3|4|5|6|7|8|9|10|11|12|13|14)
                 echo "Qt $QT_VERSION" is too old 1>&2
                 ;;
 
-            11|12|13|14)
-                QT_VOLUME=qt-opensource-mac-x64-$QT_VERSION
-                ;;
             *)
                 echo "The Qt Company no longer provides open source offline installers for Qt $QT_VERSION" 1>&2
                 ;;
@@ -1203,11 +1200,11 @@ uninstall_qt() {
             5*)
                 case $installed_qt_minor_version in
 
-                0|1|2|3|4|5|6|7|8)
+                0|1|2|3|4|5|6|7|8|9|10|11)
                     echo "Qt $installed_qt_version" is too old 1>&2
                     ;;
 
-                9|10|11|12|13|14)
+                12|13|14)
                     installed_qt_volume=qt-opensource-mac-x64-$installed_qt_version.dmg
                     ;;
                 esac
@@ -2062,6 +2059,7 @@ install_libssh() {
         $no_build && echo "Skipping installation" && return
         xzcat libssh-$LIBSSH_VERSION.tar.xz | tar xf -
         cd "libssh-$LIBSSH_VERSION"
+        patch -p1 < "${topdir}/tools/macos-setup-patches/libssh-werror.patch"
         mkdir build
         cd build
         "${DO_CMAKE[@]}" -DWITH_GCRYPT=1 ..
@@ -2572,8 +2570,8 @@ install_falco_libs() {
     if [ "$FALCO_LIBS_VERSION" ] && [ ! -f "falco-libs-$FALCO_LIBS_VERSION-done" ] ; then
         echo "Downloading, building, and installing libsinsp and libscap:"
         [ -f "falco-libs-$FALCO_LIBS_VERSION.tar.gz" ] || curl "${CURL_REMOTE_NAME_OPTS[@]}" --remote-header-name "https://github.com/falcosecurity/libs/archive/refs/tags/$FALCO_LIBS_VERSION.tar.gz"
+        [ -f "falco-libs-$FALCO_LIBS_VERSION.tar.gz" ] || mv "libs-$FALCO_LIBS_VERSION.tar.gz" "falco-libs-$FALCO_LIBS_VERSION.tar.gz"
         $no_build && echo "Skipping installation" && return
-        mv "libs-$FALCO_LIBS_VERSION.tar.gz" "falco-libs-$FALCO_LIBS_VERSION.tar.gz"
         echo "$FALCO_LIBS_SHA256  falco-libs-$FALCO_LIBS_VERSION.tar.gz" | shasum --algorithm 256 --check
         tar -xf "falco-libs-$FALCO_LIBS_VERSION.tar.gz"
         mv "libs-$FALCO_LIBS_VERSION" "falco-libs-$FALCO_LIBS_VERSION"
@@ -2804,7 +2802,7 @@ install_minizip_ng() {
 
 uninstall_minizip_ng() {
     if [ -n "$installed_minizip_ng_version" ] ; then
-        echo "Uninstalling minizip:"
+        echo "Uninstalling minizip-ng:"
         cd minizip-ng-$installed_minizip_ng_version/contrib/minizip
         $DO_MAKE_UNINSTALL
         make distclean
@@ -3890,7 +3888,7 @@ then
     installed_opus_version=$( ls opus-*-done 2>/dev/null | sed 's/opus-\(.*\)-done/\1/' )
     installed_python3_version=$( ls python3-*-done 2>/dev/null | sed 's/python3-\(.*\)-done/\1/' )
     installed_brotli_version=$( ls brotli-*-done 2>/dev/null | sed 's/brotli-\(.*\)-done/\1/' )
-    installed_minizip_version=$( ls minizip-*-done 2>/dev/null | sed 's/minizip-\(.*\)-done/\1/' )
+    installed_minizip_version=$( ls minizip-[0-9.]*-done 2>/dev/null | sed 's/minizip-\(.*\)-done/\1/' )
     installed_minizip_ng_version=$( ls minizip-ng-*-done 2>/dev/null | sed 's/minizip-ng-\(.*\)-done/\1/' )
     installed_sparkle_version=$( ls sparkle-*-done 2>/dev/null | sed 's/sparkle-\(.*\)-done/\1/' )
 

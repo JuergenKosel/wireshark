@@ -81,15 +81,14 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Logray 정보</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stratoshark</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1207,12 +1206,7 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
-        <translation type="unfinished">Logray %1에서 생성됨
-
-</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1903,10 +1897,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>유형</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation>필드</translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation>필드 출현 횟수</translation>
     </message>
@@ -1921,6 +1911,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Width</source>
         <translation>폭</translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -2375,6 +2369,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Apply a read filter %1</source>
         <translation>읽기 필터 적용 %1</translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -3047,12 +3045,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>모든 파일 (</translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>파일 열기</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">파일 열기</translation>
     </message>
     <message>
-        <source>Select File</source>
-        <translation>파일 선택</translation>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
+        <translation type="unfinished">파일 선택</translation>
     </message>
 </context>
 <context>
@@ -3090,16 +3090,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
-        <translation>표시 필터 항목</translation>
+        <source>Field entry</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Enter a field %1</source>
         <translation>필드 입력 %1</translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
-        <translation>잘못된 필터: </translation>
+        <source>Invalid field: </source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -4151,10 +4151,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>자동 업데이트</translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation>범례 활성화</translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>그래프 초기화</translation>
     </message>
@@ -4288,6 +4284,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>십자선</translation>
     </message>
@@ -4298,6 +4302,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Space</source>
         <translation>Space</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6908,6 +6920,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Display filter as %1</source>
         <translation>%1(으)로 표시 필터</translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished">Wireshark 네트워크 분석기</translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished">%1에서 캡처 중</translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7814,6 +7838,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Preferences</source>
         <translation>설정</translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">복사</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation type="unfinished">
+            <numerusform>행 복사</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8277,8 +8311,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>필터 필드 참조</translation>
     </message>
     <message>
+        <source>Copied %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copied </source>
-        <translation>복사됨 </translation>
+        <translation type="vanished">복사됨 </translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8457,34 +8495,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation>평균 처리량(비트/초)</translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>왕복 시간(ms)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation>세그먼트 길이(바이트)</translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation>시퀀스 번호(바이트)</translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>시간(초)</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>윈도 크기(바이트)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation>ACK되지 않은(대기 중) 바이트(바이트)</translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation>[캡처 파일 없음]</translation>
@@ -8878,8 +8888,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>잘못된 표시 필터</translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation>필터 표현식 %1이(가) 올바른 표시 필터가 아닙니다. (%2).</translation>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Error</source>
@@ -8972,6 +8983,34 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>LOAD</source>
         <translation>부하</translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation type="unfinished">왕복 시간</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation type="unfinished">세그먼트 길이</translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation type="unfinished">시퀀스 번호</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation type="unfinished">시간</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -13098,17 +13137,15 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
-        <translation type="unfinished">Logray를 사용하여 시스템을 고정하는 접착제의 냄새를 맡고(스니핑) 있습니다 </translation>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You are running Stratoshark </source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
         <translation>실행 중인 Wireshark 버전: </translation>
-    </message>
-    <message>
-        <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
-        <translation type="unfinished">실행 중인 Logray 버전: </translation>
     </message>
     <message>
         <source> You receive automatic updates.</source>
@@ -13184,14 +13221,6 @@ a:hover {
     <message>
         <source>802.11 Preferences</source>
         <translation>802.11 설정</translation>
-    </message>
-    <message>
-        <source>AirPcap Control Panel</source>
-        <translation type="vanished">AirPcap 제어판</translation>
-    </message>
-    <message>
-        <source>Open the AirPcap Control Panel</source>
-        <translation type="vanished">AirPcap 제어판 열기</translation>
     </message>
     <message>
         <source>Unable to set channel or offset.</source>
@@ -14428,6 +14457,22 @@ a:hover {
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>캡처 필터(&amp;F)…</translation>
     </message>
@@ -15114,16 +15159,8 @@ a:hover {
         <translation>파일을 병합하기 전에 변경된 내용을 저장해야 합니다.</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>잘못된 표시 필터</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
         <translation>잘못된 읽기 필터</translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
-        <translation>필터 표현식 %1은(는) 잘못된 읽기 필터입니다. (%2).</translation>
     </message>
     <message>
         <source> before importing a capture</source>
@@ -15162,6 +15199,11 @@ a:hover {
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>캡처 중에는 파일을 버릴 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15233,11 +15275,11 @@ a:hover {
     </message>
     <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation>Wireshark 네트워크 분석기</translation>
+        <translation type="vanished">Wireshark 네트워크 분석기</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation>%1에서 캡처 중</translation>
+        <translation type="vanished">%1에서 캡처 중</translation>
     </message>
     <message>
         <source> before opening another file</source>

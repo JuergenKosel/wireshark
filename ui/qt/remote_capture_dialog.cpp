@@ -16,7 +16,7 @@
 #include "ui/capture_globals.h"
 #include "remote_capture_dialog.h"
 #include <ui_remote_capture_dialog.h>
-#include "capture_opts.h"
+#include "ui/capture_opts.h"
 #include "capture/capture-pcap-util.h"
 #include "ui/capture_ui_utils.h"
 #include "epan/prefs.h"
@@ -82,7 +82,7 @@ void RemoteCaptureDialog::fillComboBox()
     if (remote_host_list_size > 0) {
         recent_remote_host_list_foreach(fillBox, ui->hostCombo);
         ui->hostCombo->insertSeparator(remote_host_list_size+1);
-        ui->hostCombo->addItem(QString(tr("Clear list")));
+        ui->hostCombo->addItem(tr("Clear list"));
     }
 }
 

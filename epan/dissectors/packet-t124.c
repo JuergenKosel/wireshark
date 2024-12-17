@@ -550,7 +550,7 @@ dissect_t124_T_value(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 	ns = tvb_get_string_enc(actx->pinfo->pool, t124NSIdentifier, 0, tvb_reported_length(t124NSIdentifier), ENC_ASCII|ENC_NA);
 	if(ns != NULL) {
-		dissector_try_string_new(t124_ns_dissector_table, ns, next_tvb, actx->pinfo, top_tree, false, NULL);
+		dissector_try_string_with_data(t124_ns_dissector_table, ns, next_tvb, actx->pinfo, top_tree, false, NULL);
 	}
 	}
 
@@ -2397,7 +2397,7 @@ dissect_t124_T_userData(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_,
 
 	if(next_tvb) {
 
-	     dissector_try_uint_new(t124_sd_dissector_table, channelId, next_tvb, actx->pinfo, top_tree, false, NULL);
+	     dissector_try_uint_with_data(t124_sd_dissector_table, channelId, next_tvb, actx->pinfo, top_tree, false, NULL);
 
 	}
 
@@ -3376,7 +3376,7 @@ void proto_register_t124(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_t124_queryResponseResult,
-      { "result", "t124.result",
+      { "result", "t124.queryResponseResult",
         FT_UINT32, BASE_DEC, VALS(t124_QueryResponseResult_vals), 0,
         "QueryResponseResult", HFILL }},
     { &hf_t124_waitForInvitationFlag,
@@ -3412,11 +3412,11 @@ void proto_register_t124(void) {
         FT_UINT32, BASE_DEC, VALS(t124_ConferenceNameSelector_vals), 0,
         "ConferenceNameSelector", HFILL }},
     { &hf_t124_joinResponseResult,
-      { "result", "t124.result",
+      { "result", "t124.joinResponseResult",
         FT_UINT32, BASE_DEC, VALS(t124_JoinResponseResult_vals), 0,
         "JoinResponseResult", HFILL }},
     { &hf_t124_inviteResponseResult,
-      { "result", "t124.result",
+      { "result", "t124.inviteResponseResult",
         FT_UINT32, BASE_DEC, VALS(t124_InviteResponseResult_vals), 0,
         "InviteResponseResult", HFILL }},
     { &hf_t124_t124Identifier,

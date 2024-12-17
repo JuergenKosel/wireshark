@@ -27,6 +27,7 @@
 #include <wsutil/array.h>
 #include <wsutil/pow2.h>
 #include <wsutil/pint.h>
+#include <wsutil/str_util.h>
 #include "packet-gsm_map.h"
 #include "packet-gsm_a_common.h"
 #include "packet-lcsap.h"
@@ -2048,7 +2049,7 @@ de_emm_trac_area_id_lst(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo,
         n_elem = (octet & 0x1f)+1;
         item = proto_tree_add_item(tree, hf_nas_eps_emm_tai_n_elem, tvb, curr_offset, 1, ENC_BIG_ENDIAN);
         if (n_elem<16) {
-            proto_item_append_text(item, " [+1 = %u element(s)]", n_elem);
+            proto_item_append_text(item, " [+1 = %u element%s]", n_elem, plurality(n_elem, "", "s"));
         } else {
             n_elem = 16;
         }
@@ -5425,7 +5426,7 @@ nas_emm_sec_mode_comp(tvbuff_t *tvb, proto_tree *tree, packet_info *pinfo, uint3
     /* 66   UE radio capability ID UE radio capability ID 9.9.3.60 O   TLV  3-n */
     ELEM_OPT_TLV(0x66, NAS_5GS_PDU_TYPE_MM, DE_NAS_5GS_MM_UE_RADIO_CAP_ID, NULL);
     /* 67   UE coarse location information UE coarse location information 9.9.3.72 O   TLV  8 */
-    ELEM_OPT_TLV(0x66, NAS_5GS_PDU_TYPE_MM, DE_EMM_UE_COARSE_LOC_INFO, NULL);
+    ELEM_OPT_TLV(0x67, NAS_PDU_TYPE_EMM, DE_EMM_UE_COARSE_LOC_INFO, NULL);
 
     EXTRANEOUS_DATA_CHECK(curr_len, 0, pinfo, &ei_nas_eps_extraneous_data);
 }

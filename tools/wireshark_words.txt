@@ -7,6 +7,7 @@
 1xrtt
 20west
 29west
+32apsk
 3gpp2
 3pcap
 5views
@@ -33,6 +34,7 @@ actioned
 activations
 acttab
 actuator
+acurc
 acyclic
 adaption
 addba
@@ -40,6 +42,7 @@ additionals
 additionsr
 addon
 addrbook
+addresp
 addrs
 addrtype
 addrv
@@ -59,6 +62,7 @@ aes256
 aethra
 afnum
 afscall
+agctst
 aggreg
 aggregated
 aggregates
@@ -122,6 +126,7 @@ appsig
 apptext
 apptype
 april
+apsme
 arabic
 arbitrated
 arcnet
@@ -186,6 +191,7 @@ autodiscovery
 autoneg
 autosar
 available
+avantel
 avaya
 avrcp
 axcor
@@ -207,6 +213,7 @@ bayer
 bband
 bblog
 bcast
+bcmcs
 bcntime
 beamformed
 beamformee
@@ -220,6 +227,7 @@ berhad
 berkeley
 bgpsec
 bgpspec
+bharat
 bharti
 bibliographic
 bibliography
@@ -248,6 +256,7 @@ bootp
 bootup
 bosch
 bouygues
+brasil
 bratislava
 britain
 british
@@ -358,6 +367,7 @@ chdlc
 checkbox
 checkout
 checksum
+chennai
 chinese
 chipset
 chksum
@@ -382,6 +392,7 @@ ciphertext
 ciplus
 cipso
 circularly
+citic
 citrix
 cksum
 clasportinfo
@@ -484,9 +495,11 @@ coprocessor
 copycss
 copyfile
 corba
+corbin
 corosync
 correlator
 corrigendum
+cosem
 couchbase
 coverity
 cp56time2a
@@ -507,6 +520,7 @@ criticalextensions
 criticalextensionsfuture
 crnti
 croatian
+crtcs
 crypto
 cryptographic
 csapi
@@ -524,6 +538,7 @@ curvezmq
 customizable
 customization
 customizing
+cwconfig
 cxxflags
 cyber
 cymru
@@ -567,6 +582,7 @@ debian
 debug
 debugger
 debuggers
+debuglog
 decapsulation
 decca
 december
@@ -673,6 +689,7 @@ dftest
 dgotyp
 dgram
 dhaka
+dhchap
 dhcpv
 diagdata
 dialed
@@ -709,12 +726,17 @@ diversifications
 diversifier
 divisor
 djiuav
+dlctrl
 dlmap
+dlmapc
 dlsch
 dlstatus
 dmacros
+dmefs
 dmepi
+dmflags
 dmrpc
+dmvfs
 dmx4all
 dnskey
 dnsop
@@ -726,7 +748,9 @@ dodag
 doneconf
 doppler
 dot11Qos
+dot12in
 dot1q
+dot3stats
 dot5stats
 dotnet
 double
@@ -734,6 +758,7 @@ downlink
 doxygen
 dpauxmon
 dpnss
+dport
 drange
 drbid
 drdynvc
@@ -751,11 +776,13 @@ düsseldorf
 dword
 dwords
 dyntatom
+dzgre
 e2node
 eapol
 earcfn
 earfcn
 eastat
+eattr
 ebcdic
 ecdhe
 ecdsa
@@ -767,6 +794,7 @@ ed137b
 editcap
 edonkey
 eeprom
+eesti
 effecter
 egprs
 egroup
@@ -843,6 +871,7 @@ España
 esperanto
 essar
 estonia
+estonian
 estream
 ethcm
 etheraddr
@@ -856,6 +885,7 @@ etlfile
 ettarr
 etwdump
 etype
+eucjpms
 europe
 eutra
 eutran
@@ -868,6 +898,7 @@ exfunc
 exocet
 expandtab
 expansions
+expfill
 exponentials
 extapp
 extattr
@@ -914,6 +945,7 @@ fileset
 filsfils
 filter1d
 filter2d
+finalise
 finditer
 firefox
 firewall
@@ -941,10 +973,12 @@ format0
 forti
 fortigate
 fortinet
+foshan
 fpiur
 fprintf
 fraghdr
 fragmenter
+frags
 framenum
 framenumber
 frametype
@@ -1031,6 +1065,8 @@ gprsmeasurementparams3g
 gpsascii
 granularity
 greek
+greent
+greentap
 greenwich
 gregex
 greyed
@@ -1042,6 +1078,7 @@ groupmod
 gryphon
 gssapi
 gtalk
+guang
 guangzhou
 guatemala
 guint
@@ -1049,14 +1086,17 @@ gzipped
 handoff
 hangul
 hangup
+hangzhou
 haptic
 harqid
 harris
 hartip
+hasattr
 hashed
 hashes
 hazelcast
 hbreq
+hbresp
 hcidump
 headend
 hebrew
@@ -1108,6 +1148,7 @@ hytec
 iabtnl
 ibsdh
 icapability
+icelandic
 icmpv
 icontrol
 iconv
@@ -1213,6 +1254,7 @@ intparam
 intra
 intrinsics
 intro
+intsize
 intval
 inuse
 invalidation
@@ -1282,6 +1324,7 @@ jminfo
 joiners
 jsonraw
 jtids
+juliat
 jupmngr
 k12text
 k12xx
@@ -1319,6 +1362,7 @@ lanka
 lanman
 latencies
 latin
+latvian
 layer2octet
 layerables
 lbart
@@ -1333,7 +1377,9 @@ lempar
 lenbrook
 level1login
 lexer
+lexobj
 lexpos
+lextab
 lflags
 lfsck
 libcap
@@ -1368,11 +1414,14 @@ linwakeup
 list1
 literals
 lithionics
+lithuanian
 llcgprs
+llogd
 lnpdqp
 localise
 locamation
 locoinfof
+log2mask
 log3gpp
 logcat
 loghans
@@ -1388,6 +1437,7 @@ lookups
 loopback
 loran
 lossy
+lowpan
 lquota
 lsarpc
 lscap
@@ -1405,6 +1455,7 @@ lycamobile
 lz4frame
 macaddr
 macaddress
+macau
 macos
 macosx
 macros
@@ -1482,6 +1533,8 @@ middlebox
 migratable
 milano
 millimeters
+millimetre
+millimetres
 millisecs
 milliwatt
 mingw
@@ -1512,6 +1565,7 @@ modulations
 modulo
 modulus
 modus
+moldudp
 monday
 monmap
 monterrey
@@ -1547,6 +1601,7 @@ MSM7627A
 mtftp
 mtime
 mtrace
+mtype
 mudurl
 mulaw
 multi
@@ -1624,6 +1679,7 @@ newark
 newpw
 nexthop
 nextseq
+nforge
 nfs2err
 nfs3err
 nfs4err
@@ -1633,6 +1689,8 @@ ngran
 ngsniffer
 niagara
 niagra
+nicosia
+nierout
 nigam
 nikon
 nintendo
@@ -1648,6 +1706,7 @@ noascii
 noauth
 nodeid
 nodiscriminant
+noemit
 nofcs
 nokia
 nolintnextline
@@ -1716,6 +1775,7 @@ octet
 octets
 octetstring
 october
+odomain
 oextcap
 ofdma
 offloadability
@@ -1769,6 +1829,7 @@ openssl
 openstreetmap
 openvpn
 opflags
+oplist
 oplock
 opmode
 opnum
@@ -1792,6 +1853,7 @@ oscore
 osdinfo
 osdmap
 osdstat
+osinl
 ositp
 osmocom
 osmux
@@ -1849,6 +1911,8 @@ pcre2pattern
 pcrepattern
 pdcch
 pdelay
+pdict
+pdictrl
 pdsch
 pdulength
 pdustatus
@@ -1888,6 +1952,7 @@ plugin
 pluginize
 plugins
 pluginsdir
+plura
 pmconfig
 pmkid
 pname
@@ -1899,6 +1964,7 @@ polynom
 poolop
 popup
 portableapps
+portc
 portcounters
 portid
 portinfo
@@ -1941,6 +2007,7 @@ prepend
 prepost
 preprocess
 preprocessor
+prescaler
 preshared
 prespecified
 presubscribed
@@ -1957,6 +2024,7 @@ profibus
 profidrive
 profienergy
 profinet
+profxchg
 programmatic
 promisc
 promiscsniff
@@ -1981,6 +2049,7 @@ psnip
 pssiae
 ptime
 ptlrpc
+ptmsi
 ptvcursor
 ptype
 pubdir
@@ -1989,7 +2058,9 @@ publickey
 pucch
 pusch
 pwach
+pwcesopsn
 pwrprof
+pwsatop
 pxeclient
 pytest
 qam16
@@ -2180,6 +2251,7 @@ rescanning
 resegment
 resegmentation
 resegmented
+resel
 resend
 resequencing
 reservable
@@ -2232,6 +2304,7 @@ rfinfo
 rfmon
 rgoose
 richard
+rinfo
 ripemd
 rlcmac
 rmcap
@@ -2288,6 +2361,8 @@ santa
 santiago
 sapgui
 sarajevo
+sargent
+satcom
 satisfiable
 satnet
 saturates
@@ -2320,6 +2395,8 @@ sectorization
 sectorized
 secur
 seg1a
+seg2a
+seg3a
 seglen
 segmenting
 segno
@@ -2356,8 +2433,10 @@ setattr
 setcap
 setconf
 setkey
+settl
 setuid
 severities
+sfcrc
 sfiocr
 sflag
 sflow
@@ -2408,6 +2487,7 @@ smpte
 smrse
 sname
 snaplen
+snarf
 snow3g
 snprintf
 sockaddr
@@ -2454,6 +2534,7 @@ srcaddr
 srcdst
 srcip
 srcport
+sresmask
 srtcp
 srvcc
 srvreq
@@ -2461,6 +2542,7 @@ srvsvc
 ss7pcs
 sscanf
 sscop
+sshdig
 sshdump
 sshkey
 ssiae
@@ -2567,6 +2649,7 @@ symantec
 symbian
 symbl
 symlink
+symstack
 synchronisation
 synchronise
 synchronised
@@ -2591,6 +2674,7 @@ t7entry
 tablemod
 tabular
 taiwan
+tallinn
 tanzania
 tbilisi
 tclas
@@ -2608,6 +2692,7 @@ tdd768
 technica
 Tektronix
 telco
+telecel
 telecom
 télécom
 Telecomunicaciones
@@ -2645,6 +2730,7 @@ throughput
 thunderx
 thursday
 timeout
+timeserv
 timeslot
 timestamp
 timestamps
@@ -2662,6 +2748,7 @@ toggles
 toggling
 tokenized
 tokyo
+tonedet
 toolbar
 toolongfragment
 toolset
@@ -2691,6 +2778,7 @@ transversal
 traveler
 traversal
 trcdbg
+trgereig
 trunc
 truncatable
 truncate
@@ -2700,6 +2788,7 @@ truphone
 trustdom
 truthiness
 tshark
+tspace
 tspec
 tsprec
 tstamp
@@ -2744,6 +2833,7 @@ udphdr
 udrei
 uganda
 uievent
+uimsbf
 uint16
 uint32
 uint8
@@ -2845,6 +2935,7 @@ unjoining
 unknown1
 unlink
 unlinked
+unlist
 unmanaged
 unmap
 unmappable
@@ -2898,6 +2989,7 @@ unsubscribe
 unsubscribed
 unsupportable
 unsynchronized
+untag
 untagged
 unterminated
 untrackable
@@ -2977,7 +3069,10 @@ vfinforecord
 vflags
 vhdset
 viavi
+videsh
+vidpn
 viettel
+viprion
 virtex
 virtio
 virtualization
@@ -3030,6 +3125,7 @@ wisun
 withfcs
 withoutfcs
 wksta
+wmdrmpd
 workarounds
 wowlan
 wpcap

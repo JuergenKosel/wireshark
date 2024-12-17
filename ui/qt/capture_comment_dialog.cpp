@@ -13,6 +13,7 @@
 #include "file.h"
 
 #include "ui/simple_dialog.h"
+#include "ui/qt/main_window.h"
 #include "ui/qt/utils/qt_ui_utils.h"
 #include "main_application.h"
 
@@ -130,9 +131,8 @@ CaptureCommentDialog::CaptureCommentDialog(QWidget &parent, CaptureFile &capture
     this->actionAddButton = ui->buttonBox->addButton(tr("Add Comment"), QDialogButtonBox::ActionRole);
     connect(this->actionAddButton, &QPushButton::clicked, this, &CaptureCommentDialog::addComment);
 
-    connect(this, SIGNAL(captureCommentChanged()),
-        mainApp->mainWindow(), SLOT(updateForUnsavedChanges()));
-    QTimer::singleShot(0, this, SLOT(updateWidgets()));
+    connect(this, &CaptureCommentDialog::captureCommentChanged, mainApp->mainWindow(), &MainWindow::updateForUnsavedChanges);
+    QTimer::singleShot(0, this, &CaptureCommentDialog::updateWidgets);
 }
 
 CaptureCommentDialog::~CaptureCommentDialog()

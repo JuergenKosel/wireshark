@@ -81,6 +81,7 @@ set(WMEM_FILES
 set(WSUTIL_PUBLIC_HEADERS
 	802_11-utils.h
 	adler32.h
+	application_flavor.h
 	array.h
 	base32.h
 	bits_count_ones.h
@@ -106,6 +107,7 @@ set(WSUTIL_PUBLIC_HEADERS
 	eax.h
 	epochs.h
 	exported_pdu_tlvs.h
+	failure_message_simple.h
 	feature_list.h
 	filesystem.h
 	g711.h
@@ -157,6 +159,7 @@ set(WSUTIL_PUBLIC_HEADERS
 set(WSUTIL_COMMON_FILES
 	802_11-utils.c
 	adler32.c
+	application_flavor.c
 	base32.c
 	bitswap.c
 	buffer.c
@@ -175,7 +178,9 @@ set(WSUTIL_COMMON_FILES
 	crc11.c
 	curve25519.c
 	dot11decrypt_wep.c
+	dtoa.c
 	eax.c
+	failure_message_simple.c
 	feature_list.c
 	filesystem.c
 	filter_files.c

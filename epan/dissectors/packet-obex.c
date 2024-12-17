@@ -23,6 +23,7 @@
 #include "packet-btrfcomm.h"
 #include "packet-btl2cap.h"
 #include "packet-btsdp.h"
+#include <wsutil/array.h>
 
 /* Initialize the protocol and registered fields */
 static int proto_obex;
@@ -1821,7 +1822,7 @@ dissect_headers(proto_tree *tree, tvbuff_t *tvb, int offset, packet_info *pinfo,
                 switch (hdr_id) {
                 case 0x4c: /* Application Parameters */
                     next_tvb = tvb_new_subset_length(tvb, offset, value_length);
-                    if (!(new_offset = dissector_try_uint_new(obex_profile_table, profile, next_tvb, pinfo, hdr_tree, true, NULL))) {
+                    if (!(new_offset = dissector_try_uint_with_data(obex_profile_table, profile, next_tvb, pinfo, hdr_tree, true, NULL))) {
                         new_offset = call_dissector(raw_application_parameters_handle, next_tvb, pinfo, hdr_tree);
                     }
                     offset += new_offset;
@@ -1962,7 +1963,7 @@ dissect_headers(proto_tree *tree, tvbuff_t *tvb, int offset, packet_info *pinfo,
                     if (value_length > 0 && obex_last_opcode_data &&
                             (obex_last_opcode_data->code == OBEX_CODE_VALS_GET || obex_last_opcode_data->code == OBEX_CODE_VALS_PUT) &&
                             obex_last_opcode_data->data.get_put.type &&
-                            dissector_try_string(media_type_dissector_table, obex_last_opcode_data->data.get_put.type, next_tvb, pinfo, tree, NULL) > 0) {
+                            dissector_try_string_with_data(media_type_dissector_table, obex_last_opcode_data->data.get_put.type, next_tvb, pinfo, tree, true, NULL) > 0) {
                         offset += value_length;
                     } else {
                         if (!tvb_strneql(tvb, offset, "<?xml", 5))

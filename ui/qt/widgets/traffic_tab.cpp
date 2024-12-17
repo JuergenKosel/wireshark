@@ -251,7 +251,7 @@ void TrafficTab::insertProtoTab(int protoId, bool emitSignals)
     QVariant storage;
     storage.setValue(tabData);
     if (tree->model()->rowCount() > 0)
-        tableName += QString(" %1 %2").arg(UTF8_MIDDLE_DOT).arg(tree->model()->rowCount());
+        tableName += QStringLiteral(" %1 %2").arg(UTF8_MIDDLE_DOT).arg(tree->model()->rowCount());
 
     int tabId = -1;
     if (insertAt > -1)
@@ -371,7 +371,9 @@ void TrafficTab::modelReset()
         if (qsfpm->rowCount() == 0)
             setTabText(tabIdx, tabData.name());
         else
-            setTabText(tabIdx, tabData.name() + QString(" %1 %2").arg(UTF8_MIDDLE_DOT).arg(qsfpm->rowCount()));
+            setTabText(tabIdx, QStringLiteral("%1 %2 %3")
+                .arg(tabData.name(), UTF8_MIDDLE_DOT)
+                .arg(qsfpm->rowCount()));
     }
 
     emit tabDataChanged(tabIdx);
@@ -496,14 +498,10 @@ TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, TrafficDataFilterProxy
         QTextStream in(&ipmap);
         QString line;
         while (in.readLineInto(&line)) {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
             out << line << Qt::endl;
-#else
-            out << line << endl;
-#endif
         }
 
-        out << QString("<script id=\"ipmap-data\" type=\"application/json\">\n");
+        out << QStringLiteral("<script id=\"ipmap-data\" type=\"application/json\">\n");
     }
 
     /*
@@ -588,7 +586,7 @@ TrafficTab::writeGeoIPMapFile(QFile * fp, bool json_only, TrafficDataFilterProxy
     out << doc.toJson();
 
     if (!json_only)
-        out << QString("</script>\n");
+        out << QStringLiteral("</script>\n");
 
     out.flush();
 
@@ -604,7 +602,7 @@ QUrl TrafficTab::createGeoIPMap(bool json_only, int tabIdx)
         return QUrl();
     }
 
-    QString tempname = QString("%1/ipmapXXXXXX.html").arg(QDir::tempPath());
+    QString tempname = QStringLiteral("%1/ipmapXXXXXX.html").arg(QDir::tempPath());
     QTemporaryFile tf(tempname);
     if (!tf.open()) {
         QMessageBox::warning(this, tr("Map file error"), tr("Unable to create temporary file"));

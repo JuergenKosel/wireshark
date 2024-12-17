@@ -81,16 +81,15 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Lograyについて</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation>Stratosharkについて</translation>
     </message>
     <message>
         <source>Stratoshark</source>
-        <translation type="unfinished"></translation>
+        <translation>Stratoshark</translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
+        <translation>&lt;h3&gt;システムコールとイベントログのアナライザ&lt;/h3&gt;</translation>
     </message>
     <message>
         <source>The directory does not exist</source>
@@ -1207,10 +1206,7 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
-        <translation type="unfinished">Logray %1 によって作成されました
+        <translation>Stratoshark %1 により作成
 
 </translation>
     </message>
@@ -1902,10 +1898,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>種別</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation>フィールド</translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation>フィールド出現位置</translation>
     </message>
@@ -1920,6 +1912,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Width</source>
         <translation>幅</translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
+        <translation>カスタム式</translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -2374,6 +2370,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Apply a read filter %1</source>
         <translation>読込フィルタ %1 を適用</translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
+        <translation>%1 のカスタム列の式を入力してください</translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -3046,12 +3046,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>すべてのファイル(</translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>ファイルを開く</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">ファイルを開く</translation>
     </message>
     <message>
-        <source>Select File</source>
-        <translation>ファイルを選択</translation>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
+        <translation type="unfinished">ファイルを選択</translation>
     </message>
 </context>
 <context>
@@ -3089,16 +3091,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
-        <translation>表示フィルタエントリ</translation>
+        <source>Field entry</source>
+        <translation>フィールドエントリ</translation>
     </message>
     <message>
         <source>Enter a field %1</source>
         <translation>フィールド %1 を入力</translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
-        <translation>無効なフィルタ:</translation>
+        <source>Invalid field: </source>
+        <translation>無効なフィールド: </translation>
     </message>
 </context>
 <context>
@@ -4150,10 +4152,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>自動アップデート</translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation>凡例を有効化</translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>グラフをリセット</translation>
     </message>
@@ -4287,6 +4285,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation>X軸を相対時間と時刻で切り替えます</translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation>Y軸を対数スケールと線形スケールで切り替える</translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>十字カーソル</translation>
     </message>
@@ -4297,6 +4303,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Space</source>
         <translation>スペース</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation>凡例</translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation>凡例の表示を切り替える</translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6911,6 +6925,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Display filter as %1</source>
         <translation>%1 として表示フィルタ</translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished">ワイヤーシャークネットワークアナライザ</translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished">%1 からキャプチャ中</translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7817,6 +7843,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Preferences</source>
         <translation>設定</translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation>コピー</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation>
+            <numerusform>行をコピー</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8280,8 +8316,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>フィルタフィールドリファレンス</translation>
     </message>
     <message>
+        <source>Copied %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copied </source>
-        <translation>コピー済</translation>
+        <translation type="vanished">コピー済</translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8460,34 +8500,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation>平均スループット(bits/s)</translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>往復遅延時間(ミリ秒)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation>セグメント長(バイト)</translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation>シーケンス番号(バイト)</translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>時間(秒)</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>ウインドウサイズ(バイト)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation>ACKされていない(未処理の)バイト(B)</translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation>[キャプチャファイルなし]</translation>
@@ -8881,8 +8893,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>無効な表示フィルタ</translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation>%1 フィルターの書式は有効な表示フィルタではありません (%2)</translation>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
+        <translation>フィルタ式 &quot;%1&quot; は有効な表示フィルタではありません
+(%2)</translation>
     </message>
     <message>
         <source>Error</source>
@@ -8975,6 +8989,34 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>LOAD</source>
         <translation>読込</translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation>平均スループット</translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation>往復遅延時間</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation>セグメント長</translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation>シーケンス番号</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation>時間</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation>ウィンドウサイズ</translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
+        <translation>ACKされていない(未処理の)バイト</translation>
     </message>
 </context>
 <context>
@@ -13101,17 +13143,15 @@ a:hover {
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
-        <translation type="unfinished">あなたはLograyを使ってシステムを互いに繋ぐ膠をキャプチャしています</translation>
+        <translation>あなたはStratosharkを使ってシステムを互いに繋ぐ膠をキャプチャしています</translation>
+    </message>
+    <message>
+        <source>You are running Stratoshark </source>
+        <translation>Stratosharkを起動中です </translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
         <translation>Wiresharkを起動中</translation>
-    </message>
-    <message>
-        <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
-        <translation type="unfinished">Lograyを起動中です </translation>
     </message>
     <message>
         <source> You receive automatic updates.</source>
@@ -13187,14 +13227,6 @@ a:hover {
     <message>
         <source>802.11 Preferences</source>
         <translation>802.11設定</translation>
-    </message>
-    <message>
-        <source>AirPcap Control Panel</source>
-        <translation type="vanished">AirPcapコントロールパネル</translation>
-    </message>
-    <message>
-        <source>Open the AirPcap Control Panel</source>
-        <translation type="vanished">AirPcapコントロールパネルを開く</translation>
     </message>
     <message>
         <source>Unable to set channel or offset.</source>
@@ -14431,6 +14463,22 @@ a:hover {
         <translation>表示フィルタ参照</translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation>対話の最初のパケット</translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation>この対話の最初のパケットへ移動</translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation>対話の最後のパケット</translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation>この対話の最後のパケットへ移動</translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>キャプチャフィルタ…(&amp;F)</translation>
     </message>
@@ -15117,16 +15165,8 @@ a:hover {
         <translation>ファイルを結合する前に変更を保存する必要があります</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>無効な表示フィルタ</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
         <translation>無効な読込フィルタ</translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
-        <translation>フィルタ式 %1 は有効な読込みフィルタではありません(%2)</translation>
     </message>
     <message>
         <source> before importing a capture</source>
@@ -15165,6 +15205,12 @@ a:hover {
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>キャプチャ中にファイルをドロップできません</translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
+        <translation>フィルタ式 &quot;%1&quot; は有効なリードフィルタではありません
+(%2).</translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15236,11 +15282,11 @@ a:hover {
     </message>
     <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation>ワイヤーシャークネットワークアナライザ</translation>
+        <translation type="vanished">ワイヤーシャークネットワークアナライザ</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation>%1 からキャプチャ中</translation>
+        <translation type="vanished">%1 からキャプチャ中</translation>
     </message>
     <message>
         <source> before opening another file</source>

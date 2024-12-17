@@ -30,11 +30,7 @@
 #include <cli_main.h>
 
 static char* sshdump_extcap_interface;
-#ifdef _WIN32
-#define DEFAULT_SSHDUMP_EXTCAP_INTERFACE "sshdump.exe"
-#else
 #define DEFAULT_SSHDUMP_EXTCAP_INTERFACE "sshdump"
-#endif
 
 #define SSHDUMP_VERSION_MAJOR "1"
 #define SSHDUMP_VERSION_MINOR "2"
@@ -69,7 +65,7 @@ static const struct ws_option longopts[] = {
 	EXTCAP_BASE_OPTIONS,
 	{ "help", ws_no_argument, NULL, OPT_HELP},
 	{ "version", ws_no_argument, NULL, OPT_VERSION},
-	SSH_BASE_OPTIONS,
+	SSH_BASE_PACKET_OPTIONS,
 	{ "remote-capture-command-select", ws_required_argument, NULL, OPT_REMOTE_CAPTURE_COMMAND_SELECT},
 	{ "remote-capture-command", ws_required_argument, NULL, OPT_REMOTE_CAPTURE_COMMAND},
 	{ "remote-sudo", ws_no_argument, NULL, OPT_REMOTE_SUDO },	// Deprecated
@@ -426,10 +422,16 @@ int main(int argc, char *argv[])
 	bool noprom = false;
 	char* interface_description = g_strdup("SSH remote capture");
 
+	/* Set the program name. */
+	g_set_prgname("sshdump");
+
 	/* Initialize log handler early so we can have proper logging during startup. */
-	extcap_log_init("sshdump");
+	extcap_log_init();
 
 	sshdump_extcap_interface = g_path_get_basename(argv[0]);
+	if (g_str_has_suffix(sshdump_extcap_interface, ".exe")) {
+		sshdump_extcap_interface[strlen(sshdump_extcap_interface) - 4] = '\0';
+	}
 
 	/*
 	 * Get credential information for later use.
@@ -440,7 +442,7 @@ int main(int argc, char *argv[])
 	 * Attempt to get the pathname of the directory containing the
 	 * executable file.
 	 */
-	err_msg = configuration_init(argv[0], NULL);
+	err_msg = configuration_init(argv[0]);
 	if (err_msg != NULL) {
 		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);

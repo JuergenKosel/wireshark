@@ -2666,7 +2666,7 @@ dissect_gtpv2_mm_ctx_for_cs_to_ps_srvcc(tvbuff_t *tvb, packet_info *pinfo _U_, p
  * and APN Operator Identifier being present as specified in 3GPP TS 23.003 [2]
  * subclauses 9.1.1 and 9.1.2, 3GPP TS 23.060 [35] Annex A and 3GPP TS 23.401 [3] subclauses 4.3.8.1.
  */
-static void
+void
 dissect_gtpv2_apn(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, uint16_t length, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     const uint8_t *apn    = NULL;
@@ -2682,7 +2682,7 @@ dissect_gtpv2_apn(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto
  * 8.7 Aggregate Maximum Bit Rate (AMBR)
  */
 
-static void
+void
 dissect_gtpv2_ambr(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, uint16_t length _U_, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int offset = 0;
@@ -2740,7 +2740,7 @@ dissect_gtpv2_ip_address(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree
  * with an end mark coded as '1111'.
  */
 
-static void
+void
 dissect_gtpv2_mei(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item, uint16_t length, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int          offset = 0;
@@ -2785,7 +2785,7 @@ dissect_gtpv2_msisdn(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, pr
 /*
  * 8.12 Indication
  */
-static void
+void
 dissect_gtpv2_ind(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item _U_, uint16_t length, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int offset = 0;
@@ -3040,8 +3040,9 @@ static const value_string gtpv2_pdn_type_vals[] = {
     {5, "Ethernet"},
     {0, NULL}
 };
+value_string_ext gtpv2_pdn_type_vals_ext = VALUE_STRING_EXT_INIT(gtpv2_pdn_type_vals);
 
-static void
+void
 dissect_gtpv2_paa(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, uint16_t length, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int    offset = 0;
@@ -3119,7 +3120,7 @@ dissect_gtpv2_paa(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto
  * 8.15 Bearer Quality of Service (Bearer QoS)
  */
 
-static void
+void
 dissect_gtpv2_bearer_qos(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, proto_item *item _U_, uint16_t length _U_, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int offset = 0;
@@ -3190,7 +3191,7 @@ static const value_string gtpv2_rat_type_vals[] = {
     {22, "LTE-M(OTHERSAT)"},
     {0, NULL}
 };
-static value_string_ext gtpv2_rat_type_vals_ext = VALUE_STRING_EXT_INIT(gtpv2_rat_type_vals);
+value_string_ext gtpv2_rat_type_vals_ext = VALUE_STRING_EXT_INIT(gtpv2_rat_type_vals);
 
 
 static void
@@ -3212,7 +3213,7 @@ dissect_gtpv2_serv_net(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
 {
     char *mcc_mnc_str;
 
-    mcc_mnc_str = dissect_e212_mcc_mnc_wmem_packet_str(tvb, pinfo, tree, 0, E212_NONE, true);
+    mcc_mnc_str = dissect_e212_mcc_mnc_wmem_packet_str(tvb, pinfo, tree, 0, E212_SERV_NET, true);
     proto_item_append_text(item, "%s", mcc_mnc_str);
 }
 
@@ -3515,7 +3516,7 @@ decode_gtpv2_uli(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item
     /* 8.21.6  LAI field */
     if (flags & GTPv2_ULI_LAI_MASK)
     {
-        uint16_t lac;
+        uint32_t lac;
         proto_item_append_text(item, "LAI ");
         part_tree = proto_tree_add_subtree(tree, tvb, offset, 5,
             ett_gtpv2_uli_field, NULL, "LAI (Location Area Identifier)");
@@ -3526,8 +3527,8 @@ decode_gtpv2_uli(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item
          * and bit 1 of Octet f+4 the least significant bit. The coding of the location area code is the
          * responsibility of each administration. Coding using full hexadecimal representation shall be used.
          */
-        proto_tree_add_item(part_tree, hf_gtpv2_uli_lai_lac, tvb, offset, 2, ENC_BIG_ENDIAN);
-        lac = tvb_get_ntohs(tvb, offset);
+        proto_tree_add_item_ret_uint(part_tree, hf_gtpv2_uli_lai_lac, tvb, offset, 2, ENC_BIG_ENDIAN, &lac);
+        offset += 2;
         str = wmem_strdup_printf(pinfo->pool, "%s, LAC 0x%x",
             mcc_mnc_str,
             lac);
@@ -3567,7 +3568,7 @@ void
 dissect_gtpv2_uli(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_item *item, uint16_t length, uint8_t message_type _U_, uint8_t instance _U_, session_args_t * args _U_)
 {
     int         offset = 0;
-    unsigned    flags;
+    uint64_t    flags;
 
     static int * const gtpv2_uli_flags[] = {
         &hf_gtpv2_uli_ext_macro_enb_id_flg,
@@ -3581,11 +3582,10 @@ dissect_gtpv2_uli(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, proto_ite
         NULL
     };
 
-    flags = tvb_get_uint8(tvb, offset) & 0x3f;
-    proto_tree_add_bitmask_with_flags(tree, tvb, offset, hf_gtpv2_uli_flags,
-        ett_gtpv2_uli_flags, gtpv2_uli_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE| BMT_NO_INT);
+    proto_tree_add_bitmask_with_flags_ret_uint64(tree, tvb, offset, hf_gtpv2_uli_flags,
+        ett_gtpv2_uli_flags, gtpv2_uli_flags, ENC_BIG_ENDIAN, BMT_NO_FALSE| BMT_NO_INT, &flags);
 
-    decode_gtpv2_uli(tvb, pinfo, tree, item, length, instance, flags);
+    decode_gtpv2_uli(tvb, pinfo, tree, item, length, instance, (unsigned)flags);
 
     return;
 }
@@ -4098,7 +4098,7 @@ dissect_gtpv2_pdn_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, prot
     proto_tree_add_bits_item(tree, hf_gtpv2_spare_bits, tvb, offset << 3, 5, ENC_BIG_ENDIAN);
     pdn = tvb_get_uint8(tvb, offset)& 0x7;
     proto_tree_add_item(tree, hf_gtpv2_pdn_type, tvb, offset, length, ENC_BIG_ENDIAN);
-    proto_item_append_text(item, "%s", val_to_str_const(pdn, gtpv2_pdn_type_vals, "Unknown"));
+    proto_item_append_text(item, "%s", val_to_str_ext_const(pdn, &gtpv2_pdn_type_vals_ext, "Unknown"));
 
 }
 
@@ -6666,7 +6666,7 @@ dissect_gtpv2_private_ext(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tre
     proto_item_append_text(item, "%s (%u)", enterprises_lookup(ext_id, "Unknown"), ext_id);
 
     next_tvb = tvb_new_subset_length(tvb, offset, length-2);
-    if (dissector_try_uint_new(gtpv2_priv_ext_dissector_table, ext_id, next_tvb, pinfo, tree, false, &gtpv2_inf)){
+    if (dissector_try_uint_with_data(gtpv2_priv_ext_dissector_table, ext_id, next_tvb, pinfo, tree, false, &gtpv2_inf)){
         return;
     }
 
@@ -10310,7 +10310,7 @@ void proto_register_gtpv2(void)
 
         { &hf_gtpv2_pdn_type,
           {"PDN Type", "gtpv2.pdn_type",
-           FT_UINT8, BASE_DEC, VALS(gtpv2_pdn_type_vals), 0x07,
+           FT_UINT8, BASE_DEC|BASE_EXT_STRING, &gtpv2_pdn_type_vals_ext, 0x07,
            NULL, HFILL}
         },
 #if 0

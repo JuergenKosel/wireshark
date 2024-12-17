@@ -48,7 +48,6 @@
 #include "cfile.h"
 #include "file.h"
 #include "fileset.h"
-#include "frame_tvbuff.h"
 
 #include "ui/simple_dialog.h"
 #include "ui/main_statusbar.h"
@@ -127,7 +126,7 @@ static match_result match_marked(capture_file *cf, frame_data *fdata,
 static match_result match_time_reference(capture_file *cf, frame_data *fdata,
         wtap_rec *, Buffer *, void *criterion);
 static bool find_packet(capture_file *cf, ws_match_function match_function,
-        void *criterion, search_direction dir);
+        void *criterion, search_direction dir, bool start_current);
 
 /* Seconds spent processing packets between pushing UI updates. */
 #define PROGBAR_UPDATE_INTERVAL 0.150
@@ -1248,7 +1247,7 @@ add_packet_to_packet_list(frame_data *fdata, capture_file *cf,
 
     /* Dissect the frame. */
     epan_dissect_run_with_taps(edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, cinfo);
 
     if (fdata->passed_dfilter && dfcode != NULL) {
@@ -1339,7 +1338,7 @@ read_record(capture_file *cf, wtap_rec *rec, Buffer *buf, dfilter_t *dfcode,
                 rf_cinfo = &cf->cinfo;
         }
         epan_dissect_run(&rf_edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, &fdlocal, buf),
+                ws_buffer_start_ptr(buf),
                 &fdlocal, rf_cinfo);
         passed = dfilter_apply_edt(cf->rfcode, &rf_edt);
         epan_dissect_cleanup(&rf_edt);
@@ -2344,7 +2343,7 @@ retap_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec, Buffer *buf,
     retap_callback_args_t *args = (retap_callback_args_t *)argsp;
 
     epan_dissect_run_with_taps(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, args->cinfo);
     epan_dissect_reset(&args->edt);
 
@@ -2511,12 +2510,12 @@ print_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec, Buffer *buf,
     if (args->print_args->print_summary) {
         col_custom_prime_edt(&args->edt, &cf->cinfo);
         epan_dissect_run(&args->edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+                ws_buffer_start_ptr(buf),
                 fdata, &cf->cinfo);
         epan_dissect_fill_in_columns(&args->edt, false, true);
     } else
         epan_dissect_run(&args->edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+                ws_buffer_start_ptr(buf),
                 fdata, NULL);
 
     if (args->print_formfeed) {
@@ -2848,7 +2847,7 @@ write_pdml_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
 
     /* Create the protocol tree, but don't fill in the column information. */
     epan_dissect_run(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, NULL);
 
     /* Write out the information in that tree. */
@@ -2925,7 +2924,7 @@ write_psml_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
     /* Fill in the column information */
     col_custom_prime_edt(&args->edt, &cf->cinfo);
     epan_dissect_run(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, &cf->cinfo);
     epan_dissect_fill_in_columns(&args->edt, false, true);
 
@@ -3009,7 +3008,7 @@ write_csv_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
     /* Fill in the column information */
     col_custom_prime_edt(&args->edt, &cf->cinfo);
     epan_dissect_run(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, &cf->cinfo);
     epan_dissect_fill_in_columns(&args->edt, false, true);
 
@@ -3083,7 +3082,7 @@ carrays_write_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
     write_packet_callback_args_t *args = (write_packet_callback_args_t *)argsp;
 
     epan_dissect_run(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, NULL);
     write_carrays_hex_data(fdata->num, args->fh, &args->edt);
     epan_dissect_reset(&args->edt);
@@ -3146,7 +3145,7 @@ write_json_packet(capture_file *cf, frame_data *fdata, wtap_rec *rec,
 
     /* Create the protocol tree, but don't fill in the column information. */
     epan_dissect_run(&args->edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, NULL);
 
     /* Write out the information in that tree. */
@@ -3240,7 +3239,7 @@ cf_find_packet_protocol_tree(capture_file *cf, const char *string,
             return true;
         }
     }
-    return find_packet(cf, match_protocol_tree, &mdata, dir);
+    return find_packet(cf, match_protocol_tree, &mdata, dir, true);
 }
 
 field_info*
@@ -3280,7 +3279,7 @@ match_protocol_tree(capture_file *cf, frame_data *fdata,
     epan_dissect_init(&edt, cf->epan, true, true);
     /* We don't need the column information */
     epan_dissect_run(&edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, NULL);
 
     /* Iterate through all the nodes, seeing if they have text that matches. */
@@ -3484,7 +3483,7 @@ cf_find_packet_summary_line(capture_file *cf, const char *string,
 
     mdata.string = string;
     mdata.string_len = strlen(string);
-    return find_packet(cf, match_summary_line, &mdata, dir);
+    return find_packet(cf, match_summary_line, &mdata, dir, true);
 }
 
 static match_result
@@ -3513,7 +3512,7 @@ match_summary_line(capture_file *cf, frame_data *fdata,
     epan_dissect_init(&edt, cf->epan, false, false);
     /* Get the column information */
     epan_dissect_run(&edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, &cf->cinfo);
 
     /* Find the Info column */
@@ -3599,7 +3598,7 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
     /* Regex, String or hex search? */
     if (cf->regex) {
         /* Regular Expression search */
-        match_function = (cf->dir == SD_FORWARD) ? match_regex : match_regex_reverse;
+        match_function = (dir == SD_FORWARD) ? match_regex : match_regex_reverse;
     } else if (cf->string) {
         /* String search - what type of string? */
         if (cf->case_type) {
@@ -3611,15 +3610,15 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
             switch (cf->scs_type) {
 
                 case SCS_NARROW_AND_WIDE:
-                    match_function = (cf->dir == SD_FORWARD) ? match_narrow_and_wide_case : match_narrow_and_wide_case_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_narrow_and_wide_case : match_narrow_and_wide_case_reverse;
                     break;
 
                 case SCS_NARROW:
-                    match_function = (cf->dir == SD_FORWARD) ? match_narrow_case : match_narrow_case_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_narrow_case : match_narrow_case_reverse;
                     break;
 
                 case SCS_WIDE:
-                    match_function = (cf->dir == SD_FORWARD) ? match_wide_case : match_wide_case_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_wide_case : match_wide_case_reverse;
                     break;
 
                 default:
@@ -3631,17 +3630,17 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
             switch (cf->scs_type) {
 
                 case SCS_NARROW_AND_WIDE:
-                    match_function = (cf->dir == SD_FORWARD) ? match_narrow_and_wide : match_narrow_and_wide_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_narrow_and_wide : match_narrow_and_wide_reverse;
                     break;
 
                 case SCS_NARROW:
                     /* Narrow, case-sensitive match is the same as looking
                      * for a converted hexstring. */
-                    match_function = (cf->dir == SD_FORWARD) ? match_binary : match_binary_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_binary : match_binary_reverse;
                     break;
 
                 case SCS_WIDE:
-                    match_function = (cf->dir == SD_FORWARD) ? match_wide : match_wide_reverse;
+                    match_function = (dir == SD_FORWARD) ? match_wide : match_wide_reverse;
                     break;
 
                 default:
@@ -3650,7 +3649,7 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
             }
         }
     } else {
-        match_function = (cf->dir == SD_FORWARD) ? match_binary : match_binary_reverse;
+        match_function = (dir == SD_FORWARD) ? match_binary : match_binary_reverse;
     }
 
     if (multiple && cf->current_frame && (cf->search_pos || cf->search_len)) {
@@ -3675,7 +3674,7 @@ cf_find_packet_data(capture_file *cf, const uint8_t *string, size_t string_size,
     }
     cf->search_pos = 0; /* Reset the position */
     cf->search_len = 0; /* Reset length */
-    return find_packet(cf, match_function, &info, dir);
+    return find_packet(cf, match_function, &info, dir, true);
 }
 
 static match_result
@@ -4503,9 +4502,9 @@ match_regex_reverse(capture_file *cf, frame_data *fdata,
 
 bool
 cf_find_packet_dfilter(capture_file *cf, dfilter_t *sfcode,
-        search_direction dir)
+        search_direction dir, bool start_current)
 {
-    return find_packet(cf, match_dfilter, sfcode, dir);
+    return find_packet(cf, match_dfilter, sfcode, dir, start_current);
 }
 
 bool
@@ -4529,7 +4528,7 @@ cf_find_packet_dfilter_string(capture_file *cf, const char *filter,
          */
         return false;
     }
-    result = find_packet(cf, match_dfilter, sfcode, dir);
+    result = find_packet(cf, match_dfilter, sfcode, dir, true);
     dfilter_free(sfcode);
     return result;
 }
@@ -4551,7 +4550,7 @@ match_dfilter(capture_file *cf, frame_data *fdata,
     epan_dissect_init(&edt, cf->epan, true, false);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
     epan_dissect_run(&edt, cf->cd_t, rec,
-            frame_tvbuff_new_buffer(&cf->provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, NULL);
     result = dfilter_apply_edt(sfcode, &edt) ? MR_MATCHED : MR_NOTMATCHED;
     epan_dissect_cleanup(&edt);
@@ -4561,7 +4560,7 @@ match_dfilter(capture_file *cf, frame_data *fdata,
 bool
 cf_find_packet_marked(capture_file *cf, search_direction dir)
 {
-    return find_packet(cf, match_marked, NULL, dir);
+    return find_packet(cf, match_marked, NULL, dir, true);
 }
 
 static match_result
@@ -4574,7 +4573,7 @@ match_marked(capture_file *cf _U_, frame_data *fdata, wtap_rec *rec _U_,
 bool
 cf_find_packet_time_reference(capture_file *cf, search_direction dir)
 {
-    return find_packet(cf, match_time_reference, NULL, dir);
+    return find_packet(cf, match_time_reference, NULL, dir, true);
 }
 
 static match_result
@@ -4586,7 +4585,7 @@ match_time_reference(capture_file *cf _U_, frame_data *fdata, wtap_rec *rec _U_,
 
 static bool
 find_packet(capture_file *cf, ws_match_function match_function,
-        void *criterion, search_direction dir)
+        void *criterion, search_direction dir, bool start_current)
 {
     frame_data  *start_fd;
     uint32_t     framenum;
@@ -4607,7 +4606,7 @@ find_packet(capture_file *cf, ws_match_function match_function,
     wtap_rec_init(&rec);
     ws_buffer_init(&buf, 1514);
 
-    start_fd = cf->current_frame;
+    start_fd = start_current ? cf->current_frame : NULL;
     if (start_fd != NULL)  {
         prev_framenum = start_fd->num;
     } else {
@@ -4666,7 +4665,9 @@ find_packet(capture_file *cf, ws_match_function match_function,
 
         if (cf->stop_flag) {
             /* Well, the user decided to abort the search.  Go back to the
-               frame where we started. */
+               frame where we started.
+               XXX - This ends up selecting the start packet and reporting
+               "success". Perhaps new_fd should stay NULL? */
             new_fd = start_fd;
             break;
         }
@@ -4717,7 +4718,9 @@ find_packet(capture_file *cf, ws_match_function match_function,
             result = (*match_function)(cf, fdata, &rec, &buf, criterion);
             if (result == MR_ERROR) {
                 /* Error; our caller has reported the error.  Go back to the frame
-                   where we started. */
+                   where we started.
+                   XXX - This ends up selecting the start packet and reporting
+                   "success." Perhaps new_fd should stay NULL? */
                 new_fd = start_fd;
                 break;
             } else if (result == MR_MATCHED) {
@@ -4936,7 +4939,7 @@ cf_select_packet(capture_file *cf, frame_data *fdata)
 
     tap_build_interesting(cf->edt);
     epan_dissect_run(cf->edt, cf->cd_t, &cf->rec,
-            frame_tvbuff_new_buffer(&cf->provider, cf->current_frame, &cf->buf),
+            ws_buffer_start_ptr(&cf->buf),
             cf->current_frame, NULL);
 
     if (old_edt != NULL)

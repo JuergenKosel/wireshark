@@ -198,11 +198,11 @@ bool StratosharkMainWindow::openCaptureFile(QString cf_path, QString read_filter
             /* Not valid.  Tell the user, and go back and run the file
                selection box again once they dismiss the alert. */
                //bad_dfilter_alert_box(top_level, read_filter->str);
-            QMessageBox::warning(this, tr("Invalid Display Filter"),
-                    QString("The filter expression ") +
+            QMessageBox::warning(this, tr("Invalid Read Filter"),
+                    QStringLiteral("The filter expression \"") +
                     read_filter +
-                    QString(" isn't a valid display filter. (") +
-                    df_err->msg + QString(")."),
+                    QStringLiteral("\" isn't a valid read filter.\n(") +
+                    df_err->msg + QStringLiteral(")."),
                     QMessageBox::Ok);
             df_error_free(&df_err);
 
@@ -468,7 +468,7 @@ void StratosharkMainWindow::queuedFilterAction(QString action_filter, FilterActi
         break;
     case FilterAction::ActionWebLookup:
     {
-        QString url = QString("https://www.google.com/search?q=") + new_filter;
+        QString url = QStringLiteral("https://www.google.com/search?q=%1").arg(new_filter);
         QDesktopServices::openUrl(QUrl(url));
         break;
     }
@@ -739,7 +739,7 @@ void StratosharkMainWindow::captureFileReadStarted(const QString &action) {
 //    main_set_for_capture_file(true);
 
     mainApp->popStatus(WiresharkApplication::FileStatus);
-    QString msg = QString(tr("%1: %2")).arg(action).arg(capture_file_.fileName());
+    QString msg = tr("%1: %2").arg(action).arg(capture_file_.fileName());
     QString msgtip = QString();
     mainApp->pushStatus(WiresharkApplication::FileStatus, msg, msgtip);
     showCapture();
@@ -795,7 +795,7 @@ void StratosharkMainWindow::captureFileClosed() {
     main_ui_->statusBar->captureFileClosing();
     mainApp->popStatus(WiresharkApplication::FileStatus);
 
-    setWSWindowTitle();
+    setMainWindowTitle();
     setWindowIcon(mainApp->normalIcon());
     setMenusForSelectedPacket();
     setMenusForSelectedTreeRow();
@@ -825,7 +825,7 @@ void StratosharkMainWindow::startCapture() {
 
     /* did the user ever select a capture interface before? */
     if (global_capture_opts.num_selected == 0) {
-        QString msg = QString(tr("No interface selected."));
+        QString msg = tr("No interface selected.");
         mainApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -850,7 +850,7 @@ void StratosharkMainWindow::startCapture() {
 
     /* If some of extcap was not configured, do not start with the capture */
     if (!can_start_capture) {
-        QString msg = QString(tr("Configure all extcaps before start of capture."));
+        QString msg = tr("Configure all extcaps before start of capture.");
         mainApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -860,7 +860,7 @@ void StratosharkMainWindow::startCapture() {
     // toolbar buttons and menu items. This may not be the
     // case, e.g. with QtMacExtras.
     if (!capture_filter_valid_) {
-        QString msg = QString(tr("Invalid capture filter."));
+        QString msg = tr("Invalid capture filter.");
         mainApp->pushStatus(WiresharkApplication::TemporaryStatus, msg);
         main_ui_->actionCaptureStart->setChecked(false);
         return;
@@ -929,8 +929,8 @@ void StratosharkMainWindow::pushLiveCaptureInProgress() {
     g_string_append(interface_names, " ");
 
     mainApp->popStatus(WiresharkApplication::FileStatus);
-    QString msg = QString("%1<live capture in progress>").arg(interface_names->str);
-    QString msgtip = QString("to file: ");
+    QString msg = QStringLiteral("%1<live capture in progress>").arg(interface_names->str);
+    QString msgtip = QStringLiteral("to file: ");
     if (capture_opts->save_file)
         msgtip += capture_opts->save_file;
     mainApp->pushStatus(WiresharkApplication::FileStatus, msg, msgtip);
@@ -1617,11 +1617,7 @@ void StratosharkMainWindow::addStatsPluginsToMenu() {
 
             parent_menu = main_ui_->menuStatistics;
             // gtk/main_menubar.c compresses double slashes, hence SkipEmptyParts
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
             QStringList cfg_name_parts = QString(cfg->path).split(STATS_TREE_MENU_SEPARATOR, Qt::SkipEmptyParts);
-#else
-            QStringList cfg_name_parts = QString(cfg->path).split(STATS_TREE_MENU_SEPARATOR, QString::SkipEmptyParts);
-#endif
             if (cfg_name_parts.isEmpty()) continue;
 
             QString stat_name = cfg_name_parts.takeLast().trimmed();
@@ -1691,7 +1687,7 @@ void StratosharkMainWindow::onFilterEdit(int uatIndex)
 
 void StratosharkMainWindow::openStatCommandDialog(const QString &menu_path, const char *arg, void *userdata)
 {
-    QString slot = QString("statCommand%1").arg(menu_path);
+    QString slot = QStringLiteral("statCommand%1").arg(menu_path);
     QMetaObject::invokeMethod(this, slot.toLatin1().constData(), Q_ARG(const char *, arg), Q_ARG(void *, userdata));
 }
 
@@ -2633,8 +2629,8 @@ void StratosharkMainWindow::openPacketDialog(bool from_reference)
 
         connect(packet_dialog, &PacketDialog::showProtocolPreferences,
                 this, &StratosharkMainWindow::showPreferencesDialog);
-        connect(packet_dialog, SIGNAL(editProtocolPreference(preference*, pref_module*)),
-                main_ui_->preferenceEditorFrame, SLOT(editPreference(preference*, pref_module*)));
+        connect(packet_dialog, SIGNAL(editProtocolPreference(pref_t*,module_t*)),
+                main_ui_->preferenceEditorFrame, SLOT(editPreference(pref_t*,module_t*)));
 
         connect(this, &StratosharkMainWindow::closePacketDialogs, packet_dialog, &PacketDialog::close);
         zoomText(); // Emits mainApp->zoomMonospaceFont(QFont)
@@ -2723,6 +2719,12 @@ void StratosharkMainWindow::connectGoMenuActions()
     connect(main_ui_->actionGoPreviousConversationPacket, &QAction::triggered, this,
             [this]() { goToConversationFrame(false); });
 
+    connect(main_ui_->actionGoFirstConversationPacket, &QAction::triggered, this,
+            [this]() { goToConversationFrame(true, false); });
+
+    connect(main_ui_->actionGoLastConversationPacket, &QAction::triggered, this,
+            [this]() { goToConversationFrame(false, false); });
+
     connect(main_ui_->actionGoNextHistoryPacket, &QAction::triggered,
             packet_list_, &PacketList::goNextHistoryPacket);
 
@@ -2742,7 +2744,7 @@ void StratosharkMainWindow::connectGoMenuActions()
             [this](bool checked) { packet_list_->setVerticalAutoScroll(checked); });
 }
 
-void StratosharkMainWindow::goToConversationFrame(bool go_next) {
+void StratosharkMainWindow::goToConversationFrame(bool go_next, bool start_current) {
     char      *filter       = NULL;
     dfilter_t *dfcode       = NULL;
     bool       found_packet = false;
@@ -2770,7 +2772,7 @@ void StratosharkMainWindow::goToConversationFrame(bool go_next) {
         return;
     }
 
-    found_packet = cf_find_packet_dfilter(capture_file_.capFile(), dfcode, go_next ? SD_FORWARD : SD_BACKWARD);
+    found_packet = cf_find_packet_dfilter(capture_file_.capFile(), dfcode, go_next ? SD_FORWARD : SD_BACKWARD, start_current);
 
     if (!found_packet) {
         /* We didn't find a packet */
@@ -3178,8 +3180,7 @@ void StratosharkMainWindow::showIOGraphDialog(io_graph_item_unit_t value_units, 
 
 void StratosharkMainWindow::connectToolsMenuActions()
 {
-    // We don't have any built in tools yet, so hide it until we add actions via Lua scripts.
-    main_ui_->menuTools->hide();
+    // We don't have any built in tools yet. Should there be "no op" code here.
 }
 
 // Help Menu
@@ -3202,7 +3203,7 @@ void StratosharkMainWindow::connectHelpMenuActions()
     });
 
     connect(main_ui_->actionHelpContents, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(HELP_CONTENT); });
-    connect(main_ui_->actionHelpMPWireshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK); });
+    connect(main_ui_->actionHelpMPStratoshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_STRATOSHARK); });
     connect(main_ui_->actionHelpMPWireshark_Filter, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK_FILTER); });
     connect(main_ui_->actionHelpMPCapinfos, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_CAPINFOS); });
     connect(main_ui_->actionHelpMPDumpcap, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_DUMPCAP); });
@@ -3335,11 +3336,9 @@ void StratosharkMainWindow::showExtcapOptionsDialog(QString &device_name, bool s
     if (extcap_options_dialog) {
         extcap_options_dialog->setModal(true);
         extcap_options_dialog->setAttribute(Qt::WA_DeleteOnClose);
-        if (startCaptureOnClose) {
-            connect(extcap_options_dialog, &ExtcapOptionsDialog::finished, this, &StratosharkMainWindow::extcap_options_finished);
-        }
+        connect(extcap_options_dialog, &ExtcapOptionsDialog::finished, this, &StratosharkMainWindow::extcap_options_finished);
 #ifdef HAVE_LIBPCAP
-        if (capture_options_dialog_ && startCaptureOnClose) {
+        if (capture_options_dialog_) {
             /* Allow capture options dialog to close */
             connect(extcap_options_dialog, &ExtcapOptionsDialog::accepted, capture_options_dialog_, &CaptureOptionsDialog::accept);
         }

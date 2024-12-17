@@ -42,6 +42,7 @@ public:
     void setPane(const QString module_name);
 
 protected:
+    void keyPressEvent(QKeyEvent *event);
     void showEvent(QShowEvent *evt);
 
 private:
@@ -62,6 +63,9 @@ private:
 
 private slots:
     void selectPane(QString pane);
+    void handleCopyMenu(QPoint);
+    void copyActionTriggered();
+    void copyRowActionTriggered();
     void on_advancedSearchLineEdit_textEdited(const QString &search_re);
     void on_showChangedValuesCheckBox_toggled(bool checked);
 

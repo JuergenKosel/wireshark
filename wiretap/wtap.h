@@ -1482,15 +1482,24 @@ typedef struct wtap_rec {
 #define WTAP_HAS_INTERFACE_ID   0x00000004  /**< interface ID */
 #define WTAP_HAS_SECTION_NUMBER 0x00000008  /**< section number */
 
+/*
+ * The old max name length define, both for backwards compatibility and because
+ * other name types (in epan) use it. While Name Resolution Blocks (NRBs) only
+ * support IPv4 and IPv6 currently, they could later support other name types.
+ */
 #ifndef MAXNAMELEN
-#define MAXNAMELEN  	64	/* max name length (hostname and port name) */
+#define MAXNAMELEN  	64	/* max name length (most names: DNS labels, services, eth) */
+#endif
+
+#ifndef MAXDNSNAMELEN
+#define MAXDNSNAMELEN  	256	/* max total length of a domain name in DNS */
 #endif
 
 typedef struct hashipv4 {
     unsigned          addr;
     uint8_t           flags;          /* B0 dummy_entry, B1 resolve, B2 If the address is used in the trace */
     char              ip[WS_INET_ADDRSTRLEN];
-    char              name[MAXNAMELEN];
+    char              name[MAXDNSNAMELEN];
     char              cidr_addr[WS_INET_CIDRADDRSTRLEN];
 } hashipv4_t;
 
@@ -1498,7 +1507,7 @@ typedef struct hashipv6 {
     uint8_t           addr[16];
     uint8_t           flags;          /* B0 dummy_entry, B1 resolve, B2 If the address is used in the trace */
     char              ip6[WS_INET6_ADDRSTRLEN];
-    char              name[MAXNAMELEN];
+    char              name[MAXDNSNAMELEN];
 } hashipv6_t;
 
 /** A struct with lists of resolved addresses.
@@ -1881,7 +1890,7 @@ typedef void (*wtap_new_ipv4_callback_t) (const unsigned addr, const char *name,
 WS_DLL_PUBLIC
 void wtap_set_cb_new_ipv4(wtap *wth, wtap_new_ipv4_callback_t add_new_ipv4);
 
-typedef void (*wtap_new_ipv6_callback_t) (const void *addrp, const char *name, const bool static_entry);
+typedef void (*wtap_new_ipv6_callback_t) (const ws_in6_addr *addrp, const char *name, const bool static_entry);
 WS_DLL_PUBLIC
 void wtap_set_cb_new_ipv6(wtap *wth, wtap_new_ipv6_callback_t add_new_ipv6);
 

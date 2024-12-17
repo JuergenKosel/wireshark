@@ -175,8 +175,9 @@ The pathname of a capture file to be read can be specified with the
 
 == OPTIONS
 
-Most users will want to start *Wireshark* without options and configure
-it from the menus instead.  Those users may just skip this section.
+*Wireshark* supports a wide variety of command line options.
+Most users will want to start it without any options and configure it from the application menus instead.
+Those users may wish to skip this section.
 
 -a|--autostop  <capture autostop condition>::
 +
@@ -1079,7 +1080,7 @@ Same as above but for `noisy` log level instead.
 
 Wireshark would not be the powerful, featureful application it is without the generous contributions of hundreds of developers.
 
-A complete list of authors can be found in the AUTHORS file in Wireshark's source code repository and at https://www.wireshark.org/about.html#authors.
+A complete list of authors can be found in the AUTHORS file in Wireshark's source code repository.
 
 == SEE ALSO
 

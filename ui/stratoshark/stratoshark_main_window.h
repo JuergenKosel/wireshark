@@ -39,17 +39,15 @@
 
 #include <config.h>
 
-#include "file.h"
-
 #include "ui/ws_ui_util.h"
 #include "ui/iface_toolbar.h"
+#ifdef HAVE_LIBPCAP
+#include "ui/capture_opts.h"
+#endif
 
 #include <epan/plugin_if.h>
 #include <epan/timestamp.h>
 
-#ifdef HAVE_LIBPCAP
-#include "capture_opts.h"
-#endif
 #include <capture/capture_session.h>
 
 #include <QMainWindow>
@@ -209,14 +207,12 @@ private:
     void initTimePrecisionFormatMenu();
     void initFreezeActions();
 
-    void setTitlebarForCaptureInProgress();
     void setMenusForCaptureFile(bool force_disable = false);
     void setMenusForCaptureInProgress(bool capture_in_progress = false);
     void setMenusForCaptureStopping();
     void setForCapturedPackets(bool have_captured_packets);
     void setMenusForFileSet(bool enable_list_files);
     void setWindowIcon(const QIcon &icon);
-    QString replaceWindowTitleVariables(QString title);
     void updateStyleSheet();
 
     void externalMenuHelper(ext_menu_t * menu, QMenu  * subMenu, int depth);
@@ -228,7 +224,7 @@ private:
 
     void addMenuActions(QList<QAction *> &actions, int menu_group);
     void removeMenuActions(QList<QAction *> &actions, int menu_group);
-    void goToConversationFrame(bool go_next);
+    void goToConversationFrame(bool go_next, bool start_current = true);
     void colorizeWithFilter(QByteArray filter, int color_number = -1);
 
 signals:
@@ -238,15 +234,19 @@ signals:
     void packetInfoChanged(struct _packet_info *pinfo);
     void fieldFilterChanged(const QByteArray field_filter);
 
-    void fieldHighlight(FieldInformation *);
-
-    void captureActive(int);
-
 #ifdef HAVE_LIBPCAP
     void showExtcapOptions(QString &device_name, bool startCaptureOnClose);
 #endif
 
 public slots:
+    // Qt lets you connect signals and slots using functors (new, manual style)
+    // and strings (old style). Functors are preferred since they're connected at
+    // compile time and less error prone.
+    //
+    // If you're manually connecting a signal to a slot, don't prefix its name
+    // with "on_". Otherwise Qt will try to automatically connect it and you'll
+    // get runtime warnings.
+
     // in main_window_slots.cpp
     /**
      * Open a capture file.
@@ -266,7 +266,6 @@ public slots:
     void updateRecentActions();
 
     void setTitlebarForCaptureFile();
-    void setWSWindowTitle(QString title = QString());
 
     void showCaptureOptionsDialog();
 
@@ -286,8 +285,6 @@ public slots:
 private slots:
 
     void captureEventHandler(CaptureEvent ev);
-
-    // Manually connected slots (no "on_<object>_<signal>").
 
     void initViewColorizeMenu();
     void initConversationMenus();
@@ -334,7 +331,6 @@ private slots:
     void addPluginIFStructures();
     QMenu * searchSubMenu(QString objectName);
     void activatePluginIFToolbar(bool);
-    void updateTitlebar();
 
     void startInterfaceCapture(bool valid, const QString capture_filter);
 
@@ -367,19 +363,6 @@ private slots:
 #if defined(HAVE_SOFTWARE_UPDATE) && defined(Q_OS_WIN)
     void softwareUpdateRequested();
 #endif
-
-    // Automatically connected slots ("on_<object>_<signal>").
-    //
-    // The slots below follow the naming conventaion described in
-    // https://doc.qt.io/archives/qt-4.8/qmetaobject.html#connectSlotsByName
-    // and are automatically connected at initialization time via
-    // main_ui_->setupUi, which in turn calls connectSlotsByName.
-    //
-    // If you're manually connecting a signal to a slot, don't prefix its name
-    // with "on_". Otherwise you'll get runtime warnings.
-
-    // We might want move these to main_window_actions.cpp similar to
-    // gtk/main_menubar.c
 
     void connectFileMenuActions();
     void printFile();

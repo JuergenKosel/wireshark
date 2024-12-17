@@ -93,13 +93,13 @@ void AccordionFrame::updateStyleSheet()
     );
 
 #ifdef Q_OS_MAC
-    style_sheet += QString(
+    style_sheet += QStringLiteral(
         "QLineEdit {"
         "  border: 1px solid palette(%1);"
         "  border-radius: 3px;"
         "  padding: 1px;"
         "}"
-    ).arg(ColorUtils::themeIsDark() ? QString("light") : QString("dark"));
+    ).arg(ColorUtils::themeIsDark() ? QStringLiteral("light") : QStringLiteral("dark"));
 #endif
 
     setStyleSheet(style_sheet);

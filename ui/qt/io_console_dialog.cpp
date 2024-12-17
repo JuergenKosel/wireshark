@@ -41,7 +41,7 @@ IOConsoleDialog::IOConsoleDialog(QWidget &parent,
     ui->setupUi(this);
 
     if (title.isEmpty())
-        title = QString("Console");
+        title = QStringLiteral("Console");
 
     loadGeometry(0, 0, title);
     loadSplitterState(ui->splitter);
@@ -56,7 +56,7 @@ IOConsoleDialog::IOConsoleDialog(QWidget &parent,
     connect(clear_button, &QPushButton::clicked, this, &IOConsoleDialog::on_clearActivated);
 
     ui->inputTextEdit->setFont(mainApp->monospaceFont());
-    ui->inputTextEdit->setPlaceholderText(QString(tr("Use %1 to evaluate."))
+    ui->inputTextEdit->setPlaceholderText(tr("Use %1 to evaluate.")
             .arg(eval_button->shortcut().toString(QKeySequence::NativeText)));
 
     ui->outputTextEdit->setFont(mainApp->monospaceFont());
@@ -77,7 +77,7 @@ IOConsoleDialog::~IOConsoleDialog()
 
 void IOConsoleDialog::setHintText(const QString &text)
 {
-    ui->hintLabel->setText(QString("<small><i>%1.</i></small>").arg(text));
+    ui->hintLabel->setText(QStringLiteral("<small><i>%1.</i></small>").arg(text));
 }
 
 void IOConsoleDialog::clearHintText()

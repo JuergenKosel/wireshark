@@ -27,8 +27,7 @@ endif()
 # )
 # list(APPEND copy_data_files_depends "${DATAFILE_DIR}/extcap")
 
-
-macro(set_extcap_executable_properties _executable)
+macro(set_common_executable_properties _executable _application)
 	set_target_properties(${_executable} PROPERTIES
 		LINK_FLAGS "${WS_LINK_FLAGS}"
 		FOLDER "Executables/Extcaps"
@@ -40,33 +39,34 @@ macro(set_extcap_executable_properties _executable)
 
 	set(PROGLIST ${PROGLIST} ${_executable})
 
+	string(TOLOWER ${_application} _application_lower)
 	if(CMAKE_CONFIGURATION_TYPES)
 		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/wireshark
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap/wireshark
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap/wireshark
-			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap/wireshark
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/${_application_lower}
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap/${_application_lower}
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap/${_application_lower}
+			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap/${_application_lower}
+			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap/${_application_lower}
 		)
 	else()
 		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/wireshark
+			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/${_application_lower}
 		)
 		if(ENABLE_APPLICATION_BUNDLE)
 			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
 				# Xcode
 				set_target_properties(${_executable} PROPERTIES
-					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Wireshark.app/Contents/MacOS/extcap
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/${_application}.app/Contents/MacOS/extcap
 				)
 			else()
 				set_target_properties(${_executable} PROPERTIES
-					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Wireshark.app/Contents/MacOS/extcap
+					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/${_application}.app/Contents/MacOS/extcap
 				)
 				# Create a convenience link from run/<name> to its respective
 				# target in the application bundle.
 				add_custom_target(${_executable}-symlink
 					COMMAND ln -s -f
-						Wireshark.app/Contents/MacOS/extcap/${_executable}
+						${_application}.app/Contents/MacOS/extcap/${_executable}
 						${CMAKE_BINARY_DIR}/run/${_executable}
 				)
 				add_dependencies(${_executable} ${_executable}-symlink)
@@ -79,53 +79,16 @@ macro(set_extcap_executable_properties _executable)
 			LINK_OPTIONS -municode
 		)
 	endif()
+
+	unset(_application_lower)
+endmacro()
+
+macro(set_extcap_executable_properties _executable)
+	set_common_executable_properties(${_executable} Wireshark)
 endmacro()
 
 macro(set_extlog_executable_properties _executable)
-	set_target_properties(${_executable} PROPERTIES
-		LINK_FLAGS "${WS_LINK_FLAGS}"
-		FOLDER "Executables/Extcaps"
-		INSTALL_RPATH "${EXTCAP_INSTALL_RPATH}"
-	)
-	if(MSVC)
-		set_target_properties(${_executable} PROPERTIES LINK_FLAGS_DEBUG "${WS_MSVC_DEBUG_LINK_FLAGS}")
-	endif()
-
-	set(PROGLIST ${PROGLIST} ${_executable})
-
-	if(CMAKE_CONFIGURATION_TYPES)
-		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/stratoshark
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/run/Debug/extcap/stratoshark
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/run/Release/extcap/stratoshark
-			RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/run/MinSizeRel/extcap/stratoshark
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/run/RelWithDebInfo/extcap/stratoshark
-		)
-	else()
-		set_target_properties(${_executable} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/extcap/stratoshark
-		)
-		if(ENABLE_APPLICATION_BUNDLE)
-			if(NOT CMAKE_CFG_INTDIR STREQUAL ".")
-				# Xcode
-				set_target_properties(${_executable} PROPERTIES
-					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/$<CONFIG>/Stratoshark.app/Contents/MacOS/extcap
-				)
-			else()
-				set_target_properties(${_executable} PROPERTIES
-					RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/run/Stratoshark.app/Contents/MacOS/extcap
-				)
-				# Create a convenience link from run/<name> to its respective
-				# target in the application bundle.
-				add_custom_target(${_executable}-symlink
-					COMMAND ln -s -f
-						Stratoshark.app/Contents/MacOS/extcap/${_executable}
-						${CMAKE_BINARY_DIR}/run/${_executable}
-				)
-				add_dependencies(${_executable} ${_executable}-symlink)
-			endif()
-		endif()
-	endif()
+	set_common_executable_properties(${_executable} Stratoshark)
 endmacro()
 
 add_custom_target(extcaps)
@@ -393,7 +356,31 @@ if(BUILD_falcodump AND SINSP_FOUND)
 	endif()
 	install(TARGETS falcodump RUNTIME DESTINATION ${LOG_EXTCAP_INSTALL_LIBDIR})
 	add_dependencies(extcaps falcodump)
+endif()
 
+if(BUILD_sshdig AND LIBSSH_FOUND)
+	set(sshdig_LIBS
+		wsutil
+		${CMAKE_DL_LIBS}
+		${WIN_WS2_32_LIBRARY}
+		${LIBSSH_LIBRARIES}
+	)
+	set(sshdig_FILES
+		$<TARGET_OBJECTS:cli_main>
+		$<TARGET_OBJECTS:extcap-base>
+		$<TARGET_OBJECTS:ssh-base>
+		sshdig.c
+	)
+
+	set_executable_resources(sshdig "Sshdig")
+	add_executable(sshdig ${sshdig_FILES})
+	set_extlog_executable_properties(sshdig)
+	target_link_libraries(sshdig ${sshdig_LIBS})
+	target_include_directories(sshdig SYSTEM PRIVATE ${LIBSSH_INCLUDE_DIRS})
+	install(TARGETS sshdig RUNTIME DESTINATION ${EXTCAP_INSTALL_LIBDIR})
+	add_dependencies(extcaps sshdig)
+elseif (BUILD_sshdig)
+	#message( WARNING "Cannot find libssh, cannot build sshdig" )
 endif()
 
 #

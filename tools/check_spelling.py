@@ -76,7 +76,7 @@ class File:
 
         filename, extension = os.path.splitext(file)
         # TODO: add '.lua'?  Would also need to check string and comment formats...
-        self.code_file = extension in {'.c', '.cpp', '.h' }
+        self.code_file = extension in {'.c', '.cpp', '.h', '.cnf' }
 
 
         with open(file, 'r', encoding="utf8") as f:
@@ -245,15 +245,23 @@ class File:
                 if self.numberPlusUnits(word):
                     continue
 
-                if len(word) > 4 and spell.unknown([word]) and not self.checkMultiWords(word) and not self.wordBeforeId(word):
-                    # Highlight words that appeared in Wikipedia list.
-                    print(bcolors.BOLD if word in wiki_db else '',
+                global missing_words
+
+                # Is it a known bad (wikipedia) word?
+                if word in wiki_db:
+                    print(bcolors.BOLD,
                           self.file, value_index, '/', num_values, '"' + original + '"', bcolors.FAIL + word + bcolors.ENDC,
-                          ' -> ', '?')
+                          "(wikipedia-flags => " + wiki_db[word] + ")",
+                          '-> ', '?')
+                    missing_words.append(word)
+
+                elif len(word) > 4 and spell.unknown([word]) and not self.checkMultiWords(word) and not self.wordBeforeId(word):
+                    # Highlight words that appeared in Wikipedia list.
+                    print(self.file, value_index, '/', num_values, '"' + original + '"', bcolors.FAIL + word + bcolors.ENDC,
+                          '-> ', '?')
 
                     # TODO: this can be interesting, but takes too long!
                     # bcolors.OKGREEN + spell.correction(word) + bcolors.ENDC
-                    global missing_words
                     missing_words.append(word)
 
 def removeWhitespaceControl(code_string):
@@ -276,6 +284,11 @@ def removeContractions(code_string):
         code_string = code_string.replace(c.replace('’', "'"), "")
         code_string = code_string.replace(c.capitalize().replace('’', "'"), "")
     return code_string
+
+def removeURLs(code_string):
+    code_string = re.sub(re.compile(r'https?://(?:[a-zA-Z0-9./_?&=-]+|%[0-9a-fA-F]{2})+', re.DOTALL), "" , code_string)
+    return code_string
+
 
 def removeComments(code_string):
     code_string = re.sub(re.compile(r"/\*.*?\*/", re.DOTALL), "" , code_string) # C-style comment
@@ -330,6 +343,8 @@ def findStrings(filename, check_comments=False):
         contents = removeWhitespaceControl(contents)
         contents = removeSingleQuotes(contents)
         contents = removeHexSpecifiers(contents)
+        # These may not be proper words - in any case may be tested by test_dissector_urls.py
+        contents = removeURLs(contents)
 
         # Create file object.
         file = File(filename)
@@ -599,6 +614,7 @@ if args.file or args.folder or args.commits or args.open or args.glob:
         print('No files to check.\n')
 else:
     print('All dissector modules\n')
+
 
 
 # Now check the chosen files.

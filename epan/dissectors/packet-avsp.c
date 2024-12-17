@@ -286,7 +286,7 @@ static const value_string arista_subtypes[] = {
     {ARISTA_SUBTYPE_GREENT, "Postcard"},
     {ARISTA_SUBTYPE_DZGRE_A, "DzGRE (plan A)"},
     {ARISTA_SUBTYPE_DZGRE_B, "DzGRE (plan B)"},
-    {ARISTA_SUBTYPE_DZGRE_TS, "DzGRE (timesamped)"},
+    {ARISTA_SUBTYPE_DZGRE_TS, "DzGRE (timestamped)"},
     {ARISTA_SUBTYPE_TGEN, "TGen"},
     {0, NULL}
 };
@@ -363,8 +363,7 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
     proto_item* avsp_ti, * ti;
     proto_tree* avsp_tree, * avsp_48_tree = NULL, * avsp_64_tree = NULL,
         * avsp_tgen_hdr = NULL, * avsp_tgen_payload = NULL,
-        * avsp_dzgre_hdr = NULL, * avsp_dzgre_ts_utc = NULL,
-        * avsp_dzgre_ts_tai = NULL, * avsp_greent_hdr = NULL,
+        * avsp_dzgre_hdr = NULL, * avsp_greent_hdr = NULL,
         * avsp_greent_sample_hdr = NULL, *header_tree = NULL;
 
     /* Adding Items and Values to the Protocol Tree */
@@ -629,7 +628,7 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
                     tvbuff_t *next_tvb;
                     address save_dl_src, save_dl_dst, save_net_src,
                             save_net_dst, save_src, save_dst;
-                    bool save_writable, save_in_error_pkt;;
+                    bool save_writable, save_in_error_pkt;
 
                     sample_len = ROUNDUP(sample_len, 4);
                     next_tvb = tvb_new_subset_length(tvb, offset, sample_len);
@@ -832,17 +831,17 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
             offset += 2;
 
             /* Timestamp */
-            ti = proto_tree_add_item(avsp_dzgre_ts_tai,
+            ti = proto_tree_add_item(avsp_dzgre_hdr,
                     hf_avsp_dzgre_ts_tai, tvb, 0, -1, ENC_NA);
-            avsp_48_tree = proto_item_add_subtree(ti,
+            avsp_64_tree = proto_item_add_subtree(ti,
                     ett_avsp_dzgre_ts_tai);
 
-            col_set_str(pinfo->cinfo, COL_INFO, "48bit TAI timestamp");
+            col_set_str(pinfo->cinfo, COL_INFO, "64bit TAI timestamp");
 
-            proto_tree_add_item(avsp_48_tree, hf_avsp_dzgre_ts_sec,
-                tvb, offset, 2, ENC_BIG_ENDIAN);
-            offset += 2;
-            proto_tree_add_item(avsp_48_tree, hf_avsp_dzgre_ts_ns,
+            proto_tree_add_item(avsp_64_tree, hf_avsp_dzgre_ts_sec,
+                tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+            proto_tree_add_item(avsp_64_tree, hf_avsp_dzgre_ts_ns,
                 tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
             break;
@@ -878,17 +877,17 @@ dissect_avsp(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* data _U_
             offset += 2;
 
             /* Timestamp */
-            ti = proto_tree_add_item(avsp_dzgre_ts_utc,
+            ti = proto_tree_add_item(avsp_dzgre_hdr,
                     hf_avsp_dzgre_ts_utc, tvb, 0, -1, ENC_NA);
-            avsp_48_tree = proto_item_add_subtree(ti,
+            avsp_64_tree = proto_item_add_subtree(ti,
                     ett_avsp_dzgre_ts_utc);
 
-            col_set_str(pinfo->cinfo, COL_INFO, "48bit UTC timestamp");
+            col_set_str(pinfo->cinfo, COL_INFO, "64bit UTC timestamp");
 
-            proto_tree_add_item(avsp_48_tree, hf_avsp_dzgre_ts_sec,
-                tvb, offset, 2, ENC_BIG_ENDIAN);
-            offset += 2;
-            proto_tree_add_item(avsp_48_tree, hf_avsp_dzgre_ts_ns,
+            proto_tree_add_item(avsp_64_tree, hf_avsp_dzgre_ts_sec,
+                tvb, offset, 4, ENC_BIG_ENDIAN);
+            offset += 4;
+            proto_tree_add_item(avsp_64_tree, hf_avsp_dzgre_ts_ns,
                 tvb, offset, 4, ENC_BIG_ENDIAN);
             offset += 4;
             break;
@@ -1267,7 +1266,7 @@ void proto_register_avsp(void)
         {&hf_avsp_dzgre_ts_version,
             {"Version", "avsp.dzgre_ts.ver",
                 FT_UINT16, BASE_DEC,
-                VALS(dzgre_b_versions), 0x0,
+                VALS(dzgre_ts_versions), 0x0,
                 NULL, HFILL}
         },
         {&hf_avsp_dzgre_ts_hdr,
@@ -1314,7 +1313,7 @@ void proto_register_avsp(void)
         },
         {&hf_avsp_dzgre_ts_sec,
             {"Seconds", "avsp.ts.dzgre_ts.sec",
-                FT_UINT16, BASE_DEC,
+                FT_UINT32, BASE_DEC,
                 NULL, 0x0,
                 NULL, HFILL}
         },
@@ -1388,9 +1387,9 @@ void proto_register_avsp(void)
         &ett_avsp_dzgre_a_hdr,   /* subtree for DzGRE plan A */
         &ett_avsp_dzgre_b_hdr,   /* subtree for DzGRE plan B */
         &ett_avsp_dzgre_ts_hdr,  /* subtree for DzGRE with timestamps */
-        &ett_avsp_dzgre_ts_tai,  /* subrtee for DzGRE timestamp */
-        &ett_avsp_dzgre_ts_utc,  /* subrtee for DzGRE timestamp */
-        &ett_avsp_greent_hdr,    /* subtee for GREENT header */
+        &ett_avsp_dzgre_ts_tai,  /* subtree for DzGRE timestamp */
+        &ett_avsp_dzgre_ts_utc,  /* subtree for DzGRE timestamp */
+        &ett_avsp_greent_hdr,    /* subtree for GREENT header */
         &ett_avsp_greent_sample_hdr,    /* subtree for GREENT sample header */
         &ett_avsp_greent_sample_data,   /* subtree for GREENT sample data */
         &ett_avsp_tgen_hdr,      /* subtree for TGen header */

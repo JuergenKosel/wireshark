@@ -55,8 +55,10 @@ ADD: Additional generic (non-checked) ICV length of 128, 192 and 256.
 
 */
 
-#include "config.h"
+#define WS_LOG_DOMAIN "packet-ipsec"
 
+#include "config.h"
+#include <wireshark.h>
 
 #include <epan/packet.h>
 #include <epan/addr_resolv.h>
@@ -1042,18 +1044,24 @@ filter_address_match(char *addr, char *filter, int typ)
   unsigned addr_len;
   unsigned filter_len;
 
-  if (typ == IPSEC_SA_IPV4) {
-      if (!get_full_ipv4_addr(addr_hex, addr))
-          return false;
-      if (!get_full_ipv4_addr(filter_hex, filter))
-          return false;
-  } else if(typ == IPSEC_SA_IPV6) {
-      if (get_full_ipv6_addr(addr_hex, addr))
-          return false;
-      if (get_full_ipv6_addr(filter_hex, filter))
-          return false;
-  } else if(typ == IPSEC_SA_ANY) {
-      return true;
+  switch(typ) {
+      case IPSEC_SA_ANY:
+        return true;
+      case IPSEC_SA_IPV4:
+        if (!get_full_ipv4_addr(addr_hex, addr))
+            return false;
+        if (!get_full_ipv4_addr(filter_hex, filter))
+            return false;
+        break;
+      case IPSEC_SA_IPV6:
+        if (get_full_ipv6_addr(addr_hex, addr))
+            return false;
+        if (get_full_ipv6_addr(filter_hex, filter))
+            return false;
+        break;
+      case IPSEC_SA_UNKNOWN:
+      default:
+        return false;
   }
 
   addr_len = (unsigned)strlen(addr_hex);
@@ -2366,7 +2374,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 	      tag_len = (auth_algo_libgcrypt == GCRY_MAC_POLY1305) ? 16 : (int)gcry_cipher_get_algo_blklen(crypt_algo_libgcrypt);
 
               if (tag_len < esp_icv_len) {
-                fprintf (stderr, "<IPsec/ESP Dissector> Error in Algorithm %s, tag length (%d) is less than icv length (%d)\n",
+                ws_warning("<IPsec/ESP Dissector> Error in Algorithm %s, tag length (%d) is less than icv length (%d)",
                          gcry_md_algo_name(crypt_algo_libgcrypt), tag_len, esp_icv_len);
               }
 

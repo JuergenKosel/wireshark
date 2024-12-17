@@ -9,10 +9,6 @@
 
 #include "stratoshark_application.h"
 
-#include "extcap.h"
-#include "ui/iface_lists.h"
-#include "ui/ws_ui_util.h"
-
 StratosharkApplication *ssApp;
 
 StratosharkApplication::StratosharkApplication(int &argc, char **argv) :
@@ -29,40 +25,15 @@ StratosharkApplication::~StratosharkApplication()
     ssApp = NULL;
 }
 
-void StratosharkApplication::refreshLocalInterfaces()
-{
-    extcap_clear_interfaces();
-
-#ifdef HAVE_LIBPCAP
-    free_interface_list(cached_if_list_);
-    cached_if_list_ = NULL;
-
-    GList * filter_list = NULL;
-    filter_list = g_list_append(filter_list, GUINT_TO_POINTER((unsigned) IF_EXTCAP));
-
-    // We don't need to (re)start the stats (which calls dumpcap) because
-    // Stratoshark only uses extcaps now. If that changes, do the below instead.
-#if 0
-    emit scanLocalInterfaces(filter_list);
-#endif
-
-    scan_local_interfaces_filtered(filter_list, main_window_update);
-
-    g_list_free(filter_list);
-
-    emit localInterfaceListChanged();
-#endif
-}
-
 void StratosharkApplication::initializeIcons()
 {
     // Do this as late as possible in order to allow time for
     // MimeDatabaseInitThread to do its work.
     QList<int> icon_sizes = QList<int>() << 16 << 24 << 32 << 48 << 64 << 128 << 256 << 512 << 1024;
     foreach (int icon_size, icon_sizes) {
-        QString icon_path = QString(":/ssicon/ssicon%1.png").arg(icon_size);
+        QString icon_path = QStringLiteral(":/ssicon/ssicon%1.png").arg(icon_size);
         normal_icon_.addFile(icon_path);
-        icon_path = QString(":/ssicon/ssiconcap%1.png").arg(icon_size);
+        icon_path = QStringLiteral(":/ssicon/ssiconcap%1.png").arg(icon_size);
         capture_icon_.addFile(icon_path);
     }
 }

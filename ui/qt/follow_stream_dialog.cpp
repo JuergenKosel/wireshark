@@ -13,7 +13,6 @@
 #include "main_application.h"
 #include "main_window.h"
 
-#include "frame_tvbuff.h"
 #include "epan/follow.h"
 #include "epan/prefs.h"
 #include "epan/addr_resolv.h"
@@ -27,9 +26,9 @@
 #include <wsutil/utf8_entities.h>
 #include <wsutil/ws_assert.h>
 
+#include "wsutil/application_flavor.h"
 #include "wsutil/file_util.h"
 #include "wsutil/str_util.h"
-#include "wsutil/filesystem.h"
 
 #include "ws_symbol_export.h"
 
@@ -103,7 +102,7 @@ FollowStreamDialog::FollowStreamDialog(QWidget &parent, CaptureFile &cf, int pro
 
     ui->teStreamContent->installEventFilter(this);
 
-    connect(ui->leFind, SIGNAL(useRegexFind(bool)), this, SLOT(useRegexFind(bool)));
+    connect(ui->leFind, &FindLineEdit::useRegexFind, this, &FollowStreamDialog::useRegexFind);
 
     QComboBox *cbcs = ui->cbCharset;
     cbcs->blockSignals(true);
@@ -192,11 +191,9 @@ void FollowStreamDialog::fillHintLabel(int pkt)
 {
     QString hint;
 
-    bool is_stratoshark = strcmp(get_configuration_namespace(), "Stratoshark") == 0;
-
-    if (is_stratoshark)  {
+    if (application_flavor_is_stratoshark())  {
         if (pkt > 0) {
-            hint = QString(tr("Event %1. ")).arg(pkt);
+            hint = tr("Event %1. ").arg(pkt);
         }
 
         hint += tr("%Ln <span style=\"color: %1; background-color:%2\">reads</span>, ", "", client_packet_count_)
@@ -208,7 +205,7 @@ void FollowStreamDialog::fillHintLabel(int pkt)
                 + tr("%Ln turn(s).", "", turns_);
     } else {
         if (pkt > 0) {
-            hint = QString(tr("Packet %1. ")).arg(pkt);
+            hint = tr("Packet %1. ").arg(pkt);
         }
 
         hint += tr("%Ln <span style=\"color: %1; background-color:%2\">client</span> pkt(s), ", "", client_packet_count_)
@@ -221,7 +218,7 @@ void FollowStreamDialog::fillHintLabel(int pkt)
     }
 
     if (pkt > 0) {
-        hint.append(QString(tr(" Click to select.")));
+        hint.append(tr(" Click to select."));
     }
 
     hint.prepend("<small><i>");
@@ -287,7 +284,6 @@ void FollowStreamDialog::findText(bool go_back)
         options |= QTextDocument::FindCaseSensitively;
     }
     if (use_regex_find_) {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 13, 0))
         // https://bugreports.qt.io/browse/QTBUG-88721
         // QPlainTextEdit::find() searches case-insensitively unless
         // QTextDocument::FindCaseSensitively is explicitly given.
@@ -297,14 +293,7 @@ void FollowStreamDialog::findText(bool go_back)
         // QRegularExpression and QRegExp do not support Perl's /i, but
         // the former at least does support the mode modifiers (?i) and
         // (?-i), which can override QTextDocument::FindCaseSensitively.
-        //
-        // To make matters worse, while the QTextDocument::find() documentation
-        // is correct, QPlainTextEdit::find() claims that QRegularExpression
-        // works like QRegExp, which is incorrect.
         QRegularExpression regex(ui->leFind->text(), QRegularExpression::UseUnicodePropertiesOption);
-#else
-        QRegExp regex(ui->leFind->text(), (options & QTextDocument::FindCaseSensitively) ? Qt::CaseSensitive : Qt::CaseInsensitive);
-#endif
         found = ui->teStreamContent->find(regex, options);
     } else {
         found = ui->teStreamContent->find(ui->leFind->text(), options);
@@ -876,13 +865,13 @@ void FollowStreamDialog::showBuffer(QByteArray &buffer, size_t nchars, bool is_f
 
             addText("peers:\n", false, 0, false);
 
-            addText(QString(
+            addText(QStringLiteral(
                 "  - peer: 0\n"
                 "    host: %1\n"
                 "    port: %2\n")
                 .arg(hostname0, port0), false, 0);
 
-            addText(QString(
+            addText(QStringLiteral(
                 "  - peer: 1\n"
                 "    host: %1\n"
                 "    port: %2\n")
@@ -895,16 +884,16 @@ void FollowStreamDialog::showBuffer(QByteArray &buffer, size_t nchars, bool is_f
         }
 
         if (packet_num != last_packet_) {
-            yaml_text.append(QString("  - packet: %1\n")
+            yaml_text.append(QStringLiteral("  - packet: %1\n")
                     .arg(packet_num));
-            yaml_text.append(QString("    peer: %1\n")
+            yaml_text.append(QStringLiteral("    peer: %1\n")
                     .arg(is_from_server ? 1 : 0));
-            yaml_text.append(QString("    index: %1\n")
+            yaml_text.append(QStringLiteral("    index: %1\n")
                     .arg(is_from_server ? server_buffer_count_++ : client_buffer_count_++));
-            yaml_text.append(QString("    timestamp: %1.%2\n")
+            yaml_text.append(QStringLiteral("    timestamp: %1.%2\n")
                     .arg(abs_ts.secs)
                     .arg(abs_ts.nsecs, 9, 10, QChar('0')));
-            yaml_text.append(QString("    data: !!binary |\n"));
+            yaml_text.append(QStringLiteral("    data: !!binary |\n"));
         }
         while (current_pos < nchars) {
             int len = current_pos + base64_raw_len < nchars ? base64_raw_len : (int) nchars - current_pos;
@@ -1009,12 +998,12 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
     previous_filter_ = previous_filter;
     /* append the negation */
     if (!previous_filter.isEmpty()) {
-        filter_out_filter_ = QString("%1 and !(%2)")
+        filter_out_filter_ = QStringLiteral("%1 and !(%2)")
                 .arg(previous_filter, follow_filter);
     }
     else
     {
-        filter_out_filter_ = QString("!(%1)").arg(follow_filter);
+        filter_out_filter_ = QStringLiteral("!(%1)").arg(follow_filter);
     }
 
     follow_info_.substream_id = sub_stream_num;
@@ -1094,9 +1083,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
 
     removeTapListeners();
 
-    bool is_stratoshark = strcmp(get_configuration_namespace(), "Stratoshark") == 0;
-
-    if (is_stratoshark)  {
+    if (application_flavor_is_stratoshark())  {
         server_to_client_string =
                 tr("Read activity(%6)")
                 .arg(gchar_free_to_qstring(format_size(
@@ -1121,7 +1108,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
         port1 = get_follow_port_to_display(follower_)(NULL, follow_info_.server_port);
 
         server_to_client_string =
-                QString("%1:%2 %3 %4:%5 (%6)")
+                QStringLiteral("%1:%2 %3 %4:%5 (%6)")
                 .arg(hostname0, port0)
                 .arg(UTF8_RIGHTWARDS_ARROW)
                 .arg(hostname1, port1)
@@ -1130,7 +1117,7 @@ bool FollowStreamDialog::follow(QString previous_filter, bool use_stream_index, 
                                             FORMAT_SIZE_UNIT_BYTES, FORMAT_SIZE_PREFIX_SI)));
 
         client_to_server_string =
-                QString("%1:%2 %3 %4:%5 (%6)")
+                QStringLiteral("%1:%2 %3 %4:%5 (%6)")
                 .arg(hostname1, port1)
                 .arg(UTF8_RIGHTWARDS_ARROW)
                 .arg(hostname0, port0)

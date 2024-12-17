@@ -148,11 +148,17 @@ def wireshark_command(cmd_wireshark):
 
 @pytest.fixture(scope='session')
 def cmd_extcap(program):
-    def extcap_name(name):
-        if sys.platform == 'darwin':
-            return program(os.path.join('Wireshark.app/Contents/MacOS/extcap', name))
+    def extcap_name(name, stratoshark_extcap=False):
+        if stratoshark_extcap:
+            if sys.platform == 'darwin':
+                return program(os.path.join('Stratoshark.app/Contents/MacOS/extcap', name))
+            else:
+                return program(os.path.join('extcap/stratoshark', name))
         else:
-            return program(os.path.join('extcap/wireshark', name))
+            if sys.platform == 'darwin':
+                return program(os.path.join('Wireshark.app/Contents/MacOS/extcap', name))
+            else:
+                return program(os.path.join('extcap/wireshark', name))
     return extcap_name
 
 
@@ -170,20 +176,20 @@ def features(cmd_tshark, make_env):
     except subprocess.CalledProcessError as ex:
         print('Failed to detect tshark features: %s' % (ex,))
         tshark_v = ''
-    gcry_m = re.search(r'with +Gcrypt +([0-9]+)\.([0-9]+)', tshark_v)
+    gcry_m = re.search(r'\+Gcrypt +([0-9]+)\.([0-9]+)', tshark_v)
     gcry_ver = (int(gcry_m.group(1)),int(gcry_m.group(2)))
     return types.SimpleNamespace(
-        have_x64='Compiled (64-bit)' in tshark_v,
-        have_lua='with Lua' in tshark_v,
+        have_x64='Compiler info: 64-bit' in tshark_v,
+        have_lua='+Lua' in tshark_v,
         have_lua_unicode='(with UfW patches)' in tshark_v,
-        have_nghttp2='with nghttp2' in tshark_v,
-        have_nghttp3='with nghttp3' in tshark_v,
-        have_kerberos='with Kerberos' in tshark_v,
-        have_gnutls='with GnuTLS' in tshark_v,
-        have_pkcs11='and PKCS #11 support' in tshark_v,
-        have_brotli='with brotli' in tshark_v,
-        have_zstd='with Zstandard' in tshark_v,
-        have_plugins='binary plugins supported' in tshark_v,
+        have_nghttp2='+nghttp2' in tshark_v,
+        have_nghttp3='+nghttp3' in tshark_v,
+        have_kerberos='+Kerberos' in tshark_v,
+        have_gnutls='+GnuTLS' in tshark_v,
+        have_pkcs11='PKCS #11' in tshark_v,
+        have_brotli='+brotli' in tshark_v,
+        have_zstd='+Zstandard' in tshark_v,
+        have_plugins='Plugins: supported' in tshark_v,
     )
 
 
@@ -239,6 +245,7 @@ def make_env():
     def make_env_real(home=None):
         env = os.environ.copy()
         env['TZ'] = 'UTC'
+        env['WIRESHARK_ABORT_ON_DISSECTOR_BUG'] = '1'
         home_env = 'APPDATA' if sys.platform.startswith('win32') else 'HOME'
         if home:
             env[home_env] = home

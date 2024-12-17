@@ -16,7 +16,7 @@
 #endif
 #include <pcap.h>
 
-#include "capture_opts.h"
+#include "ui/capture_opts.h"
 #include "ui/capture_globals.h"
 #endif
 #include "extcap.h"
@@ -28,7 +28,7 @@
 #include <QSet>
 
 // We use a global mutex to protect pcap_compile since it calls gethostbyname.
-// This probably isn't needed on Windows (where pcap_comple calls
+// This probably isn't needed on Windows (where pcap_compile calls
 // EnterCriticalSection + LeaveCriticalSection) or *BSD or macOS where
 // gethostbyname(3) claims that it's thread safe.
 static QMutex pcap_compile_mtx_;
@@ -64,7 +64,7 @@ void CaptureFilterSyntaxWorker::checkFilter(const QString filter)
     }
 
     if (global_capture_opts.num_selected < 1) {
-        emit syntaxResult(filter, SyntaxLineEdit::Invalid, QString("No interfaces selected"));
+        emit syntaxResult(filter, SyntaxLineEdit::Invalid, QStringLiteral("No interfaces selected"));
         DEBUG_SYNTAX_CHECK("unknown", "no interfaces");
         return;
     }
@@ -144,6 +144,6 @@ void CaptureFilterSyntaxWorker::checkFilter(const QString filter)
 
     DEBUG_SYNTAX_CHECK("known", "idle");
 #else
-    emit syntaxResult(filter, SyntaxLineEdit::Deprecated, QString("Syntax checking unavailable"));
+    emit syntaxResult(filter, SyntaxLineEdit::Deprecated, QStringLiteral("Syntax checking unavailable"));
 #endif // HAVE_LIBPCAP
 }

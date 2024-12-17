@@ -47,7 +47,7 @@ ShowPacketBytesDialog::ShowPacketBytesDialog(QWidget &parent, CaptureFile &cf) :
     ui->setupUi(this);
     loadGeometry(parent.width() * 2 / 3, parent.height() * 3 / 4);
 
-    QString field_name = QString("%1 (%2)").arg(finfo_->hfinfo->name, finfo_->hfinfo->abbrev);
+    QString field_name = QStringLiteral("%1 (%2)").arg(finfo_->hfinfo->name, finfo_->hfinfo->abbrev);
     setWindowSubtitle (field_name);
 
     hint_label_ = tr("Frame %1, %2, %Ln byte(s).", "", finfo_->length)
@@ -257,7 +257,6 @@ void ShowPacketBytesDialog::findText(bool go_back)
         options |= QTextDocument::FindCaseSensitively;
     }
     if (use_regex_find_) {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 13, 0))
         // https://bugreports.qt.io/browse/QTBUG-88721
         // QPlainTextEdit::find() searches case-insensitively unless
         // QTextDocument::FindCaseSensitively is explicitly given.
@@ -267,14 +266,7 @@ void ShowPacketBytesDialog::findText(bool go_back)
         // QRegularExpression and QRegExp do not support Perl's /i, but
         // the former at least does support the mode modifiers (?i) and
         // (?-i), which can override QTextDocument::FindCaseSensitively.
-        //
-        // To make matters worse, while the QTextDocument::find() documentation
-        // is correct, QPlainTextEdit::find() claims that QRegularExpression
-        // works like QRegExp, which is incorrect.
         QRegularExpression regex(ui->leFind->text(), QRegularExpression::UseUnicodePropertiesOption);
-#else
-        QRegExp regex(ui->leFind->text(), (options & QTextDocument::FindCaseSensitively) ? Qt::CaseSensitive : Qt::CaseInsensitive);
-#endif
         found = ui->tePacketBytes->find(regex, std::move(options));
     } else {
         found = ui->tePacketBytes->find(ui->leFind->text(), std::move(options));

@@ -91,12 +91,16 @@ get_iface_display_name(const char *description, const if_info_t *if_info)
         /* We have a friendly name from the OS. */
 #ifdef _WIN32
         /*
-         * On Windows, if we have a friendly name, just show it,
-         * don't show the name, as that's a string made out of
-         * the device GUID, and not at all friendly.
+         * On Windows, if we have a non-extcap capture device with a
+         * friendly name, just show it, don't show the name, as that's a
+         * string made out of the device GUID, and not at all friendly.
+         * Extcaps don't have GUIDs and might have multiple interfaces,
+         * so we do need to append our interface name in that case.
          */
-        return ws_strdup_printf("%s", if_info->friendly_name);
-#else
+        if (if_info->type != IF_EXTCAP) {
+            return ws_strdup_printf("%s", if_info->friendly_name);
+        }
+#endif
         /*
          * On UN*X, if we have a friendly name, show it along
          * with the interface name; the interface name is short
@@ -104,7 +108,6 @@ get_iface_display_name(const char *description, const if_info_t *if_info)
          * to interface names, so we should show it.
          */
         return ws_strdup_printf("%s: %s", if_info->friendly_name, if_info->name);
-#endif
     }
 
     if (if_info->vendor_description) {
@@ -636,7 +639,7 @@ update_local_interfaces(void)
 
     for (i = 0; i < global_capture_opts.all_ifaces->len; i++) {
         device = &g_array_index(global_capture_opts.all_ifaces, interface_t, i);
-        device->if_info.type = capture_dev_user_linktype_find(device->name);
+        device->active_dlt = capture_dev_user_linktype_find(device->name);
         g_free(device->display_name);
         descr = capture_dev_user_descr_find(device->name);
         device->display_name = get_iface_display_name(descr, &device->if_info);

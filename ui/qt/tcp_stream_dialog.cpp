@@ -18,6 +18,7 @@
 
 #include "wsutil/str_util.h"
 
+#include <epan/prefs-int.h>
 #include <wsutil/utf8_entities.h>
 
 #include <ui/qt/utils/tango_colors.h>
@@ -25,6 +26,7 @@
 #include "progress_frame.h"
 #include "main_application.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
+#include "ui/qt/widgets/qcp_axis_ticker_si.h"
 
 #include <QCursor>
 #include <QDir>
@@ -69,13 +71,13 @@ const double pkt_point_size_ = 3.0;
 // in zoom mode.
 const int min_zoom_pixels_ = 20;
 
-const QString average_throughput_label_ = QObject::tr("Average Throughput (bits/s)");
-const QString round_trip_time_ms_label_ = QObject::tr("Round Trip Time (ms)");
-const QString segment_length_label_ = QObject::tr("Segment Length (B)");
-const QString sequence_number_label_ = QObject::tr("Sequence Number (B)");
-const QString time_s_label_ = QObject::tr("Time (s)");
-const QString window_size_label_ = QObject::tr("Window Size (B)");
-const QString cwnd_label_ = QObject::tr("Unacked (Outstanding) Bytes (B)");
+const QString average_throughput_label_ = QObject::tr("Average Throughput");
+const QString round_trip_time_ms_label_ = QObject::tr("Round Trip Time");
+const QString segment_length_label_ = QObject::tr("Segment Length");
+const QString sequence_number_label_ = QObject::tr("Sequence Number");
+const QString time_s_label_ = QObject::tr("Time");
+const QString window_size_label_ = QObject::tr("Window Size");
+const QString cwnd_label_ = QObject::tr("Unacked (Outstanding) Bytes");
 
 QCPErrorBarsNotSelectable::QCPErrorBarsNotSelectable(QCPAxis *keyAxis, QCPAxis *valueAxis) :
     QCPErrorBars(keyAxis, valueAxis)
@@ -327,6 +329,21 @@ TCPStreamDialog::TCPStreamDialog(QWidget *parent, capture_file *cf, tcp_graph_ty
     zero_win_graph_->setLineStyle(QCPGraph::lsNone);
     zero_win_graph_->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCross, graph_color_1, 5));
 
+    // Most graphs have Seconds as the x-Axis
+    sp->xAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_SECONDS)));
+    // Most graphs have Bytes as the y-Axis
+    sp->yAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_BYTES)));
+    // Most graphs don't use the second y-Axis (but it's handy to set the type.)
+    sp->yAxis2->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi()));
+    // This precision is passed to format_units, and is the maximum number of
+    // digits after the decimal point (trailing zeros are erased). QCustomPlot
+    // chooses reasonable tick marks that minimize the number of decimal points.
+    // 9 allows full precision for sequence numbers near 2^32 and nanosecond
+    // time resolution.
+    sp->xAxis->setNumberPrecision(9);
+    sp->yAxis->setNumberPrecision(9);
+    sp->yAxis2->setNumberPrecision(9);
+
     tracer_ = new QCPItemTracer(sp);
 
     // Triggers fillGraph() [ UNLESS the index is already graph_idx!! ]
@@ -550,12 +567,21 @@ void TCPStreamDialog::fillGraph(bool reset_axes, bool set_focus)
     base_graph_->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssDisc, pkt_point_size_));
 
     sp->xAxis->setLabel(time_s_label_);
-    sp->xAxis->setNumberFormat("gb");
-    // Use enough precision to mark microseconds
-    //    when zooming in on a <100s capture
-    sp->xAxis->setNumberPrecision(8);
-    sp->yAxis->setNumberFormat("f");
-    sp->yAxis->setNumberPrecision(0);
+    // Most graphs have Seconds as the x-Axis
+    QSharedPointer<QCPAxisTickerSi> si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->xAxis->ticker());
+    if (si_ticker) {
+        si_ticker->setUnit(FORMAT_SIZE_UNIT_SECONDS);
+    } else {
+        sp->xAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_SECONDS)));
+    }
+    // Most graphs have Bytes as the y-Axis
+    si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->yAxis->ticker());
+    if (si_ticker) {
+        si_ticker->setUnit(FORMAT_SIZE_UNIT_BYTES);
+    } else {
+        sp->yAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_BYTES)));
+    }
+    // Most graphs don't have a second y-Axis
     sp->yAxis2->setVisible(false);
     sp->yAxis2->setLabel(QString());
 
@@ -563,7 +589,7 @@ void TCPStreamDialog::fillGraph(bool reset_axes, bool set_focus)
     disconnect(sp->yAxis, QOverload<const QCPRange&>::of(&QCPAxis::rangeChanged), sp->yAxis2, QOverload<const QCPRange&>::of(&QCPAxis::setRange));
 
     if (!cap_file_) {
-        QString dlg_title = QString(tr("No Capture Data"));
+        QString dlg_title = tr("No Capture Data");
         setWindowTitle(dlg_title);
         title_->setText(dlg_title);
         sp->setEnabled(false);
@@ -814,7 +840,7 @@ void TCPStreamDialog::resetAxes()
 
 void TCPStreamDialog::fillStevens()
 {
-    QString dlg_title = QString(tr("Sequence Numbers (Stevens)")) + streamDescription();
+    QString dlg_title = tr("Sequence Numbers (Stevens)") + streamDescription();
     setWindowTitle(dlg_title);
     title_->setText(dlg_title);
 
@@ -839,7 +865,7 @@ void TCPStreamDialog::fillStevens()
 
 void TCPStreamDialog::fillTcptrace()
 {
-    QString dlg_title = QString(tr("Sequence Numbers (tcptrace)")) + streamDescription();
+    QString dlg_title = tr("Sequence Numbers (tcptrace)") + streamDescription();
     setWindowTitle(dlg_title);
     title_->setText(dlg_title);
 
@@ -1204,11 +1230,11 @@ goodput_adjust_for_sacks(uint32_t *seglen, uint32_t last_ack,
 
 void TCPStreamDialog::fillThroughput()
 {
-    QString dlg_title = QString(tr("Throughput")) + streamDescription();
+    QString dlg_title = tr("Throughput") + streamDescription();
 #ifdef MA_1_SECOND
     dlg_title.append(tr(" (MA)"));
 #else
-    dlg_title.append(QString(tr(" (%1 Segment MA)")).arg(moving_avg_period_));
+    dlg_title.append(tr(" (%1 Segment MA)").arg(moving_avg_period_));
 #endif
     setWindowTitle(dlg_title);
     title_->setText(dlg_title);
@@ -1218,6 +1244,12 @@ void TCPStreamDialog::fillThroughput()
     sp->yAxis2->setLabel(average_throughput_label_);
     sp->yAxis2->setLabelColor(QColor(graph_color_2));
     sp->yAxis2->setTickLabelColor(QColor(graph_color_2));
+    QSharedPointer<QCPAxisTickerSi> si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->yAxis2->ticker());
+    if (si_ticker) {
+        si_ticker->setUnit(FORMAT_SIZE_UNIT_BITS_S);
+    } else {
+        sp->yAxis2->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_BITS_S)));
+    }
     sp->yAxis2->setVisible(true);
 
     base_graph_->setVisible(ui->showSegLengthCheckBox->isChecked());
@@ -1476,7 +1508,7 @@ rtt_selectively_ack_range(QVector<double>& x_vals, bool bySeqNumber,
 
 void TCPStreamDialog::fillRoundTripTime()
 {
-    QString dlg_title = QString(tr("Round Trip Time")) + streamDescription();
+    QString dlg_title = tr("Round Trip Time") + streamDescription();
     setWindowTitle(dlg_title);
     title_->setText(dlg_title);
 
@@ -1486,12 +1518,20 @@ void TCPStreamDialog::fillRoundTripTime()
     if (bySeqNumber) {
         sequence_num_map_.clear();
         sp->xAxis->setLabel(sequence_number_label_);
-        sp->xAxis->setNumberFormat("f");
-        sp->xAxis->setNumberPrecision(0);
+        QSharedPointer<QCPAxisTickerSi> si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->xAxis->ticker());
+        if (si_ticker) {
+            si_ticker->setUnit(FORMAT_SIZE_UNIT_BYTES);
+        } else {
+            sp->xAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_BYTES)));
+        }
     }
     sp->yAxis->setLabel(round_trip_time_ms_label_);
-    sp->yAxis->setNumberFormat("gb");
-    sp->yAxis->setNumberPrecision(3);
+    QSharedPointer<QCPAxisTickerSi> si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->yAxis->ticker());
+    if (si_ticker) {
+        si_ticker->setUnit(FORMAT_SIZE_UNIT_SECONDS);
+    } else {
+        sp->yAxis->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_SECONDS)));
+    }
 
     base_graph_->setLineStyle(QCPGraph::lsLine);
 
@@ -1539,7 +1579,7 @@ void TCPStreamDialog::fillRoundTripTime()
                     } else {
                         x_vals.append(u->time);
                     }
-                    rtt.append((rt_val - u->time) * 1000.0);
+                    rtt.append(rt_val - u->time);
                     if (tcp_seq_eq_or_after(ack_no, u->end_seqno)) {
                         // fully acked segment - nothing more to see here
                         v = u->next;
@@ -1577,7 +1617,7 @@ void TCPStreamDialog::fillRoundTripTime()
 
 void TCPStreamDialog::fillWindowScale()
 {
-    QString dlg_title = QString(tr("Window Scaling")) + streamDescription();
+    QString dlg_title = tr("Window Scaling") + streamDescription();
     setWindowTitle(dlg_title);
     title_->setText(dlg_title);
 
@@ -1594,8 +1634,20 @@ void TCPStreamDialog::fillWindowScale()
     QVector<double> cwnd_time, cwnd_size;
     uint32_t last_ack = 0;
 
-    /* highest expected SEQ seen so far */
+    /* highest expected SEQ seen so far (starts at 0 for relative SEQ) */
     uint32_t max_next_seq = 0;
+
+    pref_t *pref = prefs_find_preference(prefs_find_module("tcp"), "relative_sequence_numbers");
+    if(!pref || !prefs_get_bool_value(pref, pref_current)) {
+      bool found_first_data = false;
+      /* loop until we know the first raw SEQ */
+      for (struct segment *seg = graph_.segments; (!found_first_data && seg != NULL); seg = seg->next) {
+        if (compareHeaders(seg)) {
+          max_next_seq = seg->th_seq ;
+          found_first_data = true;
+        }
+      }
+    }
 
     bool found_first_ack = false;
     for (struct segment *seg = graph_.segments; seg != NULL; seg = seg->next) {
@@ -1608,7 +1660,7 @@ void TCPStreamDialog::fillWindowScale()
              * by comparing the highest next SEQ to the latest ACK
              */
             uint32_t end_seq = seg->th_seq + seg->th_seglen;
-            if(end_seq > max_next_seq) {
+            if(tcp_seq_eq_or_after(end_seq, max_next_seq)) {
                 max_next_seq = end_seq;
             }
             if (found_first_ack &&
@@ -1651,6 +1703,13 @@ void TCPStreamDialog::fillWindowScale()
     sp->yAxis2->setLabel(window_size_label_);
     sp->yAxis2->setLabelColor(QColor(graph_color_3));
     sp->yAxis2->setTickLabelColor(QColor(graph_color_3));
+    QSharedPointer<QCPAxisTickerSi> si_ticker = qSharedPointerDynamicCast<QCPAxisTickerSi>(sp->yAxis2->ticker());
+    if (si_ticker) {
+        si_ticker->setUnit(FORMAT_SIZE_UNIT_BYTES);
+    } else {
+        sp->yAxis2->setTicker(QSharedPointer<QCPAxisTickerSi>(new QCPAxisTickerSi(FORMAT_SIZE_UNIT_BYTES)));
+    }
+
     sp->yAxis2->setVisible(true);
 
     /* Keep the ticks on the two axes in sync. */
@@ -1924,7 +1983,7 @@ void TCPStreamDialog::on_buttonBox_accepted()
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");
     // Gaze upon my beautiful graph with lossy artifacts!
     QString jpeg_filter = tr("JPEG File Interchange Format (*.jpeg *.jpg)");
-    QString filter = QString("%1;;%2;;%3;;%4")
+    QString filter = QStringLiteral("%1;;%2;;%3;;%4")
             .arg(pdf_filter)
             .arg(png_filter)
             .arg(bmp_filter)

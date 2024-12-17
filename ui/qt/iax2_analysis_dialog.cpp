@@ -11,7 +11,6 @@
 #include <ui_iax2_analysis_dialog.h>
 
 #include "file.h"
-#include "frame_tvbuff.h"
 
 #include <epan/epan_dissect.h>
 #include <epan/rtp_pt.h>
@@ -253,10 +252,10 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
 
     // We keep our temp files open for the lifetime of the dialog. The GTK+
     // UI opens and closes at various points.
-    QString tempname = QString("%1/wireshark_iax2_f").arg(QDir::tempPath());
+    QString tempname = QStringLiteral("%1/wireshark_iax2_f").arg(QDir::tempPath());
     fwd_tempfile_ = new QTemporaryFile(tempname, this);
     fwd_tempfile_->open();
-    tempname = QString("%1/wireshark_iax2_r").arg(QDir::tempPath());
+    tempname = QStringLiteral("%1/wireshark_iax2_r").arg(QDir::tempPath());
     rev_tempfile_ = new QTemporaryFile(tempname, this);
     rev_tempfile_->open();
 
@@ -319,7 +318,7 @@ Iax2AnalysisDialog::Iax2AnalysisDialog(QWidget &parent, CaptureFile &cf) :
     epan_dissect_init(&edt, cap_file_.capFile()->epan, true, false);
     epan_dissect_prime_with_dfilter(&edt, sfcode);
     epan_dissect_run(&edt, cap_file_.capFile()->cd_t, &cap_file_.capFile()->rec,
-                     frame_tvbuff_new_buffer(&cap_file_.capFile()->provider, fdata, &cap_file_.capFile()->buf),
+                     ws_buffer_start_ptr(&cap_file_.capFile()->buf),
                      fdata, NULL);
 
     // This shouldn't happen (the menu item should be disabled) but check anyway
@@ -556,7 +555,7 @@ void Iax2AnalysisDialog::on_actionSaveGraph_triggered()
     QString bmp_filter = tr("Windows Bitmap (*.bmp)");
     // Gaze upon my beautiful graph with lossy artifacts!
     QString jpeg_filter = tr("JPEG File Interchange Format (*.jpeg *.jpg)");
-    QString filter = QString("%1;;%2;;%3;;%4")
+    QString filter = QStringLiteral("%1;;%2;;%3;;%4")
             .arg(pdf_filter)
             .arg(png_filter)
             .arg(bmp_filter)
@@ -564,7 +563,7 @@ void Iax2AnalysisDialog::on_actionSaveGraph_triggered()
 
     QString save_file = path.canonicalPath();
     if (!file_closed_) {
-        save_file += QString("/%1").arg(cap_file_.fileBaseName());
+        save_file += QStringLiteral("/%1").arg(cap_file_.fileBaseName());
     }
     file_name = WiresharkFileDialog::getSaveFileName(this, mainApp->windowTitleString(tr("Save Graph As…")),
                                              save_file, filter, &extension);
@@ -770,55 +769,56 @@ void Iax2AnalysisDialog::updateStatistics()
 #endif
 
     QString stats_tables = "<html><head></head><body>\n";
-    stats_tables += QString("<p>%1:%2 " UTF8_LEFT_RIGHT_ARROW)
+    stats_tables += QStringLiteral("<p>%1:%2 %3")
             .arg(address_to_qstring(&fwd_id_.src_addr, true))
-            .arg(fwd_id_.src_port);
-    stats_tables += QString("<br>%1:%2</p>\n")
+            .arg(fwd_id_.src_port)
+            .arg(UTF8_LEFT_RIGHT_ARROW);
+    stats_tables += QStringLiteral("<br>%1:%2</p>\n")
             .arg(address_to_qstring(&fwd_id_.dst_addr, true))
             .arg(fwd_id_.dst_port);
     stats_tables += "<h4>Forward</h4>\n";
     stats_tables += "<p><table>\n";
-    stats_tables += QString("<tr><th align=\"left\">Max Delta</th><td>%1 ms @ %2</td></tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Max Delta</th><td>%1 ms @ %2</td></tr>")
             .arg(fwd_statinfo_.max_delta, 0, 'f', 2)
             .arg(fwd_statinfo_.max_nr);
-    stats_tables += QString("<tr><th align=\"left\">Max Jitter</th><td>%1 ms</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Max Jitter</th><td>%1 ms</tr>")
             .arg(fwd_statinfo_.max_jitter, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">Mean Jitter</th><td>%1 ms</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Mean Jitter</th><td>%1 ms</tr>")
             .arg(fwd_statinfo_.mean_jitter, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">IAX2 Packets</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">IAX2 Packets</th><td>%1</tr>")
             .arg(fwd_statinfo_.total_nr);
 #if 0
-    stats_tables += QString("<tr><th align=\"left\">Expected</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Expected</th><td>%1</tr>")
             .arg(f_expected);
-    stats_tables += QString("<tr><th align=\"left\">Lost</th><td>%1 (%2 %)</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Lost</th><td>%1 (%2 %)</tr>")
             .arg(f_lost).arg(f_perc, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">Seq Errs</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Seq Errs</th><td>%1</tr>")
             .arg(fwd_statinfo_.sequence);
 #endif
-    stats_tables += QString("<tr><th align=\"left\">Duration</th><td>%1 s</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Duration</th><td>%1 s</tr>")
             .arg(f_duration, 0, 'f', 2);
     stats_tables += "</table></p>\n";
 
     stats_tables += "<h4>Reverse</h4>\n";
     stats_tables += "<p><table>\n";
-    stats_tables += QString("<tr><th align=\"left\">Max Delta</th><td>%1 ms @ %2</td></tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Max Delta</th><td>%1 ms @ %2</td></tr>")
             .arg(rev_statinfo_.max_delta, 0, 'f', 2)
             .arg(rev_statinfo_.max_nr);
-    stats_tables += QString("<tr><th align=\"left\">Max Jitter</th><td>%1 ms</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Max Jitter</th><td>%1 ms</tr>")
             .arg(rev_statinfo_.max_jitter, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">Mean Jitter</th><td>%1 ms</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Mean Jitter</th><td>%1 ms</tr>")
             .arg(rev_statinfo_.mean_jitter, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">IAX2 Packets</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">IAX2 Packets</th><td>%1</tr>")
             .arg(rev_statinfo_.total_nr);
 #if 0
-    stats_tables += QString("<tr><th align=\"left\">Expected</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Expected</th><td>%1</tr>")
             .arg(r_expected);
-    stats_tables += QString("<tr><th align=\"left\">Lost</th><td>%1 (%2 %)</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Lost</th><td>%1 (%2 %)</tr>")
             .arg(r_lost).arg(r_perc, 0, 'f', 2);
-    stats_tables += QString("<tr><th align=\"left\">Seq Errs</th><td>%1</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Seq Errs</th><td>%1</tr>")
             .arg(rev_statinfo_.sequence);
 #endif
-    stats_tables += QString("<tr><th align=\"left\">Duration</th><td>%1 s</tr>")
+    stats_tables += QStringLiteral("<tr><th align=\"left\">Duration</th><td>%1 s</tr>")
             .arg(r_duration, 0, 'f', 2);
     stats_tables += "</table></p></body>\n";
 
@@ -1166,7 +1166,7 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
                 if (!v.isValid()) {
                     values << "\"\"";
                 } else if (v.userType() == QMetaType::QString) {
-                    values << QString("\"%1\"").arg(v.toString());
+                    values << QStringLiteral("\"%1\"").arg(v.toString());
                 } else {
                     values << v.toString();
                 }
@@ -1190,7 +1190,7 @@ void Iax2AnalysisDialog::saveCsv(Iax2AnalysisDialog::StreamDirection direction)
                 if (!v.isValid()) {
                     values << "\"\"";
                 } else if (v.userType() == QMetaType::QString) {
-                    values << QString("\"%1\"").arg(v.toString());
+                    values << QStringLiteral("\"%1\"").arg(v.toString());
                 } else {
                     values << v.toString();
                 }

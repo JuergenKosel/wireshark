@@ -16,7 +16,7 @@
 
 #include <ui/io_graph_item.h>
 
-#include <wsutil/filesystem.h>
+#include <wsutil/application_flavor.h>
 
 #include <QMenu>
 
@@ -32,7 +32,7 @@ IOGraphAction::IOGraphAction(QObject *parent, io_graph_item_unit_t unit, QString
 const QString IOGraphAction::unitName(io_graph_item_unit_t unit) {
     switch (unit) {
     case IOG_ITEM_UNIT_PACKETS:
-        if (is_packet_configuration_namespace()) {
+        if (application_flavor_is_wireshark()) {
             return QObject::tr("PACKETS");
         }
         return QObject::tr("EVENTS");
@@ -105,17 +105,14 @@ QMenu * IOGraphAction::createMenu(const FieldInformation::HeaderInfo& headerinfo
     MainWindow *mw(nullptr);
     if (mainApp)
     {
-        QWidget * mainWin = mainApp->mainWindow();
-        if (qobject_cast<MainWindow *>(mainWin)) {
-            mw = qobject_cast<MainWindow *>(mainWin);
-        }
+        mw = mainApp->mainWindow();
     }
 
     QString title("I/O Graph");
     QMenu * submenu = new QMenu(title, parent);
 
     int one_em = submenu->fontMetrics().height();
-    QString prep_text = QString("%1: %2").arg(title).arg(headerinfo.abbreviation);
+    QString prep_text = QStringLiteral("%1: %2").arg(title).arg(headerinfo.abbreviation);
     prep_text = submenu->fontMetrics().elidedText(prep_text, Qt::ElideRight, one_em * 40);
     QAction * comment = submenu->addAction(prep_text);
     comment->setEnabled(false);

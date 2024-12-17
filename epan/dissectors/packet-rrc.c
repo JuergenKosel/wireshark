@@ -785,18 +785,18 @@ static int hf_rrc_activeSetUpdate_r13;            /* ActiveSetUpdate_r13_IEs */
 static int hf_rrc_activeSetUpdate_r13_add_ext;    /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_08;       /* T_nonCriticalExtensions_08 */
 static int hf_rrc_criticalExtensions_08;          /* T_criticalExtensions_08 */
-static int hf_rrc_dummy_02;                       /* IntegrityProtectionModeInfo */
-static int hf_rrc_dummy2;                         /* CipheringModeInfo */
+static int hf_rrc_integrityProtectionModeInfo;    /* IntegrityProtectionModeInfo */
+static int hf_rrc_cipheringModeInfo;              /* CipheringModeInfo */
 static int hf_rrc_activationTime;                 /* ActivationTime */
 static int hf_rrc_newU_RNTI;                      /* U_RNTI */
 static int hf_rrc_cn_InformationInfo;             /* CN_InformationInfo */
-static int hf_rrc_dummy3;                         /* DL_CounterSynchronisationInfo */
+static int hf_rrc_dL_CounterSynchronisationInfo;  /* DL_CounterSynchronisationInfo */
 static int hf_rrc_maxAllowedUL_TX_Power;          /* MaxAllowedUL_TX_Power */
 static int hf_rrc_rl_AdditionInformationList;     /* RL_AdditionInformationList */
 static int hf_rrc_rl_RemovalInformationList;      /* RL_RemovalInformationList */
 static int hf_rrc_tx_DiversityMode;               /* TX_DiversityMode */
-static int hf_rrc_dummy4;                         /* SSDT_Information */
-static int hf_rrc_dummy_03;                       /* SSDT_UL */
+static int hf_rrc_sSDT_Information;               /* SSDT_Information */
+static int hf_rrc_sSDT_UL;                        /* SSDT_UL */
 static int hf_rrc_cell_id_PerRL_List;             /* CellIdentity_PerRL_List */
 static int hf_rrc_dpc_Mode;                       /* DPC_Mode */
 static int hf_rrc_dl_TPC_PowerOffsetPerRL_List;   /* DL_TPC_PowerOffsetPerRL_List */
@@ -869,9 +869,9 @@ static int hf_rrc_dynamicActivationTime;          /* DynamicActivationTime */
 static int hf_rrc_ul_SecondaryCellInfoFDD_02;     /* UL_SecondaryCellInfoFDD_r13 */
 static int hf_rrc_rl_AdditionInformationList_11;  /* RL_AdditionInformationList_r13 */
 static int hf_rrc_rl_AdditionInformationList_SecULFreq_02;  /* RL_AdditionInformationList_SecULFreq_r13 */
-static int hf_rrc_dummy_04;                       /* IntegrityProtActivationInfo */
-static int hf_rrc_dummy2_01;                      /* RB_ActivationTimeInfoList */
-static int hf_rrc_dummy3_01;                      /* UL_CounterSynchronisationInfo */
+static int hf_rrc_integrityProtActivationInfo;    /* IntegrityProtActivationInfo */
+static int hf_rrc_rB_ActivationTimeInfoList;      /* RB_ActivationTimeInfoList */
+static int hf_rrc_uL_CounterSynchronisationInfo;  /* UL_CounterSynchronisationInfo */
 static int hf_rrc_laterNonCriticalExtensions_01;  /* T_laterNonCriticalExtensions_01 */
 static int hf_rrc_activeSetUpdateComplete_r3_add_ext;  /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_09;       /* T_nonCriticalExtensions_09 */
@@ -933,7 +933,7 @@ static int hf_rrc_cellChangeOrderFromUTRANFailure_r3;  /* CellChangeOrderFromUTR
 static int hf_rrc_laterNonCriticalExtensions_05;  /* T_laterNonCriticalExtensions_05 */
 static int hf_rrc_cellChangeOrderFromUTRANFailure_r3_add_ext;  /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_13;       /* T_nonCriticalExtensions_13 */
-static int hf_rrc_dummy_05;                       /* T_dummy */
+static int hf_rrc_dummy_02;                       /* T_dummy */
 static int hf_rrc_criticalExtensions_11;          /* T_criticalExtensions_11 */
 static int hf_rrc_interRAT_ChangeFailureCause;    /* InterRAT_ChangeFailureCause */
 static int hf_rrc_u_RNTI;                         /* U_RNTI */
@@ -1108,8 +1108,8 @@ static int hf_rrc_cellUpdateConfrim_r14;          /* CellUpdateConfirm_r14_IEs *
 static int hf_rrc_cellUpdateConfirm_r14_add_ext;  /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_27;       /* T_nonCriticalExtensions_27 */
 static int hf_rrc_criticalExtensions_23;          /* T_criticalExtensions_22 */
-static int hf_rrc_integrityProtectionModeInfo;    /* IntegrityProtectionModeInfo_r7 */
-static int hf_rrc_cipheringModeInfo;              /* CipheringModeInfo_r7 */
+static int hf_rrc_integrityProtectionModeInfo_01;  /* IntegrityProtectionModeInfo_r7 */
+static int hf_rrc_cipheringModeInfo_01;           /* CipheringModeInfo_r7 */
 static int hf_rrc_new_U_RNTI;                     /* U_RNTI */
 static int hf_rrc_new_C_RNTI;                     /* C_RNTI */
 static int hf_rrc_new_DSCH_RNTI;                  /* DSCH_RNTI */
@@ -1156,8 +1156,6 @@ static int hf_rrc_hs_scch_DrxCellfach_info;       /* HS_SCCH_DrxCellfach_info */
 static int hf_rrc_mbms_PL_ServiceRestrictInfo;    /* MBMS_PL_ServiceRestrictInfo_r6 */
 static int hf_rrc_cellDCHMeasOccasionInfo_TDD128;  /* CellDCHMeasOccasionInfo_TDD128_r9 */
 static int hf_rrc_dedicatedWLANOffloadInformation;  /* DedicatedWLANOffloadInformation */
-static int hf_rrc_integrityProtectionModeInfo_01;  /* IntegrityProtectionModeInfo */
-static int hf_rrc_cipheringModeInfo_01;           /* CipheringModeInfo */
 static int hf_rrc_utran_DRX_CycleLengthCoeff_01;  /* UTRAN_DRX_CycleLengthCoefficient */
 static int hf_rrc_rb_InformationReconfigList_01;  /* RB_InformationReconfigList */
 static int hf_rrc_rb_InformationAffectedList_01;  /* RB_InformationAffectedList */
@@ -1167,8 +1165,8 @@ static int hf_rrc_ul_deletedTransChInfoList_01;   /* UL_DeletedTransChInfoList *
 static int hf_rrc_ul_AddReconfTransChInfoList_01;  /* UL_AddReconfTransChInfoList */
 static int hf_rrc_modeSpecificTransChInfo;        /* T_modeSpecificTransChInfo */
 static int hf_rrc_fdd;                            /* T_fdd */
-static int hf_rrc_dummy_06;                       /* CPCH_SetID */
-static int hf_rrc_dummy2_02;                      /* DRAC_StaticInformationList */
+static int hf_rrc_cPCH_SetID;                     /* CPCH_SetID */
+static int hf_rrc_dRAC_StaticInformationList;     /* DRAC_StaticInformationList */
 static int hf_rrc_tdd;                            /* NULL */
 static int hf_rrc_dl_CommonTransChInfo_01;        /* DL_CommonTransChInfo */
 static int hf_rrc_dl_DeletedTransChInfoList_01;   /* DL_DeletedTransChInfoList */
@@ -1176,7 +1174,7 @@ static int hf_rrc_dl_AddReconfTransChInfoList_01;  /* DL_AddReconfTransChInfoLis
 static int hf_rrc_ul_ChannelRequirement;          /* UL_ChannelRequirement */
 static int hf_rrc_modeSpecificPhysChInfo;         /* T_modeSpecificPhysChInfo */
 static int hf_rrc_fdd_01;                         /* T_fdd_01 */
-static int hf_rrc_dummy_07;                       /* DL_PDSCH_Information */
+static int hf_rrc_dL_PDSCH_Informatio;            /* DL_PDSCH_Information */
 static int hf_rrc_dl_CommonInformation_01;        /* DL_CommonInformation */
 static int hf_rrc_dl_InformationPerRL_List_01;    /* DL_InformationPerRL_List */
 static int hf_rrc_rb_InformationReconfigList_02;  /* RB_InformationReconfigList_r4 */
@@ -1227,7 +1225,7 @@ static int hf_rrc_v7f0NonCriticalExtensions_02;   /* T_v7f0NonCriticalExtensions
 static int hf_rrc_v7g0NonCriticalExtensions_04;   /* T_v7g0NonCriticalExtensions_04 */
 static int hf_rrc_nonCriticalExtensions_28;       /* T_nonCriticalExtensions_28 */
 static int hf_rrc_ul_EDCH_Information_03;         /* UL_EDCH_Information_ext */
-static int hf_rrc_dummy_08;                       /* DefaultConfigForCellFACH */
+static int hf_rrc_defaultConfigForCellFACH;       /* DefaultConfigForCellFACH */
 static int hf_rrc_rab_InformationSetup_01;        /* RAB_InformationSetup_r8 */
 static int hf_rrc_rb_InformationReconfigList_06;  /* RB_InformationReconfigList_r8 */
 static int hf_rrc_ul_EDCH_Information_04;         /* UL_EDCH_Information_r8 */
@@ -1243,7 +1241,7 @@ static int hf_rrc_dl_AddReconfTransChInfoList_05;  /* DL_AddReconfTransChInfoLis
 static int hf_rrc_ul_EDCH_Information_05;         /* UL_EDCH_Information_r9 */
 static int hf_rrc_dl_HSPDSCH_Information_07;      /* DL_HSPDSCH_Information_r9 */
 static int hf_rrc_dl_AddReconfTransChInfoList_06;  /* DL_AddReconfTransChInfoList_TDD128_v9c0ext */
-static int hf_rrc_dummy2_03;                      /* SR_VCC_Info */
+static int hf_rrc_sR_VCC_Info;                    /* SR_VCC_Info */
 static int hf_rrc_dl_CommonInformation_07;        /* DL_CommonInformation_r10 */
 static int hf_rrc_dl_AddReconfTransChInfoList_07;  /* DL_AddReconfTransChInfoList_r11 */
 static int hf_rrc_dl_HSPDSCH_Information_08;      /* DL_HSPDSCH_Information_r11 */
@@ -1331,7 +1329,7 @@ static int hf_rrc_criticalExtensions_36;          /* T_criticalExtensions_35 */
 static int hf_rrc_cn_DomainIdentity;              /* CN_DomainIdentity */
 static int hf_rrc_nas_Message;                    /* NAS_Message */
 static int hf_rrc_etws_Information;               /* ETWS_Information */
-static int hf_rrc_dummy_09;                       /* ETWS_WarningSecurityInfo */
+static int hf_rrc_eTWS_WarningSecurityInfo;       /* ETWS_WarningSecurityInfo */
 static int hf_rrc_nonCriticalExtensions_43;       /* T_nonCriticalExtensions_43 */
 static int hf_rrc_r3_08;                          /* T_r3_08 */
 static int hf_rrc_handoverToUTRANCommand_r3;      /* HandoverToUTRANCommand_r3_IEs */
@@ -1377,7 +1375,6 @@ static int hf_rrc_handoverToUTRANCommand_v9c0ext;  /* HandoverToUTRANCommand_v9c
 static int hf_rrc_nonCriticalExtensions_50;       /* T_nonCriticalExtensions_50 */
 static int hf_rrc_criticalExtensions_43;          /* HandoverToUTRANCommand_LaterCriticalExtensions */
 static int hf_rrc_new_U_RNTI_01;                  /* U_RNTI_Short */
-static int hf_rrc_dummy_10;                       /* ActivationTime */
 static int hf_rrc_cipheringAlgorithm;             /* CipheringAlgorithm */
 static int hf_rrc_specificationMode;              /* T_specificationMode */
 static int hf_rrc_complete;                       /* T_complete */
@@ -1386,7 +1383,8 @@ static int hf_rrc_rab_InformationSetupList;       /* RAB_InformationSetupList */
 static int hf_rrc_ul_DPCH_Info_03;                /* UL_DPCH_Info */
 static int hf_rrc_modeSpecificInfo;               /* T_modeSpecificInfo */
 static int hf_rrc_fdd_06;                         /* T_fdd_06 */
-static int hf_rrc_dummy2_04;                      /* CPCH_SetInfo */
+static int hf_rrc_dL_PDSCH_Information;           /* DL_PDSCH_Information */
+static int hf_rrc_cPCH_SetInfo;                   /* CPCH_SetInfo */
 static int hf_rrc_preconfiguration;               /* T_preconfiguration */
 static int hf_rrc_preConfigMode;                  /* T_preConfigMode */
 static int hf_rrc_predefinedConfigIdentity;       /* PredefinedConfigIdentity */
@@ -1474,7 +1472,7 @@ static int hf_rrc_rab_InformationSetupList_05;    /* RAB_InformationSetupList_r8
 static int hf_rrc_preconfiguration_05;            /* T_preconfiguration_05 */
 static int hf_rrc_preConfigMode_05;               /* T_preConfigMode_05 */
 static int hf_rrc_defaultConfig_05;               /* T_defaultConfig_05 */
-static int hf_rrc_dummy_11;                       /* DLUL_HSPA_Information_r8 */
+static int hf_rrc_dLUL_HSPA_Information_r8;       /* DLUL_HSPA_Information_r8 */
 static int hf_rrc_modeSpecificInfo_08;            /* T_modeSpecificInfo_08 */
 static int hf_rrc_fdd_14;                         /* T_fdd_14 */
 static int hf_rrc_tdd_06;                         /* T_tdd_05 */
@@ -1487,7 +1485,7 @@ static int hf_rrc_complete_06;                    /* T_complete_06 */
 static int hf_rrc_preconfiguration_06;            /* T_preconfiguration_06 */
 static int hf_rrc_preConfigMode_06;               /* T_preConfigMode_06 */
 static int hf_rrc_defaultConfig_06;               /* T_defaultConfig_06 */
-static int hf_rrc_dummy_12;                       /* DLUL_HSPA_Information_r9 */
+static int hf_rrc_dLUL_HSPA_Information_r8_01;    /* DLUL_HSPA_Information_r9 */
 static int hf_rrc_modeSpecificInfo_09;            /* T_modeSpecificInfo_09 */
 static int hf_rrc_fdd_15;                         /* T_fdd_15 */
 static int hf_rrc_tdd_07;                         /* T_tdd_06 */
@@ -1516,14 +1514,13 @@ static int hf_rrc_complete_07;                    /* T_complete_07 */
 static int hf_rrc_preconfiguration_07;            /* T_preconfiguration_07 */
 static int hf_rrc_preConfigMode_07;               /* T_preConfigMode_07 */
 static int hf_rrc_defaultConfig_07;               /* T_defaultConfig_07 */
-static int hf_rrc_dummy_13;                       /* DLUL_HSPA_Information_r10 */
+static int hf_rrc_dLUL_HSPA_Information_r8_02;    /* DLUL_HSPA_Information_r10 */
 static int hf_rrc_modeSpecificInfo_10;            /* T_modeSpecificInfo_10 */
 static int hf_rrc_fdd_16;                         /* T_fdd_16 */
 static int hf_rrc_tdd_08;                         /* T_tdd_07 */
 static int hf_rrc_tdd384_06;                      /* T_tdd384_06 */
 static int hf_rrc_tdd128_06;                      /* T_tdd128_06 */
 static int hf_rrc_tdd768_03;                      /* T_tdd768_03 */
-static int hf_rrc_defaultConfigForCellFACH;       /* DefaultConfigForCellFACH */
 static int hf_rrc_specificationMode_08;           /* T_specificationMode_08 */
 static int hf_rrc_complete_08;                    /* T_complete_08 */
 static int hf_rrc_preconfiguration_08;            /* T_preconfiguration_08 */
@@ -1668,13 +1665,13 @@ static int hf_rrc_geranIu_MessageList_01;         /* GERANIu_MessageList */
 static int hf_rrc_eutra_Message_02;               /* T_eutra_Message_02 */
 static int hf_rrc_predefinedConfigStatusList;     /* T_predefinedConfigStatusList */
 static int hf_rrc_absent;                         /* NULL */
-static int hf_rrc_present;                        /* PredefinedConfigStatusList */
+static int hf_rrc_predefinedConfigStatusList_01;  /* PredefinedConfigStatusList */
 static int hf_rrc_uE_SecurityInformation;         /* T_uE_SecurityInformation */
-static int hf_rrc_present_01;                     /* UE_SecurityInformation */
+static int hf_rrc_uE_SecurityInformation_01;      /* UE_SecurityInformation */
 static int hf_rrc_ue_CapabilityContainer;         /* T_ue_CapabilityContainer */
-static int hf_rrc_present_02;                     /* T_present */
+static int hf_rrc_present;                        /* T_present */
 static int hf_rrc_v390NonCriticalExtensions;      /* T_v390NonCriticalExtensions */
-static int hf_rrc_present_03;                     /* T_present_01 */
+static int hf_rrc_present_01;                     /* T_present_01 */
 static int hf_rrc_interRATHandoverInfo_v390ext;   /* InterRATHandoverInfo_v390ext_IEs */
 static int hf_rrc_v3a0NonCriticalExtensions_03;   /* T_v3a0NonCriticalExtensions_03 */
 static int hf_rrc_interRATHandoverInfo_v3a0ext;   /* InterRATHandoverInfo_v3a0ext_IEs */
@@ -1942,7 +1939,7 @@ static int hf_rrc_laterNonCriticalExtensions_22;  /* MeasurementReport_LaterNonC
 static int hf_rrc_measuredResults_v390ext;        /* MeasuredResults_v390ext */
 static int hf_rrc_interFreqEventResults_LCR;      /* InterFreqEventResults_LCR_r4_ext */
 static int hf_rrc_additionalMeasuredResults_LCR;  /* MeasuredResultsList_LCR_r4_ext */
-static int hf_rrc_dummy_14;                       /* PrimaryCPICH_Info */
+static int hf_rrc_primaryCPICH_Info;              /* PrimaryCPICH_Info */
 static int hf_rrc_measuredResults_v590ext;        /* MeasuredResults_v590ext */
 static int hf_rrc_measuredResults_01;             /* MeasuredResults_v770ext */
 static int hf_rrc_additionalMeasuredResults_01;   /* MeasuredResultsList_v770xet */
@@ -2122,7 +2119,6 @@ static int hf_rrc_responseToChangeOfUE_Capability_06;  /* T_responseToChangeOfUE
 static int hf_rrc_harqInfo_02;                    /* HARQ_Info_r13 */
 static int hf_rrc_ul_IntegProtActivationInfo;     /* IntegrityProtActivationInfo */
 static int hf_rrc_ul_TimingAdvance;               /* UL_TimingAdvance */
-static int hf_rrc_dummy_15;                       /* RB_ActivationTimeInfoList */
 static int hf_rrc_ul_CounterSynchronisationInfo;  /* UL_CounterSynchronisationInfo */
 static int hf_rrc_laterNonCriticalExtensions_26;  /* T_laterNonCriticalExtensions_24 */
 static int hf_rrc_physicalChannelReconfigurationComplete_r3_add_ext;  /* BIT_STRING */
@@ -2294,20 +2290,19 @@ static int hf_rrc_nonCriticalExtensions_110;      /* T_nonCriticalExtensions_110
 static int hf_rrc_laterCriticalExtensions_01;     /* RadioBearerReconfiguration_LaterCriticalExtensions_r15_IEs */
 static int hf_rrc_um_RLC_ReEstablishmentRBList;   /* RB_IdentityList */
 static int hf_rrc_rab_InformationReconfigList;    /* RAB_InformationReconfigList */
-static int hf_rrc_dummy_16;                       /* T_dummy_01 */
+static int hf_rrc_dummy_03;                       /* T_dummy_01 */
 static int hf_rrc_fdd_22;                         /* T_fdd_22 */
-static int hf_rrc_dummy1;                         /* CPCH_SetID */
 static int hf_rrc_dl_AddReconfTransChInfoList_08;  /* DL_AddReconfTransChInfo2List */
 static int hf_rrc_modeSpecificPhysChInfo_03;      /* T_modeSpecificPhysChInfo_03 */
 static int hf_rrc_fdd_23;                         /* T_fdd_23 */
-static int hf_rrc_dummy_17;                       /* T_dummy_02 */
+static int hf_rrc_dummy_04;                       /* T_dummy_02 */
 static int hf_rrc_fdd_24;                         /* T_fdd_24 */
 static int hf_rrc_modeSpecificPhysChInfo_04;      /* T_modeSpecificPhysChInfo_04 */
 static int hf_rrc_fdd_25;                         /* T_fdd_25 */
 static int hf_rrc_specificationMode_11;           /* T_specificationMode_11 */
 static int hf_rrc_complete_11;                    /* T_complete_11 */
 static int hf_rrc_rb_PDCPContextRelocationList;   /* RB_PDCPContextRelocationList */
-static int hf_rrc_dummy_18;                       /* T_dummy_03 */
+static int hf_rrc_dummy_05;                       /* T_dummy_03 */
 static int hf_rrc_fdd_26;                         /* T_fdd_26 */
 static int hf_rrc_preconfiguration_10;            /* T_preconfiguration_10 */
 static int hf_rrc_preConfigMode_10;               /* T_preConfigMode_10 */
@@ -2505,15 +2500,15 @@ static int hf_rrc_radioBearerRelease_r13;         /* RadioBearerRelease_r13_IEs 
 static int hf_rrc_radioBearerRelease_r13_add_ext;  /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_124;      /* T_nonCriticalExtensions_124 */
 static int hf_rrc_laterCriticalExtensions_02;     /* RadioBearerRelease_LaterCriticalExtensions_r15_IEs */
-static int hf_rrc_dummy_19;                       /* T_dummy_04 */
+static int hf_rrc_dummy_06;                       /* T_dummy_04 */
 static int hf_rrc_fdd_28;                         /* T_fdd_28 */
 static int hf_rrc_modeSpecificPhysChInfo_06;      /* T_modeSpecificPhysChInfo_06 */
 static int hf_rrc_fdd_29;                         /* T_fdd_29 */
-static int hf_rrc_dummy_20;                       /* T_dummy_05 */
+static int hf_rrc_dummy_07;                       /* T_dummy_05 */
 static int hf_rrc_fdd_30;                         /* T_fdd_30 */
 static int hf_rrc_modeSpecificPhysChInfo_07;      /* T_modeSpecificPhysChInfo_07 */
 static int hf_rrc_fdd_31;                         /* T_fdd_31 */
-static int hf_rrc_dummy_21;                       /* T_dummy_06 */
+static int hf_rrc_dummy_08;                       /* T_dummy_06 */
 static int hf_rrc_fdd_32;                         /* T_fdd_32 */
 static int hf_rrc_modeSpecificPhysChInfo_08;      /* T_modeSpecificPhysChInfo_08 */
 static int hf_rrc_fdd_33;                         /* T_fdd_33 */
@@ -2631,15 +2626,15 @@ static int hf_rrc_r13_07;                         /* T_r13_07 */
 static int hf_rrc_radioBearerSetup_r13;           /* RadioBearerSetup_r13_IEs */
 static int hf_rrc_nonCriticalExtensions_138;      /* T_nonCriticalExtensions_138 */
 static int hf_rrc_laterCriticalExtensions_03;     /* RadioBearerSetup_LaterCriticalExtensions_r15_IEs */
-static int hf_rrc_dummy_22;                       /* T_dummy_07 */
+static int hf_rrc_dummy_09;                       /* T_dummy_07 */
 static int hf_rrc_fdd_34;                         /* T_fdd_34 */
 static int hf_rrc_modeSpecificPhysChInfo_09;      /* T_modeSpecificPhysChInfo_09 */
 static int hf_rrc_fdd_35;                         /* T_fdd_35 */
-static int hf_rrc_dummy_23;                       /* T_dummy_08 */
+static int hf_rrc_dummy_10;                       /* T_dummy_08 */
 static int hf_rrc_fdd_36;                         /* T_fdd_36 */
 static int hf_rrc_modeSpecificPhysChInfo_10;      /* T_modeSpecificPhysChInfo_10 */
 static int hf_rrc_fdd_37;                         /* T_fdd_37 */
-static int hf_rrc_dummy_24;                       /* T_dummy_09 */
+static int hf_rrc_dummy_11;                       /* T_dummy_09 */
 static int hf_rrc_fdd_38;                         /* T_fdd_38 */
 static int hf_rrc_modeSpecificPhysChInfo_11;      /* T_modeSpecificPhysChInfo_11 */
 static int hf_rrc_fdd_39;                         /* T_fdd_39 */
@@ -2647,14 +2642,14 @@ static int hf_rrc_postVerificationPeriod_04;      /* T_postVerificationPeriod_04
 static int hf_rrc_rab_InformationSetupList_08;    /* RAB_InformationSetupList_r6_ext */
 static int hf_rrc_specificationMode_23;           /* T_specificationMode_23 */
 static int hf_rrc_complete_23;                    /* T_complete_23 */
-static int hf_rrc_dummy_25;                       /* T_dummy_10 */
+static int hf_rrc_dummy_12;                       /* T_dummy_10 */
 static int hf_rrc_rab_Info_01;                    /* RAB_Info_r6 */
 static int hf_rrc_rb_InformationChangedList;      /* RB_InformationChangedList_r6 */
 static int hf_rrc_powerOffsetInfoShort;           /* PowerOffsetInfoShort */
 static int hf_rrc_rab_InformationSetupListExt;    /* RAB_InformationSetupList_v6b0ext */
 static int hf_rrc_specificationMode_24;           /* T_specificationMode_24 */
 static int hf_rrc_complete_24;                    /* T_complete_24 */
-static int hf_rrc_dummy_26;                       /* NULL */
+static int hf_rrc_dummy_13;                       /* NULL */
 static int hf_rrc_v7f0NonCriticalExtensions_12;   /* T_v7f0NonCriticalExtensions_12 */
 static int hf_rrc_v7g0NonCriticalExtensions_13;   /* T_v7g0NonCriticalExtensions_13 */
 static int hf_rrc_nonCriticalExtensions_139;      /* T_nonCriticalExtensions_139 */
@@ -3212,15 +3207,15 @@ static int hf_rrc_transportChannelReconfiguration_r13;  /* TransportChannelRecon
 static int hf_rrc_transportChannelReconfiguration_r13_add_ext;  /* BIT_STRING */
 static int hf_rrc_nonCriticalExtensions_182;      /* T_nonCriticalExtensions_182 */
 static int hf_rrc_criticalExtensions_145;         /* T_criticalExtensions_143 */
-static int hf_rrc_dummy_27;                       /* T_dummy_11 */
+static int hf_rrc_dummy_14;                       /* T_dummy_11 */
 static int hf_rrc_fdd_40;                         /* T_fdd_40 */
 static int hf_rrc_modeSpecificPhysChInfo_12;      /* T_modeSpecificPhysChInfo_12 */
 static int hf_rrc_fdd_41;                         /* T_fdd_41 */
-static int hf_rrc_dummy_28;                       /* T_dummy_12 */
+static int hf_rrc_dummy_15;                       /* T_dummy_12 */
 static int hf_rrc_fdd_42;                         /* T_fdd_42 */
 static int hf_rrc_modeSpecificPhysChInfo_13;      /* T_modeSpecificPhysChInfo_13 */
 static int hf_rrc_fdd_43;                         /* T_fdd_43 */
-static int hf_rrc_dummy_29;                       /* T_dummy_13 */
+static int hf_rrc_dummy_16;                       /* T_dummy_13 */
 static int hf_rrc_fdd_44;                         /* T_fdd_44 */
 static int hf_rrc_modeSpecificPhysChInfo_14;      /* T_modeSpecificPhysChInfo_14 */
 static int hf_rrc_fdd_45;                         /* T_fdd_45 */
@@ -3581,21 +3576,21 @@ static int hf_rrc_mbmsUnmodifiedServicesInformation_v770ext;  /* MBMSUnmodifiedS
 static int hf_rrc_nonCriticalExtensions_218;      /* T_nonCriticalExtensions_218 */
 static int hf_rrc_unmodifiedServiceList_01;       /* MBMS_UnmodifiedServiceList_v770ext */
 static int hf_rrc_mib;                            /* T_mib */
-static int hf_rrc_sysInfoTypeSB1;                 /* T_sysInfoTypeSB1 */
-static int hf_rrc_sysInfoTypeSB2;                 /* T_sysInfoTypeSB2 */
-static int hf_rrc_sysInfoType1;                   /* T_sysInfoType1 */
-static int hf_rrc_sysInfoType3;                   /* T_sysInfoType3 */
-static int hf_rrc_sysInfoType5;                   /* T_sysInfoType5 */
+static int hf_rrc_sysInfoTypeSB1_msg;             /* T_sysInfoTypeSB1_msg */
+static int hf_rrc_sysInfoTypeSB2_msg;             /* T_sysInfoTypeSB2_msg */
+static int hf_rrc_sysInfoType1_msg;               /* T_sysInfoType1_msg */
+static int hf_rrc_sysInfoType3_msg;               /* T_sysInfoType3_msg */
+static int hf_rrc_sysInfoType5_msg;               /* T_sysInfoType5_msg */
 static int hf_rrc_sysInfoType7;                   /* T_sysInfoType7 */
-static int hf_rrc_sysInfoType11;                  /* T_sysInfoType11 */
-static int hf_rrc_sysInfoType11bis;               /* T_sysInfoType11bis */
-static int hf_rrc_sysInfoType12;                  /* T_sysInfoType12 */
+static int hf_rrc_sysInfoType11_msg;              /* T_sysInfoType11_msg */
+static int hf_rrc_sysInfoType11bis_msg;           /* T_sysInfoType11bis_msg */
+static int hf_rrc_sysInfoType12_msg;              /* T_sysInfoType12_msg */
 static int hf_rrc_vb50NonCriticalExtensions_21;   /* T_vb50NonCriticalExtensions_21 */
 static int hf_rrc_system_Information_Container_vb50ext;  /* System_Information_Container_vb50ext_IEs */
 static int hf_rrc_vc50NonCriticalExtensions_08;   /* T_vc50NonCriticalExtensions_08 */
 static int hf_rrc_system_Information_Container_vc50ext;  /* System_Information_Container_vc50ext_IEs */
 static int hf_rrc_nonCriticalExtensions_219;      /* T_nonCriticalExtensions_219 */
-static int hf_rrc_sysInfoType22;                  /* T_sysInfoType22 */
+static int hf_rrc_sysInfoType22_msg;              /* T_sysInfoType22_msg */
 static int hf_rrc_sysInfoType11ter;               /* T_sysInfoType11ter */
 static int hf_rrc_criticalExtensions_162;         /* T_criticalExtensions_160 */
 static int hf_rrc_r10_11;                         /* T_r10_11 */
@@ -3621,11 +3616,11 @@ static int hf_rrc_vc50NonCriticalExtensions_09;   /* T_vc50NonCriticalExtensions
 static int hf_rrc_ueInformationResponse_vc50ext;  /* UEInformationResponse_vc50ext_IEs */
 static int hf_rrc_nonCriticalExtensions_222;      /* T_nonCriticalExtensions_222 */
 static int hf_rrc_loggedMeasReport_01;            /* LoggedMeasReport_vb50ext */
-static int hf_rrc_dummy_30;                       /* ConnectionEstablishmentFailureReport */
+static int hf_rrc_connectionEstablishmentFailureReport;  /* ConnectionEstablishmentFailureReport */
 static int hf_rrc_loggedANRReportInfoList_01;     /* LoggedANRReportInfoList_vb50ext */
-static int hf_rrc_connectionEstablishmentFailureReport;  /* ConnectionEstablishmentFailureReport_r11 */
+static int hf_rrc_connectionEstablishmentFailureReport_01;  /* ConnectionEstablishmentFailureReport_r11 */
 static int hf_rrc_loggedMeasReport_02;            /* LoggedMeasReport_vc50ext */
-static int hf_rrc_connectionEstablishmentFailureReport_01;  /* ConnectionEstablishmentFailureReport_vc50ext */
+static int hf_rrc_connectionEstablishmentFailureReport_02;  /* ConnectionEstablishmentFailureReport_vc50ext */
 static int hf_rrc_criticalExtensions_165;         /* T_criticalExtensions_163 */
 static int hf_rrc_r10_12;                         /* T_r10_12 */
 static int hf_rrc_ueInformationRequest_r10;       /* UEInformationRequest_r10_IEs */
@@ -3676,7 +3671,7 @@ static int hf_rrc_iMSIcauseUEinitiatedEvent;      /* T_iMSIcauseUEinitiatedEvent
 static int hf_rrc_iMEI;                           /* T_iMEI */
 static int hf_rrc_spare2_02;                      /* T_spare2_01 */
 static int hf_rrc_spare1_02;                      /* T_spare1_01 */
-static int hf_rrc_dummy_31;                       /* BOOLEAN */
+static int hf_rrc_dummy_bool;                     /* BOOLEAN */
 static int hf_rrc_IMEI_item;                      /* IMEI_Digit */
 static int hf_rrc_IMSI_GSM_MAP_item;              /* Digit */
 static int hf_rrc_version;                        /* T_version */
@@ -3848,6 +3843,7 @@ static int hf_rrc_ue_RadioCapabilityTDDUpdateRequirement_TDD768;  /* BOOLEAN */
 static int hf_rrc_systemSpecificCapUpdateReqList_02;  /* SystemSpecificCapUpdateReqList_r8 */
 static int hf_rrc_eUTRAbandSpecificCapUpdateReqList;  /* EUTRAbandSpecificCapUpdateReqList */
 static int hf_rrc_startRestart;                   /* CipheringAlgorithm */
+static int hf_rrc_dummy_null;                     /* NULL */
 static int hf_rrc_startRestart_01;                /* CipheringAlgorithm_r7 */
 static int hf_rrc_cipheringModeCommand;           /* CipheringModeCommand */
 static int hf_rrc_activationTimeForDPCH;          /* ActivationTime */
@@ -3903,7 +3899,6 @@ static int hf_rrc_supportOfE_UtraProximityIndication;  /* T_supportOfE_UtraProxi
 static int hf_rrc_DL_InformationPerSecondaryRL_List_item;  /* DL_InformationPerSecondaryRL */
 static int hf_rrc_DL_InformationPerSecondaryRL_List_r12_item;  /* DL_InformationPerSecondaryRL_r12 */
 static int hf_rrc_DL_InformationPerSecondaryRL_List_r13_item;  /* DL_InformationPerSecondaryRL_r13 */
-static int hf_rrc_primaryCPICH_Info;              /* PrimaryCPICH_Info */
 static int hf_rrc_cell_id;                        /* CellIdentity */
 static int hf_rrc_dl_FDPCHInfoPerRL_SecULFreq;    /* DL_FDPCH_InfoPerRL_r7 */
 static int hf_rrc_e_AGCH_Information;             /* E_AGCH_Information */
@@ -3920,8 +3915,8 @@ static int hf_rrc_secondary_Serving_E_DCHRL_Indicator_01;  /* T_secondary_Servin
 static int hf_rrc_maxNoDPCH_PDSCH_Codes;          /* INTEGER_1_8 */
 static int hf_rrc_maxNoPhysChBitsReceived;        /* MaxNoPhysChBitsReceived */
 static int hf_rrc_supportForSF_512;               /* BOOLEAN */
-static int hf_rrc_dummy2_05;                      /* SimultaneousSCCPCH_DPCH_Reception */
-static int hf_rrc_dummy_32;                       /* SupportOfDedicatedPilotsForChEstimation */
+static int hf_rrc_simultaneousSCCPCH_DPCH_Reception;  /* SimultaneousSCCPCH_DPCH_Reception */
+static int hf_rrc_supportOfDedicatedPilotsForChEstimation;  /* SupportOfDedicatedPilotsForChEstimation */
 static int hf_rrc_hsdsch_physical_layer_category_ext;  /* HSDSCH_physical_layer_category_ext */
 static int hf_rrc_hsscchlessHsdschOperation;      /* T_hsscchlessHsdschOperation */
 static int hf_rrc_enhancedFdpch;                  /* T_enhancedFdpch */
@@ -4193,7 +4188,6 @@ static int hf_rrc_uplinkPhysChCapability_13;      /* UL_PhysChCapabilityTDD_LCR_
 static int hf_rrc_fdd_hspdsch;                    /* T_fdd_hspdsch */
 static int hf_rrc_supported_03;                   /* T_supported_01 */
 static int hf_rrc_hsdsch_physical_layer_category;  /* HSDSCH_physical_layer_category */
-static int hf_rrc_dummy2_06;                      /* BOOLEAN */
 static int hf_rrc_tdd384_hspdsch;                 /* T_tdd384_hspdsch */
 static int hf_rrc_tdd128_hspdsch;                 /* T_tdd128_hspdsch */
 static int hf_rrc_numberOfRepetitionsPerSFNPeriod;  /* T_numberOfRepetitionsPerSFNPeriod */
@@ -4756,7 +4750,7 @@ static int hf_rrc_dl_TransportChannelType_02;     /* DL_TransportChannelType_r7 
 static int hf_rrc_DL_LogicalChannelMappingList_item;  /* DL_LogicalChannelMapping */
 static int hf_rrc_DL_LogicalChannelMappingList_r5_item;  /* DL_LogicalChannelMapping_r5 */
 static int hf_rrc_DL_LogicalChannelMappingList_r7_item;  /* DL_LogicalChannelMapping_r7 */
-static int hf_rrc_dummy_33;                       /* CID_InclusionInfo_r4 */
+static int hf_rrc_cID_InclusionInfo_r4;           /* CID_InclusionInfo_r4 */
 static int hf_rrc_max_CID;                        /* INTEGER_1_16383 */
 static int hf_rrc_reverseDecompressionDepth;      /* INTEGER_0_65535 */
 static int hf_rrc_dl_AM_RLC_Mode;                 /* DL_AM_RLC_Mode */
@@ -4768,7 +4762,7 @@ static int hf_rrc_dl_UM_RLC_Mode_02;              /* DL_UM_RLC_Mode_r6 */
 static int hf_rrc_dl_AM_RLC_Mode_02;              /* DL_AM_RLC_Mode_r7 */
 static int hf_rrc_dl_AM_RLC_Mode_03;              /* DL_AM_RLC_Mode_r11 */
 static int hf_rrc_timerStatusProhibit;            /* TimerStatusProhibit */
-static int hf_rrc_dummy_34;                       /* TimerEPC */
+static int hf_rrc_timerEPC;                       /* TimerEPC */
 static int hf_rrc_missingPDU_Indicator;           /* BOOLEAN */
 static int hf_rrc_timerStatusPeriodic;            /* TimerStatusPeriodic */
 static int hf_rrc_timerReordering;                /* TimerReordering */
@@ -4804,7 +4798,7 @@ static int hf_rrc_pdcp_PDU_Header;                /* PDCP_PDU_Header */
 static int hf_rrc_headerCompressionInfoList;      /* HeaderCompressionInfoList */
 static int hf_rrc_headerCompressionInfoList_01;   /* HeaderCompressionInfoList_r4 */
 static int hf_rrc_pdcp_Info;                      /* PDCP_Info */
-static int hf_rrc_dummy_35;                       /* INTEGER_0_65535 */
+static int hf_rrc_dummy_int_0_65535;              /* INTEGER_0_65535 */
 static int hf_rrc_pdcp_Info_01;                   /* PDCP_Info_r4 */
 static int hf_rrc_timerPollProhibit;              /* TimerPollProhibit */
 static int hf_rrc_timerPoll;                      /* TimerPoll */
@@ -5028,8 +5022,7 @@ static int hf_rrc_oneLogicalChannel_01;           /* UL_LogicalChannelMapping_r6
 static int hf_rrc_twoLogicalChannels_01;          /* UL_LogicalChannelMappingList_r6 */
 static int hf_rrc_oneLogicalChannel_02;           /* UL_LogicalChannelMapping_r8 */
 static int hf_rrc_twoLogicalChannels_02;          /* UL_LogicalChannelMappingList_r8 */
-static int hf_rrc_dummy1_01;                      /* CID_InclusionInfo_r4 */
-static int hf_rrc_dummy_36;                       /* ROHC_PacketSizeList_r4 */
+static int hf_rrc_rOHC_PacketSizeList_r4;         /* ROHC_PacketSizeList_r4 */
 static int hf_rrc_ul_AM_RLC_Mode;                 /* UL_AM_RLC_Mode */
 static int hf_rrc_ul_UM_RLC_Mode;                 /* UL_UM_RLC_Mode */
 static int hf_rrc_ul_TM_RLC_Mode;                 /* UL_TM_RLC_Mode */
@@ -5042,7 +5035,7 @@ static int hf_rrc_windowSize_OSD;                 /* WindowSizeOSD_r6 */
 static int hf_rrc_mac_hs_AddReconfQueue_List;     /* MAC_hs_AddReconfQueue_List */
 static int hf_rrc_mac_hs_DelQueue_List;           /* MAC_hs_DelQueue_List */
 static int hf_rrc_mac_ehs_AddReconfQueue_List;    /* MAC_ehs_AddReconfReordQ_List */
-static int hf_rrc_dummy_37;                       /* MAC_ehs_DelReordQ_List */
+static int hf_rrc_mAC_ehs_DelReordQ_List;         /* MAC_ehs_DelReordQ_List */
 static int hf_rrc_mac_ehs_AddReconfQueue_List_01;  /* MAC_ehs_AddReconfReordQ_List_r9 */
 static int hf_rrc_mac_ehs_AddReconfQueue_List_02;  /* MAC_ehs_AddReconfReordQ_List_TDD128_v9c0ext */
 static int hf_rrc_mac_ehs_AddReconfQueue_List_03;  /* MAC_ehs_AddReconfReordQ_List_r11 */
@@ -5129,7 +5122,7 @@ static int hf_rrc_tfs_SignallingMode;             /* T_tfs_SignallingMode */
 static int hf_rrc_explicit_config;                /* TransportFormatSet */
 static int hf_rrc_sameAsULTrCH;                   /* UL_TransportChannelIdentity */
 static int hf_rrc_dch_QualityTarget;              /* QualityTarget */
-static int hf_rrc_dummy_38;                       /* TM_SignallingInfo */
+static int hf_rrc_tM_SignallingInfo;              /* TM_SignallingInfo */
 static int hf_rrc_tfs_SignallingMode_01;          /* T_tfs_SignallingMode_01 */
 static int hf_rrc_dl_TransportChannelType_04;     /* DL_TrCH_TypeId1_r5 */
 static int hf_rrc_tfs_SignallingMode_02;          /* T_tfs_SignallingMode_02 */
@@ -5317,7 +5310,7 @@ static int hf_rrc_maxTFCIField2Value;             /* INTEGER_1_1023 */
 static int hf_rrc_tfcs_InfoForDSCH;               /* TFCS_InfoForDSCH */
 static int hf_rrc_TFCI_RangeList_item;            /* TFCI_Range */
 static int hf_rrc_normalTFCI_Signalling;          /* ExplicitTFCS_Configuration */
-static int hf_rrc_dummy_39;                       /* SplitTFCI_Signalling */
+static int hf_rrc_splitTFCI_Signalling;           /* SplitTFCI_Signalling */
 static int hf_rrc_normalTFCI_Signalling_01;       /* ExplicitTFCS_Configuration_r12 */
 static int hf_rrc_tfcs_ID_01;                     /* TFCS_IdentityPlain */
 static int hf_rrc_sharedChannelIndicator;         /* BOOLEAN */
@@ -5439,29 +5432,29 @@ static int hf_rrc_channelisationCodeIndices;      /* T_channelisationCodeIndices
 static int hf_rrc_subchannelSize;                 /* T_subchannelSize */
 static int hf_rrc_size1;                          /* NULL */
 static int hf_rrc_size2;                          /* T_size2 */
-static int hf_rrc_subchannels;                    /* T_subchannels */
+static int hf_rrc_subchannels_size2;              /* T_subchannels_size2 */
 static int hf_rrc_size4;                          /* T_size4 */
-static int hf_rrc_subchannels_01;                 /* T_subchannels_01 */
+static int hf_rrc_subchannels_size4;              /* T_subchannels_size4 */
 static int hf_rrc_size8;                          /* T_size8 */
-static int hf_rrc_subchannels_02;                 /* T_subchannels_02 */
+static int hf_rrc_subchannels_size8;              /* T_subchannels_size8 */
 static int hf_rrc_channelisationCodeIndices_01;   /* T_channelisationCodeIndices_01 */
 static int hf_rrc_subchannelSize_01;              /* T_subchannelSize_01 */
 static int hf_rrc_size2_01;                       /* T_size2_01 */
-static int hf_rrc_subchannels_03;                 /* T_subchannels_03 */
+static int hf_rrc_subchannels_size2_01;           /* T_subchannels_size2_01 */
 static int hf_rrc_size4_01;                       /* T_size4_01 */
-static int hf_rrc_subchannels_04;                 /* T_subchannels_04 */
+static int hf_rrc_subchannels_size4_01;           /* T_subchannels_size4_01 */
 static int hf_rrc_size8_01;                       /* T_size8_01 */
-static int hf_rrc_subchannels_05;                 /* T_subchannels_05 */
+static int hf_rrc_subchannels_size8_01;           /* T_subchannels_size8_01 */
 static int hf_rrc_size16;                         /* T_size16 */
-static int hf_rrc_subchannels_06;                 /* T_subchannels_06 */
+static int hf_rrc_subchannels_size16;             /* T_subchannels_size16 */
 static int hf_rrc_availableSYNC_UlCodesIndics;    /* T_availableSYNC_UlCodesIndics */
 static int hf_rrc_subchannelSize_02;              /* T_subchannelSize_02 */
 static int hf_rrc_size2_02;                       /* T_size2_02 */
-static int hf_rrc_subchannels_07;                 /* T_subchannels_07 */
+static int hf_rrc_subchannels_size2_02;           /* T_subchannels_size2_02 */
 static int hf_rrc_size4_02;                       /* T_size4_02 */
-static int hf_rrc_subchannels_08;                 /* T_subchannels_08 */
+static int hf_rrc_subchannels_size4_02;           /* T_subchannels_size4_02 */
 static int hf_rrc_size8_02;                       /* T_size8_02 */
-static int hf_rrc_subchannels_09;                 /* T_subchannels_09 */
+static int hf_rrc_subchannels_size8_02;           /* T_subchannels_size8_02 */
 static int hf_rrc_dynamicTFInformationCCCH;       /* DynamicTFInformationCCCH */
 static int hf_rrc_additionalPRACH_TF_and_TFCS_CCCH_IEs;  /* AdditionalPRACH_TF_and_TFCS_CCCH_IEs */
 static int hf_rrc_AdditionalPRACH_TF_and_TFCS_CCCH_List_item;  /* AdditionalPRACH_TF_and_TFCS_CCCH */
@@ -5536,7 +5529,7 @@ static int hf_rrc_cOffset;                        /* INTEGER_0_29 */
 static int hf_rrc_ul_InterferenceForCommonEDCH;   /* UL_Interference */
 static int hf_rrc_common_E_DCH_MAC_d_FlowList;    /* Common_E_DCH_MAC_d_FlowList */
 static int hf_rrc_modeSpecificInfo_29;            /* T_modeSpecificInfo_29 */
-static int hf_rrc_dummy_40;                       /* T_dummy_14 */
+static int hf_rrc_dummy_17;                       /* T_dummy_14 */
 static int hf_rrc_tdd_22;                         /* T_tdd_21 */
 static int hf_rrc_tdd768_07;                      /* NULL */
 static int hf_rrc_tdd384_12;                      /* NULL */
@@ -5652,13 +5645,12 @@ static int hf_rrc_modeSpecificInfo_30;            /* T_modeSpecificInfo_30 */
 static int hf_rrc_fdd_62;                         /* T_fdd_61 */
 static int hf_rrc_defaultDPCH_OffsetValue;        /* DefaultDPCH_OffsetValueFDD */
 static int hf_rrc_dpch_CompressedModeInfo;        /* DPCH_CompressedModeInfo */
-static int hf_rrc_dummy_41;                       /* SSDT_Information */
 static int hf_rrc_tdd_23;                         /* T_tdd_22 */
 static int hf_rrc_defaultDPCH_OffsetValue_01;     /* DefaultDPCH_OffsetValueTDD */
 static int hf_rrc_dl_DPCH_InfoCommon_01;          /* DL_DPCH_InfoCommon_r4 */
 static int hf_rrc_modeSpecificInfo_31;            /* T_modeSpecificInfo_31 */
 static int hf_rrc_fdd_63;                         /* T_fdd_62 */
-static int hf_rrc_dummy_42;                       /* SSDT_Information_r4 */
+static int hf_rrc_sSDT_Information_01;            /* SSDT_Information_r4 */
 static int hf_rrc_tdd_24;                         /* T_tdd_23 */
 static int hf_rrc_tddOption_05;                   /* T_tddOption_05 */
 static int hf_rrc_tdd128_15;                      /* T_tdd128_15 */
@@ -5729,7 +5721,7 @@ static int hf_rrc_dl_DPCH_InfoCommon_05;          /* DL_DPCH_InfoCommonPredef */
 static int hf_rrc_cfnHandling;                    /* T_cfnHandling */
 static int hf_rrc_maintain;                       /* NULL */
 static int hf_rrc_initialise;                     /* T_initialise */
-static int hf_rrc_dummy_43;                       /* Cfntargetsfnframeoffset */
+static int hf_rrc_cfntargetsfnframeoffset;        /* Cfntargetsfnframeoffset */
 static int hf_rrc_modeSpecificInfo_39;            /* T_modeSpecificInfo_39 */
 static int hf_rrc_fdd_71;                         /* T_fdd_70 */
 static int hf_rrc_dl_DPCH_PowerControlInfo;       /* DL_DPCH_PowerControlInfo */
@@ -5767,7 +5759,7 @@ static int hf_rrc_dpch_FrameOffset;               /* DPCH_FrameOffset */
 static int hf_rrc_secondaryCPICH_Info;            /* SecondaryCPICH_Info */
 static int hf_rrc_dl_ChannelisationCodeList;      /* DL_ChannelisationCodeList */
 static int hf_rrc_tpc_CombinationIndex;           /* TPC_CombinationIndex */
-static int hf_rrc_dummy_44;                       /* SSDT_CellIdentity */
+static int hf_rrc_sSDT_CellIdentity;              /* SSDT_CellIdentity */
 static int hf_rrc_closedLoopTimingAdjMode;        /* ClosedLoopTimingAdjMode */
 static int hf_rrc_tdd_37;                         /* T_tdd_36 */
 static int hf_rrc_dl_CCTrChListToEstablish;       /* DL_CCTrChList */
@@ -5878,16 +5870,16 @@ static int hf_rrc_DL_HSPDSCH_TS_Configuration_VHCR_item;  /* DL_HSPDSCH_TS_Confi
 static int hf_rrc_midambleShiftAndBurstType_01;   /* MidambleShiftAndBurstType_DL_VHCR */
 static int hf_rrc_modeSpecificInfo_53;            /* T_modeSpecificInfo_53 */
 static int hf_rrc_fdd_89;                         /* T_fdd_88 */
-static int hf_rrc_dummy1_02;                      /* PDSCH_SHO_DCH_Info */
-static int hf_rrc_dummy2_07;                      /* PDSCH_CodeMapping */
+static int hf_rrc_pDSCH_SHO_DCH_Info;             /* PDSCH_SHO_DCH_Info */
+static int hf_rrc_pDSCH_CodeMapping;              /* PDSCH_CodeMapping */
 static int hf_rrc_tdd_53;                         /* PrimaryCCPCH_Info */
 static int hf_rrc_dl_DPCH_InfoPerRL;              /* DL_DPCH_InfoPerRL */
-static int hf_rrc_dummy_45;                       /* SCCPCH_InfoForFACH */
+static int hf_rrc_sCCPCH_InfoForFACH;             /* SCCPCH_InfoForFACH */
 static int hf_rrc_modeSpecificInfo_54;            /* T_modeSpecificInfo_54 */
 static int hf_rrc_fdd_90;                         /* T_fdd_89 */
 static int hf_rrc_tdd_54;                         /* PrimaryCCPCH_Info_r4 */
 static int hf_rrc_dl_DPCH_InfoPerRL_01;           /* DL_DPCH_InfoPerRL_r4 */
-static int hf_rrc_dummy_46;                       /* SCCPCH_InfoForFACH_r4 */
+static int hf_rrc_sCCPCH_InfoForFACH_01;          /* SCCPCH_InfoForFACH_r4 */
 static int hf_rrc_modeSpecificInfo_55;            /* T_modeSpecificInfo_55 */
 static int hf_rrc_fdd_91;                         /* T_fdd_90 */
 static int hf_rrc_servingHSDSCH_RL_indicator;     /* BOOLEAN */
@@ -6266,7 +6258,7 @@ static int hf_rrc_maximum_Allowed_Code_Rate;      /* INTEGER_0_63 */
 static int hf_rrc_tdd128_38;                      /* T_tdd128_38 */
 static int hf_rrc_snpl_ReportType;                /* T_snpl_ReportType */
 static int hf_rrc_prxdes_base;                    /* INTEGER_M112_M50 */
-static int hf_rrc_beaconPLEst_01;                 /* BOOLEAN */
+static int hf_rrc_beaconPLEst_bool;               /* BOOLEAN */
 static int hf_rrc_pebase_PowerControlGAP;         /* PowerControlGAP */
 static int hf_rrc_e_PUCH_TS_ConfigurationList_01;  /* SEQUENCE_SIZE_1_maxTS_LCR_1_OF_E_PUCH_TS_Slots_LCR */
 static int hf_rrc_e_PUCH_TS_ConfigurationList_item_01;  /* E_PUCH_TS_Slots_LCR */
@@ -6275,7 +6267,7 @@ static int hf_rrc_retransTimerForSchedInfo;       /* T_retransTimerForSchedInfo 
 static int hf_rrc_snpl_ReportType_01;             /* T_snpl_ReportType_01 */
 static int hf_rrc_pebase_PowerControlGAP_01;      /* INTEGER_1_255 */
 static int hf_rrc_retransTimerForSchedInfo_01;    /* T_retransTimerForSchedInfo_01 */
-static int hf_rrc_dummy_47;                       /* INTEGER_0_6 */
+static int hf_rrc_dummy_int_0_6;                  /* INTEGER_0_6 */
 static int hf_rrc_ts_Number;                      /* INTEGER_0_14 */
 static int hf_rrc_midambleAllocationMode_03;      /* T_midambleAllocationMode_03 */
 static int hf_rrc_rg_CombinationIndex;            /* E_RGCH_CombinationIndex */
@@ -6596,8 +6588,8 @@ static int hf_rrc_configurationInfo_10;           /* T_configurationInfo_10 */
 static int hf_rrc_newConfiguration_15;            /* T_newConfiguration_15 */
 static int hf_rrc_mimo4x4N_M_Ratio;               /* MIMO_N_M_Ratio */
 static int hf_rrc_mimo4x4PilotConfiguration;      /* MIMO4x4_PilotConfiguration */
-static int hf_rrc_precodingWeightSetRestriction;  /* BIT_STRING_SIZE_64 */
-static int hf_rrc_precodingWeightSetRestriction_01;  /* T_precodingWeightSetRestriction */
+static int hf_rrc_precodingWeightSetRestriction_bit_string;  /* BIT_STRING_SIZE_64 */
+static int hf_rrc_precodingWeightSetRestriction_enum;  /* T_precodingWeightSetRestriction_enum */
 static int hf_rrc_modeSpecificInfo_78;            /* T_modeSpecificInfo_78 */
 static int hf_rrc_fdd_115;                        /* T_fdd_113 */
 static int hf_rrc_tdd_68;                         /* T_tdd_64 */
@@ -6608,7 +6600,7 @@ static int hf_rrc_tdd384_tdd768_06;               /* NULL */
 static int hf_rrc_modeSpecificInfo_79;            /* T_modeSpecificInfo_79 */
 static int hf_rrc_fdd_116;                        /* T_fdd_114 */
 static int hf_rrc_mimoPilotConfiguration_01;      /* MIMO_PilotConfiguration_r9 */
-static int hf_rrc_precodingWeightSetRestriction_02;  /* T_precodingWeightSetRestriction_01 */
+static int hf_rrc_precodingWeightSetRestriction_enum_01;  /* T_precodingWeightSetRestriction_enum_01 */
 static int hf_rrc_tdd_69;                         /* T_tdd_65 */
 static int hf_rrc_tdd128_46;                      /* T_tdd128_45 */
 static int hf_rrc_mimoSFModeForHSPDSCHDualStream_01;  /* T_mimoSFModeForHSPDSCHDualStream_01 */
@@ -6925,7 +6917,6 @@ static int hf_rrc_dl_restrictedTrCh_Type;         /* DL_TrCH_Type */
 static int hf_rrc_restrictedDL_TrCH_Identity;     /* TransportChannelIdentity */
 static int hf_rrc_allowedTFIList;                 /* AllowedTFI_List */
 static int hf_rrc_RestrictedTrCH_InfoList_item;   /* RestrictedTrCH */
-static int hf_rrc_dummy2_08;                      /* SCCPCH_InfoForFACH */
 static int hf_rrc_cell_Id;                        /* CellIdentity */
 static int hf_rrc_dl_dpchInfo_06;                 /* T_dl_dpchInfo_06 */
 static int hf_rrc_dl_dpchInfo_07;                 /* T_dl_dpchInfo_07 */
@@ -6991,7 +6982,7 @@ static int hf_rrc_mcch_ConfigurationInfo;         /* MBMS_MCCH_ConfigurationInfo
 static int hf_rrc_fachCarryingMTCH_List;          /* MBMS_FACHCarryingMTCH_List */
 static int hf_rrc_fachCarryingMSCH;               /* T_fachCarryingMSCH */
 static int hf_rrc_msch_transportFormatSet;        /* TransportFormatSet */
-static int hf_rrc_dummy_48;                       /* MBMS_MSCH_ConfigurationInfo_r6 */
+static int hf_rrc_mBMS_MSCH_ConfigurationInfo_r6;  /* MBMS_MSCH_ConfigurationInfo_r6 */
 static int hf_rrc_secondaryCCPCHInfo_MBMS_01;     /* SecondaryCCPCHInfo_MBMS_r7 */
 static int hf_rrc_fachCarryingMCCH_01;            /* T_fachCarryingMCCH_01 */
 static int hf_rrc_fachCarryingMSCH_01;            /* T_fachCarryingMSCH_01 */
@@ -6999,8 +6990,6 @@ static int hf_rrc_common_E_DCH_ResourceInfoListExt;  /* SEQUENCE_SIZE_1_maxEDCHs
 static int hf_rrc_common_E_DCH_ResourceInfoListExt_item;  /* Common_E_DCH_ResourceInfoListExt */
 static int hf_rrc_modeSpecificInfo_84;            /* T_modeSpecificInfo_84 */
 static int hf_rrc_fdd_125;                        /* T_fdd_122 */
-static int hf_rrc_dummy1_03;                      /* PCPICH_UsageForChannelEst */
-static int hf_rrc_dummy2_09;                      /* SecondaryCPICH_Info */
 static int hf_rrc_sf_AndCodeNumber_01;            /* SF256_AndCodeNumber */
 static int hf_rrc_pilotSymbolExistence;           /* BOOLEAN */
 static int hf_rrc_timingOffset;                   /* TimingOffset */
@@ -7046,9 +7035,9 @@ static int hf_rrc_mbsfnSpecialTimeSlot;           /* TimeSlotLCR_ext */
 static int hf_rrc_modulation_07;                  /* T_modulation_07 */
 static int hf_rrc_secondaryDL_ScramblingCode;     /* SecondaryScramblingCode */
 static int hf_rrc_newConfiguration_17;            /* T_newConfiguration_17 */
-static int hf_rrc_precodingWeightSetRestriction_03;  /* T_precodingWeightSetRestriction_02 */
+static int hf_rrc_precodingWeightSetRestriction_enum_02;  /* T_precodingWeightSetRestriction_enum_02 */
 static int hf_rrc_newConfiguration_18;            /* T_newConfiguration_18 */
-static int hf_rrc_precodingWeightSetRestriction_04;  /* T_precodingWeightSetRestriction_03 */
+static int hf_rrc_precodingWeightSetRestriction;  /* T_precodingWeightSetRestriction */
 static int hf_rrc_configurationInfo_11;           /* T_configurationInfo_11 */
 static int hf_rrc_newConfiguration_19;            /* T_newConfiguration_19 */
 static int hf_rrc_mimoPilotConfiguration_02;      /* MIMO4x4_PilotConfiguration */
@@ -7132,7 +7121,7 @@ static int hf_rrc_tgl1;                           /* TGL */
 static int hf_rrc_tgl2;                           /* TGL */
 static int hf_rrc_tgd;                            /* TGD */
 static int hf_rrc_tgpl1;                          /* TGPL */
-static int hf_rrc_dummy_49;                       /* TGPL */
+static int hf_rrc_tGPL;                           /* TGPL */
 static int hf_rrc_rpp;                            /* RPP */
 static int hf_rrc_itp;                            /* ITP */
 static int hf_rrc_ul_DL_Mode;                     /* UL_DL_Mode */
@@ -7179,9 +7168,7 @@ static int hf_rrc_UL_CCTrCHList_r4_item;          /* UL_CCTrCH_r4 */
 static int hf_rrc_UL_CCTrCHList_r7_item;          /* UL_CCTrCH_r7 */
 static int hf_rrc_UL_CCTrCHListToRemove_item;     /* TFCS_IdentityPlain */
 static int hf_rrc_UL_CCTrChTPCList_item;          /* TFCS_Identity */
-static int hf_rrc_dummy_50;                       /* CPCH_SetInfo */
-static int hf_rrc_dummy1_04;                      /* CPCH_SetInfo */
-static int hf_rrc_dummy2_10;                      /* CPCH_SetID */
+static int hf_rrc_vPCH_SetInfo;                   /* CPCH_SetInfo */
 static int hf_rrc_configurationInfo_12;           /* T_configurationInfo_12 */
 static int hf_rrc_newConfiguration_20;            /* T_newConfiguration_20 */
 static int hf_rrc_s_dpcch_Info;                   /* S_DPCCH_Information */
@@ -7211,13 +7198,13 @@ static int hf_rrc_ul_DPCH_PowerControlInfo_04;    /* UL_DPCH_PowerControlInfo_r6
 static int hf_rrc_modeSpecificInfo_92;            /* T_modeSpecificInfo_92 */
 static int hf_rrc_fdd_132;                        /* T_fdd_129 */
 static int hf_rrc_dpdchPresence;                  /* T_dpdchPresence */
-static int hf_rrc_present_04;                     /* T_present_02 */
+static int hf_rrc_present_02;                     /* T_present_02 */
 static int hf_rrc_notPresent;                     /* T_notPresent */
 static int hf_rrc_tdd_82;                         /* T_tdd_76 */
 static int hf_rrc_modeSpecificInfo_93;            /* T_modeSpecificInfo_93 */
 static int hf_rrc_fdd_133;                        /* T_fdd_130 */
 static int hf_rrc_dpdchPresence_01;               /* T_dpdchPresence_01 */
-static int hf_rrc_present_05;                     /* T_present_03 */
+static int hf_rrc_present_03;                     /* T_present_03 */
 static int hf_rrc_numberOfTPC_Bits;               /* NumberOfTPC_Bits */
 static int hf_rrc_notPresent_01;                  /* T_notPresent_01 */
 static int hf_rrc_tdd_83;                         /* T_tdd_77 */
@@ -7226,7 +7213,7 @@ static int hf_rrc_ul_DPCH_PowerControlInfo_05;    /* UL_DPCH_PowerControlInfo_r1
 static int hf_rrc_modeSpecificInfo_94;            /* T_modeSpecificInfo_94 */
 static int hf_rrc_fdd_134;                        /* T_fdd_131 */
 static int hf_rrc_dpdchPresence_02;               /* T_dpdchPresence_02 */
-static int hf_rrc_present_06;                     /* T_present_04 */
+static int hf_rrc_present_04;                     /* T_present_04 */
 static int hf_rrc_notPresent_02;                  /* T_notPresent_02 */
 static int hf_rrc_tdd_84;                         /* T_tdd_78 */
 static int hf_rrc_ul_DPCH_PowerControlInfo_06;    /* UL_DPCH_PowerControlInfoPostFDD */
@@ -7416,7 +7403,7 @@ static int hf_rrc_AdditionalMeasurementID_List_item;  /* MeasurementIdentity */
 static int hf_rrc_AdditionalMeasurementID_List_r9_item;  /* MeasurementIdentity_r9 */
 static int hf_rrc_dataID;                         /* INTEGER_0_3 */
 static int hf_rrc_e;                              /* BIT_STRING_SIZE_16 */
-static int hf_rrc_t_oa;                           /* BIT_STRING_SIZE_8 */
+static int hf_rrc_almanacSatInfo_t_oa;            /* BIT_STRING_SIZE_8 */
 static int hf_rrc_deltaI;                         /* BIT_STRING_SIZE_16 */
 static int hf_rrc_omegaDot;                       /* BIT_STRING_SIZE_16 */
 static int hf_rrc_satHealth;                      /* BIT_STRING_SIZE_8 */
@@ -7430,10 +7417,10 @@ static int hf_rrc_AlmanacSatInfoList_item;        /* AlmanacSatInfo */
 static int hf_rrc_sat_info_BDSkpList;             /* GANSS_SAT_Info_Almanac_BDSkpList */
 static int hf_rrc_sat_info_SBASecefList;          /* GANSS_SAT_Info_Almanac_SBASecefList */
 static int hf_rrc_sat_info_GLOkpList;             /* GANSS_SAT_Info_Almanac_GLOkpList */
-static int hf_rrc_t_oa_01;                        /* INTEGER_0_1023 */
+static int hf_rrc_t_oa_0_1023;                    /* INTEGER_0_1023 */
 static int hf_rrc_iod_a;                          /* INTEGER_0_15 */
 static int hf_rrc_sat_info_kpList;                /* GANSS_SAT_Info_Almanac_KpList */
-static int hf_rrc_t_oa_02;                        /* INTEGER_0_147 */
+static int hf_rrc_t_oa;                           /* INTEGER_0_147 */
 static int hf_rrc_sat_info_MIDIkpList;            /* GANSS_SAT_Info_Almanac_MIDIkpList */
 static int hf_rrc_sat_info_NAVkpList;             /* GANSS_SAT_Info_Almanac_NAVkpList */
 static int hf_rrc_sat_info_REDkpList;             /* GANSS_SAT_Info_Almanac_REDkpList */
@@ -7518,7 +7505,7 @@ static int hf_rrc_fdd_154;                        /* T_fdd_151 */
 static int hf_rrc_tdd_104;                        /* T_tdd_98 */
 static int hf_rrc_cellSelectionReselectionInfo_04;  /* CellSelectReselectInfoSIB_11_12_HCS_ECN0 */
 static int hf_rrc_cellIdentity;                   /* CellIdentity */
-static int hf_rrc_dummy_51;                       /* SFN_SFN_ObsTimeDifference */
+static int hf_rrc_sFN_SFN_ObsTimeDifference;      /* SFN_SFN_ObsTimeDifference */
 static int hf_rrc_cellSynchronisationInfo;        /* CellSynchronisationInfo */
 static int hf_rrc_modeSpecificInfo_108;           /* T_modeSpecificInfo_108 */
 static int hf_rrc_fdd_155;                        /* T_fdd_152 */
@@ -7541,7 +7528,7 @@ static int hf_rrc_tdd_107;                        /* SEQUENCE_SIZE_1_maxCellMeas
 static int hf_rrc_tdd_item_02;                    /* PrimaryCCPCH_Info */
 static int hf_rrc_fdd_158;                        /* SEQUENCE_SIZE_1_maxCellMeasOnSecULFreq_OF_PrimaryCPICH_Info */
 static int hf_rrc_CellMeasurementEventResults_LCR_r4_item;  /* PrimaryCCPCH_Info_LCR_r4 */
-static int hf_rrc_dummy_52;                       /* SFN_SFN_OTD_Type */
+static int hf_rrc_sFN_SFN_OTD_Type;               /* SFN_SFN_OTD_Type */
 static int hf_rrc_cellIdentity_reportingIndicator;  /* BOOLEAN */
 static int hf_rrc_cellSynchronisationInfoReportingIndicator;  /* BOOLEAN */
 static int hf_rrc_modeSpecificInfo_110;           /* T_modeSpecificInfo_110 */
@@ -7670,10 +7657,8 @@ static int hf_rrc_DGANSSSignalInformationList_v920ext_item;  /* DGANSSSignalInfo
 static int hf_rrc_iode;                           /* IODE */
 static int hf_rrc_prc;                            /* PRC */
 static int hf_rrc_rrc;                            /* RRC */
-static int hf_rrc_dummy1_05;                      /* DeltaPRC */
-static int hf_rrc_dummy2_11;                      /* DeltaRRC */
-static int hf_rrc_dummy3_02;                      /* DeltaPRC */
-static int hf_rrc_dummy4_01;                      /* DeltaRRC */
+static int hf_rrc_deltaPRC;                       /* DeltaPRC */
+static int hf_rrc_deltaPRC_01;                    /* DeltaRRC */
 static int hf_rrc_DGPS_CorrectionSatInfoList_item;  /* DGPS_CorrectionSatInfo */
 static int hf_rrc_DGPS_CorrectionSatInfoList_r9_item;  /* DGPS_CorrectionSatInfo_r9 */
 static int hf_rrc_DGPS_CorrectionSatInfoList_v920ext_item;  /* DGPS_CorrectionSatInfo_v920ext */
@@ -7807,7 +7792,7 @@ static int hf_rrc_replacementActivationThreshold;  /* ReplacementActivationThres
 static int hf_rrc_useCIO;                         /* BOOLEAN */
 static int hf_rrc_thresholdUsedFrequency;         /* ThresholdUsedFrequency */
 static int hf_rrc_thresholdUsedFrequency_01;      /* ThresholdUsedFrequency_r6 */
-static int hf_rrc_dummy_53;                       /* Threshold */
+static int hf_rrc_threshold;                      /* Threshold */
 static int hf_rrc_usedFreqW;                      /* W */
 static int hf_rrc_hysteresis;                     /* HysteresisInterFreq */
 static int hf_rrc_timeToTrigger;                  /* TimeToTrigger */
@@ -7822,7 +7807,7 @@ static int hf_rrc_usedFreqThreshold_01;           /* Threshold_r6 */
 static int hf_rrc_nonUsedFreqParameterList_04;    /* NonUsedFreqParameterList_r6 */
 static int hf_rrc_nonUsedFreqParameterList_05;    /* NonUsedFreqParameterList_r10 */
 static int hf_rrc_nonUsedFreqParameterList_06;    /* NonUsedFreqParameterList_r11 */
-static int hf_rrc_useCIO_01;                      /* T_useCIO */
+static int hf_rrc_useCIO_enum;                    /* T_useCIO_enum */
 static int hf_rrc_thresholdOwnSystem;             /* Threshold */
 static int hf_rrc_thresholdOtherSystem;           /* Threshold */
 static int hf_rrc_hysteresis_01;                  /* Hysteresis */
@@ -7961,7 +7946,7 @@ static int hf_rrc_dopplerZeroOrder;               /* INTEGER_M2048_2047 */
 static int hf_rrc_extraDoppler;                   /* ExtraDoppler */
 static int hf_rrc_codePhase_01;                   /* INTEGER_0_1023 */
 static int hf_rrc_integerCodePhase_01;            /* INTEGER_0_127 */
-static int hf_rrc_codePhaseSearchWindow_01;       /* BIT_STRING_SIZE_5 */
+static int hf_rrc_codePhaseSearchWindow_bit_string;  /* BIT_STRING_SIZE_5 */
 static int hf_rrc_azimuthandElevation;            /* AzimuthAndElevation */
 static int hf_rrc_azimuthandElevation_01;         /* AzimuthAndElevation_r10 */
 static int hf_rrc_extraDopplerExtension;          /* ExtraDopplerExtension */
@@ -8097,8 +8082,8 @@ static int hf_rrc_variableBitMapOfARFCNs;         /* OCTET_STRING_SIZE_1_16 */
 static int hf_rrc_continuousRangeOfARFCNs;        /* T_continuousRangeOfARFCNs */
 static int hf_rrc_endingARFCN;                    /* BCCH_ARFCN */
 static int hf_rrc_gsm_CarrierRSSI;                /* GSM_CarrierRSSI */
-static int hf_rrc_dummy_54;                       /* INTEGER_46_173 */
-static int hf_rrc_dummy2_12;                      /* ObservedTimeDifferenceToGSM */
+static int hf_rrc_dummy_int_46_173SIBb_TypeAnd;   /* INTEGER_46_173 */
+static int hf_rrc_observedTimeDifferenceToGSM;    /* ObservedTimeDifferenceToGSM */
 static int hf_rrc_GSM_MeasuredResultsList_item;   /* GSM_MeasuredResults */
 static int hf_rrc_tlm_Message;                    /* BIT_STRING_SIZE_14 */
 static int hf_rrc_tlm_Reserved;                   /* BIT_STRING_SIZE_2 */
@@ -8734,7 +8719,7 @@ static int hf_rrc_intraFreqMeasurementSysInfo_03;  /* IntraFreqMeasurementSysInf
 static int hf_rrc_interFreqMeasurementSysInfo_03;  /* InterFreqMeasurementSysInfo_HCS_ECN0 */
 static int hf_rrc_interRATMeasurementSysInfo_01;  /* InterRATMeasurementSysInfo */
 static int hf_rrc_trafficVolumeMeasSysInfo;       /* TrafficVolumeMeasSysInfo */
-static int hf_rrc_dummy_55;                       /* UE_InternalMeasurementSysInfo */
+static int hf_rrc_uE_InternalMeasurementSysInfo;  /* UE_InternalMeasurementSysInfo */
 static int hf_rrc_intraFreqReportingQuantityForRACH_01;  /* IntraFreqReportingQuantityForRACH_vc50ext */
 static int hf_rrc_use_of_HCS_01;                  /* T_use_of_HCS_01 */
 static int hf_rrc_hcs_not_used_01;                /* T_hcs_not_used_01 */
@@ -9070,7 +9055,7 @@ static int hf_rrc_nonUsedFreqW;                   /* W */
 static int hf_rrc_nonUsedFreqThreshold_01;        /* Threshold_r6 */
 static int hf_rrc_nonUsedFreqTriggeringConditionDetectedCells;  /* T_nonUsedFreqTriggeringConditionDetectedCells */
 static int hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_01;  /* T_nonUsedFreqTriggeringConditionDetectedCells_01 */
-static int hf_rrc_dummy_56;                       /* CellInfoListToBeExcluded */
+static int hf_rrc_cellInfoListToBeExcluded;       /* CellInfoListToBeExcluded */
 static int hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_02;  /* T_nonUsedFreqTriggeringConditionDetectedCells_02 */
 static int hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_03;  /* T_nonUsedFreqTriggeringConditionDetectedCells_03 */
 static int hf_rrc_NonUsedFreqParameterList_item;  /* NonUsedFreqParameter */
@@ -9186,13 +9171,13 @@ static int hf_rrc_rSCP;                           /* INTEGER_M120_M25 */
 static int hf_rrc_allSymbols;                     /* BOOLEAN */
 static int hf_rrc_wideBand;                       /* BOOLEAN */
 static int hf_rrc_SatDataList_item;               /* SatData */
-static int hf_rrc_iod_02;                         /* INTEGER_0_1023 */
+static int hf_rrc_iod_int_0_1023;                 /* INTEGER_0_1023 */
 static int hf_rrc_SatellitesListRelatedDataList_item;  /* SatellitesListRelatedData */
 static int hf_rrc_t_oc_01;                        /* BIT_STRING_SIZE_14 */
 static int hf_rrc_af2_01;                         /* BIT_STRING_SIZE_6 */
 static int hf_rrc_af1_02;                         /* BIT_STRING_SIZE_21 */
 static int hf_rrc_af0_02;                         /* BIT_STRING_SIZE_31 */
-static int hf_rrc_tgd_01;                         /* BIT_STRING_SIZE_10 */
+static int hf_rrc_tgd_bit_string;                 /* BIT_STRING_SIZE_10 */
 static int hf_rrc_sisa;                           /* BIT_STRING_SIZE_8 */
 static int hf_rrc_model_id;                       /* INTEGER_0_1 */
 static int hf_rrc_Satellite_clock_modelList_item;  /* Satellite_clock_model */
@@ -9247,7 +9232,7 @@ static int hf_rrc_trafficVolumeMeasurementID;     /* MeasurementIdentity */
 static int hf_rrc_trafficVolumeMeasurementObjectList;  /* TrafficVolumeMeasurementObjectList */
 static int hf_rrc_trafficVolumeMeasQuantity;      /* TrafficVolumeMeasQuantity */
 static int hf_rrc_trafficVolumeReportingQuantity;  /* TrafficVolumeReportingQuantity */
-static int hf_rrc_dummy_57;                       /* TrafficVolumeReportingCriteria */
+static int hf_rrc_measurementValidity_01;         /* TrafficVolumeReportingCriteria */
 static int hf_rrc_reportCriteriaSysInf;           /* TrafficVolumeReportCriteriaSysInfo */
 static int hf_rrc_rlc_BuffersPayload;             /* RLC_BuffersPayload */
 static int hf_rrc_averageRLC_BufferPayload_01;    /* AverageRLC_BufferPayload */
@@ -9270,7 +9255,7 @@ static int hf_rrc_ue_powerheadroomthreshold;      /* UE_PowerHeadroomThreshold *
 static int hf_rrc_filtercoefficient;              /* FilterCoefficient */
 static int hf_rrc_pendingtimeaftertrigger;        /* PendingTimeAfterTrigger */
 static int hf_rrc_onWithNoReporting;              /* NULL */
-static int hf_rrc_dummy2_13;                      /* RL_InformationLists */
+static int hf_rrc_rL_InformationLists;            /* RL_InformationLists */
 static int hf_rrc_event6a;                        /* UE_6AB_Event */
 static int hf_rrc_event6b;                        /* UE_6AB_Event */
 static int hf_rrc_event6c;                        /* TimeToTrigger */
@@ -9327,7 +9312,7 @@ static int hf_rrc_modeSpecificInfo_146;           /* T_modeSpecificInfo_146 */
 static int hf_rrc_fdd_188;                        /* T_fdd_182 */
 static int hf_rrc_ue_RX_TX_TimeDifference;        /* BOOLEAN */
 static int hf_rrc_tdd_134;                        /* T_tdd_126 */
-static int hf_rrc_appliedTA_02;                   /* BOOLEAN */
+static int hf_rrc_appliedTA_bool;                 /* BOOLEAN */
 static int hf_rrc_modeSpecificInfo_147;           /* T_modeSpecificInfo_147 */
 static int hf_rrc_fdd_189;                        /* T_fdd_183 */
 static int hf_rrc_tdd_135;                        /* T_tdd_127 */
@@ -9337,7 +9322,7 @@ static int hf_rrc_tdd128_76;                      /* T_tdd128_73 */
 static int hf_rrc_t_ADVinfo_02;                   /* BOOLEAN */
 static int hf_rrc_modeSpecificInfo_148;           /* T_modeSpecificInfo_148 */
 static int hf_rrc_fdd_190;                        /* T_fdd_184 */
-static int hf_rrc_ue_powerheadroom_01;            /* BOOLEAN */
+static int hf_rrc_ue_powerheadroom_bool;          /* BOOLEAN */
 static int hf_rrc_tdd_136;                        /* T_tdd_128 */
 static int hf_rrc_tddOption_30;                   /* T_tddOption_30 */
 static int hf_rrc_tdd384_51;                      /* T_tdd384_46 */
@@ -9393,7 +9378,7 @@ static int hf_rrc_ganssAddIonoModelReq;           /* BIT_STRING_SIZE_2 */
 static int hf_rrc_ganssEOPreq;                    /* T_ganssEOPreq */
 static int hf_rrc_ganssRequestedGenericAssistanceDataList_01;  /* GanssRequestedGenericAssistanceDataList_v860ext */
 static int hf_rrc_ganssRequestedGenericAssistanceDataList_02;  /* GanssRequestedGenericAssistanceDataList_vc50ext */
-static int hf_rrc_dataID_01;                      /* BIT_STRING_SIZE_2 */
+static int hf_rrc_dataID_bit_string;              /* BIT_STRING_SIZE_2 */
 static int hf_rrc_alpha_beta_parameters;          /* UE_Positioning_GPS_IonosphericModel */
 static int hf_rrc_non_broadcastIndication;        /* T_non_broadcastIndication */
 static int hf_rrc_ganssSatInfoNavList;            /* Ganss_Sat_Info_AddNavList */
@@ -9524,7 +9509,7 @@ static int hf_rrc_ue_positioning_GPS_UTC_Model;   /* UE_Positioning_GPS_UTC_Mode
 static int hf_rrc_ue_positioning_GPS_Almanac;     /* UE_Positioning_GPS_Almanac */
 static int hf_rrc_ue_positioning_GPS_AcquisitionAssistance;  /* UE_Positioning_GPS_AcquisitionAssistance */
 static int hf_rrc_ue_positioning_GPS_Real_timeIntegrity;  /* BadSatList */
-static int hf_rrc_dummy_58;                       /* UE_Positioning_GPS_ReferenceCellInfo */
+static int hf_rrc_uE_Positioning_GPS_ReferenceCellInfo;  /* UE_Positioning_GPS_ReferenceCellInfo */
 static int hf_rrc_ue_positioning_GPS_ReferenceTime_01;  /* UE_Positioning_GPS_ReferenceTime_v770ext */
 static int hf_rrc_ue_positioning_GPS_AcquisitionAssistance_01;  /* UE_Positioning_GPS_AcquisitionAssistance_v770ext */
 static int hf_rrc_ue_positioning_GPS_ReferenceTime_02;  /* UE_Positioning_GPS_ReferenceTime_r7 */
@@ -9735,7 +9720,7 @@ static int hf_rrc_ue_positioning_ReportingCriteria;  /* UE_Positioning_EventPara
 static int hf_rrc_ue_positioning_ReportingCriteria_01;  /* UE_Positioning_EventParamList_r7 */
 static int hf_rrc_methodType;                     /* UE_Positioning_MethodType */
 static int hf_rrc_positioningMethod;              /* PositioningMethod */
-static int hf_rrc_dummy1_06;                      /* UE_Positioning_ResponseTime */
+static int hf_rrc_uE_Positioning_ResponseTime;    /* UE_Positioning_ResponseTime */
 static int hf_rrc_horizontal_Accuracy;            /* UE_Positioning_Accuracy */
 static int hf_rrc_gps_TimingOfCellWanted;         /* BOOLEAN */
 static int hf_rrc_additionalAssistanceDataRequest;  /* BOOLEAN */
@@ -9848,7 +9833,7 @@ static int hf_rrc_bcc;                            /* BCC */
 static int hf_rrc_ctch_AllocationPeriod;          /* INTEGER_1_256 */
 static int hf_rrc_cbs_FrameOffset;                /* INTEGER_0_255 */
 static int hf_rrc_msg_Type;                       /* BIT_STRING_SIZE_8 */
-static int hf_rrc_payload_02;                     /* BIT_STRING_SIZE_1_512 */
+static int hf_rrc_payload_bit_string;             /* BIT_STRING_SIZE_1_512 */
 static int hf_rrc_CDMA2000_MessageList_item;      /* CDMA2000_Message */
 static int hf_rrc_CDMA2000_UMTS_Frequency_List_item;  /* FrequencyInfoCDMA2000 */
 static int hf_rrc_cellValueTag;                   /* CellValueTag */
@@ -9979,18 +9964,14 @@ static int hf_rrc_SIB_ReferenceList2_item;        /* SchedulingInformationSIB2 *
 static int hf_rrc_SIBSb_ReferenceList_item;       /* SchedulingInformationSIBSb */
 static int hf_rrc_SIBSb_ReferenceList2_item;      /* SchedulingInformationSIBSb2 */
 static int hf_rrc_SIB_ReferenceListFACH_item;     /* SchedulingInformationSIB */
-static int hf_rrc_sysInfoType1_01;                /* PLMN_ValueTag */
+static int hf_rrc_sysInfoType1;                   /* PLMN_ValueTag */
 static int hf_rrc_sysInfoType2;                   /* CellValueTag */
-static int hf_rrc_sysInfoType3_01;                /* CellValueTag */
+static int hf_rrc_sysInfoType3;                   /* CellValueTag */
 static int hf_rrc_sysInfoType4;                   /* CellValueTag */
-static int hf_rrc_sysInfoType5_01;                /* CellValueTag */
+static int hf_rrc_sysInfoType5;                   /* CellValueTag */
 static int hf_rrc_sysInfoType6;                   /* CellValueTag */
 static int hf_rrc_sysInfoType7_01;                /* NULL */
-static int hf_rrc_dummy_59;                       /* CellValueTag */
-static int hf_rrc_dummy2_14;                      /* NULL */
-static int hf_rrc_dummy3_03;                      /* NULL */
-static int hf_rrc_sysInfoType11_01;               /* CellValueTag */
-static int hf_rrc_sysInfoType12_01;               /* CellValueTag */
+static int hf_rrc_sysInfoType11;                  /* CellValueTag */
 static int hf_rrc_sysInfoType13;                  /* CellValueTag */
 static int hf_rrc_sysInfoType13_1;                /* CellValueTag */
 static int hf_rrc_sysInfoType13_2;                /* CellValueTag */
@@ -10007,10 +9988,11 @@ static int hf_rrc_sysInfoType15_4;                /* CellValueTag */
 static int hf_rrc_sysInfoType18;                  /* CellValueTag */
 static int hf_rrc_sysInfoType15_5;                /* CellValueTag */
 static int hf_rrc_sysInfoType5bis;                /* CellValueTag */
-static int hf_rrc_sysInfoType3_02;                /* CellValueTag3 */
-static int hf_rrc_sysInfoType5_02;                /* CellValueTag3 */
+static int hf_rrc_sysInfoType3_01;                /* CellValueTag3 */
+static int hf_rrc_sysInfoType5_01;                /* CellValueTag3 */
 static int hf_rrc_sysInfoType5bis_01;             /* CellValueTag3 */
-static int hf_rrc_sysInfoType11bis_01;            /* CellValueTag */
+static int hf_rrc_sysInfoType11bis;               /* CellValueTag */
+static int hf_rrc_sysInfoType12;                  /* CellValueTag */
 static int hf_rrc_sysInfoType15bis;               /* CellValueTag */
 static int hf_rrc_sysInfoType15_1bis;             /* CellValueTag */
 static int hf_rrc_sysInfoType15_1ter;             /* CellValueTag */
@@ -10023,7 +10005,7 @@ static int hf_rrc_sysInfoType15_8;                /* CellValueTag */
 static int hf_rrc_sysInfoType19;                  /* CellValueTag */
 static int hf_rrc_sysInfoType20;                  /* CellValueTag */
 static int hf_rrc_sysInfoType21;                  /* CellValueTag3 */
-static int hf_rrc_sysInfoType22_01;               /* CellValueTag3 */
+static int hf_rrc_sysInfoType22;                  /* CellValueTag3 */
 static int hf_rrc_sysInfoType23;                  /* CellValueTag */
 static int hf_rrc_sysInfoType24;                  /* NULL */
 static int hf_rrc_sysInfoType11ter_01;            /* CellValueTag3 */
@@ -10034,13 +10016,13 @@ static int hf_rrc_spare19;                        /* NULL */
 static int hf_rrc_spare18;                        /* NULL */
 static int hf_rrc_spare17;                        /* NULL */
 static int hf_rrc_spare16;                        /* NULL */
-static int hf_rrc_sysInfoTypeSB1_01;              /* CellValueTag */
-static int hf_rrc_sysInfoTypeSB2_01;              /* CellValueTag */
-static int hf_rrc_sysInfoType3_03;                /* CellValueTagExt */
-static int hf_rrc_sysInfoType5_03;                /* CellValueTagExt */
+static int hf_rrc_sysInfoTypeSB1;                 /* CellValueTag */
+static int hf_rrc_sysInfoTypeSB2;                 /* CellValueTag */
+static int hf_rrc_sysInfoType3_02;                /* CellValueTagExt */
+static int hf_rrc_sysInfoType5_02;                /* CellValueTagExt */
 static int hf_rrc_sysInfoType5bis_02;             /* CellValueTagExt */
 static int hf_rrc_sysInfoType21_01;               /* CellValueTagExt */
-static int hf_rrc_sysInfoType22_02;               /* CellValueTagExt */
+static int hf_rrc_sysInfoType22_01;               /* CellValueTagExt */
 static int hf_rrc_systemInfoType11bis;            /* NULL */
 static int hf_rrc_systemInfoType15bis;            /* NULL */
 static int hf_rrc_systemInfoType15_1bis;          /* NULL */
@@ -10195,7 +10177,7 @@ static int hf_rrc_sccpch_SystemInformationList;   /* SCCPCH_SystemInformationLis
 static int hf_rrc_sccpch_SystemInformation_MBMS_01;  /* T_sccpch_SystemInformation_MBMS_01 */
 static int hf_rrc_mcchOnSCCPCHusedOnlyForMBMS_01;  /* SCCPCH_SystemInformation_MBMS_r7 */
 static int hf_rrc_tDD_MBSFNInformation;           /* TDD_MBSFNInformation */
-static int hf_rrc_dummy_60;                       /* T_dummy_15 */
+static int hf_rrc_dummy_seq;                      /* T_dummy_seq */
 static int hf_rrc_modeSpecificInfo_166;           /* T_modeSpecificInfo_166 */
 static int hf_rrc_fdd_211;                        /* T_fdd_205 */
 static int hf_rrc_hs_dsch_DrxCellfach_info;       /* HS_DSCH_DrxCellfach_info */
@@ -10218,7 +10200,7 @@ static int hf_rrc_sib22indicator;                 /* BOOLEAN */
 static int hf_rrc_cellUpdateMessageOptimisedEncoding;  /* T_cellUpdateMessageOptimisedEncoding */
 static int hf_rrc_modeSpecificInfo_167;           /* T_modeSpecificInfo_167 */
 static int hf_rrc_fdd_212;                        /* T_fdd_206 */
-static int hf_rrc_dummy_61;                       /* CSICH_PowerOffset */
+static int hf_rrc_cSICH_PowerOffset;              /* CSICH_PowerOffset */
 static int hf_rrc_tdd_156;                        /* T_tdd_148 */
 static int hf_rrc_v4b0NonCriticalExtensions_20;   /* T_v4b0NonCriticalExtensions_20 */
 static int hf_rrc_sysInfoType6_v4b0ext;           /* SysInfoType6_v4b0ext_IEs */
@@ -10248,13 +10230,12 @@ static int hf_rrc_prach_Information_SIB5_List;    /* DynamicPersistenceLevelList
 static int hf_rrc_prach_Information_SIB6_List;    /* DynamicPersistenceLevelList */
 static int hf_rrc_expirationTimeFactor_01;        /* ExpirationTimeFactor */
 static int hf_rrc_nonCriticalExtensions_233;      /* T_nonCriticalExtensions_233 */
-static int hf_rrc_dummy1_07;                      /* CPCH_Parameters */
-static int hf_rrc_dummy2_15;                      /* CPCH_SetInfoList */
-static int hf_rrc_dummy3_04;                      /* CSICH_PowerOffset */
+static int hf_rrc_cPCH_Parameters;                /* CPCH_Parameters */
+static int hf_rrc_cPCH_SetInfoList;               /* CPCH_SetInfoList */
 static int hf_rrc_nonCriticalExtensions_234;      /* T_nonCriticalExtensions_234 */
-static int hf_rrc_dummy_62;                       /* CPCH_PersistenceLevelsList */
+static int hf_rrc_cPCH_PersistenceLevelsList;     /* CPCH_PersistenceLevelsList */
 static int hf_rrc_nonCriticalExtensions_235;      /* T_nonCriticalExtensions_235 */
-static int hf_rrc_dummy_63;                       /* DRAC_SysInfoList */
+static int hf_rrc_dRAC_SysInfoList;               /* DRAC_SysInfoList */
 static int hf_rrc_nonCriticalExtensions_236;      /* T_nonCriticalExtensions_236 */
 static int hf_rrc_sib12indicator;                 /* BOOLEAN */
 static int hf_rrc_fach_MeasurementOccasionInfo;   /* FACH_MeasurementOccasionInfo */
@@ -10287,7 +10268,7 @@ static int hf_rrc_newInterFrequencyCellInfoList_v590ext_item;  /* CellSelectRese
 static int hf_rrc_newInterRATCellInfoList_v590ext;  /* SEQUENCE_SIZE_1_maxCellMeas_OF_CellSelectReselectInfo_v590ext */
 static int hf_rrc_newInterRATCellInfoList_v590ext_item;  /* CellSelectReselectInfo_v590ext */
 static int hf_rrc_intraFreqEventCriteriaList_v590ext;  /* Intra_FreqEventCriteriaList_v590ext */
-static int hf_rrc_dummy_64;                       /* Dummy_InterFreqRACHReportingInfo */
+static int hf_rrc_dummy_InterFreqRACHReportingInfo;  /* Dummy_InterFreqRACHReportingInfo */
 static int hf_rrc_interFreqRACHReportingInfo;     /* InterFreqRACHReportingInfo */
 static int hf_rrc_mbsfnFrequencyList;             /* MBSFNFrequencyList */
 static int hf_rrc_mbsfnFrequencyList_01;          /* MBSFNFrequencyList_v860ext */
@@ -10634,7 +10615,7 @@ static int hf_rrc_mbms_RequiredUEAction;          /* MBMS_RequiredUEAction_Mod *
 static int hf_rrc_mbms_PreferredFrequency;        /* T_mbms_PreferredFrequency */
 static int hf_rrc_mcch;                           /* MBMS_PFLIndex */
 static int hf_rrc_dcch;                           /* MBMS_PFLInfo */
-static int hf_rrc_dummy_65;                       /* T_dummy_16 */
+static int hf_rrc_dummy_enum;                     /* T_dummy_enum */
 static int hf_rrc_continueMCCHReading;            /* BOOLEAN */
 static int hf_rrc_MBMS_ModifedServiceList_r6_item;  /* MBMS_ModifedService_r6 */
 static int hf_rrc_mbsfnClusterFrequency;          /* MBSFN_ClusterFrequency_r7 */
@@ -10766,7 +10747,7 @@ static int hf_rrc_hessid;                         /* OCTET_STRING_SIZE_6 */
 static int hf_rrc_WLANOffloadInformationPerPLMN_List_item;  /* WLANOffloadInformation */
 static int hf_rrc_wlanOffloadConfig;              /* WLANOffloadConfig */
 static int hf_rrc_wlanIdentifierList;             /* WLANIdentifierList */
-static int hf_rrc_interRATHandoverInfo;           /* InterRATHandoverInfoWithInterRATCapabilities_r3 */
+static int hf_rrc_interRATHandoverInfoWithInterRATCapabilities_r3;  /* InterRATHandoverInfoWithInterRATCapabilities_r3 */
 static int hf_rrc_srncRelocation;                 /* SRNC_RelocationInfo_r3 */
 static int hf_rrc_rfc3095_ContextInfo;            /* RFC3095_ContextInfo_r5 */
 static int hf_rrc_extension;                      /* NULL */
@@ -10784,7 +10765,7 @@ static int hf_rrc_v920NonCriticalExtensions_08;   /* T_v920NonCriticalExtensions
 static int hf_rrc_interRATHandoverInfoWithInterRATCapabilities_v920ext;  /* InterRATHandoverInfoWithInterRATCapabilities_v920ext_IEs */
 static int hf_rrc_nonCriticalExtensions_275;      /* T_nonCriticalExtensions_275 */
 static int hf_rrc_criticalExtensions_168;         /* T_criticalExtensions_166 */
-static int hf_rrc_interRATHandoverInfo_01;        /* T_interRATHandoverInfo */
+static int hf_rrc_interRATHandoverInfo;           /* T_interRATHandoverInfo */
 static int hf_rrc_ue_RATSpecificCapability_01;    /* InterRAT_UE_RadioAccessCapability_v860ext */
 static int hf_rrc_ue_Inactivity_Period;           /* INTEGER_1_120 */
 static int hf_rrc_r5_14;                          /* T_r5_14 */
@@ -10933,7 +10914,6 @@ static int hf_rrc_c_RNTI;                         /* C_RNTI */
 static int hf_rrc_ue_Positioning_LastKnownPos;    /* UE_Positioning_LastKnownPos */
 static int hf_rrc_cn_CommonGSM_MAP_NAS_SysInfo_04;  /* NAS_SystemInformationGSM_MAP */
 static int hf_rrc_ongoingMeasRepList;             /* OngoingMeasRepList */
-static int hf_rrc_predefinedConfigStatusList_01;  /* PredefinedConfigStatusList */
 static int hf_rrc_rab_InformationList_01;         /* RAB_InformationSetupList */
 static int hf_rrc_ul_TransChInfoList_01;          /* UL_AddReconfTransChInfoList */
 static int hf_rrc_modeSpecificInfo_170;           /* T_modeSpecificInfo_170 */
@@ -10972,7 +10952,7 @@ static int hf_rrc_ue_RadioAccessCapability_ext;   /* UE_RadioAccessCapabBandFDDL
 static int hf_rrc_cn_DomainInformationList_01;    /* CN_DomainInformationListFull */
 static int hf_rrc_ongoingMeasRepList_01;          /* OngoingMeasRepList_r4 */
 static int hf_rrc_rab_InformationList_02;         /* RAB_InformationSetupList_r4 */
-static int hf_rrc_dummy_66;                       /* T_dummy_17 */
+static int hf_rrc_dummy_18;                       /* T_dummy_15 */
 static int hf_rrc_fdd_219;                        /* T_fdd_213 */
 static int hf_rrc_dl_TransChInfoList_02;          /* DL_AddReconfTransChInfoList_r4 */
 static int hf_rrc_ue_RadioAccessCapability_04;    /* UE_RadioAccessCapability_r5 */
@@ -10980,7 +10960,7 @@ static int hf_rrc_ue_RATSpecificCapability_02;    /* InterRAT_UE_RadioAccessCapa
 static int hf_rrc_ongoingMeasRepList_02;          /* OngoingMeasRepList_r5 */
 static int hf_rrc_srb_InformationList_01;         /* SRB_InformationSetupList_r5 */
 static int hf_rrc_rab_InformationList_03;         /* RAB_InformationSetupList_r5 */
-static int hf_rrc_dummy_67;                       /* T_dummy_18 */
+static int hf_rrc_dummy_19;                       /* T_dummy_16 */
 static int hf_rrc_fdd_220;                        /* T_fdd_214 */
 static int hf_rrc_dl_TransChInfoList_03;          /* DL_AddReconfTransChInfoList_r5 */
 static int hf_rrc_ueCapabilityContainer_02;       /* T_ueCapabilityContainer_02 */
@@ -11085,7 +11065,7 @@ static int hf_rrc_CN_DomainInformationList_v390ext_item;  /* CN_DomainInformatio
 static int hf_rrc_tdd384_Measurements;            /* BOOLEAN */
 static int hf_rrc_COUNT_C_List_item;              /* COUNT_CSingle */
 static int hf_rrc_count_C;                        /* BIT_STRING_SIZE_32 */
-static int hf_rrc_dummy3_05;                      /* SupportOfDedicatedPilotsForChEstimation */
+static int hf_rrc_dummy3;                         /* SupportOfDedicatedPilotsForChEstimation */
 static int hf_rrc_fdd_hspdsch_01;                 /* T_fdd_hspdsch_01 */
 static int hf_rrc_supported_14;                   /* T_supported_07 */
 static int hf_rrc_tdd384_hspdsch_01;              /* T_tdd384_hspdsch_01 */
@@ -11235,18 +11215,18 @@ static int hf_rrc_T_channelisationCodeIndices_chCodeIndex3;
 static int hf_rrc_T_channelisationCodeIndices_chCodeIndex2;
 static int hf_rrc_T_channelisationCodeIndices_chCodeIndex1;
 static int hf_rrc_T_channelisationCodeIndices_chCodeIndex0;
-static int hf_rrc_T_subchannels_01_subCh3;
-static int hf_rrc_T_subchannels_01_subCh2;
-static int hf_rrc_T_subchannels_01_subCh1;
-static int hf_rrc_T_subchannels_01_subCh0;
-static int hf_rrc_T_subchannels_02_subCh7;
-static int hf_rrc_T_subchannels_02_subCh6;
-static int hf_rrc_T_subchannels_02_subCh5;
-static int hf_rrc_T_subchannels_02_subCh4;
-static int hf_rrc_T_subchannels_02_subCh3;
-static int hf_rrc_T_subchannels_02_subCh2;
-static int hf_rrc_T_subchannels_02_subCh1;
-static int hf_rrc_T_subchannels_02_subCh0;
+static int hf_rrc_T_subchannels_size4_subCh3;
+static int hf_rrc_T_subchannels_size4_subCh2;
+static int hf_rrc_T_subchannels_size4_subCh1;
+static int hf_rrc_T_subchannels_size4_subCh0;
+static int hf_rrc_T_subchannels_size8_subCh7;
+static int hf_rrc_T_subchannels_size8_subCh6;
+static int hf_rrc_T_subchannels_size8_subCh5;
+static int hf_rrc_T_subchannels_size8_subCh4;
+static int hf_rrc_T_subchannels_size8_subCh3;
+static int hf_rrc_T_subchannels_size8_subCh2;
+static int hf_rrc_T_subchannels_size8_subCh1;
+static int hf_rrc_T_subchannels_size8_subCh0;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex15;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex14;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex13;
@@ -11263,34 +11243,34 @@ static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex3;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex2;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex1;
 static int hf_rrc_T_channelisationCodeIndices_01_chCodeIndex0;
-static int hf_rrc_T_subchannels_04_subCh3;
-static int hf_rrc_T_subchannels_04_subCh2;
-static int hf_rrc_T_subchannels_04_subCh1;
-static int hf_rrc_T_subchannels_04_subCh0;
-static int hf_rrc_T_subchannels_05_subCh7;
-static int hf_rrc_T_subchannels_05_subCh6;
-static int hf_rrc_T_subchannels_05_subCh5;
-static int hf_rrc_T_subchannels_05_subCh4;
-static int hf_rrc_T_subchannels_05_subCh3;
-static int hf_rrc_T_subchannels_05_subCh2;
-static int hf_rrc_T_subchannels_05_subCh1;
-static int hf_rrc_T_subchannels_05_subCh0;
-static int hf_rrc_T_subchannels_06_subCh15;
-static int hf_rrc_T_subchannels_06_subCh14;
-static int hf_rrc_T_subchannels_06_subCh13;
-static int hf_rrc_T_subchannels_06_subCh12;
-static int hf_rrc_T_subchannels_06_subCh11;
-static int hf_rrc_T_subchannels_06_subCh10;
-static int hf_rrc_T_subchannels_06_subCh9;
-static int hf_rrc_T_subchannels_06_subCh8;
-static int hf_rrc_T_subchannels_06_subCh7;
-static int hf_rrc_T_subchannels_06_subCh6;
-static int hf_rrc_T_subchannels_06_subCh5;
-static int hf_rrc_T_subchannels_06_subCh4;
-static int hf_rrc_T_subchannels_06_subCh3;
-static int hf_rrc_T_subchannels_06_subCh2;
-static int hf_rrc_T_subchannels_06_subCh1;
-static int hf_rrc_T_subchannels_06_subCh0;
+static int hf_rrc_T_subchannels_size4_01_subCh3;
+static int hf_rrc_T_subchannels_size4_01_subCh2;
+static int hf_rrc_T_subchannels_size4_01_subCh1;
+static int hf_rrc_T_subchannels_size4_01_subCh0;
+static int hf_rrc_T_subchannels_size8_01_subCh7;
+static int hf_rrc_T_subchannels_size8_01_subCh6;
+static int hf_rrc_T_subchannels_size8_01_subCh5;
+static int hf_rrc_T_subchannels_size8_01_subCh4;
+static int hf_rrc_T_subchannels_size8_01_subCh3;
+static int hf_rrc_T_subchannels_size8_01_subCh2;
+static int hf_rrc_T_subchannels_size8_01_subCh1;
+static int hf_rrc_T_subchannels_size8_01_subCh0;
+static int hf_rrc_T_subchannels_size16_subCh15;
+static int hf_rrc_T_subchannels_size16_subCh14;
+static int hf_rrc_T_subchannels_size16_subCh13;
+static int hf_rrc_T_subchannels_size16_subCh12;
+static int hf_rrc_T_subchannels_size16_subCh11;
+static int hf_rrc_T_subchannels_size16_subCh10;
+static int hf_rrc_T_subchannels_size16_subCh9;
+static int hf_rrc_T_subchannels_size16_subCh8;
+static int hf_rrc_T_subchannels_size16_subCh7;
+static int hf_rrc_T_subchannels_size16_subCh6;
+static int hf_rrc_T_subchannels_size16_subCh5;
+static int hf_rrc_T_subchannels_size16_subCh4;
+static int hf_rrc_T_subchannels_size16_subCh3;
+static int hf_rrc_T_subchannels_size16_subCh2;
+static int hf_rrc_T_subchannels_size16_subCh1;
+static int hf_rrc_T_subchannels_size16_subCh0;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex7;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex6;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex5;
@@ -11299,18 +11279,18 @@ static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex3;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex2;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex1;
 static int hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex0;
-static int hf_rrc_T_subchannels_08_subCh3;
-static int hf_rrc_T_subchannels_08_subCh2;
-static int hf_rrc_T_subchannels_08_subCh1;
-static int hf_rrc_T_subchannels_08_subCh0;
-static int hf_rrc_T_subchannels_09_subCh7;
-static int hf_rrc_T_subchannels_09_subCh6;
-static int hf_rrc_T_subchannels_09_subCh5;
-static int hf_rrc_T_subchannels_09_subCh4;
-static int hf_rrc_T_subchannels_09_subCh3;
-static int hf_rrc_T_subchannels_09_subCh2;
-static int hf_rrc_T_subchannels_09_subCh1;
-static int hf_rrc_T_subchannels_09_subCh0;
+static int hf_rrc_T_subchannels_size4_02_subCh3;
+static int hf_rrc_T_subchannels_size4_02_subCh2;
+static int hf_rrc_T_subchannels_size4_02_subCh1;
+static int hf_rrc_T_subchannels_size4_02_subCh0;
+static int hf_rrc_T_subchannels_size8_02_subCh7;
+static int hf_rrc_T_subchannels_size8_02_subCh6;
+static int hf_rrc_T_subchannels_size8_02_subCh5;
+static int hf_rrc_T_subchannels_size8_02_subCh4;
+static int hf_rrc_T_subchannels_size8_02_subCh3;
+static int hf_rrc_T_subchannels_size8_02_subCh2;
+static int hf_rrc_T_subchannels_size8_02_subCh1;
+static int hf_rrc_T_subchannels_size8_02_subCh0;
 static int hf_rrc_AvailableSignatures_signature15;
 static int hf_rrc_AvailableSignatures_signature14;
 static int hf_rrc_AvailableSignatures_signature13;
@@ -14569,27 +14549,27 @@ static int ett_rrc_T_channelisationCodeIndices;
 static int ett_rrc_T_subchannelSize;
 static int ett_rrc_T_size2;
 static int ett_rrc_T_size4;
-static int ett_rrc_T_subchannels_01;
+static int ett_rrc_T_subchannels_size4;
 static int ett_rrc_T_size8;
-static int ett_rrc_T_subchannels_02;
+static int ett_rrc_T_subchannels_size8;
 static int ett_rrc_AccessServiceClass_TDD_r7;
 static int ett_rrc_T_channelisationCodeIndices_01;
 static int ett_rrc_T_subchannelSize_01;
 static int ett_rrc_T_size2_01;
 static int ett_rrc_T_size4_01;
-static int ett_rrc_T_subchannels_04;
+static int ett_rrc_T_subchannels_size4_01;
 static int ett_rrc_T_size8_01;
-static int ett_rrc_T_subchannels_05;
+static int ett_rrc_T_subchannels_size8_01;
 static int ett_rrc_T_size16;
-static int ett_rrc_T_subchannels_06;
+static int ett_rrc_T_subchannels_size16;
 static int ett_rrc_AccessServiceClass_TDD_LCR_r4;
 static int ett_rrc_T_availableSYNC_UlCodesIndics;
 static int ett_rrc_T_subchannelSize_02;
 static int ett_rrc_T_size2_02;
 static int ett_rrc_T_size4_02;
-static int ett_rrc_T_subchannels_08;
+static int ett_rrc_T_subchannels_size4_02;
 static int ett_rrc_T_size8_02;
-static int ett_rrc_T_subchannels_09;
+static int ett_rrc_T_subchannels_size8_02;
 static int ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH_IEs;
 static int ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH;
 static int ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH_List;
@@ -17669,7 +17649,7 @@ static int ett_rrc_T_tdd768_26;
 static int ett_rrc_T_tdd128_75;
 static int ett_rrc_T_sccpch_SystemInformation_MBMS_01;
 static int ett_rrc_SysInfoType5_v860ext_IEs;
-static int ett_rrc_T_dummy_15;
+static int ett_rrc_T_dummy_seq;
 static int ett_rrc_T_modeSpecificInfo_166;
 static int ett_rrc_T_fdd_205;
 static int ett_rrc_T_tdd128_76;
@@ -18203,10 +18183,10 @@ static int ett_rrc_StoredTGP_Sequence_r8;
 static int ett_rrc_T_current_tgps_Status_01;
 static int ett_rrc_T_active_01;
 static int ett_rrc_SRNC_RelocationInfo_r4_IEs;
-static int ett_rrc_T_dummy_17;
+static int ett_rrc_T_dummy_15;
 static int ett_rrc_T_fdd_213;
 static int ett_rrc_SRNC_RelocationInfo_r5_IEs;
-static int ett_rrc_T_dummy_18;
+static int ett_rrc_T_dummy_16;
 static int ett_rrc_T_fdd_214;
 static int ett_rrc_SRNC_RelocationInfo_v690ext_IEs;
 static int ett_rrc_SRNC_RelocationInfo_r6_IEs;
@@ -18718,7 +18698,7 @@ static const value_string rrc_CipheringModeCommand_vals[] = {
 
 static const per_choice_t CipheringModeCommand_choice[] = {
   {   0, &hf_rrc_startRestart    , ASN1_NO_EXTENSIONS     , dissect_rrc_CipheringAlgorithm },
-  {   1, &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   1, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   { 0, NULL, 0, NULL }
 };
 
@@ -19535,7 +19515,7 @@ static const per_sequence_t T_fdd_75_sequence[] = {
   { &hf_rrc_secondaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SecondaryCPICH_Info },
   { &hf_rrc_dl_ChannelisationCodeList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DL_ChannelisationCodeList },
   { &hf_rrc_tpc_CombinationIndex, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TPC_CombinationIndex },
-  { &hf_rrc_dummy_44        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
+  { &hf_rrc_sSDT_CellIdentity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
   { &hf_rrc_closedLoopTimingAdjMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ClosedLoopTimingAdjMode },
   { NULL, 0, 0, NULL }
 };
@@ -20470,8 +20450,8 @@ dissect_rrc_TimingOffset(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
 
 
 static const per_sequence_t T_fdd_122_sequence[] = {
-  { &hf_rrc_dummy1_03       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PCPICH_UsageForChannelEst },
-  { &hf_rrc_dummy2_09       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SecondaryCPICH_Info },
+  { &hf_rrc_pCPICH_UsageForChannelEst, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PCPICH_UsageForChannelEst },
+  { &hf_rrc_secondaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SecondaryCPICH_Info },
   { &hf_rrc_secondaryScramblingCode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SecondaryScramblingCode },
   { &hf_rrc_sttd_Indicator  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_sf_AndCodeNumber_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SF256_AndCodeNumber },
@@ -21357,7 +21337,7 @@ static const value_string rrc_TFCS_vals[] = {
 
 static const per_choice_t TFCS_choice[] = {
   {   0, &hf_rrc_normalTFCI_Signalling, ASN1_NO_EXTENSIONS     , dissect_rrc_ExplicitTFCS_Configuration },
-  {   1, &hf_rrc_dummy_39        , ASN1_NO_EXTENSIONS     , dissect_rrc_SplitTFCI_Signalling },
+  {   1, &hf_rrc_splitTFCI_Signalling, ASN1_NO_EXTENSIONS     , dissect_rrc_SplitTFCI_Signalling },
   { 0, NULL, 0, NULL }
 };
 
@@ -22350,18 +22330,18 @@ static const value_string rrc_SIB_TypeAndTag_vals[] = {
 static value_string_ext rrc_SIB_TypeAndTag_vals_ext = VALUE_STRING_EXT_INIT(rrc_SIB_TypeAndTag_vals);
 
 static const per_choice_t SIB_TypeAndTag_choice[] = {
-  {   0, &hf_rrc_sysInfoType1_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
+  {   0, &hf_rrc_sysInfoType1    , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
   {   1, &hf_rrc_sysInfoType2    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   2, &hf_rrc_sysInfoType3_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   2, &hf_rrc_sysInfoType3    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   3, &hf_rrc_sysInfoType4    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   4, &hf_rrc_sysInfoType5_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   4, &hf_rrc_sysInfoType5    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   5, &hf_rrc_sysInfoType6    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   6, &hf_rrc_sysInfoType7_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   7, &hf_rrc_dummy_59        , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   8, &hf_rrc_dummy2_14       , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   9, &hf_rrc_dummy3_03       , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {  10, &hf_rrc_sysInfoType11_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {  11, &hf_rrc_sysInfoType12_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   7, &hf_rrc_cellValueTag    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   8, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   9, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {  10, &hf_rrc_sysInfoType11   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {  11, &hf_rrc_cellValueTag    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  12, &hf_rrc_sysInfoType13   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  13, &hf_rrc_sysInfoType13_1 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  14, &hf_rrc_sysInfoType13_2 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
@@ -22628,8 +22608,8 @@ dissect_rrc_SCCPCH_InfoForFACH(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static const per_sequence_t RL_AdditionInformation_sequence[] = {
   { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PrimaryCPICH_Info },
   { &hf_rrc_dl_DPCH_InfoPerRL, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DL_DPCH_InfoPerRL },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_08       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_sCCPCH_InfoForFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH },
   { NULL, 0, 0, NULL }
 };
 
@@ -22739,17 +22719,17 @@ dissect_rrc_SSDT_Information(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 static const per_sequence_t ActiveSetUpdate_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_dummy_02        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_dummy2          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_newU_RNTI       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_cn_InformationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CN_InformationInfo },
-  { &hf_rrc_dummy3          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CounterSynchronisationInfo },
+  { &hf_rrc_dL_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CounterSynchronisationInfo },
   { &hf_rrc_maxAllowedUL_TX_Power, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MaxAllowedUL_TX_Power },
   { &hf_rrc_rl_AdditionInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RL_AdditionInformationList },
   { &hf_rrc_rl_RemovalInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RL_RemovalInformationList },
   { &hf_rrc_tx_DiversityMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TX_DiversityMode },
-  { &hf_rrc_dummy4          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information },
+  { &hf_rrc_sSDT_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -22826,7 +22806,7 @@ dissect_rrc_CellIdentity_PerRL_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 
 static const per_sequence_t ActiveSetUpdate_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -23082,7 +23062,7 @@ static const per_sequence_t T_fdd_77_sequence[] = {
   { &hf_rrc_dl_ChannelisationCodeList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DL_ChannelisationCodeList },
   { &hf_rrc_tpc_CombinationIndex, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TPC_CombinationIndex },
   { &hf_rrc_powerOffsetTPC_pdpdch, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PowerOffsetTPC_pdpdch },
-  { &hf_rrc_dummy_44        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
+  { &hf_rrc_sSDT_CellIdentity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
   { &hf_rrc_closedLoopTimingAdjMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ClosedLoopTimingAdjMode },
   { NULL, 0, 0, NULL }
 };
@@ -27441,14 +27421,14 @@ dissect_rrc_ActiveSetUpdate_v7f0ext_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_
 }
 
 
-static const value_string rrc_T_precodingWeightSetRestriction_vals[] = {
+static const value_string rrc_T_precodingWeightSetRestriction_enum_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_precodingWeightSetRestriction(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_precodingWeightSetRestriction_enum(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -27457,7 +27437,7 @@ dissect_rrc_T_precodingWeightSetRestriction(tvbuff_t *tvb _U_, int offset _U_, a
 
 
 static const per_sequence_t MIMO_Parameters_v7g0ext_sequence[] = {
-  { &hf_rrc_precodingWeightSetRestriction_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction },
+  { &hf_rrc_precodingWeightSetRestriction_enum, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_enum },
   { NULL, 0, 0, NULL }
 };
 
@@ -28301,14 +28281,14 @@ dissect_rrc_MIMO_PilotConfiguration_r9(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 }
 
 
-static const value_string rrc_T_precodingWeightSetRestriction_01_vals[] = {
+static const value_string rrc_T_precodingWeightSetRestriction_enum_01_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_precodingWeightSetRestriction_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_precodingWeightSetRestriction_enum_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -28319,7 +28299,7 @@ dissect_rrc_T_precodingWeightSetRestriction_01(tvbuff_t *tvb _U_, int offset _U_
 static const per_sequence_t T_fdd_114_sequence[] = {
   { &hf_rrc_mimoN_M_Ratio   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_N_M_Ratio },
   { &hf_rrc_mimoPilotConfiguration_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_PilotConfiguration_r9 },
-  { &hf_rrc_precodingWeightSetRestriction_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_01 },
+  { &hf_rrc_precodingWeightSetRestriction_enum_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_enum_01 },
   { NULL, 0, 0, NULL }
 };
 
@@ -29504,14 +29484,14 @@ dissect_rrc_ActiveSetUpdate_r9_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 }
 
 
-static const value_string rrc_T_precodingWeightSetRestriction_02_vals[] = {
+static const value_string rrc_T_precodingWeightSetRestriction_enum_02_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_precodingWeightSetRestriction_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_precodingWeightSetRestriction_enum_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -29520,7 +29500,7 @@ dissect_rrc_T_precodingWeightSetRestriction_02(tvbuff_t *tvb _U_, int offset _U_
 
 
 static const per_sequence_t SecondaryCellMIMOparametersFDD_v950ext_sequence[] = {
-  { &hf_rrc_precodingWeightSetRestriction_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_02 },
+  { &hf_rrc_precodingWeightSetRestriction_enum_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_enum_02 },
   { NULL, 0, 0, NULL }
 };
 
@@ -29725,14 +29705,14 @@ dissect_rrc_T_configurationInfo_06(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 }
 
 
-static const value_string rrc_T_precodingWeightSetRestriction_03_vals[] = {
+static const value_string rrc_T_precodingWeightSetRestriction_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_precodingWeightSetRestriction_03(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_precodingWeightSetRestriction(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -29743,7 +29723,7 @@ dissect_rrc_T_precodingWeightSetRestriction_03(tvbuff_t *tvb _U_, int offset _U_
 static const per_sequence_t T_newConfiguration_18_sequence[] = {
   { &hf_rrc_mimoN_M_Ratio   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_N_M_Ratio },
   { &hf_rrc_mimoPilotConfiguration_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_PilotConfiguration_r9 },
-  { &hf_rrc_precodingWeightSetRestriction_04, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction_03 },
+  { &hf_rrc_precodingWeightSetRestriction, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_precodingWeightSetRestriction },
   { NULL, 0, 0, NULL }
 };
 
@@ -30219,7 +30199,7 @@ dissect_rrc_BIT_STRING_SIZE_64(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 static const per_sequence_t T_newConfiguration_15_sequence[] = {
   { &hf_rrc_mimo4x4N_M_Ratio, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_N_M_Ratio },
   { &hf_rrc_mimo4x4PilotConfiguration, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO4x4_PilotConfiguration },
-  { &hf_rrc_precodingWeightSetRestriction, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_64 },
+  { &hf_rrc_precodingWeightSetRestriction_bit_string, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_64 },
   { NULL, 0, 0, NULL }
 };
 
@@ -31201,7 +31181,7 @@ dissect_rrc_T_configurationInfo_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 static const per_sequence_t T_newConfiguration_19_sequence[] = {
   { &hf_rrc_mimoN_M_Ratio   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO_N_M_Ratio },
   { &hf_rrc_mimoPilotConfiguration_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MIMO4x4_PilotConfiguration },
-  { &hf_rrc_precodingWeightSetRestriction, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_64 },
+  { &hf_rrc_precodingWeightSetRestriction_bit_string, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_64 },
   { NULL, 0, 0, NULL }
 };
 
@@ -34110,10 +34090,10 @@ static const per_sequence_t DGPS_CorrectionSatInfo_sequence[] = {
   { &hf_rrc_udre            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UDRE },
   { &hf_rrc_prc             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PRC },
   { &hf_rrc_rrc             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC },
-  { &hf_rrc_dummy1_05       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DeltaPRC },
-  { &hf_rrc_dummy2_11       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DeltaRRC },
-  { &hf_rrc_dummy3_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DeltaPRC },
-  { &hf_rrc_dummy4_01       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DeltaRRC },
+  { &hf_rrc_deltaPRC        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DeltaPRC },
+  { &hf_rrc_deltaPRC_01     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DeltaRRC },
+  { &hf_rrc_deltaPRC        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DeltaPRC },
+  { &hf_rrc_deltaPRC_01     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DeltaRRC },
   { NULL, 0, 0, NULL }
 };
 
@@ -34434,7 +34414,7 @@ static const per_sequence_t AlmanacSatInfo_sequence[] = {
   { &hf_rrc_dataID          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_3 },
   { &hf_rrc_satID           , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SatID },
   { &hf_rrc_e               , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_16 },
-  { &hf_rrc_t_oa            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_8 },
+  { &hf_rrc_almanacSatInfo_t_oa, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_8 },
   { &hf_rrc_deltaI          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_16 },
   { &hf_rrc_omegaDot        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_16 },
   { &hf_rrc_satHealth       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_8 },
@@ -34757,7 +34737,7 @@ static const per_sequence_t UE_Positioning_GPS_AssistanceData_sequence[] = {
   { &hf_rrc_ue_positioning_GPS_Almanac, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_Positioning_GPS_Almanac },
   { &hf_rrc_ue_positioning_GPS_AcquisitionAssistance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_Positioning_GPS_AcquisitionAssistance },
   { &hf_rrc_ue_positioning_GPS_Real_timeIntegrity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BadSatList },
-  { &hf_rrc_dummy_58        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_Positioning_GPS_ReferenceCellInfo },
+  { &hf_rrc_uE_Positioning_GPS_ReferenceCellInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_Positioning_GPS_ReferenceCellInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -36035,7 +36015,7 @@ static const per_sequence_t Satellite_clock_model_sequence[] = {
   { &hf_rrc_af2_01          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_6 },
   { &hf_rrc_af1_02          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_21 },
   { &hf_rrc_af0_02          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_31 },
-  { &hf_rrc_tgd_01          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_10 },
+  { &hf_rrc_tgd_bit_string  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BIT_STRING_SIZE_10 },
   { &hf_rrc_sisa            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_8 },
   { &hf_rrc_model_id        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_0_1 },
   { NULL, 0, 0, NULL }
@@ -36333,7 +36313,7 @@ static const per_sequence_t GANSSSatelliteInformation_sequence[] = {
   { &hf_rrc_extraDoppler    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ExtraDoppler },
   { &hf_rrc_codePhase_01    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
   { &hf_rrc_integerCodePhase_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_127 },
-  { &hf_rrc_codePhaseSearchWindow_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
+  { &hf_rrc_codePhaseSearchWindow_bit_string, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
   { &hf_rrc_azimuthandElevation, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_AzimuthAndElevation },
   { NULL, 0, 0, NULL }
 };
@@ -36426,7 +36406,7 @@ dissect_rrc_GANSS_SAT_Info_Almanac_KpList(tvbuff_t *tvb _U_, int offset _U_, asn
 
 
 static const per_sequence_t ALM_keplerianParameters_sequence[] = {
-  { &hf_rrc_t_oa_01         , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
+  { &hf_rrc_t_oa_0_1023     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
   { &hf_rrc_iod_a           , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_15 },
   { &hf_rrc_sat_info_kpList , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_GANSS_SAT_Info_Almanac_KpList },
   { NULL, 0, 0, NULL }
@@ -36547,7 +36527,7 @@ dissect_rrc_AssistanceDataDelivery_v770ext_IEs(tvbuff_t *tvb _U_, int offset _U_
 
 
 static const per_sequence_t UE_Positioning_GANSS_AddIonoModel_sequence[] = {
-  { &hf_rrc_dataID_01       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_2 },
+  { &hf_rrc_dataID_bit_string, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_2 },
   { &hf_rrc_alpha_beta_parameters, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UE_Positioning_GPS_IonosphericModel },
   { NULL, 0, 0, NULL }
 };
@@ -37059,7 +37039,7 @@ dissect_rrc_GANSS_SAT_Info_Almanac_NAVkpList(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t ALM_NAVKeplerianSet_sequence[] = {
-  { &hf_rrc_t_oa_02         , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
+  { &hf_rrc_t_oa            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
   { &hf_rrc_sat_info_NAVkpList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_GANSS_SAT_Info_Almanac_NAVkpList },
   { NULL, 0, 0, NULL }
 };
@@ -37118,7 +37098,7 @@ dissect_rrc_GANSS_SAT_Info_Almanac_REDkpList(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t ALM_ReducedKeplerianSet_sequence[] = {
-  { &hf_rrc_t_oa_02         , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
+  { &hf_rrc_t_oa            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
   { &hf_rrc_sat_info_REDkpList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_GANSS_SAT_Info_Almanac_REDkpList },
   { NULL, 0, 0, NULL }
 };
@@ -37173,7 +37153,7 @@ dissect_rrc_GANSS_SAT_Info_Almanac_MIDIkpList(tvbuff_t *tvb _U_, int offset _U_,
 
 
 static const per_sequence_t ALM_MidiAlmanacSet_sequence[] = {
-  { &hf_rrc_t_oa_02         , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
+  { &hf_rrc_t_oa            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_147 },
   { &hf_rrc_sat_info_MIDIkpList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_GANSS_SAT_Info_Almanac_MIDIkpList },
   { NULL, 0, 0, NULL }
 };
@@ -39050,7 +39030,7 @@ dissect_rrc_InterRAT_TargetCellDescription(tvbuff_t *tvb _U_, int offset _U_, as
 
 static const per_sequence_t CellChangeOrderFromUTRAN_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_dummy_02        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_rab_InformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationList },
   { &hf_rrc_interRAT_TargetCellDescription, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_InterRAT_TargetCellDescription },
@@ -39596,7 +39576,7 @@ dissect_rrc_PDCP_Info(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 static const per_sequence_t PDCP_InfoReconfig_sequence[] = {
   { &hf_rrc_pdcp_Info       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PDCP_Info },
-  { &hf_rrc_dummy_35        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_65535 },
+  { &hf_rrc_dummy_int_0_65535, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_65535 },
   { NULL, 0, 0, NULL }
 };
 
@@ -40387,7 +40367,7 @@ dissect_rrc_TimerStatusPeriodic(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 
 static const per_sequence_t DL_RLC_StatusInfo_sequence[] = {
   { &hf_rrc_timerStatusProhibit, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TimerStatusProhibit },
-  { &hf_rrc_dummy_34        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TimerEPC },
+  { &hf_rrc_timerEPC        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TimerEPC },
   { &hf_rrc_missingPDU_Indicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_timerStatusPeriodic, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TimerStatusPeriodic },
   { NULL, 0, 0, NULL }
@@ -40482,7 +40462,7 @@ static const value_string rrc_UL_TransportChannelType_vals[] = {
 static const per_choice_t UL_TransportChannelType_choice[] = {
   {   0, &hf_rrc_dch             , ASN1_NO_EXTENSIONS     , dissect_rrc_TransportChannelIdentity },
   {   1, &hf_rrc_rach            , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   2, &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   2, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   {   3, &hf_rrc_usch            , ASN1_NO_EXTENSIONS     , dissect_rrc_TransportChannelIdentity },
   { 0, NULL, 0, NULL }
 };
@@ -41176,8 +41156,8 @@ dissect_rrc_DRAC_StaticInformationList(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 
 static const per_sequence_t T_fdd_sequence[] = {
-  { &hf_rrc_dummy_06        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -41502,7 +41482,7 @@ static const per_sequence_t DL_AddReconfTransChInformation_sequence[] = {
   { &hf_rrc_dl_transportChannelIdentity, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TransportChannelIdentity },
   { &hf_rrc_tfs_SignallingMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_tfs_SignallingMode },
   { &hf_rrc_dch_QualityTarget, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_QualityTarget },
-  { &hf_rrc_dummy_38        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TM_SignallingInfo },
+  { &hf_rrc_tM_SignallingInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TM_SignallingInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -42602,7 +42582,7 @@ static const value_string rrc_UL_ChannelRequirement_vals[] = {
 
 static const per_choice_t UL_ChannelRequirement_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_03 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info },
-  {   1, &hf_rrc_dummy_50        , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   1, &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
   { 0, NULL, 0, NULL }
 };
 
@@ -42885,8 +42865,8 @@ dissect_rrc_PDSCH_CodeMapping(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 
 static const per_sequence_t DL_PDSCH_Information_sequence[] = {
-  { &hf_rrc_dummy1_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
-  { &hf_rrc_dummy2_07       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
+  { &hf_rrc_pDSCH_SHO_DCH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
+  { &hf_rrc_pDSCH_CodeMapping, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
   { NULL, 0, 0, NULL }
 };
 
@@ -42900,7 +42880,7 @@ dissect_rrc_DL_PDSCH_Information(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 static const per_sequence_t T_fdd_01_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Informatio, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -42946,7 +42926,7 @@ dissect_rrc_Cfntargetsfnframeoffset(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 
 static const per_sequence_t T_initialise_sequence[] = {
-  { &hf_rrc_dummy_43        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Cfntargetsfnframeoffset },
+  { &hf_rrc_cfntargetsfnframeoffset, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Cfntargetsfnframeoffset },
   { NULL, 0, 0, NULL }
 };
 
@@ -43540,7 +43520,7 @@ static const per_sequence_t TGPS_ConfigurationParams_sequence[] = {
   { &hf_rrc_tgl2            , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TGL },
   { &hf_rrc_tgd             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TGD },
   { &hf_rrc_tgpl1           , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TGPL },
-  { &hf_rrc_dummy_49        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TGPL },
+  { &hf_rrc_tGPL            , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TGPL },
   { &hf_rrc_rpp             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RPP },
   { &hf_rrc_itp             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_ITP },
   { &hf_rrc_ul_DL_Mode      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UL_DL_Mode },
@@ -43611,7 +43591,7 @@ static const per_sequence_t T_fdd_61_sequence[] = {
   { &hf_rrc_defaultDPCH_OffsetValue, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultDPCH_OffsetValueFDD },
   { &hf_rrc_dpch_CompressedModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DPCH_CompressedModeInfo },
   { &hf_rrc_tx_DiversityMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TX_DiversityMode },
-  { &hf_rrc_dummy_41        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information },
+  { &hf_rrc_sSDT_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -43687,8 +43667,8 @@ dissect_rrc_DL_CommonInformation(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 static const per_sequence_t T_fdd_88_sequence[] = {
   { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PrimaryCPICH_Info },
-  { &hf_rrc_dummy1_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
-  { &hf_rrc_dummy2_07       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
+  { &hf_rrc_pDSCH_SHO_DCH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
+  { &hf_rrc_pDSCH_CodeMapping, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
   { NULL, 0, 0, NULL }
 };
 
@@ -43838,7 +43818,7 @@ dissect_rrc_T_modeSpecificInfo_53(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static const per_sequence_t DL_InformationPerRL_sequence[] = {
   { &hf_rrc_modeSpecificInfo_53, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_53 },
   { &hf_rrc_dl_DPCH_InfoPerRL, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DPCH_InfoPerRL },
-  { &hf_rrc_dummy_45        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH },
+  { &hf_rrc_sCCPCH_InfoForFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH },
   { NULL, 0, 0, NULL }
 };
 
@@ -43867,8 +43847,8 @@ dissect_rrc_DL_InformationPerRL_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 static const per_sequence_t CellUpdateConfirm_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -43932,7 +43912,7 @@ dissect_rrc_CellUpdateConfirm_v3a0ext(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 static const per_sequence_t CellUpdateConfirm_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -44247,9 +44227,9 @@ dissect_rrc_ROHC_PacketSizeList_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t UL_RFC3095_r4_sequence[] = {
-  { &hf_rrc_dummy1_01       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CID_InclusionInfo_r4 },
+  { &hf_rrc_cID_InclusionInfo_r4, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CID_InclusionInfo_r4 },
   { &hf_rrc_max_CID         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_1_16383 },
-  { &hf_rrc_dummy_36        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_ROHC_PacketSizeList_r4 },
+  { &hf_rrc_rOHC_PacketSizeList_r4, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_ROHC_PacketSizeList_r4 },
   { NULL, 0, 0, NULL }
 };
 
@@ -44263,7 +44243,7 @@ dissect_rrc_UL_RFC3095_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 static const per_sequence_t DL_RFC3095_r4_sequence[] = {
-  { &hf_rrc_dummy_33        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CID_InclusionInfo_r4 },
+  { &hf_rrc_cID_InclusionInfo_r4, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CID_InclusionInfo_r4 },
   { &hf_rrc_max_CID         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_1_16383 },
   { &hf_rrc_reverseDecompressionDepth, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_0_65535 },
   { NULL, 0, 0, NULL }
@@ -44540,8 +44520,8 @@ dissect_rrc_UL_CommonTransChInfo_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 
 static const per_sequence_t T_fdd_02_sequence[] = {
-  { &hf_rrc_dummy_06        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -45420,7 +45400,7 @@ static const value_string rrc_UL_ChannelRequirement_r4_vals[] = {
 
 static const per_choice_t UL_ChannelRequirement_r4_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_06 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info_r4 },
-  {   1, &hf_rrc_dummy_50        , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   1, &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
   { 0, NULL, 0, NULL }
 };
 
@@ -45435,7 +45415,7 @@ dissect_rrc_UL_ChannelRequirement_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t T_fdd_03_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Informatio, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -45471,7 +45451,7 @@ dissect_rrc_T_modeSpecificPhysChInfo_01(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t T_initialise_01_sequence[] = {
-  { &hf_rrc_dummy_43        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Cfntargetsfnframeoffset },
+  { &hf_rrc_cfntargetsfnframeoffset, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Cfntargetsfnframeoffset },
   { NULL, 0, 0, NULL }
 };
 
@@ -45607,7 +45587,7 @@ static const per_sequence_t T_fdd_62_sequence[] = {
   { &hf_rrc_defaultDPCH_OffsetValue, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultDPCH_OffsetValueFDD },
   { &hf_rrc_dpch_CompressedModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DPCH_CompressedModeInfo },
   { &hf_rrc_tx_DiversityMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TX_DiversityMode },
-  { &hf_rrc_dummy_42        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information_r4 },
+  { &hf_rrc_sSDT_Information_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information_r4 },
   { NULL, 0, 0, NULL }
 };
 
@@ -45710,8 +45690,8 @@ dissect_rrc_DL_CommonInformation_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static const per_sequence_t T_fdd_89_sequence[] = {
   { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PrimaryCPICH_Info },
-  { &hf_rrc_dummy1_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
-  { &hf_rrc_dummy2_07       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
+  { &hf_rrc_pDSCH_SHO_DCH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
+  { &hf_rrc_pDSCH_CodeMapping, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
   { NULL, 0, 0, NULL }
 };
 
@@ -45904,7 +45884,7 @@ static const per_sequence_t T_fdd_76_sequence[] = {
   { &hf_rrc_secondaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SecondaryCPICH_Info },
   { &hf_rrc_dl_ChannelisationCodeList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DL_ChannelisationCodeList },
   { &hf_rrc_tpc_CombinationIndex, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TPC_CombinationIndex },
-  { &hf_rrc_dummy_44        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
+  { &hf_rrc_sSDT_CellIdentity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_CellIdentity },
   { &hf_rrc_closedLoopTimingAdjMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ClosedLoopTimingAdjMode },
   { NULL, 0, 0, NULL }
 };
@@ -46133,7 +46113,7 @@ dissect_rrc_SCCPCH_InfoForFACH_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static const per_sequence_t DL_InformationPerRL_r4_sequence[] = {
   { &hf_rrc_modeSpecificInfo_54, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_54 },
   { &hf_rrc_dl_DPCH_InfoPerRL_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DPCH_InfoPerRL_r4 },
-  { &hf_rrc_dummy_46        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
+  { &hf_rrc_sCCPCH_InfoForFACH_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
   { &hf_rrc_cell_id         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity },
   { NULL, 0, 0, NULL }
 };
@@ -46162,8 +46142,8 @@ dissect_rrc_DL_InformationPerRL_List_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t CellUpdateConfirm_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -46637,8 +46617,8 @@ dissect_rrc_DL_CounterSynchronisationInfo_r5(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t T_fdd_04_sequence[] = {
-  { &hf_rrc_dummy_06        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -47219,7 +47199,7 @@ static const value_string rrc_UL_ChannelRequirement_r5_vals[] = {
 
 static const per_choice_t UL_ChannelRequirement_r5_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_08 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info_r5 },
-  {   1, &hf_rrc_dummy_50        , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   1, &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
   { 0, NULL, 0, NULL }
 };
 
@@ -47234,7 +47214,7 @@ dissect_rrc_UL_ChannelRequirement_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t T_fdd_05_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Informatio, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -47273,7 +47253,7 @@ static const per_sequence_t T_fdd_63_sequence[] = {
   { &hf_rrc_defaultDPCH_OffsetValue, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultDPCH_OffsetValueFDD },
   { &hf_rrc_dpch_CompressedModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DPCH_CompressedModeInfo },
   { &hf_rrc_tx_DiversityMode, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TX_DiversityMode },
-  { &hf_rrc_dummy_42        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information_r4 },
+  { &hf_rrc_sSDT_Information_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_Information_r4 },
   { NULL, 0, 0, NULL }
 };
 
@@ -47392,8 +47372,8 @@ dissect_rrc_DL_CommonInformation_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 
 static const per_sequence_t T_fdd_90_sequence[] = {
   { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PrimaryCPICH_Info },
-  { &hf_rrc_dummy1_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
-  { &hf_rrc_dummy2_07       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
+  { &hf_rrc_pDSCH_SHO_DCH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
+  { &hf_rrc_pDSCH_CodeMapping, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
   { &hf_rrc_servingHSDSCH_RL_indicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
@@ -47432,7 +47412,7 @@ dissect_rrc_T_modeSpecificInfo_55(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static const per_sequence_t DL_InformationPerRL_r5_sequence[] = {
   { &hf_rrc_modeSpecificInfo_55, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_55 },
   { &hf_rrc_dl_DPCH_InfoPerRL_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DPCH_InfoPerRL_r5 },
-  { &hf_rrc_dummy_46        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
+  { &hf_rrc_sCCPCH_InfoForFACH_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
   { &hf_rrc_cell_id         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity },
   { NULL, 0, 0, NULL }
 };
@@ -47461,8 +47441,8 @@ dissect_rrc_DL_InformationPerRL_List_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t CellUpdateConfirm_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -48381,7 +48361,7 @@ static const value_string rrc_T_dpdchPresence_vals[] = {
 };
 
 static const per_choice_t T_dpdchPresence_choice[] = {
-  {   0, &hf_rrc_present_04      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_02 },
+  {   0, &hf_rrc_present_02      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_02 },
   {   1, &hf_rrc_notPresent      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_notPresent },
   { 0, NULL, 0, NULL }
 };
@@ -49416,8 +49396,8 @@ dissect_rrc_DL_InformationPerRL_List_r6(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t CellUpdateConfirm_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -50513,7 +50493,7 @@ dissect_rrc_MAC_ehs_DelReordQ_List(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 static const per_sequence_t AddOrReconfMAC_ehs_ReordQ_sequence[] = {
   { &hf_rrc_mac_ehs_AddReconfQueue_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MAC_ehs_AddReconfReordQ_List },
-  { &hf_rrc_dummy_37        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MAC_ehs_DelReordQ_List },
+  { &hf_rrc_mAC_ehs_DelReordQ_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MAC_ehs_DelReordQ_List },
   { NULL, 0, 0, NULL }
 };
 
@@ -50864,7 +50844,7 @@ static const value_string rrc_T_dpdchPresence_01_vals[] = {
 };
 
 static const per_choice_t T_dpdchPresence_01_choice[] = {
-  {   0, &hf_rrc_present_05      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_03 },
+  {   0, &hf_rrc_present_03      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_03 },
   {   1, &hf_rrc_notPresent_01   , ASN1_NO_EXTENSIONS     , dissect_rrc_T_notPresent_01 },
   { 0, NULL, 0, NULL }
 };
@@ -52431,7 +52411,7 @@ dissect_rrc_T_availableSYNC_UlCodesIndics(tvbuff_t *tvb _U_, int offset _U_, asn
 }
 
 
-static const value_string rrc_T_subchannels_07_vals[] = {
+static const value_string rrc_T_subchannels_size2_02_vals[] = {
   {   0, "subch0" },
   {   1, "subch1" },
   { 0, NULL }
@@ -52439,7 +52419,7 @@ static const value_string rrc_T_subchannels_07_vals[] = {
 
 
 static int
-dissect_rrc_T_subchannels_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size2_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      2, NULL, false, 0, NULL);
 
@@ -52448,7 +52428,7 @@ dissect_rrc_T_subchannels_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 
 static const per_sequence_t T_size2_02_sequence[] = {
-  { &hf_rrc_subchannels_07  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_07 },
+  { &hf_rrc_subchannels_size2_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size2_02 },
   { NULL, 0, 0, NULL }
 };
 
@@ -52461,25 +52441,25 @@ dissect_rrc_T_size2_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 }
 
 
-static int * const T_subchannels_08_bits[] = {
-  &hf_rrc_T_subchannels_08_subCh3,
-  &hf_rrc_T_subchannels_08_subCh2,
-  &hf_rrc_T_subchannels_08_subCh1,
-  &hf_rrc_T_subchannels_08_subCh0,
+static int * const T_subchannels_size4_02_bits[] = {
+  &hf_rrc_T_subchannels_size4_02_subCh3,
+  &hf_rrc_T_subchannels_size4_02_subCh2,
+  &hf_rrc_T_subchannels_size4_02_subCh1,
+  &hf_rrc_T_subchannels_size4_02_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size4_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, false, T_subchannels_08_bits, 4, NULL, NULL);
+                                     4, 4, false, T_subchannels_size4_02_bits, 4, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size4_02_sequence[] = {
-  { &hf_rrc_subchannels_08  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_08 },
+  { &hf_rrc_subchannels_size4_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size4_02 },
   { NULL, 0, 0, NULL }
 };
 
@@ -52492,29 +52472,29 @@ dissect_rrc_T_size4_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 }
 
 
-static int * const T_subchannels_09_bits[] = {
-  &hf_rrc_T_subchannels_09_subCh7,
-  &hf_rrc_T_subchannels_09_subCh6,
-  &hf_rrc_T_subchannels_09_subCh5,
-  &hf_rrc_T_subchannels_09_subCh4,
-  &hf_rrc_T_subchannels_09_subCh3,
-  &hf_rrc_T_subchannels_09_subCh2,
-  &hf_rrc_T_subchannels_09_subCh1,
-  &hf_rrc_T_subchannels_09_subCh0,
+static int * const T_subchannels_size8_02_bits[] = {
+  &hf_rrc_T_subchannels_size8_02_subCh7,
+  &hf_rrc_T_subchannels_size8_02_subCh6,
+  &hf_rrc_T_subchannels_size8_02_subCh5,
+  &hf_rrc_T_subchannels_size8_02_subCh4,
+  &hf_rrc_T_subchannels_size8_02_subCh3,
+  &hf_rrc_T_subchannels_size8_02_subCh2,
+  &hf_rrc_T_subchannels_size8_02_subCh1,
+  &hf_rrc_T_subchannels_size8_02_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_09(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size8_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     8, 8, false, T_subchannels_09_bits, 8, NULL, NULL);
+                                     8, 8, false, T_subchannels_size8_02_bits, 8, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size8_02_sequence[] = {
-  { &hf_rrc_subchannels_09  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_09 },
+  { &hf_rrc_subchannels_size8_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size8_02 },
   { NULL, 0, 0, NULL }
 };
 
@@ -53271,7 +53251,7 @@ dissect_rrc_T_retransTimerForSchedInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 static const per_sequence_t T_tdd128_38_sequence[] = {
   { &hf_rrc_snpl_ReportType , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_snpl_ReportType },
   { &hf_rrc_prxdes_base     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_M112_M50 },
-  { &hf_rrc_beaconPLEst_01  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
+  { &hf_rrc_beaconPLEst_bool, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
   { &hf_rrc_tpc_StepSize    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TPC_StepSizeTDD },
   { &hf_rrc_pebase_PowerControlGAP, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PowerControlGAP },
   { &hf_rrc_ul_SynchronisationParameters, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_SynchronisationParameters_r4 },
@@ -55013,8 +54993,8 @@ dissect_rrc_DL_InformationPerRL_List_r7(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t CellUpdateConfirm_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -57430,8 +57410,8 @@ dissect_rrc_SPS_Information_TDD128_r8(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 static const per_sequence_t CellUpdateConfirm_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -57447,7 +57427,7 @@ static const per_sequence_t CellUpdateConfirm_r8_IEs_sequence[] = {
   { &hf_rrc_cn_InformationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CN_InformationInfo_r6 },
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_rab_InformationSetup_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetup_r8 },
   { &hf_rrc_rb_InformationReleaseList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReleaseList },
   { &hf_rrc_rb_InformationReconfigList_06, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReconfigList_r8 },
@@ -58413,8 +58393,8 @@ dissect_rrc_CellDCHMeasOccasionInfo_TDD128_r9(tvbuff_t *tvb _U_, int offset _U_,
 
 
 static const per_sequence_t CellUpdateConfirm_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -58430,7 +58410,7 @@ static const per_sequence_t CellUpdateConfirm_r9_IEs_sequence[] = {
   { &hf_rrc_cn_InformationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CN_InformationInfo_r6 },
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_rab_InformationSetup_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetup_r8 },
   { &hf_rrc_rb_InformationReleaseList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReleaseList },
   { &hf_rrc_rb_InformationReconfigList_06, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReconfigList_r8 },
@@ -59214,9 +59194,9 @@ dissect_rrc_MU_MIMO_Info_TDD128(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 
 
 static const per_sequence_t CellUpdateConfirm_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
-  { &hf_rrc_dummy2_03       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_sR_VCC_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -59232,7 +59212,7 @@ static const per_sequence_t CellUpdateConfirm_r10_IEs_sequence[] = {
   { &hf_rrc_cn_InformationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CN_InformationInfo_r6 },
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_rab_InformationSetup_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetup_r8 },
   { &hf_rrc_rb_InformationReleaseList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReleaseList },
   { &hf_rrc_rb_InformationReconfigList_06, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReconfigList_r8 },
@@ -59924,7 +59904,7 @@ static const value_string rrc_T_dpdchPresence_02_vals[] = {
 };
 
 static const per_choice_t T_dpdchPresence_02_choice[] = {
-  {   0, &hf_rrc_present_06      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_04 },
+  {   0, &hf_rrc_present_04      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_04 },
   {   1, &hf_rrc_notPresent_02   , ASN1_NO_EXTENSIONS     , dissect_rrc_T_notPresent_02 },
   { 0, NULL, 0, NULL }
 };
@@ -60664,9 +60644,9 @@ dissect_rrc_CommonERGCHInfoFDD(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static const per_sequence_t CellUpdateConfirm_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
-  { &hf_rrc_dummy2_03       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_sR_VCC_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -60682,7 +60662,7 @@ static const per_sequence_t CellUpdateConfirm_r11_IEs_sequence[] = {
   { &hf_rrc_cn_InformationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CN_InformationInfo_r6 },
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_rab_InformationSetup_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetup_r8 },
   { &hf_rrc_rb_InformationReleaseList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReleaseList },
   { &hf_rrc_rb_InformationReconfigList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_InformationReconfigList_r11 },
@@ -62343,8 +62323,8 @@ dissect_rrc_DedicatedWLANOffloadInformation(tvbuff_t *tvb _U_, int offset _U_, a
 
 
 static const per_sequence_t CellUpdateConfirm_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -63259,8 +63239,8 @@ dissect_rrc_DL_InformationPerRL_List_r13(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 
 static const per_sequence_t CellUpdateConfirm_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -63452,8 +63432,8 @@ dissect_rrc_HS_SCCH_DrxCellfach_info(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t CellUpdateConfirm_r14_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -64672,7 +64652,7 @@ dissect_rrc_BIT_STRING_SIZE_1_512(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static const per_sequence_t CDMA2000_Message_sequence[] = {
   { &hf_rrc_msg_Type        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_8 },
-  { &hf_rrc_payload_02      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_1_512 },
+  { &hf_rrc_payload_bit_string, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_1_512 },
   { NULL, 0, 0, NULL }
 };
 
@@ -65282,7 +65262,7 @@ dissect_rrc_T_modeSpecificInfo_110(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t CellReportingQuantities_sequence[] = {
-  { &hf_rrc_dummy_52        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SFN_SFN_OTD_Type },
+  { &hf_rrc_sFN_SFN_OTD_Type, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SFN_SFN_OTD_Type },
   { &hf_rrc_cellIdentity_reportingIndicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_cellSynchronisationInfoReportingIndicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_modeSpecificInfo_110, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_110 },
@@ -66224,9 +66204,9 @@ static const value_string rrc_UE_AutonomousUpdateMode_vals[] = {
 };
 
 static const per_choice_t UE_AutonomousUpdateMode_choice[] = {
-  {   0, &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   0, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   {   1, &hf_rrc_onWithNoReporting, ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   2, &hf_rrc_dummy2_13       , ASN1_NO_EXTENSIONS     , dissect_rrc_RL_InformationLists },
+  {   2, &hf_rrc_rL_InformationLists, ASN1_NO_EXTENSIONS     , dissect_rrc_RL_InformationLists },
   { 0, NULL, 0, NULL }
 };
 
@@ -66290,7 +66270,7 @@ dissect_rrc_NonUsedFreqParameterList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t Event2a_sequence[] = {
-  { &hf_rrc_dummy_53        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_Threshold },
+  { &hf_rrc_threshold       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_Threshold },
   { &hf_rrc_usedFreqW       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_W },
   { &hf_rrc_hysteresis      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_HysteresisInterFreq },
   { &hf_rrc_timeToTrigger   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TimeToTrigger },
@@ -66783,7 +66763,7 @@ static const per_sequence_t T_gsm_15_sequence[] = {
   { &hf_rrc_bsic            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BSIC },
   { &hf_rrc_frequency_band  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_Frequency_Band },
   { &hf_rrc_bcch_ARFCN      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BCCH_ARFCN },
-  { &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_NULL },
+  { &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_NULL },
   { NULL, 0, 0, NULL }
 };
 
@@ -67017,8 +66997,8 @@ dissect_rrc_InterRATMeasQuantity(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *
 
 
 static const per_sequence_t T_gsm_13_sequence[] = {
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_06       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_gsm_Carrier_RSSI, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
@@ -67320,10 +67300,10 @@ dissect_rrc_EnvironmentCharacterisation(tvbuff_t *tvb _U_, int offset _U_, asn1_
 static const per_sequence_t UE_Positioning_ReportingQuantity_sequence[] = {
   { &hf_rrc_methodType      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UE_Positioning_MethodType },
   { &hf_rrc_positioningMethod, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PositioningMethod },
-  { &hf_rrc_dummy1_06       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UE_Positioning_ResponseTime },
+  { &hf_rrc_uE_Positioning_ResponseTime, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UE_Positioning_ResponseTime },
   { &hf_rrc_horizontal_Accuracy, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_Positioning_Accuracy },
   { &hf_rrc_gps_TimingOfCellWanted, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_06       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_additionalAssistanceDataRequest, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { &hf_rrc_environmentCharacterisation, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_EnvironmentCharacterisation },
   { NULL, 0, 0, NULL }
@@ -68312,7 +68292,7 @@ dissect_rrc_T_fdd_182(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 
 static const per_sequence_t T_tdd_126_sequence[] = {
-  { &hf_rrc_appliedTA_02    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_appliedTA_bool  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -70011,7 +69991,7 @@ dissect_rrc_T_fdd_183(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 
 static const per_sequence_t T_tdd384_45_sequence[] = {
-  { &hf_rrc_appliedTA_02    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_appliedTA_bool  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -75148,7 +75128,7 @@ static const per_sequence_t GANSSSatelliteInformation_r10_sequence[] = {
   { &hf_rrc_extraDoppler    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ExtraDoppler },
   { &hf_rrc_codePhase_01    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
   { &hf_rrc_integerCodePhase_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_127 },
-  { &hf_rrc_codePhaseSearchWindow_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
+  { &hf_rrc_codePhaseSearchWindow_bit_string, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
   { &hf_rrc_azimuthandElevation_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_AzimuthAndElevation_r10 },
   { NULL, 0, 0, NULL }
 };
@@ -75681,7 +75661,7 @@ dissect_rrc_T_nonUsedFreqTriggeringConditionDetectedCells_03(tvbuff_t *tvb _U_, 
 static const per_sequence_t NonUsedFreq2aParameter_r11_sequence[] = {
   { &hf_rrc_nonUsedFreqW    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_W },
   { &hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonUsedFreqTriggeringConditionDetectedCells_03 },
-  { &hf_rrc_dummy_56        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellInfoListToBeExcluded },
+  { &hf_rrc_cellInfoListToBeExcluded, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellInfoListToBeExcluded },
   { NULL, 0, 0, NULL }
 };
 
@@ -75745,7 +75725,7 @@ static const per_sequence_t NonUsedFreqParameter_r11_sequence[] = {
   { &hf_rrc_nonUsedFreqThreshold_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_Threshold_r6 },
   { &hf_rrc_nonUsedFreqW    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_W },
   { &hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonUsedFreqTriggeringConditionDetectedCells_01 },
-  { &hf_rrc_dummy_56        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellInfoListToBeExcluded },
+  { &hf_rrc_cellInfoListToBeExcluded, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellInfoListToBeExcluded },
   { NULL, 0, 0, NULL }
 };
 
@@ -76313,14 +76293,14 @@ dissect_rrc_FreqIndexListForEnhancedMeas_r12(tvbuff_t *tvb _U_, int offset _U_, 
 }
 
 
-static const value_string rrc_T_useCIO_vals[] = {
+static const value_string rrc_T_useCIO_enum_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_useCIO(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_useCIO_enum(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -76332,7 +76312,7 @@ static const per_sequence_t Event2g_sequence[] = {
   { &hf_rrc_hysteresis      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_HysteresisInterFreq },
   { &hf_rrc_timeToTrigger   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TimeToTrigger },
   { &hf_rrc_reportingCellStatus_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ReportingCellStatus_r10 },
-  { &hf_rrc_useCIO_01       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_useCIO },
+  { &hf_rrc_useCIO_enum     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_useCIO_enum },
   { NULL, 0, 0, NULL }
 };
 
@@ -76934,7 +76914,7 @@ static const per_sequence_t GANSSSatelliteInformation_r12_sequence[] = {
   { &hf_rrc_extraDopplerExtension, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ExtraDopplerExtension },
   { &hf_rrc_codePhase_01    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
   { &hf_rrc_integerCodePhase_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_127 },
-  { &hf_rrc_codePhaseSearchWindow_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
+  { &hf_rrc_codePhaseSearchWindow_bit_string, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BIT_STRING_SIZE_5 },
   { &hf_rrc_azimuthandElevation_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_AzimuthAndElevation_r10 },
   { NULL, 0, 0, NULL }
 };
@@ -77549,7 +77529,7 @@ dissect_rrc_UE_InternalMeasQuantity_r14(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t T_fdd_184_sequence[] = {
   { &hf_rrc_ue_RX_TX_TimeDifference, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_ue_powerheadroom_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_ue_powerheadroom_bool, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -77563,7 +77543,7 @@ dissect_rrc_T_fdd_184(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 
 
 static const per_sequence_t T_tdd384_46_sequence[] = {
-  { &hf_rrc_appliedTA_02    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_appliedTA_bool  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -78601,8 +78581,8 @@ static const value_string rrc_UL_ChannelRequirementWithCPCH_SetID_vals[] = {
 
 static const per_choice_t UL_ChannelRequirementWithCPCH_SetID_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_03 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info },
-  {   1, &hf_rrc_dummy1_04       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
-  {   2, &hf_rrc_dummy2_10       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
+  {   1, &hf_rrc_vPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   2, &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
   { 0, NULL, 0, NULL }
 };
 
@@ -78617,7 +78597,7 @@ dissect_rrc_UL_ChannelRequirementWithCPCH_SetID(tvbuff_t *tvb _U_, int offset _U
 
 
 static const per_sequence_t T_fdd_19_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -78654,8 +78634,8 @@ dissect_rrc_T_modeSpecificInfo_13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -78697,7 +78677,7 @@ dissect_rrc_PhysicalChannelReconfiguration_v3a0ext(tvbuff_t *tvb _U_, int offset
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -78932,8 +78912,8 @@ static const value_string rrc_UL_ChannelRequirementWithCPCH_SetID_r4_vals[] = {
 
 static const per_choice_t UL_ChannelRequirementWithCPCH_SetID_r4_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_06 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info_r4 },
-  {   1, &hf_rrc_dummy1_04       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
-  {   2, &hf_rrc_dummy2_10       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
+  {   1, &hf_rrc_vPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   2, &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
   { 0, NULL, 0, NULL }
 };
 
@@ -78948,7 +78928,7 @@ dissect_rrc_UL_ChannelRequirementWithCPCH_SetID_r4(tvbuff_t *tvb _U_, int offset
 
 
 static const per_sequence_t T_fdd_20_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -78984,8 +78964,8 @@ dissect_rrc_T_modeSpecificInfo_14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -79110,8 +79090,8 @@ static const value_string rrc_UL_ChannelRequirementWithCPCH_SetID_r5_vals[] = {
 
 static const per_choice_t UL_ChannelRequirementWithCPCH_SetID_r5_choice[] = {
   {   0, &hf_rrc_ul_DPCH_Info_08 , ASN1_NO_EXTENSIONS     , dissect_rrc_UL_DPCH_Info_r5 },
-  {   1, &hf_rrc_dummy1_04       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
-  {   2, &hf_rrc_dummy2_10       , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
+  {   1, &hf_rrc_vPCH_SetInfo    , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetInfo },
+  {   2, &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , dissect_rrc_CPCH_SetID },
   { 0, NULL, 0, NULL }
 };
 
@@ -79126,7 +79106,7 @@ dissect_rrc_UL_ChannelRequirementWithCPCH_SetID_r5(tvbuff_t *tvb _U_, int offset
 
 
 static const per_sequence_t T_fdd_21_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -79162,8 +79142,8 @@ dissect_rrc_T_modeSpecificInfo_15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -79253,8 +79233,8 @@ dissect_rrc_T_r5_04(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -79377,8 +79357,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability(tvbuff_t *tvb _U_, int offset _U_,
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -79582,8 +79562,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_01(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -79778,8 +79758,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_02(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -79901,8 +79881,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_03(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -80027,8 +80007,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_04(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -80129,8 +80109,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_05(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -80235,8 +80215,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_06(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t PhysicalChannelReconfiguration_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
@@ -81954,8 +81934,8 @@ dissect_rrc_RAB_InformationReconfigList(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t T_fdd_22_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -82044,7 +82024,7 @@ dissect_rrc_DL_AddReconfTransChInfo2List(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 
 static const per_sequence_t T_fdd_23_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -82081,8 +82061,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_03(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t RadioBearerReconfiguration_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -82096,7 +82076,7 @@ static const per_sequence_t RadioBearerReconfiguration_r3_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_16        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_01 },
+  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_01 },
   { &hf_rrc_dl_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_08, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfo2List },
@@ -82133,7 +82113,7 @@ dissect_rrc_RadioBearerReconfiguration_v3a0ext(tvbuff_t *tvb _U_, int offset _U_
 
 
 static const per_sequence_t RadioBearerReconfiguration_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -82359,8 +82339,8 @@ dissect_rrc_T_r3_14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_24_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -82396,7 +82376,7 @@ dissect_rrc_T_dummy_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_25_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -82432,8 +82412,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_04(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerReconfiguration_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -82448,7 +82428,7 @@ static const per_sequence_t RadioBearerReconfiguration_r4_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_17        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_02 },
+  { &hf_rrc_dummy_04        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_02 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r4 },
@@ -82574,8 +82554,8 @@ dissect_rrc_T_r4_06(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_26_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -82618,7 +82598,7 @@ static const per_sequence_t T_complete_11_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_18        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_03 },
+  { &hf_rrc_dummy_05        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_03 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList_r5 },
   { &hf_rrc_dl_AddReconfTransChInfoList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r5 },
@@ -82718,7 +82698,7 @@ dissect_rrc_T_specificationMode_11(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t T_fdd_27_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -82754,8 +82734,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_05(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerReconfiguration_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -82967,8 +82947,8 @@ dissect_rrc_T_specificationMode_12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -83282,8 +83262,8 @@ dissect_rrc_T_specificationMode_14(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -83643,8 +83623,8 @@ dissect_rrc_T_specificationMode_15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -83660,7 +83640,7 @@ static const per_sequence_t RadioBearerReconfiguration_r8_IEs_sequence[] = {
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
   { &hf_rrc_responseToChangeOfUE_Capability_08, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_responseToChangeOfUE_Capability_08 },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_15, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_15 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -83937,8 +83917,8 @@ dissect_rrc_T_specificationMode_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -83954,7 +83934,7 @@ static const per_sequence_t RadioBearerReconfiguration_r9_IEs_sequence[] = {
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
   { &hf_rrc_responseToChangeOfUE_Capability_09, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_responseToChangeOfUE_Capability_09 },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_16, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_16 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -84187,8 +84167,8 @@ dissect_rrc_T_specificationMode_17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -84204,7 +84184,7 @@ static const per_sequence_t RadioBearerReconfiguration_r10_IEs_sequence[] = {
   { &hf_rrc_ura_Identity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_URA_Identity },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
   { &hf_rrc_responseToChangeOfUE_Capability_10, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_responseToChangeOfUE_Capability_10 },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_17, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_17 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -84470,8 +84450,8 @@ dissect_rrc_T_specificationMode_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -84681,8 +84661,8 @@ dissect_rrc_T_specificationMode_19(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -84906,8 +84886,8 @@ dissect_rrc_T_specificationMode_20(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerReconfiguration_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
@@ -85453,8 +85433,8 @@ dissect_rrc_UL_OtherTTIConfigurationInfo_Sec(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t RadioBearerReconfiguration_r14_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
@@ -85701,8 +85681,8 @@ dissect_rrc_T_simplified_HS_SCCH_type1_operation(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t RadioBearerReconfiguration_r15_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
@@ -86133,8 +86113,8 @@ dissect_rrc_RadioBearerReconfiguration(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 
 static const per_sequence_t T_fdd_28_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -86170,7 +86150,7 @@ dissect_rrc_T_dummy_04(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_29_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -86207,8 +86187,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_06(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t RadioBearerRelease_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -86224,7 +86204,7 @@ static const per_sequence_t RadioBearerRelease_r3_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_19        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_04 },
+  { &hf_rrc_dummy_06        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_04 },
   { &hf_rrc_dl_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_08, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfo2List },
@@ -86261,7 +86241,7 @@ dissect_rrc_RadioBearerRelease_v3a0ext(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 
 static const per_sequence_t RadioBearerRelease_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -86458,8 +86438,8 @@ dissect_rrc_T_r3_15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_30_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -86495,7 +86475,7 @@ dissect_rrc_T_dummy_05(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_31_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -86531,8 +86511,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_07(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerRelease_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -86549,7 +86529,7 @@ static const per_sequence_t RadioBearerRelease_r4_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_20        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_05 },
+  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_05 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r4 },
@@ -86660,8 +86640,8 @@ dissect_rrc_T_r4_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_32_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -86697,7 +86677,7 @@ dissect_rrc_T_dummy_06(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_33_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -86733,8 +86713,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_08(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerRelease_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -86752,7 +86732,7 @@ static const per_sequence_t RadioBearerRelease_r5_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_21        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_06 },
+  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_06 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList_r5 },
   { &hf_rrc_dl_AddReconfTransChInfoList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r5 },
@@ -86835,8 +86815,8 @@ dissect_rrc_T_r5_06(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerRelease_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -86955,8 +86935,8 @@ dissect_rrc_T_r6_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerRelease_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87154,8 +87134,8 @@ dissect_rrc_T_r7_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerRelease_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87344,8 +87324,8 @@ dissect_rrc_T_r8_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerRelease_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87518,8 +87498,8 @@ dissect_rrc_T_r9_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerRelease_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87653,8 +87633,8 @@ dissect_rrc_T_r10_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerRelease_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87749,8 +87729,8 @@ dissect_rrc_T_r11_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerRelease_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -87851,8 +87831,8 @@ dissect_rrc_T_r12_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerRelease_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -87970,8 +87950,8 @@ dissect_rrc_T_simplified_HS_SCCH_type1_operation_01(tvbuff_t *tvb _U_, int offse
 
 
 static const per_sequence_t RadioBearerRelease_r15_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -88475,8 +88455,8 @@ dissect_rrc_RAB_InformationSetupList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t T_fdd_34_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -88512,7 +88492,7 @@ dissect_rrc_T_dummy_07(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_35_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -88549,8 +88529,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_09(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t RadioBearerSetup_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -88565,7 +88545,7 @@ static const per_sequence_t RadioBearerSetup_r3_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_22        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_07 },
+  { &hf_rrc_dummy_09        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_07 },
   { &hf_rrc_dl_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList },
@@ -88602,7 +88582,7 @@ dissect_rrc_RadioBearerSetup_v3a0ext(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 
 
 static const per_sequence_t RadioBearerSetup_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -88901,8 +88881,8 @@ dissect_rrc_RAB_InformationSetupList_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t T_fdd_36_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -88938,7 +88918,7 @@ dissect_rrc_T_dummy_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_37_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -88974,8 +88954,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_10(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerSetup_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -88991,7 +88971,7 @@ static const per_sequence_t RadioBearerSetup_r4_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_23        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_08 },
+  { &hf_rrc_dummy_10        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_08 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList },
   { &hf_rrc_dl_AddReconfTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r4 },
@@ -89214,8 +89194,8 @@ dissect_rrc_RAB_InformationSetupList_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t T_fdd_38_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -89251,7 +89231,7 @@ dissect_rrc_T_dummy_09(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_39_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -89287,8 +89267,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_11(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerSetup_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -89305,7 +89285,7 @@ static const per_sequence_t RadioBearerSetup_r5_IEs_sequence[] = {
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_deletedTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_DeletedTransChInfoList },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_24        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_09 },
+  { &hf_rrc_dummy_11        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_09 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_DeletedTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DeletedTransChInfoList_r5 },
   { &hf_rrc_dl_AddReconfTransChInfoList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r5 },
@@ -89654,7 +89634,7 @@ static const value_string rrc_T_specificationMode_23_vals[] = {
 
 static const per_choice_t T_specificationMode_23_choice[] = {
   {   0, &hf_rrc_complete_23     , ASN1_NO_EXTENSIONS     , dissect_rrc_T_complete_23 },
-  {   1, &hf_rrc_dummy_25        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy_10 },
+  {   1, &hf_rrc_dummy_12        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy_10 },
   { 0, NULL, 0, NULL }
 };
 
@@ -89669,8 +89649,8 @@ dissect_rrc_T_specificationMode_23(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerSetup_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -89882,7 +89862,7 @@ static const value_string rrc_T_specificationMode_24_vals[] = {
 
 static const per_choice_t T_specificationMode_24_choice[] = {
   {   0, &hf_rrc_complete_24     , ASN1_NO_EXTENSIONS     , dissect_rrc_T_complete_24 },
-  {   1, &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   1, &hf_rrc_dummy_13        , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   { 0, NULL, 0, NULL }
 };
 
@@ -89897,8 +89877,8 @@ dissect_rrc_T_specificationMode_24(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t RadioBearerSetup_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -90093,8 +90073,8 @@ dissect_rrc_RAB_InformationSetupList_r8(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t RadioBearerSetup_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -90325,8 +90305,8 @@ dissect_rrc_T_r8_09(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerSetup_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -90471,8 +90451,8 @@ dissect_rrc_T_r9_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t RadioBearerSetup_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -90606,8 +90586,8 @@ dissect_rrc_T_r10_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerSetup_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -90702,8 +90682,8 @@ dissect_rrc_T_r11_09(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerSetup_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -90804,8 +90784,8 @@ dissect_rrc_T_r12_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pr
 
 
 static const per_sequence_t RadioBearerSetup_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
@@ -90923,8 +90903,8 @@ dissect_rrc_T_simplified_HS_SCCH_type1_operation_02(tvbuff_t *tvb _U_, int offse
 
 
 static const per_sequence_t RadioBearerSetup_r15_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_sr_vcc_Info     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SR_VCC_Info },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
@@ -92223,8 +92203,8 @@ dissect_rrc_InterRAT_UE_SecurityCapList(tvbuff_t *tvb _U_, int offset _U_, asn1_
 static const per_sequence_t SecurityModeCommand_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
   { &hf_rrc_securityCapability, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SecurityCapability },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
   { &hf_rrc_cn_DomainIdentity, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CN_DomainIdentity },
   { &hf_rrc_ue_SystemSpecificSecurityCap, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_InterRAT_UE_SecurityCapList },
   { NULL, 0, 0, NULL }
@@ -92284,8 +92264,8 @@ dissect_rrc_T_r3_22(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 static const per_sequence_t SecurityModeCommand_r7_IEs_sequence[] = {
   { &hf_rrc_securityCapability, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SecurityCapability },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
   { &hf_rrc_cn_DomainIdentity, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CN_DomainIdentity },
   { &hf_rrc_ue_SystemSpecificSecurityCap, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_InterRAT_UE_SecurityCapList },
   { NULL, 0, 0, NULL }
@@ -92562,8 +92542,8 @@ dissect_rrc_SignallingConnectionRelease(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t T_fdd_40_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -92599,7 +92579,7 @@ dissect_rrc_T_dummy_11(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_41_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -92636,8 +92616,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_12(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t TransportChannelReconfiguration_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -92648,7 +92628,7 @@ static const per_sequence_t TransportChannelReconfiguration_r3_IEs_sequence[] = 
   { &hf_rrc_dl_CounterSynchronisationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CounterSynchronisationInfo },
   { &hf_rrc_ul_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_27        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_11 },
+  { &hf_rrc_dummy_14        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_11 },
   { &hf_rrc_dl_CommonTransChInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo },
   { &hf_rrc_dl_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
@@ -92684,7 +92664,7 @@ dissect_rrc_TransportChannelReconfiguration_v3a0ext(tvbuff_t *tvb _U_, int offse
 
 
 static const per_sequence_t TransportChannelReconfiguration_v4b0ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -92881,8 +92861,8 @@ dissect_rrc_T_r3_24(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_42_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -92918,7 +92898,7 @@ dissect_rrc_T_dummy_12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_43_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -92954,8 +92934,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_13(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t TransportChannelReconfiguration_r4_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -92967,7 +92947,7 @@ static const per_sequence_t TransportChannelReconfiguration_r4_IEs_sequence[] = 
   { &hf_rrc_dl_CounterSynchronisationInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CounterSynchronisationInfo },
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_28        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_12 },
+  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_12 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_AddReconfTransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r4 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
@@ -93077,8 +93057,8 @@ dissect_rrc_T_r4_12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_44_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -93114,7 +93094,7 @@ dissect_rrc_T_dummy_13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 
 
 static const per_sequence_t T_fdd_45_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
   { NULL, 0, 0, NULL }
 };
 
@@ -93150,8 +93130,8 @@ dissect_rrc_T_modeSpecificPhysChInfo_14(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t TransportChannelReconfiguration_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
@@ -93164,7 +93144,7 @@ static const per_sequence_t TransportChannelReconfiguration_r5_IEs_sequence[] = 
   { &hf_rrc_dl_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CounterSynchronisationInfo_r5 },
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_AddReconfTransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_29        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_13 },
+  { &hf_rrc_dummy_16        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_13 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_AddReconfTransChInfoList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r5 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
@@ -93246,8 +93226,8 @@ dissect_rrc_T_r5_10(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t TransportChannelReconfiguration_r6_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -93374,8 +93354,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_16(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -93582,8 +93562,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_17(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r8_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -93781,8 +93761,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_18(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r9_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -93936,8 +93916,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_19(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r10_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -94080,8 +94060,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_20(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -94185,8 +94165,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_21(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
@@ -94296,8 +94276,8 @@ dissect_rrc_T_responseToChangeOfUE_Capability_22(tvbuff_t *tvb _U_, int offset _
 
 
 static const per_sequence_t TransportChannelReconfiguration_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_dynamicActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DynamicActivationTime },
   { &hf_rrc_delayRestrictionFlag, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DelayRestrictionFlag },
@@ -96181,8 +96161,8 @@ dissect_rrc_UplinkPhysicalChannelControl(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 static const per_sequence_t URAUpdateConfirm_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_rrc_StateIndicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_StateIndicator },
@@ -96275,8 +96255,8 @@ dissect_rrc_T_r3_28(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t URAUpdateConfirm_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_rrc_StateIndicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_StateIndicator },
@@ -96340,8 +96320,8 @@ dissect_rrc_T_r5_12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t URAUpdateConfirm_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_rrc_StateIndicator, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_StateIndicator },
@@ -96366,7 +96346,7 @@ dissect_rrc_URAUpdateConfirm_r7_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_
 static const per_sequence_t URAUpdateConfirm_v860ext_IEs_sequence[] = {
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
   { &hf_rrc_newPrimary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { NULL, 0, 0, NULL }
 };
 
@@ -97050,8 +97030,8 @@ dissect_rrc_T_nonCriticalExtensions_207(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t UTRANMobilityInformation_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_ue_ConnTimersAndConstants, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_ConnTimersAndConstants },
@@ -97376,8 +97356,8 @@ dissect_rrc_UE_ConnTimersAndConstants_r5(tvbuff_t *tvb _U_, int offset _U_, asn1
 
 
 static const per_sequence_t UTRANMobilityInformation_r5_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
-  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_ue_ConnTimersAndConstants_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_ConnTimersAndConstants_r5 },
@@ -97455,8 +97435,8 @@ dissect_rrc_T_r5_13(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t UTRANMobilityInformation_r7_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
@@ -98143,8 +98123,8 @@ dissect_rrc_UE_ConnTimersAndConstants_r11(tvbuff_t *tvb _U_, int offset _U_, asn
 
 
 static const per_sequence_t UTRANMobilityInformation_r11_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
@@ -98388,8 +98368,8 @@ dissect_rrc_PagingPermissionWithAccessControlParameters(tvbuff_t *tvb _U_, int o
 
 
 static const per_sequence_t UTRANMobilityInformation_r12_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
@@ -98643,8 +98623,8 @@ dissect_rrc_DedicatedPriorityInformation_r13(tvbuff_t *tvb _U_, int offset _U_, 
 
 
 static const per_sequence_t UTRANMobilityInformation_r13_IEs_sequence[] = {
-  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
-  { &hf_rrc_cipheringModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
+  { &hf_rrc_integrityProtectionModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo_r7 },
+  { &hf_rrc_cipheringModeInfo_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringModeInfo_r7 },
   { &hf_rrc_new_U_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_U_RNTI },
   { &hf_rrc_new_C_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_C_RNTI },
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
@@ -99183,14 +99163,14 @@ dissect_rrc_T_mbms_PreferredFrequency(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 }
 
 
-static const value_string rrc_T_dummy_16_vals[] = {
+static const value_string rrc_T_dummy_enum_vals[] = {
   {   0, "true" },
   { 0, NULL }
 };
 
 
 static int
-dissect_rrc_T_dummy_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_dummy_enum(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      1, NULL, false, 0, NULL);
 
@@ -99202,7 +99182,7 @@ static const per_sequence_t MBMS_ModifedService_r6_sequence[] = {
   { &hf_rrc_mbms_TransmissionIdentity, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MBMS_TransmissionIdentity },
   { &hf_rrc_mbms_RequiredUEAction, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MBMS_RequiredUEAction_Mod },
   { &hf_rrc_mbms_PreferredFrequency, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_mbms_PreferredFrequency },
-  { &hf_rrc_dummy_65        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_16 },
+  { &hf_rrc_dummy_enum      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_enum },
   { &hf_rrc_continueMCCHReading, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
@@ -99545,7 +99525,7 @@ dissect_rrc_T_nonCriticalExtensions_43(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static const per_sequence_t ETWSPrimaryNotificationWithSecurity_sequence[] = {
   { &hf_rrc_etws_Information, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_ETWS_Information },
-  { &hf_rrc_dummy_09        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ETWS_WarningSecurityInfo },
+  { &hf_rrc_eTWS_WarningSecurityInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ETWS_WarningSecurityInfo },
   { &hf_rrc_nonCriticalExtensions_43, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonCriticalExtensions_43 },
   { NULL, 0, 0, NULL }
 };
@@ -100960,9 +100940,9 @@ dissect_rrc_T_laterNonCriticalExtensions_01(tvbuff_t *tvb _U_, int offset _U_, a
 
 static const per_sequence_t ActiveSetUpdateComplete_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_dummy_04        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
-  { &hf_rrc_dummy2_01       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
-  { &hf_rrc_dummy3_01       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
+  { &hf_rrc_integrityProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_uL_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_01 },
   { NULL, 0, 0, NULL }
 };
@@ -101184,7 +101164,7 @@ dissect_rrc_InterRAT_ChangeFailureCause(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t CellChangeOrderFromUTRANFailure_r3_IEs_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
-  { &hf_rrc_dummy_02        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
+  { &hf_rrc_integrityProtectionModeInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtectionModeInfo },
   { &hf_rrc_interRAT_ChangeFailureCause, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_InterRAT_ChangeFailureCause },
   { NULL, 0, 0, NULL }
 };
@@ -101277,7 +101257,7 @@ static const value_string rrc_CellChangeOrderFromUTRANFailure_vals[] = {
 
 static const per_choice_t CellChangeOrderFromUTRANFailure_choice[] = {
   {   0, &hf_rrc_r3_03           , ASN1_NO_EXTENSIONS     , dissect_rrc_T_r3_03 },
-  {   1, &hf_rrc_dummy_05        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy },
+  {   1, &hf_rrc_dummy_02        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy },
   { 0, NULL, 0, NULL }
 };
 
@@ -101674,7 +101654,7 @@ dissect_rrc_T_routingbasis(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 static const per_sequence_t Gsm_map_IDNNS_sequence[] = {
   { &hf_rrc_routingbasis    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_routingbasis },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -103078,7 +103058,7 @@ dissect_rrc_T_modeSpecificInfo_108(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 static const per_sequence_t CellMeasuredResults_sequence[] = {
   { &hf_rrc_cellIdentity    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity },
-  { &hf_rrc_dummy_51        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SFN_SFN_ObsTimeDifference },
+  { &hf_rrc_sFN_SFN_ObsTimeDifference, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SFN_SFN_ObsTimeDifference },
   { &hf_rrc_cellSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellSynchronisationInfo },
   { &hf_rrc_modeSpecificInfo_108, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_108 },
   { NULL, 0, 0, NULL }
@@ -103225,9 +103205,9 @@ dissect_rrc_ObservedTimeDifferenceToGSM(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 static const per_sequence_t GSM_MeasuredResults_sequence[] = {
   { &hf_rrc_gsm_CarrierRSSI , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_GSM_CarrierRSSI },
-  { &hf_rrc_dummy_54        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_46_173 },
+  { &hf_rrc_dummy_int_46_173SIBb_TypeAnd, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_46_173 },
   { &hf_rrc_bsicReported    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BSICReported },
-  { &hf_rrc_dummy2_12       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ObservedTimeDifferenceToGSM },
+  { &hf_rrc_observedTimeDifferenceToGSM, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ObservedTimeDifferenceToGSM },
   { NULL, 0, 0, NULL }
 };
 
@@ -105138,7 +105118,7 @@ dissect_rrc_MeasuredResultsList_LCR_r4_ext(tvbuff_t *tvb _U_, int offset _U_, as
 static const per_sequence_t MeasurementReport_v4b0ext_IEs_sequence[] = {
   { &hf_rrc_interFreqEventResults_LCR, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_InterFreqEventResults_LCR_r4_ext },
   { &hf_rrc_additionalMeasuredResults_LCR, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MeasuredResultsList_LCR_r4_ext },
-  { &hf_rrc_dummy_14        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PrimaryCPICH_Info },
+  { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PrimaryCPICH_Info },
   { NULL, 0, 0, NULL }
 };
 
@@ -105763,7 +105743,7 @@ dissect_rrc_INTEGER_0_167(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 static const per_sequence_t SatellitesListRelatedData_sequence[] = {
   { &hf_rrc_satId           , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_63 },
-  { &hf_rrc_iod_02          , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
+  { &hf_rrc_iod_int_0_1023  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_1023 },
   { NULL, 0, 0, NULL }
 };
 
@@ -108819,7 +108799,7 @@ static const per_sequence_t PhysicalChannelReconfigurationComplete_sequence[] = 
   { &hf_rrc_ul_IntegProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
   { &hf_rrc_ul_TimingAdvance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_TimingAdvance },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_26, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_24 },
   { NULL, 0, 0, NULL }
@@ -108962,7 +108942,7 @@ static const per_sequence_t RadioBearerReconfigurationComplete_sequence[] = {
   { &hf_rrc_ul_IntegProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
   { &hf_rrc_ul_TimingAdvance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_TimingAdvance },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_31, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_29 },
   { NULL, 0, 0, NULL }
@@ -109106,7 +109086,7 @@ static const per_sequence_t RadioBearerReleaseComplete_sequence[] = {
   { &hf_rrc_ul_IntegProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
   { &hf_rrc_ul_TimingAdvance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_TimingAdvance },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_34, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_32 },
   { NULL, 0, 0, NULL }
@@ -109251,7 +109231,7 @@ static const per_sequence_t RadioBearerSetupComplete_sequence[] = {
   { &hf_rrc_ul_TimingAdvance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_TimingAdvance },
   { &hf_rrc_start_Value     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_START_Value },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_37, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_35 },
   { NULL, 0, 0, NULL }
@@ -109997,8 +109977,8 @@ static const per_sequence_t DL_PhysChCapabilityFDD_sequence[] = {
   { &hf_rrc_maxNoDPCH_PDSCH_Codes, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_1_8 },
   { &hf_rrc_maxNoPhysChBitsReceived, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxNoPhysChBitsReceived },
   { &hf_rrc_supportForSF_512, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_05       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_simultaneousSCCPCH_DPCH_Reception, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
   { NULL, 0, 0, NULL }
 };
 
@@ -110037,7 +110017,7 @@ dissect_rrc_MaxNoDPDCH_BitsTransmitted(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static const per_sequence_t UL_PhysChCapabilityFDD_sequence[] = {
   { &hf_rrc_maxNoDPDCH_BitsTransmitted, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxNoDPDCH_BitsTransmitted },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -110794,7 +110774,7 @@ dissect_rrc_SupportOfDedicatedPilotsForChEstimation(tvbuff_t *tvb _U_, int offse
 
 
 static const per_sequence_t DL_PhysChCapabilityFDD_v380ext_sequence[] = {
-  { &hf_rrc_dummy_32        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
+  { &hf_rrc_supportOfDedicatedPilotsForChEstimation, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
   { NULL, 0, 0, NULL }
 };
 
@@ -111341,8 +111321,8 @@ dissect_rrc_HSDSCH_physical_layer_category(tvbuff_t *tvb _U_, int offset _U_, as
 
 static const per_sequence_t T_supported_01_sequence[] = {
   { &hf_rrc_hsdsch_physical_layer_category, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_HSDSCH_physical_layer_category },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_06       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -112368,7 +112348,7 @@ static const per_sequence_t TransportChannelReconfigurationComplete_sequence[] =
   { &hf_rrc_ul_IntegProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
   { &hf_rrc_ul_TimingAdvance, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_TimingAdvance },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_54, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_52 },
   { NULL, 0, 0, NULL }
@@ -113067,7 +113047,7 @@ static const per_sequence_t UTRANMobilityInformationConfirm_sequence[] = {
   { &hf_rrc_rrc_TransactionIdentifier, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_RRC_TransactionIdentifier },
   { &hf_rrc_ul_IntegProtActivationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_IntegrityProtActivationInfo },
   { &hf_rrc_count_C_ActivationTime, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
-  { &hf_rrc_dummy_15        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
+  { &hf_rrc_rB_ActivationTimeInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RB_ActivationTimeInfoList },
   { &hf_rrc_ul_CounterSynchronisationInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CounterSynchronisationInfo },
   { &hf_rrc_laterNonCriticalExtensions_67, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_laterNonCriticalExtensions_65 },
   { NULL, 0, 0, NULL }
@@ -114365,7 +114345,7 @@ dissect_rrc_LoggedANRReportInfoList_vb50ext(tvbuff_t *tvb _U_, int offset _U_, a
 
 static const per_sequence_t UEInformationResponse_vb50ext_IEs_sequence[] = {
   { &hf_rrc_loggedMeasReport_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_LoggedMeasReport_vb50ext },
-  { &hf_rrc_dummy_30        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport },
+  { &hf_rrc_connectionEstablishmentFailureReport, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport },
   { &hf_rrc_loggedANRReportInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_LoggedANRReportInfoList_vb50ext },
   { NULL, 0, 0, NULL }
 };
@@ -114527,7 +114507,7 @@ dissect_rrc_ConnectionEstablishmentFailureReport_r11(tvbuff_t *tvb _U_, int offs
 
 
 static const per_sequence_t UEInformationResponse_vbb0ext_IEs_sequence[] = {
-  { &hf_rrc_connectionEstablishmentFailureReport, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport_r11 },
+  { &hf_rrc_connectionEstablishmentFailureReport_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport_r11 },
   { NULL, 0, 0, NULL }
 };
 
@@ -114854,7 +114834,7 @@ dissect_rrc_ConnectionEstablishmentFailureReport_vc50ext(tvbuff_t *tvb _U_, int 
 
 static const per_sequence_t UEInformationResponse_vc50ext_IEs_sequence[] = {
   { &hf_rrc_loggedMeasReport_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_LoggedMeasReport_vc50ext },
-  { &hf_rrc_connectionEstablishmentFailureReport_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport_vc50ext },
+  { &hf_rrc_connectionEstablishmentFailureReport_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ConnectionEstablishmentFailureReport_vc50ext },
   { NULL, 0, 0, NULL }
 };
 
@@ -117126,7 +117106,7 @@ dissect_rrc_RRCConnectionSetup_r3_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 static const per_sequence_t RRCConnectionSetup_v4b0ext_IEs_sequence[] = {
   { &hf_rrc_capabilityUpdateRequirement_r4_ext, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CapabilityUpdateRequirement_r4_ext },
-  { &hf_rrc_dummy_03        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
+  { &hf_rrc_sSDT_UL         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SSDT_UL },
   { &hf_rrc_cell_id_PerRL_List, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity_PerRL_List },
   { NULL, 0, 0, NULL }
 };
@@ -117532,8 +117512,8 @@ dissect_rrc_T_specificationMode_25(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 static const per_sequence_t T_fdd_91_sequence[] = {
   { &hf_rrc_primaryCPICH_Info, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_PrimaryCPICH_Info },
-  { &hf_rrc_dummy1_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
-  { &hf_rrc_dummy2_07       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
+  { &hf_rrc_pDSCH_SHO_DCH_Info, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_SHO_DCH_Info },
+  { &hf_rrc_pDSCH_CodeMapping, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_PDSCH_CodeMapping },
   { NULL, 0, 0, NULL }
 };
 
@@ -117571,7 +117551,7 @@ dissect_rrc_T_modeSpecificInfo_56(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 static const per_sequence_t DL_InformationPerRL_r5bis_sequence[] = {
   { &hf_rrc_modeSpecificInfo_56, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_56 },
   { &hf_rrc_dl_DPCH_InfoPerRL_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_DPCH_InfoPerRL_r5 },
-  { &hf_rrc_dummy_46        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
+  { &hf_rrc_sCCPCH_InfoForFACH_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SCCPCH_InfoForFACH_r4 },
   { &hf_rrc_cell_id         , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CellIdentity },
   { NULL, 0, 0, NULL }
 };
@@ -118240,7 +118220,7 @@ static const per_sequence_t RRCConnectionSetup_r8_IEs_sequence[] = {
   { &hf_rrc_utran_DRX_CycleLengthCoeff, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UTRAN_DRX_CycleLengthCoefficient_r7 },
   { &hf_rrc_capabilityUpdateRequirement_04, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CapabilityUpdateRequirement_r8 },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_28, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_28 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -118472,7 +118452,7 @@ static const per_sequence_t RRCConnectionSetup_r9_IEs_sequence[] = {
   { &hf_rrc_utran_DRX_CycleLengthCoeff, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UTRAN_DRX_CycleLengthCoefficient_r7 },
   { &hf_rrc_capabilityUpdateRequirement_04, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CapabilityUpdateRequirement_r8 },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_29, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_29 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -118659,7 +118639,7 @@ static const per_sequence_t RRCConnectionSetup_r10_IEs_sequence[] = {
   { &hf_rrc_utran_DRX_CycleLengthCoeff, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_UTRAN_DRX_CycleLengthCoefficient_r7 },
   { &hf_rrc_capabilityUpdateRequirement_04, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CapabilityUpdateRequirement_r8 },
   { &hf_rrc_supportForChangeOfUE_Capability, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_30, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_30 },
   { &hf_rrc_frequencyInfo   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_FrequencyInfo },
   { &hf_rrc_multi_frequencyInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Multi_frequencyInfo_LCR_r7 },
@@ -126977,8 +126957,8 @@ dissect_rrc_U_RNTI_Short(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_
 
 
 static const per_sequence_t T_fdd_06_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
-  { &hf_rrc_dummy2_04       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -127449,7 +127429,7 @@ dissect_rrc_T_specificationMode(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *a
 
 static const per_sequence_t HandoverToUTRANCommand_r3_IEs_sequence[] = {
   { &hf_rrc_new_U_RNTI_01   , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_U_RNTI_Short },
-  { &hf_rrc_dummy_10        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
+  { &hf_rrc_activationTime  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_ActivationTime },
   { &hf_rrc_cipheringAlgorithm, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CipheringAlgorithm },
   { &hf_rrc_specificationMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode },
   { &hf_rrc_maxAllowedUL_TX_Power, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxAllowedUL_TX_Power },
@@ -127494,8 +127474,8 @@ dissect_rrc_T_r3_08(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_08_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
-  { &hf_rrc_dummy2_04       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -127892,8 +127872,8 @@ dissect_rrc_T_r4_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 
 
 static const per_sequence_t T_fdd_10_sequence[] = {
-  { &hf_rrc_dummy_07        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
-  { &hf_rrc_dummy2_04       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
+  { &hf_rrc_dL_PDSCH_Information, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_PDSCH_Information },
+  { &hf_rrc_cPCH_SetInfo    , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -128850,7 +128830,7 @@ dissect_rrc_DLUL_HSPA_Information_r8(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 static const per_sequence_t T_defaultConfig_05_sequence[] = {
   { &hf_rrc_defaultConfigMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigMode },
   { &hf_rrc_defaultConfigIdentity_03, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigIdentity_r6 },
-  { &hf_rrc_dummy_11        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r8 },
+  { &hf_rrc_dLUL_HSPA_Information_r8, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r8 },
   { NULL, 0, 0, NULL }
 };
 
@@ -129045,7 +129025,7 @@ static const per_sequence_t HandoverToUTRANCommand_r8_IEs_sequence[] = {
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
   { &hf_rrc_newPrimary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
   { &hf_rrc_newSecondary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_05, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_05 },
   { &hf_rrc_maxAllowedUL_TX_Power, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxAllowedUL_TX_Power },
   { NULL, 0, 0, NULL }
@@ -129207,7 +129187,7 @@ dissect_rrc_DLUL_HSPA_Information_r9(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 static const per_sequence_t T_defaultConfig_06_sequence[] = {
   { &hf_rrc_defaultConfigMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigMode },
   { &hf_rrc_defaultConfigIdentity_03, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigIdentity_r6 },
-  { &hf_rrc_dummy_12        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r9 },
+  { &hf_rrc_dLUL_HSPA_Information_r8_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r9 },
   { NULL, 0, 0, NULL }
 };
 
@@ -129402,7 +129382,7 @@ static const per_sequence_t HandoverToUTRANCommand_r9_IEs_sequence[] = {
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
   { &hf_rrc_newPrimary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
   { &hf_rrc_newSecondary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_06, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_06 },
   { &hf_rrc_maxAllowedUL_TX_Power, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxAllowedUL_TX_Power },
   { NULL, 0, 0, NULL }
@@ -129520,7 +129500,7 @@ dissect_rrc_DLUL_HSPA_Information_r10(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 static const per_sequence_t T_defaultConfig_07_sequence[] = {
   { &hf_rrc_defaultConfigMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigMode },
   { &hf_rrc_defaultConfigIdentity_03, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DefaultConfigIdentity_r6 },
-  { &hf_rrc_dummy_13        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r10 },
+  { &hf_rrc_dLUL_HSPA_Information_r8_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DLUL_HSPA_Information_r10 },
   { NULL, 0, 0, NULL }
 };
 
@@ -129715,7 +129695,7 @@ static const per_sequence_t HandoverToUTRANCommand_r10_IEs_sequence[] = {
   { &hf_rrc_new_H_RNTI      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_H_RNTI },
   { &hf_rrc_newPrimary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
   { &hf_rrc_newSecondary_E_RNTI, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_E_RNTI },
-  { &hf_rrc_dummy_08        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
+  { &hf_rrc_defaultConfigForCellFACH, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DefaultConfigForCellFACH },
   { &hf_rrc_specificationMode_07, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_specificationMode_07 },
   { &hf_rrc_maxAllowedUL_TX_Power, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxAllowedUL_TX_Power },
   { NULL, 0, 0, NULL }
@@ -130820,7 +130800,7 @@ static const value_string rrc_T_predefinedConfigStatusList_vals[] = {
 
 static const per_choice_t T_predefinedConfigStatusList_choice[] = {
   {   0, &hf_rrc_absent          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   1, &hf_rrc_present         , ASN1_NO_EXTENSIONS     , dissect_rrc_PredefinedConfigStatusList },
+  {   1, &hf_rrc_predefinedConfigStatusList_01, ASN1_NO_EXTENSIONS     , dissect_rrc_PredefinedConfigStatusList },
   { 0, NULL, 0, NULL }
 };
 
@@ -130859,7 +130839,7 @@ static const value_string rrc_T_uE_SecurityInformation_vals[] = {
 
 static const per_choice_t T_uE_SecurityInformation_choice[] = {
   {   0, &hf_rrc_absent          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   1, &hf_rrc_present_01      , ASN1_NO_EXTENSIONS     , dissect_rrc_UE_SecurityInformation },
+  {   1, &hf_rrc_uE_SecurityInformation_01, ASN1_NO_EXTENSIONS     , dissect_rrc_UE_SecurityInformation },
   { 0, NULL, 0, NULL }
 };
 
@@ -130898,7 +130878,7 @@ static const value_string rrc_T_ue_CapabilityContainer_vals[] = {
 
 static const per_choice_t T_ue_CapabilityContainer_choice[] = {
   {   0, &hf_rrc_absent          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   1, &hf_rrc_present_02      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present },
+  {   1, &hf_rrc_present         , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present },
   { 0, NULL, 0, NULL }
 };
 
@@ -134160,7 +134140,7 @@ static const value_string rrc_T_v390NonCriticalExtensions_vals[] = {
 
 static const per_choice_t T_v390NonCriticalExtensions_choice[] = {
   {   0, &hf_rrc_absent          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   1, &hf_rrc_present_03      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_01 },
+  {   1, &hf_rrc_present_01      , ASN1_NO_EXTENSIONS     , dissect_rrc_T_present_01 },
   { 0, NULL, 0, NULL }
 };
 
@@ -135381,7 +135361,7 @@ dissect_rrc_T_mib(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto
 
 
 static int
-dissect_rrc_T_sysInfoTypeSB1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoTypeSB1_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoTypeSB1_PDU);
 
@@ -135391,7 +135371,7 @@ dissect_rrc_T_sysInfoTypeSB1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 
 static int
-dissect_rrc_T_sysInfoTypeSB2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoTypeSB2_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoTypeSB2_PDU);
 
@@ -135401,7 +135381,7 @@ dissect_rrc_T_sysInfoTypeSB2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 
 static int
-dissect_rrc_T_sysInfoType1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType1_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoType1_PDU);
 
@@ -135411,7 +135391,7 @@ dissect_rrc_T_sysInfoType1(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
 static int
-dissect_rrc_T_sysInfoType3(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType3_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoType3_PDU);
 
@@ -135421,7 +135401,7 @@ dissect_rrc_T_sysInfoType3(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
 static int
-dissect_rrc_T_sysInfoType5(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType5_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoType5_PDU);
 
@@ -135441,7 +135421,7 @@ dissect_rrc_T_sysInfoType7(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _
 
 
 static int
-dissect_rrc_T_sysInfoType11(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType11_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoType11_PDU);
 
@@ -135451,7 +135431,7 @@ dissect_rrc_T_sysInfoType11(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 static int
-dissect_rrc_T_sysInfoType11bis(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType11bis_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_SysInfoType11bis_PDU);
 
@@ -135461,7 +135441,7 @@ dissect_rrc_T_sysInfoType11bis(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static int
-dissect_rrc_T_sysInfoType12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType12_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_rrc_SysInfoType12_PDU);
 
@@ -135471,7 +135451,7 @@ dissect_rrc_T_sysInfoType12(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 static int
-dissect_rrc_T_sysInfoType22(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_sysInfoType22_msg(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_octet_string_containing_pdu_new(tvb, offset, actx, tree, hf_index,
                                                                 NO_BOUND, NO_BOUND, false, dissect_SysInfoType22_PDU);
 
@@ -135480,7 +135460,7 @@ dissect_rrc_T_sysInfoType22(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 
 static const per_sequence_t System_Information_Container_vb50ext_IEs_sequence[] = {
-  { &hf_rrc_sysInfoType22   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType22 },
+  { &hf_rrc_sysInfoType22_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType22_msg },
   { NULL, 0, 0, NULL }
 };
 
@@ -135562,15 +135542,15 @@ dissect_rrc_T_vb50NonCriticalExtensions_21(tvbuff_t *tvb _U_, int offset _U_, as
 
 static const per_sequence_t System_Information_Container_sequence[] = {
   { &hf_rrc_mib             , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_mib },
-  { &hf_rrc_sysInfoTypeSB1  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoTypeSB1 },
-  { &hf_rrc_sysInfoTypeSB2  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoTypeSB2 },
-  { &hf_rrc_sysInfoType1    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType1 },
-  { &hf_rrc_sysInfoType3    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType3 },
-  { &hf_rrc_sysInfoType5    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType5 },
+  { &hf_rrc_sysInfoTypeSB1_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoTypeSB1_msg },
+  { &hf_rrc_sysInfoTypeSB2_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoTypeSB2_msg },
+  { &hf_rrc_sysInfoType1_msg, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType1_msg },
+  { &hf_rrc_sysInfoType3_msg, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType3_msg },
+  { &hf_rrc_sysInfoType5_msg, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType5_msg },
   { &hf_rrc_sysInfoType7    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_sysInfoType7 },
-  { &hf_rrc_sysInfoType11   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType11 },
-  { &hf_rrc_sysInfoType11bis, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType11bis },
-  { &hf_rrc_sysInfoType12   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType12 },
+  { &hf_rrc_sysInfoType11_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType11_msg },
+  { &hf_rrc_sysInfoType11bis_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType11bis_msg },
+  { &hf_rrc_sysInfoType12_msg, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_sysInfoType12_msg },
   { &hf_rrc_vb50NonCriticalExtensions_21, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_vb50NonCriticalExtensions_21 },
   { NULL, 0, 0, NULL }
 };
@@ -142479,7 +142459,7 @@ dissect_rrc_T_channelisationCodeIndices(tvbuff_t *tvb _U_, int offset _U_, asn1_
 }
 
 
-static const value_string rrc_T_subchannels_vals[] = {
+static const value_string rrc_T_subchannels_size2_vals[] = {
   {   0, "subch0" },
   {   1, "subch1" },
   { 0, NULL }
@@ -142487,7 +142467,7 @@ static const value_string rrc_T_subchannels_vals[] = {
 
 
 static int
-dissect_rrc_T_subchannels(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      2, NULL, false, 0, NULL);
 
@@ -142496,7 +142476,7 @@ dissect_rrc_T_subchannels(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U
 
 
 static const per_sequence_t T_size2_sequence[] = {
-  { &hf_rrc_subchannels     , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels },
+  { &hf_rrc_subchannels_size2, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size2 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142509,25 +142489,25 @@ dissect_rrc_T_size2(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 }
 
 
-static int * const T_subchannels_01_bits[] = {
-  &hf_rrc_T_subchannels_01_subCh3,
-  &hf_rrc_T_subchannels_01_subCh2,
-  &hf_rrc_T_subchannels_01_subCh1,
-  &hf_rrc_T_subchannels_01_subCh0,
+static int * const T_subchannels_size4_bits[] = {
+  &hf_rrc_T_subchannels_size4_subCh3,
+  &hf_rrc_T_subchannels_size4_subCh2,
+  &hf_rrc_T_subchannels_size4_subCh1,
+  &hf_rrc_T_subchannels_size4_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, false, T_subchannels_01_bits, 4, NULL, NULL);
+                                     4, 4, false, T_subchannels_size4_bits, 4, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size4_sequence[] = {
-  { &hf_rrc_subchannels_01  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_01 },
+  { &hf_rrc_subchannels_size4, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size4 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142540,29 +142520,29 @@ dissect_rrc_T_size4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, pro
 }
 
 
-static int * const T_subchannels_02_bits[] = {
-  &hf_rrc_T_subchannels_02_subCh7,
-  &hf_rrc_T_subchannels_02_subCh6,
-  &hf_rrc_T_subchannels_02_subCh5,
-  &hf_rrc_T_subchannels_02_subCh4,
-  &hf_rrc_T_subchannels_02_subCh3,
-  &hf_rrc_T_subchannels_02_subCh2,
-  &hf_rrc_T_subchannels_02_subCh1,
-  &hf_rrc_T_subchannels_02_subCh0,
+static int * const T_subchannels_size8_bits[] = {
+  &hf_rrc_T_subchannels_size8_subCh7,
+  &hf_rrc_T_subchannels_size8_subCh6,
+  &hf_rrc_T_subchannels_size8_subCh5,
+  &hf_rrc_T_subchannels_size8_subCh4,
+  &hf_rrc_T_subchannels_size8_subCh3,
+  &hf_rrc_T_subchannels_size8_subCh2,
+  &hf_rrc_T_subchannels_size8_subCh1,
+  &hf_rrc_T_subchannels_size8_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_02(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size8(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     8, 8, false, T_subchannels_02_bits, 8, NULL, NULL);
+                                     8, 8, false, T_subchannels_size8_bits, 8, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size8_sequence[] = {
-  { &hf_rrc_subchannels_02  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_02 },
+  { &hf_rrc_subchannels_size8, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size8 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142645,7 +142625,7 @@ dissect_rrc_T_channelisationCodeIndices_01(tvbuff_t *tvb _U_, int offset _U_, as
 }
 
 
-static const value_string rrc_T_subchannels_03_vals[] = {
+static const value_string rrc_T_subchannels_size2_01_vals[] = {
   {   0, "subch0" },
   {   1, "subch1" },
   { 0, NULL }
@@ -142653,7 +142633,7 @@ static const value_string rrc_T_subchannels_03_vals[] = {
 
 
 static int
-dissect_rrc_T_subchannels_03(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size2_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      2, NULL, false, 0, NULL);
 
@@ -142662,7 +142642,7 @@ dissect_rrc_T_subchannels_03(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx
 
 
 static const per_sequence_t T_size2_01_sequence[] = {
-  { &hf_rrc_subchannels_03  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_03 },
+  { &hf_rrc_subchannels_size2_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size2_01 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142675,25 +142655,25 @@ dissect_rrc_T_size2_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 }
 
 
-static int * const T_subchannels_04_bits[] = {
-  &hf_rrc_T_subchannels_04_subCh3,
-  &hf_rrc_T_subchannels_04_subCh2,
-  &hf_rrc_T_subchannels_04_subCh1,
-  &hf_rrc_T_subchannels_04_subCh0,
+static int * const T_subchannels_size4_01_bits[] = {
+  &hf_rrc_T_subchannels_size4_01_subCh3,
+  &hf_rrc_T_subchannels_size4_01_subCh2,
+  &hf_rrc_T_subchannels_size4_01_subCh1,
+  &hf_rrc_T_subchannels_size4_01_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_04(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size4_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     4, 4, false, T_subchannels_04_bits, 4, NULL, NULL);
+                                     4, 4, false, T_subchannels_size4_01_bits, 4, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size4_01_sequence[] = {
-  { &hf_rrc_subchannels_04  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_04 },
+  { &hf_rrc_subchannels_size4_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size4_01 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142706,29 +142686,29 @@ dissect_rrc_T_size4_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 }
 
 
-static int * const T_subchannels_05_bits[] = {
-  &hf_rrc_T_subchannels_05_subCh7,
-  &hf_rrc_T_subchannels_05_subCh6,
-  &hf_rrc_T_subchannels_05_subCh5,
-  &hf_rrc_T_subchannels_05_subCh4,
-  &hf_rrc_T_subchannels_05_subCh3,
-  &hf_rrc_T_subchannels_05_subCh2,
-  &hf_rrc_T_subchannels_05_subCh1,
-  &hf_rrc_T_subchannels_05_subCh0,
+static int * const T_subchannels_size8_01_bits[] = {
+  &hf_rrc_T_subchannels_size8_01_subCh7,
+  &hf_rrc_T_subchannels_size8_01_subCh6,
+  &hf_rrc_T_subchannels_size8_01_subCh5,
+  &hf_rrc_T_subchannels_size8_01_subCh4,
+  &hf_rrc_T_subchannels_size8_01_subCh3,
+  &hf_rrc_T_subchannels_size8_01_subCh2,
+  &hf_rrc_T_subchannels_size8_01_subCh1,
+  &hf_rrc_T_subchannels_size8_01_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_05(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size8_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     8, 8, false, T_subchannels_05_bits, 8, NULL, NULL);
+                                     8, 8, false, T_subchannels_size8_01_bits, 8, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size8_01_sequence[] = {
-  { &hf_rrc_subchannels_05  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_05 },
+  { &hf_rrc_subchannels_size8_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size8_01 },
   { NULL, 0, 0, NULL }
 };
 
@@ -142741,37 +142721,37 @@ dissect_rrc_T_size8_01(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, 
 }
 
 
-static int * const T_subchannels_06_bits[] = {
-  &hf_rrc_T_subchannels_06_subCh15,
-  &hf_rrc_T_subchannels_06_subCh14,
-  &hf_rrc_T_subchannels_06_subCh13,
-  &hf_rrc_T_subchannels_06_subCh12,
-  &hf_rrc_T_subchannels_06_subCh11,
-  &hf_rrc_T_subchannels_06_subCh10,
-  &hf_rrc_T_subchannels_06_subCh9,
-  &hf_rrc_T_subchannels_06_subCh8,
-  &hf_rrc_T_subchannels_06_subCh7,
-  &hf_rrc_T_subchannels_06_subCh6,
-  &hf_rrc_T_subchannels_06_subCh5,
-  &hf_rrc_T_subchannels_06_subCh4,
-  &hf_rrc_T_subchannels_06_subCh3,
-  &hf_rrc_T_subchannels_06_subCh2,
-  &hf_rrc_T_subchannels_06_subCh1,
-  &hf_rrc_T_subchannels_06_subCh0,
+static int * const T_subchannels_size16_bits[] = {
+  &hf_rrc_T_subchannels_size16_subCh15,
+  &hf_rrc_T_subchannels_size16_subCh14,
+  &hf_rrc_T_subchannels_size16_subCh13,
+  &hf_rrc_T_subchannels_size16_subCh12,
+  &hf_rrc_T_subchannels_size16_subCh11,
+  &hf_rrc_T_subchannels_size16_subCh10,
+  &hf_rrc_T_subchannels_size16_subCh9,
+  &hf_rrc_T_subchannels_size16_subCh8,
+  &hf_rrc_T_subchannels_size16_subCh7,
+  &hf_rrc_T_subchannels_size16_subCh6,
+  &hf_rrc_T_subchannels_size16_subCh5,
+  &hf_rrc_T_subchannels_size16_subCh4,
+  &hf_rrc_T_subchannels_size16_subCh3,
+  &hf_rrc_T_subchannels_size16_subCh2,
+  &hf_rrc_T_subchannels_size16_subCh1,
+  &hf_rrc_T_subchannels_size16_subCh0,
   NULL
 };
 
 static int
-dissect_rrc_T_subchannels_06(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_subchannels_size16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_bit_string(tvb, offset, actx, tree, hf_index,
-                                     16, 16, false, T_subchannels_06_bits, 16, NULL, NULL);
+                                     16, 16, false, T_subchannels_size16_bits, 16, NULL, NULL);
 
   return offset;
 }
 
 
 static const per_sequence_t T_size16_sequence[] = {
-  { &hf_rrc_subchannels_06  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_06 },
+  { &hf_rrc_subchannels_size16, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_subchannels_size16 },
   { NULL, 0, 0, NULL }
 };
 
@@ -143418,7 +143398,7 @@ static const per_sequence_t E_PUCH_Info_TDD128_sequence[] = {
   { &hf_rrc_e_TFCS_Info     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_E_TFCS_Info },
   { &hf_rrc_snpl_ReportType_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_snpl_ReportType_01 },
   { &hf_rrc_prxdes_base     , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_M112_M50 },
-  { &hf_rrc_beaconPLEst_01  , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
+  { &hf_rrc_beaconPLEst_bool, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_BOOLEAN },
   { &hf_rrc_tpc_StepSize    , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TPC_StepSizeTDD },
   { &hf_rrc_pebase_PowerControlGAP_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_1_255 },
   { &hf_rrc_ul_SynchronisationParameters, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_SynchronisationParameters_r4 },
@@ -143427,7 +143407,7 @@ static const per_sequence_t E_PUCH_Info_TDD128_sequence[] = {
   { &hf_rrc_maximum_Allowed_Code_Rate, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_63 },
   { &hf_rrc_maximumNumOfRetransSchedInfo, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_0_15 },
   { &hf_rrc_retransTimerForSchedInfo_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_retransTimerForSchedInfo_01 },
-  { &hf_rrc_dummy_47        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_0_6 },
+  { &hf_rrc_dummy_int_0_6   , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_INTEGER_0_6 },
   { NULL, 0, 0, NULL }
 };
 
@@ -143562,7 +143542,7 @@ static const value_string rrc_T_modeSpecificInfo_29_vals[] = {
 };
 
 static const per_choice_t T_modeSpecificInfo_29_choice[] = {
-  {   0, &hf_rrc_dummy_40        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy_14 },
+  {   0, &hf_rrc_dummy_17        , ASN1_NO_EXTENSIONS     , dissect_rrc_T_dummy_14 },
   {   1, &hf_rrc_tdd_22          , ASN1_NO_EXTENSIONS     , dissect_rrc_T_tdd_21 },
   { 0, NULL, 0, NULL }
 };
@@ -146402,7 +146382,7 @@ dissect_rrc_MBMS_FACHCarryingMTCH_List(tvbuff_t *tvb _U_, int offset _U_, asn1_c
 
 static const per_sequence_t T_fachCarryingMSCH_sequence[] = {
   { &hf_rrc_msch_transportFormatSet, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TransportFormatSet },
-  { &hf_rrc_dummy_48        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MBMS_MSCH_ConfigurationInfo_r6 },
+  { &hf_rrc_mBMS_MSCH_ConfigurationInfo_r6, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MBMS_MSCH_ConfigurationInfo_r6 },
   { NULL, 0, 0, NULL }
 };
 
@@ -148801,7 +148781,7 @@ static const per_sequence_t T_gsm_16_sequence[] = {
   { &hf_rrc_bsic            , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BSIC },
   { &hf_rrc_frequency_band  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_Frequency_Band },
   { &hf_rrc_bcch_ARFCN      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BCCH_ARFCN },
-  { &hf_rrc_dummy_26        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_NULL },
+  { &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_NULL },
   { NULL, 0, 0, NULL }
 };
 
@@ -149857,7 +149837,7 @@ static const per_sequence_t TrafficVolumeMeasSysInfo_sequence[] = {
   { &hf_rrc_trafficVolumeMeasurementObjectList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeMeasurementObjectList },
   { &hf_rrc_trafficVolumeMeasQuantity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeMeasQuantity },
   { &hf_rrc_trafficVolumeReportingQuantity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeReportingQuantity },
-  { &hf_rrc_dummy_57        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeReportingCriteria },
+  { &hf_rrc_measurementValidity_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeReportingCriteria },
   { &hf_rrc_measurementValidity, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MeasurementValidity },
   { &hf_rrc_measurementReportingMode, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MeasurementReportingMode },
   { &hf_rrc_reportCriteriaSysInf, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_TrafficVolumeReportCriteriaSysInfo },
@@ -149891,7 +149871,7 @@ dissect_rrc_UE_InternalMeasurementSysInfo(tvbuff_t *tvb _U_, int offset _U_, asn
 static const per_sequence_t MeasurementControlSysInfo_sequence[] = {
   { &hf_rrc_use_of_HCS      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_use_of_HCS },
   { &hf_rrc_trafficVolumeMeasSysInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TrafficVolumeMeasSysInfo },
-  { &hf_rrc_dummy_55        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_InternalMeasurementSysInfo },
+  { &hf_rrc_uE_InternalMeasurementSysInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UE_InternalMeasurementSysInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -152320,18 +152300,18 @@ static const value_string rrc_SIBSb_TypeAndTag_vals[] = {
 static value_string_ext rrc_SIBSb_TypeAndTag_vals_ext = VALUE_STRING_EXT_INIT(rrc_SIBSb_TypeAndTag_vals);
 
 static const per_choice_t SIBSb_TypeAndTag_choice[] = {
-  {   0, &hf_rrc_sysInfoType1_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
+  {   0, &hf_rrc_sysInfoType1    , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
   {   1, &hf_rrc_sysInfoType2    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   2, &hf_rrc_sysInfoType3_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   2, &hf_rrc_sysInfoType3    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   3, &hf_rrc_sysInfoType4    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   4, &hf_rrc_sysInfoType5_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   4, &hf_rrc_sysInfoType5    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   5, &hf_rrc_sysInfoType6    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   6, &hf_rrc_sysInfoType7_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   7, &hf_rrc_dummy_59        , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   8, &hf_rrc_dummy2_14       , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   9, &hf_rrc_dummy3_03       , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {  10, &hf_rrc_sysInfoType11_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {  11, &hf_rrc_sysInfoType12_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   7, &hf_rrc_cellValueTag    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   8, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {   9, &hf_rrc_dummy_null      , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
+  {  10, &hf_rrc_sysInfoType11   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {  11, &hf_rrc_sysInfoType12   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  12, &hf_rrc_sysInfoType13   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  13, &hf_rrc_sysInfoType13_1 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  14, &hf_rrc_sysInfoType13_2 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
@@ -152341,8 +152321,8 @@ static const per_choice_t SIBSb_TypeAndTag_choice[] = {
   {  18, &hf_rrc_sysInfoType15   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  19, &hf_rrc_sysInfoType16   , ASN1_NO_EXTENSIONS     , dissect_rrc_PredefinedConfigIdentityAndValueTag },
   {  20, &hf_rrc_sysInfoType17   , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {  21, &hf_rrc_sysInfoTypeSB1_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {  22, &hf_rrc_sysInfoTypeSB2_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {  21, &hf_rrc_sysInfoTypeSB1  , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {  22, &hf_rrc_sysInfoTypeSB2  , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  23, &hf_rrc_sysInfoType15_1 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  24, &hf_rrc_sysInfoType15_2 , ASN1_NO_EXTENSIONS     , dissect_rrc_SIBOccurrenceIdentityAndValueTag },
   {  25, &hf_rrc_sysInfoType15_3 , ASN1_NO_EXTENSIONS     , dissect_rrc_SIBOccurrenceIdentityAndValueTag },
@@ -152466,11 +152446,11 @@ static const value_string rrc_SIBSb_TypeAndTagExtValueTag_vals[] = {
 };
 
 static const per_choice_t SIBSb_TypeAndTagExtValueTag_choice[] = {
-  {   0, &hf_rrc_sysInfoType3_03 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
-  {   1, &hf_rrc_sysInfoType5_03 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
+  {   0, &hf_rrc_sysInfoType3_02 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
+  {   1, &hf_rrc_sysInfoType5_02 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
   {   2, &hf_rrc_sysInfoType5bis_02, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
   {   3, &hf_rrc_sysInfoType21_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
-  {   4, &hf_rrc_sysInfoType22_02, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
+  {   4, &hf_rrc_sysInfoType22_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTagExt },
   {   5, &hf_rrc_spare3          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   {   6, &hf_rrc_spare2          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   {   7, &hf_rrc_spare1          , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
@@ -152742,17 +152722,17 @@ static const value_string rrc_SIB_TypeAndTag2_vals[] = {
 static value_string_ext rrc_SIB_TypeAndTag2_vals_ext = VALUE_STRING_EXT_INIT(rrc_SIB_TypeAndTag2_vals);
 
 static const per_choice_t SIB_TypeAndTag2_choice[] = {
-  {   0, &hf_rrc_sysInfoType1_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
+  {   0, &hf_rrc_sysInfoType1    , ASN1_NO_EXTENSIONS     , dissect_rrc_PLMN_ValueTag },
   {   1, &hf_rrc_sysInfoType2    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   2, &hf_rrc_sysInfoType3_02 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
+  {   2, &hf_rrc_sysInfoType3_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
   {   3, &hf_rrc_sysInfoType4    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   4, &hf_rrc_sysInfoType5_02 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
+  {   4, &hf_rrc_sysInfoType5_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
   {   5, &hf_rrc_sysInfoType5bis_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
   {   6, &hf_rrc_sysInfoType6    , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {   7, &hf_rrc_sysInfoType7_01 , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
-  {   8, &hf_rrc_sysInfoType11_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {   9, &hf_rrc_sysInfoType11bis_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
-  {  10, &hf_rrc_sysInfoType12_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   8, &hf_rrc_sysInfoType11   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {   9, &hf_rrc_sysInfoType11bis, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
+  {  10, &hf_rrc_sysInfoType12   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  11, &hf_rrc_sysInfoType13   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  12, &hf_rrc_sysInfoType13_1 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  13, &hf_rrc_sysInfoType13_2 , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
@@ -152780,7 +152760,7 @@ static const per_choice_t SIB_TypeAndTag2_choice[] = {
   {  35, &hf_rrc_sysInfoType19   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  36, &hf_rrc_sysInfoType20   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  37, &hf_rrc_sysInfoType21   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
-  {  38, &hf_rrc_sysInfoType22_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
+  {  38, &hf_rrc_sysInfoType22   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
   {  39, &hf_rrc_sysInfoType23   , ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag },
   {  40, &hf_rrc_sysInfoType24   , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   {  41, &hf_rrc_sysInfoType11ter_01, ASN1_NO_EXTENSIONS     , dissect_rrc_CellValueTag3 },
@@ -153926,14 +153906,14 @@ dissect_rrc_SysInfoType5_v770ext_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
 }
 
 
-static const per_sequence_t T_dummy_15_sequence[] = {
+static const per_sequence_t T_dummy_seq_sequence[] = {
   { NULL, 0, 0, NULL }
 };
 
 static int
-dissect_rrc_T_dummy_15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_dummy_seq(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_sequence(tvb, offset, actx, tree, hf_index,
-                                   ett_rrc_T_dummy_15, T_dummy_15_sequence);
+                                   ett_rrc_T_dummy_seq, T_dummy_seq_sequence);
 
   return offset;
 }
@@ -154006,7 +153986,7 @@ dissect_rrc_T_modeSpecificInfo_166(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 
 static const per_sequence_t SysInfoType5_v860ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_60        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_15 },
+  { &hf_rrc_dummy_seq       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_seq },
   { &hf_rrc_modeSpecificInfo_166, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_modeSpecificInfo_166 },
   { NULL, 0, 0, NULL }
 };
@@ -154433,7 +154413,7 @@ dissect_rrc_SysInfoType5bis(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx 
 
 static const per_sequence_t T_fdd_206_sequence[] = {
   { &hf_rrc_aich_PowerOffset, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_AICH_PowerOffset },
-  { &hf_rrc_dummy_61        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CSICH_PowerOffset },
+  { &hf_rrc_cSICH_PowerOffset, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CSICH_PowerOffset },
   { NULL, 0, 0, NULL }
 };
 
@@ -154908,9 +154888,9 @@ dissect_rrc_T_nonCriticalExtensions_234(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t SysInfoType8_sequence[] = {
-  { &hf_rrc_dummy1_07       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_Parameters },
-  { &hf_rrc_dummy2_15       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_SetInfoList },
-  { &hf_rrc_dummy3_04       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CSICH_PowerOffset },
+  { &hf_rrc_cPCH_Parameters , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_Parameters },
+  { &hf_rrc_cPCH_SetInfoList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_SetInfoList },
+  { &hf_rrc_cSICH_PowerOffset, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CSICH_PowerOffset },
   { &hf_rrc_nonCriticalExtensions_234, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonCriticalExtensions_234 },
   { NULL, 0, 0, NULL }
 };
@@ -154940,7 +154920,7 @@ dissect_rrc_T_nonCriticalExtensions_235(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t SysInfoType9_sequence[] = {
-  { &hf_rrc_dummy_62        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_PersistenceLevelsList },
+  { &hf_rrc_cPCH_PersistenceLevelsList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_CPCH_PersistenceLevelsList },
   { &hf_rrc_nonCriticalExtensions_235, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonCriticalExtensions_235 },
   { NULL, 0, 0, NULL }
 };
@@ -154970,7 +154950,7 @@ dissect_rrc_T_nonCriticalExtensions_236(tvbuff_t *tvb _U_, int offset _U_, asn1_
 
 
 static const per_sequence_t SysInfoType10_sequence[] = {
-  { &hf_rrc_dummy_63        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DRAC_SysInfoList },
+  { &hf_rrc_dRAC_SysInfoList, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_DRAC_SysInfoList },
   { &hf_rrc_nonCriticalExtensions_236, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_nonCriticalExtensions_236 },
   { NULL, 0, 0, NULL }
 };
@@ -155021,7 +155001,7 @@ dissect_rrc_SysInfoType11_v590ext_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 static const per_sequence_t SysInfoType11_v690ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_64        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Dummy_InterFreqRACHReportingInfo },
+  { &hf_rrc_dummy_InterFreqRACHReportingInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Dummy_InterFreqRACHReportingInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -155582,7 +155562,7 @@ dissect_rrc_SysInfoType12_v590ext_IEs(tvbuff_t *tvb _U_, int offset _U_, asn1_ct
 
 
 static const per_sequence_t SysInfoType12_v690ext_IEs_sequence[] = {
-  { &hf_rrc_dummy_64        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Dummy_InterFreqRACHReportingInfo },
+  { &hf_rrc_dummy_InterFreqRACHReportingInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_Dummy_InterFreqRACHReportingInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -158385,7 +158365,7 @@ dissect_rrc_T_interRATHandoverInfo(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
 
 static const per_sequence_t InterRATHandoverInfoWithInterRATCapabilities_r3_IEs_sequence[] = {
   { &hf_rrc_ue_RATSpecificCapability, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_InterRAT_UE_RadioAccessCapabilityList },
-  { &hf_rrc_interRATHandoverInfo_01, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_interRATHandoverInfo },
+  { &hf_rrc_interRATHandoverInfo, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_interRATHandoverInfo },
   { NULL, 0, 0, NULL }
 };
 
@@ -158849,8 +158829,8 @@ dissect_rrc_OngoingMeasRepList(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *ac
 
 
 static const per_sequence_t T_fdd_212_sequence[] = {
-  { &hf_rrc_dummy_06        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -159920,9 +159900,9 @@ static const per_sequence_t DL_PhysChCapabilityFDD_r4_sequence[] = {
   { &hf_rrc_maxNoDPCH_PDSCH_Codes, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_1_8 },
   { &hf_rrc_maxNoPhysChBitsReceived, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxNoPhysChBitsReceived },
   { &hf_rrc_supportForSF_512, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_05       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
-  { &hf_rrc_dummy3_05       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_simultaneousSCCPCH_DPCH_Reception, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
+  { &hf_rrc_dummy3          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
   { NULL, 0, 0, NULL }
 };
 
@@ -160159,8 +160139,8 @@ dissect_rrc_OngoingMeasRepList_r4(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 static const per_sequence_t T_fdd_213_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -160173,22 +160153,22 @@ dissect_rrc_T_fdd_213(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 }
 
 
-static const value_string rrc_T_dummy_17_vals[] = {
+static const value_string rrc_T_dummy_15_vals[] = {
   {   0, "fdd" },
   {   1, "tdd" },
   { 0, NULL }
 };
 
-static const per_choice_t T_dummy_17_choice[] = {
+static const per_choice_t T_dummy_15_choice[] = {
   {   0, &hf_rrc_fdd_219         , ASN1_NO_EXTENSIONS     , dissect_rrc_T_fdd_213 },
   {   1, &hf_rrc_tdd             , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   { 0, NULL, 0, NULL }
 };
 
 static int
-dissect_rrc_T_dummy_17(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_dummy_15(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
-                                 ett_rrc_T_dummy_17, T_dummy_17_choice,
+                                 ett_rrc_T_dummy_15, T_dummy_15_choice,
                                  NULL);
 
   return offset;
@@ -160224,7 +160204,7 @@ static const per_sequence_t SRNC_RelocationInfo_r4_IEs_sequence[] = {
   { &hf_rrc_rab_InformationList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetupList_r4 },
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_TransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_66        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_17 },
+  { &hf_rrc_dummy_18        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_15 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_TransChInfoList_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r4 },
   { &hf_rrc_measurementReport, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_MeasurementReport },
@@ -160604,8 +160584,8 @@ dissect_rrc_RLC_Capability_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *act
 
 static const per_sequence_t T_supported_07_sequence[] = {
   { &hf_rrc_hsdsch_physical_layer_category, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_HSDSCH_physical_layer_category },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_06       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
   { NULL, 0, 0, NULL }
 };
 
@@ -160644,9 +160624,9 @@ static const per_sequence_t DL_PhysChCapabilityFDD_r5_sequence[] = {
   { &hf_rrc_maxNoDPCH_PDSCH_Codes, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_INTEGER_1_8 },
   { &hf_rrc_maxNoPhysChBitsReceived, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_MaxNoPhysChBitsReceived },
   { &hf_rrc_supportForSF_512, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy_31        , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
-  { &hf_rrc_dummy2_05       , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
-  { &hf_rrc_dummy3_05       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
+  { &hf_rrc_dummy_bool      , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_BOOLEAN },
+  { &hf_rrc_simultaneousSCCPCH_DPCH_Reception, ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_SimultaneousSCCPCH_DPCH_Reception },
+  { &hf_rrc_supportOfDedicatedPilotsForChEstimation, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_SupportOfDedicatedPilotsForChEstimation },
   { &hf_rrc_fdd_hspdsch_01  , ASN1_NO_EXTENSIONS     , ASN1_NOT_OPTIONAL, dissect_rrc_T_fdd_hspdsch_01 },
   { NULL, 0, 0, NULL }
 };
@@ -160916,8 +160896,8 @@ dissect_rrc_OngoingMeasRepList_r5(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t 
 
 
 static const per_sequence_t T_fdd_214_sequence[] = {
-  { &hf_rrc_dummy1          , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
-  { &hf_rrc_dummy2_02       , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
+  { &hf_rrc_cPCH_SetID      , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_CPCH_SetID },
+  { &hf_rrc_dRAC_StaticInformationList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DRAC_StaticInformationList },
   { NULL, 0, 0, NULL }
 };
 
@@ -160930,22 +160910,22 @@ dissect_rrc_T_fdd_214(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, p
 }
 
 
-static const value_string rrc_T_dummy_18_vals[] = {
+static const value_string rrc_T_dummy_16_vals[] = {
   {   0, "fdd" },
   {   1, "tdd" },
   { 0, NULL }
 };
 
-static const per_choice_t T_dummy_18_choice[] = {
+static const per_choice_t T_dummy_16_choice[] = {
   {   0, &hf_rrc_fdd_220         , ASN1_NO_EXTENSIONS     , dissect_rrc_T_fdd_214 },
   {   1, &hf_rrc_tdd             , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
   { 0, NULL, 0, NULL }
 };
 
 static int
-dissect_rrc_T_dummy_18(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
+dissect_rrc_T_dummy_16(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t *actx _U_, proto_tree *tree _U_, int hf_index _U_) {
   offset = dissect_per_choice(tvb, offset, actx, tree, hf_index,
-                                 ett_rrc_T_dummy_18, T_dummy_18_choice,
+                                 ett_rrc_T_dummy_16, T_dummy_16_choice,
                                  NULL);
 
   return offset;
@@ -160981,7 +160961,7 @@ static const per_sequence_t SRNC_RelocationInfo_r5_IEs_sequence[] = {
   { &hf_rrc_rab_InformationList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_RAB_InformationSetupList_r5 },
   { &hf_rrc_ul_CommonTransChInfo_02, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_CommonTransChInfo_r4 },
   { &hf_rrc_ul_TransChInfoList_01, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_UL_AddReconfTransChInfoList },
-  { &hf_rrc_dummy_67        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_18 },
+  { &hf_rrc_dummy_19        , ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_T_dummy_16 },
   { &hf_rrc_dl_CommonTransChInfo, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_CommonTransChInfo_r4 },
   { &hf_rrc_dl_TransChInfoList_03, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_DL_AddReconfTransChInfoList_r5 },
   { &hf_rrc_tpc_CombinationInfoList, ASN1_NO_EXTENSIONS     , ASN1_OPTIONAL    , dissect_rrc_TPC_CombinationInfoList },
@@ -164151,7 +164131,7 @@ static const value_string rrc_ToTargetRNC_Container_vals[] = {
 };
 
 static const per_choice_t ToTargetRNC_Container_choice[] = {
-  {   0, &hf_rrc_interRATHandoverInfo, ASN1_NO_EXTENSIONS     , dissect_rrc_InterRATHandoverInfoWithInterRATCapabilities_r3 },
+  {   0, &hf_rrc_interRATHandoverInfoWithInterRATCapabilities_r3, ASN1_NO_EXTENSIONS     , dissect_rrc_InterRATHandoverInfoWithInterRATCapabilities_r3 },
   {   1, &hf_rrc_srncRelocation  , ASN1_NO_EXTENSIONS     , dissect_rrc_SRNC_RelocationInfo_r3 },
   {   2, &hf_rrc_rfc3095_ContextInfo, ASN1_NO_EXTENSIONS     , dissect_rrc_RFC3095_ContextInfo_r5 },
   {   3, &hf_rrc_extension       , ASN1_NO_EXTENSIONS     , dissect_rrc_NULL },
@@ -166318,12 +166298,12 @@ void proto_register_rrc(void) {
       { "criticalExtensions", "rrc.criticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_criticalExtensions_08", HFILL }},
-    { &hf_rrc_dummy_02,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_integrityProtectionModeInfo,
+      { "dummy", "rrc.integrityProtectionModeInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "IntegrityProtectionModeInfo", HFILL }},
-    { &hf_rrc_dummy2,
-      { "dummy2", "rrc.dummy2_element",
+    { &hf_rrc_cipheringModeInfo,
+      { "dummy2", "rrc.cipheringModeInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CipheringModeInfo", HFILL }},
     { &hf_rrc_activationTime,
@@ -166338,8 +166318,8 @@ void proto_register_rrc(void) {
       { "cn-InformationInfo", "rrc.cn_InformationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy3,
-      { "dummy3", "rrc.dummy3_element",
+    { &hf_rrc_dL_CounterSynchronisationInfo,
+      { "dummy3", "rrc.dL_CounterSynchronisationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DL_CounterSynchronisationInfo", HFILL }},
     { &hf_rrc_maxAllowedUL_TX_Power,
@@ -166358,12 +166338,12 @@ void proto_register_rrc(void) {
       { "tx-DiversityMode", "rrc.tx_DiversityMode",
         FT_UINT32, BASE_DEC, VALS(rrc_TX_DiversityMode_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy4,
-      { "dummy4", "rrc.dummy4_element",
+    { &hf_rrc_sSDT_Information,
+      { "dummy4", "rrc.sSDT_Information_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SSDT_Information", HFILL }},
-    { &hf_rrc_dummy_03,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_sSDT_UL,
+      { "dummy", "rrc.sSDT_UL",
         FT_UINT32, BASE_DEC, VALS(rrc_SSDT_UL_vals), 0,
         "SSDT_UL", HFILL }},
     { &hf_rrc_cell_id_PerRL_List,
@@ -166654,16 +166634,16 @@ void proto_register_rrc(void) {
       { "rl-AdditionInformationList-SecULFreq", "rrc.rl_AdditionInformationList_SecULFreq",
         FT_UINT32, BASE_DEC, NULL, 0,
         "RL_AdditionInformationList_SecULFreq_r13", HFILL }},
-    { &hf_rrc_dummy_04,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_integrityProtActivationInfo,
+      { "dummy", "rrc.integrityProtActivationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "IntegrityProtActivationInfo", HFILL }},
-    { &hf_rrc_dummy2_01,
-      { "dummy2", "rrc.dummy2",
+    { &hf_rrc_rB_ActivationTimeInfoList,
+      { "dummy2", "rrc.rB_ActivationTimeInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "RB_ActivationTimeInfoList", HFILL }},
-    { &hf_rrc_dummy3_01,
-      { "dummy3", "rrc.dummy3_element",
+    { &hf_rrc_uL_CounterSynchronisationInfo,
+      { "dummy3", "rrc.uL_CounterSynchronisationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UL_CounterSynchronisationInfo", HFILL }},
     { &hf_rrc_laterNonCriticalExtensions_01,
@@ -166910,7 +166890,7 @@ void proto_register_rrc(void) {
       { "nonCriticalExtensions", "rrc.nonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_nonCriticalExtensions_13", HFILL }},
-    { &hf_rrc_dummy_05,
+    { &hf_rrc_dummy_02,
       { "dummy", "rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -167610,11 +167590,11 @@ void proto_register_rrc(void) {
       { "criticalExtensions", "rrc.criticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_criticalExtensions_22", HFILL }},
-    { &hf_rrc_integrityProtectionModeInfo,
+    { &hf_rrc_integrityProtectionModeInfo_01,
       { "integrityProtectionModeInfo", "rrc.integrityProtectionModeInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "IntegrityProtectionModeInfo_r7", HFILL }},
-    { &hf_rrc_cipheringModeInfo,
+    { &hf_rrc_cipheringModeInfo_01,
       { "cipheringModeInfo", "rrc.cipheringModeInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CipheringModeInfo_r7", HFILL }},
@@ -167802,14 +167782,6 @@ void proto_register_rrc(void) {
       { "dedicatedWLANOffloadInformation", "rrc.dedicatedWLANOffloadInformation_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_integrityProtectionModeInfo_01,
-      { "integrityProtectionModeInfo", "rrc.integrityProtectionModeInfo_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_cipheringModeInfo_01,
-      { "cipheringModeInfo", "rrc.cipheringModeInfo_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
     { &hf_rrc_utran_DRX_CycleLengthCoeff_01,
       { "utran-DRX-CycleLengthCoeff", "rrc.utran_DRX_CycleLengthCoeff",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -167846,12 +167818,12 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_06,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cPCH_SetID,
+      { "dummy", "rrc.cPCH_SetID",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CPCH_SetID", HFILL }},
-    { &hf_rrc_dummy2_02,
-      { "dummy2", "rrc.dummy2",
+    { &hf_rrc_dRAC_StaticInformationList,
+      { "dummy2", "rrc.dRAC_StaticInformationList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "DRAC_StaticInformationList", HFILL }},
     { &hf_rrc_tdd,
@@ -167882,8 +167854,8 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_01", HFILL }},
-    { &hf_rrc_dummy_07,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dL_PDSCH_Informatio,
+      { "dummy", "rrc.dL_PDSCH_Informatio_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DL_PDSCH_Information", HFILL }},
     { &hf_rrc_dl_CommonInformation_01,
@@ -168086,8 +168058,8 @@ void proto_register_rrc(void) {
       { "ul-EDCH-Information", "rrc.ul_EDCH_Information",
         FT_UINT32, BASE_DEC, VALS(rrc_UL_EDCH_Information_ext_vals), 0,
         "UL_EDCH_Information_ext", HFILL }},
-    { &hf_rrc_dummy_08,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_defaultConfigForCellFACH,
+      { "dummy", "rrc.defaultConfigForCellFACH_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DefaultConfigForCellFACH", HFILL }},
     { &hf_rrc_rab_InformationSetup_01,
@@ -168150,8 +168122,8 @@ void proto_register_rrc(void) {
       { "dl-AddReconfTransChInfoList", "rrc.dl_AddReconfTransChInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "DL_AddReconfTransChInfoList_TDD128_v9c0ext", HFILL }},
-    { &hf_rrc_dummy2_03,
-      { "dummy2", "rrc.dummy2_element",
+    { &hf_rrc_sR_VCC_Info,
+      { "dummy2", "rrc.sR_VCC_Info_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SR_VCC_Info", HFILL }},
     { &hf_rrc_dl_CommonInformation_07,
@@ -168502,8 +168474,8 @@ void proto_register_rrc(void) {
       { "etws-Information", "rrc.etws_Information_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_09,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_eTWS_WarningSecurityInfo,
+      { "dummy", "rrc.eTWS_WarningSecurityInfo",
         FT_BYTES, BASE_NONE, NULL, 0,
         "ETWS_WarningSecurityInfo", HFILL }},
     { &hf_rrc_nonCriticalExtensions_43,
@@ -168686,10 +168658,6 @@ void proto_register_rrc(void) {
       { "new-U-RNTI", "rrc.new_U_RNTI_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "U_RNTI_Short", HFILL }},
-    { &hf_rrc_dummy_10,
-      { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "ActivationTime", HFILL }},
     { &hf_rrc_cipheringAlgorithm,
       { "cipheringAlgorithm", "rrc.cipheringAlgorithm",
         FT_UINT32, BASE_DEC, VALS(rrc_CipheringAlgorithm_vals), 0,
@@ -168722,8 +168690,12 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_06", HFILL }},
-    { &hf_rrc_dummy2_04,
-      { "dummy2", "rrc.dummy2_element",
+    { &hf_rrc_dL_PDSCH_Information,
+      { "dummy", "rrc.dL_PDSCH_Information_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        "DL_PDSCH_Information", HFILL }},
+    { &hf_rrc_cPCH_SetInfo,
+      { "dummy2", "rrc.cPCH_SetInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CPCH_SetInfo", HFILL }},
     { &hf_rrc_preconfiguration,
@@ -169074,8 +169046,8 @@ void proto_register_rrc(void) {
       { "defaultConfig", "rrc.defaultConfig_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_defaultConfig_05", HFILL }},
-    { &hf_rrc_dummy_11,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dLUL_HSPA_Information_r8,
+      { "dummy", "rrc.dLUL_HSPA_Information_r8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DLUL_HSPA_Information_r8", HFILL }},
     { &hf_rrc_modeSpecificInfo_08,
@@ -169126,8 +169098,8 @@ void proto_register_rrc(void) {
       { "defaultConfig", "rrc.defaultConfig_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_defaultConfig_06", HFILL }},
-    { &hf_rrc_dummy_12,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dLUL_HSPA_Information_r8_01,
+      { "dummy", "rrc.dLUL_HSPA_Information_r8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DLUL_HSPA_Information_r9", HFILL }},
     { &hf_rrc_modeSpecificInfo_09,
@@ -169242,8 +169214,8 @@ void proto_register_rrc(void) {
       { "defaultConfig", "rrc.defaultConfig_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_defaultConfig_07", HFILL }},
-    { &hf_rrc_dummy_13,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dLUL_HSPA_Information_r8_02,
+      { "dummy", "rrc.dLUL_HSPA_Information_r8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "DLUL_HSPA_Information_r10", HFILL }},
     { &hf_rrc_modeSpecificInfo_10,
@@ -169270,10 +169242,6 @@ void proto_register_rrc(void) {
       { "tdd768", "rrc.tdd768_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_tdd768_03", HFILL }},
-    { &hf_rrc_defaultConfigForCellFACH,
-      { "defaultConfigForCellFACH", "rrc.defaultConfigForCellFACH_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
     { &hf_rrc_specificationMode_08,
       { "specificationMode", "rrc.specificationMode",
         FT_UINT32, BASE_DEC, VALS(rrc_T_specificationMode_08_vals), 0,
@@ -169611,11 +169579,11 @@ void proto_register_rrc(void) {
         FT_UINT32, BASE_DEC, VALS(rrc_T_gsm_message_vals), 0,
         NULL, HFILL }},
     { &hf_rrc_single_GSM_Message_r3,
-      { "single-GSM-Message", "rrc.single_GSM_Message_element",
+      { "single-GSM-Message", "rrc.single_GSM_Message_r3_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_single_GSM_Message_r3", HFILL }},
     { &hf_rrc_gsm_MessageList_r3,
-      { "gsm-MessageList", "rrc.gsm_MessageList_element",
+      { "gsm-MessageList", "rrc.gsm_MessageList_r3_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_gsm_MessageList_r3", HFILL }},
     { &hf_rrc_gsm_Messages,
@@ -169631,11 +169599,11 @@ void proto_register_rrc(void) {
         FT_UINT32, BASE_DEC, VALS(rrc_T_gsm_message_01_vals), 0,
         "T_gsm_message_01", HFILL }},
     { &hf_rrc_single_GSM_Message_r6,
-      { "single-GSM-Message", "rrc.single_GSM_Message_element",
+      { "single-GSM-Message", "rrc.single_GSM_Message_r6_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_single_GSM_Message_r6", HFILL }},
     { &hf_rrc_gsm_MessageList_r6,
-      { "gsm-MessageList", "rrc.gsm_MessageList_element",
+      { "gsm-MessageList", "rrc.gsm_MessageList_r6_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_gsm_MessageList_r6", HFILL }},
     { &hf_rrc_geran_SystemInfoType_01,
@@ -169799,7 +169767,7 @@ void proto_register_rrc(void) {
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
     { &hf_rrc_gsm_MessageList_gsm,
-      { "gsm-MessageList", "rrc.gsm_MessageList",
+      { "gsm-MessageList", "rrc.gsm_MessageList_gsm",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
     { &hf_rrc_cdma2000,
@@ -169850,23 +169818,23 @@ void proto_register_rrc(void) {
       { "absent", "rrc.absent_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_present,
-      { "present", "rrc.present",
+    { &hf_rrc_predefinedConfigStatusList_01,
+      { "present", "rrc.predefinedConfigStatusList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "PredefinedConfigStatusList", HFILL }},
     { &hf_rrc_uE_SecurityInformation,
       { "uE-SecurityInformation", "rrc.uE_SecurityInformation",
         FT_UINT32, BASE_DEC, VALS(rrc_T_uE_SecurityInformation_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_present_01,
-      { "present", "rrc.present_element",
+    { &hf_rrc_uE_SecurityInformation_01,
+      { "present", "rrc.uE_SecurityInformation_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UE_SecurityInformation", HFILL }},
     { &hf_rrc_ue_CapabilityContainer,
       { "ue-CapabilityContainer", "rrc.ue_CapabilityContainer",
         FT_UINT32, BASE_DEC, VALS(rrc_T_ue_CapabilityContainer_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_present_02,
+    { &hf_rrc_present,
       { "present", "rrc.present",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -169874,7 +169842,7 @@ void proto_register_rrc(void) {
       { "v390NonCriticalExtensions", "rrc.v390NonCriticalExtensions",
         FT_UINT32, BASE_DEC, VALS(rrc_T_v390NonCriticalExtensions_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_present_03,
+    { &hf_rrc_present_01,
       { "present", "rrc.present_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_present_01", HFILL }},
@@ -170946,8 +170914,8 @@ void proto_register_rrc(void) {
       { "additionalMeasuredResults-LCR", "rrc.additionalMeasuredResults_LCR",
         FT_UINT32, BASE_DEC, NULL, 0,
         "MeasuredResultsList_LCR_r4_ext", HFILL }},
-    { &hf_rrc_dummy_14,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_primaryCPICH_Info,
+      { "dummy", "rrc.primaryCPICH_Info_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "PrimaryCPICH_Info", HFILL }},
     { &hf_rrc_measuredResults_v590ext,
@@ -171666,10 +171634,6 @@ void proto_register_rrc(void) {
       { "ul-TimingAdvance", "rrc.ul_TimingAdvance",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_15,
-      { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "RB_ActivationTimeInfoList", HFILL }},
     { &hf_rrc_ul_CounterSynchronisationInfo,
       { "ul-CounterSynchronisationInfo", "rrc.ul_CounterSynchronisationInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -172354,7 +172318,7 @@ void proto_register_rrc(void) {
       { "rab-InformationReconfigList", "rrc.rab_InformationReconfigList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_16,
+    { &hf_rrc_dummy_03,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_01_vals), 0,
         "T_dummy_01", HFILL }},
@@ -172362,10 +172326,6 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_22", HFILL }},
-    { &hf_rrc_dummy1,
-      { "dummy1", "rrc.dummy1",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "CPCH_SetID", HFILL }},
     { &hf_rrc_dl_AddReconfTransChInfoList_08,
       { "dl-AddReconfTransChInfoList", "rrc.dl_AddReconfTransChInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -172378,7 +172338,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_23", HFILL }},
-    { &hf_rrc_dummy_17,
+    { &hf_rrc_dummy_04,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_02_vals), 0,
         "T_dummy_02", HFILL }},
@@ -172406,7 +172366,7 @@ void proto_register_rrc(void) {
       { "rb-PDCPContextRelocationList", "rrc.rb_PDCPContextRelocationList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_18,
+    { &hf_rrc_dummy_05,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_03_vals), 0,
         "T_dummy_03", HFILL }},
@@ -173198,7 +173158,7 @@ void proto_register_rrc(void) {
       { "laterCriticalExtensions", "rrc.laterCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "RadioBearerRelease_LaterCriticalExtensions_r15_IEs", HFILL }},
-    { &hf_rrc_dummy_19,
+    { &hf_rrc_dummy_06,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_04_vals), 0,
         "T_dummy_04", HFILL }},
@@ -173214,7 +173174,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_29", HFILL }},
-    { &hf_rrc_dummy_20,
+    { &hf_rrc_dummy_07,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_05_vals), 0,
         "T_dummy_05", HFILL }},
@@ -173230,7 +173190,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_31", HFILL }},
-    { &hf_rrc_dummy_21,
+    { &hf_rrc_dummy_08,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_06_vals), 0,
         "T_dummy_06", HFILL }},
@@ -173702,7 +173662,7 @@ void proto_register_rrc(void) {
       { "laterCriticalExtensions", "rrc.laterCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "RadioBearerSetup_LaterCriticalExtensions_r15_IEs", HFILL }},
-    { &hf_rrc_dummy_22,
+    { &hf_rrc_dummy_09,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_07_vals), 0,
         "T_dummy_07", HFILL }},
@@ -173718,7 +173678,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_35", HFILL }},
-    { &hf_rrc_dummy_23,
+    { &hf_rrc_dummy_10,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_08_vals), 0,
         "T_dummy_08", HFILL }},
@@ -173734,7 +173694,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_37", HFILL }},
-    { &hf_rrc_dummy_24,
+    { &hf_rrc_dummy_11,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_09_vals), 0,
         "T_dummy_09", HFILL }},
@@ -173766,7 +173726,7 @@ void proto_register_rrc(void) {
       { "complete", "rrc.complete_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_complete_23", HFILL }},
-    { &hf_rrc_dummy_25,
+    { &hf_rrc_dummy_12,
       { "dummy", "rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_dummy_10", HFILL }},
@@ -173794,7 +173754,7 @@ void proto_register_rrc(void) {
       { "complete", "rrc.complete_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_complete_24", HFILL }},
-    { &hf_rrc_dummy_26,
+    { &hf_rrc_dummy_13,
       { "dummy", "rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -176026,7 +175986,7 @@ void proto_register_rrc(void) {
       { "criticalExtensions", "rrc.criticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_criticalExtensions_143", HFILL }},
-    { &hf_rrc_dummy_27,
+    { &hf_rrc_dummy_14,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_11_vals), 0,
         "T_dummy_11", HFILL }},
@@ -176042,7 +176002,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_41", HFILL }},
-    { &hf_rrc_dummy_28,
+    { &hf_rrc_dummy_15,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_12_vals), 0,
         "T_dummy_12", HFILL }},
@@ -176058,7 +176018,7 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_43", HFILL }},
-    { &hf_rrc_dummy_29,
+    { &hf_rrc_dummy_16,
       { "dummy", "rrc.dummy",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_13_vals), 0,
         "T_dummy_13", HFILL }},
@@ -177502,42 +177462,42 @@ void proto_register_rrc(void) {
       { "mib", "rrc.mib",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_sysInfoTypeSB1,
-      { "sysInfoTypeSB1", "rrc.sysInfoTypeSB1",
+    { &hf_rrc_sysInfoTypeSB1_msg,
+      { "sysInfoTypeSB1", "rrc.sysInfoTypeSB1_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoTypeSB2,
-      { "sysInfoTypeSB2", "rrc.sysInfoTypeSB2",
+        "T_sysInfoTypeSB1_msg", HFILL }},
+    { &hf_rrc_sysInfoTypeSB2_msg,
+      { "sysInfoTypeSB2", "rrc.sysInfoTypeSB2_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType1,
-      { "sysInfoType1", "rrc.sysInfoType1",
+        "T_sysInfoTypeSB2_msg", HFILL }},
+    { &hf_rrc_sysInfoType1_msg,
+      { "sysInfoType1", "rrc.sysInfoType1_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType3,
-      { "sysInfoType3", "rrc.sysInfoType3",
+        "T_sysInfoType1_msg", HFILL }},
+    { &hf_rrc_sysInfoType3_msg,
+      { "sysInfoType3", "rrc.sysInfoType3_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType5,
-      { "sysInfoType5", "rrc.sysInfoType5",
+        "T_sysInfoType3_msg", HFILL }},
+    { &hf_rrc_sysInfoType5_msg,
+      { "sysInfoType5", "rrc.sysInfoType5_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
+        "T_sysInfoType5_msg", HFILL }},
     { &hf_rrc_sysInfoType7,
       { "sysInfoType7", "rrc.sysInfoType7",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_sysInfoType11,
-      { "sysInfoType11", "rrc.sysInfoType11",
+    { &hf_rrc_sysInfoType11_msg,
+      { "sysInfoType11", "rrc.sysInfoType11_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType11bis,
-      { "sysInfoType11bis", "rrc.sysInfoType11bis",
+        "T_sysInfoType11_msg", HFILL }},
+    { &hf_rrc_sysInfoType11bis_msg,
+      { "sysInfoType11bis", "rrc.sysInfoType11bis_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType12,
-      { "sysInfoType12", "rrc.sysInfoType12",
+        "T_sysInfoType11bis_msg", HFILL }},
+    { &hf_rrc_sysInfoType12_msg,
+      { "sysInfoType12", "rrc.sysInfoType12_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
+        "T_sysInfoType12_msg", HFILL }},
     { &hf_rrc_vb50NonCriticalExtensions_21,
       { "vb50NonCriticalExtensions", "rrc.vb50NonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -177558,10 +177518,10 @@ void proto_register_rrc(void) {
       { "nonCriticalExtensions", "rrc.nonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_nonCriticalExtensions_219", HFILL }},
-    { &hf_rrc_sysInfoType22,
-      { "sysInfoType22", "rrc.sysInfoType22",
+    { &hf_rrc_sysInfoType22_msg,
+      { "sysInfoType22", "rrc.sysInfoType22_msg",
         FT_BYTES, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
+        "T_sysInfoType22_msg", HFILL }},
     { &hf_rrc_sysInfoType11ter,
       { "sysInfoType11ter", "rrc.sysInfoType11ter",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -177662,15 +177622,15 @@ void proto_register_rrc(void) {
       { "loggedMeasReport", "rrc.loggedMeasReport_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "LoggedMeasReport_vb50ext", HFILL }},
-    { &hf_rrc_dummy_30,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_connectionEstablishmentFailureReport,
+      { "dummy", "rrc.connectionEstablishmentFailureReport_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "ConnectionEstablishmentFailureReport", HFILL }},
     { &hf_rrc_loggedANRReportInfoList_01,
       { "loggedANRReportInfoList", "rrc.loggedANRReportInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "LoggedANRReportInfoList_vb50ext", HFILL }},
-    { &hf_rrc_connectionEstablishmentFailureReport,
+    { &hf_rrc_connectionEstablishmentFailureReport_01,
       { "connectionEstablishmentFailureReport", "rrc.connectionEstablishmentFailureReport_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "ConnectionEstablishmentFailureReport_r11", HFILL }},
@@ -177678,7 +177638,7 @@ void proto_register_rrc(void) {
       { "loggedMeasReport", "rrc.loggedMeasReport_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "LoggedMeasReport_vc50ext", HFILL }},
-    { &hf_rrc_connectionEstablishmentFailureReport_01,
+    { &hf_rrc_connectionEstablishmentFailureReport_02,
       { "connectionEstablishmentFailureReport", "rrc.connectionEstablishmentFailureReport_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "ConnectionEstablishmentFailureReport_vc50ext", HFILL }},
@@ -177882,8 +177842,8 @@ void proto_register_rrc(void) {
       { "spare1", "rrc.spare1_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_spare1_01", HFILL }},
-    { &hf_rrc_dummy_31,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_dummy_bool,
+      { "dummy", "rrc.dummy_bool",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
     { &hf_rrc_IMEI_item,
@@ -178570,6 +178530,10 @@ void proto_register_rrc(void) {
       { "startRestart", "rrc.startRestart",
         FT_UINT32, BASE_DEC, VALS(rrc_CipheringAlgorithm_vals), 0,
         "CipheringAlgorithm", HFILL }},
+    { &hf_rrc_dummy_null,
+      { "dummy", "rrc.dummy_null_element",
+        FT_NONE, BASE_NONE, NULL, 0,
+        NULL, HFILL }},
     { &hf_rrc_startRestart_01,
       { "startRestart", "rrc.startRestart",
         FT_UINT32, BASE_DEC, VALS(rrc_CipheringAlgorithm_r7_vals), 0,
@@ -178790,10 +178754,6 @@ void proto_register_rrc(void) {
       { "DL-InformationPerSecondaryRL-r13", "rrc.DL_InformationPerSecondaryRL_r13_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_primaryCPICH_Info,
-      { "primaryCPICH-Info", "rrc.primaryCPICH_Info_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
     { &hf_rrc_cell_id,
       { "cell-id", "rrc.cell_id",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -178858,12 +178818,12 @@ void proto_register_rrc(void) {
       { "supportForSF-512", "rrc.supportForSF_512",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
-    { &hf_rrc_dummy2_05,
-      { "dummy2", "rrc.dummy2",
+    { &hf_rrc_simultaneousSCCPCH_DPCH_Reception,
+      { "dummy2", "rrc.simultaneousSCCPCH_DPCH_Reception",
         FT_UINT32, BASE_DEC, VALS(rrc_SimultaneousSCCPCH_DPCH_Reception_vals), 0,
         "SimultaneousSCCPCH_DPCH_Reception", HFILL }},
-    { &hf_rrc_dummy_32,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_supportOfDedicatedPilotsForChEstimation,
+      { "dummy", "rrc.supportOfDedicatedPilotsForChEstimation",
         FT_UINT32, BASE_DEC, VALS(rrc_SupportOfDedicatedPilotsForChEstimation_vals), 0,
         "SupportOfDedicatedPilotsForChEstimation", HFILL }},
     { &hf_rrc_hsdsch_physical_layer_category_ext,
@@ -179950,10 +179910,6 @@ void proto_register_rrc(void) {
       { "hsdsch-physical-layer-category", "rrc.hsdsch_physical_layer_category",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy2_06,
-      { "dummy2", "rrc.dummy2",
-        FT_BOOLEAN, BASE_NONE, NULL, 0,
-        "BOOLEAN", HFILL }},
     { &hf_rrc_tdd384_hspdsch,
       { "tdd384-hspdsch", "rrc.tdd384_hspdsch",
         FT_UINT32, BASE_DEC, VALS(rrc_T_tdd384_hspdsch_vals), 0,
@@ -182202,8 +182158,8 @@ void proto_register_rrc(void) {
       { "DL-LogicalChannelMapping-r7", "rrc.DL_LogicalChannelMapping_r7_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_33,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cID_InclusionInfo_r4,
+      { "dummy", "rrc.cID_InclusionInfo_r4",
         FT_UINT32, BASE_DEC, VALS(rrc_CID_InclusionInfo_r4_vals), 0,
         "CID_InclusionInfo_r4", HFILL }},
     { &hf_rrc_max_CID,
@@ -182250,8 +182206,8 @@ void proto_register_rrc(void) {
       { "timerStatusProhibit", "rrc.timerStatusProhibit",
         FT_UINT32, BASE_DEC|BASE_EXT_STRING, &rrc_TimerStatusProhibit_vals_ext, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_34,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_timerEPC,
+      { "dummy", "rrc.timerEPC",
         FT_UINT32, BASE_DEC, VALS(rrc_TimerEPC_vals), 0,
         "TimerEPC", HFILL }},
     { &hf_rrc_missingPDU_Indicator,
@@ -182394,8 +182350,8 @@ void proto_register_rrc(void) {
       { "pdcp-Info", "rrc.pdcp_Info_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_35,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_dummy_int_0_65535,
+      { "dummy", "rrc.dummy_int_0_65535",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_65535", HFILL }},
     { &hf_rrc_pdcp_Info_01,
@@ -183290,12 +183246,8 @@ void proto_register_rrc(void) {
       { "twoLogicalChannels", "rrc.twoLogicalChannels_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UL_LogicalChannelMappingList_r8", HFILL }},
-    { &hf_rrc_dummy1_01,
-      { "dummy1", "rrc.dummy1",
-        FT_UINT32, BASE_DEC, VALS(rrc_CID_InclusionInfo_r4_vals), 0,
-        "CID_InclusionInfo_r4", HFILL }},
-    { &hf_rrc_dummy_36,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_rOHC_PacketSizeList_r4,
+      { "dummy", "rrc.rOHC_PacketSizeList_r4",
         FT_UINT32, BASE_DEC, NULL, 0,
         "ROHC_PacketSizeList_r4", HFILL }},
     { &hf_rrc_ul_AM_RLC_Mode,
@@ -183346,8 +183298,8 @@ void proto_register_rrc(void) {
       { "mac-ehs-AddReconfQueue-List", "rrc.mac_ehs_AddReconfQueue_List",
         FT_UINT32, BASE_DEC, NULL, 0,
         "MAC_ehs_AddReconfReordQ_List", HFILL }},
-    { &hf_rrc_dummy_37,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_mAC_ehs_DelReordQ_List,
+      { "dummy", "rrc.mAC_ehs_DelReordQ_List",
         FT_UINT32, BASE_DEC, NULL, 0,
         "MAC_ehs_DelReordQ_List", HFILL }},
     { &hf_rrc_mac_ehs_AddReconfQueue_List_01,
@@ -183694,8 +183646,8 @@ void proto_register_rrc(void) {
       { "dch-QualityTarget", "rrc.dch_QualityTarget_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "QualityTarget", HFILL }},
-    { &hf_rrc_dummy_38,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_tM_SignallingInfo,
+      { "dummy", "rrc.tM_SignallingInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "TM_SignallingInfo", HFILL }},
     { &hf_rrc_tfs_SignallingMode_01,
@@ -184446,8 +184398,8 @@ void proto_register_rrc(void) {
       { "normalTFCI-Signalling", "rrc.normalTFCI_Signalling",
         FT_UINT32, BASE_DEC, VALS(rrc_ExplicitTFCS_Configuration_vals), 0,
         "ExplicitTFCS_Configuration", HFILL }},
-    { &hf_rrc_dummy_39,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_splitTFCI_Signalling,
+      { "dummy", "rrc.splitTFCI_Signalling_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SplitTFCI_Signalling", HFILL }},
     { &hf_rrc_normalTFCI_Signalling_01,
@@ -184934,26 +184886,26 @@ void proto_register_rrc(void) {
       { "size2", "rrc.size2_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_subchannels,
-      { "subchannels", "rrc.subchannels",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_vals), 0,
-        NULL, HFILL }},
+    { &hf_rrc_subchannels_size2,
+      { "subchannels", "rrc.subchannels_size2",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_size2_vals), 0,
+        "T_subchannels_size2", HFILL }},
     { &hf_rrc_size4,
       { "size4", "rrc.size4_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_subchannels_01,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size4,
+      { "subchannels", "rrc.subchannels_size4",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_01", HFILL }},
+        "T_subchannels_size4", HFILL }},
     { &hf_rrc_size8,
       { "size8", "rrc.size8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_subchannels_02,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size8,
+      { "subchannels", "rrc.subchannels_size8",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_02", HFILL }},
+        "T_subchannels_size8", HFILL }},
     { &hf_rrc_channelisationCodeIndices_01,
       { "channelisationCodeIndices", "rrc.channelisationCodeIndices",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -184966,34 +184918,34 @@ void proto_register_rrc(void) {
       { "size2", "rrc.size2_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size2_01", HFILL }},
-    { &hf_rrc_subchannels_03,
-      { "subchannels", "rrc.subchannels",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_03_vals), 0,
-        "T_subchannels_03", HFILL }},
+    { &hf_rrc_subchannels_size2_01,
+      { "subchannels", "rrc.subchannels_size2",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_size2_01_vals), 0,
+        "T_subchannels_size2_01", HFILL }},
     { &hf_rrc_size4_01,
       { "size4", "rrc.size4_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size4_01", HFILL }},
-    { &hf_rrc_subchannels_04,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size4_01,
+      { "subchannels", "rrc.subchannels_size4",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_04", HFILL }},
+        "T_subchannels_size4_01", HFILL }},
     { &hf_rrc_size8_01,
       { "size8", "rrc.size8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size8_01", HFILL }},
-    { &hf_rrc_subchannels_05,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size8_01,
+      { "subchannels", "rrc.subchannels_size8",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_05", HFILL }},
+        "T_subchannels_size8_01", HFILL }},
     { &hf_rrc_size16,
       { "size16", "rrc.size16_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_subchannels_06,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size16,
+      { "subchannels", "rrc.subchannels_size16",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_06", HFILL }},
+        "T_subchannels_size16", HFILL }},
     { &hf_rrc_availableSYNC_UlCodesIndics,
       { "availableSYNC-UlCodesIndics", "rrc.availableSYNC_UlCodesIndics",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -185006,26 +184958,26 @@ void proto_register_rrc(void) {
       { "size2", "rrc.size2_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size2_02", HFILL }},
-    { &hf_rrc_subchannels_07,
-      { "subchannels", "rrc.subchannels",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_07_vals), 0,
-        "T_subchannels_07", HFILL }},
+    { &hf_rrc_subchannels_size2_02,
+      { "subchannels", "rrc.subchannels_size2",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_subchannels_size2_02_vals), 0,
+        "T_subchannels_size2_02", HFILL }},
     { &hf_rrc_size4_02,
       { "size4", "rrc.size4_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size4_02", HFILL }},
-    { &hf_rrc_subchannels_08,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size4_02,
+      { "subchannels", "rrc.subchannels_size4",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_08", HFILL }},
+        "T_subchannels_size4_02", HFILL }},
     { &hf_rrc_size8_02,
       { "size8", "rrc.size8_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_size8_02", HFILL }},
-    { &hf_rrc_subchannels_09,
-      { "subchannels", "rrc.subchannels",
+    { &hf_rrc_subchannels_size8_02,
+      { "subchannels", "rrc.subchannels_size8",
         FT_BYTES, BASE_NONE, NULL, 0,
-        "T_subchannels_09", HFILL }},
+        "T_subchannels_size8_02", HFILL }},
     { &hf_rrc_dynamicTFInformationCCCH,
       { "dynamicTFInformationCCCH", "rrc.dynamicTFInformationCCCH_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -185322,7 +185274,7 @@ void proto_register_rrc(void) {
       { "modeSpecificInfo", "rrc.modeSpecificInfo",
         FT_UINT32, BASE_DEC, VALS(rrc_T_modeSpecificInfo_29_vals), 0,
         "T_modeSpecificInfo_29", HFILL }},
-    { &hf_rrc_dummy_40,
+    { &hf_rrc_dummy_17,
       { "dummy", "rrc.dummy_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_dummy_14", HFILL }},
@@ -185786,10 +185738,6 @@ void proto_register_rrc(void) {
       { "dpch-CompressedModeInfo", "rrc.dpch_CompressedModeInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_41,
-      { "dummy", "rrc.dummy_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        "SSDT_Information", HFILL }},
     { &hf_rrc_tdd_23,
       { "tdd", "rrc.tdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -185810,8 +185758,8 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_62", HFILL }},
-    { &hf_rrc_dummy_42,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_sSDT_Information_01,
+      { "dummy", "rrc.sSDT_Information_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SSDT_Information_r4", HFILL }},
     { &hf_rrc_tdd_24,
@@ -186094,8 +186042,8 @@ void proto_register_rrc(void) {
       { "initialise", "rrc.initialise_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_43,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cfntargetsfnframeoffset,
+      { "dummy", "rrc.cfntargetsfnframeoffset",
         FT_UINT32, BASE_DEC, NULL, 0,
         "Cfntargetsfnframeoffset", HFILL }},
     { &hf_rrc_modeSpecificInfo_39,
@@ -186246,8 +186194,8 @@ void proto_register_rrc(void) {
       { "tpc-CombinationIndex", "rrc.tpc_CombinationIndex",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_44,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_sSDT_CellIdentity,
+      { "dummy", "rrc.sSDT_CellIdentity",
         FT_UINT32, BASE_DEC, VALS(rrc_SSDT_CellIdentity_vals), 0,
         "SSDT_CellIdentity", HFILL }},
     { &hf_rrc_closedLoopTimingAdjMode,
@@ -186690,12 +186638,12 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_88", HFILL }},
-    { &hf_rrc_dummy1_02,
-      { "dummy1", "rrc.dummy1_element",
+    { &hf_rrc_pDSCH_SHO_DCH_Info,
+      { "dummy1", "rrc.pDSCH_SHO_DCH_Info_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "PDSCH_SHO_DCH_Info", HFILL }},
-    { &hf_rrc_dummy2_07,
-      { "dummy2", "rrc.dummy2_element",
+    { &hf_rrc_pDSCH_CodeMapping,
+      { "dummy2", "rrc.pDSCH_CodeMapping_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "PDSCH_CodeMapping", HFILL }},
     { &hf_rrc_tdd_53,
@@ -186706,8 +186654,8 @@ void proto_register_rrc(void) {
       { "dl-DPCH-InfoPerRL", "rrc.dl_DPCH_InfoPerRL",
         FT_UINT32, BASE_DEC, VALS(rrc_DL_DPCH_InfoPerRL_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_45,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_sCCPCH_InfoForFACH,
+      { "dummy", "rrc.sCCPCH_InfoForFACH_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SCCPCH_InfoForFACH", HFILL }},
     { &hf_rrc_modeSpecificInfo_54,
@@ -186726,8 +186674,8 @@ void proto_register_rrc(void) {
       { "dl-DPCH-InfoPerRL", "rrc.dl_DPCH_InfoPerRL",
         FT_UINT32, BASE_DEC, VALS(rrc_DL_DPCH_InfoPerRL_r4_vals), 0,
         "DL_DPCH_InfoPerRL_r4", HFILL }},
-    { &hf_rrc_dummy_46,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_sCCPCH_InfoForFACH_01,
+      { "dummy", "rrc.sCCPCH_InfoForFACH_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "SCCPCH_InfoForFACH_r4", HFILL }},
     { &hf_rrc_modeSpecificInfo_55,
@@ -188242,8 +188190,8 @@ void proto_register_rrc(void) {
       { "prxdes-base", "rrc.prxdes_base",
         FT_INT32, BASE_DEC, NULL, 0,
         "INTEGER_M112_M50", HFILL }},
-    { &hf_rrc_beaconPLEst_01,
-      { "beaconPLEst", "rrc.beaconPLEst",
+    { &hf_rrc_beaconPLEst_bool,
+      { "beaconPLEst", "rrc.beaconPLEst_bool",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
     { &hf_rrc_pebase_PowerControlGAP,
@@ -188278,8 +188226,8 @@ void proto_register_rrc(void) {
       { "retransTimerForSchedInfo", "rrc.retransTimerForSchedInfo",
         FT_UINT32, BASE_DEC|BASE_EXT_STRING, &rrc_T_retransTimerForSchedInfo_01_vals_ext, 0,
         "T_retransTimerForSchedInfo_01", HFILL }},
-    { &hf_rrc_dummy_47,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_dummy_int_0_6,
+      { "dummy", "rrc.dummy_int_0_6",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_6", HFILL }},
     { &hf_rrc_ts_Number,
@@ -189562,14 +189510,14 @@ void proto_register_rrc(void) {
       { "mimo4x4PilotConfiguration", "rrc.mimo4x4PilotConfiguration_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "MIMO4x4_PilotConfiguration", HFILL }},
-    { &hf_rrc_precodingWeightSetRestriction,
-      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction",
+    { &hf_rrc_precodingWeightSetRestriction_bit_string,
+      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction_bit_string",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_64", HFILL }},
-    { &hf_rrc_precodingWeightSetRestriction_01,
-      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_vals), 0,
-        NULL, HFILL }},
+    { &hf_rrc_precodingWeightSetRestriction_enum,
+      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction_enum",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_enum_vals), 0,
+        "T_precodingWeightSetRestriction_enum", HFILL }},
     { &hf_rrc_modeSpecificInfo_78,
       { "modeSpecificInfo", "rrc.modeSpecificInfo",
         FT_UINT32, BASE_DEC, VALS(rrc_T_modeSpecificInfo_78_vals), 0,
@@ -189610,10 +189558,10 @@ void proto_register_rrc(void) {
       { "mimoPilotConfiguration", "rrc.mimoPilotConfiguration_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "MIMO_PilotConfiguration_r9", HFILL }},
-    { &hf_rrc_precodingWeightSetRestriction_02,
-      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_01_vals), 0,
-        "T_precodingWeightSetRestriction_01", HFILL }},
+    { &hf_rrc_precodingWeightSetRestriction_enum_01,
+      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction_enum",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_enum_01_vals), 0,
+        "T_precodingWeightSetRestriction_enum_01", HFILL }},
     { &hf_rrc_tdd_69,
       { "tdd", "rrc.tdd",
         FT_UINT32, BASE_DEC, VALS(rrc_T_tdd_65_vals), 0,
@@ -190878,10 +190826,6 @@ void proto_register_rrc(void) {
       { "RestrictedTrCH", "rrc.RestrictedTrCH_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy2_08,
-      { "dummy2", "rrc.dummy2_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        "SCCPCH_InfoForFACH", HFILL }},
     { &hf_rrc_cell_Id,
       { "cell-Id", "rrc.cell_Id",
         FT_BYTES, BASE_NONE, NULL, 0,
@@ -191142,8 +191086,8 @@ void proto_register_rrc(void) {
       { "msch-transportFormatSet", "rrc.msch_transportFormatSet",
         FT_UINT32, BASE_DEC, VALS(rrc_TransportFormatSet_vals), 0,
         "TransportFormatSet", HFILL }},
-    { &hf_rrc_dummy_48,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_mBMS_MSCH_ConfigurationInfo_r6,
+      { "dummy", "rrc.mBMS_MSCH_ConfigurationInfo_r6_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "MBMS_MSCH_ConfigurationInfo_r6", HFILL }},
     { &hf_rrc_secondaryCCPCHInfo_MBMS_01,
@@ -191174,14 +191118,6 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_122", HFILL }},
-    { &hf_rrc_dummy1_03,
-      { "dummy1", "rrc.dummy1",
-        FT_UINT32, BASE_DEC, VALS(rrc_PCPICH_UsageForChannelEst_vals), 0,
-        "PCPICH_UsageForChannelEst", HFILL }},
-    { &hf_rrc_dummy2_09,
-      { "dummy2", "rrc.dummy2_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        "SecondaryCPICH_Info", HFILL }},
     { &hf_rrc_sf_AndCodeNumber_01,
       { "sf-AndCodeNumber", "rrc.sf_AndCodeNumber",
         FT_UINT32, BASE_DEC, VALS(rrc_SF256_AndCodeNumber_vals), 0,
@@ -191362,18 +191298,18 @@ void proto_register_rrc(void) {
       { "newConfiguration", "rrc.newConfiguration_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_newConfiguration_17", HFILL }},
-    { &hf_rrc_precodingWeightSetRestriction_03,
-      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_02_vals), 0,
-        "T_precodingWeightSetRestriction_02", HFILL }},
+    { &hf_rrc_precodingWeightSetRestriction_enum_02,
+      { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction_enum",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_enum_02_vals), 0,
+        "T_precodingWeightSetRestriction_enum_02", HFILL }},
     { &hf_rrc_newConfiguration_18,
       { "newConfiguration", "rrc.newConfiguration_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_newConfiguration_18", HFILL }},
-    { &hf_rrc_precodingWeightSetRestriction_04,
+    { &hf_rrc_precodingWeightSetRestriction,
       { "precodingWeightSetRestriction", "rrc.precodingWeightSetRestriction",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_03_vals), 0,
-        "T_precodingWeightSetRestriction_03", HFILL }},
+        FT_UINT32, BASE_DEC, VALS(rrc_T_precodingWeightSetRestriction_vals), 0,
+        NULL, HFILL }},
     { &hf_rrc_configurationInfo_11,
       { "configurationInfo", "rrc.configurationInfo",
         FT_UINT32, BASE_DEC, VALS(rrc_T_configurationInfo_11_vals), 0,
@@ -191706,8 +191642,8 @@ void proto_register_rrc(void) {
       { "tgpl1", "rrc.tgpl1",
         FT_UINT32, BASE_DEC, NULL, 0,
         "TGPL", HFILL }},
-    { &hf_rrc_dummy_49,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_tGPL,
+      { "dummy", "rrc.tGPL",
         FT_UINT32, BASE_DEC, NULL, 0,
         "TGPL", HFILL }},
     { &hf_rrc_rpp,
@@ -191894,18 +191830,10 @@ void proto_register_rrc(void) {
       { "TFCS-Identity", "rrc.TFCS_Identity_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_50,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_vPCH_SetInfo,
+      { "dummy1", "rrc.vPCH_SetInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CPCH_SetInfo", HFILL }},
-    { &hf_rrc_dummy1_04,
-      { "dummy1", "rrc.dummy1_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        "CPCH_SetInfo", HFILL }},
-    { &hf_rrc_dummy2_10,
-      { "dummy2", "rrc.dummy2",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "CPCH_SetID", HFILL }},
     { &hf_rrc_configurationInfo_12,
       { "configurationInfo", "rrc.configurationInfo",
         FT_UINT32, BASE_DEC, VALS(rrc_T_configurationInfo_12_vals), 0,
@@ -192022,7 +191950,7 @@ void proto_register_rrc(void) {
       { "dpdchPresence", "rrc.dpdchPresence",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dpdchPresence_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_present_04,
+    { &hf_rrc_present_02,
       { "present", "rrc.present_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_present_02", HFILL }},
@@ -192046,7 +191974,7 @@ void proto_register_rrc(void) {
       { "dpdchPresence", "rrc.dpdchPresence",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dpdchPresence_01_vals), 0,
         "T_dpdchPresence_01", HFILL }},
-    { &hf_rrc_present_05,
+    { &hf_rrc_present_03,
       { "present", "rrc.present_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_present_03", HFILL }},
@@ -192082,7 +192010,7 @@ void proto_register_rrc(void) {
       { "dpdchPresence", "rrc.dpdchPresence",
         FT_UINT32, BASE_DEC, VALS(rrc_T_dpdchPresence_02_vals), 0,
         "T_dpdchPresence_02", HFILL }},
-    { &hf_rrc_present_06,
+    { &hf_rrc_present_04,
       { "present", "rrc.present_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_present_04", HFILL }},
@@ -192842,8 +192770,8 @@ void proto_register_rrc(void) {
       { "e", "rrc.e",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_16", HFILL }},
-    { &hf_rrc_t_oa,
-      { "t-oa", "rrc.t_oa",
+    { &hf_rrc_almanacSatInfo_t_oa,
+      { "t-oa", "rrc.almanacSatInfo_t_oa",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_8", HFILL }},
     { &hf_rrc_deltaI,
@@ -192898,8 +192826,8 @@ void proto_register_rrc(void) {
       { "sat-info-GLOkpList", "rrc.sat_info_GLOkpList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "GANSS_SAT_Info_Almanac_GLOkpList", HFILL }},
-    { &hf_rrc_t_oa_01,
-      { "t-oa", "rrc.t_oa",
+    { &hf_rrc_t_oa_0_1023,
+      { "t-oa", "rrc.t_oa_0_1023",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_1023", HFILL }},
     { &hf_rrc_iod_a,
@@ -192910,7 +192838,7 @@ void proto_register_rrc(void) {
       { "sat-info-kpList", "rrc.sat_info_kpList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "GANSS_SAT_Info_Almanac_KpList", HFILL }},
-    { &hf_rrc_t_oa_02,
+    { &hf_rrc_t_oa,
       { "t-oa", "rrc.t_oa",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_147", HFILL }},
@@ -193250,8 +193178,8 @@ void proto_register_rrc(void) {
       { "cellIdentity", "rrc.cellIdentity",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_51,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_sFN_SFN_ObsTimeDifference,
+      { "dummy", "rrc.sFN_SFN_ObsTimeDifference",
         FT_UINT32, BASE_DEC, VALS(rrc_SFN_SFN_ObsTimeDifference_vals), 0,
         "SFN_SFN_ObsTimeDifference", HFILL }},
     { &hf_rrc_cellSynchronisationInfo,
@@ -193342,8 +193270,8 @@ void proto_register_rrc(void) {
       { "PrimaryCCPCH-Info-LCR-r4", "rrc.PrimaryCCPCH_Info_LCR_r4_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_52,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_sFN_SFN_OTD_Type,
+      { "dummy", "rrc.sFN_SFN_OTD_Type",
         FT_UINT32, BASE_DEC, VALS(rrc_SFN_SFN_OTD_Type_vals), 0,
         "SFN_SFN_OTD_Type", HFILL }},
     { &hf_rrc_cellIdentity_reportingIndicator,
@@ -193858,20 +193786,12 @@ void proto_register_rrc(void) {
       { "rrc", "rrc.rrc",
         FT_INT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy1_05,
-      { "dummy1", "rrc.dummy1",
+    { &hf_rrc_deltaPRC,
+      { "dummy1", "rrc.deltaPRC",
         FT_INT32, BASE_DEC, NULL, 0,
         "DeltaPRC", HFILL }},
-    { &hf_rrc_dummy2_11,
-      { "dummy2", "rrc.dummy2",
-        FT_INT32, BASE_DEC, NULL, 0,
-        "DeltaRRC", HFILL }},
-    { &hf_rrc_dummy3_02,
-      { "dummy3", "rrc.dummy3",
-        FT_INT32, BASE_DEC, NULL, 0,
-        "DeltaPRC", HFILL }},
-    { &hf_rrc_dummy4_01,
-      { "dummy4", "rrc.dummy4",
+    { &hf_rrc_deltaPRC_01,
+      { "dummy2", "rrc.deltaPRC",
         FT_INT32, BASE_DEC, NULL, 0,
         "DeltaRRC", HFILL }},
     { &hf_rrc_DGPS_CorrectionSatInfoList_item,
@@ -194406,8 +194326,8 @@ void proto_register_rrc(void) {
       { "thresholdUsedFrequency", "rrc.thresholdUsedFrequency",
         FT_INT32, BASE_DEC, NULL, 0,
         "ThresholdUsedFrequency_r6", HFILL }},
-    { &hf_rrc_dummy_53,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_threshold,
+      { "dummy", "rrc.threshold",
         FT_INT32, BASE_DEC, NULL, 0,
         "Threshold", HFILL }},
     { &hf_rrc_usedFreqW,
@@ -194466,10 +194386,10 @@ void proto_register_rrc(void) {
       { "nonUsedFreqParameterList", "rrc.nonUsedFreqParameterList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "NonUsedFreqParameterList_r11", HFILL }},
-    { &hf_rrc_useCIO_01,
-      { "useCIO", "rrc.useCIO",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_useCIO_vals), 0,
-        NULL, HFILL }},
+    { &hf_rrc_useCIO_enum,
+      { "useCIO", "rrc.useCIO_enum",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_useCIO_enum_vals), 0,
+        "T_useCIO_enum", HFILL }},
     { &hf_rrc_thresholdOwnSystem,
       { "thresholdOwnSystem", "rrc.thresholdOwnSystem",
         FT_INT32, BASE_DEC, NULL, 0,
@@ -195022,8 +194942,8 @@ void proto_register_rrc(void) {
       { "integerCodePhase", "rrc.integerCodePhase",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_127", HFILL }},
-    { &hf_rrc_codePhaseSearchWindow_01,
-      { "codePhaseSearchWindow", "rrc.codePhaseSearchWindow",
+    { &hf_rrc_codePhaseSearchWindow_bit_string,
+      { "codePhaseSearchWindow", "rrc.codePhaseSearchWindow_bit_string",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_5", HFILL }},
     { &hf_rrc_azimuthandElevation,
@@ -195566,12 +195486,12 @@ void proto_register_rrc(void) {
       { "gsm-CarrierRSSI", "rrc.gsm_CarrierRSSI",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_54,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_dummy_int_46_173SIBb_TypeAnd,
+      { "dummy", "rrc.dummy_int_46_173SIBb_TypeAnd",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_46_173", HFILL }},
-    { &hf_rrc_dummy2_12,
-      { "dummy2", "rrc.dummy2",
+    { &hf_rrc_observedTimeDifferenceToGSM,
+      { "dummy2", "rrc.observedTimeDifferenceToGSM",
         FT_UINT32, BASE_DEC, NULL, 0,
         "ObservedTimeDifferenceToGSM", HFILL }},
     { &hf_rrc_GSM_MeasuredResultsList_item,
@@ -198114,8 +198034,8 @@ void proto_register_rrc(void) {
       { "trafficVolumeMeasSysInfo", "rrc.trafficVolumeMeasSysInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_55,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_uE_InternalMeasurementSysInfo,
+      { "dummy", "rrc.uE_InternalMeasurementSysInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UE_InternalMeasurementSysInfo", HFILL }},
     { &hf_rrc_intraFreqReportingQuantityForRACH_01,
@@ -199458,8 +199378,8 @@ void proto_register_rrc(void) {
       { "nonUsedFreqTriggeringConditionDetectedCells", "rrc.nonUsedFreqTriggeringConditionDetectedCells",
         FT_UINT32, BASE_DEC, VALS(rrc_T_nonUsedFreqTriggeringConditionDetectedCells_01_vals), 0,
         "T_nonUsedFreqTriggeringConditionDetectedCells_01", HFILL }},
-    { &hf_rrc_dummy_56,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cellInfoListToBeExcluded,
+      { "dummy", "rrc.cellInfoListToBeExcluded",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellInfoListToBeExcluded", HFILL }},
     { &hf_rrc_nonUsedFreqTriggeringConditionDetectedCells_02,
@@ -199922,8 +199842,8 @@ void proto_register_rrc(void) {
       { "SatData", "rrc.SatData_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_iod_02,
-      { "iod", "rrc.iod",
+    { &hf_rrc_iod_int_0_1023,
+      { "iod", "rrc.iod_int_0_1023",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_0_1023", HFILL }},
     { &hf_rrc_SatellitesListRelatedDataList_item,
@@ -199946,8 +199866,8 @@ void proto_register_rrc(void) {
       { "af0", "rrc.af0",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_31", HFILL }},
-    { &hf_rrc_tgd_01,
-      { "tgd", "rrc.tgd",
+    { &hf_rrc_tgd_bit_string,
+      { "tgd", "rrc.tgd_bit_string",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_10", HFILL }},
     { &hf_rrc_sisa,
@@ -200166,8 +200086,8 @@ void proto_register_rrc(void) {
       { "trafficVolumeReportingQuantity", "rrc.trafficVolumeReportingQuantity_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_57,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_measurementValidity_01,
+      { "dummy", "rrc.measurementValidity_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "TrafficVolumeReportingCriteria", HFILL }},
     { &hf_rrc_reportCriteriaSysInf,
@@ -200258,8 +200178,8 @@ void proto_register_rrc(void) {
       { "onWithNoReporting", "rrc.onWithNoReporting_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy2_13,
-      { "dummy2", "rrc.dummy2_element",
+    { &hf_rrc_rL_InformationLists,
+      { "dummy2", "rrc.rL_InformationLists_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "RL_InformationLists", HFILL }},
     { &hf_rrc_event6a,
@@ -200486,8 +200406,8 @@ void proto_register_rrc(void) {
       { "tdd", "rrc.tdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_tdd_126", HFILL }},
-    { &hf_rrc_appliedTA_02,
-      { "appliedTA", "rrc.appliedTA",
+    { &hf_rrc_appliedTA_bool,
+      { "appliedTA", "rrc.appliedTA_bool",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
     { &hf_rrc_modeSpecificInfo_147,
@@ -200526,8 +200446,8 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_184", HFILL }},
-    { &hf_rrc_ue_powerheadroom_01,
-      { "ue-powerheadroom", "rrc.ue_powerheadroom",
+    { &hf_rrc_ue_powerheadroom_bool,
+      { "ue-powerheadroom", "rrc.ue_powerheadroom_bool",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
         "BOOLEAN", HFILL }},
     { &hf_rrc_tdd_136,
@@ -200750,8 +200670,8 @@ void proto_register_rrc(void) {
       { "ganssRequestedGenericAssistanceDataList", "rrc.ganssRequestedGenericAssistanceDataList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "GanssRequestedGenericAssistanceDataList_vc50ext", HFILL }},
-    { &hf_rrc_dataID_01,
-      { "dataID", "rrc.dataID",
+    { &hf_rrc_dataID_bit_string,
+      { "dataID", "rrc.dataID_bit_string",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_2", HFILL }},
     { &hf_rrc_alpha_beta_parameters,
@@ -201274,8 +201194,8 @@ void proto_register_rrc(void) {
       { "ue-positioning-GPS-Real-timeIntegrity", "rrc.ue_positioning_GPS_Real_timeIntegrity",
         FT_UINT32, BASE_DEC, NULL, 0,
         "BadSatList", HFILL }},
-    { &hf_rrc_dummy_58,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_uE_Positioning_GPS_ReferenceCellInfo,
+      { "dummy", "rrc.uE_Positioning_GPS_ReferenceCellInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "UE_Positioning_GPS_ReferenceCellInfo", HFILL }},
     { &hf_rrc_ue_positioning_GPS_ReferenceTime_01,
@@ -202118,8 +202038,8 @@ void proto_register_rrc(void) {
       { "positioningMethod", "rrc.positioningMethod",
         FT_UINT32, BASE_DEC, VALS(rrc_PositioningMethod_vals), 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy1_06,
-      { "dummy1", "rrc.dummy1",
+    { &hf_rrc_uE_Positioning_ResponseTime,
+      { "dummy1", "rrc.uE_Positioning_ResponseTime",
         FT_UINT32, BASE_DEC, VALS(rrc_UE_Positioning_ResponseTime_vals), 0,
         "UE_Positioning_ResponseTime", HFILL }},
     { &hf_rrc_horizontal_Accuracy,
@@ -202570,8 +202490,8 @@ void proto_register_rrc(void) {
       { "msg-Type", "rrc.msg_Type",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_8", HFILL }},
-    { &hf_rrc_payload_02,
-      { "payload", "rrc.payload",
+    { &hf_rrc_payload_bit_string,
+      { "payload", "rrc.payload_bit_string",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_1_512", HFILL }},
     { &hf_rrc_CDMA2000_MessageList_item,
@@ -203094,7 +203014,7 @@ void proto_register_rrc(void) {
       { "SchedulingInformationSIB", "rrc.SchedulingInformationSIB_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_sysInfoType1_01,
+    { &hf_rrc_sysInfoType1,
       { "sysInfoType1", "rrc.sysInfoType1",
         FT_UINT32, BASE_DEC, NULL, 0,
         "PLMN_ValueTag", HFILL }},
@@ -203102,7 +203022,7 @@ void proto_register_rrc(void) {
       { "sysInfoType2", "rrc.sysInfoType2",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoType3_01,
+    { &hf_rrc_sysInfoType3,
       { "sysInfoType3", "rrc.sysInfoType3",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
@@ -203110,7 +203030,7 @@ void proto_register_rrc(void) {
       { "sysInfoType4", "rrc.sysInfoType4",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoType5_01,
+    { &hf_rrc_sysInfoType5,
       { "sysInfoType5", "rrc.sysInfoType5",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
@@ -203122,24 +203042,8 @@ void proto_register_rrc(void) {
       { "sysInfoType7", "rrc.sysInfoType7_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_59,
-      { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "CellValueTag", HFILL }},
-    { &hf_rrc_dummy2_14,
-      { "dummy2", "rrc.dummy2_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_dummy3_03,
-      { "dummy3", "rrc.dummy3_element",
-        FT_NONE, BASE_NONE, NULL, 0,
-        NULL, HFILL }},
-    { &hf_rrc_sysInfoType11_01,
+    { &hf_rrc_sysInfoType11,
       { "sysInfoType11", "rrc.sysInfoType11",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoType12_01,
-      { "sysInfoType12", "rrc.sysInfoType12",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
     { &hf_rrc_sysInfoType13,
@@ -203206,11 +203110,11 @@ void proto_register_rrc(void) {
       { "sysInfoType5bis", "rrc.sysInfoType5bis",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoType3_02,
+    { &hf_rrc_sysInfoType3_01,
       { "sysInfoType3", "rrc.sysInfoType3_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CellValueTag3", HFILL }},
-    { &hf_rrc_sysInfoType5_02,
+    { &hf_rrc_sysInfoType5_01,
       { "sysInfoType5", "rrc.sysInfoType5_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CellValueTag3", HFILL }},
@@ -203218,8 +203122,12 @@ void proto_register_rrc(void) {
       { "sysInfoType5bis", "rrc.sysInfoType5bis_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CellValueTag3", HFILL }},
-    { &hf_rrc_sysInfoType11bis_01,
+    { &hf_rrc_sysInfoType11bis,
       { "sysInfoType11bis", "rrc.sysInfoType11bis",
+        FT_UINT32, BASE_DEC, NULL, 0,
+        "CellValueTag", HFILL }},
+    { &hf_rrc_sysInfoType12,
+      { "sysInfoType12", "rrc.sysInfoType12",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
     { &hf_rrc_sysInfoType15bis,
@@ -203270,7 +203178,7 @@ void proto_register_rrc(void) {
       { "sysInfoType21", "rrc.sysInfoType21_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CellValueTag3", HFILL }},
-    { &hf_rrc_sysInfoType22_01,
+    { &hf_rrc_sysInfoType22,
       { "sysInfoType22", "rrc.sysInfoType22_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CellValueTag3", HFILL }},
@@ -203314,19 +203222,19 @@ void proto_register_rrc(void) {
       { "spare16", "rrc.spare16_element",
         FT_NONE, BASE_NONE, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_sysInfoTypeSB1_01,
+    { &hf_rrc_sysInfoTypeSB1,
       { "sysInfoTypeSB1", "rrc.sysInfoTypeSB1",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoTypeSB2_01,
+    { &hf_rrc_sysInfoTypeSB2,
       { "sysInfoTypeSB2", "rrc.sysInfoTypeSB2",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTag", HFILL }},
-    { &hf_rrc_sysInfoType3_03,
+    { &hf_rrc_sysInfoType3_02,
       { "sysInfoType3", "rrc.sysInfoType3",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTagExt", HFILL }},
-    { &hf_rrc_sysInfoType5_03,
+    { &hf_rrc_sysInfoType5_02,
       { "sysInfoType5", "rrc.sysInfoType5",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTagExt", HFILL }},
@@ -203338,7 +203246,7 @@ void proto_register_rrc(void) {
       { "sysInfoType21", "rrc.sysInfoType21",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTagExt", HFILL }},
-    { &hf_rrc_sysInfoType22_02,
+    { &hf_rrc_sysInfoType22_01,
       { "sysInfoType22", "rrc.sysInfoType22",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CellValueTagExt", HFILL }},
@@ -203958,10 +203866,10 @@ void proto_register_rrc(void) {
       { "tDD-MBSFNInformation", "rrc.tDD_MBSFNInformation",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_dummy_60,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dummy_seq,
+      { "dummy", "rrc.dummy_seq_element",
         FT_NONE, BASE_NONE, NULL, 0,
-        "T_dummy_15", HFILL }},
+        "T_dummy_seq", HFILL }},
     { &hf_rrc_modeSpecificInfo_166,
       { "modeSpecificInfo", "rrc.modeSpecificInfo",
         FT_UINT32, BASE_DEC, VALS(rrc_T_modeSpecificInfo_166_vals), 0,
@@ -204050,8 +203958,8 @@ void proto_register_rrc(void) {
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_fdd_206", HFILL }},
-    { &hf_rrc_dummy_61,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cSICH_PowerOffset,
+      { "dummy", "rrc.cSICH_PowerOffset",
         FT_INT32, BASE_DEC, NULL, 0,
         "CSICH_PowerOffset", HFILL }},
     { &hf_rrc_tdd_156,
@@ -204170,32 +204078,28 @@ void proto_register_rrc(void) {
       { "nonCriticalExtensions", "rrc.nonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_nonCriticalExtensions_233", HFILL }},
-    { &hf_rrc_dummy1_07,
-      { "dummy1", "rrc.dummy1_element",
+    { &hf_rrc_cPCH_Parameters,
+      { "dummy1", "rrc.cPCH_Parameters_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "CPCH_Parameters", HFILL }},
-    { &hf_rrc_dummy2_15,
-      { "dummy2", "rrc.dummy2",
+    { &hf_rrc_cPCH_SetInfoList,
+      { "dummy2", "rrc.cPCH_SetInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CPCH_SetInfoList", HFILL }},
-    { &hf_rrc_dummy3_04,
-      { "dummy3", "rrc.dummy3",
-        FT_INT32, BASE_DEC, NULL, 0,
-        "CSICH_PowerOffset", HFILL }},
     { &hf_rrc_nonCriticalExtensions_234,
       { "nonCriticalExtensions", "rrc.nonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_nonCriticalExtensions_234", HFILL }},
-    { &hf_rrc_dummy_62,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_cPCH_PersistenceLevelsList,
+      { "dummy", "rrc.cPCH_PersistenceLevelsList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "CPCH_PersistenceLevelsList", HFILL }},
     { &hf_rrc_nonCriticalExtensions_235,
       { "nonCriticalExtensions", "rrc.nonCriticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_nonCriticalExtensions_235", HFILL }},
-    { &hf_rrc_dummy_63,
-      { "dummy", "rrc.dummy",
+    { &hf_rrc_dRAC_SysInfoList,
+      { "dummy", "rrc.dRAC_SysInfoList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "DRAC_SysInfoList", HFILL }},
     { &hf_rrc_nonCriticalExtensions_236,
@@ -204326,8 +204230,8 @@ void proto_register_rrc(void) {
       { "intraFreqEventCriteriaList-v590ext", "rrc.intraFreqEventCriteriaList_v590ext",
         FT_UINT32, BASE_DEC, NULL, 0,
         "Intra_FreqEventCriteriaList_v590ext", HFILL }},
-    { &hf_rrc_dummy_64,
-      { "dummy", "rrc.dummy_element",
+    { &hf_rrc_dummy_InterFreqRACHReportingInfo,
+      { "dummy", "rrc.dummy_InterFreqRACHReportingInfo_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "Dummy_InterFreqRACHReportingInfo", HFILL }},
     { &hf_rrc_interFreqRACHReportingInfo,
@@ -205714,10 +205618,10 @@ void proto_register_rrc(void) {
       { "dcch", "rrc.dcch_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "MBMS_PFLInfo", HFILL }},
-    { &hf_rrc_dummy_65,
-      { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_16_vals), 0,
-        "T_dummy_16", HFILL }},
+    { &hf_rrc_dummy_enum,
+      { "dummy", "rrc.dummy_enum",
+        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_enum_vals), 0,
+        "T_dummy_enum", HFILL }},
     { &hf_rrc_continueMCCHReading,
       { "continueMCCHReading", "rrc.continueMCCHReading",
         FT_BOOLEAN, BASE_NONE, NULL, 0,
@@ -206242,8 +206146,8 @@ void proto_register_rrc(void) {
       { "wlanIdentifierList", "rrc.wlanIdentifierList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_interRATHandoverInfo,
-      { "interRATHandoverInfo", "rrc.interRATHandoverInfo",
+    { &hf_rrc_interRATHandoverInfoWithInterRATCapabilities_r3,
+      { "interRATHandoverInfo", "rrc.interRATHandoverInfoWithInterRATCapabilities_r3",
         FT_UINT32, BASE_DEC, VALS(rrc_InterRATHandoverInfoWithInterRATCapabilities_r3_vals), 0,
         "InterRATHandoverInfoWithInterRATCapabilities_r3", HFILL }},
     { &hf_rrc_srncRelocation,
@@ -206314,7 +206218,7 @@ void proto_register_rrc(void) {
       { "criticalExtensions", "rrc.criticalExtensions_element",
         FT_NONE, BASE_NONE, NULL, 0,
         "T_criticalExtensions_166", HFILL }},
-    { &hf_rrc_interRATHandoverInfo_01,
+    { &hf_rrc_interRATHandoverInfo,
       { "interRATHandoverInfo", "rrc.interRATHandoverInfo",
         FT_BYTES, BASE_NONE, NULL, 0,
         NULL, HFILL }},
@@ -206910,10 +206814,6 @@ void proto_register_rrc(void) {
       { "ongoingMeasRepList", "rrc.ongoingMeasRepList",
         FT_UINT32, BASE_DEC, NULL, 0,
         NULL, HFILL }},
-    { &hf_rrc_predefinedConfigStatusList_01,
-      { "predefinedConfigStatusList", "rrc.predefinedConfigStatusList",
-        FT_UINT32, BASE_DEC, NULL, 0,
-        NULL, HFILL }},
     { &hf_rrc_rab_InformationList_01,
       { "rab-InformationList", "rrc.rab_InformationList",
         FT_UINT32, BASE_DEC, NULL, 0,
@@ -207066,10 +206966,10 @@ void proto_register_rrc(void) {
       { "rab-InformationList", "rrc.rab_InformationList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "RAB_InformationSetupList_r4", HFILL }},
-    { &hf_rrc_dummy_66,
+    { &hf_rrc_dummy_18,
       { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_17_vals), 0,
-        "T_dummy_17", HFILL }},
+        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_15_vals), 0,
+        "T_dummy_15", HFILL }},
     { &hf_rrc_fdd_219,
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -207098,10 +206998,10 @@ void proto_register_rrc(void) {
       { "rab-InformationList", "rrc.rab_InformationList",
         FT_UINT32, BASE_DEC, NULL, 0,
         "RAB_InformationSetupList_r5", HFILL }},
-    { &hf_rrc_dummy_67,
+    { &hf_rrc_dummy_19,
       { "dummy", "rrc.dummy",
-        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_18_vals), 0,
-        "T_dummy_18", HFILL }},
+        FT_UINT32, BASE_DEC, VALS(rrc_T_dummy_16_vals), 0,
+        "T_dummy_16", HFILL }},
     { &hf_rrc_fdd_220,
       { "fdd", "rrc.fdd_element",
         FT_NONE, BASE_NONE, NULL, 0,
@@ -207518,7 +207418,7 @@ void proto_register_rrc(void) {
       { "count-C", "rrc.count_C",
         FT_BYTES, BASE_NONE, NULL, 0,
         "BIT_STRING_SIZE_32", HFILL }},
-    { &hf_rrc_dummy3_05,
+    { &hf_rrc_dummy3,
       { "dummy3", "rrc.dummy3",
         FT_UINT32, BASE_DEC, VALS(rrc_SupportOfDedicatedPilotsForChEstimation_vals), 0,
         "SupportOfDedicatedPilotsForChEstimation", HFILL }},
@@ -208114,52 +208014,52 @@ void proto_register_rrc(void) {
       { "chCodeIndex0", "rrc.T.channelisationCodeIndices.chCodeIndex0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_01_subCh3,
-      { "subCh3", "rrc.T.subchannels.01.subCh3",
+    { &hf_rrc_T_subchannels_size4_subCh3,
+      { "subCh3", "rrc.T.subchannels.size4.subCh3",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_01_subCh2,
-      { "subCh2", "rrc.T.subchannels.01.subCh2",
+    { &hf_rrc_T_subchannels_size4_subCh2,
+      { "subCh2", "rrc.T.subchannels.size4.subCh2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_01_subCh1,
-      { "subCh1", "rrc.T.subchannels.01.subCh1",
+    { &hf_rrc_T_subchannels_size4_subCh1,
+      { "subCh1", "rrc.T.subchannels.size4.subCh1",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_01_subCh0,
-      { "subCh0", "rrc.T.subchannels.01.subCh0",
+    { &hf_rrc_T_subchannels_size4_subCh0,
+      { "subCh0", "rrc.T.subchannels.size4.subCh0",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh7,
-      { "subCh7", "rrc.T.subchannels.02.subCh7",
+    { &hf_rrc_T_subchannels_size8_subCh7,
+      { "subCh7", "rrc.T.subchannels.size8.subCh7",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh6,
-      { "subCh6", "rrc.T.subchannels.02.subCh6",
+    { &hf_rrc_T_subchannels_size8_subCh6,
+      { "subCh6", "rrc.T.subchannels.size8.subCh6",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh5,
-      { "subCh5", "rrc.T.subchannels.02.subCh5",
+    { &hf_rrc_T_subchannels_size8_subCh5,
+      { "subCh5", "rrc.T.subchannels.size8.subCh5",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh4,
-      { "subCh4", "rrc.T.subchannels.02.subCh4",
+    { &hf_rrc_T_subchannels_size8_subCh4,
+      { "subCh4", "rrc.T.subchannels.size8.subCh4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh3,
-      { "subCh3", "rrc.T.subchannels.02.subCh3",
+    { &hf_rrc_T_subchannels_size8_subCh3,
+      { "subCh3", "rrc.T.subchannels.size8.subCh3",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh2,
-      { "subCh2", "rrc.T.subchannels.02.subCh2",
+    { &hf_rrc_T_subchannels_size8_subCh2,
+      { "subCh2", "rrc.T.subchannels.size8.subCh2",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh1,
-      { "subCh1", "rrc.T.subchannels.02.subCh1",
+    { &hf_rrc_T_subchannels_size8_subCh1,
+      { "subCh1", "rrc.T.subchannels.size8.subCh1",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_02_subCh0,
-      { "subCh0", "rrc.T.subchannels.02.subCh0",
+    { &hf_rrc_T_subchannels_size8_subCh0,
+      { "subCh0", "rrc.T.subchannels.size8.subCh0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
     { &hf_rrc_T_channelisationCodeIndices_01_chCodeIndex15,
@@ -208226,116 +208126,116 @@ void proto_register_rrc(void) {
       { "chCodeIndex0", "rrc.T.channelisationCodeIndices.01.chCodeIndex0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_04_subCh3,
-      { "subCh3", "rrc.T.subchannels.04.subCh3",
+    { &hf_rrc_T_subchannels_size4_01_subCh3,
+      { "subCh3", "rrc.T.subchannels.size4.01.subCh3",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_04_subCh2,
-      { "subCh2", "rrc.T.subchannels.04.subCh2",
+    { &hf_rrc_T_subchannels_size4_01_subCh2,
+      { "subCh2", "rrc.T.subchannels.size4.01.subCh2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_04_subCh1,
-      { "subCh1", "rrc.T.subchannels.04.subCh1",
+    { &hf_rrc_T_subchannels_size4_01_subCh1,
+      { "subCh1", "rrc.T.subchannels.size4.01.subCh1",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_04_subCh0,
-      { "subCh0", "rrc.T.subchannels.04.subCh0",
+    { &hf_rrc_T_subchannels_size4_01_subCh0,
+      { "subCh0", "rrc.T.subchannels.size4.01.subCh0",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh7,
-      { "subCh7", "rrc.T.subchannels.05.subCh7",
+    { &hf_rrc_T_subchannels_size8_01_subCh7,
+      { "subCh7", "rrc.T.subchannels.size8.01.subCh7",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh6,
-      { "subCh6", "rrc.T.subchannels.05.subCh6",
+    { &hf_rrc_T_subchannels_size8_01_subCh6,
+      { "subCh6", "rrc.T.subchannels.size8.01.subCh6",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh5,
-      { "subCh5", "rrc.T.subchannels.05.subCh5",
+    { &hf_rrc_T_subchannels_size8_01_subCh5,
+      { "subCh5", "rrc.T.subchannels.size8.01.subCh5",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh4,
-      { "subCh4", "rrc.T.subchannels.05.subCh4",
+    { &hf_rrc_T_subchannels_size8_01_subCh4,
+      { "subCh4", "rrc.T.subchannels.size8.01.subCh4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh3,
-      { "subCh3", "rrc.T.subchannels.05.subCh3",
+    { &hf_rrc_T_subchannels_size8_01_subCh3,
+      { "subCh3", "rrc.T.subchannels.size8.01.subCh3",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh2,
-      { "subCh2", "rrc.T.subchannels.05.subCh2",
+    { &hf_rrc_T_subchannels_size8_01_subCh2,
+      { "subCh2", "rrc.T.subchannels.size8.01.subCh2",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh1,
-      { "subCh1", "rrc.T.subchannels.05.subCh1",
+    { &hf_rrc_T_subchannels_size8_01_subCh1,
+      { "subCh1", "rrc.T.subchannels.size8.01.subCh1",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_05_subCh0,
-      { "subCh0", "rrc.T.subchannels.05.subCh0",
+    { &hf_rrc_T_subchannels_size8_01_subCh0,
+      { "subCh0", "rrc.T.subchannels.size8.01.subCh0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh15,
-      { "subCh15", "rrc.T.subchannels.06.subCh15",
+    { &hf_rrc_T_subchannels_size16_subCh15,
+      { "subCh15", "rrc.T.subchannels.size16.subCh15",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh14,
-      { "subCh14", "rrc.T.subchannels.06.subCh14",
+    { &hf_rrc_T_subchannels_size16_subCh14,
+      { "subCh14", "rrc.T.subchannels.size16.subCh14",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh13,
-      { "subCh13", "rrc.T.subchannels.06.subCh13",
+    { &hf_rrc_T_subchannels_size16_subCh13,
+      { "subCh13", "rrc.T.subchannels.size16.subCh13",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh12,
-      { "subCh12", "rrc.T.subchannels.06.subCh12",
+    { &hf_rrc_T_subchannels_size16_subCh12,
+      { "subCh12", "rrc.T.subchannels.size16.subCh12",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh11,
-      { "subCh11", "rrc.T.subchannels.06.subCh11",
+    { &hf_rrc_T_subchannels_size16_subCh11,
+      { "subCh11", "rrc.T.subchannels.size16.subCh11",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh10,
-      { "subCh10", "rrc.T.subchannels.06.subCh10",
+    { &hf_rrc_T_subchannels_size16_subCh10,
+      { "subCh10", "rrc.T.subchannels.size16.subCh10",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh9,
-      { "subCh9", "rrc.T.subchannels.06.subCh9",
+    { &hf_rrc_T_subchannels_size16_subCh9,
+      { "subCh9", "rrc.T.subchannels.size16.subCh9",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh8,
-      { "subCh8", "rrc.T.subchannels.06.subCh8",
+    { &hf_rrc_T_subchannels_size16_subCh8,
+      { "subCh8", "rrc.T.subchannels.size16.subCh8",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh7,
-      { "subCh7", "rrc.T.subchannels.06.subCh7",
+    { &hf_rrc_T_subchannels_size16_subCh7,
+      { "subCh7", "rrc.T.subchannels.size16.subCh7",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh6,
-      { "subCh6", "rrc.T.subchannels.06.subCh6",
+    { &hf_rrc_T_subchannels_size16_subCh6,
+      { "subCh6", "rrc.T.subchannels.size16.subCh6",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh5,
-      { "subCh5", "rrc.T.subchannels.06.subCh5",
+    { &hf_rrc_T_subchannels_size16_subCh5,
+      { "subCh5", "rrc.T.subchannels.size16.subCh5",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh4,
-      { "subCh4", "rrc.T.subchannels.06.subCh4",
+    { &hf_rrc_T_subchannels_size16_subCh4,
+      { "subCh4", "rrc.T.subchannels.size16.subCh4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh3,
-      { "subCh3", "rrc.T.subchannels.06.subCh3",
+    { &hf_rrc_T_subchannels_size16_subCh3,
+      { "subCh3", "rrc.T.subchannels.size16.subCh3",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh2,
-      { "subCh2", "rrc.T.subchannels.06.subCh2",
+    { &hf_rrc_T_subchannels_size16_subCh2,
+      { "subCh2", "rrc.T.subchannels.size16.subCh2",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh1,
-      { "subCh1", "rrc.T.subchannels.06.subCh1",
+    { &hf_rrc_T_subchannels_size16_subCh1,
+      { "subCh1", "rrc.T.subchannels.size16.subCh1",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_06_subCh0,
-      { "subCh0", "rrc.T.subchannels.06.subCh0",
+    { &hf_rrc_T_subchannels_size16_subCh0,
+      { "subCh0", "rrc.T.subchannels.size16.subCh0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
     { &hf_rrc_T_availableSYNC_UlCodesIndics_sulCodeIndex7,
@@ -208370,52 +208270,52 @@ void proto_register_rrc(void) {
       { "sulCodeIndex0", "rrc.T.availableSYNC.UlCodesIndics.sulCodeIndex0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_08_subCh3,
-      { "subCh3", "rrc.T.subchannels.08.subCh3",
+    { &hf_rrc_T_subchannels_size4_02_subCh3,
+      { "subCh3", "rrc.T.subchannels.size4.02.subCh3",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_08_subCh2,
-      { "subCh2", "rrc.T.subchannels.08.subCh2",
+    { &hf_rrc_T_subchannels_size4_02_subCh2,
+      { "subCh2", "rrc.T.subchannels.size4.02.subCh2",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_08_subCh1,
-      { "subCh1", "rrc.T.subchannels.08.subCh1",
+    { &hf_rrc_T_subchannels_size4_02_subCh1,
+      { "subCh1", "rrc.T.subchannels.size4.02.subCh1",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_08_subCh0,
-      { "subCh0", "rrc.T.subchannels.08.subCh0",
+    { &hf_rrc_T_subchannels_size4_02_subCh0,
+      { "subCh0", "rrc.T.subchannels.size4.02.subCh0",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh7,
-      { "subCh7", "rrc.T.subchannels.09.subCh7",
+    { &hf_rrc_T_subchannels_size8_02_subCh7,
+      { "subCh7", "rrc.T.subchannels.size8.02.subCh7",
         FT_BOOLEAN, 8, NULL, 0x80,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh6,
-      { "subCh6", "rrc.T.subchannels.09.subCh6",
+    { &hf_rrc_T_subchannels_size8_02_subCh6,
+      { "subCh6", "rrc.T.subchannels.size8.02.subCh6",
         FT_BOOLEAN, 8, NULL, 0x40,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh5,
-      { "subCh5", "rrc.T.subchannels.09.subCh5",
+    { &hf_rrc_T_subchannels_size8_02_subCh5,
+      { "subCh5", "rrc.T.subchannels.size8.02.subCh5",
         FT_BOOLEAN, 8, NULL, 0x20,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh4,
-      { "subCh4", "rrc.T.subchannels.09.subCh4",
+    { &hf_rrc_T_subchannels_size8_02_subCh4,
+      { "subCh4", "rrc.T.subchannels.size8.02.subCh4",
         FT_BOOLEAN, 8, NULL, 0x10,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh3,
-      { "subCh3", "rrc.T.subchannels.09.subCh3",
+    { &hf_rrc_T_subchannels_size8_02_subCh3,
+      { "subCh3", "rrc.T.subchannels.size8.02.subCh3",
         FT_BOOLEAN, 8, NULL, 0x08,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh2,
-      { "subCh2", "rrc.T.subchannels.09.subCh2",
+    { &hf_rrc_T_subchannels_size8_02_subCh2,
+      { "subCh2", "rrc.T.subchannels.size8.02.subCh2",
         FT_BOOLEAN, 8, NULL, 0x04,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh1,
-      { "subCh1", "rrc.T.subchannels.09.subCh1",
+    { &hf_rrc_T_subchannels_size8_02_subCh1,
+      { "subCh1", "rrc.T.subchannels.size8.02.subCh1",
         FT_BOOLEAN, 8, NULL, 0x02,
         NULL, HFILL }},
-    { &hf_rrc_T_subchannels_09_subCh0,
-      { "subCh0", "rrc.T.subchannels.09.subCh0",
+    { &hf_rrc_T_subchannels_size8_02_subCh0,
+      { "subCh0", "rrc.T.subchannels.size8.02.subCh0",
         FT_BOOLEAN, 8, NULL, 0x01,
         NULL, HFILL }},
     { &hf_rrc_AvailableSignatures_signature15,
@@ -212030,27 +211930,27 @@ void proto_register_rrc(void) {
     &ett_rrc_T_subchannelSize,
     &ett_rrc_T_size2,
     &ett_rrc_T_size4,
-    &ett_rrc_T_subchannels_01,
+    &ett_rrc_T_subchannels_size4,
     &ett_rrc_T_size8,
-    &ett_rrc_T_subchannels_02,
+    &ett_rrc_T_subchannels_size8,
     &ett_rrc_AccessServiceClass_TDD_r7,
     &ett_rrc_T_channelisationCodeIndices_01,
     &ett_rrc_T_subchannelSize_01,
     &ett_rrc_T_size2_01,
     &ett_rrc_T_size4_01,
-    &ett_rrc_T_subchannels_04,
+    &ett_rrc_T_subchannels_size4_01,
     &ett_rrc_T_size8_01,
-    &ett_rrc_T_subchannels_05,
+    &ett_rrc_T_subchannels_size8_01,
     &ett_rrc_T_size16,
-    &ett_rrc_T_subchannels_06,
+    &ett_rrc_T_subchannels_size16,
     &ett_rrc_AccessServiceClass_TDD_LCR_r4,
     &ett_rrc_T_availableSYNC_UlCodesIndics,
     &ett_rrc_T_subchannelSize_02,
     &ett_rrc_T_size2_02,
     &ett_rrc_T_size4_02,
-    &ett_rrc_T_subchannels_08,
+    &ett_rrc_T_subchannels_size4_02,
     &ett_rrc_T_size8_02,
-    &ett_rrc_T_subchannels_09,
+    &ett_rrc_T_subchannels_size8_02,
     &ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH_IEs,
     &ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH,
     &ett_rrc_AdditionalPRACH_TF_and_TFCS_CCCH_List,
@@ -215130,7 +215030,7 @@ void proto_register_rrc(void) {
     &ett_rrc_T_tdd128_75,
     &ett_rrc_T_sccpch_SystemInformation_MBMS_01,
     &ett_rrc_SysInfoType5_v860ext_IEs,
-    &ett_rrc_T_dummy_15,
+    &ett_rrc_T_dummy_seq,
     &ett_rrc_T_modeSpecificInfo_166,
     &ett_rrc_T_fdd_205,
     &ett_rrc_T_tdd128_76,
@@ -215664,10 +215564,10 @@ void proto_register_rrc(void) {
     &ett_rrc_T_current_tgps_Status_01,
     &ett_rrc_T_active_01,
     &ett_rrc_SRNC_RelocationInfo_r4_IEs,
-    &ett_rrc_T_dummy_17,
+    &ett_rrc_T_dummy_15,
     &ett_rrc_T_fdd_213,
     &ett_rrc_SRNC_RelocationInfo_r5_IEs,
-    &ett_rrc_T_dummy_18,
+    &ett_rrc_T_dummy_16,
     &ett_rrc_T_fdd_214,
     &ett_rrc_SRNC_RelocationInfo_v690ext_IEs,
     &ett_rrc_SRNC_RelocationInfo_r6_IEs,

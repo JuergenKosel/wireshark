@@ -341,8 +341,11 @@ int main(int argc, char **argv)
 	char* help_url;
 	char* help_header = NULL;
 
+	/* Set the program name. */
+	g_set_prgname("sdjournal");
+
 	/* Initialize log handler early so we can have proper logging during startup. */
-	extcap_log_init("sdjournal");
+	extcap_log_init();
 
 	/*
 	 * Get credential information for later use.
@@ -353,7 +356,7 @@ int main(int argc, char **argv)
 	 * Attempt to get the pathname of the directory containing the
 	 * executable file.
 	 */
-	configuration_init_error = configuration_init(argv[0], NULL);
+	configuration_init_error = configuration_init(argv[0]);
 	if (configuration_init_error != NULL) {
 		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			configuration_init_error);

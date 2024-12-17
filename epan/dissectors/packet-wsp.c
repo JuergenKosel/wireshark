@@ -4841,8 +4841,8 @@ dissect_wsp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                     /*
                      * Content type is a string.
                      */
-                    found_match = dissector_try_string(media_type_table,
-                            contentTypeStr, tmp_tvb, pinfo, tree, NULL);
+                    found_match = dissector_try_string_with_data(media_type_table,
+                            contentTypeStr, tmp_tvb, pinfo, tree, true, NULL);
                 }
                 if (! found_match) {
                     if (! dissector_try_heuristic(heur_subdissector_list,
@@ -4927,8 +4927,8 @@ dissect_wsp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                     /*
                      * Content type is a string.
                      */
-                    found_match = dissector_try_string(media_type_table,
-                            contentTypeStr, tmp_tvb, pinfo, tree, NULL);
+                    found_match = dissector_try_string_with_data(media_type_table,
+                            contentTypeStr, tmp_tvb, pinfo, tree, true, NULL);
                 }
                 if (! found_match) {
                     if (! dissector_try_heuristic(heur_subdissector_list,
@@ -5004,8 +5004,8 @@ dissect_wsp_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree,
                         dissect_sir(tree, tmp_tvb);
                     } else
                     */
-                    found_match = dissector_try_string(media_type_table,
-                            contentTypeStr, tmp_tvb, pinfo, tree, NULL);
+                    found_match = dissector_try_string_with_data(media_type_table,
+                            contentTypeStr, tmp_tvb, pinfo, tree, true, NULL);
                 }
                 if (! found_match){
                     /*
@@ -5535,8 +5535,8 @@ add_multipart_data (proto_tree *tree, tvbuff_t *tvb, packet_info *pinfo)
             /*
              * Content type is a string.
              */
-            found_match = dissector_try_string(media_type_table,
-                    contentTypeStr, tmp_tvb, pinfo, mpart_tree, NULL);
+            found_match = dissector_try_string_with_data(media_type_table,
+                    contentTypeStr, tmp_tvb, pinfo, mpart_tree, true, NULL);
         }
         if (! found_match) {
             if (! dissector_try_heuristic(heur_subdissector_list,
@@ -7167,7 +7167,7 @@ proto_register_wsp(void)
       { &ei_wsp_invalid_parameter_value, { "wsp.invalid_parameter_value", PI_PROTOCOL, PI_WARN, "Invalid parameter value", EXPFILL }},
       { &ei_wsp_header_invalid_value, { "wsp.header_invalid_value", PI_PROTOCOL, PI_WARN, "Invalid header value", EXPFILL }},
       { &ei_hdr_x_wap_tod, { "wsp.header.x_wap_tod.not_text", PI_PROTOCOL, PI_WARN, "Should be encoded as a textual value", EXPFILL }},
-      { &ei_wsp_undecoded_parameter, { "wsp.undecoded_parameter", PI_UNDECODED, PI_WARN, "Invalid parameter value", EXPFILL }},
+      { &ei_wsp_undecoded_parameter, { "wsp.undecoded_parameter", PI_UNDECODED, PI_WARN, "Undecoded parameter value", EXPFILL }},
       { &ei_wsp_trailing_quote, { "wsp.trailing_quote", PI_PROTOCOL, PI_WARN, "Quoted-string value has been encoded with a trailing quote", EXPFILL }},
       { &ei_wsp_header_invalid, { "wsp.header_invalid", PI_MALFORMED, PI_ERROR, "Malformed header", EXPFILL }},
       { &ei_wsp_oversized_uintvar, { "wsp.oversized_uintvar", PI_MALFORMED, PI_ERROR, "Uintvar is oversized", EXPFILL }}

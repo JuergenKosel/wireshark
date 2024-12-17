@@ -648,9 +648,9 @@ void ImportTextDialog::on_timestampFormatLineEdit_textChanged(const QString &tim
             ws_clock_get_realtime(&timenow);
 
             /* On windows strftime/wcsftime does not support %s yet, this works on all OSs */
-            timefmt.replace(QString("%s"), QString::number(timenow.tv_sec));
+            timefmt.replace(QStringLiteral("%s"), QString::number(timenow.tv_sec));
             /* subsecond example as usec */
-            timefmt.replace(QString("%f"),  QString("%1").arg(timenow.tv_nsec, 6, 10, QChar('0')));
+            timefmt.replace(QStringLiteral("%f"),  QStringLiteral("%1").arg(timenow.tv_nsec, 6, 10, QChar('0')));
 
             cur_tm = localtime(&timenow.tv_sec);
             if (cur_tm == NULL) {
@@ -658,7 +658,7 @@ void ImportTextDialog::on_timestampFormatLineEdit_textChanged(const QString &tim
               cur_tm = &fallback;
             }
             strftime(time_str, sizeof time_str, timefmt.toUtf8(), cur_tm);
-            ti_ui_->timestampExampleLabel->setText(QString(tr(HINT_BEGIN "Example: %1" HINT_END)).arg(QString(time_str).toHtmlEscaped()));
+            ti_ui_->timestampExampleLabel->setText(tr(HINT_BEGIN "Example: %1" HINT_END).arg(QString(time_str).toHtmlEscaped()));
             timestamp_format_ok_ = true;
         }
         else {

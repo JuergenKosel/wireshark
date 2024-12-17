@@ -131,28 +131,6 @@ frames_compare(const void *a, const void *b)
     return nstime_cmp(time1, time2);
 }
 
-/*
- * General errors and warnings are reported with an console message
- * in reordercap.
- */
-static void
-reordercap_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "reordercap: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-reordercap_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
 /********************************************************************/
 /* Main function.                                                   */
 /********************************************************************/
@@ -186,18 +164,18 @@ main(int argc, char *argv[])
     char *infile;
     const char *outfile;
 
-    cmdarg_err_init(reordercap_cmdarg_err, reordercap_cmdarg_err_cont);
+    /* Set the program name. */
+    g_set_prgname("reordercap");
+
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("reordercap", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
 
     ws_noisy("Finished log init and parsing command line log arguments");
-
-    /* Initialize the version information. */
-    ws_init_version_info("Reordercap", NULL, NULL);
 
     /*
      * Get credential information for later use.
@@ -208,13 +186,16 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0], NULL);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         fprintf(stderr,
                 "reordercap: Can't get pathname of directory containing the reordercap program: %s.\n",
                 configuration_init_error);
         g_free(configuration_init_error);
     }
+
+    /* Initialize the version information. */
+    ws_init_version_info("Reordercap", NULL, NULL);
 
     init_report_failure_message("reordercap");
 

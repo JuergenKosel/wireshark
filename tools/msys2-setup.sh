@@ -25,6 +25,7 @@ function print_usage() {
 
 ADDITIONAL=0
 TESTDEPS=0
+NSISDEPS=0
 OPTIONS=
 for arg; do
 	case $arg in
@@ -74,12 +75,14 @@ BASIC_LIST="base-devel \
 	${PACKAGE_PREFIX}-libilbc \
 	${PACKAGE_PREFIX}-libmaxminddb \
 	${PACKAGE_PREFIX}-nghttp2 \
+	${PACKAGE_PREFIX}-nghttp3 \
 	${PACKAGE_PREFIX}-libpcap \
 	${PACKAGE_PREFIX}-libsmi \
 	${PACKAGE_PREFIX}-libssh \
 	${PACKAGE_PREFIX}-libxml2 \
+	${PACKAGE_PREFIX}-lua \
 	${PACKAGE_PREFIX}-lz4 \
-	${PACKAGE_PREFIX}-minizip \
+	${PACKAGE_PREFIX}-minizip-ng \
 	${PACKAGE_PREFIX}-ninja \
 	${PACKAGE_PREFIX}-opencore-amr \
 	${PACKAGE_PREFIX}-opus \

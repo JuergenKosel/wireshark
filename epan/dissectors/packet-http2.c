@@ -57,6 +57,7 @@
 #include "wsutil/str_util.h"
 #include <wsutil/unicode-utils.h>
 #include <wsutil/wsjson.h>
+#include <wsutil/array.h>
 
 #ifdef HAVE_NGHTTP2
 #define http2_header_repr_type_VALUE_STRING_LIST(XXX)                   \
@@ -76,7 +77,7 @@ VALUE_STRING_ARRAY(http2_header_repr_type);
 /*
  * Decompression of zlib or brotli encoded entities.
  */
-#if defined(HAVE_ZLIB) || defined(HAVE_ZLIBNG)|| defined(HAVE_BROTLI)
+#if defined(HAVE_ZLIB) || defined(HAVE_ZLIBNG) || defined(HAVE_BROTLI) || defined(HAVE_ZSTD)
 static bool http2_decompress_body = true;
 #else
 static bool http2_decompress_body;
@@ -2804,7 +2805,8 @@ get_streaming_reassembly_info(packet_info* pinfo, http2_session_t* http2_session
 enum body_uncompression {
     BODY_UNCOMPRESSION_NONE,
     BODY_UNCOMPRESSION_ZLIB,
-    BODY_UNCOMPRESSION_BROTLI
+    BODY_UNCOMPRESSION_BROTLI,
+    BODY_UNCOMPRESSION_ZSTD
 };
 
 static enum body_uncompression
@@ -2815,6 +2817,8 @@ get_body_uncompression_info(packet_info *pinfo, http2_session_t* h2session)
 
     /* Check we have a content-encoding header appropriate as well as checking if this is partial content.
      * We can't decompress part of a gzip encoded entity */
+    /* XXX - Should there be an expert info if a body is compressed but support
+     * for that decompression method was not compiled in? */
     if (!http2_decompress_body || body_info->is_partial_content == true || content_encoding == NULL) {
         return BODY_UNCOMPRESSION_NONE;
     }
@@ -2831,6 +2835,11 @@ get_body_uncompression_info(packet_info *pinfo, http2_session_t* h2session)
 #ifdef HAVE_BROTLI
     if (strncmp(content_encoding, "br", 2) == 0) {
         return BODY_UNCOMPRESSION_BROTLI;
+    }
+#endif
+#ifdef HAVE_ZSTD
+    if (strncmp(content_encoding, "zstd", 4) == 0) {
+        return BODY_UNCOMPRESSION_ZSTD;
     }
 #endif
 
@@ -2877,11 +2886,11 @@ dissect_body_data(proto_tree *tree, packet_info *pinfo, http2_session_t* h2sessi
     if (content_type != NULL) {
         /* add it to STREAM level */
         proto_tree* ptree = proto_tree_get_parent_tree(tree);
-        dissector_try_string((streaming_mode ? streaming_content_type_dissector_table : media_type_dissector_table),
+        dissector_try_string_with_data((streaming_mode ? streaming_content_type_dissector_table : media_type_dissector_table),
             content_type, data_tvb, pinfo,
-            ptree, &metadata_used_for_media_type_handle);
+            ptree, true, &metadata_used_for_media_type_handle);
     } else {
-        if (!dissector_try_uint_new(stream_id_content_type_dissector_table, stream_id,
+        if (!dissector_try_uint_with_data(stream_id_content_type_dissector_table, stream_id,
             data_tvb, pinfo, proto_tree_get_parent_tree(tree), true, &metadata_used_for_media_type_handle))
         {
             /* Try heuristics */
@@ -2899,7 +2908,7 @@ dissect_body_data(proto_tree *tree, packet_info *pinfo, http2_session_t* h2sessi
                         body_info->content_type = wmem_strndup(wmem_file_scope(), "multipart/mixed", 15);
                         body_info->content_type_parameters = wmem_strdup_printf(wmem_file_scope(), "boundary=\"%s\"", boundary);
                         metadata_used_for_media_type_handle.media_str = body_info->content_type_parameters;
-                        dissector_try_uint_new(stream_id_content_type_dissector_table, stream_id,
+                        dissector_try_uint_with_data(stream_id_content_type_dissector_table, stream_id,
                             data_tvb, pinfo, proto_tree_get_parent_tree(tree), true, &metadata_used_for_media_type_handle);
                     }
                 }
@@ -2935,7 +2944,7 @@ dissect_body_data(proto_tree *tree, packet_info *pinfo, http2_session_t* h2sessi
                     if (handle) {
                         dissector_add_uint("http2.streamid", stream_info->stream_id, handle);
                     }
-                    dissector_try_uint_new(stream_id_content_type_dissector_table, stream_id,
+                    dissector_try_uint_with_data(stream_id_content_type_dissector_table, stream_id,
                         data_tvb, pinfo, proto_tree_get_parent_tree(tree), true, &metadata_used_for_media_type_handle);
                 }
                 return;
@@ -2962,6 +2971,8 @@ dissect_http2_data_full_body(tvbuff_t *tvb, packet_info *pinfo, http2_session_t*
             uncompressed_tvb = tvb_child_uncompress_zlib(tvb, tvb, 0, datalen);
         } else if (uncompression == BODY_UNCOMPRESSION_BROTLI) {
             uncompressed_tvb = tvb_child_uncompress_brotli(tvb, tvb, 0, datalen);
+        } else if (uncompression == BODY_UNCOMPRESSION_ZSTD) {
+            uncompressed_tvb = tvb_child_uncompress_zstd(tvb, tvb, 0, datalen);
         }
 
         http2_data_stream_body_info_t *body_info = get_data_stream_body_info(pinfo, h2session);
@@ -3073,9 +3084,17 @@ http2_process_reassembled_data(tvbuff_t *tvb, const int offset, packet_info *pin
         else {
             /*
              * No.
-             * Return a tvbuff with the payload. next_tvb ist from offset until end
+             * Return a tvbuff with the payload, a subset of the tvbuff
+             * passed in.
              */
-            next_tvb = tvb_new_subset_remaining(tvb, offset);
+            int len;
+            if (fd_head->flags & FD_BLOCKSEQUENCE) {
+                len = fd_head->len;
+            } else {
+                // XXX Do the non-seq functions have this optimization?
+                len = fd_head->datalen;
+            }
+            next_tvb = tvb_new_subset_length(tvb, offset, len);
             pinfo->fragmented = false;	/* one-fragment packet */
             update_col_info = true;
         }
@@ -3449,7 +3468,7 @@ dissect_http2_data(tvbuff_t *tvb, packet_info *pinfo, http2_session_t* http2_ses
     offset = dissect_frame_padding(tvb, &padding, http2_tree, offset, flags);
     datalen = tvb_reported_length_remaining(tvb, offset) - padding;
 
-    dissect_http2_data_body(tvb, pinfo, http2_session, http2_tree, offset, flags, datalen);
+    dissect_http2_data_body(tvb_new_subset_length(tvb, offset, datalen), pinfo, http2_session, http2_tree, 0, flags, datalen);
 
     offset += datalen;
 

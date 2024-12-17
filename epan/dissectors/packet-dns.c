@@ -75,6 +75,7 @@
 #include "packet-tls.h"
 #include "packet-dtls.h"
 #include "packet-http2.h"
+#include <wsutil/array.h>
 
 // parent knob to turn on-off the entire query-response statistics (at runtime)
 // qr = Query-Response
@@ -4278,7 +4279,7 @@ dissect_dns_answer(tvbuff_t *tvb, int offsetx, int dns_data_offset,
 
         sub_tvb=tvb_new_subset_length(tvb, cur_offset, tsig_siglen);
 
-        if (!dissector_try_string(dns_tsig_dissector_table, tsig_algname, sub_tvb, pinfo, mac_tree, NULL)) {
+        if (!dissector_try_string_with_data(dns_tsig_dissector_table, tsig_algname, sub_tvb, pinfo, mac_tree, true, NULL)) {
           expert_add_info_format(pinfo, mac_item, &ei_dns_tsig_alg,
                 "No dissector for algorithm:%s", name_out);
         }
@@ -6043,7 +6044,7 @@ static tap_packet_status dns_qr_stats_tree_packet(stats_tree* st, packet_info* p
       // responses, ttl count will be 2 but summation of answers, authorities
       // and additionals could be more as each response could contain multiple
       // answers, authorities and additionals. if ttl count is changed to
-      // reflect summation, then it would standout withing its siblings like
+      // reflect summation, then it would standout within its siblings like
       // rcode, payload etc.
       //tick_stat_node(st, st_str_qr_rt_packets, st_node_qr_r_packets, true);
 
@@ -7943,6 +7944,7 @@ proto_register_dns(void)
     &ett_dns_dso_tlv,
     &ett_dns_svcb,
     &ett_dns_extraneous,
+    &ett_dns_dnscrypt
   };
 
   module_t *dns_module;

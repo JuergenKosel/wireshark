@@ -57,7 +57,7 @@ class QCPAxisTickerDateTime;
 const int max_io_items_ = 1 << 25;
 
 /* define I/O Graph specific UAT columns */
-enum UatColumnsIOG {colEnabled = 0, colAOT, colName, colDFilter, colColor, colStyle, colYAxis, colYField, colSMAPeriod, colYAxisFactor, colMaxNum};
+enum UatColumnsIOG {colEnabled = 0, colName, colDFilter, colColor, colStyle, colYAxis, colYField, colSMAPeriod, colYAxisFactor, colAOT, colMaxNum};
 
 // XXX - Move to its own file?
 class IOGraph : public QObject {
@@ -266,12 +266,9 @@ private slots:
 
     void graphUatSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void on_intervalComboBox_currentIndexChanged(int index);
-    void on_todCheckBox_toggled(bool checked);
     void on_graphUat_currentItemChanged(const QModelIndex &current, const QModelIndex &previous);
 
-    void on_logCheckBox_toggled(bool checked);
     void on_automaticUpdateCheckBox_toggled(bool checked);
-    void on_enableLegendCheckBox_toggled(bool checked);
     void on_newToolButton_clicked();
     void on_deleteToolButton_clicked();
     void on_copyToolButton_clicked();
@@ -302,6 +299,9 @@ private slots:
     void on_buttonBox_helpRequested();
     void on_buttonBox_accepted();
     void buttonBoxClicked(QAbstractButton *button);
+    void actionLegendTriggered(bool checked);
+    void actionTimeOfDayTriggered(bool checked);
+    void actionLogScaleTriggered(bool checked);
 };
 
 #endif // IO_GRAPH_DIALOG_H

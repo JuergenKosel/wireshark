@@ -13,7 +13,8 @@
 #include <ui_about_dialog.h>
 
 #include "main_application.h"
-#include <wsutil/filesystem.h>
+
+#include <wsutil/application_flavor.h>
 
 #include <QDesktopServices>
 #include <QUrl>
@@ -38,6 +39,8 @@
 #include "ui/capture_globals.h"
 
 #include "extcap.h"
+
+#include <ui/qt/main_window.h>
 
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
@@ -76,11 +79,7 @@ AStringListListModel(parent)
 
     while (!ReadFile_authors.atEnd()) {
         QString line = ReadFile_authors.readLine();
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
         QStringList entry = line.split(",", Qt::SkipEmptyParts);
-#else
-        QStringList entry = QStringList() << line.section(',', 0, 0) << line.section(',', 1, 1);
-#endif
         if (entry.size() == 2) {
             appendRow(entry);
         }
@@ -272,7 +271,7 @@ FolderListModel::FolderListModel(QObject * parent):
 
 #ifdef Q_OS_MAC
     /* Mac Extras */
-    QString extras_path = mainApp->applicationDirPath() + "/../Resources/Extras";
+    QString extras_path = QStringLiteral("%1/../Resources/Extras").arg(mainApp->applicationDirPath());
     appendRow(QStringList() << tr("macOS Extras") << QDir::cleanPath(extras_path) << tr("Extra macOS packages"));
 
 #endif
@@ -295,9 +294,10 @@ AboutDialog::AboutDialog(QWidget *parent) :
     QFile f_acknowledgements;
     QFile f_license;
 
-    if (!is_packet_configuration_namespace()) {
+    if (application_flavor_is_stratoshark()) {
         setWindowTitle(tr("About Stratoshark"));
         ui->tabWidget->setTabText(ui->tabWidget->indexOf(ui->tab_wireshark), tr("Stratoshark"));
+        ui->label_title->setText(tr("<h3>System Call and Event Log Analyzer</h3>"));
     }
 
     /* Wireshark tab */
@@ -363,7 +363,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui->tblPlugins->setModel(pluginTypeModel);
     ui->tblPlugins->setRootIsDecorated(false);
     UrlLinkDelegate *plugin_delegate = new UrlLinkDelegate(this);
-    script_pattern = QString("\\.(lua|py)$");
+    script_pattern = QStringLiteral("\\.(lua|py)$");
     plugin_delegate->setColCheck(3, script_pattern);
     ui->tblPlugins->setItemDelegateForColumn(3, plugin_delegate);
     ui->cmbType->addItems(pluginModel->typeNames());
@@ -405,21 +405,12 @@ AboutDialog::AboutDialog(QWidget *parent) :
     f_acknowledgements.open(QFile::ReadOnly | QFile::Text);
     QTextStream ReadFile_acks(&f_acknowledgements);
 
-    /* QTextBrowser markdown support added in 5.14. */
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
     QTextBrowser *textBrowserAcks = new QTextBrowser();
     textBrowserAcks->setMarkdown(ReadFile_acks.readAll());
     textBrowserAcks->setReadOnly(true);
     textBrowserAcks->setOpenExternalLinks(true);
     textBrowserAcks->moveCursor(QTextCursor::Start);
     ui->ackVerticalLayout->addWidget(textBrowserAcks);
-#else
-    QPlainTextEdit *pte = new QPlainTextEdit();
-    pte->setPlainText(ReadFile_acks.readAll());
-    pte->setReadOnly(true);
-    pte->moveCursor(QTextCursor::Start);
-    ui->ackVerticalLayout->addWidget(pte);
-#endif
 
     /* License */
     f_license.setFileName(":/about/gpl-2.0-standalone.html");
@@ -483,7 +474,7 @@ void AboutDialog::showEvent(QShowEvent * event)
 
 void AboutDialog::updateWiresharkText()
 {
-    QString vcs_version_info_str = is_packet_configuration_namespace() ? get_ws_vcs_version_info() : get_ss_vcs_version_info();
+    QString vcs_version_info_str = application_flavor_is_wireshark() ? get_ws_vcs_version_info() : get_ss_vcs_version_info();
     QString copyright_info_str = get_copyright_info();
     QString license_info_str = get_license_info();
     QString comp_info_str = gstring_free_to_qbytearray(get_compiled_version_info(gather_wireshark_qt_compiled_info));
@@ -491,12 +482,17 @@ void AboutDialog::updateWiresharkText()
 
     QString message = ColorUtils::themeLinkStyle();
 
+    /* Convert newlines in the version strings to html <br/>*/
+    //comp_info_str = html_escape(comp_info_str);
+    //comp_info_str.replace("\n", "<br/>");
+    //runtime_info_str = html_escape(runtime_info_str);
+    //runtime_info_str.replace("\n", "<br/>");
     /* Construct the message string */
     message += "<p>Version " + html_escape(vcs_version_info_str) + ".</p>\n";
     message += "<p>" + html_escape(copyright_info_str) + "</p>\n";
     message += "<p>" + html_escape(license_info_str) + "</p>\n";
-    message += "<p>" + html_escape(comp_info_str) + "</p>\n";
-    message += "<p>" + html_escape(runtime_info_str) + "</p>\n";
+    message += "<pre>" + html_escape(comp_info_str) + "</pre>\n";
+    message += "<pre>" + html_escape(runtime_info_str) + "</pre>\n";
     message += "<p>Check the man page and <a href=https://www.wireshark.org>www.wireshark.org</a> "
                "for more information.</p>\n";
     ui->pte_wireshark->setHtml(message);
@@ -540,12 +536,12 @@ void AboutDialog::urlDoubleClicked(const QModelIndex &idx)
     if (! QDir(urlText).exists())
     {
         if (QMessageBox::question(this, tr("The directory does not exist"),
-                          QString(tr("Should the directory %1 be created?").arg(urlText))) == QMessageBox::Yes)
+                          tr("Should the directory %1 be created?").arg(urlText)) == QMessageBox::Yes)
         {
             if (! QDir().mkpath(urlText))
             {
                 QMessageBox::warning(this, tr("The directory could not be created"),
-                                     QString(tr("The directory %1 could not be created.").arg(urlText)));
+                                     tr("The directory %1 could not be created.").arg(urlText));
             }
         }
     }

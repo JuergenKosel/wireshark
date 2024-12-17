@@ -38,7 +38,7 @@ protected:
 
 signals:
     void showProtocolPreferences(const QString module_name);
-    void editProtocolPreference(struct preference *pref, struct pref_module *module);
+    void editProtocolPreference(pref_t *pref, module_t *module);
 
 private slots:
     void on_buttonBox_helpRequested();

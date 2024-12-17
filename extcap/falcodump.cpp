@@ -28,14 +28,15 @@
 #include "config.h"
 
 #include <libsinsp/sinsp.h>
-#include <plugin_manager.h>
+#include <libsinsp/plugin_manager.h>
 
-#include <scap_engines.h>
+#include <libscap/scap_engines.h>
 
 #define WS_LOG_DOMAIN "falcodump"
 
 #include <extcap/extcap-base.h>
 
+#include <wsutil/application_flavor.h>
 #include <wsutil/file_util.h>
 #include <wsutil/filesystem.h>
 #include <wsutil/json_dumper.h>
@@ -926,8 +927,11 @@ int main(int argc, char **argv)
     sinsp inspector;
     std::string plugin_source;
 
+    /* Set the program name. */
+    g_set_prgname("falcodump");
+
     /* Initialize log handler early so we can have proper logging during startup. */
-    extcap_log_init("falcodump");
+    extcap_log_init();
 
     /*
      * Get credential information for later use.
@@ -938,7 +942,8 @@ int main(int argc, char **argv)
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0], "Stratoshark");
+    configuration_init_error = configuration_init(argv[0]);
+    set_application_flavor(APPLICATION_FLAVOR_STRATOSHARK);
     if (configuration_init_error != NULL) {
         ws_warning("Can't get pathname of directory containing the extcap program: %s.",
                 configuration_init_error);

@@ -35,7 +35,6 @@
 #include <epan/decode_as.h>
 #include <epan/timestamp.h>
 #include <epan/packet.h>
-#include "frame_tvbuff.h"
 #include <epan/disabled_protos.h>
 #include <epan/prefs.h>
 #include <epan/column.h>
@@ -47,7 +46,7 @@
 #include "wsutil/filter_files.h"
 #include "ui/tap_export_pdu.h"
 #include "ui/failure_message.h"
-#include "wtap.h"
+#include <wiretap/wtap.h>
 #include <epan/epan_dissect.h>
 #include <epan/tap.h>
 #include <epan/uat-int.h>
@@ -71,9 +70,6 @@ capture_file cfile;
 
 static uint32_t cum_bytes;
 static frame_data ref_frame;
-
-static void sharkd_cmdarg_err(const char *msg_format, va_list ap);
-static void sharkd_cmdarg_err_cont(const char *msg_format, va_list ap);
 
 static void
 print_current_user(void)
@@ -103,10 +99,13 @@ main(int argc, char *argv[])
     e_prefs             *prefs_p;
     int                  ret = EXIT_SUCCESS;
 
-    cmdarg_err_init(sharkd_cmdarg_err, sharkd_cmdarg_err_cont);
+    /* Set the program name. */
+    g_set_prgname("sharkd");
+
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("sharkd", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, SHARKD_INIT_FAILED);
@@ -125,7 +124,7 @@ main(int argc, char *argv[])
     /*
      * Attempt to get the pathname of the executable file.
      */
-    configuration_init_error = configuration_init(argv[0], NULL);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         fprintf(stderr, "sharkd: Can't get pathname of sharkd program: %s.\n",
                 configuration_init_error);
@@ -138,7 +137,7 @@ main(int argc, char *argv[])
 
     if (sharkd_init(argc, argv) < 0)
     {
-        printf("cannot initialize sharkd\n");
+        fputs("Cannot initialize sharkd.\n", stderr);
         ret = SHARKD_INIT_FAILED;
         goto clean_exit;
     }
@@ -258,7 +257,7 @@ process_packet(capture_file *cf, epan_dissect_t *edt,
         }
 
         epan_dissect_run(edt, cf->cd_t, rec,
-                frame_tvbuff_new_buffer(&cf->provider, &fdlocal, buf),
+                ws_buffer_start_ptr(buf),
                 &fdlocal, NULL);
 
         /* Run the read filter if we have one. */
@@ -430,27 +429,6 @@ fail:
     return CF_ERROR;
 }
 
-/*
- * Report an error in command-line arguments.
- */
-static void
-sharkd_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "sharkd: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-sharkd_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
 cf_status_t
 sharkd_cf_open(const char *fname, unsigned int type, bool is_tempfile, int *err)
 {
@@ -511,7 +489,7 @@ sharkd_dissect_request(uint32_t framenum, uint32_t frame_ref_num,
     fdata->frame_ref_num = frame_ref_num;
     fdata->prev_dis_num = prev_dis_num;
     epan_dissect_run(&edt, cfile.cd_t, rec,
-            frame_tvbuff_new_buffer(&cfile.provider, fdata, buf),
+            ws_buffer_start_ptr(buf),
             fdata, cinfo);
 
     if (cinfo) {
@@ -576,7 +554,7 @@ sharkd_retap(void)
         fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
         fdata->prev_dis_num = framenum - 1;
         epan_dissect_run_with_taps(&edt, cfile.cd_t, &rec,
-                frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
+                ws_buffer_start_ptr(&buf),
                 fdata, cinfo);
         wtap_rec_reset(&rec);
         epan_dissect_reset(&edt);
@@ -645,7 +623,7 @@ sharkd_filter(const char *dftext, uint8_t **result)
         fdata->frame_ref_num = (framenum != 1) ? 1 : 0;
         fdata->prev_dis_num = prev_dis_num;
         epan_dissect_run(&edt, cfile.cd_t, &rec,
-                frame_tvbuff_new_buffer(&cfile.provider, fdata, &buf),
+                ws_buffer_start_ptr(&buf),
                 fdata, NULL);
 
         if (dfilter_apply_edt(dfcode, &edt)) {

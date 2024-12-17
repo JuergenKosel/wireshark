@@ -73,14 +73,13 @@ DisplayFilterCombo::DisplayFilterCombo(QWidget *parent) :
     updateStyleSheet();
     setToolTip(tr("Select from previously used filters."));
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
     // Setting the placeholderText keeps newly added items from being the
     // current item. It only works for the placeholderText of the QComboBox,
     // not the lineEdit (even though the lineEdit's placeholderText is shown
     // instead.) This only matters for any combobox created before the recent
     // display filter list is read (i.e., the main window one.)
+    // https://bugreports.qt.io/browse/QTBUG-127279
     setPlaceholderText(dfe->placeholderText());
-#endif
 
     if (cur_model == nullptr) {
         cur_model = new QStandardItemModel();
@@ -91,30 +90,11 @@ DisplayFilterCombo::DisplayFilterCombo(QWidget *parent) :
     connect(mainApp, &MainApplication::preferencesChanged, this, &DisplayFilterCombo::updateMaxCount);
     connect(dfe, &DisplayFilterEdit::filterPackets, this, &DisplayFilterCombo::filterApplied);
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-    connect(cur_model, &QAbstractItemModel::rowsAboutToBeInserted, this, &DisplayFilterCombo::rowsAboutToBeInserted);
-#endif
     connect(cur_model, &QAbstractItemModel::rowsInserted, this, &DisplayFilterCombo::rowsInserted);
 }
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-void DisplayFilterCombo::rowsAboutToBeInserted(const QModelIndex&, int, int)
-{
-    // If the current text is blank but we're inserting a row, that means
-    // it is being added programmatically from the model, and we want to
-    // clear it afterwards and show the placeholder text instead.
-    clear_state_ = (currentText() == QString());
-}
-#endif
-
 void DisplayFilterCombo::rowsInserted(const QModelIndex&, int first, int last)
 {
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-    if (clear_state_) {
-        clearEditText();
-    }
-#endif
-
     // Set the last used times of newly inserted items to the current
     // time, in order. We could subclass QStandardItemModel instead.
     QStandardItemModel *m = qobject_cast<QStandardItemModel*>(this->model());
@@ -178,13 +158,10 @@ void DisplayFilterCombo::updateStyleSheet()
 {
     const char *display_mode = ColorUtils::themeIsDark() ? "dark" : "light";
 
-    QString ss = QString(
-                "QComboBox {"
 #ifdef Q_OS_MAC
+    QString ss = QStringLiteral(
+                "QComboBox {"
                 "  border: 1px solid gray;"
-#else
-                "  border: 1px solid palette(shadow);"
-#endif
                 "  border-radius: 3px;"
                 "  padding: 0px 0px 0px 0px;"
                 "  margin-left: 0px;"
@@ -207,6 +184,33 @@ void DisplayFilterCombo::updateStyleSheet()
                 "  left: 1px;"
                 "}"
                 ).arg(display_mode);
+#else
+    QString ss = QStringLiteral(
+                "QComboBox {"
+                "  border: 1px solid palette(shadow);"
+                "  border-radius: 3px;"
+                "  padding: 0px 0px 0px 0px;"
+                "  margin-left: 0px;"
+                "  min-width: 20em;"
+                " }"
+
+                "QComboBox::drop-down {"
+                "  subcontrol-origin: padding;"
+                "  subcontrol-position: top right;"
+                "  width: 14px;"
+                "  border-left-width: 0px;"
+                " }"
+
+                "QComboBox::down-arrow {"
+                "  image: url(:/stock_icons/14x14/x-filter-dropdown.%1.png);"
+                " }"
+
+                "QComboBox::down-arrow:on { /* shift the arrow when popup is open */"
+                "  top: 1px;"
+                "  left: 1px;"
+                "}"
+                ).arg(display_mode);
+#endif
     setStyleSheet(ss);
 }
 

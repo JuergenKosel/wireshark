@@ -346,8 +346,11 @@ int main(int argc, char *argv[])
 	char* payload = NULL;
 	char* port_msg = NULL;
 
+	/* Set the program name. */
+	g_set_prgname("udpdump");
+
 	/* Initialize log handler early so we can have proper logging during startup. */
-	extcap_log_init("udpdump");
+	extcap_log_init();
 
 	/*
 	 * Get credential information for later use.
@@ -358,7 +361,7 @@ int main(int argc, char *argv[])
 	 * Attempt to get the pathname of the directory containing the
 	 * executable file.
 	 */
-	err_msg = configuration_init(argv[0], NULL);
+	err_msg = configuration_init(argv[0]);
 	if (err_msg != NULL) {
 		ws_warning("Can't get pathname of directory containing the extcap program: %s.",
 			err_msg);

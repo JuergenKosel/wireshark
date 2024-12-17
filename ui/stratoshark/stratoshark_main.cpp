@@ -21,6 +21,7 @@
 #endif
 
 #include <ws_exit_codes.h>
+#include <wsutil/application_flavor.h>
 #include <wsutil/clopts_common.h>
 #include <wsutil/cmdarg_err.h>
 #include <ui/urls.h>
@@ -376,19 +377,16 @@ macos_enable_layer_backing(void)
 {
     // At the time of this writing, the QTBUG-87014 for layerEnabledByMacOS is...
     //
-    // ...in https://github.com/qt/qtbase/blob/5.12/src/plugins/platforms/cocoa/qnsview_drawing.mm
-    // ...not in https://github.com/qt/qtbase/blob/5.12.10/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...in https://github.com/qt/qtbase/blob/5.15/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/5.15.2/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/6.0/src/plugins/platforms/cocoa/qnsview_drawing.mm
     // ...not in https://github.com/qt/qtbase/blob/6.0.0/src/plugins/platforms/cocoa/qnsview_drawing.mm
     //
-    // We'll assume that it will be fixed in 5.12.11, 5.15.3, and 6.0.1.
+    // We'll assume that it will be fixed in 5.15.3, 6.0.1, and >= 6.1
     // Note that we only ship LTS versions of Qt with our macOS packages.
     // Feel free to add other versions if needed.
 #if  \
-        (QT_VERSION >= QT_VERSION_CHECK(5, 12, 0) && QT_VERSION < QT_VERSION_CHECK(5, 12, 11) \
-        || (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0) &&  QT_VERSION < QT_VERSION_CHECK(5, 15, 3)) \
+        ((QT_VERSION >= QT_VERSION_CHECK(5, 15, 0) &&  QT_VERSION < QT_VERSION_CHECK(5, 15, 3)) \
         || (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0) &&  QT_VERSION < QT_VERSION_CHECK(6, 0, 1)) \
     )
     QOperatingSystemVersion os_ver = QOperatingSystemVersion::current();
@@ -457,6 +455,9 @@ int main(int argc, char *qt_argv[])
     /* Start time in microseconds */
     uint64_t start_time = g_get_monotonic_time();
 
+    /* Set the program name. */
+    g_set_prgname("stratoshark");
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     /*
      * See:
@@ -492,7 +493,7 @@ int main(int argc, char *qt_argv[])
     cmdarg_err_init(stratoshark_cmdarg_err, stratoshark_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("stratoshark", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
     /* For backward compatibility with GLib logging and Wireshark 3.4. */
     ws_log_console_writer_set_use_stdout(true);
 
@@ -503,7 +504,7 @@ int main(int argc, char *qt_argv[])
 #endif
 
 #ifdef DEBUG_STARTUP_TIME
-    prefs.gui_console_open = console_open_always;
+    ws_log_console_open = LOG_CONSOLE_OPEN_ALWAYS;
 #endif /* DEBUG_STARTUP_TIME */
 
 #if defined(Q_OS_MAC)
@@ -561,7 +562,8 @@ int main(int argc, char *qt_argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    /* configuration_init_error = */ configuration_init(argv[0], "Stratoshark");
+    /* configuration_init_error = */ configuration_init(argv[0]);
+    set_application_flavor(APPLICATION_FLAVOR_STRATOSHARK);
     /* ws_log(NULL, LOG_LEVEL_DEBUG, "progfile_dir: %s", get_progfile_dir()); */
 
 #ifdef _WIN32
@@ -662,7 +664,7 @@ int main(int argc, char *qt_argv[])
     // This function must be called before creating the application object.
     // Qt::HighDpiScaleFactorRoundingPolicy::PassThrough is the default in Qt6,
     // so this doesn't have any effect (Round is the default in 5.14 & 5.15)
-#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0) && defined(Q_OS_WIN)
+#if defined(Q_OS_WIN)
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 #endif
 
@@ -713,8 +715,8 @@ int main(int argc, char *qt_argv[])
     GLibMainloopOnQEventLoop::setup(main_w);
     // We may not need a queued connection here but it would seem to make sense
     // to force the issue.
-    main_w->connect(&ss_app, SIGNAL(openCaptureFile(QString,QString,unsigned int)),
-            main_w, SLOT(openCaptureFile(QString,QString,unsigned int)));
+    main_w->connect(&ss_app, SIGNAL(openCaptureFile(QString,QString,uint)),
+            main_w, SLOT(openCaptureFile(QString,QString,uint)));
     main_w->connect(&ss_app, &StratosharkApplication::openCaptureOptions,
             main_w, &StratosharkMainWindow::showCaptureOptionsDialog);
 
@@ -761,7 +763,7 @@ int main(int argc, char *qt_argv[])
     }
 #ifdef DEBUG_STARTUP_TIME
     /* epan_init resets the preferences */
-    prefs.gui_console_open = console_open_always;
+    ws_log_console_open = LOG_CONSOLE_OPEN_ALWAYS;
     ws_log(LOG_DOMAIN_MAIN, LOG_LEVEL_INFO, "epan done, elapsed time %" PRIu64 " us \n", g_get_monotonic_time() - start_time);
 #endif
 
@@ -891,12 +893,6 @@ int main(int argc, char *qt_argv[])
             if_cap_query->monitor_mode = interface_opts->monitor_mode;
             if_cap_query->auth_username = NULL;
             if_cap_query->auth_password = NULL;
-#ifdef HAVE_PCAP_REMOTE
-            if (interface_opts->auth_type == CAPTURE_AUTH_PWD) {
-                if_cap_query->auth_username = interface_opts->auth_username;
-                if_cap_query->auth_password = interface_opts->auth_password;
-            }
-#endif
             if_cap_queries = g_list_prepend(if_cap_queries, if_cap_query);
         }
         if_cap_queries = g_list_reverse(if_cap_queries);
@@ -933,14 +929,7 @@ int main(int argc, char *qt_argv[])
     splash_update(RA_INTERFACES, NULL, NULL);
 
     if (!global_commandline_info.cf_name && !prefs.capture_no_interface_load) {
-        /* Allow only extcap interfaces to be found */
-        GList * filter_list = NULL;
-        filter_list = g_list_append(filter_list, GUINT_TO_POINTER((unsigned) IF_EXTCAP));
-        // The below starts the stats; we don't need that since Stratoshark only
-        // supports extcaps.
-        //ssApp->scanLocalInterfaces(filter_list);
-        fill_in_local_interfaces_filtered(filter_list, main_window_update);
-        g_list_free(filter_list);
+        ssApp->scanLocalInterfaces(nullptr);
     }
 
     capture_opts_trim_snaplen(&global_capture_opts, MIN_PACKET_SIZE);
@@ -990,7 +979,7 @@ int main(int argc, char *qt_argv[])
     ssApp->setMonospaceFont(prefs.gui_font_name);
 
     /* For update of WindowTitle (When use gui.window_title preference) */
-    main_w->setWSWindowTitle();
+    main_w->setMainWindowTitle();
 
     if (!color_filters_init(&err_msg, color_filter_add_cb)) {
         simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err_msg);
@@ -1026,15 +1015,15 @@ int main(int argc, char *qt_argv[])
                 if (!dfilter_compile(global_commandline_info.jfilter, &jump_to_filter, &df_err)) {
                     // Similar code in MainWindow::mergeCaptureFile().
                     QMessageBox::warning(main_w, QObject::tr("Invalid Display Filter"),
-                                         QObject::tr("The filter expression %1 isn't a valid display filter. (%2).")
+                                         QObject::tr("The filter expression \"%1\" isn't a valid display filter.\n(%2).")
                                                  .arg(global_commandline_info.jfilter, df_err->msg),
                                          QMessageBox::Ok);
                     df_error_free(&df_err);
                 } else {
                     /* Filter ok, jump to the first packet matching the filter
                        conditions. Default search direction is forward, but if
-                       option d was given, search backwards */
-                    cf_find_packet_dfilter(CaptureFile::globalCapFile(), jump_to_filter, global_commandline_info.jump_backwards);
+                       option j was given, search backwards */
+                    cf_find_packet_dfilter(CaptureFile::globalCapFile(), jump_to_filter, global_commandline_info.jump_backwards, false);
                 }
             }
         }

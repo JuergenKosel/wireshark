@@ -211,46 +211,6 @@
       <widget class="QComboBox" name="intervalComboBox"/>
      </item>
      <item>
-      <spacer name="horizontalSpacer_2">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="todCheckBox">
-       <property name="text">
-        <string>Time of day</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_5">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="logCheckBox">
-       <property name="text">
-        <string>Log scale</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <spacer name="horizontalSpacer_1">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -267,26 +227,6 @@
       <widget class="QCheckBox" name="automaticUpdateCheckBox">
        <property name="text">
         <string>Automatic update</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer_6">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QCheckBox" name="enableLegendCheckBox">
-       <property name="text">
-        <string>Enable legend</string>
        </property>
       </widget>
      </item>
@@ -457,6 +397,28 @@
     <string>T</string>
    </property>
   </action>
+  <action name="actionTimeOfDay">
+   <property name="text">
+    <string>Time of day</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggle X-axis between relative time and time of day</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionLogScale">
+   <property name="text">
+    <string>Log scale</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggle Y-axis between logarithmic and linear scale</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+  </action>
   <action name="actionCrosshairs">
    <property name="text">
     <string>Crosshairs</string>
@@ -466,6 +428,17 @@
    </property>
    <property name="shortcut">
     <string>Space</string>
+   </property>
+  </action>
+  <action name="actionLegend">
+   <property name="text">
+    <string>Legend</string>
+   </property>
+   <property name="toolTip">
+    <string>Toggle legend</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
    </property>
   </action>
   <action name="actionZoomInX">

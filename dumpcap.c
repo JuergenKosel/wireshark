@@ -33,8 +33,11 @@
 #include <signal.h>
 #include <errno.h>
 
+#include <wsutil/application_flavor.h>
 #include <wsutil/array.h>
 #include <wsutil/cmdarg_err.h>
+#include <wsutil/report_message.h>
+#include <wsutil/failure_message_simple.h>
 #include <wsutil/strtoi.h>
 #include <cli_main.h>
 #include <wsutil/version_info.h>
@@ -68,7 +71,7 @@
 
 #include "sync_pipe.h"
 
-#include "capture_opts.h"
+#include "ui/capture_opts.h"
 #include <capture/capture_session.h>
 #include <capture/capture_sync.h>
 
@@ -462,7 +465,7 @@ print_usage(FILE *output)
     fprintf(output, "\n");
     fprintf(output, "Capture interface:\n");
     fprintf(output, "  -i <interface>, --interface <interface>\n");
-    fprintf(output, "                           name or idx of interface (def: first non-loopback),\n"
+    fprintf(output, "                           name or idx of interface (def: first non-loopback)\n"
 #ifdef HAVE_PCAP_REMOTE
                     "                           or for remote capturing, use one of these formats:\n"
                     "                               rpcap://<host>/<interface>\n"
@@ -498,7 +501,7 @@ print_usage(FILE *output)
     fprintf(output, "  -L, --list-data-link-types\n");
     fprintf(output, "                           print list of link-layer types of iface and exit\n");
     fprintf(output, "  --list-time-stamp-types  print list of timestamp types for iface and exit\n");
-    fprintf(output, "  --update-interval        interval between updates with new packets (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
+    fprintf(output, "  --update-interval        interval between updates with new packets, in milliseconds (def: %dms)\n", DEFAULT_UPDATE_INTERVAL);
     fprintf(output, "  -d                       print generated BPF code for capture filter\n");
     fprintf(output, "  -k <freq>,[<type>],[<center_freq1>],[<center_freq2>]\n");
     fprintf(output, "                           set channel on wifi interface\n");
@@ -554,6 +557,8 @@ print_usage(FILE *output)
     fprintf(output, "                           within dumpcap\n");
     fprintf(output, "  -t                       use a separate thread per interface\n");
     fprintf(output, "  -q                       don't report packet capture counts\n");
+    fprintf(output, "  --application-flavor <flavor>\n");
+    fprintf(output, "                           set the application flavor\n");
     fprintf(output, "  -v, --version            print version information and exit\n");
     fprintf(output, "  -h, --help               display this help and exit\n");
     fprintf(output, "\n");
@@ -4202,7 +4207,7 @@ handle_npcap_bug(char *adapter_name _U_, char *cap_err_str _U_)
 
     if (!have_npcap) {
         /*
-         * We're not using Npcap, so don't recomment a user
+         * We're not using Npcap, so don't recommend a user
          * file a bug against Npcap.
          */
         return g_strdup("");
@@ -5149,11 +5154,12 @@ gather_dumpcap_runtime_info(feature_list l)
     gather_caplibs_runtime_info(l);
 }
 
-#define LONGOPT_IFNAME             LONGOPT_BASE_APPLICATION+1
-#define LONGOPT_IFDESCR            LONGOPT_BASE_APPLICATION+2
-#define LONGOPT_CAPTURE_COMMENT    LONGOPT_BASE_APPLICATION+3
+#define LONGOPT_IFNAME              LONGOPT_BASE_APPLICATION+1
+#define LONGOPT_IFDESCR             LONGOPT_BASE_APPLICATION+2
+#define LONGOPT_CAPTURE_COMMENT     LONGOPT_BASE_APPLICATION+3
+#define LONGOPT_APPLICATION_FLAVOR  LONGOPT_BASE_APPLICATION+4
 #ifdef _WIN32
-#define LONGOPT_SIGNAL_PIPE        LONGOPT_BASE_APPLICATION+4
+#define LONGOPT_SIGNAL_PIPE         LONGOPT_BASE_APPLICATION+5
 #endif
 
 /* And now our feature presentation... [ fade to music ] */
@@ -5169,6 +5175,7 @@ main(int argc, char *argv[])
         {"ifname", ws_required_argument, NULL, LONGOPT_IFNAME},
         {"ifdescr", ws_required_argument, NULL, LONGOPT_IFDESCR},
         {"capture-comment", ws_required_argument, NULL, LONGOPT_CAPTURE_COMMENT},
+        {"application-flavor", ws_required_argument, NULL, LONGOPT_APPLICATION_FLAVOR},
 #ifdef _WIN32
         {"signal-pipe", ws_required_argument, NULL, LONGOPT_SIGNAL_PIPE},
 #endif
@@ -5197,6 +5204,9 @@ main(int argc, char *argv[])
     struct utsname    osinfo;
 #endif
     GString          *str;
+
+    /* Set the program name. */
+    g_set_prgname("dumpcap");
 
     /*
      * Determine if dumpcap is being requested to run in a special
@@ -5259,7 +5269,7 @@ main(int argc, char *argv[])
     cmdarg_err_init(dumpcap_cmdarg_err, dumpcap_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init_with_writer("dumpcap", dumpcap_log_writer, vcmdarg_err);
+    ws_log_init_with_writer(dumpcap_log_writer, vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, 1);
@@ -5476,6 +5486,8 @@ main(int argc, char *argv[])
     relinquish_privs_except_capture();
 #endif
 
+    init_report_failure_message_simple("dumpcap");
+
     /* Set the initial values in the capture options. This might be overwritten
        by the command line parameters. */
     capture_opts_init(&global_capture_opts, get_interface_list);
@@ -5498,6 +5510,9 @@ main(int argc, char *argv[])
         case 'v':        /* Show version and exit */
             show_version();
             exit_main(0);
+            break;
+        case LONGOPT_APPLICATION_FLAVOR:
+            set_application_flavor(application_name_to_flavor(ws_optarg));
             break;
         /*** capture option specific ***/
         case 'a':        /* autostop criteria */

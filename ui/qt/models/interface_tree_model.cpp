@@ -15,7 +15,7 @@
 #ifdef HAVE_LIBPCAP
 #include "ui/capture.h"
 #include "capture/capture-pcap-util.h"
-#include "capture_opts.h"
+#include "ui/capture_opts.h"
 #include "ui/capture_ui_utils.h"
 #include "ui/capture_globals.h"
 #endif
@@ -378,14 +378,14 @@ QVariant InterfaceTreeModel::toolTipForInterface(int idx) const
     QString tt_str = "<p>";
     if (device->no_addresses > 0)
     {
-        tt_str += QString("%1: %2")
+        tt_str += QStringLiteral("%1: %2")
                 .arg(device->no_addresses > 1 ? tr("Addresses") : tr("Address"))
                 .arg(html_escape(device->addresses))
                 .replace('\n', ", ");
     }
     else if (device->if_info.type == IF_EXTCAP)
     {
-        tt_str = QString(tr("Extcap interface: %1")).arg(get_basename(device->if_info.extcap));
+        tt_str = tr("Extcap interface: %1").arg(get_basename(device->if_info.extcap));
     }
     else
     {
@@ -400,7 +400,7 @@ QVariant InterfaceTreeModel::toolTipForInterface(int idx) const
     }
     else
     {
-        tt_str += QString("%1: %2")
+        tt_str += QStringLiteral("%1: %2")
                 .arg(tr("Capture filter"))
                 .arg(html_escape(cfilter));
     }

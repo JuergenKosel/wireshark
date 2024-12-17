@@ -52,6 +52,9 @@ static int exported_pdu_tap;
 /* Place TCP summary in proto tree */
 static bool tcp_summary_in_tree = true;
 
+#define TCP_DEFAULT_CLIENTPORT_DISSECTORS            "20"
+static range_t *tcp_clientport_dissectors_range;
+
 static inline uint64_t keep_32msb_of_uint64(uint64_t nb) {
     return (nb >> 32) << 32;
 }
@@ -459,6 +462,7 @@ static expert_field ei_tcp_analysis_tfo_syn;
 static expert_field ei_tcp_analysis_tfo_ack;
 static expert_field ei_tcp_analysis_tfo_ignored;
 static expert_field ei_tcp_analysis_partial_ack;
+static expert_field ei_tcp_analysis_ambiguous_ack;
 static expert_field ei_tcp_scps_capable;
 static expert_field ei_tcp_option_sack_dsack;
 static expert_field ei_tcp_option_snack_sequence;
@@ -2036,8 +2040,8 @@ init_tcp_conversation_data(packet_info *pinfo, int direction)
     nstime_set_zero(&tcpd->ts_first_rtt);
     tcpd->ts_prev.secs=pinfo->abs_ts.secs;
     tcpd->ts_prev.nsecs=pinfo->abs_ts.nsecs;
-    tcpd->flow1.valid_bif = 1;
-    tcpd->flow2.valid_bif = 1;
+    tcpd->flow1.valid_bif = true;
+    tcpd->flow2.valid_bif = true;
     tcpd->flow1.push_bytes_sent = 0;
     tcpd->flow2.push_bytes_sent = 0;
     tcpd->flow1.push_set_last = false;
@@ -2046,6 +2050,7 @@ init_tcp_conversation_data(packet_info *pinfo, int direction)
     tcpd->flow2.closing_initiator = false;
     tcpd->stream = tcp_stream_count++;
     tcpd->server_port = 0;
+    tcpd->tfo_syn_data = false;
     tcpd->flow_direction = 0;
     tcpd->flow1.flow_count = 0;
     tcpd->flow2.flow_count = 0;
@@ -2879,6 +2884,13 @@ finished_fwd:
                     while(ual) {
                         if(GE_SEQ(seq,ual->seq) && LE_SEQ(seq+seglen,ual->nextseq)) {
                             pk_already_seen = true;
+                            /* As we know this packet has retransmissions, we are marking it
+                             * as eligible to Karn's algo.
+                             */
+                            ual->karn_flag = true;
+                            if(!tcpd->ta) {
+                                tcp_analyze_get_acked_struct(pinfo->num, seq, ack, true, tcpd);
+                            }
                             break;
                         }
                         ual=ual->next;
@@ -3009,6 +3021,22 @@ finished_checking_retransmission_type:
         if( (flags&(TH_SYN|TH_FIN)) ) {
             nextseq+=1;
         }
+
+        /* All Retransmissions are marked for later Karn discovery.
+         * It's very unlikely that we will ever meet a TCP client
+         * that just acknowledges a Fast Retransmission segment without
+         * jumping over and also acknowledging the ones that triggered
+         * the fast retransmission. Or maybe under heavy load ?
+         */
+        if(tcpd->ta &&
+          (tcpd->ta->flags & TCP_A_RETRANSMISSION ||
+           tcpd->ta->flags & TCP_A_FAST_RETRANSMISSION)) {
+            ual->karn_flag=true;
+        }
+        else {
+            ual->karn_flag=false;
+        }
+
         ual->nextseq=nextseq;
     }
 
@@ -3120,6 +3148,17 @@ finished_checking_retransmission_type:
             nstime_delta(&tcpd->ta->ts, &pinfo->abs_ts, &ual->ts);
             /* mark it as a full segment ACK */
             tcpd->ta->partial_ack=0;
+
+            if (tcppd) {
+                if (ual->karn_flag) {
+                    tcpd->ta->iskarn=true;
+                    tcppd->karn_flag=true;
+                }
+                else {
+                    tcpd->ta->iskarn=false;
+                    tcppd->karn_flag=false;
+                }
+            }
         }
         /* If this acknowledges part of the segment, adjust the segment info for the acked part.
          * This typically happens in the context of GSO/GRO or Retransmissions with
@@ -3144,6 +3183,20 @@ finished_checking_retransmission_type:
              * 'tcp.analysis.partial_ack'.
              */
             tcpd->ta->partial_ack=1;
+
+            /* identify ambiguous ACKs following Karn's definition
+             */
+            if (tcppd) {
+                if (ual->karn_flag) {
+                    tcpd->ta->iskarn=true;
+                    tcppd->karn_flag=true;
+                }
+                else {
+                    tcpd->ta->iskarn=false;
+                    tcppd->karn_flag=false;
+                }
+            }
+
             continue;
         }
         /* If this acknowledges a segment prior to this one, leave this segment alone and move on */
@@ -3870,12 +3923,18 @@ tcp_print_sequence_number_analysis(packet_info *pinfo, tvbuff_t *tvb, proto_tree
     /* encapsulate all proto_tree_add_xxx in ifs so we only print what
        data we actually have */
     if(ta->frame_acked) {
+
+
         item = proto_tree_add_uint(tree, hf_tcp_analysis_acks_frame,
             tvb, 0, 0, ta->frame_acked);
             proto_item_set_generated(item);
 
         if(ta->partial_ack) {
             expert_add_info(pinfo, item, &ei_tcp_analysis_partial_ack);
+        }
+
+        if(ta->iskarn) {
+            expert_add_info(pinfo, item, &ei_tcp_analysis_ambiguous_ack);
         }
 
         /* only display RTT if we actually have something we are acking */
@@ -4526,6 +4585,35 @@ again:
             }
 
             if(tcpd->ta && first_pdu) {
+                if(tcpd->ta->flags&TCP_A_KEEP_ALIVE) {
+                    /* RFC 9293 3.8.4. TCP Keep-Alives
+                     * Keep-alive packets MUST only be sent when no sent data
+                     * is outstanding (no new or unacknowledged data.)
+                     * A multisegment PDU boundary can never span a keep-alive
+                     * (unlike a Zero Window Probe or retransmission); if
+                     * a MSP started at the same sequence number as this, then
+                     * most likely the first packet of the TCP stream seen was
+                     * also a keep-alive, couldn't be identified as one, and
+                     * was passed to the next dissector which treated it as
+                     * starting a MSP. (#20287)
+                     *
+                     * This unfortunately doesn't help if this is somehow
+                     * a one-octet retransmission instead of a keep-alive.
+                     */
+                    nbytes = tvb_reported_length_remaining(tvb, offset);
+                    /* This MUST be only 1 (we don't get here for zero). */
+                    proto_tree_add_bytes_format(tcp_tree, hf_tcp_segment_data, tvb,
+                        offset, nbytes, NULL,
+                        "TCP keep-alive garbage octet%s",
+                        plurality(nbytes, "", "s"));
+                    if (has_unfinished_msp && msp->seq == seq) {
+                        /* MSPs cannot span this (probably not an MSP at
+                         * all but another garbage octet) */
+                        msp->nxtpdu = nxtseq;
+                    }
+                    goto clean_exit;
+                }
+
                 if((tcpd->ta->flags&TCP_A_OLD_DATA) == TCP_A_OLD_DATA) {
                     nbytes = tcpd->ta->new_data_seq - seq;
 
@@ -4576,6 +4664,18 @@ again:
                     !(msp->flags & MSP_FLAGS_MISSING_FIRST_SEGMENT) && msp->last_frame != pinfo->num) {
                 const char* str;
                 bool is_retransmission = false;
+
+                if(tcpd->ta && tcpd->ta->flags&TCP_A_KEEP_ALIVE) {
+                    /* Same logic as in the OOO processing case. */
+                    nbytes = tvb_reported_length_remaining(tvb, offset);
+                    /* This MUST be only 1 (we don't get here for zero). */
+                    proto_tree_add_bytes_format(tcp_tree, hf_tcp_segment_data, tvb,
+                        offset, nbytes, NULL,
+                        "TCP keep-alive garbage octet%s",
+                        plurality(nbytes, "", "s"));
+                    msp->nxtpdu = nxtseq;
+                    goto clean_exit;
+                }
 
                 /* Yes.  This could be because we've dissected this frame before
                  * or because this is a retransmission of a previously-seen
@@ -5587,7 +5687,7 @@ dissect_tcpopt_tfo_payload(tvbuff_t *tvb, int offset, unsigned optlen,
             if (tcph->th_have_seglen && tcph->th_seglen) {
                 tcpd = get_tcp_conversation_data(NULL, pinfo);
                 if (tcpd) {
-                    tcpd->tfo_syn_data = 1;
+                    tcpd->tfo_syn_data = true;
                 }
             }
         }
@@ -6977,7 +7077,7 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         proto_tree_add_item(field_tree, hf_tcp_scpsoption_connection_id, tvb,
                             offset + 3, 1, ENC_BIG_ENDIAN);
         connid = tvb_get_uint8(tvb, offset + 3);
-        flow->scps_capable = 1;
+        flow->scps_capable = true;
 
         if (connid)
             tcp_info_append_uint(pinfo, "Connection ID", connid);
@@ -6994,7 +7094,7 @@ dissect_tcpopt_scps(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* d
         uint8_t binding_space;
         uint8_t extended_cap_length;
 
-        if (flow->scps_capable != 1) {
+        if (!flow->scps_capable) {
             /* There was no SCPS capabilities option preceding this */
             proto_item_set_text(item,
                                 "Illegal SCPS Extended Capabilities (%u bytes)",
@@ -7088,8 +7188,8 @@ verify_scps(packet_info *pinfo,  proto_item *tf_syn, struct tcp_analysis *tcpd)
 
     if(tcpd) {
         if ((!(tcpd->flow1.scps_capable)) || (!(tcpd->flow2.scps_capable))) {
-            tcpd->flow1.scps_capable = 0;
-            tcpd->flow2.scps_capable = 0;
+            tcpd->flow1.scps_capable = false;
+            tcpd->flow2.scps_capable = false;
         } else {
             expert_add_info(pinfo, tf_syn, &ei_tcp_scps_capable);
         }
@@ -7779,7 +7879,7 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
     try_server_port = false;
     if (tcpd && tcpd->server_port != 0) {
         if (dissector_is_uint_changed(subdissector_table, tcpd->server_port)) {
-            if (dissector_try_uint_new(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+            if (dissector_try_uint_with_data(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, true, tcpinfo)) {
                 pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
                 handle_export_pdu_dissection_table(pinfo, next_tvb, tcpd->server_port, tcpinfo);
                 return true;
@@ -7787,6 +7887,26 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
         } else {
             /* The default; try it later */
             try_server_port = true;
+        }
+    }
+
+    /* Prevent the client port number being used for selecting the dissector
+       when we have seen the SYN or SYN/ACK (and therefor tcpd->server_port
+       is defined)
+       Use the preference Clientport dissectors to keep dissecting certain
+       protocols based on the client port instead of the server port
+       Port 20 for active ftp data transfers being the default. */
+    if (tcpd && tcpd->server_port != 0) {
+        if (dst_port == tcpd->server_port) {
+            if (!(dissector_is_uint_changed(subdissector_table, src_port) ||
+                  value_is_in_range(tcp_clientport_dissectors_range, src_port) ) ) {
+                src_port = 0;
+            }
+        } else {
+            if (!(dissector_is_uint_changed(subdissector_table, dst_port) ||
+                  value_is_in_range(tcp_clientport_dissectors_range, dst_port) ) ) {
+                dst_port = 0;
+            }
         }
     }
 
@@ -7801,7 +7921,7 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
     try_low_port = false;
     if (low_port != 0) {
         if (dissector_is_uint_changed(subdissector_table, low_port)) {
-            if (dissector_try_uint_new(subdissector_table, low_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+            if (dissector_try_uint_with_data(subdissector_table, low_port, next_tvb, pinfo, tree, true, tcpinfo)) {
                 pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
                 handle_export_pdu_dissection_table(pinfo, next_tvb, low_port, tcpinfo);
                 return true;
@@ -7815,7 +7935,7 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
     try_high_port = false;
     if (high_port != 0) {
         if (dissector_is_uint_changed(subdissector_table, high_port)) {
-            if (dissector_try_uint_new(subdissector_table, high_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+            if (dissector_try_uint_with_data(subdissector_table, high_port, next_tvb, pinfo, tree, true, tcpinfo)) {
                 pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
                 handle_export_pdu_dissection_table(pinfo, next_tvb, high_port, tcpinfo);
                 return true;
@@ -7853,20 +7973,20 @@ decode_tcp_ports(tvbuff_t *tvb, int offset, packet_info *pinfo,
        number of 0 to disable the port. */
 
     if (try_server_port &&
-        dissector_try_uint_new(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+        dissector_try_uint_with_data(subdissector_table, tcpd->server_port, next_tvb, pinfo, tree, true, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, tcpd->server_port, tcpinfo);
         return true;
     }
 
     if (try_low_port &&
-        dissector_try_uint_new(subdissector_table, low_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+        dissector_try_uint_with_data(subdissector_table, low_port, next_tvb, pinfo, tree, true, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, low_port, tcpinfo);
         return true;
     }
     if (try_high_port &&
-        dissector_try_uint_new(subdissector_table, high_port, next_tvb, pinfo, tree, true, tcpinfo)) {
+        dissector_try_uint_with_data(subdissector_table, high_port, next_tvb, pinfo, tree, true, tcpinfo)) {
         pinfo->want_pdu_tracking -= !!(pinfo->want_pdu_tracking);
         handle_export_pdu_dissection_table(pinfo, next_tvb, high_port, tcpinfo);
         return true;
@@ -8179,37 +8299,36 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
     tcpd=get_tcp_conversation_data(conv,pinfo);
 
-    /* If this is a SYN packet, then check if its seq-nr is different
-     * from the base_seq of the retrieved conversation. If this is the
-     * case, create a new conversation with the same addresses and ports
-     * and set the TA_PORTS_REUSED flag. (XXX: There is a small chance
-     * that this is an old duplicate SYN received after the connection
-     * is ESTABLISHED on both sides, the other side will respond with
-     * an appropriate ACK, and this SYN ought to be ignored rather than
-     * create a new conversation.)
-     *
-     * If the seq-nr is the same as the base_seq, it might be a simple
-     * retransmission, reattempting a handshake that was reset (due
-     * to a half-open connection) with the same sequence number, or
-     * (unlikely) a new connection that happens to use the same sequence
-     * number as the previous one (#18333).
-     *
-     * If we have received a RST or FIN on the retrieved conversation,
-     * we can detect that unlikely case, and create a new conversation
-     * in order to clear out the follow info, sequence analysis,
-     * desegmentation, etc.
-     * If not, it's probably a retransmission, and will be marked
-     * as one later, but restore some flow values to reduce the
-     * sequence analysis warnings if our capture file is missing a RST
-     * or FIN segment that was present on the network.
-     *
-     * XXX - Is this affected by MPTCP which can use multiple SYNs?
-     */
-    if (tcpd != NULL  && (tcph->th_flags & (TH_SYN|TH_ACK)) == TH_SYN) {
-        if (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) {
-            if(tcph->th_seq!=tcpd->fwd->base_seq || (tcpd->conversation_completeness & TCP_COMPLETENESS_RST) || (tcpd->conversation_completeness & TCP_COMPLETENESS_FIN)) {
-                if (!(pinfo->fd->visited)) {
-
+    if (!PINFO_FD_VISITED(pinfo)) {
+        /* If this is a SYN packet, then check if its seq-nr is different
+        * from the base_seq of the retrieved conversation. If this is the
+        * case, create a new conversation with the same addresses and ports
+        * and set the TA_PORTS_REUSED flag. (XXX: There is a small chance
+        * that this is an old duplicate SYN received after the connection
+        * is ESTABLISHED on both sides, the other side will respond with
+        * an appropriate ACK, and this SYN ought to be ignored rather than
+        * create a new conversation.)
+        *
+        * If the seq-nr is the same as the base_seq, it might be a simple
+        * retransmission, reattempting a handshake that was reset (due
+        * to a half-open connection) with the same sequence number, or
+        * (unlikely) a new connection that happens to use the same sequence
+        * number as the previous one (#18333).
+        *
+        * If we have received a RST or FIN on the retrieved conversation,
+        * we can detect that unlikely case, and create a new conversation
+        * in order to clear out the follow info, sequence analysis,
+        * desegmentation, etc.
+        * If not, it's probably a retransmission, and will be marked
+        * as one later, but restore some flow values to reduce the
+        * sequence analysis warnings if our capture file is missing a RST
+        * or FIN segment that was present on the network.
+        *
+        * XXX - Is this affected by MPTCP which can use multiple SYNs?
+        */
+        if (tcpd != NULL  && (tcph->th_flags & (TH_SYN|TH_ACK)) == TH_SYN) {
+            if (tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) {
+                if(tcph->th_seq!=tcpd->fwd->base_seq || (tcpd->conversation_completeness & TCP_COMPLETENESS_RST) || (tcpd->conversation_completeness & TCP_COMPLETENESS_FIN)) {
                     conv=conversation_new_strat(pinfo, CONVERSATION_TCP, 0);
                     tcpd=get_tcp_conversation_data(conv,pinfo);
 
@@ -8219,15 +8338,13 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
                     /* As above, a new conversation starting with a SYN implies conversation completeness value 1 */
                     conversation_is_new = true;
-                }
-            } else {
-                if (!(pinfo->fd->visited)) {
+                } else {
                     /*
-                     * Sometimes we need to restore the nextseq value.
-                     * As stated in RFC 793 3.4 a RST packet might be
-                     * sent with SEQ being equal to the ACK received,
-                     * thus breaking our flow monitoring. (issue 17616)
-                     */
+                    * Sometimes we need to restore the nextseq value.
+                    * As stated in RFC 793 3.4 a RST packet might be
+                    * sent with SEQ being equal to the ACK received,
+                    * thus breaking our flow monitoring. (issue 17616)
+                    */
                     if(tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info) {
                         tcpd->fwd->tcp_analyze_seq_info->nextseq = tcpd->fwd->tcp_analyze_seq_info->maxseqtobeacked;
                     }
@@ -8235,59 +8352,55 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                     if(!tcpd->ta)
                         tcp_analyze_get_acked_struct(pinfo->num, tcph->th_seq, tcph->th_ack, true, tcpd);
                 }
-            }
-        }
-        else {
-            /*
-             * TCP_S_BASE_SEQ_SET being not set, we are dealing with a new conversation,
-             * either created ad hoc above (general case), or by a higher protocol such as FTP.
-             * Track this information, as the Completeness value will be initialized later.
-             * See issue 19092.
-             */
-            if (!(pinfo->fd->visited))
+            } else {
+                /*
+                * TCP_S_BASE_SEQ_SET being not set, we are dealing with a new conversation,
+                * either created ad hoc above (general case), or by a higher protocol such as FTP.
+                * Track this information, as the Completeness value will be initialized later.
+                * See issue 19092.
+                */
                 conversation_is_new = true;
+            }
+            tcpd->had_acc_ecn_setup_syn = (tcph->th_flags & (TH_AE|TH_CWR|TH_ECE)) == (TH_AE|TH_CWR|TH_ECE);
         }
-        tcpd->had_acc_ecn_setup_syn = (tcph->th_flags & (TH_AE|TH_CWR|TH_ECE)) == (TH_AE|TH_CWR|TH_ECE);
-    }
 
-    /* Handle cases of a SYN/ACK packet where there's evidence of a new
-     * conversation but the capture is missing the SYN packet of the
-     * new conversation.
-     *
-     * If this is a SYN/ACK packet, then check if its seq-nr is different
-     * from the base_seq of the retrieved conversation. If this is the
-     * case, create a new conversation as above with a SYN packet, and set
-     * the TA_PORTS_REUSED flag and override the base seq.
-     * If the seq-nr is the same as the base_seq, then do nothing so it
-     * will be marked as a retransmission later, unless we have received
-     * a RST or FIN on the conversation (in which case this is the case
-     * of a RST followed by the same initial sequence number being picked.)
-     *
-     * If this is an unacceptable SYN-ACK and the other side believes that
-     * the conversation is ESTABLISHED, it will be replied to with an
-     * empty ACK with the current sequence number (according to the other
-     * side.) See RFC 9293 3.5.2. This *probably* leads to a situation where
-     * the side sending this SYN-ACK then issues a RST, because the two
-     * sides have different ideas about the connection state. It's not clear
-     * how to handle the annoying edge case where A sends a SYN, B responds
-     * with a SYN-ACK that A intends to accept, but before A can finish
-     * the handshake B responds with another SYN-ACK _with a different seq-nr_
-     * instead of retransmitting, then A responds accepting the first SYN-ACK,
-     * and then B goes on happily using the sequence number from the first
-     * SYN-ACK, forgetting all about the second one it sent instead of sending
-     * a RST. In such a case we'll have changed the seq-nr to the new one
-     * and/or set up a new conversation instead of just ignoring that SYN-ACK.
-     *
-     * XXX - Is this affected by MPTCP which can use multiple SYNs?
-     */
-    if (tcpd != NULL && (tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
-        if ((tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) &&
-            (tcph->th_seq != tcpd->fwd->base_seq ||
-             (tcpd->conversation_completeness & TCP_COMPLETENESS_RST) ||
-             (tcpd->conversation_completeness & TCP_COMPLETENESS_FIN))) {
-            /* the retrieved conversation might have a different base_seq (issue 16944) */
+        /* Handle cases of a SYN/ACK packet where there's evidence of a new
+        * conversation but the capture is missing the SYN packet of the
+        * new conversation.
+        *
+        * If this is a SYN/ACK packet, then check if its seq-nr is different
+        * from the base_seq of the retrieved conversation. If this is the
+        * case, create a new conversation as above with a SYN packet, and set
+        * the TA_PORTS_REUSED flag and override the base seq.
+        * If the seq-nr is the same as the base_seq, then do nothing so it
+        * will be marked as a retransmission later, unless we have received
+        * a RST or FIN on the conversation (in which case this is the case
+        * of a RST followed by the same initial sequence number being picked.)
+        *
+        * If this is an unacceptable SYN-ACK and the other side believes that
+        * the conversation is ESTABLISHED, it will be replied to with an
+        * empty ACK with the current sequence number (according to the other
+        * side.) See RFC 9293 3.5.2. This *probably* leads to a situation where
+        * the side sending this SYN-ACK then issues a RST, because the two
+        * sides have different ideas about the connection state. It's not clear
+        * how to handle the annoying edge case where A sends a SYN, B responds
+        * with a SYN-ACK that A intends to accept, but before A can finish
+        * the handshake B responds with another SYN-ACK _with a different seq-nr_
+        * instead of retransmitting, then A responds accepting the first SYN-ACK,
+        * and then B goes on happily using the sequence number from the first
+        * SYN-ACK, forgetting all about the second one it sent instead of sending
+        * a RST. In such a case we'll have changed the seq-nr to the new one
+        * and/or set up a new conversation instead of just ignoring that SYN-ACK.
+        *
+        * XXX - Is this affected by MPTCP which can use multiple SYNs?
+        */
+        if (tcpd != NULL && (tcph->th_flags & (TH_SYN|TH_ACK)) == (TH_SYN|TH_ACK)) {
+            if ((tcpd->fwd->static_flags & TCP_S_BASE_SEQ_SET) &&
+                (tcph->th_seq != tcpd->fwd->base_seq ||
+                (tcpd->conversation_completeness & TCP_COMPLETENESS_RST) ||
+                (tcpd->conversation_completeness & TCP_COMPLETENESS_FIN))) {
+                /* the retrieved conversation might have a different base_seq (issue 16944) */
 
-            if (!PINFO_FD_VISITED(pinfo)) {
                 conv=conversation_new_strat(pinfo, CONVERSATION_TCP, 0);
                 tcpd=get_tcp_conversation_data(conv,pinfo);
 
@@ -8298,21 +8411,17 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 /* As above, a new conversation */
                 conversation_is_new = true;
             }
+            tcpd->had_acc_ecn_setup_syn_ack = ((tcph->th_flags & (TH_AE|TH_CWR)) == TH_CWR) ||
+                                            ((tcph->th_flags & (TH_AE|TH_ECE)) == TH_AE);
         }
-        tcpd->had_acc_ecn_setup_syn_ack = ((tcph->th_flags & (TH_AE|TH_CWR)) == TH_CWR) ||
-                                          ((tcph->th_flags & (TH_AE|TH_ECE)) == TH_AE);
-    }
 
-    /* Do we need to calculate timestamps relative to the tcp-stream? */
-    if (tcp_calculate_ts) {
-        tcppd = (struct tcp_per_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tcp, pinfo->curr_layer_num);
+        /* Do we need to calculate timestamps relative to the tcp-stream? */
+        if (tcp_calculate_ts) {
+            tcppd = (struct tcp_per_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tcp, pinfo->curr_layer_num);
 
-        /*
-         * Calculate the timestamps relative to this conversation (but only on
-         * the first run when frames are accessed sequentially)
-         */
-        if (!(pinfo->fd->visited))
+            /* Calculate the timestamps relative to this conversation */
             tcp_calculate_timestamps(pinfo, tcpd, tcppd);
+        }
     }
 
     if (tcpd) {
@@ -8461,7 +8570,12 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
                 tcph->th_win = tvb_get_ntohs(tvb, offset + 14);
 
                 if(!(pinfo->fd->visited)) {
+                    tcppd = (struct tcp_per_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tcp, pinfo->curr_layer_num);
                     tcp_analyze_sequence_number(pinfo, tcph->th_rawseq, tcph->th_rawack, tcph->th_seglen, tcph->th_flags, tcph->th_win, tcpd, tcppd);
+                }
+                /* load the tcppd data as it may contain 'volatile' data such as Karn's indications */
+                else {
+                    tcppd = (struct tcp_per_packet_data_t *)p_get_proto_data(wmem_file_scope(), pinfo, proto_tcp, pinfo->curr_layer_num);
                 }
             }
 
@@ -8522,13 +8636,16 @@ dissect_tcp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
            but it's now time to give up if the header length is bogus. */
         col_append_fstr(pinfo->cinfo, COL_INFO, ", bogus TCP header length (%u, must be at least %u)",
                         tcph->th_hlen, TCPH_MIN_LEN);
-        if (tree) {
-            tf = proto_tree_add_uint_bits_format_value(tcp_tree, hf_tcp_hdr_len, tvb, (offset + 12) << 3, 4, tcph->th_hlen,
-                                                       ENC_BIG_ENDIAN, "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen >> 2);
-            expert_add_info_format(pinfo, tf, &ei_tcp_bogus_header_length,
-                                   "Bogus TCP header length (%u, must be at least %u)", tcph->th_hlen, TCPH_MIN_LEN);
-        }
+
+        tf = proto_tree_add_uint_bits_format_value(tcp_tree, hf_tcp_hdr_len, tvb, (offset + 12) << 3, 4, tcph->th_hlen,
+                                                    ENC_BIG_ENDIAN, "%u bytes (%u)", tcph->th_hlen, tcph->th_hlen >> 2);
+        expert_add_info_format(pinfo, tf, &ei_tcp_bogus_header_length,
+                                "Bogus TCP header length (%u, must be at least %u)", tcph->th_hlen, TCPH_MIN_LEN);
         return offset+12;
+    }
+
+    if(tcp_analyze_seq && tcpd->fwd->tcp_analyze_seq_info && tcppd) {
+        tcph->flagkarn = tcppd->karn_flag;
     }
 
     /* Now we certainly have enough information to be willing to send
@@ -10212,6 +10329,7 @@ proto_register_tcp(void)
         { &ei_tcp_analysis_tfo_ack, { "tcp.analysis.tfo_ack", PI_SEQUENCE, PI_NOTE, "TCP SYN-ACK accepting TFO data", EXPFILL }},
         { &ei_tcp_analysis_tfo_ignored, { "tcp.analysis.tfo_ignored", PI_SEQUENCE, PI_NOTE, "TCP SYN-ACK ignoring TFO data", EXPFILL }},
         { &ei_tcp_analysis_partial_ack, { "tcp.analysis.partial_ack", PI_SEQUENCE, PI_NOTE, "Partial Acknowledgement of a segment", EXPFILL }},
+        { &ei_tcp_analysis_ambiguous_ack, { "tcp.analysis.ambiguous_ack", PI_SEQUENCE, PI_NOTE, "Ambiguous ACK following Karn's definition", EXPFILL }},
         { &ei_tcp_connection_fin_active, { "tcp.connection.fin_active", PI_SEQUENCE, PI_NOTE, "This frame initiates the connection closing", EXPFILL }},
         { &ei_tcp_connection_fin_passive, { "tcp.connection.fin_passive", PI_SEQUENCE, PI_NOTE, "This frame undergoes the connection closing", EXPFILL }},
         { &ei_tcp_scps_capable, { "tcp.analysis.scps_capable", PI_SEQUENCE, PI_NOTE, "Connection establish request (SYN-ACK): SCPS Capabilities Negotiated", EXPFILL }},
@@ -10509,6 +10627,11 @@ proto_register_tcp(void)
         " logarithmic scaling with number of packets)"
         "You need to enable DSS mapping analysis for this option to work",
         &mptcp_intersubflows_retransmission);
+
+    range_convert_str(wmem_epan_scope(), &tcp_clientport_dissectors_range, TCP_DEFAULT_CLIENTPORT_DISSECTORS, 65535);
+    prefs_register_range_preference(tcp_module, "clientport_dissectors", "Client port dissectors",
+        "Ports for which the dissector will to be chosen based on the client port instead of the server port",
+        &tcp_clientport_dissectors_range, 65535);
 
     register_conversation_table(proto_mptcp, false, mptcpip_conversation_packet, tcpip_endpoint_packet);
     register_follow_stream(proto_tcp, "tcp_follow", tcp_follow_conv_filter, tcp_follow_index_filter, tcp_follow_address_filter,

@@ -47,7 +47,6 @@
 #include <epan/wslua/init_wslua.h>
 #endif
 #include "file.h"
-#include "frame_tvbuff.h"
 #include <epan/disabled_protos.h>
 #include <epan/prefs.h>
 #include <epan/column.h>
@@ -120,9 +119,6 @@ static void show_print_file_io_error(int err);
 static bool write_preamble(capture_file *cf);
 static bool print_packet(capture_file *cf, epan_dissect_t *edt);
 static bool write_finale(void);
-
-static void tfshark_cmdarg_err(const char *msg_format, va_list ap);
-static void tfshark_cmdarg_err_cont(const char *msg_format, va_list ap);
 
 static GHashTable *output_only_tables;
 
@@ -308,6 +304,9 @@ main(int argc, char *argv[])
 
     static const char    optstring[] = OPTSTRING;
 
+    /* Set the program name. */
+    g_set_prgname("tfshark");
+
     /*
      * Set the C-language locale to the native environment and set the
      * code page to UTF-8 on Windows.
@@ -318,10 +317,10 @@ main(int argc, char *argv[])
     setlocale(LC_ALL, "");
 #endif
 
-    cmdarg_err_init(tfshark_cmdarg_err, tfshark_cmdarg_err_cont);
+    cmdarg_err_init(stderr_cmdarg_err, stderr_cmdarg_err_cont);
 
     /* Initialize log handler early so we can have proper logging during startup. */
-    ws_log_init("tfshark", vcmdarg_err);
+    ws_log_init(vcmdarg_err);
 
     /* Early logging command-line initialization. */
     ws_log_parse_args(&argc, argv, vcmdarg_err, WS_EXIT_INVALID_OPTION);
@@ -345,7 +344,7 @@ main(int argc, char *argv[])
      * Attempt to get the pathname of the directory containing the
      * executable file.
      */
-    configuration_init_error = configuration_init(argv[0], NULL);
+    configuration_init_error = configuration_init(argv[0]);
     if (configuration_init_error != NULL) {
         fprintf(stderr,
                 "tfshark: Can't get pathname of directory containing the tfshark program: %s.\n",
@@ -1022,7 +1021,7 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
         }
 
         epan_dissect_file_run(edt, rec,
-                file_tvbuff_new(&cf->provider, &fdlocal, pd),
+                pd,
                 &fdlocal, NULL);
 
         /* Run the read filter if we have one. */
@@ -1103,7 +1102,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
         }
 
         epan_dissect_file_run_with_taps(edt, rec,
-                file_tvbuff_new_buffer(&cf->provider, fdata, buf), fdata, cinfo);
+                ws_buffer_start_ptr(buf), fdata, cinfo);
 
         /* Run the read/display filter if we have one. */
         if (cf->dfcode)
@@ -1544,7 +1543,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
         }
 
         epan_dissect_file_run_with_taps(edt, rec,
-                frame_tvbuff_new(&cf->provider, &fdata, pd),
+                pd,
                 &fdata, cinfo);
 
         /* Run the filter if we have it. */
@@ -2048,25 +2047,4 @@ show_print_file_io_error(int err)
                     g_strerror(err));
             break;
     }
-}
-
-/*
- * Report an error in command-line arguments.
- */
-static void
-tfshark_cmdarg_err(const char *msg_format, va_list ap)
-{
-    fprintf(stderr, "tfshark: ");
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
-}
-
-/*
- * Report additional information for an error in command-line arguments.
- */
-static void
-tfshark_cmdarg_err_cont(const char *msg_format, va_list ap)
-{
-    vfprintf(stderr, msg_format, ap);
-    fprintf(stderr, "\n");
 }

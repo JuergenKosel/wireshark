@@ -405,6 +405,19 @@ Alternatively you can also use the environment variable WIRESHARK_QT6_PREFIX_PAT
 Qt 6 is the default option for building Wireshark, but Wireshark has support for Qt 5.12 and later. To enable Wireshark to build with Qt 5 pass `-DUSE_qt6=OFF`
 to cmake.
 
+====== Install Qt using AQt
+
+If you don't want register for the Qt Online Installer for Windows, an alternate possibility can be to use https://github.com/miurahr/aqtinstall/releases[Another (unofficial) Qt CLI Installer].
+
+To achieve the recommended configuration above, download the latest release and copy `aqt.exe` into _C:\Qt{backslash}_.
+
+Then just run the following command to launch the installation.
+
+[subs="attributes+"]
+----
+.\aqt.exe install-qt windows desktop {windows-qt6-lts-version} win64_msvc2019_64 -m qt5compat debug_info qtmultimedia
+----
+
 [#ChSetupPython]
 
 ===== Install Python
@@ -818,7 +831,7 @@ system libraries used etc. If you are unsure, go with UCRT64.
 
     mkdir build && cd build
     # Ninja generator is the default
-    cmake -DENABLE_CCACHE=On -DFETCH_lua=Yes ..
+    cmake -DENABLE_CCACHE=On ..
     ninja
     ninja test        # optional, to run the test suite
     ninja install     # optional, install to the MSYS2 shell path

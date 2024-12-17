@@ -734,7 +734,12 @@ protobuf_dissect_field_value(proto_tree *value_tree, tvbuff_t *tvb, unsigned off
             proto_tree_add_int(pbf_tree, *hf_id_ptr, tvb, offset, length, int32_value);
         }
         if (field_desc && dumper) {
-            json_dumper_value_string(dumper, enum_value_name);
+            if (enum_value_name) {
+                json_dumper_value_string(dumper, enum_value_name);
+            } else {
+                /* The enum value is used if the name of the enum value is not specified in proto */
+                json_dumper_value_anyf(dumper, "%d", int32_value);
+            }
         }
         break;
 
@@ -1089,6 +1094,13 @@ dissect_one_protobuf_field(tvbuff_t *tvb, unsigned* offset, unsigned maxlen, pac
                                          is_top_level, dumper);
         }
     } else {
+        /* end JSON array if previous field is repeated field. We must end
+         * the array here even if we don't add this unknown field to the JSON,
+         * so that the array ends at the correct nested level.
+         */
+        if (dumper && prev_field_desc && pbw_FieldDescriptor_is_repeated(prev_field_desc)) {
+            json_dumper_end_array(dumper);
+        }
         if (show_all_possible_field_types) {
             /* try dissect every possible field type */
             protobuf_try_dissect_field_value_on_multi_types(value_tree, tvb, *offset, value_length, pinfo,
@@ -1528,6 +1540,9 @@ dissect_protobuf_message(tvbuff_t *tvb, unsigned offset, unsigned length, packet
             wmem_map_insert(parsed_fields, GINT_TO_POINTER(pbw_FieldDescriptor_number(field_desc)), GINT_TO_POINTER(1));
         }
 
+        /* Only set this on success - if we didn't dissect a field, we
+         * may still need to close the JSON array associated with the
+         * last successfully dissected field. */
         prev_field_desc = field_desc;
     }
     decrement_dissection_depth(pinfo);

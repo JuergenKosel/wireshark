@@ -18,6 +18,7 @@
 #include "progress_frame.h"
 #include "main_application.h"
 
+#include <ui/qt/main_window.h>
 #include <ui/qt/widgets/traffic_tab.h>
 #include <ui/qt/widgets/traffic_types_list.h>
 
@@ -43,8 +44,8 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const Q
     loadGeometry(parent.width(), parent.height() * 3 / 4);
 
     ui->absoluteTimeCheckBox->hide();
-    setWindowSubtitle(QString("%1s").arg(table_name));
-    ui->grpSettings->setTitle(QString("%1 Settings").arg(table_name));
+    setWindowSubtitle(QStringLiteral("%1s").arg(table_name));
+    ui->grpSettings->setTitle(QStringLiteral("%1 Settings").arg(table_name));
 
     copy_bt_ = buttonBox()->addButton(tr("Copy"), QDialogButtonBox::ActionRole);
     copy_bt_->setMenu(ui->trafficTab->createCopyMenu(copy_bt_));
@@ -69,6 +70,8 @@ TrafficTableDialog::TrafficTableDialog(QWidget &parent, CaptureFile &cf, const Q
 
     connect(ui->trafficListSearch, &QLineEdit::textChanged, ui->trafficList, &TrafficTypesList::filterList);
     connect(ui->trafficList, &TrafficTypesList::clearFilterList, ui->trafficListSearch, &QLineEdit::clear);
+
+    connect(mainApp->mainWindow(), SIGNAL(displayFilterSuccess(bool)), this, SLOT(displayFilterSuccess(bool)));
 
     QPushButton *close_bt = ui->buttonBox->button(QDialogButtonBox::Close);
     if (close_bt)
@@ -150,16 +153,28 @@ void TrafficTableDialog::on_nameResolutionCheckBox_toggled(bool checked)
 
 void TrafficTableDialog::displayFilterCheckBoxToggled(bool checked)
 {
+    displayFilterUpdate(checked);
+}
+
+void TrafficTableDialog::displayFilterUpdate(bool set_filter)
+{
     if (!cap_file_.isValid()) {
         return;
     }
 
-    if (checked)
+    if (set_filter)
         trafficTab()->setFilter(cap_file_.displayFilter());
     else
         trafficTab()->setFilter(QString());
 
     cap_file_.retapPackets();
+}
+
+void TrafficTableDialog::displayFilterSuccess(bool success)
+{
+    if (success && ui->displayFilterCheckBox->isEnabled() && ui->displayFilterCheckBox->isChecked()) {
+       displayFilterUpdate(true);
+    }
 }
 
 void TrafficTableDialog::captureEvent(CaptureEvent e)

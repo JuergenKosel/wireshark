@@ -645,7 +645,7 @@ else() # ! MSVC
 	if(APPLE)
 		# MIN_MACOS_VERSION is used to set LSMinimumSystemVersion
 		# in Info.plist, so start with something low.
-		set(MIN_MACOS_VERSION 10.11)
+		set(MIN_MACOS_VERSION 10.13)
 		if(CMAKE_OSX_DEPLOYMENT_TARGET)
 			if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 				message(FATAL_ERROR "We don't support building for macOS < ${MIN_MACOS_VERSION}")
@@ -1123,9 +1123,8 @@ if(ENABLE_FUZZER)
 	set(CMAKE_CXX_FLAGS "-fsanitize=fuzzer-no-link ${CMAKE_CXX_FLAGS}")
 endif()
 
-if(ENABLE_ASAN OR ENABLE_TSAN OR ENABLE_UBSAN OR ENABLE_LSAN OR ENABLE_FUZZER)
+if(NOT MSVC)
 	# Disable sanitizers for build-time tools, e.g. lemon
-	# (MSVC doesn't support this flag)
 	check_c_compiler_flag(-fno-sanitize=all C__fno_sanitize_all_VALID)
 	if(C__fno_sanitize_all_VALID)
 		set(NO_SANITIZE_CFLAGS "-fno-sanitize=all")
@@ -1317,7 +1316,7 @@ if (NOT WIN32)
 	find_package(M REQUIRED)
 endif()
 
-if(BUILD_sshdump OR BUILD_ciscodump OR BUILD_wifidump)
+if(BUILD_sshdump OR BUILD_ciscodump OR BUILD_wifidump OR BUILD_sshdig)
 	set(ENABLE_LIBSSH ON)
 else()
 	set(ENABLE_LIBSSH OFF)
@@ -1412,8 +1411,8 @@ if(BUILD_wireshark OR BUILD_stratoshark)
 			list(APPEND QT5_COMPILE_DEFINITIONS ${${_qt5_package}_COMPILE_DEFINITIONS})
 		endforeach()
 
-		if (Qt5Widgets_VERSION VERSION_LESS 5.12)
-			message(FATAL_ERROR "Qt 5.12 or later is required. Qt 6 is recommended.")
+		if (Qt5Widgets_VERSION VERSION_LESS 5.15)
+			message(FATAL_ERROR "Qt 5.15 or later is required. Qt 6 is recommended.")
 		endif()
 
 		if(APPLE AND "/usr/local/opt/qt5/lib/QtCore.framework" IN_LIST Qt5Core_INCLUDE_DIRS)
@@ -1631,10 +1630,6 @@ if (QT_FOUND)
 			set(MIN_MACOS_VERSION 11.0)
 		elseif(Qt${qtver}Widgets_VERSION VERSION_GREATER_EQUAL "6.0.0" AND MIN_MACOS_VERSION VERSION_LESS "10.14")
 			set(MIN_MACOS_VERSION 10.14)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.14.0" AND MIN_MACOS_VERSION VERSION_LESS "10.13")
-			set(MIN_MACOS_VERSION 10.13)
-		elseif(Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.12.0" AND MIN_MACOS_VERSION VERSION_LESS "10.12")
-			set(MIN_MACOS_VERSION 10.12)
 		endif()
 		if(CMAKE_OSX_DEPLOYMENT_TARGET AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS MIN_MACOS_VERSION)
 			message(FATAL_ERROR "Qt version ${Qt${qtver}Widgets_VERSION} requires CMAKE_OSX_DEPLOYMENT_TARGET (${CMAKE_OSX_DEPLOYMENT_TARGET}) >= ${MIN_MACOS_VERSION}")
@@ -2032,7 +2027,7 @@ set_package_properties(LIBXML2 PROPERTIES
 set_package_properties(LIBSSH PROPERTIES
 	DESCRIPTION "Library for implementing SSH clients"
 	URL "https://www.libssh.org/"
-	PURPOSE "extcap remote SSH interfaces (sshdump, ciscodump, wifidump)"
+	PURPOSE "extcap remote SSH interfaces (sshdump, ciscodump, wifidump, sshdig)"
 )
 set_package_properties(LZ4 PROPERTIES
 	DESCRIPTION "LZ4 is a fast lossless compression algorithm"
@@ -2235,7 +2230,9 @@ if (ASCIIDOCTOR_FOUND)
 		${CMAKE_BINARY_DIR}/doc/man_pages/etwdump.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/rawshark.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/reordercap.html
+		${CMAKE_BINARY_DIR}/doc/man_pages/sshdig.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/sshdump.html
+		${CMAKE_BINARY_DIR}/doc/man_pages/stratoshark.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/wifidump.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/text2pcap.html
 		${CMAKE_BINARY_DIR}/doc/man_pages/tshark.html
@@ -2539,7 +2536,7 @@ endforeach()
 
 if (BUILD_stratoshark)
 	if (ENABLE_APPLICATION_BUNDLE)
-		foreach(_install_file ${LOG_INSTALL_FILES})
+		foreach(_install_file ${LOG_INSTALL_FILES} ${DOC_FILES})
 			get_filename_component(_install_file_src "${_install_file}" ABSOLUTE)
 			get_filename_component(_install_basename "${_install_file}" NAME)
 			set(_output_file "${LOG_DATAFILE_DIR}/${_install_basename}")
@@ -2719,17 +2716,9 @@ add_library(shark_common OBJECT
 	cfile.c
 	extcap_parser.c
 	file_packet_provider.c
-	frame_tvbuff.c
 	sync_pipe_write.c
 )
 add_library(cli_main OBJECT cli_main.c)
-add_library(capture_opts OBJECT capture_opts.c)
-target_include_directories(capture_opts SYSTEM PRIVATE ${PCAP_INCLUDE_DIRS})
-set_target_properties(shark_common cli_main capture_opts
-	PROPERTIES
-	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
-)
-
 
 if(BUILD_wireshark AND QT_FOUND)
 	set(WIRESHARK_SRC
@@ -2739,7 +2728,6 @@ if(BUILD_wireshark AND QT_FOUND)
 		${PLATFORM_UI_SRC}
 	)
 	set(wireshark_FILES
-		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:shark_common>
 		${WIRESHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
@@ -2755,7 +2743,6 @@ if(BUILD_stratoshark AND QT_FOUND)
 		${PLATFORM_UI_SRC}
 	)
 	set(stratoshark_FILES
-		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:shark_common>
 		${STRATOSHARK_SRC}
 		${PLATFORM_UI_RC_FILES}
@@ -3169,7 +3156,6 @@ if(BUILD_tshark)
 		${WIN_WS2_32_LIBRARY}
 	)
 	set(tshark_FILES
-		$<TARGET_OBJECTS:capture_opts>
 		$<TARGET_OBJECTS:cli_main>
 		$<TARGET_OBJECTS:shark_common>
 		tshark-tap-register.c
@@ -3276,6 +3262,12 @@ if(BUILD_dftest)
 	add_executable(dftest ${dftest_FILES})
 	set_extra_executable_properties(dftest "Tests")
 	target_link_libraries(dftest ${dftest_LIBS})
+
+	install(TARGETS dftest RUNTIME
+		DESTINATION ${CMAKE_INSTALL_BINDIR}
+		COMPONENT "Development"
+		EXCLUDE_FROM_ALL
+	)
 endif()
 
 if(BUILD_randpkt)
@@ -3456,14 +3448,27 @@ if(BUILD_dumpcap AND PCAP_FOUND)
 	list(APPEND CAPUTILS_SRC
 		capture/capture-pcap-util.c
 	)
+	#
+	# We don't link with libiface_monitor or libui because those
+	# are built to be linked against libwsutil as a shared library,
+	# and dumpcap is deliberately not linked against any of
+	# Wireshark's shared libraries, to reduce the amount of code
+	# it uses, and linking against the non-shared libiface_monitor
+	# or libui libraries will fail on Windows.
+	#
+	# Instead, we just include source files for the relevant code
+	# to be built as part of dumpcap, so that they're built with
+	# ENABLE_STATIC defined, and will be able to be built with
+	# the static version of libwsutil.
+	#
 	set(dumpcap_FILES
-		capture_opts.c
 		cli_main.c
 		dumpcap.c
 		ringbuffer.c
 		sync_pipe_write.c
 		capture/iface_monitor.c
 		capture/ws80211_utils.c
+		ui/capture_opts.c
 		${CAPUTILS_SRC}
 	)
 	set_executable_resources(dumpcap "Dumpcap" UNIQUE_RC)
@@ -3522,7 +3527,11 @@ if(BUILD_dcerpcidl2wrs)
 	set_target_properties(idl2wrs PROPERTIES FOLDER "Executables")
 	set_extra_executable_properties(idl2wrs "Executables")
 	target_link_libraries(idl2wrs ${idl2wrs_LIBS})
-	install(TARGETS idl2wrs RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+	install(TARGETS idl2wrs RUNTIME
+		DESTINATION ${CMAKE_INSTALL_BINDIR}
+		COMPONENT "Development"
+		EXCLUDE_FROM_ALL
+	)
 endif()
 
 if(WIN32)

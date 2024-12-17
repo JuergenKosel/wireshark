@@ -45924,7 +45924,7 @@ dissect_lte_rrc_T_sizeOfRA_PreamblesGroupA(tvbuff_t *tvb _U_, int offset _U_, as
   offset = dissect_per_enumerated(tvb, offset, actx, tree, hf_index,
                                      15, &value, false, 0, NULL);
 
-  /* Retrived stored value for RA (both Group A & Group B) */
+  /* Retrieve stored value for RA (both Group A & Group B) */
   ra_value = private_data_get_ra_preambles(actx);
   if (value > ra_value) {
     /* Something is wrong if A has more RAPIDs than A & B combined! */
@@ -75321,7 +75321,7 @@ dissect_lte_rrc_RRCConnectionSetup(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx_t
     set_mac_lte_drx_config_release(p_mac_lte_info->ueid, actx->pinfo);
     /* Also tell MAC to release extended BSR sizes configuration */
     set_mac_lte_extended_bsr_sizes(p_mac_lte_info->ueid, false, actx->pinfo);
-    /* Also tell MAC to release simutaneous PUCCH/PUSCH configuration */
+    /* Also tell MAC to release simultaneous PUCCH/PUSCH configuration */
     set_mac_lte_simult_pucch_pusch(p_mac_lte_info->ueid, SIMULT_PUCCH_PUSCH_PCELL, false, actx->pinfo);
     set_mac_lte_simult_pucch_pusch(p_mac_lte_info->ueid, SIMULT_PUCCH_PUSCH_PSCELL, false, actx->pinfo);
     /* TODO: also release PDCP security config here */
@@ -81856,9 +81856,9 @@ dissect_lte_rrc_AbsoluteTimeInfo_r10(tvbuff_t *tvb _U_, int offset _U_, asn1_ctx
     const char *str, *hf_str;
     proto_tree *subtree;
     subtree = proto_item_add_subtree(actx->created_item, ett_lte_rrc_absTimeInfo);
-    str = tvb_bcd_dig_to_str(actx->pinfo->pool, abs_time_info_tvb, 0, 6, NULL, false);
-    hf_str = wmem_strdup_printf(actx->pinfo->pool, "%c%c-%c%c-%c%c %c%c:%c%c:%c%c", str[0], str[1],
-                        str[2], str[3], str[4], str[5], str[6], str[7], str[8], str[9], str[10], str[11]);
+    str = tvb_bcd_dig_to_str_be(actx->pinfo->pool, abs_time_info_tvb, 0, 6, NULL, false);
+    hf_str = wmem_strdup_printf(actx->pinfo->pool, "%c%c-%c%c-%c%c %c%c:%c%c:%c%c", str[0], str[1], str[2],
+                                str[3], str[4], str[5], str[6], str[7], str[8], str[9], str[10], str[11]);
     proto_tree_add_string(subtree, hf_lte_rrc_absolute_time, abs_time_info_tvb, 0, 6, hf_str);
   }
 
@@ -155784,7 +155784,7 @@ void proto_register_lte_rrc(void) {
         FT_UINT32, BASE_DEC, NULL, 0,
         "T_radioResourceConfigDedicated_eag_7_dummy", HFILL }},
     { &hf_lte_rrc_radioResourceConfigDedicated_eag_7_dummy_item,
-      { "dummy item", "lte-rrc.dummy_item",
+      { "dummy item", "lte-rrc.radioResourceConfigDedicated_eag_7_dummy_item",
         FT_UINT32, BASE_DEC, NULL, 0,
         "INTEGER_1_2", HFILL }},
     { &hf_lte_rrc_sps_Config_v1540,

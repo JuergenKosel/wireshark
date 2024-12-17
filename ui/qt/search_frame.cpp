@@ -16,7 +16,7 @@
 #include <epan/proto.h>
 #include <epan/strutil.h>
 
-#include <wsutil/filesystem.h>
+#include <wsutil/application_flavor.h>
 #include <wsutil/utf8_entities.h>
 #include <wsutil/regex.h>
 
@@ -59,7 +59,7 @@ SearchFrame::SearchFrame(QWidget *parent) :
     }
 #endif
 
-    if (!is_packet_configuration_namespace()) {
+    if (application_flavor_is_stratoshark()) {
         sf_ui_->searchInComboBox->setItemText(0, tr("Event List"));
         sf_ui_->searchInComboBox->setItemText(1, tr("Event Details"));
         sf_ui_->searchInComboBox->setItemText(2, tr("Event Bytes"));
@@ -537,7 +537,7 @@ void SearchFrame::on_findButton_clicked()
         }
     } else {
         /* Search via display filter */
-        found_packet = cf_find_packet_dfilter(cap_file_, dfp, cap_file_->dir);
+        found_packet = cf_find_packet_dfilter(cap_file_, dfp, cap_file_->dir, true);
         dfilter_free(dfp);
         if (!found_packet) {
             err_string = tr("No packet matched that filter.");

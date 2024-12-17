@@ -592,6 +592,11 @@ on_wireshark_exit(void)
 
 static bool
 extract_syscall_conversation_fields (packet_info *pinfo, falco_conv_filter_fields* args) {
+    if (!proto_is_protocol_enabled(find_protocol_by_id(proto_falco_bridge))) {
+        // get_extracted_syscall_source_fields will fail noisily, so just bail out here.
+        return false;
+    }
+
     args->container_id = NULL;
     args->pid = -1;
     args->tid = -1;
@@ -972,13 +977,13 @@ dissect_sinsp_enriched(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void
         if (parent_category == SSC_PROCLINEAGE) {
             int32_t lnum = extract_lineage_number(hfinfo->abbrev);
             if (lnum == -1) {
-                ws_error("Invalid lineage field name %s", hfinfo->abbrev);
+                ws_warning("Invalid lineage field name %s", hfinfo->abbrev);
             }
 
             if (!lineage_trees[lnum]) {
                 const char* res_str = get_str_value(sinsp_fields, sf_idx);
                 if (res_str == NULL) {
-                    ws_error("empty value for field %s", hfinfo->abbrev);
+                    ws_warning("empty value for field %s", hfinfo->abbrev);
                 }
 
                 lineage_trees[lnum] = proto_tree_add_subtree_format(parent_tree, tvb, 0, 0, ett_lineage[0], NULL, "%" PRIu32 ". %s", lnum, res_str);
@@ -1213,6 +1218,7 @@ dissect_sinsp_plugin(tvbuff_t* tvb, packet_info* pinfo, proto_tree* tree, void* 
 
             if ((strcmp(hfinfo->abbrev, "ct.response") == 0 ||
                     strcmp(hfinfo->abbrev, "ct.request") == 0 ||
+                    strcmp(hfinfo->abbrev, "ct.additionaleventdata") == 0 ||
                     strcmp(hfinfo->abbrev, "ct.resources") == 0 ) &&
                     strcmp(sfe->res.str, "null") != 0) {
                tvbuff_t *json_tvb = tvb_new_child_real_data(tvb, sfe->res.str, (unsigned)strlen(sfe->res.str), (unsigned)strlen(sfe->res.str));

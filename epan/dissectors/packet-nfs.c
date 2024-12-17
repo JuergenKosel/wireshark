@@ -2406,7 +2406,7 @@ dissect_fhandle_data(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
 		tvbuff_t *fh_tvb;
 
 		fh_tvb = tvb_new_subset_length_caplen(tvb, offset, fhlen, fhlen);
-		if (!dissector_try_payload(nfs_fhandle_table, fh_tvb, pinfo, tree))
+		if (!dissector_try_payload_with_data(nfs_fhandle_table, fh_tvb, pinfo, tree, true, NULL))
 			dissect_fhandle_data_unknown(fh_tvb, pinfo, tree, NULL);
 	}
 }
@@ -2790,8 +2790,8 @@ dissect_timeval(tvbuff_t *tvb, int offset, proto_tree *tree, int hf_time, int hf
 
 /* NFSv2 RFC 1094, Page 16 */
 static const value_string nfs2_mode_names[] = {
-	{	1,	"Directory"	},
-	{	2,	"Character Special Device"	},
+	{	1,	"Character Special Device"	},
+	{	2,	"Directory"	},
 	{	3,	"Block Special Device"	},
 	{	4,	"Regular File"	},
 	{	5,	"Symbolic Link"	},
@@ -2839,6 +2839,9 @@ dissect_nfs2_fattr(tvbuff_t *tvb, int offset, proto_tree *tree, const char *name
 
 	offset = dissect_nfs2_ftype(tvb, offset, fattr_tree);
 	offset = dissect_nfs2_mode(tvb, offset, fattr_tree);
+	/* XXX - "Notice that the file type is specified both in the mode bits
+	 * and in the file type." - Expert Info if inconsistent?
+	 */
 	offset = dissect_rpc_uint32(tvb, fattr_tree, hf_nfs2_fattr_nlink, offset);
 	offset = dissect_rpc_uint32(tvb, fattr_tree, hf_nfs2_fattr_uid, offset);
 	offset = dissect_rpc_uint32(tvb, fattr_tree, hf_nfs2_fattr_gid, offset);
@@ -6071,7 +6074,7 @@ static const value_string names_nfs4_status[] = {
 	{	10054,	"NFS4ERR_COMPLETE_ALREADY"	    },
 	{	10055,	"NFS4ERR_CONN_NOT_BOUND_TO_SESSION" },
 	{	10056,	"NFS4ERR_DELEG_ALREADY_WANTED"	    },
-	{	10057,	"NFS4ERR_DIRDELEG_UNAVAIL"	    },
+	{	10057,	"NFS4ERR_BACK_CHAN_BUSY"	    },
 	{	10058,	"NFS4ERR_LAYOUTTRYLATER"	    },
 	{	10059,	"NFS4ERR_LAYOUTUNAVAILABLE"	    },
 	{	10060,	"NFS4ERR_NOMATCHING_LAYOUT"	    },
@@ -9125,7 +9128,7 @@ dissect_nfs4_devices_file(tvbuff_t *tvb, int offset, proto_tree *tree)
 	unsigned i, j;
 	uint32_t num_indices, num_multipath, num_addr;
 
-	/* disect indices */
+	/* dissect indices */
 	num_indices = tvb_get_ntohl(tvb, offset);
 	offset += 4;
 	for (i = 0; i < num_indices; i++) {
@@ -9153,7 +9156,7 @@ dissect_nfs4_devices_flexfile(tvbuff_t *tvb, int offset, proto_tree *tree)
 	uint32_t num_addr;
 	uint32_t num_vers;
 
-	/* disect indices */
+	/* dissect indices */
 	num_addr = tvb_get_ntohl(tvb, offset);
 	offset += 4;
 	for (i = 0; i < num_addr; i++) {

@@ -81,15 +81,14 @@
     </message>
     <message>
         <source>About Stratoshark</source>
-        <oldsource>About Logray</oldsource>
-        <translation type="unfinished">Logray Hakkında</translation>
-    </message>
-    <message>
-        <source>Logray</source>
-        <translation type="vanished">Logray</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Stratoshark</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;h3&gt;System Call and Event Log Analyzer&lt;/h3&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1207,12 +1206,7 @@
         <source>Created by Stratoshark %1
 
 </source>
-        <oldsource>Created by Logray %1
-
-</oldsource>
-        <translation type="unfinished">Logray %1 tarafından oluşturuldu
-
-</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1903,10 +1897,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Biçim</translation>
     </message>
     <message>
-        <source>Fields</source>
-        <translation>Alanlar</translation>
-    </message>
-    <message>
         <source>Field Occurrence</source>
         <translation>Alan Oluşumu</translation>
     </message>
@@ -1921,6 +1911,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Width</source>
         <translation>Genişlik</translation>
+    </message>
+    <message>
+        <source>Custom Expression</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Alignment</source>
@@ -2375,6 +2369,10 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Apply a read filter %1</source>
         <translation>%1 okuma filtresi uygula</translation>
+    </message>
+    <message>
+        <source>Enter a custom column expression %1</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Current filter: %1</source>
@@ -3047,12 +3045,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Tüm Dosyalar (</translation>
     </message>
     <message>
-        <source>Open File</source>
-        <translation>Dosyayı Aç</translation>
+        <source>%1 Open File</source>
+        <oldsource>Open File</oldsource>
+        <translation type="unfinished">Dosyayı Aç</translation>
     </message>
     <message>
-        <source>Select File</source>
-        <translation>Dosya Seçin</translation>
+        <source>%1 Select File</source>
+        <oldsource>Select File</oldsource>
+        <translation type="unfinished">Dosya Seçin</translation>
     </message>
 </context>
 <context>
@@ -3090,16 +3090,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 <context>
     <name>FieldFilterEdit</name>
     <message>
-        <source>Display filter entry</source>
-        <translation>Filtre girişini göster</translation>
+        <source>Field entry</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Enter a field %1</source>
         <translation>%1 alanını girin</translation>
     </message>
     <message>
-        <source>Invalid filter: </source>
-        <translation>Geçersiz filtre: </translation>
+        <source>Invalid field: </source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -4151,10 +4151,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Enable legend</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Reset Graph</source>
         <translation>Grafiği Sıfırla</translation>
     </message>
@@ -4288,6 +4284,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>T</translation>
     </message>
     <message>
+        <source>Toggle X-axis between relative time and time of day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Y-axis between logarithmic and linear scale</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Crosshairs</source>
         <translation>Artılar</translation>
     </message>
@@ -4298,6 +4302,14 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     <message>
         <source>Space</source>
         <translation>Boşluk</translation>
+    </message>
+    <message>
+        <source>Legend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle legend</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Zoom In X Axis</source>
@@ -6908,6 +6920,18 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Display filter as %1</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>The Wireshark Network Analyzer</source>
+        <translation type="unfinished">Wireshark Ağ Çözümleyicisi</translation>
+    </message>
+    <message>
+        <source>The Stratoshark System Call and Log Analyzer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capturing from %1</source>
+        <translation type="unfinished">%1&apos;den yakalama</translation>
+    </message>
 </context>
 <context>
     <name>MainWindowPreferencesFrame</name>
@@ -7814,6 +7838,16 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <source>Preferences</source>
         <translation>Tercihler</translation>
     </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">Kopyala</translation>
+    </message>
+    <message numerus="yes">
+        <source>Copy Row(s)</source>
+        <translation type="unfinished">
+            <numerusform>Satırı Kopyala</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>PrefsModel</name>
@@ -8277,8 +8311,12 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Filtre Alanı Referansı</translation>
     </message>
     <message>
+        <source>Copied %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Copied </source>
-        <translation>Kopyalandı </translation>
+        <translation type="vanished">Kopyalandı </translation>
     </message>
     <message>
         <source>Wiki Page for %1</source>
@@ -8457,34 +8495,6 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
 </context>
 <context>
     <name>QObject</name>
-    <message>
-        <source>Average Throughput (bits/s)</source>
-        <translation>Ortalama Verim (bit/sn)</translation>
-    </message>
-    <message>
-        <source>Round Trip Time (ms)</source>
-        <translation>Gidiş-Dönüş Süresi (ms)</translation>
-    </message>
-    <message>
-        <source>Segment Length (B)</source>
-        <translation>Segment Uzunluğu (B)</translation>
-    </message>
-    <message>
-        <source>Sequence Number (B)</source>
-        <translation>Sıra Numarası (B)</translation>
-    </message>
-    <message>
-        <source>Time (s)</source>
-        <translation>Süre ()</translation>
-    </message>
-    <message>
-        <source>Window Size (B)</source>
-        <translation>Pencere Boyutu (B)</translation>
-    </message>
-    <message>
-        <source>Unacked (Outstanding) Bytes (B)</source>
-        <translation type="unfinished"></translation>
-    </message>
     <message>
         <source>[no capture file]</source>
         <translation>[yakalama dosyası yok]</translation>
@@ -8878,8 +8888,9 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
         <translation>Geçersiz Görüntü Filtresi</translation>
     </message>
     <message>
-        <source>The filter expression %1 isn&apos;t a valid display filter. (%2).</source>
-        <translation>%1 filtre ifadesi geçerli bir görüntüleme filtresi değil. (%2).</translation>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid display filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Error</source>
@@ -8971,6 +8982,34 @@ For example, use 1 hour to have a new file created every hour on the hour.</sour
     </message>
     <message>
         <source>LOAD</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Average Throughput</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Round Trip Time</source>
+        <translation type="unfinished">Gidiş-dönüş süresi</translation>
+    </message>
+    <message>
+        <source>Segment Length</source>
+        <translation type="unfinished">Segment Uzunluğu</translation>
+    </message>
+    <message>
+        <source>Sequence Number</source>
+        <translation type="unfinished">Sıra Numarası</translation>
+    </message>
+    <message>
+        <source>Time</source>
+        <translation type="unfinished">Süre</translation>
+    </message>
+    <message>
+        <source>Window Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unacked (Outstanding) Bytes</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -13098,17 +13137,15 @@ a:üzerine gelin{
     </message>
     <message>
         <source>You are sniffing the glue that holds your system together using Stratoshark </source>
-        <oldsource>You are sniffing the glue that holds your system together using Logray </oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You are running Stratoshark </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>You are running Wireshark </source>
         <translation>Wireshark&apos;ı çalıştırıyorsunuz </translation>
-    </message>
-    <message>
-        <source>You are running Stratoshark </source>
-        <oldsource>You are running Logray </oldsource>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> You receive automatic updates.</source>
@@ -13184,14 +13221,6 @@ a:üzerine gelin{
     <message>
         <source>802.11 Preferences</source>
         <translation>802.11 Tercihleri</translation>
-    </message>
-    <message>
-        <source>AirPcap Control Panel</source>
-        <translation type="vanished">AirPcap Kontrol Paneli</translation>
-    </message>
-    <message>
-        <source>Open the AirPcap Control Panel</source>
-        <translation type="vanished">AirPcap Kontrol Panelini açın</translation>
     </message>
     <message>
         <source>Unable to set channel or offset.</source>
@@ -14428,6 +14457,22 @@ a:üzerine gelin{
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>First Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the first packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last Packet in Conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to the last packet in this conversation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Capture &amp;Filters…</source>
         <translation>Yakalama &amp;Filtreleri…</translation>
     </message>
@@ -15114,16 +15159,8 @@ a:üzerine gelin{
         <translation>Dosyalar birleştirilmeden önce değişiklikler kaydedilmelidir.</translation>
     </message>
     <message>
-        <source>Invalid Display Filter</source>
-        <translation>Geçersiz Görüntü Filtresi</translation>
-    </message>
-    <message>
         <source>Invalid Read Filter</source>
         <translation>Geçersiz Okuma Filtresi</translation>
-    </message>
-    <message>
-        <source>The filter expression %1 isn&apos;t a valid read filter. (%2).</source>
-        <translation>%1 filtre ifadesi geçerli bir okuma filtresi değil. (%2).</translation>
     </message>
     <message>
         <source> before importing a capture</source>
@@ -15162,6 +15199,11 @@ a:üzerine gelin{
     <message>
         <source>Unable to drop files during capture.</source>
         <translation>Yakalama sırasında dosyalar bırakılamıyor.</translation>
+    </message>
+    <message>
+        <source>The filter expression &quot;%1&quot; isn&apos;t a valid read filter.
+(%2).</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Unknown file type returned by merge dialog.</source>
@@ -15233,11 +15275,11 @@ a:üzerine gelin{
     </message>
     <message>
         <source>The Wireshark Network Analyzer</source>
-        <translation>Wireshark Ağ Çözümleyicisi</translation>
+        <translation type="vanished">Wireshark Ağ Çözümleyicisi</translation>
     </message>
     <message>
         <source>Capturing from %1</source>
-        <translation>%1&apos;den yakalama</translation>
+        <translation type="vanished">%1&apos;den yakalama</translation>
     </message>
     <message>
         <source> before opening another file</source>

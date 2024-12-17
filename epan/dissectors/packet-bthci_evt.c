@@ -1633,7 +1633,7 @@ static const value_string nadm_attack_chance_vals[] = {
     {0x03, "Possible"},
     {0x04, "Likely"},
     {0x05, "Very Likely"},
-    {0x06, "Etremely Likely"},
+    {0x06, "Extremely Likely"},
     {0xff, "Unknown"},
     {0, NULL}
 };
@@ -2749,7 +2749,7 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
     if (ogf == HCI_OGF_VENDOR_SPECIFIC) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (Vendor Command 0x%04X [(opcode 0x%04X])", opcode & 0x03ff, opcode);
 
-        if (!dissector_try_payload_new(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
+        if (!dissector_try_payload_with_data(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
             if (bluetooth_data) {
                 hci_vendor_data_t  *hci_vendor_data;
                 wmem_tree_key_t     key[3];
@@ -2768,9 +2768,13 @@ dissect_bthci_evt_command_status(tvbuff_t *tvb, int offset, packet_info *pinfo,
 
                 hci_vendor_data = (hci_vendor_data_t *) wmem_tree_lookup32_array(bluetooth_data->hci_vendors, key);
                 if (hci_vendor_data) {
-                    int sub_offset;
+                    int sub_offset = 0;
 
-                    sub_offset = dissector_try_uint_new(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
+                    if (bthci_vendor_android) {
+                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
+                    } else {
+                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
+                    }
 
                     if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                         proto_tree_add_expert(tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -4624,7 +4628,7 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
     if (ogf == HCI_OGF_VENDOR_SPECIFIC) {
         col_append_fstr(pinfo->cinfo, COL_INFO, " (Vendor Command 0x%04X [opcode 0x%04X])", opcode & 0x03ff, opcode);
 
-        if (!dissector_try_payload_new(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
+        if (!dissector_try_payload_with_data(hci_cmd_vendor_dissector_table, tvb, pinfo, main_tree, true, bluetooth_data)) {
             if (bluetooth_data) {
                 hci_vendor_data_t  *hci_vendor_data;
 
@@ -4640,9 +4644,13 @@ dissect_bthci_evt_command_complete(tvbuff_t *tvb, int offset,
 
                 hci_vendor_data = (hci_vendor_data_t *) wmem_tree_lookup32_array(bluetooth_data->hci_vendors, key);
                 if (hci_vendor_data) {
-                    int sub_offset;
+                    int sub_offset = 0;
 
-                    sub_offset = dissector_try_uint_new(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
+                    if (bthci_vendor_android) {
+                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
+                    } else {
+                        sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, main_tree, true, bluetooth_data);
+                    }
 
                     if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                         proto_tree_add_expert(tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -7676,7 +7684,7 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
             tvbuff_t *vendor_payload_tvb;
             vendor_payload_tvb = tvb_new_subset_remaining(tvb, 2); // Bytes after length byte.
 
-            if (!dissector_try_payload_new(hci_evt_vendor_dissector_table, vendor_payload_tvb, pinfo, tree, true, bluetooth_data)) {
+            if (!dissector_try_payload_with_data(hci_evt_vendor_dissector_table, vendor_payload_tvb, pinfo, tree, true, bluetooth_data)) {
                 if (bluetooth_data) {
                     hci_vendor_data_t  *hci_vendor_data;
                     wmem_tree_key_t     key[3];
@@ -7695,9 +7703,13 @@ dissect_bthci_evt(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
                     hci_vendor_data = (hci_vendor_data_t *) wmem_tree_lookup32_array(bluetooth_data->hci_vendors, key);
                     if (hci_vendor_data) {
-                        int sub_offset;
+                        int sub_offset = 0;
 
-                        sub_offset = dissector_try_uint_new(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
+                        if (bthci_vendor_android) {
+                            sub_offset = dissector_try_uint_with_data(hci_vendor_table, bthci_vendor_manufacturer_android, tvb, pinfo, tree, true, bluetooth_data);
+                        } else {
+                            sub_offset = dissector_try_uint_with_data(hci_vendor_table, hci_vendor_data->manufacturer, tvb, pinfo, tree, true, bluetooth_data);
+                        }
 
                         if (sub_offset > 0 && sub_offset < tvb_captured_length_remaining(tvb, offset))
                             proto_tree_add_expert(bthci_evt_tree, pinfo, &ei_parameter_unexpected, tvb, offset + sub_offset, tvb_captured_length_remaining(tvb, sub_offset + offset));
@@ -11250,7 +11262,7 @@ proto_register_bthci_evt(void)
             NULL, HFILL }
         },
         { &hf_bthci_evt_cs_abort_reason_subevent,
-          { "Subevent Abort Reason", "bthci_evt.cs_abort_reason_subevet",
+          { "Subevent Abort Reason", "bthci_evt.cs_abort_reason_subevent",
             FT_UINT8, BASE_HEX, VALS(cs_subevent_abort_reason_vals), 0xF0,
             NULL, HFILL }
         },
@@ -11341,7 +11353,7 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_nadm_sounding_capability_supported,
           { "Phase-based NADM Metric", "bthci_evt.optional_nadm_sounding_capability.supported",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_evt_nadm_sounding_capability_reserved,
@@ -11356,7 +11368,7 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_nadm_random_capability_supported,
           { "Phase-based NADM Metric", "bthci_evt.optional_nadm_random_capability.supported",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_evt_nadm_random_capability_reserved,
@@ -11391,22 +11403,22 @@ proto_register_bthci_evt(void)
         },
         { &hf_bthci_evt_cs_subfeatures_companion_signal,
           { "Companion Signal", "bthci_evt.optional_cs_subfeatures.companion_signal",
-            FT_BOOLEAN, 16, NULL, 0x01,
+            FT_BOOLEAN, 16, NULL, 0x0001,
             NULL, HFILL }
         },
         { &hf_bthci_evt_cs_subfeatures_freq_actuation_error,
           { "Zero Freq. Actuation Error Relative to Mode-0 Tx in Reflector", "bthci_evt.optional_cs_subfeatures.freq_actuation_error",
-            FT_BOOLEAN, 16, NULL, 0x02,
+            FT_BOOLEAN, 16, NULL, 0x0002,
             NULL, HFILL }
         },
         { &hf_bthci_evt_cs_subfeatures_channel_selection_3c,
           { "Channel Selection Algorithm #3c", "bthci_evt.optional_cs_subfeatures.channel_selection_3c",
-            FT_BOOLEAN, 16, NULL, 0x04,
+            FT_BOOLEAN, 16, NULL, 0x0004,
             NULL, HFILL }
         },
         { &hf_bthci_evt_cs_subfeatures_pbr_from_rtt,
           { "Phase-based Ranging from RTT sounding sequence", "bthci_evt.optional_cs_subfeatures.pbr_from_rtt",
-            FT_BOOLEAN, 16, NULL, 0x08,
+            FT_BOOLEAN, 16, NULL, 0x0008,
             NULL, HFILL }
         },
         { &hf_bthci_evt_cs_subfeatures_reserved,

@@ -24,7 +24,7 @@
  * https://tools.ietf.org/html/draft-huitema-quic-ts-02
  * https://tools.ietf.org/html/draft-ietf-quic-ack-frequency-07 (and also draft-04/05)
  * https://tools.ietf.org/html/draft-banks-quic-cibir-01
- * https://tools.ietf.org/html/draft-ietf-quic-multipath-10 (and also >= draft-07)
+ * https://tools.ietf.org/html/draft-ietf-quic-multipath-11 (and also >= draft-07)
 
  *
  * Currently supported QUIC version(s): draft-21, draft-22, draft-23, draft-24,
@@ -55,6 +55,7 @@
 #include "packet-tls-utils.h"
 #include "packet-tls.h"
 #include "packet-tcp.h"     /* used for STREAM reassembly. */
+#include "packet-udp.h"
 #include "packet-quic.h"
 #include <epan/reassemble.h>
 #include <epan/prefs.h>
@@ -188,10 +189,11 @@ static int hf_quic_crypto_fragment;
 static int hf_quic_crypto_fragment_count;
 
 /* multipath*/
-static int hf_quic_mp_nci_path_identifier;
+static int hf_quic_mp_pnci_path_identifier;
 static int hf_quic_mp_rc_path_identifier;
-static int hf_quic_mp_ack_path_identifier;
+static int hf_quic_mp_path_ack_path_identifier;
 static int hf_quic_mp_pa_path_identifier;
+static int hf_quic_mp_pa_error_code;
 static int hf_quic_mp_ps_path_identifier;
 static int hf_quic_mp_ps_path_status_sequence_number;
 static int hf_quic_mp_ps_path_status;
@@ -392,6 +394,11 @@ typedef struct quic_follow_tap_data {
     bool from_server;
 } quic_follow_tap_data_t;
 
+typedef struct quic_endpoint {
+    address     server_address;
+    uint16_t    server_port;
+} quic_endpoint_t;
+
 /**
  * State for a single QUIC connection, identified by one or more Destination
  * Connection IDs (DCID).
@@ -400,8 +407,7 @@ typedef struct quic_info_data quic_info_data_t;
 struct quic_info_data {
     uint32_t        number;         /** Similar to "udp.stream", but for identifying QUIC connections across migrations. */
     uint32_t        version;
-    address         server_address;
-    uint16_t        server_port;
+    wmem_list_t     *server_endpoints; /**< List of server endpoints, primarily used with 0 length DCIDs */
     bool            skip_decryption : 1; /**< Set to 1 if no keys are available. */
     bool            client_dcid_set : 1; /**< Set to 1 if client_dcid_initial is set. */
     bool            client_loss_bits_recv : 1; /**< The client is able to read loss bits info */
@@ -680,16 +686,17 @@ static const value_string quic_v2_long_packet_type_vals[] = {
 #define FT_DATAGRAM_LENGTH          0x31
 #define FT_IMMEDIATE_ACK_DRAFT05    0xac /* ack-frequency-draft-05 */
 #define FT_ACK_FREQUENCY            0xaf
-#define FT_MP_ACK                   0x15228c00
-#define FT_MP_ACK_ECN               0x15228c01
+#define FT_PATH_ACK                 0x15228c00
+#define FT_PATH_ACK_ECN             0x15228c01
 #define FT_PATH_ABANDON             0x15228c05
 #define FT_PATH_STATUS              0x15228c06 /* multipath-draft-05 */
-#define FT_PATH_STANDBY             0x15228c07 /* multipath-draft-06 */
+#define FT_PATH_BACKUP              0x15228c07 /* multipath-draft-06 */
 #define FT_PATH_AVAILABLE           0x15228c08 /* multipath-draft-06 */
-#define FT_MP_NEW_CONNECTION_ID     0x15228c09 /* multipath-draft-07 */
-#define FT_MP_RETIRE_CONNECTION_ID  0x15228c0a /* multipath-draft-07 */
+#define FT_PATH_NEW_CONNECTION_ID   0x15228c09 /* multipath-draft-07 */
+#define FT_PATH_RETIRE_CONNECTION_ID 0x15228c0a /* multipath-draft-07 */
 #define FT_MAX_PATHS                0x15228c0b /* multipath-draft-07 */
 #define FT_MAX_PATH_ID              0x15228c0c /* multipath-draft-09 */
+#define FT_PATHS_BLOCKED            0x15228c0d /* multipath-draft-11 */
 #define FT_TIME_STAMP               0x02F5
 
 static const range_string quic_frame_type_vals[] = {
@@ -724,15 +731,16 @@ static const range_string quic_frame_type_vals[] = {
     { 0xbaba00, 0xbaba01, "ACK_MP" }, /* multipath-draft-04 */
     { 0xbaba05, 0xbaba05, "PATH_ABANDON" }, /* multipath-draft-04 */
     { 0xbaba06, 0xbaba06, "PATH_STATUS" }, /* multipath-draft-04 */
-    { 0x15228c00, 0x15228c01, "MP_ACK" }, /* >= multipath-draft-05 */
+    { 0x15228c00, 0x15228c01, "PATH_ACK" }, /* >= multipath-draft-05 */
     { 0x15228c05, 0x15228c05, "PATH_ABANDON" }, /* >= multipath-draft-05 */
     { 0x15228c06, 0x15228c06, "PATH_STATUS" }, /* = multipath-draft-05 */
-    { 0x15228c07, 0x15228c07, "PATH_STANDBY" }, /* >= multipath-draft-06 */
+    { 0x15228c07, 0x15228c07, "PATH_BACKUP" }, /* >= multipath-draft-06 */
     { 0x15228c08, 0x15228c08, "PATH_AVAILABLE" }, /* >= multipath-draft-06 */
-    { 0x15228c09, 0x15228c09, "MP_NEW_CONNECTION_ID" }, /* >= multipath-draft-07 */
-    { 0x15228c0a, 0x15228c0a, "MP_RETIRE_CONNECTION_ID" }, /* >= multipath-draft-07 */
+    { 0x15228c09, 0x15228c09, "PATH_NEW_CONNECTION_ID" }, /* >= multipath-draft-07 */
+    { 0x15228c0a, 0x15228c0a, "PATH_RETIRE_CONNECTION_ID" }, /* >= multipath-draft-07 */
     { 0x15228c0b, 0x15228c0b, "MAX_PATHS" }, /* >= multipath-draft-07 */
     { 0x15228c0c, 0x15228c0c, "MAX_PATH_ID" }, /* >= multipath-draft-09 */
+    { 0x15228c0d, 0x15228c0d, "PATHS_BLOCKED" }, /* >= multipath-draft-11 */
     { 0,    0,        NULL },
 };
 
@@ -1090,6 +1098,44 @@ quic_cids_is_known_length(const quic_cid_t *cid)
 }
 
 /**
+ * Checks if a address and port combination is associated with the server
+ * side of a connection. This is primarily useful when 0 length Destination
+ * Connection IDs are used.
+ * "Clients are responsible for initiating all migrations" (RFC 9000 Section 9),
+ * so this uses the destination address and port of the packet info.
+ */
+static bool
+quic_connection_from_server_endpoint(packet_info *pinfo, quic_info_data_t *conn)
+{
+    quic_endpoint_t *server_endpoint;
+    for (wmem_list_frame_t *frame = wmem_list_head(conn->server_endpoints); frame; frame = wmem_list_frame_next(frame)) {
+
+        server_endpoint = wmem_list_frame_data(frame);
+        if (server_endpoint->server_port == pinfo->srcport &&
+            addresses_equal(&server_endpoint->server_address, &pinfo->src)) {
+
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Adds a server endpoint to the list of used server endpoints for the address.
+ * This is most useful when 0 length Destination Connection IDs are used.
+ * "Clients are responsible for initiating all migrations" (RFC 9000 Section 9),
+ * so this uses the destination address and port from pinfo as the server.
+ */
+static void
+quic_connection_add_server_endpoint(packet_info *pinfo, quic_info_data_t *conn)
+{
+    quic_endpoint_t *server_endpoint = wmem_new(wmem_file_scope(), quic_endpoint_t);
+    copy_address_wmem(wmem_file_scope(), &server_endpoint->server_address, &pinfo->dst);
+    server_endpoint->server_port = pinfo->destport;
+    wmem_list_append(conn->server_endpoints, server_endpoint);
+}
+
+/**
  * Returns the most recent QUIC connection for the current UDP stream. This may
  * return NULL after connection migration if the new UDP association was not
  * properly linked via a match based on the Connection ID.
@@ -1159,8 +1205,7 @@ quic_connection_find_dcid(packet_info *pinfo, quic_cid_t *dcid, bool *from_serve
     }
 
     if (check_ports) {
-        *from_server = conn->server_port == pinfo->srcport &&
-                addresses_equal(&conn->server_address, &pinfo->src);
+        *from_server = quic_connection_from_server_endpoint(pinfo, conn);
     }
 
     return conn;
@@ -1246,6 +1291,15 @@ quic_connection_find(packet_info *pinfo, uint8_t long_packet_type,
             if (conv) {
                 // attach the connection information to the conversation.
                 conversation_add_proto_data(conv, proto_quic, conn);
+                // Found this connection, but (especially if 0 length DCIDs
+                // are used for the client) we need to add the server endpoint
+                // to the list seen.
+                // XXX - RFC 9000 Section 9 appears to say that the client can
+                // migrate its own address freely, but should only migrate to
+                // a server address given in the preferred_address transport
+                // parameter in the TLS handshake. Should there be an expert
+                // info if this is an unknown address? (#20165)
+                quic_connection_add_server_endpoint(pinfo, conn);
             }
         }
     }
@@ -1263,8 +1317,8 @@ quic_connection_create(packet_info *pinfo, uint32_t version)
     wmem_list_append(quic_connections, conn);
     conn->number = quic_connections_count++;
     conn->version = version;
-    copy_address_wmem(wmem_file_scope(), &conn->server_address, &pinfo->dst);
-    conn->server_port = pinfo->destport;
+    conn->server_endpoints = wmem_list_new(wmem_file_scope());
+    quic_connection_add_server_endpoint(pinfo, conn);
 
     // For faster lookups without having to check DCID
     conv = find_or_create_conversation(pinfo);
@@ -2279,9 +2333,9 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         break;
         case FT_ACK:
         case FT_ACK_ECN:
-        case FT_MP_ACK:
-        case FT_MP_ACK_ECN:{
-            uint64_t ack_range_count;
+        case FT_PATH_ACK:
+        case FT_PATH_ACK_ECN:{
+            uint64_t ack_range_count, path_id;
             int32_t lenvar;
 
             switch(frame_type){
@@ -2291,15 +2345,17 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
                 case FT_ACK_ECN:
                     col_append_str(pinfo->cinfo, COL_INFO, ", ACK_ECN");
                 break;
-                case FT_MP_ACK:
-                    col_append_str(pinfo->cinfo, COL_INFO, ", MP_ACK");
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_ack_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+                case FT_PATH_ACK:
+                    col_append_str(pinfo->cinfo, COL_INFO, ", PATH_ACK");
+                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_path_ack_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
                     offset += lenvar;
+                    proto_item_append_text(ti_ft, " path_id=%" PRIu64, path_id);
                 break;
-                case FT_MP_ACK_ECN:
-                    col_append_str(pinfo->cinfo, COL_INFO, ", MP_ACK_ECN");
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_ack_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+                case FT_PATH_ACK_ECN:
+                    col_append_str(pinfo->cinfo, COL_INFO, ", PATH_ACK_ECN");
+                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_path_ack_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
                     offset += lenvar;
+                    proto_item_append_text(ti_ft, " path_id=%" PRIu64, path_id);
                 break;
             }
 
@@ -2329,7 +2385,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             }
 
             /* ECN Counts. */
-            if (frame_type == FT_ACK_ECN || frame_type == FT_MP_ACK_ECN ) {
+            if (frame_type == FT_ACK_ECN || frame_type == FT_PATH_ACK_ECN ) {
                 proto_tree_add_item_ret_varint(ft_tree, hf_quic_ack_ect0_count, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
                 offset += lenvar;
 
@@ -2557,7 +2613,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_NEW_CONNECTION_ID:
-        case FT_MP_NEW_CONNECTION_ID:{
+        case FT_PATH_NEW_CONNECTION_ID:{
             int32_t len_sequence;
             int32_t len_retire_prior_to;
             uint64_t seq_num = 0, path_id = 0;
@@ -2569,10 +2625,11 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
                 case FT_NEW_CONNECTION_ID:
                     col_append_str(pinfo->cinfo, COL_INFO, ", NCI");
                  break;
-                case FT_MP_NEW_CONNECTION_ID:
-                    col_append_str(pinfo->cinfo, COL_INFO, ", MP_NCI");
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_nci_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
+                case FT_PATH_NEW_CONNECTION_ID:
+                    col_append_str(pinfo->cinfo, COL_INFO, ", PNCI");
+                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_pnci_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
                     offset += lenvar;
+                    proto_item_append_text(ti_ft, " path_id=%" PRIu64, path_id);
                  break;
             }
 
@@ -2610,18 +2667,20 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_RETIRE_CONNECTION_ID:
-        case FT_MP_RETIRE_CONNECTION_ID:{
+        case FT_PATH_RETIRE_CONNECTION_ID:{
             int32_t len_sequence;
             int32_t lenvar;
+            uint64_t path_id;
 
             switch(frame_type){
                 case FT_RETIRE_CONNECTION_ID:
                     col_append_str(pinfo->cinfo, COL_INFO, ", RC");
                 break;
-                case FT_MP_RETIRE_CONNECTION_ID:
-                    col_append_str(pinfo->cinfo, COL_INFO, ", MP_RC");
-                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_rc_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
+                case FT_PATH_RETIRE_CONNECTION_ID:
+                    col_append_str(pinfo->cinfo, COL_INFO, ", PATH_RC");
+                    proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_rc_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
                     offset += lenvar;
+                    proto_item_append_text(ti_ft, " path_id=%" PRIu64, path_id);
                 break;
             }
 
@@ -2643,22 +2702,29 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             offset += 8;
         }
         break;
-        case FT_CONNECTION_CLOSE_TPT:
-        case FT_CONNECTION_CLOSE_APP:
         case FT_PATH_ABANDON:{
+            int32_t lenvar, len_error_code;
+            uint64_t path_id, error_code;
+
+            col_append_str(pinfo->cinfo, COL_INFO, ", PA");
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_pa_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, &path_id, &lenvar);
+            offset += lenvar;
+            proto_item_append_text(ti_ft, " path_id=%" PRIu64, path_id);
+
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_pa_error_code, tvb, offset, -1, ENC_VARINT_QUIC, &error_code, &len_error_code);
+            offset += len_error_code;
+            proto_item_append_text(ti_ft, " Error code=%" PRIu64, error_code);
+        }
+        break;
+        case FT_CONNECTION_CLOSE_TPT:
+        case FT_CONNECTION_CLOSE_APP:{
             int32_t len_reasonphrase, len_frametype, len_error_code;
             uint64_t len_reason = 0;
             uint64_t error_code;
             const char *tls_alert = NULL;
 
-            if ( frame_type == FT_PATH_ABANDON) {
-                int32_t lenvar;
-                col_append_str(pinfo->cinfo, COL_INFO, ", PA");
-                proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_pa_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &lenvar);
-                offset += lenvar;
-            } else {
-                col_append_str(pinfo->cinfo, COL_INFO, ", CC");
-            }
+            col_append_str(pinfo->cinfo, COL_INFO, ", CC");
+
             if (frame_type == FT_CONNECTION_CLOSE_TPT) {
                 proto_tree_add_item_ret_varint(ft_tree, hf_quic_cc_error_code, tvb, offset, -1, ENC_VARINT_QUIC, &error_code, &len_error_code);
                 if ((error_code >> 8) == 1) {  // CRYPTO_ERROR (0x1XX)
@@ -2675,7 +2741,6 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
                 proto_tree_add_item_ret_varint(ft_tree, hf_quic_cc_error_code_app, tvb, offset, -1, ENC_VARINT_QUIC, &error_code, &len_error_code);
                 offset += len_error_code;
             }
-
 
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_cc_reason_phrase_length, tvb, offset, -1, ENC_VARINT_QUIC, &len_reason, &len_reasonphrase);
             offset += len_reasonphrase;
@@ -2744,7 +2809,7 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
         }
         break;
         case FT_PATH_STATUS:
-        case FT_PATH_STANDBY:
+        case FT_PATH_BACKUP:
         case FT_PATH_AVAILABLE:{
             int32_t length;
 
@@ -2781,6 +2846,14 @@ dissect_quic_frame_type(tvbuff_t *tvb, packet_info *pinfo, proto_tree *quic_tree
             int32_t length;
 
             col_append_str(pinfo->cinfo, COL_INFO, ", MPI");
+            proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_maximum_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
+            offset += (uint32_t)length;
+        }
+        break;
+        case FT_PATHS_BLOCKED:{
+            int32_t length;
+
+            col_append_str(pinfo->cinfo, COL_INFO, ", PB");
             proto_tree_add_item_ret_varint(ft_tree, hf_quic_mp_maximum_path_identifier, tvb, offset, -1, ENC_VARINT_QUIC, NULL, &length);
             offset += (uint32_t)length;
         }
@@ -3643,9 +3716,7 @@ quic_find_stateless_reset_token(packet_info *pinfo, tvbuff_t *tvb, bool *from_se
     const quic_cid_item_t *cids;
 
     while (conn) {
-        bool conn_from_server;
-        conn_from_server = conn->server_port == pinfo->srcport &&
-                addresses_equal(&conn->server_address, &pinfo->src);
+        bool conn_from_server = quic_connection_from_server_endpoint(pinfo, conn);
         cids = conn_from_server ? &conn->server_cids : &conn->client_cids;
         while (cids) {
             const quic_cid_t *cid = &cids->data;
@@ -4867,15 +4938,6 @@ quic_follow_index_filter(unsigned stream, unsigned sub_stream)
     return ws_strdup_printf("quic.connection.number eq %u and quic.stream.stream_id eq %u", stream, sub_stream);
 }
 
-static char *
-quic_follow_address_filter(address *src_addr _U_, address *dst_addr _U_, int src_port _U_, int dst_port _U_)
-{
-    // This appears to be solely used for tshark. Let's not support matching by
-    // IP addresses and UDP ports for now since that fails after connection
-    // migration. If necessary, use udp_follow_address_filter.
-    return NULL;
-}
-
 static tap_packet_status
 follow_quic_tap_listener(void *tapdata, packet_info *pinfo, epan_dissect_t *edt _U_, const void *data, tap_flags_t flags _U_)
 {
@@ -5052,8 +5114,8 @@ proto_register_quic(void)
         },
 
         /* multipath */
-       { &hf_quic_mp_nci_path_identifier,
-          { "Path identifier", "quic.mp_nci_path_identifier",
+       { &hf_quic_mp_pnci_path_identifier,
+          { "Path identifier", "quic.mp_pnci_path_identifier",
             FT_UINT64, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
@@ -5062,13 +5124,18 @@ proto_register_quic(void)
             FT_UINT64, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
-       { &hf_quic_mp_ack_path_identifier,
-          { "Path Identifier", "quic.mp_ack_path_identifier",
+       { &hf_quic_mp_path_ack_path_identifier,
+          { "Path Identifier", "quic.mp_path_ack_path_identifier",
             FT_UINT64, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
        { &hf_quic_mp_pa_path_identifier,
           { "Path Identifier", "quic.mp_pa_path_identifier",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL, HFILL }
+        },
+       { &hf_quic_mp_pa_error_code,
+          { "Error Code", "quic.mp_pa_error_code",
             FT_UINT64, BASE_DEC, NULL, 0x0,
             NULL, HFILL }
         },
@@ -5662,7 +5729,7 @@ proto_register_quic(void)
     register_init_routine(quic_init);
     register_cleanup_routine(quic_cleanup);
 
-    register_follow_stream(proto_quic, "quic_follow", quic_follow_conv_filter, quic_follow_index_filter, quic_follow_address_filter,
+    register_follow_stream(proto_quic, "quic_follow", quic_follow_conv_filter, quic_follow_index_filter, udp_follow_address_filter,
                            udp_port_to_display, follow_quic_tap_listener, get_quic_connections_count,
                            quic_get_sub_stream_id);
 

@@ -124,7 +124,9 @@
  * Includes updates for RFC8549
  */
 
+#define WS_LOG_DOMAIN "packet-netflow"
 #include "config.h"
+#include <wireshark.h>
 #include <epan/packet.h>
 #include <epan/prefs.h>
 #include <epan/ipproto.h>
@@ -147,12 +149,6 @@ void proto_register_netflow(void);
 void proto_reg_handoff_netflow(void);
 
 static int dissect_tcp_netflow(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data);
-
-#if 0
-#define ipfix_debug(...) ws_warning(__VA_ARGS__)
-#else
-#define ipfix_debug(...)
-#endif
 
 
 /* 4739 is IPFIX.
@@ -334,7 +330,7 @@ typedef struct _v9_v10_tmplt {
 } v9_v10_tmplt_t;
 
 
-/* Map from (converstion+obs-domain-id+flowset-id) -> v9_v10_tmplt_entry_t*    */
+/* Map from (conversation+obs-domain-id+flowset-id) -> v9_v10_tmplt_entry_t*    */
 /* Confusingly, for key, fill in only relevant parts of v9_v10_tmplt_entry_t... */
 wmem_map_t *v9_v10_tmplt_table;
 
@@ -808,7 +804,12 @@ static const value_string v9_v10_template_types[] = {
     { 500, "srhIPv6ActiveSegmentType" },
     { 501, "srhSegmentIPv6LocatorLength" },
     { 502, "srhSegmentIPv6EndpointBehavior" },
-
+    { 505, "gtpuFlags" },
+    { 506, "gtpuMsgType" },
+    { 507, "gtpuTEid" },
+    { 508, "gtpuSequenceNum" },
+    { 509, "gtpuQFI" },
+    { 510, "gtpuPduType" },
     /* Ericsson NAT Logging */
     { 24628, "NAT_LOG_FIELD_IDX_CONTEXT_ID" },
     { 24629, "NAT_LOG_FIELD_IDX_CONTEXT_NAME" },
@@ -2426,6 +2427,7 @@ static int      ett_subtemplate_list;
 static int      ett_resiliency;
 static int      ett_data_link_frame_sec;
 static int      ett_srhflagsipv6;
+static int      ett_gtpflags;
 
 /*
  * cflow header
@@ -2982,6 +2984,29 @@ static int      hf_cflow_srh_segment_ipv6_endpoint_behaviour;      /* ID: 502 */
 static int * const srh_flags_ipv6[] = {
         &hf_cflow_srh_flags_ipv6_reserved,
         &hf_cflow_srh_flags_ipv6_oflag,
+        NULL
+};
+
+static int      hf_cflow_gtpu_flags;      /* ID: 505 */
+static int      hf_gtpu_flags_version;
+static int      hf_gtpu_flags_pt;
+static int      hf_gtpu_flags_reserved;
+static int      hf_gtpu_flags_s;
+static int      hf_gtpu_flags_n;
+static int      hf_gtpu_flags_pn;
+static int      hf_cflow_gtpu_msg_type;      /* ID: 506 */
+static int      hf_cflow_gtpu_teid;      /* ID: 507 */
+static int      hf_cflow_gtpu_seq_num;      /* ID: 508 */
+static int      hf_cflow_gtpu_qfi;      /* ID: 509 */
+static int      hf_cflow_gtpu_pdu_type;      /* ID: 510 */
+
+static int * const gtpu_flags[] = {
+        &hf_gtpu_flags_version,
+        &hf_gtpu_flags_pt,
+        &hf_gtpu_flags_reserved,
+        &hf_gtpu_flags_s,
+        &hf_gtpu_flags_n,
+        &hf_gtpu_flags_pn,
         NULL
 };
 
@@ -3652,6 +3677,10 @@ static int      hf_pie_ixia_sip_headers;
 static int      hf_pie_ixia_sip_type;
 static int      hf_pie_ixia_sip_header_field;
 static int      hf_pie_ixia_sip_header_value;
+static int      hf_pie_ixia_session_ip_scrambling_key_hash;
+static int      hf_pie_ixia_ja4a;
+static int      hf_pie_ixia_ja4b;
+static int      hf_pie_ixia_ja4c;
 
 static int      hf_pie_netscaler;
 static int      hf_pie_netscaler_roundtriptime;
@@ -4377,11 +4406,11 @@ dissect_netflow(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
     dissect_pdu_t  *pduptr;
     uint32_t        flows_seen = 0;
 
-    ipfix_debug("dissect_netflow: start");
+    ws_debug("start");
 
     ver = tvb_get_ntohs(tvb, offset);
 
-    ipfix_debug("dissect_netflow: found version %d", ver);
+    ws_debug("found version %d", ver);
 
     switch (ver) {
     case 1:
@@ -4415,13 +4444,13 @@ dissect_netflow(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data 
 
     col_set_str(pinfo->cinfo, COL_PROTOCOL, "CFLOW");
     col_clear(pinfo->cinfo, COL_INFO);
-    ipfix_debug("dissect_netflow: column cleared");
+    ws_debug("column cleared");
 
     if (tree) {
         ti = proto_tree_add_item(tree, proto_netflow, tvb, offset, -1, ENC_NA);
         netflow_tree = proto_item_add_subtree(ti, ett_netflow);
     }
-    ipfix_debug("dissect_netflow: tree added");
+    ws_debug("tree added");
 
     hdrinfo.vspec = ver;
     hdrinfo.src_id = 0;
@@ -8011,8 +8040,24 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             ti = proto_tree_add_item(pdutree, hf_cflow_srh_segment_ipv6_endpoint_behaviour,
                                      tvb, offset, length, ENC_NA);
             break;
-
-
+        case 505:  /* gtpuFlags */
+          ti = proto_tree_add_bitmask(pdutree, tvb, offset, hf_cflow_gtpu_flags, ett_gtpflags, gtpu_flags, ENC_NA);
+          break;
+        case 506:  /* gtpuMsgType */
+          ti = proto_tree_add_item(pdutree, hf_cflow_gtpu_msg_type, tvb, offset, length, ENC_BIG_ENDIAN);
+          break;
+        case 507:  /* gtpuTEid */
+          ti = proto_tree_add_item(pdutree, hf_cflow_gtpu_teid, tvb, offset, length, ENC_BIG_ENDIAN);
+          break;
+        case 508:  /* gtpuSequenceNum */
+          ti = proto_tree_add_item(pdutree, hf_cflow_gtpu_seq_num, tvb, offset, length, ENC_BIG_ENDIAN);
+          break;
+        case 509:  /* gtpuQFI */
+          ti = proto_tree_add_item(pdutree, hf_cflow_gtpu_qfi, tvb, offset, length, ENC_BIG_ENDIAN);
+          break;
+        case 510:  /* gtpuPduType */
+          ti = proto_tree_add_item(pdutree, hf_cflow_gtpu_pdu_type, tvb, offset, length, ENC_BIG_ENDIAN);
+          break;
 #if 0
         case 33625: /* nic_id */
             ti = proto_tree_add_item(pdutree, hf_cflow_nic_id,
@@ -11350,6 +11395,22 @@ dissect_v9_v10_pdu_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *pdutree, 
             ti = proto_tree_add_item(pdutree, hf_pie_ixia_sip_header_value,
                                      tvb, offset, length, ENC_ASCII);
             break;
+        case ((VENDOR_IXIA << 16) | 374):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_session_ip_scrambling_key_hash,
+                                     tvb, offset, length, ENC_ASCII);
+            break;
+        case ((VENDOR_IXIA << 16) | 375):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_ja4a,
+                                     tvb, offset, length, ENC_ASCII);
+            break;
+        case ((VENDOR_IXIA << 16) | 376):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_ja4b,
+                                     tvb, offset, length, ENC_ASCII);
+            break;
+        case ((VENDOR_IXIA << 16) | 377):
+            ti = proto_tree_add_item(pdutree, hf_pie_ixia_ja4c,
+                                     tvb, offset, length, ENC_ASCII);
+            break;
             /* END Ixia Communications */
 
             /* START Netscaler Communications */
@@ -12946,7 +13007,6 @@ dissect_v9_v10_template_fields(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree
         }
 
         if (tmplt_p->fields_p[fields_type] != NULL) {
-            DISSECTOR_ASSERT (i < count);
             tmplt_p->fields_p[fields_type][i].type    = type;
             tmplt_p->fields_p[fields_type][i].length  = length;
             tmplt_p->fields_p[fields_type][i].pen     = pen;
@@ -15974,7 +16034,66 @@ proto_register_netflow(void)
            FT_BYTES, BASE_NONE, NULL, 0x0,
            NULL, HFILL}
         },
-
+        { &hf_cflow_gtpu_flags,
+          {"GTPU Flags", "cflow.gtpu.flags",
+           FT_UINT8, BASE_HEX, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_version,
+          {"Version", "cflow.gtpu.version",
+           FT_UINT8, BASE_HEX_DEC, NULL, 0xE0,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_pt,
+          {"Protocol Type", "cflow.gtpu.pt",
+           FT_BOOLEAN, 8, TFS(&tfs_used_notused), 0x10,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_reserved,
+          {"Reserved Bit", "cflow.gtpu.reserved",
+           FT_BOOLEAN, 8, TFS(&tfs_used_notused), 0x8,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_s,
+          {"S Bit", "cflow.gtpu.s",
+           FT_BOOLEAN, 8, TFS(&tfs_used_notused), 0x4,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_n,
+          {"N Bit", "cflow.gtpu.n",
+           FT_BOOLEAN, 8, TFS(&tfs_used_notused), 0x2,
+           NULL, HFILL}
+        },
+        { &hf_gtpu_flags_pn,
+          {"PN Bit", "cflow.gtpu.pn",
+           FT_BOOLEAN, 8, TFS(&tfs_used_notused), 0x1,
+           NULL, HFILL}
+        },
+        { &hf_cflow_gtpu_msg_type,
+          {"GTPU Message Type", "cflow.gtpu.msg_type",
+           FT_UINT8, BASE_HEX_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_cflow_gtpu_teid,
+          {"GTPU TEID", "cflow.gtpu.teid",
+           FT_UINT32, BASE_HEX_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_cflow_gtpu_seq_num,
+          {"GTPU Sequence Number", "cflow.gtpu.seq_num",
+           FT_UINT16, BASE_HEX_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_cflow_gtpu_qfi,
+          {"GTPU QFI", "cflow.gtpu_qfi",
+           FT_UINT8, BASE_HEX_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
+        { &hf_cflow_gtpu_pdu_type,
+          {"GTPU PDU Type", "cflow.gtpu_pdu_type",
+           FT_UINT8, BASE_HEX_DEC, NULL, 0x0,
+           NULL, HFILL}
+        },
         /*
          * end pdu content storage
          */
@@ -19515,9 +19634,9 @@ proto_register_netflow(void)
 
         /* ixia, 3054 / 279 */
         {&hf_pie_ixia_ja3_fingerprint_string,
-         {"JA3 fingerprint", "cflow.pie.ixia.ja3-fingerprint",
+         {"JA3 Fingerprint", "cflow.pie.ixia.ja3-fingerprint",
           FT_STRING, BASE_NONE, NULL, 0x0,
-          "JA3 fingerprint string", HFILL}
+          "JA3 Fingerprint String", HFILL}
         },
 
         /* ixia, 3054 / 280 */
@@ -20186,6 +20305,34 @@ proto_register_netflow(void)
          {"SIP Header Value", "cflow.pie.ixia.sip-header-value",
           FT_STRING, BASE_NONE, NULL, 0x0,
           "Value of SIP header", HFILL}
+        },
+
+        /* ixia, 3054 / 374 */
+        {&hf_pie_ixia_session_ip_scrambling_key_hash,
+         {"IP Scrambling Key Hash", "cflow.pie.ixia.session-ip-scrambling-key-hash",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          "Session IP Scrambling Key Hash", HFILL}
+        },
+
+        /* ixia, 3054 / 375 */
+        {&hf_pie_ixia_ja4a,
+         {"JA4 Fingerprint Part A", "cflow.pie.ixia.ja4a",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          "First Part of a JA4 Fingerprint", HFILL}
+        },
+
+        /* ixia, 3054 / 376 */
+        {&hf_pie_ixia_ja4b,
+         {"JA4 Fingerprint Part B", "cflow.pie.ixia.ja4b",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          "Second Part of a JA4 Fingerprint", HFILL}
+        },
+
+        /* ixia, 3054 / 377 */
+        {&hf_pie_ixia_ja4c,
+         {"JA4 Fingerprint Part C", "cflow.pie.ixia.ja4c",
+          FT_STRING, BASE_NONE, NULL, 0x0,
+          "Third Part of a JA4 Fingerprint", HFILL}
         },
 
         /* Netscaler root (a hidden item to allow filtering) */
@@ -22151,7 +22298,8 @@ proto_register_netflow(void)
         &ett_subtemplate_list,
         &ett_resiliency,
         &ett_data_link_frame_sec,
-        &ett_srhflagsipv6
+        &ett_srhflagsipv6,
+        &ett_gtpflags
     };
 
     static ei_register_info ei[] = {

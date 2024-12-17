@@ -139,11 +139,7 @@ PrintDialog::~PrintDialog()
 bool PrintDialog::printHeader()
 {
     if (!cap_file_ || !cap_file_->filename || !cur_printer_ || !cur_painter_) return false;
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
     int page_top = cur_printer_->pageLayout().paintRectPixels(cur_printer_->resolution()).top();
-#else
-    int page_top = cur_printer_->pageRect().top();
-#endif
 
     if (page_pos_ > page_top) {
         if (in_preview_) {
@@ -157,7 +153,7 @@ bool PrintDialog::printHeader()
     }
 
     if (pd_ui_->bannerCheckBox->isChecked()) {
-        QString banner = QString(tr("%1 %2 total packets, %3 shown"))
+        QString banner = tr("%1 %2 total packets, %3 shown")
                 .arg(cap_file_->filename)
                 .arg(cap_file_->count)
                 .arg(packet_range_count(&print_args_.range));
@@ -180,11 +176,7 @@ bool PrintDialog::printLine(int indent, const char *line)
     out_line.fill(' ', indent * 4);
     out_line += line;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
     page_rect = cur_printer_->pageLayout().paintRectPixels(cur_printer_->resolution());
-#else
-    page_rect = cur_printer_->pageRect();
-#endif
 
     out_rect = cur_painter_->boundingRect(page_rect, Qt::TextWordWrap, out_line);
 
@@ -248,11 +240,7 @@ void PrintDialog::printPackets(QPrinter *printer, bool in_preview)
 
     if (!printer) return;
 
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
     page_pos_ = printer->pageLayout().paintRectPixels(printer->resolution()).top();
-#else
-    page_pos_ = printer->pageRect().top();
-#endif
     in_preview_ = in_preview;
 
     /* Fill in our print args */
@@ -280,7 +268,7 @@ void PrintDialog::printPackets(QPrinter *printer, bool in_preview)
     cur_painter_ = &painter;
     if (!painter.begin(printer)) {
         QMessageBox::warning(this, tr("Print Error"),
-                             QString(tr("Unable to print to %1.")).arg(printer_.printerName()),
+                             tr("Unable to print to %1.").arg(printer_.printerName()),
                              QMessageBox::Ok);
         close();
     }

@@ -261,9 +261,9 @@ typedef enum {
 
 
 typedef enum {
-	CQL_RESULT_ROWS_FLAG_GLOBAL_TABLES_SPEC = 0x0001,
-	CQL_RESULT_ROWS_FLAG_HAS_MORE_PAGES = 0x0002,
-	CQL_RESULT_ROWS_FLAG_NO_METADATA = 0x0004
+	CQL_RESULT_ROWS_FLAG_GLOBAL_TABLES_SPEC = 0x00000001,
+	CQL_RESULT_ROWS_FLAG_HAS_MORE_PAGES =     0x00000002,
+	CQL_RESULT_ROWS_FLAG_NO_METADATA =        0x00000004
 } cql_result_rows_flags;
 
 typedef enum {
@@ -2705,6 +2705,7 @@ proto_register_cql(void)
 		&ett_cql_header_flags_bitmap,
 		&ett_cql_query_flags_bitmap,
 		&ett_cql_batch_flags_bitmap,
+		&ett_cql_custom_payload
 	};
 
 	proto_cql = proto_register_protocol("Cassandra CQL Protocol", "CQL", "cql" );
